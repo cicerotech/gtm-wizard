@@ -228,6 +228,11 @@ const cacheManager = new CacheManager();
 
 // Initialize function
 const initializeRedis = async () => {
+  // Skip Redis entirely if not properly configured
+  if (!process.env.REDIS_URL || process.env.REDIS_URL === 'redis://disabled' || process.env.REDIS_URL === 'disabled') {
+    logger.info('⚠️  Redis skipped - not configured');
+    return null;
+  }
   return await cacheManager.initialize();
 };
 
