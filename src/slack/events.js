@@ -616,74 +616,97 @@ async function sendContractMessages(client, channelId, threadTs, queryResult, pa
   const accountName = parsedIntent.entities.accounts?.[0];
   const contractType = parsedIntent.entities.contractType;
   
-  // Send summary first
-  const title = contractType === 'LOI' 
-    ? `*All LOI Contracts* (${contracts.length} total)`
-    : accountName
-      ? `*Contracts for ${accountName}* (${contracts.length} total)`
-      : `*All Contracts* (${contracts.length} total)`;
+  // Build complete response with all contracts
+  let fullResponse = '';
   
-  await client.chat.postMessage({
-    channel: channelId,
-    text: title,
-    thread_ts: threadTs,
-    replace_original: true
+  const title = contractType === 'LOI' 
+    ? `*All LOI Contracts* (${contracts.length} total)\n\n`
+    : accountName
+      ? `*Contracts for ${accountName}* (${contracts.length} total)\n\n`
+      : `*All Contracts* (${contracts.length} total)\n\n`;
+  
+  fullResponse += title;
+
+  // Add all contracts in compact format
+  contracts.forEach((contract, i) => {
+    const contractName = contract.Contract_Name_Campfire__c || contract.ContractNumber;
+    const accountNameDisplay = contract.Account?.Name;
+    
+    // Detect LOI
+    const isLOI = contractName && (contractName.includes('Customer Advisory Board') || 
+                                   contractName.includes('LOI') || 
+                                   contractName.includes('CAB'));
+    const typeLabel = isLOI ? ' [LOI]' : '';
+    
+    fullResponse += `${i + 1}. ${accountNameDisplay}${typeLabel}\n`;
+    
+    // Add PDF link
+    if (contract._pdfs && contract._pdfs.length > 0) {
+      const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
+      const downloadUrl = `${sfBaseUrl}/sfc/servlet.shepherd/version/download/${contract._pdfs[0].versionId}`;
+      fullResponse += `   <${downloadUrl}|Download PDF>\n`;
+    }
+    
+    if (contract.StartDate && contract.EndDate) {
+      fullResponse += `   ${formatDate(contract.StartDate)} → ${formatDate(contract.EndDate)}\n`;
+    }
+    
+    fullResponse += '\n';
   });
 
-  // Split into chunks of 15 contracts per message
-  const chunkSize = 15;
-  for (let i = 0; i < contracts.length; i += chunkSize) {
-    const chunk = contracts.slice(i, i + chunkSize);
-    let chunkResponse = '';
-    
-    chunk.forEach((contract, idx) => {
-      const globalIndex = i + idx + 1;
-      const contractName = contract.Contract_Name_Campfire__c || contract.ContractNumber;
-      const accountNameDisplay = contract.Account?.Name;
-      
-      // Detect LOI
-      const isLOI = contractName && (contractName.includes('Customer Advisory Board') || 
-                                     contractName.includes('LOI') || 
-                                     contractName.includes('CAB'));
-      const typeLabel = isLOI ? ' [LOI]' : '';
-      
-      chunkResponse += `${globalIndex}. ${accountNameDisplay}${typeLabel}\n`;
-      
-      // Add PDF link
-      if (contract._pdfs && contract._pdfs.length > 0) {
-        const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
-        const downloadUrl = `${sfBaseUrl}/sfc/servlet.shepherd/version/download/${contract._pdfs[0].versionId}`;
-        chunkResponse += `   <${downloadUrl}|Download PDF>\n`;
-      }
-      
-      if (contract.StartDate) {
-        chunkResponse += `   ${formatDate(contract.StartDate)}`;
-        if (contract.EndDate) {
-          chunkResponse += ` → ${formatDate(contract.EndDate)}`;
-        }
-        chunkResponse += '\n';
-      }
-      
-      chunkResponse += '\n';
-    });
-    
-    // Send chunk
-    await client.chat.postMessage({
+  // If response is too long (>3500 chars), split it
+  if (fullResponse.length > 3500) {
+    // Send title first (in thread, not replacing)
+    const titleMsg = await client.chat.postMessage({
       channel: channelId,
-      text: chunkResponse,
+      text: title,
       thread_ts: threadTs
     });
     
-    // Small delay to avoid rate limits
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Use this as the thread for subsequent messages
+    const contractThreadTs = titleMsg.ts;
+
+    // Send contracts in chunks
+    const chunkSize = 10;
+    for (let i = 0; i < contracts.length; i += chunkSize) {
+      const chunk = contracts.slice(i, i + chunkSize);
+      let chunkResponse = '';
+      
+      chunk.forEach((contract, idx) => {
+        const globalIndex = i + idx + 1;
+        const accountNameDisplay = contract.Account?.Name;
+        const isLOI = (contract.Contract_Name_Campfire__c || '').includes('LOI') || 
+                      (contract.Contract_Name_Campfire__c || '').includes('CAB') ||
+                      (contract.Contract_Name_Campfire__c || '').includes('Customer Advisory Board');
+        const typeLabel = isLOI ? ' [LOI]' : '';
+        
+        chunkResponse += `${globalIndex}. ${accountNameDisplay}${typeLabel}\n`;
+        
+        if (contract._pdfs && contract._pdfs.length > 0) {
+          const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
+          const downloadUrl = `${sfBaseUrl}/sfc/servlet.shepherd/version/download/${contract._pdfs[0].versionId}`;
+          chunkResponse += `   <${downloadUrl}|Download PDF>\n\n`;
+        }
+      });
+      
+      // Send each chunk in the contract thread
+      await client.chat.postMessage({
+        channel: channelId,
+        text: chunkResponse,
+        thread_ts: contractThreadTs || threadTs
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  } else {
+    // Short enough for single message
+    await client.chat.postMessage({
+      channel: channelId,
+      text: fullResponse,
+      thread_ts: threadTs,
+      replace_original: true
+    });
   }
-  
-  // Send final summary
-  await client.chat.postMessage({
-    channel: channelId,
-    text: `*Total: ${contracts.length} contracts displayed*`,
-    thread_ts: threadTs
-  });
 }
 
 /**
