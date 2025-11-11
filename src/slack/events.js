@@ -627,43 +627,47 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
     }
 
     // Extract account name from note content
-    // First, clean Slack formatting
+    // First, clean Slack formatting and get first line
     const cleanContent = noteContent
-      .replace(/\*([^*]+)\*/g, '$1') // Remove bold **text**
-      .replace(/_([^_]+)_/g, '$1')   // Remove italic _text_
-      .replace(/```[^```]*```/g, '') // Remove code blocks
+      .replace(/\*/g, '') // Remove all asterisks
+      .replace(/_/g, '')  // Remove underscores
+      .replace(/```[^```]*```/g, '')
       .trim();
     
-    // Extract account name - try multiple patterns
-    const accountPatterns = [
-      /^([A-Z][A-Za-z\s&'-]+?)\s*[-–—]\s/m,  // "Nielsen - Discussion" or "Nielsen – Discussion"
-      /^([A-Z][A-Za-z\s&'-]{3,}?)\n/m,        // First line is just the account name
-      /^([A-Z][A-Za-z\s&'-]{3,}?)\s*$/m,      // Entire first line
-      /(?:from|with|at)\s+([A-Z][A-Za-z\s&'-]+?)(?:\s|\.|\n)/,
-      /([A-Z][A-Za-z\s&'-]{3,}?)(?:\s+discussion|\s+meeting)/i,
-      /^(\w+(?:\s+\w+){0,3})\s*[-–—]/ // First 1-4 words before dash
-    ];
+    // Get first line or first words before dash/hyphen
+    const firstLine = cleanContent.split('\n')[0].trim();
     
+    // Try to extract account name
     let accountName = null;
-    for (const pattern of accountPatterns) {
-      const match = cleanContent.match(pattern);
-      if (match && match[1]) {
-        const extracted = match[1].trim();
-        // Filter out common words
-        if (extracted.length > 2 && 
-            !extracted.toLowerCase().includes('discussion') &&
-            !extracted.toLowerCase().includes('summary') &&
-            !extracted.toLowerCase().includes('meeting')) {
-          accountName = extracted;
-          break;
-        }
+    
+    // Pattern 1: "Nielsen - Discussion" → extract "Nielsen"
+    if (firstLine.includes(' - ') || firstLine.includes(' – ')) {
+      const parts = firstLine.split(/\s+[-–—]\s+/);
+      if (parts[0] && parts[0].length > 2) {
+        accountName = parts[0].trim();
+      }
+    }
+    
+    // Pattern 2: First line is just the account name (e.g., "Nielsen")
+    if (!accountName && firstLine.length < 50 && firstLine.length > 2) {
+      const words = firstLine.split(/\s+/);
+      if (words.length <= 4) { // Account name usually 1-4 words
+        accountName = firstLine;
+      }
+    }
+    
+    // Pattern 3: "from Nielsen" or "with Best Buy"
+    if (!accountName) {
+      const fromMatch = cleanContent.match(/(?:from|with|at)\s+([A-Z][A-Za-z\s&'-]+?)(?:\s|\.|\n)/);
+      if (fromMatch && fromMatch[1]) {
+        accountName = fromMatch[1].trim();
       }
     }
     
     if (!accountName) {
       await client.chat.postMessage({
         channel: channelId,
-        text: `Could not detect account name from your note.\n\nPlease start with: "[Account Name] - [note]"\n\nExample: "Nielsen - Discussion with Tony..."`,
+        text: `Could not detect account name.\n\nYour note should start with the account name:\n"Nielsen - [note content]"\n\nFirst line was: "${firstLine}"`,
         thread_ts: threadTs
       });
       return;
