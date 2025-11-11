@@ -953,7 +953,7 @@ function buildContractQuery(entities) {
   }
   
   const whereClause = whereConditions.join(' AND ');
-  const limit = entities.accounts ? 10 : 50; // More for "all contracts"
+  const limit = entities.accounts ? 20 : 200; // Show ALL contracts when requested
   
   return `SELECT Id, ContractNumber, Account.Name, StartDate, EndDate, 
                  Status, ContractTerm, Contract_Name_Campfire__c
@@ -1172,6 +1172,9 @@ function formatContractResults(queryResult, parsedIntent) {
     ? `*Contracts for ${accountName}*\n\n`
     : `*All Contracts* (${records.length} total)\n\n`;
 
+  // Compact format for "all contracts", detailed for specific account
+  const isCompactMode = !accountName && records.length > 15;
+
   records.forEach((contract, i) => {
     const contractName = contract.Contract_Name_Campfire__c || contract.ContractNumber || contract.Id;
     const accountNameDisplay = contract.Account?.Name || accountName;
@@ -1180,44 +1183,56 @@ function formatContractResults(queryResult, parsedIntent) {
     const isLOI = contractName && contractName.includes('Customer Advisory Board');
     const typeLabel = isLOI ? ' [LOI]' : '';
     
-    response += `${i + 1}. *${contractName}*${typeLabel}\n`;
-    
-    if (accountNameDisplay && !accountName) {
-      response += `   Account: ${accountNameDisplay}\n`;
-    }
-    
-    if (contract.StartDate) {
-      response += `   Start: ${formatDate(contract.StartDate)}`;
-      if (contract.EndDate) {
-        response += ` → End: ${formatDate(contract.EndDate)}`;
+    if (isCompactMode) {
+      // Compact: Account - Download link only
+      response += `${i + 1}. ${accountNameDisplay}${typeLabel}`;
+      if (contract._pdfs && contract._pdfs.length > 0) {
+        const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
+        const downloadUrl = `${sfBaseUrl}/sfc/servlet.shepherd/version/download/${contract._pdfs[0].versionId}`;
+        response += ` - <${downloadUrl}|Download PDF>`;
       }
+      response += `\n`;
+    } else {
+      // Detailed format for specific accounts
+      response += `${i + 1}. *${contractName}*${typeLabel}\n`;
+      
+      if (accountNameDisplay && !accountName) {
+        response += `   Account: ${accountNameDisplay}\n`;
+      }
+      
+      if (contract.StartDate) {
+        response += `   Start: ${formatDate(contract.StartDate)}`;
+        if (contract.EndDate) {
+          response += ` → End: ${formatDate(contract.EndDate)}`;
+        }
+        response += '\n';
+      }
+      
+      if (contract.ContractTerm) {
+        response += `   Term: ${contract.ContractTerm} months\n`;
+      }
+      
+      if (contract.Status) {
+        response += `   Status: ${contract.Status}\n`;
+      }
+      
+      // Add PDF download links
+      if (contract._pdfs && contract._pdfs.length > 0) {
+        const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
+        contract._pdfs.forEach(pdf => {
+          const downloadUrl = `${sfBaseUrl}/sfc/servlet.shepherd/version/download/${pdf.versionId}`;
+          const fileName = pdf.title.length > 40 ? pdf.title.substring(0, 37) + '...' : pdf.title;
+          response += `   <${downloadUrl}|Download: ${fileName}>\n`;
+        });
+      } else {
+        // Fallback to Salesforce link
+        const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
+        const contractUrl = `${sfBaseUrl}/lightning/r/Contract/${contract.Id}/view`;
+        response += `   <${contractUrl}|View in Salesforce>\n`;
+      }
+      
       response += '\n';
     }
-    
-    if (contract.ContractTerm) {
-      response += `   Term: ${contract.ContractTerm} months\n`;
-    }
-    
-    if (contract.Status) {
-      response += `   Status: ${contract.Status}\n`;
-    }
-    
-    // Add PDF download links
-    if (contract._pdfs && contract._pdfs.length > 0) {
-      const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
-      contract._pdfs.forEach(pdf => {
-        const downloadUrl = `${sfBaseUrl}/sfc/servlet.shepherd/version/download/${pdf.versionId}`;
-        const fileName = pdf.title.length > 40 ? pdf.title.substring(0, 37) + '...' : pdf.title;
-        response += `   <${downloadUrl}|Download: ${fileName}>\n`;
-      });
-    } else {
-      // Fallback to Salesforce link
-      const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
-      const contractUrl = `${sfBaseUrl}/lightning/r/Contract/${contract.Id}/view`;
-      response += `   <${contractUrl}|View in Salesforce>\n`;
-    }
-    
-    response += '\n';
   });
 
   response += `\n*Total: ${records.length} contract${records.length !== 1 ? 's' : ''}*`;
