@@ -477,16 +477,21 @@ Business Context:
       intent = 'pipeline_summary';
       entities.isClosed = false;
       
-      // Map product line
+      // Map product line to EXACT Salesforce values
       if (message.includes('contracting')) {
         entities.productLine = 'AI-Augmented Contracting';
-      } else if (message.includes('m&a')) {
-        entities.productLine = 'M&A';
+      } else if (message.includes('m&a') || message.includes('mna') || message.includes('m and a')) {
+        entities.productLine = 'Augmented-M&A'; // Actual value in Salesforce
       } else if (message.includes('compliance')) {
         entities.productLine = 'Compliance';
-      } else if (message.includes('litigation')) {
-        entities.productLine = 'Litigation';
+      } else if (message.includes('sigma')) {
+        entities.productLine = 'sigma';
+      } else if (message.includes('cortex')) {
+        entities.productLine = 'Cortex';
+      } else if (message.includes('multiple')) {
+        entities.productLine = 'Multiple';
       }
+      // Note: "Litigation" doesn't exist as a product line
       
       // Map stage if specified
       if (message.includes('late stage') || message.includes('late-stage') || message.includes('stage 4')) {
@@ -797,9 +802,10 @@ Business Context:
       entities.isClosed = false;
     }
 
-    // "Target" keyword = active pipeline ONLY (never include closed deals)
-    if (message.includes('target sign') || message.includes('target loi')) {
+    // "Target" keyword = active pipeline ONLY (CRITICAL: exclude closed deals)
+    if (message.includes('target')) {
       entities.isClosed = false; // Force active only
+      intent = 'pipeline_summary'; // Ensure it's pipeline, not deal_lookup
     }
     
     // Basic intent detection

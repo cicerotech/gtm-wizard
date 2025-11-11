@@ -196,7 +196,7 @@
       "type": "picklist",
       "custom": true,
       "synonyms": ["product line", "product", "solution"],
-      "values": ["AI-Augmented Contracting", "M&A", "Compliance", "Litigation", "Undetermined"]
+      "values": ["AI-Augmented Contracting", "Augmented-M&A", "Compliance", "sigma", "Cortex", "Multiple", "Undetermined"]
     },
     {
       "apiName": "Week_Created__c",

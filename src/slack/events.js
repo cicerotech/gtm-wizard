@@ -772,9 +772,11 @@ function buildAccountFieldQuery(entities) {
         // Product line search - query opportunities then group by account
         const productLineMap = {
           'contracting': 'AI-Augmented Contracting',
-          'm&a': 'M&A',
+          'm&a': 'Augmented-M&A', // Actual Salesforce value
+          'mna': 'Augmented-M&A',
           'compliance': 'Compliance',
-          'litigation': 'Litigation'
+          'sigma': 'sigma',
+          'cortex': 'Cortex'
         };
         
         const productLine = productLineMap[entities.searchTerm.toLowerCase()] || entities.searchTerm;
