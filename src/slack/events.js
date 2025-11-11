@@ -423,10 +423,8 @@ Ask me anything about your pipeline, accounts, or deals!`;
       responseText += '_';
     }
 
-    // Send final response - handle multi-message for contract lists
-    if (parsedIntent.intent === 'contract_query' && queryResult && queryResult.records && 
-        (queryResult.records.length > 10 || !parsedIntent.entities.accounts)) {
-      // Use multi-message for: >10 contracts OR any "all contracts" query
+    // Send final response
+    if (false) { // Disabled multi-message for now - use single response
       await sendContractMessages(client, channelId, threadTs, queryResult, parsedIntent);
     } else {
       // Single message response
@@ -1289,7 +1287,7 @@ function formatContractResults(queryResult, parsedIntent) {
     : `*All Contracts* (${records.length} total)\n\n`;
 
   // Compact format for "all contracts", detailed for specific account
-  const isCompactMode = !accountName && records.length > 15;
+  const isCompactMode = !accountName || records.length > 10;
 
   records.forEach((contract, i) => {
     const contractName = contract.Contract_Name_Campfire__c || contract.ContractNumber || contract.Id;
