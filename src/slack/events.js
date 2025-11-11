@@ -601,25 +601,23 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
   }
 
   try {
-    // For now, require note to be included inline
-    // Check if message has actual content beyond trigger
-    const contentAfterTrigger = message
+    // Clean message to get just the note content
+    let noteContent = message
       .replace(/@gtm-brain/gi, '')
-      .replace(/add to customer history:?/gi, '')
-      .replace(/save note:?/gi, '')
-      .replace(/log note:?/gi, '')
+      .replace(/add to customer history\s*:?\s*/gi, '')
+      .replace(/save note\s*:?\s*/gi, '')
+      .replace(/log note\s*:?\s*/gi, '')
+      .replace(/customer history\s*:?\s*/gi, '')
       .trim();
     
-    if (contentAfterTrigger.length < 10) {
+    if (noteContent.length < 5) {
       await client.chat.postMessage({
         channel: channelId,
-        text: `Please include the note in your message:\n\n*Format:*\n@gtm-brain add to customer history: Nielsen - Discussion with Tony...\n\nOR copy your full note after the trigger.`,
+        text: `Please include the note content:\n\n*Format:*\n@gtm-brain add to customer history: Nielsen - Discussion...\n\nOR\n@gtm-brain add to customer history Nielsen - Discussion...`,
         thread_ts: threadTs
       });
       return;
     }
-    
-    const noteContent = contentAfterTrigger;
 
     // Extract account name from note content
     // First, clean Slack formatting and get first line
