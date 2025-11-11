@@ -627,25 +627,43 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
     }
 
     // Extract account name from note content
+    // First, clean Slack formatting
+    const cleanContent = noteContent
+      .replace(/\*([^*]+)\*/g, '$1') // Remove bold **text**
+      .replace(/_([^_]+)_/g, '$1')   // Remove italic _text_
+      .replace(/```[^```]*```/g, '') // Remove code blocks
+      .trim();
+    
+    // Extract account name - try multiple patterns
     const accountPatterns = [
-      /^([A-Z][A-Za-z\s&'-]+?)\s*-\s/m, // "Nielsen - Discussion"
+      /^([A-Z][A-Za-z\s&'-]+?)\s*[-–—]\s/m,  // "Nielsen - Discussion" or "Nielsen – Discussion"
+      /^([A-Z][A-Za-z\s&'-]{3,}?)\n/m,        // First line is just the account name
+      /^([A-Z][A-Za-z\s&'-]{3,}?)\s*$/m,      // Entire first line
       /(?:from|with|at)\s+([A-Z][A-Za-z\s&'-]+?)(?:\s|\.|\n)/,
-      /([A-Z][A-Za-z\s&'-]{3,}?)(?:\s+discussion|\s+meeting)/i
+      /([A-Z][A-Za-z\s&'-]{3,}?)(?:\s+discussion|\s+meeting)/i,
+      /^(\w+(?:\s+\w+){0,3})\s*[-–—]/ // First 1-4 words before dash
     ];
     
     let accountName = null;
     for (const pattern of accountPatterns) {
-      const match = noteContent.match(pattern);
-      if (match && match[1] && match[1].length > 2) {
-        accountName = match[1].trim();
-        break;
+      const match = cleanContent.match(pattern);
+      if (match && match[1]) {
+        const extracted = match[1].trim();
+        // Filter out common words
+        if (extracted.length > 2 && 
+            !extracted.toLowerCase().includes('discussion') &&
+            !extracted.toLowerCase().includes('summary') &&
+            !extracted.toLowerCase().includes('meeting')) {
+          accountName = extracted;
+          break;
+        }
       }
     }
     
     if (!accountName) {
       await client.chat.postMessage({
         channel: channelId,
-        text: 'Could not detect account name. Please mention the company name clearly (e.g., "Nielsen - Discussion..." or "Meeting with Best Buy").',
+        text: `Could not detect account name from your note.\n\nPlease start with: "[Account Name] - [note]"\n\nExample: "Nielsen - Discussion with Tony..."`,
         thread_ts: threadTs
       });
       return;
