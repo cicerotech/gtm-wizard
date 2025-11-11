@@ -930,8 +930,8 @@ function buildWeightedSummaryQuery(entities) {
   if (entities.timeframe) {
     const timeMap = {
       'this_month': 'Target_LOI_Date__c = THIS_MONTH',
-      'this_quarter': 'Target_LOI_Date__c = THIS_QUARTER',
-      'this_year': 'Target_LOI_Date__c = THIS_YEAR'
+      'this_quarter': 'Target_LOI_Date__c = THIS_FISCAL_QUARTER', // Use FISCAL quarter
+      'this_year': 'Target_LOI_Date__c = THIS_FISCAL_YEAR'
     };
     
     if (timeMap[entities.timeframe]) {
