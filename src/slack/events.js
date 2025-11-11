@@ -314,9 +314,9 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle contract/PDF queries
       soql = buildContractQuery(parsedIntent.entities);
     } else if (parsedIntent.intent === 'save_customer_note') {
-      // Handle Customer_Brain note saving
+      // Handle Customer_Brain note saving - pass full event context
       await handleCustomerBrainNote(text, userId, channelId, client, threadTs, conversationContext);
-      return; // Exit early - note saved
+      return; // Exit early
     } else if (parsedIntent.intent === 'pipeline_summary' || parsedIntent.intent === 'deal_lookup') {
       soql = queryBuilder.buildOpportunityQuery(parsedIntent.entities);
     } else if (parsedIntent.intent === 'activity_check') {
@@ -601,43 +601,25 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
   }
 
   try {
-    // ALWAYS use parent message if this is a reply and message is just trigger phrase
-    let noteContent = message;
-    
-    // Check if message is ONLY the trigger (no actual note content)
-    const triggerOnly = message.toLowerCase()
+    // For now, require note to be included inline
+    // Check if message has actual content beyond trigger
+    const contentAfterTrigger = message
       .replace(/@gtm-brain/gi, '')
-      .replace(/add to customer history/gi, '')
-      .replace(/save note/gi, '')
-      .replace(/log note/gi, '')
-      .trim().length < 10;
+      .replace(/add to customer history:?/gi, '')
+      .replace(/save note:?/gi, '')
+      .replace(/log note:?/gi, '')
+      .trim();
     
-    if (triggerOnly && threadTs) {
-      // Fetch the parent message (the actual note)
-      try {
-        const replies = await client.conversations.replies({
-          channel: channelId,
-          ts: threadTs,
-          limit: 2
-        });
-        
-        if (replies.messages && replies.messages.length > 0) {
-          // First message in thread is the parent (the note)
-          const parentMsg = replies.messages[0];
-          noteContent = parentMsg.text;
-          
-          logger.info(`Using parent message as note content (${noteContent.length} chars)`);
-        }
-      } catch (err) {
-        logger.error('Failed to fetch parent message:', err);
-        await client.chat.postMessage({
-          channel: channelId,
-          text: `Could not read the parent message. Try including the note directly:\n"@gtm-brain add to customer history: Nielsen - [note]"`,
-          thread_ts: threadTs
-        });
-        return;
-      }
+    if (contentAfterTrigger.length < 10) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `Please include the note in your message:\n\n*Format:*\n@gtm-brain add to customer history: Nielsen - Discussion with Tony...\n\nOR copy your full note after the trigger.`,
+        thread_ts: threadTs
+      });
+      return;
     }
+    
+    const noteContent = contentAfterTrigger;
 
     // Extract account name from note content
     // First, clean Slack formatting and get first line
