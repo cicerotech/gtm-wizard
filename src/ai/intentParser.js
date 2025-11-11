@@ -797,6 +797,11 @@ Business Context:
       entities.isClosed = false;
     }
 
+    // "Target" keyword = active pipeline ONLY (never include closed deals)
+    if (message.includes('target sign') || message.includes('target loi')) {
+      entities.isClosed = false; // Force active only
+    }
+    
     // Basic intent detection
     if (message.includes('closed') || message.includes('won')) {
       intent = 'deal_lookup';
