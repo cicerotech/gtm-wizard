@@ -601,28 +601,41 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
   }
 
   try {
-    // Get the parent message if this is a reply
+    // ALWAYS use parent message if this is a reply and message is just trigger phrase
     let noteContent = message;
-    let parentMessage = null;
     
-    if (threadTs) {
+    // Check if message is ONLY the trigger (no actual note content)
+    const triggerOnly = message.toLowerCase()
+      .replace(/@gtm-brain/gi, '')
+      .replace(/add to customer history/gi, '')
+      .replace(/save note/gi, '')
+      .replace(/log note/gi, '')
+      .trim().length < 10;
+    
+    if (triggerOnly && threadTs) {
+      // Fetch the parent message (the actual note)
       try {
-        const conversationsHistory = await client.conversations.history({
+        const replies = await client.conversations.replies({
           channel: channelId,
-          latest: threadTs,
-          limit: 1,
-          inclusive: true
+          ts: threadTs,
+          limit: 2
         });
         
-        if (conversationsHistory.messages && conversationsHistory.messages[0]) {
-          parentMessage = conversationsHistory.messages[0].text;
-          // Use parent message as the note if current message is just the trigger
-          if (message.toLowerCase().replace(/@gtm-brain/gi, '').trim().length < 50) {
-            noteContent = parentMessage;
-          }
+        if (replies.messages && replies.messages.length > 0) {
+          // First message in thread is the parent (the note)
+          const parentMsg = replies.messages[0];
+          noteContent = parentMsg.text;
+          
+          logger.info(`Using parent message as note content (${noteContent.length} chars)`);
         }
       } catch (err) {
-        logger.error('Failed to get parent message:', err);
+        logger.error('Failed to fetch parent message:', err);
+        await client.chat.postMessage({
+          channel: channelId,
+          text: `Could not read the parent message. Try including the note directly:\n"@gtm-brain add to customer history: Nielsen - [note]"`,
+          thread_ts: threadTs
+        });
+        return;
       }
     }
 
