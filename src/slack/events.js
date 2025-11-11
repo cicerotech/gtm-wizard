@@ -311,41 +311,8 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle weighted pipeline summary
       soql = buildWeightedSummaryQuery(parsedIntent.entities);
     } else if (parsedIntent.intent === 'contract_query') {
-      // Handle contract/PDF queries - need to get PDFs separately
+      // Handle contract/PDF queries
       soql = buildContractQuery(parsedIntent.entities);
-      
-      // After getting contracts, fetch PDF links
-      const contractResult = await query(soql, true);
-      
-      // Get PDF URLs for all contracts
-      if (contractResult && contractResult.records && contractResult.records.length > 0) {
-        const contractIds = contractResult.records.map(r => r.Id);
-        const pdfQuery = buildPDFQuery(contractIds);
-        const pdfResult = await query(pdfQuery, true);
-        
-        // Map PDFs to contracts
-        const pdfMap = new Map();
-        if (pdfResult && pdfResult.records) {
-          pdfResult.records.forEach(pdf => {
-            const contractId = pdf.LinkedEntityId;
-            if (!pdfMap.has(contractId)) {
-              pdfMap.set(contractId, []);
-            }
-            pdfMap.get(contractId).push({
-              title: pdf.ContentDocument.Title,
-              versionId: pdf.ContentDocument.LatestPublishedVersionId
-            });
-          });
-        }
-        
-        // Attach PDF info to contracts
-        contractResult.records.forEach(contract => {
-          contract._pdfs = pdfMap.get(contract.Id) || [];
-        });
-      }
-      
-      queryResult = contractResult;
-      soql = null; // Already executed
     } else if (parsedIntent.intent === 'pipeline_summary' || parsedIntent.intent === 'deal_lookup') {
       soql = queryBuilder.buildOpportunityQuery(parsedIntent.entities);
     } else if (parsedIntent.intent === 'activity_check') {
@@ -370,8 +337,40 @@ Ask me anything about your pipeline, accounts, or deals!`;
 
     // Execute query directly (skip optimization for now to avoid errors)
     const queryStartTime = Date.now();
-    const queryResult = await query(soql, true); // Enable caching
+    let queryResult = await query(soql, true); // Enable caching
     const queryExecutionTime = Date.now() - queryStartTime;
+
+    // For contract queries, fetch PDF links
+    if (parsedIntent.intent === 'contract_query' && queryResult && queryResult.records && queryResult.records.length > 0) {
+      try {
+        const contractIds = queryResult.records.map(r => r.Id);
+        const pdfQuery = buildPDFQuery(contractIds);
+        const pdfResult = await query(pdfQuery, true);
+        
+        // Map PDFs to contracts
+        const pdfMap = new Map();
+        if (pdfResult && pdfResult.records) {
+          pdfResult.records.forEach(pdf => {
+            const contractId = pdf.LinkedEntityId;
+            if (!pdfMap.has(contractId)) {
+              pdfMap.set(contractId, []);
+            }
+            pdfMap.get(contractId).push({
+              title: pdf.ContentDocument.Title,
+              versionId: pdf.ContentDocument.LatestPublishedVersionId
+            });
+          });
+        }
+        
+        // Attach PDF info to contracts
+        queryResult.records.forEach(contract => {
+          contract._pdfs = pdfMap.get(contract.Id) || [];
+        });
+      } catch (pdfError) {
+        logger.error('Failed to fetch PDFs:', pdfError);
+        // Continue without PDFs
+      }
+    }
 
     // Track query performance for learning
     await trackQueryPerformance(soql, queryExecutionTime, queryResult?.totalSize || 0, userId);
@@ -678,18 +677,19 @@ function formatAccountLookup(queryResult, parsedIntent) {
   
   const searchTerm = parsedIntent.entities.accounts[0].toLowerCase();
   
-  // Find best match with priority: 1) Exact match with business lead, 2) Exact match, 3) Business lead partial, 4) Any partial
+  // Find best match with priority: 1) Exact match with business lead, 2) Exact match, 3) Business lead, 4) Any match
   const exactMatchBusinessLead = records.find(r => 
     r.Name.toLowerCase() === searchTerm && businessLeads.includes(r.Owner?.Name)
   );
   
   const exactMatch = records.find(r => r.Name.toLowerCase() === searchTerm);
   
-  const partialMatchBusinessLead = records.find(r => 
-    r.Name.toLowerCase().includes(searchTerm) && businessLeads.includes(r.Owner?.Name)
-  );
+  // ANY business lead match (not just partial)
+  const anyBusinessLeadMatch = records.find(r => businessLeads.includes(r.Owner?.Name));
   
-  const primaryResult = exactMatchBusinessLead || exactMatch || partialMatchBusinessLead || records[0];
+  const partialMatch = records.find(r => r.Name.toLowerCase().includes(searchTerm));
+  
+  const primaryResult = exactMatchBusinessLead || exactMatch || anyBusinessLeadMatch || partialMatch || records[0];
 
   // Check if account is held by Keigan or other unassigned holders
   const currentOwner = primaryResult.Owner?.Name;
