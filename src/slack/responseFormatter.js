@@ -301,7 +301,12 @@ class ResponseFormatter {
             value = cleanStageName(record.StageName || 'No Stage').substring(0, 16);
             break;
           case 'CloseDate':
-            value = this.formatDate(record.CloseDate);
+            // Show Target LOI Sign Date for active deals, CloseDate for closed deals
+            if (record.IsClosed) {
+              value = this.formatDate(record.CloseDate);
+            } else {
+              value = this.formatDate(record.Target_LOI_Sign_Date__c);
+            }
             break;
           case 'Owner.Name':
             value = (record.Owner?.Name || 'Unassigned').substring(0, 13);

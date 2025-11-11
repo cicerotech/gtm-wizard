@@ -459,7 +459,7 @@ function buildResponseBlocks(queryResult, parsedIntent) {
         },
         {
           type: 'mrkdwn',
-          text: `*${record.Owner?.Name || 'Unassigned'}*\n${formatDate(record.CloseDate)}`
+          text: `*${record.Owner?.Name || 'Unassigned'}*\n${formatDate(record.IsClosed ? record.CloseDate : record.Target_LOI_Sign_Date__c)}`
         }
       ]
     });
