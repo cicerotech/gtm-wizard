@@ -6,12 +6,14 @@ const cors = require('cors');
 const logger = require('./utils/logger');
 const { initializeRedis } = require('./utils/cache');
 const { initializeSalesforce } = require('./salesforce/connection');
+const { initializeEmail } = require('./utils/emailService');
 
 // Import handlers
 const { registerSlashCommands } = require('./slack/commands');
 const { registerEventHandlers } = require('./slack/events');
 const { registerInteractiveHandlers } = require('./slack/interactive');
 const { startScheduledJobs } = require('./slack/scheduled');
+const { scheduleWeeklyReport } = require('./slack/weeklyReport');
 
 class GTMBrainApp {
   constructor() {
@@ -90,6 +92,10 @@ class GTMBrainApp {
       await initializeSalesforce();
       logger.info('✅ Salesforce connection established');
 
+      // Initialize Email service
+      await initializeEmail();
+      logger.info('✅ Email service initialized');
+
     } catch (error) {
       logger.error('Failed to initialize external services:', error);
       throw error;
@@ -148,6 +154,17 @@ class GTMBrainApp {
       });
     });
 
+    // Test endpoint to manually send weekly report
+    this.expressApp.get('/send-report-test', async (req, res) => {
+      try {
+        const { sendReportNow } = require('./slack/weeklyReport');
+        const result = await sendReportNow(true); // Test mode
+        res.json({ success: true, message: 'Report sent to keigan.pesenti@eudia.com', result });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     logger.info('✅ Express server configured');
   }
 
@@ -170,6 +187,10 @@ class GTMBrainApp {
       // Start scheduled jobs
       startScheduledJobs(this.app);
       logger.info('📅 Scheduled jobs started');
+
+      // Start weekly report scheduler
+      scheduleWeeklyReport();
+      logger.info('📧 Weekly report scheduler started');
 
       // Setup graceful shutdown
       this.setupGracefulShutdown();
