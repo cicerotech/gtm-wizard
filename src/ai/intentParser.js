@@ -397,6 +397,71 @@ Business Context:
       };
     }
     
+    // Account Management - Move to Nurture (Keigan only)
+    if (message.includes('move') && message.includes('nurture') ||
+        message.includes('mark') && message.includes('nurture') ||
+        message.includes('set') && message.includes('nurture')) {
+      intent = 'move_to_nurture';
+      
+      // Extract account name
+      const nurtureMatch = message.match(/move (.+?) to nurture/i) ||
+                          message.match(/mark (.+?) as nurture/i) ||
+                          message.match(/set (.+?) to nurture/i) ||
+                          message.match(/nurture (.+?)(?:\?|$)/i);
+      
+      if (nurtureMatch && nurtureMatch[1]) {
+        entities.accounts = [nurtureMatch[1].trim()];
+      }
+      
+      return {
+        intent: 'move_to_nurture',
+        entities,
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'Move account to nurture status',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
+    // Account Management - Close Lost (Keigan only)
+    if ((message.includes('close') || message.includes('mark')) && 
+        (message.includes('lost') || message.includes('closed lost')) ||
+        message.includes('close lost')) {
+      intent = 'close_account_lost';
+      
+      // Extract account name
+      const lostMatch = message.match(/close (.+?) (?:as )?lost/i) ||
+                       message.match(/mark (.+?) (?:as )?(?:closed )?lost/i) ||
+                       message.match(/close (.+?)(?:\?|$)/i) ||
+                       message.match(/lost (.+?)(?:\?|$)/i);
+      
+      if (lostMatch && lostMatch[1]) {
+        const accountName = lostMatch[1]
+          .replace(/as lost/i, '')
+          .replace(/as closed lost/i, '')
+          .replace(/to lost/i, '')
+          .trim();
+        entities.accounts = [accountName];
+      }
+      
+      // Extract loss reason if provided
+      const reasonMatch = message.match(/(?:because|reason:?|due to) (.+?)(?:\?|$)/i);
+      if (reasonMatch && reasonMatch[1]) {
+        entities.lossReason = reasonMatch[1].trim();
+      }
+      
+      return {
+        intent: 'close_account_lost',
+        entities,
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'Close account and all opportunities as lost',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
     // Contract/PDF queries (HIGHEST PRIORITY)
     if ((message.includes('contracts') || message.includes('pdfs') || 
          message.includes('loi contract') || message.includes('loi agreement') ||

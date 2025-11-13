@@ -317,6 +317,14 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle Customer_Brain note saving - pass full event context
       await handleCustomerBrainNote(text, userId, channelId, client, threadTs, conversationContext);
       return; // Exit early
+    } else if (parsedIntent.intent === 'move_to_nurture') {
+      // Handle move to nurture (Keigan only)
+      await handleMoveToNurture(parsedIntent.entities, userId, channelId, client, threadTs);
+      return; // Exit early
+    } else if (parsedIntent.intent === 'close_account_lost') {
+      // Handle close account lost (Keigan only)
+      await handleCloseAccountLost(parsedIntent.entities, userId, channelId, client, threadTs);
+      return; // Exit early
     } else if (parsedIntent.intent === 'pipeline_summary' || parsedIntent.intent === 'deal_lookup') {
       soql = queryBuilder.buildOpportunityQuery(parsedIntent.entities);
     } else if (parsedIntent.intent === 'activity_check') {
@@ -1708,6 +1716,223 @@ function formatDate(dateString) {
     day: 'numeric',
     year: 'numeric'
   });
+}
+
+/**
+ * Handle Move to Nurture (Keigan only)
+ */
+async function handleMoveToNurture(entities, userId, channelId, client, threadTs) {
+  const KEIGAN_USER_ID = 'U094AQE9V7D';
+  
+  try {
+    // Security check - Keigan only
+    if (userId !== KEIGAN_USER_ID) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: '🔒 Account management is restricted to Keigan. Contact him for assistance.',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    // Extract account name
+    if (!entities.accounts || entities.accounts.length === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: 'Please specify an account name.\n\nExample: "move Test Company to nurture"',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const accountName = entities.accounts[0];
+    
+    // Query account with fuzzy matching
+    const escapeQuotes = (str) => str.replace(/'/g, "\\'");
+    const accountQuery = `SELECT Id, Name, Owner.Name, Nurture__c, 
+                                 (SELECT Id, Name, StageName, Amount, IsClosed FROM Opportunities WHERE IsClosed = false)
+                          FROM Account
+                          WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                          LIMIT 5`;
+    
+    const accountResult = await query(accountQuery);
+    
+    if (!accountResult || accountResult.totalSize === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `❌ Account "${accountName}" not found.\n\nTry: "who owns ${accountName}" to verify the account exists.`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const account = accountResult.records[0];
+    
+    // Update account to nurture
+    const { sfConnection } = require('../salesforce/connection');
+    const conn = sfConnection.getConnection();
+    
+    await conn.sobject('Account').update({
+      Id: account.Id,
+      Nurture__c: true
+    });
+    
+    // Format confirmation
+    const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
+    const accountUrl = `${sfBaseUrl}/lightning/r/Account/${account.Id}/view`;
+    
+    const openOpps = account.Opportunities || [];
+    
+    let confirmMessage = `✅ *${account.Name}* moved to Nurture\n\n`;
+    confirmMessage += `*Account Details:*\n`;
+    confirmMessage += `Owner: ${account.Owner?.Name}\n`;
+    confirmMessage += `Open Opportunities: ${openOpps.length}\n`;
+    
+    if (openOpps.length > 0) {
+      confirmMessage += `\n*Open Opportunities:*\n`;
+      openOpps.forEach(opp => {
+        const stage = cleanStageName(opp.StageName);
+        const amount = opp.Amount ? `$${(opp.Amount / 1000).toFixed(0)}K` : 'N/A';
+        confirmMessage += `• ${opp.Name} - ${stage} (${amount})\n`;
+      });
+      confirmMessage += `\n💡 *Note:* Open opportunities remain active. Close them manually if needed.\n`;
+    }
+    
+    confirmMessage += `\n<${accountUrl}|View Account in Salesforce>`;
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: confirmMessage,
+      thread_ts: threadTs
+    });
+    
+    logger.info(`✅ Account moved to nurture: ${account.Name} by ${userId}`);
+    
+  } catch (error) {
+    logger.error('Failed to move account to nurture:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Error moving account to nurture: ${error.message}\n\nPlease try again or contact support.`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle Close Account Lost (Keigan only)
+ */
+async function handleCloseAccountLost(entities, userId, channelId, client, threadTs) {
+  const KEIGAN_USER_ID = 'U094AQE9V7D';
+  
+  try {
+    // Security check - Keigan only
+    if (userId !== KEIGAN_USER_ID) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: '🔒 Account management is restricted to Keigan. Contact him for assistance.',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    // Extract account name
+    if (!entities.accounts || entities.accounts.length === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: 'Please specify an account name.\n\nExample: "close Test Company as lost because pricing too high"',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const accountName = entities.accounts[0];
+    const lossReason = entities.lossReason || 'No longer pursuing';
+    
+    // Query account with open opportunities
+    const escapeQuotes = (str) => str.replace(/'/g, "\\'");
+    const accountQuery = `SELECT Id, Name, Owner.Name,
+                                 (SELECT Id, Name, StageName, Amount, ACV__c, IsClosed, IsWon FROM Opportunities WHERE IsClosed = false)
+                          FROM Account
+                          WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                          LIMIT 5`;
+    
+    const accountResult = await query(accountQuery);
+    
+    if (!accountResult || accountResult.totalSize === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `❌ Account "${accountName}" not found.\n\nTry: "who owns ${accountName}" to verify the account exists.`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const account = accountResult.records[0];
+    const openOpps = account.Opportunities || [];
+    
+    if (openOpps.length === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `⚠️  *${account.Name}* has no open opportunities to close.\n\nAccount Owner: ${account.Owner?.Name}\n\nNo action taken.`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    // Close all open opportunities as lost
+    const { sfConnection } = require('../salesforce/connection');
+    const conn = sfConnection.getConnection();
+    
+    const updates = openOpps.map(opp => ({
+      Id: opp.Id,
+      StageName: 'Stage 7. Closed(Lost)',
+      IsClosed: true,
+      IsWon: false
+    }));
+    
+    const results = await conn.sobject('Opportunity').update(updates);
+    
+    // Count successes
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.length - successCount;
+    
+    // Format confirmation
+    const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
+    const accountUrl = `${sfBaseUrl}/lightning/r/Account/${account.Id}/view`;
+    
+    let confirmMessage = `✅ *Closed Lost: ${account.Name}*\n\n`;
+    confirmMessage += `*Results:*\n`;
+    confirmMessage += `• ${successCount} opportunities closed as lost\n`;
+    if (failCount > 0) {
+      confirmMessage += `• ${failCount} failed (check Salesforce)\n`;
+    }
+    confirmMessage += `\n*Loss Reason:* ${lossReason}\n`;
+    confirmMessage += `\n*Closed Opportunities:*\n`;
+    
+    openOpps.forEach((opp, i) => {
+      const success = results[i].success ? '✅' : '❌';
+      const amount = opp.Amount ? `$${(opp.Amount / 1000).toFixed(0)}K` : 'N/A';
+      confirmMessage += `${success} ${opp.Name} (${amount})\n`;
+    });
+    
+    confirmMessage += `\n<${accountUrl}|View Account in Salesforce>`;
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: confirmMessage,
+      thread_ts: threadTs
+    });
+    
+    logger.info(`✅ Account closed lost: ${account.Name}, ${successCount} opps closed by ${userId}`);
+    
+  } catch (error) {
+    logger.error('Failed to close account lost:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Error closing opportunities: ${error.message}\n\nPlease try again or contact support.`,
+      thread_ts: threadTs
+    });
+  }
 }
 
 module.exports = {
