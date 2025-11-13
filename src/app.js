@@ -157,11 +157,48 @@ class GTMBrainApp {
     // Test endpoint to manually send weekly report
     this.expressApp.get('/send-report-test', async (req, res) => {
       try {
+        // Check if email credentials are configured
+        const hasEmail = !!process.env.OUTLOOK_EMAIL;
+        const hasPassword = !!process.env.OUTLOOK_PASSWORD;
+        
+        if (!hasEmail || !hasPassword) {
+          return res.status(500).json({
+            success: false,
+            error: 'Email not configured',
+            details: {
+              OUTLOOK_EMAIL: hasEmail ? 'Set ✓' : 'MISSING - Add to Render environment variables',
+              OUTLOOK_PASSWORD: hasPassword ? 'Set ✓' : 'MISSING - Add to Render environment variables'
+            },
+            instructions: [
+              '1. Go to https://dashboard.render.com/',
+              '2. Select gtm-wizard service',
+              '3. Click Environment tab',
+              '4. Add: OUTLOOK_EMAIL = keigan.pesenti@eudia.com',
+              '5. Add: OUTLOOK_PASSWORD = [your Office365 password]',
+              '6. Save (service will redeploy)',
+              '7. Try this endpoint again'
+            ]
+          });
+        }
+        
         const { sendReportNow } = require('./slack/weeklyReport');
         const result = await sendReportNow(true); // Test mode
-        res.json({ success: true, message: 'Report sent to keigan.pesenti@eudia.com', result });
+        res.json({ 
+          success: true, 
+          message: 'Report sent to keigan.pesenti@eudia.com', 
+          result,
+          note: 'Check your email inbox for the Excel report'
+        });
       } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ 
+          success: false, 
+          error: error.message,
+          details: error.code === 'EAUTH' ? 'Authentication failed - check OUTLOOK_PASSWORD is correct' : undefined,
+          config: {
+            email: process.env.OUTLOOK_EMAIL || 'NOT SET',
+            smtp: 'smtp.office365.com:587'
+          }
+        });
       }
     });
 
