@@ -1767,35 +1767,62 @@ async function handleMoveToNurture(entities, userId, channelId, client, threadTs
     }
     
     const account = accountResult.records[0];
+    const openOpps = account.Opportunities || [];
     
-    // Update account to nurture
+    // Update account to nurture AND close all opportunities as lost
     const { sfConnection } = require('../salesforce/connection');
     const conn = sfConnection.getConnection();
     
+    // Step 1: Update account nurture flag
     await conn.sobject('Account').update({
       Id: account.Id,
       Nurture__c: true
     });
     
+    // Step 2: Close all open opportunities as lost
+    let successCount = 0;
+    let failCount = 0;
+    let results = null;
+    
+    if (openOpps.length > 0) {
+      const updates = openOpps.map(opp => ({
+        Id: opp.Id,
+        StageName: 'Stage 7. Closed Lost',
+        IsClosed: true,
+        IsWon: false
+      }));
+      
+      results = await conn.sobject('Opportunity').update(updates);
+      
+      // Handle both single result and array of results
+      const resultsArray = Array.isArray(results) ? results : [results];
+      successCount = resultsArray.filter(r => r.success).length;
+      failCount = resultsArray.length - successCount;
+    }
+    
     // Format confirmation
     const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
     const accountUrl = `${sfBaseUrl}/lightning/r/Account/${account.Id}/view`;
     
-    const openOpps = account.Opportunities || [];
-    
     let confirmMessage = `✅ *${account.Name}* moved to Nurture\n\n`;
     confirmMessage += `*Account Details:*\n`;
     confirmMessage += `Owner: ${account.Owner?.Name}\n`;
-    confirmMessage += `Open Opportunities: ${openOpps.length}\n`;
+    confirmMessage += `Nurture: Yes\n`;
     
     if (openOpps.length > 0) {
-      confirmMessage += `\n*Open Opportunities:*\n`;
-      openOpps.forEach(opp => {
-        const stage = cleanStageName(opp.StageName);
+      confirmMessage += `\n*Opportunities Closed as Lost:* ${successCount}/${openOpps.length}\n`;
+      if (failCount > 0) {
+        confirmMessage += `⚠️  ${failCount} failed to close (check Salesforce)\n`;
+      }
+      confirmMessage += `\n*Closed Opportunities:*\n`;
+      openOpps.forEach((opp, i) => {
+        const resultsArray = Array.isArray(results) ? results : [results];
+        const success = resultsArray[i]?.success ? '✅' : '❌';
         const amount = opp.Amount ? `$${(opp.Amount / 1000).toFixed(0)}K` : 'N/A';
-        confirmMessage += `• ${opp.Name} - ${stage} (${amount})\n`;
+        confirmMessage += `${success} ${opp.Name} (${amount}) → Stage 7. Closed Lost\n`;
       });
-      confirmMessage += `\n💡 *Note:* Open opportunities remain active. Close them manually if needed.\n`;
+    } else {
+      confirmMessage += `\n*No open opportunities to close*\n`;
     }
     
     confirmMessage += `\n<${accountUrl}|View Account in Salesforce>`;
@@ -1806,7 +1833,7 @@ async function handleMoveToNurture(entities, userId, channelId, client, threadTs
       thread_ts: threadTs
     });
     
-    logger.info(`✅ Account moved to nurture: ${account.Name} by ${userId}`);
+    logger.info(`✅ Account moved to nurture: ${account.Name}, ${successCount} opps closed by ${userId}`);
     
   } catch (error) {
     logger.error('Failed to move account to nurture:', error);
@@ -1885,16 +1912,19 @@ async function handleCloseAccountLost(entities, userId, channelId, client, threa
     
     const updates = openOpps.map(opp => ({
       Id: opp.Id,
-      StageName: 'Stage 7. Closed(Lost)',
+      StageName: 'Stage 7. Closed Lost',
       IsClosed: true,
       IsWon: false
     }));
     
     const results = await conn.sobject('Opportunity').update(updates);
     
+    // Handle both single result and array of results
+    const resultsArray = Array.isArray(results) ? results : [results];
+    
     // Count successes
-    const successCount = results.filter(r => r.success).length;
-    const failCount = results.length - successCount;
+    const successCount = resultsArray.filter(r => r.success).length;
+    const failCount = resultsArray.length - successCount;
     
     // Format confirmation
     const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
@@ -1910,9 +1940,10 @@ async function handleCloseAccountLost(entities, userId, channelId, client, threa
     confirmMessage += `\n*Closed Opportunities:*\n`;
     
     openOpps.forEach((opp, i) => {
-      const success = results[i].success ? '✅' : '❌';
+      const resultsArray = Array.isArray(results) ? results : [results];
+      const success = resultsArray[i]?.success ? '✅' : '❌';
       const amount = opp.Amount ? `$${(opp.Amount / 1000).toFixed(0)}K` : 'N/A';
-      confirmMessage += `${success} ${opp.Name} (${amount})\n`;
+      confirmMessage += `${success} ${opp.Name} (${amount}) → Stage 7. Closed Lost\n`;
     });
     
     confirmMessage += `\n<${accountUrl}|View Account in Salesforce>`;
