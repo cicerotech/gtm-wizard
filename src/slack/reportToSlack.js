@@ -3,26 +3,23 @@ const ExcelJS = require('exceljs');
 const logger = require('../utils/logger');
 
 /**
- * Generate Johnson Hana pipeline Excel
+ * Generate Johnson Hana Weekly Pipeline Excel Report
  */
 async function generateJohnsonHanaExcel() {
-  // Query: Stages 2, 3, 4 + Product lines: Contracting, Multiple, sigma, Insights
-  const reportQuery = `SELECT Account.Name,
-                              Name,
-                              StageName,
+  // Query: Stages 2+ + Product lines: AI-Augmented Contracting, sigma, Insights
+  const reportQuery = `SELECT Name,
                               Product_Line__c,
-                              ACV__c,
-                              Finance_Weighted_ACV__c,
-                              Target_LOI_Date__c,
-                              Owner.Name,
-                              Days_in_Stage1__c
+                              StageName,
+                              Target_LOI_Date__c
                        FROM Opportunity
                        WHERE IsClosed = false
-                         AND StageName IN ('Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
+                         AND (StageName = 'Stage 2 - SQO'
+                              OR StageName = 'Stage 3 - Pilot'
+                              OR StageName = 'Stage 4 - Proposal')
                          AND (Product_Line__c = 'AI-Augmented Contracting'
-                              OR Product_Line__c = 'Multiple'
-                              OR Product_Line__c = 'sigma')
-                       ORDER BY StageName, Account.Name`;
+                              OR Product_Line__c = 'sigma'
+                              OR Product_Line__c = 'Insights')
+                       ORDER BY StageName, Name`;
 
   const data = await query(reportQuery, false);
 
@@ -30,66 +27,86 @@ async function generateJohnsonHanaExcel() {
     throw new Error('No pipeline data found for report');
   }
 
+  // Calculate stage counts
+  const stage4Count = data.records.filter(r => r.StageName === 'Stage 4 - Proposal').length;
+  const stage3Count = data.records.filter(r => r.StageName === 'Stage 3 - Pilot').length;
+  const stage2Count = data.records.filter(r => r.StageName === 'Stage 2 - SQO').length;
+  
+  // Calculate "targeting signature this month"
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const thisMonthCount = data.records.filter(r => {
+    if (!r.Target_LOI_Date__c) return false;
+    const targetDate = new Date(r.Target_LOI_Date__c);
+    return targetDate.getMonth() === currentMonth && targetDate.getFullYear() === currentYear;
+  }).length;
+
   // Create Excel
   const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet('Weekly Pipeline');
+  const worksheet = workbook.addWorksheet('Pipeline Report');
 
-  // Columns
+  // Define 4 visible columns + 2 blank columns
   worksheet.columns = [
-    { header: 'Account', key: 'account', width: 25 },
-    { header: 'Opportunity', key: 'opp', width: 35 },
-    { header: 'Stage', key: 'stage', width: 18 },
-    { header: 'Product Line', key: 'product', width: 25 },
-    { header: 'ACV', key: 'acv', width: 12 },
-    { header: 'Weighted ACV', key: 'weighted', width: 14 },
-    { header: 'Target Sign', key: 'target', width: 12 },
-    { header: 'Owner', key: 'owner', width: 18 },
-    { header: 'Days in Stage', key: 'days', width: 12 }
+    { header: 'Opportunity Name', key: 'oppName', width: 40 },
+    { header: 'Product Line', key: 'productLine', width: 30 },
+    { header: 'Stage', key: 'stage', width: 20 },
+    { header: 'Target Sign Date', key: 'targetDate', width: 18 },
+    { header: '', key: 'blank1', width: 10 }, // Blank column 1
+    { header: '', key: 'blank2', width: 10 }  // Blank column 2
   ];
 
-  // Header styling
+  // Header styling - BLACK background with WHITE bold text
   const headerRow = worksheet.getRow(1);
-  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }; // White text
   headerRow.fill = {
     type: 'pattern',
     pattern: 'solid',
-    fgColor: { argb: 'FF4472C4' }
+    fgColor: { argb: 'FF000000' } // Black background
   };
-  headerRow.height = 20;
+  headerRow.height = 22;
+  headerRow.alignment = { vertical: 'middle', horizontal: 'left' };
 
-  // Add data
+  // Add data - only 4 visible columns
   data.records.forEach(record => {
-    const row = worksheet.addRow({
-      account: record.Account?.Name || '',
-      opp: record.Name || '',
+    worksheet.addRow({
+      oppName: record.Name || '',
+      productLine: record.Product_Line__c || '',
       stage: record.StageName || '',
-      product: record.Product_Line__c || '',
-      acv: record.ACV__c || 0,
-      weighted: record.Finance_Weighted_ACV__c || 0,
-      target: record.Target_LOI_Date__c || '',
-      owner: record.Owner?.Name || '',
-      days: record.Days_in_Stage1__c || ''
+      targetDate: record.Target_LOI_Date__c || '',
+      blank1: '',
+      blank2: ''
     });
-
-    // Alternate row colors
-    if (row.number % 2 === 0) {
-      row.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFF0F0F0' }
-      };
-    }
   });
 
-  // Format currency
-  worksheet.getColumn('acv').numFmt = '$#,##0';
-  worksheet.getColumn('weighted').numFmt = '$#,##0';
+  // Add borders to all cells
+  worksheet.eachRow((row, rowNumber) => {
+    row.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+    });
+  });
 
-  // Freeze header row
-  worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+  // Hide columns after the blank ones (columns G onwards)
+  for (let i = 7; i <= 26; i++) {
+    const col = worksheet.getColumn(i);
+    col.hidden = true;
+  }
 
   const buffer = await workbook.xlsx.writeBuffer();
-  return { buffer, recordCount: data.totalSize };
+
+  return { 
+    buffer, 
+    recordCount: data.totalSize,
+    stage4Count,
+    stage3Count,
+    stage2Count,
+    thisMonthCount
+  };
 }
 
 /**
@@ -136,4 +153,3 @@ module.exports = {
   generateJohnsonHanaExcel,
   sendPipelineReportToSlack
 };
-
