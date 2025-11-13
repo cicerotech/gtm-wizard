@@ -157,26 +157,33 @@ class GTMBrainApp {
     // Test endpoint to manually send weekly report
     this.expressApp.get('/send-report-test', async (req, res) => {
       try {
-        // Check if email credentials are configured
+        // Check if email credentials are configured (Microsoft Graph API)
         const hasEmail = !!process.env.OUTLOOK_EMAIL;
-        const hasPassword = !!process.env.OUTLOOK_PASSWORD;
+        const hasTenantId = !!process.env.AZURE_TENANT_ID;
+        const hasClientId = !!process.env.AZURE_CLIENT_ID;
+        const hasClientSecret = !!process.env.AZURE_CLIENT_SECRET;
         
-        if (!hasEmail || !hasPassword) {
+        if (!hasEmail || !hasTenantId || !hasClientId || !hasClientSecret) {
           return res.status(500).json({
             success: false,
-            error: 'Email not configured',
+            error: 'Email not configured - Microsoft Graph credentials required',
             details: {
-              OUTLOOK_EMAIL: hasEmail ? 'Set ✓' : 'MISSING - Add to Render environment variables',
-              OUTLOOK_PASSWORD: hasPassword ? 'Set ✓' : 'MISSING - Add to Render environment variables'
+              OUTLOOK_EMAIL: hasEmail ? 'Set ✓' : 'MISSING',
+              AZURE_TENANT_ID: hasTenantId ? 'Set ✓' : 'MISSING',
+              AZURE_CLIENT_ID: hasClientId ? 'Set ✓' : 'MISSING',
+              AZURE_CLIENT_SECRET: hasClientSecret ? 'Set ✓' : 'MISSING'
             },
             instructions: [
               '1. Go to https://dashboard.render.com/',
               '2. Select gtm-wizard service',
               '3. Click Environment tab',
-              '4. Add: OUTLOOK_EMAIL = keigan.pesenti@eudia.com',
-              '5. Add: OUTLOOK_PASSWORD = [your Office365 password]',
-              '6. Save (service will redeploy)',
-              '7. Try this endpoint again'
+              '4. Add these 4 variables:',
+              '   OUTLOOK_EMAIL = keigan.pesenti@eudia.com',
+              '   AZURE_TENANT_ID = cffa60d1-f3a2-4dd4-ae1f-9f487c9aa539',
+              '   AZURE_CLIENT_ID = 21c93bc6-1bee-43ed-ae93-a33da98726d7',
+              '   AZURE_CLIENT_SECRET = [your client secret]',
+              '5. Save (service will redeploy)',
+              '6. Try this endpoint again'
             ]
           });
         }

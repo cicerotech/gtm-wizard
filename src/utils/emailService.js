@@ -1,66 +1,117 @@
-const nodemailer = require('nodemailer');
+require('isomorphic-fetch');
+const { Client } = require('@microsoft/microsoft-graph-client');
+const { ClientSecretCredential } = require('@azure/identity');
 const ExcelJS = require('exceljs');
 const logger = require('./logger');
 
 class EmailService {
   constructor() {
-    this.transporter = null;
+    this.graphClient = null;
+    this.credential = null;
   }
 
   async initialize() {
-    // Office365/Outlook SMTP configuration
-    this.transporter = nodemailer.createTransport({
-      host: 'smtp.office365.com',
-      port: 587,
-      secure: false, // TLS
-      auth: {
-        user: process.env.OUTLOOK_EMAIL || 'keigan.pesenti@eudia.com',
-        pass: process.env.OUTLOOK_PASSWORD || 'Augmentnew2025!'
-      },
-      tls: {
-        ciphers: 'SSLv3',
-        rejectUnauthorized: false
-      }
-    });
-
-    // Verify connection
     try {
-      await this.transporter.verify();
-      logger.info('✅ Email service initialized');
+      // Check for required environment variables
+      const tenantId = process.env.AZURE_TENANT_ID;
+      const clientId = process.env.AZURE_CLIENT_ID;
+      const clientSecret = process.env.AZURE_CLIENT_SECRET;
+      const fromEmail = process.env.OUTLOOK_EMAIL || 'keigan.pesenti@eudia.com';
+
+      if (!tenantId || !clientId || !clientSecret) {
+        logger.warn('⚠️  Microsoft Graph credentials not configured - email disabled');
+        logger.warn('Required: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET');
+        return false;
+      }
+
+      // Create credential using Azure Identity
+      this.credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+      
+      // Create Graph client with authentication
+      this.graphClient = Client.initWithMiddleware({
+        authProvider: {
+          getAccessToken: async () => {
+            const token = await this.credential.getToken('https://graph.microsoft.com/.default');
+            return token.token;
+          }
+        }
+      });
+
+      this.fromEmail = fromEmail;
+      
+      logger.info('✅ Microsoft Graph email service initialized');
+      logger.info(`   From: ${fromEmail}`);
       return true;
+
     } catch (error) {
-      logger.error('Email service verification failed:', error);
+      logger.error('Microsoft Graph initialization failed:', error);
       return false;
     }
   }
 
   /**
-   * Send email with Excel attachment
+   * Send email with Excel attachment using Microsoft Graph API
    */
   async sendReportEmail(recipients, subject, body, excelBuffer, filename) {
     try {
-      const mailOptions = {
-        from: process.env.OUTLOOK_EMAIL || 'keigan.pesenti@eudia.com',
-        to: recipients.join(', '),
-        subject: subject,
-        text: body,
-        html: body.replace(/\n/g, '<br>'),
-        attachments: [
-          {
-            filename: filename,
-            content: excelBuffer,
-            contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-          }
-        ]
+      if (!this.graphClient) {
+        throw new Error('Email service not initialized - missing Graph credentials');
+      }
+
+      // Convert buffer to base64
+      const base64Content = excelBuffer.toString('base64');
+
+      // Build email message
+      const message = {
+        message: {
+          subject: subject,
+          body: {
+            contentType: 'HTML',
+            content: body.replace(/\n/g, '<br>')
+          },
+          toRecipients: recipients.map(email => ({
+            emailAddress: { address: email }
+          })),
+          attachments: [
+            {
+              '@odata.type': '#microsoft.graph.fileAttachment',
+              name: filename,
+              contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              contentBytes: base64Content
+            }
+          ]
+        },
+        saveToSentItems: true
       };
 
-      const info = await this.transporter.sendMail(mailOptions);
-      logger.info('✅ Email sent successfully', { messageId: info.messageId, recipients });
+      // Send email using Graph API
+      await this.graphClient
+        .api(`/users/${this.fromEmail}/sendMail`)
+        .post(message);
+
+      logger.info('✅ Email sent successfully via Microsoft Graph', { 
+        recipients: recipients.length,
+        from: this.fromEmail 
+      });
       
-      return { success: true, messageId: info.messageId };
+      return { 
+        success: true, 
+        provider: 'Microsoft Graph API',
+        recipients: recipients.length
+      };
 
     } catch (error) {
-      logger.error('Failed to send email:', error);
+      logger.error('Failed to send email via Microsoft Graph:', error);
+      
+      // Log detailed error if available
+      if (error.statusCode) {
+        logger.error('Graph API error details:', {
+          statusCode: error.statusCode,
+          message: error.message,
+          body: error.body
+        });
+      }
+      
       throw error;
     }
   }
@@ -126,4 +177,3 @@ module.exports = {
   emailService,
   initializeEmail: () => emailService.initialize()
 };
-
