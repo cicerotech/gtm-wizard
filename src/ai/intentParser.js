@@ -397,7 +397,25 @@ Business Context:
       };
     }
     
-    // Send Pipeline Report in Excel (Keigan only)
+    // Send Johnson Hana Pipeline Report (specific filtered report)
+    if ((message.includes('send') || message.includes('generate') || message.includes('create')) &&
+        (message.includes('johnson') || message.includes('hana')) &&
+        (message.includes('pipeline') || message.includes('report')) &&
+        (message.includes('excel') || message.includes('spreadsheet') || message.includes('xlsx'))) {
+      intent = 'send_johnson_hana_excel';
+      
+      return {
+        intent: 'send_johnson_hana_excel',
+        entities: { reportType: 'johnson_hana' },
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'Generate Johnson Hana filtered pipeline Excel report',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
+    // Send Full Pipeline Report in Excel (all active pipeline)
     if ((message.includes('send') || message.includes('generate') || message.includes('create')) &&
         (message.includes('pipeline') || message.includes('report')) &&
         (message.includes('excel') || message.includes('spreadsheet') || message.includes('xlsx'))) {
@@ -405,10 +423,10 @@ Business Context:
       
       return {
         intent: 'send_excel_report',
-        entities: { reportType: 'pipeline' },
+        entities: { reportType: 'full_pipeline' },
         followUp: false,
         confidence: 0.95,
-        explanation: 'Generate and send pipeline Excel report',
+        explanation: 'Generate full active pipeline Excel report',
         originalMessage: userMessage,
         timestamp: Date.now()
       };

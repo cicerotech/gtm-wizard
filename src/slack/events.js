@@ -317,9 +317,13 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle Customer_Brain note saving - pass full event context
       await handleCustomerBrainNote(text, userId, channelId, client, threadTs, conversationContext);
       return; // Exit early
+    } else if (parsedIntent.intent === 'send_johnson_hana_excel') {
+      // Handle Johnson Hana specific Excel report
+      await handleJohnsonHanaExcelReport(userId, channelId, client, threadTs);
+      return; // Exit early
     } else if (parsedIntent.intent === 'send_excel_report') {
-      // Handle Excel report generation and upload to Slack
-      await handleExcelReport(userId, channelId, client, threadTs);
+      // Handle full active pipeline Excel report
+      await handleFullPipelineExcelReport(userId, channelId, client, threadTs);
       return; // Exit early
     } else if (parsedIntent.intent === 'move_to_nurture') {
       // Handle move to nurture (Keigan only)
@@ -1723,9 +1727,9 @@ function formatDate(dateString) {
 }
 
 /**
- * Handle Excel Report Generation (Keigan only)
+ * Handle Johnson Hana Excel Report Generation (Keigan only)
  */
-async function handleExcelReport(userId, channelId, client, threadTs) {
+async function handleJohnsonHanaExcelReport(userId, channelId, client, threadTs) {
   const KEIGAN_USER_ID = 'U094AQE9V7D';
   
   try {
@@ -1742,23 +1746,167 @@ async function handleExcelReport(userId, channelId, client, threadTs) {
     // Show loading message
     await client.chat.postMessage({
       channel: channelId,
-      text: '📊 Generating Excel report... This will take a moment.',
+      text: 'Generating Johnson Hana pipeline report... This will take a moment.',
       thread_ts: threadTs
     });
     
     // Import the report module
     const { sendPipelineReportToSlack } = require('./reportToSlack');
     
-    // Generate and upload Excel
+    // Generate and upload Johnson Hana specific Excel
     await sendPipelineReportToSlack(client, channelId, userId);
     
-    logger.info(`✅ Excel report sent to Slack by ${userId}`);
+    logger.info(`✅ Johnson Hana Excel report sent to Slack by ${userId}`);
     
   } catch (error) {
-    logger.error('Failed to send Excel report:', error);
+    logger.error('Failed to send Johnson Hana Excel report:', error);
     await client.chat.postMessage({
       channel: channelId,
-      text: `❌ Error generating Excel report: ${error.message}\n\nPlease try again or contact support.`,
+      text: `❌ Error generating Johnson Hana report: ${error.message}\n\nPlease try again or contact support.`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle Full Pipeline Excel Report Generation (Keigan only)
+ */
+async function handleFullPipelineExcelReport(userId, channelId, client, threadTs) {
+  const KEIGAN_USER_ID = 'U094AQE9V7D';
+  
+  try {
+    // Security check - Keigan only
+    if (userId !== KEIGAN_USER_ID) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: '🔒 Excel report generation is restricted to Keigan. Contact him for reports.',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    // Show loading message
+    await client.chat.postMessage({
+      channel: channelId,
+      text: 'Generating full active pipeline report... This will take a moment.',
+      thread_ts: threadTs
+    });
+    
+    // Query full active pipeline (Stages 0-4, all products)
+    const fullPipelineQuery = `SELECT Name,
+                                      Product_Line__c,
+                                      StageName,
+                                      Target_LOI_Date__c,
+                                      ACV__c,
+                                      Owner.Name
+                               FROM Opportunity
+                               WHERE IsClosed = false
+                                 AND (StageName = 'Stage 0 - Qualifying'
+                                      OR StageName = 'Stage 1 - Discovery'
+                                      OR StageName = 'Stage 2 - SQO'
+                                      OR StageName = 'Stage 3 - Pilot'
+                                      OR StageName = 'Stage 4 - Proposal')
+                               ORDER BY StageName, Name`;
+    
+    const data = await query(fullPipelineQuery, false);
+    
+    if (!data || !data.records || data.records.length === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: '❌ No active pipeline data found.',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    // Create Excel for full pipeline
+    const ExcelJS = require('exceljs');
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Active Pipeline');
+    
+    // Define columns for full pipeline
+    worksheet.columns = [
+      { header: 'Opportunity Name', key: 'oppName', width: 40 },
+      { header: 'Product Line', key: 'productLine', width: 30 },
+      { header: 'Stage', key: 'stage', width: 20 },
+      { header: 'Target Sign Date', key: 'targetDate', width: 18 },
+      { header: 'ACV', key: 'acv', width: 15 },
+      { header: 'Owner', key: 'owner', width: 20 }
+    ];
+    
+    // Header styling - BLACK background with WHITE bold text
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF000000' }
+    };
+    headerRow.height = 22;
+    
+    // Add data
+    data.records.forEach(record => {
+      worksheet.addRow({
+        oppName: record.Name || '',
+        productLine: record.Product_Line__c || '',
+        stage: record.StageName || '',
+        targetDate: record.Target_LOI_Date__c || '',
+        acv: record.ACV__c || 0,
+        owner: record.Owner?.Name || ''
+      });
+    });
+    
+    // Format currency
+    worksheet.getColumn('acv').numFmt = '$#,##0';
+    
+    // Add borders
+    worksheet.eachRow((row) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+    });
+    
+    const buffer = await workbook.xlsx.writeBuffer();
+    
+    // Upload to Slack
+    const date = new Date().toISOString().split('T')[0];
+    const filename = `Full_Active_Pipeline_${date}.xlsx`;
+    
+    const stage0 = data.records.filter(r => r.StageName === 'Stage 0 - Qualifying').length;
+    const stage1 = data.records.filter(r => r.StageName === 'Stage 1 - Discovery').length;
+    const stage2 = data.records.filter(r => r.StageName === 'Stage 2 - SQO').length;
+    const stage3 = data.records.filter(r => r.StageName === 'Stage 3 - Pilot').length;
+    const stage4 = data.records.filter(r => r.StageName === 'Stage 4 - Proposal').length;
+    
+    let message = `*Full Active Pipeline Report*\n\n`;
+    message += `Total Opportunities: ${data.totalSize}\n\n`;
+    message += `Stage 0 - Qualifying: ${stage0}\n`;
+    message += `Stage 1 - Discovery: ${stage1}\n`;
+    message += `Stage 2 - SQO: ${stage2}\n`;
+    message += `Stage 3 - Pilot: ${stage3}\n`;
+    message += `Stage 4 - Proposal: ${stage4}\n\n`;
+    message += `All active opportunities (Stages 0-4). All product lines included.`;
+    
+    await client.files.uploadV2({
+      channel_id: channelId,
+      file: buffer,
+      filename: filename,
+      title: "Full Active Pipeline Report",
+      initial_comment: message
+    });
+    
+    logger.info(`✅ Full pipeline Excel report sent to Slack by ${userId}`);
+    
+  } catch (error) {
+    logger.error('Failed to send full pipeline Excel report:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Error generating full pipeline report: ${error.message}\n\nPlease try again or contact support.`,
       thread_ts: threadTs
     });
   }
