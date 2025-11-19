@@ -2265,7 +2265,7 @@ async function handleAccountPlanSave(message, userId, channelId, client, threadT
     const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
     const accountUrl = `${sfBaseUrl}/lightning/r/Account/${account.Id}/view`;
     
-    const fieldCount = Object.keys(planData).length;
+    // Reuse fieldCount from validation above
     let confirmMessage = `✅ *Account Plan saved for ${account.Name}*\n\n`;
     confirmMessage += `${fieldCount} sections saved • Last updated: ${dateFormatted} by ${userName}\n\n`;
     confirmMessage += `<${accountUrl}|View in Salesforce>`;
