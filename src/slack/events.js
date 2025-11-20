@@ -2526,6 +2526,7 @@ async function handleCreateAccount(entities, userId, channelId, client, threadTs
     if (companyName.toLowerCase().includes('gtm test') || companyName.toLowerCase().includes('test company')) {
       finalAssignedBL = 'Keigan Pesenti';
       assignment.region = 'West Coast (Test Override)';
+      assignment.sfRegion = 'West';
       assignment.reasoning.hqLocation = 'San Francisco, CA (Test Assumption)';
     }
     
@@ -2564,20 +2565,59 @@ async function handleCreateAccount(entities, userId, channelId, client, threadTs
       }
     }
     
+    // Map State to State__c picklist (can be state codes OR country names)
+    let statePicklistValue = null;
+    if (enrichment.headquarters.country && enrichment.headquarters.country !== 'USA') {
+      // International: Use full country name from picklist
+      const countryMap = {
+        'SWEDEN': 'Sweden',
+        'SWITZERLAND': 'Switzerland',
+        'FRANCE': 'France',
+        'UNITED KINGDOM': 'United Kingdom',
+        'UK': 'United Kingdom',
+        'GERMANY': 'Germany',
+        'NETHERLANDS': 'Netherlands',
+        'SPAIN': 'Spain',
+        'ITALY': 'Italy',
+        'CANADA': 'Canada',
+        'JAPAN': 'Japan',
+        'CHINA': 'China',
+        'INDIA': 'India',
+        'AUSTRALIA': 'Australia',
+        'HONG KONG': 'Hong Kong',
+        'SINGAPORE': 'Singapore',
+        'IRELAND': 'Ireland',
+        'TAIWAN': 'Taiwan',
+        'VIETNAM': 'Vietnam'
+      };
+      statePicklistValue = countryMap[enrichment.headquarters.country.toUpperCase()] || enrichment.headquarters.country;
+    } else if (enrichment.headquarters.state) {
+      // USA: Use state code (CA, NY, etc.)
+      statePicklistValue = enrichment.headquarters.state.toUpperCase();
+    }
+    
     const accountData = {
-      Name: companyName, // Use original name to preserve case
+      Name: enrichment.companyName || companyName, // Use enriched name if available (proper casing)
       OwnerId: null, // Will query below
       Website: enrichment.website,
-      Linked_in_URL__c: enrichment.linkedIn, // EXACT field name from screenshot
+      Linked_in_URL__c: enrichment.linkedIn,
       BillingCity: enrichment.headquarters.city,
       BillingState: enrichment.headquarters.state,
       BillingCountry: enrichment.headquarters.country || 'USA',
-      Region__c: enrichment.headquarters.state || enrichment.headquarters.country,
-      Rev_MN__c: enrichment.revenue ? enrichment.revenue / 1000000 : null, // Revenue in millions (only field needed)
+      State__c: statePicklistValue, // Picklist: state codes OR country names
+      Region__c: assignment.sfRegion, // Picklist: West/Northeast/Midwest/Southwest/Southeast/International
+      Rev_MN__c: enrichment.revenue ? enrichment.revenue / 1000000 : null,
       NumberOfEmployees: enrichment.employeeCount,
-      Industry: enrichment.industry, // Standard field (if exists)
-      Industry_Grouping__c: industryGrouping // Custom picklist field
+      Industry: enrichment.industry,
+      Industry_Grouping__c: industryGrouping
     };
+    
+    // Remove null/undefined values to avoid Salesforce errors
+    Object.keys(accountData).forEach(key => {
+      if (accountData[key] === null || accountData[key] === undefined) {
+        delete accountData[key];
+      }
+    });
     
     // Query to get BL's Salesforce User ID
     const userQuery = `SELECT Id FROM User WHERE Name = '${finalAssignedBL}' AND IsActive = true LIMIT 1`;
@@ -2600,11 +2640,11 @@ async function handleCreateAccount(entities, userId, channelId, client, threadTs
     const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
     const accountUrl = `${sfBaseUrl}/lightning/r/Account/${createResult.id}/view`;
     
-    let confirmMessage = `Account created: ${enrichment.companyName}\n\n`;
+    let confirmMessage = `Account created: ${enrichment.companyName || companyName}\n\n`;
     confirmMessage += `Assigned to: ${finalAssignedBL}\n\n`;
     confirmMessage += `Reasoning:\n`;
     confirmMessage += `• Company HQ: ${assignment.reasoning.hqLocation}\n`;
-    confirmMessage += `• Region: ${assignment.region}\n`;
+    confirmMessage += `• Salesforce Region: ${assignment.sfRegion}\n`;
     
     // Show enriched fields (only if actually populated)
     const enrichedFields = [];

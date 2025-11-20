@@ -32,34 +32,46 @@ const ALL_BUSINESS_LEADS = [
 
 /**
  * Determine region from headquarters location
+ * Maps to Region__c picklist values: West, Northeast, Midwest, Southwest, Southeast, International
  */
 function determineRegion(headquarters) {
-  if (!headquarters) return 'unknown';
+  if (!headquarters) return { blRegion: 'westCoast', sfRegion: 'West' };
   
   const state = headquarters.state?.toUpperCase();
   const country = headquarters.country?.toUpperCase();
   
   // International (non-USA)
   if (country && country !== 'USA' && country !== 'US' && country !== 'UNITED STATES') {
-    return 'international';
+    return { blRegion: 'international', sfRegion: 'International' };
   }
   
-  // USA regions
+  // Map USA states to Salesforce Region__c picklist values
+  const NORTHEAST_STATES = ['ME', 'NH', 'VT', 'MA', 'RI', 'CT', 'NY', 'NJ', 'PA'];
+  const MIDWEST_STATES = ['OH', 'MI', 'IN', 'WI', 'IL', 'MN', 'IA', 'MO', 'ND', 'SD', 'NE', 'KS'];
+  const SOUTHWEST_STATES = ['TX', 'OK', 'NM', 'AZ'];
+  const SOUTHEAST_STATES = ['DE', 'MD', 'VA', 'WV', 'NC', 'SC', 'GA', 'FL', 'KY', 'TN', 'MS', 'AL', 'LA', 'AR'];
+  const WEST_STATES = ['WA', 'OR', 'CA', 'NV', 'ID', 'MT', 'WY', 'CO', 'UT', 'AK', 'HI'];
+  
   if (state) {
-    if (WEST_COAST_STATES.includes(state)) {
-      return 'westCoast';
+    if (WEST_STATES.includes(state)) {
+      return { blRegion: 'westCoast', sfRegion: 'West' };
     }
-    if (EAST_COAST_STATES.includes(state)) {
-      return 'eastCoast';
+    if (NORTHEAST_STATES.includes(state)) {
+      return { blRegion: 'eastCoast', sfRegion: 'Northeast' };
     }
-    if (CENTRAL_STATES.includes(state)) {
-      // Default central to west coast for now (adjust based on business rules)
-      return 'westCoast';
+    if (MIDWEST_STATES.includes(state)) {
+      return { blRegion: 'westCoast', sfRegion: 'Midwest' }; // BL assignment: westCoast
+    }
+    if (SOUTHWEST_STATES.includes(state)) {
+      return { blRegion: 'westCoast', sfRegion: 'Southwest' }; // BL assignment: westCoast
+    }
+    if (SOUTHEAST_STATES.includes(state)) {
+      return { blRegion: 'eastCoast', sfRegion: 'Southeast' }; // BL assignment: eastCoast
     }
   }
   
-  // Default if can't determine
-  return 'westCoast';
+  // Default
+  return { blRegion: 'westCoast', sfRegion: 'West' };
 }
 
 /**
@@ -181,13 +193,13 @@ function selectBusinessLead(workloadMap) {
  */
 async function determineAccountAssignment(headquarters) {
   try {
-    // Determine region
-    const region = determineRegion(headquarters);
-    logger.info(`Region determined: ${region}`, headquarters);
+    // Determine region (returns { blRegion, sfRegion })
+    const regionData = determineRegion(headquarters);
+    logger.info(`Region determined:`, regionData, headquarters);
     
     // Get BLs for region
-    const businessLeads = getBusinessLeadsForRegion(region);
-    logger.info(`Business leads for ${region}:`, businessLeads);
+    const businessLeads = getBusinessLeadsForRegion(regionData.blRegion);
+    logger.info(`Business leads for ${regionData.blRegion}:`, businessLeads);
     
     // Assess current workload
     const workloadMap = await assessWorkload(businessLeads);
@@ -201,10 +213,11 @@ async function determineAccountAssignment(headquarters) {
     
     return {
       assignedTo: selectedBL.name,
-      region,
+      region: regionData.blRegion,
+      sfRegion: regionData.sfRegion, // Salesforce Region__c picklist value
       reasoning: {
         hqLocation: `${headquarters.city || 'Unknown'}, ${headquarters.state || headquarters.country}`,
-        region,
+        region: regionData.blRegion,
         activeOpportunities: selectedBL.activeOpportunities,
         closingThisMonth: selectedBL.closingThisMonth,
         totalScore: selectedBL.totalScore,
