@@ -40,8 +40,8 @@ Critical fields (reviewed weekly on Thursdays):
 - Target Sign Date - When deal expected to sign
 
 Revenue types:
+- Recurring - 12+ month contracts (subscription/recurring revenue)
 - Booking - One-time purchase or LOI signing
-- Revenue - 12+ month contracts (recurring revenue)
 - Project - Short-term projects (e.g., paid pilots)
 
 Product lines:

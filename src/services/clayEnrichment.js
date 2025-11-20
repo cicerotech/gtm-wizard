@@ -18,12 +18,15 @@ class ClayEnrichment {
   async enrichCompanyData(companyName) {
     try {
       if (!this.enabled) {
-        logger.warn('⚠️  Clay API key not configured - using mock enrichment for testing');
-        // For testing: Return mock data for GTM Test Company
-        if (companyName.toLowerCase().includes('gtm test') || companyName.toLowerCase().includes('test company')) {
-          logger.info('Using mock enrichment for test company');
+        logger.warn('⚠️  Clay API key not configured');
+        // ONLY for GTM Test Company - use mock data to enable testing
+        const isTestCompany = companyName.toLowerCase() === 'gtm test company' || 
+                             companyName.toLowerCase() === 'gtm test';
+        
+        if (isTestCompany) {
+          logger.info('Using mock enrichment for GTM Test Company');
           return {
-            companyName: companyName,
+            companyName: companyName, // Preserve original case
             headquarters: {
               city: 'San Francisco',
               state: 'CA',
@@ -37,9 +40,12 @@ class ClayEnrichment {
             industry: 'Technology',
             foundedYear: 2020,
             success: true,
-            source: 'Mock Data (Clay API key not configured)'
+            source: 'Mock Data (for testing)'
           };
         }
+        
+        // For real companies (like IKEA): return empty, will fail gracefully
+        logger.warn(`Clay API key not set - cannot enrich ${companyName}`);
         return this.getEmptyEnrichment(companyName);
       }
 

@@ -2847,7 +2847,7 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
       term: 36, // 36 months always
       stage: '1', // Stage 1 - Discovery default
       targetDate: null, // Will calculate: TODAY + 150 days
-      revenueType: 'Revenue', // Revenue default (12+ month contracts)
+      revenueType: 'Recurring', // CORRECT: Recurring (not "Revenue") - picklist value for 12+ month contracts
       opportunitySource: 'Inbound', // Always Inbound for now
       productLine: 'AI-Augmented Contracting' // Default product (can override)
     };
@@ -2955,7 +2955,7 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
     else defaultFields.push(`Product Line: ${oppData.productLine} (default)`);
     
     if (entities.revenueType) customFields.push(`Revenue Type: ${oppData.revenueType}`);
-    else defaultFields.push(`Revenue Type: ${oppData.revenueType} (default)`);
+    else defaultFields.push(`Revenue Type: ${oppData.revenueType} (default: Recurring = 12+ mo contracts)`);
     
     let confirmMessage = `✅ *Opportunity created for ${account.Name}*\n\n`;
     

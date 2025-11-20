@@ -487,11 +487,14 @@ Business Context:
         entities.productLine = productMatch[1].trim();
       }
       
-      // Revenue Type detection
-      const revenueMatch = message.match(/revenue type:?\s+(booking|revenue|project)/i) ||
-                          message.match(/type:?\s+(booking|revenue|project)/i);
+      // Revenue Type detection (CORRECT picklist values: Recurring, Booking, Project)
+      const revenueMatch = message.match(/revenue type:?\s+(recurring|booking|project)/i) ||
+                          message.match(/type:?\s+(recurring|booking|project)/i) ||
+                          message.match(/\b(recurring|booking|project)\s+opp/i); // Also match "booking opp"
       if (revenueMatch) {
-        entities.revenueType = revenueMatch[1];
+        // Capitalize first letter to match Salesforce picklist
+        const typeValue = revenueMatch[1].charAt(0).toUpperCase() + revenueMatch[1].slice(1).toLowerCase();
+        entities.revenueType = typeValue; // "Recurring", "Booking", or "Project"
       }
       
       // Mark as simple mode if no inline fields detected
