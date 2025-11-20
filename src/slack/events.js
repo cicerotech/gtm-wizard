@@ -652,54 +652,41 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
   }
 
   try {
-    // STRICT extraction: Account name is ONLY what's immediately after "add to customer history:"
-    // Format: "add to customer history: Pegasystems"
-    
-    // Extract account name - ONLY text between colon and first newline
+    // STEP 1: Extract account name - ONLY text immediately after colon, before first newline
     const triggerMatch = message.match(/add to customer history\s*:\s*([^\n]+)/i);
     
-    if (!triggerMatch || !triggerMatch[1]) {
+    if (!triggerMatch) {
       await client.chat.postMessage({
         channel: channelId,
-        text: `Please include account name after colon.\n\n*Format:*\nadd to customer history: Pegasystems\n[Your notes here]`,
+        text: `Format: add to customer history: [Account Name]\n[Your notes]`,
         thread_ts: threadTs
       });
       return;
     }
     
-    // Account name is EXACTLY what was captured
+    // This is the ONLY place we get account name - nowhere else!
     const accountName = triggerMatch[1].trim();
     
-    // Log what we extracted for debugging
-    logger.info(`Customer Brain: Extracted account name: "${accountName}" from message`);
-    
-    if (accountName.length < 2) {
-      await client.chat.postMessage({
-        channel: channelId,
-        text: `Account name too short: "${accountName}"\n\n*Format:*\nadd to customer history: Pegasystems\n[Your notes]`,
-        thread_ts: threadTs
-      });
-      return;
-    }
-    
-    // Get the full note content
-    const noteContent = message
+    // STEP 2: Get full note content (the entire message is the note)
+    const fullNote = message
       .replace(/@gtm-brain/gi, '')
-      .replace(/add to customer history\s*:\s*/gi, '')
       .trim();
-
-    // Query and validate account using existing fuzzy matching
+    
+    // STEP 3: Query Salesforce for THIS account name ONLY
+    const escapeQuotes = (str) => str.replace(/'/g, "\\'");
     const accountQuery = `SELECT Id, Name, Owner.Name, Customer_Brain__c
                           FROM Account
-                          WHERE Name LIKE '%${accountName}%'
+                          WHERE Name LIKE '%${escapeQuotes(accountName)}%'
                           LIMIT 5`;
+    
+    logger.info(`Customer Brain: Looking for account "${accountName}"`);
     
     const accountResult = await query(accountQuery);
     
     if (!accountResult || accountResult.totalSize === 0) {
       await client.chat.postMessage({
         channel: channelId,
-        text: `Account "${accountName}" not found. Please check spelling or try: "contracts for ${accountName}" to see if it exists.`,
+        text: `Account "${accountName}" not found.\n\nCheck spelling: "does ${accountName} exist?"`,
         thread_ts: threadTs
       });
       return;
@@ -709,27 +696,18 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
     const businessLeads = ['Julie Stefanich', 'Himanshu Agarwal', 'Asad Hussain', 'Ananth Cherukupally', 'David Van Ryk', 'John Cobb', 'Jon Cobb', 'Olivia Jung'];
     const blMatch = accountResult.records.find(r => businessLeads.includes(r.Owner?.Name));
     const account = blMatch || accountResult.records[0];
+    
+    logger.info(`Customer Brain: Found account ${account.Name} (searched for: ${accountName})`);
 
-    // Clean the note content
-    const cleanNote = noteContent
-      .replace(/@gtm-brain/gi, '')
-      .replace(/add to customer history:?/gi, '')
-      .replace(/save note:?/gi, '')
-      .replace(/log note:?/gi, '')
-      .trim();
-
-    // Format the note with date and user
+    // STEP 4: Format the note with date and user
     const date = new Date();
     const dateShort = `${date.getMonth() + 1}/${date.getDate()}`;
-    const formattedNote = `${dateShort} - Keigan: ${cleanNote}`;
+    const formattedNote = `${dateShort} - Keigan: ${fullNote}`;
 
-    // Get existing notes
+    // STEP 5: Update Salesforce
     const existingNotes = account.Customer_Brain__c || '';
-
-    // Prepend new note
     const updatedNotes = formattedNote + (existingNotes ? '\n\n' + existingNotes : '');
 
-    // Update Salesforce
     const { sfConnection } = require('../salesforce/connection');
     const conn = sfConnection.getConnection();
     
@@ -738,26 +716,25 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
       Customer_Brain__c: updatedNotes
     });
 
-    // Confirm to user - CONCISE (no text repetition)
+    // STEP 6: Confirm - concise
     const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
     const accountUrl = `${sfBaseUrl}/lightning/r/Account/${account.Id}/view`;
     
-    let confirmMessage = `✅ *Note saved to ${account.Name}*\n\n`;
-    confirmMessage += `${dateShort} - Added to Customer_Brain\n`;
-    confirmMessage += `Owner: ${account.Owner?.Name}\n\n`;
-    confirmMessage += `<${accountUrl}|View in Salesforce>`;
+    const confirmMessage = `Note saved to ${account.Name}\n\n${dateShort} - Added to Customer_Brain\nOwner: ${account.Owner?.Name}\n\n<${accountUrl}|View in Salesforce>`;
 
     await client.chat.postMessage({
       channel: channelId,
       text: confirmMessage,
       thread_ts: threadTs
     });
+    
+    logger.info(`✅ Customer Brain note saved to ${account.Name} (searched for: ${accountName})`);
 
   } catch (error) {
     logger.error('Failed to save Customer_Brain note:', error);
     await client.chat.postMessage({
       channel: channelId,
-      text: `Error saving note: ${error.message}\n\nPlease try again or contact support.`,
+      text: `Error saving note: ${error.message}`,
       thread_ts: threadTs
     });
   }
