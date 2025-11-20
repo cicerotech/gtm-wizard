@@ -2565,7 +2565,7 @@ async function handleCreateAccount(entities, userId, channelId, client, threadTs
     }
     
     const accountData = {
-      Name: enrichment.companyName,
+      Name: companyName, // Use original name to preserve case
       OwnerId: null, // Will query below
       Website: enrichment.website,
       Linked_in_URL__c: enrichment.linkedIn, // EXACT field name from screenshot
@@ -2920,11 +2920,10 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
       Amount: oppData.acv, // Salesforce required field (same as ACV)
       TCV__c: oppData.tcv,
       Product_Line__c: oppData.productLine,
-      Target_LOI_Date__c: targetDateFormatted, // Custom field
-      Target_Sign_Date__c: targetDateFormatted, // Another custom field variant
-      CloseDate: targetDateFormatted, // Salesforce required (same as Target Sign)
+      Target_LOI_Date__c: targetDateFormatted, // CORRECT field name used throughout GTM Brain
+      CloseDate: targetDateFormatted, // Salesforce required (same as Target LOI Date)
       Revenue_Type__c: oppData.revenueType,
-      LeadSource: oppData.opportunitySource, // Opportunity Source → LeadSource in Salesforce
+      LeadSource: oppData.opportunitySource, // Opportunity Source
       IsClosed: false,
       Probability: probability
     };

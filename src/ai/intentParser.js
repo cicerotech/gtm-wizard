@@ -415,35 +415,29 @@ Business Context:
     }
     
     // Opportunity creation (Keigan only)
+    // Match: "create opp for X", "create an opp for X", "create a stage 1 opportunity for X"
     if ((message.includes('create') || message.includes('add')) && 
-        (message.includes(' opp ') || message.includes(' opportunity') || 
-         message.includes('opp for') || message.includes('opportunity for')) &&
+        (message.includes('opp ') || message.includes('opportunity')) &&
+        message.includes(' for ') &&
         !message.includes('account') && !message.includes('assign to bl')) {
       intent = 'create_opportunity';
       
-      // Extract account name - VERY CAREFULLY
-      // Pattern: "create [an] opp for [ACCOUNT NAME]"  
-      // Account name can be multi-word, ends at sentence or before field keywords
-      const oppMatch = message.match(/(?:create|add) (?:an |a |)opp(?:ortunity)? for (.+)/i);
+      // Extract account name - handles "create a stage 1 opportunity for GTM Test Company"
+      // Pattern: Look for "for [ACCOUNT NAME]" - account name is everything after "for"
+      const oppMatch = message.match(/(?:opp|opportunity) for (.+?)(?:\s*\.\s*|$)/i);
       
       if (oppMatch && oppMatch[1]) {
         let extractedName = oppMatch[1].trim();
         
-        // Stop at period followed by space (allows "O'Reilly" but stops at ". stage")
-        extractedName = extractedName.replace(/\.\s+.*/g, '').trim();
-        
-        // Stop before field keywords (but only if preceded by space/punctuation)
-        // This preserves "Testing Account" but stops before " and stage"
+        // Stop before field keywords
         const fieldKeywords = [
-          ' and stage ',
+          ' and stage',
           ' and acv',
           ' and \\$',
           ' and target',
-          ' with stage',
-          ' with acv',
+          ' with ',
           '\\. stage',
-          '\\. acv',
-          '\\. \\$'
+          '\\. acv'
         ];
         
         for (const keyword of fieldKeywords) {
