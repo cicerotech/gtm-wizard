@@ -2573,10 +2573,9 @@ async function handleCreateAccount(entities, userId, channelId, client, threadTs
       BillingState: enrichment.headquarters.state,
       BillingCountry: enrichment.headquarters.country || 'USA',
       Region__c: enrichment.headquarters.state || enrichment.headquarters.country,
-      Rev_MN__c: enrichment.revenue ? enrichment.revenue / 1000000 : null, // Revenue in millions
-      AnnualRevenue: enrichment.revenue, // Standard field
+      Rev_MN__c: enrichment.revenue ? enrichment.revenue / 1000000 : null, // Revenue in millions (only field needed)
       NumberOfEmployees: enrichment.employeeCount,
-      Industry: enrichment.industry, // Standard field
+      Industry: enrichment.industry, // Standard field (if exists)
       Industry_Grouping__c: industryGrouping // Custom picklist field
     };
     
@@ -3081,14 +3080,25 @@ ${meetingNotes}`;
     
     const structuredSummary = response.choices[0].message.content;
     
-    // Find the account and associated opportunity
-    const oppQuery = `SELECT Id, Name, StageName
-                      FROM Opportunity
-                      WHERE AccountId = '${account.Id}' AND IsClosed = false
-                      ORDER BY CreatedDate DESC
-                      LIMIT 1`;
+    // Find the account in Salesforce
+    const escapeQuotes = (str) => str.replace(/'/g, "\\'");
+    const accountQuery = `SELECT Id, Name, Owner.Name, Customer_Brain__c
+                          FROM Account
+                          WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                          LIMIT 1`;
     
-    const oppResult = await query(oppQuery);
+    const accountResult = await query(accountQuery);
+    
+    if (!accountResult || accountResult.totalSize === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `Account "${accountName}" not found.\n\nCreate it first: "create ${accountName} and assign to BL"`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const account = accountResult.records[0];
     
     // Save to Customer_Brain field with formatted summary
     const date = new Date();
