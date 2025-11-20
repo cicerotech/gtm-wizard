@@ -671,41 +671,37 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
     }
 
     // Extract account name from note content
-    // First, clean Slack formatting and get first line
-    const cleanContent = noteContent
-      .replace(/\*/g, '') // Remove all asterisks
-      .replace(/_/g, '')  // Remove underscores
-      .replace(/```[^```]*```/g, '')
+    // SIMPLE: First line after "add to customer history:" is the account name
+    // Format: "add to customer history: Pegasystems\n[rest of notes]"
+    
+    const lines = noteContent.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    
+    if (lines.length === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `Please include account name and notes.\n\n*Format:*\nadd to customer history: Pegasystems\n[Your notes here]`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    // First line is the account name
+    let accountName = lines[0];
+    
+    // Clean up the account name - remove any leading symbols or whitespace
+    accountName = accountName
+      .replace(/^[•\-–—\*\s]+/, '') // Remove leading bullets, dashes, asterisks
+      .replace(/\s*[-–—]\s*.*$/, '') // Remove anything after dash
       .trim();
     
-    // Get first line or first words before dash/hyphen
-    const firstLine = cleanContent.split('\n')[0].trim();
-    
-    // Try to extract account name
-    let accountName = null;
-    
-    // Pattern 1: "Nielsen - Discussion" → extract "Nielsen"
-    if (firstLine.includes(' - ') || firstLine.includes(' – ')) {
-      const parts = firstLine.split(/\s+[-–—]\s+/);
-      if (parts[0] && parts[0].length > 2) {
-        accountName = parts[0].trim();
-      }
-    }
-    
-    // Pattern 2: First line is just the account name (e.g., "Nielsen")
-    if (!accountName && firstLine.length < 50 && firstLine.length > 2) {
-      const words = firstLine.split(/\s+/);
-      if (words.length <= 4) { // Account name usually 1-4 words
-        accountName = firstLine;
-      }
-    }
-    
-    // Pattern 3: "from Nielsen" or "with Best Buy"
-    if (!accountName) {
-      const fromMatch = cleanContent.match(/(?:from|with|at)\s+([A-Z][A-Za-z\s&'-]+?)(?:\s|\.|\n)/);
-      if (fromMatch && fromMatch[1]) {
-        accountName = fromMatch[1].trim();
-      }
+    // If account name looks invalid (too short or starts with lowercase), reject
+    if (accountName.length < 2) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `Could not detect account name from first line: "${lines[0]}"\n\n*Format:*\nadd to customer history: Pegasystems\n[Your notes]`,
+        thread_ts: threadTs
+      });
+      return;
     }
     
     if (!accountName) {
