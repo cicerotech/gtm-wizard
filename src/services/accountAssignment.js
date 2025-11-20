@@ -86,6 +86,8 @@ function getBusinessLeadsForRegion(region) {
  */
 async function assessWorkload(businessLeads) {
   try {
+    logger.info('📊 Assessing workload for BLs:', businessLeads);
+    
     // Build list of BL names for query
     const blNames = businessLeads.map(bl => `'${bl}'`).join(',');
     
@@ -99,19 +101,28 @@ async function assessWorkload(businessLeads) {
       GROUP BY Owner.Name
     `;
     
+    logger.info('🔍 Running active opps query...');
     const activeResult = await query(activeOppsQuery, false);
+    logger.info(`📊 Active opps query result: ${activeResult?.totalSize || 0} records`);
+    if (activeResult?.records) {
+      activeResult.records.forEach(r => {
+        logger.info(`  - ${r.Owner?.Name}: ${r.OpportunityCount} active opps`);
+      });
+    }
     
     // Secondary check: Opportunities closing this month
     const closingQuery = `
       SELECT Owner.Name, COUNT(Id) ClosingThisMonth
       FROM Opportunity
-      WHERE CloseDate = THIS_MONTH
+      WHERE Target_LOI_Date__c = THIS_MONTH
         AND IsClosed = false
         AND Owner.Name IN (${blNames})
       GROUP BY Owner.Name
     `;
     
+    logger.info('🔍 Running closing this month query...');
     const closingResult = await query(closingQuery, false);
+    logger.info(`📊 Closing query result: ${closingResult?.totalSize || 0} records`);
     
     // Build workload map
     const workloadMap = {};
@@ -151,7 +162,10 @@ async function assessWorkload(businessLeads) {
       bl.totalScore = (bl.activeOpportunities * 3) + bl.closingThisMonth;
     });
     
-    logger.info('Workload assessment complete:', workloadMap);
+    logger.info('✅ Workload assessment complete:');
+    Object.values(workloadMap).forEach(bl => {
+      logger.info(`  ${bl.name}: ${bl.activeOpportunities} active, ${bl.closingThisMonth} closing, score: ${bl.totalScore}`);
+    });
     
     return workloadMap;
     
