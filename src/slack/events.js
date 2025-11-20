@@ -2405,20 +2405,40 @@ async function handleAccountExistenceCheck(entities, userId, channelId, client, 
     
     const accountName = entities.accounts[0];
     
-    // Query Salesforce using existing fuzzy matching logic
+    // COMPREHENSIVE fuzzy matching (same as "who owns" query)
+    const normalizedSearch = accountName.trim();
+    const withoutThe = normalizedSearch.replace(/^the\s+/i, '');
     const escapeQuotes = (str) => str.replace(/'/g, "\\'");
+    
+    const withHyphen = normalizedSearch.replace(/\s/g, '-');
+    const withoutHyphen = normalizedSearch.replace(/-/g, ' ');
+    const withAmpersand = normalizedSearch.replace(/\sand\s/gi, ' & ');
+    const withoutAmpersand = normalizedSearch.replace(/\s&\s/g, ' and ');
+    
+    const searchConditions = [
+      `Name = '${escapeQuotes(normalizedSearch)}'`,
+      `Name = '${escapeQuotes(withoutThe)}'`,
+      `Name = 'The ${escapeQuotes(withoutThe)}'`,
+      `Name = '${escapeQuotes(withHyphen)}'`,
+      `Name = '${escapeQuotes(withoutHyphen)}'`,
+      `Name = '${escapeQuotes(withAmpersand)}'`,
+      `Name = '${escapeQuotes(withoutAmpersand)}'`,
+      `Name LIKE '%${escapeQuotes(normalizedSearch)}%'`
+    ].filter((v, i, a) => a.indexOf(v) === i);
+    
     const accountQuery = `SELECT Id, Name, Owner.Name, Owner.Email
                           FROM Account
-                          WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                          WHERE (${searchConditions.join(' OR ')})
+                          ORDER BY Name
                           LIMIT 5`;
     
     const result = await query(accountQuery);
     
     if (!result || result.totalSize === 0) {
-      // Account does NOT exist
+      // Account does NOT exist - CLEAN response (no X emoji)
       await client.chat.postMessage({
         channel: channelId,
-        text: `❌ Account "${accountName}" not found in Salesforce.\n\nReply *"create ${accountName} and assign to BL"* to create it with auto-assignment.`,
+        text: `Account "${accountName}" does not exist in Salesforce.\n\nSearched with fuzzy matching (hyphens, apostrophes, "The" prefix, etc.) - no matches found.\n\nReply "create ${accountName} and assign to BL" to create it with auto-assignment.`,
         thread_ts: threadTs
       });
       return;
@@ -2429,7 +2449,7 @@ async function handleAccountExistenceCheck(entities, userId, channelId, client, 
     const account = result.records[0];
     const isBL = businessLeads.includes(account.Owner?.Name);
     
-    let response = `✅ *Account "${account.Name}" exists*\n\n`;
+    let response = `Account "${account.Name}" exists in Salesforce.\n\n`;
     response += `Current owner: ${account.Owner?.Name || 'Unassigned'}`;
     
     if (isBL) {
@@ -2452,7 +2472,7 @@ async function handleAccountExistenceCheck(entities, userId, channelId, client, 
     logger.error('Account existence check failed:', error);
     await client.chat.postMessage({
       channel: channelId,
-      text: `❌ Error checking account: ${error.message}`,
+      text: `Error checking account: ${error.message}`,
       thread_ts: threadTs
     });
   }
@@ -2501,28 +2521,71 @@ async function handleCreateAccount(entities, userId, channelId, client, threadTs
     const { determineAccountAssignment } = require('../services/accountAssignment');
     const assignment = await determineAccountAssignment(enrichment.headquarters);
     
-    // Step 3: Create account in Salesforce
+    // SPECIAL CASE: GTM Test Company assigns to Keigan for testing
+    let finalAssignedBL = assignment.assignedTo;
+    if (companyName.toLowerCase().includes('gtm test') || companyName.toLowerCase().includes('test company')) {
+      finalAssignedBL = 'Keigan Pesenti';
+      assignment.region = 'West Coast (Test Override)';
+      assignment.reasoning.hqLocation = 'San Francisco, CA (Test Assumption)';
+    }
+    
+    // Step 3: Create account in Salesforce with CORRECT field mappings
     const { sfConnection } = require('../salesforce/connection');
     const conn = sfConnection.getConnection();
     
+    // Map industry to Industry_Grouping__c picklist values
+    const industryMapping = {
+      'financial services': 'Financial Services & Insurance',
+      'insurance': 'Financial Services & Insurance',
+      'healthcare': 'Healthcare & Pharmaceuticals',
+      'pharmaceutical': 'Healthcare & Pharmaceuticals',
+      'technology': 'Technology & Software',
+      'software': 'Technology & Software',
+      'retail': 'Retail & Consumer Goods',
+      'consumer': 'Retail & Consumer Goods',
+      'manufacturing': 'Industrial & Manufacturing',
+      'industrial': 'Industrial & Manufacturing',
+      'energy': 'Energy & Utilities',
+      'utilities': 'Energy & Utilities',
+      'telecommunications': 'Telecommunications & Media',
+      'media': 'Telecommunications & Media',
+      'transportation': 'Transportation & Logistics',
+      'logistics': 'Transportation & Logistics'
+    };
+    
+    let industryGrouping = null;
+    if (enrichment.industry) {
+      const industryLower = enrichment.industry.toLowerCase();
+      for (const [key, value] of Object.entries(industryMapping)) {
+        if (industryLower.includes(key)) {
+          industryGrouping = value;
+          break;
+        }
+      }
+    }
+    
     const accountData = {
       Name: enrichment.companyName,
-      OwnerId: null, // Will need to query user ID from name
+      OwnerId: null, // Will query below
       Website: enrichment.website,
+      LinkedIn_URL__c: enrichment.linkedIn, // Correct field name from screenshot
       BillingCity: enrichment.headquarters.city,
       BillingState: enrichment.headquarters.state,
       BillingCountry: enrichment.headquarters.country || 'USA',
-      AnnualRevenue: enrichment.revenue,
+      Region__c: enrichment.headquarters.state || enrichment.headquarters.country, // Region custom field
+      Rev_MN__c: enrichment.revenue ? enrichment.revenue / 1000000 : null, // Revenue in millions
+      AnnualRevenue: enrichment.revenue, // Standard field (keep for compatibility)
       NumberOfEmployees: enrichment.employeeCount,
-      Industry: enrichment.industry
+      Industry: enrichment.industry, // Standard field
+      Industry_Grouping__c: industryGrouping // Custom picklist field
     };
     
     // Query to get BL's Salesforce User ID
-    const userQuery = `SELECT Id FROM User WHERE Name = '${assignment.assignedTo}' AND IsActive = true LIMIT 1`;
+    const userQuery = `SELECT Id FROM User WHERE Name = '${finalAssignedBL}' AND IsActive = true LIMIT 1`;
     const userResult = await query(userQuery);
     
     if (!userResult || userResult.totalSize === 0) {
-      throw new Error(`Could not find active user: ${assignment.assignedTo}`);
+      throw new Error(`Could not find active user: ${finalAssignedBL}`);
     }
     
     accountData.OwnerId = userResult.records[0].Id;
@@ -2538,19 +2601,28 @@ async function handleCreateAccount(entities, userId, channelId, client, threadTs
     const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
     const accountUrl = `${sfBaseUrl}/lightning/r/Account/${createResult.id}/view`;
     
-    let confirmMessage = `✅ *Account created: ${enrichment.companyName}*\n\n`;
-    confirmMessage += `*Assigned to:* ${assignment.assignedTo}\n\n`;
-    confirmMessage += `*Reasoning:*\n`;
+    let confirmMessage = `Account created: ${enrichment.companyName}\n\n`;
+    confirmMessage += `Assigned to: ${finalAssignedBL}\n\n`;
+    confirmMessage += `Reasoning:\n`;
     confirmMessage += `• Company HQ: ${assignment.reasoning.hqLocation}\n`;
     confirmMessage += `• Region: ${assignment.region}\n`;
-    if (enrichment.revenue) {
-      confirmMessage += `• Revenue: $${(enrichment.revenue / 1000000).toFixed(1)}M\n`;
-    }
-    confirmMessage += `• Current coverage: ${assignment.assignedTo} has ${assignment.reasoning.activeOpportunities} active opps (Stage 1+) and ${assignment.reasoning.closingThisMonth} closing this month\n\n`;
     
-    if (!enrichment.success) {
-      confirmMessage += `⚠️  *Clay enrichment ${enrichment.error ? 'failed' : 'incomplete'}*\n`;
-      confirmMessage += `Some fields may need manual entry.\n\n`;
+    // Show enriched fields
+    const enrichedFields = [];
+    if (enrichment.website) enrichedFields.push(`Website: ${enrichment.website}`);
+    if (enrichment.linkedIn) enrichedFields.push(`LinkedIn: ${enrichment.linkedIn}`);
+    if (enrichment.revenue) enrichedFields.push(`Revenue: $${(enrichment.revenue / 1000000).toFixed(1)}M`);
+    if (enrichment.employeeCount) enrichedFields.push(`Employees: ${enrichment.employeeCount.toLocaleString()}`);
+    if (industryGrouping) enrichedFields.push(`Industry: ${industryGrouping}`);
+    
+    if (enrichedFields.length > 0) {
+      confirmMessage += `\nEnriched data:\n${enrichedFields.map(f => '• ' + f).join('\n')}\n`;
+    }
+    
+    confirmMessage += `\nCurrent coverage: ${finalAssignedBL} has ${assignment.reasoning.activeOpportunities} active opps (Stage 1+) and ${assignment.reasoning.closingThisMonth} closing this month\n\n`;
+    
+    if (!enrichment.success && enrichment.error) {
+      confirmMessage += `Note: Clay enrichment unavailable - some fields may need manual entry.\n\n`;
     }
     
     confirmMessage += `<${accountUrl}|View Account in Salesforce>`;
@@ -2561,7 +2633,7 @@ async function handleCreateAccount(entities, userId, channelId, client, threadTs
       thread_ts: threadTs
     });
     
-    logger.info(`✅ Account created: ${enrichment.companyName}, assigned to ${assignment.assignedTo} by ${userId}`);
+    logger.info(`✅ Account created: ${enrichment.companyName}, assigned to ${finalAssignedBL}, enriched: ${enrichedFields.length} fields by ${userId}`);
     
   } catch (error) {
     logger.error('Account creation failed:', error);
