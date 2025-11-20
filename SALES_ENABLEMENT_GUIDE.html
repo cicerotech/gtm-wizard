@@ -1,168 +1,105 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Sales Quick Reference - GTM-Wizard</title>
+<html><head><meta charset="UTF-8"><title>Sales Quick Reference</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.7; color: #000; background: #fff; padding: 40px; max-width: 850px; margin: 0 auto; }
-h1 { color: #000; font-size: 1.8em; margin: 20px 0 15px 0; border-bottom: 2px solid #000; padding-bottom: 10px; }
-h2 { color: #000; font-size: 1.3em; margin: 30px 0 12px 0; font-weight: 600; }
-p { color: #000; margin: 10px 0; line-height: 1.6; }
-ul { margin: 10px 0 15px 20px; }
-li { color: #000; margin: 5px 0; line-height: 1.5; }
-code { background: #f0f0f0; padding: 2px 5px; border-radius: 3px; font-family: monospace; color: #000; font-size: 0.9em; }
-hr { border: none; border-top: 1px solid #ccc; margin: 25px 0; }
-@media print { body { padding: 20px; font-size: 10.5pt; } h1 { font-size: 14pt; page-break-after: avoid; } h2 { font-size: 12pt; page-break-after: avoid; } }
+body { font-family: -apple-system, sans-serif; line-height: 1.5; color: #000; background: #fff; padding: 30px; max-width: 900px; margin: 0 auto; }
+h1 { color: #000; font-size: 1.6em; margin: 15px 0 10px 0; border-bottom: 2px solid #000; padding-bottom: 8px; }
+h2 { color: #000; font-size: 1.2em; margin: 20px 0 8px 0; font-weight: 600; }
+p { color: #000; margin: 6px 0; line-height: 1.5; }
+ul { margin: 8px 0 12px 20px; }
+li { color: #000; margin: 3px 0; line-height: 1.4; }
+code { background: #f0f0f0; padding: 2px 5px; border-radius: 2px; font-family: monospace; color: #000; font-size: 0.9em; }
+hr { border: none; border-top: 1px solid #ccc; margin: 18px 0; }
+strong { font-weight: 600; }
+@media print { body { padding: 15px; font-size: 10pt; } h1 { font-size: 13pt; } h2 { font-size: 11pt; page-break-after: avoid; } }
 </style></head><body>
 <h1>Salesforce Quick Reference for Sales Team</h1>
-<p>Last updated: November 19, 2025 | Version: 2.0</p>
-<p>---</p>
-<h2>Account basics</h2>
-<p>An account is a company you're selling to. Each account has one owner (Business Lead) responsible for the relationship.</p>
-<p>Key fields to know:
-<ul><li>Customer Type - Current relationship status (LOI, Pilot, Revenue customer)</li>
-<li>Account Owner - Contact them before engaging with their account</li>
-<li>Headquarters Location - Auto-populated, used for assignment</li>
-</ul>
-Customer types:
-<ul><li>LOI, no $ attached - Signed LOI, no financial commitment</li>
+<p>Last updated: November 20, 2025 | Version: 2.1</p>
+<hr>
+<h2>Key account fields (in priority order)</h2>
+<p><strong>Account Owner</strong> - Business Lead responsible for relationship. Contact before engaging.</p>
+<p><strong>HQ State/Region</strong> - Auto-populated from company data, used for territory assignment.</p>
+<p><strong>Customer Type</strong> - Current relationship status:</p>
+<ul style="margin: 8px 0 12px 20px;"><li>LOI, no $ attached - Signed LOI, no financial commitment</li>
 <li>LOI, with $ attached - Signed LOI with committed amount</li>
 <li>Pilot - Running pilot, not yet customer</li>
 <li>Revenue - Active customer with 12+ month contract</li>
 </ul>
-Account assignment:
-<ul><li>West Coast states → Himanshu, Julie, or Justin</li>
-<li>East Coast states → Olivia</li>
-<li>International → Johnson or Hannah</li>
-<li>Auto-assigned based on lowest current workload</li>
-</ul>
-Don't create accounts yourself - use GTM-Wizard to auto-assign correctly.</p>
-<p>---</p>
+<p><strong>Account Origin</strong> - How account was sourced</p>
+<p><strong>Industry Grouping</strong> - Company industry category</p>
+<p><strong>Account Plan</strong> - Strategic account plan (use cases, champions, value prop)</p>
+<p><strong>Customer Brain</strong> - Meeting summaries and historical notes</p>
+<hr>
+<h2>Account assignment</h2>
+<p>West Coast → Himanshu, Julie  
+East Coast → Olivia  
+International → Johnson Hana BL</p>
+<p>Auto-assigned based on lowest current workload + geography.</p>
+<p>New accounts created by Keigan Pesenti + GTM-Wizard with automatic assignment based on HQ location and current BL coverage.</p>
+<hr>
 <h2>Opportunity basics</h2>
-<p>An opportunity is a specific deal or sales cycle. One account can have multiple opportunities.</p>
-<p>Critical fields (reviewed weekly on Thursdays):
-<ul><li>ACV - Annual contract value</li>
-<li>Stage - Current sales stage (0-4, Won, Lost)</li>
-<li>Product Line - Which product(s) they're buying</li>
+<p>An opportunity is a specific deal. Key points:</p>
+**Initial engagement:** Account starts with single opportunity
+**Stage 2 transition:** Use cases must be identified. Ideally broken into separate opportunities for each use case, but varies by account complexity. May happen at different points.
+**Stage 4 requirement:** Single use case must be tagged to opportunity. Can create new Stage 2 opportunities for additional use cases as needed.
+**Critical fields** (reviewed weekly on Thursdays):
+<ul style="margin: 8px 0 12px 20px;"><li>ACV - Annual contract value</li>
+<li>Stage - Current sales stage (0-4)</li>
+<li>Product Line - Which product being sold</li>
 <li>Target Sign Date - When deal expected to sign</li>
 </ul>
-Revenue types:
-<ul><li>Booking - One-time purchase or LOI signing</li>
-<li>Revenue - 12+ month contracts (recurring revenue)</li>
-<li>Project - Short-term projects (e.g., paid pilots)</li>
+**Revenue types:**
+<ul style="margin: 8px 0 12px 20px;"><li>Recurring - 12+ month contracts (most common)</li>
+<li>Booking - LOI signings, one-time purchases</li>
+<li>Project - Paid pilots, short-term (< 12 months)</li>
 </ul>
-Product lines:
-<ul><li>AI-Augmented Contracting - Contract review and automation</li>
-<li>Augmented-M&A - M&A due diligence</li>
-<li>Compliance - Compliance monitoring</li>
-<li>sigma - Analytics platform</li>
-<li>Cortex - [Product name]</li>
-<li>Multiple - Buying multiple products</li>
+**Product lines:**
+<ul style="margin: 8px 0 12px 20px;"><li>AI-Augmented Contracting</li>
+<li>Augmented-M&A</li>
+<li>Compliance</li>
+<li>sigma</li>
+<li>Cortex</li>
+<li>Multiple (buying multiple products)</li>
 </ul>
----</p>
-<h2>Stage definitions</h2>
-<p>Stage 0 - Qualifying
-<ul><li>Trying to schedule initial meeting</li>
-<li>EA/BDR schedules on behalf of BL</li>
-</ul>
-Stage 1 - Discovery
-<ul><li>Meeting set, discovering needs</li>
-<li>Document use cases and pain points</li>
-</ul>
-Stage 2 - SQO
-<ul><li>Opportunity qualified, path to close defined</li>
-<li>Account Plan must be created and shared</li>
-<li>Prepare proposal</li>
-</ul>
-Stage 3 - Pilot
-<ul><li>Running pilot program</li>
-<li>Drive success, gather metrics</li>
-</ul>
-Stage 4 - Proposal
-<ul><li>Contract negotiation</li>
-<li>Legal review, close the deal</li>
-</ul>
-Closed Won
-<ul><li>Contract signed, customer onboarded</li>
-</ul>
-Closed Lost
-<ul><li>Deal lost, document reason</li>
-</ul>
----</p>
-<h2>When to move stages</h2>
-<p>0 → 1: Meeting successfully scheduled</p>
-<p>1 → 2: Meeting completed, opportunity qualified, Account Plan created</p>
-<p>2 → 3: Proposal accepted, pilot SOW signed</p>
-<p>3 → 4: Pilot successful, ready for commercial discussion</p>
-<p>4 → Won: Contract signed, payment agreed</p>
-<p>---</p>
+<hr>
+<h2>Stage progression</h2>
+<p>0 - Qualifying: Scheduling initial meeting (EA/BDR handles)  
+1 - Discovery: Meeting set, discovering needs  
+2 - SQO: Qualified, Account Plan created, use cases identified  
+3 - Pilot: Running pilot program  
+4 - Proposal: Single use case tagged, contract negotiation  
+Won: Contract signed  
+Lost: Deal lost (document reason)</p>
+<p>Movement: 0→1 Meeting scheduled | 1→2 Qualified + Account Plan created | 2→3 Pilot SOW signed | 3→4 Pilot successful | 4→Won Contract signed</p>
+<hr>
 <h2>Data hygiene</h2>
-<p>Before moving to Stage 2:
-<ul><li>ACV populated (best estimate)</li>
-<li>Target Sign Date set</li>
-<li>Product Line selected</li>
-<li>Revenue Type set</li>
-<li>Account Plan created and shared</li>
-</ul>
-Update every Thursday:
-<ul><li>ACV (if changed)</li>
-<li>Target Sign Date (if timeline shifted)</li>
-<li>Stage (if progressed)</li>
-<li>Product Line (if expanded)</li>
-</ul>
-Never:
-<ul><li>Create opportunities without accounts</li>
-<li>Skip stages</li>
-<li>Leave ACV at $0 past Stage 1</li>
-<li>Move to Stage 2 without Account Plan</li>
-<li>Forget loss reasons when closing lost</li>
-</ul>
----</p>
-<h2>GTM-Wizard quick commands</h2>
-<p>Account checks:
-<ul><li><code>does [Company] exist?</code> - Check if account exists</li>
-<li><code>who owns [Company]?</code> - Find account owner</li>
-</ul>
-Account management:
-<ul><li><code>create [Company] and assign to BL</code> - Auto-create with assignment</li>
-<li><code>assign [Company] to [BL Name]</code> - Manual reassignment</li>
-</ul>
-Opportunity management:
-<ul><li><code>create an opp for [Company]</code> - Create with defaults</li>
-<li><code>create an opp for [Company]. stage 4 and $500k acv</code> - Custom values</li>
-</ul>
-Meeting notes:
-<ul><li><code>post-call summary Company: [Name] [your notes]</code> - AI structures automatically</li>
-<li><code>add account plan for [Company]:</code> - Save strategic plan</li>
-</ul>
-Pipeline queries:
-<ul><li><code>late stage contracting</code> - See Stage 4 contracting accounts</li>
-<li><code>show me the pipeline</code> - All active opportunities</li>
-<li><code>what deals closed this week?</code> - Recent wins</li>
-</ul>
-Reports:
-<ul><li><code>send pipeline excel report</code> - Generate current pipeline</li>
-</ul>
----</p>
-<h2>Who to ask</h2>
-<p>Salesforce access → IT  
-Forecasting → RevOps  
-Deal structure → Sales Leadership  
-Contract terms → Legal  
-GTM-Wizard help → #gtm-wizard-help</p>
-<p>---</p>
-<h2>Field naming</h2>
-<p>Accounts: Use company legal name  
-Example: "Intel Corporation" not "Intel (West)"</p>
-<p>Opportunities: Auto-generated  
-Format: [Account] - [Product Line]  
-Example: "Intel - AI-Augmented Contracting"</p>
-<p>---</p>
+<p>Before Stage 2: ACV set, Target Sign Date set, Product Line selected, Revenue Type set, Account Plan created</p>
+<p>Update every Thursday: ACV, Target Sign Date, Stage, Product Line</p>
+<p>Never: Create opps without accounts, skip stages, leave ACV at $0 past Stage 1, move to Stage 2 without Account Plan</p>
+<hr>
+<h2>GTM-Wizard commands</h2>
+**Accounts:**
+<code>does [Company] exist?</code> - Check existence  
+<code>who owns [Company]?</code> - Find owner  
+<code>create [Company] and assign to BL</code> - Auto-create with assignment  
+<code>add account plan for [Company]:</code> - Save strategic plan  
+<code>add to customer history: [Company]</code> - Save meeting notes
+**Opportunities:**
+<code>create an opp for [Company]</code> - Create with defaults  
+<code>create an opp for [Company]. stage 4 and $500k acv</code> - Custom values  
+<code>post-call summary Company: [Name] [notes]</code> - AI-structure meeting notes
+**Pipeline:**
+<code>late stage contracting</code> - Stage 4 contracting accounts  
+<code>show me the pipeline</code> - All active opportunities  
+<code>send pipeline excel report</code> - Generate report
+<hr>
 <h2>Common mistakes</h2>
-<p>Creating duplicate accounts → Use "does [Company] exist?" first  
+<p>Duplicate accounts → Use "does [Company] exist?" first  
 Skipping stages → Progress sequentially  
-No ACV → Enter best estimate, update as you learn  
-Wrong revenue type → Booking = LOI, Revenue = 12+ mo, Project = pilots  
-No Account Plan at Stage 2 → Required before moving to SQO</p>
-<p>---</p>
-<p>End of guide. Questions? Ask in #gtm-wizard-help
+No Account Plan at Stage 2 → Required before advancing  
+Wrong revenue type → Recurring = 12+ mo, Booking = LOI, Project = pilots  
+Multiple use cases in one opp → Consider splitting at Stage 2</p>
+<hr>
+<p>Questions? #gtm-wizard-help
 </p>
 </body></html>
