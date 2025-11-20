@@ -1,260 +1,185 @@
-# Salesforce Quick Reference Guide for Sales Team
+# Salesforce Quick Reference for Sales Team
 
-Last Updated: November 19, 2025 | Version: 1.0  
-Audience: Sales Professionals | Purpose: Essential Salesforce knowledge for day-to-day operations
+Last updated: November 19, 2025 | Version: 2.0
 
 ---
 
-## Account Management
+## Account basics
 
-### What is an Account?
-An **Account** is a company or organization you're selling to. Each account has one owner (Business Lead) responsible for the relationship.
+An account is a company you're selling to. Each account has one owner (Business Lead) responsible for the relationship.
 
-### Critical account fields
+Key fields to know:
+- Customer Type - Current relationship status (LOI, Pilot, Revenue customer)
+- Account Owner - Contact them before engaging with their account
+- Headquarters Location - Auto-populated, used for assignment
 
-| Field | What it means | Your action |
-|-------|---------------|-------------|
-| Customer Type | Current relationship status | Set based on deal stage |
-| Account Owner | Who owns this relationship | Contact them before engaging |
-| Headquarters Location | Where company is based | Auto-populated, used for assignment |
-| Annual Revenue | Company size indicator | Helps prioritize accounts |
+Customer types:
+- LOI, no $ attached - Signed LOI, no financial commitment
+- LOI, with $ attached - Signed LOI with committed amount
+- Pilot - Running pilot, not yet customer
+- Revenue - Active customer with 12+ month contract
 
-### Customer type classifications
-
-- LOI, no $ attached - Signed LOI, no financial commitment yet
-- LOI, with $ attached - Signed LOI with committed dollar amount
-- Pilot - Running pilot program, not yet customer
-- Revenue - Active customer with 12+ month contract (recurring revenue)
-
-### Account assignment rules
-
-Geographic-based:
+Account assignment:
 - West Coast states → Himanshu, Julie, or Justin
 - East Coast states → Olivia
 - International → Johnson or Hannah
 - Auto-assigned based on lowest current workload
 
-Key rule: Don't create accounts yourself—use GTM-Wizard to auto-assign correctly
+Don't create accounts yourself - use GTM-Wizard to auto-assign correctly.
 
 ---
 
-## Opportunity Management
+## Opportunity basics
 
-### What is an Opportunity?
-An **Opportunity** is a specific deal or sales cycle. One account can have multiple opportunities.
+An opportunity is a specific deal or sales cycle. One account can have multiple opportunities.
 
-### Stage definitions (in order)
+Critical fields (reviewed weekly on Thursdays):
+- ACV - Annual contract value
+- Stage - Current sales stage (0-4, Won, Lost)
+- Product Line - Which product(s) they're buying
+- Target Sign Date - When deal expected to sign
 
-| Stage | What it means | Your action |
-|-------|---------------|-------------|
-| Stage 0 - Qualifying | Trying to schedule initial meeting | EA/BDR schedules meeting on behalf of BL |
-| Stage 1 - Discovery | Meeting set, discovering needs and pain points | Conduct discovery, document use cases |
-| Stage 2 - SQO | Qualified opportunity, path to close defined | Create Account Plan, prepare proposal |
-| Stage 3 - Pilot | Running pilot program | Drive pilot success, gather metrics |
-| Stage 4 - Proposal | Contract negotiation, final stages | Close the deal, legal review |
-| Closed Won | Deal signed, customer onboarded | Handoff to CS, celebrate! |
-| Closed Lost | Deal lost to competitor or no decision | Document loss reason, learn |
-
-### Critical opportunity fields (reviewed/updated weekly on Thursdays)
-
-| Field | Purpose |
-|-------|---------|
-| ACV | Annual contract value in dollars |
-| Stage | Current sales stage (0-4, Won, Lost) |
-| Product Line | Which product(s) they're buying |
-| Target Sign Date | When deal expected to sign |
-
-### Revenue type explained
-
+Revenue types:
 - Booking - One-time purchase or LOI signing
 - Revenue - 12+ month contracts (recurring revenue)
-- Project - Short-term project (e.g., paid pilot)
+- Project - Short-term projects (e.g., paid pilots)
 
-### Product Lines
-
-- **AI-Augmented Contracting** - Contract review and automation
-- **Augmented-M&A** - M&A due diligence and deal support
-- **Compliance** - Compliance monitoring and reporting
-- **sigma** - Analytics and insights platform
-- **Cortex** - [Product description]
-- **Multiple** - Buying multiple products
+Product lines:
+- AI-Augmented Contracting - Contract review and automation
+- Augmented-M&A - M&A due diligence
+- Compliance - Compliance monitoring
+- sigma - Analytics platform
+- Cortex - [Product name]
+- Multiple - Buying multiple products
 
 ---
 
-## Stage Movement Best Practices
+## Stage definitions
 
-### When to move stages
+Stage 0 - Qualifying
+- Trying to schedule initial meeting
+- EA/BDR schedules on behalf of BL
 
-0 → 1 (Qualifying → Discovery):
-- Meeting successfully scheduled
-- Initial contact made
+Stage 1 - Discovery
+- Meeting set, discovering needs
+- Document use cases and pain points
 
-1 → 2 (Discovery → SQO):
-- Meeting completed, opportunity qualified
-- Account Plan created and shared
-- Clear use cases documented
-- Decision process understood
+Stage 2 - SQO
+- Opportunity qualified, path to close defined
+- Account Plan must be created and shared
+- Prepare proposal
 
-2 → 3 (SQO → Pilot):
-- Proposal accepted
-- Pilot SOW signed
-- Pilot timeline confirmed
+Stage 3 - Pilot
+- Running pilot program
+- Drive success, gather metrics
 
-3 → 4 (Pilot → Proposal):
-- Pilot successful (documented)
-- Ready for commercial discussion
-- Legal review initiated
+Stage 4 - Proposal
+- Contract negotiation
+- Legal review, close the deal
 
-4 → Closed Won:
-- Contract signed
-- Payment terms agreed
-- Implementation scheduled
+Closed Won
+- Contract signed, customer onboarded
 
-### Data hygiene rules
+Closed Lost
+- Deal lost, document reason
 
-Required before moving to Stage 2:
-- ACV field populated (best estimate)
+---
+
+## When to move stages
+
+0 → 1: Meeting successfully scheduled
+
+1 → 2: Meeting completed, opportunity qualified, Account Plan created
+
+2 → 3: Proposal accepted, pilot SOW signed
+
+3 → 4: Pilot successful, ready for commercial discussion
+
+4 → Won: Contract signed, payment agreed
+
+---
+
+## Data hygiene
+
+Before moving to Stage 2:
+- ACV populated (best estimate)
 - Target Sign Date set
 - Product Line selected
 - Revenue Type set
 - Account Plan created and shared
 
-Update weekly on Thursdays:
-- ACV
-- Target Sign Date
-- Stage (if progress made)
-- Product Line
+Update every Thursday:
+- ACV (if changed)
+- Target Sign Date (if timeline shifted)
+- Stage (if progressed)
+- Product Line (if expanded)
 
 Never:
 - Create opportunities without accounts
-- Skip stages (must progress sequentially)
-- Leave Amount at $0 past Stage 1
+- Skip stages
+- Leave ACV at $0 past Stage 1
 - Move to Stage 2 without Account Plan
-- Forget to document loss reasons (Closed Lost)
+- Forget loss reasons when closing lost
 
 ---
 
-## Quick Reference
-
-### Common GTM-Wizard commands
+## GTM-Wizard quick commands
 
 Account checks:
 - `does [Company] exist?` - Check if account exists
 - `who owns [Company]?` - Find account owner
-- `who's the BL for [Company]?` - Business lead lookup
 
-**Account Management:**
-- `create [Company] and assign to BL` - Create with auto-assignment
-- `assign [Company] to [BL Name]` - Manual assignment
-- `move [Company] to nurture` - Mark as nurture
+Account management:
+- `create [Company] and assign to BL` - Auto-create with assignment
+- `assign [Company] to [BL Name]` - Manual reassignment
 
-**Pipeline Queries:**
+Opportunity management:
+- `create an opp for [Company]` - Create with defaults
+- `create an opp for [Company]. stage 4 and $500k acv` - Custom values
+
+Meeting notes:
+- `post-call summary Company: [Name] [your notes]` - AI structures automatically
+- `add account plan for [Company]:` - Save strategic plan
+
+Pipeline queries:
 - `late stage contracting` - See Stage 4 contracting accounts
-- `mid stage deals` - See Stage 2-3 opportunities
 - `show me the pipeline` - All active opportunities
 - `what deals closed this week?` - Recent wins
 
-**Data Queries:**
-- `what's the account plan for [Company]?` - View strategy
-- `contracts for [Company]` - Find contracts and PDFs
-- `what LOIs signed last week?` - Recent bookings
-
-**Reporting:**
-- `send pipeline excel report` - Generate current pipeline Excel
-
-### Who to Ask for Help
-
-| Question Type | Contact |
-|---------------|---------|
-| Salesforce access/permissions | IT / Admin |
-| Forecasting questions | RevOps |
-| Deal structure/pricing | Sales Leadership |
-| Contract terms | Legal |
-| Product questions | Product Team |
-| Technical requirements | Solutions Engineering |
-| GTM-Wizard help | Keigan or #gtm-wizard-help |
-
-### Data Hygiene Checklist
-
-**Daily:**
-- [ ] Update Next Steps on active deals
-- [ ] Log activities in Salesforce
-- [ ] Respond to Slack notifications
-
-**Weekly:**
-- [ ] Review Close Dates for accuracy
-- [ ] Update stages if progress made
-- [ ] Clean up stale opportunities
-- [ ] Document customer conversations
-
-**Monthly:**
-- [ ] Review entire pipeline
-- [ ] Update account plans for strategic accounts
-- [ ] Archive dead opportunities
-- [ ] Update competitor intelligence
+Reports:
+- `send pipeline excel report` - Generate current pipeline
 
 ---
 
-## FIELD NAMING CONVENTIONS
+## Who to ask
 
-### Accounts
-- **Format:** [Company Legal Name]
-- **Examples:** "Intel Corporation", "Microsoft Corporation"
-- **Not:** "Intel (West)", "Intel - CA Office"
-
-### Opportunities
-- **Format:** [Account Name] - [Product] - [Type]
-- **Examples:** 
-  - "Intel - ARR - Contracting"
-  - "Microsoft - Booking - M&A"
-  - "Apple - Project - Compliance"
+Salesforce access → IT  
+Forecasting → RevOps  
+Deal structure → Sales Leadership  
+Contract terms → Legal  
+GTM-Wizard help → #gtm-wizard-help
 
 ---
 
-## TIPS FOR SUCCESS
+## Field naming
 
-1. **Use GTM-Wizard First** - Faster than navigating Salesforce
-2. **Document as You Go** - Don't wait to update fields
-3. **Keep Close Dates Current** - Forecast accuracy depends on it
-4. **Ask Questions** - Better to ask than guess
-5. **Update Account Plans** - After every significant customer interaction
-6. **Clean Data = Better Insights** - Garbage in, garbage out
+Accounts: Use company legal name  
+Example: "Intel Corporation" not "Intel (West)"
 
----
-
-## COMMON MISTAKES TO AVOID
-
-| Mistake | Why It's Bad | How to Fix |
-|---------|--------------|------------|
-| Creating duplicate accounts | Data fragmentation | Use "does [Company] exist?" first |
-| Skipping stages | Breaks forecasting | Progress through stages in order |
-| Leaving Amount blank | Can't forecast | Enter best estimate, update as you learn |
-| Wrong Revenue Type | Metrics broken | Booking = LOI, ARR = recurring |
-| Not documenting loss reasons | Can't improve | Always explain why lost |
-| Orphaned opportunities | Can't track properly | Always link to an account |
+Opportunities: Auto-generated  
+Format: [Account] - [Product Line]  
+Example: "Intel - AI-Augmented Contracting"
 
 ---
 
-## NEED MORE HELP?
+## Common mistakes
 
-**GTM-Wizard Help:**
-- Ask `hello` in Slack for capability overview
-- Review: GTM_WIZARD_CAPABILITIES.html
-- Channel: #gtm-wizard-help
-
-**Salesforce Training:**
-- Salesforce Trailhead (internal link)
-- RevOps office hours (Fridays 2-3 PM)
-- New hire onboarding deck
-
-**Escalation:**
-- Urgent issues: Ping RevOps in Slack
-- Access problems: IT ticket
-- Data questions: Weekly sales meeting
+Creating duplicate accounts → Use "does [Company] exist?" first  
+Skipping stages → Progress sequentially  
+No ACV → Enter best estimate, update as you learn  
+Wrong revenue type → Booking = LOI, Revenue = 12+ mo, Project = pilots  
+No Account Plan at Stage 2 → Required before moving to SQO
 
 ---
 
-**Remember:** Good data hygiene isn't extra work—it's how we win more deals through better insights.
-
-*Questions? Ask in #gtm-wizard-help or ping RevOps*
-
+End of guide. Questions? Ask in #gtm-wizard-help

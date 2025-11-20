@@ -1,237 +1,168 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Sales Enablement Guide</title>
+<html><head><meta charset="UTF-8"><title>Sales Quick Reference - GTM-Wizard</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, sans-serif; line-height: 1.6; color: #333; background: white; padding: 40px; max-width: 900px; margin: 0 auto; }
-h1 { color: #1a1a1a; border-bottom: 3px solid #667eea; padding-bottom: 15px; margin: 30px 0 20px 0; font-size: 2.2em; }
-h2 { color: #667eea; margin: 35px 0 15px 0; font-size: 1.6em; border-left: 4px solid #667eea; padding-left: 12px; }
-h3 { color: #764ba2; margin: 25px 0 12px 0; font-size: 1.2em; }
-p { margin: 12px 0; line-height: 1.7; }
-ul, ol { margin: 12px 0 12px 25px; }
-li { margin: 6px 0; }
-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-th { background: #667eea; color: white; padding: 12px; text-align: left; }
-td { border: 1px solid #ddd; padding: 10px; }
-tr:nth-child(even) { background: #f9f9f9; }
-code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; color: #c7254e; }
-hr { border: none; border-top: 2px solid #e0e0e0; margin: 30px 0; }
-@media print { body { padding: 20px; font-size: 11pt; } h1 { font-size: 18pt; } h2 { font-size: 14pt; page-break-after: avoid; } }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.7; color: #000; background: #fff; padding: 40px; max-width: 850px; margin: 0 auto; }
+h1 { color: #000; font-size: 1.8em; margin: 20px 0 15px 0; border-bottom: 2px solid #000; padding-bottom: 10px; }
+h2 { color: #000; font-size: 1.3em; margin: 30px 0 12px 0; font-weight: 600; }
+p { color: #000; margin: 10px 0; line-height: 1.6; }
+ul { margin: 10px 0 15px 20px; }
+li { color: #000; margin: 5px 0; line-height: 1.5; }
+code { background: #f0f0f0; padding: 2px 5px; border-radius: 3px; font-family: monospace; color: #000; font-size: 0.9em; }
+hr { border: none; border-top: 1px solid #ccc; margin: 25px 0; }
+@media print { body { padding: 20px; font-size: 10.5pt; } h1 { font-size: 14pt; page-break-after: avoid; } h2 { font-size: 12pt; page-break-after: avoid; } }
 </style></head><body>
-<h1>Salesforce Quick Reference Guide for Sales Team</h1>
-<strong>Last Updated:</strong> November 19, 2025 | <strong>Version:</strong> 1.0  
-<strong>Audience:</strong> Sales Professionals | <strong>Purpose:</strong> Essential Salesforce knowledge for day-to-day operations
-<hr>
-<h2>ACCOUNT MANAGEMENT</h2>
-<h3>What is an Account?</h3>
-An <strong>Account</strong> is a company or organization you're selling to. Each account has one owner (Business Lead) responsible for the relationship.
-<h3>Critical Account Fields</h3>
-<table>
-<tr><td>Field</td><td>What It Means</td><td>Your Action</td></tr>
-</table>
-<table>
-<tr><td><strong>Customer Type</strong></td><td>Current relationship status</td><td>Set based on deal stage</td></tr>
-<tr><td><strong>Account Owner</strong></td><td>Who owns this relationship</td><td>Contact them before engaging</td></tr>
-<tr><td><strong>Headquarters Location</strong></td><td>Where company is based</td><td>Auto-populated, used for assignment</td></tr>
-<tr><td><strong>Annual Revenue</strong></td><td>Company size indicator</td><td>Helps prioritize accounts</td></tr>
-</table>
-<h3>Customer Type Classifications</h3>
-<li><strong>LOI, no $ attached</strong> - Signed LOI, no financial commitment yet</li>
-<li><strong>LOI, with $ attached</strong> - Signed LOI with committed dollar amount</li>
-<li><strong>Pilot</strong> - Running pilot program, not yet customer</li>
-<li><strong>ARR</strong> - Active customer with recurring revenue contract</li>
-<h3>Account Assignment Rules</h3>
-<strong>Geographic-Based:</strong>
-<li><strong>West Coast states</strong> → Himanshu, Julie, or Justin</li>
-<li><strong>East Coast states</strong> → Olivia</li>
-<li><strong>International</strong> → Johnson or Hannah</li>
-<li><strong>Auto-assigned based on lowest current workload</strong></li>
-<strong>Key Rule:</strong> Don't create accounts yourself—use GTM-Wizard to auto-assign correctly
-<hr>
-<h2>OPPORTUNITY MANAGEMENT</h2>
-<h3>What is an Opportunity?</h3>
-An <strong>Opportunity</strong> is a specific deal or sales cycle. One account can have multiple opportunities.
-<h3>Stage Definitions (In Order)</h3>
-<table>
-<tr><td>Stage</td><td>What It Means</td><td>Your Action</td></tr>
-</table>
-<table>
-<tr><td><strong>Stage 0 - Qualifying</strong></td><td>Initial contact, determining fit</td><td>Qualify or disqualify quickly</td></tr>
-<tr><td><strong>Stage 1 - Discovery</strong></td><td>Understanding needs, pain points</td><td>Deep discovery, document use cases</td></tr>
-<tr><td><strong>Stage 2 - SQO</strong></td><td>Solution presented, qualified opportunity</td><td>Proposal preparation, SOW scoping</td></tr>
-<tr><td><strong>Stage 3 - Pilot</strong></td><td>Running pilot program</td><td>Drive pilot success, gather metrics</td></tr>
-<tr><td><strong>Stage 4 - Proposal</strong></td><td>Contract negotiation, final stages</td><td>Close the deal, legal review</td></tr>
-<tr><td><strong>Closed Won</strong></td><td>Deal signed, customer onboarded</td><td>Handoff to CS, celebrate!</td></tr>
-<tr><td><strong>Closed Lost</strong></td><td>Deal lost to competitor or no decision</td><td>Document loss reason, learn</td></tr>
-</table>
-<h3>Critical Opportunity Fields</h3>
-<table>
-<tr><td>Field</td><td>Purpose</td><td>Required?</td></tr>
-</table>
-<table>
-<tr><td><strong>Amount (ACV)</strong></td><td>Deal size in dollars</td><td>Yes - update as you learn</td></tr>
-<tr><td><strong>Close Date / Target LOI Date</strong></td><td>When deal expected to close</td><td>Yes - keep current</td></tr>
-<tr><td><strong>Revenue Type</strong></td><td>Booking, ARR, or Project</td><td>Yes - determines metrics</td></tr>
-<tr><td><strong>Product Line</strong></td><td>Which product(s) they're buying</td><td>Yes - for forecasting</td></tr>
-<tr><td><strong>Stage</strong></td><td>Current sales stage</td><td>Yes - update as you progress</td></tr>
-<tr><td><strong>Next Steps</strong></td><td>What happens next</td><td>Yes - always document</td></tr>
-<tr><td><strong>Owner</strong></td><td>Who's responsible</td><td>Auto-assigned with account</td></tr>
-</table>
-<h3>Revenue Type Explained</h3>
-<li><strong>Booking</strong> - One-time purchase or LOI signing</li>
-<li><strong>ARR</strong> - Annual Recurring Revenue (subscription/ongoing)</li>
-<li><strong>Project</strong> - Project-based engagement</li>
-<h3>Product Lines</h3>
-<li><strong>AI-Augmented Contracting</strong> - Contract review and automation</li>
-<li><strong>Augmented-M&A</strong> - M&A due diligence and deal support</li>
-<li><strong>Compliance</strong> - Compliance monitoring and reporting</li>
-<li><strong>sigma</strong> - Analytics and insights platform</li>
-<li><strong>Cortex</strong> - [Product description]</li>
-<li><strong>Multiple</strong> - Buying multiple products</li>
-<hr>
-<h2>STAGE MOVEMENT BEST PRACTICES</h2>
-<h3>When to Move Stages</h3>
-<strong>0 → 1 (Qualifying → Discovery):</strong>
-<li>Champion identified</li>
-<li>Budget conversation started</li>
-<li>Use case confirmed</li>
-<strong>1 → 2 (Discovery → SQO):</strong>
-<li>Clear use cases documented</li>
-<li>Budget range confirmed</li>
-<li>Decision process understood</li>
-<li>Technical requirements gathered</li>
-<strong>2 → 3 (SQO → Pilot):</strong>
-<li>Proposal accepted</li>
-<li>Pilot SOW signed</li>
-<li>Pilot timeline confirmed</li>
-<strong>3 → 4 (Pilot → Proposal):</strong>
-<li>Pilot successful (documented)</li>
-<li>Ready for commercial discussion</li>
-<li>Legal review initiated</li>
-<strong>4 → Closed Won:</strong>
-<li>Contract signed</li>
-<li>Payment terms agreed</li>
-<li>Implementation scheduled</li>
-<h3>What Requires Manager Approval</h3>
-<li><strong>Discounts > 15%</strong> - RevOps approval required</li>
-<li><strong>Custom contract terms</strong> - Legal review required</li>
-<li><strong>Payment plans > 90 days</strong> - Finance approval required</li>
-<li><strong>Pilot extensions</strong> - VP approval required</li>
-<h3>Data Hygiene Rules</h3>
-<strong>Required Before Moving to Stage 2:</strong>
-<li>✅ Amount field populated (best estimate)</li>
-<li>✅ Target LOI Date set</li>
-<li>✅ Product Line selected</li>
-<li>✅ Revenue Type set</li>
-<li>✅ Champion documented (Account field)</li>
-<li>✅ Use cases documented (Account field)</li>
-<strong>Update Weekly (Minimum):</strong>
-<li>Next Steps field</li>
-<li>Close Date (if timeline changes)</li>
-<li>Stage (if progress made)</li>
-<strong>Never:</strong>
-<li>Create opportunities without accounts</li>
-<li>Skip stages (must progress sequentially)</li>
-<li>Leave Amount at $0 past Stage 1</li>
-<li>Forget to document loss reasons (Closed Lost)</li>
-<hr>
-<h2>QUICK REFERENCE</h2>
-<h3>Common GTM-Wizard Commands</h3>
-<strong>Account Checks:</strong>
-<li><code>does [Company] exist?</code> - Check if account exists</li>
+<h1>Salesforce Quick Reference for Sales Team</h1>
+<p>Last updated: November 19, 2025 | Version: 2.0</p>
+<p>---</p>
+<h2>Account basics</h2>
+<p>An account is a company you're selling to. Each account has one owner (Business Lead) responsible for the relationship.</p>
+<p>Key fields to know:
+<ul><li>Customer Type - Current relationship status (LOI, Pilot, Revenue customer)</li>
+<li>Account Owner - Contact them before engaging with their account</li>
+<li>Headquarters Location - Auto-populated, used for assignment</li>
+</ul>
+Customer types:
+<ul><li>LOI, no $ attached - Signed LOI, no financial commitment</li>
+<li>LOI, with $ attached - Signed LOI with committed amount</li>
+<li>Pilot - Running pilot, not yet customer</li>
+<li>Revenue - Active customer with 12+ month contract</li>
+</ul>
+Account assignment:
+<ul><li>West Coast states → Himanshu, Julie, or Justin</li>
+<li>East Coast states → Olivia</li>
+<li>International → Johnson or Hannah</li>
+<li>Auto-assigned based on lowest current workload</li>
+</ul>
+Don't create accounts yourself - use GTM-Wizard to auto-assign correctly.</p>
+<p>---</p>
+<h2>Opportunity basics</h2>
+<p>An opportunity is a specific deal or sales cycle. One account can have multiple opportunities.</p>
+<p>Critical fields (reviewed weekly on Thursdays):
+<ul><li>ACV - Annual contract value</li>
+<li>Stage - Current sales stage (0-4, Won, Lost)</li>
+<li>Product Line - Which product(s) they're buying</li>
+<li>Target Sign Date - When deal expected to sign</li>
+</ul>
+Revenue types:
+<ul><li>Booking - One-time purchase or LOI signing</li>
+<li>Revenue - 12+ month contracts (recurring revenue)</li>
+<li>Project - Short-term projects (e.g., paid pilots)</li>
+</ul>
+Product lines:
+<ul><li>AI-Augmented Contracting - Contract review and automation</li>
+<li>Augmented-M&A - M&A due diligence</li>
+<li>Compliance - Compliance monitoring</li>
+<li>sigma - Analytics platform</li>
+<li>Cortex - [Product name]</li>
+<li>Multiple - Buying multiple products</li>
+</ul>
+---</p>
+<h2>Stage definitions</h2>
+<p>Stage 0 - Qualifying
+<ul><li>Trying to schedule initial meeting</li>
+<li>EA/BDR schedules on behalf of BL</li>
+</ul>
+Stage 1 - Discovery
+<ul><li>Meeting set, discovering needs</li>
+<li>Document use cases and pain points</li>
+</ul>
+Stage 2 - SQO
+<ul><li>Opportunity qualified, path to close defined</li>
+<li>Account Plan must be created and shared</li>
+<li>Prepare proposal</li>
+</ul>
+Stage 3 - Pilot
+<ul><li>Running pilot program</li>
+<li>Drive success, gather metrics</li>
+</ul>
+Stage 4 - Proposal
+<ul><li>Contract negotiation</li>
+<li>Legal review, close the deal</li>
+</ul>
+Closed Won
+<ul><li>Contract signed, customer onboarded</li>
+</ul>
+Closed Lost
+<ul><li>Deal lost, document reason</li>
+</ul>
+---</p>
+<h2>When to move stages</h2>
+<p>0 → 1: Meeting successfully scheduled</p>
+<p>1 → 2: Meeting completed, opportunity qualified, Account Plan created</p>
+<p>2 → 3: Proposal accepted, pilot SOW signed</p>
+<p>3 → 4: Pilot successful, ready for commercial discussion</p>
+<p>4 → Won: Contract signed, payment agreed</p>
+<p>---</p>
+<h2>Data hygiene</h2>
+<p>Before moving to Stage 2:
+<ul><li>ACV populated (best estimate)</li>
+<li>Target Sign Date set</li>
+<li>Product Line selected</li>
+<li>Revenue Type set</li>
+<li>Account Plan created and shared</li>
+</ul>
+Update every Thursday:
+<ul><li>ACV (if changed)</li>
+<li>Target Sign Date (if timeline shifted)</li>
+<li>Stage (if progressed)</li>
+<li>Product Line (if expanded)</li>
+</ul>
+Never:
+<ul><li>Create opportunities without accounts</li>
+<li>Skip stages</li>
+<li>Leave ACV at $0 past Stage 1</li>
+<li>Move to Stage 2 without Account Plan</li>
+<li>Forget loss reasons when closing lost</li>
+</ul>
+---</p>
+<h2>GTM-Wizard quick commands</h2>
+<p>Account checks:
+<ul><li><code>does [Company] exist?</code> - Check if account exists</li>
 <li><code>who owns [Company]?</code> - Find account owner</li>
-<li><code>who's the BL for [Company]?</code> - Business lead lookup</li>
-<strong>Account Management:</strong>
-<li><code>create [Company] and assign to BL</code> - Create with auto-assignment</li>
-<li><code>assign [Company] to [BL Name]</code> - Manual assignment</li>
-<li><code>move [Company] to nurture</code> - Mark as nurture</li>
-<strong>Pipeline Queries:</strong>
-<li><code>late stage contracting</code> - See Stage 4 contracting accounts</li>
-<li><code>mid stage deals</code> - See Stage 2-3 opportunities</li>
+</ul>
+Account management:
+<ul><li><code>create [Company] and assign to BL</code> - Auto-create with assignment</li>
+<li><code>assign [Company] to [BL Name]</code> - Manual reassignment</li>
+</ul>
+Opportunity management:
+<ul><li><code>create an opp for [Company]</code> - Create with defaults</li>
+<li><code>create an opp for [Company]. stage 4 and $500k acv</code> - Custom values</li>
+</ul>
+Meeting notes:
+<ul><li><code>post-call summary Company: [Name] [your notes]</code> - AI structures automatically</li>
+<li><code>add account plan for [Company]:</code> - Save strategic plan</li>
+</ul>
+Pipeline queries:
+<ul><li><code>late stage contracting</code> - See Stage 4 contracting accounts</li>
 <li><code>show me the pipeline</code> - All active opportunities</li>
 <li><code>what deals closed this week?</code> - Recent wins</li>
-<strong>Data Queries:</strong>
-<li><code>what's the account plan for [Company]?</code> - View strategy</li>
-<li><code>contracts for [Company]</code> - Find contracts and PDFs</li>
-<li><code>what LOIs signed last week?</code> - Recent bookings</li>
-<strong>Reporting:</strong>
-<li><code>send pipeline excel report</code> - Generate current pipeline Excel</li>
-<h3>Who to Ask for Help</h3>
-<table>
-<tr><td>Question Type</td><td>Contact</td></tr>
-</table>
-<table>
-<tr><td>Salesforce access/permissions</td><td>IT / Admin</td></tr>
-<tr><td>Forecasting questions</td><td>RevOps</td></tr>
-<tr><td>Deal structure/pricing</td><td>Sales Leadership</td></tr>
-<tr><td>Contract terms</td><td>Legal</td></tr>
-<tr><td>Product questions</td><td>Product Team</td></tr>
-<tr><td>Technical requirements</td><td>Solutions Engineering</td></tr>
-<tr><td>GTM-Wizard help</td><td>Keigan or #gtm-wizard-help</td></tr>
-</table>
-<h3>Data Hygiene Checklist</h3>
-<strong>Daily:</strong>
-<li>[ ] Update Next Steps on active deals</li>
-<li>[ ] Log activities in Salesforce</li>
-<li>[ ] Respond to Slack notifications</li>
-<strong>Weekly:</strong>
-<li>[ ] Review Close Dates for accuracy</li>
-<li>[ ] Update stages if progress made</li>
-<li>[ ] Clean up stale opportunities</li>
-<li>[ ] Document customer conversations</li>
-<strong>Monthly:</strong>
-<li>[ ] Review entire pipeline</li>
-<li>[ ] Update account plans for strategic accounts</li>
-<li>[ ] Archive dead opportunities</li>
-<li>[ ] Update competitor intelligence</li>
-<hr>
-<h2>FIELD NAMING CONVENTIONS</h2>
-<h3>Accounts</h3>
-<li><strong>Format:</strong> [Company Legal Name]</li>
-<li><strong>Examples:</strong> "Intel Corporation", "Microsoft Corporation"</li>
-<li><strong>Not:</strong> "Intel (West)", "Intel - CA Office"</li>
-<h3>Opportunities</h3>
-<li><strong>Format:</strong> [Account Name] - [Product] - [Type]</li>
-<li><strong>Examples:</strong> </li>
-  - "Intel - ARR - Contracting"
-  - "Microsoft - Booking - M&A"
-  - "Apple - Project - Compliance"
-<hr>
-<h2>TIPS FOR SUCCESS</h2>
-<p>1. <strong>Use GTM-Wizard First</strong> - Faster than navigating Salesforce
-2. <strong>Document as You Go</strong> - Don't wait to update fields
-3. <strong>Keep Close Dates Current</strong> - Forecast accuracy depends on it
-4. <strong>Ask Questions</strong> - Better to ask than guess
-5. <strong>Update Account Plans</strong> - After every significant customer interaction
-6. <strong>Clean Data = Better Insights</strong> - Garbage in, garbage out</p>
-<hr>
-<h2>COMMON MISTAKES TO AVOID</h2>
-<table>
-<tr><td>Mistake</td><td>Why It's Bad</td><td>How to Fix</td></tr>
-</table>
-<table>
-<tr><td>Creating duplicate accounts</td><td>Data fragmentation</td><td>Use "does [Company] exist?" first</td></tr>
-<tr><td>Skipping stages</td><td>Breaks forecasting</td><td>Progress through stages in order</td></tr>
-<tr><td>Leaving Amount blank</td><td>Can't forecast</td><td>Enter best estimate, update as you learn</td></tr>
-<tr><td>Wrong Revenue Type</td><td>Metrics broken</td><td>Booking = LOI, ARR = recurring</td></tr>
-<tr><td>Not documenting loss reasons</td><td>Can't improve</td><td>Always explain why lost</td></tr>
-<tr><td>Orphaned opportunities</td><td>Can't track properly</td><td>Always link to an account</td></tr>
-</table>
-<hr>
-<h2>NEED MORE HELP?</h2>
-<strong>GTM-Wizard Help:</strong>
-<li>Ask <code>hello</code> in Slack for capability overview</li>
-<li>Review: GTM_WIZARD_CAPABILITIES.html</li>
-<li>Channel: #gtm-wizard-help</li>
-<strong>Salesforce Training:</strong>
-<li>Salesforce Trailhead (internal link)</li>
-<li>RevOps office hours (Fridays 2-3 PM)</li>
-<li>New hire onboarding deck</li>
-<strong>Escalation:</strong>
-<li>Urgent issues: Ping RevOps in Slack</li>
-<li>Access problems: IT ticket</li>
-<li>Data questions: Weekly sales meeting</li>
-<hr>
-<strong>Remember:</strong> Good data hygiene isn't extra work—it's how we win more deals through better insights.
-<em>Questions? Ask in #gtm-wizard-help or ping RevOps</em>
-<p></p>
+</ul>
+Reports:
+<ul><li><code>send pipeline excel report</code> - Generate current pipeline</li>
+</ul>
+---</p>
+<h2>Who to ask</h2>
+<p>Salesforce access → IT  
+Forecasting → RevOps  
+Deal structure → Sales Leadership  
+Contract terms → Legal  
+GTM-Wizard help → #gtm-wizard-help</p>
+<p>---</p>
+<h2>Field naming</h2>
+<p>Accounts: Use company legal name  
+Example: "Intel Corporation" not "Intel (West)"</p>
+<p>Opportunities: Auto-generated  
+Format: [Account] - [Product Line]  
+Example: "Intel - AI-Augmented Contracting"</p>
+<p>---</p>
+<h2>Common mistakes</h2>
+<p>Creating duplicate accounts → Use "does [Company] exist?" first  
+Skipping stages → Progress sequentially  
+No ACV → Enter best estimate, update as you learn  
+Wrong revenue type → Booking = LOI, Revenue = 12+ mo, Project = pilots  
+No Account Plan at Stage 2 → Required before moving to SQO</p>
+<p>---</p>
+<p>End of guide. Questions? Ask in #gtm-wizard-help
+</p>
 </body></html>
