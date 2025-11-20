@@ -8,9 +8,9 @@ const logger = require('../utils/logger');
 
 // Business Lead Mapping
 const BL_ASSIGNMENTS = {
-  westCoast: ['Himanshu Agarwal', 'Julie Stefanich', 'Justin'], // Justin placeholder - verify name
+  westCoast: ['Himanshu Agarwal', 'Julie Stefanich'],
   eastCoast: ['Olivia Jung'],
-  international: ['Johnson', 'Hannah'] // Verify actual names
+  international: ['Keigan Pesenti'] // Temporary: Until Johnson Hana BLs are added to Salesforce
 };
 
 // Geographic Regions

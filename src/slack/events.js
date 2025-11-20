@@ -2531,13 +2531,17 @@ async function handleCreateAccount(entities, userId, channelId, client, threadTs
     const { determineAccountAssignment } = require('../services/accountAssignment');
     const assignment = await determineAccountAssignment(enrichment.headquarters);
     
-    // SPECIAL CASE: GTM Test Company assigns to Keigan for testing
-    let finalAssignedBL = assignment.assignedTo;
+    // Handle assignment notes for international accounts
+    let assignmentNote = '';
+    if (assignment.sfRegion === 'International' && assignment.assignedTo === 'Keigan Pesenti') {
+      assignmentNote = '\n\nNote: Account ready for assignment to Johnson Hana Business Lead (not yet in system).\n';
+    }
+    
+    // SPECIAL CASE: GTM Test Company  
     if (companyName.toLowerCase().includes('gtm test') || companyName.toLowerCase().includes('test company')) {
-      finalAssignedBL = 'Keigan Pesenti';
-      assignment.region = 'West Coast (Test Override)';
+      assignment.region = 'West Coast (Test)';
       assignment.sfRegion = 'West';
-      assignment.reasoning.hqLocation = 'San Francisco, CA (Test Assumption)';
+      assignment.reasoning.hqLocation = 'San Francisco, CA';
     }
     
     // Step 3: Create account in Salesforce with CORRECT field mappings
@@ -2608,8 +2612,9 @@ async function handleCreateAccount(entities, userId, channelId, client, threadTs
     }
     
     // Build account data - ONLY MANDATORY + 5 ENRICHMENT FIELDS
+    // CRITICAL: Use original input name to preserve exact casing (IKEA not ikea)
     const accountData = {
-      Name: enrichment.companyName || companyName, // Use enriched name for proper casing
+      Name: companyName, // Use ORIGINAL input name (preserves your exact casing)
       OwnerId: null // Will query below
     };
     
@@ -2646,11 +2651,11 @@ async function handleCreateAccount(entities, userId, channelId, client, threadTs
     }
     
     // Query to get BL's Salesforce User ID
-    const userQuery = `SELECT Id FROM User WHERE Name = '${finalAssignedBL}' AND IsActive = true LIMIT 1`;
+    const userQuery = `SELECT Id FROM User WHERE Name = '${assignment.assignedTo}' AND IsActive = true LIMIT 1`;
     const userResult = await query(userQuery);
     
     if (!userResult || userResult.totalSize === 0) {
-      throw new Error(`Could not find active user: ${finalAssignedBL}`);
+      throw new Error(`Could not find active user: ${assignment.assignedTo}`);
     }
     
     accountData.OwnerId = userResult.records[0].Id;
@@ -2666,9 +2671,10 @@ async function handleCreateAccount(entities, userId, channelId, client, threadTs
     const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
     const accountUrl = `${sfBaseUrl}/lightning/r/Account/${createResult.id}/view`;
     
-    let confirmMessage = `Account created: ${enrichment.companyName || companyName}\n\n`;
-    confirmMessage += `Assigned to: ${finalAssignedBL}\n\n`;
-    confirmMessage += `Reasoning:\n`;
+    let confirmMessage = `Account created: ${companyName}\n\n`; // Use ORIGINAL name for display
+    confirmMessage += `Assigned to: ${assignment.assignedTo}\n`;
+    if (assignmentNote) confirmMessage += assignmentNote;
+    confirmMessage += `\nReasoning:\n`;
     confirmMessage += `• Company HQ: ${assignment.reasoning.hqLocation}\n`;
     confirmMessage += `• Salesforce Region: ${assignment.sfRegion}\n`;
     
@@ -2684,7 +2690,7 @@ async function handleCreateAccount(entities, userId, channelId, client, threadTs
       confirmMessage += `\nEnriched data:\n${enrichedFields.map(f => '• ' + f).join('\n')}\n`;
     }
     
-    confirmMessage += `\nCurrent coverage: ${finalAssignedBL} has ${assignment.reasoning.activeOpportunities} active opps (Stage 1+) and ${assignment.reasoning.closingThisMonth} closing this month\n\n`;
+    confirmMessage += `\nCurrent coverage: ${assignment.assignedTo} has ${assignment.reasoning.activeOpportunities} active opps (Stage 1+) and ${assignment.reasoning.closingThisMonth} closing this month\n\n`;
     
     if (!enrichment.success && enrichment.error) {
       confirmMessage += `Note: Clay enrichment unavailable - some fields may need manual entry.\n\n`;
@@ -2698,7 +2704,7 @@ async function handleCreateAccount(entities, userId, channelId, client, threadTs
       thread_ts: threadTs
     });
     
-    logger.info(`✅ Account created: ${enrichment.companyName}, assigned to ${finalAssignedBL}, enriched: ${enrichedFields.length} fields by ${userId}`);
+    logger.info(`✅ Account created: ${companyName}, assigned to ${assignment.assignedTo}, enriched: ${enrichedFields.length} fields by ${userId}`);
     
   } catch (error) {
     logger.error('Account creation failed:', error);
