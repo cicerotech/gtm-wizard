@@ -175,9 +175,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 </div>
 
 <div class="tabs">
-  <button class="tab active" onclick="showTab('summary', this)">Summary</button>
-  <button class="tab" onclick="showTab('by-stage', this)">By Stage</button>
-  <button class="tab" onclick="showTab('account-plans', this)">Account Plans</button>
+  <button class="tab active" data-tab="summary">Summary</button>
+  <button class="tab" data-tab="by-stage">By Stage</button>
+  <button class="tab" data-tab="account-plans">Account Plans</button>
 </div>
 
 <!-- TAB 1: SUMMARY -->
@@ -315,28 +315,47 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 </div>
 
 <script>
-function showTab(tabName, clickedButton) {
-  // Hide all tab contents
-  document.querySelectorAll('.tab-content').forEach(content => {
-    content.classList.remove('active');
+// Wait for DOM to load
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Dashboard loaded, initializing tabs...');
+  
+  // Get all tab buttons
+  const tabButtons = document.querySelectorAll('.tab');
+  
+  console.log('Found', tabButtons.length, 'tab buttons');
+  
+  // Add click handlers
+  tabButtons.forEach(button => {
+    button.addEventListener('click', function() {
+      const tabName = this.getAttribute('data-tab');
+      console.log('Tab clicked:', tabName);
+      
+      // Hide all tab contents
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      
+      // Deactivate all tab buttons
+      document.querySelectorAll('.tab').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      
+      // Show selected tab
+      const tabContent = document.getElementById(tabName);
+      if (tabContent) {
+        tabContent.classList.add('active');
+        console.log('Showing tab:', tabName);
+      } else {
+        console.error('Tab not found:', tabName);
+      }
+      
+      // Activate clicked button
+      this.classList.add('active');
+    });
   });
   
-  // Deactivate all tab buttons
-  document.querySelectorAll('.tab').forEach(button => {
-    button.classList.remove('active');
-  });
-  
-  // Show selected tab content
-  const tabContent = document.getElementById(tabName);
-  if (tabContent) {
-    tabContent.classList.add('active');
-  }
-  
-  // Activate clicked button
-  if (clickedButton) {
-    clickedButton.classList.add('active');
-  }
-}
+  console.log('Tab initialization complete');
+});
 </script>
 
 </body>
