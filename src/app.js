@@ -154,6 +154,17 @@ class GTMBrainApp {
       });
     });
 
+    // Account Status Dashboard endpoint (clean web view)
+    this.expressApp.get('/dashboard', async (req, res) => {
+      try {
+        const { generateAccountDashboard } = require('./slack/accountDashboard');
+        const html = await generateAccountDashboard();
+        res.send(html);
+      } catch (error) {
+        res.status(500).send(`Error generating dashboard: ${error.message}`);
+      }
+    });
+    
     // Test endpoint to manually send weekly report
     this.expressApp.get('/send-report-test', async (req, res) => {
       try {
