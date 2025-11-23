@@ -2,103 +2,99 @@
 <html><head><meta charset="UTF-8"><title>Sales Quick Reference</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, sans-serif; line-height: 1.5; color: #000; background: #fff; padding: 30px; max-width: 900px; margin: 0 auto; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #000; background: #fff; padding: 30px; max-width: 900px; margin: 0 auto; }
 h1 { color: #000; font-size: 1.6em; margin: 15px 0 10px 0; border-bottom: 2px solid #000; padding-bottom: 8px; }
 h2 { color: #000; font-size: 1.2em; margin: 20px 0 8px 0; font-weight: 600; }
 p { color: #000; margin: 6px 0; line-height: 1.5; }
-ul { margin: 8px 0 12px 20px; }
-li { color: #000; margin: 3px 0; line-height: 1.4; }
-code { background: #f0f0f0; padding: 2px 5px; border-radius: 2px; font-family: monospace; color: #000; font-size: 0.9em; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+th { background: #000; color: #fff; padding: 8px; text-align: left; font-weight: 600; font-size: 0.95em; }
+td { border: 1px solid #000; padding: 6px; font-size: 0.9em; }
+tr:nth-child(even) { background: #f5f5f5; }
+code { background: #f0f0f0; padding: 2px 5px; border-radius: 2px; font-family: monospace; color: #000; font-size: 0.88em; }
 hr { border: none; border-top: 1px solid #ccc; margin: 18px 0; }
 strong { font-weight: 600; }
 @media print { body { padding: 15px; font-size: 10pt; } h1 { font-size: 13pt; } h2 { font-size: 11pt; page-break-after: avoid; } }
 </style></head><body>
 <h1>Salesforce Quick Reference for Sales Team</h1>
-<p>Last updated: November 20, 2025 | Version: 2.1</p>
+<p><strong>Last updated</strong> - November 20, 2025 | Version: 2.2</p>
 <hr>
-<h2>Key account fields (in priority order)</h2>
-<p><strong>Account Owner</strong> - Business Lead responsible for relationship. Contact before engaging.</p>
-<p><strong>HQ State/Region</strong> - Auto-populated from company data, used for territory assignment.</p>
-<p><strong>Customer Type</strong> - Current relationship status:</p>
-<ul style="margin: 8px 0 12px 20px;"><li>LOI, no $ attached - Signed LOI, no financial commitment</li>
-<li>LOI, with $ attached - Signed LOI with committed amount</li>
-<li>Pilot - Running pilot, not yet customer</li>
-<li>Revenue - Active customer with 12+ month contract</li>
-</ul>
-<p><strong>Account Origin</strong> - How account was sourced</p>
-<p><strong>Industry Grouping</strong> - Company industry category</p>
-<p><strong>Account Plan</strong> - Strategic account plan (use cases, champions, value prop)</p>
-<p><strong>Customer Brain</strong> - Meeting summaries and historical notes</p>
+<h2>Key account fields</h2>
+<p>Account Owner - Business Lead responsible for relationship. Contact before engaging.</p>
+<p>HQ State/Region - Auto-populated from company data, determines territory.</p>
+<p>Customer Type - Current relationship status.</p>
+<p>Account Origin - How account was sourced.</p>
+<p>Industry Grouping - Company industry category.</p>
+<p>Account Plan - Strategic plan (use cases, champions, value prop).</p>
+<p>Customer Brain - Meeting summaries and historical notes.</p>
 <hr>
-<h2>Account assignment</h2>
-<p>West Coast → Himanshu, Julie  
-East Coast → Olivia  
-International → Johnson Hana BL</p>
-<p>Auto-assigned based on lowest current workload + geography.</p>
-<p>New accounts created by Keigan Pesenti + GTM-Wizard with automatic assignment based on HQ location and current BL coverage.</p>
+<h2>Customer types</h2>
+<table><tr><td>Type</td><td>Meaning</td></tr>
+</table>|------|---------|
+<table><tr><td>LOI, no $ attached</td><td>Signed LOI, no financial commitment</td></tr>
+<tr><td>LOI, with $ attached</td><td>Signed LOI with committed amount</td></tr>
+<tr><td>Pilot</td><td>Running pilot, not yet customer</td></tr>
+<tr><td>Revenue</td><td>Active customer with 12+ month contract</td></tr>
+</table>
+<hr>
+<h2>Account creation and assignment</h2>
+<p>New accounts created when meetings are scheduled. Creation triggers automatic assignment based on geography and current pipeline coverage for Business Leads.</p>
+<p>Keigan Pesenti + GTM-Wizard handle active assignment.</p>
+<table><tr><td>Geography</td><td>Assigned BL</td></tr>
+</table>|-----------|-------------|
+<table><tr><td>West Coast</td><td>Himanshu, Julie</td></tr>
+<tr><td>East Coast</td><td>Olivia</td></tr>
+<tr><td>International</td><td>Johnson Hana BL</td></tr>
+</table>
+Assignment based on lowest current workload (active opportunities) within geographic region.
 <hr>
 <h2>Opportunity basics</h2>
 <p>An opportunity is a specific deal. Key points:</p>
-**Initial engagement:** Account starts with single opportunity
-**Stage 2 transition:** Use cases must be identified. Ideally broken into separate opportunities for each use case, but varies by account complexity. May happen at different points.
-**Stage 4 requirement:** Single use case must be tagged to opportunity. Can create new Stage 2 opportunities for additional use cases as needed.
-**Critical fields** (reviewed weekly on Thursdays):
-<ul style="margin: 8px 0 12px 20px;"><li>ACV - Annual contract value</li>
-<li>Stage - Current sales stage (0-4)</li>
-<li>Product Line - Which product being sold</li>
-<li>Target Sign Date - When deal expected to sign</li>
-</ul>
-**Revenue types:**
-<ul style="margin: 8px 0 12px 20px;"><li>Recurring - 12+ month contracts (most common)</li>
-<li>Booking - LOI signings, one-time purchases</li>
-<li>Project - Paid pilots, short-term (< 12 months)</li>
-</ul>
-**Product lines:**
-<ul style="margin: 8px 0 12px 20px;"><li>AI-Augmented Contracting</li>
-<li>Augmented-M&A</li>
-<li>Compliance</li>
-<li>sigma</li>
-<li>Cortex</li>
-<li>Multiple (buying multiple products)</li>
-</ul>
+<p><strong>Initial engagement</strong> - Account starts with single opportunity.</p>
+<p><strong>Stage 2 transition</strong> - Use cases must be identified. Ideally broken into separate opportunities for each use case, but varies by account complexity. May happen at different points.</p>
+<p><strong>Stage 4 requirement</strong> - Single use case must be tagged to opportunity. Can create new Stage 2 opportunities for additional use cases as needed.</p>
+<p>Critical fields (reviewed weekly on Thursdays):</p>
+<table><tr><td>Field</td><td>Purpose</td></tr>
+</table>|-------|---------|
+<table><tr><td>ACV</td><td>Annual contract value</td></tr>
+<tr><td>Stage</td><td>Current sales stage (0-4)</td></tr>
+<tr><td>Product Line</td><td>Which product being sold</td></tr>
+<tr><td>Target Sign Date</td><td>When deal expected to sign</td></tr>
+</table>
+<hr>
+<h2>Revenue types</h2>
+<table><tr><td>Type</td><td>Use Case</td></tr>
+</table>|------|----------|
+<table><tr><td>Recurring</td><td>12+ month contracts (most common)</td></tr>
+<tr><td>Booking</td><td>LOI signings, one-time purchases</td></tr>
+<tr><td>Project</td><td>Paid pilots, short-term (< 12 months)</td></tr>
+</table>
+<hr>
+<h2>Product lines</h2>
+<p><strong>AI-Augmented Contracting, Augmented-M&A, Compliance, sigma, Cortex, Multiple (buying multiple products)
 <hr>
 <h2>Stage progression</h2>
-<p>0 - Qualifying: Scheduling initial meeting (EA/BDR handles)  
-1 - Discovery: Meeting set, discovering needs  
-2 - SQO: Qualified, Account Plan created, use cases identified  
-3 - Pilot: Running pilot program  
-4 - Proposal: Single use case tagged, contract negotiation  
-Won: Contract signed  
-Lost: Deal lost (document reason)</p>
-<p>Movement: 0→1 Meeting scheduled | 1→2 Qualified + Account Plan created | 2→3 Pilot SOW signed | 3→4 Pilot successful | 4→Won Contract signed</p>
+<table><tr><td>Stage</td><td>What It Means</td></tr>
+</table>|-------|---------------|
+<table><tr><td>0 - Qualifying</td><td>Scheduling initial meeting (EA/BDR handles)</td></tr>
+<tr><td>1 - Discovery</td><td>Meeting set, discovering needs</td></tr>
+<tr><td>2 - SQO</td><td>Qualified, Account Plan created, use cases identified</td></tr>
+<tr><td>3 - Pilot</td><td>Running pilot program</td></tr>
+<tr><td>4 - Proposal</td><td>Single use case tagged, contract negotiation</td></tr>
+<tr><td>Won</td><td>Contract signed</td></tr>
+<tr><td>Lost</td><td>Deal lost (document reason)</td></tr>
+</table>
+Movement</strong> - 0→1 Meeting scheduled <table><tr><td>1→2 Qualified + Account Plan created</td><td>2→3 Pilot SOW signed</td><td>3→4 Pilot successful</td></tr></table> 4→Won Contract signed</p>
 <hr>
 <h2>Data hygiene</h2>
-<p>Before Stage 2: ACV set, Target Sign Date set, Product Line selected, Revenue Type set, Account Plan created</p>
-<p>Update every Thursday: ACV, Target Sign Date, Stage, Product Line</p>
-<p>Never: Create opps without accounts, skip stages, leave ACV at $0 past Stage 1, move to Stage 2 without Account Plan</p>
+<p><strong>Before Stage 2</strong> - ACV set, Target Sign Date set, Product Line selected, Revenue Type set, Account Plan created</p>
+<p><strong>Update every Thursday</strong> - ACV, Target Sign Date, Stage, Product Line</p>
+<p><strong>Never</strong> - Create opps without accounts, skip stages, leave ACV at $0 past Stage 1, move to Stage 2 without Account Plan</p>
 <hr>
 <h2>GTM-Wizard commands</h2>
-**Accounts:**
-<code>does [Company] exist?</code> - Check existence  
-<code>who owns [Company]?</code> - Find owner  
-<code>create [Company] and assign to BL</code> - Auto-create with assignment  
-<code>add account plan for [Company]:</code> - Save strategic plan  
-<code>add to customer history: [Company]</code> - Save meeting notes
-**Opportunities:**
-<code>create an opp for [Company]</code> - Create with defaults  
-<code>create an opp for [Company]. stage 4 and $500k acv</code> - Custom values  
-<code>post-call summary Company: [Name] [notes]</code> - AI-structure meeting notes
-**Pipeline:**
-<code>late stage contracting</code> - Stage 4 contracting accounts  
-<code>show me the pipeline</code> - All active opportunities  
-<code>send pipeline excel report</code> - Generate report
-<hr>
-<h2>Common mistakes</h2>
-<p>Duplicate accounts → Use "does [Company] exist?" first  
-Skipping stages → Progress sequentially  
-No Account Plan at Stage 2 → Required before advancing  
-Wrong revenue type → Recurring = 12+ mo, Booking = LOI, Project = pilots  
-Multiple use cases in one opp → Consider splitting at Stage 2</p>
+<p><strong>Accounts</strong> - <code>does [Company] exist?</code> <table><tr><td><code>who owns [Company]?</code></td><td><code>create [Company] and assign to BL</code></td><td><code>add account plan for [Company]:</code></td></tr></table> <code>add to customer history: [Company]</code></p>
+<p><strong>Opportunities</strong> - <code>create an opp for [Company]</code> | <code>create an opp for [Company]. stage 4 and $500k acv</code></p>
+<p><strong>Meeting notes</strong> - <code>post-call summary Company: [Name] [notes]</code></p>
+<p><strong>Pipeline</strong> - <code>late stage contracting</code> <table><tr><td><code>show me the pipeline</code></td></tr></table> <code>send pipeline excel report</code></p>
 <hr>
 <p>Questions? #gtm-wizard-help
 </p>
