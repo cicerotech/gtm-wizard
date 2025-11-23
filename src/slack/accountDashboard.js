@@ -42,18 +42,39 @@ async function generateAccountDashboard() {
   
   const accountData = await query(accountQuery, true);
   
-  // Query Einstein Activity for last meeting dates (if available)
+  // Query Einstein Activity for meeting dates per account
   let meetingData = new Map();
   try {
-    const meetingQuery = `SELECT WhoId, ActivityDate, Subject
-                          FROM Event
-                          WHERE ActivityDate != null
-                            AND (Type = 'Meeting' OR Type = 'Call')
-                          ORDER BY ActivityDate DESC`;
-    const meetings = await query(meetingQuery, true);
-    // Map to accounts (simplified - would need proper account linking)
+    // Get last and next meetings per account
+    const lastMeetingQuery = `SELECT WhatId, MAX(ActivityDate) LastMeeting
+                              FROM Event
+                              WHERE ActivityDate < TODAY
+                                AND (Type = 'Meeting' OR Type = 'Call')
+                                AND WhatId != null
+                              GROUP BY WhatId`;
+    
+    const nextMeetingQuery = `SELECT WhatId, MIN(ActivityDate) NextMeeting
+                              FROM Event
+                              WHERE ActivityDate >= TODAY
+                                AND (Type = 'Meeting' OR Type = 'Call')
+                                AND WhatId != null
+                              GROUP BY WhatId`;
+    
+    const lastMeetings = await query(lastMeetingQuery, true);
+    const nextMeetings = await query(nextMeetingQuery, true);
+    
+    // Map to account IDs
+    lastMeetings.records.forEach(m => {
+      if (!meetingData.has(m.WhatId)) meetingData.set(m.WhatId, {});
+      meetingData.get(m.WhatId).lastMeeting = m.LastMeeting;
+    });
+    
+    nextMeetings.records.forEach(m => {
+      if (!meetingData.has(m.WhatId)) meetingData.set(m.WhatId, {});
+      meetingData.get(m.WhatId).nextMeeting = m.NextMeeting;
+    });
   } catch (e) {
-    // Einstein Activity might not be enabled, skip gracefully
+    // Einstein Activity not available, continue without meeting data
   }
   
   // Group by account and CALCULATE totalACV properly
@@ -318,9 +339,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
   </div>
   
-  <input type="text" id="account-search" placeholder="Search accounts..." style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem; margin-bottom: 12px;">
+  <input type="text" id="account-search" placeholder="Search accounts..." style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem; margin-bottom: 12px;" oninput="filterAccounts(this.value)">
   
-  <div id="accounts-container">
+  <div id="accounts-container" data-all-accounts='${JSON.stringify(Array.from(accountMap.values()).sort((a, b) => b.totalACV - a.totalACV).slice(0, 25).map(acc => acc.name))}'>
     ${Array.from(accountMap.values())
       .sort((a, b) => b.totalACV - a.totalACV)
       .slice(0, 25)
@@ -332,12 +353,27 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         const acvDisplay = totalACV >= 1000000 ? '$' + (totalACV / 1000000).toFixed(1) + 'M' : totalACV >= 1000 ? '$' + (totalACV / 1000).toFixed(0) + 'K' : '$' + totalACV.toFixed(0);
         const needsPlan = !acc.hasAccountPlan && acc.highestStage >= 2;
         
+        // Meeting data (if available)
+        const lastMeeting = meetingData.get(acc.accountId)?.lastMeeting;
+        const nextMeeting = meetingData.get(acc.accountId)?.nextMeeting;
+        const lastMeetingDate = lastMeeting ? new Date(lastMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}) : null;
+        const nextMeetingDate = nextMeeting ? new Date(nextMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}) : null;
+        
+        // Customer type badge (if not new logo)
+        const customerTypeBadge = !acc.isNewLogo && acc.customerType ? `<span class="badge" style="background: #dbeafe; color: #1e40af;">${acc.customerType}</span>` : '';
+        
         return `
         <details class="account-expandable" data-account="${acc.name.toLowerCase()}" style="background: ${needsPlan ? '#fefce8' : '#fff'}; border-left: 3px solid ${acc.hasAccountPlan ? '#10b981' : needsPlan ? '#f59e0b' : '#d1d5db'}; padding: 12px; border-radius: 4px; margin-bottom: 8px; cursor: pointer;">
           <summary style="list-style: none; display: flex; justify-content: space-between; align-items: center;">
             <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 0.9375rem; color: #1f2937;">${acc.name}${acc.isNewLogo ? '<span class="badge badge-new">New</span>' : ''}</div>
-              <div style="font-size: 0.8125rem; color: #6b7280; margin-top: 2px;">${acc.owner} • Stage ${acc.highestStage} • ${oppCount} opp${oppCount > 1 ? 's' : ''}</div>
+              <div style="font-weight: 600; font-size: 0.9375rem; color: #1f2937;">
+                ${acc.name}
+                ${acc.isNewLogo ? '<span class="badge badge-new">New</span>' : customerTypeBadge}
+              </div>
+              <div style="font-size: 0.8125rem; color: #6b7280; margin-top: 2px;">
+                ${acc.owner} • Stage ${acc.highestStage} • ${oppCount} opp${oppCount > 1 ? 's' : ''}
+                ${lastMeetingDate ? ' • Last: ' + lastMeetingDate : ''}
+              </div>
             </div>
             <div style="text-align: right;">
               <div style="font-weight: 600; color: #1f2937;">${acvDisplay}</div>
@@ -348,21 +384,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 0.8125rem;">
             ${acc.hasAccountPlan ? `
               <div style="background: #f0f9ff; padding: 10px; border-radius: 4px; margin-bottom: 8px;">
-                <strong style="color: #1e40af;">✓ Account Plan Exists</strong>
+                <strong style="color: #1e40af;">✓ Account Plan</strong>
                 <div style="color: #1e40af; margin-top: 4px; font-size: 0.75rem; white-space: pre-wrap; max-height: 100px; overflow-y: auto;">${acc.accountPlan.substring(0, 200)}${acc.accountPlan.length > 200 ? '...' : ''}</div>
               </div>
             ` : needsPlan ? `
-              <div style="background: #fef3c7; padding: 10px; border-radius: 4px; margin-bottom: 8px; color: #92400e;">
-                <strong>⚠️ Account Plan Required (Stage 2+)</strong>
+              <div style="background: #fef3c7; padding: 8px; border-radius: 4px; margin-bottom: 8px; color: #92400e; font-size: 0.75rem;">
+                <strong>⚠️ Account Plan Required</strong>
               </div>
             ` : ''}
             
-            <div style="margin-top: 8px;">
-              <div style="color: #374151;"><strong>Products:</strong> ${productList}</div>
-              <div style="color: #374151; margin-top: 4px;"><strong>Customer Type:</strong> ${acc.customerType || 'Not set'}</div>
-              <div style="color: #374151; margin-top: 4px;"><strong>Opportunities:</strong></div>
+            ${lastMeetingDate || nextMeetingDate ? `
+            <div style="background: #f0fdf4; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 0.75rem; color: #065f46;">
+              ${lastMeetingDate ? '<div><strong>Last Meeting:</strong> ' + lastMeetingDate + '</div>' : ''}
+              ${nextMeetingDate ? '<div><strong>Next Meeting:</strong> ' + nextMeetingDate + '</div>' : ''}
+            </div>
+            ` : ''}
+            
+            <div style="margin-top: 8px; font-size: 0.8125rem;">
+              <div style="color: #374151; margin-bottom: 4px;"><strong>Products:</strong> ${productList}</div>
+              ${acc.customerType ? '<div style="color: #374151; margin-bottom: 4px;"><strong>Customer Type:</strong> ' + acc.customerType + '</div>' : ''}
+              <div style="color: #374151; margin-top: 6px;"><strong>Opportunities (${oppCount}):</strong></div>
               ${acc.opportunities.map(o => `
-                <div style="font-size: 0.75rem; color: #6b7280; margin-left: 12px;">
+                <div style="font-size: 0.75rem; color: #6b7280; margin-left: 12px; margin-top: 2px;">
                   • ${cleanStageName(o.StageName)} - ${o.Product_Line__c || 'TBD'} - $${((o.ACV__c || 0) / 1000).toFixed(0)}K
                 </div>
               `).join('')}
@@ -380,17 +423,18 @@ details[open] summary { font-weight: 600; }
 </style>
 
 <script>
-// Search functionality (inline for CSP)
-const searchInput = document.getElementById('account-search');
-const accountsContainer = document.getElementById('accounts-container');
-if (searchInput) {
-  searchInput.addEventListener('input', (e) => {
-    const search = e.target.value.toLowerCase();
-    const accounts = document.querySelectorAll('.account-expandable');
-    accounts.forEach(acc => {
-      const name = acc.getAttribute('data-account');
-      acc.style.display = name.includes(search) ? 'block' : 'none';
-    });
+// Search functionality - WORKING version
+function filterAccounts(searchValue) {
+  const search = searchValue.toLowerCase().trim();
+  const accounts = document.querySelectorAll('.account-expandable');
+  
+  accounts.forEach(acc => {
+    const name = acc.getAttribute('data-account') || '';
+    if (name.includes(search)) {
+      acc.style.display = 'block';
+    } else {
+      acc.style.display = 'none';
+    }
   });
 }
 </script>
