@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Salesforce Data Migration Assessment - Johnson Hana</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #000; background: #fff; padding: 35px; max-width: 1200px; margin: 0 auto; }
+h1 { color: #000; font-size: 1.8em; margin: 18px 0 12px 0; border-bottom: 2px solid #000; padding-bottom: 10px; }
+h2 { color: #000; font-size: 1.3em; margin: 22px 0 10px 0; font-weight: 600; }
+p { color: #000; margin: 8px 0; line-height: 1.6; }
+table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 0.9em; }
+th { background: #000; color: #fff; padding: 12px; text-align: left; font-weight: 600; }
+td { border: 1px solid #000; padding: 10px; }
+tr:nth-child(even) { background: #f5f5f5; }
+.alert { background: #fff3cd; border: 2px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 5px; }
+.alert-gdpr { background: #f8d7da; border: 2px solid #dc3545; }
+.checkbox { width: 20px; height: 20px; }
+strong { font-weight: 600; }
+.note { background: #e7f3ff; padding: 12px; margin: 10px 0; border-left: 4px solid #4285f4; }
+ul { margin: 8px 0 12px 22px; }
+li { margin: 4px 0; }
+@media print { body { padding: 20px; font-size: 10pt; } }
+</style>
+</head>
+<body>
+
+<h1>Salesforce Data Migration Assessment</h1>
+<p><strong>From:</strong> Johnson Hana Salesforce Instance<br>
+<strong>To:</strong> Eudia Salesforce Instance<br>
+<strong>Date:</strong> November 2025<br>
+<strong>Purpose:</strong> Identify which data and objects to migrate while ensuring GDPR compliance</p>
+
+<div class="alert-gdpr">
+<strong>⚠️ GDPR COMPLIANCE NOTICE</strong><br>
+Johnson Hana operates in the EU with existing client contracts. Migration of personal data (contacts, accounts, communications) must comply with GDPR Article 6 (lawful basis) and Article 5 (data minimization). Only migrate data where legal basis exists and migration serves legitimate business purpose.
+</div>
+
+<h2>Instructions</h2>
+<p>Please review each category below and indicate:</p>
+<ul>
+<li><strong>Transfer:</strong> Yes/No - Should this data be migrated?</li>
+<li><strong>Value:</strong> Why this data is valuable to keep</li>
+<li><strong>Discard Reasons:</strong> Why data might NOT be needed</li>
+<li><strong>GDPR/Compliance:</strong> Any data protection concerns or requirements</li>
+</ul>
+
+<div class="note">
+<strong>Timeline:</strong> Please complete this assessment within 5 business days. Schedule follow-up call to review responses and address questions.
+</div>
+
+<hr>
+
+<h2>1. Account Data (Companies/Organizations)</h2>
+
+<table>
+<tr>
+  <th style="width: 15%;">Transfer?</th>
+  <th style="width: 30%;">Value to Keep</th>
+  <th style="width: 25%;">Reasons to Discard</th>
+  <th style="width: 30%;">GDPR/Compliance Notes</th>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"> Yes<br><input type="checkbox" class="checkbox"> No</td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Historical client relationships<br>
+    • Company-level insights<br>
+    • Revenue potential data<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Inactive accounts (no activity >2 years)<br>
+    • Duplicate records<br>
+    • Test/demo accounts<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fff0f0;">
+    <strong>GDPR Article 6:</strong> Legitimate business interest<br>
+    <strong>Consideration:</strong> Retain only accounts with active contracts or ongoing relationships<br>
+    <strong>Action:</strong> Purge inactive accounts before migration<br>
+    [Add compliance notes]
+  </td>
+</tr>
+</table>
+
+<h2>2. Contact Data (Individual People)</h2>
+
+<div class="alert-gdpr">
+<strong>HIGH GDPR RISK:</strong> Contacts are personal data under GDPR. Must have lawful basis for processing. Consider:
+<ul>
+<li>Consent (Article 6(1)(a)) - Do contacts consent to data transfer?</li>
+<li>Contract performance (Article 6(1)(b)) - Are they party to active contracts?</li>
+<li>Legitimate interest (Article 6(1)(f)) - Can you demonstrate legitimate business need?</li>
+</ul>
+</div>
+
+<table>
+<tr>
+  <th style="width: 15%;">Transfer?</th>
+  <th style="width: 30%;">Value to Keep</th>
+  <th style="width: 25%;">Reasons to Discard</th>
+  <th style="width: 30%;">GDPR/Compliance Notes</th>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"> Yes<br><input type="checkbox" class="checkbox"> No<br><input type="checkbox" class="checkbox"> Partial</td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Key decision makers<br>
+    • Active stakeholders<br>
+    • Contract signatories<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Former employees<br>
+    • Unsubscribed contacts<br>
+    • No interaction >3 years<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fff0f0;">
+    <strong>REQUIRED:</strong> Data Processing Agreement between entities<br>
+    <strong>Consider:</strong> Obtain consent for transfer OR demonstrate contract necessity<br>
+    <strong>Action:</strong> Privacy notice to contacts about data transfer<br>
+    <strong>Retention:</strong> Document lawful basis for each contact<br>
+    [Add compliance strategy]
+  </td>
+</tr>
+</table>
+
+<h2>3. Opportunity/Deal Data</h2>
+
+<table>
+<tr>
+  <th style="width: 15%;">Transfer?</th>
+  <th style="width: 30%;">Value to Keep</th>
+  <th style="width: 25%;">Reasons to Discard</th>
+  <th style="width: 30%;">GDPR/Compliance Notes</th>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"> Yes<br><input type="checkbox" class="checkbox"> No<br><input type="checkbox" class="checkbox"> Partial</td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Active pipeline history<br>
+    • Closed-won deal insights<br>
+    • Pricing precedents<br>
+    • Sales cycle data<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Lost deals >1 year old<br>
+    • Irrelevant opportunities<br>
+    • Duplicate records<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fff0f0;">
+    <strong>Risk Level:</strong> Medium<br>
+    <strong>Contains:</strong> Company names (business data, lower risk)<br>
+    <strong>May contain:</strong> Deal terms, pricing (commercially sensitive)<br>
+    <strong>Action:</strong> Anonymize lost deals before migration<br>
+    [Add notes]
+  </td>
+</tr>
+</table>
+
+<h2>4. Contract Documents & Files</h2>
+
+<div class="alert">
+<strong>⚠️ IMPORTANT:</strong> Contracts may contain personal data (signatories, contact details). Review each contract's data protection clauses before migration.
+</div>
+
+<table>
+<tr>
+  <th style="width: 15%;">Transfer?</th>
+  <th style="width: 30%;">Value to Keep</th>
+  <th style="width: 25%;">Reasons to Discard</th>
+  <th style="width: 30%;">GDPR/Compliance Notes</th>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"> Yes<br><input type="checkbox" class="checkbox"> No<br><input type="checkbox" class="checkbox"> Partial</td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Active client contracts<br>
+    • Legal obligations documentation<br>
+    • Amendment history<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Expired contracts (>7 years)<br>
+    • Superseded versions<br>
+    • Non-binding LOIs<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fff0f0;">
+    <strong>CRITICAL:</strong> Check contract data processing clauses<br>
+    <strong>Some contracts may prohibit:</strong> Data transfer to third parties<br>
+    <strong>Action Required:</strong> Legal review of each active contract<br>
+    <strong>Retention:</strong> Follow contractual retention periods<br>
+    [Add legal review notes]
+  </td>
+</tr>
+</table>
+
+<h2>5. Custom Objects (Project, Task, Assignment, etc.)</h2>
+
+<div class="note">
+<strong>Note:</strong> 220 custom pse__ objects detected in Johnson Hana instance. These are part of FinancialForce PSA managed package. Cannot be migrated via API - must install package in Eudia instance.
+</div>
+
+<table>
+<tr>
+  <th style="width: 15%;">Transfer?</th>
+  <th style="width: 30%;">Value to Keep</th>
+  <th style="width: 25%;">Reasons to Discard</th>
+  <th style="width: 30%;">GDPR/Compliance Notes</th>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"> Yes<br><input type="checkbox" class="checkbox"> No<br><input type="checkbox" class="checkbox"> N/A</td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Project tracking history<br>
+    • Resource utilization data<br>
+    • Billing records<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Historical data only<br>
+    • Different business model now<br>
+    • Package licensing costs<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fff0f0;">
+    <strong>Technical:</strong> Requires PSA package installation<br>
+    <strong>May contain:</strong> Employee time tracking (personal data)<br>
+    <strong>Consider:</strong> Aggregate/anonymize before migration<br>
+    [Add notes]
+  </td>
+</tr>
+</table>
+
+<h2>6. Notes, Tasks & Activity History</h2>
+
+<table>
+<tr>
+  <th style="width: 15%;">Transfer?</th>
+  <th style="width: 30%;">Value to Keep</th>
+  <th style="width: 25%;">Reasons to Discard</th>
+  <th style="width: 30%;">GDPR/Compliance Notes</th>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"> Yes<br><input type="checkbox" class="checkbox"> No<br><input type="checkbox" class="checkbox"> Partial</td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Client interaction history<br>
+    • Important relationship context<br>
+    • Deal insights<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Outdated notes<br>
+    • Personal opinions/comments<br>
+    • Internal-only discussions<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fff0f0;">
+    <strong>HIGH RISK:</strong> May contain personal opinions, sensitive info<br>
+    <strong>Action:</strong> Manual review and sanitization required<br>
+    <strong>GDPR Article 17:</strong> Right to be forgotten applies<br>
+    <strong>Recommendation:</strong> Transfer only last 12 months of notes<br>
+    [Add sanitization plan]
+  </td>
+</tr>
+</table>
+
+<h2>7. Email Communications & Attachments</h2>
+
+<div class="alert-gdpr">
+<strong>GDPR ARTICLE 32:</strong> Emails may contain confidential personal data. Encryption required during transfer. Consider whether migration is necessary or if archival in current system is sufficient.
+</div>
+
+<table>
+<tr>
+  <th style="width: 15%;">Transfer?</th>
+  <th style="width: 30%;">Value to Keep</th>
+  <th style="width: 25%;">Reasons to Discard</th>
+  <th style="width: 30%;">GDPR/Compliance Notes</th>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"> Yes<br><input type="checkbox" class="checkbox"> No<br><input type="checkbox" class="checkbox"> Archive Only</td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Contract negotiation threads<br>
+    • Client communications<br>
+    • Signed agreements<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Internal-only emails<br>
+    • Spam/marketing<br>
+    • Personal conversations<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fff0f0;">
+    <strong>CRITICAL:</strong> High GDPR risk<br>
+    <strong>Required:</strong> Encryption during transfer<br>
+    <strong>Consider:</strong> Leave in current system, archive only<br>
+    <strong>If transferring:</strong> Strip personal data, keep business content only<br>
+    <strong>Legal review:</strong> Required before any email migration<br>
+    [Add encryption/archival plan]
+  </td>
+</tr>
+</table>
+
+<h2>8. Reports & Dashboards</h2>
+
+<table>
+<tr>
+  <th style="width: 15%;">Transfer?</th>
+  <th style="width: 30%;">Value to Keep</th>
+  <th style="width: 25%;">Reasons to Discard</th>
+  <th style="width: 30%;">GDPR/Compliance Notes</th>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"> Yes<br><input type="checkbox" class="checkbox"> No<br><input type="checkbox" class="checkbox"> Recreate</td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Business intelligence<br>
+    • KPI tracking templates<br>
+    • Executive dashboards<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Out-of-date metrics<br>
+    • User-specific views<br>
+    • Incompatible with new model<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fff0f0;">
+    <strong>Risk Level:</strong> Low<br>
+    <strong>Note:</strong> Reports are templates, not personal data<br>
+    <strong>Recommendation:</strong> Recreate in new instance vs migrate<br>
+    [Add notes]
+  </td>
+</tr>
+</table>
+
+<h2>9. User Accounts & Permissions</h2>
+
+<table>
+<tr>
+  <th style="width: 15%;">Transfer?</th>
+  <th style="width: 30%;">Value to Keep</th>
+  <th style="width: 25%;">Reasons to Discard</th>
+  <th style="width: 30%;">GDPR/Compliance Notes</th>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"> Yes<br><input type="checkbox" class="checkbox"> No<br><input type="checkbox" class="checkbox"> Recreate</td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • User roles/permissions<br>
+    • Team structure<br>
+    • Access patterns<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Former employees<br>
+    • Temporary users<br>
+    • External consultants<br>
+    [Add your reasons]
+  </td>
+  <td contenteditable="true" style="background: #fff0f0;">
+    <strong>GDPR Article 5:</strong> Employee data = personal data<br>
+    <strong>Action:</strong> Create fresh users in new instance<br>
+    <strong>Do NOT migrate:</strong> Passwords, security tokens, login history<br>
+    <strong>Notification:</strong> Inform users of new system<br>
+    [Add HR coordination plan]
+  </td>
+</tr>
+</table>
+
+<h2>10. Custom Fields on Standard Objects</h2>
+
+<table>
+<tr>
+  <th style="width: 15%;">Transfer?</th>
+  <th style="width: 30%;">Value to Keep</th>
+  <th style="width: 25%;">Reasons to Discard</th>
+  <th style="width: 30%;">GDPR/Compliance Notes</th>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"> Yes<br><input type="checkbox" class="checkbox"> No<br><input type="checkbox" class="checkbox"> Selective</td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Business-specific tracking<br>
+    • Critical workflow fields<br>
+    • Integration requirements<br>
+    [Add specific fields needed]
+  </td>
+  <td contenteditable="true" style="background: #fffef0;">
+    • Deprecated fields<br>
+    • Old process fields<br>
+    • Redundant data<br>
+    [Add fields to skip]
+  </td>
+  <td contenteditable="true" style="background: #fff0f0;">
+    <strong>Review:</strong> Check if fields contain personal data<br>
+    <strong>Examples:</strong> "Customer_Preferences", "Personal_Notes"<br>
+    <strong>Action:</strong> Map to Eudia field structure<br>
+    [Add field mapping plan]
+  </td>
+</tr>
+</table>
+
+<h2>GDPR Compliance Checklist</h2>
+
+<div class="note">
+<strong>Before Migration:</strong> Complete these compliance steps
+</div>
+
+<table>
+<tr>
+  <th style="width: 5%;">Done</th>
+  <th style="width: 40%;">Action Item</th>
+  <th style="width: 25%;">Owner</th>
+  <th style="width: 30%;">Notes</th>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"></td>
+  <td>Data Processing Agreement between Johnson Hana and Eudia</td>
+  <td contenteditable="true">Legal team</td>
+  <td contenteditable="true"></td>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"></td>
+  <td>Privacy Impact Assessment (PIA) for migration</td>
+  <td contenteditable="true">DPO/Legal</td>
+  <td contenteditable="true"></td>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"></td>
+  <td>Identify lawful basis for each data category (Article 6)</td>
+  <td contenteditable="true">Legal/Compliance</td>
+  <td contenteditable="true"></td>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"></td>
+  <td>Privacy notice to affected individuals</td>
+  <td contenteditable="true">Marketing/Legal</td>
+  <td contenteditable="true"></td>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"></td>
+  <td>Data minimization review (only migrate what's necessary)</td>
+  <td contenteditable="true">Sales Ops</td>
+  <td contenteditable="true"></td>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"></td>
+  <td>Encryption plan for data in transit</td>
+  <td contenteditable="true">IT/Security</td>
+  <td contenteditable="true"></td>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"></td>
+  <td>Retention policy documentation</td>
+  <td contenteditable="true">Legal</td>
+  <td contenteditable="true"></td>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"></td>
+  <td>Data subject rights process (access, deletion, portability)</td>
+  <td contenteditable="true">Compliance</td>
+  <td contenteditable="true"></td>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"></td>
+  <td>Breach notification procedure</td>
+  <td contenteditable="true">IT/Legal</td>
+  <td contenteditable="true"></td>
+</tr>
+<tr>
+  <td><input type="checkbox" class="checkbox"></td>
+  <td>Post-migration validation and audit</td>
+  <td contenteditable="true">Sales Ops/IT</td>
+  <td contenteditable="true"></td>
+</tr>
+</table>
+
+<h2>Recommended Approach</h2>
+
+<div class="note">
+<p><strong>Phase 1: Data Audit (Week 1-2)</strong></p>
+<ul>
+<li>Complete this template</li>
+<li>Legal review of each category</li>
+<li>Identify personal data locations</li>
+<li>Document lawful basis for processing</li>
+</ul>
+
+<p><strong>Phase 2: Data Preparation (Week 3-4)</strong></p>
+<ul>
+<li>Cleanse and anonymize data as needed</li>
+<li>Remove inactive/outdated records</li>
+<li>Deduplicate accounts and contacts</li>
+<li>Obtain necessary consents/approvals</li>
+</ul>
+
+<p><strong>Phase 3: Migration Execution (Week 5-6)</strong></p>
+<ul>
+<li>Migrate objects/fields first (metadata)</li>
+<li>Migrate approved data in batches</li>
+<li>Validate each batch</li>
+<li>Document what was migrated</li>
+</ul>
+
+<p><strong>Phase 4: Validation & Cleanup (Week 7-8)</strong></p>
+<ul>
+<li>Verify data integrity</li>
+<li>Test integrations</li>
+<li>Train users on new instance</li>
+<li>Archive/decommission old instance per retention policy</li>
+</ul>
+</div>
+
+<h2>Decision Summary</h2>
+
+<p><strong>Please complete and return this document with:</strong></p>
+<ol>
+<li>All checkboxes marked (Transfer Yes/No/Partial for each category)</li>
+<li>Value and Discard reasons filled in (be specific)</li>
+<li>GDPR/Compliance notes completed (include legal review status)</li>
+<li>Compliance checklist items assigned to owners</li>
+<li>Any questions or concerns highlighted</li>
+</ol>
+
+<div class="alert-gdpr">
+<strong>LEGAL DISCLAIMER:</strong> This migration involves processing of personal data under GDPR. Recommend engaging Data Protection Officer (DPO) and legal counsel before proceeding. Non-compliance penalties up to €20M or 4% of annual revenue.
+</div>
+
+<p style="margin-top: 30px;"><strong>Contact:</strong> Keigan Pesenti | keigan.pesenti@eudia.com<br>
+<strong>Next Step:</strong> Schedule 60-minute review call after template completion</p>
+
+<hr style="margin: 30px 0;">
+
+<p style="text-align: center; color: #666; font-size: 0.85em;">
+<strong>Salesforce Data Migration Assessment</strong><br>
+Johnson Hana → Eudia | November 2025 | GDPR-Compliant Approach
+</p>
+
+</body>
+</html>
+

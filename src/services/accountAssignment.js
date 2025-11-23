@@ -10,7 +10,7 @@ const logger = require('../utils/logger');
 const BL_ASSIGNMENTS = {
   westCoast: ['Himanshu Agarwal', 'Julie Stefanich'],
   eastCoast: ['Olivia Jung'],
-  international: ['Keigan Pesenti'] // Temporary: Until Johnson Hana BLs are added to Salesforce
+  international: ['Johnson Hana BL'] // International accounts assigned to Johnson Hana team
 };
 
 // Geographic Regions
