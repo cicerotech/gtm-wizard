@@ -31,16 +31,30 @@ async function generateAccountDashboard() {
   
   const avgDealSize = totalDeals > 0 ? totalGross / totalDeals : 0;
   
-  // Query accounts with opportunities
+  // Query accounts with opportunities AND Finance_Weighted_ACV__c
   const accountQuery = `SELECT Account.Name, Account.Owner.Name, Account.Is_New_Logo__c,
-                               Account.Account_Plan_s__c,
-                               Name, StageName, ACV__c, Product_Line__c
+                               Account.Account_Plan_s__c, Account.Customer_Type__c,
+                               Name, StageName, ACV__c, Finance_Weighted_ACV__c, Product_Line__c
                         FROM Opportunity
                         WHERE IsClosed = false
                           AND StageName IN ('Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
                         ORDER BY StageName DESC, Account.Name`;
   
   const accountData = await query(accountQuery, true);
+  
+  // Query Einstein Activity for last meeting dates (if available)
+  let meetingData = new Map();
+  try {
+    const meetingQuery = `SELECT WhoId, ActivityDate, Subject
+                          FROM Event
+                          WHERE ActivityDate != null
+                            AND (Type = 'Meeting' OR Type = 'Call')
+                          ORDER BY ActivityDate DESC`;
+    const meetings = await query(meetingQuery, true);
+    // Map to accounts (simplified - would need proper account linking)
+  } catch (e) {
+    // Einstein Activity might not be enabled, skip gracefully
+  }
   
   // Group by account
   const accountMap = new Map();
@@ -96,15 +110,15 @@ async function generateAccountDashboard() {
     }
   });
   
-  // Group by BL
+  // Group by BL (using actual Finance_Weighted_ACV__c field)
   const blBreakdown = {};
   accountData.records.forEach(opp => {
     const blName = opp.Account?.Owner?.Name || 'Unassigned';
     if (!blBreakdown[blName]) {
       blBreakdown[blName] = { totalACV: 0, weightedACV: 0, count: 0 };
     }
-    blBreakdown[blName].totalACV += opp.ACV__c || 0;
-    blBreakdown[blName].weightedACV += opp.Finance_Weighted_ACV__c || 0;
+    blBreakdown[blName].totalACV += (opp.ACV__c || 0);
+    blBreakdown[blName].weightedACV += (opp.Finance_Weighted_ACV__c || 0);
     blBreakdown[blName].count++;
   });
   
@@ -115,8 +129,8 @@ async function generateAccountDashboard() {
     if (!productBreakdown[product]) {
       productBreakdown[product] = { totalACV: 0, weightedACV: 0, count: 0 };
     }
-    productBreakdown[product].totalACV += opp.ACV__c || 0;
-    productBreakdown[product].weightedACV += opp.Finance_Weighted_ACV__c || 0;
+    productBreakdown[product].totalACV += (opp.ACV__c || 0);
+    productBreakdown[product].weightedACV += (opp.Finance_Weighted_ACV__c || 0);
     productBreakdown[product].count++;
   });
   
@@ -285,7 +299,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
-<!-- TAB 3: ACCOUNT PLANS (Smart Summaries) -->
+<!-- TAB 3: ACCOUNT PLANS (Compact, Organized) -->
 <div id="account-plans" class="tab-content">
   <div class="metrics" style="margin-bottom: 16px;">
     <div class="metric">
@@ -298,30 +312,38 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
   </div>
   
-  ${Array.from(accountMap.values()).sort((a, b) => b.totalACV - a.totalACV).map(acc => {
-    const oppCount = acc.opportunities.length;
-    const totalACV = acc.totalACV;
-    const products = [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))];
-    const productList = products.join(', ') || 'TBD';
-    
-    return `
-    <div class="account-card card-${acc.highestStage >= 3 ? 'late' : acc.highestStage === 2 ? 'mid' : 'early'}">
-      <div class="account-name">${acc.name}${acc.isNewLogo ? '<span class="badge badge-new">New</span>' : ''}</div>
-      <div class="account-owner" style="margin-bottom: 8px;">${acc.owner} • Stage ${acc.highestStage}</div>
-      
-      ${acc.hasAccountPlan ? `
-        <div style="background: #f0f9ff; padding: 8px; border-radius: 4px; font-size: 0.8125rem; color: #1e40af;">
-          ✓ Account Plan exists
-        </div>
-      ` : `
-        <div style="background: #fefce8; padding: 8px; border-radius: 4px; font-size: 0.8125rem; color: #713f12;">
-          <strong>Summary:</strong> ${oppCount} open opp${oppCount > 1 ? 's' : ''} totaling $${(totalACV / 1000000) >= 1 ? (totalACV / 1000000).toFixed(2) + 'M' : (totalACV / 1000).toFixed(0) + 'K'} across ${products.length > 1 ? products.length + ' products' : productList}.
-          ${acc.highestStage >= 2 ? '<br><strong>⚠️ Account Plan required for Stage 2+</strong>' : ''}
-        </div>
-      `}
+  <div class="stage-section">
+    <div class="stage-title">Accounts (Top 20 by ACV)</div>
+    <div class="stage-subtitle">Green = Has Plan | Yellow = Missing Plan (Stage 2+)</div>
+    <div class="account-list">
+      ${Array.from(accountMap.values())
+        .sort((a, b) => b.totalACV - a.totalACV)
+        .slice(0, 20)
+        .map(acc => {
+          const oppCount = acc.opportunities.length;
+          const totalACV = acc.totalACV || 0;
+          const products = [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))];
+          const productList = products.length > 0 ? products.join(', ') : 'TBD';
+          const acvDisplay = totalACV >= 1000000 ? '$' + (totalACV / 1000000).toFixed(1) + 'M' : '$' + (totalACV / 1000).toFixed(0) + 'K';
+          
+          return `
+          <div class="account-item" style="background: ${acc.hasAccountPlan ? '#f0fdf4' : (acc.highestStage >= 2 ? '#fefce8' : '#fff')}; padding: 10px; border-radius: 4px; margin-bottom: 6px; border-left: 3px solid ${acc.hasAccountPlan ? '#10b981' : (acc.highestStage >= 2 ? '#f59e0b' : '#d1d5db')};">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+              <div>
+                <div class="account-name" style="font-size: 0.9375rem;">${acc.name}${acc.isNewLogo ? '<span class="badge badge-new">New</span>' : ''}</div>
+                <div style="font-size: 0.8125rem; color: #6b7280;">${acc.owner} • Stage ${acc.highestStage} • ${oppCount} opp${oppCount > 1 ? 's' : ''}</div>
+              </div>
+              <div style="text-align: right; font-size: 0.8125rem;">
+                <div style="font-weight: 600; color: #1f2937;">${acvDisplay}</div>
+                <div style="color: #6b7280;">${products.length} product${products.length > 1 ? 's' : ''}</div>
+              </div>
+            </div>
+            ${!acc.hasAccountPlan && acc.highestStage >= 2 ? '<div style="font-size: 0.75rem; color: #b45309; margin-top: 6px;">⚠️ Account Plan required</div>' : ''}
+          </div>
+          `;
+        }).join('')}
     </div>
-    `;
-  }).join('')}
+  </div>
 </div>
 
 <!-- No JavaScript needed - Pure CSS tabs work with CSP! -->
