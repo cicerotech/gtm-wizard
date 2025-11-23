@@ -80,6 +80,46 @@ async function generateAccountDashboard() {
   const accountsWithPlans = Array.from(accountMap.values()).filter(a => a.hasAccountPlan).length;
   const accountsWithoutPlans = accountMap.size - accountsWithPlans;
   
+  // For "By Stage" tab - group by stage for detailed breakdown
+  const stageBreakdown = {
+    'Stage 4 - Proposal': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
+    'Stage 3 - Pilot': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
+    'Stage 2 - SQO': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
+    'Stage 1 - Discovery': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 }
+  };
+  
+  pipelineData.records.forEach(r => {
+    if (stageBreakdown[r.StageName]) {
+      stageBreakdown[r.StageName].totalACV = r.GrossAmount || 0;
+      stageBreakdown[r.StageName].weightedACV = r.WeightedAmount || 0;
+      stageBreakdown[r.StageName].count = r.DealCount || 0;
+    }
+  });
+  
+  // Group by BL
+  const blBreakdown = {};
+  accountData.records.forEach(opp => {
+    const blName = opp.Account?.Owner?.Name || 'Unassigned';
+    if (!blBreakdown[blName]) {
+      blBreakdown[blName] = { totalACV: 0, weightedACV: 0, count: 0 };
+    }
+    blBreakdown[blName].totalACV += opp.ACV__c || 0;
+    blBreakdown[blName].weightedACV += opp.Finance_Weighted_ACV__c || 0;
+    blBreakdown[blName].count++;
+  });
+  
+  // Group by product
+  const productBreakdown = {};
+  accountData.records.forEach(opp => {
+    const product = opp.Product_Line__c || 'Undetermined';
+    if (!productBreakdown[product]) {
+      productBreakdown[product] = { totalACV: 0, weightedACV: 0, count: 0 };
+    }
+    productBreakdown[product].totalACV += opp.ACV__c || 0;
+    productBreakdown[product].weightedACV += opp.Finance_Weighted_ACV__c || 0;
+    productBreakdown[product].count++;
+  });
+  
   // Generate mobile-optimized tabbed HTML
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -202,80 +242,76 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
-<!-- TAB 2: BY STAGE -->
+<!-- TAB 2: BY STAGE (Detailed Breakdowns) -->
 <div id="by-stage" class="tab-content">
   <div class="stage-section">
-    <div class="stage-title">Late Stage (${late.length})</div>
-    <div class="stage-subtitle">Pilot & Proposal</div>
-    ${late.map(acc => `
-      <div class="account-card card-late">
-        <div class="account-name">${acc.name}${acc.isNewLogo ? '<span class="badge badge-new">New</span>' : ''}</div>
-        <div class="account-owner" style="margin-bottom: 8px;">${acc.owner}</div>
-        <div>${acc.opportunities.map(o => `<span class="opp-pill">${cleanStageName(o.StageName)} • ${o.Product_Line__c || 'TBD'} • $${((o.ACV__c || 0) / 1000).toFixed(0)}K</span>`).join('')}</div>
-      </div>
-    `).join('')}
+    <div class="stage-title">Stage Overview</div>
+    <table style="width: 100%; font-size: 0.875rem; margin-top: 12px;">
+      <tr style="background: #f9fafb; font-weight: 600;"><td>Stage</td><td>Opps</td><td>Total ACV</td><td>Weighted</td></tr>
+      ${Object.entries(stageBreakdown).map(([stage, data]) => `
+        <tr><td>${cleanStageName(stage)}</td><td>${data.count}</td><td>$${(data.totalACV / 1000000).toFixed(2)}M</td><td>$${(data.weightedACV / 1000000).toFixed(2)}M</td></tr>
+      `).join('')}
+    </table>
   </div>
   
   <div class="stage-section">
-    <div class="stage-title">Mid Stage (${mid.length})</div>
-    <div class="stage-subtitle">SQO</div>
-    ${mid.map(acc => `
-      <div class="account-card card-mid">
-        <div class="account-name">${acc.name}${acc.isNewLogo ? '<span class="badge badge-new">New</span>' : ''}</div>
-        <div class="account-owner" style="margin-bottom: 8px;">${acc.owner}</div>
-        <div>${acc.opportunities.map(o => `<span class="opp-pill">${o.Product_Line__c || 'TBD'} • $${((o.ACV__c || 0) / 1000).toFixed(0)}K</span>`).join('')}</div>
-      </div>
-    `).join('')}
+    <div class="stage-title">Business Lead Overview</div>
+    <table style="width: 100%; font-size: 0.875rem; margin-top: 12px;">
+      <tr style="background: #f9fafb; font-weight: 600;"><td>BL</td><td>Opps</td><td>Total ACV</td><td>Weighted</td></tr>
+      ${Object.entries(blBreakdown).sort((a, b) => b[1].totalACV - a[1].totalACV).map(([bl, data]) => `
+        <tr><td>${bl}</td><td>${data.count}</td><td>$${(data.totalACV / 1000000).toFixed(2)}M</td><td>$${(data.weightedACV / 1000000).toFixed(2)}M</td></tr>
+      `).join('')}
+    </table>
   </div>
   
   <div class="stage-section">
-    <div class="stage-title">Early Stage (${early.length})</div>
-    <div class="stage-subtitle">Discovery</div>
-    ${early.map(acc => `
-      <div class="account-card card-early">
-        <div class="account-name">${acc.name}${acc.isNewLogo ? '<span class="badge badge-new">New</span>' : ''}</div>
-        <div class="account-owner" style="margin-bottom: 8px;">${acc.owner}</div>
-        <div>${acc.opportunities.map(o => `<span class="opp-pill">${o.Product_Line__c || 'TBD'} • $${((o.ACV__c || 0) / 1000).toFixed(0)}K</span>`).join('')}</div>
-      </div>
-    `).join('')}
+    <div class="stage-title">Products by Stage</div>
+    <table style="width: 100%; font-size: 0.875rem; margin-top: 12px;">
+      <tr style="background: #f9fafb; font-weight: 600;"><td>Product</td><td>Opps</td><td>Total ACV</td><td>Weighted</td></tr>
+      ${Object.entries(productBreakdown).sort((a, b) => b[1].totalACV - a[1].totalACV).map(([product, data]) => `
+        <tr><td>${product}</td><td>${data.count}</td><td>$${(data.totalACV / 1000000).toFixed(2)}M</td><td>$${(data.weightedACV / 1000000).toFixed(2)}M</td></tr>
+      `).join('')}
+    </table>
   </div>
 </div>
 
-<!-- TAB 3: ACCOUNT PLANS -->
+<!-- TAB 3: ACCOUNT PLANS (Smart Summaries) -->
 <div id="account-plans" class="tab-content">
-  <div class="plan-status">
-    <div class="plan-stat">
-      <div class="plan-stat-value">${accountsWithPlans}</div>
-      <div class="plan-stat-label">With Account Plans</div>
+  <div class="metrics" style="margin-bottom: 16px;">
+    <div class="metric">
+      <div class="metric-label">With Plans</div>
+      <div class="metric-value">${accountsWithPlans}</div>
     </div>
-    <div class="plan-stat">
-      <div class="plan-stat-value">${accountsWithoutPlans}</div>
-      <div class="plan-stat-label">Missing Plans</div>
+    <div class="metric">
+      <div class="metric-label">Missing Plans</div>
+      <div class="metric-value">${accountsWithoutPlans}</div>
     </div>
   </div>
   
-  <div class="stage-section">
-    <div class="stage-title">Accounts with Plans (${accountsWithPlans})</div>
-    ${Array.from(accountMap.values()).filter(a => a.hasAccountPlan).map(acc => `
-      <div class="account-item">
-        <div class="account-name">${acc.name}</div>
-        <div class="account-owner">${acc.owner} • Stage ${acc.highestStage}</div>
-      </div>
-    `).join('')}
-  </div>
-  
-  ${accountsWithoutPlans > 0 ? `
-  <div class="stage-section" style="border-left: 3px solid #ef4444;">
-    <div class="stage-title">Missing Account Plans (${accountsWithoutPlans})</div>
-    <div class="stage-subtitle">Required for Stage 2+</div>
-    ${Array.from(accountMap.values()).filter(a => !a.hasAccountPlan && a.highestStage >= 2).map(acc => `
-      <div class="account-item" style="background: #fef2f2; padding: 8px; border-radius: 4px; margin-bottom: 6px;">
-        <div class="account-name">${acc.name}</div>
-        <div class="account-owner">${acc.owner} • Stage ${acc.highestStage} ⚠️ Plan Required</div>
-      </div>
-    `).join('')}
-  </div>
-  ` : ''}
+  ${Array.from(accountMap.values()).sort((a, b) => b.totalACV - a.totalACV).map(acc => {
+    const oppCount = acc.opportunities.length;
+    const totalACV = acc.totalACV;
+    const products = [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))];
+    const productList = products.join(', ') || 'TBD';
+    
+    return `
+    <div class="account-card card-${acc.highestStage >= 3 ? 'late' : acc.highestStage === 2 ? 'mid' : 'early'}">
+      <div class="account-name">${acc.name}${acc.isNewLogo ? '<span class="badge badge-new">New</span>' : ''}</div>
+      <div class="account-owner" style="margin-bottom: 8px;">${acc.owner} • Stage ${acc.highestStage}</div>
+      
+      ${acc.hasAccountPlan ? `
+        <div style="background: #f0f9ff; padding: 8px; border-radius: 4px; font-size: 0.8125rem; color: #1e40af;">
+          ✓ Account Plan exists
+        </div>
+      ` : `
+        <div style="background: #fefce8; padding: 8px; border-radius: 4px; font-size: 0.8125rem; color: #713f12;">
+          <strong>Summary:</strong> ${oppCount} open opp${oppCount > 1 ? 's' : ''} totaling $${(totalACV / 1000000) >= 1 ? (totalACV / 1000000).toFixed(2) + 'M' : (totalACV / 1000).toFixed(0) + 'K'} across ${products.length > 1 ? products.length + ' products' : productList}.
+          ${acc.highestStage >= 2 ? '<br><strong>⚠️ Account Plan required for Stage 2+</strong>' : ''}
+        </div>
+      `}
+    </div>
+    `;
+  }).join('')}
 </div>
 
 <script>
