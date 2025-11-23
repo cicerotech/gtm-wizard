@@ -1,5 +1,38 @@
 const logger = require('../utils/logger');
-const fetch = require('node-fetch');
+
+// Use native https instead of node-fetch for better compatibility
+const https = require('https');
+
+function fetch(url, options) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const reqOptions = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || 443,
+      path: urlObj.pathname + urlObj.search,
+      method: options.method || 'GET',
+      headers: options.headers || {}
+    };
+    
+    const req = https.request(reqOptions, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        resolve({
+          ok: res.statusCode >= 200 && res.statusCode < 300,
+          status: res.statusCode,
+          statusText: res.statusMessage,
+          text: async () => data,
+          json: async () => JSON.parse(data)
+        });
+      });
+    });
+    
+    req.on('error', reject);
+    if (options.body) req.write(options.body);
+    req.end();
+  });
+}
 
 /**
  * Clay API Integration for Company Enrichment

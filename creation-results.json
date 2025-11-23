@@ -1,0 +1,146 @@
+[
+  {
+    "object": "pse__Proj__c",
+    "success": false,
+    "errors": [
+      {
+        "message": "Cannot create a new component with the namespace: pse.  Only components in the same namespace as the organization can be created through the API",
+        "statusCode": "FIELD_INTEGRITY_EXCEPTION",
+        "extendedErrorDetails": [],
+        "fields": []
+      }
+    ]
+  },
+  {
+    "object": "pse__ProjectVarianceBatchLog__c",
+    "success": false,
+    "errors": [
+      {
+        "message": "Cannot create a new component with the namespace: pse.  Only components in the same namespace as the organization can be created through the API",
+        "statusCode": "FIELD_INTEGRITY_EXCEPTION",
+        "extendedErrorDetails": [],
+        "fields": []
+      }
+    ]
+  },
+  {
+    "object": "pse__ProjectVarianceBatch__c",
+    "success": false,
+    "errors": [
+      {
+        "message": "Cannot create a new component with the namespace: pse.  Only components in the same namespace as the organization can be created through the API",
+        "statusCode": "FIELD_INTEGRITY_EXCEPTION",
+        "extendedErrorDetails": [],
+        "fields": []
+      }
+    ]
+  },
+  {
+    "object": "pse__Project_Location__c",
+    "success": false,
+    "errors": [
+      {
+        "message": "Cannot create a new component with the namespace: pse.  Only components in the same namespace as the organization can be created through the API",
+        "statusCode": "FIELD_INTEGRITY_EXCEPTION",
+        "extendedErrorDetails": [],
+        "fields": []
+      }
+    ]
+  },
+  {
+    "object": "pse__Project_Methodology__c",
+    "success": false,
+    "errors": [
+      {
+        "message": "Cannot create a new component with the namespace: pse.  Only components in the same namespace as the organization can be created through the API",
+        "statusCode": "FIELD_INTEGRITY_EXCEPTION",
+        "extendedErrorDetails": [],
+        "fields": []
+      }
+    ]
+  },
+  {
+    "object": "pse__Project_Phase__c",
+    "success": false,
+    "errors": [
+      {
+        "message": "Cannot create a new component with the namespace: pse.  Only components in the same namespace as the organization can be created through the API",
+        "statusCode": "FIELD_INTEGRITY_EXCEPTION",
+        "extendedErrorDetails": [],
+        "fields": []
+      }
+    ]
+  },
+  {
+    "object": "pse__Project_Source__c",
+    "success": false,
+    "errors": [
+      {
+        "message": "Cannot create a new component with the namespace: pse.  Only components in the same namespace as the organization can be created through the API",
+        "statusCode": "FIELD_INTEGRITY_EXCEPTION",
+        "extendedErrorDetails": [],
+        "fields": []
+      }
+    ]
+  },
+  {
+    "object": "pse__Project_Task_Assignment__c",
+    "success": false,
+    "errors": [
+      {
+        "message": "Cannot create a new component with the namespace: pse.  Only components in the same namespace as the organization can be created through the API",
+        "statusCode": "FIELD_INTEGRITY_EXCEPTION",
+        "extendedErrorDetails": [],
+        "fields": []
+      }
+    ]
+  },
+  {
+    "object": "pse__Project_Task_Dependency__c",
+    "success": false,
+    "errors": [
+      {
+        "message": "Cannot create a new component with the namespace: pse.  Only components in the same namespace as the organization can be created through the API",
+        "statusCode": "FIELD_INTEGRITY_EXCEPTION",
+        "extendedErrorDetails": [],
+        "fields": []
+      }
+    ]
+  },
+  {
+    "object": "pse__Project_Task_Points_Complete_History__c",
+    "success": false,
+    "errors": [
+      {
+        "message": "Cannot create a new component with the namespace: pse.  Only components in the same namespace as the organization can be created through the API",
+        "statusCode": "FIELD_INTEGRITY_EXCEPTION",
+        "extendedErrorDetails": [],
+        "fields": []
+      }
+    ]
+  },
+  {
+    "object": "pse__Project_Task_Points_History__c",
+    "success": false,
+    "errors": [
+      {
+        "message": "Cannot create a new component with the namespace: pse.  Only components in the same namespace as the organization can be created through the API",
+        "statusCode": "FIELD_INTEGRITY_EXCEPTION",
+        "extendedErrorDetails": [],
+        "fields": []
+      }
+    ]
+  },
+  {
+    "object": "pse__Project_Task__c",
+    "success": false,
+    "errors": [
+      {
+        "message": "Cannot create a new component with the namespace: pse.  Only components in the same namespace as the organization can be created through the API",
+        "statusCode": "FIELD_INTEGRITY_EXCEPTION",
+        "extendedErrorDetails": [],
+        "fields": []
+      }
+    ]
+  }
+]

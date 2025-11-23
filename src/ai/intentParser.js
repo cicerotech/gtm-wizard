@@ -313,6 +313,20 @@ Business Context:
     const entities = {};
     let intent = 'pipeline_summary';
 
+    // Account Status Dashboard (Executive view)
+    if (message.includes('account status dashboard') || message.includes('account dashboard') ||
+        (message.trim() === 'gtm' || message.trim() === 'gtm brain' || message.trim() === 'dashboard')) {
+      return {
+        intent: 'account_status_dashboard',
+        entities: {},
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'Show executive account status dashboard',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
     // Handle greetings and simple responses
     if (this.isGreeting(message)) {
       return {

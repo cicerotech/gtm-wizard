@@ -365,6 +365,10 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle post-call summary structuring (BLs)
       await handlePostCallSummary(text, userId, channelId, client, threadTs);
       return; // Exit early
+    } else if (parsedIntent.intent === 'account_status_dashboard') {
+      // Handle executive account status dashboard
+      await handleAccountStatusDashboard(userId, channelId, client, threadTs);
+      return; // Exit early
     } else if (parsedIntent.intent === 'pipeline_summary' || parsedIntent.intent === 'deal_lookup') {
       soql = queryBuilder.buildOpportunityQuery(parsedIntent.entities);
     } else if (parsedIntent.intent === 'activity_check') {
@@ -3281,6 +3285,133 @@ ${meetingNotes}`;
     await client.chat.postMessage({
       channel: channelId,
       text: `❌ Error structuring summary: ${error.message}\n\nPlease try again or save notes manually.`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle Account Status Dashboard (Executive View)
+ */
+async function handleAccountStatusDashboard(userId, channelId, client, threadTs) {
+  try {
+    await client.chat.postMessage({
+      channel: channelId,
+      text: 'Generating account status dashboard...',
+      thread_ts: threadTs
+    });
+    
+    // Query all active pipeline with account grouping
+    const dashboardQuery = `SELECT Account.Name, Account.Owner.Name, Account.Is_New_Logo__c,
+                                   Name, StageName, ACV__c, Product_Line__c, Target_LOI_Date__c
+                            FROM Opportunity
+                            WHERE IsClosed = false
+                              AND StageName IN ('Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
+                            ORDER BY Account.Name, StageName`;
+    
+    const result = await query(dashboardQuery);
+    
+    if (!result || !result.records || result.totalSize === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: 'No active pipeline found.',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    // Group by account
+    const accountMap = new Map();
+    let newLogoCount = 0;
+    
+    result.records.forEach(opp => {
+      const accountName = opp.Account?.Name;
+      const isNewLogo = opp.Account?.Is_New_Logo__c;
+      
+      if (!accountMap.has(accountName)) {
+        accountMap.set(accountName, {
+          name: accountName,
+          owner: opp.Account?.Owner?.Name,
+          isNewLogo,
+          opportunities: [],
+          stages: new Set()
+        });
+        if (isNewLogo) newLogoCount++;
+      }
+      
+      const account = accountMap.get(accountName);
+      account.opportunities.push(opp);
+      account.stages.add(opp.StageName);
+    });
+    
+    // Categorize by stage
+    const early = []; // Stage 1
+    const mid = [];   // Stage 2
+    const late = [];  // Stage 3-4
+    
+    accountMap.forEach(account => {
+      if (account.stages.has('Stage 1 - Discovery')) {
+        early.push(account);
+      } else if (account.stages.has('Stage 2 - SQO')) {
+        mid.push(account);
+      } else if (account.stages.has('Stage 3 - Pilot') || account.stages.has('Stage 4 - Proposal')) {
+        late.push(account);
+      }
+    });
+    
+    // Build dashboard
+    let dashboard = `*ACCOUNT STATUS DASHBOARD*\n\n`;
+    
+    // Summary
+    dashboard += `*Summary:*\n`;
+    dashboard += `• Total active accounts: ${accountMap.size}\n`;
+    dashboard += `• New logos: ${newLogoCount}\n`;
+    dashboard += `• Early stage (Discovery): ${early.length}\n`;
+    dashboard += `• Mid stage (SQO): ${mid.length}\n`;
+    dashboard += `• Late stage (Pilot/Proposal): ${late.length}\n\n`;
+    
+    // Early Stage
+    if (early.length > 0) {
+      dashboard += `*EARLY STAGE (Discovery):*\n`;
+      early.forEach(acc => {
+        const oppList = acc.opportunities.map(o => `${cleanStageName(o.StageName)} - ${o.Product_Line__c || 'TBD'} - $${(o.ACV__c || 0) / 1000}K`).join(', ');
+        dashboard += `• ${acc.name} (${acc.owner})\n  ${oppList}\n`;
+      });
+      dashboard += `\n`;
+    }
+    
+    // Mid Stage
+    if (mid.length > 0) {
+      dashboard += `*MID STAGE (SQO):*\n`;
+      mid.forEach(acc => {
+        const oppList = acc.opportunities.map(o => `${cleanStageName(o.StageName)} - ${o.Product_Line__c || 'TBD'} - $${(o.ACV__c || 0) / 1000}K`).join(', ');
+        dashboard += `• ${acc.name} (${acc.owner})\n  ${oppList}\n`;
+      });
+      dashboard += `\n`;
+    }
+    
+    // Late Stage
+    if (late.length > 0) {
+      dashboard += `*LATE STAGE (Pilot/Proposal):*\n`;
+      late.forEach(acc => {
+        const oppList = acc.opportunities.map(o => `${cleanStageName(o.StageName)} - ${o.Product_Line__c || 'TBD'} - $${(o.ACV__c || 0) / 1000}K - Target: ${formatDate(o.Target_LOI_Date__c)}`).join('\n  ');
+        dashboard += `• ${acc.name} (${acc.owner})\n  ${oppList}\n`;
+      });
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: dashboard,
+      thread_ts: threadTs
+    });
+    
+    logger.info(`✅ Account status dashboard generated for ${userId}`);
+    
+  } catch (error) {
+    logger.error('Dashboard generation failed:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `Error generating dashboard: ${error.message}`,
       thread_ts: threadTs
     });
   }
