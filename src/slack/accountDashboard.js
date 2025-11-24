@@ -374,25 +374,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
-<!-- TAB 3: ACCOUNT PLANS (Searchable, Expandable) -->
+<!-- TAB 3: ACCOUNT PLANS (Clean, Compact, Like Summary Tab) -->
 <div id="account-plans" class="tab-content">
-  <div class="metrics" style="margin-bottom: 12px;">
-    <div class="metric">
-      <div class="metric-label">With Plans</div>
-      <div class="metric-value">${accountsWithPlans}</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">Need Plans (Stage 2+)</div>
-      <div class="metric-value">${Array.from(accountMap.values()).filter(a => !a.hasAccountPlan && a.highestStage >= 2).length}</div>
-    </div>
+  <div class="stage-section">
+    <div class="stage-title">Account Plans & Pipeline</div>
+    <div class="stage-subtitle">${accountsWithPlans} accounts have plans • ${accountMap.size - accountsWithPlans} need plans (recently initiated feature)</div>
   </div>
   
-  <div style="position: sticky; top: 0; background: #f5f7fe; padding: 12px 0; z-index: 10;">
-    <input type="text" id="account-search" placeholder="🔍 Type to search accounts (e.g., 'YouTube', 'Gov', 'Intel')..." style="width: 100%; padding: 12px; border: 2px solid #8e99e1; border-radius: 8px; font-size: 0.875rem;">
-    <div id="match-count" style="font-size: 0.75rem; color: #6b7280; margin-top: 6px;">Showing top 10 accounts (type to search all ${accountMap.size})</div>
-  </div>
-  
-  <div id="accounts-list">
+  <div class="stage-section">
+    <div class="stage-title">Top 10 Accounts (by ACV)</div>
+    <div class="account-list">
     ${Array.from(accountMap.values())
       .sort((a, b) => b.totalACV - a.totalACV)
 
@@ -478,14 +469,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           </div>
         </details>
         `;
-      }).join('')}
+      `).join('')}
+      <div class="account-item" style="color: #6b7280; font-style: italic;">+${accountMap.size - 10} more accounts...</div>
+    </div>
   </div>
 </div>
-
-<style>
-details[open] summary { font-weight: 600; }
-.account-expandable:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-</style>
 
 <script>
 // Search functionality with relevance sorting
