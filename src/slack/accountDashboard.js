@@ -374,11 +374,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
-<!-- TAB 3: ACCOUNT PLANS (Clean, Compact, Like Summary Tab) -->
+<!-- TAB 3: ACCOUNT PLANS -->
 <div id="account-plans" class="tab-content">
   <div class="stage-section">
     <div class="stage-title">Account Plans & Pipeline</div>
-    <div class="stage-subtitle">${accountsWithPlans} accounts have plans • ${accountMap.size - accountsWithPlans} need plans (recently initiated feature)</div>
+    <div class="stage-subtitle">${accountsWithPlans} have plans • ${accountMap.size - accountsWithPlans} need plans (recently initiated)</div>
   </div>
   
   <div class="stage-section">
@@ -389,143 +389,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         .slice(0, 10)
         .map(acc => {
           const planIcon = acc.hasAccountPlan ? '📋 ' : '';
-          const lastMeeting = meetingData.get(acc.accountId)?.lastMeeting;
-          const lastDate = lastMeeting ? new Date(lastMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-        const oppCount = acc.opportunities.length;
-        const totalACV = acc.totalACV || 0;
-        const products = [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))];
-        const productList = products.join(', ') || 'TBD';
-        const acvDisplay = totalACV >= 1000000 ? '$' + (totalACV / 1000000).toFixed(1) + 'M' : totalACV >= 1000 ? '$' + (totalACV / 1000).toFixed(0) + 'K' : '$' + totalACV.toFixed(0);
-        const needsPlan = !acc.hasAccountPlan && acc.highestStage >= 2;
-        
-        // Get meeting data + legal contacts for this account
-        const accountMeetings = meetingData.get(acc.accountId) || {};
-        const lastMeeting = accountMeetings.lastMeeting;
-        const lastMeetingSubject = accountMeetings.lastMeetingSubject;
-        const nextMeeting = accountMeetings.nextMeeting;
-        const nextMeetingSubject = accountMeetings.nextMeetingSubject;
-        const legalContacts = accountMeetings.contacts ? Array.from(accountMeetings.contacts) : [];
-        
-        const lastMeetingDate = lastMeeting ? new Date(lastMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}) : null;
-        const nextMeetingDate = nextMeeting ? new Date(nextMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}) : null;
-        
-        // Customer type badge (if not new logo)
-        const customerTypeBadge = !acc.isNewLogo && acc.customerType ? `<span class="badge" style="background: #dbeafe; color: #1e40af;">${acc.customerType}</span>` : '';
-        
-        // Subtle plan indicator (emoji only, no background fill)
-        const planIcon = acc.hasAccountPlan ? '📋' : '';
-        
-        return `
-        <details class="account-expandable" data-account="${acc.name.toLowerCase()}" data-index="${idx}" style="display: ${idx < 10 ? 'block' : 'none'}; background: #fff; border-left: 3px solid ${acc.highestStage >= 3 ? '#10b981' : acc.highestStage === 2 ? '#3b82f6' : '#f59e0b'}; padding: 12px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; border: 1px solid #e5e7eb;">
-          <summary style="list-style: none; display: flex; justify-content: space-between; align-items: center;">
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 0.9375rem; color: #1f2937;">
-                ${planIcon} ${acc.name}
-                ${acc.isNewLogo ? '<span class="badge badge-new">New</span>' : customerTypeBadge}
-              </div>
-              <div style="font-size: 0.8125rem; color: #6b7280; margin-top: 2px;">
-                ${acc.owner} • Stage ${acc.highestStage} • ${oppCount} opp${oppCount > 1 ? 's' : ''}
-                ${lastMeetingDate ? ' • Last: ' + lastMeetingDate : ''}
-              </div>
-            </div>
-            <div style="text-align: right;">
-              <div style="font-weight: 600; color: #1f2937;">${acvDisplay}</div>
-              <div style="font-size: 0.75rem; color: #6b7280;">${products.length} product${products.length > 1 ? 's' : ''}</div>
-            </div>
-          </summary>
+          const lastDate = meetingData.get(acc.accountId)?.lastMeeting 
+            ? new Date(meetingData.get(acc.accountId).lastMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) 
+            : null;
+          const customerType = !acc.isNewLogo && acc.customerType ? `[${acc.customerType}]` : '';
           
-          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 0.8125rem;">
-            ${acc.hasAccountPlan ? `
-              <div style="background: #f0f9ff; padding: 10px; border-radius: 4px; margin-bottom: 8px;">
-                <strong style="color: #1e40af;">✓ Account Plan</strong>
-                <div style="color: #1e40af; margin-top: 4px; font-size: 0.75rem; white-space: pre-wrap; max-height: 100px; overflow-y: auto;">${acc.accountPlan.substring(0, 200)}${acc.accountPlan.length > 200 ? '...' : ''}</div>
-              </div>
-            ` : needsPlan ? `
-              <div style="background: #fef3c7; padding: 8px; border-radius: 4px; margin-bottom: 8px; color: #92400e; font-size: 0.75rem;">
-                <strong>⚠️ Account Plan Required</strong>
-              </div>
-            ` : ''}
-            
-            ${lastMeetingDate || nextMeetingDate ? `
-            <div style="background: #ecfdf5; padding: 10px; border-radius: 4px; margin-bottom: 8px; font-size: 0.8125rem; color: #065f46; border: 1px solid #a7f3d0;">
-              ${lastMeetingDate ? '<div style="margin-bottom: 4px;"><strong>📅 Last Meeting:</strong> ' + lastMeetingDate + (lastMeetingSubject ? ' - ' + lastMeetingSubject : '') + '</div>' : ''}
-              ${nextMeetingDate ? '<div><strong>📅 Next Meeting:</strong> ' + nextMeetingDate + (nextMeetingSubject ? ' - ' + nextMeetingSubject : '') + (nextMeetingType ? ' (' + nextMeetingType + ')' : '') + '</div>' : ''}
-            </div>
-            ` : '<div style="background: #fef2f2; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 0.75rem; color: #991b1b;">📭 No upcoming meetings scheduled</div>'}
-            
-            ${legalContacts.length > 0 ? `
-            <div style="background: #ede9fe; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 0.75rem; color: #5b21b6;">
-              <strong>Legal Contacts:</strong> ${legalContacts.join(', ')}
-            </div>
-            ` : ''}
-            
-            <div style="margin-top: 8px; font-size: 0.8125rem;">
-              <div style="color: #374151; margin-bottom: 4px;"><strong>Products:</strong> ${productList}</div>
-              ${acc.customerType ? '<div style="color: #374151; margin-bottom: 4px;"><strong>Customer Type:</strong> ' + acc.customerType + '</div>' : ''}
-              <div style="color: #374151; margin-top: 6px;"><strong>Opportunities (${oppCount}):</strong></div>
-              ${acc.opportunities.map(o => `
-                <div style="font-size: 0.75rem; color: #6b7280; margin-left: 12px; margin-top: 2px;">
-                  • ${cleanStageName(o.StageName)} - ${o.Product_Line__c || 'TBD'} - $${((o.ACV__c || 0) / 1000).toFixed(0)}K
-                </div>
-              `).join('')}
-            </div>
+          return `
+          <div class="account-item">
+            <div class="account-name">${planIcon}${acc.name} ${acc.isNewLogo ? '<span class="badge badge-new">New</span>' : customerType}</div>
+            <div class="account-owner">${acc.owner} • Stage ${acc.highestStage} • ${acc.opportunities.length} opp${acc.opportunities.length > 1 ? 's' : ''}${lastDate ? ' • Last: ' + lastDate : ''}</div>
           </div>
-        </details>
-        `;
-      `).join('')}
-      <div class="account-item" style="color: #6b7280; font-style: italic;">+${accountMap.size - 10} more accounts...</div>
+          `;
+        }).join('')}
+      <div class="account-item" style="color: #6b7280; font-style: italic;">+${accountMap.size - 10} more accounts</div>
     </div>
   </div>
 </div>
-
-<script>
-// Search functionality with relevance sorting
-document.addEventListener('DOMContentLoaded', function() {
-  const searchInput = document.getElementById('account-search');
-  const matchCount = document.getElementById('match-count');
-  const allAccounts = document.querySelectorAll('.account-expandable');
-  
-  if (!searchInput) return;
-  
-  searchInput.addEventListener('input', function() {
-    const search = this.value.toLowerCase().trim();
-    
-    if (!search) {
-      // No search - show first 10 only (random selection already sorted by ACV)
-      allAccounts.forEach((acc, idx) => {
-        acc.style.display = idx < 10 ? 'block' : 'none';
-      });
-      matchCount.textContent = \`Showing top 10 accounts (type to search all \${allAccounts.length})\`;
-      return;
-    }
-    
-    // Find matches with relevance scoring
-    const matches = [];
-    allAccounts.forEach((acc) => {
-      const name = acc.getAttribute('data-account') || '';
-      if (name.includes(search)) {
-        // Exact start match = 100, contains = 50
-        const score = name.startsWith(search) ? 100 : 50;
-        matches.push({ element: acc, score, name });
-      }
-    });
-    
-    // Sort by score (best matches first)
-    matches.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return a.name.localeCompare(b.name);
-    });
-    
-    // Hide all accounts
-    allAccounts.forEach(acc => acc.style.display = 'none');
-    
-    // Show matches
-    matches.forEach(m => m.element.style.display = 'block');
-    
-    matchCount.textContent = \`\${matches.length} account\${matches.length !== 1 ? 's' : ''} found\`;
-  });
-});
-</script>
 
 
 </body>
@@ -537,52 +416,3 @@ document.addEventListener('DOMContentLoaded', function() {
 module.exports = {
   generateAccountDashboard
 };
-
-// Add search script at end (after HTML)
-const searchScript = `
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const searchInput = document.getElementById('account-search');
-  const matchCount = document.getElementById('match-count');
-  const allAccounts = document.querySelectorAll('.account-expandable');
-  
-  if (searchInput && allAccounts.length > 0) {
-    searchInput.addEventListener('keyup', function() {
-      const search = this.value.toLowerCase().trim();
-      
-      if (!search) {
-        // No search - show first 10 only
-        allAccounts.forEach((acc, idx) => {
-          acc.style.display = idx < 10 ? 'block' : 'none';
-        });
-        matchCount.textContent = 'Showing top 10 accounts (type to search all ' + allAccounts.length + ')';
-        return;
-      }
-      
-      // Filter and sort by relevance
-      const matches = [];
-      allAccounts.forEach((acc) => {
-        const name = acc.getAttribute('data-account') || '';
-        if (name.includes(search)) {
-          const score = name.startsWith(search) ? 100 : 50;
-          matches.push({ element: acc, score });
-        }
-      });
-      
-      // Sort best match first
-      matches.sort((a, b) => b.score - a.score);
-      
-      // Hide all
-      allAccounts.forEach(acc => acc.style.display = 'none');
-      
-      // Show matches
-      matches.forEach(m => m.element.style.display = 'block');
-      
-      matchCount.textContent = matches.length + ' account' + (matches.length !== 1 ? 's' : '') + ' found';
-    });
-  }
-});
-</script>
-`;
-
-module.exports.searchScript = searchScript;
