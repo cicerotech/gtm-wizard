@@ -308,10 +308,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 </head>
 <body>
 
+<div style="text-align: center; padding: 24px 20px 12px 20px;">
+  <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAjgCOAAD/7QEIUGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAOwcAVoAAxslRxwCeAAFRXVkaWEcAloACVBBTE8gQUxUTxwCdAABABwCZQABABwCUAAISGFuZC1vdXQcAl8AAkNBHAIZAAEAHAJpAApFdWRpYSBMb2dvHAIFAApFdWRpYSBMb2dvHAI3AAoyMDI1OjA3OjA4HAJzAAVFdWRpYRwCbgAFRXVkaWEcAmcAAQAcAnoAAkNOHAIoAAxTZWUgUmVsZWFzZSAcAhQAO1BSTkFyY2hpdmVfMVllYXJ8V2Vic2l0ZURpc3RyaWJ1dGlvbnxFbnRlcm1lZGlhRGlzdHJpYnV0aW9uHAIPAAEAAP/iAhxJQ0NfUFJPRklMRQABAQAAAgxsY21zAhAAAG1udHJSR0IgWFlaIAfcAAEAGQADACkAOWFjc3BBUFBMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD21gABAAAAANMtbGNtcwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACmRlc2MAAAD8AAAAXmNwcnQAAAFcAAAAC3d0cHQAAAFoAAAAFGJrcHQAAAF8AAAAFHJYWVoAAAGQAAAAFGdYWVoAAAGkAAAAFGJYWVoAAAG4AAAAFHJUUkMAAAHMAAAAQGdUUkMAAAHMAAAAQGJUUkMAAAHMAAAAQGRlc2MAAAAAAAAAA2MyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHRleHQAAAAARkIAAFhZWiAAAAAAAAD21gABAAAAANMtWFlaIAAAAAAAAAMWAAADMwAAAqRYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9jdXJ2AAAAAAAAABoAAADLAckDYwWSCGsL9hA/FVEbNCHxKZAyGDuSRgVRd13ta3B6BYmxmnysab9908PpMP///9sAQwAEAgMDAwIEAwMDBAQEBAUJBgUFBQULCAgGCQ0LDQ0NCwwMDhAUEQ4PEw8MDBIYEhMVFhcXFw4RGRsZFhoUFhcW/8AACwgCdgSwAQERAP/EAB0AAQACAgMBAQAAAAAAAAAAAAAICQUGAQMEAgf/xABfEAABAwMCAQQKCwsJBwIDCQAAAQIDBAUGBxEICRIhMRM4QVFhcXWClLMUFyIyM1NWkbHBFhgjJDQ4RVJ0dpGhstEVGiZCUnKzRVdidYHh8CckJYKSlKLD8TY3RHOio//aACAEBAAA/ANO" alt="Eudia" style="max-width: 200px; max-height: 60px; margin-bottom: 16px;">
+</div>
+
 <div class="header">
-  <div style="text-align: center; margin-bottom: 16px;">
-    <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAjgCOAAD/7QEIUGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAOwcAVoAAxslRxwCeAAFRXVkaWEcAloACVBBTE8gQUxUTxwCdAABABwCZQABABwCUAAISGFuZC1vdXQcAl8AAkNBHAIZAAEAHAJpAApFdWRpYSBMb2dvHAIFAApFdWRpYSBMb2dvHAI3AAoyMDI1OjA3OjA4HAJzAAVFdWRpYRwCbgAFRXVkaWEcAmcAAQAcAnoAAkNOHAIoAAxTZWUgUmVsZWFzZSAcAhQAO1BSTkFyY2hpdmVfMVllYXJ8V2Vic2l0ZURpc3RyaWJ1dGlvbnxFbnRlcm1lZGlhRGlzdHJpYnV0aW9uHAIPAAEAAP/iAhxJQ0NfUFJPRklMRQABAQAAAgxsY21zAhAAAG1udHJSR0IgWFlaIAfcAAEAGQADACkAOWFjc3BBUFBMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD21gABAAAAANMtbGNtcwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACmRlc2MAAAD8AAAAXmNwcnQAAAFcAAAAC3d0cHQAAAFoAAAAFGJrcHQAAAF8AAAAFHJYWVoAAAGQAAAAFGdYWVoAAAGkAAAAFGJYWVoAAAG4AAAAFHJUUkMAAAHMAAAAQGdUUkMAAAHMAAAAQGJUUkMAAAHMAAAAQGRlc2MAAAAAAAAAA2MyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHRleHQAAAAARkIAAFhZWiAAAAAAAAD21gABAAAAANMtWFlaIAAAAAAAAAMWAAADMwAAAqRYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9jdXJ2AAAAAAAAABoAAADLAckDYwWSCGsL9hA/FVEbNCHxKZAyGDuSRgVRd13ta3B6BYmxmnysab9908PpMP///9sAQwAEAgMDAwIEAwMDBAQEBAUJBgUFBQULCAgGCQ0LDQ0NCwwMDhAUEQ4PEw8MDBIYEhMVFhcXFw4RGRsZFhoUFhcW/8AACwgCdgSwAQERAP/EAB0AAQACAgMBAQAAAAAAAAAAAAAICQUGAQMEAgf/xABfEAABAwMCAQQKCwsJBwIDCQAAAQIDBAUGBxEICRIhMRM4QVFhcXWClLMUFyIyM1NWkbHBFhgjJDQ4RVJ0dpGhstEVGiZCUnKzRVdidYHh8CckJYKSlKLD8TY3RHOio//aACAEBAAA/ANO" alt="Eudia Logo" style="max-width: 180px; height: auto;">
-  </div>
   <h1>Account Status Dashboard</h1>
   <p>Real-time pipeline overview • Updated ${new Date().toLocaleTimeString()}</p>
 </div>
@@ -516,33 +517,33 @@ ${early.slice(0, 5).map((acc, idx) => {
   <div class="stage-section">
     <div class="stage-title">Stage Overview</div>
     <table style="width: 100%; font-size: 0.875rem; margin-top: 12px;">
-<tr style="background: #f9fafb; font-weight: 600;"><td>Stage</td><td>Opps</td><td>Total ACV</td><td>Weighted</td></tr>
+<tr style="background: #f9fafb; font-weight: 600;"><td>Stage</td><td style="text-align: center;">Opps</td><td style="text-align: center;">Total ACV</td><td style="text-align: center;">Weighted</td></tr>
       ${Object.entries(stageBreakdown).map(([stage, data]) => `
-        <tr><td>${cleanStageName(stage)}</td><td>${data.count}</td><td>$${(data.totalACV / 1000000).toFixed(2)}M</td><td>$${(data.weightedACV / 1000000).toFixed(2)}M</td></tr>
+        <tr><td>${cleanStageName(stage)}</td><td style="text-align: center;">${data.count}</td><td style="text-align: center;">$${(data.totalACV / 1000000).toFixed(2)}M</td><td style="text-align: center;">$${(data.weightedACV / 1000000).toFixed(2)}M</td></tr>
       `).join('')}
-      <tr style="background: #1f2937; color: #fff; font-weight: 700;"><td>TOTAL</td><td>${totalDeals}</td><td>$${(totalGross / 1000000).toFixed(2)}M</td><td>$${(totalWeighted / 1000000).toFixed(2)}M</td></tr>
+      <tr style="background: #e5e7eb; font-weight: 700;"><td>TOTAL</td><td style="text-align: center;">${totalDeals}</td><td style="text-align: center;">$${(totalGross / 1000000).toFixed(2)}M</td><td style="text-align: center;">$${(totalWeighted / 1000000).toFixed(2)}M</td></tr>
     </table>
   </div>
   
   <div class="stage-section">
     <div class="stage-title">Business Lead Overview</div>
     <table style="width: 100%; font-size: 0.875rem; margin-top: 12px;">
-      <tr style="background: #f9fafb; font-weight: 600;"><td>BL</td><td>Opps</td><td>Total ACV</td><td>Weighted</td></tr>
+<tr style="background: #f9fafb; font-weight: 600;"><td>BL</td><td style="text-align: center;">Opps</td><td style="text-align: center;">Total ACV</td><td style="text-align: center;">Weighted</td></tr>
       ${Object.entries(blBreakdown).sort((a, b) => b[1].totalACV - a[1].totalACV).map(([bl, data]) => `
-        <tr><td>${bl}</td><td>${data.count}</td><td>$${(data.totalACV / 1000000).toFixed(2)}M</td><td>$${(data.weightedACV / 1000000).toFixed(2)}M</td></tr>
+        <tr><td>${bl}</td><td style="text-align: center;">${data.count}</td><td style="text-align: center;">$${(data.totalACV / 1000000).toFixed(2)}M</td><td style="text-align: center;">$${(data.weightedACV / 1000000).toFixed(2)}M</td></tr>
       `).join('')}
-      <tr style="background: #1f2937; color: #fff; font-weight: 700;"><td>TOTAL</td><td>${Object.values(blBreakdown).reduce((sum, data) => sum + data.count, 0)}</td><td>$${(Object.values(blBreakdown).reduce((sum, data) => sum + data.totalACV, 0) / 1000000).toFixed(2)}M</td><td>$${(Object.values(blBreakdown).reduce((sum, data) => sum + data.weightedACV, 0) / 1000000).toFixed(2)}M</td></tr>
+      <tr style="background: #e5e7eb; font-weight: 700;"><td>TOTAL</td><td style="text-align: center;">${Object.values(blBreakdown).reduce((sum, data) => sum + data.count, 0)}</td><td style="text-align: center;">$${(Object.values(blBreakdown).reduce((sum, data) => sum + data.totalACV, 0) / 1000000).toFixed(2)}M</td><td style="text-align: center;">$${(Object.values(blBreakdown).reduce((sum, data) => sum + data.weightedACV, 0) / 1000000).toFixed(2)}M</td></tr>
     </table>
   </div>
   
   <div class="stage-section">
     <div class="stage-title">Products by Stage</div>
     <table style="width: 100%; font-size: 0.875rem; margin-top: 12px;">
-      <tr style="background: #f9fafb; font-weight: 600;"><td>Product</td><td>Opps</td><td>Total ACV</td><td>Weighted</td></tr>
+<tr style="background: #f9fafb; font-weight: 600;"><td>Product</td><td style="text-align: center;">Opps</td><td style="text-align: center;">Total ACV</td><td style="text-align: center;">Weighted</td></tr>
       ${Object.entries(productBreakdown).sort((a, b) => b[1].totalACV - a[1].totalACV).map(([product, data]) => `
-        <tr><td>${product}</td><td>${data.count}</td><td>$${(data.totalACV / 1000000).toFixed(2)}M</td><td>$${(data.weightedACV / 1000000).toFixed(2)}M</td></tr>
+        <tr><td>${product}</td><td style="text-align: center;">${data.count}</td><td style="text-align: center;">$${(data.totalACV / 1000000).toFixed(2)}M</td><td style="text-align: center;">$${(data.weightedACV / 1000000).toFixed(2)}M</td></tr>
       `).join('')}
-      <tr style="background: #1f2937; color: #fff; font-weight: 700;"><td>TOTAL</td><td>${Object.values(productBreakdown).reduce((sum, data) => sum + data.count, 0)}</td><td>$${(Object.values(productBreakdown).reduce((sum, data) => sum + data.totalACV, 0) / 1000000).toFixed(2)}M</td><td>$${(Object.values(productBreakdown).reduce((sum, data) => sum + data.weightedACV, 0) / 1000000).toFixed(2)}M</td></tr>
+      <tr style="background: #e5e7eb; font-weight: 700;"><td>TOTAL</td><td style="text-align: center;">${Object.values(productBreakdown).reduce((sum, data) => sum + data.count, 0)}</td><td style="text-align: center;">$${(Object.values(productBreakdown).reduce((sum, data) => sum + data.totalACV, 0) / 1000000).toFixed(2)}M</td><td style="text-align: center;">$${(Object.values(productBreakdown).reduce((sum, data) => sum + data.weightedACV, 0) / 1000000).toFixed(2)}M</td></tr>
     </table>
   </div>
 </div>
