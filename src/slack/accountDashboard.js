@@ -384,7 +384,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="stage-section">
     <div class="stage-title">Top 10 Accounts (by ACV)</div>
     <div class="account-list">
-      ${Array.from(accountMap.values())
+${Array.from(accountMap.values())
         .sort((a, b) => b.totalACV - a.totalACV)
         .slice(0, 10)
         .map(acc => {
@@ -392,14 +392,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           const lastDate = meetingData.get(acc.accountId)?.lastMeeting 
             ? new Date(meetingData.get(acc.accountId).lastMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) 
             : null;
-          const customerType = !acc.isNewLogo && acc.customerType ? `[${acc.customerType}]` : '';
+          const customerType = !acc.isNewLogo && acc.customerType ? '[' + acc.customerType + ']' : '';
           
-          return `
-          <div class="account-item">
-            <div class="account-name">${planIcon}${acc.name} ${acc.isNewLogo ? '<span class="badge badge-new">New</span>' : customerType}</div>
-            <div class="account-owner">${acc.owner} • Stage ${acc.highestStage} • ${acc.opportunities.length} opp${acc.opportunities.length > 1 ? 's' : ''}${lastDate ? ' • Last: ' + lastDate : ''}</div>
-          </div>
-          `;
+          return '<div class="account-item">' +
+            '<div class="account-name">' + planIcon + acc.name + ' ' + (acc.isNewLogo ? '<span class="badge badge-new">New</span>' : customerType) + '</div>' +
+            '<div class="account-owner">' + acc.owner + ' • Stage ' + acc.highestStage + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') + (lastDate ? ' • Last: ' + lastDate : '') + '</div>' +
+          '</div>';
         }).join('')}
       <div class="account-item" style="color: #6b7280; font-style: italic;">+${accountMap.size - 10} more accounts</div>
     </div>
