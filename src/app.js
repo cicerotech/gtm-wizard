@@ -175,6 +175,20 @@ class GTMBrainApp {
         res.status(500).send(`Error generating dashboard: ${error.message}`);
       }
     });
+
+    // Email Builder interface
+    this.expressApp.get('/email-builder', (req, res) => {
+      const fs = require('fs');
+      const path = require('path');
+      const builderPath = path.join(__dirname, '../public/email-builder.html');
+      res.sendFile(builderPath);
+    });
+
+    // Email Builder API routes
+    const emailBuilderRoutes = require('./routes/emailBuilder');
+    this.expressApp.get('/api/search-accounts', emailBuilderRoutes.searchAccounts);
+    this.expressApp.get('/api/enrich-company', emailBuilderRoutes.enrichCompany);
+    this.expressApp.post('/api/generate-email', emailBuilderRoutes.generateEmail);
     
     // Test endpoint to manually send weekly report
     this.expressApp.get('/send-report-test', async (req, res) => {

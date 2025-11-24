@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eudia Email Bank - Business Lead Templates</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+  background: #ffffff; 
+  padding: 32px 20px; 
+  color: #000;
+}
+.container { max-width: 1000px; margin: 0 auto; }
+h1 { 
+  font-size: 1.75rem; 
+  font-weight: 700; 
+  color: #000; 
+  margin-bottom: 8px; 
+  text-align: center;
+}
+.subtitle { 
+  text-align: center; 
+  color: #666; 
+  font-size: 0.9375rem; 
+  margin-bottom: 32px; 
+}
+.tile { 
+  background: #fff; 
+  border: 2px solid #000; 
+  margin-bottom: 16px; 
+  border-radius: 4px;
+  overflow: hidden;
+}
+.tile-header { 
+  background: #000; 
+  color: #fff; 
+  padding: 14px 20px; 
+  font-weight: 700; 
+  font-size: 1rem; 
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.tile-header:hover { 
+  background: #333; 
+}
+.expand-indicator {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+}
+.tile-content { 
+  padding: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+.tile-content.expanded {
+  max-height: 3000px;
+  overflow-y: auto;
+}
+.email-list { 
+  padding: 20px; 
+}
+.email-item { 
+  padding: 16px;
+  margin: 12px 0;
+  background: #f5f5f5;
+  border-left: 3px solid #000;
+  border-radius: 4px;
+}
+.email-title {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  margin-bottom: 6px;
+  color: #000;
+}
+.email-meta {
+  font-size: 0.8125rem;
+  color: #666;
+  margin-bottom: 10px;
+  font-style: italic;
+}
+.email-body {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: #1a1a1a;
+}
+.subject {
+  background: #e8e8e8;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-radius: 3px;
+}
+.var { 
+  background: #fef3c7; 
+  padding: 1px 4px; 
+  border-radius: 2px; 
+  font-weight: 600;
+  color: #92400e;
+  font-size: 0.875rem;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h1>Eudia Email Bank</h1>
+<p class="subtitle">Senior-level templates | Concise, outcome-focused | Click to expand</p>
+
+<!-- Tile 1: Cold Outreach -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Cold Outreach (First Contact)</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="email-list">
+      
+      <div class="email-item">
+        <div class="email-title">CLO/GC: Compliance-Heavy Industry</div>
+        <div class="email-meta">Use: Manufacturing, Pharma, Healthcare | 3 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: Compliance at <span class="var">[Company]</span></div>
+          <p>Hi <span class="var">[Name]</span>,</p>
+          <p>Saw <span class="var">[Company]</span> is expanding into <span class="var">[geography/market]</span>. We help legal teams at Fortune 500 manufacturers reduce compliance costs 40-70% while cutting review time from weeks to days.</p>
+          <p>Worth 15 minutes to share how this could work at <span class="var">[Company]</span>?</p>
+          <p>Best,<br><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+      <div class="email-item">
+        <div class="email-title">VP Legal: Contract Bottleneck</div>
+        <div class="email-meta">Use: SaaS, Tech, Professional Services | 3 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: Contract velocity at <span class="var">[Company]</span></div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>I imagine legal is slowing the sales cycle at <span class="var">[Company]</span>. We helped a Fortune 100 company reduce contract review from 14 days to 3 and cut $180K in outside counsel over 90 days.</p>
+          <p>Want to see how this could work for you?</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+      <div class="email-item">
+        <div class="email-title">CLO: M&A Active Acquirer</div>
+        <div class="email-meta">Use: Companies doing 2+ M&A deals/year | 3 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: M&A diligence at <span class="var">[Company]</span></div>
+          <p>Hi <span class="var">[Name]</span>,</p>
+          <p>Given <span class="var">[Company]</span>'s <span class="var">[recent acquisition/growth strategy]</span>, wanted to share how we help legal teams cut due diligence from 8 weeks to 10 days while reducing per-deal costs 60%.</p>
+          <p>Worth exploring?</p>
+          <p>Best,<br><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+      <div class="email-item">
+        <div class="email-title">CLO: "CLM Underwhelmed"</div>
+        <div class="email-meta">Use: Companies using Ironclad, Evisort, DocuSign CLM | 3 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: Beyond CLM at <span class="var">[Company]</span></div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>We're seeing a pattern: companies implement CLMs like <span class="var">[their tool]</span>, get underwhelmed by adoption and results. We work on top of your existing systems to deliver actual outcomes—cost reduction and velocity improvements measured in days.</p>
+          <p>Worth 15 minutes?</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+<!-- Tile 2: Warm Introductions -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Warm Introductions (Referrals)</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="email-list">
+      
+      <div class="email-item">
+        <div class="email-title">Standard Warm Intro</div>
+        <div class="email-meta">Use: Someone makes introduction | 2-3 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: Intro from <span class="var">[Connector]</span></div>
+          <p>Hi <span class="var">[Name]</span>,</p>
+          <p>Great to meet you through <span class="var">[Connector]</span>'s intro. We help legal teams at Fortune 500s turn AI from exploration into measurable outcomes—typically 40-60% OC reduction and 2-3x faster cycles.</p>
+          <p>Do you have 20 minutes next week?</p>
+          <p>Best,<br><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+      <div class="email-item">
+        <div class="email-title">Executive Referral (C-Level to C-Level)</div>
+        <div class="email-meta">Use: CEO/CLO makes introduction | 2 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: <span class="var">[Exec Name]</span> suggested we connect</div>
+          <p><span class="var">[Name]</span>,</p>
+          <p><span class="var">[Exec who made intro]</span> suggested we connect on what we're building at Eudia. Worth showing you how we're helping legal teams at <span class="var">[comparables]</span> deliver measurable AI outcomes.</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+<!-- Tile 3: Follow-Ups -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Follow-Ups (Post-Meeting & No Response)</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="email-list">
+      
+      <div class="email-item">
+        <div class="email-title">Post-Discovery Same Day</div>
+        <div class="email-meta">Use: Send within 24 hours of meeting | 4 sentences max</div>
+        <div class="email-body">
+          <div class="subject">Subject: Next steps - <span class="var">[Company]</span></div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>Thanks for the time today. Three things: <span class="var">[pain #1]</span>, <span class="var">[pain #2]</span>, <span class="var">[timing constraint]</span>.</p>
+          <p>Our approach: <span class="var">[specific 2-sentence deployment plan with outcome]</span>.</p>
+          <p>Attaching <span class="var">[case study]</span>. Next step: <span class="var">[specific ask]</span>?</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+      <div class="email-item">
+        <div class="email-title">No Response (Day 7)</div>
+        <div class="email-meta">Use: One week after cold outreach | 2-3 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: Re: <span class="var">[original subject]</span></div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>Following up on <span class="var">[specific topic]</span>. We're seeing legal teams reduce <span class="var">[their pain]</span> from weeks to days while cutting costs 40-60%.</p>
+          <p>Worth exploring?</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+      <div class="email-item">
+        <div class="email-title">Dormant Opportunity (3-6 months)</div>
+        <div class="email-meta">Use: Quarterly re-engagement | 3-4 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: Q1 2026 timing</div>
+          <p>Hi <span class="var">[Name]</span>,</p>
+          <p>We spoke <span class="var">[timeframe]</span> about <span class="var">[topic]</span>—timing wasn't right then. Given <span class="var">[Company]</span>'s <span class="var">[recent trigger]</span> and 2026 being the year CFOs demand AI ROI (not exploration), wanted to reconnect.</p>
+          <p>Since we last spoke: <span class="var">[new customer win with outcome]</span>.</p>
+          <p>15 minutes this month?</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+<!-- Tile 4: Case Study Sharing -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Case Study Sharing</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="email-list">
+      
+      <div class="email-item">
+        <div class="email-title">Relevant Customer Story</div>
+        <div class="email-meta">Use: When you have similar success story | 3 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: How <span class="var">[comparable]</span> reduced <span class="var">[metric]</span></div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>Thought this might be relevant given <span class="var">[Company]</span>'s <span class="var">[specific situation]</span>. We worked with <span class="var">[comparable]</span> to <span class="var">[specific outcome with number]</span>.</p>
+          <p>Attached the full story. Happy to walk through how this could apply if useful.</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+<!-- Tile 5: Objection Handling -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Objection Handling</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="email-list">
+      
+      <div class="email-item">
+        <div class="email-title">"We're Using Ironclad/CLM"</div>
+        <div class="email-meta">Use: When they mention existing CLM | 3 sentences | Insight: Ironclad underwhelming at Intuit, Relativity, Delinea</div>
+        <div class="email-body">
+          <div class="subject">Subject: Eudia + <span class="var">[their CLM]</span></div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>We're complementary to <span class="var">[their CLM]</span>, not competitive. Most of our customers use CLMs—they provide infrastructure. We deliver outcomes on top of it.</p>
+          <p>Example: A Fortune 500 was using Ironclad, still spending $250K on outside counsel. We cut that 60% in 90 days while making their CLM more valuable.</p>
+          <p>Worth exploring?</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+      <div class="email-item">
+        <div class="email-title">"Budget/Timing Not Right"</div>
+        <div class="email-meta">Use: When they cite budget constraints | 3 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: ROI timeline</div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>Understood on timing. Quick thought: our engagements pay for themselves within 90 days through OC savings. For <span class="var">[comparable]</span>: $<span class="var">[X]</span>/month investment → $<span class="var">[Y]</span>/month savings = cash positive Month 3.</p>
+          <p>We can start with a 60-day pilot on <span class="var">[specific problem]</span> for $<span class="var">[amount]</span> if that helps.</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+      <div class="email-item">
+        <div class="email-title">"Need to Build In-House"</div>
+        <div class="email-meta">Use: When they want to build internally | 3 sentences | Insight: Most companies lack AI engineering talent</div>
+        <div class="email-body">
+          <div class="subject">Subject: Build vs. partner</div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>Building in-house makes sense if you have AI engineering talent available (most legal teams don't). Timeline comparison: 6-12 months to build + ongoing maintenance vs. 2 weeks to deploy Eudia with outcomes by Day 30.</p>
+          <p>We can show you what we've built for <span class="var">[comparable]</span> and you can decide if it's worth partnering vs. building.</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+      <div class="email-item">
+        <div class="email-title">"Just Doing Pilots/Exploration"</div>
+        <div class="email-meta">Use: When they're in pilot mode | 2 sentences | Insight: 2026 = execution year</div>
+        <div class="email-body">
+          <div class="subject">Subject: 2026 = execution</div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>2026 is the year CFOs won't accept more AI "exploration" without ROI. We deliver measurable outcomes (cost reduction, velocity improvement) within 30-90 days—not more pilots.</p>
+          <p>Happy to show you the difference.</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+<!-- Tile 6: Travel-Based Outreach -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Travel & Event-Based Outreach</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="email-list">
+      
+      <div class="email-item">
+        <div class="email-title">"I'm in Your City"</div>
+        <div class="email-meta">Use: When traveling to prospect's location | 2-3 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: In <span class="var">[city]</span> next week</div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>I'll be in <span class="var">[city]</span> <span class="var">[specific day/week]</span> meeting with <span class="var">[other customer]</span>. Would love to grab coffee and share what we're seeing with legal AI at Fortune 500s.</p>
+          <p>Free <span class="var">[specific day/time]</span>?</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+      <div class="email-item">
+        <div class="email-title">Post-Conference Follow-Up</div>
+        <div class="email-meta">Use: After industry event you both attended | 2 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: Good seeing you at <span class="var">[event]</span></div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>Good seeing you at <span class="var">[event]</span>. Based on what you mentioned about <span class="var">[specific pain]</span>, wanted to follow up—we're solving exactly this for <span class="var">[comparable]</span>.</p>
+          <p>Can I send a quick case study?</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+<!-- Tile 7: Proposal Stage -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Proposal & Contract Stage</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="email-list">
+      
+      <div class="email-item">
+        <div class="email-title">Proposal Introduction</div>
+        <div class="email-meta">Use: Sending formal proposal | 4-5 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: Eudia proposal - <span class="var">[initiative]</span></div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>Attached is our proposal for <span class="var">[specific initiative]</span> at <span class="var">[Company]</span>.</p>
+          <p><strong>Quick summary:</strong> Deploy Sigma Month 1, embed engineers Month 2 to automate <span class="var">[workflow]</span>, deliver <span class="var">[outcome metric]</span> by Day 90.</p>
+          <p><strong>Investment:</strong> $<span class="var">[total]</span> over <span class="var">[timeframe]</span> | <strong>ROI:</strong> $<span class="var">[savings]</span> Year 1</p>
+          <p>Let me know what questions come up.</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+      <div class="email-item">
+        <div class="email-title">Pushing for Signature</div>
+        <div class="email-meta">Use: Deal in Stage 4, needs momentum | 2-3 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: Moving forward</div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>Checking in on the proposal. We have engineering capacity to start <span class="var">[specific week]</span> if that timing works—otherwise we'd be looking at <span class="var">[later timeframe]</span>.</p>
+          <p>What's blocking us from moving forward?</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+<!-- Tile 8: Multi-Stakeholder -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Multi-Stakeholder (Procurement/Finance/IT)</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="email-list">
+      
+      <div class="email-item">
+        <div class="email-title">Procurement/Finance Introduction</div>
+        <div class="email-meta">Use: CLO asks you to loop in economic buyer | 3 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: Eudia business case</div>
+          <p>Hi <span class="var">[Procurement/Finance contact]</span>,</p>
+          <p><span class="var">[CLO name]</span> asked me to connect on the business case. Investment: $<span class="var">[X]</span> | Return: $<span class="var">[Y]</span> OC savings + <span class="var">[Z]</span> efficiency gains | Payback: 3-4 months.</p>
+          <p>Think reallocation of existing outside counsel budget, not net-new spend. Happy to walk through the ROI model.</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+<!-- Tile 9: Industry-Specific Insights -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Industry-Specific Hooks (Use Real Insights)</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="email-list">
+      
+      <div class="email-item">
+        <div class="email-title">Financial Services: Institutional Knowledge Loss</div>
+        <div class="email-meta">Use: When they mention knowledge in law firms | Insight from Unisys, Blackstone</div>
+        <div class="email-body">
+          <div class="subject">Subject: Capturing institutional knowledge</div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>You mentioned institutional knowledge being trapped in law firms. We solve this by building your Company Brain—captures every deal, every redline, every negotiation into searchable intelligence your team owns.</p>
+          <p>A Fortune 50 told us: "The Brain's ability to surface how we handled this 10 years ago is transformative." No more email archaeology or calling retired partners.</p>
+          <p>Want to see how this works?</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+      <div class="email-item">
+        <div class="email-title">Tech: "AI Native Law Department"</div>
+        <div class="email-meta">Use: Ambitious CLOs with AI vision | Insight from Cargill CLO quote</div>
+        <div class="email-body">
+          <div class="subject">Subject: AI-native legal at <span class="var">[Company]</span></div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>We work with CLOs who want to build AI-native legal departments, not just pilot AI tools. One told us: "I absolutely want us to be an AI native law department"—that's exactly what we enable.</p>
+          <p>Difference: most companies get stuck in pilot purgatory. We deliver measurable outcomes in 30-90 days while building your AI foundation (the Company Brain).</p>
+          <p>Worth exploring what this looks like at <span class="var">[Company]</span>?</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+      <div class="email-item">
+        <div class="email-title">Companies With Failed CLM Implementations</div>
+        <div class="email-meta">Use: When they're frustrated with CLM | Insights: Instacart "underwhelmed by Ironclad despite being on advisory board"</div>
+        <div class="email-body">
+          <div class="subject">Subject: Beyond CLM disappointment</div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>You're not alone in being underwhelmed by <span class="var">[their CLM]</span>. We're seeing this across the market—one company was on Ironclad's advisory board and still found results disappointing.</p>
+          <p>The issue isn't the software—it's that CLMs require your team to configure, maintain, and drive adoption. We embed engineers who deliver outcomes while working on top of whatever systems you have.</p>
+          <p>Want to see the difference?</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+      <div class="email-item">
+        <div class="email-title">Retail: Vendor Agreement Bottleneck</div>
+        <div class="email-meta">Use: Retail/hospitality with procurement challenges | Insight: Best Buy 90% automation opportunity</div>
+        <div class="email-body">
+          <div class="subject">Subject: Vendor contracting at <span class="var">[Company]</span></div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>Retail legal teams typically have 90% automation opportunity in vendor agreements—but most CLMs only capture 20-30%. We helped a Fortune 50 retailer go from 17 days to 3 days on vendor contracts.</p>
+          <p>Your procurement team notices the difference immediately.</p>
+          <p>Worth 15 minutes?</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+<!-- Tile 10: Urgency & Timing -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Urgency & Timing Plays</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="email-list">
+      
+      <div class="email-item">
+        <div class="email-title">Year-End Budget (Q4)</div>
+        <div class="email-meta">Use: October-December for 2026 planning | 3-4 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: 2026 legal budget</div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>As you finalize 2026 budgets: CFOs won't approve more "AI exploration" without ROI. They will approve initiatives that reduce costs.</p>
+          <p>Eudia makes this easy to justify: reallocate $<span class="var">[X]</span> from OC budget → fund us → net savings $<span class="var">[Y]</span> Year 1. For <span class="var">[comparable]</span>, we went from pilot to approval in 3 weeks because math was clear.</p>
+          <p>Worth discussing how this fits your 2026 planning?</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+      <div class="email-item">
+        <div class="email-title">Deal Stalled (Stage 4 Alert)</div>
+        <div class="email-meta">Use: When deal hasn't moved in 2+ weeks | 2 sentences</div>
+        <div class="email-body">
+          <div class="subject">Subject: Still relevant?</div>
+          <p><span class="var">[Name]</span>,</p>
+          <p>We haven't connected in a few weeks on <span class="var">[topic]</span>. Timing shifted or something blocking progress?</p>
+          <p><span class="var">[Your Name]</span></p>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+function toggleTile(header) {
+  const content = header.nextElementSibling;
+  const indicator = header.querySelector('.expand-indicator');
+  
+  if (content.classList.contains('expanded')) {
+    content.classList.remove('expanded');
+    indicator.textContent = 'Click to expand';
+  } else {
+    content.classList.add('expanded');
+    indicator.textContent = 'Click to collapse';
+  }
+}
+</script>
+
+</body>
+</html>
+
