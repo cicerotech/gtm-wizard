@@ -384,10 +384,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="stage-section">
     <div class="stage-title">Top 10 Accounts (by ACV)</div>
     <div class="account-list">
-    ${Array.from(accountMap.values())
-      .sort((a, b) => b.totalACV - a.totalACV)
-
-        .map((acc, idx) => {
+      ${Array.from(accountMap.values())
+        .sort((a, b) => b.totalACV - a.totalACV)
+        .slice(0, 10)
+        .map(acc => {
+          const planIcon = acc.hasAccountPlan ? '📋 ' : '';
+          const lastMeeting = meetingData.get(acc.accountId)?.lastMeeting;
+          const lastDate = lastMeeting ? new Date(lastMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
         const oppCount = acc.opportunities.length;
         const totalACV = acc.totalACV || 0;
         const products = [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))];
