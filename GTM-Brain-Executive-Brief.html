@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+@page {
+  size: 8.5in 11in;
+  margin: 1in;
+}
+body {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 11pt;
+  line-height: 1.5;
+  text-align: left;
+  color: #000;
+  background: white;
+  max-width: 6.5in;
+  margin: 0 auto;
+  padding: 0;
+}
+h1 {
+  font-size: 14pt;
+  font-weight: bold;
+  margin: 0 0 4pt 0;
+  text-align: left;
+}
+h2 {
+  font-size: 11pt;
+  font-weight: bold;
+  margin: 12pt 0 6pt 0;
+  text-align: left;
+}
+p {
+  margin: 0 0 6pt 0;
+  text-align: left;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 6pt 0 12pt 0;
+  font-size: 10pt;
+}
+table th {
+  border: 1pt solid #000;
+  padding: 4pt 6pt;
+  background: #f0f0f0;
+  font-weight: bold;
+  text-align: left;
+}
+table td {
+  border: 1pt solid #000;
+  padding: 4pt 6pt;
+  text-align: left;
+  vertical-align: top;
+}
+ul {
+  margin: 6pt 0 6pt 20pt;
+  padding: 0;
+}
+li {
+  margin: 0 0 3pt 0;
+}
+.header-meta {
+  font-size: 10pt;
+  margin-bottom: 12pt;
+  color: #333;
+}
+.page-break {
+  page-break-after: always;
+}
+strong {
+  font-weight: bold;
+}
+em {
+  font-style: italic;
+}
+</style>
+</head>
+<body>
+
+<h1>GTM-Brain: Conversational Access to Salesforce Intelligence</h1>
+<p class="header-meta"><strong>Executive Overview</strong> | November 2024<br>
+<em>Prepared for Eudia Executive Team</em></p>
+
+<h2>Context: Standardization as Foundation</h2>
+
+<p>Over the past several months, we've standardized how we document meetings, define fields in Salesforce, capture data across the sales process, and structure pipeline intelligence. This work created a consistent foundation that enables systematic access to account information, forecasts, meeting history, and ownership across the organization.</p>
+
+<p>The challenge has been making this structured information easily accessible without manual searches, while maintaining consistency in how teams interpret and communicate sales data. As we scale, cross-functional partners increasingly need access to GTM intelligence without becoming Salesforce experts or creating dependency on ad-hoc reporting requests.</p>
+
+<h2>Solution Approach</h2>
+
+<p>GTM-Brain provides conversational access to Salesforce data directly within Slack and via web dashboard. Beyond basic account ownership and pipeline queries, the system addresses three organizational needs: (1) account intelligence including relationship history and meeting context, (2) pipeline analysis across stages, products, and time periods with consistent forecast definitions, and (3) searchable institutional knowledge that preserves meeting notes and customer context accessible to the entire team.</p>
+
+<p>The system connects directly to Salesforce via OAuth, ensuring responses reflect real-time data and respect existing security permissions. It handles natural language variations—team members ask questions as they would to a colleague rather than learning query syntax. The web dashboard complements conversational queries with visual pipeline exploration, account search, and detailed meeting history.</p>
+
+<h2>Core Capabilities</h2>
+
+<table>
+<tr>
+<th style="width: 30%;">Capability Area</th>
+<th style="width: 70%;">What It Enables</th>
+</tr>
+<tr>
+<td><strong>Account Intelligence</strong></td>
+<td>Account ownership, relationship history, meeting context, and documented notes. Eliminates searching multiple modules for account background before customer interactions.</td>
+</tr>
+<tr>
+<td><strong>Pipeline & Forecasting</strong></td>
+<td>Stage-by-stage analysis, weighted forecasts, product line breakdowns, LOI tracking. Ensures consistent pipeline definitions and self-service forecast questions.</td>
+</tr>
+<tr>
+<td><strong>Meeting & Context</strong></td>
+<td>Calendar-synced meeting history, legal contact identification, searchable customer notes. Preserves institutional knowledge and makes relationship context accessible across teams.</td>
+</tr>
+</table>
+
+<h2>Usage & Adoption</h2>
+
+<p>Currently serving 41 team members across Sales, Product, Marketing, Finance, and Customer Success. Most common usage: account ownership lookups, stage-based pipeline analysis, and pre-call context research. Dashboard used primarily for leadership reviews and board preparation.</p>
+
+<p><strong>What This Enables:</strong> Cross-functional teams access pipeline information without specialized training or report-building knowledge. Product and Marketing teams understand pipeline composition by use case. New hires ask questions in Slack rather than spending weeks learning Salesforce navigation. Meeting notes and account intelligence become searchable institutional knowledge rather than scattered in individual email threads.</p>
+
+<h2>Implementation & Maintenance</h2>
+
+<p>Built over two weeks, leveraging months of prior standardization work on field definitions, consistent processes, and reliable data structures. Deployed on infrastructure with automatic restarts and 99.9% uptime. Ongoing maintenance approximately two hours monthly for adding query patterns or enhancements. No per-user licensing costs or external platform fees.</p>
+
+<p><strong>Security:</strong> Respects Salesforce's record-level and field-level security—users see only data they're authorized to access. Write operations restricted to authorized users with full audit logging. OAuth authentication with credentials stored securely in environment variables.</p>
+
+<div class="page-break"></div>
+
+<h2>Current Limitations</h2>
+
+<p>Works most effectively for established query patterns. Novel phrasings occasionally require rephrasing, though semantic similarity handles many variations. Complex multi-step analyses may be better suited to dashboard or traditional reporting. Meeting history has gaps for accounts created before calendar sync was implemented; backfill planned. Currently reports present state but does not provide predictive analytics or forecast modeling.</p>
+
+<h2>Organizational Impact</h2>
+
+<p><strong>Data Consistency:</strong> Everyone queries the same system using the same field definitions, eliminating the "my report shows different numbers" problem that emerges from custom reports.</p>
+
+<p><strong>Reduced Friction:</strong> Cross-functional teams self-serve pipeline information, reducing volume of ad-hoc reporting requests and freeing capacity for strategic analysis.</p>
+
+<p><strong>Faster Decision-Making:</strong> Leadership meetings move from data gathering to strategy discussion when pipeline questions can be answered conversationally rather than requiring follow-up report building.</p>
+
+<p><strong>Institutional Knowledge:</strong> Customer Brain feature systematically captures meeting context and relationship intelligence that would otherwise live in individual memories, making this knowledge searchable and accessible.</p>
+
+<h2>Path Forward</h2>
+
+<p><strong>Near-Term:</strong> Expand adoption through brief training sessions. Document query patterns that currently fail to identify enhancement opportunities. Create quick reference guide for common use cases.</p>
+
+<p><strong>Technical:</strong> Add persistent storage for long-term trend analysis. Expand training dataset for improved edge case handling. Build monitoring dashboard for system health visibility.</p>
+
+<p><strong>Functional:</strong> Explore predictive capabilities beyond current-state reporting. Consider expanding beyond Salesforce to integrate marketing and customer success systems. Investigate proactive insights rather than purely reactive queries.</p>
+
+<h2>Conclusion</h2>
+
+<p>GTM-Brain represents the natural progression of our standardization work—taking structured processes and data and making them accessible throughout the organization. By removing friction from information access, we enable consistent data interpretation and more efficient cross-functional collaboration.</p>
+
+<p>The foundation is strong: clear definitions, reliable processes, and proven adoption patterns. Near-term focus is expanding usage, capturing feedback for continuous improvement, and adding persistence for analytics. The system requires minimal ongoing maintenance while providing broad organizational benefit as we scale.</p>
+
+<p style="margin-top: 18pt; font-size: 10pt; border-top: 1pt solid #000; padding-top: 6pt;">
+<strong>Prepared By:</strong> Keigan Pesenti, Revenue Operations<br>
+<strong>Date:</strong> November 2024 | <strong>Questions:</strong> Slack #gtm-brain channel
+</p>
+
+</body>
+</html>

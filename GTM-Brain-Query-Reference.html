@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GTM-Brain Query Reference</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+  background: #ffffff; 
+  padding: 32px 20px; 
+  color: #000;
+}
+.container { max-width: 900px; margin: 0 auto; }
+h1 { 
+  font-size: 1.75rem; 
+  font-weight: 700; 
+  color: #000; 
+  margin-bottom: 8px; 
+  text-align: center;
+}
+.subtitle { 
+  text-align: center; 
+  color: #666; 
+  font-size: 0.9375rem; 
+  margin-bottom: 32px; 
+}
+.tile { 
+  background: #fff; 
+  border: 2px solid #000; 
+  margin-bottom: 16px; 
+  border-radius: 4px;
+  overflow: hidden;
+}
+.tile-header { 
+  background: #000; 
+  color: #fff; 
+  padding: 14px 20px; 
+  font-weight: 700; 
+  font-size: 1rem; 
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.tile-header:hover { 
+  background: #333; 
+}
+.expand-indicator {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+}
+.tile-content { 
+  padding: 0;
+  max-height: 180px;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+.tile-content.expanded {
+  max-height: 2000px;
+}
+.query-list { 
+  padding: 20px; 
+}
+.query-item { 
+  padding: 8px 12px; 
+  margin: 4px 0;
+  background: #f5f5f5;
+  border-left: 3px solid #000;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.875rem;
+  color: #000;
+}
+.expand-button {
+  display: block;
+  width: calc(100% - 40px);
+  margin: 0 20px 20px 20px;
+  padding: 10px;
+  background: #fff;
+  border: 2px solid #000;
+  color: #000;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-align: center;
+}
+.expand-button:hover {
+  background: #000;
+  color: #fff;
+}
+.showing-count {
+  font-size: 0.8125rem;
+  color: #666;
+  padding: 0 20px 12px 20px;
+  text-align: center;
+}
+@media print {
+  .tile-content { max-height: none; }
+  .expand-button { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h1>GTM-Brain Query Reference</h1>
+<p class="subtitle">All available queries organized by category</p>
+
+<!-- TILE 1: Account Intelligence -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Account Intelligence</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="query-list">
+      <div class="query-item">who owns [company]?</div>
+      <div class="query-item">who's the owner of [company]</div>
+      <div class="query-item">[company] owner</div>
+      <div class="query-item">does [company] exist?</div>
+      <div class="query-item">do we have [company]?</div>
+      <div class="query-item">is [company] in salesforce?</div>
+      <div class="query-item">tell me about [company]</div>
+      <div class="query-item">what do we know about [company]?</div>
+      <div class="query-item">[company] context</div>
+      <div class="query-item">show me [company]'s history</div>
+      <div class="query-item">show me all [name]'s accounts</div>
+      <div class="query-item">what accounts does [name] own?</div>
+      <div class="query-item">[name]'s accounts</div>
+    </div>
+    <button class="expand-button" onclick="expandTile(this)">Show All Rows</button>
+  </div>
+</div>
+
+<!-- TILE 2: Pipeline & Forecasting -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Pipeline & Forecasting</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="query-list">
+      <div class="query-item">late stage pipeline</div>
+      <div class="query-item">show me late stage</div>
+      <div class="query-item">stage 4 opportunities</div>
+      <div class="query-item">stage 3 pipeline</div>
+      <div class="query-item">show me stage 2</div>
+      <div class="query-item">stage 1 opportunities</div>
+      <div class="query-item">early stage pipeline</div>
+      <div class="query-item">mid stage pipeline</div>
+      <div class="query-item">weighted pipeline</div>
+      <div class="query-item">what's our weighted forecast?</div>
+      <div class="query-item">show me weighted late stage</div>
+      <div class="query-item">weighted pipeline for Q4</div>
+      <div class="query-item">contracting pipeline</div>
+      <div class="query-item">compliance pipeline</div>
+      <div class="query-item">M&A pipeline</div>
+      <div class="query-item">sigma pipeline</div>
+      <div class="query-item">cortex pipeline</div>
+      <div class="query-item">revenue pipeline</div>
+      <div class="query-item">booking pipeline</div>
+      <div class="query-item">project pipeline</div>
+      <div class="query-item">what's closing this month?</div>
+      <div class="query-item">show me December LOIs</div>
+      <div class="query-item">Q4 pipeline</div>
+      <div class="query-item">pipeline created this week</div>
+      <div class="query-item">conversion rates</div>
+      <div class="query-item">pipeline summary</div>
+    </div>
+    <button class="expand-button" onclick="expandTile(this)">Show All Rows</button>
+  </div>
+</div>
+
+<!-- TILE 3: Opportunity Queries -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Opportunity Queries</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="query-list">
+      <div class="query-item">show me all opportunities at [company]</div>
+      <div class="query-item">what opportunities does [company] have?</div>
+      <div class="query-item">[company] opportunities</div>
+      <div class="query-item">[company] opps</div>
+      <div class="query-item">what's the ACV for [company]?</div>
+      <div class="query-item">[company] ACV</div>
+      <div class="query-item">show me [company]'s total value</div>
+      <div class="query-item">when is [company]'s target LOI date?</div>
+      <div class="query-item">[company] LOI date</div>
+      <div class="query-item">show me all LOIs in [month]</div>
+      <div class="query-item">December LOI count</div>
+      <div class="query-item">show me all contracts</div>
+      <div class="query-item">contract count</div>
+      <div class="query-item">[company] contract</div>
+      <div class="query-item">what opportunities were created this week?</div>
+      <div class="query-item">show me pipeline added this week</div>
+    </div>
+    <button class="expand-button" onclick="expandTile(this)">Show All Rows</button>
+  </div>
+</div>
+
+<!-- TILE 4: Meeting Intelligence -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Meeting Intelligence</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="query-list">
+      <div class="query-item">when was our last meeting with [company]?</div>
+      <div class="query-item">[company] last meeting</div>
+      <div class="query-item">show me [company]'s meeting history</div>
+      <div class="query-item">when do we meet [company] next?</div>
+      <div class="query-item">who have we met with at [company]?</div>
+      <div class="query-item">[company] legal contacts</div>
+      <div class="query-item">show me [company]'s decision makers</div>
+      <div class="query-item">add this to [company]'s customer brain: [notes]</div>
+      <div class="query-item">save to [company] brain: [notes]</div>
+      <div class="query-item">show me [company]'s customer brain</div>
+      <div class="query-item">what notes do we have on [company]?</div>
+      <div class="query-item">summarize this call for [company]: [transcript]</div>
+    </div>
+    <button class="expand-button" onclick="expandTile(this)">Show All Rows</button>
+  </div>
+</div>
+
+<!-- TILE 5: Account Management (Restricted) -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Account Management (Keigan Only)</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="query-list">
+      <div class="query-item">create [company] and assign to BL</div>
+      <div class="query-item">create account for [company]</div>
+      <div class="query-item">add [company] to salesforce</div>
+      <div class="query-item">reassign [company] to [name]</div>
+      <div class="query-item">transfer [company] to [name]</div>
+      <div class="query-item">change [company] owner to [name]</div>
+      <div class="query-item">create an opp for [company]</div>
+      <div class="query-item">create opportunity: [details]</div>
+      <div class="query-item">add opportunity for [company]</div>
+      <div class="query-item">save account plan for [company]: [plan]</div>
+      <div class="query-item">update [company]'s account plan: [plan]</div>
+      <div class="query-item">show me [company]'s account plan</div>
+      <div class="query-item">move [company] to nurture</div>
+      <div class="query-item">close [company] as lost</div>
+    </div>
+    <button class="expand-button" onclick="expandTile(this)">Show All Rows</button>
+  </div>
+</div>
+
+<!-- TILE 6: Reporting & Exports -->
+<div class="tile">
+  <div class="tile-header" onclick="toggleTile(this)">
+    <span>Reporting & Exports</span>
+    <span class="expand-indicator">Click to expand</span>
+  </div>
+  <div class="tile-content">
+    <div class="query-list">
+      <div class="query-item">generate pipeline report</div>
+      <div class="query-item">export late stage to excel</div>
+      <div class="query-item">create pipeline report</div>
+      <div class="query-item">give me an excel export</div>
+      <div class="query-item">pipeline summary</div>
+      <div class="query-item">show me weighted pipeline summary</div>
+      <div class="query-item">give me a pipeline overview</div>
+      <div class="query-item">gtm</div>
+      <div class="query-item">show me the dashboard</div>
+      <div class="query-item">open account dashboard</div>
+    </div>
+    <button class="expand-button" onclick="expandTile(this)">Show All Rows</button>
+  </div>
+</div>
+
+</div>
+
+<script>
+function toggleTile(header) {
+  const content = header.nextElementSibling;
+  const indicator = header.querySelector('.expand-indicator');
+  
+  if (content.classList.contains('expanded')) {
+    content.classList.remove('expanded');
+    indicator.textContent = 'Click to expand';
+  } else {
+    content.classList.add('expanded');
+    indicator.textContent = 'Click to collapse';
+  }
+}
+
+function expandTile(button) {
+  const content = button.parentElement;
+  content.style.maxHeight = 'none';
+  button.style.display = 'none';
+}
+</script>
+
+</body>
+</html>
+

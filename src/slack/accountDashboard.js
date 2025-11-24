@@ -6,6 +6,45 @@ const { cleanStageName } = require('../utils/formatters');
  * Matches v0 interview dashboard quality
  */
 async function generateAccountDashboard() {
+  // Account Potential Value Mapping (from BL categorization)
+  const potentialValueMap = {
+    // High-Touch Marquee ($1M+ ARR potential)
+    'Amazon': 'marquee',
+    'Ecolab': 'marquee',
+    'ServiceNow': 'marquee',
+    'DHL': 'marquee',
+    'IQVIA': 'marquee',
+    'Southwest': 'marquee',
+    'GE': 'marquee',
+    'HSBC': 'marquee',
+    'Best Buy': 'marquee',
+    'BNY Mellon': 'marquee',
+    'Cargill': 'marquee',
+    'Uber': 'marquee',
+    'Bayer': 'marquee',
+    'Air Force': 'marquee',
+    'SOCOM': 'marquee',
+    'Intuit': 'marquee',
+    'Medtronic': 'marquee',
+    'Dolby': 'marquee',
+    'Weir': 'marquee',
+    // High-Velocity ($150K ARR potential)
+    'Plusgrade': 'velocity',
+    'Asana': 'velocity',
+    'Granger': 'velocity',
+    'AES': 'velocity',
+    'Home Depot': 'velocity',
+    'Pega': 'velocity',
+    'Pure Storage': 'velocity',
+    'Cox': 'velocity',
+    'Novelis': 'velocity',
+    'National Grid': 'velocity',
+    'PetSmart': 'velocity',
+    'Samsara': 'velocity',
+    'Western': 'velocity',
+    'Vista': 'velocity'
+  };
+  
   // Use SAME logic as weighted pipeline query (from events.js)
   const pipelineQuery = `SELECT StageName,
                                 SUM(ACV__c) GrossAmount,
@@ -258,6 +297,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .badge-pilot { background: #fef3c7; color: #92400e; }
 .badge-loi { background: #e0e7ff; color: #3730a3; }
 .badge-other { background: #f3f4f6; color: #374151; }
+.badge-marquee { background: #fce7f3; color: #831843; border: 1px solid #db2777; }
+.badge-velocity { background: #e0f2fe; color: #075985; border: 1px solid #0284c7; }
 .plan-status { margin-bottom: 16px; padding: 12px; background: #f9fafb; border-radius: 6px; }
 .plan-stat { display: inline-block; margin-right: 20px; }
 .plan-stat-value { font-weight: 700; font-size: 1.25rem; color: #1f2937; }
@@ -269,7 +310,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 <div class="header">
   <div style="text-align: center; margin-bottom: 16px;">
-    <img src="data:image/jpeg;base64,${require('fs').readFileSync(__dirname + '/../assets/Eudia_Logo.jpg').toString('base64')}" alt="Eudia Logo" style="max-width: 180px; height: auto;">
+    <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAjgCOAAD/7QEIUGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAOwcAVoAAxslRxwCeAAFRXVkaWEcAloACVBBTE8gQUxUTxwCdAABABwCZQABABwCUAAISGFuZC1vdXQcAl8AAkNBHAIZAAEAHAJpAApFdWRpYSBMb2dvHAIFAApFdWRpYSBMb2dvHAI3AAoyMDI1OjA3OjA4HAJzAAVFdWRpYRwCbgAFRXVkaWEcAmcAAQAcAnoAAkNOHAIoAAxTZWUgUmVsZWFzZSAcAhQAO1BSTkFyY2hpdmVfMVllYXJ8V2Vic2l0ZURpc3RyaWJ1dGlvbnxFbnRlcm1lZGlhRGlzdHJpYnV0aW9uHAIPAAEAAP/iAhxJQ0NfUFJPRklMRQABAQAAAgxsY21zAhAAAG1udHJSR0IgWFlaIAfcAAEAGQADACkAOWFjc3BBUFBMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD21gABAAAAANMtbGNtcwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACmRlc2MAAAD8AAAAXmNwcnQAAAFcAAAAC3d0cHQAAAFoAAAAFGJrcHQAAAF8AAAAFHJYWVoAAAGQAAAAFGdYWVoAAAGkAAAAFGJYWVoAAAG4AAAAFHJUUkMAAAHMAAAAQGdUUkMAAAHMAAAAQGJUUkMAAAHMAAAAQGRlc2MAAAAAAAAAA2MyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHRleHQAAAAARkIAAFhZWiAAAAAAAAD21gABAAAAANMtWFlaIAAAAAAAAAMWAAADMwAAAqRYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9jdXJ2AAAAAAAAABoAAADLAckDYwWSCGsL9hA/FVEbNCHxKZAyGDuSRgVRd13ta3B6BYmxmnysab9908PpMP///9sAQwAEAgMDAwIEAwMDBAQEBAUJBgUFBQULCAgGCQ0LDQ0NCwwMDhAUEQ4PEw8MDBIYEhMVFhcXFw4RGRsZFhoUFhcW/8AACwgCdgSwAQERAP/EAB0AAQACAgMBAQAAAAAAAAAAAAAICQUGAQMEAgf/xABfEAABAwMCAQQKCwsJBwIDCQAAAQIDBAUGBxEICRIhMRM4QVFhcXWClLMUFyIyM1NWkbHBFhgjJDQ4RVJ0dpGhstEVGiZCUnKzRVdidYHh8CckJYKSlKLD8TY3RHOio//aACAEBAAA/ANO" alt="Eudia Logo" style="max-width: 180px; height: auto;">
   </div>
   <h1>Account Status Dashboard</h1>
   <p>Real-time pipeline overview • Updated ${new Date().toLocaleTimeString()}</p>
@@ -328,6 +369,14 @@ ${late.slice(0, 5).map((acc, idx) => {
           }
         }
         
+        // Add potential value badge
+        const potentialValue = potentialValueMap[acc.name];
+        if (potentialValue === 'marquee') {
+          badge += '<span class="badge badge-marquee">High-Touch Marquee</span>';
+        } else if (potentialValue === 'velocity') {
+          badge += '<span class="badge badge-velocity">High-Velocity</span>';
+        }
+        
         const acvDisplay = acc.totalACV >= 1000000 
           ? '$' + (acc.totalACV / 1000000).toFixed(1) + 'M' 
           : acc.totalACV >= 1000 
@@ -375,6 +424,14 @@ ${mid.slice(0, 5).map((acc, idx) => {
           }
         }
         
+        // Add potential value badge
+        const potentialValue = potentialValueMap[acc.name];
+        if (potentialValue === 'marquee') {
+          badge += '<span class="badge badge-marquee">High-Touch Marquee</span>';
+        } else if (potentialValue === 'velocity') {
+          badge += '<span class="badge badge-velocity">High-Velocity</span>';
+        }
+        
         const acvDisplay = acc.totalACV >= 1000000 
           ? '$' + (acc.totalACV / 1000000).toFixed(1) + 'M' 
           : acc.totalACV >= 1000 
@@ -418,6 +475,14 @@ ${early.slice(0, 5).map((acc, idx) => {
           } else {
             badge = '<span class="badge badge-other">' + acc.customerType + '</span>';
           }
+        }
+        
+        // Add potential value badge
+        const potentialValue = potentialValueMap[acc.name];
+        if (potentialValue === 'marquee') {
+          badge += '<span class="badge badge-marquee">High-Touch Marquee</span>';
+        } else if (potentialValue === 'velocity') {
+          badge += '<span class="badge badge-velocity">High-Velocity</span>';
         }
         
         const acvDisplay = acc.totalACV >= 1000000 
@@ -514,6 +579,14 @@ ${Array.from(accountMap.values())
             } else {
               badge = '<span class="badge badge-other">' + acc.customerType + '</span>';
             }
+          }
+          
+          // Add potential value badge
+          const potentialValue = potentialValueMap[acc.name];
+          if (potentialValue === 'marquee') {
+            badge += '<span class="badge badge-marquee">High-Touch Marquee</span>';
+          } else if (potentialValue === 'velocity') {
+            badge += '<span class="badge badge-velocity">High-Velocity</span>';
           }
           
           const acvDisplay = acc.totalACV >= 1000000 
