@@ -387,7 +387,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
   </div>
   
-  <input type="text" id="account-search" placeholder="🔍 Search accounts..." style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.875rem; margin-bottom: 16px;" onkeyup="filterAccountList(this.value)">
+  <div style="position: sticky; top: 0; background: #f5f7fe; padding: 12px 0; z-index: 10;">
+    <input type="text" id="account-search" placeholder="🔍 Type to search accounts (e.g., 'YouTube', 'Gov', 'Intel')..." style="width: 100%; padding: 12px; border: 2px solid #8e99e1; border-radius: 8px; font-size: 0.875rem;">
+    <div id="match-count" style="font-size: 0.75rem; color: #6b7280; margin-top: 6px;">Showing top 10 accounts (type to search all ${accountMap.size})</div>
+  </div>
   
   <div id="accounts-list">
     ${Array.from(accountMap.values())
@@ -415,12 +418,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         // Customer type badge (if not new logo)
         const customerTypeBadge = !acc.isNewLogo && acc.customerType ? `<span class="badge" style="background: #dbeafe; color: #1e40af;">${acc.customerType}</span>` : '';
         
+        // Simple plan indicator (not noisy)
+        const planIcon = acc.hasAccountPlan ? '📋' : (needsPlan ? '⚠️' : '');
+        
         return `
-        <details class="account-expandable" data-account="${acc.name.toLowerCase()}" data-index="${idx}" style="display: ${idx < 10 ? 'block' : 'none'}; background: ${needsPlan ? '#fefce8' : '#fff'}; border-left: 3px solid ${acc.hasAccountPlan ? '#10b981' : needsPlan ? '#f59e0b' : '#d1d5db'}; padding: 12px; border-radius: 4px; margin-bottom: 8px; cursor: pointer;">
+        <details class="account-expandable" data-account="${acc.name.toLowerCase()}" data-index="${idx}" style="display: ${idx < 10 ? 'block' : 'none'}; background: #fff; border-left: 3px solid ${acc.highestStage >= 3 ? '#10b981' : acc.highestStage === 2 ? '#3b82f6' : '#f59e0b'}; padding: 12px; border-radius: 6px; margin-bottom: 8px; cursor: pointer; border: 1px solid #e5e7eb;">
           <summary style="list-style: none; display: flex; justify-content: space-between; align-items: center;">
             <div style="flex: 1;">
               <div style="font-weight: 600; font-size: 0.9375rem; color: #1f2937;">
-                ${acc.name}
+                ${planIcon} ${acc.name}
                 ${acc.isNewLogo ? '<span class="badge badge-new">New</span>' : customerTypeBadge}
               </div>
               <div style="font-size: 0.8125rem; color: #6b7280; margin-top: 2px;">
@@ -498,38 +504,6 @@ function filterAccounts(searchValue) {
 }
 </script>
 
-<script nonce="DASHBOARD-NONCE">
-// Search filtering - WORKING version
-function filterAccountList(searchValue) {
-  const search = searchValue.toLowerCase().trim();
-  const allAccounts = document.querySelectorAll('.account-expandable');
-  
-  if (!search) {
-    // No search - show first 10
-    allAccounts.forEach((acc, idx) => {
-      acc.style.display = idx < 10 ? 'block' : 'none';
-    });
-    return;
-  }
-  
-  // Search - calculate relevance score and show matches
-  const matches = [];
-  allAccounts.forEach((acc, idx) => {
-    const name = acc.getAttribute('data-account') || '';
-    if (name.includes(search)) {
-      const score = name.startsWith(search) ? 100 : (name.indexOf(search) === 0 ? 90 : 50);
-      matches.push({ element: acc, score, index: idx });
-    }
-  });
-  
-  // Sort by relevance (best match first)
-  matches.sort((a, b) => b.score - a.score);
-  
-  // Hide all, show matches
-  allAccounts.forEach(acc => acc.style.display = 'none');
-  matches.forEach(m => m.element.style.display = 'block');
-}
-</script>
 
 </body>
 </html>`;
@@ -540,3 +514,52 @@ function filterAccountList(searchValue) {
 module.exports = {
   generateAccountDashboard
 };
+
+// Add search script at end (after HTML)
+const searchScript = `
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('account-search');
+  const matchCount = document.getElementById('match-count');
+  const allAccounts = document.querySelectorAll('.account-expandable');
+  
+  if (searchInput && allAccounts.length > 0) {
+    searchInput.addEventListener('keyup', function() {
+      const search = this.value.toLowerCase().trim();
+      
+      if (!search) {
+        // No search - show first 10 only
+        allAccounts.forEach((acc, idx) => {
+          acc.style.display = idx < 10 ? 'block' : 'none';
+        });
+        matchCount.textContent = 'Showing top 10 accounts (type to search all ' + allAccounts.length + ')';
+        return;
+      }
+      
+      // Filter and sort by relevance
+      const matches = [];
+      allAccounts.forEach((acc) => {
+        const name = acc.getAttribute('data-account') || '';
+        if (name.includes(search)) {
+          const score = name.startsWith(search) ? 100 : 50;
+          matches.push({ element: acc, score });
+        }
+      });
+      
+      // Sort best match first
+      matches.sort((a, b) => b.score - a.score);
+      
+      // Hide all
+      allAccounts.forEach(acc => acc.style.display = 'none');
+      
+      // Show matches
+      matches.forEach(m => m.element.style.display = 'block');
+      
+      matchCount.textContent = matches.length + ' account' + (matches.length !== 1 ? 's' : '') + ' found';
+    });
+  }
+});
+</script>
+`;
+
+module.exports.searchScript = searchScript;
