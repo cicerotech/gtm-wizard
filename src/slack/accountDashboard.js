@@ -268,6 +268,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <body>
 
 <div class="header">
+  <div style="text-align: center; margin-bottom: 16px;">
+    <img src="data:image/jpeg;base64,${require('fs').readFileSync(__dirname + '/../assets/Eudia_Logo.jpg').toString('base64')}" alt="Eudia Logo" style="max-width: 180px; height: auto;">
+  </div>
   <h1>Account Status Dashboard</h1>
   <p>Real-time pipeline overview • Updated ${new Date().toLocaleTimeString()}</p>
 </div>

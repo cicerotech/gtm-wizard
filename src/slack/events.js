@@ -3300,7 +3300,7 @@ async function handleAccountStatusDashboard(userId, channelId, client, threadTs)
     const baseUrl = process.env.RENDER_EXTERNAL_URL || process.env.BASE_URL || 'https://gtm-wizard.onrender.com';
     const dashboardUrl = `${baseUrl}/dashboard`;
     
-    const message = `Here's the Account Status Dashboard:\n\n<${dashboardUrl}|📊 Open Account Status Dashboard>\n\n_Live view of all active accounts organized by stage. Mobile-friendly, refreshes on reload._`;
+    const message = `<${dashboardUrl}|Here's the Eudia Account Status Dashboard>\n\n_Live view of all active accounts organized by stage. Mobile-friendly, refreshes on reload._`;
     
     await client.chat.postMessage({
       channel: channelId,
