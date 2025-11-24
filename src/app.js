@@ -178,9 +178,8 @@ class GTMBrainApp {
 
     // Email Builder interface
     this.expressApp.get('/email-builder', (req, res) => {
-      const fs = require('fs');
       const path = require('path');
-      const builderPath = path.join(__dirname, '../public/email-builder.html');
+      const builderPath = path.join(__dirname, 'views', 'email-builder.html');
       res.sendFile(builderPath);
     });
 

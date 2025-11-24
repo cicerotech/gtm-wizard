@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eudia Email Builder</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fe; padding: 20px; }
+.container { max-width: 1400px; margin: 0 auto; }
+.header { background: white; padding: 24px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+.header h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 4px; }
+.header p { color: #6b7280; font-size: 0.9375rem; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.panel { background: white; padding: 24px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.panel-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 16px; border-bottom: 2px solid #000; padding-bottom: 8px; }
+.form-group { margin-bottom: 16px; }
+label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.9375rem; }
+select, input, textarea { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9375rem; font-family: inherit; }
+select:focus, input:focus, textarea:focus { outline: none; border-color: #3b82f6; }
+.search-results { border: 1px solid #d1d5db; border-top: none; border-radius: 0 0 6px 6px; max-height: 200px; overflow-y: auto; background: white; }
+.search-item { padding: 10px; border-bottom: 1px solid #e5e7eb; cursor: pointer; }
+.search-item:hover { background: #f3f4f6; }
+.search-item:last-child { border-bottom: none; }
+.company-name { font-weight: 600; font-size: 0.9375rem; }
+.company-meta { font-size: 0.8125rem; color: #6b7280; margin-top: 2px; }
+.context-box { background: #eff6ff; border-left: 3px solid #3b82f6; padding: 12px; margin: 12px 0; font-size: 0.875rem; }
+.context-item { margin: 6px 0; }
+.trigger-tag { display: inline-block; background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px; font-size: 0.8125rem; font-weight: 600; margin: 4px 4px 0 0; cursor: pointer; }
+.trigger-tag:hover { background: #fde68a; }
+.email-preview { background: white; border: 1px solid #d1d5db; padding: 20px; min-height: 400px; font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; }
+.subject-preview { background: #111; color: white; padding: 10px; font-weight: 600; margin-bottom: 16px; border-radius: 4px; }
+button { background: #000; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.9375rem; }
+button:hover { background: #333; }
+button:disabled { background: #9ca3af; cursor: not-allowed; }
+.loading { color: #6b7280; font-style: italic; padding: 10px; }
+.error { background: #fee2e2; color: #991b1b; padding: 12px; border-radius: 6px; margin: 12px 0; }
+.success { background: #d1fae5; color: #065f46; padding: 12px; border-radius: 6px; margin: 12px 0; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  
+  <div class="header">
+    <h1>Eudia Email Builder</h1>
+    <p>Smart email templates with Salesforce integration</p>
+  </div>
+  
+  <div class="grid">
+    
+    <!-- Left Panel: Template Selection & Variables -->
+    <div class="panel">
+      <div class="panel-title">1. Build Your Email</div>
+      
+      <div class="form-group">
+        <label>Email Category</label>
+        <select id="category" onchange="loadTemplates()">
+          <option value="">Select category...</option>
+          <option value="cold">Cold Outreach</option>
+          <option value="warm">Warm Introductions</option>
+          <option value="followup">Follow-Ups</option>
+          <option value="casestudy">Case Study Sharing</option>
+          <option value="objection">Objection Handling</option>
+          <option value="proposal">Proposal Stage</option>
+          <option value="travel">Travel & Events</option>
+          <option value="urgency">Urgency & Timing</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Template</label>
+        <select id="template" onchange="loadTemplate()">
+          <option value="">Select template...</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Company Name (search Salesforce)</label>
+        <input type="text" id="company-search" placeholder="Start typing company name..." oninput="searchCompanies(this.value)">
+        <div id="search-results" class="search-results" style="display: none;"></div>
+      </div>
+      
+      <div id="sf-context" style="display: none;" class="context-box">
+        <strong>Salesforce Context:</strong>
+        <div id="sf-data"></div>
+      </div>
+      
+      <div id="triggers-section" style="display: none;">
+        <label>Suggested Triggers (click to use)</label>
+        <div id="triggers-list"></div>
+      </div>
+      
+      <div class="form-group">
+        <label>Recipient Name</label>
+        <input type="text" id="recipient-name" placeholder="First name">
+      </div>
+      
+      <div class="form-group">
+        <label>Your Name</label>
+        <input type="text" id="sender-name" placeholder="Your name" value="">
+      </div>
+      
+      <div id="custom-variables"></div>
+      
+    </div>
+    
+    <!-- Right Panel: Preview & Actions -->
+    <div class="panel">
+      <div class="panel-title">2. Preview & Copy</div>
+      
+      <div id="loading" class="loading" style="display: none;">
+        Generating email...
+      </div>
+      
+      <div id="email-preview-container">
+        <div id="subject-preview" class="subject-preview">Subject: Select a template to preview</div>
+        <div id="email-preview" class="email-preview">
+          <p style="color: #6b7280;">Select a template and fill in variables to see preview...</p>
+        </div>
+      </div>
+      
+      <div style="margin-top: 20px; display: flex; gap: 12px;">
+        <button onclick="copyToClipboard()" id="copy-btn" disabled>Copy to Clipboard</button>
+        <button onclick="generateNew()" style="background: #6b7280;">Reset</button>
+      </div>
+      
+      <div id="status-message"></div>
+    </div>
+    
+  </div>
+  
+</div>
+
+<script>
+// Email templates database
+const TEMPLATES = {
+  cold: [
+    {
+      id: 'cold-compliance',
+      name: 'CLO: Compliance Focus',
+      subject: 'Compliance at [Company]',
+      body: `Hi [Name],\n\nSaw [Company] is expanding into [trigger]. We help legal teams at Fortune 500 manufacturers reduce compliance costs 40-70% while cutting review time from weeks to days.\n\nWorth 15 minutes to share how this could work at [Company]?\n\nBest,\n[SenderName]`
+    },
+    {
+      id: 'cold-contract',
+      name: 'VP Legal: Contract Velocity',
+      subject: 'Contract velocity at [Company]',
+      body: `[Name],\n\nI imagine legal is slowing the sales cycle at [Company]. We helped a Fortune 100 company reduce contract review from 14 days to 3 and cut $180K in outside counsel over 90 days.\n\nWant to see how this could work for you?\n\n[SenderName]`
+    },
+    {
+      id: 'cold-ma',
+      name: 'CLO: M&A Focus',
+      subject: 'M&A diligence at [Company]',
+      body: `Hi [Name],\n\nGiven [Company]'s [trigger], wanted to share how we help legal teams cut due diligence from 8 weeks to 10 days while reducing per-deal costs 60%.\n\nWorth exploring?\n\nBest,\n[SenderName]`
+    },
+    {
+      id: 'cold-clm',
+      name: 'CLO: CLM Underwhelmed',
+      subject: 'Beyond CLM at [Company]',
+      body: `[Name],\n\nWe're seeing a pattern: companies implement CLMs, get underwhelmed by adoption and results. We work on top of your existing systems to deliver actual outcomes—cost reduction and velocity improvements measured in days.\n\nWorth 15 minutes?\n\n[SenderName]`
+    }
+  ],
+  warm: [
+    {
+      id: 'warm-standard',
+      name: 'Standard Warm Intro',
+      subject: 'Intro from [Connector]',
+      body: `Hi [Name],\n\nGreat to meet you through [Connector]'s intro. We help legal teams at Fortune 500s turn AI from exploration into measurable outcomes—typically 40-60% OC reduction and 2-3x faster cycles.\n\nDo you have 20 minutes next week?\n\nBest,\n[SenderName]`
+    }
+  ],
+  followup: [
+    {
+      id: 'followup-post-meeting',
+      name: 'Post-Discovery (Same Day)',
+      subject: 'Next steps - [Company]',
+      body: `[Name],\n\nThanks for the time today. Three things: [pain1], [pain2], [timing].\n\nOur approach: [deployment]. Typical results: [outcome].\n\nAttaching case study. Next step: [ask]?\n\n[SenderName]`
+    },
+    {
+      id: 'followup-noresponse',
+      name: 'No Response (Day 7)',
+      subject: 'Re: [OriginalSubject]',
+      body: `[Name],\n\nFollowing up on [topic]. We're seeing legal teams reduce [pain] from weeks to days while cutting costs 40-60%.\n\nWorth exploring?\n\n[SenderName]`
+    }
+  ]
+  // Add more categories as needed
+};
+
+let selectedCompany = null;
+let selectedTemplate = null;
+let enrichmentData = null;
+
+function loadTemplates() {
+  const category = document.getElementById('category').value;
+  const templateSelect = document.getElementById('template');
+  
+  templateSelect.innerHTML = '<option value="">Select template...</option>';
+  
+  if (category && TEMPLATES[category]) {
+    TEMPLATES[category].forEach(tmpl => {
+      const option = document.createElement('option');
+      option.value = tmpl.id;
+      option.textContent = tmpl.name;
+      templateSelect.appendChild(option);
+    });
+  }
+}
+
+function loadTemplate() {
+  const category = document.getElementById('category').value;
+  const templateId = document.getElementById('template').value;
+  
+  if (!category || !templateId) return;
+  
+  selectedTemplate = TEMPLATES[category].find(t => t.id === templateId);
+  updatePreview();
+}
+
+async function searchCompanies(searchTerm) {
+  const results = document.getElementById('search-results');
+  
+  if (searchTerm.length < 2) {
+    results.style.display = 'none';
+    return;
+  }
+  
+  try {
+    // Call SF search API
+    const response = await fetch(`/api/search-accounts?q=${encodeURIComponent(searchTerm)}`);
+    const data = await response.json();
+    
+    if (data.matches && data.matches.length > 0) {
+      results.innerHTML = data.matches.map(acc => `
+        <div class="search-item" onclick='selectCompany(${JSON.stringify(acc)})'>
+          <div class="company-name">${acc.name}</div>
+          <div class="company-meta">${acc.owner}${acc.recentOpp ? ' • ' + acc.recentOpp.stage : ''}</div>
+        </div>
+      `).join('');
+      results.style.display = 'block';
+    } else {
+      results.innerHTML = '<div class="search-item" style="color: #6b7280;">No matches found</div>';
+      results.style.display = 'block';
+    }
+  } catch (error) {
+    console.error('Search error:', error);
+  }
+}
+
+async function selectCompany(company) {
+  selectedCompany = company;
+  document.getElementById('company-search').value = company.name;
+  document.getElementById('search-results').style.display = 'none';
+  
+  // Show SF context
+  const sfContext = document.getElementById('sf-context');
+  const sfData = document.getElementById('sf-data');
+  sfData.innerHTML = `
+    <div class="context-item"><strong>Owner:</strong> ${company.owner}</div>
+    ${company.recentOpp ? `<div class="context-item"><strong>Recent Opp:</strong> ${company.recentOpp.stage} - ${company.recentOpp.product || 'TBD'} - $${((company.recentOpp.acv || 0) / 1000).toFixed(0)}K</div>` : ''}
+    ${company.customerType ? `<div class="context-item"><strong>Type:</strong> ${company.customerType}</div>` : ''}
+  `;
+  sfContext.style.display = 'block';
+  
+  // Fetch enrichment data
+  await enrichCompany(company.name);
+  
+  updatePreview();
+}
+
+async function enrichCompany(companyName) {
+  const triggersSection = document.getElementById('triggers-section');
+  const triggersList = document.getElementById('triggers-list');
+  
+  triggersSection.style.display = 'block';
+  triggersList.innerHTML = '<div class="loading">Fetching recent company news...</div>';
+  
+  try {
+    const response = await fetch(`/api/enrich-company?company=${encodeURIComponent(companyName)}`);
+    enrichmentData = await response.json();
+    
+    if (enrichmentData.triggers && enrichmentData.triggers.length > 0) {
+      triggersList.innerHTML = enrichmentData.triggers.map(t => 
+        `<span class="trigger-tag" onclick="useTrigger('${t.text}')">${t.text}</span>`
+      ).join('');
+    } else {
+      triggersList.innerHTML = '<div style="color: #6b7280; font-size: 0.875rem;">No recent triggers found. Use Salesforce context above.</div>';
+    }
+  } catch (error) {
+    triggersList.innerHTML = '<div style="color: #991b1b; font-size: 0.875rem;">Enrichment unavailable. Use Salesforce context.</div>';
+  }
+}
+
+function useTrigger(triggerText) {
+  // Auto-fill [trigger] variable in email
+  const customVars = document.getElementById('custom-variables');
+  customVars.innerHTML = `
+    <div class="form-group">
+      <label>Trigger / Recent Activity</label>
+      <input type="text" id="var-trigger" value="${triggerText}" oninput="updatePreview()">
+    </div>
+  `;
+  updatePreview();
+}
+
+function updatePreview() {
+  if (!selectedTemplate) return;
+  
+  const companyName = selectedCompany?.name || '[Company]';
+  const recipientName = document.getElementById('recipient-name').value || '[Name]';
+  const senderName = document.getElementById('sender-name').value || '[Your Name]';
+  const trigger = document.getElementById('var-trigger')?.value || '[trigger]';
+  
+  let subject = selectedTemplate.subject;
+  let body = selectedTemplate.body;
+  
+  // Replace variables
+  const replacements = {
+    '[Company]': companyName,
+    '[Name]': recipientName,
+    '[SenderName]': senderName,
+    '[trigger]': trigger
+  };
+  
+  Object.entries(replacements).forEach(([placeholder, value]) => {
+    const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+    subject = subject.replace(regex, value);
+    body = body.replace(regex, value);
+  });
+  
+  document.getElementById('subject-preview').textContent = 'Subject: ' + subject;
+  document.getElementById('email-preview').innerHTML = '<pre style="font-family: inherit; white-space: pre-wrap; margin: 0;">' + body + '</pre>';
+  document.getElementById('copy-btn').disabled = false;
+}
+
+function copyToClipboard() {
+  const subject = document.getElementById('subject-preview').textContent.replace('Subject: ', '');
+  const body = document.getElementById('email-preview').textContent;
+  
+  const fullEmail = `${subject}\n\n${body}`;
+  
+  navigator.clipboard.writeText(fullEmail).then(() => {
+    const status = document.getElementById('status-message');
+    status.innerHTML = '<div class="success">✅ Email copied to clipboard!</div>';
+    setTimeout(() => { status.innerHTML = ''; }, 3000);
+  }).catch(err => {
+    const status = document.getElementById('status-message');
+    status.innerHTML = '<div class="error">Failed to copy. Please select and copy manually.</div>';
+  });
+}
+
+function generateNew() {
+  document.getElementById('category').value = '';
+  document.getElementById('template').value = '';
+  document.getElementById('company-search').value = '';
+  document.getElementById('recipient-name').value = '';
+  document.getElementById('search-results').style.display = 'none';
+  document.getElementById('sf-context').style.display = 'none';
+  document.getElementById('triggers-section').style.display = 'none';
+  document.getElementById('custom-variables').innerHTML = '';
+  document.getElementById('subject-preview').textContent = 'Subject: Select a template to preview';
+  document.getElementById('email-preview').innerHTML = '<p style="color: #6b7280;">Select a template and fill in variables to see preview...</p>';
+  document.getElementById('copy-btn').disabled = true;
+  selectedCompany = null;
+  selectedTemplate = null;
+  enrichmentData = null;
+}
+</script>
+
+</body>
+</html>
+
