@@ -446,7 +446,7 @@ Ask me anything about your pipeline, accounts, or deals!`;
     // Format response based on intent
     let formattedResponse;
     if (parsedIntent.intent === 'account_lookup') {
-      formattedResponse = formatAccountLookup(queryResult, parsedIntent);
+      formattedResponse = await formatAccountLookup(queryResult, parsedIntent);
     } else if (parsedIntent.intent === 'account_stage_lookup') {
       formattedResponse = formatAccountStageResults(queryResult, parsedIntent);
     } else if (parsedIntent.intent === 'account_field_lookup') {
@@ -939,7 +939,7 @@ function formatCurrency(amount) {
 /**
  * Format account lookup results
  */
-function formatAccountLookup(queryResult, parsedIntent) {
+async function formatAccountLookup(queryResult, parsedIntent) {
   if (!queryResult || !queryResult.records || queryResult.totalSize === 0) {
     const accountName = parsedIntent.entities.accounts?.[0] || 'that company';
     return `No account found for "${accountName}". The company might not be in your Salesforce or might be spelled differently.`;
@@ -951,21 +951,17 @@ function formatAccountLookup(queryResult, parsedIntent) {
   
   const searchTerm = parsedIntent.entities.accounts[0].toLowerCase();
   
-  // Find best match with priority: 1) Exact match with business lead, 2) Exact match, 3) Business lead, 4) Any match
+  // Find best match
   const exactMatchBusinessLead = records.find(r => 
     r.Name.toLowerCase() === searchTerm && businessLeads.includes(r.Owner?.Name)
   );
   
   const exactMatch = records.find(r => r.Name.toLowerCase() === searchTerm);
-  
-  // ANY business lead match (not just partial)
   const anyBusinessLeadMatch = records.find(r => businessLeads.includes(r.Owner?.Name));
-  
   const partialMatch = records.find(r => r.Name.toLowerCase().includes(searchTerm));
   
   const primaryResult = exactMatchBusinessLead || exactMatch || anyBusinessLeadMatch || partialMatch || records[0];
 
-  // Check if account is held by Keigan or other unassigned holders
   const currentOwner = primaryResult.Owner?.Name;
   const isHeldByKeigan = unassignedHolders.includes(currentOwner);
   const isBusinessLead = businessLeads.includes(currentOwner);
@@ -973,7 +969,6 @@ function formatAccountLookup(queryResult, parsedIntent) {
   let response = '';
 
   if (isHeldByKeigan && primaryResult.Prior_Account_Owner_Name__c) {
-    // Secondary check: Show prior owner
     const priorOwner = primaryResult.Prior_Account_Owner_Name__c;
     
     if (businessLeads.some(bl => priorOwner && priorOwner.includes(bl))) {
@@ -1000,6 +995,32 @@ function formatAccountLookup(queryResult, parsedIntent) {
     response += `Owner: ${currentOwner}\n`;
     response += `Email: ${primaryResult.Owner?.Email || 'No email available'}\n`;
     if (primaryResult.Industry) response += `Industry: ${primaryResult.Industry}`;
+  }
+
+  // NEW: If showOpportunities flag is set, fetch and display opportunities
+  if (parsedIntent.entities.showOpportunities && primaryResult.Id) {
+    try {
+      const oppQuery = `SELECT Name, StageName, ACV__c, Product_Line__c, Target_LOI_Date__c
+                        FROM Opportunity
+                        WHERE AccountId = '${primaryResult.Id}' AND IsClosed = false
+                        ORDER BY StageName DESC, ACV__c DESC`;
+      
+      const oppResult = await query(oppQuery);
+      
+      if (oppResult && oppResult.records && oppResult.records.length > 0) {
+        response += `\n\n*Active Opportunities (${oppResult.records.length}):*\n`;
+        oppResult.records.forEach(opp => {
+          const acv = opp.ACV__c ? `$${(opp.ACV__c / 1000).toFixed(0)}K` : 'TBD';
+          const loi = opp.Target_LOI_Date__c ? new Date(opp.Target_LOI_Date__c).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}) : 'TBD';
+          response += `• ${opp.Name}\n  ${cleanStageName(opp.StageName)} | ${opp.Product_Line__c || 'TBD'} | ${acv} | LOI: ${loi}\n`;
+        });
+      } else {
+        response += `\n\n_No active opportunities found._`;
+      }
+    } catch (error) {
+      console.error('Error fetching opportunities:', error);
+      response += `\n\n_Unable to fetch opportunities._`;
+    }
   }
 
   return response;
@@ -3378,6 +3399,96 @@ async function handleUnknownQuery(parsedIntent, userId, channelId, client, threa
     await client.chat.postMessage({
       channel: channelId,
       text: `I'm not sure how to help. Ask "hello" for examples!`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle "[Name]'s accounts" queries
+ */
+async function handleOwnerAccountsList(entities, userId, channelId, client, threadTs) {
+  try {
+    if (!entities.ownerName) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `Please specify whose accounts you want to see.\n\n*Examples:*\n• "Julie's accounts"\n• "What accounts does Himanshu own?"\n• "Show me Asad's accounts"`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const ownerName = entities.ownerName;
+    
+    // Map first names to full names
+    const ownerMap = {
+      'julie': 'Julie Stefanich',
+      'himanshu': 'Himanshu Agarwal',
+      'asad': 'Asad Hussain',
+      'ananth': 'Ananth Cherukupally',
+      'david': 'David Van Ryk',
+      'john': 'John Cobb',
+      'jon': 'Jon Cobb',
+      'olivia': 'Olivia Jung'
+    };
+    
+    const fullName = ownerMap[ownerName.toLowerCase()] || ownerName;
+    const escapeQuotes = (str) => str.replace(/'/g, "\\'");
+    
+    const accountQuery = `SELECT Id, Name, 
+                                 (SELECT Id, StageName, ACV__c FROM Opportunities WHERE IsClosed = false ORDER BY ACV__c DESC)
+                          FROM Account
+                          WHERE Owner.Name LIKE '%${escapeQuotes(fullName)}%'
+                          ORDER BY Name`;
+    
+    const result = await query(accountQuery);
+    
+    if (!result || result.totalSize === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `No accounts found for "${fullName}".\n\nTry:\n• "Julie's accounts"\n• "Himanshu's accounts"\n• "Asad's accounts"`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    let totalPipeline = 0;
+    let totalOpps = 0;
+    
+    result.records.forEach(acc => {
+      if (acc.Opportunities && acc.Opportunities.records) {
+        acc.Opportunities.records.forEach(opp => {
+          totalPipeline += (opp.ACV__c || 0);
+          totalOpps++;
+        });
+      }
+    });
+    
+    let response = `*${fullName}'s Accounts (${result.totalSize})*\n\n`;
+    response += `Total Pipeline: $${(totalPipeline / 1000000).toFixed(2)}M across ${totalOpps} opportunities\n\n`;
+    
+    result.records.forEach(acc => {
+      const opps = acc.Opportunities?.records || [];
+      if (opps.length > 0) {
+        const accPipeline = opps.reduce((sum, o) => sum + (o.ACV__c || 0), 0);
+        const highestStage = Math.max(...opps.map(o => parseInt(o.StageName.match(/\d/)?.[0] || 0)));
+        response += `• *${acc.Name}* - ${opps.length} opp${opps.length > 1 ? 's' : ''}, $${(accPipeline / 1000).toFixed(0)}K, Stage ${highestStage}\n`;
+      } else {
+        response += `• ${acc.Name} - No active opportunities\n`;
+      }
+    });
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: response,
+      thread_ts: threadTs
+    });
+    
+  } catch (error) {
+    console.error('[handleOwnerAccountsList] Error:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Error retrieving accounts. Please try again.`,
       thread_ts: threadTs
     });
   }
