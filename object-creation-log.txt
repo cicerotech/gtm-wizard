@@ -406,3 +406,63 @@ Results saved: creation-results.json
 13:26:12 [32minfo[39m: ✅ Initial Salesforce authentication successful {
   "service": "gtm-brain-bot"
 }
+14:56:11 [33mwarn[39m: Redis not connected, skipping cache get {
+  "service": "gtm-brain-bot"
+}
+14:56:11 [32minfo[39m: 🔐 Performing initial Salesforce authentication... {
+  "service": "gtm-brain-bot"
+}
+14:56:12 [33mwarn[39m: Redis not connected, skipping cache set {
+  "service": "gtm-brain-bot"
+}
+14:56:12 [32minfo[39m: ✅ Initial Salesforce authentication successful {
+  "service": "gtm-brain-bot"
+}
+16:26:11 [33mwarn[39m: Redis not connected, skipping cache get {
+  "service": "gtm-brain-bot"
+}
+16:26:11 [32minfo[39m: 🔐 Performing initial Salesforce authentication... {
+  "service": "gtm-brain-bot"
+}
+16:26:12 [33mwarn[39m: Redis not connected, skipping cache set {
+  "service": "gtm-brain-bot"
+}
+16:26:12 [32minfo[39m: ✅ Initial Salesforce authentication successful {
+  "service": "gtm-brain-bot"
+}
+19:22:27 [33mwarn[39m: Redis not connected, skipping cache get {
+  "service": "gtm-brain-bot"
+}
+19:22:27 [32minfo[39m: 🔐 Performing initial Salesforce authentication... {
+  "service": "gtm-brain-bot"
+}
+19:22:28 [33mwarn[39m: Redis not connected, skipping cache set {
+  "service": "gtm-brain-bot"
+}
+19:22:28 [32minfo[39m: ✅ Initial Salesforce authentication successful {
+  "service": "gtm-brain-bot"
+}
+20:52:27 [33mwarn[39m: Redis not connected, skipping cache get {
+  "service": "gtm-brain-bot"
+}
+20:52:27 [32minfo[39m: 🔐 Performing initial Salesforce authentication... {
+  "service": "gtm-brain-bot"
+}
+20:52:28 [33mwarn[39m: Redis not connected, skipping cache set {
+  "service": "gtm-brain-bot"
+}
+20:52:28 [32minfo[39m: ✅ Initial Salesforce authentication successful {
+  "service": "gtm-brain-bot"
+}
+22:22:27 [33mwarn[39m: Redis not connected, skipping cache get {
+  "service": "gtm-brain-bot"
+}
+22:22:27 [32minfo[39m: 🔐 Performing initial Salesforce authentication... {
+  "service": "gtm-brain-bot"
+}
+22:22:28 [33mwarn[39m: Redis not connected, skipping cache set {
+  "service": "gtm-brain-bot"
+}
+22:22:28 [32minfo[39m: ✅ Initial Salesforce authentication successful {
+  "service": "gtm-brain-bot"
+}

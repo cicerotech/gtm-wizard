@@ -183,6 +183,20 @@ class GTMBrainApp {
       res.sendFile(builderPath);
     });
 
+    // GTM-Brain Query Reference (hosted version)
+    this.expressApp.get('/queries', (req, res) => {
+      const path = require('path');
+      const fs = require('fs');
+      const queryRefPath = path.join(__dirname, '../GTM-Brain-Query-Reference.html');
+      
+      // Check if file exists, if not send helpful message
+      if (fs.existsSync(queryRefPath)) {
+        res.sendFile(queryRefPath);
+      } else {
+        res.send('<h1>Query Reference Coming Soon</h1><p>This will show all available GTM-Brain queries.</p>');
+      }
+    });
+
     // Email Builder API routes
     const emailBuilderRoutes = require('./routes/emailBuilder');
     this.expressApp.get('/api/search-accounts', emailBuilderRoutes.searchAccounts);
