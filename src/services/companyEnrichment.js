@@ -337,7 +337,7 @@ class CompanyEnrichmentService {
           });
           break;
           
-        case: 'expansion':
+        case 'expansion':
           suggestions.push({
             variable: '[recent trigger]',
             suggestion: trigger.text,
