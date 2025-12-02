@@ -73,7 +73,8 @@ async function generateAccountDashboard() {
   
   // Query accounts with opportunities AND get Account IDs
   // FIXED: Include ALL stages (0-4) to match SF report totals
-  const accountQuery = `SELECT Account.Id, Account.Name, Account.Owner.Name, Account.Is_New_Logo__c,
+  // FIXED: Use Owner.Name (Opportunity Owner) not Account.Owner.Name (Account Owner)
+  const accountQuery = `SELECT Account.Id, Account.Name, Owner.Name, Account.Is_New_Logo__c,
                                Account.Account_Plan_s__c, Account.Customer_Type__c,
                                Name, StageName, ACV__c, Finance_Weighted_ACV__c, Product_Line__c
                         FROM Opportunity
@@ -176,7 +177,7 @@ async function generateAccountDashboard() {
       accountMap.set(accountName, {
         name: accountName,
         accountId: opp.Account?.Id, // Store Account ID for meeting lookup
-        owner: opp.Account?.Owner?.Name,
+        owner: opp.Owner?.Name,
         isNewLogo: opp.Account?.Is_New_Logo__c,
         hasAccountPlan: !!opp.Account?.Account_Plan_s__c,
         accountPlan: opp.Account?.Account_Plan_s__c,
@@ -232,7 +233,7 @@ async function generateAccountDashboard() {
   const blBreakdown = {};
   const stageOrder = ['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'];
   accountData.records.forEach(opp => {
-    const blName = opp.Account?.Owner?.Name || 'Unassigned';
+    const blName = opp.Owner?.Name || 'Unassigned';
     const stage = opp.StageName || 'Unknown';
     if (!blBreakdown[blName]) {
       blBreakdown[blName] = { 
