@@ -36,8 +36,20 @@ const SALESFORCE_CONTRACT_FIELDS = {
   'Amount__c': { label: 'Monthly Amount (subscription)', required: false, type: 'currency' },
   
   // PRODUCT FIELDS
-  'Parent_Product__c': { label: 'Parent Product', required: false, type: 'multipicklist', values: ['AI Augmented - Contracting', 'Insights', 'Compliance', 'sigma', 'Multiple'] },
-  'Product_Line__c': { label: 'Product Line', required: false, type: 'picklist' },
+  // Parent Product is SINGLE SELECT
+  'Parent_Product__c': { 
+    label: 'Parent Product', 
+    required: false, 
+    type: 'picklist', 
+    values: ['AI Augmented - Contracting', 'AI Augmented - M&A', 'Compliance', 'Litigation', 'sigma', 'Other', 'Insights', 'Multiple', 'None specified'] 
+  },
+  // Product Line(s) is MULTI-SELECT
+  'Product_Line__c': { 
+    label: 'Product Line(s)', 
+    required: false, 
+    type: 'multipicklist',
+    values: ['AI Augmented - Contracting', 'AI Augmented - M&A', 'sigma', 'Litigation', 'Cortex', 'Compliance']
+  },
   
   // SIGNATURE FIELDS
   'CustomerSignedId': { label: 'Customer Signed By', required: false, type: 'lookup' },
@@ -262,23 +274,94 @@ class ContractAnalyzer {
    */
   async extractTextFromPDF(pdfBuffer) {
     try {
-      // Dynamic import for pdf-parse (avoid issues if not installed)
+      // Validate we have a buffer
+      if (!pdfBuffer || pdfBuffer.length === 0) {
+        throw new Error('Empty PDF buffer');
+      }
+      
+      logger.info(`📄 Processing PDF buffer: ${pdfBuffer.length} bytes`);
+      
+      // Check PDF header
+      const header = pdfBuffer.slice(0, 8).toString('utf8');
+      logger.info(`📄 PDF header: ${header}`);
+      
+      // Dynamic import for pdf-parse
       let pdfParse;
       try {
         pdfParse = require('pdf-parse');
       } catch (e) {
-        // Fallback: return empty if pdf-parse not available
-        logger.warn('pdf-parse not available, returning raw buffer string');
-        return pdfBuffer.toString('utf8').replace(/[^\x20-\x7E\n\r\t]/g, ' ');
+        logger.warn('pdf-parse not available, using fallback text extraction');
+        return this.fallbackTextExtraction(pdfBuffer);
       }
       
-      const data = await pdfParse(pdfBuffer);
-      return data.text;
+      // Try pdf-parse with error handling
+      try {
+        const data = await pdfParse(pdfBuffer, {
+          // Options to handle various PDF types
+          max: 0, // No page limit
+        });
+        
+        if (data.text && data.text.length > 0) {
+          logger.info(`✅ Extracted ${data.text.length} characters from PDF`);
+          return data.text;
+        } else {
+          logger.warn('pdf-parse returned empty text, trying fallback');
+          return this.fallbackTextExtraction(pdfBuffer);
+        }
+      } catch (parseError) {
+        logger.warn(`pdf-parse failed: ${parseError.message}, trying fallback`);
+        return this.fallbackTextExtraction(pdfBuffer);
+      }
       
     } catch (error) {
       logger.error('PDF parsing failed:', error);
       throw new Error(`PDF parsing failed: ${error.message}`);
     }
+  }
+
+  /**
+   * Fallback text extraction for problematic PDFs
+   */
+  fallbackTextExtraction(pdfBuffer) {
+    logger.info('Using fallback text extraction...');
+    
+    // Convert buffer to string and extract readable text
+    let text = pdfBuffer.toString('utf8');
+    
+    // Clean up binary characters but keep text
+    text = text.replace(/[^\x20-\x7E\n\r\t]/g, ' ');
+    
+    // Try to find text between stream markers (common in PDFs)
+    const streamMatches = text.match(/stream[\s\S]*?endstream/gi) || [];
+    let extractedText = '';
+    
+    for (const stream of streamMatches) {
+      // Extract readable characters from streams
+      const readable = stream.replace(/[^\x20-\x7E\n\r\t]/g, ' ')
+                             .replace(/\s+/g, ' ')
+                             .trim();
+      if (readable.length > 20) {
+        extractedText += readable + '\n';
+      }
+    }
+    
+    // Also try to find text objects (Tj, TJ operators)
+    const textMatches = text.match(/\(([^)]+)\)\s*Tj/gi) || [];
+    for (const match of textMatches) {
+      const content = match.replace(/\(([^)]+)\)\s*Tj/i, '$1');
+      extractedText += content + ' ';
+    }
+    
+    // If we got some text, return it; otherwise return cleaned buffer
+    if (extractedText.length > 100) {
+      logger.info(`✅ Fallback extracted ${extractedText.length} characters`);
+      return extractedText;
+    }
+    
+    // Last resort: return the cleaned buffer text
+    const cleaned = text.replace(/\s+/g, ' ').trim();
+    logger.info(`📝 Using cleaned buffer: ${cleaned.length} characters`);
+    return cleaned;
   }
 
   /**
@@ -517,13 +600,43 @@ class ContractAnalyzer {
       }
     }
     
-    // Extract products
-    const productMatches = text.match(/(?:AI[- ]?Augmented[- ]?Contracting|Insights|sigma|Compliance|M&A|Litigation)/gi);
-    if (productMatches) {
-      const uniqueProducts = [...new Set(productMatches.map(p => this.normalizeProductName(p)))];
-      extracted.parentProduct = uniqueProducts.length > 1 ? 'Multiple' : uniqueProducts[0];
-      extracted.productLine = uniqueProducts.join(';');
+    // Extract products - match various keywords
+    const productPatterns = [
+      /AI[- ]?Augmented[- ]?Contracting/gi,
+      /AI[- ]?Augmented[- ]?M&A/gi,
+      /Insights?/gi,
+      /\bsigma\b/gi,
+      /Compliance/gi,
+      /Litigation/gi,
+      /Cortex/gi,
+      /M&A/gi,
+      /Contracting/gi
+    ];
+    
+    const foundProducts = new Set();
+    for (const pattern of productPatterns) {
+      const matches = text.match(pattern);
+      if (matches) {
+        matches.forEach(m => {
+          const normalized = this.normalizeProductName(m);
+          if (normalized) foundProducts.add(normalized);
+        });
+      }
     }
+    
+    // Also check for explicit Product Line(s) field
+    const productLineMatch = text.match(/Product\s+Line\(s\)[:\s]+([^\n]+)/i);
+    if (productLineMatch && productLineMatch[1]) {
+      const productList = productLineMatch[1].split(/[;,]/);
+      productList.forEach(p => {
+        const normalized = this.normalizeProductName(p.trim());
+        if (normalized) foundProducts.add(normalized);
+      });
+    }
+    
+    const productsArray = Array.from(foundProducts);
+    extracted.parentProduct = this.determineParentProduct(productsArray);
+    extracted.productLine = this.formatProductLines(productsArray);
     
     // Extract signatures
     for (const pattern of this.extractionPatterns.customerSignature) {
@@ -721,8 +834,10 @@ class ContractAnalyzer {
       Status: 'Activated',
       OwnerId: enrichedFields.salesforce?.contractOwnerId,
       
-      // AI Enabled (always true for new contracts)
+      // AI Enabled - ALWAYS TRUE for all contracts
       AI_Enabled__c: true,
+      
+      // Currency
       Currency__c: 'USD'
     };
     
@@ -737,10 +852,13 @@ class ContractAnalyzer {
       record.Amount__c = enrichedFields.monthlyAmount;
     }
     
-    // Product fields
-    if (enrichedFields.parentProduct) {
+    // PRODUCT FIELDS - Properly formatted
+    // Parent_Product__c = Single select (string)
+    if (enrichedFields.parentProduct && enrichedFields.parentProduct !== 'None specified') {
       record.Parent_Product__c = enrichedFields.parentProduct;
     }
+    
+    // Product_Line__c = Multi-select (semicolon-separated string)
     if (enrichedFields.productLine) {
       record.Product_Line__c = enrichedFields.productLine;
     }
@@ -842,17 +960,56 @@ class ContractAnalyzer {
     return isNaN(value) ? null : value;
   }
 
+  /**
+   * Normalize product name to match Salesforce picklist values EXACTLY
+   */
   normalizeProductName(product) {
     const normalized = product.toLowerCase().trim();
-    if (normalized.includes('contracting') || normalized.includes('ai-augmented')) {
+    
+    // Match to exact Salesforce picklist values
+    if (normalized.includes('contracting') || 
+        (normalized.includes('ai') && normalized.includes('augmented') && !normalized.includes('m&a'))) {
       return 'AI Augmented - Contracting';
+    }
+    if (normalized.includes('m&a') || normalized.includes('merger') || normalized.includes('acquisition')) {
+      return 'AI Augmented - M&A';
     }
     if (normalized.includes('insight')) return 'Insights';
     if (normalized.includes('sigma')) return 'sigma';
     if (normalized.includes('compliance')) return 'Compliance';
     if (normalized.includes('litigation')) return 'Litigation';
-    if (normalized.includes('m&a')) return 'M&A';
-    return product;
+    if (normalized.includes('cortex')) return 'Cortex';
+    
+    return null; // Unknown product
+  }
+
+  /**
+   * Determine Parent Product (single select) from list of products
+   */
+  determineParentProduct(products) {
+    if (!products || products.length === 0) return 'None specified';
+    
+    // Filter out nulls
+    const validProducts = products.filter(p => p !== null);
+    
+    if (validProducts.length === 0) return 'None specified';
+    if (validProducts.length > 1) return 'Multiple';
+    
+    return validProducts[0];
+  }
+
+  /**
+   * Format Product Lines for multi-select field (semicolon separated)
+   */
+  formatProductLines(products) {
+    if (!products || products.length === 0) return null;
+    
+    // Filter valid products and join with semicolons
+    const validProducts = products.filter(p => p !== null);
+    
+    if (validProducts.length === 0) return null;
+    
+    return validProducts.join(';');
   }
 
   isValidDate(dateStr) {

@@ -643,27 +643,81 @@ async function handleContractCreationConfirmation(message, userId, channelId, cl
 }
 
 /**
- * Download file from Slack
+ * Download file from Slack using multiple methods
  */
 async function downloadSlackFile(file, client) {
   try {
     const fetch = (await import('node-fetch')).default;
     
-    const response = await fetch(file.url_private, {
+    // Try url_private_download first (more reliable for authenticated downloads)
+    const downloadUrl = file.url_private_download || file.url_private;
+    
+    if (!downloadUrl) {
+      logger.error('No download URL available for file:', file.name);
+      throw new Error('No download URL available');
+    }
+    
+    logger.info(`📥 Downloading file from: ${downloadUrl.substring(0, 50)}...`);
+    
+    const response = await fetch(downloadUrl, {
       headers: {
-        'Authorization': `Bearer ${process.env.SLACK_BOT_TOKEN}`
-      }
+        'Authorization': `Bearer ${process.env.SLACK_BOT_TOKEN}`,
+        'Accept': 'application/pdf,*/*'
+      },
+      redirect: 'follow'
     });
     
     if (!response.ok) {
+      logger.error(`Download failed: HTTP ${response.status} - ${response.statusText}`);
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
+    const contentType = response.headers.get('content-type');
+    logger.info(`📄 Content-Type: ${contentType}`);
+    
     const arrayBuffer = await response.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(arrayBuffer);
+    
+    logger.info(`📦 Downloaded ${buffer.length} bytes`);
+    
+    // Validate PDF magic bytes (%PDF)
+    if (buffer.length < 4) {
+      throw new Error('Downloaded file too small');
+    }
+    
+    const header = buffer.slice(0, 4).toString('utf8');
+    if (!header.startsWith('%PDF')) {
+      logger.warn(`File header: ${header} (expected %PDF)`);
+      // Don't throw - some PDFs have different headers or are encrypted
+    }
+    
+    return buffer;
     
   } catch (error) {
     logger.error('File download failed:', error);
+    
+    // Try alternative: use Slack API to get file info
+    try {
+      logger.info('Attempting alternative download via Slack API...');
+      const fileInfo = await client.files.info({ file: file.id });
+      
+      if (fileInfo.file?.url_private_download) {
+        const fetch = (await import('node-fetch')).default;
+        const response = await fetch(fileInfo.file.url_private_download, {
+          headers: {
+            'Authorization': `Bearer ${process.env.SLACK_BOT_TOKEN}`
+          }
+        });
+        
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          return Buffer.from(arrayBuffer);
+        }
+      }
+    } catch (altError) {
+      logger.error('Alternative download also failed:', altError);
+    }
+    
     return null;
   }
 }

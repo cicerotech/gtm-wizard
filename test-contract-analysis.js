@@ -193,7 +193,10 @@ async function runTests() {
       }
       
       if (fields.parentProduct) {
-        console.log(`   Product: ${fields.parentProduct}`);
+        console.log(`   Parent Product: ${fields.parentProduct}`);
+      }
+      if (fields.productLine) {
+        console.log(`   Product Line(s): ${fields.productLine}`);
       }
       if (fields.customerSignedName) {
         console.log(`   Customer Signer: ${fields.customerSignedName}`);
