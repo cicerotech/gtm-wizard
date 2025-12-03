@@ -185,6 +185,76 @@ class ContractCreationService {
   }
 
   /**
+   * Validate lookup IDs exist in Salesforce before creating
+   */
+  async validateLookupIds(record) {
+    const errors = [];
+    
+    // Validate AccountId
+    if (record.AccountId) {
+      try {
+        const accountCheck = await query(`SELECT Id, Name FROM Account WHERE Id = '${record.AccountId}' LIMIT 1`);
+        if (!accountCheck || accountCheck.totalSize === 0) {
+          errors.push({
+            field: 'AccountId',
+            message: `Account ID not found: ${record.AccountId}`,
+            suggestion: 'Please verify the account name matches a Salesforce account'
+          });
+        } else {
+          logger.info(`✅ Account verified: ${accountCheck.records[0].Name}`);
+        }
+      } catch (e) {
+        errors.push({
+          field: 'AccountId', 
+          message: `Invalid Account ID format: ${record.AccountId}`,
+          suggestion: 'The account lookup may have returned an invalid ID'
+        });
+      }
+    }
+    
+    // Validate OwnerId
+    if (record.OwnerId) {
+      try {
+        const ownerCheck = await query(`SELECT Id, Name FROM User WHERE Id = '${record.OwnerId}' AND IsActive = true LIMIT 1`);
+        if (!ownerCheck || ownerCheck.totalSize === 0) {
+          errors.push({
+            field: 'OwnerId',
+            message: `Owner ID not found or inactive: ${record.OwnerId}`,
+            suggestion: 'Please assign to an active Business Lead'
+          });
+        } else {
+          logger.info(`✅ Owner verified: ${ownerCheck.records[0].Name}`);
+        }
+      } catch (e) {
+        errors.push({
+          field: 'OwnerId',
+          message: `Invalid Owner ID format: ${record.OwnerId}`,
+          suggestion: 'Please use "assign to [Name]" with a valid BL name'
+        });
+      }
+    }
+    
+    // Validate Contact_Signed__c (if set)
+    if (record.Contact_Signed__c) {
+      try {
+        const contactCheck = await query(`SELECT Id, Name FROM Contact WHERE Id = '${record.Contact_Signed__c}' LIMIT 1`);
+        if (!contactCheck || contactCheck.totalSize === 0) {
+          // Remove invalid contact - it will be noted in the record
+          logger.warn(`Contact ID not found: ${record.Contact_Signed__c}, removing from record`);
+          delete record.Contact_Signed__c;
+        }
+      } catch (e) {
+        delete record.Contact_Signed__c;
+      }
+    }
+    
+    return {
+      valid: errors.length === 0,
+      errors: errors
+    };
+  }
+
+  /**
    * Create Contract record in Salesforce
    */
   async createContract(record) {
@@ -197,6 +267,17 @@ class ContractCreationService {
         if (value !== null && value !== undefined && value !== '') {
           cleanRecord[key] = value;
         }
+      }
+      
+      // Validate lookup IDs before creating
+      const lookupValidation = await this.validateLookupIds(cleanRecord);
+      if (!lookupValidation.valid) {
+        const errorMessages = lookupValidation.errors.map(e => `${e.field}: ${e.message}`).join('; ');
+        logger.error('Lookup validation failed:', errorMessages);
+        return {
+          success: false,
+          error: errorMessages
+        };
       }
       
       logger.info('Creating contract with data:', JSON.stringify(cleanRecord, null, 2));
@@ -287,18 +368,25 @@ class ContractCreationService {
       const record = contractAnalyzer.toSalesforceRecord(analysisResult.fields);
       
       // Apply overrides
+      logger.info(`📝 Applying overrides: ${JSON.stringify(overrides)}`);
+      
       for (const [field, value] of Object.entries(overrides)) {
         if (field === 'ownerName') {
           // Convert owner name to ID
           const ownerId = OWNER_USER_IDS[value];
           if (ownerId) {
             record.OwnerId = ownerId;
+            logger.info(`✅ Owner set from OWNER_USER_IDS: ${value} → ${ownerId}`);
           } else {
             // Lookup by name
-            const userQuery = `SELECT Id FROM User WHERE Name = '${value}' AND IsActive = true LIMIT 1`;
+            logger.info(`🔍 Looking up user by name: ${value}`);
+            const userQuery = `SELECT Id, Name FROM User WHERE Name LIKE '%${value}%' AND IsActive = true LIMIT 1`;
             const userResult = await query(userQuery);
             if (userResult?.totalSize > 0) {
               record.OwnerId = userResult.records[0].Id;
+              logger.info(`✅ Owner found via query: ${userResult.records[0].Name} → ${userResult.records[0].Id}`);
+            } else {
+              logger.warn(`⚠️ Owner not found: ${value}`);
             }
           }
         } else if (field === 'accountName') {
