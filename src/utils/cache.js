@@ -73,11 +73,23 @@ class CacheManager {
     // Use in-memory cache if Redis not connected
     if (!this.isConnected) {
       const cached = this.memoryCache.get(key);
-      if (cached && Date.now() - cached.timestamp < 60000) { // 60s TTL
-        this.memoryCacheStats.hits++;
-        return cached.value;
+      if (cached) {
+        // Check if TTL has expired (use stored TTL, not hardcoded)
+        const elapsed = Date.now() - cached.timestamp;
+        const ttlMs = (cached.ttlSeconds || 60) * 1000;
+        
+        if (elapsed < ttlMs) {
+          this.memoryCacheStats.hits++;
+          logger.info(`📦 Memory cache HIT: ${key} (expires in ${Math.round((ttlMs - elapsed) / 1000)}s)`);
+          return cached.value;
+        } else {
+          // Expired - delete it
+          this.memoryCache.delete(key);
+          logger.info(`📦 Memory cache EXPIRED: ${key}`);
+        }
       }
       this.memoryCacheStats.misses++;
+      logger.info(`📦 Memory cache MISS: ${key}`);
       return null;
     }
 
@@ -96,8 +108,10 @@ class CacheManager {
     if (!this.isConnected) {
       this.memoryCache.set(key, {
         value,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        ttlSeconds: ttlSeconds  // Store TTL so get() can check expiry correctly
       });
+      logger.info(`📦 Memory cache SET: ${key} (TTL: ${ttlSeconds}s)`);
       // Limit memory cache size to prevent memory leaks
       if (this.memoryCache.size > 100) {
         const firstKey = this.memoryCache.keys().next().value;
