@@ -622,10 +622,27 @@ class ContractAnalyzer {
       aiEnabled: true
     };
     
-    // Extract contract name from filename or first heading
-    const contractNameMatch = text.match(/^#?\s*(?:Exhibit\s+[A-Z])?[\s\n]*(.+?(?:Order|Agreement|Memorandum|Contract))/im);
-    if (contractNameMatch) {
-      extracted.contractName = contractNameMatch[1].trim().replace(/\s+/g, ' ');
+    // Contract Name = PDF filename (cleaned up)
+    // This is what gets synced to Campfire ERP, so it should match the document name
+    if (fileName) {
+      // Clean the filename: remove extension, .cleaned, dates in parens, version numbers
+      let cleanName = fileName
+        .replace(/\.pdf$/i, '')
+        .replace(/\.cleaned$/i, '')
+        .replace(/\.docx$/i, '')
+        .replace(/\s*\(\d+\)\s*/g, '')           // Remove (1), (2) version numbers
+        .replace(/\s*\(\d+\.\d+\.\d+[^)]*\)/g, '') // Remove (10.31.25 Final)
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      extracted.contractName = cleanName;
+      logger.info(`📄 Contract Name (from filename): "${cleanName}"`);
+    } else {
+      // Fallback: extract from text
+      const contractNameMatch = text.match(/^#?\s*(?:Exhibit\s+[A-Z])?[\s\n]*(.+?(?:Order|Agreement|Memorandum|Contract))/im);
+      if (contractNameMatch) {
+        extracted.contractName = contractNameMatch[1].trim().replace(/\s+/g, ' ');
+      }
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
