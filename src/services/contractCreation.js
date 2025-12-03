@@ -741,9 +741,8 @@ async function handleContractCreationConfirmation(message, userId, channelId, cl
     });
     
     successMessage += `\n────────────────────────────────\n`;
-    successMessage += `*Next Steps:*\n`;
-    successMessage += `• Reply \`activate contract\` to change status to Activated\n`;
-    successMessage += `• Or activate manually in Salesforce\n`;
+    successMessage += `*Next Step:*\n`;
+    successMessage += `Reply \`activate contract\` to change status from Draft → Activated\n`;
     
     await client.chat.postMessage({
       channel: channelId,
@@ -751,11 +750,16 @@ async function handleContractCreationConfirmation(message, userId, channelId, cl
       thread_ts: threadTs
     });
     
-    // Store contract ID for potential activation
-    await cache.set(`pending_contract_${userId}_${channelId}`, {
+    // Store Draft contract for activation
+    // When user says "activate contract", we'll use this to know which one to activate
+    logger.info(`📝 Storing draft contract: draft_contract_${userId}_${channelId}`);
+    logger.info(`📝 Contract ID: ${result.contractId}, Number: ${result.contractNumber}`);
+    
+    await cache.set(`draft_contract_${userId}_${channelId}`, {
       contractId: result.contractId,
-      contractNumber: result.contractNumber
-    }, 3600); // 1 hour TTL
+      contractNumber: result.contractNumber,
+      createdAt: Date.now()
+    }, 3600); // 1 hour TTL - plenty of time to activate
     
     // Clear stored analysis
     await cache.del(`contract_analysis_${userId}_${channelId}`);
@@ -1001,19 +1005,22 @@ function downloadWithHttps(url, token) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Activate a pending contract (change status from Draft to Activated)
+ * Activate a Draft contract (change status from Draft to Activated)
  */
 async function handleContractActivation(userId, channelId, client, threadTs) {
   const { cache } = require('../utils/cache');
   
   try {
-    // Check for pending contract
-    const pendingContract = await cache.get(`pending_contract_${userId}_${channelId}`);
+    // Check for recently created Draft contract
+    const draftContract = await cache.get(`draft_contract_${userId}_${channelId}`);
     
-    if (!pendingContract) {
+    logger.info(`🔄 Looking for draft contract: draft_contract_${userId}_${channelId}`);
+    logger.info(`🔄 Found: ${draftContract ? JSON.stringify(draftContract) : 'null'}`);
+    
+    if (!draftContract) {
       await client.chat.postMessage({
         channel: channelId,
-        text: `❓ No pending contract found to activate.\n\nCreate a contract first, then reply \`activate contract\`.`,
+        text: `❓ No Draft contract found to activate.\n\nCreate a contract first (it will be in Draft status), then reply \`activate contract\`.`,
         thread_ts: threadTs
       });
       return false;
@@ -1021,15 +1028,17 @@ async function handleContractActivation(userId, channelId, client, threadTs) {
     
     await client.chat.postMessage({
       channel: channelId,
-      text: `🔄 Activating Contract #${pendingContract.contractNumber}...`,
+      text: `🔄 Activating Contract #${draftContract.contractNumber}...\n_Changing status from Draft → Activated_`,
       thread_ts: threadTs
     });
     
-    // Update contract status to Activated using jsforce connection
+    // Update contract status from Draft to Activated
     const conn = sfConnection.getConnection();
     
+    logger.info(`🔄 Updating contract ${draftContract.contractId} to Activated`);
+    
     const updateResult = await conn.sobject('Contract').update({
-      Id: pendingContract.contractId,
+      Id: draftContract.contractId,
       Status: 'Activated'
     });
     
@@ -1037,16 +1046,17 @@ async function handleContractActivation(userId, channelId, client, threadTs) {
       throw new Error(updateResult.errors?.map(e => e.message).join(', ') || 'Activation failed');
     }
     
-    const contractUrl = `${process.env.SALESFORCE_INSTANCE_URL}/lightning/r/Contract/${pendingContract.contractId}/view`;
+    const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
+    const contractUrl = `${sfBaseUrl}/lightning/r/Contract/${draftContract.contractId}/view`;
     
     await client.chat.postMessage({
       channel: channelId,
-      text: `✅ *Contract Activated!*\n\n📄 Contract #${pendingContract.contractNumber}\n📋 Status: *Activated*\n<${contractUrl}|View in Salesforce>`,
+      text: `✅ *Contract Activated!*\n\n📄 Contract #${draftContract.contractNumber}\n📋 Status: *Draft → Activated*\n<${contractUrl}|View in Salesforce>`,
       thread_ts: threadTs
     });
     
-    // Clear pending contract
-    await cache.del(`pending_contract_${userId}_${channelId}`);
+    // Clear the draft contract from cache (it's now activated)
+    await cache.del(`draft_contract_${userId}_${channelId}`);
     
     return true;
     
