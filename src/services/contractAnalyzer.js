@@ -632,48 +632,65 @@ class ContractAnalyzer {
     
     // ═══════════════════════════════════════════════════════════════════════════
     // STRATEGY 1: Extract from FILENAME (most reliable)
-    // Account name is ALWAYS in the filename, typically at the START
+    // Account name is ALWAYS in the filename - it's the CLIENT, NEVER Eudia/Cicero
     // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Terms that are NEVER the account (internal/generic)
+    const INVALID_ACCOUNT_NAMES = [
+      'eudia', 'cicero', 'the', 'this', 'cab', 'msa', 'agreement', 'contract', 
+      'order', 'exhibit', 'final', 'execution', 'executed', 'cleaned', 'pdf',
+      'docx', 'inc', 'llc', 'corp', 'ltd', 'technologies', 'project', 'ai'
+    ];
     
     logger.info(`📋 Attempting to extract account from filename: "${fileName}"`);
     
-    // Clean filename for matching (remove extension, dates, version numbers)
+    // Clean filename for matching
     const cleanFileName = fileName
       .replace(/\.pdf$/i, '')
       .replace(/\.cleaned$/i, '')
       .replace(/\.docx$/i, '')
-      .replace(/\(\d+\.\d+\.\d+[^)]*\)/g, '')  // Remove (10.31.25 Final) etc
+      .replace(/\(\d+\.\d+\.\d+[^)]*\)/g, '')  // Remove (10.31.25 Final)
+      .replace(/\(\d+\)/g, '')                  // Remove (2) version numbers
       .replace(/\d{4}-\d{2}-\d{2}/g, '')        // Remove 2025-10-06
+      .replace(/\d{8}/g, '')                    // Remove 20251113
       .replace(/\s+/g, ' ')
       .trim();
     
     logger.info(`📋 Cleaned filename: "${cleanFileName}"`);
     
-    // Pattern priority order:
+    // Helper function to validate account name
+    const isValidAccountName = (name) => {
+      if (!name || name.length < 2) return false;
+      const lowerName = name.toLowerCase().trim();
+      return !INVALID_ACCOUNT_NAMES.some(invalid => lowerName === invalid || lowerName.startsWith(invalid + ' '));
+    };
+    
+    // Pattern priority order - PRIORITIZE patterns that find CLIENT name (not Eudia)
+    // Allow multi-word company names like "Pure Storage"
     const fileNamePatterns = [
-      // "Company-Eudia MSA" or "Company_Eudia"
-      /^([A-Z][A-Za-z]+)[-_\s]+(?:Eudia|Cicero)/i,
-      // "Eudia_CAB Memorandum- CompanyName" or "Eudia - CAB Memorandum- Company"
-      /(?:Eudia|CAB)[-_\s]+(?:Memorandum)?[-_\s]*([A-Z][A-Za-z\s]+?)(?:\s+\d|\s*$)/i,
-      // "CompanyName A&R" or "CompanyName Agreement" - First word before common contract terms
-      /^([A-Z][A-Za-z]+)(?:\s+A&R|\s+Agreement|\s+MSA|\s+Order|\s+Contract)/i,
-      // "CompanyName - Description" - First word before dash
-      /^([A-Z][A-Za-z]+)\s*[-–]/,
-      // Just the first capitalized word if it looks like a company name
-      /^([A-Z][a-z]{2,})/,
+      // "CompanyName-Eudia" or "CompanyName_Eudia" (Company BEFORE Eudia)
+      { pattern: /^([A-Z][A-Za-z]+(?:\s+[A-Z][a-z]+)?)[-_\s]+(?:Eudia|Cicero)/i, group: 1 },
+      // "CompanyName_AI Managed" or "CompanyName_AI Augmented" (underscore + AI)
+      { pattern: /^([A-Z][A-Za-z]+)[-_]AI\s/i, group: 1 },
+      // "Eudia - CompanyName Order" or "Eudia - CompanyName, Inc." or "Eudia - CAB Memorandum- Company"
+      { pattern: /Eudia\s*[-–]\s*(?:CAB\s+)?(?:Memorandum)?[-–\s]*([A-Z][A-Za-z]+(?:\s+[A-Z][a-z]+)?)/i, group: 1 },
+      // "Memorandum- CompanyName" (CAB memorandums)
+      { pattern: /Memorandum[-_\s]+([A-Z][A-Za-z]+(?:\s+[A-Z][a-z]+)?)/i, group: 1 },
+      // "CompanyName A&R" or "CompanyName Agreement" at START
+      { pattern: /^([A-Z][A-Za-z]+)\s+(?:A&R|AI|Agreement|MSA|Order)/i, group: 1 },
+      // "CompanyName - Description" at START
+      { pattern: /^([A-Z][A-Za-z]+)\s*[-–]/, group: 1 },
     ];
     
-    for (const pattern of fileNamePatterns) {
+    for (const { pattern, group } of fileNamePatterns) {
       const match = cleanFileName.match(pattern);
-      if (match && match[1]) {
-        const name = match[1].trim().replace(/[-_]/g, ' ');
-        // Validate: not generic terms, not Eudia, reasonable length
-        const isValid = name.length >= 3 && 
-                        !name.toLowerCase().includes('eudia') &&
-                        !name.toLowerCase().includes('cicero') &&
-                        !['The', 'This', 'CAB', 'MSA', 'Agreement', 'Contract', 'Order'].includes(name);
+      if (match && match[group]) {
+        let name = match[group].trim()
+          .replace(/[-_]/g, ' ')
+          .replace(/,?\s*(Inc|LLC|Corp|Ltd)\.?$/i, '')
+          .trim();
         
-        if (isValid) {
+        if (isValidAccountName(name)) {
           extracted.accountName = name;
           logger.info(`📋 Account from filename: "${extracted.accountName}" (pattern: ${pattern.toString()})`);
           break;
@@ -745,19 +762,45 @@ class ContractAnalyzer {
       }
     }
     
-    // Clean up account name
+    // Clean up and VALIDATE account name
     if (extracted.accountName) {
       extracted.accountName = extracted.accountName
-        .replace(/,?\s*(Inc|Corp|LLC|Ltd|Co|Company)\.?,?\s*$/i, '')
+        .replace(/,?\s*(Inc|Corp|LLC|Ltd|Co|Company|Technologies)\.?,?\s*$/i, '')
         .replace(/\s+/g, ' ')
         .trim();
       
-      // Reject if it's just "Customer" or other generic term
-      if (extracted.accountName.toLowerCase() === 'customer' || 
-          extracted.accountName.toLowerCase() === 'company' ||
-          extracted.accountName.length < 3) {
-        logger.warn(`📋 Rejecting generic account name: "${extracted.accountName}"`);
+      // CRITICAL: Account can NEVER be Eudia/Cicero - these are internal
+      const invalidNames = ['eudia', 'cicero', 'customer', 'company', 'the', 'this'];
+      const lowerName = extracted.accountName.toLowerCase();
+      
+      if (invalidNames.includes(lowerName) || extracted.accountName.length < 3) {
+        logger.warn(`📋 Rejecting invalid account name: "${extracted.accountName}"`);
         extracted.accountName = null;
+      }
+    }
+    
+    // If still no account, try extracting from text content
+    if (!extracted.accountName) {
+      // Look for "between Eudia and [Company]" pattern
+      const betweenMatch = text.match(/between\s+(?:Eudia|Cicero)[^a-z]*and\s+([A-Z][A-Za-z\s]+?)(?:\s*\(|\s*dated|\s*,)/i);
+      if (betweenMatch && betweenMatch[1]) {
+        const name = betweenMatch[1].trim().replace(/,?\s*(Inc|Corp|LLC|Ltd)\.?$/i, '').trim();
+        if (name.length >= 3 && !name.toLowerCase().includes('eudia')) {
+          extracted.accountName = name;
+          logger.info(`📋 Account from 'between Eudia and' pattern: "${extracted.accountName}"`);
+        }
+      }
+    }
+    
+    // Try "Customer" definition in text: "Company Name ("Customer")"
+    if (!extracted.accountName) {
+      const customerDefMatch = text.match(/([A-Z][A-Za-z\s&]+?(?:Inc|Corp|LLC|Ltd)?\.?)\s*\(\s*["']?Customer["']?\s*\)/i);
+      if (customerDefMatch && customerDefMatch[1]) {
+        const name = customerDefMatch[1].trim().replace(/,?\s*(Inc|Corp|LLC|Ltd)\.?$/i, '').trim();
+        if (name.length >= 3 && !name.toLowerCase().includes('eudia') && !name.toLowerCase().includes('cicero')) {
+          extracted.accountName = name;
+          logger.info(`📋 Account from Customer definition: "${extracted.accountName}"`);
+        }
       }
     }
     
