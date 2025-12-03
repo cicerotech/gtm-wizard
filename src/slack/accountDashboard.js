@@ -3,106 +3,9 @@ const { cleanStageName } = require('../utils/formatters');
 
 /**
  * Generate Account Status Dashboard - Mobile-optimized with tabs
- * TABS: Pipeline | Revenue | Account Plans
+ * Matches v0 interview dashboard quality
  */
 async function generateAccountDashboard() {
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ACTIVE REVENUE QUERY - Contracts that are currently active
-  // ═══════════════════════════════════════════════════════════════════════════
-  const activeRevenueQuery = `
-    SELECT Account.Name, Contract_Type__c, Contract_Value__c, Annualized_Revenue__c,
-           StartDate, EndDate, Status, Product_Line__c, Parent_Product__c
-    FROM Contract
-    WHERE Status = 'Activated'
-      AND EndDate >= TODAY
-    ORDER BY Annualized_Revenue__c DESC NULLS LAST
-    LIMIT 100
-  `;
-  
-  let activeContracts = [];
-  let totalActiveRevenue = 0;
-  let activeContractCount = 0;
-  
-  try {
-    const contractData = await query(activeRevenueQuery, true);
-    if (contractData && contractData.records) {
-      activeContracts = contractData.records;
-      activeContractCount = activeContracts.length;
-      activeContracts.forEach(c => {
-        totalActiveRevenue += (c.Annualized_Revenue__c || c.Contract_Value__c || 0);
-      });
-    }
-  } catch (e) {
-    console.error('Active revenue query error:', e.message);
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SIGNED LOGOS - Closed-Won opportunities, grouped by New Logo vs Existing
-  // ═══════════════════════════════════════════════════════════════════════════
-  const signedLogosQuery = `
-    SELECT Account.Name, Account.Is_New_Logo__c, Account.Customer_Type__c,
-           ACV__c, CloseDate, Product_Line__c, Name
-    FROM Opportunity
-    WHERE StageName = 'Closed Won'
-      AND CloseDate >= LAST_N_DAYS:90
-    ORDER BY CloseDate DESC
-  `;
-  
-  let signedLogos = { newLogos: [], existing: [], total: 0, newLogoACV: 0, existingACV: 0 };
-  
-  try {
-    const signedData = await query(signedLogosQuery, true);
-    if (signedData && signedData.records) {
-      signedData.records.forEach(opp => {
-        const isNewLogo = opp.Account?.Is_New_Logo__c || opp.Account?.Customer_Type__c === 'New Logo';
-        const acv = opp.ACV__c || 0;
-        
-        if (isNewLogo) {
-          signedLogos.newLogos.push(opp);
-          signedLogos.newLogoACV += acv;
-        } else {
-          signedLogos.existing.push(opp);
-          signedLogos.existingACV += acv;
-        }
-        signedLogos.total++;
-      });
-    }
-  } catch (e) {
-    console.error('Signed logos query error:', e.message);
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // TARGET OPPS - Opportunities expected to close this month
-  // ═══════════════════════════════════════════════════════════════════════════
-  const targetOppsQuery = `
-    SELECT Account.Name, Account.Is_New_Logo__c, Name, StageName, ACV__c, 
-           CloseDate, Owner.Name, Product_Line__c
-    FROM Opportunity
-    WHERE IsClosed = false
-      AND CloseDate = THIS_MONTH
-    ORDER BY ACV__c DESC NULLS LAST
-  `;
-  
-  let targetOpps = [];
-  let targetOppsACV = 0;
-  let targetNewLogoCount = 0;
-  
-  try {
-    const targetData = await query(targetOppsQuery, true);
-    if (targetData && targetData.records) {
-      targetOpps = targetData.records;
-      targetOpps.forEach(opp => {
-        targetOppsACV += (opp.ACV__c || 0);
-        if (opp.Account?.Is_New_Logo__c) targetNewLogoCount++;
-      });
-    }
-  } catch (e) {
-    console.error('Target opps query error:', e.message);
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ORIGINAL QUERIES (Pipeline, Accounts, Meetings)
-  // ═══════════════════════════════════════════════════════════════════════════
   // Account Potential Value Mapping (from BL categorization)
   const potentialValueMap = {
     // High-Touch Marquee ($1M+ ARR potential)
@@ -387,18 +290,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .tabs { display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; }
 .tab { background: #fff; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 500; cursor: pointer; white-space: nowrap; color: #6b7280; transition: all 0.2s; }
 .tab:hover { background: #e5e7eb; }
-#tab-pipeline:checked ~ .tabs label[for="tab-pipeline"],
-#tab-revenue:checked ~ .tabs label[for="tab-revenue"],
+#tab-summary:checked ~ .tabs label[for="tab-summary"],
+#tab-by-stage:checked ~ .tabs label[for="tab-by-stage"],
 #tab-account-plans:checked ~ .tabs label[for="tab-account-plans"] { background: #8e99e1; color: #fff; }
 .tab-content { display: none; }
-#tab-pipeline:checked ~ #pipeline,
-#tab-revenue:checked ~ #revenue,
+#tab-summary:checked ~ #summary,
+#tab-by-stage:checked ~ #by-stage,
 #tab-account-plans:checked ~ #account-plans { display: block; }
-.target-card { background: #fff; border-left: 4px solid #10b981; padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; }
-.target-card.new-logo { border-left-color: #8b5cf6; }
-.revenue-card { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 8px; margin-bottom: 12px; }
-.signed-item { padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-size: 0.875rem; }
-.mini-metric { display: inline-block; background: #f3f4f6; padding: 4px 10px; border-radius: 4px; margin: 2px; font-size: 0.75rem; }
 .metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
 .metric { background: #fff; padding: 16px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .metric-label { font-size: 0.75rem; color: #6b7280; font-weight: 500; margin-bottom: 4px; }
@@ -443,18 +341,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 </div>
 
 <!-- Pure CSS Tabs (No JavaScript - CSP Safe) -->
-<input type="radio" name="tabs" id="tab-pipeline" checked style="display: none;">
-<input type="radio" name="tabs" id="tab-revenue" style="display: none;">
+<input type="radio" name="tabs" id="tab-summary" checked style="display: none;">
+<input type="radio" name="tabs" id="tab-by-stage" style="display: none;">
 <input type="radio" name="tabs" id="tab-account-plans" style="display: none;">
 
 <div class="tabs">
-  <label for="tab-pipeline" class="tab">Pipeline</label>
-  <label for="tab-revenue" class="tab">Revenue</label>
-  <label for="tab-account-plans" class="tab">Accounts</label>
+  <label for="tab-summary" class="tab">Summary</label>
+  <label for="tab-by-stage" class="tab">By Stage</label>
+  <label for="tab-account-plans" class="tab">Account Plans</label>
 </div>
 
-<!-- TAB 1: PIPELINE -->
-<div id="pipeline" class="tab-content">
+<!-- TAB 1: SUMMARY -->
+<div id="summary" class="tab-content">
   <div class="metrics">
     <div class="metric">
       <div class="metric-label">Total Pipeline</div>
@@ -465,35 +363,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <div class="metric-value">$${(totalWeighted / 1000000).toFixed(1)}M</div>
     </div>
     <div class="metric">
-      <div class="metric-label">Active Revenue</div>
-      <div class="metric-value">$${(totalActiveRevenue / 1000000).toFixed(1)}M</div>
-      <div class="metric-change">${activeContractCount} contracts</div>
+      <div class="metric-label">Accounts</div>
+      <div class="metric-value">${accountMap.size}</div>
+      <div class="metric-change">${newLogoCount} new</div>
     </div>
     <div class="metric">
-      <div class="metric-label">This Month</div>
-      <div class="metric-value">${targetOpps.length}</div>
-      <div class="metric-change">$${(targetOppsACV / 1000000).toFixed(1)}M target</div>
+      <div class="metric-label">Avg Deal</div>
+      <div class="metric-value">$${(avgDealSize / 1000).toFixed(0)}K</div>
     </div>
   </div>
-  
-  <!-- THIS MONTH'S TARGETS -->
-  ${targetOpps.length > 0 ? `
-  <div class="stage-section" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #bbf7d0;">
-    <div class="stage-title" style="color: #166534;">🎯 Target to Sign This Month</div>
-    <div class="stage-subtitle">${targetOpps.length} opps • $${(targetOppsACV / 1000000).toFixed(2)}M ACV • ${targetNewLogoCount} new logos</div>
-    <div class="account-list">
-      ${targetOpps.slice(0, 10).map(opp => `
-        <div class="target-card ${opp.Account?.Is_New_Logo__c ? 'new-logo' : ''}">
-          <div style="font-weight: 600; color: #1f2937;">${opp.Account?.Name || 'Unknown'} ${opp.Account?.Is_New_Logo__c ? '<span class="badge badge-new">NEW LOGO</span>' : ''}</div>
-          <div style="font-size: 0.8rem; color: #6b7280; margin-top: 2px;">
-            ${cleanStageName(opp.StageName)} • $${((opp.ACV__c || 0) / 1000).toFixed(0)}K • ${opp.Owner?.Name || ''} • Close: ${opp.CloseDate || 'TBD'}
-          </div>
-        </div>
-      `).join('')}
-      ${targetOpps.length > 10 ? `<div style="text-align: center; color: #6b7280; font-size: 0.75rem; padding: 8px;">+${targetOpps.length - 10} more</div>` : ''}
-    </div>
-  </div>
-  ` : ''}
   
   <div class="stage-section">
     <div class="stage-title">Late Stage (${late.length})</div>
@@ -673,91 +551,69 @@ ${early.map((acc, idx) => {
   </div>
 </div>
 
-<!-- TAB 2: REVENUE (Active Contracts & Signed Logos) -->
-<div id="revenue" class="tab-content">
-  
-  <!-- ACTIVE REVENUE SUMMARY -->
-  <div class="stage-section" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #93c5fd;">
-    <div class="stage-title" style="color: #1e40af;">💰 Active Revenue</div>
-    <div class="stage-subtitle">${activeContractCount} active contracts • $${(totalActiveRevenue / 1000000).toFixed(2)}M ARR</div>
-    
-    ${activeContracts.length > 0 ? `
-    <div style="margin-top: 12px;">
-      ${activeContracts.slice(0, 8).map(c => `
-        <div class="signed-item" style="display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <span style="font-weight: 600;">${c.Account?.Name || 'Unknown'}</span>
-            <span class="mini-metric">${c.Parent_Product__c || c.Product_Line__c || 'Product'}</span>
-          </div>
-          <div style="text-align: right;">
-            <div style="font-weight: 600; color: #1e40af;">$${((c.Annualized_Revenue__c || c.Contract_Value__c || 0) / 1000).toFixed(0)}K/yr</div>
-            <div style="font-size: 0.7rem; color: #6b7280;">Ends: ${c.EndDate || 'N/A'}</div>
-          </div>
-        </div>
-      `).join('')}
-      ${activeContracts.length > 8 ? `<div style="text-align: center; color: #6b7280; font-size: 0.75rem; padding: 8px;">+${activeContracts.length - 8} more contracts</div>` : ''}
-    </div>
-    ` : '<div style="color: #6b7280; font-size: 0.875rem; margin-top: 8px;">No active contracts found</div>'}
-  </div>
-  
-  <!-- SIGNED LOGOS (LAST 90 DAYS) -->
+<!-- TAB 2: BY STAGE (Detailed Breakdowns) -->
+<div id="by-stage" class="tab-content">
   <div class="stage-section">
-    <div class="stage-title">📝 Signed Logos (Last 90 Days)</div>
-    <div style="display: flex; gap: 12px; margin: 12px 0;">
-      <div style="flex: 1; background: #f0fdf4; padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #bbf7d0;">
-        <div style="font-size: 1.5rem; font-weight: 700; color: #166534;">${signedLogos.newLogos.length}</div>
-        <div style="font-size: 0.75rem; color: #166534;">New Logos</div>
-        <div style="font-size: 0.8rem; font-weight: 600; color: #166534;">$${(signedLogos.newLogoACV / 1000000).toFixed(2)}M</div>
-      </div>
-      <div style="flex: 1; background: #eff6ff; padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #93c5fd;">
-        <div style="font-size: 1.5rem; font-weight: 700; color: #1e40af;">${signedLogos.existing.length}</div>
-        <div style="font-size: 0.75rem; color: #1e40af;">Expansions</div>
-        <div style="font-size: 0.8rem; font-weight: 600; color: #1e40af;">$${(signedLogos.existingACV / 1000000).toFixed(2)}M</div>
-      </div>
-    </div>
-    
-    ${signedLogos.newLogos.length > 0 ? `
-    <details style="margin-top: 8px;">
-      <summary style="cursor: pointer; font-weight: 600; color: #166534; padding: 8px 0;">View New Logos (${signedLogos.newLogos.length})</summary>
-      <div style="margin-top: 8px;">
-        ${signedLogos.newLogos.slice(0, 10).map(opp => `
-          <div class="signed-item">
-            <span style="font-weight: 600;">${opp.Account?.Name || 'Unknown'}</span>
-            <span class="badge badge-new">NEW</span>
-            <span style="float: right; color: #166534; font-weight: 600;">$${((opp.ACV__c || 0) / 1000).toFixed(0)}K</span>
-            <div style="font-size: 0.75rem; color: #6b7280;">${opp.CloseDate} • ${opp.Product_Line__c || ''}</div>
-          </div>
-        `).join('')}
-      </div>
-    </details>
-    ` : ''}
-    
-    ${signedLogos.existing.length > 0 ? `
-    <details style="margin-top: 8px;">
-      <summary style="cursor: pointer; font-weight: 600; color: #1e40af; padding: 8px 0;">View Expansions (${signedLogos.existing.length})</summary>
-      <div style="margin-top: 8px;">
-        ${signedLogos.existing.slice(0, 10).map(opp => `
-          <div class="signed-item">
-            <span style="font-weight: 600;">${opp.Account?.Name || 'Unknown'}</span>
-            <span style="float: right; color: #1e40af; font-weight: 600;">$${((opp.ACV__c || 0) / 1000).toFixed(0)}K</span>
-            <div style="font-size: 0.75rem; color: #6b7280;">${opp.CloseDate} • ${opp.Product_Line__c || ''}</div>
-          </div>
-        `).join('')}
-      </div>
-    </details>
-    ` : ''}
-  </div>
-  
-  <!-- STAGE BREAKDOWN (Compact) -->
-  <div class="stage-section">
-    <div class="stage-title">📊 Pipeline by Stage</div>
-    <table style="width: 100%; font-size: 0.8rem; margin-top: 8px;">
-      <tr style="background: #f9fafb; font-weight: 600;"><td style="padding: 6px;">Stage</td><td style="text-align: center;">Opps</td><td style="text-align: center;">ACV</td><td style="text-align: center;">Weighted</td></tr>
+    <div class="stage-title">Stage Overview</div>
+    <table style="width: 100%; font-size: 0.875rem; margin-top: 12px;">
+<tr style="background: #f9fafb; font-weight: 600;"><td>Stage</td><td style="text-align: center;">Opps</td><td style="text-align: center;">Total ACV</td><td style="text-align: center;">Weighted</td></tr>
       ${Object.entries(stageBreakdown).map(([stage, data]) => `
-        <tr><td style="padding: 6px; font-size: 0.75rem;">${cleanStageName(stage)}</td><td style="text-align: center;">${data.count}</td><td style="text-align: center;">$${(data.totalACV / 1000000).toFixed(1)}M</td><td style="text-align: center;">$${(data.weightedACV / 1000000).toFixed(1)}M</td></tr>
+        <tr><td>${cleanStageName(stage)}</td><td style="text-align: center;">${data.count}</td><td style="text-align: center;">$${(data.totalACV / 1000000).toFixed(2)}M</td><td style="text-align: center;">$${(data.weightedACV / 1000000).toFixed(2)}M</td></tr>
       `).join('')}
-      <tr style="background: #1f2937; color: #fff; font-weight: 600;"><td style="padding: 6px;">TOTAL</td><td style="text-align: center;">${totalDeals}</td><td style="text-align: center;">$${(totalGross / 1000000).toFixed(1)}M</td><td style="text-align: center;">$${(totalWeighted / 1000000).toFixed(1)}M</td></tr>
+      <tr style="background: #e5e7eb; font-weight: 700;"><td>TOTAL</td><td style="text-align: center;">${totalDeals}</td><td style="text-align: center;">$${(totalGross / 1000000).toFixed(2)}M</td><td style="text-align: center;">$${(totalWeighted / 1000000).toFixed(2)}M</td></tr>
     </table>
+  </div>
+  
+  <div class="stage-section">
+    <div class="stage-title">Business Lead Overview</div>
+    <div style="margin-top: 12px;">
+      ${Object.entries(blBreakdown).sort((a, b) => b[1].totalACV - a[1].totalACV).map(([bl, data]) => `
+        <details style="background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px; overflow: hidden;">
+          <summary style="padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;">
+            <span style="font-weight: 600;">${bl}</span>
+            <span style="font-size: 0.875rem; color: #6b7280;">${data.count} opps • <strong style="color: #1f2937;">$${(data.totalACV / 1000000).toFixed(2)}M</strong> • W: $${(data.weightedACV / 1000000).toFixed(2)}M</span>
+          </summary>
+          <div style="padding: 12px; border-top: 1px solid #e5e7eb;">
+            <table style="width: 100%; font-size: 0.8125rem;">
+              <tr style="background: #f3f4f6;"><td style="padding: 4px 8px; font-weight: 600;">Stage</td><td style="text-align: center; padding: 4px;">Opps</td><td style="text-align: center; padding: 4px;">ACV</td><td style="text-align: center; padding: 4px;">Wtd</td></tr>
+              ${['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'].filter(s => data.byStage[s]?.count > 0).map(stage => `
+                <tr><td style="padding: 4px 8px; font-size: 0.75rem;">${cleanStageName(stage)}</td><td style="text-align: center; padding: 4px;">${data.byStage[stage].count}</td><td style="text-align: center; padding: 4px;">$${(data.byStage[stage].acv / 1000000).toFixed(2)}M</td><td style="text-align: center; padding: 4px;">$${(data.byStage[stage].weighted / 1000000).toFixed(2)}M</td></tr>
+              `).join('')}
+            </table>
+          </div>
+        </details>
+      `).join('')}
+    </div>
+    <div style="background: #e5e7eb; padding: 12px; border-radius: 6px; margin-top: 8px; display: flex; justify-content: space-between; font-weight: 700;">
+      <span>TOTAL</span>
+      <span>${Object.values(blBreakdown).reduce((sum, data) => sum + data.count, 0)} opps • $${(Object.values(blBreakdown).reduce((sum, data) => sum + data.totalACV, 0) / 1000000).toFixed(2)}M • W: $${(Object.values(blBreakdown).reduce((sum, data) => sum + data.weightedACV, 0) / 1000000).toFixed(2)}M</span>
+    </div>
+  </div>
+  
+  <div class="stage-section">
+    <div class="stage-title">Products by Stage</div>
+    <div style="margin-top: 12px;">
+      ${Object.entries(productBreakdown).sort((a, b) => b[1].totalACV - a[1].totalACV).map(([product, data]) => `
+        <details style="background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px; overflow: hidden;">
+          <summary style="padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;">
+            <span style="font-weight: 600;">${product}</span>
+            <span style="font-size: 0.875rem; color: #6b7280;">${data.count} opps • <strong style="color: #1f2937;">$${(data.totalACV / 1000000).toFixed(2)}M</strong> • W: $${(data.weightedACV / 1000000).toFixed(2)}M</span>
+          </summary>
+          <div style="padding: 12px; border-top: 1px solid #e5e7eb;">
+            <table style="width: 100%; font-size: 0.8125rem;">
+              <tr style="background: #f3f4f6;"><td style="padding: 4px 8px; font-weight: 600;">Stage</td><td style="text-align: center; padding: 4px;">Opps</td><td style="text-align: center; padding: 4px;">ACV</td><td style="text-align: center; padding: 4px;">Wtd</td></tr>
+              ${['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'].filter(s => data.byStage[s]?.count > 0).map(stage => `
+                <tr><td style="padding: 4px 8px; font-size: 0.75rem;">${cleanStageName(stage)}</td><td style="text-align: center; padding: 4px;">${data.byStage[stage].count}</td><td style="text-align: center; padding: 4px;">$${(data.byStage[stage].acv / 1000000).toFixed(2)}M</td><td style="text-align: center; padding: 4px;">$${(data.byStage[stage].weighted / 1000000).toFixed(2)}M</td></tr>
+              `).join('')}
+            </table>
+          </div>
+        </details>
+      `).join('')}
+    </div>
+    <div style="background: #e5e7eb; padding: 12px; border-radius: 6px; margin-top: 8px; display: flex; justify-content: space-between; font-weight: 700;">
+      <span>TOTAL</span>
+      <span>${Object.values(productBreakdown).reduce((sum, data) => sum + data.count, 0)} opps • $${(Object.values(productBreakdown).reduce((sum, data) => sum + data.totalACV, 0) / 1000000).toFixed(2)}M • W: $${(Object.values(productBreakdown).reduce((sum, data) => sum + data.weightedACV, 0) / 1000000).toFixed(2)}M</span>
+    </div>
   </div>
 </div>
 
