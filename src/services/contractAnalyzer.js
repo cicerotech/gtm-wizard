@@ -630,22 +630,52 @@ class ContractAnalyzer {
     // ACCOUNT NAME EXTRACTION - Multiple strategies
     // ═══════════════════════════════════════════════════════════════════════════
     
-    // Strategy 1: Extract from FILENAME (most reliable)
-    // Patterns: "IQVIA-Eudia MSA", "DHL_Eudia_Project", "CompanyName_CAB"
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STRATEGY 1: Extract from FILENAME (most reliable)
+    // Account name is ALWAYS in the filename, typically at the START
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    logger.info(`📋 Attempting to extract account from filename: "${fileName}"`);
+    
+    // Clean filename for matching (remove extension, dates, version numbers)
+    const cleanFileName = fileName
+      .replace(/\.pdf$/i, '')
+      .replace(/\.cleaned$/i, '')
+      .replace(/\.docx$/i, '')
+      .replace(/\(\d+\.\d+\.\d+[^)]*\)/g, '')  // Remove (10.31.25 Final) etc
+      .replace(/\d{4}-\d{2}-\d{2}/g, '')        // Remove 2025-10-06
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    logger.info(`📋 Cleaned filename: "${cleanFileName}"`);
+    
+    // Pattern priority order:
     const fileNamePatterns = [
-      /^([A-Z][A-Za-z]+)[-_](?:Eudia|Cicero)/i,           // IQVIA-Eudia, DHL_Eudia
-      /^([A-Z][A-Za-z\s]+?)[-_]MSA/i,                      // Company-MSA
-      /CAB[-_\s]+(?:Memorandum)?[-_\s]*([A-Za-z\s]+)/i,   // CAB Memorandum- BestBuy
-      /Memorandum[-_\s]+([A-Za-z\s]+?)(?:\s+\d|\.)/i,     // Memorandum- CompanyName 2025
+      // "Company-Eudia MSA" or "Company_Eudia"
+      /^([A-Z][A-Za-z]+)[-_\s]+(?:Eudia|Cicero)/i,
+      // "Eudia_CAB Memorandum- CompanyName" or "Eudia - CAB Memorandum- Company"
+      /(?:Eudia|CAB)[-_\s]+(?:Memorandum)?[-_\s]*([A-Z][A-Za-z\s]+?)(?:\s+\d|\s*$)/i,
+      // "CompanyName A&R" or "CompanyName Agreement" - First word before common contract terms
+      /^([A-Z][A-Za-z]+)(?:\s+A&R|\s+Agreement|\s+MSA|\s+Order|\s+Contract)/i,
+      // "CompanyName - Description" - First word before dash
+      /^([A-Z][A-Za-z]+)\s*[-–]/,
+      // Just the first capitalized word if it looks like a company name
+      /^([A-Z][a-z]{2,})/,
     ];
     
     for (const pattern of fileNamePatterns) {
-      const match = fileName.match(pattern);
+      const match = cleanFileName.match(pattern);
       if (match && match[1]) {
         const name = match[1].trim().replace(/[-_]/g, ' ');
-        if (name.length > 2 && !name.toLowerCase().includes('eudia')) {
+        // Validate: not generic terms, not Eudia, reasonable length
+        const isValid = name.length >= 3 && 
+                        !name.toLowerCase().includes('eudia') &&
+                        !name.toLowerCase().includes('cicero') &&
+                        !['The', 'This', 'CAB', 'MSA', 'Agreement', 'Contract', 'Order'].includes(name);
+        
+        if (isValid) {
           extracted.accountName = name;
-          logger.info(`📋 Account from filename: "${extracted.accountName}"`);
+          logger.info(`📋 Account from filename: "${extracted.accountName}" (pattern: ${pattern.toString()})`);
           break;
         }
       }
@@ -1177,18 +1207,27 @@ class ContractAnalyzer {
       
       logger.info(`💰 Final: Total=$${extracted.totalContractValue || '—'}, Annual=$${extracted.annualContractValue || '—'}, Monthly=$${extracted.monthlyAmount || '—'}`);
       
-      // Monthly Value
-      for (const pattern of this.extractionPatterns.monthlyValue) {
-        const match = text.match(pattern);
-        if (match && match[1]) {
-          extracted.monthlyAmount = this.parseMoneyValue(match[1]);
-          break;
-        }
+      // NOTE: Monthly should ALWAYS be calculated from Total/Term or Annual/12
+      // Do NOT extract from text patterns as they often match garbage numbers
+      // The calculation is already done earlier in the extraction process (lines 1161-1178)
+      
+      // Only calculate here if not already set
+      if (!extracted.monthlyAmount && extracted.annualContractValue && extracted.annualContractValue >= 10000) {
+        extracted.monthlyAmount = Math.round(extracted.annualContractValue / 12);
+      } else if (!extracted.monthlyAmount && extracted.totalContractValue && extracted.termMonths) {
+        extracted.monthlyAmount = Math.round(extracted.totalContractValue / extracted.termMonths);
       }
       
-      // Infer monthly from annual if not found
-      if (extracted.annualContractValue && !extracted.monthlyAmount) {
-        extracted.monthlyAmount = Math.round(extracted.annualContractValue / 12);
+      // Validate monthly is reasonable (>= $1000)
+      if (extracted.monthlyAmount && extracted.monthlyAmount < 1000) {
+        logger.warn(`💰 Monthly value ${extracted.monthlyAmount} too low, recalculating`);
+        if (extracted.annualContractValue >= 10000) {
+          extracted.monthlyAmount = Math.round(extracted.annualContractValue / 12);
+        } else if (extracted.totalContractValue && extracted.termMonths) {
+          extracted.monthlyAmount = Math.round(extracted.totalContractValue / extracted.termMonths);
+        } else {
+          extracted.monthlyAmount = null;
+        }
       }
       
       // Infer annual from total if multi-year
