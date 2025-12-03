@@ -433,10 +433,18 @@ async function processContractUpload(file, client, userId, channelId, threadTs) 
     const firstBytes = pdfBuffer.slice(0, 50).toString('utf8');
     logger.info(`📦 First 50 chars: "${firstBytes.replace(/[^\x20-\x7E]/g, '?')}"`);
     
-    // Check if we got HTML error instead of PDF
+    // Check if we got HTML error instead of PDF - but don't fail yet
+    // The download function already handles HTML detection and retries
     if (firstBytes.includes('<!DOCTYPE') || firstBytes.includes('<html')) {
-      logger.error('❌ Downloaded HTML instead of PDF - authentication issue');
-      throw new Error('Slack returned HTML instead of PDF - check bot permissions');
+      logger.error('❌ Content appears to be HTML - likely a permissions issue');
+      logger.error('💡 Ensure the Slack bot has the "files:read" scope');
+      logger.error('💡 Re-install the app to workspace if needed');
+      throw new Error('Slack returned HTML instead of PDF. Bot needs "files:read" scope. Try re-installing the app.');
+    }
+    
+    // Also check for PDF magic bytes
+    if (!firstBytes.startsWith('%PDF') && pdfBuffer.length > 0) {
+      logger.warn(`⚠️ File does not start with %PDF header, but continuing...`);
     }
     
     // Analyze the contract
@@ -659,81 +667,150 @@ async function handleContractCreationConfirmation(message, userId, channelId, cl
 }
 
 /**
- * Download file from Slack using multiple methods
+ * Download file from Slack using the Slack Web API
+ * This method handles authentication properly
  */
 async function downloadSlackFile(file, client) {
+  const fetch = (await import('node-fetch')).default;
+  
   try {
-    const fetch = (await import('node-fetch')).default;
+    logger.info(`📥 Attempting to download file: ${file.name}`);
+    logger.info(`📥 File ID: ${file.id}, Size: ${file.size} bytes`);
     
-    // Try url_private_download first (more reliable for authenticated downloads)
-    const downloadUrl = file.url_private_download || file.url_private;
-    
-    if (!downloadUrl) {
-      logger.error('No download URL available for file:', file.name);
-      throw new Error('No download URL available');
+    // Method 1: Try using Slack's files.info to get fresh download URL
+    let downloadUrl = null;
+    try {
+      const fileInfo = await client.files.info({ file: file.id });
+      if (fileInfo.ok && fileInfo.file) {
+        downloadUrl = fileInfo.file.url_private_download || fileInfo.file.url_private;
+        logger.info(`📥 Got fresh URL from files.info`);
+      }
+    } catch (infoError) {
+      logger.warn(`files.info failed: ${infoError.message}`);
+      // Fall back to URLs from the event
+      downloadUrl = file.url_private_download || file.url_private;
     }
     
-    logger.info(`📥 Downloading file from: ${downloadUrl.substring(0, 50)}...`);
+    if (!downloadUrl) {
+      throw new Error('No download URL available for file');
+    }
     
+    logger.info(`📥 Downloading from: ${downloadUrl.substring(0, 60)}...`);
+    
+    // Use the bot token from environment
+    const token = process.env.SLACK_BOT_TOKEN;
+    if (!token) {
+      throw new Error('SLACK_BOT_TOKEN not configured');
+    }
+    
+    // Download with proper headers
     const response = await fetch(downloadUrl, {
+      method: 'GET',
       headers: {
-        'Authorization': `Bearer ${process.env.SLACK_BOT_TOKEN}`,
-        'Accept': 'application/pdf,*/*'
+        'Authorization': `Bearer ${token}`,
+        'Accept': '*/*',
+        'User-Agent': 'GTM-Brain-Bot/1.0'
       },
-      redirect: 'follow'
+      redirect: 'follow',
+      timeout: 30000
     });
     
+    logger.info(`📥 Response status: ${response.status} ${response.statusText}`);
+    logger.info(`📥 Content-Type: ${response.headers.get('content-type')}`);
+    logger.info(`📥 Content-Length: ${response.headers.get('content-length')}`);
+    
     if (!response.ok) {
-      logger.error(`Download failed: HTTP ${response.status} - ${response.statusText}`);
+      const errorText = await response.text();
+      logger.error(`Download failed: ${errorText.substring(0, 200)}`);
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
-    const contentType = response.headers.get('content-type');
-    logger.info(`📄 Content-Type: ${contentType}`);
+    // Check if we got HTML instead of PDF
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('text/html')) {
+      const htmlContent = await response.text();
+      logger.error(`Received HTML instead of PDF: ${htmlContent.substring(0, 300)}`);
+      
+      // This likely means we need to re-authenticate or the URL expired
+      // Try Method 2: Use slackApiUrl format
+      return await downloadSlackFileMethod2(file, token, fetch);
+    }
     
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     
     logger.info(`📦 Downloaded ${buffer.length} bytes`);
     
-    // Validate PDF magic bytes (%PDF)
-    if (buffer.length < 4) {
-      throw new Error('Downloaded file too small');
-    }
+    // Check if it's a valid PDF
+    const header = buffer.slice(0, 10).toString('utf8');
+    logger.info(`📦 File header: "${header.replace(/[^\x20-\x7E]/g, '?')}"`);
     
-    const header = buffer.slice(0, 4).toString('utf8');
-    if (!header.startsWith('%PDF')) {
-      logger.warn(`File header: ${header} (expected %PDF)`);
-      // Don't throw - some PDFs have different headers or are encrypted
+    if (header.includes('<!DOCTYPE') || header.includes('<html')) {
+      logger.error('Downloaded content is HTML, not PDF');
+      return await downloadSlackFileMethod2(file, token, fetch);
     }
     
     return buffer;
     
   } catch (error) {
-    logger.error('File download failed:', error);
+    logger.error('Primary download failed:', error.message);
     
-    // Try alternative: use Slack API to get file info
-    try {
-      logger.info('Attempting alternative download via Slack API...');
-      const fileInfo = await client.files.info({ file: file.id });
+    // Try Method 2
+    const fetch2 = (await import('node-fetch')).default;
+    return await downloadSlackFileMethod2(file, process.env.SLACK_BOT_TOKEN, fetch2);
+  }
+}
+
+/**
+ * Alternative download method using Slack's files.sharedPublicURL
+ * or direct API endpoint
+ */
+async function downloadSlackFileMethod2(file, token, fetch) {
+  try {
+    logger.info('📥 Trying alternative download method...');
+    
+    // Construct the Slack file download URL directly
+    // Format: https://files.slack.com/files-pri/{team_id}-{file_id}/{filename}
+    const directUrl = `https://slack.com/api/files.info?file=${file.id}`;
+    
+    const infoResponse = await fetch(directUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+    
+    const infoData = await infoResponse.json();
+    
+    if (infoData.ok && infoData.file) {
+      const fileUrl = infoData.file.url_private_download || infoData.file.url_private;
+      logger.info(`📥 Method 2: Got URL: ${fileUrl?.substring(0, 50)}...`);
       
-      if (fileInfo.file?.url_private_download) {
-        const fetch = (await import('node-fetch')).default;
-        const response = await fetch(fileInfo.file.url_private_download, {
+      if (fileUrl) {
+        const fileResponse = await fetch(fileUrl, {
           headers: {
-            'Authorization': `Bearer ${process.env.SLACK_BOT_TOKEN}`
+            'Authorization': `Bearer ${token}`
           }
         });
         
-        if (response.ok) {
-          const arrayBuffer = await response.arrayBuffer();
-          return Buffer.from(arrayBuffer);
+        if (fileResponse.ok) {
+          const contentType = fileResponse.headers.get('content-type') || '';
+          if (!contentType.includes('text/html')) {
+            const arrayBuffer = await fileResponse.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            logger.info(`📦 Method 2 downloaded ${buffer.length} bytes`);
+            return buffer;
+          }
         }
       }
-    } catch (altError) {
-      logger.error('Alternative download also failed:', altError);
     }
     
+    logger.error('Method 2 also failed - file may require additional permissions');
+    logger.error('Ensure bot has: files:read scope');
+    return null;
+    
+  } catch (error) {
+    logger.error('Method 2 download failed:', error.message);
     return null;
   }
 }
