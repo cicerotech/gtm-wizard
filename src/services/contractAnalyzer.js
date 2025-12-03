@@ -626,33 +626,113 @@ class ContractAnalyzer {
       extracted.contractName = contractNameMatch[1].trim().replace(/\s+/g, ' ');
     }
     
-    // Extract customer/account name with improved logic
-    // Pattern 1: "Company Name Corp. ("Customer" or "Name")" - e.g., Coherent Corp. ("Customer" or "Coherent")
-    const customerOrPatterns = [
-      /([A-Z][A-Za-z\s&]+?(?:Corp|Inc|LLC|Ltd|Co)\.?)\s*\(\s*["']?Customer["']?\s*or\s*["']([A-Z][A-Za-z]+)["']\s*\)/i,
-      /([A-Z][A-Za-z\s&]+?(?:Corp|Inc|LLC|Ltd|Co)\.?)\s*\(\s*["']?Customer["']?\s*\)/i,
-      /and\s+([A-Z][A-Za-z\s&]+?(?:Corp|Inc|LLC|Ltd|Co)\.?)\s*\(\s*["']?Customer["']?/i,
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ACCOUNT NAME EXTRACTION - Multiple strategies
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Strategy 1: Extract from FILENAME (most reliable)
+    // Patterns: "IQVIA-Eudia MSA", "DHL_Eudia_Project", "CompanyName_CAB"
+    const fileNamePatterns = [
+      /^([A-Z][A-Za-z]+)[-_](?:Eudia|Cicero)/i,           // IQVIA-Eudia, DHL_Eudia
+      /^([A-Z][A-Za-z\s]+?)[-_]MSA/i,                      // Company-MSA
+      /CAB[-_\s]+(?:Memorandum)?[-_\s]*([A-Za-z\s]+)/i,   // CAB Memorandum- BestBuy
+      /Memorandum[-_\s]+([A-Za-z\s]+?)(?:\s+\d|\.)/i,     // Memorandum- CompanyName 2025
     ];
     
-    for (const pattern of customerOrPatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        // Use the short name in "or" clause if available (e.g., "Coherent"), otherwise use full name
-        const shortName = match[2];
-        const fullName = match[1]?.replace(/,?\s*(Inc|Corp|LLC|Ltd|Co)\.?$/i, '').trim();
-        
-        if (shortName && !shortName.toLowerCase().includes('customer')) {
-          extracted.accountName = shortName;
-        } else if (fullName && !fullName.toLowerCase().includes('eudia') && !fullName.toLowerCase().includes('cicero')) {
-          extracted.accountName = fullName;
-        }
-        
-        if (extracted.accountName) {
-          logger.info(`📋 Found account via Customer pattern: "${extracted.accountName}"`);
+    for (const pattern of fileNamePatterns) {
+      const match = fileName.match(pattern);
+      if (match && match[1]) {
+        const name = match[1].trim().replace(/[-_]/g, ' ');
+        if (name.length > 2 && !name.toLowerCase().includes('eudia')) {
+          extracted.accountName = name;
+          logger.info(`📋 Account from filename: "${extracted.accountName}"`);
           break;
         }
       }
     }
+    
+    // Strategy 2: "DBA [Company Name]" pattern (e.g., "Exel Inc. DBA DHL Supply Chain")
+    if (!extracted.accountName) {
+      const dbaMatch = text.match(/DBA\s+([A-Z][A-Za-z\s]+?)(?:\s+and|\s+\(|,)/i);
+      if (dbaMatch && dbaMatch[1]) {
+        extracted.accountName = dbaMatch[1].trim();
+        logger.info(`📋 Account from DBA pattern: "${extracted.accountName}"`);
+      }
+    }
+    
+    // Strategy 3: "between [Company] and Eudia/Cicero"
+    if (!extracted.accountName) {
+      const betweenMatch = text.match(/between\s+([A-Z][A-Za-z\s&,.]+?)(?:\s+and\s+(?:Eudia|Cicero)|\s+\()/i);
+      if (betweenMatch && betweenMatch[1]) {
+        const name = betweenMatch[1].trim()
+          .replace(/,?\s*(Inc|Corp|LLC|Ltd|Co)\.?$/i, '')
+          .trim();
+        if (!name.toLowerCase().includes('eudia') && !name.toLowerCase().includes('cicero')) {
+          extracted.accountName = name;
+          logger.info(`📋 Account from 'between' pattern: "${extracted.accountName}"`);
+        }
+      }
+    }
+    
+    // Strategy 4: "Company Corp. ("Customer" or "Name")"
+    if (!extracted.accountName) {
+      const customerOrPatterns = [
+        /([A-Z][A-Za-z\s&]+?(?:Corp|Inc|LLC|Ltd|Co)\.?)\s*\(\s*["']?Customer["']?\s*or\s*["']([A-Z][A-Za-z]+)["']\s*\)/i,
+        /([A-Z][A-Za-z\s&]+?(?:Corp|Inc|LLC|Ltd|Co)\.?)\s*\(\s*["']?Customer["']?\s*\)/i,
+      ];
+      
+      for (const pattern of customerOrPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          const shortName = match[2];
+          const fullName = match[1]?.replace(/,?\s*(Inc|Corp|LLC|Ltd|Co)\.?$/i, '').trim();
+          
+          if (shortName && !shortName.toLowerCase().includes('customer')) {
+            extracted.accountName = shortName;
+          } else if (fullName && !fullName.toLowerCase().includes('eudia') && !fullName.toLowerCase().includes('cicero')) {
+            extracted.accountName = fullName;
+          }
+          
+          if (extracted.accountName) {
+            logger.info(`📋 Account from Customer pattern: "${extracted.accountName}"`);
+            break;
+          }
+        }
+      }
+    }
+    
+    // Strategy 5: Title line - "Agreement - Company Name" or "Appointment - Company Name"
+    if (!extracted.accountName) {
+      const titleMatch = text.match(/(?:Agreement|Appointment|MSA)\s*[-–]\s*([A-Z][A-Za-z\s&,.]+?)(?:\s*\n|$)/i);
+      if (titleMatch && titleMatch[1]) {
+        const name = titleMatch[1].trim()
+          .replace(/,?\s*(Inc|Corp|LLC|Ltd|Co)\.?,?\s*$/i, '')
+          .trim();
+        if (!name.toLowerCase().includes('eudia') && name.length > 2) {
+          extracted.accountName = name;
+          logger.info(`📋 Account from title: "${extracted.accountName}"`);
+        }
+      }
+    }
+    
+    // Clean up account name
+    if (extracted.accountName) {
+      extracted.accountName = extracted.accountName
+        .replace(/,?\s*(Inc|Corp|LLC|Ltd|Co|Company)\.?,?\s*$/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      // Reject if it's just "Customer" or other generic term
+      if (extracted.accountName.toLowerCase() === 'customer' || 
+          extracted.accountName.toLowerCase() === 'company' ||
+          extracted.accountName.length < 3) {
+        logger.warn(`📋 Rejecting generic account name: "${extracted.accountName}"`);
+        extracted.accountName = null;
+      }
+    }
+    
+    logger.info(`📋 Final account name: "${extracted.accountName || 'NOT FOUND'}"`);
+    
     
     // Pattern 2: Appointment format - "Appointment - Best Buy Co., Inc."
     if (!extracted.accountName) {
@@ -744,44 +824,100 @@ class ContractAnalyzer {
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
-    // SIGNATURE EXTRACTION - Names and Dates from signature blocks
+    // SIGNATURE EXTRACTION - Names from signature blocks
     // ═══════════════════════════════════════════════════════════════════════════
     
-    // Extract signer names - "Name: [Person Name]" pattern
-    const signerNamePatterns = [
-      /Name[:\s]+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/g,  // Name: Omar Haroun
-      /Signed[:\s]+([A-Z][a-z]+\s+[A-Z][a-z]+)/gi,                   // Signed: John Doe
+    // Known Eudia signers (check for these specifically)
+    const KNOWN_EUDIA_SIGNERS = [
+      'Omar Haroun', 'OMAR HAROUN', 'Omar', 
+      'David Van Ryk', 'David VanRyk', 'DAVID VAN RYK', 'David Van Reyk', 'DAVID VAN REYK',
+      'Keigan Pesenti', 'KEIGAN PESENTI'
     ];
     
-    const allSignerNames = [];
-    for (const pattern of signerNamePatterns) {
-      let match;
-      while ((match = pattern.exec(text)) !== null) {
-        const name = match[1].trim();
-        // Exclude titles and generic terms
-        if (!name.match(/^(Name|Title|Date|CEO|CLO|CFO|President|Director)/i)) {
-          allSignerNames.push(name);
+    // Strategy 1: Explicit patterns like "Customer Signed By:" and "Company Signed By:"
+    // Handle various formats with flexible whitespace
+    const explicitSignerPatterns = [
+      // "Customer Signed By: Name Name" - customer signer
+      { pattern: /Customer\s+Signed\s+(?:By)?[:\s]+([A-Z][a-z]+\s+[A-Z][a-z]+)/i, type: 'customer' },
+      // "Company Signed By: Name Name" - Eudia signer  
+      { pattern: /Company\s+Signed\s+(?:By)?[:\s]+([A-Z][a-z]+\s+[A-Z][a-z]+)/i, type: 'eudia' },
+      // "Eudia Signed By: Name Name"
+      { pattern: /Eudia\s+Signed\s+(?:By)?[:\s]+([A-Z][a-z]+\s+[A-Z][a-z]+)/i, type: 'eudia' },
+    ];
+    
+    for (const { pattern, type } of explicitSignerPatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const name = match[1].trim().split(/\s+/).slice(0, 3).join(' '); // Max 3 words
+        if (type === 'customer' && !extracted.customerSignedName) {
+          extracted.customerSignedName = name;
+          logger.info(`✍️ Customer signer (explicit): ${name}`);
+        } else if (type === 'eudia' && !extracted.eudiaSignedName) {
+          // Normalize Eudia signer name
+          if (name.toLowerCase().includes('omar')) {
+            extracted.eudiaSignedName = 'Omar Haroun';
+          } else if (name.toLowerCase().includes('david')) {
+            extracted.eudiaSignedName = 'David Van Ryk';
+          } else {
+            extracted.eudiaSignedName = name;
+          }
+          logger.info(`✍️ Eudia signer (explicit): ${extracted.eudiaSignedName}`);
         }
       }
     }
     
-    logger.info(`✍️ Found signer names: ${allSignerNames.join(', ')}`);
-    
-    // Identify Eudia signers vs Customer signers
-    const eudiaSignerNames = ['Omar Haroun', 'David Van Ryk', 'David Van Reyk', 'Keigan Pesenti'];
-    
-    for (const name of allSignerNames) {
-      const isEudiaSigner = eudiaSignerNames.some(es => 
-        name.toLowerCase().includes(es.toLowerCase()) || 
-        es.toLowerCase().includes(name.toLowerCase())
-      );
-      
-      if (isEudiaSigner) {
-        extracted.eudiaSignedName = name;
-      } else if (!extracted.customerSignedName) {
-        extracted.customerSignedName = name;
+    // Strategy 2: Check for known Eudia signers anywhere in text
+    if (!extracted.eudiaSignedName) {
+      for (const signer of KNOWN_EUDIA_SIGNERS) {
+        if (text.includes(signer)) {
+          if (signer.toLowerCase().includes('omar')) {
+            extracted.eudiaSignedName = 'Omar Haroun';
+          } else if (signer.toLowerCase().includes('david')) {
+            extracted.eudiaSignedName = 'David Van Ryk';
+          } else if (signer.toLowerCase().includes('keigan')) {
+            extracted.eudiaSignedName = 'Keigan Pesenti';
+          }
+          logger.info(`✍️ Eudia signer (name match): ${extracted.eudiaSignedName}`);
+          break;
+        }
       }
     }
+    
+    // Strategy 3: "Name: [Person]" pattern for customer
+    if (!extracted.customerSignedName) {
+      const namePatterns = [
+        /Name[:\s]+([A-Z][a-z]+\s+[A-Z][a-z]+)(?:\s|$)/g,
+        /By[:\s]+\/s\/\s*([A-Z][a-z]+\s+[A-Z][a-z]+)/g,
+      ];
+      
+      for (const pattern of namePatterns) {
+        let match;
+        pattern.lastIndex = 0;
+        while ((match = pattern.exec(text)) !== null) {
+          const name = match[1].trim();
+          const words = name.split(/\s+/);
+          
+          // Must be 2-3 proper name words
+          if (words.length >= 2 && words.length <= 3) {
+            const isProperName = words.every(w => /^[A-Z][a-z]+$/.test(w));
+            const notGeneric = !name.match(/^(Name|Title|Date|The|This|Customer|Company|Overview|Agreement|Advisory|Board)/i);
+            const notEudia = !KNOWN_EUDIA_SIGNERS.some(es => 
+              name.toLowerCase().includes(es.split(' ')[0].toLowerCase())
+            );
+            
+            if (isProperName && notGeneric && notEudia) {
+              extracted.customerSignedName = name;
+              logger.info(`✍️ Customer signer (Name pattern): ${name}`);
+              break;
+            }
+          }
+        }
+        if (extracted.customerSignedName) break;
+      }
+    }
+    
+    logger.info(`✍️ Final Signers - Customer: "${extracted.customerSignedName || 'Not found'}", Eudia: "${extracted.eudiaSignedName || 'Not found'}"`);
+    
     
     // ═══════════════════════════════════════════════════════════════════════════
     // DATE EXTRACTION - From signature blocks
@@ -866,10 +1002,27 @@ class ContractAnalyzer {
       }
     }
     
-    // DEFAULT: CAB/LOI contracts default to 12 months if no term specified
-    if (!extracted.termMonths && contractType.type === 'LOI') {
-      extracted.termMonths = 12;
-      logger.info('📅 CAB/LOI contract - defaulting to 12 months');
+    // DEFAULT TERMS:
+    // - CAB/LOI contracts: Default to 12 months
+    // - Recurring contracts with no term: Check for common patterns
+    if (!extracted.termMonths) {
+      if (contractType.type === 'LOI') {
+        extracted.termMonths = 12;
+        logger.info('📅 CAB/LOI contract - defaulting to 12 months');
+      } else if (contractType.type === 'Recurring') {
+        // Check for Year references to infer term
+        if (text.match(/Year\s*3|third\s+year/i)) {
+          extracted.termMonths = 36;
+          logger.info('📅 Found Year 3 reference - setting to 36 months');
+        } else if (text.match(/Year\s*2|second\s+year/i)) {
+          extracted.termMonths = 24;
+          logger.info('📅 Found Year 2 reference - setting to 24 months');
+        } else {
+          // Default recurring to 12 months if no other indication
+          extracted.termMonths = 12;
+          logger.info('📅 Recurring contract - defaulting to 12 months');
+        }
+      }
     }
     
     // Calculate end date from start date + term
@@ -969,13 +1122,18 @@ class ContractAnalyzer {
           /Annual\s+(?:Contract\s+)?Value[:\s]*\$?\s*([\d,]+(?:\.\d{2})?)/i,
           /per\s+(?:annum|year)[:\s]*\$?\s*([\d,]+(?:\.\d{2})?)/i,
           /\$\s*([\d,]+(?:\.\d{2})?)\s*(?:per\s+)?(?:annum|annually|year)/i,
+          /annual\s+fee[:\s]*\$?\s*([\d,]+(?:\.\d{2})?)/i,
         ];
         
         for (const pattern of annualPatterns) {
           const match = text.match(pattern);
           if (match && match[1]) {
-            extracted.annualContractValue = this.parseMoneyValue(match[1]);
-            break;
+            const value = this.parseMoneyValue(match[1]);
+            // Only accept if it's a reasonable annual value (>= $10K)
+            if (value && value >= 10000) {
+              extracted.annualContractValue = value;
+              break;
+            }
           }
         }
       }
@@ -994,7 +1152,30 @@ class ContractAnalyzer {
         extracted.totalContractValue = Math.round(extracted.annualContractValue * years);
       }
       
-      logger.info(`💰 Final values: Total=$${extracted.totalContractValue || 0}, Annual=$${extracted.annualContractValue || 0}`);
+      // ═══════════════════════════════════════════════════════════════════════════
+      // MONTHLY CALCULATION - Always derive from Total/Term or Annual/12
+      // NEVER extract small numbers like $6, $12 from text
+      // ═══════════════════════════════════════════════════════════════════════════
+      
+      // Reset monthly - we'll calculate it properly
+      extracted.monthlyAmount = null;
+      
+      // Calculate monthly from annual
+      if (extracted.annualContractValue && extracted.annualContractValue >= 10000) {
+        extracted.monthlyAmount = Math.round(extracted.annualContractValue / 12);
+      }
+      // Or calculate from total / term
+      else if (extracted.totalContractValue && extracted.termMonths) {
+        extracted.monthlyAmount = Math.round(extracted.totalContractValue / extracted.termMonths);
+      }
+      
+      // Validate monthly is reasonable (>= $1000 for contract values)
+      if (extracted.monthlyAmount && extracted.monthlyAmount < 1000) {
+        logger.warn(`💰 Monthly value ${extracted.monthlyAmount} too low, clearing`);
+        extracted.monthlyAmount = null;
+      }
+      
+      logger.info(`💰 Final: Total=$${extracted.totalContractValue || '—'}, Annual=$${extracted.annualContractValue || '—'}, Monthly=$${extracted.monthlyAmount || '—'}`);
       
       // Monthly Value
       for (const pattern of this.extractionPatterns.monthlyValue) {
@@ -1057,24 +1238,32 @@ class ContractAnalyzer {
     extracted.parentProduct = this.determineParentProduct(productsArray);
     extracted.productLine = this.formatProductLines(productsArray);
     
-    // Extract signatures
-    for (const pattern of this.extractionPatterns.customerSignature) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        const name = match[1].trim();
-        // Exclude Eudia people
-        if (!Object.keys(EUDIA_SIGNERS).some(s => s.toLowerCase() === name.toLowerCase())) {
-          extracted.customerSignedName = name;
-          break;
+    // NOTE: Signer extraction is now handled earlier in the code with better patterns
+    // (Customer Signed By:, Company Signed By:, and Name: patterns)
+    // Only use legacy patterns if signers weren't already found
+    if (!extracted.customerSignedName) {
+      for (const pattern of this.extractionPatterns.customerSignature) {
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          const name = match[1].trim();
+          // Exclude Eudia people
+          if (!Object.keys(EUDIA_SIGNERS).some(s => s.toLowerCase() === name.toLowerCase())) {
+            extracted.customerSignedName = name;
+            logger.info(`✍️ Customer signer (legacy): ${name}`);
+            break;
+          }
         }
       }
     }
     
-    for (const pattern of this.extractionPatterns.eudiaSignature) {
-      const match = text.match(pattern);
-      if (match) {
-        extracted.eudiaSignedName = match[1] || match[0];
-        break;
+    if (!extracted.eudiaSignedName) {
+      for (const pattern of this.extractionPatterns.eudiaSignature) {
+        const match = text.match(pattern);
+        if (match) {
+          extracted.eudiaSignedName = match[1] || match[0];
+          logger.info(`✍️ Eudia signer (legacy): ${extracted.eudiaSignedName}`);
+          break;
+        }
       }
     }
     

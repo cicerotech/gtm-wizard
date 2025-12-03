@@ -490,11 +490,11 @@ async function processContractUpload(file, client, userId, channelId, threadTs) 
     }
     
     if (fields.customerSignedName) {
-      message += `• Customer Signer: ${fields.customerSignedName}\n`;
+      message += `• Customer Signed: ${fields.customerSignedName}\n`;
     }
     
     if (fields.eudiaSignedName) {
-      message += `• Eudia Signer: ${fields.eudiaSignedName}\n`;
+      message += `• Eudia Signed: ${fields.eudiaSignedName}\n`;
     }
     
     message += `\n*Overall Confidence:* ${Math.round(fields.overallConfidence * 100)}%\n`;
