@@ -199,8 +199,9 @@ async function processQuery(text, userId, channelId, client, threadTs = null) {
     if (textLower === 'activate contract' || textLower === 'activate' || 
         textLower.includes('move to activated') || textLower.includes('set to activated')) {
       logger.info(`🔄 Processing contract activation request from ${userId}`);
-      const activated = await handleContractActivation(userId, channelId, client, threadTs);
-      if (activated) return;
+      // ALWAYS return after handling - even if activation fails
+      await handleContractActivation(userId, channelId, client, threadTs);
+      return;
     }
     
     // Handle cancel for pending contract

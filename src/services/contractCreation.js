@@ -1004,6 +1004,8 @@ function downloadWithHttps(url, token) {
  * Activate a pending contract (change status from Draft to Activated)
  */
 async function handleContractActivation(userId, channelId, client, threadTs) {
+  const { cache } = require('../utils/cache');
+  
   try {
     // Check for pending contract
     const pendingContract = await cache.get(`pending_contract_${userId}_${channelId}`);
