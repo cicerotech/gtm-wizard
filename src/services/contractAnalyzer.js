@@ -24,7 +24,7 @@ const SALESFORCE_CONTRACT_FIELDS = {
   'Contract_Name_Campfire__c': { label: 'Contract Name', required: true, type: 'text' },
   'AccountId': { label: 'Account Name', required: true, type: 'lookup' },
   'StartDate': { label: 'Contract Start Date', required: true, type: 'date' },
-  'EndDate': { label: 'Contract End Date', required: true, type: 'date' },
+  // EndDate is auto-calculated by Salesforce from StartDate + ContractTerm - DO NOT SET
   'ContractTerm': { label: 'Contract Term (months)', required: true, type: 'number' },
   'Contract_Type__c': { label: 'Contract Type', required: true, type: 'picklist', values: ['Recurring', 'LOI', 'One-Time', 'Amendment'] },
   'Status': { label: 'Status', required: true, type: 'picklist', values: ['Draft', 'In Approval', 'Activated', 'Terminated', 'Expired'] },
@@ -1518,7 +1518,8 @@ class ContractAnalyzer {
       Contract_Name_Campfire__c: enrichedFields.contractName,
       AccountId: enrichedFields.salesforce?.accountId,
       StartDate: enrichedFields.startDate,
-      EndDate: enrichedFields.endDate,
+      // NOTE: EndDate is READ-ONLY in Salesforce - it's auto-calculated from StartDate + ContractTerm
+      // EndDate: enrichedFields.endDate,  // DO NOT SET - will cause permission error
       ContractTerm: enrichedFields.termMonths,
       Contract_Type__c: enrichedFields.contractTypeValue,
       Status: 'Activated',
