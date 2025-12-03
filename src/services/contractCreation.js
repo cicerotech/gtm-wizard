@@ -416,11 +416,27 @@ async function processContractUpload(file, client, userId, channelId, threadTs) 
       thread_ts: threadTs
     });
     
-    // Download the file
+    // Download the file with enhanced logging
+    logger.info(`📥 Starting download for: ${file.name}`);
+    logger.info(`📥 File info: id=${file.id}, size=${file.size}, mimetype=${file.mimetype}`);
+    logger.info(`📥 URLs: private=${file.url_private?.substring(0, 50)}..., download=${file.url_private_download?.substring(0, 50)}...`);
+    
     const pdfBuffer = await downloadSlackFile(file, client);
     
     if (!pdfBuffer) {
-      throw new Error('Failed to download PDF file');
+      throw new Error('Failed to download PDF file from Slack');
+    }
+    
+    logger.info(`📦 Downloaded buffer size: ${pdfBuffer.length} bytes`);
+    
+    // Quick validation of downloaded content
+    const firstBytes = pdfBuffer.slice(0, 50).toString('utf8');
+    logger.info(`📦 First 50 chars: "${firstBytes.replace(/[^\x20-\x7E]/g, '?')}"`);
+    
+    // Check if we got HTML error instead of PDF
+    if (firstBytes.includes('<!DOCTYPE') || firstBytes.includes('<html')) {
+      logger.error('❌ Downloaded HTML instead of PDF - authentication issue');
+      throw new Error('Slack returned HTML instead of PDF - check bot permissions');
     }
     
     // Analyze the contract

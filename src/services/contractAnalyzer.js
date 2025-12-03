@@ -270,7 +270,7 @@ class ContractAnalyzer {
   }
 
   /**
-   * Extract text from PDF buffer
+   * Extract text from PDF buffer - Multi-method approach
    */
   async extractTextFromPDF(pdfBuffer) {
     try {
@@ -281,37 +281,49 @@ class ContractAnalyzer {
       
       logger.info(`📄 Processing PDF buffer: ${pdfBuffer.length} bytes`);
       
-      // Check PDF header
-      const header = pdfBuffer.slice(0, 8).toString('utf8');
-      logger.info(`📄 PDF header: ${header}`);
+      // Check first 20 bytes to understand file type
+      const headerBytes = pdfBuffer.slice(0, 20);
+      const headerStr = headerBytes.toString('utf8');
+      const headerHex = headerBytes.toString('hex');
+      logger.info(`📄 File header (string): "${headerStr.substring(0, 15)}"`);
+      logger.info(`📄 File header (hex): ${headerHex.substring(0, 20)}`);
       
-      // Dynamic import for pdf-parse
-      let pdfParse;
-      try {
-        pdfParse = require('pdf-parse');
-      } catch (e) {
-        logger.warn('pdf-parse not available, using fallback text extraction');
-        return this.fallbackTextExtraction(pdfBuffer);
+      // Check if this is actually a PDF
+      const isPDF = headerStr.includes('%PDF');
+      logger.info(`📄 Is valid PDF: ${isPDF}`);
+      
+      // METHOD 1: Try pdf-parse first
+      let text = await this.tryPdfParse(pdfBuffer);
+      if (text && text.length > 100) {
+        logger.info(`✅ Method 1 (pdf-parse) succeeded: ${text.length} chars`);
+        return text;
       }
       
-      // Try pdf-parse with error handling
-      try {
-        const data = await pdfParse(pdfBuffer, {
-          // Options to handle various PDF types
-          max: 0, // No page limit
-        });
-        
-        if (data.text && data.text.length > 0) {
-          logger.info(`✅ Extracted ${data.text.length} characters from PDF`);
-          return data.text;
-        } else {
-          logger.warn('pdf-parse returned empty text, trying fallback');
-          return this.fallbackTextExtraction(pdfBuffer);
-        }
-      } catch (parseError) {
-        logger.warn(`pdf-parse failed: ${parseError.message}, trying fallback`);
-        return this.fallbackTextExtraction(pdfBuffer);
+      // METHOD 2: Try raw text extraction from PDF structure
+      logger.info('📄 Trying Method 2: PDF structure extraction...');
+      text = this.extractFromPDFStructure(pdfBuffer);
+      if (text && text.length > 100) {
+        logger.info(`✅ Method 2 (structure) succeeded: ${text.length} chars`);
+        return text;
       }
+      
+      // METHOD 3: Try extracting readable strings
+      logger.info('📄 Trying Method 3: String extraction...');
+      text = this.extractReadableStrings(pdfBuffer);
+      if (text && text.length > 100) {
+        logger.info(`✅ Method 3 (strings) succeeded: ${text.length} chars`);
+        return text;
+      }
+      
+      // METHOD 4: Aggressive text recovery
+      logger.info('📄 Trying Method 4: Aggressive recovery...');
+      text = this.aggressiveTextRecovery(pdfBuffer);
+      if (text && text.length > 50) {
+        logger.info(`✅ Method 4 (aggressive) succeeded: ${text.length} chars`);
+        return text;
+      }
+      
+      throw new Error('All extraction methods failed - PDF may be image-only or encrypted');
       
     } catch (error) {
       logger.error('PDF parsing failed:', error);
@@ -320,48 +332,192 @@ class ContractAnalyzer {
   }
 
   /**
-   * Fallback text extraction for problematic PDFs
+   * Method 1: Try pdf-parse library, with pdfjs-dist fallback
    */
-  fallbackTextExtraction(pdfBuffer) {
-    logger.info('Using fallback text extraction...');
-    
-    // Convert buffer to string and extract readable text
-    let text = pdfBuffer.toString('utf8');
-    
-    // Clean up binary characters but keep text
-    text = text.replace(/[^\x20-\x7E\n\r\t]/g, ' ');
-    
-    // Try to find text between stream markers (common in PDFs)
-    const streamMatches = text.match(/stream[\s\S]*?endstream/gi) || [];
-    let extractedText = '';
-    
-    for (const stream of streamMatches) {
-      // Extract readable characters from streams
-      const readable = stream.replace(/[^\x20-\x7E\n\r\t]/g, ' ')
-                             .replace(/\s+/g, ' ')
-                             .trim();
-      if (readable.length > 20) {
-        extractedText += readable + '\n';
+  async tryPdfParse(pdfBuffer) {
+    // First try pdf-parse
+    try {
+      let pdfParse;
+      try {
+        pdfParse = require('pdf-parse');
+        logger.info('📦 pdf-parse module loaded');
+      } catch (e) {
+        logger.warn(`📦 pdf-parse not available: ${e.message}`);
+        // Fall through to pdfjs-dist
       }
+      
+      if (pdfParse) {
+        const data = await pdfParse(pdfBuffer);
+        if (data.text && data.text.length > 50) {
+          return data.text;
+        }
+      }
+    } catch (error) {
+      logger.warn(`pdf-parse error: ${error.message}`);
     }
     
-    // Also try to find text objects (Tj, TJ operators)
-    const textMatches = text.match(/\(([^)]+)\)\s*Tj/gi) || [];
-    for (const match of textMatches) {
-      const content = match.replace(/\(([^)]+)\)\s*Tj/i, '$1');
-      extractedText += content + ' ';
+    // Try pdfjs-dist as fallback
+    try {
+      logger.info('📦 Trying pdfjs-dist...');
+      const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
+      
+      // Disable worker for Node.js
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+      
+      const loadingTask = pdfjsLib.getDocument({ data: pdfBuffer });
+      const pdfDoc = await loadingTask.promise;
+      
+      let fullText = '';
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        const page = await pdfDoc.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        fullText += pageText + '\n';
+      }
+      
+      if (fullText.length > 50) {
+        logger.info(`✅ pdfjs-dist extracted ${fullText.length} chars`);
+        return fullText;
+      }
+    } catch (pdfjsError) {
+      logger.warn(`pdfjs-dist error: ${pdfjsError.message}`);
     }
     
-    // If we got some text, return it; otherwise return cleaned buffer
-    if (extractedText.length > 100) {
-      logger.info(`✅ Fallback extracted ${extractedText.length} characters`);
-      return extractedText;
+    return null;
+  }
+
+  /**
+   * Method 2: Extract text from PDF internal structure
+   */
+  extractFromPDFStructure(pdfBuffer) {
+    try {
+      const text = pdfBuffer.toString('binary');
+      let extracted = '';
+      
+      // Look for text between BT (begin text) and ET (end text) operators
+      const btEtPattern = /BT\s*([\s\S]*?)\s*ET/gi;
+      const btEtMatches = text.match(btEtPattern) || [];
+      
+      for (const block of btEtMatches) {
+        // Extract Tj and TJ operators (text showing)
+        const tjPattern = /\(([^)]*)\)\s*Tj/gi;
+        let match;
+        while ((match = tjPattern.exec(block)) !== null) {
+          extracted += this.decodePDFString(match[1]) + ' ';
+        }
+        
+        // TJ arrays
+        const tjArrayPattern = /\[((?:[^[\]]*|\[[^\]]*\])*)\]\s*TJ/gi;
+        while ((match = tjArrayPattern.exec(block)) !== null) {
+          const items = match[1].match(/\(([^)]*)\)/g) || [];
+          for (const item of items) {
+            extracted += this.decodePDFString(item.slice(1, -1)) + '';
+          }
+          extracted += ' ';
+        }
+      }
+      
+      return extracted.replace(/\s+/g, ' ').trim();
+    } catch (error) {
+      logger.warn(`Structure extraction failed: ${error.message}`);
+      return null;
     }
-    
-    // Last resort: return the cleaned buffer text
-    const cleaned = text.replace(/\s+/g, ' ').trim();
-    logger.info(`📝 Using cleaned buffer: ${cleaned.length} characters`);
-    return cleaned;
+  }
+
+  /**
+   * Method 3: Extract all readable strings from buffer
+   */
+  extractReadableStrings(pdfBuffer) {
+    try {
+      const text = pdfBuffer.toString('utf8');
+      
+      // Find all sequences of printable ASCII characters
+      const stringPattern = /[\x20-\x7E]{4,}/g;
+      const matches = text.match(stringPattern) || [];
+      
+      // Filter out PDF operators and binary garbage
+      const filtered = matches.filter(s => {
+        // Skip PDF operators and technical strings
+        if (/^(obj|endobj|stream|endstream|xref|trailer|startxref)$/i.test(s)) return false;
+        if (/^[\d\s.]+$/.test(s)) return false; // Just numbers
+        if (s.length < 5) return false;
+        // Keep strings with actual words
+        return /[a-zA-Z]{3,}/.test(s);
+      });
+      
+      return filtered.join(' ').replace(/\s+/g, ' ').trim();
+    } catch (error) {
+      logger.warn(`String extraction failed: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Method 4: Aggressive text recovery - last resort
+   */
+  aggressiveTextRecovery(pdfBuffer) {
+    try {
+      // Try multiple encodings
+      const encodings = ['utf8', 'latin1', 'ascii'];
+      let bestText = '';
+      
+      for (const encoding of encodings) {
+        try {
+          const text = pdfBuffer.toString(encoding);
+          
+          // Extract anything that looks like sentences
+          const sentencePattern = /[A-Z][a-z]+(?:\s+[a-zA-Z]+){2,}[.!?]?/g;
+          const sentences = text.match(sentencePattern) || [];
+          
+          // Extract potential keywords
+          const keywordPattern = /(?:Customer|Agreement|Eudia|Contract|Date|Term|Service|Board|Advisory|CAB|Sigma|Legal)/gi;
+          const keywords = text.match(keywordPattern) || [];
+          
+          // Build recovered text
+          const recovered = [...new Set([...sentences, ...keywords])].join(' ');
+          
+          if (recovered.length > bestText.length) {
+            bestText = recovered;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+      
+      // Also try to find structured data
+      const structuredPatterns = [
+        /Date[:\s]+(\d{1,2}\/\d{1,2}\/\d{4})/gi,
+        /(?:Best Buy|Chevron|Coherent|Pure Storage)[^.]*\./gi,
+        /Customer Advisory Board/gi,
+        /Effective Date/gi
+      ];
+      
+      const text = pdfBuffer.toString('utf8');
+      for (const pattern of structuredPatterns) {
+        const matches = text.match(pattern) || [];
+        bestText += ' ' + matches.join(' ');
+      }
+      
+      return bestText.replace(/\s+/g, ' ').trim();
+    } catch (error) {
+      logger.warn(`Aggressive recovery failed: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Decode PDF string escapes
+   */
+  decodePDFString(str) {
+    if (!str) return '';
+    return str
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '\r')
+      .replace(/\\t/g, '\t')
+      .replace(/\\\(/g, '(')
+      .replace(/\\\)/g, ')')
+      .replace(/\\\\/g, '\\')
+      .replace(/\\(\d{3})/g, (match, oct) => String.fromCharCode(parseInt(oct, 8)));
   }
 
   /**

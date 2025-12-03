@@ -47,6 +47,7 @@
     "nodemailer": "^7.0.10",
     "openai": "^4.20.1",
     "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^4.0.379",
     "redis": "^4.6.10",
     "winston": "^3.11.0"
   },
