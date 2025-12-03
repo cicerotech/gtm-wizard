@@ -615,7 +615,7 @@ async function processContractUpload(file, client, userId, channelId, threadTs) 
       pdfBuffer: pdfBuffer.toString('base64'),
       fileName: file.name,
       timestamp: Date.now()
-    }, 600); // 10 minutes
+    }, 1800); // 30 minutes - gives more time to review before creating
     
     await client.chat.postMessage({
       channel: channelId,

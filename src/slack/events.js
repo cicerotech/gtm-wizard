@@ -184,12 +184,23 @@ async function processQuery(text, userId, channelId, client, threadTs = null) {
     if (textLower.startsWith('create contract') || textLower === 'create' || 
         textLower.includes('create contract assign to')) {
       // Check if there's a pending contract analysis
+      logger.info(`📝 Checking for pending contract analysis: contract_analysis_${userId}_${channelId}`);
       const pendingAnalysis = await cache.get(`contract_analysis_${userId}_${channelId}`);
+      
       if (pendingAnalysis) {
-        logger.info(`📝 Processing contract creation confirmation from ${userId}`);
+        logger.info(`📝 Found pending analysis, processing contract creation from ${userId}`);
         // ALWAYS return after handling contract creation - even if it fails
         // This prevents fall-through to intent parsing
         await handleContractCreationConfirmation(text, userId, channelId, client, threadTs);
+        return;
+      } else {
+        // No pending analysis - tell user to upload a contract first
+        logger.info(`📝 No pending analysis found for ${userId}`);
+        await client.chat.postMessage({
+          channel: channelId,
+          text: `❌ No pending contract analysis found.\n\nPlease upload a contract PDF first, then reply with \`create contract\` or \`create contract assign to [Name]\`.`,
+          thread_ts: threadTs
+        });
         return;
       }
     }
