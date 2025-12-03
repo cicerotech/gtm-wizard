@@ -606,106 +606,199 @@ class ContractAnalyzer {
     }
     
     // Extract customer/account name with improved logic
-    // First, try to find explicit "Account Name:" field
-    const accountNameDirect = text.match(/Account\s+Name[:\s]+([A-Za-z][A-Za-z\s&,.'()-]+?)(?:\n|Contract|Status)/i);
-    if (accountNameDirect && accountNameDirect[1]) {
-      extracted.accountName = accountNameDirect[1].trim().replace(/,?\s*(Inc|Corp|LLC|Ltd|Company|Co)\.?$/i, '');
+    // Pattern 1: "Company Name Corp. ("Customer" or "Name")" - e.g., Coherent Corp. ("Customer" or "Coherent")
+    const customerOrPattern = text.match(/([A-Z][A-Za-z\s&]+?(?:Corp|Inc|LLC|Ltd|Co)\.?)\s*\(\s*["']?Customer["']?\s*(?:or\s*["']([A-Z][A-Za-z]+)["'])?\s*\)/i);
+    if (customerOrPattern) {
+      // Use the short name in "or" clause if available, otherwise use full name
+      extracted.accountName = customerOrPattern[2] || customerOrPattern[1].replace(/,?\s*(Inc|Corp|LLC|Ltd|Co)\.?$/i, '').trim();
     }
     
-    // Try from filename for CAB/Memorandum contracts
+    // Pattern 2: Appointment format - "Appointment - Best Buy Co., Inc."
     if (!extracted.accountName) {
-      const fileNameMatch = fileName.match(/(?:CAB|Memorandum)[:\s-]+([A-Za-z][A-Za-z\s&]+?)(?:\s+\d{4}|\.|$)/i);
-      if (fileNameMatch && fileNameMatch[1]) {
-        extracted.accountName = fileNameMatch[1].trim();
-      }
-    }
-    
-    // Try appointment format
-    if (!extracted.accountName) {
-      const appointmentMatch = text.match(/Appointment\s*[–-]\s*([A-Z][A-Za-z\s&]+?)(?:,?\s*Inc\.?|,?\s*Corp\.?|\n)/i);
+      const appointmentMatch = text.match(/Appointment\s*[–-]\s*([A-Z][A-Za-z\s&,.']+?)(?:\s*\.|$|\n)/i);
       if (appointmentMatch && appointmentMatch[1]) {
-        extracted.accountName = appointmentMatch[1].trim().replace(/,?\s*(Inc|Corp|LLC|Ltd)\.?$/i, '');
+        extracted.accountName = appointmentMatch[1].trim()
+          .replace(/,?\s*(Inc|Corp|LLC|Ltd|Co)\.?,?\s*$/i, '')
+          .trim();
       }
     }
     
-    // Try "Customer" or "Company" definition in contract
+    // Pattern 3: From filename for CAB/Memorandum contracts - "CAB Memorandum- BestBuy"
     if (!extracted.accountName) {
-      const customerDefMatch = text.match(/["']\s*(?:Customer|Company)\s*["']\s*(?:or\s*["'])?\s*([A-Z][A-Za-z\s&]+?)(?:["']|\))/i);
-      if (customerDefMatch && customerDefMatch[1]) {
-        const name = customerDefMatch[1].trim();
+      const fileNameMatch = fileName.match(/(?:CAB|Memorandum)[_\s-]+([A-Za-z][A-Za-z\s&]+?)(?:\s+\d{4}|\.|\s+EXECUTION|$)/i);
+      if (fileNameMatch && fileNameMatch[1]) {
+        extracted.accountName = fileNameMatch[1].trim().replace(/-/g, ' ');
+      }
+    }
+    
+    // Pattern 4: "between Eudia and [Company]" - simple format
+    if (!extracted.accountName) {
+      const betweenMatch = text.match(/between\s+(?:Eudia|Cicero[^)]*?)\s+and\s+([A-Z][A-Za-z\s&,.]+?)(?:\s*\.|,|\n)/i);
+      if (betweenMatch && betweenMatch[1]) {
+        const name = betweenMatch[1].trim()
+          .replace(/,?\s*(Inc|Corp|LLC|Ltd|Co)\.?$/i, '')
+          .trim();
         if (!name.toLowerCase().includes('eudia') && !name.toLowerCase().includes('cicero')) {
           extracted.accountName = name;
         }
       }
     }
     
-    // Try between...and format
+    // Pattern 5: Title contains company - "Eudia Customer Advisory Board Appointment - Best Buy Co., Inc."
     if (!extracted.accountName) {
-      const betweenMatch = text.match(/between.*?(?:Eudia|Cicero).*?and\s+([A-Z][A-Za-z\s&]+?)(?:\s*\(|,?\s*["']|\.|dated)/i);
-      if (betweenMatch && betweenMatch[1]) {
-        extracted.accountName = betweenMatch[1].trim().replace(/,?\s*(Inc|Corp|LLC|Ltd)\.?$/i, '');
+      const titleMatch = text.match(/(?:Advisory\s+Board\s+Appointment|Agreement)\s*[–-]\s*([A-Z][A-Za-z\s&,.]+?)(?:\s*\n|$)/i);
+      if (titleMatch && titleMatch[1]) {
+        extracted.accountName = titleMatch[1].trim()
+          .replace(/,?\s*(Inc|Corp|LLC|Ltd|Co)\.?,?\s*$/i, '')
+          .trim();
       }
     }
     
-    // Fallback to pattern matching
+    // Pattern 6: Simple "Title - Company" format - "Chevron - Gibson Dunn Agreement"
     if (!extracted.accountName) {
-      for (const pattern of this.extractionPatterns.customerName) {
-        const match = text.match(pattern);
-        if (match && match[1]) {
-          const name = match[1].trim()
-            .replace(/["'()]/g, '')
-            .replace(/\s+/g, ' ')
-            .replace(/,?\s*(Inc|Corp|LLC|Ltd|Company|Co)\.?$/i, '');
-          
-          // Exclude Eudia/Cicero and generic terms
-          if (!name.toLowerCase().includes('eudia') && 
-              !name.toLowerCase().includes('cicero') &&
-              !name.toLowerCase().includes('advisory board') &&
-              !name.toLowerCase().includes('signed by') &&
-              name.length > 2) {
-            extracted.accountName = name;
-            break;
-          }
+      const simpleTitleMatch = text.match(/^([A-Z][A-Za-z]+)\s*[-–]\s*(?:Gibson|Agreement)/im);
+      if (simpleTitleMatch && simpleTitleMatch[1]) {
+        const name = simpleTitleMatch[1].trim();
+        if (!name.toLowerCase().includes('eudia') && !name.toLowerCase().includes('exhibit')) {
+          extracted.accountName = name;
         }
       }
     }
     
-    // Extract dates
-    for (const pattern of this.extractionPatterns.effectiveDate) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        extracted.startDate = this.parseDate(match[1]);
-        break;
+    // Pattern 7: "entered into...and [Company]"
+    if (!extracted.accountName) {
+      const enteredMatch = text.match(/entered\s+into.*?and\s+([A-Z][A-Za-z]+)(?:\s*\.|,|\n)/i);
+      if (enteredMatch && enteredMatch[1]) {
+        const name = enteredMatch[1].trim();
+        if (!name.toLowerCase().includes('eudia') && !name.toLowerCase().includes('cicero')) {
+          extracted.accountName = name;
+        }
       }
     }
     
-    // Check for anniversary-based end date
-    const anniversaryMatch = text.match(/(?:third|3rd)\s+anniversary/i);
-    if (anniversaryMatch && extracted.startDate) {
-      extracted.termMonths = 36;
-      extracted.endDate = this.addMonthsToDate(extracted.startDate, 36);
-    } else if (text.match(/(?:second|2nd)\s+anniversary/i) && extracted.startDate) {
-      extracted.termMonths = 24;
-      extracted.endDate = this.addMonthsToDate(extracted.startDate, 24);
-    } else if (text.match(/(?:first|1st)\s+anniversary/i) && extracted.startDate) {
-      extracted.termMonths = 12;
-      extracted.endDate = this.addMonthsToDate(extracted.startDate, 12);
-    } else {
-      // Try explicit end date
-      for (const pattern of this.extractionPatterns.endDate) {
-        const match = text.match(pattern);
-        if (match && match[1]) {
-          extracted.endDate = this.parseDate(match[1]);
+    // Pattern 6: Direct "Customer" definition - '("Customer")'  
+    if (!extracted.accountName) {
+      const customerDefMatch = text.match(/([A-Z][A-Za-z\s&,.]+?(?:Corp|Inc|LLC|Ltd|Co)\.?)\s*\(\s*["']?Customer["']?\s*\)/i);
+      if (customerDefMatch && customerDefMatch[1]) {
+        const name = customerDefMatch[1].trim()
+          .replace(/,?\s*(Inc|Corp|LLC|Ltd|Co)\.?$/i, '')
+          .trim();
+        if (!name.toLowerCase().includes('eudia') && !name.toLowerCase().includes('cicero')) {
+          extracted.accountName = name;
+        }
+      }
+    }
+    
+    logger.info(`📋 Extracted account name: "${extracted.accountName || 'NOT FOUND'}"`);
+    
+    // Log a snippet of text for debugging
+    logger.info(`📋 Text sample (first 500 chars): ${text.substring(0, 500).replace(/\n/g, ' ')}`);
+    
+    // Clean up account name
+    if (extracted.accountName) {
+      extracted.accountName = extracted.accountName
+        .replace(/,?\s*(Inc|Corp|LLC|Ltd|Co|Company)\.?,?\s*$/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DATE EXTRACTION - Multiple patterns for different contract formats
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Pattern 1: Signature block dates - "Date: 10/31/2025" or "Date: $10 / 6 / 2025$"
+    const signatureDatePatterns = [
+      /Date[:\s]+\$?(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})\$?/gi,  // Date: 10/31/2025 or $10 / 6 / 2025$
+      /Date[:\s]+(\d{1,2})\/(\d{1,2})\/(\d{4})/gi,                     // Date: 10/31/2025
+    ];
+    
+    // Find all signature dates
+    const foundDates = [];
+    for (const pattern of signatureDatePatterns) {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const month = match[1].trim();
+        const day = match[2].trim();
+        const year = match[3].trim();
+        const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        if (this.isValidDate(dateStr)) {
+          foundDates.push(dateStr);
+        }
+      }
+    }
+    
+    logger.info(`📅 Found ${foundDates.length} signature dates: ${foundDates.join(', ')}`);
+    
+    // Use first found date as start date if none found from other patterns
+    if (foundDates.length > 0 && !extracted.startDate) {
+      extracted.startDate = foundDates[0];
+      extracted.signedDate = foundDates[0];
+    }
+    
+    // Pattern 2: Effective Date patterns
+    const effectiveDatePatterns = [
+      /Effective\s+Date[:\s)]+(\d{1,2}\/\d{1,2}\/\d{4})/i,
+      /Order\s+Effective\s+Date/i,  // Just detection, date comes from signature
+      /dated\s+(?:as\s+of\s+)?(\w+\s+\d{1,2},?\s+\d{4})/i,
+    ];
+    
+    for (const pattern of effectiveDatePatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const parsed = this.parseDate(match[1]);
+        if (parsed) {
+          extracted.startDate = parsed;
           break;
         }
       }
     }
     
-    // First try to extract explicit term
-    const explicitTermMatch = text.match(/Contract\s+Term[:\s]*(\d+)\s*months?/i) ||
-                              text.match(/Term[:\s]*(\d+)\s*months?/i);
-    if (explicitTermMatch && explicitTermMatch[1]) {
-      extracted.termMonths = parseInt(explicitTermMatch[1]);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TERM & END DATE CALCULATION
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Check for anniversary-based terms
+    if (text.match(/third\s+anniversary|3rd\s+anniversary/i)) {
+      extracted.termMonths = 36;
+      logger.info('📅 Found "third anniversary" - setting term to 36 months');
+      if (extracted.startDate) {
+        extracted.endDate = this.addMonthsToDate(extracted.startDate, 36);
+      }
+    } else if (text.match(/second\s+anniversary|2nd\s+anniversary/i)) {
+      extracted.termMonths = 24;
+      if (extracted.startDate) {
+        extracted.endDate = this.addMonthsToDate(extracted.startDate, 24);
+      }
+    } else if (text.match(/first\s+12\s+months|12\s+months|first\s+anniversary|1st\s+anniversary/i)) {
+      extracted.termMonths = 12;
+      if (extracted.startDate) {
+        extracted.endDate = this.addMonthsToDate(extracted.startDate, 12);
+      }
+    }
+    
+    // Try explicit term patterns
+    const termPatterns = [
+      /Contract\s+Term[:\s]*(\d+)\s*months?/i,
+      /Term[:\s]+(\d+)\s*months?/i,
+      /for\s+(?:a\s+period\s+of\s+)?(\d+)\s*months?/i,
+      /(\d+)[\s-]*month\s+term/i,
+      /first\s+(\d+)\s+months/i,
+    ];
+    
+    if (!extracted.termMonths) {
+      for (const pattern of termPatterns) {
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          extracted.termMonths = parseInt(match[1]);
+          logger.info(`📅 Extracted term: ${extracted.termMonths} months`);
+          break;
+        }
+      }
+    }
+    
+    // Calculate end date from start date and term if not already set
+    if (extracted.startDate && extracted.termMonths && !extracted.endDate) {
+      extracted.endDate = this.addMonthsToDate(extracted.startDate, extracted.termMonths);
     }
     
     // Calculate term from dates if not found explicitly
@@ -713,25 +806,97 @@ class ContractAnalyzer {
       extracted.termMonths = this.calculateTermMonths(extracted.startDate, extracted.endDate);
     }
     
-    // Extract monetary values (only for non-LOI contracts)
+    logger.info(`📅 Final dates: Start=${extracted.startDate}, End=${extracted.endDate}, Term=${extracted.termMonths}mo`);
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MONETARY VALUE EXTRACTION (only for non-LOI contracts)
+    // ═══════════════════════════════════════════════════════════════════════════
     if (!contractType.excludeMonetary) {
-      // Total Value
-      for (const pattern of this.extractionPatterns.totalValue) {
-        const match = text.match(pattern);
-        if (match && match[1]) {
-          extracted.totalContractValue = this.parseMoneyValue(match[1]);
-          break;
+      logger.info('💰 Extracting monetary values...');
+      
+      // Find all dollar amounts in the text
+      const dollarPattern = /\$\s*([\d,]+(?:\.\d{2})?)/g;
+      const allAmounts = [];
+      let amountMatch;
+      while ((amountMatch = dollarPattern.exec(text)) !== null) {
+        const value = this.parseMoneyValue(amountMatch[1]);
+        if (value && value > 1000) { // Filter out small amounts
+          allAmounts.push(value);
         }
       }
       
-      // Annual Value
-      for (const pattern of this.extractionPatterns.annualValue) {
-        const match = text.match(pattern);
-        if (match && match[1]) {
-          extracted.annualContractValue = this.parseMoneyValue(match[1]);
-          break;
+      logger.info(`💰 Found ${allAmounts.length} dollar amounts: ${allAmounts.slice(0, 5).join(', ')}...`);
+      
+      // Look for Year pricing structure (Year 1, Year 2, Year 3)
+      const yearPricing = [];
+      const yearPattern = /Year\s*(\d)[:\s]*\$?\s*([\d,]+(?:\.\d{2})?)/gi;
+      while ((amountMatch = yearPattern.exec(text)) !== null) {
+        const value = this.parseMoneyValue(amountMatch[2]);
+        if (value) {
+          yearPricing.push({ year: parseInt(amountMatch[1]), value });
         }
       }
+      
+      if (yearPricing.length > 0) {
+        logger.info(`💰 Found year-based pricing: ${JSON.stringify(yearPricing)}`);
+        // Calculate total from all years
+        extracted.totalContractValue = yearPricing.reduce((sum, y) => sum + y.value, 0);
+        // Annual value is average or Year 1 value
+        extracted.annualContractValue = yearPricing.length > 0 
+          ? Math.round(extracted.totalContractValue / yearPricing.length)
+          : yearPricing[0].value;
+      }
+      
+      // Fallback: Look for explicit Total Contract Value
+      if (!extracted.totalContractValue) {
+        const totalPatterns = [
+          /Total\s+(?:Contract\s+)?Value[:\s]*\$?\s*([\d,]+(?:\.\d{2})?)/i,
+          /aggregate\s+(?:total\s+)?(?:fees?|amount)[:\s]*\$?\s*([\d,]+(?:\.\d{2})?)/i,
+          /not\s+to\s+exceed\s+\$?\s*([\d,]+(?:\.\d{2})?)/i,
+        ];
+        
+        for (const pattern of totalPatterns) {
+          const match = text.match(pattern);
+          if (match && match[1]) {
+            extracted.totalContractValue = this.parseMoneyValue(match[1]);
+            logger.info(`💰 Found total value: $${extracted.totalContractValue}`);
+            break;
+          }
+        }
+      }
+      
+      // Fallback: Look for Annual Value
+      if (!extracted.annualContractValue) {
+        const annualPatterns = [
+          /Annual\s+(?:Contract\s+)?Value[:\s]*\$?\s*([\d,]+(?:\.\d{2})?)/i,
+          /per\s+(?:annum|year)[:\s]*\$?\s*([\d,]+(?:\.\d{2})?)/i,
+          /\$\s*([\d,]+(?:\.\d{2})?)\s*(?:per\s+)?(?:annum|annually|year)/i,
+        ];
+        
+        for (const pattern of annualPatterns) {
+          const match = text.match(pattern);
+          if (match && match[1]) {
+            extracted.annualContractValue = this.parseMoneyValue(match[1]);
+            break;
+          }
+        }
+      }
+      
+      // If we have total and term but no annual, calculate it
+      if (extracted.totalContractValue && extracted.termMonths && !extracted.annualContractValue) {
+        const years = extracted.termMonths / 12;
+        if (years >= 1) {
+          extracted.annualContractValue = Math.round(extracted.totalContractValue / years);
+        }
+      }
+      
+      // If we have annual but no total, and we have term, calculate total
+      if (extracted.annualContractValue && extracted.termMonths && !extracted.totalContractValue) {
+        const years = extracted.termMonths / 12;
+        extracted.totalContractValue = Math.round(extracted.annualContractValue * years);
+      }
+      
+      logger.info(`💰 Final values: Total=$${extracted.totalContractValue || 0}, Annual=$${extracted.annualContractValue || 0}`);
       
       // Monthly Value
       for (const pattern of this.extractionPatterns.monthlyValue) {
