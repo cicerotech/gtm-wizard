@@ -490,7 +490,11 @@ async function processContractUpload(file, client, userId, channelId, threadTs) 
     }
     
     if (fields.customerSignedName) {
-      message += `• Customer Signed: ${fields.customerSignedName}\n`;
+      if (fields.salesforce?.customerSignedId) {
+        message += `• Customer Signed: ${fields.customerSignedName} ✓\n`;
+      } else {
+        message += `• Customer Signed: ${fields.customerSignedName} _(will be added to notes - contact not in SF)_\n`;
+      }
     }
     
     if (fields.eudiaSignedName) {

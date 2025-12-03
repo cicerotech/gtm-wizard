@@ -1554,11 +1554,20 @@ class ContractAnalyzer {
     }
     
     // Signature fields
+    // CustomerSignedId is a lookup to Contact - only set if we found the contact
     if (enrichedFields.salesforce?.customerSignedId) {
       record.CustomerSignedId = enrichedFields.salesforce.customerSignedId;
     }
-    if (enrichedFields.customerSignedName) {
-      record.Contact_Signed__c = enrichedFields.customerSignedName;
+    // Contact_Signed__c is ALSO a lookup field - use the same ID if found
+    // DO NOT set text names here - it will fail with "id value of incorrect type"
+    if (enrichedFields.salesforce?.customerSignedId) {
+      record.Contact_Signed__c = enrichedFields.salesforce.customerSignedId;
+    }
+    // If customer signer name was extracted but not found in Salesforce, add to notes
+    if (enrichedFields.customerSignedName && !enrichedFields.salesforce?.customerSignedId) {
+      const existingNotes = record.Notes__c || '';
+      record.Notes__c = existingNotes + (existingNotes ? '\n' : '') + 
+        `Customer Signed: ${enrichedFields.customerSignedName} (Contact not found in Salesforce - needs to be added)`;
     }
     if (enrichedFields.signedDate) {
       record.CustomerSignedDate = enrichedFields.signedDate;
