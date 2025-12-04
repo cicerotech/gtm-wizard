@@ -1,5 +1,6 @@
 const { query } = require('../salesforce/connection');
 const { cleanStageName } = require('../utils/formatters');
+const { getJohnsonHanaSummary, getAccountSummaries: getJHAccounts, closedWonNovDec, mapStage } = require('../data/johnsonHanaData');
 
 /**
  * Generate password-protected Account Status Dashboard
@@ -36,6 +37,177 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 </div>
 </body>
 </html>`;
+}
+
+/**
+ * Generate Top Co Overview Tab - Blended Eudia + Johnson Hana data
+ * Updated weekly until systems sync
+ */
+function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts) {
+  const jhSummary = getJohnsonHanaSummary();
+  const jhAccounts = getJHAccounts();
+  
+  // Blended totals
+  const blendedGross = eudiaGross + jhSummary.totalPipeline;
+  const blendedWeighted = eudiaWeighted + jhSummary.totalWeighted;
+  const blendedDeals = eudiaDeals + jhSummary.totalOpportunities;
+  const blendedAccounts = eudiaAccounts + jhSummary.uniqueAccounts;
+  
+  // Format currency helper
+  const fmt = (val) => {
+    if (!val || val === 0) return '-';
+    if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'm';
+    return '$' + (val / 1000).toFixed(0) + 'k';
+  };
+  
+  // Top JH accounts (by ACV)
+  const topJHAccounts = jhAccounts.slice(0, 15);
+  
+  // Recent closed deals from JH
+  const recentClosed = closedWonNovDec.slice(0, 8);
+  
+  return `
+<div id="topco" class="tab-content">
+  <div style="background: #fffbeb; border: 1px solid #fcd34d; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: #92400e;">
+    <strong>Top Co Overview</strong> — Blended pipeline (Eudia + Johnson Hana). Updated weekly until systems sync.
+  </div>
+  
+  <!-- Blended Metrics -->
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-label">Combined Pipeline</div>
+      <div class="metric-value">${fmt(blendedGross)}</div>
+      <div class="metric-change" style="font-size: 0.65rem; color: #6b7280;">E: ${fmt(eudiaGross)} • JH: ${fmt(jhSummary.totalPipeline)}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Weighted</div>
+      <div class="metric-value">${fmt(blendedWeighted)}</div>
+      <div class="metric-change" style="font-size: 0.65rem; color: #6b7280;">E: ${fmt(eudiaWeighted)} • JH: ${fmt(jhSummary.totalWeighted)}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Opportunities</div>
+      <div class="metric-value">${blendedDeals}</div>
+      <div class="metric-change" style="font-size: 0.65rem; color: #6b7280;">E: ${eudiaDeals} • JH: ${jhSummary.totalOpportunities}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Accounts</div>
+      <div class="metric-value">${blendedAccounts}</div>
+      <div class="metric-change" style="font-size: 0.65rem; color: #6b7280;">E: ${eudiaAccounts} • JH: ${jhSummary.uniqueAccounts}</div>
+    </div>
+  </div>
+  
+  <!-- Eudia Tech Indicator (subtle) -->
+  <div style="background: #ecfdf5; border: 1px solid #10b981; padding: 10px 12px; border-radius: 6px; margin-bottom: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <div style="font-size: 0.7rem; font-weight: 600; color: #047857;">Eudia Tech Opportunities</div>
+        <div style="font-size: 0.65rem; color: #065f46; margin-top: 2px;">${jhSummary.eudiaTech.opportunityCount} opps (${jhSummary.eudiaTech.percentOfOpps}% of JH pipeline)</div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 1.25rem; font-weight: 700; color: #047857;">${fmt(jhSummary.eudiaTech.pipelineValue)}</div>
+        <div style="font-size: 0.65rem; color: #065f46;">${jhSummary.eudiaTech.percentOfValue}% of value</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Johnson Hana Stage Breakdown -->
+  <div class="stage-section">
+    <div class="stage-title">Johnson Hana by Stage</div>
+    <table style="width: 100%; font-size: 0.8rem; margin-top: 8px;">
+      <tr style="background: #f9fafb; font-weight: 600;">
+        <td style="padding: 6px;">Stage</td>
+        <td style="text-align: center; padding: 6px;">Opps</td>
+        <td style="text-align: right; padding: 6px;">ACV</td>
+        <td style="text-align: right; padding: 6px;">Wtd</td>
+      </tr>
+      ${Object.entries(jhSummary.byStage)
+        .sort((a, b) => {
+          const stageOrder = { 'Stage 5 - Negotiation': 0, 'Stage 4 - Proposal': 1, 'Stage 3 - Pilot': 2, 'Stage 2 - SQO': 3, 'Stage 1 - Discovery': 4, 'Stage 0 - Qualifying': 5 };
+          return (stageOrder[a[0]] || 99) - (stageOrder[b[0]] || 99);
+        })
+        .map(([stage, data]) => `
+        <tr style="border-bottom: 1px solid #f1f3f5;">
+          <td style="padding: 6px; font-size: 0.75rem;">${stage.replace('Stage ', 'S')}</td>
+          <td style="text-align: center; padding: 6px;">${data.count}</td>
+          <td style="text-align: right; padding: 6px;">${fmt(data.acv)}</td>
+          <td style="text-align: right; padding: 6px;">${fmt(data.weighted)}</td>
+        </tr>
+      `).join('')}
+      <tr style="background: #e5e7eb; font-weight: 600;">
+        <td style="padding: 6px;">TOTAL</td>
+        <td style="text-align: center; padding: 6px;">${jhSummary.totalOpportunities}</td>
+        <td style="text-align: right; padding: 6px;">${fmt(jhSummary.totalPipeline)}</td>
+        <td style="text-align: right; padding: 6px;">${fmt(jhSummary.totalWeighted)}</td>
+      </tr>
+    </table>
+  </div>
+  
+  <!-- Top JH Accounts -->
+  <div class="stage-section" style="margin-top: 16px;">
+    <div class="stage-title">Johnson Hana Top Accounts</div>
+    <div class="stage-subtitle">${jhSummary.uniqueAccounts} accounts • <span style="color: #047857;">●</span> = Eudia Tech opp</div>
+    <div style="margin-top: 8px;">
+      ${topJHAccounts.map(acc => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.8rem;">
+          <div>
+            <span style="font-weight: 500;">${acc.name}</span>
+            ${acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-left: 4px; vertical-align: middle;" title="Eudia Tech"></span>' : ''}
+            <div style="font-size: 0.65rem; color: #6b7280;">S${acc.highestStage} • ${acc.opportunities.length} opp${acc.opportunities.length > 1 ? 's' : ''}</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-weight: 600;">${fmt(acc.totalACV)}</div>
+            <div style="font-size: 0.65rem; color: #6b7280;">Wtd: ${fmt(acc.weightedACV)}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+  
+  <!-- Recent JH Closed Deals -->
+  <div class="stage-section" style="margin-top: 16px;">
+    <div class="stage-title">JH Closed Won (Nov-Dec)</div>
+    <div class="stage-subtitle">${closedWonNovDec.length} deals • ${fmt(jhSummary.closedTotal)} total</div>
+    <div style="margin-top: 8px;">
+      ${recentClosed.map(deal => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">
+          <div>
+            <span style="font-weight: 500;">${deal.account}</span>
+            ${deal.eudiaTech ? '<span class="badge badge-eudia">Eudia Tech</span>' : ''}
+            <div style="font-size: 0.65rem; color: #6b7280; margin-top: 1px;">${deal.serviceLine || 'Other'}</div>
+          </div>
+          <div style="font-weight: 600; color: #16a34a;">${fmt(deal.acv)}</div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+  
+  <!-- Service Line Summary -->
+  <div class="stage-section" style="margin-top: 16px;">
+    <div class="stage-title">JH Service Lines</div>
+    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
+      ${(() => {
+        const serviceLines = {};
+        jhAccounts.forEach(acc => {
+          acc.opportunities.forEach(opp => {
+            const sl = opp.mappedServiceLine || 'Other';
+            if (!serviceLines[sl]) serviceLines[sl] = { count: 0, acv: 0 };
+            serviceLines[sl].count++;
+            serviceLines[sl].acv += opp.acv || 0;
+          });
+        });
+        return Object.entries(serviceLines)
+          .sort((a, b) => b[1].acv - a[1].acv)
+          .slice(0, 8)
+          .map(([sl, data]) => `
+            <div style="background: #f3f4f6; padding: 6px 10px; border-radius: 4px; font-size: 0.7rem;">
+              <div style="font-weight: 600; color: #374151;">${sl}</div>
+              <div style="color: #6b7280;">${data.count} opps • ${fmt(data.acv)}</div>
+            </div>
+          `).join('');
+      })()}
+    </div>
+  </div>
+</div>`;
 }
 
 /**
@@ -506,14 +678,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .tab { background: #fff; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 500; cursor: pointer; white-space: nowrap; color: #6b7280; transition: all 0.2s; }
 .tab:hover { background: #e5e7eb; }
 #tab-summary:checked ~ .tabs label[for="tab-summary"],
+#tab-topco:checked ~ .tabs label[for="tab-topco"],
 #tab-by-stage:checked ~ .tabs label[for="tab-by-stage"],
 #tab-revenue:checked ~ .tabs label[for="tab-revenue"],
 #tab-account-plans:checked ~ .tabs label[for="tab-account-plans"] { background: #8e99e1; color: #fff; }
 .tab-content { display: none; }
 #tab-summary:checked ~ #summary,
+#tab-topco:checked ~ #topco,
 #tab-by-stage:checked ~ #by-stage,
 #tab-revenue:checked ~ #revenue,
 #tab-account-plans:checked ~ #account-plans { display: block; }
+.badge-eudia { background: #ecfdf5; color: #047857; border: 1px solid #10b981; font-size: 0.6rem; }
+.jh-indicator { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; margin-left: 4px; vertical-align: middle; }
 .metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
 .metric { background: #fff; padding: 16px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .metric-label { font-size: 0.75rem; color: #6b7280; font-weight: 500; margin-bottom: 4px; }
@@ -560,12 +736,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 <!-- Pure CSS Tabs (No JavaScript - CSP Safe) -->
 <input type="radio" name="tabs" id="tab-summary" checked style="display: none;">
+<input type="radio" name="tabs" id="tab-topco" style="display: none;">
 <input type="radio" name="tabs" id="tab-by-stage" style="display: none;">
 <input type="radio" name="tabs" id="tab-revenue" style="display: none;">
 <input type="radio" name="tabs" id="tab-account-plans" style="display: none;">
 
 <div class="tabs">
   <label for="tab-summary" class="tab">Summary</label>
+  <label for="tab-topco" class="tab">Top Co</label>
   <label for="tab-by-stage" class="tab">By Stage</label>
   <label for="tab-revenue" class="tab">Revenue</label>
   <label for="tab-account-plans" class="tab">Accounts</label>
@@ -777,6 +955,9 @@ ${early.map((acc, idx) => {
     <div><span class="badge badge-new" style="font-size: 0.6rem;">New</span> Account with no prior closed deals</div>
   </div>
 </div>
+
+<!-- TAB: TOP CO OVERVIEW (Blended Eudia + Johnson Hana) -->
+${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size)}
 
 <!-- TAB 2: BY STAGE (Detailed Breakdowns) -->
 <div id="by-stage" class="tab-content">
