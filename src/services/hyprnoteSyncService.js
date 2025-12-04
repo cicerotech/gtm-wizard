@@ -4,22 +4,39 @@
  * Monitors Hyprnote's local SQLite database for completed meetings
  * and syncs meeting notes to Salesforce.
  * 
- * Architecture:
- * Hyprnote (local) → SQLite → This Service → Salesforce
+ * Data Flow:
+ * Hyprnote Meeting Ends
+ *     ↓
+ * Extract: Contact info, Company, Summary, Date
+ *     ↓
+ * Salesforce Actions:
+ *     ├─→ Contact: Create if missing, link to Account
+ *     ├─→ Event: Create event on meeting date, attach to Account
+ *     ├─→ Meeting Note: Log on Event record
+ *     └─→ Customer Brain Field: Update at Account level with insights
  */
 
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { getConnection } = require('../salesforce/connection');
 const logger = require('../utils/logger');
 
-// Hyprnote database path (macOS)
-const HYPRNOTE_DB_PATH = path.join(
+// Hyprnote database paths (macOS)
+const HYPRNOTE_STABLE_PATH = path.join(
   os.homedir(),
   'Library/Application Support/com.hyprnote.stable/db.sqlite'
 );
+
+const HYPRNOTE_NIGHTLY_PATH = path.join(
+  os.homedir(),
+  'Library/Application Support/com.hyprnote.nightly/db.sqlite'
+);
+
+// Use stable by default, fall back to nightly
+const HYPRNOTE_DB_PATH = fs.existsSync(HYPRNOTE_STABLE_PATH) 
+  ? HYPRNOTE_STABLE_PATH 
+  : HYPRNOTE_NIGHTLY_PATH;
 
 // Track synced sessions to avoid duplicates
 const syncedSessions = new Set();
@@ -29,7 +46,6 @@ let lastCheckedTime = null;
  * Initialize the sync service
  */
 function initHyprnoteSync() {
-  // Load previously synced sessions from cache/file
   loadSyncedSessions();
   
   logger.info('[Hyprnote] Sync service initialized');
@@ -40,7 +56,8 @@ function initHyprnoteSync() {
     syncSessionToSalesforce,
     getRecentSessions,
     startPolling,
-    stopPolling
+    stopPolling,
+    testConnection
   };
 }
 
@@ -75,6 +92,41 @@ function saveSyncedSessions() {
   } catch (error) {
     logger.warn('[Hyprnote] Could not save sync cache:', error.message);
   }
+}
+
+/**
+ * Test database connection
+ */
+async function testConnection() {
+  return new Promise((resolve) => {
+    if (!fs.existsSync(HYPRNOTE_DB_PATH)) {
+      resolve({ 
+        success: false, 
+        error: `Database not found at ${HYPRNOTE_DB_PATH}`,
+        path: HYPRNOTE_DB_PATH
+      });
+      return;
+    }
+
+    const db = new sqlite3.Database(HYPRNOTE_DB_PATH, sqlite3.OPEN_READONLY, (err) => {
+      if (err) {
+        resolve({ success: false, error: err.message, path: HYPRNOTE_DB_PATH });
+      } else {
+        db.get('SELECT COUNT(*) as count FROM sessions', (err, row) => {
+          db.close();
+          if (err) {
+            resolve({ success: false, error: err.message, path: HYPRNOTE_DB_PATH });
+          } else {
+            resolve({ 
+              success: true, 
+              sessionCount: row.count,
+              path: HYPRNOTE_DB_PATH
+            });
+          }
+        });
+      }
+    });
+  });
 }
 
 /**
@@ -156,7 +208,7 @@ async function getSessionParticipants(sessionId) {
  */
 async function checkForNewMeetings() {
   try {
-    const sessions = await getRecentSessions(24);
+    const sessions = await getRecentSessions(168); // Last 7 days
     const newSessions = sessions.filter(s => !syncedSessions.has(s.id));
     
     logger.info(`[Hyprnote] Found ${sessions.length} recent sessions, ${newSessions.length} new`);
@@ -194,151 +246,339 @@ function htmlToPlainText(html) {
 }
 
 /**
- * Extract action items from meeting notes
+ * Extract key insights from meeting notes for Customer Brain
  */
-function extractActionItems(memoHtml) {
-  const actionItems = [];
+function extractCustomerBrainInsights(memoHtml, title) {
+  const plainText = htmlToPlainText(memoHtml);
   
-  // Look for common action item patterns
+  // Extract key sections
+  const insights = [];
+  
+  // Look for key topics/outcomes
   const patterns = [
-    /action items?:?\s*(?:<[^>]+>)*([^<]+)/gi,
-    /next steps?:?\s*(?:<[^>]+>)*([^<]+)/gi,
-    /follow[- ]?ups?:?\s*(?:<[^>]+>)*([^<]+)/gi,
-    /<li[^>]*>([^<]*(?:action|follow|schedule|send|contact|call|email)[^<]*)<\/li>/gi
+    { label: 'Key Interest', regex: /interest(?:ed)?\s+in[:\s]*([^.\n]+)/gi },
+    { label: 'Pain Point', regex: /pain\s*point[s]?[:\s]*([^.\n]+)/gi },
+    { label: 'Decision', regex: /decision[:\s]*([^.\n]+)/gi },
+    { label: 'Budget', regex: /budget[:\s]*([^.\n]+)/gi },
+    { label: 'Timeline', regex: /timeline[:\s]*([^.\n]+)/gi },
+    { label: 'Next Step', regex: /next\s*step[s]?[:\s]*([^.\n]+)/gi },
+    { label: 'Action Item', regex: /action\s*item[s]?[:\s]*([^.\n]+)/gi }
   ];
   
-  patterns.forEach(pattern => {
+  patterns.forEach(({ label, regex }) => {
     let match;
-    while ((match = pattern.exec(memoHtml)) !== null) {
-      const item = match[1].trim();
-      if (item && item.length > 5) {
-        actionItems.push(item);
-      }
+    while ((match = regex.exec(plainText)) !== null) {
+      insights.push(`${label}: ${match[1].trim()}`);
     }
   });
   
-  return [...new Set(actionItems)]; // Remove duplicates
+  // Create a condensed summary
+  const summary = plainText.substring(0, 500);
+  
+  return {
+    insights: insights.slice(0, 5), // Top 5 insights
+    summary
+  };
+}
+
+/**
+ * Smart account matching - fuzzy match company name
+ */
+async function findMatchingAccount(conn, companyName) {
+  if (!companyName) return null;
+  
+  // Clean company name
+  const cleanName = companyName
+    .replace(/\s*(Inc\.?|LLC|Ltd\.?|Corp\.?|Corporation|Company|Co\.?)\s*$/i, '')
+    .trim();
+  
+  // Try exact match first
+  let accounts = await conn.query(`
+    SELECT Id, Name, Owner.Name, Customer_Brain__c
+    FROM Account 
+    WHERE Name = '${cleanName.replace(/'/g, "\\'")}'
+    LIMIT 1
+  `);
+  
+  if (accounts.records?.length > 0) {
+    return accounts.records[0];
+  }
+  
+  // Try LIKE match
+  accounts = await conn.query(`
+    SELECT Id, Name, Owner.Name, Customer_Brain__c
+    FROM Account 
+    WHERE Name LIKE '%${cleanName.replace(/'/g, "\\'").substring(0, 20)}%'
+    LIMIT 5
+  `);
+  
+  if (accounts.records?.length > 0) {
+    // Return best match (shortest name that contains the search term)
+    return accounts.records.sort((a, b) => a.Name.length - b.Name.length)[0];
+  }
+  
+  return null;
 }
 
 /**
  * Sync a single session to Salesforce
+ * 
+ * Flow:
+ * 1. Contact: Create if missing, link to Account
+ * 2. Event: Create event on meeting date, attach to Account
+ * 3. Meeting Note: Log on Event record
+ * 4. Customer Brain: Update at Account level with insights
  */
-async function syncSessionToSalesforce(session) {
+async function syncSessionToSalesforce(session, sfConnection = null) {
   try {
     logger.info(`[Hyprnote] Syncing session: ${session.title}`);
     
+    // Get Salesforce connection
+    let conn = sfConnection;
+    if (!conn) {
+      const { getConnection } = require('../salesforce/connection');
+      conn = getConnection();
+    }
+    
     const participants = await getSessionParticipants(session.id);
     const plainTextMemo = htmlToPlainText(session.enhanced_memo_html || session.raw_memo_html);
-    const actionItems = extractActionItems(session.enhanced_memo_html || session.raw_memo_html);
+    const { insights, summary } = extractCustomerBrainInsights(
+      session.enhanced_memo_html || session.raw_memo_html,
+      session.title
+    );
     
-    const conn = getConnection();
+    // Meeting date (use record_start, fallback to created_at)
+    const meetingDate = new Date(session.record_start || session.created_at);
+    const meetingDateStr = meetingDate.toISOString().split('T')[0];
+    const meetingDateDisplay = meetingDate.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
     
-    // Find or create contacts for each participant
-    const contactIds = [];
-    const accountIds = [];
+    // Results tracking
+    const results = {
+      contacts: [],
+      account: null,
+      event: null,
+      customerBrainUpdated: false
+    };
+    
+    // Primary company for account matching
+    const primaryCompany = participants.find(p => p.organization_name)?.organization_name;
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 1: ACCOUNT MATCHING
+    // ═══════════════════════════════════════════════════════════════════════
+    let account = null;
+    if (primaryCompany) {
+      account = await findMatchingAccount(conn, primaryCompany);
+      if (account) {
+        results.account = { id: account.Id, name: account.Name };
+        logger.info(`[Hyprnote] Matched account: ${account.Name}`);
+      } else {
+        logger.info(`[Hyprnote] No account found for: ${primaryCompany}`);
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 2: CONTACT HANDLING
+    // ═══════════════════════════════════════════════════════════════════════
+    let primaryContactId = null;
     
     for (const participant of participants) {
       if (!participant.email) continue;
       
       try {
         // Search for existing contact
-        let contact = await conn.sobject('Contact').findOne({
-          Email: participant.email
-        });
+        const existingContacts = await conn.query(`
+          SELECT Id, FirstName, LastName, Email, AccountId
+          FROM Contact 
+          WHERE Email = '${participant.email.replace(/'/g, "\\'")}'
+          LIMIT 1
+        `);
         
-        if (!contact) {
-          // Search for account by company name
-          let accountId = null;
-          if (participant.organization_name) {
-            const accounts = await conn.sobject('Account').find({
-              Name: { $like: `%${participant.organization_name}%` }
-            }).limit(1);
-            
-            if (accounts.length > 0) {
-              accountId = accounts[0].Id;
-              accountIds.push(accountId);
-            }
-          }
-          
+        let contactId;
+        
+        if (existingContacts.records?.length > 0) {
+          // Contact exists
+          contactId = existingContacts.records[0].Id;
+          results.contacts.push({
+            id: contactId,
+            name: participant.full_name,
+            email: participant.email,
+            created: false
+          });
+          logger.info(`[Hyprnote] Found existing contact: ${participant.full_name}`);
+        } else {
           // Create new contact
+          const nameParts = (participant.full_name || 'Unknown').split(' ');
+          const firstName = nameParts[0] || '';
+          const lastName = nameParts.slice(1).join(' ') || nameParts[0] || 'Unknown';
+          
           const newContact = await conn.sobject('Contact').create({
-            FirstName: participant.full_name?.split(' ')[0] || '',
-            LastName: participant.full_name?.split(' ').slice(1).join(' ') || participant.full_name || 'Unknown',
+            FirstName: firstName,
+            LastName: lastName,
             Email: participant.email,
             Title: participant.job_title || '',
-            AccountId: accountId
+            AccountId: account?.Id || null
           });
           
           if (newContact.success) {
-            contactIds.push(newContact.id);
+            contactId = newContact.id;
+            results.contacts.push({
+              id: contactId,
+              name: participant.full_name,
+              email: participant.email,
+              created: true
+            });
             logger.info(`[Hyprnote] Created contact: ${participant.full_name}`);
           }
-        } else {
-          contactIds.push(contact.Id);
-          if (contact.AccountId) accountIds.push(contact.AccountId);
         }
+        
+        // Track primary contact (first external participant)
+        if (!primaryContactId && contactId) {
+          primaryContactId = contactId;
+        }
+        
       } catch (contactError) {
-        logger.warn(`[Hyprnote] Could not process contact ${participant.email}:`, contactError.message);
+        logger.warn(`[Hyprnote] Error processing contact ${participant.email}:`, contactError.message);
       }
     }
     
-    // Create Task with meeting notes
-    const taskSubject = `Meeting Notes: ${session.title}`;
-    const taskDescription = `
-Meeting: ${session.title}
-Date: ${new Date(session.record_start).toLocaleString()}
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 3: EVENT CREATION (with meeting notes)
+    // ═══════════════════════════════════════════════════════════════════════
+    const eventSubject = `Meeting: ${session.title}`;
+    const eventDescription = `
+MEETING SUMMARY
+═══════════════════════════════════════
+
+Title: ${session.title}
+Date: ${meetingDateDisplay}
 Duration: ${calculateDuration(session.record_start, session.record_end)}
 
 PARTICIPANTS:
 ${participants.map(p => `• ${p.full_name} (${p.email}) - ${p.organization_name || 'N/A'}`).join('\n')}
 
-SUMMARY:
+NOTES:
 ${plainTextMemo}
 
-${actionItems.length > 0 ? `\nACTION ITEMS:\n${actionItems.map(a => `• ${a}`).join('\n')}` : ''}
+${insights.length > 0 ? `\nKEY INSIGHTS:\n${insights.map(i => `• ${i}`).join('\n')}` : ''}
 
----
+───────────────────────────────────────
 Synced from Hyprnote via GTM Brain
     `.trim();
     
-    // Create the task
-    const taskData = {
-      Subject: taskSubject.substring(0, 255),
-      Description: taskDescription.substring(0, 32000),
-      Status: 'Completed',
-      Priority: 'Normal',
-      ActivityDate: new Date(session.record_start).toISOString().split('T')[0],
-      Type: 'Meeting'
-    };
-    
-    // Link to first contact if available
-    if (contactIds.length > 0) {
-      taskData.WhoId = contactIds[0];
-    }
-    
-    // Link to first account if available
-    if (accountIds.length > 0) {
-      taskData.WhatId = accountIds[0];
-    }
-    
-    const task = await conn.sobject('Task').create(taskData);
-    
-    if (task.success) {
-      logger.info(`[Hyprnote] Created Salesforce Task: ${task.id}`);
+    try {
+      // Calculate event times
+      const startDateTime = new Date(session.record_start || session.created_at);
+      const endDateTime = new Date(session.record_end || session.created_at);
       
-      // Mark session as synced
-      syncedSessions.add(session.id);
-      saveSyncedSessions();
+      // If no end time, assume 30 min meeting
+      if (!session.record_end) {
+        endDateTime.setMinutes(endDateTime.getMinutes() + 30);
+      }
       
-      return {
-        success: true,
-        taskId: task.id,
-        contactsProcessed: contactIds.length,
-        sessionId: session.id
+      const eventData = {
+        Subject: eventSubject.substring(0, 255),
+        Description: eventDescription.substring(0, 32000),
+        StartDateTime: startDateTime.toISOString(),
+        EndDateTime: endDateTime.toISOString(),
+        Type: 'Meeting',
+        IsAllDayEvent: false
       };
-    } else {
-      throw new Error('Failed to create Task');
+      
+      // Link to Contact (WhoId)
+      if (primaryContactId) {
+        eventData.WhoId = primaryContactId;
+      }
+      
+      // Link to Account (WhatId) - Note: Can't set both WhoId and WhatId for Events in some orgs
+      // If we have account but no contact, use WhatId
+      if (account?.Id && !primaryContactId) {
+        eventData.WhatId = account.Id;
+      }
+      
+      const event = await conn.sobject('Event').create(eventData);
+      
+      if (event.success) {
+        results.event = { id: event.id, subject: eventSubject };
+        logger.info(`[Hyprnote] Created Event: ${event.id}`);
+      }
+    } catch (eventError) {
+      logger.warn(`[Hyprnote] Error creating Event:`, eventError.message);
+      
+      // Fallback to Task if Event fails
+      try {
+        const taskData = {
+          Subject: eventSubject.substring(0, 255),
+          Description: eventDescription.substring(0, 32000),
+          Status: 'Completed',
+          Priority: 'Normal',
+          ActivityDate: meetingDateStr,
+          Type: 'Meeting'
+        };
+        
+        if (primaryContactId) taskData.WhoId = primaryContactId;
+        if (account?.Id) taskData.WhatId = account.Id;
+        
+        const task = await conn.sobject('Task').create(taskData);
+        if (task.success) {
+          results.event = { id: task.id, subject: eventSubject, type: 'Task (fallback)' };
+          logger.info(`[Hyprnote] Created Task (fallback): ${task.id}`);
+        }
+      } catch (taskError) {
+        logger.error(`[Hyprnote] Error creating Task fallback:`, taskError.message);
+      }
     }
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 4: CUSTOMER BRAIN UPDATE (Account level)
+    // ═══════════════════════════════════════════════════════════════════════
+    if (account?.Id) {
+      try {
+        const existingBrain = account.Customer_Brain__c || '';
+        
+        // Create new brain entry
+        const brainEntry = `
+───────────────────────────────────────
+${meetingDateDisplay} - ${session.title}
+───────────────────────────────────────
+${summary}
+${insights.length > 0 ? `\nKey Insights: ${insights.join(' | ')}` : ''}
+`.trim();
+        
+        // Prepend new entry (most recent first)
+        const updatedBrain = brainEntry + '\n\n' + existingBrain;
+        
+        // Update Account
+        await conn.sobject('Account').update({
+          Id: account.Id,
+          Customer_Brain__c: updatedBrain.substring(0, 131072) // SF long text limit
+        });
+        
+        results.customerBrainUpdated = true;
+        logger.info(`[Hyprnote] Updated Customer_Brain__c for ${account.Name}`);
+        
+      } catch (brainError) {
+        logger.warn(`[Hyprnote] Error updating Customer Brain:`, brainError.message);
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // MARK AS SYNCED
+    // ═══════════════════════════════════════════════════════════════════════
+    syncedSessions.add(session.id);
+    saveSyncedSessions();
+    
+    return {
+      success: true,
+      sessionId: session.id,
+      sessionTitle: session.title,
+      meetingDate: meetingDateDisplay,
+      ...results
+    };
     
   } catch (error) {
     logger.error(`[Hyprnote] Error syncing session ${session.id}:`, error.message);
@@ -373,12 +613,12 @@ function calculateDuration(start, end) {
 /**
  * Sync all new meetings
  */
-async function syncAllNewMeetings() {
+async function syncAllNewMeetings(sfConnection = null) {
   const newSessions = await checkForNewMeetings();
   const results = [];
   
   for (const session of newSessions) {
-    const result = await syncSessionToSalesforce(session);
+    const result = await syncSessionToSalesforce(session, sfConnection);
     results.push(result);
     
     // Small delay between syncs
@@ -397,7 +637,7 @@ let pollingInterval = null;
 /**
  * Start polling for new meetings
  */
-function startPolling(intervalMinutes = 5) {
+function startPolling(intervalMinutes = 5, sfConnection = null) {
   if (pollingInterval) {
     logger.warn('[Hyprnote] Polling already running');
     return;
@@ -406,11 +646,11 @@ function startPolling(intervalMinutes = 5) {
   logger.info(`[Hyprnote] Starting polling every ${intervalMinutes} minutes`);
   
   // Initial check
-  syncAllNewMeetings();
+  syncAllNewMeetings(sfConnection);
   
   // Set up interval
   pollingInterval = setInterval(() => {
-    syncAllNewMeetings();
+    syncAllNewMeetings(sfConnection);
   }, intervalMinutes * 60 * 1000);
 }
 
@@ -434,6 +674,6 @@ module.exports = {
   getSessionParticipants,
   startPolling,
   stopPolling,
+  testConnection,
   HYPRNOTE_DB_PATH
 };
-
