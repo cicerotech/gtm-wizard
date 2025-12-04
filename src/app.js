@@ -314,9 +314,32 @@ class GTMBrainApp {
     }
 
     try {
-      // Start Slack Bolt app
-      await this.app.start();
-      logger.info('⚡️ GTM Brain Slack Bot is running!');
+      // Start Slack Bolt app with retry logic for socket mode connection
+      const maxRetries = 3;
+      let lastError;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          logger.info(`🔌 Attempting Slack connection (attempt ${attempt}/${maxRetries})...`);
+          await this.app.start();
+          logger.info('⚡️ GTM Brain Slack Bot is running!');
+          break; // Connection successful
+        } catch (socketError) {
+          lastError = socketError;
+          logger.warn(`⚠️ Slack connection attempt ${attempt} failed: ${socketError.message}`);
+          
+          if (attempt < maxRetries) {
+            const waitTime = attempt * 2000; // Exponential backoff: 2s, 4s, 6s
+            logger.info(`⏳ Waiting ${waitTime/1000}s before retry...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+          }
+        }
+      }
+      
+      // If all retries failed, throw the last error
+      if (lastError && !this.app.receiver?.client?.isActive?.()) {
+        throw lastError;
+      }
 
       // Start Express server
       const port = process.env.PORT || 3000;
