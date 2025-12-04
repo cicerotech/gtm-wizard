@@ -86,38 +86,67 @@ async function generateAccountDashboard() {
   } catch (e) { console.error('Contracts query error:', e.message); }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // SIGNED DEALS (Last 90 Days) - Grouped by Account.Customer_Type__c
+  // ALL LOGOS - Query Account directly for Customer_Type__c (matches Logos report)
   // Customer_Type__c picklist values: Revenue, Pilot, LOI with $ attached, LOI no $ attached
+  // ═══════════════════════════════════════════════════════════════════════
+  const logosQuery = `
+    SELECT Name, Customer_Type__c, First_Deal_Closed__c
+    FROM Account
+    WHERE Customer_Type__c != null
+    ORDER BY Name
+  `;
+  
+  // Helper to categorize by Customer_Type__c
+  const categorizeByCustomerType = (custType) => {
+    if (!custType) return null;
+    const ct = custType.toLowerCase().trim();
+    if (ct === 'revenue') return 'revenue';
+    if (ct === 'pilot') return 'pilot';
+    if (ct.includes('loi')) return 'loi';
+    return null;
+  };
+  
+  let logosByType = { revenue: [], pilot: [], loi: [] };
+  
+  try {
+    const logosData = await query(logosQuery, true);
+    console.log(`[Dashboard] Logos query returned ${logosData?.records?.length || 0} accounts`);
+    if (logosData?.records) {
+      const uniqueTypes = [...new Set(logosData.records.map(a => a.Customer_Type__c).filter(Boolean))];
+      console.log(`[Dashboard] Customer_Type__c values: ${JSON.stringify(uniqueTypes)}`);
+      
+      logosData.records.forEach(acc => {
+        const category = categorizeByCustomerType(acc.Customer_Type__c);
+        if (category) {
+          logosByType[category].push({
+            accountName: acc.Name,
+            customerType: acc.Customer_Type__c,
+            firstDealClosed: acc.First_Deal_Closed__c
+          });
+        }
+      });
+    }
+    console.log(`[Dashboard] Logos: revenue=${logosByType.revenue.length}, pilot=${logosByType.pilot.length}, loi=${logosByType.loi.length}`);
+  } catch (e) { console.error('Logos query error:', e.message); }
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // SIGNED DEALS (Last 90 Days) - Closed Won opportunities
+  // Uses IsClosed = true AND IsWon = true (consistent with existing project logic)
   // ═══════════════════════════════════════════════════════════════════════
   const signedDealsQuery = `
     SELECT Account.Name, Account.Customer_Type__c, Name, ACV__c, CloseDate, Product_Line__c
     FROM Opportunity
-    WHERE StageName = 'Closed Won' AND CloseDate >= LAST_N_DAYS:90
+    WHERE IsClosed = true AND IsWon = true AND CloseDate >= LAST_N_DAYS:90
     ORDER BY CloseDate DESC
   `;
   
   let signedByType = { revenue: [], pilot: [], loi: [] };
   let signedDealsTotal = { revenue: 0, pilot: 0, loi: 0 };
   
-  // Helper to categorize by Customer_Type__c
-  // Picklist values: Revenue, Pilot, LOI with $ attached, LOI no $ attached
-  const categorizeByCustomerType = (custType) => {
-    if (!custType) return 'pilot'; // Default if not set
-    const ct = custType.toLowerCase().trim();
-    if (ct === 'revenue' || ct === 'arr') return 'revenue';
-    if (ct === 'pilot') return 'pilot';
-    if (ct.includes('loi')) return 'loi';
-    return 'pilot'; // Default fallback
-  };
-  
   try {
     const signedData = await query(signedDealsQuery, true);
-    console.log(`[Dashboard] Signed deals query returned ${signedData?.records?.length || 0} records`);
+    console.log(`[Dashboard] Signed deals (last 90 days) returned ${signedData?.records?.length || 0} records`);
     if (signedData?.records) {
-      // Log unique customer types found
-      const uniqueTypes = [...new Set(signedData.records.map(o => o.Account?.Customer_Type__c).filter(Boolean))];
-      console.log(`[Dashboard] Unique Customer_Type__c values found: ${JSON.stringify(uniqueTypes)}`);
-      
       signedData.records.forEach(opp => {
         const deal = {
           accountName: opp.Account?.Name || 'Unknown',
@@ -129,14 +158,18 @@ async function generateAccountDashboard() {
         };
         
         const category = categorizeByCustomerType(deal.customerType);
-        signedByType[category].push(deal);
-        signedDealsTotal[category] += deal.acv;
+        if (category) {
+          signedByType[category].push(deal);
+          signedDealsTotal[category] += deal.acv;
+        } else {
+          // If no customer type, still include but default to pilot
+          signedByType.pilot.push(deal);
+          signedDealsTotal.pilot += deal.acv;
+        }
       });
     }
-    console.log(`[Dashboard] Categorized: revenue=${signedByType.revenue.length}, pilot=${signedByType.pilot.length}, loi=${signedByType.loi.length}`);
+    console.log(`[Dashboard] Signed: revenue=${signedByType.revenue.length}, pilot=${signedByType.pilot.length}, loi=${signedByType.loi.length}`);
   } catch (e) { console.error('Signed deals query error:', e.message); }
-  
-  // NEW LOGOS BY TYPE will be calculated from accountMap after it's built (uses same data as badges)
   
   // ═══════════════════════════════════════════════════════════════════════
   // Q4 WEIGHTED PIPELINE - Opportunities with Target_LOI_Date__c in Q4
@@ -369,27 +402,6 @@ async function generateAccountDashboard() {
   // Count accounts with/without plans
   const accountsWithPlans = Array.from(accountMap.values()).filter(a => a.hasAccountPlan).length;
   const accountsWithoutPlans = accountMap.size - accountsWithPlans;
-  
-  // ═══════════════════════════════════════════════════════════════════════
-  // ACCOUNTS BY CUSTOMER TYPE (uses same data as badges - accountMap)
-  // This ensures consistency between badges and tiles
-  // ═══════════════════════════════════════════════════════════════════════
-  let accountsByType = { revenue: [], pilot: [], loi: [] };
-  
-  accountMap.forEach(acc => {
-    if (acc.customerType) {
-      const ct = acc.customerType.toLowerCase().trim();
-      if (ct === 'revenue' || ct.includes('revenue') || ct === 'arr') {
-        accountsByType.revenue.push({ accountName: acc.name, customerType: acc.customerType });
-      } else if (ct === 'pilot' || ct.includes('pilot')) {
-        accountsByType.pilot.push({ accountName: acc.name, customerType: acc.customerType });
-      } else if (ct.includes('loi')) {
-        accountsByType.loi.push({ accountName: acc.name, customerType: acc.customerType });
-      }
-    }
-  });
-  
-  console.log(`[Dashboard] Accounts by type: revenue=${accountsByType.revenue.length}, pilot=${accountsByType.pilot.length}, loi=${accountsByType.loi.length}`);
   
   // For "By Stage" tab - group by stage for detailed breakdown
   // FIXED: Include Stage 0 to match all opportunities
@@ -931,22 +943,22 @@ ${early.map((acc, idx) => {
 
 <!-- TAB 4: ACCOUNTS -->
 <div id="account-plans" class="tab-content">
-  <!-- Accounts by Customer Type (uses same data as badges below) -->
+  <!-- Logos by Customer Type (queries Account.Customer_Type__c directly - matches Logos report) -->
   <div style="display: flex; gap: 8px; margin-bottom: 12px;">
     <div style="flex: 1; background: #f0fdf4; padding: 10px; border-radius: 6px;">
       <div style="font-size: 0.65rem; font-weight: 600; color: #16a34a; margin-bottom: 4px;">REVENUE</div>
-      <div style="font-size: 1.25rem; font-weight: 700; color: #166534;">${accountsByType.revenue.length}</div>
-      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${accountsByType.revenue.map(a => a.accountName).join(', ') || '-'}</div>
+      <div style="font-size: 1.25rem; font-weight: 700; color: #166534;">${logosByType.revenue.length}</div>
+      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${logosByType.revenue.map(a => a.accountName).join(', ') || '-'}</div>
     </div>
     <div style="flex: 1; background: #eff6ff; padding: 10px; border-radius: 6px;">
       <div style="font-size: 0.65rem; font-weight: 600; color: #2563eb; margin-bottom: 4px;">PILOT</div>
-      <div style="font-size: 1.25rem; font-weight: 700; color: #1e40af;">${accountsByType.pilot.length}</div>
-      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${accountsByType.pilot.map(a => a.accountName).join(', ') || '-'}</div>
+      <div style="font-size: 1.25rem; font-weight: 700; color: #1e40af;">${logosByType.pilot.length}</div>
+      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${logosByType.pilot.map(a => a.accountName).join(', ') || '-'}</div>
     </div>
     <div style="flex: 1; background: #f5f3ff; padding: 10px; border-radius: 6px;">
       <div style="font-size: 0.65rem; font-weight: 600; color: #7c3aed; margin-bottom: 4px;">LOI</div>
-      <div style="font-size: 1.25rem; font-weight: 700; color: #5b21b6;">${accountsByType.loi.length}</div>
-      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${accountsByType.loi.map(a => a.accountName).join(', ') || '-'}</div>
+      <div style="font-size: 1.25rem; font-weight: 700; color: #5b21b6;">${logosByType.loi.length}</div>
+      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${logosByType.loi.map(a => a.accountName).join(', ') || '-'}</div>
     </div>
   </div>
 
