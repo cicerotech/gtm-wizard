@@ -86,67 +86,35 @@ async function generateAccountDashboard() {
   } catch (e) { console.error('Contracts query error:', e.message); }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // ALL LOGOS - Query Account directly for Customer_Type__c (matches Logos report)
-  // Customer_Type__c picklist values: Revenue, Pilot, LOI with $ attached, LOI no $ attached
-  // ═══════════════════════════════════════════════════════════════════════
-  const logosQuery = `
-    SELECT Name, Customer_Type__c, First_Deal_Closed__c
-    FROM Account
-    WHERE Customer_Type__c != null
-    ORDER BY Name
-  `;
-  
-  // Helper to categorize by Customer_Type__c
-  const categorizeByCustomerType = (custType) => {
-    if (!custType) return null;
-    const ct = custType.toLowerCase().trim();
-    if (ct === 'revenue') return 'revenue';
-    if (ct === 'pilot') return 'pilot';
-    if (ct.includes('loi')) return 'loi';
-    return null;
-  };
-  
-  let logosByType = { revenue: [], pilot: [], loi: [] };
-  
-  try {
-    const logosData = await query(logosQuery, true);
-    console.log(`[Dashboard] Logos query returned ${logosData?.records?.length || 0} accounts`);
-    if (logosData?.records) {
-      const uniqueTypes = [...new Set(logosData.records.map(a => a.Customer_Type__c).filter(Boolean))];
-      console.log(`[Dashboard] Customer_Type__c values: ${JSON.stringify(uniqueTypes)}`);
-      
-      logosData.records.forEach(acc => {
-        const category = categorizeByCustomerType(acc.Customer_Type__c);
-        if (category) {
-          logosByType[category].push({
-            accountName: acc.Name,
-            customerType: acc.Customer_Type__c,
-            firstDealClosed: acc.First_Deal_Closed__c
-          });
-        }
-      });
-    }
-    console.log(`[Dashboard] Logos: revenue=${logosByType.revenue.length}, pilot=${logosByType.pilot.length}, loi=${logosByType.loi.length}`);
-  } catch (e) { console.error('Logos query error:', e.message); }
-  
-  // ═══════════════════════════════════════════════════════════════════════
-  // SIGNED DEALS (Last 90 Days) - Closed Won opportunities
-  // Uses IsClosed = true AND IsWon = true (consistent with existing project logic)
+  // SIGNED DEALS (Last 90 Days) - Categorized by Revenue_Type__c on Opportunity
+  // Revenue_Type__c values: ARR = Recurring/Revenue, Booking = LOI, Project = Pilot
   // ═══════════════════════════════════════════════════════════════════════
   const signedDealsQuery = `
-    SELECT Account.Name, Account.Customer_Type__c, Name, ACV__c, CloseDate, Product_Line__c
+    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c
     FROM Opportunity
     WHERE IsClosed = true AND IsWon = true AND CloseDate >= LAST_N_DAYS:90
     ORDER BY CloseDate DESC
   `;
+  
+  // Categorize by Revenue_Type__c (ARR = Revenue, Booking = LOI, Project = Pilot)
+  const categorizeByRevenueType = (revType) => {
+    if (!revType) return 'pilot';
+    const rt = revType.toLowerCase().trim();
+    if (rt === 'arr' || rt === 'recurring') return 'revenue';
+    if (rt === 'booking') return 'loi';
+    return 'pilot'; // Project or default
+  };
   
   let signedByType = { revenue: [], pilot: [], loi: [] };
   let signedDealsTotal = { revenue: 0, pilot: 0, loi: 0 };
   
   try {
     const signedData = await query(signedDealsQuery, true);
-    console.log(`[Dashboard] Signed deals (last 90 days) returned ${signedData?.records?.length || 0} records`);
+    console.log(`[Dashboard] Signed deals returned ${signedData?.records?.length || 0} records`);
     if (signedData?.records) {
+      const uniqueTypes = [...new Set(signedData.records.map(o => o.Revenue_Type__c).filter(Boolean))];
+      console.log(`[Dashboard] Revenue_Type__c values: ${JSON.stringify(uniqueTypes)}`);
+      
       signedData.records.forEach(opp => {
         const deal = {
           accountName: opp.Account?.Name || 'Unknown',
@@ -154,42 +122,18 @@ async function generateAccountDashboard() {
           closeDate: opp.CloseDate,
           acv: opp.ACV__c || 0,
           product: opp.Product_Line__c || '',
-          customerType: opp.Account?.Customer_Type__c || ''
+          revenueType: opp.Revenue_Type__c || ''
         };
         
-        const category = categorizeByCustomerType(deal.customerType);
-        if (category) {
-          signedByType[category].push(deal);
-          signedDealsTotal[category] += deal.acv;
-        } else {
-          // If no customer type, still include but default to pilot
-          signedByType.pilot.push(deal);
-          signedDealsTotal.pilot += deal.acv;
-        }
+        const category = categorizeByRevenueType(deal.revenueType);
+        signedByType[category].push(deal);
+        signedDealsTotal[category] += deal.acv;
       });
     }
-    console.log(`[Dashboard] Signed: revenue=${signedByType.revenue.length}, pilot=${signedByType.pilot.length}, loi=${signedByType.loi.length}`);
+    console.log(`[Dashboard] Signed by type: revenue=${signedByType.revenue.length}, pilot=${signedByType.pilot.length}, loi=${signedByType.loi.length}`);
   } catch (e) { console.error('Signed deals query error:', e.message); }
   
-  // ═══════════════════════════════════════════════════════════════════════
-  // Q4 WEIGHTED PIPELINE - Opportunities with Target_LOI_Date__c in Q4
-  // ═══════════════════════════════════════════════════════════════════════
-  const q4PipelineQuery = `
-    SELECT SUM(Finance_Weighted_ACV__c) Q4Weighted, SUM(ACV__c) Q4Total
-    FROM Opportunity
-    WHERE Target_LOI_Date__c = THIS_FISCAL_QUARTER
-    AND StageName IN ('Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
-  `;
-  
-  let q4WeightedPipeline = 0;
-  let q4TotalPipeline = 0;
-  try {
-    const q4Data = await query(q4PipelineQuery, true);
-    if (q4Data?.records?.[0]) {
-      q4WeightedPipeline = q4Data.records[0].Q4Weighted || 0;
-      q4TotalPipeline = q4Data.records[0].Q4Total || 0;
-    }
-  } catch (e) { console.error('Q4 pipeline query error:', e.message); }
+  // LOGOS BY TYPE - will be calculated from accountMap after it's built (same source as badges)
   
   // Helper function to format currency
   const formatCurrency = (val) => {
@@ -402,6 +346,27 @@ async function generateAccountDashboard() {
   // Count accounts with/without plans
   const accountsWithPlans = Array.from(accountMap.values()).filter(a => a.hasAccountPlan).length;
   const accountsWithoutPlans = accountMap.size - accountsWithPlans;
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // LOGOS BY TYPE - Uses same Account.Customer_Type__c data as badges below
+  // This ensures tiles match the badges shown next to account names
+  // ═══════════════════════════════════════════════════════════════════════
+  let logosByType = { revenue: [], pilot: [], loi: [] };
+  
+  accountMap.forEach(acc => {
+    if (acc.customerType) {
+      const ct = acc.customerType.toLowerCase().trim();
+      if (ct === 'revenue') {
+        logosByType.revenue.push({ accountName: acc.name, customerType: acc.customerType });
+      } else if (ct === 'pilot') {
+        logosByType.pilot.push({ accountName: acc.name, customerType: acc.customerType });
+      } else if (ct.includes('loi')) {
+        logosByType.loi.push({ accountName: acc.name, customerType: acc.customerType });
+      }
+    }
+  });
+  
+  console.log(`[Dashboard] Logos by type (from accountMap): revenue=${logosByType.revenue.length}, pilot=${logosByType.pilot.length}, loi=${logosByType.loi.length}`);
   
   // For "By Stage" tab - group by stage for detailed breakdown
   // FIXED: Include Stage 0 to match all opportunities
@@ -825,7 +790,7 @@ ${early.map((acc, idx) => {
   <!-- Active Revenue by Account -->
   <div class="stage-section">
     <div class="stage-title">Active Revenue by Account</div>
-    <div class="stage-subtitle">${contractsByAccount.size} accounts • ${formatCurrency(recurringTotal)} ARR • ${formatCurrency(projectTotal)} project</div>
+    <div class="stage-subtitle">${contractsByAccount.size} accounts • ${formatCurrency(recurringTotal)} recurring • ${formatCurrency(projectTotal)} project</div>
   </div>
   
   <div class="section-card">
@@ -838,13 +803,9 @@ ${early.map((acc, idx) => {
         </tr>
       </thead>
       <tbody>
-        ${/* ARR accounts first (sorted by ARR desc), then Project-only accounts */
-          [...Array.from(contractsByAccount.entries())
-            .filter(([name, data]) => data.totalARR > 0)
-            .sort((a, b) => b[1].totalARR - a[1].totalARR),
-          ...Array.from(contractsByAccount.entries())
-            .filter(([name, data]) => data.totalARR === 0 && data.totalProject > 0)
-            .sort((a, b) => b[1].totalProject - a[1].totalProject)]
+        ${Array.from(contractsByAccount.entries())
+          .filter(([name, data]) => data.totalARR > 0 || data.totalProject > 0)
+          .sort((a, b) => (b[1].totalARR + b[1].totalProject) - (a[1].totalARR + a[1].totalProject))
           .slice(0, 25)
           .map(([name, data]) => `
         <tr style="border-bottom: 1px solid #f1f3f5;">
@@ -864,7 +825,7 @@ ${early.map((acc, idx) => {
     ${contractsByAccount.size === 0 ? '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No active contracts</div>' : ''}
   </div>
 
-  <!-- Signed Last 90 Days by Customer Type -->
+  <!-- Signed (Last 90 Days) - By Revenue_Type__c -->
   <div class="stage-section" style="margin-top: 16px;">
     <div class="stage-title">Signed (Last 90 Days)</div>
     <div class="stage-subtitle">${signedByType.revenue.length} revenue • ${signedByType.pilot.length} pilot • ${signedByType.loi.length} LOI</div>
@@ -898,52 +859,20 @@ ${early.map((acc, idx) => {
       </div>
     `).join('')}` : ''}
     
-    ${signedByType.revenue.length === 0 && signedByType.pilot.length === 0 && signedByType.loi.length === 0 ? 
-      '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No closed deals in last 90 days</div>' : ''}
-  </div>
-  
-  <!-- Revenue Forecast -->
-  <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">Revenue + Pipeline Forecast</div>
-  </div>
-  
-  <div class="section-card">
-    <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem;">
-      <tr style="border-bottom: 1px solid #f1f3f5;">
-        <td style="padding: 8px 4px;">Active Revenue (Contracts)</td>
-        <td style="padding: 8px 4px; text-align: right; font-weight: 600;">${formatCurrency(recurringTotal + projectTotal)}</td>
-      </tr>
-      <tr style="border-bottom: 1px solid #f1f3f5;">
-        <td style="padding: 8px 4px;">Q4 Weighted Pipeline</td>
-        <td style="padding: 8px 4px; text-align: right; font-weight: 600;">${formatCurrency(q4WeightedPipeline)}</td>
-      </tr>
-      <tr style="border-bottom: 1px solid #f1f3f5; background: #f0fdf4;">
-        <td style="padding: 8px 4px; font-weight: 600;">Q4 Forecasted Revenue</td>
-        <td style="padding: 8px 4px; text-align: right; font-weight: 600;">${formatCurrency(recurringTotal + projectTotal + q4WeightedPipeline)}</td>
-      </tr>
-      <tr style="border-bottom: 1px solid #f1f3f5;">
-        <td style="padding: 8px 4px;">+ Total Weighted Pipeline</td>
-        <td style="padding: 8px 4px; text-align: right; font-weight: 600;">${formatCurrency(Object.values(stageBreakdown).reduce((sum, s) => sum + s.weightedACV, 0))}</td>
-      </tr>
-      <tr style="border-top: 2px solid #e5e7eb; background: #f9fafb;">
-        <td style="padding: 8px 4px; font-weight: 700;">Total Forecasted Revenue</td>
-        <td style="padding: 8px 4px; text-align: right; font-weight: 700;">${formatCurrency(recurringTotal + projectTotal + Object.values(stageBreakdown).reduce((sum, s) => sum + s.weightedACV, 0))}</td>
-      </tr>
-    </table>
+    ${signedByType.revenue.length === 0 && signedByType.pilot.length === 0 && signedByType.loi.length === 0 ? '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No closed deals in last 90 days</div>' : ''}
   </div>
   
   <!-- Definitions -->
   <div style="margin-top: 16px; padding: 10px; background: #f9fafb; border-radius: 6px; font-size: 0.65rem; color: #6b7280;">
-    <div style="margin-bottom: 4px;"><strong>Revenue:</strong> ARR customers with recurring subscription contracts</div>
-    <div style="margin-bottom: 4px;"><strong>Pilot:</strong> Short-term, one-time project engagement</div>
-    <div style="margin-bottom: 4px;"><strong>LOI:</strong> Signed commitment to spend over defined period</div>
-    <div><strong>Weighted Pipeline:</strong> ACV adjusted by stage probability</div>
+    <div style="margin-bottom: 4px;"><strong>Revenue:</strong> Recurring/ARR contracts (Revenue_Type = ARR)</div>
+    <div style="margin-bottom: 4px;"><strong>Pilot:</strong> Project engagements (Revenue_Type = Project)</div>
+    <div><strong>LOI:</strong> Commitments/Bookings (Revenue_Type = Booking)</div>
   </div>
 </div>
 
 <!-- TAB 4: ACCOUNTS -->
 <div id="account-plans" class="tab-content">
-  <!-- Logos by Customer Type (queries Account.Customer_Type__c directly - matches Logos report) -->
+  <!-- Logos by Customer Type (matches badges shown below) -->
   <div style="display: flex; gap: 8px; margin-bottom: 12px;">
     <div style="flex: 1; background: #f0fdf4; padding: 10px; border-radius: 6px;">
       <div style="font-size: 0.65rem; font-weight: 600; color: #16a34a; margin-bottom: 4px;">REVENUE</div>
@@ -961,7 +890,7 @@ ${early.map((acc, idx) => {
       <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${logosByType.loi.map(a => a.accountName).join(', ') || '-'}</div>
     </div>
   </div>
-
+  
   <div class="stage-section">
     <div class="stage-title">Account Plans & Pipeline</div>
     <div class="stage-subtitle">${accountsWithPlans} have plans • ${accountMap.size - accountsWithPlans} need plans</div>
@@ -1157,4 +1086,3 @@ module.exports = {
   generateAccountDashboard,
   generateLoginPage
 };
-
