@@ -11,7 +11,7 @@ function generateLoginPage() {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Account Status Dashboard</title>
+<title>GTM Dashboard</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fe; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
@@ -27,7 +27,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 </head>
 <body>
 <div class="login-container">
-  <h1>Account Status Dashboard</h1>
+  <h1>GTM Dashboard</h1>
   <p>Enter password to continue</p>
   <form method="POST" action="/account-dashboard">
     <input type="password" name="password" placeholder="Password" required autocomplete="off">
@@ -43,7 +43,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
  * Generate Top Co Overview Tab - Blended Eudia + Johnson Hana data
  * Updated weekly until systems sync
  */
-function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, stageBreakdown, productBreakdown, accountMap, signedByType) {
+function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, stageBreakdown, productBreakdown, accountMap, signedByType, meetingData) {
   const jhSummary = getJohnsonHanaSummary();
   const jhAccounts = getJHAccounts();
   
@@ -60,25 +60,30 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
     return '$' + (val / 1000).toFixed(0) + 'k';
   };
   
-  // Top Eudia accounts (by ACV)
-  const topEudiaAccounts = Array.from(accountMap.values())
-    .sort((a, b) => b.totalACV - a.totalACV)
-    .slice(0, 12);
+  // All Eudia accounts (for expandable view)
+  const allEudiaAccounts = Array.from(accountMap.values())
+    .sort((a, b) => b.totalACV - a.totalACV);
+  const topEudiaAccounts = allEudiaAccounts.slice(0, 10);
   
-  // Top JH accounts (by ACV)
-  const topJHAccounts = jhAccounts.slice(0, 12);
+  // All JH accounts (for expandable view)
+  const allJHAccounts = jhAccounts;
+  const topJHAccounts = allJHAccounts.slice(0, 10);
   
-  // Eudia closed deals (from signedByType - all categories)
-  const eudiaClosedDeals = [...(signedByType?.revenue || []), ...(signedByType?.pilot || []), ...(signedByType?.loi || [])];
-  const eudiaClosedTotal = eudiaClosedDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
+  // Count JH accounts with Eudia Tech
+  const jhEudiaTechAccounts = allJHAccounts.filter(a => a.hasEudiaTech);
+  const jhEudiaTechAccountPct = Math.round((jhEudiaTechAccounts.length / allJHAccounts.length) * 100);
+  
+  // Eudia closed deals - ONLY REVENUE (ARR/Recurring), not LOI/Pilot
+  const eudiaRevenueDeals = signedByType?.revenue || [];
+  const eudiaRevenueTotal = eudiaRevenueDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
   
   // JH closed deals
   const jhClosedDeals = closedWonNovDec;
   const jhClosedTotal = jhSummary.closedTotal;
   
-  // Combined closed
-  const combinedClosedTotal = eudiaClosedTotal + jhClosedTotal;
-  const combinedClosedCount = eudiaClosedDeals.length + jhClosedDeals.length;
+  // Combined closed (using revenue-only for Eudia)
+  const combinedClosedTotal = eudiaRevenueTotal + jhClosedTotal;
+  const combinedClosedCount = eudiaRevenueDeals.length + jhClosedDeals.length;
   
   // Eudia stage order
   const stageOrder = ['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'];
@@ -283,21 +288,34 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   <div class="stage-section" style="margin-top: 16px;">
     <div class="stage-title">Eudia Top Accounts</div>
     <div class="stage-subtitle">${eudiaAccounts} accounts in pipeline</div>
-    <div style="margin-top: 8px;">
+    <div style="margin-top: 8px;" id="eudia-top-accounts">
       ${topEudiaAccounts.map(acc => {
         const products = [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))];
+        const accMeetings = meetingData?.get(acc.accountId) || {};
+        const lastMeetingDate = accMeetings.lastMeeting ? new Date(accMeetings.lastMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
+        const nextMeetingDate = accMeetings.nextMeeting ? new Date(accMeetings.nextMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
+        const legalContacts = accMeetings.contacts ? Array.from(accMeetings.contacts) : [];
         return `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.8rem;">
-          <div>
-            <span style="font-weight: 500;">${acc.name}</span>
-            <div style="font-size: 0.65rem; color: #6b7280;">S${acc.highestStage} • ${acc.opportunities.length} opp${acc.opportunities.length > 1 ? 's' : ''}${products.length ? ' • ' + products.slice(0,2).join(', ') : ''}</div>
+        <details style="border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 6px; overflow: hidden;">
+          <summary style="padding: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb; font-size: 0.8rem;">
+            <div>
+              <span style="font-weight: 500;">${acc.name}</span>
+              <div style="font-size: 0.65rem; color: #6b7280;">S${acc.highestStage} • ${acc.opportunities.length} opp${acc.opportunities.length > 1 ? 's' : ''}${products.length ? ' • ' + products.slice(0,2).join(', ') : ''}</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-weight: 600;">${fmt(acc.totalACV)}</div>
+              <div style="font-size: 0.65rem; color: #6b7280;">Wtd: ${fmt(acc.weightedACV)}</div>
+            </div>
+          </summary>
+          <div style="padding: 10px; font-size: 0.75rem; border-top: 1px solid #e5e7eb;">
+            ${lastMeetingDate || nextMeetingDate ? '<div style="background: #ecfdf5; padding: 6px; border-radius: 4px; margin-bottom: 6px; font-size: 0.7rem; color: #065f46;">' + (lastMeetingDate ? '<div><strong>Last:</strong> ' + lastMeetingDate + '</div>' : '') + (nextMeetingDate ? '<div><strong>Next:</strong> ' + nextMeetingDate + '</div>' : '') + '</div>' : '<div style="font-size: 0.65rem; color: #9ca3af; margin-bottom: 6px;">No meetings on file</div>'}
+            ${legalContacts.length > 0 ? '<div style="font-size: 0.65rem; color: #6b7280; margin-bottom: 6px;"><strong>Legal:</strong> ' + legalContacts.slice(0,2).join(', ') + '</div>' : ''}
+            <div style="font-weight: 600; margin-bottom: 4px;">Opportunities (${acc.opportunities.length}):</div>
+            ${acc.opportunities.map(o => '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><span>' + (o.Product_Line__c || 'TBD') + ' • S' + (o.StageName?.match(/Stage (\\d)/)?.[1] || '?') + '</span><span>$' + ((o.ACV__c || 0) / 1000).toFixed(0) + 'k</span></div>').join('')}
           </div>
-          <div style="text-align: right;">
-            <div style="font-weight: 600;">${fmt(acc.totalACV)}</div>
-            <div style="font-size: 0.65rem; color: #6b7280;">Wtd: ${fmt(acc.weightedACV)}</div>
-          </div>
-        </div>`;
+        </details>`;
       }).join('')}
+      ${allEudiaAccounts.length > 10 ? '<div id="show-more-eudia-topco" style="color: #1e40af; font-weight: 600; cursor: pointer; text-align: center; padding: 8px; background: #eff6ff; border-radius: 6px; margin-top: 6px; font-size: 0.75rem;">+' + (allEudiaAccounts.length - 10) + ' more accounts</div>' : ''}
     </div>
   </div>
   
@@ -306,37 +324,49 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section" style="margin-top: 16px;">
     <div class="stage-title">Johnson Hana Top Accounts</div>
-    <div class="stage-subtitle">${jhSummary.uniqueAccounts} accounts • <span style="color: #047857;">●</span> = Eudia Tech</div>
-    <div style="margin-top: 8px;">
+    <div class="stage-subtitle">${jhSummary.uniqueAccounts} accounts in pipeline</div>
+    <div style="font-size: 0.65rem; color: #047857; margin-bottom: 6px;">
+      <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; vertical-align: middle;"></span>
+      Eudia Tech: ${jhEudiaTechAccounts.length} accounts (${jhEudiaTechAccountPct}%) • ${fmt(jhSummary.eudiaTech.pipelineValue)} ACV (${jhSummary.eudiaTech.percentOfValue}%)
+    </div>
+    <div style="margin-top: 8px;" id="jh-top-accounts">
       ${topJHAccounts.map(acc => {
         const serviceLines = [...new Set(acc.opportunities.map(o => o.mappedServiceLine).filter(s => s))];
         return `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.8rem;">
-          <div>
-            <span style="font-weight: 500;">${acc.name}</span>
-            ${acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-left: 4px; vertical-align: middle;"></span>' : ''}
-            <div style="font-size: 0.65rem; color: #6b7280;">S${acc.highestStage} • ${acc.opportunities.length} opp${acc.opportunities.length > 1 ? 's' : ''}${serviceLines.length ? ' • ' + serviceLines.slice(0,2).join(', ') : ''}</div>
+        <details style="border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 6px; overflow: hidden;">
+          <summary style="padding: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb; font-size: 0.8rem;">
+            <div>
+              <span style="font-weight: 500;">${acc.name}</span>
+              ${acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-left: 4px; vertical-align: middle;"></span>' : ''}
+              <div style="font-size: 0.65rem; color: #6b7280;">S${acc.highestStage} • ${acc.opportunities.length} opp${acc.opportunities.length > 1 ? 's' : ''}${serviceLines.length ? ' • ' + serviceLines.slice(0,2).join(', ') : ''}</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-weight: 600;">${fmt(acc.totalACV)}</div>
+              <div style="font-size: 0.65rem; color: #6b7280;">Wtd: ${fmt(acc.weightedACV)}</div>
+            </div>
+          </summary>
+          <div style="padding: 10px; font-size: 0.75rem; border-top: 1px solid #e5e7eb;">
+            <div style="font-weight: 600; margin-bottom: 4px;">Opportunities (${acc.opportunities.length}):</div>
+            ${acc.opportunities.map(o => '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span>' + (o.mappedServiceLine || 'Other') + '</span>' + (o.eudiaTech ? ' <span style="color: #047857; font-size: 0.6rem;">●</span>' : '') + '<div style="font-size: 0.6rem; color: #9ca3af;">S' + (o.stage?.match(/Stage (\\d)/)?.[1] || '?') + '</div></div><span>$' + ((o.acv || 0) / 1000).toFixed(0) + 'k</span></div>').join('')}
           </div>
-          <div style="text-align: right;">
-            <div style="font-weight: 600;">${fmt(acc.totalACV)}</div>
-            <div style="font-size: 0.65rem; color: #6b7280;">Wtd: ${fmt(acc.weightedACV)}</div>
-          </div>
-        </div>`;
+        </details>`;
       }).join('')}
+      ${allJHAccounts.length > 10 ? '<div id="show-more-jh-topco" style="color: #1e40af; font-weight: 600; cursor: pointer; text-align: center; padding: 8px; background: #eff6ff; border-radius: 6px; margin-top: 6px; font-size: 0.75rem;">+' + (allJHAccounts.length - 10) + ' more accounts</div>' : ''}
     </div>
   </div>
   
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <!-- TOP CO CLOSED WON (NOV-DEC) -->
+  <!-- TOP CO CLOSED WON (NOV-DEC) - Revenue Only -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">Top Co Closed Won (Nov-Dec)</div>
-    <div class="stage-subtitle">${combinedClosedCount} deals • ${fmt(combinedClosedTotal)} total</div>
+    <div class="stage-title">Top Co Closed Revenue (Nov-Dec)</div>
+    <div class="stage-subtitle">${combinedClosedCount} revenue deals • ${fmt(combinedClosedTotal)} total</div>
+    <div style="font-size: 0.6rem; color: #9ca3af; margin-bottom: 6px;">Recurring/ARR deals only. LOI & Pilot excluded.</div>
     
-    <!-- Eudia Closed -->
-    ${eudiaClosedDeals.length > 0 ? `
-    <div style="margin-top: 10px; margin-bottom: 6px; font-size: 0.7rem; font-weight: 600; color: #6b7280;">EUDIA (${eudiaClosedDeals.length} deals • ${fmt(eudiaClosedTotal)})</div>
-    ${eudiaClosedDeals.slice(0, 8).map(deal => `
+    <!-- Eudia Closed - Revenue Only -->
+    ${eudiaRevenueDeals.length > 0 ? `
+    <div style="margin-top: 10px; margin-bottom: 6px; font-size: 0.7rem; font-weight: 600; color: #6b7280;">EUDIA (${eudiaRevenueDeals.length} deals • ${fmt(eudiaRevenueTotal)})</div>
+    ${eudiaRevenueDeals.slice(0, 8).map(deal => `
       <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">
         <div>
           <span style="font-weight: 500;">${deal.accountName}</span>
@@ -344,7 +374,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
         </div>
         <div style="font-weight: 600; color: #16a34a;">${fmt(deal.acv)}</div>
       </div>
-    `).join('')}` : '<div style="margin-top: 8px; font-size: 0.75rem; color: #9ca3af;">No Eudia deals closed in last 90 days</div>'}
+    `).join('')}` : '<div style="margin-top: 8px; font-size: 0.75rem; color: #9ca3af;">No Eudia revenue deals closed in last 90 days</div>'}
     
     <!-- JH Closed -->
     <div style="margin-top: 12px; margin-bottom: 6px; font-size: 0.7rem; font-weight: 600; color: #6b7280;">JOHNSON HANA (${jhClosedDeals.length} deals • ${fmt(jhClosedTotal)})</div>
@@ -361,10 +391,11 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   </div>
   
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <!-- EUDIA PRODUCT LINE BREAKDOWN -->
+  <!-- EUDIA ACTIVE PIPELINE BY PRODUCT LINE -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">Eudia Product Lines</div>
+    <div class="stage-title">Eudia Active Pipeline by Product</div>
+    <div class="stage-subtitle">Open opportunities by product line</div>
     <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
       ${Object.entries(productBreakdown)
         .sort((a, b) => b[1].totalACV - a[1].totalACV)
@@ -379,10 +410,11 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   </div>
   
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <!-- JH SERVICE LINE BREAKDOWN -->
+  <!-- JH ACTIVE PIPELINE BY SERVICE LINE -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">Johnson Hana Service Lines</div>
+    <div class="stage-title">JH Active Pipeline by Service Line</div>
+    <div class="stage-subtitle">Open opportunities by service line</div>
     <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
       ${Object.entries(jhServiceLines)
         .sort((a, b) => b[1].acv - a[1].acv)
@@ -855,7 +887,7 @@ async function generateAccountDashboard() {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Account Status Dashboard</title>
+<title>GTM Dashboard</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fe; padding: 16px; }
@@ -917,8 +949,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 <div class="header">
   <img src="/logo" alt="Eudia" style="max-width: 200px; max-height: 60px; margin-bottom: 20px; display: block;">
-  <h1>Account Status Dashboard</h1>
-  <p>Real-time pipeline overview • Updated ${new Date().toLocaleTimeString()}</p>
+  <h1>GTM Dashboard</h1>
+  <p>Real-time pipeline overview • Updated ${new Date().toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit', hour12: true })} PT</p>
   <a href="/account-dashboard/logout" style="font-size: 0.7rem; color: #9ca3af; text-decoration: none; margin-top: 8px; display: inline-block;">🔒 Logout (end session)</a>
 </div>
 
@@ -1145,7 +1177,7 @@ ${early.map((acc, idx) => {
 </div>
 
 <!-- TAB: TOP CO OVERVIEW (Blended Eudia + Johnson Hana) -->
-${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stageBreakdown, productBreakdown, accountMap, signedByType)}
+${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stageBreakdown, productBreakdown, accountMap, signedByType, meetingData)}
 
 <!-- TAB 2: BY STAGE (Business Lead Overview with expandable stages) -->
 <div id="by-stage" class="tab-content">
