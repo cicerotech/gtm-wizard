@@ -86,25 +86,69 @@ async function generateAccountDashboard() {
   } catch (e) { console.error('Contracts query error:', e.message); }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // NEW LOGOS - Accounts where First_Deal_Closed__c is within last 90 days
-  // Then fetch the opportunity that closed on that date
+  // SIGNED DEALS (Last 90 Days) - Grouped by Revenue Type
+  // Revenue_Type__c: ARR = Recurring, Booking = LOI/Commitment, Project = Project
   // ═══════════════════════════════════════════════════════════════════════
-  const newLogosAccountQuery = `
+  const signedDealsQuery = `
+    SELECT Account.Name, Account.First_Deal_Closed__c, Name, ACV__c, CloseDate, 
+           Revenue_Type__c, Product_Line__c, ContractTerm
+    FROM Opportunity
+    WHERE StageName = 'Closed Won' AND CloseDate >= LAST_N_DAYS:90
+    ORDER BY CloseDate DESC
+  `;
+  
+  let signedByType = { recurring: [], project: [], loi: [] };
+  let signedDealsTotal = { recurring: 0, project: 0, loi: 0 };
+  
+  try {
+    const signedData = await query(signedDealsQuery, true);
+    if (signedData?.records) {
+      signedData.records.forEach(opp => {
+        const deal = {
+          accountName: opp.Account?.Name || 'Unknown',
+          oppName: opp.Name || '',
+          closeDate: opp.CloseDate,
+          acv: opp.ACV__c || 0,
+          product: opp.Product_Line__c || '',
+          term: opp.ContractTerm || 12,
+          revenueType: opp.Revenue_Type__c || 'Unknown'
+        };
+        
+        // Group by Revenue_Type__c
+        if (opp.Revenue_Type__c === 'ARR') {
+          signedByType.recurring.push(deal);
+          signedDealsTotal.recurring += deal.acv;
+        } else if (opp.Revenue_Type__c === 'Booking') {
+          signedByType.loi.push(deal);
+          signedDealsTotal.loi += deal.acv;
+        } else {
+          signedByType.project.push(deal);
+          signedDealsTotal.project += deal.acv;
+        }
+      });
+    }
+  } catch (e) { console.error('Signed deals query error:', e.message); }
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // NEW LOGOS - Accounts where First_Deal_Closed__c is within last 90 days
+  // For the Accounts tab tiles
+  // ═══════════════════════════════════════════════════════════════════════
+  const newLogosQuery = `
     SELECT Id, Name, First_Deal_Closed__c, Customer_Type__c, Owner.Name
     FROM Account
     WHERE First_Deal_Closed__c >= LAST_N_DAYS:90 AND First_Deal_Closed__c != null
     ORDER BY First_Deal_Closed__c DESC
   `;
   
-  let signedLogos = { newLogos: [], expansions: [] };
+  let newLogosByType = { recurring: [], project: [], loi: [] };
   
   try {
-    const newLogoAccounts = await query(newLogosAccountQuery, true);
+    const newLogoAccounts = await query(newLogosQuery, true);
     if (newLogoAccounts?.records) {
-      // For each new logo account, get the opportunity that closed on First_Deal_Closed__c
       for (const acc of newLogoAccounts.records) {
+        // Get the opportunity that closed on First_Deal_Closed__c
         const oppQuery = `
-          SELECT Name, ACV__c, CloseDate, Product_Line__c 
+          SELECT Name, ACV__c, CloseDate, Revenue_Type__c, Product_Line__c
           FROM Opportunity 
           WHERE AccountId = '${acc.Id}' AND StageName = 'Closed Won' AND CloseDate = ${acc.First_Deal_Closed__c}
           LIMIT 1
@@ -112,44 +156,24 @@ async function generateAccountDashboard() {
         try {
           const oppData = await query(oppQuery, true);
           const opp = oppData?.records?.[0];
-          signedLogos.newLogos.push({
+          const logo = {
             accountName: acc.Name,
             closeDate: acc.First_Deal_Closed__c,
             acv: opp?.ACV__c || 0,
-            oppName: opp?.Name || 'N/A',
-            product: opp?.Product_Line__c || '',
-            owner: acc.Owner?.Name || ''
-          });
-        } catch (e) { /* skip if opp query fails */ }
+            revenueType: opp?.Revenue_Type__c || 'Unknown',
+            product: opp?.Product_Line__c || ''
+          };
+          
+          if (opp?.Revenue_Type__c === 'ARR') newLogosByType.recurring.push(logo);
+          else if (opp?.Revenue_Type__c === 'Booking') newLogosByType.loi.push(logo);
+          else newLogosByType.project.push(logo);
+        } catch (e) { /* skip */ }
       }
     }
   } catch (e) { console.error('New logos query error:', e.message); }
   
-  // Expansions: Closed Won in last 90 days for accounts that are NOT new logos
-  const expansionsQuery = `
-    SELECT Account.Name, Account.First_Deal_Closed__c, ACV__c, CloseDate, Name, Product_Line__c
-    FROM Opportunity
-    WHERE StageName = 'Closed Won' AND CloseDate >= LAST_N_DAYS:90
-    ORDER BY CloseDate DESC
-  `;
-  
-  try {
-    const expData = await query(expansionsQuery, true);
-    const newLogoNames = new Set(signedLogos.newLogos.map(n => n.accountName));
-    if (expData?.records) {
-      expData.records.forEach(opp => {
-        // Skip if this account is already in new logos
-        if (newLogoNames.has(opp.Account?.Name)) return;
-        signedLogos.expansions.push({
-          accountName: opp.Account?.Name || 'Unknown',
-          closeDate: opp.CloseDate,
-          acv: opp.ACV__c || 0,
-          oppName: opp.Name || '',
-          product: opp.Product_Line__c || ''
-        });
-      });
-    }
-  } catch (e) { console.error('Expansions query error:', e.message); }
+  // Calculate total weighted pipeline from existing stageBreakdown (will be populated later)
+  // We'll reference this after stageBreakdown is built
   
   // Helper function to format currency
   const formatCurrency = (val) => {
@@ -820,54 +844,116 @@ ${early.map((acc, idx) => {
     ${contractsByAccount.size === 0 ? '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No active contracts</div>' : ''}
   </div>
 
-  <!-- Signed (Last 90 Days) -->
+  <!-- Signed Last 90 Days by Type -->
   <div class="stage-section" style="margin-top: 16px;">
     <div class="stage-title">Signed (Last 90 Days)</div>
-    <div class="stage-subtitle">${signedLogos.newLogos.length} new logos • ${signedLogos.expansions.length} expansions</div>
+    <div class="stage-subtitle">${signedByType.recurring.length} recurring • ${signedByType.project.length} project • ${signedByType.loi.length} commitment</div>
   </div>
   
   <div class="section-card">
-    ${signedLogos.newLogos.length > 0 ? `
-    <div style="font-size: 0.7rem; font-weight: 600; color: #16a34a; margin-bottom: 6px;">NEW LOGOS</div>
-    ${signedLogos.newLogos.map(l => `
-      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.8rem;">
-        <div>
-          <div style="font-weight: 500;">${l.accountName}</div>
-          <div style="font-size: 0.7rem; color: #6b7280;">${l.oppName}</div>
-        </div>
-        <span style="color: #6b7280;">${formatCurrency(l.acv)}</span>
+    ${signedByType.recurring.length > 0 ? `
+    <div style="font-size: 0.7rem; font-weight: 600; color: #16a34a; margin-bottom: 6px;">RECURRING (${formatCurrency(signedDealsTotal.recurring)})</div>
+    ${signedByType.recurring.map(d => `
+      <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">
+        <span>${d.accountName}</span>
+        <span style="color: #6b7280;">${formatCurrency(d.acv)}</span>
       </div>
     `).join('')}` : ''}
     
-    ${signedLogos.expansions.length > 0 ? `
-    <div style="font-size: 0.7rem; font-weight: 600; color: #6b7280; margin-top: 12px; margin-bottom: 6px;">EXPANSIONS</div>
-    ${signedLogos.expansions.slice(0, 10).map(l => `
-      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.8rem;">
-        <div>
-          <div style="font-weight: 500;">${l.accountName}</div>
-          <div style="font-size: 0.7rem; color: #6b7280;">${l.oppName}</div>
-        </div>
-        <span style="color: #6b7280;">${formatCurrency(l.acv)}</span>
+    ${signedByType.project.length > 0 ? `
+    <div style="font-size: 0.7rem; font-weight: 600; color: #2563eb; margin-top: 10px; margin-bottom: 6px;">PROJECT (${formatCurrency(signedDealsTotal.project)})</div>
+    ${signedByType.project.map(d => `
+      <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">
+        <span>${d.accountName}</span>
+        <span style="color: #6b7280;">${formatCurrency(d.acv)}</span>
       </div>
     `).join('')}` : ''}
     
-    ${signedLogos.newLogos.length === 0 && signedLogos.expansions.length === 0 ? '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No closed deals in last 90 days</div>' : ''}
+    ${signedByType.loi.length > 0 ? `
+    <div style="font-size: 0.7rem; font-weight: 600; color: #7c3aed; margin-top: 10px; margin-bottom: 6px;">COMMITMENT/LOI (${formatCurrency(signedDealsTotal.loi)})</div>
+    ${signedByType.loi.map(d => `
+      <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">
+        <span>${d.accountName}</span>
+        <span style="color: #6b7280;">${formatCurrency(d.acv)}</span>
+      </div>
+    `).join('')}` : ''}
+    
+    ${signedByType.recurring.length === 0 && signedByType.project.length === 0 && signedByType.loi.length === 0 ? 
+      '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No closed deals in last 90 days</div>' : ''}
+  </div>
+  
+  <!-- Revenue Forecast -->
+  <div class="stage-section" style="margin-top: 16px;">
+    <div class="stage-title">Revenue + Pipeline Forecast</div>
+  </div>
+  
+  <div class="section-card">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem;">
+      <tr style="border-bottom: 1px solid #f1f3f5;">
+        <td style="padding: 8px 4px;">Active Revenue (Contracts)</td>
+        <td style="padding: 8px 4px; text-align: right; font-weight: 600;">${formatCurrency(recurringTotal + projectTotal)}</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #f1f3f5;">
+        <td style="padding: 8px 4px;">+ Weighted Pipeline</td>
+        <td style="padding: 8px 4px; text-align: right; font-weight: 600;">${formatCurrency(Object.values(stageBreakdown).reduce((sum, s) => sum + s.weightedACV, 0))}</td>
+      </tr>
+      <tr style="border-top: 2px solid #e5e7eb; background: #f9fafb;">
+        <td style="padding: 8px 4px; font-weight: 700;">Forecasted Revenue</td>
+        <td style="padding: 8px 4px; text-align: right; font-weight: 700;">${formatCurrency(recurringTotal + projectTotal + Object.values(stageBreakdown).reduce((sum, s) => sum + s.weightedACV, 0))}</td>
+      </tr>
+    </table>
   </div>
   
   <!-- Definitions -->
-  <div style="margin-top: 16px; padding: 12px; background: #f9fafb; border-radius: 6px; font-size: 0.7rem; color: #6b7280;">
-    <div style="margin-bottom: 6px;"><strong>New Logo:</strong> First deal ever closed with this account (First Deal Closed date within 90 days)</div>
-    <div style="margin-bottom: 6px;"><strong>Expansion:</strong> Additional deal with an existing customer</div>
-    <div style="margin-bottom: 6px;"><strong>ARR:</strong> Annual recurring revenue from subscription contracts</div>
-    <div><strong>Project:</strong> One-time or LOI-based engagements</div>
+  <div style="margin-top: 16px; padding: 10px; background: #f9fafb; border-radius: 6px; font-size: 0.65rem; color: #6b7280;">
+    <div style="margin-bottom: 4px;"><strong>Recurring:</strong> Multi-year subscription contracts (ARR)</div>
+    <div style="margin-bottom: 4px;"><strong>Project:</strong> One-time, short-term engagement (pilot)</div>
+    <div style="margin-bottom: 4px;"><strong>Commitment/LOI:</strong> Signed intent to spend over X months/years</div>
+    <div><strong>Weighted Pipeline:</strong> ACV adjusted by stage probability</div>
   </div>
 </div>
 
 <!-- TAB 4: ACCOUNTS -->
 <div id="account-plans" class="tab-content">
+  <!-- New Logos Summary Tiles -->
+  <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+    <div style="flex: 1; background: #f0fdf4; padding: 10px; border-radius: 6px;">
+      <div style="font-size: 0.65rem; font-weight: 600; color: #16a34a; margin-bottom: 4px;">RECURRING</div>
+      <div style="font-size: 1.25rem; font-weight: 700; color: #166534;">${newLogosByType.recurring.length}</div>
+      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${newLogosByType.recurring.map(l => l.accountName).join(', ') || '-'}</div>
+    </div>
+    <div style="flex: 1; background: #eff6ff; padding: 10px; border-radius: 6px;">
+      <div style="font-size: 0.65rem; font-weight: 600; color: #2563eb; margin-bottom: 4px;">PROJECT</div>
+      <div style="font-size: 1.25rem; font-weight: 700; color: #1e40af;">${newLogosByType.project.length}</div>
+      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${newLogosByType.project.map(l => l.accountName).join(', ') || '-'}</div>
+    </div>
+    <div style="flex: 1; background: #f5f3ff; padding: 10px; border-radius: 6px;">
+      <div style="font-size: 0.65rem; font-weight: 600; color: #7c3aed; margin-bottom: 4px;">LOI</div>
+      <div style="font-size: 1.25rem; font-weight: 700; color: #5b21b6;">${newLogosByType.loi.length}</div>
+      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${newLogosByType.loi.map(l => l.accountName).join(', ') || '-'}</div>
+    </div>
+  </div>
+  
+  <!-- Recently Signed (Collapsed) -->
+  <details style="margin-bottom: 12px;">
+    <summary style="cursor: pointer; font-size: 0.75rem; font-weight: 600; color: #374151; padding: 8px; background: #f9fafb; border-radius: 6px;">
+      New Logos (Last 90 Days) - ${newLogosByType.recurring.length + newLogosByType.project.length + newLogosByType.loi.length} total
+    </summary>
+    <div style="padding: 8px; font-size: 0.7rem;">
+      ${[...newLogosByType.recurring, ...newLogosByType.project, ...newLogosByType.loi]
+        .sort((a, b) => b.closeDate?.localeCompare(a.closeDate) || 0)
+        .map(l => `
+          <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f1f3f5;">
+            <span>${l.accountName}</span>
+            <span style="color: #6b7280;">${l.closeDate ? new Date(l.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : '-'}</span>
+          </div>
+        `).join('') || '<div style="color: #9ca3af; text-align: center; padding: 8px;">No new logos in last 90 days</div>'}
+    </div>
+  </details>
+
   <div class="stage-section">
     <div class="stage-title">Account Plans & Pipeline</div>
-    <div class="stage-subtitle">${accountsWithPlans} have plans • ${accountMap.size - accountsWithPlans} need plans (recently initiated)</div>
+    <div class="stage-subtitle">${accountsWithPlans} have plans • ${accountMap.size - accountsWithPlans} need plans</div>
   </div>
   
   <div class="stage-section">
