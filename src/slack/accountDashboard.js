@@ -43,7 +43,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
  * Generate Top Co Overview Tab - Blended Eudia + Johnson Hana data
  * Updated weekly until systems sync
  */
-function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, stageBreakdown, productBreakdown, accountMap, signedByType, meetingData) {
+function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, stageBreakdown, productBreakdown, accountMap, signedByType, meetingData, novDecRevenue, novDecRevenueTotal) {
   const jhSummary = getJohnsonHanaSummary();
   const jhAccounts = getJHAccounts();
   
@@ -73,9 +73,9 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   const jhEudiaTechAccounts = allJHAccounts.filter(a => a.hasEudiaTech);
   const jhEudiaTechAccountPct = Math.round((jhEudiaTechAccounts.length / allJHAccounts.length) * 100);
   
-  // Eudia closed deals - ONLY REVENUE (ARR/Recurring), not LOI/Pilot
-  const eudiaRevenueDeals = signedByType?.revenue || [];
-  const eudiaRevenueTotal = eudiaRevenueDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
+  // Eudia closed deals - Nov-Dec ONLY, REVENUE (ARR/Recurring) only, not LOI/Pilot
+  const eudiaRevenueDeals = novDecRevenue || [];
+  const eudiaRevenueTotal = novDecRevenueTotal || 0;
   
   // JH closed deals
   const jhClosedDeals = closedWonNovDec;
@@ -312,8 +312,12 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
             ${legalContacts.length > 0 ? '<div style="font-size: 0.65rem; color: #6b7280; margin-bottom: 6px;"><strong>Legal:</strong> ' + legalContacts.slice(0,2).join(', ') + '</div>' : ''}
             <div style="font-weight: 600; margin-bottom: 4px;">Opportunities (${acc.opportunities.length}):</div>
             ${acc.opportunities.map(o => {
-              const stageNum = o.StageName ? o.StageName.match(/Stage\\s*(\\d)/i)?.[1] || o.StageName.match(/(\\d)/)?.[1] || '?' : '?';
-              return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><span>' + (o.Product_Line__c || 'TBD') + ' • S' + stageNum + '</span><span>$' + ((o.ACV__c || 0) / 1000).toFixed(0) + 'k</span></div>';
+              // Extract clean stage name (e.g., "Stage 2 - SQO" → "S2 SQO")
+              const stageMatch = o.StageName ? o.StageName.match(/Stage\\s*(\\d)\\s*[-–]?\\s*(.*)/i) : null;
+              const stageLabel = stageMatch ? 'S' + stageMatch[1] + (stageMatch[2] ? ' ' + stageMatch[2].trim() : '') : (o.StageName || 'TBD');
+              // Format target date if available
+              const targetDate = o.Target_LOI_Date__c ? new Date(o.Target_LOI_Date__c).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
+              return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span style="font-weight: 500;">' + (o.Product_Line__c || 'TBD') + '</span><div style="font-size: 0.6rem; color: #6b7280;">' + stageLabel + (targetDate ? ' • Target: ' + targetDate : '') + '</div></div><span style="font-weight: 600;">$' + ((o.ACV__c || 0) / 1000).toFixed(0) + 'k</span></div>';
             }).join('')}
           </div>
         </details>`;
@@ -351,8 +355,12 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
           <div style="padding: 10px; font-size: 0.75rem; border-top: 1px solid #e5e7eb;">
             <div style="font-weight: 600; margin-bottom: 4px;">Opportunities (${acc.opportunities.length}):</div>
             ${acc.opportunities.map(o => {
-              const jhStageNum = o.stage ? o.stage.match(/Stage\\s*(\\d)/i)?.[1] || o.stage.match(/(\\d)/)?.[1] || String(acc.highestStage) : String(acc.highestStage);
-              return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span>' + (o.mappedServiceLine || 'Other') + '</span>' + (o.eudiaTech ? ' <span style="color: #047857; font-size: 0.6rem;">●</span>' : '') + '<div style="font-size: 0.6rem; color: #9ca3af;">S' + jhStageNum + '</div></div><span>$' + ((o.acv || 0) / 1000).toFixed(0) + 'k</span></div>';
+              // Extract clean stage from JH data (e.g., "Stage 2 SQO" → "S2 SQO")
+              const stageMatch = o.stage ? o.stage.match(/Stage\\s*(\\d)\\s*(.*)/i) : null;
+              const stageLabel = stageMatch ? 'S' + stageMatch[1] + (stageMatch[2] ? ' ' + stageMatch[2].trim() : '') : (o.stage || 'TBD');
+              // Format target date if available
+              const targetDate = o.closeDate ? new Date(o.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
+              return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span style="font-weight: 500;">' + (o.mappedServiceLine || 'Other') + '</span>' + (o.eudiaTech ? ' <span style="color: #047857; font-size: 0.6rem;">●</span>' : '') + '<div style="font-size: 0.6rem; color: #6b7280;">' + stageLabel + (targetDate ? ' • Target: ' + targetDate : '') + '</div></div><span style="font-weight: 600;">$' + ((o.acv || 0) / 1000).toFixed(0) + 'k</span></div>';
             }).join('')}
           </div>
         </details>`;
@@ -484,12 +492,19 @@ async function generateAccountDashboard() {
   } catch (e) { console.error('Contracts query error:', e.message); }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // SIGNED DEALS (Last 90 Days) - Only 'Stage 6. Closed(Won)' opportunities
+  // ALL CLOSED WON DEALS - Only 'Stage 6. Closed(Won)' opportunities
   // Excludes deals from other closed stages (like Glanbia, OpenAI, etc.)
   // Categorized by Revenue_Type__c: ARR = Revenue, Booking = LOI, Project = Pilot
   // ═══════════════════════════════════════════════════════════════════════
-  // Query deals closed since Nov 1, 2024
   const signedDealsQuery = `
+    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName
+    FROM Opportunity
+    WHERE StageName = 'Stage 6. Closed(Won)'
+    ORDER BY CloseDate DESC
+  `;
+  
+  // Nov-Dec deals only (for Top Co Closed Revenue section)
+  const novDecDealsQuery = `
     SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName
     FROM Opportunity
     WHERE StageName = 'Stage 6. Closed(Won)' AND CloseDate >= 2024-11-01
@@ -507,10 +522,13 @@ async function generateAccountDashboard() {
   
   let signedByType = { revenue: [], pilot: [], loi: [] };
   let signedDealsTotal = { revenue: 0, pilot: 0, loi: 0 };
+  // Nov-Dec deals for Top Co section (revenue only)
+  let novDecRevenue = [];
+  let novDecRevenueTotal = 0;
   
   try {
     const signedData = await query(signedDealsQuery, true);
-    console.log(`[Dashboard] Signed deals (Stage 6. Closed(Won)) returned ${signedData?.records?.length || 0} records`);
+    console.log(`[Dashboard] All Closed Won (Stage 6) returned ${signedData?.records?.length || 0} records`);
     if (signedData?.records) {
       const uniqueTypes = [...new Set(signedData.records.map(o => o.Revenue_Type__c).filter(Boolean))];
       console.log(`[Dashboard] Revenue_Type__c values: ${JSON.stringify(uniqueTypes)}`);
@@ -530,7 +548,28 @@ async function generateAccountDashboard() {
         signedDealsTotal[category] += deal.acv;
       });
     }
-    console.log(`[Dashboard] Signed by type: revenue=${signedByType.revenue.length}, pilot=${signedByType.pilot.length}, loi=${signedByType.loi.length}`);
+    console.log(`[Dashboard] All Closed Won by type: revenue=${signedByType.revenue.length}, pilot=${signedByType.pilot.length}, loi=${signedByType.loi.length}`);
+    
+    // Query Nov-Dec deals separately for Top Co section
+    const novDecData = await query(novDecDealsQuery, true);
+    console.log(`[Dashboard] Nov-Dec Closed Won returned ${novDecData?.records?.length || 0} records`);
+    if (novDecData?.records) {
+      novDecData.records.forEach(opp => {
+        const revType = (opp.Revenue_Type__c || '').toLowerCase().trim();
+        // Only include recurring/ARR deals for revenue section
+        if (revType === 'arr' || revType === 'recurring') {
+          novDecRevenue.push({
+            accountName: opp.Account?.Name || 'Unknown',
+            oppName: opp.Name || '',
+            closeDate: opp.CloseDate,
+            acv: opp.ACV__c || 0,
+            product: opp.Product_Line__c || ''
+          });
+          novDecRevenueTotal += opp.ACV__c || 0;
+        }
+      });
+    }
+    console.log(`[Dashboard] Nov-Dec Revenue deals: ${novDecRevenue.length}, total: $${novDecRevenueTotal}`);
   } catch (e) { console.error('Signed deals query error:', e.message); }
   
   // ═══════════════════════════════════════════════════════════════════════
@@ -687,9 +726,11 @@ async function generateAccountDashboard() {
   // Query accounts with opportunities AND get Account IDs
   // FIXED: Include ALL stages (0-4) to match SF report totals
   // FIXED: Use Owner.Name (Opportunity Owner) not Account.Owner.Name (Account Owner)
+  // ADDED: Target_LOI_Date__c for target sign date display
   const accountQuery = `SELECT Account.Id, Account.Name, Owner.Name, Account.Is_New_Logo__c,
                                Account.Account_Plan_s__c, Account.Customer_Type__c,
-                               Name, StageName, ACV__c, Finance_Weighted_ACV__c, Product_Line__c
+                               Name, StageName, ACV__c, Finance_Weighted_ACV__c, Product_Line__c,
+                               Target_LOI_Date__c
                         FROM Opportunity
                         WHERE IsClosed = false
                           AND StageName IN ('Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
@@ -1023,9 +1064,9 @@ ${late.map((acc, idx) => {
         }
         
         const acvDisplay = acc.totalACV >= 1000000 
-          ? '$' + (acc.totalACV / 1000000).toFixed(1) + 'M' 
+          ? '$' + (acc.totalACV / 1000000).toFixed(1) + 'm' 
           : acc.totalACV >= 1000 
-            ? '$' + (acc.totalACV / 1000).toFixed(0) + 'K' 
+            ? '$' + (acc.totalACV / 1000).toFixed(0) + 'k' 
             : '$' + acc.totalACV.toFixed(0);
         
         const accountMeetings = meetingData.get(acc.accountId) || {};
@@ -1082,9 +1123,9 @@ ${mid.map((acc, idx) => {
         }
         
         const acvDisplay = acc.totalACV >= 1000000 
-          ? '$' + (acc.totalACV / 1000000).toFixed(1) + 'M' 
+          ? '$' + (acc.totalACV / 1000000).toFixed(1) + 'm' 
           : acc.totalACV >= 1000 
-            ? '$' + (acc.totalACV / 1000).toFixed(0) + 'K' 
+            ? '$' + (acc.totalACV / 1000).toFixed(0) + 'k' 
             : '$' + acc.totalACV.toFixed(0);
         
         const accountMeetings = meetingData.get(acc.accountId) || {};
@@ -1168,7 +1209,7 @@ ${mid.map((acc, idx) => {
 </div>
 
 <!-- TAB: TOP CO OVERVIEW (Blended Eudia + Johnson Hana) -->
-${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stageBreakdown, productBreakdown, accountMap, signedByType, meetingData)}
+${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stageBreakdown, productBreakdown, accountMap, signedByType, meetingData, novDecRevenue, novDecRevenueTotal)}
 
 <!-- TAB 3: REVENUE -->
 <div id="revenue" class="tab-content">
@@ -1230,10 +1271,11 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     ${contractsByAccount.size === 0 ? '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No active contracts</div>' : ''}
   </div>
 
-  <!-- Signed (Last 90 Days) - By Revenue_Type__c -->
+  <!-- All Closed Won Deals - By Revenue_Type__c -->
   <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">Signed (Last 90 Days)</div>
+    <div class="stage-title">All Closed Won</div>
     <div class="stage-subtitle">${signedByType.revenue.length} revenue • ${signedByType.pilot.length} pilot • ${signedByType.loi.length} LOI</div>
+    <div style="font-size: 0.6rem; color: #9ca3af; margin-bottom: 4px;">Stage 6. Closed(Won) deals only</div>
   </div>
   
   <div class="section-card">
@@ -1315,11 +1357,13 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
       <div class="stage-title" style="margin: 0;">Account Plans & Pipeline</div>
       <div style="font-size: 0.7rem; color: #6b7280;">${accountsWithPlans} have plans • ${accountMap.size - accountsWithPlans} need plans</div>
     </div>
-    <div style="display: flex; gap: 16px; font-size: 0.6rem; color: #9ca3af;">
+    <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.6rem; color: #9ca3af;">
       <span><strong style="color: #16a34a;">Revenue</strong> = ARR customer</span>
       <span><strong style="color: #2563eb;">Pilot</strong> = Active project</span>
       <span><strong style="color: #6b7280;">LOI</strong> = Signed commitment</span>
       <span><strong style="color: #065f46;">New</strong> = First deal &lt;90 days</span>
+      <span><strong style="color: #374151;">Marquee</strong> = $1m+ ARR potential</span>
+      <span><strong style="color: #075985;">Velocity</strong> = ~$150k ARR, fast cycle</span>
     </div>
   </div>
   
