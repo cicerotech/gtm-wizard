@@ -86,19 +86,19 @@ async function generateAccountDashboard() {
   } catch (e) { console.error('Contracts query error:', e.message); }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // SIGNED DEALS (Last 90 Days) - Grouped by Revenue Type
-  // Revenue_Type__c: ARR = Recurring, Booking = LOI/Commitment, Project = Project
+  // SIGNED DEALS (Last 90 Days) - Grouped by Account.Customer_Type__c
+  // Customer_Type__c values: Revenue, Pilot, LOI with $ attached, LOI no $ attached
   // ═══════════════════════════════════════════════════════════════════════
   const signedDealsQuery = `
-    SELECT Account.Name, Account.First_Deal_Closed__c, Name, ACV__c, CloseDate, 
-           Revenue_Type__c, Product_Line__c, ContractTerm
+    SELECT Account.Name, Account.Customer_Type__c, Name, ACV__c, CloseDate, Product_Line__c
     FROM Opportunity
     WHERE StageName = 'Closed Won' AND CloseDate >= LAST_N_DAYS:90
     ORDER BY CloseDate DESC
   `;
   
-  let signedByType = { recurring: [], project: [], loi: [] };
-  let signedDealsTotal = { recurring: 0, project: 0, loi: 0 };
+  // revenue = ARR customers, pilot = project/pilot, loi = LOI commitments
+  let signedByType = { revenue: [], pilot: [], loi: [] };
+  let signedDealsTotal = { revenue: 0, pilot: 0, loi: 0 };
   
   try {
     const signedData = await query(signedDealsQuery, true);
@@ -110,20 +110,24 @@ async function generateAccountDashboard() {
           closeDate: opp.CloseDate,
           acv: opp.ACV__c || 0,
           product: opp.Product_Line__c || '',
-          term: opp.ContractTerm || 12,
-          revenueType: opp.Revenue_Type__c || 'Unknown'
+          customerType: opp.Account?.Customer_Type__c || ''
         };
         
-        // Group by Revenue_Type__c
-        if (opp.Revenue_Type__c === 'ARR') {
-          signedByType.recurring.push(deal);
-          signedDealsTotal.recurring += deal.acv;
-        } else if (opp.Revenue_Type__c === 'Booking') {
+        // Group by Account.Customer_Type__c picklist values
+        const custType = (deal.customerType || '').toLowerCase();
+        if (custType === 'revenue') {
+          signedByType.revenue.push(deal);
+          signedDealsTotal.revenue += deal.acv;
+        } else if (custType === 'pilot') {
+          signedByType.pilot.push(deal);
+          signedDealsTotal.pilot += deal.acv;
+        } else if (custType.includes('loi')) {
           signedByType.loi.push(deal);
           signedDealsTotal.loi += deal.acv;
         } else {
-          signedByType.project.push(deal);
-          signedDealsTotal.project += deal.acv;
+          // Default to pilot if no customer type set
+          signedByType.pilot.push(deal);
+          signedDealsTotal.pilot += deal.acv;
         }
       });
     }
@@ -131,7 +135,7 @@ async function generateAccountDashboard() {
   
   // ═══════════════════════════════════════════════════════════════════════
   // NEW LOGOS - Accounts where First_Deal_Closed__c is within last 90 days
-  // For the Accounts tab tiles
+  // Categorized by Account.Customer_Type__c
   // ═══════════════════════════════════════════════════════════════════════
   const newLogosQuery = `
     SELECT Id, Name, First_Deal_Closed__c, Customer_Type__c, Owner.Name
@@ -140,40 +144,47 @@ async function generateAccountDashboard() {
     ORDER BY First_Deal_Closed__c DESC
   `;
   
-  let newLogosByType = { recurring: [], project: [], loi: [] };
+  let newLogosByType = { revenue: [], pilot: [], loi: [] };
   
   try {
     const newLogoAccounts = await query(newLogosQuery, true);
     if (newLogoAccounts?.records) {
-      for (const acc of newLogoAccounts.records) {
-        // Get the opportunity that closed on First_Deal_Closed__c
-        const oppQuery = `
-          SELECT Name, ACV__c, CloseDate, Revenue_Type__c, Product_Line__c
-          FROM Opportunity 
-          WHERE AccountId = '${acc.Id}' AND StageName = 'Closed Won' AND CloseDate = ${acc.First_Deal_Closed__c}
-          LIMIT 1
-        `;
-        try {
-          const oppData = await query(oppQuery, true);
-          const opp = oppData?.records?.[0];
-          const logo = {
-            accountName: acc.Name,
-            closeDate: acc.First_Deal_Closed__c,
-            acv: opp?.ACV__c || 0,
-            revenueType: opp?.Revenue_Type__c || 'Unknown',
-            product: opp?.Product_Line__c || ''
-          };
-          
-          if (opp?.Revenue_Type__c === 'ARR') newLogosByType.recurring.push(logo);
-          else if (opp?.Revenue_Type__c === 'Booking') newLogosByType.loi.push(logo);
-          else newLogosByType.project.push(logo);
-        } catch (e) { /* skip */ }
-      }
+      newLogoAccounts.records.forEach(acc => {
+        const logo = {
+          accountName: acc.Name,
+          closeDate: acc.First_Deal_Closed__c,
+          customerType: acc.Customer_Type__c || ''
+        };
+        
+        // Categorize by Customer_Type__c
+        const custType = (logo.customerType || '').toLowerCase();
+        if (custType === 'revenue') newLogosByType.revenue.push(logo);
+        else if (custType === 'pilot') newLogosByType.pilot.push(logo);
+        else if (custType.includes('loi')) newLogosByType.loi.push(logo);
+        else newLogosByType.pilot.push(logo); // Default
+      });
     }
   } catch (e) { console.error('New logos query error:', e.message); }
   
-  // Calculate total weighted pipeline from existing stageBreakdown (will be populated later)
-  // We'll reference this after stageBreakdown is built
+  // ═══════════════════════════════════════════════════════════════════════
+  // Q4 WEIGHTED PIPELINE - Opportunities with Target_LOI_Date__c in Q4
+  // ═══════════════════════════════════════════════════════════════════════
+  const q4PipelineQuery = `
+    SELECT SUM(Finance_Weighted_ACV__c) Q4Weighted, SUM(ACV__c) Q4Total
+    FROM Opportunity
+    WHERE Target_LOI_Date__c = THIS_FISCAL_QUARTER
+    AND StageName IN ('Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
+  `;
+  
+  let q4WeightedPipeline = 0;
+  let q4TotalPipeline = 0;
+  try {
+    const q4Data = await query(q4PipelineQuery, true);
+    if (q4Data?.records?.[0]) {
+      q4WeightedPipeline = q4Data.records[0].Q4Weighted || 0;
+      q4TotalPipeline = q4Data.records[0].Q4Total || 0;
+    }
+  } catch (e) { console.error('Q4 pipeline query error:', e.message); }
   
   // Helper function to format currency
   const formatCurrency = (val) => {
@@ -809,7 +820,7 @@ ${early.map((acc, idx) => {
   <!-- Active Revenue by Account -->
   <div class="stage-section">
     <div class="stage-title">Active Revenue by Account</div>
-    <div class="stage-subtitle">${contractsByAccount.size} accounts • ${formatCurrency(recurringTotal)} recurring • ${formatCurrency(projectTotal)} project</div>
+    <div class="stage-subtitle">${contractsByAccount.size} accounts • ${formatCurrency(recurringTotal)} ARR • ${formatCurrency(projectTotal)} project</div>
   </div>
   
   <div class="section-card">
@@ -822,9 +833,13 @@ ${early.map((acc, idx) => {
         </tr>
       </thead>
       <tbody>
-        ${Array.from(contractsByAccount.entries())
-          .filter(([name, data]) => data.totalARR > 0 || data.totalProject > 0)
-          .sort((a, b) => (b[1].totalARR + b[1].totalProject) - (a[1].totalARR + a[1].totalProject))
+        ${/* ARR accounts first (sorted by ARR desc), then Project-only accounts */
+          [...Array.from(contractsByAccount.entries())
+            .filter(([name, data]) => data.totalARR > 0)
+            .sort((a, b) => b[1].totalARR - a[1].totalARR),
+          ...Array.from(contractsByAccount.entries())
+            .filter(([name, data]) => data.totalARR === 0 && data.totalProject > 0)
+            .sort((a, b) => b[1].totalProject - a[1].totalProject)]
           .slice(0, 25)
           .map(([name, data]) => `
         <tr style="border-bottom: 1px solid #f1f3f5;">
@@ -844,25 +859,25 @@ ${early.map((acc, idx) => {
     ${contractsByAccount.size === 0 ? '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No active contracts</div>' : ''}
   </div>
 
-  <!-- Signed Last 90 Days by Type -->
+  <!-- Signed Last 90 Days by Customer Type -->
   <div class="stage-section" style="margin-top: 16px;">
     <div class="stage-title">Signed (Last 90 Days)</div>
-    <div class="stage-subtitle">${signedByType.recurring.length} recurring • ${signedByType.project.length} project • ${signedByType.loi.length} commitment</div>
+    <div class="stage-subtitle">${signedByType.revenue.length} revenue • ${signedByType.pilot.length} pilot • ${signedByType.loi.length} LOI</div>
   </div>
   
   <div class="section-card">
-    ${signedByType.recurring.length > 0 ? `
-    <div style="font-size: 0.7rem; font-weight: 600; color: #16a34a; margin-bottom: 6px;">RECURRING (${formatCurrency(signedDealsTotal.recurring)})</div>
-    ${signedByType.recurring.map(d => `
+    ${signedByType.revenue.length > 0 ? `
+    <div style="font-size: 0.7rem; font-weight: 600; color: #16a34a; margin-bottom: 6px;">REVENUE (${formatCurrency(signedDealsTotal.revenue)})</div>
+    ${signedByType.revenue.map(d => `
       <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">
         <span>${d.accountName}</span>
         <span style="color: #6b7280;">${formatCurrency(d.acv)}</span>
       </div>
     `).join('')}` : ''}
     
-    ${signedByType.project.length > 0 ? `
-    <div style="font-size: 0.7rem; font-weight: 600; color: #2563eb; margin-top: 10px; margin-bottom: 6px;">PROJECT (${formatCurrency(signedDealsTotal.project)})</div>
-    ${signedByType.project.map(d => `
+    ${signedByType.pilot.length > 0 ? `
+    <div style="font-size: 0.7rem; font-weight: 600; color: #2563eb; margin-top: 10px; margin-bottom: 6px;">PILOT (${formatCurrency(signedDealsTotal.pilot)})</div>
+    ${signedByType.pilot.map(d => `
       <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">
         <span>${d.accountName}</span>
         <span style="color: #6b7280;">${formatCurrency(d.acv)}</span>
@@ -870,7 +885,7 @@ ${early.map((acc, idx) => {
     `).join('')}` : ''}
     
     ${signedByType.loi.length > 0 ? `
-    <div style="font-size: 0.7rem; font-weight: 600; color: #7c3aed; margin-top: 10px; margin-bottom: 6px;">COMMITMENT/LOI (${formatCurrency(signedDealsTotal.loi)})</div>
+    <div style="font-size: 0.7rem; font-weight: 600; color: #7c3aed; margin-top: 10px; margin-bottom: 6px;">LOI (${formatCurrency(signedDealsTotal.loi)})</div>
     ${signedByType.loi.map(d => `
       <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">
         <span>${d.accountName}</span>
@@ -878,7 +893,7 @@ ${early.map((acc, idx) => {
       </div>
     `).join('')}` : ''}
     
-    ${signedByType.recurring.length === 0 && signedByType.project.length === 0 && signedByType.loi.length === 0 ? 
+    ${signedByType.revenue.length === 0 && signedByType.pilot.length === 0 && signedByType.loi.length === 0 ? 
       '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No closed deals in last 90 days</div>' : ''}
   </div>
   
@@ -894,11 +909,19 @@ ${early.map((acc, idx) => {
         <td style="padding: 8px 4px; text-align: right; font-weight: 600;">${formatCurrency(recurringTotal + projectTotal)}</td>
       </tr>
       <tr style="border-bottom: 1px solid #f1f3f5;">
-        <td style="padding: 8px 4px;">+ Weighted Pipeline</td>
+        <td style="padding: 8px 4px;">Q4 Weighted Pipeline</td>
+        <td style="padding: 8px 4px; text-align: right; font-weight: 600;">${formatCurrency(q4WeightedPipeline)}</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #f1f3f5; background: #f0fdf4;">
+        <td style="padding: 8px 4px; font-weight: 600;">Q4 Forecasted Revenue</td>
+        <td style="padding: 8px 4px; text-align: right; font-weight: 600;">${formatCurrency(recurringTotal + projectTotal + q4WeightedPipeline)}</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #f1f3f5;">
+        <td style="padding: 8px 4px;">+ Total Weighted Pipeline</td>
         <td style="padding: 8px 4px; text-align: right; font-weight: 600;">${formatCurrency(Object.values(stageBreakdown).reduce((sum, s) => sum + s.weightedACV, 0))}</td>
       </tr>
       <tr style="border-top: 2px solid #e5e7eb; background: #f9fafb;">
-        <td style="padding: 8px 4px; font-weight: 700;">Forecasted Revenue</td>
+        <td style="padding: 8px 4px; font-weight: 700;">Total Forecasted Revenue</td>
         <td style="padding: 8px 4px; text-align: right; font-weight: 700;">${formatCurrency(recurringTotal + projectTotal + Object.values(stageBreakdown).reduce((sum, s) => sum + s.weightedACV, 0))}</td>
       </tr>
     </table>
@@ -906,9 +929,9 @@ ${early.map((acc, idx) => {
   
   <!-- Definitions -->
   <div style="margin-top: 16px; padding: 10px; background: #f9fafb; border-radius: 6px; font-size: 0.65rem; color: #6b7280;">
-    <div style="margin-bottom: 4px;"><strong>Recurring:</strong> Multi-year subscription contracts (ARR)</div>
-    <div style="margin-bottom: 4px;"><strong>Project:</strong> One-time, short-term engagement (pilot)</div>
-    <div style="margin-bottom: 4px;"><strong>Commitment/LOI:</strong> Signed intent to spend over X months/years</div>
+    <div style="margin-bottom: 4px;"><strong>Revenue:</strong> ARR customers with recurring subscription contracts</div>
+    <div style="margin-bottom: 4px;"><strong>Pilot:</strong> Short-term, one-time project engagement</div>
+    <div style="margin-bottom: 4px;"><strong>LOI:</strong> Signed commitment to spend over defined period</div>
     <div><strong>Weighted Pipeline:</strong> ACV adjusted by stage probability</div>
   </div>
 </div>
@@ -918,14 +941,14 @@ ${early.map((acc, idx) => {
   <!-- New Logos Summary Tiles -->
   <div style="display: flex; gap: 8px; margin-bottom: 12px;">
     <div style="flex: 1; background: #f0fdf4; padding: 10px; border-radius: 6px;">
-      <div style="font-size: 0.65rem; font-weight: 600; color: #16a34a; margin-bottom: 4px;">RECURRING</div>
-      <div style="font-size: 1.25rem; font-weight: 700; color: #166534;">${newLogosByType.recurring.length}</div>
-      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${newLogosByType.recurring.map(l => l.accountName).join(', ') || '-'}</div>
+      <div style="font-size: 0.65rem; font-weight: 600; color: #16a34a; margin-bottom: 4px;">REVENUE</div>
+      <div style="font-size: 1.25rem; font-weight: 700; color: #166534;">${newLogosByType.revenue.length}</div>
+      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${newLogosByType.revenue.map(l => l.accountName).join(', ') || '-'}</div>
     </div>
     <div style="flex: 1; background: #eff6ff; padding: 10px; border-radius: 6px;">
-      <div style="font-size: 0.65rem; font-weight: 600; color: #2563eb; margin-bottom: 4px;">PROJECT</div>
-      <div style="font-size: 1.25rem; font-weight: 700; color: #1e40af;">${newLogosByType.project.length}</div>
-      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${newLogosByType.project.map(l => l.accountName).join(', ') || '-'}</div>
+      <div style="font-size: 0.65rem; font-weight: 600; color: #2563eb; margin-bottom: 4px;">PILOT</div>
+      <div style="font-size: 1.25rem; font-weight: 700; color: #1e40af;">${newLogosByType.pilot.length}</div>
+      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${newLogosByType.pilot.map(l => l.accountName).join(', ') || '-'}</div>
     </div>
     <div style="flex: 1; background: #f5f3ff; padding: 10px; border-radius: 6px;">
       <div style="font-size: 0.65rem; font-weight: 600; color: #7c3aed; margin-bottom: 4px;">LOI</div>
@@ -937,10 +960,10 @@ ${early.map((acc, idx) => {
   <!-- Recently Signed (Collapsed) -->
   <details style="margin-bottom: 12px;">
     <summary style="cursor: pointer; font-size: 0.75rem; font-weight: 600; color: #374151; padding: 8px; background: #f9fafb; border-radius: 6px;">
-      New Logos (Last 90 Days) - ${newLogosByType.recurring.length + newLogosByType.project.length + newLogosByType.loi.length} total
+      New Logos (Last 90 Days) - ${newLogosByType.revenue.length + newLogosByType.pilot.length + newLogosByType.loi.length} total
     </summary>
     <div style="padding: 8px; font-size: 0.7rem;">
-      ${[...newLogosByType.recurring, ...newLogosByType.project, ...newLogosByType.loi]
+      ${[...newLogosByType.revenue, ...newLogosByType.pilot, ...newLogosByType.loi]
         .sort((a, b) => b.closeDate?.localeCompare(a.closeDate) || 0)
         .map(l => `
           <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f1f3f5;">
