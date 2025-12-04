@@ -957,10 +957,15 @@ ${early.map((acc, idx) => {
 <div id="account-plans" class="tab-content">
   <!-- Logos by Customer Type (matches badges shown below) -->
   <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-    <div style="flex: 1; background: #f0fdf4; padding: 10px; border-radius: 6px;">
-      <div style="font-size: 0.65rem; font-weight: 600; color: #16a34a; margin-bottom: 4px;">REVENUE</div>
+    <div style="flex: 1; background: #f0fdf4; padding: 10px; border-radius: 6px; position: relative;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div style="font-size: 0.65rem; font-weight: 600; color: #16a34a; margin-bottom: 4px;">REVENUE</div>
+        <div style="font-size: 0.5rem; color: #6b7280;">† = via LOI</div>
+      </div>
       <div style="font-size: 1.25rem; font-weight: 700; color: #166534;">${logosByType.revenue.length}</div>
-      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${logosByType.revenue.map(a => a.accountName + (accountsWithLOIHistory.has(a.accountName) ? '†' : '')).join(', ') || '-'}</div>
+      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">
+        ${logosByType.revenue.filter(a => accountsWithLOIHistory.has(a.accountName)).map(a => a.accountName + '†').join(', ')}${logosByType.revenue.filter(a => accountsWithLOIHistory.has(a.accountName)).length > 0 && logosByType.revenue.filter(a => !accountsWithLOIHistory.has(a.accountName)).length > 0 ? '<br><br>' : ''}${logosByType.revenue.filter(a => !accountsWithLOIHistory.has(a.accountName)).map(a => a.accountName).join(', ') || (logosByType.revenue.filter(a => accountsWithLOIHistory.has(a.accountName)).length === 0 ? '-' : '')}
+      </div>
     </div>
     <div style="flex: 1; background: #eff6ff; padding: 10px; border-radius: 6px;">
       <div style="font-size: 0.65rem; font-weight: 600; color: #2563eb; margin-bottom: 4px;">PILOT</div>
@@ -973,11 +978,18 @@ ${early.map((acc, idx) => {
       <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">${logosByType.loi.map(a => a.accountName).join(', ') || '-'}</div>
     </div>
   </div>
-  <div style="font-size: 0.55rem; color: #9ca3af; margin-bottom: 12px;">† Signed LOI before converting to Revenue</div>
   
-  <div class="stage-section">
-    <div class="stage-title">Account Plans & Pipeline</div>
-    <div class="stage-subtitle">${accountsWithPlans} have plans • ${accountMap.size - accountsWithPlans} need plans</div>
+  <div class="section-card" style="padding: 12px; margin-bottom: 12px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+      <div class="stage-title" style="margin: 0;">Account Plans & Pipeline</div>
+      <div style="font-size: 0.7rem; color: #6b7280;">${accountsWithPlans} have plans • ${accountMap.size - accountsWithPlans} need plans</div>
+    </div>
+    <div style="display: flex; gap: 16px; font-size: 0.6rem; color: #9ca3af;">
+      <span><strong style="color: #16a34a;">Revenue</strong> = ARR customer</span>
+      <span><strong style="color: #2563eb;">Pilot</strong> = Active project</span>
+      <span><strong style="color: #7c3aed;">LOI</strong> = Signed commitment</span>
+      <span><strong style="color: #065f46;">New</strong> = First deal &lt;90 days</span>
+    </div>
   </div>
   
   <div class="stage-section">
