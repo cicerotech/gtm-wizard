@@ -43,7 +43,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
  * Generate Top Co Overview Tab - Blended Eudia + Johnson Hana data
  * Updated weekly until systems sync
  */
-function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts) {
+function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, stageBreakdown, productBreakdown, accountMap, signedByType) {
   const jhSummary = getJohnsonHanaSummary();
   const jhAccounts = getJHAccounts();
   
@@ -53,18 +53,47 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts) 
   const blendedDeals = eudiaDeals + jhSummary.totalOpportunities;
   const blendedAccounts = eudiaAccounts + jhSummary.uniqueAccounts;
   
-  // Format currency helper
+  // Format currency helper - lowercase m
   const fmt = (val) => {
     if (!val || val === 0) return '-';
     if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'm';
     return '$' + (val / 1000).toFixed(0) + 'k';
   };
   
-  // Top JH accounts (by ACV)
-  const topJHAccounts = jhAccounts.slice(0, 15);
+  // Top Eudia accounts (by ACV)
+  const topEudiaAccounts = Array.from(accountMap.values())
+    .sort((a, b) => b.totalACV - a.totalACV)
+    .slice(0, 12);
   
-  // Recent closed deals from JH
-  const recentClosed = closedWonNovDec.slice(0, 8);
+  // Top JH accounts (by ACV)
+  const topJHAccounts = jhAccounts.slice(0, 12);
+  
+  // Eudia closed deals (from signedByType - all categories)
+  const eudiaClosedDeals = [...(signedByType?.revenue || []), ...(signedByType?.pilot || []), ...(signedByType?.loi || [])];
+  const eudiaClosedTotal = eudiaClosedDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
+  
+  // JH closed deals
+  const jhClosedDeals = closedWonNovDec;
+  const jhClosedTotal = jhSummary.closedTotal;
+  
+  // Combined closed
+  const combinedClosedTotal = eudiaClosedTotal + jhClosedTotal;
+  const combinedClosedCount = eudiaClosedDeals.length + jhClosedDeals.length;
+  
+  // Eudia stage order
+  const stageOrder = ['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'];
+  
+  // JH Service lines breakdown
+  const jhServiceLines = {};
+  jhAccounts.forEach(acc => {
+    acc.opportunities.forEach(opp => {
+      const sl = opp.mappedServiceLine || 'Other';
+      if (!jhServiceLines[sl]) jhServiceLines[sl] = { count: 0, acv: 0, weighted: 0 };
+      jhServiceLines[sl].count++;
+      jhServiceLines[sl].acv += opp.acv || 0;
+      jhServiceLines[sl].weighted += opp.weighted || 0;
+    });
+  });
   
   return `
 <div id="topco" class="tab-content">
@@ -100,7 +129,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts) 
   <div style="background: #ecfdf5; border: 1px solid #10b981; padding: 10px 12px; border-radius: 6px; margin-bottom: 16px;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <div>
-        <div style="font-size: 0.7rem; font-weight: 600; color: #047857;">Eudia Tech Opportunities</div>
+        <div style="font-size: 0.7rem; font-weight: 600; color: #047857;">Eudia Tech Opportunities (JH)</div>
         <div style="font-size: 0.65rem; color: #065f46; margin-top: 2px;">${jhSummary.eudiaTech.opportunityCount} opps (${jhSummary.eudiaTech.percentOfOpps}% of JH pipeline)</div>
       </div>
       <div style="text-align: right;">
@@ -110,9 +139,12 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts) 
     </div>
   </div>
   
-  <!-- Johnson Hana Stage Breakdown -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- EUDIA BY STAGE -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section">
-    <div class="stage-title">Johnson Hana by Stage</div>
+    <div class="stage-title">Eudia by Stage</div>
+    <div class="stage-subtitle">${eudiaDeals} opps • ${fmt(eudiaGross)} gross • ${fmt(eudiaWeighted)} weighted</div>
     <table style="width: 100%; font-size: 0.8rem; margin-top: 8px;">
       <tr style="background: #f9fafb; font-weight: 600;">
         <td style="padding: 6px;">Stage</td>
@@ -120,19 +152,83 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts) 
         <td style="text-align: right; padding: 6px;">ACV</td>
         <td style="text-align: right; padding: 6px;">Wtd</td>
       </tr>
-      ${Object.entries(jhSummary.byStage)
-        .sort((a, b) => {
-          const stageOrder = { 'Stage 5 - Negotiation': 0, 'Stage 4 - Proposal': 1, 'Stage 3 - Pilot': 2, 'Stage 2 - SQO': 3, 'Stage 1 - Discovery': 4, 'Stage 0 - Qualifying': 5 };
-          return (stageOrder[a[0]] || 99) - (stageOrder[b[0]] || 99);
-        })
-        .map(([stage, data]) => `
+      ${stageOrder.map(stage => {
+        const data = stageBreakdown[stage] || { count: 0, totalACV: 0, weightedACV: 0 };
+        // Get top products for this stage
+        const stageProducts = {};
+        Object.entries(productBreakdown).forEach(([prod, pData]) => {
+          if (pData.byStage[stage]?.count > 0) {
+            stageProducts[prod] = pData.byStage[stage];
+          }
+        });
+        const topProds = Object.entries(stageProducts)
+          .sort((a, b) => b[1].acv - a[1].acv)
+          .slice(0, 3)
+          .map(([p]) => p)
+          .join(', ');
+        return `
         <tr style="border-bottom: 1px solid #f1f3f5;">
-          <td style="padding: 6px; font-size: 0.75rem;">${stage.replace('Stage ', 'S')}</td>
+          <td style="padding: 6px;">
+            <div style="font-size: 0.75rem;">${stage.replace('Stage ', 'S')}</div>
+            ${topProds ? '<div style="font-size: 0.6rem; color: #9ca3af;">' + topProds + '</div>' : ''}
+          </td>
+          <td style="text-align: center; padding: 6px;">${data.count}</td>
+          <td style="text-align: right; padding: 6px;">${fmt(data.totalACV)}</td>
+          <td style="text-align: right; padding: 6px;">${fmt(data.weightedACV)}</td>
+        </tr>`;
+      }).join('')}
+      <tr style="background: #e5e7eb; font-weight: 600;">
+        <td style="padding: 6px;">TOTAL</td>
+        <td style="text-align: center; padding: 6px;">${eudiaDeals}</td>
+        <td style="text-align: right; padding: 6px;">${fmt(eudiaGross)}</td>
+        <td style="text-align: right; padding: 6px;">${fmt(eudiaWeighted)}</td>
+      </tr>
+    </table>
+  </div>
+  
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- JOHNSON HANA BY STAGE -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="stage-section" style="margin-top: 16px;">
+    <div class="stage-title">Johnson Hana by Stage</div>
+    <div class="stage-subtitle">${jhSummary.totalOpportunities} opps • ${fmt(jhSummary.totalPipeline)} gross • ${fmt(jhSummary.totalWeighted)} weighted</div>
+    <table style="width: 100%; font-size: 0.8rem; margin-top: 8px;">
+      <tr style="background: #f9fafb; font-weight: 600;">
+        <td style="padding: 6px;">Stage</td>
+        <td style="text-align: center; padding: 6px;">Opps</td>
+        <td style="text-align: right; padding: 6px;">ACV</td>
+        <td style="text-align: right; padding: 6px;">Wtd</td>
+      </tr>
+      ${['Stage 5 - Negotiation', ...stageOrder].map(stage => {
+        const data = jhSummary.byStage[stage];
+        if (!data || data.count === 0) return '';
+        // Get top service lines for this stage
+        const stageServiceLines = {};
+        jhAccounts.forEach(acc => {
+          acc.opportunities.forEach(opp => {
+            if (opp.stage === stage) {
+              const sl = opp.mappedServiceLine || 'Other';
+              if (!stageServiceLines[sl]) stageServiceLines[sl] = 0;
+              stageServiceLines[sl] += opp.acv || 0;
+            }
+          });
+        });
+        const topSLs = Object.entries(stageServiceLines)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 2)
+          .map(([sl]) => sl)
+          .join(', ');
+        return `
+        <tr style="border-bottom: 1px solid #f1f3f5;">
+          <td style="padding: 6px;">
+            <div style="font-size: 0.75rem;">${stage.replace('Stage ', 'S')}</div>
+            ${topSLs ? '<div style="font-size: 0.6rem; color: #9ca3af;">' + topSLs + '</div>' : ''}
+          </td>
           <td style="text-align: center; padding: 6px;">${data.count}</td>
           <td style="text-align: right; padding: 6px;">${fmt(data.acv)}</td>
           <td style="text-align: right; padding: 6px;">${fmt(data.weighted)}</td>
-        </tr>
-      `).join('')}
+        </tr>`;
+      }).join('')}
       <tr style="background: #e5e7eb; font-weight: 600;">
         <td style="padding: 6px;">TOTAL</td>
         <td style="text-align: center; padding: 6px;">${jhSummary.totalOpportunities}</td>
@@ -142,69 +238,161 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts) 
     </table>
   </div>
   
-  <!-- Top JH Accounts -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- COMBINED STAGE VIEW (MERGE) -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">Johnson Hana Top Accounts</div>
-    <div class="stage-subtitle">${jhSummary.uniqueAccounts} accounts • <span style="color: #047857;">●</span> = Eudia Tech opp</div>
+    <div class="stage-title">Combined by Stage</div>
+    <div class="stage-subtitle">Blended Eudia + JH</div>
+    <table style="width: 100%; font-size: 0.8rem; margin-top: 8px;">
+      <tr style="background: #f9fafb; font-weight: 600;">
+        <td style="padding: 6px;">Stage</td>
+        <td style="text-align: center; padding: 6px;">Opps</td>
+        <td style="text-align: right; padding: 6px;">ACV</td>
+        <td style="text-align: right; padding: 6px;">Wtd</td>
+      </tr>
+      ${['Stage 5 - Negotiation', ...stageOrder].map(stage => {
+        const eData = stageBreakdown[stage] || { count: 0, totalACV: 0, weightedACV: 0 };
+        const jData = jhSummary.byStage[stage] || { count: 0, acv: 0, weighted: 0 };
+        const combined = {
+          count: eData.count + jData.count,
+          acv: (eData.totalACV || 0) + (jData.acv || 0),
+          weighted: (eData.weightedACV || 0) + (jData.weighted || 0)
+        };
+        if (combined.count === 0) return '';
+        return `
+        <tr style="border-bottom: 1px solid #f1f3f5;">
+          <td style="padding: 6px; font-size: 0.75rem;">${stage.replace('Stage ', 'S')}</td>
+          <td style="text-align: center; padding: 6px;">${combined.count}</td>
+          <td style="text-align: right; padding: 6px;">${fmt(combined.acv)}</td>
+          <td style="text-align: right; padding: 6px;">${fmt(combined.weighted)}</td>
+        </tr>`;
+      }).join('')}
+      <tr style="background: #e5e7eb; font-weight: 600;">
+        <td style="padding: 6px;">TOTAL</td>
+        <td style="text-align: center; padding: 6px;">${blendedDeals}</td>
+        <td style="text-align: right; padding: 6px;">${fmt(blendedGross)}</td>
+        <td style="text-align: right; padding: 6px;">${fmt(blendedWeighted)}</td>
+      </tr>
+    </table>
+  </div>
+  
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- TOP EUDIA ACCOUNTS -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="stage-section" style="margin-top: 16px;">
+    <div class="stage-title">Eudia Top Accounts</div>
+    <div class="stage-subtitle">${eudiaAccounts} accounts in pipeline</div>
     <div style="margin-top: 8px;">
-      ${topJHAccounts.map(acc => `
+      ${topEudiaAccounts.map(acc => {
+        const products = [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))];
+        return `
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.8rem;">
           <div>
             <span style="font-weight: 500;">${acc.name}</span>
-            ${acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-left: 4px; vertical-align: middle;" title="Eudia Tech"></span>' : ''}
-            <div style="font-size: 0.65rem; color: #6b7280;">S${acc.highestStage} • ${acc.opportunities.length} opp${acc.opportunities.length > 1 ? 's' : ''}</div>
+            <div style="font-size: 0.65rem; color: #6b7280;">S${acc.highestStage} • ${acc.opportunities.length} opp${acc.opportunities.length > 1 ? 's' : ''}${products.length ? ' • ' + products.slice(0,2).join(', ') : ''}</div>
           </div>
           <div style="text-align: right;">
             <div style="font-weight: 600;">${fmt(acc.totalACV)}</div>
             <div style="font-size: 0.65rem; color: #6b7280;">Wtd: ${fmt(acc.weightedACV)}</div>
           </div>
-        </div>
-      `).join('')}
+        </div>`;
+      }).join('')}
     </div>
   </div>
   
-  <!-- Recent JH Closed Deals -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- TOP JH ACCOUNTS -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">JH Closed Won (Nov-Dec)</div>
-    <div class="stage-subtitle">${closedWonNovDec.length} deals • ${fmt(jhSummary.closedTotal)} total</div>
+    <div class="stage-title">Johnson Hana Top Accounts</div>
+    <div class="stage-subtitle">${jhSummary.uniqueAccounts} accounts • <span style="color: #047857;">●</span> = Eudia Tech</div>
     <div style="margin-top: 8px;">
-      ${recentClosed.map(deal => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">
+      ${topJHAccounts.map(acc => {
+        const serviceLines = [...new Set(acc.opportunities.map(o => o.mappedServiceLine).filter(s => s))];
+        return `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.8rem;">
           <div>
-            <span style="font-weight: 500;">${deal.account}</span>
-            ${deal.eudiaTech ? '<span class="badge badge-eudia">Eudia Tech</span>' : ''}
-            <div style="font-size: 0.65rem; color: #6b7280; margin-top: 1px;">${deal.serviceLine || 'Other'}</div>
+            <span style="font-weight: 500;">${acc.name}</span>
+            ${acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-left: 4px; vertical-align: middle;"></span>' : ''}
+            <div style="font-size: 0.65rem; color: #6b7280;">S${acc.highestStage} • ${acc.opportunities.length} opp${acc.opportunities.length > 1 ? 's' : ''}${serviceLines.length ? ' • ' + serviceLines.slice(0,2).join(', ') : ''}</div>
           </div>
-          <div style="font-weight: 600; color: #16a34a;">${fmt(deal.acv)}</div>
-        </div>
-      `).join('')}
+          <div style="text-align: right;">
+            <div style="font-weight: 600;">${fmt(acc.totalACV)}</div>
+            <div style="font-size: 0.65rem; color: #6b7280;">Wtd: ${fmt(acc.weightedACV)}</div>
+          </div>
+        </div>`;
+      }).join('')}
     </div>
   </div>
   
-  <!-- Service Line Summary -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- TOP CO CLOSED WON (NOV-DEC) -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">JH Service Lines</div>
+    <div class="stage-title">Top Co Closed Won (Nov-Dec)</div>
+    <div class="stage-subtitle">${combinedClosedCount} deals • ${fmt(combinedClosedTotal)} total</div>
+    
+    <!-- Eudia Closed -->
+    ${eudiaClosedDeals.length > 0 ? `
+    <div style="margin-top: 10px; margin-bottom: 6px; font-size: 0.7rem; font-weight: 600; color: #6b7280;">EUDIA (${eudiaClosedDeals.length} deals • ${fmt(eudiaClosedTotal)})</div>
+    ${eudiaClosedDeals.slice(0, 8).map(deal => `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">
+        <div>
+          <span style="font-weight: 500;">${deal.accountName}</span>
+          <div style="font-size: 0.6rem; color: #9ca3af;">${deal.product || deal.oppName || ''}</div>
+        </div>
+        <div style="font-weight: 600; color: #16a34a;">${fmt(deal.acv)}</div>
+      </div>
+    `).join('')}` : '<div style="margin-top: 8px; font-size: 0.75rem; color: #9ca3af;">No Eudia deals closed in last 90 days</div>'}
+    
+    <!-- JH Closed -->
+    <div style="margin-top: 12px; margin-bottom: 6px; font-size: 0.7rem; font-weight: 600; color: #6b7280;">JOHNSON HANA (${jhClosedDeals.length} deals • ${fmt(jhClosedTotal)})</div>
+    ${jhClosedDeals.slice(0, 8).map(deal => `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">
+        <div>
+          <span style="font-weight: 500;">${deal.account}</span>
+          ${deal.eudiaTech ? '<span class="badge badge-eudia" style="margin-left: 4px;">Eudia Tech</span>' : ''}
+          <div style="font-size: 0.6rem; color: #9ca3af;">${deal.serviceLine || 'Other'}</div>
+        </div>
+        <div style="font-weight: 600; color: #16a34a;">${fmt(deal.acv)}</div>
+      </div>
+    `).join('')}
+  </div>
+  
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- EUDIA PRODUCT LINE BREAKDOWN -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="stage-section" style="margin-top: 16px;">
+    <div class="stage-title">Eudia Product Lines</div>
     <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
-      ${(() => {
-        const serviceLines = {};
-        jhAccounts.forEach(acc => {
-          acc.opportunities.forEach(opp => {
-            const sl = opp.mappedServiceLine || 'Other';
-            if (!serviceLines[sl]) serviceLines[sl] = { count: 0, acv: 0 };
-            serviceLines[sl].count++;
-            serviceLines[sl].acv += opp.acv || 0;
-          });
-        });
-        return Object.entries(serviceLines)
-          .sort((a, b) => b[1].acv - a[1].acv)
-          .slice(0, 8)
-          .map(([sl, data]) => `
-            <div style="background: #f3f4f6; padding: 6px 10px; border-radius: 4px; font-size: 0.7rem;">
-              <div style="font-weight: 600; color: #374151;">${sl}</div>
-              <div style="color: #6b7280;">${data.count} opps • ${fmt(data.acv)}</div>
-            </div>
-          `).join('');
-      })()}
+      ${Object.entries(productBreakdown)
+        .sort((a, b) => b[1].totalACV - a[1].totalACV)
+        .slice(0, 8)
+        .map(([prod, data]) => `
+          <div style="background: #eff6ff; padding: 6px 10px; border-radius: 4px; font-size: 0.7rem;">
+            <div style="font-weight: 600; color: #1e40af;">${prod}</div>
+            <div style="color: #6b7280;">${data.count} opps • ${fmt(data.totalACV)}</div>
+          </div>
+        `).join('')}
+    </div>
+  </div>
+  
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- JH SERVICE LINE BREAKDOWN -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="stage-section" style="margin-top: 16px;">
+    <div class="stage-title">Johnson Hana Service Lines</div>
+    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
+      ${Object.entries(jhServiceLines)
+        .sort((a, b) => b[1].acv - a[1].acv)
+        .slice(0, 8)
+        .map(([sl, data]) => `
+          <div style="background: #fef3c7; padding: 6px 10px; border-radius: 4px; font-size: 0.7rem;">
+            <div style="font-weight: 600; color: #92400e;">${sl}</div>
+            <div style="color: #6b7280;">${data.count} opps • ${fmt(data.acv)}</div>
+          </div>
+        `).join('')}
     </div>
   </div>
 </div>`;
@@ -957,61 +1145,83 @@ ${early.map((acc, idx) => {
 </div>
 
 <!-- TAB: TOP CO OVERVIEW (Blended Eudia + Johnson Hana) -->
-${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size)}
+${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stageBreakdown, productBreakdown, accountMap, signedByType)}
 
-<!-- TAB 2: BY STAGE (Detailed Breakdowns) -->
+<!-- TAB 2: BY STAGE (Business Lead Overview with expandable stages) -->
 <div id="by-stage" class="tab-content">
   <div class="stage-section">
-    <div class="stage-title">Stage Overview</div>
-    <table style="width: 100%; font-size: 0.875rem; margin-top: 12px;">
-<tr style="background: #f9fafb; font-weight: 600;"><td>Stage</td><td style="text-align: center;">Opps</td><td style="text-align: center;">Total ACV</td><td style="text-align: center;">Weighted</td></tr>
-      ${Object.entries(stageBreakdown).map(([stage, data]) => `
-        <tr><td>${cleanStageName(stage)}</td><td style="text-align: center;">${data.count}</td><td style="text-align: center;">$${(data.totalACV / 1000000).toFixed(2)}M</td><td style="text-align: center;">$${(data.weightedACV / 1000000).toFixed(2)}M</td></tr>
-      `).join('')}
-      <tr style="background: #e5e7eb; font-weight: 700;"><td>TOTAL</td><td style="text-align: center;">${totalDeals}</td><td style="text-align: center;">$${(totalGross / 1000000).toFixed(2)}M</td><td style="text-align: center;">$${(totalWeighted / 1000000).toFixed(2)}M</td></tr>
-    </table>
-  </div>
-  
-  <div class="stage-section">
     <div class="stage-title">Business Lead Overview</div>
+    <div class="stage-subtitle">Click BL to expand → Click stage to see opportunities</div>
     <div style="margin-top: 12px;">
-      ${Object.entries(blBreakdown).sort((a, b) => b[1].totalACV - a[1].totalACV).map(([bl, data]) => `
+      ${Object.entries(blBreakdown).sort((a, b) => b[1].totalACV - a[1].totalACV).map(([bl, data]) => {
+        // Get all opps for this BL grouped by stage
+        const blOpps = accountData.records.filter(o => (o.Owner?.Name || 'Unassigned') === bl);
+        return `
         <details style="background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px; overflow: hidden;">
           <summary style="padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;">
             <span style="font-weight: 600;">${bl}</span>
-            <span style="font-size: 0.875rem; color: #6b7280;">${data.count} opps • <strong style="color: #1f2937;">$${(data.totalACV / 1000000).toFixed(2)}M</strong> • W: $${(data.weightedACV / 1000000).toFixed(2)}M</span>
+            <span style="font-size: 0.875rem; color: #6b7280;">${data.count} opps • <strong style="color: #1f2937;">$${(data.totalACV / 1000000).toFixed(2)}m</strong> • W: $${(data.weightedACV / 1000000).toFixed(2)}m</span>
           </summary>
           <div style="padding: 12px; border-top: 1px solid #e5e7eb;">
-            <table style="width: 100%; font-size: 0.8125rem;">
-              <tr style="background: #f3f4f6;"><td style="padding: 4px 8px; font-weight: 600;">Stage</td><td style="text-align: center; padding: 4px;">Opps</td><td style="text-align: center; padding: 4px;">ACV</td><td style="text-align: center; padding: 4px;">Wtd</td></tr>
-              ${['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'].filter(s => data.byStage[s]?.count > 0).map(stage => `
-                <tr><td style="padding: 4px 8px; font-size: 0.75rem;">${cleanStageName(stage)}</td><td style="text-align: center; padding: 4px;">${data.byStage[stage].count}</td><td style="text-align: center; padding: 4px;">$${(data.byStage[stage].acv / 1000000).toFixed(2)}M</td><td style="text-align: center; padding: 4px;">$${(data.byStage[stage].weighted / 1000000).toFixed(2)}M</td></tr>
-              `).join('')}
-            </table>
+            ${['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'].filter(s => data.byStage[s]?.count > 0).map(stage => {
+              const stageOpps = blOpps.filter(o => o.StageName === stage);
+              return `
+              <details style="margin-bottom: 6px; border: 1px solid #e5e7eb; border-radius: 4px;">
+                <summary style="padding: 8px; cursor: pointer; background: #f3f4f6; font-size: 0.8rem; display: flex; justify-content: space-between;">
+                  <span>${cleanStageName(stage)}</span>
+                  <span style="color: #6b7280;">${data.byStage[stage].count} opps • $${(data.byStage[stage].acv / 1000000).toFixed(2)}m • W: $${(data.byStage[stage].weighted / 1000000).toFixed(2)}m</span>
+                </summary>
+                <div style="padding: 8px; font-size: 0.75rem;">
+                  ${stageOpps.map(o => `
+                    <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f1f3f5;">
+                      <div>
+                        <div style="font-weight: 500;">${o.Account?.Name || 'Unknown'}</div>
+                        <div style="font-size: 0.65rem; color: #9ca3af;">${o.Product_Line__c || 'TBD'}</div>
+                      </div>
+                      <div style="text-align: right;">
+                        <div style="font-weight: 500;">$${((o.ACV__c || 0) / 1000).toFixed(0)}k</div>
+                        <div style="font-size: 0.65rem; color: #9ca3af;">W: $${((o.Finance_Weighted_ACV__c || 0) / 1000).toFixed(0)}k</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </details>`;
+            }).join('')}
           </div>
-        </details>
-      `).join('')}
+        </details>`;
+      }).join('')}
     </div>
     <div style="background: #e5e7eb; padding: 12px; border-radius: 6px; margin-top: 8px; display: flex; justify-content: space-between; font-weight: 700;">
       <span>TOTAL</span>
-      <span>${Object.values(blBreakdown).reduce((sum, data) => sum + data.count, 0)} opps • $${(Object.values(blBreakdown).reduce((sum, data) => sum + data.totalACV, 0) / 1000000).toFixed(2)}M • W: $${(Object.values(blBreakdown).reduce((sum, data) => sum + data.weightedACV, 0) / 1000000).toFixed(2)}M</span>
+      <span>${Object.values(blBreakdown).reduce((sum, data) => sum + data.count, 0)} opps • $${(Object.values(blBreakdown).reduce((sum, data) => sum + data.totalACV, 0) / 1000000).toFixed(2)}m • W: $${(Object.values(blBreakdown).reduce((sum, data) => sum + data.weightedACV, 0) / 1000000).toFixed(2)}m</span>
     </div>
   </div>
   
-  <div class="stage-section">
+  <div class="stage-section" style="margin-top: 16px;">
+    <div class="stage-title">Stage Summary</div>
+    <table style="width: 100%; font-size: 0.875rem; margin-top: 12px;">
+      <tr style="background: #f9fafb; font-weight: 600;"><td>Stage</td><td style="text-align: center;">Opps</td><td style="text-align: center;">Total ACV</td><td style="text-align: center;">Weighted</td></tr>
+      ${Object.entries(stageBreakdown).map(([stage, data]) => `
+        <tr><td>${cleanStageName(stage)}</td><td style="text-align: center;">${data.count}</td><td style="text-align: center;">$${(data.totalACV / 1000000).toFixed(2)}m</td><td style="text-align: center;">$${(data.weightedACV / 1000000).toFixed(2)}m</td></tr>
+      `).join('')}
+      <tr style="background: #e5e7eb; font-weight: 700;"><td>TOTAL</td><td style="text-align: center;">${totalDeals}</td><td style="text-align: center;">$${(totalGross / 1000000).toFixed(2)}m</td><td style="text-align: center;">$${(totalWeighted / 1000000).toFixed(2)}m</td></tr>
+    </table>
+  </div>
+  
+  <div class="stage-section" style="margin-top: 16px;">
     <div class="stage-title">Products by Stage</div>
     <div style="margin-top: 12px;">
       ${Object.entries(productBreakdown).sort((a, b) => b[1].totalACV - a[1].totalACV).map(([product, data]) => `
         <details style="background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px; overflow: hidden;">
           <summary style="padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;">
             <span style="font-weight: 600;">${product}</span>
-            <span style="font-size: 0.875rem; color: #6b7280;">${data.count} opps • <strong style="color: #1f2937;">$${(data.totalACV / 1000000).toFixed(2)}M</strong> • W: $${(data.weightedACV / 1000000).toFixed(2)}M</span>
+            <span style="font-size: 0.875rem; color: #6b7280;">${data.count} opps • <strong style="color: #1f2937;">$${(data.totalACV / 1000000).toFixed(2)}m</strong> • W: $${(data.weightedACV / 1000000).toFixed(2)}m</span>
           </summary>
           <div style="padding: 12px; border-top: 1px solid #e5e7eb;">
             <table style="width: 100%; font-size: 0.8125rem;">
               <tr style="background: #f3f4f6;"><td style="padding: 4px 8px; font-weight: 600;">Stage</td><td style="text-align: center; padding: 4px;">Opps</td><td style="text-align: center; padding: 4px;">ACV</td><td style="text-align: center; padding: 4px;">Wtd</td></tr>
               ${['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'].filter(s => data.byStage[s]?.count > 0).map(stage => `
-                <tr><td style="padding: 4px 8px; font-size: 0.75rem;">${cleanStageName(stage)}</td><td style="text-align: center; padding: 4px;">${data.byStage[stage].count}</td><td style="text-align: center; padding: 4px;">$${(data.byStage[stage].acv / 1000000).toFixed(2)}M</td><td style="text-align: center; padding: 4px;">$${(data.byStage[stage].weighted / 1000000).toFixed(2)}M</td></tr>
+                <tr><td style="padding: 4px 8px; font-size: 0.75rem;">${cleanStageName(stage)}</td><td style="text-align: center; padding: 4px;">${data.byStage[stage].count}</td><td style="text-align: center; padding: 4px;">$${(data.byStage[stage].acv / 1000000).toFixed(2)}m</td><td style="text-align: center; padding: 4px;">$${(data.byStage[stage].weighted / 1000000).toFixed(2)}m</td></tr>
               `).join('')}
             </table>
           </div>
@@ -1020,13 +1230,18 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size)}
     </div>
     <div style="background: #e5e7eb; padding: 12px; border-radius: 6px; margin-top: 8px; display: flex; justify-content: space-between; font-weight: 700;">
       <span>TOTAL</span>
-      <span>${Object.values(productBreakdown).reduce((sum, data) => sum + data.count, 0)} opps • $${(Object.values(productBreakdown).reduce((sum, data) => sum + data.totalACV, 0) / 1000000).toFixed(2)}M • W: $${(Object.values(productBreakdown).reduce((sum, data) => sum + data.weightedACV, 0) / 1000000).toFixed(2)}M</span>
+      <span>${Object.values(productBreakdown).reduce((sum, data) => sum + data.count, 0)} opps • $${(Object.values(productBreakdown).reduce((sum, data) => sum + data.totalACV, 0) / 1000000).toFixed(2)}m • W: $${(Object.values(productBreakdown).reduce((sum, data) => sum + data.weightedACV, 0) / 1000000).toFixed(2)}m</span>
     </div>
   </div>
 </div>
 
 <!-- TAB 3: REVENUE -->
 <div id="revenue" class="tab-content">
+  <!-- JH Revenue Note -->
+  <div style="background: #fffbeb; border: 1px solid #fcd34d; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: #92400e;">
+    <strong>Note:</strong> Johnson Hana revenue data not yet added. Contract migration in progress — see Top Co tab for blended pipeline view.
+  </div>
+  
   <!-- Active Revenue by Account -->
   <div class="stage-section">
     <div class="stage-title">Active Revenue by Account</div>
@@ -1363,3 +1578,4 @@ module.exports = {
   generateAccountDashboard,
   generateLoginPage
 };
+
