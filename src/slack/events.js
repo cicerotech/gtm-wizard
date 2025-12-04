@@ -215,6 +215,20 @@ async function processQuery(text, userId, channelId, client, threadTs = null) {
       return;
     }
     
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HYPRNOTE SYNC COMMANDS
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (textLower.startsWith('sync hyprnote') || textLower === 'sync meetings' || 
+        textLower.includes('hyprnote sync')) {
+      await handleHyprnoteSync(client, channelId, userId, threadTs);
+      return;
+    }
+    
+    if (textLower.startsWith('hyprnote status') || textLower === 'meeting sync status') {
+      await handleHyprnoteSyncStatus(client, channelId, threadTs);
+      return;
+    }
+    
     // Handle cancel for pending contract
     if (textLower === 'cancel' || textLower === 'no' || textLower === 'nevermind') {
       const pendingAnalysis = await cache.get(`contract_analysis_${userId}_${channelId}`);
@@ -3630,6 +3644,141 @@ async function handleOwnerAccountsList(entities, userId, channelId, client, thre
     await client.chat.postMessage({
       channel: channelId,
       text: `❌ Error retrieving accounts. Please try again.`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HYPRNOTE SYNC HANDLERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Handle Hyprnote sync command
+ */
+async function handleHyprnoteSync(client, channelId, userId, threadTs) {
+  try {
+    await client.chat.postMessage({
+      channel: channelId,
+      text: '🎙️ Checking for new Hyprnote meetings to sync...',
+      thread_ts: threadTs
+    });
+    
+    const { checkForNewMeetings, syncSessionToSalesforce, getRecentSessions } = require('../services/hyprnoteSyncService');
+    
+    const newSessions = await checkForNewMeetings();
+    
+    if (newSessions.length === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: '✅ No new meetings to sync. All Hyprnote sessions are up to date with Salesforce.',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `Found ${newSessions.length} new meeting(s). Syncing to Salesforce...`,
+      thread_ts: threadTs
+    });
+    
+    const results = [];
+    for (const session of newSessions) {
+      const result = await syncSessionToSalesforce(session);
+      results.push({ session, result });
+    }
+    
+    const successful = results.filter(r => r.result.success);
+    const failed = results.filter(r => !r.result.success);
+    
+    let response = `🎙️ *Hyprnote Sync Complete*\n\n`;
+    response += `✅ *Synced:* ${successful.length} meeting(s)\n`;
+    
+    if (successful.length > 0) {
+      response += `\n*Successfully synced:*\n`;
+      successful.forEach(({ session }) => {
+        response += `• ${session.title}\n`;
+      });
+    }
+    
+    if (failed.length > 0) {
+      response += `\n⚠️ *Failed:* ${failed.length}\n`;
+      failed.forEach(({ session, result }) => {
+        response += `• ${session.title}: ${result.error}\n`;
+      });
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: response,
+      thread_ts: threadTs
+    });
+    
+  } catch (error) {
+    console.error('[handleHyprnoteSync] Error:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Error syncing Hyprnote meetings: ${error.message}\n\nMake sure Hyprnote is installed and has recorded meetings.`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle Hyprnote status command
+ */
+async function handleHyprnoteSyncStatus(client, channelId, threadTs) {
+  try {
+    const { getRecentSessions, HYPRNOTE_DB_PATH } = require('../services/hyprnoteSyncService');
+    const fs = require('fs');
+    
+    let response = `🎙️ *Hyprnote Sync Status*\n\n`;
+    
+    // Check if database exists
+    if (!fs.existsSync(HYPRNOTE_DB_PATH)) {
+      response += `❌ Hyprnote database not found\n`;
+      response += `Expected path: \`${HYPRNOTE_DB_PATH}\`\n\n`;
+      response += `Make sure Hyprnote is installed and has been used at least once.`;
+    } else {
+      response += `✅ Hyprnote database found\n\n`;
+      
+      const sessions = await getRecentSessions(168); // Last 7 days
+      response += `*Recent Sessions (last 7 days):* ${sessions.length}\n\n`;
+      
+      if (sessions.length > 0) {
+        response += `*Most recent meetings:*\n`;
+        sessions.slice(0, 5).forEach(session => {
+          const date = new Date(session.created_at).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          response += `• ${session.title} (${date})\n`;
+        });
+        
+        if (sessions.length > 5) {
+          response += `  _...and ${sessions.length - 5} more_\n`;
+        }
+      }
+      
+      response += `\n*Commands:*\n`;
+      response += `• \`sync hyprnote\` - Sync new meetings to Salesforce\n`;
+      response += `• \`hyprnote status\` - Show this status`;
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: response,
+      thread_ts: threadTs
+    });
+    
+  } catch (error) {
+    console.error('[handleHyprnoteSyncStatus] Error:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Error checking Hyprnote status: ${error.message}`,
       thread_ts: threadTs
     });
   }
