@@ -29,13 +29,36 @@ class GTMBrainApp {
       // Validate environment variables
       this.validateEnvironment();
 
-      // Initialize Slack Bolt app
+      // Initialize Slack Bolt app with socket mode error handling
       this.app = new App({
         token: process.env.SLACK_BOT_TOKEN,
         signingSecret: process.env.SLACK_SIGNING_SECRET,
         appToken: process.env.SLACK_APP_TOKEN,
-        socketMode: true, // Enable Socket Mode for development
-        logLevel: process.env.LOG_LEVEL || 'info'
+        socketMode: true,
+        logLevel: process.env.LOG_LEVEL || 'info',
+        // Custom receiver settings for better error handling
+        customRoutes: [],
+      });
+      
+      // Add error handler for the Bolt app
+      this.app.error(async (error) => {
+        logger.error('Slack app error:', error);
+        // Don't crash on Slack errors - log and continue
+      });
+      
+      // Handle process-level errors to prevent crashes
+      process.on('uncaughtException', (error) => {
+        logger.error('Uncaught exception:', error.message);
+        // Don't exit for socket mode reconnection errors
+        if (error.message?.includes('server explicit disconnect') || 
+            error.message?.includes('Unexpected server response')) {
+          logger.info('🔄 Socket mode error - will attempt reconnection...');
+          return;
+        }
+      });
+      
+      process.on('unhandledRejection', (reason, promise) => {
+        logger.error('Unhandled rejection:', reason);
       });
 
       // Initialize external services
@@ -315,30 +338,45 @@ class GTMBrainApp {
 
     try {
       // Start Slack Bolt app with retry logic for socket mode connection
-      const maxRetries = 3;
-      let lastError;
+      const maxRetries = 5;
+      let connected = false;
       
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           logger.info(`🔌 Attempting Slack connection (attempt ${attempt}/${maxRetries})...`);
-          await this.app.start();
-          logger.info('⚡️ GTM Brain Slack Bot is running!');
-          break; // Connection successful
-        } catch (socketError) {
-          lastError = socketError;
-          logger.warn(`⚠️ Slack connection attempt ${attempt} failed: ${socketError.message}`);
           
-          if (attempt < maxRetries) {
-            const waitTime = attempt * 2000; // Exponential backoff: 2s, 4s, 6s
+          // Add delay before first attempt to let services stabilize
+          if (attempt === 1) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+          
+          await this.app.start();
+          connected = true;
+          logger.info('⚡️ GTM Brain Slack Bot is running!');
+          break;
+        } catch (socketError) {
+          const errorMsg = socketError.message || String(socketError);
+          logger.warn(`⚠️ Slack connection attempt ${attempt} failed: ${errorMsg}`);
+          
+          // Check if it's a recoverable error
+          const isRecoverable = errorMsg.includes('408') || 
+                                errorMsg.includes('disconnect') || 
+                                errorMsg.includes('timeout') ||
+                                errorMsg.includes('ECONNRESET');
+          
+          if (attempt < maxRetries && isRecoverable) {
+            const waitTime = attempt * 3000; // Longer backoff: 3s, 6s, 9s, 12s
             logger.info(`⏳ Waiting ${waitTime/1000}s before retry...`);
             await new Promise(resolve => setTimeout(resolve, waitTime));
+          } else if (!isRecoverable) {
+            throw socketError; // Non-recoverable error, fail immediately
           }
         }
       }
       
-      // If all retries failed, throw the last error
-      if (lastError && !this.app.receiver?.client?.isActive?.()) {
-        throw lastError;
+      if (!connected) {
+        logger.error('❌ Failed to connect to Slack after all retries');
+        throw new Error('Failed to establish Slack connection');
       }
 
       // Start Express server
