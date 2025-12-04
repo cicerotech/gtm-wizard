@@ -87,7 +87,7 @@ async function generateAccountDashboard() {
 
   // ═══════════════════════════════════════════════════════════════════════
   // SIGNED DEALS (Last 90 Days) - Grouped by Account.Customer_Type__c
-  // Customer_Type__c values: Revenue, Pilot, LOI with $ attached, LOI no $ attached
+  // Customer_Type__c picklist values: Revenue, Pilot, LOI with $ attached, LOI no $ attached
   // ═══════════════════════════════════════════════════════════════════════
   const signedDealsQuery = `
     SELECT Account.Name, Account.Customer_Type__c, Name, ACV__c, CloseDate, Product_Line__c
@@ -96,13 +96,28 @@ async function generateAccountDashboard() {
     ORDER BY CloseDate DESC
   `;
   
-  // revenue = ARR customers, pilot = project/pilot, loi = LOI commitments
   let signedByType = { revenue: [], pilot: [], loi: [] };
   let signedDealsTotal = { revenue: 0, pilot: 0, loi: 0 };
   
+  // Helper to categorize by Customer_Type__c
+  // Picklist values: Revenue, Pilot, LOI with $ attached, LOI no $ attached
+  const categorizeByCustomerType = (custType) => {
+    if (!custType) return 'pilot'; // Default if not set
+    const ct = custType.toLowerCase().trim();
+    if (ct === 'revenue' || ct === 'arr') return 'revenue';
+    if (ct === 'pilot') return 'pilot';
+    if (ct.includes('loi')) return 'loi';
+    return 'pilot'; // Default fallback
+  };
+  
   try {
     const signedData = await query(signedDealsQuery, true);
+    console.log(`[Dashboard] Signed deals query returned ${signedData?.records?.length || 0} records`);
     if (signedData?.records) {
+      // Log unique customer types found
+      const uniqueTypes = [...new Set(signedData.records.map(o => o.Account?.Customer_Type__c).filter(Boolean))];
+      console.log(`[Dashboard] Unique Customer_Type__c values found: ${JSON.stringify(uniqueTypes)}`);
+      
       signedData.records.forEach(opp => {
         const deal = {
           accountName: opp.Account?.Name || 'Unknown',
@@ -113,24 +128,12 @@ async function generateAccountDashboard() {
           customerType: opp.Account?.Customer_Type__c || ''
         };
         
-        // Group by Account.Customer_Type__c picklist values
-        const custType = (deal.customerType || '').toLowerCase();
-        if (custType === 'revenue') {
-          signedByType.revenue.push(deal);
-          signedDealsTotal.revenue += deal.acv;
-        } else if (custType === 'pilot') {
-          signedByType.pilot.push(deal);
-          signedDealsTotal.pilot += deal.acv;
-        } else if (custType.includes('loi')) {
-          signedByType.loi.push(deal);
-          signedDealsTotal.loi += deal.acv;
-        } else {
-          // Default to pilot if no customer type set
-          signedByType.pilot.push(deal);
-          signedDealsTotal.pilot += deal.acv;
-        }
+        const category = categorizeByCustomerType(deal.customerType);
+        signedByType[category].push(deal);
+        signedDealsTotal[category] += deal.acv;
       });
     }
+    console.log(`[Dashboard] Categorized: revenue=${signedByType.revenue.length}, pilot=${signedByType.pilot.length}, loi=${signedByType.loi.length}`);
   } catch (e) { console.error('Signed deals query error:', e.message); }
   
   // ═══════════════════════════════════════════════════════════════════════
@@ -148,7 +151,12 @@ async function generateAccountDashboard() {
   
   try {
     const newLogoAccounts = await query(newLogosQuery, true);
+    console.log(`[Dashboard] New logos query returned ${newLogoAccounts?.records?.length || 0} accounts`);
     if (newLogoAccounts?.records) {
+      // Log unique customer types found
+      const uniqueTypes = [...new Set(newLogoAccounts.records.map(a => a.Customer_Type__c).filter(Boolean))];
+      console.log(`[Dashboard] New logos Customer_Type__c values: ${JSON.stringify(uniqueTypes)}`);
+      
       newLogoAccounts.records.forEach(acc => {
         const logo = {
           accountName: acc.Name,
@@ -156,14 +164,11 @@ async function generateAccountDashboard() {
           customerType: acc.Customer_Type__c || ''
         };
         
-        // Categorize by Customer_Type__c
-        const custType = (logo.customerType || '').toLowerCase();
-        if (custType === 'revenue') newLogosByType.revenue.push(logo);
-        else if (custType === 'pilot') newLogosByType.pilot.push(logo);
-        else if (custType.includes('loi')) newLogosByType.loi.push(logo);
-        else newLogosByType.pilot.push(logo); // Default
+        const category = categorizeByCustomerType(logo.customerType);
+        newLogosByType[category].push(logo);
       });
     }
+    console.log(`[Dashboard] New logos categorized: revenue=${newLogosByType.revenue.length}, pilot=${newLogosByType.pilot.length}, loi=${newLogosByType.loi.length}`);
   } catch (e) { console.error('New logos query error:', e.message); }
   
   // ═══════════════════════════════════════════════════════════════════════
