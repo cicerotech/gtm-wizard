@@ -133,11 +133,11 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   <div class="stage-section">
     <div class="stage-title">Eudia by Stage</div>
     <div class="stage-subtitle">${eudiaDeals} opps • ${fmt(eudiaGross)} gross</div>
-    <table style="width: 100%; font-size: 0.8rem; margin-top: 8px;">
+    <table style="width: 100%; font-size: 0.8rem; margin-top: 8px; table-layout: fixed;">
       <tr style="background: #f9fafb; font-weight: 600;">
-        <td style="padding: 6px;">Stage</td>
-        <td style="text-align: center; padding: 6px;">Opps</td>
-        <td style="text-align: right; padding: 6px;">ACV</td>
+        <td style="padding: 6px; width: 55%;">Stage</td>
+        <td style="text-align: center; padding: 6px; width: 20%;">Opps</td>
+        <td style="text-align: right; padding: 6px; width: 25%;">ACV</td>
       </tr>
       ${stageOrder.map(stage => {
         const data = stageBreakdown[stage] || { count: 0, totalACV: 0, weightedACV: 0 };
@@ -185,11 +185,11 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
         <div style="color: #065f46;">${fmt(jhSummary.eudiaTech.pipelineValue)} (${jhSummary.eudiaTech.percentOfValue}%)</div>
       </div>
     </div>
-    <table style="width: 100%; font-size: 0.8rem; margin-top: 8px;">
+    <table style="width: 100%; font-size: 0.8rem; margin-top: 8px; table-layout: fixed;">
       <tr style="background: #f9fafb; font-weight: 600;">
-        <td style="padding: 6px;">Stage</td>
-        <td style="text-align: center; padding: 6px;">Opps</td>
-        <td style="text-align: right; padding: 6px;">ACV</td>
+        <td style="padding: 6px; width: 55%;">Stage</td>
+        <td style="text-align: center; padding: 6px; width: 20%;">Opps</td>
+        <td style="text-align: right; padding: 6px; width: 25%;">ACV</td>
       </tr>
       ${['Stage 5 - Negotiation', ...stageOrder].map(stage => {
         const data = jhSummary.byStage[stage];
@@ -245,11 +245,11 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   <div class="stage-section" style="margin-top: 16px;">
     <div class="stage-title">Combined by Stage</div>
     <div class="stage-subtitle">Blended Eudia + JH</div>
-    <table style="width: 100%; font-size: 0.8rem; margin-top: 8px;">
+    <table style="width: 100%; font-size: 0.8rem; margin-top: 8px; table-layout: fixed;">
       <tr style="background: #f9fafb; font-weight: 600;">
-        <td style="padding: 6px;">Stage</td>
-        <td style="text-align: center; padding: 6px;">Opps</td>
-        <td style="text-align: right; padding: 6px;">ACV</td>
+        <td style="padding: 6px; width: 55%;">Stage</td>
+        <td style="text-align: center; padding: 6px; width: 20%;">Opps</td>
+        <td style="text-align: right; padding: 6px; width: 25%;">ACV</td>
       </tr>
       ${['Stage 5 - Negotiation', ...stageOrder].map(stage => {
         const eData = stageBreakdown[stage] || { count: 0, totalACV: 0 };
@@ -309,7 +309,9 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
               const stageLabel = stageMatch ? 'S' + stageMatch[1] + (stageMatch[2] ? ' ' + stageMatch[2].trim() : '') : (o.StageName || 'TBD');
               // Format target date if available
               const targetDate = o.Target_LOI_Date__c ? new Date(o.Target_LOI_Date__c).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-              return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span style="font-weight: 500;">' + (o.Product_Line__c || 'TBD') + '</span><div style="font-size: 0.6rem; color: #6b7280;">' + stageLabel + (targetDate ? ' • Target: ' + targetDate : '') + '</div></div><span style="font-weight: 600;">$' + ((o.ACV__c || 0) / 1000).toFixed(0) + 'k</span></div>';
+              const acvVal = o.ACV__c || 0;
+              const acvFmt = acvVal >= 1000000 ? '$' + (acvVal / 1000000).toFixed(1) + 'm' : '$' + (acvVal / 1000).toFixed(0) + 'k';
+              return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span style="font-weight: 500;">' + (o.Product_Line__c || 'TBD') + '</span><div style="font-size: 0.6rem; color: #6b7280;">' + stageLabel + (targetDate ? ' • Target: ' + targetDate : '') + '</div></div><span style="font-weight: 600;">' + acvFmt + '</span></div>';
             }).join('')}
           </div>
         </details>`;
@@ -354,7 +356,9 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
               const targetDate = o.closeDate ? new Date(o.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
               // Get owner name (first name only for brevity)
               const ownerName = o.owner ? o.owner.split(' ')[0] : '';
-              return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span style="font-weight: 500;">' + (o.mappedServiceLine || 'Other') + '</span>' + (o.eudiaTech ? ' <span style="color: #047857; font-size: 0.6rem;">●</span>' : '') + '<div style="font-size: 0.6rem; color: #6b7280;">' + stageLabel + (ownerName ? ' • ' + ownerName : '') + (targetDate ? ' • ' + targetDate : '') + '</div></div><span style="font-weight: 600;">$' + ((o.acv || 0) / 1000).toFixed(0) + 'k</span></div>';
+              const jhAcvVal = o.acv || 0;
+              const jhAcvFmt = jhAcvVal >= 1000000 ? '$' + (jhAcvVal / 1000000).toFixed(1) + 'm' : '$' + (jhAcvVal / 1000).toFixed(0) + 'k';
+              return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span style="font-weight: 500;">' + (o.mappedServiceLine || 'Other') + '</span>' + (o.eudiaTech ? ' <span style="color: #047857; font-size: 0.6rem;">●</span>' : '') + '<div style="font-size: 0.6rem; color: #6b7280;">' + stageLabel + (ownerName ? ' • ' + ownerName : '') + (targetDate ? ' • ' + targetDate : '') + '</div></div><span style="font-weight: 600;">' + jhAcvFmt + '</span></div>';
             }).join('')}
           </div>
         </details>`;
@@ -631,16 +635,16 @@ function generateWeeklyTab(params) {
       <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px;">
         <!-- Eudia -->
         <div style="flex: 1; min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px;">
-          <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.8rem;">EUDIA (${decemberOpps.length} opps)</div>
-          <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.4;">
+          <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">EUDIA (${decemberOpps.length} opps)</div>
+          <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5;">
             ${decemberOpps.slice(0, 5).map((o, i) => `<li>${o.account}, ${fmt(o.acv)}</li>`).join('') || '<li style="color: #9ca3af;">None</li>'}
           </ol>
-          <div style="margin-top: 8px; font-size: 0.7rem; font-weight: 600; color: #374151;">Total: ${fmt(decTotalACV)}</div>
+          <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #374151;">Total: ${fmt(decTotalACV)}</div>
         </div>
         <!-- Johnson Hana - slightly darker gray -->
         <div style="flex: 1; min-width: 280px; background: #e5e7eb; border-radius: 8px; padding: 12px;">
-          <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.8rem;">JOHNSON HANA (27 opps)</div>
-          <ol class="weekly-list" style="font-size: 0.65rem; margin: 0; padding-left: 16px; line-height: 1.4;">
+          <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">JOHNSON HANA (27 opps)</div>
+          <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5;">
             ${(() => {
               const jhQ4Opps = (jhSummary?.pipeline || []).filter(o => {
                 if (!o.closeDate) return false;
@@ -655,8 +659,8 @@ function generateWeeklyTab(params) {
               }).join('') || '<li style="color: #9ca3af;">None</li>';
             })()}
           </ol>
-          <div style="margin-top: 8px; font-size: 0.7rem; font-weight: 600; color: #374151;">Total: $4.3m</div>
-          <div style="font-size: 0.55rem; color: #6b7280; margin-top: 4px; font-style: italic;">* November target sign date</div>
+          <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #374151;">Total: $4.3m</div>
+          <div style="font-size: 0.6rem; color: #6b7280; margin-top: 4px; font-style: italic;">* November target sign date</div>
         </div>
       </div>
     </div>
@@ -1676,7 +1680,7 @@ ${late.map((acc, idx) => {
             (lastMeetingDate || nextMeetingDate ? '<div style="background: #ecfdf5; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 0.75rem; color: #065f46;">' + (lastMeetingDate ? '<div><strong>📅 Last:</strong> ' + lastMeetingDate + (lastMeetingSubject ? ' - ' + lastMeetingSubject : '') + '</div>' : '') + (nextMeetingDate ? '<div style="margin-top: 4px;"><strong>📅 Next:</strong> ' + nextMeetingDate + (nextMeetingSubject ? ' - ' + nextMeetingSubject : '') + '</div>' : '') + '</div>' : '') +
             '<div style="color: #374151; margin-bottom: 4px;"><strong>Products:</strong> ' + productList + '</div>' +
             '<div style="color: #374151; margin-top: 6px;"><strong>Opportunities (' + acc.opportunities.length + '):</strong></div>' +
-            acc.opportunities.map(o => '<div style="font-size: 0.75rem; color: #6b7280; margin-left: 12px; margin-top: 2px;">• ' + cleanStageName(o.StageName) + ' - ' + (o.Product_Line__c || 'TBD') + ' - $' + ((o.ACV__c || 0) / 1000).toFixed(0) + 'K</div>').join('') +
+            acc.opportunities.map(o => { const av = o.ACV__c || 0; const af = av >= 1000000 ? '$' + (av / 1000000).toFixed(1) + 'm' : '$' + (av / 1000).toFixed(0) + 'k'; return '<div style="font-size: 0.75rem; color: #6b7280; margin-left: 12px; margin-top: 2px;">• ' + cleanStageName(o.StageName) + ' - ' + (o.Product_Line__c || 'TBD') + ' - ' + af + '</div>'; }).join('') +
           '</div>' +
         '</details>';
       }).join('')}
@@ -1735,7 +1739,7 @@ ${mid.map((acc, idx) => {
             (lastMeetingDate || nextMeetingDate ? '<div style="background: #ecfdf5; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 0.75rem; color: #065f46;">' + (lastMeetingDate ? '<div><strong>📅 Last:</strong> ' + lastMeetingDate + (lastMeetingSubject ? ' - ' + lastMeetingSubject : '') + '</div>' : '') + (nextMeetingDate ? '<div style="margin-top: 4px;"><strong>📅 Next:</strong> ' + nextMeetingDate + (nextMeetingSubject ? ' - ' + nextMeetingSubject : '') + '</div>' : '') + '</div>' : '') +
             '<div style="color: #374151; margin-bottom: 4px;"><strong>Products:</strong> ' + productList + '</div>' +
             '<div style="color: #374151; margin-top: 6px;"><strong>Opportunities (' + acc.opportunities.length + '):</strong></div>' +
-            acc.opportunities.map(o => '<div style="font-size: 0.75rem; color: #6b7280; margin-left: 12px; margin-top: 2px;">• ' + cleanStageName(o.StageName) + ' - ' + (o.Product_Line__c || 'TBD') + ' - $' + ((o.ACV__c || 0) / 1000).toFixed(0) + 'K</div>').join('') +
+            acc.opportunities.map(o => { const av = o.ACV__c || 0; const af = av >= 1000000 ? '$' + (av / 1000000).toFixed(1) + 'm' : '$' + (av / 1000).toFixed(0) + 'k'; return '<div style="font-size: 0.75rem; color: #6b7280; margin-left: 12px; margin-top: 2px;">• ' + cleanStageName(o.StageName) + ' - ' + (o.Product_Line__c || 'TBD') + ' - ' + af + '</div>'; }).join('') +
           '</div>' +
         '</details>';
       }).join('')}
@@ -2048,7 +2052,7 @@ ${generateWeeklyTab({
                 '<div style="color: #374151; margin-bottom: 4px;"><strong>Products:</strong> ' + productList + '</div>' +
                 (acc.customerType ? '<div style="color: #374151; margin-bottom: 4px;"><strong>Customer Type:</strong> ' + acc.customerType + '</div>' : '') +
                 '<div style="color: #374151; margin-top: 6px;"><strong>Opportunities (' + acc.opportunities.length + '):</strong></div>' +
-                acc.opportunities.map(o => '<div style="font-size: 0.75rem; color: #6b7280; margin-left: 12px; margin-top: 2px;">• ' + cleanStageName(o.StageName) + ' - ' + (o.Product_Line__c || 'TBD') + ' - $' + ((o.ACV__c || 0) / 1000).toFixed(0) + 'K</div>').join('') +
+                acc.opportunities.map(o => { const av = o.ACV__c || 0; const af = av >= 1000000 ? '$' + (av / 1000000).toFixed(1) + 'm' : '$' + (av / 1000).toFixed(0) + 'k'; return '<div style="font-size: 0.75rem; color: #6b7280; margin-left: 12px; margin-top: 2px;">• ' + cleanStageName(o.StageName) + ' - ' + (o.Product_Line__c || 'TBD') + ' - ' + af + '</div>'; }).join('') +
               '</div>' +
             '</div>' +
           '</details>';
