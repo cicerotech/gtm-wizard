@@ -451,7 +451,8 @@ function generateWeeklyTab(params) {
     stageBreakdown, jhSummary, jhAccounts,
     signedByType, signedDealsTotal,
     novDecRevenue, novDecRevenueTotal,
-    contractsByAccount, recurringTotal, projectTotal
+    contractsByAccount, recurringTotal, projectTotal,
+    closedLostDeals = [], daysInStageByStage = {}
   } = params;
   
   // Helper for currency formatting
@@ -608,46 +609,38 @@ function generateWeeklyTab(params) {
       <li><strong>Total Gross Pipeline:</strong> ${fmt((totalGross || 0) + (jhSummary?.totalPipeline || 0))} || ${fmt((totalWeighted || 0) + (jhSummary?.totalWeighted || 0))} Weighted || ${(totalDeals || 0) + (jhSummary?.totalOpportunities || 0)} opportunities</li>
     </ul>
     
-    <!-- Week-over-week Change by Stage (%) -->
+    <!-- Week-over-week Change by Stage - Combined View -->
     <div class="weekly-subsection">
       <div class="weekly-subsection-title">Week-over-week Change by Stage (%)</div>
       <table class="weekly-table">
         <thead>
-          <tr><th>Stage</th><th>ACV</th><th>% Change WoW</th></tr>
+          <tr>
+            <th>Stage</th>
+            <th style="text-align: right;">ACV</th>
+            <th style="text-align: center;">% Change WoW</th>
+            <th style="text-align: center;">Opp Count</th>
+            <th style="text-align: center;">% Change WoW</th>
+          </tr>
         </thead>
         <tbody>
-          ${stageWoW.filter(s => s.acv > 0).map(s => `
+          ${stageWoW.filter(s => s.acv > 0 || s.oppCount > 0).map(s => `
           <tr>
-            <td>${s.stage.replace('Stage ', 'S')}</td>
-            <td>${fmt(s.acv)}</td>
-            <td>-</td>
+            <td>${s.stage.replace('Stage ', 'S').replace(' - ', ' ')}</td>
+            <td style="text-align: right;">${fmt(s.acv)}</td>
+            <td style="text-align: center;">-</td>
+            <td style="text-align: center;">${s.oppCount}</td>
+            <td style="text-align: center;">-</td>
           </tr>`).join('')}
           <tr style="font-weight: 600; background: #e5e7eb;">
             <td>Total</td>
-            <td>${fmt(stageTotalACV)}</td>
-            <td>-</td>
+            <td style="text-align: right;">${fmt(stageTotalACV)}</td>
+            <td style="text-align: center;">-</td>
+            <td style="text-align: center;">${stageTotalCount}</td>
+            <td style="text-align: center;">-</td>
           </tr>
         </tbody>
       </table>
-      
-      <table class="weekly-table" style="margin-top: 12px;">
-        <thead>
-          <tr><th>This Week</th><th>Opp Count</th><th>% Change WoW</th></tr>
-        </thead>
-        <tbody>
-          ${stageWoW.filter(s => s.oppCount > 0).map(s => `
-          <tr>
-            <td>${s.stage.replace('Stage ', 'S')}</td>
-            <td>${s.oppCount}</td>
-            <td>-</td>
-          </tr>`).join('')}
-          <tr style="font-weight: 600; background: #e5e7eb;">
-            <td>Total</td>
-            <td>${stageTotalCount}</td>
-            <td>-</td>
-          </tr>
-        </tbody>
-      </table>
+      <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 4px; font-style: italic;">Note: WoW % change requires historical tracking (not yet implemented)</div>
     </div>
     
     <!-- New Opportunities Added -->
@@ -679,30 +672,37 @@ function generateWeeklyTab(params) {
         <tr><th>Account</th><th>Closed Lost Detail</th></tr>
       </thead>
       <tbody>
+        ${closedLostDeals.length > 0 ? closedLostDeals.map(deal => `
         <tr>
-          <td colspan="2" style="color: #9ca3af; text-align: center; font-style: italic;">No closed lost deals this week (data requires CL tracking)</td>
-        </tr>
+          <td style="font-weight: 500;">${deal.accountName}</td>
+          <td style="font-size: 0.75rem; color: #374151;">${deal.closedLostDetail || deal.closedLostReason || 'No detail provided'}</td>
+        </tr>`).join('') : `
+        <tr>
+          <td colspan="2" style="color: #9ca3af; text-align: center; font-style: italic;">No closed lost deals this week</td>
+        </tr>`}
       </tbody>
     </table>
+    <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 4px;">Source: Stage 7. Closed (Lost) opportunities from last 7 days</div>
   </div>
 
   <!-- SECTION 5: LONGEST DEALS BY STAGE (T10) -->
   <div class="weekly-section">
     <div class="weekly-section-title">5. Longest Deals by Stage (T10)</div>
-    <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 12px;">Days in current stage (requires CreatedDate tracking)</div>
+    <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 12px;">Top 10 deals per stage, sorted by days in stage (descending)</div>
     
-    ${['Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal'].map(stage => {
-      const stageData = stageBreakdown[stage];
-      if (!stageData || !stageData.accounts?.length) return '';
-      const topAccounts = stageData.accounts.slice(0, 10);
+    ${['Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation'].map(stage => {
+      const stageDeals = daysInStageByStage[stage] || [];
+      if (stageDeals.length === 0) return '';
       return `
       <div class="weekly-subsection">
         <div class="weekly-subsection-title">${stage}</div>
-        <div style="font-size: 0.75rem; color: #374151;">
-          ${topAccounts.map(a => a.name || a).join(', ') || 'None'}
+        <div style="font-size: 0.75rem; color: #374151; line-height: 1.6;">
+          ${stageDeals.map(d => `${d.accountName} (${d.daysInStage})`).join(', ') || 'None'}
         </div>
       </div>`;
     }).join('')}
+    
+    <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 8px; font-style: italic;">Days calculated from opportunity CreatedDate. For accurate stage-specific tracking, LastStageChangeDate field may be needed.</div>
   </div>
 </div>`;
 }
@@ -943,6 +943,84 @@ async function generateAccountDashboard() {
     }
     console.log(`[Dashboard] Accounts with LOI history: ${accountsWithLOIHistory.size}`);
   } catch (e) { console.error('LOI history query error:', e.message); }
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // CLOSED LOST DEALS - Stage 7 opportunities from last 7 days
+  // ═══════════════════════════════════════════════════════════════════════
+  const closedLostQuery = `
+    SELECT Account.Name, Name, ACV__c, CloseDate, 
+           Closed_Lost_Detail__c, Closed_Lost_Reason__c, StageName
+    FROM Opportunity
+    WHERE StageName = 'Stage 7. Closed (Lost)'
+      AND CloseDate >= LAST_N_DAYS:7
+    ORDER BY CloseDate DESC
+  `;
+  
+  let closedLostDeals = [];
+  
+  try {
+    const closedLostData = await query(closedLostQuery, true);
+    console.log(`[Dashboard] Closed Lost query returned ${closedLostData?.records?.length || 0} records`);
+    if (closedLostData?.records) {
+      closedLostData.records.forEach(opp => {
+        closedLostDeals.push({
+          accountName: opp.Account?.Name || 'Unknown',
+          oppName: opp.Name || '',
+          acv: opp.ACV__c || 0,
+          closeDate: opp.CloseDate,
+          closedLostDetail: opp.Closed_Lost_Detail__c || '',
+          closedLostReason: opp.Closed_Lost_Reason__c || ''
+        });
+      });
+    }
+  } catch (e) { console.error('Closed Lost query error:', e.message); }
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // DAYS IN STAGE - Calculate how long opportunities have been in current stage
+  // Using LastStageChangeDate or CreatedDate as fallback
+  // ═══════════════════════════════════════════════════════════════════════
+  const daysInStageQuery = `
+    SELECT Account.Name, Name, StageName, ACV__c, CreatedDate, LastModifiedDate
+    FROM Opportunity
+    WHERE IsClosed = false
+      AND StageName IN ('Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
+    ORDER BY CreatedDate ASC
+  `;
+  
+  let daysInStageByStage = {
+    'Stage 1 - Discovery': [],
+    'Stage 2 - SQO': [],
+    'Stage 3 - Pilot': [],
+    'Stage 4 - Proposal': [],
+    'Stage 5 - Negotiation': []
+  };
+  
+  try {
+    const daysData = await query(daysInStageQuery, true);
+    console.log(`[Dashboard] Days in Stage query returned ${daysData?.records?.length || 0} records`);
+    if (daysData?.records) {
+      const today = new Date();
+      daysData.records.forEach(opp => {
+        const stage = opp.StageName;
+        if (daysInStageByStage[stage]) {
+          // Calculate days since CreatedDate (approximation without LastStageChangeDate)
+          const created = new Date(opp.CreatedDate);
+          const daysInStage = Math.floor((today - created) / (1000 * 60 * 60 * 24));
+          daysInStageByStage[stage].push({
+            accountName: opp.Account?.Name || 'Unknown',
+            oppName: opp.Name || '',
+            acv: opp.ACV__c || 0,
+            daysInStage
+          });
+        }
+      });
+      // Sort each stage by days in stage (descending) and keep top 10
+      Object.keys(daysInStageByStage).forEach(stage => {
+        daysInStageByStage[stage].sort((a, b) => b.daysInStage - a.daysInStage);
+        daysInStageByStage[stage] = daysInStageByStage[stage].slice(0, 10);
+      });
+    }
+  } catch (e) { console.error('Days in Stage query error:', e.message); }
   
   // Add manual entry for Ecolab (waiting for contract)
   if (!contractsByAccount.has('Ecolab')) {
@@ -1531,7 +1609,8 @@ ${generateWeeklyTab({
   stageBreakdown, jhSummary: getJohnsonHanaSummary(), jhAccounts: getJHAccounts(),
   signedByType, signedDealsTotal,
   novDecRevenue, novDecRevenueTotal,
-  contractsByAccount, recurringTotal, projectTotal
+  contractsByAccount, recurringTotal, projectTotal,
+  closedLostDeals, daysInStageByStage
 })}
 
 <!-- TAB 3: REVENUE -->
