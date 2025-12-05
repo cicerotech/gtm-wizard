@@ -726,9 +726,9 @@ function generateWeeklyTab(params) {
           <tr><th>Month</th><th style="text-align: right;">Eudia</th><th style="text-align: right;">JH</th><th style="text-align: right;">OH</th><th style="text-align: right;">Combined</th></tr>
         </thead>
         <tbody>
-          <tr><td>August</td><td style="text-align: right;">$4.9</td><td style="text-align: right; color: #6b7280;">-</td><td style="text-align: right; color: #6b7280;">-</td><td style="text-align: right; color: #6b7280;">-</td></tr>
-          <tr><td>September</td><td style="text-align: right;">$5.0</td><td style="text-align: right; color: #6b7280;">-</td><td style="text-align: right; color: #6b7280;">-</td><td style="text-align: right; color: #6b7280;">-</td></tr>
-          <tr><td>October</td><td style="text-align: right;">$6.8</td><td style="text-align: right; color: #6b7280;">-</td><td style="text-align: right; color: #6b7280;">-</td><td style="text-align: right; color: #6b7280;">-</td></tr>
+          <tr><td>August</td><td style="text-align: right;">$4.9</td><td style="text-align: right;">$12.5</td><td style="text-align: right;">$0</td><td style="text-align: right;">$17.6</td></tr>
+          <tr><td>September</td><td style="text-align: right;">$5.0</td><td style="text-align: right;">$12.9</td><td style="text-align: right;">$0</td><td style="text-align: right;">$18.4</td></tr>
+          <tr><td>October</td><td style="text-align: right;">$6.8</td><td style="text-align: right;">$10.9</td><td style="text-align: right;">$1.5</td><td style="text-align: right;">$19.8</td></tr>
           <tr><td>November (EOM)</td><td style="text-align: right;">$7.5</td><td style="text-align: right;">$10.2</td><td style="text-align: right;">$1.5</td><td style="text-align: right; font-weight: 600;">$19.2</td></tr>
           <tr style="color: #6b7280; font-size: 0.7rem;">
             <td>+ Q4 Weighted Pipeline</td>
