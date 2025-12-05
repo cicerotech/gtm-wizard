@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>hyprnote Setup (Audited)</title>
+  <title>hyprnote Setup</title>
   <style>
     * {
       margin: 0;
@@ -172,12 +172,12 @@
     }
     
     .warning {
-      background: #fffbeb;
-      border: 1px solid #fde68a;
+      background: #f5f5f5;
+      border: 1px solid #e5e5e5;
       border-radius: 6px;
       padding: 12px 16px;
       font-size: 13px;
-      color: #92400e;
+      color: #555;
       margin-top: 12px;
     }
     
@@ -401,67 +401,49 @@
       </div>
     </div>
     
-    <!-- SALES TEAM: ADDITIONAL STEPS -->
+    <!-- SALES TEAM: SETUP -->
     <div class="section sales-only">
-      <div class="section-title">Step 2: Node.js <span class="badge">One-time</span></div>
+      <div class="section-title">Step 2: Salesforce Sync Setup <span class="badge">One-time · 5 min</span></div>
       
-      <div class="step">
-        <div class="step-number">2</div>
-        <div class="step-content">
-          <h3>Install Node.js</h3>
-          <p>Required for the sync tool. Skip if already installed.</p>
-          <a href="https://nodejs.org/en/download/" class="download-btn secondary" target="_blank">Download Node.js</a>
-          <p class="detail">Download the LTS version. Run the installer.</p>
-        </div>
-      </div>
-    </div>
-    
-    <div class="section sales-only">
-      <div class="section-title">Step 3: Sync Tool <span class="badge">One-time</span></div>
-      
-      <div class="step">
-        <div class="step-number">3</div>
-        <div class="step-content">
-          <h3>Download the Sync Package</h3>
-          <p>Connects your local notes to Salesforce.</p>
-          <a href="https://github.com/cicerotech/gtm-wizard/archive/refs/heads/main.zip" class="download-btn secondary" target="_blank">Download Package</a>
-          
-          <ul class="checklist">
-            <li>Unzip the downloaded file</li>
-            <li>Find the <code>hyprnote-sync</code> folder inside</li>
-            <li>Move that folder to your Documents</li>
-          </ul>
-        </div>
-      </div>
-      
-      <div class="divider"></div>
-      
-      <div class="step">
-        <div class="step-number">4</div>
-        <div class="step-content">
-          <h3>Get Credentials</h3>
-          <p>Ask Keigan for the <code>.env</code> file. Put it in your <code>hyprnote-sync</code> folder.</p>
-          <p class="detail">This file contains the Salesforce connection.</p>
-        </div>
-      </div>
-      
-      <div class="divider"></div>
-      
-      <div class="step">
-        <div class="step-number">5</div>
-        <div class="step-content">
-          <h3>Run Install</h3>
-          <p>Open your <code>hyprnote-sync</code> folder. Double-click <code>install.command</code></p>
-          
-          <div class="warning">
-            <strong>Mac security warning?</strong> Right-click the file, select "Open", then click "Open" in the popup.
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        
+        <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: #f8f8f8; border-radius: 8px;">
+          <div class="step-number">2</div>
+          <div style="flex: 1;">
+            <strong>Install Node.js</strong>
+            <p class="detail" style="margin: 0;">Required runtime for the sync tool</p>
           </div>
-          
-          <p class="detail" style="margin-top: 12px;">It will detect your profile. Type Y to confirm.</p>
+          <a href="https://nodejs.org/en/download/" class="download-btn secondary" target="_blank" style="margin: 0; white-space: nowrap;">Download</a>
         </div>
+        
+        <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: #f8f8f8; border-radius: 8px;">
+          <div class="step-number">3</div>
+          <div style="flex: 1;">
+            <strong>Download Sync Package</strong>
+            <p class="detail" style="margin: 0;">Unzip → move <code>hyprnote-sync</code> folder to Documents</p>
+          </div>
+          <a href="https://github.com/cicerotech/gtm-wizard/archive/refs/heads/main.zip" class="download-btn secondary" target="_blank" style="margin: 0; white-space: nowrap;">Download</a>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: #f8f8f8; border-radius: 8px;">
+          <div class="step-number">4</div>
+          <div style="flex: 1;">
+            <strong>Get Setup File</strong>
+            <p class="detail" style="margin: 0;">Ask Keigan for the setup file → put it in your hyprnote-sync folder</p>
+          </div>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: #f8f8f8; border-radius: 8px;">
+          <div class="step-number">5</div>
+          <div style="flex: 1;">
+            <strong>Run Install</strong>
+            <p class="detail" style="margin: 0;">Double-click <code>install.command</code> → type Y to confirm</p>
+          </div>
+        </div>
+        
       </div>
       
-      <p class="note">The sync only transfers meeting summaries to Salesforce. Audio stays on your device.</p>
+      <p class="note">Only meeting summaries sync to Salesforce. Audio stays on your device.</p>
     </div>
     
     <!-- HOW TO USE -->
@@ -508,37 +490,6 @@
       </div>
     </div>
     
-    <!-- TROUBLESHOOTING -->
-    <div class="section sales-only">
-      <div class="section-title">Troubleshooting</div>
-      
-      <div class="faq">
-        <div class="faq-item">
-          <p class="faq-q">"Cannot be opened because it is from an unidentified developer"</p>
-          <p class="faq-a">Right-click the file, select "Open", then click "Open" in the popup.</p>
-        </div>
-        
-        <div class="faq-item">
-          <p class="faq-q">"Hyprnote database not found"</p>
-          <p class="faq-a">Open hyprnote first and record at least one test note.</p>
-        </div>
-        
-        <div class="faq-item">
-          <p class="faq-q">"Salesforce connection failed"</p>
-          <p class="faq-a">Make sure you have the <code>.env</code> file in your hyprnote-sync folder.</p>
-        </div>
-        
-        <div class="faq-item">
-          <p class="faq-q">"npm: command not found"</p>
-          <p class="faq-a">Node.js isn't installed. Go back to Step 2.</p>
-        </div>
-        
-        <div class="faq-item">
-          <p class="faq-q">Need help?</p>
-          <p class="faq-a">Contact Keigan (RevOps).</p>
-        </div>
-      </div>
-    </div>
     
   </div>
   
