@@ -601,9 +601,11 @@ function generateWeeklyTab(params) {
   
   return `
 <div id="weekly" class="tab-content">
-  <div style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px; font-size: 0.75rem; color: #374151;">
-    <strong>RevOps Weekly Summary</strong> — Formatted like Friday email updates. Data pulled live from Salesforce.
+  <div style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px; font-size: 0.75rem; color: #374151; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+    <span><strong>RevOps Weekly Summary</strong> — Formatted like Friday email updates. Data pulled live from Salesforce.</span>
+    <button onclick="copyWeeklyForEmail()" style="background: #1f2937; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.7rem; cursor: pointer;">📧 Copy for Email</button>
   </div>
+  <div id="email-copy-status" style="display: none; background: #d1fae5; color: #065f46; padding: 8px 12px; border-radius: 4px; margin-bottom: 12px; font-size: 0.75rem;">✓ Copied to clipboard! Paste into your email.</div>
 
   <!-- SECTION 1: REVENUE FORECAST SNAPSHOT -->
   <div class="weekly-section">
@@ -624,28 +626,37 @@ function generateWeeklyTab(params) {
         <!-- Johnson Hana - slightly darker gray -->
         <div style="flex: 1; min-width: 280px; background: #e5e7eb; border-radius: 8px; padding: 12px;">
           <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.8rem;">JOHNSON HANA ${(() => {
-            const jhDecOpps = (jhSummary?.pipeline || []).filter(o => {
+            // Include Nov + Dec target sign dates (Nov-Jan = Q4)
+            const jhQ4Opps = (jhSummary?.pipeline || []).filter(o => {
               if (!o.closeDate) return false;
               const d = new Date(o.closeDate);
-              return d.getMonth() === 11 && d.getFullYear() === 2025;
+              return (d.getMonth() >= 10 && d.getFullYear() === 2025) || (d.getMonth() === 0 && d.getFullYear() === 2026);
             });
-            return '(' + jhDecOpps.length + ' opps)';
+            return '(' + jhQ4Opps.length + ' opps)';
           })()}</div>
           <ol class="weekly-list" style="font-size: 0.75rem; margin: 0; padding-left: 16px;">
             ${(() => {
-              const jhDecOpps = (jhSummary?.pipeline || []).filter(o => {
+              // Include Nov + Dec (Q4 FY2025)
+              const jhQ4Opps = (jhSummary?.pipeline || []).filter(o => {
                 if (!o.closeDate) return false;
                 const d = new Date(o.closeDate);
-                return d.getMonth() === 11 && d.getFullYear() === 2025;
+                return (d.getMonth() >= 10 && d.getFullYear() === 2025) || (d.getMonth() === 0 && d.getFullYear() === 2026);
               }).sort((a, b) => (b.weighted || 0) - (a.weighted || 0)).slice(0, 10);
-              return jhDecOpps.map(o => `<li>${o.account}, ${fmt(o.acv || 0)}</li>`).join('') || '<li style="color: #9ca3af;">None</li>';
+              return jhQ4Opps.map(o => {
+                const d = new Date(o.closeDate);
+                const isNov = d.getMonth() === 10;
+                const svcLine = o.serviceLine ? ' (' + o.serviceLine + ')' : '';
+                const novMarker = isNov ? '*' : '';
+                return `<li>${o.account}${svcLine}, ${fmt(o.acv || 0)}${novMarker}</li>`;
+              }).join('') || '<li style="color: #9ca3af;">None</li>';
             })()}
           </ol>
           <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #374151;">Total: ${fmt((jhSummary?.pipeline || []).filter(o => {
             if (!o.closeDate) return false;
             const d = new Date(o.closeDate);
-            return d.getMonth() === 11 && d.getFullYear() === 2025;
+            return (d.getMonth() >= 10 && d.getFullYear() === 2025) || (d.getMonth() === 0 && d.getFullYear() === 2026);
           }).reduce((sum, o) => sum + (o.acv || 0), 0))}</div>
+          <div style="font-size: 0.6rem; color: #6b7280; margin-top: 4px; font-style: italic;">* November target sign date in JH system</div>
         </div>
       </div>
     </div>
@@ -691,17 +702,17 @@ function generateWeeklyTab(params) {
           <tr><td>November Forecast</td><td style="text-align: right;">$7.2</td><td style="text-align: right;">$0.4</td></tr>
           <tr style="font-weight: 600; background: #f9fafb;">
             <td>FY2025E - Eudia Only</td>
-            <td style="text-align: right;">$9.4</td>
+            <td style="text-align: right;">$9.89</td>
             <td style="text-align: right;">-</td>
           </tr>
           <tr style="font-style: italic; color: #6b7280;">
             <td>Including JH</td>
-            <td style="text-align: right;">~$23m</td>
+            <td style="text-align: right;">$18.3m</td>
             <td></td>
           </tr>
         </tbody>
       </table>
-      <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 4px; font-style: italic;">*Historical figures adjusted based on Finance review of 'recurring' and 'project' contract signature dates, terms, and pricing.</div>
+      <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 4px; font-style: italic;">*Eudia: $7.56m revenue + $2.33m weighted. JH: $8.41m ACV + $3.96m weighted.</div>
     </div>
   </div>
 
@@ -2183,6 +2194,51 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
+
+// Copy Weekly tab for email
+function copyWeeklyForEmail() {
+  const weeklyTab = document.getElementById('weekly');
+  if (!weeklyTab) return;
+  
+  // Create email-friendly HTML
+  const dashboardUrl = window.location.href.split('?')[0];
+  const timestamp = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles', dateStyle: 'medium', timeStyle: 'short' });
+  
+  // Clone the content and clean it up for email
+  const clone = weeklyTab.cloneNode(true);
+  
+  // Remove the copy button and status from the clone
+  const copyBtn = clone.querySelector('button');
+  if (copyBtn) copyBtn.parentElement.remove();
+  const status = clone.querySelector('#email-copy-status');
+  if (status) status.remove();
+  
+  // Build email-friendly HTML with inline styles
+  const emailHtml = \`
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 700px; margin: 0 auto; color: #1f2937;">
+  <div style="background: #f3f4f6; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 13px;">
+    <strong>RevOps Weekly Summary</strong> — \${timestamp} PT
+    <br><a href="\${dashboardUrl}" style="color: #2563eb; text-decoration: none;">View full dashboard →</a>
+  </div>
+  \${clone.innerHTML}
+</div>
+\`;
+  
+  // Copy as HTML to clipboard
+  const blob = new Blob([emailHtml], { type: 'text/html' });
+  const clipboardItem = new ClipboardItem({ 'text/html': blob });
+  
+  navigator.clipboard.write([clipboardItem]).then(() => {
+    const statusEl = document.getElementById('email-copy-status');
+    if (statusEl) {
+      statusEl.style.display = 'block';
+      setTimeout(() => statusEl.style.display = 'none', 3000);
+    }
+  }).catch(err => {
+    console.error('Failed to copy:', err);
+    alert('Failed to copy. Please try again or manually select and copy the content.');
+  });
+}
 </script>
 
 </body>
