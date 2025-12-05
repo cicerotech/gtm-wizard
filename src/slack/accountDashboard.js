@@ -622,9 +622,9 @@ function generateWeeklyTab(params) {
       <div style="font-size: 0.75rem; color: #374151; margin-left: 12px; margin-bottom: 8px;">
         <strong>Ecolab</strong> (Compliance) — $200k ACV, $600k TCV, 3-year term
       </div>
-      <div style="font-weight: 600; font-size: 0.75rem; color: #374151; margin-bottom: 4px;">Signed LOI since last week</div>
+      <div style="font-weight: 600; font-size: 0.75rem; color: #374151; margin-bottom: 4px;">Signed LOIs since last week</div>
       <div style="font-size: 0.75rem; color: #374151; margin-left: 12px;">
-        <strong>Udemy</strong> — 2-year term
+        <strong>Udemy</strong> — $2m ACV, 1-year commitment
       </div>
     </div>
     
@@ -635,33 +635,31 @@ function generateWeeklyTab(params) {
         <!-- Eudia -->
         <div style="flex: 1; min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px;">
           <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.8rem;">EUDIA (${decemberOpps.length} opps)</div>
-          <ol class="weekly-list" style="font-size: 0.75rem; margin: 0; padding-left: 16px;">
-            ${decemberOpps.slice(0, 10).map((o, i) => `<li>${o.account}, ${fmt(o.acv)}</li>`).join('') || '<li style="color: #9ca3af;">None</li>'}
+          <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.4;">
+            ${decemberOpps.slice(0, 5).map((o, i) => `<li>${o.account}, ${fmt(o.acv)}</li>`).join('') || '<li style="color: #9ca3af;">None</li>'}
           </ol>
-          <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #059669;">Total: ${fmt(decTotalACV)} <span style="font-weight: 400; color: #6b7280;">(weighted: ${fmt(decTotalWeighted)})</span></div>
+          <div style="margin-top: 8px; font-size: 0.7rem; font-weight: 600; color: #374151;">Total: ${fmt(decTotalACV)} <span style="font-weight: 400; color: #6b7280;">(wtd: ${fmt(decTotalWeighted)})</span></div>
         </div>
         <!-- Johnson Hana - slightly darker gray -->
         <div style="flex: 1; min-width: 280px; background: #e5e7eb; border-radius: 8px; padding: 12px;">
           <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.8rem;">JOHNSON HANA (27 opps)</div>
-          <ol class="weekly-list" style="font-size: 0.75rem; margin: 0; padding-left: 16px;">
+          <ol class="weekly-list" style="font-size: 0.65rem; margin: 0; padding-left: 16px; line-height: 1.4;">
             ${(() => {
-              // Include Nov + Dec (Q4 FY2025)
               const jhQ4Opps = (jhSummary?.pipeline || []).filter(o => {
                 if (!o.closeDate) return false;
                 const d = new Date(o.closeDate);
                 return (d.getMonth() >= 10 && d.getFullYear() === 2025) || (d.getMonth() === 0 && d.getFullYear() === 2026);
-              }).sort((a, b) => (b.weighted || 0) - (a.weighted || 0)).slice(0, 10);
+              }).sort((a, b) => (b.weighted || 0) - (a.weighted || 0)).slice(0, 5);
               return jhQ4Opps.map(o => {
                 const d = new Date(o.closeDate);
                 const isNov = d.getMonth() === 10;
-                const svcLine = o.serviceLine ? ' (' + o.serviceLine + ')' : '';
                 const novMarker = isNov ? '*' : '';
-                return `<li>${o.account}${svcLine}, ${fmt(o.acv || 0)}${novMarker}</li>`;
+                return `<li>${o.account}, ${fmt(o.acv || 0)}${novMarker}</li>`;
               }).join('') || '<li style="color: #9ca3af;">None</li>';
             })()}
           </ol>
-          <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #374151;">Total: $4.3m <span style="font-weight: 400; color: #6b7280;">(weighted: $2.7m)</span></div>
-          <div style="font-size: 0.6rem; color: #6b7280; margin-top: 4px; font-style: italic;">* November target sign date in JH system</div>
+          <div style="margin-top: 8px; font-size: 0.7rem; font-weight: 600; color: #374151;">Total: $4.3m <span style="font-weight: 400; color: #6b7280;">(wtd: $2.7m)</span></div>
+          <div style="font-size: 0.55rem; color: #6b7280; margin-top: 4px; font-style: italic;">* November target sign date</div>
         </div>
       </div>
     </div>
@@ -741,11 +739,11 @@ function generateWeeklyTab(params) {
             <td style="text-align: right;">$3.88</td>
             <td style="text-align: right;">$6.21</td>
           </tr>
-          <tr style="font-weight: 600; background: #f0fdf4;">
+          <tr style="font-weight: 600; background: #e5e7eb;">
             <td>FY2025E Total</td>
             <td style="text-align: right;">$9.89</td>
             <td style="text-align: right;">$14.18</td>
-            <td style="text-align: right; color: #059669;">$24.07</td>
+            <td style="text-align: right; color: #111827;">$24.07</td>
           </tr>
         </tbody>
       </table>
@@ -812,7 +810,7 @@ function generateWeeklyTab(params) {
           if (o.accountName?.includes('DOD') && o.oppName?.toLowerCase().includes('deca')) {
             return o.accountName + ' <span style="font-size: 0.65rem; color: #6b7280;">(split from bundled opp - potential Phase 0 EOY)</span>';
           }
-          return o.accountName + (o.productLine ? ' (' + o.productLine + ')' : '');
+          return o.accountName;
         }).join(', ') || 'None'}
       </div>
     </div>
