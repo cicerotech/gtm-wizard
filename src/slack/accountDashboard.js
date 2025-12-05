@@ -452,7 +452,8 @@ function generateWeeklyTab(params) {
     signedByType, signedDealsTotal,
     novDecRevenue, novDecRevenueTotal,
     contractsByAccount, recurringTotal, projectTotal,
-    closedLostDeals = [], daysInStageByStage = {}
+    closedLostDeals = [], daysInStageByStage = {},
+    logosByType = { revenue: [], pilot: [], loi: [] }
   } = params;
   
   // Helper for currency formatting
@@ -512,12 +513,13 @@ function generateWeeklyTab(params) {
   const stageTotalACV = stageWoW.reduce((sum, s) => sum + s.acv, 0);
   const stageTotalCount = stageWoW.reduce((sum, s) => sum + s.oppCount, 0);
   
-  // Current logos count from signed deals
-  const currentLogosCount = new Set([
-    ...signedByType.revenue.map(d => d.accountName),
-    ...signedByType.pilot.map(d => d.accountName),
-    ...signedByType.loi.map(d => d.accountName)
-  ]).size;
+  // Current logos count from Account.Customer_Type__c (all tagged accounts)
+  const allLogos = [
+    ...logosByType.revenue.map(a => a.accountName),
+    ...logosByType.pilot.map(a => a.accountName),
+    ...logosByType.loi.map(a => a.accountName)
+  ];
+  const currentLogosCount = allLogos.length;
   
   // Run-rate forecast (using contract data)
   const fy2025Total = recurringTotal + projectTotal;
@@ -555,10 +557,7 @@ function generateWeeklyTab(params) {
         </thead>
         <tbody>
           <tr><td>Q3</td><td>33*</td></tr>
-          <tr><td>November</td><td>${signedByType.revenue.filter(d => {
-            const cd = new Date(d.closeDate);
-            return cd.getMonth() === 10 && cd.getFullYear() === 2025;
-          }).length}</td></tr>
+          <tr><td>November</td><td>${currentLogosCount - 33 > 0 ? currentLogosCount - 33 : 0}</td></tr>
         </tbody>
       </table>
       <div style="font-size: 0.65rem; color: #9ca3af; margin-top: 4px;">November Logos Signed: ${signedByType.revenue.filter(d => {
@@ -571,7 +570,7 @@ function generateWeeklyTab(params) {
     <div class="weekly-subsection">
       <div class="weekly-subsection-title">Current Logos: (${currentLogosCount})</div>
       <div style="font-size: 0.75rem; color: #374151; line-height: 1.6;">
-        ${[...new Set([...signedByType.revenue.map(d => d.accountName), ...signedByType.pilot.map(d => d.accountName), ...signedByType.loi.map(d => d.accountName)])].slice(0, 40).join(', ')}
+        ${allLogos.sort().join(', ')}
       </div>
     </div>
     
@@ -1604,7 +1603,7 @@ ${generateWeeklyTab({
   signedByType, signedDealsTotal,
   novDecRevenue, novDecRevenueTotal,
   contractsByAccount, recurringTotal, projectTotal,
-  closedLostDeals, daysInStageByStage
+  closedLostDeals, daysInStageByStage, logosByType
 })}
 
 <!-- TAB 3: REVENUE -->
