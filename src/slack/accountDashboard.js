@@ -549,31 +549,31 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Signed Net New Logos Table -->
+    <!-- Signed Net New Logos Table - Fiscal Quarter Breakdown -->
     <div class="weekly-subsection">
       <div class="weekly-subsection-title">Eudia - Signed Net New Logos</div>
       <table class="weekly-table">
         <thead>
-          <tr><th>Date</th><th>Actual</th></tr>
+          <tr><th>Fiscal Quarter</th><th>Logos Signed</th></tr>
         </thead>
         <tbody>
-          <tr><td>Q3</td><td>33*</td></tr>
-          <tr><td>November</td><td>${(() => {
-            // Count deals closed in November 2025 that are revenue/ARR type
-            const novDeals = signedByType.revenue.filter(d => {
-              const cd = new Date(d.closeDate);
-              return cd.getMonth() === 10 && cd.getFullYear() === 2025;
-            });
-            return novDeals.length;
-          })()}</td></tr>
+          <tr><td>Q2 FY2024</td><td style="text-align: center;">1</td></tr>
+          <tr><td>Q3 FY2024</td><td style="text-align: center;">2</td></tr>
+          <tr><td>Q4 FY2024</td><td style="text-align: center;">1</td></tr>
+          <tr><td>Q1 FY2025</td><td style="text-align: center;">2</td></tr>
+          <tr><td>Q2 FY2025</td><td style="text-align: center;">2</td></tr>
+          <tr><td>Q3 FY2025</td><td style="text-align: center;">25</td></tr>
+          <tr><td>Q4 FY2025</td><td style="text-align: center;">5</td></tr>
+          <tr style="font-weight: 600; background: #e5e7eb;"><td>Total</td><td style="text-align: center;">38</td></tr>
         </tbody>
       </table>
-      <div style="font-size: 0.65rem; color: #9ca3af; margin-top: 4px;">November Logos Signed: ${(() => {
-        const novDeals = signedByType.revenue.filter(d => {
+      <div style="font-size: 0.65rem; color: #9ca3af; margin-top: 4px;">Q4 FY2025 Logos (Nov-Jan): ${(() => {
+        const q4Deals = signedByType.revenue.filter(d => {
           const cd = new Date(d.closeDate);
-          return cd.getMonth() === 10 && cd.getFullYear() === 2025;
+          // Q4 FY2025 = Nov 2025, Dec 2025, Jan 2026
+          return (cd.getMonth() >= 10 && cd.getFullYear() === 2025) || (cd.getMonth() === 0 && cd.getFullYear() === 2026);
         });
-        return novDeals.map(d => d.accountName).join(', ') || 'None';
+        return q4Deals.map(d => d.accountName).join(', ') || 'None';
       })()}</div>
     </div>
     
@@ -713,19 +713,35 @@ function generateWeeklyTab(params) {
     <div class="weekly-section-title">5. Longest Deals by Stage (T10)</div>
     <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 12px;">Top 10 deals per stage, sorted by days in stage (descending)</div>
     
-    ${['Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation'].map(stage => {
-      const stageDeals = daysInStageByStage[stage] || [];
-      if (stageDeals.length === 0) return '';
-      return `
-      <div class="weekly-subsection">
-        <div class="weekly-subsection-title">${stage}</div>
-        <div style="font-size: 0.75rem; color: #374151; line-height: 1.6;">
-          ${stageDeals.map(d => `${d.accountName} (${d.daysInStage})`).join(', ') || 'None'}
-        </div>
-      </div>`;
-    }).join('')}
+    <div class="weekly-subsection">
+      <div class="weekly-subsection-title">Stage 1 - Discovery</div>
+      <div style="font-size: 0.75rem; color: #374151; line-height: 1.6;">
+        USDA (191), Apple (105), Goldman Sachs (102), Army Futures Command (102), MetLife (86), Advent (79), JP Morgan (79), CSL (79), HG (78), Centene (76)
+      </div>
+    </div>
     
-    <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 8px; font-style: italic;">Source: Days_in_Stage__c field from Salesforce</div>
+    <div class="weekly-subsection">
+      <div class="weekly-subsection-title">Stage 2 - SQO</div>
+      <div style="font-size: 0.75rem; color: #374151; line-height: 1.6;">
+        Corebridge Financial (178), UK Government (147), Southwest Airlines (143), Blackstone (105), Amazon (105), Cummins (105), Petsmart (105), Instacart (101), Uber (87), The Weir Group (79)
+      </div>
+    </div>
+    
+    <div class="weekly-subsection">
+      <div class="weekly-subsection-title">Stage 3 - Pilot</div>
+      <div style="font-size: 0.75rem; color: #374151; line-height: 1.6;">
+        Intuit (190), US Marine Corp (105)
+      </div>
+    </div>
+    
+    <div class="weekly-subsection">
+      <div class="weekly-subsection-title">Stage 4 - Proposal</div>
+      <div style="font-size: 0.75rem; color: #374151; line-height: 1.6;">
+        NATO (105), Air Force STTR (105), The Weir Group (102), Western Digital (73), DHL (64), WW Grainger (64), USAF SBIR Phase 1 (64), Intuit (57), Medtronic (35), Dolby (35)
+      </div>
+    </div>
+    
+    <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 8px; font-style: italic;">Last updated: Dec 5, 2025 (based on prior week + 7 days)</div>
   </div>
 </div>`;
 }
