@@ -604,7 +604,10 @@ function generateWeeklyTab(params) {
   return `
 <div id="weekly" class="tab-content">
   <div style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px; font-size: 0.75rem; color: #374151; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-    <span><strong>RevOps Weekly Summary</strong> — Formatted like Friday email updates. Data pulled live from Salesforce.</span>
+    <div>
+      <strong>RevOps Weekly Summary</strong> — Formatted like Friday email updates.
+      <div style="font-size: 0.65rem; color: #6b7280; margin-top: 2px;">Eudia data pulled live from Salesforce. Johnson Hana data uploaded weekly until merged to our instance.</div>
+    </div>
     <button onclick="copyWeeklyForEmail()" style="background: #1f2937; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.7rem; cursor: pointer;">📧 Copy for Email</button>
   </div>
   <div id="email-copy-status" style="display: none; background: #d1fae5; color: #065f46; padding: 8px 12px; border-radius: 4px; margin-bottom: 12px; font-size: 0.75rem;">✓ Copied to clipboard! Paste into your email.</div>
@@ -676,7 +679,7 @@ function generateWeeklyTab(params) {
       
       <!-- Eudia Logos -->
       <details style="margin-bottom: 8px;">
-        <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #059669; padding: 4px 0;">
+        <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; padding: 4px 0;">
           Eudia (${currentLogosCount}) ▾
         </summary>
         <div style="font-size: 0.7rem; color: #374151; line-height: 1.5; padding: 8px 12px; background: #f9fafb; border-radius: 4px; margin-top: 4px;">
@@ -686,7 +689,7 @@ function generateWeeklyTab(params) {
       
       <!-- Johnson Hana Logos -->
       <details style="margin-bottom: 8px;">
-        <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #374151; padding: 4px 0;">
+        <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; padding: 4px 0;">
           Johnson Hana (${jhSummary?.uniqueAccounts || 0}) ▾
         </summary>
         <div style="font-size: 0.7rem; color: #374151; line-height: 1.5; padding: 8px 12px; background: #e5e7eb; border-radius: 4px; margin-top: 4px;">
@@ -699,11 +702,11 @@ function generateWeeklyTab(params) {
       
       <!-- OutHouse Logos -->
       <details style="margin-bottom: 8px;">
-        <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #6b7280; padding: 4px 0;">
-          OutHouse (0) ▾
+        <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #9ca3af; padding: 4px 0;">
+          OutHouse (1) ▾
         </summary>
-        <div style="font-size: 0.7rem; color: #6b7280; line-height: 1.5; padding: 8px 12px; background: #f3f4f6; border-radius: 4px; margin-top: 4px; font-style: italic;">
-          No OutHouse logos tracked yet
+        <div style="font-size: 0.7rem; color: #6b7280; line-height: 1.5; padding: 8px 12px; background: #f3f4f6; border-radius: 4px; margin-top: 4px;">
+          Meta
         </div>
       </details>
     </div>
@@ -713,7 +716,7 @@ function generateWeeklyTab(params) {
       <div class="weekly-subsection-title">Run-Rate Forecast ($)</div>
       <table class="weekly-table">
         <thead>
-          <tr><th>Month</th><th>Eudia</th><th>JH</th><th>Combined</th></tr>
+          <tr><th>Month</th><th style="text-align: right;">Eudia</th><th style="text-align: right;">JH</th><th style="text-align: right;">Combined</th></tr>
         </thead>
         <tbody>
           <tr><td>August</td><td style="text-align: right;">$4.9</td><td style="text-align: right; color: #6b7280;">-</td><td style="text-align: right; color: #6b7280;">-</td></tr>
