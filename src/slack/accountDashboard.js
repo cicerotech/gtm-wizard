@@ -22,7 +22,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .login-container input:focus { outline: none; border-color: #8e99e1; }
 .login-container button { width: 100%; padding: 12px; background: #8e99e1; color: #fff; border: none; border-radius: 6px; font-size: 0.875rem; font-weight: 500; cursor: pointer; }
 .login-container button:hover { background: #7c8bd4; }
-.error { color: #ef4444; font-size: 0.75rem; margin-bottom: 12px; display: none; }
+.optional { font-size: 0.65rem; color: #9ca3af; margin-bottom: 4px; }
 </style>
 </head>
 <body>
@@ -30,8 +30,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <h1>GTM Dashboard</h1>
   <p>Enter password to continue</p>
   <form method="POST" action="/account-dashboard">
+    <div class="optional">Your name (optional, for analytics)</div>
+    <input type="text" name="userName" placeholder="Your name" autocomplete="name">
     <input type="password" name="password" placeholder="Password" required autocomplete="off">
-    <div class="error" id="error">Incorrect password</div>
     <button type="submit">Continue</button>
   </form>
 </div>

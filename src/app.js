@@ -190,18 +190,86 @@ class GTMBrainApp {
       res.sendFile(logoPath);
     });
 
-    // Account Status Dashboard - Password protected
+    // Account Status Dashboard - Password protected with analytics
     const DASHBOARD_PASSWORDS = ['eudia-gtm'];
     const AUTH_COOKIE = 'gtm_dash_auth';
+    const USER_COOKIE = 'gtm_dash_user';
+    
+    // Simple in-memory analytics (resets on server restart)
+    const dashboardAnalytics = {
+      pageViews: 0,
+      uniqueUsers: new Set(),
+      sessions: [],
+      lastReset: new Date().toISOString()
+    };
+    
+    // Dashboard cache (5 minute TTL to reduce Salesforce API calls)
+    let dashboardCache = { html: null, timestamp: 0 };
+    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+    
+    // Rate limiting (max 30 requests per minute per IP)
+    const rateLimitMap = new Map();
+    const RATE_LIMIT = 30;
+    const RATE_WINDOW = 60 * 1000; // 1 minute
+    
+    const checkRateLimit = (ip) => {
+      const now = Date.now();
+      const record = rateLimitMap.get(ip) || { count: 0, resetTime: now + RATE_WINDOW };
+      if (now > record.resetTime) {
+        record.count = 1;
+        record.resetTime = now + RATE_WINDOW;
+      } else {
+        record.count++;
+      }
+      rateLimitMap.set(ip, record);
+      return record.count <= RATE_LIMIT;
+    };
+    
+    // Get cached dashboard or regenerate
+    const getCachedDashboard = async () => {
+      const now = Date.now();
+      if (dashboardCache.html && (now - dashboardCache.timestamp) < CACHE_TTL) {
+        return { html: dashboardCache.html, cached: true };
+      }
+      const { generateAccountDashboard } = require('./slack/accountDashboard');
+      const html = await generateAccountDashboard();
+      dashboardCache = { html, timestamp: now };
+      return { html, cached: false };
+    };
+    
+    // Log dashboard access
+    const logAccess = (userName, ip, cached) => {
+      dashboardAnalytics.pageViews++;
+      if (userName) dashboardAnalytics.uniqueUsers.add(userName);
+      dashboardAnalytics.sessions.push({
+        user: userName || 'anonymous',
+        ip: ip?.replace('::ffff:', ''),
+        timestamp: new Date().toISOString(),
+        cached
+      });
+      // Keep only last 500 sessions
+      if (dashboardAnalytics.sessions.length > 500) {
+        dashboardAnalytics.sessions = dashboardAnalytics.sessions.slice(-500);
+      }
+    };
     
     this.expressApp.get('/account-dashboard', async (req, res) => {
+      const clientIP = req.ip || req.connection?.remoteAddress;
+      
+      // Rate limiting check
+      if (!checkRateLimit(clientIP)) {
+        return res.status(429).send('Too many requests. Please wait a moment and try again.');
+      }
+      
       // Check auth cookie
       if (req.cookies[AUTH_COOKIE] === 'authenticated') {
         try {
+          const userName = req.cookies[USER_COOKIE];
+          const { html, cached } = await getCachedDashboard();
+          logAccess(userName, clientIP, cached);
+          
           res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline'");
-          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-          const { generateAccountDashboard } = require('./slack/accountDashboard');
-          const html = await generateAccountDashboard();
+          res.setHeader('Cache-Control', 'private, max-age=60');
           res.send(html);
         } catch (error) {
           res.status(500).send(`Error: ${error.message}`);
@@ -213,15 +281,21 @@ class GTMBrainApp {
     });
     
     this.expressApp.post('/account-dashboard', async (req, res) => {
-      const { password } = req.body;
+      const { password, userName } = req.body;
+      const clientIP = req.ip || req.connection?.remoteAddress;
+      
       if (DASHBOARD_PASSWORDS.includes(password?.toLowerCase()?.trim())) {
         // Set auth cookie (30 days)
         res.cookie(AUTH_COOKIE, 'authenticated', { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true });
+        if (userName?.trim()) {
+          res.cookie(USER_COOKIE, userName.trim(), { maxAge: 30 * 24 * 60 * 60 * 1000 });
+        }
         try {
+          const { html, cached } = await getCachedDashboard();
+          logAccess(userName?.trim(), clientIP, cached);
+          
           res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline'");
-          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-          const { generateAccountDashboard } = require('./slack/accountDashboard');
-          const html = await generateAccountDashboard();
+          res.setHeader('Cache-Control', 'private, max-age=60');
           res.send(html);
         } catch (error) {
           res.status(500).send(`Error: ${error.message}`);
@@ -229,10 +303,38 @@ class GTMBrainApp {
       } else {
         res.send(`<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Account Status Dashboard</title>
+<title>GTM Dashboard</title>
 <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f7fe;min-height:100vh;display:flex;align-items:center;justify-content:center}.login-container{background:#fff;padding:40px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);max-width:360px;width:90%}.login-container h1{font-size:1.25rem;font-weight:600;color:#1f2937;margin-bottom:8px}.login-container p{font-size:0.875rem;color:#6b7280;margin-bottom:24px}.login-container input{width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:6px;font-size:0.875rem;margin-bottom:16px}.login-container input:focus{outline:none;border-color:#8e99e1}.login-container button{width:100%;padding:12px;background:#8e99e1;color:#fff;border:none;border-radius:6px;font-size:0.875rem;font-weight:500;cursor:pointer}.login-container button:hover{background:#7c8bd4}.error{color:#ef4444;font-size:0.75rem;margin-bottom:12px}</style>
-</head><body><div class="login-container"><h1>Account Status Dashboard</h1><p>Enter password to continue</p><form method="POST" action="/account-dashboard"><input type="password" name="password" placeholder="Password" required autocomplete="off"><div class="error">Incorrect password</div><button type="submit">Continue</button></form></div></body></html>`);
+</head><body><div class="login-container"><h1>GTM Dashboard</h1><p>Enter password to continue</p><form method="POST" action="/account-dashboard"><input type="password" name="password" placeholder="Password" required autocomplete="off"><div class="error">Incorrect password</div><button type="submit">Continue</button></form></div></body></html>`);
       }
+    });
+    
+    // Analytics endpoint (protected - same password)
+    this.expressApp.get('/account-dashboard/analytics', (req, res) => {
+      if (req.cookies[AUTH_COOKIE] !== 'authenticated') {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      res.json({
+        pageViews: dashboardAnalytics.pageViews,
+        uniqueUsers: dashboardAnalytics.uniqueUsers.size,
+        userList: [...dashboardAnalytics.uniqueUsers],
+        recentSessions: dashboardAnalytics.sessions.slice(-50),
+        cacheStatus: {
+          isCached: dashboardCache.html !== null,
+          age: dashboardCache.timestamp ? Math.round((Date.now() - dashboardCache.timestamp) / 1000) + 's' : 'N/A',
+          ttl: CACHE_TTL / 1000 + 's'
+        },
+        since: dashboardAnalytics.lastReset
+      });
+    });
+    
+    // Force cache refresh endpoint
+    this.expressApp.post('/account-dashboard/refresh-cache', (req, res) => {
+      if (req.cookies[AUTH_COOKIE] !== 'authenticated') {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      dashboardCache = { html: null, timestamp: 0 };
+      res.json({ success: true, message: 'Cache cleared. Next page load will fetch fresh data.' });
     });
     
     // Logout endpoint - clears auth cookie
