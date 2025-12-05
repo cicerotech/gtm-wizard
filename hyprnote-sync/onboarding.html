@@ -35,7 +35,17 @@
     .subtitle {
       font-size: 15px;
       color: #666;
-      margin-bottom: 40px;
+      margin-bottom: 12px;
+    }
+    
+    .security-note {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 32px;
+      padding: 10px 14px;
+      background: #f5f5f5;
+      border-radius: 6px;
+      border-left: 3px solid #ddd;
     }
     
     .section {
@@ -171,6 +181,16 @@
       margin-top: 12px;
     }
     
+    .tip {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #166534;
+      margin-top: 12px;
+    }
+    
     .time-estimate {
       display: inline-block;
       background: #f0f0f0;
@@ -297,6 +317,17 @@
       color: #999;
     }
     
+    .intel-link {
+      font-size: 12px;
+      color: #888;
+      margin-top: 8px;
+      display: block;
+    }
+    
+    .intel-link a {
+      color: #666;
+    }
+    
     @media (max-width: 480px) {
       body {
         padding: 24px 16px;
@@ -321,6 +352,10 @@
     <div class="logo">chex</div>
     <p class="subtitle">AI meeting notes. Record, transcribe, remember everything.</p>
     
+    <div class="security-note">
+      <strong>Local-first.</strong> All transcription runs on your device. No customer data leaves your computer. No cloud storage of recordings or notes.
+    </div>
+    
     <!-- MODE SELECTOR -->
     <div class="mode-toggle">
       <div class="mode-btn active" onclick="setMode('sales')">
@@ -341,10 +376,15 @@
         <div class="step-number">1</div>
         <div class="step-content">
           <h3>Download chex</h3>
-          <p>AI meeting recorder and transcriber.</p>
-          <a href="https://hyprnote.com/download" class="download-btn" target="_blank">Download for Mac</a>
-          <p class="detail">Install it and open once. Sign in with any account (Google, etc).</p>
+          <p>AI meeting recorder with on-device transcription.</p>
+          <a href="https://hyprnote.com/download/apple-silicon" class="download-btn">Download for Mac</a>
+          <p class="detail">Install and open it. Sign in with any account (Google, etc).</p>
+          <p class="intel-link">Older Mac (Intel)? <a href="https://hyprnote.com/download/intel" target="_blank">Download Intel version</a></p>
         </div>
+      </div>
+      
+      <div class="tip">
+        <strong>Good practice:</strong> Let participants know you're using a tool to help capture notes. A simple "I'm using an app to take notes so I can stay focused on our conversation" works well.
       </div>
     </div>
     
@@ -355,7 +395,7 @@
       <div class="usage-box">
         <p><strong>That's it for internal use.</strong></p>
         <p>Open chex before meetings. Click New Note, then Record.</p>
-        <p>Your notes stay on your computer. Nothing syncs anywhere.</p>
+        <p>All data stays on your device. Nothing syncs anywhere.</p>
       </div>
     </div>
     
@@ -381,7 +421,7 @@
         <div class="step-number">3</div>
         <div class="step-content">
           <h3>Download the Sync Package</h3>
-          <p>Connects your meeting notes to Salesforce.</p>
+          <p>Connects your local notes to Salesforce.</p>
           <a href="https://github.com/cicerotech/gtm-wizard/archive/refs/heads/main.zip" class="download-btn secondary" target="_blank">Download Package</a>
           
           <ul class="checklist">
@@ -418,6 +458,8 @@
           <p class="detail" style="margin-top: 12px;">It will detect your profile. Just type Y to confirm.</p>
         </div>
       </div>
+      
+      <p class="note">The sync only transfers meeting summaries to Salesforce. Raw audio never leaves your device.</p>
     </div>
     
     <!-- HOW TO USE -->
@@ -426,8 +468,12 @@
       
       <div class="usage-box">
         <p><strong>Before a call:</strong> Open chex. Click New Note. Click Record.</p>
-        <p><strong>During the call:</strong> It records and transcribes automatically.</p>
+        <p><strong>During the call:</strong> It transcribes locally on your device.</p>
         <p><strong>After the call:</strong> Stop recording. AI generates your notes.</p>
+      </div>
+      
+      <div class="tip">
+        A quick heads-up at the start of calls—"I'm using a note-taking assistant so I can focus on our conversation"—keeps things transparent.
       </div>
       
       <div class="sales-only">
@@ -436,6 +482,33 @@
           <p><strong>To sync to Salesforce:</strong></p>
           <p>Open <code>hyprnote-sync</code> folder. Double-click <code>sync-meetings.command</code></p>
           <p class="detail" style="margin-top: 8px;">Do this at end of day. Notes appear as Events on your Accounts.</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- SECURITY INFO -->
+    <div class="section">
+      <div class="section-title">Security & Privacy</div>
+      
+      <div class="faq">
+        <div class="faq-item">
+          <p class="faq-q">Where is data stored?</p>
+          <p class="faq-a">Recordings and transcripts stay on your Mac. Nothing is uploaded to external servers.</p>
+        </div>
+        
+        <div class="faq-item">
+          <p class="faq-q">What about the AI transcription?</p>
+          <p class="faq-a">Runs locally on your device using on-device speech-to-text. No cloud processing.</p>
+        </div>
+        
+        <div class="faq-item sales-only">
+          <p class="faq-q">What gets sent to Salesforce?</p>
+          <p class="faq-a">Only the meeting summary text. No audio files, no raw transcripts.</p>
+        </div>
+        
+        <div class="faq-item">
+          <p class="faq-q">Is this compliant?</p>
+          <p class="faq-a">Yes. Local-first architecture means customer data never leaves your device. This addresses concerns that exist with cloud-based alternatives.</p>
         </div>
       </div>
     </div>
@@ -452,7 +525,7 @@
         
         <div class="faq-item">
           <p class="faq-q">"Hyprnote database not found"</p>
-          <p class="faq-a">Open chex (Hyprnote) first and record at least one test note.</p>
+          <p class="faq-a">Open chex first and record at least one test note.</p>
         </div>
         
         <div class="faq-item">
