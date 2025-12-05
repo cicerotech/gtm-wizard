@@ -118,7 +118,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
     <div class="metric">
       <div class="metric-label">Weighted</div>
       <div class="metric-value">${fmt(blendedWeighted)}</div>
-      <div class="metric-change" style="font-size: 0.65rem; color: #6b7280;">E: ${fmt(eudiaWeighted)} • JH: ${fmt(jhSummary.totalWeighted)}</div>
+      <div class="metric-change" style="font-size: 0.65rem; color: #6b7280;">E: ${fmt(eudiaWeighted)} • JH: ${fmt(jhSummary.totalWeighted)}*</div>
     </div>
     <div class="metric">
       <div class="metric-label">Opportunities</div>
@@ -237,6 +237,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
         <td style="text-align: right; padding: 6px;">${fmt(jhSummary.totalWeighted)}</td>
       </tr>
     </table>
+    <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 4px; font-style: italic;">*JH weighted values subject to audit of probability assignments</div>
   </div>
 
   <!-- Stage Definitions -->
@@ -732,19 +733,19 @@ function generateWeeklyTab(params) {
     
     <!-- Run-Rate Forecast Table - Combined View -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title">Run-Rate Forecast ($) - Combined</div>
+      <div class="weekly-subsection-title">Run-Rate Forecast ($)</div>
       <table class="weekly-table">
         <thead>
-          <tr><th>Month</th><th style="text-align: right;">Combined RR</th></tr>
+          <tr><th>Month</th><th style="text-align: right;">Combined</th></tr>
         </thead>
         <tbody>
-          <tr><td>August</td><td style="text-align: right;">$17.6m</td></tr>
-          <tr><td>September</td><td style="text-align: right;">$18.4m</td></tr>
-          <tr><td>October</td><td style="text-align: right;">$19.8m</td></tr>
-          <tr><td>November (EOM)</td><td style="text-align: right; font-weight: 600;">$19.2m</td></tr>
+          <tr><td>August</td><td style="text-align: right;">$17.6</td></tr>
+          <tr><td>September</td><td style="text-align: right;">$18.4</td></tr>
+          <tr><td>October</td><td style="text-align: right;">$19.8</td></tr>
+          <tr><td>November (EOM)</td><td style="text-align: right;">$19.2</td></tr>
           <tr style="font-weight: 600; background: #e5e7eb;">
-            <td>FY2025E Forecast</td>
-            <td style="text-align: right; color: #111827;">$25.4m</td>
+            <td>FY2025E Total</td>
+            <td style="text-align: right; color: #111827;">~$22m</td>
           </tr>
         </tbody>
       </table>
