@@ -502,15 +502,74 @@ function generateWeeklyTab(params) {
   const top10 = top10Opps.slice(0, 10);
   const top10Total = top10.reduce((sum, o) => sum + o.acv, 0);
   
-  // Week-over-week changes by stage (placeholder - would need historical data)
+  // Last week's combined baseline values (Dec 5, 2025 - from SF report)
+  const lastWeekBaseline = {
+    'Stage 0 - Qualifying': { acv: 3000000, oppCount: 43 },
+    'Stage 1 - Discovery': { acv: 13600000, oppCount: 110 },
+    'Stage 2 - SQO': { acv: 11100000, oppCount: 53 },
+    'Stage 3 - Pilot': { acv: 400000, oppCount: 4 },
+    'Stage 4 - Proposal': { acv: 5600000, oppCount: 37 },
+    'Stage 5 - Negotiation': { acv: 1800000, oppCount: 6 },
+    'Total': { acv: 35500000, oppCount: 253 }
+  };
+  
+  // Get Johnson Hana stage breakdown
+  const jhByStage = jhSummary?.byStage || {};
+  
+  // Combine Eudia + JH for current week (COMBINED VIEW)
   const stageWoW = [
-    { stage: 'Stage 0 - Qualifying', acv: stageBreakdown['Stage 0 - Qualifying']?.totalACV || 0, oppCount: stageBreakdown['Stage 0 - Qualifying']?.count || 0 },
-    { stage: 'Stage 1 - Discovery', acv: stageBreakdown['Stage 1 - Discovery']?.totalACV || 0, oppCount: stageBreakdown['Stage 1 - Discovery']?.count || 0 },
-    { stage: 'Stage 2 - SQO', acv: stageBreakdown['Stage 2 - SQO']?.totalACV || 0, oppCount: stageBreakdown['Stage 2 - SQO']?.count || 0 },
-    { stage: 'Stage 3 - Pilot', acv: stageBreakdown['Stage 3 - Pilot']?.totalACV || 0, oppCount: stageBreakdown['Stage 3 - Pilot']?.count || 0 },
-    { stage: 'Stage 4 - Proposal', acv: stageBreakdown['Stage 4 - Proposal']?.totalACV || 0, oppCount: stageBreakdown['Stage 4 - Proposal']?.count || 0 },
-    { stage: 'Stage 5 - Negotiation', acv: stageBreakdown['Stage 5 - Negotiation']?.totalACV || 0, oppCount: stageBreakdown['Stage 5 - Negotiation']?.count || 0 }
+    { 
+      stage: 'Stage 0 - Qualifying', 
+      acv: (stageBreakdown['Stage 0 - Qualifying']?.totalACV || 0) + (jhByStage['Stage 0 - Qualifying']?.totalACV || 0), 
+      oppCount: (stageBreakdown['Stage 0 - Qualifying']?.count || 0) + (jhByStage['Stage 0 - Qualifying']?.count || 0),
+      lastAcv: lastWeekBaseline['Stage 0 - Qualifying'].acv,
+      lastOppCount: lastWeekBaseline['Stage 0 - Qualifying'].oppCount
+    },
+    { 
+      stage: 'Stage 1 - Discovery', 
+      acv: (stageBreakdown['Stage 1 - Discovery']?.totalACV || 0) + (jhByStage['Stage 1 - Discovery']?.totalACV || 0), 
+      oppCount: (stageBreakdown['Stage 1 - Discovery']?.count || 0) + (jhByStage['Stage 1 - Discovery']?.count || 0),
+      lastAcv: lastWeekBaseline['Stage 1 - Discovery'].acv,
+      lastOppCount: lastWeekBaseline['Stage 1 - Discovery'].oppCount
+    },
+    { 
+      stage: 'Stage 2 - SQO', 
+      acv: (stageBreakdown['Stage 2 - SQO']?.totalACV || 0) + (jhByStage['Stage 2 - SQO']?.totalACV || 0), 
+      oppCount: (stageBreakdown['Stage 2 - SQO']?.count || 0) + (jhByStage['Stage 2 - SQO']?.count || 0),
+      lastAcv: lastWeekBaseline['Stage 2 - SQO'].acv,
+      lastOppCount: lastWeekBaseline['Stage 2 - SQO'].oppCount
+    },
+    { 
+      stage: 'Stage 3 - Pilot', 
+      acv: (stageBreakdown['Stage 3 - Pilot']?.totalACV || 0) + (jhByStage['Stage 3 - Pilot']?.totalACV || 0), 
+      oppCount: (stageBreakdown['Stage 3 - Pilot']?.count || 0) + (jhByStage['Stage 3 - Pilot']?.count || 0),
+      lastAcv: lastWeekBaseline['Stage 3 - Pilot'].acv,
+      lastOppCount: lastWeekBaseline['Stage 3 - Pilot'].oppCount
+    },
+    { 
+      stage: 'Stage 4 - Proposal', 
+      acv: (stageBreakdown['Stage 4 - Proposal']?.totalACV || 0) + (jhByStage['Stage 4 - Proposal']?.totalACV || 0), 
+      oppCount: (stageBreakdown['Stage 4 - Proposal']?.count || 0) + (jhByStage['Stage 4 - Proposal']?.count || 0),
+      lastAcv: lastWeekBaseline['Stage 4 - Proposal'].acv,
+      lastOppCount: lastWeekBaseline['Stage 4 - Proposal'].oppCount
+    },
+    { 
+      stage: 'Stage 5 - Negotiation', 
+      acv: (stageBreakdown['Stage 5 - Negotiation']?.totalACV || 0) + (jhByStage['Stage 5 - Negotiation']?.totalACV || 0), 
+      oppCount: (stageBreakdown['Stage 5 - Negotiation']?.count || 0) + (jhByStage['Stage 5 - Negotiation']?.count || 0),
+      lastAcv: lastWeekBaseline['Stage 5 - Negotiation'].acv,
+      lastOppCount: lastWeekBaseline['Stage 5 - Negotiation'].oppCount
+    }
   ];
+  
+  // Calculate % change helper
+  const calcPctChange = (current, last) => {
+    if (last === 0) return current > 0 ? '+∞' : '-';
+    const pct = ((current - last) / last) * 100;
+    if (pct === 0) return '0%';
+    return (pct > 0 ? '+' : '') + pct.toFixed(1) + '%';
+  };
+  
   const stageTotalACV = stageWoW.reduce((sum, s) => sum + s.acv, 0);
   const stageTotalCount = stageWoW.reduce((sum, s) => sum + s.oppCount, 0);
   
@@ -639,38 +698,44 @@ function generateWeeklyTab(params) {
       <li><strong>Total Gross Pipeline:</strong> ${fmt((totalGross || 0) + (jhSummary?.totalPipeline || 0))} || ${fmt((totalWeighted || 0) + (jhSummary?.totalWeighted || 0))} Weighted || ${(totalDeals || 0) + (jhSummary?.totalOpportunities || 0)} opportunities</li>
     </ul>
     
-    <!-- Week-over-week Change by Stage - Combined View -->
+    <!-- Week-over-week Change by Stage - Combined View (Eudia + JH) -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title">Week-over-week Change by Stage (%)</div>
+      <div class="weekly-subsection-title">Week-over-week Change by Stage - Combined (Eudia + JH)</div>
       <table class="weekly-table">
         <thead>
           <tr>
             <th>Stage</th>
             <th style="text-align: right;">ACV</th>
-            <th style="text-align: center;">% Change WoW</th>
-            <th style="text-align: center;">Opp Count</th>
-            <th style="text-align: center;">% Change WoW</th>
+            <th style="text-align: center;">% WoW</th>
+            <th style="text-align: center;">Opps</th>
+            <th style="text-align: center;">% WoW</th>
           </tr>
         </thead>
         <tbody>
-          ${stageWoW.filter(s => s.acv > 0 || s.oppCount > 0).map(s => `
+          ${stageWoW.map(s => {
+            const acvPct = calcPctChange(s.acv, s.lastAcv);
+            const oppPct = calcPctChange(s.oppCount, s.lastOppCount);
+            const acvColor = acvPct.startsWith('+') ? '#059669' : acvPct.startsWith('-') ? '#dc2626' : '#6b7280';
+            const oppColor = oppPct.startsWith('+') ? '#059669' : oppPct.startsWith('-') ? '#dc2626' : '#6b7280';
+            return `
           <tr>
             <td>${s.stage.replace('Stage ', 'S').replace(' - ', ' ')}</td>
             <td style="text-align: right;">${fmt(s.acv)}</td>
-            <td style="text-align: center;">-</td>
+            <td style="text-align: center; color: ${acvColor}; font-size: 0.7rem;">${acvPct}</td>
             <td style="text-align: center;">${s.oppCount}</td>
-            <td style="text-align: center;">-</td>
-          </tr>`).join('')}
+            <td style="text-align: center; color: ${oppColor}; font-size: 0.7rem;">${oppPct}</td>
+          </tr>`;
+          }).join('')}
           <tr style="font-weight: 600; background: #e5e7eb;">
             <td>Total</td>
             <td style="text-align: right;">${fmt(stageTotalACV)}</td>
-            <td style="text-align: center;">-</td>
+            <td style="text-align: center; color: ${calcPctChange(stageTotalACV, lastWeekBaseline.Total.acv).startsWith('+') ? '#059669' : calcPctChange(stageTotalACV, lastWeekBaseline.Total.acv).startsWith('-') ? '#dc2626' : '#6b7280'}; font-size: 0.7rem;">${calcPctChange(stageTotalACV, lastWeekBaseline.Total.acv)}</td>
             <td style="text-align: center;">${stageTotalCount}</td>
-            <td style="text-align: center;">-</td>
+            <td style="text-align: center; color: ${calcPctChange(stageTotalCount, lastWeekBaseline.Total.oppCount).startsWith('+') ? '#059669' : calcPctChange(stageTotalCount, lastWeekBaseline.Total.oppCount).startsWith('-') ? '#dc2626' : '#6b7280'}; font-size: 0.7rem;">${calcPctChange(stageTotalCount, lastWeekBaseline.Total.oppCount)}</td>
           </tr>
         </tbody>
       </table>
-      <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 4px; font-style: italic;">Note: WoW % change requires historical tracking (not yet implemented)</div>
+      <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 4px; font-style: italic;">Baseline: Last week's combined Eudia + JH totals (Dec 5, 2025)</div>
     </div>
     
     <!-- New Opportunities Added This Week -->
