@@ -116,11 +116,6 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
       <div class="metric-change" style="font-size: 0.65rem; color: #6b7280;">E: ${fmt(eudiaGross)} • JH: ${fmt(jhSummary.totalPipeline)}</div>
     </div>
     <div class="metric">
-      <div class="metric-label">Weighted</div>
-      <div class="metric-value">${fmt(blendedWeighted)}</div>
-      <div class="metric-change" style="font-size: 0.65rem; color: #6b7280;">E: ${fmt(eudiaWeighted)} • JH: ${fmt(jhSummary.totalWeighted)}*</div>
-    </div>
-    <div class="metric">
       <div class="metric-label">Opportunities</div>
       <div class="metric-value">${blendedDeals}</div>
       <div class="metric-change" style="font-size: 0.65rem; color: #6b7280;">E: ${eudiaDeals} • JH: ${jhSummary.totalOpportunities}</div>
@@ -137,13 +132,12 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section">
     <div class="stage-title">Eudia by Stage</div>
-    <div class="stage-subtitle">${eudiaDeals} opps • ${fmt(eudiaGross)} gross • ${fmt(eudiaWeighted)} weighted</div>
+    <div class="stage-subtitle">${eudiaDeals} opps • ${fmt(eudiaGross)} gross</div>
     <table style="width: 100%; font-size: 0.8rem; margin-top: 8px;">
       <tr style="background: #f9fafb; font-weight: 600;">
         <td style="padding: 6px;">Stage</td>
         <td style="text-align: center; padding: 6px;">Opps</td>
         <td style="text-align: right; padding: 6px;">ACV</td>
-        <td style="text-align: right; padding: 6px;">Wtd</td>
       </tr>
       ${stageOrder.map(stage => {
         const data = stageBreakdown[stage] || { count: 0, totalACV: 0, weightedACV: 0 };
@@ -167,14 +161,12 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
           </td>
           <td style="text-align: center; padding: 6px;">${data.count}</td>
           <td style="text-align: right; padding: 6px;">${fmt(data.totalACV)}</td>
-          <td style="text-align: right; padding: 6px;">${fmt(data.weightedACV)}</td>
         </tr>`;
       }).join('')}
       <tr style="background: #e5e7eb; font-weight: 600;">
         <td style="padding: 6px;">TOTAL</td>
         <td style="text-align: center; padding: 6px;">${eudiaDeals}</td>
         <td style="text-align: right; padding: 6px;">${fmt(eudiaGross)}</td>
-        <td style="text-align: right; padding: 6px;">${fmt(eudiaWeighted)}</td>
       </tr>
     </table>
   </div>
@@ -186,7 +178,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
       <div>
         <div class="stage-title">Johnson Hana by Stage</div>
-        <div class="stage-subtitle">${jhSummary.totalOpportunities} opps • ${fmt(jhSummary.totalPipeline)} gross • ${fmt(jhSummary.totalWeighted)} weighted</div>
+        <div class="stage-subtitle">${jhSummary.totalOpportunities} opps • ${fmt(jhSummary.totalPipeline)} gross</div>
       </div>
       <div style="background: #ecfdf5; border: 1px solid #10b981; padding: 6px 10px; border-radius: 6px; font-size: 0.65rem; text-align: right;">
         <div style="font-weight: 600; color: #047857;">Eudia Tech: ${jhSummary.eudiaTech.opportunityCount} opps</div>
@@ -198,7 +190,6 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
         <td style="padding: 6px;">Stage</td>
         <td style="text-align: center; padding: 6px;">Opps</td>
         <td style="text-align: right; padding: 6px;">ACV</td>
-        <td style="text-align: right; padding: 6px;">Wtd</td>
       </tr>
       ${['Stage 5 - Negotiation', ...stageOrder].map(stage => {
         const data = jhSummary.byStage[stage];
@@ -226,18 +217,15 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
             ${topSLs ? '<div style="font-size: 0.6rem; color: #9ca3af;">' + topSLs + '</div>' : ''}
           </td>
           <td style="text-align: center; padding: 6px;">${data.count}</td>
-          <td style="text-align: right; padding: 6px; color: #9ca3af;">-</td>
-          <td style="text-align: right; padding: 6px;">${fmt(data.weighted)}</td>
+          <td style="text-align: right; padding: 6px;">${fmt(data.totalACV)}</td>
         </tr>`;
       }).join('')}
       <tr style="background: #e5e7eb; font-weight: 600;">
         <td style="padding: 6px;">TOTAL</td>
         <td style="text-align: center; padding: 6px;">${jhSummary.totalOpportunities}</td>
         <td style="text-align: right; padding: 6px;">${fmt(jhSummary.totalPipeline)}</td>
-        <td style="text-align: right; padding: 6px;">${fmt(jhSummary.totalWeighted)}</td>
       </tr>
     </table>
-    <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 4px; font-style: italic;">*JH weighted values subject to audit of probability assignments</div>
   </div>
 
   <!-- Stage Definitions -->
@@ -262,15 +250,13 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
         <td style="padding: 6px;">Stage</td>
         <td style="text-align: center; padding: 6px;">Opps</td>
         <td style="text-align: right; padding: 6px;">ACV</td>
-        <td style="text-align: right; padding: 6px;">Wtd</td>
       </tr>
       ${['Stage 5 - Negotiation', ...stageOrder].map(stage => {
-        const eData = stageBreakdown[stage] || { count: 0, totalACV: 0, weightedACV: 0 };
-        const jData = jhSummary.byStage[stage] || { count: 0, acv: 0, weighted: 0 };
+        const eData = stageBreakdown[stage] || { count: 0, totalACV: 0 };
+        const jData = jhSummary.byStage[stage] || { count: 0, totalACV: 0 };
         const combined = {
           count: eData.count + jData.count,
-          acv: (eData.totalACV || 0) + (jData.acv || 0),
-          weighted: (eData.weightedACV || 0) + (jData.weighted || 0)
+          acv: (eData.totalACV || 0) + (jData.totalACV || 0)
         };
         if (combined.count === 0) return '';
         return `
@@ -278,14 +264,12 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
           <td style="padding: 6px; font-size: 0.75rem;">${stage.replace('Stage ', 'S')}</td>
           <td style="text-align: center; padding: 6px;">${combined.count}</td>
           <td style="text-align: right; padding: 6px;">${fmt(combined.acv)}</td>
-          <td style="text-align: right; padding: 6px;">${fmt(combined.weighted)}</td>
         </tr>`;
       }).join('')}
       <tr style="background: #e5e7eb; font-weight: 600;">
         <td style="padding: 6px;">TOTAL</td>
         <td style="text-align: center; padding: 6px;">${blendedDeals}</td>
         <td style="text-align: right; padding: 6px;">${fmt(blendedGross)}</td>
-        <td style="text-align: right; padding: 6px;">${fmt(blendedWeighted)}</td>
       </tr>
     </table>
   </div>
