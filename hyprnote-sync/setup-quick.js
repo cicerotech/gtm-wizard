@@ -187,7 +187,7 @@ async function main() {
       console.log('   │  HOW TO USE                                         │');
       console.log('   ├─────────────────────────────────────────────────────┤');
       console.log('   │                                                     │');
-      console.log('   │  1. RECORD: Open checks → New Note → Record        │');
+      console.log('   │  1. RECORD: Open hyprnote → New Note → Record      │');
       console.log('   │                                                     │');
       console.log('   │  2. SYNC:   Double-click sync-meetings.command     │');
       console.log('   │                                                     │');
@@ -202,7 +202,7 @@ async function main() {
       console.log('   │  INTERNAL USE MODE                                  │');
       console.log('   ├─────────────────────────────────────────────────────┤');
       console.log('   │                                                     │');
-      console.log('   │  Open checks → New Note → Record                   │');
+      console.log('   │  Open hyprnote → New Note → Record                 │');
       console.log('   │                                                     │');
       console.log('   │  Your notes stay local on your computer.           │');
       console.log('   │  Nothing syncs to Salesforce.                      │');

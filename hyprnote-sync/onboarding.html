@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>chex - Meeting Notes</title>
+  <title>hyprnote - Meeting Notes</title>
   <style>
     * {
       margin: 0;
@@ -182,13 +182,12 @@
     }
     
     .tip {
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      border-radius: 6px;
-      padding: 12px 16px;
       font-size: 13px;
-      color: #166534;
+      color: #666;
       margin-top: 12px;
+      padding: 10px 14px;
+      background: #f9f9f9;
+      border-radius: 6px;
     }
     
     .time-estimate {
@@ -349,7 +348,7 @@
 </head>
 <body>
   <div class="container">
-    <div class="logo">chex</div>
+    <div class="logo">hyprnote</div>
     <p class="subtitle">AI meeting notes. Record, transcribe, remember everything.</p>
     
     <div class="security-note">
@@ -375,20 +374,15 @@
       <div class="step">
         <div class="step-number">1</div>
         <div class="step-content">
-          <h3>Download chex</h3>
+          <h3>Download hyprnote</h3>
           <p>AI meeting recorder with on-device transcription.</p>
-          <a href="https://hyprnote.com/download" class="download-btn" target="_blank">Download for Mac</a>
-          <p class="detail">Select the <strong>Apple Silicon</strong> version (or Intel for older Macs). Install and open it.</p>
-          
-          <div class="warning" style="margin-top: 12px; background: #fef3cd; border-color: #ffc107;">
-            <strong>Important:</strong> Download "Hyprnote" (stable), not "Hyprnote Nightly". Nightly is a beta version.
-          </div>
+          <a href="https://hyprnote.com/download/apple-silicon" class="download-btn">Download for Mac</a>
+          <p class="detail">Install and open it. Sign in with any account.</p>
+          <p class="intel-link">Older Mac? <a href="https://hyprnote.com/download/intel" target="_blank">Download Intel version</a></p>
         </div>
       </div>
       
-      <div class="tip">
-        <strong>Good practice:</strong> Let participants know you're using a tool to help capture notes. A simple "I'm using an app to take notes so I can stay focused on our conversation" works well.
-      </div>
+      <p class="tip">Let participants know you're using a tool to help capture notes.</p>
     </div>
     
     <!-- INTERNAL USE: DONE -->
@@ -397,7 +391,7 @@
       
       <div class="usage-box">
         <p><strong>That's it for internal use.</strong></p>
-        <p>Open chex before meetings. Click New Note, then Record.</p>
+        <p>Open hyprnote before meetings. Click New Note, then Record.</p>
         <p>All data stays on your device. Nothing syncs anywhere.</p>
       </div>
     </div>
@@ -412,7 +406,7 @@
           <h3>Install Node.js</h3>
           <p>Required for the sync tool. Skip if already installed.</p>
           <a href="https://nodejs.org/en/download/" class="download-btn secondary" target="_blank">Download Node.js</a>
-          <p class="detail">Download the LTS version. Run the installer. That's it.</p>
+          <p class="detail">Download the LTS version. Run the installer.</p>
         </div>
       </div>
     </div>
@@ -442,7 +436,7 @@
         <div class="step-content">
           <h3>Get Credentials</h3>
           <p>Ask Keigan for the <code>.env</code> file. Put it in your <code>hyprnote-sync</code> folder.</p>
-          <p class="detail">This file contains the Salesforce connection. Without it, sync won't work.</p>
+          <p class="detail">This file contains the Salesforce connection.</p>
         </div>
       </div>
       
@@ -455,14 +449,14 @@
           <p>Open your <code>hyprnote-sync</code> folder. Double-click <code>install.command</code></p>
           
           <div class="warning">
-            <strong>Mac security warning?</strong> If you see "cannot be opened", right-click the file and select "Open" instead. Then click "Open" in the popup.
+            <strong>Mac security warning?</strong> Right-click the file, select "Open", then click "Open" in the popup.
           </div>
           
-          <p class="detail" style="margin-top: 12px;">It will detect your profile. Just type Y to confirm.</p>
+          <p class="detail" style="margin-top: 12px;">It will detect your profile. Type Y to confirm.</p>
         </div>
       </div>
       
-      <p class="note">The sync only transfers meeting summaries to Salesforce. Raw audio never leaves your device.</p>
+      <p class="note">The sync only transfers meeting summaries to Salesforce. Audio stays on your device.</p>
     </div>
     
     <!-- HOW TO USE -->
@@ -470,14 +464,12 @@
       <div class="section-title">Daily Use</div>
       
       <div class="usage-box">
-        <p><strong>Before a call:</strong> Open chex. Click New Note. Click Record.</p>
+        <p><strong>Before a call:</strong> Open hyprnote. Click New Note. Click Record.</p>
         <p><strong>During the call:</strong> It transcribes locally on your device.</p>
         <p><strong>After the call:</strong> Stop recording. AI generates your notes.</p>
       </div>
       
-      <div class="tip">
-        A quick heads-up at the start of calls—"I'm using a note-taking assistant so I can focus on our conversation"—keeps things transparent.
-      </div>
+      <p class="tip">Let participants know you're using a note-taking tool so you can focus on the conversation.</p>
       
       <div class="sales-only">
         <div class="divider"></div>
@@ -508,11 +500,6 @@
           <p class="faq-q">What gets sent to Salesforce?</p>
           <p class="faq-a">Only the meeting summary text. No audio files, no raw transcripts.</p>
         </div>
-        
-        <div class="faq-item">
-          <p class="faq-q">Is this compliant?</p>
-          <p class="faq-a">Yes. Local-first architecture means customer data never leaves your device. This addresses concerns that exist with cloud-based alternatives.</p>
-        </div>
       </div>
     </div>
     
@@ -528,22 +515,17 @@
         
         <div class="faq-item">
           <p class="faq-q">"Hyprnote database not found"</p>
-          <p class="faq-a">Open chex first and record at least one test note.</p>
+          <p class="faq-a">Open hyprnote first and record at least one test note.</p>
         </div>
         
         <div class="faq-item">
           <p class="faq-q">"Salesforce connection failed"</p>
-          <p class="faq-a">Make sure you have the <code>.env</code> file in your hyprnote-sync folder. Ask Keigan.</p>
+          <p class="faq-a">Make sure you have the <code>.env</code> file in your hyprnote-sync folder.</p>
         </div>
         
         <div class="faq-item">
           <p class="faq-q">"npm: command not found"</p>
           <p class="faq-a">Node.js isn't installed. Go back to Step 2.</p>
-        </div>
-        
-        <div class="faq-item">
-          <p class="faq-q">Account not matching correctly?</p>
-          <p class="faq-a">Add participant emails in chex before recording for better matching.</p>
         </div>
         
         <div class="faq-item">
@@ -563,11 +545,10 @@
       });
       
       document.body.classList.toggle('internal-mode', mode === 'internal');
-      localStorage.setItem('chexMode', mode);
+      localStorage.setItem('hyprnoteMode', mode);
     }
     
-    // Load saved preference
-    const savedMode = localStorage.getItem('chexMode');
+    const savedMode = localStorage.getItem('hyprnoteMode');
     if (savedMode) {
       setMode(savedMode);
     }
