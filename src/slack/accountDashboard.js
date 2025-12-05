@@ -616,6 +616,15 @@ function generateWeeklyTab(params) {
   <div class="weekly-section">
     <div class="weekly-section-title">1. Revenue Forecast Snapshot</div>
     
+    <!-- Signed Revenue Since Last Week -->
+    <div class="weekly-subsection" style="background: #f0fdf4; border-left: 3px solid #059669; padding: 10px 12px; border-radius: 4px; margin-bottom: 12px;">
+      <div style="font-weight: 600; font-size: 0.8rem; color: #065f46; margin-bottom: 6px;">✓ Signed Revenue Since Last Week</div>
+      <ul style="margin: 0; padding-left: 16px; font-size: 0.75rem; color: #374151;">
+        <li><strong>Ecolab</strong> (Compliance) — $200k ACV, $600k TCV, 3-year term</li>
+        <li><strong>Udemy</strong> — LOI signed (2-year)</li>
+      </ul>
+    </div>
+    
     <!-- Opportunities with December Sign Date - Side by Side -->
     <div class="weekly-subsection">
       <div class="weekly-subsection-title">Opportunities with December Target Sign Date</div>
