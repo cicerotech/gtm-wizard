@@ -1,0 +1,20 @@
+{
+  "name": "hyprnote-salesforce-sync",
+  "version": "1.0.0",
+  "description": "Sync Hyprnote meeting notes to Salesforce",
+  "main": "sync.js",
+  "scripts": {
+    "setup": "node setup.js",
+    "sync": "node sync.js",
+    "status": "node sync.js --status"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.7",
+    "jsforce": "^1.11.1",
+    "readline-sync": "^1.4.10"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+

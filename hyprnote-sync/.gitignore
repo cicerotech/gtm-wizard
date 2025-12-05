@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Configuration (contains credentials)
+data/config.json
+
+# Sync tracking
+data/synced-sessions.json
+
+# Keep data directory structure
+!data/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
