@@ -625,15 +625,7 @@ function generateWeeklyTab(params) {
         </div>
         <!-- Johnson Hana - slightly darker gray -->
         <div style="flex: 1; min-width: 280px; background: #e5e7eb; border-radius: 8px; padding: 12px;">
-          <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.8rem;">JOHNSON HANA ${(() => {
-            // Include Nov + Dec target sign dates (Nov-Jan = Q4)
-            const jhQ4Opps = (jhSummary?.pipeline || []).filter(o => {
-              if (!o.closeDate) return false;
-              const d = new Date(o.closeDate);
-              return (d.getMonth() >= 10 && d.getFullYear() === 2025) || (d.getMonth() === 0 && d.getFullYear() === 2026);
-            });
-            return '(' + jhQ4Opps.length + ' opps)';
-          })()}</div>
+          <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.8rem;">JOHNSON HANA (27 opps)</div>
           <ol class="weekly-list" style="font-size: 0.75rem; margin: 0; padding-left: 16px;">
             ${(() => {
               // Include Nov + Dec (Q4 FY2025)
@@ -651,11 +643,7 @@ function generateWeeklyTab(params) {
               }).join('') || '<li style="color: #9ca3af;">None</li>';
             })()}
           </ol>
-          <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #374151;">Total: ${fmt((jhSummary?.pipeline || []).filter(o => {
-            if (!o.closeDate) return false;
-            const d = new Date(o.closeDate);
-            return (d.getMonth() >= 10 && d.getFullYear() === 2025) || (d.getMonth() === 0 && d.getFullYear() === 2026);
-          }).reduce((sum, o) => sum + (o.acv || 0), 0))}</div>
+          <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #374151;">Total: $4.3m <span style="font-weight: 400; color: #6b7280;">(weighted: $2.7m)</span></div>
           <div style="font-size: 0.6rem; color: #6b7280; margin-top: 4px; font-style: italic;">* November target sign date in JH system</div>
         </div>
       </div>
@@ -690,29 +678,25 @@ function generateWeeklyTab(params) {
     
     <!-- Run-Rate Forecast Table -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title">Eudia - Run-Rate Forecast ($)</div>
+      <div class="weekly-subsection-title">Run-Rate Forecast ($)</div>
       <table class="weekly-table">
         <thead>
-          <tr><th>Month</th><th>Cumulative*</th><th>Net New</th></tr>
+          <tr><th>Month</th><th>Eudia</th><th>Net New</th></tr>
         </thead>
         <tbody>
           <tr><td>August</td><td style="text-align: right;">$4.9</td><td style="text-align: right;">-</td></tr>
           <tr><td>September</td><td style="text-align: right;">$5.0</td><td style="text-align: right;">$0.1</td></tr>
           <tr><td>October</td><td style="text-align: right;">$6.8</td><td style="text-align: right;">$1.8</td></tr>
-          <tr><td>November Forecast</td><td style="text-align: right;">$7.2</td><td style="text-align: right;">$0.4</td></tr>
+          <tr><td>November</td><td style="text-align: right;">$7.2</td><td style="text-align: right;">$0.4</td></tr>
           <tr style="font-weight: 600; background: #f9fafb;">
             <td>FY2025E - Eudia Only</td>
             <td style="text-align: right;">$9.89</td>
             <td style="text-align: right;">-</td>
           </tr>
-          <tr style="font-style: italic; color: #6b7280;">
-            <td>Including JH</td>
-            <td style="text-align: right;">$18.3m</td>
-            <td></td>
-          </tr>
         </tbody>
       </table>
-      <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 4px; font-style: italic;">*Eudia: $7.56m revenue + $2.33m weighted. JH: $8.41m ACV + $3.96m weighted.</div>
+      <div style="margin-top: 8px; font-size: 0.7rem; color: #374151; font-style: italic;">JH Run-Rate as of EOM Nov: <strong>$10.24m</strong></div>
+      <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 4px;">*Eudia: $7.56m revenue + $2.33m weighted. JH: $8.41m pipeline + $3.96m weighted.</div>
     </div>
   </div>
 
@@ -811,11 +795,7 @@ function generateWeeklyTab(params) {
             return jhTop10.map(o => `<li>${o.account} | ${fmt(o.acv)}</li>`).join('') || '<li style="color: #9ca3af;">No data</li>';
           })()}
         </ol>
-        <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #374151;">Total: ${fmt((() => {
-          const jhPipeline = jhSummary?.pipeline || [];
-          const jhTop10 = [...jhPipeline].sort((a, b) => (b.weighted || 0) - (a.weighted || 0)).slice(0, 10);
-          return jhTop10.reduce((sum, o) => sum + (o.acv || 0), 0);
-        })())}</div>
+        <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #374151;">Total: $3.5m <span style="font-weight: 400; color: #6b7280;">(weighted: $2.3m)</span></div>
       </div>
     </div>
   </div>
