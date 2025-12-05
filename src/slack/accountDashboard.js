@@ -453,7 +453,8 @@ function generateWeeklyTab(params) {
     novDecRevenue, novDecRevenueTotal,
     contractsByAccount, recurringTotal, projectTotal,
     closedLostDeals = [], daysInStageByStage = {},
-    logosByType = { revenue: [], pilot: [], loi: [] }
+    logosByType = { revenue: [], pilot: [], loi: [] },
+    newOppsThisWeek = [], newOppsTotal = 0
   } = params;
   
   // Helper for currency formatting
@@ -557,13 +558,23 @@ function generateWeeklyTab(params) {
         </thead>
         <tbody>
           <tr><td>Q3</td><td>33*</td></tr>
-          <tr><td>November</td><td>${currentLogosCount - 33 > 0 ? currentLogosCount - 33 : 0}</td></tr>
+          <tr><td>November</td><td>${(() => {
+            // Count deals closed in November 2025 that are revenue/ARR type
+            const novDeals = signedByType.revenue.filter(d => {
+              const cd = new Date(d.closeDate);
+              return cd.getMonth() === 10 && cd.getFullYear() === 2025;
+            });
+            return novDeals.length;
+          })()}</td></tr>
         </tbody>
       </table>
-      <div style="font-size: 0.65rem; color: #9ca3af; margin-top: 4px;">November Logos Signed: ${signedByType.revenue.filter(d => {
-        const cd = new Date(d.closeDate);
-        return cd.getMonth() === 10 && cd.getFullYear() === 2025;
-      }).map(d => d.accountName).join(', ') || 'None'}</div>
+      <div style="font-size: 0.65rem; color: #9ca3af; margin-top: 4px;">November Logos Signed: ${(() => {
+        const novDeals = signedByType.revenue.filter(d => {
+          const cd = new Date(d.closeDate);
+          return cd.getMonth() === 10 && cd.getFullYear() === 2025;
+        });
+        return novDeals.map(d => d.accountName).join(', ') || 'None';
+      })()}</div>
     </div>
     
     <!-- Current Logos -->
@@ -642,12 +653,25 @@ function generateWeeklyTab(params) {
       <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 4px; font-style: italic;">Note: WoW % change requires historical tracking (not yet implemented)</div>
     </div>
     
-    <!-- New Opportunities Added -->
+    <!-- New Opportunities Added This Week -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title">New Opportunities Added This Week</div>
-      <div style="font-size: 0.8rem; color: #374151;">
-        <div style="margin-bottom: 8px;"><strong>Eudia:</strong> <em>Data requires week-over-week tracking</em></div>
-        <div><strong>Johnson Hana:</strong> <em>See JH data updated ${jhSummary?.lastUpdate?.time || 'recently'}</em></div>
+      <div class="weekly-subsection-title">Eudia new opportunities added this week: ${newOppsThisWeek.length} opportunities, +${fmt(newOppsTotal)} ACV</div>
+      <div style="font-size: 0.75rem; color: #374151; margin-top: 8px;">
+        <strong>Companies:</strong> ${newOppsThisWeek.map(o => {
+          // Add note for DECA/Army split opportunity
+          if (o.accountName?.includes('DOD') && o.oppName?.toLowerCase().includes('deca')) {
+            return o.accountName + ' <span style="font-size: 0.65rem; color: #6b7280;">(split from bundled opp - potential Phase 0 EOY)</span>';
+          }
+          return o.accountName + (o.productLine ? ' (' + o.productLine + ')' : '');
+        }).join(', ') || 'None'}
+      </div>
+    </div>
+    
+    <!-- Johnson Hana New Opps -->
+    <div class="weekly-subsection">
+      <div class="weekly-subsection-title">Johnson Hana new opportunities added this week: 1 opportunity, +$70k ACV</div>
+      <div style="font-size: 0.75rem; color: #374151; margin-top: 8px;">
+        <strong>Companies:</strong> Version1 (Contracting-BAU, Tom Clancy)
       </div>
     </div>
   </div>
@@ -973,6 +997,40 @@ async function generateAccountDashboard() {
       });
     }
   } catch (e) { console.error('Closed Lost query error:', e.message); }
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // OPPORTUNITIES CREATED THIS WEEK - CreatedDate in last 7 days
+  // ═══════════════════════════════════════════════════════════════════════
+  const newOppsQuery = `
+    SELECT Account.Name, Name, StageName, ACV__c, CreatedDate, Owner.Name, Product_Line__c
+    FROM Opportunity
+    WHERE CreatedDate >= LAST_N_DAYS:7
+      AND IsClosed = false
+    ORDER BY CreatedDate DESC
+  `;
+  
+  let newOppsThisWeek = [];
+  let newOppsTotal = 0;
+  
+  try {
+    const newOppsData = await query(newOppsQuery, true);
+    console.log(`[Dashboard] New Opps This Week query returned ${newOppsData?.records?.length || 0} records`);
+    if (newOppsData?.records) {
+      newOppsData.records.forEach(opp => {
+        const acv = opp.ACV__c || 0;
+        newOppsThisWeek.push({
+          accountName: opp.Account?.Name || 'Unknown',
+          oppName: opp.Name || '',
+          stage: opp.StageName || '',
+          acv,
+          createdDate: opp.CreatedDate,
+          owner: opp.Owner?.Name || '',
+          productLine: opp.Product_Line__c || ''
+        });
+        newOppsTotal += acv;
+      });
+    }
+  } catch (e) { console.error('New Opps query error:', e.message); }
   
   // ═══════════════════════════════════════════════════════════════════════
   // DAYS IN STAGE - Using Salesforce's Days_in_Stage__c field
@@ -1603,7 +1661,8 @@ ${generateWeeklyTab({
   signedByType, signedDealsTotal,
   novDecRevenue, novDecRevenueTotal,
   contractsByAccount, recurringTotal, projectTotal,
-  closedLostDeals, daysInStageByStage, logosByType
+  closedLostDeals, daysInStageByStage, logosByType,
+  newOppsThisWeek, newOppsTotal
 })}
 
 <!-- TAB 3: REVENUE -->
