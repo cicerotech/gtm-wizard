@@ -376,16 +376,14 @@
         <div class="step-content">
           <h3>Install hyprnote</h3>
           
-          <div style="display: flex; gap: 12px; margin: 16px 0; flex-wrap: wrap;">
-            <a href="https://hyprnote.com/download" class="download-btn" target="_blank" style="flex: 1; min-width: 140px; text-align: center;">Download for Mac</a>
-            <button onclick="document.getElementById('homebrew-cmd').style.display = document.getElementById('homebrew-cmd').style.display === 'none' ? 'block' : 'none'" class="download-btn secondary" style="flex: 1; min-width: 140px; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db;">Use Homebrew</button>
-          </div>
+          <a href="https://hyprnote.com/download" class="download-btn" target="_blank" style="display: block; text-align: center; margin: 16px 0;">Download for Mac</a>
           
-          <div id="homebrew-cmd" style="display: none; background: #f8f9fa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-            <code style="display: block; background: #1f2937; color: #f3f4f6; padding: 10px; border-radius: 6px; font-size: 12px;">brew tap fastrepl/hyprnote && brew install hyprnote --cask</code>
-          </div>
-          
-          <p class="detail">Install → Open → Sign in with any account</p>
+          <ul class="checklist" style="margin-top: 12px;">
+            <li>Click <strong>"Hyprnote"</strong> (not "Hyprnote Nightly")</li>
+            <li>Open the downloaded file</li>
+            <li>Drag hyprnote to Applications</li>
+            <li>Open hyprnote and sign in with any account</li>
+          </ul>
         </div>
       </div>
     </div>
