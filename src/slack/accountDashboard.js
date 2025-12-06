@@ -141,7 +141,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
       </div>
       ${stageOrder.map(stage => {
         const data = stageBreakdown[stage] || { count: 0, totalACV: 0, weightedACV: 0 };
-        const stageNum = parseInt(stage.match(/Stage (\\d)/)?.[1] || 0);
+        const stageNum = parseInt(stage.match(/Stage (\d)/)?.[1] || 0);
         const isExpandable = stageNum >= 1 && stageNum <= 4;
         // Get opportunities for this stage
         const stageOpps = Array.from(accountMap.values()).flatMap(acc => 
@@ -246,7 +246,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
       ${['Stage 5 - Negotiation', ...stageOrder].map(stage => {
         const data = jhSummary.byStage[stage];
         if (!data || data.count === 0) return '';
-        const stageNum = parseInt(stage.match(/Stage (\\d)/)?.[1] || 0);
+        const stageNum = parseInt(stage.match(/Stage (\d)/)?.[1] || 0);
         const isExpandable = stageNum >= 1 && stageNum <= 4;
         // Get opportunities for this stage
         const stageOpps = jhAccounts.flatMap(acc => 
@@ -813,19 +813,19 @@ function generateWeeklyTab(params) {
     <!-- Opportunities with December Sign Date - Side by Side (2 equal tiles) -->
     <div class="weekly-subsection">
       <div class="weekly-subsection-title">Opportunities with December Target Sign Date</div>
-      <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px;">
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; align-items: stretch;">
         <!-- Eudia - 50% width -->
-        <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px;">
+        <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
           <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">EUDIA (${decemberOpps.length} opps)</div>
-          <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5;">
+          <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5; flex: 1;">
             ${decemberOpps.slice(0, 5).map((o, i) => `<li>${o.account}, ${fmt(o.acv)}</li>`).join('') || '<li style="color: #9ca3af;">None</li>'}
           </ol>
           <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #374151;">Total: ${fmt(decTotalACV)}</div>
         </div>
-        <!-- Johnson Hana - 50% width -->
-        <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #e5e7eb; border-radius: 8px; padding: 12px;">
+        <!-- Johnson Hana - 50% width, SAME background -->
+        <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
           <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">JOHNSON HANA (27 opps)</div>
-          <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5;">
+          <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5; flex: 1;">
             ${(() => {
               const jhQ4Opps = (jhSummary?.pipeline || []).filter(o => {
                 if (!o.closeDate) return false;
@@ -846,12 +846,12 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Signed Net New Logos + Run-Rate Forecast (matching tile widths above) -->
-    <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; align-items: flex-start;">
-      <!-- Signed Net New Logos Table - 50% width to match EUDIA tile above -->
-      <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px;">
+    <!-- Signed Net New Logos + Run-Rate Forecast (matching tile widths + heights) -->
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; align-items: stretch;">
+      <!-- Signed Net New Logos Table - 50% width, same background, same height -->
+      <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
         <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">EUDIA - SIGNED NET NEW LOGOS</div>
-        <table class="weekly-table" style="width: 100%;">
+        <table class="weekly-table" style="width: 100%; flex: 1;">
           <thead>
             <tr><th style="width: 70%;">Period</th><th style="text-align: center; width: 30%;">Logos</th></tr>
           </thead>
@@ -860,17 +860,17 @@ function generateWeeklyTab(params) {
             <tr><td>Q1 FY2025</td><td style="text-align: center;">2</td></tr>
             <tr><td>Q2 FY2025</td><td style="text-align: center;">2</td></tr>
             <tr><td>Q3 FY2025</td><td style="text-align: center;">25</td></tr>
-            <tr style="background: #f0fdf4;"><td>Q4 FY2025 (to date)</td><td style="text-align: center;">5</td></tr>
+            <tr style="background: #e8f5e9;"><td>Q4 FY2025 (to date)</td><td style="text-align: center;">5</td></tr>
             <tr style="font-weight: 600; background: #e5e7eb;"><td>Total</td><td style="text-align: center;">38</td></tr>
           </tbody>
         </table>
-        <div style="font-size: 0.6rem; color: #374151; margin-top: 4px;"><strong>Q4 FY2025:</strong> BNY Mellon, Delinea, IQVIA, Udemy, WWT</div>
+        <div style="font-size: 0.6rem; color: #374151; margin-top: 8px;"><strong>Q4 FY2025:</strong> BNY Mellon, Delinea, IQVIA, Udemy, WWT</div>
       </div>
       
-      <!-- Run-Rate Forecast Table - 50% width to match JOHNSON HANA tile above -->
-      <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #e5e7eb; border-radius: 8px; padding: 12px;">
+      <!-- Run-Rate Forecast Table - 50% width, SAME background, same height -->
+      <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
         <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">RUN-RATE FORECAST ($)</div>
-        <table class="weekly-table" style="width: 100%;">
+        <table class="weekly-table" style="width: 100%; flex: 1;">
           <thead>
             <tr><th style="width: 65%;">Month</th><th style="text-align: right; width: 35%;">Combined</th></tr>
           </thead>
@@ -879,7 +879,7 @@ function generateWeeklyTab(params) {
             <tr><td>September</td><td style="text-align: right;">$18.4m</td></tr>
             <tr><td>October</td><td style="text-align: right;">$19.8m</td></tr>
             <tr><td>November (EOM)</td><td style="text-align: right;">$19.2m</td></tr>
-            <tr style="font-weight: 600; background: #d1d5db;">
+            <tr style="font-weight: 600; background: #e5e7eb;">
               <td>FY2025E Total</td>
               <td style="text-align: right; color: #111827;">~$22m</td>
             </tr>
