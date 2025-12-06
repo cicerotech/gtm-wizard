@@ -483,11 +483,26 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
         .map(([prod, data]) => {
           // Get top 5 opportunities for this product line
           const prodOpps = Array.from(accountMap.values()).flatMap(acc => 
-            acc.opportunities.filter(o => o.Product_Line__c === prod).map(o => ({
-              account: acc.name,
-              acv: o.ACV__c || 0,
-              stage: o.StageName?.match(/\\d/)?.[0] || '?'
-            }))
+            acc.opportunities.filter(o => o.Product_Line__c === prod).map(o => {
+              // Extract stage number from StageName (e.g., "Stage 4 - Proposal" -> "4")
+              const stageMatch = o.StageName ? o.StageName.match(/Stage\\s*(\\d)/) : null;
+              const stageNum = stageMatch ? stageMatch[1] : '?';
+              // For Gov-DOD accounts, try to extract company from opportunity name
+              let displayName = acc.name;
+              if (acc.name && acc.name.toLowerCase().includes('gov') && acc.name.toLowerCase().includes('dod')) {
+                // Try to extract company from opp name (e.g., "Lockheed Martin - Cortex" -> "Lockheed Martin")
+                const oppName = o.Name || '';
+                const dashIdx = oppName.indexOf(' - ');
+                if (dashIdx > 0) {
+                  displayName = oppName.substring(0, dashIdx);
+                }
+              }
+              return {
+                account: displayName,
+                acv: o.ACV__c || 0,
+                stage: stageNum
+              };
+            })
           ).sort((a, b) => b.acv - a.acv).slice(0, 5);
           
           return '<details style="flex: 0 0 auto;">' +
@@ -522,11 +537,16 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
         .map(([sl, data]) => {
           // Get top 5 opportunities for this service line
           const slOpps = jhAccounts.flatMap(acc => 
-            acc.opportunities.filter(o => o.mappedServiceLine === sl).map(o => ({
-              account: acc.name,
-              acv: o.acv || 0,
-              stage: o.stage?.match(/\\d/)?.[0] || '?'
-            }))
+            acc.opportunities.filter(o => o.mappedServiceLine === sl).map(o => {
+              // Extract stage number from stage (e.g., "Stage 4 - Proposal" -> "4")
+              const stageMatch = o.stage ? o.stage.match(/Stage\\s*(\\d)/) : null;
+              const stageNum = stageMatch ? stageMatch[1] : '?';
+              return {
+                account: acc.name,
+                acv: o.acv || 0,
+                stage: stageNum
+              };
+            })
           ).sort((a, b) => b.acv - a.acv).slice(0, 5);
           
           return '<details style="flex: 0 0 auto;">' +
@@ -773,14 +793,14 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Signed Net New Logos + Run-Rate Forecast (side by side on desktop) -->
-    <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px;">
+    <!-- Signed Net New Logos + Run-Rate Forecast (side by side, top-aligned) -->
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; margin-top: 12px; align-items: flex-start;">
       <!-- Signed Net New Logos Table -->
-      <div style="flex: 1; min-width: 200px; max-width: 320px;">
+      <div style="flex: 1; min-width: 240px; max-width: 340px;">
         <div class="weekly-subsection-title">Eudia - Signed Net New Logos</div>
         <table class="weekly-table" style="width: 100%;">
           <thead>
-            <tr><th style="width: 65%;">Period</th><th style="text-align: center; width: 35%;">Logos</th></tr>
+            <tr><th style="width: 70%;">Period</th><th style="text-align: center; width: 30%;">Logos</th></tr>
           </thead>
           <tbody>
             <tr style="color: #6b7280;"><td>FY2024 Total</td><td style="text-align: center;">4</td></tr>
@@ -795,17 +815,17 @@ function generateWeeklyTab(params) {
       </div>
       
       <!-- Run-Rate Forecast Table -->
-      <div style="flex: 1; min-width: 180px; max-width: 280px;">
+      <div style="flex: 1; min-width: 220px; max-width: 300px;">
         <div class="weekly-subsection-title">Run-Rate Forecast ($)</div>
         <table class="weekly-table" style="width: 100%;">
           <thead>
-            <tr><th style="width: 60%;">Month</th><th style="text-align: right; width: 40%;">Combined</th></tr>
+            <tr><th style="width: 65%;">Month</th><th style="text-align: right; width: 35%;">Combined</th></tr>
           </thead>
           <tbody>
-            <tr><td>August</td><td style="text-align: right;">$17.6</td></tr>
-            <tr><td>September</td><td style="text-align: right;">$18.4</td></tr>
-            <tr><td>October</td><td style="text-align: right;">$19.8</td></tr>
-            <tr><td>November (EOM)</td><td style="text-align: right;">$19.2</td></tr>
+            <tr><td>August</td><td style="text-align: right;">$17.6m</td></tr>
+            <tr><td>September</td><td style="text-align: right;">$18.4m</td></tr>
+            <tr><td>October</td><td style="text-align: right;">$19.8m</td></tr>
+            <tr><td>November (EOM)</td><td style="text-align: right;">$19.2m</td></tr>
             <tr style="font-weight: 600; background: #e5e7eb;">
               <td>FY2025E Total</td>
               <td style="text-align: right; color: #111827;">~$22m</td>
@@ -815,36 +835,36 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Current Logos by Entity (horizontal layout) -->
+    <!-- Current Logos by Entity (pre-expanded, horizontal) -->
     <div class="weekly-subsection" style="margin-top: 16px;">
       <div class="weekly-subsection-title">Current Logos by Entity</div>
-      <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px;">
-        <!-- Eudia Logos -->
-        <details style="flex: 1; min-width: 140px;">
-          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; padding: 6px 10px; background: #f9fafb; border-radius: 4px; display: inline-block;">
-            Eudia (${currentLogosCount}) ▾
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; align-items: flex-start;">
+        <!-- Eudia Logos (pre-expanded) -->
+        <details open style="flex: 1; min-width: 200px;">
+          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; padding: 6px 10px; background: #f9fafb; border-radius: 4px 4px 0 0;">
+            Eudia (${currentLogosCount})
           </summary>
-          <div style="font-size: 0.65rem; color: #374151; line-height: 1.4; padding: 8px 10px; background: #f9fafb; border-radius: 0 0 4px 4px; margin-top: -2px;">
+          <div style="font-size: 0.65rem; color: #374151; line-height: 1.4; padding: 8px 10px; background: #f9fafb; border-radius: 0 0 4px 4px;">
             ${allLogos.sort().join(', ')}
           </div>
         </details>
         
-        <!-- Johnson Hana Logos -->
-        <details style="flex: 1; min-width: 140px;">
-          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; padding: 6px 10px; background: #e5e7eb; border-radius: 4px; display: inline-block;">
-            Johnson Hana (35) ▾
+        <!-- Johnson Hana Logos (pre-expanded) -->
+        <details open style="flex: 1; min-width: 200px;">
+          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; padding: 6px 10px; background: #e5e7eb; border-radius: 4px 4px 0 0;">
+            Johnson Hana (35)
           </summary>
-          <div style="font-size: 0.65rem; color: #374151; line-height: 1.4; padding: 8px 10px; background: #e5e7eb; border-radius: 0 0 4px 4px; margin-top: -2px;">
+          <div style="font-size: 0.65rem; color: #374151; line-height: 1.4; padding: 8px 10px; background: #e5e7eb; border-radius: 0 0 4px 4px;">
             ACS, Airbnb, Airship, Aryza, BOI, Coimisiún na Meán, Coillte, Coleman Legal, CommScope, Consensys, Creed McStay, Datalex, DCEDIY, Dropbox, ESB, Etsy, Gilead, Glanbia, Hayes, Indeed, Irish Water, Kellanova, Kingspan, Northern Trust, NTMA, OpenAI, Orsted, Perrigo, Sisk, Stripe, Taoglas, Teamwork, TikTok, Tinder, Udemy
           </div>
         </details>
         
-        <!-- OutHouse Logos -->
-        <details style="flex: 0 0 auto; min-width: 100px;">
-          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #9ca3af; padding: 6px 10px; background: #f3f4f6; border-radius: 4px; display: inline-block;">
-            OutHouse (1) ▾
+        <!-- OutHouse Logos (pre-expanded) -->
+        <details open style="flex: 0 0 auto; min-width: 120px;">
+          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #9ca3af; padding: 6px 10px; background: #f3f4f6; border-radius: 4px 4px 0 0;">
+            OutHouse (1)
           </summary>
-          <div style="font-size: 0.65rem; color: #6b7280; line-height: 1.4; padding: 8px 10px; background: #f3f4f6; border-radius: 0 0 4px 4px; margin-top: -2px;">
+          <div style="font-size: 0.65rem; color: #6b7280; line-height: 1.4; padding: 8px 10px; background: #f3f4f6; border-radius: 0 0 4px 4px;">
             Meta
           </div>
         </details>
