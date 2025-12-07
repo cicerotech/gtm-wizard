@@ -1,23 +1,30 @@
-# GTM Brain - Project Handoff Document
+# GTM Brain - Complete Project Handoff
 
 ## Quick Reference
-- **GitHub**: `cicerotech/gtm-wizard`
-- **Live Dashboard**: `https://gtm-wizard.onrender.com/account-dashboard`
-- **Password**: `eudia-gtm`
-- **Slack Bot**: GTM Brain in Eudia workspace
+| Item | Value |
+|------|-------|
+| GitHub | `cicerotech/gtm-wizard` |
+| Live Dashboard | https://gtm-wizard.onrender.com/account-dashboard |
+| Password | `eudia-gtm` |
+| Slack Bot | GTM Brain in Eudia workspace |
+| Host | Render.com (auto-deploy on push) |
 
 ---
 
 ## Project Overview
 
-GTM Brain is a Slack bot + web dashboard that provides real-time GTM (Go-To-Market) intelligence by integrating with Salesforce. It answers questions about pipeline, accounts, opportunities, and provides a visual dashboard for leadership.
+GTM Brain is a comprehensive **Slack bot + web dashboard** platform that provides real-time Go-To-Market intelligence by integrating with Salesforce. It's not just a dashboard - it's an all-encompassing RevOps platform.
 
 ### Core Capabilities
-1. **Slack Bot** - Natural language queries about pipeline, accounts, opportunities
-2. **Web Dashboard** - 5-tab visual interface with real-time Salesforce data + static JH data
-3. **Contract Analysis** - PDF extraction for new contracts
-4. **Pipeline Export** - Excel exports of pipeline data
-5. **Account Assignment** - Smart BL (Business Lead) recommendations
+1. **Natural Language Salesforce Queries** - Ask questions in Slack, get pipeline data
+2. **Contract Analysis & Creation** - PDF extraction → Salesforce contract records
+3. **Web Dashboard** - 5-tab visual interface with real-time + blended data
+4. **Pipeline Export** - Excel exports via Slack
+5. **Account Management** - Create accounts, assign BLs, save account plans
+6. **Smart BL Assignment** - Workload + region-based recommendations
+7. **Hyprnote Meeting Sync** - Local meeting notes → Salesforce
+8. **Competitive Landscape** - Query accounts mentioning competitors
+9. **Scheduled Reports** - Daily/weekly automated summaries
 
 ---
 
@@ -26,317 +33,406 @@ GTM Brain is a Slack bot + web dashboard that provides real-time GTM (Go-To-Mark
 ```
 gtm-brain/
 ├── src/
-│   ├── app.js                    # Express server + Slack Bolt app
+│   ├── app.js                      # Express server + Slack Bolt app entry point
 │   ├── slack/
-│   │   ├── events.js             # Slack message handlers, intent routing
-│   │   └── accountDashboard.js   # Main dashboard HTML generation (~2200 lines)
+│   │   ├── events.js               # Slack message handlers, ALL intent routing (~3800 lines)
+│   │   ├── accountDashboard.js     # Dashboard HTML generation (~2200 lines)
+│   │   ├── commands.js             # Slash commands (/pipeline, /forecast)
+│   │   └── responseFormatter.js    # Slack message formatting
 │   ├── services/
-│   │   ├── contractAnalyzer.js   # PDF text extraction
-│   │   ├── contractCreation.js   # Salesforce contract creation
-│   │   ├── accountAssignment.js  # BL workload/region logic
-│   │   └── hyprnoteSyncService.js # Meeting notes sync (WIP)
+│   │   ├── contractAnalyzer.js     # PDF text extraction & field parsing (~1750 lines)
+│   │   ├── contractCreation.js     # Salesforce contract record creation
+│   │   ├── accountAssignment.js    # BL workload/region logic (~280 lines)
+│   │   └── hyprnoteSyncService.js  # Meeting notes → Salesforce sync
 │   ├── salesforce/
-│   │   └── connection.js         # jsforce connection management
+│   │   ├── connection.js           # jsforce connection management
+│   │   └── queries.js              # SOQL query builder
 │   ├── ai/
-│   │   ├── intentParser.js       # Message intent classification
-│   │   └── socratesAdapter.js    # Internal AI platform adapter
+│   │   ├── intentParser.js         # Message → intent classification (~1500 lines)
+│   │   ├── contextManager.js       # Conversation context tracking
+│   │   ├── socratesAdapter.js      # Internal AI platform adapter
+│   │   ├── queryOptimizer.js       # Query performance optimization
+│   │   └── feedbackLearning.js     # Reaction-based feedback learning
 │   ├── data/
-│   │   └── johnsonHanaData.js    # Static JH pipeline data
+│   │   └── johnsonHanaData.js      # Static JH pipeline data (updated weekly)
 │   └── utils/
-│       └── cache.js              # Redis/in-memory caching
-├── hyprnote-sync/                # Local meeting notes sync tool
-└── package.json
+│       ├── cache.js                # Redis/in-memory caching
+│       ├── logger.js               # Structured logging
+│       └── formatters.js           # Currency, date, stage formatting
+├── data/
+│   ├── sample-queries.json         # Example queries for training
+│   ├── schema-opportunity.json     # Opportunity field definitions
+│   ├── schema-account.json         # Account field definitions
+│   └── business-logic.json         # Business rules (segments, stages)
+├── hyprnote-sync/                  # Distributable meeting sync tool
+│   ├── lib/                        # Core sync libraries
+│   ├── setup-quick.js              # User setup wizard
+│   ├── sync.js                     # Manual sync execution
+│   ├── auto-sync.js                # Scheduled 3-hour sync
+│   ├── install.command             # macOS one-click installer
+│   └── hyprnote-setup.html         # Onboarding guide
+└── scripts/
+    └── test-hyprnote-sync.js       # Local sync testing
 ```
 
 ---
 
-## Critical File: `src/slack/accountDashboard.js`
+## 1. SLACK BOT - Natural Language Queries
 
-This is the heart of the dashboard. **~2200 lines**. Structure:
+### Intent Types (from `src/ai/intentParser.js` & `src/slack/events.js`)
 
-### Function Order
-1. `generateTopCoTab()` - Pipeline tab (lines 44-445)
-2. `generateWeeklyTab()` - Weekly RevOps summary (lines 448-875)
-3. `generateAccountDashboard()` - Main orchestrator (lines 896-2200+)
+| Intent | Examples | Handler |
+|--------|----------|---------|
+| `pipeline_summary` | "Show pipeline", "What's in Stage 3?" | SOQL aggregation |
+| `deal_lookup` | "Tell me about the Acme deal" | Single opp query |
+| `account_lookup` | "Who owns DHL?", "Tell me about Cargill" | Account details + pipeline |
+| `account_stage_lookup` | "What stage is Resmed in?" | Stage info |
+| `account_field_lookup` | "Competitive landscape for Acme" | Specific field query |
+| `owner_accounts_list` | "Julie's accounts", "Himanshu's pipeline" | Owner filtering |
+| `count_query` | "How many deals closed this month?" | COUNT aggregation |
+| `weighted_summary` | "What's our weighted pipeline?" | Finance_Weighted_ACV__c sum |
+| `forecasting` | "Are we on track for Q4?" | Forecast vs target |
+| `trend_analysis` | "Pipeline trend this quarter" | Historical comparison |
+| `contract_query` | "Active contracts", "Expiring contracts" | Contract object query |
+| `activity_check` | "Stale deals", "No activity 30+ days" | LastActivityDate check |
+| `save_customer_note` | "Add to customer history: [Company]..." | Customer_Brain__c update |
+| `save_account_plan` | "Add account plan for [Company]..." | Account_Plan_s__c update |
+| `query_account_plan` | "What's the plan for [Company]?" | Read account plan |
+| `create_account` | "Create Acme Corp and assign to Julie" | New Account + owner |
+| `reassign_account` | "Reassign Acme to Asad" | Owner change |
+| `create_opportunity` | "Create opp for Acme, $100k" | New Opportunity |
+| `move_to_nurture` | "Move Acme to nurture" | Stage change |
+| `close_account_lost` | "Close Acme as lost" | Stage 7 |
+| `send_excel_report` | "Send pipeline in Excel" | .xlsx attachment |
+| `send_johnson_hana_excel` | "Send JH pipeline" | JH data export |
+| `account_status_dashboard` | "Dashboard link" | Dashboard URL |
+| `post_call_summary` | "[Call summary]" | Log meeting notes |
+| `competitive_landscape_lookup` | "Who mentions Ironclad?" | Account search |
 
-### Tab Structure (in order)
-| Tab Name | HTML ID | Purpose |
-|----------|---------|---------|
-| Pipeline | `#topco` | Combined pipeline by stage, top accounts, product/service tiles |
+### Key Pattern Matching (in `fallbackPatternMatching`)
+
+```javascript
+// Contract upload trigger
+if (event.files && event.files.length > 0) {
+  const pdfFiles = event.files.filter(f => f.mimetype?.includes('pdf'));
+  if (pdfFiles.length > 0) {
+    await processContractUpload(pdfFiles[0], client, userId, channelId);
+    return;
+  }
+}
+
+// Contract creation confirmation
+const lowerText = cleanText.toLowerCase();
+if (lowerText.includes('create') && lowerText.includes('contract')) {
+  await handleContractCreationConfirmation(...);
+  return;
+}
+
+// Contract activation
+if (lowerText.includes('activate') && lowerText.includes('contract')) {
+  await handleContractActivation(...);
+  return;
+}
+
+// Hyprnote sync
+if (lowerText.includes('sync') && (lowerText.includes('hyprnote') || lowerText.includes('meeting'))) {
+  await handleHyprnoteSync(...);
+  return;
+}
+```
+
+### Conversation Context
+The bot maintains context for follow-up questions:
+```javascript
+// In contextManager.js
+const context = await getContext(userId);
+// Stores: lastQuery, lastFilters, lastResults, timestamp
+// Enables: "Show me just Julie's" after "Show pipeline"
+```
+
+---
+
+## 2. CONTRACT ANALYSIS & CREATION
+
+### Flow
+1. **User uploads PDF** → Slack DM to bot
+2. **Bot extracts text** → `contractAnalyzer.js`
+3. **Pattern matching** → Extract values (value, term, signers, dates)
+4. **Account matching** → Fuzzy match to Salesforce accounts
+5. **Display for confirmation** → Formatted Slack message
+6. **User says "create contract"** → Draft created in SF
+7. **User says "activate contract"** → Status → Activated
+
+### Key Extraction Patterns (`contractAnalyzer.js`)
+
+```javascript
+// Contract value patterns
+/\$[\d,]+(?:\.\d{2})?\s*(?:per\s+)?(?:month|mo|monthly|year|yr|annually|total)/gi
+
+// Term patterns  
+/(?:term|period|duration)[:\s]+(\d+)\s*(month|year|mo|yr)/gi
+
+// Signer patterns
+/(?:by|signature|signed)[\s:]*([A-Z][a-z]+\s+[A-Z][a-z]+)/g
+
+// Date patterns
+/(?:effective|start|commence)[\s:]*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/gi
+```
+
+### Salesforce Contract Fields
+
+| Field | API Name | Purpose |
+|-------|----------|---------|
+| Contract Name | `Contract_Name_Campfire__c` | From PDF filename |
+| Account | `AccountId` | Lookup - fuzzy matched |
+| Start Date | `StartDate` | Extracted or today |
+| Term (months) | `ContractTerm` | Extracted |
+| Status | `Status` | Draft → Activated |
+| Owner | `OwnerId` | Assigned BL |
+| Total Value | `Contract_Value__c` | Currency |
+| Annual Value | `Annualized_Revenue__c` | Calculated |
+| Monthly | `Amount__c` | TotalValue / Term |
+| Customer Signer | `Contact_Signed__c` | Lookup or text |
+| Product | `Parent_Product__c` | AI-Augmented Contracting, etc. |
+
+### Contract Type Classification
+- **CAB/LOI**: Non-binding, advisory (excludes monetary fields)
+- **Recurring**: Subscription contracts (monthly amounts)
+- **One-Time**: Project/pilot engagements
+
+---
+
+## 3. WEB DASHBOARD
+
+### Tab Structure
+| Tab | HTML ID | Purpose |
+|-----|---------|---------|
+| Pipeline | `#topco` | Combined pipeline by stage, top accounts, product tiles |
 | Weekly | `#weekly` | Friday RevOps email format - forecast, logos, deals |
 | Business Leads | `#summary` | Accounts grouped by stage with BL breakdown |
-| Revenue | `#revenue` | Active contracts, signed deals, logos by type |
-| Accounts | `#account-plans` | Searchable account list with plans |
+| Revenue | `#revenue` | Active contracts, signed deals, forecast |
+| Accounts | `#account-plans` | Searchable list with account plans |
 
 ### Data Sources
 - **Salesforce (Live)**: Opportunities, Accounts, Contracts, Events
-- **Johnson Hana (Static)**: From `src/data/johnsonHanaData.js` - updated weekly
+- **Johnson Hana (Static)**: From `src/data/johnsonHanaData.js`
+
+### Johnson Hana Acquisition Context
+JH was acquired by Eudia. All JH data now displays under Eudia branding:
+- **No "Johnson Hana" visible** - removed from all headers
+- **Use `•` indicator** for legacy acquisition data
+- **Legend**: `• = legacy acquisition (updated weekly)`
 
 ### Key Variables in `generateAccountDashboard()`
 ```javascript
-// Salesforce data
-const accountMap = new Map();        // Account Name -> { opportunities, totalACV, ... }
-const stageBreakdown = {};           // Stage -> { count, totalACV, weightedACV }
-const productBreakdown = {};         // Product -> { count, totalACV, byStage }
-const meetingData = new Map();       // Account ID -> { lastMeeting, nextMeeting, contacts }
+const accountMap = new Map();         // Account → { opportunities, totalACV, ... }
+const stageBreakdown = {};            // Stage → { count, totalACV, weightedACV }
+const productBreakdown = {};          // Product → { count, totalACV, byStage }
+const meetingData = new Map();        // AccountId → { lastMeeting, nextMeeting }
 const logosByType = { revenue: [], pilot: [], loi: [] };
 
-// Johnson Hana data (imported in function)
-const jhSummary = getJohnsonHanaSummary();  // Aggregated metrics
-const jhAccounts = getAccountSummaries();   // Individual accounts
+// JH data (must import in both generateTopCoTab AND generateAccountDashboard)
+const jhSummary = getJohnsonHanaSummary();
+const jhAccounts = getAccountSummaries();
 ```
+
+### Dashboard Gotchas
+1. **Variable Scope**: `jhSummary`/`jhAccounts` must be imported in BOTH tab generators
+2. **CSS Tabs**: Pure CSS (no JS) for CSP compliance
+3. **Stage Regex**: `stage.match(/Stage (\d)/)?.[1]` - not double escaped
+4. **Currency**: Use `fmt()` helper - lowercase 'm' and 'k'
 
 ---
 
-## Johnson Hana Acquisition Context
+## 4. ACCOUNT ASSIGNMENT
 
-**IMPORTANT**: Johnson Hana was acquired by Eudia. All JH references should be subtle:
+### Smart BL Suggestions (`src/services/accountAssignment.js`)
 
-### Display Convention
-- **No "Johnson Hana" visible** - removed from all headers
-- **Use `•` indicator** for legacy acquisition data
-- **Combine data** into unified "Eudia" views
-- **Legend**: `• = legacy acquisition (updated weekly)`
+When user says "reassign Acme to BL" (without specifying who):
 
-### Code Locations for JH Data
 ```javascript
-// In generateTopCoTab:
-const jhSummary = getJohnsonHanaSummary();
-const jhAccounts = getAccountSummaries();
-const closedWonNovDec = require('../data/johnsonHanaData').closedWonNovDec;
+// 1. Determine region from account location
+const region = determineRegion({ state: account.BillingState, country: account.BillingCountry });
 
-// In generateAccountDashboard (added for Accounts tab):
-const { getJohnsonHanaSummary, getAccountSummaries } = require('../data/johnsonHanaData');
-const jhSummary = getJohnsonHanaSummary();
-const jhAccounts = getAccountSummaries();
-```
+// 2. Get BLs for that region
+const candidates = BL_ASSIGNMENTS[region.blRegion];
 
-### JH Data Structure (`src/data/johnsonHanaData.js`)
-```javascript
-// Key exports:
-getJohnsonHanaSummary() => {
-  totalPipeline,      // $11.3m
-  totalWeighted,      // ~$7m
-  totalOpportunities, // 81
-  uniqueAccounts,     // 53
-  eudiaTech: { opportunityCount, pipelineValue, percentOfValue },
-  byStage: { 'Stage 4 - Proposal': { count, totalACV }, ... },
-  pipeline: [{ account, acv, weighted, stage, ... }]
+// 3. Assess workload for each
+for (const bl of candidates) {
+  const workload = await assessWorkload(bl);  // Open opps + closing deals
+  scores.push({ name: bl, score: workload });
 }
 
-getAccountSummaries() => [
-  { name, totalACV, weightedACV, highestStage, hasEudiaTech, opportunities: [...] }
-]
+// 4. Suggest lowest workload
+const recommended = scores.sort((a, b) => a.score - b.score)[0];
+```
 
-closedWonNovDec => [{ account, acv, serviceLine, eudiaTech, owner }]
+### Geographic Mapping
+| Region | States | BLs |
+|--------|--------|-----|
+| West | CA, OR, WA, NV, AZ, CO, UT... | Himanshu, Julie, Justin |
+| Northeast | ME, NH, VT, MA, NY, NJ, PA... | Olivia |
+| Midwest | OH, MI, IN, WI, IL, MN... | West Coast BLs |
+| International | Non-USA | JH Team |
+
+### Business Lead IDs
+```javascript
+const BUSINESS_LEAD_IDS = {
+  'Julie Stefanich': '005Hp00000kywEtIAI',
+  'Justin Hills': '005Wj00000UVn1ZIAT',
+  'Asad Hussain': '005Wj00000DT05BIAT',
+  'Himanshu Agarwal': '005Hp00000kywEeIAI',
+  'Ananth Cherukupally': '005Wj00000DSlJ6IAL',
+  'Olivia Jung': '005Hp00000kywEiIAI',
+  'Jon Cobb': '005Wj00000MxJI6IAN',
+  'Keigan Pesenti': '005Wj00000IPqFZIA1'  // RevOps - not a BL
+};
 ```
 
 ---
 
-## Salesforce Field Mappings
+## 5. HYPRNOTE MEETING SYNC
+
+### Purpose
+Syncs AI-generated meeting notes from local Hyprnote app to Salesforce.
+
+### Architecture
+```
+hyprnote-sync/
+├── lib/
+│   ├── hyprnote.js       # Read local SQLite database
+│   ├── matcher.js        # Account/contact fuzzy matching
+│   ├── salesforce.js     # SF API operations
+│   └── team-registry.js  # Pre-configured user IDs
+├── setup-quick.js        # Interactive setup wizard
+├── sync.js               # Main sync script
+├── auto-sync.js          # 3-hour scheduled sync
+├── install.command       # macOS one-click installer
+└── hyprnote-setup.html   # Onboarding guide (HTML)
+```
+
+### Sync Flow
+1. User completes meeting in Hyprnote
+2. Hyprnote generates AI summary locally (runs on device)
+3. Sync runs automatically every 3 hours (or manual via Slack: `sync hyprnote`)
+4. For each new meeting:
+   - Fuzzy match to Salesforce Account
+   - Create/update Contact record
+   - Create Event with meeting notes attached
+   - Append insights to `Customer_Brain__c` on Account
+
+### Database Path
+```javascript
+const HYPRNOTE_DB_PATH = path.join(
+  os.homedir(), 
+  'Library/Application Support/com.hyprnote.stable/db.sqlite'
+);
+```
+
+### Team Registry (`lib/team-registry.js`)
+Pre-configured SF User IDs for team members - enables auto-detection during setup.
+
+### Onboarding HTML
+`hyprnote-setup.html` provides:
+- Two modes: "Sales Team" (syncs to SF) vs "Internal Use" (local only)
+- Direct download links for Hyprnote and Node.js
+- Step-by-step setup instructions
+- Privacy/security messaging
+
+---
+
+## 6. SALESFORCE FIELD MAPPINGS
 
 ### Opportunity Object
 | Field | API Name | Purpose |
 |-------|----------|---------|
-| Stage | `StageName` | "Stage 0 - Qualifying" through "Stage 6. Closed(Won)" |
+| Stage | `StageName` | "Stage 0 - Qualifying" → "Stage 6. Closed(Won)" |
 | ACV | `ACV__c` | Annual Contract Value |
-| Weighted ACV | `Finance_Weighted_ACV__c` | Probability-weighted ACV |
+| Weighted ACV | `Finance_Weighted_ACV__c` | Probability-weighted value |
 | Product Line | `Product_Line__c` | AI-Augmented Contracting, Compliance, sigma, etc. |
 | Target Sign Date | `Target_LOI_Date__c` | Expected close date |
 | Revenue Type | `Revenue_Type__c` | "ARR", "Booking" (LOI), etc. |
-| Owner | `Owner.Name` | Opportunity owner (BL) |
 | Days in Stage | `Days_in_Stage__c` | Days since stage entry |
 | Closed Lost Detail | `Closed_Lost_Detail__c` | Reason for loss |
+| Closed Lost Reason | `Closed_Lost_Reason__c` | Category |
 
 ### Account Object
 | Field | API Name | Purpose |
 |-------|----------|---------|
-| Customer Type | `Customer_Type__c` | "Revenue", "Pilot", "LOI with $ attached", etc. |
-| Account Plan | `Account_Plan_s__c` | Long-text account strategy |
-| First Deal Closed | `First_Deal_Closed__c` | Date of first closed won deal |
-| Is New Logo | `Is_New_Logo__c` | Boolean for new customer |
-| Customer Brain | `Customer_Brain__c` | AI-generated insights field |
+| Customer Type | `Customer_Type__c` | "Revenue", "Pilot", "LOI with $ attached" |
+| Account Plan | `Account_Plan_s__c` | Long-text strategic plan |
+| Customer Brain | `Customer_Brain__c` | Meeting notes, AI insights |
+| First Deal Closed | `First_Deal_Closed__c` | Date of first win |
+| Is New Logo | `Is_New_Logo__c` | Boolean |
+| Competitive Landscape | `Competitive_Landscape__c` | Competitor mentions |
 
-### Contract Object
-| Field | API Name | Purpose |
-|-------|----------|---------|
-| Contract Name | `Contract_Name_Campfire__c` | Extracted from PDF filename |
-| Status | `Status` | "Draft" → "Activated" |
-| Start Date | `StartDate` | Contract start |
-| Term | `ContractTerm` | Months |
-| Total Value | `Contract_Value__c` | Total contract value |
-| ARR | `Annualized_Revenue__c` | Annual recurring revenue |
+### Stage Mapping
+```javascript
+const STAGES = [
+  'Stage 0 - Qualifying',
+  'Stage 1 - Discovery',
+  'Stage 2 - SQO',
+  'Stage 3 - Pilot',
+  'Stage 4 - Proposal',
+  'Stage 5 - Negotiation',
+  'Stage 6. Closed(Won)',
+  'Stage 7. Closed (Lost)'
+];
+```
 
 ---
 
-## Dashboard Queries (Key SOQL)
+## 7. KEY SOQL QUERIES
 
-### Pipeline Query (includes Stage 5)
+### Pipeline (includes Stage 5)
 ```sql
-SELECT StageName, SUM(ACV__c) GrossAmount, SUM(Finance_Weighted_ACV__c) WeightedAmount, COUNT(Id) DealCount
+SELECT StageName, SUM(ACV__c) Gross, SUM(Finance_Weighted_ACV__c) Weighted, COUNT(Id) Count
 FROM Opportunity
 WHERE IsClosed = false 
-  AND StageName IN ('Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SQO', 
-                    'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
+  AND StageName IN ('Stage 0...', 'Stage 1...', ..., 'Stage 5 - Negotiation')
 GROUP BY StageName
 ```
 
 ### Signed Deals (Last 90 Days)
 ```sql
-SELECT Account.Name, Name, ACV__c, CloseDate, Revenue_Type__c, Account.Customer_Type__c, Owner.Name, Product_Line__c
+SELECT Account.Name, Name, ACV__c, CloseDate, Revenue_Type__c, Owner.Name
 FROM Opportunity
 WHERE StageName = 'Stage 6. Closed(Won)' 
   AND CloseDate >= LAST_N_DAYS:90
   AND (NOT Account.Name LIKE '%Sample%')
-  AND (NOT Account.Name LIKE '%Acme%')
-  AND (NOT Account.Name LIKE '%Sandbox%')
   AND (NOT Account.Name LIKE '%Test%')
 ORDER BY CloseDate DESC
 ```
 
 ### Active Contracts
 ```sql
-SELECT Account.Name, Annualized_Revenue__c, Contract_Value__c, StartDate, EndDate, Contract_Type__c
+SELECT Account.Name, Annualized_Revenue__c, Contract_Value__c, StartDate, EndDate
 FROM Contract
 WHERE Status = 'Activated'
 ORDER BY Annualized_Revenue__c DESC NULLS LAST
 ```
 
----
-
-## Common Patterns & Gotchas
-
-### 1. Stage Name Regex
-Different data sources use different formats:
-```javascript
-// Salesforce: "Stage 4 - Proposal"
-// JH Data: "Stage 4 Proposal" or "Stage 4 - Proposal"
-
-// Safe extraction:
-const stageNum = stage.match(/Stage\s*(\d)/)?.[1] || '?';
-const stageLabel = stage.replace('Stage ', 'S').replace(' - ', ' ');
-```
-
-### 2. Currency Formatting
-Use the `fmt` helper consistently:
-```javascript
-const fmt = (val) => {
-  if (!val || val === 0) return '-';
-  if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'm';  // lowercase m
-  return '$' + Math.round(val / 1000) + 'k';  // lowercase k
-};
-```
-
-### 3. Variable Scope
-`jhSummary` and `jhAccounts` must be imported in BOTH:
-- `generateTopCoTab()` - for Pipeline tab
-- `generateAccountDashboard()` - for Accounts tab
-
-### 4. CSS Tabs (No JavaScript)
-The dashboard uses pure CSS tabs for security (CSP):
-```html
-<input type="radio" name="tabs" id="tab-topco" checked>
-#tab-topco:checked ~ #topco { display: block; }
-```
-
-### 5. Template Escaping in JavaScript Strings
-When building HTML in JS template literals, use:
-```javascript
-// Single backslash for regex in template strings:
-stage.match(/Stage\\s*(\\d)/)?.[1]  // Wrong - double escaped
-stage.match(/Stage\s*(\d)/)?.[1]    // Correct in template literal context
+### Logos by Type
+```sql
+SELECT Name, Customer_Type__c, First_Deal_Closed__c
+FROM Account
+WHERE Customer_Type__c != null
 ```
 
 ---
 
-## Recent Changes (Dec 2024)
-
-### JH Consolidation
-- Removed all "Johnson Hana" visible text
-- Added `•` indicator for legacy data
-- Merged stage tables into single "Pipeline by Stage"
-- Merged top accounts into single "Eudia Top Accounts"
-- Merged product/service tiles (blue above gray)
-
-### Tab Renames
-- "Top Co" → "Pipeline"
-- "Eudia Summary" → "Business Leads"
-- "Eudia Accounts" → "Accounts"
-
-### Accounts Tab Enhancements
-- Added JH accounts to searchable list
-- JH accounts show with `•` indicator
-- Updated logos count to include legacy (+35)
-
-### Product/Service Tiles
-- Blue (Eudia products) stacked above gray (legacy services)
-- Dashed separator between groups
-- Extra spacing at section top
-
----
-
-## Testing Checklist
-
-Before deploying changes:
-
-1. **Syntax Check**: Run `node --check src/slack/accountDashboard.js`
-2. **Lint Check**: Use `read_lints` tool
-3. **Variable Scope**: Ensure all variables used in templates are defined
-4. **JH Data Access**: Both tab generators need their own imports
-5. **Regex Escaping**: Check stage matching patterns
-6. **Currency Format**: Use `fmt()` helper, not inline formatting
-
----
-
-## Deployment
-
-```bash
-# Commit and push triggers Render auto-deploy
-git add -A
-git commit -m "Description"
-git push
-
-# Render takes ~30-60 seconds to rebuild
-# Check logs at render.com dashboard
-```
-
----
-
-## Environment Variables (Render)
-
-```
-SF_INSTANCE_URL=https://eudia.my.salesforce.com
-SF_USERNAME=<service account>
-SF_PASSWORD=<password+security_token>
-SLACK_BOT_TOKEN=xoxb-...
-SLACK_APP_TOKEN=xapp-...
-SLACK_SIGNING_SECRET=...
-REDIS_URL=redis://...
-```
-
----
-
-## Key Hardcoded Values
+## 8. HARDCODED VALUES
 
 ### Run Rate Forecast (Weekly Tab)
 ```javascript
 // Historical actuals - update monthly
-August: $17.6m combined
-September: $18.4m combined
-October: $19.8m combined
-November (EOM): $19.2m combined
-
-// Eudia breakdown
-Eudia: $5.1m → $5.4m → $7.3m → $7.46m
-
-// JH breakdown (static until migration)
-JH: $10.2m (as of EOM Nov)
-
-// OutHouse
-Meta: $1.5m
+August:   Eudia $5.1m  | JH $10.2m | OH $1.5m | Combined $17.6m
+September: Eudia $5.4m | JH $10.2m | OH $1.5m | Combined $18.4m
+October:  Eudia $7.3m  | JH $10.2m | OH $1.5m | Combined $19.8m
+November: Eudia $7.46m | JH $10.2m | OH $1.5m | Combined $19.2m
 ```
 
-### Logo Counts (Weekly Tab)
+### Net New Logos
 ```javascript
 FY2024 Total: 4
 Q1 FY2025: 2
@@ -355,56 +451,151 @@ OpenAI, Orsted, Perrigo, Sisk, Stripe, Taoglas, Teamwork, TikTok, Tinder, Udemy
 
 ---
 
-## Business Lead IDs
+## 9. COMMON PATTERNS & GOTCHAS
 
+### Currency Formatting
 ```javascript
-const BUSINESS_LEAD_IDS = {
-  'Julie Stefanich': '005Hp00000kywEtIAI',
-  'Justin Hills': '005Wj00000UVn1ZIAT',
-  'Asad Hussain': '005Wj00000DT05BIAT',
-  'Himanshu Agarwal': '005Hp00000kywEeIAI',
-  'Ananth Cherukupally': '005Wj00000DSlJ6IAL',
-  'Olivia Jung': '005Hp00000kywEiIAI',
-  'Jon Cobb': '005Wj00000MxJI6IAN'
+const fmt = (val) => {
+  if (!val || val === 0) return '-';
+  if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'm';  // lowercase
+  return '$' + Math.round(val / 1000) + 'k';  // lowercase
+};
+```
+
+### Stage Name Regex
+```javascript
+// Salesforce: "Stage 4 - Proposal"
+// JH Data: "Stage 4 Proposal" or "Stage 4 - Proposal"
+
+// Safe extraction:
+const stageNum = stage.match(/Stage\s*(\d)/)?.[1] || '?';
+const stageLabel = stage.replace('Stage ', 'S').replace(' - ', ' ');
+```
+
+### Template Escaping
+```javascript
+// In JS template literals, single backslash:
+stage.match(/Stage\s*(\d)/)?.[1]    // Correct
+stage.match(/Stage\\s*(\\d)/)?.[1]  // Wrong - double escaped
+```
+
+### Sample Account Filtering
+```javascript
+const isSampleAccount = (name) => {
+  const lower = name?.toLowerCase() || '';
+  return ['sample', 'acme', 'sandbox', 'test'].some(s => lower.includes(s));
 };
 ```
 
 ---
 
-## Support Contacts
+## 10. TESTING CHECKLIST
 
-- **RevOps**: Keigan Pesenti (keigan.pesenti@eudia.com)
-- **Product**: Zack Huffstutter
-- **Engineering**: Check #eng-support Slack
+Before deploying:
+
+1. **Syntax Check**: `node --check src/slack/accountDashboard.js`
+2. **Lint Check**: Use `read_lints` tool
+3. **Variable Scope**: Ensure all template variables are defined
+4. **JH Data Access**: Both `generateTopCoTab` and `generateAccountDashboard` need imports
+5. **Regex Escaping**: Check stage matching patterns
+6. **Currency Format**: Use `fmt()` helper consistently
 
 ---
 
-## Quick Fix Reference
+## 11. DEPLOYMENT
+
+```bash
+# Commit and push triggers Render auto-deploy
+git add -A
+git commit -m "Description"
+git push
+
+# Render takes ~30-60 seconds to rebuild
+# Check logs at render.com dashboard
+```
+
+### Environment Variables (Render)
+```
+SF_INSTANCE_URL=https://eudia.my.salesforce.com
+SF_USERNAME=<service account>
+SF_PASSWORD=<password+security_token>
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_APP_TOKEN=xapp-...
+SLACK_SIGNING_SECRET=...
+REDIS_URL=redis://...
+```
+
+---
+
+## 12. QUICK FIX REFERENCE
 
 ### "jhSummary is not defined"
-Add to `generateAccountDashboard()`:
 ```javascript
+// Add to generateAccountDashboard():
 const { getJohnsonHanaSummary, getAccountSummaries } = require('../data/johnsonHanaData');
 const jhSummary = getJohnsonHanaSummary();
 const jhAccounts = getAccountSummaries();
 ```
 
 ### Stage expansion not working
-Check regex - should be:
 ```javascript
+// Check regex - should be:
 stage.match(/Stage (\d)/)?.[1]  // Not double-escaped
 ```
 
 ### Dashboard shows wrong totals
-Ensure Stage 5 - Negotiation is included in queries:
 ```sql
-StageName IN ('Stage 0...', 'Stage 1...', ..., 'Stage 5 - Negotiation')
+-- Ensure Stage 5 included:
+StageName IN ('Stage 0...', ..., 'Stage 5 - Negotiation')
 ```
 
-### Product tiles mixed up
-Stack blue (Eudia) above gray (JH):
-```javascript
-const productTiles = [];  // Eudia - process first
-const serviceTiles = [];  // JH - render below with separator
-```
+### Contract creation fails with "invalid cross reference id"
+- Check `AccountId` exists and is valid
+- Check `OwnerId` matches Business Lead ID in `BUSINESS_LEAD_IDS`
+- Check `CustomerSignedId` is a valid Contact ID (or leave blank)
 
+### Dashboard not showing accounts in tiles
+- Check `Customer_Type__c` field has values
+- Ensure categorization logic checks both 'revenue' AND 'arr' (legacy naming)
+
+---
+
+## 13. SUPPORT CONTACTS
+
+- **RevOps**: Keigan Pesenti (keigan.pesenti@eudia.com)
+- **Product**: Zack Huffstutter
+- **Engineering**: #eng-support Slack
+
+---
+
+## For New Chat Sessions
+
+Copy/paste this to start a new chat with full context:
+
+```
+I need help with the GTM Brain project. Full context:
+
+**GitHub**: cicerotech/gtm-wizard
+**Dashboard**: https://gtm-wizard.onrender.com/account-dashboard (password: eudia-gtm)
+
+This is a Slack bot + web dashboard that:
+1. Answers natural language Salesforce queries
+2. Analyzes PDF contracts and creates SF records
+3. Provides a 5-tab web dashboard (Pipeline, Weekly, Business Leads, Revenue, Accounts)
+4. Exports pipeline to Excel
+5. Manages accounts (create, assign, save plans)
+6. Syncs Hyprnote meeting notes to Salesforce
+7. Provides smart BL assignment based on workload/region
+
+Please read HANDOFF.md in the repo for complete details including:
+- File structure and key modules
+- All intent types and handlers
+- Salesforce field mappings
+- Dashboard tab structure
+- JH acquisition context (use • indicator, no JH visible)
+- Common gotchas (jhSummary scope, regex escaping, fmt helper)
+- Hardcoded values (forecast, logos)
+- Testing checklist
+
+Current state: Dashboard working with 5 tabs, JH data consolidated under Eudia branding.
+```
