@@ -341,55 +341,77 @@ function getAccountSummaries() {
   return Object.values(accounts).sort((a, b) => b.totalACV - a.totalACV);
 }
 
+// EUDIA November ARR (Active Revenue as of Nov 2025 - from source file)
+const eudiaNovemberARR = {
+  'Bayer': 300000,
+  'Cargill': 1400000, // 1,250,000 + 150,000 (combined)
+  'Chevron': 1200000,
+  'Coherent': 1541667, // 391,667 + 1,150,000 (combined)
+  'Delinea': 120000,
+  'DHL North America': 250000,
+  'Duracell': 395000,
+  'ECMS': 360000,
+  'Gov - DOD': 830287,
+  'Graybar Electric': 300000,
+  'IQVIA': 300000,
+  'Toshiba US': 166667,
+  'Asana': 75000,
+  'Intuit': 75000,
+  'Novelis': 90000,
+  'Peregrine Hospitality': 42000,
+  'Sandbox': 8975,
+  'Spark Brighter Thinking': 6500
+};
+
 // Johnson Hana November ARR (Active Revenue as of Nov 2025)
 const jhNovemberARR = {
-  'ACS': 156452.86,
-  'Airbnb': 211906.62,
-  'Airship': 166527.79,
-  'Aryza': 104079.87,
-  'BOI': 1652399.77,
-  'Coimisiún na Meán': 389675.03,
-  'CommScope': 158201.40,
-  'Consensys': 79100.70,
-  'Datalex': 104912.51,
-  'Dropbox': 222037.06,
-  'ESB': 473355.25,
-  'Etsy': 304329.54,
-  'Gilead': 186511.13,
-  'Glanbia': 90341.33,
-  'Indeed': 417845.98,
-  'Irish Water': 440882.33,
-  'Kellanova': 150291.33,
-  'Kingspan': 97085.70,
-  'Northern Trust': 145711.82,
-  'OpenAI': 1537051.52,
-  'Orsted': 104079.87,
-  'Perrigo': 127393.76,
-  'Sisk': 69386.58,
-  'Stripe': 1223979.27,
-  'Taoglas': 60782.64,
-  'Teamwork': 70357.99,
-  'TikTok': 208159.74,
-  'Tinder': 228975.71,
-  'Udemy': 533721.57,
-  'Coillte': 194837.52,
-  'Coleman Legal': 16652.78,
-  'Creed McStay': 38804.44,
-  'DCEDIY': 37152.91,
-  'Hayes': 69386.58,
-  'NTMA': 170690.99
+  'ACS': 156453,
+  'Airbnb': 211907,
+  'Airship': 166528,
+  'Aryza': 104080,
+  'BOI': 1652400,
+  'Coimisiún na Meán': 389675,
+  'CommScope': 158201,
+  'Consensys': 79101,
+  'Datalex': 104913,
+  'Dropbox': 222037,
+  'ESB': 473355,
+  'Etsy': 304330,
+  'Gilead': 186511,
+  'Glanbia': 90341,
+  'Indeed': 417846,
+  'Irish Water': 440882,
+  'Kellanova': 150291,
+  'Kingspan': 97086,
+  'Northern Trust': 145712,
+  'OpenAI': 1537052,
+  'Orsted': 104080,
+  'Perrigo': 127394,
+  'Sisk': 69387,
+  'Stripe': 1223979,
+  'Taoglas': 60783,
+  'Teamwork': 70358,
+  'TikTok': 208160,
+  'Tinder': 228976,
+  'Udemy': 533722,
+  'Coillte': 194838,
+  'Coleman Legal': 16653,
+  'Creed McStay': 38804,
+  'DCEDIY': 37153,
+  'Hayes': 69387,
+  'NTMA': 170691
 };
 
 // Out-House November ARR (Meta - signed Oct 2025)
 const outHouseNovemberARR = {
-  'Meta': 1558000.00
+  'Meta': 1558211
 };
 
-// Total JH November ARR
+// Calculate totals
+const eudiaNovemberARRTotal = Object.values(eudiaNovemberARR).reduce((sum, val) => sum + val, 0);
 const jhNovemberARRTotal = Object.values(jhNovemberARR).reduce((sum, val) => sum + val, 0);
-
-// Total Out-House November ARR
 const outHouseNovemberARRTotal = Object.values(outHouseNovemberARR).reduce((sum, val) => sum + val, 0);
+const totalNovemberARR = eudiaNovemberARRTotal + jhNovemberARRTotal + outHouseNovemberARRTotal;
 
 function getJHNovemberARR() {
   return jhNovemberARR;
@@ -412,10 +434,11 @@ module.exports = {
   getJHSignedLogosByPeriod,
   jhSignedLogos,
   lastUpdate,
+  eudiaNovemberARR,
+  eudiaNovemberARRTotal,
   jhNovemberARR,
   jhNovemberARRTotal,
-  getJHNovemberARR,
-  getJHNovemberARRTotal,
   outHouseNovemberARR,
-  outHouseNovemberARRTotal
+  outHouseNovemberARRTotal,
+  totalNovemberARR
 };

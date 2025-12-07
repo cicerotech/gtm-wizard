@@ -1,6 +1,6 @@
 const { query } = require('../salesforce/connection');
 const { cleanStageName } = require('../utils/formatters');
-const { getJohnsonHanaSummary, getAccountSummaries: getJHAccounts, closedWonNovDec, mapStage, lastUpdate: jhLastUpdate, getJHSignedLogosByPeriod, jhSignedLogos, jhNovemberARR, jhNovemberARRTotal, outHouseNovemberARR, outHouseNovemberARRTotal } = require('../data/johnsonHanaData');
+const { getJohnsonHanaSummary, getAccountSummaries: getJHAccounts, closedWonNovDec, mapStage, lastUpdate: jhLastUpdate, getJHSignedLogosByPeriod, jhSignedLogos, eudiaNovemberARR, eudiaNovemberARRTotal, jhNovemberARR, jhNovemberARRTotal, outHouseNovemberARR, outHouseNovemberARRTotal, totalNovemberARR } = require('../data/johnsonHanaData');
 
 /**
  * Generate password-protected Account Status Dashboard
@@ -2114,36 +2114,27 @@ ${generateWeeklyTab({
   <!-- Active Revenue by Account -->
   <div class="stage-section">
     <div class="stage-title">Active Revenue by Account</div>
-    <div class="stage-subtitle">${contractsByAccount.size + Object.keys(jhNovemberARR).length + Object.keys(outHouseNovemberARR).length} accounts • ${formatCurrency(recurringTotal + jhNovemberARRTotal + outHouseNovemberARRTotal)} total ARR (Nov)</div>
+    <div class="stage-subtitle">${Object.keys(eudiaNovemberARR).length + Object.keys(jhNovemberARR).length + Object.keys(outHouseNovemberARR).length} accounts • ${formatCurrency(totalNovemberARR)} total ARR (Nov)</div>
   </div>
   
   <div class="section-card">
     ${(() => {
-      // Combine Eudia contracts with JH + Out-House November ARR
+      // Combine all November ARR from source data
       const allRevenue = [];
       
-      // Add Eudia contracts
-      Array.from(contractsByAccount.entries())
-        .filter(([name, data]) => data.totalARR > 0 || data.totalProject > 0)
-        .forEach(([name, data]) => {
-          const hasLOIHistory = accountsWithLOIHistory.has(name);
-          const isPending = data.pending;
-          allRevenue.push({
-            name,
-            arr: data.totalARR,
-            project: data.totalProject,
-            indicator: isPending ? ' *' : (hasLOIHistory ? ' †' : '')
-          });
-        });
+      // Add EUDIA November ARR accounts (from source file)
+      Object.entries(eudiaNovemberARR).forEach(([name, arr]) => {
+        allRevenue.push({ name, arr, indicator: '' });
+      });
       
       // Add JH November ARR accounts
       Object.entries(jhNovemberARR).forEach(([name, arr]) => {
-        allRevenue.push({ name, arr, project: 0, indicator: '' });
+        allRevenue.push({ name, arr, indicator: '' });
       });
       
       // Add Out-House November ARR accounts (Meta)
       Object.entries(outHouseNovemberARR).forEach(([name, arr]) => {
-        allRevenue.push({ name, arr, project: 0, indicator: ' ◊' });
+        allRevenue.push({ name, arr, indicator: ' ◊' });
       });
       
       // Sort by ARR
@@ -2176,7 +2167,7 @@ ${generateWeeklyTab({
     </details>` : ''}
     <div style="display: flex; justify-content: space-between; padding: 8px 4px; margin-top: 8px; border-top: 2px solid #e5e7eb; font-weight: 700; font-size: 0.75rem;">
       <span>TOTAL</span>
-      <span>${formatCurrency(recurringTotal + jhNovemberARRTotal + outHouseNovemberARRTotal)}      </span>
+      <span>${formatCurrency(totalNovemberARR)}</span>
     </div>`;
     })()}
     <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">* Awaiting contract &nbsp;† Signed LOI before converting &nbsp;◊ Out-House</div>
@@ -2185,13 +2176,13 @@ ${generateWeeklyTab({
   <!-- All Closed Won Deals - By Revenue_Type__c -->
   ${(() => {
     // Combine EUDIA and JH closed won deals for Revenue section
-    const jhRevenue = closedWonNovDec.map(d => ({
-      accountName: d.account.replace(/ (Ireland|UC|Limited|LLC|Technologies UK Limited|Pharma|Group|International Unlimited Company).*$/i, ''),
-      acv: d.acv,
-      closeDate: d.closeDate || '2025-11-01'
+    const jhRevenue = Object.entries(jhNovemberARR).map(([name, acv]) => ({
+      accountName: name,
+      acv,
+      closeDate: '2025-11-01'
     }));
-    const combinedRevenue = [...signedByType.revenue, ...jhRevenue].sort((a, b) => new Date(b.closeDate) - new Date(a.closeDate));
-    const combinedRevenueTotal = signedDealsTotal.revenue + jhRevenue.reduce((sum, d) => sum + d.acv, 0);
+    const combinedRevenue = [...signedByType.revenue, ...jhRevenue].sort((a, b) => b.acv - a.acv);
+    const combinedRevenueTotal = eudiaNovemberARRTotal + jhNovemberARRTotal;
     
     return `
   <div class="stage-section" style="margin-top: 16px;">
@@ -2323,7 +2314,7 @@ ${generateWeeklyTab({
     <div class="accounts-type-grid" style="background: #f0fdf4; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
         <div style="font-size: 0.7rem; font-weight: 700; color: #059669;">REVENUE</div>
-        <div style="font-size: 1.25rem; font-weight: 700; color: #15803d;">${logosByType.revenue.length + 35}</div>
+        <div style="font-size: 1.25rem; font-weight: 700; color: #15803d;">${Object.keys(eudiaNovemberARR).length + Object.keys(jhNovemberARR).length + Object.keys(outHouseNovemberARR).length}</div>
       </div>
       <details style="font-size: 0.6rem; color: #6b7280;">
         <summary style="cursor: pointer; color: #059669; font-weight: 500; margin-bottom: 4px;">View accounts ›</summary>
