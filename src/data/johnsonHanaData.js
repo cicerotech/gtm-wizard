@@ -341,6 +341,56 @@ function getAccountSummaries() {
   return Object.values(accounts).sort((a, b) => b.totalACV - a.totalACV);
 }
 
+// Johnson Hana November ARR (Active Revenue as of Nov 2025)
+const jhNovemberARR = {
+  'ACS': 156452.86,
+  'Airbnb': 211906.62,
+  'Airship': 166527.79,
+  'Aryza': 104079.87,
+  'BOI': 1652399.77,
+  'Coimisiún na Meán': 389675.03,
+  'CommScope': 158201.40,
+  'Consensys': 79100.70,
+  'Datalex': 104912.51,
+  'Dropbox': 222037.06,
+  'ESB': 473355.25,
+  'Etsy': 304329.54,
+  'Gilead': 186511.13,
+  'Glanbia': 90341.33,
+  'Indeed': 417845.98,
+  'Irish Water': 440882.33,
+  'Kellanova': 150291.33,
+  'Kingspan': 97085.70,
+  'Northern Trust': 145711.82,
+  'OpenAI': 1537051.52,
+  'Orsted': 104079.87,
+  'Perrigo': 127393.76,
+  'Sisk': 69386.58,
+  'Stripe': 1223979.27,
+  'Taoglas': 60782.64,
+  'Teamwork': 70357.99,
+  'TikTok': 208159.74,
+  'Tinder': 228975.71,
+  'Udemy': 533721.57,
+  'Coillte': 194837.52,
+  'Coleman Legal': 16652.78,
+  'Creed McStay': 38804.44,
+  'DCEDIY': 37152.91,
+  'Hayes': 69386.58,
+  'NTMA': 170690.99
+};
+
+// Total JH November ARR
+const jhNovemberARRTotal = Object.values(jhNovemberARR).reduce((sum, val) => sum + val, 0);
+
+function getJHNovemberARR() {
+  return jhNovemberARR;
+}
+
+function getJHNovemberARRTotal() {
+  return jhNovemberARRTotal;
+}
+
 module.exports = {
   activePipeline,
   closedWonNovDec,
@@ -353,5 +403,9 @@ module.exports = {
   getAccountSummaries,
   getJHSignedLogosByPeriod,
   jhSignedLogos,
-  lastUpdate
+  lastUpdate,
+  jhNovemberARR,
+  jhNovemberARRTotal,
+  getJHNovemberARR,
+  getJHNovemberARRTotal
 };

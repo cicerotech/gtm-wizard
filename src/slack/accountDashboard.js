@@ -1,6 +1,6 @@
 const { query } = require('../salesforce/connection');
 const { cleanStageName } = require('../utils/formatters');
-const { getJohnsonHanaSummary, getAccountSummaries: getJHAccounts, closedWonNovDec, mapStage, lastUpdate: jhLastUpdate, getJHSignedLogosByPeriod, jhSignedLogos } = require('../data/johnsonHanaData');
+const { getJohnsonHanaSummary, getAccountSummaries: getJHAccounts, closedWonNovDec, mapStage, lastUpdate: jhLastUpdate, getJHSignedLogosByPeriod, jhSignedLogos, jhNovemberARR, jhNovemberARRTotal } = require('../data/johnsonHanaData');
 
 /**
  * Generate password-protected Account Status Dashboard
@@ -101,6 +101,22 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   const s2Combined = { count: s2Data.count + s2JH.count, totalACV: (s2Data.totalACV || 0) + (s2JH.totalACV || 0) };
   const s2Pct = blendedGross > 0 ? Math.round((s2Combined.totalACV / blendedGross) * 100) : 0;
   
+  // Stage 3, 4, 5 concentration calculations
+  const s3Data = stageBreakdown['Stage 3 - Pilot'] || { count: 0, totalACV: 0 };
+  const s3JH = jhSummary.byStage['Stage 3 - Pilot'] || { count: 0, totalACV: 0 };
+  const s3Combined = { count: s3Data.count + s3JH.count, totalACV: (s3Data.totalACV || 0) + (s3JH.totalACV || 0) };
+  const s3Pct = blendedGross > 0 ? Math.round((s3Combined.totalACV / blendedGross) * 100) : 0;
+  
+  const s4Data = stageBreakdown['Stage 4 - Proposal'] || { count: 0, totalACV: 0 };
+  const s4JH = jhSummary.byStage['Stage 4 - Proposal'] || { count: 0, totalACV: 0 };
+  const s4Combined = { count: s4Data.count + s4JH.count, totalACV: (s4Data.totalACV || 0) + (s4JH.totalACV || 0) };
+  const s4Pct = blendedGross > 0 ? Math.round((s4Combined.totalACV / blendedGross) * 100) : 0;
+  
+  const s5Data = stageBreakdown['Stage 5 - Negotiation'] || { count: 0, totalACV: 0 };
+  const s5JH = jhSummary.byStage['Stage 5 - Negotiation'] || { count: 0, totalACV: 0 };
+  const s5Combined = { count: s5Data.count + s5JH.count, totalACV: (s5Data.totalACV || 0) + (s5JH.totalACV || 0) };
+  const s5Pct = blendedGross > 0 ? Math.round((s5Combined.totalACV / blendedGross) * 100) : 0;
+  
   // Format currency helper - lowercase m
   const fmt = (val) => {
     if (!val || val === 0) return '-';
@@ -159,9 +175,12 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
     <div class="metric">
       <div class="metric-label">Total Pipeline</div>
       <div class="metric-value">${fmt(blendedGross)}</div>
-      <div style="font-size: 0.65rem; color: #6B7280; margin-top: 6px; line-height: 1.5; padding-left: 2px;">
-        <div>• S1 Discovery: ${s1Pct}% (${fmt(s1Combined.totalACV)})</div>
-        <div>• S2 SQO: ${s2Pct}% (${fmt(s2Combined.totalACV)})</div>
+      <div style="font-size: 0.6rem; color: #6B7280; margin-top: 6px; line-height: 1.4; padding-left: 2px;">
+        <div>• S1: ${s1Pct}% (${fmt(s1Combined.totalACV)})</div>
+        <div>• S2: ${s2Pct}% (${fmt(s2Combined.totalACV)})</div>
+        <div>• S3: ${s3Pct}% (${fmt(s3Combined.totalACV)})</div>
+        <div>• S4: ${s4Pct}% (${fmt(s4Combined.totalACV)})</div>
+        <div>• S5: ${s5Pct}% (${fmt(s5Combined.totalACV)})</div>
       </div>
     </div>
     <div class="metric">
@@ -768,60 +787,60 @@ function generateWeeklyTab(params) {
       <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
         <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">SIGNED NET NEW LOGOS</div>
         <div style="font-size: 0.75rem;">
-          <!-- FY2024 -->
+          <!-- FY2024 (calendar year 2024) -->
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer; color: #6b7280;">
-              <span>FY2024 Total</span>
-              <span style="font-weight: 600;">${4 + jhSignedLogos.fy2024.length}</span>
+              <span>FY2024</span>
+              <span style="font-weight: 600;">38</span>
             </summary>
             <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
-              ACS, Airbnb, Airship, BOI, Coimisiún na Meán, CommScope, Consensys, Datalex, Dropbox, ESB, Etsy, Gilead, Glanbia, Indeed, Irish Water, Kellanova, Kingspan, Northern Trust, OpenAI, Orsted, Perrigo, Sisk, Stripe, Taoglas, Teamwork, TikTok, Tinder, Udemy, Coillte, Coleman Legal, Creed McStay, DCEDIY, Hayes, NTMA, Amazon, Asana, BNY Mellon, Cargill
+              ACS, Airbnb, Airship, Aryza, BOI, Cargill, Coimisiún na Meán, Coillte, Coleman Legal, CommScope, Consensys, Creed McStay, Datalex, DCEDIY, Dropbox, ECMS, ESB, Etsy, Gilead, Glanbia, Graybar Electric, Hayes, Indeed, Irish Water, Kellanova, Kingspan, Northern Trust, NTMA, OpenAI, Orsted, Perrigo, Sisk, Southwest Airlines, Stripe, Taoglas, Teamwork, TikTok, Tinder
             </div>
           </details>
-          <!-- Q1 FY2025 -->
+          <!-- Q1 FY2025 (Feb-Apr 2025) -->
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
               <span>Q1 FY2025</span>
               <span style="font-weight: 600;">2</span>
             </summary>
             <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
-              Chevron, Cox Media Group
+              Coherent, Duracell
             </div>
           </details>
-          <!-- Q2 FY2025 -->
+          <!-- Q2 FY2025 (May-Jul 2025) -->
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
               <span>Q2 FY2025</span>
-              <span style="font-weight: 600;">3</span>
+              <span style="font-weight: 600;">2</span>
             </summary>
             <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
-              Aryza, Dolby, ECMS
+              Intuit, National Grid
             </div>
           </details>
-          <!-- Q3 FY2025 -->
+          <!-- Q3 FY2025 (Aug-Oct 2025) -->
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
               <span>Q3 FY2025</span>
-              <span style="font-weight: 600;">25</span>
+              <span style="font-weight: 600;">15</span>
             </summary>
             <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
-              Coherent, DHL North America, Duracell, Ecolab, Fresh Del Monte, GE Vernova, Gov - DOD, Graybar Electric, Intuit, National Grid, Novelis, Peregrine Hospitality, Petsmart, Pure Storage, Sandbox, Southwest Airlines, Tailored Brands, The Weir Group PLC, The Wonderful Company, Toshiba US, Udemy Ireland Limited, Wealth Partners Capital Group, Western Digital, World Wide Technology, CHS
+              AES, Asana, Bayer, Chevron, CHS, Fresh Del Monte, GE Vernova, Gov - DOD, Novelis, Peregrine Hospitality, Sandbox, The Weir Group PLC, The Wonderful Company, Toshiba US, Wealth Partners Capital Group
             </div>
           </details>
-          <!-- Q4 FY2025 -->
+          <!-- Q4 FY2025 (Nov-Dec 2025 to date) -->
           <details style="border-bottom: 1px solid #e5e7eb; background: #ecfdf5;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
               <span>Q4 FY2025 (to date)</span>
-              <span style="font-weight: 600;">5</span>
+              <span style="font-weight: 600;">15</span>
             </summary>
             <div style="padding: 6px 8px; background: #e9f5ec; font-size: 0.65rem; color: #15803d;">
-              BNY Mellon, Delinea, IQVIA, Udemy, WWT
+              Amazon, Best Buy, BNY Mellon, Cox Media Group, Delinea, DHL North America, Dolby, Ecolab, IQVIA, Petsmart, Pure Storage, Tailored Brands, Udemy Ireland Limited, Western Digital, World Wide Technology
             </div>
           </details>
           <!-- Total -->
           <div style="display: flex; justify-content: space-between; padding: 8px 4px; font-weight: 700; background: #e5e7eb; margin-top: 4px; border-radius: 4px;">
             <span>Total</span>
-            <span>73</span>
+            <span>72</span>
           </div>
         </div>
         <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Click period to expand</div>
@@ -850,12 +869,12 @@ function generateWeeklyTab(params) {
     
     <!-- Current Logos (Consolidated Single Tile) -->
     <div class="weekly-subsection" style="margin-top: 16px;">
-      <div class="weekly-subsection-title">Current Logos (73 total)</div>
+      <div class="weekly-subsection-title">Current Logos (72 total)</div>
       <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-top: 8px;">
         <!-- All Logos -->
         <details open>
           <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; margin-bottom: 8px;">
-            ▾ All Logos (73)
+            ▾ All Logos (72)
           </summary>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 0.65rem; color: #374151;">
             ${[...allLogos, ...jhSignedLogos.fy2024, ...jhSignedLogos.q1fy2025, ...jhSignedLogos.q2fy2025, ...jhSignedLogos.q3fy2025, ...jhSignedLogos.q4fy2025].sort().map(logo => '<div style="padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + logo + '</div>').join('')}
@@ -1965,117 +1984,104 @@ ${mid.map((acc, idx) => {
   <!-- Business Lead Overview -->
   <div class="stage-section">
     <div class="stage-title" style="font-size: 0.9rem;">Business Lead Overview</div>
-    <div class="stage-subtitle" style="font-size: 0.65rem;">Click BL to expand → Click stage to see opportunities</div>
+    <div class="stage-subtitle" style="font-size: 0.65rem;">Top reps by pipeline value (click to expand)</div>
     
-    <div style="margin-top: 8px;">
-      ${(() => {
-        // Combine all BLs from both sources
-        const allBLs = [];
-        
-        // Add Eudia BLs
-        Object.entries(blBreakdown).forEach(([bl, data]) => {
-          const blOpps = accountData.records.filter(o => (o.Owner?.Name || 'Unassigned') === bl);
-          allBLs.push({
-            name: bl,
-            count: data.count,
-            totalACV: data.totalACV,
-            byStage: data.byStage,
-            opps: blOpps,
-            source: 'eudia'
-          });
+    ${(() => {
+      // Combine all BLs from both sources
+      const allBLs = [];
+      
+      // Add Eudia BLs
+      Object.entries(blBreakdown).forEach(([bl, data]) => {
+        const blOpps = accountData.records.filter(o => (o.Owner?.Name || 'Unassigned') === bl);
+        allBLs.push({
+          name: bl,
+          count: data.count,
+          totalACV: data.totalACV,
+          byStage: data.byStage,
+          opps: blOpps,
+          source: 'eudia'
         });
-        
-        // Add JH BLs
-        const jhSummaryData = getJohnsonHanaSummary();
-        const jhByOwner = jhSummaryData.byOwner || {};
-        Object.entries(jhByOwner).forEach(([owner, data]) => {
-          const ownerOpps = jhSummaryData.pipeline.filter(o => o.owner === owner);
-          const byStage = {};
-          ownerOpps.forEach(o => {
-            const mappedStage = mapStage(o.stage);
-            if (!byStage[mappedStage]) byStage[mappedStage] = { count: 0, acv: 0, opps: [] };
-            byStage[mappedStage].count++;
-            byStage[mappedStage].acv += o.acv;
-            byStage[mappedStage].opps.push(o);
-          });
-          allBLs.push({
-            name: owner,
-            count: data.count,
-            totalACV: data.acv,
-            byStage,
-            opps: ownerOpps,
-            source: 'jh'
-          });
+      });
+      
+      // Add JH BLs
+      const jhSummaryData = getJohnsonHanaSummary();
+      const jhByOwner = jhSummaryData.byOwner || {};
+      Object.entries(jhByOwner).forEach(([owner, data]) => {
+        const ownerOpps = jhSummaryData.pipeline.filter(o => o.owner === owner);
+        const byStage = {};
+        ownerOpps.forEach(o => {
+          const mappedStage = mapStage(o.stage);
+          if (!byStage[mappedStage]) byStage[mappedStage] = { count: 0, acv: 0, opps: [] };
+          byStage[mappedStage].count++;
+          byStage[mappedStage].acv += o.acv;
+          byStage[mappedStage].opps.push(o);
         });
-        
-        // Sort by total ACV and render
-        return allBLs
-          .sort((a, b) => b.totalACV - a.totalACV)
-          .map(bl => {
-            if (bl.source === 'eudia') {
-              return `
-              <details style="background: #fff; border: 1px solid #e5e7eb; border-radius: 4px; margin-bottom: 4px; overflow: hidden;">
-                <summary style="padding: 8px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;">
-                  <span style="font-weight: 600; font-size: 0.75rem;">${bl.name}</span>
-                  <span style="font-size: 0.7rem; color: #6b7280;">${bl.count} opps • <strong style="color: #1f2937;">$${(bl.totalACV / 1000000).toFixed(2)}m</strong></span>
-                </summary>
-                <div style="padding: 8px; border-top: 1px solid #e5e7eb;">
-                  ${['Stage 5 - Negotiation', 'Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'].filter(s => bl.byStage[s]?.count > 0).map(stage => {
-                    const stageOpps = bl.opps.filter(o => o.StageName === stage);
-                    return `
-                    <details style="margin-bottom: 4px; border: 1px solid #e5e7eb; border-radius: 4px;">
-                      <summary style="padding: 6px; cursor: pointer; background: #f3f4f6; font-size: 0.7rem; display: flex; justify-content: space-between;">
-                        <span>${cleanStageName(stage)}</span>
-                        <span style="color: #6b7280; font-size: 0.65rem;">${bl.byStage[stage].count} opps • $${(bl.byStage[stage].acv / 1000000).toFixed(2)}m</span>
-                      </summary>
-                      <div style="padding: 6px; font-size: 0.65rem;">
-                        ${stageOpps.slice(0, 5).map(o => `
-                          <div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;">
-                            <div style="font-size: 0.65rem;">${o.Account?.Name || 'Unknown'}</div>
-                            <div style="font-weight: 500; font-size: 0.65rem;">$${((o.ACV__c || 0) / 1000).toFixed(0)}k</div>
-                          </div>
-                        `).join('')}${stageOpps.length > 5 ? '<div style="font-size: 0.6rem; color: #9ca3af; text-align: center; padding-top: 4px;">+' + (stageOpps.length - 5) + ' more</div>' : ''}
-                      </div>
-                    </details>`;
-                  }).join('')}
-                </div>
-              </details>`;
-            } else {
-              return `
-              <details style="background: #fff; border: 1px solid #e5e7eb; border-radius: 4px; margin-bottom: 4px; overflow: hidden;">
-                <summary style="padding: 8px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;">
-                  <span style="font-weight: 600; font-size: 0.75rem;">${bl.name}</span>
-                  <span style="font-size: 0.7rem; color: #6b7280;">${bl.count} opps • <strong style="color: #1f2937;">$${(bl.totalACV / 1000000).toFixed(2)}m</strong></span>
-                </summary>
-                <div style="padding: 8px; border-top: 1px solid #e5e7eb;">
-                  ${Object.entries(bl.byStage).sort((a, b) => {
-                    const order = ['Stage 5 - Negotiation', 'Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'];
-                    return order.indexOf(a[0]) - order.indexOf(b[0]);
-                  }).map(([stage, stageData]) => `
-                    <details style="margin-bottom: 4px; border: 1px solid #e5e7eb; border-radius: 4px;">
-                      <summary style="padding: 6px; cursor: pointer; background: #f3f4f6; font-size: 0.7rem; display: flex; justify-content: space-between;">
-                        <span>${cleanStageName(stage)}</span>
-                        <span style="color: #6b7280; font-size: 0.65rem;">${stageData.count} opps • $${(stageData.acv / 1000000).toFixed(2)}m</span>
-                      </summary>
-                      <div style="padding: 6px; font-size: 0.65rem;">
-                        ${stageData.opps.slice(0, 5).map(o => `
-                          <div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;">
-                            <div style="font-size: 0.65rem;">${o.account.replace(/ (Ireland|UC|Limited|LLC|Technologies UK Limited|Pharma|Group|International Unlimited Company).*$/i, '')}</div>
-                            <div style="font-weight: 500; font-size: 0.65rem;">$${((o.acv || 0) / 1000).toFixed(0)}k</div>
-                          </div>
-                        `).join('')}${stageData.opps.length > 5 ? '<div style="font-size: 0.6rem; color: #9ca3af; text-align: center; padding-top: 4px;">+' + (stageData.opps.length - 5) + ' more</div>' : ''}
-                      </div>
-                    </details>
-                  `).join('')}
-                </div>
-              </details>`;
-            }
-          }).join('');
-      })()}
-    </div>
+        allBLs.push({
+          name: owner,
+          count: data.count,
+          totalACV: data.acv,
+          byStage,
+          opps: ownerOpps,
+          source: 'jh'
+        });
+      });
+      
+      // Sort by total ACV
+      const sortedBLs = allBLs.sort((a, b) => b.totalACV - a.totalACV);
+      const topBLs = sortedBLs.slice(0, 6);
+      const remainingBLs = sortedBLs.slice(6);
+      
+      const renderBL = (bl) => {
+        if (bl.source === 'eudia') {
+          return `
+          <details style="background: #fff; border: 1px solid #e5e7eb; border-radius: 4px; margin-bottom: 4px; overflow: hidden;">
+            <summary style="padding: 6px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;">
+              <span style="font-weight: 600; font-size: 0.7rem;">${bl.name}</span>
+              <span style="font-size: 0.65rem; color: #6b7280;">${bl.count} • <strong style="color: #1f2937;">$${(bl.totalACV / 1000000).toFixed(2)}m</strong></span>
+            </summary>
+            <div style="padding: 6px; border-top: 1px solid #e5e7eb; font-size: 0.6rem;">
+              ${['Stage 5 - Negotiation', 'Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery'].filter(s => bl.byStage[s]?.count > 0).map(stage => 
+                '<div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>' + cleanStageName(stage) + '</span><span style="color: #6b7280;">' + bl.byStage[stage].count + ' • $' + (bl.byStage[stage].acv / 1000000).toFixed(2) + 'm</span></div>'
+              ).join('')}
+            </div>
+          </details>`;
+        } else {
+          return `
+          <details style="background: #fff; border: 1px solid #e5e7eb; border-radius: 4px; margin-bottom: 4px; overflow: hidden;">
+            <summary style="padding: 6px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;">
+              <span style="font-weight: 600; font-size: 0.7rem;">${bl.name}</span>
+              <span style="font-size: 0.65rem; color: #6b7280;">${bl.count} • <strong style="color: #1f2937;">$${(bl.totalACV / 1000000).toFixed(2)}m</strong></span>
+            </summary>
+            <div style="padding: 6px; border-top: 1px solid #e5e7eb; font-size: 0.6rem;">
+              ${Object.entries(bl.byStage).sort((a, b) => {
+                const order = ['Stage 5 - Negotiation', 'Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery'];
+                return order.indexOf(a[0]) - order.indexOf(b[0]);
+              }).map(([stage, stageData]) => 
+                '<div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>' + cleanStageName(stage) + '</span><span style="color: #6b7280;">' + stageData.count + ' • $' + (stageData.acv / 1000000).toFixed(2) + 'm</span></div>'
+              ).join('')}
+            </div>
+          </details>`;
+        }
+      };
+      
+      return `
+      <div style="margin-top: 8px;">
+        ${topBLs.map(bl => renderBL(bl)).join('')}
+        ${remainingBLs.length > 0 ? `
+        <details style="margin-top: 4px;">
+          <summary style="cursor: pointer; padding: 8px; background: #f3f4f6; border-radius: 4px; font-size: 0.7rem; color: #1e40af; font-weight: 600; text-align: center;">
+            +${remainingBLs.length} more reps (click to expand)
+          </summary>
+          <div style="margin-top: 4px;">
+            ${remainingBLs.map(bl => renderBL(bl)).join('')}
+          </div>
+        </details>` : ''}
+      </div>
+      `;
+    })()}
     
     <!-- Total -->
-    <div style="background: #1f2937; padding: 10px 12px; border-radius: 6px; margin-top: 8px; display: flex; justify-content: space-between; font-weight: 700; color: #fff; font-size: 0.75rem;">
+    <div style="background: #1f2937; padding: 8px 12px; border-radius: 6px; margin-top: 8px; display: flex; justify-content: space-between; font-weight: 700; color: #fff; font-size: 0.7rem;">
       <span>TOTAL</span>
       <span>${Object.values(blBreakdown).reduce((sum, data) => sum + data.count, 0) + getJohnsonHanaSummary().totalOpportunities} opps • $${((Object.values(blBreakdown).reduce((sum, data) => sum + data.totalACV, 0) + getJohnsonHanaSummary().totalPipeline) / 1000000).toFixed(2)}m</span>
     </div>
@@ -2108,7 +2114,7 @@ ${generateWeeklyTab({
   <!-- Active Revenue by Account -->
   <div class="stage-section">
     <div class="stage-title">Active Revenue by Account</div>
-    <div class="stage-subtitle">${contractsByAccount.size + closedWonNovDec.length} accounts • ${formatCurrency(recurringTotal + closedWonNovDec.reduce((sum, d) => sum + d.acv, 0))} total</div>
+    <div class="stage-subtitle">${contractsByAccount.size + Object.keys(jhNovemberARR).length} accounts • ${formatCurrency(recurringTotal + jhNovemberARRTotal)} total ARR (Nov)</div>
   </div>
   
   <div class="section-card">
@@ -2116,13 +2122,13 @@ ${generateWeeklyTab({
       <thead>
         <tr style="border-bottom: 2px solid #e5e7eb; text-align: left;">
           <th style="padding: 8px 4px; font-weight: 600;">Account</th>
-          <th style="padding: 8px 4px; font-weight: 600; text-align: right;">ARR</th>
+          <th style="padding: 8px 4px; font-weight: 600; text-align: right;">Nov ARR</th>
           <th style="padding: 8px 4px; font-weight: 600; text-align: right;">Project</th>
         </tr>
       </thead>
       <tbody>
         ${(() => {
-          // Combine Eudia contracts with JH closed won
+          // Combine Eudia contracts with JH November ARR
           const allRevenue = [];
           
           // Add Eudia contracts
@@ -2135,24 +2141,16 @@ ${generateWeeklyTab({
                 name,
                 arr: data.totalARR,
                 project: data.totalProject,
-                indicator: isPending ? ' *' : (hasLOIHistory ? ' †' : ''),
-                isLegacy: false
+                indicator: isPending ? ' *' : (hasLOIHistory ? ' †' : '')
               });
             });
           
-          // Add JH closed won accounts (group by account)
-          const jhByAccount = {};
-          closedWonNovDec.forEach(d => {
-            const cleanName = d.account.replace(/ (Ireland|UC|Limited|LLC|Technologies UK Limited|Pharma|Group|International Unlimited Company|Management Services Limited|Europe Trading Limited).*$/i, '');
-            if (!jhByAccount[cleanName]) jhByAccount[cleanName] = { arr: 0, project: 0 };
-            jhByAccount[cleanName].arr += d.acv;
-          });
-          
-          Object.entries(jhByAccount).forEach(([name, data]) => {
+          // Add JH November ARR accounts
+          Object.entries(jhNovemberARR).forEach(([name, arr]) => {
             allRevenue.push({
               name,
-              arr: data.arr,
-              project: data.project,
+              arr,
+              project: 0,
               indicator: ''
             });
           });
@@ -2160,7 +2158,7 @@ ${generateWeeklyTab({
           // Sort by ARR
           return allRevenue
             .sort((a, b) => b.arr - a.arr)
-            .slice(0, 36)
+            .slice(0, 45)
             .map(item => `
         <tr style="border-bottom: 1px solid #f1f3f5;">
           <td style="padding: 6px 4px;">${item.name}${item.indicator}</td>
@@ -2172,13 +2170,13 @@ ${generateWeeklyTab({
       <tfoot>
         <tr style="border-top: 2px solid #e5e7eb; font-weight: 600;">
           <td style="padding: 8px 4px;">TOTAL</td>
-          <td style="padding: 8px 4px; text-align: right;">${formatCurrency(recurringTotal + closedWonNovDec.reduce((sum, d) => sum + d.acv, 0))}</td>
+          <td style="padding: 8px 4px; text-align: right;">${formatCurrency(recurringTotal + jhNovemberARRTotal)}</td>
           <td style="padding: 8px 4px; text-align: right;">${formatCurrency(projectTotal)}</td>
         </tr>
       </tfoot>
     </table>
     <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 6px;">* Awaiting contract &nbsp;† Signed LOI before converting</div>
-    ${contractsByAccount.size === 0 && closedWonNovDec.length === 0 ? '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No active contracts</div>' : ''}
+    ${contractsByAccount.size === 0 && Object.keys(jhNovemberARR).length === 0 ? '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No active contracts</div>' : ''}
   </div>
 
   <!-- All Closed Won Deals - By Revenue_Type__c -->
@@ -2672,3 +2670,4 @@ module.exports = {
   generateAccountDashboard,
   generateLoginPage
 };
+
