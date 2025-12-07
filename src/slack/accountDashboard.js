@@ -168,11 +168,6 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
         <div>• Top 8 = ${concentrationPct}% of pipeline</div>
       </div>
     </div>
-    <div class="metric" style="background: #f9fafb; border: 1px solid #e5e7eb;">
-      <div class="metric-label" style="color: #9CA3AF;">Tech-Enabled</div>
-      <div class="metric-value" style="color: #9CA3AF;">${jhEudiaTechAccountPct}%</div>
-      <div style="font-size: 0.65rem; color: #9CA3AF;">${jhEudiaTechAccounts.length} of ${allJHAccounts.length} JH accounts</div>
-    </div>
   </div>
   
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -276,7 +271,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
     <div class="stage-title">Eudia Top Accounts</div>
     <div class="stage-subtitle">${blendedAccounts} accounts in pipeline</div>
     <div style="font-size: 0.65rem; color: #374151; margin-bottom: 6px;">
-      <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; vertical-align: middle;"></span>
+      <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; vertical-align: middle;"></span>
       Eudia Tech enabled: ${jhEudiaTechAccounts.length} accounts
     </div>
     <div style="margin-top: 8px;" id="consolidated-top-accounts">
@@ -296,7 +291,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
           const nextMeetingDate = accMeetings.nextMeeting ? new Date(accMeetings.nextMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
           const legalContacts = accMeetings.contacts ? Array.from(accMeetings.contacts) : [];
           const legacyDot = acc.isLegacy ? ' <span style="color: #9ca3af;">•</span>' : '';
-          const eudiaTechDot = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-left: 4px; vertical-align: middle;"></span>' : '';
+          const eudiaTechDot = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;"></span>' : '';
           
           return '<details class="topco-account" style="border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 6px; overflow: hidden; display: ' + (idx < 10 ? 'block' : 'none') + ';">' +
             '<summary style="padding: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb; font-size: 0.8rem;">' +
@@ -372,7 +367,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
       
       return allClosedDeals.map(deal => {
         const legacyDot = deal.isLegacy ? ' <span style="color: #9ca3af;">•</span>' : '';
-        const techBadge = deal.eudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-left: 4px; vertical-align: middle;"></span>' : '';
+        const techBadge = deal.eudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;"></span>' : '';
         const closeDateStr = deal.closeDate ? new Date(deal.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : '';
         const ownerName = deal.owner ? (deal.owner.split(' ')[0]) : '';
         const details = [deal.product, ownerName, closeDateStr].filter(x => x).join(' • ');
@@ -382,7 +377,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
             '<span style="font-weight: 500;">' + deal.name + '</span>' + legacyDot + techBadge +
             (details ? '<div style="font-size: 0.6rem; color: #6b7280;">' + details + '</div>' : '') +
           '</div>' +
-          '<div style="font-weight: 600; color: #16a34a; text-align: right; min-width: 60px;">' + fmt(deal.acv) + '</div>' +
+          '<div style="font-weight: 600; color: #22c55e; text-align: right; min-width: 60px;">' + fmt(deal.acv) + '</div>' +
         '</div>';
       }).join('');
     })()}
@@ -638,7 +633,7 @@ function generateWeeklyTab(params) {
     if (last === 0) return current > 0 ? '+∞' : '-';
     const pct = ((current - last) / last) * 100;
     if (pct === 0) return '0%';
-    return (pct > 0 ? '+' : '') + pct.toFixed(1) + '%';
+    return (pct > 0 ? '+' : '') + Math.round(pct) + '%';
   };
   
   const stageTotalACV = stageWoW.reduce((sum, s) => sum + s.acv, 0);
@@ -758,20 +753,64 @@ function generateWeeklyTab(params) {
       <!-- Signed Net New Logos Table - 50% width, same background, same height -->
       <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
         <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">SIGNED NET NEW LOGOS</div>
-        <table class="weekly-table" style="width: 100%; flex: 1;">
-          <thead>
-            <tr><th style="width: 70%;">Period</th><th style="text-align: center; width: 30%;">Logos</th></tr>
-          </thead>
-          <tbody>
-            <tr style="color: #6b7280;"><td>FY2024 Total</td><td style="text-align: center;">${4 + jhSignedLogos.fy2024.length}</td></tr>
-            <tr><td>Q1 FY2025</td><td style="text-align: center;">${2 + jhSignedLogos.q1fy2025.length}</td></tr>
-            <tr><td>Q2 FY2025</td><td style="text-align: center;">${2 + jhSignedLogos.q2fy2025.length}</td></tr>
-            <tr><td>Q3 FY2025</td><td style="text-align: center;">${25 + jhSignedLogos.q3fy2025.length}</td></tr>
-            <tr style="background: #e8f5e9;"><td>Q4 FY2025 (to date)</td><td style="text-align: center;">${5 + jhSignedLogos.q4fy2025.length}</td></tr>
-            <tr style="font-weight: 600; background: #e5e7eb;"><td>Total</td><td style="text-align: center;">${38 + jhSignedLogos.fy2024.length + jhSignedLogos.q1fy2025.length + jhSignedLogos.q2fy2025.length + jhSignedLogos.q3fy2025.length + jhSignedLogos.q4fy2025.length}</td></tr>
-          </tbody>
-        </table>
-        <div style="font-size: 0.6rem; color: #374151; margin-top: 8px;"><strong>Q4 FY2025:</strong> BNY Mellon, Delinea, IQVIA, Udemy, WWT</div>
+        <div style="font-size: 0.75rem;">
+          <!-- FY2024 -->
+          <details style="border-bottom: 1px solid #e5e7eb;">
+            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer; color: #6b7280;">
+              <span>FY2024 Total</span>
+              <span style="font-weight: 600;">${4 + jhSignedLogos.fy2024.length}</span>
+            </summary>
+            <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
+              Amazon, Asana, BNY Mellon, Cargill${jhSignedLogos.fy2024.length > 0 ? ', ' + jhSignedLogos.fy2024.slice(0, 10).map(l => l + ' •').join(', ') + (jhSignedLogos.fy2024.length > 10 ? '...' : '') : ''}
+            </div>
+          </details>
+          <!-- Q1 FY2025 -->
+          <details style="border-bottom: 1px solid #e5e7eb;">
+            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
+              <span>Q1 FY2025</span>
+              <span style="font-weight: 600;">${2 + jhSignedLogos.q1fy2025.length}</span>
+            </summary>
+            <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
+              Chevron, Cox Media Group${jhSignedLogos.q1fy2025.length > 0 ? ', ' + jhSignedLogos.q1fy2025.map(l => l + ' •').join(', ') : ''}
+            </div>
+          </details>
+          <!-- Q2 FY2025 -->
+          <details style="border-bottom: 1px solid #e5e7eb;">
+            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
+              <span>Q2 FY2025</span>
+              <span style="font-weight: 600;">${2 + jhSignedLogos.q2fy2025.length}</span>
+            </summary>
+            <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
+              Dolby, ECMS${jhSignedLogos.q2fy2025.length > 0 ? ', ' + jhSignedLogos.q2fy2025.map(l => l + ' •').join(', ') : ''}
+            </div>
+          </details>
+          <!-- Q3 FY2025 -->
+          <details style="border-bottom: 1px solid #e5e7eb;">
+            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
+              <span>Q3 FY2025</span>
+              <span style="font-weight: 600;">${25 + jhSignedLogos.q3fy2025.length}</span>
+            </summary>
+            <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
+              Coherent, DHL North America, Duracell, Ecolab, Fresh Del Monte, GE Vernova, Gov - DOD, Graybar Electric, Intuit, National Grid, Novelis, Peregrine Hospitality, Petsmart, Pure Storage, Sandbox, Southwest Airlines, Tailored Brands, The Weir Group PLC, The Wonderful Company, Toshiba US, Udemy Ireland Limited, Wealth Partners Capital Group, Western Digital, World Wide Technology, CHS${jhSignedLogos.q3fy2025.length > 0 ? ', ' + jhSignedLogos.q3fy2025.map(l => l + ' •').join(', ') : ''}
+            </div>
+          </details>
+          <!-- Q4 FY2025 -->
+          <details style="border-bottom: 1px solid #e5e7eb; background: #ecfdf5;">
+            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
+              <span>Q4 FY2025 (to date)</span>
+              <span style="font-weight: 600;">${5 + jhSignedLogos.q4fy2025.length}</span>
+            </summary>
+            <div style="padding: 6px 8px; background: #e9f5ec; font-size: 0.65rem; color: #15803d;">
+              BNY Mellon, Delinea, IQVIA, Udemy, WWT${jhSignedLogos.q4fy2025.length > 0 ? ', ' + jhSignedLogos.q4fy2025.map(l => l + ' •').join(', ') : ''}
+            </div>
+          </details>
+          <!-- Total -->
+          <div style="display: flex; justify-content: space-between; padding: 8px 4px; font-weight: 700; background: #e5e7eb; margin-top: 4px; border-radius: 4px;">
+            <span>Total</span>
+            <span>${38 + jhSignedLogos.fy2024.length + jhSignedLogos.q1fy2025.length + jhSignedLogos.q2fy2025.length + jhSignedLogos.q3fy2025.length + jhSignedLogos.q4fy2025.length}</span>
+          </div>
+        </div>
+        <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">• = legacy acquisition • Click period to expand</div>
       </div>
       
       <!-- Run-Rate Forecast Table - 50% width, SAME background, same height -->
@@ -795,41 +834,37 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Current Logos (Consolidated) -->
+    <!-- Current Logos (Consolidated Single Tile) -->
     <div class="weekly-subsection" style="margin-top: 16px;">
       <div class="weekly-subsection-title">Current Logos (${38 + jhSignedLogos.fy2024.length + jhSignedLogos.q1fy2025.length + jhSignedLogos.q2fy2025.length + jhSignedLogos.q3fy2025.length + jhSignedLogos.q4fy2025.length} total)</div>
-      <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; align-items: flex-start;">
-        <!-- All Logos (pre-expanded) -->
-        <details open style="flex: 1; min-width: 280px;">
-          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; padding: 6px 10px; background: #f9fafb; border-radius: 4px 4px 0 0;">
-            Eudia (${currentLogosCount})
+      <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-top: 8px;">
+        <!-- Eudia Section -->
+        <details open>
+          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; margin-bottom: 8px;">
+            ▾ Eudia (${currentLogosCount})
           </summary>
-          <div style="font-size: 0.65rem; color: #374151; line-height: 1.4; padding: 8px 10px; background: #f9fafb; border-radius: 0 0 4px 4px;">
-            ${allLogos.sort().join(', ')}
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 0.65rem; color: #374151; margin-bottom: 12px;">
+            ${allLogos.sort().map(logo => '<div style="padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + logo + '</div>').join('')}
           </div>
         </details>
         
-        <!-- Legacy Acquisition Logos (Johnson Hana) -->
-        <details open style="flex: 1; min-width: 280px;">
-          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #9ca3af; padding: 6px 10px; background: #f3f4f6; border-radius: 4px 4px 0 0;">
-            <span style="color: #9ca3af;">•</span> Legacy (${jhSignedLogos.fy2024.length + jhSignedLogos.q1fy2025.length + jhSignedLogos.q2fy2025.length + jhSignedLogos.q3fy2025.length + jhSignedLogos.q4fy2025.length})
+        <!-- Legacy Section -->
+        <details>
+          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #6b7280; margin-bottom: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
+            ▸ Legacy • (${jhSignedLogos.fy2024.length + jhSignedLogos.q1fy2025.length + jhSignedLogos.q2fy2025.length + jhSignedLogos.q3fy2025.length + jhSignedLogos.q4fy2025.length})
           </summary>
-          <div style="font-size: 0.65rem; color: #6b7280; line-height: 1.4; padding: 8px 10px; background: #f3f4f6; border-radius: 0 0 4px 4px;">
-            ${[...jhSignedLogos.fy2024, ...jhSignedLogos.q1fy2025, ...jhSignedLogos.q2fy2025, ...jhSignedLogos.q3fy2025, ...jhSignedLogos.q4fy2025].sort().map(l => l + ' •').join(', ')}
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 0.65rem; color: #6b7280;">
+            ${[...jhSignedLogos.fy2024, ...jhSignedLogos.q1fy2025, ...jhSignedLogos.q2fy2025, ...jhSignedLogos.q3fy2025, ...jhSignedLogos.q4fy2025].sort().map(logo => '<div style="padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + logo + ' •</div>').join('')}
           </div>
         </details>
         
-        <!-- Out-House Logos -->
-        <details open style="flex: 0 0 auto; min-width: 120px;">
-          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #9ca3af; padding: 6px 10px; background: #f3f4f6; border-radius: 4px 4px 0 0;">
-            Out-House (1)
-          </summary>
-          <div style="font-size: 0.65rem; color: #6b7280; line-height: 1.4; padding: 8px 10px; background: #f3f4f6; border-radius: 0 0 4px 4px;">
-            Meta
-          </div>
-        </details>
+        <!-- Out-House Section -->
+        <div style="padding-top: 8px; margin-top: 8px; border-top: 1px solid #e5e7eb;">
+          <div style="font-weight: 600; font-size: 0.7rem; color: #9ca3af; margin-bottom: 4px;">Out-House (1)</div>
+          <div style="font-size: 0.65rem; color: #6b7280;">Meta</div>
+        </div>
       </div>
-      <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;"><span style="color: #9ca3af;">•</span> = legacy acquisition</div>
+      <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">• = legacy acquisition</div>
     </div>
   </div>
 
@@ -1727,10 +1762,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .weekly-subsection-title { font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 8px; }
 .weekly-list { margin: 0; padding-left: 20px; font-size: 0.8rem; color: #374151; }
 .weekly-list li { margin-bottom: 4px; }
-.weekly-highlight { background: #f0fdf4; border-left: 3px solid #10b981; padding: 8px 12px; margin: 8px 0; font-size: 0.8rem; }
-.wow-positive { color: #16a34a; font-weight: 600; }
+.weekly-highlight { background: #f0fdf4; border-left: 3px solid #34d399; padding: 8px 12px; margin: 8px 0; font-size: 0.8rem; }
+.wow-positive { color: #22c55e; font-weight: 600; }
 .wow-negative { color: #dc2626; font-weight: 600; }
-.badge-eudia { background: #ecfdf5; color: #047857; border: 1px solid #10b981; font-size: 0.6rem; }
+.badge-eudia { background: #ecfdf5; color: #047857; border: 1px solid #34d399; font-size: 0.6rem; }
 .jh-indicator { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; margin-left: 4px; vertical-align: middle; }
 .metrics { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 20px; }
 @media (min-width: 480px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
@@ -1739,7 +1774,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .metric-label { font-size: 0.75rem; color: #6b7280; font-weight: 500; margin-bottom: 4px; }
 .metric-value { font-size: 1.75rem; font-weight: 700; color: #1f2937; margin-bottom: 2px; }
 .metric-change { font-size: 0.75rem; font-weight: 500; }
-.up { color: #10b981; }
+.up { color: #34d399; }
 .down { color: #ef4444; }
 .stage-section { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; }
 .stage-title { font-size: 1.125rem; font-weight: 600; color: #1f2937; margin-bottom: 4px; }
@@ -1750,7 +1785,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .account-name { font-weight: 600; color: #1f2937; }
 .account-owner { color: #6b7280; font-size: 0.8125rem; margin-top: 2px; }
 .account-card { background: #fafafa; border-left: 4px solid #8e99e1; padding: 12px; border-radius: 6px; margin-bottom: 12px; }
-.card-late { border-left-color: #10b981; }
+.card-late { border-left-color: #34d399; }
 .card-mid { border-left-color: #3b82f6; }
 .card-early { border-left-color: #f59e0b; }
 .opp-pill { display: inline-block; background: #8e99e1; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; margin: 4px 4px 0 0; }
@@ -1806,7 +1841,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 ${late.map((acc, idx) => {
         let badge = '';
         const legacyDot = acc.isLegacy ? ' <span style="color: #9ca3af;">•</span>' : '';
-        const eudiaTechBadge = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-left: 4px; vertical-align: middle;"></span>' : '';
+        const eudiaTechBadge = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;"></span>' : '';
         
         if (acc.isNewLogo) {
           badge = '<span class="badge badge-new">New</span>';
@@ -1846,7 +1881,7 @@ ${late.map((acc, idx) => {
         const products = [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))];
         const productList = products.join(', ') || 'TBD';
         
-        return '<details class="summary-expandable" style="display: ' + (idx < 10 ? 'block' : 'none') + '; background: #fff; border-left: 3px solid ' + (acc.isLegacy ? '#9ca3af' : '#10b981') + '; padding: 10px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; border: 1px solid #e5e7eb;">' +
+        return '<details class="summary-expandable" style="display: ' + (idx < 10 ? 'block' : 'none') + '; background: #fff; border-left: 3px solid ' + (acc.isLegacy ? '#9ca3af' : '#34d399') + '; padding: 10px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; border: 1px solid #e5e7eb;">' +
           '<summary style="list-style: none; font-size: 0.875rem;">' +
             '<div class="account-name">' + acc.name + legacyDot + eudiaTechBadge + ' ' + badge + '</div>' +
             '<div class="account-owner">' + acc.owner + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') + ' • ' + acvDisplay + '</div>' +
@@ -1869,7 +1904,7 @@ ${late.map((acc, idx) => {
 ${mid.map((acc, idx) => {
         let badge = '';
         const legacyDot = acc.isLegacy ? ' <span style="color: #9ca3af;">•</span>' : '';
-        const eudiaTechBadge = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-left: 4px; vertical-align: middle;"></span>' : '';
+        const eudiaTechBadge = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;"></span>' : '';
         
         if (acc.isNewLogo) {
           badge = '<span class="badge badge-new">New</span>';
@@ -1928,38 +1963,36 @@ ${mid.map((acc, idx) => {
   
   <!-- Business Lead Overview -->
   <div class="stage-section">
-    <div class="stage-title">Business Lead Overview</div>
-    <div class="stage-subtitle">Click BL to expand → Click stage to see opportunities</div>
-    <div style="margin-top: 12px;">
+    <div class="stage-title" style="font-size: 0.9rem;">Business Lead Overview</div>
+    <div class="stage-subtitle" style="font-size: 0.65rem;">Click BL to expand → Click stage to see opportunities</div>
+    
+    <!-- Eudia Business Leads -->
+    <div style="margin-top: 8px; padding: 4px 8px; background: #f0fdf4; border-radius: 4px; font-size: 0.6rem; font-weight: 600; color: #15803d;">EUDIA</div>
+    <div style="margin-top: 4px;">
       ${Object.entries(blBreakdown).sort((a, b) => b[1].totalACV - a[1].totalACV).slice(0, 6).map(([bl, data]) => {
         const blOpps = accountData.records.filter(o => (o.Owner?.Name || 'Unassigned') === bl);
         return `
-        <details style="background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px; overflow: hidden;">
-          <summary style="padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;">
-            <span style="font-weight: 600;">${bl}</span>
-            <span style="font-size: 0.875rem; color: #6b7280;">${data.count} opps • <strong style="color: #1f2937;">$${(data.totalACV / 1000000).toFixed(2)}m</strong></span>
+        <details style="background: #fff; border: 1px solid #e5e7eb; border-radius: 4px; margin-bottom: 4px; overflow: hidden;">
+          <summary style="padding: 8px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;">
+            <span style="font-weight: 600; font-size: 0.75rem;">${bl}</span>
+            <span style="font-size: 0.7rem; color: #6b7280;">${data.count} opps • <strong style="color: #1f2937;">$${(data.totalACV / 1000000).toFixed(2)}m</strong></span>
           </summary>
-          <div style="padding: 12px; border-top: 1px solid #e5e7eb;">
-            ${['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'].filter(s => data.byStage[s]?.count > 0).map(stage => {
+          <div style="padding: 8px; border-top: 1px solid #e5e7eb;">
+            ${['Stage 5 - Negotiation', 'Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'].filter(s => data.byStage[s]?.count > 0).map(stage => {
               const stageOpps = blOpps.filter(o => o.StageName === stage);
               return `
-              <details style="margin-bottom: 6px; border: 1px solid #e5e7eb; border-radius: 4px;">
-                <summary style="padding: 8px; cursor: pointer; background: #f3f4f6; font-size: 0.8rem; display: flex; justify-content: space-between;">
+              <details style="margin-bottom: 4px; border: 1px solid #e5e7eb; border-radius: 4px;">
+                <summary style="padding: 6px; cursor: pointer; background: #f3f4f6; font-size: 0.7rem; display: flex; justify-content: space-between;">
                   <span>${cleanStageName(stage)}</span>
-                  <span style="color: #6b7280;">${data.byStage[stage].count} opps • $${(data.byStage[stage].acv / 1000000).toFixed(2)}m</span>
+                  <span style="color: #6b7280; font-size: 0.65rem;">${data.byStage[stage].count} opps • $${(data.byStage[stage].acv / 1000000).toFixed(2)}m</span>
                 </summary>
-                <div style="padding: 8px; font-size: 0.75rem;">
-                  ${stageOpps.map(o => `
-                    <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f1f3f5;">
-                      <div>
-                        <div style="font-weight: 500;">${o.Account?.Name || 'Unknown'}</div>
-                        <div style="font-size: 0.65rem; color: #9ca3af;">${o.Product_Line__c || 'TBD'}</div>
-                      </div>
-                      <div style="text-align: right;">
-                        <div style="font-weight: 500;">$${((o.ACV__c || 0) / 1000).toFixed(0)}k</div>
-                      </div>
+                <div style="padding: 6px; font-size: 0.65rem;">
+                  ${stageOpps.slice(0, 5).map(o => `
+                    <div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;">
+                      <div style="font-size: 0.65rem;">${o.Account?.Name || 'Unknown'}</div>
+                      <div style="font-weight: 500; font-size: 0.65rem;">$${((o.ACV__c || 0) / 1000).toFixed(0)}k</div>
                     </div>
-                  `).join('')}
+                  `).join('')}${stageOpps.length > 5 ? '<div style="font-size: 0.6rem; color: #9ca3af; text-align: center; padding-top: 4px;">+' + (stageOpps.length - 5) + ' more</div>' : ''}
                 </div>
               </details>`;
             }).join('')}
@@ -1967,9 +2000,62 @@ ${mid.map((acc, idx) => {
         </details>`;
       }).join('')}
     </div>
-    <div style="background: #e5e7eb; padding: 12px; border-radius: 6px; margin-top: 8px; display: flex; justify-content: space-between; font-weight: 700;">
-      <span>TOTAL</span>
-      <span>${Object.values(blBreakdown).reduce((sum, data) => sum + data.count, 0)} opps • $${(Object.values(blBreakdown).reduce((sum, data) => sum + data.totalACV, 0) / 1000000).toFixed(2)}m</span>
+    
+    <!-- Johnson Hana Business Leads -->
+    <div style="margin-top: 12px; padding: 4px 8px; background: #f3f4f6; border-radius: 4px; font-size: 0.6rem; font-weight: 600; color: #6b7280;">LEGACY • (Johnson Hana)</div>
+    <div style="margin-top: 4px;">
+      ${(() => {
+        const jhSummaryData = getJohnsonHanaSummary();
+        const jhByOwner = jhSummaryData.byOwner || {};
+        return Object.entries(jhByOwner)
+          .sort((a, b) => b[1].acv - a[1].acv)
+          .slice(0, 6)
+          .map(([owner, data]) => {
+            const ownerOpps = jhSummaryData.pipeline.filter(o => o.owner === owner);
+            const byStage = {};
+            ownerOpps.forEach(o => {
+              const mappedStage = mapStage(o.stage);
+              if (!byStage[mappedStage]) byStage[mappedStage] = { count: 0, acv: 0, opps: [] };
+              byStage[mappedStage].count++;
+              byStage[mappedStage].acv += o.acv;
+              byStage[mappedStage].opps.push(o);
+            });
+            return `
+            <details style="background: #fff; border: 1px solid #e5e7eb; border-left: 3px solid #9ca3af; border-radius: 4px; margin-bottom: 4px; overflow: hidden;">
+              <summary style="padding: 8px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #fafafa;">
+                <span style="font-weight: 600; font-size: 0.75rem; color: #6b7280;">${owner} •</span>
+                <span style="font-size: 0.7rem; color: #6b7280;">${data.count} opps • <strong>$${(data.acv / 1000000).toFixed(2)}m</strong></span>
+              </summary>
+              <div style="padding: 8px; border-top: 1px solid #e5e7eb;">
+                ${Object.entries(byStage).sort((a, b) => {
+                  const order = ['Stage 5 - Negotiation', 'Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'];
+                  return order.indexOf(a[0]) - order.indexOf(b[0]);
+                }).map(([stage, stageData]) => `
+                  <details style="margin-bottom: 4px; border: 1px solid #e5e7eb; border-radius: 4px;">
+                    <summary style="padding: 6px; cursor: pointer; background: #f3f4f6; font-size: 0.7rem; display: flex; justify-content: space-between;">
+                      <span>${cleanStageName(stage)}</span>
+                      <span style="color: #6b7280; font-size: 0.65rem;">${stageData.count} opps • $${(stageData.acv / 1000000).toFixed(2)}m</span>
+                    </summary>
+                    <div style="padding: 6px; font-size: 0.65rem;">
+                      ${stageData.opps.slice(0, 5).map(o => `
+                        <div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;">
+                          <div style="font-size: 0.65rem;">${o.account.replace(/ (Ireland|UC|Limited|LLC|Technologies UK Limited|Pharma|Group|International Unlimited Company).*$/i, '')}</div>
+                          <div style="font-weight: 500; font-size: 0.65rem;">$${((o.acv || 0) / 1000).toFixed(0)}k</div>
+                        </div>
+                      `).join('')}${stageData.opps.length > 5 ? '<div style="font-size: 0.6rem; color: #9ca3af; text-align: center; padding-top: 4px;">+' + (stageData.opps.length - 5) + ' more</div>' : ''}
+                    </div>
+                  </details>
+                `).join('')}
+              </div>
+            </details>`;
+          }).join('');
+      })()}
+    </div>
+    
+    <!-- Combined Total -->
+    <div style="background: #1f2937; padding: 10px 12px; border-radius: 6px; margin-top: 8px; display: flex; justify-content: space-between; font-weight: 700; color: #fff; font-size: 0.75rem;">
+      <span>TOTAL (Combined)</span>
+      <span>${Object.values(blBreakdown).reduce((sum, data) => sum + data.count, 0) + getJohnsonHanaSummary().totalOpportunities} opps • $${((Object.values(blBreakdown).reduce((sum, data) => sum + data.totalACV, 0) + getJohnsonHanaSummary().totalPipeline) / 1000000).toFixed(2)}m</span>
     </div>
   </div>
   
@@ -1997,15 +2083,10 @@ ${generateWeeklyTab({
 
 <!-- TAB 3: REVENUE -->
 <div id="revenue" class="tab-content">
-  <!-- JH Revenue Note -->
-  <div style="background: #fffbeb; border: 1px solid #fcd34d; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: #92400e;">
-    <strong>Note:</strong> Legacy acquisition revenue data not yet added (contract migration in progress). <span style="color: #9ca3af;">• = legacy acquisition</span>
-  </div>
-  
   <!-- Active Revenue by Account -->
   <div class="stage-section">
     <div class="stage-title">Active Revenue by Account</div>
-    <div class="stage-subtitle">${contractsByAccount.size} accounts • ${formatCurrency(recurringTotal)} recurring • ${formatCurrency(projectTotal)} project</div>
+    <div class="stage-subtitle">${contractsByAccount.size + closedWonNovDec.length} accounts • ${formatCurrency(recurringTotal + closedWonNovDec.reduce((sum, d) => sum + d.acv, 0))} total</div>
   </div>
   
   <div class="section-card">
@@ -2018,110 +2099,176 @@ ${generateWeeklyTab({
         </tr>
       </thead>
       <tbody>
-        ${Array.from(contractsByAccount.entries())
-          .filter(([name, data]) => data.totalARR > 0 || data.totalProject > 0)
-          .sort((a, b) => {
-            // Sort ARR accounts first (by ARR amount), then Project-only accounts
-            const aHasARR = a[1].totalARR > 0;
-            const bHasARR = b[1].totalARR > 0;
-            if (aHasARR && !bHasARR) return -1; // A has ARR, B doesn't -> A first
-            if (!aHasARR && bHasARR) return 1;  // B has ARR, A doesn't -> B first
-            // Both have ARR or both have only Project -> sort by value
-            if (aHasARR && bHasARR) return b[1].totalARR - a[1].totalARR;
-            return b[1].totalProject - a[1].totalProject;
-          })
-          .slice(0, 30)
-          .map(([name, data]) => {
-            const hasLOIHistory = accountsWithLOIHistory.has(name);
-            const isPending = data.pending;
-            const indicator = isPending ? ' *' : (hasLOIHistory ? ' †' : '');
-            return `
-        <tr style="border-bottom: 1px solid #f1f3f5;">
-          <td style="padding: 6px 4px;">${name}${indicator}</td>
-          <td style="padding: 6px 4px; text-align: right;">${formatCurrency(data.totalARR)}</td>
-          <td style="padding: 6px 4px; text-align: right;">${formatCurrency(data.totalProject)}</td>
-        </tr>`;
-          }).join('')}
+        ${(() => {
+          // Combine Eudia contracts with JH closed won
+          const allRevenue = [];
+          
+          // Add Eudia contracts
+          Array.from(contractsByAccount.entries())
+            .filter(([name, data]) => data.totalARR > 0 || data.totalProject > 0)
+            .forEach(([name, data]) => {
+              const hasLOIHistory = accountsWithLOIHistory.has(name);
+              const isPending = data.pending;
+              allRevenue.push({
+                name,
+                arr: data.totalARR,
+                project: data.totalProject,
+                indicator: isPending ? ' *' : (hasLOIHistory ? ' †' : ''),
+                isLegacy: false
+              });
+            });
+          
+          // Add JH closed won accounts (group by account)
+          const jhByAccount = {};
+          closedWonNovDec.forEach(d => {
+            const cleanName = d.account.replace(/ (Ireland|UC|Limited|LLC|Technologies UK Limited|Pharma|Group|International Unlimited Company|Management Services Limited|Europe Trading Limited).*$/i, '');
+            if (!jhByAccount[cleanName]) jhByAccount[cleanName] = { arr: 0, project: 0 };
+            jhByAccount[cleanName].arr += d.acv;
+          });
+          
+          Object.entries(jhByAccount).forEach(([name, data]) => {
+            allRevenue.push({
+              name,
+              arr: data.arr,
+              project: data.project,
+              indicator: ' •',
+              isLegacy: true
+            });
+          });
+          
+          // Sort by ARR
+          return allRevenue
+            .sort((a, b) => b.arr - a.arr)
+            .slice(0, 36)
+            .map(item => `
+        <tr style="border-bottom: 1px solid #f1f3f5;${item.isLegacy ? ' color: #6b7280;' : ''}">
+          <td style="padding: 6px 4px;">${item.name}${item.indicator}</td>
+          <td style="padding: 6px 4px; text-align: right;">${formatCurrency(item.arr)}</td>
+          <td style="padding: 6px 4px; text-align: right;">${item.project > 0 ? formatCurrency(item.project) : '-'}</td>
+        </tr>`).join('');
+        })()}
       </tbody>
       <tfoot>
         <tr style="border-top: 2px solid #e5e7eb; font-weight: 600;">
           <td style="padding: 8px 4px;">TOTAL</td>
-          <td style="padding: 8px 4px; text-align: right;">${formatCurrency(recurringTotal)}</td>
+          <td style="padding: 8px 4px; text-align: right;">${formatCurrency(recurringTotal + closedWonNovDec.reduce((sum, d) => sum + d.acv, 0))}</td>
           <td style="padding: 8px 4px; text-align: right;">${formatCurrency(projectTotal)}</td>
         </tr>
       </tfoot>
     </table>
-    <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 6px;">* Awaiting contract  † Signed LOI before converting</div>
-    ${contractsByAccount.size === 0 ? '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No active contracts</div>' : ''}
+    <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 6px;">* Awaiting contract &nbsp;† Signed LOI before converting &nbsp;• Legacy acquisition</div>
+    ${contractsByAccount.size === 0 && closedWonNovDec.length === 0 ? '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No active contracts</div>' : ''}
   </div>
 
   <!-- All Closed Won Deals - By Revenue_Type__c -->
   <div class="stage-section" style="margin-top: 16px;">
     <div class="stage-title">All Closed Won</div>
     <div class="stage-subtitle">${signedByType.revenue.length} revenue • ${signedByType.pilot.length} pilot • ${signedByType.loi.length} LOI</div>
-    <div style="font-size: 0.6rem; color: #9ca3af; margin-bottom: 4px;">Stage 6. Closed(Won) deals only</div>
+    <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 8px; padding: 8px; background: #f9fafb; border-radius: 4px;">
+      <strong>Revenue:</strong> Recurring/ARR subscription contracts &nbsp;|&nbsp;
+      <strong>Pilot:</strong> One-time project engagements &nbsp;|&nbsp;
+      <strong>LOI:</strong> Signed commitments to spend
+    </div>
   </div>
   
   <div class="section-card" style="padding: 0;">
     ${signedByType.revenue.length > 0 ? `
-    <div style="background: #16a34a; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center;">
-      <span>REVENUE</span>
-      <span>${formatCurrency(signedDealsTotal.revenue)} • ${signedByType.revenue.length} deal${signedByType.revenue.length !== 1 ? 's' : ''}</span>
-    </div>
-    <div style="padding: 0 12px 12px 12px; background: #f0fdf4; border-radius: 0 0 6px 6px; margin-bottom: 12px;">
-    ${signedByType.revenue.map(d => `
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #dcfce7; font-size: 0.75rem;">
-        <span style="font-weight: 500;">${d.accountName}</span>
-        <div style="display: flex; gap: 12px; align-items: center;">
-          <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
-          <span style="color: #166534; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+    <details open style="margin-bottom: 12px;">
+      <summary style="background: #22c55e; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
+        <span>REVENUE</span>
+        <span>${formatCurrency(signedDealsTotal.revenue)} • ${signedByType.revenue.length} deal${signedByType.revenue.length !== 1 ? 's' : ''}</span>
+      </summary>
+      <div style="padding: 0 12px 12px 12px; background: #f0fdf4; border-radius: 0 0 6px 6px;">
+      ${signedByType.revenue.slice(0, 5).map(d => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9f5ec; font-size: 0.75rem;">
+          <span style="font-weight: 500;">${d.accountName}</span>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
+            <span style="color: #15803d; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+          </div>
         </div>
+      `).join('')}
+      ${signedByType.revenue.length > 5 ? `
+        <details style="margin-top: 4px;">
+          <summary style="font-size: 0.65rem; color: #15803d; cursor: pointer; padding: 4px 0;">+${signedByType.revenue.length - 5} more deals ›</summary>
+          ${signedByType.revenue.slice(5).map(d => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9f5ec; font-size: 0.75rem;">
+              <span style="font-weight: 500;">${d.accountName}</span>
+              <div style="display: flex; gap: 12px; align-items: center;">
+                <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
+                <span style="color: #15803d; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+              </div>
+            </div>
+          `).join('')}
+        </details>` : ''}
       </div>
-    `).join('')}
-    </div>` : ''}
+    </details>` : ''}
     
     ${signedByType.pilot.length > 0 ? `
-    <div style="background: #2563eb; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center;">
-      <span>PILOT</span>
-      <span>${formatCurrency(signedDealsTotal.pilot)} • ${signedByType.pilot.length} deal${signedByType.pilot.length !== 1 ? 's' : ''}</span>
-    </div>
-    <div style="padding: 0 12px 12px 12px; background: #eff6ff; border-radius: 0 0 6px 6px; margin-bottom: 12px;">
-    ${signedByType.pilot.map(d => `
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #dbeafe; font-size: 0.75rem;">
-        <span style="font-weight: 500;">${d.accountName}</span>
-        <div style="display: flex; gap: 12px; align-items: center;">
-          <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
-          <span style="color: #1e40af; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+    <details open style="margin-bottom: 12px;">
+      <summary style="background: #2563eb; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
+        <span>PILOT</span>
+        <span>${formatCurrency(signedDealsTotal.pilot)} • ${signedByType.pilot.length} deal${signedByType.pilot.length !== 1 ? 's' : ''}</span>
+      </summary>
+      <div style="padding: 0 12px 12px 12px; background: #eff6ff; border-radius: 0 0 6px 6px;">
+      ${signedByType.pilot.slice(0, 5).map(d => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #dbeafe; font-size: 0.75rem;">
+          <span style="font-weight: 500;">${d.accountName}</span>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
+            <span style="color: #1e40af; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+          </div>
         </div>
+      `).join('')}
+      ${signedByType.pilot.length > 5 ? `
+        <details style="margin-top: 4px;">
+          <summary style="font-size: 0.65rem; color: #1e40af; cursor: pointer; padding: 4px 0;">+${signedByType.pilot.length - 5} more deals ›</summary>
+          ${signedByType.pilot.slice(5).map(d => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #dbeafe; font-size: 0.75rem;">
+              <span style="font-weight: 500;">${d.accountName}</span>
+              <div style="display: flex; gap: 12px; align-items: center;">
+                <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
+                <span style="color: #1e40af; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+              </div>
+            </div>
+          `).join('')}
+        </details>` : ''}
       </div>
-    `).join('')}
-    </div>` : ''}
+    </details>` : ''}
     
     ${signedByType.loi.length > 0 ? `
-    <div style="background: #374151; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center;">
-      <span>LOI</span>
-      <span>${formatCurrency(signedDealsTotal.loi)} • ${signedByType.loi.length} deal${signedByType.loi.length !== 1 ? 's' : ''}</span>
-    </div>
-    <div style="padding: 0 12px 12px 12px; background: #f9fafb; border-radius: 0 0 6px 6px;">
-    ${signedByType.loi.map(d => `
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-size: 0.75rem;">
-        <span style="font-weight: 500;">${d.accountName}</span>
-        <div style="display: flex; gap: 12px; align-items: center;">
-          <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
-          <span style="color: #374151; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+    <details open>
+      <summary style="background: #374151; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
+        <span>LOI</span>
+        <span>${formatCurrency(signedDealsTotal.loi)} • ${signedByType.loi.length} deal${signedByType.loi.length !== 1 ? 's' : ''}</span>
+      </summary>
+      <div style="padding: 0 12px 12px 12px; background: #f9fafb; border-radius: 0 0 6px 6px;">
+      ${signedByType.loi.slice(0, 5).map(d => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-size: 0.75rem;">
+          <span style="font-weight: 500;">${d.accountName}</span>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
+            <span style="color: #374151; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+          </div>
         </div>
+      `).join('')}
+      ${signedByType.loi.length > 5 ? `
+        <details style="margin-top: 4px;">
+          <summary style="font-size: 0.65rem; color: #374151; cursor: pointer; padding: 4px 0;">+${signedByType.loi.length - 5} more deals ›</summary>
+          ${signedByType.loi.slice(5).map(d => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-size: 0.75rem;">
+              <span style="font-weight: 500;">${d.accountName}</span>
+              <div style="display: flex; gap: 12px; align-items: center;">
+                <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
+                <span style="color: #374151; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+              </div>
+            </div>
+          `).join('')}
+        </details>` : ''}
       </div>
-    `).join('')}
-    </div>` : ''}
+    </details>` : ''}
     
     ${signedByType.revenue.length === 0 && signedByType.pilot.length === 0 && signedByType.loi.length === 0 ? '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No closed deals in last 90 days</div>' : ''}
-  </div>
-  
-  <!-- Definitions -->
-  <div style="margin-top: 16px; padding: 10px; background: #f9fafb; border-radius: 6px; font-size: 0.65rem; color: #6b7280;">
-    <div style="margin-bottom: 4px;"><strong>Revenue:</strong> Recurring/ARR subscription contracts</div>
-    <div style="margin-bottom: 4px;"><strong>Pilot:</strong> One-time project engagements</div>
-    <div><strong>LOI:</strong> Signed commitments to spend over defined period</div>
   </div>
 </div>
 
@@ -2142,14 +2289,14 @@ ${generateWeeklyTab({
     <!-- REVENUE Tile -->
     <div class="accounts-type-grid" style="background: #f0fdf4; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <div style="font-size: 0.7rem; font-weight: 700; color: #16a34a;">REVENUE</div>
-        <div style="font-size: 1.25rem; font-weight: 700; color: #166534;">${logosByType.revenue.length + 35}</div>
+        <div style="font-size: 0.7rem; font-weight: 700; color: #22c55e;">REVENUE</div>
+        <div style="font-size: 1.25rem; font-weight: 700; color: #15803d;">${logosByType.revenue.length + 35}</div>
       </div>
       <details style="font-size: 0.6rem; color: #6b7280;">
-        <summary style="cursor: pointer; color: #16a34a; font-weight: 500; margin-bottom: 4px;">View accounts ›</summary>
+        <summary style="cursor: pointer; color: #22c55e; font-weight: 500; margin-bottom: 4px;">View accounts ›</summary>
         <div style="margin-top: 6px; line-height: 1.5;">
           ${logosByType.revenue.filter(a => accountsWithLOIHistory.has(a.accountName)).map(a => a.accountName + '†').join(', ')}${logosByType.revenue.filter(a => accountsWithLOIHistory.has(a.accountName)).length > 0 && logosByType.revenue.filter(a => !accountsWithLOIHistory.has(a.accountName)).length > 0 ? ', ' : ''}${logosByType.revenue.filter(a => !accountsWithLOIHistory.has(a.accountName)).map(a => a.accountName).join(', ') || ''}
-          <div style="margin-top: 4px; padding-top: 4px; border-top: 1px dashed #16a34a33;">
+          <div style="margin-top: 4px; padding-top: 4px; border-top: 1px dashed #22c55e33;">
             <span style="color: #9ca3af;">• Legacy:</span> ${jhAccounts.filter(a => a.totalACV > 0).slice(0, 15).map(a => a.name.replace(/ (Ireland|UC|Limited|LLC|Technologies UK Limited|Pharma|Group|International Unlimited Company).*$/i, '')).join(', ')}${jhAccounts.filter(a => a.totalACV > 0).length > 15 ? ', +' + (jhAccounts.filter(a => a.totalACV > 0).length - 15) + ' more' : ''}
           </div>
         </div>
@@ -2188,7 +2335,7 @@ ${generateWeeklyTab({
       <div style="font-size: 0.7rem; color: #6b7280;">${accountsWithPlans} have plans</div>
     </div>
     <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.6rem; color: #9ca3af;">
-      <span><strong style="color: #16a34a;">Revenue</strong> = ARR customer</span>
+      <span><strong style="color: #22c55e;">Revenue</strong> = ARR customer</span>
       <span><strong style="color: #2563eb;">Pilot</strong> = Active project</span>
       <span><strong style="color: #6b7280;">LOI</strong> = Signed commitment</span>
       <span><strong style="color: #065f46;">New</strong> = First deal &lt;90 days</span>
@@ -2254,7 +2401,7 @@ ${generateWeeklyTab({
           const products = [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))];
           const productList = products.join(', ') || 'TBD';
         
-          return '<details class="account-expandable" data-account="' + acc.name.toLowerCase() + '" style="display: ' + (idx < 10 ? 'block' : 'none') + '; background: #fff; border-left: 3px solid ' + (acc.highestStage >= 3 ? '#10b981' : acc.highestStage === 2 ? '#3b82f6' : '#f59e0b') + '; padding: 12px; border-radius: 6px; margin-bottom: 8px; cursor: pointer; border: 1px solid #e5e7eb;">' +
+          return '<details class="account-expandable" data-account="' + acc.name.toLowerCase() + '" style="display: ' + (idx < 10 ? 'block' : 'none') + '; background: #fff; border-left: 3px solid ' + (acc.highestStage >= 3 ? '#34d399' : acc.highestStage === 2 ? '#3b82f6' : '#f59e0b') + '; padding: 12px; border-radius: 6px; margin-bottom: 8px; cursor: pointer; border: 1px solid #e5e7eb;">' +
             '<summary style="list-style: none; display: flex; justify-content: space-between; align-items: center;">' +
               '<div style="flex: 1;">' +
                 '<div style="font-weight: 600; font-size: 0.9375rem; color: #1f2937;">' +
@@ -2290,7 +2437,7 @@ ${generateWeeklyTab({
           : acc.totalACV >= 1000 
             ? '$' + (acc.totalACV / 1000).toFixed(0) + 'k' 
             : '$' + acc.totalACV.toFixed(0);
-        const eudiaTechBadge = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-left: 4px; vertical-align: middle;"></span>' : '';
+        const eudiaTechBadge = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;"></span>' : '';
         
         return '<details class="account-expandable" data-account="' + acc.name.toLowerCase() + '" style="display: none; background: #fff; border-left: 3px solid #9ca3af; padding: 12px; border-radius: 6px; margin-bottom: 8px; cursor: pointer; border: 1px solid #e5e7eb;">' +
           '<summary style="list-style: none; display: flex; justify-content: space-between; align-items: center;">' +
