@@ -672,36 +672,38 @@ function generateWeeklyTab(params) {
       </div>`;
       })()}
       
-      <div style="background: #f9fafb; border-radius: 8px; padding: 12px;">
-        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">TOP OPPORTUNITIES (${decemberOpps.length + 27} combined)</div>
-        <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5;">
-          ${(() => {
-            // Combine both sources
-            const jhQ4Opps = (jhSummary?.pipeline || []).filter(o => {
-              if (!o.closeDate) return false;
-              const d = new Date(o.closeDate);
-              return (d.getMonth() >= 10 && d.getFullYear() === 2025) || (d.getMonth() === 0 && d.getFullYear() === 2026);
-            }).map(o => ({
-              account: o.account,
-              acv: o.acv || 0,
-              isLegacy: true,
-              isNov: new Date(o.closeDate).getMonth() === 10
-            }));
-            
-            const allQ4 = [
-              ...decemberOpps.map(o => ({ account: o.account, acv: o.acv, isLegacy: false, isNov: false })),
-              ...jhQ4Opps
-            ].sort((a, b) => b.acv - a.acv).slice(0, 10);
-            
-            return allQ4.map(o => {
+      ${(() => {
+        // Calculate Q4 opps for both count display and list
+        const jhQ4Opps = (jhSummary?.pipeline || []).filter(o => {
+          if (!o.closeDate) return false;
+          const d = new Date(o.closeDate);
+          return (d.getMonth() >= 10 && d.getFullYear() === 2025) || (d.getMonth() === 0 && d.getFullYear() === 2026);
+        }).map(o => ({
+          account: o.account,
+          acv: o.acv || 0,
+          isLegacy: true,
+          isNov: new Date(o.closeDate).getMonth() === 10
+        }));
+        
+        const totalQ4Combined = decemberOpps.length + jhQ4Opps.length;
+        
+        const allQ4 = [
+          ...decemberOpps.map(o => ({ account: o.account, acv: o.acv, isLegacy: false, isNov: false })),
+          ...jhQ4Opps
+        ].sort((a, b) => b.acv - a.acv).slice(0, 10);
+        
+        return '<div style="background: #f9fafb; border-radius: 8px; padding: 12px;">' +
+          '<div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">TOP OPPORTUNITIES (' + totalQ4Combined + ' combined)</div>' +
+          '<ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5;">' +
+            (allQ4.map(o => {
               const legacyDot = o.isLegacy ? ' •' : '';
               const novMarker = o.isNov ? '*' : '';
               return '<li>' + o.account + legacyDot + ', ' + fmt(o.acv) + novMarker + '</li>';
-            }).join('') || '<li style="color: #9ca3af;">None</li>';
-          })()}
-        </ol>
-        <div style="font-size: 0.6rem; color: #6b7280; margin-top: 8px;"><span style="color: #9ca3af;">•</span> = legacy acquisition | * = November target</div>
-      </div>
+            }).join('') || '<li style="color: #9ca3af;">None</li>') +
+          '</ol>' +
+          '<div style="font-size: 0.6rem; color: #6b7280; margin-top: 8px;"><span style="color: #9ca3af;">•</span> = legacy acquisition | * = November target</div>' +
+        '</div>';
+      })()}
     </div>
     
     <!-- Signed Net New Logos + Run-Rate Forecast (matching tile widths + heights) -->
@@ -974,6 +976,12 @@ function generateWeeklyTab(params) {
  * Generate Account Status Dashboard - Mobile-optimized with tabs
  */
 async function generateAccountDashboard() {
+  // ═══════════════════════════════════════════════════════════════════════
+  // JOHNSON HANA DATA - Load early for use throughout dashboard
+  // ═══════════════════════════════════════════════════════════════════════
+  const jhSummary = getJohnsonHanaSummary();
+  const jhAccounts = getJHAccounts();
+  
   // ═══════════════════════════════════════════════════════════════════════
   // ACTIVE CONTRACTS QUERY (Status = Activated)
   // ═══════════════════════════════════════════════════════════════════════
