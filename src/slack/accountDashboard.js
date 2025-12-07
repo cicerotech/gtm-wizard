@@ -125,496 +125,291 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   </div>
   
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <!-- EUDIA BY STAGE (Expandable for S1-S4) -->
+  <!-- PIPELINE BY STAGE (Consolidated - Expandable for S1-S4) -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section">
-    <div class="stage-title">Eudia by Stage</div>
-    <div class="stage-subtitle">${eudiaDeals} opps • ${fmt(eudiaGross)} gross</div>
+    <div class="stage-title">Pipeline by Stage</div>
+    <div class="stage-subtitle">${blendedDeals} opps • ${fmt(blendedGross)} gross</div>
     <div style="margin-top: 8px; font-size: 0.8rem;">
       <div style="display: flex; background: #f9fafb; font-weight: 600; padding: 6px;">
         <div style="flex: 1;">Stage</div>
         <div style="text-align: center; width: 20%;">Opps</div>
         <div style="text-align: right; width: 25%;">ACV</div>
       </div>
-      ${stageOrder.map(stage => {
-        const data = stageBreakdown[stage] || { count: 0, totalACV: 0, weightedACV: 0 };
-        const stageNum = parseInt(stage.match(/Stage (\d)/)?.[1] || 0);
-        const isExpandable = stageNum >= 1 && stageNum <= 4;
-        // Get opportunities for this stage
-        const stageOpps = Array.from(accountMap.values()).flatMap(acc => 
-          acc.opportunities.filter(o => o.StageName === stage).map(o => ({
-            account: acc.name,
-            product: o.Product_Line__c || 'TBD',
-            acv: o.ACV__c || 0
-          }))
-        ).sort((a, b) => b.acv - a.acv).slice(0, 10);
-        // Get top products
-        const stageProducts = {};
-        Object.entries(productBreakdown).forEach(([prod, pData]) => {
-          if (pData.byStage[stage]?.count > 0) {
-            stageProducts[prod] = pData.byStage[stage];
-          }
-        });
-        const topProds = Object.entries(stageProducts)
-          .sort((a, b) => b[1].acv - a[1].acv)
-          .slice(0, 3)
-          .map(([p]) => p)
-          .join(', ');
-        
-        if (isExpandable && data.count > 0) {
-          // Get opportunities with full details for expanded view
-          const stageOppsWithDetails = Array.from(accountMap.values()).flatMap(acc => 
-            acc.opportunities.filter(o => o.StageName === stage).map(o => {
-              const ownerName = o.Owner?.Name ? o.Owner.Name.split(' ')[0] : '';
-              const targetDate = o.Target_LOI_Date__c ? new Date(o.Target_LOI_Date__c).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-              return {
-                account: acc.name,
-                acv: o.ACV__c || 0,
-                owner: ownerName,
-                targetDate: targetDate
-              };
-            })
-          ).sort((a, b) => b.acv - a.acv).slice(0, 10);
-          
-          return '<details style="border-bottom: 1px solid #f1f3f5;">' +
-            '<summary style="display: flex; justify-content: space-between; padding: 6px; cursor: pointer; list-style: none;">' +
-              '<div style="flex: 1;">' +
-                '<div style="font-size: 0.75rem; font-weight: 500;">' + stage.replace('Stage ', 'S') + ' ▾</div>' +
-                (topProds ? '<div style="font-size: 0.6rem; color: #9ca3af;">' + topProds + '</div>' : '') +
-              '</div>' +
-              '<div style="text-align: center; width: 20%;">' + data.count + '</div>' +
-              '<div style="text-align: right; width: 25%;">' + fmt(data.totalACV) + '</div>' +
-            '</summary>' +
-            '<div style="padding: 8px 12px; background: #f9fafb; font-size: 0.7rem;">' +
-              stageOppsWithDetails.map(o => {
-                const av = o.acv || 0;
-                const af = av >= 1000000 ? '$' + (av / 1000000).toFixed(1) + 'm' : '$' + (av / 1000).toFixed(0) + 'k';
-                const details = [o.owner, o.targetDate].filter(x => x).join(' • ');
-                return '<div style="padding: 3px 0; border-bottom: 1px solid #e5e7eb;">' +
-                  '<div style="display: flex; justify-content: space-between;">' +
-                    '<span style="font-weight: 500;">' + o.account + '</span>' +
-                    '<span style="font-weight: 600;">' + af + '</span>' +
-                  '</div>' +
-                  (details ? '<div style="font-size: 0.6rem; color: #6b7280;">' + details + '</div>' : '') +
-                '</div>';
-              }).join('') +
-              (data.count > 10 ? '<div style="color: #6b7280; font-style: italic; margin-top: 4px;">...and ' + (data.count - 10) + ' more</div>' : '') +
-            '</div>' +
-          '</details>';
-        } else {
-          return '<div style="display: flex; justify-content: space-between; padding: 6px; border-bottom: 1px solid #f1f3f5;">' +
-            '<div style="flex: 1;">' +
-              '<div style="font-size: 0.75rem;">' + stage.replace('Stage ', 'S') + '</div>' +
-              (topProds ? '<div style="font-size: 0.6rem; color: #9ca3af;">' + topProds + '</div>' : '') +
-            '</div>' +
-            '<div style="text-align: center; width: 20%;">' + data.count + '</div>' +
-            '<div style="text-align: right; width: 25%;">' + fmt(data.totalACV) + '</div>' +
-          '</div>';
-        }
-      }).join('')}
-      <div style="display: flex; justify-content: space-between; padding: 6px; background: #e5e7eb; font-weight: 600;">
-        <div style="flex: 1;">TOTAL</div>
-        <div style="text-align: center; width: 20%;">${eudiaDeals}</div>
-        <div style="text-align: right; width: 25%;">${fmt(eudiaGross)}</div>
-      </div>
-    </div>
-  </div>
-  
-  <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <!-- LEGACY ACQUISITION PIPELINE (Expandable for S1-S4) -->
-  <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <div class="stage-section" style="margin-top: 16px;">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
-      <div>
-        <div class="stage-title">Pipeline by Stage <span style="color: #9ca3af; font-weight: 400;">•</span></div>
-        <div class="stage-subtitle">${jhSummary.totalOpportunities} opps • ${fmt(jhSummary.totalPipeline)} gross</div>
-      </div>
-      <div style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 6px 10px; border-radius: 6px; font-size: 0.65rem; text-align: right;">
-        <div style="font-weight: 600; color: #374151;">Eudia Tech: ${jhSummary.eudiaTech.opportunityCount} opps</div>
-        <div style="color: #6b7280;">${fmt(jhSummary.eudiaTech.pipelineValue)} (${jhSummary.eudiaTech.percentOfValue}%)</div>
-      </div>
-    </div>
-    <div style="margin-top: 8px; font-size: 0.8rem;">
-      <div style="display: flex; background: #f9fafb; font-weight: 600; padding: 6px;">
-        <div style="flex: 1;">Stage</div>
-        <div style="text-align: center; width: 20%;">Opps</div>
-        <div style="text-align: right; width: 25%;">ACV</div>
-      </div>
-      ${['Stage 5 - Negotiation', ...stageOrder].map(stage => {
-        const data = jhSummary.byStage[stage];
-        if (!data || data.count === 0) return '';
-        const stageNum = parseInt(stage.match(/Stage (\d)/)?.[1] || 0);
-        const isExpandable = stageNum >= 1 && stageNum <= 4;
-        // Get opportunities for this stage
-        const stageOpps = jhAccounts.flatMap(acc => 
-          acc.opportunities.filter(o => o.stage === stage).map(o => ({
-            account: acc.name,
-            service: o.mappedServiceLine || 'Other',
-            acv: o.acv || 0
-          }))
-        ).sort((a, b) => b.acv - a.acv).slice(0, 10);
-        // Get top service lines
-        const stageServiceLines = {};
-        jhAccounts.forEach(acc => {
-          acc.opportunities.forEach(opp => {
-            if (opp.stage === stage) {
-              const sl = opp.mappedServiceLine || 'Other';
-              if (!stageServiceLines[sl]) stageServiceLines[sl] = 0;
-              stageServiceLines[sl] += opp.acv || 0;
-            }
-          });
-        });
-        const topSLs = Object.entries(stageServiceLines)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 2)
-          .map(([sl]) => sl)
-          .join(', ');
-        
-        if (isExpandable && data.count > 0) {
-          // Get opportunities with full details for expanded view
-          const stageOppsWithDetails = jhAccounts.flatMap(acc => 
-            acc.opportunities.filter(o => o.stage === stage).map(o => {
-              const ownerName = o.owner ? o.owner.split(' ')[0] : '';
-              const targetDate = o.closeDate ? new Date(o.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-              return {
-                account: acc.name,
-                acv: o.acv || 0,
-                owner: ownerName,
-                targetDate: targetDate
-              };
-            })
-          ).sort((a, b) => b.acv - a.acv).slice(0, 10);
-          
-          return '<details style="border-bottom: 1px solid #f1f3f5;">' +
-            '<summary style="display: flex; justify-content: space-between; padding: 6px; cursor: pointer; list-style: none;">' +
-              '<div style="flex: 1;">' +
-                '<div style="font-size: 0.75rem; font-weight: 500;">' + stage.replace('Stage ', 'S') + ' ▾</div>' +
-                (topSLs ? '<div style="font-size: 0.6rem; color: #9ca3af;">' + topSLs + '</div>' : '') +
-              '</div>' +
-              '<div style="text-align: center; width: 20%;">' + data.count + '</div>' +
-              '<div style="text-align: right; width: 25%;">' + fmt(data.totalACV) + '</div>' +
-            '</summary>' +
-            '<div style="padding: 8px 12px; background: #f9fafb; font-size: 0.7rem;">' +
-              stageOppsWithDetails.map(o => {
-                const av = o.acv || 0;
-                const af = av >= 1000000 ? '$' + (av / 1000000).toFixed(1) + 'm' : '$' + (av / 1000).toFixed(0) + 'k';
-                const details = [o.owner, o.targetDate].filter(x => x).join(' • ');
-                return '<div style="padding: 3px 0; border-bottom: 1px solid #e5e7eb;">' +
-                  '<div style="display: flex; justify-content: space-between;">' +
-                    '<span style="font-weight: 500;">' + o.account + '</span>' +
-                    '<span style="font-weight: 600;">' + af + '</span>' +
-                  '</div>' +
-                  (details ? '<div style="font-size: 0.6rem; color: #6b7280;">' + details + '</div>' : '') +
-                '</div>';
-              }).join('') +
-              (data.count > 10 ? '<div style="color: #6b7280; font-style: italic; margin-top: 4px;">...and ' + (data.count - 10) + ' more</div>' : '') +
-            '</div>' +
-          '</details>';
-        } else {
-          return '<div style="display: flex; justify-content: space-between; padding: 6px; border-bottom: 1px solid #f1f3f5;">' +
-            '<div style="flex: 1;">' +
-              '<div style="font-size: 0.75rem;">' + stage.replace('Stage ', 'S') + '</div>' +
-              (topSLs ? '<div style="font-size: 0.6rem; color: #9ca3af;">' + topSLs + '</div>' : '') +
-            '</div>' +
-            '<div style="text-align: center; width: 20%;">' + data.count + '</div>' +
-            '<div style="text-align: right; width: 25%;">' + fmt(data.totalACV) + '</div>' +
-          '</div>';
-        }
-      }).join('')}
-      <div style="display: flex; justify-content: space-between; padding: 6px; background: #e5e7eb; font-weight: 600;">
-        <div style="flex: 1;">TOTAL</div>
-        <div style="text-align: center; width: 20%;">${jhSummary.totalOpportunities}</div>
-        <div style="text-align: right; width: 25%;">${fmt(jhSummary.totalPipeline)}</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Stage Definitions -->
-  <div style="background: #f9fafb; padding: 10px 12px; border-radius: 6px; margin-top: 12px; font-size: 0.65rem; color: #6b7280;">
-    <div style="font-weight: 600; color: #374151; margin-bottom: 4px;">Stage Definitions</div>
-    <div><strong>S0</strong> Qualifying - Initial outreach, determining fit</div>
-    <div><strong>S1</strong> Discovery - Meeting with client, understanding needs</div>
-    <div><strong>S2</strong> SQO - Sales Qualified, active evaluation</div>
-    <div><strong>S3</strong> Pilot - Trial or proof-of-concept underway</div>
-    <div><strong>S4</strong> Proposal - Formal proposal submitted</div>
-    <div><strong>S5</strong> Negotiation - Contract terms being finalized</div>
-  </div>
-  
-  <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <!-- COMBINED STAGE VIEW (MERGE) -->
-  <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">Total Pipeline by Stage</div>
-    <div class="stage-subtitle">All opportunities combined</div>
-    <table style="width: 100%; font-size: 0.8rem; margin-top: 8px; table-layout: fixed;">
-      <tr style="background: #f9fafb; font-weight: 600;">
-        <td style="padding: 6px; width: 55%;">Stage</td>
-        <td style="text-align: center; padding: 6px; width: 20%;">Opps</td>
-        <td style="text-align: right; padding: 6px; width: 25%;">ACV</td>
-      </tr>
       ${['Stage 5 - Negotiation', ...stageOrder].map(stage => {
         const eData = stageBreakdown[stage] || { count: 0, totalACV: 0 };
         const jData = jhSummary.byStage[stage] || { count: 0, totalACV: 0 };
-        const combined = {
-          count: eData.count + jData.count,
-          acv: (eData.totalACV || 0) + (jData.totalACV || 0)
-        };
-        if (combined.count === 0) return '';
-        return `
-        <tr style="border-bottom: 1px solid #f1f3f5;">
-          <td style="padding: 6px; font-size: 0.75rem;">${stage.replace('Stage ', 'S')}</td>
-          <td style="text-align: center; padding: 6px;">${combined.count}</td>
-          <td style="text-align: right; padding: 6px;">${fmt(combined.acv)}</td>
-        </tr>`;
+        const combinedCount = eData.count + jData.count;
+        const combinedACV = (eData.totalACV || 0) + (jData.totalACV || 0);
+        if (combinedCount === 0) return '';
+        
+        const stageNum = parseInt(stage.match(/Stage (\\d)/)?.[1] || 0);
+        const isExpandable = stageNum >= 1 && stageNum <= 4;
+        
+        // Get combined opportunities from both sources for expanded view
+        const allStageOpps = [
+          ...Array.from(accountMap.values()).flatMap(acc => 
+            acc.opportunities.filter(o => o.StageName === stage).map(o => ({
+              account: acc.name,
+              acv: o.ACV__c || 0,
+              owner: o.Owner?.Name ? o.Owner.Name.split(' ')[0] : '',
+              targetDate: o.Target_LOI_Date__c ? new Date(o.Target_LOI_Date__c).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null,
+              isLegacy: false
+            }))
+          ),
+          ...jhAccounts.flatMap(acc => 
+            acc.opportunities.filter(o => o.stage === stage).map(o => ({
+              account: acc.name,
+              acv: o.acv || 0,
+              owner: o.owner ? o.owner.split(' ')[0] : '',
+              targetDate: o.closeDate ? new Date(o.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null,
+              isLegacy: true
+            }))
+          )
+        ].sort((a, b) => b.acv - a.acv).slice(0, 10);
+        
+        if (isExpandable && combinedCount > 0) {
+          return '<details style="border-bottom: 1px solid #f1f3f5;">' +
+            '<summary style="display: flex; justify-content: space-between; padding: 6px; cursor: pointer; list-style: none;">' +
+              '<div style="flex: 1;">' +
+                '<div style="font-size: 0.75rem; font-weight: 500;">' + stage.replace('Stage ', 'S') + ' ▾</div>' +
+              '</div>' +
+              '<div style="text-align: center; width: 20%;">' + combinedCount + '</div>' +
+              '<div style="text-align: right; width: 25%;">' + fmt(combinedACV) + '</div>' +
+            '</summary>' +
+            '<div style="padding: 8px 12px; background: #f9fafb; font-size: 0.7rem;">' +
+              allStageOpps.map(o => {
+                const av = o.acv || 0;
+                const af = av >= 1000000 ? '$' + (av / 1000000).toFixed(1) + 'm' : '$' + (av / 1000).toFixed(0) + 'k';
+                const details = [o.owner, o.targetDate].filter(x => x).join(' • ');
+                const legacyDot = o.isLegacy ? ' <span style="color: #9ca3af;">•</span>' : '';
+                return '<div style="padding: 3px 0; border-bottom: 1px solid #e5e7eb;">' +
+                  '<div style="display: flex; justify-content: space-between;">' +
+                    '<span style="font-weight: 500;">' + o.account + legacyDot + '</span>' +
+                    '<span style="font-weight: 600;">' + af + '</span>' +
+                  '</div>' +
+                  (details ? '<div style="font-size: 0.6rem; color: #6b7280;">' + details + '</div>' : '') +
+                '</div>';
+              }).join('') +
+              (combinedCount > 10 ? '<div style="color: #6b7280; font-style: italic; margin-top: 4px;">...and ' + (combinedCount - 10) + ' more</div>' : '') +
+            '</div>' +
+          '</details>';
+        } else {
+          return '<div style="display: flex; justify-content: space-between; padding: 6px; border-bottom: 1px solid #f1f3f5;">' +
+            '<div style="flex: 1;">' +
+              '<div style="font-size: 0.75rem;">' + stage.replace('Stage ', 'S') + '</div>' +
+            '</div>' +
+            '<div style="text-align: center; width: 20%;">' + combinedCount + '</div>' +
+            '<div style="text-align: right; width: 25%;">' + fmt(combinedACV) + '</div>' +
+          '</div>';
+        }
       }).join('')}
-      <tr style="background: #e5e7eb; font-weight: 600;">
-        <td style="padding: 6px;">TOTAL</td>
-        <td style="text-align: center; padding: 6px;">${blendedDeals}</td>
-        <td style="text-align: right; padding: 6px;">${fmt(blendedGross)}</td>
-      </tr>
-    </table>
+      <div style="display: flex; justify-content: space-between; padding: 6px; background: #e5e7eb; font-weight: 600;">
+        <div style="flex: 1;">TOTAL</div>
+        <div style="text-align: center; width: 20%;">${blendedDeals}</div>
+        <div style="text-align: right; width: 25%;">${fmt(blendedGross)}</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Stage Definitions -->
+  <div style="background: #f9fafb; padding: 10px 12px; border-radius: 6px; margin-top: 12px; font-size: 0.65rem; color: #6b7280;">
+    <div style="font-weight: 600; color: #374151; margin-bottom: 4px;">Stage Definitions</div>
+    <div><strong>S0</strong> Qualifying - Initial outreach</div>
+    <div><strong>S1</strong> Discovery - Meeting with client</div>
+    <div><strong>S2</strong> SQO - Sales Qualified</div>
+    <div><strong>S3</strong> Pilot - Trial underway</div>
+    <div><strong>S4</strong> Proposal - Formal proposal</div>
+    <div><strong>S5</strong> Negotiation - Contract terms</div>
   </div>
   
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <!-- TOP EUDIA ACCOUNTS -->
+  <!-- TOP ACCOUNTS (Consolidated) -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section" style="margin-top: 16px;">
     <div class="stage-title">Eudia Top Accounts</div>
-    <div class="stage-subtitle">${eudiaAccounts} accounts in pipeline</div>
-    <div style="margin-top: 8px;" id="eudia-top-accounts">
-      ${allEudiaAccounts.map((acc, idx) => {
-        const products = [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))];
-        const accMeetings = meetingData?.get(acc.accountId) || {};
-        const lastMeetingDate = accMeetings.lastMeeting ? new Date(accMeetings.lastMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-        const nextMeetingDate = accMeetings.nextMeeting ? new Date(accMeetings.nextMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-        const legalContacts = accMeetings.contacts ? Array.from(accMeetings.contacts) : [];
-        return `
-        <details class="eudia-topco-account" style="border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 6px; overflow: hidden; display: ${idx < 10 ? 'block' : 'none'};">
-          <summary style="padding: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb; font-size: 0.8rem;">
-            <div>
-              <span style="font-weight: 500;">${acc.name}</span>
-              <div style="font-size: 0.65rem; color: #6b7280;">S${acc.highestStage} • ${acc.opportunities.length} opp${acc.opportunities.length > 1 ? 's' : ''}${products.length ? ' • ' + products.slice(0,2).join(', ') : ''}</div>
-            </div>
-            <div style="text-align: right;">
-              <div style="font-weight: 600;">${fmt(acc.totalACV)}</div>
-              <div style="font-size: 0.65rem; color: #6b7280;">Wtd: ${fmt(acc.weightedACV)}</div>
-            </div>
-          </summary>
-          <div style="padding: 10px; font-size: 0.75rem; border-top: 1px solid #e5e7eb;">
-            ${lastMeetingDate || nextMeetingDate ? '<div style="background: #ecfdf5; padding: 6px; border-radius: 4px; margin-bottom: 6px; font-size: 0.7rem; color: #065f46;">' + (lastMeetingDate ? '<div><strong>Last Meeting:</strong> ' + lastMeetingDate + '</div>' : '') + (nextMeetingDate ? '<div><strong>Next Meeting:</strong> ' + nextMeetingDate + '</div>' : '') + '</div>' : '<div style="font-size: 0.65rem; color: #9ca3af; margin-bottom: 6px;">No meetings on file</div>'}
-            ${legalContacts.length > 0 ? '<div style="font-size: 0.65rem; color: #6b7280; margin-bottom: 6px;"><strong>Legal:</strong> ' + legalContacts.slice(0,2).join(', ') + '</div>' : ''}
-            <div style="font-weight: 600; margin-bottom: 4px;">Opportunities (${acc.opportunities.length}):</div>
-            ${acc.opportunities.map(o => {
-              // Extract clean stage name (e.g., "Stage 2 - SQO" → "S2 SQO")
-              const stageMatch = o.StageName ? o.StageName.match(/Stage\\s*(\\d)\\s*[-–]?\\s*(.*)/i) : null;
-              const stageLabel = stageMatch ? 'S' + stageMatch[1] + (stageMatch[2] ? ' ' + stageMatch[2].trim() : '') : (o.StageName || 'TBD');
-              // Format target date if available
-              const targetDate = o.Target_LOI_Date__c ? new Date(o.Target_LOI_Date__c).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-              const acvVal = o.ACV__c || 0;
-              const acvFmt = acvVal >= 1000000 ? '$' + (acvVal / 1000000).toFixed(1) + 'm' : '$' + (acvVal / 1000).toFixed(0) + 'k';
-              return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span style="font-weight: 500;">' + (o.Product_Line__c || 'TBD') + '</span><div style="font-size: 0.6rem; color: #6b7280;">' + stageLabel + (targetDate ? ' • Target: ' + targetDate : '') + '</div></div><span style="font-weight: 600;">' + acvFmt + '</span></div>';
-            }).join('')}
-          </div>
-        </details>`;
-      }).join('')}
-      ${allEudiaAccounts.length > 10 ? '<div id="show-more-eudia-topco" style="color: #1e40af; font-weight: 600; cursor: pointer; text-align: center; padding: 8px; background: #eff6ff; border-radius: 6px; margin-top: 6px; font-size: 0.75rem;">+' + (allEudiaAccounts.length - 10) + ' more accounts</div>' : ''}
-    </div>
-  </div>
-  
-  <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <!-- TOP ACCOUNTS (LEGACY) -->
-  <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">Top Accounts <span style="color: #9ca3af; font-weight: 400;">•</span></div>
-    <div class="stage-subtitle">${jhSummary.uniqueAccounts} accounts in pipeline</div>
+    <div class="stage-subtitle">${blendedAccounts} accounts in pipeline</div>
     <div style="font-size: 0.65rem; color: #374151; margin-bottom: 6px;">
       <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; vertical-align: middle;"></span>
-      Eudia Tech enabled: ${jhEudiaTechAccounts.length} accounts (${jhEudiaTechAccountPct}%)
+      Eudia Tech enabled: ${jhEudiaTechAccounts.length} accounts
     </div>
-    <div style="margin-top: 8px;" id="jh-top-accounts">
-      ${allJHAccounts.map((acc, idx) => {
-        const serviceLines = [...new Set(acc.opportunities.map(o => o.mappedServiceLine).filter(s => s))];
-        return `
-        <details class="jh-topco-account" style="border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 6px; overflow: hidden; display: ${idx < 10 ? 'block' : 'none'};">
-          <summary style="padding: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb; font-size: 0.8rem;">
-            <div>
-              <span style="font-weight: 500;">${acc.name}</span>
-              ${acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-left: 4px; vertical-align: middle;"></span>' : ''}
-              <div style="font-size: 0.65rem; color: #6b7280;">S${acc.highestStage} • ${acc.opportunities.length} opp${acc.opportunities.length > 1 ? 's' : ''}${serviceLines.length ? ' • ' + serviceLines.slice(0,2).join(', ') : ''}</div>
-            </div>
-            <div style="text-align: right;">
-              <div style="font-weight: 600;">${fmt(acc.totalACV)}</div>
-              <div style="font-size: 0.65rem; color: #6b7280;">Wtd: ${fmt(acc.weightedACV)}</div>
-            </div>
-          </summary>
-          <div style="padding: 10px; font-size: 0.75rem; border-top: 1px solid #e5e7eb;">
-            <div style="font-weight: 600; margin-bottom: 4px;">Opportunities (${acc.opportunities.length}):</div>
-            ${acc.opportunities.map(o => {
-              // Extract clean stage from JH data (e.g., "Stage 2 SQO" → "S2 SQO")
-              const stageMatch = o.stage ? o.stage.match(/Stage\\s*(\\d)\\s*(.*)/i) : null;
-              const stageLabel = stageMatch ? 'S' + stageMatch[1] + (stageMatch[2] ? ' ' + stageMatch[2].trim() : '') : (o.stage || 'TBD');
-              // Format target date if available
-              const targetDate = o.closeDate ? new Date(o.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-              // Get owner name (first name only for brevity)
-              const ownerName = o.owner ? o.owner.split(' ')[0] : '';
-              const jhAcvVal = o.acv || 0;
-              const jhAcvFmt = jhAcvVal >= 1000000 ? '$' + (jhAcvVal / 1000000).toFixed(1) + 'm' : '$' + (jhAcvVal / 1000).toFixed(0) + 'k';
-              return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span style="font-weight: 500;">' + (o.mappedServiceLine || 'Other') + '</span>' + (o.eudiaTech ? ' <span style="color: #047857; font-size: 0.6rem;">●</span>' : '') + '<div style="font-size: 0.6rem; color: #6b7280;">' + stageLabel + (ownerName ? ' • ' + ownerName : '') + (targetDate ? ' • ' + targetDate : '') + '</div></div><span style="font-weight: 600;">' + jhAcvFmt + '</span></div>';
-            }).join('')}
-          </div>
-        </details>`;
-      }).join('')}
-      ${allJHAccounts.length > 10 ? '<div id="show-more-jh-topco" style="color: #1e40af; font-weight: 600; cursor: pointer; text-align: center; padding: 8px; background: #eff6ff; border-radius: 6px; margin-top: 6px; font-size: 0.75rem;">+' + (allJHAccounts.length - 10) + ' more accounts</div>' : ''}
+    <div style="margin-top: 8px;" id="consolidated-top-accounts">
+      ${(() => {
+        // Combine both sources, marking JH accounts with isLegacy
+        const combinedAccounts = [
+          ...allEudiaAccounts.map(acc => ({ ...acc, isLegacy: false, source: 'eudia' })),
+          ...allJHAccounts.map(acc => ({ ...acc, isLegacy: true, source: 'jh' }))
+        ].sort((a, b) => b.totalACV - a.totalACV);
+        
+        return combinedAccounts.map((acc, idx) => {
+          const products = acc.source === 'eudia' 
+            ? [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))]
+            : [...new Set(acc.opportunities.map(o => o.mappedServiceLine).filter(s => s))];
+          const accMeetings = acc.source === 'eudia' ? (meetingData?.get(acc.accountId) || {}) : {};
+          const lastMeetingDate = accMeetings.lastMeeting ? new Date(accMeetings.lastMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
+          const nextMeetingDate = accMeetings.nextMeeting ? new Date(accMeetings.nextMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
+          const legalContacts = accMeetings.contacts ? Array.from(accMeetings.contacts) : [];
+          const legacyDot = acc.isLegacy ? ' <span style="color: #9ca3af;">•</span>' : '';
+          const eudiaTechDot = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-left: 4px; vertical-align: middle;"></span>' : '';
+          
+          return '<details class="topco-account" style="border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 6px; overflow: hidden; display: ' + (idx < 10 ? 'block' : 'none') + ';">' +
+            '<summary style="padding: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb; font-size: 0.8rem;">' +
+              '<div>' +
+                '<span style="font-weight: 500;">' + acc.name + '</span>' + legacyDot + eudiaTechDot +
+                '<div style="font-size: 0.65rem; color: #6b7280;">S' + acc.highestStage + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') + (products.length ? ' • ' + products.slice(0,2).join(', ') : '') + '</div>' +
+              '</div>' +
+              '<div style="text-align: right;">' +
+                '<div style="font-weight: 600;">' + fmt(acc.totalACV) + '</div>' +
+                '<div style="font-size: 0.65rem; color: #6b7280;">Wtd: ' + fmt(acc.weightedACV) + '</div>' +
+              '</div>' +
+            '</summary>' +
+            '<div style="padding: 10px; font-size: 0.75rem; border-top: 1px solid #e5e7eb;">' +
+              (acc.source === 'eudia' && (lastMeetingDate || nextMeetingDate) ? '<div style="background: #ecfdf5; padding: 6px; border-radius: 4px; margin-bottom: 6px; font-size: 0.7rem; color: #065f46;">' + (lastMeetingDate ? '<div><strong>Last Meeting:</strong> ' + lastMeetingDate + '</div>' : '') + (nextMeetingDate ? '<div><strong>Next Meeting:</strong> ' + nextMeetingDate + '</div>' : '') + '</div>' : '') +
+              (legalContacts.length > 0 ? '<div style="font-size: 0.65rem; color: #6b7280; margin-bottom: 6px;"><strong>Legal:</strong> ' + legalContacts.slice(0,2).join(', ') + '</div>' : '') +
+              '<div style="font-weight: 600; margin-bottom: 4px;">Opportunities (' + acc.opportunities.length + '):</div>' +
+              acc.opportunities.map(o => {
+                if (acc.source === 'eudia') {
+                  const stageMatch = o.StageName ? o.StageName.match(/Stage\\s*(\\d)\\s*[-–]?\\s*(.*)/i) : null;
+                  const stageLabel = stageMatch ? 'S' + stageMatch[1] + (stageMatch[2] ? ' ' + stageMatch[2].trim() : '') : (o.StageName || 'TBD');
+                  const targetDate = o.Target_LOI_Date__c ? new Date(o.Target_LOI_Date__c).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
+                  const acvVal = o.ACV__c || 0;
+                  const acvFmt = acvVal >= 1000000 ? '$' + (acvVal / 1000000).toFixed(1) + 'm' : '$' + (acvVal / 1000).toFixed(0) + 'k';
+                  return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span style="font-weight: 500;">' + (o.Product_Line__c || 'TBD') + '</span><div style="font-size: 0.6rem; color: #6b7280;">' + stageLabel + (targetDate ? ' • Target: ' + targetDate : '') + '</div></div><span style="font-weight: 600;">' + acvFmt + '</span></div>';
+                } else {
+                  const stageMatch = o.stage ? o.stage.match(/Stage\\s*(\\d)\\s*(.*)/i) : null;
+                  const stageLabel = stageMatch ? 'S' + stageMatch[1] + (stageMatch[2] ? ' ' + stageMatch[2].trim() : '') : (o.stage || 'TBD');
+                  const targetDate = o.closeDate ? new Date(o.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
+                  const ownerName = o.owner ? o.owner.split(' ')[0] : '';
+                  const jhAcvVal = o.acv || 0;
+                  const jhAcvFmt = jhAcvVal >= 1000000 ? '$' + (jhAcvVal / 1000000).toFixed(1) + 'm' : '$' + (jhAcvVal / 1000).toFixed(0) + 'k';
+                  return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span style="font-weight: 500;">' + (o.mappedServiceLine || 'Other') + '</span>' + (o.eudiaTech ? ' <span style="color: #047857; font-size: 0.6rem;">●</span>' : '') + '<div style="font-size: 0.6rem; color: #6b7280;">' + stageLabel + (ownerName ? ' • ' + ownerName : '') + (targetDate ? ' • ' + targetDate : '') + '</div></div><span style="font-weight: 600;">' + jhAcvFmt + '</span></div>';
+                }
+              }).join('') +
+            '</div>' +
+          '</details>';
+        }).join('');
+      })()}
+      ${blendedAccounts > 10 ? '<div id="show-more-topco" style="color: #1e40af; font-weight: 600; cursor: pointer; text-align: center; padding: 8px; background: #eff6ff; border-radius: 6px; margin-top: 6px; font-size: 0.75rem;">+' + (blendedAccounts - 10) + ' more accounts</div>' : ''}
     </div>
   </div>
   
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <!-- TOP CO CLOSED WON (NOV-DEC) - Revenue Only -->
+  <!-- CLOSED REVENUE (NOV-DEC) - Consolidated -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">Top Co Closed Revenue (Nov-Dec)</div>
+    <div class="stage-title">Closed Revenue (Nov-Dec)</div>
     <div class="stage-subtitle">${combinedClosedCount} revenue deals • ${fmt(combinedClosedTotal)} total</div>
     <div style="font-size: 0.6rem; color: #9ca3af; margin-bottom: 6px;">Recurring/ARR deals only. LOI & Pilot excluded.</div>
     
-    <!-- Eudia Closed - Revenue Only -->
-    ${eudiaRevenueDeals.length > 0 ? `
-    <div style="margin-top: 10px; margin-bottom: 6px; font-size: 0.7rem; font-weight: 600; color: #6b7280;">EUDIA (${eudiaRevenueDeals.length} deals • ${fmt(eudiaRevenueTotal)})</div>
-    ${eudiaRevenueDeals.slice(0, 8).map(deal => `
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">
-        <div>
-          <span style="font-weight: 500;">${deal.accountName}</span>
-          <div style="font-size: 0.6rem; color: #9ca3af;">${deal.product || deal.oppName || ''}</div>
-        </div>
-        <div style="font-weight: 600; color: #16a34a;">${fmt(deal.acv)}</div>
-      </div>
-    `).join('')}` : '<div style="margin-top: 8px; font-size: 0.75rem; color: #9ca3af;">No Eudia revenue deals closed in last 90 days</div>'}
-    
-    <!-- JH Closed -->
-    <div style="margin-top: 12px; margin-bottom: 6px; font-size: 0.7rem; font-weight: 600; color: #6b7280;">ADDITIONAL CLOSED <span style="color: #9ca3af;">•</span> (${jhClosedDeals.length} deals • ${fmt(jhClosedTotal)})</div>
-    ${jhClosedDeals.slice(0, 8).map(deal => `
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">
-        <div>
-          <span style="font-weight: 500;">${deal.account}</span>
-          ${deal.eudiaTech ? '<span class="badge badge-eudia" style="margin-left: 4px;">Eudia Tech</span>' : ''}
-          <div style="font-size: 0.6rem; color: #9ca3af;">${deal.serviceLine || 'Other'}${deal.owner ? ' • ' + deal.owner.split(' ')[0] : ''}</div>
-        </div>
-        <div style="font-weight: 600; color: #16a34a;">${fmt(deal.acv)}</div>
-      </div>
-    `).join('')}
+    <!-- Combined Closed Revenue - sorted by ACV -->
+    ${(() => {
+      const allClosedDeals = [
+        ...eudiaRevenueDeals.map(d => ({ ...d, name: d.accountName, product: d.product || d.oppName, isLegacy: false })),
+        ...jhClosedDeals.map(d => ({ ...d, name: d.account, product: d.serviceLine || 'Other', isLegacy: true }))
+      ].sort((a, b) => (b.acv || 0) - (a.acv || 0)).slice(0, 12);
+      
+      if (allClosedDeals.length === 0) {
+        return '<div style="margin-top: 8px; font-size: 0.75rem; color: #9ca3af;">No revenue deals closed</div>';
+      }
+      
+      return allClosedDeals.map(deal => {
+        const legacyDot = deal.isLegacy ? ' <span style="color: #9ca3af;">•</span>' : '';
+        const techBadge = deal.eudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-left: 4px; vertical-align: middle;"></span>' : '';
+        return '<div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">' +
+          '<div>' +
+            '<span style="font-weight: 500;">' + deal.name + '</span>' + legacyDot + techBadge +
+            '<div style="font-size: 0.6rem; color: #9ca3af;">' + (deal.product || '') + '</div>' +
+          '</div>' +
+          '<div style="font-weight: 600; color: #16a34a;">' + fmt(deal.acv) + '</div>' +
+        '</div>';
+      }).join('');
+    })()}
   </div>
   
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <!-- EUDIA ACTIVE PIPELINE BY PRODUCT LINE (Expandable) -->
+  <!-- ACTIVE PIPELINE BY PRODUCT/SERVICE (Consolidated) -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">Eudia Active Pipeline by Product</div>
+    <div class="stage-title">Active Pipeline by Product/Service</div>
     <div class="stage-subtitle">Click to view top 5 opportunities</div>
     <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
-      ${Object.entries(productBreakdown)
-        .sort((a, b) => b[1].totalACV - a[1].totalACV)
-        .slice(0, 8)
-        .map(([prod, data]) => {
-          // Get top 5 opportunities for this product line with full details
-          const prodOpps = Array.from(accountMap.values()).flatMap(acc => 
-            acc.opportunities.filter(o => o.Product_Line__c === prod).map(o => {
-              // Extract clean stage label (e.g., "Stage 2 - SQO" → "Stage 2 - SQO")
-              const stageMatch = o.StageName ? o.StageName.match(/Stage\\s*(\\d)\\s*[-–]?\\s*(.*)/i) : null;
-              const stageLabel = stageMatch ? 'Stage ' + stageMatch[1] + (stageMatch[2] ? ' - ' + stageMatch[2].trim() : '') : (o.StageName || 'TBD');
-              // Get owner first name
-              const ownerName = o.Owner?.Name ? o.Owner.Name.split(' ')[0] : '';
-              // Format target date
-              const targetDate = o.Target_LOI_Date__c ? new Date(o.Target_LOI_Date__c).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-              // For Gov-DOD accounts, extract company from opp name
-              let displayName = acc.name;
-              if (acc.name && acc.name.toLowerCase().includes('gov') && acc.name.toLowerCase().includes('dod')) {
-                const oppName = o.Name || '';
-                const dashIdx = oppName.indexOf(' - ');
-                if (dashIdx > 0) displayName = oppName.substring(0, dashIdx);
-              }
-              return {
-                account: displayName,
-                acv: o.ACV__c || 0,
-                stageLabel: stageLabel,
-                owner: ownerName,
-                targetDate: targetDate
-              };
-            })
-          ).sort((a, b) => b.acv - a.acv).slice(0, 5);
-          
-          return '<details style="flex: 0 0 auto;">' +
-            '<summary style="background: #eff6ff; padding: 6px 10px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; list-style: none;">' +
-              '<div style="font-weight: 600; color: #1e40af;">' + prod + ' ▾</div>' +
-              '<div style="color: #6b7280;">' + data.count + ' opps • ' + fmt(data.totalACV) + '</div>' +
-            '</summary>' +
-            '<div style="background: #eff6ff; padding: 6px 10px; border-radius: 0 0 4px 4px; margin-top: -4px; font-size: 0.65rem;">' +
-              prodOpps.map(o => {
-                const af = o.acv >= 1000000 ? '$' + (o.acv / 1000000).toFixed(1) + 'm' : '$' + (o.acv / 1000).toFixed(0) + 'k';
-                const details = [o.stageLabel, o.owner, o.targetDate].filter(x => x).join(' • ');
-                return '<div style="padding: 3px 0; border-bottom: 1px solid #dbeafe;">' +
-                  '<div style="display: flex; justify-content: space-between;">' +
-                    '<span style="font-weight: 500; color: #374151;">' + o.account + '</span>' +
-                    '<span style="font-weight: 600; color: #1e40af;">' + af + '</span>' +
-                  '</div>' +
-                  '<div style="font-size: 0.6rem; color: #6b7280;">' + details + '</div>' +
-                '</div>';
-              }).join('') +
-            '</div>' +
-          '</details>';
-        }).join('')}
-    </div>
-  </div>
-  
-  <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <!-- PIPELINE BY SERVICE LINE (LEGACY) -->
-  <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">Pipeline by Service Line <span style="color: #9ca3af; font-weight: 400;">•</span></div>
-    <div class="stage-subtitle">Click to view top 5 opportunities</div>
-    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
-      ${Object.entries(jhServiceLines)
-        .sort((a, b) => b[1].acv - a[1].acv)
-        .slice(0, 8)
-        .map(([sl, data]) => {
-          // Get top 5 opportunities for this service line with full details
-          const slOpps = jhAccounts.flatMap(acc => 
-            acc.opportunities.filter(o => o.mappedServiceLine === sl).map(o => {
-              // Extract clean stage label
-              const stageMatch = o.stage ? o.stage.match(/Stage\\s*(\\d)\\s*[-–]?\\s*(.*)/i) : null;
-              const stageLabel = stageMatch ? 'Stage ' + stageMatch[1] + (stageMatch[2] ? ' - ' + stageMatch[2].trim() : '') : (o.stage || 'TBD');
-              // Get owner first name
-              const ownerName = o.owner ? o.owner.split(' ')[0] : '';
-              // Format target date
-              const targetDate = o.closeDate ? new Date(o.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-              return {
-                account: acc.name,
-                acv: o.acv || 0,
-                stageLabel: stageLabel,
-                owner: ownerName,
-                targetDate: targetDate
-              };
-            })
-          ).sort((a, b) => b.acv - a.acv).slice(0, 5);
-          
-          return '<details style="flex: 0 0 auto;">' +
-            '<summary style="background: #fef3c7; padding: 6px 10px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; list-style: none;">' +
-              '<div style="font-weight: 600; color: #92400e;">' + sl + ' ▾</div>' +
-              '<div style="color: #6b7280;">' + data.count + ' opps • ' + fmt(data.acv) + '</div>' +
-            '</summary>' +
-            '<div style="background: #fef3c7; padding: 6px 10px; border-radius: 0 0 4px 4px; margin-top: -4px; font-size: 0.65rem;">' +
-              slOpps.map(o => {
-                const af = o.acv >= 1000000 ? '$' + (o.acv / 1000000).toFixed(1) + 'm' : '$' + (o.acv / 1000).toFixed(0) + 'k';
-                const details = [o.stageLabel, o.owner, o.targetDate].filter(x => x).join(' • ');
-                return '<div style="padding: 3px 0; border-bottom: 1px solid #fde68a;">' +
-                  '<div style="display: flex; justify-content: space-between;">' +
-                    '<span style="font-weight: 500; color: #374151;">' + o.account + '</span>' +
-                    '<span style="font-weight: 600; color: #92400e;">' + af + '</span>' +
-                  '</div>' +
-                  '<div style="font-size: 0.6rem; color: #6b7280;">' + details + '</div>' +
-                '</div>';
-              }).join('') +
-            '</div>' +
-          '</details>';
-        }).join('')}
+      ${(() => {
+        // Combine product and service line data
+        const combinedBreakdown = {};
+        
+        // Add product lines from Eudia
+        Object.entries(productBreakdown).forEach(([prod, data]) => {
+          combinedBreakdown[prod] = { 
+            count: data.count, 
+            acv: data.totalACV, 
+            source: 'product',
+            opps: Array.from(accountMap.values()).flatMap(acc => 
+              acc.opportunities.filter(o => o.Product_Line__c === prod).map(o => {
+                const stageMatch = o.StageName ? o.StageName.match(/Stage\\s*(\\d)\\s*[-–]?\\s*(.*)/i) : null;
+                const stageLabel = stageMatch ? 'Stage ' + stageMatch[1] + (stageMatch[2] ? ' - ' + stageMatch[2].trim() : '') : (o.StageName || 'TBD');
+                const ownerName = o.Owner?.Name ? o.Owner.Name.split(' ')[0] : '';
+                const targetDate = o.Target_LOI_Date__c ? new Date(o.Target_LOI_Date__c).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
+                let displayName = acc.name;
+                if (acc.name && acc.name.toLowerCase().includes('gov') && acc.name.toLowerCase().includes('dod')) {
+                  const oppName = o.Name || '';
+                  const dashIdx = oppName.indexOf(' - ');
+                  if (dashIdx > 0) displayName = oppName.substring(0, dashIdx);
+                }
+                return { account: displayName, acv: o.ACV__c || 0, stageLabel, owner: ownerName, targetDate, isLegacy: false };
+              })
+            ).sort((a, b) => b.acv - a.acv).slice(0, 5)
+          };
+        });
+        
+        // Add service lines from JH (with • indicator)
+        Object.entries(jhServiceLines).forEach(([sl, data]) => {
+          const label = sl + ' •';
+          combinedBreakdown[label] = { 
+            count: data.count, 
+            acv: data.acv, 
+            source: 'service',
+            opps: jhAccounts.flatMap(acc => 
+              acc.opportunities.filter(o => o.mappedServiceLine === sl).map(o => {
+                const stageMatch = o.stage ? o.stage.match(/Stage\\s*(\\d)\\s*[-–]?\\s*(.*)/i) : null;
+                const stageLabel = stageMatch ? 'Stage ' + stageMatch[1] + (stageMatch[2] ? ' - ' + stageMatch[2].trim() : '') : (o.stage || 'TBD');
+                const ownerName = o.owner ? o.owner.split(' ')[0] : '';
+                const targetDate = o.closeDate ? new Date(o.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
+                return { account: acc.name, acv: o.acv || 0, stageLabel, owner: ownerName, targetDate, isLegacy: true };
+              })
+            ).sort((a, b) => b.acv - a.acv).slice(0, 5)
+          };
+        });
+        
+        return Object.entries(combinedBreakdown)
+          .sort((a, b) => b[1].acv - a[1].acv)
+          .slice(0, 12)
+          .map(([name, data]) => {
+            const isLegacy = data.source === 'service';
+            const bgColor = isLegacy ? '#f3f4f6' : '#eff6ff';
+            const textColor = isLegacy ? '#374151' : '#1e40af';
+            const borderColor = isLegacy ? '#e5e7eb' : '#dbeafe';
+            
+            return '<details style="flex: 0 0 auto;">' +
+              '<summary style="background: ' + bgColor + '; padding: 6px 10px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; list-style: none;">' +
+                '<div style="font-weight: 600; color: ' + textColor + ';">' + name + ' ▾</div>' +
+                '<div style="color: #6b7280;">' + data.count + ' opps • ' + fmt(data.acv) + '</div>' +
+              '</summary>' +
+              '<div style="background: ' + bgColor + '; padding: 6px 10px; border-radius: 0 0 4px 4px; margin-top: -4px; font-size: 0.65rem;">' +
+                data.opps.map(o => {
+                  const af = o.acv >= 1000000 ? '$' + (o.acv / 1000000).toFixed(1) + 'm' : '$' + (o.acv / 1000).toFixed(0) + 'k';
+                  const details = [o.stageLabel, o.owner, o.targetDate].filter(x => x).join(' • ');
+                  return '<div style="padding: 3px 0; border-bottom: 1px solid ' + borderColor + ';">' +
+                    '<div style="display: flex; justify-content: space-between;">' +
+                      '<span style="font-weight: 500; color: #374151;">' + o.account + '</span>' +
+                      '<span style="font-weight: 600; color: ' + textColor + ';">' + af + '</span>' +
+                    '</div>' +
+                    '<div style="font-size: 0.6rem; color: #6b7280;">' + details + '</div>' +
+                  '</div>';
+                }).join('') +
+              '</div>' +
+            '</details>';
+          }).join('');
+      })()}
     </div>
   </div>
 </div>`;
@@ -807,39 +602,39 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Opportunities with December Sign Date - Side by Side (2 equal tiles) -->
+    <!-- Opportunities with December Sign Date - Consolidated -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title">Opportunities with December Target Sign Date</div>
-      <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; align-items: stretch;">
-        <!-- Eudia - 50% width -->
-        <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
-          <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">EUDIA (${decemberOpps.length} opps)</div>
-          <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5; flex: 1;">
-            ${decemberOpps.slice(0, 5).map((o, i) => `<li>${o.account}, ${fmt(o.acv)}</li>`).join('') || '<li style="color: #9ca3af;">None</li>'}
-          </ol>
-          <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #374151;">Total: ${fmt(decTotalACV)}</div>
-        </div>
-        <!-- Additional Pipeline (Legacy) - 50% width, SAME background -->
-        <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
-          <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">ADDITIONAL PIPELINE <span style="color: #9ca3af; font-weight: 400;">•</span> (27 opps)</div>
-          <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5; flex: 1;">
-            ${(() => {
-              const jhQ4Opps = (jhSummary?.pipeline || []).filter(o => {
-                if (!o.closeDate) return false;
-                const d = new Date(o.closeDate);
-                return (d.getMonth() >= 10 && d.getFullYear() === 2025) || (d.getMonth() === 0 && d.getFullYear() === 2026);
-              }).sort((a, b) => (b.acv || 0) - (a.acv || 0)).slice(0, 5);
-              return jhQ4Opps.map(o => {
-                const d = new Date(o.closeDate);
-                const isNov = d.getMonth() === 10;
-                const novMarker = isNov ? '*' : '';
-                return `<li>${o.account}, ${fmt(o.acv || 0)}${novMarker}</li>`;
-              }).join('') || '<li style="color: #9ca3af;">None</li>';
-            })()}
-          </ol>
-          <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #374151;">Total: $4.3m</div>
-          <div style="font-size: 0.6rem; color: #6b7280; margin-top: 4px; font-style: italic;">* November target sign date</div>
-        </div>
+      <div class="weekly-subsection-title">Opportunities with Q4 Target Sign Date</div>
+      <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-top: 8px;">
+        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">TOP OPPORTUNITIES (${decemberOpps.length + 27} combined)</div>
+        <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5;">
+          ${(() => {
+            // Combine both sources
+            const jhQ4Opps = (jhSummary?.pipeline || []).filter(o => {
+              if (!o.closeDate) return false;
+              const d = new Date(o.closeDate);
+              return (d.getMonth() >= 10 && d.getFullYear() === 2025) || (d.getMonth() === 0 && d.getFullYear() === 2026);
+            }).map(o => ({
+              account: o.account,
+              acv: o.acv || 0,
+              isLegacy: true,
+              isNov: new Date(o.closeDate).getMonth() === 10
+            }));
+            
+            const allQ4 = [
+              ...decemberOpps.map(o => ({ account: o.account, acv: o.acv, isLegacy: false, isNov: false })),
+              ...jhQ4Opps
+            ].sort((a, b) => b.acv - a.acv).slice(0, 10);
+            
+            return allQ4.map(o => {
+              const legacyDot = o.isLegacy ? ' •' : '';
+              const novMarker = o.isNov ? '*' : '';
+              return '<li>' + o.account + legacyDot + ', ' + fmt(o.acv) + novMarker + '</li>';
+            }).join('') || '<li style="color: #9ca3af;">None</li>';
+          })()}
+        </ol>
+        <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #374151;">Total: ${fmt(decTotalACV + 4300000)}</div>
+        <div style="font-size: 0.6rem; color: #6b7280; margin-top: 4px;"><span style="color: #9ca3af;">•</span> = legacy acquisition | * = November target</div>
       </div>
     </div>
     
@@ -885,31 +680,21 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Current Logos by Entity (pre-expanded, horizontal) -->
+    <!-- Current Logos (Consolidated) -->
     <div class="weekly-subsection" style="margin-top: 16px;">
-      <div class="weekly-subsection-title">Current Logos by Entity</div>
+      <div class="weekly-subsection-title">Current Logos (${currentLogosCount + 35 + 1} total)</div>
       <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; align-items: flex-start;">
-        <!-- Eudia Logos (pre-expanded) -->
-        <details open style="flex: 1; min-width: 200px;">
+        <!-- All Eudia Logos (pre-expanded) -->
+        <details open style="flex: 1; min-width: 280px;">
           <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; padding: 6px 10px; background: #f9fafb; border-radius: 4px 4px 0 0;">
-            Eudia (${currentLogosCount})
+            Eudia (${currentLogosCount + 35})
           </summary>
           <div style="font-size: 0.65rem; color: #374151; line-height: 1.4; padding: 8px 10px; background: #f9fafb; border-radius: 0 0 4px 4px;">
-            ${allLogos.sort().join(', ')}
+            ${allLogos.sort().join(', ')}, ACS •, Airbnb •, Airship •, Aryza •, BOI •, Coimisiún na Meán •, Coillte •, Coleman Legal •, CommScope •, Consensys •, Creed McStay •, Datalex •, DCEDIY •, Dropbox •, ESB •, Etsy •, Gilead •, Glanbia •, Hayes •, Indeed •, Irish Water •, Kellanova •, Kingspan •, Northern Trust •, NTMA •, OpenAI •, Orsted •, Perrigo •, Sisk •, Stripe •, Taoglas •, Teamwork •, TikTok •, Tinder •, Udemy •
           </div>
         </details>
         
-        <!-- Legacy Acquisition Logos (pre-expanded) -->
-        <details open style="flex: 1; min-width: 200px;">
-          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; padding: 6px 10px; background: #f3f4f6; border-radius: 4px 4px 0 0;">
-            Additional Logos <span style="color: #9ca3af; font-weight: 400;">•</span> (35)
-          </summary>
-          <div style="font-size: 0.65rem; color: #374151; line-height: 1.4; padding: 8px 10px; background: #f3f4f6; border-radius: 0 0 4px 4px;">
-            ACS, Airbnb, Airship, Aryza, BOI, Coimisiún na Meán, Coillte, Coleman Legal, CommScope, Consensys, Creed McStay, Datalex, DCEDIY, Dropbox, ESB, Etsy, Gilead, Glanbia, Hayes, Indeed, Irish Water, Kellanova, Kingspan, Northern Trust, NTMA, OpenAI, Orsted, Perrigo, Sisk, Stripe, Taoglas, Teamwork, TikTok, Tinder, Udemy
-          </div>
-        </details>
-        
-        <!-- Out-House Logos (pre-expanded) -->
+        <!-- Out-House Logos -->
         <details open style="flex: 0 0 auto; min-width: 120px;">
           <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #9ca3af; padding: 6px 10px; background: #f3f4f6; border-radius: 4px 4px 0 0;">
             Out-House (1)
@@ -919,16 +704,15 @@ function generateWeeklyTab(params) {
           </div>
         </details>
       </div>
+      <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;"><span style="color: #9ca3af;">•</span> = legacy acquisition</div>
     </div>
   </div>
 
-  <!-- SECTION 2: GROSS PIPELINE BREAKDOWN BY ENTITY -->
+  <!-- SECTION 2: GROSS PIPELINE BREAKDOWN -->
   <div class="weekly-section">
-    <div class="weekly-section-title">2. Gross Pipeline Breakdown by Entity</div>
+    <div class="weekly-section-title">2. Gross Pipeline Breakdown</div>
     
     <ul class="weekly-list">
-      <li><strong>Eudia:</strong> ${fmt(totalGross)} Gross || ${fmt(totalWeighted)} Weighted || ${totalDeals} opportunities</li>
-      <li><strong>Legacy Acquisition <span style="color: #9ca3af;">•</span>:</strong> ${fmt(jhSummary?.totalPipeline || 0)} || ${fmt(jhSummary?.totalWeighted || 0)} Weighted || ${jhSummary?.totalOpportunities || 0} opportunities</li>
       <li><strong>Total Gross Pipeline:</strong> ${fmt((totalGross || 0) + (jhSummary?.totalPipeline || 0))} || ${fmt((totalWeighted || 0) + (jhSummary?.totalWeighted || 0))} Weighted || ${(totalDeals || 0) + (jhSummary?.totalOpportunities || 0)} opportunities</li>
     </ul>
     
@@ -972,53 +756,42 @@ function generateWeeklyTab(params) {
       <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 4px; font-style: italic;">Baseline: Last week's combined Eudia + JH totals (Dec 5, 2025)</div>
     </div>
     
-    <!-- New Opportunities Added This Week -->
+    <!-- New Opportunities Added This Week - Consolidated -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title">Eudia new opportunities added this week: ${newOppsThisWeek.length} opportunities, +${fmt(newOppsTotal)} ACV</div>
+      <div class="weekly-subsection-title">New opportunities added this week: ${newOppsThisWeek.length + 1} opportunities, +${fmt(newOppsTotal + 70000)} ACV</div>
       <div style="font-size: 0.75rem; color: #374151; margin-top: 8px;">
-        <strong>Companies:</strong> ${newOppsThisWeek.map(o => {
-          // Add note for DECA/Army split opportunity
+        <strong>Companies:</strong> ${[...newOppsThisWeek.map(o => {
           if (o.accountName?.includes('DOD') && o.oppName?.toLowerCase().includes('deca')) {
-            return o.accountName + ' <span style="font-size: 0.65rem; color: #6b7280;">(split from bundled opp - potential Phase 0 EOY)</span>';
+            return o.accountName + ' <span style="font-size: 0.65rem; color: #6b7280;">(split from bundled opp)</span>';
           }
           return o.accountName;
-        }).join(', ') || 'None'}
+        }), 'Version1 <span style="color: #9ca3af;">•</span>'].join(', ') || 'None'}
       </div>
-    </div>
-    
-    <!-- Legacy Acquisition New Opps -->
-    <div class="weekly-subsection">
-      <div class="weekly-subsection-title">Additional new opportunities <span style="color: #9ca3af;">•</span>: 1 opportunity, +$70k ACV</div>
-      <div style="font-size: 0.75rem; color: #374151; margin-top: 8px;">
-        <strong>Companies:</strong> Version1 (Contracting-BAU, Tom Clancy)
-      </div>
+      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 4px;"><span style="color: #9ca3af;">•</span> = legacy acquisition</div>
     </div>
   </div>
 
-  <!-- SECTION 3: DEALS IMPACTING THE FORECAST (T10) - Side by Side -->
+  <!-- SECTION 3: DEALS IMPACTING THE FORECAST (T10) - Consolidated -->
   <div class="weekly-section">
-    <div class="weekly-section-title">3. Deals Impacting the Forecast (T10)</div>
-    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-      <!-- Eudia -->
-      <div style="flex: 1; min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px;">
-        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.8rem;">EUDIA</div>
-        <ol class="weekly-list" style="font-size: 0.75rem; margin: 0; padding-left: 16px;">
-          ${top10.map((o, i) => `<li>${o.account} | ${fmt(o.acv)}</li>`).join('')}
-        </ol>
-        <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #059669;">Total: ${fmt(top10Total)}</div>
-      </div>
-      <!-- Legacy Acquisition Pipeline -->
-      <div style="flex: 1; min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px;">
-        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.8rem;">ADDITIONAL <span style="color: #9ca3af; font-weight: 400;">•</span></div>
-        <ol class="weekly-list" style="font-size: 0.75rem; margin: 0; padding-left: 16px;">
-          ${(() => {
-            const jhPipeline = jhSummary?.pipeline || [];
-            const jhTop10 = [...jhPipeline].sort((a, b) => (b.acv || 0) - (a.acv || 0)).slice(0, 10);
-            return jhTop10.map(o => `<li>${o.account} | ${fmt(o.acv)}</li>`).join('') || '<li style="color: #9ca3af;">No data</li>';
-          })()}
-        </ol>
-        <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #374151;">Total: $3.5m</div>
-      </div>
+    <div class="weekly-section-title">3. Top Deals Impacting the Forecast</div>
+    <div style="background: #f9fafb; border-radius: 8px; padding: 12px;">
+      <ol class="weekly-list" style="font-size: 0.75rem; margin: 0; padding-left: 16px;">
+        ${(() => {
+          // Combine and sort all opportunities by ACV
+          const jhPipeline = jhSummary?.pipeline || [];
+          const allDeals = [
+            ...top10.map(o => ({ account: o.account, acv: o.acv, isLegacy: false })),
+            ...jhPipeline.slice(0, 10).map(o => ({ account: o.account, acv: o.acv || 0, isLegacy: true }))
+          ].sort((a, b) => b.acv - a.acv).slice(0, 15);
+          
+          return allDeals.map(o => {
+            const legacyDot = o.isLegacy ? ' <span style="color: #9ca3af;">•</span>' : '';
+            return '<li>' + o.account + legacyDot + ' | ' + fmt(o.acv) + '</li>';
+          }).join('');
+        })()}
+      </ol>
+      <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #374151;">Combined Total: ${fmt(top10Total + 3500000)}</div>
+      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 4px;"><span style="color: #9ca3af;">•</span> = legacy acquisition</div>
     </div>
   </div>
 
@@ -2346,52 +2119,26 @@ document.addEventListener('DOMContentLoaded', function() {
   setupExpandCollapse(showMoreMid, 'mid-stage-list', 'summary-expandable', 5);
   setupExpandCollapse(showMoreEarly, 'early-stage-list', 'summary-expandable', 5);
   
-  // Top Co tab - Eudia accounts expand/collapse
-  const showMoreEudiaTopco = document.getElementById('show-more-eudia-topco');
-  if (showMoreEudiaTopco) {
-    let eudiaExpanded = false;
-    const allEudiaTopco = document.querySelectorAll('.eudia-topco-account');
-    const eudiaCount = allEudiaTopco.length;
-    showMoreEudiaTopco.addEventListener('click', function() {
-      if (!eudiaExpanded) {
-        allEudiaTopco.forEach(acc => acc.style.display = 'block');
+  // Top Co tab - Consolidated accounts expand/collapse
+  const showMoreTopco = document.getElementById('show-more-topco');
+  if (showMoreTopco) {
+    let topcoExpanded = false;
+    const allTopcoAccounts = document.querySelectorAll('.topco-account');
+    const topcoCount = allTopcoAccounts.length;
+    showMoreTopco.addEventListener('click', function() {
+      if (!topcoExpanded) {
+        allTopcoAccounts.forEach(acc => acc.style.display = 'block');
         this.textContent = '▲ Collapse to top 10';
         this.style.background = '#fef3c7';
         this.style.color = '#92400e';
-        eudiaExpanded = true;
-        // Scroll to top of section
+        topcoExpanded = true;
         this.scrollIntoView({ behavior: 'smooth', block: 'end' });
       } else {
-        allEudiaTopco.forEach((acc, idx) => acc.style.display = idx < 10 ? 'block' : 'none');
-        this.textContent = '+' + (eudiaCount - 10) + ' more accounts';
+        allTopcoAccounts.forEach((acc, idx) => acc.style.display = idx < 10 ? 'block' : 'none');
+        this.textContent = '+' + (topcoCount - 10) + ' more accounts';
         this.style.background = '#eff6ff';
         this.style.color = '#1e40af';
-        eudiaExpanded = false;
-      }
-    });
-  }
-  
-  // Top Co tab - JH accounts expand/collapse
-  const showMoreJhTopco = document.getElementById('show-more-jh-topco');
-  if (showMoreJhTopco) {
-    let jhExpanded = false;
-    const allJhTopco = document.querySelectorAll('.jh-topco-account');
-    const jhCount = allJhTopco.length;
-    showMoreJhTopco.addEventListener('click', function() {
-      if (!jhExpanded) {
-        allJhTopco.forEach(acc => acc.style.display = 'block');
-        this.textContent = '▲ Collapse to top 10';
-        this.style.background = '#fef3c7';
-        this.style.color = '#92400e';
-        jhExpanded = true;
-        // Scroll to top of section
-        this.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      } else {
-        allJhTopco.forEach((acc, idx) => acc.style.display = idx < 10 ? 'block' : 'none');
-        this.textContent = '+' + (jhCount - 10) + ' more accounts';
-        this.style.background = '#eff6ff';
-        this.style.color = '#1e40af';
-        jhExpanded = false;
+        topcoExpanded = false;
       }
     });
   }
