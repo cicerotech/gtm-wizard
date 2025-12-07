@@ -733,7 +733,7 @@ function generateWeeklyTab(params) {
         return `
       <div style="display: flex; gap: 8px; margin-top: 8px; margin-bottom: 12px; flex-wrap: wrap;">
         <div style="flex: 1; min-width: 100px; background: #ecfdf5; padding: 10px; border-radius: 6px; text-align: center;">
-          <div style="font-size: 0.6rem; font-weight: 600; color: #047857; margin-bottom: 2px;">TOTAL Q4 PIPELINE</div>
+          <div style="font-size: 0.6rem; font-weight: 600; color: #047857; margin-bottom: 2px;">Q4 PIPELINE</div>
           <div style="font-size: 1.1rem; font-weight: 700; color: #065f46;">${fmt(totalQ4Pipeline)}</div>
         </div>
         <div style="flex: 1; min-width: 100px; background: #eff6ff; padding: 10px; border-radius: 6px; text-align: center;">
@@ -762,21 +762,27 @@ function generateWeeklyTab(params) {
         
         const totalQ4Combined = decemberOpps.length + jhQ4Opps.length;
         
-        const allQ4 = [
-          ...decemberOpps.map(o => ({ account: o.account, acv: o.acv, isLegacy: false, isNov: false })),
+        const allQ4Sorted = [
+          ...decemberOpps.map(o => ({ account: o.account, acv: o.acv, isNov: false })),
           ...jhQ4Opps
-        ].sort((a, b) => b.acv - a.acv).slice(0, 10);
+        ].sort((a, b) => b.acv - a.acv);
+        
+        const top10 = allQ4Sorted.slice(0, 10);
+        const remaining = allQ4Sorted.slice(10);
         
         return '<div style="background: #f9fafb; border-radius: 8px; padding: 12px;">' +
-          '<div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">TOP OPPORTUNITIES (' + totalQ4Combined + ' combined)</div>' +
-          '<ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5;">' +
-            (allQ4.map(o => {
-              const legacyDot = '';
+          '<div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">TOP OPPORTUNITIES (' + totalQ4Combined + ' total)</div>' +
+          '<ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.4;">' +
+            (top10.map(o => {
               const novMarker = o.isNov ? '*' : '';
-              return '<li>' + o.account + legacyDot + ', ' + fmt(o.acv) + novMarker + '</li>';
+              return '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + novMarker + '</li>';
             }).join('') || '<li style="color: #9ca3af;">None</li>') +
           '</ol>' +
-          '<div style="font-size: 0.6rem; color: #6b7280; margin-top: 8px;">* = November target</div>' +
+          (remaining.length > 0 ? '<details style="margin-top: 6px;"><summary style="cursor: pointer; font-size: 0.65rem; color: #1e40af; font-weight: 600;">+' + remaining.length + ' more opportunities</summary>' +
+            '<ol start="11" style="font-size: 0.65rem; margin: 4px 0 0 0; padding-left: 20px; line-height: 1.4; color: #6b7280;">' +
+              remaining.map(o => '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + (o.isNov ? '*' : '') + '</li>').join('') +
+            '</ol></details>' : '') +
+          '<div style="font-size: 0.55rem; color: #6b7280; margin-top: 6px;">* = November target</div>' +
         '</div>';
       })()}
     </div>
@@ -2112,81 +2118,85 @@ ${generateWeeklyTab({
   </div>
   
   <div class="section-card">
-    <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem;">
+    ${(() => {
+      // Combine Eudia contracts with JH + Out-House November ARR
+      const allRevenue = [];
+      
+      // Add Eudia contracts
+      Array.from(contractsByAccount.entries())
+        .filter(([name, data]) => data.totalARR > 0 || data.totalProject > 0)
+        .forEach(([name, data]) => {
+          const hasLOIHistory = accountsWithLOIHistory.has(name);
+          const isPending = data.pending;
+          allRevenue.push({
+            name,
+            arr: data.totalARR,
+            project: data.totalProject,
+            indicator: isPending ? ' *' : (hasLOIHistory ? ' †' : '')
+          });
+        });
+      
+      // Add JH November ARR accounts
+      Object.entries(jhNovemberARR).forEach(([name, arr]) => {
+        allRevenue.push({ name, arr, project: 0, indicator: '' });
+      });
+      
+      // Add Out-House November ARR accounts (Meta)
+      Object.entries(outHouseNovemberARR).forEach(([name, arr]) => {
+        allRevenue.push({ name, arr, project: 0, indicator: ' ◊' });
+      });
+      
+      // Sort by ARR
+      const sorted = allRevenue.sort((a, b) => b.arr - a.arr);
+      const top15 = sorted.slice(0, 15);
+      const rest = sorted.slice(15);
+      
+      const renderRow = (item) => `<tr style="border-bottom: 1px solid #f1f3f5;"><td style="padding: 4px 4px; font-size: 0.7rem;">${item.name}${item.indicator}</td><td style="padding: 4px 4px; text-align: right; font-size: 0.7rem;">${formatCurrency(item.arr)}</td></tr>`;
+      
+      return `
+    <table style="width: 100%; border-collapse: collapse;">
       <thead>
         <tr style="border-bottom: 2px solid #e5e7eb; text-align: left;">
-          <th style="padding: 8px 4px; font-weight: 600;">Account</th>
-          <th style="padding: 8px 4px; font-weight: 600; text-align: right;">Nov ARR</th>
-          <th style="padding: 8px 4px; font-weight: 600; text-align: right;">Project</th>
+          <th style="padding: 6px 4px; font-weight: 600; font-size: 0.7rem;">Account</th>
+          <th style="padding: 6px 4px; font-weight: 600; text-align: right; font-size: 0.7rem;">Nov ARR</th>
         </tr>
       </thead>
       <tbody>
-        ${(() => {
-          // Combine Eudia contracts with JH + Out-House November ARR
-          const allRevenue = [];
-          
-          // Add Eudia contracts
-          Array.from(contractsByAccount.entries())
-            .filter(([name, data]) => data.totalARR > 0 || data.totalProject > 0)
-            .forEach(([name, data]) => {
-              const hasLOIHistory = accountsWithLOIHistory.has(name);
-              const isPending = data.pending;
-              allRevenue.push({
-                name,
-                arr: data.totalARR,
-                project: data.totalProject,
-                indicator: isPending ? ' *' : (hasLOIHistory ? ' †' : '')
-              });
-            });
-          
-          // Add JH November ARR accounts
-          Object.entries(jhNovemberARR).forEach(([name, arr]) => {
-            allRevenue.push({
-              name,
-              arr,
-              project: 0,
-              indicator: ''
-            });
-          });
-          
-          // Add Out-House November ARR accounts (Meta)
-          Object.entries(outHouseNovemberARR).forEach(([name, arr]) => {
-            allRevenue.push({
-              name,
-              arr,
-              project: 0,
-              indicator: ' ◊'
-            });
-          });
-          
-          // Sort by ARR
-          return allRevenue
-            .sort((a, b) => b.arr - a.arr)
-            .slice(0, 50)
-            .map(item => `
-        <tr style="border-bottom: 1px solid #f1f3f5;">
-          <td style="padding: 6px 4px;">${item.name}${item.indicator}</td>
-          <td style="padding: 6px 4px; text-align: right;">${formatCurrency(item.arr)}</td>
-          <td style="padding: 6px 4px; text-align: right;">${item.project > 0 ? formatCurrency(item.project) : '-'}</td>
-        </tr>`).join('');
-        })()}
+        ${top15.map(renderRow).join('')}
       </tbody>
-      <tfoot>
-        <tr style="border-top: 2px solid #e5e7eb; font-weight: 600;">
-          <td style="padding: 8px 4px;">TOTAL</td>
-          <td style="padding: 8px 4px; text-align: right;">${formatCurrency(recurringTotal + jhNovemberARRTotal + outHouseNovemberARRTotal)}</td>
-          <td style="padding: 8px 4px; text-align: right;">${formatCurrency(projectTotal)}</td>
-        </tr>
-      </tfoot>
     </table>
-    <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 6px;">* Awaiting contract &nbsp;† Signed LOI before converting &nbsp;◊ Out-House</div>
-    ${contractsByAccount.size === 0 && Object.keys(jhNovemberARR).length === 0 ? '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No active contracts</div>' : ''}
+    ${rest.length > 0 ? `
+    <details style="margin-top: 4px;">
+      <summary style="cursor: pointer; padding: 8px 4px; background: #f3f4f6; border-radius: 4px; font-size: 0.65rem; color: #1e40af; font-weight: 600; text-align: center;">
+        +${rest.length} more accounts (click to expand)
+      </summary>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 4px;">
+        <tbody>${rest.map(renderRow).join('')}</tbody>
+      </table>
+    </details>` : ''}
+    <div style="display: flex; justify-content: space-between; padding: 8px 4px; margin-top: 8px; border-top: 2px solid #e5e7eb; font-weight: 700; font-size: 0.75rem;">
+      <span>TOTAL</span>
+      <span>${formatCurrency(recurringTotal + jhNovemberARRTotal + outHouseNovemberARRTotal)}      </span>
+    </div>`;
+    })()}
+    <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">* Awaiting contract &nbsp;† Signed LOI before converting &nbsp;◊ Out-House</div>
   </div>
 
   <!-- All Closed Won Deals - By Revenue_Type__c -->
+  ${(() => {
+    // Combine EUDIA and JH closed won deals for Revenue section
+    const jhRevenue = closedWonNovDec.map(d => ({
+      accountName: d.account.replace(/ (Ireland|UC|Limited|LLC|Technologies UK Limited|Pharma|Group|International Unlimited Company).*$/i, ''),
+      acv: d.acv,
+      closeDate: d.closeDate || '2025-11-01'
+    }));
+    const combinedRevenue = [...signedByType.revenue, ...jhRevenue].sort((a, b) => new Date(b.closeDate) - new Date(a.closeDate));
+    const combinedRevenueTotal = signedDealsTotal.revenue + jhRevenue.reduce((sum, d) => sum + d.acv, 0);
+    
+    return `
   <div class="stage-section" style="margin-top: 16px;">
     <div class="stage-title">All Closed Won</div>
-    <div class="stage-subtitle">${signedByType.revenue.length} revenue • ${signedByType.pilot.length} pilot • ${signedByType.loi.length} LOI</div>
+    <div class="stage-subtitle">${combinedRevenue.length} revenue • ${signedByType.pilot.length} pilot • ${signedByType.loi.length} LOI</div>
     <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 8px; padding: 8px; background: #f9fafb; border-radius: 4px;">
       <strong>Revenue:</strong> Recurring/ARR subscription contracts &nbsp;|&nbsp;
       <strong>Pilot:</strong> One-time project engagements &nbsp;|&nbsp;
@@ -2195,14 +2205,14 @@ ${generateWeeklyTab({
   </div>
   
   <div class="section-card" style="padding: 0;">
-    ${signedByType.revenue.length > 0 ? `
+    ${combinedRevenue.length > 0 ? `
     <details open style="margin-bottom: 12px;">
       <summary style="background: #059669; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
         <span>REVENUE</span>
-        <span>${formatCurrency(signedDealsTotal.revenue)} • ${signedByType.revenue.length} deal${signedByType.revenue.length !== 1 ? 's' : ''}</span>
+        <span>${formatCurrency(combinedRevenueTotal)} • ${combinedRevenue.length} deal${combinedRevenue.length !== 1 ? 's' : ''}</span>
       </summary>
       <div style="padding: 0 12px 12px 12px; background: #f0fdf4; border-radius: 0 0 6px 6px;">
-      ${signedByType.revenue.slice(0, 5).map(d => `
+      ${combinedRevenue.slice(0, 5).map(d => `
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9f5ec; font-size: 0.75rem;">
           <span style="font-weight: 500;">${d.accountName}</span>
           <div style="display: flex; gap: 12px; align-items: center;">
@@ -2211,10 +2221,10 @@ ${generateWeeklyTab({
           </div>
         </div>
       `).join('')}
-      ${signedByType.revenue.length > 5 ? `
+      ${combinedRevenue.length > 5 ? `
         <details style="margin-top: 4px;">
-          <summary style="font-size: 0.65rem; color: #15803d; cursor: pointer; padding: 4px 0;">+${signedByType.revenue.length - 5} more deals ›</summary>
-          ${signedByType.revenue.slice(5).map(d => `
+          <summary style="font-size: 0.65rem; color: #15803d; cursor: pointer; padding: 4px 0;">+${combinedRevenue.length - 5} more deals ›</summary>
+          ${combinedRevenue.slice(5).map(d => `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9f5ec; font-size: 0.75rem;">
               <span style="font-weight: 500;">${d.accountName}</span>
               <div style="display: flex; gap: 12px; align-items: center;">
@@ -2225,7 +2235,8 @@ ${generateWeeklyTab({
           `).join('')}
         </details>` : ''}
       </div>
-    </details>` : ''}
+    </details>` : ''}`;
+  })()}
     
     ${signedByType.pilot.length > 0 ? `
     <details open style="margin-bottom: 12px;">
