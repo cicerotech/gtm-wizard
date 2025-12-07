@@ -148,6 +148,61 @@ const lastUpdate = {
   source: 'Johnson Hana Pipeline_Weekly_11.11 (updated 12.5)'
 };
 
+// Johnson Hana Signed Logos by Period (from Excel: first revenue appearance = sign month)
+// FY2025 starts August 2024 for JH
+// Accounts with values in column C (1/1/) were signed before FY2025
+const jhSignedLogos = {
+  // FY2024 (signed before Aug 2024) - accounts with values in column C
+  fy2024: [
+    'ACS', 'Airbnb', 'Airship', 'BOI', 'Coimisiún na Meán', 'CommScope', 'Consensys', 
+    'Datalex', 'Dropbox', 'ESB', 'Etsy', 'Gilead', 'Glanbia', 'Indeed', 'Irish Water',
+    'Kellanova', 'Kingspan', 'Northern Trust', 'OpenAI', 'Orsted', 'Perrigo', 'Sisk',
+    'Stripe', 'Taoglas', 'Teamwork', 'TikTok', 'Tinder', 'Udemy', 'Coillte', 'Coleman Legal',
+    'Creed McStay', 'DCEDIY', 'Hayes', 'NTMA'
+  ],
+  // Q1 FY2025 (Aug-Sep 2024)
+  q1fy2025: [],
+  // Q2 FY2025 (Oct-Nov-Dec 2024)
+  q2fy2025: ['Aryza'], // First value in November column
+  // Q3 FY2025 (Jan-Feb-Mar 2025)
+  q3fy2025: [],
+  // Q4 FY2025 (Apr-May-Jun-Jul 2025 - future)
+  q4fy2025: []
+};
+
+/**
+ * Get Johnson Hana signed logos by fiscal period (for blending with EUDIA)
+ */
+function getJHSignedLogosByPeriod() {
+  return {
+    fy2024Total: jhSignedLogos.fy2024.length,
+    q1fy2025: jhSignedLogos.q1fy2025,
+    q2fy2025: jhSignedLogos.q2fy2025,
+    q3fy2025: jhSignedLogos.q3fy2025,
+    q4fy2025: jhSignedLogos.q4fy2025,
+    // Map to EUDIA's period format
+    byPeriod: {
+      'FY2024 Total': jhSignedLogos.fy2024.length,
+      'Q1 FY2025': jhSignedLogos.q1fy2025.length,
+      'Q2 FY2025': jhSignedLogos.q2fy2025.length,
+      'Q3 FY2025': jhSignedLogos.q3fy2025.length,
+      'Q4 FY2025 (to date)': jhSignedLogos.q4fy2025.length
+    },
+    allLogos: [
+      ...jhSignedLogos.fy2024,
+      ...jhSignedLogos.q1fy2025,
+      ...jhSignedLogos.q2fy2025,
+      ...jhSignedLogos.q3fy2025,
+      ...jhSignedLogos.q4fy2025
+    ],
+    total: jhSignedLogos.fy2024.length + 
+           jhSignedLogos.q1fy2025.length + 
+           jhSignedLogos.q2fy2025.length + 
+           jhSignedLogos.q3fy2025.length + 
+           jhSignedLogos.q4fy2025.length
+  };
+}
+
 // Pipeline totals - calculated from activePipeline array (updated 12.5)
 const pipelineTotals = {
   totalRecords: 81,
@@ -296,5 +351,7 @@ module.exports = {
   getJohnsonHanaSummary,
   getOpportunitiesByStage,
   getAccountSummaries,
+  getJHSignedLogosByPeriod,
+  jhSignedLogos,
   lastUpdate
 };
