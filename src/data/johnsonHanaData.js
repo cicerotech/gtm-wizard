@@ -380,8 +380,16 @@ const jhNovemberARR = {
   'NTMA': 170690.99
 };
 
+// Out-House November ARR (Meta - signed Oct 2025)
+const outHouseNovemberARR = {
+  'Meta': 1558000.00
+};
+
 // Total JH November ARR
 const jhNovemberARRTotal = Object.values(jhNovemberARR).reduce((sum, val) => sum + val, 0);
+
+// Total Out-House November ARR
+const outHouseNovemberARRTotal = Object.values(outHouseNovemberARR).reduce((sum, val) => sum + val, 0);
 
 function getJHNovemberARR() {
   return jhNovemberARR;
@@ -407,5 +415,7 @@ module.exports = {
   jhNovemberARR,
   jhNovemberARRTotal,
   getJHNovemberARR,
-  getJHNovemberARRTotal
+  getJHNovemberARRTotal,
+  outHouseNovemberARR,
+  outHouseNovemberARRTotal
 };

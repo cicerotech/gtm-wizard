@@ -1,6 +1,6 @@
 const { query } = require('../salesforce/connection');
 const { cleanStageName } = require('../utils/formatters');
-const { getJohnsonHanaSummary, getAccountSummaries: getJHAccounts, closedWonNovDec, mapStage, lastUpdate: jhLastUpdate, getJHSignedLogosByPeriod, jhSignedLogos, jhNovemberARR, jhNovemberARRTotal } = require('../data/johnsonHanaData');
+const { getJohnsonHanaSummary, getAccountSummaries: getJHAccounts, closedWonNovDec, mapStage, lastUpdate: jhLastUpdate, getJHSignedLogosByPeriod, jhSignedLogos, jhNovemberARR, jhNovemberARRTotal, outHouseNovemberARR, outHouseNovemberARRTotal } = require('../data/johnsonHanaData');
 
 /**
  * Generate password-protected Account Status Dashboard
@@ -781,66 +781,66 @@ function generateWeeklyTab(params) {
       })()}
     </div>
     
-    <!-- Signed Net New Logos + Run-Rate Forecast (matching tile widths + heights) -->
+    <!-- Signed Logos + Run-Rate Forecast (matching tile widths + heights) -->
     <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; align-items: stretch;">
-      <!-- Signed Net New Logos Table - 50% width, same background, same height -->
+      <!-- Signed Logos Table - 50% width, same background, same height -->
       <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
-        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">SIGNED NET NEW LOGOS</div>
+        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">SIGNED LOGOS</div>
         <div style="font-size: 0.75rem;">
-          <!-- FY2024 (calendar year 2024) -->
+          <!-- FY2024 -->
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer; color: #6b7280;">
               <span>FY2024</span>
-              <span style="font-weight: 600;">38</span>
+              <span style="font-weight: 600;">27</span>
             </summary>
             <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
-              ACS, Airbnb, Airship, Aryza, BOI, Cargill, Coimisiún na Meán, Coillte, Coleman Legal, CommScope, Consensys, Creed McStay, Datalex, DCEDIY, Dropbox, ECMS, ESB, Etsy, Gilead, Glanbia, Graybar Electric, Hayes, Indeed, Irish Water, Kellanova, Kingspan, Northern Trust, NTMA, OpenAI, Orsted, Perrigo, Sisk, Southwest Airlines, Stripe, Taoglas, Teamwork, TikTok, Tinder
+              ACS, Airbnb, Airship, BOI, Cargill, Coleman Legal, CommScope, Creed McStay, Datalex, Dropbox, ECMS, ESB, Etsy, Glanbia, Graybar Electric, Hayes, Indeed, Irish Water, Kellanova, NTMA, OpenAI, Southwest Airlines, Stripe, Teamwork, TikTok, Tinder, Udemy
             </div>
           </details>
           <!-- Q1 FY2025 (Feb-Apr 2025) -->
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
               <span>Q1 FY2025</span>
-              <span style="font-weight: 600;">2</span>
+              <span style="font-weight: 600;">8</span>
             </summary>
             <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
-              Coherent, Duracell
+              Coherent, Coillte, Consensys, DCEDIY, Duracell, Gilead, Northern Trust, Sisk
             </div>
           </details>
           <!-- Q2 FY2025 (May-Jul 2025) -->
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
               <span>Q2 FY2025</span>
-              <span style="font-weight: 600;">2</span>
+              <span style="font-weight: 600;">5</span>
             </summary>
             <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
-              Intuit, National Grid
+              Intuit, National Grid, Orsted, Perrigo, Taoglas
             </div>
           </details>
           <!-- Q3 FY2025 (Aug-Oct 2025) -->
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
               <span>Q3 FY2025</span>
-              <span style="font-weight: 600;">15</span>
+              <span style="font-weight: 600;">28</span>
             </summary>
             <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
-              AES, Asana, Bayer, Chevron, CHS, Fresh Del Monte, GE Vernova, Gov - DOD, Novelis, Peregrine Hospitality, Sandbox, The Weir Group PLC, The Wonderful Company, Toshiba US, Wealth Partners Capital Group
+              AES, Amazon, Asana, Bayer, Best Buy, Chevron, CHS, Coimisiún na Meán, Cox Media Group, DHL North America, Dolby, Ecolab, Fresh Del Monte, GE Vernova, Gov - DOD, Kingspan, Meta, Novelis, Peregrine Hospitality, Petsmart, Pure Storage, Sandbox, Tailored Brands, The Weir Group PLC, The Wonderful Company, Toshiba US, Wealth Partners Capital Group, Western Digital
             </div>
           </details>
           <!-- Q4 FY2025 (Nov-Dec 2025 to date) -->
           <details style="border-bottom: 1px solid #e5e7eb; background: #ecfdf5;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
               <span>Q4 FY2025 (to date)</span>
-              <span style="font-weight: 600;">15</span>
+              <span style="font-weight: 600;">6</span>
             </summary>
             <div style="padding: 6px 8px; background: #e9f5ec; font-size: 0.65rem; color: #15803d;">
-              Amazon, Best Buy, BNY Mellon, Cox Media Group, Delinea, DHL North America, Dolby, Ecolab, IQVIA, Petsmart, Pure Storage, Tailored Brands, Udemy Ireland Limited, Western Digital, World Wide Technology
+              Aryza, BNY Mellon, Delinea, IQVIA, Udemy Ireland Limited, World Wide Technology
             </div>
           </details>
           <!-- Total -->
           <div style="display: flex; justify-content: space-between; padding: 8px 4px; font-weight: 700; background: #e5e7eb; margin-top: 4px; border-radius: 4px;">
             <span>Total</span>
-            <span>72</span>
+            <span>74</span>
           </div>
         </div>
         <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Click period to expand</div>
@@ -857,7 +857,7 @@ function generateWeeklyTab(params) {
             <tr><td>August</td><td style="text-align: right;">$17.6m</td></tr>
             <tr><td>September</td><td style="text-align: right;">$18.4m</td></tr>
             <tr><td>October</td><td style="text-align: right;">$19.8m</td></tr>
-            <tr><td>November (EOM)</td><td style="text-align: right;">$19.2m</td></tr>
+            <tr><td>November (EOM)</td><td style="text-align: right;">$19.26m</td></tr>
             <tr style="font-weight: 600; background: #e5e7eb;">
               <td>FY2025E Total</td>
               <td style="text-align: right; color: #111827;">~$22m</td>
@@ -869,23 +869,17 @@ function generateWeeklyTab(params) {
     
     <!-- Current Logos (Consolidated Single Tile) -->
     <div class="weekly-subsection" style="margin-top: 16px;">
-      <div class="weekly-subsection-title">Current Logos (72 total)</div>
+      <div class="weekly-subsection-title">Current Logos (74 total)</div>
       <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-top: 8px;">
         <!-- All Logos -->
-        <details open>
+        <details>
           <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; margin-bottom: 8px;">
-            ▾ All Logos (72)
+            ▸ All Logos (74) - click to expand
           </summary>
-          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 0.65rem; color: #374151;">
-            ${[...allLogos, ...jhSignedLogos.fy2024, ...jhSignedLogos.q1fy2025, ...jhSignedLogos.q2fy2025, ...jhSignedLogos.q3fy2025, ...jhSignedLogos.q4fy2025].sort().map(logo => '<div style="padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + logo + '</div>').join('')}
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 0.65rem; color: #374151; margin-top: 8px;">
+            ${[...allLogos, ...jhSignedLogos.fy2024, ...jhSignedLogos.q1fy2025, ...jhSignedLogos.q2fy2025, ...jhSignedLogos.q3fy2025, ...jhSignedLogos.q4fy2025, 'Meta'].sort().map(logo => '<div style="padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + logo + '</div>').join('')}
           </div>
         </details>
-        
-        <!-- Out-House Section -->
-        <div style="padding-top: 8px; margin-top: 8px; border-top: 1px solid #e5e7eb;">
-          <div style="font-weight: 600; font-size: 0.7rem; color: #9ca3af; margin-bottom: 4px;">Out-House (1)</div>
-          <div style="font-size: 0.65rem; color: #6b7280;">Meta</div>
-        </div>
       </div>
     </div>
   </div>
@@ -2114,7 +2108,7 @@ ${generateWeeklyTab({
   <!-- Active Revenue by Account -->
   <div class="stage-section">
     <div class="stage-title">Active Revenue by Account</div>
-    <div class="stage-subtitle">${contractsByAccount.size + Object.keys(jhNovemberARR).length} accounts • ${formatCurrency(recurringTotal + jhNovemberARRTotal)} total ARR (Nov)</div>
+    <div class="stage-subtitle">${contractsByAccount.size + Object.keys(jhNovemberARR).length + Object.keys(outHouseNovemberARR).length} accounts • ${formatCurrency(recurringTotal + jhNovemberARRTotal + outHouseNovemberARRTotal)} total ARR (Nov)</div>
   </div>
   
   <div class="section-card">
@@ -2128,7 +2122,7 @@ ${generateWeeklyTab({
       </thead>
       <tbody>
         ${(() => {
-          // Combine Eudia contracts with JH November ARR
+          // Combine Eudia contracts with JH + Out-House November ARR
           const allRevenue = [];
           
           // Add Eudia contracts
@@ -2155,10 +2149,20 @@ ${generateWeeklyTab({
             });
           });
           
+          // Add Out-House November ARR accounts (Meta)
+          Object.entries(outHouseNovemberARR).forEach(([name, arr]) => {
+            allRevenue.push({
+              name,
+              arr,
+              project: 0,
+              indicator: ' ◊'
+            });
+          });
+          
           // Sort by ARR
           return allRevenue
             .sort((a, b) => b.arr - a.arr)
-            .slice(0, 45)
+            .slice(0, 50)
             .map(item => `
         <tr style="border-bottom: 1px solid #f1f3f5;">
           <td style="padding: 6px 4px;">${item.name}${item.indicator}</td>
@@ -2170,12 +2174,12 @@ ${generateWeeklyTab({
       <tfoot>
         <tr style="border-top: 2px solid #e5e7eb; font-weight: 600;">
           <td style="padding: 8px 4px;">TOTAL</td>
-          <td style="padding: 8px 4px; text-align: right;">${formatCurrency(recurringTotal + jhNovemberARRTotal)}</td>
+          <td style="padding: 8px 4px; text-align: right;">${formatCurrency(recurringTotal + jhNovemberARRTotal + outHouseNovemberARRTotal)}</td>
           <td style="padding: 8px 4px; text-align: right;">${formatCurrency(projectTotal)}</td>
         </tr>
       </tfoot>
     </table>
-    <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 6px;">* Awaiting contract &nbsp;† Signed LOI before converting</div>
+    <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 6px;">* Awaiting contract &nbsp;† Signed LOI before converting &nbsp;◊ Out-House</div>
     ${contractsByAccount.size === 0 && Object.keys(jhNovemberARR).length === 0 ? '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No active contracts</div>' : ''}
   </div>
 
