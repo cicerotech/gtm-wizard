@@ -104,8 +104,8 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   return `
 <div id="topco" class="tab-content">
   <div style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: #374151;">
-    <strong>Eudia Pipeline Overview</strong> — Combined active pipeline.
-    <span style="color: #9ca3af; margin-left: 8px; font-size: 0.6rem;">• = legacy acquisition data (updated ${jhLastUpdate?.date || 'weekly'})</span>
+    <strong>Pipeline Overview</strong> — All active opportunities combined.
+    <span style="color: #9ca3af; margin-left: 8px; font-size: 0.6rem;">• = legacy acquisition (updated ${jhLastUpdate?.date || 'weekly'})</span>
   </div>
   
   <!-- Combined Metrics -->
@@ -301,12 +301,24 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
     <div class="stage-subtitle">${combinedClosedCount} revenue deals • ${fmt(combinedClosedTotal)} total</div>
     <div style="font-size: 0.6rem; color: #9ca3af; margin-bottom: 6px;">Recurring/ARR deals only. LOI & Pilot excluded.</div>
     
-    <!-- Combined Closed Revenue - sorted by ACV -->
+    <!-- Combined Closed Revenue - sorted by ACV with details -->
     ${(() => {
       const allClosedDeals = [
-        ...eudiaRevenueDeals.map(d => ({ ...d, name: d.accountName, product: d.product || d.oppName, isLegacy: false })),
-        ...jhClosedDeals.map(d => ({ ...d, name: d.account, product: d.serviceLine || 'Other', isLegacy: true }))
-      ].sort((a, b) => (b.acv || 0) - (a.acv || 0)).slice(0, 12);
+        ...eudiaRevenueDeals.map(d => ({ 
+          ...d, 
+          name: d.accountName, 
+          product: d.product || d.oppName, 
+          owner: d.owner || '', 
+          closeDate: d.closeDate,
+          isLegacy: false 
+        })),
+        ...jhClosedDeals.map(d => ({ 
+          ...d, 
+          name: d.account, 
+          product: d.serviceLine || 'Other', 
+          isLegacy: true 
+        }))
+      ].sort((a, b) => (b.acv || 0) - (a.acv || 0)).slice(0, 15);
       
       if (allClosedDeals.length === 0) {
         return '<div style="margin-top: 8px; font-size: 0.75rem; color: #9ca3af;">No revenue deals closed</div>';
@@ -315,12 +327,16 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
       return allClosedDeals.map(deal => {
         const legacyDot = deal.isLegacy ? ' <span style="color: #9ca3af;">•</span>' : '';
         const techBadge = deal.eudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-left: 4px; vertical-align: middle;"></span>' : '';
-        return '<div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">' +
-          '<div>' +
+        const closeDateStr = deal.closeDate ? new Date(deal.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : '';
+        const ownerName = deal.owner ? (deal.owner.split(' ')[0]) : '';
+        const details = [deal.product, ownerName, closeDateStr].filter(x => x).join(' • ');
+        
+        return '<div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">' +
+          '<div style="flex: 1;">' +
             '<span style="font-weight: 500;">' + deal.name + '</span>' + legacyDot + techBadge +
-            '<div style="font-size: 0.6rem; color: #9ca3af;">' + (deal.product || '') + '</div>' +
+            (details ? '<div style="font-size: 0.6rem; color: #6b7280;">' + details + '</div>' : '') +
           '</div>' +
-          '<div style="font-weight: 600; color: #16a34a;">' + fmt(deal.acv) + '</div>' +
+          '<div style="font-weight: 600; color: #16a34a; text-align: right; min-width: 60px;">' + fmt(deal.acv) + '</div>' +
         '</div>';
       }).join('');
     })()}
@@ -329,88 +345,108 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <!-- ACTIVE PIPELINE BY PRODUCT/SERVICE (Consolidated) -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <div class="stage-section" style="margin-top: 16px;">
+  <div class="stage-section" style="margin-top: 24px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
     <div class="stage-title">Active Pipeline by Product/Service</div>
     <div class="stage-subtitle">Click to view top 5 opportunities</div>
-    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
-      ${(() => {
-        // Combine product and service line data
-        const combinedBreakdown = {};
-        
-        // Add product lines from Eudia
-        Object.entries(productBreakdown).forEach(([prod, data]) => {
-          combinedBreakdown[prod] = { 
-            count: data.count, 
-            acv: data.totalACV, 
-            source: 'product',
-            opps: Array.from(accountMap.values()).flatMap(acc => 
-              acc.opportunities.filter(o => o.Product_Line__c === prod).map(o => {
-                const stageMatch = o.StageName ? o.StageName.match(/Stage\\s*(\\d)\\s*[-–]?\\s*(.*)/i) : null;
-                const stageLabel = stageMatch ? 'Stage ' + stageMatch[1] + (stageMatch[2] ? ' - ' + stageMatch[2].trim() : '') : (o.StageName || 'TBD');
-                const ownerName = o.Owner?.Name ? o.Owner.Name.split(' ')[0] : '';
-                const targetDate = o.Target_LOI_Date__c ? new Date(o.Target_LOI_Date__c).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-                let displayName = acc.name;
-                if (acc.name && acc.name.toLowerCase().includes('gov') && acc.name.toLowerCase().includes('dod')) {
-                  const oppName = o.Name || '';
-                  const dashIdx = oppName.indexOf(' - ');
-                  if (dashIdx > 0) displayName = oppName.substring(0, dashIdx);
-                }
-                return { account: displayName, acv: o.ACV__c || 0, stageLabel, owner: ownerName, targetDate, isLegacy: false };
-              })
-            ).sort((a, b) => b.acv - a.acv).slice(0, 5)
-          };
+    
+    ${(() => {
+      // Separate product lines (Eudia) and service lines (legacy)
+      const productTiles = [];
+      const serviceTiles = [];
+      
+      // Process product lines from Eudia
+      Object.entries(productBreakdown)
+        .sort((a, b) => b[1].totalACV - a[1].totalACV)
+        .slice(0, 8)
+        .forEach(([prod, data]) => {
+          const opps = Array.from(accountMap.values()).flatMap(acc => 
+            acc.opportunities.filter(o => o.Product_Line__c === prod).map(o => {
+              const stageMatch = o.StageName ? o.StageName.match(/Stage\\s*(\\d)\\s*[-–]?\\s*(.*)/i) : null;
+              const stageLabel = stageMatch ? 'S' + stageMatch[1] + (stageMatch[2] ? ' ' + stageMatch[2].trim() : '') : (o.StageName || 'TBD');
+              const ownerName = o.Owner?.Name ? o.Owner.Name.split(' ')[0] : '';
+              const targetDate = o.Target_LOI_Date__c ? new Date(o.Target_LOI_Date__c).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
+              let displayName = acc.name;
+              if (acc.name && acc.name.toLowerCase().includes('gov') && acc.name.toLowerCase().includes('dod')) {
+                const oppName = o.Name || '';
+                const dashIdx = oppName.indexOf(' - ');
+                if (dashIdx > 0) displayName = oppName.substring(0, dashIdx);
+              }
+              return { account: displayName, acv: o.ACV__c || 0, stageLabel, owner: ownerName, targetDate };
+            })
+          ).sort((a, b) => b.acv - a.acv).slice(0, 5);
+          
+          productTiles.push({ name: prod, count: data.count, acv: data.totalACV, opps });
         });
-        
-        // Add service lines from JH (with • indicator)
-        Object.entries(jhServiceLines).forEach(([sl, data]) => {
-          const label = sl + ' •';
-          combinedBreakdown[label] = { 
-            count: data.count, 
-            acv: data.acv, 
-            source: 'service',
-            opps: jhAccounts.flatMap(acc => 
-              acc.opportunities.filter(o => o.mappedServiceLine === sl).map(o => {
-                const stageMatch = o.stage ? o.stage.match(/Stage\\s*(\\d)\\s*[-–]?\\s*(.*)/i) : null;
-                const stageLabel = stageMatch ? 'Stage ' + stageMatch[1] + (stageMatch[2] ? ' - ' + stageMatch[2].trim() : '') : (o.stage || 'TBD');
-                const ownerName = o.owner ? o.owner.split(' ')[0] : '';
-                const targetDate = o.closeDate ? new Date(o.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-                return { account: acc.name, acv: o.acv || 0, stageLabel, owner: ownerName, targetDate, isLegacy: true };
-              })
-            ).sort((a, b) => b.acv - a.acv).slice(0, 5)
-          };
+      
+      // Process service lines from JH
+      Object.entries(jhServiceLines)
+        .sort((a, b) => b[1].acv - a[1].acv)
+        .slice(0, 6)
+        .forEach(([sl, data]) => {
+          const opps = jhAccounts.flatMap(acc => 
+            acc.opportunities.filter(o => o.mappedServiceLine === sl).map(o => {
+              const stageMatch = o.stage ? o.stage.match(/Stage\\s*(\\d)\\s*[-–]?\\s*(.*)/i) : null;
+              const stageLabel = stageMatch ? 'S' + stageMatch[1] + (stageMatch[2] ? ' ' + stageMatch[2].trim() : '') : (o.stage || 'TBD');
+              const ownerName = o.owner ? o.owner.split(' ')[0] : '';
+              const targetDate = o.closeDate ? new Date(o.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
+              return { account: acc.name, acv: o.acv || 0, stageLabel, owner: ownerName, targetDate };
+            })
+          ).sort((a, b) => b.acv - a.acv).slice(0, 5);
+          
+          serviceTiles.push({ name: sl + ' •', count: data.count, acv: data.acv, opps });
         });
-        
-        return Object.entries(combinedBreakdown)
-          .sort((a, b) => b[1].acv - a[1].acv)
-          .slice(0, 12)
-          .map(([name, data]) => {
-            const isLegacy = data.source === 'service';
-            const bgColor = isLegacy ? '#f3f4f6' : '#eff6ff';
-            const textColor = isLegacy ? '#374151' : '#1e40af';
-            const borderColor = isLegacy ? '#e5e7eb' : '#dbeafe';
-            
-            return '<details style="flex: 0 0 auto;">' +
-              '<summary style="background: ' + bgColor + '; padding: 6px 10px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; list-style: none;">' +
-                '<div style="font-weight: 600; color: ' + textColor + ';">' + name + ' ▾</div>' +
-                '<div style="color: #6b7280;">' + data.count + ' opps • ' + fmt(data.acv) + '</div>' +
-              '</summary>' +
-              '<div style="background: ' + bgColor + '; padding: 6px 10px; border-radius: 0 0 4px 4px; margin-top: -4px; font-size: 0.65rem;">' +
-                data.opps.map(o => {
-                  const af = o.acv >= 1000000 ? '$' + (o.acv / 1000000).toFixed(1) + 'm' : '$' + (o.acv / 1000).toFixed(0) + 'k';
-                  const details = [o.stageLabel, o.owner, o.targetDate].filter(x => x).join(' • ');
-                  return '<div style="padding: 3px 0; border-bottom: 1px solid ' + borderColor + ';">' +
-                    '<div style="display: flex; justify-content: space-between;">' +
-                      '<span style="font-weight: 500; color: #374151;">' + o.account + '</span>' +
-                      '<span style="font-weight: 600; color: ' + textColor + ';">' + af + '</span>' +
-                    '</div>' +
-                    '<div style="font-size: 0.6rem; color: #6b7280;">' + details + '</div>' +
-                  '</div>';
-                }).join('') +
-              '</div>' +
-            '</details>';
-          }).join('');
-      })()}
-    </div>
+      
+      // Generate HTML for product tiles (blue, on top)
+      const productHTML = productTiles.map(t => 
+        '<details style="flex: 0 0 auto;">' +
+          '<summary style="background: #eff6ff; padding: 6px 10px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; list-style: none;">' +
+            '<div style="font-weight: 600; color: #1e40af;">' + t.name + ' ▾</div>' +
+            '<div style="color: #6b7280;">' + t.count + ' opps • ' + fmt(t.acv) + '</div>' +
+          '</summary>' +
+          '<div style="background: #eff6ff; padding: 6px 10px; border-radius: 0 0 4px 4px; margin-top: -4px; font-size: 0.65rem;">' +
+            t.opps.map(o => {
+              const af = o.acv >= 1000000 ? '$' + (o.acv / 1000000).toFixed(1) + 'm' : '$' + (o.acv / 1000).toFixed(0) + 'k';
+              const details = [o.stageLabel, o.owner, o.targetDate].filter(x => x).join(' • ');
+              return '<div style="padding: 3px 0; border-bottom: 1px solid #dbeafe;">' +
+                '<div style="display: flex; justify-content: space-between;">' +
+                  '<span style="font-weight: 500; color: #374151;">' + o.account + '</span>' +
+                  '<span style="font-weight: 600; color: #1e40af;">' + af + '</span>' +
+                '</div>' +
+                '<div style="font-size: 0.6rem; color: #6b7280;">' + details + '</div>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+        '</details>'
+      ).join('');
+      
+      // Generate HTML for service tiles (gray, below)
+      const serviceHTML = serviceTiles.map(t => 
+        '<details style="flex: 0 0 auto;">' +
+          '<summary style="background: #f3f4f6; padding: 6px 10px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; list-style: none;">' +
+            '<div style="font-weight: 600; color: #374151;">' + t.name + ' ▾</div>' +
+            '<div style="color: #6b7280;">' + t.count + ' opps • ' + fmt(t.acv) + '</div>' +
+          '</summary>' +
+          '<div style="background: #f3f4f6; padding: 6px 10px; border-radius: 0 0 4px 4px; margin-top: -4px; font-size: 0.65rem;">' +
+            t.opps.map(o => {
+              const af = o.acv >= 1000000 ? '$' + (o.acv / 1000000).toFixed(1) + 'm' : '$' + (o.acv / 1000).toFixed(0) + 'k';
+              const details = [o.stageLabel, o.owner, o.targetDate].filter(x => x).join(' • ');
+              return '<div style="padding: 3px 0; border-bottom: 1px solid #e5e7eb;">' +
+                '<div style="display: flex; justify-content: space-between;">' +
+                  '<span style="font-weight: 500; color: #374151;">' + o.account + '</span>' +
+                  '<span style="font-weight: 600; color: #374151;">' + af + '</span>' +
+                '</div>' +
+                '<div style="font-size: 0.6rem; color: #6b7280;">' + details + '</div>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+        '</details>'
+      ).join('');
+      
+      return '<div style="margin-top: 8px;">' +
+        '<div style="display: flex; flex-wrap: wrap; gap: 6px;">' + productHTML + '</div>' +
+        (serviceTiles.length > 0 ? '<div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e5e7eb;">' + serviceHTML + '</div>' : '') +
+      '</div>';
+    })()}
   </div>
 </div>`;
 }
@@ -1555,33 +1591,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <input type="radio" name="tabs" id="tab-account-plans" style="display: none;">
 
 <div class="tabs">
-  <label for="tab-topco" class="tab">Top Co</label>
+  <label for="tab-topco" class="tab">Pipeline</label>
   <label for="tab-weekly" class="tab">Weekly</label>
-  <label for="tab-summary" class="tab">Eudia Summary</label>
+  <label for="tab-summary" class="tab">Business Leads</label>
   <label for="tab-revenue" class="tab">Revenue</label>
-  <label for="tab-account-plans" class="tab">Eudia Accounts</label>
+  <label for="tab-account-plans" class="tab">Accounts</label>
 </div>
 
-<!-- TAB 1: SUMMARY -->
+<!-- TAB 1: BUSINESS LEADS -->
 <div id="summary" class="tab-content">
-  <div class="metrics">
-    <div class="metric">
-      <div class="metric-label">Total Pipeline</div>
-      <div class="metric-value">$${(totalGross / 1000000).toFixed(1)}M</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">Weighted</div>
-      <div class="metric-value">$${(totalWeighted / 1000000).toFixed(1)}M</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">Accounts</div>
-      <div class="metric-value">${accountMap.size}</div>
-      <div class="metric-change">${newLogoCount} new</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">Avg Deal</div>
-      <div class="metric-value">$${(avgDealSize / 1000).toFixed(0)}K</div>
-    </div>
+  <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: #374151;">
+    <strong>Business Lead Pipeline Overview</strong> — Accounts by stage and owner.
+    <span style="color: #9ca3af; font-size: 0.6rem; margin-left: 8px;">• = legacy acquisition (updated weekly)</span>
   </div>
   
   <div class="stage-section">
@@ -1888,6 +1909,11 @@ ${generateWeeklyTab({
 
 <!-- TAB 4: ACCOUNTS -->
 <div id="account-plans" class="tab-content">
+  <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: #374151;">
+    <strong>All Accounts</strong> — Salesforce + legacy acquisition accounts.
+    <span style="color: #9ca3af; font-size: 0.6rem; margin-left: 8px;">• = legacy (updated weekly)</span>
+  </div>
+  
   <!-- Logos by Customer Type (matches badges shown below) -->
   <div style="display: flex; gap: 8px; margin-bottom: 12px;">
     <div style="flex: 1; background: #f0fdf4; padding: 10px; border-radius: 6px; position: relative;">
@@ -1895,9 +1921,12 @@ ${generateWeeklyTab({
         <div style="font-size: 0.65rem; font-weight: 600; color: #16a34a; margin-bottom: 4px;">REVENUE</div>
         <div style="font-size: 0.5rem; color: #6b7280;">† = via LOI</div>
       </div>
-      <div style="font-size: 1.25rem; font-weight: 700; color: #166534;">${logosByType.revenue.length}</div>
+      <div style="font-size: 1.25rem; font-weight: 700; color: #166534;">${logosByType.revenue.length + 35}</div>
       <div style="font-size: 0.6rem; color: #6b7280; margin-top: 2px;">
         ${logosByType.revenue.filter(a => accountsWithLOIHistory.has(a.accountName)).map(a => a.accountName + '†').join(', ')}${logosByType.revenue.filter(a => accountsWithLOIHistory.has(a.accountName)).length > 0 && logosByType.revenue.filter(a => !accountsWithLOIHistory.has(a.accountName)).length > 0 ? '<br><br>' : ''}${logosByType.revenue.filter(a => !accountsWithLOIHistory.has(a.accountName)).map(a => a.accountName).join(', ') || (logosByType.revenue.filter(a => accountsWithLOIHistory.has(a.accountName)).length === 0 ? '-' : '')}
+        <div style="margin-top: 4px; padding-top: 4px; border-top: 1px dashed #16a34a33;">
+          <span style="color: #9ca3af;">Legacy •:</span> ACS, Airbnb, Airship, Aryza, BOI, Coillte, CommScope, Consensys, Datalex, Dropbox, ESB, Etsy, Gilead, Glanbia, Indeed, Irish Water, Kellanova, Kingspan, Northern Trust, NTMA, OpenAI, Orsted, Perrigo, Sisk, Stripe, Taoglas, Teamwork, TikTok, Tinder, Udemy, + 5 more
+        </div>
       </div>
     </div>
     <div style="flex: 1; background: #eff6ff; padding: 10px; border-radius: 6px;">
@@ -1915,7 +1944,7 @@ ${generateWeeklyTab({
   <div class="section-card" style="padding: 12px; margin-bottom: 12px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
       <div class="stage-title" style="margin: 0;">Account Plans & Pipeline</div>
-      <div style="font-size: 0.7rem; color: #6b7280;">${accountsWithPlans} have plans • ${accountMap.size - accountsWithPlans} need plans</div>
+      <div style="font-size: 0.7rem; color: #6b7280;">${accountsWithPlans} have plans</div>
     </div>
     <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.6rem; color: #9ca3af;">
       <span><strong style="color: #16a34a;">Revenue</strong> = ARR customer</span>
@@ -1928,9 +1957,9 @@ ${generateWeeklyTab({
   </div>
   
   <div class="stage-section">
-    <div class="stage-title">All Accounts (${accountMap.size})</div>
-    <input type="text" id="account-search" placeholder="Search accounts..." style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 0.875rem; margin-bottom: 12px;">
-    <div id="match-count" style="font-size: 0.75rem; color: #6b7280; margin-bottom: 8px;">Showing top 10 accounts (type to search all ${accountMap.size})</div>
+    <div class="stage-title">All Accounts (${accountMap.size + jhSummary.uniqueAccounts})</div>
+    <input type="text" id="account-search" placeholder="Search all accounts..." style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 0.875rem; margin-bottom: 12px;">
+    <div id="match-count" style="font-size: 0.75rem; color: #6b7280; margin-bottom: 8px;">Showing top 10 accounts (type to search all ${accountMap.size + jhSummary.uniqueAccounts})</div>
     <div class="account-list">
       ${Array.from(accountMap.values())
         .sort((a, b) => b.totalACV - a.totalACV)
@@ -2012,7 +2041,45 @@ ${generateWeeklyTab({
             '</div>' +
           '</details>';
         }).join('')}
-      <div id="show-more-accounts" class="account-item" style="color: #1e40af; font-weight: 600; cursor: pointer; text-align: center; padding: 12px; background: #eff6ff; border-radius: 6px; margin-top: 8px;">+${accountMap.size - 10} more accounts (click to show all)</div>
+      <!-- JH Accounts (Legacy) -->
+      ${jhAccounts.map((acc, idx) => {
+        const services = [...new Set(acc.opportunities.map(o => o.mappedServiceLine).filter(s => s))];
+        const acvDisplay = acc.totalACV >= 1000000 
+          ? '$' + (acc.totalACV / 1000000).toFixed(1) + 'm' 
+          : acc.totalACV >= 1000 
+            ? '$' + (acc.totalACV / 1000).toFixed(0) + 'k' 
+            : '$' + acc.totalACV.toFixed(0);
+        const eudiaTechBadge = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-left: 4px; vertical-align: middle;"></span>' : '';
+        
+        return '<details class="account-expandable" data-account="' + acc.name.toLowerCase() + '" style="display: none; background: #fff; border-left: 3px solid #9ca3af; padding: 12px; border-radius: 6px; margin-bottom: 8px; cursor: pointer; border: 1px solid #e5e7eb;">' +
+          '<summary style="list-style: none; display: flex; justify-content: space-between; align-items: center;">' +
+            '<div style="flex: 1;">' +
+              '<div style="font-weight: 600; font-size: 0.9375rem; color: #1f2937;">' +
+                acc.name + ' <span style="color: #9ca3af;">•</span>' + eudiaTechBadge +
+              '</div>' +
+              '<div style="font-size: 0.8125rem; color: #6b7280; margin-top: 2px;">' +
+                'S' + acc.highestStage + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') +
+              '</div>' +
+            '</div>' +
+            '<div style="text-align: right;">' +
+              '<div style="font-weight: 600; color: #1f2937;">' + acvDisplay + '</div>' +
+              '<div style="font-size: 0.75rem; color: #6b7280;">Wtd: ' + (acc.weightedACV >= 1000000 ? '$' + (acc.weightedACV / 1000000).toFixed(1) + 'm' : '$' + Math.round(acc.weightedACV / 1000) + 'k') + '</div>' +
+            '</div>' +
+          '</summary>' +
+          '<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 0.8125rem;">' +
+            '<div style="color: #374151; margin-bottom: 4px;"><strong>Services:</strong> ' + (services.join(', ') || 'TBD') + '</div>' +
+            '<div style="color: #374151; margin-top: 6px;"><strong>Opportunities (' + acc.opportunities.length + '):</strong></div>' +
+            acc.opportunities.map(o => { 
+              const av = o.acv || 0; 
+              const af = av >= 1000000 ? '$' + (av / 1000000).toFixed(1) + 'm' : '$' + (av / 1000).toFixed(0) + 'k'; 
+              const stageMatch = o.stage ? o.stage.match(/Stage\\s*(\\d)/) : null;
+              const stageNum = stageMatch ? 'S' + stageMatch[1] : (o.stage || 'TBD');
+              return '<div style="font-size: 0.75rem; color: #6b7280; margin-left: 12px; margin-top: 2px;">• ' + stageNum + ' - ' + (o.mappedServiceLine || 'TBD') + ' - ' + af + (o.owner ? ' (' + o.owner.split(' ')[0] + ')' : '') + '</div>'; 
+            }).join('') +
+          '</div>' +
+        '</details>';
+      }).join('')}
+      <div id="show-more-accounts" class="account-item" style="color: #1e40af; font-weight: 600; cursor: pointer; text-align: center; padding: 12px; background: #eff6ff; border-radius: 6px; margin-top: 8px;">+${accountMap.size + jhAccounts.length - 10} more accounts (click to show all)</div>
     </div>
   </div>
 </div>
