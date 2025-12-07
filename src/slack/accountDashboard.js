@@ -1592,13 +1592,6 @@ async function generateAccountDashboard() {
     }
   });
   
-  // ═══════════════════════════════════════════════════════════════════════
-  // JOHNSON HANA DATA - For combined display in Accounts tab
-  // ═══════════════════════════════════════════════════════════════════════
-  const { getJohnsonHanaSummary, getAccountSummaries } = require('../data/johnsonHanaData');
-  const jhSummary = getJohnsonHanaSummary();
-  const jhAccounts = getAccountSummaries();
-  
   // Group by product with stage breakdown
   const productBreakdown = {};
   accountData.records.forEach(opp => {
@@ -2411,4 +2404,3 @@ module.exports = {
   generateAccountDashboard,
   generateLoginPage
 };
-
