@@ -41,7 +41,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 }
 
 /**
- * Generate Top Co Overview Tab - Blended Eudia + Johnson Hana data
+ * Generate Pipeline Overview Tab - Combined Eudia pipeline data
  * Updated weekly until systems sync
  */
 function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, stageBreakdown, productBreakdown, accountMap, signedByType, meetingData, novDecRevenue, novDecRevenueTotal) {
@@ -104,26 +104,23 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   return `
 <div id="topco" class="tab-content">
   <div style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: #374151;">
-    <strong>Top Co Overview</strong> — Blended pipeline (Eudia + Johnson Hana).
-    <span style="color: #6b7280; margin-left: 8px;">JH data updated: ${jhLastUpdate?.time || 'recently'} ${jhLastUpdate?.date || ''}</span>
+    <strong>Eudia Pipeline Overview</strong> — Combined active pipeline.
+    <span style="color: #9ca3af; margin-left: 8px; font-size: 0.6rem;">• = legacy acquisition data (updated ${jhLastUpdate?.date || 'weekly'})</span>
   </div>
   
-  <!-- Blended Metrics -->
+  <!-- Combined Metrics -->
   <div class="metrics">
     <div class="metric">
-      <div class="metric-label">Combined Pipeline</div>
+      <div class="metric-label">Total Pipeline</div>
       <div class="metric-value">${fmt(blendedGross)}</div>
-      <div class="metric-change" style="font-size: 0.65rem; color: #6b7280;">E: ${fmt(eudiaGross)} • JH: ${fmt(jhSummary.totalPipeline)}</div>
     </div>
     <div class="metric">
       <div class="metric-label">Opportunities</div>
       <div class="metric-value">${blendedDeals}</div>
-      <div class="metric-change" style="font-size: 0.65rem; color: #6b7280;">E: ${eudiaDeals} • JH: ${jhSummary.totalOpportunities}</div>
     </div>
     <div class="metric">
       <div class="metric-label">Accounts</div>
       <div class="metric-value">${blendedAccounts}</div>
-      <div class="metric-change" style="font-size: 0.65rem; color: #6b7280;">E: ${eudiaAccounts} • JH: ${jhSummary.uniqueAccounts}</div>
     </div>
   </div>
   
@@ -224,17 +221,17 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   </div>
   
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <!-- JOHNSON HANA BY STAGE (Expandable for S1-S4) -->
+  <!-- LEGACY ACQUISITION PIPELINE (Expandable for S1-S4) -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section" style="margin-top: 16px;">
     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
       <div>
-        <div class="stage-title">Johnson Hana by Stage</div>
+        <div class="stage-title">Pipeline by Stage <span style="color: #9ca3af; font-weight: 400;">•</span></div>
         <div class="stage-subtitle">${jhSummary.totalOpportunities} opps • ${fmt(jhSummary.totalPipeline)} gross</div>
       </div>
-      <div style="background: #ecfdf5; border: 1px solid #10b981; padding: 6px 10px; border-radius: 6px; font-size: 0.65rem; text-align: right;">
-        <div style="font-weight: 600; color: #047857;">Eudia Tech: ${jhSummary.eudiaTech.opportunityCount} opps</div>
-        <div style="color: #065f46;">${fmt(jhSummary.eudiaTech.pipelineValue)} (${jhSummary.eudiaTech.percentOfValue}%)</div>
+      <div style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 6px 10px; border-radius: 6px; font-size: 0.65rem; text-align: right;">
+        <div style="font-weight: 600; color: #374151;">Eudia Tech: ${jhSummary.eudiaTech.opportunityCount} opps</div>
+        <div style="color: #6b7280;">${fmt(jhSummary.eudiaTech.pipelineValue)} (${jhSummary.eudiaTech.percentOfValue}%)</div>
       </div>
     </div>
     <div style="margin-top: 8px; font-size: 0.8rem;">
@@ -347,8 +344,8 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   <!-- COMBINED STAGE VIEW (MERGE) -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">Combined by Stage</div>
-    <div class="stage-subtitle">Blended Eudia + JH</div>
+    <div class="stage-title">Total Pipeline by Stage</div>
+    <div class="stage-subtitle">All opportunities combined</div>
     <table style="width: 100%; font-size: 0.8rem; margin-top: 8px; table-layout: fixed;">
       <tr style="background: #f9fafb; font-weight: 600;">
         <td style="padding: 6px; width: 55%;">Stage</td>
@@ -425,14 +422,14 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   </div>
   
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <!-- TOP JH ACCOUNTS -->
+  <!-- TOP ACCOUNTS (LEGACY) -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">Johnson Hana Top Accounts</div>
+    <div class="stage-title">Top Accounts <span style="color: #9ca3af; font-weight: 400;">•</span></div>
     <div class="stage-subtitle">${jhSummary.uniqueAccounts} accounts in pipeline</div>
-    <div style="font-size: 0.65rem; color: #047857; margin-bottom: 6px;">
+    <div style="font-size: 0.65rem; color: #374151; margin-bottom: 6px;">
       <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; vertical-align: middle;"></span>
-      Eudia Tech: ${jhEudiaTechAccounts.length} accounts (${jhEudiaTechAccountPct}%) • ${fmt(jhSummary.eudiaTech.pipelineValue)} ACV (${jhSummary.eudiaTech.percentOfValue}%)
+      Eudia Tech enabled: ${jhEudiaTechAccounts.length} accounts (${jhEudiaTechAccountPct}%)
     </div>
     <div style="margin-top: 8px;" id="jh-top-accounts">
       ${allJHAccounts.map((acc, idx) => {
@@ -493,7 +490,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
     `).join('')}` : '<div style="margin-top: 8px; font-size: 0.75rem; color: #9ca3af;">No Eudia revenue deals closed in last 90 days</div>'}
     
     <!-- JH Closed -->
-    <div style="margin-top: 12px; margin-bottom: 6px; font-size: 0.7rem; font-weight: 600; color: #6b7280;">JOHNSON HANA (${jhClosedDeals.length} deals • ${fmt(jhClosedTotal)})</div>
+    <div style="margin-top: 12px; margin-bottom: 6px; font-size: 0.7rem; font-weight: 600; color: #6b7280;">ADDITIONAL CLOSED <span style="color: #9ca3af;">•</span> (${jhClosedDeals.length} deals • ${fmt(jhClosedTotal)})</div>
     ${jhClosedDeals.slice(0, 8).map(deal => `
       <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">
         <div>
@@ -568,10 +565,10 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   </div>
   
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <!-- JH ACTIVE PIPELINE BY SERVICE LINE (Expandable) -->
+  <!-- PIPELINE BY SERVICE LINE (LEGACY) -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">JH Active Pipeline by Service Line</div>
+    <div class="stage-title">Pipeline by Service Line <span style="color: #9ca3af; font-weight: 400;">•</span></div>
     <div class="stage-subtitle">Click to view top 5 opportunities</div>
     <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
       ${Object.entries(jhServiceLines)
@@ -788,7 +785,7 @@ function generateWeeklyTab(params) {
   <div style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px; font-size: 0.75rem; color: #374151; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
     <div>
       <strong>RevOps Weekly Summary</strong> — Formatted like Friday email updates.
-      <div style="font-size: 0.65rem; color: #6b7280; margin-top: 2px;">Eudia data pulled live from Salesforce. Johnson Hana data uploaded weekly until merged to our instance.</div>
+      <div style="font-size: 0.65rem; color: #6b7280; margin-top: 2px;">Data pulled live from Salesforce. <span style="color: #9ca3af;">• = legacy acquisition (updated weekly)</span></div>
     </div>
     <button onclick="copyWeeklyForEmail()" style="background: #1f2937; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.7rem; cursor: pointer;">📧 Copy for Email</button>
   </div>
@@ -822,9 +819,9 @@ function generateWeeklyTab(params) {
           </ol>
           <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #374151;">Total: ${fmt(decTotalACV)}</div>
         </div>
-        <!-- Johnson Hana - 50% width, SAME background -->
+        <!-- Additional Pipeline (Legacy) - 50% width, SAME background -->
         <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
-          <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">JOHNSON HANA (27 opps)</div>
+          <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">ADDITIONAL PIPELINE <span style="color: #9ca3af; font-weight: 400;">•</span> (27 opps)</div>
           <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5; flex: 1;">
             ${(() => {
               const jhQ4Opps = (jhSummary?.pipeline || []).filter(o => {
@@ -902,12 +899,12 @@ function generateWeeklyTab(params) {
           </div>
         </details>
         
-        <!-- Johnson Hana Logos (pre-expanded) -->
+        <!-- Legacy Acquisition Logos (pre-expanded) -->
         <details open style="flex: 1; min-width: 200px;">
-          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; padding: 6px 10px; background: #e5e7eb; border-radius: 4px 4px 0 0;">
-            Johnson Hana (35)
+          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; padding: 6px 10px; background: #f3f4f6; border-radius: 4px 4px 0 0;">
+            Additional Logos <span style="color: #9ca3af; font-weight: 400;">•</span> (35)
           </summary>
-          <div style="font-size: 0.65rem; color: #374151; line-height: 1.4; padding: 8px 10px; background: #e5e7eb; border-radius: 0 0 4px 4px;">
+          <div style="font-size: 0.65rem; color: #374151; line-height: 1.4; padding: 8px 10px; background: #f3f4f6; border-radius: 0 0 4px 4px;">
             ACS, Airbnb, Airship, Aryza, BOI, Coimisiún na Meán, Coillte, Coleman Legal, CommScope, Consensys, Creed McStay, Datalex, DCEDIY, Dropbox, ESB, Etsy, Gilead, Glanbia, Hayes, Indeed, Irish Water, Kellanova, Kingspan, Northern Trust, NTMA, OpenAI, Orsted, Perrigo, Sisk, Stripe, Taoglas, Teamwork, TikTok, Tinder, Udemy
           </div>
         </details>
@@ -931,7 +928,7 @@ function generateWeeklyTab(params) {
     
     <ul class="weekly-list">
       <li><strong>Eudia:</strong> ${fmt(totalGross)} Gross || ${fmt(totalWeighted)} Weighted || ${totalDeals} opportunities</li>
-      <li><strong>Johnson Hana:</strong> ${fmt(jhSummary?.totalPipeline || 0)} || ${fmt(jhSummary?.totalWeighted || 0)} Weighted || ${jhSummary?.totalOpportunities || 0} opportunities <span style="font-size: 0.7rem; color: #047857;">(${jhSummary?.eudiaTech?.opportunityCount || 0} tagged as 'Eudia Tech enabled')</span></li>
+      <li><strong>Legacy Acquisition <span style="color: #9ca3af;">•</span>:</strong> ${fmt(jhSummary?.totalPipeline || 0)} || ${fmt(jhSummary?.totalWeighted || 0)} Weighted || ${jhSummary?.totalOpportunities || 0} opportunities</li>
       <li><strong>Total Gross Pipeline:</strong> ${fmt((totalGross || 0) + (jhSummary?.totalPipeline || 0))} || ${fmt((totalWeighted || 0) + (jhSummary?.totalWeighted || 0))} Weighted || ${(totalDeals || 0) + (jhSummary?.totalOpportunities || 0)} opportunities</li>
     </ul>
     
@@ -989,9 +986,9 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Johnson Hana New Opps -->
+    <!-- Legacy Acquisition New Opps -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title">Johnson Hana new opportunities added this week: 1 opportunity, +$70k ACV</div>
+      <div class="weekly-subsection-title">Additional new opportunities <span style="color: #9ca3af;">•</span>: 1 opportunity, +$70k ACV</div>
       <div style="font-size: 0.75rem; color: #374151; margin-top: 8px;">
         <strong>Companies:</strong> Version1 (Contracting-BAU, Tom Clancy)
       </div>
@@ -1010,9 +1007,9 @@ function generateWeeklyTab(params) {
         </ol>
         <div style="margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #059669;">Total: ${fmt(top10Total)}</div>
       </div>
-      <!-- Johnson Hana - slightly darker gray -->
-      <div style="flex: 1; min-width: 280px; background: #e5e7eb; border-radius: 8px; padding: 12px;">
-        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.8rem;">JOHNSON HANA</div>
+      <!-- Legacy Acquisition Pipeline -->
+      <div style="flex: 1; min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px;">
+        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.8rem;">ADDITIONAL <span style="color: #9ca3af; font-weight: 400;">•</span></div>
         <ol class="weekly-list" style="font-size: 0.75rem; margin: 0; padding-left: 16px;">
           ${(() => {
             const jhPipeline = jhSummary?.pipeline || [];
@@ -1987,7 +1984,7 @@ ${mid.map((acc, idx) => {
   </div>
 </div>
 
-<!-- TAB: TOP CO OVERVIEW (Blended Eudia + Johnson Hana) -->
+<!-- TAB: PIPELINE OVERVIEW -->
 ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stageBreakdown, productBreakdown, accountMap, signedByType, meetingData, novDecRevenue, novDecRevenueTotal)}
 
 <!-- TAB: WEEKLY REVOPS SUMMARY -->
@@ -2005,7 +2002,7 @@ ${generateWeeklyTab({
 <div id="revenue" class="tab-content">
   <!-- JH Revenue Note -->
   <div style="background: #fffbeb; border: 1px solid #fcd34d; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: #92400e;">
-    <strong>Note:</strong> Johnson Hana revenue data not yet added. Contract migration in progress — see Top Co tab for blended pipeline view.
+    <strong>Note:</strong> Legacy acquisition revenue data not yet added (contract migration in progress). <span style="color: #9ca3af;">• = legacy acquisition</span>
   </div>
   
   <!-- Active Revenue by Account -->
