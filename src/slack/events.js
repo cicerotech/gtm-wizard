@@ -491,11 +491,16 @@ Ask me anything about your pipeline, accounts, or deals!`;
       await handleCustomerListQuery(userId, channelId, client, threadTs);
       return; // Exit early
     } else if (parsedIntent.intent === 'owner_pipeline') {
-      // Handle "show me my pipeline" - get owner from Slack user
-      const ownerName = await getOwnerNameFromSlackUser(userId, client);
-      if (ownerName) {
-        parsedIntent.entities.owners = [ownerName];
+      // Handle owner-specific pipeline queries
+      // If "my pipeline" (ownerIsSelf), get owner from Slack user
+      // If "[Name]'s pipeline", use the parsed owner name
+      if (parsedIntent.entities.ownerIsSelf) {
+        const ownerName = await getOwnerNameFromSlackUser(userId, client);
+        if (ownerName) {
+          parsedIntent.entities.owners = [ownerName];
+        }
       }
+      // entities.owners should already be set from intentParser for "[Name]'s deals"
       soql = queryBuilder.buildOpportunityQuery({ ...parsedIntent.entities, isClosed: false });
     } else if (parsedIntent.intent === 'pipeline_added') {
       // Handle "what deals were added to pipeline this week"
@@ -1788,9 +1793,17 @@ function formatAccountFieldResults(queryResult, parsedIntent) {
 }
 
 /**
- * Format contract query results
+ * Format contract query results - organized by company, most recent first
  */
 function formatContractResults(queryResult, parsedIntent) {
+  // Companies with logo rights
+  const LOGO_RIGHTS_COMPANIES = [
+    'Pure Storage', 'Bayer', 'Dolby', 'Best Buy', 'The Weir Group',
+    'The Wonderful Company', 'AES', 'Cox Media', 'CHS', 'Western Digital',
+    'Fresh Del Monte', 'GE Vernova', 'Novelis', 'Asana', 'Tailored Brands',
+    'PetSmart', 'Ecolab', 'Wealth Partners Capital Group', 'Delinea', 'BNY', 'Udemy'
+  ];
+
   if (!queryResult || !queryResult.records || queryResult.totalSize === 0) {
     const accountName = parsedIntent.entities.accounts?.[0];
     return accountName 
@@ -1800,79 +1813,91 @@ function formatContractResults(queryResult, parsedIntent) {
 
   const records = queryResult.records;
   const accountName = parsedIntent.entities.accounts?.[0];
+  const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
+  
+  // Group contracts by company
+  const byCompany = {};
+  records.forEach(contract => {
+    const company = contract.Account?.Name || 'Unknown';
+    if (!byCompany[company]) {
+      byCompany[company] = [];
+    }
+    byCompany[company].push(contract);
+  });
+  
+  // Sort each company's contracts by date (most recent first)
+  Object.keys(byCompany).forEach(company => {
+    byCompany[company].sort((a, b) => {
+      const dateA = new Date(a.StartDate || a.CreatedDate || 0);
+      const dateB = new Date(b.StartDate || b.CreatedDate || 0);
+      return dateB - dateA; // Most recent first
+    });
+  });
+  
+  // Sort companies alphabetically
+  const sortedCompanies = Object.keys(byCompany).sort();
   
   let response = accountName 
-    ? `*Contracts for ${accountName}*\n\n`
-    : `*All Contracts* (${records.length} total)\n\n`;
-
-  // Compact format for "all contracts", detailed for specific account
-  const isCompactMode = !accountName || records.length > 10;
-
-  records.forEach((contract, i) => {
-    const contractName = contract.Contract_Name_Campfire__c || contract.ContractNumber || contract.Id;
-    const accountNameDisplay = contract.Account?.Name || accountName;
+    ? `*Contracts for ${accountName}*\n`
+    : `*Contracts by Company* (${records.length} total)\n`;
+  
+  // Build response grouped by company
+  sortedCompanies.forEach(company => {
+    const contracts = byCompany[company];
+    const hasLogoRights = LOGO_RIGHTS_COMPANIES.some(c => 
+      company.toLowerCase().includes(c.toLowerCase())
+    );
     
-    // Detect if it's an LOI (Customer Advisory Board, LOI, or CAB in name)
-    const isLOI = contractName && (contractName.includes('Customer Advisory Board') || 
-                                   contractName.includes('LOI') || 
-                                   contractName.includes('CAB'));
-    const typeLabel = isLOI ? ' [LOI]' : '';
+    response += `\n*${company}*`;
+    if (hasLogoRights) {
+      response += ` [Logo Rights]`;
+    }
+    response += ` (${contracts.length})\n`;
     
-    if (isCompactMode) {
-      // Compact: Account - Download link only
-      response += `${i + 1}. ${accountNameDisplay}${typeLabel}`;
-      if (contract._pdfs && contract._pdfs.length > 0) {
-        const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
-        const downloadUrl = `${sfBaseUrl}/sfc/servlet.shepherd/version/download/${contract._pdfs[0].versionId}`;
-        response += ` - <${downloadUrl}|Download PDF>`;
-      }
-      response += `\n`;
-    } else {
-      // Detailed format for specific accounts
-      response += `${i + 1}. *${contractName}*${typeLabel}\n`;
+    contracts.forEach((contract, i) => {
+      const contractName = contract.Contract_Name_Campfire__c || contract.ContractNumber || `Contract ${i + 1}`;
+      const contractType = contract.Contract_Type__c || '';
+      const status = contract.Status || '';
       
-      if (accountNameDisplay && !accountName) {
-        response += `   Account: ${accountNameDisplay}\n`;
-      }
-      
+      // Date info
+      let dateInfo = '';
       if (contract.StartDate) {
-        response += `   Start: ${formatDate(contract.StartDate)}`;
+        dateInfo = formatDate(contract.StartDate);
         if (contract.EndDate) {
-          response += ` → End: ${formatDate(contract.EndDate)}`;
+          dateInfo += ` - ${formatDate(contract.EndDate)}`;
         }
-        response += '\n';
       }
       
-      if (contract.ContractTerm) {
-        response += `   Term: ${contract.ContractTerm} months\n`;
-      }
+      // Term
+      const term = contract.ContractTerm ? `${contract.ContractTerm}mo` : '';
       
-      if (contract.Status) {
-        response += `   Status: ${contract.Status}\n`;
-      }
+      // Build compact line
+      response += `  ${i + 1}. ${contractName}`;
+      if (contractType) response += ` • ${contractType}`;
+      if (status) response += ` • ${status}`;
+      if (dateInfo) response += ` • ${dateInfo}`;
+      if (term && !dateInfo) response += ` • ${term}`;
       
-      // Add PDF download links
+      // PDF link
       if (contract._pdfs && contract._pdfs.length > 0) {
-        const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
-        contract._pdfs.forEach(pdf => {
-          const downloadUrl = `${sfBaseUrl}/sfc/servlet.shepherd/version/download/${pdf.versionId}`;
-          const fileName = pdf.title.length > 40 ? pdf.title.substring(0, 37) + '...' : pdf.title;
-          response += `   <${downloadUrl}|Download: ${fileName}>\n`;
-        });
-      } else {
-        // Fallback to Salesforce link
-        const sfBaseUrl = process.env.SF_INSTANCE_URL || 'https://eudia.my.salesforce.com';
-        const contractUrl = `${sfBaseUrl}/lightning/r/Contract/${contract.Id}/view`;
-        response += `   <${contractUrl}|View in Salesforce>\n`;
+        const downloadUrl = `${sfBaseUrl}/sfc/servlet.shepherd/version/download/${contract._pdfs[0].versionId}`;
+        response += ` <${downloadUrl}|PDF>`;
       }
       
       response += '\n';
-    }
+    });
   });
-
-  response += `\n*Total: ${records.length} contract${records.length !== 1 ? 's' : ''}*`;
-  if (accountName) {
-    response += ` for ${accountName}`;
+  
+  // Summary
+  response += `\n---\n*${records.length} contracts* across *${sortedCompanies.length} companies*`;
+  
+  // Logo rights summary
+  const companiesWithLogoRights = sortedCompanies.filter(company => 
+    LOGO_RIGHTS_COMPANIES.some(c => company.toLowerCase().includes(c.toLowerCase()))
+  );
+  
+  if (companiesWithLogoRights.length > 0) {
+    response += `\n\n*Companies with Logo Rights:* ${companiesWithLogoRights.join(', ')}`;
   }
 
   return response;

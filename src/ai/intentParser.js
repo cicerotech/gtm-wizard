@@ -499,6 +499,47 @@ Business Context:
       };
     }
 
+    // "[Name]'s pipeline/deals/opportunities" - specific owner's pipeline
+    const ownerPipelineMatch = message.match(/(\w+)'s (?:pipeline|deals|opportunities|opps)/i) ||
+                               message.match(/(\w+) deals$/i) ||
+                               message.match(/(\w+) pipeline$/i) ||
+                               message.match(/show (?:me )?(\w+)'s (?:pipeline|deals)/i);
+    if (ownerPipelineMatch) {
+      const ownerName = ownerPipelineMatch[1];
+      // Don't match "my" - that's handled above
+      if (ownerName.toLowerCase() !== 'my') {
+        // Map common first names to full names for SOQL query
+        const ownerNameMap = {
+          'julie': 'Julie Stefanich',
+          'himanshu': 'Himanshu Agarwal',
+          'asad': 'Asad Hussain',
+          'ananth': 'Ananth Cherukupally',
+          'david': 'David Van Ryk',
+          'john': 'John Cobb',
+          'jon': 'John Cobb',
+          'olivia': 'Olivia Jung',
+          'justin': 'Justin Hills',
+          'mike': 'Mike McGonagle'
+        };
+        
+        const fullName = ownerNameMap[ownerName.toLowerCase()] || ownerName;
+        
+        return {
+          intent: 'owner_pipeline',
+          entities: { 
+            owners: [fullName],
+            ownerName: fullName,
+            isClosed: false
+          },
+          followUp: false,
+          confidence: 0.95,
+          explanation: `Show ${fullName}'s pipeline`,
+          originalMessage: userMessage,
+          timestamp: Date.now()
+        };
+      }
+    }
+
     // Customer Brain note capture (HIGHEST PRIORITY - before existence check!)
     // Must be FIRST to prevent "exist" in message body from triggering existence check
     if (message.includes('add to customer') || message.includes('save note') || 
