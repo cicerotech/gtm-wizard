@@ -571,8 +571,12 @@ Ask me anything about your pipeline, accounts, or deals!`;
       formattedResponse = formatWeightedSummary(queryResult, parsedIntent);
     } else if (parsedIntent.intent === 'contract_query') {
       formattedResponse = formatContractResults(queryResult, parsedIntent);
-    } else if (parsedIntent.intent === 'pipeline_summary' && parsedIntent.entities.stages) {
-      // IMPROVED: Stage-based pipeline queries return account list (not detailed table)
+    } else if (parsedIntent.intent === 'pipeline_summary' || 
+               parsedIntent.intent === 'deal_lookup' || 
+               parsedIntent.intent === 'owner_pipeline' ||
+               parsedIntent.intent === 'late_stage_pipeline' ||
+               parsedIntent.intent === 'product_pipeline') {
+      // ALL pipeline queries use compact mobile-friendly format
       formattedResponse = formatPipelineAccountList(queryResult, parsedIntent);
     } else {
       formattedResponse = formatResponse(queryResult, parsedIntent, conversationContext);
@@ -608,17 +612,10 @@ Ask me anything about your pipeline, accounts, or deals!`;
         replace_original: true
       };
 
-      // Only add blocks for pipeline/opportunity queries, NOT account/count/average/summary/contract queries
-      if (parsedIntent.intent !== 'account_lookup' && 
-          parsedIntent.intent !== 'account_field_lookup' &&
-          parsedIntent.intent !== 'account_stage_lookup' &&
-          parsedIntent.intent !== 'count_query' &&
-          parsedIntent.intent !== 'average_days_query' &&
-          parsedIntent.intent !== 'weighted_summary' &&
-          parsedIntent.intent !== 'contract_query' &&
-          parsedIntent.intent !== 'greeting') {
-        messageOptions.blocks = buildResponseBlocks(queryResult, parsedIntent);
-      }
+      // DISABLED: Slack blocks create ugly multi-line format
+      // Use compact text format for ALL queries (mobile-friendly)
+      // Blocks are only used for very specific rich formatting needs
+      // messageOptions.blocks = buildResponseBlocks(queryResult, parsedIntent);
 
       await client.chat.postMessage(messageOptions);
     }
@@ -1241,45 +1238,51 @@ function formatAccountStageResults(queryResult, parsedIntent) {
  */
 function formatPipelineAccountList(queryResult, parsedIntent) {
   if (!queryResult || !queryResult.records || queryResult.totalSize === 0) {
-    const stageDesc = parsedIntent.entities.stages?.[0] || 'that stage';
+    const stageDesc = parsedIntent.entities.stages?.[0];
     const productLine = parsedIntent.entities.productLine;
-    return productLine 
-      ? `No ${productLine} opportunities found in ${cleanStageName(stageDesc)}.`
-      : `No opportunities found in ${cleanStageName(stageDesc)}.`;
+    if (productLine && stageDesc) {
+      return `No ${productLine} opportunities found in ${cleanStageName(stageDesc)}.`;
+    } else if (productLine) {
+      return `No ${productLine} opportunities found.`;
+    } else if (stageDesc) {
+      return `No opportunities found in ${cleanStageName(stageDesc)}.`;
+    }
+    return `No opportunities found.\n\nTry: "late stage pipeline" or "contracting pipeline"`;
   }
 
   const records = queryResult.records;
   let totalAmount = 0;
-  let weightedAmount = 0;
   
   records.forEach(record => {
     totalAmount += record.Amount || 0;
-    weightedAmount += record.Finance_Weighted_ACV__c || 0;
   });
   
-  // Build compact header
+  // Build smart header based on query type
   const stageDesc = parsedIntent.entities.stages?.map(s => cleanStageName(s)).join(', ');
   const productLine = parsedIntent.entities.productLine;
+  const ownerName = parsedIntent.entities.owners?.[0];
   
   let response = '';
-  if (productLine && stageDesc) {
+  if (ownerName) {
+    response += `*${ownerName}'s Pipeline*\n`;
+  } else if (productLine && stageDesc) {
     response += `*${productLine} - ${stageDesc}*\n`;
   } else if (productLine) {
     response += `*${productLine} Pipeline*\n`;
   } else if (stageDesc) {
     response += `*${stageDesc}*\n`;
   } else {
-    response += `*Pipeline*\n`;
+    response += `*Pipeline Summary*\n`;
   }
   
   // One-line summary
-  response += `${records.length} deals | *${formatCurrency(totalAmount)}* total\n\n`;
+  response += `${records.length} deals • *${formatCurrency(totalAmount)}* total\n\n`;
   
-  // Sort by amount descending
+  // Sort by amount descending and show top 10
   const sortedRecords = [...records].sort((a, b) => (b.Amount || 0) - (a.Amount || 0));
   const maxToShow = 10;
   
-  // Top deals as compact bullet list
+  // Top deals as compact single-line list
   sortedRecords.slice(0, maxToShow).forEach((record, i) => {
     const account = record.Account?.Name || 'Unknown';
     const amount = formatCurrency(record.Amount || 0);
@@ -1290,8 +1293,10 @@ function formatPipelineAccountList(queryResult, parsedIntent) {
     response += `${i + 1}. *${account}* - ${amount} • ${stage} • ${owner} • ${date}\n`;
   });
   
+  // Show prompt to see more if there are additional deals
   if (records.length > maxToShow) {
-    response += `\n_+${records.length - maxToShow} more deals_`;
+    response += `\n_Showing top 10 of ${records.length} deals by ACV_`;
+    response += `\n_Say "show next 10" or "show all" for more_`;
   }
 
   return response;
