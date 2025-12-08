@@ -1,14 +1,20 @@
 # gtm-brain
 
-A conversational sales intelligence platform that connects Slack to Salesforce through natural language. Ask questions about your pipeline, upload contracts for automatic parsing, and access a unified executive dashboard—all without writing SOQL or navigating CRM screens.
+A conversational sales intelligence platform that connects Slack to Salesforce through natural language. Query pipeline data, look up account ownership, analyze contracts, create and manage CRM records, sync meeting notes, and visualize performance—all through Slack conversations and a unified executive dashboard. No SOQL, no screen navigation, no context switching.
 
 **Live Dashboard**: [gtm-wizard.onrender.com/account-dashboard](https://gtm-wizard.onrender.com/account-dashboard)
 
+**What it does:**
+- **Query Salesforce in natural language** — Ask "What's closing this month?" or "Who owns Boeing?" and get instant, formatted answers
+- **Analyze contracts automatically** — Upload PDFs via Slack, extract terms/values/signers, and create Salesforce records with a single command
+- **Create and manage CRM records** — Create accounts, opportunities, reassign ownership, save account plans, and log customer notes—all via chat
+- **Sync meeting intelligence** — Capture meeting notes from Hyprnote and sync them to Salesforce with automatic account matching
+- **Visualize pipeline health** — Access a password-protected dashboard blending live Salesforce data with acquired pipeline for complete visibility
+- **Export reports on demand** — Generate Excel pipeline reports via Slack for offline analysis
+
 ---
 
-## What It Does
-
-gtm-brain acts as an intelligent layer between your sales team and Salesforce data. Instead of navigating dashboards, writing reports, or searching for account records, team members ask questions in plain English via Slack and receive immediate, formatted answers.
+## Detailed Functionality
 
 ### Account Ownership & Lookup
 
