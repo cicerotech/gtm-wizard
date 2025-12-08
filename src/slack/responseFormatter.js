@@ -49,31 +49,42 @@ class ResponseFormatter {
   }
 
   /**
-   * Format pipeline summary
+   * Format pipeline summary - IMPROVED with compact organized view
    */
   formatPipelineSummary(records, parsedIntent, totalSize) {
     const totalAmount = records.reduce((sum, r) => sum + (r.Amount || 0), 0);
     const weightedAmount = records.reduce((sum, r) => sum + (r.Finance_Weighted_ACV__c || 0), 0);
-    const avgDealSize = totalAmount / records.length;
 
-    let response = `*Pipeline Summary*\n`;
-    response += `${totalSize} deals worth ${this.formatCurrency(totalAmount)}\n`;
-    response += `Weighted value: ${this.formatCurrency(weightedAmount)}\n`;
-    response += `Average deal size: ${this.formatCurrency(avgDealSize)}\n\n`;
+    // Build header with key metrics
+    let response = `*Pipeline Summary* (${totalSize} deals)\n\n`;
+    response += `┌─────────────────────────────────────┐\n`;
+    response += `│  Total Value:     ${this.formatCurrency(totalAmount).padStart(15)}  │\n`;
+    response += `│  Weighted Value:  ${this.formatCurrency(weightedAmount).padStart(15)}  │\n`;
+    response += `└─────────────────────────────────────┘\n\n`;
 
-    // Add stage breakdown if not already grouped
-    if (!parsedIntent.entities.groupBy) {
-      const stageBreakdown = this.analyzeByStage(records);
-      response += `*By Stage:*\n`;
-      Object.entries(stageBreakdown).forEach(([stage, data]) => {
-        const cleanStage = cleanStageName(stage);
-        response += `${cleanStage}: ${data.count} deals (${this.formatCurrency(data.amount)})\n`;
-      });
-      response += '\n';
+    // Stage summary bar
+    const stageBreakdown = this.analyzeByStage(records);
+    const stageOrder = ['Stage 0', 'Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Stage 5'];
+    
+    response += '*By Stage:*\n```\n';
+    stageOrder.forEach(stagePrefix => {
+      const matchingStage = Object.keys(stageBreakdown).find(s => s.includes(stagePrefix));
+      if (matchingStage) {
+        const data = stageBreakdown[matchingStage];
+        const stageNum = stagePrefix.replace('Stage ', 'S');
+        const bar = '█'.repeat(Math.min(20, Math.ceil(data.amount / totalAmount * 20)));
+        response += `${stageNum}: ${data.count.toString().padStart(2)} deals  ${this.formatCurrency(data.amount).padStart(8)}  ${bar}\n`;
+      }
+    });
+    response += '```\n';
+
+    // Use grouped table for larger result sets
+    if (totalSize > 20) {
+      response += this.buildGroupedPipelineTable(records.slice(0, this.maxTableRows));
+    } else {
+      response += '\n*All Opportunities:*\n';
+      response += this.buildDealsTable(records.slice(0, this.maxTableRows));
     }
-
-    // Add top deals table
-    response += this.buildDealsTable(records.slice(0, this.maxTableRows));
 
     if (totalSize > this.maxTableRows) {
       response += `\n_Showing top ${this.maxTableRows} of ${totalSize} deals_`;
@@ -262,34 +273,109 @@ class ResponseFormatter {
   }
 
   /**
-   * Build deals table - IMPROVED compact list format for better readability
+   * Build deals table - COMPACT TABLE FORMAT for scannable results
+   * Uses monospace code block for proper alignment
    */
   buildDealsTable(records, columns = null) {
     if (!records || records.length === 0) return '';
 
-    // IMPROVED: Compact list format - easier to read, shows more info
-    let list = '';
+    // Build compact, aligned table using code block
+    let table = '```\n';
     
-    records.forEach((record, index) => {
-      const accountName = record.Account?.Name || 'No Account';
-      const dealName = record.Name || 'Untitled Deal';
-      const amount = this.formatCurrency(record.Amount || 0);
-      const stage = cleanStageName(record.StageName) || 'No Stage';
-      const owner = record.Owner?.Name || 'Unassigned';
-      const targetDate = this.formatDate(record.IsClosed ? record.CloseDate : record.Target_LOI_Date__c);
-      const productLine = record.Product_Line__c;
+    // Header row
+    table += 'ACCOUNT                      ACV        STAGE      OWNER           DATE\n';
+    table += '─'.repeat(78) + '\n';
+    
+    records.forEach((record) => {
+      const accountName = (record.Account?.Name || 'No Account').substring(0, 26).padEnd(26);
+      const amount = this.formatCurrency(record.Amount || 0).padStart(10);
+      const stage = this.shortStage(record.StageName).padEnd(10);
+      const owner = this.shortName(record.Owner?.Name).padEnd(15);
+      const targetDate = this.formatDate(record.IsClosed ? record.CloseDate : record.Target_LOI_Date__c).padEnd(10);
       
-      // One deal per 2 lines - much more readable
-      list += `${index + 1}. *${accountName}* - ${dealName}`;
-      if (productLine) list += ` (${productLine})`;
-      list += `\n   $${amount} • ${stage} • ${owner} • ${targetDate}\n`;
-      
-      if (index < records.length - 1) {
-        list += '\n'; // Blank line between deals
-      }
+      table += `${accountName} ${amount}  ${stage} ${owner} ${targetDate}\n`;
+    });
+    
+    table += '```';
+    return table;
+  }
+
+  /**
+   * Build grouped pipeline view - organized by stage
+   */
+  buildGroupedPipelineTable(records) {
+    if (!records || records.length === 0) return '';
+
+    // Group records by stage
+    const byStage = {};
+    records.forEach(record => {
+      const stage = record.StageName || 'Unknown';
+      if (!byStage[stage]) byStage[stage] = [];
+      byStage[stage].push(record);
     });
 
-    return list;
+    // Sort stages in order
+    const stageOrder = ['Stage 0', 'Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Stage 5'];
+    const sortedStages = Object.keys(byStage).sort((a, b) => {
+      const aOrder = stageOrder.findIndex(s => a.includes(s));
+      const bOrder = stageOrder.findIndex(s => b.includes(s));
+      return aOrder - bOrder;
+    });
+
+    let output = '';
+    
+    sortedStages.forEach(stage => {
+      const stageRecords = byStage[stage];
+      const stageTotal = stageRecords.reduce((sum, r) => sum + (r.Amount || 0), 0);
+      const cleanStage = cleanStageName(stage);
+      
+      output += `\n*${cleanStage}* (${stageRecords.length} deals, ${this.formatCurrency(stageTotal)})\n`;
+      output += '```\n';
+      
+      // Sort by amount descending
+      stageRecords.sort((a, b) => (b.Amount || 0) - (a.Amount || 0));
+      
+      stageRecords.slice(0, 15).forEach(record => {
+        const account = (record.Account?.Name || 'Unknown').substring(0, 24).padEnd(24);
+        const amount = this.formatCurrency(record.Amount || 0).padStart(10);
+        const owner = this.shortName(record.Owner?.Name).padEnd(12);
+        const date = this.formatDate(record.Target_LOI_Date__c || record.CloseDate);
+        
+        output += `${account} ${amount}  ${owner} ${date}\n`;
+      });
+      
+      if (stageRecords.length > 15) {
+        output += `... +${stageRecords.length - 15} more\n`;
+      }
+      
+      output += '```';
+    });
+
+    return output;
+  }
+
+  /**
+   * Shorten stage name for table display
+   */
+  shortStage(stageName) {
+    if (!stageName) return 'N/A';
+    const match = stageName.match(/Stage (\d)/);
+    if (match) return `S${match[1]}`;
+    if (stageName.includes('Won')) return 'Won';
+    if (stageName.includes('Lost')) return 'Lost';
+    return stageName.substring(0, 8);
+  }
+
+  /**
+   * Shorten name to first name + last initial
+   */
+  shortName(fullName) {
+    if (!fullName) return 'Unassigned';
+    const parts = fullName.split(' ');
+    if (parts.length >= 2) {
+      return `${parts[0]} ${parts[1][0]}.`;
+    }
+    return fullName.substring(0, 12);
   }
 
   /**

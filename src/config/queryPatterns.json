@@ -10,7 +10,15 @@
         "who owns {company}",
         "who's the owner of {company}",
         "{company} owner",
-        "who is {company}'s owner"
+        "who is {company}'s owner",
+        "bl for {company}",
+        "BL for {company}",
+        "business lead for {company}",
+        "who has {company}",
+        "who covers {company}",
+        "who handles {company}",
+        "rep for {company}",
+        "account manager for {company}"
       ],
       "entities": ["company"],
       "requiredFields": ["Account.OwnerId", "Account.Owner.Name"],
@@ -53,6 +61,72 @@
       "estimatedTime": "5s"
     },
     {
+      "id": "owner_pipeline",
+      "intent": "owner_pipeline",
+      "category": "pipeline_forecasting",
+      "patterns": [
+        "{name}'s deals",
+        "{name}'s pipeline",
+        "{name}'s opportunities",
+        "{name}'s opps",
+        "show me {name}'s deals",
+        "what does {name} have",
+        "{name} pipeline",
+        "{name} deals"
+      ],
+      "entities": ["name"],
+      "requiredFields": [
+        "Opportunity.Owner.Name",
+        "Opportunity.StageName",
+        "Opportunity.ACV__c"
+      ],
+      "complexity": "medium",
+      "estimatedTime": "3s"
+    },
+    {
+      "id": "stale_deals",
+      "intent": "stale_deals",
+      "category": "pipeline_health",
+      "patterns": [
+        "stale deals",
+        "stale deals over {amount}",
+        "deals with no activity",
+        "inactive opportunities",
+        "no recent activity",
+        "deals we haven't touched",
+        "opportunities with no activity"
+      ],
+      "entities": ["amount"],
+      "requiredFields": [
+        "Opportunity.LastActivityDate",
+        "Opportunity.ACV__c"
+      ],
+      "complexity": "medium",
+      "estimatedTime": "3s"
+    },
+    {
+      "id": "closed_deals",
+      "intent": "closed_deals",
+      "category": "pipeline_forecasting",
+      "patterns": [
+        "what closed this month",
+        "closed won this month",
+        "deals closed this month",
+        "bookings this month",
+        "what closed this quarter",
+        "recent wins",
+        "closed won this quarter"
+      ],
+      "entities": [],
+      "requiredFields": [
+        "Opportunity.StageName",
+        "Opportunity.CloseDate",
+        "Opportunity.ACV__c"
+      ],
+      "complexity": "medium",
+      "estimatedTime": "3s"
+    },
+    {
       "id": "late_stage_pipeline",
       "intent": "late_stage_pipeline",
       "category": "pipeline_forecasting",
@@ -60,7 +134,9 @@
         "late stage pipeline",
         "show me late stage",
         "stage 3 and 4",
-        "proposal and pilot"
+        "proposal and pilot",
+        "late stage deals",
+        "late stage"
       ],
       "entities": [],
       "requiredFields": [

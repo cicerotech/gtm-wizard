@@ -1225,7 +1225,7 @@ function formatAccountStageResults(queryResult, parsedIntent) {
 }
 
 /**
- * Format pipeline queries with stages as account list (IMPROVED UX)
+ * Format pipeline queries with stages as organized table (IMPROVED UX)
  */
 function formatPipelineAccountList(queryResult, parsedIntent) {
   if (!queryResult || !queryResult.records || queryResult.totalSize === 0) {
@@ -1237,52 +1237,90 @@ function formatPipelineAccountList(queryResult, parsedIntent) {
   }
 
   const records = queryResult.records;
-  
-  // Group by account to get unique companies
-  const accountMap = new Map();
   let totalAmount = 0;
+  let weightedAmount = 0;
   
   records.forEach(record => {
-    const accountName = record.Account?.Name;
     totalAmount += record.Amount || 0;
-    
-    if (accountName && !accountMap.has(accountName)) {
-      accountMap.set(accountName, {
-        name: accountName,
-        owner: record.Account?.Owner?.Name,
-        dealCount: 1,
-        totalAmount: record.Amount || 0,
-        maxAmount: record.Amount || 0
-      });
-    } else if (accountName) {
-      const existing = accountMap.get(accountName);
-      existing.dealCount++;
-      existing.totalAmount += record.Amount || 0;
-      existing.maxAmount = Math.max(existing.maxAmount, record.Amount || 0);
-    }
+    weightedAmount += record.Finance_Weighted_ACV__c || 0;
   });
-
-  const accounts = Array.from(accountMap.values());
-  const accountNames = accounts.map(a => a.name).join(', ');
   
-  // Build response with summary + account list
+  // Build header
   const stageDesc = parsedIntent.entities.stages?.map(s => cleanStageName(s)).join(', ');
   const productLine = parsedIntent.entities.productLine;
   
   let response = '';
   if (productLine && stageDesc) {
-    response += `*${productLine} opportunities in ${stageDesc}*\n\n`;
+    response += `*${productLine} Pipeline - ${stageDesc}*\n\n`;
+  } else if (productLine) {
+    response += `*${productLine} Pipeline*\n\n`;
   } else if (stageDesc) {
-    response += `*${stageDesc} opportunities*\n\n`;
+    response += `*${stageDesc} Pipeline*\n\n`;
   } else {
     response += `*Pipeline Summary*\n\n`;
   }
   
-  response += `${records.length} opportunities across ${accounts.length} accounts\n`;
-  response += `Total value: ${formatCurrency(totalAmount)}\n\n`;
-  response += `*Companies:*\n${accountNames}`;
+  // Summary metrics
+  response += `${records.length} opportunities | ${formatCurrency(totalAmount)} total | ${formatCurrency(weightedAmount)} weighted\n\n`;
+  
+  // Build compact table
+  response += '```\n';
+  response += 'ACCOUNT                      ACV        STAGE    OWNER           TARGET\n';
+  response += '─'.repeat(75) + '\n';
+  
+  // Sort by amount descending
+  const sortedRecords = [...records].sort((a, b) => (b.Amount || 0) - (a.Amount || 0));
+  
+  sortedRecords.slice(0, 30).forEach(record => {
+    const account = (record.Account?.Name || 'Unknown').substring(0, 26).padEnd(26);
+    const amount = formatCurrency(record.Amount || 0).padStart(10);
+    const stage = shortStage(record.StageName).padEnd(8);
+    const owner = shortName(record.Owner?.Name).padEnd(15);
+    const date = formatTargetDate(record.Target_LOI_Date__c);
+    
+    response += `${account} ${amount}  ${stage} ${owner} ${date}\n`;
+  });
+  
+  if (records.length > 30) {
+    response += `\n... +${records.length - 30} more opportunities\n`;
+  }
+  
+  response += '```';
 
   return response;
+}
+
+/**
+ * Helper: Shorten stage name
+ */
+function shortStage(stageName) {
+  if (!stageName) return 'N/A';
+  const match = stageName.match(/Stage (\d)/);
+  if (match) return `S${match[1]}`;
+  if (stageName.includes('Won')) return 'Won';
+  if (stageName.includes('Lost')) return 'Lost';
+  return stageName.substring(0, 6);
+}
+
+/**
+ * Helper: Shorten name to first name + last initial
+ */
+function shortName(fullName) {
+  if (!fullName) return 'Unassigned';
+  const parts = fullName.split(' ');
+  if (parts.length >= 2) {
+    return `${parts[0]} ${parts[1][0]}.`;
+  }
+  return fullName.substring(0, 12);
+}
+
+/**
+ * Helper: Format target date compactly
+ */
+function formatTargetDate(dateString) {
+  if (!dateString) return 'No date';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 /**

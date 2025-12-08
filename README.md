@@ -1,20 +1,14 @@
 # gtm-brain
 
-A conversational sales intelligence platform that connects Slack to Salesforce through natural language. Query pipeline data, look up account ownership, analyze contracts, create and manage CRM records, sync meeting notes, and visualize performance—all through Slack conversations and a unified executive dashboard. No SOQL, no screen navigation, no context switching.
+A conversational sales intelligence platform that connects Slack to Salesforce through natural language. Ask questions about your pipeline, upload contracts for automatic parsing, and access a unified executive dashboard—all without writing SOQL or navigating CRM screens.
 
 **Live Dashboard**: [gtm-wizard.onrender.com/account-dashboard](https://gtm-wizard.onrender.com/account-dashboard)
 
-**What it does:**
-- **Query Salesforce in natural language** — Ask "What's closing this month?" or "Who owns Boeing?" and get instant, formatted answers
-- **Analyze contracts automatically** — Upload PDFs via Slack, extract terms/values/signers, and create Salesforce records with a single command
-- **Create and manage CRM records** — Create accounts, opportunities, reassign ownership, save account plans, and log customer notes—all via chat
-- **Sync meeting intelligence** — Capture meeting notes from Hyprnote and sync them to Salesforce with automatic account matching
-- **Visualize pipeline health** — Access a password-protected dashboard blending live Salesforce data with acquired pipeline for complete visibility
-- **Export reports on demand** — Generate Excel pipeline reports via Slack for offline analysis
-
 ---
 
-## Detailed Functionality
+## What It Does
+
+gtm-brain acts as an intelligent layer between your sales team and Salesforce data. Instead of navigating dashboards, writing reports, or searching for account records, team members ask questions in plain English via Slack and receive immediate, formatted answers.
 
 ### Account Ownership & Lookup
 
@@ -22,7 +16,7 @@ When someone asks "Who owns Boeing?" or "What's the BL for Intel?", gtm-brain qu
 
 ### Pipeline Analysis
 
-The core use case: understanding pipeline state. Queries like "Show me pipeline," "What's in Stage 3?", or "Julie's late-stage deals" return formatted opportunity lists with amounts, stages, and close dates. The system understands sales terminology—"late stage" maps to Stage 4 (Proposal), "early stage" to Stage 1 (Discovery).
+The core use case: understanding pipeline state. Queries like "Show me pipeline," "What's in Stage 3?", or "Julie's late-stage deals" return formatted opportunity lists with amounts, stages, and close dates. The system understands sales terminology—"late stage" maps to Stage 3-4 (Pilot/Proposal), "early stage" to Stage 1 (Discovery).
 
 **Supported query patterns include:**
 - Stage-specific: "What accounts are in Stage 2?" → SQO opportunities
@@ -52,13 +46,11 @@ A password-protected web dashboard provides a consolidated view across five tabs
 
 | Tab | Content |
 |-----|---------|
-| **Summary** | Blended pipeline totals (Eudia + acquired pipeline), stage concentration breakdown (S1-S5 percentages), top accounts by ACV |
+| **Summary** | Pipeline totals, stage concentration breakdown (S1-S5 percentages), top accounts by ACV |
 | **Weekly** | Q4 target opportunities, signed logos organized by fiscal quarter, current customer logo grid |
-| **Pipeline** | Expandable pipeline by stage, business lead overview showing each rep's deals and totals, top opportunities by ACV |
-| **Revenue** | Active revenue by account (November ARR totals), all closed-won deals grouped by Revenue/Pilot/LOI |
+| **Pipeline** | Expandable pipeline by stage, business lead overview showing each rep's deals and totals |
+| **Revenue** | Active revenue by account, all closed-won deals grouped by Revenue/Pilot/LOI |
 | **Accounts** | Customer type breakdown, account plan summaries, new logo tracking |
-
-The dashboard blends live Salesforce data with static pipeline data (from acquired company integration) and displays combined totals as a unified view.
 
 ### Meeting Note Sync (Hyprnote Integration)
 
@@ -89,14 +81,35 @@ Generate Excel reports via Slack: "Send me pipeline in Excel" produces a formatt
 
 ### Intent Classification
 
-When a message arrives, gtm-brain runs it through a multi-layer classification system:
+When a message arrives, gtm-brain runs it through a multi-layer ensemble classification system:
 
-1. **Exact match** — Previously seen queries with known good classifications (instant response)
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Your Question                           │
+└─────────────────────────────────────────────────────────────┘
+                            │
+          ┌─────────────────┼─────────────────┐
+          ▼                 ▼                 ▼
+    ┌──────────┐     ┌──────────┐     ┌──────────┐
+    │ Pattern  │     │ Semantic │     │  Neural  │
+    │ Matching │     │ Matching │     │ Network  │
+    │  (30%)   │     │  (35%)   │     │  (35%)   │
+    └──────────┘     └──────────┘     └──────────┘
+          │                 │                 │
+          └─────────────────┼─────────────────┘
+                            ▼
+                   ┌─────────────────┐
+                   │ Ensemble Vote   │
+                   │ + Confidence    │
+                   └─────────────────┘
+```
+
+1. **Pattern matching** — 30+ regex patterns covering common sales query types
 2. **Semantic similarity** — Compares against known query patterns using OpenAI embeddings
-3. **Pattern matching** — 30+ regex patterns covering common sales query types
-4. **LLM classification** — GPT-4 for complex or ambiguous queries
+3. **Neural network** — Custom feedforward classifier trained on sales vocabulary
+4. **LLM classification** — GPT-4 for complex or ambiguous queries (fallback)
 
-The system learns from successful classifications, storing them for future exact matching. This means repeated queries get faster over time.
+The system learns from successful classifications, storing them for future exact matching. Repeated queries get faster over time.
 
 ### Salesforce Integration
 
@@ -105,15 +118,6 @@ All data queries translate to SOQL and execute against the connected Salesforce 
 - Query caching (5-minute TTL) to reduce API calls
 - Retry logic with exponential backoff for transient failures
 - Rate limiting to stay within Salesforce API limits
-
-### Data Blending
-
-The dashboard combines data from multiple sources:
-- **Eudia Salesforce** — Live queries for opportunities, accounts, contracts
-- **Acquired pipeline** — Static data representing pipeline from company acquisition (synced weekly)
-- **Active revenue** — November ARR figures for all revenue-generating accounts
-
-These sources blend into unified totals, showing the complete picture without manual reconciliation.
 
 ---
 
@@ -149,11 +153,13 @@ gtm-brain/
 ├── src/
 │   ├── app.js                     # Express server, Slack Bolt app initialization
 │   ├── ai/
+│   │   ├── intelligentRouter.js   # Ensemble classification with weighted voting
 │   │   ├── intentParser.js        # Intent classification (30+ patterns)
-│   │   ├── mlIntentClassifier.js  # Hybrid ML classification with learning
 │   │   ├── semanticMatcher.js     # Embedding-based query matching
 │   │   ├── feedbackLearning.js    # User feedback processing
 │   │   └── contextManager.js      # Conversation state tracking
+│   ├── ml/
+│   │   └── intentClassifier.js    # Neural network classifier
 │   ├── salesforce/
 │   │   ├── connection.js          # SF connection with retry logic
 │   │   └── queries.js             # SOQL query generation
@@ -163,22 +169,20 @@ gtm-brain/
 │   │   ├── contractCreation.js    # Salesforce contract record creation
 │   │   └── hyprnoteSyncService.js # Meeting note sync to Salesforce
 │   ├── slack/
-│   │   ├── events.js              # Message event handlers (3,800+ lines of query logic)
+│   │   ├── events.js              # Message event handlers
 │   │   ├── accountDashboard.js    # HTML dashboard generation
 │   │   ├── commands.js            # Slash command handlers
 │   │   └── responseFormatter.js   # Query result formatting
-│   ├── data/
-│   │   └── johnsonHanaData.js     # Static acquired pipeline data
 │   └── utils/
 │       ├── fuzzyAccountMatcher.js # Company name matching
 │       ├── cache.js               # Redis/memory caching
 │       └── formatters.js          # Currency, date formatting
+├── __tests__/                     # Jest test suite
 ├── data/
 │   ├── intent-learning.json       # Learned query classifications
 │   ├── query-embeddings.json      # Cached embeddings for semantic search
 │   └── schema-*.json              # Salesforce field schemas
-├── docs/                          # Documentation (50+ files)
-├── tests/                         # Test and debug scripts
+├── docs/                          # Documentation
 └── logs/                          # Runtime logs (gitignored)
 ```
 
