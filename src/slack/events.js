@@ -490,6 +490,10 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle "who are our current customers" query
       await handleCustomerListQuery(userId, channelId, client, threadTs);
       return; // Exit early
+    } else if (parsedIntent.intent === 'logo_rights_list') {
+      // Handle "which accounts have logo rights" query
+      await handleLogoRightsQuery(userId, channelId, client, threadTs);
+      return; // Exit early
     } else if (parsedIntent.intent === 'owner_pipeline') {
       // Handle owner-specific pipeline queries
       // If "my pipeline" (ownerIsSelf), get owner from Slack user
@@ -4393,6 +4397,36 @@ async function handlePipelineAddedQuery(parsedIntent, userId, channelId, client,
       thread_ts: threadTs
     });
   }
+}
+
+/**
+ * Handle "which accounts have logo rights" query
+ */
+async function handleLogoRightsQuery(userId, channelId, client, threadTs) {
+  // Companies with logo rights (manually maintained list)
+  const LOGO_RIGHTS_COMPANIES = [
+    'Pure Storage', 'Bayer', 'Dolby', 'Best Buy', 'The Weir Group',
+    'The Wonderful Company', 'AES', 'Cox Media', 'CHS', 'Western Digital',
+    'Fresh Del Monte', 'GE Vernova', 'Novelis', 'Asana', 'Tailored Brands',
+    'PetSmart', 'Ecolab', 'Wealth Partners Capital Group', 'Delinea', 'BNY', 'Udemy'
+  ];
+  
+  let response = `*Companies with Logo Rights*\n`;
+  response += `_${LOGO_RIGHTS_COMPANIES.length} companies authorized for logo usage_\n\n`;
+  
+  LOGO_RIGHTS_COMPANIES.forEach((company, i) => {
+    response += `${i + 1}. ${company}\n`;
+  });
+  
+  response += `\n---\n_This list is manually maintained. Contact the team to add new companies with logo rights._`;
+  
+  await client.chat.postMessage({
+    channel: channelId,
+    text: response,
+    thread_ts: threadTs
+  });
+  
+  logger.info(`Logo rights query - returned ${LOGO_RIGHTS_COMPANIES.length} companies`);
 }
 
 /**

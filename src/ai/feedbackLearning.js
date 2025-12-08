@@ -350,14 +350,38 @@ class FeedbackLearningSystem {
 
     const lowerMessage = message.toLowerCase();
     
-    // Feedback indicators
-    const feedbackIndicators = [
-      'thank', 'thanks', 'wrong', 'correct', 'right', 'good', 'bad',
-      'helpful', 'not helpful', 'perfect', 'exactly', 'actually',
-      'should be', 'supposed to', 'meant to', 'error', 'mistake'
+    // Don't treat as feedback if it looks like a new query (contains question words + query terms)
+    const queryIndicators = ['what', 'which', 'who', 'how', 'show', 'list', 'get', 'find'];
+    const containsQueryIndicator = queryIndicators.some(q => lowerMessage.startsWith(q) || lowerMessage.includes(q + ' '));
+    if (containsQueryIndicator) {
+      return false;
+    }
+    
+    // Feedback indicators - use word boundaries to avoid false positives
+    // e.g. "rights" should not match "right"
+    const feedbackPatterns = [
+      /\bthank(s|you)?\b/,
+      /\bwrong\b/,
+      /\bcorrect\b/,
+      /\bthat'?s right\b/,
+      /\bgood job\b/,
+      /\bhelpful\b/,
+      /\bnot helpful\b/,
+      /\bperfect\b/,
+      /\bexactly\b/,
+      /\bactually\b/,
+      /\bshould be\b/,
+      /\bsupposed to\b/,
+      /\bmeant to\b/,
+      /\berror\b/,
+      /\bmistake\b/,
+      /^(yes|no|yep|nope|yeah|nah)$/i,  // Single word affirmations
+      /^great$/i,
+      /^awesome$/i,
+      /^nice$/i
     ];
 
-    return feedbackIndicators.some(indicator => lowerMessage.includes(indicator));
+    return feedbackPatterns.some(pattern => pattern.test(lowerMessage));
   }
 
   /**

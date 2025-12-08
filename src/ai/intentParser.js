@@ -484,6 +484,20 @@ Business Context:
       };
     }
 
+    // "Which accounts/companies have logo rights" / "logo rights list"
+    if (message.includes('logo rights') || message.includes('logo permission') ||
+        message.includes('can we use') && message.includes('logo')) {
+      return {
+        intent: 'logo_rights_list',
+        entities: {},
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'List companies with logo rights',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+
     // "Show me my pipeline" / "my deals" / "my opportunities"
     if ((message.includes('my pipeline') || message.includes('my deals') || 
          message.includes('my opportunities') || message.includes('my opps')) &&
