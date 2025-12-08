@@ -536,7 +536,7 @@ function generateWeeklyTab(params) {
     signedByType, signedDealsTotal,
     novDecRevenue, novDecRevenueTotal,
     contractsByAccount, recurringTotal, projectTotal,
-    closedLostDeals = [], daysInStageByStage = {},
+    closedLostDeals = [], nurturedAccounts = [], daysInStageByStage = {},
     logosByType = { revenue: [], pilot: [], loi: [] },
     newOppsThisWeek = [], newOppsTotal = 0
   } = params;
@@ -1026,20 +1026,34 @@ function generateWeeklyTab(params) {
     <div class="weekly-section-title">4. Closed Lost, Disqualified, or Nurture this week (${closedLostDeals.length})</div>
     <table class="weekly-table">
       <thead>
-        <tr><th>Account</th><th>Detail</th></tr>
+        <tr><th>Account</th><th>ACV</th><th>Owner</th><th>Reason</th></tr>
       </thead>
       <tbody>
         ${closedLostDeals.length > 0 ? closedLostDeals.map(deal => `
         <tr>
           <td style="font-weight: 500; font-size: 0.75rem;">${deal.accountName}</td>
-          <td style="font-size: 0.7rem; color: #374151;">${deal.closedLostDetail || '-'}</td>
+          <td style="font-size: 0.7rem; color: #374151;">${deal.acv ? '$' + (deal.acv / 1000).toFixed(0) + 'k' : '-'}</td>
+          <td style="font-size: 0.7rem; color: #374151;">${deal.owner ? deal.owner.split(' ')[0] : '-'}</td>
+          <td style="font-size: 0.7rem; color: #6b7280; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${deal.closedLostDetail || '-'}</td>
         </tr>`).join('') : `
         <tr>
-          <td colspan="2" style="color: #9ca3af; text-align: center; font-style: italic;">No closed lost deals this week</td>
+          <td colspan="4" style="color: #9ca3af; text-align: center; font-style: italic;">No closed lost deals this week</td>
         </tr>`}
       </tbody>
     </table>
-    <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 4px;">Deals moved to Stage 7 this week</div>
+    <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 4px;">Deals moved to Stage 7 in last 7 days (live from Salesforce)</div>
+    
+    ${nurturedAccounts.length > 0 ? `
+    <div style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed #e5e7eb;">
+      <div style="font-size: 0.7rem; font-weight: 600; color: #7c3aed; margin-bottom: 6px;">Accounts Moved to Nurture (${nurturedAccounts.length})</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+        ${nurturedAccounts.map(acc => `
+          <span style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 4px; font-size: 0.65rem;">
+            ${acc.accountName}
+          </span>
+        `).join('')}
+      </div>
+    </div>` : ''}
   </div>
 
   <!-- SECTION 5: LONGEST DEALS BY STAGE (T10) -->
@@ -1324,17 +1338,71 @@ async function generateAccountDashboard() {
   } catch (e) { console.error('LOI history query error:', e.message); }
   
   // ═══════════════════════════════════════════════════════════════════════
-  // CLOSED LOST DEALS - Deals that moved to Stage 7 this week
-  // Note: Hardcoded for accuracy - SF doesn't track stage change dates easily
+  // CLOSED LOST DEALS - Deals that moved to Stage 7 this week (DYNAMIC)
+  // Query: Stage 7 opportunities with LastModifiedDate in last 7 days
   // ═══════════════════════════════════════════════════════════════════════
-  const closedLostDeals = [
-    { accountName: 'Instacart', closedLostDetail: 'Unresponsive' },
-    { accountName: 'Relativity', closedLostDetail: 'No pain at this time' },
-    { accountName: 'Thermo Fisher Scientific', closedLostDetail: 'Unresponsive' },
-    { accountName: 'Avis Budget Group', closedLostDetail: 'Unresponsive' },
-    { accountName: 'Verifone', closedLostDetail: '-' },
-    { accountName: 'Ericsson', closedLostDetail: 'Timing. Follow-up in February' }
-  ];
+  const closedLostQuery = `
+    SELECT Account.Name, Name, StageName, ACV__c, Closed_Lost_Detail__c, 
+           LastModifiedDate, Owner.Name
+    FROM Opportunity
+    WHERE StageName = 'Stage 7. Closed(Lost)'
+      AND LastModifiedDate >= LAST_N_DAYS:7
+    ORDER BY LastModifiedDate DESC
+    LIMIT 20
+  `;
+  
+  let closedLostDeals = [];
+  
+  try {
+    const closedLostData = await query(closedLostQuery, true);
+    console.log(`[Dashboard] Closed Lost This Week query returned ${closedLostData?.records?.length || 0} records`);
+    if (closedLostData?.records) {
+      closedLostData.records.forEach(opp => {
+        closedLostDeals.push({
+          accountName: opp.Account?.Name || 'Unknown',
+          oppName: opp.Name || '',
+          closedLostDetail: opp.Closed_Lost_Detail__c || '-',
+          acv: opp.ACV__c || 0,
+          owner: opp.Owner?.Name || '',
+          closedDate: opp.LastModifiedDate
+        });
+      });
+    }
+  } catch (e) { 
+    console.error('Closed Lost query error:', e.message);
+    // Fallback to empty - no hardcoded data
+    closedLostDeals = [];
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // ACCOUNTS MOVED TO NURTURE - Accounts with Nurture__c set this week
+  // ═══════════════════════════════════════════════════════════════════════
+  const nurturedAccountsQuery = `
+    SELECT Name, Owner.Name, LastModifiedDate
+    FROM Account
+    WHERE Nurture__c = true
+      AND LastModifiedDate >= LAST_N_DAYS:7
+    ORDER BY LastModifiedDate DESC
+    LIMIT 10
+  `;
+  
+  let nurturedAccounts = [];
+  
+  try {
+    const nurturedData = await query(nurturedAccountsQuery, true);
+    console.log(`[Dashboard] Nurtured Accounts This Week query returned ${nurturedData?.records?.length || 0} records`);
+    if (nurturedData?.records) {
+      nurturedData.records.forEach(acc => {
+        nurturedAccounts.push({
+          accountName: acc.Name || 'Unknown',
+          owner: acc.Owner?.Name || ''
+        });
+      });
+    }
+  } catch (e) { 
+    console.error('Nurtured Accounts query error:', e.message);
+    nurturedAccounts = [];
+  }
   
   // ═══════════════════════════════════════════════════════════════════════
   // OPPORTUNITIES CREATED THIS WEEK - CreatedDate in last 7 days
@@ -2105,7 +2173,7 @@ ${generateWeeklyTab({
   signedByType, signedDealsTotal,
   novDecRevenue, novDecRevenueTotal,
   contractsByAccount, recurringTotal, projectTotal,
-  closedLostDeals, daysInStageByStage, logosByType,
+  closedLostDeals, nurturedAccounts, daysInStageByStage, logosByType,
   newOppsThisWeek, newOppsTotal
 })}
 

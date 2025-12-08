@@ -566,7 +566,45 @@ Business Context:
       };
     }
     
-    // Manual account assignment/reassignment
+    // Account Management - BATCH Reassignment (Keigan only)
+    // Patterns: "batch reassign: account1, account2, account3 to Julie" or "reassign [account1, account2] to BL"
+    // MUST come before single reassign pattern
+    if ((message.includes('batch') && (message.includes('reassign') || message.includes('assign'))) ||
+        ((message.includes('reassign') || message.includes('assign')) && message.includes(' to ') && message.includes(','))) {
+      intent = 'batch_reassign_accounts';
+      
+      // Extract target BL
+      const toMatch = message.match(/to\s+(\w+(?:\s+\w+)?)\s*$/i);
+      if (toMatch) {
+        entities.targetBL = toMatch[1].trim();
+      }
+      
+      // Extract account names (before "to BL")
+      let accountsText = message.replace(/batch\s*(reassign|assign)[:\s]*/i, '')
+                                .replace(/\s+to\s+\w+(?:\s+\w+)?\s*$/i, '')
+                                .replace(/reassign|assign/gi, '')
+                                .trim();
+      
+      const accountList = accountsText.split(/[,]|\s+and\s+/)
+                                      .map(a => a.trim())
+                                      .filter(a => a.length > 0);
+      
+      if (accountList.length > 0) {
+        entities.accounts = accountList;
+      }
+      
+      return {
+        intent: 'batch_reassign_accounts',
+        entities,
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'Batch reassign multiple accounts to a BL',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+
+    // Manual account assignment/reassignment (SINGLE account)
     if ((message.includes('assign') || message.includes('reassign')) && 
         message.includes(' to ') && 
         !message.includes('assign to bl') &&
@@ -968,43 +1006,6 @@ Business Context:
       };
     }
 
-    // Account Management - BATCH Reassignment (Keigan only)
-    // Patterns: "batch reassign: account1, account2, account3 to Julie" or "reassign [account1, account2] to BL"
-    if ((message.includes('batch') && (message.includes('reassign') || message.includes('assign'))) ||
-        ((message.includes('reassign') || message.includes('assign')) && message.includes(' to ') && message.includes(','))) {
-      intent = 'batch_reassign_accounts';
-      
-      // Extract target BL
-      const toMatch = message.match(/to\s+(\w+(?:\s+\w+)?)\s*$/i);
-      if (toMatch) {
-        entities.targetBL = toMatch[1].trim();
-      }
-      
-      // Extract account names (before "to BL")
-      let accountsText = message.replace(/batch\s*(reassign|assign)[:\s]*/i, '')
-                                .replace(/\s+to\s+\w+(?:\s+\w+)?\s*$/i, '')
-                                .replace(/reassign|assign/gi, '')
-                                .trim();
-      
-      const accountList = accountsText.split(/[,]|\s+and\s+/)
-                                      .map(a => a.trim())
-                                      .filter(a => a.length > 0);
-      
-      if (accountList.length > 0) {
-        entities.accounts = accountList;
-      }
-      
-      return {
-        intent: 'batch_reassign_accounts',
-        entities,
-        followUp: false,
-        confidence: 0.95,
-        explanation: 'Batch reassign multiple accounts to a BL',
-        originalMessage: userMessage,
-        timestamp: Date.now()
-      };
-    }
-    
     // Account Management - Close Lost (Keigan only)
     if ((message.includes('close') || message.includes('mark')) && 
         (message.includes('lost') || message.includes('closed lost')) ||

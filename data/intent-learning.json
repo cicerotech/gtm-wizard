@@ -1,5 +1,146 @@
 {
-  "queries": {},
+  "queries": {
+    "b347f80cfe430712d24e5c810a0e9568": {
+      "intent": "batch_move_to_nurture",
+      "entities": {
+        "accounts": [
+          "instacart",
+          "relativity",
+          "thermo fisher"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "batch nurture: instacart, relativity, thermo fisher",
+      "uses": 1,
+      "firstSeen": "2025-12-08T21:16:41.417Z",
+      "lastUsed": "2025-12-08T21:16:41.417Z"
+    },
+    "81192205c58b11502483a666f7a17e5c": {
+      "intent": "batch_move_to_nurture",
+      "entities": {
+        "accounts": [
+          "boeing",
+          "intel",
+          "microsoft"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "move boeing, intel, microsoft to nurture",
+      "uses": 1,
+      "firstSeen": "2025-12-08T21:16:41.419Z",
+      "lastUsed": "2025-12-08T21:16:41.419Z"
+    },
+    "e77ffd06e4721168936ca082fde67e37": {
+      "intent": "batch_move_to_nurture",
+      "entities": {
+        "accounts": [
+          "acme",
+          "globalcorp"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "move acme and globalcorp to nurture",
+      "uses": 1,
+      "firstSeen": "2025-12-08T21:16:41.420Z",
+      "lastUsed": "2025-12-08T21:16:41.420Z"
+    },
+    "acc8ad7294b123d0e574905b4c8cd259": {
+      "intent": "move_to_nurture",
+      "entities": {
+        "accounts": [
+          "boeing"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "move boeing to nurture",
+      "uses": 1,
+      "firstSeen": "2025-12-08T21:16:41.420Z",
+      "lastUsed": "2025-12-08T21:16:41.420Z"
+    },
+    "398187763246ef8857da5ebf762ab867": {
+      "intent": "batch_reassign_accounts",
+      "entities": {
+        "targetBL": "julie",
+        "accounts": [
+          "boeing",
+          "intel",
+          "microsoft"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "batch reassign: boeing, intel, microsoft to julie",
+      "uses": 1,
+      "firstSeen": "2025-12-08T21:16:41.421Z",
+      "lastUsed": "2025-12-08T21:16:41.421Z"
+    },
+    "2571672cd156ea8984edb1731f8d3852": {
+      "intent": "batch_reassign_accounts",
+      "entities": {
+        "targetBL": "himanshu",
+        "accounts": [
+          "acme",
+          "globalcorp",
+          "techstart"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "reassign acme, globalcorp, techstart to himanshu",
+      "uses": 1,
+      "firstSeen": "2025-12-08T21:16:41.422Z",
+      "lastUsed": "2025-12-08T21:16:41.422Z"
+    },
+    "a1d331fe99c62414db132ac1bf506222": {
+      "intent": "reassign_account",
+      "entities": {
+        "accounts": [
+          "boeing"
+        ],
+        "targetBL": "julie"
+      },
+      "confidence": 0.9,
+      "query": "reassign boeing to julie",
+      "uses": 1,
+      "firstSeen": "2025-12-08T21:16:41.422Z",
+      "lastUsed": "2025-12-08T21:16:41.422Z"
+    },
+    "9426e6ef3cb07d0a5aa2744e17d36ade": {
+      "intent": "accounts_by_stage",
+      "entities": {
+        "returnType": "accounts"
+      },
+      "confidence": 0.9,
+      "query": "what accounts does julie own",
+      "uses": 1,
+      "firstSeen": "2025-12-08T21:16:41.424Z",
+      "lastUsed": "2025-12-08T21:16:41.424Z"
+    },
+    "454ca6e1eeb8ffb97c1c3a8ef75ee201": {
+      "intent": "accounts_by_stage",
+      "entities": {
+        "returnType": "accounts",
+        "stages": [
+          "Stage 2 - SQO"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "what accounts are in stage 2",
+      "uses": 1,
+      "firstSeen": "2025-12-08T21:16:41.424Z",
+      "lastUsed": "2025-12-08T21:16:41.424Z"
+    },
+    "00b3be67402fcc64023e2b28e7531667": {
+      "intent": "pagination_next",
+      "entities": {
+        "action": "next_page",
+        "pageSize": 10
+      },
+      "confidence": 0.9,
+      "query": "show next 10",
+      "uses": 1,
+      "firstSeen": "2025-12-08T21:16:41.426Z",
+      "lastUsed": "2025-12-08T21:16:41.426Z"
+    }
+  },
   "corrections": [],
   "intentExamples": {
     "account_status_dashboard": [
@@ -31,9 +172,33 @@
       "create boeing",
       "add intel to salesforce",
       "create account for microsoft"
+    ],
+    "batch_move_to_nurture": [
+      "batch nurture: instacart, relativity, thermo fisher",
+      "move boeing, intel, microsoft to nurture",
+      "move acme and globalcorp to nurture"
+    ],
+    "move_to_nurture": [
+      "move boeing to nurture"
+    ],
+    "reassign_account": [
+      "batch reassign: boeing, intel, microsoft to julie",
+      "reassign acme, globalcorp, techstart to himanshu",
+      "reassign boeing to julie"
+    ],
+    "accounts_by_stage": [
+      "what accounts does julie own",
+      "what accounts are in stage 2"
+    ],
+    "pagination_next": [
+      "show next 10"
+    ],
+    "batch_reassign_accounts": [
+      "batch reassign: boeing, intel, microsoft to julie",
+      "reassign acme, globalcorp, techstart to himanshu"
     ]
   },
   "version": 1,
-  "created": "2025-12-08T00:00:00.000Z"
+  "created": "2025-12-08T00:00:00.000Z",
+  "lastSaved": "2025-12-08T21:16:41.426Z"
 }
-
