@@ -46,7 +46,7 @@ A password-protected web dashboard provides a consolidated view across five tabs
 
 | Tab | Content |
 |-----|---------|
-| **Summary** | Blended pipeline totals (EUDIA + acquired pipeline), stage concentration breakdown (S1-S5 percentages), top accounts by ACV |
+| **Summary** | Blended pipeline totals (Eudia + acquired pipeline), stage concentration breakdown (S1-S5 percentages), top accounts by ACV |
 | **Weekly** | Q4 target opportunities, signed logos organized by fiscal quarter, current customer logo grid |
 | **Pipeline** | Expandable pipeline by stage, business lead overview showing each rep's deals and totals, top opportunities by ACV |
 | **Revenue** | Active revenue by account (November ARR totals), all closed-won deals grouped by Revenue/Pilot/LOI |
@@ -103,7 +103,7 @@ All data queries translate to SOQL and execute against the connected Salesforce 
 ### Data Blending
 
 The dashboard combines data from multiple sources:
-- **EUDIA Salesforce** — Live queries for opportunities, accounts, contracts
+- **Eudia Salesforce** — Live queries for opportunities, accounts, contracts
 - **Acquired pipeline** — Static data representing pipeline from company acquisition (synced weekly)
 - **Active revenue** — November ARR figures for all revenue-generating accounts
 
