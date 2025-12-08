@@ -322,8 +322,17 @@ class GTMBrainApp {
   setupExpressServer() {
     this.expressApp = express();
     
-    // Security middleware
-    this.expressApp.use(helmet());
+    // Security middleware - configure helmet with CSP that allows inline scripts for dashboards
+    this.expressApp.use(helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:", "https:"],
+        },
+      },
+    }));
     this.expressApp.use(cors());
     this.expressApp.use(express.json());
     this.expressApp.use(express.urlencoded({ extended: true }));
@@ -526,7 +535,6 @@ class GTMBrainApp {
 
     // GTM-Brain Command Cheat Sheet (inline for reliable deployment)
     this.expressApp.get('/cheat-sheet', (req, res) => {
-      res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline'");
       res.send(generateCheatSheetHTML());
     });
     
