@@ -526,6 +526,7 @@ class GTMBrainApp {
 
     // GTM-Brain Command Cheat Sheet (inline for reliable deployment)
     this.expressApp.get('/cheat-sheet', (req, res) => {
+      res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline'");
       res.send(generateCheatSheetHTML());
     });
     
