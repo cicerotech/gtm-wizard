@@ -62,6 +62,16 @@ class ContextManager {
         pendingRefinement: parsedIntent.followUp || false
       };
 
+      // Store full results for pagination (limit to 100 records for memory)
+      if (queryResult && queryResult.records && queryResult.records.length > 0) {
+        updatedContext.lastResults = {
+          records: queryResult.records.slice(0, 100),
+          totalSize: queryResult.totalSize,
+          currentPage: 0,
+          pageSize: 10
+        };
+      }
+
       // Save updated context
       await cache.setConversationContext(userId, channelId, updatedContext, this.contextTTL);
 
@@ -69,13 +79,79 @@ class ContextManager {
         userId,
         channelId,
         intent: parsedIntent.intent,
-        historyLength: updatedContext.history.length
+        historyLength: updatedContext.history.length,
+        hasResults: !!updatedContext.lastResults
       });
 
       return updatedContext;
 
     } catch (error) {
       logger.error('Failed to update conversation context:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get next page of results from context
+   */
+  async getNextPage(userId, channelId) {
+    try {
+      const context = await this.getContext(userId, channelId);
+      if (!context || !context.lastResults || !context.lastResults.records) {
+        return null;
+      }
+
+      const { records, currentPage, pageSize, totalSize } = context.lastResults;
+      const nextPage = currentPage + 1;
+      const startIndex = nextPage * pageSize;
+      const endIndex = startIndex + pageSize;
+
+      if (startIndex >= records.length) {
+        return null; // No more results
+      }
+
+      // Update page in context
+      context.lastResults.currentPage = nextPage;
+      await cache.setConversationContext(userId, channelId, context, this.contextTTL);
+
+      return {
+        records: records.slice(startIndex, endIndex),
+        pageNumber: nextPage + 1,
+        totalPages: Math.ceil(records.length / pageSize),
+        totalSize: totalSize,
+        hasMore: endIndex < records.length,
+        intent: context.lastQuery?.intent
+      };
+    } catch (error) {
+      logger.error('Failed to get next page:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get all remaining results from context
+   */
+  async getAllResults(userId, channelId) {
+    try {
+      const context = await this.getContext(userId, channelId);
+      if (!context || !context.lastResults || !context.lastResults.records) {
+        return null;
+      }
+
+      const { records, currentPage, pageSize, totalSize } = context.lastResults;
+      const startIndex = (currentPage + 1) * pageSize;
+
+      if (startIndex >= records.length) {
+        return null;
+      }
+
+      return {
+        records: records.slice(startIndex),
+        totalSize: totalSize,
+        intent: context.lastQuery?.intent
+      };
+    } catch (error) {
+      logger.error('Failed to get all results:', error);
       return null;
     }
   }
@@ -380,6 +456,8 @@ module.exports = {
   getUserPreferences: (userId) => contextManager.getUserPreferences(userId),
   updateUserPreferences: (userId, preferences) => 
     contextManager.updateUserPreferences(userId, preferences),
-  generateSuggestions: (context, intent) => contextManager.generateSuggestions(context, intent)
+  generateSuggestions: (context, intent) => contextManager.generateSuggestions(context, intent),
+  getNextPage: (userId, channelId) => contextManager.getNextPage(userId, channelId),
+  getAllResults: (userId, channelId) => contextManager.getAllResults(userId, channelId)
 };
 

@@ -400,6 +400,74 @@ Business Context:
       };
     }
 
+    // "Show next 10" / "next 10" / "show more" - pagination follow-up
+    if (message.includes('next 10') || message.includes('show more') || 
+        message.includes('more deals') || message.includes('show all') ||
+        message === 'more' || message === 'next') {
+      return {
+        intent: 'pagination_next',
+        entities: { 
+          action: message.includes('all') ? 'show_all' : 'next_page',
+          pageSize: 10 
+        },
+        followUp: true,
+        confidence: 0.95,
+        explanation: 'Pagination - show next results from previous query',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+
+    // "What ACCOUNTS are in Stage X" / "accounts in stage X" - return unique accounts, not opps
+    if ((message.includes('what accounts') || message.includes('which accounts') || 
+         message.includes('accounts in stage') || message.includes('accounts are in stage')) &&
+        !message.includes('opportunities')) {
+      const stageMatch = message.match(/stage (\d)/i);
+      const stageMap = {
+        '0': 'Stage 0 - Qualifying',
+        '1': 'Stage 1 - Discovery',
+        '2': 'Stage 2 - SQO',
+        '3': 'Stage 3 - Pilot',
+        '4': 'Stage 4 - Proposal',
+        '5': 'Stage 5 - Negotiation'
+      };
+      
+      const entities = { returnType: 'accounts' };
+      if (stageMatch && stageMap[stageMatch[1]]) {
+        entities.stages = [stageMap[stageMatch[1]]];
+      }
+      
+      return {
+        intent: 'accounts_by_stage',
+        entities,
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'List unique accounts in a pipeline stage',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+
+    // "What accounts does [Owner] own/have" - return accounts by owner
+    const ownerAccountsMatch = message.match(/(?:what|which) accounts (?:does|do) (\w+)(?: own| have)?/i) ||
+                               message.match(/(\w+)'s accounts/i) ||
+                               message.match(/accounts (?:owned by|for) (\w+)/i);
+    if (ownerAccountsMatch) {
+      const ownerName = ownerAccountsMatch[1];
+      return {
+        intent: 'accounts_by_owner',
+        entities: { 
+          returnType: 'accounts',
+          ownerName: ownerName 
+        },
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'List accounts owned by a specific person',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+
     // "Who are our current customers" / "show me customers" / "list customers"
     if ((message.includes('current customers') || message.includes('our customers') || 
          message.includes('list customers') || message.includes('show customers') ||

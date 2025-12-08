@@ -389,15 +389,9 @@ Ask me anything about your pipeline, accounts, or deals!`;
       await handleOwnerAccountsList(parsedIntent.entities, userId, channelId, client, threadTs);
       return;
     } else if (parsedIntent.intent === 'account_stage_lookup') {
-      // Handle "What accounts are in Stage 2?" type queries
-      if (parsedIntent.entities.stages && parsedIntent.entities.stages.length > 0) {
-        const stageName = parsedIntent.entities.stages[0];
-        soql = `SELECT Account.Name, Account.Owner.Name, Account.Industry, Name, Amount, CloseDate
-                FROM Opportunity 
-                WHERE StageName = '${stageName}' AND IsClosed = false
-                ORDER BY Amount DESC
-                LIMIT 20`;
-      }
+      // Handle "What accounts are in Stage 2?" - redirect to accounts handler (returns unique accounts)
+      await handleAccountsByStage(parsedIntent, userId, channelId, client, threadTs);
+      return; // Exit early - handled by dedicated function
     } else if (parsedIntent.intent === 'account_field_lookup') {
       // Handle advanced account field queries
       soql = buildAccountFieldQuery(parsedIntent.entities);
@@ -471,6 +465,18 @@ Ask me anything about your pipeline, accounts, or deals!`;
     } else if (parsedIntent.intent === 'account_status_dashboard') {
       // Handle executive account status dashboard
       await handleAccountStatusDashboard(userId, channelId, client, threadTs);
+      return; // Exit early
+    } else if (parsedIntent.intent === 'pagination_next') {
+      // Handle "show next 10" / "show more" follow-ups
+      await handlePaginationNext(parsedIntent, userId, channelId, client, threadTs);
+      return; // Exit early
+    } else if (parsedIntent.intent === 'accounts_by_stage') {
+      // Handle "what accounts are in Stage 2" - return unique accounts, not opps
+      await handleAccountsByStage(parsedIntent, userId, channelId, client, threadTs);
+      return; // Exit early
+    } else if (parsedIntent.intent === 'accounts_by_owner') {
+      // Handle "what accounts does Julie own" - return accounts, not deals
+      await handleAccountsByOwner(parsedIntent, userId, channelId, client, threadTs);
       return; // Exit early
     } else if (parsedIntent.intent === 'customer_list') {
       // Handle "who are our current customers" query
@@ -3646,6 +3652,310 @@ async function handleAccountStatusDashboard(userId, channelId, client, threadTs)
     await client.chat.postMessage({
       channel: channelId,
       text: `Error: ${error.message}`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle "show next 10" / "show more" pagination follow-ups
+ */
+async function handlePaginationNext(parsedIntent, userId, channelId, client, threadTs) {
+  try {
+    const { getNextPage, getAllResults } = require('../ai/contextManager');
+    const action = parsedIntent.entities.action || 'next_page';
+    
+    let pageData;
+    if (action === 'show_all') {
+      pageData = await getAllResults(userId, channelId);
+    } else {
+      pageData = await getNextPage(userId, channelId);
+    }
+    
+    if (!pageData || !pageData.records || pageData.records.length === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `No more results to show.\n\nTry a new query like "show me pipeline" or "what closed this month?"`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const records = pageData.records;
+    let response = '';
+    
+    if (action === 'show_all') {
+      response = `*Remaining Deals (${records.length})*\n\n`;
+    } else {
+      response = `*Page ${pageData.pageNumber} of ${pageData.totalPages}*\n\n`;
+    }
+    
+    records.forEach((record, i) => {
+      const account = record.Account?.Name || record.Name || 'Unknown';
+      const amount = formatCurrency(record.Amount || record.ACV__c || 0);
+      const stage = shortStage(record.StageName);
+      const owner = shortName(record.Owner?.Name);
+      const date = record.Target_LOI_Date__c ? 
+        new Date(record.Target_LOI_Date__c).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) :
+        '';
+      
+      const num = action === 'show_all' ? i + 1 : ((pageData.pageNumber - 1) * 10) + i + 1;
+      response += `${num}. *${account}* - ${amount} • ${stage} • ${owner}${date ? ' • ' + date : ''}\n`;
+    });
+    
+    if (pageData.hasMore) {
+      response += `\n_Say "show next 10" or "show all" for more_`;
+    } else {
+      response += `\n_End of results_`;
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: response,
+      thread_ts: threadTs
+    });
+    
+    logger.info(`✅ Pagination: showed ${records.length} more results`);
+    
+  } catch (error) {
+    logger.error('Pagination handler failed:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `I couldn't find any previous results to paginate. Try a new query first.`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle "what ACCOUNTS are in Stage X" - returns unique account names, not opportunities
+ */
+async function handleAccountsByStage(parsedIntent, userId, channelId, client, threadTs) {
+  try {
+    const stages = parsedIntent.entities.stages || [];
+    let stageFilter = '';
+    
+    if (stages.length > 0) {
+      const stageList = stages.map(s => `'${s}'`).join(',');
+      stageFilter = `AND StageName IN (${stageList})`;
+    }
+    
+    // Query opportunities but GROUP BY Account to get unique accounts
+    const soql = `
+      SELECT Account.Name, Account.Id, Account.Owner.Name, COUNT(Id) oppCount, SUM(Amount) totalAmount
+      FROM Opportunity 
+      WHERE IsClosed = false 
+        AND Account.Name != null
+        ${stageFilter}
+        AND (NOT Account.Name LIKE '%Sample%')
+        AND (NOT Account.Name LIKE '%Test%')
+      GROUP BY Account.Name, Account.Id, Account.Owner.Name
+      ORDER BY SUM(Amount) DESC NULLS LAST
+      LIMIT 50
+    `;
+    
+    const result = await query(soql);
+    
+    if (!result || result.totalSize === 0) {
+      const stageText = stages.length > 0 ? stages[0] : 'that stage';
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `No accounts found in ${stageText}.\n\nTry: "show me pipeline" or "what accounts are in Stage 3?"`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const records = result.records;
+    const stageText = stages.length > 0 ? stages[0].replace('Stage ', 'S') : 'Active Stages';
+    
+    let response = `*Accounts in ${stageText}*\n`;
+    response += `${records.length} unique accounts\n\n`;
+    
+    records.forEach((record, i) => {
+      const account = record.Account?.Name || 'Unknown';
+      const owner = shortName(record.Account?.Owner?.Name);
+      const totalAmount = formatCurrency(record.totalAmount || 0);
+      const oppCount = record.oppCount || 0;
+      
+      response += `${i + 1}. *${account}* - ${owner} • ${totalAmount} (${oppCount} opp${oppCount !== 1 ? 's' : ''})\n`;
+    });
+    
+    if (records.length > 10) {
+      response += `\n_Showing ${records.length} accounts_`;
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: response,
+      thread_ts: threadTs
+    });
+    
+    logger.info(`✅ Accounts by stage: ${records.length} accounts found`);
+    
+  } catch (error) {
+    logger.error('Accounts by stage query failed:', error);
+    // Fallback: query without GROUP BY if SOQL grouping fails
+    await handleAccountsByStageSimple(parsedIntent, userId, channelId, client, threadTs);
+  }
+}
+
+/**
+ * Fallback for accounts by stage - simple approach without GROUP BY
+ */
+async function handleAccountsByStageSimple(parsedIntent, userId, channelId, client, threadTs) {
+  try {
+    const stages = parsedIntent.entities.stages || [];
+    let stageFilter = '';
+    
+    if (stages.length > 0) {
+      const stageList = stages.map(s => `'${s}'`).join(',');
+      stageFilter = `AND StageName IN (${stageList})`;
+    }
+    
+    const soql = `
+      SELECT Id, Name, Account.Name, Account.Owner.Name, Amount, StageName
+      FROM Opportunity 
+      WHERE IsClosed = false 
+        AND Account.Name != null
+        ${stageFilter}
+        AND (NOT Account.Name LIKE '%Sample%')
+        AND (NOT Account.Name LIKE '%Test%')
+      ORDER BY Amount DESC NULLS LAST
+      LIMIT 100
+    `;
+    
+    const result = await query(soql);
+    
+    if (!result || result.totalSize === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `No accounts found in that stage.`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    // Deduplicate by account name
+    const accountMap = new Map();
+    result.records.forEach(opp => {
+      const accountName = opp.Account?.Name;
+      if (accountName && !accountMap.has(accountName)) {
+        accountMap.set(accountName, {
+          name: accountName,
+          owner: opp.Account?.Owner?.Name,
+          totalAmount: 0,
+          oppCount: 0
+        });
+      }
+      if (accountName) {
+        const acc = accountMap.get(accountName);
+        acc.totalAmount += (opp.Amount || 0);
+        acc.oppCount += 1;
+      }
+    });
+    
+    const accounts = Array.from(accountMap.values())
+      .sort((a, b) => b.totalAmount - a.totalAmount);
+    
+    const stageText = stages.length > 0 ? stages[0].replace('Stage ', 'S') : 'Active Stages';
+    
+    let response = `*Accounts in ${stageText}*\n`;
+    response += `${accounts.length} unique accounts\n\n`;
+    
+    accounts.slice(0, 20).forEach((acc, i) => {
+      const owner = shortName(acc.owner);
+      const totalAmount = formatCurrency(acc.totalAmount);
+      
+      response += `${i + 1}. *${acc.name}* - ${owner} • ${totalAmount} (${acc.oppCount} opp${acc.oppCount !== 1 ? 's' : ''})\n`;
+    });
+    
+    if (accounts.length > 20) {
+      response += `\n_Showing top 20 of ${accounts.length} accounts_`;
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: response,
+      thread_ts: threadTs
+    });
+    
+  } catch (error) {
+    logger.error('Accounts by stage simple query failed:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `Error fetching accounts: ${error.message}`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle "what accounts does [Owner] own" - returns accounts, not deals
+ */
+async function handleAccountsByOwner(parsedIntent, userId, channelId, client, threadTs) {
+  try {
+    const ownerName = parsedIntent.entities.ownerName;
+    
+    if (!ownerName) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `Please specify an owner name. Try: "what accounts does Julie own?"`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    // Query accounts directly
+    const soql = `
+      SELECT Id, Name, Owner.Name, Customer_Type__c, 
+             (SELECT Id, Amount, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
+      FROM Account 
+      WHERE Owner.Name LIKE '%${ownerName}%'
+        AND (NOT Name LIKE '%Sample%')
+        AND (NOT Name LIKE '%Test%')
+      ORDER BY Name
+      LIMIT 30
+    `;
+    
+    const result = await query(soql);
+    
+    if (!result || result.totalSize === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `No accounts found for owner "${ownerName}".\n\nTry checking the spelling or use: "who owns [Company]?"`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const accounts = result.records;
+    const owner = accounts[0]?.Owner?.Name || ownerName;
+    
+    let response = `*Accounts owned by ${owner}*\n`;
+    response += `${accounts.length} accounts\n\n`;
+    
+    accounts.forEach((acc, i) => {
+      const customerType = acc.Customer_Type__c ? ` (${acc.Customer_Type__c})` : '';
+      const oppCount = acc.Opportunities?.totalSize || 0;
+      const oppText = oppCount > 0 ? ` • ${oppCount} active opp${oppCount !== 1 ? 's' : ''}` : '';
+      
+      response += `${i + 1}. *${acc.Name}*${customerType}${oppText}\n`;
+    });
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: response,
+      thread_ts: threadTs
+    });
+    
+    logger.info(`✅ Accounts by owner: ${accounts.length} accounts found for ${ownerName}`);
+    
+  } catch (error) {
+    logger.error('Accounts by owner query failed:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `Error fetching accounts: ${error.message}`,
       thread_ts: threadTs
     });
   }
