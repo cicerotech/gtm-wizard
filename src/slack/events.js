@@ -483,6 +483,10 @@ Ask me anything about your pipeline, accounts, or deals!`;
         parsedIntent.entities.owners = [ownerName];
       }
       soql = queryBuilder.buildOpportunityQuery({ ...parsedIntent.entities, isClosed: false });
+    } else if (parsedIntent.intent === 'pipeline_added') {
+      // Handle "what deals were added to pipeline this week"
+      await handlePipelineAddedQuery(parsedIntent, userId, channelId, client, threadTs);
+      return; // Exit early - handled by dedicated function
     } else if (parsedIntent.intent === 'pipeline_summary' || parsedIntent.intent === 'deal_lookup') {
       soql = queryBuilder.buildOpportunityQuery(parsedIntent.entities);
     } else if (parsedIntent.intent === 'activity_check') {
@@ -3642,6 +3646,99 @@ async function handleAccountStatusDashboard(userId, channelId, client, threadTs)
     await client.chat.postMessage({
       channel: channelId,
       text: `Error: ${error.message}`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle "what deals were added to pipeline this week" query
+ */
+async function handlePipelineAddedQuery(parsedIntent, userId, channelId, client, threadTs) {
+  try {
+    const timeframe = parsedIntent.entities.createdTimeframe || 'this_week';
+    
+    // Build date filter based on timeframe
+    let dateFilter = '';
+    const today = new Date();
+    
+    if (timeframe === 'today') {
+      dateFilter = 'CreatedDate = TODAY';
+    } else if (timeframe === 'yesterday') {
+      dateFilter = 'CreatedDate = YESTERDAY';
+    } else if (timeframe === 'this_week') {
+      dateFilter = 'CreatedDate = THIS_WEEK';
+    } else if (timeframe === 'last_week') {
+      dateFilter = 'CreatedDate = LAST_WEEK';
+    } else if (timeframe === 'this_month') {
+      dateFilter = 'CreatedDate = THIS_MONTH';
+    } else if (timeframe === 'last_month') {
+      dateFilter = 'CreatedDate = LAST_MONTH';
+    } else {
+      dateFilter = 'CreatedDate = THIS_WEEK';
+    }
+    
+    const soql = `
+      SELECT Id, Name, Account.Name, Amount, StageName, Owner.Name, 
+             CreatedDate, Target_LOI_Date__c, Product_Line__c
+      FROM Opportunity 
+      WHERE IsClosed = false 
+        AND ${dateFilter}
+        AND (NOT Account.Name LIKE '%Sample%')
+        AND (NOT Account.Name LIKE '%Test%')
+      ORDER BY CreatedDate DESC, Amount DESC
+      LIMIT 50
+    `;
+    
+    const result = await query(soql);
+    
+    if (!result || result.totalSize === 0) {
+      const timeframeText = timeframe.replace('_', ' ');
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `No new deals added to pipeline ${timeframeText}.\n\nTry: "deals added last month" or "new pipeline this month"`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const records = result.records;
+    let totalAmount = 0;
+    records.forEach(r => { totalAmount += r.Amount || 0; });
+    
+    const timeframeText = timeframe.replace('_', ' ');
+    let response = `*New Pipeline Added (${timeframeText})*\n`;
+    response += `${records.length} deals • *${formatCurrency(totalAmount)}* added\n\n`;
+    
+    // Sort by amount and show top 10
+    const sorted = [...records].sort((a, b) => (b.Amount || 0) - (a.Amount || 0));
+    sorted.slice(0, 10).forEach((record, i) => {
+      const account = record.Account?.Name || 'Unknown';
+      const amount = formatCurrency(record.Amount || 0);
+      const stage = shortStage(record.StageName);
+      const owner = shortName(record.Owner?.Name);
+      const created = new Date(record.CreatedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      
+      response += `${i + 1}. *${account}* - ${amount} • ${stage} • ${owner} • Created ${created}\n`;
+    });
+    
+    if (records.length > 10) {
+      response += `\n_Showing top 10 of ${records.length} new deals_`;
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: response,
+      thread_ts: threadTs
+    });
+    
+    logger.info(`✅ Pipeline added query: ${records.length} deals found for ${timeframe}`);
+    
+  } catch (error) {
+    logger.error('Pipeline added query failed:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `Error fetching new pipeline: ${error.message}`,
       thread_ts: threadTs
     });
   }

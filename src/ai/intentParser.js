@@ -1243,20 +1243,37 @@ Business Context:
       };
     }
     
-    // Pipeline addition queries
-    else if (message.includes('added to pipeline') || message.includes('new deals') || 
-             message.includes('deals created')) {
-      intent = 'deal_lookup';
+    // Pipeline addition queries - "deals added to pipeline", "new deals this week"
+    else if (message.includes('added to pipeline') || message.includes('added to the pipeline') ||
+             message.includes('new deals') || message.includes('deals created') ||
+             message.includes('pipeline added') || message.includes('new pipeline')) {
+      intent = 'pipeline_added';
       entities.isClosed = false;
-      entities.createdTimeframe = 'this_week'; // Special handling for creation date
-      // Don't set timeframe - we only want to filter by creation date
+      
+      // Parse timeframe from message
+      if (message.includes('today')) {
+        entities.createdTimeframe = 'today';
+      } else if (message.includes('yesterday')) {
+        entities.createdTimeframe = 'yesterday';
+      } else if (message.includes('this week')) {
+        entities.createdTimeframe = 'this_week';
+      } else if (message.includes('last week')) {
+        entities.createdTimeframe = 'last_week';
+      } else if (message.includes('this month')) {
+        entities.createdTimeframe = 'this_month';
+      } else if (message.includes('last month')) {
+        entities.createdTimeframe = 'last_month';
+      } else {
+        // Default to this week
+        entities.createdTimeframe = 'this_week';
+      }
       
       return {
-        intent: 'deal_lookup',
+        intent: 'pipeline_added',
         entities,
         followUp: false,
-        confidence: 0.9,
-        explanation: 'Pipeline additions query',
+        confidence: 0.95,
+        explanation: 'Pipeline additions query - deals created in timeframe',
         originalMessage: userMessage,
         timestamp: Date.now()
       };
