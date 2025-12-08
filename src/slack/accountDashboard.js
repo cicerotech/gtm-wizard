@@ -222,7 +222,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
         const combinedACV = (eData.totalACV || 0) + (jData.totalACV || 0);
         if (combinedCount === 0) return '';
         
-        const stageNum = parseInt(stage.match(/Stage (\\d)/)?.[1] || 0);
+        const stageNum = parseInt(stage.match(/Stage (\d)/)?.[1] || 0);
         const isExpandable = combinedCount > 0; // All stages are now expandable
         
         // Get combined opportunities from both sources for expanded view

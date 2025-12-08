@@ -142,57 +142,81 @@ class SalesforceConnection {
     }, 90 * 60 * 1000); // 90 minutes
   }
 
-  async query(soql, useCache = true) {
+  async query(soql, useCache = true, maxRetries = 3) {
     if (!this.isConnected) {
       throw new Error('Salesforce connection not established');
     }
 
     const startTime = Date.now();
+    const queryHash = this.generateQueryHash(soql);
     
-    try {
-      // Generate cache key for query
-      const queryHash = this.generateQueryHash(soql);
-      
-      // Check cache first if enabled
-      if (useCache) {
-        const cachedResult = await cache.getCachedQuery(queryHash);
-        if (cachedResult) {
-          logger.info('📦 Using cached query result', { queryHash });
-          return cachedResult;
+    // Check cache first if enabled
+    if (useCache) {
+      const cachedResult = await cache.getCachedQuery(queryHash);
+      if (cachedResult) {
+        logger.info('📦 Using cached query result', { queryHash });
+        return cachedResult;
+      }
+    }
+
+    // Retry loop with exponential backoff
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Execute query
+        const result = await this.conn.query(soql);
+        const duration = Date.now() - startTime;
+
+        // Log query execution
+        logger.salesforceQuery(soql, result, duration);
+
+        // Cache result if successful and cacheable
+        if (useCache && result.totalSize < 1000) {
+          await cache.setCachedQuery(queryHash, result, 300); // 5 minutes
         }
+
+        return result;
+
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        
+        // Check if error is retryable
+        const isRetryable = 
+          error.errorCode === 'REQUEST_LIMIT_EXCEEDED' ||
+          error.errorCode === 'UNABLE_TO_LOCK_ROW' ||
+          error.errorCode === 'SERVER_UNAVAILABLE' ||
+          error.message?.includes('ECONNRESET') ||
+          error.message?.includes('ETIMEDOUT') ||
+          error.message?.includes('socket hang up');
+
+        // Handle token expiration (always retry once after refresh)
+        if (error.name === 'INVALID_SESSION_ID' || error.errorCode === 'INVALID_SESSION_ID') {
+          logger.info('🔄 Session expired, refreshing token...');
+          await this.authenticate();
+          continue; // Retry with new token
+        }
+
+        // Retry on transient errors
+        if (isRetryable && attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+          logger.warn(`⚠️ SF query failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms`, {
+            error: error.message,
+            errorCode: error.errorCode
+          });
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        // Final failure - log and throw
+        logger.error('❌ Salesforce query failed:', { 
+          error: error.message, 
+          errorCode: error.errorCode,
+          soql: soql.substring(0, 200),
+          duration,
+          attempts: attempt
+        });
+
+        throw error;
       }
-
-      // Execute query
-      const result = await this.conn.query(soql);
-      const duration = Date.now() - startTime;
-
-      // Log query execution
-      logger.salesforceQuery(soql, result, duration);
-
-      // Cache result if successful and cacheable
-      if (useCache && result.totalSize < 1000) { // Don't cache large results
-        await cache.setCachedQuery(queryHash, result, 300); // 5 minutes
-      }
-
-      return result;
-
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      logger.error('Salesforce query failed:', { 
-        error: error.message, 
-        soql: soql.substring(0, 200),
-        duration 
-      });
-
-      // Handle token expiration
-      if (error.name === 'INVALID_SESSION_ID' || error.errorCode === 'INVALID_SESSION_ID') {
-        logger.info('🔄 Session expired, refreshing token...');
-        await this.authenticate();
-        // Retry query once
-        return await this.conn.query(soql);
-      }
-
-      throw error;
     }
   }
 

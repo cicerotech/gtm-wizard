@@ -37,11 +37,14 @@ class IntentParser {
       // Build comprehensive prompt with context
       const prompt = this.buildIntentPrompt(userMessage, conversationContext);
 
-      // Skip AI parsing - use fallback pattern matching which works better
-      // Socrates/OpenAI was giving wrong intents, fallback is more reliable
-      throw new Error('Using fallback pattern matching for reliability');
+      // Skip AI parsing - use fallback pattern matching which is more reliable
+      // Socrates/OpenAI was giving inconsistent intents for sales queries
+      const USE_FALLBACK_ONLY = true;
+      if (USE_FALLBACK_ONLY) {
+        return this.fallbackPatternMatching(userMessage, conversationContext);
+      }
 
-      // Log AI request
+      // Log AI request (only reached if USE_FALLBACK_ONLY = false)
       logger.aiRequest(prompt, response.usage?.total_tokens, duration);
 
       // Validate and enhance the parsed result
