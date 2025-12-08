@@ -3,7 +3,7 @@ const { cleanStageName } = require('../utils/formatters');
 
 class ResponseFormatter {
   constructor() {
-    this.maxTableRows = 50; // Increased from 15 to show more results
+    this.maxDealsToShow = 10; // Show top 10 deals only for mobile-friendly view
     this.maxMessageLength = 3000;
   }
 
@@ -49,103 +49,106 @@ class ResponseFormatter {
   }
 
   /**
-   * Format pipeline summary - IMPROVED with compact organized view
+   * Format pipeline summary - COMPACT MOBILE-FRIENDLY VIEW
+   * Summary at top, then bullet list of top deals
    */
   formatPipelineSummary(records, parsedIntent, totalSize) {
     const totalAmount = records.reduce((sum, r) => sum + (r.Amount || 0), 0);
     const weightedAmount = records.reduce((sum, r) => sum + (r.Finance_Weighted_ACV__c || 0), 0);
 
-    // Build header with key metrics
-    let response = `*Pipeline Summary* (${totalSize} deals)\n\n`;
-    response += `┌─────────────────────────────────────┐\n`;
-    response += `│  Total Value:     ${this.formatCurrency(totalAmount).padStart(15)}  │\n`;
-    response += `│  Weighted Value:  ${this.formatCurrency(weightedAmount).padStart(15)}  │\n`;
-    response += `└─────────────────────────────────────┘\n\n`;
+    // Compact header
+    let response = `*Pipeline Summary* (${totalSize} deals)\n`;
+    response += `Total: *${this.formatCurrency(totalAmount)}* | Weighted: *${this.formatCurrency(weightedAmount)}*\n\n`;
 
-    // Stage summary bar
+    // Stage breakdown - one line each
     const stageBreakdown = this.analyzeByStage(records);
     const stageOrder = ['Stage 0', 'Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Stage 5'];
     
-    response += '*By Stage:*\n```\n';
+    response += '*By Stage:*\n';
     stageOrder.forEach(stagePrefix => {
       const matchingStage = Object.keys(stageBreakdown).find(s => s.includes(stagePrefix));
       if (matchingStage) {
         const data = stageBreakdown[matchingStage];
         const stageNum = stagePrefix.replace('Stage ', 'S');
-        const bar = '█'.repeat(Math.min(20, Math.ceil(data.amount / totalAmount * 20)));
-        response += `${stageNum}: ${data.count.toString().padStart(2)} deals  ${this.formatCurrency(data.amount).padStart(8)}  ${bar}\n`;
+        response += `• ${stageNum}: ${data.count} deals (${this.formatCurrency(data.amount)})\n`;
       }
     });
-    response += '```\n';
 
-    // Use grouped table for larger result sets
-    if (totalSize > 20) {
-      response += this.buildGroupedPipelineTable(records.slice(0, this.maxTableRows));
-    } else {
-      response += '\n*All Opportunities:*\n';
-      response += this.buildDealsTable(records.slice(0, this.maxTableRows));
-    }
+    // Top deals - compact single-line format
+    response += `\n*Top ${Math.min(this.maxDealsToShow, totalSize)} Deals:*\n`;
+    const sortedRecords = [...records].sort((a, b) => (b.Amount || 0) - (a.Amount || 0));
+    
+    sortedRecords.slice(0, this.maxDealsToShow).forEach((record, i) => {
+      response += this.formatDealLine(record, i + 1);
+    });
 
-    if (totalSize > this.maxTableRows) {
-      response += `\n_Showing top ${this.maxTableRows} of ${totalSize} deals_`;
+    if (totalSize > this.maxDealsToShow) {
+      response += `\n_+${totalSize - this.maxDealsToShow} more deals_`;
     }
 
     return response;
   }
 
   /**
-   * Format deal lookup results
+   * Format a single deal as one compact line
+   * Format: "1. Account - $500K • S2 • Owner • Jan 31"
+   */
+  formatDealLine(record, index = null) {
+    const account = record.Account?.Name || 'Unknown';
+    const amount = this.formatCurrency(record.Amount || 0);
+    const stage = this.shortStage(record.StageName);
+    const owner = this.shortName(record.Owner?.Name);
+    const date = this.formatDate(record.Target_LOI_Date__c || record.CloseDate);
+    
+    const prefix = index ? `${index}. ` : '• ';
+    return `${prefix}*${account}* - ${amount} • ${stage} • ${owner} • ${date}\n`;
+  }
+
+  /**
+   * Format deal lookup results - compact list
    */
   formatDealLookup(records, parsedIntent, totalSize) {
     const totalAmount = records.reduce((sum, r) => sum + (r.Amount || 0), 0);
 
-    let response = `*Deal Results*\n`;
-    response += `Found ${totalSize} deals worth ${this.formatCurrency(totalAmount)}\n\n`;
+    let response = `*Found ${totalSize} deals* (${this.formatCurrency(totalAmount)})\n\n`;
 
-    // Add context about the search
-    const searchContext = this.buildSearchContext(parsedIntent.entities);
-    if (searchContext) {
-      response += `*Filters:* ${searchContext}\n\n`;
-    }
+    const sortedRecords = [...records].sort((a, b) => (b.Amount || 0) - (a.Amount || 0));
+    
+    sortedRecords.slice(0, this.maxDealsToShow).forEach((record, i) => {
+      response += this.formatDealLine(record, i + 1);
+    });
 
-    response += this.buildDealsTable(records.slice(0, this.maxTableRows));
-
-    if (totalSize > this.maxTableRows) {
-      response += `\n_Showing top ${this.maxTableRows} of ${totalSize} results_`;
+    if (totalSize > this.maxDealsToShow) {
+      response += `\n_+${totalSize - this.maxDealsToShow} more deals_`;
     }
 
     return response;
   }
 
   /**
-   * Format activity check results
+   * Format activity check results - focused on stale deals
    */
   formatActivityCheck(records, parsedIntent, totalSize) {
     const totalAmount = records.reduce((sum, r) => sum + (r.Amount || 0), 0);
-    const avgDaysStale = records.reduce((sum, r) => {
-      if (r.LastActivityDate) {
-        const daysAgo = Math.floor((Date.now() - new Date(r.LastActivityDate)) / (1000 * 60 * 60 * 24));
-        return sum + daysAgo;
-      }
-      return sum + 30; // Default for null dates
-    }, 0) / records.length;
 
-    let response = `⚠️ *Activity Check*\n`;
-    response += `${totalSize} deals need attention (${this.formatCurrency(totalAmount)} at risk)\n`;
-    response += `Average days since last activity: ${Math.round(avgDaysStale)}\n\n`;
+    let response = `*Stale Deals* (${totalSize} need attention)\n`;
+    response += `At Risk: *${this.formatCurrency(totalAmount)}*\n\n`;
 
-    // Group by owner to show who needs help
+    // Group by owner
     const ownerBreakdown = this.analyzeByOwner(records);
-    response += `*By Owner:*\n`;
+    response += '*By Owner:*\n';
     Object.entries(ownerBreakdown)
       .sort(([,a], [,b]) => b.amount - a.amount)
-      .slice(0, 10)
+      .slice(0, 5)
       .forEach(([owner, data]) => {
         response += `• ${owner}: ${data.count} deals (${this.formatCurrency(data.amount)})\n`;
       });
-    response += '\n';
 
-    response += this.buildDealsTable(records.slice(0, 10), ['Name', 'Amount', 'StageName', 'LastActivityDate', 'Owner.Name']);
+    // Top stale deals
+    response += `\n*Top Stale Deals:*\n`;
+    records.slice(0, this.maxDealsToShow).forEach((record, i) => {
+      response += this.formatDealLine(record, i + 1);
+    });
 
     return response;
   }
@@ -157,32 +160,19 @@ class ResponseFormatter {
     const totalAmount = records.reduce((sum, r) => sum + (r.Amount || 0), 0);
     const weightedAmount = records.reduce((sum, r) => sum + (r.Finance_Weighted_ACV__c || 0), 0);
 
-    // Group by forecast category
-    const forecastBreakdown = {};
-    records.forEach(record => {
-      const category = record.ForecastCategory || 'Pipeline';
-      if (!forecastBreakdown[category]) {
-        forecastBreakdown[category] = { count: 0, amount: 0, weighted: 0 };
-      }
-      forecastBreakdown[category].count++;
-      forecastBreakdown[category].amount += record.Amount || 0;
-      forecastBreakdown[category].weighted += record.Finance_Weighted_ACV__c || 0;
+    let response = `*Forecast* (${totalSize} deals)\n`;
+    response += `Gross: *${this.formatCurrency(totalAmount)}* | Weighted: *${this.formatCurrency(weightedAmount)}*\n\n`;
+
+    // Top deals
+    response += '*Top Deals:*\n';
+    const sortedRecords = [...records].sort((a, b) => (b.Amount || 0) - (a.Amount || 0));
+    sortedRecords.slice(0, this.maxDealsToShow).forEach((record, i) => {
+      response += this.formatDealLine(record, i + 1);
     });
 
-    let response = `📈 *Forecast View*\n`;
-    response += `${totalSize} deals in forecast (${this.formatCurrency(totalAmount)})\n`;
-    response += `Weighted forecast: ${this.formatCurrency(weightedAmount)}\n\n`;
-
-    response += `*Forecast Categories:*\n`;
-    ['Commit', 'Best Case', 'Pipeline', 'Omitted'].forEach(category => {
-      const data = forecastBreakdown[category];
-      if (data) {
-        response += `• ${category}: ${data.count} deals (${this.formatCurrency(data.amount)})\n`;
-      }
-    });
-    response += '\n';
-
-    response += this.buildDealsTable(records.slice(0, this.maxTableRows));
+    if (totalSize > this.maxDealsToShow) {
+      response += `\n_+${totalSize - this.maxDealsToShow} more_`;
+    }
 
     return response;
   }
@@ -191,18 +181,11 @@ class ResponseFormatter {
    * Format trend analysis results
    */
   formatTrendAnalysis(records, parsedIntent, totalSize) {
-    let response = `📉 *Trend Analysis*\n`;
+    let response = `*Analysis* (${totalSize} records)\n\n`;
     
-    if (parsedIntent.entities.groupBy && parsedIntent.entities.groupBy.length > 0) {
-      response += `Grouped by: ${parsedIntent.entities.groupBy.join(', ')}\n\n`;
-      return this.formatAggregationResults(records, parsedIntent, totalSize);
-    }
-
-    // Default trend analysis
-    const totalAmount = records.reduce((sum, r) => sum + (r.Amount || 0), 0);
-    response += `${totalSize} records analyzed (${this.formatCurrency(totalAmount)})\n\n`;
-
-    response += this.buildDealsTable(records.slice(0, this.maxTableRows));
+    records.slice(0, this.maxDealsToShow).forEach((record, i) => {
+      response += this.formatDealLine(record, i + 1);
+    });
 
     return response;
   }
@@ -211,38 +194,16 @@ class ResponseFormatter {
    * Format aggregation results
    */
   formatAggregationResults(records, parsedIntent, totalSize) {
-    let response = `📊 *Analysis Results*\n\n`;
+    let response = `*Results by Group:*\n\n`;
 
-    // Build aggregation table
-    response += '```\n';
-    
-    const groupBy = parsedIntent.entities.groupBy[0]; // Primary group by field
-    const headerMap = {
-      'StageName': 'STAGE',
-      'Owner.Name': 'OWNER',
-      'Account.Industry': 'INDUSTRY',
-      'Type': 'TYPE'
-    };
-
-    const header = headerMap[groupBy] || groupBy.toUpperCase();
-    response += `${header.padEnd(25)} COUNT    TOTAL AMOUNT    AVG AMOUNT\n`;
-    response += '─'.repeat(75) + '\n';
-
-    records.forEach(record => {
+    records.slice(0, 15).forEach(record => {
+      const groupBy = parsedIntent.entities.groupBy[0];
       const groupValue = record[groupBy] || record[groupBy.split('.').pop()] || 'Unknown';
       const count = record.RecordCount || record.expr0 || 0;
       const totalAmount = record.TotalAmount || record.expr1 || 0;
-      const avgAmount = count > 0 ? totalAmount / count : 0;
 
-      response += [
-        groupValue.toString().padEnd(25),
-        count.toString().padStart(5),
-        this.formatCurrency(totalAmount).padStart(15),
-        this.formatCurrency(avgAmount).padStart(12)
-      ].join(' ') + '\n';
+      response += `• *${groupValue}*: ${count} deals (${this.formatCurrency(totalAmount)})\n`;
     });
-
-    response += '```\n';
 
     return response;
   }
@@ -251,131 +212,31 @@ class ResponseFormatter {
    * Format no results message
    */
   formatNoResults(parsedIntent) {
-    // Check if it's a non-existent product line
     if (parsedIntent.entities.productLine === 'LITIGATION_NOT_EXIST') {
-      return `No Litigation product line exists in the system.\n\n*Available product lines:*\n• AI-Augmented Contracting\n• Augmented-M&A\n• Compliance\n• sigma\n• Cortex\n• Multiple`;
+      return `No Litigation product line exists.\n\n*Available:* Contracting, M&A, Compliance, sigma, Cortex`;
     }
     
-    const filters = this.buildSearchContext(parsedIntent.entities);
-    let message = `No results found`;
-    
-    if (filters) {
-      message += ` for: ${filters}`;
+    return `No results found.\n\nTry:\n• "show me pipeline"\n• "late stage deals"\n• "who owns [company]"`;
+  }
+
+  /**
+   * Generic results formatter
+   */
+  formatGenericResults(records, parsedIntent, totalSize) {
+    const totalAmount = records.reduce((sum, r) => sum + (r.Amount || 0), 0);
+
+    let response = `*Results* (${totalSize} records, ${this.formatCurrency(totalAmount)})\n\n`;
+
+    const sortedRecords = [...records].sort((a, b) => (b.Amount || 0) - (a.Amount || 0));
+    sortedRecords.slice(0, this.maxDealsToShow).forEach((record, i) => {
+      response += this.formatDealLine(record, i + 1);
+    });
+
+    if (totalSize > this.maxDealsToShow) {
+      response += `\n_+${totalSize - this.maxDealsToShow} more_`;
     }
 
-    message += '\n\n*Try:*\n';
-    message += '• Expanding your date range\n';
-    message += '• Removing some filters\n';
-    message += '• Checking different stages\n';
-    message += '• Using "all deals" instead of specific criteria';
-
-    return message;
-  }
-
-  /**
-   * Build deals table - COMPACT TABLE FORMAT for scannable results
-   * Uses monospace code block for proper alignment
-   */
-  buildDealsTable(records, columns = null) {
-    if (!records || records.length === 0) return '';
-
-    // Build compact, aligned table using code block
-    let table = '```\n';
-    
-    // Header row
-    table += 'ACCOUNT                      ACV        STAGE      OWNER           DATE\n';
-    table += '─'.repeat(78) + '\n';
-    
-    records.forEach((record) => {
-      const accountName = (record.Account?.Name || 'No Account').substring(0, 26).padEnd(26);
-      const amount = this.formatCurrency(record.Amount || 0).padStart(10);
-      const stage = this.shortStage(record.StageName).padEnd(10);
-      const owner = this.shortName(record.Owner?.Name).padEnd(15);
-      const targetDate = this.formatDate(record.IsClosed ? record.CloseDate : record.Target_LOI_Date__c).padEnd(10);
-      
-      table += `${accountName} ${amount}  ${stage} ${owner} ${targetDate}\n`;
-    });
-    
-    table += '```';
-    return table;
-  }
-
-  /**
-   * Build grouped pipeline view - organized by stage
-   */
-  buildGroupedPipelineTable(records) {
-    if (!records || records.length === 0) return '';
-
-    // Group records by stage
-    const byStage = {};
-    records.forEach(record => {
-      const stage = record.StageName || 'Unknown';
-      if (!byStage[stage]) byStage[stage] = [];
-      byStage[stage].push(record);
-    });
-
-    // Sort stages in order
-    const stageOrder = ['Stage 0', 'Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Stage 5'];
-    const sortedStages = Object.keys(byStage).sort((a, b) => {
-      const aOrder = stageOrder.findIndex(s => a.includes(s));
-      const bOrder = stageOrder.findIndex(s => b.includes(s));
-      return aOrder - bOrder;
-    });
-
-    let output = '';
-    
-    sortedStages.forEach(stage => {
-      const stageRecords = byStage[stage];
-      const stageTotal = stageRecords.reduce((sum, r) => sum + (r.Amount || 0), 0);
-      const cleanStage = cleanStageName(stage);
-      
-      output += `\n*${cleanStage}* (${stageRecords.length} deals, ${this.formatCurrency(stageTotal)})\n`;
-      output += '```\n';
-      
-      // Sort by amount descending
-      stageRecords.sort((a, b) => (b.Amount || 0) - (a.Amount || 0));
-      
-      stageRecords.slice(0, 15).forEach(record => {
-        const account = (record.Account?.Name || 'Unknown').substring(0, 24).padEnd(24);
-        const amount = this.formatCurrency(record.Amount || 0).padStart(10);
-        const owner = this.shortName(record.Owner?.Name).padEnd(12);
-        const date = this.formatDate(record.Target_LOI_Date__c || record.CloseDate);
-        
-        output += `${account} ${amount}  ${owner} ${date}\n`;
-      });
-      
-      if (stageRecords.length > 15) {
-        output += `... +${stageRecords.length - 15} more\n`;
-      }
-      
-      output += '```';
-    });
-
-    return output;
-  }
-
-  /**
-   * Shorten stage name for table display
-   */
-  shortStage(stageName) {
-    if (!stageName) return 'N/A';
-    const match = stageName.match(/Stage (\d)/);
-    if (match) return `S${match[1]}`;
-    if (stageName.includes('Won')) return 'Won';
-    if (stageName.includes('Lost')) return 'Lost';
-    return stageName.substring(0, 8);
-  }
-
-  /**
-   * Shorten name to first name + last initial
-   */
-  shortName(fullName) {
-    if (!fullName) return 'Unassigned';
-    const parts = fullName.split(' ');
-    if (parts.length >= 2) {
-      return `${parts[0]} ${parts[1][0]}.`;
-    }
-    return fullName.substring(0, 12);
+    return response;
   }
 
   /**
@@ -415,41 +276,31 @@ class ResponseFormatter {
   }
 
   /**
-   * Build search context string
+   * Shorten stage name: "Stage 2 - SQO" → "S2"
    */
-  buildSearchContext(entities) {
-    const context = [];
-
-    if (entities.timeframe) {
-      context.push(entities.timeframe.replace('_', ' '));
-    }
-
-    if (entities.stages && entities.stages.length > 0) {
-      context.push(`stages: ${entities.stages.join(', ')}`);
-    }
-
-    if (entities.owners && entities.owners.length > 0) {
-      context.push(`owners: ${entities.owners.join(', ')}`);
-    }
-
-    if (entities.segments && entities.segments.length > 0) {
-      context.push(`segments: ${entities.segments.join(', ')}`);
-    }
-
-    if (entities.amountThreshold) {
-      if (entities.amountThreshold.min) {
-        context.push(`min amount: ${this.formatCurrency(entities.amountThreshold.min)}`);
-      }
-      if (entities.amountThreshold.max) {
-        context.push(`max amount: ${this.formatCurrency(entities.amountThreshold.max)}`);
-      }
-    }
-
-    return context.join(', ');
+  shortStage(stageName) {
+    if (!stageName) return 'N/A';
+    const match = stageName.match(/Stage (\d)/);
+    if (match) return `S${match[1]}`;
+    if (stageName.includes('Won')) return 'Won';
+    if (stageName.includes('Lost')) return 'Lost';
+    return stageName.substring(0, 6);
   }
 
   /**
-   * Format currency
+   * Shorten name: "Julie Stefanich" → "Julie S."
+   */
+  shortName(fullName) {
+    if (!fullName) return 'Unassigned';
+    const parts = fullName.split(' ');
+    if (parts.length >= 2) {
+      return `${parts[0]} ${parts[1][0]}.`;
+    }
+    return fullName;
+  }
+
+  /**
+   * Format currency: 500000 → "$500K"
    */
   formatCurrency(amount) {
     if (!amount || amount === 0) return '$0';
@@ -457,50 +308,23 @@ class ResponseFormatter {
     if (amount >= 1000000) {
       return `$${(amount / 1000000).toFixed(1)}M`;
     } else if (amount >= 1000) {
-      return `$${(amount / 1000).toFixed(0)}K`;
+      return `$${Math.round(amount / 1000)}K`;
     } else {
       return `$${amount.toLocaleString()}`;
     }
   }
 
   /**
-   * Format date
+   * Format date: "2026-01-31" → "Jan 31"
    */
   formatDate(dateString) {
     if (!dateString) return 'No date';
     
     const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = now - date;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays > 0 && diffDays < 7) return `${diffDays}d ago`;
-    if (diffDays > 0 && diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-    
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric'
     });
-  }
-
-  /**
-   * Generic results formatter
-   */
-  formatGenericResults(records, parsedIntent, totalSize) {
-    const totalAmount = records.reduce((sum, r) => sum + (r.Amount || 0), 0);
-
-    let response = `📋 *Results*\n`;
-    response += `${totalSize} records found (${this.formatCurrency(totalAmount)})\n\n`;
-
-    response += this.buildDealsTable(records.slice(0, this.maxTableRows));
-
-    if (totalSize > this.maxTableRows) {
-      response += `\n_Showing top ${this.maxTableRows} of ${totalSize} results_`;
-    }
-
-    return response;
   }
 }
 

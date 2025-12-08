@@ -472,6 +472,17 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle executive account status dashboard
       await handleAccountStatusDashboard(userId, channelId, client, threadTs);
       return; // Exit early
+    } else if (parsedIntent.intent === 'customer_list') {
+      // Handle "who are our current customers" query
+      await handleCustomerListQuery(userId, channelId, client, threadTs);
+      return; // Exit early
+    } else if (parsedIntent.intent === 'owner_pipeline') {
+      // Handle "show me my pipeline" - get owner from Slack user
+      const ownerName = await getOwnerNameFromSlackUser(userId, client);
+      if (ownerName) {
+        parsedIntent.entities.owners = [ownerName];
+      }
+      soql = queryBuilder.buildOpportunityQuery({ ...parsedIntent.entities, isClosed: false });
     } else if (parsedIntent.intent === 'pipeline_summary' || parsedIntent.intent === 'deal_lookup') {
       soql = queryBuilder.buildOpportunityQuery(parsedIntent.entities);
     } else if (parsedIntent.intent === 'activity_check') {
@@ -1225,7 +1236,8 @@ function formatAccountStageResults(queryResult, parsedIntent) {
 }
 
 /**
- * Format pipeline queries with stages as organized table (IMPROVED UX)
+ * Format pipeline queries - COMPACT MOBILE-FRIENDLY VIEW
+ * Shows summary + top 10 deals as bullet list
  */
 function formatPipelineAccountList(queryResult, parsedIntent) {
   if (!queryResult || !queryResult.records || queryResult.totalSize === 0) {
@@ -1245,53 +1257,48 @@ function formatPipelineAccountList(queryResult, parsedIntent) {
     weightedAmount += record.Finance_Weighted_ACV__c || 0;
   });
   
-  // Build header
+  // Build compact header
   const stageDesc = parsedIntent.entities.stages?.map(s => cleanStageName(s)).join(', ');
   const productLine = parsedIntent.entities.productLine;
   
   let response = '';
   if (productLine && stageDesc) {
-    response += `*${productLine} Pipeline - ${stageDesc}*\n\n`;
+    response += `*${productLine} - ${stageDesc}*\n`;
   } else if (productLine) {
-    response += `*${productLine} Pipeline*\n\n`;
+    response += `*${productLine} Pipeline*\n`;
   } else if (stageDesc) {
-    response += `*${stageDesc} Pipeline*\n\n`;
+    response += `*${stageDesc}*\n`;
   } else {
-    response += `*Pipeline Summary*\n\n`;
+    response += `*Pipeline*\n`;
   }
   
-  // Summary metrics
-  response += `${records.length} opportunities | ${formatCurrency(totalAmount)} total | ${formatCurrency(weightedAmount)} weighted\n\n`;
-  
-  // Build compact table
-  response += '```\n';
-  response += 'ACCOUNT                      ACV        STAGE    OWNER           TARGET\n';
-  response += '─'.repeat(75) + '\n';
+  // One-line summary
+  response += `${records.length} deals | *${formatCurrency(totalAmount)}* total\n\n`;
   
   // Sort by amount descending
   const sortedRecords = [...records].sort((a, b) => (b.Amount || 0) - (a.Amount || 0));
+  const maxToShow = 10;
   
-  sortedRecords.slice(0, 30).forEach(record => {
-    const account = (record.Account?.Name || 'Unknown').substring(0, 26).padEnd(26);
-    const amount = formatCurrency(record.Amount || 0).padStart(10);
-    const stage = shortStage(record.StageName).padEnd(8);
-    const owner = shortName(record.Owner?.Name).padEnd(15);
+  // Top deals as compact bullet list
+  sortedRecords.slice(0, maxToShow).forEach((record, i) => {
+    const account = record.Account?.Name || 'Unknown';
+    const amount = formatCurrency(record.Amount || 0);
+    const stage = shortStage(record.StageName);
+    const owner = shortName(record.Owner?.Name);
     const date = formatTargetDate(record.Target_LOI_Date__c);
     
-    response += `${account} ${amount}  ${stage} ${owner} ${date}\n`;
+    response += `${i + 1}. *${account}* - ${amount} • ${stage} • ${owner} • ${date}\n`;
   });
   
-  if (records.length > 30) {
-    response += `\n... +${records.length - 30} more opportunities\n`;
+  if (records.length > maxToShow) {
+    response += `\n_+${records.length - maxToShow} more deals_`;
   }
-  
-  response += '```';
 
   return response;
 }
 
 /**
- * Helper: Shorten stage name
+ * Helper: Shorten stage name "Stage 2 - SQO" → "S2"
  */
 function shortStage(stageName) {
   if (!stageName) return 'N/A';
@@ -1303,7 +1310,7 @@ function shortStage(stageName) {
 }
 
 /**
- * Helper: Shorten name to first name + last initial
+ * Helper: Shorten name "Julie Stefanich" → "Julie S."
  */
 function shortName(fullName) {
   if (!fullName) return 'Unassigned';
@@ -1311,11 +1318,11 @@ function shortName(fullName) {
   if (parts.length >= 2) {
     return `${parts[0]} ${parts[1][0]}.`;
   }
-  return fullName.substring(0, 12);
+  return fullName;
 }
 
 /**
- * Helper: Format target date compactly
+ * Helper: Format date "2026-01-31" → "Jan 31"
  */
 function formatTargetDate(dateString) {
   if (!dateString) return 'No date';
@@ -3632,6 +3639,135 @@ async function handleAccountStatusDashboard(userId, channelId, client, threadTs)
       text: `Error: ${error.message}`,
       thread_ts: threadTs
     });
+  }
+}
+
+/**
+ * Handle "who are our current customers?" query
+ */
+async function handleCustomerListQuery(userId, channelId, client, threadTs) {
+  try {
+    // Query accounts with Customer_Type__c set (these are customers)
+    const soql = `
+      SELECT Id, Name, Customer_Type__c, Owner.Name, 
+             (SELECT Name, Amount FROM Opportunities WHERE IsClosed = false LIMIT 1)
+      FROM Account 
+      WHERE Customer_Type__c != null 
+      ORDER BY Customer_Type__c, Name 
+      LIMIT 50
+    `;
+    
+    const result = await query(soql);
+    
+    if (!result || result.totalSize === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `No customers found with Customer_Type__c set.\n\nCustomers are accounts with a defined Customer Type (Revenue, Pilot, LOI).`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    // Group by customer type
+    const byType = { Revenue: [], Pilot: [], LOI: [], Other: [] };
+    result.records.forEach(account => {
+      const type = account.Customer_Type__c || 'Other';
+      if (type.includes('Revenue') || type.includes('ARR')) {
+        byType.Revenue.push(account);
+      } else if (type.includes('Pilot')) {
+        byType.Pilot.push(account);
+      } else if (type.includes('LOI')) {
+        byType.LOI.push(account);
+      } else {
+        byType.Other.push(account);
+      }
+    });
+    
+    let response = `*Current Customers* (${result.totalSize} accounts)\n\n`;
+    
+    if (byType.Revenue.length > 0) {
+      response += `*Revenue* (${byType.Revenue.length}):\n`;
+      byType.Revenue.slice(0, 10).forEach(a => {
+        response += `• ${a.Name} - ${a.Owner?.Name || 'Unassigned'}\n`;
+      });
+      if (byType.Revenue.length > 10) response += `  _+${byType.Revenue.length - 10} more_\n`;
+      response += '\n';
+    }
+    
+    if (byType.Pilot.length > 0) {
+      response += `*Pilot* (${byType.Pilot.length}):\n`;
+      byType.Pilot.slice(0, 5).forEach(a => {
+        response += `• ${a.Name} - ${a.Owner?.Name || 'Unassigned'}\n`;
+      });
+      if (byType.Pilot.length > 5) response += `  _+${byType.Pilot.length - 5} more_\n`;
+      response += '\n';
+    }
+    
+    if (byType.LOI.length > 0) {
+      response += `*LOI* (${byType.LOI.length}):\n`;
+      byType.LOI.slice(0, 5).forEach(a => {
+        response += `• ${a.Name} - ${a.Owner?.Name || 'Unassigned'}\n`;
+      });
+      if (byType.LOI.length > 5) response += `  _+${byType.LOI.length - 5} more_\n`;
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: response,
+      thread_ts: threadTs
+    });
+    
+    logger.info(`✅ Customer list sent (${result.totalSize} accounts)`);
+    
+  } catch (error) {
+    logger.error('Customer list query failed:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `Error fetching customers: ${error.message}`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Get owner name from Slack user ID by matching to Salesforce
+ */
+async function getOwnerNameFromSlackUser(slackUserId, client) {
+  try {
+    // Get Slack user info
+    const userInfo = await client.users.info({ user: slackUserId });
+    const realName = userInfo.user?.real_name;
+    const displayName = userInfo.user?.profile?.display_name;
+    const email = userInfo.user?.profile?.email;
+    
+    // Map common Slack names to Salesforce owner names
+    const nameMap = {
+      'keigan pesenti': 'Keigan Pesenti',
+      'julie stefanich': 'Julie Stefanich',
+      'justin hills': 'Justin Hills',
+      'asad hussain': 'Asad Hussain',
+      'himanshu agarwal': 'Himanshu Agarwal',
+      'ananth cherukupally': 'Ananth Cherukupally',
+      'olivia jung': 'Olivia Jung',
+      'jon cobb': 'Jon Cobb',
+      'mike masiello': 'Mike Masiello',
+      'david van reyk': 'David Van Reyk'
+    };
+    
+    // Try to match by real name
+    const nameLower = (realName || displayName || '').toLowerCase();
+    for (const [slackName, sfName] of Object.entries(nameMap)) {
+      if (nameLower.includes(slackName) || slackName.includes(nameLower.split(' ')[0])) {
+        return sfName;
+      }
+    }
+    
+    // Return the real name as-is if no match
+    return realName || displayName || null;
+    
+  } catch (error) {
+    logger.warn('Could not get Slack user info:', error.message);
+    return null;
   }
 }
 

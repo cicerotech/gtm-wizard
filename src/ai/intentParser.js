@@ -400,6 +400,37 @@ Business Context:
       };
     }
 
+    // "Who are our current customers" / "show me customers" / "list customers"
+    if ((message.includes('current customers') || message.includes('our customers') || 
+         message.includes('list customers') || message.includes('show customers') ||
+         message.includes('who are our customers') || message.includes('all customers')) &&
+        !message.includes('add to customer')) {
+      return {
+        intent: 'customer_list',
+        entities: { customerType: 'all' },
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'List current customers query',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+
+    // "Show me my pipeline" / "my deals" / "my opportunities"
+    if ((message.includes('my pipeline') || message.includes('my deals') || 
+         message.includes('my opportunities') || message.includes('my opps')) &&
+        !message.includes('send me')) {
+      return {
+        intent: 'owner_pipeline',
+        entities: { ownerIsSelf: true },
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'Show current user pipeline',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+
     // Customer Brain note capture (HIGHEST PRIORITY - before existence check!)
     // Must be FIRST to prevent "exist" in message body from triggering existence check
     if (message.includes('add to customer') || message.includes('save note') || 
