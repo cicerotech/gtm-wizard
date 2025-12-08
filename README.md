@@ -1,6 +1,6 @@
 # gtm-brain
 
-An intelligent sales operations platform that combines natural language processing, machine learning, and real-time CRM integration. Built for conversational data access via Slack, automated contract analysis, and comprehensive pipeline visibility through a unified web dashboard.
+A conversational sales intelligence platform that connects Slack to Salesforce through natural language. Ask questions about your pipeline, upload contracts for automatic parsing, and access a unified executive dashboard—all without writing SOQL or navigating CRM screens.
 
 **Live Dashboard**: [gtm-wizard.onrender.com/account-dashboard](https://gtm-wizard.onrender.com/account-dashboard)
 
@@ -8,88 +8,106 @@ An intelligent sales operations platform that combines natural language processi
 
 ## What It Does
 
-GTM-Brain serves as the central intelligence layer for sales operations, enabling teams to:
+gtm-brain acts as an intelligent layer between your sales team and Salesforce data. Instead of navigating dashboards, writing reports, or searching for account records, team members ask questions in plain English via Slack and receive immediate, formatted answers.
 
-- **Query pipeline data in natural language** — Ask "What's closing this month?" or "Show me Julie's late-stage deals" and get instant answers from Salesforce
-- **Analyze contracts automatically** — Upload PDFs via Slack and extract contract terms, values, signers, and dates with AI-powered parsing
-- **Track pipeline health** — Visualize blended pipeline data from multiple sources with real-time metrics and deal-level insights
-- **Sync meeting intelligence** — Capture meeting notes and sync them to CRM with automatic account matching
-- **Surface actionable insights** — Identify at-risk deals, stale opportunities, and forecast accuracy through ML-enhanced analysis
+### Account Ownership & Lookup
 
----
+When someone asks "Who owns Boeing?" or "What's the BL for Intel?", gtm-brain queries Salesforce, identifies the account owner, and returns the ownership details along with any active opportunities. The system handles company name variations (matching "BofA" to "Bank of America Corporation") through fuzzy matching algorithms.
 
-## Core Capabilities
+### Pipeline Analysis
 
-### Natural Language Salesforce Queries
+The core use case: understanding pipeline state. Queries like "Show me pipeline," "What's in Stage 3?", or "Julie's late-stage deals" return formatted opportunity lists with amounts, stages, and close dates. The system understands sales terminology—"late stage" maps to Stage 4 (Proposal), "early stage" to Stage 1 (Discovery).
 
-Converts conversational questions into SOQL queries with full context awareness. Supports 30+ intent types including pipeline analysis, deal lookups, forecasting, and account research.
+**Supported query patterns include:**
+- Stage-specific: "What accounts are in Stage 2?" → SQO opportunities
+- Owner-specific: "Himanshu's deals" → Opportunities by owner
+- Product-specific: "Contracting pipeline" → AI-Augmented Contracting opportunities
+- Time-based: "What closed this month?" → Recent closed-won deals
+- Health-based: "Stale deals over $200k" → Opportunities with no activity 30+ days
 
-**Example queries:**
-- "Show me pipeline" → Full pipeline breakdown by stage
-- "What closed this week?" → Recent closed-won deals with values
-- "Who owns Boeing?" → Account ownership and opportunity summary
-- "Stale deals over $200k" → High-value opportunities with no recent activity
+### Closed Deal Tracking
 
-The intent classification system uses a hybrid approach combining semantic embeddings, pattern matching, and LLM enhancement for nuanced query understanding.
+Track bookings and wins with queries like "What LOIs have we signed in the last two weeks?" or "How many bookings this month?" The system distinguishes between revenue types (ARR, Booking, Project) and can filter by signing date, close date, or creation date.
 
 ### Contract Analysis
 
-PDF contract upload via Slack DM with intelligent field extraction:
+Upload a PDF contract to the Slack bot via DM. The system extracts:
+- **Contract value and term** — Total value, annual amount, monthly amount
+- **Dates** — Start date, end date (calculated from term), signing date
+- **Parties** — Customer name, customer signer (name and title), Eudia signer
+- **Products** — Maps to known product lines (AI-Augmented Contracting, M&A, Compliance, sigma)
+- **Contract type** — Recurring, LOI, Amendment
 
-| Extracted Field | Method |
-|-----------------|--------|
-| Contract value & term | LLM + regex patterns |
-| Start/end dates | Date parsing with term calculation |
-| Customer signer | Named entity recognition |
-| Product lines | Classification against known products |
-| Account matching | Semantic fuzzy matching to CRM |
+After extraction, reply "create contract" to generate a Draft contract record in Salesforce, or "create contract assign to [Name]" to specify the owner.
 
-Supports MSA, subscription, LOI, and amendment contract types with automatic Salesforce record creation.
+### Executive Dashboard
 
-### GTM Dashboard
+A password-protected web dashboard provides a consolidated view across five tabs:
 
-Password-protected web dashboard with five core views:
+| Tab | Content |
+|-----|---------|
+| **Summary** | Blended pipeline totals (EUDIA + acquired pipeline), stage concentration breakdown (S1-S5 percentages), top accounts by ACV |
+| **Weekly** | Q4 target opportunities, signed logos organized by fiscal quarter, current customer logo grid |
+| **Pipeline** | Expandable pipeline by stage, business lead overview showing each rep's deals and totals, top opportunities by ACV |
+| **Revenue** | Active revenue by account (November ARR totals), all closed-won deals grouped by Revenue/Pilot/LOI |
+| **Accounts** | Customer type breakdown, account plan summaries, new logo tracking |
 
-| View | Purpose |
-|------|---------|
-| **Summary** | Blended pipeline overview, stage concentration (S1-S5), key metrics |
-| **Weekly** | Q4 opportunities, signed logos by fiscal period, current customer grid |
-| **Pipeline** | Expandable stage breakdown, business lead overview, top opportunities |
-| **Revenue** | Active revenue by account, all closed-won deals categorized by type |
-| **Accounts** | Customer type breakdown, account plans, new logo tracking |
+The dashboard blends live Salesforce data with static pipeline data (from acquired company integration) and displays combined totals as a unified view.
 
-Mobile-optimized with responsive design and real-time Salesforce data integration.
+### Meeting Note Sync (Hyprnote Integration)
 
-### Meeting Intelligence (Hyprnote)
+For users with Hyprnote (local meeting transcription tool), gtm-brain syncs meeting summaries to Salesforce:
+- Creates Contact records if they don't exist
+- Matches attendees to Accounts using fuzzy name matching
+- Creates Event records with meeting notes attached
+- Updates the Account's `Customer_Brain__c` field with conversation insights
 
-Syncs meeting notes from local Hyprnote database to Salesforce:
-- Creates/updates Contact records
-- Matches to existing Accounts (fuzzy matching)
-- Creates Event records with meeting summaries
-- Updates `Customer_Brain__c` field with insights
+Trigger via Slack: "sync hyprnote" or "hyprnote status" to check sync state.
+
+### Account & Opportunity Management
+
+Beyond queries, the system supports write operations:
+- **Create accounts**: "Create Boeing and assign to BL" → Creates account with proper owner assignment
+- **Reassign accounts**: "Reassign Intel to Julie" → Changes account ownership
+- **Create opportunities**: "Create opp for Microsoft" → Creates Stage 1 opportunity with defaults, or specify inline: "Create a stage 4 opportunity for Acme with $300k ACV"
+- **Account plans**: "Add account plan for Intel: [plan text]" → Saves to Account_Plan_s__c field
+- **Customer notes**: "Add to customer history: Intel met with CLO..." → Appends to Customer_Brain__c
 
 ### Pipeline Export
 
-Generate Excel reports via Slack commands with deal details, stages, values, and owner information.
+Generate Excel reports via Slack: "Send me pipeline in Excel" produces a formatted .xlsx file with deal details, stages, amounts, and owners.
 
 ---
 
-## ML Enhancements
+## How It Works
 
-The platform includes an extensible ML module (`src/ml/mlOpportunities.js`) with eight enhancement areas:
+### Intent Classification
 
-| Capability | Description |
-|------------|-------------|
-| **Semantic Account Matching** | Embedding-based company name resolution (handles "IBM" → "International Business Machines") |
-| **Deal Health Prediction** | ML-scored opportunity health with LLM enhancement for edge cases |
-| **Intelligent Forecasting** | Dynamic probability weighting based on owner performance and deal attributes |
-| **Meeting Intelligence Extraction** | LLM-powered action item, sentiment, and stakeholder extraction from notes |
-| **Query Suggestion Engine** | Context-aware follow-up question recommendations |
-| **Anomaly Detection** | Automated flagging of stale deals, stage regressions, and neglected opportunities |
-| **Account Lookalike Scoring** | Profile matching to identify high-potential prospects |
-| **Response Quality Learning** | Implicit feedback collection to improve intent classification |
+When a message arrives, gtm-brain runs it through a multi-layer classification system:
 
-These capabilities enable continuous improvement without manual retraining.
+1. **Exact match** — Previously seen queries with known good classifications (instant response)
+2. **Semantic similarity** — Compares against known query patterns using OpenAI embeddings
+3. **Pattern matching** — 30+ regex patterns covering common sales query types
+4. **LLM classification** — GPT-4 for complex or ambiguous queries
+
+The system learns from successful classifications, storing them for future exact matching. This means repeated queries get faster over time.
+
+### Salesforce Integration
+
+All data queries translate to SOQL and execute against the connected Salesforce org. The connection maintains:
+- OAuth2 authentication with automatic token refresh (90-minute cycle)
+- Query caching (5-minute TTL) to reduce API calls
+- Retry logic with exponential backoff for transient failures
+- Rate limiting to stay within Salesforce API limits
+
+### Data Blending
+
+The dashboard combines data from multiple sources:
+- **EUDIA Salesforce** — Live queries for opportunities, accounts, contracts
+- **Acquired pipeline** — Static data representing pipeline from company acquisition (synced weekly)
+- **Active revenue** — November ARR figures for all revenue-generating accounts
+
+These sources blend into unified totals, showing the complete picture without manual reconciliation.
 
 ---
 
@@ -97,7 +115,7 @@ These capabilities enable continuous improvement without manual retraining.
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│     Slack       │◄───►│   GTM-Brain     │◄───►│   Salesforce    │
+│     Slack       │◄───►│    gtm-brain    │◄───►│   Salesforce    │
 │ (Commands/DMs)  │     │   (Node.js)     │     │   (SOQL/API)    │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
                                │
@@ -110,11 +128,11 @@ These capabilities enable continuous improvement without manual retraining.
   └───────────┘         └───────────┘         └───────────┘
 ```
 
-**Key Patterns:**
-- Retry logic with exponential backoff for Salesforce API
-- 90-minute automatic token refresh cycle
-- 5-minute query caching for performance
-- Semantic fuzzy matching for account resolution
+**Key patterns:**
+- Graceful degradation: If OpenAI is unavailable, pattern matching handles queries
+- If Redis is unavailable, in-memory caching provides fallback
+- Structured logging with Winston for debugging and monitoring
+- Error recovery with automatic reconnection for Slack socket mode
 
 ---
 
@@ -123,90 +141,40 @@ These capabilities enable continuous improvement without manual retraining.
 ```
 gtm-brain/
 ├── src/
-│   ├── app.js                     # Express server entry point
+│   ├── app.js                     # Express server, Slack Bolt app initialization
 │   ├── ai/
-│   │   ├── intentParser.js        # NL intent classification
-│   │   ├── mlIntentClassifier.js  # Hybrid ML classification
-│   │   ├── semanticMatcher.js     # Embedding-based matching
-│   │   └── feedbackLearning.js    # User feedback processing
-│   ├── ml/
-│   │   ├── intentClassifier.js    # Neural network classifier
-│   │   └── mlOpportunities.js     # ML enhancement modules
+│   │   ├── intentParser.js        # Intent classification (30+ patterns)
+│   │   ├── mlIntentClassifier.js  # Hybrid ML classification with learning
+│   │   ├── semanticMatcher.js     # Embedding-based query matching
+│   │   ├── feedbackLearning.js    # User feedback processing
+│   │   └── contextManager.js      # Conversation state tracking
 │   ├── salesforce/
-│   │   ├── connection.js          # SF connection with retry
-│   │   └── queries.js             # SOQL generation
+│   │   ├── connection.js          # SF connection with retry logic
+│   │   └── queries.js             # SOQL query generation
 │   ├── services/
-│   │   ├── contractAnalyzer.js    # PDF extraction & parsing
-│   │   ├── llmContractExtractor.js # LLM-based extraction
-│   │   └── hyprnoteSyncService.js # Meeting note sync
+│   │   ├── contractAnalyzer.js    # PDF text extraction and parsing
+│   │   ├── llmContractExtractor.js # LLM-based contract field extraction
+│   │   ├── contractCreation.js    # Salesforce contract record creation
+│   │   └── hyprnoteSyncService.js # Meeting note sync to Salesforce
 │   ├── slack/
+│   │   ├── events.js              # Message event handlers (3,800+ lines of query logic)
 │   │   ├── accountDashboard.js    # HTML dashboard generation
 │   │   ├── commands.js            # Slash command handlers
-│   │   └── events.js              # Message event handlers
-│   └── data/
-│       └── johnsonHanaData.js     # Static pipeline data
+│   │   └── responseFormatter.js   # Query result formatting
+│   ├── data/
+│   │   └── johnsonHanaData.js     # Static acquired pipeline data
+│   └── utils/
+│       ├── fuzzyAccountMatcher.js # Company name matching
+│       ├── cache.js               # Redis/memory caching
+│       └── formatters.js          # Currency, date formatting
 ├── data/
-│   ├── intent-learning.json       # ML training data
-│   └── query-embeddings.json      # Cached embeddings
-├── docs/                          # Documentation
-├── tests/                         # Test scripts
+│   ├── intent-learning.json       # Learned query classifications
+│   ├── query-embeddings.json      # Cached embeddings for semantic search
+│   └── schema-*.json              # Salesforce field schemas
+├── docs/                          # Documentation (50+ files)
+├── tests/                         # Test and debug scripts
 └── logs/                          # Runtime logs (gitignored)
 ```
-
----
-
-## Quick Start
-
-### Prerequisites
-- Node.js 18+
-- Redis server
-- Salesforce org with API access
-- Slack workspace with admin access
-- OpenAI API key (optional, pattern matching fallback available)
-
-### Installation
-
-```bash
-git clone <repository-url>
-cd gtm-brain
-npm install
-cp .env.example .env  # Configure credentials
-npm start
-```
-
-### Environment Configuration
-
-```bash
-# Slack
-SLACK_BOT_TOKEN=xoxb-...
-SLACK_SIGNING_SECRET=...
-SLACK_APP_TOKEN=xapp-...
-
-# Salesforce
-SF_CLIENT_ID=...
-SF_CLIENT_SECRET=...
-SF_INSTANCE_URL=https://yourorg.my.salesforce.com
-SF_USERNAME=...
-SF_PASSWORD=...
-SF_SECURITY_TOKEN=...
-
-# AI (optional)
-OPENAI_API_KEY=...
-OPENAI_MODEL=gpt-4
-
-# Infrastructure
-REDIS_URL=redis://localhost:6379
-DASHBOARD_PASSWORD=...
-```
-
-### Deployment
-
-Deployed on Render with automatic builds:
-- **Build**: `npm install`
-- **Start**: `npm start`
-- **Health Check**: `/health`
-
-Docker option available via `docker-compose up`.
 
 ---
 
@@ -216,24 +184,36 @@ Docker option available via `docker-compose up`.
 
 | Object | Field | Purpose |
 |--------|-------|---------|
-| Account | `Customer_Brain__c` | Meeting notes and insights |
+| Account | `Customer_Brain__c` | Meeting notes and conversation insights |
 | Account | `Account_Plan_s__c` | Strategic account plans |
-| Account | `Customer_Type__c` | Revenue/Pilot/LOI classification |
+| Account | `Customer_Type__c` | Customer classification (Revenue/Pilot/LOI) |
 | Opportunity | `ACV__c` | Annual contract value |
-| Opportunity | `Finance_Weighted_ACV__c` | Weighted pipeline value |
-| Opportunity | `Product_Line_s__c` | Product/service categorization |
+| Opportunity | `Finance_Weighted_ACV__c` | Probability-weighted pipeline value |
+| Opportunity | `Product_Line_s__c` | Product/service line categorization |
+| Opportunity | `Target_LOI_Date__c` | Target signing date |
 | Contract | `Contract_Name_Campfire__c` | Contract display name |
-| Contract | `Contract_Type__c` | Recurring/LOI/Amendment |
+| Contract | `Contract_Type__c` | Recurring/LOI/One-Time/Amendment |
+| Contract | `AI_Enabled__c` | Flag for AI-created contracts |
 
 ---
 
 ## Security
 
-- Dashboard access is password protected
-- Salesforce uses OAuth2 with automatic token refresh
-- All credentials stored in environment variables
-- Sensitive data redacted from logs
-- Redis connections encrypted in production
+- Dashboard protected by password authentication with 30-day session cookies
+- Salesforce connection uses OAuth2 with automatic token refresh
+- All credentials stored in environment variables (never in code)
+- Sensitive data (tokens, passwords) redacted from logs
+- Rate limiting on dashboard (30 requests/minute per IP)
+
+---
+
+## Deployment
+
+Deployed on Render (gtm-wizard.onrender.com):
+- **Build command**: `npm install`
+- **Start command**: `npm start`
+- **Health check**: `/health` endpoint
+- Docker option available via `docker-compose up`
 
 ---
 
