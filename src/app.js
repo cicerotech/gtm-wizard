@@ -355,19 +355,23 @@ class GTMBrainApp {
       res.sendFile(builderPath);
     });
 
-    // GTM-Brain Query Reference (hosted version)
-    this.expressApp.get('/queries', (req, res) => {
-      const path = require('path');
-      const fs = require('fs');
-      const queryRefPath = path.join(__dirname, '../GTM-Brain-Query-Reference.html');
-      
-      // Check if file exists, if not send helpful message
-      if (fs.existsSync(queryRefPath)) {
-        res.sendFile(queryRefPath);
+    // GTM-Brain Command Cheat Sheet
+    const path = require('path');
+    const fs = require('fs');
+    
+    this.expressApp.get('/cheat-sheet', (req, res) => {
+      const cheatSheetPath = path.join(__dirname, '../public/cheat-sheet.html');
+      if (fs.existsSync(cheatSheetPath)) {
+        res.sendFile(cheatSheetPath);
       } else {
-        res.send('<h1>Query Reference Coming Soon</h1><p>This will show all available GTM-Brain queries.</p>');
+        res.send('<h1>Cheat Sheet Not Found</h1><p>Please check the file exists at /public/cheat-sheet.html</p>');
       }
     });
+    
+    // Alias routes for cheat sheet
+    this.expressApp.get('/queries', (req, res) => res.redirect('/cheat-sheet'));
+    this.expressApp.get('/commands', (req, res) => res.redirect('/cheat-sheet'));
+    this.expressApp.get('/help', (req, res) => res.redirect('/cheat-sheet'));
 
     // Email Builder API routes
     const emailBuilderRoutes = require('./routes/emailBuilder');
