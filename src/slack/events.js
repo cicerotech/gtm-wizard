@@ -434,6 +434,14 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle full active pipeline Excel report
       await handleFullPipelineExcelReport(userId, channelId, client, threadTs);
       return; // Exit early
+    } else if (parsedIntent.intent === 'batch_move_to_nurture') {
+      // Handle batch move to nurture (Keigan only)
+      await handleBatchMoveToNurture(parsedIntent.entities, userId, channelId, client, threadTs);
+      return; // Exit early
+    } else if (parsedIntent.intent === 'batch_reassign_accounts') {
+      // Handle batch account reassignment (Keigan only)
+      await handleBatchReassignAccounts(parsedIntent.entities, userId, channelId, client, threadTs);
+      return; // Exit early
     } else if (parsedIntent.intent === 'move_to_nurture') {
       // Handle move to nurture (Keigan only)
       await handleMoveToNurture(parsedIntent.entities, userId, channelId, client, threadTs);
@@ -2124,6 +2132,308 @@ async function handleFullPipelineExcelReport(userId, channelId, client, threadTs
 }
 
 /**
+ * Handle BATCH Move to Nurture (Keigan only)
+ * Moves multiple accounts to nurture and closes their opportunities
+ */
+async function handleBatchMoveToNurture(entities, userId, channelId, client, threadTs) {
+  const KEIGAN_USER_ID = 'U094AQE9V7D';
+  
+  try {
+    // Security check - Keigan only
+    if (userId !== KEIGAN_USER_ID) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: '🔒 Batch account management is restricted to Keigan. Contact him for assistance.',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    if (!entities.accounts || entities.accounts.length === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: 'Please specify account names.\n\nExample: "batch nurture: Account1, Account2, Account3"',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const accountNames = entities.accounts;
+    
+    // Send initial processing message
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `🔄 Processing batch nurture for ${accountNames.length} accounts...\n\n_${accountNames.join(', ')}_`,
+      thread_ts: threadTs
+    });
+    
+    const { sfConnection } = require('../salesforce/connection');
+    const conn = sfConnection.getConnection();
+    
+    const results = [];
+    
+    for (const accountName of accountNames) {
+      try {
+        // Find account
+        const escapeQuotes = (str) => str.replace(/'/g, "\\'");
+        const accountQuery = `SELECT Id, Name, Owner.Name, Nurture__c, 
+                                     (SELECT Id, Name, StageName, Amount FROM Opportunities WHERE IsClosed = false)
+                              FROM Account
+                              WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                              LIMIT 1`;
+        
+        const accountResult = await query(accountQuery);
+        
+        if (!accountResult || accountResult.totalSize === 0) {
+          results.push({ account: accountName, status: 'not_found', message: 'Account not found' });
+          continue;
+        }
+        
+        const account = accountResult.records[0];
+        const openOpps = account.Opportunities?.records || account.Opportunities || [];
+        
+        // Update account to nurture
+        await conn.sobject('Account').update({
+          Id: account.Id,
+          Nurture__c: true
+        });
+        
+        // Close all open opportunities
+        let oppsClosed = 0;
+        if (Array.isArray(openOpps) && openOpps.length > 0) {
+          const updates = openOpps.map(opp => ({
+            Id: opp.Id,
+            StageName: 'Stage 7. Closed(Lost)',
+            IsClosed: true,
+            IsWon: false
+          }));
+          
+          const oppResults = await conn.sobject('Opportunity').update(updates);
+          const oppResultsArray = Array.isArray(oppResults) ? oppResults : [oppResults];
+          oppsClosed = oppResultsArray.filter(r => r.success).length;
+        }
+        
+        results.push({ 
+          account: account.Name, 
+          status: 'success', 
+          oppsClosed,
+          message: `Moved to nurture, ${oppsClosed} opp(s) closed`
+        });
+        
+      } catch (error) {
+        results.push({ account: accountName, status: 'error', message: error.message });
+      }
+    }
+    
+    // Format summary
+    const successCount = results.filter(r => r.status === 'success').length;
+    const totalOppsClosed = results.reduce((sum, r) => sum + (r.oppsClosed || 0), 0);
+    
+    let summary = `✅ *Batch Nurture Complete*\n\n`;
+    summary += `*Summary:* ${successCount}/${accountNames.length} accounts processed\n`;
+    summary += `*Opportunities Closed:* ${totalOppsClosed}\n\n`;
+    summary += `*Details:*\n`;
+    
+    results.forEach(r => {
+      const icon = r.status === 'success' ? '✅' : r.status === 'not_found' ? '❓' : '❌';
+      summary += `${icon} *${r.account}* - ${r.message}\n`;
+    });
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: summary,
+      thread_ts: threadTs
+    });
+    
+    logger.info(`✅ Batch nurture: ${successCount}/${accountNames.length} accounts, ${totalOppsClosed} opps closed by ${userId}`);
+    
+  } catch (error) {
+    logger.error('Batch nurture failed:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Batch nurture failed: ${error.message}`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle BATCH Account Reassignment (Keigan only)
+ * Reassigns multiple accounts to a specific BL
+ */
+async function handleBatchReassignAccounts(entities, userId, channelId, client, threadTs) {
+  const KEIGAN_USER_ID = 'U094AQE9V7D';
+  
+  try {
+    // Security check - Keigan only
+    if (userId !== KEIGAN_USER_ID) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: '🔒 Batch account management is restricted to Keigan. Contact him for assistance.',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    if (!entities.accounts || entities.accounts.length === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: 'Please specify account names.\n\nExample: "batch reassign: Account1, Account2, Account3 to Julie"',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    if (!entities.targetBL) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: 'Please specify a target BL.\n\nExample: "batch reassign: Account1, Account2 to Julie"',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const accountNames = entities.accounts;
+    const targetBLInput = entities.targetBL;
+    
+    // Validate target BL
+    const businessLeads = ['Julie Smith', 'Himanshu Agrawal', 'Asad Hashmi', 'Mike McMahon', 'Olivia Jung', 'Justin Hartman', 'Ananth Chidambaram'];
+    const blNameMap = {
+      'julie': 'Julie Smith',
+      'himanshu': 'Himanshu Agrawal',
+      'asad': 'Asad Hashmi',
+      'mike': 'Mike McMahon',
+      'olivia': 'Olivia Jung',
+      'justin': 'Justin Hartman',
+      'ananth': 'Ananth Chidambaram'
+    };
+    
+    const validBL = blNameMap[targetBLInput.toLowerCase()] || 
+                   businessLeads.find(bl => bl.toLowerCase().includes(targetBLInput.toLowerCase()));
+    
+    if (!validBL) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `❌ "${targetBLInput}" is not a valid BL.\n\n*Valid BLs:* ${businessLeads.join(', ')}`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    // Find target BL's Salesforce User ID
+    const userQuery = `SELECT Id, Name FROM User WHERE Name LIKE '%${validBL.split(' ')[0]}%' AND IsActive = true LIMIT 1`;
+    const userResult = await query(userQuery);
+    
+    if (!userResult || userResult.totalSize === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `❌ Could not find Salesforce user for "${validBL}"`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const targetUserId = userResult.records[0].Id;
+    
+    // Send initial processing message
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `🔄 Processing batch reassignment of ${accountNames.length} accounts to *${validBL}*...\n\n_${accountNames.join(', ')}_`,
+      thread_ts: threadTs
+    });
+    
+    const { sfConnection } = require('../salesforce/connection');
+    const conn = sfConnection.getConnection();
+    
+    const results = [];
+    
+    for (const accountName of accountNames) {
+      try {
+        // Find account
+        const escapeQuotes = (str) => str.replace(/'/g, "\\'");
+        const accountQuery = `SELECT Id, Name, OwnerId, Owner.Name,
+                                     (SELECT Id, OwnerId FROM Opportunities WHERE IsClosed = false)
+                              FROM Account
+                              WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                              LIMIT 1`;
+        
+        const accountResult = await query(accountQuery);
+        
+        if (!accountResult || accountResult.totalSize === 0) {
+          results.push({ account: accountName, status: 'not_found', message: 'Account not found' });
+          continue;
+        }
+        
+        const account = accountResult.records[0];
+        const oldOwner = account.Owner?.Name || 'Unknown';
+        const openOpps = account.Opportunities?.records || account.Opportunities || [];
+        
+        // Update account owner
+        await conn.sobject('Account').update({
+          Id: account.Id,
+          OwnerId: targetUserId
+        });
+        
+        // Update all open opportunities' owner
+        let oppsUpdated = 0;
+        if (Array.isArray(openOpps) && openOpps.length > 0) {
+          const updates = openOpps.map(opp => ({
+            Id: opp.Id,
+            OwnerId: targetUserId
+          }));
+          
+          const oppResults = await conn.sobject('Opportunity').update(updates);
+          const oppResultsArray = Array.isArray(oppResults) ? oppResults : [oppResults];
+          oppsUpdated = oppResultsArray.filter(r => r.success).length;
+        }
+        
+        results.push({ 
+          account: account.Name, 
+          status: 'success', 
+          oldOwner,
+          oppsUpdated,
+          message: `${oldOwner} → ${validBL}, ${oppsUpdated} opp(s)`
+        });
+        
+      } catch (error) {
+        results.push({ account: accountName, status: 'error', message: error.message });
+      }
+    }
+    
+    // Format summary
+    const successCount = results.filter(r => r.status === 'success').length;
+    const totalOppsUpdated = results.reduce((sum, r) => sum + (r.oppsUpdated || 0), 0);
+    
+    let summary = `✅ *Batch Reassignment Complete*\n\n`;
+    summary += `*Target:* ${validBL}\n`;
+    summary += `*Accounts Processed:* ${successCount}/${accountNames.length}\n`;
+    summary += `*Opportunities Transferred:* ${totalOppsUpdated}\n\n`;
+    summary += `*Details:*\n`;
+    
+    results.forEach(r => {
+      const icon = r.status === 'success' ? '✅' : r.status === 'not_found' ? '❓' : '❌';
+      summary += `${icon} *${r.account}* - ${r.message}\n`;
+    });
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: summary,
+      thread_ts: threadTs
+    });
+    
+    logger.info(`✅ Batch reassign: ${successCount}/${accountNames.length} accounts to ${validBL}, ${totalOppsUpdated} opps transferred by ${userId}`);
+    
+  } catch (error) {
+    logger.error('Batch reassignment failed:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Batch reassignment failed: ${error.message}`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
  * Handle Move to Nurture (Keigan only)
  */
 async function handleMoveToNurture(entities, userId, channelId, client, threadTs) {
@@ -2172,7 +2482,10 @@ async function handleMoveToNurture(entities, userId, channelId, client, threadTs
     }
     
     const account = accountResult.records[0];
-    const openOpps = account.Opportunities || [];
+    // Salesforce subqueries return { records: [...] } or null - extract properly
+    const openOpps = account.Opportunities?.records || account.Opportunities || [];
+    
+    logger.info(`📋 Nurture move: Found ${Array.isArray(openOpps) ? openOpps.length : 0} open opportunities for ${account.Name}`);
     
     // Update account to nurture AND close all opportunities as lost
     const { sfConnection } = require('../salesforce/connection');
@@ -2192,7 +2505,7 @@ async function handleMoveToNurture(entities, userId, channelId, client, threadTs
     if (openOpps.length > 0) {
       const updates = openOpps.map(opp => ({
         Id: opp.Id,
-        StageName: 'Stage 7. Closed Lost',
+        StageName: 'Stage 7. Closed(Lost)',
         IsClosed: true,
         IsWon: false
       }));
@@ -2224,7 +2537,7 @@ async function handleMoveToNurture(entities, userId, channelId, client, threadTs
         const resultsArray = Array.isArray(results) ? results : [results];
         const success = resultsArray[i]?.success ? '✅' : '❌';
         const amount = opp.Amount ? `$${(opp.Amount / 1000).toFixed(0)}K` : 'N/A';
-        confirmMessage += `${success} ${opp.Name} (${amount}) → Stage 7. Closed Lost\n`;
+        confirmMessage += `${success} ${opp.Name} (${amount}) → Stage 7. Closed(Lost)\n`;
       });
     } else {
       confirmMessage += `\n*No open opportunities to close*\n`;
@@ -2300,9 +2613,12 @@ async function handleCloseAccountLost(entities, userId, channelId, client, threa
     }
     
     const account = accountResult.records[0];
-    const openOpps = account.Opportunities || [];
+    // Salesforce subqueries return { records: [...] } or null - extract properly
+    const openOpps = account.Opportunities?.records || account.Opportunities || [];
     
-    if (openOpps.length === 0) {
+    logger.info(`📋 Close Lost: Found ${Array.isArray(openOpps) ? openOpps.length : 0} open opportunities for ${account.Name}`);
+    
+    if (!Array.isArray(openOpps) || openOpps.length === 0) {
       await client.chat.postMessage({
         channel: channelId,
         text: `⚠️  *${account.Name}* has no open opportunities to close.\n\nAccount Owner: ${account.Owner?.Name}\n\nNo action taken.`,
@@ -2317,7 +2633,7 @@ async function handleCloseAccountLost(entities, userId, channelId, client, threa
     
     const updates = openOpps.map(opp => ({
       Id: opp.Id,
-      StageName: 'Stage 7. Closed Lost',
+      StageName: 'Stage 7. Closed(Lost)',
       IsClosed: true,
       IsWon: false
     }));
@@ -2348,7 +2664,7 @@ async function handleCloseAccountLost(entities, userId, channelId, client, threa
       const resultsArray = Array.isArray(results) ? results : [results];
       const success = resultsArray[i]?.success ? '✅' : '❌';
       const amount = opp.Amount ? `$${(opp.Amount / 1000).toFixed(0)}K` : 'N/A';
-      confirmMessage += `${success} ${opp.Name} (${amount}) → Stage 7. Closed Lost\n`;
+      confirmMessage += `${success} ${opp.Name} (${amount}) → Stage 7. Closed(Lost)\n`;
     });
     
     confirmMessage += `\n<${accountUrl}|View Account in Salesforce>`;

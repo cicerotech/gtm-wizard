@@ -908,7 +908,40 @@ Business Context:
       };
     }
     
-    // Account Management - Move to Nurture (Keigan only)
+    // Account Management - BATCH Move to Nurture (Keigan only)
+    // Patterns: "move [account1, account2, account3] to nurture" or "batch nurture: account1, account2"
+    if ((message.includes('batch') && message.includes('nurture')) ||
+        (message.includes('move') && message.includes('nurture') && (message.includes(',') || message.includes(' and ')))) {
+      intent = 'batch_move_to_nurture';
+      
+      // Extract multiple account names (comma or 'and' separated)
+      let accountsText = message.replace(/batch nurture[:\s]*/i, '')
+                                .replace(/move to nurture/i, '')
+                                .replace(/to nurture/i, '')
+                                .replace(/move/i, '')
+                                .trim();
+      
+      // Split by comma or 'and'
+      const accountList = accountsText.split(/[,]|\s+and\s+/)
+                                      .map(a => a.trim())
+                                      .filter(a => a.length > 0);
+      
+      if (accountList.length > 0) {
+        entities.accounts = accountList;
+      }
+      
+      return {
+        intent: 'batch_move_to_nurture',
+        entities,
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'Batch move multiple accounts to nurture status',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+
+    // Account Management - Move to Nurture (Keigan only) - SINGLE ACCOUNT
     if (message.includes('move') && message.includes('nurture') ||
         message.includes('mark') && message.includes('nurture') ||
         message.includes('set') && message.includes('nurture')) {
@@ -930,6 +963,43 @@ Business Context:
         followUp: false,
         confidence: 0.95,
         explanation: 'Move account to nurture status',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+
+    // Account Management - BATCH Reassignment (Keigan only)
+    // Patterns: "batch reassign: account1, account2, account3 to Julie" or "reassign [account1, account2] to BL"
+    if ((message.includes('batch') && (message.includes('reassign') || message.includes('assign'))) ||
+        ((message.includes('reassign') || message.includes('assign')) && message.includes(' to ') && message.includes(','))) {
+      intent = 'batch_reassign_accounts';
+      
+      // Extract target BL
+      const toMatch = message.match(/to\s+(\w+(?:\s+\w+)?)\s*$/i);
+      if (toMatch) {
+        entities.targetBL = toMatch[1].trim();
+      }
+      
+      // Extract account names (before "to BL")
+      let accountsText = message.replace(/batch\s*(reassign|assign)[:\s]*/i, '')
+                                .replace(/\s+to\s+\w+(?:\s+\w+)?\s*$/i, '')
+                                .replace(/reassign|assign/gi, '')
+                                .trim();
+      
+      const accountList = accountsText.split(/[,]|\s+and\s+/)
+                                      .map(a => a.trim())
+                                      .filter(a => a.length > 0);
+      
+      if (accountList.length > 0) {
+        entities.accounts = accountList;
+      }
+      
+      return {
+        intent: 'batch_reassign_accounts',
+        entities,
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'Batch reassign multiple accounts to a BL',
         originalMessage: userMessage,
         timestamp: Date.now()
       };
