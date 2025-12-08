@@ -6,11 +6,26 @@ const opportunitySchema = require('../../data/schema-opportunity.json');
 const accountSchema = require('../../data/schema-account.json');
 const businessLogic = require('../../data/business-logic.json');
 
+// ML Intent Classifier - lazy loaded to avoid circular dependencies
+let mlClassifier = null;
+function getMLClassifier() {
+  if (!mlClassifier) {
+    try {
+      const { mlIntentClassifier } = require('./mlIntentClassifier');
+      mlClassifier = mlIntentClassifier;
+    } catch (error) {
+      logger.warn('ML classifier not available:', error.message);
+    }
+  }
+  return mlClassifier;
+}
+
 class IntentParser {
   constructor() {
     this.aiAdapter = socratesAdapter;
     this.model = process.env.SOCRATES_MODEL || process.env.OPENAI_MODEL || 'claude-opus-4.1';
     this.useOpenAI = process.env.USE_OPENAI === 'true';
+    this.useMLClassifier = process.env.USE_ML_CLASSIFIER !== 'false'; // Default enabled
     
     // Initialize OpenAI as fallback if specified
     if (this.useOpenAI) {
@@ -23,6 +38,10 @@ class IntentParser {
 
   /**
    * Parse user message and extract structured intent and entities
+   * 
+   * Classification Cascade:
+   * 1. ML Classifier (if enabled) - embeddings + LLM hybrid
+   * 2. Pattern Matching - fast regex fallback
    */
   async parseIntent(userMessage, conversationContext = null, userId = null) {
     const startTime = Date.now();
@@ -34,36 +53,61 @@ class IntentParser {
         hasContext: !!conversationContext 
       });
 
-      // Build comprehensive prompt with context
-      const prompt = this.buildIntentPrompt(userMessage, conversationContext);
-
-      // Skip AI parsing - use fallback pattern matching which is more reliable
-      // Socrates/OpenAI was giving inconsistent intents for sales queries
-      const USE_FALLBACK_ONLY = true;
-      if (USE_FALLBACK_ONLY) {
-        return this.fallbackPatternMatching(userMessage, conversationContext);
+      // Try ML Classifier first (if enabled and available)
+      if (this.useMLClassifier) {
+        const classifier = getMLClassifier();
+        if (classifier) {
+          try {
+            const mlResult = await classifier.classify(userMessage, conversationContext, userId);
+            
+            // If ML classifier is confident, use its result
+            if (mlResult && mlResult.confidence >= 0.70) {
+              mlResult.originalMessage = userMessage;
+              logger.info(`✅ ML classified: ${mlResult.intent} (${(mlResult.confidence * 100).toFixed(0)}% via ${mlResult.method})`);
+              return mlResult;
+            }
+            
+            // If low confidence, log but continue to pattern matching
+            if (mlResult) {
+              logger.info(`⚠️ ML low confidence: ${mlResult.intent} (${(mlResult.confidence * 100).toFixed(0)}%), trying patterns`);
+            }
+          } catch (mlError) {
+            logger.warn('ML classification failed, using patterns:', mlError.message);
+          }
+        }
       }
 
-      // Log AI request (only reached if USE_FALLBACK_ONLY = false)
-      logger.aiRequest(prompt, response.usage?.total_tokens, duration);
-
-      // Validate and enhance the parsed result
-      const validatedResult = this.validateAndEnhanceResult(result, userMessage, conversationContext);
-
-      logger.info('✅ Intent parsed successfully', {
-        intent: validatedResult.intent,
-        entityCount: Object.keys(validatedResult.entities).length,
-        followUp: validatedResult.followUp
-      });
-
-      return validatedResult;
+      // Fallback to pattern matching
+      const patternResult = this.fallbackPatternMatching(userMessage, conversationContext);
+      patternResult.method = 'pattern_fallback';
+      
+      return patternResult;
 
     } catch (error) {
       logger.error('❌ Intent parsing failed:', error);
       
-      // Fallback to pattern matching
+      // Final fallback to pattern matching
       return this.fallbackPatternMatching(userMessage, conversationContext);
     }
+  }
+  
+  /**
+   * Process user feedback to improve classification
+   */
+  async processFeedback(originalQuery, originalIntent, correctedIntent, userId) {
+    const classifier = getMLClassifier();
+    if (classifier) {
+      return await classifier.processFeedback(originalQuery, originalIntent, correctedIntent, userId);
+    }
+    return false;
+  }
+  
+  /**
+   * Get classification statistics
+   */
+  getStats() {
+    const classifier = getMLClassifier();
+    return classifier ? classifier.getStats() : { mlClassifierDisabled: true };
   }
 
   /**
@@ -1517,5 +1561,7 @@ const intentParser = new IntentParser();
 module.exports = {
   IntentParser,
   intentParser,
-  parseIntent: (message, context, userId) => intentParser.parseIntent(message, context, userId)
+  parseIntent: (message, context, userId) => intentParser.parseIntent(message, context, userId),
+  processFeedback: (query, original, corrected, userId) => intentParser.processFeedback(query, original, corrected, userId),
+  getStats: () => intentParser.getStats()
 };

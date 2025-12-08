@@ -1,0 +1,39 @@
+{
+  "queries": {},
+  "corrections": [],
+  "intentExamples": {
+    "account_status_dashboard": [
+      "gtm",
+      "dashboard",
+      "show dashboard"
+    ],
+    "pipeline_summary": [
+      "show pipeline",
+      "pipeline overview",
+      "current pipeline"
+    ],
+    "late_stage_pipeline": [
+      "late stage",
+      "late stage pipeline",
+      "stage 3 and 4"
+    ],
+    "account_lookup": [
+      "who owns intel",
+      "tell me about boeing",
+      "what do we know about microsoft"
+    ],
+    "deal_lookup": [
+      "what closed this week",
+      "recent wins",
+      "closed deals"
+    ],
+    "create_account": [
+      "create boeing",
+      "add intel to salesforce",
+      "create account for microsoft"
+    ]
+  },
+  "version": 1,
+  "created": "2025-12-08T00:00:00.000Z"
+}
+
