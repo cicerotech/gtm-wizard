@@ -1,6 +1,6 @@
 # gtm-brain
 
-**Live Dashboard**: [[GTM Dashboard](gtm-wizard.onrender.com/account-dashboard](https://gtm-wizard.onrender.com/account-dashboard)]
+**Live Dashboard**: [gtm-wizard.onrender.com/account-dashboard](https://gtm-wizard.onrender.com/account-dashboard)
 
 ---
 
@@ -8,7 +8,7 @@
 
 gtm-brain is an intelligent layer between our teams and our CRM. It handles pipeline queries, contract processing, and account management through Slack and natural language, syncs meeting data to Salesforce, and provides unified dashboard reporting.
 
-**Core capabilities:** Natural language queries, Account management actions, GTM team insights
+**Core capabilities:** Natural language queries • Account management actions • GTM team insights
 
 ---
 
@@ -30,6 +30,14 @@ gtm-brain is an intelligent layer between our teams and our CRM. It handles pipe
       │    Salesforce      │ ──► Incomplete data
       │  (manual updates)  │ ──► Delayed visibility
       └────────────────────┘ ──► Siloed information
+```
+
+**Pain points:**
+- Critical deal context lives in Slack threads, never captured in CRM
+- Cross-functional teams lack real-time pipeline visibility
+- Account ownership and opportunity details require navigating multiple Salesforce views
+- Contract details extracted manually, prone to errors
+- Meeting insights lost unless someone manually logs them
 
 ---
 
