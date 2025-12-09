@@ -4559,45 +4559,104 @@ async function getOwnerNameFromSlackUser(slackUserId, client) {
 }
 
 /**
- * Handle Unknown Queries - Organized suggestions by category
+ * Handle Unknown Queries - Smart keyword matching with context-aware suggestions
  */
 async function handleUnknownQuery(parsedIntent, userId, channelId, client, threadTs) {
   try {
+    const originalMessage = parsedIntent.originalMessage?.toLowerCase() || '';
     const extractedWords = parsedIntent.entities.extractedWords || [];
     
-    let response = `I didn't understand that query.\n\n`;
-    response += `*What I can help with (by category):*\n\n`;
+    // Keyword to suggestion mapping - provide relevant suggestions based on words in query
+    const keywordSuggestions = {
+      'logo': { 
+        suggestion: 'logo rights', 
+        examples: ['logo rights', 'which accounts have logo rights'] 
+      },
+      'contract': { 
+        suggestion: 'contracts', 
+        examples: ['show contracts', 'contracts for Boeing'] 
+      },
+      'excel': { 
+        suggestion: 'excel export', 
+        examples: ['send pipeline excel', 'export to excel'] 
+      },
+      'report': { 
+        suggestion: 'reports', 
+        examples: ['send pipeline excel', 'pipeline report'] 
+      },
+      'customer': { 
+        suggestion: 'customers', 
+        examples: ['who are our customers', 'how many customers'] 
+      },
+      'owner': { 
+        suggestion: 'account owner', 
+        examples: ['who owns Boeing', 'BL for Intel'] 
+      },
+      'pipeline': { 
+        suggestion: 'pipeline queries', 
+        examples: ['show me pipeline', 'late stage pipeline', 'my pipeline'] 
+      },
+      'stage': { 
+        suggestion: 'stage queries', 
+        examples: ['what accounts are in Stage 2', 'late stage deals'] 
+      },
+      'deal': { 
+        suggestion: 'deals/opportunities', 
+        examples: ['Julie\'s deals', 'late stage deals', 'stale deals'] 
+      },
+      'account': { 
+        suggestion: 'account queries', 
+        examples: ['who owns Boeing', 'what accounts does Julie own', 'accounts in Stage 2'] 
+      },
+      'reassign': { 
+        suggestion: 'reassign accounts', 
+        examples: ['reassign Boeing to Julie', 'batch reassign: A, B to Owner'] 
+      },
+      'nurture': { 
+        suggestion: 'nurture accounts', 
+        examples: ['move Boeing to nurture', 'batch nurture: A, B, C'] 
+      },
+      'closed': { 
+        suggestion: 'closed deals', 
+        examples: ['what closed this month', 'what closed this week'] 
+      },
+      'loi': { 
+        suggestion: 'LOIs/bookings', 
+        examples: ['what LOIs have we signed', 'how many LOIs this month'] 
+      }
+    };
     
-    response += `*Account Information*\n`;
-    response += `• "who owns [Company]?" - Find account owner\n`;
-    response += `• "does [Company] exist?" - Check if account in Salesforce\n`;
-    response += `• "what's the account plan for [Company]?" - View strategic plan\n\n`;
+    // Find relevant suggestions based on keywords in the query
+    let matchedSuggestions = [];
+    Object.entries(keywordSuggestions).forEach(([keyword, data]) => {
+      if (originalMessage.includes(keyword)) {
+        matchedSuggestions.push(data);
+      }
+    });
     
-    response += `*Pipeline & Deals*\n`;
-    response += `• "late stage contracting" - Stage 4 contracting accounts\n`;
-    response += `• "mid stage deals" - Stage 2-3 opportunities\n`;
-    response += `• "show me the pipeline" - All active opportunities\n`;
-    response += `• "weighted pipeline" - Gross vs weighted view\n\n`;
+    let response = '';
     
-    response += `*Bookings & Revenue*\n`;
-    response += `• "what LOIs signed last week?" - Recent bookings\n`;
-    response += `• "show ARR deals" - Recurring revenue opportunities\n`;
-    response += `• "how many customers?" - Customer count\n\n`;
-    
-    response += `*Contracts & Documents*\n`;
-    response += `• "contracts for [Company]" - PDFs and agreements\n`;
-    response += `• "LOI contracts" - Letter of intent contracts\n\n`;
-    
-    response += `*Reports & Dashboard*\n`;
-    response += `• "send pipeline excel report" - Generate Excel\n`;
-    response += `• "gtm" or "dashboard" - Account status dashboard\n\n`;
-    
-    response += `*Account Management*\n`;
-    response += `• "create [Company] and assign to BL" - Auto-create account\n`;
-    response += `• "add account plan for [Company]:" - Save strategic plan\n`;
-    response += `• "add to customer history: [Company]" - Save meeting notes\n\n`;
-    
-    response += `Ask "hello" for full capability list.`;
+    if (matchedSuggestions.length > 0) {
+      // We found relevant keywords - give targeted suggestions
+      response = `I think you're asking about *${matchedSuggestions[0].suggestion}*. Try:\n\n`;
+      matchedSuggestions.forEach(match => {
+        match.examples.forEach(ex => {
+          response += `• "${ex}"\n`;
+        });
+      });
+      response += `\n_Tip: I work best with direct questions. Rephrase if needed!_`;
+    } else {
+      // No keywords matched - give general help
+      response = `I'm not sure what you're looking for. Here are some things I can do:\n\n`;
+      response += `*Quick Examples:*\n`;
+      response += `• "show me pipeline" - Active opportunities\n`;
+      response += `• "who owns Boeing" - Account ownership\n`;
+      response += `• "Julie's deals" - Owner-specific pipeline\n`;
+      response += `• "what closed this month" - Recent wins\n`;
+      response += `• "send pipeline excel" - Export to spreadsheet\n`;
+      response += `• "logo rights" - Companies with logo authorization\n\n`;
+      response += `_Visit gtm-wizard.onrender.com/cheat-sheet for full command reference._`;
+    }
     
     await client.chat.postMessage({
       channel: channelId,
@@ -4605,13 +4664,13 @@ async function handleUnknownQuery(parsedIntent, userId, channelId, client, threa
       thread_ts: threadTs
     });
     
-    logger.info(`❓ Unknown query from ${userId}: "${parsedIntent.originalMessage}"`);
+    logger.info(`Unknown query from ${userId}: "${parsedIntent.originalMessage}" - matched keywords: ${matchedSuggestions.map(m => m.suggestion).join(', ') || 'none'}`);
     
   } catch (error) {
     logger.error('Failed to handle unknown query:', error);
     await client.chat.postMessage({
       channel: channelId,
-      text: `I'm not sure how to help. Ask "hello" for examples!`,
+      text: `I'm not sure how to help. Visit gtm-wizard.onrender.com/cheat-sheet for examples!`,
       thread_ts: threadTs
     });
   }

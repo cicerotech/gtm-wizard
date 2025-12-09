@@ -7,8 +7,10 @@ const logger = require('../utils/logger');
  */
 async function generateFullPipelineExcel() {
   // Query: ALL active pipeline (Stages 0-4, all products)
-  // Custom ORDER BY to sort Stage 4 first (descending), then by Name
+  // Order by ACV descending (highest value deals first), then by Name
+  // Note: SOQL doesn't support CASE in ORDER BY
   const reportQuery = `SELECT Name,
+                              Account.Name,
                               Product_Line__c,
                               StageName,
                               Target_LOI_Date__c,
@@ -16,33 +18,54 @@ async function generateFullPipelineExcel() {
                               Owner.Name
                        FROM Opportunity
                        WHERE IsClosed = false
-                         AND (StageName = 'Stage 0 - Qualifying'
-                              OR StageName = 'Stage 1 - Discovery'
-                              OR StageName = 'Stage 2 - SQO'
-                              OR StageName = 'Stage 3 - Pilot'
-                              OR StageName = 'Stage 4 - Proposal')
-                       ORDER BY 
-                         CASE 
-                           WHEN StageName = 'Stage 4 - Proposal' THEN 1
-                           WHEN StageName = 'Stage 3 - Pilot' THEN 2
-                           WHEN StageName = 'Stage 2 - SQO' THEN 3
-                           WHEN StageName = 'Stage 1 - Discovery' THEN 4
-                           WHEN StageName = 'Stage 0 - Qualifying' THEN 5
-                         END,
-                         Name`;
+                         AND StageName != 'Stage 6. Closed(Won)'
+                         AND StageName != 'Stage 7. Closed(Lost)'
+                       ORDER BY ACV__c DESC NULLS LAST, Name`;
 
   const data = await query(reportQuery, false);
+  
+  // Sort in memory by stage (Stage 4 first, then 3, 2, 1, 0) then by ACV
+  const stageOrder = {
+    'Stage 4 - Proposal': 1,
+    'Stage 4. Proposal': 1,
+    'Stage 3 - Pilot': 2,
+    'Stage 3. Pilot': 2,
+    'Stage 2 - SQO': 3,
+    'Stage 2. SQO': 3,
+    'Stage 1 - Discovery': 4,
+    'Stage 1. Discovery': 4,
+    'Stage 0 - Qualifying': 5,
+    'Stage 0. Qualifying': 5
+  };
+  
+  if (data && data.records) {
+    data.records.sort((a, b) => {
+      const stageA = stageOrder[a.StageName] || 6;
+      const stageB = stageOrder[b.StageName] || 6;
+      if (stageA !== stageB) return stageA - stageB;
+      return (b.ACV__c || 0) - (a.ACV__c || 0); // Then by ACV desc
+    });
+  }
 
   if (!data || !data.records || data.records.length === 0) {
     throw new Error('No active pipeline data found');
   }
 
-  // Calculate stage counts
-  const stage0Count = data.records.filter(r => r.StageName === 'Stage 0 - Qualifying').length;
-  const stage1Count = data.records.filter(r => r.StageName === 'Stage 1 - Discovery').length;
-  const stage2Count = data.records.filter(r => r.StageName === 'Stage 2 - SQO').length;
-  const stage3Count = data.records.filter(r => r.StageName === 'Stage 3 - Pilot').length;
-  const stage4Count = data.records.filter(r => r.StageName === 'Stage 4 - Proposal').length;
+  // Calculate stage counts (handle both formats: "Stage X - Name" and "Stage X. Name")
+  const isStage = (record, stageNum) => {
+    const s = record.StageName || '';
+    return s.includes(`Stage ${stageNum}`) && !s.includes('Closed');
+  };
+  
+  const stage0Count = data.records.filter(r => isStage(r, '0')).length;
+  const stage1Count = data.records.filter(r => isStage(r, '1')).length;
+  const stage2Count = data.records.filter(r => isStage(r, '2')).length;
+  const stage3Count = data.records.filter(r => isStage(r, '3')).length;
+  const stage4Count = data.records.filter(r => isStage(r, '4')).length;
+  const stage5Count = data.records.filter(r => isStage(r, '5')).length;
+  
+  // Calculate total ACV
+  const totalACV = data.records.reduce((sum, r) => sum + (r.ACV__c || 0), 0);
 
   // Create Excel
   const workbook = new ExcelJS.Workbook();
@@ -50,10 +73,11 @@ async function generateFullPipelineExcel() {
 
   // Define columns for full pipeline
   worksheet.columns = [
+    { header: 'Account', key: 'account', width: 35 },
     { header: 'Opportunity Name', key: 'oppName', width: 40 },
-    { header: 'Product Line', key: 'productLine', width: 30 },
-    { header: 'Stage', key: 'stage', width: 20 },
-    { header: 'Target Sign Date', key: 'targetDate', width: 18 },
+    { header: 'Product Line', key: 'productLine', width: 25 },
+    { header: 'Stage', key: 'stage', width: 22 },
+    { header: 'Target Sign Date', key: 'targetDate', width: 16 },
     { header: 'ACV', key: 'acv', width: 15 },
     { header: 'Owner', key: 'owner', width: 20 }
   ];
@@ -72,6 +96,7 @@ async function generateFullPipelineExcel() {
   // Add data
   data.records.forEach(record => {
     worksheet.addRow({
+      account: record.Account?.Name || '',
       oppName: record.Name || '',
       productLine: record.Product_Line__c || '',
       stage: record.StageName || '',
@@ -100,12 +125,14 @@ async function generateFullPipelineExcel() {
 
   return {
     buffer,
-    recordCount: data.totalSize,
+    recordCount: data.records.length,
+    totalACV,
     stage0Count,
     stage1Count,
     stage2Count,
     stage3Count,
-    stage4Count
+    stage4Count,
+    stage5Count
   };
 }
 
@@ -116,23 +143,33 @@ async function sendFullPipelineToSlack(client, channelId, userId) {
   try {
     logger.info('Generating full active pipeline report for Slack...');
 
-    const { buffer, recordCount, stage0Count, stage1Count, stage2Count, stage3Count, stage4Count } = await generateFullPipelineExcel();
+    const result = await generateFullPipelineExcel();
+    const { buffer, recordCount, totalACV, stage0Count, stage1Count, stage2Count, stage3Count, stage4Count, stage5Count } = result;
     
     const date = new Date().toISOString().split('T')[0];
     const filename = `Full_Active_Pipeline_${date}.xlsx`;
+    
+    // Format currency
+    const formatCurrency = (amount) => {
+      if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
+      if (amount >= 1000) return `$${(amount / 1000).toFixed(0)}K`;
+      return `$${amount.toLocaleString()}`;
+    };
 
-    // Format message
-    let message = `*Full Active Pipeline Report*\n\n`;
-    message += `Total Opportunities: ${recordCount}\n\n`;
-    message += `Stage 0 - Qualifying: ${stage0Count}\n`;
-    message += `Stage 1 - Discovery: ${stage1Count}\n`;
-    message += `Stage 2 - SQO: ${stage2Count}\n`;
-    message += `Stage 3 - Pilot: ${stage3Count}\n`;
-    message += `Stage 4 - Proposal: ${stage4Count}\n\n`;
-    message += `All active opportunities (Stages 0-4). All product lines included.`;
+    // Format message with summary
+    let message = `*Full Active Pipeline Report*\n`;
+    message += `_${recordCount} opportunities • ${formatCurrency(totalACV)} total ACV_\n\n`;
+    message += `*By Stage:*\n`;
+    if (stage4Count > 0) message += `• Stage 4 (Proposal): ${stage4Count}\n`;
+    if (stage3Count > 0) message += `• Stage 3 (Pilot): ${stage3Count}\n`;
+    if (stage2Count > 0) message += `• Stage 2 (SQO): ${stage2Count}\n`;
+    if (stage1Count > 0) message += `• Stage 1 (Discovery): ${stage1Count}\n`;
+    if (stage0Count > 0) message += `• Stage 0 (Qualifying): ${stage0Count}\n`;
+    if (stage5Count > 0) message += `• Stage 5 (Negotiation): ${stage5Count}\n`;
+    message += `\n_Sorted by stage (late to early), then by ACV. All product lines included._`;
 
     // Upload to Slack
-    const result = await client.files.uploadV2({
+    const uploadResult = await client.files.uploadV2({
       channel_id: channelId,
       file: buffer,
       filename: filename,
@@ -141,7 +178,7 @@ async function sendFullPipelineToSlack(client, channelId, userId) {
     });
 
     logger.info('✅ Full pipeline report uploaded to Slack');
-    return result;
+    return uploadResult;
 
   } catch (error) {
     logger.error('Failed to send full pipeline report to Slack:', error);

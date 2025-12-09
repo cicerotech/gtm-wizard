@@ -468,6 +468,25 @@ Business Context:
       };
     }
 
+    // ============================================================
+    // PRIORITY KEYWORD MATCHING - Check specific phrases FIRST
+    // These take precedence over generic word matching
+    // ============================================================
+    
+    // "Logo rights" - highest priority (even if "active" is in the query)
+    if (message.includes('logo right') || message.includes('logo permission') ||
+        (message.includes('logo') && (message.includes('use') || message.includes('permission')))) {
+      return {
+        intent: 'logo_rights_list',
+        entities: {},
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'List companies with logo rights',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+
     // "Who are our current customers" / "show me customers" / "list customers"
     if ((message.includes('current customers') || message.includes('our customers') || 
          message.includes('list customers') || message.includes('show customers') ||
@@ -479,20 +498,6 @@ Business Context:
         followUp: false,
         confidence: 0.95,
         explanation: 'List current customers query',
-        originalMessage: userMessage,
-        timestamp: Date.now()
-      };
-    }
-
-    // "Which accounts/companies have logo rights" / "logo rights list"
-    if (message.includes('logo rights') || message.includes('logo permission') ||
-        message.includes('can we use') && message.includes('logo')) {
-      return {
-        intent: 'logo_rights_list',
-        entities: {},
-        followUp: false,
-        confidence: 0.95,
-        explanation: 'List companies with logo rights',
         originalMessage: userMessage,
         timestamp: Date.now()
       };
