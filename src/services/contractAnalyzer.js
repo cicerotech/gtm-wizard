@@ -192,11 +192,18 @@ const EXTRACTION_PATTERNS = {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EUDIA COMPANY SIGNERS (for Company Signed By lookup)
+// Maps extracted names to their Salesforce User search name
 // ═══════════════════════════════════════════════════════════════════════════
 const EUDIA_SIGNERS = {
+  // Leadership
   'Omar Haroun': { id: null, role: 'CEO', searchName: 'Omar Haroun' },
   'David Van Ryk': { id: null, role: 'President', searchName: 'David Van Ryk' },
   'David Van Reyk': { id: null, role: 'President', searchName: 'David Van Ryk' },
+  // Legal/Compliance
+  'Zoila Mena Harpin': { id: null, role: 'Compliance Officer', searchName: 'Zoila Mena Harpin' },
+  'Zoila Harpin': { id: null, role: 'Compliance Officer', searchName: 'Zoila Mena Harpin' },
+  'Zoila Mena': { id: null, role: 'Compliance Officer', searchName: 'Zoila Mena Harpin' },
+  // Operations
   'Keigan Pesenti': { id: null, role: 'RevOps', searchName: 'Keigan Pesenti' }
 };
 
@@ -924,92 +931,159 @@ class ContractAnalyzer {
     // SIGNATURE EXTRACTION - Names from signature blocks
     // ═══════════════════════════════════════════════════════════════════════════
     
-    // Known Eudia signers (check for these specifically)
+    // Known Eudia/Cicero signers (check for these specifically)
+    // These are internal team members who sign on behalf of Eudia
     const KNOWN_EUDIA_SIGNERS = [
-      'Omar Haroun', 'OMAR HAROUN', 'Omar', 
+      // Leadership
+      'Omar Haroun', 'OMAR HAROUN',
       'David Van Ryk', 'David VanRyk', 'DAVID VAN RYK', 'David Van Reyk', 'DAVID VAN REYK',
-      'Keigan Pesenti', 'KEIGAN PESENTI'
+      // Legal/Compliance
+      'Zoila Mena Harpin', 'ZOILA MENA HARPIN', 'Zoila Harpin', 'Zoila Mena',
+      // Operations
+      'Keigan Pesenti', 'KEIGAN PESENTI',
+      // Add other signers as needed
     ];
     
-    // Strategy 1: Explicit patterns like "Customer Signed By:" and "Company Signed By:"
-    // Handle various formats with flexible whitespace
+    // Map signer names to their canonical form for Salesforce lookup
+    const EUDIA_SIGNER_CANONICAL = {
+      'omar': 'Omar Haroun',
+      'david': 'David Van Ryk',
+      'zoila': 'Zoila Mena Harpin',
+      'keigan': 'Keigan Pesenti'
+    };
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DOCUSIGN SIGNATURE BLOCK EXTRACTION
+    // DocuSign format typically has signature blocks with:
+    // - "Signed by:" or signature line
+    // - Person's name (e.g., "Zoila Mena Harpin, Compliance Officer")
+    // - Company name (e.g., "Eudia Counsel, LLC" or "Ecolab Inc.")
+    // - Date line
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Find all signature blocks with name + company patterns
+    const signatureBlockPatterns = [
+      // DocuSign format: Name, Title \n Company
+      // e.g., "Zoila Mena Harpin, Compliance Officer\nEudia Counsel, LLC"
+      /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}),?\s*(?:Compliance Officer|President|CEO|CFO|COO|CTO|CLO|General Counsel|VP|Vice President|Director|Officer|Secretary|Manager)[^]*?(Eudia|Cicero|Ecolab|Inc\.|LLC|Corp)/gi,
+      
+      // Name followed by company on same or next line
+      /([A-Z][a-z]+\s+(?:[A-Z][a-z]+\s*)+)[,\s\n]+(Eudia\s+Counsel|Cicero|Ecolab\s+Inc)/gi,
+    ];
+    
+    // Strategy 1: Look for signature blocks near "Eudia Counsel" - these are Eudia signers
+    const eudiaSignatureMatch = text.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})[,\s]+(?:Compliance\s+Officer|President|CEO|VP)[,\s\n]*Eudia\s+Counsel/i);
+    if (eudiaSignatureMatch && eudiaSignatureMatch[1]) {
+      const name = eudiaSignatureMatch[1].trim();
+      if (name.length > 4 && !name.match(/^(The|This|Such|Said)/i)) {
+        extracted.eudiaSignedName = name;
+        logger.info(`✍️ Eudia signer (DocuSign block): ${name}`);
+      }
+    }
+    
+    // Strategy 2: Look for signature blocks near customer company name - these are customer signers
+    // Use the extracted account name to find the customer's signature block
+    const customerCompany = extracted.accountName || '';
+    if (customerCompany && !extracted.customerSignedName) {
+      // Build pattern to find name near the company name
+      const escapedCompany = customerCompany.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      // Pattern: Name with title, then company name
+      const customerSignaturePatterns = [
+        // "Jandeen Boone\nExecutive Vice President...\nEcolab Inc."
+        new RegExp(`([A-Z][a-z]+(?:\\s+[A-Z][a-z]+){1,2})[\\s\\n,]+(?:Executive|Vice|President|VP|General|Counsel|Director|Chief|Senior|Officer|Secretary|Manager)[^]*?${escapedCompany}`, 'i'),
+        // Just name near company: "Jandeen Boone ... Ecolab"
+        new RegExp(`([A-Z][a-z]+\\s+[A-Z][a-z]+)[^]{0,100}${escapedCompany}`, 'i'),
+      ];
+      
+      for (const pattern of customerSignaturePatterns) {
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          const name = match[1].trim();
+          // Make sure it's not a Eudia person
+          const isEudiaPerson = KNOWN_EUDIA_SIGNERS.some(es => 
+            name.toLowerCase().includes(es.split(' ')[0].toLowerCase())
+          );
+          const isValidName = name.length > 4 && !name.match(/^(The|This|Such|Said|Date|Name|Title|By)/i);
+          
+          if (!isEudiaPerson && isValidName) {
+            extracted.customerSignedName = name;
+            logger.info(`✍️ Customer signer (near ${customerCompany}): ${name}`);
+            break;
+          }
+        }
+      }
+    }
+    
+    // Strategy 3: Check for known Eudia signers anywhere in text (fallback)
+    if (!extracted.eudiaSignedName) {
+      for (const signer of KNOWN_EUDIA_SIGNERS) {
+        if (text.includes(signer)) {
+          // Use canonical form
+          const firstName = signer.split(' ')[0].toLowerCase();
+          extracted.eudiaSignedName = EUDIA_SIGNER_CANONICAL[firstName] || signer;
+          logger.info(`✍️ Eudia signer (known name match): ${extracted.eudiaSignedName}`);
+          break;
+        }
+      }
+    }
+    
+    // Strategy 4: Explicit patterns like "Customer Signed By:" and "Company Signed By:"
     const explicitSignerPatterns = [
-      // "Customer Signed By: Name Name" - customer signer
       { pattern: /Customer\s+Signed\s+(?:By)?[:\s]+([A-Z][a-z]+\s+[A-Z][a-z]+)/i, type: 'customer' },
-      // "Company Signed By: Name Name" - Eudia signer  
       { pattern: /Company\s+Signed\s+(?:By)?[:\s]+([A-Z][a-z]+\s+[A-Z][a-z]+)/i, type: 'eudia' },
-      // "Eudia Signed By: Name Name"
       { pattern: /Eudia\s+Signed\s+(?:By)?[:\s]+([A-Z][a-z]+\s+[A-Z][a-z]+)/i, type: 'eudia' },
     ];
     
     for (const { pattern, type } of explicitSignerPatterns) {
       const match = text.match(pattern);
       if (match && match[1]) {
-        const name = match[1].trim().split(/\s+/).slice(0, 3).join(' '); // Max 3 words
+        const name = match[1].trim().split(/\s+/).slice(0, 3).join(' ');
         if (type === 'customer' && !extracted.customerSignedName) {
           extracted.customerSignedName = name;
           logger.info(`✍️ Customer signer (explicit): ${name}`);
         } else if (type === 'eudia' && !extracted.eudiaSignedName) {
-          // Normalize Eudia signer name
-          if (name.toLowerCase().includes('omar')) {
-            extracted.eudiaSignedName = 'Omar Haroun';
-          } else if (name.toLowerCase().includes('david')) {
-            extracted.eudiaSignedName = 'David Van Ryk';
-          } else {
-            extracted.eudiaSignedName = name;
-          }
+          const firstName = name.split(' ')[0].toLowerCase();
+          extracted.eudiaSignedName = EUDIA_SIGNER_CANONICAL[firstName] || name;
           logger.info(`✍️ Eudia signer (explicit): ${extracted.eudiaSignedName}`);
         }
       }
     }
     
-    // Strategy 2: Check for known Eudia signers anywhere in text
-    if (!extracted.eudiaSignedName) {
-      for (const signer of KNOWN_EUDIA_SIGNERS) {
-        if (text.includes(signer)) {
-          if (signer.toLowerCase().includes('omar')) {
-            extracted.eudiaSignedName = 'Omar Haroun';
-          } else if (signer.toLowerCase().includes('david')) {
-            extracted.eudiaSignedName = 'David Van Ryk';
-          } else if (signer.toLowerCase().includes('keigan')) {
-            extracted.eudiaSignedName = 'Keigan Pesenti';
-          }
-          logger.info(`✍️ Eudia signer (name match): ${extracted.eudiaSignedName}`);
-          break;
-        }
-      }
-    }
-    
-    // Strategy 3: "Name: [Person]" pattern for customer
-    if (!extracted.customerSignedName) {
-      const namePatterns = [
-        /Name[:\s]+([A-Z][a-z]+\s+[A-Z][a-z]+)(?:\s|$)/g,
-        /By[:\s]+\/s\/\s*([A-Z][a-z]+\s+[A-Z][a-z]+)/g,
-      ];
+    // Strategy 5: Find all person names in text, then classify as Eudia vs Customer
+    // by checking what company appears nearby
+    if (!extracted.customerSignedName || !extracted.eudiaSignedName) {
+      // Look for "By:" or signature lines with names
+      const byLinePattern = /By[:\s]+[_\/s]*\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/g;
+      let match;
+      byLinePattern.lastIndex = 0;
       
-      for (const pattern of namePatterns) {
-        let match;
-        pattern.lastIndex = 0;
-        while ((match = pattern.exec(text)) !== null) {
-          const name = match[1].trim();
-          const words = name.split(/\s+/);
-          
-          // Must be 2-3 proper name words
-          if (words.length >= 2 && words.length <= 3) {
-            const isProperName = words.every(w => /^[A-Z][a-z]+$/.test(w));
-            const notGeneric = !name.match(/^(Name|Title|Date|The|This|Customer|Company|Overview|Agreement|Advisory|Board)/i);
-            const notEudia = !KNOWN_EUDIA_SIGNERS.some(es => 
-              name.toLowerCase().includes(es.split(' ')[0].toLowerCase())
-            );
-            
-            if (isProperName && notGeneric && notEudia) {
-              extracted.customerSignedName = name;
-              logger.info(`✍️ Customer signer (Name pattern): ${name}`);
-              break;
-            }
-          }
+      while ((match = byLinePattern.exec(text)) !== null) {
+        const name = match[1].trim();
+        const position = match.index;
+        
+        // Get surrounding context (200 chars before and after)
+        const contextStart = Math.max(0, position - 200);
+        const contextEnd = Math.min(text.length, position + 200);
+        const context = text.substring(contextStart, contextEnd).toLowerCase();
+        
+        const isEudiaPerson = KNOWN_EUDIA_SIGNERS.some(es => 
+          name.toLowerCase().includes(es.split(' ')[0].toLowerCase())
+        ) || context.includes('eudia') || context.includes('cicero');
+        
+        const isValidName = name.length > 4 && 
+          !name.match(/^(The|This|Such|Said|Date|Name|Title|Overview|Board|Agreement)/i);
+        
+        if (!isValidName) continue;
+        
+        if (isEudiaPerson && !extracted.eudiaSignedName) {
+          const firstName = name.split(' ')[0].toLowerCase();
+          extracted.eudiaSignedName = EUDIA_SIGNER_CANONICAL[firstName] || name;
+          logger.info(`✍️ Eudia signer (By line + context): ${extracted.eudiaSignedName}`);
+        } else if (!isEudiaPerson && !extracted.customerSignedName) {
+          extracted.customerSignedName = name;
+          logger.info(`✍️ Customer signer (By line): ${name}`);
         }
-        if (extracted.customerSignedName) break;
       }
     }
     
