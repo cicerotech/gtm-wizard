@@ -984,32 +984,81 @@ class ContractAnalyzer {
     // Strategy 2: Look for signature blocks near customer company name - these are customer signers
     // Use the extracted account name to find the customer's signature block
     const customerCompany = extracted.accountName || '';
+    
+    // Words that are NEVER part of a person's name - filter these out
+    const INVALID_NAME_WORDS = [
+      'the', 'this', 'such', 'said', 'date', 'name', 'title', 'by', 'letter', 
+      'between', 'agreement', 'contract', 'engagement', 'statement', 'exhibit',
+      'scope', 'services', 'eudia', 'cicero', 'counsel', 'client', 'firm',
+      'attached', 'made', 'entered', 'party', 'parties', 'hereto', 'whereas',
+      'marketing', 'compliance', 'software', 'license', 'terms'
+    ];
+    
+    // Function to check if a name is valid (not contract jargon)
+    const isValidPersonName = (name) => {
+      if (!name || name.length < 5) return false;
+      const words = name.toLowerCase().split(/\s+/);
+      // All words must be actual names (not contract terms)
+      return words.every(w => !INVALID_NAME_WORDS.includes(w)) &&
+             // Names should be properly capitalized words
+             name.match(/^[A-Z][a-z]+(\s+[A-Z][a-z]+)+$/);
+    };
+    
     if (customerCompany && !extracted.customerSignedName) {
       // Build pattern to find name near the company name
       const escapedCompany = customerCompany.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       
-      // Pattern: Name with title, then company name
-      const customerSignaturePatterns = [
-        // "Jandeen Boone\nExecutive Vice President...\nEcolab Inc."
-        new RegExp(`([A-Z][a-z]+(?:\\s+[A-Z][a-z]+){1,2})[\\s\\n,]+(?:Executive|Vice|President|VP|General|Counsel|Director|Chief|Senior|Officer|Secretary|Manager)[^]*?${escapedCompany}`, 'i'),
-        // Just name near company: "Jandeen Boone ... Ecolab"
-        new RegExp(`([A-Z][a-z]+\\s+[A-Z][a-z]+)[^]{0,100}${escapedCompany}`, 'i'),
-      ];
+      // Strategy 2a: Look in "AGREED AND ACCEPTED" section for customer signature
+      // This section is specifically for signatures
+      const agreedSection = text.match(/AGREED\s+AND\s+ACCEPTED[\s\S]*$/i);
+      if (agreedSection) {
+        const signatureText = agreedSection[0];
+        
+        // Look for name followed by title near company name
+        // Pattern: "Jandeen Boone\nExecutive Vice President...\nEcolab Inc."
+        const customerBlockMatch = signatureText.match(
+          new RegExp(`([A-Z][a-z]+\\s+[A-Z][a-z]+)\\s*\\n[^\\n]*(?:President|VP|Vice|Director|Counsel|Officer|Secretary|Manager|Chief)[^\\n]*\\n[^\\n]*${escapedCompany}`, 'i')
+        );
+        
+        if (customerBlockMatch && customerBlockMatch[1]) {
+          const name = customerBlockMatch[1].trim();
+          if (isValidPersonName(name)) {
+            extracted.customerSignedName = name;
+            logger.info(`✍️ Customer signer (AGREED section): ${name}`);
+          }
+        }
+        
+        // Alternative: Name on line right before company name
+        if (!extracted.customerSignedName) {
+          const nameBeforeCompanyMatch = signatureText.match(
+            new RegExp(`([A-Z][a-z]+\\s+[A-Z][a-z]+)[\\s\\n]+[^]*?${escapedCompany}\\s*(?:Inc|LLC|Corp)?`, 'i')
+          );
+          if (nameBeforeCompanyMatch && nameBeforeCompanyMatch[1]) {
+            const name = nameBeforeCompanyMatch[1].trim();
+            const isEudiaPerson = KNOWN_EUDIA_SIGNERS.some(es => 
+              name.toLowerCase().includes(es.split(' ')[0].toLowerCase())
+            );
+            if (!isEudiaPerson && isValidPersonName(name)) {
+              extracted.customerSignedName = name;
+              logger.info(`✍️ Customer signer (before ${customerCompany}): ${name}`);
+            }
+          }
+        }
+      }
       
-      for (const pattern of customerSignaturePatterns) {
-        const match = text.match(pattern);
-        if (match && match[1]) {
-          const name = match[1].trim();
-          // Make sure it's not a Eudia person
+      // Strategy 2b: Look for "By:" line near customer company
+      if (!extracted.customerSignedName) {
+        const byLineMatch = text.match(
+          new RegExp(`By[:\\s]+[_\\/s]*\\s*([A-Z][a-z]+\\s+[A-Z][a-z]+)[^]*?${escapedCompany}`, 'i')
+        );
+        if (byLineMatch && byLineMatch[1]) {
+          const name = byLineMatch[1].trim();
           const isEudiaPerson = KNOWN_EUDIA_SIGNERS.some(es => 
             name.toLowerCase().includes(es.split(' ')[0].toLowerCase())
           );
-          const isValidName = name.length > 4 && !name.match(/^(The|This|Such|Said|Date|Name|Title|By)/i);
-          
-          if (!isEudiaPerson && isValidName) {
+          if (!isEudiaPerson && isValidPersonName(name)) {
             extracted.customerSignedName = name;
-            logger.info(`✍️ Customer signer (near ${customerCompany}): ${name}`);
-            break;
+            logger.info(`✍️ Customer signer (By line near ${customerCompany}): ${name}`);
           }
         }
       }

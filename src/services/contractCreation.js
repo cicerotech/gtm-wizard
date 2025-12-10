@@ -16,12 +16,13 @@ const { contractAnalyzer, SALESFORCE_CONTRACT_FIELDS, OWNER_USER_IDS } = require
 
 // ═══════════════════════════════════════════════════════════════════════════
 // REQUIRED FIELDS FOR CAMPFIRE ERP SYNC
+// NOTE: EndDate is NOT required because Salesforce auto-calculates it from StartDate + ContractTerm
 // ═══════════════════════════════════════════════════════════════════════════
 const REQUIRED_ERP_FIELDS = [
   'Contract_Name_Campfire__c',
   'AccountId',
   'StartDate',
-  'EndDate',
+  // EndDate is auto-calculated by Salesforce - do NOT include
   'ContractTerm',
   'Contract_Type__c',
   'Status',
@@ -141,7 +142,7 @@ class ContractCreationService {
         } else if (field === 'StartDate' || field === 'EndDate') {
           suggestedFixes.push({
             field: field,
-            suggestion: `Please provide ${fieldConfig.label} in MM/DD/YYYY format`,
+            suggestion: `Please provide ${fieldConfig?.label || 'date'} in MM/DD/YYYY format`,
             type: 'date_input'
           });
         } else if (field === 'ContractTerm') {
