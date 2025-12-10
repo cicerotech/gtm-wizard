@@ -1408,7 +1408,7 @@ async function generateAccountDashboard() {
   // OPPORTUNITIES CREATED THIS WEEK - CreatedDate in last 7 days
   // ═══════════════════════════════════════════════════════════════════════
   const newOppsQuery = `
-    SELECT Account.Name, Name, StageName, ACV__c, CreatedDate, Owner.Name, Product_Line__c
+    SELECT Account.Name, Name, StageName, ACV__c, CreatedDate, Owner.Name, Product_Line__c, Johnson_Hana_Account_Owner__c
     FROM Opportunity
     WHERE CreatedDate >= LAST_N_DAYS:7
       AND IsClosed = false
@@ -1424,13 +1424,15 @@ async function generateAccountDashboard() {
     if (newOppsData?.records) {
       newOppsData.records.forEach(opp => {
         const acv = opp.ACV__c || 0;
+        // Use JH custom owner field if present (for migrated JH opportunities)
+        const effectiveOwner = opp.Johnson_Hana_Account_Owner__c || opp.Owner?.Name || '';
         newOppsThisWeek.push({
           accountName: opp.Account?.Name || 'Unknown',
           oppName: opp.Name || '',
           stage: opp.StageName || '',
           acv,
           createdDate: opp.CreatedDate,
-          owner: opp.Owner?.Name || '',
+          owner: effectiveOwner,
           productLine: opp.Product_Line__c || ''
         });
         newOppsTotal += acv;
@@ -1559,10 +1561,11 @@ async function generateAccountDashboard() {
   // FIXED: Include ALL stages (0-4) to match SF report totals
   // FIXED: Use Owner.Name (Opportunity Owner) not Account.Owner.Name (Account Owner)
   // ADDED: Target_LOI_Date__c for target sign date display
+  // ADDED: Johnson_Hana_Account_Owner__c for JH opportunities (use this instead of Owner.Name when present)
   const accountQuery = `SELECT Account.Id, Account.Name, Owner.Name, Account.Is_New_Logo__c,
                                Account.Account_Plan_s__c, Account.Customer_Type__c,
                                Name, StageName, ACV__c, Finance_Weighted_ACV__c, Product_Line__c,
-                               Target_LOI_Date__c
+                               Target_LOI_Date__c, Johnson_Hana_Account_Owner__c
                         FROM Opportunity
                         WHERE IsClosed = false
                           AND StageName IN ('Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
@@ -1659,11 +1662,15 @@ async function generateAccountDashboard() {
   accountData.records.forEach(opp => {
     const accountName = opp.Account?.Name;
     
+    // For Johnson Hana opportunities, use the custom JH owner field instead of "Keigan Pesenti"
+    // This field contains the original JH owner name (e.g., "Nathan Shine", "Alex Fox")
+    const effectiveOwner = opp.Johnson_Hana_Account_Owner__c || opp.Owner?.Name;
+    
     if (!accountMap.has(accountName)) {
       accountMap.set(accountName, {
         name: accountName,
         accountId: opp.Account?.Id, // Store Account ID for meeting lookup
-        owner: opp.Owner?.Name,
+        owner: effectiveOwner,
         isNewLogo: opp.Account?.Is_New_Logo__c,
         hasAccountPlan: !!opp.Account?.Account_Plan_s__c,
         accountPlan: opp.Account?.Account_Plan_s__c,
@@ -1671,7 +1678,8 @@ async function generateAccountDashboard() {
         opportunities: [],
         highestStage: 0,
         totalACV: 0,
-        weightedACV: 0
+        weightedACV: 0,
+        isJohnsonHana: !!opp.Johnson_Hana_Account_Owner__c // Track if this is a JH opportunity
       });
       if (opp.Account?.Is_New_Logo__c) newLogoCount++;
     }
