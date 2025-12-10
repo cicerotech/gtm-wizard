@@ -554,14 +554,24 @@ async function processContractUpload(file, client, userId, channelId, threadTs) 
     const fields = analysisResult.fields;
     const contractType = analysisResult.contractType;
     
+    // Track missing required fields for interactive prompting
+    const missingFields = [];
+    
     let message = `✅ *Contract Analysis Complete*\n\n`;
     message += `📋 *Type:* ${contractType.type} (${Math.round(contractType.confidence * 100)}% confidence)\n\n`;
     
     message += `*Extracted Fields:*\n`;
-    message += `• Account: ${fields.accountName || '❓ Not detected'}\n`;
     
-    if (fields.salesforce?.accountId) {
+    // Account name - critical field
+    if (fields.accountName && fields.salesforce?.accountId) {
+      message += `• Account: ${fields.accountName} ✓\n`;
       message += `  _→ Matched: ${fields.salesforce.accountName}_\n`;
+    } else if (fields.accountName) {
+      message += `• Account: ${fields.accountName} ⚠️ _(no Salesforce match)_\n`;
+      missingFields.push({ field: 'accountMatch', label: 'Account', detected: fields.accountName });
+    } else {
+      message += `• Account: ❓ Not detected\n`;
+      missingFields.push({ field: 'accountName', label: 'Account Name', detected: null });
     }
     
     message += `• Start Date: ${fields.startDate || '❓ Not detected'}\n`;
@@ -594,18 +604,41 @@ async function processContractUpload(file, client, userId, channelId, threadTs) 
     
     message += `\n*Overall Confidence:* ${Math.round(fields.overallConfidence * 100)}%\n`;
     
-    if (fields.warnings && fields.warnings.length > 0) {
-      message += `\n⚠️ *Warnings:*\n`;
-      fields.warnings.forEach(w => {
-        message += `• ${w}\n`;
+    // Handle missing fields with interactive prompts
+    if (missingFields.length > 0 || (fields.warnings && fields.warnings.length > 0)) {
+      message += `\n⚠️ *Needs Your Input:*\n`;
+      
+      // Specific prompts for missing fields
+      missingFields.forEach(mf => {
+        if (mf.field === 'accountName') {
+          message += `• _What is the correct account name?_\n`;
+          message += `  Reply: \`account: [Name]\` (e.g., \`account: Ecolab\`)\n`;
+        } else if (mf.field === 'accountMatch') {
+          message += `• Account "${mf.detected}" not found in Salesforce\n`;
+          message += `  Reply: \`account: [Correct Name]\` to try a different name\n`;
+        }
       });
+      
+      // General warnings
+      if (fields.warnings && fields.warnings.length > 0) {
+        fields.warnings.filter(w => !w.includes('account')).forEach(w => {
+          message += `• ${w}\n`;
+        });
+      }
     }
     
-    // Add action prompt
+    // Add action prompt - different based on whether we have required data
     message += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
     message += `*Reply with:*\n`;
-    message += `• \`create contract\` - Create with extracted data\n`;
-    message += `• \`create contract assign to [Name]\` - Create and assign to specific BL\n`;
+    
+    if (!fields.salesforce?.accountId) {
+      // Account is missing - guide user to provide it first
+      message += `• \`account: [Name]\` - Specify the correct account name first\n`;
+      message += `• Then: \`create contract\` or \`create contract assign to [BL Name]\`\n`;
+    } else {
+      message += `• \`create contract\` - Create with extracted data\n`;
+      message += `• \`create contract assign to [Name]\` - Create and assign to specific BL\n`;
+    }
     message += `• \`cancel\` - Don't create\n`;
     
     // Store the analysis for follow-up
@@ -1072,6 +1105,133 @@ async function handleContractActivation(userId, channelId, client, threadTs) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ACCOUNT CORRECTION HANDLER
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Handle account name correction from user
+ * Updates the stored analysis with the correct account
+ */
+async function handleAccountCorrection(accountName, userId, channelId, client, threadTs) {
+  const { cache } = require('../utils/cache');
+  
+  try {
+    // Get stored analysis
+    const storedData = await cache.get(`contract_analysis_${userId}_${channelId}`);
+    
+    if (!storedData) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: '❌ No pending contract found. Please upload a contract PDF first.',
+        thread_ts: threadTs
+      });
+      return false;
+    }
+    
+    const { analysisResult, pdfBuffer, fileName } = storedData;
+    
+    // Look up the account in Salesforce
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `🔍 Looking up account: "${accountName}"...`,
+      thread_ts: threadTs
+    });
+    
+    const escapedName = accountName.replace(/'/g, "\\'");
+    const accountQuery = `
+      SELECT Id, Name, OwnerId, Owner.Name, Industry
+      FROM Account
+      WHERE Name LIKE '%${escapedName}%'
+      ORDER BY Name
+      LIMIT 5
+    `;
+    
+    const result = await query(accountQuery);
+    
+    if (!result || result.totalSize === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `❌ Account "${accountName}" not found in Salesforce.\n\n_Try a different spelling or check if the account exists._\n\nReply: \`account: [Different Name]\``,
+        thread_ts: threadTs
+      });
+      return false;
+    }
+    
+    // Found match(es)
+    const bestMatch = result.records[0];
+    
+    // Update the analysis result with the corrected account
+    analysisResult.fields.accountName = bestMatch.Name;
+    analysisResult.fields.salesforce = analysisResult.fields.salesforce || {};
+    analysisResult.fields.salesforce.accountId = bestMatch.Id;
+    analysisResult.fields.salesforce.accountName = bestMatch.Name;
+    analysisResult.fields.salesforce.accountOwner = bestMatch.Owner?.Name;
+    analysisResult.fields.salesforce.accountOwnerId = bestMatch.OwnerId;
+    analysisResult.fields.salesforce.contractOwnerId = bestMatch.OwnerId;
+    analysisResult.fields.salesforce.industry = bestMatch.Industry;
+    
+    // Remove the warning about missing account
+    if (analysisResult.fields.warnings) {
+      analysisResult.fields.warnings = analysisResult.fields.warnings.filter(
+        w => !w.toLowerCase().includes('account')
+      );
+    }
+    
+    // Update confidence
+    analysisResult.fields.confidence = analysisResult.fields.confidence || {};
+    analysisResult.fields.confidence.accountName = 0.95;
+    analysisResult.fields.confidence.accountMatch = 0.95;
+    
+    // Recalculate overall confidence
+    const confidenceValues = Object.values(analysisResult.fields.confidence);
+    analysisResult.fields.overallConfidence = confidenceValues.length > 0
+      ? confidenceValues.reduce((a, b) => a + b, 0) / confidenceValues.length
+      : 0.5;
+    
+    // Save updated analysis
+    await cache.set(`contract_analysis_${userId}_${channelId}`, {
+      analysisResult: analysisResult,
+      pdfBuffer: pdfBuffer,
+      fileName: fileName,
+      timestamp: Date.now()
+    }, 1800);
+    
+    // Show confirmation with option to create
+    let message = `✅ *Account Updated*\n\n`;
+    message += `📍 *Account:* ${bestMatch.Name}\n`;
+    message += `👤 *Owner:* ${bestMatch.Owner?.Name || 'Unknown'}\n`;
+    
+    if (result.totalSize > 1) {
+      message += `\n_Found ${result.totalSize} matches. Using best match._\n`;
+    }
+    
+    message += `\n*Confidence now:* ${Math.round(analysisResult.fields.overallConfidence * 100)}%\n`;
+    message += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `*Ready to create!* Reply with:\n`;
+    message += `• \`create contract\` - Create with current data\n`;
+    message += `• \`create contract assign to [Name]\` - Assign to a specific BL\n`;
+    message += `• \`cancel\` - Don't create\n`;
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: message,
+      thread_ts: threadTs
+    });
+    
+    return true;
+    
+  } catch (error) {
+    logger.error('Account correction failed:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Error: ${error.message}`,
+      thread_ts: threadTs
+    });
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // EXPORTS
 // ═══════════════════════════════════════════════════════════════════════════
 module.exports = {
@@ -1079,6 +1239,7 @@ module.exports = {
   processContractUpload,
   handleContractCreationConfirmation,
   handleContractActivation,
+  handleAccountCorrection,
   downloadSlackFile,
   REQUIRED_ERP_FIELDS
 };

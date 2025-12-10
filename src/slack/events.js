@@ -8,7 +8,7 @@ const { formatResponse } = require('./responseFormatter');
 const { optimizeQuery, trackQueryPerformance } = require('../ai/queryOptimizer');
 const { processFeedback, isFeedbackMessage } = require('../ai/feedbackLearning');
 const { cleanStageName } = require('../utils/formatters');
-const { processContractUpload, handleContractCreationConfirmation, handleContractActivation } = require('../services/contractCreation');
+const { processContractUpload, handleContractCreationConfirmation, handleContractActivation, handleAccountCorrection } = require('../services/contractCreation');
 
 /**
  * Register Slack event handlers
@@ -178,9 +178,26 @@ async function processQuery(text, userId, channelId, client, threadTs = null) {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CONTRACT CREATION CONFIRMATION HANDLING
+    // ACCOUNT CORRECTION FOR CONTRACT ANALYSIS
+    // Handles: "account: [Name]" to update missing account before contract creation
     // ═══════════════════════════════════════════════════════════════════════════
     const textLower = text.toLowerCase().trim();
+    const accountCorrectionMatch = text.match(/^account\s*:\s*(.+)$/i);
+    
+    if (accountCorrectionMatch && accountCorrectionMatch[1]) {
+      const accountName = accountCorrectionMatch[1].trim();
+      const pendingAnalysis = await cache.get(`contract_analysis_${userId}_${channelId}`);
+      
+      if (pendingAnalysis) {
+        logger.info(`📍 Processing account correction: "${accountName}" from ${userId}`);
+        await handleAccountCorrection(accountName, userId, channelId, client, threadTs);
+        return;
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONTRACT CREATION CONFIRMATION HANDLING
+    // ═══════════════════════════════════════════════════════════════════════════
     if (textLower.startsWith('create contract') || textLower === 'create' || 
         textLower.includes('create contract assign to')) {
       // Check if there's a pending contract analysis

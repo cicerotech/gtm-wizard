@@ -687,6 +687,11 @@ class ContractAnalyzer {
     // Pattern priority order - PRIORITIZE patterns that find CLIENT name (not Eudia)
     // Allow multi-word company names like "Pure Storage"
     const fileNamePatterns = [
+      // HIGHEST PRIORITY: "CompanyName_Description_SOW_..." - account name at start with underscore separator
+      // e.g., "Ecolab_Marketing_Compliance_SOW_25_Nov_2025" → "Ecolab"
+      { pattern: /^([A-Z][A-Za-z]+)_(?:Marketing|Sales|Legal|Compliance|AI|M&A|Contracting|Service|Support|SOW|MSA|Agreement)/i, group: 1 },
+      // Generic: First word before underscore if it looks like a company name (capitalized, 3+ chars)
+      { pattern: /^([A-Z][A-Za-z]{2,})_/i, group: 1 },
       // "CompanyName-Eudia" or "CompanyName_Eudia" (Company BEFORE Eudia)
       { pattern: /^([A-Z][A-Za-z]+(?:\s+[A-Z][a-z]+)?)[-_\s]+(?:Eudia|Cicero)/i, group: 1 },
       // "CompanyName_AI Managed" or "CompanyName_AI Augmented" (underscore + AI)
