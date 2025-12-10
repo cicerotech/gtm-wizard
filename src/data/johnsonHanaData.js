@@ -213,21 +213,46 @@ const pipelineTotals = {
 
 /**
  * Get Johnson Hana pipeline summary
- * Note: Using Excel report totals for accuracy where possible
+ * 
+ * DEPRECATED: As of Dec 10, 2025, Johnson Hana opportunities have been migrated
+ * to the Eudia Salesforce instance. This function now returns empty/zero data
+ * to prevent double-counting in the dashboard.
+ * 
+ * For Johnson Hana opportunities, use the custom "Johnson_Hana_Account_Owner__c" 
+ * field on Opportunity to get the original owner (instead of "Keigan Pesenti").
  */
 function getJohnsonHanaSummary() {
-  // Use Excel report totals for accuracy (they may differ slightly from array sum)
-  const totalPipeline = pipelineTotals.totalACV; // $11.3m from Excel (updated 12.5)
-  const totalWeighted = pipelineTotals.totalWeightedACV; // $3,964,526.17 from Excel
-  const closedTotal = closedWonNovDec.reduce((sum, o) => sum + o.acv, 0);
+  // DISABLED: JH data now lives in Eudia Salesforce
+  // Return empty data to prevent double-counting
+  return {
+    totalOpportunities: 0,
+    totalPipeline: 0,
+    totalWeighted: 0,
+    closedDealsCount: 0,
+    closedTotal: 0,
+    uniqueAccounts: 0,
+    lastUpdate: 'Migrated to Salesforce - Dec 10, 2025',
+    pipeline: [], // Empty - use Salesforce data
+    eudiaTech: {
+      opportunityCount: 0,
+      pipelineValue: 0,
+      weightedValue: 0,
+      closedValue: 0,
+      percentOfOpps: 0,
+      percentOfValue: 0
+    },
+    byStage: {},
+    byOwner: {}
+  };
   
-  // Eudia Tech breakdown
+  /* ORIGINAL CODE - Preserved for reference
+  const totalPipeline = pipelineTotals.totalACV;
+  const totalWeighted = pipelineTotals.totalWeightedACV;
+  const closedTotal = closedWonNovDec.reduce((sum, o) => sum + o.acv, 0);
   const eudiaTechOpps = activePipeline.filter(o => o.eudiaTech);
   const eudiaTechPipeline = eudiaTechOpps.reduce((sum, o) => sum + o.acv, 0);
   const eudiaTechWeighted = eudiaTechOpps.reduce((sum, o) => sum + o.weighted, 0);
   const eudiaTechClosed = closedWonNovDec.filter(o => o.eudiaTech).reduce((sum, o) => sum + o.acv, 0);
-  
-  // Stage breakdown (mapped) - use totalACV to match Eudia format
   const byStage = {};
   activePipeline.forEach(o => {
     const mappedStage = mapStage(o.stage);
@@ -236,11 +261,7 @@ function getJohnsonHanaSummary() {
     byStage[mappedStage].totalACV += o.acv;
     byStage[mappedStage].weighted += o.weighted;
   });
-  
-  // Unique accounts
   const uniqueAccounts = [...new Set(activePipeline.map(o => o.account))];
-  
-  // Owner breakdown
   const byOwner = {};
   activePipeline.forEach(o => {
     if (!byOwner[o.owner]) byOwner[o.owner] = { count: 0, acv: 0, weighted: 0 };
@@ -248,7 +269,6 @@ function getJohnsonHanaSummary() {
     byOwner[o.owner].acv += o.acv;
     byOwner[o.owner].weighted += o.weighted;
   });
-  
   return {
     totalOpportunities: activePipeline.length,
     totalPipeline,
@@ -257,7 +277,7 @@ function getJohnsonHanaSummary() {
     closedTotal,
     uniqueAccounts: uniqueAccounts.length,
     lastUpdate,
-    pipeline: activePipeline, // Full pipeline array for filtering
+    pipeline: activePipeline,
     eudiaTech: {
       opportunityCount: eudiaTechOpps.length,
       pipelineValue: eudiaTechPipeline,
@@ -269,6 +289,7 @@ function getJohnsonHanaSummary() {
     byStage,
     byOwner
   };
+  */
 }
 
 /**
@@ -300,45 +321,11 @@ function getOpportunitiesByStage() {
 
 /**
  * Get accounts with pipeline summary
+ * DEPRECATED: JH data now in Salesforce - return empty array
  */
 function getAccountSummaries() {
-  const accounts = {};
-  
-  activePipeline.forEach(o => {
-    if (!accounts[o.account]) {
-      accounts[o.account] = {
-        name: o.account,
-        opportunities: [],
-        totalACV: 0,
-        weightedACV: 0,
-        highestStage: 0,
-        hasEudiaTech: false,
-        owners: new Set()
-      };
-    }
-    
-    accounts[o.account].opportunities.push({
-      ...o,
-      stage: mapStage(o.stage),
-      mappedServiceLine: mapServiceLine(o.serviceLine)
-    });
-    accounts[o.account].totalACV += o.acv;
-    accounts[o.account].weightedACV += o.weighted;
-    accounts[o.account].owners.add(o.owner);
-    
-    // Track highest stage
-    const stageNum = parseInt(mapStage(o.stage).match(/Stage (\d)/)?.[1] || 0);
-    accounts[o.account].highestStage = Math.max(accounts[o.account].highestStage, stageNum);
-    
-    if (o.eudiaTech) accounts[o.account].hasEudiaTech = true;
-  });
-  
-  // Convert owners Set to array
-  Object.values(accounts).forEach(a => {
-    a.owners = [...a.owners];
-  });
-  
-  return Object.values(accounts).sort((a, b) => b.totalACV - a.totalACV);
+  // DISABLED: JH data now lives in Eudia Salesforce
+  return [];
 }
 
 // EUDIA November ARR (Active Revenue as of Nov 2025 - from source file)
