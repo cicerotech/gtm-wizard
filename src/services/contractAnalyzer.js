@@ -1731,9 +1731,10 @@ class ContractAnalyzer {
     }
     
     // Industry from account
-    if (enrichedFields.salesforce?.industry) {
-      record.Industry__c = enrichedFields.salesforce.industry;
-    }
+    // SKIP: Industry__c field needs to be fixed in Salesforce (picklist value mismatch)
+    // if (enrichedFields.salesforce?.industry) {
+    //   record.Industry__c = enrichedFields.salesforce.industry;
+    // }
     
     return record;
   }
