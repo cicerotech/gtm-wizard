@@ -1,8 +1,8 @@
 /**
  * Signed Logos Monthly Breakdown - Combined Eudia + Johnson Hana
  * 
- * Generates an Excel file matching the dashboard format:
- * Account | 2024 | Jan-25 | Feb-25 | ... | Dec-25
+ * Generates an Excel file matching the dashboard format.
+ * JH accounts mapped to dashboard quarterly assignments (Eudia fiscal calendar).
  * 
  * Usage: node scripts/signedLogosMonthly.js
  * Output: scripts/signed_logos_monthly.xlsx
@@ -12,33 +12,34 @@ const ExcelJS = require('exceljs');
 const path = require('path');
 
 // ═══════════════════════════════════════════════════════════════════════════
-// STATIC EUDIA DATA (38 accounts)
+// EUDIA FISCAL CALENDAR
+// FY starts February
+// Q1 = Feb-Apr, Q2 = May-Jul, Q3 = Aug-Oct, Q4 = Nov-Jan
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATIC EUDIA DATA (38 accounts) - from user's spreadsheet with exact months
 // ═══════════════════════════════════════════════════════════════════════════
 const eudiaSignedByMonth = {
-  // 2024 (4 accounts)
+  // 2024 / FY2024 (4 accounts)
   'Cargill': '2024',
   'ECMS': '2024',
   'Graybar Electric': '2024',
   'Southwest Airlines': '2024',
   
-  // Feb-25 (1 account)
+  // Q1 FY2025: Feb-25 (1), Mar-25 (1)
   'Coherent': 'Feb-25',
-  
-  // Mar-25 (1 account)
   'Duracell': 'Mar-25',
   
-  // May-25 (1 account)
+  // Q2 FY2025: May-25 (1), Jun-25 (1)
   'Intuit': 'May-25',
-  
-  // Jun-25 (1 account)
   'Chevron': 'Jun-25',
   
-  // Aug-25 (3 accounts)
+  // Q3 FY2025: Aug-25 (3), Sep-25 (12), Oct-25 (10)
   'CHS': 'Aug-25',
   'Toshiba US': 'Aug-25',
   'U.S. Air Force': 'Aug-25',
   
-  // Sep-25 (12 accounts)
   'AES': 'Sep-25',
   'Asana': 'Sep-25',
   'Bayer': 'Sep-25',
@@ -52,7 +53,6 @@ const eudiaSignedByMonth = {
   'The Weir Group PLC': 'Sep-25',
   'The Wonderful Company': 'Sep-25',
   
-  // Oct-25 (10 accounts)
   'Amazon': 'Oct-25',
   'Cox Media Group': 'Oct-25',
   'DHL North America': 'Oct-25',
@@ -64,68 +64,70 @@ const eudiaSignedByMonth = {
   'Wealth Partners Capital Group': 'Oct-25',
   'Western Digital': 'Oct-25',
   
-  // Nov-25 (4 accounts)
+  // Q4 FY2025: Nov-25 (4), Dec-25 (1)
   'BNY Mellon': 'Nov-25',
   'Delinea': 'Nov-25',
   'IQVIA': 'Nov-25',
   'World Wide Technology': 'Nov-25',
   
-  // Dec-25 (1 account)
   'Udemy Ireland Limited': 'Dec-25',
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
 // JOHNSON HANA DATA (36 accounts)
+// Mapped to dashboard quarterly assignments using Eudia fiscal calendar
+// JH accounts placed at start of their respective quarters
 // ═══════════════════════════════════════════════════════════════════════════
 const jhSignedByMonth = {
-  // From jhSignedLogos.fy2024 (34 accounts)
+  // FY2024 (27 JH accounts from dashboard) → "2024" column
   'ACS': '2024',
   'Airbnb': '2024',
   'Airship': '2024',
   'BOI': '2024',
-  'Coimisiún na Meán': '2024',
+  'Coleman Legal': '2024',
   'CommScope': '2024',
-  'Consensys': '2024',
+  'Creed McStay': '2024',
   'Datalex': '2024',
   'Dropbox': '2024',
   'ESB': '2024',
   'Etsy': '2024',
-  'Gilead': '2024',
   'Glanbia': '2024',
+  'Hayes': '2024',
   'Indeed': '2024',
   'Irish Water': '2024',
   'Kellanova': '2024',
-  'Kingspan': '2024',
-  'Northern Trust': '2024',
+  'NTMA': '2024',
   'OpenAI': '2024',
-  'Orsted': '2024',
-  'Perrigo': '2024',
-  'Sisk': '2024',
   'Stripe': '2024',
-  'Taoglas': '2024',
   'Teamwork': '2024',
   'TikTok': '2024',
   'Tinder': '2024',
   'Udemy': '2024',
-  'Coillte': '2024',
-  'Coleman Legal': '2024',
-  'Creed McStay': '2024',
-  'DCEDIY': '2024',
-  'Hayes': '2024',
-  'NTMA': '2024',
   
-  // Aryza - closed 2024-11-12
-  'Aryza': 'Nov-24',
+  // Q1 FY2025 (6 JH accounts from dashboard) → Feb-25
+  'Coillte': 'Feb-25',
+  'Consensys': 'Feb-25',
+  'DCEDIY': 'Feb-25',
+  'Gilead': 'Feb-25',
+  'Northern Trust': 'Feb-25',
+  'Sisk': 'Feb-25',
   
-  // Meta - signed Oct 2025
-  'Meta': 'Oct-25',
+  // Q2 FY2025 (3 JH accounts from dashboard) → May-25
+  'Orsted': 'May-25',
+  'Perrigo': 'May-25',
+  'Taoglas': 'May-25',
+  
+  // Q3 FY2025 (3 JH accounts from dashboard) → Aug-25
+  'Coimisiún na Meán': 'Aug-25',
+  'Kingspan': 'Aug-25',
+  'Meta': 'Oct-25', // OutHouse - signed Oct 2025
+  
+  // Q4 FY2025 (1 JH account from dashboard) → Nov-25
+  'Aryza': 'Nov-25',
 };
 
-// Column headers matching your screenshot
-const MONTHS = ['2024', 'Jan-25', 'Feb-25', 'Mar-25', 'Apr-25', 'May-25', 'Jun-25', 'Jul-25', 'Aug-25', 'Sep-25', 'Oct-25', 'Nov-25', 'Dec-25'];
-
-// Add Nov-24 for proper ordering (Aryza)
-const ALL_MONTHS = ['2024', 'Nov-24', 'Jan-25', 'Feb-25', 'Mar-25', 'Apr-25', 'May-25', 'Jun-25', 'Jul-25', 'Aug-25', 'Sep-25', 'Oct-25', 'Nov-25', 'Dec-25'];
+// Column headers matching the spreadsheet format
+const ALL_MONTHS = ['2024', 'Jan-25', 'Feb-25', 'Mar-25', 'Apr-25', 'May-25', 'Jun-25', 'Jul-25', 'Aug-25', 'Sep-25', 'Oct-25', 'Nov-25', 'Dec-25'];
 
 async function generateExcel() {
   const workbook = new ExcelJS.Workbook();
@@ -275,7 +277,20 @@ async function generateExcel() {
   console.log(`  Eudia accounts:        ${Object.keys(eudiaSignedByMonth).length}`);
   console.log(`  Johnson Hana accounts: ${Object.keys(jhSignedByMonth).length}`);
   console.log(`  Total:                 ${sortedAccounts.length}`);
-  console.log(`\nCumulative by Dec-25:    ${cumulativeRow['Dec-25']}`);
+  console.log(`\nMONTHLY TOTALS (aligns with dashboard quarters):`);
+  
+  // Show quarterly summary
+  const q1 = (totalRow['Feb-25'] || 0) + (totalRow['Mar-25'] || 0) + (totalRow['Apr-25'] || 0);
+  const q2 = (totalRow['May-25'] || 0) + (totalRow['Jun-25'] || 0) + (totalRow['Jul-25'] || 0);
+  const q3 = (totalRow['Aug-25'] || 0) + (totalRow['Sep-25'] || 0) + (totalRow['Oct-25'] || 0);
+  const q4 = (totalRow['Nov-25'] || 0) + (totalRow['Dec-25'] || 0);
+  
+  console.log(`  FY2024:      ${totalRow['2024']} (dashboard: 27)`);
+  console.log(`  Q1 FY2025:   ${q1} (dashboard: 8)`);
+  console.log(`  Q2 FY2025:   ${q2} (dashboard: 5)`);
+  console.log(`  Q3 FY2025:   ${q3} (dashboard: 28)`);
+  console.log(`  Q4 FY2025:   ${q4} (dashboard: 6)`);
+  console.log(`\nCumulative by Dec-25: ${cumulativeRow['Dec-25']}`);
   
   return outputPath;
 }

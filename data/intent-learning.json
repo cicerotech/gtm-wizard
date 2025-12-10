@@ -12,8 +12,8 @@
       "confidence": 0.9,
       "query": "batch nurture: instacart, relativity, thermo fisher",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:16:41.417Z",
-      "lastUsed": "2025-12-08T21:16:41.417Z"
+      "firstSeen": "2025-12-10T17:46:46.145Z",
+      "lastUsed": "2025-12-10T17:46:46.145Z"
     },
     "81192205c58b11502483a666f7a17e5c": {
       "intent": "batch_move_to_nurture",
@@ -27,8 +27,8 @@
       "confidence": 0.9,
       "query": "move boeing, intel, microsoft to nurture",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:53.915Z",
-      "lastUsed": "2025-12-08T21:31:53.915Z"
+      "firstSeen": "2025-12-10T17:46:46.150Z",
+      "lastUsed": "2025-12-10T17:46:46.150Z"
     },
     "e77ffd06e4721168936ca082fde67e37": {
       "intent": "batch_move_to_nurture",
@@ -41,8 +41,8 @@
       "confidence": 0.9,
       "query": "move acme and globalcorp to nurture",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:16:41.420Z",
-      "lastUsed": "2025-12-08T21:16:41.420Z"
+      "firstSeen": "2025-12-10T17:46:46.153Z",
+      "lastUsed": "2025-12-10T17:46:46.153Z"
     },
     "acc8ad7294b123d0e574905b4c8cd259": {
       "intent": "move_to_nurture",
@@ -54,8 +54,8 @@
       "confidence": 0.9,
       "query": "move boeing to nurture",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:53.913Z",
-      "lastUsed": "2025-12-08T21:31:53.913Z"
+      "firstSeen": "2025-12-10T17:46:46.157Z",
+      "lastUsed": "2025-12-10T17:46:46.157Z"
     },
     "398187763246ef8857da5ebf762ab867": {
       "intent": "batch_reassign_accounts",
@@ -70,8 +70,8 @@
       "confidence": 0.9,
       "query": "batch reassign: boeing, intel, microsoft to julie",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:53.909Z",
-      "lastUsed": "2025-12-08T21:31:53.909Z"
+      "firstSeen": "2025-12-10T17:46:46.159Z",
+      "lastUsed": "2025-12-10T17:46:46.159Z"
     },
     "2571672cd156ea8984edb1731f8d3852": {
       "intent": "batch_reassign_accounts",
@@ -86,8 +86,8 @@
       "confidence": 0.9,
       "query": "reassign acme, globalcorp, techstart to himanshu",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:16:41.422Z",
-      "lastUsed": "2025-12-08T21:16:41.422Z"
+      "firstSeen": "2025-12-10T17:46:46.161Z",
+      "lastUsed": "2025-12-10T17:46:46.161Z"
     },
     "a1d331fe99c62414db132ac1bf506222": {
       "intent": "reassign_account",
@@ -100,8 +100,8 @@
       "confidence": 0.9,
       "query": "reassign boeing to julie",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.202Z",
-      "lastUsed": "2025-12-08T21:32:35.202Z"
+      "firstSeen": "2025-12-10T17:46:46.163Z",
+      "lastUsed": "2025-12-10T17:46:46.163Z"
     },
     "9426e6ef3cb07d0a5aa2744e17d36ade": {
       "intent": "accounts_by_stage",
@@ -111,8 +111,8 @@
       "confidence": 0.9,
       "query": "what accounts does julie own",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.171Z",
-      "lastUsed": "2025-12-08T21:32:35.171Z"
+      "firstSeen": "2025-12-10T17:46:46.165Z",
+      "lastUsed": "2025-12-10T17:46:46.165Z"
     },
     "454ca6e1eeb8ffb97c1c3a8ef75ee201": {
       "intent": "accounts_by_stage",
@@ -125,8 +125,8 @@
       "confidence": 0.9,
       "query": "what accounts are in stage 2",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.173Z",
-      "lastUsed": "2025-12-08T21:32:35.173Z"
+      "firstSeen": "2025-12-10T17:46:46.170Z",
+      "lastUsed": "2025-12-10T17:46:46.170Z"
     },
     "00b3be67402fcc64023e2b28e7531667": {
       "intent": "pagination_next",
@@ -137,8 +137,8 @@
       "confidence": 0.9,
       "query": "show next 10",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:00.466Z",
-      "lastUsed": "2025-12-08T21:31:00.466Z"
+      "firstSeen": "2025-12-10T17:46:46.173Z",
+      "lastUsed": "2025-12-10T17:46:46.173Z"
     },
     "ca359347b931c8e2b823059b49464df4": {
       "intent": "account_lookup",
@@ -151,8 +151,8 @@
       "confidence": 0.9,
       "query": "who owns boeing",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.150Z",
-      "lastUsed": "2025-12-08T21:32:35.150Z"
+      "firstSeen": "2025-12-10T17:46:45.863Z",
+      "lastUsed": "2025-12-10T17:46:45.863Z"
     },
     "7cf59789c9d5dc6cc133516e5d9e076f": {
       "intent": "account_lookup",
@@ -165,8 +165,8 @@
       "confidence": 0.9,
       "query": "who owns microsoft",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.152Z",
-      "lastUsed": "2025-12-08T21:32:35.152Z"
+      "firstSeen": "2025-12-10T17:46:45.868Z",
+      "lastUsed": "2025-12-10T17:46:45.868Z"
     },
     "721f18e81fa3b021364e29a84ded2d87": {
       "intent": "account_lookup",
@@ -179,8 +179,8 @@
       "confidence": 0.9,
       "query": "who is the bl for intel",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.153Z",
-      "lastUsed": "2025-12-08T21:32:35.153Z"
+      "firstSeen": "2025-12-10T17:46:45.870Z",
+      "lastUsed": "2025-12-10T17:46:45.870Z"
     },
     "939c0071f22f8bf327452e4264afa1e8": {
       "intent": "account_lookup",
@@ -193,8 +193,8 @@
       "confidence": 0.9,
       "query": "who's the bl for apple",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.153Z",
-      "lastUsed": "2025-12-08T21:32:35.153Z"
+      "firstSeen": "2025-12-10T17:46:45.874Z",
+      "lastUsed": "2025-12-10T17:46:45.874Z"
     },
     "7382d7c0c9da6e32fbffa153c91a4aa7": {
       "intent": "account_lookup",
@@ -207,8 +207,8 @@
       "confidence": 0.9,
       "query": "bl for amazon",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.154Z",
-      "lastUsed": "2025-12-08T21:32:35.154Z"
+      "firstSeen": "2025-12-10T17:46:45.876Z",
+      "lastUsed": "2025-12-10T17:46:45.876Z"
     },
     "b7cabdd908dfcd1ed48f650e62b853c8": {
       "intent": "account_lookup",
@@ -221,8 +221,8 @@
       "confidence": 0.9,
       "query": "business lead for google",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.154Z",
-      "lastUsed": "2025-12-08T21:32:35.154Z"
+      "firstSeen": "2025-12-10T17:46:45.877Z",
+      "lastUsed": "2025-12-10T17:46:45.877Z"
     },
     "218232c45be96fac8771850d9e0e16cd": {
       "intent": "account_lookup",
@@ -235,8 +235,8 @@
       "confidence": 0.9,
       "query": "owner of salesforce",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.162Z",
-      "lastUsed": "2025-12-08T21:32:35.162Z"
+      "firstSeen": "2025-12-10T17:46:45.887Z",
+      "lastUsed": "2025-12-10T17:46:45.887Z"
     },
     "462f1f537a4240ade9e206756e8e618b": {
       "intent": "account_lookup",
@@ -249,8 +249,8 @@
       "confidence": 0.9,
       "query": "who owns the boeing account",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.163Z",
-      "lastUsed": "2025-12-08T21:32:35.163Z"
+      "firstSeen": "2025-12-10T17:46:45.888Z",
+      "lastUsed": "2025-12-10T17:46:45.888Z"
     },
     "b1015c253d737994ae669fc7e85d271d": {
       "intent": "account_lookup",
@@ -263,8 +263,8 @@
       "confidence": 0.9,
       "query": "find owner of tesla",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.164Z",
-      "lastUsed": "2025-12-08T21:32:35.164Z"
+      "firstSeen": "2025-12-10T17:46:45.892Z",
+      "lastUsed": "2025-12-10T17:46:45.892Z"
     },
     "e76324e1b93ce8859de62e567c025789": {
       "intent": "account_existence_check",
@@ -276,8 +276,8 @@
       "confidence": 0.9,
       "query": "does boeing exist",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.164Z",
-      "lastUsed": "2025-12-08T21:32:35.164Z"
+      "firstSeen": "2025-12-10T17:46:45.895Z",
+      "lastUsed": "2025-12-10T17:46:45.895Z"
     },
     "65558c273c6ac415325c332dfe09fd2d": {
       "intent": "account_existence_check",
@@ -304,8 +304,8 @@
       "confidence": 0.9,
       "query": "what is the legal team size at boeing",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.167Z",
-      "lastUsed": "2025-12-08T21:32:35.167Z"
+      "firstSeen": "2025-12-10T17:46:45.902Z",
+      "lastUsed": "2025-12-10T17:46:45.902Z"
     },
     "1564f507b83017e34467e848664aa247": {
       "intent": "account_field_lookup",
@@ -319,8 +319,8 @@
       "confidence": 0.9,
       "query": "legal team size for intel",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.167Z",
-      "lastUsed": "2025-12-08T21:32:35.167Z"
+      "firstSeen": "2025-12-10T17:46:45.903Z",
+      "lastUsed": "2025-12-10T17:46:45.903Z"
     },
     "8f4457e81c55c0e5e6444e476c511a1e": {
       "intent": "account_field_lookup",
@@ -334,8 +334,8 @@
       "confidence": 0.7,
       "query": "who are the decision makers at microsoft",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.168Z",
-      "lastUsed": "2025-12-08T21:32:35.168Z"
+      "firstSeen": "2025-12-10T17:46:45.907Z",
+      "lastUsed": "2025-12-10T17:46:45.907Z"
     },
     "0974285e07a091792fc0bbfedc16f59a": {
       "intent": "account_field_lookup",
@@ -346,8 +346,8 @@
       "confidence": 0.7,
       "query": "decision makers for apple",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.168Z",
-      "lastUsed": "2025-12-08T21:32:35.168Z"
+      "firstSeen": "2025-12-10T17:46:45.908Z",
+      "lastUsed": "2025-12-10T17:46:45.908Z"
     },
     "2cba77a7e1fa32360ea4041a98936595": {
       "intent": "account_field_lookup",
@@ -361,8 +361,8 @@
       "confidence": 0.7,
       "query": "what use cases is boeing discussing",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.169Z",
-      "lastUsed": "2025-12-08T21:32:35.169Z"
+      "firstSeen": "2025-12-10T17:46:45.913Z",
+      "lastUsed": "2025-12-10T17:46:45.913Z"
     },
     "72d726662c82dd100e09c31348b5d0b7": {
       "intent": "account_field_lookup",
@@ -373,8 +373,8 @@
       "confidence": 0.7,
       "query": "use cases for amazon",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.169Z",
-      "lastUsed": "2025-12-08T21:32:35.169Z"
+      "firstSeen": "2025-12-10T17:46:45.917Z",
+      "lastUsed": "2025-12-10T17:46:45.917Z"
     },
     "d1fd1b087415595af41e710af8f6231f": {
       "intent": "account_field_lookup",
@@ -386,8 +386,8 @@
       "confidence": 0.7,
       "query": "competitive landscape for google",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.169Z",
-      "lastUsed": "2025-12-08T21:32:35.169Z"
+      "firstSeen": "2025-12-10T17:46:45.919Z",
+      "lastUsed": "2025-12-10T17:46:45.919Z"
     },
     "45f65bec7d31be10298b139d3e7e6013": {
       "intent": "accounts_by_stage",
@@ -397,8 +397,8 @@
       "confidence": 0.9,
       "query": "which accounts have ironclad",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.170Z",
-      "lastUsed": "2025-12-08T21:32:35.170Z"
+      "firstSeen": "2025-12-10T17:46:45.921Z",
+      "lastUsed": "2025-12-10T17:46:45.921Z"
     },
     "7923c1a2846d04539c69339633b8e044": {
       "intent": "account_field_lookup",
@@ -410,8 +410,8 @@
       "confidence": 0.7,
       "query": "who has harvey in competitive landscape",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.171Z",
-      "lastUsed": "2025-12-08T21:32:35.171Z"
+      "firstSeen": "2025-12-10T17:46:45.926Z",
+      "lastUsed": "2025-12-10T17:46:45.926Z"
     },
     "8c6dc530b3a1dec65e5bae64312a946f": {
       "intent": "accounts_by_owner",
@@ -422,8 +422,8 @@
       "confidence": 0.9,
       "query": "julie's accounts",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.172Z",
-      "lastUsed": "2025-12-08T21:32:35.172Z"
+      "firstSeen": "2025-12-10T17:46:45.934Z",
+      "lastUsed": "2025-12-10T17:46:45.934Z"
     },
     "2f87e224cf95462e464aaef98a31d1e8": {
       "intent": "accounts_by_owner",
@@ -434,8 +434,8 @@
       "confidence": 0.9,
       "query": "accounts owned by himanshu",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.172Z",
-      "lastUsed": "2025-12-08T21:32:35.172Z"
+      "firstSeen": "2025-12-10T17:46:45.935Z",
+      "lastUsed": "2025-12-10T17:46:45.935Z"
     },
     "fd9e5fca9bcc2ac00ff326f2522bf713": {
       "intent": "accounts_by_owner",
@@ -446,8 +446,8 @@
       "confidence": 0.9,
       "query": "mike's accounts",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.173Z",
-      "lastUsed": "2025-12-08T21:32:35.173Z"
+      "firstSeen": "2025-12-10T17:46:45.938Z",
+      "lastUsed": "2025-12-10T17:46:45.938Z"
     },
     "c049596c9d8372eeab2dd0aa8596b223": {
       "intent": "accounts_by_owner",
@@ -458,8 +458,8 @@
       "confidence": 0.9,
       "query": "accounts for justin",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.173Z",
-      "lastUsed": "2025-12-08T21:32:35.173Z"
+      "firstSeen": "2025-12-10T17:46:45.941Z",
+      "lastUsed": "2025-12-10T17:46:45.941Z"
     },
     "25a46f308f70f7c354fa8a8a0fd9eb75": {
       "intent": "accounts_by_stage",
@@ -472,8 +472,8 @@
       "confidence": 0.9,
       "query": "accounts in stage 3",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.174Z",
-      "lastUsed": "2025-12-08T21:32:35.174Z"
+      "firstSeen": "2025-12-10T17:46:45.944Z",
+      "lastUsed": "2025-12-10T17:46:45.944Z"
     },
     "e9db188ab4f0ce92e0a1b5c85d5347e7": {
       "intent": "accounts_by_stage",
@@ -486,8 +486,8 @@
       "confidence": 0.9,
       "query": "which accounts are in stage 4",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.174Z",
-      "lastUsed": "2025-12-08T21:32:35.174Z"
+      "firstSeen": "2025-12-10T17:46:45.947Z",
+      "lastUsed": "2025-12-10T17:46:45.947Z"
     },
     "5993cf06a5e17d77edfc73ddcefdd497": {
       "intent": "accounts_by_stage",
@@ -497,8 +497,8 @@
       "confidence": 0.9,
       "query": "what accounts are in sqo",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.175Z",
-      "lastUsed": "2025-12-08T21:32:35.175Z"
+      "firstSeen": "2025-12-10T17:46:45.951Z",
+      "lastUsed": "2025-12-10T17:46:45.951Z"
     },
     "4c4110bbd0d646d939ffb2fa1f3a0ff9": {
       "intent": "customer_list",
@@ -508,8 +508,8 @@
       "confidence": 0.9,
       "query": "who are our customers",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.175Z",
-      "lastUsed": "2025-12-08T21:32:35.175Z"
+      "firstSeen": "2025-12-10T17:46:45.953Z",
+      "lastUsed": "2025-12-10T17:46:45.953Z"
     },
     "a4b386f7d4ce5654ebbe0493bd4b130f": {
       "intent": "customer_list",
@@ -519,8 +519,8 @@
       "confidence": 0.9,
       "query": "who are our current customers",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.176Z",
-      "lastUsed": "2025-12-08T21:32:35.176Z"
+      "firstSeen": "2025-12-10T17:46:45.954Z",
+      "lastUsed": "2025-12-10T17:46:45.954Z"
     },
     "95d7cac8102d5b5e3ad66148284ca8d0": {
       "intent": "customer_list",
@@ -530,8 +530,8 @@
       "confidence": 0.9,
       "query": "list our customers",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.176Z",
-      "lastUsed": "2025-12-08T21:32:35.176Z"
+      "firstSeen": "2025-12-10T17:46:45.955Z",
+      "lastUsed": "2025-12-10T17:46:45.955Z"
     },
     "7e1df5e4ede3324c751ebd7132ce31b6": {
       "intent": "customer_list",
@@ -552,8 +552,8 @@
       "confidence": 0.9,
       "query": "show me my pipeline",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.180Z",
-      "lastUsed": "2025-12-08T21:32:35.180Z"
+      "firstSeen": "2025-12-10T17:46:45.979Z",
+      "lastUsed": "2025-12-10T17:46:45.979Z"
     },
     "818fb092c9a881e1d22ad093f5dbd1ee": {
       "intent": "owner_pipeline",
@@ -563,8 +563,8 @@
       "confidence": 0.9,
       "query": "my deals",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.180Z",
-      "lastUsed": "2025-12-08T21:32:35.180Z"
+      "firstSeen": "2025-12-10T17:46:45.981Z",
+      "lastUsed": "2025-12-10T17:46:45.981Z"
     },
     "425bb5edd5e679f391f73bbfb98c9e30": {
       "intent": "owner_pipeline",
@@ -574,32 +574,38 @@
       "confidence": 0.9,
       "query": "my pipeline",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.181Z",
-      "lastUsed": "2025-12-08T21:32:35.181Z"
+      "firstSeen": "2025-12-10T17:46:45.983Z",
+      "lastUsed": "2025-12-10T17:46:45.983Z"
     },
     "60994e3d90f9e6a3a8006053ff2e7a5e": {
-      "intent": "pipeline_summary",
+      "intent": "owner_pipeline",
       "entities": {
-        "isClosed": false,
-        "productLine": "AI-Augmented Contracting"
+        "owners": [
+          "contracting"
+        ],
+        "ownerName": "contracting",
+        "isClosed": false
       },
-      "confidence": 0.95,
+      "confidence": 0.9,
       "query": "contracting pipeline",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.183Z",
-      "lastUsed": "2025-12-08T21:32:35.183Z"
+      "firstSeen": "2025-12-10T17:46:46.004Z",
+      "lastUsed": "2025-12-10T17:46:46.004Z"
     },
     "b26a9241a17cc81ef4258bb0b8709b28": {
-      "intent": "pipeline_summary",
+      "intent": "owner_pipeline",
       "entities": {
-        "isClosed": false,
-        "productLine": "Augmented-M&A"
+        "owners": [
+          "a"
+        ],
+        "ownerName": "a",
+        "isClosed": false
       },
-      "confidence": 0.95,
+      "confidence": 0.9,
       "query": "m&a deals",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.183Z",
-      "lastUsed": "2025-12-08T21:32:35.183Z"
+      "firstSeen": "2025-12-10T17:46:46.006Z",
+      "lastUsed": "2025-12-10T17:46:46.006Z"
     },
     "3a47e64f7ca98906f272f61313787e8e": {
       "intent": "pipeline_summary",
@@ -610,32 +616,38 @@
       "confidence": 0.95,
       "query": "compliance opportunities",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.184Z",
-      "lastUsed": "2025-12-08T21:32:35.184Z"
+      "firstSeen": "2025-12-10T17:46:46.007Z",
+      "lastUsed": "2025-12-10T17:46:46.007Z"
     },
     "b2b1d73f687dfc823472a86c53bb6331": {
-      "intent": "pipeline_summary",
+      "intent": "owner_pipeline",
       "entities": {
-        "isClosed": false,
-        "productLine": "sigma"
+        "owners": [
+          "sigma"
+        ],
+        "ownerName": "sigma",
+        "isClosed": false
       },
-      "confidence": 0.95,
+      "confidence": 0.9,
       "query": "sigma pipeline",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.184Z",
-      "lastUsed": "2025-12-08T21:32:35.184Z"
+      "firstSeen": "2025-12-10T17:46:46.010Z",
+      "lastUsed": "2025-12-10T17:46:46.010Z"
     },
     "4e227a3032bb9f7d46db5e742370099c": {
-      "intent": "pipeline_summary",
+      "intent": "owner_pipeline",
       "entities": {
-        "isClosed": false,
-        "productLine": "AI-Augmented Contracting"
+        "owners": [
+          "contracting"
+        ],
+        "ownerName": "contracting",
+        "isClosed": false
       },
-      "confidence": 0.95,
+      "confidence": 0.9,
       "query": "ai contracting pipeline",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.185Z",
-      "lastUsed": "2025-12-08T21:32:35.185Z"
+      "firstSeen": "2025-12-10T17:46:46.012Z",
+      "lastUsed": "2025-12-10T17:46:46.012Z"
     },
     "05d7ade4821be3a0eb74214bf82d4d0e": {
       "intent": "pipeline_summary",
@@ -649,8 +661,8 @@
       "confidence": 0.95,
       "query": "late stage contracting",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.186Z",
-      "lastUsed": "2025-12-08T21:32:35.186Z"
+      "firstSeen": "2025-12-10T17:46:46.013Z",
+      "lastUsed": "2025-12-10T17:46:46.013Z"
     },
     "64d732ceaaf055bab354ab8deb20fcda": {
       "intent": "pipeline_added",
@@ -661,8 +673,8 @@
       "confidence": 0.9,
       "query": "what deals were added to pipeline this week",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.186Z",
-      "lastUsed": "2025-12-08T21:32:35.186Z"
+      "firstSeen": "2025-12-10T17:46:46.016Z",
+      "lastUsed": "2025-12-10T17:46:46.016Z"
     },
     "35fb9c513b892d5daa66c1ea7e2babd3": {
       "intent": "pipeline_added",
@@ -673,8 +685,8 @@
       "confidence": 0.9,
       "query": "new deals this week",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.186Z",
-      "lastUsed": "2025-12-08T21:32:35.186Z"
+      "firstSeen": "2025-12-10T17:46:46.017Z",
+      "lastUsed": "2025-12-10T17:46:46.017Z"
     },
     "c1e31d60a5d07b93ea6e906fe32e1382": {
       "intent": "pipeline_added",
@@ -685,8 +697,8 @@
       "confidence": 0.9,
       "query": "new pipeline this week",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.187Z",
-      "lastUsed": "2025-12-08T21:32:35.187Z"
+      "firstSeen": "2025-12-10T17:46:46.019Z",
+      "lastUsed": "2025-12-10T17:46:46.019Z"
     },
     "13797844bc8fdc517858a4678cde4190": {
       "intent": "pipeline_added",
@@ -697,8 +709,8 @@
       "confidence": 0.9,
       "query": "pipeline added last week",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.187Z",
-      "lastUsed": "2025-12-08T21:32:35.187Z"
+      "firstSeen": "2025-12-10T17:46:46.020Z",
+      "lastUsed": "2025-12-10T17:46:46.020Z"
     },
     "a8f843d49e85f07329dca1ecfdd38cb2": {
       "intent": "pipeline_added",
@@ -709,30 +721,38 @@
       "confidence": 0.9,
       "query": "deals created this week",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.187Z",
-      "lastUsed": "2025-12-08T21:32:35.187Z"
+      "firstSeen": "2025-12-10T17:46:46.021Z",
+      "lastUsed": "2025-12-10T17:46:46.021Z"
     },
     "e468d4703fd77665b15b5ba2cdcb36cc": {
-      "intent": "weighted_summary",
+      "intent": "owner_pipeline",
       "entities": {
+        "owners": [
+          "weighted"
+        ],
+        "ownerName": "weighted",
         "isClosed": false
       },
       "confidence": 0.9,
       "query": "weighted pipeline",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.188Z",
-      "lastUsed": "2025-12-08T21:32:35.188Z"
+      "firstSeen": "2025-12-10T17:46:46.022Z",
+      "lastUsed": "2025-12-10T17:46:46.022Z"
     },
     "67b8f866a3cb4afd1fdb065f2c7df57d": {
-      "intent": "weighted_summary",
+      "intent": "owner_pipeline",
       "entities": {
+        "owners": [
+          "weighted"
+        ],
+        "ownerName": "weighted",
         "isClosed": false
       },
       "confidence": 0.9,
       "query": "finance weighted pipeline",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.188Z",
-      "lastUsed": "2025-12-08T21:32:35.188Z"
+      "firstSeen": "2025-12-10T17:46:46.023Z",
+      "lastUsed": "2025-12-10T17:46:46.023Z"
     },
     "881438383ebdfa8864772b32d401fd14": {
       "intent": "weighted_summary",
@@ -742,8 +762,8 @@
       "confidence": 0.9,
       "query": "show weighted acv",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.188Z",
-      "lastUsed": "2025-12-08T21:32:35.188Z"
+      "firstSeen": "2025-12-10T17:46:46.026Z",
+      "lastUsed": "2025-12-10T17:46:46.026Z"
     },
     "8815b27f1182beaf07c65a8b24a2081e": {
       "intent": "forecasting",
@@ -751,8 +771,8 @@
       "confidence": 0.7,
       "query": "weighted forecast",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.189Z",
-      "lastUsed": "2025-12-08T21:32:35.189Z"
+      "firstSeen": "2025-12-10T17:46:46.028Z",
+      "lastUsed": "2025-12-10T17:46:46.028Z"
     },
     "2f7e52dd5890b1c0a5191a274867cee8": {
       "intent": "deal_lookup",
@@ -764,8 +784,8 @@
       "confidence": 0.7,
       "query": "what closed this month",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.189Z",
-      "lastUsed": "2025-12-08T21:32:35.189Z"
+      "firstSeen": "2025-12-10T17:46:46.032Z",
+      "lastUsed": "2025-12-10T17:46:46.032Z"
     },
     "54aaa3e6550173433cf3be42c0d36466": {
       "intent": "deal_lookup",
@@ -777,8 +797,8 @@
       "confidence": 0.7,
       "query": "what closed this week",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.189Z",
-      "lastUsed": "2025-12-08T21:32:35.189Z"
+      "firstSeen": "2025-12-10T17:46:46.053Z",
+      "lastUsed": "2025-12-10T17:46:46.053Z"
     },
     "174405580d2c89df0d56bea50aa2f9f5": {
       "intent": "deal_lookup",
@@ -790,8 +810,8 @@
       "confidence": 0.7,
       "query": "closed this quarter",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.190Z",
-      "lastUsed": "2025-12-08T21:32:35.190Z"
+      "firstSeen": "2025-12-10T17:46:46.054Z",
+      "lastUsed": "2025-12-10T17:46:46.054Z"
     },
     "932d992867113730fd0b850323894a70": {
       "intent": "deal_lookup",
@@ -802,8 +822,8 @@
       "confidence": 0.7,
       "query": "recent wins",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.190Z",
-      "lastUsed": "2025-12-08T21:32:35.190Z"
+      "firstSeen": "2025-12-10T17:46:46.056Z",
+      "lastUsed": "2025-12-10T17:46:46.056Z"
     },
     "559c98a195c164188540bc11e3e409ed": {
       "intent": "deal_lookup",
@@ -818,8 +838,8 @@
       "confidence": 0.7,
       "query": "closed won this month",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.191Z",
-      "lastUsed": "2025-12-08T21:32:35.191Z"
+      "firstSeen": "2025-12-10T17:46:46.059Z",
+      "lastUsed": "2025-12-10T17:46:46.059Z"
     },
     "a99b41c18f09cdf4eafbd0b075457335": {
       "intent": "deal_lookup",
@@ -831,8 +851,8 @@
       "confidence": 0.9,
       "query": "what lois have we signed",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.191Z",
-      "lastUsed": "2025-12-08T21:32:35.191Z"
+      "firstSeen": "2025-12-10T17:46:46.062Z",
+      "lastUsed": "2025-12-10T17:46:46.062Z"
     },
     "245f5286462ce97a12875b7ef012e0be": {
       "intent": "count_query",
@@ -842,8 +862,8 @@
       "confidence": 0.9,
       "query": "how many lois this month",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.191Z",
-      "lastUsed": "2025-12-08T21:32:35.191Z"
+      "firstSeen": "2025-12-10T17:46:46.064Z",
+      "lastUsed": "2025-12-10T17:46:46.064Z"
     },
     "bd59bd50cde3c25cdd70e03ee807c457": {
       "intent": "deal_lookup",
@@ -856,8 +876,8 @@
       "confidence": 0.9,
       "query": "lois signed last week",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.192Z",
-      "lastUsed": "2025-12-08T21:32:35.192Z"
+      "firstSeen": "2025-12-10T17:46:46.065Z",
+      "lastUsed": "2025-12-10T17:46:46.065Z"
     },
     "bc735d6f5aca91e06c9d667ed7f6bbae": {
       "intent": "deal_lookup",
@@ -870,8 +890,8 @@
       "confidence": 0.7,
       "query": "bookings this month",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.192Z",
-      "lastUsed": "2025-12-08T21:32:35.192Z"
+      "firstSeen": "2025-12-10T17:46:46.066Z",
+      "lastUsed": "2025-12-10T17:46:46.066Z"
     },
     "87a51da5bab90136c66fbcebdbee3658": {
       "intent": "deal_lookup",
@@ -883,8 +903,8 @@
       "confidence": 0.7,
       "query": "how many bookings",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.192Z",
-      "lastUsed": "2025-12-08T21:32:35.192Z"
+      "firstSeen": "2025-12-10T17:46:46.067Z",
+      "lastUsed": "2025-12-10T17:46:46.067Z"
     },
     "1961b665fad6dea6ba951faf301f910e": {
       "intent": "deal_lookup",
@@ -896,44 +916,53 @@
       "confidence": 0.9,
       "query": "recent lois",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.193Z",
-      "lastUsed": "2025-12-08T21:32:35.193Z"
+      "firstSeen": "2025-12-10T17:46:46.072Z",
+      "lastUsed": "2025-12-10T17:46:46.072Z"
     },
     "128a395d97cddde677dfefb4ee3f6758": {
-      "intent": "deal_lookup",
+      "intent": "owner_pipeline",
       "entities": {
-        "isClosed": false,
-        "dealType": "arr"
+        "owners": [
+          "arr"
+        ],
+        "ownerName": "arr",
+        "isClosed": false
       },
       "confidence": 0.9,
       "query": "show arr deals",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.193Z",
-      "lastUsed": "2025-12-08T21:32:35.193Z"
+      "firstSeen": "2025-12-10T17:46:46.074Z",
+      "lastUsed": "2025-12-10T17:46:46.074Z"
     },
     "8393e46fe84e761d58f2131d9278c514": {
-      "intent": "deal_lookup",
+      "intent": "owner_pipeline",
       "entities": {
-        "isClosed": false,
-        "dealType": "arr"
+        "owners": [
+          "arr"
+        ],
+        "ownerName": "arr",
+        "isClosed": false
       },
       "confidence": 0.9,
       "query": "arr pipeline",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.193Z",
-      "lastUsed": "2025-12-08T21:32:35.193Z"
+      "firstSeen": "2025-12-10T17:46:46.076Z",
+      "lastUsed": "2025-12-10T17:46:46.076Z"
     },
     "14a2fefdceef7796a58c20fa6e25133f": {
-      "intent": "deal_lookup",
+      "intent": "owner_pipeline",
       "entities": {
-        "isClosed": false,
-        "dealType": "arr"
+        "owners": [
+          "revenue"
+        ],
+        "ownerName": "revenue",
+        "isClosed": false
       },
       "confidence": 0.9,
       "query": "recurring revenue deals",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.194Z",
-      "lastUsed": "2025-12-08T21:32:35.194Z"
+      "firstSeen": "2025-12-10T17:46:46.077Z",
+      "lastUsed": "2025-12-10T17:46:46.077Z"
     },
     "19d8930d28a72c7b408a5c56c9dbad04": {
       "intent": "count_query",
@@ -943,8 +972,8 @@
       "confidence": 0.9,
       "query": "how many arr contracts",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.194Z",
-      "lastUsed": "2025-12-08T21:32:35.194Z"
+      "firstSeen": "2025-12-10T17:46:46.079Z",
+      "lastUsed": "2025-12-10T17:46:46.079Z"
     },
     "5e97875532bb8aee203222dafb4661c6": {
       "intent": "count_query",
@@ -954,8 +983,8 @@
       "confidence": 0.9,
       "query": "how many customers",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.195Z",
-      "lastUsed": "2025-12-08T21:32:35.195Z"
+      "firstSeen": "2025-12-10T17:46:46.083Z",
+      "lastUsed": "2025-12-10T17:46:46.083Z"
     },
     "4c6a2b2e582d7758e9285f4c15ca1fbc": {
       "intent": "average_days_query",
@@ -967,8 +996,8 @@
       "confidence": 0.9,
       "query": "average days in stage 2",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.196Z",
-      "lastUsed": "2025-12-08T21:32:35.196Z"
+      "firstSeen": "2025-12-10T17:46:46.087Z",
+      "lastUsed": "2025-12-10T17:46:46.087Z"
     },
     "707c0207614d74c5a385fa3680f21e38": {
       "intent": "average_days_query",
@@ -980,8 +1009,8 @@
       "confidence": 0.9,
       "query": "avg days in stage 4",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.196Z",
-      "lastUsed": "2025-12-08T21:32:35.196Z"
+      "firstSeen": "2025-12-10T17:46:46.090Z",
+      "lastUsed": "2025-12-10T17:46:46.090Z"
     },
     "f92b384d253901bc75532d54477db080": {
       "intent": "reassign_account",
@@ -989,8 +1018,8 @@
       "confidence": 0.9,
       "query": "create boeing and assign to julie",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.199Z",
-      "lastUsed": "2025-12-08T21:32:35.199Z"
+      "firstSeen": "2025-12-10T17:46:46.098Z",
+      "lastUsed": "2025-12-10T17:46:46.098Z"
     },
     "a9428e59a4037a4c0f7335ad379ed9f6": {
       "intent": "create_opportunity",
@@ -1004,8 +1033,8 @@
       "confidence": 0.9,
       "query": "create opp for boeing",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.200Z",
-      "lastUsed": "2025-12-08T21:32:35.200Z"
+      "firstSeen": "2025-12-10T17:46:46.103Z",
+      "lastUsed": "2025-12-10T17:46:46.103Z"
     },
     "c7434dd751e3b7b7cfa12944a055b755": {
       "intent": "create_opportunity",
@@ -1019,8 +1048,8 @@
       "confidence": 0.9,
       "query": "create opportunity for intel",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.201Z",
-      "lastUsed": "2025-12-08T21:32:35.201Z"
+      "firstSeen": "2025-12-10T17:46:46.104Z",
+      "lastUsed": "2025-12-10T17:46:46.104Z"
     },
     "e6e3c19c74b316f96903a4dab1685e57": {
       "intent": "create_opportunity",
@@ -1034,8 +1063,8 @@
       "confidence": 0.9,
       "query": "add opp for microsoft",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.201Z",
-      "lastUsed": "2025-12-08T21:32:35.201Z"
+      "firstSeen": "2025-12-10T17:46:46.105Z",
+      "lastUsed": "2025-12-10T17:46:46.105Z"
     },
     "1f752dcb6c4e9ae55ef671474b65e52b": {
       "intent": "create_opportunity",
@@ -1050,8 +1079,8 @@
       "confidence": 0.9,
       "query": "create a stage 2 opp for apple",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.201Z",
-      "lastUsed": "2025-12-08T21:32:35.201Z"
+      "firstSeen": "2025-12-10T17:46:46.107Z",
+      "lastUsed": "2025-12-10T17:46:46.107Z"
     },
     "3c9e7c2b3e8dc5b6a384a7234d981f94": {
       "intent": "create_opportunity",
@@ -1066,8 +1095,8 @@
       "confidence": 0.9,
       "query": "create opportunity for amazon with $500k acv",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.202Z",
-      "lastUsed": "2025-12-08T21:32:35.202Z"
+      "firstSeen": "2025-12-10T17:46:46.109Z",
+      "lastUsed": "2025-12-10T17:46:46.109Z"
     },
     "4182ca0a66f4424da7222f676bfef316": {
       "intent": "reassign_account",
@@ -1080,8 +1109,8 @@
       "confidence": 0.9,
       "query": "assign intel to himanshu",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.202Z",
-      "lastUsed": "2025-12-08T21:32:35.202Z"
+      "firstSeen": "2025-12-10T17:46:46.113Z",
+      "lastUsed": "2025-12-10T17:46:46.113Z"
     },
     "f204b988d61fa1aeaea303957650493b": {
       "intent": "reassign_account",
@@ -1094,8 +1123,8 @@
       "confidence": 0.9,
       "query": "reassign apple to mike",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:32:35.203Z",
-      "lastUsed": "2025-12-08T21:32:35.203Z"
+      "firstSeen": "2025-12-10T17:46:46.114Z",
+      "lastUsed": "2025-12-10T17:46:46.114Z"
     },
     "0b9ce6aefa0dd58ebe19c3d294dd9799": {
       "intent": "batch_reassign_accounts",
@@ -1109,8 +1138,8 @@
       "confidence": 0.9,
       "query": "reassign boeing, intel to himanshu",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:53.912Z",
-      "lastUsed": "2025-12-08T21:31:53.912Z"
+      "firstSeen": "2025-12-10T17:46:46.120Z",
+      "lastUsed": "2025-12-10T17:46:46.120Z"
     },
     "ecb0014ff70be0d7bbfc48f7f7a35686": {
       "intent": "batch_reassign_accounts",
@@ -1125,8 +1154,8 @@
       "confidence": 0.9,
       "query": "batch assign: apple, amazon, google to asad",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:53.912Z",
-      "lastUsed": "2025-12-08T21:31:53.912Z"
+      "firstSeen": "2025-12-10T17:46:46.121Z",
+      "lastUsed": "2025-12-10T17:46:46.121Z"
     },
     "2d314b4bf57fbcce35543332d8060bef": {
       "intent": "batch_reassign_accounts",
@@ -1141,8 +1170,8 @@
       "confidence": 0.9,
       "query": "reassign tesla, spacex, neuralink to mike",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:53.913Z",
-      "lastUsed": "2025-12-08T21:31:53.913Z"
+      "firstSeen": "2025-12-10T17:46:46.122Z",
+      "lastUsed": "2025-12-10T17:46:46.122Z"
     },
     "74105b4fed16064f01d69b0ae138b5ac": {
       "intent": "move_to_nurture",
@@ -1154,8 +1183,8 @@
       "confidence": 0.9,
       "query": "mark intel as nurture",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:53.914Z",
-      "lastUsed": "2025-12-08T21:31:53.914Z"
+      "firstSeen": "2025-12-10T17:46:46.125Z",
+      "lastUsed": "2025-12-10T17:46:46.125Z"
     },
     "7f749fc0b5e21e81d33f326af263e9e1": {
       "intent": "move_to_nurture",
@@ -1167,8 +1196,8 @@
       "confidence": 0.9,
       "query": "set microsoft to nurture",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:53.914Z",
-      "lastUsed": "2025-12-08T21:31:53.914Z"
+      "firstSeen": "2025-12-10T17:46:46.126Z",
+      "lastUsed": "2025-12-10T17:46:46.126Z"
     },
     "612883aac355b8a41e7eb336fc818c4a": {
       "intent": "batch_move_to_nurture",
@@ -1182,8 +1211,8 @@
       "confidence": 0.9,
       "query": "batch nurture: boeing, intel, microsoft",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:53.915Z",
-      "lastUsed": "2025-12-08T21:31:53.915Z"
+      "firstSeen": "2025-12-10T17:46:46.128Z",
+      "lastUsed": "2025-12-10T17:46:46.128Z"
     },
     "a8af7570809c1415d1c5d5c8948642fe": {
       "intent": "batch_move_to_nurture",
@@ -1197,8 +1226,8 @@
       "confidence": 0.9,
       "query": "batch nurture: apple and amazon and google",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:53.916Z",
-      "lastUsed": "2025-12-08T21:31:53.916Z"
+      "firstSeen": "2025-12-10T17:46:46.130Z",
+      "lastUsed": "2025-12-10T17:46:46.130Z"
     },
     "4f085b333a3d060df58ff9976d289c78": {
       "intent": "batch_move_to_nurture",
@@ -1211,8 +1240,8 @@
       "confidence": 0.9,
       "query": "move tesla, spacex to nurture",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:53.916Z",
-      "lastUsed": "2025-12-08T21:31:53.916Z"
+      "firstSeen": "2025-12-10T17:46:46.132Z",
+      "lastUsed": "2025-12-10T17:46:46.132Z"
     },
     "97282b6295c2eaa1d9d8474064cbbdfc": {
       "intent": "close_account_lost",
@@ -1286,8 +1315,8 @@
       "confidence": 0.9,
       "query": "add to customer history: boeing met with clo today",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:00.463Z",
-      "lastUsed": "2025-12-08T21:31:00.463Z"
+      "firstSeen": "2025-12-10T17:45:56.328Z",
+      "lastUsed": "2025-12-10T17:45:56.328Z"
     },
     "a34974ca4c9cc6a105caf2f306674875": {
       "intent": "send_excel_report",
@@ -1317,8 +1346,8 @@
       "confidence": 0.9,
       "query": "show contracts",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:00.466Z",
-      "lastUsed": "2025-12-08T21:31:00.466Z"
+      "firstSeen": "2025-12-10T17:45:56.344Z",
+      "lastUsed": "2025-12-10T17:45:56.344Z"
     },
     "ebb547cdf8cf10b3d6518e7a256dc3f1": {
       "intent": "contract_query",
@@ -1326,8 +1355,8 @@
       "confidence": 0.9,
       "query": "active contracts",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:00.466Z",
-      "lastUsed": "2025-12-08T21:31:00.466Z"
+      "firstSeen": "2025-12-10T17:45:56.345Z",
+      "lastUsed": "2025-12-10T17:45:56.345Z"
     },
     "8a4b3fc71ef2851d2e0b7b962d464f31": {
       "intent": "contract_query",
@@ -1339,8 +1368,8 @@
       "confidence": 0.9,
       "query": "contracts for boeing",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:00.466Z",
-      "lastUsed": "2025-12-08T21:31:00.466Z"
+      "firstSeen": "2025-12-10T17:45:56.346Z",
+      "lastUsed": "2025-12-10T17:45:56.346Z"
     },
     "917ef6c63ca17a2a14719ab7d1964a6e": {
       "intent": "contract_query",
@@ -1348,8 +1377,8 @@
       "confidence": 0.9,
       "query": "what contracts do we have",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:00.466Z",
-      "lastUsed": "2025-12-08T21:31:00.466Z"
+      "firstSeen": "2025-12-10T17:45:56.349Z",
+      "lastUsed": "2025-12-10T17:45:56.349Z"
     },
     "4cde6aa885226ed478daa589d77e3cbe": {
       "intent": "contract_query",
@@ -1357,8 +1386,8 @@
       "confidence": 0.9,
       "query": "list contracts",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:00.466Z",
-      "lastUsed": "2025-12-08T21:31:00.466Z"
+      "firstSeen": "2025-12-10T17:45:56.350Z",
+      "lastUsed": "2025-12-10T17:45:56.350Z"
     },
     "1893107f8c160e67c86e990c7447556c": {
       "intent": "pagination_next",
@@ -1369,8 +1398,8 @@
       "confidence": 0.9,
       "query": "next 10",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:00.467Z",
-      "lastUsed": "2025-12-08T21:31:00.467Z"
+      "firstSeen": "2025-12-10T17:45:56.354Z",
+      "lastUsed": "2025-12-10T17:45:56.354Z"
     },
     "a7f167530cb94592181f14aefdcdb842": {
       "intent": "pagination_next",
@@ -1381,8 +1410,8 @@
       "confidence": 0.9,
       "query": "show more",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:00.467Z",
-      "lastUsed": "2025-12-08T21:31:00.467Z"
+      "firstSeen": "2025-12-10T17:45:56.356Z",
+      "lastUsed": "2025-12-10T17:45:56.356Z"
     },
     "addec426932e71323700afa1911f8f1c": {
       "intent": "pagination_next",
@@ -1393,8 +1422,8 @@
       "confidence": 0.9,
       "query": "more",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:00.467Z",
-      "lastUsed": "2025-12-08T21:31:00.467Z"
+      "firstSeen": "2025-12-10T17:46:46.177Z",
+      "lastUsed": "2025-12-10T17:46:46.177Z"
     },
     "d0cab90d8d20d57e2f2b9be52f7dd25d": {
       "intent": "pagination_next",
@@ -1405,8 +1434,440 @@
       "confidence": 0.9,
       "query": "next",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:00.467Z",
-      "lastUsed": "2025-12-08T21:31:00.467Z"
+      "firstSeen": "2025-12-10T17:46:46.176Z",
+      "lastUsed": "2025-12-10T17:46:46.176Z"
+    },
+    "605ed279a2a89359ae4e4770ec76a584": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "me"
+        ],
+        "ownerName": "me",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "show me pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.957Z",
+      "lastUsed": "2025-12-10T17:46:45.957Z"
+    },
+    "a9cc4219f2d3e51051d0666488c7c1ca": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "the"
+        ],
+        "ownerName": "the",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "show me the pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.959Z",
+      "lastUsed": "2025-12-10T17:46:45.959Z"
+    },
+    "a8ea4e1433779de26a11af241fe31064": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "our"
+        ],
+        "ownerName": "our",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "what is our pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.962Z",
+      "lastUsed": "2025-12-10T17:46:45.962Z"
+    },
+    "409ebf5b84901c5fc56c8742f436e604": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "total"
+        ],
+        "ownerName": "total",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "total pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.965Z",
+      "lastUsed": "2025-12-10T17:46:45.965Z"
+    },
+    "a5a4665e6ec2f66f27abcb1728a3e121": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "all"
+        ],
+        "ownerName": "all",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "all pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.966Z",
+      "lastUsed": "2025-12-10T17:46:45.966Z"
+    },
+    "5ee350d39176ad94e7b4254476ab4310": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "show"
+        ],
+        "ownerName": "show",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "show pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.968Z",
+      "lastUsed": "2025-12-10T17:46:45.968Z"
+    },
+    "18e962d130b2d7542504b6dd62217168": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "me"
+        ],
+        "ownerName": "me",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "give me pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.969Z",
+      "lastUsed": "2025-12-10T17:46:45.969Z"
+    },
+    "f396cad9bec5954602cb8d8571b8de10": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "Himanshu Agarwal"
+        ],
+        "ownerName": "Himanshu Agarwal",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "himanshu's deals",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:46.164Z",
+      "lastUsed": "2025-12-10T17:46:46.164Z"
+    },
+    "2d67548d1858c1c36d4e572480b4451b": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "Julie Stefanich"
+        ],
+        "ownerName": "Julie Stefanich",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "julie's pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.974Z",
+      "lastUsed": "2025-12-10T17:46:45.974Z"
+    },
+    "a007ea4f83adfffe57275eae2c1a0b4b": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "Asad Hussain"
+        ],
+        "ownerName": "Asad Hussain",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "asad's opportunities",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.977Z",
+      "lastUsed": "2025-12-10T17:46:45.977Z"
+    },
+    "cbd858fe2123d4ba58e3da47b09e8fdc": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "Justin Hills"
+        ],
+        "ownerName": "Justin Hills",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "justin's deals",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.984Z",
+      "lastUsed": "2025-12-10T17:46:45.984Z"
+    },
+    "91ecd866bd2c345fa85092134f9e5d74": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "Mike McGonagle"
+        ],
+        "ownerName": "Mike McGonagle",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "mike's pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.985Z",
+      "lastUsed": "2025-12-10T17:46:45.985Z"
+    },
+    "b1bf51422bcd36aeaec177a4061455f0": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "stage"
+        ],
+        "ownerName": "stage",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "early stage pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.986Z",
+      "lastUsed": "2025-12-10T17:46:45.986Z"
+    },
+    "a5840c2a0344c6b5680ed31bec53f24d": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "stage"
+        ],
+        "ownerName": "stage",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "mid stage deals",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.987Z",
+      "lastUsed": "2025-12-10T17:46:45.987Z"
+    },
+    "679c15531150dc6c527fd18f73889ee7": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "stage"
+        ],
+        "ownerName": "stage",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "late stage pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.989Z",
+      "lastUsed": "2025-12-10T17:46:45.989Z"
+    },
+    "6ca88b0b61c8239c2ebcbbb8b33355c1": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "2"
+        ],
+        "ownerName": "2",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "stage 2 pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.991Z",
+      "lastUsed": "2025-12-10T17:46:45.991Z"
+    },
+    "94790d7a81ee1415a709eaa4e40d7faf": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "discovery"
+        ],
+        "ownerName": "discovery",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "discovery pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.996Z",
+      "lastUsed": "2025-12-10T17:46:45.996Z"
+    },
+    "bc7aa943f66c49a2d9a1bed17ac0e43b": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "sqo"
+        ],
+        "ownerName": "sqo",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "sqo pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:45.998Z",
+      "lastUsed": "2025-12-10T17:46:45.998Z"
+    },
+    "0446487dec7d0525587ac5472f0e633f": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "stage"
+        ],
+        "ownerName": "stage",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "proposal stage deals",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:46.000Z",
+      "lastUsed": "2025-12-10T17:46:46.000Z"
+    },
+    "fc71461a4ae553d7bfe5ac515fc03db5": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "negotiation"
+        ],
+        "ownerName": "negotiation",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "negotiation pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:46.001Z",
+      "lastUsed": "2025-12-10T17:46:46.001Z"
+    },
+    "c07498edf461d7f67dd0ec92abcaab34": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "many"
+        ],
+        "ownerName": "many",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "how many deals",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:46.080Z",
+      "lastUsed": "2025-12-10T17:46:46.080Z"
+    },
+    "a100942b9b902a9f75f2e49d52cb007d": {
+      "intent": "reassign_account",
+      "entities": {
+        "accounts": [
+          "google"
+        ],
+        "targetBL": "asad"
+      },
+      "confidence": 0.9,
+      "query": "reassign google to asad",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:46.115Z",
+      "lastUsed": "2025-12-10T17:46:46.115Z"
+    },
+    "1737ecadc3a720649f3e9fb870d07459": {
+      "intent": "close_account_lost",
+      "entities": {
+        "accounts": [
+          "boeing"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "close boeing lost",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:46.133Z",
+      "lastUsed": "2025-12-10T17:46:46.133Z"
+    },
+    "101966f128000d22cffaa864eb4ed2e7": {
+      "intent": "close_account_lost",
+      "entities": {
+        "accounts": [
+          "intel"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "mark intel as lost",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:45:56.319Z",
+      "lastUsed": "2025-12-10T17:45:56.319Z"
+    },
+    "c2362c623d47d1267ca1c38b63172916": {
+      "intent": "close_account_lost",
+      "entities": {
+        "accounts": [
+          "lost microsoft"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "close lost microsoft",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:45:56.321Z",
+      "lastUsed": "2025-12-10T17:45:56.321Z"
+    },
+    "d1be9075a763c3cff1abfe83ad696dd2": {
+      "intent": "query_account_plan",
+      "entities": {
+        "accounts": [
+          "boeing: focus on contracting"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "account plan for boeing: focus on contracting",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:45:56.323Z",
+      "lastUsed": "2025-12-10T17:45:56.323Z"
+    },
+    "6718b16af1a6a16885ef0c52fee3b648": {
+      "intent": "query_account_plan",
+      "entities": {
+        "accounts": [
+          "boeing: multi-year deal"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "account plan boeing: multi-year deal",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:45:56.326Z",
+      "lastUsed": "2025-12-10T17:45:56.326Z"
+    },
+    "1d7d1bee8e0080d01ca4f036d4fbe549": {
+      "intent": "send_excel_report",
+      "entities": {
+        "reportType": "full_pipeline"
+      },
+      "confidence": 0.9,
+      "query": "send pipeline excel",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:45:56.331Z",
+      "lastUsed": "2025-12-10T17:45:56.331Z"
+    },
+    "3567d53e238f376424cab61d8eabaa4c": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "active"
+        ],
+        "ownerName": "active",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "export active pipeline",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:45:56.337Z",
+      "lastUsed": "2025-12-10T17:45:56.337Z"
+    },
+    "150dc81e71db638fa8a4617d479e0937": {
+      "intent": "pagination_next",
+      "entities": {
+        "action": "show_all",
+        "pageSize": 10
+      },
+      "confidence": 0.9,
+      "query": "show all",
+      "uses": 1,
+      "firstSeen": "2025-12-10T17:46:46.175Z",
+      "lastUsed": "2025-12-10T17:46:46.175Z"
     }
   },
   "corrections": [],
@@ -1487,7 +1948,8 @@
       "reassign boeing to julie",
       "create boeing and assign to julie",
       "assign intel to himanshu",
-      "reassign apple to mike"
+      "reassign apple to mike",
+      "reassign google to asad"
     ],
     "accounts_by_stage": [
       "what accounts does julie own",
@@ -1502,7 +1964,8 @@
       "next 10",
       "show more",
       "more",
-      "next"
+      "next",
+      "show all"
     ],
     "batch_reassign_accounts": [
       "batch reassign: boeing, intel, microsoft to julie",
@@ -1540,7 +2003,38 @@
     "owner_pipeline": [
       "show me my pipeline",
       "my deals",
-      "my pipeline"
+      "my pipeline",
+      "show me pipeline",
+      "show me the pipeline",
+      "what is our pipeline",
+      "total pipeline",
+      "all pipeline",
+      "show pipeline",
+      "give me pipeline",
+      "himanshu's deals",
+      "julie's pipeline",
+      "asad's opportunities",
+      "justin's deals",
+      "mike's pipeline",
+      "early stage pipeline",
+      "mid stage deals",
+      "late stage pipeline",
+      "stage 2 pipeline",
+      "discovery pipeline",
+      "sqo pipeline",
+      "proposal stage deals",
+      "negotiation pipeline",
+      "contracting pipeline",
+      "m&a deals",
+      "sigma pipeline",
+      "ai contracting pipeline",
+      "weighted pipeline",
+      "finance weighted pipeline",
+      "show arr deals",
+      "arr pipeline",
+      "recurring revenue deals",
+      "how many deals",
+      "export active pipeline"
     ],
     "pipeline_added": [
       "what deals were added to pipeline this week",
@@ -1577,14 +2071,18 @@
       "close boeing as lost",
       "mark intel as closed lost",
       "close microsoft lost",
-      "close lost apple"
+      "close lost apple",
+      "close boeing lost",
+      "mark intel as lost",
+      "close lost microsoft"
     ],
     "save_customer_note": [
       "add to customer history: boeing met with clo today"
     ],
     "send_excel_report": [
       "send me pipeline in excel",
-      "send excel report"
+      "send excel report",
+      "send pipeline excel"
     ],
     "contract_query": [
       "show contracts",
@@ -1592,9 +2090,13 @@
       "contracts for boeing",
       "what contracts do we have",
       "list contracts"
+    ],
+    "query_account_plan": [
+      "account plan for boeing: focus on contracting",
+      "account plan boeing: multi-year deal"
     ]
   },
   "version": 1,
   "created": "2025-12-08T00:00:00.000Z",
-  "lastSaved": "2025-12-08T21:32:35.203Z"
+  "lastSaved": "2025-12-10T17:46:46.177Z"
 }
