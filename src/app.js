@@ -415,8 +415,9 @@ class GTMBrainApp {
       try {
         const client = await getOktaClient();
         if (!client) {
-          // Fallback to password login if Okta not configured
-          return res.redirect('/account-dashboard');
+          // Fallback to password login form if Okta not configured
+          const { generateLoginPage } = require('./slack/accountDashboard');
+          return res.send(generateLoginPage());
         }
         
         const nonce = generators.nonce();
@@ -437,7 +438,9 @@ class GTMBrainApp {
         res.redirect(authUrl);
       } catch (error) {
         logger.error('Login error:', error.message);
-        res.redirect('/account-dashboard');
+        // Fallback to password login form on any error
+        const { generateLoginPage } = require('./slack/accountDashboard');
+        res.send(generateLoginPage());
       }
     });
     
@@ -536,9 +539,9 @@ class GTMBrainApp {
       lastReset: new Date().toISOString()
     };
     
-    // Dashboard cache (5 minute TTL to reduce Salesforce API calls)
+    // Dashboard cache (1 minute TTL for near real-time data)
     let dashboardCache = { html: null, timestamp: 0 };
-    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+    const CACHE_TTL = 1 * 60 * 1000; // 1 minute - reduced for faster Salesforce sync
     
     // Rate limiting (max 30 requests per minute per IP)
     const rateLimitMap = new Map();
@@ -611,13 +614,9 @@ class GTMBrainApp {
           res.status(500).send(`Error: ${error.message}`);
         }
       } else {
-        // Redirect to Okta login if configured, otherwise show password form
-        const client = await getOktaClient();
-        if (client) {
-          return res.redirect('/login');
-        }
-        const { generateLoginPage } = require('./slack/accountDashboard');
-        res.send(generateLoginPage());
+        // Always redirect to /login for unauthenticated users
+        // The /login route handles Okta SSO or falls back to password form
+        return res.redirect('/login');
       }
     });
     
