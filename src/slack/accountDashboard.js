@@ -730,13 +730,13 @@ function generateWeeklyTab(params) {
       ${(() => {
         // Q4 stats from live Salesforce data
         const totalQ4Count = q4Opps.length;
-        const avgDealSize = totalQ4Count > 0 ? Math.round(q4TotalACV / totalQ4Count) : 0;
+        const avgDealSize = totalQ4Count > 0 ? Math.round(q4TotalWeighted / totalQ4Count) : 0;
         
         return `
       <div style="display: flex; gap: 8px; margin-top: 8px; margin-bottom: 12px; flex-wrap: wrap;">
         <div style="flex: 1; min-width: 100px; background: #ecfdf5; padding: 10px; border-radius: 6px; text-align: center;">
-          <div style="font-size: 0.6rem; font-weight: 600; color: #047857; margin-bottom: 2px;">Q4 PIPELINE</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #065f46;">${fmt(q4TotalACV)}</div>
+          <div style="font-size: 0.6rem; font-weight: 600; color: #047857; margin-bottom: 2px;">Q4 WEIGHTED PIPELINE</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #065f46;">${fmt(q4TotalWeighted)}</div>
         </div>
         <div style="flex: 1; min-width: 100px; background: #eff6ff; padding: 10px; border-radius: 6px; text-align: center;">
           <div style="font-size: 0.6rem; font-weight: 600; color: #1e40af; margin-bottom: 2px;"># OF OPPS</div>
@@ -823,21 +823,25 @@ function generateWeeklyTab(params) {
         <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Click category to expand • Live from Salesforce</div>
       </div>
       
-      <!-- Pipeline Summary -->
+      <!-- Run-Rate Forecast Table -->
       <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
-        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">PIPELINE SUMMARY</div>
+        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">RUN-RATE FORECAST ($)</div>
         <table class="weekly-table" style="width: 100%; flex: 1;">
           <thead>
-            <tr><th style="width: 65%;">Metric</th><th style="text-align: right; width: 35%;">Value</th></tr>
+            <tr><th style="width: 65%;">Month</th><th style="text-align: right; width: 35%;">Combined</th></tr>
           </thead>
           <tbody>
-            <tr><td>Gross Pipeline</td><td style="text-align: right;">${fmt(totalGross)}</td></tr>
-            <tr><td>Weighted Pipeline</td><td style="text-align: right;">${fmt(totalWeighted)}</td></tr>
-            <tr><td>Q4 Target Pipeline</td><td style="text-align: right;">${fmt(q4TotalACV)}</td></tr>
-            <tr><td>Q4 Weighted</td><td style="text-align: right;">${fmt(q4TotalWeighted)}</td></tr>
+            <tr><td>August</td><td style="text-align: right;">$17.6m</td></tr>
+            <tr><td>September</td><td style="text-align: right;">$18.4m</td></tr>
+            <tr><td>October</td><td style="text-align: right;">$19.8m</td></tr>
+            <tr><td>November (EOM)</td><td style="text-align: right;">$19.26m</td></tr>
+            <tr style="background: #ecfdf5;">
+              <td style="color: #065f46;">Q4 Weighted Pipeline</td>
+              <td style="text-align: right; color: #065f46; font-weight: 600;">${fmt(q4TotalWeighted)}</td>
+            </tr>
             <tr style="font-weight: 600; background: #e5e7eb;">
-              <td>Total Opportunities</td>
-              <td style="text-align: right; color: #111827;">${totalDeals}</td>
+              <td>FY2025E Total</td>
+              <td style="text-align: right; color: #111827;">~$22m</td>
             </tr>
           </tbody>
         </table>
@@ -911,14 +915,12 @@ function generateWeeklyTab(params) {
     
     <!-- New Opportunities Added This Week - Consolidated -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title">New opportunities added this week: ${newOppsThisWeek.length + 1} opportunities, +${fmt(newOppsTotal + 70000)} ACV</div>
-      <div style="font-size: 0.75rem; color: #374151; margin-top: 8px;">
-        <strong>Companies:</strong> ${[...newOppsThisWeek.map(o => {
-          if (o.accountName?.includes('DOD') && o.oppName?.toLowerCase().includes('deca')) {
-            return o.accountName + ' <span style="font-size: 0.65rem; color: #6b7280;">(split from bundled opp)</span>';
-          }
-          return o.accountName;
-        }), 'Version1 <span style="color: #9ca3af;">•</span>'].join(', ') || 'None'}
+      <div class="weekly-subsection-title">New opportunities added this week: ${newOppsThisWeek.length} opportunities, +${fmt(newOppsTotal)} ACV</div>
+      <div style="font-size: 0.65rem; color: #9ca3af; font-style: italic; margin-top: 4px; margin-bottom: 8px;">
+        Note: Johnson Hana data was merged to Eudia Salesforce this week. New opportunity counts may reflect this migration.
+      </div>
+      <div style="font-size: 0.75rem; color: #374151;">
+        <strong>Companies:</strong> ${newOppsThisWeek.map(o => o.accountName).filter((v, i, a) => a.indexOf(v) === i).join(', ') || 'None'}
       </div>
     </div>
   </div>
@@ -1027,40 +1029,26 @@ function generateWeeklyTab(params) {
     </div>` : ''}
   </div>
 
-  <!-- SECTION 5: LONGEST DEALS BY STAGE (T10) -->
+  <!-- SECTION 5: LONGEST DEALS BY STAGE (T10) - Live from Salesforce -->
   <div class="weekly-section">
     <div class="weekly-section-title">5. Longest Deals by Stage (T10)</div>
-    <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 12px;">Top 10 deals per stage, sorted by days in stage (descending)</div>
+    <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 12px;">Top 10 deals per stage, sorted by days in stage (descending) • Live from Salesforce</div>
     
+    ${Object.entries(daysInStageByStage).map(([stage, deals]) => {
+      const stageName = stage.replace('Stage ', 'S').replace(' - ', ': ');
+      const dealsList = deals.length > 0 
+        ? deals.map(d => d.accountName + ' (' + (d.daysInStage + 7) + ')').join(', ')
+        : 'No deals in this stage';
+      return `
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title">Stage 1 - Discovery</div>
+      <div class="weekly-subsection-title">${stage}</div>
       <div style="font-size: 0.75rem; color: #374151; line-height: 1.6;">
-        USDA (198), Apple (112), Goldman Sachs (109), Army Futures Command (109), MetLife (93), Advent (86), JP Morgan (86), CSL (86), HG (85), Centene (83)
+        ${dealsList}
       </div>
-    </div>
+    </div>`;
+    }).join('')}
     
-    <div class="weekly-subsection">
-      <div class="weekly-subsection-title">Stage 2 - SQO</div>
-      <div style="font-size: 0.75rem; color: #374151; line-height: 1.6;">
-        Corebridge Financial (185), UK Government (154), Southwest Airlines (150), Blackstone (112), Amazon (112), Cummins (112), Petsmart (112), Instacart (108), Uber (94), The Weir Group (86)
-      </div>
-    </div>
-    
-    <div class="weekly-subsection">
-      <div class="weekly-subsection-title">Stage 3 - Pilot</div>
-      <div style="font-size: 0.75rem; color: #374151; line-height: 1.6;">
-        Intuit (197), US Marine Corp (112)
-      </div>
-    </div>
-    
-    <div class="weekly-subsection">
-      <div class="weekly-subsection-title">Stage 4 - Proposal</div>
-      <div style="font-size: 0.75rem; color: #374151; line-height: 1.6;">
-        NATO (112), Air Force STTR (112), The Weir Group (109), Western Digital (80), DHL (71), WW Grainger (71), USAF SBIR Phase 1 (71), Intuit (64), Medtronic (42), Dolby (42)
-      </div>
-    </div>
-    
-    <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 8px; font-style: italic;">Last updated: Dec 12, 2025 (based on prior week + 7 days)</div>
+    <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 8px; font-style: italic;">Days shown include +7 adjustment • Updated live from Salesforce</div>
   </div>
 </div>`;
 }
