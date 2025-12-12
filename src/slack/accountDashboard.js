@@ -1156,6 +1156,20 @@ async function generateAccountDashboard() {
   let novDecRevenue = [];
   let novDecRevenueTotal = 0;
   
+  // Signed deals grouped by fiscal quarter (for QoQ view)
+  // Declared outside try block so it's accessible when passed to generateWeeklyTab
+  let signedByFiscalQuarter = {
+    'FY2024': new Set(),
+    'Q1 FY2025': new Set(),
+    'Q2 FY2025': new Set(),
+    'Q3 FY2025': new Set(),
+    'Q4 FY2025': new Set(),
+    'Q1 FY2026': new Set(),
+    'Q2 FY2026': new Set(),
+    'Q3 FY2026': new Set(),
+    'Q4 FY2026': new Set()
+  };
+  
   // Helper to check if account is a sample/test/dummy account
   const isSampleAccount = (name) => {
     if (!name) return false;
@@ -1198,17 +1212,6 @@ async function generateAccountDashboard() {
     // Group signed deals by fiscal quarter for quarter-over-quarter view
     // Fiscal Year: Feb 1 - Jan 31 (Q1: Feb-Apr, Q2: May-Jul, Q3: Aug-Oct, Q4: Nov-Jan)
     const allSignedDeals = [...signedByType.revenue, ...signedByType.pilot, ...signedByType.loi];
-    const signedByFiscalQuarter = {
-      'FY2024': new Set(),      // Feb 2023 - Jan 2024
-      'Q1 FY2025': new Set(),   // Feb-Apr 2024
-      'Q2 FY2025': new Set(),   // May-Jul 2024
-      'Q3 FY2025': new Set(),   // Aug-Oct 2024
-      'Q4 FY2025': new Set(),   // Nov 2024 - Jan 2025
-      'Q1 FY2026': new Set(),   // Feb-Apr 2025
-      'Q2 FY2026': new Set(),   // May-Jul 2025
-      'Q3 FY2026': new Set(),   // Aug-Oct 2025
-      'Q4 FY2026': new Set()    // Nov 2025 - Jan 2026 (current)
-    };
     
     allSignedDeals.forEach(deal => {
       if (!deal.closeDate) return;
