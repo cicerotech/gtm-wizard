@@ -539,7 +539,8 @@ function generateWeeklyTab(params) {
     closedLostDeals = [], nurturedAccounts = [], daysInStageByStage = {},
     logosByType = { revenue: [], pilot: [], loi: [] },
     newOppsThisWeek = [], newOppsTotal = 0,
-    signedThisWeek = []
+    signedThisWeek = [],
+    signedByFiscalQuarter = {}
   } = params;
   
   // Helper for currency formatting
@@ -558,8 +559,8 @@ function generateWeeklyTab(params) {
         const d = new Date(targetDate);
         const month = d.getMonth();
         const year = d.getFullYear();
-        // Q4 FY2025 = Oct (9), Nov (10), Dec (11) 2025 or Jan (0) 2026
-        const isQ4 = (month >= 9 && year === 2025) || (month === 0 && year === 2026);
+        // Q4 FY2025 = Nov (10), Dec (11) 2025 or Jan (0) 2026 (Fiscal Q4: Nov 1 - Jan 31)
+        const isQ4 = (month >= 10 && year === 2025) || (month === 0 && year === 2026);
         if (isQ4) {
           q4Opps.push({
             account: acc.name,
@@ -753,86 +754,74 @@ function generateWeeklyTab(params) {
       })()}
       
       ${(() => {
-        // Q4 opportunities from live Salesforce data
+        // Q4 opportunities from live Salesforce data (Q4 = Nov, Dec, Jan)
         const allQ4Sorted = q4Opps.map(o => ({ 
           account: o.account, 
-          acv: o.acv, 
-          isOct: o.month === 9,
-          isNov: o.month === 10 
+          acv: o.acv,
+          weighted: o.weighted,
+          isNov: o.month === 10,
+          isDec: o.month === 11,
+          isJan: o.month === 0
         })).sort((a, b) => b.acv - a.acv);
         
         const top10 = allQ4Sorted.slice(0, 10);
         const remaining = allQ4Sorted.slice(10);
         
         return '<div style="background: #f9fafb; border-radius: 8px; padding: 12px;">' +
-          '<div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">TOP OPPORTUNITIES (' + q4Opps.length + ' total)</div>' +
+          '<div style="font-weight: 600; color: #111827; margin-bottom: 4px; font-size: 0.75rem;">TOP OPPORTUNITIES (' + q4Opps.length + ' total)</div>' +
+          '<div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 8px;">Opportunities with Target Sign Date in Q4 FY2025 (Nov 1 - Jan 31)</div>' +
           '<ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.4;">' +
             (top10.map(o => {
-              const marker = o.isOct ? '†' : (o.isNov ? '*' : '');
+              const marker = o.isNov ? '¹' : (o.isDec ? '²' : (o.isJan ? '³' : ''));
               return '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + marker + '</li>';
             }).join('') || '<li style="color: #9ca3af;">None</li>') +
           '</ol>' +
           (remaining.length > 0 ? '<details style="margin-top: 6px;"><summary style="cursor: pointer; font-size: 0.65rem; color: #1e40af; font-weight: 600;">+' + remaining.length + ' more opportunities</summary>' +
             '<ol start="11" style="font-size: 0.65rem; margin: 4px 0 0 0; padding-left: 20px; line-height: 1.4; color: #6b7280;">' +
-              remaining.map(o => '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + (o.isOct ? '†' : (o.isNov ? '*' : '')) + '</li>').join('') +
+              remaining.map(o => '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + (o.isNov ? '¹' : (o.isDec ? '²' : (o.isJan ? '³' : ''))) + '</li>').join('') +
             '</ol></details>' : '') +
-          '<div style="font-size: 0.55rem; color: #6b7280; margin-top: 6px;">† = October target, * = November target</div>' +
+          '<div style="font-size: 0.55rem; color: #6b7280; margin-top: 6px;">¹ = Nov, ² = Dec, ³ = Jan target</div>' +
         '</div>';
       })()}
     </div>
     
     <!-- Signed Logos by Type + Pipeline Summary -->
     <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; align-items: stretch;">
-      <!-- Signed Logos by Customer Type - Live from Salesforce -->
+      <!-- Signed Logos by Fiscal Quarter - Live from Salesforce -->
       <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
-        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">SIGNED LOGOS BY TYPE</div>
+        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">SIGNED LOGOS BY QUARTER</div>
         <div style="font-size: 0.75rem;">
-          <!-- Revenue Customers -->
-          <details style="border-bottom: 1px solid #e5e7eb; background: #ecfdf5;">
-            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <div>
-                <span style="color: #065f46; font-weight: 600;">Revenue</span>
-                <div style="font-size: 0.55rem; color: #6b7280; font-weight: normal;">Paying customers with active contracts</div>
-              </div>
-              <span style="font-weight: 600; color: #065f46;">${logosByType.revenue.length}</span>
-            </summary>
-            <div style="padding: 6px 8px; background: #e9f5ec; font-size: 0.65rem; color: #15803d; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 2px 8px;">
-              ${logosByType.revenue.map(a => '<span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + a.accountName + '</span>').sort().join('') || 'None'}
-            </div>
-          </details>
-          <!-- Pilot Customers -->
-          <details style="border-bottom: 1px solid #e5e7eb;">
-            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <div>
-                <span style="color: #1e40af; font-weight: 600;">Pilot</span>
-                <div style="font-size: 0.55rem; color: #6b7280; font-weight: normal;">Active pilots or proof-of-concept engagements</div>
-              </div>
-              <span style="font-weight: 600; color: #1e40af;">${logosByType.pilot.length}</span>
-            </summary>
-            <div style="padding: 6px 8px; background: #eff6ff; font-size: 0.65rem; color: #1e40af; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 2px 8px;">
-              ${logosByType.pilot.map(a => '<span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + a.accountName + '</span>').sort().join('') || 'None'}
-            </div>
-          </details>
-          <!-- LOI Customers -->
-          <details style="border-bottom: 1px solid #e5e7eb;">
-            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <div>
-                <span style="color: #7c3aed; font-weight: 600;">LOI</span>
-                <div style="font-size: 0.55rem; color: #6b7280; font-weight: normal;">Signed letter of intent, pending contract</div>
-              </div>
-              <span style="font-weight: 600; color: #7c3aed;">${logosByType.loi.length}</span>
-            </summary>
-            <div style="padding: 6px 8px; background: #f5f3ff; font-size: 0.65rem; color: #7c3aed; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 2px 8px;">
-              ${logosByType.loi.map(a => '<span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + a.accountName + '</span>').sort().join('') || 'None'}
-            </div>
-          </details>
-          <!-- Total -->
-          <div style="display: flex; justify-content: space-between; padding: 8px 4px; font-weight: 700; background: #e5e7eb; margin-top: 4px; border-radius: 4px;">
-            <span>Total Signed Logos</span>
-            <span>${logosByType.revenue.length + logosByType.pilot.length + logosByType.loi.length}</span>
-          </div>
+          ${(() => {
+            // Calculate total across all quarters
+            const quarterOrder = ['FY2024', 'Q1 FY2025', 'Q2 FY2025', 'Q3 FY2025', 'Q4 FY2025', 'Q1 FY2026', 'Q2 FY2026', 'Q3 FY2026', 'Q4 FY2026'];
+            const totalSigned = quarterOrder.reduce((sum, q) => sum + (signedByFiscalQuarter[q]?.size || 0), 0);
+            
+            return quarterOrder
+              .filter(q => signedByFiscalQuarter[q]?.size > 0)
+              .map((quarter, idx, arr) => {
+                const accounts = signedByFiscalQuarter[quarter] ? [...signedByFiscalQuarter[quarter]].sort() : [];
+                const isCurrentQ4 = quarter === 'Q4 FY2026';
+                const bgColor = isCurrentQ4 ? 'background: #ecfdf5;' : '';
+                const textColor = isCurrentQ4 ? 'color: #065f46;' : 'color: #374151;';
+                const borderStyle = idx < arr.length - 1 ? 'border-bottom: 1px solid #e5e7eb;' : '';
+                
+                return '<details style="' + borderStyle + bgColor + '">' +
+                  '<summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">' +
+                    '<span style="' + textColor + '">' + quarter + (isCurrentQ4 ? ' (current)' : '') + '</span>' +
+                    '<span style="font-weight: 600; ' + textColor + '">' + accounts.length + '</span>' +
+                  '</summary>' +
+                  '<div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; ' + (isCurrentQ4 ? 'background: #e9f5ec;' : 'background: #f3f4f6;') + '">' +
+                    (accounts.join(', ') || 'None') +
+                  '</div>' +
+                '</details>';
+              }).join('') +
+              '<div style="display: flex; justify-content: space-between; padding: 8px 4px; font-weight: 700; background: #e5e7eb; margin-top: 4px; border-radius: 4px;">' +
+                '<span>Total</span>' +
+                '<span>' + totalSigned + '</span>' +
+              '</div>';
+          })()}
         </div>
-        <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Click category to expand • Live from Salesforce Customer_Type__c</div>
+        <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Click quarter to expand • Based on first CloseDate per account</div>
       </div>
       
       <!-- Run-Rate Forecast Table -->
@@ -862,11 +851,10 @@ function generateWeeklyTab(params) {
     
     <!-- Current Logos (Live from Salesforce) -->
     <div class="weekly-subsection" style="margin-top: 16px;">
-      <div class="weekly-subsection-title">Current Logos (${currentLogosCount} total: ${logosByType.revenue.length} Revenue + ${logosByType.pilot.length} Pilot + ${logosByType.loi.length} LOI)</div>
+      <div class="weekly-subsection-title">Current Logos (${currentLogosCount})</div>
       <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-top: 8px;">
-        <!-- All Logos -->
         <details>
-          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; margin-bottom: 8px;">
+          <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827;">
             ▸ All Logos (${uniqueLogos.length} unique) - click to expand
           </summary>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 0.65rem; color: #374151; margin-top: 8px;">
@@ -1206,6 +1194,48 @@ async function generateAccountDashboard() {
       });
     }
     console.log(`[Dashboard] All Closed Won by type: revenue=${signedByType.revenue.length}, pilot=${signedByType.pilot.length}, loi=${signedByType.loi.length}`);
+    
+    // Group signed deals by fiscal quarter for quarter-over-quarter view
+    // Fiscal Year: Feb 1 - Jan 31 (Q1: Feb-Apr, Q2: May-Jul, Q3: Aug-Oct, Q4: Nov-Jan)
+    const allSignedDeals = [...signedByType.revenue, ...signedByType.pilot, ...signedByType.loi];
+    const signedByFiscalQuarter = {
+      'FY2024': new Set(),      // Feb 2023 - Jan 2024
+      'Q1 FY2025': new Set(),   // Feb-Apr 2024
+      'Q2 FY2025': new Set(),   // May-Jul 2024
+      'Q3 FY2025': new Set(),   // Aug-Oct 2024
+      'Q4 FY2025': new Set(),   // Nov 2024 - Jan 2025
+      'Q1 FY2026': new Set(),   // Feb-Apr 2025
+      'Q2 FY2026': new Set(),   // May-Jul 2025
+      'Q3 FY2026': new Set(),   // Aug-Oct 2025
+      'Q4 FY2026': new Set()    // Nov 2025 - Jan 2026 (current)
+    };
+    
+    allSignedDeals.forEach(deal => {
+      if (!deal.closeDate) return;
+      const d = new Date(deal.closeDate);
+      const month = d.getMonth(); // 0-11
+      const year = d.getFullYear();
+      
+      // Determine fiscal year and quarter
+      // Fiscal year starts Feb 1, so Jan belongs to prior FY
+      const fiscalYear = month === 0 ? year : (month >= 1 ? year + 1 : year);
+      const fiscalYearLabel = 'FY' + fiscalYear;
+      
+      let quarter;
+      if (month >= 1 && month <= 3) quarter = 'Q1';      // Feb, Mar, Apr
+      else if (month >= 4 && month <= 6) quarter = 'Q2'; // May, Jun, Jul
+      else if (month >= 7 && month <= 9) quarter = 'Q3'; // Aug, Sep, Oct
+      else quarter = 'Q4';                                // Nov, Dec, Jan
+      
+      const key = quarter + ' ' + fiscalYearLabel;
+      if (signedByFiscalQuarter[key]) {
+        signedByFiscalQuarter[key].add(deal.accountName);
+      } else if (fiscalYear <= 2024) {
+        signedByFiscalQuarter['FY2024'].add(deal.accountName);
+      }
+    });
+    
+    console.log(`[Dashboard] Signed by fiscal quarter: Q4 FY2026=${signedByFiscalQuarter['Q4 FY2026'].size}, Q3 FY2026=${signedByFiscalQuarter['Q3 FY2026'].size}`);
     
     // Query Nov 1, 2024+ deals separately for Top Co section
     const novDecData = await query(novDecDealsQuery, true);
@@ -2190,7 +2220,7 @@ ${generateWeeklyTab({
   novDecRevenue, novDecRevenueTotal,
   contractsByAccount, recurringTotal, projectTotal,
   closedLostDeals, nurturedAccounts, daysInStageByStage, logosByType,
-  newOppsThisWeek, newOppsTotal, signedThisWeek
+  newOppsThisWeek, newOppsTotal, signedThisWeek, signedByFiscalQuarter
 })}
 
 <!-- TAB 3: REVENUE -->
