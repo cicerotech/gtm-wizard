@@ -680,12 +680,15 @@ function generateWeeklyTab(params) {
   const stageTotalCount = stageWoW.reduce((sum, s) => sum + s.oppCount, 0);
   
   // Current logos count from Account.Customer_Type__c (all tagged accounts)
+  // Use Set to deduplicate in case an account has multiple types
   const allLogos = [
     ...logosByType.revenue.map(a => a.accountName),
     ...logosByType.pilot.map(a => a.accountName),
     ...logosByType.loi.map(a => a.accountName)
   ];
-  const currentLogosCount = allLogos.length;
+  const uniqueLogos = [...new Set(allLogos)];
+  // Total should be sum of categories (not deduplicated) to match math
+  const currentLogosCount = logosByType.revenue.length + logosByType.pilot.length + logosByType.loi.length;
   
   // Run-rate forecast (using contract data)
   const fy2025Total = recurringTotal + projectTotal;
@@ -787,40 +790,49 @@ function generateWeeklyTab(params) {
           <!-- Revenue Customers -->
           <details style="border-bottom: 1px solid #e5e7eb; background: #ecfdf5;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #065f46;">Revenue</span>
+              <div>
+                <span style="color: #065f46; font-weight: 600;">Revenue</span>
+                <div style="font-size: 0.55rem; color: #6b7280; font-weight: normal;">Paying customers with active contracts</div>
+              </div>
               <span style="font-weight: 600; color: #065f46;">${logosByType.revenue.length}</span>
             </summary>
-            <div style="padding: 6px 8px; background: #e9f5ec; font-size: 0.65rem; color: #15803d;">
-              ${logosByType.revenue.map(a => a.accountName).sort().join(', ') || 'None'}
+            <div style="padding: 6px 8px; background: #e9f5ec; font-size: 0.65rem; color: #15803d; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 2px 8px;">
+              ${logosByType.revenue.map(a => '<span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + a.accountName + '</span>').sort().join('') || 'None'}
             </div>
           </details>
           <!-- Pilot Customers -->
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #1e40af;">Pilot</span>
+              <div>
+                <span style="color: #1e40af; font-weight: 600;">Pilot</span>
+                <div style="font-size: 0.55rem; color: #6b7280; font-weight: normal;">Active pilots or proof-of-concept engagements</div>
+              </div>
               <span style="font-weight: 600; color: #1e40af;">${logosByType.pilot.length}</span>
             </summary>
-            <div style="padding: 6px 8px; background: #eff6ff; font-size: 0.65rem; color: #1e40af;">
-              ${logosByType.pilot.map(a => a.accountName).sort().join(', ') || 'None'}
+            <div style="padding: 6px 8px; background: #eff6ff; font-size: 0.65rem; color: #1e40af; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 2px 8px;">
+              ${logosByType.pilot.map(a => '<span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + a.accountName + '</span>').sort().join('') || 'None'}
             </div>
           </details>
           <!-- LOI Customers -->
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #7c3aed;">LOI</span>
+              <div>
+                <span style="color: #7c3aed; font-weight: 600;">LOI</span>
+                <div style="font-size: 0.55rem; color: #6b7280; font-weight: normal;">Signed letter of intent, pending contract</div>
+              </div>
               <span style="font-weight: 600; color: #7c3aed;">${logosByType.loi.length}</span>
             </summary>
-            <div style="padding: 6px 8px; background: #f5f3ff; font-size: 0.65rem; color: #7c3aed;">
-              ${logosByType.loi.map(a => a.accountName).sort().join(', ') || 'None'}
+            <div style="padding: 6px 8px; background: #f5f3ff; font-size: 0.65rem; color: #7c3aed; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 2px 8px;">
+              ${logosByType.loi.map(a => '<span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + a.accountName + '</span>').sort().join('') || 'None'}
             </div>
           </details>
           <!-- Total -->
           <div style="display: flex; justify-content: space-between; padding: 8px 4px; font-weight: 700; background: #e5e7eb; margin-top: 4px; border-radius: 4px;">
-            <span>Total</span>
-            <span>${currentLogosCount}</span>
+            <span>Total Signed Logos</span>
+            <span>${logosByType.revenue.length + logosByType.pilot.length + logosByType.loi.length}</span>
           </div>
         </div>
-        <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Click category to expand • Live from Salesforce</div>
+        <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Click category to expand • Live from Salesforce Customer_Type__c</div>
       </div>
       
       <!-- Run-Rate Forecast Table -->
@@ -850,15 +862,15 @@ function generateWeeklyTab(params) {
     
     <!-- Current Logos (Live from Salesforce) -->
     <div class="weekly-subsection" style="margin-top: 16px;">
-      <div class="weekly-subsection-title">Current Logos (${currentLogosCount} total)</div>
+      <div class="weekly-subsection-title">Current Logos (${currentLogosCount} total: ${logosByType.revenue.length} Revenue + ${logosByType.pilot.length} Pilot + ${logosByType.loi.length} LOI)</div>
       <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-top: 8px;">
         <!-- All Logos -->
         <details>
           <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; margin-bottom: 8px;">
-            ▸ All Logos (${currentLogosCount}) - click to expand
+            ▸ All Logos (${uniqueLogos.length} unique) - click to expand
           </summary>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 0.65rem; color: #374151; margin-top: 8px;">
-            ${[...new Set(allLogos)].sort().map(logo => '<div style="padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + logo + '</div>').join('')}
+            ${uniqueLogos.sort().map(logo => '<div style="padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + logo + '</div>').join('')}
           </div>
         </details>
       </div>
@@ -2372,54 +2384,61 @@ ${generateWeeklyTab({
 <!-- TAB 4: ACCOUNTS -->
 <div id="account-plans" class="tab-content">
   <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: #374151;">
-    <strong>All Accounts</strong> — Current active accounts and pipeline.
+    <strong>All Accounts</strong> — Current active accounts and pipeline. Totals based on Salesforce Customer_Type__c field.
   </div>
   
-  <!-- Logos by Customer Type (matches badges shown below) -->
-  <div style="display: grid; grid-template-columns: repeat(1, 1fr); gap: 8px; margin-bottom: 12px;">
-    <style>
-      @media (min-width: 640px) {
-        .accounts-type-grid { grid-template-columns: repeat(3, 1fr) !important; }
-      }
-    </style>
+  <!-- Logos by Customer Type - Using consistent logosByType data -->
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;">
     <!-- REVENUE Tile -->
-    <div class="accounts-type-grid" style="background: #f0fdf4; padding: 12px; border-radius: 6px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+    <div style="background: #f0fdf4; padding: 12px; border-radius: 6px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.7rem; font-weight: 700; color: #059669;">REVENUE</div>
-        <div style="font-size: 1.25rem; font-weight: 700; color: #15803d;">${Object.keys(eudiaNovemberARR).length + Object.keys(jhNovemberARR).length + Object.keys(outHouseNovemberARR).length}</div>
+        <div style="font-size: 1.25rem; font-weight: 700; color: #15803d;">${logosByType.revenue.length}</div>
       </div>
+      <div style="font-size: 0.55rem; color: #6b7280; margin: 4px 0;">Paying customers with active contracts</div>
       <details style="font-size: 0.6rem; color: #6b7280;">
-        <summary style="cursor: pointer; color: #059669; font-weight: 500; margin-bottom: 4px;">View accounts ›</summary>
-        <div style="margin-top: 6px; line-height: 1.5;">
-          ${logosByType.revenue.filter(a => accountsWithLOIHistory.has(a.accountName)).map(a => a.accountName + '†').join(', ')}${logosByType.revenue.filter(a => accountsWithLOIHistory.has(a.accountName)).length > 0 && logosByType.revenue.filter(a => !accountsWithLOIHistory.has(a.accountName)).length > 0 ? ', ' : ''}${logosByType.revenue.filter(a => !accountsWithLOIHistory.has(a.accountName)).map(a => a.accountName).join(', ') || ''}, ${jhAccounts.filter(a => a.totalACV > 0).slice(0, 15).map(a => a.name.replace(/ (Ireland|UC|Limited|LLC|Technologies UK Limited|Pharma|Group|International Unlimited Company).*$/i, '')).join(', ')}${jhAccounts.filter(a => a.totalACV > 0).length > 15 ? ', +' + (jhAccounts.filter(a => a.totalACV > 0).length - 15) + ' more' : ''}
+        <summary style="cursor: pointer; color: #059669; font-weight: 500;">View accounts ›</summary>
+        <div style="margin-top: 6px; display: grid; grid-template-columns: 1fr; gap: 2px; max-height: 200px; overflow-y: auto;">
+          ${logosByType.revenue.map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a.accountName + '</div>').sort().join('') || '-'}
         </div>
       </details>
-      <div style="font-size: 0.5rem; color: #9ca3af; margin-top: 4px;">† = via LOI</div>
     </div>
     
     <!-- PILOT Tile -->
     <div style="background: #eff6ff; padding: 12px; border-radius: 6px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.7rem; font-weight: 700; color: #2563eb;">PILOT</div>
         <div style="font-size: 1.25rem; font-weight: 700; color: #1e40af;">${logosByType.pilot.length}</div>
       </div>
+      <div style="font-size: 0.55rem; color: #6b7280; margin: 4px 0;">Active pilots or proof-of-concept</div>
       <details style="font-size: 0.6rem; color: #6b7280;">
-        <summary style="cursor: pointer; color: #2563eb; font-weight: 500; margin-bottom: 4px;">View accounts ›</summary>
-        <div style="margin-top: 6px; line-height: 1.5;">${logosByType.pilot.map(a => a.accountName).join(', ') || '-'}</div>
+        <summary style="cursor: pointer; color: #2563eb; font-weight: 500;">View accounts ›</summary>
+        <div style="margin-top: 6px; display: grid; grid-template-columns: 1fr; gap: 2px; max-height: 200px; overflow-y: auto;">
+          ${logosByType.pilot.map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a.accountName + '</div>').sort().join('') || '-'}
+        </div>
       </details>
     </div>
     
     <!-- LOI Tile -->
-    <div style="background: #f9fafb; padding: 12px; border-radius: 6px; border: 1px solid #e5e7eb;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <div style="font-size: 0.7rem; font-weight: 700; color: #6b7280;">LOI</div>
-        <div style="font-size: 1.25rem; font-weight: 700; color: #374151;">${logosByType.loi.length}</div>
+    <div style="background: #faf5ff; padding: 12px; border-radius: 6px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-size: 0.7rem; font-weight: 700; color: #7c3aed;">LOI</div>
+        <div style="font-size: 1.25rem; font-weight: 700; color: #7c3aed;">${logosByType.loi.length}</div>
       </div>
+      <div style="font-size: 0.55rem; color: #6b7280; margin: 4px 0;">Signed LOI, pending contract</div>
       <details style="font-size: 0.6rem; color: #6b7280;">
-        <summary style="cursor: pointer; color: #374151; font-weight: 500; margin-bottom: 4px;">View accounts ›</summary>
-        <div style="margin-top: 6px; line-height: 1.5;">${logosByType.loi.map(a => a.accountName).join(', ') || '-'}</div>
+        <summary style="cursor: pointer; color: #7c3aed; font-weight: 500;">View accounts ›</summary>
+        <div style="margin-top: 6px; display: grid; grid-template-columns: 1fr; gap: 2px; max-height: 200px; overflow-y: auto;">
+          ${logosByType.loi.map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a.accountName + '</div>').sort().join('') || '-'}
+        </div>
       </details>
     </div>
+  </div>
+  
+  <!-- Total Signed Logos Summary -->
+  <div style="background: #1f2937; color: white; padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+    <span style="font-size: 0.75rem; font-weight: 600;">Total Signed Logos</span>
+    <span style="font-size: 1rem; font-weight: 700;">${logosByType.revenue.length + logosByType.pilot.length + logosByType.loi.length}</span>
   </div>
   
   <div class="section-card" style="padding: 12px; margin-bottom: 12px;">
