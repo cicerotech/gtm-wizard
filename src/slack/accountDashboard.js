@@ -550,16 +550,26 @@ function generateWeeklyTab(params) {
     return '$' + Math.round(val / 1000) + 'k';
   };
   
-  // Get opportunities with Q4 FY2025 target sign date (Oct, Nov, Dec 2025 or Jan 2026)
+  // Get opportunities with Q4 target sign date (Nov 1, 2025 - Jan 31, 2026)
+  // EXCLUDE Stage 0 - only count active pipeline stages (Stage 1-5)
   const q4Opps = [];
+  const activeStages = ['Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation'];
+  
   accountMap.forEach(acc => {
     acc.opportunities?.forEach(opp => {
       const targetDate = opp.Target_LOI_Date__c;
+      const stage = opp.StageName || '';
+      
+      // Skip Stage 0 opportunities - only include active stages
+      if (!activeStages.includes(stage)) {
+        return;
+      }
+      
       if (targetDate) {
         const d = new Date(targetDate);
         const month = d.getMonth();
         const year = d.getFullYear();
-        // Q4 FY2025 = Nov (10), Dec (11) 2025 or Jan (0) 2026 (Fiscal Q4: Nov 1 - Jan 31)
+        // Q4 = Nov (10), Dec (11) 2025 or Jan (0) 2026 (Fiscal Q4: Nov 1 - Jan 31)
         const isQ4 = (month >= 10 && year === 2025) || (month === 0 && year === 2026);
         if (isQ4) {
           q4Opps.push({
@@ -567,7 +577,7 @@ function generateWeeklyTab(params) {
             name: opp.Name,
             acv: opp.ACV__c || 0,
             weighted: opp.Weighted_ACV__c || 0,
-            stage: opp.StageName,
+            stage: stage,
             owner: acc.owner,
             targetDate: targetDate,
             month: month
@@ -576,9 +586,13 @@ function generateWeeklyTab(params) {
       }
     });
   });
-  q4Opps.sort((a, b) => b.acv - a.acv);
+  q4Opps.sort((a, b) => b.weighted - a.weighted); // Sort by weighted, not gross ACV
   const q4TotalACV = q4Opps.reduce((sum, o) => sum + o.acv, 0);
   const q4TotalWeighted = q4Opps.reduce((sum, o) => sum + o.weighted, 0);
+  
+  console.log(`[Dashboard] Q4 Pipeline: ${q4Opps.length} opps (Stage 1-5 only), Weighted Total: $${(q4TotalWeighted/1000000).toFixed(2)}M`);
+  // Debug: Log top 5 weighted opportunities
+  q4Opps.slice(0, 5).forEach(o => console.log(`  - ${o.account}: $${(o.weighted/1000).toFixed(0)}k weighted (Stage: ${o.stage})`));
   
   // Top 10 by ACV (from pipeline)
   const top10Opps = [];
