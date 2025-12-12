@@ -1208,9 +1208,54 @@ async function generateAccountDashboard() {
     }
     console.log(`[Dashboard] All Closed Won by type: revenue=${signedByType.revenue.length}, pilot=${signedByType.pilot.length}, loi=${signedByType.loi.length}`);
     
-    // NOTE: Signed by fiscal quarter is now populated in logos query using Account.First_Deal_Close_Date__c
-    // This ensures we use the accurate first close date per account and don't double-count
-    console.log(`[Dashboard] Signed by fiscal quarter (from Account.First_Deal_Close_Date__c): Q4 2025 QTD=${signedByFiscalQuarter['Q4 2025 (QTD)']?.size || 0}`);
+    // Group signed deals by fiscal quarter for quarter-over-quarter view
+    // Using calendar-intuitive labels: Q4 = Nov-Jan, Q1 = Feb-Apr, Q2 = May-Jul, Q3 = Aug-Oct
+    const allSignedDeals = [...signedByType.revenue, ...signedByType.pilot, ...signedByType.loi];
+    
+    // Track first close per account to avoid double-counting
+    const accountFirstClose = new Map();
+    allSignedDeals.forEach(deal => {
+      if (!deal.closeDate) return;
+      const existingDate = accountFirstClose.get(deal.accountName);
+      const dealDate = new Date(deal.closeDate);
+      if (!existingDate || dealDate < existingDate) {
+        accountFirstClose.set(deal.accountName, dealDate);
+      }
+    });
+    
+    // Assign each account to quarter based on their FIRST close date
+    accountFirstClose.forEach((closeDate, accountName) => {
+      const month = closeDate.getMonth(); // 0-11
+      const year = closeDate.getFullYear();
+      
+      // Determine quarter based on calendar year intuitive labeling
+      let quarterKey;
+      if (month >= 10) { // Nov, Dec
+        quarterKey = 'Q4 ' + year;
+      } else if (month === 0) { // Jan
+        quarterKey = 'Q4 ' + (year - 1); // Jan 2025 is part of Q4 2024
+      } else if (month >= 1 && month <= 3) { // Feb, Mar, Apr
+        quarterKey = 'Q1 ' + year;
+      } else if (month >= 4 && month <= 6) { // May, Jun, Jul
+        quarterKey = 'Q2 ' + year;
+      } else { // Aug, Sep, Oct
+        quarterKey = 'Q3 ' + year;
+      }
+      
+      // Current quarter gets (QTD) suffix
+      if (quarterKey === 'Q4 2025') {
+        quarterKey = 'Q4 2025 (QTD)';
+      }
+      
+      // Map to our defined quarters
+      if (signedByFiscalQuarter[quarterKey]) {
+        signedByFiscalQuarter[quarterKey].add(accountName);
+      } else if (year < 2024 || (year === 2024 && month < 10)) {
+        signedByFiscalQuarter['FY2024 & Prior'].add(accountName);
+      }
+    });
+    
+    console.log(`[Dashboard] Signed by fiscal quarter: Q4 2025 QTD=${signedByFiscalQuarter['Q4 2025 (QTD)']?.size || 0}, Q3 2025=${signedByFiscalQuarter['Q3 2025']?.size || 0}`);
     
     // Query Nov 1, 2024+ deals separately for Top Co section
     const novDecData = await query(novDecDealsQuery, true);
@@ -1242,9 +1287,10 @@ async function generateAccountDashboard() {
   // LOGOS BY TYPE - Query Account directly for Customer_Type__c
   // Includes ALL accounts with Customer_Type__c set (not just open pipeline)
   // ═══════════════════════════════════════════════════════════════════════
-  // Include First_Deal_Close_Date__c for fiscal quarter assignment
+  // Query accounts with Customer_Type__c for logo counts
+  // Note: First close date will be derived from opportunity data if account field not available
   const logosQuery = `
-    SELECT Name, Customer_Type__c, First_Deal_Close_Date__c
+    SELECT Name, Customer_Type__c
     FROM Account
     WHERE Customer_Type__c != null
     ORDER BY Name
@@ -1262,54 +1308,18 @@ async function generateAccountDashboard() {
       
       logosData.records.forEach(acc => {
         const ct = (acc.Customer_Type__c || '').toLowerCase().trim();
-        const firstCloseDate = acc.First_Deal_Close_Date__c;
         
         // Categorize by Customer_Type__c
         if (ct.includes('revenue') || ct === 'arr') {
-          logosByType.revenue.push({ accountName: acc.Name, firstCloseDate });
+          logosByType.revenue.push({ accountName: acc.Name });
         } else if (ct.includes('pilot')) {
-          logosByType.pilot.push({ accountName: acc.Name, firstCloseDate });
+          logosByType.pilot.push({ accountName: acc.Name });
         } else if (ct.includes('loi')) {
-          logosByType.loi.push({ accountName: acc.Name, firstCloseDate });
-        }
-        
-        // Also assign to fiscal quarter based on First_Deal_Close_Date__c
-        if (firstCloseDate) {
-          const d = new Date(firstCloseDate);
-          const month = d.getMonth(); // 0-11
-          const year = d.getFullYear();
-          
-          // Determine quarter based on calendar year intuitive labeling
-          // Q4 = Nov-Jan, Q1 = Feb-Apr, Q2 = May-Jul, Q3 = Aug-Oct
-          let quarterKey;
-          if (month >= 10) { // Nov, Dec
-            quarterKey = 'Q4 ' + year;
-          } else if (month === 0) { // Jan
-            quarterKey = 'Q4 ' + (year - 1); // Jan 2025 is part of Q4 2024
-          } else if (month >= 1 && month <= 3) { // Feb, Mar, Apr
-            quarterKey = 'Q1 ' + year;
-          } else if (month >= 4 && month <= 6) { // May, Jun, Jul
-            quarterKey = 'Q2 ' + year;
-          } else { // Aug, Sep, Oct
-            quarterKey = 'Q3 ' + year;
-          }
-          
-          // Current quarter gets (QTD) suffix
-          if (quarterKey === 'Q4 2025') {
-            quarterKey = 'Q4 2025 (QTD)';
-          }
-          
-          // Map to our defined quarters
-          if (signedByFiscalQuarter[quarterKey]) {
-            signedByFiscalQuarter[quarterKey].add(acc.Name);
-          } else if (year < 2024 || (year === 2024 && month < 10)) {
-            signedByFiscalQuarter['FY2024 & Prior'].add(acc.Name);
-          }
+          logosByType.loi.push({ accountName: acc.Name });
         }
       });
     }
     console.log(`[Dashboard] Logos by type: revenue=${logosByType.revenue.length}, pilot=${logosByType.pilot.length}, loi=${logosByType.loi.length}`);
-    console.log(`[Dashboard] Signed by quarter from First_Deal_Close_Date: Q4 2025=${signedByFiscalQuarter['Q4 2025 (QTD)']?.size || 0}`);
   } catch (e) { console.error('Logos query error:', e.message); }
   
   // Helper function to format currency
