@@ -7,6 +7,41 @@ const logger = require('./utils/logger');
 const { initializeRedis } = require('./utils/cache');
 const { initializeSalesforce } = require('./salesforce/connection');
 const { initializeEmail } = require('./utils/emailService');
+const { Issuer, generators } = require('openid-client');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OKTA SSO CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════
+let oktaClient = null;
+const OKTA_ISSUER = process.env.OKTA_ISSUER || 'https://okta.eudia.com';
+const OKTA_CLIENT_ID = process.env.OKTA_CLIENT_ID;
+const OKTA_CLIENT_SECRET = process.env.OKTA_CLIENT_SECRET;
+const OKTA_REDIRECT_URI = process.env.OKTA_REDIRECT_URI || 'https://gtm-wizard.onrender.com/auth/callback';
+
+// Initialize Okta client (lazy loading)
+async function getOktaClient() {
+  if (oktaClient) return oktaClient;
+  
+  if (!OKTA_CLIENT_ID || !OKTA_CLIENT_SECRET) {
+    logger.warn('Okta SSO not configured - missing OKTA_CLIENT_ID or OKTA_CLIENT_SECRET');
+    return null;
+  }
+  
+  try {
+    const issuer = await Issuer.discover(OKTA_ISSUER);
+    oktaClient = new issuer.Client({
+      client_id: OKTA_CLIENT_ID,
+      client_secret: OKTA_CLIENT_SECRET,
+      redirect_uris: [OKTA_REDIRECT_URI],
+      response_types: ['code']
+    });
+    logger.info('✅ Okta SSO client initialized');
+    return oktaClient;
+  } catch (error) {
+    logger.error('Failed to initialize Okta client:', error.message);
+    return null;
+  }
+}
 
 // Import handlers
 const { registerSlashCommands } = require('./slack/commands');
@@ -368,7 +403,127 @@ class GTMBrainApp {
       res.sendFile(logoPath);
     });
 
-    // Account Status Dashboard - Password protected with analytics
+    // ═══════════════════════════════════════════════════════════════════════════
+    // OKTA SSO ROUTES
+    // ═══════════════════════════════════════════════════════════════════════════
+    const OKTA_SESSION_COOKIE = 'gtm_okta_session';
+    const OKTA_NONCE_COOKIE = 'gtm_okta_nonce';
+    const OKTA_STATE_COOKIE = 'gtm_okta_state';
+    
+    // Login route - redirects to Okta
+    this.expressApp.get('/login', async (req, res) => {
+      try {
+        const client = await getOktaClient();
+        if (!client) {
+          // Fallback to password login if Okta not configured
+          return res.redirect('/account-dashboard');
+        }
+        
+        const nonce = generators.nonce();
+        const state = generators.state();
+        
+        // Store nonce and state in cookies for verification
+        res.cookie(OKTA_NONCE_COOKIE, nonce, { httpOnly: true, maxAge: 5 * 60 * 1000 }); // 5 min
+        res.cookie(OKTA_STATE_COOKIE, state, { httpOnly: true, maxAge: 5 * 60 * 1000 });
+        
+        const authUrl = client.authorizationUrl({
+          scope: 'openid profile email',
+          state,
+          nonce,
+          redirect_uri: OKTA_REDIRECT_URI
+        });
+        
+        logger.info('🔐 Redirecting to Okta for authentication');
+        res.redirect(authUrl);
+      } catch (error) {
+        logger.error('Login error:', error.message);
+        res.redirect('/account-dashboard');
+      }
+    });
+    
+    // Okta callback route
+    this.expressApp.get('/auth/callback', async (req, res) => {
+      try {
+        const client = await getOktaClient();
+        if (!client) {
+          return res.redirect('/account-dashboard');
+        }
+        
+        const params = client.callbackParams(req);
+        const nonce = req.cookies[OKTA_NONCE_COOKIE];
+        const state = req.cookies[OKTA_STATE_COOKIE];
+        
+        const tokenSet = await client.callback(OKTA_REDIRECT_URI, params, { nonce, state });
+        const userInfo = await client.userinfo(tokenSet.access_token);
+        
+        // Clear nonce/state cookies
+        res.clearCookie(OKTA_NONCE_COOKIE);
+        res.clearCookie(OKTA_STATE_COOKIE);
+        
+        // Create session with user info
+        const sessionData = {
+          email: userInfo.email,
+          name: userInfo.name || userInfo.preferred_username,
+          sub: userInfo.sub,
+          exp: Date.now() + (30 * 24 * 60 * 60 * 1000) // 30 days
+        };
+        
+        // Store session as base64 encoded JSON in cookie
+        const sessionToken = Buffer.from(JSON.stringify(sessionData)).toString('base64');
+        res.cookie(OKTA_SESSION_COOKIE, sessionToken, { 
+          httpOnly: true, 
+          maxAge: 30 * 24 * 60 * 60 * 1000,
+          secure: process.env.NODE_ENV === 'production'
+        });
+        
+        logger.info(`✅ Okta SSO login successful: ${userInfo.email}`);
+        res.redirect('/account-dashboard');
+      } catch (error) {
+        logger.error('Okta callback error:', error.message);
+        res.send(`
+          <html><body style="font-family: sans-serif; padding: 40px; text-align: center;">
+            <h2>Authentication Error</h2>
+            <p>${error.message}</p>
+            <a href="/login">Try again</a>
+          </body></html>
+        `);
+      }
+    });
+    
+    // Logout route - clears Okta session
+    this.expressApp.get('/logout', async (req, res) => {
+      res.clearCookie(OKTA_SESSION_COOKIE);
+      res.clearCookie('gtm_dash_auth');
+      res.clearCookie('gtm_dash_user');
+      
+      // Redirect to Okta logout if configured
+      if (OKTA_CLIENT_ID) {
+        const logoutUrl = `${OKTA_ISSUER}/oauth2/v1/logout?client_id=${OKTA_CLIENT_ID}&post_logout_redirect_uri=${encodeURIComponent('https://gtm-wizard.onrender.com')}`;
+        return res.redirect(logoutUrl);
+      }
+      
+      res.redirect('/account-dashboard');
+    });
+    
+    // Helper to validate Okta session
+    const validateOktaSession = (req) => {
+      const sessionToken = req.cookies[OKTA_SESSION_COOKIE];
+      if (!sessionToken) return null;
+      
+      try {
+        const sessionData = JSON.parse(Buffer.from(sessionToken, 'base64').toString());
+        if (sessionData.exp < Date.now()) {
+          return null; // Session expired
+        }
+        return sessionData;
+      } catch {
+        return null;
+      }
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Account Status Dashboard - Okta SSO + Password fallback
+    // ═══════════════════════════════════════════════════════════════════════════
     const DASHBOARD_PASSWORDS = ['eudia-gtm'];
     const AUTH_COOKIE = 'gtm_dash_auth';
     const USER_COOKIE = 'gtm_dash_user';
@@ -439,10 +594,13 @@ class GTMBrainApp {
         return res.status(429).send('Too many requests. Please wait a moment and try again.');
       }
       
-      // Check auth cookie
-      if (req.cookies[AUTH_COOKIE] === 'authenticated') {
+      // Check for Okta SSO session first
+      const oktaSession = validateOktaSession(req);
+      
+      // Check auth: Okta session OR password cookie
+      if (oktaSession || req.cookies[AUTH_COOKIE] === 'authenticated') {
         try {
-          const userName = req.cookies[USER_COOKIE];
+          const userName = oktaSession?.name || req.cookies[USER_COOKIE];
           const { html, cached } = await getCachedDashboard();
           logAccess(userName, clientIP, cached);
           
@@ -453,6 +611,11 @@ class GTMBrainApp {
           res.status(500).send(`Error: ${error.message}`);
         }
       } else {
+        // Redirect to Okta login if configured, otherwise show password form
+        const client = await getOktaClient();
+        if (client) {
+          return res.redirect('/login');
+        }
         const { generateLoginPage } = require('./slack/accountDashboard');
         res.send(generateLoginPage());
       }
