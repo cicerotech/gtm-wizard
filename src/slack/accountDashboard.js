@@ -538,7 +538,8 @@ function generateWeeklyTab(params) {
     contractsByAccount, recurringTotal, projectTotal,
     closedLostDeals = [], nurturedAccounts = [], daysInStageByStage = {},
     logosByType = { revenue: [], pilot: [], loi: [] },
-    newOppsThisWeek = [], newOppsTotal = 0
+    newOppsThisWeek = [], newOppsTotal = 0,
+    signedThisWeek = []
   } = params;
   
   // Helper for currency formatting
@@ -548,29 +549,35 @@ function generateWeeklyTab(params) {
     return '$' + Math.round(val / 1000) + 'k';
   };
   
-  // Get opportunities with December sign date (Target_LOI_Date__c)
-  const decemberOpps = [];
+  // Get opportunities with Q4 FY2025 target sign date (Oct, Nov, Dec 2025 or Jan 2026)
+  const q4Opps = [];
   accountMap.forEach(acc => {
     acc.opportunities?.forEach(opp => {
       const targetDate = opp.Target_LOI_Date__c;
       if (targetDate) {
         const d = new Date(targetDate);
-        if (d.getMonth() === 11 && d.getFullYear() === 2025) { // December 2025
-          decemberOpps.push({
+        const month = d.getMonth();
+        const year = d.getFullYear();
+        // Q4 FY2025 = Oct (9), Nov (10), Dec (11) 2025 or Jan (0) 2026
+        const isQ4 = (month >= 9 && year === 2025) || (month === 0 && year === 2026);
+        if (isQ4) {
+          q4Opps.push({
             account: acc.name,
             name: opp.Name,
             acv: opp.ACV__c || 0,
             weighted: opp.Finance_Weighted_ACV__c || 0,
             stage: opp.StageName,
-            owner: acc.owner
+            owner: acc.owner,
+            targetDate: targetDate,
+            month: month
           });
         }
       }
     });
   });
-  decemberOpps.sort((a, b) => b.acv - a.acv);
-  const decTotalACV = decemberOpps.reduce((sum, o) => sum + o.acv, 0);
-  const decTotalWeighted = decemberOpps.reduce((sum, o) => sum + o.weighted, 0);
+  q4Opps.sort((a, b) => b.acv - a.acv);
+  const q4TotalACV = q4Opps.reduce((sum, o) => sum + o.acv, 0);
+  const q4TotalWeighted = q4Opps.reduce((sum, o) => sum + o.weighted, 0);
   
   // Top 10 by ACV (from pipeline)
   const top10Opps = [];
@@ -700,41 +707,36 @@ function generateWeeklyTab(params) {
   <div class="weekly-section">
     <div class="weekly-section-title">1. Revenue Forecast Snapshot</div>
     
-    <!-- Signed Since Last Week -->
+    <!-- Signed Since Last Week - Live from Salesforce -->
     <div class="weekly-subsection">
       <div style="font-weight: 600; font-size: 0.75rem; color: #374151; margin-bottom: 4px;">Signed Revenue since last week</div>
-      <div style="font-size: 0.75rem; color: #374151; margin-left: 12px; margin-bottom: 8px;">
-        <strong>Ecolab</strong> (Compliance) — $200k ACV, $600k TCV, 3-year term
-      </div>
-      <div style="font-weight: 600; font-size: 0.75rem; color: #374151; margin-bottom: 4px;">Signed LOIs since last week</div>
-      <div style="font-size: 0.75rem; color: #374151; margin-left: 12px;">
-        <strong>Udemy</strong> — $2m ACV, 1-year commitment
-      </div>
+      ${signedThisWeek.length > 0 ? signedThisWeek.map(deal => {
+        const termYears = deal.termMonths ? Math.round(deal.termMonths / 12) : 1;
+        const termLabel = termYears === 1 ? '1-year' : `${termYears}-year`;
+        const acvFmt = deal.acv >= 1000000 ? '$' + (deal.acv / 1000000).toFixed(1) + 'm' : '$' + Math.round(deal.acv / 1000) + 'k';
+        const tcvFmt = deal.tcv >= 1000000 ? '$' + (deal.tcv / 1000000).toFixed(1) + 'm' : '$' + Math.round(deal.tcv / 1000) + 'k';
+        const productLabel = deal.productLine ? ` (${deal.productLine})` : '';
+        return `<div style="font-size: 0.75rem; color: #374151; margin-left: 12px; margin-bottom: 4px;">
+          <strong>${deal.accountName}</strong>${productLabel} — ${acvFmt} ACV${deal.tcv > deal.acv ? `, ${tcvFmt} TCV` : ''}, ${termLabel} term
+        </div>`;
+      }).join('') : '<div style="font-size: 0.75rem; color: #9ca3af; margin-left: 12px; margin-bottom: 8px;">No deals signed in the last 7 days</div>'}
     </div>
     
     <!-- Opportunities with Q4 Target Sign Date - Consolidated -->
     <div class="weekly-subsection">
       <div class="weekly-subsection-title">Opportunities with Q4 Target Sign Date</div>
       
-      <!-- Q4 Stats Tiles -->
+      <!-- Q4 Stats Tiles - Live from Salesforce -->
       ${(() => {
-        // Calculate Q4 stats
-        const jhQ4Opps = (jhSummary?.pipeline || []).filter(o => {
-          if (!o.closeDate) return false;
-          const d = new Date(o.closeDate);
-          return (d.getMonth() >= 10 && d.getFullYear() === 2025) || (d.getMonth() === 0 && d.getFullYear() === 2026);
-        });
-        const allQ4Combined = [...decemberOpps, ...jhQ4Opps];
-        const totalQ4Count = allQ4Combined.length;
-        const totalQ4Pipeline = decTotalACV + jhQ4Opps.reduce((sum, o) => sum + (o.acv || 0), 0);
-        const avgDealSize = totalQ4Count > 0 ? Math.round(totalQ4Pipeline / totalQ4Count) : 0;
-        const totalWeightedQ4 = decTotalWeighted + jhQ4Opps.reduce((sum, o) => sum + (o.weighted || 0), 0);
+        // Q4 stats from live Salesforce data
+        const totalQ4Count = q4Opps.length;
+        const avgDealSize = totalQ4Count > 0 ? Math.round(q4TotalACV / totalQ4Count) : 0;
         
         return `
       <div style="display: flex; gap: 8px; margin-top: 8px; margin-bottom: 12px; flex-wrap: wrap;">
         <div style="flex: 1; min-width: 100px; background: #ecfdf5; padding: 10px; border-radius: 6px; text-align: center;">
           <div style="font-size: 0.6rem; font-weight: 600; color: #047857; margin-bottom: 2px;">Q4 PIPELINE</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #065f46;">${fmt(totalQ4Pipeline)}</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #065f46;">${fmt(q4TotalACV)}</div>
         </div>
         <div style="flex: 1; min-width: 100px; background: #eff6ff; padding: 10px; border-radius: 6px; text-align: center;">
           <div style="font-size: 0.6rem; font-weight: 600; color: #1e40af; margin-bottom: 2px;"># OF OPPS</div>
@@ -748,142 +750,111 @@ function generateWeeklyTab(params) {
       })()}
       
       ${(() => {
-        // Calculate Q4 opps for both count display and list
-        const jhQ4Opps = (jhSummary?.pipeline || []).filter(o => {
-          if (!o.closeDate) return false;
-          const d = new Date(o.closeDate);
-          return (d.getMonth() >= 10 && d.getFullYear() === 2025) || (d.getMonth() === 0 && d.getFullYear() === 2026);
-        }).map(o => ({
-          account: o.account,
-          acv: o.acv || 0,
-          isLegacy: true,
-          isNov: new Date(o.closeDate).getMonth() === 10
-        }));
-        
-        const totalQ4Combined = decemberOpps.length + jhQ4Opps.length;
-        
-        const allQ4Sorted = [
-          ...decemberOpps.map(o => ({ account: o.account, acv: o.acv, isNov: false })),
-          ...jhQ4Opps
-        ].sort((a, b) => b.acv - a.acv);
+        // Q4 opportunities from live Salesforce data
+        const allQ4Sorted = q4Opps.map(o => ({ 
+          account: o.account, 
+          acv: o.acv, 
+          isOct: o.month === 9,
+          isNov: o.month === 10 
+        })).sort((a, b) => b.acv - a.acv);
         
         const top10 = allQ4Sorted.slice(0, 10);
         const remaining = allQ4Sorted.slice(10);
         
         return '<div style="background: #f9fafb; border-radius: 8px; padding: 12px;">' +
-          '<div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">TOP OPPORTUNITIES (' + totalQ4Combined + ' total)</div>' +
+          '<div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">TOP OPPORTUNITIES (' + q4Opps.length + ' total)</div>' +
           '<ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.4;">' +
             (top10.map(o => {
-              const novMarker = o.isNov ? '*' : '';
-              return '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + novMarker + '</li>';
+              const marker = o.isOct ? '†' : (o.isNov ? '*' : '');
+              return '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + marker + '</li>';
             }).join('') || '<li style="color: #9ca3af;">None</li>') +
           '</ol>' +
           (remaining.length > 0 ? '<details style="margin-top: 6px;"><summary style="cursor: pointer; font-size: 0.65rem; color: #1e40af; font-weight: 600;">+' + remaining.length + ' more opportunities</summary>' +
             '<ol start="11" style="font-size: 0.65rem; margin: 4px 0 0 0; padding-left: 20px; line-height: 1.4; color: #6b7280;">' +
-              remaining.map(o => '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + (o.isNov ? '*' : '') + '</li>').join('') +
+              remaining.map(o => '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + (o.isOct ? '†' : (o.isNov ? '*' : '')) + '</li>').join('') +
             '</ol></details>' : '') +
-          '<div style="font-size: 0.55rem; color: #6b7280; margin-top: 6px;">* = November target</div>' +
+          '<div style="font-size: 0.55rem; color: #6b7280; margin-top: 6px;">† = October target, * = November target</div>' +
         '</div>';
       })()}
     </div>
     
-    <!-- Signed Logos + Run-Rate Forecast (matching tile widths + heights) -->
+    <!-- Signed Logos by Type + Pipeline Summary -->
     <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; align-items: stretch;">
-      <!-- Signed Logos Table - 50% width, same background, same height -->
+      <!-- Signed Logos by Customer Type - Live from Salesforce -->
       <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
-        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">SIGNED LOGOS</div>
+        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">SIGNED LOGOS BY TYPE</div>
         <div style="font-size: 0.75rem;">
-          <!-- FY2024 -->
-          <details style="border-bottom: 1px solid #e5e7eb;">
-            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer; color: #6b7280;">
-              <span>FY2024</span>
-              <span style="font-weight: 600;">27</span>
-            </summary>
-            <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
-              ACS, Airbnb, Airship, BOI, Cargill, Coleman Legal, CommScope, Creed McStay, Datalex, Dropbox, ECMS, ESB, Etsy, Glanbia, Graybar Electric, Hayes, Indeed, Irish Water, Kellanova, NTMA, OpenAI, Southwest Airlines, Stripe, Teamwork, TikTok, Tinder, Udemy
-            </div>
-          </details>
-          <!-- Q1 FY2025 (Feb-Apr 2025) -->
-          <details style="border-bottom: 1px solid #e5e7eb;">
-            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span>Q1 FY2025</span>
-              <span style="font-weight: 600;">8</span>
-            </summary>
-            <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
-              Coherent, Coillte, Consensys, DCEDIY, Duracell, Gilead, Northern Trust, Sisk
-            </div>
-          </details>
-          <!-- Q2 FY2025 (May-Jul 2025) -->
-          <details style="border-bottom: 1px solid #e5e7eb;">
-            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span>Q2 FY2025</span>
-              <span style="font-weight: 600;">5</span>
-            </summary>
-            <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
-              Intuit, National Grid, Orsted, Perrigo, Taoglas
-            </div>
-          </details>
-          <!-- Q3 FY2025 (Aug-Oct 2025) -->
-          <details style="border-bottom: 1px solid #e5e7eb;">
-            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span>Q3 FY2025</span>
-              <span style="font-weight: 600;">28</span>
-            </summary>
-            <div style="padding: 6px 8px; background: #f3f4f6; font-size: 0.65rem; color: #6b7280;">
-              AES, Amazon, Asana, Bayer, Best Buy, Chevron, CHS, Coimisiún na Meán, Cox Media Group, DHL North America, Dolby, Ecolab, Fresh Del Monte, GE Vernova, Gov - DOD, Kingspan, Meta, Novelis, Peregrine Hospitality, Petsmart, Pure Storage, Sandbox, Tailored Brands, The Weir Group PLC, The Wonderful Company, Toshiba US, Wealth Partners Capital Group, Western Digital
-            </div>
-          </details>
-          <!-- Q4 FY2025 (Nov-Dec 2025 to date) -->
+          <!-- Revenue Customers -->
           <details style="border-bottom: 1px solid #e5e7eb; background: #ecfdf5;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span>Q4 FY2025 (to date)</span>
-              <span style="font-weight: 600;">6</span>
+              <span style="color: #065f46;">Revenue</span>
+              <span style="font-weight: 600; color: #065f46;">${logosByType.revenue.length}</span>
             </summary>
             <div style="padding: 6px 8px; background: #e9f5ec; font-size: 0.65rem; color: #15803d;">
-              Aryza, BNY Mellon, Delinea, IQVIA, Udemy Ireland Limited, World Wide Technology
+              ${logosByType.revenue.map(a => a.accountName).sort().join(', ') || 'None'}
+            </div>
+          </details>
+          <!-- Pilot Customers -->
+          <details style="border-bottom: 1px solid #e5e7eb;">
+            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
+              <span style="color: #1e40af;">Pilot</span>
+              <span style="font-weight: 600; color: #1e40af;">${logosByType.pilot.length}</span>
+            </summary>
+            <div style="padding: 6px 8px; background: #eff6ff; font-size: 0.65rem; color: #1e40af;">
+              ${logosByType.pilot.map(a => a.accountName).sort().join(', ') || 'None'}
+            </div>
+          </details>
+          <!-- LOI Customers -->
+          <details style="border-bottom: 1px solid #e5e7eb;">
+            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
+              <span style="color: #7c3aed;">LOI</span>
+              <span style="font-weight: 600; color: #7c3aed;">${logosByType.loi.length}</span>
+            </summary>
+            <div style="padding: 6px 8px; background: #f5f3ff; font-size: 0.65rem; color: #7c3aed;">
+              ${logosByType.loi.map(a => a.accountName).sort().join(', ') || 'None'}
             </div>
           </details>
           <!-- Total -->
           <div style="display: flex; justify-content: space-between; padding: 8px 4px; font-weight: 700; background: #e5e7eb; margin-top: 4px; border-radius: 4px;">
             <span>Total</span>
-            <span>74</span>
+            <span>${currentLogosCount}</span>
           </div>
         </div>
-        <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Click period to expand</div>
+        <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Click category to expand • Live from Salesforce</div>
       </div>
       
-      <!-- Run-Rate Forecast Table - 50% width, SAME background, same height -->
+      <!-- Pipeline Summary -->
       <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
-        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">RUN-RATE FORECAST ($)</div>
+        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">PIPELINE SUMMARY</div>
         <table class="weekly-table" style="width: 100%; flex: 1;">
           <thead>
-            <tr><th style="width: 65%;">Month</th><th style="text-align: right; width: 35%;">Combined</th></tr>
+            <tr><th style="width: 65%;">Metric</th><th style="text-align: right; width: 35%;">Value</th></tr>
           </thead>
           <tbody>
-            <tr><td>August</td><td style="text-align: right;">$17.6m</td></tr>
-            <tr><td>September</td><td style="text-align: right;">$18.4m</td></tr>
-            <tr><td>October</td><td style="text-align: right;">$19.8m</td></tr>
-            <tr><td>November (EOM)</td><td style="text-align: right;">$19.26m</td></tr>
+            <tr><td>Gross Pipeline</td><td style="text-align: right;">${fmt(totalGross)}</td></tr>
+            <tr><td>Weighted Pipeline</td><td style="text-align: right;">${fmt(totalWeighted)}</td></tr>
+            <tr><td>Q4 Target Pipeline</td><td style="text-align: right;">${fmt(q4TotalACV)}</td></tr>
+            <tr><td>Q4 Weighted</td><td style="text-align: right;">${fmt(q4TotalWeighted)}</td></tr>
             <tr style="font-weight: 600; background: #e5e7eb;">
-              <td>FY2025E Total</td>
-              <td style="text-align: right; color: #111827;">~$22m</td>
+              <td>Total Opportunities</td>
+              <td style="text-align: right; color: #111827;">${totalDeals}</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
     
-    <!-- Current Logos (Consolidated Single Tile) -->
+    <!-- Current Logos (Live from Salesforce) -->
     <div class="weekly-subsection" style="margin-top: 16px;">
-      <div class="weekly-subsection-title">Current Logos (74 total)</div>
+      <div class="weekly-subsection-title">Current Logos (${currentLogosCount} total)</div>
       <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-top: 8px;">
         <!-- All Logos -->
         <details>
           <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827; margin-bottom: 8px;">
-            ▸ All Logos (74) - click to expand
+            ▸ All Logos (${currentLogosCount}) - click to expand
           </summary>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 0.65rem; color: #374151; margin-top: 8px;">
-            ${[...allLogos, ...jhSignedLogos.fy2024, ...jhSignedLogos.q1fy2025, ...jhSignedLogos.q2fy2025, ...jhSignedLogos.q3fy2025, ...jhSignedLogos.q4fy2025, 'Meta'].sort().map(logo => '<div style="padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + logo + '</div>').join('')}
+            ${[...new Set(allLogos)].sort().map(logo => '<div style="padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + logo + '</div>').join('')}
           </div>
         </details>
       </div>
@@ -1372,6 +1343,43 @@ async function generateAccountDashboard() {
     console.error('Closed Lost query error:', e.message);
     // Fallback to empty - no hardcoded data
     closedLostDeals = [];
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // CLOSED WON THIS WEEK - Deals signed in last 7 days (for Weekly tab)
+  // ═══════════════════════════════════════════════════════════════════════
+  const closedWonThisWeekQuery = `
+    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, 
+           Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name
+    FROM Opportunity
+    WHERE StageName = 'Stage 6. Closed(Won)'
+      AND CloseDate >= LAST_N_DAYS:7
+    ORDER BY CloseDate DESC
+  `;
+  
+  let signedThisWeek = [];
+  
+  try {
+    const closedWonData = await query(closedWonThisWeekQuery, true);
+    console.log(`[Dashboard] Closed Won This Week query returned ${closedWonData?.records?.length || 0} records`);
+    if (closedWonData?.records) {
+      closedWonData.records.forEach(opp => {
+        signedThisWeek.push({
+          accountName: opp.Account?.Name || 'Unknown',
+          oppName: opp.Name || '',
+          acv: opp.ACV__c || 0,
+          tcv: opp.TCV__c || 0,
+          termMonths: opp.Contract_Term_Months__c || 12,
+          productLine: opp.Product_Line__c || '',
+          revenueType: opp.Revenue_Type__c || '',
+          owner: opp.Owner?.Name || '',
+          closeDate: opp.CloseDate
+        });
+      });
+    }
+  } catch (e) { 
+    console.error('Closed Won This Week query error:', e.message);
+    signedThisWeek = [];
   }
   
   // ═══════════════════════════════════════════════════════════════════════
@@ -2182,7 +2190,7 @@ ${generateWeeklyTab({
   novDecRevenue, novDecRevenueTotal,
   contractsByAccount, recurringTotal, projectTotal,
   closedLostDeals, nurturedAccounts, daysInStageByStage, logosByType,
-  newOppsThisWeek, newOppsTotal
+  newOppsThisWeek, newOppsTotal, signedThisWeek
 })}
 
 <!-- TAB 3: REVENUE -->
