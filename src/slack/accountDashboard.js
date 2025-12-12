@@ -566,7 +566,7 @@ function generateWeeklyTab(params) {
             account: acc.name,
             name: opp.Name,
             acv: opp.ACV__c || 0,
-            weighted: opp.Finance_Weighted_ACV__c || 0,
+            weighted: opp.Weighted_ACV__c || 0,
             stage: opp.StageName,
             owner: acc.owner,
             targetDate: targetDate,
@@ -792,36 +792,36 @@ function generateWeeklyTab(params) {
         <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">SIGNED LOGOS BY QUARTER</div>
         <div style="font-size: 0.75rem;">
           ${(() => {
-            // Calculate total across all quarters
-            const quarterOrder = ['FY2024', 'Q1 FY2025', 'Q2 FY2025', 'Q3 FY2025', 'Q4 FY2025', 'Q1 FY2026', 'Q2 FY2026', 'Q3 FY2026', 'Q4 FY2026'];
+            // Calculate total across all quarters - only showing through current quarter
+            const quarterOrder = ['FY2024', 'Q1 FY2025', 'Q2 FY2025', 'Q3 FY2025', 'Q4 FY2025', 'Q4 FY2026 (YTD)'];
             const totalSigned = quarterOrder.reduce((sum, q) => sum + (signedByFiscalQuarter[q]?.size || 0), 0);
             
             return quarterOrder
               .filter(q => signedByFiscalQuarter[q]?.size > 0)
               .map((quarter, idx, arr) => {
                 const accounts = signedByFiscalQuarter[quarter] ? [...signedByFiscalQuarter[quarter]].sort() : [];
-                const isCurrentQ4 = quarter === 'Q4 FY2026';
-                const bgColor = isCurrentQ4 ? 'background: #ecfdf5;' : '';
-                const textColor = isCurrentQ4 ? 'color: #065f46;' : 'color: #374151;';
+                const isCurrentQuarter = quarter === 'Q4 FY2026 (YTD)';
+                const bgColor = isCurrentQuarter ? 'background: #ecfdf5;' : '';
+                const textColor = isCurrentQuarter ? 'color: #065f46;' : 'color: #374151;';
                 const borderStyle = idx < arr.length - 1 ? 'border-bottom: 1px solid #e5e7eb;' : '';
                 
                 return '<details style="' + borderStyle + bgColor + '">' +
                   '<summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">' +
-                    '<span style="' + textColor + '">' + quarter + (isCurrentQ4 ? ' (current)' : '') + '</span>' +
+                    '<span style="' + textColor + '">' + quarter + '</span>' +
                     '<span style="font-weight: 600; ' + textColor + '">' + accounts.length + '</span>' +
                   '</summary>' +
-                  '<div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; ' + (isCurrentQ4 ? 'background: #e9f5ec;' : 'background: #f3f4f6;') + '">' +
+                  '<div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; ' + (isCurrentQuarter ? 'background: #e9f5ec;' : 'background: #f3f4f6;') + '">' +
                     (accounts.join(', ') || 'None') +
                   '</div>' +
                 '</details>';
               }).join('') +
               '<div style="display: flex; justify-content: space-between; padding: 8px 4px; font-weight: 700; background: #e5e7eb; margin-top: 4px; border-radius: 4px;">' +
-                '<span>Total</span>' +
+                '<span>Total Signed (All Time)</span>' +
                 '<span>' + totalSigned + '</span>' +
               '</div>';
           })()}
         </div>
-        <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Click quarter to expand • Based on first CloseDate per account</div>
+        <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Unique accounts by first Closed Won date • May differ from Current Logos if contracts expired</div>
       </div>
       
       <!-- Run-Rate Forecast Table -->
@@ -1158,16 +1158,16 @@ async function generateAccountDashboard() {
   
   // Signed deals grouped by fiscal quarter (for QoQ view)
   // Declared outside try block so it's accessible when passed to generateWeeklyTab
+  // Fiscal Year: Feb 1 - Jan 31 (Q1: Feb-Apr, Q2: May-Jul, Q3: Aug-Oct, Q4: Nov-Jan)
+  // Showing FY2024 + FY2025 (all quarters through Q4)
+  // Q4 FY2025 = Nov 2024 - Jan 2025, current period (Dec 2025) is Q4 FY2026
   let signedByFiscalQuarter = {
-    'FY2024': new Set(),
-    'Q1 FY2025': new Set(),
-    'Q2 FY2025': new Set(),
-    'Q3 FY2025': new Set(),
-    'Q4 FY2025': new Set(),
-    'Q1 FY2026': new Set(),
-    'Q2 FY2026': new Set(),
-    'Q3 FY2026': new Set(),
-    'Q4 FY2026': new Set()
+    'FY2024': new Set(),       // Feb 2023 - Jan 2024 and earlier
+    'Q1 FY2025': new Set(),    // Feb - Apr 2024
+    'Q2 FY2025': new Set(),    // May - Jul 2024
+    'Q3 FY2025': new Set(),    // Aug - Oct 2024
+    'Q4 FY2025': new Set(),    // Nov 2024 - Jan 2025
+    'Q4 FY2026 (YTD)': new Set()  // Nov 2025 - present (current quarter to date)
   };
   
   // Helper to check if account is a sample/test/dummy account
@@ -1234,7 +1234,11 @@ async function generateAccountDashboard() {
       if (signedByFiscalQuarter[key]) {
         signedByFiscalQuarter[key].add(deal.accountName);
       } else if (fiscalYear <= 2024) {
+        // Group all pre-FY2025 into FY2024
         signedByFiscalQuarter['FY2024'].add(deal.accountName);
+      } else if (fiscalYear >= 2026) {
+        // Group FY2026+ deals into current quarter (Q4 FY2026 YTD)
+        signedByFiscalQuarter['Q4 FY2026 (YTD)'].add(deal.accountName);
       }
     });
     
@@ -1576,7 +1580,7 @@ async function generateAccountDashboard() {
   // FIXED: Include ALL stages (0-4) to match SF report totals
   const pipelineQuery = `SELECT StageName,
                                 SUM(ACV__c) GrossAmount,
-                                SUM(Finance_Weighted_ACV__c) WeightedAmount,
+                                SUM(Weighted_ACV__c) WeightedAmount,
                                 COUNT(Id) DealCount
                          FROM Opportunity
                          WHERE IsClosed = false 
@@ -1605,7 +1609,7 @@ async function generateAccountDashboard() {
   // ADDED: Johnson_Hana_Owner__c for JH opportunities (use this instead of Owner.Name when present)
   const accountQuery = `SELECT Account.Id, Account.Name, Owner.Name, Account.Is_New_Logo__c,
                                Account.Account_Plan_s__c, Account.Customer_Type__c,
-                               Name, StageName, ACV__c, Finance_Weighted_ACV__c, Product_Line__c,
+                               Name, StageName, ACV__c, Weighted_ACV__c, Product_Line__c,
                                Target_LOI_Date__c, Johnson_Hana_Owner__c
                         FROM Opportunity
                         WHERE IsClosed = false
@@ -1728,7 +1732,7 @@ async function generateAccountDashboard() {
     const account = accountMap.get(accountName);
     account.opportunities.push(opp);
     account.totalACV += (opp.ACV__c || 0); // SUM the ACVs!
-    account.weightedACV += (opp.Finance_Weighted_ACV__c || 0);
+    account.weightedACV += (opp.Weighted_ACV__c || 0);
     
     const stageNum = parseInt(opp.StageName.match(/Stage (\d)/)?.[1] || 0);
     account.highestStage = Math.max(account.highestStage, stageNum);
@@ -1758,7 +1762,7 @@ async function generateAccountDashboard() {
       opportunities: acc.opportunities.map(o => ({
         StageName: o.stage,
         ACV__c: o.acv || 0,
-        Finance_Weighted_ACV__c: o.weighted || 0,
+        Weighted_ACV__c: o.weighted || 0,
         Product_Line__c: o.mappedServiceLine || o.serviceLine || 'Other',
         Owner: { Name: o.owner }
       })),
@@ -1831,12 +1835,12 @@ async function generateAccountDashboard() {
       stageOrder.forEach(s => blBreakdown[blName].byStage[s] = { count: 0, acv: 0, weighted: 0 });
     }
     blBreakdown[blName].totalACV += (opp.ACV__c || 0);
-    blBreakdown[blName].weightedACV += (opp.Finance_Weighted_ACV__c || 0);
+    blBreakdown[blName].weightedACV += (opp.Weighted_ACV__c || 0);
     blBreakdown[blName].count++;
     if (blBreakdown[blName].byStage[stage]) {
       blBreakdown[blName].byStage[stage].count++;
       blBreakdown[blName].byStage[stage].acv += (opp.ACV__c || 0);
-      blBreakdown[blName].byStage[stage].weighted += (opp.Finance_Weighted_ACV__c || 0);
+      blBreakdown[blName].byStage[stage].weighted += (opp.Weighted_ACV__c || 0);
     }
   });
   
@@ -1853,12 +1857,12 @@ async function generateAccountDashboard() {
       stageOrder.forEach(s => productBreakdown[product].byStage[s] = { count: 0, acv: 0, weighted: 0 });
     }
     productBreakdown[product].totalACV += (opp.ACV__c || 0);
-    productBreakdown[product].weightedACV += (opp.Finance_Weighted_ACV__c || 0);
+    productBreakdown[product].weightedACV += (opp.Weighted_ACV__c || 0);
     productBreakdown[product].count++;
     if (productBreakdown[product].byStage[stage]) {
       productBreakdown[product].byStage[stage].count++;
       productBreakdown[product].byStage[stage].acv += (opp.ACV__c || 0);
-      productBreakdown[product].byStage[stage].weighted += (opp.Finance_Weighted_ACV__c || 0);
+      productBreakdown[product].byStage[stage].weighted += (opp.Weighted_ACV__c || 0);
     }
   });
   
