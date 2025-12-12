@@ -626,6 +626,48 @@ Business Context:
       };
     }
     
+    // Account Management - MULTI-LINE BATCH Reassignment (Keigan only)
+    // Patterns: "Name - Account1, Account2, Account3" on multiple lines
+    // e.g., "Asad - Southwest, DHL, HSBC\nJustin - Home Depot, AES"
+    const multiLineBatchMatch = userMessage.match(/^(\w+(?:\s+\w+)?)\s*[-–—]\s*(.+)$/gm);
+    if (multiLineBatchMatch && multiLineBatchMatch.length > 0) {
+      // Check if this looks like multi-line batch format (has dash with commas after)
+      const looksLikeBatch = multiLineBatchMatch.some(line => {
+        const parts = line.split(/[-–—]/);
+        return parts.length === 2 && parts[1].includes(',');
+      });
+      
+      if (looksLikeBatch) {
+        const batchAssignments = [];
+        
+        multiLineBatchMatch.forEach(line => {
+          const dashMatch = line.match(/^(\w+(?:\s+\w+)?)\s*[-–—]\s*(.+)$/);
+          if (dashMatch) {
+            const targetBL = dashMatch[1].trim();
+            const accountsRaw = dashMatch[2].trim();
+            const accounts = accountsRaw.split(/[,]/)
+                                        .map(a => a.trim())
+                                        .filter(a => a.length > 0);
+            if (accounts.length > 0) {
+              batchAssignments.push({ targetBL, accounts });
+            }
+          }
+        });
+        
+        if (batchAssignments.length > 0) {
+          return {
+            intent: 'multi_batch_reassign_accounts',
+            entities: { batchAssignments },
+            followUp: false,
+            confidence: 0.95,
+            explanation: 'Multi-line batch reassignment of accounts to different BLs',
+            originalMessage: userMessage,
+            timestamp: Date.now()
+          };
+        }
+      }
+    }
+    
     // Account Management - BATCH Reassignment (Keigan only)
     // Patterns: "batch reassign: account1, account2, account3 to Julie" or "reassign [account1, account2] to BL"
     // MUST come before single reassign pattern

@@ -459,6 +459,11 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle batch account reassignment (Keigan only)
       await handleBatchReassignAccounts(parsedIntent.entities, userId, channelId, client, threadTs);
       return; // Exit early
+    } else if (parsedIntent.intent === 'multi_batch_reassign_accounts') {
+      // Handle multi-line batch reassignment (Keigan only)
+      // Format: "Asad - Southwest, DHL, HSBC\nJustin - Home Depot, AES"
+      await handleMultiBatchReassign(parsedIntent.entities, userId, channelId, client, threadTs);
+      return; // Exit early
     } else if (parsedIntent.intent === 'move_to_nurture') {
       // Handle move to nurture (Keigan only)
       await handleMoveToNurture(parsedIntent.entities, userId, channelId, client, threadTs);
@@ -2474,6 +2479,181 @@ async function handleBatchReassignAccounts(entities, userId, channelId, client, 
     await client.chat.postMessage({
       channel: channelId,
       text: `❌ Batch reassignment failed: ${error.message}`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle MULTI-LINE BATCH Account Reassignment (Keigan only)
+ * Processes format: "Asad - Southwest, DHL, HSBC\nJustin - Home Depot, AES"
+ * Reassigns both account owners AND open opportunity owners
+ */
+async function handleMultiBatchReassign(entities, userId, channelId, client, threadTs) {
+  const KEIGAN_USER_ID = 'U094AQE9V7D';
+  
+  // Valid BL names (first names)
+  const VALID_BLS = {
+    'asad': 'Asad Khawaja',
+    'justin': 'Justin Laverty',
+    'olivia': 'Olivia Lerner',
+    'ananth': 'Ananth Iyengar',
+    'himanshu': 'Himanshu Shukla',
+    'julie': 'Julie Mazzella',
+    'zoila': 'Zoila Mena Harpin'
+  };
+  
+  try {
+    // Security check - Keigan only
+    if (userId !== KEIGAN_USER_ID) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: '🔒 Bulk account reassignment is restricted to Keigan. Contact him for assistance.',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const { batchAssignments } = entities;
+    
+    if (!batchAssignments || batchAssignments.length === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: 'No valid assignments found.\n\nExpected format:\n```Asad - Southwest, DHL, HSBC\nJustin - Home Depot, AES, Nielsen```',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    // Send initial processing message
+    const totalAccounts = batchAssignments.reduce((sum, b) => sum + b.accounts.length, 0);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `🔄 Processing multi-batch reassignment:\n\n${batchAssignments.map(b => `• *${b.targetBL}*: ${b.accounts.join(', ')}`).join('\n')}\n\n_${totalAccounts} total accounts across ${batchAssignments.length} BLs..._`,
+      thread_ts: threadTs
+    });
+    
+    const { getConnection } = require('../salesforce/connection');
+    const conn = await getConnection();
+    
+    // Get all user IDs upfront
+    const userQuery = "SELECT Id, Name FROM User WHERE IsActive = true AND Name LIKE '%'";
+    const usersResult = await conn.query(userQuery);
+    const userMap = {};
+    usersResult.records.forEach(u => {
+      userMap[u.Name.toLowerCase()] = u.Id;
+      // Also map by first name
+      const firstName = u.Name.split(' ')[0].toLowerCase();
+      if (!userMap[firstName]) userMap[firstName] = u.Id;
+    });
+    
+    let overallResults = [];
+    
+    for (const assignment of batchAssignments) {
+      const targetBLName = assignment.targetBL;
+      const accountNames = assignment.accounts;
+      
+      // Validate BL name
+      const blKey = targetBLName.toLowerCase();
+      const fullBLName = VALID_BLS[blKey] || targetBLName;
+      const targetUserId = userMap[fullBLName.toLowerCase()] || userMap[blKey];
+      
+      if (!targetUserId) {
+        overallResults.push({
+          bl: targetBLName,
+          status: 'error',
+          message: `Unknown BL: ${targetBLName}`,
+          accounts: accountNames
+        });
+        continue;
+      }
+      
+      let successCount = 0;
+      let oppsUpdated = 0;
+      let errors = [];
+      
+      for (const accountName of accountNames) {
+        try {
+          // Find account with fuzzy match
+          const searchQuery = `SELECT Id, Name, OwnerId, Owner.Name,
+                               (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false)
+                               FROM Account 
+                               WHERE Name LIKE '%${accountName.replace(/'/g, "\\'")}%'
+                               LIMIT 5`;
+          
+          const searchResult = await conn.query(searchQuery);
+          
+          if (!searchResult.records || searchResult.records.length === 0) {
+            errors.push(`${accountName}: not found`);
+            continue;
+          }
+          
+          // Find best match
+          const account = searchResult.records.find(a => 
+            a.Name.toLowerCase().includes(accountName.toLowerCase()) ||
+            accountName.toLowerCase().includes(a.Name.toLowerCase().split(' ')[0])
+          ) || searchResult.records[0];
+          
+          // Update account owner
+          await conn.sobject('Account').update({
+            Id: account.Id,
+            OwnerId: targetUserId
+          });
+          
+          // Update all open opportunities
+          const openOpps = account.Opportunities?.records || [];
+          if (openOpps.length > 0) {
+            const oppUpdates = openOpps.map(opp => ({
+              Id: opp.Id,
+              OwnerId: targetUserId
+            }));
+            await conn.sobject('Opportunity').update(oppUpdates);
+            oppsUpdated += openOpps.length;
+          }
+          
+          successCount++;
+        } catch (err) {
+          errors.push(`${accountName}: ${err.message}`);
+        }
+      }
+      
+      overallResults.push({
+        bl: fullBLName,
+        status: 'complete',
+        successCount,
+        totalAccounts: accountNames.length,
+        oppsUpdated,
+        errors
+      });
+    }
+    
+    // Build summary message
+    let summary = `✅ *Multi-Batch Reassignment Complete*\n\n`;
+    
+    for (const result of overallResults) {
+      if (result.status === 'error') {
+        summary += `❌ *${result.bl}*: ${result.message}\n`;
+      } else {
+        summary += `✓ *${result.bl}*: ${result.successCount}/${result.totalAccounts} accounts, ${result.oppsUpdated} opps\n`;
+        if (result.errors.length > 0) {
+          summary += `  _Errors: ${result.errors.slice(0, 3).join(', ')}${result.errors.length > 3 ? '...' : ''}_\n`;
+        }
+      }
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: summary,
+      thread_ts: threadTs
+    });
+    
+    logger.info(`✅ Multi-batch reassign completed by ${userId}`);
+    
+  } catch (error) {
+    logger.error('Multi-batch reassignment failed:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Multi-batch reassignment failed: ${error.message}`,
       thread_ts: threadTs
     });
   }
