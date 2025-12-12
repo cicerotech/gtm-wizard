@@ -1620,10 +1620,10 @@ function buildWeightedSummaryQuery(entities) {
     }
   }
   
-  // Use correct fields: ACV__c for gross, Finance_Weighted_ACV__c for weighted
+  // Use correct fields: ACV__c for gross, Weighted_ACV__c for weighted
   return `SELECT StageName,
                  SUM(ACV__c) GrossAmount,
-                 SUM(Finance_Weighted_ACV__c) WeightedAmount,
+                 SUM(Weighted_ACV__c) WeightedAmount,
                  COUNT(Id) DealCount
           FROM Opportunity
           ${whereClause}

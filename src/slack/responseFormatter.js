@@ -54,7 +54,7 @@ class ResponseFormatter {
    */
   formatPipelineSummary(records, parsedIntent, totalSize) {
     const totalAmount = records.reduce((sum, r) => sum + (r.Amount || 0), 0);
-    const weightedAmount = records.reduce((sum, r) => sum + (r.Finance_Weighted_ACV__c || 0), 0);
+    const weightedAmount = records.reduce((sum, r) => sum + (r.Weighted_ACV__c || 0), 0);
 
     // Compact header
     let response = `*Pipeline Summary* (${totalSize} deals)\n`;
@@ -158,7 +158,7 @@ class ResponseFormatter {
    */
   formatForecastView(records, parsedIntent, totalSize) {
     const totalAmount = records.reduce((sum, r) => sum + (r.Amount || 0), 0);
-    const weightedAmount = records.reduce((sum, r) => sum + (r.Finance_Weighted_ACV__c || 0), 0);
+    const weightedAmount = records.reduce((sum, r) => sum + (r.Weighted_ACV__c || 0), 0);
 
     let response = `*Forecast* (${totalSize} deals)\n`;
     response += `Gross: *${this.formatCurrency(totalAmount)}* | Weighted: *${this.formatCurrency(weightedAmount)}*\n\n`;

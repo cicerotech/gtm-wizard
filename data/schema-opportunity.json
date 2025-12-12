@@ -62,7 +62,7 @@
       "synonyms": ["deal size", "revenue", "value", "dollar amount", "deal value", "amount"]
     },
     {
-      "apiName": "Finance_Weighted_ACV__c",
+      "apiName": "Weighted_ACV__c",
       "label": "Finance Weighted ACV",
       "type": "currency",
       "custom": true,

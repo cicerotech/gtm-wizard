@@ -13,7 +13,7 @@ async function getJohnsonHanaReport() {
                               StageName,
                               Product_Line__c,
                               ACV__c,
-                              Finance_Weighted_ACV__c,
+                              Weighted_ACV__c,
                               Target_LOI_Date__c,
                               Owner.Name,
                               Days_in_Stage1__c

@@ -19,7 +19,7 @@ class QueryBuilder {
       'Name', 
       'Amount',
       'ACV__c',
-      'Finance_Weighted_ACV__c',
+      'Weighted_ACV__c',
       'StageName',
       'CloseDate',
       'Target_LOI_Date__c',
@@ -332,7 +332,7 @@ class QueryBuilder {
     }
     
     if (metrics.includes('sum_weighted')) {
-      selectFields.push('SUM(Finance_Weighted_ACV__c) TotalWeighted');
+      selectFields.push('SUM(Weighted_ACV__c) TotalWeighted');
     }
 
     if (metrics.includes('avg_days_in_stage')) {

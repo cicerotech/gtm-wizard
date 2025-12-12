@@ -142,7 +142,7 @@
       "requiredFields": [
         "Opportunity.StageName",
         "Opportunity.ACV__c",
-        "Opportunity.Finance_Weighted_ACV__c"
+        "Opportunity.Weighted_ACV__c"
       ],
       "filters": {
         "StageName": ["Stage 3 - Pilot", "Stage 4 - Proposal"]
@@ -163,7 +163,7 @@
       "entities": [],
       "requiredFields": [
         "Opportunity.StageName",
-        "Opportunity.Finance_Weighted_ACV__c"
+        "Opportunity.Weighted_ACV__c"
       ],
       "aggregations": ["SUM", "GROUP BY"],
       "complexity": "medium",
