@@ -415,9 +415,14 @@ class GTMBrainApp {
       try {
         const client = await getOktaClient();
         if (!client) {
-          // Fallback to password login form if Okta not configured
-          const { generateLoginPage } = require('./slack/accountDashboard');
-          return res.send(generateLoginPage());
+          // Okta not configured - show error
+          return res.status(503).send(`
+            <!DOCTYPE html>
+            <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>GTM Dashboard - Configuration Error</title>
+            <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f7fe;min-height:100vh;display:flex;align-items:center;justify-content:center}.error-container{background:#fff;padding:40px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);max-width:400px;width:90%;text-align:center}.error-container h1{font-size:1.25rem;font-weight:600;color:#dc2626;margin-bottom:12px}.error-container p{font-size:0.875rem;color:#6b7280;line-height:1.6}</style>
+            </head><body><div class="error-container"><h1>Authentication Not Available</h1><p>Okta SSO is not configured. Please contact IT support to enable dashboard access.</p></div></body></html>
+          `);
         }
         
         const nonce = generators.nonce();
@@ -438,9 +443,14 @@ class GTMBrainApp {
         res.redirect(authUrl);
       } catch (error) {
         logger.error('Login error:', error.message);
-        // Fallback to password login form on any error
-        const { generateLoginPage } = require('./slack/accountDashboard');
-        res.send(generateLoginPage());
+        // Show error page - no password fallback
+        res.status(503).send(`
+          <!DOCTYPE html>
+          <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>GTM Dashboard - Login Error</title>
+          <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f7fe;min-height:100vh;display:flex;align-items:center;justify-content:center}.error-container{background:#fff;padding:40px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);max-width:400px;width:90%;text-align:center}.error-container h1{font-size:1.25rem;font-weight:600;color:#dc2626;margin-bottom:12px}.error-container p{font-size:0.875rem;color:#6b7280;line-height:1.6;margin-bottom:16px}.error-container a{color:#8e99e1;text-decoration:none}.error-container a:hover{text-decoration:underline}</style>
+          </head><body><div class="error-container"><h1>Login Error</h1><p>Unable to connect to Okta authentication. Please try again.</p><a href="/login">Retry Login</a></div></body></html>
+        `);
       }
     });
     
@@ -597,13 +607,13 @@ class GTMBrainApp {
         return res.status(429).send('Too many requests. Please wait a moment and try again.');
       }
       
-      // Check for Okta SSO session first
+      // Check for Okta SSO session (Okta-only authentication)
       const oktaSession = validateOktaSession(req);
       
-      // Check auth: Okta session OR password cookie
-      if (oktaSession || req.cookies[AUTH_COOKIE] === 'authenticated') {
+      // Only allow access with valid Okta session
+      if (oktaSession) {
         try {
-          const userName = oktaSession?.name || req.cookies[USER_COOKIE];
+          const userName = oktaSession.name || oktaSession.email;
           const { html, cached } = await getCachedDashboard();
           logAccess(userName, clientIP, cached);
           
@@ -620,39 +630,16 @@ class GTMBrainApp {
       }
     });
     
-    this.expressApp.post('/account-dashboard', async (req, res) => {
-      const { password, userName } = req.body;
-      const clientIP = req.ip || req.connection?.remoteAddress;
-      
-      if (DASHBOARD_PASSWORDS.includes(password?.toLowerCase()?.trim())) {
-        // Set auth cookie (30 days)
-        res.cookie(AUTH_COOKIE, 'authenticated', { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true });
-        if (userName?.trim()) {
-          res.cookie(USER_COOKIE, userName.trim(), { maxAge: 30 * 24 * 60 * 60 * 1000 });
-        }
-        try {
-          const { html, cached } = await getCachedDashboard();
-          logAccess(userName?.trim(), clientIP, cached);
-          
-          res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline'");
-          res.setHeader('Cache-Control', 'private, max-age=60');
-          res.send(html);
-        } catch (error) {
-          res.status(500).send(`Error: ${error.message}`);
-        }
-      } else {
-        res.send(`<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GTM Dashboard</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f7fe;min-height:100vh;display:flex;align-items:center;justify-content:center}.login-container{background:#fff;padding:40px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);max-width:360px;width:90%}.login-container h1{font-size:1.25rem;font-weight:600;color:#1f2937;margin-bottom:8px}.login-container p{font-size:0.875rem;color:#6b7280;margin-bottom:24px}.login-container input{width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:6px;font-size:0.875rem;margin-bottom:16px}.login-container input:focus{outline:none;border-color:#8e99e1}.login-container button{width:100%;padding:12px;background:#8e99e1;color:#fff;border:none;border-radius:6px;font-size:0.875rem;font-weight:500;cursor:pointer}.login-container button:hover{background:#7c8bd4}.error{color:#ef4444;font-size:0.75rem;margin-bottom:12px}</style>
-</head><body><div class="login-container"><h1>GTM Dashboard</h1><p>Enter password to continue</p><form method="POST" action="/account-dashboard"><input type="password" name="password" placeholder="Password" required autocomplete="off"><div class="error">Incorrect password</div><button type="submit">Continue</button></form></div></body></html>`);
-      }
+    // Password login disabled - redirect to Okta SSO
+    this.expressApp.post('/account-dashboard', (req, res) => {
+      res.redirect('/login');
     });
     
-    // Analytics endpoint (protected - same password)
+    // Analytics endpoint (protected - Okta session required)
     this.expressApp.get('/account-dashboard/analytics', (req, res) => {
-      if (req.cookies[AUTH_COOKIE] !== 'authenticated') {
-        return res.status(401).json({ error: 'Unauthorized' });
+      const oktaSession = validateOktaSession(req);
+      if (!oktaSession) {
+        return res.status(401).json({ error: 'Unauthorized - Okta authentication required' });
       }
       res.json({
         pageViews: dashboardAnalytics.pageViews,
@@ -668,10 +655,11 @@ class GTMBrainApp {
       });
     });
     
-    // Force cache refresh endpoint
+    // Force cache refresh endpoint (protected - Okta session required)
     this.expressApp.post('/account-dashboard/refresh-cache', (req, res) => {
-      if (req.cookies[AUTH_COOKIE] !== 'authenticated') {
-        return res.status(401).json({ error: 'Unauthorized' });
+      const oktaSession = validateOktaSession(req);
+      if (!oktaSession) {
+        return res.status(401).json({ error: 'Unauthorized - Okta authentication required' });
       }
       dashboardCache = { html: null, timestamp: 0 };
       res.json({ success: true, message: 'Cache cleared. Next page load will fetch fresh data.' });
