@@ -752,17 +752,13 @@ function generateWeeklyTab(params) {
         
         return `
       <div style="display: flex; gap: 8px; margin-top: 8px; margin-bottom: 12px; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 100px; background: #ecfdf5; padding: 10px; border-radius: 6px; text-align: center;">
+        <div style="flex: 1; min-width: 120px; background: #ecfdf5; padding: 10px; border-radius: 6px; text-align: center;">
           <div style="font-size: 0.6rem; font-weight: 600; color: #047857; margin-bottom: 2px;">Q4 WEIGHTED PIPELINE</div>
           <div style="font-size: 1.1rem; font-weight: 700; color: #065f46;">${fmt(q4TotalWeighted)}</div>
         </div>
-        <div style="flex: 1; min-width: 100px; background: #eff6ff; padding: 10px; border-radius: 6px; text-align: center;">
-          <div style="font-size: 0.6rem; font-weight: 600; color: #1e40af; margin-bottom: 2px;"># OF OPPS</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #1e40af;">${totalQ4Count}</div>
-        </div>
-        <div style="flex: 1; min-width: 100px; background: #f3f4f6; padding: 10px; border-radius: 6px; text-align: center;">
-          <div style="font-size: 0.6rem; font-weight: 600; color: #9CA3AF; margin-bottom: 2px;">AVG DEAL SIZE</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #9CA3AF;">${fmt(avgDealSize)}</div>
+        <div style="flex: 1; min-width: 120px; background: #f3f4f6; padding: 10px; border-radius: 6px; text-align: center;">
+          <div style="font-size: 0.6rem; font-weight: 600; color: #6b7280; margin-bottom: 2px;">AVG DEAL SIZE</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #374151;">${fmt(avgDealSize)}</div>
         </div>
       </div>`;
       })()}
@@ -851,12 +847,12 @@ function generateWeeklyTab(params) {
             <tr><td>October</td><td style="text-align: right;">$19.8m</td></tr>
             <tr><td>November (EOM)</td><td style="text-align: right;">$19.26m</td></tr>
             <tr style="background: #ecfdf5;">
-              <td style="color: #065f46;">Q4 Weighted Pipeline</td>
+              <td style="color: #065f46;">+ Q4 Weighted Pipeline</td>
               <td style="text-align: right; color: #065f46; font-weight: 600;">${fmt(q4TotalWeighted)}</td>
             </tr>
             <tr style="font-weight: 600; background: #e5e7eb;">
               <td>FY2025E Total</td>
-              <td style="text-align: right; color: #111827;">~$22m</td>
+              <td style="text-align: right; color: #111827;">${fmt(19260000 + q4TotalWeighted)}</td>
             </tr>
           </tbody>
         </table>
