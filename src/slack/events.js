@@ -2347,16 +2347,15 @@ async function handleBatchReassignAccounts(entities, userId, channelId, client, 
     const accountNames = entities.accounts;
     const targetBLInput = entities.targetBL;
     
-    // Validate target BL
-    const businessLeads = ['Julie Smith', 'Himanshu Agrawal', 'Asad Hashmi', 'Mike McMahon', 'Olivia Jung', 'Justin Hartman', 'Ananth Chidambaram'];
+    // Validate target BL - CORRECT NAMES
+    const businessLeads = ['Julie Stefanich', 'Himanshu Agarwal', 'Asad Hussain', 'Ananth Cherukupally', 'Olivia Jung', 'Justin Hills'];
     const blNameMap = {
-      'julie': 'Julie Smith',
-      'himanshu': 'Himanshu Agrawal',
-      'asad': 'Asad Hashmi',
-      'mike': 'Mike McMahon',
+      'julie': 'Julie Stefanich',
+      'himanshu': 'Himanshu Agarwal',
+      'asad': 'Asad Hussain',
+      'ananth': 'Ananth Cherukupally',
       'olivia': 'Olivia Jung',
-      'justin': 'Justin Hartman',
-      'ananth': 'Ananth Chidambaram'
+      'justin': 'Justin Hills'
     };
     
     const validBL = blNameMap[targetBLInput.toLowerCase()] || 
@@ -2492,14 +2491,14 @@ async function handleBatchReassignAccounts(entities, userId, channelId, client, 
 async function handleMultiBatchReassign(entities, userId, channelId, client, threadTs) {
   const KEIGAN_USER_ID = 'U094AQE9V7D';
   
-  // Valid BL names (first names)
+  // Valid BL names (first names) - CORRECT NAMES
   const VALID_BLS = {
-    'asad': 'Asad Khawaja',
-    'justin': 'Justin Laverty',
-    'olivia': 'Olivia Lerner',
-    'ananth': 'Ananth Iyengar',
-    'himanshu': 'Himanshu Shukla',
-    'julie': 'Julie Mazzella',
+    'asad': 'Asad Hussain',
+    'justin': 'Justin Hills',
+    'olivia': 'Olivia Jung',
+    'ananth': 'Ananth Cherukupally',
+    'himanshu': 'Himanshu Agarwal',
+    'julie': 'Julie Stefanich',
     'zoila': 'Zoila Mena Harpin'
   };
   
