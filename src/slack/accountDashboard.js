@@ -717,7 +717,10 @@ function generateWeeklyTab(params) {
       <strong>RevOps Weekly Summary</strong> — Formatted like Friday email updates.
       <div style="font-size: 0.65rem; color: #6b7280; margin-top: 2px;">Data pulled live from Salesforce</div>
     </div>
-    <button onclick="copyWeeklyForEmail()" style="background: #1f2937; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.7rem; cursor: pointer;">📧 Copy for Email</button>
+    <div style="display: flex; gap: 8px;">
+      <button onclick="copyWeeklyForEmail()" style="background: #1f2937; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.7rem; cursor: pointer;">📧 Copy for Email</button>
+      <button onclick="downloadWeeklyHTML()" style="background: #374151; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.7rem; cursor: pointer;">💾 Download HTML</button>
+    </div>
   </div>
   <div id="email-copy-status" style="display: none; background: #d1fae5; color: #065f46; padding: 8px 12px; border-radius: 4px; margin-bottom: 12px; font-size: 0.75rem;">✓ Copied to clipboard! Paste into your email.</div>
 
@@ -2774,33 +2777,136 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-// Copy Weekly tab for email
+// Copy Weekly tab for email - builds clean table-based HTML with inline styles
 function copyWeeklyForEmail() {
   const weeklyTab = document.getElementById('weekly');
   if (!weeklyTab) return;
   
-  // Create email-friendly HTML
   const dashboardUrl = window.location.href.split('?')[0];
   const timestamp = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles', dateStyle: 'medium', timeStyle: 'short' });
   
-  // Clone the content and clean it up for email
-  const clone = weeklyTab.cloneNode(true);
+  // Extract key data from the DOM
+  const getTextContent = (selector) => {
+    const el = weeklyTab.querySelector(selector);
+    return el ? el.textContent.trim() : '';
+  };
   
-  // Remove the copy button and status from the clone
-  const copyBtn = clone.querySelector('button');
-  if (copyBtn) copyBtn.parentElement.remove();
-  const status = clone.querySelector('#email-copy-status');
-  if (status) status.remove();
+  // Get Q4 pipeline value
+  const q4Pipeline = weeklyTab.querySelector('[style*="Q4 WEIGHTED"]')?.parentElement?.querySelector('div:last-child')?.textContent || '$4.4m';
   
-  // Build email-friendly HTML with inline styles
+  // Get top opportunities list
+  const topOppsContainer = weeklyTab.querySelector('ol.weekly-list');
+  const topOpps = topOppsContainer ? Array.from(topOppsContainer.querySelectorAll('li')).slice(0, 10).map(li => li.textContent.trim()) : [];
+  
+  // Get signed logos by quarter
+  const logosSection = weeklyTab.querySelectorAll('[style*="SIGNED LOGOS"] ~ div, details');
+  const logoQuarters = [];
+  weeklyTab.querySelectorAll('details').forEach(d => {
+    const summary = d.querySelector('summary');
+    if (summary && summary.textContent.includes('FY') || summary.textContent.includes('Q')) {
+      const parts = summary.textContent.split(/\\s+/);
+      const quarter = parts.slice(0, -1).join(' ');
+      const count = parts[parts.length - 1];
+      if (quarter && count) logoQuarters.push({ quarter, count });
+    }
+  });
+  
+  // Get run-rate forecast
+  const runRateTable = weeklyTab.querySelector('table.weekly-table');
+  const runRateRows = runRateTable ? Array.from(runRateTable.querySelectorAll('tbody tr')).map(tr => {
+    const cells = tr.querySelectorAll('td');
+    return { month: cells[0]?.textContent || '', value: cells[1]?.textContent || '' };
+  }) : [];
+  
+  // Build email-friendly HTML with tables (email clients love tables)
   const emailHtml = \`
-<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 700px; margin: 0 auto; color: #1f2937;">
-  <div style="background: #f3f4f6; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 13px;">
-    <strong>RevOps Weekly Summary</strong> — \${timestamp} PT
-    <br><a href="\${dashboardUrl}" style="color: #2563eb; text-decoration: none;">View full dashboard →</a>
-  </div>
-  \${clone.innerHTML}
-</div>
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin: 0; padding: 20px; font-family: Arial, Helvetica, sans-serif; background: #f9fafb;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 650px; margin: 0 auto; background: #ffffff;">
+  <tr>
+    <td style="padding: 20px;">
+      <!-- Header -->
+      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 20px;">
+        <tr>
+          <td style="background: #f3f4f6; padding: 16px; border-radius: 8px;">
+            <div style="font-size: 16px; font-weight: bold; color: #111827; margin-bottom: 4px;">RevOps Weekly Summary</div>
+            <div style="font-size: 13px; color: #6b7280;">\${timestamp} PT</div>
+            <div style="margin-top: 8px;"><a href="\${dashboardUrl}" style="color: #2563eb; font-size: 13px;">View full dashboard →</a></div>
+          </td>
+        </tr>
+      </table>
+      
+      <!-- Section 1: Revenue Forecast -->
+      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 24px;">
+        <tr>
+          <td style="font-size: 15px; font-weight: bold; color: #111827; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
+            1. Revenue Forecast Snapshot
+          </td>
+        </tr>
+        <tr>
+          <td style="padding-top: 16px;">
+            <div style="font-weight: 600; color: #374151; margin-bottom: 8px;">Opportunities with Q4 Target Sign Date</div>
+            <table cellpadding="0" cellspacing="0" border="0" width="100%">
+              <tr>
+                <td style="background: #ecfdf5; padding: 16px; border-radius: 8px; text-align: center;">
+                  <div style="font-size: 11px; font-weight: 600; color: #047857; text-transform: uppercase; letter-spacing: 0.5px;">Q4 Weighted Pipeline</div>
+                  <div style="font-size: 24px; font-weight: bold; color: #065f46; margin-top: 4px;">\${q4Pipeline}</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding-top: 16px;">
+            <div style="font-weight: 600; color: #374151; margin-bottom: 8px;">Top 10 Opportunities (by ACV)</div>
+            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size: 13px; color: #374151;">
+              \${topOpps.map((opp, i) => \`<tr><td style="padding: 4px 0;">\${i+1}. \${opp}</td></tr>\`).join('')}
+            </table>
+            <div style="font-size: 11px; color: #9ca3af; margin-top: 8px;">¹ = Nov, ² = Dec, ³ = Jan target</div>
+          </td>
+        </tr>
+      </table>
+      
+      <!-- Section 2: Run-Rate Forecast -->
+      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 24px;">
+        <tr>
+          <td style="font-size: 14px; font-weight: bold; color: #111827; padding-bottom: 8px;">Run-Rate Forecast ($)</td>
+        </tr>
+        <tr>
+          <td>
+            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size: 13px; border: 1px solid #e5e7eb; border-radius: 6px;">
+              <tr style="background: #1f2937; color: white;">
+                <td style="padding: 8px 12px; font-weight: 600;">Month</td>
+                <td style="padding: 8px 12px; text-align: right; font-weight: 600;">Combined</td>
+              </tr>
+              \${runRateRows.map(r => {
+                const isQ4 = r.month.includes('Q4');
+                const isTotal = r.month.includes('Total');
+                const bg = isQ4 ? 'background: #ecfdf5;' : (isTotal ? 'background: #e5e7eb;' : '');
+                const color = isQ4 ? 'color: #065f46;' : '';
+                const weight = isTotal ? 'font-weight: 600;' : '';
+                return \`<tr style="\${bg}"><td style="padding: 8px 12px; \${color} \${weight}">\${r.month}</td><td style="padding: 8px 12px; text-align: right; \${color} \${weight}">\${r.value}</td></tr>\`;
+              }).join('')}
+            </table>
+          </td>
+        </tr>
+      </table>
+      
+      <!-- Footer -->
+      <table cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr>
+          <td style="padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af;">
+            Data pulled live from Salesforce • <a href="\${dashboardUrl}" style="color: #2563eb;">View full dashboard</a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
 \`;
   
   // Copy as HTML to clipboard
@@ -2815,8 +2921,67 @@ function copyWeeklyForEmail() {
     }
   }).catch(err => {
     console.error('Failed to copy:', err);
-    alert('Failed to copy. Please try again or manually select and copy the content.');
+    // Fallback: try to copy as text
+    const textVersion = \`RevOps Weekly Summary - \${timestamp} PT\\n\\n\` +
+      \`Q4 WEIGHTED PIPELINE: \${q4Pipeline}\\n\\n\` +
+      \`TOP OPPORTUNITIES:\\n\${topOpps.map((o, i) => \`\${i+1}. \${o}\`).join('\\n')}\\n\\n\` +
+      \`RUN-RATE FORECAST:\\n\${runRateRows.map(r => \`\${r.month}: \${r.value}\`).join('\\n')}\\n\\n\` +
+      \`View full dashboard: \${dashboardUrl}\`;
+    navigator.clipboard.writeText(textVersion).then(() => {
+      alert('Copied as plain text (HTML copy not supported in this browser)');
+    });
   });
+}
+
+// Download Weekly tab as HTML file
+function downloadWeeklyHTML() {
+  const weeklyTab = document.getElementById('weekly');
+  if (!weeklyTab) return;
+  
+  const timestamp = new Date().toISOString().split('T')[0];
+  const dashboardUrl = window.location.href.split('?')[0];
+  
+  // Clone and clean up
+  const clone = weeklyTab.cloneNode(true);
+  const btns = clone.querySelectorAll('button');
+  btns.forEach(b => b.remove());
+  const status = clone.querySelector('#email-copy-status');
+  if (status) status.remove();
+  
+  // Build standalone HTML with all styles inline
+  const html = \`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>RevOps Weekly Summary - \${timestamp}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 20px auto; padding: 20px; background: #f9fafb; color: #1f2937; }
+    .weekly-section { background: white; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .weekly-section-title { font-size: 1rem; font-weight: 700; color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 12px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    th { background: #1f2937; color: white; }
+    details { margin: 4px 0; }
+    summary { cursor: pointer; padding: 6px 0; }
+  </style>
+</head>
+<body>
+  <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+    <h1 style="margin: 0 0 8px 0; font-size: 1.25rem;">RevOps Weekly Summary</h1>
+    <p style="margin: 0; color: #6b7280; font-size: 0.875rem;">Generated \${new Date().toLocaleString()} • <a href="\${dashboardUrl}">View live dashboard</a></p>
+  </div>
+  \${clone.innerHTML}
+</body>
+</html>\`;
+  
+  // Create download
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = \`revops-weekly-\${timestamp}.html\`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 </script>
 
