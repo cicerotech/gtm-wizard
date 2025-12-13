@@ -611,13 +611,13 @@ function generateWeeklyTab(params) {
   const top10Total = top10.reduce((sum, o) => sum + o.acv, 0);
   
   // Last week's combined baseline values (Dec 5, 2025 - from SF report)
+  // NOTE: S5 Negotiation is blended into S4 Proposal for reporting simplicity
   const lastWeekBaseline = {
     'Stage 0 - Qualifying': { acv: 3000000, oppCount: 43 },
     'Stage 1 - Discovery': { acv: 13600000, oppCount: 110 },
     'Stage 2 - SQO': { acv: 11100000, oppCount: 53 },
     'Stage 3 - Pilot': { acv: 400000, oppCount: 4 },
-    'Stage 4 - Proposal': { acv: 5600000, oppCount: 37 },
-    'Stage 5 - Negotiation': { acv: 1800000, oppCount: 6 },
+    'Stage 4 - Proposal': { acv: 5600000 + 1800000, oppCount: 37 + 6 }, // Includes S5 Negotiation
     'Total': { acv: 35500000, oppCount: 253 }
   };
   
@@ -638,6 +638,12 @@ function generateWeeklyTab(params) {
   };
   
   // Combine Eudia + JH for current week (COMBINED VIEW)
+  // NOTE: S5 Negotiation is blended into S4 Proposal for reporting simplicity
+  const s4Acv = (stageBreakdown['Stage 4 - Proposal']?.totalACV || 0) + getJHStageValue('Stage 4 - Proposal', 'totalACV');
+  const s5Acv = (stageBreakdown['Stage 5 - Negotiation']?.totalACV || 0) + getJHStageValue('Stage 5 - Negotiation', 'totalACV');
+  const s4Count = (stageBreakdown['Stage 4 - Proposal']?.count || 0) + getJHStageValue('Stage 4 - Proposal', 'count');
+  const s5Count = (stageBreakdown['Stage 5 - Negotiation']?.count || 0) + getJHStageValue('Stage 5 - Negotiation', 'count');
+  
   const stageWoW = [
     { 
       stage: 'Stage 0 - Qualifying', 
@@ -668,18 +674,11 @@ function generateWeeklyTab(params) {
       lastOppCount: lastWeekBaseline['Stage 3 - Pilot'].oppCount
     },
     { 
-      stage: 'Stage 4 - Proposal', 
-      acv: (stageBreakdown['Stage 4 - Proposal']?.totalACV || 0) + getJHStageValue('Stage 4 - Proposal', 'totalACV'), 
-      oppCount: (stageBreakdown['Stage 4 - Proposal']?.count || 0) + getJHStageValue('Stage 4 - Proposal', 'count'),
-      lastAcv: lastWeekBaseline['Stage 4 - Proposal'].acv,
+      stage: 'Stage 4/5 - Proposal*', // Blended S4+S5
+      acv: s4Acv + s5Acv,
+      oppCount: s4Count + s5Count,
+      lastAcv: lastWeekBaseline['Stage 4 - Proposal'].acv, // Already includes S5
       lastOppCount: lastWeekBaseline['Stage 4 - Proposal'].oppCount
-    },
-    { 
-      stage: 'Stage 5 - Negotiation', 
-      acv: (stageBreakdown['Stage 5 - Negotiation']?.totalACV || 0) + getJHStageValue('Stage 5 - Negotiation', 'totalACV'), 
-      oppCount: (stageBreakdown['Stage 5 - Negotiation']?.count || 0) + getJHStageValue('Stage 5 - Negotiation', 'count'),
-      lastAcv: lastWeekBaseline['Stage 5 - Negotiation'].acv,
-      lastOppCount: lastWeekBaseline['Stage 5 - Negotiation'].oppCount
     }
   ];
   
@@ -923,7 +922,61 @@ function generateWeeklyTab(params) {
           </tr>
         </tbody>
       </table>
-      <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 4px; font-style: italic;">Baseline: Last week's combined Eudia + JH totals (Dec 5, 2025)</div>
+      <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 4px; font-style: italic;">
+        Baseline: Last week's combined Eudia + JH totals (Dec 5, 2025)<br>
+        *S4/5 Proposal includes Stage 5 Negotiation deals for simplified reporting
+      </div>
+    </div>
+    
+    <!-- Closed Lost This Week -->
+    <div class="weekly-subsection">
+      <div class="weekly-subsection-title" style="color: #dc2626;">Closed Lost This Week (7)</div>
+      <table style="width: 100%; font-size: 0.7rem; margin-top: 8px;">
+        <thead>
+          <tr style="background: #fef2f2; color: #991b1b;">
+            <th style="padding: 6px 8px; text-align: left;">Account</th>
+            <th style="padding: 6px 8px; text-align: left;">Reason</th>
+            <th style="padding: 6px 8px; text-align: left;">Detail</th>
+          </tr>
+        </thead>
+        <tbody style="color: #374151;">
+          <tr style="border-bottom: 1px solid #fee2e2;">
+            <td style="padding: 6px 8px; font-weight: 500;">Autodesk</td>
+            <td style="padding: 6px 8px;">Unresponsive</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Warm intro from Dan, no response despite follow-ups. Suggest Ireland BL take over.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #fee2e2;">
+            <td style="padding: 6px 8px; font-weight: 500;">One Oncology</td>
+            <td style="padding: 6px 8px;">Unresponsive</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">-</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #fee2e2;">
+            <td style="padding: 6px 8px; font-weight: 500;">Tenable</td>
+            <td style="padding: 6px 8px;">Unresponsive</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Very early in AI journey, unclear objectives. CAB memo sent but went cold.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #fee2e2;">
+            <td style="padding: 6px 8px; font-weight: 500;">Flo Health</td>
+            <td style="padding: 6px 8px;">Satisfied w/ Current</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Built marketing compliance workflows using Gemini. Want to test before external solutions.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #fee2e2;">
+            <td style="padding: 6px 8px; font-weight: 500;">Tinder LLC</td>
+            <td style="padding: 6px 8px;">Timing</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Re-engage March 2026</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #fee2e2;">
+            <td style="padding: 6px 8px; font-weight: 500;">GLG</td>
+            <td style="padding: 6px 8px;">Other</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">CLO not engaged. Didn't "get" our model.</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 8px; font-weight: 500;">The Initial Group</td>
+            <td style="padding: 6px 8px;">First Meeting Qualified Out</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Not qualified: 1-person legal team, spend controlled by sponsor (TPG).</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
     
     <!-- New Opportunities Added This Week - Consolidated -->
