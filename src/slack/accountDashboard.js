@@ -1119,15 +1119,14 @@ async function generateAccountDashboard() {
   } catch (e) { console.error('Contracts query error:', e.message); }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // ALL CLOSED WON DEALS - Only 'Stage 6. Closed(Won)' opportunities
-  // Excludes deals from other closed stages (like Glanbia, OpenAI, etc.)
+  // ALL CLOSED WON DEALS - Use IsClosed=true AND IsWon=true for reliability
   // Excludes sample/test accounts (Acme, Sample, Sandbox, etc.)
   // Categorized by Revenue_Type__c: Recurring = Revenue, Commitment = LOI, Project = Pilot (< 12 months) or Revenue (>= 12 months)
   // ═══════════════════════════════════════════════════════════════════════
   const signedDealsQuery = `
     SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName, Contract_Term_Months__c
     FROM Opportunity
-    WHERE StageName = 'Stage 6. Closed(Won)'
+    WHERE IsClosed = true AND IsWon = true
       AND (NOT Account.Name LIKE '%Sample%')
       AND (NOT Account.Name LIKE '%Acme%')
       AND (NOT Account.Name LIKE '%Sandbox%')
@@ -1142,7 +1141,7 @@ async function generateAccountDashboard() {
   const novDecDealsQuery = `
     SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName
     FROM Opportunity
-    WHERE StageName = 'Stage 6. Closed(Won)' 
+    WHERE IsClosed = true AND IsWon = true
       AND CloseDate >= 2025-11-01
       AND (NOT Account.Name LIKE '%Sample%')
       AND (NOT Account.Name LIKE '%Acme%')
@@ -1399,10 +1398,11 @@ async function generateAccountDashboard() {
   // ═══════════════════════════════════════════════════════════════════════
   // CLOSED LOST DEALS - Deals that moved to Stage 7 this week (DYNAMIC)
   // Query: Stage 7 opportunities with LastModifiedDate in last 7 days
+  // Fetches Closed_Lost_Reason__c and Closed_Lost_Detail__c for display
   // ═══════════════════════════════════════════════════════════════════════
   const closedLostQuery = `
     SELECT Account.Name, Name, StageName, ACV__c, Closed_Lost_Detail__c, Closed_Lost_Reason__c,
-           LastModifiedDate, Owner.Name
+           LastModifiedDate, Owner.Name, Description
     FROM Opportunity
     WHERE StageName = 'Stage 7. Closed(Lost)'
       AND LastModifiedDate >= LAST_N_DAYS:7
@@ -1416,12 +1416,23 @@ async function generateAccountDashboard() {
     const closedLostData = await query(closedLostQuery, true);
     console.log(`[Dashboard] Closed Lost This Week query returned ${closedLostData?.records?.length || 0} records`);
     if (closedLostData?.records) {
+      // Log sample record to debug field names
+      if (closedLostData.records.length > 0) {
+        console.log(`[Dashboard] Sample Closed Lost record fields:`, Object.keys(closedLostData.records[0]));
+        console.log(`[Dashboard] Sample Closed Lost values:`, {
+          reason: closedLostData.records[0].Closed_Lost_Reason__c,
+          detail: closedLostData.records[0].Closed_Lost_Detail__c
+        });
+      }
+      
       closedLostData.records.forEach(opp => {
+        const reason = opp.Closed_Lost_Reason__c || opp.Lost_Reason__c || 'Closed Lost';
+        const detail = opp.Closed_Lost_Detail__c || opp.Lost_Detail__c || opp.Description || '-';
         closedLostDeals.push({
           accountName: opp.Account?.Name || 'Unknown',
           oppName: opp.Name || '',
-          closedLostDetail: opp.Closed_Lost_Detail__c || '-',
-          closedLostReason: opp.Closed_Lost_Reason__c || 'Closed Lost',
+          closedLostDetail: detail,
+          closedLostReason: reason,
           acv: opp.ACV__c || 0,
           owner: opp.Owner?.Name || '',
           closedDate: opp.LastModifiedDate
@@ -1858,12 +1869,14 @@ async function generateAccountDashboard() {
   // ═══════════════════════════════════════════════════════════════════════
   // For "By Stage" tab - group by stage for detailed breakdown
   // FIXED: Include Stage 0 to match all opportunities
+  // FIXED: Blend Stage 5 into Stage 4 for consistent reporting
   const stageBreakdown = {
     'Stage 4 - Proposal': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
     'Stage 3 - Pilot': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
     'Stage 2 - SQO': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
     'Stage 1 - Discovery': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
-    'Stage 0 - Qualifying': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 }
+    'Stage 0 - Qualifying': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
+    'Stage 5 - Negotiation': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 } // Track S5 separately, then blend
   };
   
   pipelineData.records.forEach(r => {
@@ -1873,6 +1886,11 @@ async function generateAccountDashboard() {
       stageBreakdown[r.StageName].count = r.DealCount || 0;
     }
   });
+  
+  // Blend Stage 5 into Stage 4 for reporting consistency
+  stageBreakdown['Stage 4 - Proposal'].totalACV += stageBreakdown['Stage 5 - Negotiation'].totalACV;
+  stageBreakdown['Stage 4 - Proposal'].weightedACV += stageBreakdown['Stage 5 - Negotiation'].weightedACV;
+  stageBreakdown['Stage 4 - Proposal'].count += stageBreakdown['Stage 5 - Negotiation'].count;
   
   // Group by BL with stage breakdown
   const blBreakdown = {};
