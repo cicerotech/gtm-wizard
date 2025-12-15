@@ -1044,12 +1044,12 @@ function generateWeeklyTab(params) {
   <!-- SECTION 4: LONGEST DEALS BY STAGE (T10) - Live from Salesforce -->
   <div class="weekly-section">
     <div class="weekly-section-title">4. Longest Deals by Stage (T10)</div>
-    <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 12px;">Top 10 deals per stage, sorted by days in stage (descending) • Live from Salesforce</div>
+    <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 12px;">Top 10 deals per stage • Numbers show days in current stage • Live from Salesforce</div>
     
     ${Object.entries(daysInStageByStage).map(([stage, deals]) => {
       const stageName = stage.replace('Stage ', 'S').replace(' - ', ': ');
       const dealsList = deals.length > 0 
-        ? deals.map(d => d.accountName + ' (' + Math.round(d.daysInStage) + ' days)').join(', ')
+        ? deals.map(d => d.accountName + ' (' + Math.round(d.daysInStage) + ')').join(', ')
         : 'No deals in this stage';
       return `
     <div class="weekly-subsection">
@@ -1119,14 +1119,14 @@ async function generateAccountDashboard() {
   } catch (e) { console.error('Contracts query error:', e.message); }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // ALL CLOSED WON DEALS - Use IsClosed=true AND IsWon=true for reliability
+  // ALL CLOSED WON DEALS - Query by StageName for reliability
   // Excludes sample/test accounts (Acme, Sample, Sandbox, etc.)
   // Categorized by Revenue_Type__c: Recurring = Revenue, Commitment = LOI, Project = Pilot (< 12 months) or Revenue (>= 12 months)
   // ═══════════════════════════════════════════════════════════════════════
   const signedDealsQuery = `
     SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName, Contract_Term_Months__c
     FROM Opportunity
-    WHERE IsClosed = true AND IsWon = true
+    WHERE (StageName = 'Closed Won' OR StageName = 'Stage 6. Closed(Won)')
       AND (NOT Account.Name LIKE '%Sample%')
       AND (NOT Account.Name LIKE '%Acme%')
       AND (NOT Account.Name LIKE '%Sandbox%')
@@ -1141,7 +1141,7 @@ async function generateAccountDashboard() {
   const novDecDealsQuery = `
     SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName
     FROM Opportunity
-    WHERE IsClosed = true AND IsWon = true
+    WHERE (StageName = 'Closed Won' OR StageName = 'Stage 6. Closed(Won)')
       AND CloseDate >= 2025-11-01
       AND (NOT Account.Name LIKE '%Sample%')
       AND (NOT Account.Name LIKE '%Acme%')
