@@ -1049,7 +1049,7 @@ function generateWeeklyTab(params) {
     ${Object.entries(daysInStageByStage).map(([stage, deals]) => {
       const stageName = stage.replace('Stage ', 'S').replace(' - ', ': ');
       const dealsList = deals.length > 0 
-        ? deals.map(d => d.accountName + ' (' + (d.daysInStage + 7) + ')').join(', ')
+        ? deals.map(d => d.accountName + ' (' + Math.round(d.daysInStage) + ' days)').join(', ')
         : 'No deals in this stage';
       return `
     <div class="weekly-subsection">
@@ -1060,7 +1060,7 @@ function generateWeeklyTab(params) {
     </div>`;
     }).join('')}
     
-    <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 8px; font-style: italic;">Days shown include +7 adjustment • Updated live from Salesforce</div>
+    <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 8px; font-style: italic;">Using Days_in_Stage1__c formula field • Top 10 per stage • Updated live from Salesforce</div>
   </div>
 </div>`;
 }
@@ -1549,14 +1549,15 @@ async function generateAccountDashboard() {
   } catch (e) { console.error('New Opps query error:', e.message); }
   
   // ═══════════════════════════════════════════════════════════════════════
-  // DAYS IN STAGE - Using Salesforce's Days_in_Stage__c field
+  // DAYS IN STAGE - Using Salesforce's Days_in_Stage1__c field (formula field)
+  // Top 10 opportunities per stage with longest duration in stage
   // ═══════════════════════════════════════════════════════════════════════
   const daysInStageQuery = `
-    SELECT Account.Name, Name, StageName, ACV__c, Days_in_Stage__c
+    SELECT Account.Name, Name, StageName, ACV__c, Days_in_Stage1__c
     FROM Opportunity
     WHERE IsClosed = false
       AND StageName IN ('Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
-    ORDER BY Days_in_Stage__c DESC NULLS LAST
+    ORDER BY Days_in_Stage1__c DESC NULLS LAST
   `;
   
   let daysInStageByStage = {
@@ -1579,7 +1580,7 @@ async function generateAccountDashboard() {
             accountName: opp.Account?.Name || 'Unknown',
             oppName: opp.Name || '',
             acv: opp.ACV__c || 0,
-            daysInStage: opp.Days_in_Stage__c || 0
+            daysInStage: opp.Days_in_Stage1__c || 0
           });
         }
       });
@@ -1887,10 +1888,14 @@ async function generateAccountDashboard() {
     }
   });
   
-  // Blend Stage 5 into Stage 4 for reporting consistency
+  // Blend Stage 5 into Stage 4 for reporting consistency, then ZERO OUT Stage 5 to prevent double-counting
   stageBreakdown['Stage 4 - Proposal'].totalACV += stageBreakdown['Stage 5 - Negotiation'].totalACV;
   stageBreakdown['Stage 4 - Proposal'].weightedACV += stageBreakdown['Stage 5 - Negotiation'].weightedACV;
   stageBreakdown['Stage 4 - Proposal'].count += stageBreakdown['Stage 5 - Negotiation'].count;
+  // Zero out Stage 5 after blending to prevent double-counting in stageWoW calculations
+  stageBreakdown['Stage 5 - Negotiation'].totalACV = 0;
+  stageBreakdown['Stage 5 - Negotiation'].weightedACV = 0;
+  stageBreakdown['Stage 5 - Negotiation'].count = 0;
   
   // Group by BL with stage breakdown
   const blBreakdown = {};
