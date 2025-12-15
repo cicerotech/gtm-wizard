@@ -1119,10 +1119,24 @@ async function generateAccountDashboard() {
   } catch (e) { console.error('Contracts query error:', e.message); }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // ALL CLOSED WON DEALS - Query by StageName for reliability
-  // Excludes sample/test accounts (Acme, Sample, Sandbox, etc.)
-  // Categorized by Revenue_Type__c: Recurring = Revenue, Commitment = LOI, Project = Pilot (< 12 months) or Revenue (>= 12 months)
+  // SIGNED LOGOS BY QUARTER - Query Accounts with First_Deal_Closed__c
+  // This field on Account object stores when the account's first deal closed
+  // Group accounts by fiscal quarter (Q4 2025 = Nov 1, 2025 - Jan 31, 2026)
   // ═══════════════════════════════════════════════════════════════════════
+  const signedAccountsQuery = `
+    SELECT Name, First_Deal_Closed__c, Customer_Type__c
+    FROM Account
+    WHERE First_Deal_Closed__c != null
+      AND (NOT Name LIKE '%Sample%')
+      AND (NOT Name LIKE '%Acme%')
+      AND (NOT Name LIKE '%Sandbox%')
+      AND (NOT Name LIKE '%Test%')
+      AND (NOT Name LIKE '%MasterCard Rose%')
+      AND (NOT Name LIKE '%DXC Technology%')
+    ORDER BY First_Deal_Closed__c DESC
+  `;
+  
+  // Also keep opportunity query for Revenue/Pilot/LOI categorization
   const signedDealsQuery = `
     SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName, Contract_Term_Months__c
     FROM Opportunity
@@ -1208,17 +1222,56 @@ async function generateAccountDashboard() {
   };
   
   try {
+    // FIRST: Query Accounts by First_Deal_Closed__c for signed logos by quarter
+    const signedAccountsData = await query(signedAccountsQuery, true);
+    console.log(`[Dashboard] Signed Accounts (First_Deal_Closed__c) returned ${signedAccountsData?.records?.length || 0} records`);
+    
+    if (signedAccountsData?.records) {
+      signedAccountsData.records.forEach(acc => {
+        const accountName = acc.Name;
+        if (!accountName || isSampleAccount(accountName)) return;
+        if (!acc.First_Deal_Closed__c) return;
+        
+        const closeDate = new Date(acc.First_Deal_Closed__c);
+        const month = closeDate.getMonth(); // 0-11
+        const year = closeDate.getFullYear();
+        
+        // Fiscal quarter logic: Q4 = Nov-Jan, Q1 = Feb-Apr, Q2 = May-Jul, Q3 = Aug-Oct
+        let quarterKey;
+        if (month >= 10) { // Nov, Dec
+          quarterKey = 'Q4 ' + year;
+        } else if (month === 0) { // Jan
+          quarterKey = 'Q4 ' + (year - 1); // Jan 2025 is part of Q4 2024
+        } else if (month >= 1 && month <= 3) { // Feb, Mar, Apr
+          quarterKey = 'Q1 ' + year;
+        } else if (month >= 4 && month <= 6) { // May, Jun, Jul
+          quarterKey = 'Q2 ' + year;
+        } else { // Aug, Sep, Oct
+          quarterKey = 'Q3 ' + year;
+        }
+        
+        // Current quarter gets (QTD) suffix
+        if (quarterKey === 'Q4 2025') {
+          quarterKey = 'Q4 2025 (QTD)';
+        }
+        
+        // Map to our defined quarters
+        if (signedByFiscalQuarter[quarterKey]) {
+          signedByFiscalQuarter[quarterKey].add(accountName);
+        } else if (year < 2024 || (year === 2024 && month < 10)) {
+          signedByFiscalQuarter['FY2024 & Prior'].add(accountName);
+        }
+      });
+    }
+    
+    console.log(`[Dashboard] Signed by fiscal quarter: Q4 2025 QTD=${signedByFiscalQuarter['Q4 2025 (QTD)']?.size || 0}, Q3 2025=${signedByFiscalQuarter['Q3 2025']?.size || 0}, Total=${Array.from(Object.values(signedByFiscalQuarter)).reduce((sum, set) => sum + set.size, 0)}`);
+    
+    // SECOND: Query Opportunities for Revenue/Pilot/LOI categorization
     const signedData = await query(signedDealsQuery, true);
-    console.log(`[Dashboard] All Closed Won (Stage 6) returned ${signedData?.records?.length || 0} records`);
+    console.log(`[Dashboard] All Closed Won Opportunities returned ${signedData?.records?.length || 0} records`);
     if (signedData?.records) {
       const uniqueTypes = [...new Set(signedData.records.map(o => o.Revenue_Type__c).filter(Boolean))];
       console.log(`[Dashboard] Revenue_Type__c values: ${JSON.stringify(uniqueTypes)}`);
-      console.log(`[Dashboard] Sample records (first 3):`, JSON.stringify(signedData.records.slice(0, 3).map(r => ({
-        account: r.Account?.Name,
-        revType: r.Revenue_Type__c,
-        termMonths: r.Contract_Term_Months__c,
-        closeDate: r.CloseDate
-      }))));
       
       signedData.records.forEach(opp => {
         const accountName = opp.Account?.Name || 'Unknown';
@@ -1241,55 +1294,6 @@ async function generateAccountDashboard() {
       });
     }
     console.log(`[Dashboard] All Closed Won by type: revenue=${signedByType.revenue.length}, pilot=${signedByType.pilot.length}, loi=${signedByType.loi.length}`);
-    
-    // Group signed deals by fiscal quarter for quarter-over-quarter view
-    // Using calendar-intuitive labels: Q4 = Nov-Jan, Q1 = Feb-Apr, Q2 = May-Jul, Q3 = Aug-Oct
-    const allSignedDeals = [...signedByType.revenue, ...signedByType.pilot, ...signedByType.loi];
-    
-    // Track first close per account to avoid double-counting
-    const accountFirstClose = new Map();
-    allSignedDeals.forEach(deal => {
-      if (!deal.closeDate) return;
-      const existingDate = accountFirstClose.get(deal.accountName);
-      const dealDate = new Date(deal.closeDate);
-      if (!existingDate || dealDate < existingDate) {
-        accountFirstClose.set(deal.accountName, dealDate);
-      }
-    });
-    
-    // Assign each account to quarter based on their FIRST close date
-    accountFirstClose.forEach((closeDate, accountName) => {
-      const month = closeDate.getMonth(); // 0-11
-      const year = closeDate.getFullYear();
-      
-      // Determine quarter based on calendar year intuitive labeling
-      let quarterKey;
-      if (month >= 10) { // Nov, Dec
-        quarterKey = 'Q4 ' + year;
-      } else if (month === 0) { // Jan
-        quarterKey = 'Q4 ' + (year - 1); // Jan 2025 is part of Q4 2024
-      } else if (month >= 1 && month <= 3) { // Feb, Mar, Apr
-        quarterKey = 'Q1 ' + year;
-      } else if (month >= 4 && month <= 6) { // May, Jun, Jul
-        quarterKey = 'Q2 ' + year;
-      } else { // Aug, Sep, Oct
-        quarterKey = 'Q3 ' + year;
-      }
-      
-      // Current quarter gets (QTD) suffix
-      if (quarterKey === 'Q4 2025') {
-        quarterKey = 'Q4 2025 (QTD)';
-      }
-      
-      // Map to our defined quarters
-      if (signedByFiscalQuarter[quarterKey]) {
-        signedByFiscalQuarter[quarterKey].add(accountName);
-      } else if (year < 2024 || (year === 2024 && month < 10)) {
-        signedByFiscalQuarter['FY2024 & Prior'].add(accountName);
-      }
-    });
-    
-    console.log(`[Dashboard] Signed by fiscal quarter: Q4 2025 QTD=${signedByFiscalQuarter['Q4 2025 (QTD)']?.size || 0}, Q3 2025=${signedByFiscalQuarter['Q3 2025']?.size || 0}`);
     
     // Query Nov 1, 2024+ deals separately for Top Co section
     const novDecData = await query(novDecDealsQuery, true);
@@ -1404,7 +1408,7 @@ async function generateAccountDashboard() {
     SELECT Account.Name, Name, StageName, ACV__c, Closed_Lost_Detail__c, Closed_Lost_Reason__c,
            LastModifiedDate, Owner.Name, Description
     FROM Opportunity
-    WHERE StageName = 'Stage 7. Closed(Lost)'
+    WHERE (StageName = 'Closed Lost' OR StageName = 'Stage 7. Closed(Lost)' OR StageName = 'Stage 7 - Closed Lost')
       AND LastModifiedDate >= LAST_N_DAYS:7
     ORDER BY LastModifiedDate DESC
     LIMIT 20
@@ -1415,15 +1419,21 @@ async function generateAccountDashboard() {
   try {
     const closedLostData = await query(closedLostQuery, true);
     console.log(`[Dashboard] Closed Lost This Week query returned ${closedLostData?.records?.length || 0} records`);
-    if (closedLostData?.records) {
-      // Log sample record to debug field names
-      if (closedLostData.records.length > 0) {
-        console.log(`[Dashboard] Sample Closed Lost record fields:`, Object.keys(closedLostData.records[0]));
-        console.log(`[Dashboard] Sample Closed Lost values:`, {
-          reason: closedLostData.records[0].Closed_Lost_Reason__c,
-          detail: closedLostData.records[0].Closed_Lost_Detail__c
-        });
-      }
+    
+    if (closedLostData?.records && closedLostData.records.length > 0) {
+      // Log sample record to debug field names and values
+      const sample = closedLostData.records[0];
+      console.log(`[Dashboard] Sample Closed Lost record:`, {
+        account: sample.Account?.Name,
+        oppName: sample.Name,
+        stage: sample.StageName,
+        reason: sample.Closed_Lost_Reason__c,
+        reasonAlt: sample.Lost_Reason__c,
+        detail: sample.Closed_Lost_Detail__c,
+        detailAlt: sample.Lost_Detail__c,
+        description: sample.Description ? sample.Description.substring(0, 100) : null,
+        lastModified: sample.LastModifiedDate
+      });
       
       closedLostData.records.forEach(opp => {
         const reason = opp.Closed_Lost_Reason__c || opp.Lost_Reason__c || 'Closed Lost';
@@ -1438,6 +1448,10 @@ async function generateAccountDashboard() {
           closedDate: opp.LastModifiedDate
         });
       });
+      
+      console.log(`[Dashboard] Closed Lost deals processed: ${closedLostDeals.length} with actual Reason/Detail`);
+    } else {
+      console.log(`[Dashboard] No Closed Lost opportunities found - only showing Nurtured accounts`);
     }
   } catch (e) { 
     console.error('Closed Lost query error:', e.message);
