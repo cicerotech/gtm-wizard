@@ -150,6 +150,8 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   const combinedClosedTotal = eudiaRevenueTotal + jhClosedTotal;
   const combinedClosedCount = eudiaRevenueDeals.length + jhClosedDeals.length;
   
+  console.log(`[Dashboard] Closed Revenue Total: Eudia=$${eudiaRevenueTotal}, JH=$${jhClosedTotal}, Combined=$${combinedClosedTotal}, Count=${combinedClosedCount}`);
+  
   // Eudia stage order
   const stageOrder = ['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'];
   
@@ -537,7 +539,7 @@ function generateWeeklyTab(params) {
     novDecRevenue, novDecRevenueTotal,
     contractsByAccount, recurringTotal, projectTotal,
     closedLostDeals = [], nurturedAccounts = [], daysInStageByStage = {},
-    logosByType = { revenue: [], pilot: [], loi: [] },
+    logosByType = { revenue: [], project: [], pilot: [], loi: [] },
     newOppsThisWeek = [], newOppsTotal = 0,
     signedThisWeek = [],
     signedByFiscalQuarter = {}
@@ -693,16 +695,19 @@ function generateWeeklyTab(params) {
   const stageTotalACV = stageWoW.reduce((sum, s) => sum + s.acv, 0);
   const stageTotalCount = stageWoW.reduce((sum, s) => sum + s.oppCount, 0);
   
-  // Current logos count from Account.Customer_Type__c (all tagged accounts)
-  // Use Set to deduplicate in case an account has multiple types
-  const allLogos = [
-    ...logosByType.revenue.map(a => a.accountName),
-    ...logosByType.pilot.map(a => a.accountName),
-    ...logosByType.loi.map(a => a.accountName)
-  ];
-  const uniqueLogos = [...new Set(allLogos)];
-  // Total should be sum of categories (not deduplicated) to match math
-  const currentLogosCount = logosByType.revenue.length + logosByType.pilot.length + logosByType.loi.length;
+  // Current logos count from First_Deal_Closed__c (matches Total Signed calculation)
+  // Use the same source as signedByFiscalQuarter to ensure alignment
+  const quarterOrder = ['FY2024 & Prior', 'Q4 2024', 'Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025 (QTD)'];
+  const currentLogosCount = quarterOrder.reduce((sum, q) => sum + (signedByFiscalQuarter[q]?.size || 0), 0);
+  
+  // For the expandable list, collect unique account names from all quarters
+  const allUniqueLogos = new Set();
+  quarterOrder.forEach(q => {
+    if (signedByFiscalQuarter[q]) {
+      signedByFiscalQuarter[q].forEach(account => allUniqueLogos.add(account));
+    }
+  });
+  const uniqueLogos = [...allUniqueLogos].sort();
   
   // Run-rate forecast (using contract data)
   const fy2025Total = recurringTotal + projectTotal;
@@ -867,7 +872,7 @@ function generateWeeklyTab(params) {
       <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-top: 8px;">
         <details>
           <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827;">
-            ▸ All Logos (${uniqueLogos.length} unique) - click to expand
+            ▸ All Logos (${currentLogosCount} accounts) - click to expand
           </summary>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 0.65rem; color: #374151; margin-top: 8px;">
             ${uniqueLogos.sort().map(logo => '<div style="padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + logo + '</div>').join('')}
@@ -1174,25 +1179,26 @@ async function generateAccountDashboard() {
     if (!revType) {
       // If no revenue type, check contract term
       if (!contractTermMonths || contractTermMonths === 0) return 'loi';
-      return contractTermMonths < 12 ? 'pilot' : 'revenue';
+      return contractTermMonths < 12 ? 'pilot' : 'project';
     }
     const rt = revType.toLowerCase().trim();
     // LOI = Commitment
     if (rt === 'commitment') return 'loi';
-    // Revenue = Recurring OR Project (with term >= 12 months)
+    // Revenue = Recurring (ARR)
     if (rt === 'recurring' || rt === 'arr') return 'revenue';
+    // Project = Project type (any term length)
     if (rt === 'project') {
-      // Project: check contract term to distinguish Pilot vs Revenue
-      if (!contractTermMonths || contractTermMonths === 0) return 'pilot'; // Default to pilot if no term
-      return contractTermMonths < 12 ? 'pilot' : 'revenue'; // Short-term = pilot, long-term = revenue
+      // Pilot is for short-term projects < 12 months
+      if (contractTermMonths && contractTermMonths < 12) return 'pilot';
+      return 'project'; // Project category for >= 12 months or no term specified
     }
     // Default: check contract term
     if (!contractTermMonths || contractTermMonths === 0) return 'loi';
-    return contractTermMonths < 12 ? 'pilot' : 'revenue';
+    return contractTermMonths < 12 ? 'pilot' : 'project';
   };
   
-  let signedByType = { revenue: [], pilot: [], loi: [] };
-  let signedDealsTotal = { revenue: 0, pilot: 0, loi: 0 };
+  let signedByType = { revenue: [], project: [], pilot: [], loi: [] };
+  let signedDealsTotal = { revenue: 0, project: 0, pilot: 0, loi: 0 };
   // Nov-Dec deals for Top Co section (revenue only)
   let novDecRevenue = [];
   let novDecRevenueTotal = 0;
@@ -1293,7 +1299,7 @@ async function generateAccountDashboard() {
         signedDealsTotal[category] += deal.acv;
       });
     }
-    console.log(`[Dashboard] All Closed Won by type: revenue=${signedByType.revenue.length}, pilot=${signedByType.pilot.length}, loi=${signedByType.loi.length}`);
+    console.log(`[Dashboard] All Closed Won by type: revenue=${signedByType.revenue.length}, project=${signedByType.project.length}, pilot=${signedByType.pilot.length}, loi=${signedByType.loi.length}`);
     
     // Query Nov 1, 2024+ deals separately for Top Co section
     const novDecData = await query(novDecDealsQuery, true);
@@ -1334,7 +1340,7 @@ async function generateAccountDashboard() {
     ORDER BY Name
   `;
   
-  let logosByType = { revenue: [], pilot: [], loi: [] };
+  let logosByType = { revenue: [], project: [], pilot: [], loi: [] };
   
   try {
     const logosData = await query(logosQuery, true);
@@ -1348,16 +1354,18 @@ async function generateAccountDashboard() {
         const ct = (acc.Customer_Type__c || '').toLowerCase().trim();
         
         // Categorize by Customer_Type__c
-        if (ct.includes('revenue') || ct === 'arr') {
+        if (ct.includes('revenue') || ct === 'arr' || ct === 'recurring') {
           logosByType.revenue.push({ accountName: acc.Name });
+        } else if (ct.includes('project')) {
+          logosByType.project.push({ accountName: acc.Name });
         } else if (ct.includes('pilot')) {
           logosByType.pilot.push({ accountName: acc.Name });
-        } else if (ct.includes('loi')) {
+        } else if (ct.includes('loi') || ct === 'commitment') {
           logosByType.loi.push({ accountName: acc.Name });
         }
       });
     }
-    console.log(`[Dashboard] Logos by type: revenue=${logosByType.revenue.length}, pilot=${logosByType.pilot.length}, loi=${logosByType.loi.length}`);
+    console.log(`[Dashboard] Logos by type: revenue=${logosByType.revenue.length}, project=${logosByType.project.length}, pilot=${logosByType.pilot.length}, loi=${logosByType.loi.length}`);
   } catch (e) { console.error('Logos query error:', e.message); }
   
   // Helper function to format currency
@@ -2023,8 +2031,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.7rem; font-weight: 600; margin-left: 6px; }
 .badge-new { background: #d1fae5; color: #065f46; }
 .badge-revenue { background: #dbeafe; color: #1e40af; }
+.badge-project { background: #f3e8ff; color: #6b21a8; }
 .badge-pilot { background: #fef3c7; color: #92400e; }
-.badge-loi { background: #f3f4f6; color: #4b5563; }
+.badge-loi { background: #fef3c7; color: #d97706; }
 .badge-other { background: #f3f4f6; color: #374151; }
 .badge-marquee { background: #fff; color: #6b7280; border: 1px solid #d1d5db; font-weight: 500; }
 .badge-velocity { background: #e0f2fe; color: #075985; border: 1px solid #0284c7; }
@@ -2082,11 +2091,13 @@ ${late.map((acc, idx) => {
           badge = '<span class="badge badge-new">New</span>';
         } else if (acc.customerType) {
           const type = acc.customerType.toLowerCase();
-          if (type.includes('revenue') || type === 'arr') {
+          if (type.includes('revenue') || type === 'arr' || type === 'recurring') {
             badge = '<span class="badge badge-revenue">Revenue</span>';
+          } else if (type.includes('project')) {
+            badge = '<span class="badge badge-project">Project</span>';
           } else if (type.includes('pilot')) {
             badge = '<span class="badge badge-pilot">Pilot</span>';
-          } else if (type.includes('loi')) {
+          } else if (type.includes('loi') || type === 'commitment') {
             badge = '<span class="badge badge-loi">LOI</span>';
           } else {
             badge = '<span class="badge badge-other">' + acc.customerType + '</span>';
@@ -2145,11 +2156,13 @@ ${mid.map((acc, idx) => {
           badge = '<span class="badge badge-new">New</span>';
         } else if (acc.customerType) {
           const type = acc.customerType.toLowerCase();
-          if (type.includes('revenue') || type === 'arr') {
+          if (type.includes('revenue') || type === 'arr' || type === 'recurring') {
             badge = '<span class="badge badge-revenue">Revenue</span>';
+          } else if (type.includes('project')) {
+            badge = '<span class="badge badge-project">Project</span>';
           } else if (type.includes('pilot')) {
             badge = '<span class="badge badge-pilot">Pilot</span>';
-          } else if (type.includes('loi')) {
+          } else if (type.includes('loi') || type === 'commitment') {
             badge = '<span class="badge badge-loi">LOI</span>';
           } else {
             badge = '<span class="badge badge-other">' + acc.customerType + '</span>';
@@ -2402,10 +2415,11 @@ ${generateWeeklyTab({
     return `
   <div class="stage-section" style="margin-top: 16px;">
     <div class="stage-title">All Closed Won</div>
-    <div class="stage-subtitle">${combinedRevenue.length} revenue • ${signedByType.pilot.length} pilot • ${signedByType.loi.length} LOI</div>
+    <div class="stage-subtitle">${combinedRevenue.length} revenue • ${signedByType.project.length} project • ${signedByType.pilot.length} pilot • ${signedByType.loi.length} LOI</div>
     <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 8px; padding: 8px; background: #f9fafb; border-radius: 4px;">
       <strong>Revenue:</strong> Recurring/ARR subscription contracts &nbsp;|&nbsp;
-      <strong>Pilot:</strong> Short-term revenue deals (less than 12 months) &nbsp;|&nbsp;
+      <strong>Project:</strong> Long-term project deals (12+ months) &nbsp;|&nbsp;
+      <strong>Pilot:</strong> Short-term deals (less than 12 months) &nbsp;|&nbsp;
       <strong>LOI:</strong> Signed commitments to spend
     </div>
   </div>
@@ -2443,6 +2457,38 @@ ${generateWeeklyTab({
       </div>
     </details>` : ''}`;
   })()}
+    
+    ${signedByType.project.length > 0 ? `
+    <details open style="margin-bottom: 12px;">
+      <summary style="background: #7c3aed; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
+        <span>PROJECT</span>
+        <span>${formatCurrency(signedDealsTotal.project)} • ${signedByType.project.length} deal${signedByType.project.length !== 1 ? 's' : ''}</span>
+      </summary>
+      <div style="padding: 0 12px 12px 12px; background: #faf5ff; border-radius: 0 0 6px 6px;">
+      ${signedByType.project.slice(0, 5).map(d => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f3e8ff; font-size: 0.75rem;">
+          <span style="font-weight: 500;">${d.accountName}</span>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
+            <span style="color: #6b21a8; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+          </div>
+        </div>
+      `).join('')}
+      ${signedByType.project.length > 5 ? `
+        <details style="margin-top: 4px;">
+          <summary style="font-size: 0.65rem; color: #6b21a8; cursor: pointer; padding: 4px 0;">+${signedByType.project.length - 5} more deals ›</summary>
+          ${signedByType.project.slice(5).map(d => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f3e8ff; font-size: 0.75rem;">
+              <span style="font-weight: 500;">${d.accountName}</span>
+              <div style="display: flex; gap: 12px; align-items: center;">
+                <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
+                <span style="color: #6b21a8; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+              </div>
+            </div>
+          `).join('')}
+        </details>` : ''}
+      </div>
+    </details>` : ''}
     
     ${signedByType.pilot.length > 0 ? `
     <details open style="margin-bottom: 12px;">
@@ -2508,7 +2554,7 @@ ${generateWeeklyTab({
       </div>
     </details>` : ''}
     
-    ${signedByType.revenue.length === 0 && signedByType.pilot.length === 0 && signedByType.loi.length === 0 ? '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No closed deals in last 90 days</div>' : ''}
+    ${signedByType.revenue.length === 0 && signedByType.project.length === 0 && signedByType.pilot.length === 0 && signedByType.loi.length === 0 ? '<div style="text-align: center; color: #9ca3af; padding: 16px; font-size: 0.8rem;">No closed deals in last 90 days</div>' : ''}
   </div>
 </div>
 
@@ -2519,18 +2565,33 @@ ${generateWeeklyTab({
   </div>
   
   <!-- Logos by Customer Type - Using consistent logosByType data -->
-  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;">
+  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px;">
     <!-- REVENUE Tile -->
     <div style="background: #f0fdf4; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.7rem; font-weight: 700; color: #059669;">REVENUE</div>
         <div style="font-size: 1.25rem; font-weight: 700; color: #15803d;">${logosByType.revenue.length}</div>
       </div>
-      <div style="font-size: 0.55rem; color: #6b7280; margin: 4px 0;">Paying customers with active contracts</div>
+      <div style="font-size: 0.55rem; color: #6b7280; margin: 4px 0;">Recurring/ARR contracts</div>
       <details style="font-size: 0.6rem; color: #6b7280;">
         <summary style="cursor: pointer; color: #059669; font-weight: 500;">View accounts ›</summary>
         <div style="margin-top: 6px; display: grid; grid-template-columns: 1fr; gap: 2px; max-height: 200px; overflow-y: auto;">
           ${logosByType.revenue.map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a.accountName + '</div>').sort().join('') || '-'}
+        </div>
+      </details>
+    </div>
+    
+    <!-- PROJECT Tile -->
+    <div style="background: #faf5ff; padding: 12px; border-radius: 6px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-size: 0.7rem; font-weight: 700; color: #7c3aed;">PROJECT</div>
+        <div style="font-size: 1.25rem; font-weight: 700; color: #6b21a8;">${logosByType.project.length}</div>
+      </div>
+      <div style="font-size: 0.55rem; color: #6b7280; margin: 4px 0;">Long-term projects (12+ mo)</div>
+      <details style="font-size: 0.6rem; color: #6b7280;">
+        <summary style="cursor: pointer; color: #7c3aed; font-weight: 500;">View accounts ›</summary>
+        <div style="margin-top: 6px; display: grid; grid-template-columns: 1fr; gap: 2px; max-height: 200px; overflow-y: auto;">
+          ${logosByType.project.map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a.accountName + '</div>').sort().join('') || '-'}
         </div>
       </details>
     </div>
@@ -2541,7 +2602,7 @@ ${generateWeeklyTab({
         <div style="font-size: 0.7rem; font-weight: 700; color: #2563eb;">PILOT</div>
         <div style="font-size: 1.25rem; font-weight: 700; color: #1e40af;">${logosByType.pilot.length}</div>
       </div>
-      <div style="font-size: 0.55rem; color: #6b7280; margin: 4px 0;">Active pilots or proof-of-concept</div>
+      <div style="font-size: 0.55rem; color: #6b7280; margin: 4px 0;">Short-term deals (< 12 mo)</div>
       <details style="font-size: 0.6rem; color: #6b7280;">
         <summary style="cursor: pointer; color: #2563eb; font-weight: 500;">View accounts ›</summary>
         <div style="margin-top: 6px; display: grid; grid-template-columns: 1fr; gap: 2px; max-height: 200px; overflow-y: auto;">
@@ -2551,14 +2612,14 @@ ${generateWeeklyTab({
     </div>
     
     <!-- LOI Tile -->
-    <div style="background: #faf5ff; padding: 12px; border-radius: 6px;">
+    <div style="background: #fef3c7; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="font-size: 0.7rem; font-weight: 700; color: #7c3aed;">LOI</div>
-        <div style="font-size: 1.25rem; font-weight: 700; color: #7c3aed;">${logosByType.loi.length}</div>
+        <div style="font-size: 0.7rem; font-weight: 700; color: #d97706;">LOI</div>
+        <div style="font-size: 1.25rem; font-weight: 700; color: #92400e;">${logosByType.loi.length}</div>
       </div>
       <div style="font-size: 0.55rem; color: #6b7280; margin: 4px 0;">Signed LOI, pending contract</div>
       <details style="font-size: 0.6rem; color: #6b7280;">
-        <summary style="cursor: pointer; color: #7c3aed; font-weight: 500;">View accounts ›</summary>
+        <summary style="cursor: pointer; color: #d97706; font-weight: 500;">View accounts ›</summary>
         <div style="margin-top: 6px; display: grid; grid-template-columns: 1fr; gap: 2px; max-height: 200px; overflow-y: auto;">
           ${logosByType.loi.map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a.accountName + '</div>').sort().join('') || '-'}
         </div>
@@ -2569,7 +2630,7 @@ ${generateWeeklyTab({
   <!-- Total Signed Logos Summary -->
   <div style="background: #1f2937; color: white; padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
     <span style="font-size: 0.75rem; font-weight: 600;">Total Signed Logos</span>
-    <span style="font-size: 1rem; font-weight: 700;">${logosByType.revenue.length + logosByType.pilot.length + logosByType.loi.length}</span>
+    <span style="font-size: 1rem; font-weight: 700;">${logosByType.revenue.length + logosByType.project.length + logosByType.pilot.length + logosByType.loi.length}</span>
   </div>
   
   <div class="section-card" style="padding: 12px; margin-bottom: 12px;">
@@ -2578,9 +2639,10 @@ ${generateWeeklyTab({
       <div style="font-size: 0.7rem; color: #6b7280;">${accountsWithPlans} have plans</div>
     </div>
     <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.6rem; color: #9ca3af;">
-      <span><strong style="color: #22c55e;">Revenue</strong> = ARR customer</span>
-      <span><strong style="color: #2563eb;">Pilot</strong> = Active project</span>
-      <span><strong style="color: #6b7280;">LOI</strong> = Signed commitment</span>
+      <span><strong style="color: #22c55e;">Revenue</strong> = ARR/Recurring</span>
+      <span><strong style="color: #7c3aed;">Project</strong> = Long-term (12+ mo)</span>
+      <span><strong style="color: #2563eb;">Pilot</strong> = Short-term (&lt;12 mo)</span>
+      <span><strong style="color: #d97706;">LOI</strong> = Signed commitment</span>
       <span><strong style="color: #065f46;">New</strong> = First deal &lt;90 days</span>
       <span><strong style="color: #374151;">Marquee</strong> = $1m+ ARR potential</span>
       <span><strong style="color: #075985;">Velocity</strong> = ~$150k ARR, fast cycle</span>
@@ -2606,11 +2668,13 @@ ${generateWeeklyTab({
             badge = '<span class="badge badge-new">New</span>';
           } else if (acc.customerType) {
             const type = acc.customerType.toLowerCase();
-            if (type.includes('revenue') || type === 'arr') {
+            if (type.includes('revenue') || type === 'arr' || type === 'recurring') {
               badge = '<span class="badge badge-revenue">Revenue</span>';
+            } else if (type.includes('project')) {
+              badge = '<span class="badge badge-project">Project</span>';
             } else if (type.includes('pilot')) {
               badge = '<span class="badge badge-pilot">Pilot</span>';
-            } else if (type.includes('loi')) {
+            } else if (type.includes('loi') || type === 'commitment') {
               badge = '<span class="badge badge-loi">LOI</span>';
             } else {
               badge = '<span class="badge badge-other">' + acc.customerType + '</span>';
