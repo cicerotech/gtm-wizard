@@ -294,9 +294,10 @@ async function processQuery(text, userId, channelId, client, threadTs = null) {
 • "which opportunities are late stage contracting?" - Product line + stage
 • "what accounts are in Stage 2?" - Account list by stage
 
-*BOOKINGS & LOIs*
-• "what LOIs have we signed in the last two weeks?" - Recent bookings
-• "how many bookings this month?" - Booking count
+*LOIs & ARR DEALS*
+• "what LOIs have we signed in the last two weeks?" - Recent LOIs (Revenue_Type = Commitment)
+• "how many LOIs this month?" - LOI count
+• "show ARR deals" - Recurring revenue contracts (Revenue_Type = Recurring)
 • "show me ARR deals" - Recurring revenue opportunities
 
 *RECENT ACTIVITY*
@@ -532,6 +533,21 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle "what deals were added to pipeline this week"
       await handlePipelineAddedQuery(parsedIntent, userId, channelId, client, threadTs);
       return; // Exit early - handled by dedicated function
+    } else if (parsedIntent.intent === 'weighted_pipeline') {
+      // Handle "weighted pipeline" query
+      await handleWeightedPipelineQuery(parsedIntent, userId, channelId, client, threadTs);
+      return; // Exit early
+    } else if (parsedIntent.intent === 'loi_deals' || parsedIntent.intent === 'loi_accounts' || parsedIntent.intent === 'loi_count') {
+      // Handle "what LOIs have we signed" / "how many LOIs"
+      await handleLOIQuery(parsedIntent, userId, channelId, client, threadTs);
+      return; // Exit early
+    } else if (parsedIntent.intent === 'arr_deals' || parsedIntent.intent === 'arr_contracts') {
+      // Handle "show ARR deals" / "how many ARR contracts"
+      await handleARRQuery(parsedIntent, userId, channelId, client, threadTs);
+      return; // Exit early
+    } else if (parsedIntent.intent === 'pipeline_by_stage' || parsedIntent.intent === 'early_stage' || parsedIntent.intent === 'mid_stage' || parsedIntent.intent === 'late_stage') {
+      // Handle stage-based pipeline queries
+      soql = queryBuilder.buildOpportunityQuery({ ...parsedIntent.entities, isClosed: false });
     } else if (parsedIntent.intent === 'pipeline_summary' || parsedIntent.intent === 'deal_lookup') {
       soql = queryBuilder.buildOpportunityQuery(parsedIntent.entities);
     } else if (parsedIntent.intent === 'activity_check') {
@@ -1520,19 +1536,19 @@ function buildCountQuery(entities) {
     case 'arr_contracts':
       return `SELECT COUNT(Id) ARRContractCount 
               FROM Opportunity 
-              WHERE Revenue_Type__c = 'ARR' AND IsClosed = true AND IsWon = true`;
+              WHERE Revenue_Type__c = 'Recurring' AND IsClosed = true AND IsWon = true`;
     
     case 'loi_count':
       return `SELECT COUNT(Id) LOICount 
               FROM Opportunity 
-              WHERE Revenue_Type__c = 'Booking' AND IsClosed = true AND IsWon = true`;
+              WHERE Revenue_Type__c = 'Commitment' AND IsClosed = true AND IsWon = true`;
     
     case 'loi_accounts':
       // What accounts/companies have signed LOIs
-      return `SELECT DISTINCT Account.Name, Account.Owner.Name
+      return `SELECT DISTINCT Account.Name, Account.Owner.Name, CloseDate, Amount, ACV__c
               FROM Opportunity 
-              WHERE Revenue_Type__c = 'Booking' AND IsClosed = true AND IsWon = true
-              ORDER BY Account.Name`;
+              WHERE Revenue_Type__c = 'Commitment' AND IsClosed = true AND IsWon = true
+              ORDER BY CloseDate DESC`;
     
     default:
       return `SELECT COUNT(Id) Total FROM Account LIMIT 1`;
@@ -1958,16 +1974,24 @@ function formatCountResults(queryResult, parsedIntent) {
     
     case 'loi_accounts':
       const loiAcctCount = records.length;
-      const loiAcctNames = records.map(r => r.Account?.Name || r.Name).filter((v, i, a) => a.indexOf(v) === i).join(', ');
-      return `*Accounts with Signed LOIs: ${loiAcctCount}*\n\n${loiAcctNames}`;
+      let loiResponse = `*LOIs Signed: ${loiAcctCount}*\n\n`;
+      loiResponse += `_Accounts with signed letters of intent (Revenue_Type = Commitment)_\n\n`;
+      records.forEach((r, i) => {
+        const accountName = r.Account?.Name || 'Unknown';
+        const owner = r.Account?.Owner?.Name || 'Unassigned';
+        const acv = r.ACV__c ? `$${(r.ACV__c/1000).toFixed(0)}k` : 'N/A';
+        const closeDate = r.CloseDate ? new Date(r.CloseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
+        loiResponse += `${i+1}. *${accountName}* (${acv})\n   Signed: ${closeDate} | Owner: ${owner}\n\n`;
+      });
+      return loiResponse;
     
     case 'arr_contracts':
       const contractCount = records[0].ARRContractCount || 0;
-      return `*ARR Contracts: ${contractCount}*\n\nClosed won opportunities with Revenue_Type = ARR`;
+      return `*ARR Contracts: ${contractCount}*\n\nClosed won opportunities with Revenue_Type = Recurring`;
     
     case 'loi_count':
       const loiCount = records[0].LOICount || 0;
-      return `*Total LOIs Signed: ${loiCount}*\n\nClosed won opportunities with Revenue_Type = Booking`;
+      return `*Total LOIs Signed: ${loiCount}*\n\nClosed won opportunities with Revenue_Type = Commitment`;
     
     default:
       return `Count: ${records[0].Total || records[0].expr0 || 0}`;
@@ -3928,7 +3952,7 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
       Product_Line__c: oppData.productLine,
       Target_LOI_Date__c: targetDateFormatted,
       CloseDate: targetDateFormatted,
-      Revenue_Type__c: oppData.revenueType, // ARR, Booking, or Project
+      Revenue_Type__c: oppData.revenueType, // Recurring, Commitment, or Project
       LeadSource: oppData.opportunitySource,
       Probability: probability
       // IsClosed: REMOVED - read-only field, set automatically by Salesforce based on StageName
@@ -4590,6 +4614,194 @@ async function handlePipelineAddedQuery(parsedIntent, userId, channelId, client,
     await client.chat.postMessage({
       channel: channelId,
       text: `Error fetching new pipeline: ${error.message}`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle "weighted pipeline" query
+ */
+async function handleWeightedPipelineQuery(parsedIntent, userId, channelId, client, threadTs) {
+  try {
+    const soql = buildWeightedSummaryQuery(parsedIntent.entities || {});
+    const result = await query(soql, true);
+    
+    if (!result || !result.records || result.records.length === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `No active pipeline found.\n\nTry: "show me pipeline" or "late stage pipeline"`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    // Format weighted pipeline summary
+    const records = result.records;
+    let totalGross = 0;
+    let totalWeighted = 0;
+    let totalDeals = 0;
+    
+    records.forEach(r => {
+      totalGross += r.GrossAmount || 0;
+      totalWeighted += r.WeightedAmount || 0;
+      totalDeals += r.DealCount || 0;
+    });
+    
+    let response = `*Weighted Pipeline Summary*\n\n`;
+    response += `*Total Weighted ACV:* ${formatCurrency(totalWeighted)}\n`;
+    response += `*Total Gross ACV:* ${formatCurrency(totalGross)}\n`;
+    response += `*Total Deals:* ${totalDeals}\n\n`;
+    response += `*By Stage:*\n`;
+    
+    // Sort by stage
+    const stageOrder = {
+      'Stage 4 - Proposal': 1,
+      'Stage 3 - Pilot': 2,
+      'Stage 2 - SQO': 3,
+      'Stage 1 - Discovery': 4,
+      'Stage 0 - Qualifying': 5
+    };
+    
+    const sorted = records.sort((a, b) => (stageOrder[a.StageName] || 99) - (stageOrder[b.StageName] || 99));
+    
+    sorted.forEach(r => {
+      const stage = shortStage(r.StageName);
+      const weighted = formatCurrency(r.WeightedAmount || 0);
+      const gross = formatCurrency(r.GrossAmount || 0);
+      const count = r.DealCount || 0;
+      response += `• ${stage}: ${weighted} weighted (${gross} gross, ${count} deals)\n`;
+    });
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: response,
+      thread_ts: threadTs
+    });
+    
+    logger.info(`✅ Weighted pipeline query: ${formatCurrency(totalWeighted)} total`);
+    
+  } catch (error) {
+    logger.error('Weighted pipeline query failed:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `Error fetching weighted pipeline: ${error.message}\n\nTry: "show me pipeline"`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle "what LOIs have we signed" / "how many LOIs" query
+ */
+async function handleLOIQuery(parsedIntent, userId, channelId, client, threadTs) {
+  try {
+    const soql = buildSimpleQuery('loi_accounts');
+    const result = await query(soql, true);
+    
+    if (!result || !result.records || result.records.length === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `No LOIs found.\n\n_LOIs are opportunities with Revenue_Type = 'Commitment'_\n\nTry: "what closed this month" or "show ARR deals"`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const records = result.records;
+    let totalACV = 0;
+    records.forEach(r => { totalACV += r.ACV__c || 0; });
+    
+    let response = `*LOIs Signed: ${records.length}*\n\n`;
+    response += `_Letters of Intent (Revenue_Type = 'Commitment')_\n`;
+    response += `*Total ACV:* ${formatCurrency(totalACV)}\n\n`;
+    
+    records.slice(0, 20).forEach((r, i) => {
+      const accountName = r.Account?.Name || 'Unknown';
+      const owner = shortName(r.Account?.Owner?.Name) || 'Unassigned';
+      const acv = formatCurrency(r.ACV__c || 0);
+      const closeDate = r.CloseDate ? new Date(r.CloseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
+      response += `${i+1}. *${accountName}* - ${acv}\n   Signed: ${closeDate} | Owner: ${owner}\n\n`;
+    });
+    
+    if (records.length > 20) {
+      response += `\n_Showing first 20 of ${records.length} LOIs_`;
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: response,
+      thread_ts: threadTs
+    });
+    
+    logger.info(`✅ LOI query: ${records.length} LOIs found`);
+    
+  } catch (error) {
+    logger.error('LOI query failed:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `Error fetching LOIs: ${error.message}`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle "show ARR deals" / "how many ARR contracts" query
+ */
+async function handleARRQuery(parsedIntent, userId, channelId, client, threadTs) {
+  try {
+    // Query for recurring revenue deals
+    const soql = `SELECT Account.Name, Account.Owner.Name, Name, Amount, ACV__c, CloseDate, Owner.Name
+                  FROM Opportunity 
+                  WHERE Revenue_Type__c = 'Recurring' AND IsClosed = true AND IsWon = true
+                  ORDER BY CloseDate DESC
+                  LIMIT 100`;
+    
+    const result = await query(soql, true);
+    
+    if (!result || !result.records || result.records.length === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `No ARR contracts found.\n\n_ARR = Revenue_Type 'Recurring'_\n\nTry: "what LOIs have we signed" or "what closed this month"`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const records = result.records;
+    let totalACV = 0;
+    records.forEach(r => { totalACV += r.ACV__c || 0; });
+    
+    let response = `*ARR Contracts: ${records.length}*\n\n`;
+    response += `_Annual Recurring Revenue (Revenue_Type = 'Recurring')_\n`;
+    response += `*Total ACV:* ${formatCurrency(totalACV)}\n\n`;
+    
+    records.slice(0, 20).forEach((r, i) => {
+      const accountName = r.Account?.Name || 'Unknown';
+      const owner = shortName(r.Account?.Owner?.Name || r.Owner?.Name) || 'Unassigned';
+      const acv = formatCurrency(r.ACV__c || 0);
+      const closeDate = r.CloseDate ? new Date(r.CloseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
+      response += `${i+1}. *${accountName}* - ${acv}\n   Closed: ${closeDate} | Owner: ${owner}\n\n`;
+    });
+    
+    if (records.length > 20) {
+      response += `\n_Showing first 20 of ${records.length} ARR contracts_`;
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: response,
+      thread_ts: threadTs
+    });
+    
+    logger.info(`✅ ARR query: ${records.length} contracts found`);
+    
+  } catch (error) {
+    logger.error('ARR query failed:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `Error fetching ARR contracts: ${error.message}`,
       thread_ts: threadTs
     });
   }

@@ -207,21 +207,26 @@ class QueryBuilder {
       conditions.push(`Type = '${entities.type}'`);
     }
 
-    // Deal type filters (bookings, ARR, etc.) - Use Revenue_Type__c field
+    // Deal type filters (LOI, ARR, etc.) - Use Revenue_Type__c field
+    // Updated mappings: Commitment = LOI, Recurring = ARR, Project = Pilot/Revenue (based on term)
     if (entities.dealType) {
-      if (entities.dealType === 'bookings') {
-        conditions.push("Revenue_Type__c = 'Booking'");
+      if (entities.dealType === 'bookings' || entities.dealType === 'loi') {
+        conditions.push("Revenue_Type__c = 'Commitment'");
       } else if (entities.dealType === 'arr' || entities.dealType === 'recurring') {
-        conditions.push("Revenue_Type__c = 'ARR'"); // Field value is "ARR" not "Recurring"
+        conditions.push("Revenue_Type__c = 'Recurring'");
+      } else if (entities.dealType === 'project') {
+        conditions.push("Revenue_Type__c = 'Project'");
       }
     }
 
     // Revenue type filter
     if (entities.bookingType) {
-      if (entities.bookingType === 'Booking') {
-        conditions.push("Revenue_Type__c = 'Booking'");
+      if (entities.bookingType === 'Booking' || entities.bookingType === 'Commitment') {
+        conditions.push("Revenue_Type__c = 'Commitment'");
       } else if (entities.bookingType === 'ARR' || entities.bookingType === 'Recurring') {
-        conditions.push("Revenue_Type__c = 'ARR'"); // Field value is "ARR"
+        conditions.push("Revenue_Type__c = 'Recurring'");
+      } else if (entities.bookingType === 'Project') {
+        conditions.push("Revenue_Type__c = 'Project'");
       }
     }
 

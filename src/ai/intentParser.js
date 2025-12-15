@@ -807,21 +807,23 @@ Business Context:
       
       // Revenue Type detection - Map to API names
       // User says "recurring" → API name "ARR"
-      // User says "booking" → API name "Booking"  
+      // User says "recurring" → API name "Recurring"  
+      // User says "commitment" or "booking" → API name "Commitment"
       // User says "project" → API name "Project"
-      const revenueMatch = message.match(/revenue type:?\s+(recurring|arr|booking|project)/i) ||
-                          message.match(/type:?\s+(recurring|arr|booking|project)/i) ||
-                          message.match(/\b(recurring|arr|booking|project)\s+opp/i);
+      const revenueMatch = message.match(/revenue type:?\s+(recurring|arr|booking|project|commitment)/i) ||
+                          message.match(/type:?\s+(recurring|arr|booking|project|commitment)/i) ||
+                          message.match(/\b(recurring|arr|booking|project|commitment)\s+opp/i);
       if (revenueMatch) {
         const userValue = revenueMatch[1].toLowerCase();
-        // Map to API names
+        // Map to Salesforce API names
         const typeMap = {
-          'recurring': 'ARR',
-          'arr': 'ARR',
-          'booking': 'Booking',
+          'recurring': 'Recurring',
+          'arr': 'Recurring',
+          'booking': 'Commitment',
+          'commitment': 'Commitment',
           'project': 'Project'
         };
-        entities.revenueType = typeMap[userValue] || 'ARR';
+        entities.revenueType = typeMap[userValue] || 'Recurring';
       }
       
       // Mark as simple mode if no inline fields detected

@@ -153,7 +153,7 @@ class EmailService {
         stage: record.StageName || '',
         productLine: record.Product_Line__c || '',
         acv: record.ACV__c || 0,
-        weighted: record.Finance_Weighted_ACV__c || 0,
+        weighted: record.Weighted_ACV__c || 0,
         targetDate: record.Target_LOI_Date__c || '',
         owner: record.Owner?.Name || '',
         daysInStage: record.Days_in_Stage1__c || ''

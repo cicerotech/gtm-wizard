@@ -1122,7 +1122,7 @@ async function generateAccountDashboard() {
   // ALL CLOSED WON DEALS - Only 'Stage 6. Closed(Won)' opportunities
   // Excludes deals from other closed stages (like Glanbia, OpenAI, etc.)
   // Excludes sample/test accounts (Acme, Sample, Sandbox, etc.)
-  // Categorized by Revenue_Type__c: ARR = Revenue, Booking = LOI, Project = Pilot
+  // Categorized by Revenue_Type__c: Recurring = Revenue, Commitment = LOI, Project = Pilot (< 12 months) or Revenue (>= 12 months)
   // ═══════════════════════════════════════════════════════════════════════
   const signedDealsQuery = `
     SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName, Contract_Term_Months__c
@@ -1368,12 +1368,12 @@ async function generateAccountDashboard() {
   
   // ═══════════════════════════════════════════════════════════════════════
   // LOI HISTORY - Find Revenue accounts that signed LOIs before converting
-  // Check for closed Booking/LOI deals on each Revenue account
+  // Check for closed Commitment/LOI deals on each Revenue account
   // ═══════════════════════════════════════════════════════════════════════
   const loiHistoryQuery = `
     SELECT Account.Name, Revenue_Type__c
     FROM Opportunity
-    WHERE Revenue_Type__c = 'Booking' AND IsClosed = true AND IsWon = true
+    WHERE Revenue_Type__c = 'Commitment' AND IsClosed = true AND IsWon = true
   `;
   
   let accountsWithLOIHistory = new Set();
