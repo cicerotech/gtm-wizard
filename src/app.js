@@ -62,7 +62,7 @@ function generateCheatSheetHTML() {
 <title>gtm-brain Commands</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--primary:#6366f1;--primary-light:#818cf8;--primary-bg:#eef2ff;--text:#1f2937;--text-muted:#6b7280;--text-light:#9ca3af;--bg:#f8fafc;--card:#fff;--border:#e5e7eb;--code-bg:#f1f5f9}
+:root{--primary:#000;--primary-light:#374151;--primary-bg:#f3f4f6;--text:#1f2937;--text-muted:#6b7280;--text-light:#9ca3af;--bg:#f9fafb;--card:#fff;--border:#e5e7eb;--code-bg:#f3f4f6}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
 .header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 20px;position:sticky;top:0;z-index:100}
 .header h1{font-size:1.25rem;font-weight:600}
@@ -102,19 +102,33 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 <body>
 <header class="header">
 <h1>gtm-brain Commands</h1>
-<p>Salesforce queries via Slack - validated patterns</p>
+<p>Natural language queries for Salesforce data via Slack • Copy & paste to use</p>
 </header>
+
+<div style="max-width:800px;margin:20px auto;padding:0 20px;">
+  <div style="background:#000;color:#fff;padding:16px;border-radius:8px;margin-bottom:20px;">
+    <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:8px;">How to Use</h3>
+    <p style="font-size:0.75rem;margin-bottom:12px;color:#d1d5db;">Tag <code style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:3px;font-family:monospace;">@gtm-brain</code> in Slack with any command below. Commands are flexible—phrase them naturally.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;font-size:0.7rem;">
+      <div><strong style="color:#fff;">Pipeline:</strong> <span style="color:#d1d5db;">View deals by stage, owner, or product</span></div>
+      <div><strong style="color:#fff;">Actions:</strong> <span style="color:#d1d5db;">Reassign accounts, close deals, nurture</span></div>
+      <div><strong style="color:#fff;">Reports:</strong> <span style="color:#d1d5db;">Revenue, forecasts, account plans</span></div>
+      <div><strong style="color:#fff;">Search:</strong> <span style="color:#d1d5db;">Type keywords to find commands</span></div>
+    </div>
+  </div>
+</div>
+
 <div class="search-box">
-<input type="text" id="search" placeholder="Search: reassign, pipeline, close deal, nurture..." autofocus>
+<input type="text" id="search" placeholder="Search commands: pipeline, reassign, contracts, revenue..." autofocus>
 </div>
 <main class="main">
-<div class="tips">
-<h3>Quick Reference</h3>
+<div class="tips" style="background:#f3f4f6;border:1px solid #e5e7eb;">
+<h3 style="color:#000;">Tips</h3>
 <div class="tips-grid">
-<div class="tip"><b>First names</b> for BLs: Julie, Himanshu, Asad</div>
-<div class="tip"><b>Commas</b> for batch: Account1, Account2</div>
-<div class="tip"><b>Nurture</b> auto-closes all open opportunities</div>
-<div class="tip"><b>show next 10</b> in thread for pagination</div>
+<div class="tip"><b>Use first names</b> for BLs: Julie, Himanshu, Asad</div>
+<div class="tip"><b>Batch commands</b> with commas: Account1, Account2</div>
+<div class="tip"><b>Nurture</b> closes all open opportunities</div>
+<div class="tip"><b>"show next 10"</b> for pagination in threads</div>
 </div>
 </div>
 <nav class="nav">

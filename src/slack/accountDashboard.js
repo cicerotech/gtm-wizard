@@ -11,7 +11,7 @@ function generateLoginPage() {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GTM Dashboard</title>
+<title>Eudia GTM Dashboard</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fe; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
@@ -27,7 +27,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 </head>
 <body>
 <div class="login-container">
-  <h1>GTM Dashboard</h1>
+  <h1>Eudia GTM Dashboard</h1>
   <p>Enter password to continue</p>
   <form method="POST" action="/account-dashboard">
     <div class="optional">Your name (optional, for analytics)</div>
@@ -827,7 +827,7 @@ function generateWeeklyTab(params) {
                   '</div>' +
                 '</details>';
               }).join('') +
-              '<div style="display: flex; justify-content: space-between; padding: 8px 4px; font-weight: 700; background: #e5e7eb; margin-top: 4px; border-radius: 4px;">' +
+              '<div style="display: flex; justify-content: space-between; padding: 6px 8px; font-weight: 600; background: #f3f4f6; margin-top: 6px; border-radius: 3px; font-size: 0.7rem; color: #374151;">' +
                 '<span>Total Signed (All Time)</span>' +
                 '<span>' + totalSigned + '</span>' +
               '</div>';
@@ -930,7 +930,7 @@ function generateWeeklyTab(params) {
     
     <!-- Closed Lost This Week -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title" style="color: #dc2626;">Closed Lost This Week (${closedLostDeals.length + nurturedAccounts.length})</div>
+      <div class="weekly-subsection-title" style="color: #000000; font-weight: 700;">Closed Lost This Week (${closedLostDeals.length + nurturedAccounts.length})</div>
       <table style="width: 100%; font-size: 0.7rem; margin-top: 8px;">
         <thead>
           <tr style="background: #000000; color: #ffffff;">
@@ -1214,6 +1214,12 @@ async function generateAccountDashboard() {
     if (signedData?.records) {
       const uniqueTypes = [...new Set(signedData.records.map(o => o.Revenue_Type__c).filter(Boolean))];
       console.log(`[Dashboard] Revenue_Type__c values: ${JSON.stringify(uniqueTypes)}`);
+      console.log(`[Dashboard] Sample records (first 3):`, JSON.stringify(signedData.records.slice(0, 3).map(r => ({
+        account: r.Account?.Name,
+        revType: r.Revenue_Type__c,
+        termMonths: r.Contract_Term_Months__c,
+        closeDate: r.CloseDate
+      }))));
       
       signedData.records.forEach(opp => {
         const accountName = opp.Account?.Name || 'Unknown';
@@ -1919,7 +1925,7 @@ async function generateAccountDashboard() {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GTM Dashboard</title>
+<title>Eudia GTM Dashboard</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fe; padding: 16px; }
@@ -1996,9 +2002,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 <div class="header">
   <img src="/logo" alt="Eudia" style="max-width: 200px; max-height: 60px; margin-bottom: 20px; display: block;">
-  <h1>GTM Dashboard</h1>
+  <h1>Eudia GTM Dashboard</h1>
   <p>Real-time pipeline overview • Updated ${new Date().toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit', hour12: true })} PT</p>
-  <a href="/account-dashboard/logout" style="font-size: 0.7rem; color: #9ca3af; text-decoration: none; margin-top: 8px; display: inline-block;">🔒 Logout (end session)</a>
+  <div style="margin-top: 8px; font-size: 0.75rem;">
+    <a href="/cheat-sheet" target="_blank" style="color: #1e40af; text-decoration: none; font-weight: 500;">📋 Query Commands</a>
+    <span style="color: #d1d5db; margin: 0 8px;">|</span>
+    <a href="/account-dashboard/logout" style="color: #9ca3af; text-decoration: none;">🔒 Logout</a>
+  </div>
 </div>
 
 <!-- Pure CSS Tabs (No JavaScript - CSP Safe) -->
