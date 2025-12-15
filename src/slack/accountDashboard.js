@@ -1899,7 +1899,7 @@ async function generateAccountDashboard() {
   
   // Group by BL with stage breakdown
   const blBreakdown = {};
-  const stageOrder = ['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'];
+  const stageOrder = ['Stage 5 - Negotiation', 'Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'];
   accountData.records.forEach(opp => {
     const blName = opp.Owner?.Name || 'Unassigned';
     const stage = opp.StageName || 'Unknown';
