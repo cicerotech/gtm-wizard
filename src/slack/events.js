@@ -1342,7 +1342,7 @@ function formatPipelineAccountList(queryResult, parsedIntent) {
       `• Stages: ${JSON.stringify(parsedIntent.entities.stages || [])}\n` +
       `• isClosed: \`${parsedIntent.entities.isClosed}\`\n` +
       `• ProductLine: \`${productLine || 'none'}\`\n` +
-      `• Query sent to Salesforce:\n\`\`\`${soql}\`\`\``;
+      `_Full SOQL query logged on server_`;
     
     if (productLine && stageDesc) {
       return `No ${productLine} opportunities found in ${cleanStageName(stageDesc)}.${debugInfo}`;
@@ -1940,26 +1940,24 @@ function formatContractResults(queryResult, parsedIntent) {
       const contractType = contract.Contract_Type__c || '';
       const status = contract.Status || '';
       
-      // Date info
-      let dateInfo = '';
+      // Date range (compact format)
+      let dateRange = '';
       if (contract.StartDate) {
-        dateInfo = formatDate(contract.StartDate);
+        dateRange = formatDate(contract.StartDate);
         if (contract.EndDate) {
-          dateInfo += ` - ${formatDate(contract.EndDate)}`;
+          dateRange += ` - ${formatDate(contract.EndDate)}`;
         }
+      } else if (contract.ContractTerm) {
+        dateRange = `${contract.ContractTerm}mo`;
       }
       
-      // Term
-      const term = contract.ContractTerm ? `${contract.ContractTerm}mo` : '';
-      
-      // Build compact line
+      // Build clean single line: "1. Name • Status • Dates PDF"
       response += `  ${i + 1}. ${contractName}`;
-      if (contractType) response += ` • ${contractType}`;
-      if (status) response += ` • ${status}`;
-      if (dateInfo) response += ` • ${dateInfo}`;
-      if (term && !dateInfo) response += ` • ${term}`;
+      if (status === 'Activated') response += ` • ${status}`;
+      else if (status) response += ` • _${status}_`;
+      if (dateRange) response += ` • ${dateRange}`;
       
-      // PDF link
+      // PDF link (inline)
       if (contract._pdfs && contract._pdfs.length > 0) {
         const downloadUrl = `${sfBaseUrl}/sfc/servlet.shepherd/version/download/${contract._pdfs[0].versionId}`;
         response += ` <${downloadUrl}|PDF>`;

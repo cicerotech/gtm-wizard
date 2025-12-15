@@ -1213,9 +1213,9 @@ Business Context:
       };
     }
     
-    // LOI queries - "what LOIs have we signed", "show LOIs", etc.
+    // LOI queries - "what LOIs have we signed", "show LOIs", "how many LOIs", etc.
     if ((message.includes('lois') || message.includes('loi')) && 
-        (message.includes('signed') || message.includes('have signed') || message.includes('show') || message.includes('what'))) {
+        (message.includes('signed') || message.includes('have signed') || message.includes('show') || message.includes('what') || message.includes('how many'))) {
       intent = 'loi_deals';
       entities.isClosed = true;
       entities.isWon = true;
