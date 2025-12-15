@@ -579,11 +579,12 @@ Ask me anything about your pipeline, accounts, or deals!`;
 
     // Debug logging for SOQL generation
     if (soql) {
-      const truncatedSOQL = soql.length > 300 ? soql.substring(0, 300) + '...' : soql;
-      logger.info(`🔍 SOQL Query Generated:`, { 
+      logger.info(`🔍 FULL SOQL Query:`, { 
         intent: parsedIntent.intent,
-        soql: truncatedSOQL,
-        hasStageFilter: soql.includes('StageName IN')
+        fullSOQL: soql, // Log ENTIRE query
+        hasStageFilter: soql.includes('StageName IN'),
+        hasIsClosed: soql.includes('IsClosed'),
+        entities: JSON.stringify(parsedIntent.entities)
       });
     } else {
       logger.warn(`⚠️ No SOQL generated for intent: ${parsedIntent.intent}`, {
@@ -595,6 +596,14 @@ Ask me anything about your pipeline, accounts, or deals!`;
     const queryStartTime = Date.now();
     let queryResult = await query(soql, true); // Enable caching
     const queryExecutionTime = Date.now() - queryStartTime;
+    
+    // Log query results
+    logger.info(`📈 Query Results:`, {
+      intent: parsedIntent.intent,
+      totalSize: queryResult?.totalSize || 0,
+      recordsReturned: queryResult?.records?.length || 0,
+      executionTime: `${queryExecutionTime}ms`
+    });
 
     // For contract queries, fetch PDF links
     if (parsedIntent.intent === 'contract_query' && queryResult && queryResult.records && queryResult.records.length > 0) {
@@ -1326,14 +1335,23 @@ function formatPipelineAccountList(queryResult, parsedIntent) {
   if (!queryResult || !queryResult.records || queryResult.totalSize === 0) {
     const stageDesc = parsedIntent.entities.stages?.[0];
     const productLine = parsedIntent.entities.productLine;
+    
+    // DEBUG: Show query details in Slack to help diagnose
+    const debugInfo = `\n\n*🔍 Debug Info:*\n` +
+      `• Intent: \`${parsedIntent.intent}\`\n` +
+      `• Stages: ${JSON.stringify(parsedIntent.entities.stages || [])}\n` +
+      `• isClosed: \`${parsedIntent.entities.isClosed}\`\n` +
+      `• ProductLine: \`${productLine || 'none'}\`\n` +
+      `• Query sent to Salesforce:\n\`\`\`${soql}\`\`\``;
+    
     if (productLine && stageDesc) {
-      return `No ${productLine} opportunities found in ${cleanStageName(stageDesc)}.`;
+      return `No ${productLine} opportunities found in ${cleanStageName(stageDesc)}.${debugInfo}`;
     } else if (productLine) {
-      return `No ${productLine} opportunities found.`;
+      return `No ${productLine} opportunities found.${debugInfo}`;
     } else if (stageDesc) {
-      return `No opportunities found in ${cleanStageName(stageDesc)}.`;
+      return `No opportunities found in ${cleanStageName(stageDesc)}.${debugInfo}`;
     }
-    return `No opportunities found.\n\nTry: "late stage pipeline" or "contracting pipeline"`;
+    return `No opportunities found.\n\nTry: "late stage pipeline" or "contracting pipeline"${debugInfo}`;
   }
 
   const records = queryResult.records;
