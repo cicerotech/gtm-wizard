@@ -1213,6 +1213,35 @@ Business Context:
       };
     }
     
+    // LOI queries - "what LOIs have we signed", "show LOIs", etc.
+    if ((message.includes('lois') || message.includes('loi')) && 
+        (message.includes('signed') || message.includes('have signed') || message.includes('show') || message.includes('what'))) {
+      intent = 'loi_deals';
+      entities.isClosed = true;
+      entities.isWon = true;
+      
+      // Handle timeframe if specified
+      if (message.includes('last week')) {
+        entities.timeframe = 'last_week';
+      } else if (message.includes('this week')) {
+        entities.timeframe = 'this_week';
+      } else if (message.includes('last month')) {
+        entities.timeframe = 'last_month';
+      } else if (message.includes('this month')) {
+        entities.timeframe = 'this_month';
+      }
+      
+      return {
+        intent: 'loi_deals',
+        entities,
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'LOI deals query',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
     // "What accounts/companies/customers have signed" queries
     if ((message.includes('what accounts') || message.includes('what companies') || message.includes('what customers') || message.includes('which accounts') || message.includes('which companies')) &&
         (message.includes('signed') || message.includes('have signed'))) {
@@ -1330,13 +1359,21 @@ Business Context:
         entities.productLine = 'LITIGATION_NOT_EXIST'; // Flag for no results message
       }
       
-      // Map stage if specified
-      if (message.includes('late stage') || message.includes('late-stage') || message.includes('stage 4')) {
+      // Map stage if specified (Early = 0-1, Mid = 2, Late = 3-4)
+      if (message.includes('late stage') || message.includes('late-stage')) {
+        entities.stages = ['Stage 3 - Pilot', 'Stage 4 - Proposal'];
+      } else if (message.includes('stage 4')) {
         entities.stages = ['Stage 4 - Proposal'];
-      } else if (message.includes('mid stage') || message.includes('mid-stage') || message.includes('stage 2') || message.includes('stage 3')) {
-        entities.stages = ['Stage 2 - SQO', 'Stage 3 - Pilot'];
-      } else if (message.includes('early stage') || message.includes('early-stage') || message.includes('stage 1')) {
+      } else if (message.includes('stage 3')) {
+        entities.stages = ['Stage 3 - Pilot'];
+      } else if (message.includes('mid stage') || message.includes('mid-stage') || message.includes('stage 2')) {
+        entities.stages = ['Stage 2 - SQO'];
+      } else if (message.includes('early stage') || message.includes('early-stage')) {
+        entities.stages = ['Stage 0 - Qualifying', 'Stage 1 - Discovery'];
+      } else if (message.includes('stage 1')) {
         entities.stages = ['Stage 1 - Discovery'];
+      } else if (message.includes('stage 0')) {
+        entities.stages = ['Stage 0 - Qualifying'];
       }
       
       return {
@@ -1351,18 +1388,19 @@ Business Context:
     }
     
     // Stage-specific queries (MUST come after product line queries)
+    // Early = Stages 0-1, Mid = Stage 2, Late = Stages 3-4
     else if (message.includes('early stage') || message.includes('early-stage')) {
       intent = 'pipeline_summary';
       entities.isClosed = false;
-      entities.stages = ['Stage 1 - Discovery'];
+      entities.stages = ['Stage 0 - Qualifying', 'Stage 1 - Discovery'];
     } else if (message.includes('mid stage') || message.includes('mid-stage')) {
       intent = 'pipeline_summary';
       entities.isClosed = false;
-      entities.stages = ['Stage 2 - SQO', 'Stage 3 - Pilot'];
+      entities.stages = ['Stage 2 - SQO'];
     } else if (message.includes('late stage') || message.includes('late-stage')) {
       intent = 'pipeline_summary';
       entities.isClosed = false;
-      entities.stages = ['Stage 4 - Proposal'];
+      entities.stages = ['Stage 3 - Pilot', 'Stage 4 - Proposal'];
     }
     
     // Specific stage queries
@@ -1449,9 +1487,9 @@ Business Context:
       }
     }
     
-    // ARR/Recurring queries
+    // ARR/Recurring queries - use dedicated handler
     else if (message.includes('arr') || message.includes('recurring') || message.includes('renewals')) {
-      intent = 'deal_lookup';
+      intent = 'arr_deals';
       
       // Check if asking about closed/signed deals or pipeline
       if (message.includes('signed') || message.includes('closed') || message.includes('have signed') || message.includes('signed in')) {
@@ -1476,7 +1514,7 @@ Business Context:
       }
       
       return {
-        intent: 'deal_lookup',
+        intent: 'arr_deals',
         entities,
         followUp: false,
         confidence: 0.95,

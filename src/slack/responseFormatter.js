@@ -53,7 +53,7 @@ class ResponseFormatter {
    * Summary at top, then bullet list of top deals
    */
   formatPipelineSummary(records, parsedIntent, totalSize) {
-    const totalAmount = records.reduce((sum, r) => sum + (r.Amount || 0), 0);
+    const totalAmount = records.reduce((sum, r) => sum + (r.ACV__c || 0), 0);
     const weightedAmount = records.reduce((sum, r) => sum + (r.Weighted_ACV__c || 0), 0);
 
     // Compact header
@@ -76,7 +76,7 @@ class ResponseFormatter {
 
     // Top deals - compact single-line format
     response += `\n*Top ${Math.min(this.maxDealsToShow, totalSize)} Deals:*\n`;
-    const sortedRecords = [...records].sort((a, b) => (b.Amount || 0) - (a.Amount || 0));
+    const sortedRecords = [...records].sort((a, b) => (b.ACV__c || 0) - (a.ACV__c || 0));
     
     sortedRecords.slice(0, this.maxDealsToShow).forEach((record, i) => {
       response += this.formatDealLine(record, i + 1);
@@ -95,7 +95,7 @@ class ResponseFormatter {
    */
   formatDealLine(record, index = null) {
     const account = record.Account?.Name || 'Unknown';
-    const amount = this.formatCurrency(record.Amount || 0);
+    const amount = this.formatCurrency(record.ACV__c || 0);
     const stage = this.shortStage(record.StageName);
     const owner = this.shortName(record.Owner?.Name);
     const date = this.formatDate(record.Target_LOI_Date__c || record.CloseDate);
@@ -108,11 +108,11 @@ class ResponseFormatter {
    * Format deal lookup results - compact list
    */
   formatDealLookup(records, parsedIntent, totalSize) {
-    const totalAmount = records.reduce((sum, r) => sum + (r.Amount || 0), 0);
+    const totalAmount = records.reduce((sum, r) => sum + (r.ACV__c || 0), 0);
 
     let response = `*Found ${totalSize} deals* (${this.formatCurrency(totalAmount)})\n\n`;
 
-    const sortedRecords = [...records].sort((a, b) => (b.Amount || 0) - (a.Amount || 0));
+    const sortedRecords = [...records].sort((a, b) => (b.ACV__c || 0) - (a.ACV__c || 0));
     
     sortedRecords.slice(0, this.maxDealsToShow).forEach((record, i) => {
       response += this.formatDealLine(record, i + 1);
@@ -129,7 +129,7 @@ class ResponseFormatter {
    * Format activity check results - focused on stale deals
    */
   formatActivityCheck(records, parsedIntent, totalSize) {
-    const totalAmount = records.reduce((sum, r) => sum + (r.Amount || 0), 0);
+    const totalAmount = records.reduce((sum, r) => sum + (r.ACV__c || 0), 0);
 
     let response = `*Stale Deals* (${totalSize} need attention)\n`;
     response += `At Risk: *${this.formatCurrency(totalAmount)}*\n\n`;
@@ -157,7 +157,7 @@ class ResponseFormatter {
    * Format forecast view
    */
   formatForecastView(records, parsedIntent, totalSize) {
-    const totalAmount = records.reduce((sum, r) => sum + (r.Amount || 0), 0);
+    const totalAmount = records.reduce((sum, r) => sum + (r.ACV__c || 0), 0);
     const weightedAmount = records.reduce((sum, r) => sum + (r.Weighted_ACV__c || 0), 0);
 
     let response = `*Forecast* (${totalSize} deals)\n`;
@@ -165,7 +165,7 @@ class ResponseFormatter {
 
     // Top deals
     response += '*Top Deals:*\n';
-    const sortedRecords = [...records].sort((a, b) => (b.Amount || 0) - (a.Amount || 0));
+    const sortedRecords = [...records].sort((a, b) => (b.ACV__c || 0) - (a.ACV__c || 0));
     sortedRecords.slice(0, this.maxDealsToShow).forEach((record, i) => {
       response += this.formatDealLine(record, i + 1);
     });
@@ -223,11 +223,11 @@ class ResponseFormatter {
    * Generic results formatter
    */
   formatGenericResults(records, parsedIntent, totalSize) {
-    const totalAmount = records.reduce((sum, r) => sum + (r.Amount || 0), 0);
+    const totalAmount = records.reduce((sum, r) => sum + (r.ACV__c || 0), 0);
 
     let response = `*Results* (${totalSize} records, ${this.formatCurrency(totalAmount)})\n\n`;
 
-    const sortedRecords = [...records].sort((a, b) => (b.Amount || 0) - (a.Amount || 0));
+    const sortedRecords = [...records].sort((a, b) => (b.ACV__c || 0) - (a.ACV__c || 0));
     sortedRecords.slice(0, this.maxDealsToShow).forEach((record, i) => {
       response += this.formatDealLine(record, i + 1);
     });
@@ -251,7 +251,7 @@ class ResponseFormatter {
         breakdown[stage] = { count: 0, amount: 0 };
       }
       breakdown[stage].count++;
-      breakdown[stage].amount += record.Amount || 0;
+      breakdown[stage].amount += record.ACV__c || 0;
     });
 
     return breakdown;
@@ -269,7 +269,7 @@ class ResponseFormatter {
         breakdown[owner] = { count: 0, amount: 0 };
       }
       breakdown[owner].count++;
-      breakdown[owner].amount += record.Amount || 0;
+      breakdown[owner].amount += record.ACV__c || 0;
     });
 
     return breakdown;

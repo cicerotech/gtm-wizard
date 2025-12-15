@@ -262,6 +262,14 @@ async function processQuery(text, userId, channelId, client, threadTs = null) {
 
     // Parse intent using AI first
     const parsedIntent = await parseIntent(text, conversationContext, userId);
+    
+    // Debug logging for intent and entities
+    logger.info(`📊 Parsed Intent: ${parsedIntent.intent}`, {
+      entities: parsedIntent.entities,
+      confidence: parsedIntent.confidence,
+      hasStages: !!parsedIntent.entities?.stages,
+      stages: parsedIntent.entities?.stages
+    });
 
     // Show typing indicator (only for complex queries)
     if (parsedIntent.intent !== 'greeting') {
@@ -533,7 +541,7 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle "what deals were added to pipeline this week"
       await handlePipelineAddedQuery(parsedIntent, userId, channelId, client, threadTs);
       return; // Exit early - handled by dedicated function
-    } else if (parsedIntent.intent === 'weighted_pipeline') {
+    } else if (parsedIntent.intent === 'weighted_pipeline' || parsedIntent.intent === 'weighted_summary') {
       // Handle "weighted pipeline" query
       await handleWeightedPipelineQuery(parsedIntent, userId, channelId, client, threadTs);
       return; // Exit early
@@ -545,10 +553,9 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle "show ARR deals" / "how many ARR contracts"
       await handleARRQuery(parsedIntent, userId, channelId, client, threadTs);
       return; // Exit early
-    } else if (parsedIntent.intent === 'pipeline_by_stage' || parsedIntent.intent === 'early_stage' || parsedIntent.intent === 'mid_stage' || parsedIntent.intent === 'late_stage') {
-      // Handle stage-based pipeline queries
-      soql = queryBuilder.buildOpportunityQuery({ ...parsedIntent.entities, isClosed: false });
     } else if (parsedIntent.intent === 'pipeline_summary' || parsedIntent.intent === 'deal_lookup') {
+      // All pipeline queries including stage-based (early/mid/late) use pipeline_summary intent
+      // Stage filtering happens via entities.stages array
       soql = queryBuilder.buildOpportunityQuery(parsedIntent.entities);
     } else if (parsedIntent.intent === 'activity_check') {
       soql = queryBuilder.buildOpportunityQuery({
@@ -568,6 +575,20 @@ Ask me anything about your pipeline, accounts, or deals!`;
         entities.metrics = ['count', 'sum_amount'];
       }
       soql = queryBuilder.buildOpportunityQuery(entities);
+    }
+
+    // Debug logging for SOQL generation
+    if (soql) {
+      const truncatedSOQL = soql.length > 300 ? soql.substring(0, 300) + '...' : soql;
+      logger.info(`🔍 SOQL Query Generated:`, { 
+        intent: parsedIntent.intent,
+        soql: truncatedSOQL,
+        hasStageFilter: soql.includes('StageName IN')
+      });
+    } else {
+      logger.warn(`⚠️ No SOQL generated for intent: ${parsedIntent.intent}`, {
+        entities: parsedIntent.entities
+      });
     }
 
     // Execute query directly (skip optimization for now to avoid errors)
