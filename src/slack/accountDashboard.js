@@ -68,8 +68,8 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   const allOpps = Array.from(accountMap.values()).flatMap(acc => acc.opportunities);
   const oppsOver100k = allOpps.filter(o => (o.ACV__c || 0) >= 100000).length;
   
-  // Late stage accounts (S3-S5) calculation
-  const lateStageNames = ['Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation'];
+  // Late stage accounts (S3-S4) calculation - S5 blended into S4
+  const lateStageNames = ['Stage 3 - Pilot', 'Stage 4 - Proposal'];
   const lateStageAccounts = Array.from(accountMap.values()).filter(acc => 
     acc.opportunities.some(o => lateStageNames.includes(o.StageName))
   );
@@ -109,13 +109,14 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   
   const s4Data = stageBreakdown['Stage 4 - Proposal'] || { count: 0, totalACV: 0 };
   const s4JH = jhSummary.byStage['Stage 4 - Proposal'] || { count: 0, totalACV: 0 };
-  const s4Combined = { count: s4Data.count + s4JH.count, totalACV: (s4Data.totalACV || 0) + (s4JH.totalACV || 0) };
-  const s4Pct = blendedGross > 0 ? Math.round((s4Combined.totalACV / blendedGross) * 100) : 0;
-  
+  // S5 Negotiation is blended into S4 Proposal
   const s5Data = stageBreakdown['Stage 5 - Negotiation'] || { count: 0, totalACV: 0 };
   const s5JH = jhSummary.byStage['Stage 5 - Negotiation'] || { count: 0, totalACV: 0 };
-  const s5Combined = { count: s5Data.count + s5JH.count, totalACV: (s5Data.totalACV || 0) + (s5JH.totalACV || 0) };
-  const s5Pct = blendedGross > 0 ? Math.round((s5Combined.totalACV / blendedGross) * 100) : 0;
+  const s4Combined = { 
+    count: s4Data.count + s4JH.count + s5Data.count + s5JH.count, 
+    totalACV: (s4Data.totalACV || 0) + (s4JH.totalACV || 0) + (s5Data.totalACV || 0) + (s5JH.totalACV || 0) 
+  };
+  const s4Pct = blendedGross > 0 ? Math.round((s4Combined.totalACV / blendedGross) * 100) : 0;
   
   // Format currency helper - lowercase m
   const fmt = (val) => {
@@ -180,7 +181,6 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
         <div>• S2: ${s2Pct}% (${fmt(s2Combined.totalACV)})</div>
         <div>• S3: ${s3Pct}% (${fmt(s3Combined.totalACV)})</div>
         <div>• S4: ${s4Pct}% (${fmt(s4Combined.totalACV)})</div>
-        <div>• S5: ${s5Pct}% (${fmt(s5Combined.totalACV)})</div>
       </div>
     </div>
     <div class="metric">
@@ -215,7 +215,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
         <div style="text-align: center; width: 20%;">Opps</div>
         <div style="text-align: right; width: 25%;">ACV</div>
       </div>
-      ${['Stage 5 - Negotiation', ...stageOrder].map(stage => {
+      ${stageOrder.map(stage => {
         const eData = stageBreakdown[stage] || { count: 0, totalACV: 0 };
         const jData = jhSummary.byStage[stage] || { count: 0, totalACV: 0 };
         const combinedCount = eData.count + jData.count;
@@ -930,51 +930,32 @@ function generateWeeklyTab(params) {
     
     <!-- Closed Lost This Week -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title" style="color: #dc2626;">Closed Lost This Week (7)</div>
+      <div class="weekly-subsection-title" style="color: #dc2626;">Closed Lost This Week (${closedLostDeals.length + nurturedAccounts.length})</div>
       <table style="width: 100%; font-size: 0.7rem; margin-top: 8px;">
         <thead>
-          <tr style="background: #fef2f2; color: #991b1b;">
+          <tr style="background: #000000; color: #ffffff;">
             <th style="padding: 6px 8px; text-align: left;">Account</th>
             <th style="padding: 6px 8px; text-align: left;">Reason</th>
             <th style="padding: 6px 8px; text-align: left;">Detail</th>
           </tr>
         </thead>
         <tbody style="color: #374151;">
-          <tr style="border-bottom: 1px solid #fee2e2;">
-            <td style="padding: 6px 8px; font-weight: 500;">Autodesk</td>
-            <td style="padding: 6px 8px;">Unresponsive</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Warm intro from Dan, no response despite follow-ups. Suggest Ireland BL take over.</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #fee2e2;">
-            <td style="padding: 6px 8px; font-weight: 500;">One Oncology</td>
-            <td style="padding: 6px 8px;">Unresponsive</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">-</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #fee2e2;">
-            <td style="padding: 6px 8px; font-weight: 500;">Tenable</td>
-            <td style="padding: 6px 8px;">Unresponsive</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Very early in AI journey, unclear objectives. CAB memo sent but went cold.</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #fee2e2;">
-            <td style="padding: 6px 8px; font-weight: 500;">Flo Health</td>
-            <td style="padding: 6px 8px;">Satisfied w/ Current</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Built marketing compliance workflows using Gemini. Want to test before external solutions.</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #fee2e2;">
-            <td style="padding: 6px 8px; font-weight: 500;">Tinder LLC</td>
-            <td style="padding: 6px 8px;">Timing</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Re-engage March 2026</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #fee2e2;">
-            <td style="padding: 6px 8px; font-weight: 500;">GLG</td>
-            <td style="padding: 6px 8px;">Other</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">CLO not engaged. Didn't "get" our model.</td>
-          </tr>
+          ${closedLostDeals.length > 0 ? closedLostDeals.map(deal => `
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px; font-weight: 500;">${deal.accountName}</td>
+            <td style="padding: 6px 8px;">${deal.closedLostReason || 'Closed Lost'}</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">${deal.closedLostDetail || '-'}</td>
+          </tr>`).join('') : ''}
+          ${nurturedAccounts.length > 0 ? nurturedAccounts.map(acc => `
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px; font-weight: 500;">${acc.accountName}</td>
+            <td style="padding: 6px 8px;">Nurture</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Account moved to nurture stage</td>
+          </tr>`).join('') : ''}
+          ${closedLostDeals.length === 0 && nurturedAccounts.length === 0 ? `
           <tr>
-            <td style="padding: 6px 8px; font-weight: 500;">The Initial Group</td>
-            <td style="padding: 6px 8px;">First Meeting Qualified Out</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Not qualified: 1-person legal team, spend controlled by sponsor (TPG).</td>
-          </tr>
+            <td colspan="3" style="padding: 6px 8px; color: #9ca3af; text-align: center; font-style: italic;">No closed lost deals or nurtured accounts this week</td>
+          </tr>` : ''}
         </tbody>
       </table>
     </div>
@@ -1060,44 +1041,9 @@ function generateWeeklyTab(params) {
     </div>
   </div>
 
-  <!-- SECTION 4: CLOSED LOST, DQ, OR NURTURE -->
+  <!-- SECTION 4: LONGEST DEALS BY STAGE (T10) - Live from Salesforce -->
   <div class="weekly-section">
-    <div class="weekly-section-title">4. Closed Lost, Disqualified, or Nurture this week (${closedLostDeals.length})</div>
-    <table class="weekly-table">
-      <thead>
-        <tr><th>Account</th><th>ACV</th><th>Owner</th><th>Reason</th></tr>
-      </thead>
-      <tbody>
-        ${closedLostDeals.length > 0 ? closedLostDeals.map(deal => `
-        <tr>
-          <td style="font-weight: 500; font-size: 0.75rem;">${deal.accountName}</td>
-          <td style="font-size: 0.7rem; color: #374151;">${deal.acv ? '$' + (deal.acv / 1000).toFixed(0) + 'k' : '-'}</td>
-          <td style="font-size: 0.7rem; color: #374151;">${deal.owner ? deal.owner.split(' ')[0] : '-'}</td>
-          <td style="font-size: 0.7rem; color: #6b7280; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${deal.closedLostDetail || '-'}</td>
-        </tr>`).join('') : `
-        <tr>
-          <td colspan="4" style="color: #9ca3af; text-align: center; font-style: italic;">No closed lost deals this week</td>
-        </tr>`}
-      </tbody>
-    </table>
-    <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 4px;">Deals moved to Stage 7 in last 7 days (live from Salesforce)</div>
-    
-    ${nurturedAccounts.length > 0 ? `
-    <div style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed #e5e7eb;">
-      <div style="font-size: 0.7rem; font-weight: 600; color: #7c3aed; margin-bottom: 6px;">Accounts Moved to Nurture (${nurturedAccounts.length})</div>
-      <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-        ${nurturedAccounts.map(acc => `
-          <span style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 4px; font-size: 0.65rem;">
-            ${acc.accountName}
-          </span>
-        `).join('')}
-      </div>
-    </div>` : ''}
-  </div>
-
-  <!-- SECTION 5: LONGEST DEALS BY STAGE (T10) - Live from Salesforce -->
-  <div class="weekly-section">
-    <div class="weekly-section-title">5. Longest Deals by Stage (T10)</div>
+    <div class="weekly-section-title">4. Longest Deals by Stage (T10)</div>
     <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 12px;">Top 10 deals per stage, sorted by days in stage (descending) • Live from Salesforce</div>
     
     ${Object.entries(daysInStageByStage).map(([stage, deals]) => {
@@ -1179,7 +1125,7 @@ async function generateAccountDashboard() {
   // Categorized by Revenue_Type__c: ARR = Revenue, Booking = LOI, Project = Pilot
   // ═══════════════════════════════════════════════════════════════════════
   const signedDealsQuery = `
-    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName
+    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName, Contract_Term_Months__c
     FROM Opportunity
     WHERE StageName = 'Stage 6. Closed(Won)'
       AND (NOT Account.Name LIKE '%Sample%')
@@ -1207,13 +1153,29 @@ async function generateAccountDashboard() {
     ORDER BY CloseDate DESC
   `;
   
-  // Categorize by Revenue_Type__c (ARR = Revenue, Booking = LOI, Project = Pilot)
-  const categorizeByRevenueType = (revType) => {
-    if (!revType) return 'pilot';
+  // Categorize by Revenue_Type__c and Contract_Term_Months__c
+  // LOI = Commitment (letters of intent to spend $X over specified period)
+  // Revenue = Recurring OR (Project with term >= 12 months)
+  // Pilot = Project with term < 12 months (short-term revenue deal)
+  const categorizeByRevenueType = (revType, contractTermMonths) => {
+    if (!revType) {
+      // If no revenue type, check contract term
+      if (!contractTermMonths || contractTermMonths === 0) return 'loi';
+      return contractTermMonths < 12 ? 'pilot' : 'revenue';
+    }
     const rt = revType.toLowerCase().trim();
-    if (rt === 'arr' || rt === 'recurring') return 'revenue';
-    if (rt === 'booking') return 'loi';
-    return 'pilot'; // Project or default
+    // LOI = Commitment
+    if (rt === 'commitment') return 'loi';
+    // Revenue = Recurring OR Project (with term >= 12 months)
+    if (rt === 'recurring' || rt === 'arr') return 'revenue';
+    if (rt === 'project') {
+      // Project: check contract term to distinguish Pilot vs Revenue
+      if (!contractTermMonths || contractTermMonths === 0) return 'pilot'; // Default to pilot if no term
+      return contractTermMonths < 12 ? 'pilot' : 'revenue'; // Short-term = pilot, long-term = revenue
+    }
+    // Default: check contract term
+    if (!contractTermMonths || contractTermMonths === 0) return 'loi';
+    return contractTermMonths < 12 ? 'pilot' : 'revenue';
   };
   
   let signedByType = { revenue: [], pilot: [], loi: [] };
@@ -1264,10 +1226,11 @@ async function generateAccountDashboard() {
           closeDate: opp.CloseDate,
           acv: opp.ACV__c || 0,
           product: opp.Product_Line__c || '',
-          revenueType: opp.Revenue_Type__c || ''
+          revenueType: opp.Revenue_Type__c || '',
+          contractTermMonths: opp.Contract_Term_Months__c || null
         };
         
-        const category = categorizeByRevenueType(deal.revenueType);
+        const category = categorizeByRevenueType(deal.revenueType, deal.contractTermMonths);
         signedByType[category].push(deal);
         signedDealsTotal[category] += deal.acv;
       });
@@ -1432,7 +1395,7 @@ async function generateAccountDashboard() {
   // Query: Stage 7 opportunities with LastModifiedDate in last 7 days
   // ═══════════════════════════════════════════════════════════════════════
   const closedLostQuery = `
-    SELECT Account.Name, Name, StageName, ACV__c, Closed_Lost_Detail__c, 
+    SELECT Account.Name, Name, StageName, ACV__c, Closed_Lost_Detail__c, Closed_Lost_Reason__c,
            LastModifiedDate, Owner.Name
     FROM Opportunity
     WHERE StageName = 'Stage 7. Closed(Lost)'
@@ -1452,6 +1415,7 @@ async function generateAccountDashboard() {
           accountName: opp.Account?.Name || 'Unknown',
           oppName: opp.Name || '',
           closedLostDetail: opp.Closed_Lost_Detail__c || '-',
+          closedLostReason: opp.Closed_Lost_Reason__c || 'Closed Lost',
           acv: opp.ACV__c || 0,
           owner: opp.Owner?.Name || '',
           closedDate: opp.LastModifiedDate
@@ -1582,8 +1546,7 @@ async function generateAccountDashboard() {
     'Stage 1 - Discovery': [],
     'Stage 2 - SQO': [],
     'Stage 3 - Pilot': [],
-    'Stage 4 - Proposal': [],
-    'Stage 5 - Negotiation': []
+    'Stage 4/5 - Proposal': [] // S5 blended into S4
   };
   
   try {
@@ -1592,8 +1555,10 @@ async function generateAccountDashboard() {
     if (daysData?.records) {
       daysData.records.forEach(opp => {
         const stage = opp.StageName;
-        if (daysInStageByStage[stage]) {
-          daysInStageByStage[stage].push({
+        // Map S5 to S4/5 (blended)
+        const displayStage = stage === 'Stage 5 - Negotiation' ? 'Stage 4/5 - Proposal' : stage;
+        if (daysInStageByStage[displayStage]) {
+          daysInStageByStage[displayStage].push({
             accountName: opp.Account?.Name || 'Unknown',
             oppName: opp.Name || '',
             acv: opp.ACV__c || 0,
@@ -2243,7 +2208,7 @@ ${mid.map((acc, idx) => {
               <span style="font-size: 0.65rem; color: #6b7280;">${bl.count} • <strong style="color: #1f2937;">$${(bl.totalACV / 1000000).toFixed(2)}m</strong></span>
             </summary>
             <div style="padding: 6px; border-top: 1px solid #e5e7eb; font-size: 0.6rem;">
-              ${['Stage 5 - Negotiation', 'Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery'].filter(s => bl.byStage[s]?.count > 0).map(stage => 
+              ${['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery'].filter(s => bl.byStage[s]?.count > 0).map(stage => 
                 '<div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>' + cleanStageName(stage) + '</span><span style="color: #6b7280;">' + bl.byStage[stage].count + ' • $' + (bl.byStage[stage].acv / 1000000).toFixed(2) + 'm</span></div>'
               ).join('')}
             </div>
@@ -2257,7 +2222,7 @@ ${mid.map((acc, idx) => {
             </summary>
             <div style="padding: 6px; border-top: 1px solid #e5e7eb; font-size: 0.6rem;">
               ${Object.entries(bl.byStage).sort((a, b) => {
-                const order = ['Stage 5 - Negotiation', 'Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery'];
+                const order = ['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery'];
                 return order.indexOf(a[0]) - order.indexOf(b[0]);
               }).map(([stage, stageData]) => 
                 '<div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>' + cleanStageName(stage) + '</span><span style="color: #6b7280;">' + stageData.count + ' • $' + (stageData.acv / 1000000).toFixed(2) + 'm</span></div>'
@@ -2393,7 +2358,7 @@ ${generateWeeklyTab({
     <div class="stage-subtitle">${combinedRevenue.length} revenue • ${signedByType.pilot.length} pilot • ${signedByType.loi.length} LOI</div>
     <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 8px; padding: 8px; background: #f9fafb; border-radius: 4px;">
       <strong>Revenue:</strong> Recurring/ARR subscription contracts &nbsp;|&nbsp;
-      <strong>Pilot:</strong> One-time project engagements &nbsp;|&nbsp;
+      <strong>Pilot:</strong> Short-term revenue deals (less than 12 months) &nbsp;|&nbsp;
       <strong>LOI:</strong> Signed commitments to spend
     </div>
   </div>

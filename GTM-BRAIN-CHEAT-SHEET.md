@@ -1,7 +1,7 @@
 # 🧠 gtm-brain Command Cheat Sheet
 
 **For: Keigan Pesenti (Admin)**  
-**Last Validated: December 2024**  
+**Last Updated: December 2024**  
 **136+ Query Patterns Tested & Confirmed**
 
 ---
@@ -444,6 +444,39 @@ https://gtm-wizard.onrender.com/account-dashboard
    - Olivia (Jung)
    - Justin (Hartman)
    - Ananth (Chidambaram)
+
+---
+
+## 📋 11. TECH STACK CLEANUP (December 2024)
+
+### Tech Stack Data Processing
+
+**Location:** `/Users/keiganpesenti/revops_weekly_update/mrr-waterfall-model/cleanup_tech_stack.py`
+
+**Input File:** `/Users/keiganpesenti/Desktop/Accounts and Tech Stack.xlsx`
+- Tabs: `Active In Pipeline`, `Signed Logo`
+
+**Output File:** `/Users/keiganpesenti/Desktop/Accounts and Tech Stack - Cleaned.xlsx`
+
+**What It Does:**
+1. Extracts verified technologies from Response column
+2. Creates clickable hyperlinks for source URLs
+3. Removes accounts with incorrect company data (CSL, TPG)
+4. Validates: Only shows technologies when sources exist
+5. Filters out negative confirmations ("No evidence found...")
+
+**Key Features:**
+- Technologies shown as comma-separated list (AWS, Microsoft Azure, Salesforce)
+- Source URLs as clickable "Source 1", "Source 2", etc. hyperlinks
+- Quality validation: No tech shown without source links
+- Negative confirmation detection: Blank if "No reliable evidence found"
+
+**Run Command:**
+```bash
+cd /Users/keiganpesenti/revops_weekly_update/mrr-waterfall-model
+source venv/bin/activate
+python3 cleanup_tech_stack.py
+```
 
 ---
 
