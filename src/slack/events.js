@@ -4733,7 +4733,27 @@ async function handleWeightedPipelineQuery(parsedIntent, userId, channelId, clie
  */
 async function handleLOIQuery(parsedIntent, userId, channelId, client, threadTs) {
   try {
-    const soql = buildSimpleQuery('loi_accounts');
+    // Build query for LOIs (Revenue_Type__c = 'Commitment')
+    let soql = `SELECT Id, Name, Account.Name, Account.Owner.Name, ACV__c, CloseDate 
+                FROM Opportunity 
+                WHERE IsClosed = true AND IsWon = true AND Revenue_Type__c = 'Commitment'`;
+    
+    // Add timeframe filter if specified
+    if (parsedIntent.entities.timeframe) {
+      const timeframeMap = {
+        'this_week': 'THIS_WEEK',
+        'last_week': 'LAST_WEEK',
+        'this_month': 'THIS_MONTH',
+        'last_month': 'LAST_MONTH'
+      };
+      const sfTimeframe = timeframeMap[parsedIntent.entities.timeframe];
+      if (sfTimeframe) {
+        soql += ` AND CloseDate = ${sfTimeframe}`;
+      }
+    }
+    
+    soql += ' ORDER BY CloseDate DESC LIMIT 200';
+    
     const result = await query(soql, true);
     
     if (!result || !result.records || result.records.length === 0) {

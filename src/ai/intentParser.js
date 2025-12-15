@@ -519,14 +519,16 @@ Business Context:
     }
 
     // "[Name]'s pipeline/deals/opportunities" - specific owner's pipeline
+    // CRITICAL: Must NOT match "late stage pipeline", "early stage pipeline", "mid stage pipeline"
     const ownerPipelineMatch = message.match(/(\w+)'s (?:pipeline|deals|opportunities|opps)/i) ||
                                message.match(/(\w+) deals$/i) ||
-                               message.match(/(\w+) pipeline$/i) ||
                                message.match(/show (?:me )?(\w+)'s (?:pipeline|deals)/i);
+                               // REMOVED: message.match(/(\w+) pipeline$/i) - was matching "stage pipeline"
     if (ownerPipelineMatch) {
       const ownerName = ownerPipelineMatch[1];
-      // Don't match "my" - that's handled above
-      if (ownerName.toLowerCase() !== 'my') {
+      // Don't match "my", "late", "early", "mid", "stage" - these are query modifiers not owner names
+      const excludedWords = ['my', 'late', 'early', 'mid', 'stage', 'contracting', 'weighted'];
+      if (!excludedWords.includes(ownerName.toLowerCase())) {
         // Map common first names to full names for SOQL query
         const ownerNameMap = {
           'julie': 'Julie Stefanich',
