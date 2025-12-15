@@ -151,8 +151,8 @@
       "confidence": 0.9,
       "query": "who owns boeing",
       "uses": 1,
-      "firstSeen": "2025-12-10T17:46:45.863Z",
-      "lastUsed": "2025-12-10T17:46:45.863Z"
+      "firstSeen": "2025-12-15T16:11:24.589Z",
+      "lastUsed": "2025-12-15T16:11:24.591Z"
     },
     "7cf59789c9d5dc6cc133516e5d9e076f": {
       "intent": "account_lookup",
@@ -2098,5 +2098,5 @@
   },
   "version": 1,
   "created": "2025-12-08T00:00:00.000Z",
-  "lastSaved": "2025-12-10T17:46:46.177Z"
+  "lastSaved": "2025-12-15T16:11:24.591Z"
 }
