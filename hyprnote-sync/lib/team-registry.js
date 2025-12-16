@@ -6,48 +6,122 @@
  */
 
 const TEAM_MEMBERS = {
-  // Business Leads
+  // ============================
+  // US POD - Business Leads
+  // ============================
   'julie.stefanich@eudia.com': {
     name: 'Julie Stefanich',
     salesforceUserId: '005Hp00000kywEtIAI',
     role: 'Business Lead',
-    team: 'Sales'
+    team: 'Sales',
+    pod: 'US'
   },
   'justin.hills@eudia.com': {
     name: 'Justin Hills',
     salesforceUserId: '005Wj00000UVn1ZIAT',
     role: 'Business Lead',
-    team: 'Sales'
+    team: 'Sales',
+    pod: 'US'
   },
   'asad.hussain@eudia.com': {
     name: 'Asad Hussain',
     salesforceUserId: '005Wj00000DT05BIAT',
     role: 'Business Lead',
-    team: 'Sales'
+    team: 'Sales',
+    pod: 'US'
   },
   'himanshu@eudia.com': {
     name: 'Himanshu Agarwal',
     salesforceUserId: '005Hp00000kywEeIAI',
     role: 'Business Lead',
-    team: 'Sales'
+    team: 'Sales',
+    pod: 'US'
   },
   'ananth@eudia.com': {
     name: 'Ananth Cherukupally',
     salesforceUserId: '005Wj00000DSlJ6IAL',
     role: 'Business Lead',
-    team: 'Sales'
+    team: 'Sales',
+    pod: 'US'
   },
   'olivia@eudia.com': {
     name: 'Olivia Jung',
     salesforceUserId: '005Hp00000kywEiIAI',
     role: 'Business Lead',
-    team: 'Sales'
+    team: 'Sales',
+    pod: 'US'
   },
+  
+  // ============================
+  // EU POD - Business Leads
+  // ============================
+  'greg.machale@eudia.com': {
+    name: 'Greg MacHale',
+    salesforceUserId: '005Wj00000XDuuEIAT',
+    role: 'Business Lead',
+    team: 'Sales',
+    pod: 'EU'
+  },
+  'nathan.shine@eudia.com': {
+    name: 'Nathan Shine',
+    salesforceUserId: '005Wj00000XDd3lIAD',
+    role: 'Business Lead',
+    team: 'Sales',
+    pod: 'EU'
+  },
+  'tom.clancy@eudia.com': {
+    name: 'Tom Clancy',
+    salesforceUserId: '005Wj00000XfSYVIA3',
+    role: 'Business Lead',
+    team: 'Sales',
+    pod: 'EU'
+  },
+  'conor.molloy@eudia.com': {
+    name: 'Conor Molloy',
+    salesforceUserId: '005Wj00000XfSYUIA3',
+    role: 'Business Lead',
+    team: 'Sales',
+    pod: 'EU'
+  },
+  'alex.fox@eudia.com': {
+    name: 'Alex Fox',
+    salesforceUserId: '005Wj00000XfSYRIA3',
+    role: 'Business Lead',
+    team: 'Sales',
+    pod: 'EU'
+  },
+  'nicola.fratini@eudia.com': {
+    name: 'Nicola Fratini',
+    salesforceUserId: '005Wj00000XfSYTIA3',
+    role: 'Business Lead',
+    team: 'Sales',
+    pod: 'EU'
+  },
+  'emer.flynn@eudia.com': {
+    name: 'Emer Flynn',
+    salesforceUserId: '005Wj00000XfSYXIA3',
+    role: 'Business Lead',
+    team: 'Sales',
+    pod: 'EU'
+  },
+  'riona.mchale@eudia.com': {
+    name: 'Riona McHale',
+    salesforceUserId: '005Wj00000XDaKQIA1',
+    role: 'Sales Manager',
+    team: 'Sales',
+    pod: 'EU'
+  },
+  
+  // ============================
+  // DEPRECATED - No longer active
+  // ============================
   'jonathan.cobb@eudia.com': {
     name: 'Jon Cobb',
     salesforceUserId: '005Wj00000MxJI6IAN',
     role: 'Business Lead',
-    team: 'Sales'
+    team: 'Sales',
+    pod: 'US',
+    deprecated: true
   },
   
   // Product Team

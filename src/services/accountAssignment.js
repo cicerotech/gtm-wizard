@@ -6,11 +6,14 @@ const logger = require('../utils/logger');
  * Handles geographic-based assignment and workload balancing
  */
 
-// Business Lead Mapping
+// Business Lead Mapping - US and EU Pods
 const BL_ASSIGNMENTS = {
-  westCoast: ['Himanshu Agarwal', 'Julie Stefanich', 'Justin Hills'],
-  eastCoast: ['Olivia Jung'],
-  international: ['Johnson Hana BL'] // International accounts assigned to Johnson Hana team
+  // US Pod - Domestic accounts
+  westCoast: ['Himanshu Agarwal', 'Julie Stefanich', 'Justin Hills', 'Asad Hussain'],
+  eastCoast: ['Olivia Jung', 'Ananth Cherukupally'],
+  
+  // EU Pod - International accounts
+  international: ['Greg MacHale', 'Nathan Shine', 'Tom Clancy', 'Conor Molloy', 'Alex Fox', 'Nicola Fratini', 'Emer Flynn']
 };
 
 // Geographic Regions
@@ -18,17 +21,27 @@ const WEST_COAST_STATES = ['CA', 'OR', 'WA', 'NV', 'AZ', 'ID', 'MT', 'WY', 'CO',
 const EAST_COAST_STATES = ['ME', 'NH', 'VT', 'MA', 'RI', 'CT', 'NY', 'NJ', 'PA', 'DE', 'MD', 'VA', 'NC', 'SC', 'GA', 'FL'];
 const CENTRAL_STATES = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX', 'MN', 'IA', 'MO', 'AR', 'LA', 'WI', 'IL', 'IN', 'MI', 'OH', 'KY', 'TN', 'MS', 'AL'];
 
-// All BLs for reference (keep in sync with COMPLETE_PROJECT_HANDOFF.md)
+// All BLs for reference - US and EU Pods
 const ALL_BUSINESS_LEADS = [
-  'Julie Stefanich',
-  'Himanshu Agarwal',
+  // US Pod
   'Asad Hussain',
-  'Ananth Cherukupally',
-  'David Van Ryk',
-  'John Cobb',
-  'Jon Cobb',
+  'Himanshu Agarwal',
+  'Julie Stefanich',
   'Olivia Jung',
-  'Justin Hills'
+  'Ananth Cherukupally',
+  'Justin Hills',
+  
+  // EU Pod
+  'Greg MacHale',
+  'Nathan Shine',
+  'Tom Clancy',
+  'Conor Molloy',
+  'Alex Fox',
+  'Nicola Fratini',
+  'Emer Flynn',
+  
+  // EU Sales Manager
+  'Riona McHale'
 ];
 
 /**

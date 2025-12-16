@@ -530,16 +530,30 @@ Business Context:
       const excludedWords = ['my', 'late', 'early', 'mid', 'stage', 'contracting', 'weighted'];
       if (!excludedWords.includes(ownerName.toLowerCase())) {
         // Map common first names to full names for SOQL query
+        // US Pod + EU Pod
         const ownerNameMap = {
+          // US Pod
           'julie': 'Julie Stefanich',
           'himanshu': 'Himanshu Agarwal',
           'asad': 'Asad Hussain',
           'ananth': 'Ananth Cherukupally',
+          'olivia': 'Olivia Jung',
+          'justin': 'Justin Hills',
+          
+          // EU Pod
+          'greg': 'Greg MacHale',
+          'nathan': 'Nathan Shine',
+          'tom': 'Tom Clancy',
+          'conor': 'Conor Molloy',
+          'alex': 'Alex Fox',
+          'nicola': 'Nicola Fratini',
+          'emer': 'Emer Flynn',
+          'riona': 'Riona McHale',
+          
+          // Deprecated/Legacy
           'david': 'David Van Ryk',
           'john': 'John Cobb',
           'jon': 'John Cobb',
-          'olivia': 'Olivia Jung',
-          'justin': 'Justin Hills',
           'mike': 'Mike McGonagle'
         };
         
