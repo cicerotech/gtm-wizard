@@ -340,7 +340,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
               '</div>' +
             '</summary>' +
             '<div style="padding: 10px; font-size: 0.75rem; border-top: 1px solid #e5e7eb;">' +
-              (acc.source === 'eudia' && (lastMeetingDate || nextMeetingDate) ? '<div style="background: #ecfdf5; padding: 6px; border-radius: 4px; margin-bottom: 6px; font-size: 0.7rem; color: #065f46;">' + (lastMeetingDate ? '<div><strong>Last Meeting:</strong> ' + lastMeetingDate + '</div>' : '') + (nextMeetingDate ? '<div><strong>Next Meeting:</strong> ' + nextMeetingDate + '</div>' : '') + '</div>' : '') +
+              (acc.source === 'eudia' && (lastMeetingDate || nextMeetingDate) ? '<div style="background: #ecfdf5; padding: 6px; border-radius: 4px; margin-bottom: 6px; font-size: 0.7rem; color: #065f46;">' + (lastMeetingDate ? '<div><strong>Prior Meeting:</strong> ' + lastMeetingDate + '</div>' : '') + (nextMeetingDate ? '<div><strong>Next Meeting:</strong> ' + nextMeetingDate + '</div>' : (lastMeetingDate ? '<div style="color: #991b1b;"><strong>No next meeting scheduled</strong></div>' : '')) + '</div>' : '') +
               (legalContacts.length > 0 ? '<div style="font-size: 0.65rem; color: #6b7280; margin-bottom: 6px;"><strong>Legal:</strong> ' + legalContacts.slice(0,2).join(', ') + '</div>' : '') +
               '<div style="font-weight: 600; margin-bottom: 4px;">Opportunities (' + acc.opportunities.length + '):</div>' +
               acc.opportunities.map(o => {
@@ -722,7 +722,7 @@ function generateWeeklyTab(params) {
       <div style="font-size: 0.65rem; color: #6b7280; margin-top: 2px;">Data pulled live from Salesforce</div>
     </div>
     <div style="display: flex; gap: 8px;">
-      <button onclick="copyWeeklyForEmail()" style="background: #1f2937; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.7rem; cursor: pointer;">📧 Copy for Email</button>
+    <button onclick="copyWeeklyForEmail()" style="background: #1f2937; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.7rem; cursor: pointer;">📧 Copy for Email</button>
       <button onclick="downloadWeeklyHTML()" style="background: #374151; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.7rem; cursor: pointer;">💾 Download HTML</button>
     </div>
   </div>
@@ -752,7 +752,7 @@ function generateWeeklyTab(params) {
       <div class="weekly-subsection-title">Opportunities with Q4 Target Sign Date</div>
       
       <!-- Q4 Stats Tiles - Live from Salesforce -->
-      ${(() => {
+          ${(() => {
         // Q4 stats from live Salesforce data
         const totalQ4Count = q4Opps.length;
         const avgDealSize = totalQ4Count > 0 ? Math.round(q4TotalWeighted / totalQ4Count) : 0;
@@ -773,14 +773,14 @@ function generateWeeklyTab(params) {
       ${(() => {
         // Q4 opportunities from live Salesforce data (Q4 = Nov, Dec, Jan)
         const allQ4Sorted = q4Opps.map(o => ({ 
-          account: o.account, 
+              account: o.account,
           acv: o.acv,
           weighted: o.weighted,
           isNov: o.month === 10,
           isDec: o.month === 11,
           isJan: o.month === 0
         })).sort((a, b) => b.acv - a.acv);
-        
+            
         const top10 = allQ4Sorted.slice(0, 10);
         const remaining = allQ4Sorted.slice(10);
         
@@ -799,7 +799,7 @@ function generateWeeklyTab(params) {
             '</ol></details>' : '') +
           '<div style="font-size: 0.55rem; color: #6b7280; margin-top: 6px;">¹ = Nov, ² = Dec, ³ = Jan target</div>' +
         '</div>';
-      })()}
+          })()}
     </div>
     
     <!-- Signed Logos by Type + Pipeline Summary -->
@@ -878,7 +878,7 @@ function generateWeeklyTab(params) {
             ${uniqueLogos.sort().map(logo => '<div style="padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + logo + '</div>').join('')}
           </div>
         </details>
-      </div>
+          </div>
     </div>
   </div>
 
@@ -1721,6 +1721,7 @@ async function generateAccountDashboard() {
                                 ORDER BY ActivityDate DESC
                                 LIMIT 500`;
       
+      // Query meetings from today onwards, then filter to only future dates in JavaScript
       const nextMeetingQuery = `SELECT Id, AccountId, ActivityDate, Subject, Type, Who.Name, Who.Title, Who.Email
                                 FROM Event
                                 WHERE ActivityDate >= TODAY
@@ -1758,19 +1759,27 @@ async function generateAccountDashboard() {
         });
       }
       
-      // Process next meetings
+      // Process next meetings - filter to only future dates (after today)
       const processedNext = new Set();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
       if (nextMeetings && nextMeetings.records) {
         nextMeetings.records.forEach(m => {
           if (m.AccountId) {
-            if (!meetingData.has(m.AccountId)) meetingData.set(m.AccountId, { contacts: new Set() });
-            const accountData = meetingData.get(m.AccountId);
+            const meetingDate = new Date(m.ActivityDate);
+            meetingDate.setHours(0, 0, 0, 0);
             
-            if (!processedNext.has(m.AccountId)) {
-              accountData.nextMeeting = m.ActivityDate;
-              accountData.nextMeetingSubject = m.Subject;
-              processedNext.add(m.AccountId);
-            }
+            // Only process meetings that are actually in the future (after today)
+            if (meetingDate > today) {
+              if (!meetingData.has(m.AccountId)) meetingData.set(m.AccountId, { contacts: new Set() });
+              const accountData = meetingData.get(m.AccountId);
+              
+              if (!processedNext.has(m.AccountId)) {
+                accountData.nextMeeting = m.ActivityDate;
+                accountData.nextMeetingSubject = m.Subject;
+                processedNext.add(m.AccountId);
+              }
             
             if (m.Who?.Title) {
               const title = m.Who.Title;
@@ -2133,7 +2142,7 @@ ${late.map((acc, idx) => {
             '<div class="account-owner">' + acc.owner + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') + ' • ' + acvDisplay + '</div>' +
           '</summary>' +
           '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 0.8125rem;">' +
-            (!acc.isLegacy && (lastMeetingDate || nextMeetingDate) ? '<div style="background: #ecfdf5; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 0.75rem; color: #065f46;">' + (lastMeetingDate ? '<div><strong>📅 Last:</strong> ' + lastMeetingDate + (lastMeetingSubject ? ' - ' + lastMeetingSubject : '') + '</div>' : '') + (nextMeetingDate ? '<div style="margin-top: 4px;"><strong>📅 Next:</strong> ' + nextMeetingDate + (nextMeetingSubject ? ' - ' + nextMeetingSubject : '') + '</div>' : '') + '</div>' : '') +
+            (!acc.isLegacy && (lastMeetingDate || nextMeetingDate) ? '<div style="background: #ecfdf5; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 0.75rem; color: #065f46;">' + (lastMeetingDate ? '<div><strong>📅 Prior:</strong> ' + lastMeetingDate + (lastMeetingSubject ? ' - ' + lastMeetingSubject : '') + '</div>' : '') + (nextMeetingDate ? '<div style="margin-top: 4px;"><strong>📅 Next:</strong> ' + nextMeetingDate + (nextMeetingSubject ? ' - ' + nextMeetingSubject : '') + '</div>' : (lastMeetingDate ? '<div style="margin-top: 4px; color: #991b1b;"><strong>📭 No next meeting scheduled</strong></div>' : '')) + '</div>' : '') +
             '<div style="color: #374151; margin-bottom: 4px;"><strong>Products:</strong> ' + productList + '</div>' +
             '<div style="color: #374151; margin-top: 6px;"><strong>Opportunities (' + acc.opportunities.length + '):</strong></div>' +
             acc.opportunities.map(o => { const av = o.ACV__c || 0; const af = av >= 1000000 ? '$' + (av / 1000000).toFixed(1) + 'm' : '$' + (av / 1000).toFixed(0) + 'k'; return '<div style="font-size: 0.75rem; color: #6b7280; margin-left: 12px; margin-top: 2px;">• ' + cleanStageName(o.StageName) + ' - ' + (o.Product_Line__c || 'TBD') + ' - ' + af + '</div>'; }).join('') +
@@ -2198,7 +2207,7 @@ ${mid.map((acc, idx) => {
             '<div class="account-owner">' + acc.owner + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') + ' • ' + acvDisplay + '</div>' +
           '</summary>' +
           '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 0.8125rem;">' +
-            (!acc.isLegacy && (lastMeetingDate || nextMeetingDate) ? '<div style="background: #ecfdf5; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 0.75rem; color: #065f46;">' + (lastMeetingDate ? '<div><strong>📅 Last:</strong> ' + lastMeetingDate + (lastMeetingSubject ? ' - ' + lastMeetingSubject : '') + '</div>' : '') + (nextMeetingDate ? '<div style="margin-top: 4px;"><strong>📅 Next:</strong> ' + nextMeetingDate + (nextMeetingSubject ? ' - ' + nextMeetingSubject : '') + '</div>' : '') + '</div>' : '') +
+            (!acc.isLegacy && (lastMeetingDate || nextMeetingDate) ? '<div style="background: #ecfdf5; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 0.75rem; color: #065f46;">' + (lastMeetingDate ? '<div><strong>📅 Prior:</strong> ' + lastMeetingDate + (lastMeetingSubject ? ' - ' + lastMeetingSubject : '') + '</div>' : '') + (nextMeetingDate ? '<div style="margin-top: 4px;"><strong>📅 Next:</strong> ' + nextMeetingDate + (nextMeetingSubject ? ' - ' + nextMeetingSubject : '') + '</div>' : (lastMeetingDate ? '<div style="margin-top: 4px; color: #991b1b;"><strong>📭 No next meeting scheduled</strong></div>' : '')) + '</div>' : '') +
             '<div style="color: #374151; margin-bottom: 4px;"><strong>Products:</strong> ' + productList + '</div>' +
             '<div style="color: #374151; margin-top: 6px;"><strong>Opportunities (' + acc.opportunities.length + '):</strong></div>' +
             acc.opportunities.map(o => { const av = o.ACV__c || 0; const af = av >= 1000000 ? '$' + (av / 1000000).toFixed(1) + 'm' : '$' + (av / 1000).toFixed(0) + 'k'; return '<div style="font-size: 0.75rem; color: #6b7280; margin-left: 12px; margin-top: 2px;">• ' + cleanStageName(o.StageName) + ' - ' + (o.Product_Line__c || 'TBD') + ' - ' + af + '</div>'; }).join('') +
@@ -2261,12 +2270,12 @@ ${mid.map((acc, idx) => {
       
       const renderBL = (bl) => {
         if (bl.source === 'eudia') {
-          return `
+        return `
           <details style="background: #fff; border: 1px solid #e5e7eb; border-radius: 4px; margin-bottom: 4px; overflow: hidden;">
             <summary style="padding: 6px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;">
               <span style="font-weight: 600; font-size: 0.7rem;">${bl.name}</span>
               <span style="font-size: 0.65rem; color: #6b7280;">${bl.count} • <strong style="color: #1f2937;">$${(bl.totalACV / 1000000).toFixed(2)}m</strong></span>
-            </summary>
+          </summary>
             <div style="padding: 6px; border-top: 1px solid #e5e7eb; font-size: 0.6rem;">
               ${['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery'].filter(s => bl.byStage[s]?.count > 0).map(stage => 
                 '<div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>' + cleanStageName(stage) + '</span><span style="color: #6b7280;">' + bl.byStage[stage].count + ' • $' + (bl.byStage[stage].acv / 1000000).toFixed(2) + 'm</span></div>'
@@ -2274,12 +2283,12 @@ ${mid.map((acc, idx) => {
             </div>
           </details>`;
         } else {
-          return `
+              return `
           <details style="background: #fff; border: 1px solid #e5e7eb; border-radius: 4px; margin-bottom: 4px; overflow: hidden;">
             <summary style="padding: 6px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;">
               <span style="font-weight: 600; font-size: 0.7rem;">${bl.name}</span>
               <span style="font-size: 0.65rem; color: #6b7280;">${bl.count} • <strong style="color: #1f2937;">$${(bl.totalACV / 1000000).toFixed(2)}m</strong></span>
-            </summary>
+                </summary>
             <div style="padding: 6px; border-top: 1px solid #e5e7eb; font-size: 0.6rem;">
               ${Object.entries(bl.byStage).sort((a, b) => {
                 const order = ['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery'];
@@ -2287,8 +2296,8 @@ ${mid.map((acc, idx) => {
               }).map(([stage, stageData]) => 
                 '<div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>' + cleanStageName(stage) + '</span><span style="color: #6b7280;">' + stageData.count + ' • $' + (stageData.acv / 1000000).toFixed(2) + 'm</span></div>'
               ).join('')}
-            </div>
-          </details>`;
+                </div>
+              </details>`;
         }
       };
       
@@ -2304,7 +2313,7 @@ ${mid.map((acc, idx) => {
             ${remainingBLs.map(bl => renderBL(bl)).join('')}
           </div>
         </details>` : ''}
-      </div>
+    </div>
       `;
     })()}
     
@@ -2438,8 +2447,8 @@ ${generateWeeklyTab({
           <div style="display: flex; gap: 12px; align-items: center;">
             <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
             <span style="color: #15803d; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
-          </div>
         </div>
+      </div>
       `).join('')}
       ${combinedRevenue.length > 5 ? `
         <details style="margin-top: 4px;">
@@ -2503,8 +2512,8 @@ ${generateWeeklyTab({
           <div style="display: flex; gap: 12px; align-items: center;">
             <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
             <span style="color: #1e40af; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
-          </div>
         </div>
+      </div>
       `).join('')}
       ${signedByType.pilot.length > 5 ? `
         <details style="margin-top: 4px;">
@@ -2535,8 +2544,8 @@ ${generateWeeklyTab({
           <div style="display: flex; gap: 12px; align-items: center;">
             <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
             <span style="color: #374151; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
-          </div>
         </div>
+      </div>
       `).join('')}
       ${signedByType.loi.length > 5 ? `
         <details style="margin-top: 4px;">
@@ -2547,7 +2556,7 @@ ${generateWeeklyTab({
               <div style="display: flex; gap: 12px; align-items: center;">
                 <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
                 <span style="color: #374151; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
-              </div>
+  </div>
             </div>
           `).join('')}
         </details>` : ''}
@@ -2579,14 +2588,14 @@ ${generateWeeklyTab({
           ${logosByType.revenue.map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a.accountName + '</div>').sort().join('') || '-'}
         </div>
       </details>
-    </div>
+      </div>
     
     <!-- PROJECT Tile -->
     <div style="background: #faf5ff; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.7rem; font-weight: 700; color: #7c3aed;">PROJECT</div>
         <div style="font-size: 1.25rem; font-weight: 700; color: #6b21a8;">${logosByType.project.length}</div>
-      </div>
+    </div>
       <div style="font-size: 0.55rem; color: #6b7280; margin: 4px 0;">Long-term projects (12+ mo)</div>
       <details style="font-size: 0.6rem; color: #6b7280;">
         <summary style="cursor: pointer; color: #7c3aed; font-weight: 500;">View accounts ›</summary>
@@ -2600,14 +2609,14 @@ ${generateWeeklyTab({
     <div style="background: #eff6ff; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.7rem; font-weight: 700; color: #2563eb;">PILOT</div>
-        <div style="font-size: 1.25rem; font-weight: 700; color: #1e40af;">${logosByType.pilot.length}</div>
-      </div>
+      <div style="font-size: 1.25rem; font-weight: 700; color: #1e40af;">${logosByType.pilot.length}</div>
+    </div>
       <div style="font-size: 0.55rem; color: #6b7280; margin: 4px 0;">Short-term deals (< 12 mo)</div>
       <details style="font-size: 0.6rem; color: #6b7280;">
         <summary style="cursor: pointer; color: #2563eb; font-weight: 500;">View accounts ›</summary>
         <div style="margin-top: 6px; display: grid; grid-template-columns: 1fr; gap: 2px; max-height: 200px; overflow-y: auto;">
           ${logosByType.pilot.map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a.accountName + '</div>').sort().join('') || '-'}
-        </div>
+    </div>
       </details>
     </div>
     
@@ -2715,7 +2724,7 @@ ${generateWeeklyTab({
                   planIcon + acc.name + ' ' + badge +
                 '</div>' +
                 '<div style="font-size: 0.8125rem; color: #6b7280; margin-top: 2px;">' +
-                  acc.owner + ' • Stage ' + acc.highestStage + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') + (lastMeetingDate ? ' • Last: ' + lastMeetingDate : '') +
+                  acc.owner + ' • Stage ' + acc.highestStage + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') + (lastMeetingDate ? ' • Prior: ' + lastMeetingDate : '') +
                 '</div>' +
               '</div>' +
               '<div style="text-align: right;">' +
@@ -2725,7 +2734,7 @@ ${generateWeeklyTab({
             '</summary>' +
             '<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 0.8125rem;">' +
               (acc.hasAccountPlan ? '<div style="background: #f0f9ff; padding: 10px; border-radius: 4px; margin-bottom: 8px;"><strong style="color: #1e40af;">✓ Account Plan</strong><div style="color: #1e40af; margin-top: 4px; font-size: 0.75rem; white-space: pre-wrap;">' + (acc.accountPlan || '') + '</div></div>' : '') +
-              (lastMeetingDate || nextMeetingDate ? '<div style="background: #ecfdf5; padding: 10px; border-radius: 4px; margin-bottom: 8px; font-size: 0.8125rem; color: #065f46;">' + (lastMeetingDate ? '<div style="margin-bottom: 4px;"><strong>📅 Last Meeting:</strong> ' + lastMeetingDate + (lastMeetingSubject ? ' - ' + lastMeetingSubject : '') + '</div>' : '') + (nextMeetingDate ? '<div><strong>📅 Next Meeting:</strong> ' + nextMeetingDate + (nextMeetingSubject ? ' - ' + nextMeetingSubject : '') + '</div>' : '') + '</div>' : '<div style="background: #fef2f2; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 0.75rem; color: #991b1b;">📭 No meetings scheduled</div>') +
+              (lastMeetingDate || nextMeetingDate ? '<div style="background: #ecfdf5; padding: 10px; border-radius: 4px; margin-bottom: 8px; font-size: 0.8125rem; color: #065f46;">' + (lastMeetingDate ? '<div style="margin-bottom: 4px;"><strong>📅 Prior Meeting:</strong> ' + lastMeetingDate + (lastMeetingSubject ? ' - ' + lastMeetingSubject : '') + '</div>' : '') + (nextMeetingDate ? '<div><strong>📅 Next Meeting:</strong> ' + nextMeetingDate + (nextMeetingSubject ? ' - ' + nextMeetingSubject : '') + '</div>' : (lastMeetingDate ? '<div style="color: #991b1b;"><strong>📭 No next meeting scheduled</strong></div>' : '')) + '</div>' : '<div style="background: #fef2f2; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 0.75rem; color: #991b1b;">📭 No meetings scheduled</div>') +
               (legalContacts.length > 0 ? '<div style="background: #f3f4f6; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 0.75rem; color: #374151;"><strong>Legal Contacts:</strong> ' + legalContacts.join(', ') + '</div>' : '') +
               '<div style="margin-top: 8px; font-size: 0.8125rem;">' +
                 '<div style="color: #374151; margin-bottom: 4px;"><strong>Products:</strong> ' + productList + '</div>' +

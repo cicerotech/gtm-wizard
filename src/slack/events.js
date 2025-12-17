@@ -1245,29 +1245,47 @@ async function formatAccountLookup(queryResult, parsedIntent) {
         if (meetingResult && meetingResult.records && meetingResult.records.length > 0) {
           // Get last and next meeting
           const now = new Date();
-          const pastMeetings = meetingResult.records.filter(m => new Date(m.ActivityDate) < now);
-          const futureMeetings = meetingResult.records.filter(m => new Date(m.ActivityDate) >= now);
+          now.setHours(0, 0, 0, 0); // Set to start of today for proper date comparison
+          
+          // Filter meetings - past meetings are before today
+          const pastMeetings = meetingResult.records.filter(m => {
+            const meetingDate = new Date(m.ActivityDate);
+            meetingDate.setHours(0, 0, 0, 0);
+            return meetingDate < now;
+          });
+          
+          // Filter meetings - future meetings are after today (not including today)
+          const futureMeetings = meetingResult.records.filter(m => {
+            const meetingDate = new Date(m.ActivityDate);
+            meetingDate.setHours(0, 0, 0, 0);
+            return meetingDate > now;
+          });
           
           response += `\n\n*Meeting History:*\n`;
           
           if (pastMeetings.length > 0) {
             const lastMeeting = pastMeetings[0];
             const lastDate = new Date(lastMeeting.ActivityDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
-            response += `• Last Meeting: ${lastDate}`;
+            response += `• Prior Meeting: ${lastDate}`;
             if (lastMeeting.Subject) response += ` - ${lastMeeting.Subject}`;
             response += `\n`;
           }
           
           if (futureMeetings.length > 0) {
-            const nextMeeting = futureMeetings[futureMeetings.length - 1];
+            // Sort future meetings ascending to get the next (closest) meeting
+            const sortedFuture = futureMeetings.sort((a, b) => new Date(a.ActivityDate) - new Date(b.ActivityDate));
+            const nextMeeting = sortedFuture[0];
             const nextDate = new Date(nextMeeting.ActivityDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
             response += `• Next Meeting: ${nextDate}`;
             if (nextMeeting.Subject) response += ` - ${nextMeeting.Subject}`;
             response += `\n`;
-          }
-          
-          if (pastMeetings.length === 0 && futureMeetings.length === 0) {
-            response += `• No meetings scheduled\n`;
+          } else {
+            // Only show "No next meeting" if there are past meetings but no future meetings
+            if (pastMeetings.length > 0) {
+              response += `• No next meeting scheduled\n`;
+            } else {
+              response += `• No meetings scheduled\n`;
+            }
           }
         }
       } catch (meetingError) {
