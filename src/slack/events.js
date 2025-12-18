@@ -11,6 +11,20 @@ const { cleanStageName } = require('../utils/formatters');
 const { processContractUpload, handleContractCreationConfirmation, handleContractActivation, handleAccountCorrection } = require('../services/contractCreation');
 
 /**
+ * Decode Slack HTML entities in message text
+ * Slack encodes: & → &amp;  < → &lt;  > → &gt;
+ */
+function decodeSlackEntities(text) {
+  if (!text) return text;
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+/**
  * Register Slack event handlers
  */
 function registerEventHandlers(app) {
@@ -65,7 +79,8 @@ function registerEventHandlers(app) {
 async function handleMention(event, client, context) {
   const userId = event.user;
   const channelId = event.channel;
-  const text = event.text;
+  // Decode Slack HTML entities (& → &amp;, etc.) to support company names like "Johnson & Johnson"
+  const text = decodeSlackEntities(event.text);
   
   // Log interaction
   logger.slackInteraction('mention', userId, channelId, text);
@@ -117,7 +132,8 @@ async function handleMention(event, client, context) {
 async function handleDirectMessage(event, client, context) {
   const userId = event.user;
   const channelId = event.channel;
-  const text = event.text || '';
+  // Decode Slack HTML entities (& → &amp;, etc.) to support company names like "Johnson & Johnson"
+  const text = decodeSlackEntities(event.text) || '';
 
   // Check rate limiting - More generous for exploration
   const rateLimit = await cache.checkRateLimit(userId, 'dm');

@@ -14,10 +14,11 @@ const { query } = require('../salesforce/connection');
 class FuzzyAccountMatcher {
   constructor() {
     // Common company suffixes to strip
+    // NOTE: Do NOT include '&' here - it's part of company names like "Johnson & Johnson"
     this.suffixes = [
       'corporation', 'corp', 'incorporated', 'inc', 'company', 'co',
       'limited', 'ltd', 'llc', 'plc', 'group', 'holdings', 'partners',
-      'lp', 'llp', 'the', '&', 'and'
+      'lp', 'llp', 'the'
     ];
     
     // Common abbreviations
