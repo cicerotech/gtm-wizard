@@ -25,6 +25,18 @@ function decodeSlackEntities(text) {
 }
 
 /**
+ * Escape string for SOQL LIKE queries
+ * Replaces & with % wildcard since & causes URL encoding issues in Salesforce REST API
+ * Also escapes single quotes
+ */
+function escapeForSOQLLike(str) {
+  if (!str) return str;
+  return str
+    .replace(/'/g, "\\'")
+    .replace(/&/g, '%'); // & causes URL encoding issues, use % wildcard instead
+}
+
+/**
  * Register Slack event handlers
  */
 function registerEventHandlers(app) {
@@ -381,6 +393,13 @@ Ask me anything about your pipeline, accounts, or deals!`;
         // Escape single quotes for SOQL
         const escapeQuotes = (str) => str.replace(/'/g, "\\'");
         
+        // Escape special chars for LIKE patterns - replace & with wildcard since it causes API issues
+        const escapeForLike = (str) => {
+          return str
+            .replace(/'/g, "\\'")
+            .replace(/&/g, '%'); // & causes URL encoding issues in SOQL REST API
+        };
+        
         // Create variations for fuzzy matching
         const withHyphen = normalizedSearch.replace(/\s/g, '-'); // "T Mobile" → "T-Mobile"
         const withoutHyphen = normalizedSearch.replace(/-/g, ' '); // "T-Mobile" → "T Mobile"
@@ -406,8 +425,8 @@ Ask me anything about your pipeline, accounts, or deals!`;
           `Name = '${escapeQuotes(normalizedSearch)} Inc'`,
           `Name = '${escapeQuotes(normalizedSearch)} LLC'`,
           `Name = '${escapeQuotes(normalizedSearch)} Group'`,
-          `Name LIKE '${escapeQuotes(normalizedSearch)}%'`, // Starts with
-          `Name LIKE '%${escapeQuotes(normalizedSearch)}%'` // Contains
+          `Name LIKE '${escapeForLike(normalizedSearch)}%'`, // Starts with (& replaced with %)
+          `Name LIKE '%${escapeForLike(normalizedSearch)}%'` // Contains (& replaced with %)
         ].filter((v, i, a) => a.indexOf(v) === i); // Remove duplicates
         
         // Smart query with fuzzy matching - include Account Plan and Customer Brain
@@ -902,10 +921,10 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
       .trim();
     
     // STEP 3: Query Salesforce for THIS account name ONLY
-    const escapeQuotes = (str) => str.replace(/'/g, "\\'");
+    // Use escapeForSOQLLike to handle & in company names like "Johnson & Johnson"
     const accountQuery = `SELECT Id, Name, Owner.Name, Customer_Brain__c
                           FROM Account
-                          WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                          WHERE Name LIKE '%${escapeForSOQLLike(accountName)}%'
                           LIMIT 5`;
     
     logger.info(`Customer Brain: Looking for account "${accountName}"`);
@@ -1232,7 +1251,8 @@ async function findSimilarAccounts(searchTerm, limit = 3) {
   if (!searchTerm || searchTerm.length < 2) return [];
   
   try {
-    const escapedTerm = searchTerm.replace(/'/g, "\\'");
+    // Use escapeForSOQLLike to handle & in company names like "Johnson & Johnson"
+    const escapedTerm = escapeForSOQLLike(searchTerm);
     
     // Search for accounts starting with or containing the term
     const searchQuery = `
@@ -1646,7 +1666,7 @@ function buildAccountFieldQuery(entities) {
       
       if (entities.accounts && entities.accounts.length > 0) {
         const accountName = entities.accounts[0];
-        soql += ` AND (Name LIKE '%${accountName}%')`;
+        soql += ` AND (Name LIKE '%${escapeForSOQLLike(accountName)}%')`;
       }
       soql += ` ORDER BY Legal_Department_Size__c DESC LIMIT 10`;
       break;
@@ -1689,7 +1709,7 @@ function buildAccountFieldQuery(entities) {
         const accountName = entities.accounts[0];
         soql = `SELECT Account.Name, Account.Owner.Name, Name, Product_Line__c, StageName, Amount
                 FROM Opportunity 
-                WHERE Account.Name LIKE '%${accountName}%' AND IsClosed = false
+                WHERE Account.Name LIKE '%${escapeForSOQLLike(accountName)}%' AND IsClosed = false
                 ORDER BY Amount DESC
                 LIMIT 20`;
       } else if (entities.searchTerm) {
@@ -1726,7 +1746,7 @@ function buildAccountFieldQuery(entities) {
       
       if (entities.accounts && entities.accounts.length > 0) {
         const accountName = entities.accounts[0];
-        soql += ` AND (Name LIKE '%${accountName}%')`;
+        soql += ` AND (Name LIKE '%${escapeForSOQLLike(accountName)}%')`;
       }
       soql += ` ORDER BY Name LIMIT 10`;
       break;
@@ -1809,7 +1829,7 @@ function buildContractQuery(entities) {
   // Account filter
   if (entities.accounts && entities.accounts.length > 0) {
     const accountName = entities.accounts[0];
-    whereConditions.push(`Account.Name LIKE '%${accountName}%'`);
+    whereConditions.push(`Account.Name LIKE '%${escapeForSOQLLike(accountName)}%'`);
   } else {
     whereConditions.push(`Status = 'Activated'`);
   }
@@ -2488,7 +2508,7 @@ async function handleBatchMoveToNurture(entities, userId, channelId, client, thr
         const accountQuery = `SELECT Id, Name, Owner.Name, Nurture__c, 
                                      (SELECT Id, Name, StageName, Amount FROM Opportunities WHERE IsClosed = false)
                               FROM Account
-                              WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                              WHERE Name LIKE '%${escapeForSOQLLike(accountName)}%'
                               LIMIT 1`;
         
         const accountResult = await query(accountQuery);
@@ -2695,7 +2715,7 @@ async function handleBatchReassignAccounts(entities, userId, channelId, client, 
         const accountQuery = `SELECT Id, Name, OwnerId, Owner.Name,
                                      (SELECT Id, OwnerId FROM Opportunities WHERE IsClosed = false)
                               FROM Account
-                              WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                              WHERE Name LIKE '%${escapeForSOQLLike(accountName)}%'
                               LIMIT 1`;
         
         const accountResult = await query(accountQuery);
@@ -2879,7 +2899,7 @@ async function handleMultiBatchReassign(entities, userId, channelId, client, thr
           const searchQuery = `SELECT Id, Name, OwnerId, Owner.Name,
                                (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false)
                                FROM Account 
-                               WHERE Name LIKE '%${accountName.replace(/'/g, "\\'")}%'
+                               WHERE Name LIKE '%${escapeForSOQLLike(accountName)}%'
                                LIMIT 5`;
           
           const searchResult = await conn.query(searchQuery);
@@ -2994,7 +3014,7 @@ async function handleMoveToNurture(entities, userId, channelId, client, threadTs
     const accountQuery = `SELECT Id, Name, Owner.Name, Nurture__c, 
                                  (SELECT Id, Name, StageName, Amount, IsClosed FROM Opportunities WHERE IsClosed = false)
                           FROM Account
-                          WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                          WHERE Name LIKE '%${escapeForSOQLLike(accountName)}%'
                           LIMIT 5`;
     
     const accountResult = await query(accountQuery);
@@ -3137,7 +3157,7 @@ async function handleCloseAccountLost(entities, userId, channelId, client, threa
     const accountQuery = `SELECT Id, Name, Owner.Name,
                                  (SELECT Id, Name, StageName, Amount, ACV__c, IsClosed, IsWon FROM Opportunities WHERE IsClosed = false)
                           FROM Account
-                          WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                          WHERE Name LIKE '%${escapeForSOQLLike(accountName)}%'
                           LIMIT 5`;
     
     const accountResult = await query(accountQuery);
@@ -3314,7 +3334,7 @@ async function handleAccountPlanSave(message, userId, channelId, client, threadT
     const escapeQuotes = (str) => str.replace(/'/g, "\\'");
     const accountQuery = `SELECT Id, Name, Owner.Name, Account_Plan_s__c
                           FROM Account
-                          WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                          WHERE Name LIKE '%${escapeForSOQLLike(accountName)}%'
                           LIMIT 5`;
     
     const accountResult = await query(accountQuery);
@@ -3440,7 +3460,7 @@ async function handleAccountPlanQuery(entities, userId, channelId, client, threa
     const escapeQuotes = (str) => str.replace(/'/g, "\\'");
     const accountQuery = `SELECT Id, Name, Owner.Name, Account_Plan_s__c
                           FROM Account
-                          WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                          WHERE Name LIKE '%${escapeForSOQLLike(accountName)}%'
                           LIMIT 5`;
     
     const accountResult = await query(accountQuery);
@@ -3535,7 +3555,7 @@ async function handleAccountExistenceCheck(entities, userId, channelId, client, 
       `Name = '${escapeQuotes(withoutHyphen)}'`,
       `Name = '${escapeQuotes(withAmpersand)}'`,
       `Name = '${escapeQuotes(withoutAmpersand)}'`,
-      `Name LIKE '%${escapeQuotes(normalizedSearch)}%'`
+      `Name LIKE '%${escapeForSOQLLike(normalizedSearch)}%'`
     ].filter((v, i, a) => a.indexOf(v) === i);
     
     const accountQuery = `SELECT Id, Name, Owner.Name, Owner.Email
@@ -3712,7 +3732,7 @@ async function handleReassignAccountNEW(entities, userId, channelId, client, thr
       `Name = '${escapeQuotes(withHyphen)}'`,
       `Name = '${escapeQuotes(withoutHyphen)}'`,
       `Name = '${escapeQuotes(withAmpersand)}'`,
-      `Name LIKE '%${escapeQuotes(normalizedSearch)}%'`
+      `Name LIKE '%${escapeForSOQLLike(normalizedSearch)}%'`
     ].filter((v, i, a) => a.indexOf(v) === i);
     
     const duplicateQuery = `SELECT Id, Name, Owner.Name FROM Account WHERE (${duplicateCheckConditions.join(' OR ')}) LIMIT 1`;
@@ -3976,7 +3996,7 @@ async function handleReassignAccount(entities, userId, channelId, client, thread
     const accountQuery = `SELECT Id, Name, Owner.Name, BillingState, BillingCountry,
                                  (SELECT Id, Name, Owner.Name FROM Opportunities WHERE IsClosed = false)
                           FROM Account
-                          WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                          WHERE Name LIKE '%${escapeForSOQLLike(accountName)}%'
                           LIMIT 5`;
     
     const accountResult = await query(accountQuery);
@@ -4149,7 +4169,7 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
     const escapeQuotes = (str) => str.replace(/'/g, "\\'");
     const accountQuery = `SELECT Id, Name, Owner.Name, OwnerId
                           FROM Account
-                          WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                          WHERE Name LIKE '%${escapeForSOQLLike(accountName)}%'
                           LIMIT 5`;
     
     const accountResult = await query(accountQuery);
@@ -4421,7 +4441,7 @@ ${meetingNotes}`;
     const escapeQuotes = (str) => str.replace(/'/g, "\\'");
     const accountQuery = `SELECT Id, Name, Owner.Name, Customer_Brain__c
                           FROM Account
-                          WHERE Name LIKE '%${escapeQuotes(accountName)}%'
+                          WHERE Name LIKE '%${escapeForSOQLLike(accountName)}%'
                           LIMIT 1`;
     
     const accountResult = await query(accountQuery);
