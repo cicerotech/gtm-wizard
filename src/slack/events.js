@@ -4165,14 +4165,25 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
     
     const accountName = entities.accounts[0];
     
-    // CRITICAL: Find account with EXACT matching to prevent wrong attachments
+    // CRITICAL: Find account - prioritize EXACT match over LIKE match
     const escapeQuotes = (str) => str.replace(/'/g, "\\'");
-    const accountQuery = `SELECT Id, Name, Owner.Name, OwnerId
-                          FROM Account
-                          WHERE Name LIKE '%${escapeForSOQLLike(accountName)}%'
-                          LIMIT 5`;
     
-    const accountResult = await query(accountQuery);
+    // Step 1: Try exact match first (case-insensitive via SOQL)
+    const exactQuery = `SELECT Id, Name, Owner.Name, OwnerId
+                        FROM Account
+                        WHERE Name = '${escapeQuotes(accountName)}'
+                        LIMIT 1`;
+    
+    let accountResult = await query(exactQuery);
+    
+    // Step 2: If no exact match, try LIKE query
+    if (!accountResult || accountResult.totalSize === 0) {
+      const likeQuery = `SELECT Id, Name, Owner.Name, OwnerId
+                         FROM Account
+                         WHERE Name LIKE '%${escapeForSOQLLike(accountName)}%'
+                         LIMIT 10`;
+      accountResult = await query(likeQuery);
+    }
     
     if (!accountResult || accountResult.totalSize === 0) {
       await client.chat.postMessage({
@@ -4183,18 +4194,28 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
       return;
     }
     
-    // ANTI-HALLUCINATION: If multiple matches, confirm with user
+    // Step 3: If multiple LIKE matches, check if any is an exact match (case-insensitive)
+    let account = accountResult.records[0];
     if (accountResult.totalSize > 1) {
-      const accountNames = accountResult.records.map(r => r.Name).join(', ');
-      await client.chat.postMessage({
-        channel: channelId,
-        text: `⚠️  Multiple accounts match "${accountName}":\n\n${accountNames}\n\nPlease be more specific (use exact account name).`,
-        thread_ts: threadTs
-      });
-      return;
+      // Look for exact match among results (case-insensitive)
+      const exactMatch = accountResult.records.find(r => 
+        r.Name.toLowerCase() === accountName.toLowerCase()
+      );
+      
+      if (exactMatch) {
+        // Found exact match - use it directly
+        account = exactMatch;
+      } else {
+        // No exact match - ask user to clarify
+        const accountNames = accountResult.records.map(r => r.Name).join(', ');
+        await client.chat.postMessage({
+          channel: channelId,
+          text: `⚠️  Multiple accounts match "${accountName}":\n\n${accountNames}\n\nPlease be more specific (use exact account name).`,
+          thread_ts: threadTs
+        });
+        return;
+      }
     }
-    
-    const account = accountResult.records[0];
     
     // SMART DEFAULTS (Salesforce flow defaults)
     const DEFAULTS = {
