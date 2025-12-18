@@ -863,7 +863,10 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
 
   try {
     // STEP 1: Extract account name - ONLY text immediately after colon, before first newline
-    const triggerMatch = message.match(/add to customer history\s*:\s*([^\n]+)/i);
+    // Includes typo tolerance for common misspellings (histroy, custome, etc.)
+    const triggerMatch = message.match(/add to cust[oe]m[ea]r\s*hist[orya]{3,6}\s*:\s*([^\n]+)/i) ||
+                        message.match(/add to customer history\s*:\s*([^\n]+)/i) ||
+                        message.match(/customer brain\s*(?:for\s*)?:\s*([^\n]+)/i);
     
     if (!triggerMatch) {
       await client.chat.postMessage({
@@ -894,9 +897,10 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
     const accountResult = await query(accountQuery);
     
     if (!accountResult || accountResult.totalSize === 0) {
+      const errorMessage = await formatAccountNotFoundError(accountName);
       await client.chat.postMessage({
         channel: channelId,
-        text: `Account "${accountName}" not found.\n\nCheck spelling: "does ${accountName} exist?"`,
+        text: errorMessage,
         thread_ts: threadTs
       });
       return;
@@ -1144,12 +1148,156 @@ function formatCurrency(amount) {
 }
 
 /**
+ * Levenshtein distance calculation for fuzzy matching
+ */
+function levenshteinDistance(str1, str2) {
+  const m = str1.length;
+  const n = str2.length;
+  const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+  
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (str1[i - 1] === str2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+  }
+  return dp[m][n];
+}
+
+/**
+ * Find closest matching command pattern using fuzzy matching
+ * Returns { pattern, score } or null if no good match found
+ */
+function findClosestMatch(userQuery, patterns) {
+  if (!userQuery || !patterns || patterns.length === 0) return null;
+  
+  const query = userQuery.toLowerCase().trim();
+  let bestMatch = null;
+  let bestScore = 0;
+  
+  for (const pattern of patterns) {
+    const patternLower = pattern.toLowerCase();
+    
+    // Calculate similarity score
+    const maxLen = Math.max(query.length, patternLower.length);
+    const distance = levenshteinDistance(query, patternLower);
+    const similarity = 1 - (distance / maxLen);
+    
+    // Also check if query contains most of the pattern words
+    const patternWords = patternLower.split(/\s+/);
+    const queryWords = query.split(/\s+/);
+    const matchingWords = patternWords.filter(pw => 
+      queryWords.some(qw => qw.includes(pw) || pw.includes(qw))
+    );
+    const wordMatchRatio = matchingWords.length / patternWords.length;
+    
+    // Combined score: weight word matching higher
+    const combinedScore = (similarity * 0.4) + (wordMatchRatio * 0.6);
+    
+    if (combinedScore > bestScore) {
+      bestScore = combinedScore;
+      bestMatch = pattern;
+    }
+  }
+  
+  return bestScore >= 0.3 ? { pattern: bestMatch, score: bestScore } : null;
+}
+
+/**
+ * Find similar account names for "Did you mean?" suggestions
+ */
+async function findSimilarAccounts(searchTerm, limit = 3) {
+  if (!searchTerm || searchTerm.length < 2) return [];
+  
+  try {
+    const escapedTerm = searchTerm.replace(/'/g, "\\'");
+    
+    // Search for accounts starting with or containing the term
+    const searchQuery = `
+      SELECT Id, Name, Owner.Name 
+      FROM Account 
+      WHERE Name LIKE '%${escapedTerm}%'
+         OR Name LIKE '${escapedTerm.charAt(0)}%'
+      ORDER BY LastActivityDate DESC NULLS LAST
+      LIMIT 10
+    `;
+    
+    const result = await query(searchQuery);
+    
+    if (!result || !result.records || result.records.length === 0) {
+      return [];
+    }
+    
+    // Score matches by similarity
+    const scoredMatches = result.records.map(acc => {
+      const name = acc.Name.toLowerCase();
+      const search = searchTerm.toLowerCase();
+      
+      // Calculate simple similarity score
+      let score = 0;
+      if (name.includes(search)) score += 0.5;
+      if (name.startsWith(search)) score += 0.3;
+      
+      // Levenshtein-based scoring
+      const maxLen = Math.max(name.length, search.length);
+      const distance = levenshteinDistance(name, search);
+      score += (1 - distance / maxLen) * 0.5;
+      
+      return { name: acc.Name, owner: acc.Owner?.Name, score };
+    });
+    
+    // Sort by score and return top matches
+    scoredMatches.sort((a, b) => b.score - a.score);
+    return scoredMatches.slice(0, limit);
+    
+  } catch (error) {
+    logger.error('Error finding similar accounts:', error);
+    return [];
+  }
+}
+
+/**
+ * Format "Account not found" error with suggestions
+ */
+async function formatAccountNotFoundError(accountName, actionHint = null) {
+  let message = `❌ Account "${accountName}" not found.\n\n`;
+  
+  // Try to find similar accounts
+  const similar = await findSimilarAccounts(accountName);
+  
+  if (similar.length > 0) {
+    message += `🔍 *Did you mean:*\n`;
+    similar.forEach(acc => {
+      message += `• ${acc.name}${acc.owner ? ` (Owner: ${acc.owner})` : ''}\n`;
+    });
+    message += '\n';
+  }
+  
+  // Add action-specific hints
+  if (actionHint === 'nurture') {
+    message += `_Try: "move [correct name] to nurture"_`;
+  } else if (actionHint === 'create') {
+    message += `_Create it: "create ${accountName} and assign to BL"_`;
+  } else {
+    message += `_Verify: "who owns ${accountName}" or "does ${accountName} exist?"_`;
+  }
+  
+  return message;
+}
+
+/**
  * Format account lookup results
  */
 async function formatAccountLookup(queryResult, parsedIntent) {
   if (!queryResult || !queryResult.records || queryResult.totalSize === 0) {
     const accountName = parsedIntent.entities.accounts?.[0] || 'that company';
-    return `No account found for "${accountName}". The company might not be in your Salesforce or might be spelled differently.`;
+    return await formatAccountNotFoundError(accountName);
   }
 
   const records = queryResult.records;
@@ -2346,22 +2494,40 @@ async function handleBatchMoveToNurture(entities, userId, channelId, client, thr
         // Close all open opportunities
         let oppsClosed = 0;
         if (Array.isArray(openOpps) && openOpps.length > 0) {
+          // NOTE: Only set StageName - IsClosed/IsWon are read-only fields auto-calculated by Salesforce
           const updates = openOpps.map(opp => ({
             Id: opp.Id,
-            StageName: 'Stage 7. Closed(Lost)',
-            IsClosed: true,
-            IsWon: false
+            StageName: 'Closed Lost'
           }));
           
           const oppResults = await conn.sobject('Opportunity').update(updates);
           const oppResultsArray = Array.isArray(oppResults) ? oppResults : [oppResults];
+          
+          // Log any failures with details for debugging
+          oppResultsArray.forEach((result, idx) => {
+            if (!result.success) {
+              logger.error('Opportunity update failed during batch nurture:', {
+                account: account.Name,
+                oppId: updates[idx]?.Id,
+                errors: result.errors,
+                errorMessages: result.errors?.map(e => e.message).join(', ')
+              });
+            }
+          });
+          
           oppsClosed = oppResultsArray.filter(r => r.success).length;
+          const oppsFailed = oppResultsArray.length - oppsClosed;
+          
+          if (oppsFailed > 0) {
+            logger.warn(`Batch nurture: ${oppsFailed}/${openOpps.length} opp updates failed for ${account.Name}`);
+          }
         }
         
         results.push({ 
           account: account.Name, 
           status: 'success', 
           oppsClosed,
+          oppsTotal: openOpps.length,
           message: `Moved to nurture, ${oppsClosed} opp(s) closed`
         });
         
@@ -2820,7 +2986,7 @@ async function handleMoveToNurture(entities, userId, channelId, client, threadTs
     if (!accountResult || accountResult.totalSize === 0) {
       await client.chat.postMessage({
         channel: channelId,
-        text: `❌ Account "${accountName}" not found.\n\nTry: "who owns ${accountName}" to verify the account exists.`,
+        text: await formatAccountNotFoundError(accountName, 'nurture'),
         thread_ts: threadTs
       });
       return;
@@ -2848,17 +3014,29 @@ async function handleMoveToNurture(entities, userId, channelId, client, threadTs
     let results = null;
     
     if (openOpps.length > 0) {
+      // NOTE: Only set StageName - IsClosed/IsWon are read-only fields auto-calculated by Salesforce
       const updates = openOpps.map(opp => ({
         Id: opp.Id,
-        StageName: 'Stage 7. Closed(Lost)',
-        IsClosed: true,
-        IsWon: false
+        StageName: 'Closed Lost'
       }));
       
       results = await conn.sobject('Opportunity').update(updates);
       
       // Handle both single result and array of results
       const resultsArray = Array.isArray(results) ? results : [results];
+      
+      // Log any failures with details for debugging
+      resultsArray.forEach((result, idx) => {
+        if (!result.success) {
+          logger.error('Opportunity update failed during move to nurture:', {
+            account: account.Name,
+            oppId: updates[idx]?.Id,
+            errors: result.errors,
+            errorMessages: result.errors?.map(e => e.message).join(', ')
+          });
+        }
+      });
+      
       successCount = resultsArray.filter(r => r.success).length;
       failCount = resultsArray.length - successCount;
     }
@@ -2882,7 +3060,7 @@ async function handleMoveToNurture(entities, userId, channelId, client, threadTs
         const resultsArray = Array.isArray(results) ? results : [results];
         const success = resultsArray[i]?.success ? '✅' : '❌';
         const amount = opp.Amount ? `$${(opp.Amount / 1000).toFixed(0)}K` : 'N/A';
-        confirmMessage += `${success} ${opp.Name} (${amount}) → Stage 7. Closed(Lost)\n`;
+        confirmMessage += `${success} ${opp.Name} (${amount}) → Closed Lost\n`;
       });
     } else {
       confirmMessage += `\n*No open opportunities to close*\n`;
@@ -2951,7 +3129,7 @@ async function handleCloseAccountLost(entities, userId, channelId, client, threa
     if (!accountResult || accountResult.totalSize === 0) {
       await client.chat.postMessage({
         channel: channelId,
-        text: `❌ Account "${accountName}" not found.\n\nTry: "who owns ${accountName}" to verify the account exists.`,
+        text: await formatAccountNotFoundError(accountName, 'nurture'),
         thread_ts: threadTs
       });
       return;
@@ -2976,17 +3154,28 @@ async function handleCloseAccountLost(entities, userId, channelId, client, threa
     const { sfConnection } = require('../salesforce/connection');
     const conn = sfConnection.getConnection();
     
+    // NOTE: Only set StageName - IsClosed/IsWon are read-only fields auto-calculated by Salesforce
     const updates = openOpps.map(opp => ({
       Id: opp.Id,
-      StageName: 'Stage 7. Closed(Lost)',
-      IsClosed: true,
-      IsWon: false
+      StageName: 'Closed Lost'
     }));
     
     const results = await conn.sobject('Opportunity').update(updates);
     
     // Handle both single result and array of results
     const resultsArray = Array.isArray(results) ? results : [results];
+    
+    // Log any failures with details for debugging
+    resultsArray.forEach((result, idx) => {
+      if (!result.success) {
+        logger.error('Opportunity update failed during close lost:', {
+          account: account.Name,
+          oppId: updates[idx]?.Id,
+          errors: result.errors,
+          errorMessages: result.errors?.map(e => e.message).join(', ')
+        });
+      }
+    });
     
     // Count successes
     const successCount = resultsArray.filter(r => r.success).length;
@@ -3009,7 +3198,7 @@ async function handleCloseAccountLost(entities, userId, channelId, client, threa
       const resultsArray = Array.isArray(results) ? results : [results];
       const success = resultsArray[i]?.success ? '✅' : '❌';
       const amount = opp.Amount ? `$${(opp.Amount / 1000).toFixed(0)}K` : 'N/A';
-      confirmMessage += `${success} ${opp.Name} (${amount}) → Stage 7. Closed(Lost)\n`;
+      confirmMessage += `${success} ${opp.Name} (${amount}) → Closed Lost\n`;
     });
     
     confirmMessage += `\n<${accountUrl}|View Account in Salesforce>`;
@@ -3117,7 +3306,7 @@ async function handleAccountPlanSave(message, userId, channelId, client, threadT
     if (!accountResult || accountResult.totalSize === 0) {
       await client.chat.postMessage({
         channel: channelId,
-        text: `❌ Account "${accountName}" not found.\n\nTry: "who owns ${accountName}" to verify the account exists.`,
+        text: await formatAccountNotFoundError(accountName, 'nurture'),
         thread_ts: threadTs
       });
       return;
@@ -3243,7 +3432,7 @@ async function handleAccountPlanQuery(entities, userId, channelId, client, threa
     if (!accountResult || accountResult.totalSize === 0) {
       await client.chat.postMessage({
         channel: channelId,
-        text: `❌ Account "${accountName}" not found.\n\nTry: "who owns ${accountName}" to verify the account exists.`,
+        text: await formatAccountNotFoundError(accountName, 'nurture'),
         thread_ts: threadTs
       });
       return;
@@ -3952,7 +4141,7 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
     if (!accountResult || accountResult.totalSize === 0) {
       await client.chat.postMessage({
         channel: channelId,
-        text: `❌ Account "${accountName}" not found.\n\nCreate it first: "create ${accountName} and assign to BL"\n\nOr check spelling: "does ${accountName} exist?"`,
+        text: await formatAccountNotFoundError(accountName, 'create'),
         thread_ts: threadTs
       });
       return;
@@ -4224,7 +4413,7 @@ ${meetingNotes}`;
     if (!accountResult || accountResult.totalSize === 0) {
       await client.chat.postMessage({
         channel: channelId,
-        text: `Account "${accountName}" not found.\n\nCreate it first: "create ${accountName} and assign to BL"`,
+        text: await formatAccountNotFoundError(accountName, 'create'),
         thread_ts: threadTs
       });
       return;
@@ -5100,11 +5289,45 @@ async function getOwnerNameFromSlackUser(slackUserId, client) {
 
 /**
  * Handle Unknown Queries - Smart keyword matching with context-aware suggestions
+ * Enhanced with "Did you mean?" fuzzy matching
  */
 async function handleUnknownQuery(parsedIntent, userId, channelId, client, threadTs) {
   try {
     const originalMessage = parsedIntent.originalMessage?.toLowerCase() || '';
     const extractedWords = parsedIntent.entities.extractedWords || [];
+    
+    // Known command patterns for fuzzy matching
+    const commandPatterns = [
+      'show me pipeline',
+      'my pipeline',
+      'late stage pipeline',
+      'early stage pipeline',
+      'who owns',
+      "who's the BL on",
+      'what do we know about',
+      "Julie's deals",
+      "Himanshu's deals",
+      'what closed this month',
+      'what closed this week',
+      'what closed today',
+      'move to nurture',
+      'batch nurture',
+      'reassign to',
+      'batch reassign',
+      'create opportunity for',
+      'send pipeline excel',
+      'logo rights',
+      'what accounts are in stage',
+      'how many customers',
+      'how many deals',
+      'add to customer history',
+      'stale deals',
+      'stuck deals',
+      'hot deals'
+    ];
+    
+    // Find closest matching command using Levenshtein distance
+    const didYouMeanSuggestion = findClosestMatch(originalMessage, commandPatterns);
     
     // Keyword to suggestion mapping - provide relevant suggestions based on words in query
     const keywordSuggestions = {
@@ -5176,17 +5399,27 @@ async function handleUnknownQuery(parsedIntent, userId, channelId, client, threa
     
     let response = '';
     
+    // Check for "Did you mean?" suggestion first
+    if (didYouMeanSuggestion && didYouMeanSuggestion.score >= 0.5) {
+      response = `🤔 *Did you mean:* "${didYouMeanSuggestion.pattern}"?\n\n`;
+      response += `_Try typing that exact phrase, or see suggestions below._\n\n`;
+    }
+    
     if (matchedSuggestions.length > 0) {
       // We found relevant keywords - give targeted suggestions
-      response = `I think you're asking about *${matchedSuggestions[0].suggestion}*. Try:\n\n`;
+      if (!response) {
+        response = `I think you're asking about *${matchedSuggestions[0].suggestion}*. Try:\n\n`;
+      } else {
+        response += `*Related commands:*\n`;
+      }
       matchedSuggestions.forEach(match => {
         match.examples.forEach(ex => {
           response += `• "${ex}"\n`;
         });
       });
       response += `\n_Tip: I work best with direct questions. Rephrase if needed!_`;
-    } else {
-      // No keywords matched - give general help
+    } else if (!didYouMeanSuggestion || didYouMeanSuggestion.score < 0.5) {
+      // No keywords matched AND no fuzzy match - give general help
       response = `I'm not sure what you're looking for. Here are some things I can do:\n\n`;
       response += `*Quick Examples:*\n`;
       response += `• "show me pipeline" - Active opportunities\n`;

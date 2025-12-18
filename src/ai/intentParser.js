@@ -20,12 +20,145 @@ function getMLClassifier() {
   return mlClassifier;
 }
 
+// Lightweight query analytics - in-memory with periodic persistence
+const queryAnalytics = {
+  byIntent: {},           // { intent: { success: N, fail: N, total: N } }
+  unknownQueries: [],     // Last 100 unknown queries for analysis
+  lowConfidence: [],      // Last 50 low-confidence classifications
+  methodCounts: {         // Track which classification method was used
+    ml_semantic: 0,
+    ml_exact: 0,
+    ml_llm: 0,
+    pattern_fallback: 0
+  },
+  sessionStart: Date.now(),
+  
+  // Record a query result
+  record(intent, method, confidence, success = true) {
+    // Track by intent
+    if (!this.byIntent[intent]) {
+      this.byIntent[intent] = { success: 0, fail: 0, total: 0 };
+    }
+    this.byIntent[intent].total++;
+    if (success) {
+      this.byIntent[intent].success++;
+    } else {
+      this.byIntent[intent].fail++;
+    }
+    
+    // Track method usage
+    if (method && this.methodCounts[method] !== undefined) {
+      this.methodCounts[method]++;
+    }
+    
+    // Track low confidence
+    if (confidence && confidence < 0.7) {
+      this.lowConfidence.push({
+        intent,
+        confidence,
+        timestamp: Date.now()
+      });
+      // Keep only last 50
+      if (this.lowConfidence.length > 50) {
+        this.lowConfidence.shift();
+      }
+    }
+  },
+  
+  // Record an unknown query for analysis
+  recordUnknown(query) {
+    this.unknownQueries.push({
+      query: query.substring(0, 200), // Truncate for safety
+      timestamp: Date.now()
+    });
+    // Keep only last 100
+    if (this.unknownQueries.length > 100) {
+      this.unknownQueries.shift();
+    }
+  },
+  
+  // Get summary statistics
+  getSummary() {
+    const uptime = Date.now() - this.sessionStart;
+    const totalQueries = Object.values(this.byIntent).reduce((sum, i) => sum + i.total, 0);
+    const totalUnknown = this.byIntent['unknown_query']?.total || 0;
+    const successRate = totalQueries > 0 
+      ? ((totalQueries - totalUnknown) / totalQueries * 100).toFixed(1) 
+      : 0;
+    
+    return {
+      uptime_hours: (uptime / 3600000).toFixed(1),
+      total_queries: totalQueries,
+      unknown_queries: totalUnknown,
+      success_rate: `${successRate}%`,
+      method_distribution: this.methodCounts,
+      top_intents: Object.entries(this.byIntent)
+        .sort((a, b) => b[1].total - a[1].total)
+        .slice(0, 10)
+        .map(([intent, stats]) => ({ intent, ...stats })),
+      recent_unknown: this.unknownQueries.slice(-10),
+      low_confidence_count: this.lowConfidence.length
+    };
+  }
+};
+
 class IntentParser {
   constructor() {
     this.aiAdapter = socratesAdapter;
     this.model = process.env.SOCRATES_MODEL || process.env.OPENAI_MODEL || 'claude-opus-4.1';
     this.useOpenAI = process.env.USE_OPENAI === 'true';
     this.useMLClassifier = process.env.USE_ML_CLASSIFIER !== 'false'; // Default enabled
+    
+    // Common typo corrections (normalized to lowercase)
+    this.typoCorrections = {
+      // opportunity
+      'oppurtunity': 'opportunity',
+      'oppertunity': 'opportunity',
+      'opertunity': 'opportunity',
+      'oppotunity': 'opportunity',
+      'opportunty': 'opportunity',
+      'opporunity': 'opportunity',
+      // pipeline  
+      'pipline': 'pipeline',
+      'piepline': 'pipeline',
+      'pipelin': 'pipeline',
+      'pipleline': 'pipeline',
+      // reassign
+      'reassgin': 'reassign',
+      'reasign': 'reassign',
+      'reasssign': 'reassign',
+      'reaassign': 'reassign',
+      // account
+      'acount': 'account',
+      'acccount': 'account',
+      'accout': 'account',
+      'acconut': 'account',
+      // nurture
+      'nurrture': 'nurture',
+      'nuture': 'nurture',
+      'nurure': 'nurture',
+      'nurtue': 'nurture',
+      // stage
+      'stge': 'stage',
+      'satge': 'stage',
+      // closed
+      'clsoed': 'closed',
+      'closde': 'closed',
+      // deals
+      'deaels': 'deals',
+      'delas': 'deals',
+      // owner
+      'onwer': 'owner',
+      'owenr': 'owner',
+      // create
+      'craete': 'create',
+      'creaet': 'create',
+      // history
+      'histroy': 'history',
+      'hisotry': 'history',
+      'histor': 'history',
+      'hsitory': 'history'
+    };
     
     // Initialize OpenAI as fallback if specified
     if (this.useOpenAI) {
@@ -34,6 +167,68 @@ class IntentParser {
         apiKey: process.env.OPENAI_API_KEY,
       });
     }
+  }
+
+  /**
+   * Normalize common typos in user message
+   */
+  normalizeTypos(message) {
+    let normalized = message.toLowerCase();
+    for (const [typo, correct] of Object.entries(this.typoCorrections)) {
+      // Use word boundary-aware replacement to avoid partial matches
+      const regex = new RegExp(`\\b${typo}\\b`, 'gi');
+      normalized = normalized.replace(regex, correct);
+    }
+    return normalized;
+  }
+
+  /**
+   * Clean up extracted entity names
+   * - Removes leading/trailing stop words
+   * - Strips punctuation
+   * - Trims whitespace
+   */
+  cleanEntityName(name) {
+    if (!name || typeof name !== 'string') return name;
+    
+    // Stop words that shouldn't be at start/end of company names
+    const stopWords = ['the', 'a', 'an', 'for', 'to', 'on', 'at', 'in', 'with', 'and', 'or'];
+    
+    // Remove trailing punctuation (except apostrophes within name)
+    let cleaned = name.trim()
+      .replace(/[.,!?;:]+$/g, '')  // Remove trailing punctuation
+      .replace(/^[.,!?;:]+/g, '')  // Remove leading punctuation
+      .replace(/["'`]+$/g, '')     // Remove trailing quotes
+      .replace(/^["'`]+/g, '');    // Remove leading quotes
+    
+    // Remove leading stop words
+    const lowerCleaned = cleaned.toLowerCase();
+    for (const word of stopWords) {
+      const regex = new RegExp(`^${word}\\s+`, 'i');
+      if (regex.test(lowerCleaned)) {
+        cleaned = cleaned.replace(regex, '');
+      }
+    }
+    
+    // Remove trailing stop words (less common but can happen)
+    for (const word of stopWords) {
+      const regex = new RegExp(`\\s+${word}$`, 'i');
+      if (regex.test(cleaned.toLowerCase())) {
+        cleaned = cleaned.replace(regex, '');
+      }
+    }
+    
+    return cleaned.trim();
+  }
+
+  /**
+   * Clean all account entities in an array
+   */
+  cleanAccountEntities(accounts) {
+    if (!Array.isArray(accounts)) return accounts;
+    return accounts
+      .map(acc => this.cleanEntityName(acc))
+      .filter(acc => acc && acc.length > 0);
   }
 
   /**
@@ -47,23 +242,42 @@ class IntentParser {
     const startTime = Date.now();
     
     try {
+      // Normalize common typos early
+      const normalizedMessage = this.normalizeTypos(userMessage);
+      const hadTypos = normalizedMessage !== userMessage.toLowerCase();
+      
+      if (hadTypos) {
+        logger.info('🔧 Typo correction applied', { 
+          original: userMessage.substring(0, 50),
+          normalized: normalizedMessage.substring(0, 50)
+        });
+      }
+      
       logger.info('🤖 Parsing user intent', { 
         message: userMessage.substring(0, 100),
         userId,
-        hasContext: !!conversationContext 
+        hasContext: !!conversationContext,
+        typosCorrected: hadTypos
       });
 
       // Try ML Classifier first (if enabled and available)
+      // Use normalized message for classification
       if (this.useMLClassifier) {
         const classifier = getMLClassifier();
         if (classifier) {
           try {
-            const mlResult = await classifier.classify(userMessage, conversationContext, userId);
-            
+            const mlResult = await classifier.classify(normalizedMessage, conversationContext, userId);
+
             // If ML classifier is confident, use its result
             if (mlResult && mlResult.confidence >= 0.70) {
               mlResult.originalMessage = userMessage;
+              mlResult.normalizedMessage = normalizedMessage;
+              mlResult.typosCorrected = hadTypos;
               logger.info(`✅ ML classified: ${mlResult.intent} (${(mlResult.confidence * 100).toFixed(0)}% via ${mlResult.method})`);
+              
+              // Track analytics
+              queryAnalytics.record(mlResult.intent, mlResult.method, mlResult.confidence);
+              
               return mlResult;
             }
             
@@ -77,17 +291,26 @@ class IntentParser {
         }
       }
 
-      // Fallback to pattern matching
-      const patternResult = this.fallbackPatternMatching(userMessage, conversationContext);
+      // Fallback to pattern matching - use normalized message for matching
+      const patternResult = this.fallbackPatternMatching(normalizedMessage, conversationContext);
       patternResult.method = 'pattern_fallback';
-      
+      patternResult.originalMessage = userMessage;
+      patternResult.typosCorrected = hadTypos;
+
+      // Track analytics
+      queryAnalytics.record(patternResult.intent, 'pattern_fallback', patternResult.confidence);
+      if (patternResult.intent === 'unknown_query') {
+        queryAnalytics.recordUnknown(userMessage);
+      }
+
       return patternResult;
 
     } catch (error) {
       logger.error('❌ Intent parsing failed:', error);
       
-      // Final fallback to pattern matching
-      return this.fallbackPatternMatching(userMessage, conversationContext);
+      // Final fallback to pattern matching - try with normalized message
+      const normalizedMessage = this.normalizeTypos(userMessage);
+      return this.fallbackPatternMatching(normalizedMessage, conversationContext);
     }
   }
   
@@ -577,8 +800,17 @@ Business Context:
 
     // Customer Brain note capture (HIGHEST PRIORITY - before existence check!)
     // Must be FIRST to prevent "exist" in message body from triggering existence check
-    if (message.includes('add to customer') || message.includes('save note') || 
-        message.includes('log note') || message.includes('customer history')) {
+    // Includes typo tolerance for common misspellings (histroy, custome, etc.)
+    const customerHistoryMatch = message.includes('add to customer') || 
+        message.includes('add to custome') ||  // typo: custome
+        message.match(/customer\s*hist[orya]{3,6}/i) ||  // typos: histroy, histor, historya
+        message.match(/add to cust[oe]m[ea]r/i) ||  // typo variations
+        message.includes('save note') || 
+        message.includes('log note') || 
+        message.includes('customer history') ||
+        message.includes('customer brain');
+    
+    if (customerHistoryMatch) {
       intent = 'save_customer_note';
       
       entities.noteCapture = true;
@@ -750,10 +982,13 @@ Business Context:
     
     // Opportunity creation (Keigan only)
     // Match: "create opp for X", "create an opp for X", "create a stage 1 opportunity for X"
+    // NOTE: Allow 'account' in company names (e.g., "Eudia Testing Account") 
+    // but exclude "create account" and "add account" commands
     if ((message.includes('create') || message.includes('add')) && 
         (message.includes('opp ') || message.includes('opportunity')) &&
         message.includes(' for ') &&
-        !message.includes('account') && !message.includes('assign to bl')) {
+        !message.includes('create account') && !message.includes('add account') &&
+        !message.includes('assign to bl')) {
       intent = 'create_opportunity';
       
       // Extract account name - handles "create a stage 1 opportunity for GTM Test Company"
@@ -931,20 +1166,24 @@ Business Context:
         message.includes('who\'s assigned') || message.includes('assigned to') ||
         message.includes('who is the bl') || message.includes('who\'s the bl') ||
         message.includes('business lead') || message.includes('bl for') ||
-        message.includes('bl at')) {
+        message.includes('bl at') || message.includes('bl on')) {
       intent = 'account_lookup';
       entities.includeAccount = true;
       
       // Extract company name with better patterns including BL variations
+      // IMPORTANT: More specific patterns must come BEFORE less specific ones
       const companyMatch = message.match(/who owns (.+?)(?:\?|$)/i) || 
                           message.match(/who'?s the owner of (.+?)(?:\?|$)/i) ||
                           message.match(/owner.*?of (.+?)(?:\?|$)/i) ||
                           message.match(/owns (.+?)(?:\?|$)/i) ||
                           message.match(/assigned to (.+?)(?:\?|$)/i) ||
+                          // BL patterns - must match "on/at/for [company]" specifically
+                          message.match(/who(?:'s| is) the bl (?:on|at|for) (.+?)(?:\?|$)/i) ||
+                          message.match(/bl (?:on|at|for) (.+?)(?:\?|$)/i) ||
                           message.match(/bl for (.+?)(?:\?|$)/i) ||
                           message.match(/bl at (.+?)(?:\?|$)/i) ||
-                          message.match(/business lead.*?(.+?)(?:\?|$)/i) ||
-                          message.match(/who.*?the.*?(.+?)(?:\?|$)/i);
+                          message.match(/business lead (?:on|at|for) (.+?)(?:\?|$)/i) ||
+                          message.match(/business lead.*?(.+?)(?:\?|$)/i);
       
       if (companyMatch && companyMatch[1]) {
         entities.accounts = [companyMatch[1].trim().replace('@GTM Brain', '').trim()];
@@ -1125,7 +1364,7 @@ Business Context:
         timestamp: Date.now()
       };
     }
-
+    
     // Account Management - Close Lost (Keigan only)
     if ((message.includes('close') || message.includes('mark')) && 
         (message.includes('lost') || message.includes('closed lost')) ||
@@ -1822,6 +2061,11 @@ Business Context:
       };
     }
     
+    // Clean up entity names before returning
+    if (entities.accounts) {
+      entities.accounts = this.cleanAccountEntities(entities.accounts);
+    }
+    
     // Only return pipeline_summary if we have some entities or matched a pattern
     return {
       intent,
@@ -1908,5 +2152,7 @@ module.exports = {
   intentParser,
   parseIntent: (message, context, userId) => intentParser.parseIntent(message, context, userId),
   processFeedback: (query, original, corrected, userId) => intentParser.processFeedback(query, original, corrected, userId),
-  getStats: () => intentParser.getStats()
+  getStats: () => intentParser.getStats(),
+  queryAnalytics,
+  getQueryAnalytics: () => queryAnalytics.getSummary()
 };

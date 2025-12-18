@@ -89,11 +89,76 @@ class MLIntentClassifier {
         const { OpenAI } = require('openai');
         this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         logger.info('✅ MLIntentClassifier: OpenAI initialized');
+        
+        // Trigger background precomputation of embeddings
+        this.precomputeEmbeddings().catch(err => {
+          logger.warn('⚠️ Embedding precomputation failed:', err.message);
+        });
       } else {
         logger.warn('⚠️ MLIntentClassifier: No OpenAI API key, LLM layer disabled');
       }
     } catch (error) {
       logger.error('❌ MLIntentClassifier: OpenAI init failed:', error.message);
+    }
+  }
+
+  /**
+   * Pre-compute embeddings for all intent examples at startup
+   * This speeds up semantic search by having embeddings ready in cache
+   */
+  async precomputeEmbeddings() {
+    if (!this.openai) {
+      logger.info('⏭️ Skipping embedding precomputation - OpenAI not available');
+      return;
+    }
+
+    const startTime = Date.now();
+    let computed = 0;
+    let cached = 0;
+    let failed = 0;
+
+    logger.info('🔄 Pre-computing intent embeddings...');
+
+    // Collect all examples to embed
+    const examplesToEmbed = [];
+    
+    for (const [intent, definition] of Object.entries(this.intentDefinitions)) {
+      for (const example of definition.examples) {
+        const cacheKey = example.toLowerCase().trim();
+        if (!this.embeddingsCache[cacheKey]) {
+          examplesToEmbed.push({ intent, example });
+        } else {
+          cached++;
+        }
+      }
+    }
+
+    // Process in batches to avoid rate limits
+    const batchSize = 10;
+    for (let i = 0; i < examplesToEmbed.length; i += batchSize) {
+      const batch = examplesToEmbed.slice(i, i + batchSize);
+      
+      await Promise.all(batch.map(async ({ intent, example }) => {
+        try {
+          await this.getEmbedding(example);
+          computed++;
+        } catch (err) {
+          failed++;
+        }
+      }));
+      
+      // Small delay between batches to respect rate limits
+      if (i + batchSize < examplesToEmbed.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    const elapsed = Date.now() - startTime;
+    logger.info(`✅ Embedding precomputation complete: ${computed} computed, ${cached} cached, ${failed} failed (${elapsed}ms)`);
+    
+    // Save the cache after precomputation
+    if (computed > 0) {
+      this.saveEmbeddingsCache();
     }
   }
 

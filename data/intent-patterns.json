@@ -1,0 +1,292 @@
+{
+  "_description": "Intent patterns extracted from intentParser.js for maintainability",
+  "_version": "1.0.0",
+  "_usage": "These patterns are loaded by intentParser.js for pattern matching fallback",
+  
+  "patterns": {
+    "account_status_dashboard": {
+      "priority": 100,
+      "triggers": [
+        "account status dashboard",
+        "account dashboard",
+        "gtm brain",
+        "dashboard"
+      ],
+      "exact_triggers": ["gtm"],
+      "description": "Shows the GTM executive dashboard"
+    },
+
+    "pagination_next": {
+      "priority": 95,
+      "triggers": ["show next", "next page", "more deals", "show all", "see more"],
+      "exact_triggers": ["next", "more"],
+      "description": "Pagination for query results"
+    },
+
+    "greeting": {
+      "priority": 90,
+      "triggers": ["hello", "hi", "hey", "good morning", "good afternoon"],
+      "description": "Simple greetings"
+    },
+
+    "save_customer_note": {
+      "priority": 85,
+      "triggers": [
+        "add to customer history",
+        "add to customer",
+        "customer history:",
+        "customer brain:",
+        "save note",
+        "log note"
+      ],
+      "typo_variants": [
+        "add to custome",
+        "histroy",
+        "hisotry"
+      ],
+      "description": "Save notes to customer history"
+    },
+
+    "account_existence_check": {
+      "priority": 80,
+      "patterns": [
+        "does .+ exist",
+        "is .+ in salesforce",
+        "do we have .+",
+        "check if .+ exists"
+      ],
+      "excludes": ["add to customer"],
+      "description": "Check if account exists in Salesforce"
+    },
+
+    "create_account": {
+      "priority": 75,
+      "triggers": [
+        "create account",
+        "add account",
+        "new account"
+      ],
+      "patterns": [
+        "create (.+?) and assign",
+        "add account (.+?) assign"
+      ],
+      "description": "Create a new account in Salesforce"
+    },
+
+    "batch_move_to_nurture": {
+      "priority": 70,
+      "triggers": ["batch nurture"],
+      "patterns": [
+        "move .+,.+ to nurture",
+        "nurture: .+,.+"
+      ],
+      "description": "Move multiple accounts to nurture status"
+    },
+
+    "batch_reassign_accounts": {
+      "priority": 70,
+      "triggers": ["batch reassign"],
+      "patterns": [
+        "reassign .+,.+ to .+",
+        "batch reassign: .+"
+      ],
+      "description": "Reassign multiple accounts to a new owner"
+    },
+
+    "reassign_account": {
+      "priority": 65,
+      "patterns": [
+        "reassign .+ to .+",
+        "assign .+ to .+"
+      ],
+      "excludes": ["batch"],
+      "description": "Reassign a single account to a new owner"
+    },
+
+    "create_opportunity": {
+      "priority": 60,
+      "triggers": [
+        "create opportunity",
+        "create opp",
+        "add opportunity",
+        "add opp",
+        "new opportunity"
+      ],
+      "patterns": [
+        "create (?:a )?(?:stage \\d )?opp(?:ortunity)? for (.+)",
+        "add (?:a )?(?:stage \\d )?opp(?:ortunity)? for (.+)"
+      ],
+      "excludes": ["create account", "add account"],
+      "description": "Create a new opportunity for an account"
+    },
+
+    "account_lookup": {
+      "priority": 55,
+      "triggers": [
+        "who owns",
+        "who is the owner",
+        "who is the bl",
+        "bl on",
+        "bl for",
+        "what do we know about",
+        "tell me about",
+        "account info"
+      ],
+      "patterns": [
+        "who owns (.+)",
+        "who is the bl (?:on|at|for) (.+)",
+        "bl (?:on|at|for) (.+)",
+        "what do we know about (.+)"
+      ],
+      "description": "Look up account information and ownership"
+    },
+
+    "move_to_nurture": {
+      "priority": 50,
+      "patterns": [
+        "move (.+) to nurture",
+        "nurture (.+)"
+      ],
+      "excludes": ["batch"],
+      "description": "Move a single account to nurture status"
+    },
+
+    "close_account_lost": {
+      "priority": 50,
+      "triggers": [
+        "close lost",
+        "mark as lost",
+        "close as lost"
+      ],
+      "patterns": [
+        "close (.+) (?:as )?lost"
+      ],
+      "description": "Close all opportunities for an account as lost"
+    },
+
+    "pipeline_summary": {
+      "priority": 40,
+      "triggers": [
+        "pipeline",
+        "show me pipeline",
+        "my pipeline",
+        "active deals",
+        "open deals"
+      ],
+      "description": "Show pipeline summary with deals"
+    },
+
+    "owner_pipeline": {
+      "priority": 45,
+      "patterns": [
+        "(.+)'s deals",
+        "(.+)'s pipeline",
+        "what deals does (.+) have"
+      ],
+      "description": "Show pipeline for a specific owner"
+    },
+
+    "accounts_by_stage": {
+      "priority": 45,
+      "triggers": [
+        "what accounts are in stage",
+        "accounts in stage",
+        "stage accounts"
+      ],
+      "patterns": [
+        "accounts (?:in|at) stage (\\d)"
+      ],
+      "description": "List accounts by pipeline stage"
+    },
+
+    "closed_deals": {
+      "priority": 45,
+      "triggers": [
+        "what closed",
+        "closed deals",
+        "wins this"
+      ],
+      "patterns": [
+        "what closed (?:this )?(month|week|today|quarter)"
+      ],
+      "description": "Show recently closed deals"
+    },
+
+    "send_excel_report": {
+      "priority": 50,
+      "triggers": [
+        "send pipeline excel",
+        "export to excel",
+        "excel report",
+        "pipeline excel"
+      ],
+      "description": "Send pipeline data as Excel attachment"
+    },
+
+    "logo_rights_list": {
+      "priority": 50,
+      "triggers": ["logo rights", "logo authorization"],
+      "description": "List accounts with logo usage rights"
+    },
+
+    "customer_list": {
+      "priority": 50,
+      "triggers": [
+        "current customers",
+        "our customers",
+        "list customers",
+        "who are our customers"
+      ],
+      "description": "List current customers"
+    },
+
+    "stale_deals": {
+      "priority": 45,
+      "triggers": ["stale deals", "stale opportunities"],
+      "description": "Find deals with no recent activity"
+    },
+
+    "hot_deals": {
+      "priority": 45,
+      "triggers": ["hot deals", "urgent deals"],
+      "description": "Find high-priority deals"
+    },
+
+    "stuck_deals": {
+      "priority": 45,
+      "triggers": ["stuck deals", "stuck opportunities"],
+      "description": "Find deals stuck in a stage too long"
+    }
+  },
+
+  "stage_mapping": {
+    "0": "Stage 0 - Qualifying",
+    "1": "Stage 1 - Discovery",
+    "2": "Stage 2 - SOO",
+    "3": "Stage 3 - Pilot",
+    "4": "Stage 4 - Proposal",
+    "closed_won": "Closed Won",
+    "closed_lost": "Closed Lost"
+  },
+
+  "owner_aliases": {
+    "julie": ["Julie", "Julie Shenkman"],
+    "himanshu": ["Himanshu", "Himanshu Chaturvedi"],
+    "keigan": ["Keigan", "Keigan Pesenti"],
+    "suzie": ["Suzie", "Suzie Cho"],
+    "alex": ["Alex", "Alex Minicucci"],
+    "emma": ["Emma", "Emma Shen"]
+  },
+
+  "product_line_mapping": {
+    "aac": "AI-Augmented Contracting",
+    "ai contracting": "AI-Augmented Contracting",
+    "augmented contracting": "AI-Augmented Contracting",
+    "ama": "Augmented-M&A",
+    "m&a": "Augmented-M&A",
+    "compliance": "Compliance",
+    "sigma": "sigma",
+    "cortex": "Cortex"
+  }
+}
+
