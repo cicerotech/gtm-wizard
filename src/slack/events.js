@@ -4167,7 +4167,7 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
       term: 36, // 36 months always
       stage: '1', // Stage 1 - Discovery default
       targetDate: null, // Will calculate: TODAY + 150 days
-      revenueType: 'ARR', // CORRECT API NAME for Recurring (12+ month contracts)
+      revenueType: 'Recurring', // Correct Salesforce picklist value (not 'ARR')
       opportunitySource: 'Inbound', // Always Inbound for now
       productLine: 'AI-Augmented Contracting' // Default product (can override)
     };
@@ -4275,7 +4275,7 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
     else defaultFields.push(`Product Line: ${oppData.productLine} (default)`);
     
     // Display revenue type (ARR shows as "Recurring" for users)
-    const displayType = oppData.revenueType === 'ARR' ? 'Recurring (ARR)' : oppData.revenueType;
+    const displayType = oppData.revenueType === 'Recurring' ? 'Recurring (ARR)' : oppData.revenueType;
     if (entities.revenueType) customFields.push(`Revenue Type: ${displayType}`);
     else defaultFields.push(`Revenue Type: ${displayType} (default: 12+ mo contracts)`);
     
