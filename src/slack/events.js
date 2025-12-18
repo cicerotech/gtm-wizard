@@ -4157,7 +4157,7 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
     if (!entities.accounts || entities.accounts.length === 0) {
       await client.chat.postMessage({
         channel: channelId,
-        text: `Please specify an account name.\n\n*Examples:*\n• Simple: "create an opp for Intel"\n• Detailed: "create an opp for Intel. stage 4 and $300k acv and target sign of 12/31/2025"`,
+        text: `Please specify an account name.\n\n*Examples:*\n• Simple: "create an opp for Intel"\n• Detailed: "create an opp for Intel. stage 4 and $500k acv and target sign of 12/31/2025"`,
         thread_ts: threadTs
       });
       return;
@@ -4198,8 +4198,8 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
     
     // SMART DEFAULTS (Salesforce flow defaults)
     const DEFAULTS = {
-      acv: 300000, // $300k default
-      tcv: 300000, // Same as ACV by default
+      acv: 100000, // $100k default
+      tcv: 100000, // Same as ACV by default
       term: 36, // 36 months always
       stage: '1', // Stage 1 - Discovery default
       targetDate: null, // Will calculate: TODAY + 150 days
