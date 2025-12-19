@@ -1112,9 +1112,10 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Pipeline by Sales Type - Joint View Summary -->
+    <!-- Pipeline by Sales Type - Q4 Target Sign Only -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title">Pipeline by Sales Type (Combined)</div>
+      <div class="weekly-subsection-title">Q4 Pipeline by Sales Type (Combined)</div>
+      <div style="font-size: 0.65rem; color: #6b7280; margin-bottom: 8px;">Target Sign Date ≤ Jan 31, 2026 • 80 opportunities</div>
       <table style="width: 100%; font-size: 0.7rem; margin-top: 8px; border-collapse: collapse; border: 1px solid #e5e7eb;">
         <thead>
           <tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
@@ -1129,51 +1130,52 @@ function generateWeeklyTab(params) {
         <tbody style="color: #374151;">
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 6px 8px;">New business</td>
-            <td style="padding: 6px 8px; text-align: right;">$25.6m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">59%</td>
-            <td style="padding: 6px 8px; text-align: right;">$3.5m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">40%</td>
-            <td style="padding: 6px 8px; text-align: center;">175</td>
+            <td style="padding: 6px 8px; text-align: right;">$5.1m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">37%</td>
+            <td style="padding: 6px 8px; text-align: right;">$1.2m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">30%</td>
+            <td style="padding: 6px 8px; text-align: center;">38</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 6px 8px;">Expansion / Upsell</td>
-            <td style="padding: 6px 8px; text-align: right;">$10.8m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">25%</td>
-            <td style="padding: 6px 8px; text-align: right;">$3.2m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">37%</td>
-            <td style="padding: 6px 8px; text-align: center;">57</td>
+            <td style="padding: 6px 8px; text-align: right;">$7.4m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">54%</td>
+            <td style="padding: 6px 8px; text-align: right;">$2.5m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">63%</td>
+            <td style="padding: 6px 8px; text-align: center;">34</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 6px 8px;">New business via LOI</td>
-            <td style="padding: 6px 8px; text-align: right;">$6.4m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">15%</td>
-            <td style="padding: 6px 8px; text-align: right;">$1.8m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">21%</td>
-            <td style="padding: 6px 8px; text-align: center;">20</td>
+            <td style="padding: 6px 8px; text-align: right;">$810k</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">6%</td>
+            <td style="padding: 6px 8px; text-align: right;">$159k</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">4%</td>
+            <td style="padding: 6px 8px; text-align: center;">6</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 6px 8px;">Renewal + Expansion</td>
             <td style="padding: 6px 8px; text-align: right;">$400k</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">1%</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">3%</td>
             <td style="padding: 6px 8px; text-align: right;">$100k</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">1%</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">3%</td>
             <td style="padding: 6px 8px; text-align: center;">2</td>
           </tr>
           <tr style="font-weight: 600; background: #e5e7eb;">
             <td style="padding: 6px 8px;">Total</td>
-            <td style="padding: 6px 8px; text-align: right;">$43.3m</td>
+            <td style="padding: 6px 8px; text-align: right;">$13.7m</td>
             <td style="padding: 6px 8px; text-align: center;">100%</td>
-            <td style="padding: 6px 8px; text-align: right;">$8.6m</td>
+            <td style="padding: 6px 8px; text-align: right;">$4.0m</td>
             <td style="padding: 6px 8px; text-align: center;">100%</td>
-            <td style="padding: 6px 8px; text-align: center;">254</td>
+            <td style="padding: 6px 8px; text-align: center;">80</td>
           </tr>
         </tbody>
       </table>
     </div>
     
-    <!-- Pipeline by Sales Type & Pod - Breakdown by Region -->
+    <!-- Total Pipeline by Pod - All Pipeline (no target sign filter) -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title" style="font-size: 0.7rem;">Pipeline by Pod</div>
+      <div class="weekly-subsection-title" style="font-size: 0.7rem;">Total Pipeline by Pod</div>
+      <div style="font-size: 0.65rem; color: #6b7280; margin-bottom: 8px;">All active pipeline (no target sign filter)</div>
       <table style="width: 100%; font-size: 0.7rem; margin-top: 8px; border-collapse: collapse; border: 1px solid #e5e7eb;">
         <thead>
           <tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
