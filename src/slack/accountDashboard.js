@@ -795,7 +795,7 @@ function generateWeeklyTab(params) {
       <div class="weekly-subsection-title">Opportunities with Q4 Target Sign Date</div>
       
       <!-- Q4 Stats Tiles - Live from Salesforce -->
-      ${(() => {
+          ${(() => {
         const totalQ4Count = q4Opps.length;
         const avgDealSize = totalQ4Count > 0 ? Math.round(q4TotalWeighted / totalQ4Count) : 0;
         
@@ -848,20 +848,20 @@ function generateWeeklyTab(params) {
         <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; border-left: 4px solid #6b7280;">
           <div style="font-weight: 600; color: #111827; margin-bottom: 4px; font-size: 0.75rem;">TOP Q4 OPPORTUNITIES (${q4Opps.length})</div>
           <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 8px;">All Q4 FY2025 (Nov 1 - Jan 31)</div>
-          ${(() => {
-            const allQ4Sorted = q4Opps.map(o => ({ 
+      ${(() => {
+        const allQ4Sorted = q4Opps.map(o => ({ 
               account: o.account,
-              acv: o.acv,
-              weighted: o.weighted,
+          acv: o.acv,
+          weighted: o.weighted,
               targetDate: o.targetDate,
-              isNov: o.month === 10,
-              isDec: o.month === 11,
-              isJan: o.month === 0
-            })).sort((a, b) => b.acv - a.acv);
+          isNov: o.month === 10,
+          isDec: o.month === 11,
+          isJan: o.month === 0
+        })).sort((a, b) => b.acv - a.acv);
             
-            const top10 = allQ4Sorted.slice(0, 10);
-            const remaining = allQ4Sorted.slice(10);
-            
+        const top10 = allQ4Sorted.slice(0, 10);
+        const remaining = allQ4Sorted.slice(10);
+        
             return (top10.length > 0 ? `
               <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5; color: #374151;">
                 ${top10.map(o => {
@@ -931,7 +931,7 @@ function generateWeeklyTab(params) {
           <div style="display: flex; justify-content: space-between; padding: 6px 8px; font-weight: 600; background: #e5e7eb; margin-top: 6px; border-radius: 3px; font-size: 0.7rem; color: #374151;">
             <span>Total Signed</span>
             <span>81</span>
-          </div>
+        </div>
         </div>
         <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Unique accounts by first Closed Won date • Click to expand<br>* Minor adjustments during migration</div>
       </div>
@@ -1058,7 +1058,7 @@ function generateWeeklyTab(params) {
             <div style="padding: 2px 0;">World Wide Technology</div>
           </div>
         </details>
-      </div>
+          </div>
     </div>
   </div>
 
@@ -2285,11 +2285,11 @@ async function generateAccountDashboard() {
                 processedNext.add(m.AccountId);
               }
             
-              if (m.Who?.Title) {
-                const title = m.Who.Title;
-                const isLegalTitle = /chief legal|general counsel|legal counsel|vp legal|legal director|associate general counsel|agc|clo|gc/i.test(title);
-                if (isLegalTitle) {
-                  accountData.contacts.add(m.Who.Name + ' (' + title + ')');
+            if (m.Who?.Title) {
+              const title = m.Who.Title;
+              const isLegalTitle = /chief legal|general counsel|legal counsel|vp legal|legal director|associate general counsel|agc|clo|gc/i.test(title);
+              if (isLegalTitle) {
+                accountData.contacts.add(m.Who.Name + ' (' + title + ')');
                 }
               }
             }
@@ -3628,8 +3628,8 @@ function copyWeeklyForEmail() {
         <tr>
           <td style="font-size: 15px; font-weight: 700; color: #111827; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
             1. Revenue Forecast Snapshot
-          </td>
-        </tr>
+                </td>
+              </tr>
       </table>
       
       <!-- Two-column: Targeting Dec + Q4 Opportunities -->
@@ -3697,20 +3697,20 @@ function copyWeeklyForEmail() {
         <tr><td style="font-size: 12px; font-weight: 600; color: #374151; padding-bottom: 6px;">Week-over-week Change by Stage</td></tr>
         <tr><td>
           <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border: 1px solid #e5e7eb; font-size: 11px;">
-            <tr style="background: #1f2937; color: white;">
+              <tr style="background: #1f2937; color: white;">
               <td style="padding: 6px 8px; font-weight: 600;">Stage</td>
               <td style="padding: 6px 8px; text-align: right; font-weight: 600;">ACV</td>
               <td style="padding: 6px 8px; text-align: center; font-weight: 600;">% WoW</td>
               <td style="padding: 6px 8px; text-align: right; font-weight: 600;">Opps</td>
               <td style="padding: 6px 8px; text-align: center; font-weight: 600;">% WoW</td>
-            </tr>
+              </tr>
             \${wowRows.map(r => {
               const isTotal = r.stage.includes('Total');
               const isLate = r.stage.includes('S4');
               const bg = isTotal ? 'background: #e5e7eb; font-weight: 600;' : (isLate ? 'background: #dbeafe;' : '');
               return \`<tr style="border-bottom: 1px solid #e5e7eb; \${bg}"><td style="padding: 5px 8px; color: #374151;">\${r.stage}</td><td style="padding: 5px 8px; text-align: right; color: #374151;">\${r.acv}</td><td style="padding: 5px 8px; text-align: center; color: \${r.acvWow.includes('+') ? '#059669' : r.acvWow.includes('-') ? '#dc2626' : '#6b7280'};">\${r.acvWow}</td><td style="padding: 5px 8px; text-align: right; color: #374151;">\${r.opps}</td><td style="padding: 5px 8px; text-align: center; color: \${r.oppsWow.includes('+') ? '#059669' : r.oppsWow.includes('-') ? '#dc2626' : '#6b7280'};">\${r.oppsWow}</td></tr>\`;
-            }).join('')}
-          </table>
+              }).join('')}
+            </table>
         </td></tr>
       </table>\` : ''}
       
@@ -3727,13 +3727,13 @@ function copyWeeklyForEmail() {
               <td style="padding: 6px 8px; text-align: right; font-weight: 600;">Weighted</td>
               <td style="padding: 6px 8px; text-align: center; font-weight: 600;">% Wtd</td>
               <td style="padding: 6px 8px; text-align: center; font-weight: 600;">Count</td>
-            </tr>
+        </tr>
             \${salesTypeRows.map(r => {
               const isTotal = r.type.includes('Total');
               const bg = isTotal ? 'background: #e5e7eb; font-weight: 600;' : '';
               return \`<tr style="border-bottom: 1px solid #e5e7eb; \${bg}"><td style="padding: 5px 8px; color: #374151;">\${r.type}</td><td style="padding: 5px 8px; text-align: right; color: #374151;">\${r.acv}</td><td style="padding: 5px 8px; text-align: center; color: #6b7280;">\${r.pctAcv}</td><td style="padding: 5px 8px; text-align: right; color: #374151;">\${r.weighted}</td><td style="padding: 5px 8px; text-align: center; color: #6b7280;">\${r.pctWtd}</td><td style="padding: 5px 8px; text-align: center; color: #374151;">\${r.count}</td></tr>\`;
             }).join('')}
-          </table>
+      </table>
         </td></tr>
       </table>\` : ''}
       
@@ -3842,8 +3842,7 @@ function downloadWeeklyHTML() {
   if (!weeklyTab) return;
   
   const timestamp = new Date().toISOString().split('T')[0];
-  const dashboardUrl = window.location.href.split('?')[0];
-  const formattedDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const formattedDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   
   // Helper to extract text
   const getText = (selector) => weeklyTab.querySelector(selector)?.textContent?.trim() || '';
@@ -3982,13 +3981,13 @@ function downloadWeeklyHTML() {
         <!-- Header -->
         <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 24px;">
           <tr>
-            <td style="font-size: 20px; font-weight: 700; color: #111827; padding-bottom: 4px;">
-              RevOps \${timestamp} Weekly Update Preview
+            <td style="font-size: 20px; font-weight: 700; color: #111827;">
+              RevOps Weekly Summary
             </td>
           </tr>
           <tr>
-            <td style="font-size: 13px; color: #6b7280;">
-              \${formattedDate} • <a href="\${dashboardUrl}" style="color: #2563eb; text-decoration: none;">View live dashboard →</a>
+            <td style="font-size: 13px; color: #6b7280; padding-top: 4px;">
+              \${formattedDate}
             </td>
           </tr>
         </table>
@@ -3996,7 +3995,7 @@ function downloadWeeklyHTML() {
         <!-- Section 1: Revenue Forecast -->
         <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 28px;">
           <tr>
-            <td style="font-size: 16px; font-weight: 700; color: #111827; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
+            <td style="font-size: 14px; font-weight: 700; color: #111827; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
               1. Revenue Forecast Snapshot
             </td>
           </tr>
@@ -4096,7 +4095,7 @@ function downloadWeeklyHTML() {
         <!-- Section 2: Gross Pipeline Breakdown -->
         <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 20px;">
           <tr>
-            <td style="font-size: 16px; font-weight: 700; color: #111827; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
+            <td style="font-size: 14px; font-weight: 700; color: #111827; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
               2. Gross Pipeline Breakdown
             </td>
           </tr>
@@ -4175,7 +4174,7 @@ function downloadWeeklyHTML() {
         \${topDeals.length > 0 ? \`
         <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 20px;">
           <tr>
-            <td style="font-size: 16px; font-weight: 700; color: #111827; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
+            <td style="font-size: 14px; font-weight: 700; color: #111827; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
               3. Top Deals Impacting the Forecast
             </td>
           </tr>
@@ -4193,7 +4192,7 @@ function downloadWeeklyHTML() {
         \${Object.keys(longestDeals).length > 0 ? \`
         <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 20px;">
           <tr>
-            <td style="font-size: 16px; font-weight: 700; color: #111827; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
+            <td style="font-size: 14px; font-weight: 700; color: #111827; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
               4. Longest Deals by Stage (T10)
             </td>
           </tr>
@@ -4204,21 +4203,15 @@ function downloadWeeklyHTML() {
           </tr>
           \${Object.entries(longestDeals).map(([stage, deals]) => \`
           <tr>
-            <td style="padding-top: 12px;">
-              <div style="font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px;">\${stage}</div>
-              <div style="font-size: 11px; color: #6b7280; line-height: 1.5;">\${deals.join(', ')}</div>
+            <td style="padding-top: 16px;">
+              <div style="font-size: 13px; font-weight: 600; color: #111827; margin-bottom: 8px;">\${stage}</div>
+              <ul style="margin: 0; padding-left: 24px; font-size: 12px; color: #6b7280; line-height: 1.7;">
+                \${deals.slice(0, 10).map(d => \`<li>\${d}</li>\`).join('')}
+              </ul>
             </td>
           </tr>\`).join('')}
         </table>\` : ''}
         
-        <!-- Footer -->
-        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top: 24px; border-top: 1px solid #e5e7eb;">
-          <tr>
-            <td style="padding-top: 16px; font-size: 11px; color: #9ca3af;">
-              Data pulled live from Salesforce • <a href="\${dashboardUrl}" style="color: #2563eb; text-decoration: none;">View full dashboard</a>
-            </td>
-          </tr>
-        </table>
         
       </td>
     </tr>
