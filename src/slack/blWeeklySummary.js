@@ -560,8 +560,8 @@ const LIGHT_BORDER = '#f3f4f6';   // Table row borders
 const GREEN_BG = '#f0fdf4';       // Targeting box background
 
 /**
- * Generate professional PDF snapshot - matches gtm-snapshot-fixed.html exactly
- * Uses green accent (#10b981) with gradient divider, proper typography and spacing
+ * Generate professional PDF snapshot - COMPACT ONE-PAGE VERSION
+ * All typography and spacing optimized to fit on single Letter page
  */
 function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType = {}) {
   return new Promise((resolve, reject) => {
@@ -569,11 +569,11 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       const { blMetrics, stageBreakdown, totals, fiscalQuarterLabel, proposalThisMonth, allDeals } = pipelineData;
       
       // ═══════════════════════════════════════════════════════════════════════
-      // PAGE SETUP - Letter size with proper margins (matches HTML padding: 40px 50px)
+      // PAGE SETUP - Letter size, tight margins for maximum content
       // ═══════════════════════════════════════════════════════════════════════
       const doc = new PDFDocument({ 
         size: 'LETTER',  // 612 x 792 points
-        margins: { top: 40, bottom: 40, left: 50, right: 50 }
+        margins: { top: 30, bottom: 25, left: 40, right: 40 }
       });
       
       const chunks = [];
@@ -581,43 +581,43 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
       
-      // Page dimensions
-      const LEFT = 50;
-      const PAGE_WIDTH = 512;  // 612 - 50 - 50
+      // Page dimensions - COMPACT
+      const LEFT = 40;
+      const PAGE_WIDTH = 532;  // 612 - 40 - 40
       const MID = LEFT + PAGE_WIDTH / 2;
-      const halfWidth = PAGE_WIDTH / 2 - 15;
-      const RIGHT_COL = MID + 15;
-      const SECTION_GAP = 30;  // Gap between major sections
+      const halfWidth = PAGE_WIDTH / 2 - 10;
+      const RIGHT_COL = MID + 10;
+      const SECTION_GAP = 10;  // Reduced from 30 to 10
       
       // Fonts
       const fontRegular = 'Helvetica';
       const fontBold = 'Helvetica-Bold';
       
-      let y = 40;  // Start position
+      let y = 30;  // Start position
       
       // ═══════════════════════════════════════════════════════════════════════
-      // HEADER - Centered title + date + gradient line
+      // HEADER - Compact centered title + date + gradient line
       // ═══════════════════════════════════════════════════════════════════════
-      doc.font(fontBold).fontSize(28).fillColor(DARK_TEXT);
+      doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);
       doc.text('Eudia GTM Weekly Snapshot', LEFT, y, { width: PAGE_WIDTH, align: 'center' });
-      y += 32;
+      y += 20;
       
-      doc.font(fontRegular).fontSize(14).fillColor(MEDIUM_TEXT);
+      doc.font(fontRegular).fontSize(10).fillColor(MEDIUM_TEXT);
       doc.text(dateStr, LEFT, y, { width: PAGE_WIDTH, align: 'center' });
-      y += 24;
+      y += 14;
       
-      // Gradient line (green to blue) - draw as two overlapping lines since PDFKit doesn't support gradients easily
+      // Gradient line (green to blue)
       const gradientY = y;
       const grad = doc.linearGradient(LEFT, gradientY, LEFT + PAGE_WIDTH, gradientY);
       grad.stop(0, GREEN_ACCENT).stop(1, BLUE_ACCENT);
-      doc.rect(LEFT, gradientY, PAGE_WIDTH, 3).fill(grad);
-      y += 3 + SECTION_GAP;
+      doc.rect(LEFT, gradientY, PAGE_WIDTH, 2).fill(grad);
+      y += 2 + SECTION_GAP;
       
       // ═══════════════════════════════════════════════════════════════════════
-      // TOP METRICS - 5 columns matching HTML exactly
+      // TOP METRICS - 5 columns, COMPACT typography
       // ═══════════════════════════════════════════════════════════════════════
       const metricsY = y;
-      const colWidth = PAGE_WIDTH / 5;  // 102.4px each
+      const colWidth = PAGE_WIDTH / 5;
       
       // Calculate logos
       const revenueLogos = (logosByType.revenue || []).length;
@@ -626,53 +626,64 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       const loiNoLogos = (logosByType.loiNoDollar || []).length;
       const totalLogos = revenueLogos + pilotLogos + loiWithLogos + loiNoLogos;
       
+      // Calculate revenue type from deals if not in totals
+      let recurringACV = totals.recurringACV || 0;
+      let projectACV = totals.projectACV || 0;
+      if (recurringACV === 0 && projectACV === 0 && allDeals) {
+        allDeals.forEach(deal => {
+          if (deal.revenueType === 'Recurring' || deal.revenueType === 'ARR') {
+            recurringACV += deal.acv || 0;
+          } else {
+            projectACV += deal.acv || 0;
+          }
+        });
+      }
+      
       // Column 1: Pipeline Overview - Total Gross ACV
       let colX = LEFT;
-      doc.font(fontBold).fontSize(11).fillColor(MEDIUM_TEXT);
+      doc.font(fontBold).fontSize(8).fillColor(MEDIUM_TEXT);
       doc.text('PIPELINE OVERVIEW', colX, metricsY);
-      doc.font(fontRegular).fontSize(10).fillColor(MEDIUM_TEXT);
-      doc.text('Total Gross ACV', colX, metricsY + 14);
-      doc.font(fontBold).fontSize(32).fillColor(DARK_TEXT);
-      doc.text(formatCurrency(totals.grossACV), colX, metricsY + 26);
-      doc.font(fontRegular).fontSize(11).fillColor(MEDIUM_TEXT);
-      doc.text(`${totals.totalOpportunities} opps • ${totals.totalAccounts} accts`, colX, metricsY + 62);
+      doc.font(fontRegular).fontSize(7).fillColor(MEDIUM_TEXT);
+      doc.text('Total Gross ACV', colX, metricsY + 10);
+      doc.font(fontBold).fontSize(16).fillColor(DARK_TEXT);
+      doc.text(formatCurrency(totals.grossACV), colX, metricsY + 18);
+      doc.font(fontRegular).fontSize(7).fillColor(MEDIUM_TEXT);
+      doc.text(`${totals.totalOpportunities} opps • ${totals.totalAccounts} accts`, colX, metricsY + 36);
       
       // Column 2: Weighted Pipeline
       colX = LEFT + colWidth;
-      doc.font(fontRegular).fontSize(10).fillColor(MEDIUM_TEXT);
-      doc.text('Weighted Pipeline', colX, metricsY + 14);
-      doc.font(fontBold).fontSize(32).fillColor(DARK_TEXT);
-      doc.text(formatCurrency(totals.weightedThisQuarter), colX, metricsY + 26);
-      doc.font(fontRegular).fontSize(11).fillColor(MEDIUM_TEXT);
-      doc.text(fiscalQuarterLabel, colX, metricsY + 62);
+      doc.font(fontRegular).fontSize(7).fillColor(MEDIUM_TEXT);
+      doc.text('Weighted Pipeline', colX, metricsY + 10);
+      doc.font(fontBold).fontSize(16).fillColor(DARK_TEXT);
+      doc.text(formatCurrency(totals.weightedThisQuarter), colX, metricsY + 18);
+      doc.font(fontRegular).fontSize(7).fillColor(MEDIUM_TEXT);
+      doc.text(fiscalQuarterLabel, colX, metricsY + 36);
       
       // Column 3: Avg Deal Size
       colX = LEFT + colWidth * 2;
-      doc.font(fontRegular).fontSize(10).fillColor(MEDIUM_TEXT);
-      doc.text('Avg Deal Size', colX, metricsY + 14);
-      doc.font(fontBold).fontSize(32).fillColor(DARK_TEXT);
-      doc.text(formatCurrency(totals.avgDealSize), colX, metricsY + 26);
+      doc.font(fontRegular).fontSize(7).fillColor(MEDIUM_TEXT);
+      doc.text('Avg Deal Size', colX, metricsY + 10);
+      doc.font(fontBold).fontSize(16).fillColor(DARK_TEXT);
+      doc.text(formatCurrency(totals.avgDealSize), colX, metricsY + 18);
       
       // Column 4: Current Logos
       colX = LEFT + colWidth * 3;
-      doc.font(fontBold).fontSize(11).fillColor(MEDIUM_TEXT);
+      doc.font(fontBold).fontSize(8).fillColor(MEDIUM_TEXT);
       doc.text('CURRENT LOGOS', colX, metricsY);
-      doc.font(fontBold).fontSize(48).fillColor(DARK_TEXT);
-      doc.text(totalLogos.toString(), colX, metricsY + 14);
-      doc.font(fontRegular).fontSize(11).fillColor(MEDIUM_TEXT);
-      doc.text(`Revenue: ${revenueLogos} • Pilot: ${pilotLogos} • LOI$: ${loiWithLogos} • LOI: ${loiNoLogos}`, colX, metricsY + 62, { width: colWidth + 50 });
+      doc.font(fontBold).fontSize(28).fillColor(DARK_TEXT);
+      doc.text(totalLogos.toString(), colX, metricsY + 10);
+      doc.font(fontRegular).fontSize(6).fillColor(MEDIUM_TEXT);
+      doc.text(`Rev: ${revenueLogos} • Pilot: ${pilotLogos} • LOI$: ${loiWithLogos} • LOI: ${loiNoLogos}`, colX, metricsY + 36, { width: colWidth + 30 });
       
       // Column 5: By Revenue Type
       colX = LEFT + colWidth * 4;
-      doc.font(fontBold).fontSize(11).fillColor(MEDIUM_TEXT);
+      doc.font(fontBold).fontSize(8).fillColor(MEDIUM_TEXT);
       doc.text('BY REVENUE TYPE', colX, metricsY);
-      const recurringACV = totals.recurringACV || 0;
-      const projectACV = totals.projectACV || 0;
-      doc.font(fontRegular).fontSize(11).fillColor(MEDIUM_TEXT);
-      doc.text(`Recurring: ${formatCurrency(recurringACV)}`, colX, metricsY + 18);
-      doc.text(`Project: ${formatCurrency(projectACV)}`, colX, metricsY + 32);
+      doc.font(fontRegular).fontSize(8).fillColor(MEDIUM_TEXT);
+      doc.text(`Recurring: ${formatCurrency(recurringACV)}`, colX, metricsY + 12);
+      doc.text(`Project: ${formatCurrency(projectACV)}`, colX, metricsY + 22);
       
-      y = metricsY + 80 + SECTION_GAP;
+      y = metricsY + 48 + SECTION_GAP;
       
       // ═══════════════════════════════════════════════════════════════════════
       // TWO COLUMN SECTION: Stage Distribution (left) + Proposal Stage (right)
@@ -680,120 +691,117 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       const twoColY = y;
       
       // LEFT: Stage Distribution
-      doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
+      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('STAGE DISTRIBUTION', LEFT, twoColY);
       
       // Table header
-      let tableY = twoColY + 14;
-      doc.font(fontBold).fontSize(10).fillColor(MEDIUM_TEXT);
+      let tableY = twoColY + 10;
+      doc.font(fontBold).fontSize(7).fillColor(MEDIUM_TEXT);
       doc.text('Stage', LEFT, tableY);
-      doc.text('Deals', LEFT + 110, tableY, { width: 40, align: 'right' });
-      doc.text('Gross ACV', LEFT + 155, tableY, { width: 55, align: 'right' });
-      doc.text('Weighted', LEFT + 210, tableY, { width: 50, align: 'right' });
+      doc.text('Deals', LEFT + 100, tableY, { width: 30, align: 'right' });
+      doc.text('Gross ACV', LEFT + 135, tableY, { width: 50, align: 'right' });
+      doc.text('Weighted', LEFT + 190, tableY, { width: 45, align: 'right' });
       
-      tableY += 12;
-      doc.strokeColor(BORDER_GRAY).lineWidth(1).moveTo(LEFT, tableY).lineTo(LEFT + halfWidth, tableY).stroke();
-      tableY += 8;
+      tableY += 9;
+      doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, tableY).lineTo(LEFT + halfWidth, tableY).stroke();
+      tableY += 5;
       
-      // Table rows
+      // Table rows - COMPACT
       const stageOrder = [...ACTIVE_STAGES].reverse();
-      doc.font(fontRegular).fontSize(12).fillColor(BODY_TEXT);
+      doc.font(fontRegular).fontSize(8).fillColor(BODY_TEXT);
       stageOrder.forEach(stage => {
         const data = stageBreakdown[stage] || { count: 0, grossACV: 0, weightedACV: 0 };
         const stageLabel = stage.replace('Stage ', 'S').replace(' - ', ' ');
         doc.text(stageLabel, LEFT, tableY);
-        doc.text(data.count.toString(), LEFT + 110, tableY, { width: 40, align: 'right' });
-        doc.text(formatCurrency(data.grossACV), LEFT + 155, tableY, { width: 55, align: 'right' });
-        doc.text(formatCurrency(data.weightedACV), LEFT + 210, tableY, { width: 50, align: 'right' });
-        tableY += 18;
-        doc.strokeColor(LIGHT_BORDER).lineWidth(0.5).moveTo(LEFT, tableY - 4).lineTo(LEFT + halfWidth, tableY - 4).stroke();
+        doc.text(data.count.toString(), LEFT + 100, tableY, { width: 30, align: 'right' });
+        doc.text(formatCurrency(data.grossACV), LEFT + 135, tableY, { width: 50, align: 'right' });
+        doc.text(formatCurrency(data.weightedACV), LEFT + 190, tableY, { width: 45, align: 'right' });
+        tableY += 11;
       });
       
       // RIGHT: Proposal Stage (S4)
-      doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
+      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('PROPOSAL STAGE (S4)', RIGHT_COL, twoColY);
       
       // Proposal table header
-      let propTableY = twoColY + 14;
-      doc.font(fontBold).fontSize(10).fillColor(MEDIUM_TEXT);
+      let propTableY = twoColY + 10;
+      doc.font(fontBold).fontSize(7).fillColor(MEDIUM_TEXT);
       doc.text('Metric', RIGHT_COL, propTableY);
-      doc.text('Deals', RIGHT_COL + 90, propTableY, { width: 40, align: 'right' });
-      doc.text('Gross ACV', RIGHT_COL + 135, propTableY, { width: 55, align: 'right' });
-      doc.text('Wtd ACV', RIGHT_COL + 195, propTableY, { width: 50, align: 'right' });
+      doc.text('Deals', RIGHT_COL + 80, propTableY, { width: 30, align: 'right' });
+      doc.text('Gross ACV', RIGHT_COL + 115, propTableY, { width: 50, align: 'right' });
+      doc.text('Wtd ACV', RIGHT_COL + 170, propTableY, { width: 45, align: 'right' });
       
-      propTableY += 12;
-      doc.strokeColor(BORDER_GRAY).lineWidth(1).moveTo(RIGHT_COL, propTableY).lineTo(LEFT + PAGE_WIDTH, propTableY).stroke();
-      propTableY += 8;
+      propTableY += 9;
+      doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(RIGHT_COL, propTableY).lineTo(LEFT + PAGE_WIDTH, propTableY).stroke();
+      propTableY += 5;
       
-      // Proposal rows
-      doc.font(fontRegular).fontSize(12).fillColor(BODY_TEXT);
+      // Proposal rows - COMPACT
+      doc.font(fontRegular).fontSize(8).fillColor(BODY_TEXT);
       const s4Data = stageBreakdown['Stage 4 - Proposal'] || { weightedACV: 0 };
       
       // Total
       doc.text('Total', RIGHT_COL, propTableY);
-      doc.text(totals.proposalCount.toString(), RIGHT_COL + 90, propTableY, { width: 40, align: 'right' });
-      doc.text(formatCurrency(totals.proposalGrossACV), RIGHT_COL + 135, propTableY, { width: 55, align: 'right' });
-      doc.text(formatCurrency(s4Data.weightedACV), RIGHT_COL + 195, propTableY, { width: 50, align: 'right' });
-      propTableY += 18;
-      doc.strokeColor(LIGHT_BORDER).lineWidth(0.5).moveTo(RIGHT_COL, propTableY - 4).lineTo(LEFT + PAGE_WIDTH, propTableY - 4).stroke();
+      doc.text(totals.proposalCount.toString(), RIGHT_COL + 80, propTableY, { width: 30, align: 'right' });
+      doc.text(formatCurrency(totals.proposalGrossACV), RIGHT_COL + 115, propTableY, { width: 50, align: 'right' });
+      doc.text(formatCurrency(s4Data.weightedACV), RIGHT_COL + 170, propTableY, { width: 45, align: 'right' });
+      propTableY += 11;
       
       // This Month
       doc.text('This Month', RIGHT_COL, propTableY);
-      doc.text(totals.proposalThisMonthCount.toString(), RIGHT_COL + 90, propTableY, { width: 40, align: 'right' });
-      doc.text(formatCurrency(totals.proposalThisMonthACV), RIGHT_COL + 135, propTableY, { width: 55, align: 'right' });
-      doc.text('—', RIGHT_COL + 195, propTableY, { width: 50, align: 'right' });
-      propTableY += 18;
-      doc.strokeColor(LIGHT_BORDER).lineWidth(0.5).moveTo(RIGHT_COL, propTableY - 4).lineTo(LEFT + PAGE_WIDTH, propTableY - 4).stroke();
+      doc.text(totals.proposalThisMonthCount.toString(), RIGHT_COL + 80, propTableY, { width: 30, align: 'right' });
+      doc.text(formatCurrency(totals.proposalThisMonthACV), RIGHT_COL + 115, propTableY, { width: 50, align: 'right' });
+      doc.text('—', RIGHT_COL + 170, propTableY, { width: 45, align: 'right' });
+      propTableY += 11;
       
       // This Quarter
       doc.text('This Quarter', RIGHT_COL, propTableY);
-      doc.text(totals.proposalThisQuarterCount.toString(), RIGHT_COL + 90, propTableY, { width: 40, align: 'right' });
-      doc.text(formatCurrency(totals.proposalThisQuarterGrossACV), RIGHT_COL + 135, propTableY, { width: 55, align: 'right' });
-      doc.text(formatCurrency(totals.proposalThisQuarterWeightedACV || 0), RIGHT_COL + 195, propTableY, { width: 50, align: 'right' });
-      propTableY += 22;
+      doc.text(totals.proposalThisQuarterCount.toString(), RIGHT_COL + 80, propTableY, { width: 30, align: 'right' });
+      doc.text(formatCurrency(totals.proposalThisQuarterGrossACV), RIGHT_COL + 115, propTableY, { width: 50, align: 'right' });
+      doc.text(formatCurrency(totals.proposalThisQuarterWeightedACV || 0), RIGHT_COL + 170, propTableY, { width: 45, align: 'right' });
+      propTableY += 12;
       
-      // Targeting This Month box (green background with green left border)
+      // Targeting This Month box - COMPACT
       if (proposalThisMonth && proposalThisMonth.length > 0) {
         const boxX = RIGHT_COL;
         const boxY = propTableY;
-        const boxWidth = PAGE_WIDTH / 2 - 10;
-        const boxHeight = Math.min(proposalThisMonth.length, 6) * 14 + 30;
+        const boxWidth = PAGE_WIDTH / 2 - 5;
+        const dealsToShow = proposalThisMonth.slice(0, 5);
+        const boxHeight = dealsToShow.length * 9 + 18;
         
         // Green background
         doc.rect(boxX, boxY, boxWidth, boxHeight).fill(GREEN_BG);
         // Green left border
-        doc.rect(boxX, boxY, 3, boxHeight).fill(GREEN_ACCENT);
+        doc.rect(boxX, boxY, 2, boxHeight).fill(GREEN_ACCENT);
         
         // Title
-        doc.font(fontBold).fontSize(11).fillColor(GREEN_ACCENT);
-        doc.text('TARGETING THIS MONTH', boxX + 12, boxY + 10);
+        doc.font(fontBold).fontSize(7).fillColor(GREEN_ACCENT);
+        doc.text('TARGETING THIS MONTH', boxX + 8, boxY + 4);
         
-        // Deal list
-        doc.font(fontRegular).fontSize(11).fillColor(BODY_TEXT);
-        let dealY = boxY + 26;
-        const dealsToShow = proposalThisMonth.slice(0, 5);
+        // Deal list - COMPACT
+        doc.font(fontRegular).fontSize(7).fillColor(BODY_TEXT);
+        let dealY = boxY + 14;
         dealsToShow.forEach(d => {
-          const name = d.accountName.length > 18 ? d.accountName.substring(0, 18) + '...' : d.accountName;
-          doc.text(`${name} • ${formatCurrency(d.acv)} • ${formatDate(d.targetDate)}`, boxX + 12, dealY);
-          dealY += 14;
+          const name = d.accountName.length > 20 ? d.accountName.substring(0, 20) + '...' : d.accountName;
+          doc.text(`${name} • ${formatCurrency(d.acv)} • ${formatDate(d.targetDate)}`, boxX + 8, dealY);
+          dealY += 9;
         });
         if (proposalThisMonth.length > 5) {
           doc.fillColor(MEDIUM_TEXT);
-          doc.text(`+${proposalThisMonth.length - 5} more deals`, boxX + 12, dealY);
+          doc.text(`+${proposalThisMonth.length - 5} more deals`, boxX + 8, dealY);
         }
-        propTableY += boxHeight + 10;
+        propTableY += boxHeight + 4;
       }
       
       y = Math.max(tableY, propTableY) + SECTION_GAP;
       
       // ═══════════════════════════════════════════════════════════════════════
-      // BUSINESS LEAD SUMMARY
+      // BUSINESS LEAD SUMMARY - COMPACT
       // ═══════════════════════════════════════════════════════════════════════
-      doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
+      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('BUSINESS LEAD SUMMARY', LEFT, y);
-      y += 16;
+      y += 10;
       
-      // Helper function to draw BL table with right-aligned numbers
+      // Helper function to draw BL table - COMPACT
       const drawBLTable = (title, blList, startX, startY, colWidth) => {
         const activeBLs = blList
           .filter(bl => blMetrics[bl] && (blMetrics[bl].accounts > 0 || blMetrics[bl].opportunities > 0))
@@ -802,50 +810,50 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
         if (activeBLs.length === 0) return startY;
         
         // Pod title (green)
-        doc.font(fontBold).fontSize(11).fillColor(GREEN_ACCENT);
+        doc.font(fontBold).fontSize(8).fillColor(GREEN_ACCENT);
         doc.text(title, startX, startY);
         
         // Table header
-        let headerY = startY + 14;
-        doc.font(fontBold).fontSize(10).fillColor(MEDIUM_TEXT);
+        let headerY = startY + 9;
+        doc.font(fontBold).fontSize(6).fillColor(MEDIUM_TEXT);
         doc.text('Name', startX, headerY);
-        doc.text('Accts', startX + 60, headerY, { width: 35, align: 'right' });
-        doc.text('Opps', startX + 100, headerY, { width: 35, align: 'right' });
-        doc.text('Gross', startX + 140, headerY, { width: 50, align: 'right' });
-        doc.text('Wtd', startX + 195, headerY, { width: 45, align: 'right' });
+        doc.text('Accts', startX + 50, headerY, { width: 25, align: 'right' });
+        doc.text('Opps', startX + 80, headerY, { width: 25, align: 'right' });
+        doc.text('Gross', startX + 110, headerY, { width: 45, align: 'right' });
+        doc.text('Wtd', startX + 160, headerY, { width: 40, align: 'right' });
         
-        headerY += 12;
-        doc.strokeColor(BORDER_GRAY).lineWidth(1).moveTo(startX, headerY).lineTo(startX + colWidth - 10, headerY).stroke();
+        headerY += 8;
+        doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(startX, headerY).lineTo(startX + colWidth - 10, headerY).stroke();
         
-        let rowY = headerY + 6;
-        doc.font(fontRegular).fontSize(11).fillColor(BODY_TEXT);
+        let rowY = headerY + 4;
+        doc.font(fontRegular).fontSize(7).fillColor(BODY_TEXT);
         activeBLs.forEach(bl => {
           const m = blMetrics[bl];
           const displayName = bl.split(' ')[0];
           doc.text(displayName, startX, rowY);
-          doc.text(m.accounts.toString(), startX + 60, rowY, { width: 35, align: 'right' });
-          doc.text(m.opportunities.toString(), startX + 100, rowY, { width: 35, align: 'right' });
-          doc.text(formatCurrency(m.grossACV), startX + 140, rowY, { width: 50, align: 'right' });
-          doc.text(formatCurrency(m.weightedACV), startX + 195, rowY, { width: 45, align: 'right' });
-          rowY += 14;
+          doc.text(m.accounts.toString(), startX + 50, rowY, { width: 25, align: 'right' });
+          doc.text(m.opportunities.toString(), startX + 80, rowY, { width: 25, align: 'right' });
+          doc.text(formatCurrency(m.grossACV), startX + 110, rowY, { width: 45, align: 'right' });
+          doc.text(formatCurrency(m.weightedACV), startX + 160, rowY, { width: 40, align: 'right' });
+          rowY += 9;
         });
         
         return rowY;
       };
       
-      const usEndY = drawBLTable('US Pod', US_POD, LEFT, y, halfWidth + 20);
-      const euEndY = drawBLTable('EU Pod', EU_POD, RIGHT_COL, y, halfWidth + 20);
+      const usEndY = drawBLTable('US Pod', US_POD, LEFT, y, halfWidth + 15);
+      const euEndY = drawBLTable('EU Pod', EU_POD, RIGHT_COL, y, halfWidth + 15);
       
       y = Math.max(usEndY, euEndY) + SECTION_GAP;
       
       // ═══════════════════════════════════════════════════════════════════════
-      // TOP DEALS BY BUSINESS LEAD (single section, sorted by target date)
+      // TOP DEALS BY BUSINESS LEAD - COMPACT (4 BLs x 4 deals per column)
       // ═══════════════════════════════════════════════════════════════════════
-      doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
+      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('TOP DEALS BY BUSINESS LEAD', LEFT, y);
-      doc.font(fontRegular).fontSize(10).fillColor(LIGHT_TEXT);
-      doc.text('Sorted by Target Sign Date', LEFT + 175, y + 1);
-      y += 18;
+      doc.font(fontRegular).fontSize(7).fillColor(LIGHT_TEXT);
+      doc.text('Sorted by Target Sign Date', LEFT + 145, y + 1);
+      y += 12;
       
       // Get deals sorted by target date per BL
       const dealsForTop5 = allDeals || [];
@@ -856,7 +864,7 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
         dealsByBL[blName].push(deal);
       });
       
-      // Sort by target date and limit to 5
+      // Sort by target date and limit to 4 deals per BL
       Object.keys(dealsByBL).forEach(bl => {
         dealsByBL[bl].sort((a, b) => {
           if (!a.targetDate && !b.targetDate) return 0;
@@ -864,7 +872,7 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
           if (!b.targetDate) return -1;
           return new Date(a.targetDate) - new Date(b.targetDate);
         });
-        dealsByBL[bl] = dealsByBL[bl].slice(0, 5);
+        dealsByBL[bl] = dealsByBL[bl].slice(0, 4);  // Limit to 4 deals
       });
       
       // Sort BLs by total ACV
@@ -872,11 +880,11 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
         .map(bl => ({ name: bl, deals: dealsByBL[bl], totalACV: dealsByBL[bl].reduce((sum, d) => sum + (d.acv || 0), 0) }))
         .sort((a, b) => b.totalACV - a.totalACV);
       
-      // Split into 2 columns (4 BLs each)
+      // Split into 2 columns (4 BLs each) - LIMIT TO 4 PER COLUMN
       const leftBLs = sortedBLs.filter((_, i) => i % 2 === 0).slice(0, 4);
       const rightBLs = sortedBLs.filter((_, i) => i % 2 === 1).slice(0, 4);
       
-      // Draw BL deals
+      // Draw BL deals - COMPACT
       const drawDealsColumn = (bls, startX, startY, maxWidth) => {
         let dealY = startY;
         
@@ -884,19 +892,19 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
           if (bl.deals.length === 0) return;
           
           // BL Name (green)
-          doc.font(fontBold).fontSize(12).fillColor(GREEN_ACCENT);
+          doc.font(fontBold).fontSize(8).fillColor(GREEN_ACCENT);
           doc.text(bl.name, startX, dealY);
-          dealY += 14;
+          dealY += 10;
           
-          // Deals
-          doc.font(fontRegular).fontSize(11).fillColor(BODY_TEXT);
+          // Deals - COMPACT
+          doc.font(fontRegular).fontSize(7).fillColor(BODY_TEXT);
           bl.deals.forEach(deal => {
-            const name = deal.accountName.length > 20 ? deal.accountName.substring(0, 20) + '...' : deal.accountName;
+            const name = deal.accountName.length > 22 ? deal.accountName.substring(0, 22) + '...' : deal.accountName;
             doc.text(`${name} • ${formatCurrency(deal.acv)} • ${formatDate(deal.targetDate)}`, startX, dealY);
-            dealY += 13;
+            dealY += 9;
           });
           
-          dealY += 16;  // Gap between BLs
+          dealY += 8;  // Reduced gap between BLs
         });
         
         return dealY;
@@ -909,13 +917,13 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       y = Math.max(leftEndY, rightEndY);
       
       // ═══════════════════════════════════════════════════════════════════════
-      // FOOTER - Simple gray border-top with centered text
+      // FOOTER - Compact, simple gray border-top with centered text
       // ═══════════════════════════════════════════════════════════════════════
-      const footerY = y + 10;
-      doc.strokeColor(BORDER_GRAY).lineWidth(1).moveTo(LEFT, footerY).lineTo(LEFT + PAGE_WIDTH, footerY).stroke();
+      const footerY = y + 6;
+      doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, footerY).lineTo(LEFT + PAGE_WIDTH, footerY).stroke();
       
-      doc.font(fontRegular).fontSize(10).fillColor(LIGHT_TEXT);
-      doc.text('Generated by Eudia GTM Brain • www.eudia.com • Internal use only', LEFT, footerY + 8, { width: PAGE_WIDTH, align: 'center' });
+      doc.font(fontRegular).fontSize(7).fillColor(LIGHT_TEXT);
+      doc.text('Generated by Eudia GTM Brain • www.eudia.com • Internal use only', LEFT, footerY + 4, { width: PAGE_WIDTH, align: 'center' });
       
       doc.end();
       
