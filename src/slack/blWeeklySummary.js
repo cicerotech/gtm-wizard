@@ -12,7 +12,7 @@ const { ALL_BUSINESS_LEADS, BL_ASSIGNMENTS } = require('../services/accountAssig
 const SNAPSHOT_FILE = path.join(__dirname, '../../data/bl-snapshots.json');
 const GTM_CHANNEL = process.env.GTM_ACCOUNT_PLANNING_CHANNEL || '#gtm-account-planning';
 const CAPACITY_ALERT_THRESHOLD = parseInt(process.env.BL_CAPACITY_ALERT_THRESHOLD) || 10;
-const MAX_LATE_STAGE_DEALS = 15; // Cap to avoid message length issues
+const MAX_DEALS_PER_BL = 4; // Max deals to show per BL in proposal section
 
 // US and EU Pod categorization for display
 const US_POD = [
@@ -35,16 +35,72 @@ const EU_POD = [
   'Riona McHale'
 ];
 
-// Late stage = Stage 4 - Proposal
-const LATE_STAGE = 'Stage 4 - Proposal';
+// Proposal stage = Stage 4 - Proposal
+const PROPOSAL_STAGE = 'Stage 4 - Proposal';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FISCAL QUARTER LOGIC (Feb-Jan Fiscal Year)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Get fiscal quarter end date
+ * Fiscal year runs Feb 1 - Jan 31
+ * Q1: Feb 1 - Apr 30
+ * Q2: May 1 - Jul 31
+ * Q3: Aug 1 - Oct 31
+ * Q4: Nov 1 - Jan 31
+ */
+function getFiscalQuarterEnd() {
+  const now = new Date();
+  const month = now.getMonth(); // 0-indexed (0 = Jan, 11 = Dec)
+  const year = now.getFullYear();
+  
+  // Feb-Jan fiscal year, quarters end: Apr 30, Jul 31, Oct 31, Jan 31
+  if (month >= 1 && month <= 3) {       // Feb(1)-Apr(3) = Q1
+    return new Date(year, 3, 30);       // Apr 30
+  } else if (month >= 4 && month <= 6) { // May(4)-Jul(6) = Q2
+    return new Date(year, 6, 31);       // Jul 31
+  } else if (month >= 7 && month <= 9) { // Aug(7)-Oct(9) = Q3
+    return new Date(year, 9, 31);       // Oct 31
+  } else {                               // Nov(10)-Dec(11) or Jan(0) = Q4
+    // If Nov-Dec, quarter ends next year Jan 31
+    // If Jan, quarter ends this year Jan 31
+    const qEndYear = month === 0 ? year : year + 1;
+    return new Date(qEndYear, 0, 31);   // Jan 31
+  }
+}
+
+/**
+ * Get fiscal quarter label for display (e.g., "thru Jan 31")
+ */
+function getFiscalQuarterLabel() {
+  const qEnd = getFiscalQuarterEnd();
+  return `thru ${qEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+}
+
+/**
+ * Check if a date falls within the current fiscal quarter (between today and quarter end)
+ */
+function isInCurrentFiscalQuarter(dateStr) {
+  if (!dateStr) return false;
+  
+  // Parse as UTC to avoid timezone issues
+  const targetDate = new Date(dateStr + 'T12:00:00Z');
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const quarterEnd = getFiscalQuarterEnd();
+  // Set to end of day on quarter end
+  quarterEnd.setHours(23, 59, 59, 999);
+  
+  return targetDate >= today && targetDate <= quarterEnd;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SNAPSHOT STORAGE
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Read snapshots from file
- */
 function readSnapshots() {
   try {
     if (fs.existsSync(SNAPSHOT_FILE)) {
@@ -57,9 +113,6 @@ function readSnapshots() {
   return { snapshots: {} };
 }
 
-/**
- * Write snapshots to file
- */
 function writeSnapshots(data) {
   try {
     fs.writeFileSync(SNAPSHOT_FILE, JSON.stringify(data, null, 2));
@@ -70,17 +123,11 @@ function writeSnapshots(data) {
   }
 }
 
-/**
- * Get the most recent snapshot date
- */
 function getLastSnapshotDate(snapshots) {
   const dates = Object.keys(snapshots.snapshots || {}).sort();
   return dates.length > 0 ? dates[dates.length - 1] : null;
 }
 
-/**
- * Save current snapshot
- */
 function saveSnapshot(date, blData) {
   const data = readSnapshots();
   data.snapshots[date] = blData;
@@ -99,15 +146,10 @@ function saveSnapshot(date, blData) {
 // SALESFORCE QUERIES
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Query all pipeline data from Salesforce with full details
- * Returns raw opportunity records for processing
- */
 async function queryPipelineData() {
   try {
     logger.info('Querying pipeline data from Salesforce...');
     
-    // Enhanced query with all fields needed for the summary
     const soql = `
       SELECT Owner.Name, AccountId, Account.Name, 
              ACV__c, Weighted_ACV__c, StageName,
@@ -137,13 +179,9 @@ async function queryPipelineData() {
  * Process raw opportunity data into metrics
  */
 function processPipelineData(records) {
-  const now = new Date();
-  const currentQuarter = Math.floor(now.getMonth() / 3);
-  const currentYear = now.getFullYear();
-  
   // Initialize accumulators
   const blMetrics = {};
-  const lateStageDeals = [];
+  const proposalDeals = [];
   let totalGrossACV = 0;
   let totalWeightedThisQuarter = 0;
   const allAccountIds = new Set();
@@ -166,15 +204,9 @@ function processPipelineData(records) {
     // Add to total gross
     totalGrossACV += acv;
     
-    // Check if target date is this quarter for weighted calculation
-    if (targetDate) {
-      const targetDateObj = new Date(targetDate);
-      const targetQuarter = Math.floor(targetDateObj.getMonth() / 3);
-      const targetYear = targetDateObj.getFullYear();
-      
-      if (targetYear === currentYear && targetQuarter === currentQuarter) {
-        totalWeightedThisQuarter += weightedAcv;
-      }
+    // Add to weighted this quarter if target date is between today and fiscal quarter end
+    if (isInCurrentFiscalQuarter(targetDate)) {
+      totalWeightedThisQuarter += weightedAcv;
     }
     
     // Initialize BL if not exists
@@ -191,9 +223,9 @@ function processPipelineData(records) {
     blMetrics[ownerName].opportunities++;
     blMetrics[ownerName].grossACV += acv;
     
-    // Collect late stage deals (Stage 4 - Proposal)
-    if (stageName === LATE_STAGE) {
-      lateStageDeals.push({
+    // Collect proposal stage deals (Stage 4)
+    if (stageName === PROPOSAL_STAGE) {
+      proposalDeals.push({
         accountName,
         acv,
         targetDate,
@@ -204,7 +236,7 @@ function processPipelineData(records) {
     }
   });
   
-  // Convert BL Sets to counts and prepare final metrics
+  // Convert BL Sets to counts
   const finalBLMetrics = {};
   Object.entries(blMetrics).forEach(([bl, data]) => {
     finalBLMetrics[bl] = {
@@ -214,29 +246,30 @@ function processPipelineData(records) {
     };
   });
   
-  // Sort late stage deals by target date
-  lateStageDeals.sort((a, b) => {
+  // Sort proposal deals by target date
+  proposalDeals.sort((a, b) => {
     if (!a.targetDate && !b.targetDate) return 0;
     if (!a.targetDate) return 1;
     if (!b.targetDate) return -1;
     return new Date(a.targetDate) - new Date(b.targetDate);
   });
   
-  // Calculate late stage totals
-  const lateStageGrossACV = lateStageDeals.reduce((sum, d) => sum + d.acv, 0);
+  // Calculate proposal stage totals
+  const proposalGrossACV = proposalDeals.reduce((sum, d) => sum + d.acv, 0);
   
   return {
     blMetrics: finalBLMetrics,
-    lateStageDeals,
+    proposalDeals,
     totals: {
       grossACV: totalGrossACV,
       weightedThisQuarter: totalWeightedThisQuarter,
       totalOpportunities: records.length,
       totalAccounts: allAccountIds.size,
       avgDealSize: records.length > 0 ? totalGrossACV / records.length : 0,
-      lateStageCount: lateStageDeals.length,
-      lateStageGrossACV
-    }
+      proposalCount: proposalDeals.length,
+      proposalGrossACV
+    },
+    fiscalQuarterLabel: getFiscalQuarterLabel()
   };
 }
 
@@ -245,15 +278,15 @@ function processPipelineData(records) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Format currency for display
+ * Format currency for display (lowercase m and k)
  */
 function formatCurrency(amount) {
   if (!amount || amount === 0) return '$0';
   
   if (amount >= 1000000) {
-    return `$${(amount / 1000000).toFixed(1)}M`;
+    return `$${(amount / 1000000).toFixed(1)}m`;  // lowercase m
   } else if (amount >= 1000) {
-    return `$${Math.round(amount / 1000)}K`;
+    return `$${Math.round(amount / 1000)}k`;      // lowercase k
   } else {
     return `$${Math.round(amount)}`;
   }
@@ -325,17 +358,69 @@ function formatBLLine(blName, current, previous) {
   const oppChange = formatChange(currentOpps, previousOpps);
   const acvChange = formatACVChange(currentACV, previousACV);
   
-  // Get first name for display
   const firstName = blName.split(' ')[0];
   
-  return `• ${firstName} — ${currentAccounts} accounts${accountChange}, ${currentOpps} opps${oppChange}, ${formatCurrency(currentACV)}${acvChange}`;
+  return `• ${firstName} — ${currentAccounts} accounts${accountChange}, ${currentOpps} opps${oppChange}, ${formatCurrency(currentACV)} gross${acvChange}`;
+}
+
+/**
+ * Format proposal deals grouped by BL
+ * Returns format: "Julie (3): Petsmart $50k Dec 19, Samsara $40k Dec 19, ..."
+ */
+function formatProposalDealsByBL(proposalDeals) {
+  if (proposalDeals.length === 0) return '';
+  
+  // Group by owner first name
+  const byOwner = {};
+  proposalDeals.forEach(deal => {
+    const owner = deal.ownerFirstName;
+    if (!byOwner[owner]) {
+      byOwner[owner] = [];
+    }
+    byOwner[owner].push(deal);
+  });
+  
+  // Sort owners by total ACV descending
+  const sortedOwners = Object.entries(byOwner)
+    .map(([owner, deals]) => ({
+      owner,
+      deals,
+      totalACV: deals.reduce((sum, d) => sum + d.acv, 0)
+    }))
+    .sort((a, b) => b.totalACV - a.totalACV);
+  
+  // Format each owner's deals
+  let output = '';
+  sortedOwners.forEach(({ owner, deals }) => {
+    const dealCount = deals.length;
+    
+    // Sort deals by ACV descending for display
+    deals.sort((a, b) => b.acv - a.acv);
+    
+    // Take top deals per BL
+    const dealsToShow = deals.slice(0, MAX_DEALS_PER_BL);
+    const dealStrings = dealsToShow.map(d => 
+      `${d.accountName} ${formatCurrency(d.acv)} ${formatDate(d.targetDate)}`
+    );
+    
+    let line = `${owner} (${dealCount}): ${dealStrings.join(', ')}`;
+    
+    // Add ellipsis if more deals
+    if (deals.length > MAX_DEALS_PER_BL) {
+      line += `, +${deals.length - MAX_DEALS_PER_BL} more`;
+    }
+    
+    output += line + '\n';
+  });
+  
+  return output;
 }
 
 /**
  * Format the complete Slack message
  */
 function formatSlackMessage(pipelineData, previousMetrics, dateStr) {
-  const { blMetrics, lateStageDeals, totals } = pipelineData;
+  const { blMetrics, proposalDeals, totals, fiscalQuarterLabel } = pipelineData;
   
   let message = `*Weekly BL Summary — ${dateStr}*\n\n`;
   
@@ -343,10 +428,10 @@ function formatSlackMessage(pipelineData, previousMetrics, dateStr) {
   // HEADLINE STATS
   // ═══════════════════════════════════════════════════════════════════════
   message += '*PIPELINE SNAPSHOT*\n';
-  message += `Total Gross: ${formatCurrency(totals.grossACV)} (${totals.totalOpportunities} opps / ${totals.totalAccounts} accounts)\n`;
-  message += `Weighted This Quarter: ${formatCurrency(totals.weightedThisQuarter)}\n`;
-  message += `Avg Deal Size: ${formatCurrency(totals.avgDealSize)}\n`;
-  message += `Late Stage: ${totals.lateStageCount} deals (${formatCurrency(totals.lateStageGrossACV)})\n`;
+  message += `Total Gross: ${formatCurrency(totals.grossACV)} (${totals.totalOpportunities} opps across ${totals.totalAccounts} accounts with active pipeline)\n`;
+  message += `Weighted This Quarter (${fiscalQuarterLabel}): ${formatCurrency(totals.weightedThisQuarter)}\n`;
+  message += `Avg Deal Size: ${formatCurrency(totals.avgDealSize)} gross\n`;
+  message += `Proposal Stage (S4): ${totals.proposalCount} deals, ${formatCurrency(totals.proposalGrossACV)} gross\n`;
   message += '\n';
   
   // ═══════════════════════════════════════════════════════════════════════
@@ -390,21 +475,11 @@ function formatSlackMessage(pipelineData, previousMetrics, dateStr) {
   }
   
   // ═══════════════════════════════════════════════════════════════════════
-  // LATE STAGE DEALS (Stage 4 - Proposal, sorted by target date)
+  // PROPOSAL STAGE DEALS (S4) grouped by BL
   // ═══════════════════════════════════════════════════════════════════════
-  if (lateStageDeals.length > 0) {
-    message += '*DEALS IN PROPOSAL*\n';
-    
-    const dealsToShow = lateStageDeals.slice(0, MAX_LATE_STAGE_DEALS);
-    dealsToShow.forEach(deal => {
-      const dateDisplay = formatDate(deal.targetDate);
-      const productDisplay = deal.productLine ? ` | ${deal.productLine}` : '';
-      message += `${dateDisplay} | ${deal.accountName} | ${formatCurrency(deal.acv)}${productDisplay} | ${deal.ownerFirstName}\n`;
-    });
-    
-    if (lateStageDeals.length > MAX_LATE_STAGE_DEALS) {
-      message += `_...and ${lateStageDeals.length - MAX_LATE_STAGE_DEALS} more_\n`;
-    }
+  if (proposalDeals.length > 0) {
+    message += '*DEALS IN PROPOSAL (S4)*\n';
+    message += formatProposalDealsByBL(proposalDeals);
   }
   
   // ═══════════════════════════════════════════════════════════════════════
@@ -421,14 +496,10 @@ function formatSlackMessage(pipelineData, previousMetrics, dateStr) {
 // MAIN FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Generate and send the weekly BL summary to Slack
- */
 async function sendBLWeeklySummary(app, testMode = false) {
   try {
     logger.info('Generating weekly BL summary...');
     
-    // Get current date string (YYYY-MM-DD)
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];
     const displayDate = now.toLocaleDateString('en-US', { 
@@ -458,7 +529,7 @@ async function sendBLWeeklySummary(app, testMode = false) {
     
     // Determine channel
     const channel = testMode ? 
-      (process.env.TEST_CHANNEL || 'U094AQE9V7D') : // DM to Keigan in test mode
+      (process.env.TEST_CHANNEL || 'U094AQE9V7D') :
       GTM_CHANNEL;
     
     // Send to Slack
@@ -476,6 +547,7 @@ async function sendBLWeeklySummary(app, testMode = false) {
       dateStr,
       blCount: Object.keys(pipelineData.blMetrics).length,
       totals: pipelineData.totals,
+      fiscalQuarterLabel: pipelineData.fiscalQuarterLabel,
       message
     };
     
@@ -485,19 +557,12 @@ async function sendBLWeeklySummary(app, testMode = false) {
   }
 }
 
-/**
- * Schedule the weekly summary (Thursday 9 AM EST)
- */
 function scheduleBLWeeklySummary(app) {
-  // Thursday at 9 AM Eastern Time
-  // Cron: minute hour day-of-month month day-of-week
-  // 0 9 * * 4 = 9 AM on Thursdays
-  
   cron.schedule('0 9 * * 4', async () => {
     logger.info('Running scheduled BL weekly summary (Thursday 9 AM EST)');
     
     try {
-      await sendBLWeeklySummary(app, false); // Production mode
+      await sendBLWeeklySummary(app, false);
       logger.info('Scheduled BL weekly summary completed');
     } catch (error) {
       logger.error('Scheduled BL weekly summary failed:', error);
@@ -509,24 +574,15 @@ function scheduleBLWeeklySummary(app) {
   logger.info('BL Weekly Summary scheduled (Thursday 9 AM EST)');
 }
 
-/**
- * Manual trigger for testing
- */
 async function sendBLSummaryNow(app, testMode = true) {
   logger.info(`Sending BL summary now (test mode: ${testMode})`);
   return await sendBLWeeklySummary(app, testMode);
 }
 
-/**
- * Get current snapshot data (for debugging/testing)
- */
 function getSnapshotData() {
   return readSnapshots();
 }
 
-/**
- * Query current metrics (for API endpoint)
- */
 async function queryBLMetrics() {
   const records = await queryPipelineData();
   const pipelineData = processPipelineData(records);
@@ -542,7 +598,9 @@ module.exports = {
   formatSlackMessage,
   queryPipelineData,
   processPipelineData,
-  // Exported for testing
+  getFiscalQuarterEnd,
+  getFiscalQuarterLabel,
+  isInCurrentFiscalQuarter,
   US_POD,
   EU_POD,
   CAPACITY_ALERT_THRESHOLD
