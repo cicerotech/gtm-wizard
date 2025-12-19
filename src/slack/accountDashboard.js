@@ -632,16 +632,15 @@ function generateWeeklyTab(params) {
   const top10 = top10Opps.slice(0, 10);
   const top10Total = top10.reduce((sum, o) => sum + o.acv, 0);
   
-  // Last week's combined baseline values (Dec 12, 2025 - from SF report)
+  // Last week's combined baseline values (Dec 12, 2025 - from SF report screenshot)
   // NOTE: S5 Negotiation is blended into S4 Proposal for reporting simplicity
-  // TODO: Make dynamic by storing weekly snapshots
   const lastWeekBaseline = {
-    'Stage 0 - Qualifying': { acv: 2800000, oppCount: 40 },
-    'Stage 1 - Discovery': { acv: 14200000, oppCount: 115 },
-    'Stage 2 - SQO': { acv: 10800000, oppCount: 51 },
-    'Stage 3 - Pilot': { acv: 380000, oppCount: 4 },
-    'Stage 4 - Proposal': { acv: 7200000, oppCount: 44 }, // Includes S5 Negotiation
-    'Total': { acv: 35380000, oppCount: 254 }
+    'Stage 0 - Qualifying': { acv: 5000000, oppCount: 61 },
+    'Stage 1 - Discovery': { acv: 13100000, oppCount: 105 },
+    'Stage 2 - SQO': { acv: 10700000, oppCount: 50 },
+    'Stage 3 - Pilot': { acv: 325000, oppCount: 3 },
+    'Stage 4 - Proposal': { acv: 8500000, oppCount: 44 }, // Includes S5 Negotiation
+    'Total': { acv: 37500000, oppCount: 263 }
   };
   const baselineDate = 'Dec 12, 2025';
   
@@ -884,40 +883,58 @@ function generateWeeklyTab(params) {
     
     <!-- Signed Logos by Type + Pipeline Summary -->
     <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; align-items: stretch;">
-      <!-- Signed Logos by Fiscal Quarter - Static (from 4444.xlsx - 81 total) -->
+      <!-- Signed Logos by Fiscal Quarter - Expandable (from 4444.xlsx - 81 total) -->
       <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
         <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">SIGNED LOGOS BY QUARTER</div>
         <div style="font-size: 0.75rem;">
-          <div style="display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #e5e7eb;">
-            <span style="color: #374151;">FY2024 & Prior</span>
-            <span style="font-weight: 600; color: #374151;">4</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #e5e7eb;">
-            <span style="color: #374151;">Q4 2024</span>
-            <span style="font-weight: 600; color: #374151;">26</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #e5e7eb;">
-            <span style="color: #374151;">Q1 2025</span>
-            <span style="font-weight: 600; color: #374151;">8</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #e5e7eb;">
-            <span style="color: #374151;">Q2 2025</span>
-            <span style="font-weight: 600; color: #374151;">6</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #e5e7eb;">
-            <span style="color: #374151;">Q3 2025</span>
-            <span style="font-weight: 600; color: #374151;">29</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 8px 4px; background: #ecfdf5;">
-            <span style="color: #065f46;">Q4 2025 (QTD)</span>
-            <span style="font-weight: 600; color: #065f46;">8</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 6px 8px; font-weight: 600; background: #f3f4f6; margin-top: 6px; border-radius: 3px; font-size: 0.7rem; color: #374151;">
-            <span>Total Signed (All Time)</span>
+          <details style="border-bottom: 1px solid #e5e7eb;">
+            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
+              <span style="color: #374151;">FY2024 & Prior</span>
+              <span style="font-weight: 600; color: #374151;">4</span>
+            </summary>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Twitter, ECMS, Cargill, Southwest Airlines</div>
+          </details>
+          <details style="border-bottom: 1px solid #e5e7eb;">
+            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
+              <span style="color: #374151;">Q4 2024</span>
+              <span style="font-weight: 600; color: #374151;">26</span>
+            </summary>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Airbnb, Airship Group, Arabic Computer Systems, Bank of Ireland, Coleman Legal, CommScope, Creed McStay, Datalex, Dropbox, ESB NI/Electric Ireland, Etsy Ireland, Glanbia, Graybar Electric, Hayes Solicitors, Indeed Ireland, Kellanova, LinkedIn Ireland, Moy Park, NTMA, OpenAi, Stripe, Teamwork.com, TikTok, Tinder LLC, Udemy Ireland, Uisce Eireann</div>
+          </details>
+          <details style="border-bottom: 1px solid #e5e7eb;">
+            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
+              <span style="color: #374151;">Q1 2025</span>
+              <span style="font-weight: 600; color: #374151;">8</span>
+            </summary>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Sisk Group, Northern Trust, Duracell, Dept of Children/Disability/Equality, Coillte, Coherent, Taoglas, Consensys</div>
+          </details>
+          <details style="border-bottom: 1px solid #e5e7eb;">
+            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
+              <span style="color: #374151;">Q2 2025</span>
+              <span style="font-weight: 600; color: #374151;">6</span>
+            </summary>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Orsted, Mediolanum, Intuit, Gilead Sciences, Perrigo Pharma, National Grid</div>
+          </details>
+          <details style="border-bottom: 1px solid #e5e7eb;">
+            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
+              <span style="color: #374151;">Q3 2025</span>
+              <span style="font-weight: 600; color: #374151;">29</span>
+            </summary>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">U.S. Air Force, Toshiba US, Peregrine Hospitality, Meta, Kingspan, ICON, Ecolab, DHL, Coimisiun na Mean, Chevron, Bayer, Sandbox, Novelis, Asana, Western Digital, The Wonderful Company, Weir Group, Pure Storage, PetSmart, GE Vernova, Fresh Del Monte, Dolby, Cox Media, CHS, Best Buy, AES, Wealth Partners, Tailored Brands, Amazon</div>
+          </details>
+          <details style="background: #ecfdf5;">
+            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
+              <span style="color: #065f46;">Q4 2025 (QTD)</span>
+              <span style="font-weight: 600; color: #065f46;">8</span>
+            </summary>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #047857; background: #d1fae5;">IQVIA, Delinea, Aryza, Wellspring Philanthropic Fund, Aramark Ireland, World Wide Technology, BNY Mellon</div>
+          </details>
+          <div style="display: flex; justify-content: space-between; padding: 6px 8px; font-weight: 600; background: #e5e7eb; margin-top: 6px; border-radius: 3px; font-size: 0.7rem; color: #374151;">
+            <span>Total Signed</span>
             <span>81</span>
           </div>
         </div>
-        <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Unique accounts by first Closed Won date • May differ from Current Logos if contracts expired</div>
+        <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Unique accounts by first Closed Won date • Click to expand</div>
       </div>
       
       <!-- Run-Rate Forecast Table -->
@@ -931,31 +948,115 @@ function generateWeeklyTab(params) {
             <tr><td>August</td><td style="text-align: right;">$17.6m</td></tr>
             <tr><td>September</td><td style="text-align: right;">$18.4m</td></tr>
             <tr><td>October</td><td style="text-align: right;">$19.8m</td></tr>
-            <tr><td>November (EOM)</td><td style="text-align: right;">$19.26m</td></tr>
+            <tr><td>November</td><td style="text-align: right;">$19.3m</td></tr>
+            <tr style="background: #dbeafe;">
+              <td style="color: #1e40af; font-weight: 600;">December (Current)</td>
+              <td style="text-align: right; color: #1e40af; font-weight: 600;">$20.4m</td>
+            </tr>
             <tr style="background: #ecfdf5;">
               <td style="color: #065f46;">+ Q4 Weighted Pipeline</td>
-              <td style="text-align: right; color: #065f46; font-weight: 600;">${fmt(q4TotalWeighted)}</td>
+              <td style="text-align: right; color: #065f46; font-weight: 600;">$4.0m</td>
             </tr>
             <tr style="font-weight: 600; background: #e5e7eb;">
               <td>FY2025E Total</td>
-              <td style="text-align: right; color: #111827;">${fmt(19260000 + q4TotalWeighted)}</td>
+              <td style="text-align: right; color: #111827;">$24.4m</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
     
-    <!-- Current Logos (Live from Salesforce Type__c = Customer) -->
+    <!-- Current Logos (Static - 81 accounts from 4444.xlsx) -->
     <div class="weekly-subsection" style="margin-top: 16px;">
-      <div class="weekly-subsection-title">Current Logos (${currentLogosCount})</div>
+      <div class="weekly-subsection-title">Current Logos (81)</div>
       <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 4px;">Accounts where Type = Customer in Salesforce</div>
       <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-top: 8px;">
         <details>
           <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827;">
-            ▸ All Logos (${currentLogosCount} accounts) - click to expand
+            ▸ All Logos (81 accounts) - click to expand
           </summary>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 0.65rem; color: #374151; margin-top: 8px;">
-            ${uniqueLogos.map(logo => '<div style="padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + logo + '</div>').join('')}
+            <div style="padding: 2px 0;">AES</div>
+            <div style="padding: 2px 0;">Airbnb</div>
+            <div style="padding: 2px 0;">Airship Group</div>
+            <div style="padding: 2px 0;">Amazon</div>
+            <div style="padding: 2px 0;">Arabic Computer Systems</div>
+            <div style="padding: 2px 0;">Aramark Ireland</div>
+            <div style="padding: 2px 0;">Aryza</div>
+            <div style="padding: 2px 0;">Asana</div>
+            <div style="padding: 2px 0;">Bank of Ireland</div>
+            <div style="padding: 2px 0;">Bayer</div>
+            <div style="padding: 2px 0;">Best Buy</div>
+            <div style="padding: 2px 0;">BNY Mellon</div>
+            <div style="padding: 2px 0;">Cargill</div>
+            <div style="padding: 2px 0;">Chevron</div>
+            <div style="padding: 2px 0;">CHS</div>
+            <div style="padding: 2px 0;">Coherent</div>
+            <div style="padding: 2px 0;">Coillte</div>
+            <div style="padding: 2px 0;">Coimisiun na Mean</div>
+            <div style="padding: 2px 0;">Coleman Legal</div>
+            <div style="padding: 2px 0;">CommScope</div>
+            <div style="padding: 2px 0;">Consensys</div>
+            <div style="padding: 2px 0;">Cox Media Group</div>
+            <div style="padding: 2px 0;">Creed McStay</div>
+            <div style="padding: 2px 0;">Datalex</div>
+            <div style="padding: 2px 0;">Delinea</div>
+            <div style="padding: 2px 0;">Dept of Children</div>
+            <div style="padding: 2px 0;">DHL North America</div>
+            <div style="padding: 2px 0;">Dolby</div>
+            <div style="padding: 2px 0;">Dropbox</div>
+            <div style="padding: 2px 0;">Duracell</div>
+            <div style="padding: 2px 0;">ECMS</div>
+            <div style="padding: 2px 0;">Ecolab</div>
+            <div style="padding: 2px 0;">ESB NI/Electric Ireland</div>
+            <div style="padding: 2px 0;">Etsy Ireland</div>
+            <div style="padding: 2px 0;">Fresh Del Monte</div>
+            <div style="padding: 2px 0;">GE Vernova</div>
+            <div style="padding: 2px 0;">Gilead Sciences</div>
+            <div style="padding: 2px 0;">Glanbia</div>
+            <div style="padding: 2px 0;">Graybar Electric</div>
+            <div style="padding: 2px 0;">Hayes Solicitors</div>
+            <div style="padding: 2px 0;">ICON</div>
+            <div style="padding: 2px 0;">Indeed Ireland</div>
+            <div style="padding: 2px 0;">Intuit</div>
+            <div style="padding: 2px 0;">IQVIA</div>
+            <div style="padding: 2px 0;">Kellanova</div>
+            <div style="padding: 2px 0;">Kingspan</div>
+            <div style="padding: 2px 0;">LinkedIn Ireland</div>
+            <div style="padding: 2px 0;">Mediolanum</div>
+            <div style="padding: 2px 0;">Meta</div>
+            <div style="padding: 2px 0;">Moy Park</div>
+            <div style="padding: 2px 0;">National Grid</div>
+            <div style="padding: 2px 0;">Northern Trust</div>
+            <div style="padding: 2px 0;">Novelis</div>
+            <div style="padding: 2px 0;">NTMA</div>
+            <div style="padding: 2px 0;">OpenAi</div>
+            <div style="padding: 2px 0;">Orsted</div>
+            <div style="padding: 2px 0;">Peregrine Hospitality</div>
+            <div style="padding: 2px 0;">Perrigo Pharma</div>
+            <div style="padding: 2px 0;">PetSmart</div>
+            <div style="padding: 2px 0;">Pure Storage</div>
+            <div style="padding: 2px 0;">Sandbox</div>
+            <div style="padding: 2px 0;">Sequoia Climate Fund</div>
+            <div style="padding: 2px 0;">Sisk Group</div>
+            <div style="padding: 2px 0;">Southwest Airlines</div>
+            <div style="padding: 2px 0;">Stripe</div>
+            <div style="padding: 2px 0;">Tailored Brands</div>
+            <div style="padding: 2px 0;">Taoglas</div>
+            <div style="padding: 2px 0;">Teamwork.com</div>
+            <div style="padding: 2px 0;">The Weir Group</div>
+            <div style="padding: 2px 0;">The Wonderful Company</div>
+            <div style="padding: 2px 0;">TikTok</div>
+            <div style="padding: 2px 0;">Tinder LLC</div>
+            <div style="padding: 2px 0;">Toshiba US</div>
+            <div style="padding: 2px 0;">Twitter</div>
+            <div style="padding: 2px 0;">U.S. Air Force</div>
+            <div style="padding: 2px 0;">Udemy Ireland</div>
+            <div style="padding: 2px 0;">Uisce Eireann</div>
+            <div style="padding: 2px 0;">Wealth Partners</div>
+            <div style="padding: 2px 0;">Wellspring</div>
+            <div style="padding: 2px 0;">Western Digital</div>
+            <div style="padding: 2px 0;">World Wide Technology</div>
           </div>
         </details>
       </div>
@@ -1030,36 +1131,36 @@ function generateWeeklyTab(params) {
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 6px 8px; font-weight: 600;">US</td>
             <td style="padding: 6px 8px;">New business</td>
-            <td style="padding: 6px 8px; text-align: right;">$18.00m</td>
-            <td style="padding: 6px 8px; text-align: right;">$2.60m</td>
+            <td style="padding: 6px 8px; text-align: right;">$18.0m</td>
+            <td style="padding: 6px 8px; text-align: right;">$2.6m</td>
             <td style="padding: 6px 8px; text-align: center;">124</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 6px 8px;"></td>
             <td style="padding: 6px 8px;">Expansion / Upsell</td>
-            <td style="padding: 6px 8px; text-align: right;">$2.71m</td>
+            <td style="padding: 6px 8px; text-align: right;">$2.7m</td>
             <td style="padding: 6px 8px; text-align: right;">$814k</td>
             <td style="padding: 6px 8px; text-align: center;">21</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 6px 8px;"></td>
             <td style="padding: 6px 8px;">New business via LOI</td>
-            <td style="padding: 6px 8px; text-align: right;">$6.43m</td>
-            <td style="padding: 6px 8px; text-align: right;">$1.84m</td>
+            <td style="padding: 6px 8px; text-align: right;">$6.4m</td>
+            <td style="padding: 6px 8px; text-align: right;">$1.8m</td>
             <td style="padding: 6px 8px; text-align: center;">20</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 6px 8px; font-weight: 600;">EU</td>
             <td style="padding: 6px 8px;">New business</td>
-            <td style="padding: 6px 8px; text-align: right;">$7.65m</td>
+            <td style="padding: 6px 8px; text-align: right;">$7.6m</td>
             <td style="padding: 6px 8px; text-align: right;">$865k</td>
             <td style="padding: 6px 8px; text-align: center;">51</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 6px 8px;"></td>
             <td style="padding: 6px 8px;">Expansion / Upsell</td>
-            <td style="padding: 6px 8px; text-align: right;">$8.11m</td>
-            <td style="padding: 6px 8px; text-align: right;">$2.36m</td>
+            <td style="padding: 6px 8px; text-align: right;">$8.1m</td>
+            <td style="padding: 6px 8px; text-align: right;">$2.4m</td>
             <td style="padding: 6px 8px; text-align: center;">36</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
@@ -1071,8 +1172,8 @@ function generateWeeklyTab(params) {
           </tr>
           <tr style="font-weight: 600; background: #e5e7eb;">
             <td style="padding: 6px 8px;" colspan="2">Total</td>
-            <td style="padding: 6px 8px; text-align: right;">$43.30m</td>
-            <td style="padding: 6px 8px; text-align: right;">$8.58m</td>
+            <td style="padding: 6px 8px; text-align: right;">$43.3m</td>
+            <td style="padding: 6px 8px; text-align: right;">$8.6m</td>
             <td style="padding: 6px 8px; text-align: center;">254</td>
           </tr>
         </tbody>
