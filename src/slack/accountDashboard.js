@@ -543,7 +543,9 @@ function generateWeeklyTab(params) {
     newOppsThisWeek = [], newOppsTotal = 0,
     signedThisWeek = [], signedThisWeekTotal = 0,
     signedByFiscalQuarter = {},
-    customerAccounts = []
+    customerAccounts = [],
+    salesTypeByPod = {},
+    salesTypeTotals = { acv: 0, weighted: 0, count: 0 }
   } = params;
   
   // Helper for currency formatting
@@ -630,16 +632,18 @@ function generateWeeklyTab(params) {
   const top10 = top10Opps.slice(0, 10);
   const top10Total = top10.reduce((sum, o) => sum + o.acv, 0);
   
-  // Last week's combined baseline values (Dec 5, 2025 - from SF report)
+  // Last week's combined baseline values (Dec 12, 2025 - from SF report)
   // NOTE: S5 Negotiation is blended into S4 Proposal for reporting simplicity
+  // TODO: Make dynamic by storing weekly snapshots
   const lastWeekBaseline = {
-    'Stage 0 - Qualifying': { acv: 3000000, oppCount: 43 },
-    'Stage 1 - Discovery': { acv: 13600000, oppCount: 110 },
-    'Stage 2 - SQO': { acv: 11100000, oppCount: 53 },
-    'Stage 3 - Pilot': { acv: 400000, oppCount: 4 },
-    'Stage 4 - Proposal': { acv: 5600000 + 1800000, oppCount: 37 + 6 }, // Includes S5 Negotiation
-    'Total': { acv: 35500000, oppCount: 253 }
+    'Stage 0 - Qualifying': { acv: 2800000, oppCount: 40 },
+    'Stage 1 - Discovery': { acv: 14200000, oppCount: 115 },
+    'Stage 2 - SQO': { acv: 10800000, oppCount: 51 },
+    'Stage 3 - Pilot': { acv: 380000, oppCount: 4 },
+    'Stage 4 - Proposal': { acv: 7200000, oppCount: 44 }, // Includes S5 Negotiation
+    'Total': { acv: 35380000, oppCount: 254 }
   };
+  const baselineDate = 'Dec 12, 2025';
   
   // Get Johnson Hana stage breakdown - with flexible key matching
   const jhByStage = jhSummary?.byStage || {};
@@ -982,9 +986,53 @@ function generateWeeklyTab(params) {
         </tbody>
       </table>
       <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 4px; font-style: italic;">
-        Baseline: Last week's combined Eudia + JH totals (Dec 5, 2025)<br>
+        Baseline: Last week's combined Eudia + JH totals (${baselineDate})<br>
         *S4/5 Proposal includes Stage 5 Negotiation deals for simplified reporting
       </div>
+    </div>
+    
+    <!-- Pipeline by Sales Type & Pod -->
+    <div class="weekly-subsection">
+      <div class="weekly-subsection-title">Pipeline by Sales Type</div>
+      <table style="width: 100%; font-size: 0.7rem; margin-top: 8px; border-collapse: collapse;">
+        <thead>
+          <tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
+            <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Pod</th>
+            <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Sales Type</th>
+            <th style="padding: 6px 8px; text-align: right; color: #374151; font-weight: 600;">Sum of ACV</th>
+            <th style="padding: 6px 8px; text-align: right; color: #374151; font-weight: 600;">Weighted ACV</th>
+            <th style="padding: 6px 8px; text-align: center; color: #374151; font-weight: 600;">Count</th>
+          </tr>
+        </thead>
+        <tbody style="color: #374151;">
+          ${Object.entries(salesTypeByPod).map(([pod, types]) => {
+            const typeEntries = Object.entries(types);
+            if (typeEntries.length === 0) return '';
+            
+            const podTotal = typeEntries.reduce((acc, [_, data]) => ({
+              acv: acc.acv + data.acv,
+              weighted: acc.weighted + data.weighted,
+              count: acc.count + data.count
+            }), { acv: 0, weighted: 0, count: 0 });
+            
+            return typeEntries.map(([type, data], idx) => `
+              <tr style="border-bottom: 1px solid #e5e7eb;">
+                <td style="padding: 6px 8px; font-weight: ${idx === 0 ? '600' : '400'};">${idx === 0 ? pod : ''}</td>
+                <td style="padding: 6px 8px;">${type}</td>
+                <td style="padding: 6px 8px; text-align: right;">${fmt(data.acv)}</td>
+                <td style="padding: 6px 8px; text-align: right;">${fmt(data.weighted)}</td>
+                <td style="padding: 6px 8px; text-align: center;">${data.count}</td>
+              </tr>
+            `).join('');
+          }).join('')}
+          <tr style="font-weight: 600; background: #e5e7eb;">
+            <td style="padding: 6px 8px;" colspan="2">Total</td>
+            <td style="padding: 6px 8px; text-align: right;">${fmt(salesTypeTotals.acv)}</td>
+            <td style="padding: 6px 8px; text-align: right;">${fmt(salesTypeTotals.weighted)}</td>
+            <td style="padding: 6px 8px; text-align: center;">${salesTypeTotals.count}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
     
     <!-- Closed Lost This Week -->
@@ -1753,6 +1801,47 @@ async function generateAccountDashboard() {
     }
   } catch (e) { console.error('Days in Stage query error:', e.message); }
   
+  // ═══════════════════════════════════════════════════════════════════════
+  // PIPELINE BY SALES TYPE & POD - Active pipeline breakdown by deal type
+  // ═══════════════════════════════════════════════════════════════════════
+  const salesTypeBreakdownQuery = `
+    SELECT Owner.Pod__c, Sales_Type__c, SUM(ACV__c) acvSum, SUM(Weighted_ACV__c) weightedSum, COUNT(Id) recordCount
+    FROM Opportunity
+    WHERE IsClosed = false
+      AND ACV__c > 0
+    GROUP BY Owner.Pod__c, Sales_Type__c
+    ORDER BY Owner.Pod__c, Sales_Type__c
+  `;
+  
+  let salesTypeByPod = {
+    'US': {},
+    'EU': {}
+  };
+  let salesTypeTotals = { acv: 0, weighted: 0, count: 0 };
+  
+  try {
+    const salesTypeData = await query(salesTypeBreakdownQuery, true);
+    console.log(`[Dashboard] Sales Type Breakdown query returned ${salesTypeData?.records?.length || 0} records`);
+    if (salesTypeData?.records) {
+      salesTypeData.records.forEach(row => {
+        const pod = row.Pod__c || 'Other';
+        const salesType = row.Sales_Type__c || 'Unknown';
+        const acv = row.acvSum || 0;
+        const weighted = row.weightedSum || 0;
+        const count = row.recordCount || 0;
+        
+        if (!salesTypeByPod[pod]) salesTypeByPod[pod] = {};
+        salesTypeByPod[pod][salesType] = { acv, weighted, count };
+        
+        salesTypeTotals.acv += acv;
+        salesTypeTotals.weighted += weighted;
+        salesTypeTotals.count += count;
+      });
+    }
+  } catch (e) { 
+    console.error('Sales Type Breakdown query error:', e.message);
+  }
+  
   // Add manual entry for Ecolab (waiting for contract)
   if (!contractsByAccount.has('Ecolab')) {
     contractsByAccount.set('Ecolab', { recurring: [], project: [], totalARR: 200000, totalProject: 0, pending: true });
@@ -2485,7 +2574,7 @@ ${generateWeeklyTab({
   contractsByAccount, recurringTotal, projectTotal,
   closedLostDeals, nurturedAccounts, daysInStageByStage, logosByType,
   newOppsThisWeek, newOppsTotal, signedThisWeek, signedThisWeekTotal, signedByFiscalQuarter,
-  customerAccounts
+  customerAccounts, salesTypeByPod, salesTypeTotals
 })}
 
 <!-- TAB 3: REVENUE -->

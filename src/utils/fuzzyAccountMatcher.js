@@ -43,6 +43,17 @@ class FuzzyAccountMatcher {
       'ms': 'Morgan Stanley'
     };
     
+    // Protected exact-match names (prevent false positive fuzzy matches)
+    // These should ONLY match their exact Salesforce account name
+    this.protectedNames = new Set([
+      'intuit',           // Don't match to "Applied Intuition"
+      'applied intuition', // Keep separate from "Intuit"
+      'meta',             // Don't match to "Metadata" etc.
+      'visa',             // Don't match to "Advisor" etc.
+      'uber',             // Don't match to "Hubertus" etc.
+      'aes',              // Don't match to "Aesthetics" etc.
+    ]);
+    
     // Cache for performance
     this.accountCache = new Map();
     this.cacheTimeout = 300000; // 5 minutes
@@ -68,6 +79,9 @@ class FuzzyAccountMatcher {
       }
     }
     
+    // Check if this is a protected name (require exact match only)
+    const isProtected = this.protectedNames.has(normalized.toLowerCase());
+    
     // Try exact match first (fastest)
     let account = await this.exactMatch(searchTerm);
     if (account) {
@@ -80,6 +94,12 @@ class FuzzyAccountMatcher {
     if (account) {
       this.cacheResult(cacheKey, account);
       return account;
+    }
+    
+    // For protected names, ONLY allow exact matches - skip fuzzy
+    if (isProtected) {
+      console.log(`[FuzzyMatcher] Protected name "${searchTerm}" - requiring exact match only`);
+      return null;
     }
     
     // Try fuzzy matching
@@ -158,12 +178,28 @@ class FuzzyAccountMatcher {
         return null;
       }
       
-      // Score matches by similarity
+      // PRIORITY CHECK: If any match is an exact case-insensitive match, return it
+      const exactCaseInsensitiveMatch = result.records.find(
+        acc => acc.Name.toLowerCase() === searchTerm.toLowerCase() ||
+               acc.Name.toLowerCase() === normalized.toLowerCase()
+      );
+      
+      if (exactCaseInsensitiveMatch) {
+        return {
+          id: exactCaseInsensitiveMatch.Id,
+          name: exactCaseInsensitiveMatch.Name,
+          owner: exactCaseInsensitiveMatch.Owner?.Name,
+          matchType: 'exact',
+          confidence: 1.0
+        };
+      }
+      
+      // Score matches by similarity (with improved logic)
       const scoredMatches = result.records.map(acc => ({
         id: acc.Id,
         name: acc.Name,
         owner: acc.Owner?.Name,
-        score: this.similarityScore(normalized, this.normalize(acc.Name))
+        score: this.similarityScore(normalized, this.normalize(acc.Name), searchTerm, acc.Name)
       }));
       
       // Sort by score
@@ -217,16 +253,49 @@ class FuzzyAccountMatcher {
 
   /**
    * Calculate similarity score (0-1)
+   * @param str1 - Normalized search term
+   * @param str2 - Normalized account name
+   * @param originalSearch - Original search term (for word boundary checks)
+   * @param originalAccount - Original account name (for word boundary checks)
    */
-  similarityScore(str1, str2) {
+  similarityScore(str1, str2, originalSearch = '', originalAccount = '') {
     const s1 = str1.toLowerCase();
     const s2 = str2.toLowerCase();
+    const search = (originalSearch || str1).toLowerCase();
+    const account = (originalAccount || str2).toLowerCase();
     
     // Exact match after normalization
     if (s1 === s2) return 1.0;
     
-    // One contains the other
-    if (s1.includes(s2) || s2.includes(s1)) return 0.9;
+    // Check if search term is a COMPLETE WORD in account name (not a substring of another word)
+    // e.g., "Intuit" should match "Intuit Inc" but NOT "Applied Intuition"
+    const searchWords = search.split(/\s+/);
+    const accountWords = account.split(/\s+/);
+    
+    // Check for exact word match (highest priority for short, distinct company names)
+    const hasExactWordMatch = searchWords.every(searchWord => 
+      accountWords.some(accountWord => accountWord === searchWord)
+    );
+    
+    if (hasExactWordMatch) {
+      // Shorter account name = better match (Intuit > Applied Intuition)
+      const lengthPenalty = Math.min(1.0, s1.length / s2.length);
+      return 0.95 * lengthPenalty;
+    }
+    
+    // Check if search is substring of a word (lower score)
+    // e.g., "intuit" in "intuition" - this is a partial word match, lower confidence
+    const isSubstringOfWord = accountWords.some(word => 
+      word.includes(s1) && word !== s1
+    );
+    
+    if (isSubstringOfWord) {
+      // Penalize substring matches heavily - likely wrong account
+      return 0.3;
+    }
+    
+    // One contains the other as complete string
+    if (s1.includes(s2) || s2.includes(s1)) return 0.85;
     
     // Word overlap
     const words1 = new Set(s1.split(/\s+/));
