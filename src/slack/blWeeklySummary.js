@@ -580,9 +580,58 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
     try {
       const { blMetrics, stageBreakdown, totals, fiscalQuarterLabel, proposalThisMonth, allDeals } = pipelineData;
       
+      // ═══════════════════════════════════════════════════════════════════════
+      // PAGE GEOMETRY - CONTENT-BASED HEIGHT (no fixed page size)
+      // ═══════════════════════════════════════════════════════════════════════
+      const MARGIN_TOP = 28;
+      const MARGIN_BOTTOM = 28;
+      const LEFT = 36;
+      const PAGE_WIDTH = 540;
+      const MID = LEFT + PAGE_WIDTH / 2;
+      const halfWidth = PAGE_WIDTH / 2 - 10;
+      const RIGHT_COL = MID + 10;
+      
+      // FIXED SECTION HEIGHTS (content-based, not percentage)
+      const HEADER_HEIGHT = 48;       // Title + date + teal line
+      const SECTION_GAP = 20;         // Consistent gap between all sections
+      const METRICS_HEIGHT = 50;      // 5-column metrics bar
+      const STAGE_ROW_HEIGHT = 120;   // Stage Distribution + Proposal Stage
+      const BL_SUMMARY_HEIGHT = 130;  // Business Lead summary tables
+      const FOOTER_HEIGHT = 24;       // Footer line + text
+      
+      // Calculate Top Deals height based on actual BL count
+      const dealsForTop5 = allDeals || [];
+      const dealsByBLTemp = {};
+      dealsForTop5.forEach(deal => {
+        const blName = deal.ownerFirstName || deal.ownerName?.split(' ')[0] || 'Unknown';
+        if (!dealsByBLTemp[blName]) dealsByBLTemp[blName] = [];
+        dealsByBLTemp[blName].push(deal);
+      });
+      const numBLs = Math.min(Object.keys(dealsByBLTemp).length, 12);
+      const dealsPerBL = 5;
+      const BL_HEADER_HEIGHT = 14;
+      const DEAL_ROW_HEIGHT = 11;
+      const BL_GAP = 8;
+      
+      // Calculate height needed for Top Deals section
+      const blsPerColumn = Math.ceil(numBLs / 2);
+      const TOP_DEALS_HEADER = 20;
+      const TOP_DEALS_CONTENT = blsPerColumn * (BL_HEADER_HEIGHT + (dealsPerBL * DEAL_ROW_HEIGHT) + BL_GAP);
+      const TOP_DEALS_HEIGHT = TOP_DEALS_HEADER + TOP_DEALS_CONTENT;
+      
+      // TOTAL PAGE HEIGHT = sum of all sections + gaps + margins
+      const TOTAL_CONTENT = HEADER_HEIGHT + SECTION_GAP + 
+                            METRICS_HEIGHT + SECTION_GAP +
+                            STAGE_ROW_HEIGHT + SECTION_GAP +
+                            BL_SUMMARY_HEIGHT + SECTION_GAP +
+                            TOP_DEALS_HEIGHT + SECTION_GAP +
+                            FOOTER_HEIGHT;
+      const PAGE_HEIGHT = MARGIN_TOP + TOTAL_CONTENT + MARGIN_BOTTOM;
+      
+      // Create PDF with DYNAMIC page height (content-based)
       const doc = new PDFDocument({ 
-        size: 'LETTER',
-        margins: { top: 24, bottom: 24, left: 36, right: 36 }
+        size: [612, PAGE_HEIGHT],  // Letter width, dynamic height
+        margins: { top: MARGIN_TOP, bottom: MARGIN_BOTTOM, left: LEFT, right: 36 }
       });
       
       const chunks = [];
@@ -594,54 +643,27 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       const fontRegular = 'Helvetica';
       const fontBold = 'Helvetica-Bold';
       
-      // ═══════════════════════════════════════════════════════════════════════
-      // PAGE GEOMETRY - Dynamic proportional layout to fill entire page
-      // ═══════════════════════════════════════════════════════════════════════
-      const PAGE_HEIGHT = 792;  // Letter size in points
-      const MARGIN_TOP = 24;
-      const MARGIN_BOTTOM = 24;
-      const LEFT = 36;
-      const PAGE_WIDTH = 540;
-      const MID = LEFT + PAGE_WIDTH / 2;
-      const FOOTER_HEIGHT = 18;
-      const USABLE_HEIGHT = PAGE_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM;  // 744pt
-      const CONTENT_HEIGHT = USABLE_HEIGHT - FOOTER_HEIGHT;  // 726pt for content
-      
-      // Section proportions (sum to 100%) - optimized to fill page
-      const SECTIONS = {
-        header: 0.055,      // ~40pt - Title + date + teal line
-        keyMetrics: 0.065,  // ~47pt - 5-column metrics bar
-        stageRow: 0.16,     // ~116pt - Stage Distribution + Proposal Stage
-        blSummary: 0.18,    // ~131pt - Business Lead tables (7 BLs each)
-        topDeals: 0.54      // ~392pt - Top Deals by BL (fills remaining space)
-      };
-      
-      // Calculate absolute Y positions dynamically
+      // Calculate absolute Y positions (flowing layout)
       let currentY = MARGIN_TOP;
       
       const headerStartY = currentY;
-      const headerHeight = Math.floor(CONTENT_HEIGHT * SECTIONS.header);
-      currentY += headerHeight;
+      const headerHeight = HEADER_HEIGHT;
+      currentY += headerHeight + SECTION_GAP;
       
       const metricsStartY = currentY;
-      const metricsHeight = Math.floor(CONTENT_HEIGHT * SECTIONS.keyMetrics);
-      currentY += metricsHeight;
+      const metricsHeight = METRICS_HEIGHT;
+      currentY += metricsHeight + SECTION_GAP;
       
       const stageRowStartY = currentY;
-      const stageRowHeight = Math.floor(CONTENT_HEIGHT * SECTIONS.stageRow);
-      currentY += stageRowHeight;
+      const stageRowHeight = STAGE_ROW_HEIGHT;
+      currentY += stageRowHeight + SECTION_GAP;
       
       const blSummaryStartY = currentY;
-      const blSummaryHeight = Math.floor(CONTENT_HEIGHT * SECTIONS.blSummary);
-      currentY += blSummaryHeight;
+      const blSummaryHeight = BL_SUMMARY_HEIGHT;
+      currentY += blSummaryHeight + SECTION_GAP;
       
       const topDealsStartY = currentY;
-      const topDealsHeight = Math.floor(CONTENT_HEIGHT * SECTIONS.topDeals);
-      
-      const footerY = PAGE_HEIGHT - MARGIN_BOTTOM - FOOTER_HEIGHT;
-      
-      const halfWidth = PAGE_WIDTH / 2 - 10;
-      const RIGHT_COL = MID + 10;
+      const topDealsHeight = TOP_DEALS_HEIGHT;
       
       // ═══════════════════════════════════════════════════════════════════════
       // HEADER
@@ -698,7 +720,7 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       const row2Y = stageRowStartY + 4;
       
       // LEFT: Stage Distribution Table
-      doc.font(fontBold).fontSize(8).fillColor(DARK_GRAY);
+      doc.font(fontBold).fontSize(10).fillColor(DARK_GRAY);
       doc.text('STAGE DISTRIBUTION', LEFT, row2Y);
       
       const stageTableY = row2Y + 11;
@@ -724,8 +746,7 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       });
       
       // RIGHT: Proposal Stage Detail
-      const RIGHT_COL = MID + 10;
-      doc.font(fontBold).fontSize(8).fillColor(DARK_GRAY);
+      doc.font(fontBold).fontSize(10).fillColor(DARK_GRAY);
       doc.text('PROPOSAL STAGE (S4)', RIGHT_COL, row2Y);
       
       doc.font(fontBold).fontSize(6).fillColor(MEDIUM_GRAY);
@@ -790,7 +811,7 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       // ═══════════════════════════════════════════════════════════════════════
       const row3Y = blSummaryStartY + 4;
       
-      doc.font(fontBold).fontSize(8).fillColor(DARK_GRAY);
+      doc.font(fontBold).fontSize(10).fillColor(DARK_GRAY);
       doc.text('BUSINESS LEAD SUMMARY', LEFT, row3Y);
       
       // Helper function to draw BL table
@@ -843,10 +864,10 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       // ═══════════════════════════════════════════════════════════════════════
       const row4Y = topDealsStartY + 4;
       
-      doc.font(fontBold).fontSize(8).fillColor(DARK_GRAY);
+      doc.font(fontBold).fontSize(10).fillColor(DARK_GRAY);
       doc.text('TOP DEALS BY BUSINESS LEAD', LEFT, row4Y);
-      doc.font(fontRegular).fontSize(6).fillColor(MEDIUM_GRAY);
-      doc.text('Sorted by Target Sign Date', LEFT + 160, row4Y + 1);
+      doc.font(fontRegular).fontSize(7).fillColor(MEDIUM_GRAY);
+      doc.text('Sorted by Target Sign Date', LEFT + 175, row4Y + 1);
       
       // Get all active pipeline deals sorted by target date
       const dealsForTop5 = allDeals || [];
@@ -861,7 +882,7 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
         dealsByBL[blName].push(deal);
       });
       
-      // Sort each BL's deals by target date and limit to 6 (expanded to fill space)
+      // Sort each BL's deals by target date and limit to 5
       Object.keys(dealsByBL).forEach(bl => {
         dealsByBL[bl].sort((a, b) => {
           if (!a.targetDate && !b.targetDate) return 0;
@@ -869,7 +890,7 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
           if (!b.targetDate) return -1;
           return new Date(a.targetDate) - new Date(b.targetDate);
         });
-        dealsByBL[bl] = dealsByBL[bl].slice(0, 6);
+        dealsByBL[bl] = dealsByBL[bl].slice(0, dealsPerBL);
       });
       
       // Get BLs sorted by total ACV
@@ -881,55 +902,29 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
         }))
         .sort((a, b) => b.totalACV - a.totalACV);
       
-      // ═══════════════════════════════════════════════════════════════════════
-      // FORCE FILL: Calculate dynamic row heights to fill space to footer
-      // ═══════════════════════════════════════════════════════════════════════
-      
       // Split BLs into 2 columns
-      const leftBLs = sortedBLs.filter((_, i) => i % 2 === 0);
-      const rightBLs = sortedBLs.filter((_, i) => i % 2 === 1);
+      const leftBLs = sortedBLs.filter((_, i) => i % 2 === 0).slice(0, 6);
+      const rightBLs = sortedBLs.filter((_, i) => i % 2 === 1).slice(0, 6);
       
-      // Step 1: Calculate EXACT available height from deals header to footer
-      const dealsHeaderHeight = 16;  // "TOP DEALS BY BUSINESS LEAD" header + subtitle
-      const dealsContentStartY = row4Y + dealsHeaderHeight;
-      const dealsContentEndY = footerY - 6;  // Small gap before footer line
-      const totalDealsHeight = dealsContentEndY - dealsContentStartY;
+      // Fixed row heights (content-based, no stretching)
+      const rowHeight = DEAL_ROW_HEIGHT;
+      const blHeaderHeightLocal = BL_HEADER_HEIGHT;
+      const blGapHeightLocal = BL_GAP;
       
-      // Step 2: Count total rows to render
-      const numBLsLeft = Math.min(leftBLs.length, 6);
-      const numBLsRight = Math.min(rightBLs.length, 6);
-      const maxBLs = Math.max(numBLsLeft, numBLsRight, 1);
-      const dealsPerBL = 5;
-      
-      // Each BL section: 1 header + dealsPerBL deals + 0.5 gap = 6.5 rows per BL
-      const rowsPerBL = 1 + dealsPerBL + 0.5;
-      const totalRows = maxBLs * rowsPerBL;
-      
-      // Step 3: Calculate dynamic row height to FORCE fill available space
-      const dynamicRowHeight = totalDealsHeight / totalRows;
-      // Clamp between 9pt (min readable) and 16pt (max reasonable)
-      const rowHeight = Math.max(9, Math.min(16, dynamicRowHeight));
-      const blHeaderHeight = rowHeight + 3;
-      const blGapHeight = Math.floor(rowHeight * 0.6);
-      
-      // Font sizes scale with row height
-      const dealFontSize = Math.max(6.5, Math.min(8, rowHeight - 2));
-      const blNameFontSize = Math.max(7, Math.min(10, rowHeight));
-      
-      // Step 4: Render with dynamic heights
+      // Render deals with fixed heights
       const drawBLDeals = (bls, startX, startY, maxWidth) => {
         let y = startY;
         
-        bls.slice(0, 6).forEach(bl => {
+        bls.forEach(bl => {
           if (bl.deals.length === 0) return;
           
-          // BL Name header with dynamic font size
-          doc.font(fontBold).fontSize(blNameFontSize).fillColor(TEAL_ACCENT);
+          // BL Name header
+          doc.font(fontBold).fontSize(9).fillColor(TEAL_ACCENT);
           doc.text(bl.name, startX, y);
-          y += blHeaderHeight;
+          y += blHeaderHeightLocal;
           
-          // Deals with dynamic row height and font size
-          doc.font(fontRegular).fontSize(dealFontSize).fillColor(DARK_GRAY);
+          // Deals
+          doc.font(fontRegular).fontSize(7.5).fillColor(DARK_GRAY);
           bl.deals.slice(0, dealsPerBL).forEach(deal => {
             const name = deal.accountName.length > 26 ? deal.accountName.substring(0, 26) + '...' : deal.accountName;
             const date = formatDate(deal.targetDate);
@@ -937,22 +932,21 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
             y += rowHeight;
           });
           
-          y += blGapHeight;
+          y += blGapHeightLocal;
         });
         
         return y;
       };
       
-      const dealsStartY = dealsContentStartY;
-      const leftDealsEndY = drawBLDeals(leftBLs, LEFT, dealsStartY, halfWidth);
-      const rightDealsEndY = drawBLDeals(rightBLs, RIGHT_COL, dealsStartY, halfWidth);
+      const dealsContentStartY = row4Y + TOP_DEALS_HEADER;
+      const leftDealsEndY = drawBLDeals(leftBLs, LEFT, dealsContentStartY, halfWidth);
+      const rightDealsEndY = drawBLDeals(rightBLs, RIGHT_COL, dealsContentStartY, halfWidth);
       
       // ═══════════════════════════════════════════════════════════════════════
-      // FOOTER - Flows naturally after content (NOT at fixed page position)
+      // FOOTER - Positioned right after content (page sized to fit)
       // ═══════════════════════════════════════════════════════════════════════
-      // Position footer 20px after the last content row
       const contentEndY = Math.max(leftDealsEndY, rightDealsEndY);
-      const dynamicFooterY = contentEndY + 20;
+      const dynamicFooterY = contentEndY + 16;
       
       doc.strokeColor(TEAL_ACCENT).lineWidth(1).moveTo(LEFT, dynamicFooterY).lineTo(LEFT + PAGE_WIDTH, dynamicFooterY).stroke();
       
