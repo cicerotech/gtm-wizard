@@ -3836,8 +3836,107 @@ function copyWeeklyForEmail() {
   });
 }
 
-// Download Weekly tab as HTML file - STATIC EMAIL-OPTIMIZED VERSION
+// Download Weekly tab as HTML file - MIRRORS DASHBOARD FORMAT
 function downloadWeeklyHTML() {
+  const weeklyTab = document.getElementById('weekly');
+  if (!weeklyTab) return;
+  
+  const timestamp = new Date().toISOString().split('T')[0];
+  const formattedDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  
+  // Clone the entire weekly tab
+  const clone = weeklyTab.cloneNode(true);
+  
+  // Remove buttons
+  clone.querySelectorAll('button').forEach(btn => btn.remove());
+  
+  // Remove email copy status
+  const status = clone.querySelector('#email-copy-status');
+  if (status) status.remove();
+  
+  // Remove "+X more opportunities" expandable sections and keep only top 10
+  clone.querySelectorAll('details').forEach(details => {
+    const summary = details.querySelector('summary');
+    if (summary && summary.textContent.includes('more opportunities')) {
+      details.remove(); // Remove the expandable section entirely
+    }
+  });
+  
+  // Convert remaining <details> (like logos by quarter) to static tables
+  clone.querySelectorAll('details').forEach(details => {
+    const summary = details.querySelector('summary');
+    if (summary) {
+      // Get the content
+      const summaryText = summary.textContent.trim();
+      const content = details.querySelector('div');
+      
+      // Create a static row
+      const staticDiv = document.createElement('div');
+      staticDiv.style.cssText = 'display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #e5e7eb;';
+      
+      // Parse quarter and count
+      const match = summaryText.match(/(.+?)\\s+(\\d+)$/);
+      if (match) {
+        staticDiv.innerHTML = \`<span style="color: #374151;">\${match[1].trim()}</span><span style="font-weight: 600; color: #374151;">\${match[2]}</span>\`;
+      } else {
+        staticDiv.innerHTML = \`<span style="color: #374151;">\${summaryText}</span>\`;
+      }
+      
+      // Replace details with static div
+      details.parentNode.replaceChild(staticDiv, details);
+    }
+  });
+  
+  // Limit opportunity lists to top 10
+  clone.querySelectorAll('ol.weekly-list').forEach(ol => {
+    const items = ol.querySelectorAll('li');
+    items.forEach((li, i) => {
+      if (i >= 10) li.remove();
+    });
+  });
+  
+  // Build standalone HTML
+  const html = \`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RevOps Weekly Summary - \${formattedDate}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 20px auto; padding: 20px; background: #f9fafb; color: #1f2937; }
+    .weekly-section { background: white; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .weekly-section-title { font-size: 14px; font-weight: 700; color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 12px; }
+    .weekly-subsection { margin-bottom: 16px; }
+    .weekly-subsection-title { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    th { background: #1f2937; color: white; font-weight: 700; }
+    .weekly-table th { background: #1f2937; color: white; }
+    ol.weekly-list { margin: 0; padding-left: 20px; }
+    ol.weekly-list li { padding: 3px 0; font-size: 13px; color: #374151; }
+  </style>
+</head>
+<body>
+  <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+    <h1 style="margin: 0 0 8px 0; font-size: 1.25rem; color: #111827;">RevOps Weekly Summary</h1>
+    <p style="margin: 0; color: #6b7280; font-size: 0.875rem;">\${formattedDate}</p>
+  </div>
+  \${clone.innerHTML}
+</body>
+</html>\`;
+  
+  // Create download
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = \`revops-weekly-\${formattedDate.replace(/,?\\s+/g, '-')}.html\`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// LEGACY CODE BELOW - kept for reference but not used
+function downloadWeeklyHTML_legacy() {
   const weeklyTab = document.getElementById('weekly');
   if (!weeklyTab) return;
   
