@@ -541,7 +541,7 @@ function generateWeeklyTab(params) {
     closedLostDeals = [], nurturedAccounts = [], daysInStageByStage = {},
     logosByType = { revenue: [], project: [], pilot: [], loi: [] },
     newOppsThisWeek = [], newOppsTotal = 0,
-    signedThisWeek = [],
+    signedThisWeek = [], signedThisWeekTotal = 0,
     signedByFiscalQuarter = {}
   } = params;
   
@@ -582,7 +582,8 @@ function generateWeeklyTab(params) {
             stage: stage,
             owner: acc.owner,
             targetDate: targetDate,
-            month: month
+            month: month,
+            year: year
           });
         }
       }
@@ -595,6 +596,22 @@ function generateWeeklyTab(params) {
   console.log(`[Dashboard] Q4 Pipeline: ${q4Opps.length} opps (Stage 1-5 only), Weighted Total: $${(q4TotalWeighted/1000000).toFixed(2)}M`);
   // Debug: Log top 5 weighted opportunities
   q4Opps.slice(0, 5).forEach(o => console.log(`  - ${o.account}: $${(o.weighted/1000).toFixed(0)}k weighted (Stage: ${o.stage})`));
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // THIS MONTH OPPORTUNITIES - Deals targeting current month
+  // ═══════════════════════════════════════════════════════════════════════
+  const currentMonth = new Date().getMonth(); // 0 = January
+  const currentYear = new Date().getFullYear();
+  
+  const thisMonthOpps = q4Opps.filter(o => o.month === currentMonth && o.year === currentYear);
+  thisMonthOpps.sort((a, b) => b.weighted - a.weighted);
+  const thisMonthTotalACV = thisMonthOpps.reduce((sum, o) => sum + o.acv, 0);
+  const thisMonthTotalWeighted = thisMonthOpps.reduce((sum, o) => sum + o.weighted, 0);
+  
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const currentMonthName = monthNames[currentMonth];
+  
+  console.log(`[Dashboard] This Month (${currentMonthName}): ${thisMonthOpps.length} opps, Weighted: $${(thisMonthTotalWeighted/1000000).toFixed(2)}M`);
   
   // Top 10 by ACV (from pipeline)
   const top10Opps = [];
@@ -732,74 +749,116 @@ function generateWeeklyTab(params) {
   <div class="weekly-section">
     <div class="weekly-section-title">1. Revenue Forecast Snapshot</div>
     
-    <!-- Signed Since Last Week - Live from Salesforce -->
+    <!-- Signed Since Last Week - Live from Salesforce (Recurring, Project, Commit only) -->
     <div class="weekly-subsection">
       <div style="font-weight: 600; font-size: 0.75rem; color: #374151; margin-bottom: 4px;">Signed Revenue since last week</div>
-      ${signedThisWeek.length > 0 ? signedThisWeek.map(deal => {
-        const termYears = deal.termMonths ? Math.round(deal.termMonths / 12) : 1;
-        const termLabel = termYears === 1 ? '1-year' : `${termYears}-year`;
-        const acvFmt = deal.acv >= 1000000 ? '$' + (deal.acv / 1000000).toFixed(1) + 'm' : '$' + Math.round(deal.acv / 1000) + 'k';
-        const tcvFmt = deal.tcv >= 1000000 ? '$' + (deal.tcv / 1000000).toFixed(1) + 'm' : '$' + Math.round(deal.tcv / 1000) + 'k';
-        const productLabel = deal.productLine ? ` (${deal.productLine})` : '';
-        return `<div style="font-size: 0.75rem; color: #374151; margin-left: 12px; margin-bottom: 4px;">
-          <strong>${deal.accountName}</strong>${productLabel} — ${acvFmt} ACV${deal.tcv > deal.acv ? `, ${tcvFmt} TCV` : ''}, ${termLabel} term
-        </div>`;
-      }).join('') : '<div style="font-size: 0.75rem; color: #9ca3af; margin-left: 12px; margin-bottom: 8px;">No deals signed in the last 7 days</div>'}
+      ${signedThisWeek.length > 0 ? `
+        <div style="background: #ecfdf5; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px;">
+          <div style="font-size: 0.65rem; color: #047857; font-weight: 600;">TOTAL SIGNED (${signedThisWeek.length} deal${signedThisWeek.length > 1 ? 's' : ''})</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #065f46;">${signedThisWeekTotal >= 1000000 ? '$' + (signedThisWeekTotal / 1000000).toFixed(2) + 'm' : '$' + Math.round(signedThisWeekTotal / 1000) + 'k'}</div>
+        </div>
+        <div style="font-size: 0.7rem; color: #374151;">
+          ${signedThisWeek.map(deal => {
+            const revenueFmt = deal.revenue >= 1000000 ? '$' + (deal.revenue / 1000000).toFixed(2) + 'm' : '$' + Math.round(deal.revenue / 1000).toLocaleString() + 'k';
+            const typeLabel = deal.revenueType || 'Revenue';
+            const productLabel = deal.productLine ? deal.productLine : '';
+            return '<div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">' +
+              '<span><strong>' + deal.accountName + '</strong>' + (productLabel ? ' <span style="color: #6b7280;">(' + productLabel + ')</span>' : '') + '</span>' +
+              '<span style="font-weight: 600; color: #065f46;">' + revenueFmt + ' <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">' + typeLabel + '</span></span>' +
+            '</div>';
+          }).join('')}
+        </div>
+      ` : '<div style="font-size: 0.75rem; color: #9ca3af; margin-left: 12px; margin-bottom: 8px;">No deals signed in the last 7 days</div>'}
     </div>
     
-    <!-- Opportunities with Q4 Target Sign Date - Consolidated -->
+    <!-- Opportunities with Q4 Target Sign Date - Two Column Layout -->
     <div class="weekly-subsection">
       <div class="weekly-subsection-title">Opportunities with Q4 Target Sign Date</div>
       
       <!-- Q4 Stats Tiles - Live from Salesforce -->
-          ${(() => {
-        // Q4 stats from live Salesforce data
+      ${(() => {
         const totalQ4Count = q4Opps.length;
         const avgDealSize = totalQ4Count > 0 ? Math.round(q4TotalWeighted / totalQ4Count) : 0;
         
         return `
       <div style="display: flex; gap: 8px; margin-top: 8px; margin-bottom: 12px; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 120px; background: #ecfdf5; padding: 10px; border-radius: 6px; text-align: center;">
+        <div style="flex: 1; min-width: 100px; background: #ecfdf5; padding: 10px; border-radius: 6px; text-align: center;">
           <div style="font-size: 0.6rem; font-weight: 600; color: #047857; margin-bottom: 2px;">Q4 WEIGHTED PIPELINE</div>
           <div style="font-size: 1.1rem; font-weight: 700; color: #065f46;">${fmt(q4TotalWeighted)}</div>
         </div>
-        <div style="flex: 1; min-width: 120px; background: #f3f4f6; padding: 10px; border-radius: 6px; text-align: center;">
+        <div style="flex: 1; min-width: 100px; background: #dbeafe; padding: 10px; border-radius: 6px; text-align: center;">
+          <div style="font-size: 0.6rem; font-weight: 600; color: #1e40af; margin-bottom: 2px;">${currentMonthName.toUpperCase()} WEIGHTED</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #1e3a8a;">${fmt(thisMonthTotalWeighted)}</div>
+        </div>
+        <div style="flex: 1; min-width: 100px; background: #f3f4f6; padding: 10px; border-radius: 6px; text-align: center;">
           <div style="font-size: 0.6rem; font-weight: 600; color: #6b7280; margin-bottom: 2px;">AVG DEAL SIZE</div>
           <div style="font-size: 1.1rem; font-weight: 700; color: #374151;">${fmt(avgDealSize)}</div>
         </div>
       </div>`;
       })()}
       
-      ${(() => {
-        // Q4 opportunities from live Salesforce data (Q4 = Nov, Dec, Jan)
-        const allQ4Sorted = q4Opps.map(o => ({ 
-              account: o.account,
-          acv: o.acv,
-          weighted: o.weighted,
-          isNov: o.month === 10,
-          isDec: o.month === 11,
-          isJan: o.month === 0
-        })).sort((a, b) => b.acv - a.acv);
-            
-        const top10 = allQ4Sorted.slice(0, 10);
-        const remaining = allQ4Sorted.slice(10);
+      <!-- Two Column Layout: This Month | Q4 -->
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
         
-        return '<div style="background: #f9fafb; border-radius: 8px; padding: 12px;">' +
-          '<div style="font-weight: 600; color: #111827; margin-bottom: 4px; font-size: 0.75rem;">TOP OPPORTUNITIES (' + q4Opps.length + ' total)</div>' +
-          '<div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 8px;">Opportunities with Target Sign Date in Q4 FY2025 (Nov 1 - Jan 31)</div>' +
-          '<ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.4;">' +
-            (top10.map(o => {
-              const marker = o.isNov ? '¹' : (o.isDec ? '²' : (o.isJan ? '³' : ''));
-              return '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + marker + '</li>';
-            }).join('') || '<li style="color: #9ca3af;">None</li>') +
-          '</ol>' +
-          (remaining.length > 0 ? '<details style="margin-top: 6px;"><summary style="cursor: pointer; font-size: 0.65rem; color: #1e40af; font-weight: 600;">+' + remaining.length + ' more opportunities</summary>' +
-            '<ol start="11" style="font-size: 0.65rem; margin: 4px 0 0 0; padding-left: 20px; line-height: 1.4; color: #6b7280;">' +
-              remaining.map(o => '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + (o.isNov ? '¹' : (o.isDec ? '²' : (o.isJan ? '³' : ''))) + '</li>').join('') +
-            '</ol></details>' : '') +
-          '<div style="font-size: 0.55rem; color: #6b7280; margin-top: 6px;">¹ = Nov, ² = Dec, ³ = Jan target</div>' +
-        '</div>';
+        <!-- LEFT COLUMN: Targeting This Month -->
+        <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #eff6ff; border-radius: 8px; padding: 12px; border-left: 4px solid #3b82f6;">
+          <div style="font-weight: 600; color: #1e40af; margin-bottom: 4px; font-size: 0.75rem;">TARGETING ${currentMonthName.toUpperCase()} (${thisMonthOpps.length})</div>
+          <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 8px;">Deals with Target Sign Date in ${currentMonthName} ${currentYear}</div>
+          ${thisMonthOpps.length > 0 ? `
+            <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5;">
+              ${thisMonthOpps.slice(0, 10).map(o => 
+                '<li style="margin-bottom: 3px;"><strong>' + o.account + '</strong>, ' + fmt(o.acv) + '</li>'
+              ).join('')}
+            </ol>
+            ${thisMonthOpps.length > 10 ? `
+              <details style="margin-top: 6px;">
+                <summary style="cursor: pointer; font-size: 0.65rem; color: #1e40af; font-weight: 600;">+${thisMonthOpps.length - 10} more opportunities</summary>
+                <ol start="11" style="font-size: 0.65rem; margin: 4px 0 0 0; padding-left: 20px; line-height: 1.4; color: #6b7280;">
+                  ${thisMonthOpps.slice(10).map(o => '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + '</li>').join('')}
+                </ol>
+              </details>
+            ` : ''}
+          ` : '<div style="font-size: 0.7rem; color: #9ca3af; font-style: italic;">No deals targeting ${currentMonthName}</div>'}
+        </div>
+        
+        <!-- RIGHT COLUMN: Top Q4 Opportunities -->
+        <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; border-left: 4px solid #10b981;">
+          <div style="font-weight: 600; color: #065f46; margin-bottom: 4px; font-size: 0.75rem;">TOP Q4 OPPORTUNITIES (${q4Opps.length})</div>
+          <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 8px;">All Q4 FY2025 (Nov 1 - Jan 31)</div>
+          ${(() => {
+            const allQ4Sorted = q4Opps.map(o => ({ 
+              account: o.account,
+              acv: o.acv,
+              weighted: o.weighted,
+              isNov: o.month === 10,
+              isDec: o.month === 11,
+              isJan: o.month === 0
+            })).sort((a, b) => b.acv - a.acv);
+            
+            const top10 = allQ4Sorted.slice(0, 10);
+            const remaining = allQ4Sorted.slice(10);
+            
+            return (top10.length > 0 ? `
+              <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5;">
+                ${top10.map(o => {
+                  const marker = o.isNov ? '¹' : (o.isDec ? '²' : (o.isJan ? '³' : ''));
+                  return '<li style="margin-bottom: 3px;">' + o.account + ', ' + fmt(o.acv) + marker + '</li>';
+                }).join('')}
+              </ol>
+              ${remaining.length > 0 ? `
+                <details style="margin-top: 6px;">
+                  <summary style="cursor: pointer; font-size: 0.65rem; color: #065f46; font-weight: 600;">+${remaining.length} more opportunities</summary>
+                  <ol start="11" style="font-size: 0.65rem; margin: 4px 0 0 0; padding-left: 20px; line-height: 1.4; color: #6b7280;">
+                    ${remaining.map(o => '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + (o.isNov ? '¹' : (o.isDec ? '²' : (o.isJan ? '³' : ''))) + '</li>').join('')}
+                  </ol>
+                </details>
+              ` : ''}
+              <div style="font-size: 0.55rem; color: #6b7280; margin-top: 6px;">¹ = Nov, ² = Dec, ³ = Jan target</div>
+            ` : '<div style="font-size: 0.7rem; color: #9ca3af; font-style: italic;">No Q4 opportunities</div>');
           })()}
+        </div>
+        
+      </div>
     </div>
     
     <!-- Signed Logos by Type + Pipeline Summary -->
@@ -1469,27 +1528,33 @@ async function generateAccountDashboard() {
   
   // ═══════════════════════════════════════════════════════════════════════
   // CLOSED WON THIS WEEK - Deals signed in last 7 days (for Weekly tab)
+  // Filters: Revenue_Type__c = Recurring, Project, or Commit only
   // ═══════════════════════════════════════════════════════════════════════
   const closedWonThisWeekQuery = `
-    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, 
+    SELECT Account.Name, Name, ACV__c, Amount, CloseDate, Product_Line__c, 
            Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name
     FROM Opportunity
     WHERE StageName = 'Stage 6. Closed(Won)'
       AND CloseDate >= LAST_N_DAYS:7
-    ORDER BY CloseDate DESC
+      AND Revenue_Type__c IN ('Recurring', 'Project', 'Commit')
+    ORDER BY Amount DESC
   `;
   
   let signedThisWeek = [];
+  let signedThisWeekTotal = 0;
   
   try {
     const closedWonData = await query(closedWonThisWeekQuery, true);
     console.log(`[Dashboard] Closed Won This Week query returned ${closedWonData?.records?.length || 0} records`);
     if (closedWonData?.records) {
       closedWonData.records.forEach(opp => {
+        const revenue = opp.Amount || opp.ACV__c || 0;
         signedThisWeek.push({
           accountName: opp.Account?.Name || 'Unknown',
           oppName: opp.Name || '',
           acv: opp.ACV__c || 0,
+          amount: opp.Amount || 0,
+          revenue: revenue,
           tcv: opp.TCV__c || 0,
           termMonths: opp.Contract_Term_Months__c || 12,
           productLine: opp.Product_Line__c || '',
@@ -1497,11 +1562,14 @@ async function generateAccountDashboard() {
           owner: opp.Owner?.Name || '',
           closeDate: opp.CloseDate
         });
+        signedThisWeekTotal += revenue;
       });
     }
+    console.log(`[Dashboard] Signed This Week: ${signedThisWeek.length} deals, Total: $${(signedThisWeekTotal/1000).toFixed(0)}k`);
   } catch (e) { 
     console.error('Closed Won This Week query error:', e.message);
     signedThisWeek = [];
+    signedThisWeekTotal = 0;
   }
   
   // ═══════════════════════════════════════════════════════════════════════
@@ -2344,7 +2412,7 @@ ${generateWeeklyTab({
   novDecRevenue, novDecRevenueTotal,
   contractsByAccount, recurringTotal, projectTotal,
   closedLostDeals, nurturedAccounts, daysInStageByStage, logosByType,
-  newOppsThisWeek, newOppsTotal, signedThisWeek, signedByFiscalQuarter
+  newOppsThisWeek, newOppsTotal, signedThisWeek, signedThisWeekTotal, signedByFiscalQuarter
 })}
 
 <!-- TAB 3: REVENUE -->
