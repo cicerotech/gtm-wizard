@@ -3577,44 +3577,394 @@ function copyWeeklyForEmail() {
   });
 }
 
-// Download Weekly tab as HTML file
+// Download Weekly tab as HTML file - STATIC EMAIL-OPTIMIZED VERSION
 function downloadWeeklyHTML() {
   const weeklyTab = document.getElementById('weekly');
   if (!weeklyTab) return;
   
   const timestamp = new Date().toISOString().split('T')[0];
   const dashboardUrl = window.location.href.split('?')[0];
+  const formattedDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   
-  // Clone and clean up
-  const clone = weeklyTab.cloneNode(true);
-  const btns = clone.querySelectorAll('button');
-  btns.forEach(b => b.remove());
-  const status = clone.querySelector('#email-copy-status');
-  if (status) status.remove();
+  // Helper to extract text
+  const getText = (selector) => weeklyTab.querySelector(selector)?.textContent?.trim() || '';
   
-  // Build standalone HTML with all styles inline
+  // Extract TOP OPPORTUNITIES - only first 10 from each section
+  const extractTopOpps = (containerSelector, limit = 10) => {
+    const container = weeklyTab.querySelector(containerSelector);
+    if (!container) return [];
+    const items = container.querySelectorAll('li, [style*="display: flex"]');
+    const opps = [];
+    items.forEach((item, i) => {
+      if (i < limit && item.textContent.trim()) {
+        opps.push(item.textContent.trim().replace(/^\\d+\\.\\s*/, ''));
+      }
+    });
+    return opps;
+  };
+  
+  // Get targeting December deals (first ol.weekly-list)
+  const targetingList = weeklyTab.querySelectorAll('ol.weekly-list');
+  const targetingDec = targetingList[0] ? Array.from(targetingList[0].querySelectorAll('li')).slice(0, 10).map(li => li.textContent.trim()) : [];
+  const targetingDecCount = targetingList[0]?.closest('div')?.querySelector('[style*="font-weight: 600"]')?.textContent?.match(/\\((\\d+)\\)/)?.[1] || targetingDec.length;
+  
+  // Get Q4 opportunities (second ol.weekly-list) 
+  const q4Opps = targetingList[1] ? Array.from(targetingList[1].querySelectorAll('li')).slice(0, 10).map(li => li.textContent.trim()) : [];
+  const q4Count = targetingList[1]?.closest('div')?.querySelector('[style*="font-weight: 600"]')?.textContent?.match(/\\((\\d+)\\)/)?.[1] || q4Opps.length;
+  
+  // Extract signed logos by quarter from details elements
+  const logoQuarters = [];
+  weeklyTab.querySelectorAll('details').forEach(d => {
+    const summary = d.querySelector('summary');
+    if (summary && (summary.textContent.includes('FY') || summary.textContent.includes('Prior'))) {
+      const text = summary.textContent.trim();
+      const parts = text.match(/(.+?)\\s+(\\d+)$/);
+      if (parts) {
+        logoQuarters.push({ quarter: parts[1].trim(), count: parts[2] });
+      }
+    }
+  });
+  
+  // Get total signed
+  const totalSignedEl = weeklyTab.querySelector('[style*="Total Signed"]');
+  const totalSigned = totalSignedEl?.nextElementSibling?.textContent?.trim() || 
+                      weeklyTab.querySelector('[style*="Total Signed"] ~ span')?.textContent?.trim() || '81';
+  
+  // Extract run-rate forecast
+  const runRateRows = [];
+  weeklyTab.querySelectorAll('table.weekly-table tbody tr').forEach(tr => {
+    const cells = tr.querySelectorAll('td');
+    if (cells.length >= 2) {
+      runRateRows.push({ month: cells[0].textContent.trim(), value: cells[1].textContent.trim() });
+    }
+  });
+  
+  // Extract week-over-week change data
+  const wowRows = [];
+  const wowTable = weeklyTab.querySelector('[class*="weekly-subsection"]:has([class*="title"]:contains("Week-over-week")) table, .weekly-subsection table');
+  weeklyTab.querySelectorAll('.weekly-subsection').forEach(section => {
+    if (section.textContent.includes('Week-over-week Change')) {
+      section.querySelectorAll('tbody tr').forEach(tr => {
+        const cells = tr.querySelectorAll('td');
+        if (cells.length >= 5) {
+          wowRows.push({
+            stage: cells[0].textContent.trim(),
+            acv: cells[1].textContent.trim(),
+            acvWow: cells[2].textContent.trim(),
+            opps: cells[3].textContent.trim(),
+            oppsWow: cells[4].textContent.trim()
+          });
+        }
+      });
+    }
+  });
+  
+  // Extract Pipeline by Sales Type (Combined)
+  const salesTypeRows = [];
+  weeklyTab.querySelectorAll('.weekly-subsection').forEach(section => {
+    if (section.textContent.includes('Pipeline by Sales Type (Combined)')) {
+      section.querySelectorAll('tbody tr').forEach(tr => {
+        const cells = tr.querySelectorAll('td');
+        if (cells.length >= 5) {
+          salesTypeRows.push({
+            type: cells[0].textContent.trim(),
+            acv: cells[1].textContent.trim(),
+            pctAcv: cells[2].textContent.trim(),
+            weighted: cells[3].textContent.trim(),
+            pctWtd: cells[4].textContent.trim(),
+            count: cells[5]?.textContent?.trim() || ''
+          });
+        }
+      });
+    }
+  });
+  
+  // Extract top deals impacting forecast
+  const topDeals = [];
+  weeklyTab.querySelectorAll('.weekly-subsection').forEach(section => {
+    if (section.textContent.includes('Top Deals Impacting')) {
+      section.querySelectorAll('li, [style*="padding: 4px"]').forEach((item, i) => {
+        if (i < 10 && item.textContent.trim()) {
+          topDeals.push(item.textContent.trim());
+        }
+      });
+    }
+  });
+  
+  // Extract longest deals by stage
+  const longestDeals = {};
+  weeklyTab.querySelectorAll('.weekly-subsection').forEach(section => {
+    if (section.textContent.includes('Longest Deals by Stage')) {
+      let currentStage = '';
+      section.querySelectorAll('li, [style*="font-weight: 600"]').forEach(item => {
+        const text = item.textContent.trim();
+        if (text.startsWith('Stage')) {
+          currentStage = text;
+          longestDeals[currentStage] = [];
+        } else if (currentStage && text && !text.includes('Top 10')) {
+          longestDeals[currentStage].push(text);
+        }
+      });
+    }
+  });
+  
+  // Build static email-optimized HTML
   const html = \`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>RevOps Weekly Summary - \${timestamp}</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 20px auto; padding: 20px; background: #f9fafb; color: #1f2937; }
-    .weekly-section { background: white; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .weekly-section-title { font-size: 1rem; font-weight: 700; color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 12px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-    th { background: #1f2937; color: white; }
-    details { margin: 4px 0; }
-    summary { cursor: pointer; padding: 6px 0; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RevOps \${timestamp} Weekly Update Preview</title>
 </head>
-<body>
-  <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
-    <h1 style="margin: 0 0 8px 0; font-size: 1.25rem;">RevOps Weekly Summary</h1>
-    <p style="margin: 0; color: #6b7280; font-size: 0.875rem;">Generated \${new Date().toLocaleString()} • <a href="\${dashboardUrl}">View live dashboard</a></p>
-  </div>
-  \${clone.innerHTML}
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
+  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 700px; margin: 0 auto; background: #ffffff;">
+    <tr>
+      <td style="padding: 24px;">
+        
+        <!-- Header -->
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 24px;">
+          <tr>
+            <td style="font-size: 20px; font-weight: 700; color: #111827; padding-bottom: 4px;">
+              RevOps \${timestamp} Weekly Update Preview
+            </td>
+          </tr>
+          <tr>
+            <td style="font-size: 13px; color: #6b7280;">
+              \${formattedDate} • <a href="\${dashboardUrl}" style="color: #2563eb; text-decoration: none;">View live dashboard →</a>
+            </td>
+          </tr>
+        </table>
+        
+        <!-- Section 1: Revenue Forecast -->
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 28px;">
+          <tr>
+            <td style="font-size: 16px; font-weight: 700; color: #111827; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
+              1. Revenue Forecast Snapshot
+            </td>
+          </tr>
+        </table>
+        
+        <!-- Two-column layout for Targeting Dec + Q4 Opportunities -->
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 24px;">
+          <tr valign="top">
+            <!-- Targeting December -->
+            <td width="48%" style="padding-right: 12px;">
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background: #f9fafb; border: 1px solid #e5e7eb;">
+                <tr>
+                  <td style="background: #1f2937; color: white; padding: 10px 12px; font-size: 12px; font-weight: 600; text-transform: uppercase;">
+                    TARGETING DECEMBER (\${targetingDecCount})
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 4px 12px; font-size: 11px; color: #6b7280;">Deals with Target Sign Date in December 2025</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; font-size: 12px; color: #374151;">
+                    \${targetingDec.map((opp, i) => \`<div style="padding: 3px 0;">\${i+1}. \${opp}</div>\`).join('')}
+                  </td>
+                </tr>
+              </table>
+            </td>
+            <!-- Q4 Opportunities -->
+            <td width="48%" style="padding-left: 12px;">
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background: #f9fafb; border: 1px solid #e5e7eb;">
+                <tr>
+                  <td style="background: #1f2937; color: white; padding: 10px 12px; font-size: 12px; font-weight: 600; text-transform: uppercase;">
+                    TOP Q4 OPPORTUNITIES (\${q4Count})
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 4px 12px; font-size: 11px; color: #6b7280;">All Q4 FY2025 (Nov 1 - Jan 31)</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; font-size: 12px; color: #374151;">
+                    \${q4Opps.map((opp, i) => \`<div style="padding: 3px 0;">\${i+1}. \${opp}</div>\`).join('')}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+          <tr><td style="font-size: 11px; color: #9ca3af; padding-bottom: 20px;">¹ = Nov, ² = Dec, ³ = Jan target</td></tr>
+        </table>
+        
+        <!-- Two-column: Signed Logos + Run-Rate Forecast -->
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 24px;">
+          <tr valign="top">
+            <!-- Signed Logos by Quarter -->
+            <td width="48%" style="padding-right: 12px;">
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border: 1px solid #e5e7eb;">
+                <tr>
+                  <td colspan="2" style="background: #1f2937; color: white; padding: 10px 12px; font-size: 12px; font-weight: 600; text-transform: uppercase;">
+                    SIGNED LOGOS BY QUARTER
+                  </td>
+                </tr>
+                \${logoQuarters.map(q => \`
+                <tr style="border-bottom: 1px solid #e5e7eb;">
+                  <td style="padding: 8px 12px; font-size: 13px; color: #374151;">\${q.quarter}</td>
+                  <td style="padding: 8px 12px; font-size: 13px; color: #374151; text-align: right; font-weight: 600;">\${q.count}</td>
+                </tr>\`).join('')}
+                <tr style="background: #e5e7eb;">
+                  <td style="padding: 8px 12px; font-size: 13px; font-weight: 700; color: #111827;">Total Signed</td>
+                  <td style="padding: 8px 12px; font-size: 13px; font-weight: 700; color: #111827; text-align: right;">\${totalSigned}</td>
+                </tr>
+              </table>
+              <div style="font-size: 10px; color: #9ca3af; margin-top: 4px;">* Minor adjustments during migration</div>
+            </td>
+            <!-- Run-Rate Forecast -->
+            <td width="48%" style="padding-left: 12px;">
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border: 1px solid #e5e7eb;">
+                <tr>
+                  <td colspan="2" style="background: #1f2937; color: white; padding: 10px 12px; font-size: 12px; font-weight: 600; text-transform: uppercase;">
+                    RUN-RATE FORECAST ($)
+                  </td>
+                </tr>
+                \${runRateRows.map(r => {
+                  const isHighlight = r.month.includes('December') || r.month.includes('Q4') || r.month.includes('FY2025');
+                  const bgColor = isHighlight ? 'background: #dbeafe;' : '';
+                  const textColor = isHighlight ? 'color: #1e40af; font-weight: 600;' : 'color: #374151;';
+                  return \`
+                <tr style="border-bottom: 1px solid #e5e7eb; \${bgColor}">
+                  <td style="padding: 8px 12px; font-size: 13px; \${textColor}">\${r.month}</td>
+                  <td style="padding: 8px 12px; font-size: 13px; text-align: right; \${textColor}">\${r.value}</td>
+                </tr>\`;
+                }).join('')}
+              </table>
+            </td>
+          </tr>
+        </table>
+        
+        <!-- Section 2: Gross Pipeline Breakdown -->
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 20px;">
+          <tr>
+            <td style="font-size: 16px; font-weight: 700; color: #111827; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
+              2. Gross Pipeline Breakdown
+            </td>
+          </tr>
+        </table>
+        
+        <!-- Week-over-Week Change by Stage -->
+        \${wowRows.length > 0 ? \`
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 20px;">
+          <tr>
+            <td style="font-size: 13px; font-weight: 600; color: #374151; padding-bottom: 8px;">Week-over-week Change by Stage</td>
+          </tr>
+          <tr>
+            <td>
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border: 1px solid #e5e7eb; font-size: 12px;">
+                <tr style="background: #1f2937; color: white;">
+                  <td style="padding: 8px 10px; font-weight: 600;">Stage</td>
+                  <td style="padding: 8px 10px; text-align: right; font-weight: 600;">ACV</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 600;">% WoW</td>
+                  <td style="padding: 8px 10px; text-align: right; font-weight: 600;">Opps</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 600;">% WoW</td>
+                </tr>
+                \${wowRows.map((r, i) => {
+                  const isTotal = r.stage.includes('Total');
+                  const isLate = r.stage.includes('S4');
+                  const bg = isTotal ? 'background: #e5e7eb; font-weight: 600;' : (isLate ? 'background: #dbeafe;' : '');
+                  return \`
+                <tr style="border-bottom: 1px solid #e5e7eb; \${bg}">
+                  <td style="padding: 6px 10px; color: #374151;">\${r.stage}</td>
+                  <td style="padding: 6px 10px; text-align: right; color: #374151;">\${r.acv}</td>
+                  <td style="padding: 6px 10px; text-align: center; color: \${r.acvWow.includes('+') ? '#059669' : r.acvWow.includes('-') ? '#dc2626' : '#6b7280'};">\${r.acvWow}</td>
+                  <td style="padding: 6px 10px; text-align: right; color: #374151;">\${r.opps}</td>
+                  <td style="padding: 6px 10px; text-align: center; color: \${r.oppsWow.includes('+') ? '#059669' : r.oppsWow.includes('-') ? '#dc2626' : '#6b7280'};">\${r.oppsWow}</td>
+                </tr>\`;
+                }).join('')}
+              </table>
+            </td>
+          </tr>
+        </table>\` : ''}
+        
+        <!-- Pipeline by Sales Type (Combined) -->
+        \${salesTypeRows.length > 0 ? \`
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 20px;">
+          <tr>
+            <td style="font-size: 13px; font-weight: 600; color: #374151; padding-bottom: 8px;">Pipeline by Sales Type (Combined)</td>
+          </tr>
+          <tr>
+            <td>
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border: 1px solid #e5e7eb; font-size: 12px;">
+                <tr style="background: #1f2937; color: white;">
+                  <td style="padding: 8px 10px; font-weight: 600;">Sales Type</td>
+                  <td style="padding: 8px 10px; text-align: right; font-weight: 600;">Sum of ACV</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 600;">% ACV</td>
+                  <td style="padding: 8px 10px; text-align: right; font-weight: 600;">Weighted ACV</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 600;">% Wtd</td>
+                  <td style="padding: 8px 10px; text-align: center; font-weight: 600;">Count</td>
+                </tr>
+                \${salesTypeRows.map(r => {
+                  const isTotal = r.type.includes('Total');
+                  const bg = isTotal ? 'background: #e5e7eb; font-weight: 600;' : '';
+                  return \`
+                <tr style="border-bottom: 1px solid #e5e7eb; \${bg}">
+                  <td style="padding: 6px 10px; color: #374151;">\${r.type}</td>
+                  <td style="padding: 6px 10px; text-align: right; color: #374151;">\${r.acv}</td>
+                  <td style="padding: 6px 10px; text-align: center; color: #6b7280;">\${r.pctAcv}</td>
+                  <td style="padding: 6px 10px; text-align: right; color: #374151;">\${r.weighted}</td>
+                  <td style="padding: 6px 10px; text-align: center; color: #6b7280;">\${r.pctWtd}</td>
+                  <td style="padding: 6px 10px; text-align: center; color: #374151;">\${r.count}</td>
+                </tr>\`;
+                }).join('')}
+              </table>
+            </td>
+          </tr>
+        </table>\` : ''}
+        
+        <!-- Section 3: Top Deals Impacting the Forecast -->
+        \${topDeals.length > 0 ? \`
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 20px;">
+          <tr>
+            <td style="font-size: 16px; font-weight: 700; color: #111827; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
+              3. Top Deals Impacting the Forecast
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-top: 12px;">
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size: 12px; color: #374151;">
+                \${topDeals.slice(0, 10).map((deal, i) => \`
+                <tr><td style="padding: 4px 0;">\${i+1}. \${deal}</td></tr>\`).join('')}
+              </table>
+            </td>
+          </tr>
+        </table>\` : ''}
+        
+        <!-- Section 4: Longest Deals by Stage -->
+        \${Object.keys(longestDeals).length > 0 ? \`
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 20px;">
+          <tr>
+            <td style="font-size: 16px; font-weight: 700; color: #111827; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
+              4. Longest Deals by Stage (T10)
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-top: 12px; font-size: 11px; color: #6b7280;">
+              Top 10 deals per stage • Numbers show days in current stage • Live from Salesforce
+            </td>
+          </tr>
+          \${Object.entries(longestDeals).map(([stage, deals]) => \`
+          <tr>
+            <td style="padding-top: 12px;">
+              <div style="font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px;">\${stage}</div>
+              <div style="font-size: 11px; color: #6b7280; line-height: 1.5;">\${deals.join(', ')}</div>
+            </td>
+          </tr>\`).join('')}
+        </table>\` : ''}
+        
+        <!-- Footer -->
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top: 24px; border-top: 1px solid #e5e7eb;">
+          <tr>
+            <td style="padding-top: 16px; font-size: 11px; color: #9ca3af;">
+              Data pulled live from Salesforce • <a href="\${dashboardUrl}" style="color: #2563eb; text-decoration: none;">View full dashboard</a>
+            </td>
+          </tr>
+        </table>
+        
+      </td>
+    </tr>
+  </table>
 </body>
 </html>\`;
   
