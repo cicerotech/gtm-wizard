@@ -882,51 +882,65 @@ function generateWeeklyTab(params) {
     
     <!-- Signed Logos by Type + Pipeline Summary -->
     <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; align-items: stretch;">
-      <!-- Signed Logos by Fiscal Quarter - Expandable (from 4444.xlsx - 81 total) -->
+      <!-- Signed Logos by Fiscal Quarter - Expandable (from SF Current Logos report - 81 total) -->
       <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
         <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">SIGNED LOGOS BY QUARTER</div>
         <div style="font-size: 0.75rem;">
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #374151;">FY2024 & Prior</span>
-              <span style="font-weight: 600; color: #374151;">4</span>
+              <span style="color: #374151;">Q4 FY2020</span>
+              <span style="font-weight: 600; color: #374151;">1</span>
             </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Twitter, ECMS, Cargill, Southwest Airlines</div>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Twitter</div>
           </details>
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #374151;">Q4 2024</span>
+              <span style="color: #374151;">Q2 FY2024</span>
+              <span style="font-weight: 600; color: #374151;">1</span>
+            </summary>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Cargill</div>
+          </details>
+          <details style="border-bottom: 1px solid #e5e7eb;">
+            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
+              <span style="color: #374151;">Q3 FY2024</span>
+              <span style="font-weight: 600; color: #374151;">2</span>
+            </summary>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Southwest Airlines, ECMS</div>
+          </details>
+          <details style="border-bottom: 1px solid #e5e7eb;">
+            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
+              <span style="color: #374151;">Q4 FY2024</span>
               <span style="font-weight: 600; color: #374151;">26</span>
             </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Airbnb, Airship Group, Arabic Computer Systems, Bank of Ireland, Coleman Legal, CommScope, Creed McStay, Datalex, Dropbox, ESB NI/Electric Ireland, Etsy Ireland, Glanbia, Graybar Electric, Hayes Solicitors, Indeed Ireland, Kellanova, LinkedIn Ireland, Moy Park, NTMA, OpenAi, Stripe, Teamwork.com, TikTok, Tinder LLC, Udemy Ireland, Uisce Eireann</div>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Uisce Eireann, Udemy Ireland, Tinder LLC, TikTok, Teamwork, Stripe, OpenAi, NTMA, Moy Park, LinkedIn Ireland, Kellanova, Indeed Ireland, Hayes Solicitors, Graybar Electric, Glanbia, Etsy Ireland, ESB NI/Electric Ireland, Dropbox, Datalex, Creed McStay, CommScope, Coleman Legal, Bank of Ireland, Arabic Computer Systems, Airship Group, Airbnb</div>
           </details>
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #374151;">Q1 2025</span>
+              <span style="color: #374151;">Q1 FY2025</span>
               <span style="font-weight: 600; color: #374151;">8</span>
             </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Sisk Group, Northern Trust, Duracell, Dept of Children/Disability/Equality, Coillte, Coherent, Taoglas, Consensys</div>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Taoglas, Sisk Group, Northern Trust, Duracell, Dept of Children/Disability/Equality, Consensys, Coillte, Coherent</div>
           </details>
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #374151;">Q2 2025</span>
+              <span style="color: #374151;">Q2 FY2025</span>
               <span style="font-weight: 600; color: #374151;">6</span>
             </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Orsted, Mediolanum, Intuit, Gilead Sciences, Perrigo Pharma, National Grid</div>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Perrigo Pharma, Orsted, National Grid, Mediolanum, Intuit, Gilead Sciences</div>
           </details>
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #374151;">Q3 2025</span>
+              <span style="color: #374151;">Q3 FY2025</span>
               <span style="font-weight: 600; color: #374151;">29</span>
             </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">U.S. Air Force, Toshiba US, Peregrine Hospitality, Meta, Kingspan, ICON, Ecolab, DHL, Coimisiun na Mean, Chevron, Bayer, Sandbox, Novelis, Asana, Western Digital, The Wonderful Company, Weir Group, Pure Storage, PetSmart, GE Vernova, Fresh Del Monte, Dolby, Cox Media, CHS, Best Buy, AES, Wealth Partners, Tailored Brands, Amazon</div>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Western Digital, Wealth Partners, U.S. Air Force, Toshiba US, The Wonderful Company, The Weir Group, Tailored Brands, Sandbox, Pure Storage, Petsmart, Peregrine Hospitality, Novelis, Meta Platforms, Kingspan, ICON Clinical Research, GE Vernova, Fresh Del Monte, Ecolab, Dolby, DHL North America, Cox Media Group, Coimisiun na Mean, CHS, Chevron, Best Buy, Bayer, Asana, Amazon, AES</div>
           </details>
           <details style="background: #dbeafe;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #1e40af;">Q4 2025 (QTD)</span>
+              <span style="color: #1e40af;">Q4 FY2025 (QTD)</span>
               <span style="font-weight: 600; color: #1e40af;">8</span>
             </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #1e3a8a; background: #bfdbfe;">IQVIA, Delinea, Aryza, Wellspring Philanthropic Fund, Aramark Ireland, World Wide Technology, BNY Mellon</div>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #1e3a8a; background: #bfdbfe;">World Wide Technology, Wellspring Philanthropic Fund, Sequoia Climate Fund, IQVIA, Delinea, BNY Mellon, Aryza, Aramark Ireland</div>
           </details>
           <div style="display: flex; justify-content: space-between; padding: 6px 8px; font-weight: 600; background: #e5e7eb; margin-top: 6px; border-radius: 3px; font-size: 0.7rem; color: #374151;">
             <span>Total Signed</span>
@@ -1112,7 +1126,7 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Pipeline by Sales Type & Pod - Static (from SF report) -->
+    <!-- Pipeline by Sales Type & Pod - Static (from SF report) with % breakdown -->
     <div class="weekly-subsection">
       <div class="weekly-subsection-title">Pipeline by Sales Type</div>
       <table style="width: 100%; font-size: 0.7rem; margin-top: 8px; border-collapse: collapse;">
@@ -1121,7 +1135,9 @@ function generateWeeklyTab(params) {
             <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Pod</th>
             <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Sales Type</th>
             <th style="padding: 6px 8px; text-align: right; color: #374151; font-weight: 600;">Sum of ACV</th>
+            <th style="padding: 6px 8px; text-align: center; color: #374151; font-weight: 600;">% ACV</th>
             <th style="padding: 6px 8px; text-align: right; color: #374151; font-weight: 600;">Weighted ACV</th>
+            <th style="padding: 6px 8px; text-align: center; color: #374151; font-weight: 600;">% Wtd</th>
             <th style="padding: 6px 8px; text-align: center; color: #374151; font-weight: 600;">Count</th>
           </tr>
         </thead>
@@ -1130,48 +1146,62 @@ function generateWeeklyTab(params) {
             <td style="padding: 6px 8px; font-weight: 600;">US</td>
             <td style="padding: 6px 8px;">New business</td>
             <td style="padding: 6px 8px; text-align: right;">$18.0m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">42%</td>
             <td style="padding: 6px 8px; text-align: right;">$2.6m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">30%</td>
             <td style="padding: 6px 8px; text-align: center;">124</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 6px 8px;"></td>
             <td style="padding: 6px 8px;">Expansion / Upsell</td>
             <td style="padding: 6px 8px; text-align: right;">$2.7m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">6%</td>
             <td style="padding: 6px 8px; text-align: right;">$814k</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">9%</td>
             <td style="padding: 6px 8px; text-align: center;">21</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 6px 8px;"></td>
             <td style="padding: 6px 8px;">New business via LOI</td>
             <td style="padding: 6px 8px; text-align: right;">$6.4m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">15%</td>
             <td style="padding: 6px 8px; text-align: right;">$1.8m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">21%</td>
             <td style="padding: 6px 8px; text-align: center;">20</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 6px 8px; font-weight: 600;">EU</td>
             <td style="padding: 6px 8px;">New business</td>
             <td style="padding: 6px 8px; text-align: right;">$7.6m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">18%</td>
             <td style="padding: 6px 8px; text-align: right;">$865k</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">10%</td>
             <td style="padding: 6px 8px; text-align: center;">51</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 6px 8px;"></td>
             <td style="padding: 6px 8px;">Expansion / Upsell</td>
             <td style="padding: 6px 8px; text-align: right;">$8.1m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">19%</td>
             <td style="padding: 6px 8px; text-align: right;">$2.4m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">28%</td>
             <td style="padding: 6px 8px; text-align: center;">36</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 6px 8px;"></td>
             <td style="padding: 6px 8px;">Renewal + Expansion</td>
             <td style="padding: 6px 8px; text-align: right;">$400k</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">1%</td>
             <td style="padding: 6px 8px; text-align: right;">$100k</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">1%</td>
             <td style="padding: 6px 8px; text-align: center;">2</td>
           </tr>
           <tr style="font-weight: 600; background: #e5e7eb;">
             <td style="padding: 6px 8px;" colspan="2">Total</td>
             <td style="padding: 6px 8px; text-align: right;">$43.3m</td>
+            <td style="padding: 6px 8px; text-align: center;">100%</td>
             <td style="padding: 6px 8px; text-align: right;">$8.6m</td>
+            <td style="padding: 6px 8px; text-align: center;">100%</td>
             <td style="padding: 6px 8px; text-align: center;">254</td>
           </tr>
         </tbody>
@@ -1997,6 +2027,28 @@ async function generateAccountDashboard() {
       Object.keys(daysInStageByStage).forEach(stage => {
         daysInStageByStage[stage].sort((a, b) => b.daysInStage - a.daysInStage);
         daysInStageByStage[stage] = daysInStageByStage[stage].slice(0, 10);
+      });
+      
+      // Manual overrides for specific accounts (static days values)
+      const daysOverrides = {
+        'USDA': 212,
+        'CoreBridge': 199,
+        'Corebridge': 199,
+        'UK Government': 168,
+        'UK government': 168,
+        'Southwest Airlines': 167,
+        'Intuit': 211
+      };
+      
+      // Apply overrides to all stages
+      Object.keys(daysInStageByStage).forEach(stage => {
+        daysInStageByStage[stage].forEach(deal => {
+          if (daysOverrides[deal.accountName]) {
+            deal.daysInStage = daysOverrides[deal.accountName];
+          }
+        });
+        // Re-sort after overrides
+        daysInStageByStage[stage].sort((a, b) => b.daysInStage - a.daysInStage);
       });
     }
   } catch (e) { console.error('Days in Stage query error:', e.message); }
