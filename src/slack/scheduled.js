@@ -3,6 +3,7 @@ const logger = require('../utils/logger');
 const { query } = require('../salesforce/connection');
 const { queryBuilder } = require('../salesforce/queries');
 const { formatResponse } = require('./responseFormatter');
+const { scheduleBLWeeklySummary } = require('./blWeeklySummary');
 
 /**
  * Start scheduled jobs
@@ -63,6 +64,9 @@ function startScheduledJobs(app) {
   }, {
     timezone: 'America/New_York'
   });
+
+  // Weekly BL Summary - Thursday 9:00 AM EST to #gtm-account-planning
+  scheduleBLWeeklySummary(app);
 
   logger.info('✅ Scheduled jobs started');
 }

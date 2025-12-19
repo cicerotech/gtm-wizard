@@ -768,6 +768,63 @@ class GTMBrainApp {
       }
     });
 
+    // Test endpoint for BL Weekly Summary (sends to Keigan's DM in test mode)
+    this.expressApp.get('/send-bl-summary-test', async (req, res) => {
+      try {
+        const { sendBLSummaryNow } = require('./slack/blWeeklySummary');
+        const result = await sendBLSummaryNow(this.app, true); // Test mode - sends to personal DM
+        res.json({ 
+          success: true, 
+          message: 'BL Summary sent in test mode',
+          result,
+          note: 'Check your Slack DM for the summary'
+        });
+      } catch (error) {
+        res.status(500).json({ 
+          success: false, 
+          error: error.message,
+          stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+      }
+    });
+
+    // Send BL Summary to production channel (use with caution)
+    this.expressApp.get('/send-bl-summary-prod', async (req, res) => {
+      try {
+        const { sendBLSummaryNow } = require('./slack/blWeeklySummary');
+        const result = await sendBLSummaryNow(this.app, false); // Production mode
+        res.json({ 
+          success: true, 
+          message: 'BL Summary sent to #gtm-account-planning',
+          result
+        });
+      } catch (error) {
+        res.status(500).json({ 
+          success: false, 
+          error: error.message
+        });
+      }
+    });
+
+    // View current BL snapshot data
+    this.expressApp.get('/bl-summary-data', async (req, res) => {
+      try {
+        const { getSnapshotData, queryBLMetrics } = require('./slack/blWeeklySummary');
+        const snapshots = getSnapshotData();
+        const currentMetrics = await queryBLMetrics();
+        res.json({ 
+          success: true,
+          currentMetrics,
+          snapshots
+        });
+      } catch (error) {
+        res.status(500).json({ 
+          success: false, 
+          error: error.message
+        });
+      }
+    });
+
     logger.info('✅ Express server configured');
   }
 
