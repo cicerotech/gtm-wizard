@@ -825,15 +825,19 @@ function generateWeeklyTab(params) {
           <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 8px;">Deals with Target Sign Date in ${currentMonthName} ${currentYear}</div>
           ${thisMonthOpps.length > 0 ? `
             <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5; color: #374151;">
-              ${thisMonthOpps.slice(0, 10).map(o => 
-                '<li style="margin-bottom: 3px;">' + o.account + ', ' + fmt(o.acv) + '</li>'
-              ).join('')}
+              ${thisMonthOpps.slice(0, 10).map(o => {
+                const tgt = o.targetDate ? new Date(o.targetDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : '';
+                return '<li style="margin-bottom: 3px;">' + o.account + ', ' + fmt(o.acv) + (tgt ? ' <span style="color: #6b7280; font-size: 0.65rem;">(' + tgt + ')</span>' : '') + '</li>';
+              }).join('')}
             </ol>
             ${thisMonthOpps.length > 10 ? `
               <details style="margin-top: 6px;">
                 <summary style="cursor: pointer; font-size: 0.65rem; color: #374151; font-weight: 600;">+${thisMonthOpps.length - 10} more opportunities</summary>
                 <ol start="11" style="font-size: 0.65rem; margin: 4px 0 0 0; padding-left: 20px; line-height: 1.4; color: #6b7280;">
-                  ${thisMonthOpps.slice(10).map(o => '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + '</li>').join('')}
+                  ${thisMonthOpps.slice(10).map(o => {
+                    const tgt = o.targetDate ? new Date(o.targetDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : '';
+                    return '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + (tgt ? ' (' + tgt + ')' : '') + '</li>';
+                  }).join('')}
                 </ol>
               </details>
             ` : ''}
@@ -849,6 +853,7 @@ function generateWeeklyTab(params) {
               account: o.account,
               acv: o.acv,
               weighted: o.weighted,
+              targetDate: o.targetDate,
               isNov: o.month === 10,
               isDec: o.month === 11,
               isJan: o.month === 0
@@ -860,19 +865,21 @@ function generateWeeklyTab(params) {
             return (top10.length > 0 ? `
               <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5; color: #374151;">
                 ${top10.map(o => {
-                  const marker = o.isNov ? '¹' : (o.isDec ? '²' : (o.isJan ? '³' : ''));
-                  return '<li style="margin-bottom: 3px;">' + o.account + ', ' + fmt(o.acv) + marker + '</li>';
+                  const tgt = o.targetDate ? new Date(o.targetDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : '';
+                  return '<li style="margin-bottom: 3px;">' + o.account + ', ' + fmt(o.acv) + (tgt ? ' <span style="color: #6b7280; font-size: 0.65rem;">(' + tgt + ')</span>' : '') + '</li>';
                 }).join('')}
               </ol>
               ${remaining.length > 0 ? `
                 <details style="margin-top: 6px;">
                   <summary style="cursor: pointer; font-size: 0.65rem; color: #374151; font-weight: 600;">+${remaining.length} more opportunities</summary>
                   <ol start="11" style="font-size: 0.65rem; margin: 4px 0 0 0; padding-left: 20px; line-height: 1.4; color: #6b7280;">
-                    ${remaining.map(o => '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + (o.isNov ? '¹' : (o.isDec ? '²' : (o.isJan ? '³' : ''))) + '</li>').join('')}
+                    ${remaining.map(o => {
+                      const tgt = o.targetDate ? new Date(o.targetDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : '';
+                      return '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + (tgt ? ' (' + tgt + ')' : '') + '</li>';
+                    }).join('')}
                   </ol>
                 </details>
               ` : ''}
-              <div style="font-size: 0.55rem; color: #6b7280; margin-top: 6px;">¹ = Nov, ² = Dec, ³ = Jan target</div>
             ` : '<div style="font-size: 0.7rem; color: #9ca3af; font-style: italic;">No Q4 opportunities</div>');
           })()}
         </div>
@@ -888,31 +895,10 @@ function generateWeeklyTab(params) {
         <div style="font-size: 0.75rem;">
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #374151;">Q4 FY2020</span>
-              <span style="font-weight: 600; color: #374151;">1</span>
+              <span style="color: #374151;">Q4 FY2024 & Prior</span>
+              <span style="font-weight: 600; color: #374151;">30</span>
             </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Twitter</div>
-          </details>
-          <details style="border-bottom: 1px solid #e5e7eb;">
-            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #374151;">Q2 FY2024</span>
-              <span style="font-weight: 600; color: #374151;">1</span>
-            </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Cargill</div>
-          </details>
-          <details style="border-bottom: 1px solid #e5e7eb;">
-            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #374151;">Q3 FY2024</span>
-              <span style="font-weight: 600; color: #374151;">2</span>
-            </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Southwest Airlines, ECMS</div>
-          </details>
-          <details style="border-bottom: 1px solid #e5e7eb;">
-            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #374151;">Q4 FY2024</span>
-              <span style="font-weight: 600; color: #374151;">26</span>
-            </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Uisce Eireann, Udemy Ireland, Tinder LLC, TikTok, Teamwork, Stripe, OpenAi, NTMA, Moy Park, LinkedIn Ireland, Kellanova, Indeed Ireland, Hayes Solicitors, Graybar Electric, Glanbia, Etsy Ireland, ESB NI/Electric Ireland, Dropbox, Datalex, Creed McStay, CommScope, Coleman Legal, Bank of Ireland, Arabic Computer Systems, Airship Group, Airbnb</div>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Twitter, Cargill, Southwest Airlines, ECMS, Uisce Eireann, Udemy Ireland, Tinder LLC, TikTok, Teamwork, Stripe, OpenAi, NTMA, Moy Park, LinkedIn Ireland, Kellanova, Indeed Ireland, Hayes Solicitors, Graybar Electric, Glanbia, Etsy Ireland, ESB NI/Electric Ireland, Dropbox, Datalex, Creed McStay, CommScope, Coleman Legal, Bank of Ireland, Arabic Computer Systems, Airship Group, Airbnb</div>
           </details>
           <details style="border-bottom: 1px solid #e5e7eb;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
@@ -947,7 +933,7 @@ function generateWeeklyTab(params) {
             <span>81</span>
           </div>
         </div>
-        <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Unique accounts by first Closed Won date • Click to expand</div>
+        <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Unique accounts by first Closed Won date • Click to expand<br>* Minor adjustments during migration</div>
       </div>
       
       <!-- Run-Rate Forecast Table -->
@@ -1126,13 +1112,12 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Pipeline by Sales Type & Pod - Static (from SF report) with % breakdown -->
+    <!-- Pipeline by Sales Type - Joint View Summary -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title">Pipeline by Sales Type</div>
-      <table style="width: 100%; font-size: 0.7rem; margin-top: 8px; border-collapse: collapse;">
+      <div class="weekly-subsection-title">Pipeline by Sales Type (Combined)</div>
+      <table style="width: 100%; font-size: 0.7rem; margin-top: 8px; border-collapse: collapse; border: 1px solid #e5e7eb;">
         <thead>
           <tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
-            <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Pod</th>
             <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Sales Type</th>
             <th style="padding: 6px 8px; text-align: right; color: #374151; font-weight: 600;">Sum of ACV</th>
             <th style="padding: 6px 8px; text-align: center; color: #374151; font-weight: 600;">% ACV</th>
@@ -1143,25 +1128,22 @@ function generateWeeklyTab(params) {
         </thead>
         <tbody style="color: #374151;">
           <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px; font-weight: 600;">US</td>
             <td style="padding: 6px 8px;">New business</td>
-            <td style="padding: 6px 8px; text-align: right;">$18.0m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">42%</td>
-            <td style="padding: 6px 8px; text-align: right;">$2.6m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">30%</td>
-            <td style="padding: 6px 8px; text-align: center;">124</td>
+            <td style="padding: 6px 8px; text-align: right;">$25.6m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">59%</td>
+            <td style="padding: 6px 8px; text-align: right;">$3.5m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">40%</td>
+            <td style="padding: 6px 8px; text-align: center;">175</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;"></td>
             <td style="padding: 6px 8px;">Expansion / Upsell</td>
-            <td style="padding: 6px 8px; text-align: right;">$2.7m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">6%</td>
-            <td style="padding: 6px 8px; text-align: right;">$814k</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">9%</td>
-            <td style="padding: 6px 8px; text-align: center;">21</td>
+            <td style="padding: 6px 8px; text-align: right;">$10.8m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">25%</td>
+            <td style="padding: 6px 8px; text-align: right;">$3.2m</td>
+            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">37%</td>
+            <td style="padding: 6px 8px; text-align: center;">57</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;"></td>
             <td style="padding: 6px 8px;">New business via LOI</td>
             <td style="padding: 6px 8px; text-align: right;">$6.4m</td>
             <td style="padding: 6px 8px; text-align: center; color: #6b7280;">15%</td>
@@ -1170,25 +1152,6 @@ function generateWeeklyTab(params) {
             <td style="padding: 6px 8px; text-align: center;">20</td>
           </tr>
           <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px; font-weight: 600;">EU</td>
-            <td style="padding: 6px 8px;">New business</td>
-            <td style="padding: 6px 8px; text-align: right;">$7.6m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">18%</td>
-            <td style="padding: 6px 8px; text-align: right;">$865k</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">10%</td>
-            <td style="padding: 6px 8px; text-align: center;">51</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;"></td>
-            <td style="padding: 6px 8px;">Expansion / Upsell</td>
-            <td style="padding: 6px 8px; text-align: right;">$8.1m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">19%</td>
-            <td style="padding: 6px 8px; text-align: right;">$2.4m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">28%</td>
-            <td style="padding: 6px 8px; text-align: center;">36</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;"></td>
             <td style="padding: 6px 8px;">Renewal + Expansion</td>
             <td style="padding: 6px 8px; text-align: right;">$400k</td>
             <td style="padding: 6px 8px; text-align: center; color: #6b7280;">1%</td>
@@ -1197,12 +1160,72 @@ function generateWeeklyTab(params) {
             <td style="padding: 6px 8px; text-align: center;">2</td>
           </tr>
           <tr style="font-weight: 600; background: #e5e7eb;">
-            <td style="padding: 6px 8px;" colspan="2">Total</td>
+            <td style="padding: 6px 8px;">Total</td>
             <td style="padding: 6px 8px; text-align: right;">$43.3m</td>
             <td style="padding: 6px 8px; text-align: center;">100%</td>
             <td style="padding: 6px 8px; text-align: right;">$8.6m</td>
             <td style="padding: 6px 8px; text-align: center;">100%</td>
             <td style="padding: 6px 8px; text-align: center;">254</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Pipeline by Sales Type & Pod - Breakdown by Region -->
+    <div class="weekly-subsection">
+      <div class="weekly-subsection-title" style="font-size: 0.7rem;">Pipeline by Pod</div>
+      <table style="width: 100%; font-size: 0.7rem; margin-top: 8px; border-collapse: collapse; border: 1px solid #e5e7eb;">
+        <thead>
+          <tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
+            <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Pod</th>
+            <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Sales Type</th>
+            <th style="padding: 6px 8px; text-align: right; color: #374151; font-weight: 600;">Sum of ACV</th>
+            <th style="padding: 6px 8px; text-align: right; color: #374151; font-weight: 600;">Weighted ACV</th>
+            <th style="padding: 6px 8px; text-align: center; color: #374151; font-weight: 600;">Count</th>
+          </tr>
+        </thead>
+        <tbody style="color: #374151;">
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px; font-weight: 600;">US</td>
+            <td style="padding: 6px 8px;">New business</td>
+            <td style="padding: 6px 8px; text-align: right;">$18.0m</td>
+            <td style="padding: 6px 8px; text-align: right;">$2.6m</td>
+            <td style="padding: 6px 8px; text-align: center;">124</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;"></td>
+            <td style="padding: 6px 8px;">Expansion / Upsell</td>
+            <td style="padding: 6px 8px; text-align: right;">$2.7m</td>
+            <td style="padding: 6px 8px; text-align: right;">$814k</td>
+            <td style="padding: 6px 8px; text-align: center;">21</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;"></td>
+            <td style="padding: 6px 8px;">New business via LOI</td>
+            <td style="padding: 6px 8px; text-align: right;">$6.4m</td>
+            <td style="padding: 6px 8px; text-align: right;">$1.8m</td>
+            <td style="padding: 6px 8px; text-align: center;">20</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px; font-weight: 600;">EU</td>
+            <td style="padding: 6px 8px;">New business</td>
+            <td style="padding: 6px 8px; text-align: right;">$7.6m</td>
+            <td style="padding: 6px 8px; text-align: right;">$865k</td>
+            <td style="padding: 6px 8px; text-align: center;">51</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;"></td>
+            <td style="padding: 6px 8px;">Expansion / Upsell</td>
+            <td style="padding: 6px 8px; text-align: right;">$8.1m</td>
+            <td style="padding: 6px 8px; text-align: right;">$2.4m</td>
+            <td style="padding: 6px 8px; text-align: center;">36</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;"></td>
+            <td style="padding: 6px 8px;">Renewal + Expansion</td>
+            <td style="padding: 6px 8px; text-align: right;">$400k</td>
+            <td style="padding: 6px 8px; text-align: right;">$100k</td>
+            <td style="padding: 6px 8px; text-align: center;">2</td>
           </tr>
         </tbody>
       </table>
