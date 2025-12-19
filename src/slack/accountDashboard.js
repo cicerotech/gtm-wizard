@@ -542,7 +542,8 @@ function generateWeeklyTab(params) {
     logosByType = { revenue: [], project: [], pilot: [], loi: [] },
     newOppsThisWeek = [], newOppsTotal = 0,
     signedThisWeek = [], signedThisWeekTotal = 0,
-    signedByFiscalQuarter = {}
+    signedByFiscalQuarter = {},
+    customerAccounts = []
   } = params;
   
   // Helper for currency formatting
@@ -712,19 +713,12 @@ function generateWeeklyTab(params) {
   const stageTotalACV = stageWoW.reduce((sum, s) => sum + s.acv, 0);
   const stageTotalCount = stageWoW.reduce((sum, s) => sum + s.oppCount, 0);
   
-  // Current logos count from First_Deal_Closed__c (matches Total Signed calculation)
-  // Use the same source as signedByFiscalQuarter to ensure alignment
-  const quarterOrder = ['FY2024 & Prior', 'Q4 2024', 'Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025 (QTD)'];
-  const currentLogosCount = quarterOrder.reduce((sum, q) => sum + (signedByFiscalQuarter[q]?.size || 0), 0);
+  // Current logos count - LIVE from Salesforce Type__c = 'Customer'
+  const currentLogosCount = customerAccounts.length;
+  const uniqueLogos = customerAccounts.map(a => a.name).sort();
   
-  // For the expandable list, collect unique account names from all quarters
-  const allUniqueLogos = new Set();
-  quarterOrder.forEach(q => {
-    if (signedByFiscalQuarter[q]) {
-      signedByFiscalQuarter[q].forEach(account => allUniqueLogos.add(account));
-    }
-  });
-  const uniqueLogos = [...allUniqueLogos].sort();
+  // Also keep signed by fiscal quarter for the "Signed Logos by Quarter" section
+  const quarterOrder = ['FY2024 & Prior', 'Q4 2024', 'Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025 (QTD)'];
   
   // Run-rate forecast (using contract data)
   const fy2025Total = recurringTotal + projectTotal;
@@ -749,7 +743,7 @@ function generateWeeklyTab(params) {
   <div class="weekly-section">
     <div class="weekly-section-title">1. Revenue Forecast Snapshot</div>
     
-    <!-- Signed Since Last Week - Live from Salesforce (Recurring, Project, Commit only) -->
+    <!-- Signed Since Last Week - Live from Salesforce (Recurring, Project, Commitment only) -->
     <div class="weekly-subsection">
       <div style="font-weight: 600; font-size: 0.75rem; color: #374151; margin-bottom: 4px;">Signed Revenue since last week</div>
       ${signedThisWeek.length > 0 ? `
@@ -925,19 +919,20 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Current Logos (Live from Salesforce) -->
+    <!-- Current Logos (Live from Salesforce Type__c = Customer) -->
     <div class="weekly-subsection" style="margin-top: 16px;">
       <div class="weekly-subsection-title">Current Logos (${currentLogosCount})</div>
+      <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 4px;">Accounts where Type = Customer in Salesforce</div>
       <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-top: 8px;">
         <details>
           <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827;">
             ▸ All Logos (${currentLogosCount} accounts) - click to expand
           </summary>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 0.65rem; color: #374151; margin-top: 8px;">
-            ${uniqueLogos.sort().map(logo => '<div style="padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + logo + '</div>').join('')}
+            ${uniqueLogos.map(logo => '<div style="padding: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + logo + '</div>').join('')}
           </div>
         </details>
-          </div>
+      </div>
     </div>
   </div>
 
@@ -994,7 +989,7 @@ function generateWeeklyTab(params) {
     
     <!-- Closed Lost This Week -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title" style="color: #000000; font-weight: 700;">Closed Lost This Week (${closedLostDeals.length + nurturedAccounts.length})</div>
+      <div class="weekly-subsection-title" style="color: #000000; font-weight: 700;">Closed Lost This Week (${closedLostDeals.length})</div>
       <table style="width: 100%; font-size: 0.7rem; margin-top: 8px; border-collapse: collapse;">
         <thead>
           <tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
@@ -1009,17 +1004,10 @@ function generateWeeklyTab(params) {
             <td style="padding: 6px 8px;">${deal.oppName || deal.accountName}</td>
             <td style="padding: 6px 8px; font-size: 0.65rem;">${deal.closedLostDetail || '-'}</td>
             <td style="padding: 6px 8px;">${deal.closedLostReason || 'No Detail Provided'}</td>
-          </tr>`).join('') : ''}
-          ${nurturedAccounts.length > 0 ? nurturedAccounts.map(acc => `
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">${acc.accountName} - Nurture</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Account moved to nurture stage</td>
-            <td style="padding: 6px 8px;">Nurture</td>
-          </tr>`).join('') : ''}
-          ${closedLostDeals.length === 0 && nurturedAccounts.length === 0 ? `
+          </tr>`).join('') : `
           <tr>
-            <td colspan="3" style="padding: 6px 8px; color: #9ca3af; text-align: center; font-style: italic;">No closed lost deals or nurtured accounts this week</td>
-          </tr>` : ''}
+            <td colspan="3" style="padding: 6px 8px; color: #9ca3af; text-align: center; font-style: italic;">No closed lost deals this week</td>
+          </tr>`}
         </tbody>
       </table>
     </div>
@@ -1528,7 +1516,7 @@ async function generateAccountDashboard() {
   
   // ═══════════════════════════════════════════════════════════════════════
   // CLOSED WON THIS WEEK - Deals signed in last 7 days (for Weekly tab)
-  // Filters: Revenue_Type__c = Recurring, Project, or Commit only
+  // Filters: Revenue_Type__c = Recurring, Project, or Commitment only
   // Fallback: If no results, query all Closed Won deals
   // ═══════════════════════════════════════════════════════════════════════
   const closedWonThisWeekQuery = `
@@ -1537,7 +1525,7 @@ async function generateAccountDashboard() {
     FROM Opportunity
     WHERE (StageName = 'Stage 6. Closed Won' OR StageName = 'Stage 6. Closed(Won)')
       AND CloseDate >= LAST_N_DAYS:7
-      AND Revenue_Type__c IN ('Recurring', 'Project', 'Commit')
+      AND Revenue_Type__c IN ('Recurring', 'Project', 'Commitment')
     ORDER BY Amount DESC
   `;
   
@@ -1619,6 +1607,34 @@ async function generateAccountDashboard() {
   } catch (e) { 
     console.error('Nurtured Accounts query error:', e.message);
     nurturedAccounts = [];
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // CURRENT LOGOS - Accounts where Type__c = 'Customer' (LIVE from Salesforce)
+  // ═══════════════════════════════════════════════════════════════════════
+  const customerAccountsQuery = `
+    SELECT Name, Owner.Name, Type__c
+    FROM Account
+    WHERE Type__c = 'Customer'
+    ORDER BY Name ASC
+  `;
+  
+  let customerAccounts = [];
+  
+  try {
+    const customerData = await query(customerAccountsQuery, true);
+    console.log(`[Dashboard] Customer Accounts (Type__c = Customer) query returned ${customerData?.records?.length || 0} records`);
+    if (customerData?.records) {
+      customerData.records.forEach(acc => {
+        customerAccounts.push({
+          name: acc.Name || 'Unknown',
+          owner: acc.Owner?.Name || ''
+        });
+      });
+    }
+  } catch (e) { 
+    console.error('Customer Accounts query error:', e.message);
+    customerAccounts = [];
   }
   
   // ═══════════════════════════════════════════════════════════════════════
@@ -2435,7 +2451,8 @@ ${generateWeeklyTab({
   novDecRevenue, novDecRevenueTotal,
   contractsByAccount, recurringTotal, projectTotal,
   closedLostDeals, nurturedAccounts, daysInStageByStage, logosByType,
-  newOppsThisWeek, newOppsTotal, signedThisWeek, signedThisWeekTotal, signedByFiscalQuarter
+  newOppsThisWeek, newOppsTotal, signedThisWeek, signedThisWeekTotal, signedByFiscalQuarter,
+  customerAccounts
 })}
 
 <!-- TAB 3: REVENUE -->
