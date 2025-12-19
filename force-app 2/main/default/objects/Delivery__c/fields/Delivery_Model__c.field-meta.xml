@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Delivery_Model__c</fullName>
+    <externalId>false</externalId>
+    <label>Delivery Model</label>
+    <required>true</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restrictedPicklist>true</restrictedPicklist>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>AI-First (95% AI / 5% Human)</fullName>
+                <default>false</default>
+                <label>AI-First (95% AI / 5% Human)</label>
+            </value>
+            <value>
+                <fullName>Balanced (50/50)</fullName>
+                <default>false</default>
+                <label>Balanced (50/50)</label>
+            </value>
+            <value>
+                <fullName>Human-Led (AI-Assisted)</fullName>
+                <default>false</default>
+                <label>Human-Led (AI-Assisted)</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+    <helpText>AI vs Human service mix for this engagement</helpText>
+</CustomField>
+

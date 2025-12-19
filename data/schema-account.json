@@ -60,11 +60,11 @@
       "synonyms": ["clo reports to ceo", "clo ceo"]
     },
     {
-      "apiName": "Customer_Type__c",
-      "label": "Customer Type",
+      "apiName": "Type__c",
+      "label": "Account Type",
       "type": "picklist",
       "custom": true,
-      "synonyms": ["customer type", "account type"]
+      "synonyms": ["type", "account type", "customer type", "classification"]
     },
     {
       "apiName": "Is_New_Logo__c",

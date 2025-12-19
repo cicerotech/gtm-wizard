@@ -976,7 +976,7 @@ class ContractAnalyzer {
     if (eudiaSignatureMatch && eudiaSignatureMatch[1]) {
       const name = eudiaSignatureMatch[1].trim();
       if (name.length > 4 && !name.match(/^(The|This|Such|Said)/i)) {
-        extracted.eudiaSignedName = name;
+            extracted.eudiaSignedName = name;
         logger.info(`✍️ Eudia signer (DocuSign block): ${name}`);
       }
     }
@@ -1025,8 +1025,8 @@ class ContractAnalyzer {
           if (isValidPersonName(name)) {
             extracted.customerSignedName = name;
             logger.info(`✍️ Customer signer (AGREED section): ${name}`);
-          }
         }
+      }
         
         // Alternative: Name on line right before company name
         if (!extracted.customerSignedName) {
@@ -1082,8 +1082,8 @@ class ContractAnalyzer {
       { pattern: /Customer\s+Signed\s+(?:By)?[:\s]+([A-Z][a-z]+\s+[A-Z][a-z]+)/i, type: 'customer' },
       { pattern: /Company\s+Signed\s+(?:By)?[:\s]+([A-Z][a-z]+\s+[A-Z][a-z]+)/i, type: 'eudia' },
       { pattern: /Eudia\s+Signed\s+(?:By)?[:\s]+([A-Z][a-z]+\s+[A-Z][a-z]+)/i, type: 'eudia' },
-    ];
-    
+      ];
+      
     for (const { pattern, type } of explicitSignerPatterns) {
       const match = text.match(pattern);
       if (match && match[1]) {
@@ -1104,25 +1104,25 @@ class ContractAnalyzer {
     if (!extracted.customerSignedName || !extracted.eudiaSignedName) {
       // Look for "By:" or signature lines with names
       const byLinePattern = /By[:\s]+[_\/s]*\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/g;
-      let match;
+        let match;
       byLinePattern.lastIndex = 0;
       
       while ((match = byLinePattern.exec(text)) !== null) {
-        const name = match[1].trim();
+          const name = match[1].trim();
         const position = match.index;
-        
+          
         // Get surrounding context (200 chars before and after)
         const contextStart = Math.max(0, position - 200);
         const contextEnd = Math.min(text.length, position + 200);
         const context = text.substring(contextStart, contextEnd).toLowerCase();
         
         const isEudiaPerson = KNOWN_EUDIA_SIGNERS.some(es => 
-          name.toLowerCase().includes(es.split(' ')[0].toLowerCase())
+              name.toLowerCase().includes(es.split(' ')[0].toLowerCase())
         ) || context.includes('eudia') || context.includes('cicero');
         
         const isValidName = name.length > 4 && 
           !name.match(/^(The|This|Such|Said|Date|Name|Title|Overview|Board|Agreement)/i);
-        
+            
         if (!isValidName) continue;
         
         if (isEudiaPerson && !extracted.eudiaSignedName) {
@@ -1130,9 +1130,9 @@ class ContractAnalyzer {
           extracted.eudiaSignedName = EUDIA_SIGNER_CANONICAL[firstName] || name;
           logger.info(`✍️ Eudia signer (By line + context): ${extracted.eudiaSignedName}`);
         } else if (!isEudiaPerson && !extracted.customerSignedName) {
-          extracted.customerSignedName = name;
+              extracted.customerSignedName = name;
           logger.info(`✍️ Customer signer (By line): ${name}`);
-        }
+            }
       }
     }
     

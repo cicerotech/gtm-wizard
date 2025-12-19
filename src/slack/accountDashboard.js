@@ -1129,7 +1129,7 @@ async function generateAccountDashboard() {
   // Group accounts by fiscal quarter (Q4 2025 = Nov 1, 2025 - Jan 31, 2026)
   // ═══════════════════════════════════════════════════════════════════════
   const signedAccountsQuery = `
-    SELECT Name, First_Deal_Closed__c, Customer_Type__c
+    SELECT Name, First_Deal_Closed__c, Type__c
     FROM Account
     WHERE First_Deal_Closed__c != null
       AND (NOT Name LIKE '%Sample%')
@@ -1328,15 +1328,15 @@ async function generateAccountDashboard() {
   } catch (e) { console.error('Signed deals query error:', e.message); }
   
   // ═══════════════════════════════════════════════════════════════════════
-  // LOGOS BY TYPE - Query Account directly for Customer_Type__c
-  // Includes ALL accounts with Customer_Type__c set (not just open pipeline)
+  // LOGOS BY TYPE - Query Account directly for Type__c
+  // Includes ALL accounts with Type__c set (not just open pipeline)
   // ═══════════════════════════════════════════════════════════════════════
-  // Query accounts with Customer_Type__c for logo counts
+  // Query accounts with Type__c for logo counts
   // Note: First close date will be derived from opportunity data if account field not available
   const logosQuery = `
-    SELECT Name, Customer_Type__c
+    SELECT Name, Type__c
     FROM Account
-    WHERE Customer_Type__c != null
+    WHERE Type__c != null
     ORDER BY Name
   `;
   
@@ -1344,16 +1344,16 @@ async function generateAccountDashboard() {
   
   try {
     const logosData = await query(logosQuery, true);
-    console.log(`[Dashboard] Logos query returned ${logosData?.records?.length || 0} accounts with Customer_Type__c`);
+    console.log(`[Dashboard] Logos query returned ${logosData?.records?.length || 0} accounts with Type__c`);
     if (logosData?.records) {
-      // Log all unique Customer_Type__c values for debugging
-      const uniqueTypes = [...new Set(logosData.records.map(a => a.Customer_Type__c).filter(Boolean))];
-      console.log(`[Dashboard] Customer_Type__c values found: ${JSON.stringify(uniqueTypes)}`);
+      // Log all unique Type__c values for debugging
+      const uniqueTypes = [...new Set(logosData.records.map(a => a.Type__c).filter(Boolean))];
+      console.log(`[Dashboard] Type__c values found: ${JSON.stringify(uniqueTypes)}`);
       
       logosData.records.forEach(acc => {
-        const ct = (acc.Customer_Type__c || '').toLowerCase().trim();
+        const ct = (acc.Type__c || '').toLowerCase().trim();
         
-        // Categorize by Customer_Type__c
+        // Categorize by Type__c
         if (ct.includes('revenue') || ct === 'arr' || ct === 'recurring') {
           logosByType.revenue.push({ accountName: acc.Name });
         } else if (ct.includes('project')) {
@@ -1695,7 +1695,7 @@ async function generateAccountDashboard() {
   // ADDED: Target_LOI_Date__c for target sign date display
   // ADDED: Johnson_Hana_Owner__c for JH opportunities (use this instead of Owner.Name when present)
   const accountQuery = `SELECT Account.Id, Account.Name, Owner.Name, Account.Is_New_Logo__c,
-                               Account.Account_Plan_s__c, Account.Customer_Type__c,
+                               Account.Account_Plan_s__c, Account.Type__c,
                                Name, StageName, ACV__c, Weighted_ACV__c, Product_Line__c,
                                Target_LOI_Date__c, Johnson_Hana_Owner__c
                         FROM Opportunity
@@ -1781,11 +1781,12 @@ async function generateAccountDashboard() {
                 processedNext.add(m.AccountId);
               }
             
-            if (m.Who?.Title) {
-              const title = m.Who.Title;
-              const isLegalTitle = /chief legal|general counsel|legal counsel|vp legal|legal director|associate general counsel|agc|clo|gc/i.test(title);
-              if (isLegalTitle) {
-                accountData.contacts.add(m.Who.Name + ' (' + title + ')');
+              if (m.Who?.Title) {
+                const title = m.Who.Title;
+                const isLegalTitle = /chief legal|general counsel|legal counsel|vp legal|legal director|associate general counsel|agc|clo|gc/i.test(title);
+                if (isLegalTitle) {
+                  accountData.contacts.add(m.Who.Name + ' (' + title + ')');
+                }
               }
             }
           }
@@ -1815,7 +1816,7 @@ async function generateAccountDashboard() {
         isNewLogo: opp.Account?.Is_New_Logo__c,
         hasAccountPlan: !!opp.Account?.Account_Plan_s__c,
         accountPlan: opp.Account?.Account_Plan_s__c,
-        customerType: opp.Account?.Customer_Type__c,
+        customerType: opp.Account?.Type__c,
         opportunities: [],
         highestStage: 0,
         totalACV: 0,
@@ -2570,7 +2571,7 @@ ${generateWeeklyTab({
 <!-- TAB 4: ACCOUNTS -->
 <div id="account-plans" class="tab-content">
   <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: #374151;">
-    <strong>All Accounts</strong> — Current active accounts and pipeline. Totals based on Salesforce Customer_Type__c field.
+    <strong>All Accounts</strong> — Current active accounts and pipeline. Totals based on Salesforce Type__c field.
   </div>
   
   <!-- Logos by Customer Type - Using consistent logosByType data -->

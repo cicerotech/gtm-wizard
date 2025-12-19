@@ -1,0 +1,63 @@
+QUICK STEPS TO DEPLOY DELIVERY OBJECT
+======================================
+
+YOU'RE ALREADY IN CHANGE SETS - PERFECT!
+
+STEP 1: Add Components to Your Change Set
+------------------------------------------
+1. Click "Edit" on your "Delivery" change set
+2. Click "Add" button
+3. Use the search/filter to find and add these (one category at a time):
+
+   SEARCH FOR "Delivery" and add:
+   - Custom Object: Delivery
+   - All 26 Custom Fields (they'll show as Delivery.FieldName)
+   - Page Layout: Delivery Layout
+   - Validation Rule: Actual_Go_Live_After_Kickoff
+   
+   SEARCH FOR "Opportunity" and add:
+   - Custom Field: Delivery (on Opportunity object)
+   
+   SEARCH FOR "Flow" and add:
+   - Create Delivery on Opportunity Close
+   - Auto Populate Delivery Account
+   
+   SEARCH FOR "Report Type" and add:
+   - Deliveries with Opportunities
+   - Deliveries with Accounts and Opportunities
+   
+   SEARCH FOR "Dashboard" and add:
+   - Delivery Operations
+
+STEP 2: Upload Change Set
+--------------------------
+1. Click "Upload" button
+2. Select your target org (sandbox/production)
+3. Wait for upload to complete
+
+STEP 3: Deploy in Target Org
+-----------------------------
+1. Go to target org → Setup → Inbound Change Sets
+2. Find "Delivery" change set
+3. Click "Deploy"
+4. Review and confirm
+
+STEP 4: Complete Flows (CRITICAL!)
+-----------------------------------
+After deployment, go to Setup → Flows:
+
+1. Open "Create Delivery on Opportunity Close"
+   - Add Decision element: "Check Exclusion"
+     * If ForecastCategory = "Commit" AND Revenue_Type__c = "ARR" → End
+     * If ForecastCategory = "Commit" AND Revenue_Type__c = "Project" → End
+     * Otherwise → Continue
+   - Add Create Records: Create Delivery with fields from Opportunity
+   - Add Update Records: Update Opportunity.Delivery__c with new Delivery ID
+   - Activate flow
+
+2. Open "Auto Populate Delivery Account"
+   - Add Decision: Check if Account__c is blank AND Opportunity__c exists
+   - Add Assignment: Set Account__c = Opportunity__c.AccountId
+   - Activate flow
+
+DONE! Test with a Closed Won opportunity.

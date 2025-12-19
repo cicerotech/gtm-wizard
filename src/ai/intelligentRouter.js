@@ -139,26 +139,14 @@ class IntelligentRouter {
    * Convert pattern template to regex
    */
   patternToRegex(pattern) {
-    // Replace placeholders FIRST (before escaping special chars)
-    let processed = pattern
-      .replace(/\{company\}/g, '__COMPANY__')
-      .replace(/\{product\}/g, '__PRODUCT__')
-      .replace(/\{month\}/g, '__MONTH__')
-      .replace(/\{name\}/g, '__NAME__')
-      .replace(/\{details\}/g, '__DETAILS__');
-    
-    // Then escape special characters
-    processed = processed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    
-    // Finally replace our placeholders with regex patterns
-    processed = processed
-      .replace(/__COMPANY__/g, '\\w+')
-      .replace(/__PRODUCT__/g, '\\w+')
-      .replace(/__MONTH__/g, '\\w+')
-      .replace(/__NAME__/g, '\\w+')
-      .replace(/__DETAILS__/g, '.+');
-    
-    return new RegExp(processed, 'i');
+    const escaped = pattern
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/\{company\}/g, '\\w+')
+      .replace(/\{product\}/g, '\\w+')
+      .replace(/\{month\}/g, '\\w+')
+      .replace(/\{name\}/g, '\\w+')
+      .replace(/\{details\}/g, '.+');
+    return new RegExp(escaped, 'i');
   }
 
   /**
@@ -166,24 +154,21 @@ class IntelligentRouter {
    */
   ensemblePredict(results) {
     const votes = new Map();
-    let maxConfidence = 0;
+    let totalWeight = 0;
     let winningMethod = 'ensemble';
 
-    // Collect weighted votes and track max individual confidence
+    // Collect weighted votes
     if (results.pattern && results.pattern.intent !== 'unknown') {
       const weight = this.approaches.pattern.weight * results.pattern.confidence;
       votes.set(results.pattern.intent, (votes.get(results.pattern.intent) || 0) + weight);
-      if (results.pattern.confidence > maxConfidence) {
-        maxConfidence = results.pattern.confidence;
-        winningMethod = 'pattern_matching';
-      }
+      totalWeight += weight;
     }
 
     if (results.semantic && results.semantic.intent !== 'unknown') {
       const weight = this.approaches.semantic.weight * results.semantic.confidence;
       votes.set(results.semantic.intent, (votes.get(results.semantic.intent) || 0) + weight);
-      if (results.semantic.confidence > maxConfidence) {
-        maxConfidence = results.semantic.confidence;
+      totalWeight += weight;
+      if (!results.pattern || results.semantic.confidence > results.pattern.confidence) {
         winningMethod = 'semantic';
       }
     }
@@ -191,8 +176,8 @@ class IntelligentRouter {
     if (results.neuralNet && results.neuralNet.intent !== 'unknown') {
       const weight = this.approaches.neuralNet.weight * results.neuralNet.confidence;
       votes.set(results.neuralNet.intent, (votes.get(results.neuralNet.intent) || 0) + weight);
-      if (results.neuralNet.confidence > maxConfidence) {
-        maxConfidence = results.neuralNet.confidence;
+      totalWeight += weight;
+      if (results.neuralNet.confidence > (results.semantic?.confidence || 0)) {
         winningMethod = 'neural_network';
       }
     }
@@ -207,34 +192,31 @@ class IntelligentRouter {
       };
     }
 
-    // Find winner by vote weight
+    // Find winner
     let topIntent = 'unknown';
     let topScore = 0;
     const alternatives = [];
 
     for (const [intent, score] of votes.entries()) {
-      if (score > topScore) {
+      const normalizedScore = score / totalWeight;
+      if (normalizedScore > topScore) {
         if (topIntent !== 'unknown') {
           alternatives.push({ intent: topIntent, confidence: topScore });
         }
         topIntent = intent;
-        topScore = score;
+        topScore = normalizedScore;
       } else {
-        alternatives.push({ intent, confidence: score });
+        alternatives.push({ intent, confidence: normalizedScore });
       }
     }
 
     // Sort alternatives by confidence
     alternatives.sort((a, b) => b.confidence - a.confidence);
 
-    // Use max individual confidence as ensemble confidence (not normalized)
-    // This ensures low-confidence unanimous votes still return unknown
-    const ensembleConfidence = maxConfidence;
-
     return {
-      intent: ensembleConfidence >= this.confidenceThreshold ? topIntent : 'unknown',
-      confidence: ensembleConfidence,
-      winningMethod: ensembleConfidence >= this.confidenceThreshold ? winningMethod : 'none',
+      intent: topScore >= this.confidenceThreshold ? topIntent : 'unknown',
+      confidence: topScore,
+      winningMethod,
       alternatives: alternatives.slice(0, 3),
       votingDetails: Object.fromEntries(votes)
     };
@@ -334,7 +316,6 @@ class IntelligentRouter {
     };
 
     // Check ML model
-    const mlModelInfo = intentClassifier.getModelInfo();
     health.components.mlModel = {
       status: intentClassifier.trainingHistory.length > 0 ? 'trained' : 'not_trained',
       accuracy: mlModelInfo.performance?.finalAccuracy

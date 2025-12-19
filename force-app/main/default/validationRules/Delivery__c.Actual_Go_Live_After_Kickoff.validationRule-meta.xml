@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Actual_Go_Live_After_Kickoff</fullName>
+    <active>true</active>
+    <description>Prevents Actual Go-Live Date from being set before Kickoff Date</description>
+    <errorConditionFormula>AND(
+  NOT(ISBLANK(Actual_Go_Live_Date__c)),
+  NOT(ISBLANK(Kickoff_Date__c)),
+  Actual_Go_Live_Date__c &lt; Kickoff_Date__c
+)</errorConditionFormula>
+    <errorDisplayField>Actual_Go_Live_Date__c</errorDisplayField>
+    <errorMessage>Actual Go-Live Date cannot be before Kickoff Date</errorMessage>
+</ValidationRule>
+

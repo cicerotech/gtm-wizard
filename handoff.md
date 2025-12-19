@@ -359,7 +359,7 @@ Pre-configured SF User IDs for team members - enables auto-detection during setu
 ### Account Object
 | Field | API Name | Purpose |
 |-------|----------|---------|
-| Customer Type | `Customer_Type__c` | "Revenue", "Pilot", "LOI with $ attached" |
+| Customer Type | `Type__c` | "Revenue", "Pilot", "LOI with $ attached" |
 | Account Plan | `Account_Plan_s__c` | Long-text strategic plan |
 | Customer Brain | `Customer_Brain__c` | Meeting notes, AI insights |
 | First Deal Closed | `First_Deal_Closed__c` | Date of first win |
@@ -414,9 +414,9 @@ ORDER BY Annualized_Revenue__c DESC NULLS LAST
 
 ### Logos by Type
 ```sql
-SELECT Name, Customer_Type__c, First_Deal_Closed__c
+SELECT Name, Type__c, First_Deal_Closed__c
 FROM Account
-WHERE Customer_Type__c != null
+WHERE Type__c != null
 ```
 
 ---
@@ -555,7 +555,7 @@ StageName IN ('Stage 0...', ..., 'Stage 5 - Negotiation')
 - Check `CustomerSignedId` is a valid Contact ID (or leave blank)
 
 ### Dashboard not showing accounts in tiles
-- Check `Customer_Type__c` field has values
+- Check `Type__c` field has values
 - Ensure categorization logic checks both 'revenue' AND 'arr' (legacy naming)
 
 ---

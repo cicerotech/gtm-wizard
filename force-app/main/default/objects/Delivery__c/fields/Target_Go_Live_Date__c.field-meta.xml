@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Target_Go_Live_Date__c</fullName>
+    <externalId>false</externalId>
+    <inlineHelpText>Planned production launch date</inlineHelpText>
+    <label>Target Go-Live Date</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Date</type>
+</CustomField>

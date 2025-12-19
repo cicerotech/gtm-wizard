@@ -1,0 +1,56 @@
+DELIVERY OBJECT CHANGE SET - COMPONENTS TO ADD
+================================================
+
+Click "Edit" on your "Delivery" change set, then add these components:
+
+CUSTOM OBJECTS:
+✓ Delivery
+
+CUSTOM FIELDS (add all of these):
+✓ Delivery.Opportunity__c
+✓ Delivery.Account__c
+✓ Delivery.Rocketlane_Project_ID__c
+✓ Delivery.Product_Line__c
+✓ Delivery.Delivery_Model__c
+✓ Delivery.Expected_Document_Volume__c
+✓ Delivery.Data_Complexity__c
+✓ Delivery.Eudia_Delivery_Owner__c
+✓ Delivery.JH_Delivery_Manager__c
+✓ Delivery.Client_Sponsor__c
+✓ Delivery.Kickoff_Date__c
+✓ Delivery.Target_Go_Live_Date__c
+✓ Delivery.Actual_Go_Live_Date__c
+✓ Delivery.Status__c
+✓ Delivery.Contract_Value__c
+✓ Delivery.Services_Revenue_Recognized__c
+✓ Delivery.Planned_JH_Hours__c
+✓ Delivery.Actual_JH_Hours__c
+✓ Delivery.Utilization_Percent__c
+✓ Delivery.Health_Score__c
+✓ Delivery.Time_Savings_Percent__c
+✓ Delivery.Client_Satisfaction_Score__c
+✓ Delivery.Expansion_Opportunities__c
+✓ Delivery.Rocketlane_Project_URL__c
+✓ Delivery.Last_Rocketlane_Sync__c
+✓ Delivery.Rocketlane_Sync_Status__c
+
+CUSTOM FIELDS (Opportunity):
+✓ Opportunity.Delivery__c
+
+PAGE LAYOUTS:
+✓ Delivery Layout
+
+FLOWS:
+✓ Create Delivery on Opportunity Close
+✓ Auto Populate Delivery Account
+
+VALIDATION RULES:
+✓ Delivery.Actual_Go_Live_After_Kickoff
+
+REPORT TYPES:
+✓ Deliveries with Opportunities
+✓ Deliveries with Accounts and Opportunities
+
+DASHBOARDS:
+✓ Delivery Operations
+

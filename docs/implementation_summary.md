@@ -148,7 +148,7 @@ Owner: Julie Stefanich
 - Legal_Department_Size__c (team size)
 - Competitive_Landscape__c (competition)
 - Key_Decision_Makers__c (stakeholders)
-- Customer_Type__c
+- Type__c
 - CLO_Engaged__c
 
 ### **Environment**

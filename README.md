@@ -248,7 +248,7 @@ gtm-brain/
 |--------|-------|---------|
 | **Account** | `Customer_Brain__c` | Meeting notes and conversation insights |
 | | `Account_Plan_s__c` | Strategic account plans |
-| | `Customer_Type__c` | Customer classification (Revenue/Pilot/LOI) |
+| | `Type__c` | Account classification (Revenue/Pilot/LOI) |
 | **Opportunity** | `ACV__c` | Annual contract value |
 | | `Finance_Weighted_ACV__c` | Probability-weighted pipeline value |
 | | `Product_Line_s__c` | Product/service line categorization |

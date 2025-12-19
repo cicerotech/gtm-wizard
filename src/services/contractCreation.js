@@ -621,10 +621,10 @@ async function processContractUpload(file, client, userId, channelId, threadTs) 
       });
       
       // General warnings
-      if (fields.warnings && fields.warnings.length > 0) {
+    if (fields.warnings && fields.warnings.length > 0) {
         fields.warnings.filter(w => !w.includes('account')).forEach(w => {
-          message += `• ${w}\n`;
-        });
+        message += `• ${w}\n`;
+      });
       }
     }
     
@@ -637,8 +637,8 @@ async function processContractUpload(file, client, userId, channelId, threadTs) 
       message += `• \`account: [Name]\` - Specify the correct account name first\n`;
       message += `• Then: \`create contract\` or \`create contract assign to [BL Name]\`\n`;
     } else {
-      message += `• \`create contract\` - Create with extracted data\n`;
-      message += `• \`create contract assign to [Name]\` - Create and assign to specific BL\n`;
+    message += `• \`create contract\` - Create with extracted data\n`;
+    message += `• \`create contract assign to [Name]\` - Create and assign to specific BL\n`;
     }
     message += `• \`cancel\` - Don't create\n`;
     

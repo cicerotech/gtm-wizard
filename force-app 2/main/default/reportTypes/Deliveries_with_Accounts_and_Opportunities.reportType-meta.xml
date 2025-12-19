@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ReportType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <baseObject>Delivery__c</baseObject>
+    <category>custom</category>
+    <deployed>true</deployed>
+    <label>Deliveries with Accounts and Opportunities</label>
+    <sections>
+        <columns>
+            <field>Name</field>
+            <field>Opportunity__c</field>
+            <field>Account__c</field>
+            <field>Status__c</field>
+            <field>Product_Line__c</field>
+            <field>Delivery_Model__c</field>
+            <field>Contract_Value__c</field>
+            <field>Health_Score__c</field>
+        </columns>
+        <masterLabel>Delivery Information</masterLabel>
+    </sections>
+</ReportType>
+

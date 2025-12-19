@@ -85,7 +85,7 @@ async function findAccount(companyName) {
   const likeConditions = variations.map(v => `Name LIKE '%${v.replace(/'/g, "\\'")}%'`).join(' OR ');
   
   const accountQuery = `
-    SELECT Id, Name, Owner.Name, Owner.Email, Customer_Type__c, 
+    SELECT Id, Name, Owner.Name, Owner.Email, Type__c, 
            Account_Plan_s__c, Customer_Brain__c, Nurture__c, 
            BillingCity, BillingCountry, Industry,
            CreatedDate, LastModifiedDate,
@@ -215,7 +215,7 @@ async function runAudit() {
       console.log(`  Status: EXISTS in Salesforce`);
       console.log(`  SF Account: ${account.Name} (ID: ${account.Id})`);
       console.log(`  Owner: ${account.Owner?.Name || 'Unknown'} <${account.Owner?.Email || ''}>`);
-      console.log(`  Customer Type: ${account.Customer_Type__c || 'Not set'}`);
+      console.log(`  Customer Type: ${account.Type__c || 'Not set'}`);
       console.log(`  Nurture: ${account.Nurture__c ? 'Yes' : 'No'}`);
       
       // Get engagement history
@@ -285,7 +285,7 @@ async function runAudit() {
         sfAccountName: account.Name,
         sfOwner: account.Owner?.Name,
         sfOwnerEmail: account.Owner?.Email,
-        sfCustomerType: account.Customer_Type__c,
+        sfCustomerType: account.Type__c,
         sfNurture: account.Nurture__c,
         sfTaskCount: engagement.tasks.length,
         sfEventCount: engagement.events.length,

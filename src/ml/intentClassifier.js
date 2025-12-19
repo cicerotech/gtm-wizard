@@ -102,7 +102,7 @@ class IntentClassifier {
     this.initializeWeights();
     
     // Train model
-    this.train(50);
+    this.train(epochs=50);
   }
 
   /**
@@ -335,7 +335,7 @@ class IntentClassifier {
     this.initializeWeights();
     
     // Retrain
-    this.train(30);
+    this.train(epochs=30);
   }
 
   /**

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Product_Line__c</fullName>
+    <externalId>false</externalId>
+    <inlineHelpText>The Eudia product line being delivered</inlineHelpText>
+    <label>Product Line</label>
+    <required>true</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>AI-Augmented Contracting</fullName>
+                <default>false</default>
+                <label>AI-Augmented Contracting</label>
+            </value>
+            <value>
+                <fullName>Augmented-M&amp;A</fullName>
+                <default>false</default>
+                <label>Augmented-M&amp;A</label>
+            </value>
+            <value>
+                <fullName>Compliance</fullName>
+                <default>false</default>
+                <label>Compliance</label>
+            </value>
+            <value>
+                <fullName>sigma</fullName>
+                <default>false</default>
+                <label>sigma</label>
+            </value>
+            <value>
+                <fullName>Cortex</fullName>
+                <default>false</default>
+                <label>Cortex</label>
+            </value>
+            <value>
+                <fullName>Multiple</fullName>
+                <default>false</default>
+                <label>Multiple</label>
+            </value>
+            <value>
+                <fullName>Undetermined</fullName>
+                <default>false</default>
+                <label>Undetermined</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

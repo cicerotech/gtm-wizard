@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>JH_Delivery_Manager__c</fullName>
+    <externalId>false</externalId>
+    <label>Johnson Hana Delivery Manager</label>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+    <referenceTo>User</referenceTo>
+    <relationshipLabel>JH Deliveries Managed</relationshipLabel>
+    <relationshipName>JH_Deliveries_Managed</relationshipName>
+    <helpText>JH team lead for managed services component</helpText>
+</CustomField>
+

@@ -1767,21 +1767,21 @@ function buildCountQuery(entities) {
   switch (countType) {
     case 'total_customers':
       // Return account names for listing
-      return `SELECT Name, Owner.Name, Customer_Type__c
+      return `SELECT Name, Owner.Name, Type__c
               FROM Account 
-              WHERE Customer_Type__c != null
+              WHERE Type__c != null
               ORDER BY Name`;
     
     case 'arr_customers':
       return `SELECT Name, Owner.Name
               FROM Account 
-              WHERE Customer_Type__c = 'ARR'
+              WHERE Type__c = 'ARR'
               ORDER BY Name`;
     
     case 'loi_customers':
       return `SELECT Name, Owner.Name
               FROM Account 
-              WHERE Customer_Type__c = 'LOI, with $ attached'
+              WHERE Type__c = 'LOI, with $ attached'
               ORDER BY Name`;
     
     case 'arr_contracts':
@@ -4820,7 +4820,7 @@ async function handleAccountsByOwner(parsedIntent, userId, channelId, client, th
     
     // Query accounts directly
     const soql = `
-      SELECT Id, Name, Owner.Name, Customer_Type__c, 
+      SELECT Id, Name, Owner.Name, Type__c, 
              (SELECT Id, Amount, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
       FROM Account 
       WHERE Owner.Name LIKE '%${ownerName}%'
@@ -4848,7 +4848,7 @@ async function handleAccountsByOwner(parsedIntent, userId, channelId, client, th
     response += `${accounts.length} accounts\n\n`;
     
     accounts.forEach((acc, i) => {
-      const customerType = acc.Customer_Type__c ? ` (${acc.Customer_Type__c})` : '';
+      const customerType = acc.Type__c ? ` (${acc.Type__c})` : '';
       const oppCount = acc.Opportunities?.totalSize || 0;
       const oppText = oppCount > 0 ? ` • ${oppCount} active opp${oppCount !== 1 ? 's' : ''}` : '';
       
@@ -5209,13 +5209,13 @@ async function handleLogoRightsQuery(userId, channelId, client, threadTs) {
  */
 async function handleCustomerListQuery(userId, channelId, client, threadTs) {
   try {
-    // Query accounts with Customer_Type__c set (these are customers)
+    // Query accounts with Type__c set (these are customers)
     const soql = `
-      SELECT Id, Name, Customer_Type__c, Owner.Name, 
+      SELECT Id, Name, Type__c, Owner.Name, 
              (SELECT Name, Amount FROM Opportunities WHERE IsClosed = false LIMIT 1)
       FROM Account 
-      WHERE Customer_Type__c != null 
-      ORDER BY Customer_Type__c, Name 
+      WHERE Type__c != null 
+      ORDER BY Type__c, Name 
       LIMIT 50
     `;
     
@@ -5224,7 +5224,7 @@ async function handleCustomerListQuery(userId, channelId, client, threadTs) {
     if (!result || result.totalSize === 0) {
       await client.chat.postMessage({
         channel: channelId,
-        text: `No customers found with Customer_Type__c set.\n\nCustomers are accounts with a defined Customer Type (Revenue, Pilot, LOI).`,
+        text: `No customers found with Type__c set.\n\nCustomers are accounts with a defined Customer Type (Revenue, Pilot, LOI).`,
         thread_ts: threadTs
       });
       return;
@@ -5233,7 +5233,7 @@ async function handleCustomerListQuery(userId, channelId, client, threadTs) {
     // Group by customer type
     const byType = { Revenue: [], Pilot: [], LOI: [], Other: [] };
     result.records.forEach(account => {
-      const type = account.Customer_Type__c || 'Other';
+      const type = account.Type__c || 'Other';
       if (type.includes('Revenue') || type.includes('ARR')) {
         byType.Revenue.push(account);
       } else if (type.includes('Pilot')) {

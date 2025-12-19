@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Phase__c</fullName>
+    <externalId>false</externalId>
+    <inlineHelpText>Current delivery phase in the 3-month journey</inlineHelpText>
+    <label>Phase</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Month 1 - Setup and Development</fullName>
+                <default>true</default>
+                <label>Month 1 - Setup and Development</label>
+            </value>
+            <value>
+                <fullName>Month 2 - Adoption and Scaling</fullName>
+                <default>false</default>
+                <label>Month 2 - Adoption and Scaling</label>
+            </value>
+            <value>
+                <fullName>Month 3 - Optimization and Support</fullName>
+                <default>false</default>
+                <label>Month 3 - Optimization and Support</label>
+            </value>
+            <value>
+                <fullName>Post Go-Live</fullName>
+                <default>false</default>
+                <label>Post Go-Live</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
+

@@ -197,7 +197,7 @@ Key_Decision_Makers__c
 Legal_Department_Size__c
 Pain_Points_Identified__c
 Target_LOI_Sign_Date__c (account-level, different from opp field!)
-Customer_Type__c (values: "ARR", "LOI, with $ attached", etc.)
+Type__c (values: "ARR", "LOI, with $ attached", etc.)
 Prior_Account_Owner_Name__c (for unassigned account detection)
 ```
 
@@ -299,7 +299,7 @@ User says → Salesforce value
 - [x] Time-based queries (last week, this month, etc.)
 
 **Counts & Metrics:**
-- [x] Customer counts (Account.Customer_Type__c)
+- [x] Customer counts (Account.Type__c)
 - [x] ARR customer counts
 - [x] ARR contract counts
 - [x] LOI counts
@@ -410,7 +410,7 @@ User query → SF value
 "project" → "Project"
 ```
 
-**Customer_Type__c (Account):**
+**Type__c (Account):**
 ```
 Picklist values (from screenshot):
 - "LOI, no $ attached"

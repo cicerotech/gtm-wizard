@@ -148,36 +148,36 @@ class SalesforceConnection {
     }
 
     const startTime = Date.now();
-    const queryHash = this.generateQueryHash(soql);
-    
-    // Check cache first if enabled
-    if (useCache) {
-      const cachedResult = await cache.getCachedQuery(queryHash);
-      if (cachedResult) {
-        logger.info('📦 Using cached query result', { queryHash });
-        return cachedResult;
+      const queryHash = this.generateQueryHash(soql);
+      
+      // Check cache first if enabled
+      if (useCache) {
+        const cachedResult = await cache.getCachedQuery(queryHash);
+        if (cachedResult) {
+          logger.info('📦 Using cached query result', { queryHash });
+          return cachedResult;
+        }
       }
-    }
 
     // Retry loop with exponential backoff
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        // Execute query
-        const result = await this.conn.query(soql);
-        const duration = Date.now() - startTime;
+      // Execute query
+      const result = await this.conn.query(soql);
+      const duration = Date.now() - startTime;
 
-        // Log query execution
-        logger.salesforceQuery(soql, result, duration);
+      // Log query execution
+      logger.salesforceQuery(soql, result, duration);
 
-        // Cache result if successful and cacheable
+      // Cache result if successful and cacheable
         if (useCache && result.totalSize < 1000) {
-          await cache.setCachedQuery(queryHash, result, 300); // 5 minutes
-        }
+        await cache.setCachedQuery(queryHash, result, 300); // 5 minutes
+      }
 
-        return result;
+      return result;
 
-      } catch (error) {
-        const duration = Date.now() - startTime;
+    } catch (error) {
+      const duration = Date.now() - startTime;
         
         // Check if error is retryable
         const isRetryable = 
@@ -189,9 +189,9 @@ class SalesforceConnection {
           error.message?.includes('socket hang up');
 
         // Handle token expiration (always retry once after refresh)
-        if (error.name === 'INVALID_SESSION_ID' || error.errorCode === 'INVALID_SESSION_ID') {
-          logger.info('🔄 Session expired, refreshing token...');
-          await this.authenticate();
+      if (error.name === 'INVALID_SESSION_ID' || error.errorCode === 'INVALID_SESSION_ID') {
+        logger.info('🔄 Session expired, refreshing token...');
+        await this.authenticate();
           continue; // Retry with new token
         }
 
@@ -215,7 +215,7 @@ class SalesforceConnection {
           attempts: attempt
         });
 
-        throw error;
+      throw error;
       }
     }
   }

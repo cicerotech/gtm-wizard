@@ -393,7 +393,7 @@ const jhNovemberARR = {
 const outHouseNovemberARR = {
   'Meta': 1558211
 };
-
+    
 // Calculate totals
 const eudiaNovemberARRTotal = Object.values(eudiaNovemberARR).reduce((sum, val) => sum + val, 0);
 const jhNovemberARRTotal = Object.values(jhNovemberARR).reduce((sum, val) => sum + val, 0);

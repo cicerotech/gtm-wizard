@@ -22,7 +22,7 @@ async function searchAccounts(req, res) {
     
     // Query SF for matching accounts
     const soql = `
-      SELECT Id, Name, Owner.Name, Is_New_Logo__c, Customer_Type__c,
+      SELECT Id, Name, Owner.Name, Is_New_Logo__c, Type__c,
              (SELECT Id, StageName, ACV__c, Product_Line__c 
               FROM Opportunities 
               WHERE IsClosed = false 
@@ -42,7 +42,7 @@ async function searchAccounts(req, res) {
       name: acc.Name,
       owner: acc.Owner?.Name || 'Unassigned',
       isNewLogo: acc.Is_New_Logo__c,
-      customerType: acc.Customer_Type__c,
+      customerType: acc.Type__c,
       recentOpp: acc.Opportunities?.records?.[0] ? {
         stage: acc.Opportunities.records[0].StageName,
         acv: acc.Opportunities.records[0].ACV__c,

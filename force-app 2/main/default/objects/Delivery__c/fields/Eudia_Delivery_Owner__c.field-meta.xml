@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Eudia_Delivery_Owner__c</fullName>
+    <externalId>false</externalId>
+    <label>Eudia Delivery Owner</label>
+    <required>true</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+    <referenceTo>User</referenceTo>
+    <relationshipLabel>Deliveries Owned</relationshipLabel>
+    <relationshipName>Deliveries_Owned</relationshipName>
+    <helpText>Primary Eudia contact responsible for delivery</helpText>
+</CustomField>
+

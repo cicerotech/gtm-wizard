@@ -53,7 +53,7 @@ class QueryBuilder {
         'Account.Legal_Department_Size__c',
         'Account.Pain_Points_Identified__c',
         'Account.Target_LOI_Sign_Date__c',
-        'Account.Customer_Type__c',
+        'Account.Type__c',
         'Account.CLO_Engaged__c'
       );
     }
@@ -377,7 +377,7 @@ class QueryBuilder {
    */
   buildAccountQuery(entities = {}) {
     let soql = 'SELECT Id, Name, Industry, Website, Domain, AnnualRevenue, ';
-    soql += 'CLO_Engaged__c, CLO_Reports_to_CEO__c, Customer_Type__c, ';
+    soql += 'CLO_Engaged__c, CLO_Reports_to_CEO__c, Type__c, ';
     soql += 'Is_New_Logo__c, Owner.Name, CreatedDate, LastActivityDate ';
     soql += 'FROM Account';
 
