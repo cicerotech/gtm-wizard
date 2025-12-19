@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const fs = require('fs');
 const path = require('path');
+const PDFDocument = require('pdfkit');
 const { query } = require('../salesforce/connection');
 const logger = require('../utils/logger');
 const { ALL_BUSINESS_LEADS, BL_ASSIGNMENTS } = require('../services/accountAssignment');
@@ -191,6 +192,16 @@ async function queryPipelineData() {
 }
 
 /**
+ * Check if date is in current month
+ */
+function isInCurrentMonth(dateStr) {
+  if (!dateStr) return false;
+  const targetDate = new Date(dateStr + 'T12:00:00Z');
+  const now = new Date();
+  return targetDate.getMonth() === now.getMonth() && targetDate.getFullYear() === now.getFullYear();
+}
+
+/**
  * Process raw opportunity data into metrics
  */
 function processPipelineData(records) {
@@ -200,6 +211,12 @@ function processPipelineData(records) {
   let totalGrossACV = 0;
   let totalWeightedThisQuarter = 0;
   const allAccountIds = new Set();
+  
+  // Stage breakdown
+  const stageBreakdown = {};
+  ACTIVE_STAGES.forEach(s => {
+    stageBreakdown[s] = { count: 0, grossACV: 0 };
+  });
   
   records.forEach(opp => {
     const ownerName = opp.Owner?.Name;
@@ -218,6 +235,12 @@ function processPipelineData(records) {
     
     // Add to total gross
     totalGrossACV += acv;
+    
+    // Track stage breakdown
+    if (stageBreakdown[stageName]) {
+      stageBreakdown[stageName].count++;
+      stageBreakdown[stageName].grossACV += acv;
+    }
     
     // Add to weighted this quarter if target date is between today and fiscal quarter end
     if (isInCurrentFiscalQuarter(targetDate)) {
@@ -243,6 +266,7 @@ function processPipelineData(records) {
       proposalDeals.push({
         accountName,
         acv,
+        weightedAcv,
         targetDate,
         productLine,
         ownerName,
@@ -261,7 +285,7 @@ function processPipelineData(records) {
     };
   });
   
-  // Sort proposal deals by target date
+  // Sort proposal deals by target date (soonest first)
   proposalDeals.sort((a, b) => {
     if (!a.targetDate && !b.targetDate) return 0;
     if (!a.targetDate) return 1;
@@ -272,9 +296,14 @@ function processPipelineData(records) {
   // Calculate proposal stage totals
   const proposalGrossACV = proposalDeals.reduce((sum, d) => sum + d.acv, 0);
   
+  // Calculate proposal targeting this month vs this quarter
+  const proposalThisMonth = proposalDeals.filter(d => isInCurrentMonth(d.targetDate));
+  const proposalThisQuarter = proposalDeals.filter(d => isInCurrentFiscalQuarter(d.targetDate));
+  
   return {
     blMetrics: finalBLMetrics,
     proposalDeals,
+    stageBreakdown,
     totals: {
       grossACV: totalGrossACV,
       weightedThisQuarter: totalWeightedThisQuarter,
@@ -282,10 +311,180 @@ function processPipelineData(records) {
       totalAccounts: allAccountIds.size,
       avgDealSize: records.length > 0 ? totalGrossACV / records.length : 0,
       proposalCount: proposalDeals.length,
-      proposalGrossACV
+      proposalGrossACV,
+      // This month targeting
+      proposalThisMonthCount: proposalThisMonth.length,
+      proposalThisMonthACV: proposalThisMonth.reduce((sum, d) => sum + d.acv, 0),
+      // This quarter targeting
+      proposalThisQuarterCount: proposalThisQuarter.length,
+      proposalThisQuarterGrossACV: proposalThisQuarter.reduce((sum, d) => sum + d.acv, 0),
+      proposalThisQuarterWeightedACV: proposalThisQuarter.reduce((sum, d) => sum + d.weightedAcv, 0)
     },
     fiscalQuarterLabel: getFiscalQuarterLabel()
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PDF GENERATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Generate professional PDF snapshot
+ * Times New Roman, 11pt, one-page internal memo format
+ */
+function generatePDFSnapshot(pipelineData, dateStr) {
+  return new Promise((resolve, reject) => {
+    try {
+      const { blMetrics, proposalDeals, stageBreakdown, totals, fiscalQuarterLabel } = pipelineData;
+      
+      const doc = new PDFDocument({ 
+        size: 'LETTER',
+        margins: { top: 50, bottom: 50, left: 50, right: 50 }
+      });
+      
+      const chunks = [];
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+      
+      // Use Times-Roman (built-in PDF font, similar to Times New Roman)
+      const fontRegular = 'Times-Roman';
+      const fontBold = 'Times-Bold';
+      
+      // Header
+      doc.font(fontBold).fontSize(16).text('EUDIA GTM WEEKLY SNAPSHOT', { align: 'center' });
+      doc.font(fontRegular).fontSize(11).text(dateStr, { align: 'center' });
+      doc.moveDown(1);
+      
+      // Divider line
+      doc.moveTo(50, doc.y).lineTo(562, doc.y).stroke();
+      doc.moveDown(0.5);
+      
+      // ═══════════════════════════════════════════════════════════════════════
+      // PIPELINE OVERVIEW
+      // ═══════════════════════════════════════════════════════════════════════
+      doc.font(fontBold).fontSize(12).text('PIPELINE OVERVIEW');
+      doc.moveDown(0.3);
+      
+      doc.font(fontRegular).fontSize(11);
+      doc.text(`Total Gross ACV: ${formatCurrency(totals.grossACV)}`);
+      doc.text(`Weighted Pipeline (${fiscalQuarterLabel}): ${formatCurrency(totals.weightedThisQuarter)}`);
+      doc.text(`Total Opportunities: ${totals.totalOpportunities}`);
+      doc.text(`Active Accounts: ${totals.totalAccounts}`);
+      doc.text(`Average Deal Size: ${formatCurrency(totals.avgDealSize)}`);
+      doc.moveDown(0.5);
+      
+      // Stage Distribution
+      doc.font(fontBold).fontSize(11).text('Stage Distribution');
+      doc.font(fontRegular).fontSize(10);
+      
+      // Reverse order to show S4 first
+      const stageOrder = [...ACTIVE_STAGES].reverse();
+      stageOrder.forEach(stage => {
+        const data = stageBreakdown[stage] || { count: 0, grossACV: 0 };
+        const stageLabel = stage.replace('Stage ', 'S').replace(' - ', ' ');
+        doc.text(`  ${stageLabel}: ${data.count} deals, ${formatCurrency(data.grossACV)}`);
+      });
+      doc.moveDown(0.8);
+      
+      // ═══════════════════════════════════════════════════════════════════════
+      // PROPOSAL STAGE OPPORTUNITIES
+      // ═══════════════════════════════════════════════════════════════════════
+      doc.font(fontBold).fontSize(12).text('PROPOSAL STAGE OPPORTUNITIES');
+      doc.moveDown(0.3);
+      
+      doc.font(fontRegular).fontSize(11);
+      doc.text(`${totals.proposalCount} deals, ${formatCurrency(totals.proposalGrossACV)} gross ACV`);
+      doc.text(`Targeting This Month: ${totals.proposalThisMonthCount} deals, ${formatCurrency(totals.proposalThisMonthACV)} ACV`);
+      doc.text(`Targeting This Quarter: ${totals.proposalThisQuarterCount} deals, ${formatCurrency(totals.proposalThisQuarterGrossACV)} gross, ${formatCurrency(totals.proposalThisQuarterWeightedACV)} weighted`);
+      doc.moveDown(0.5);
+      
+      // Group proposal deals by BL
+      const byOwner = {};
+      proposalDeals.forEach(deal => {
+        const owner = deal.ownerName;
+        if (!byOwner[owner]) byOwner[owner] = [];
+        byOwner[owner].push(deal);
+      });
+      
+      // Sort owners by total ACV descending
+      const sortedOwners = Object.entries(byOwner)
+        .map(([owner, deals]) => ({
+          owner,
+          deals: deals.sort((a, b) => new Date(a.targetDate || '2099-01-01') - new Date(b.targetDate || '2099-01-01')),
+          totalACV: deals.reduce((sum, d) => sum + d.acv, 0)
+        }))
+        .sort((a, b) => b.totalACV - a.totalACV);
+      
+      doc.font(fontBold).fontSize(10).text('By Business Lead (sorted by target sign date):');
+      doc.moveDown(0.3);
+      
+      sortedOwners.forEach(({ owner, deals, totalACV }) => {
+        doc.font(fontBold).fontSize(10).text(`${owner} (${deals.length} deals, ${formatCurrency(totalACV)})`);
+        doc.font(fontRegular).fontSize(9);
+        
+        // Show top 3 deals per BL
+        const dealsToShow = deals.slice(0, 3);
+        dealsToShow.forEach(d => {
+          doc.text(`    ${d.accountName} — ${formatCurrency(d.acv)} — ${formatDate(d.targetDate)}`);
+        });
+        if (deals.length > 3) {
+          doc.text(`    +${deals.length - 3} more`);
+        }
+        doc.moveDown(0.2);
+      });
+      
+      doc.moveDown(0.5);
+      
+      // ═══════════════════════════════════════════════════════════════════════
+      // BUSINESS LEAD SUMMARY
+      // ═══════════════════════════════════════════════════════════════════════
+      doc.font(fontBold).fontSize(12).text('BUSINESS LEAD SUMMARY');
+      doc.moveDown(0.3);
+      
+      // Table header
+      doc.font(fontBold).fontSize(9);
+      const colX = { name: 50, accts: 200, opps: 260, acv: 320 };
+      doc.text('Name', colX.name, doc.y);
+      doc.text('Accounts', colX.accts, doc.y - 11);
+      doc.text('Opps', colX.opps, doc.y - 11);
+      doc.text('Gross ACV', colX.acv, doc.y - 11);
+      doc.moveDown(0.3);
+      
+      // Divider
+      const tableY = doc.y;
+      doc.moveTo(50, tableY).lineTo(400, tableY).stroke();
+      doc.moveDown(0.2);
+      
+      // Sort all BLs by ACV
+      const allBLs = [...US_POD, ...EU_POD]
+        .filter(bl => blMetrics[bl])
+        .sort((a, b) => (blMetrics[b]?.grossACV || 0) - (blMetrics[a]?.grossACV || 0));
+      
+      doc.font(fontRegular).fontSize(9);
+      allBLs.forEach(bl => {
+        const m = blMetrics[bl];
+        if (!m || (m.accounts === 0 && m.opportunities === 0)) return;
+        
+        const y = doc.y;
+        doc.text(bl, colX.name, y);
+        doc.text(m.accounts.toString(), colX.accts, y);
+        doc.text(m.opportunities.toString(), colX.opps, y);
+        doc.text(formatCurrency(m.grossACV), colX.acv, y);
+        doc.moveDown(0.4);
+      });
+      
+      // Footer
+      doc.moveDown(1);
+      doc.font(fontRegular).fontSize(8).fillColor('#666666');
+      doc.text('Generated by Eudia GTM Brain — Internal use only', { align: 'center' });
+      
+      doc.end();
+      
+    } catch (error) {
+      reject(error);
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -435,84 +634,61 @@ function formatProposalDealsByBL(proposalDeals) {
 }
 
 /**
- * Format the complete Slack message - optimized for mobile/desktop readability
+ * Format condensed BL summary for Slack (one line per BL)
+ */
+function formatBLSummaryLine(blList, blMetrics) {
+  return blList
+    .filter(bl => blMetrics[bl] && (blMetrics[bl].accounts > 0 || blMetrics[bl].opportunities > 0))
+    .sort((a, b) => (blMetrics[b]?.grossACV || 0) - (blMetrics[a]?.grossACV || 0))
+    .map(bl => `${bl.split(' ')[0]} ${formatCurrency(blMetrics[bl].grossACV)}`)
+    .join(' | ');
+}
+
+/**
+ * Format the complete Slack message - condensed with PDF attachment
  */
 function formatSlackMessage(pipelineData, previousMetrics, dateStr) {
-  const { blMetrics, proposalDeals, totals, fiscalQuarterLabel } = pipelineData;
+  const { blMetrics, totals, fiscalQuarterLabel } = pipelineData;
   
-  let message = `*Weekly BL Summary — ${dateStr}*\n\n`;
+  let message = `*Eudia GTM Weekly Snapshot — ${dateStr}*\n\n`;
   
   // ═══════════════════════════════════════════════════════════════════════
-  // HEADLINE STATS - shorter lines for mobile
+  // PIPELINE SNAPSHOT
   // ═══════════════════════════════════════════════════════════════════════
   message += '*PIPELINE SNAPSHOT*\n';
-  message += `Total Gross: ${formatCurrency(totals.grossACV)}\n`;
-  message += `${totals.totalOpportunities} opps across ${totals.totalAccounts} accounts\n`;
-  message += `Weighted (${fiscalQuarterLabel}): ${formatCurrency(totals.weightedThisQuarter)}\n`;
-  message += `Avg Deal: ${formatCurrency(totals.avgDealSize)} | Proposal: ${totals.proposalCount} deals\n`;
+  message += `Total Gross ACV: ${formatCurrency(totals.grossACV)} (${totals.totalOpportunities} opps across ${totals.totalAccounts} accounts)\n`;
+  message += `Weighted Pipeline (${fiscalQuarterLabel}): ${formatCurrency(totals.weightedThisQuarter)}\n`;
+  message += `Avg Deal Size: ${formatCurrency(totals.avgDealSize)}\n`;
   message += '\n';
   
-  // Divider
-  message += `${DIVIDER}\n\n`;
+  // ═══════════════════════════════════════════════════════════════════════
+  // PROPOSAL STAGE SUMMARY
+  // ═══════════════════════════════════════════════════════════════════════
+  message += `*PROPOSAL STAGE (S4)* — ${totals.proposalCount} deals, ${formatCurrency(totals.proposalGrossACV)} gross ACV\n`;
+  message += `Targeting This Month: ${totals.proposalThisMonthCount} deals, ${formatCurrency(totals.proposalThisMonthACV)} ACV\n`;
+  message += `Targeting This Quarter: ${totals.proposalThisQuarterCount} deals, ${formatCurrency(totals.proposalThisQuarterGrossACV)} gross, ${formatCurrency(totals.proposalThisQuarterWeightedACV)} weighted\n`;
+  message += '\n';
   
   // ═══════════════════════════════════════════════════════════════════════
-  // US POD (sorted by gross ACV descending, filter zeros)
+  // CONDENSED BY BUSINESS LEAD
   // ═══════════════════════════════════════════════════════════════════════
-  const usPodBLs = US_POD
-    .filter(bl => {
-      const metrics = blMetrics[bl];
-      return metrics && (metrics.accounts > 0 || metrics.opportunities > 0);
-    })
-    .sort((a, b) => (blMetrics[b]?.grossACV || 0) - (blMetrics[a]?.grossACV || 0));
+  message += '*BY BUSINESS LEAD*\n';
   
-  if (usPodBLs.length > 0) {
-    message += '*US Pod*\n';
-    usPodBLs.forEach(bl => {
-      const current = blMetrics[bl];
-      const previous = previousMetrics ? previousMetrics[bl] : null;
-      message += formatBLLine(bl, current, previous) + '\n';
-    });
-    message += '\n';
+  const usSummary = formatBLSummaryLine(US_POD, blMetrics);
+  const euSummary = formatBLSummaryLine(EU_POD, blMetrics);
+  
+  if (usSummary) {
+    message += `US: ${usSummary}\n`;
   }
-  
-  // ═══════════════════════════════════════════════════════════════════════
-  // EU POD (sorted by gross ACV descending, filter zeros)
-  // ═══════════════════════════════════════════════════════════════════════
-  const euPodBLs = EU_POD
-    .filter(bl => {
-      const metrics = blMetrics[bl];
-      return metrics && (metrics.accounts > 0 || metrics.opportunities > 0);
-    })
-    .sort((a, b) => (blMetrics[b]?.grossACV || 0) - (blMetrics[a]?.grossACV || 0));
-  
-  if (euPodBLs.length > 0) {
-    message += '*EU Pod*\n';
-    euPodBLs.forEach(bl => {
-      const current = blMetrics[bl];
-      const previous = previousMetrics ? previousMetrics[bl] : null;
-      message += formatBLLine(bl, current, previous) + '\n';
-    });
-    message += '\n';
+  if (euSummary) {
+    message += `EU: ${euSummary}\n`;
   }
-  
-  // Divider before proposal section
-  message += `${DIVIDER}\n\n`;
+  message += '\n';
   
   // ═══════════════════════════════════════════════════════════════════════
-  // PROPOSAL STAGE DEALS (S4) grouped by BL - vertical format
+  // PDF REFERENCE
   // ═══════════════════════════════════════════════════════════════════════
-  if (proposalDeals.length > 0) {
-    message += `*PROPOSAL STAGE (S4)*\n`;
-    message += `${totals.proposalCount} deals, ${formatCurrency(totals.proposalGrossACV)} gross\n\n`;
-    message += formatProposalDealsByBL(proposalDeals);
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════
-  // FOOTER
-  // ═══════════════════════════════════════════════════════════════════════
-  if (!previousMetrics) {
-    message += '_First week - no comparison data available yet_';
-  }
+  message += '_See attached PDF for proposal stage details by business lead._';
   
   return message;
 }
@@ -523,12 +699,12 @@ function formatSlackMessage(pipelineData, previousMetrics, dateStr) {
 
 async function sendBLWeeklySummary(app, testMode = false) {
   try {
-    logger.info('Generating weekly BL summary...');
+    logger.info('Generating weekly BL summary with PDF...');
     
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];
     const displayDate = now.toLocaleDateString('en-US', { 
-      month: 'short', 
+      month: 'long', 
       day: 'numeric', 
       year: 'numeric' 
     });
@@ -546,8 +722,13 @@ async function sendBLWeeklySummary(app, testMode = false) {
     
     logger.info(`Previous snapshot date: ${lastSnapshotDate || 'none'}`);
     
-    // Format the message
+    // Format the condensed Slack message
     const message = formatSlackMessage(pipelineData, previousMetrics, displayDate);
+    
+    // Generate PDF snapshot
+    logger.info('Generating PDF snapshot...');
+    const pdfBuffer = await generatePDFSnapshot(pipelineData, displayDate);
+    const pdfFilename = `Eudia_GTM_Weekly_Snapshot_${dateStr}.pdf`;
     
     // Save current snapshot (BL metrics only for comparison)
     saveSnapshot(dateStr, pipelineData.blMetrics);
@@ -557,14 +738,16 @@ async function sendBLWeeklySummary(app, testMode = false) {
       (process.env.TEST_CHANNEL || 'U094AQE9V7D') :
       GTM_CHANNEL;
     
-    // Send to Slack
-    await app.client.chat.postMessage({
-      channel: channel,
-      text: message,
-      mrkdwn: true
+    // Upload PDF and send message together
+    await app.client.files.uploadV2({
+      channel_id: channel,
+      file: pdfBuffer,
+      filename: pdfFilename,
+      title: `Eudia GTM Weekly Snapshot — ${displayDate}`,
+      initial_comment: message
     });
     
-    logger.info(`Weekly BL summary sent to ${channel}`);
+    logger.info(`Weekly BL summary with PDF sent to ${channel}`);
     
     return {
       success: true,
@@ -573,7 +756,8 @@ async function sendBLWeeklySummary(app, testMode = false) {
       blCount: Object.keys(pipelineData.blMetrics).length,
       totals: pipelineData.totals,
       fiscalQuarterLabel: pipelineData.fiscalQuarterLabel,
-      message
+      message,
+      pdfFilename
     };
     
   } catch (error) {
