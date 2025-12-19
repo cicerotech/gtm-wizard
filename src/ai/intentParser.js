@@ -1305,6 +1305,23 @@ Business Context:
       };
     }
     
+    // Generate Weekly Summary / GTM Snapshot
+    if ((message.includes('weekly') && (message.includes('summary') || message.includes('snapshot') || message.includes('report'))) ||
+        (message.includes('generate') && message.includes('summary')) ||
+        (message.includes('gtm') && message.includes('snapshot')) ||
+        (message.includes('bl') && message.includes('summary')) ||
+        message.includes('weekly snapshot')) {
+      return {
+        intent: 'generate_weekly_summary',
+        entities: {},
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'Generate weekly GTM summary PDF',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
     // Account Management - BATCH Move to Nurture (Keigan only)
     // Patterns: "move [account1, account2, account3] to nurture" or "batch nurture: account1, account2"
     if ((message.includes('batch') && message.includes('nurture')) ||

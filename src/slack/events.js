@@ -495,6 +495,10 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle full active pipeline Excel report
       await handleFullPipelineExcelReport(userId, channelId, client, threadTs);
       return; // Exit early
+    } else if (parsedIntent.intent === 'generate_weekly_summary') {
+      // Handle weekly GTM summary PDF generation
+      await handleGenerateWeeklySummary(userId, channelId, client, threadTs);
+      return; // Exit early
     } else if (parsedIntent.intent === 'batch_move_to_nurture') {
       // Handle batch move to nurture (Keigan only)
       await handleBatchMoveToNurture(parsedIntent.entities, userId, channelId, client, threadTs);
@@ -2455,6 +2459,37 @@ async function handleFullPipelineExcelReport(userId, channelId, client, threadTs
     await client.chat.postMessage({
       channel: channelId,
       text: `❌ Error generating full pipeline report: ${error.message}\n\nPlease try again or contact support.`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle Generate Weekly Summary (PDF)
+ * Generates and sends the weekly GTM snapshot PDF
+ */
+async function handleGenerateWeeklySummary(userId, channelId, client, threadTs) {
+  try {
+    // Show loading message
+    await client.chat.postMessage({
+      channel: channelId,
+      text: '📊 Generating weekly GTM snapshot... This will take a moment.',
+      thread_ts: threadTs
+    });
+    
+    // Import the BL weekly summary module
+    const { sendBLSummaryNow } = require('./blWeeklySummary');
+    
+    // Generate and send the weekly summary (test mode = true sends to requesting user)
+    const result = await sendBLSummaryNow({ client }, true);
+    
+    logger.info(`✅ Weekly GTM summary sent to Slack by ${userId}`);
+    
+  } catch (error) {
+    logger.error('Failed to generate weekly summary:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Error generating weekly summary: ${error.message}\n\nPlease try again or contact support.`,
       thread_ts: threadTs
     });
   }
