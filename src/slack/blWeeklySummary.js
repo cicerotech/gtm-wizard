@@ -593,8 +593,8 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       
       // FIXED SECTION HEIGHTS (content-based, not percentage)
       const HEADER_HEIGHT = 48;       // Title + date + teal line
-      const SECTION_GAP = 20;         // Consistent gap between all sections
-      const METRICS_HEIGHT = 50;      // 5-column metrics bar
+      const SECTION_GAP = 32;         // 2 blank spacer rows between sections (~16pt each)
+      const METRICS_HEIGHT = 60;      // 3-column aligned metrics sections
       const STAGE_ROW_HEIGHT = 120;   // Stage Distribution + Proposal Stage
       const BL_SUMMARY_HEIGHT = 130;  // Business Lead summary tables
       const FOOTER_HEIGHT = 24;       // Footer line + text
@@ -683,7 +683,7 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       doc.strokeColor(TEAL_ACCENT).lineWidth(2).moveTo(LEFT, headerLineY).lineTo(LEFT + PAGE_WIDTH, headerLineY).stroke();
       
       // ═══════════════════════════════════════════════════════════════════════
-      // ROW 1: KEY METRICS BAR (5 equal columns across full width)
+      // ROW 1: KEY METRICS - 3 ALIGNED SECTIONS
       // ═══════════════════════════════════════════════════════════════════════
       const row1Y = metricsStartY;
       
@@ -694,30 +694,59 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       const loiNoLogos = (logosByType.loiNoDollar || []).length;
       const totalLogos = revenueLogos + pilotLogos + loiWithLogos + loiNoLogos;
       
-      // 5-column layout for key metrics
-      const metricColW = PAGE_WIDTH / 5;  // 108px each
-      const metrics = [
-        { label: 'Total Gross ACV', value: formatCurrency(totals.grossACV), sub: `${totals.totalOpportunities} opps • ${totals.totalAccounts} accts` },
-        { label: 'Weighted Pipeline', value: formatCurrency(totals.weightedThisQuarter), sub: fiscalQuarterLabel },
-        { label: 'Avg Deal Size', value: formatCurrency(totals.avgDealSize), sub: '' },
-        { label: 'Current Logos', value: totalLogos.toString(), sub: `Rev: ${revenueLogos} • Pilot: ${pilotLogos}` },
-        { label: 'S4 Proposal ACV', value: formatCurrency(totals.proposalGrossACV), sub: `${totals.proposalCount} deals` }
-      ];
+      // 3-column aligned layout (PIPELINE OVERVIEW | CURRENT LOGOS | BY REVENUE TYPE)
+      const COL1_X = LEFT;                    // Column 1 start
+      const COL2_X = LEFT + 200;              // Column 2 start (center)
+      const COL3_X = LEFT + 380;              // Column 3 start (right)
+      const SECTION_HEADER_Y = row1Y;
+      const SECTION_VALUE_Y = row1Y + 14;
+      const SECTION_SUB_Y = row1Y + 36;
       
-      metrics.forEach((m, i) => {
-        const x = LEFT + (i * metricColW);
-        doc.font(fontRegular).fontSize(6.5).fillColor(MEDIUM_GRAY);
-        doc.text(m.label, x, row1Y, { width: metricColW - 5 });
-        doc.font(fontBold).fontSize(18).fillColor(DARK_GRAY);
-        doc.text(m.value, x, row1Y + 9, { width: metricColW - 5 });
-        if (m.sub) {
-          doc.font(fontRegular).fontSize(5.5).fillColor(MEDIUM_GRAY);
-          doc.text(m.sub, x, row1Y + 28, { width: metricColW - 5 });
-        }
-      });
+      // SECTION 1: PIPELINE OVERVIEW (left)
+      doc.font(fontBold).fontSize(10).fillColor(DARK_GRAY);
+      doc.text('PIPELINE OVERVIEW', COL1_X, SECTION_HEADER_Y);
+      
+      doc.font(fontRegular).fontSize(7).fillColor(MEDIUM_GRAY);
+      doc.text('Total Gross ACV', COL1_X, SECTION_VALUE_Y);
+      doc.text('Weighted Pipeline', COL1_X + 80, SECTION_VALUE_Y);
+      doc.text('Avg Deal Size', COL1_X + 160, SECTION_VALUE_Y);
+      
+      doc.font(fontBold).fontSize(14).fillColor(DARK_GRAY);
+      doc.text(formatCurrency(totals.grossACV), COL1_X, SECTION_VALUE_Y + 10);
+      doc.text(formatCurrency(totals.weightedThisQuarter), COL1_X + 80, SECTION_VALUE_Y + 10);
+      doc.text(formatCurrency(totals.avgDealSize), COL1_X + 160, SECTION_VALUE_Y + 10);
+      
+      doc.font(fontRegular).fontSize(6).fillColor(MEDIUM_GRAY);
+      doc.text(`${totals.totalOpportunities} opps • ${totals.totalAccounts} accts`, COL1_X, SECTION_SUB_Y);
+      doc.text(fiscalQuarterLabel, COL1_X + 80, SECTION_SUB_Y);
+      
+      // SECTION 2: CURRENT LOGOS (center - aligned with section 1 header)
+      doc.font(fontBold).fontSize(10).fillColor(DARK_GRAY);
+      doc.text('CURRENT LOGOS', COL2_X, SECTION_HEADER_Y);
+      
+      doc.font(fontBold).fontSize(28).fillColor(DARK_GRAY);
+      doc.text(totalLogos.toString(), COL2_X, SECTION_VALUE_Y);
+      
+      doc.font(fontRegular).fontSize(6).fillColor(MEDIUM_GRAY);
+      doc.text(`Revenue: ${revenueLogos} • Pilot: ${pilotLogos} • LOI$: ${loiWithLogos} • LOI: ${loiNoLogos}`, COL2_X, SECTION_SUB_Y);
+      
+      // SECTION 3: BY REVENUE TYPE (right - aligned with section 1 header)
+      doc.font(fontBold).fontSize(10).fillColor(DARK_GRAY);
+      doc.text('BY REVENUE TYPE', COL3_X, SECTION_HEADER_Y);
+      
+      const recurringACV = totals.recurringACV || 0;
+      const projectACV = totals.projectACV || 0;
+      
+      doc.font(fontRegular).fontSize(7).fillColor(MEDIUM_GRAY);
+      doc.text('Recurring:', COL3_X, SECTION_VALUE_Y);
+      doc.text('Project:', COL3_X, SECTION_VALUE_Y + 14);
+      
+      doc.font(fontBold).fontSize(12).fillColor(DARK_GRAY);
+      doc.text(formatCurrency(recurringACV), COL3_X + 60, SECTION_VALUE_Y);
+      doc.text(formatCurrency(projectACV), COL3_X + 60, SECTION_VALUE_Y + 14);
       
       // Divider line
-      const row1EndY = metricsStartY + metricsHeight - 2;
+      const row1EndY = metricsStartY + metricsHeight + 8;
       doc.strokeColor(LIGHT_GRAY).lineWidth(0.5).moveTo(LEFT, row1EndY).lineTo(LEFT + PAGE_WIDTH, row1EndY).stroke();
       
       // ═══════════════════════════════════════════════════════════════════════
@@ -917,28 +946,28 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       const blHeaderHeightLocal = BL_HEADER_HEIGHT;
       const blGapHeightLocal = BL_GAP;
       
-      // Render deals with fixed heights
+      // Render deals with fixed heights (+3pt font increase)
       const drawBLDeals = (bls, startX, startY, maxWidth) => {
         let y = startY;
         
         bls.forEach(bl => {
           if (bl.deals.length === 0) return;
           
-          // BL Name header
-          doc.font(fontBold).fontSize(9).fillColor(TEAL_ACCENT);
+          // BL Name header (9pt → 12pt)
+          doc.font(fontBold).fontSize(12).fillColor(TEAL_ACCENT);
           doc.text(bl.name, startX, y);
-          y += blHeaderHeightLocal;
+          y += blHeaderHeightLocal + 2;
           
-          // Deals
-          doc.font(fontRegular).fontSize(7.5).fillColor(DARK_GRAY);
+          // Deals (7.5pt → 10.5pt)
+          doc.font(fontRegular).fontSize(10.5).fillColor(DARK_GRAY);
           bl.deals.slice(0, dealsPerBL).forEach(deal => {
-            const name = deal.accountName.length > 26 ? deal.accountName.substring(0, 26) + '...' : deal.accountName;
+            const name = deal.accountName.length > 22 ? deal.accountName.substring(0, 22) + '...' : deal.accountName;
             const date = formatDate(deal.targetDate);
             doc.text(`${name}  •  ${formatCurrency(deal.acv)}  •  ${date}`, startX, y, { width: maxWidth });
-            y += rowHeight;
+            y += rowHeight + 3;
           });
           
-          y += blGapHeightLocal;
+          y += blGapHeightLocal + 4;
         });
         
         return y;
@@ -989,28 +1018,28 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       const leftBLsACV = sortedBLsByACV.filter((_, i) => i % 2 === 0).slice(0, 6);
       const rightBLsACV = sortedBLsByACV.filter((_, i) => i % 2 === 1).slice(0, 6);
       
-      // Render BY ACV deals (same format, different data)
+      // Render BY ACV deals (+3pt font increase)
       const drawBLDealsACV = (bls, startX, startY, maxWidth) => {
         let y = startY;
         
         bls.forEach(bl => {
           if (bl.deals.length === 0) return;
           
-          // BL Name header
-          doc.font(fontBold).fontSize(9).fillColor(TEAL_ACCENT);
+          // BL Name header (9pt → 12pt)
+          doc.font(fontBold).fontSize(12).fillColor(TEAL_ACCENT);
           doc.text(bl.name, startX, y);
-          y += blHeaderHeightLocal;
+          y += blHeaderHeightLocal + 2;
           
-          // Deals (sorted by ACV)
-          doc.font(fontRegular).fontSize(7.5).fillColor(DARK_GRAY);
+          // Deals (7.5pt → 10.5pt)
+          doc.font(fontRegular).fontSize(10.5).fillColor(DARK_GRAY);
           bl.deals.slice(0, dealsPerBL).forEach(deal => {
-            const name = deal.accountName.length > 26 ? deal.accountName.substring(0, 26) + '...' : deal.accountName;
+            const name = deal.accountName.length > 22 ? deal.accountName.substring(0, 22) + '...' : deal.accountName;
             const date = formatDate(deal.targetDate);
             doc.text(`${name}  •  ${formatCurrency(deal.acv)}  •  ${date}`, startX, y, { width: maxWidth });
-            y += rowHeight;
+            y += rowHeight + 3;
           });
           
-          y += blGapHeightLocal;
+          y += blGapHeightLocal + 4;
         });
         
         return y;
