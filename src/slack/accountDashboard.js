@@ -3641,7 +3641,6 @@ function downloadWeeklyHTML() {
   
   // Extract week-over-week change data
   const wowRows = [];
-  const wowTable = weeklyTab.querySelector('[class*="weekly-subsection"]:has([class*="title"]:contains("Week-over-week")) table, .weekly-subsection table');
   weeklyTab.querySelectorAll('.weekly-subsection').forEach(section => {
     if (section.textContent.includes('Week-over-week Change')) {
       section.querySelectorAll('tbody tr').forEach(tr => {
