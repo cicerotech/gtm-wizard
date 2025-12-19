@@ -12,7 +12,8 @@ const { ALL_BUSINESS_LEADS, BL_ASSIGNMENTS } = require('../services/accountAssig
 const SNAPSHOT_FILE = path.join(__dirname, '../../data/bl-snapshots.json');
 const GTM_CHANNEL = process.env.GTM_ACCOUNT_PLANNING_CHANNEL || '#gtm-account-planning';
 const CAPACITY_ALERT_THRESHOLD = parseInt(process.env.BL_CAPACITY_ALERT_THRESHOLD) || 10;
-const MAX_DEALS_PER_BL = 4; // Max deals to show per BL in proposal section
+const MAX_DEALS_PER_BL = 3; // Max deals to show per BL in proposal section
+const DIVIDER = '───────────────────────';
 
 // US and EU Pod categorization for display
 const US_POD = [
@@ -343,7 +344,7 @@ function formatACVChange(current, previous) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Format a single BL line for the message
+ * Format a single BL line for the message (compact format)
  */
 function formatBLLine(blName, current, previous) {
   const currentAccounts = current?.accounts || 0;
@@ -360,12 +361,13 @@ function formatBLLine(blName, current, previous) {
   
   const firstName = blName.split(' ')[0];
   
-  return `• ${firstName} — ${currentAccounts} accounts${accountChange}, ${currentOpps} opps${oppChange}, ${formatCurrency(currentACV)} gross${acvChange}`;
+  // Use 'accts' for brevity, remove 'gross' to shorten
+  return `• ${firstName} — ${currentAccounts} accts${accountChange}, ${currentOpps} opps${oppChange}, ${formatCurrency(currentACV)}${acvChange}`;
 }
 
 /**
- * Format proposal deals grouped by BL
- * Returns format: "Julie (3): Petsmart $50k Dec 19, Samsara $40k Dec 19, ..."
+ * Format proposal deals grouped by BL - vertical scannable format
+ * Each BL gets a header line, then indented deal lines
  */
 function formatProposalDealsByBL(proposalDeals) {
   if (proposalDeals.length === 0) return '';
@@ -389,7 +391,7 @@ function formatProposalDealsByBL(proposalDeals) {
     }))
     .sort((a, b) => b.totalACV - a.totalACV);
   
-  // Format each owner's deals
+  // Format each owner's deals - vertical format
   let output = '';
   sortedOwners.forEach(({ owner, deals }) => {
     const dealCount = deals.length;
@@ -397,27 +399,29 @@ function formatProposalDealsByBL(proposalDeals) {
     // Sort deals by ACV descending for display
     deals.sort((a, b) => b.acv - a.acv);
     
-    // Take top deals per BL
+    // BL header line with bold name and deal count
+    output += `*${owner}* (${dealCount} ${dealCount === 1 ? 'deal' : 'deals'})\n`;
+    
+    // Show top deals, each on its own indented line
     const dealsToShow = deals.slice(0, MAX_DEALS_PER_BL);
-    const dealStrings = dealsToShow.map(d => 
-      `${d.accountName} ${formatCurrency(d.acv)} ${formatDate(d.targetDate)}`
-    );
+    dealsToShow.forEach(d => {
+      output += `  › ${d.accountName} — ${formatCurrency(d.acv)} — ${formatDate(d.targetDate)}\n`;
+    });
     
-    let line = `${owner} (${dealCount}): ${dealStrings.join(', ')}`;
-    
-    // Add ellipsis if more deals
+    // Add "+X more" if needed
     if (deals.length > MAX_DEALS_PER_BL) {
-      line += `, +${deals.length - MAX_DEALS_PER_BL} more`;
+      output += `  › +${deals.length - MAX_DEALS_PER_BL} more\n`;
     }
     
-    output += line + '\n';
+    // Add blank line between BLs for readability
+    output += '\n';
   });
   
   return output;
 }
 
 /**
- * Format the complete Slack message
+ * Format the complete Slack message - optimized for mobile/desktop readability
  */
 function formatSlackMessage(pipelineData, previousMetrics, dateStr) {
   const { blMetrics, proposalDeals, totals, fiscalQuarterLabel } = pipelineData;
@@ -425,14 +429,17 @@ function formatSlackMessage(pipelineData, previousMetrics, dateStr) {
   let message = `*Weekly BL Summary — ${dateStr}*\n\n`;
   
   // ═══════════════════════════════════════════════════════════════════════
-  // HEADLINE STATS
+  // HEADLINE STATS - shorter lines for mobile
   // ═══════════════════════════════════════════════════════════════════════
   message += '*PIPELINE SNAPSHOT*\n';
-  message += `Total Gross: ${formatCurrency(totals.grossACV)} (${totals.totalOpportunities} opps across ${totals.totalAccounts} accounts with active pipeline)\n`;
-  message += `Weighted This Quarter (${fiscalQuarterLabel}): ${formatCurrency(totals.weightedThisQuarter)}\n`;
-  message += `Avg Deal Size: ${formatCurrency(totals.avgDealSize)} gross\n`;
-  message += `Proposal Stage (S4): ${totals.proposalCount} deals, ${formatCurrency(totals.proposalGrossACV)} gross\n`;
+  message += `Total Gross: ${formatCurrency(totals.grossACV)}\n`;
+  message += `${totals.totalOpportunities} opps across ${totals.totalAccounts} accounts\n`;
+  message += `Weighted (${fiscalQuarterLabel}): ${formatCurrency(totals.weightedThisQuarter)}\n`;
+  message += `Avg Deal: ${formatCurrency(totals.avgDealSize)} | Proposal: ${totals.proposalCount} deals\n`;
   message += '\n';
+  
+  // Divider
+  message += `${DIVIDER}\n\n`;
   
   // ═══════════════════════════════════════════════════════════════════════
   // US POD (sorted by gross ACV descending, filter zeros)
@@ -474,11 +481,15 @@ function formatSlackMessage(pipelineData, previousMetrics, dateStr) {
     message += '\n';
   }
   
+  // Divider before proposal section
+  message += `${DIVIDER}\n\n`;
+  
   // ═══════════════════════════════════════════════════════════════════════
-  // PROPOSAL STAGE DEALS (S4) grouped by BL
+  // PROPOSAL STAGE DEALS (S4) grouped by BL - vertical format
   // ═══════════════════════════════════════════════════════════════════════
   if (proposalDeals.length > 0) {
-    message += '*DEALS IN PROPOSAL (S4)*\n';
+    message += `*PROPOSAL STAGE (S4)*\n`;
+    message += `${totals.proposalCount} deals, ${formatCurrency(totals.proposalGrossACV)} gross\n\n`;
     message += formatProposalDealsByBL(proposalDeals);
   }
   
@@ -486,7 +497,7 @@ function formatSlackMessage(pipelineData, previousMetrics, dateStr) {
   // FOOTER
   // ═══════════════════════════════════════════════════════════════════════
   if (!previousMetrics) {
-    message += '\n_First week - no comparison data available yet_';
+    message += '_First week - no comparison data available yet_';
   }
   
   return message;
