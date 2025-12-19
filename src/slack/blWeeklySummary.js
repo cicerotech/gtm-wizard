@@ -15,6 +15,15 @@ const CAPACITY_ALERT_THRESHOLD = parseInt(process.env.BL_CAPACITY_ALERT_THRESHOL
 const MAX_DEALS_PER_BL = 3; // Max deals to show per BL in proposal section
 const DIVIDER = '───────────────────────';
 
+// Active pipeline stages (must match Salesforce "All Active Pipeline" report)
+const ACTIVE_STAGES = [
+  'Stage 0 - Qualifying',
+  'Stage 1 - Discovery',
+  'Stage 2 - SQO',
+  'Stage 3 - Pilot',
+  'Stage 4 - Proposal'
+];
+
 // US and EU Pod categorization for display
 const US_POD = [
   'Asad Hussain',
@@ -22,7 +31,8 @@ const US_POD = [
   'Julie Stefanich',
   'Olivia Jung',
   'Ananth Cherukupally',
-  'Justin Hills'
+  'Justin Hills',
+  'Mike Masiello'
 ];
 
 const EU_POD = [
@@ -151,12 +161,16 @@ async function queryPipelineData() {
   try {
     logger.info('Querying pipeline data from Salesforce...');
     
+    // Build stage filter to match "All Active Pipeline" report (Stages 0-4)
+    const stageFilter = ACTIVE_STAGES.map(s => `'${s}'`).join(', ');
+    
     const soql = `
       SELECT Owner.Name, AccountId, Account.Name, 
              ACV__c, Weighted_ACV__c, StageName,
              Target_LOI_Date__c, Product_Line__c
       FROM Opportunity
       WHERE IsClosed = false
+        AND StageName IN (${stageFilter})
       ORDER BY Owner.Name, Target_LOI_Date__c ASC NULLS LAST
     `;
     
@@ -167,7 +181,7 @@ async function queryPipelineData() {
       return [];
     }
     
-    logger.info(`Found ${result.totalSize} open opportunities`);
+    logger.info(`Found ${result.totalSize} active pipeline opportunities (Stages 0-4)`);
     return result.records;
     
   } catch (error) {
