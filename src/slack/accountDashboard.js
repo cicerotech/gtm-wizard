@@ -295,8 +295,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
     <div><strong>S1</strong> Discovery - Meeting with client</div>
     <div><strong>S2</strong> SQO - Sales Qualified</div>
     <div><strong>S3</strong> Pilot - Trial underway</div>
-    <div><strong>S4</strong> Proposal - Formal proposal</div>
-    <div><strong>S5</strong> Negotiation - Contract terms</div>
+    <div><strong>S4</strong> Proposal - Formal proposal & negotiation</div>
   </div>
   
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -340,7 +339,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
               '</div>' +
             '</summary>' +
             '<div style="padding: 10px; font-size: 0.75rem; border-top: 1px solid #e5e7eb;">' +
-              (acc.source === 'eudia' && (lastMeetingDate || nextMeetingDate) ? '<div style="background: #ecfdf5; padding: 6px; border-radius: 4px; margin-bottom: 6px; font-size: 0.7rem; color: #065f46;">' + (lastMeetingDate ? '<div><strong>Prior Meeting:</strong> ' + lastMeetingDate + '</div>' : '') + (nextMeetingDate ? '<div><strong>Next Meeting:</strong> ' + nextMeetingDate + '</div>' : (lastMeetingDate ? '<div style="color: #991b1b;"><strong>No next meeting scheduled</strong></div>' : '')) + '</div>' : '') +
+              (acc.source === 'eudia' && (lastMeetingDate || nextMeetingDate) ? '<div style="background: #f3f4f6; padding: 6px; border-radius: 4px; margin-bottom: 6px; font-size: 0.7rem; color: #374151; border: 1px solid #e5e7eb;">' + (lastMeetingDate ? '<div><strong>Prior Meeting:</strong> ' + lastMeetingDate + '</div>' : '') + (nextMeetingDate ? '<div><strong>Next Meeting:</strong> ' + nextMeetingDate + '</div>' : (lastMeetingDate ? '<div style="color: #991b1b;"><strong>No next meeting scheduled</strong></div>' : '')) + '</div>' : '') +
               (legalContacts.length > 0 ? '<div style="font-size: 0.65rem; color: #6b7280; margin-bottom: 6px;"><strong>Legal:</strong> ' + legalContacts.slice(0,2).join(', ') + '</div>' : '') +
               '<div style="font-weight: 600; margin-bottom: 4px;">Opportunities (' + acc.opportunities.length + '):</div>' +
               acc.opportunities.map(o => {
@@ -697,7 +696,7 @@ function generateWeeklyTab(params) {
       lastOppCount: lastWeekBaseline['Stage 3 - Pilot'].oppCount
     },
     { 
-      stage: 'Stage 4/5 - Proposal*', // Blended S4+S5
+      stage: 'Stage 4 - Proposal', // Combined with S5 for reporting
       acv: s4Acv + s5Acv,
       oppCount: s4Count + s5Count,
       lastAcv: lastWeekBaseline['Stage 4 - Proposal'].acv, // Already includes S5
@@ -749,9 +748,9 @@ function generateWeeklyTab(params) {
     <!-- Signed Since Last Week - Static data (8 deals, $1.46M total) -->
     <div class="weekly-subsection">
       <div style="font-weight: 600; font-size: 0.75rem; color: #374151; margin-bottom: 4px;">Signed Revenue since last week</div>
-      <div style="background: #ecfdf5; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px;">
-        <div style="font-size: 0.65rem; color: #047857; font-weight: 600;">TOTAL SIGNED (8 deals)</div>
-        <div style="font-size: 1.1rem; font-weight: 700; color: #065f46;">$1.46m</div>
+      <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #e5e7eb;">
+        <div style="font-size: 0.65rem; color: #111827; font-weight: 600;">TOTAL SIGNED (8 deals)</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #111827;">$1.46m</div>
       </div>
       <div style="font-size: 0.7rem; color: #374151;">
         <div style="font-weight: 600; color: #047857; margin: 8px 0 4px 0; font-size: 0.65rem;">RECURRING (4)</div>
@@ -802,9 +801,9 @@ function generateWeeklyTab(params) {
         
         return `
       <div style="display: flex; gap: 8px; margin-top: 8px; margin-bottom: 12px; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 100px; background: #ecfdf5; padding: 10px; border-radius: 6px; text-align: center;">
-          <div style="font-size: 0.6rem; font-weight: 600; color: #047857; margin-bottom: 2px;">Q4 WEIGHTED PIPELINE</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #065f46;">${fmt(q4TotalWeighted)}</div>
+        <div style="flex: 1; min-width: 100px; background: #f3f4f6; padding: 10px; border-radius: 6px; text-align: center;">
+          <div style="font-size: 0.6rem; font-weight: 600; color: #111827; margin-bottom: 2px;">Q4 WEIGHTED PIPELINE</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #111827;">${fmt(q4TotalWeighted)}</div>
         </div>
         <div style="flex: 1; min-width: 100px; background: #dbeafe; padding: 10px; border-radius: 6px; text-align: center;">
           <div style="font-size: 0.6rem; font-weight: 600; color: #1e40af; margin-bottom: 2px;">${currentMonthName.toUpperCase()} WEIGHTED</div>
@@ -922,12 +921,12 @@ function generateWeeklyTab(params) {
             </summary>
             <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">U.S. Air Force, Toshiba US, Peregrine Hospitality, Meta, Kingspan, ICON, Ecolab, DHL, Coimisiun na Mean, Chevron, Bayer, Sandbox, Novelis, Asana, Western Digital, The Wonderful Company, Weir Group, Pure Storage, PetSmart, GE Vernova, Fresh Del Monte, Dolby, Cox Media, CHS, Best Buy, AES, Wealth Partners, Tailored Brands, Amazon</div>
           </details>
-          <details style="background: #ecfdf5;">
+          <details style="background: #dbeafe;">
             <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #065f46;">Q4 2025 (QTD)</span>
-              <span style="font-weight: 600; color: #065f46;">8</span>
+              <span style="color: #1e40af;">Q4 2025 (QTD)</span>
+              <span style="font-weight: 600; color: #1e40af;">8</span>
             </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #047857; background: #d1fae5;">IQVIA, Delinea, Aryza, Wellspring Philanthropic Fund, Aramark Ireland, World Wide Technology, BNY Mellon</div>
+            <div style="padding: 6px 8px; font-size: 0.65rem; color: #1e3a8a; background: #bfdbfe;">IQVIA, Delinea, Aryza, Wellspring Philanthropic Fund, Aramark Ireland, World Wide Technology, BNY Mellon</div>
           </details>
           <div style="display: flex; justify-content: space-between; padding: 6px 8px; font-weight: 600; background: #e5e7eb; margin-top: 6px; border-radius: 3px; font-size: 0.7rem; color: #374151;">
             <span>Total Signed</span>
@@ -953,9 +952,9 @@ function generateWeeklyTab(params) {
               <td style="color: #1e40af; font-weight: 600;">December (Current)</td>
               <td style="text-align: right; color: #1e40af; font-weight: 600;">$20.4m</td>
             </tr>
-            <tr style="background: #ecfdf5;">
-              <td style="color: #065f46;">+ Q4 Weighted Pipeline</td>
-              <td style="text-align: right; color: #065f46; font-weight: 600;">$4.0m</td>
+            <tr style="background: #f3f4f6;">
+              <td style="color: #111827; font-weight: 600;">+ Q4 Weighted Pipeline</td>
+              <td style="text-align: right; color: #111827; font-weight: 600;">$4.0m</td>
             </tr>
             <tr style="font-weight: 600; background: #e5e7eb;">
               <td>FY2025E Total</td>
@@ -1109,8 +1108,7 @@ function generateWeeklyTab(params) {
         </tbody>
       </table>
       <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 4px; font-style: italic;">
-        Baseline: Last week's combined Eudia + JH totals (${baselineDate})<br>
-        *S4/5 Proposal includes Stage 5 Negotiation deals for simplified reporting
+        Baseline: Last week's combined Eudia + JH totals (${baselineDate})
       </div>
     </div>
     
@@ -1314,13 +1312,13 @@ function generateWeeklyTab(params) {
       
       return `
     <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
-      <div style="flex: 1; min-width: 100px; background: #ecfdf5; padding: 10px; border-radius: 6px; text-align: center;">
-        <div style="font-size: 0.6rem; font-weight: 600; color: #047857; margin-bottom: 2px;">TOP DEALS TOTAL</div>
+      <div style="flex: 1; min-width: 100px; background: #f3f4f6; padding: 10px; border-radius: 6px; text-align: center; border: 1px solid #e5e7eb;">
+        <div style="font-size: 0.6rem; font-weight: 600; color: #111827; margin-bottom: 2px;">TOP DEALS TOTAL</div>
         <div style="font-size: 1.1rem; font-weight: 700; color: #065f46;">${fmt(combinedTotal)}</div>
       </div>
-      <div style="flex: 1; min-width: 100px; background: #fef3c7; padding: 10px; border-radius: 6px; text-align: center;">
-        <div style="font-size: 0.6rem; font-weight: 600; color: #92400e; margin-bottom: 2px;">LATE STAGE (S4/S5)</div>
-        <div style="font-size: 1.1rem; font-weight: 700; color: #92400e;">${lateStageCount} deals</div>
+      <div style="flex: 1; min-width: 100px; background: #dbeafe; padding: 10px; border-radius: 6px; text-align: center; border: 1px solid #bfdbfe;">
+        <div style="font-size: 0.6rem; font-weight: 600; color: #1e40af; margin-bottom: 2px;">LATE STAGE (S4)</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #1e40af;">${lateStageCount} deals</div>
       </div>
       <div style="flex: 1; min-width: 100px; background: #f3f4f6; padding: 10px; border-radius: 6px; text-align: center;">
         <div style="font-size: 0.6rem; font-weight: 600; color: #9CA3AF; margin-bottom: 2px;">CLOSING NEXT 30 DAYS</div>
@@ -1972,7 +1970,7 @@ async function generateAccountDashboard() {
     'Stage 1 - Discovery': [],
     'Stage 2 - SQO': [],
     'Stage 3 - Pilot': [],
-    'Stage 4/5 - Proposal': [] // S5 blended into S4
+    'Stage 4 - Proposal': []
   };
   
   try {
@@ -1981,10 +1979,10 @@ async function generateAccountDashboard() {
     if (daysData?.records) {
       daysData.records.forEach(opp => {
         const stage = opp.StageName;
-        // Map S4 and S5 to combined S4/5 - Proposal
+        // Map S5 to S4 for combined reporting
         let displayStage = stage;
         if (stage === 'Stage 4 - Proposal' || stage === 'Stage 5 - Negotiation') {
-          displayStage = 'Stage 4/5 - Proposal';
+          displayStage = 'Stage 4 - Proposal';
         }
         if (daysInStageByStage[displayStage]) {
           daysInStageByStage[displayStage].push({
@@ -2340,7 +2338,7 @@ async function generateAccountDashboard() {
     'Stage 2 - SQO': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
     'Stage 1 - Discovery': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
     'Stage 0 - Qualifying': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
-    'Stage 5 - Negotiation': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 } // Track S5 separately, then blend
+    'Stage 5 - Negotiation': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 } // Blended into S4 for display
   };
   
   pipelineData.records.forEach(r => {
