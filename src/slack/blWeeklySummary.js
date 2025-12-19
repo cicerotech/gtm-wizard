@@ -613,18 +613,20 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       const DEAL_ROW_HEIGHT = 11;
       const BL_GAP = 8;
       
-      // Calculate height needed for Top Deals section
+      // Calculate height needed for Top Deals sections (BY DATE + BY ACV)
       const blsPerColumn = Math.ceil(numBLs / 2);
       const TOP_DEALS_HEADER = 20;
       const TOP_DEALS_CONTENT = blsPerColumn * (BL_HEADER_HEIGHT + (dealsPerBL * DEAL_ROW_HEIGHT) + BL_GAP);
-      const TOP_DEALS_HEIGHT = TOP_DEALS_HEADER + TOP_DEALS_CONTENT;
+      const TOP_DEALS_BY_DATE_HEIGHT = TOP_DEALS_HEADER + TOP_DEALS_CONTENT;
+      const TOP_DEALS_BY_ACV_HEIGHT = TOP_DEALS_HEADER + TOP_DEALS_CONTENT;  // Same size
       
       // TOTAL PAGE HEIGHT = sum of all sections + gaps + margins
       const TOTAL_CONTENT = HEADER_HEIGHT + SECTION_GAP + 
                             METRICS_HEIGHT + SECTION_GAP +
                             STAGE_ROW_HEIGHT + SECTION_GAP +
                             BL_SUMMARY_HEIGHT + SECTION_GAP +
-                            TOP_DEALS_HEIGHT + SECTION_GAP +
+                            TOP_DEALS_BY_DATE_HEIGHT + SECTION_GAP +
+                            TOP_DEALS_BY_ACV_HEIGHT + SECTION_GAP +
                             FOOTER_HEIGHT;
       const PAGE_HEIGHT = MARGIN_TOP + TOTAL_CONTENT + MARGIN_BOTTOM;
       
@@ -662,8 +664,12 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       const blSummaryHeight = BL_SUMMARY_HEIGHT;
       currentY += blSummaryHeight + SECTION_GAP;
       
-      const topDealsStartY = currentY;
-      const topDealsHeight = TOP_DEALS_HEIGHT;
+      const topDealsByDateStartY = currentY;
+      const topDealsByDateHeight = TOP_DEALS_BY_DATE_HEIGHT;
+      currentY += topDealsByDateHeight + SECTION_GAP;
+      
+      const topDealsByACVStartY = currentY;
+      const topDealsByACVHeight = TOP_DEALS_BY_ACV_HEIGHT;
       
       // ═══════════════════════════════════════════════════════════════════════
       // HEADER
@@ -860,14 +866,14 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       doc.strokeColor(LIGHT_GRAY).lineWidth(0.5).moveTo(LEFT, row3EndY).lineTo(LEFT + PAGE_WIDTH, row3EndY).stroke();
       
       // ═══════════════════════════════════════════════════════════════════════
-      // ROW 4: TOP DEALS BY BUSINESS LEAD (fills remaining space to footer)
+      // ROW 4: TOP 5 DEALS BY TARGET SIGN DATE
       // ═══════════════════════════════════════════════════════════════════════
-      const row4Y = topDealsStartY + 4;
+      const row4Y = topDealsByDateStartY + 4;
       
       doc.font(fontBold).fontSize(10).fillColor(DARK_GRAY);
-      doc.text('TOP DEALS BY BUSINESS LEAD', LEFT, row4Y);
+      doc.text('TOP 5 DEALS BY TARGET SIGN DATE', LEFT, row4Y);
       doc.font(fontRegular).fontSize(7).fillColor(MEDIUM_GRAY);
-      doc.text('Sorted by Target Sign Date', LEFT + 175, row4Y + 1);
+      doc.text('Per Business Lead', LEFT + 210, row4Y + 1);
       
       // Get all active pipeline deals sorted by target date
       const dealsForTop5 = allDeals || [];
@@ -942,10 +948,82 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       const leftDealsEndY = drawBLDeals(leftBLs, LEFT, dealsContentStartY, halfWidth);
       const rightDealsEndY = drawBLDeals(rightBLs, RIGHT_COL, dealsContentStartY, halfWidth);
       
+      // Divider line after BY DATE section
+      const row4EndY = Math.max(leftDealsEndY, rightDealsEndY) + 4;
+      doc.strokeColor(LIGHT_GRAY).lineWidth(0.5).moveTo(LEFT, row4EndY).lineTo(LEFT + PAGE_WIDTH, row4EndY).stroke();
+      
+      // ═══════════════════════════════════════════════════════════════════════
+      // ROW 5: TOP 5 DEALS BY ACV (Highest Value)
+      // ═══════════════════════════════════════════════════════════════════════
+      const row5Y = topDealsByACVStartY + 4;
+      
+      doc.font(fontBold).fontSize(10).fillColor(DARK_GRAY);
+      doc.text('TOP 5 DEALS BY ACV', LEFT, row5Y);
+      doc.font(fontRegular).fontSize(7).fillColor(MEDIUM_GRAY);
+      doc.text('Per Business Lead (Highest Value)', LEFT + 140, row5Y + 1);
+      
+      // Create deals sorted by ACV (highest first) for each BL
+      const dealsByBLForACV = {};
+      dealsForTop5.forEach(deal => {
+        const blName = deal.ownerFirstName || deal.ownerName?.split(' ')[0] || 'Unknown';
+        if (!dealsByBLForACV[blName]) dealsByBLForACV[blName] = [];
+        dealsByBLForACV[blName].push(deal);
+      });
+      
+      // Sort each BL's deals by ACV (descending) and limit to 5
+      Object.keys(dealsByBLForACV).forEach(bl => {
+        dealsByBLForACV[bl].sort((a, b) => (b.acv || 0) - (a.acv || 0));
+        dealsByBLForACV[bl] = dealsByBLForACV[bl].slice(0, dealsPerBL);
+      });
+      
+      // Get BLs sorted by total ACV
+      const sortedBLsByACV = Object.keys(dealsByBLForACV)
+        .map(bl => ({
+          name: bl,
+          deals: dealsByBLForACV[bl],
+          totalACV: dealsByBLForACV[bl].reduce((sum, d) => sum + (d.acv || 0), 0)
+        }))
+        .sort((a, b) => b.totalACV - a.totalACV);
+      
+      // Split BLs into 2 columns
+      const leftBLsACV = sortedBLsByACV.filter((_, i) => i % 2 === 0).slice(0, 6);
+      const rightBLsACV = sortedBLsByACV.filter((_, i) => i % 2 === 1).slice(0, 6);
+      
+      // Render BY ACV deals (same format, different data)
+      const drawBLDealsACV = (bls, startX, startY, maxWidth) => {
+        let y = startY;
+        
+        bls.forEach(bl => {
+          if (bl.deals.length === 0) return;
+          
+          // BL Name header
+          doc.font(fontBold).fontSize(9).fillColor(TEAL_ACCENT);
+          doc.text(bl.name, startX, y);
+          y += blHeaderHeightLocal;
+          
+          // Deals (sorted by ACV)
+          doc.font(fontRegular).fontSize(7.5).fillColor(DARK_GRAY);
+          bl.deals.slice(0, dealsPerBL).forEach(deal => {
+            const name = deal.accountName.length > 26 ? deal.accountName.substring(0, 26) + '...' : deal.accountName;
+            const date = formatDate(deal.targetDate);
+            doc.text(`${name}  •  ${formatCurrency(deal.acv)}  •  ${date}`, startX, y, { width: maxWidth });
+            y += rowHeight;
+          });
+          
+          y += blGapHeightLocal;
+        });
+        
+        return y;
+      };
+      
+      const acvContentStartY = row5Y + TOP_DEALS_HEADER;
+      const leftACVEndY = drawBLDealsACV(leftBLsACV, LEFT, acvContentStartY, halfWidth);
+      const rightACVEndY = drawBLDealsACV(rightBLsACV, RIGHT_COL, acvContentStartY, halfWidth);
+      
       // ═══════════════════════════════════════════════════════════════════════
       // FOOTER - Positioned right after content (page sized to fit)
       // ═══════════════════════════════════════════════════════════════════════
-      const contentEndY = Math.max(leftDealsEndY, rightDealsEndY);
+      const contentEndY = Math.max(leftACVEndY, rightACVEndY);
       const dynamicFooterY = contentEndY + 16;
       
       doc.strokeColor(TEAL_ACCENT).lineWidth(1).moveTo(LEFT, dynamicFooterY).lineTo(LEFT + PAGE_WIDTH, dynamicFooterY).stroke();
