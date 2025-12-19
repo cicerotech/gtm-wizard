@@ -747,26 +747,49 @@ function generateWeeklyTab(params) {
   <div class="weekly-section">
     <div class="weekly-section-title">1. Revenue Forecast Snapshot</div>
     
-    <!-- Signed Since Last Week - Live from Salesforce (Recurring, Project, Commitment only) -->
+    <!-- Signed Since Last Week - Static data (8 deals, $1.46M total) -->
     <div class="weekly-subsection">
       <div style="font-weight: 600; font-size: 0.75rem; color: #374151; margin-bottom: 4px;">Signed Revenue since last week</div>
-      ${signedThisWeek.length > 0 ? `
-        <div style="background: #ecfdf5; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px;">
-          <div style="font-size: 0.65rem; color: #047857; font-weight: 600;">TOTAL SIGNED (${signedThisWeek.length} deal${signedThisWeek.length > 1 ? 's' : ''})</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #065f46;">${signedThisWeekTotal >= 1000000 ? '$' + (signedThisWeekTotal / 1000000).toFixed(2) + 'm' : '$' + Math.round(signedThisWeekTotal / 1000) + 'k'}</div>
+      <div style="background: #ecfdf5; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px;">
+        <div style="font-size: 0.65rem; color: #047857; font-weight: 600;">TOTAL SIGNED (8 deals)</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #065f46;">$1.46m</div>
+      </div>
+      <div style="font-size: 0.7rem; color: #374151;">
+        <div style="font-weight: 600; color: #047857; margin: 8px 0 4px 0; font-size: 0.65rem;">RECURRING (4)</div>
+        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
+          <span><strong>Intuit</strong> <span style="color: #6b7280;">(Multiple)</span></span>
+          <span style="font-weight: 600; color: #065f46;">$410k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Recurring</span></span>
         </div>
-        <div style="font-size: 0.7rem; color: #374151;">
-          ${signedThisWeek.map(deal => {
-            const revenueFmt = deal.revenue >= 1000000 ? '$' + (deal.revenue / 1000000).toFixed(2) + 'm' : '$' + Math.round(deal.revenue / 1000).toLocaleString() + 'k';
-            const typeLabel = deal.revenueType || 'Revenue';
-            const productLabel = deal.productLine ? deal.productLine : '';
-            return '<div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">' +
-              '<span><strong>' + deal.accountName + '</strong>' + (productLabel ? ' <span style="color: #6b7280;">(' + productLabel + ')</span>' : '') + '</span>' +
-              '<span style="font-weight: 600; color: #065f46;">' + revenueFmt + ' <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">' + typeLabel + '</span></span>' +
-            '</div>';
-          }).join('')}
+        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
+          <span><strong>Cargill</strong> <span style="color: #6b7280;">(AI-Augmented Contracting)</span></span>
+          <span style="font-weight: 600; color: #065f46;">$521k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Recurring</span></span>
         </div>
-      ` : '<div style="font-size: 0.75rem; color: #9ca3af; margin-left: 12px; margin-bottom: 8px;">No deals signed in the last 7 days</div>'}
+        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
+          <span><strong>Dropbox</strong> <span style="color: #6b7280;">(Contracting-BAU)</span></span>
+          <span style="font-weight: 600; color: #065f46;">$67k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Recurring</span></span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
+          <span><strong>TikTok</strong> <span style="color: #6b7280;">(Privacy-Outsourced Ops)</span></span>
+          <span style="font-weight: 600; color: #065f46;">$88k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Recurring</span></span>
+        </div>
+        <div style="font-weight: 600; color: #1e40af; margin: 12px 0 4px 0; font-size: 0.65rem;">PROJECT (4)</div>
+        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
+          <span><strong>Etsy Ireland</strong> <span style="color: #6b7280;">(Privacy)</span></span>
+          <span style="font-weight: 600; color: #1e40af;">$58k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Project</span></span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
+          <span><strong>Perrigo Pharma</strong> <span style="color: #6b7280;">(Contracting-BAU)</span></span>
+          <span style="font-weight: 600; color: #1e40af;">$81k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Project</span></span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
+          <span><strong>Sequoia Climate Fund</strong> <span style="color: #6b7280;">(Technology)</span></span>
+          <span style="font-weight: 600; color: #1e40af;">$87k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Project</span></span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
+          <span><strong>Wellspring Philanthropic</strong> <span style="color: #6b7280;">(Technology)</span></span>
+          <span style="font-weight: 600; color: #1e40af;">$145k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Project</span></span>
+        </div>
+      </div>
     </div>
     
     <!-- Opportunities with Q4 Target Sign Date - Two Column Layout -->
@@ -861,39 +884,38 @@ function generateWeeklyTab(params) {
     
     <!-- Signed Logos by Type + Pipeline Summary -->
     <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; align-items: stretch;">
-      <!-- Signed Logos by Fiscal Quarter - Live from Salesforce -->
+      <!-- Signed Logos by Fiscal Quarter - Static (from 4444.xlsx - 81 total) -->
       <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
         <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">SIGNED LOGOS BY QUARTER</div>
         <div style="font-size: 0.75rem;">
-          ${(() => {
-            // Calculate total across all quarters - using Account.First_Deal_Close_Date__c
-            const quarterOrder = ['FY2024 & Prior', 'Q4 2024', 'Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025 (QTD)'];
-            const totalSigned = quarterOrder.reduce((sum, q) => sum + (signedByFiscalQuarter[q]?.size || 0), 0);
-            
-            return quarterOrder
-              .filter(q => signedByFiscalQuarter[q]?.size > 0)
-              .map((quarter, idx, arr) => {
-                const accounts = signedByFiscalQuarter[quarter] ? [...signedByFiscalQuarter[quarter]].sort() : [];
-                const isCurrentQuarter = quarter === 'Q4 2025 (QTD)';
-                const bgColor = isCurrentQuarter ? 'background: #ecfdf5;' : '';
-                const textColor = isCurrentQuarter ? 'color: #065f46;' : 'color: #374151;';
-                const borderStyle = idx < arr.length - 1 ? 'border-bottom: 1px solid #e5e7eb;' : '';
-                
-                return '<details style="' + borderStyle + bgColor + '">' +
-                  '<summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">' +
-                    '<span style="' + textColor + '">' + quarter + '</span>' +
-                    '<span style="font-weight: 600; ' + textColor + '">' + accounts.length + '</span>' +
-                  '</summary>' +
-                  '<div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; ' + (isCurrentQuarter ? 'background: #e9f5ec;' : 'background: #f3f4f6;') + '">' +
-                    (accounts.join(', ') || 'None') +
-                  '</div>' +
-                '</details>';
-              }).join('') +
-              '<div style="display: flex; justify-content: space-between; padding: 6px 8px; font-weight: 600; background: #f3f4f6; margin-top: 6px; border-radius: 3px; font-size: 0.7rem; color: #374151;">' +
-                '<span>Total Signed (All Time)</span>' +
-                '<span>' + totalSigned + '</span>' +
-              '</div>';
-          })()}
+          <div style="display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #e5e7eb;">
+            <span style="color: #374151;">FY2024 & Prior</span>
+            <span style="font-weight: 600; color: #374151;">4</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #e5e7eb;">
+            <span style="color: #374151;">Q4 2024</span>
+            <span style="font-weight: 600; color: #374151;">26</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #e5e7eb;">
+            <span style="color: #374151;">Q1 2025</span>
+            <span style="font-weight: 600; color: #374151;">8</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #e5e7eb;">
+            <span style="color: #374151;">Q2 2025</span>
+            <span style="font-weight: 600; color: #374151;">6</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #e5e7eb;">
+            <span style="color: #374151;">Q3 2025</span>
+            <span style="font-weight: 600; color: #374151;">29</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 4px; background: #ecfdf5;">
+            <span style="color: #065f46;">Q4 2025 (QTD)</span>
+            <span style="font-weight: 600; color: #065f46;">8</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 6px 8px; font-weight: 600; background: #f3f4f6; margin-top: 6px; border-radius: 3px; font-size: 0.7rem; color: #374151;">
+            <span>Total Signed (All Time)</span>
+            <span>81</span>
+          </div>
         </div>
         <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Unique accounts by first Closed Won date • May differ from Current Logos if contracts expired</div>
       </div>
@@ -991,7 +1013,7 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Pipeline by Sales Type & Pod -->
+    <!-- Pipeline by Sales Type & Pod - Static (from SF report) -->
     <div class="weekly-subsection">
       <div class="weekly-subsection-title">Pipeline by Sales Type</div>
       <table style="width: 100%; font-size: 0.7rem; margin-top: 8px; border-collapse: collapse;">
@@ -1005,39 +1027,61 @@ function generateWeeklyTab(params) {
           </tr>
         </thead>
         <tbody style="color: #374151;">
-          ${Object.entries(salesTypeByPod).map(([pod, types]) => {
-            const typeEntries = Object.entries(types);
-            if (typeEntries.length === 0) return '';
-            
-            const podTotal = typeEntries.reduce((acc, [_, data]) => ({
-              acv: acc.acv + data.acv,
-              weighted: acc.weighted + data.weighted,
-              count: acc.count + data.count
-            }), { acv: 0, weighted: 0, count: 0 });
-            
-            return typeEntries.map(([type, data], idx) => `
-              <tr style="border-bottom: 1px solid #e5e7eb;">
-                <td style="padding: 6px 8px; font-weight: ${idx === 0 ? '600' : '400'};">${idx === 0 ? pod : ''}</td>
-                <td style="padding: 6px 8px;">${type}</td>
-                <td style="padding: 6px 8px; text-align: right;">${fmt(data.acv)}</td>
-                <td style="padding: 6px 8px; text-align: right;">${fmt(data.weighted)}</td>
-                <td style="padding: 6px 8px; text-align: center;">${data.count}</td>
-              </tr>
-            `).join('');
-          }).join('')}
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px; font-weight: 600;">US</td>
+            <td style="padding: 6px 8px;">New business</td>
+            <td style="padding: 6px 8px; text-align: right;">$18.00m</td>
+            <td style="padding: 6px 8px; text-align: right;">$2.60m</td>
+            <td style="padding: 6px 8px; text-align: center;">124</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;"></td>
+            <td style="padding: 6px 8px;">Expansion / Upsell</td>
+            <td style="padding: 6px 8px; text-align: right;">$2.71m</td>
+            <td style="padding: 6px 8px; text-align: right;">$814k</td>
+            <td style="padding: 6px 8px; text-align: center;">21</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;"></td>
+            <td style="padding: 6px 8px;">New business via LOI</td>
+            <td style="padding: 6px 8px; text-align: right;">$6.43m</td>
+            <td style="padding: 6px 8px; text-align: right;">$1.84m</td>
+            <td style="padding: 6px 8px; text-align: center;">20</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px; font-weight: 600;">EU</td>
+            <td style="padding: 6px 8px;">New business</td>
+            <td style="padding: 6px 8px; text-align: right;">$7.65m</td>
+            <td style="padding: 6px 8px; text-align: right;">$865k</td>
+            <td style="padding: 6px 8px; text-align: center;">51</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;"></td>
+            <td style="padding: 6px 8px;">Expansion / Upsell</td>
+            <td style="padding: 6px 8px; text-align: right;">$8.11m</td>
+            <td style="padding: 6px 8px; text-align: right;">$2.36m</td>
+            <td style="padding: 6px 8px; text-align: center;">36</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;"></td>
+            <td style="padding: 6px 8px;">Renewal + Expansion</td>
+            <td style="padding: 6px 8px; text-align: right;">$400k</td>
+            <td style="padding: 6px 8px; text-align: right;">$100k</td>
+            <td style="padding: 6px 8px; text-align: center;">2</td>
+          </tr>
           <tr style="font-weight: 600; background: #e5e7eb;">
             <td style="padding: 6px 8px;" colspan="2">Total</td>
-            <td style="padding: 6px 8px; text-align: right;">${fmt(salesTypeTotals.acv)}</td>
-            <td style="padding: 6px 8px; text-align: right;">${fmt(salesTypeTotals.weighted)}</td>
-            <td style="padding: 6px 8px; text-align: center;">${salesTypeTotals.count}</td>
+            <td style="padding: 6px 8px; text-align: right;">$43.30m</td>
+            <td style="padding: 6px 8px; text-align: right;">$8.58m</td>
+            <td style="padding: 6px 8px; text-align: center;">254</td>
           </tr>
         </tbody>
       </table>
     </div>
     
-    <!-- Closed Lost This Week -->
+    <!-- Closed Lost This Week - Static (18 opportunities) -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title" style="color: #000000; font-weight: 700;">Closed Lost This Week (${closedLostDeals.length})</div>
+      <div class="weekly-subsection-title" style="color: #000000; font-weight: 700;">Closed Lost This Week (18)</div>
       <table style="width: 100%; font-size: 0.7rem; margin-top: 8px; border-collapse: collapse;">
         <thead>
           <tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
@@ -1046,21 +1090,78 @@ function generateWeeklyTab(params) {
           </tr>
         </thead>
         <tbody style="color: #374151;">
-          ${closedLostDeals.length > 0 ? closedLostDeals.map(deal => {
-            // Capitalize first letter of detail for proper sentence case
-            let detail = deal.closedLostDetail || deal.closedLostReason || '-';
-            if (detail && detail.length > 0) {
-              detail = detail.charAt(0).toUpperCase() + detail.slice(1);
-            }
-            return `
           <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">${deal.oppName || deal.accountName}</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">${detail}</td>
-          </tr>`;
-          }).join('') : `
-          <tr>
-            <td colspan="2" style="padding: 6px 8px; color: #9ca3af; text-align: center; font-style: italic;">No closed lost deals this week</td>
-          </tr>`}
+            <td style="padding: 6px 8px;">DHL North America - M&A (Global)</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Latin American deal going to have only 50-100 documents, law firm cost only $15-20K</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Emory - Discovery</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Stale opportunity, 92 days in stage 1</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Honeywell - Discovery</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Stale opportunity, 77 days in stage 1</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Piramal Finance - Nurture</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Unresponsive after multiple follow-ups</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Nykaa - Nurture</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Unresponsive after multiple follow-ups</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Genpact - Nurture</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Unresponsive after multiple follow-ups</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Clear - Discovery</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Nurture - too small / low budget</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Acrisure - Nurture</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Unresponsive after multiple follow-ups</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Reliance - Discovery</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Not a priority at this time. Re-engage Q1/Q2 2026</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Axis Bank - Nurture</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Unresponsive after multiple follow-ups</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Moderna - Nurture</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Unresponsive after multiple follow-ups</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Tinder LLC - Discovery</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Timing related. Re-engage late Q1 2026</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Team Car Care dba Jiffy Lube - Qualifying</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">No reasoning provided</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Johnson Hana - RTE DSAR Support</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">No reasoning provided</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Meetingsbooker - Qualifying</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Limited opportunity scope</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Anthropic - ODL Privacy Secondment - 6 months</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">Timing / no need at this time. Re-engage if needs arise</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">White Swan Data - Qualifying</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">No reasoning provided</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 8px;">Davy - FTC 12 month AI Enabled Secondee</td>
+            <td style="padding: 6px 8px; font-size: 0.65rem;">No reasoning provided</td>
+          </tr>
         </tbody>
       </table>
     </div>
