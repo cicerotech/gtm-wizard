@@ -995,18 +995,23 @@ function generateWeeklyTab(params) {
           <tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
             <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Opportunity Name</th>
             <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Closed Lost Detail</th>
-            <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Closed Lost Reason</th>
           </tr>
         </thead>
         <tbody style="color: #374151;">
-          ${closedLostDeals.length > 0 ? closedLostDeals.map(deal => `
+          ${closedLostDeals.length > 0 ? closedLostDeals.map(deal => {
+            // Capitalize first letter of detail for proper sentence case
+            let detail = deal.closedLostDetail || deal.closedLostReason || '-';
+            if (detail && detail.length > 0) {
+              detail = detail.charAt(0).toUpperCase() + detail.slice(1);
+            }
+            return `
           <tr style="border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 6px 8px;">${deal.oppName || deal.accountName}</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">${deal.closedLostDetail || '-'}</td>
-            <td style="padding: 6px 8px;">${deal.closedLostReason || 'No Detail Provided'}</td>
-          </tr>`).join('') : `
+            <td style="padding: 6px 8px; font-size: 0.65rem;">${detail}</td>
+          </tr>`;
+          }).join('') : `
           <tr>
-            <td colspan="3" style="padding: 6px 8px; color: #9ca3af; text-align: center; font-style: italic;">No closed lost deals this week</td>
+            <td colspan="2" style="padding: 6px 8px; color: #9ca3af; text-align: center; font-style: italic;">No closed lost deals this week</td>
           </tr>`}
         </tbody>
       </table>
@@ -1515,27 +1520,27 @@ async function generateAccountDashboard() {
   }
   
   // ═══════════════════════════════════════════════════════════════════════
-  // CLOSED WON THIS WEEK - Deals signed in last 7 days (for Weekly tab)
-  // Filters: Revenue_Type__c = Recurring, Project, or Commitment only
-  // Fallback: If no results, query all Closed Won deals
+  // CLOSED WON THIS WEEK - Deals moved to Closed Won stage in last 7 days
+  // Uses LastModifiedDate to catch stage changes (not just CloseDate)
+  // Filters: Revenue_Type__c = Recurring, Project, or Commitment
   // ═══════════════════════════════════════════════════════════════════════
   const closedWonThisWeekQuery = `
     SELECT Account.Name, Name, ACV__c, Amount, CloseDate, Product_Line__c, 
-           Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name
+           Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name, LastModifiedDate
     FROM Opportunity
-    WHERE (StageName = 'Stage 6. Closed Won' OR StageName = 'Stage 6. Closed(Won)')
-      AND CloseDate >= LAST_N_DAYS:7
+    WHERE (StageName = 'Stage 6. Closed Won' OR StageName = 'Stage 6. Closed(Won)' OR StageName = 'Closed Won')
+      AND LastModifiedDate >= LAST_N_DAYS:7
       AND Revenue_Type__c IN ('Recurring', 'Project', 'Commitment')
     ORDER BY Amount DESC
   `;
   
-  // Fallback query without Revenue_Type__c filter
+  // Fallback query without Revenue_Type__c filter (catches all closed won this week)
   const closedWonFallbackQuery = `
     SELECT Account.Name, Name, ACV__c, Amount, CloseDate, Product_Line__c, 
-           Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name
+           Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name, LastModifiedDate
     FROM Opportunity
-    WHERE (StageName = 'Stage 6. Closed Won' OR StageName = 'Stage 6. Closed(Won)')
-      AND CloseDate >= LAST_N_DAYS:7
+    WHERE (StageName = 'Stage 6. Closed Won' OR StageName = 'Stage 6. Closed(Won)' OR StageName = 'Closed Won')
+      AND LastModifiedDate >= LAST_N_DAYS:7
     ORDER BY Amount DESC
   `;
   
@@ -1610,27 +1615,55 @@ async function generateAccountDashboard() {
   }
   
   // ═══════════════════════════════════════════════════════════════════════
-  // CURRENT LOGOS - Accounts where Type__c = 'Customer' (LIVE from Salesforce)
+  // CURRENT LOGOS - Accounts with Type__c = 'Customer' or 'Existing Client' 
+  // Fallback: Query unique accounts from Closed Won opportunities
   // ═══════════════════════════════════════════════════════════════════════
   const customerAccountsQuery = `
     SELECT Name, Owner.Name, Type__c
     FROM Account
-    WHERE Type__c = 'Customer'
+    WHERE Type__c IN ('Customer', 'Existing Client', 'Client')
     ORDER BY Name ASC
+  `;
+  
+  // Fallback: Get unique accounts from Closed Won opportunities
+  const closedWonAccountsQuery = `
+    SELECT Account.Name
+    FROM Opportunity
+    WHERE (StageName = 'Stage 6. Closed Won' OR StageName = 'Stage 6. Closed(Won)' OR StageName = 'Closed Won')
+      AND IsWon = true
+    ORDER BY Account.Name ASC
   `;
   
   let customerAccounts = [];
   
   try {
-    const customerData = await query(customerAccountsQuery, true);
-    console.log(`[Dashboard] Customer Accounts (Type__c = Customer) query returned ${customerData?.records?.length || 0} records`);
-    if (customerData?.records) {
-      customerData.records.forEach(acc => {
-        customerAccounts.push({
-          name: acc.Name || 'Unknown',
-          owner: acc.Owner?.Name || ''
+    let customerData = await query(customerAccountsQuery, true);
+    console.log(`[Dashboard] Customer Accounts (Type__c) query returned ${customerData?.records?.length || 0} records`);
+    
+    // If no results from Type__c, try getting unique accounts from Closed Won opps
+    if (!customerData?.records || customerData.records.length === 0) {
+      console.log('[Dashboard] No Type__c customers, trying Closed Won accounts fallback...');
+      customerData = await query(closedWonAccountsQuery, true);
+      console.log(`[Dashboard] Closed Won Accounts fallback returned ${customerData?.records?.length || 0} records`);
+      
+      if (customerData?.records) {
+        // Get unique account names
+        const uniqueAccounts = new Set();
+        customerData.records.forEach(opp => {
+          if (opp.Account?.Name) uniqueAccounts.add(opp.Account.Name);
         });
-      });
+        customerAccounts = [...uniqueAccounts].sort().map(name => ({ name, owner: '' }));
+      }
+    } else {
+      // Type__c query returned results
+      if (customerData?.records) {
+        customerData.records.forEach(acc => {
+          customerAccounts.push({
+            name: acc.Name || 'Unknown',
+            owner: acc.Owner?.Name || ''
+          });
+        });
+      }
     }
   } catch (e) { 
     console.error('Customer Accounts query error:', e.message);
