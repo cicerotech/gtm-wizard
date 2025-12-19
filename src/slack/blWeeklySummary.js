@@ -328,18 +328,40 @@ function processPipelineData(records) {
 // PDF GENERATION
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Brand colors
+const TEAL_ACCENT = '#3EB8A5';
+const DARK_GRAY = '#333333';
+const LIGHT_GRAY = '#E5E5E5';
+const MEDIUM_GRAY = '#888888';
+
+/**
+ * Draw a horizontal line with optional color
+ */
+function drawLine(doc, y, color = LIGHT_GRAY, width = 512) {
+  doc.strokeColor(color).lineWidth(1).moveTo(50, y).lineTo(50 + width, y).stroke();
+  doc.strokeColor('#000000'); // Reset
+}
+
+/**
+ * Draw a teal accent line (thin)
+ */
+function drawTealLine(doc, y, width = 512) {
+  doc.strokeColor(TEAL_ACCENT).lineWidth(1.5).moveTo(50, y).lineTo(50 + width, y).stroke();
+  doc.strokeColor('#000000'); // Reset
+}
+
 /**
  * Generate professional PDF snapshot
- * Times New Roman, 11pt, one-page internal memo format
+ * Clean Helvetica design with teal accents, proper tables
  */
 function generatePDFSnapshot(pipelineData, dateStr) {
   return new Promise((resolve, reject) => {
     try {
-      const { blMetrics, proposalDeals, stageBreakdown, totals, fiscalQuarterLabel } = pipelineData;
+      const { blMetrics, stageBreakdown, totals, fiscalQuarterLabel } = pipelineData;
       
       const doc = new PDFDocument({ 
         size: 'LETTER',
-        margins: { top: 50, bottom: 50, left: 50, right: 50 }
+        margins: { top: 40, bottom: 40, left: 50, right: 50 }
       });
       
       const chunks = [];
@@ -347,137 +369,172 @@ function generatePDFSnapshot(pipelineData, dateStr) {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
       
-      // Use Times-Roman (built-in PDF font, similar to Times New Roman)
-      const fontRegular = 'Times-Roman';
-      const fontBold = 'Times-Bold';
+      // Use Helvetica (clean, modern sans-serif)
+      const fontRegular = 'Helvetica';
+      const fontBold = 'Helvetica-Bold';
       
-      // Header
-      doc.font(fontBold).fontSize(16).text('EUDIA GTM WEEKLY SNAPSHOT', { align: 'center' });
-      doc.font(fontRegular).fontSize(11).text(dateStr, { align: 'center' });
+      const pageWidth = 512; // 612 - 50 - 50
+      
+      // ═══════════════════════════════════════════════════════════════════════
+      // HEADER
+      // ═══════════════════════════════════════════════════════════════════════
+      doc.font(fontBold).fontSize(18).fillColor(DARK_GRAY);
+      doc.text('Eudia GTM Weekly Snapshot', { align: 'center' });
+      doc.font(fontRegular).fontSize(11).fillColor(MEDIUM_GRAY);
+      doc.text(dateStr, { align: 'center' });
+      doc.moveDown(0.8);
+      
+      // Teal accent line under header
+      drawTealLine(doc, doc.y);
       doc.moveDown(1);
       
-      // Divider line
-      doc.moveTo(50, doc.y).lineTo(562, doc.y).stroke();
+      // ═══════════════════════════════════════════════════════════════════════
+      // PIPELINE OVERVIEW - Two column layout
+      // ═══════════════════════════════════════════════════════════════════════
+      doc.font(fontBold).fontSize(12).fillColor(DARK_GRAY);
+      doc.text('PIPELINE OVERVIEW');
       doc.moveDown(0.5);
       
-      // ═══════════════════════════════════════════════════════════════════════
-      // PIPELINE OVERVIEW
-      // ═══════════════════════════════════════════════════════════════════════
-      doc.font(fontBold).fontSize(12).text('PIPELINE OVERVIEW');
+      // Key metrics in a clean grid
+      const col1X = 50;
+      const col2X = 300;
+      const metricsStartY = doc.y;
+      
+      doc.font(fontRegular).fontSize(10).fillColor(MEDIUM_GRAY);
+      doc.text('Total Gross ACV', col1X, metricsStartY);
+      doc.text('Weighted Pipeline', col2X, metricsStartY);
+      
+      doc.font(fontBold).fontSize(14).fillColor(DARK_GRAY);
+      doc.text(formatCurrency(totals.grossACV), col1X, doc.y + 2);
+      doc.text(formatCurrency(totals.weightedThisQuarter), col2X, doc.y - 16);
+      
       doc.moveDown(0.3);
+      doc.font(fontRegular).fontSize(9).fillColor(MEDIUM_GRAY);
+      doc.text(`${totals.totalOpportunities} opportunities across ${totals.totalAccounts} accounts`, col1X);
+      doc.text(`${fiscalQuarterLabel}`, col2X, doc.y - 11);
       
-      doc.font(fontRegular).fontSize(11);
-      doc.text(`Total Gross ACV: ${formatCurrency(totals.grossACV)}`);
-      doc.text(`Weighted Pipeline (${fiscalQuarterLabel}): ${formatCurrency(totals.weightedThisQuarter)}`);
-      doc.text(`Total Opportunities: ${totals.totalOpportunities}`);
-      doc.text(`Active Accounts: ${totals.totalAccounts}`);
-      doc.text(`Average Deal Size: ${formatCurrency(totals.avgDealSize)}`);
-      doc.moveDown(0.5);
+      doc.moveDown(0.8);
       
-      // Stage Distribution
-      doc.font(fontBold).fontSize(11).text('Stage Distribution');
-      doc.font(fontRegular).fontSize(10);
+      // Average Deal Size
+      doc.font(fontRegular).fontSize(10).fillColor(MEDIUM_GRAY);
+      doc.text('Average Deal Size', col1X);
+      doc.font(fontBold).fontSize(11).fillColor(DARK_GRAY);
+      doc.text(formatCurrency(totals.avgDealSize), col1X + 110, doc.y - 12);
       
-      // Reverse order to show S4 first
-      const stageOrder = [...ACTIVE_STAGES].reverse();
-      stageOrder.forEach(stage => {
-        const data = stageBreakdown[stage] || { count: 0, grossACV: 0 };
-        const stageLabel = stage.replace('Stage ', 'S').replace(' - ', ' ');
-        doc.text(`  ${stageLabel}: ${data.count} deals, ${formatCurrency(data.grossACV)}`);
-      });
+      doc.moveDown(1);
+      drawLine(doc, doc.y);
       doc.moveDown(0.8);
       
       // ═══════════════════════════════════════════════════════════════════════
-      // PROPOSAL STAGE OPPORTUNITIES
+      // STAGE DISTRIBUTION - Clean horizontal table
       // ═══════════════════════════════════════════════════════════════════════
-      doc.font(fontBold).fontSize(12).text('PROPOSAL STAGE OPPORTUNITIES');
-      doc.moveDown(0.3);
-      
-      doc.font(fontRegular).fontSize(11);
-      doc.text(`${totals.proposalCount} deals, ${formatCurrency(totals.proposalGrossACV)} gross ACV`);
-      doc.text(`Targeting This Month: ${totals.proposalThisMonthCount} deals, ${formatCurrency(totals.proposalThisMonthACV)} ACV`);
-      doc.text(`Targeting This Quarter: ${totals.proposalThisQuarterCount} deals, ${formatCurrency(totals.proposalThisQuarterGrossACV)} gross, ${formatCurrency(totals.proposalThisQuarterWeightedACV)} weighted`);
-      doc.moveDown(0.5);
-      
-      // Group proposal deals by BL
-      const byOwner = {};
-      proposalDeals.forEach(deal => {
-        const owner = deal.ownerName;
-        if (!byOwner[owner]) byOwner[owner] = [];
-        byOwner[owner].push(deal);
-      });
-      
-      // Sort owners by total ACV descending
-      const sortedOwners = Object.entries(byOwner)
-        .map(([owner, deals]) => ({
-          owner,
-          deals: deals.sort((a, b) => new Date(a.targetDate || '2099-01-01') - new Date(b.targetDate || '2099-01-01')),
-          totalACV: deals.reduce((sum, d) => sum + d.acv, 0)
-        }))
-        .sort((a, b) => b.totalACV - a.totalACV);
-      
-      doc.font(fontBold).fontSize(10).text('By Business Lead (sorted by target sign date):');
-      doc.moveDown(0.3);
-      
-      sortedOwners.forEach(({ owner, deals, totalACV }) => {
-        doc.font(fontBold).fontSize(10).text(`${owner} (${deals.length} deals, ${formatCurrency(totalACV)})`);
-        doc.font(fontRegular).fontSize(9);
-        
-        // Show top 3 deals per BL
-        const dealsToShow = deals.slice(0, 3);
-        dealsToShow.forEach(d => {
-          doc.text(`    ${d.accountName} — ${formatCurrency(d.acv)} — ${formatDate(d.targetDate)}`);
-        });
-        if (deals.length > 3) {
-          doc.text(`    +${deals.length - 3} more`);
-        }
-        doc.moveDown(0.2);
-      });
-      
-      doc.moveDown(0.5);
-      
-      // ═══════════════════════════════════════════════════════════════════════
-      // BUSINESS LEAD SUMMARY
-      // ═══════════════════════════════════════════════════════════════════════
-      doc.font(fontBold).fontSize(12).text('BUSINESS LEAD SUMMARY');
-      doc.moveDown(0.3);
+      doc.font(fontBold).fontSize(11).fillColor(DARK_GRAY);
+      doc.text('Stage Distribution');
+      doc.moveDown(0.4);
       
       // Table header
-      doc.font(fontBold).fontSize(9);
-      const colX = { name: 50, accts: 200, opps: 260, acv: 320 };
-      doc.text('Name', colX.name, doc.y);
-      doc.text('Accounts', colX.accts, doc.y - 11);
-      doc.text('Opps', colX.opps, doc.y - 11);
-      doc.text('Gross ACV', colX.acv, doc.y - 11);
-      doc.moveDown(0.3);
-      
-      // Divider
-      const tableY = doc.y;
-      doc.moveTo(50, tableY).lineTo(400, tableY).stroke();
+      const stageColX = { stage: 50, deals: 180, acv: 260 };
+      doc.font(fontBold).fontSize(9).fillColor(MEDIUM_GRAY);
+      doc.text('Stage', stageColX.stage);
+      doc.text('Deals', stageColX.deals, doc.y - 11);
+      doc.text('ACV', stageColX.acv, doc.y);
+      doc.moveDown(0.2);
+      drawLine(doc, doc.y, LIGHT_GRAY, 280);
       doc.moveDown(0.2);
       
-      // Sort all BLs by ACV
-      const allBLs = [...US_POD, ...EU_POD]
-        .filter(bl => blMetrics[bl])
-        .sort((a, b) => (blMetrics[b]?.grossACV || 0) - (blMetrics[a]?.grossACV || 0));
-      
-      doc.font(fontRegular).fontSize(9);
-      allBLs.forEach(bl => {
-        const m = blMetrics[bl];
-        if (!m || (m.accounts === 0 && m.opportunities === 0)) return;
-        
+      // Stage rows (S4 first)
+      const stageOrder = [...ACTIVE_STAGES].reverse();
+      doc.font(fontRegular).fontSize(9).fillColor(DARK_GRAY);
+      stageOrder.forEach(stage => {
+        const data = stageBreakdown[stage] || { count: 0, grossACV: 0 };
+        const stageLabel = stage.replace('Stage ', 'S').replace(' - ', ' ');
         const y = doc.y;
-        doc.text(bl, colX.name, y);
-        doc.text(m.accounts.toString(), colX.accts, y);
-        doc.text(m.opportunities.toString(), colX.opps, y);
-        doc.text(formatCurrency(m.grossACV), colX.acv, y);
-        doc.moveDown(0.4);
+        doc.text(stageLabel, stageColX.stage, y);
+        doc.text(data.count.toString(), stageColX.deals, y);
+        doc.text(formatCurrency(data.grossACV), stageColX.acv, y);
+        doc.moveDown(0.35);
       });
       
-      // Footer
+      doc.moveDown(0.6);
+      drawLine(doc, doc.y);
+      doc.moveDown(0.8);
+      
+      // ═══════════════════════════════════════════════════════════════════════
+      // PROPOSAL STAGE SUMMARY
+      // ═══════════════════════════════════════════════════════════════════════
+      doc.font(fontBold).fontSize(11).fillColor(DARK_GRAY);
+      doc.text('Proposal Stage (S4)');
+      doc.moveDown(0.3);
+      
+      doc.font(fontRegular).fontSize(10).fillColor(DARK_GRAY);
+      doc.text(`${totals.proposalCount} deals  •  ${formatCurrency(totals.proposalGrossACV)} gross ACV`);
+      doc.moveDown(0.3);
+      doc.fontSize(9).fillColor(MEDIUM_GRAY);
+      doc.text(`Targeting This Month: ${totals.proposalThisMonthCount} deals, ${formatCurrency(totals.proposalThisMonthACV)}`);
+      doc.text(`Targeting This Quarter: ${totals.proposalThisQuarterCount} deals, ${formatCurrency(totals.proposalThisQuarterGrossACV)} gross`);
+      
       doc.moveDown(1);
-      doc.font(fontRegular).fontSize(8).fillColor('#666666');
-      doc.text('Generated by Eudia GTM Brain — Internal use only', { align: 'center' });
+      drawLine(doc, doc.y);
+      doc.moveDown(0.8);
+      
+      // ═══════════════════════════════════════════════════════════════════════
+      // BUSINESS LEAD SUMMARY - US Pod & EU Pod tables
+      // ═══════════════════════════════════════════════════════════════════════
+      doc.font(fontBold).fontSize(11).fillColor(DARK_GRAY);
+      doc.text('Business Lead Summary');
+      doc.moveDown(0.6);
+      
+      // Column positions for BL table
+      const blColX = { name: 50, accts: 180, opps: 240, acv: 300 };
+      
+      // Helper to draw BL table section
+      const drawBLTable = (title, blList) => {
+        const activeBLs = blList
+          .filter(bl => blMetrics[bl] && (blMetrics[bl].accounts > 0 || blMetrics[bl].opportunities > 0))
+          .sort((a, b) => (blMetrics[b]?.grossACV || 0) - (blMetrics[a]?.grossACV || 0));
+        
+        if (activeBLs.length === 0) return;
+        
+        // Section title with teal accent
+        doc.font(fontBold).fontSize(9).fillColor(TEAL_ACCENT);
+        doc.text(title);
+        doc.moveDown(0.2);
+        
+        // Table header
+        doc.font(fontBold).fontSize(8).fillColor(MEDIUM_GRAY);
+        const headerY = doc.y;
+        doc.text('Name', blColX.name, headerY);
+        doc.text('Accounts', blColX.accts, headerY);
+        doc.text('Opps', blColX.opps, headerY);
+        doc.text('Gross ACV', blColX.acv, headerY);
+        doc.moveDown(0.25);
+        
+        // Table rows
+        doc.font(fontRegular).fontSize(9).fillColor(DARK_GRAY);
+        activeBLs.forEach(bl => {
+          const m = blMetrics[bl];
+          const y = doc.y;
+          doc.text(bl, blColX.name, y);
+          doc.text(m.accounts.toString(), blColX.accts, y);
+          doc.text(m.opportunities.toString(), blColX.opps, y);
+          doc.text(formatCurrency(m.grossACV), blColX.acv, y);
+          doc.moveDown(0.3);
+        });
+        doc.moveDown(0.4);
+      };
+      
+      drawBLTable('US Pod', US_POD);
+      drawBLTable('EU Pod', EU_POD);
+      
+      // ═══════════════════════════════════════════════════════════════════════
+      // FOOTER
+      // ═══════════════════════════════════════════════════════════════════════
+      doc.moveDown(1);
+      drawTealLine(doc, doc.y);
+      doc.moveDown(0.5);
+      
+      doc.font(fontRegular).fontSize(8).fillColor(MEDIUM_GRAY);
+      doc.text('Generated by Eudia GTM Brain  •  www.eudia.com  •  Internal use only', { align: 'center' });
       
       doc.end();
       
@@ -634,18 +691,16 @@ function formatProposalDealsByBL(proposalDeals) {
 }
 
 /**
- * Format condensed BL summary for Slack (one line per BL)
+ * Format BL line for Slack message
  */
-function formatBLSummaryLine(blList, blMetrics) {
-  return blList
-    .filter(bl => blMetrics[bl] && (blMetrics[bl].accounts > 0 || blMetrics[bl].opportunities > 0))
-    .sort((a, b) => (blMetrics[b]?.grossACV || 0) - (blMetrics[a]?.grossACV || 0))
-    .map(bl => `${bl.split(' ')[0]} ${formatCurrency(blMetrics[bl].grossACV)}`)
-    .join(' | ');
+function formatBLLineForSlack(blName, metrics) {
+  if (!metrics) return null;
+  const firstName = blName.split(' ')[0];
+  return `• ${firstName} — ${metrics.accounts} accts, ${metrics.opportunities} opps, ${formatCurrency(metrics.grossACV)}`;
 }
 
 /**
- * Format the complete Slack message - condensed with PDF attachment
+ * Format the complete Slack message - blended format with BL details
  */
 function formatSlackMessage(pipelineData, previousMetrics, dateStr) {
   const { blMetrics, totals, fiscalQuarterLabel } = pipelineData;
@@ -658,37 +713,50 @@ function formatSlackMessage(pipelineData, previousMetrics, dateStr) {
   message += '*PIPELINE SNAPSHOT*\n';
   message += `Total Gross ACV: ${formatCurrency(totals.grossACV)} (${totals.totalOpportunities} opps across ${totals.totalAccounts} accounts)\n`;
   message += `Weighted Pipeline (${fiscalQuarterLabel}): ${formatCurrency(totals.weightedThisQuarter)}\n`;
-  message += `Avg Deal Size: ${formatCurrency(totals.avgDealSize)}\n`;
-  message += '\n';
+  message += `Avg Deal Size: ${formatCurrency(totals.avgDealSize)}\n\n`;
   
   // ═══════════════════════════════════════════════════════════════════════
   // PROPOSAL STAGE SUMMARY
   // ═══════════════════════════════════════════════════════════════════════
   message += `*PROPOSAL STAGE (S4)* — ${totals.proposalCount} deals, ${formatCurrency(totals.proposalGrossACV)} gross ACV\n`;
   message += `Targeting This Month: ${totals.proposalThisMonthCount} deals, ${formatCurrency(totals.proposalThisMonthACV)} ACV\n`;
-  message += `Targeting This Quarter: ${totals.proposalThisQuarterCount} deals, ${formatCurrency(totals.proposalThisQuarterGrossACV)} gross, ${formatCurrency(totals.proposalThisQuarterWeightedACV)} weighted\n`;
-  message += '\n';
+  message += `Targeting This Quarter: ${totals.proposalThisQuarterCount} deals, ${formatCurrency(totals.proposalThisQuarterGrossACV)} gross, ${formatCurrency(totals.proposalThisQuarterWeightedACV)} weighted\n\n`;
   
   // ═══════════════════════════════════════════════════════════════════════
-  // CONDENSED BY BUSINESS LEAD
+  // BY REGION BUSINESS LEAD VIEW
   // ═══════════════════════════════════════════════════════════════════════
-  message += '*BY BUSINESS LEAD*\n';
+  message += '*BY BUSINESS LEAD* _(accounts, opps, gross ACV)_\n\n';
   
-  const usSummary = formatBLSummaryLine(US_POD, blMetrics);
-  const euSummary = formatBLSummaryLine(EU_POD, blMetrics);
+  // US Pod
+  const usPodBLs = US_POD
+    .filter(bl => blMetrics[bl] && (blMetrics[bl].accounts > 0 || blMetrics[bl].opportunities > 0))
+    .sort((a, b) => (blMetrics[b]?.grossACV || 0) - (blMetrics[a]?.grossACV || 0));
   
-  if (usSummary) {
-    message += `US: ${usSummary}\n`;
+  if (usPodBLs.length > 0) {
+    message += '*US Pod*\n';
+    usPodBLs.forEach(bl => {
+      message += formatBLLineForSlack(bl, blMetrics[bl]) + '\n';
+    });
+    message += '\n';
   }
-  if (euSummary) {
-    message += `EU: ${euSummary}\n`;
+  
+  // EU Pod
+  const euPodBLs = EU_POD
+    .filter(bl => blMetrics[bl] && (blMetrics[bl].accounts > 0 || blMetrics[bl].opportunities > 0))
+    .sort((a, b) => (blMetrics[b]?.grossACV || 0) - (blMetrics[a]?.grossACV || 0));
+  
+  if (euPodBLs.length > 0) {
+    message += '*EU Pod*\n';
+    euPodBLs.forEach(bl => {
+      message += formatBLLineForSlack(bl, blMetrics[bl]) + '\n';
+    });
+    message += '\n';
   }
-  message += '\n';
   
   // ═══════════════════════════════════════════════════════════════════════
   // PDF REFERENCE
   // ═══════════════════════════════════════════════════════════════════════
-  message += '_See attached PDF for proposal stage details by business lead._';
+  message += '_See attached PDF for full details._';
   
   return message;
 }
