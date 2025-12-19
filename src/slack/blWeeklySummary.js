@@ -734,9 +734,17 @@ async function sendBLWeeklySummary(app, testMode = false) {
     saveSnapshot(dateStr, pipelineData.blMetrics);
     
     // Determine channel
-    const channel = testMode ? 
+    let channel = testMode ? 
       (process.env.TEST_CHANNEL || 'U094AQE9V7D') :
       GTM_CHANNEL;
+    
+    // For DMs (user IDs), we need to open a conversation first
+    if (channel.startsWith('U')) {
+      const conversation = await app.client.conversations.open({
+        users: channel
+      });
+      channel = conversation.channel.id;
+    }
     
     // Upload PDF and send message together
     await app.client.files.uploadV2({
