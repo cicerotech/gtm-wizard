@@ -32,6 +32,9 @@
         <members>Delivery__c.Last_Rocketlane_Sync__c</members>
         <members>Delivery__c.Rocketlane_Sync_Status__c</members>
         <members>Opportunity.Delivery__c</members>
+        <members>Opportunity.JH_Original_ACV__c</members>
+        <members>Opportunity.ACV_Variance_Reason__c</members>
+        <members>Opportunity.ACV_Variance_Amount__c</members>
         <name>CustomField</name>
     </types>
     <types>

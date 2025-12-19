@@ -1,0 +1,11 @@
+AccountId,Name,Amount,CloseDate,Term_Months__c,StageName,JH_Original_ACV__c,Opportunity_Source__c,ACV_Variance_Reason__c,Pod__c
+001Wj00000mCFs5,Indeed ODL Steph Donald extension #1,102080,2025-10-17,6,Closed Won,102080,Johnson Hana,No Variance,EU
+001Wj00000mCFs5,Indeed ODL (Helen Hewson),52200,2025-10-28,6,Closed Won,52200,Johnson Hana,No Variance,EU
+001Wj00000c9oD6,Stripe RFP Privacy ODL Extension Victoria Byrne,64922.88,2025-10-07,2,Closed Won,64922.88,Johnson Hana,No Variance,EU
+001Wj00000fFuFM,BOI FSPO team expansion Consultant #2,41760,2025-10-01,4,Closed Won,41760,Johnson Hana,No Variance,EU
+001Wj00000mCFqt,CommScope Extension Conor Hassett,40601.16,2025-10-06,3,Closed Won,40601.16,Johnson Hana,No Variance,EU
+001Wj00000mCFsH,Consensys DPO as a Service,40402.80,2025-10-03,6,Closed Won,40402.80,Johnson Hana,No Variance,EU
+001Wj00000TV1Wz,OpenAI Privacy team expansion - Himanshu Gaur,69600,2025-10-21,4,Closed Won,69600,Johnson Hana,No Variance,EU
+001Wj00000mCFtM,Kellanova ODL Transactions Julie Collins team Extension,11136,2025-10-16,1,Closed Won,11136,Johnson Hana,No Variance,EU
+NEED_ACCOUNT,AI Output Validation (Novelis),2900,2025-10-02,0,Closed Won,2900,Johnson Hana,No Variance,EU
+

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ACV_Variance_Reason__c</fullName>
+    <label>ACV Variance Reason</label>
+    <description>Documents why the Active Revenue value differs from the JH Original ACV. Used for reconciliation and audit purposes.</description>
+    <inlineHelpText>Select the reason why this opportunity's Revenue differs from the JH Original ACV.</inlineHelpText>
+    <type>Picklist</type>
+    <required>false</required>
+    <externalId>false</externalId>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Bundle Allocation</fullName>
+                <default>false</default>
+                <label>Bundle Allocation</label>
+            </value>
+            <value>
+                <fullName>Multi-Year Annualization</fullName>
+                <default>false</default>
+                <label>Multi-Year Annualization</label>
+            </value>
+            <value>
+                <fullName>Rate Adjustment</fullName>
+                <default>false</default>
+                <label>Rate Adjustment</label>
+            </value>
+            <value>
+                <fullName>Run Rate Capture</fullName>
+                <default>false</default>
+                <label>Run Rate Capture</label>
+            </value>
+            <value>
+                <fullName>Contract Amendment</fullName>
+                <default>false</default>
+                <label>Contract Amendment</label>
+            </value>
+            <value>
+                <fullName>Term Difference</fullName>
+                <default>false</default>
+                <label>Term Difference</label>
+            </value>
+            <value>
+                <fullName>No Variance</fullName>
+                <default>false</default>
+                <label>No Variance</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
+

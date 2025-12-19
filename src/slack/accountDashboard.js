@@ -801,18 +801,18 @@ function generateWeeklyTab(params) {
       <div style="display: flex; gap: 12px; flex-wrap: wrap;">
         
         <!-- LEFT COLUMN: Targeting This Month -->
-        <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #eff6ff; border-radius: 8px; padding: 12px; border-left: 4px solid #3b82f6;">
-          <div style="font-weight: 600; color: #1e40af; margin-bottom: 4px; font-size: 0.75rem;">TARGETING ${currentMonthName.toUpperCase()} (${thisMonthOpps.length})</div>
+        <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; border-left: 4px solid #6b7280;">
+          <div style="font-weight: 600; color: #111827; margin-bottom: 4px; font-size: 0.75rem;">TARGETING ${currentMonthName.toUpperCase()} (${thisMonthOpps.length})</div>
           <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 8px;">Deals with Target Sign Date in ${currentMonthName} ${currentYear}</div>
           ${thisMonthOpps.length > 0 ? `
-            <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5;">
+            <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5; color: #374151;">
               ${thisMonthOpps.slice(0, 10).map(o => 
-                '<li style="margin-bottom: 3px;"><strong>' + o.account + '</strong>, ' + fmt(o.acv) + '</li>'
+                '<li style="margin-bottom: 3px;">' + o.account + ', ' + fmt(o.acv) + '</li>'
               ).join('')}
             </ol>
             ${thisMonthOpps.length > 10 ? `
               <details style="margin-top: 6px;">
-                <summary style="cursor: pointer; font-size: 0.65rem; color: #1e40af; font-weight: 600;">+${thisMonthOpps.length - 10} more opportunities</summary>
+                <summary style="cursor: pointer; font-size: 0.65rem; color: #374151; font-weight: 600;">+${thisMonthOpps.length - 10} more opportunities</summary>
                 <ol start="11" style="font-size: 0.65rem; margin: 4px 0 0 0; padding-left: 20px; line-height: 1.4; color: #6b7280;">
                   ${thisMonthOpps.slice(10).map(o => '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + '</li>').join('')}
                 </ol>
@@ -822,8 +822,8 @@ function generateWeeklyTab(params) {
         </div>
         
         <!-- RIGHT COLUMN: Top Q4 Opportunities -->
-        <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; border-left: 4px solid #10b981;">
-          <div style="font-weight: 600; color: #065f46; margin-bottom: 4px; font-size: 0.75rem;">TOP Q4 OPPORTUNITIES (${q4Opps.length})</div>
+        <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; border-left: 4px solid #6b7280;">
+          <div style="font-weight: 600; color: #111827; margin-bottom: 4px; font-size: 0.75rem;">TOP Q4 OPPORTUNITIES (${q4Opps.length})</div>
           <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 8px;">All Q4 FY2025 (Nov 1 - Jan 31)</div>
           ${(() => {
             const allQ4Sorted = q4Opps.map(o => ({ 
@@ -839,7 +839,7 @@ function generateWeeklyTab(params) {
             const remaining = allQ4Sorted.slice(10);
             
             return (top10.length > 0 ? `
-              <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5;">
+              <ol class="weekly-list" style="font-size: 0.7rem; margin: 0; padding-left: 16px; line-height: 1.5; color: #374151;">
                 ${top10.map(o => {
                   const marker = o.isNov ? '¹' : (o.isDec ? '²' : (o.isJan ? '³' : ''));
                   return '<li style="margin-bottom: 3px;">' + o.account + ', ' + fmt(o.acv) + marker + '</li>';
@@ -847,7 +847,7 @@ function generateWeeklyTab(params) {
               </ol>
               ${remaining.length > 0 ? `
                 <details style="margin-top: 6px;">
-                  <summary style="cursor: pointer; font-size: 0.65rem; color: #065f46; font-weight: 600;">+${remaining.length} more opportunities</summary>
+                  <summary style="cursor: pointer; font-size: 0.65rem; color: #374151; font-weight: 600;">+${remaining.length} more opportunities</summary>
                   <ol start="11" style="font-size: 0.65rem; margin: 4px 0 0 0; padding-left: 20px; line-height: 1.4; color: #6b7280;">
                     ${remaining.map(o => '<li style="margin-bottom: 2px;">' + o.account + ', ' + fmt(o.acv) + (o.isNov ? '¹' : (o.isDec ? '²' : (o.isJan ? '³' : ''))) + '</li>').join('')}
                   </ol>
@@ -995,26 +995,26 @@ function generateWeeklyTab(params) {
     <!-- Closed Lost This Week -->
     <div class="weekly-subsection">
       <div class="weekly-subsection-title" style="color: #000000; font-weight: 700;">Closed Lost This Week (${closedLostDeals.length + nurturedAccounts.length})</div>
-      <table style="width: 100%; font-size: 0.7rem; margin-top: 8px;">
+      <table style="width: 100%; font-size: 0.7rem; margin-top: 8px; border-collapse: collapse;">
         <thead>
-          <tr style="background: #000000; color: #ffffff;">
-            <th style="padding: 6px 8px; text-align: left;">Account</th>
-            <th style="padding: 6px 8px; text-align: left;">Reason</th>
-            <th style="padding: 6px 8px; text-align: left;">Detail</th>
+          <tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
+            <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Opportunity Name</th>
+            <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Closed Lost Detail</th>
+            <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Closed Lost Reason</th>
           </tr>
         </thead>
         <tbody style="color: #374151;">
           ${closedLostDeals.length > 0 ? closedLostDeals.map(deal => `
           <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px; font-weight: 500;">${deal.accountName}</td>
-            <td style="padding: 6px 8px;">${deal.closedLostReason || 'Closed Lost'}</td>
+            <td style="padding: 6px 8px;">${deal.oppName || deal.accountName}</td>
             <td style="padding: 6px 8px; font-size: 0.65rem;">${deal.closedLostDetail || '-'}</td>
+            <td style="padding: 6px 8px;">${deal.closedLostReason || 'No Detail Provided'}</td>
           </tr>`).join('') : ''}
           ${nurturedAccounts.length > 0 ? nurturedAccounts.map(acc => `
           <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px; font-weight: 500;">${acc.accountName}</td>
-            <td style="padding: 6px 8px;">Nurture</td>
+            <td style="padding: 6px 8px;">${acc.accountName} - Nurture</td>
             <td style="padding: 6px 8px; font-size: 0.65rem;">Account moved to nurture stage</td>
+            <td style="padding: 6px 8px;">Nurture</td>
           </tr>`).join('') : ''}
           ${closedLostDeals.length === 0 && nurturedAccounts.length === 0 ? `
           <tr>
@@ -1529,14 +1529,25 @@ async function generateAccountDashboard() {
   // ═══════════════════════════════════════════════════════════════════════
   // CLOSED WON THIS WEEK - Deals signed in last 7 days (for Weekly tab)
   // Filters: Revenue_Type__c = Recurring, Project, or Commit only
+  // Fallback: If no results, query all Closed Won deals
   // ═══════════════════════════════════════════════════════════════════════
   const closedWonThisWeekQuery = `
     SELECT Account.Name, Name, ACV__c, Amount, CloseDate, Product_Line__c, 
            Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name
     FROM Opportunity
-    WHERE StageName = 'Stage 6. Closed(Won)'
+    WHERE (StageName = 'Stage 6. Closed Won' OR StageName = 'Stage 6. Closed(Won)')
       AND CloseDate >= LAST_N_DAYS:7
       AND Revenue_Type__c IN ('Recurring', 'Project', 'Commit')
+    ORDER BY Amount DESC
+  `;
+  
+  // Fallback query without Revenue_Type__c filter
+  const closedWonFallbackQuery = `
+    SELECT Account.Name, Name, ACV__c, Amount, CloseDate, Product_Line__c, 
+           Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name
+    FROM Opportunity
+    WHERE (StageName = 'Stage 6. Closed Won' OR StageName = 'Stage 6. Closed(Won)')
+      AND CloseDate >= LAST_N_DAYS:7
     ORDER BY Amount DESC
   `;
   
@@ -1544,8 +1555,16 @@ async function generateAccountDashboard() {
   let signedThisWeekTotal = 0;
   
   try {
-    const closedWonData = await query(closedWonThisWeekQuery, true);
-    console.log(`[Dashboard] Closed Won This Week query returned ${closedWonData?.records?.length || 0} records`);
+    let closedWonData = await query(closedWonThisWeekQuery, true);
+    console.log(`[Dashboard] Closed Won This Week (filtered) query returned ${closedWonData?.records?.length || 0} records`);
+    
+    // If no results with filter, try without filter
+    if (!closedWonData?.records || closedWonData.records.length === 0) {
+      console.log('[Dashboard] No results with Revenue_Type filter, trying fallback query...');
+      closedWonData = await query(closedWonFallbackQuery, true);
+      console.log(`[Dashboard] Closed Won Fallback query returned ${closedWonData?.records?.length || 0} records`);
+    }
+    
     if (closedWonData?.records) {
       closedWonData.records.forEach(opp => {
         const revenue = opp.Amount || opp.ACV__c || 0;
@@ -1663,8 +1682,11 @@ async function generateAccountDashboard() {
     if (daysData?.records) {
       daysData.records.forEach(opp => {
         const stage = opp.StageName;
-        // Map S5 to S4/5 (blended)
-        const displayStage = stage === 'Stage 5 - Negotiation' ? 'Stage 4/5 - Proposal' : stage;
+        // Map S4 and S5 to combined S4/5 - Proposal
+        let displayStage = stage;
+        if (stage === 'Stage 4 - Proposal' || stage === 'Stage 5 - Negotiation') {
+          displayStage = 'Stage 4/5 - Proposal';
+        }
         if (daysInStageByStage[displayStage]) {
           daysInStageByStage[displayStage].push({
             accountName: opp.Account?.Name || 'Unknown',
@@ -1674,8 +1696,9 @@ async function generateAccountDashboard() {
           });
         }
       });
-      // Keep only top 10 per stage (already sorted by Days_in_Stage__c DESC)
+      // Sort by days in stage descending and keep only top 10 per stage
       Object.keys(daysInStageByStage).forEach(stage => {
+        daysInStageByStage[stage].sort((a, b) => b.daysInStage - a.daysInStage);
         daysInStageByStage[stage] = daysInStageByStage[stage].slice(0, 10);
       });
     }

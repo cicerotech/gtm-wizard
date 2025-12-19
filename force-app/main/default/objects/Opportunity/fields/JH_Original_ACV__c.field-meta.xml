@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>JH_Original_ACV__c</fullName>
+    <label>JH Original ACV</label>
+    <description>Original ACV value from Johnson Hana CRM for migrated opportunities. Used to track discrepancies between JH closed-won values and EUDIA Active Revenue figures.</description>
+    <inlineHelpText>The original Annual Contract Value from Johnson Hana CRM before any adjustments for Active Revenue calculations.</inlineHelpText>
+    <type>Currency</type>
+    <precision>16</precision>
+    <scale>2</scale>
+    <required>false</required>
+    <externalId>false</externalId>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+</CustomField>
+
