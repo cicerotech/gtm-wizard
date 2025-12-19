@@ -881,55 +881,83 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
         }))
         .sort((a, b) => b.totalACV - a.totalACV);
       
-      // Draw deals in 2 columns - dynamically sized to fill available space
+      // ═══════════════════════════════════════════════════════════════════════
+      // FORCE FILL: Calculate dynamic row heights to fill space to footer
+      // ═══════════════════════════════════════════════════════════════════════
+      
+      // Split BLs into 2 columns
       const leftBLs = sortedBLs.filter((_, i) => i % 2 === 0);
       const rightBLs = sortedBLs.filter((_, i) => i % 2 === 1);
       
-      // Calculate available height for deals and adjust row heights
-      const dealsAvailableHeight = topDealsHeight - 20; // minus header
-      const numBLsPerColumn = Math.max(leftBLs.length, rightBLs.length, 1);
-      const blSectionHeight = Math.floor(dealsAvailableHeight / Math.min(numBLsPerColumn, 6));
-      const dealRowHeight = 8;  // Slightly larger for better readability
-      const maxDealsPerBL = Math.min(5, Math.floor((blSectionHeight - 12) / dealRowHeight));
+      // Step 1: Calculate EXACT available height from deals header to footer
+      const dealsHeaderHeight = 16;  // "TOP DEALS BY BUSINESS LEAD" header + subtitle
+      const dealsContentStartY = row4Y + dealsHeaderHeight;
+      const dealsContentEndY = footerY - 6;  // Small gap before footer line
+      const totalDealsHeight = dealsContentEndY - dealsContentStartY;
       
-      const drawBLDeals = (bls, startX, startY, maxWidth, maxBLs) => {
+      // Step 2: Count total rows to render
+      const numBLsLeft = Math.min(leftBLs.length, 6);
+      const numBLsRight = Math.min(rightBLs.length, 6);
+      const maxBLs = Math.max(numBLsLeft, numBLsRight, 1);
+      const dealsPerBL = 5;
+      
+      // Each BL section: 1 header + dealsPerBL deals + 0.5 gap = 6.5 rows per BL
+      const rowsPerBL = 1 + dealsPerBL + 0.5;
+      const totalRows = maxBLs * rowsPerBL;
+      
+      // Step 3: Calculate dynamic row height to FORCE fill available space
+      const dynamicRowHeight = totalDealsHeight / totalRows;
+      // Clamp between 9pt (min readable) and 16pt (max reasonable)
+      const rowHeight = Math.max(9, Math.min(16, dynamicRowHeight));
+      const blHeaderHeight = rowHeight + 3;
+      const blGapHeight = Math.floor(rowHeight * 0.6);
+      
+      // Font sizes scale with row height
+      const dealFontSize = Math.max(6.5, Math.min(8, rowHeight - 2));
+      const blNameFontSize = Math.max(7, Math.min(10, rowHeight));
+      
+      // Step 4: Render with dynamic heights
+      const drawBLDeals = (bls, startX, startY, maxWidth) => {
         let y = startY;
         
-        bls.slice(0, maxBLs).forEach(bl => {
+        bls.slice(0, 6).forEach(bl => {
           if (bl.deals.length === 0) return;
           
-          // BL Name header - larger font for visibility
-          doc.font(fontBold).fontSize(7).fillColor(TEAL_ACCENT);
+          // BL Name header with dynamic font size
+          doc.font(fontBold).fontSize(blNameFontSize).fillColor(TEAL_ACCENT);
           doc.text(bl.name, startX, y);
-          y += 10;
+          y += blHeaderHeight;
           
-          // Deals - larger font and spacing
-          doc.font(fontRegular).fontSize(6).fillColor(DARK_GRAY);
-          bl.deals.slice(0, maxDealsPerBL).forEach(deal => {
-            const name = deal.accountName.length > 24 ? deal.accountName.substring(0, 24) + '...' : deal.accountName;
+          // Deals with dynamic row height and font size
+          doc.font(fontRegular).fontSize(dealFontSize).fillColor(DARK_GRAY);
+          bl.deals.slice(0, dealsPerBL).forEach(deal => {
+            const name = deal.accountName.length > 26 ? deal.accountName.substring(0, 26) + '...' : deal.accountName;
             const date = formatDate(deal.targetDate);
             doc.text(`${name}  •  ${formatCurrency(deal.acv)}  •  ${date}`, startX, y, { width: maxWidth });
-            y += dealRowHeight;
+            y += rowHeight;
           });
           
-          y += 6; // Gap between BLs
+          y += blGapHeight;
         });
         
         return y;
       };
       
-      const dealsStartY = row4Y + 14;
-      const maxBLsToShow = 6;  // Show up to 6 BLs per column to fill space
-      const leftDealsEndY = drawBLDeals(leftBLs, LEFT, dealsStartY, halfWidth, maxBLsToShow);
-      const rightDealsEndY = drawBLDeals(rightBLs, RIGHT_COL, dealsStartY, halfWidth, maxBLsToShow);
+      const dealsStartY = dealsContentStartY;
+      const leftDealsEndY = drawBLDeals(leftBLs, LEFT, dealsStartY, halfWidth);
+      const rightDealsEndY = drawBLDeals(rightBLs, RIGHT_COL, dealsStartY, halfWidth);
       
       // ═══════════════════════════════════════════════════════════════════════
-      // FOOTER - Positioned at calculated footerY (dynamic, not hardcoded)
+      // FOOTER - Flows naturally after content (NOT at fixed page position)
       // ═══════════════════════════════════════════════════════════════════════
-      doc.strokeColor(TEAL_ACCENT).lineWidth(1).moveTo(LEFT, footerY).lineTo(LEFT + PAGE_WIDTH, footerY).stroke();
+      // Position footer 20px after the last content row
+      const contentEndY = Math.max(leftDealsEndY, rightDealsEndY);
+      const dynamicFooterY = contentEndY + 20;
+      
+      doc.strokeColor(TEAL_ACCENT).lineWidth(1).moveTo(LEFT, dynamicFooterY).lineTo(LEFT + PAGE_WIDTH, dynamicFooterY).stroke();
       
       doc.font(fontRegular).fontSize(5.5).fillColor(MEDIUM_GRAY);
-      doc.text('Generated by Eudia GTM Brain  •  www.eudia.com  •  Internal use only', LEFT, footerY + 4, { width: PAGE_WIDTH, align: 'center' });
+      doc.text('Generated by Eudia GTM Brain  •  www.eudia.com  •  Internal use only', LEFT, dynamicFooterY + 4, { width: PAGE_WIDTH, align: 'center' });
       
       doc.end();
       
