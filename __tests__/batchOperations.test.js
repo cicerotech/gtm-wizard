@@ -125,13 +125,13 @@ describe('Batch Operations Intent Parsing', () => {
 
   describe('Stage Name Validation', () => {
     test('should use correct Salesforce API stage name', () => {
-      // Salesforce API expects 'Closed Lost' (not 'Stage 7. Closed(Lost)')
-      // The 'Stage 7.' prefix is a display name, not the API value
-      const correctStageName = 'Closed Lost';
-      const wrongStageName = 'Stage 7. Closed(Lost)';
+      // Salesforce picklist shows 'Stage 7. Closed Lost' as the actual API value
+      // Note: NO parentheses around "Lost" (unlike Closed(Won))
+      const correctStageName = 'Stage 7. Closed Lost';
+      const wrongStageName = 'Stage 7. Closed(Lost)';  // Wrong - has parentheses
       
-      // Our code should use the simple API value
-      expect(correctStageName).toBe('Closed Lost');
+      // Our code should use the exact picklist value
+      expect(correctStageName).toBe('Stage 7. Closed Lost');
       expect(wrongStageName).not.toBe(correctStageName);
     });
 
@@ -142,13 +142,13 @@ describe('Batch Operations Intent Parsing', () => {
       // Correct payload - ONLY StageName, no IsClosed/IsWon (they're read-only)
       const correctUpdate = {
         Id: opp.Id,
-        StageName: 'Closed Lost'
+        StageName: 'Stage 7. Closed Lost'
       };
       
       // Wrong payload - setting read-only fields
       const wrongUpdate = {
         Id: opp.Id,
-        StageName: 'Closed Lost',
+        StageName: 'Stage 7. Closed Lost',
         IsClosed: true,
         IsWon: false
       };
@@ -156,7 +156,7 @@ describe('Batch Operations Intent Parsing', () => {
       // Verify correct payload doesn't have read-only fields
       expect(correctUpdate).not.toHaveProperty('IsClosed');
       expect(correctUpdate).not.toHaveProperty('IsWon');
-      expect(correctUpdate).toHaveProperty('StageName', 'Closed Lost');
+      expect(correctUpdate).toHaveProperty('StageName', 'Stage 7. Closed Lost');
       
       // Wrong payload has fields that will cause errors
       expect(wrongUpdate).toHaveProperty('IsClosed');
@@ -169,19 +169,19 @@ describe('Salesforce API Compliance', () => {
   describe('Closed Lost Stage Name', () => {
     test('events.js uses correct Closed Lost stage name', () => {
       // This is a documentation test - the actual fix is in events.js
-      // Valid StageName values per schema-opportunity.json:
+      // Valid StageName values per Salesforce picklist:
       const validStages = [
         'Stage 0 - Qualifying',
         'Stage 1 - Discovery',
-        'Stage 2 - SOO',
+        'Stage 2 - SQO',
         'Stage 3 - Pilot',
         'Stage 4 - Proposal',
-        'Closed Won',
-        'Closed Lost'
+        'Stage 6. Closed(Won)',
+        'Stage 7. Closed Lost'  // Note: NO parentheses around Lost
       ];
       
-      expect(validStages).toContain('Closed Lost');
-      expect(validStages).not.toContain('Stage 7. Closed(Lost)');
+      expect(validStages).toContain('Stage 7. Closed Lost');
+      expect(validStages).not.toContain('Stage 7. Closed(Lost)');  // Wrong format
     });
   });
 
@@ -194,7 +194,7 @@ describe('Salesforce API Compliance', () => {
       // Our update payloads should NOT include these
       const correctUpdatePayload = {
         Id: '006ABC',
-        StageName: 'Closed Lost'
+        StageName: 'Stage 7. Closed Lost'
       };
       
       readOnlyFields.forEach(field => {

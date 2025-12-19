@@ -5,7 +5,7 @@
  * operations generate correct Salesforce API payloads.
  * 
  * These tests verify the critical fixes:
- * 1. StageName uses 'Closed Lost' (not 'Stage 7. Closed(Lost)')
+ * 1. StageName uses 'Closed Lost' (not 'Stage 7. Closed Lost')
  * 2. IsClosed and IsWon are NOT included (they're read-only)
  * 3. Error logging captures failures properly
  */

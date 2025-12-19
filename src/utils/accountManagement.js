@@ -59,7 +59,7 @@ async function executeNurtureMove(accountId, opportunityIds, reason) {
     if (opportunityIds && opportunityIds.length > 0) {
       const oppUpdates = opportunityIds.map(oppId => ({
         Id: oppId,
-        StageName: 'Stage 7. Closed(Lost)', // Exact Salesforce value
+        StageName: 'Stage 7. Closed Lost', // Exact Salesforce value
         IsClosed: true,
         IsWon: false,
         Closed_Lost_Detail__c: reason
@@ -121,7 +121,7 @@ async function executeCloseLost(opportunityIds, reason) {
     
     const oppUpdates = opportunityIds.map(oppId => ({
       Id: oppId,
-      StageName: 'Stage 7. Closed(Lost)',
+      StageName: 'Stage 7. Closed Lost',
       IsClosed: true,
       IsWon: false,
       Closed_Lost_Detail__c: reason

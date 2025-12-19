@@ -162,7 +162,7 @@ function cleanStageName(stageName) {
   // Clean up stage names
   const stageMap = {
     'Stage 6. Closed(Won)': 'Closed Won',
-    'Stage 7. Closed(Lost)': 'Closed Lost',
+    'Stage 7. Closed Lost': 'Closed Lost',
     'Stage 6.Closed(Won)': 'Closed Won',
     'Stage 7.Closed(Lost)': 'Closed Lost'
   };

@@ -19,7 +19,7 @@ async function generateFullPipelineExcel() {
                        FROM Opportunity
                        WHERE IsClosed = false
                          AND StageName != 'Stage 6. Closed(Won)'
-                         AND StageName != 'Stage 7. Closed(Lost)'
+                         AND StageName != 'Stage 7. Closed Lost'
                        ORDER BY ACV__c DESC NULLS LAST, Name`;
 
   const data = await query(reportQuery, false);

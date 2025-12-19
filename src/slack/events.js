@@ -2533,7 +2533,7 @@ async function handleBatchMoveToNurture(entities, userId, channelId, client, thr
           // NOTE: Only set StageName - IsClosed/IsWon are read-only fields auto-calculated by Salesforce
           const updates = openOpps.map(opp => ({
             Id: opp.Id,
-            StageName: 'Closed Lost'
+            StageName: 'Stage 7. Closed Lost'
           }));
           
           const oppResults = await conn.sobject('Opportunity').update(updates);
@@ -3053,7 +3053,7 @@ async function handleMoveToNurture(entities, userId, channelId, client, threadTs
       // NOTE: Only set StageName - IsClosed/IsWon are read-only fields auto-calculated by Salesforce
       const updates = openOpps.map(opp => ({
         Id: opp.Id,
-        StageName: 'Closed Lost'
+        StageName: 'Stage 7. Closed Lost'
       }));
       
       results = await conn.sobject('Opportunity').update(updates);
@@ -3193,7 +3193,7 @@ async function handleCloseAccountLost(entities, userId, channelId, client, threa
     // NOTE: Only set StageName - IsClosed/IsWon are read-only fields auto-calculated by Salesforce
     const updates = openOpps.map(opp => ({
       Id: opp.Id,
-      StageName: 'Closed Lost'
+      StageName: 'Stage 7. Closed Lost'
     }));
     
     const results = await conn.sobject('Opportunity').update(updates);

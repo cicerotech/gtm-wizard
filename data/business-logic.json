@@ -89,7 +89,7 @@
     "Stage 3 - Pilot": "Stage 3 - Pilot",
     "Stage 4 - Proposal": "Stage 4 - Proposal",
     "Stage 6. Closed(Won)": "Closed Won",
-    "Stage 7. Closed(Lost)": "Closed Lost"
+    "Stage 7. Closed Lost": "Closed Lost"
   },
   "time_periods": {
     "today": "CloseDate = TODAY",

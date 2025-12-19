@@ -1416,7 +1416,7 @@ async function generateAccountDashboard() {
     SELECT Account.Name, Name, StageName, ACV__c, Closed_Lost_Detail__c, Closed_Lost_Reason__c,
            LastModifiedDate, Owner.Name, Description
     FROM Opportunity
-    WHERE (StageName = 'Closed Lost' OR StageName = 'Stage 7. Closed(Lost)' OR StageName = 'Stage 7 - Closed Lost')
+    WHERE (StageName = 'Closed Lost' OR StageName = 'Stage 7. Closed Lost' OR StageName = 'Stage 7 - Closed Lost')
       AND LastModifiedDate >= LAST_N_DAYS:7
     ORDER BY LastModifiedDate DESC
     LIMIT 20

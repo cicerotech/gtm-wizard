@@ -76,11 +76,11 @@
       "values": [
         "Stage 0 - Qualifying",
         "Stage 1 - Discovery", 
-        "Stage 2 - SOO",
+        "Stage 2 - SQO",
         "Stage 3 - Pilot",
         "Stage 4 - Proposal",
-        "Closed Won",
-        "Closed Lost"
+        "Stage 6. Closed(Won)",
+        "Stage 7. Closed Lost"
       ]
     },
     {
