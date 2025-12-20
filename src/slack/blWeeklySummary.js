@@ -1154,7 +1154,7 @@ function formatSlackMessage(pipelineData, previousMetrics, dateStr) {
 // MAIN FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function sendBLWeeklySummary(app, testMode = false) {
+async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) {
   try {
     logger.info('Generating weekly BL summary with PDF...');
     
@@ -1195,10 +1195,10 @@ async function sendBLWeeklySummary(app, testMode = false) {
     // Save current snapshot (BL metrics only for comparison)
     saveSnapshot(dateStr, pipelineData.blMetrics);
     
-    // Determine channel
-    let channel = testMode ? 
+    // Determine channel - priority: targetChannel > testMode default > GTM_CHANNEL
+    let channel = targetChannel || (testMode ? 
       (process.env.TEST_CHANNEL || 'U094AQE9V7D') :
-      GTM_CHANNEL;
+      GTM_CHANNEL);
     
     // For DMs (user IDs), we need to open a conversation first
     if (channel.startsWith('U')) {
@@ -1253,9 +1253,9 @@ function scheduleBLWeeklySummary(app) {
   logger.info('BL Weekly Summary scheduled (Thursday 9 AM EST)');
 }
 
-async function sendBLSummaryNow(app, testMode = true) {
-  logger.info(`Sending BL summary now (test mode: ${testMode})`);
-  return await sendBLWeeklySummary(app, testMode);
+async function sendBLSummaryNow(app, testMode = true, targetChannel = null) {
+  logger.info(`Sending BL summary now (test mode: ${testMode}, target: ${targetChannel || 'default'})`);
+  return await sendBLWeeklySummary(app, testMode, targetChannel);
 }
 
 function getSnapshotData() {

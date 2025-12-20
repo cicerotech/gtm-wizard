@@ -224,6 +224,28 @@ async function processQuery(text, userId, channelId, client, threadTs = null) {
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
+    // CONTRACT OVERRIDE - FULL FIELD CORRECTION TEMPLATE
+    // Handles: "contract override:" with user-provided values for all fields
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (textLower.includes('contract override:') || textLower.startsWith('contract override')) {
+      const pendingAnalysis = await cache.get(`contract_analysis_${userId}_${channelId}`);
+      
+      if (pendingAnalysis) {
+        logger.info(`📝 Processing contract override with user-provided values from ${userId}`);
+        const { handleContractOverride } = require('../services/contractCreation');
+        await handleContractOverride(text, userId, channelId, client, threadTs);
+        return;
+      } else {
+        await client.chat.postMessage({
+          channel: channelId,
+          text: '❌ No pending contract analysis found. Please upload a contract PDF first.',
+          thread_ts: threadTs
+        });
+        return;
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
     // CONTRACT CREATION CONFIRMATION HANDLING
     // ═══════════════════════════════════════════════════════════════════════════
     if (textLower.startsWith('create contract') || textLower === 'create' || 
@@ -2467,6 +2489,10 @@ async function handleFullPipelineExcelReport(userId, channelId, client, threadTs
 /**
  * Handle Generate Weekly Summary (PDF)
  * Generates and sends the weekly GTM snapshot PDF
+ * 
+ * BEHAVIOR: Sends the PDF to the same channel where the request was made
+ * - In a channel: Posts to that channel
+ * - In a DM: Posts to the DM
  */
 async function handleGenerateWeeklySummary(userId, channelId, client, threadTs) {
   try {
@@ -2480,10 +2506,11 @@ async function handleGenerateWeeklySummary(userId, channelId, client, threadTs) 
     // Import the BL weekly summary module
     const { sendBLSummaryNow } = require('./blWeeklySummary');
     
-    // Generate and send the weekly summary (test mode = true sends to requesting user)
-    const result = await sendBLSummaryNow({ client }, true);
+    // Generate and send the weekly summary to the requesting channel
+    // Pass channelId as targetChannel so it responds in the same channel/DM where request was made
+    const result = await sendBLSummaryNow({ client }, false, channelId);
     
-    logger.info(`✅ Weekly GTM summary sent to Slack by ${userId}`);
+    logger.info(`✅ Weekly GTM summary sent to channel ${channelId} by ${userId}`);
     
   } catch (error) {
     logger.error('Failed to generate weekly summary:', error);

@@ -621,10 +621,10 @@ async function processContractUpload(file, client, userId, channelId, threadTs) 
       });
       
       // General warnings
-    if (fields.warnings && fields.warnings.length > 0) {
+      if (fields.warnings && fields.warnings.length > 0) {
         fields.warnings.filter(w => !w.includes('account')).forEach(w => {
-        message += `• ${w}\n`;
-      });
+          message += `• ${w}\n`;
+        });
       }
     }
     
@@ -637,10 +637,26 @@ async function processContractUpload(file, client, userId, channelId, threadTs) 
       message += `• \`account: [Name]\` - Specify the correct account name first\n`;
       message += `• Then: \`create contract\` or \`create contract assign to [BL Name]\`\n`;
     } else {
-    message += `• \`create contract\` - Create with extracted data\n`;
-    message += `• \`create contract assign to [Name]\` - Create and assign to specific BL\n`;
+      message += `• \`create contract\` - Create with extracted data\n`;
+      message += `• \`create contract assign to [Name]\` - Create and assign to specific BL\n`;
     }
     message += `• \`cancel\` - Don't create\n`;
+    
+    // Always provide the manual override template for correcting any field
+    message += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `📝 *Manual Override Template*\n`;
+    message += `_If extraction missed or got fields wrong, provide corrections:_\n\n`;
+    message += `\`\`\`\n`;
+    message += `contract override:\n`;
+    message += `account: ${fields.accountName || '[Company Name]'}\n`;
+    message += `acv: ${fields.acv || fields.totalValue || '[Annual Value]'}\n`;
+    message += `tcv: ${fields.tcv || fields.totalValue || '[Total Contract Value]'}\n`;
+    message += `start: ${fields.startDate || '[YYYY-MM-DD]'}\n`;
+    message += `term: ${fields.termMonths || '[Months]'}\n`;
+    message += `product: ${fields.productLine || '[Legal/Contracts/Policy/EIMS/Litigation]'}\n`;
+    message += `revenue: ${fields.revenueType || '[Recurring/Project/Commitment]'}\n`;
+    message += `\`\`\`\n`;
+    message += `_Copy, edit any fields, and paste back to create with your values._\n`;
     
     // Store the analysis for follow-up
     const { cache } = require('../utils/cache');
@@ -1233,6 +1249,235 @@ async function handleAccountCorrection(accountName, userId, channelId, client, t
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CONTRACT OVERRIDE HANDLER - Full Field Correction
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Handle contract override with user-provided values for all fields
+ * Allows users to correct any/all fields when extraction fails
+ * 
+ * Expected format:
+ * contract override:
+ * account: [Company Name]
+ * acv: [Annual Value]
+ * tcv: [Total Contract Value]
+ * start: [YYYY-MM-DD]
+ * term: [Months]
+ * product: [Product Line]
+ * revenue: [Revenue Type]
+ */
+async function handleContractOverride(text, userId, channelId, client, threadTs) {
+  const { cache } = require('../utils/cache');
+  
+  try {
+    // Get stored analysis
+    const storedData = await cache.get(`contract_analysis_${userId}_${channelId}`);
+    
+    if (!storedData) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: '❌ No pending contract found. Please upload a contract PDF first.',
+        thread_ts: threadTs
+      });
+      return false;
+    }
+    
+    const { analysisResult, pdfBuffer, fileName } = storedData;
+    
+    // Parse user-provided values from the text
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    const overrides = {};
+    
+    lines.forEach(line => {
+      const colonIdx = line.indexOf(':');
+      if (colonIdx > 0) {
+        const key = line.substring(0, colonIdx).toLowerCase().trim();
+        const value = line.substring(colonIdx + 1).trim();
+        if (value && value !== '[Company Name]' && !value.startsWith('[')) {
+          overrides[key] = value;
+        }
+      }
+    });
+    
+    logger.info(`📝 Contract override fields provided: ${JSON.stringify(overrides)}`);
+    
+    // Apply overrides to the analysis result
+    const fields = analysisResult.fields;
+    
+    // Account name - requires Salesforce lookup
+    if (overrides.account) {
+      const escapedName = overrides.account.replace(/'/g, "\\'");
+      const accountQuery = `
+        SELECT Id, Name, OwnerId, Owner.Name, Industry
+        FROM Account
+        WHERE Name LIKE '%${escapedName}%'
+        ORDER BY Name
+        LIMIT 5
+      `;
+      
+      const result = await query(accountQuery);
+      
+      if (!result || result.totalSize === 0) {
+        await client.chat.postMessage({
+          channel: channelId,
+          text: `❌ Account "${overrides.account}" not found in Salesforce.\n\nPlease check the spelling and try again.`,
+          thread_ts: threadTs
+        });
+        return false;
+      }
+      
+      const bestMatch = result.records[0];
+      fields.accountName = bestMatch.Name;
+      fields.salesforce = fields.salesforce || {};
+      fields.salesforce.accountId = bestMatch.Id;
+      fields.salesforce.accountName = bestMatch.Name;
+      fields.salesforce.accountOwner = bestMatch.Owner?.Name;
+      fields.salesforce.accountOwnerId = bestMatch.OwnerId;
+      fields.salesforce.contractOwnerId = bestMatch.OwnerId;
+      
+      // Remove account-related warnings
+      if (fields.warnings) {
+        fields.warnings = fields.warnings.filter(w => !w.toLowerCase().includes('account'));
+      }
+    }
+    
+    // ACV (Annual Contract Value)
+    if (overrides.acv) {
+      const acvValue = parseFloat(overrides.acv.replace(/[$,k]/gi, '')) * (overrides.acv.toLowerCase().includes('k') ? 1000 : 1);
+      if (!isNaN(acvValue)) {
+        fields.acv = acvValue;
+        fields.annualValue = acvValue;
+      }
+    }
+    
+    // TCV (Total Contract Value)
+    if (overrides.tcv) {
+      const tcvValue = parseFloat(overrides.tcv.replace(/[$,k]/gi, '')) * (overrides.tcv.toLowerCase().includes('k') ? 1000 : 1);
+      if (!isNaN(tcvValue)) {
+        fields.tcv = tcvValue;
+        fields.totalValue = tcvValue;
+      }
+    }
+    
+    // Start Date
+    if (overrides.start) {
+      // Try to parse the date
+      const dateMatch = overrides.start.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (dateMatch) {
+        fields.startDate = overrides.start;
+        fields.effectiveDate = overrides.start;
+      } else {
+        // Try other formats
+        const parsed = new Date(overrides.start);
+        if (!isNaN(parsed.getTime())) {
+          fields.startDate = parsed.toISOString().split('T')[0];
+          fields.effectiveDate = fields.startDate;
+        }
+      }
+    }
+    
+    // Term (months)
+    if (overrides.term) {
+      const termMonths = parseInt(overrides.term.replace(/[^0-9]/g, ''));
+      if (!isNaN(termMonths)) {
+        fields.termMonths = termMonths;
+        fields.contractTerm = termMonths;
+      }
+    }
+    
+    // Product Line
+    if (overrides.product) {
+      const productMap = {
+        'legal': 'Legal',
+        'contracts': 'Contracts',
+        'policy': 'Policy',
+        'eims': 'EIMS',
+        'litigation': 'Litigation'
+      };
+      const normalizedProduct = overrides.product.toLowerCase();
+      fields.productLine = productMap[normalizedProduct] || overrides.product;
+    }
+    
+    // Revenue Type
+    if (overrides.revenue) {
+      const revenueMap = {
+        'recurring': 'Recurring',
+        'arr': 'Recurring',
+        'project': 'Project',
+        'commitment': 'Commitment',
+        'commit': 'Commitment'
+      };
+      const normalizedRevenue = overrides.revenue.toLowerCase();
+      fields.revenueType = revenueMap[normalizedRevenue] || overrides.revenue;
+    }
+    
+    // Recalculate overall confidence (higher since user verified)
+    fields.overallConfidence = 0.95;
+    
+    // Save updated analysis
+    await cache.set(`contract_analysis_${userId}_${channelId}`, {
+      analysisResult: analysisResult,
+      pdfBuffer: pdfBuffer,
+      fileName: fileName,
+      timestamp: Date.now(),
+      userOverrides: overrides
+    }, 1800);
+    
+    // Build confirmation message
+    let message = `✅ *Contract Fields Updated*\n\n`;
+    message += `📄 *File:* ${fileName}\n`;
+    message += `📍 *Account:* ${fields.accountName || fields.salesforce?.accountName || '❌ Missing'}\n`;
+    message += `💰 *ACV:* ${fields.acv ? `$${fields.acv.toLocaleString()}` : '❌ Missing'}\n`;
+    message += `💵 *TCV:* ${fields.tcv || fields.totalValue ? `$${(fields.tcv || fields.totalValue).toLocaleString()}` : '❌ Missing'}\n`;
+    message += `📅 *Start Date:* ${fields.startDate || fields.effectiveDate || '❌ Missing'}\n`;
+    message += `⏱️ *Term:* ${fields.termMonths || fields.contractTerm ? `${fields.termMonths || fields.contractTerm} months` : '❌ Missing'}\n`;
+    message += `📦 *Product Line:* ${fields.productLine || '❌ Missing'}\n`;
+    message += `🔄 *Revenue Type:* ${fields.revenueType || '❌ Missing'}\n`;
+    message += `\n*Confidence:* ${Math.round(fields.overallConfidence * 100)}%\n`;
+    
+    // Check if ready to create
+    const hasAccount = fields.salesforce?.accountId;
+    const hasACV = fields.acv || fields.annualValue;
+    const hasStartDate = fields.startDate || fields.effectiveDate;
+    const hasTerm = fields.termMonths || fields.contractTerm;
+    
+    if (hasAccount && hasACV && hasStartDate && hasTerm) {
+      message += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      message += `✅ *Ready to create!* Reply with:\n`;
+      message += `• \`create contract\` - Create with current data\n`;
+      message += `• \`create contract assign to [Name]\` - Assign to a specific BL\n`;
+      message += `• \`cancel\` - Don't create\n`;
+    } else {
+      const missing = [];
+      if (!hasAccount) missing.push('account');
+      if (!hasACV) missing.push('acv');
+      if (!hasStartDate) missing.push('start date');
+      if (!hasTerm) missing.push('term');
+      
+      message += `\n⚠️ Still missing: ${missing.join(', ')}\n`;
+      message += `Please provide the missing fields using the override template again.\n`;
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: message,
+      thread_ts: threadTs
+    });
+    
+    return true;
+    
+  } catch (error) {
+    logger.error('Contract override failed:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Error processing override: ${error.message}`,
+      thread_ts: threadTs
+    });
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // EXPORTS
 // ═══════════════════════════════════════════════════════════════════════════
 module.exports = {
@@ -1241,6 +1486,7 @@ module.exports = {
   handleContractCreationConfirmation,
   handleContractActivation,
   handleAccountCorrection,
+  handleContractOverride,
   downloadSlackFile,
   REQUIRED_ERP_FIELDS
 };
