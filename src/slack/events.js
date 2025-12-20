@@ -2496,7 +2496,10 @@ async function handleFullPipelineExcelReport(userId, channelId, client, threadTs
  */
 async function handleGenerateWeeklySummary(userId, channelId, client, threadTs) {
   try {
-    // Show loading message
+    // Log the target channel for debugging
+    logger.info(`📊 Weekly Summary requested by ${userId} in channel: ${channelId}`);
+    
+    // Show loading message in the same channel
     await client.chat.postMessage({
       channel: channelId,
       text: '📊 Generating weekly GTM snapshot... This will take a moment.',
@@ -2504,13 +2507,15 @@ async function handleGenerateWeeklySummary(userId, channelId, client, threadTs) 
     });
     
     // Import the BL weekly summary module
-    const { sendBLSummaryNow } = require('./blWeeklySummary');
+    const blSummary = require('./blWeeklySummary');
     
-    // Generate and send the weekly summary to the requesting channel
-    // Pass channelId as targetChannel so it responds in the same channel/DM where request was made
-    const result = await sendBLSummaryNow({ client }, false, channelId);
+    // CRITICAL: Pass the exact channelId as targetChannel
+    // The PDF should be sent to the SAME channel where this request originated
+    logger.info(`📊 Calling sendBLSummaryNow with targetChannel: ${channelId}`);
     
-    logger.info(`✅ Weekly GTM summary sent to channel ${channelId} by ${userId}`);
+    const result = await blSummary.sendBLSummaryNow({ client }, false, channelId);
+    
+    logger.info(`✅ Weekly GTM summary sent to channel ${result?.channel || channelId} by ${userId}`);
     
   } catch (error) {
     logger.error('Failed to generate weekly summary:', error);

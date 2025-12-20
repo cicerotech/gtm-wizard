@@ -1195,20 +1195,42 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     // Save current snapshot (BL metrics only for comparison)
     saveSnapshot(dateStr, pipelineData.blMetrics);
     
-    // Determine channel - priority: targetChannel > testMode default > GTM_CHANNEL
-    let channel = targetChannel || (testMode ? 
-      (process.env.TEST_CHANNEL || 'U094AQE9V7D') :
-      GTM_CHANNEL);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHANNEL SELECTION - CRITICAL FOR RESPONDING IN CORRECT LOCATION
+    // Priority: targetChannel (from request) > testMode default > GTM_CHANNEL
+    // ═══════════════════════════════════════════════════════════════════════════
+    logger.info(`📊 Channel selection: targetChannel=${targetChannel}, testMode=${testMode}`);
     
-    // For DMs (user IDs), we need to open a conversation first
+    let channel;
+    if (targetChannel) {
+      // Use the channel where the request was made
+      channel = targetChannel;
+      logger.info(`📊 Using targetChannel: ${channel}`);
+    } else if (testMode) {
+      // Test mode - use TEST_CHANNEL env var or default user
+      channel = process.env.TEST_CHANNEL || 'U094AQE9V7D';
+      logger.info(`📊 Test mode - using: ${channel}`);
+    } else {
+      // Production scheduled run - use GTM channel
+      channel = GTM_CHANNEL;
+      logger.info(`📊 Production mode - using GTM_CHANNEL: ${channel}`);
+    }
+    
+    // For DMs (user IDs start with 'U'), we need to open a conversation first
+    // Channel IDs start with 'C' or 'G' and don't need this
     if (channel.startsWith('U')) {
+      logger.info(`📊 Channel ${channel} is a user ID - opening DM conversation`);
       const conversation = await app.client.conversations.open({
         users: channel
       });
       channel = conversation.channel.id;
+      logger.info(`📊 DM conversation opened: ${channel}`);
+    } else {
+      logger.info(`📊 Channel ${channel} is a channel ID - posting directly`);
     }
     
     // Upload PDF and send message together
+    logger.info(`📊 Uploading PDF to channel: ${channel}`);
     await app.client.files.uploadV2({
       channel_id: channel,
       file: pdfBuffer,
@@ -1217,7 +1239,7 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
       initial_comment: message
     });
     
-    logger.info(`Weekly BL summary with PDF sent to ${channel}`);
+    logger.info(`✅ Weekly BL summary with PDF sent to ${channel}`);
     
     return {
       success: true,
@@ -1254,7 +1276,15 @@ function scheduleBLWeeklySummary(app) {
 }
 
 async function sendBLSummaryNow(app, testMode = true, targetChannel = null) {
-  logger.info(`Sending BL summary now (test mode: ${testMode}, target: ${targetChannel || 'default'})`);
+  logger.info(`📊 sendBLSummaryNow called with: testMode=${testMode}, targetChannel=${targetChannel || 'NOT PROVIDED'}`);
+  
+  // CRITICAL: Ensure targetChannel is passed through correctly
+  if (targetChannel) {
+    logger.info(`📊 Target channel explicitly set: ${targetChannel} - PDF will be sent here`);
+  } else {
+    logger.info(`📊 No target channel provided - will use default (testMode=${testMode})`);
+  }
+  
   return await sendBLWeeklySummary(app, testMode, targetChannel);
 }
 
