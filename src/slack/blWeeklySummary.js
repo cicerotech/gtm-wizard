@@ -645,7 +645,7 @@ function processPipelineData(records) {
 const GREEN_ACCENT = '#10b981';   // Pod titles, targeting box, gradient start
 const BLUE_ACCENT = '#3b82f6';    // Gradient end
 const DARK_TEXT = '#1a1a1a';      // Headers, values
-const MEDIUM_TEXT = '#666666';    // Labels, subtexts
+const MEDIUM_TEXT = '#333333';    // Labels, subtexts - Changed from #666666 for better readability
 const LIGHT_TEXT = '#999999';     // Footer, muted text
 const BODY_TEXT = '#333333';      // Table content
 const BORDER_GRAY = '#e5e5e5';    // Table header borders
@@ -692,13 +692,39 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       let y = 30;  // Start position
       
       // ═══════════════════════════════════════════════════════════════════════
-      // HEADER - Compact centered title + date + gradient line
+      // HEADER - Logo + title + date + gradient line
       // ═══════════════════════════════════════════════════════════════════════
-      doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);
-      doc.text('Eudia GTM Weekly Snapshot', LEFT, y, { width: PAGE_WIDTH, align: 'center' });
-      y += 20;
       
-      doc.font(fontRegular).fontSize(10).fillColor(MEDIUM_TEXT);
+      // Add Eudia logo centered
+      const logoPath = path.join(__dirname, '../../assets/eudia-logo.jpg');
+      const logoWidth = 120;  // Proportional width for the logo
+      const logoHeight = 30;  // Height that fits the header
+      const logoX = LEFT + (PAGE_WIDTH - logoWidth) / 2;  // Center horizontally
+      
+      try {
+        if (fs.existsSync(logoPath)) {
+          doc.image(logoPath, logoX, y, { width: logoWidth, height: logoHeight });
+          y += logoHeight + 4;
+        } else {
+          // Fallback to text if logo not found
+          doc.font(fontBold).fontSize(20).fillColor(DARK_TEXT);
+          doc.text('Eudia', LEFT, y, { width: PAGE_WIDTH, align: 'center' });
+          y += 22;
+        }
+      } catch (logoErr) {
+        // Fallback to text
+        doc.font(fontBold).fontSize(20).fillColor(DARK_TEXT);
+        doc.text('Eudia', LEFT, y, { width: PAGE_WIDTH, align: 'center' });
+        y += 22;
+      }
+      
+      // Subtitle: GTM Weekly Snapshot
+      doc.font(fontBold).fontSize(14).fillColor(DARK_TEXT);
+      doc.text('GTM Weekly Snapshot', LEFT, y, { width: PAGE_WIDTH, align: 'center' });
+      y += 18;
+      
+      // Date - slightly larger
+      doc.font(fontRegular).fontSize(11).fillColor(DARK_TEXT);
       doc.text(dateStr, LEFT, y, { width: PAGE_WIDTH, align: 'center' });
       y += 14;
       
@@ -732,47 +758,47 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       
       // Column 1: Pipeline Overview - Total Gross ACV
       let colX = LEFT;
-      doc.font(fontBold).fontSize(8).fillColor(MEDIUM_TEXT);
+      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('PIPELINE OVERVIEW', colX, metricsY);
-      doc.font(fontRegular).fontSize(7).fillColor(MEDIUM_TEXT);
-      doc.text('Total Gross ACV', colX, metricsY + 10);
-      doc.font(fontBold).fontSize(16).fillColor(DARK_TEXT);
-      doc.text(formatCurrency(totals.grossACV), colX, metricsY + 18);
-      doc.font(fontRegular).fontSize(7).fillColor(MEDIUM_TEXT);
-      doc.text(`${totals.totalOpportunities} opps • ${totals.totalAccounts} accts`, colX, metricsY + 36);
+      doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+      doc.text('Total Gross ACV', colX, metricsY + 12);
+      doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);
+      doc.text(formatCurrency(totals.grossACV), colX, metricsY + 22);
+      doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+      doc.text(`${totals.totalOpportunities} opps • ${totals.totalAccounts} accts`, colX, metricsY + 42);
       
       // Column 2: Weighted Pipeline
       colX = LEFT + colWidth;
-      doc.font(fontRegular).fontSize(7).fillColor(MEDIUM_TEXT);
-      doc.text('Weighted Pipeline', colX, metricsY + 10);
-      doc.font(fontBold).fontSize(16).fillColor(DARK_TEXT);
-      doc.text(formatCurrency(totals.weightedThisQuarter), colX, metricsY + 18);
-      doc.font(fontRegular).fontSize(7).fillColor(MEDIUM_TEXT);
-      doc.text(fiscalQuarterLabel, colX, metricsY + 36);
+      doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+      doc.text('Weighted Pipeline', colX, metricsY + 12);
+      doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);
+      doc.text(formatCurrency(totals.weightedThisQuarter), colX, metricsY + 22);
+      doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+      doc.text(fiscalQuarterLabel, colX, metricsY + 42);
       
       // Column 3: Avg Deal Size
       colX = LEFT + colWidth * 2;
-      doc.font(fontRegular).fontSize(7).fillColor(MEDIUM_TEXT);
-      doc.text('Avg Deal Size', colX, metricsY + 10);
-      doc.font(fontBold).fontSize(16).fillColor(DARK_TEXT);
-      doc.text(formatCurrency(totals.avgDealSize), colX, metricsY + 18);
+      doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+      doc.text('Avg Deal Size', colX, metricsY + 12);
+      doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);
+      doc.text(formatCurrency(totals.avgDealSize), colX, metricsY + 22);
       
       // Column 4: Current Logos
       colX = LEFT + colWidth * 3;
-      doc.font(fontBold).fontSize(8).fillColor(MEDIUM_TEXT);
+      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('CURRENT LOGOS', colX, metricsY);
-      doc.font(fontBold).fontSize(28).fillColor(DARK_TEXT);
-      doc.text(totalLogos.toString(), colX, metricsY + 10);
-      doc.font(fontRegular).fontSize(6).fillColor(MEDIUM_TEXT);
-      doc.text(`Rev: ${revenueLogos} • Pilot: ${pilotLogos} • LOI$: ${loiWithLogos} • LOI: ${loiNoLogos}`, colX, metricsY + 36, { width: colWidth + 30 });
+      doc.font(fontBold).fontSize(32).fillColor(DARK_TEXT);
+      doc.text(totalLogos.toString(), colX, metricsY + 12);
+      doc.font(fontRegular).fontSize(7).fillColor(DARK_TEXT);
+      doc.text(`Rev: ${revenueLogos} • Pilot: ${pilotLogos} • LOI$: ${loiWithLogos} • LOI: ${loiNoLogos}`, colX, metricsY + 42, { width: colWidth + 30 });
       
       // Column 5: By Revenue Type
       colX = LEFT + colWidth * 4;
-      doc.font(fontBold).fontSize(8).fillColor(MEDIUM_TEXT);
+      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('BY REVENUE TYPE', colX, metricsY);
-      doc.font(fontRegular).fontSize(8).fillColor(MEDIUM_TEXT);
-      doc.text(`Recurring: ${formatCurrency(recurringACV)}`, colX, metricsY + 12);
-      doc.text(`Project: ${formatCurrency(projectACV)}`, colX, metricsY + 22);
+      doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
+      doc.text(`Recurring: ${formatCurrency(recurringACV)}`, colX, metricsY + 14);
+      doc.text(`Project: ${formatCurrency(projectACV)}`, colX, metricsY + 26);
       
       y = metricsY + 48 + SECTION_GAP;
       
@@ -782,24 +808,24 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       const twoColY = y;
       
       // LEFT: Stage Distribution
-      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
+      doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
       doc.text('STAGE DISTRIBUTION', LEFT, twoColY);
       
       // Table header
-      let tableY = twoColY + 10;
-      doc.font(fontBold).fontSize(7).fillColor(MEDIUM_TEXT);
+      let tableY = twoColY + 12;
+      doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
       doc.text('Stage', LEFT, tableY);
       doc.text('Deals', LEFT + 100, tableY, { width: 30, align: 'right' });
       doc.text('Gross ACV', LEFT + 135, tableY, { width: 50, align: 'right' });
       doc.text('Weighted', LEFT + 190, tableY, { width: 45, align: 'right' });
       
-      tableY += 9;
+      tableY += 10;
       doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, tableY).lineTo(LEFT + halfWidth, tableY).stroke();
       tableY += 5;
       
       // Table rows - COMPACT
       const stageOrder = [...ACTIVE_STAGES].reverse();
-      doc.font(fontRegular).fontSize(8).fillColor(BODY_TEXT);
+      doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
       stageOrder.forEach(stage => {
         const data = stageBreakdown[stage] || { count: 0, grossACV: 0, weightedACV: 0 };
         const stageLabel = stage.replace('Stage ', 'S').replace(' - ', ' ');
@@ -811,23 +837,23 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       });
       
       // RIGHT: Proposal Stage (S4)
-      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
+      doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
       doc.text('PROPOSAL STAGE (S4)', RIGHT_COL, twoColY);
       
       // Proposal table header
-      let propTableY = twoColY + 10;
-      doc.font(fontBold).fontSize(7).fillColor(MEDIUM_TEXT);
+      let propTableY = twoColY + 12;
+      doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
       doc.text('Metric', RIGHT_COL, propTableY);
       doc.text('Deals', RIGHT_COL + 80, propTableY, { width: 30, align: 'right' });
       doc.text('Gross ACV', RIGHT_COL + 115, propTableY, { width: 50, align: 'right' });
       doc.text('Wtd ACV', RIGHT_COL + 170, propTableY, { width: 45, align: 'right' });
       
-      propTableY += 9;
+      propTableY += 10;
       doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(RIGHT_COL, propTableY).lineTo(LEFT + PAGE_WIDTH, propTableY).stroke();
       propTableY += 5;
       
       // Proposal rows - COMPACT
-      doc.font(fontRegular).fontSize(8).fillColor(BODY_TEXT);
+      doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
       const s4Data = stageBreakdown['Stage 4 - Proposal'] || { weightedACV: 0 };
       
       // Total
@@ -877,7 +903,7 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
           dealY += 9;
         });
         if (proposalThisMonth.length > 5) {
-          doc.fillColor(MEDIUM_TEXT);
+          doc.fillColor(DARK_TEXT);
           doc.text(`+${proposalThisMonth.length - 5} more deals`, boxX + 8, dealY);
         }
         propTableY += boxHeight + 4;
@@ -906,7 +932,7 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         
         // Table header
         let headerY = startY + 9;
-        doc.font(fontBold).fontSize(6).fillColor(MEDIUM_TEXT);
+        doc.font(fontBold).fontSize(7).fillColor(DARK_TEXT);
         doc.text('Name', startX, headerY);
         doc.text('Accts', startX + 50, headerY, { width: 25, align: 'right' });
         doc.text('Opps', startX + 80, headerY, { width: 25, align: 'right' });
