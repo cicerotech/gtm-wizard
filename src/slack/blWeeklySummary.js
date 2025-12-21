@@ -698,12 +698,14 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       // Add Eudia logo centered - use fit to preserve aspect ratio
       const logoPath = path.join(__dirname, '../../assets/eudia-logo.jpg');
       const logoWidth = 160;  // Wider logo for proper visibility
-      const logoX = LEFT + (PAGE_WIDTH - logoWidth) / 2;  // Center horizontally
+      // Center calculation: page center is at LEFT + PAGE_WIDTH/2, logo center should be at logoX + logoWidth/2
+      const pageCenter = LEFT + (PAGE_WIDTH / 2);
+      const logoX = pageCenter - (logoWidth / 2);  // Properly center the logo
       
       try {
         if (fs.existsSync(logoPath)) {
           // Use 'fit' to preserve aspect ratio - logo will scale proportionally
-          doc.image(logoPath, logoX, y, { fit: [logoWidth, 50] });
+          doc.image(logoPath, logoX, y, { fit: [logoWidth, 50], align: 'center' });
           y += 38;  // Space after logo (logo height ~25px at this scale)
         } else {
           // Fallback to text if logo not found
@@ -790,8 +792,8 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       colX = LEFT + colWidth * 3;
       doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('CURRENT LOGOS', colX, metricsY);
-      doc.font(fontBold).fontSize(32).fillColor(DARK_TEXT);
-      doc.text(totalLogos.toString(), colX, metricsY + 12);
+      doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);  // Same size as other metric values
+      doc.text(totalLogos.toString(), colX, metricsY + 22);
       doc.font(fontRegular).fontSize(7).fillColor(DARK_TEXT);
       doc.text(`Rev: ${revenueLogos} • Pilot: ${pilotLogos} • LOI$: ${loiWithLogos} • LOI: ${loiNoLogos}`, colX, metricsY + 42, { width: colWidth + 30 });
       
