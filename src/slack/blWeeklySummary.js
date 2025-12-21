@@ -626,18 +626,11 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       const loiNoLogos = (logosByType.loiNoDollar || []).length;
       const totalLogos = revenueLogos + pilotLogos + loiWithLogos + loiNoLogos;
       
-      // Calculate revenue type from deals if not in totals
-      let recurringACV = totals.recurringACV || 0;
-      let projectACV = totals.projectACV || 0;
-      if (recurringACV === 0 && projectACV === 0 && allDeals) {
-        allDeals.forEach(deal => {
-          if (deal.revenueType === 'Recurring' || deal.revenueType === 'ARR') {
-            recurringACV += deal.acv || 0;
-          } else {
-            projectACV += deal.acv || 0;
-          }
-        });
-      }
+      // Use signedData for revenue type breakdown (closed won deals, not active pipeline)
+      // signedData comes from querySignedDeals() which queries Closed Won opportunities
+      // and categorizes them by Revenue_Type__c field
+      const recurringACV = signedData.recurringACV || 0;
+      const projectACV = signedData.projectACV || 0;
       
       // Column 1: Pipeline Overview - Total Gross ACV
       let colX = LEFT;
