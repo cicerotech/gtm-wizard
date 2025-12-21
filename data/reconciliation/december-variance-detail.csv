@@ -1,0 +1,18 @@
+EUDIA_Account,EUDIA_Opp,EUDIA_Rev,EUDIA_Term,EUDIA_End,JH_ACV,JH_Term,JH_End,Rev_Variance,Term_Diff,Match_Score,Status,Action
+Cargill,Cargill - Cortex Pilot,150000.0,3,12/15/2025,,,,,,0,US POD - Not in JH,NO ACTION - US deal
+Peregrine Hospitality,Peregrine - Eudia Counsel,42000.0,3,12/17/2025,,,,,,0,US POD - Not in JH,NO ACTION - US deal
+Intuit,Intuit - Compliance / M&A Pilot,75000.0,6,12/24/2025,,,,,,0,NOT FOUND IN JH,INVESTIGATE - Missing from JH
+Aramark Ireland,Aramark Paralegal Support,8700.0,1,12/21/2025,8700.0,1.0,2025-12-24 00:00:00,0.0,0.0,3,MATCHED,NO ACTION - Aligned
+Datalex (Ireland) Limited,Datalex Extension RL 2024 (2),2368.51,12,12/31/2025,53244.0,6.0,2024-12-31 00:00:00,-50875.49,6.0,5,MATCHED,"INVESTIGATE - Rev Δ$-50,875, Term Δ6.0"
+Etsy Ireland UC,Etsy Privacy Support Eleanor Power Extension,259369.68,6,12/18/2025,69600.0,6.0,2025-12-31 00:00:00,189769.68,0.0,6,MATCHED,VARIANCE OK - Different ACV calculation
+Dropbox International Unlimited Company,Fabiane Arguello 2025 Expansion Hours Increase,51040.0,7,12/15/2025,51040.0,7.0,2025-12-31 00:00:00,0.0,0.0,6,MATCHED,NO ACTION - Aligned
+Dropbox International Unlimited Company,Fabiane Arguello 2025 extension,170997.06,12,12/20/2025,180960.0,12.0,2025-12-31 00:00:00,-9962.940000000002,0.0,4,MATCHED,VARIANCE OK - Different ACV calculation
+Indeed Ireland Operations Limited,Indeed DPO ODL,163565.98,9,12/26/2025,104400.0,9.0,46015,59165.98000000001,0.0,3,MATCHED,VARIANCE OK - Different ACV calculation
+Kellanova (Ireland),Kellanova ODL Transactions Julie Collins' team Dec Extension,8352.0,1,12/25/2025,,,,,,0,NOT FOUND IN JH,INVESTIGATE - Missing from JH
+Taoglas Limited,Taoglas ODL Brendan Gildea additional hours,5800.0,6,12/31/2025,5800.0,6.0,46022,0.0,0.0,6,MATCHED,NO ACTION - Aligned
+Teamwork Crew Limited T/A Teamwork.com,Teamwork extension no.4 David Casey (June-Dec),70357.99,7,12/28/2025,36748.8,7.0,46022,33609.19,0.0,6,MATCHED,VARIANCE OK - Different ACV calculation
+Tiktok Information Technologies UK Limited,TikTok DSAR Support ODL Extension 1 Tara Bannon,198879.74,6,12/31/2025,98601.16,6.0,46022,100278.57999999999,0.0,8,MATCHED,VARIANCE OK - Different ACV calculation
+Uisce Eireann (Irish Water),Uisce Eireann CDS Amal Elbay extension August December,38720.8,5,12/21/2025,,,,,,0,NOT FOUND IN JH,INVESTIGATE - Missing from JH
+Uisce Eireann (Irish Water),Uisce Eireann CDS Jamie O'Gorman extension August December,327388.82,5,12/21/2025,,,,,,0,NOT FOUND IN JH,INVESTIGATE - Missing from JH
+Uisce Eireann (Irish Water),Uisce Eireann CDS Luke Sexton extension August December,68776.4,5,12/21/2025,,,,,,0,NOT FOUND IN JH,INVESTIGATE - Missing from JH
+Taoglas Limited,Taoglas ODL Support 2025,54982.64,8,12/17/2025,34800.0,8.0,46022,20182.64,0.0,4,MATCHED,VARIANCE OK - Different ACV calculation

@@ -1,0 +1,7 @@
+EUDIA_Account,EUDIA_Opp,EUDIA_Rev,EUDIA_Term,EUDIA_End,JH_ACV,JH_Term,JH_End,Rev_Variance,Term_Diff,Match_Score,Status,Action
+Intuit,Intuit - Compliance / M&A Pilot,75000.0,6,12/24/2025,,,,,,0,NOT FOUND IN JH,INVESTIGATE - Missing from JH
+Datalex (Ireland) Limited,Datalex Extension RL 2024 (2),2368.51,12,12/31/2025,53244.0,6.0,2024-12-31 00:00:00,-50875.49,6.0,5,MATCHED,"INVESTIGATE - Rev Δ$-50,875, Term Δ6.0"
+Kellanova (Ireland),Kellanova ODL Transactions Julie Collins' team Dec Extension,8352.0,1,12/25/2025,,,,,,0,NOT FOUND IN JH,INVESTIGATE - Missing from JH
+Uisce Eireann (Irish Water),Uisce Eireann CDS Amal Elbay extension August December,38720.8,5,12/21/2025,,,,,,0,NOT FOUND IN JH,INVESTIGATE - Missing from JH
+Uisce Eireann (Irish Water),Uisce Eireann CDS Jamie O'Gorman extension August December,327388.82,5,12/21/2025,,,,,,0,NOT FOUND IN JH,INVESTIGATE - Missing from JH
+Uisce Eireann (Irish Water),Uisce Eireann CDS Luke Sexton extension August December,68776.4,5,12/21/2025,,,,,,0,NOT FOUND IN JH,INVESTIGATE - Missing from JH

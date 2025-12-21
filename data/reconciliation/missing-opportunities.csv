@@ -1,10 +1,164 @@
-Account_Name,Opportunity_Name,Amount,Close_Date,Term_Months,Stage,JH_Original_ACV__c,Opportunity_Source
-Indeed Ireland Operations Limited,Indeed ODL Steph Donald extension #1,102080,2025-10-17,6,Closed Won,102080,Johnson Hana
-Indeed Ireland Operations Limited,Indeed ODL (Helen Hewson),52200,2025-10-28,6,Closed Won,52200,Johnson Hana
-Stripe Payments Europe Limited,Stripe RFP Privacy ODL Extension Victoria Byrne,64922.88,2025-10-07,2,Closed Won,64922.88,Johnson Hana
-Bank of Ireland,BOI FSPO team expansion Consultant #2,41760,2025-10-01,4,Closed Won,41760,Johnson Hana
-CommScope Technologies LLC,CommScope Extension Conor Hassett,40601.16,2025-10-06,3,Closed Won,40601.16,Johnson Hana
-Consensys,Consensys DPO as a Service,40402.80,2025-10-03,6,Closed Won,40402.80,Johnson Hana
-OpenAI,OpenAI Privacy team expansion - Himanshu Gaur,69600,2025-10-21,4,Closed Won,69600,Johnson Hana
-Kellogg Europe Trading Limited,Kellanova ODL Transactions Julie Collins team Extension,11136,2025-10-16,1,Closed Won,11136,Johnson Hana
-Novelis,AI Output Validation,2900,2025-10-02,0,Closed Won,2900,Johnson Hana
+JH_Account,JH_Opp,JH_ACV,JH_Term,JH_End
+Tiktok Information Technologies UK Limited,TikTok Trust and Safety TDRs 2025 - H1,591600.0,4.0,1970-01-01 00:00:00.000045838
+NTMA,Mother & Baby Homes PM & Discovery review,522000.0,5.0,1970-01-01 00:00:00.000045535
+McDermott Creed & Martyn,"McDermot, Creed and Martyn Solicitors Discovery",440800.0,8.0,1970-01-01 00:00:00.000045657
+Indeed Ireland Operations Limited,Corporate Paralegal support x2,358440.0,11.0,2025-01-01 00:00:00.000000000
+Tiktok Information Technologies UK Limited,TikTok TDR Project,323060.0,2.0,1970-01-01 00:00:00.000045382
+Tiktok Information Technologies UK Limited,TikTok TDR Project Q3 2025,295800.0,4.0,1970-01-01 00:00:00.000045930
+Tiktok Information Technologies UK Limited,TikTok TDR Project Q4,295800.0,3.0,1970-01-01 00:00:00.000045657
+Stripe Payments Europe Limited,Outsourced Global Contracting Solution,290000.0,6.0,1970-01-01 00:00:00.000045657
+Stripe Payments Europe Limited,Global CAAS project,243600.0,5.0,2025-06-30 00:00:00.000000000
+Corrigan & Corrigan Solicitors LLP,Aviva Discovery Project,241280.0,3.0,2024-07-30 00:00:00.000000000
+FD Technologies,Project Tetris Phase 2,238941.44,5.0,1970-01-01 00:00:00.000045596
+Tiktok Information Technologies UK Limited,TikTok TDR Project,237800.0,2.0,1970-01-01 00:00:00.000045473
+Citibank,CitiBank 3x Consultant 2024 Extension,230202.0,6.0,2024-07-01 00:00:00.000000000
+Airship Group Inc,Airship 1 Year ODL Mat Leave Oct,217748.57,14.0,2025-12-10 00:00:00.000000000
+Uisce Éireann (Irish Water),CDS Team 3 Consultant Team,205436.0,10.0,2025-01-12 00:00:00.000000000
+Stripe Payments Europe Limited,Stripe RFP Privacy ODL ( Victoria Byrne 24.02.25 - 30.09.25),185600.0,7.0,1970-01-01 00:00:00.000045930
+Indeed Ireland Operations Limited,Indeed DSAR Support 2024,184440.0,14.0,1970-01-01 00:00:00.000045811
+Indeed Ireland Operations Limited,Indeed Revenue Contracts Lawyer,175218.0,13.0,1970-01-01 00:00:00.000045817
+Amundi Ireland Limited,Amundi Mat Leave,167040.0,10.0,2024-12-31 00:00:00.000000000
+CommScope Technologies LLC,CommScope Secondee,151240.8,12.0,2025-04-28 00:00:00.000000000
+Coimisiún na Meán,Coimisiún na Meán ODL Levy Project,135140.0,6.0,2026-02-28 00:00:00.000000000
+Stripe Payments Europe Limited,Stripe Commercial Contracts (IS - Ext 30.06.25),133980.0,7.0,1970-01-01 00:00:00.000045838
+Uisce Éireann (Irish Water),Uisce Eireann - CPO - Extension,127600.0,4.0,1970-01-01 00:00:00.000045869
+MICAREDRESS100 Company Limited by Guarantee,Coleman Legal Discovery Support,127020.0,2.0,2024-09-06 00:00:00.000000000
+Twitter International Unlimited Company,Senior Paralegal ODL Twitter,125280.0,13.0,1970-01-01 00:00:00.000045856
+Airbnb Ireland UC,Airbnb Privacy 2025,116812.0,10.0,2025-11-04 00:00:00.000000000
+StepStone Group Europe Alternative Investments Limited,Stepstone Commercial fund review,116000.0,1.0,1970-01-01 00:00:00.000045492
+Electricity Supply Board,ESB NSIC Project No2 Consultant,114376.0,4.0,2024-11-15 00:00:00.000000000
+Stripe Payments Europe Limited,ODL Commercial Contracts Stripe,109620.0,6.0,1970-01-01 00:00:00.000045657
+Airbnb Ireland UC,Airbnb UK Claims Support,106575.0,23.0,2026-02-19 00:00:00.000000000
+Electricity Supply Board,ESB NSIC Project No1 Consultant,105966.0,4.0,2024-11-15 00:00:00.000000000
+Biomarin International Limited,BioMarin Manufacturing Contracts,105560.0,12.0,2025-01-30 00:00:00.000000000
+OKG Payments Services Limited,OKX DORA Remediation Phase 2,98600.0,2.0,1970-01-01 00:00:00.000045596
+StepStone Group Europe Alternative Investments Limited,Stepstone Project Clean Up,85376.0,2.0,1970-01-01 00:00:00.000045415
+Kellogg Europe Trading Limited,Kellogg's OneTrust Implementation Completion Project,84726.4,7.0,1970-01-01 00:00:00.000045657
+Stripe Payments Europe Limited,Stripe Commercial Contracts - Brendan O' Kelly Ext 1 (30.06.2025),84448.0,7.0,1970-01-01 00:00:00.000045838
+Wayflyer,Wayflyer Commercial Contacts ODL (4months),83520.0,4.0,1970-01-01 00:00:00.000045818
+Electricity Supply Board,ESB NSIC Project No1 Consultant Ext 4 Annabel Caldwell (30.06.25 - 31.10.25),81278.88,4.0,2025-10-31 00:00:00.000000000
+Uisce Éireann (Irish Water),Uisce Eireann - CDS team extension - 3 months,81201.16,3.0,1970-01-01 00:00:00.000045758
+Electricity Supply Board,ESB NSIC Project Simon Downey (extension July- Oct 25),79682.72,4.0,2025-10-31 00:00:00.000000000
+Uisce Éireann (Irish Water),Uisce Eireann CDS Jamie O'Gorman extension August December,78601.6,5.0,1970-01-01 00:00:00.000046019
+Concern,Concern Contract Support,78416.0,12.0,2025-02-06 00:00:00.000000000
+Stripe Payments Europe Limited,Stripe RFP Privacy secondment extension,77952.0,5.0,1970-01-01 00:00:00.000045657
+Electricity Supply Board,ESB NSIC Project No1 Consultant Ext March 25' (AC),76699.2,4.0,2025-03-28 00:00:00.000000000
+Dropbox International Unlimited Company,Dropbox 2nd consultant,75400.0,6.0,2025-10-31 00:00:00.000000000
+Mediolanum,Mediolanum DORA,75400.0,3.0,1970-01-01 00:00:00.000045961
+Aramark Ireland,Contracts Support extension,72732.0,4.0,2024-07-31 00:00:00.000000000
+Coimisiún na Meán,Coimisiún na Meán Paralegal,71920.0,6.0,2026-03-31 00:00:00.000000000
+FD Technologies,First Derivatives ODL 2 Month H2,71050.0,4.0,2024-06-16 00:00:00.000000000
+FD Technologies,FD Paralegal support,69600.0,6.0,2024-08-09 00:00:00.000000000
+FD Technologies,First Derivatives KX ODL Paralegal,69600.0,7.0,2025-06-13 00:00:00.000000000
+Gas Networks Ireland,GNI Assistant DPO,69600.0,2.0,2025-02-28 00:00:00.000000000
+McDermott Creed & Martyn,"McDermot, Creed and Martyn Solicitors DD Report",69165.0,1.0,1970-01-01 00:00:00.000045559
+Uisce Éireann (Irish Water),Uisce Eireann CDS Luke Sexton extension August December,68776.4,5.0,1970-01-01 00:00:00.000046022
+Stripe Payments Europe Limited,Stripe RFP Privacy ODL (Ext 19.12.2025) Victoria Byrne,64922.88,2.0,1970-01-01 00:00:00.000046010
+Electricity Supply Board,ESB NSIC Project No1 Consultant Ext 3 Annabel Caldwell (28/03/2025 30.06.2025),60784.0,3.0,2025-06-30 00:00:00.000000000
+Electricity Supply Board,ESB NSIC Project No.2 Consultant (March 25-June25),59740.0,3.0,2025-06-27 00:00:00.000000000
+NTMA,Mother & Baby Homes 2025,58000.0,2.0,1970-01-01 00:00:00.000045777
+Tiktok Information Technologies UK Limited,TikTok DSARs Q4 2024,58000.0,0.0,1970-01-01 00:00:00.000045596
+Zurich Irish Life plc,Zurich DORA Contract Remediation Project,58000.0,6.0,1970-01-01 00:00:00.000045639
+Gas Networks Ireland,Gas Networks Ireland - Co Sec support,55680.0,4.0,2024-12-31 00:00:00.000000000
+Stripe Payments Europe Limited,Commercial Contracts Construction/Facilities/Procurement,55075.35,5.0,2025-09-15 00:00:00.000000000
+Poe Kiely Hogan Lanigan,Poe Kiely Hogan Lanigan ODL M&A,52200.0,2.0,1970-01-01 00:00:00.000045865
+Biomarin International Limited,BioMarin Commercial Contracts (SK Ext July 25),52200.0,5.0,2025-07-31 00:00:00.000000000
+Dunnes Stores,Dunnes Privacy Analyst,51040.0,4.0,2024-12-31 00:00:00.000000000
+Electricity Supply Board,ESB Legal Secretary Support,50216.4,4.0,2024-09-13 00:00:00.000000000
+Airbnb Ireland UC,Replacement Privacy consultant,49764.0,2.0,1970-01-01 00:00:00.000045657
+Uisce Éireann (Irish Water),"Uisce Eireann ODL, dispute resolution expansion",46400.0,4.0,1970-01-01 00:00:00.000045849
+Kellogg Europe Trading Limited,Kellanova ODL Transactions Julie Collins team,46400.0,11.0,1970-01-01 00:00:00.000046143
+Uisce Éireann (Irish Water),Irish Water Legal Exec 4 Month ODL,46400.0,6.0,1970-01-01 00:00:00.000045657
+Uisce Éireann (Irish Water),Simon Downey IW Extension,45953.4,6.0,1970-01-01 00:00:00.000045777
+Electricity Supply Board,ESB Legal Secretary Support (4months),45472.0,4.0,2025-05-30 00:00:00.000000000
+Intercom,Intercom EMEA Contracts,42282.0,6.0,1970-01-01 00:00:00.000045707
+Gas Networks Ireland,GNI - Claire Looney extension,41761.16,3.0,2025-05-30 00:00:00.000000000
+Gas Networks Ireland,GNI Assistant DPO,41760.0,4.0,2025-01-07 00:00:00.000000000
+Tiktok Information Technologies UK Limited,TikTok DSARs May,41760.0,0.0,1970-01-01 00:00:00.000045443
+Electricity Supply Board,ESB NSIC Project No2 Consultant Ext Jan 25' (MP),41713.6,2.0,2025-01-24 00:00:00.000000000
+McDermott Creed & Martyn,"McDermott, Creed & Martyn Solicitors Discovery 2025",40601.16,4.0,1970-01-01 00:00:00.000045808
+Udemy Ireland Limited,Udemy Training Projects,40600.0,3.0,1970-01-01 00:00:00.000045520
+Fexco,Fexco DORA,40600.0,2.0,2025-01-31 00:00:00.000000000
+Consensys,Consensys (DPO Service),40402.8,6.0,2025-08-22 00:00:00.000000000
+Citibank,Citibank ODL Consultants (Sean G Team) H2 2024 Support Ext,38976.0,3.0,2024-09-30 00:00:00.000000000
+Citibank,Citibank ODL Consultant (Sean G Team) Extension to 31.12.24,38976.0,3.0,2024-12-31 00:00:00.000000000
+Uisce Éireann (Irish Water),Uisce Eireann CDS Amal Elbay extension August December,38720.8,5.0,1970-01-01 00:00:00.000046019
+Uisce Éireann (Irish Water),Luke Sexton CDS Support extension 2024,38570.0,12.0,1970-01-01 00:00:00.000045907
+McDermott Creed & Martyn,"McDermott, Creed & Martyn DD Project, Extension 1, Ciaran Healy",34801.16,0.0,1970-01-01 00:00:00.000045688
+Kitman Labs,Kitman DPO Services: 6-month Extension 24',34800.0,6.0,1970-01-01 00:00:00.000045579
+Twitter International Unlimited Company,X Senior Paralegal extension,33930.0,4.0,1970-01-01 00:00:00.000045961
+Uisce Éireann (Irish Water),Uisce Eireann ODL CDS Jamie O'Gorman April 25,32480.0,2.0,1970-01-01 00:00:00.000045835
+NBI Infrastructure DAC,NBI Mat Leave Cover DPO Ext 17.01.25,31581.0,4.0,1970-01-01 00:00:00.000045674
+Uisce Éireann (Irish Water),Irish Water Legal Ops Project,29000.0,1.0,1970-01-01 00:00:00.000045535
+Moy Park,PGM_DSAR_0018,29000.0,1.0,1970-01-01 00:00:00.000045505
+Uisce Éireann (Irish Water),Uisce Eireann - ODL CDS Luke Sexton April 25,29000.0,2.0,1970-01-01 00:00:00.000045835
+FD Technologies,First Derivatives ODL 2 Month Q1,28710.0,6.0,2024-07-01 00:00:00.000000000
+Electricity Supply Board,ESB NSIC Project No2 Consultant Extension,26912.0,2.0,2024-12-13 00:00:00.000000000
+Uisce Éireann (Irish Water),Uisce Eirean DPO ODL,25520.0,3.0,1970-01-01 00:00:00.000045835
+Gray Integrated Services of Europe,Gray Integrated Services of Europe Playbook & Consultant support,24360.0,3.0,2024-05-08 00:00:00.000000000
+Kellogg Europe Trading Limited,OneTrust DPIA Junior resource,24360.0,2.0,1970-01-01 00:00:00.000045657
+Indeed Ireland Operations Limited,Mini Project Naomi,23664.0,2.0,1970-01-01 00:00:00.000045358
+OKG Payments Services Limited,OKX DORA Phase 1,23200.0,3.0,1970-01-01 00:00:00.000045473
+Glanbia Management Services Limited,Glanbia DSAR,23185.26,0.0,2025-08-29 00:00:00.000000000
+Morgan Stanley & Co. International PLC,Morgan Stanley Project Coral,21750.0,0.0,1970-01-01 00:00:00.000045379
+Moy Park,PGM_DSAR_0017,20880.0,0.0,1970-01-01 00:00:00.000045498
+Kellogg Europe Trading Limited,Kellanova - OneTrust implementation extension,20880.0,3.0,1970-01-01 00:00:00.000045767
+Wayflyer,Wayflyer Commercial Contracts (Billy Clarke) Extension 1 month (June-July),20880.0,1.0,1970-01-01 00:00:00.000045848
+Wayflyer,Wayflyer - Commercial Contracts (Billy Clarke) - Extension 3 (Aug -Sep),20880.0,1.0,1970-01-01 00:00:00.000045910
+Wayflyer,Wayflyer Commercial Contracts (Billy Clarke) Extension 2 (July Aug),20880.0,1.0,1970-01-01 00:00:00.000045877
+Electricity Supply Board,ESB NSIC Project No1 Consultant Extension,20184.0,2.0,2024-12-13 00:00:00.000000000
+Coillte Farm Partnerships,Coillte Farm Partnerships,19720.0,2.0,2024-03-11 00:00:00.000000000
+Coillte,Coillte PROW Queries & ITA (Extension 2026),19488.0,14.0,2026-12-31 00:00:00.000000000
+Intercom,Intercom Contracts Support EMEA,19488.0,2.0,1970-01-01 00:00:00.000045747
+Uisce Éireann (Irish Water),Uisce Eireann Amal CDS extension,17864.0,2.0,1970-01-01 00:00:00.000045835
+Indeed Ireland Operations Limited,Indeed - CC expansion,17864.0,5.0,1970-01-01 00:00:00.000045828
+Allied Irish Banks plc,AIB - Playbook creation,17400.0,2.0,2024-12-20 00:00:00.000000000
+"Department of Climate, Energy and the Environment",Comcast Privilege Schedule Review,17400.0,1.0,2024-02-02 00:00:00.000000000
+Fannin Limited,DCC Training & ROPA Ext Aug-Oct 24',16588.0,3.0,2024-10-04 00:00:00.000000000
+StepStone Group Europe Alternative Investments Limited,Stepstone Paralegal Support Ext. No. 2 Eilish Gielty,15080.0,1.0,1970-01-01 00:00:00.000045716
+Uisce Éireann (Irish Water),CDS Amal,14616.0,3.0,2025-04-18 00:00:00.000000000
+Bookings Holdings Financial Services International Limited,Bookings Holdings Financial Services Contract Review/Data Extraction,14500.0,-10.0,2023-12-30 00:00:00.000000000
+StepStone Group Europe Alternative Investments Limited,Stepstone Redaction Project,13921.16,0.0,1970-01-01 00:00:00.000045665
+Gas Networks Ireland,GNI Claire Looney Extension June 2025,13920.0,0.0,2025-06-30 00:00:00.000000000
+Uisce Éireann (Irish Water),Uisce Eireann ODL CDS Jamie O'Gorman June 25,12992.0,1.0,1970-01-01 00:00:00.000045863
+Kellogg Europe Trading Limited,Kellogg's Short Term ODL,12760.0,2.0,1970-01-01 00:00:00.000045541
+Dropbox International Unlimited Company,CC additional hours,12528.0,1.0,2024-12-31 00:00:00.000000000
+Intercom,Intercom Contracts Support EMEA Ext #2 (01.05.25 30.06.25 Sarah Treacy),12156.8,2.0,1970-01-01 00:00:00.000045838
+Tiktok Information Technologies UK Limited,TikTok 30,11600.0,0.0,1970-01-01 00:00:00.000045807
+Kellogg Europe Trading Limited,Transactions secondment,11484.0,2.0,1970-01-01 00:00:00.000045657
+Uisce Éireann (Irish Water),Uisce Eireann Luke Sexton CDS extension June 25,11368.0,1.0,1970-01-01 00:00:00.000045863
+Kellogg Europe Trading Limited,Kellanova ODL Transactions Julie Collins team Extension,11136.0,1.0,1970-01-01 00:00:00.000045991
+HostelWorld.com Limited,Hostelworld DSAR Tech Procession,11020.0,1.0,2024-08-23 00:00:00.000000000
+StepStone Group Europe Alternative Investments Limited,SS ODL Paralegal Support Ext,10440.0,2.0,1970-01-01 00:00:00.000045657
+Moy Park,PGM_DSAR_0015,10440.0,1.0,1970-01-01 00:00:00.000045393
+Airbnb Ireland UC,Jordan Byrne Privacy extension,9280.0,2.0,1970-01-01 00:00:00.000045688
+Tiktok Information Technologies UK Limited,TikTok_DSAR_0003,9280.0,,
+Udemy Ireland Limited,Udemy Training Projects (60 hour extension),8700.0,1.0,1970-01-01 00:00:00.000045569
+NTMA,NTMA ? MT ? Temple Hill Review.,8700.0,0.0,1970-01-01 00:00:00.000045793
+Kellogg Europe Trading Limited,Kellanova ODL Transactions Julie Collins' team Dec Extension,8352.0,1.0,1970-01-01 00:00:00.000046022
+Fannin Limited,DCC Training & ROPA,8294.0,4.0,2024-08-05 00:00:00.000000000
+Intercom,Intercom Contracts Support EMEA (1.5-month extension Sarah Treacy),8120.0,1.0,1970-01-01 00:00:00.000045777
+VOLA.RO SRL,Ryanair Supplemental Discovery,8073.6,5.0,1970-01-01 00:00:00.000045444
+Moy Park,Pilgrim - DSAR,7219.84,0.0,1970-01-01 00:00:00.000045912
+Gray Integrated Services of Europe,Gray SubContract & PO work,6960.0,1.0,2024-09-13 00:00:00.000000000
+Moy Park,PGM_DSAR_0014,6960.0,1.0,1970-01-01 00:00:00.000045393
+Uisce Éireann (Irish Water),Uisce Eireann CDS Amal Extension June 2025,5996.31,13.0,1970-01-01 00:00:00.000046228
+Electricity Supply Board,ESB Legal Secretary Support (Extension),5579.6,0.0,2024-09-27 00:00:00.000000000
+Wayflyer,Wayflyer Commercial Contracts (Billy Clarke 1 week cover),5220.0,0.0,1970-01-01 00:00:00.000045923
+Indeed Ireland Operations Limited,Indeed DSAR 2,4640.0,0.0,1970-01-01 00:00:00.000045919
+Hayes Solicitors LLP,Hayes Innagreen Review,4060.0,0.0,2024-01-31 00:00:00.000000000
+Indeed Ireland Operations Limited,Indeed DSAR 1,3804.8,1.0,1970-01-01 00:00:00.000045829
+Novelis,AI Output Validation,2900.0,0.0,2025-10-03 00:00:00.000000000
+Airbnb Ireland UC,Airbnb Bronach Sheriff additional hours,0.01,5.0,2025-11-04 00:00:00.000000000
+Airbnb Ireland UC,"Airbnb ODL Bronach Sherrif additional hours August, September 2025",0.01,1.0,2025-09-30 00:00:00.000000000
+Moy Park,PGM_DSAR_0013,0.0,,
+Moy Park,PGM_DSAR_0019,0.0,0.0,1970-01-01 00:00:00.000045516
+Moy Park,PGM_DSAR_0016,0.0,1.0,1970-01-01 00:00:00.000045474
+Indeed Ireland Operations Limited,Indeed_DSAR_0009,0.0,,
+Moy Park,PGM_DSAR_0012,0.0,1.0,1970-01-01 00:00:00.000045364
+Fannin Limited,DCC Short Term Scoping,0.0,1.0,2024-03-29 00:00:00.000000000
+Tiktok Information Technologies UK Limited,TikTok_DSAR_0004,0.0,0.0,1970-01-01 00:00:00.000045471
+Duracell,Duracell_Pilot,0.0,0.0,2025-07-18 00:00:00.000000000
+Johnson Hana,JH Test ODL Opp,0.0,28.0,1970-01-01 00:00:00.000046253
+Moy Park,PGM_DSAR_0020,0.0,,
+NBI Infrastructure DAC,NBI Legal Counsel (Commercial Contracts) 6 months,0.0,3.0,1970-01-01 00:00:00.000045900

@@ -378,6 +378,99 @@ function processSignedDeals(records) {
 }
 
 /**
+ * Query ACTIVE revenue - Closed Won deals where contract is still active
+ * Active = CloseDate + Term (months) >= Today
+ * 
+ * This matches the Salesforce report "Active Revenue + Projects"
+ * Report ID: 00OWj000003hVoPMAU
+ */
+async function queryActiveRevenue() {
+  try {
+    logger.info('Querying active revenue (Closed Won with active contracts)...');
+    
+    // Query all Closed Won deals with Recurring or Project revenue type
+    // Include Term__c to calculate end date
+    const soql = `
+      SELECT Id, Name, AccountId, Account.Name, ACV__c, Revenue_Type__c, 
+             CloseDate, Term__c, Owner.Name
+      FROM Opportunity
+      WHERE StageName = 'Stage 6. Closed(Won)'
+        AND Revenue_Type__c IN ('Recurring', 'Project')
+      ORDER BY ACV__c DESC
+    `;
+    
+    const result = await query(soql, false);
+    
+    if (!result || !result.records) {
+      logger.warn('No closed won revenue deals found');
+      return { recurringACV: 0, projectACV: 0, totalActiveACV: 0, activeDeals: [] };
+    }
+    
+    logger.info(`Found ${result.totalSize} total Closed Won revenue deals`);
+    
+    // Filter to ACTIVE contracts only (end date >= today)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today for comparison
+    
+    let activeRecurringACV = 0;
+    let activeProjectACV = 0;
+    const activeDeals = [];
+    
+    result.records.forEach(opp => {
+      const closeDate = opp.CloseDate ? new Date(opp.CloseDate) : null;
+      if (!closeDate) return; // Skip if no close date
+      
+      // Calculate end date: CloseDate + Term (months)
+      // Default to 12 months if Term__c is not set
+      const termMonths = opp.Term__c || 12;
+      const endDate = new Date(closeDate);
+      endDate.setMonth(endDate.getMonth() + termMonths);
+      
+      // Check if contract is still active (end date >= today)
+      if (endDate >= today) {
+        const acv = opp.ACV__c || 0;
+        const revenueType = (opp.Revenue_Type__c || '').toLowerCase().trim();
+        
+        if (revenueType.includes('recurring') || revenueType === 'arr') {
+          activeRecurringACV += acv;
+        } else if (revenueType.includes('project')) {
+          activeProjectACV += acv;
+        }
+        
+        activeDeals.push({
+          id: opp.Id,
+          name: opp.Name,
+          accountName: opp.Account?.Name || 'Unknown',
+          acv,
+          revenueType: opp.Revenue_Type__c,
+          closeDate: opp.CloseDate,
+          termMonths,
+          endDate: endDate.toISOString().split('T')[0],
+          owner: opp.Owner?.Name
+        });
+      }
+    });
+    
+    const totalActiveACV = activeRecurringACV + activeProjectACV;
+    
+    logger.info(`Active revenue: Recurring $${(activeRecurringACV/1000000).toFixed(2)}M, Project $${(activeProjectACV/1000000).toFixed(2)}M`);
+    logger.info(`Total active deals: ${activeDeals.length} with $${(totalActiveACV/1000000).toFixed(2)}M ACV`);
+    
+    return {
+      recurringACV: activeRecurringACV,
+      projectACV: activeProjectACV,
+      totalActiveACV,
+      activeDeals,
+      dealCount: activeDeals.length
+    };
+    
+  } catch (error) {
+    logger.error('Failed to query active revenue:', error);
+    return { recurringACV: 0, projectACV: 0, totalActiveACV: 0, activeDeals: [] };
+  }
+}
+
+/**
  * Check if date is in current month
  */
 function isInCurrentMonth(dateStr) {
@@ -562,8 +655,11 @@ const GREEN_BG = '#f0fdf4';       // Targeting box background
 /**
  * Generate professional PDF snapshot - COMPACT ONE-PAGE VERSION
  * All typography and spacing optimized to fit on single Letter page
+ * 
+ * @param {Object} activeRevenue - Active revenue data from queryActiveRevenue()
+ *   Contains recurringACV and projectACV for contracts still in term
  */
-function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType = {}) {
+function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByType = {}) {
   return new Promise((resolve, reject) => {
     try {
       const { blMetrics, stageBreakdown, totals, fiscalQuarterLabel, proposalThisMonth, allDeals } = pipelineData;
@@ -626,11 +722,13 @@ function generatePDFSnapshot(pipelineData, dateStr, signedData = {}, logosByType
       const loiNoLogos = (logosByType.loiNoDollar || []).length;
       const totalLogos = revenueLogos + pilotLogos + loiWithLogos + loiNoLogos;
       
-      // Use signedData for revenue type breakdown (closed won deals, not active pipeline)
-      // signedData comes from querySignedDeals() which queries Closed Won opportunities
-      // and categorizes them by Revenue_Type__c field
-      const recurringACV = signedData.recurringACV || 0;
-      const projectACV = signedData.projectACV || 0;
+      // Use ACTIVE revenue for "By Revenue Type" section
+      // activeRevenue comes from queryActiveRevenue() which:
+      // 1. Queries Closed Won deals with Recurring/Project revenue type
+      // 2. Filters to contracts where CloseDate + Term >= Today (still active)
+      // This matches Salesforce report "Active Revenue + Projects" (ID: 00OWj000003hVoPMAU)
+      const recurringACV = activeRevenue.recurringACV || 0;
+      const projectACV = activeRevenue.projectACV || 0;
       
       // Column 1: Pipeline Overview - Total Gross ACV
       let colX = LEFT;
@@ -1167,6 +1265,10 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     const signedData = processSignedDeals(signedRecords);
     const logosByType = await queryLogosByType();
     
+    // Query ACTIVE revenue (closed won deals where contract is still active)
+    // This calculates: CloseDate + Term >= Today for Recurring/Project deals
+    const activeRevenue = await queryActiveRevenue();
+    
     // Process into metrics
     const pipelineData = processPipelineData(records);
     
@@ -1180,9 +1282,9 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     // Format the condensed Slack message
     const message = formatSlackMessage(pipelineData, previousMetrics, displayDate);
     
-    // Generate PDF snapshot with signed data and logos
+    // Generate PDF snapshot with active revenue data and logos
     logger.info('Generating PDF snapshot...');
-    const pdfBuffer = await generatePDFSnapshot(pipelineData, displayDate, signedData, logosByType);
+    const pdfBuffer = await generatePDFSnapshot(pipelineData, displayDate, activeRevenue, logosByType);
     const pdfFilename = `Eudia_GTM_Weekly_Snapshot_${dateStr}.pdf`;
     
     // Save current snapshot (BL metrics only for comparison)
