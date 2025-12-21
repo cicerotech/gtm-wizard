@@ -695,38 +695,41 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       // HEADER - Logo + title + date + gradient line
       // ═══════════════════════════════════════════════════════════════════════
       
-      // Add Eudia logo centered
+      // Add Eudia logo centered - use fit to preserve aspect ratio
       const logoPath = path.join(__dirname, '../../assets/eudia-logo.jpg');
-      const logoWidth = 120;  // Proportional width for the logo
-      const logoHeight = 30;  // Height that fits the header
+      const logoWidth = 160;  // Wider logo for proper visibility
       const logoX = LEFT + (PAGE_WIDTH - logoWidth) / 2;  // Center horizontally
       
       try {
         if (fs.existsSync(logoPath)) {
-          doc.image(logoPath, logoX, y, { width: logoWidth, height: logoHeight });
-          y += logoHeight + 4;
+          // Use 'fit' to preserve aspect ratio - logo will scale proportionally
+          doc.image(logoPath, logoX, y, { fit: [logoWidth, 50] });
+          y += 38;  // Space after logo (logo height ~25px at this scale)
         } else {
           // Fallback to text if logo not found
-          doc.font(fontBold).fontSize(20).fillColor(DARK_TEXT);
-          doc.text('Eudia', LEFT, y, { width: PAGE_WIDTH, align: 'center' });
-          y += 22;
+          doc.font(fontBold).fontSize(24).fillColor(DARK_TEXT);
+          doc.text('EUDIA', LEFT, y, { width: PAGE_WIDTH, align: 'center' });
+          y += 28;
         }
       } catch (logoErr) {
         // Fallback to text
-        doc.font(fontBold).fontSize(20).fillColor(DARK_TEXT);
-        doc.text('Eudia', LEFT, y, { width: PAGE_WIDTH, align: 'center' });
-        y += 22;
+        doc.font(fontBold).fontSize(24).fillColor(DARK_TEXT);
+        doc.text('EUDIA', LEFT, y, { width: PAGE_WIDTH, align: 'center' });
+        y += 28;
       }
       
+      // Add spacing before subtitle
+      y += 6;
+      
       // Subtitle: GTM Weekly Snapshot
-      doc.font(fontBold).fontSize(14).fillColor(DARK_TEXT);
+      doc.font(fontBold).fontSize(16).fillColor(DARK_TEXT);
       doc.text('GTM Weekly Snapshot', LEFT, y, { width: PAGE_WIDTH, align: 'center' });
-      y += 18;
+      y += 22;
       
       // Date - slightly larger
-      doc.font(fontRegular).fontSize(11).fillColor(DARK_TEXT);
+      doc.font(fontRegular).fontSize(12).fillColor(DARK_TEXT);
       doc.text(dateStr, LEFT, y, { width: PAGE_WIDTH, align: 'center' });
-      y += 14;
+      y += 16;
       
       // Gradient line (green to blue)
       const gradientY = y;
