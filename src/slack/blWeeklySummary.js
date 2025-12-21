@@ -788,14 +788,14 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);
       doc.text(formatCurrency(totals.avgDealSize), colX, metricsY + 22);
       
-      // Column 4: Current Logos
+      // Column 4: Current Logos - CENTER ALIGNED
       colX = LEFT + colWidth * 3;
       doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-      doc.text('CURRENT LOGOS', colX, metricsY);
+      doc.text('CURRENT LOGOS', colX, metricsY, { width: colWidth, align: 'center' });
       doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);  // Same size as other metric values
-      doc.text(totalLogos.toString(), colX, metricsY + 22);
+      doc.text(totalLogos.toString(), colX, metricsY + 22, { width: colWidth, align: 'center' });
       doc.font(fontRegular).fontSize(7).fillColor(DARK_TEXT);
-      doc.text(`Rev: ${revenueLogos} • Pilot: ${pilotLogos} • LOI$: ${loiWithLogos} • LOI: ${loiNoLogos}`, colX, metricsY + 42, { width: colWidth + 30 });
+      doc.text(`Rev: ${revenueLogos} • Pilot: ${pilotLogos} • LOI$: ${loiWithLogos} • LOI: ${loiNoLogos}`, colX, metricsY + 42, { width: colWidth, align: 'center' });
       
       // Column 5: By Revenue Type
       colX = LEFT + colWidth * 4;
@@ -805,7 +805,8 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       doc.text(`Recurring: ${formatCurrency(recurringACV)}`, colX, metricsY + 14);
       doc.text(`Project: ${formatCurrency(projectACV)}`, colX, metricsY + 26);
       
-      y = metricsY + 48 + SECTION_GAP;
+      // Add extra spacing after header section (quarter inch = ~18 points)
+      y = metricsY + 48 + SECTION_GAP + 18;
       
       // ═══════════════════════════════════════════════════════════════════════
       // TWO COLUMN SECTION: Stage Distribution (left) + Proposal Stage (right)
