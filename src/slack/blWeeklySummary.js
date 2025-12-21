@@ -793,9 +793,9 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('CURRENT LOGOS', colX, metricsY, { width: colWidth, align: 'center' });
       doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);  // Same size as other metric values
-      doc.text(totalLogos.toString(), colX, metricsY + 22, { width: colWidth, align: 'center' });
+      doc.text(totalLogos.toString(), colX, metricsY + 12, { width: colWidth, align: 'center' });  // Moved up from +22 to +12
       doc.font(fontRegular).fontSize(7).fillColor(DARK_TEXT);
-      doc.text(`Rev: ${revenueLogos} • Pilot: ${pilotLogos} • LOI$: ${loiWithLogos} • LOI: ${loiNoLogos}`, colX, metricsY + 42, { width: colWidth, align: 'center' });
+      doc.text(`Rev: ${revenueLogos} • Pilot: ${pilotLogos} • LOI$: ${loiWithLogos} • LOI: ${loiNoLogos}`, colX, metricsY + 32, { width: colWidth, align: 'center' });
       
       // Column 5: By Revenue Type
       colX = LEFT + colWidth * 4;
@@ -814,24 +814,24 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       const twoColY = y;
       
       // LEFT: Stage Distribution
-      doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
+      doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
       doc.text('STAGE DISTRIBUTION', LEFT, twoColY);
       
       // Table header
-      let tableY = twoColY + 12;
-      doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
+      let tableY = twoColY + 14;
+      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('Stage', LEFT, tableY);
       doc.text('Deals', LEFT + 100, tableY, { width: 30, align: 'right' });
       doc.text('Gross ACV', LEFT + 135, tableY, { width: 50, align: 'right' });
       doc.text('Weighted', LEFT + 190, tableY, { width: 45, align: 'right' });
       
-      tableY += 10;
+      tableY += 11;
       doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, tableY).lineTo(LEFT + halfWidth, tableY).stroke();
       tableY += 5;
       
-      // Table rows - COMPACT
+      // Table rows - increased font for readability
       const stageOrder = [...ACTIVE_STAGES].reverse();
-      doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
+      doc.font(fontRegular).fontSize(10).fillColor(DARK_TEXT);
       stageOrder.forEach(stage => {
         const data = stageBreakdown[stage] || { count: 0, grossACV: 0, weightedACV: 0 };
         const stageLabel = stage.replace('Stage ', 'S').replace(' - ', ' ');
@@ -843,23 +843,23 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       });
       
       // RIGHT: Proposal Stage (S4)
-      doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
+      doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
       doc.text('PROPOSAL STAGE (S4)', RIGHT_COL, twoColY);
       
       // Proposal table header
-      let propTableY = twoColY + 12;
-      doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
+      let propTableY = twoColY + 14;
+      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('Metric', RIGHT_COL, propTableY);
       doc.text('Deals', RIGHT_COL + 80, propTableY, { width: 30, align: 'right' });
       doc.text('Gross ACV', RIGHT_COL + 115, propTableY, { width: 50, align: 'right' });
       doc.text('Wtd ACV', RIGHT_COL + 170, propTableY, { width: 45, align: 'right' });
       
-      propTableY += 10;
+      propTableY += 11;
       doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(RIGHT_COL, propTableY).lineTo(LEFT + PAGE_WIDTH, propTableY).stroke();
       propTableY += 5;
       
-      // Proposal rows - COMPACT
-      doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
+      // Proposal rows - increased font for readability
+      doc.font(fontRegular).fontSize(10).fillColor(DARK_TEXT);
       const s4Data = stageBreakdown['Stage 4 - Proposal'] || { weightedACV: 0 };
       
       // Total
@@ -918,11 +918,11 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       y = Math.max(tableY, propTableY) + SECTION_GAP;
       
       // ═══════════════════════════════════════════════════════════════════════
-      // BUSINESS LEAD SUMMARY - COMPACT
+      // BUSINESS LEAD SUMMARY
       // ═══════════════════════════════════════════════════════════════════════
-      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
+      doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
       doc.text('BUSINESS LEAD SUMMARY', LEFT, y);
-      y += 10;
+      y += 12;
       
       // Helper function to draw BL table - COMPACT
       const drawBLTable = (title, blList, startX, startY, colWidth) => {
@@ -937,19 +937,19 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         doc.text(title, startX, startY);
         
         // Table header
-        let headerY = startY + 9;
-        doc.font(fontBold).fontSize(7).fillColor(DARK_TEXT);
+        let headerY = startY + 10;
+        doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
         doc.text('Name', startX, headerY);
         doc.text('Accts', startX + 50, headerY, { width: 25, align: 'right' });
         doc.text('Opps', startX + 80, headerY, { width: 25, align: 'right' });
         doc.text('Gross', startX + 110, headerY, { width: 45, align: 'right' });
         doc.text('Wtd', startX + 160, headerY, { width: 40, align: 'right' });
         
-        headerY += 8;
+        headerY += 9;
         doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(startX, headerY).lineTo(startX + colWidth - 10, headerY).stroke();
         
-        let rowY = headerY + 4;
-        doc.font(fontRegular).fontSize(7).fillColor(BODY_TEXT);
+        let rowY = headerY + 5;
+        doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);  // Increased from 7 to 8
         activeBLs.forEach(bl => {
           const m = blMetrics[bl];
           const displayName = bl.split(' ')[0];
@@ -958,7 +958,7 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
           doc.text(m.opportunities.toString(), startX + 80, rowY, { width: 25, align: 'right' });
           doc.text(formatCurrency(m.grossACV), startX + 110, rowY, { width: 45, align: 'right' });
           doc.text(formatCurrency(m.weightedACV), startX + 160, rowY, { width: 40, align: 'right' });
-          rowY += 9;
+          rowY += 10;  // Increased from 9 to 10 for larger font
         });
         
         return rowY;
@@ -972,11 +972,11 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       // ═══════════════════════════════════════════════════════════════════════
       // TOP DEALS BY BUSINESS LEAD - COMPACT (4 BLs x 4 deals per column)
       // ═══════════════════════════════════════════════════════════════════════
-      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
+      doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
       doc.text('TOP DEALS BY BUSINESS LEAD', LEFT, y);
-      doc.font(fontRegular).fontSize(7).fillColor(LIGHT_TEXT);
-      doc.text('Sorted by Target Sign Date', LEFT + 145, y + 1);
-      y += 12;
+      doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+      doc.text('Sorted by Target Sign Date', LEFT + 160, y + 1);
+      y += 14;
       
       // Get deals sorted by target date per BL
       const dealsForTop5 = allDeals || [];
@@ -1014,20 +1014,20 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         bls.forEach(bl => {
           if (bl.deals.length === 0) return;
           
-          // BL Name (green)
-          doc.font(fontBold).fontSize(8).fillColor(GREEN_ACCENT);
+          // BL Name (green) - increased font
+          doc.font(fontBold).fontSize(9).fillColor(GREEN_ACCENT);
           doc.text(bl.name, startX, dealY);
-          dealY += 10;
+          dealY += 11;
           
-          // Deals - COMPACT
-          doc.font(fontRegular).fontSize(7).fillColor(BODY_TEXT);
+          // Deals - increased font for readability
+          doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
           bl.deals.forEach(deal => {
             const name = deal.accountName.length > 22 ? deal.accountName.substring(0, 22) + '...' : deal.accountName;
             doc.text(`${name} • ${formatCurrency(deal.acv)} • ${formatDate(deal.targetDate)}`, startX, dealY);
-            dealY += 9;
+            dealY += 10;
           });
           
-          dealY += 8;  // Reduced gap between BLs
+          dealY += 8;  // Gap between BLs
         });
         
         return dealY;
