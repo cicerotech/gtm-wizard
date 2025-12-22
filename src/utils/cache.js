@@ -217,6 +217,11 @@ class CacheManager {
 
   // Rate limiting - More generous for testing and exploration
   async checkRateLimit(userId, action, maxRequests = 50, windowSeconds = 300) {
+    // If Redis client is not available, allow the request (graceful degradation)
+    if (!this.client) {
+      return { allowed: true, remaining: maxRequests, resetTime: Date.now() + (windowSeconds * 1000) };
+    }
+    
     const key = `rate_limit:${userId}:${action}`;
     
     try {
