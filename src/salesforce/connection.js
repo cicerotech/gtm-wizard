@@ -2,6 +2,58 @@ const jsforce = require('jsforce');
 const logger = require('../utils/logger');
 const { cache } = require('../utils/cache');
 
+// ═══════════════════════════════════════════════════════════════════════════
+// RATE LIMIT PROTECTION
+// Prevents hitting Salesforce's 3600 login attempts/hour limit
+// ═══════════════════════════════════════════════════════════════════════════
+const AUTH_RATE_LIMIT = {
+  maxAttempts: 3,           // Max auth attempts before circuit breaker trips
+  attemptCount: 0,          // Current attempt count
+  lastAttemptTime: 0,       // Timestamp of last attempt
+  cooldownMs: 5 * 60 * 1000, // 5 minute cooldown after max attempts
+  circuitOpen: false,       // Circuit breaker state
+  circuitOpenTime: 0        // When circuit was opened
+};
+
+function canAttemptLogin() {
+  const now = Date.now();
+  
+  // If circuit is open, check if cooldown has passed
+  if (AUTH_RATE_LIMIT.circuitOpen) {
+    const timeSinceOpen = now - AUTH_RATE_LIMIT.circuitOpenTime;
+    if (timeSinceOpen < AUTH_RATE_LIMIT.cooldownMs) {
+      const remainingMs = AUTH_RATE_LIMIT.cooldownMs - timeSinceOpen;
+      logger.warn(`🛑 Auth circuit breaker OPEN. Waiting ${Math.ceil(remainingMs / 1000)}s before retry...`);
+      return false;
+    }
+    // Cooldown passed, reset circuit
+    logger.info('🔄 Auth circuit breaker reset after cooldown');
+    AUTH_RATE_LIMIT.circuitOpen = false;
+    AUTH_RATE_LIMIT.attemptCount = 0;
+  }
+  
+  return true;
+}
+
+function recordAuthAttempt(success) {
+  AUTH_RATE_LIMIT.lastAttemptTime = Date.now();
+  
+  if (success) {
+    // Reset on success
+    AUTH_RATE_LIMIT.attemptCount = 0;
+    AUTH_RATE_LIMIT.circuitOpen = false;
+  } else {
+    AUTH_RATE_LIMIT.attemptCount++;
+    logger.warn(`⚠️ Auth attempt ${AUTH_RATE_LIMIT.attemptCount}/${AUTH_RATE_LIMIT.maxAttempts} failed`);
+    
+    if (AUTH_RATE_LIMIT.attemptCount >= AUTH_RATE_LIMIT.maxAttempts) {
+      AUTH_RATE_LIMIT.circuitOpen = true;
+      AUTH_RATE_LIMIT.circuitOpenTime = Date.now();
+      logger.error(`🛑 Auth circuit breaker TRIPPED after ${AUTH_RATE_LIMIT.maxAttempts} failures. Cooldown: ${AUTH_RATE_LIMIT.cooldownMs / 1000}s`);
+    }
+  }
+}
+
 class SalesforceConnection {
   constructor() {
     this.conn = null;
@@ -9,11 +61,20 @@ class SalesforceConnection {
     this.connectionPool = [];
     this.maxConnections = 5;
     this.tokenRefreshPromise = null;
+    this.degradedMode = false; // If true, SF is unavailable but app continues running
   }
 
   async initialize() {
     try {
       logger.info('🔌 Initializing Salesforce connection...');
+
+      // Check rate limit before attempting
+      if (!canAttemptLogin()) {
+        logger.error('🛑 Cannot initialize SF - rate limit protection active. App will run in degraded mode.');
+        this.degradedMode = true;
+        this.isConnected = false;
+        return null;
+      }
 
       // Create initial connection
       this.conn = new jsforce.Connection({
@@ -28,12 +89,28 @@ class SalesforceConnection {
       this.setupTokenRefresh();
 
       this.isConnected = true;
+      this.degradedMode = false;
       logger.info('✅ Salesforce connection established');
 
       return this.conn;
 
     } catch (error) {
       logger.error('❌ Failed to initialize Salesforce connection:', error);
+      
+      // Check if this is a login rate limit error
+      if (error.message?.includes('LOGIN_RATE_EXCEEDED') || error.message?.includes('INVALID_LOGIN')) {
+        recordAuthAttempt(false);
+        
+        // If circuit breaker tripped, run in degraded mode instead of crashing
+        if (AUTH_RATE_LIMIT.circuitOpen) {
+          logger.error('🛑 Running in DEGRADED MODE - Salesforce unavailable. Slack bot will respond with "SF unavailable" messages.');
+          this.degradedMode = true;
+          this.isConnected = false;
+          // Don't throw - let app continue running
+          return null;
+        }
+      }
+      
       throw error;
     }
   }
@@ -53,7 +130,12 @@ class SalesforceConnection {
 
   async initialAuthentication() {
     try {
-      logger.info('🔐 Performing initial Salesforce authentication... [v2.1 - Dec 22 10:25pm]');
+      logger.info('🔐 Performing initial Salesforce authentication... [v2.2 - Dec 22 with rate limit protection]');
+      
+      // Check rate limit before attempting
+      if (!canAttemptLogin()) {
+        throw new Error('AUTH_RATE_LIMITED: Too many failed attempts. Waiting for cooldown.');
+      }
       
       // Debug: Log credential info (masked for security)
       const username = process.env.SF_USERNAME;
@@ -72,6 +154,9 @@ class SalesforceConnection {
         password + token
       );
 
+      // SUCCESS - record it
+      recordAuthAttempt(true);
+
       // Cache the access token
       await cache.set('sf_access_token', {
         token: this.conn.accessToken,
@@ -88,6 +173,12 @@ class SalesforceConnection {
 
     } catch (error) {
       logger.error('Initial authentication failed:', error);
+      
+      // Record failed attempt (unless it's our own rate limit)
+      if (!error.message?.includes('AUTH_RATE_LIMITED')) {
+        recordAuthAttempt(false);
+      }
+      
       throw error;
     }
   }
@@ -343,6 +434,20 @@ const initializeSalesforce = async () => {
   return await sfConnection.initialize();
 };
 
+// Check if Salesforce is available
+const isSalesforceAvailable = () => {
+  return sfConnection.isConnected && !sfConnection.degradedMode;
+};
+
+// Get rate limit status
+const getAuthRateLimitStatus = () => ({
+  circuitOpen: AUTH_RATE_LIMIT.circuitOpen,
+  attemptCount: AUTH_RATE_LIMIT.attemptCount,
+  maxAttempts: AUTH_RATE_LIMIT.maxAttempts,
+  cooldownMs: AUTH_RATE_LIMIT.cooldownMs,
+  lastAttemptTime: AUTH_RATE_LIMIT.lastAttemptTime
+});
+
 // Export connection instance and methods
 module.exports = {
   initializeSalesforce,
@@ -350,6 +455,8 @@ module.exports = {
   query: (soql, useCache = true) => sfConnection.query(soql, useCache),
   describe: (objectType) => sfConnection.describe(objectType),
   getPicklistValues: (objectType, fieldName) => sfConnection.getPicklistValues(objectType, fieldName),
-  testConnection: () => sfConnection.testConnection()
+  testConnection: () => sfConnection.testConnection(),
+  isSalesforceAvailable,
+  getAuthRateLimitStatus
 };
 

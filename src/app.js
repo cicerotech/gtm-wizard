@@ -329,9 +329,28 @@ class GTMBrainApp {
         logger.info('ℹ️  Redis not configured - running without cache');
       }
 
-      // Initialize Salesforce connection
-      await initializeSalesforce();
-      logger.info('✅ Salesforce connection established');
+      // Initialize Salesforce connection (with graceful degradation)
+      try {
+        const sfConn = await initializeSalesforce();
+        if (sfConn) {
+          logger.info('✅ Salesforce connection established');
+        } else {
+          logger.warn('⚠️  Salesforce running in DEGRADED MODE - connection failed but app continues');
+        }
+      } catch (sfError) {
+        // Check if this is a rate limit or auth error
+        if (sfError.message?.includes('INVALID_LOGIN') || 
+            sfError.message?.includes('LOGIN_RATE_EXCEEDED') ||
+            sfError.message?.includes('AUTH_RATE_LIMITED')) {
+          logger.error('🛑 Salesforce authentication failed - running in DEGRADED MODE');
+          logger.error('   Bot will respond with "Salesforce unavailable" for data queries');
+          logger.error('   Fix: Update SF_SECURITY_TOKEN in Render environment variables');
+          // Don't throw - let app continue running
+        } else {
+          // Other errors - still throw
+          throw sfError;
+        }
+      }
 
       // Initialize Email service
       await initializeEmail();
