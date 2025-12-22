@@ -40,25 +40,10 @@ class SalesforceConnection {
 
   async authenticate() {
     try {
-      // Try to get cached access token first
-      const cachedToken = await cache.get('sf_access_token');
-      
-      if (cachedToken && cachedToken.expires > Date.now()) {
-        this.conn.accessToken = cachedToken.token;
-        this.conn.instanceUrl = cachedToken.instanceUrl;
-        logger.info('🔑 Using cached Salesforce access token');
-        return;
-      }
-
-      // If no cached token or expired, authenticate with refresh token
-      const refreshToken = await cache.get('sf_refresh_token');
-      
-      if (refreshToken) {
-        await this.refreshAccessToken(refreshToken);
-      } else {
-        // Initial authentication with username/password
-        await this.initialAuthentication();
-      }
+      // ALWAYS do fresh authentication - don't trust cached tokens
+      // This fixes issues where cached tokens become invalid
+      logger.info('🔐 Forcing fresh Salesforce authentication (ignoring cache)...');
+      await this.initialAuthentication();
 
     } catch (error) {
       logger.error('Authentication failed:', error);
