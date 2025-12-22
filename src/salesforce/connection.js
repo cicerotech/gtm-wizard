@@ -153,8 +153,18 @@ class SalesforceConnection {
   }
 
   async query(soql, useCache = true, maxRetries = 3) {
+    logger.info(`🔍 SF Query called - isConnected: ${this.isConnected}, hasConn: ${!!this.conn}, hasAccessToken: ${!!this.conn?.accessToken}`);
+    
     if (!this.isConnected) {
-      throw new Error('Salesforce connection not established');
+      logger.error('❌ Salesforce not connected - attempting to reconnect...');
+      try {
+        await this.authenticate();
+        this.isConnected = true;
+        logger.info('✅ Reconnection successful');
+      } catch (authError) {
+        logger.error('❌ Reconnection failed:', authError);
+        throw new Error('Salesforce connection not established and reconnection failed');
+      }
     }
 
     const startTime = Date.now();
@@ -173,7 +183,9 @@ class SalesforceConnection {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
       // Execute query
+      logger.info(`🚀 Executing SF query (attempt ${attempt}/${maxRetries})...`);
       const result = await this.conn.query(soql);
+      logger.info(`✅ SF query completed - ${result?.totalSize || 0} records`);
       const duration = Date.now() - startTime;
 
       // Log query execution
