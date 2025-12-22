@@ -167,9 +167,16 @@ class SalesforceConnection {
     // Retry loop with exponential backoff
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-      // Execute query
+      // Execute query with timeout
       logger.info(`🚀 Executing SF query (attempt ${attempt}/${maxRetries})...`);
-      const result = await this.conn.query(soql);
+      
+      // Add 30 second timeout to prevent hanging forever
+      const queryPromise = this.conn.query(soql);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('QUERY_TIMEOUT: Salesforce query timed out after 30 seconds')), 30000)
+      );
+      
+      const result = await Promise.race([queryPromise, timeoutPromise]);
       logger.info(`✅ SF query completed - ${result?.totalSize || 0} records`);
       const duration = Date.now() - startTime;
 
@@ -195,9 +202,10 @@ class SalesforceConnection {
           error.message?.includes('ETIMEDOUT') ||
           error.message?.includes('socket hang up');
 
-        // Handle token expiration (always retry once after refresh)
-      if (error.name === 'INVALID_SESSION_ID' || error.errorCode === 'INVALID_SESSION_ID') {
-        logger.info('🔄 Session expired, refreshing token...');
+        // Handle token expiration or timeout (force re-auth and retry)
+      if (error.name === 'INVALID_SESSION_ID' || error.errorCode === 'INVALID_SESSION_ID' || 
+          error.message?.includes('QUERY_TIMEOUT')) {
+        logger.info('🔄 Session expired or timed out, forcing fresh authentication...');
         await this.authenticate();
           continue; // Retry with new token
         }
