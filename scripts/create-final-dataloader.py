@@ -1,109 +1,173 @@
 #!/usr/bin/env python3
 """
-Creates final Data Loader CSV file with revenue-neutral updates
+Create final Data Loader CSV for December expiring corrections
+Based on validated JH data from screenshots
 """
 
 import pandas as pd
 import os
 
-xl = pd.ExcelFile(os.path.expanduser('~/Desktop/MASTER FILE.xlsx'))
-active = pd.read_excel(xl, sheet_name='Active Rev + Projects - Eudia')
-qtd = pd.read_excel(xl, sheet_name='QTD Closed Won - Eudia')
-jh = pd.read_excel(xl, sheet_name='JOHNSON HANA CRM - WON YTD')
+pd.set_option('display.max_rows', 500)
+pd.set_option('display.width', 500)
+pd.set_option('display.max_colwidth', 80)
 
-# Parse JH dates
-jh['Close Date'] = pd.to_datetime(jh['Close Date'], format='mixed')
-jh_q4 = jh[(jh['Close Date'] >= '2025-10-01') & (jh['Close Date'] <= '2025-12-31')].copy()
+# Load data
+xl_audit = pd.ExcelFile(os.path.expanduser('~/Desktop/revenue audit 1.xlsx'))
+eudia_dec = pd.read_excel(xl_audit, sheet_name='Eudia SF')
 
-# Build final updates dataframe
-updates = []
+print('=' * 100)
+print('FINAL DATA LOADER CREATION')
+print('=' * 100)
+print()
 
-# Process QTD deals
-for _, e_row in qtd.iterrows():
-    e_id = e_row['Opportunity ID']
-    e_acct = str(e_row['Account Name'])
-    e_opp = str(e_row['Opportunity Name'])
-    e_rev = e_row['Revenue']
-    e_term = e_row['Term (Months)']
+# JH Validated values from screenshots
+jh_validated = {
+    # Uisce Éireann
+    'uisce eireann cds jamie o\'gorman extension august december': {
+        'new_revenue': 78601.60,
+        'term': 5,
+        'end_date': '12/28/2025',
+        'jh_original_acv': 78601.60,
+        'variance_reason': 'Bundle Allocation'
+    },
+    # Already correct - no change
+    'uisce eireann cds luke sexton extension august december': None,
+    'uisce eireann cds amal elbay extension august december': None,
     
-    # Check if November RR Revenue
-    is_rr = 'November RR' in e_opp or 'RR Revenue' in e_opp
+    # Etsy
+    'etsy privacy support eleanor power extension': {
+        'new_revenue': 69600.00,
+        'term': 6,
+        'end_date': '12/31/2025',
+        'jh_original_acv': 69600.00,
+        'variance_reason': 'Bundle Allocation'
+    },
     
-    # Find JH match
-    jh_match = jh_q4[jh_q4['Account Name'].str.contains(e_acct[:15], case=False, na=False, regex=False)]
+    # TikTok
+    'tiktok dsar support odl extension 1 tara bannon': {
+        'new_revenue': 98601.16,
+        'term': 6,
+        'end_date': '12/31/2025',
+        'jh_original_acv': 98601.16,
+        'variance_reason': 'Bundle Allocation'
+    },
     
-    jh_acv = None
-    jh_term = None
-    jh_opp_name = None
-    matched = False
+    # Indeed
+    'indeed dpo odl': {
+        'new_revenue': 104400.00,
+        'term': 9,
+        'end_date': '12/24/2025',
+        'jh_original_acv': 104400.00,
+        'variance_reason': 'Bundle Allocation'
+    },
     
-    for _, j_row in jh_match.iterrows():
-        j_opp = str(j_row['Opportunity Name'])
-        e_words = set(word.lower() for word in e_opp.split() if len(word) > 3)
-        j_words = set(word.lower() for word in j_opp.split() if len(word) > 3)
-        
-        if len(e_words & j_words) >= 2:
-            jh_acv = j_row['ACV ']
-            jh_term = j_row['Term']
-            jh_opp_name = j_row['Opportunity Name']
-            matched = True
+    # Dropbox - INCREASE
+    'fabiane arguello 2025 extension': {
+        'new_revenue': 180960.00,
+        'term': 12,
+        'end_date': '12/31/2025',
+        'jh_original_acv': 180960.00,
+        'variance_reason': 'No Variance'
+    },
+    # Dropbox - already correct
+    'fabiane arguello 2025 expansion hours increase': None
+}
+
+# Build corrections list
+corrections = []
+
+for _, row in eudia_dec.iterrows():
+    opp_name = row['Opportunity Name']
+    opp_name_lower = opp_name.lower()
+    
+    # Check if this opportunity needs correction
+    for pattern, correction in jh_validated.items():
+        if pattern in opp_name_lower or opp_name_lower in pattern:
+            if correction is not None:
+                current_rev = row['Revenue']
+                opp_id = row.get('Opportunity ID', row.get('Opp ID', ''))
+                
+                corrections.append({
+                    'Opportunity_ID': opp_id,
+                    'Opportunity_Name': opp_name,
+                    'Account_Name': row['Account Name'],
+                    'Current_Revenue': current_rev,
+                    'New_Revenue': correction['new_revenue'],
+                    'Change': correction['new_revenue'] - current_rev,
+                    'Term_Months': correction['term'],
+                    'End_Date': correction['end_date'],
+                    'JH_Original_ACV__c': correction['jh_original_acv'],
+                    'ACV_Variance_Reason__c': correction['variance_reason']
+                })
+                print(f"✓ {opp_name[:50]}")
+                print(f"   ${current_rev:,.2f} → ${correction['new_revenue']:,.2f} ({correction['new_revenue'] - current_rev:+,.2f})")
+            else:
+                print(f"○ {opp_name[:50]} - Already aligned, skipping")
             break
+
+print()
+print('=' * 100)
+print('SUMMARY')
+print('=' * 100)
+
+df = pd.DataFrame(corrections)
+
+if len(df) > 0:
+    total_change = df['Change'].sum()
+    reductions = df[df['Change'] < 0]['Change'].sum()
+    increases = df[df['Change'] > 0]['Change'].sum()
     
-    # Determine variance reason
-    if is_rr:
-        reason = 'Run Rate Capture'
-    elif not matched:
-        reason = None  # Skip if no JH match
-    elif jh_acv and pd.notna(e_rev):
-        variance = abs(e_rev - jh_acv)
-        if variance < 500:
-            reason = 'No Variance'
-        elif variance > e_rev * 0.5:
-            reason = 'Bundle Allocation'
-        elif pd.notna(e_term) and pd.notna(jh_term) and e_term != jh_term:
-            reason = 'Term Difference'
-        else:
-            reason = 'Rate Adjustment'
+    print(f"Total corrections: {len(df)}")
+    print(f"Total reductions: ${reductions:,.2f}")
+    print(f"Total increases: ${increases:,.2f}")
+    print(f"Net change: ${total_change:,.2f}")
+    print()
+    
+    # Display the corrections
+    print('CORRECTIONS:')
+    print('-' * 100)
+    for _, row in df.iterrows():
+        print(f"{row['Account_Name'][:30]}: {row['Opportunity_Name'][:40]}")
+        print(f"   ${row['Current_Revenue']:,.2f} → ${row['New_Revenue']:,.2f} ({row['Change']:+,.2f})")
+        print(f"   ID: {row['Opportunity_ID']}")
+        print()
+    
+    # Create Data Loader CSV
+    output_dir = '/Users/keiganpesenti/revops_weekly_update/gtm-brain/data/reconciliation/'
+    
+    # Full details CSV for reference
+    df.to_csv(output_dir + 'december-corrections-detail.csv', index=False)
+    print(f"Saved detail: {output_dir}december-corrections-detail.csv")
+    
+    # Data Loader format - if we have IDs
+    has_ids = df['Opportunity_ID'].notna().all() and (df['Opportunity_ID'] != '').all()
+    
+    if has_ids:
+        # Create proper Data Loader format
+        dataloader_df = df[['Opportunity_ID', 'New_Revenue', 'Term_Months', 'JH_Original_ACV__c', 'ACV_Variance_Reason__c']].copy()
+        dataloader_df.columns = ['Id', 'Revenue', 'Term_Months__c', 'JH_Original_ACV__c', 'ACV_Variance_Reason__c']
+        dataloader_df.to_csv(output_dir + 'DATALOADER-DECEMBER-FIXES.csv', index=False)
+        print(f"Saved Data Loader file: {output_dir}DATALOADER-DECEMBER-FIXES.csv")
     else:
-        reason = None
-    
-    # Determine if term update needed
-    term_update = None
-    if matched and pd.notna(e_term) and pd.notna(jh_term) and e_term != jh_term:
-        term_update = int(jh_term)
-    
-    if reason or term_update or jh_acv:
-        updates.append({
-            'Id': e_id,
-            'Account_Name': e_acct[:40],
-            'Opportunity_Name': e_opp[:50],
-            'JH_Original_ACV__c': jh_acv if jh_acv else '',
-            'ACV_Variance_Reason__c': reason if reason else '',
-            'Term_Months__c': term_update if term_update else '',
-            'Notes': f'Matched to: {jh_opp_name[:40]}' if jh_opp_name else ('RR Capture' if is_rr else 'No JH match')
-        })
+        print()
+        print("⚠️ Opportunity IDs not found in source data.")
+        print("   You'll need to export the IDs from Salesforce and match them.")
+        print("   The detail CSV has opportunity names to match on.")
+        
+        # Create a lookup-ready file
+        lookup_df = df[['Opportunity_Name', 'Account_Name', 'New_Revenue', 'Term_Months', 'JH_Original_ACV__c', 'ACV_Variance_Reason__c']].copy()
+        lookup_df.columns = ['Opportunity Name (MATCH KEY)', 'Account Name', 'Revenue (NEW VALUE)', 'Term_Months__c', 'JH_Original_ACV__c', 'ACV_Variance_Reason__c']
+        lookup_df.to_csv(output_dir + 'DATALOADER-LOOKUP-BY-NAME.csv', index=False)
+        print(f"Saved lookup file: {output_dir}DATALOADER-LOOKUP-BY-NAME.csv")
+        print()
+        print("To create final Data Loader file:")
+        print("1. Export Opportunity ID + Opportunity Name from Salesforce")
+        print("2. VLOOKUP to add IDs to this file")
+        print("3. Import with Revenue, Term_Months__c updates")
+else:
+    print("No corrections needed!")
 
-# Create DataFrame
-update_df = pd.DataFrame(updates)
-
-# Save to CSV
-output_path = '/Users/keiganpesenti/revops_weekly_update/gtm-brain/data/reconciliation/final-dataloader-updates.csv'
-update_df.to_csv(output_path, index=False)
-
-print('FINAL DATA LOADER FILE CREATED')
-print('=' * 60)
-print(f'Total records: {len(update_df)}')
 print()
-print('Updates by type:')
-print(f"  With JH_Original_ACV: {len(update_df[update_df['JH_Original_ACV__c'] != ''])}")
-print(f"  With Term corrections: {len(update_df[update_df['Term_Months__c'] != ''])}")
-print(f"  With Variance Reason: {len(update_df[update_df['ACV_Variance_Reason__c'] != ''])}")
-print()
-print('Variance Reasons breakdown:')
-print(update_df['ACV_Variance_Reason__c'].value_counts().to_string())
-print()
-print(f'File saved to: {output_path}')
-print()
-print('Preview:')
-print(update_df[['Id', 'Account_Name', 'JH_Original_ACV__c', 'ACV_Variance_Reason__c', 'Term_Months__c']].to_string())
-
+print('=' * 100)
+print('DONE')
+print('=' * 100)

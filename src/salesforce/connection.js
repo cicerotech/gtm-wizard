@@ -69,10 +69,20 @@ class SalesforceConnection {
   async initialAuthentication() {
     try {
       logger.info('🔐 Performing initial Salesforce authentication...');
+      
+      // Debug: Log credential info (masked for security)
+      const username = process.env.SF_USERNAME;
+      const password = process.env.SF_PASSWORD;
+      const token = process.env.SF_SECURITY_TOKEN;
+      logger.info(`🔑 Auth attempt - Username: ${username ? username.substring(0, 5) + '***' : 'MISSING'}, Password: ${password ? password.length + ' chars' : 'MISSING'}, Token: ${token ? token.substring(0, 5) + '***' : 'MISSING'}`);
+      
+      if (!username || !password || !token) {
+        throw new Error(`Missing credentials - Username: ${!!username}, Password: ${!!password}, Token: ${!!token}`);
+      }
 
       const result = await this.conn.login(
-        process.env.SF_USERNAME,
-        process.env.SF_PASSWORD + process.env.SF_SECURITY_TOKEN
+        username,
+        password + token
       );
 
       // Cache the access token
