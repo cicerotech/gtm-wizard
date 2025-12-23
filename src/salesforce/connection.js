@@ -231,7 +231,13 @@ class SalesforceConnection {
   }
 
   async query(soql, useCache = true, maxRetries = 3) {
-    logger.info(`🔍 SF Query called - isConnected: ${this.isConnected}, hasConn: ${!!this.conn}, hasAccessToken: ${!!this.conn?.accessToken}`);
+    logger.info(`🔍 SF Query called - isConnected: ${this.isConnected}, degradedMode: ${this.degradedMode}, hasConn: ${!!this.conn}, hasAccessToken: ${!!this.conn?.accessToken}`);
+    
+    // If in degraded mode, don't attempt queries
+    if (this.degradedMode) {
+      logger.error('🛑 Salesforce in DEGRADED MODE - cannot execute queries');
+      throw new Error('Salesforce is temporarily unavailable. Please try again in a few minutes.');
+    }
     
     if (!this.isConnected) {
       logger.error('❌ Salesforce not connected - attempting to reconnect...');
@@ -295,12 +301,20 @@ class SalesforceConnection {
           error.message?.includes('ETIMEDOUT') ||
           error.message?.includes('socket hang up');
 
-        // Handle token expiration or timeout (force re-auth and retry)
-      if (error.name === 'INVALID_SESSION_ID' || error.errorCode === 'INVALID_SESSION_ID' || 
-          error.message?.includes('QUERY_TIMEOUT')) {
-        logger.info('🔄 Session expired or timed out, forcing fresh authentication...');
+        // Handle token expiration (force re-auth and retry)
+        // NOTE: QUERY_TIMEOUT is NOT a session issue - just retry without re-auth
+      if (error.name === 'INVALID_SESSION_ID' || error.errorCode === 'INVALID_SESSION_ID') {
+        logger.info('🔄 Session expired, forcing fresh authentication...');
         await this.authenticate();
           continue; // Retry with new token
+        }
+        
+        // Handle query timeout - just retry without re-auth (session is still valid)
+        if (error.message?.includes('QUERY_TIMEOUT')) {
+          if (attempt < maxRetries) {
+            logger.warn(`⚠️ Query timed out (attempt ${attempt}/${maxRetries}), retrying...`);
+            continue; // Retry without re-auth
+          }
         }
 
         // Retry on transient errors

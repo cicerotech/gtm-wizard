@@ -651,11 +651,20 @@ Ask me anything about your pipeline, accounts, or deals!`;
       logger.warn(`⚠️ No SOQL generated for intent: ${parsedIntent.intent}`, {
         entities: parsedIntent.entities
       });
+      // If no query was built, return early with helpful message
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `I understood your request as "${parsedIntent.intent}" but couldn't build a query. Try rephrasing or use: "who owns [Company]?" or "show me pipeline"`,
+        thread_ts: threadTs
+      });
+      return;
     }
 
     // Execute query directly (skip optimization for now to avoid errors)
     const queryStartTime = Date.now();
+    logger.info(`🚀 About to execute SF query for intent: ${parsedIntent.intent}`);
     let queryResult = await query(soql, true); // Enable caching
+    logger.info(`✅ SF query returned for intent: ${parsedIntent.intent}`);
     const queryExecutionTime = Date.now() - queryStartTime;
     
     // Log query results
