@@ -5,7 +5,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const logger = require('./utils/logger');
 const { initializeRedis } = require('./utils/cache');
-const { initializeSalesforce } = require('./salesforce/connection');
+const { initializeSalesforce, sfConnection, getAuthRateLimitStatus, resetCircuitBreaker } = require('./salesforce/connection');
 const { initializeEmail } = require('./utils/emailService');
 const { Issuer, generators } = require('openid-client');
 
@@ -409,13 +409,66 @@ class GTMBrainApp {
     const cookieParser = require('cookie-parser');
     this.expressApp.use(cookieParser());
 
-    // Health check endpoint
+    // Health check endpoint with Salesforce status
     this.expressApp.get('/health', (req, res) => {
+      const sfStatus = getAuthRateLimitStatus();
       res.json({
-        status: 'healthy',
+        status: sfConnection.isConnected ? 'healthy' : 'degraded',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
-        version: process.env.npm_package_version || '1.0.0'
+        version: process.env.npm_package_version || '1.0.0',
+        salesforce: {
+          connected: sfConnection.isConnected,
+          degradedMode: sfConnection.degradedMode,
+          circuitBreakerOpen: sfStatus.circuitOpen,
+          authAttempts: sfStatus.attemptCount,
+          maxAttempts: sfStatus.maxAttempts,
+          lastError: sfStatus.lastError || null
+        }
+      });
+    });
+
+    // Salesforce status endpoint
+    this.expressApp.get('/sf-status', async (req, res) => {
+      const sfStatus = getAuthRateLimitStatus();
+      
+      // Try a simple query if connected
+      let queryTest = null;
+      if (sfConnection.isConnected && !sfConnection.degradedMode) {
+        try {
+          const result = await sfConnection.query('SELECT Id FROM Account LIMIT 1');
+          queryTest = { success: true, records: result.totalSize };
+        } catch (error) {
+          queryTest = { success: false, error: error.message };
+        }
+      }
+      
+      res.json({
+        timestamp: new Date().toISOString(),
+        connection: {
+          isConnected: sfConnection.isConnected,
+          degradedMode: sfConnection.degradedMode,
+          hasAccessToken: !!sfConnection.conn?.accessToken
+        },
+        circuitBreaker: {
+          open: sfStatus.circuitOpen,
+          attempts: sfStatus.attemptCount,
+          maxAttempts: sfStatus.maxAttempts,
+          cooldownMs: sfStatus.cooldownMs,
+          lastError: sfStatus.lastError
+        },
+        queryTest
+      });
+    });
+
+    // Circuit breaker reset endpoint (for emergency recovery)
+    this.expressApp.post('/sf-reset', (req, res) => {
+      logger.info('🔄 Manual circuit breaker reset requested');
+      resetCircuitBreaker();
+      res.json({
+        success: true,
+        message: 'Circuit breaker reset. Next auth attempt will proceed.',
+        timestamp: new Date().toISOString()
       });
     });
 

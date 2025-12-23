@@ -3,17 +3,23 @@ const logger = require('../utils/logger');
 const { cache } = require('../utils/cache');
 
 // ═══════════════════════════════════════════════════════════════════════════
-// RATE LIMIT PROTECTION
+// RATE LIMIT PROTECTION v3.0
 // Prevents hitting Salesforce's 3600 login attempts/hour limit
+// Fixed: Double-counting bug, better error logging, startup protection
 // ═══════════════════════════════════════════════════════════════════════════
 const AUTH_RATE_LIMIT = {
-  maxAttempts: 3,           // Max auth attempts before circuit breaker trips
+  maxAttempts: 5,           // Increased: Max auth attempts before circuit breaker trips
   attemptCount: 0,          // Current attempt count
   lastAttemptTime: 0,       // Timestamp of last attempt
-  cooldownMs: 5 * 60 * 1000, // 5 minute cooldown after max attempts
+  cooldownMs: 2 * 60 * 1000, // Reduced to 2 minute cooldown (was 5)
   circuitOpen: false,       // Circuit breaker state
-  circuitOpenTime: 0        // When circuit was opened
+  circuitOpenTime: 0,       // When circuit was opened
+  lastError: null           // Store last error for debugging
 };
+
+// Track if initial startup auth completed
+let startupAuthComplete = false;
+let startupAuthSuccess = false;
 
 function canAttemptLogin() {
   const now = Date.now();
@@ -23,35 +29,47 @@ function canAttemptLogin() {
     const timeSinceOpen = now - AUTH_RATE_LIMIT.circuitOpenTime;
     if (timeSinceOpen < AUTH_RATE_LIMIT.cooldownMs) {
       const remainingMs = AUTH_RATE_LIMIT.cooldownMs - timeSinceOpen;
-      logger.warn(`🛑 Auth circuit breaker OPEN. Waiting ${Math.ceil(remainingMs / 1000)}s before retry...`);
+      logger.warn(`🛑 Auth circuit breaker OPEN. Waiting ${Math.ceil(remainingMs / 1000)}s before retry. Last error: ${AUTH_RATE_LIMIT.lastError || 'unknown'}`);
       return false;
     }
     // Cooldown passed, reset circuit
-    logger.info('🔄 Auth circuit breaker reset after cooldown');
+    logger.info('🔄 Auth circuit breaker reset after cooldown - will retry authentication');
     AUTH_RATE_LIMIT.circuitOpen = false;
     AUTH_RATE_LIMIT.attemptCount = 0;
+    AUTH_RATE_LIMIT.lastError = null;
   }
   
   return true;
 }
 
-function recordAuthAttempt(success) {
+function recordAuthAttempt(success, errorMessage = null) {
   AUTH_RATE_LIMIT.lastAttemptTime = Date.now();
   
   if (success) {
     // Reset on success
     AUTH_RATE_LIMIT.attemptCount = 0;
     AUTH_RATE_LIMIT.circuitOpen = false;
+    AUTH_RATE_LIMIT.lastError = null;
+    logger.info('✅ Auth attempt successful - circuit breaker reset');
   } else {
     AUTH_RATE_LIMIT.attemptCount++;
-    logger.warn(`⚠️ Auth attempt ${AUTH_RATE_LIMIT.attemptCount}/${AUTH_RATE_LIMIT.maxAttempts} failed`);
+    AUTH_RATE_LIMIT.lastError = errorMessage;
+    logger.warn(`⚠️ Auth attempt ${AUTH_RATE_LIMIT.attemptCount}/${AUTH_RATE_LIMIT.maxAttempts} failed: ${errorMessage || 'unknown error'}`);
     
     if (AUTH_RATE_LIMIT.attemptCount >= AUTH_RATE_LIMIT.maxAttempts) {
       AUTH_RATE_LIMIT.circuitOpen = true;
       AUTH_RATE_LIMIT.circuitOpenTime = Date.now();
-      logger.error(`🛑 Auth circuit breaker TRIPPED after ${AUTH_RATE_LIMIT.maxAttempts} failures. Cooldown: ${AUTH_RATE_LIMIT.cooldownMs / 1000}s`);
+      logger.error(`🛑 Auth circuit breaker TRIPPED after ${AUTH_RATE_LIMIT.maxAttempts} failures. Cooldown: ${AUTH_RATE_LIMIT.cooldownMs / 1000}s. Last error: ${errorMessage}`);
     }
   }
+}
+
+// Manual reset function for deployment scenarios
+function resetCircuitBreaker() {
+  AUTH_RATE_LIMIT.attemptCount = 0;
+  AUTH_RATE_LIMIT.circuitOpen = false;
+  AUTH_RATE_LIMIT.lastError = null;
+  logger.info('🔄 Circuit breaker manually reset');
 }
 
 class SalesforceConnection {
@@ -66,13 +84,20 @@ class SalesforceConnection {
 
   async initialize() {
     try {
-      logger.info('🔌 Initializing Salesforce connection...');
+      logger.info('🔌 ====== SALESFORCE STARTUP INITIALIZATION [v3.0] ======');
+      logger.info(`🔌 Instance URL: ${process.env.SF_INSTANCE_URL}`);
+      logger.info(`🔌 Username: ${process.env.SF_USERNAME}`);
+      logger.info(`🔌 Password length: ${process.env.SF_PASSWORD?.length || 0}`);
+      logger.info(`🔌 Token length: ${process.env.SF_SECURITY_TOKEN?.length || 0}`);
+      logger.info(`🔌 Token preview: ${process.env.SF_SECURITY_TOKEN?.substring(0, 5) || 'MISSING'}...`);
 
       // Check rate limit before attempting
       if (!canAttemptLogin()) {
         logger.error('🛑 Cannot initialize SF - rate limit protection active. App will run in degraded mode.');
         this.degradedMode = true;
         this.isConnected = false;
+        startupAuthComplete = true;
+        startupAuthSuccess = false;
         return null;
       }
 
@@ -82,73 +107,88 @@ class SalesforceConnection {
         version: '58.0' // Latest API version
       });
 
-      // Authenticate using OAuth2 refresh token flow
-      await this.authenticate();
+      // Single authentication attempt during startup
+      logger.info('🔐 Attempting single startup authentication...');
+      await this.initialAuthentication();
 
-      // Set up automatic token refresh
+      // Set up automatic token refresh (only if auth succeeded)
       this.setupTokenRefresh();
 
       this.isConnected = true;
       this.degradedMode = false;
-      logger.info('✅ Salesforce connection established');
+      startupAuthComplete = true;
+      startupAuthSuccess = true;
+      logger.info('✅ ====== SALESFORCE STARTUP COMPLETE - CONNECTED ======');
 
       return this.conn;
 
     } catch (error) {
-      logger.error('❌ Failed to initialize Salesforce connection:', error);
+      logger.error('❌ ====== SALESFORCE STARTUP FAILED ======');
+      logger.error(`❌ Error type: ${error.name}`);
+      logger.error(`❌ Error message: ${error.message}`);
+      logger.error(`❌ Error code: ${error.errorCode || 'N/A'}`);
       
-      // Check if this is a login rate limit error
-      if (error.message?.includes('LOGIN_RATE_EXCEEDED') || error.message?.includes('INVALID_LOGIN')) {
-        recordAuthAttempt(false);
-        
-        // If circuit breaker tripped, run in degraded mode instead of crashing
-        if (AUTH_RATE_LIMIT.circuitOpen) {
-          logger.error('🛑 Running in DEGRADED MODE - Salesforce unavailable. Slack bot will respond with "SF unavailable" messages.');
-          this.degradedMode = true;
-          this.isConnected = false;
-          // Don't throw - let app continue running
-          return null;
-        }
-      }
+      startupAuthComplete = true;
+      startupAuthSuccess = false;
       
-      throw error;
+      // Enter degraded mode - don't crash the app
+      logger.error('🛑 Running in DEGRADED MODE - Salesforce unavailable. Slack bot will respond with "SF unavailable" messages.');
+      this.degradedMode = true;
+      this.isConnected = false;
+      
+      // Don't throw - let app continue running
+      return null;
     }
   }
 
   async authenticate() {
     try {
-      // ALWAYS do fresh authentication - don't trust cached tokens
-      // This fixes issues where cached tokens become invalid
-      logger.info('🔐 Forcing fresh Salesforce authentication (ignoring cache)...');
+      // Check if we have a valid cached token first
+      const cachedToken = await cache.get('sf_access_token');
+      if (cachedToken && cachedToken.token && cachedToken.expires > Date.now()) {
+        logger.info('🔐 Using cached Salesforce token (not expired)');
+        this.conn.accessToken = cachedToken.token;
+        this.conn.instanceUrl = cachedToken.instanceUrl;
+        this.isConnected = true;
+        return;
+      }
+      
+      // No valid cache - do fresh authentication
+      logger.info('🔐 No valid cached token - performing fresh authentication...');
       await this.initialAuthentication();
 
     } catch (error) {
-      logger.error('Authentication failed:', error);
+      logger.error('Authentication failed:', error.message);
       throw error;
     }
   }
 
   async initialAuthentication() {
-    try {
-      logger.info('🔐 Performing initial Salesforce authentication... [v2.2 - Dec 22 with rate limit protection]');
-      
-      // Check rate limit before attempting
-      if (!canAttemptLogin()) {
-        throw new Error('AUTH_RATE_LIMITED: Too many failed attempts. Waiting for cooldown.');
-      }
-      
-      // Debug: Log credential info (masked for security)
-      const username = process.env.SF_USERNAME;
-      const password = process.env.SF_PASSWORD;
-      const token = process.env.SF_SECURITY_TOKEN;
-      
-      // Enhanced debug logging to verify token is correct (25 chars expected for new token)
-      logger.info(`🔑 Auth attempt - Username: ${username ? username.substring(0, 5) + '***' : 'MISSING'}, Password: ${password ? password.length + ' chars' : 'MISSING'}, Token: ${token ? token.length + ' chars, starts with ' + token.substring(0, 3) : 'MISSING'}`);
-      
-      if (!username || !password || !token) {
-        throw new Error(`Missing credentials - Username: ${!!username}, Password: ${!!password}, Token: ${!!token}`);
-      }
+    logger.info('🔐 Performing Salesforce login... [v3.0 - Dec 22 with improved error handling]');
+    
+    // Check rate limit before attempting
+    if (!canAttemptLogin()) {
+      throw new Error('AUTH_RATE_LIMITED: Too many failed attempts. Waiting for cooldown.');
+    }
+    
+    const username = process.env.SF_USERNAME;
+    const password = process.env.SF_PASSWORD;
+    const token = process.env.SF_SECURITY_TOKEN;
+    
+    // Detailed credential logging for debugging
+    logger.info(`🔑 Credentials check:`);
+    logger.info(`   Username: ${username || 'MISSING'}`);
+    logger.info(`   Password: ${password ? password.length + ' chars' : 'MISSING'}`);
+    logger.info(`   Token: ${token ? token.length + ' chars' : 'MISSING'}`);
+    logger.info(`   Token value: ${token ? token.substring(0, 4) + '...' + token.substring(token.length - 4) : 'N/A'}`);
+    
+    if (!username || !password || !token) {
+      const errMsg = `Missing credentials - Username: ${!!username}, Password: ${!!password}, Token: ${!!token}`;
+      recordAuthAttempt(false, errMsg);
+      throw new Error(errMsg);
+    }
 
+    try {
       const result = await this.conn.login(
         username,
         password + token
@@ -156,6 +196,11 @@ class SalesforceConnection {
 
       // SUCCESS - record it
       recordAuthAttempt(true);
+
+      logger.info(`✅ Salesforce login successful!`);
+      logger.info(`   Org ID: ${result.organizationId}`);
+      logger.info(`   User ID: ${result.id}`);
+      logger.info(`   Access Token: ${this.conn.accessToken ? 'Present' : 'Missing'}`);
 
       // Cache the access token
       await cache.set('sf_access_token', {
@@ -169,15 +214,13 @@ class SalesforceConnection {
         await cache.set('sf_refresh_token', result.refreshToken, 86400 * 30); // 30 days
       }
 
-      logger.info('✅ Initial Salesforce authentication successful');
-
     } catch (error) {
-      logger.error('Initial authentication failed:', error);
+      // Extract useful error info
+      const errorInfo = `${error.errorCode || error.name}: ${error.message}`;
+      logger.error(`❌ Salesforce login FAILED: ${errorInfo}`);
       
-      // Record failed attempt (unless it's our own rate limit)
-      if (!error.message?.includes('AUTH_RATE_LIMITED')) {
-        recordAuthAttempt(false);
-      }
+      // Record failed attempt with error details
+      recordAuthAttempt(false, errorInfo);
       
       throw error;
     }
@@ -216,16 +259,32 @@ class SalesforceConnection {
 
   setupTokenRefresh() {
     // Refresh token every 90 minutes (tokens expire after 2 hours)
+    // Only attempt if we're connected and circuit breaker is closed
     setInterval(async () => {
       try {
+        // Skip refresh if not connected or in degraded mode
+        if (!this.isConnected || this.degradedMode) {
+          logger.info('⏭️ Skipping token refresh - not connected or in degraded mode');
+          return;
+        }
+        
+        // Skip if circuit breaker is open
+        if (!canAttemptLogin()) {
+          logger.info('⏭️ Skipping token refresh - circuit breaker active');
+          return;
+        }
+        
         const refreshToken = await cache.get('sf_refresh_token');
         if (refreshToken) {
           await this.refreshAccessToken(refreshToken);
         } else {
+          // Only re-auth if we had a valid connection
+          logger.info('🔄 No refresh token cached, attempting re-authentication...');
           await this.initialAuthentication();
         }
       } catch (error) {
-        logger.error('Scheduled token refresh failed:', error);
+        logger.error('Scheduled token refresh failed:', error.message);
+        // Don't crash - just log and continue
       }
     }, 90 * 60 * 1000); // 90 minutes
   }
@@ -471,6 +530,7 @@ module.exports = {
   getPicklistValues: (objectType, fieldName) => sfConnection.getPicklistValues(objectType, fieldName),
   testConnection: () => sfConnection.testConnection(),
   isSalesforceAvailable,
-  getAuthRateLimitStatus
+  getAuthRateLimitStatus,
+  resetCircuitBreaker  // New: manual reset for deployment scenarios
 };
 
