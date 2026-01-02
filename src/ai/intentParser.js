@@ -1305,6 +1305,23 @@ Business Context:
       };
     }
     
+    // Delivery Weekly Summary / Snapshot
+    // MUST be checked BEFORE general weekly summary to catch delivery-specific requests
+    if ((message.includes('delivery') && message.includes('snapshot')) ||
+        (message.includes('delivery') && message.includes('summary')) ||
+        (message.includes('delivery') && message.includes('report')) ||
+        (message.includes('send') && message.includes('delivery') && !message.includes('send delivery to'))) {
+      return {
+        intent: 'generate_delivery_summary',
+        entities: {},
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'Generate weekly delivery summary PDF',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
     // Generate Weekly Summary / GTM Snapshot
     if ((message.includes('weekly') && (message.includes('summary') || message.includes('snapshot') || message.includes('report'))) ||
         (message.includes('generate') && message.includes('summary')) ||

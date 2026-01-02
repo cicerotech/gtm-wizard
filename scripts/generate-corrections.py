@@ -181,3 +181,4 @@ for item in high_priority:
     print(f"  Contract Value: {item['contract_value']}")
     print(f"  Term: {item['term']}")
 
+

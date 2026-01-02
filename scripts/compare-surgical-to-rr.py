@@ -126,3 +126,4 @@ for r in sorted(reconciliation, key=lambda x: x['Gap'], reverse=True):
     if r['Gap'] > 200000:
         print(f"  {r['Client']}: ${r['Gap']:,} gap (have ${r['Surgical_Extracted']:,} of ${r['November_RR']:,})")
 
+

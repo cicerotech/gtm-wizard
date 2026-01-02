@@ -191,3 +191,4 @@ The gap is expected because:
 3. EUDIA includes **run rate captures** (synthetic opps for existing revenue)
 4. JH only tracks **new bookings**, not total active revenue
 
+

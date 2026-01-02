@@ -188,3 +188,4 @@ If the forecast changes too dramatically:
 
 **Expected Q4 Weighted:** ~$4.5M - $4.7M (within acceptable range)
 
+

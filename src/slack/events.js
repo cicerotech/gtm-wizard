@@ -521,6 +521,10 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle weekly GTM summary PDF generation
       await handleGenerateWeeklySummary(userId, channelId, client, threadTs);
       return; // Exit early
+    } else if (parsedIntent.intent === 'generate_delivery_summary') {
+      // Handle weekly Delivery summary PDF generation
+      await handleGenerateDeliverySummary(userId, channelId, client, threadTs);
+      return; // Exit early
     } else if (parsedIntent.intent === 'batch_move_to_nurture') {
       // Handle batch move to nurture (Keigan only)
       await handleBatchMoveToNurture(parsedIntent.entities, userId, channelId, client, threadTs);
@@ -2531,6 +2535,47 @@ async function handleGenerateWeeklySummary(userId, channelId, client, threadTs) 
     await client.chat.postMessage({
       channel: channelId,
       text: `❌ Error generating weekly summary: ${error.message}\n\nPlease try again or contact support.`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle Generate Delivery Summary (PDF)
+ * Generates and sends the weekly Delivery snapshot PDF
+ * 
+ * BEHAVIOR: Sends the PDF to the same channel where the request was made
+ * - In a channel: Posts to that channel
+ * - In a DM: Posts to the DM
+ */
+async function handleGenerateDeliverySummary(userId, channelId, client, threadTs) {
+  try {
+    // Log the target channel for debugging
+    logger.info(`📦 Delivery Summary requested by ${userId} in channel: ${channelId}`);
+    
+    // Show loading message in the same channel
+    await client.chat.postMessage({
+      channel: channelId,
+      text: '📦 Generating weekly delivery snapshot... This will take a moment.',
+      thread_ts: threadTs
+    });
+    
+    // Import the Delivery weekly summary module
+    const deliverySummary = require('./deliveryWeeklySummary');
+    
+    // CRITICAL: Pass the exact channelId as targetChannel
+    // The PDF should be sent to the SAME channel where this request originated
+    logger.info(`📦 Calling sendDeliverySummaryNow with targetChannel: ${channelId}`);
+    
+    const result = await deliverySummary.sendDeliverySummaryNow({ client }, false, channelId);
+    
+    logger.info(`✅ Weekly Delivery summary sent to channel ${result?.channel || channelId} by ${userId}`);
+    
+  } catch (error) {
+    logger.error('Failed to generate delivery summary:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Error generating delivery summary: ${error.message}\n\nPlease try again or contact support.`,
       thread_ts: threadTs
     });
   }
