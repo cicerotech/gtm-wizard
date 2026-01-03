@@ -12,44 +12,17 @@ const logger = require('../utils/logger');
 const SNAPSHOT_FILE = path.join(__dirname, '../../data/delivery-snapshots.json');
 const DELIVERY_CHANNEL = process.env.DELIVERY_OPS_CHANNEL || process.env.GTM_ACCOUNT_PLANNING_CHANNEL || '#delivery-ops';
 
-// Delivery statuses
-const DELIVERY_STATUSES = [
-  'Planning',
-  'In Progress',
-  'At Risk',
-  'On Hold',
-  'Completed',
-  'Cancelled'
-];
-
-// Delivery Owners - same team members as BL
-const DELIVERY_OWNERS = [
-  'Ananth Cherukupally',
-  'Asad Hussain',
-  'Conor Molloy',
-  'Julie Stefanich',
-  'Nathan Shine',
-  'Olivia Jung',
-  'Mike Masiello',
-  'Justin Hills',
-  'Tom Clancy',
-  'Greg MacHale',
-  'Alex Fox',
-  'Nicola Fratini',
-  'Emer Flynn'
-];
-
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
 function formatCurrency(amount) {
-  if (amount === null || amount === undefined) return '$0';
+  if (amount === null || amount === undefined || amount === 0) return '$0';
   
   if (amount >= 1000000) {
     return `$${(amount / 1000000).toFixed(1)}m`;
   } else if (amount >= 1000) {
-    return `$${(amount / 1000).toFixed(0)}k`;
+    return `$${Math.round(amount / 1000)}k`;
   } else {
     return `$${Math.round(amount)}`;
   }
@@ -73,7 +46,12 @@ function formatDate(dateStr) {
 
 function formatNumber(num) {
   if (num === null || num === undefined) return '0';
-  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(num);
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(num);
+}
+
+function formatPercent(num) {
+  if (num === null || num === undefined) return '-';
+  return `${Math.round(num * 100) / 100}%`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -132,173 +110,295 @@ function saveSnapshot(date, deliveryData) {
 
 async function queryDeliveryData() {
   try {
-    logger.info('Querying delivery data from Salesforce...');
+    logger.info('📦 Querying delivery data from Salesforce...');
     
+    // Query all fields from the Delivery__c object that we need
+    // Based on the Salesforce Object Manager screenshot
+    // NOTE: Target_Go_Live_Date__c was removed - doesn't exist on object
     const soql = `
       SELECT 
-        Id, Name, 
-        Account__c, Account__r.Name,
-        Opportunity__c, Opportunity__r.Name, Opportunity__r.CloseDate,
-        Contract_Value__c, 
-        Status__c, 
+        Id, 
+        Name,
+        Account__c, 
+        Account__r.Name,
+        Opportunity__c, 
+        Opportunity__r.Name,
+        Opportunity__r.CloseDate,
+        Contract_Value__c,
+        Services_Revenue_Recognized__c,
+        Status__c,
+        Phase__c,
+        Health_Score__c,
         Product_Line__c,
+        Delivery_Model__c,
+        Deployment_Model__c,
+        Project_Size__c,
         Kickoff_Date__c,
-        Target_Go_Live_Date__c,
         Actual_Go_Live_Date__c,
         Planned_JH_Hours__c,
         Actual_JH_Hours__c,
-        Delivery_Model__c,
-        Eudia_Delivery_Owner__c, Eudia_Delivery_Owner__r.Name,
-        Health_Score__c,
-        Phase__c
+        Utilization_Percent__c,
+        Client_Satisfaction_Score__c,
+        Eudia_Delivery_Owner__c,
+        Eudia_Delivery_Owner__r.Name,
+        JH_Delivery_Manager__c,
+        JH_Delivery_Manager__r.Name,
+        CreatedDate,
+        LastModifiedDate
       FROM Delivery__c
-      WHERE Status__c != 'Cancelled'
-      ORDER BY Eudia_Delivery_Owner__r.Name, Kickoff_Date__c ASC NULLS LAST
+      ORDER BY Status__c, Eudia_Delivery_Owner__r.Name, Kickoff_Date__c ASC NULLS LAST
     `;
     
+    logger.info('📦 Executing SOQL query...');
     const result = await query(soql, false);
     
     if (!result || !result.records) {
-      logger.warn('No delivery records found');
+      logger.warn('📦 No delivery records found');
       return [];
     }
     
-    logger.info(`Found ${result.totalSize} delivery records`);
+    logger.info(`📦 Found ${result.totalSize} delivery records`);
+    
+    // Log sample record for debugging
+    if (result.records.length > 0) {
+      const sample = result.records[0];
+      logger.info(`📦 Sample record: ${sample.Name}, Status: ${sample.Status__c}, Owner: ${sample.Eudia_Delivery_Owner__r?.Name || 'None'}`);
+    }
+    
     return result.records;
     
   } catch (error) {
-    logger.error('Failed to query delivery data:', error);
+    logger.error('📦 Failed to query delivery data:', error);
     throw error;
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DATA PROCESSING
+// DATA PROCESSING - Dynamic based on actual Salesforce data
 // ═══════════════════════════════════════════════════════════════════════════
 
 function processDeliveryData(records) {
-  // Initialize owner metrics
-  const ownerMetrics = {};
+  logger.info(`📦 Processing ${records.length} delivery records...`);
   
-  // Initialize status breakdown
-  const statusBreakdown = {};
-  DELIVERY_STATUSES.forEach(status => {
-    statusBreakdown[status] = { count: 0, contractValue: 0, plannedHours: 0 };
-  });
-  
-  // Initialize product line breakdown
-  const productLineBreakdown = {};
+  // Dynamic tracking - let the data define the categories
+  const byStatus = {};
+  const byOwner = {};
+  const byPhase = {};
+  const byProductLine = {};
+  const byHealthScore = {};
   
   // Totals
   let totalContractValue = 0;
+  let totalRevenueRecognized = 0;
   let totalPlannedHours = 0;
   let totalActualHours = 0;
+  let activeCount = 0;
+  let completedCount = 0;
+  const uniqueAccounts = new Set();
   
-  // All deliveries for display
+  // All deliveries for detailed display
   const allDeliveries = [];
   
   records.forEach(record => {
-    const ownerName = record.Eudia_Delivery_Owner__r?.Name || 'Unassigned';
-    const status = record.Status__c || 'Planning';
+    // Extract fields with null safety
+    const status = record.Status__c || 'Unknown';
+    const phase = record.Phase__c || 'Unknown';
+    const healthScore = record.Health_Score__c || 'Unknown';
     const productLine = record.Product_Line__c || 'Undetermined';
+    const ownerName = record.Eudia_Delivery_Owner__r?.Name || 'Unassigned';
+    const jhManager = record.JH_Delivery_Manager__r?.Name || null;
+    
     const contractValue = record.Contract_Value__c || 0;
+    const revenueRecognized = record.Services_Revenue_Recognized__c || 0;
     const plannedHours = record.Planned_JH_Hours__c || 0;
     const actualHours = record.Actual_JH_Hours__c || 0;
+    const utilizationPercent = record.Utilization_Percent__c || null;
+    const satisfactionScore = record.Client_Satisfaction_Score__c || null;
     
     // Update totals
     totalContractValue += contractValue;
+    totalRevenueRecognized += revenueRecognized;
     totalPlannedHours += plannedHours;
     totalActualHours += actualHours;
     
-    // Update owner metrics
-    if (!ownerMetrics[ownerName]) {
-      ownerMetrics[ownerName] = {
+    // Track unique accounts
+    if (record.Account__c) {
+      uniqueAccounts.add(record.Account__c);
+    }
+    
+    // Track active vs completed
+    const statusLower = status.toLowerCase();
+    if (statusLower.includes('completed') || statusLower.includes('closed')) {
+      completedCount++;
+    } else if (!statusLower.includes('cancelled') && !statusLower.includes('on hold')) {
+      activeCount++;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // GROUP BY STATUS (dynamic)
+    // ═══════════════════════════════════════════════════════════════════════
+    if (!byStatus[status]) {
+      byStatus[status] = {
+        count: 0,
+        contractValue: 0,
+        revenueRecognized: 0,
+        plannedHours: 0,
+        accounts: new Set()
+      };
+    }
+    byStatus[status].count++;
+    byStatus[status].contractValue += contractValue;
+    byStatus[status].revenueRecognized += revenueRecognized;
+    byStatus[status].plannedHours += plannedHours;
+    if (record.Account__c) byStatus[status].accounts.add(record.Account__c);
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // GROUP BY OWNER (dynamic)
+    // ═══════════════════════════════════════════════════════════════════════
+    if (!byOwner[ownerName]) {
+      byOwner[ownerName] = {
         deliveries: 0,
         contractValue: 0,
+        revenueRecognized: 0,
         plannedHours: 0,
         actualHours: 0,
         accounts: new Set(),
-        byStatus: {}
+        byStatus: {},
+        byPhase: {}
       };
     }
+    byOwner[ownerName].deliveries++;
+    byOwner[ownerName].contractValue += contractValue;
+    byOwner[ownerName].revenueRecognized += revenueRecognized;
+    byOwner[ownerName].plannedHours += plannedHours;
+    byOwner[ownerName].actualHours += actualHours;
+    if (record.Account__c) byOwner[ownerName].accounts.add(record.Account__c);
     
-    ownerMetrics[ownerName].deliveries++;
-    ownerMetrics[ownerName].contractValue += contractValue;
-    ownerMetrics[ownerName].plannedHours += plannedHours;
-    ownerMetrics[ownerName].actualHours += actualHours;
-    
-    if (record.Account__c) {
-      ownerMetrics[ownerName].accounts.add(record.Account__c);
+    // Track status within owner
+    if (!byOwner[ownerName].byStatus[status]) {
+      byOwner[ownerName].byStatus[status] = 0;
     }
+    byOwner[ownerName].byStatus[status]++;
     
-    if (!ownerMetrics[ownerName].byStatus[status]) {
-      ownerMetrics[ownerName].byStatus[status] = 0;
+    // Track phase within owner
+    if (!byOwner[ownerName].byPhase[phase]) {
+      byOwner[ownerName].byPhase[phase] = 0;
     }
-    ownerMetrics[ownerName].byStatus[status]++;
+    byOwner[ownerName].byPhase[phase]++;
     
-    // Update status breakdown
-    if (statusBreakdown[status]) {
-      statusBreakdown[status].count++;
-      statusBreakdown[status].contractValue += contractValue;
-      statusBreakdown[status].plannedHours += plannedHours;
+    // ═══════════════════════════════════════════════════════════════════════
+    // GROUP BY PHASE (dynamic)
+    // ═══════════════════════════════════════════════════════════════════════
+    if (!byPhase[phase]) {
+      byPhase[phase] = { count: 0, contractValue: 0 };
     }
+    byPhase[phase].count++;
+    byPhase[phase].contractValue += contractValue;
     
-    // Update product line breakdown
-    if (!productLineBreakdown[productLine]) {
-      productLineBreakdown[productLine] = { count: 0, contractValue: 0 };
+    // ═══════════════════════════════════════════════════════════════════════
+    // GROUP BY PRODUCT LINE (dynamic)
+    // ═══════════════════════════════════════════════════════════════════════
+    if (!byProductLine[productLine]) {
+      byProductLine[productLine] = { count: 0, contractValue: 0 };
     }
-    productLineBreakdown[productLine].count++;
-    productLineBreakdown[productLine].contractValue += contractValue;
+    byProductLine[productLine].count++;
+    byProductLine[productLine].contractValue += contractValue;
     
-    // Add to all deliveries
+    // ═══════════════════════════════════════════════════════════════════════
+    // GROUP BY HEALTH SCORE (dynamic)
+    // ═══════════════════════════════════════════════════════════════════════
+    if (!byHealthScore[healthScore]) {
+      byHealthScore[healthScore] = { count: 0, contractValue: 0 };
+    }
+    byHealthScore[healthScore].count++;
+    byHealthScore[healthScore].contractValue += contractValue;
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // ADD TO ALL DELIVERIES LIST
+    // ═══════════════════════════════════════════════════════════════════════
     allDeliveries.push({
       id: record.Id,
       name: record.Name,
+      accountId: record.Account__c,
       accountName: record.Account__r?.Name || 'Unknown',
       opportunityName: record.Opportunity__r?.Name || '-',
       closeDate: record.Opportunity__r?.CloseDate,
       ownerName,
       ownerFirstName: ownerName.split(' ')[0],
+      jhManager,
       contractValue,
+      revenueRecognized,
       status,
+      phase,
+      healthScore,
       productLine,
+      deliveryModel: record.Delivery_Model__c || '-',
+      deploymentModel: record.Deployment_Model__c || '-',
+      projectSize: record.Project_Size__c || '-',
       kickoffDate: record.Kickoff_Date__c,
-      targetGoLive: record.Target_Go_Live_Date__c,
       actualGoLive: record.Actual_Go_Live_Date__c,
       plannedHours,
       actualHours,
-      deliveryModel: record.Delivery_Model__c || '-',
-      healthScore: record.Health_Score__c || '-',
-      phase: record.Phase__c || '-'
+      utilizationPercent,
+      satisfactionScore
     });
   });
   
-  // Convert Set to count for owner metrics
-  const finalOwnerMetrics = {};
-  Object.entries(ownerMetrics).forEach(([owner, metrics]) => {
-    finalOwnerMetrics[owner] = {
-      ...metrics,
-      accounts: metrics.accounts.size
+  // Convert owner Sets to counts
+  const ownerMetrics = {};
+  Object.entries(byOwner).forEach(([owner, data]) => {
+    ownerMetrics[owner] = {
+      ...data,
+      accounts: data.accounts.size
     };
   });
   
-  // Sort deliveries by contract value desc
+  // Convert status Sets to counts
+  const statusBreakdown = {};
+  Object.entries(byStatus).forEach(([status, data]) => {
+    statusBreakdown[status] = {
+      ...data,
+      accounts: data.accounts.size
+    };
+  });
+  
+  // Sort deliveries by contract value (highest first)
   allDeliveries.sort((a, b) => b.contractValue - a.contractValue);
   
-  return {
-    ownerMetrics: finalOwnerMetrics,
+  // Calculate utilization
+  const utilizationPercent = totalPlannedHours > 0 
+    ? (totalActualHours / totalPlannedHours * 100) 
+    : 0;
+  
+  const result = {
+    ownerMetrics,
     statusBreakdown,
-    productLineBreakdown,
+    phaseBreakdown: byPhase,
+    productLineBreakdown: byProductLine,
+    healthScoreBreakdown: byHealthScore,
     allDeliveries,
     totals: {
       totalRecords: records.length,
+      activeCount,
+      completedCount,
+      totalAccounts: uniqueAccounts.size,
       totalContractValue,
+      totalRevenueRecognized,
       totalPlannedHours,
       totalActualHours,
-      totalAccounts: new Set(records.map(r => r.Account__c).filter(Boolean)).size,
-      utilizationPercent: totalPlannedHours > 0 ? (totalActualHours / totalPlannedHours * 100) : 0
+      utilizationPercent
     }
   };
+  
+  logger.info(`📦 Processing complete:
+    - ${records.length} total records
+    - ${Object.keys(statusBreakdown).length} unique statuses: ${Object.keys(statusBreakdown).join(', ')}
+    - ${Object.keys(ownerMetrics).length} owners
+    - ${Object.keys(byPhase).length} phases
+    - ${uniqueAccounts.size} accounts
+    - ${formatCurrency(totalContractValue)} total contract value`);
+  
+  return result;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -309,15 +409,16 @@ function processDeliveryData(records) {
 const GREEN_ACCENT = '#10b981';
 const BLUE_ACCENT = '#3b82f6';
 const DARK_TEXT = '#1a1a1a';
-const MEDIUM_TEXT = '#333333';
 const LIGHT_TEXT = '#999999';
 const BORDER_GRAY = '#e5e5e5';
 const GREEN_BG = '#f0fdf4';
+const RED_ACCENT = '#dc2626';
+const YELLOW_ACCENT = '#f59e0b';
 
 function generateDeliveryPDF(deliveryData, dateStr) {
   return new Promise((resolve, reject) => {
     try {
-      const { ownerMetrics, statusBreakdown, productLineBreakdown, allDeliveries, totals } = deliveryData;
+      const { ownerMetrics, statusBreakdown, phaseBreakdown, productLineBreakdown, healthScoreBreakdown, allDeliveries, totals } = deliveryData;
       
       const doc = new PDFDocument({ 
         size: 'LETTER',
@@ -391,12 +492,12 @@ function generateDeliveryPDF(deliveryData, dateStr) {
       const metricsY = y;
       const colWidth = PAGE_WIDTH / 4;
       
-      // Column 1: Total Records
+      // Column 1: Total Deliveries
       let colX = LEFT;
       doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('DELIVERY OVERVIEW', colX, metricsY);
       doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
-      doc.text('Total Records', colX, metricsY + 12);
+      doc.text('Total Deliveries', colX, metricsY + 12);
       doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);
       doc.text(totals.totalRecords.toString(), colX, metricsY + 22);
       doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
@@ -405,96 +506,161 @@ function generateDeliveryPDF(deliveryData, dateStr) {
       // Column 2: Contract Value
       colX = LEFT + colWidth;
       doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
-      doc.text('Contract Value', colX, metricsY + 12);
+      doc.text('Total Contract Value', colX, metricsY + 12);
       doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);
       doc.text(formatCurrency(totals.totalContractValue), colX, metricsY + 22);
+      doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+      doc.text(`Recognized: ${formatCurrency(totals.totalRevenueRecognized)}`, colX, metricsY + 42);
       
-      // Column 3: Planned Hours
+      // Column 3: Hours
       colX = LEFT + colWidth * 2;
       doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
-      doc.text('Planned JH Hours', colX, metricsY + 12);
+      doc.text('Planned / Actual Hours', colX, metricsY + 12);
       doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);
-      doc.text(formatNumber(totals.totalPlannedHours), colX, metricsY + 22);
+      doc.text(`${formatNumber(totals.totalPlannedHours)}`, colX, metricsY + 22);
+      doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+      doc.text(`Actual: ${formatNumber(totals.totalActualHours)} (${Math.round(totals.utilizationPercent)}% util)`, colX, metricsY + 42);
       
-      // Column 4: By Status summary
+      // Column 4: Status summary
       colX = LEFT + colWidth * 3;
       doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('BY STATUS', colX, metricsY);
       doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
-      const planningCount = statusBreakdown['Planning']?.count || 0;
-      const inProgressCount = statusBreakdown['In Progress']?.count || 0;
-      const completedCount = statusBreakdown['Completed']?.count || 0;
-      const atRiskCount = statusBreakdown['At Risk']?.count || 0;
-      doc.text(`Planning: ${planningCount}`, colX, metricsY + 14);
-      doc.text(`In Progress: ${inProgressCount}`, colX, metricsY + 24);
-      doc.text(`Completed: ${completedCount}`, colX, metricsY + 34);
-      if (atRiskCount > 0) {
-        doc.fillColor('#dc2626');
-        doc.text(`At Risk: ${atRiskCount}`, colX, metricsY + 44);
-        doc.fillColor(DARK_TEXT);
-      }
+      let statusY = metricsY + 12;
+      const sortedStatuses = Object.entries(statusBreakdown)
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 4);
+      
+      sortedStatuses.forEach(([status, data]) => {
+        const shortStatus = status.length > 15 ? status.substring(0, 13) + '...' : status;
+        doc.text(`${shortStatus}: ${data.count}`, colX, statusY);
+        statusY += 10;
+      });
       
       y = metricsY + 58 + SECTION_GAP;
       
       // ═══════════════════════════════════════════════════════════════════════
-      // TWO COLUMN SECTION: Status Breakdown (left) + Product Line (right)
+      // TWO COLUMN SECTION: Status/Phase (left) + Health Score/Product (right)
       // ═══════════════════════════════════════════════════════════════════════
       const twoColY = y;
       
       // LEFT: Status Breakdown Table
       doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
-      doc.text('STATUS BREAKDOWN', LEFT, twoColY);
+      doc.text('BY STATUS', LEFT, twoColY);
       
       let tableY = twoColY + 14;
       doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('Status', LEFT, tableY);
-      doc.text('Count', LEFT + 100, tableY, { width: 40, align: 'right' });
-      doc.text('Value', LEFT + 145, tableY, { width: 60, align: 'right' });
+      doc.text('Count', LEFT + 110, tableY, { width: 35, align: 'right' });
+      doc.text('Value', LEFT + 150, tableY, { width: 55, align: 'right' });
       
       tableY += 11;
       doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, tableY).lineTo(LEFT + halfWidth, tableY).stroke();
       tableY += 5;
       
-      doc.font(fontRegular).fontSize(10).fillColor(DARK_TEXT);
-      DELIVERY_STATUSES.filter(s => s !== 'Cancelled').forEach(status => {
-        const data = statusBreakdown[status] || { count: 0, contractValue: 0 };
-        if (data.count > 0) {
-          doc.text(status, LEFT, tableY);
-          doc.text(data.count.toString(), LEFT + 100, tableY, { width: 40, align: 'right' });
-          doc.text(formatCurrency(data.contractValue), LEFT + 145, tableY, { width: 60, align: 'right' });
-          tableY += 11;
+      doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
+      const allStatuses = Object.entries(statusBreakdown)
+        .sort((a, b) => b[1].count - a[1].count);
+      
+      allStatuses.forEach(([status, data]) => {
+        const shortStatus = status.length > 18 ? status.substring(0, 16) + '...' : status;
+        
+        // Color code certain statuses
+        const statusLower = status.toLowerCase();
+        if (statusLower.includes('at risk') || statusLower.includes('blocked')) {
+          doc.fillColor(RED_ACCENT);
+        } else if (statusLower.includes('on hold') || statusLower.includes('delayed')) {
+          doc.fillColor(YELLOW_ACCENT);
+        } else if (statusLower.includes('completed') || statusLower.includes('live')) {
+          doc.fillColor(GREEN_ACCENT);
+        } else {
+          doc.fillColor(DARK_TEXT);
         }
+        
+        doc.text(shortStatus, LEFT, tableY);
+        doc.fillColor(DARK_TEXT);
+        doc.text(data.count.toString(), LEFT + 110, tableY, { width: 35, align: 'right' });
+        doc.text(formatCurrency(data.contractValue), LEFT + 150, tableY, { width: 55, align: 'right' });
+        tableY += 11;
       });
       
-      // RIGHT: Product Line Breakdown
+      tableY += 6;
+      
+      // Phase breakdown below status
+      doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
+      doc.text('BY PHASE', LEFT, tableY);
+      tableY += 12;
+      
+      const sortedPhases = Object.entries(phaseBreakdown)
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 5);
+      
+      doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
+      sortedPhases.forEach(([phase, data]) => {
+        const shortPhase = phase.length > 18 ? phase.substring(0, 16) + '...' : phase;
+        doc.text(`${shortPhase}: ${data.count}`, LEFT, tableY);
+        tableY += 10;
+      });
+      
+      // RIGHT: Health Score & Product Line
+      let rightY = twoColY;
+      
+      // Health Score breakdown
       doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
-      doc.text('BY PRODUCT LINE', RIGHT_COL, twoColY);
+      doc.text('BY HEALTH SCORE', RIGHT_COL, rightY);
+      rightY += 14;
       
-      let rightTableY = twoColY + 14;
       doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-      doc.text('Product', RIGHT_COL, rightTableY);
-      doc.text('Count', RIGHT_COL + 140, rightTableY, { width: 40, align: 'right' });
-      doc.text('Value', RIGHT_COL + 185, rightTableY, { width: 60, align: 'right' });
+      doc.text('Health', RIGHT_COL, rightY);
+      doc.text('Count', RIGHT_COL + 120, rightY, { width: 35, align: 'right' });
+      doc.text('Value', RIGHT_COL + 160, rightY, { width: 55, align: 'right' });
       
-      rightTableY += 11;
-      doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(RIGHT_COL, rightTableY).lineTo(RIGHT_COL + halfWidth, rightTableY).stroke();
-      rightTableY += 5;
+      rightY += 11;
+      doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(RIGHT_COL, rightY).lineTo(LEFT + PAGE_WIDTH, rightY).stroke();
+      rightY += 5;
       
-      // Sort by count
+      const sortedHealth = Object.entries(healthScoreBreakdown)
+        .sort((a, b) => b[1].count - a[1].count);
+      
+      doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
+      sortedHealth.forEach(([health, data]) => {
+        const healthLower = health.toLowerCase();
+        if (healthLower.includes('red') || healthLower.includes('at risk') || healthLower.includes('poor')) {
+          doc.fillColor(RED_ACCENT);
+        } else if (healthLower.includes('yellow') || healthLower.includes('concern')) {
+          doc.fillColor(YELLOW_ACCENT);
+        } else if (healthLower.includes('green') || healthLower.includes('good') || healthLower.includes('healthy')) {
+          doc.fillColor(GREEN_ACCENT);
+        } else {
+          doc.fillColor(DARK_TEXT);
+        }
+        
+        doc.text(health, RIGHT_COL, rightY);
+        doc.fillColor(DARK_TEXT);
+        doc.text(data.count.toString(), RIGHT_COL + 120, rightY, { width: 35, align: 'right' });
+        doc.text(formatCurrency(data.contractValue), RIGHT_COL + 160, rightY, { width: 55, align: 'right' });
+        rightY += 11;
+      });
+      
+      rightY += 6;
+      
+      // Product Line breakdown
+      doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
+      doc.text('BY PRODUCT LINE', RIGHT_COL, rightY);
+      rightY += 12;
+      
       const sortedProductLines = Object.entries(productLineBreakdown)
         .sort((a, b) => b[1].count - a[1].count)
-        .slice(0, 6);
+        .slice(0, 5);
       
-      doc.font(fontRegular).fontSize(10).fillColor(DARK_TEXT);
-      sortedProductLines.forEach(([productLine, data]) => {
-        const shortName = productLine.length > 20 ? productLine.substring(0, 18) + '...' : productLine;
-        doc.text(shortName, RIGHT_COL, rightTableY);
-        doc.text(data.count.toString(), RIGHT_COL + 140, rightTableY, { width: 40, align: 'right' });
-        doc.text(formatCurrency(data.contractValue), RIGHT_COL + 185, rightTableY, { width: 60, align: 'right' });
-        rightTableY += 11;
+      doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
+      sortedProductLines.forEach(([product, data]) => {
+        const shortProduct = product.length > 20 ? product.substring(0, 18) + '...' : product;
+        doc.text(`${shortProduct}: ${data.count} (${formatCurrency(data.contractValue)})`, RIGHT_COL, rightY);
+        rightY += 10;
       });
       
-      y = Math.max(tableY, rightTableY) + SECTION_GAP + 10;
+      y = Math.max(tableY, rightY) + SECTION_GAP + 5;
       
       // ═══════════════════════════════════════════════════════════════════════
       // BY DELIVERY OWNER SECTION
@@ -504,67 +670,81 @@ function generateDeliveryPDF(deliveryData, dateStr) {
       y += 14;
       
       // Table header
-      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
+      doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
       doc.text('Owner', LEFT, y);
-      doc.text('Deliveries', LEFT + 150, y, { width: 50, align: 'right' });
-      doc.text('Accounts', LEFT + 205, y, { width: 50, align: 'right' });
-      doc.text('Contract Value', LEFT + 260, y, { width: 80, align: 'right' });
-      doc.text('Planned Hrs', LEFT + 345, y, { width: 60, align: 'right' });
+      doc.text('Del', LEFT + 140, y, { width: 30, align: 'right' });
+      doc.text('Accts', LEFT + 175, y, { width: 35, align: 'right' });
+      doc.text('Contract $', LEFT + 215, y, { width: 65, align: 'right' });
+      doc.text('Recognized', LEFT + 285, y, { width: 65, align: 'right' });
+      doc.text('Hrs (P/A)', LEFT + 355, y, { width: 70, align: 'right' });
       
-      y += 11;
+      y += 10;
       doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, y).lineTo(LEFT + PAGE_WIDTH, y).stroke();
-      y += 5;
+      y += 4;
       
       // Sort owners by contract value
       const sortedOwners = Object.entries(ownerMetrics)
         .filter(([_, m]) => m.deliveries > 0)
         .sort((a, b) => b[1].contractValue - a[1].contractValue);
       
-      doc.font(fontRegular).fontSize(10).fillColor(DARK_TEXT);
-      sortedOwners.forEach(([owner, metrics]) => {
-        doc.text(owner, LEFT, y);
-        doc.text(metrics.deliveries.toString(), LEFT + 150, y, { width: 50, align: 'right' });
-        doc.text(metrics.accounts.toString(), LEFT + 205, y, { width: 50, align: 'right' });
-        doc.text(formatCurrency(metrics.contractValue), LEFT + 260, y, { width: 80, align: 'right' });
-        doc.text(formatNumber(metrics.plannedHours), LEFT + 345, y, { width: 60, align: 'right' });
-        y += 11;
+      doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+      sortedOwners.slice(0, 10).forEach(([owner, metrics]) => {
+        const shortOwner = owner.length > 22 ? owner.substring(0, 20) + '...' : owner;
+        doc.text(shortOwner, LEFT, y);
+        doc.text(metrics.deliveries.toString(), LEFT + 140, y, { width: 30, align: 'right' });
+        doc.text(metrics.accounts.toString(), LEFT + 175, y, { width: 35, align: 'right' });
+        doc.text(formatCurrency(metrics.contractValue), LEFT + 215, y, { width: 65, align: 'right' });
+        doc.text(formatCurrency(metrics.revenueRecognized), LEFT + 285, y, { width: 65, align: 'right' });
+        doc.text(`${formatNumber(metrics.plannedHours)}/${formatNumber(metrics.actualHours)}`, LEFT + 355, y, { width: 70, align: 'right' });
+        y += 10;
       });
+      
+      if (sortedOwners.length > 10) {
+        doc.font(fontRegular).fontSize(7).fillColor(LIGHT_TEXT);
+        doc.text(`+${sortedOwners.length - 10} more owners`, LEFT, y);
+        y += 10;
+      }
       
       y += SECTION_GAP;
       
       // ═══════════════════════════════════════════════════════════════════════
-      // TOP DELIVERIES TABLE
+      // TOP DELIVERIES TABLE (if space)
       // ═══════════════════════════════════════════════════════════════════════
-      if (y < 600) { // Only if there's space
+      if (y < 620) {
         doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
         doc.text('TOP DELIVERIES BY VALUE', LEFT, y);
         y += 14;
         
-        doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
+        doc.font(fontBold).fontSize(7).fillColor(DARK_TEXT);
         doc.text('Delivery', LEFT, y);
-        doc.text('Account', LEFT + 70, y);
-        doc.text('Owner', LEFT + 200, y);
-        doc.text('Status', LEFT + 300, y);
-        doc.text('Value', LEFT + 380, y, { width: 70, align: 'right' });
-        doc.text('Kickoff', LEFT + 455, y, { width: 60, align: 'right' });
+        doc.text('Account', LEFT + 55, y);
+        doc.text('Owner', LEFT + 180, y);
+        doc.text('Status', LEFT + 260, y);
+        doc.text('Health', LEFT + 335, y);
+        doc.text('Value', LEFT + 395, y, { width: 55, align: 'right' });
+        doc.text('Go-Live', LEFT + 455, y, { width: 55, align: 'right' });
         
-        y += 10;
+        y += 9;
         doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, y).lineTo(LEFT + PAGE_WIDTH, y).stroke();
         y += 4;
         
-        // Show top 8 deliveries
+        // Show top deliveries
         const topDeliveries = allDeliveries.slice(0, 8);
-        doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+        doc.font(fontRegular).fontSize(7).fillColor(DARK_TEXT);
         
         topDeliveries.forEach(del => {
-          const shortAccount = del.accountName.length > 20 ? del.accountName.substring(0, 18) + '...' : del.accountName;
+          const shortAccount = del.accountName.length > 18 ? del.accountName.substring(0, 16) + '...' : del.accountName;
+          const shortStatus = del.status.length > 12 ? del.status.substring(0, 10) + '...' : del.status;
+          const shortHealth = del.healthScore.length > 10 ? del.healthScore.substring(0, 8) + '...' : del.healthScore;
+          
           doc.text(del.name, LEFT, y);
-          doc.text(shortAccount, LEFT + 70, y);
-          doc.text(del.ownerFirstName, LEFT + 200, y);
-          doc.text(del.status, LEFT + 300, y);
-          doc.text(formatCurrency(del.contractValue), LEFT + 380, y, { width: 70, align: 'right' });
-          doc.text(formatDate(del.kickoffDate), LEFT + 455, y, { width: 60, align: 'right' });
-          y += 10;
+          doc.text(shortAccount, LEFT + 55, y);
+          doc.text(del.ownerFirstName, LEFT + 180, y);
+          doc.text(shortStatus, LEFT + 260, y);
+          doc.text(shortHealth, LEFT + 335, y);
+          doc.text(formatCurrency(del.contractValue), LEFT + 395, y, { width: 55, align: 'right' });
+          doc.text(formatDate(del.actualGoLive || del.kickoffDate), LEFT + 455, y, { width: 55, align: 'right' });
+          y += 9;
         });
       }
       
@@ -592,15 +772,8 @@ function generateDeliveryPDF(deliveryData, dateStr) {
 // MESSAGE FORMATTING
 // ═══════════════════════════════════════════════════════════════════════════
 
-function formatOwnerLineForSlack(ownerName, metrics) {
-  if (!metrics) return null;
-  const firstName = ownerName.split(' ')[0];
-  const deliveryWord = metrics.deliveries === 1 ? 'delivery' : 'deliveries';
-  return `• ${firstName} — ${metrics.deliveries} ${deliveryWord}, ${formatCurrency(metrics.contractValue)}`;
-}
-
 function formatSlackMessage(deliveryData, dateStr) {
-  const { ownerMetrics, statusBreakdown, totals } = deliveryData;
+  const { ownerMetrics, statusBreakdown, healthScoreBreakdown, totals } = deliveryData;
   
   let message = `*Eudia Delivery Weekly Snapshot — ${dateStr}*\n\n`;
   
@@ -608,20 +781,42 @@ function formatSlackMessage(deliveryData, dateStr) {
   // DELIVERY OVERVIEW
   // ═══════════════════════════════════════════════════════════════════════
   message += '*DELIVERY OVERVIEW*\n';
-  message += `Total Records: ${totals.totalRecords}\n`;
+  message += `Total Deliveries: ${totals.totalRecords} across ${totals.totalAccounts} accounts\n`;
   message += `Total Contract Value: ${formatCurrencyFull(totals.totalContractValue)}\n`;
-  message += `Total Planned JH Hours: ${formatNumber(totals.totalPlannedHours)}\n\n`;
+  message += `Revenue Recognized: ${formatCurrencyFull(totals.totalRevenueRecognized)}\n`;
+  message += `Hours: ${formatNumber(totals.totalPlannedHours)} planned / ${formatNumber(totals.totalActualHours)} actual (${Math.round(totals.utilizationPercent)}% utilization)\n\n`;
   
   // ═══════════════════════════════════════════════════════════════════════
   // BY STATUS
   // ═══════════════════════════════════════════════════════════════════════
   message += '*BY STATUS*\n';
-  DELIVERY_STATUSES.filter(s => s !== 'Cancelled').forEach(status => {
-    const data = statusBreakdown[status] || { count: 0 };
-    if (data.count > 0) {
-      const deliveryWord = data.count === 1 ? 'delivery' : 'deliveries';
-      message += `• ${status}: ${data.count} ${deliveryWord}\n`;
+  const sortedStatuses = Object.entries(statusBreakdown)
+    .sort((a, b) => b[1].count - a[1].count);
+  
+  sortedStatuses.forEach(([status, data]) => {
+    const deliveryWord = data.count === 1 ? 'delivery' : 'deliveries';
+    message += `• ${status}: ${data.count} ${deliveryWord} (${formatCurrency(data.contractValue)})\n`;
+  });
+  message += '\n';
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // BY HEALTH SCORE
+  // ═══════════════════════════════════════════════════════════════════════
+  message += '*BY HEALTH SCORE*\n';
+  const sortedHealth = Object.entries(healthScoreBreakdown)
+    .sort((a, b) => b[1].count - a[1].count);
+  
+  sortedHealth.forEach(([health, data]) => {
+    const healthLower = health.toLowerCase();
+    let emoji = '⚪';
+    if (healthLower.includes('green') || healthLower.includes('good') || healthLower.includes('healthy')) {
+      emoji = '🟢';
+    } else if (healthLower.includes('yellow') || healthLower.includes('concern')) {
+      emoji = '🟡';
+    } else if (healthLower.includes('red') || healthLower.includes('at risk') || healthLower.includes('poor')) {
+      emoji = '🔴';
     }
+    message += `${emoji} ${health}: ${data.count}\n`;
   });
   message += '\n';
   
@@ -635,10 +830,9 @@ function formatSlackMessage(deliveryData, dateStr) {
     .sort((a, b) => b[1].contractValue - a[1].contractValue);
   
   sortedOwners.forEach(([owner, metrics]) => {
-    const line = formatOwnerLineForSlack(owner, metrics);
-    if (line) {
-      message += line + '\n';
-    }
+    const firstName = owner.split(' ')[0];
+    const deliveryWord = metrics.deliveries === 1 ? 'delivery' : 'deliveries';
+    message += `• ${firstName} — ${metrics.deliveries} ${deliveryWord}, ${formatCurrency(metrics.contractValue)}\n`;
   });
   message += '\n';
   
@@ -656,7 +850,7 @@ function formatSlackMessage(deliveryData, dateStr) {
 
 async function sendDeliveryWeeklySummary(app, testMode = false, targetChannel = null) {
   try {
-    logger.info('Generating weekly delivery summary with PDF...');
+    logger.info('📦 Generating weekly delivery summary with PDF...');
     
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];
@@ -669,6 +863,10 @@ async function sendDeliveryWeeklySummary(app, testMode = false, targetChannel = 
     // Query delivery data from Salesforce
     const records = await queryDeliveryData();
     
+    if (records.length === 0) {
+      logger.warn('📦 No delivery records found - sending empty report');
+    }
+    
     // Process into metrics
     const deliveryData = processDeliveryData(records);
     
@@ -677,13 +875,13 @@ async function sendDeliveryWeeklySummary(app, testMode = false, targetChannel = 
     const lastSnapshotDate = getLastSnapshotDate(snapshotData);
     const previousMetrics = lastSnapshotDate ? snapshotData.snapshots[lastSnapshotDate] : null;
     
-    logger.info(`Previous delivery snapshot date: ${lastSnapshotDate || 'none'}`);
+    logger.info(`📦 Previous delivery snapshot date: ${lastSnapshotDate || 'none'}`);
     
     // Format the Slack message
     const message = formatSlackMessage(deliveryData, displayDate);
     
     // Generate PDF
-    logger.info('Generating Delivery PDF snapshot...');
+    logger.info('📦 Generating Delivery PDF snapshot...');
     const pdfBuffer = await generateDeliveryPDF(deliveryData, displayDate);
     const pdfFilename = `Eudia_Delivery_Weekly_Snapshot_${dateStr}.pdf`;
     
@@ -746,7 +944,7 @@ async function sendDeliveryWeeklySummary(app, testMode = false, targetChannel = 
     };
     
   } catch (error) {
-    logger.error('Failed to send weekly delivery summary:', error);
+    logger.error('📦 Failed to send weekly delivery summary:', error);
     throw error;
   }
 }
@@ -766,7 +964,7 @@ function scheduleDeliveryWeeklySummary(app) {
     timezone: 'America/New_York'
   });
 
-  logger.info('Delivery Weekly Summary scheduled (Friday 9 AM EST)');
+  logger.info('📦 Delivery Weekly Summary scheduled (Friday 9 AM EST)');
 }
 
 async function sendDeliverySummaryNow(app, testMode = true, targetChannel = null) {
@@ -792,8 +990,5 @@ module.exports = {
   getDeliverySnapshotData,
   formatSlackMessage,
   queryDeliveryData,
-  processDeliveryData,
-  DELIVERY_STATUSES,
-  DELIVERY_OWNERS
+  processDeliveryData
 };
-
