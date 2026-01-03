@@ -292,21 +292,30 @@ class SalesforceConnection {
   async query(soql, useCache = true, maxRetries = 3) {
     logger.info(`🔍 SF Query called - isConnected: ${this.isConnected}, degradedMode: ${this.degradedMode}, hasConn: ${!!this.conn}, hasAccessToken: ${!!this.conn?.accessToken}`);
     
-    // If in degraded mode, don't attempt queries
-    if (this.degradedMode) {
-      logger.error('🛑 Salesforce in DEGRADED MODE - cannot execute queries');
-      throw new Error('Salesforce is temporarily unavailable. Please try again in a few minutes.');
-    }
-    
-    if (!this.isConnected) {
-      logger.error('❌ Salesforce not connected - attempting to reconnect...');
+    // If in degraded mode OR not connected, attempt to reconnect (with rate limit protection)
+    if (this.degradedMode || !this.isConnected) {
+      logger.info('🔄 Not connected to Salesforce - checking if we can attempt reconnection...');
+      
+      // Check if circuit breaker allows a login attempt
+      if (!canAttemptLogin()) {
+        const status = getAuthRateLimitStatus();
+        logger.error(`🛑 Circuit breaker is OPEN - waiting ${Math.ceil(status.cooldownRemaining / 1000)}s before retry`);
+        throw new Error('Salesforce is temporarily unavailable. Please try again in a few minutes.');
+      }
+      
+      // Attempt to reconnect
+      logger.info('🔐 Attempting Salesforce reconnection...');
       try {
-        await this.authenticate();
+        await this.initialAuthentication();
         this.isConnected = true;
-        logger.info('✅ Reconnection successful');
+        this.degradedMode = false; // EXIT degraded mode on successful auth
+        logger.info('✅ Reconnection successful - exited degraded mode');
       } catch (authError) {
-        logger.error('❌ Reconnection failed:', authError);
-        throw new Error('Salesforce connection not established and reconnection failed');
+        logger.error('❌ Reconnection failed:', authError.message);
+        // Stay in degraded mode
+        this.degradedMode = true;
+        this.isConnected = false;
+        throw new Error('Salesforce is temporarily unavailable. Please try again in a few minutes.');
       }
     }
 
