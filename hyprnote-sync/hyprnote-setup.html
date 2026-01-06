@@ -3,71 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>hyprnote Setup - Eudia</title>
+  <title>hyprnote Setup</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%);
+      background: #fafafa;
       color: #1a1a1a;
       line-height: 1.6;
       padding: 40px 20px;
-      min-height: 100vh;
     }
     
-    .container {
-      max-width: 680px;
-      margin: 0 auto;
-    }
+    .container { max-width: 620px; margin: 0 auto; }
     
-    .header {
-      text-align: center;
-      margin-bottom: 32px;
-    }
+    .header { text-align: center; margin-bottom: 32px; }
     
-    .logo {
-      font-size: 36px;
-      font-weight: 300;
-      letter-spacing: -1px;
-      margin-bottom: 8px;
-      color: #000;
-    }
+    .logo { font-size: 32px; font-weight: 300; letter-spacing: -1px; color: #000; }
     
-    .subtitle {
-      font-size: 16px;
-      color: #666;
-      margin-bottom: 16px;
-    }
+    .subtitle { font-size: 15px; color: #666; margin: 8px 0 16px; }
     
     .security-badge {
       display: inline-block;
       font-size: 12px;
-      color: #166534;
-      background: #dcfce7;
+      color: #555;
+      background: #f0f0f0;
       padding: 6px 14px;
-      border-radius: 20px;
-      border: 1px solid #bbf7d0;
+      border-radius: 4px;
     }
     
     .section {
       background: #fff;
-      border: 1px solid #e5e5e5;
-      border-radius: 12px;
-      padding: 28px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 16px;
     }
     
     .section-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
     
     .section-title {
@@ -75,367 +52,200 @@
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      color: #888;
+      color: #666;
     }
     
     .time-badge {
-      background: #f0f0f0;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      color: #666;
-      font-weight: 500;
+      background: #f5f5f5;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #888;
     }
     
-    .step-card {
-      background: #f8f9fa;
-      border-radius: 10px;
-      padding: 20px;
-      margin-bottom: 16px;
-      border: 1px solid #eee;
-    }
-    
-    .step-card:last-child {
-      margin-bottom: 0;
-    }
-    
-    .step-header {
+    .step-row {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 14px;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
     }
     
     .step-number {
-      width: 32px;
-      height: 32px;
-      background: #000;
+      width: 28px;
+      height: 28px;
+      background: #333;
       color: #fff;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
       flex-shrink: 0;
     }
     
-    .step-number.done {
-      background: #16a34a;
-    }
+    .step-content { flex: 1; }
     
-    .step-title {
-      font-size: 17px;
-      font-weight: 600;
-      color: #000;
-    }
-    
-    .step-desc {
-      font-size: 14px;
-      color: #555;
-      margin-bottom: 14px;
-      padding-left: 46px;
-    }
+    .step-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
     
     .download-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
+      display: inline-block;
       background: #000;
       color: #fff;
-      padding: 14px 28px;
-      border-radius: 8px;
+      padding: 12px 24px;
+      border-radius: 6px;
       text-decoration: none;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 500;
-      transition: all 0.2s;
-      border: none;
-      cursor: pointer;
+      margin: 8px 0;
     }
     
-    .download-btn:hover {
-      background: #333;
-      transform: translateY(-1px);
-    }
-    
-    .download-btn.secondary {
-      background: #fff;
-      color: #333;
-      border: 2px solid #ddd;
-    }
-    
-    .download-btn.secondary:hover {
-      background: #f5f5f5;
-      border-color: #ccc;
-    }
-    
-    .download-btn.green {
-      background: #16a34a;
-    }
-    
-    .download-btn.green:hover {
-      background: #15803d;
-    }
-    
-    .btn-row {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-left: 46px;
-    }
+    .download-btn:hover { background: #333; }
     
     .checklist {
       list-style: none;
-      margin: 16px 0 0 46px;
+      margin: 12px 0 0 0;
+      padding: 0;
     }
     
     .checklist li {
-      font-size: 14px;
-      color: #555;
-      padding: 8px 0;
-      padding-left: 28px;
+      font-size: 13px;
+      color: #444;
+      padding: 6px 0 6px 20px;
       position: relative;
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid #f0f0f0;
     }
     
-    .checklist li:last-child {
-      border-bottom: none;
-    }
+    .checklist li:last-child { border-bottom: none; }
     
     .checklist li:before {
-      content: "→";
+      content: "›";
       position: absolute;
       left: 0;
-      color: #16a34a;
+      color: #999;
       font-weight: bold;
     }
     
-    .warning-box {
-      background: #fef3c7;
-      border: 1px solid #fcd34d;
-      border-radius: 8px;
-      padding: 14px 18px;
-      margin: 16px 0 0 46px;
-      font-size: 13px;
-      color: #92400e;
+    .note-box {
+      background: #f8f8f8;
+      border: 1px solid #e5e5e5;
+      border-radius: 6px;
+      padding: 12px 14px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: #555;
     }
     
-    .warning-box strong {
-      color: #78350f;
-    }
+    .note-box strong { color: #333; }
     
-    .success-box {
-      background: #dcfce7;
-      border: 1px solid #bbf7d0;
-      border-radius: 10px;
-      padding: 20px;
+    .done-box {
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 16px;
       text-align: center;
+      margin-top: 16px;
     }
     
-    .success-box h3 {
-      font-size: 18px;
-      color: #166534;
-      margin-bottom: 8px;
-    }
-    
-    .success-box p {
-      font-size: 14px;
-      color: #15803d;
-    }
-    
-    .usage-section {
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-    }
-    
-    .usage-grid {
-      display: grid;
-      gap: 16px;
-    }
+    .done-box strong { font-size: 14px; }
+    .done-box p { font-size: 13px; color: #666; margin-top: 4px; }
     
     .usage-item {
       display: flex;
-      align-items: flex-start;
       gap: 12px;
-    }
-    
-    .usage-icon {
-      font-size: 20px;
-      flex-shrink: 0;
-    }
-    
-    .usage-text strong {
-      display: block;
-      font-size: 14px;
-      color: #166534;
-      margin-bottom: 2px;
-    }
-    
-    .usage-text span {
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f0;
       font-size: 13px;
-      color: #15803d;
     }
     
-    .troubleshoot {
+    .usage-item:last-child { border-bottom: none; }
+    
+    .usage-label { font-weight: 600; color: #333; min-width: 100px; }
+    .usage-text { color: #555; }
+    
+    .help-section {
+      margin-top: 16px;
+      padding: 16px;
       background: #fafafa;
       border: 1px solid #e5e5e5;
-      border-radius: 10px;
-      padding: 20px;
-      margin-top: 20px;
+      border-radius: 6px;
     }
     
-    .troubleshoot h4 {
-      font-size: 14px;
+    .help-section h4 {
+      font-size: 12px;
       font-weight: 600;
-      color: #666;
-      margin-bottom: 14px;
+      color: #888;
+      text-transform: uppercase;
+      margin-bottom: 12px;
     }
     
-    .troubleshoot-item {
-      font-size: 13px;
+    .help-item {
+      font-size: 12px;
       color: #555;
-      padding: 8px 0;
+      padding: 6px 0;
       border-bottom: 1px solid #eee;
     }
     
-    .troubleshoot-item:last-child {
-      border-bottom: none;
-    }
+    .help-item:last-child { border-bottom: none; }
     
-    .troubleshoot-item code {
-      background: #fee2e2;
-      color: #dc2626;
+    .help-item code {
+      background: #f0f0f0;
       padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 12px;
+      border-radius: 3px;
+      font-size: 11px;
+      color: #c00;
     }
     
-    .troubleshoot-item .fix {
-      color: #16a34a;
-      font-weight: 500;
-    }
+    .help-item .fix { color: #333; }
     
     .mode-toggle {
       display: flex;
-      gap: 12px;
-      margin-bottom: 24px;
+      gap: 8px;
+      margin-bottom: 20px;
     }
     
     .mode-btn {
       flex: 1;
-      padding: 18px;
-      border: 2px solid #e5e5e5;
-      border-radius: 10px;
+      padding: 14px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
       background: #fff;
       cursor: pointer;
       text-align: center;
-      transition: all 0.2s;
     }
     
-    .mode-btn:hover {
-      border-color: #ccc;
-    }
+    .mode-btn:hover { border-color: #bbb; }
     
-    .mode-btn.active {
-      border-color: #000;
-      background: #fafafa;
-    }
+    .mode-btn.active { border-color: #000; background: #fafafa; }
     
-    .mode-btn h4 {
-      font-size: 15px;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
+    .mode-btn h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+    .mode-btn p { font-size: 12px; color: #888; }
     
-    .mode-btn p {
-      font-size: 13px;
-      color: #888;
-    }
+    .sales-only { display: block; }
+    .internal-only { display: none; }
     
-    .sales-only {
-      display: block;
-    }
-    
-    .internal-only {
-      display: none;
-    }
-    
-    body.internal-mode .sales-only {
-      display: none;
-    }
-    
-    body.internal-mode .internal-only {
-      display: block;
-    }
+    body.internal-mode .sales-only { display: none; }
+    body.internal-mode .internal-only { display: block; }
     
     code {
       background: #f0f0f0;
-      padding: 3px 8px;
-      border-radius: 4px;
+      padding: 2px 6px;
+      border-radius: 3px;
       font-family: 'SF Mono', Monaco, monospace;
-      font-size: 13px;
+      font-size: 12px;
     }
     
-    .help-link {
+    .footer {
       text-align: center;
       margin-top: 24px;
-      font-size: 14px;
+      font-size: 13px;
       color: #888;
     }
     
-    .help-link a {
-      color: #666;
-      text-decoration: underline;
-    }
-    
-    .progress-bar {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 24px;
-    }
-    
-    .progress-step {
-      flex: 1;
-      height: 4px;
-      background: #e5e5e5;
-      border-radius: 2px;
-    }
-    
-    .progress-step.active {
-      background: #000;
-    }
-    
-    .progress-step.complete {
-      background: #16a34a;
-    }
-    
     @media (max-width: 480px) {
-      body {
-        padding: 24px 16px;
-      }
-      
-      .logo {
-        font-size: 28px;
-      }
-      
-      .section {
-        padding: 20px;
-      }
-      
-      .mode-toggle {
-        flex-direction: column;
-      }
-      
-      .btn-row {
-        flex-direction: column;
-        margin-left: 0;
-      }
-      
-      .download-btn {
-        width: 100%;
-        justify-content: center;
-      }
+      body { padding: 20px 16px; }
+      .section { padding: 20px; }
+      .mode-toggle { flex-direction: column; }
     }
   </style>
 </head>
@@ -443,260 +253,184 @@
   <div class="container">
     <div class="header">
       <div class="logo">hyprnote</div>
-      <p class="subtitle">AI meeting notes for Eudia</p>
-      <span class="security-badge">🔒 Local-first · No customer data leaves your computer</span>
+      <p class="subtitle">AI meeting notes</p>
+      <span class="security-badge">Local-first: transcription runs on your device</span>
     </div>
     
-    <!-- MODE SELECTOR -->
     <div class="mode-toggle">
       <div class="mode-btn active" onclick="setMode('sales')">
-        <h4>🎯 Sales Team</h4>
+        <h4>Sales Team</h4>
         <p>Notes sync to Salesforce</p>
       </div>
       <div class="mode-btn" onclick="setMode('internal')">
-        <h4>🏠 Internal Use</h4>
-        <p>Notes stay on your Mac</p>
+        <h4>Internal Use</h4>
+        <p>Notes stay local</p>
       </div>
     </div>
     
-    <!-- ==================== STEP 1: HYPRNOTE APP ==================== -->
+    <!-- STEP 1: APP -->
     <div class="section">
       <div class="section-header">
-        <span class="section-title">Step 1: Install Hyprnote</span>
-        <span class="time-badge">⏱ 2 min</span>
+        <span class="section-title">Step 1: Install App</span>
+        <span class="time-badge">2 min</span>
       </div>
       
-      <div class="step-card">
-        <div class="step-header">
-          <div class="step-number">1</div>
-          <span class="step-title">Download the App</span>
+      <div class="step-row">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <div class="step-title">Download Hyprnote</div>
+          <a href="https://hyprnote.com/download" class="download-btn" target="_blank">Download for Mac</a>
+          <ul class="checklist">
+            <li>Click <strong>Hyprnote</strong> (not "Nightly")</li>
+            <li>Open the .dmg file</li>
+            <li>Drag to Applications</li>
+            <li>Open and sign in</li>
+          </ul>
         </div>
-        
-        <div class="btn-row">
-          <a href="https://hyprnote.com/download" class="download-btn" target="_blank">
-            ⬇️ Download Hyprnote for Mac
-          </a>
-        </div>
-        
-        <ul class="checklist">
-          <li>On the download page, click <strong>"Hyprnote"</strong> (NOT "Hyprnote Nightly")</li>
-          <li>Open the downloaded <code>.dmg</code> file</li>
-          <li>Drag Hyprnote to your <strong>Applications</strong> folder</li>
-          <li>Open Hyprnote and sign in with Google or Apple</li>
-        </ul>
       </div>
     </div>
     
-    <!-- ==================== INTERNAL: DONE ==================== -->
-    <div class="section internal-only usage-section">
-      <div class="success-box">
-        <h3>✅ You're All Set!</h3>
-        <p>That's all you need for internal use. Your notes stay on your Mac.</p>
+    <!-- INTERNAL: DONE -->
+    <div class="section internal-only">
+      <div class="done-box">
+        <strong>Setup Complete</strong>
+        <p>Open Hyprnote before meetings. Click New Note, then Record.</p>
       </div>
     </div>
     
-    <!-- ==================== SALES: STEP 2 - NODE.JS ==================== -->
+    <!-- SALES: NODE.JS -->
     <div class="section sales-only">
       <div class="section-header">
         <span class="section-title">Step 2: Install Node.js</span>
-        <span class="time-badge">⏱ 2 min</span>
+        <span class="time-badge">2 min</span>
       </div>
       
-      <div class="step-card">
-        <div class="step-header">
-          <div class="step-number">2</div>
-          <span class="step-title">Download Node.js (Required for Sync)</span>
+      <div class="step-row">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <div class="step-title">Required for Salesforce sync</div>
+          <a href="https://nodejs.org/dist/v20.11.0/node-v20.11.0.pkg" class="download-btn" target="_blank">Download Node.js</a>
+          <ul class="checklist">
+            <li>Open the .pkg file</li>
+            <li>Click Continue through all steps</li>
+            <li>Click Install (enter password if asked)</li>
+          </ul>
         </div>
-        <p class="step-desc">This is a one-time install that powers the Salesforce sync.</p>
-        
-        <div class="btn-row">
-          <a href="https://nodejs.org/dist/v20.11.0/node-v20.11.0.pkg" class="download-btn green" target="_blank">
-            ⬇️ Download Node.js (Mac Installer)
-          </a>
-        </div>
-        
-        <ul class="checklist">
-          <li>Open the downloaded <code>.pkg</code> file</li>
-          <li>Click <strong>Continue</strong> through all steps</li>
-          <li>Click <strong>Install</strong> (enter your Mac password if asked)</li>
-          <li>Click <strong>Close</strong> when done</li>
-        </ul>
       </div>
     </div>
     
-    <!-- ==================== SALES: STEP 3 - SYNC FOLDER ==================== -->
+    <!-- SALES: SYNC FOLDER -->
     <div class="section sales-only">
       <div class="section-header">
-        <span class="section-title">Step 3: Download Sync Tool</span>
-        <span class="time-badge">⏱ 1 min</span>
+        <span class="section-title">Step 3: Get Sync Tool</span>
+        <span class="time-badge">1 min</span>
       </div>
       
-      <div class="step-card">
-        <div class="step-header">
-          <div class="step-number">3</div>
-          <span class="step-title">Get the Hyprnote Sync Folder</span>
+      <div class="step-row">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <div class="step-title">Download the sync folder</div>
+          <a href="https://github.com/cicerotech/gtm-wizard/releases/latest/download/hyprnote-sync.zip" class="download-btn" target="_blank">Download hyprnote-sync.zip</a>
+          <ul class="checklist">
+            <li>Unzip the download</li>
+            <li>Move <code>hyprnote-sync</code> folder to Documents</li>
+          </ul>
         </div>
-        <p class="step-desc">This small folder syncs your meeting notes to Salesforce.</p>
-        
-        <div class="btn-row">
-          <a href="https://github.com/cicerotech/gtm-wizard/releases/latest/download/hyprnote-sync.zip" class="download-btn" target="_blank">
-            ⬇️ Download hyprnote-sync.zip
-          </a>
-        </div>
-        
-        <ul class="checklist">
-          <li>Unzip the downloaded file (double-click it)</li>
-          <li>Move the <code>hyprnote-sync</code> folder to your <strong>Documents</strong></li>
-        </ul>
       </div>
     </div>
     
-    <!-- ==================== SALES: STEP 4 - SETUP ==================== -->
+    <!-- SALES: SETUP -->
     <div class="section sales-only">
       <div class="section-header">
-        <span class="section-title">Step 4: One-Time Setup</span>
-        <span class="time-badge">⏱ 2 min</span>
+        <span class="section-title">Step 4: Run Setup</span>
+        <span class="time-badge">2 min</span>
       </div>
       
-      <div class="step-card">
-        <div class="step-header">
-          <div class="step-number">4</div>
-          <span class="step-title">Run the Installer</span>
+      <div class="step-row">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <div class="step-title">One-time configuration</div>
+          <ul class="checklist">
+            <li>Open Documents > hyprnote-sync folder</li>
+            <li>Double-click <code>install.command</code></li>
+            <li>Enter your Eudia email when prompted</li>
+            <li>Wait for "Setup Complete"</li>
+          </ul>
+          
+          <div class="note-box">
+            <strong>Blocked by macOS?</strong> Right-click the file, click Open, then click Open again.
+          </div>
         </div>
-        
-        <ul class="checklist">
-          <li>Open your <strong>Documents</strong> folder</li>
-          <li>Open the <code>hyprnote-sync</code> folder</li>
-          <li>Double-click <code>install.command</code></li>
-        </ul>
-        
-        <div class="warning-box">
-          <strong>⚠️ macOS Security Warning?</strong><br>
-          If you see "cannot be opened" or "unidentified developer":<br>
-          → <strong>Right-click</strong> the file → Click <strong>Open</strong> → Click <strong>Open</strong> again in the popup
-        </div>
-        
-        <ul class="checklist" style="margin-top: 16px;">
-          <li>Follow the prompts in the Terminal window</li>
-          <li>Enter your <strong>Eudia email</strong> when asked</li>
-          <li>Wait for "Setup Complete" message</li>
-        </ul>
       </div>
       
-      <div class="success-box" style="margin-top: 20px;">
-        <h3>✅ Done! Meetings Sync Automatically</h3>
-        <p>Your customer meetings will sync to Salesforce every 3 hours. Internal meetings are skipped.</p>
+      <div class="done-box">
+        <strong>Done</strong>
+        <p>Meetings sync to Salesforce every 3 hours automatically.</p>
       </div>
     </div>
     
-    <!-- ==================== DAILY USE ==================== -->
-    <div class="section usage-section">
-      <div class="section-header">
-        <span class="section-title">📋 Daily Use</span>
-      </div>
-      
-      <div class="usage-grid">
-        <div class="usage-item">
-          <span class="usage-icon">🎙️</span>
-          <div class="usage-text">
-            <strong>Before a call</strong>
-            <span>Open Hyprnote → Click "New Note" → Click "Record"</span>
-          </div>
-        </div>
-        <div class="usage-item">
-          <span class="usage-icon">💬</span>
-          <div class="usage-text">
-            <strong>During the call</strong>
-            <span>Hyprnote transcribes automatically on your device</span>
-          </div>
-        </div>
-        <div class="usage-item">
-          <span class="usage-icon">✨</span>
-          <div class="usage-text">
-            <strong>After the call</strong>
-            <span>Stop recording → AI generates your summary</span>
-          </div>
-        </div>
-        <div class="usage-item sales-only">
-          <span class="usage-icon">☁️</span>
-          <div class="usage-text">
-            <strong>Salesforce sync</strong>
-            <span>Happens automatically every 3 hours. Nothing to do!</span>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- ==================== TROUBLESHOOTING ==================== -->
-    <div class="troubleshoot sales-only">
-      <h4>🔧 Troubleshooting</h4>
-      
-      <div class="troubleshoot-item">
-        <code>"command not found: node"</code><br>
-        <span class="fix">→ Node.js didn't install. Go back to Step 2 and try again.</span>
-      </div>
-      
-      <div class="troubleshoot-item">
-        <code>"unidentified developer"</code> or <code>"cannot be opened"</code><br>
-        <span class="fix">→ Right-click the file → Click "Open" → Click "Open" again</span>
-      </div>
-      
-      <div class="troubleshoot-item">
-        <code>"Hyprnote not found"</code><br>
-        <span class="fix">→ Open Hyprnote app at least once before running the installer</span>
-      </div>
-      
-      <div class="troubleshoot-item">
-        <code>"Permission denied"</code><br>
-        <span class="fix">→ Move the hyprnote-sync folder to Documents (not Downloads)</span>
-      </div>
-      
-      <div class="troubleshoot-item">
-        <strong>Still stuck?</strong><br>
-        <span class="fix">→ Slack @keigan with a screenshot of the error</span>
-      </div>
-    </div>
-    
-    <!-- ==================== SECURITY ==================== -->
+    <!-- DAILY USE -->
     <div class="section">
       <div class="section-header">
-        <span class="section-title">🔒 Security & Privacy</span>
+        <span class="section-title">Daily Use</span>
       </div>
       
-      <div style="font-size: 14px; color: #555;">
-        <p style="margin-bottom: 12px;"><strong>Where is data stored?</strong><br>
-        Recordings and transcripts stay on your Mac. Nothing is uploaded to external servers.</p>
-        
-        <p style="margin-bottom: 12px;"><strong>What about AI transcription?</strong><br>
-        Runs locally on your device. No cloud processing.</p>
-        
-        <p class="sales-only"><strong>What gets sent to Salesforce?</strong><br>
-        Only the meeting summary text. No audio files, no raw transcripts.</p>
+      <div class="usage-item">
+        <span class="usage-label">Before call</span>
+        <span class="usage-text">Open Hyprnote > New Note > Record</span>
+      </div>
+      <div class="usage-item">
+        <span class="usage-label">During call</span>
+        <span class="usage-text">Transcribes automatically</span>
+      </div>
+      <div class="usage-item">
+        <span class="usage-label">After call</span>
+        <span class="usage-text">Stop recording, AI generates summary</span>
+      </div>
+      <div class="usage-item sales-only">
+        <span class="usage-label">Salesforce</span>
+        <span class="usage-text">Syncs every 3 hours, nothing to do</span>
       </div>
     </div>
     
-    <p class="help-link">
-      Questions? Slack <strong>#gtm-ops</strong> or DM <strong>@keigan</strong>
-    </p>
+    <!-- TROUBLESHOOTING -->
+    <div class="help-section sales-only">
+      <h4>Troubleshooting</h4>
+      
+      <div class="help-item">
+        <code>command not found: node</code><br>
+        <span class="fix">Node.js not installed. Redo Step 2.</span>
+      </div>
+      
+      <div class="help-item">
+        <code>unidentified developer</code><br>
+        <span class="fix">Right-click file > Open > Open again.</span>
+      </div>
+      
+      <div class="help-item">
+        <code>Hyprnote not found</code><br>
+        <span class="fix">Open Hyprnote app once before running setup.</span>
+      </div>
+      
+      <div class="help-item">
+        <strong>Still stuck?</strong> <span class="fix">Slack @keigan with a screenshot.</span>
+      </div>
+    </div>
     
+    <p class="footer">Questions? Slack #gtm-ops or @keigan</p>
   </div>
   
   <script>
     function setMode(mode) {
-      const btns = document.querySelectorAll('.mode-btn');
-      btns.forEach((btn, i) => {
+      document.querySelectorAll('.mode-btn').forEach((btn, i) => {
         btn.classList.toggle('active', (mode === 'sales' && i === 0) || (mode === 'internal' && i === 1));
       });
-      
       document.body.classList.toggle('internal-mode', mode === 'internal');
       localStorage.setItem('hyprnoteMode', mode);
     }
     
-    const savedMode = localStorage.getItem('hyprnoteMode');
-    if (savedMode) {
-      setMode(savedMode);
-    }
+    const saved = localStorage.getItem('hyprnoteMode');
+    if (saved) setMode(saved);
   </script>
 </body>
 </html>
-
