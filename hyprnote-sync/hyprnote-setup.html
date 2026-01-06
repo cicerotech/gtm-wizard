@@ -226,7 +226,7 @@
       <div class="section-title"><span class="step-num">4</span> Download Sync Tool</div>
       <p class="desc">Paste this command and press Enter:</p>
       <div class="cmd-box">
-        <code id="cmd2">cd ~/Documents && curl -L -o hyprnote-sync.zip https://github.com/cicerotech/gtm-wizard/releases/latest/download/hyprnote-sync.zip && unzip -o hyprnote-sync.zip && rm hyprnote-sync.zip</code>
+        <code id="cmd2">cd ~/Documents && curl -L -o repo.zip https://github.com/cicerotech/gtm-wizard/archive/refs/heads/main.zip && unzip -o repo.zip && mv gtm-wizard-main/hyprnote-sync . && rm -rf gtm-wizard-main repo.zip</code>
         <button class="copy-btn" onclick="copyCmd('cmd2', this)">Copy</button>
       </div>
     </div>
