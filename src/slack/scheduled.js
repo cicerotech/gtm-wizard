@@ -330,6 +330,14 @@ async function checkDealHealth(app) {
     `);
 
     if (atRiskDeals.totalSize > 0) {
+      const targetChannel = process.env.SALES_MANAGERS_CHANNEL;
+      
+      // Skip if no channel configured
+      if (!targetChannel) {
+        logger.info('⏭️ Deal health check: No SALES_MANAGERS_CHANNEL configured, skipping alert');
+        return;
+      }
+      
       const totalAtRisk = atRiskDeals.records.reduce((sum, r) => sum + (r.Amount || 0), 0);
       
       let message = `🚨 *Deal Health Alert*\n\n`;
@@ -339,12 +347,19 @@ async function checkDealHealth(app) {
         message += `• ${deal.Name} - ${formatCurrency(deal.Amount)} (${deal.Probability}%) - ${deal.Owner?.Name}\n`;
       });
 
-      await app.client.chat.postMessage({
-        channel: process.env.SALES_MANAGERS_CHANNEL || '#sales-managers',
-        text: message
-      });
-
-      logger.info('🚨 At-risk deals alert sent', { count: atRiskDeals.totalSize });
+      try {
+        await app.client.chat.postMessage({
+          channel: targetChannel,
+          text: message
+        });
+        logger.info('🚨 At-risk deals alert sent', { count: atRiskDeals.totalSize });
+      } catch (postError) {
+        if (postError.data?.error === 'channel_not_found') {
+          logger.warn(`⚠️ Deal health alert skipped: Channel ${targetChannel} not found or bot not invited`);
+        } else {
+          throw postError;
+        }
+      }
     }
 
   } catch (error) {
