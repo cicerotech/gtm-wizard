@@ -4346,7 +4346,7 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
       stage: '1', // Stage 1 - Discovery default
       targetDate: null, // Will calculate: TODAY + 150 days
       revenueType: 'Recurring', // Correct Salesforce picklist value (not 'ARR')
-      opportunitySource: 'Inbound', // Always Inbound for now
+      opportunitySource: 'Eudia Exec-Intro', // Default Opportunity Source
       productLine: 'AI-Augmented Contracting' // Default product (can override)
     };
     
@@ -4422,6 +4422,8 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
       CloseDate: targetDateFormatted,
       Revenue_Type__c: oppData.revenueType, // Recurring, Commitment, or Project
       LeadSource: oppData.opportunitySource,
+      Opportunity_Source__c: oppData.opportunitySource, // Required custom field - default: Eudia Exec-Intro
+      RecordTypeId: '012Hp000001HYyxIAG', // Standard Sales RT (from Quick Create Flow)
       Probability: probability
       // IsClosed: REMOVED - read-only field, set automatically by Salesforce based on StageName
     };
