@@ -784,6 +784,15 @@ class GTMBrainApp {
     this.expressApp.get('/commands', (req, res) => res.redirect('/cheat-sheet'));
     this.expressApp.get('/help', (req, res) => res.redirect('/cheat-sheet'));
 
+    // Sales Process & RevOps Playbook
+    this.expressApp.get('/sales-process', (req, res) => {
+      const path = require('path');
+      const processPath = path.join(__dirname, '..', 'docs', 'sales-process.html');
+      res.sendFile(processPath);
+    });
+    this.expressApp.get('/playbook', (req, res) => res.redirect('/sales-process'));
+    this.expressApp.get('/revops', (req, res) => res.redirect('/sales-process'));
+
     // Email Builder API routes
     const emailBuilderRoutes = require('./routes/emailBuilder');
     this.expressApp.get('/api/search-accounts', emailBuilderRoutes.searchAccounts);
