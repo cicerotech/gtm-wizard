@@ -506,9 +506,32 @@
             </div>
         </details>
 
-        <!-- 2. CRITICAL FIELDS -->
+        <!-- 2. QUALIFICATION CRITERIA -->
         <details open>
-            <summary><h2>2. Critical Fields & Weekly Review</h2></summary>
+            <summary><h2>2. Qualification Criteria</h2></summary>
+            <div class="section-content">
+                <div class="note">
+                    <strong>Urgency is key:</strong> An opportunity should only move to Stage 2 (SQO) if the prospect is likely to transact within the next <strong>90 days</strong>.
+                </div>
+                
+                <h3>Qualification Requirements</h3>
+                <ul>
+                    <li><strong>Timeline:</strong> Prospect is likely to transact within 90 days</li>
+                    <li><strong>Budget:</strong> Budget confirmed or identifiable</li>
+                    <li><strong>Need:</strong> Clear use case and pain point identified</li>
+                    <li><strong>Champion:</strong> Internal advocate identified</li>
+                </ul>
+
+                <h3>Stage 2 Entry Requirement</h3>
+                <div class="note">
+                    <strong>Required:</strong> When an opportunity moves to Stage 2 (SQO), the <span class="bl-tag">BL</span> must post a qualification justification/update in Slack <span class="tool-tag">#gtm-account-planning</span>.
+                </div>
+            </div>
+        </details>
+
+        <!-- 3. CRITICAL FIELDS -->
+        <details open>
+            <summary><h2>3. Critical Fields & Weekly Review</h2></summary>
             <div class="section-content">
                 <div class="note">
                     <strong>Thursdays by EOD:</strong> <span class="bl-tag">BLs</span> update Stage, ACV, Target Sign Date, Product Line, Notes on all active opps. Data feeds weekly <span class="revops-tag">RevOps</span> email (Friday EOD) and EOM/EOQ forecasting.
@@ -523,9 +546,19 @@
                         <tr><td><strong>Stage</strong></td><td>Current sales stage (0-4)</td></tr>
                         <tr><td><strong>Product Line</strong></td><td>Primary offering (see Section 4)</td></tr>
                         <tr><td><strong>Target Sign Date</strong></td><td>Expected signature date (becomes Close Date when won)</td></tr>
-                        <tr><td><strong>Sales Type</strong></td><td>New Business, Expansion, Renewal, Cross-sell, New via LOI</td></tr>
+                        <tr><td><strong>Sales Type</strong></td><td>New Business, Expansion, Renewal</td></tr>
                         <tr><td><strong>Revenue Type</strong></td><td>Recurring (12+ mo), Project (&lt;12 mo), Commitment (LOI)</td></tr>
-                        <tr><td><strong>Eudia Tech</strong></td><td>AI-Enabled flag — required for tech deals</td></tr>
+                        <tr><td><strong>AI-Enabled</strong></td><td>Flag for AI-enabled opportunities — required for tech deals</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>Sales Type Definitions</h3>
+                <table>
+                    <thead><tr><th>Type</th><th>Definition</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>New Business</strong></td><td>Net new logos OR net new product lines at existing customers (dollars are net new)</td></tr>
+                        <tr><td><strong>Expansion</strong></td><td>Growth within existing product lines for existing ARR customers</td></tr>
+                        <tr><td><strong>Renewal</strong></td><td>Full annualized renewal value (not just net-new uplift)</td></tr>
                     </tbody>
                 </table>
 
@@ -537,15 +570,11 @@
             </div>
         </details>
 
-        <!-- 3. AUTOMATION -->
+        <!-- 4. AUTOMATION -->
         <details open>
-            <summary><h2>3. Automation & Data Capture</h2></summary>
+            <summary><h2>4. Automation & Data Capture</h2></summary>
             <div class="section-content">
                 <div class="automation-grid">
-                    <div class="automation-card">
-                        <div class="automation-title">Account Assignment</div>
-                        <div class="automation-desc">Round-robin by geography + pipeline load. <span class="tool-tag">gtm-brain</span> suggests, <span class="person-tag">Keigan</span> confirms.</div>
-                    </div>
                     <div class="automation-card">
                         <div class="automation-title">Meeting Prep</div>
                         <div class="automation-desc"><span class="person-tag">Keigan</span> prepares Stage 1-2 materials, shared with <span class="bl-tag">BLs</span> for revision.</div>
@@ -583,9 +612,9 @@
             </div>
         </details>
 
-        <!-- 4. PRODUCT LINES -->
+        <!-- 5. PRODUCT LINES -->
         <details open>
-            <summary><h2>4. Product Lines</h2></summary>
+            <summary><h2>5. Product Lines</h2></summary>
             <div class="section-content">
                 <p style="font-size: 11px; color: #64748b; margin-bottom: 10px;"><strong>DRI:</strong> <span class="person-tag">Keigan</span> • Standardized for investor reporting.</p>
                 <table>
@@ -608,31 +637,42 @@
             </div>
         </details>
 
-        <!-- 5. ACCOUNTS -->
+        <!-- 6. ACCOUNT & OPPORTUNITY TAGGING -->
         <details open>
-            <summary><h2>5. Account Management</h2></summary>
+            <summary><h2>6. Account & Opportunity Tagging</h2></summary>
             <div class="section-content">
+                <div class="note">
+                    Account assignment and reporting structure documentation coming soon.
+                </div>
+
                 <div class="two-col">
                     <div>
-                        <h3 style="margin-top: 0;">Geography Assignment</h3>
+                        <h3 style="margin-top: 0;">Account-Level Tags</h3>
                         <table>
-                            <thead><tr><th>Region</th><th><span class="bl-tag">BLs</span></th><th>VP</th></tr></thead>
+                            <thead><tr><th>Tag</th><th>Definition</th></tr></thead>
                             <tbody>
-                                <tr><td>West Coast</td><td>Julie, Asad, Justin, Ananth</td><td>Mitchell</td></tr>
-                                <tr><td>East Coast</td><td>Olivia</td><td><em style="color:#94a3b8;">TBD</em></td></tr>
-                                <tr><td>International</td><td>Nathan, Tom, Nicola, Conor, Greg, Emer, Alex</td><td><em style="color:#94a3b8;">TBD</em></td></tr>
+                                <tr><td><strong>New</strong></td><td>Net new customer — no prior relationship</td></tr>
+                                <tr><td><strong>Existing</strong></td><td>Prior or current relationship (see sub-tags)</td></tr>
+                            </tbody>
+                        </table>
+                        <h3>Existing Customer Sub-Tags</h3>
+                        <table>
+                            <thead><tr><th>Sub-Tag</th><th>Definition</th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>MSA</strong></td><td>Master Service Agreement in place</td></tr>
+                                <tr><td><strong>Pilot</strong></td><td>Currently running or completed pilot</td></tr>
+                                <tr><td><strong>LOI</strong></td><td>Letter of Intent signed</td></tr>
                             </tbody>
                         </table>
                     </div>
                     <div>
-                        <h3 style="margin-top: 0;">Customer Types</h3>
+                        <h3 style="margin-top: 0;">Opportunity-Level Tags</h3>
                         <table>
-                            <thead><tr><th>Type</th><th>Meaning</th></tr></thead>
+                            <thead><tr><th>Tag</th><th>Definition</th></tr></thead>
                             <tbody>
-                                <tr><td>LOI, no $</td><td>Signed LOI, no commitment</td></tr>
-                                <tr><td>LOI, with $</td><td>LOI with committed amount</td></tr>
-                                <tr><td>Pilot</td><td>Running pilot</td></tr>
-                                <tr><td>Revenue</td><td>Active 12+ mo contract</td></tr>
+                                <tr><td><strong>New</strong></td><td>Net new logos OR net new product lines (dollars are net new)</td></tr>
+                                <tr><td><strong>Expansion</strong></td><td>Growth within existing product lines for existing ARR customers</td></tr>
+                                <tr><td><strong>Renewal</strong></td><td>Full annualized renewal value (not just net-new uplift)</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -641,17 +681,17 @@
                 <h3>Key Account Fields</h3>
                 <ul class="inline-list">
                     <li><strong>Account Owner:</strong> <span class="bl-tag">BL</span> responsible</li>
-                    <li><strong>HQ State/Region:</strong> Determines assignment</li>
-                    <li><strong>Customer Type:</strong> Relationship status</li>
+                    <li><strong>HQ State/Region:</strong> Geography</li>
+                    <li><strong>Customer Tag:</strong> New vs Existing</li>
                     <li><strong>Account Plan:</strong> Strategy doc</li>
                     <li><strong>Customer Brain:</strong> Meeting notes</li>
                 </ul>
             </div>
         </details>
 
-        <!-- 6. REVENUE TYPES -->
+        <!-- 7. OPPORTUNITY REVENUE TYPES -->
         <details open>
-            <summary><h2>6. Revenue Types</h2></summary>
+            <summary><h2>7. Opportunity Revenue Types</h2></summary>
             <div class="section-content">
                 <p style="font-size: 11px; color: #64748b; margin-bottom: 10px;">Assigned at Close Won. Revenue $ only populated for Recurring + Project.</p>
                 <table>
@@ -665,15 +705,16 @@
             </div>
         </details>
 
-        <!-- 7. GLOSSARY -->
+        <!-- 8. GLOSSARY -->
         <details open>
-            <summary><h2>7. Glossary</h2></summary>
+            <summary><h2>8. Glossary</h2></summary>
             <div class="section-content">
                 <div class="glossary-grid">
                     <div class="glossary-item"><span class="glossary-term">ACV</span> — <span class="glossary-def">Annual Contract Value</span></div>
-                    <div class="glossary-item"><span class="glossary-term">SQO</span> — <span class="glossary-def">Sales Qualified Opportunity (Stage 2)</span></div>
+                    <div class="glossary-item"><span class="glossary-term">SQO</span> — <span class="glossary-def">Sales Qualified Opportunity (Stage 2) — requires Slack post in #gtm-account-planning</span></div>
                     <div class="glossary-item"><span class="glossary-term">MEDDPIC</span> — <span class="glossary-def">Metrics, Economic Buyer, Decision Criteria/Process, Identify Pain, Champion</span></div>
                     <div class="glossary-item"><span class="glossary-term">LOI</span> — <span class="glossary-def">Letter of Intent</span></div>
+                    <div class="glossary-item"><span class="glossary-term">MSA</span> — <span class="glossary-def">Master Service Agreement</span></div>
                     <div class="glossary-item"><span class="glossary-term">ICP</span> — <span class="glossary-def">Ideal Customer Profile</span></div>
                     <div class="glossary-item"><span class="glossary-term">ERP</span> — <span class="glossary-def">Enterprise Resource Planning (finance backend)</span></div>
                     <div class="glossary-item"><span class="glossary-term">DRI</span> — <span class="glossary-def">Directly Responsible Individual</span></div>
@@ -685,7 +726,7 @@
                     <div class="glossary-item"><span class="glossary-term"><span class="tool-tag">Rocketlane</span></span> — <span class="glossary-def">Delivery/project management</span></div>
                     <div class="glossary-item"><span class="glossary-term"><span class="tool-tag">Customer Brain</span></span> — <span class="glossary-def">Account-level meeting notes in CRM</span></div>
                     <div class="glossary-item"><span class="glossary-term">Account Plan</span> — <span class="glossary-def">Strategic plan (use cases, champions, value prop)</span></div>
-                    <div class="glossary-item"><span class="glossary-term">Eudia Tech</span> — <span class="glossary-def">AI-enabled opportunity flag</span></div>
+                    <div class="glossary-item"><span class="glossary-term">AI-Enabled</span> — <span class="glossary-def">Flag indicating opportunity uses Eudia technology</span></div>
                 </div>
             </div>
         </details>
