@@ -50,6 +50,11 @@ const { registerInteractiveHandlers } = require('./slack/interactive');
 const { startScheduledJobs } = require('./slack/scheduled');
 const { scheduleWeeklyReport } = require('./slack/weeklyReport');
 
+// Channel Intelligence Scraper
+const channelIntelligence = require('./services/channelIntelligence');
+const channelMonitor = require('./slack/channelMonitor');
+const intelligenceDigest = require('./slack/intelligenceDigest');
+
 /**
  * Generate GTM-Brain Command Cheat Sheet HTML
  */
@@ -962,6 +967,22 @@ class GTMBrainApp {
       scheduleWeeklyReport();
       logger.info('📧 Weekly report scheduler started');
 
+      // Subscribe to Closed Won Platform Events
+      if (process.env.CLOSED_WON_ALERTS_ENABLED === 'true') {
+        const { subscribeToClosedWonEvents } = require('./services/closedWonAlerts');
+        await subscribeToClosedWonEvents(this.app);
+        logger.info('🎉 Closed Won alerts subscription started');
+      }
+
+      // Initialize Channel Intelligence Scraper
+      if (process.env.INTEL_SCRAPER_ENABLED === 'true') {
+        await channelIntelligence.initialize(this.app.client);
+        channelMonitor.registerChannelMonitorHandlers(this.app);
+        intelligenceDigest.initialize(this.app.client);
+        intelligenceDigest.registerDigestHandlers(this.app);
+        logger.info('🧠 Channel Intelligence Scraper initialized');
+      }
+
       // Setup graceful shutdown
       this.setupGracefulShutdown();
 
@@ -976,6 +997,15 @@ class GTMBrainApp {
       logger.info(`${signal} received, shutting down gracefully...`);
       
       try {
+        // Stop Channel Intelligence services
+        if (process.env.INTEL_SCRAPER_ENABLED === 'true') {
+          channelIntelligence.stopPolling();
+          intelligenceDigest.stopDigest();
+          const intelligenceStore = require('./services/intelligenceStore');
+          intelligenceStore.close();
+          logger.info('✅ Channel Intelligence stopped');
+        }
+
         // Stop Slack app
         if (this.app) {
           await this.app.stop();
