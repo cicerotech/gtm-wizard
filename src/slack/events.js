@@ -906,16 +906,101 @@ function getHeaderText(intent, totalSize) {
  * Handle reaction feedback
  */
 async function handleReactionFeedback(event, client) {
-  if (event.reaction === 'thumbsup' || event.reaction === '+1') {
+  const { reaction, user: userId, item } = event;
+  const channelId = item.channel;
+  const messageTs = item.ts;
+
+  // Handle positive feedback
+  if (reaction === 'thumbsup' || reaction === '+1') {
     logger.info('👍 Positive feedback received', {
-      userId: event.user,
-      messageTs: event.item.ts
+      userId,
+      messageTs
     });
-  } else if (event.reaction === 'thumbsdown' || event.reaction === '-1') {
+  } 
+  // Handle negative feedback
+  else if (reaction === 'thumbsdown' || reaction === '-1') {
     logger.info('👎 Negative feedback received', {
-      userId: event.user,
-      messageTs: event.item.ts
+      userId,
+      messageTs
     });
+  }
+  // Handle contact enrichment writeback confirmation
+  else if (reaction === 'white_check_mark' || reaction === '✅') {
+    await handleContactWriteback(event, client);
+  }
+}
+
+/**
+ * Handle contact enrichment writeback to Salesforce
+ * Triggered by ✅ reaction on enriched contact messages
+ */
+async function handleContactWriteback(event, client) {
+  const { user: userId, item } = event;
+  const channelId = item.channel;
+  const messageTs = item.ts;
+
+  try {
+    // Get the message that was reacted to
+    const result = await client.conversations.history({
+      channel: channelId,
+      latest: messageTs,
+      limit: 1,
+      inclusive: true
+    });
+
+    if (!result.messages || result.messages.length === 0) {
+      logger.warn('Could not find message for contact writeback', { channelId, messageTs });
+      return;
+    }
+
+    const message = result.messages[0];
+    
+    // Check if this is a contact lookup message by looking for lookup ID
+    const lookupIdMatch = message.text?.match(/_lookup:(cl_[a-z0-9_]+)_/) ||
+                          message.blocks?.find(b => b.type === 'context')
+                            ?.elements?.find(e => e.text?.includes('lookup:'))
+                            ?.text?.match(/_lookup:(cl_[a-z0-9_]+)_/);
+
+    if (!lookupIdMatch) {
+      // Not a contact lookup message, ignore
+      return;
+    }
+
+    const lookupId = lookupIdMatch[1];
+    logger.info('✅ Contact writeback requested', { lookupId, userId });
+
+    // Import contactEnrichment to perform writeback
+    const { confirmWriteback } = require('../services/contactEnrichment');
+    const writebackResult = await confirmWriteback(lookupId);
+
+    // Send confirmation in thread
+    if (writebackResult.success) {
+      await client.chat.postMessage({
+        channel: channelId,
+        thread_ts: messageTs,
+        text: `✅ Updated Salesforce ${writebackResult.objectType} with: ${writebackResult.updatedFields.join(', ')}`
+      });
+      
+      logger.info('✅ Contact writeback successful', {
+        lookupId,
+        recordId: writebackResult.recordId,
+        fields: writebackResult.updatedFields
+      });
+    } else {
+      await client.chat.postMessage({
+        channel: channelId,
+        thread_ts: messageTs,
+        text: `⚠️ Could not update Salesforce: ${writebackResult.error}`
+      });
+      
+      logger.warn('Contact writeback failed', {
+        lookupId,
+        error: writebackResult.error
+      });
+    }
+
+  } catch (error) {
+    logger.error('Error handling contact writeback:', error);
   }
 }
 

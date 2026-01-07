@@ -1,0 +1,33 @@
+{
+  "generatedAt": null,
+  "stats": {
+    "totalContacts": 0,
+    "totalLeads": 0,
+    "complete": 0,
+    "incomplete": 0,
+    "emailOnly": 0,
+    "phoneOnly": 0,
+    "noContactInfo": 0,
+    "nameVariationTests": 0,
+    "totalTestCases": 0
+  },
+  "categories": {
+    "completeRecords": [],
+    "incompleteRecords": [],
+    "emailOnlyRecords": [],
+    "phoneOnlyRecords": [],
+    "leadsToTest": []
+  },
+  "nameVariations": [],
+  "companyVariations": [],
+  "testCases": [],
+  "queryTemplates": {
+    "simpleNameCompany": [],
+    "nicknameTests": [],
+    "companyAbbreviations": [],
+    "lastNameOnly": [],
+    "withTitle": []
+  },
+  "_note": "Run 'node scripts/generate-contact-test-data.js' to populate with real Salesforce data"
+}
+

@@ -2,26 +2,107 @@ const logger = require('../utils/logger');
 
 class SocratesAdapter {
   constructor() {
-    this.apiKey = process.env.OPENAI_API_KEY; // Your Socrates API key
+    this.fallbackApiKey = process.env.OPENAI_API_KEY; // Fallback API key
+    
+    // Okta M2M configuration for Socrates authentication
+    this.oktaConfig = {
+      issuer: process.env.OKTA_ISSUER,
+      clientId: process.env.OKTA_CLIENT_ID,
+      clientSecret: process.env.OKTA_CLIENT_SECRET
+    };
+    
+    // Cached Okta access token
+    this.oktaToken = null;
+    this.oktaTokenExpiry = 0;
     
     // Working Socrates configuration (discovered through testing)
     this.workingConfig = {
-      baseURL: 'https://socrates.cicerotech.link',
+      baseURL: process.env.SOCRATES_BASE_URL || 'https://socrates.cicerotech.link',
       endpoint: '/api/chat/completions',
       authMethod: 'Bearer'
     };
     
-    // Available models in your Socrates system (confirmed working)
+    // Available models in your Socrates system
     this.availableModels = {
       'gpt-4': 'gpt-4',
-      'claude-opus-4.1': 'gpt-4', // Fallback to working model
-      'claude-opus': 'gpt-4',     // Fallback to working model
       'gpt-4.0': 'gpt-4',
-      'gpt-5': 'gpt-4'            // Fallback until we test gpt-5
+      'gpt-5': 'gpt-5',
+      'claude-opus-4': 'eudia-claude-opus-4',
+      'claude-opus-4.1': 'eudia-claude-opus-41',
+      'claude-sonnet-4.5': 'eudia-claude-sonnet-45',
+      'claude-sonnet': 'eudia-claude-sonnet-45',
+      'gemini-3.0-pro': 'eudia-gemini-30-pro-preview'
     };
     
-    this.model = this.availableModels[process.env.SOCRATES_MODEL] || 'gpt-4';
+    this.model = this.availableModels[process.env.SOCRATES_MODEL] || process.env.SOCRATES_MODEL || 'gpt-4';
     this.workingEndpoint = null; // Cache successful endpoint
+  }
+
+  /**
+   * Check if Okta M2M auth is configured
+   */
+  isOktaConfigured() {
+    return !!(this.oktaConfig.issuer && this.oktaConfig.clientId && this.oktaConfig.clientSecret);
+  }
+
+  /**
+   * Get Okta access token using client credentials flow
+   */
+  async getOktaAccessToken() {
+    // Return cached token if still valid (with 5 min buffer)
+    if (this.oktaToken && Date.now() < this.oktaTokenExpiry - 300000) {
+      return this.oktaToken;
+    }
+
+    if (!this.isOktaConfigured()) {
+      logger.debug('Okta M2M not configured, falling back to API key auth');
+      return null;
+    }
+
+    try {
+      const tokenUrl = `${this.oktaConfig.issuer}/oauth2/v1/token`;
+      const credentials = Buffer.from(
+        `${this.oktaConfig.clientId}:${this.oktaConfig.clientSecret}`
+      ).toString('base64');
+
+      const response = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${credentials}`
+        },
+        body: 'grant_type=client_credentials&scope=openid'
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        logger.error('Okta token request failed:', error);
+        return null;
+      }
+
+      const data = await response.json();
+      this.oktaToken = data.access_token;
+      // Okta tokens typically expire in 1 hour (3600 seconds)
+      this.oktaTokenExpiry = Date.now() + ((data.expires_in || 3600) * 1000);
+      
+      logger.info('✅ Okta M2M access token obtained for Socrates');
+      return this.oktaToken;
+
+    } catch (error) {
+      logger.error('Failed to get Okta access token:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get the best available auth token (Okta preferred, fallback to API key)
+   */
+  async getAuthToken() {
+    const oktaToken = await this.getOktaAccessToken();
+    if (oktaToken) {
+      return oktaToken;
+    }
+    return this.fallbackApiKey;
   }
 
   /**
@@ -92,13 +173,14 @@ class SocratesAdapter {
    */
   async tryWorkingConfig(requestBody) {
     const url = `${this.workingConfig.baseURL}${this.workingConfig.endpoint}`;
+    const authToken = await this.getAuthToken();
     
     try {
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
+          'Authorization': `Bearer ${authToken}`,
           'User-Agent': 'GTM-Brain-Bot/1.0'
         },
         body: JSON.stringify(requestBody)
@@ -121,28 +203,23 @@ class SocratesAdapter {
    */
   async tryEndpoint(baseURL, endpoint, requestBody) {
     const url = `${baseURL}${endpoint}`;
+    const authToken = await this.getAuthToken();
     
     // Try different authentication methods
     const authMethods = [
-      // Method 1: Bearer token
+      // Method 1: Bearer token (preferred - Okta or API key)
       {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`,
+        'Authorization': `Bearer ${authToken}`,
         'User-Agent': 'GTM-Brain-Bot/1.0'
       },
       // Method 2: API Key header
       {
         'Content-Type': 'application/json',
-        'X-API-Key': this.apiKey,
+        'X-API-Key': authToken,
         'User-Agent': 'GTM-Brain-Bot/1.0'
       },
-      // Method 3: Direct API key in Authorization
-      {
-        'Content-Type': 'application/json',
-        'Authorization': this.apiKey,
-        'User-Agent': 'GTM-Brain-Bot/1.0'
-      },
-      // Method 4: No authentication (for testing)
+      // Method 3: No authentication (for internal networks)
       {
         'Content-Type': 'application/json',
         'User-Agent': 'GTM-Brain-Bot/1.0'

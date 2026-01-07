@@ -19,6 +19,26 @@ class FeedbackLearningSystem {
       /not.*but/i,
       /fix.*to/i
     ];
+
+    // Contact-specific feedback patterns for contact enrichment
+    this.contactCorrectionPatterns = [
+      /that'?s not (?:the right|correct) person/i,
+      /wrong contact/i,
+      /different (?:person|contact)/i,
+      /actually.*?is (.+?) at/i,
+      /not (?:him|her|them)/i,
+      /wrong (?:number|email|phone)/i,
+      /that'?s (?:someone else|the wrong person)/i
+    ];
+
+    // Contact-specific positive indicators
+    this.contactPositivePatterns = [
+      /that'?s (?:the one|correct|right|them|him|her)/i,
+      /found (?:them|him|her)/i,
+      /perfect,? that'?s/i,
+      /yes,? that'?s/i,
+      /got it/i
+    ];
   }
 
   /**
@@ -147,6 +167,86 @@ class FeedbackLearningSystem {
       logger.error('Error extracting correction:', error);
       return null;
     }
+  }
+
+  /**
+   * Analyze contact-specific feedback
+   * Used by contact enrichment to learn from user reactions
+   * @param {string} message - User's feedback message
+   * @param {Object} lookupContext - Original lookup context
+   * @returns {Object} - { type: 'positive'|'negative'|'correction', isContactFeedback: boolean }
+   */
+  analyzeContactFeedback(message, lookupContext = null) {
+    const lowerMessage = message.toLowerCase();
+    
+    const feedback = {
+      type: 'neutral',
+      isContactFeedback: false,
+      confidence: 0,
+      correction: null
+    };
+
+    // Check for contact-specific corrections first (highest priority)
+    for (const pattern of this.contactCorrectionPatterns) {
+      if (pattern.test(message)) {
+        feedback.type = 'negative';
+        feedback.isContactFeedback = true;
+        feedback.confidence = 0.9;
+        
+        // Try to extract what they're correcting to
+        const correctionMatch = message.match(/actually.*?is (.+?) at/i);
+        if (correctionMatch) {
+          feedback.correction = correctionMatch[1].trim();
+        }
+        
+        return feedback;
+      }
+    }
+
+    // Check for contact-specific positive patterns
+    for (const pattern of this.contactPositivePatterns) {
+      if (pattern.test(message)) {
+        feedback.type = 'positive';
+        feedback.isContactFeedback = true;
+        feedback.confidence = 0.85;
+        return feedback;
+      }
+    }
+
+    // Fall back to generic feedback analysis
+    return this.analyzeFeedback(message);
+  }
+
+  /**
+   * Check if a message is contact-related feedback
+   * @param {string} message - User message
+   * @param {Object} conversationContext - Context with lastQuery info
+   * @returns {boolean}
+   */
+  isContactFeedbackMessage(message, conversationContext) {
+    if (!conversationContext) return false;
+
+    // Check if last interaction was a contact lookup
+    const lastQuery = conversationContext.lastQuery;
+    if (!lastQuery || lastQuery.type !== 'contact_lookup') {
+      return false;
+    }
+
+    // Check time window (feedback within 2 minutes of lookup)
+    const timeSinceQuery = Date.now() - (lastQuery.timestamp || 0);
+    if (timeSinceQuery > 2 * 60 * 1000) {
+      return false;
+    }
+
+    // Check for contact-specific patterns
+    const lowerMessage = message.toLowerCase();
+    
+    const contactKeywords = [
+      'person', 'contact', 'them', 'him', 'her', 'number', 'phone', 'email',
+      'correct', 'wrong', 'right', 'different', 'that\'s'
+    ];
+
+    return contactKeywords.some(keyword => lowerMessage.includes(keyword));
   }
 
   /**
@@ -456,6 +556,12 @@ module.exports = {
   isFeedbackMessage: (message, conversationContext) =>
     feedbackLearning.isFeedbackMessage(message, conversationContext),
   applyCorrectionLearning: (query, entities, intent) =>
-    feedbackLearning.applyCorrectionLearning(query, entities, intent)
+    feedbackLearning.applyCorrectionLearning(query, entities, intent),
+  
+  // Contact-specific feedback methods
+  analyzeContactFeedback: (message, lookupContext) =>
+    feedbackLearning.analyzeContactFeedback(message, lookupContext),
+  isContactFeedbackMessage: (message, conversationContext) =>
+    feedbackLearning.isContactFeedbackMessage(message, conversationContext)
 };
 

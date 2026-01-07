@@ -29,6 +29,7 @@
   "author": "Your Company",
   "license": "MIT",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
     "@azure/identity": "^4.13.0",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@slack/bolt": "^3.17.1",

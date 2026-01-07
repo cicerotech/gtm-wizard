@@ -1,0 +1,305 @@
+{
+  "meta": {
+    "version": "1.0",
+    "created": "2026-01-05",
+    "description": "Structured ruleset for generating Eudia sales presentations based on analyzed deck DNA"
+  },
+  
+  "brand_identity": {
+    "colors": {
+      "primary": "#163340",
+      "secondary": "#000000",
+      "tertiary": "#575757",
+      "accent": "#33D2C5",
+      "background_dark": "#3D3D3D"
+    },
+    "typography": {
+      "title_font": "Aptos SemiBold",
+      "body_font": "Aptos Light",
+      "case_study_font": "Century Gothic",
+      "fallback_fonts": ["Arial", "Helvetica"]
+    },
+    "slide_dimensions": {
+      "width_inches": 22,
+      "height_inches": 12.36,
+      "aspect_ratio": "16:9"
+    }
+  },
+  
+  "required_sections": [
+    {
+      "order": 1,
+      "type": "title_slide",
+      "required": true,
+      "template": "Presentation Cover and Ending",
+      "content_rules": {
+        "headline_pattern": "Outcome-oriented statement",
+        "examples": ["Drive Outcomes with AI", "The Company Brain in Action"]
+      }
+    },
+    {
+      "order": 2,
+      "type": "credibility",
+      "required": true,
+      "template": "Standard Content",
+      "content_rules": {
+        "must_include": [
+          "Who we are statement",
+          "Series A funding ($105M)",
+          "Investor logos",
+          "F500 customer logos"
+        ],
+        "positioning": "Purpose-Built to Work with F500 Teams"
+      }
+    },
+    {
+      "order": 3,
+      "type": "problem_framing",
+      "required": true,
+      "template": "Standard Content",
+      "content_rules": {
+        "headline": "The problem we are solving",
+        "pain_point_categories": [
+          "Resource constraints",
+          "Knowledge silos", 
+          "Misaligned incentives",
+          "Strategic elevation opportunity"
+        ]
+      }
+    },
+    {
+      "order": 4,
+      "type": "solution_overview",
+      "required": true,
+      "template": "Standard Content",
+      "content_rules": {
+        "headline": "How Eudia Delivers Outcomes",
+        "framework": "AI technology + knowledge/data + human expertise",
+        "speed_claim": "deliver in weeks, not quarters"
+      }
+    },
+    {
+      "order": 5,
+      "type": "value_alignment",
+      "required": true,
+      "template": "Standard Content",
+      "content_rules": {
+        "headline": "Eudia Aligns to Your Strategic Objectives",
+        "three_pillars": [
+          {
+            "name": "Drive Speed",
+            "description": "Infusing AI into legal workflows to speed up the business"
+          },
+          {
+            "name": "Reduce Cost", 
+            "description": "Reducing outside counsel spend or optimize team design to unlock cost efficiencies"
+          },
+          {
+            "name": "Create an AI Edge",
+            "description": "Leveraging AI to give you a competitive advantage against your counterparties or competitors"
+          }
+        ],
+        "enablers": ["Data", "Analytics"]
+      }
+    },
+    {
+      "order": 6,
+      "type": "company_brain",
+      "required": true,
+      "template": "Standard Content",
+      "content_rules": {
+        "headline": "Building the Company Brain",
+        "tagline": "The Company Brain is not a static database – it's a living intelligence system",
+        "four_capabilities": [
+          "Ingests knowledge across contracts, litigation files, compliance policies, prior deals, regulatory frameworks",
+          "Structures and operationalizes knowledge for reuse and workflow embedding",
+          "Trains custom 'MINDs' for high-value domains",
+          "Learns continuously, compounding enterprise legal intelligence over time"
+        ]
+      }
+    },
+    {
+      "order": 7,
+      "type": "proof_points",
+      "required": true,
+      "min_count": 2,
+      "template": "Case Study",
+      "content_rules": {
+        "structure": {
+          "metric": "Large quantified outcome (30%, 50%, $12M)",
+          "use_case": "Specific application area",
+          "customer_context": "Brief company/situation description"
+        }
+      }
+    },
+    {
+      "order": 8,
+      "type": "customer_testimonial",
+      "required": true,
+      "template": "Standard Content",
+      "content_rules": {
+        "quote_format": "Direct quote in quotation marks",
+        "attribution_format": "Name, Title, Company",
+        "title_requirement": "C-level or senior legal leader"
+      }
+    },
+    {
+      "order": 9,
+      "type": "close",
+      "required": true,
+      "template": "Presentation Cover and Ending",
+      "content_rules": {
+        "options": ["Visual branding", "Contact information", "Next steps"]
+      }
+    }
+  ],
+  
+  "optional_sections": [
+    {
+      "type": "pricing",
+      "when_to_include": "When commercial discussion is expected",
+      "template": "Emphasis",
+      "content_rules": {
+        "approach": "Tiered structure by contract type",
+        "flexibility_note": "Contract types can flex tiers",
+        "engagement_model": "SOW-based"
+      }
+    },
+    {
+      "type": "extended_case_studies",
+      "when_to_include": "When deep proof is needed or industry-specific examples required",
+      "template": "Case Study",
+      "slide_count": "4-8 slides"
+    }
+  ],
+  
+  "proof_point_library": [
+    {
+      "id": "intuit_marketing",
+      "customer": "Intuit",
+      "use_case": "Marketing Review",
+      "metric": "30% Faster",
+      "metric_type": "speed",
+      "description": "AI Marketing Review agents deployed directly into workflow unlocked massive efficiency gains for compliance teams",
+      "quote": {
+        "text": "It took Eudia two weeks to deploy a custom solution for us… the team is already seeing a 30% decrease to review marketing content from the business",
+        "speaker": "Kerry McLean",
+        "title": "EVP GC",
+        "company": "Intuit"
+      },
+      "industries": ["technology", "financial_services"]
+    },
+    {
+      "id": "coherent_contracting",
+      "customer": "Coherent",
+      "use_case": "Contracting",
+      "metric": "50% Faster",
+      "metric_type": "speed",
+      "description": "AI-powered legal experts combined with Augmented Intelligence Platform transformed contract delivery",
+      "quote": {
+        "text": "Eudia has transformed the way we deliver contracts by fusing AI with legal expertise. We are closing deals faster and accelerating key business objectives",
+        "speaker": "Rob Beard",
+        "title": "CLO",
+        "company": "Coherent"
+      },
+      "industries": ["technology", "all"]
+    },
+    {
+      "id": "cargill_brain",
+      "customer": "Cargill",
+      "use_case": "Knowledge Management",
+      "metric": "$12M+ value",
+      "metric_type": "value",
+      "description": "Enterprise-wide 'Cargill Brain' across 600-person global legal team, transforming 20K+ contracts into searchable intelligence",
+      "industries": ["agriculture", "manufacturing", "large_enterprise"]
+    },
+    {
+      "id": "duracell_efficiency",
+      "customer": "Duracell",
+      "use_case": "Contract Review",
+      "metric_type": "efficiency",
+      "description": "Lean in-house team automated manual contract review, data extraction, and synthesis",
+      "industries": ["consumer_goods", "manufacturing"]
+    },
+    {
+      "id": "ma_diligence",
+      "customer": "Generic",
+      "use_case": "M&A Diligence",
+      "metric": "50% Cheaper",
+      "metric_type": "cost",
+      "description": "AI analyzes and surfaces key risks across a data room at scale, driving more comprehensive and faster diligence review",
+      "industries": ["all"]
+    }
+  ],
+  
+  "pain_point_library": [
+    {
+      "id": "resource_constraints",
+      "text": "In-house legal teams are stretched thin on manual, low complexity work that takes away from being a strategic partner to the business",
+      "stakeholders": ["clo", "gc", "legal_ops"]
+    },
+    {
+      "id": "knowledge_silos",
+      "text": "Knowledge currently stored in static playbooks, siloed systems and often trapped in the brains of individuals, external law firms, or consulting firms",
+      "stakeholders": ["clo", "gc"]
+    },
+    {
+      "id": "misaligned_incentives",
+      "text": "Traditional law firms using billable hours have misaligned incentives to adopt AI; SaaS companies sell seats not tied to outcomes",
+      "stakeholders": ["clo", "gc", "procurement"]
+    },
+    {
+      "id": "strategic_opportunity",
+      "text": "Enterprise legal, procurement, and compliance teams face a once in a generation opportunity to elevate their functions from a cost-center to a strategic enabler",
+      "stakeholders": ["clo", "c_suite"]
+    }
+  ],
+  
+  "customization_inputs": {
+    "prospect_industry": {
+      "type": "select",
+      "options": ["technology", "financial_services", "pharma_life_sciences", "manufacturing", "consumer_goods", "energy", "other"],
+      "affects": ["case_study_selection", "pain_point_emphasis"]
+    },
+    "primary_use_case": {
+      "type": "select", 
+      "options": ["contracting", "ma_diligence", "compliance_review", "knowledge_management", "litigation_support", "general"],
+      "affects": ["proof_point_selection", "capability_emphasis"]
+    },
+    "primary_stakeholder": {
+      "type": "select",
+      "options": ["clo", "gc", "legal_ops", "procurement", "compliance", "c_suite"],
+      "affects": ["messaging_focus", "value_prop_order"]
+    },
+    "company_size": {
+      "type": "select",
+      "options": ["mid_market", "enterprise", "f500"],
+      "affects": ["credibility_emphasis", "scale_messaging"]
+    },
+    "key_value_driver": {
+      "type": "select",
+      "options": ["speed", "cost", "competitive_edge"],
+      "affects": ["pillar_ordering", "metric_selection"]
+    }
+  },
+  
+  "generation_guidelines": {
+    "slide_count": {
+      "overview_pitch": {"min": 10, "max": 12},
+      "case_study_focus": {"min": 12, "max": 15},
+      "pricing_commercial": {"min": 2, "max": 3}
+    },
+    "tone": {
+      "voice": "confident but not arrogant",
+      "focus": "outcome-oriented",
+      "style": "enterprise-appropriate, professional",
+      "specificity": "always use numbers, names, titles, timelines"
+    },
+    "content_density": {
+      "max_bullet_points_per_slide": 5,
+      "prefer_visuals": true,
+      "metrics_format": "large number + brief context"
+    }
+  }
+}
+

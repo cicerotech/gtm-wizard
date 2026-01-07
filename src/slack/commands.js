@@ -5,6 +5,11 @@ const { getContext, updateContext, clearContext } = require('../ai/contextManage
 const { queryBuilder } = require('../salesforce/queries');
 const { query } = require('../salesforce/connection');
 const { formatResponse } = require('./responseFormatter');
+const channelMonitor = require('./channelMonitor');
+const channelIntelligence = require('../services/channelIntelligence');
+const intelligenceDigest = require('./intelligenceDigest');
+const { lookup: contactLookup, getAnalytics: getContactAnalytics } = require('../services/contactEnrichment');
+const contactFormatter = require('./contactFormatter');
 
 /**
  * Register Slack slash commands
@@ -56,6 +61,30 @@ function registerSlashCommands(app) {
     } catch (error) {
       logger.error('Activity command error:', error);
       await respond('❌ Sorry, I encountered an error. Please try again.');
+    }
+  });
+
+  // Intelligence command
+  app.command('/intel', async ({ command, ack, respond, client }) => {
+    await ack();
+    
+    try {
+      await handleIntelCommand(command, respond, client);
+    } catch (error) {
+      logger.error('Intel command error:', error);
+      await respond('❌ Sorry, I encountered an error. Please try again.');
+    }
+  });
+
+  // Contact lookup command
+  app.command('/contact', async ({ command, ack, respond, client }) => {
+    await ack();
+    
+    try {
+      await handleContactCommand(command, respond, client);
+    } catch (error) {
+      logger.error('Contact command error:', error);
+      await respond('❌ Sorry, I encountered an error looking up that contact. Please try again.');
     }
   });
 
@@ -346,6 +375,269 @@ Usage: \`/activity [query]\`
 • Focus on high-value stale deals
 • Check specific stages or reps
 • Use for pipeline hygiene reviews`;
+}
+
+/**
+ * Handle /intel command
+ */
+async function handleIntelCommand(command, respond, client) {
+  const userId = command.user_id;
+  const channelId = command.channel_id;
+  const text = command.text.trim().toLowerCase();
+
+  logger.slackInteraction('slash_command', userId, channelId, `/intel ${text}`);
+
+  // Handle help
+  if (!text || text === 'help') {
+    await respond({
+      response_type: 'ephemeral',
+      text: getIntelHelp()
+    });
+    return;
+  }
+
+  // Parse subcommands
+  const parts = command.text.trim().split(/\s+/);
+  const subcommand = parts[0]?.toLowerCase();
+  const args = parts.slice(1).join(' ');
+
+  if (subcommand === 'set-account' || subcommand === 'link') {
+    // Link current channel to an account
+    if (!args) {
+      await respond({
+        response_type: 'ephemeral',
+        text: '❌ Please specify an account name. Usage: `/intel set-account AccountName`'
+      });
+      return;
+    }
+
+    const result = await channelMonitor.setChannelAccount(channelId, args);
+
+    if (result.success) {
+      await respond({
+        response_type: 'in_channel',
+        text: `✅ Channel linked to *${result.accountName}*\n\nI'll now capture relevant intelligence from this channel for the daily digest.`
+      });
+    } else {
+      await respond({
+        response_type: 'ephemeral',
+        text: `❌ ${result.error}`
+      });
+    }
+
+  } else if (subcommand === 'status') {
+    // Show monitoring status
+    const status = await channelMonitor.getMonitoringStatus();
+    const serviceStatus = channelIntelligence.getStatus();
+
+    let statusText = `📊 *Intelligence Monitoring Status*\n\n`;
+    statusText += `*Service:* ${serviceStatus.enabled ? '🟢 Enabled' : '🔴 Disabled'}\n`;
+    statusText += `*Polling:* ${serviceStatus.pollingActive ? '🟢 Active' : '⚪ Inactive'} (every ${serviceStatus.pollIntervalHours}h)\n`;
+    statusText += `*Channels Monitored:* ${status.channelsMonitored}\n\n`;
+
+    if (status.channels && status.channels.length > 0) {
+      statusText += `*Monitored Channels:*\n`;
+      for (const ch of status.channels.slice(0, 10)) {
+        const accountStatus = ch.hasAccountId ? '✅' : '⚠️';
+        statusText += `• #${ch.name} → ${ch.account || 'Unmapped'} ${accountStatus}\n`;
+      }
+      if (status.channels.length > 10) {
+        statusText += `_...and ${status.channels.length - 10} more_\n`;
+      }
+    }
+
+    if (status.intelligence) {
+      statusText += `\n*Intelligence Stats:*\n`;
+      statusText += `• Pending: ${status.intelligence.pending}\n`;
+      statusText += `• Approved: ${status.intelligence.approved}\n`;
+      statusText += `• Rejected: ${status.intelligence.rejected}\n`;
+    }
+
+    await respond({
+      response_type: 'ephemeral',
+      text: statusText
+    });
+
+  } else if (subcommand === 'add' || subcommand === 'monitor') {
+    // Add current channel to monitoring
+    const result = await channelMonitor.addChannelToMonitoring(client, channelId);
+
+    if (result.success) {
+      const accountInfo = result.accountId 
+        ? `Linked to *${result.accountName}*` 
+        : `⚠️ No account linked - use \`/intel set-account AccountName\` to link`;
+
+      await respond({
+        response_type: 'in_channel',
+        text: `✅ Channel added to intelligence monitoring!\n\n${accountInfo}`
+      });
+    } else {
+      await respond({
+        response_type: 'ephemeral',
+        text: `❌ ${result.error}`
+      });
+    }
+
+  } else if (subcommand === 'poll' || subcommand === 'sync') {
+    // Force poll all channels
+    await respond({
+      response_type: 'ephemeral',
+      text: '⏳ Starting intelligence poll...'
+    });
+
+    const result = await channelIntelligence.forcePoll();
+
+    await respond({
+      response_type: 'ephemeral',
+      text: `✅ Poll complete!\n• Channels polled: ${result.channelsPolled || 0}\n• Messages processed: ${result.messagesProcessed || 0}\n• Intelligence found: ${result.intelligenceFound || 0}`
+    });
+
+  } else if (subcommand === 'digest') {
+    // Trigger digest to current channel
+    await respond({
+      response_type: 'ephemeral',
+      text: '⏳ Generating intelligence digest...'
+    });
+
+    const result = await intelligenceDigest.triggerDigest(channelId);
+
+    if (result.error) {
+      await respond({
+        response_type: 'ephemeral',
+        text: `❌ ${result.error}`
+      });
+    }
+
+  } else {
+    // Unknown subcommand
+    await respond({
+      response_type: 'ephemeral',
+      text: `❓ Unknown command: \`${subcommand}\`\n\n${getIntelHelp()}`
+    });
+  }
+}
+
+/**
+ * Intel help text
+ */
+function getIntelHelp() {
+  return `🧠 *Intelligence Command Help*
+
+Usage: \`/intel [command] [options]\`
+
+*Commands:*
+• \`/intel set-account AccountName\` - Link this channel to a Salesforce account
+• \`/intel add\` - Add this channel to intelligence monitoring
+• \`/intel status\` - View monitoring status and stats
+• \`/intel poll\` - Force poll all channels now
+• \`/intel digest\` - Generate digest in this channel
+
+*How It Works:*
+1. Add bot to customer channels
+2. I'll automatically extract relevant intelligence
+3. Daily digest at 8am ET for review
+4. Approve items to sync to Customer Brain in Salesforce
+
+*Intelligence Categories:*
+📝 Meeting Notes • 💰 Deal Updates • 👥 Stakeholders
+🔧 Technical • ⚖️ Legal • 🏁 Competitive • 📅 Timeline
+
+*Tips:*
+• Use descriptive channel names (e.g., \`#customer-cargill\`)
+• I'll auto-detect account from channel name
+• Use \`set-account\` for manual mapping if needed`;
+}
+
+/**
+ * Handle /contact command
+ */
+async function handleContactCommand(command, respond, client) {
+  const userId = command.user_id;
+  const channelId = command.channel_id;
+  const text = command.text.trim();
+
+  logger.slackInteraction('slash_command', userId, channelId, `/contact ${text}`);
+
+  // Check rate limiting
+  const rateLimit = await cache.checkRateLimit(userId, 'contact_lookup');
+  if (!rateLimit.allowed) {
+    await respond({
+      response_type: 'ephemeral',
+      text: `⏱️ Please wait ${Math.ceil((rateLimit.resetTime - Date.now()) / 1000)} seconds before your next contact lookup.`
+    });
+    return;
+  }
+
+  // Handle help
+  if (!text || text === 'help') {
+    await respond({
+      response_type: 'ephemeral',
+      text: contactFormatter.getHelpText()
+    });
+    return;
+  }
+
+  // Handle stats
+  if (text === 'stats') {
+    const stats = getContactAnalytics();
+    await respond({
+      response_type: 'ephemeral',
+      text: `📊 *Contact Lookup Stats*\n\n` +
+        `Total lookups: ${stats.total}\n` +
+        `SF match rate: ${stats.sfMatchRate}%\n` +
+        `Avg response time: ${stats.avgResponseTime}ms\n` +
+        `Correction rate: ${stats.correctionRate}%`
+    });
+    return;
+  }
+
+  // Show processing message
+  await respond({
+    response_type: 'in_channel',
+    text: `🔍 Looking up: "${text}"...`
+  });
+
+  try {
+    // Perform contact lookup
+    const result = await contactLookup(text);
+
+    // Format and send response
+    const formatted = contactFormatter.formatContactResult(result);
+
+    await client.chat.postMessage({
+      channel: channelId,
+      ...formatted,
+      // If there was a processing message, we could update it
+      // But for now, post as new message
+    });
+
+    // Update context for feedback tracking
+    await updateContext(userId, channelId, {
+      intent: 'contact_lookup',
+      entities: result.parsed,
+      timestamp: Date.now()
+    }, {
+      type: 'contact_lookup',
+      lookupId: result.lookupId,
+      success: result.success
+    });
+
+  } catch (error) {
+    logger.error('Contact lookup failed:', error);
+    
+    await respond({
+      response_type: 'ephemeral',
+      text: `❌ Error looking up contact: ${error.message}\n\nTry: \`/contact help\` for usage examples.`,
+      replace_original: true
+    });
+  }
+}
+
+/**
+ * Contact help text
+ */
+function getContactHelp() {
+  return contactFormatter.getHelpText();
 }
 
 module.exports = {

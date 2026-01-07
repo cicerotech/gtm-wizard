@@ -283,6 +283,31 @@ docker-compose up
 - `REDIS_URL` — Optional (falls back to in-memory cache)
 - `DASHBOARD_PASSWORD` — Dashboard authentication
 
+**Channel Intelligence Scraper (optional):**
+- `INTEL_SCRAPER_ENABLED` — Set to `true` to enable the intelligence scraper
+- `INTEL_DIGEST_CHANNEL` — Slack channel ID for daily intelligence digest
+- `INTEL_DIGEST_TIME` — Time for daily digest (default: `08:00` ET)
+- `INTEL_POLL_INTERVAL_HOURS` — Hours between channel polling (default: `1`)
+- `INTEL_CONFIDENCE_THRESHOLD` — Minimum confidence for intelligence capture (default: `0.7`)
+
+**Slack App Configuration for Intelligence Scraper:**
+
+To use the Channel Intelligence Scraper, add these to your Slack App:
+
+*Required Scopes (OAuth & Permissions):*
+- `channels:history` — Read messages in public channels
+- `groups:history` — Read messages in private channels
+- `channels:read` — View channel info
+- `users:read` — Get user info for message authors
+
+*Required Slash Commands:*
+- `/intel` — Channel intelligence management (set-account, status, poll, digest)
+
+*Required Events (Event Subscriptions):*
+- `member_joined_channel` — Detect when bot joins channels
+- `member_left_channel` — Detect when bot leaves channels
+- `channel_rename` — Track channel name changes
+
 ---
 
 ## Security
