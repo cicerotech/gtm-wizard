@@ -9,6 +9,8 @@ const { optimizeQuery, trackQueryPerformance } = require('../ai/queryOptimizer')
 const { processFeedback, isFeedbackMessage } = require('../ai/feedbackLearning');
 const { cleanStageName } = require('../utils/formatters');
 const { processContractUpload, handleContractCreationConfirmation, handleContractActivation, handleAccountCorrection } = require('../services/contractCreation');
+const { lookup: contactLookup } = require('../services/contactEnrichment');
+const contactFormatter = require('./contactFormatter');
 
 /**
  * Decode Slack HTML entities in message text
@@ -294,6 +296,66 @@ async function processQuery(text, userId, channelId, client, threadTs = null) {
     if (textLower.startsWith('hyprnote status') || textLower === 'meeting sync status') {
       await handleHyprnoteSyncStatus(client, channelId, threadTs);
       return;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONTACT LOOKUP - Handle "@gtm-brain [Name], [Company]" or "[Name] at [Company]"
+    // ═══════════════════════════════════════════════════════════════════════════
+    const contactPatterns = [
+      /^([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+)+)\s*,\s*(.+)$/i,           // "John Smith, Microsoft"
+      /^([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+)+)\s+(?:at|from|@)\s+(.+)$/i, // "John Smith at Microsoft"
+      /^contact\s+(.+?)\s+(?:at|from|@)\s+(.+)$/i,                   // "contact John Smith at Microsoft"
+      /^find\s+(.+?)\s+(?:at|from|@)\s+(.+)$/i,                      // "find John Smith at Microsoft"
+      /^lookup\s+(.+?)\s+(?:at|from|@)\s+(.+)$/i                     // "lookup John Smith at Microsoft"
+    ];
+    
+    let contactMatch = null;
+    for (const pattern of contactPatterns) {
+      contactMatch = text.match(pattern);
+      if (contactMatch) break;
+    }
+    
+    if (contactMatch) {
+      const contactQuery = `${contactMatch[1]} at ${contactMatch[2]}`;
+      logger.info(`📇 Contact lookup detected: "${contactQuery}" from ${userId}`);
+      
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `🔍 Looking up contact info for *${contactMatch[1]}* at *${contactMatch[2]}*...`,
+        thread_ts: threadTs
+      });
+      
+      try {
+        const result = await contactLookup(contactQuery);
+        const formatted = contactFormatter.formatContactResult(result);
+        
+        await client.chat.postMessage({
+          channel: channelId,
+          ...formatted,
+          thread_ts: threadTs
+        });
+        
+        // Update context for feedback tracking
+        await updateContext(userId, channelId, {
+          intent: 'contact_lookup',
+          entities: result.parsed,
+          timestamp: Date.now()
+        }, {
+          type: 'contact_lookup',
+          lookupId: result.lookupId,
+          success: result.success
+        });
+        
+        return;
+      } catch (error) {
+        logger.error('Contact lookup failed:', error);
+        await client.chat.postMessage({
+          channel: channelId,
+          text: `❌ Sorry, I couldn't look up that contact: ${error.message}\n\nTry: \`@gtm-brain [Name], [Company]\` or \`@gtm-brain [Name] at [Company]\``,
+          thread_ts: threadTs
+        });
+        return;
+      }
     }
     
     // Handle cancel for pending contract
