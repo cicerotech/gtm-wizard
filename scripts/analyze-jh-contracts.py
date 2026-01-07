@@ -105,3 +105,4 @@ print('Review each contract folder against the Salesforce opportunities listed a
 print('Key fields to validate: ACV, Term, TCV (ACV*Term/12 if >12mo), Product Line')
 
 
+

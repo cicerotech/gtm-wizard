@@ -192,3 +192,4 @@ The gap is expected because:
 4. JH only tracks **new bookings**, not total active revenue
 
 
+

@@ -1,26 +1,41 @@
 /**
  * Contact Enrichment Service
- * Orchestrates SF lookup + Claude API enrichment + data merge
+ * Orchestrates SF lookup + OSINT enrichment + data merge
  * 
- * Flow:
+ * NEW FLOW (OSINT-based, no Claude dependency):
  * 1. Parse input (firstName, lastName, company, title)
  * 2. Query SF Contacts/Leads with fuzzy matching
  * 3. If SF data complete → return immediately
- * 4. If incomplete/no match → call Claude with web_search
+ * 4. If incomplete/no match → OSINT enrichment pipeline:
+ *    a. Email Pattern Intelligence (highest success rate)
+ *    b. LinkedIn profile validation
+ *    c. GitHub for tech contacts
  * 5. Merge data (SF takes precedence) with source labels
  * 6. Track analytics for feedback learning
+ * 
+ * HONEST APPROACH: Direct phone numbers are not freely scrapable
  */
 
 const fuzzyContactMatcher = require('./fuzzyContactMatcher');
-const claudeClient = require('./claudeClient');
+const emailPatternIntelligence = require('./emailPatternIntelligence');
+const emailVerifier = require('./emailVerifier');
+const linkedinScraper = require('./linkedinScraper');
+const githubScraper = require('./githubScraper');
+const domainResolver = require('./companyDomainResolver');
 const { query } = require('../salesforce/connection');
 const logger = require('../utils/logger');
 const { cache } = require('../utils/cache');
 
-// Analytics tracking (as specified in plan)
+// Analytics tracking
 const contactAnalytics = {
-  bySource: { sf_only: 0, sf_enriched: 0, web_only: 0, no_result: 0 },
+  bySource: { sf_only: 0, sf_enriched: 0, osint_only: 0, no_result: 0 },
   byOutcome: { success: 0, multiple_match: 0, no_match: 0, error: 0 },
+  byEnrichmentMethod: { 
+    email_pattern: 0, 
+    linkedin: 0, 
+    github: 0, 
+    none: 0 
+  },
   responseTimesMs: [],
   corrections: [],
   implicitSuccesses: [],
@@ -43,6 +58,15 @@ const contactAnalytics = {
     } else {
       this.byOutcome.error++;
     }
+
+    // Track enrichment methods used
+    if (result.enrichmentMethods) {
+      for (const method of result.enrichmentMethods) {
+        if (this.byEnrichmentMethod[method] !== undefined) {
+          this.byEnrichmentMethod[method]++;
+        }
+      }
+    }
     
     this.responseTimesMs.push(duration);
   },
@@ -53,7 +77,7 @@ const contactAnalytics = {
       correction,
       timestamp: Date.now()
     });
-    logger.info('📝 Contact correction recorded', { originalLookup, correction });
+    logger.info('Contact correction recorded', { originalLookup, correction });
   },
 
   recordImplicitSuccess(lookupId) {
@@ -73,6 +97,7 @@ const contactAnalytics = {
       total,
       bySource: this.bySource,
       byOutcome: this.byOutcome,
+      byEnrichmentMethod: this.byEnrichmentMethod,
       sfMatchRate: total > 0 
         ? Math.round(((this.bySource.sf_only + this.bySource.sf_enriched) / total) * 100)
         : 0,
@@ -88,8 +113,9 @@ const contactAnalytics = {
   },
 
   reset() {
-    this.bySource = { sf_only: 0, sf_enriched: 0, web_only: 0, no_result: 0 };
+    this.bySource = { sf_only: 0, sf_enriched: 0, osint_only: 0, no_result: 0 };
     this.byOutcome = { success: 0, multiple_match: 0, no_match: 0, error: 0 };
+    this.byEnrichmentMethod = { email_pattern: 0, linkedin: 0, github: 0, none: 0 };
     this.responseTimesMs = [];
     this.corrections = [];
     this.implicitSuccesses = [];
@@ -100,9 +126,8 @@ const contactAnalytics = {
 class ContactEnrichmentService {
   constructor() {
     this.contactMatcher = fuzzyContactMatcher;
-    this.claudeClient = claudeClient;
-    this.pendingWritebacks = new Map(); // Track pending SF writebacks
-    this.writebackTimeout = 30000; // 30 seconds as specified
+    this.pendingWritebacks = new Map();
+    this.writebackTimeout = 30000; // 30 seconds
   }
 
   /**
@@ -119,12 +144,13 @@ class ContactEnrichmentService {
       multipleMatches: false,
       source: null,
       enriched: false,
+      enrichmentMethods: [],
       lookupId: this.generateLookupId(),
       parsed: null
     };
 
     try {
-      logger.info('🔍 Contact lookup started', { input });
+      logger.info('Contact lookup started', { input });
 
       // Phase 1: Salesforce Lookup
       const sfResult = await this.contactMatcher.findContact(input);
@@ -148,16 +174,17 @@ class ContactEnrichmentService {
           result.success = true;
           result.source = 'sf_only';
         } else {
-          // Found SF record but incomplete - proceed to enrichment
+          // Found SF record but incomplete - proceed to OSINT enrichment
           const primaryContact = sfResult.contacts[0];
-          result.contact = await this.enrichAndMerge(primaryContact, sfResult.parsed);
+          result.contact = await this.enrichWithOSINT(primaryContact, sfResult.parsed);
           result.contacts = [result.contact];
           result.success = true;
           result.source = result.contact.wasEnriched ? 'sf_enriched' : 'sf_only';
           result.enriched = result.contact.wasEnriched;
+          result.enrichmentMethods = result.contact.enrichmentMethods || [];
         }
       } else {
-        // No SF match - try pure enrichment
+        // No SF match - try pure OSINT enrichment
         result = await this.handleNoSFMatch(input, sfResult.parsed, result);
       }
 
@@ -172,11 +199,12 @@ class ContactEnrichmentService {
         this.storePendingWriteback(result.lookupId, result.contact, sfResult.contacts?.[0]);
       }
 
-      logger.info('✅ Contact lookup completed', {
+      logger.info('Contact lookup completed', {
         input,
         success: result.success,
         source: result.source,
         enriched: result.enriched,
+        methods: result.enrichmentMethods,
         duration
       });
 
@@ -194,6 +222,7 @@ class ContactEnrichmentService {
 
   /**
    * Handle case where no SF match was found
+   * Uses OSINT enrichment pipeline
    */
   async handleNoSFMatch(input, parsed, result) {
     if (!parsed || (!parsed.firstName && !parsed.lastName)) {
@@ -204,107 +233,233 @@ class ContactEnrichmentService {
       return result;
     }
 
-    // Try Claude enrichment for completely new contact
-    if (parsed.company) {
-      const enrichment = await this.claudeClient.enrichContact({
-        firstName: parsed.firstName,
-        lastName: parsed.lastName,
-        company: parsed.company,
-        title: parsed.title
-      });
-
-      if (enrichment.success && enrichment.data) {
-        const hasData = enrichment.data.phone || enrichment.data.email || enrichment.data.linkedin;
-        
-        if (hasData) {
-          result.contact = {
-            name: `${parsed.firstName || ''} ${parsed.lastName || ''}`.trim(),
-            firstName: parsed.firstName,
-            lastName: parsed.lastName,
-            company: parsed.company,
-            title: parsed.title,
-            phone: enrichment.data.phone,
-            phoneSource: enrichment.data.phone ? 'Web Search' : null,
-            email: enrichment.data.email,
-            emailSource: enrichment.data.email ? 'Web Search' : null,
-            linkedin: enrichment.data.linkedin,
-            linkedinSource: enrichment.data.linkedin ? 'Web Search' : null,
-            recordType: null,
-            sfId: null,
-            wasEnriched: true,
-            enrichmentOnly: true
-          };
-          result.contacts = [result.contact];
-          result.success = true;
-          result.source = 'web_only';
-          result.enriched = true;
-          result.canWriteToSF = false; // No SF record to update
-        } else {
-          result.success = false;
-          result.source = 'no_result';
-          result.error = 'No contact found';
-          result.suggestion = 'Try: last name only, different spelling, company domain';
-        }
-      } else {
-        result.success = false;
-        result.source = 'no_result';
-        result.error = enrichment.error || 'Enrichment unavailable';
-        result.suggestion = 'Try: last name only, different spelling, company domain';
-      }
-    } else {
+    if (!parsed.company) {
       result.success = false;
       result.source = 'no_result';
       result.error = 'No company specified for enrichment';
       result.suggestion = 'Include company name: "John Smith at Acme Corp"';
+      return result;
+    }
+
+    // OSINT Enrichment Pipeline
+    const enrichmentResult = await this.runOSINTPipeline(
+      parsed.firstName,
+      parsed.lastName,
+      parsed.company,
+      parsed.title
+    );
+
+    if (enrichmentResult.hasData) {
+      result.contact = {
+        name: `${parsed.firstName || ''} ${parsed.lastName || ''}`.trim(),
+        firstName: parsed.firstName,
+        lastName: parsed.lastName,
+        company: parsed.company,
+        title: parsed.title,
+        phone: null, // Honest: phone not available from free sources
+        phoneSource: null,
+        email: enrichmentResult.email,
+        emailSource: enrichmentResult.emailSource,
+        linkedin: enrichmentResult.linkedin,
+        linkedinSource: enrichmentResult.linkedinSource,
+        recordType: null,
+        sfId: null,
+        wasEnriched: true,
+        enrichmentOnly: true,
+        enrichmentMethods: enrichmentResult.methods,
+        confidence: enrichmentResult.confidence
+      };
+      result.contacts = [result.contact];
+      result.success = true;
+      result.source = 'osint_only';
+      result.enriched = true;
+      result.enrichmentMethods = enrichmentResult.methods;
+      result.canWriteToSF = false;
+
+      // Add note about phone
+      if (!enrichmentResult.email) {
+        result.contact.note = 'Phone numbers require manual lookup or paid tools';
+      }
+    } else {
+      result.success = false;
+      result.source = 'no_result';
+      result.error = 'No contact found';
+      result.suggestion = 'Try: last name only, different spelling, company domain';
     }
 
     return result;
   }
 
   /**
-   * Enrich SF contact with Claude data and merge
+   * OSINT Enrichment Pipeline
+   * Runs multiple enrichment strategies in parallel/sequence
    */
-  async enrichAndMerge(sfContact, parsed) {
+  async runOSINTPipeline(firstName, lastName, company, title) {
+    const result = {
+      email: null,
+      emailSource: null,
+      linkedin: null,
+      linkedinSource: null,
+      methods: [],
+      hasData: false,
+      confidence: 0
+    };
+
+    logger.info('Running OSINT pipeline', { firstName, lastName, company });
+
+    try {
+      // Run email pattern + LinkedIn in parallel
+      const [emailResult, linkedinResult] = await Promise.all([
+        this.tryEmailPattern(firstName, lastName, company),
+        linkedinScraper.findProfile(firstName, lastName, company)
+      ]);
+
+      // Process email pattern result
+      if (emailResult && emailResult.email) {
+        result.email = emailResult.email;
+        result.emailSource = emailResult.verified ? 'Inferred (Verified)' : 'Inferred';
+        result.methods.push('email_pattern');
+        result.hasData = true;
+        result.confidence = Math.max(result.confidence, emailResult.confidence);
+        logger.info('Email found via pattern intelligence', { 
+          email: emailResult.email, 
+          confidence: emailResult.confidence 
+        });
+      }
+
+      // Process LinkedIn result
+      if (linkedinResult && linkedinResult.found) {
+        result.linkedin = linkedinResult.profileUrl;
+        result.linkedinSource = 'LinkedIn';
+        result.methods.push('linkedin');
+        result.hasData = true;
+        result.confidence = Math.max(result.confidence, linkedinResult.confidence);
+        logger.info('LinkedIn profile found', { url: linkedinResult.profileUrl });
+      }
+
+      // Try GitHub for tech companies (only if no email yet)
+      if (!result.email && githubScraper.isTechCompany(company)) {
+        const githubResult = await githubScraper.findDeveloper(firstName, lastName, company);
+        
+        if (githubResult && githubResult.found && githubResult.email) {
+          result.email = githubResult.email;
+          result.emailSource = 'GitHub';
+          result.methods.push('github');
+          result.hasData = true;
+          result.confidence = Math.max(result.confidence, githubResult.confidence);
+          logger.info('Email found via GitHub', { email: githubResult.email });
+        }
+      }
+
+      // If we didn't find email but found LinkedIn, that's still useful
+      if (!result.email && result.linkedin) {
+        result.hasData = true;
+      }
+
+    } catch (error) {
+      logger.warn('OSINT pipeline error:', error.message);
+    }
+
+    if (!result.hasData) {
+      result.methods.push('none');
+    }
+
+    return result;
+  }
+
+  /**
+   * Try email pattern intelligence
+   */
+  async tryEmailPattern(firstName, lastName, company) {
+    try {
+      // Generate candidate emails
+      const candidates = await emailPatternIntelligence.generateCandidates(
+        firstName, lastName, company
+      );
+
+      if (candidates.length === 0) {
+        return null;
+      }
+
+      // Take top 3 candidates for verification
+      const topCandidates = candidates.slice(0, 3);
+      
+      // Verify emails
+      const verified = await emailVerifier.verifyBatch(topCandidates);
+      
+      // Return best valid email
+      const validEmail = verified.find(v => v.valid);
+      
+      if (validEmail) {
+        return {
+          email: validEmail.email,
+          pattern: validEmail.pattern,
+          confidence: validEmail.overallConfidence,
+          verified: validEmail.method !== 'mx_check'
+        };
+      }
+
+      // Fallback: return highest confidence candidate even if not fully verified
+      // (MX check passed)
+      const mxValid = verified.find(v => v.method === 'mx_check');
+      if (mxValid) {
+        return {
+          email: mxValid.email,
+          pattern: mxValid.pattern,
+          confidence: mxValid.overallConfidence,
+          verified: false
+        };
+      }
+
+      return null;
+
+    } catch (error) {
+      logger.debug('Email pattern intelligence failed:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Enrich SF contact with OSINT data and merge
+   */
+  async enrichWithOSINT(sfContact, parsed) {
     // Format base contact from SF
     const contact = this.formatContact(sfContact, 'Salesforce');
     contact.wasEnriched = false;
+    contact.enrichmentMethods = [];
 
-    // Only enrich if missing phone or email
-    if (contact.email && contact.phone) {
+    // Only enrich if missing email (phone not available from free OSINT)
+    if (contact.email) {
       return contact;
     }
 
-    // Call Claude for enrichment
-    const enrichment = await this.claudeClient.enrichContact({
-      firstName: sfContact.firstName || parsed?.firstName,
-      lastName: sfContact.lastName || parsed?.lastName,
-      company: sfContact.accountName || parsed?.company,
-      title: sfContact.title || parsed?.title
-    });
+    // Run OSINT pipeline
+    const enrichment = await this.runOSINTPipeline(
+      sfContact.firstName || parsed?.firstName,
+      sfContact.lastName || parsed?.lastName,
+      sfContact.accountName || parsed?.company,
+      sfContact.title || parsed?.title
+    );
 
-    if (enrichment.success && enrichment.data) {
+    if (enrichment.hasData) {
       // Merge: SF data takes precedence
-      if (!contact.phone && enrichment.data.phone) {
-        contact.phone = enrichment.data.phone;
-        contact.phoneSource = 'Web Search';
+      if (!contact.email && enrichment.email) {
+        contact.email = enrichment.email;
+        contact.emailSource = enrichment.emailSource;
         contact.wasEnriched = true;
+        contact.enrichmentMethods.push(...enrichment.methods.filter(m => m !== 'linkedin'));
       }
 
-      if (!contact.email && enrichment.data.email) {
-        contact.email = enrichment.data.email;
-        contact.emailSource = 'Web Search';
+      if (!contact.linkedin && enrichment.linkedin) {
+        contact.linkedin = enrichment.linkedin;
+        contact.linkedinSource = enrichment.linkedinSource;
         contact.wasEnriched = true;
+        if (!contact.enrichmentMethods.includes('linkedin')) {
+          contact.enrichmentMethods.push('linkedin');
+        }
       }
 
-      if (!contact.linkedin && enrichment.data.linkedin) {
-        contact.linkedin = enrichment.data.linkedin;
-        contact.linkedinSource = 'Web Search';
-        contact.wasEnriched = true;
-      }
-
-      contact.enrichmentDuration = enrichment.duration;
-    } else if (enrichment.error) {
-      contact.enrichmentError = enrichment.error;
+      contact.enrichmentConfidence = enrichment.confidence;
     }
 
     return contact;
@@ -334,7 +489,8 @@ class ContactEnrichmentService {
       ownerId: sfContact.ownerId,
       ownerName: sfContact.ownerName,
       wasEnriched: false,
-      enrichmentOnly: false
+      enrichmentOnly: false,
+      enrichmentMethods: []
     };
   }
 
@@ -381,12 +537,10 @@ class ContactEnrichmentService {
     try {
       const updateFields = {};
       
-      // Only update fields that came from enrichment
-      if (enrichedContact.phoneSource === 'Web Search' && enrichedContact.phone) {
-        updateFields.MobilePhone = enrichedContact.phone;
-      }
-      
-      if (enrichedContact.emailSource === 'Web Search' && enrichedContact.email) {
+      // Only update email if it came from enrichment
+      if (enrichedContact.emailSource && 
+          enrichedContact.emailSource !== 'Salesforce' && 
+          enrichedContact.email) {
         updateFields.Email = enrichedContact.email;
       }
 
@@ -397,21 +551,15 @@ class ContactEnrichmentService {
         };
       }
 
-      // Build update SOQL
+      // Build update
       const objectType = originalSFContact.recordType || 'Contact';
-      const setClause = Object.entries(updateFields)
-        .map(([field, value]) => `${field} = '${value.replace(/'/g, "\\'")}'`)
-        .join(', ');
-
-      // Note: jsforce uses sobject.update() not direct SOQL for updates
-      // This would need to use the Salesforce connection's update method
-      logger.info('📝 Would update SF record', {
+      
+      logger.info('Would update SF record', {
         objectType,
         recordId: originalSFContact.id,
         fields: updateFields
       });
 
-      // For now, log the intended update
       // Actual implementation would use:
       // await sfConnection.sobject(objectType).update({ Id: originalSFContact.id, ...updateFields });
 
@@ -482,4 +630,3 @@ module.exports = {
   recordImplicitSuccess: (lookupId) => contactEnrichment.recordImplicitSuccess(lookupId),
   resetAnalytics: () => contactEnrichment.resetAnalytics()
 };
-

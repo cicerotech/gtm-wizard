@@ -352,3 +352,4 @@ Full extracted content available in:
 3. **Industry Playbooks:** Document industry-specific variations (pharma, financial services, tech)
 4. **Generation System:** Build intake form (industry, use case, stakeholder, size) → auto-populated deck
 
+

@@ -1,28 +1,23 @@
 /**
  * Contact Formatter for Slack
  * Formats contact lookup results using Slack Block Kit
- * Includes source labels and writeback prompts
+ * Clean format without emojis
  */
 
 const logger = require('../utils/logger');
 
 class ContactFormatter {
   constructor() {
-    this.emojis = {
-      person: '👤',
-      phone: '📱',
-      email: '✉️',
-      company: '🏢',
-      linkedin: '🔗',
-      title: '💼',
-      location: '📍',
-      update: '💾',
-      success: '✅',
-      warning: '⚠️',
-      error: '❌',
-      search: '🔍',
-      salesforce: '☁️',
-      web: '🌐'
+    // Text labels instead of emojis
+    this.labels = {
+      phone: 'Phone:',
+      email: 'Email:',
+      company: '',
+      linkedin: 'LinkedIn:',
+      location: 'Location:',
+      sf: '(SF)',
+      web: '(Web)',
+      inferred: '(Inferred)'
     };
   }
 
@@ -59,7 +54,7 @@ class ContactFormatter {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `${this.emojis.person} ${headerText}`
+        text: headerText
       }
     });
 
@@ -69,7 +64,7 @@ class ContactFormatter {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `${this.emojis.company} ${contact.company}`
+          text: contact.company
         }
       });
     }
@@ -82,12 +77,12 @@ class ContactFormatter {
       const sourceLabel = this.formatSourceLabel(contact.phoneSource);
       fields.push({
         type: 'mrkdwn',
-        text: `${this.emojis.phone} ${contact.phone} ${sourceLabel}`
+        text: `${this.labels.phone} ${contact.phone} ${sourceLabel}`
       });
     } else {
       fields.push({
         type: 'mrkdwn',
-        text: `${this.emojis.phone} _No phone_`
+        text: `${this.labels.phone} _Not available_`
       });
     }
 
@@ -96,12 +91,12 @@ class ContactFormatter {
       const sourceLabel = this.formatSourceLabel(contact.emailSource);
       fields.push({
         type: 'mrkdwn',
-        text: `${this.emojis.email} ${contact.email} ${sourceLabel}`
+        text: `${this.labels.email} ${contact.email} ${sourceLabel}`
       });
     } else {
       fields.push({
         type: 'mrkdwn',
-        text: `${this.emojis.email} _No email_`
+        text: `${this.labels.email} _Not available_`
       });
     }
 
@@ -110,7 +105,7 @@ class ContactFormatter {
       const sourceLabel = this.formatSourceLabel(contact.linkedinSource);
       fields.push({
         type: 'mrkdwn',
-        text: `${this.emojis.linkedin} <${contact.linkedin}|LinkedIn Profile> ${sourceLabel}`
+        text: `${this.labels.linkedin} <${contact.linkedin}|Profile> ${sourceLabel}`
       });
     }
 
@@ -119,7 +114,7 @@ class ContactFormatter {
       const location = [contact.city, contact.state].filter(Boolean).join(', ');
       fields.push({
         type: 'mrkdwn',
-        text: `${this.emojis.location} ${location}`
+        text: `${this.labels.location} ${location}`
       });
     }
 
@@ -137,7 +132,7 @@ class ContactFormatter {
         elements: [
           {
             type: 'mrkdwn',
-            text: `${this.emojis.update} _Enriched from web search. React with ✅ to update Salesforce._`
+            text: `_Enriched data available. Reply "save" to update Salesforce._`
           }
         ]
       });
@@ -158,7 +153,7 @@ class ContactFormatter {
         elements: [
           {
             type: 'mrkdwn',
-            text: `${this.emojis.web} _Contact found via web search (not in Salesforce)_`
+            text: `_Contact found via web search (not in Salesforce)_`
           }
         ]
       });
@@ -171,7 +166,7 @@ class ContactFormatter {
         elements: [
           {
             type: 'mrkdwn',
-            text: `${this.emojis.salesforce} ${contact.recordType}${contact.ownerName ? ` • Owner: ${contact.ownerName}` : ''}`
+            text: `${contact.recordType}${contact.ownerName ? ` | Owner: ${contact.ownerName}` : ''}`
           }
         ]
       });
@@ -191,7 +186,7 @@ class ContactFormatter {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `${this.emojis.search} Found ${contacts.length} matches for *${parsed?.originalInput || 'your search'}*. Please clarify:`
+        text: `Found ${contacts.length} matches for *${parsed?.originalInput || 'your search'}*. Please clarify:`
       }
     });
 
@@ -199,7 +194,7 @@ class ContactFormatter {
 
     // List top 3 matches
     contacts.slice(0, 3).forEach((contact, index) => {
-      const number = ['1️⃣', '2️⃣', '3️⃣'][index];
+      const number = `${index + 1}.`;
       const company = contact.accountName || contact.company || 'Unknown Company';
       const title = contact.title ? ` - ${contact.title}` : '';
       
@@ -207,7 +202,7 @@ class ContactFormatter {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `${number} *${contact.name}*${title}\n${this.emojis.company} ${company}`
+          text: `${number} *${contact.name}*${title}\n${company}`
         }
       });
     });
@@ -238,7 +233,7 @@ class ContactFormatter {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `${this.emojis.warning} ${errorMessage}`
+        text: errorMessage
       }
     });
 
@@ -248,7 +243,7 @@ class ContactFormatter {
         elements: [
           {
             type: 'mrkdwn',
-            text: `💡 ${suggestion}`
+            text: `Tip: ${suggestion}`
           }
         ]
       });
@@ -269,7 +264,7 @@ class ContactFormatter {
           elements: [
             {
               type: 'mrkdwn',
-              text: `Parsed: ${parsedParts.join(' • ')}`
+              text: `Parsed: ${parsedParts.join(' | ')}`
             }
           ]
         });
@@ -286,11 +281,13 @@ class ContactFormatter {
     if (!source) return '';
     
     if (source === 'Salesforce') {
-      return `_(${this.emojis.salesforce} SF)_`;
-    } else if (source === 'Web Search') {
-      return `_(${this.emojis.web} Web)_`;
+      return this.labels.sf;
+    } else if (source === 'Web Search' || source === 'Web') {
+      return this.labels.web;
+    } else if (source === 'Inferred' || source === 'Pattern') {
+      return this.labels.inferred;
     }
-    return `_(${source})_`;
+    return `(${source})`;
   }
 
   /**
@@ -304,7 +301,7 @@ class ContactFormatter {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `${this.emojis.success} Updated Salesforce ${result.objectType} record with: ${result.updatedFields.join(', ')}`
+              text: `Updated Salesforce ${result.objectType} record with: ${result.updatedFields.join(', ')}`
             }
           }
         ]
@@ -316,7 +313,7 @@ class ContactFormatter {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `${this.emojis.error} Could not update Salesforce: ${result.error}`
+              text: `Could not update Salesforce: ${result.error}`
             }
           }
         ]
@@ -329,27 +326,27 @@ class ContactFormatter {
    */
   formatSimpleText(result) {
     if (!result.success) {
-      return `${this.emojis.warning} ${result.error || 'No contact found'}`;
+      return result.error || 'No contact found';
     }
 
     if (result.multipleMatches) {
       const matches = result.contacts.slice(0, 3)
         .map((c, i) => `${i + 1}. ${c.name} at ${c.company || c.accountName || 'Unknown'}`)
         .join('\n');
-      return `${this.emojis.search} Multiple matches:\n${matches}\n\n_Add more details to narrow results_`;
+      return `Multiple matches:\n${matches}\n\n_Add more details to narrow results_`;
     }
 
     const contact = result.contact;
     const lines = [];
     
-    lines.push(`${this.emojis.person} *${contact.name}*${contact.title ? ` - ${contact.title}` : ''}`);
-    if (contact.company) lines.push(`${this.emojis.company} ${contact.company}`);
-    if (contact.phone) lines.push(`${this.emojis.phone} ${contact.phone} (${contact.phoneSource})`);
-    if (contact.email) lines.push(`${this.emojis.email} ${contact.email} (${contact.emailSource})`);
-    if (contact.linkedin) lines.push(`${this.emojis.linkedin} ${contact.linkedin}`);
+    lines.push(`*${contact.name}*${contact.title ? ` - ${contact.title}` : ''}`);
+    if (contact.company) lines.push(contact.company);
+    if (contact.phone) lines.push(`${this.labels.phone} ${contact.phone} ${this.formatSourceLabel(contact.phoneSource)}`);
+    if (contact.email) lines.push(`${this.labels.email} ${contact.email} ${this.formatSourceLabel(contact.emailSource)}`);
+    if (contact.linkedin) lines.push(`${this.labels.linkedin} ${contact.linkedin}`);
 
     if (result.enriched && contact.sfId) {
-      lines.push(`\n${this.emojis.update} _React with ✅ to update Salesforce_`);
+      lines.push(`\n_Reply "save" to update Salesforce_`);
     }
 
     return lines.join('\n');
@@ -359,31 +356,29 @@ class ContactFormatter {
    * Format help text for /contact command
    */
   getHelpText() {
-    return `${this.emojis.search} *Contact Lookup Help*
+    return `*Contact Lookup Help*
 
-*Usage:* \`/contact [name] at [company]\`
+*Usage:* \`@gtm-brain [name], [company]\` or \`@gtm-brain [name] at [company]\`
 
 *Examples:*
-• \`/contact Bob Smith at Microsoft\` - Search by name and company
-• \`/contact Sarah Johnson, VP Legal at Acme\` - Include title
-• \`/contact john.doe@company.com\` - Search by email
-• \`/contact Smith\` - Search by last name only
+- \`@gtm-brain Bob Smith, Microsoft\` - Search by name and company
+- \`@gtm-brain Sarah Johnson at Acme\` - Alternative format
+- \`@gtm-brain Smith, Google\` - Last name only
 
 *How It Works:*
 1. Searches Salesforce Contacts and Leads first
-2. If missing phone/email, enriches from web sources
-3. React with ✅ to save enriched data back to Salesforce
+2. If not found, infers email from company patterns
+3. Validates email deliverability
 
 *Sources:*
-• ${this.emojis.salesforce} SF = Salesforce record
-• ${this.emojis.web} Web = Found via web search
+- (SF) = Salesforce record
+- (Inferred) = Email pattern + verification
+- (Web) = Found via web lookup
 
 *Tips:*
-• Include company name for better matches
-• Nicknames work (Bob → Robert, Mike → Michael)
-• I handle company abbreviations (MSFT → Microsoft)`;
+- Include company name for better matches
+- Nicknames work (Bob = Robert, Mike = Michael)`;
   }
 }
 
 module.exports = new ContactFormatter();
-

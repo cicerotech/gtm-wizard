@@ -127,3 +127,4 @@ for r in sorted(reconciliation, key=lambda x: x['Gap'], reverse=True):
         print(f"  {r['Client']}: ${r['Gap']:,} gap (have ${r['Surgical_Extracted']:,} of ${r['November_RR']:,})")
 
 
+
