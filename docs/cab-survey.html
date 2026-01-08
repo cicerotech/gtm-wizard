@@ -611,18 +611,20 @@
 </head>
 <body>
     <div class="container">
-        <h1>Pre-CAB Survey 1</h1>
-        <p class="subtitle">Please fill out the following questions to help us better understand your needs.</p>
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="https://gtm-wizard.onrender.com/logo" alt="Eudia" style="max-width: 160px; height: auto;">
+        </div>
+        <h1 style="text-align: center;">Customer Advisory Board Survey</h1>
+        <p class="subtitle" style="text-align: center;">Help us understand your vision so we can better partner with you.</p>
+        <p style="text-align: center; font-size: 11px; color: #94a3b8; margin-bottom: 24px;">Your insights directly shape our product roadmap and service offerings.</p>
 
         <form id="surveyForm" novalidate>
             <!-- Step Indicator -->
             <div class="step-indicator">
-                <span class="step-counter">Step <span id="currentStep">1</span> of <span id="totalSteps">4</span></span>
+                <span class="step-counter">Step <span id="currentStep">1</span> of <span id="totalSteps">4</span>: <span id="stepLabel" style="color: #6366f1; font-weight: 600;">Vision & Outcomes</span></span>
                 <div style="display: flex; gap: 8px; margin-left: 15px;">
                     <div class="step-dot active" data-step="1"></div>
                     <div class="step-dot" data-step="2"></div>
-                    <!-- <div class="step-dot" data-step="3"></div> -->
-                    <!-- <div class="step-dot" data-step="4"></div> -->
                     <div class="step-dot" data-step="3"></div>
                     <div class="step-dot" data-step="4"></div>
                 </div>
@@ -1178,6 +1180,12 @@
         // Multi-step form navigation
         let currentStep = 1;
         const totalSteps = 4;
+        const stepLabels = {
+            1: 'Vision & Outcomes',
+            2: 'Challenges',
+            3: 'Partnership',
+            4: 'CAB Goals'
+        };
 
         function showStep(step) {
             // Hide all steps
@@ -1193,6 +1201,7 @@
             
             // Update step indicator
             document.getElementById('currentStep').textContent = step;
+            document.getElementById('stepLabel').textContent = stepLabels[step] || '';
             document.querySelectorAll('.step-dot').forEach((dot, index) => {
                 dot.classList.remove('active', 'completed');
                 if (index + 1 < step) {
