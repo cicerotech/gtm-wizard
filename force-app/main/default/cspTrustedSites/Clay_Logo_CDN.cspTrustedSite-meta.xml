@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CspTrustedSite xmlns="http://soap.sforce.com/2006/04/metadata">
+    <context>All</context>
+    <description>CloudFront CDN for Clay company logos</description>
+    <endpointUrl>https://d878vporrm2hj.cloudfront.net</endpointUrl>
+    <isActive>true</isActive>
+    <isApplicableToImgSrc>true</isApplicableToImgSrc>
+</CspTrustedSite>

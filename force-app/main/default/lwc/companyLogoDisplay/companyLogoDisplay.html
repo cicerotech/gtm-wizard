@@ -1,20 +1,26 @@
 <template>
     <div class="logo-container">
-        <template if:true={hasLogo}>
-            <img 
-                src={logoUrl} 
-                alt={accountName}
-                class="company-logo"
-                onerror={handleImageError}
-            />
+        <template if:true={isLoading}>
+            <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
         </template>
-        <template if:false={hasLogo}>
-            <lightning-icon 
-                icon-name="standard:account" 
-                size="large"
-                class="default-icon">
-            </lightning-icon>
+        
+        <template if:false={isLoading}>
+            <template if:true={hasLogo}>
+                <img 
+                    src={logoImageUrl} 
+                    alt={accountName}
+                    class="company-logo"
+                    onerror={handleImageError}
+                    onload={handleImageLoad}
+                />
+            </template>
+            <template if:false={hasLogo}>
+                <lightning-icon 
+                    icon-name="standard:account" 
+                    size="large"
+                    class="default-icon">
+                </lightning-icon>
+            </template>
         </template>
     </div>
 </template>
-

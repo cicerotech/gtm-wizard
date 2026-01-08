@@ -1,0 +1,44 @@
+.logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+}
+
+.company-logo {
+    max-width: 80px;
+    max-height: 80px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 4px;
+    background-color: #fff;
+}
+
+.default-icon {
+    width: 80px;
+    height: 80px;
+}
+
+/* Larger size variant */
+:host([data-size="large"]) .company-logo {
+    max-width: 120px;
+    max-height: 120px;
+}
+
+:host([data-size="large"]) .default-icon {
+    width: 120px;
+    height: 120px;
+}
+
+/* Small size variant */
+:host([data-size="small"]) .company-logo {
+    max-width: 48px;
+    max-height: 48px;
+}
+
+:host([data-size="small"]) .default-icon {
+    width: 48px;
+    height: 48px;
+}
+
