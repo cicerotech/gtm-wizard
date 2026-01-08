@@ -47,10 +47,6 @@ export default class AccountHighlightsPanel extends NavigationMixin(LightningEle
         this.imageError = true;
     }
 
-    handleFollow() {
-        console.log('Follow clicked');
-    }
-
     handleNewOpportunity() {
         this[NavigationMixin.Navigate]({
             type: 'standard__objectPage',
