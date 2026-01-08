@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-CAB Survey </title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            color: #1e293b;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+            border: 1px solid #e2e8f0;
+            padding: 40px;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 20px 10px;
+            }
+
+            .container {
+                padding: 24px 20px;
+                border-radius: 12px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .subtitle {
+                font-size: 14px;
+                margin-bottom: 24px;
+            }
+
+            .form-group {
+                margin-bottom: 24px;
+            }
+
+            label {
+                font-size: 14px;
+                margin-bottom: 6px;
+            }
+
+            textarea, input[type="text"], input[type="email"], select {
+                padding: 10px;
+                font-size: 16px;
+                border-radius: 6px;
+            }
+
+            textarea {
+                min-height: 80px;
+            }
+
+            .step-indicator {
+                padding: 12px;
+                margin-bottom: 24px;
+            }
+
+            .step-counter {
+                font-size: 12px;
+            }
+
+            .outcome-rating-item > label {
+                font-size: 13px;
+            }
+        }
+
+        h1 {
+            color: #0f172a;
+            margin-bottom: 10px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #64748b;
+            margin-bottom: 30px;
+            font-size: 13px;
+        }
+
+        .form-group {
+            margin-bottom: 30px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .required {
+            color: #e74c3c;
+        }
+
+        textarea, input[type="text"], input[type="email"], select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        textarea:focus, input[type="text"]:focus, input[type="email"]:focus, select:focus {
+            outline: none;
+            border-color: #6366f1;
+        }
+
+        .checkbox-group, .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .checkbox-item, .radio-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .checkbox-item input[type="checkbox"],
+        .radio-item input[type="radio"] {
+            margin-top: 4px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-item label,
+        .radio-item label {
+            font-weight: 400;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .other-input {
+            margin-top: 10px;
+            margin-left: 28px;
+        }
+
+        .other-input.hidden {
+            display: none;
+        }
+
+        .provider-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        @media (max-width: 600px) {
+            .provider-group {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .provider-group label {
+            font-size: 14px;
+            color: #555;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            border: none;
+            padding: 14px 40px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #e0e0e0, transparent);
+            margin: 25px 0;
+        }
+
+        .help-text {
+            font-size: 13px;
+            color: #888;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        /* Multi-step form styles */
+        .form-step {
+            display: none;
+        }
+
+        .form-step.active {
+            display: block;
+        }
+
+        /* Hide Step 4 (Tech Stack) - commented out */
+        .form-step[data-step="4-commented"] {
+            display: none !important;
+        }
+
+        .step-navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .step-btn {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .step-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .step-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .step-btn-secondary {
+            background: white;
+            color: #6366f1;
+            border: 2px solid #6366f1;
+        }
+
+        .step-btn-secondary:hover {
+            background: #f0f4ff;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 30px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .step-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ddd;
+            transition: all 0.3s;
+        }
+
+        .step-dot.active {
+            background: #6366f1;
+            width: 12px;
+            height: 12px;
+        }
+
+        .step-dot.completed {
+            background: #4caf50;
+        }
+
+        .step-counter {
+            font-size: 13px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        /* Rating scale styles */
+        .rating-scale {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 0;
+            margin-top: 10px;
+            padding: 0;
+            position: relative;
+        }
+
+        .rating-option {
+            flex: 1;
+            text-align: center;
+            cursor: pointer;
+            padding: 0 4px;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .rating-option:hover label {
+            color: #6366f1;
+        }
+
+        .rating-option input[type="radio"] {
+            display: none;
+        }
+
+        .rating-option label {
+            display: block;
+            font-size: 11px;
+            color: #666;
+            cursor: pointer;
+            font-weight: 400;
+            line-height: 1.4;
+            padding-top: 20px;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .rating-option label::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #ddd;
+            transition: all 0.2s ease;
+        }
+
+        .rating-option input[type="radio"]:checked + label {
+            color: #6366f1;
+            font-weight: 500;
+        }
+
+        .rating-option input[type="radio"]:checked + label::before {
+            background: #6366f1;
+            border-color: #6366f1;
+            width: 14px;
+            height: 14px;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+
+        #outcome-ratings-list {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .outcome-rating-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+            padding: 0;
+            gap: 12px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .outcome-rating-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .outcome-rating-item > label {
+            font-weight: 500;
+            color: #1e293b;
+            margin-bottom: 0;
+            display: block;
+            font-size: 13px;
+            text-align: right;
+            flex: 0 0 50%;
+            min-width: 0;
+            white-space: nowrap;
+            padding-right: 16px;
+        }
+
+        .outcome-rating-item select {
+            flex: 0 0 50%;
+            min-width: 0;
+            max-width: none;
+            padding: 8px 28px 8px 10px;
+            font-size: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+            background-color: white;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .outcome-rating-item select:hover {
+            border-color: #6366f1;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+        }
+
+        .outcome-rating-item select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .outcome-rating-item {
+                flex-direction: row;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .outcome-rating-item > label {
+                flex: 0 0 65%;
+                width: 65%;
+                min-width: 0;
+                white-space: nowrap;
+                font-size: 13px;
+                padding-right: 8px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .outcome-rating-item select {
+                flex: 0 0 35%;
+                width: 35%;
+                max-width: 35%;
+                margin-left: 0;
+                font-size: 11px;
+                padding: 6px 24px 6px 8px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .rating-scale {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .rating-option {
+                min-width: calc(50% - 4px);
+            }
+
+            .rating-option label {
+                font-size: 10px;
+                padding-top: 18px;
+            }
+        }
+
+        /* Confirmation page styles */
+        .confirmation-page {
+            display: none;
+            text-align: center;
+            padding: 60px 40px;
+        }
+
+        .confirmation-page.active {
+            display: block;
+        }
+
+        .confirmation-icon {
+            font-size: 80px;
+            margin-bottom: 30px;
+        }
+
+        .confirmation-title {
+            font-size: 28px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 20px;
+            line-height: 1.3;
+        }
+
+        .confirmation-message {
+            font-size: 16px;
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+
+        .confirmation-submessage {
+            font-size: 16px;
+            color: #6366f1;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+
+        .tech-category {
+            margin-bottom: 6px;
+            padding: 4px 0;
+        }
+
+        .tech-category-row {
+            display: block;
+        }
+
+        .tech-category .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .tech-category .checkbox-group {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .tech-category select {
+            flex: 1;
+            min-width: 200px;
+            padding: 6px 32px 6px 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+            background-color: white;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .tech-category select:hover {
+            border-color: #6366f1;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+        }
+
+        .tech-category select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .tech-category-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            width: 100%;
+        }
+
+        @media (max-width: 768px) {
+            .tech-category-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .tech-category-title {
+                flex: none;
+                width: 100%;
+                margin-bottom: 0;
+            }
+
+            .tech-category select {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pre-CAB Survey 1</h1>
+        <p class="subtitle">Please fill out the following questions to help us better understand your needs.</p>
+
+        <form id="surveyForm" novalidate>
+            <!-- Step Indicator -->
+            <div class="step-indicator">
+                <span class="step-counter">Step <span id="currentStep">1</span> of <span id="totalSteps">4</span></span>
+                <div style="display: flex; gap: 8px; margin-left: 15px;">
+                    <div class="step-dot active" data-step="1"></div>
+                    <div class="step-dot" data-step="2"></div>
+                    <!-- <div class="step-dot" data-step="3"></div> -->
+                    <!-- <div class="step-dot" data-step="4"></div> -->
+                    <div class="step-dot" data-step="3"></div>
+                    <div class="step-dot" data-step="4"></div>
+                </div>
+            </div>
+
+            <!-- Step 1: Vision and Outcomes -->
+            <div class="form-step active" data-step="1">
+                <!-- Email field -->
+                <div class="form-group">
+                    <label for="email">Email Address <span class="required">*</span></label>
+                    <input type="email" id="email" name="email" required placeholder="your.email@example.com">
+                </div>
+
+                <!-- Question 1: Vision for legal team -->
+                <div class="form-group">
+                    <label for="vision">What is your vision for your legal team in 2026? <span class="required">*</span></label>
+                    <textarea id="vision" name="vision" required placeholder="Please describe your vision..."></textarea>
+                </div>
+
+                <!-- Question 2: Specific outcomes with dropdowns -->
+            <div class="form-group">
+                <label style="text-align: center;">Rank these outcomes based on level of importance in order to acheive your vision <span class="required">*</span></label>
+                <div id="outcome-ratings-list">
+                    <div class="outcome-rating-item">
+                        <label>Decrease Outside Counsel Costs</label>
+                        <select id="rating_outcome_counsel_costs" name="rating_outcome_counsel_costs" required>
+                            <option value="Not Important">Not Important</option>
+                            <option value="Slightly Important">Slightly Important</option>
+                            <option value="Neutral" selected>Neutral</option>
+                            <option value="Important">Important</option>
+                            <option value="Very Important">Very Important</option>
+                        </select>
+                    </div>
+                    <div class="outcome-rating-item">
+                        <label>Decrease Internal Team Costs</label>
+                        <select id="rating_outcome_internal_costs" name="rating_outcome_internal_costs" required>
+                            <option value="Not Important">Not Important</option>
+                            <option value="Slightly Important">Slightly Important</option>
+                            <option value="Neutral" selected>Neutral</option>
+                            <option value="Important">Important</option>
+                            <option value="Very Important">Very Important</option>
+                        </select>
+                    </div>
+                    <div class="outcome-rating-item">
+                        <label>Increase Contracting Velocity</label>
+                        <select id="rating_outcome_contracting_velocity" name="rating_outcome_contracting_velocity" required>
+                            <option value="Not Important">Not Important</option>
+                            <option value="Slightly Important">Slightly Important</option>
+                            <option value="Neutral" selected>Neutral</option>
+                            <option value="Important">Important</option>
+                            <option value="Very Important">Very Important</option>
+                        </select>
+                    </div>
+                    <div class="outcome-rating-item">
+                        <label>Deeper Insights</label>
+                        <select id="rating_outcome_insights" name="rating_outcome_insights" required>
+                            <option value="Not Important">Not Important</option>
+                            <option value="Slightly Important">Slightly Important</option>
+                            <option value="Neutral" selected>Neutral</option>
+                            <option value="Important">Important</option>
+                            <option value="Very Important">Very Important</option>
+                        </select>
+                    </div>
+                    <div class="outcome-rating-item">
+                        <label>Improve Marketing Compliance</label>
+                        <select id="rating_outcome_marketing_compliance" name="rating_outcome_marketing_compliance" required>
+                            <option value="Not Important">Not Important</option>
+                            <option value="Slightly Important">Slightly Important</option>
+                            <option value="Neutral" selected>Neutral</option>
+                            <option value="Important">Important</option>
+                            <option value="Very Important">Very Important</option>
+                        </select>
+                    </div>
+                    <div class="outcome-rating-item">
+                        <label>Decrease Litigation Costs</label>
+                        <select id="rating_outcome_litigation_costs" name="rating_outcome_litigation_costs" required>
+                            <option value="Not Important">Not Important</option>
+                            <option value="Slightly Important">Slightly Important</option>
+                            <option value="Neutral" selected>Neutral</option>
+                            <option value="Important">Important</option>
+                            <option value="Very Important">Very Important</option>
+                        </select>
+                    </div>
+                    <div class="outcome-rating-item">
+                        <label>Accelerate M&A Due Diligence</label>
+                        <select id="rating_outcome_ma_dd" name="rating_outcome_ma_dd" required>
+                            <option value="Not Important">Not Important</option>
+                            <option value="Slightly Important">Slightly Important</option>
+                            <option value="Neutral" selected>Neutral</option>
+                            <option value="Important">Important</option>
+                            <option value="Very Important">Very Important</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+            <!-- Step 2: Productivity and Blockers -->
+            <div class="form-step" data-step="2">
+                <!-- Question 4: What's holding you back -->
+            <div class="form-group">
+                <label>What is holding you back from those outcomes? <span class="required">*</span></label>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="blocker_internal" name="blockers" value="Internal departments blocking">
+                        <label for="blocker_internal">Internal departments blocking</label>
+                    </div>
+                    <div class="other-input hidden" id="blocker_internal_help" style="margin-left: 28px; margin-top: 8px;">
+                        <label for="blocker_internal_help_text">How can Eudia help? <span class="required">*</span></label>
+                        <textarea id="blocker_internal_help_text" name="blocker_internal_help_text" placeholder="Please describe how Eudia can help..."></textarea>
+                    </div>
+                    <div class="other-input hidden" id="blocker_internal_list" style="margin-left: 28px; margin-top: 8px;">
+                        <label for="blocker_internal_list_text">Please list internal departments:</label>
+                        <textarea id="blocker_internal_list_text" name="blocker_internal_list_text" placeholder="List departments..."></textarea>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="blocker_adoption" name="blockers" value="Overall adoption of new technology">
+                        <label for="blocker_adoption">Overall adoption of new technology</label>
+                    </div>
+                    <div class="other-input hidden" id="blocker_adoption_help" style="margin-left: 28px; margin-top: 8px;">
+                        <label for="blocker_adoption_help_text">How can Eudia help? <span class="required">*</span></label>
+                        <textarea id="blocker_adoption_help_text" name="blocker_adoption_help_text" placeholder="Please describe how Eudia can help..."></textarea>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="blocker_budget" name="blockers" value="Budget">
+                        <label for="blocker_budget">Budget</label>
+                    </div>
+                    <div class="other-input hidden" id="blocker_budget_help" style="margin-left: 28px; margin-top: 8px;">
+                        <label for="blocker_budget_help_text">How can Eudia help? <span class="required">*</span></label>
+                        <textarea id="blocker_budget_help_text" name="blocker_budget_help_text" placeholder="Please describe how Eudia can help..."></textarea>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="blocker_internal_legal_talent" name="blockers" value="Lack of Internal Legal Talent">
+                        <label for="blocker_internal_legal_talent">Lack of Internal Legal Talent</label>
+                    </div>
+                    <div class="other-input hidden" id="blocker_internal_legal_talent_help" style="margin-left: 28px; margin-top: 8px;">
+                        <label for="blocker_internal_legal_talent_help_text">How can Eudia help? <span class="required">*</span></label>
+                        <textarea id="blocker_internal_legal_talent_help_text" name="blocker_internal_legal_talent_help_text" placeholder="Please describe how Eudia can help..."></textarea>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="blocker_external_legal_talent" name="blockers" value="Lack of External Legal Talent">
+                        <label for="blocker_external_legal_talent">Lack of External Legal Talent</label>
+                    </div>
+                    <div class="other-input hidden" id="blocker_external_legal_talent_help" style="margin-left: 28px; margin-top: 8px;">
+                        <label for="blocker_external_legal_talent_help_text">How can Eudia help? <span class="required">*</span></label>
+                        <textarea id="blocker_external_legal_talent_help_text" name="blocker_external_legal_talent_help_text" placeholder="Please describe how Eudia can help..."></textarea>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="blocker_internal_engineering_talent" name="blockers" value="Lack of Internal Engineering Talent">
+                        <label for="blocker_internal_engineering_talent">Lack of Internal Engineering Talent</label>
+                    </div>
+                    <div class="other-input hidden" id="blocker_internal_engineering_talent_help" style="margin-left: 28px; margin-top: 8px;">
+                        <label for="blocker_internal_engineering_talent_help_text">How can Eudia help? <span class="required">*</span></label>
+                        <textarea id="blocker_internal_engineering_talent_help_text" name="blocker_internal_engineering_talent_help_text" placeholder="Please describe how Eudia can help..."></textarea>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="blocker_external_engineering_talent" name="blockers" value="Lack of External Engineering Talent">
+                        <label for="blocker_external_engineering_talent">Lack of External Engineering Talent</label>
+                    </div>
+                    <div class="other-input hidden" id="blocker_external_engineering_talent_help" style="margin-left: 28px; margin-top: 8px;">
+                        <label for="blocker_external_engineering_talent_help_text">How can Eudia help? <span class="required">*</span></label>
+                        <textarea id="blocker_external_engineering_talent_help_text" name="blocker_external_engineering_talent_help_text" placeholder="Please describe how Eudia can help..."></textarea>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="blocker_other" name="blockers" value="Other">
+                        <label for="blocker_other">Other</label>
+                    </div>
+                    <div class="other-input hidden" id="blocker_other_input" style="margin-left: 28px; margin-top: 8px;">
+                        <input type="text" id="blocker_other_text" name="blocker_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+            </div>
+            </div>
+
+            <!-- Step 3: How Eudia Can Help - COMMENTED OUT (can be restored if needed) -->
+            <!--
+            <div class="form-step" data-step="3-commented">
+                <div class="form-group">
+                    <label for="eudia_help">How could Eudia best help you overcome those challenges to achieve your vision? <span class="required">*</span></label>
+                    <textarea id="eudia_help" name="eudia_help" required placeholder="Please describe how Eudia could help..."></textarea>
+                </div>
+            </div>
+            -->
+
+            <!-- Step 4: Tech Stack Overview - COMMENTED OUT (can be restored if needed) -->
+            <!--
+            <div class="form-step" data-step="4-commented" style="display: none !important;">
+                <div class="form-group">
+                    <label style="font-size: 16px; margin-bottom: 12px;">Tech Stack Overview</label>
+
+                CLM
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_clm" name="tech_clm" data-category="CLM">
+                            <option value="">Select a CLM...</option>
+                            <option value="Ironclad">Ironclad</option>
+                            <option value="DocuSign">DocuSign</option>
+                            <option value="Coupa">Coupa</option>
+                            <option value="LinkSquares">LinkSquares</option>
+                            <option value="Icertis">Icertis</option>
+                            <option value="ContractPodAi">ContractPodAi</option>
+                            <option value="Agiloft">Agiloft</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_clm_other_input" style="margin-top: 6px;">
+                        <input type="text" id="tech_clm_other_text" name="tech_clm_other_text" placeholder="Please specify other CLM tools...">
+                    </div>
+                </div>
+
+                Matter Management
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_matter" name="tech_matter" data-category="Matter Management">
+                            <option value="">Select a Matter Management...</option>
+                            <option value="Legal Tracker">Legal Tracker</option>
+                            <option value="Onit">Onit</option>
+                            <option value="SimpleLegal">SimpleLegal</option>
+                            <option value="Brightflag">Brightflag</option>
+                            <option value="Clio">Clio</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_matter_other_input" style="margin-top: 10px;">
+                        <input type="text" id="tech_matter_other_text" name="tech_matter_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+
+                eBilling
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_ebilling" name="tech_ebilling" data-category="eBilling">
+                            <option value="">Select an eBilling...</option>
+                            <option value="SimpleLegal">SimpleLegal</option>
+                            <option value="BrightFlag">BrightFlag</option>
+                            <option value="Onit">Onit</option>
+                            <option value="Legal Tracker">Legal Tracker</option>
+                            <option value="CounselLink">CounselLink</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_ebilling_other_input" style="margin-top: 10px;">
+                        <input type="text" id="tech_ebilling_other_text" name="tech_ebilling_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+
+                DMS
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_dms" nxame="tech_dms" data-category="DMS">
+                            <option value="">Select a DMS...</option>
+                            <option value="Microsoft 365">Microsoft 365</option>
+                            <option value="iManage">iManage</option>
+                            <option value="NetDocuments">NetDocuments</option>
+                            <option value="Sharepoint">Sharepoint</option>
+                            <option value="GoogleWorkspace">GoogleWorkspace</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_dms_other_input" style="margin-top: 10px;">
+                        <input type="text" id="tech_dms_other_text" name="tech_dms_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+
+                eSignature
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_esignature" name="tech_esignature" data-category="eSignature">
+                            <option value="">Select an eSignature...</option>
+                            <option value="DocuSign">DocuSign</option>
+                            <option value="Adobe Sign">Adobe Sign</option>
+                            <option value="HelloSign">HelloSign</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_esignature_other_input" style="margin-top: 10px;">
+                        <input type="text" id="tech_esignature_other_text" name="tech_esignature_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+
+                Legal Research
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_research" name="tech_research" data-category="Legal Research">
+                            <option value="">Select a Legal Research...</option>
+                            <option value="Westlaw">Westlaw</option>
+                            <option value="LexisNexis">LexisNexis</option>
+                            <option value="Bloomberg Law">Bloomberg Law</option>
+                            <option value="Fastcase">Fastcase</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_research_other_input" style="margin-top: 10px;">
+                        <input type="text" id="tech_research_other_text" name="tech_research_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+
+                IP Management
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_ip" name="tech_ip" data-category="IP Management">
+                            <option value="">Select an IP Management...</option>
+                            <option value="Anaqua">Anaqua</option>
+                            <option value="CPA Global">CPA Global</option>
+                            <option value="Alt Legal">Alt Legal</option>
+                            <option value="IPfolio">IPfolio</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_ip_other_input" style="margin-top: 10px;">
+                        <input type="text" id="tech_ip_other_text" name="tech_ip_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+
+                eDiscovery
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_ediscovery" name="tech_ediscovery" data-category="eDiscovery">
+                            <option value="">Select an eDiscovery...</option>
+                            <option value="Relativity">Relativity</option>
+                            <option value="Logikcull">Logikcull</option>
+                            <option value="Everlaw">Everlaw</option>
+                            <option value="Exterro">Exterro</option>
+                            <option value="Disco">Disco</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_ediscovery_other_input" style="margin-top: 10px;">
+                        <input type="text" id="tech_ediscovery_other_text" name="tech_ediscovery_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+
+                Compliance Management
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_compliance" name="tech_compliance" data-category="Compliance">
+                            <option value="">Select a Compliance...</option>
+                            <option value="Navex">Navex</option>
+                            <option value="Convercent">Convercent</option>
+                            <option value="LogicManager">LogicManager</option>
+                            <option value="MetricStream">MetricStream</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_compliance_other_input" style="margin-top: 10px;">
+                        <input type="text" id="tech_compliance_other_text" name="tech_compliance_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+
+                Legal Ops
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_legalops" name="tech_legalops" data-category="Legal Ops">
+                            <option value="">Select a Legal Ops...</option>
+                            <option value="Onit">Onit</option>
+                            <option value="Kira Systems">Kira Systems</option>
+                            <option value="Legal Mation">Legal Mation</option>
+                            <option value="Neota Logic">Neota Logic</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_legalops_other_input" style="margin-top: 10px;">
+                        <input type="text" id="tech_legalops_other_text" name="tech_legalops_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+
+                Chat
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_chat" name="tech_chat" data-category="Chat">
+                            <option value="">Select a Chat...</option>
+                            <option value="MS Teams">MS Teams</option>
+                            <option value="Slack">Slack</option>
+                            <option value="Zoom Chat">Zoom Chat</option>
+                            <option value="Google Chat">Google Chat</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_chat_other_input" style="margin-top: 10px;">
+                        <input type="text" id="tech_chat_other_text" name="tech_chat_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+
+                Email
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_email" name="tech_email" data-category="Email">
+                            <option value="">Select an Email...</option>
+                            <option value="Outlook">Outlook</option>
+                            <option value="Gmail">Gmail</option>
+                            <option value="Apple Mail">Apple Mail</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_email_other_input" style="margin-top: 10px;">
+                        <input type="text" id="tech_email_other_text" name="tech_email_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+
+                AI/ML Tools for Legal
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_aiml" name="tech_aiml" data-category="AI/ML">
+                            <option value="">Select an AI/ML...</option>
+                            <option value="Kira Systems">Kira Systems</option>
+                            <option value="Luminance">Luminance</option>
+                            <option value="LawGeex">LawGeex</option>
+                            <option value="Evisort">Evisort</option>
+                            <option value="Harvey AI">Harvey AI</option>
+                            <option value="Casetext">Casetext</option>
+                            <option value="Legora">Legora</option>
+                            <option value="IVO">IVO</option>
+                            <option value="Norm AI">Norm AI</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_aiml_other_input" style="margin-top: 10px;">
+                        <input type="text" id="tech_aiml_other_text" name="tech_aiml_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+
+                AI Foundation Models
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_foundation" name="tech_foundation" data-category="AI Foundation">
+                            <option value="">Select an AI Foundation...</option>
+                            <option value="OpenAI">OpenAI</option>
+                            <option value="Anthropic">Anthropic</option>
+                            <option value="Google">Google</option>
+                            <option value="Amazon">Amazon</option>
+                            <option value="Meta">Meta</option>
+                            <option value="Mistral">Mistral</option>
+                            <option value="xAI">xAI</option>
+                            <option value="Multiple">Multiple</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_foundation_other_input" style="margin-top: 10px;">
+                        <input type="text" id="tech_foundation_other_text" name="tech_foundation_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+
+                Cloud Provider
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_cloud" name="tech_cloud" data-category="Cloud">
+                            <option value="">Select a Cloud...</option>
+                            <option value="Amazon">Amazon</option>
+                            <option value="Google">Google</option>
+                            <option value="Microsoft">Microsoft</option>
+                            <option value="Oracle">Oracle</option>
+                            <option value="IBM">IBM</option>
+                            <option value="Alibaba">Alibaba</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_cloud_other_input" style="margin-top: 10px;">
+                        <input type="text" id="tech_cloud_other_text" name="tech_cloud_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+
+                CRM
+                <div class="tech-category">
+                    <div class="tech-category-row">
+                        <select id="tech_crm" name="tech_crm" data-category="CRM">
+                            <option value="">Select a CRM...</option>
+                            <option value="Salesforce">Salesforce</option>
+                            <option value="MS Dynamics">MS Dynamics</option>
+                            <option value="Hubspot">Hubspot</option>
+                            <option value="Zoho">Zoho</option>
+                            <option value="SAP">SAP</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="other-input hidden" id="tech_crm_other_input" style="margin-top: 10px;">
+                        <input type="text" id="tech_crm_other_text" name="tech_crm_other_text" placeholder="Please specify...">
+                    </div>
+                </div>
+            </div>
+            </div>
+            -->
+
+            <!-- Step 3: How Eudia Can Better Serve (formerly Step 4) -->
+            <div class="form-step" data-step="3">
+                <!-- Question 8: How Eudia can better serve -->
+                <div class="form-group">
+                    <label for="eudia_serve">How can Eudia better serve you as a CAB member and customer? <span class="required">*</span></label>
+                    <textarea id="eudia_serve" name="eudia_serve" required placeholder="Please share your thoughts..."></textarea>
+                </div>
+            </div>
+
+            <!-- Step 4: CAB Goals (formerly Step 5) -->
+            <div class="form-step" data-step="4">
+                <!-- Question 9: Goals as CAB member -->
+                <div class="form-group">
+                    <label for="cab_goals">What are your goals as a CAB member to partner with Eudia to transform labor as we know it? <span class="required">*</span></label>
+                    <textarea id="cab_goals" name="cab_goals" required placeholder="Please describe your goals..."></textarea>
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="step-navigation">
+                <button type="button" class="step-btn step-btn-secondary" id="prevBtn" onclick="changeStep(-1)" style="display: none;">Previous</button>
+                <button type="button" class="step-btn" id="nextBtn" onclick="changeStep(1)">Next</button>
+                <button type="submit" class="step-btn" id="submitBtn" style="display: none;">Submit Survey</button>
+            </div>
+        </form>
+
+        <!-- Confirmation Page -->
+        <div class="confirmation-page" id="confirmationPage">
+            <div class="confirmation-icon">🎉</div>
+            <h2 class="confirmation-title">Congratulations!</h2>
+            <p class="confirmation-message">
+                You are well on your way to enabling your team to achieve eudaimonia!
+            </p>
+            <p class="confirmation-submessage">See you in Phoenix!</p>
+        </div>
+    </div>
+
+    <script>
+        // Multi-step form navigation
+        let currentStep = 1;
+        const totalSteps = 4;
+
+        function showStep(step) {
+            // Hide all steps
+            document.querySelectorAll('.form-step').forEach(s => {
+                s.classList.remove('active');
+            });
+            
+            // Show current step
+            const stepElement = document.querySelector(`.form-step[data-step="${step}"]`);
+            if (stepElement) {
+                stepElement.classList.add('active');
+            }
+            
+            // Update step indicator
+            document.getElementById('currentStep').textContent = step;
+            document.querySelectorAll('.step-dot').forEach((dot, index) => {
+                dot.classList.remove('active', 'completed');
+                if (index + 1 < step) {
+                    dot.classList.add('completed');
+                } else if (index + 1 === step) {
+                    dot.classList.add('active');
+                }
+            });
+            
+            // Update navigation buttons
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            if (step === 1) {
+                prevBtn.style.display = 'none';
+            } else {
+                prevBtn.style.display = 'inline-block';
+            }
+            
+            if (step === totalSteps) {
+                nextBtn.style.display = 'none';
+                submitBtn.style.display = 'inline-block';
+            } else {
+                nextBtn.style.display = 'inline-block';
+                submitBtn.style.display = 'none';
+            }
+        }
+
+        function changeStep(direction) {
+            const stepElement = document.querySelector(`.form-step[data-step="${currentStep}"]`);
+            const requiredFields = stepElement.querySelectorAll('[required]');
+            let isValid = true;
+            
+            // Validate required fields in current step
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    isValid = false;
+                    field.style.borderColor = '#e74c3c';
+                } else {
+                    field.style.borderColor = '';
+                }
+            });
+            
+            // Check checkbox groups that need at least one selection
+            const checkboxGroups = stepElement.querySelectorAll('.checkbox-group');
+            checkboxGroups.forEach(group => {
+                const checkboxes = group.querySelectorAll('input[type="checkbox"]');
+                const checked = Array.from(checkboxes).some(cb => cb.checked);
+                if (checkboxes.length > 0 && !checked) {
+                    // Check if this group is in a required field context
+                    const parentLabel = group.closest('.form-group')?.querySelector('label');
+                    if (parentLabel && parentLabel.querySelector('.required')) {
+                        isValid = false;
+                        group.style.border = '2px solid #e74c3c';
+                        group.style.borderRadius = '8px';
+                        group.style.padding = '8px';
+                    }
+                } else if (checked) {
+                    group.style.border = '';
+                    group.style.padding = '';
+                }
+            });
+            
+            
+            if (!isValid && direction > 0) {
+                alert('Please fill in all required fields before continuing.');
+                return;
+            }
+            
+            const newStep = currentStep + direction;
+            if (newStep >= 1 && newStep <= totalSteps) {
+                currentStep = newStep;
+                showStep(currentStep);
+                
+                // Scroll to top of form
+                document.querySelector('.container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        // Initialize first step
+        showStep(1);
+
+        // Blocker checkbox handlers
+        document.getElementById('blocker_internal').addEventListener('change', function() {
+            const helpField = document.getElementById('blocker_internal_help');
+            const helpText = document.getElementById('blocker_internal_help_text');
+            const listField = document.getElementById('blocker_internal_list');
+            helpField.classList.toggle('hidden', !this.checked);
+            listField.classList.toggle('hidden', !this.checked);
+            if (helpText) {
+                helpText.required = this.checked;
+            }
+        });
+
+        document.getElementById('blocker_adoption').addEventListener('change', function() {
+            const helpField = document.getElementById('blocker_adoption_help');
+            const helpText = document.getElementById('blocker_adoption_help_text');
+            helpField.classList.toggle('hidden', !this.checked);
+            if (helpText) {
+                helpText.required = this.checked;
+            }
+        });
+
+        document.getElementById('blocker_budget').addEventListener('change', function() {
+            const helpField = document.getElementById('blocker_budget_help');
+            const helpText = document.getElementById('blocker_budget_help_text');
+            helpField.classList.toggle('hidden', !this.checked);
+            if (helpText) {
+                helpText.required = this.checked;
+            }
+        });
+
+        document.getElementById('blocker_internal_legal_talent').addEventListener('change', function() {
+            const helpField = document.getElementById('blocker_internal_legal_talent_help');
+            const helpText = document.getElementById('blocker_internal_legal_talent_help_text');
+            helpField.classList.toggle('hidden', !this.checked);
+            if (helpText) {
+                helpText.required = this.checked;
+            }
+        });
+
+        document.getElementById('blocker_external_legal_talent').addEventListener('change', function() {
+            const helpField = document.getElementById('blocker_external_legal_talent_help');
+            const helpText = document.getElementById('blocker_external_legal_talent_help_text');
+            helpField.classList.toggle('hidden', !this.checked);
+            if (helpText) {
+                helpText.required = this.checked;
+            }
+        });
+
+        document.getElementById('blocker_internal_engineering_talent').addEventListener('change', function() {
+            const helpField = document.getElementById('blocker_internal_engineering_talent_help');
+            const helpText = document.getElementById('blocker_internal_engineering_talent_help_text');
+            helpField.classList.toggle('hidden', !this.checked);
+            if (helpText) {
+                helpText.required = this.checked;
+            }
+        });
+
+        document.getElementById('blocker_external_engineering_talent').addEventListener('change', function() {
+            const helpField = document.getElementById('blocker_external_engineering_talent_help');
+            const helpText = document.getElementById('blocker_external_engineering_talent_help_text');
+            helpField.classList.toggle('hidden', !this.checked);
+            if (helpText) {
+                helpText.required = this.checked;
+            }
+        });
+
+        document.getElementById('blocker_other').addEventListener('change', function() {
+            document.getElementById('blocker_other_input').classList.toggle('hidden', !this.checked);
+        });
+
+        // Tech stack "Other" handlers for dropdowns
+        const techOtherHandlers = [
+            { select: 'tech_clm', input: 'tech_clm_other_input' },
+            { select: 'tech_matter', input: 'tech_matter_other_input' },
+            { select: 'tech_ebilling', input: 'tech_ebilling_other_input' },
+            { select: 'tech_dms', input: 'tech_dms_other_input' },
+            { select: 'tech_esignature', input: 'tech_esignature_other_input' },
+            { select: 'tech_research', input: 'tech_research_other_input' },
+            { select: 'tech_ip', input: 'tech_ip_other_input' },
+            { select: 'tech_ediscovery', input: 'tech_ediscovery_other_input' },
+            { select: 'tech_compliance', input: 'tech_compliance_other_input' },
+            { select: 'tech_legalops', input: 'tech_legalops_other_input' },
+            { select: 'tech_chat', input: 'tech_chat_other_input' },
+            { select: 'tech_email', input: 'tech_email_other_input' },
+            { select: 'tech_aiml', input: 'tech_aiml_other_input' },
+            { select: 'tech_foundation', input: 'tech_foundation_other_input' },
+            { select: 'tech_cloud', input: 'tech_cloud_other_input' },
+            { select: 'tech_crm', input: 'tech_crm_other_input' }
+        ];
+
+        techOtherHandlers.forEach(handler => {
+            const select = document.getElementById(handler.select);
+            if (select) {
+                select.addEventListener('change', function() {
+                    const inputDiv = document.getElementById(handler.input);
+                    if (inputDiv) {
+                        // Check if "Other" is selected in the dropdown
+                        const isOtherSelected = this.value === 'Other';
+                        inputDiv.classList.toggle('hidden', !isOtherSelected);
+                    }
+                });
+            }
+        });
+
+        // Update display to show "Category: Value" when selected
+        document.querySelectorAll('select[data-category]').forEach(select => {
+            const category = select.getAttribute('data-category');
+            const originalOptions = {};
+            
+            // Store original option texts
+            Array.from(select.options).forEach(option => {
+                if (option.value) {
+                    originalOptions[option.value] = option.textContent;
+                }
+            });
+            
+            // Restore all options to original text
+            function restoreOptions() {
+                Array.from(select.options).forEach(option => {
+                    if (option.value && originalOptions[option.value]) {
+                        option.textContent = originalOptions[option.value];
+                    }
+                });
+            }
+            
+            select.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const value = selectedOption.value;
+                
+                // First restore all options
+                restoreOptions();
+                
+                // Then update the selected option if it has a value
+                if (value && value !== 'Other' && originalOptions[value]) {
+                    selectedOption.textContent = `${category}: ${originalOptions[value]}`;
+                }
+            });
+            
+            // Initialize on page load if something is already selected
+            if (select.value && select.value !== 'Other' && originalOptions[select.value]) {
+                const selectedOption = select.options[select.selectedIndex];
+                selectedOption.textContent = `${category}: ${originalOptions[select.value]}`;
+            }
+        });
+
+        // Submit button click handler
+        document.getElementById('submitBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Validate the current step before submitting
+            const stepElement = document.querySelector(`.form-step[data-step="${currentStep}"]`);
+            if (stepElement) {
+                const requiredFields = stepElement.querySelectorAll('[required]');
+                let isValid = true;
+                
+                // Validate required fields
+                requiredFields.forEach(field => {
+                    if (!field.value.trim()) {
+                        isValid = false;
+                        field.style.borderColor = '#e74c3c';
+                    } else {
+                        field.style.borderColor = '';
+                    }
+                });
+                
+                // Validate conditional required fields (blocker help fields)
+                const checkedBlockers = document.querySelectorAll('input[name="blockers"]:checked');
+                checkedBlockers.forEach(checkbox => {
+                    const blockerId = checkbox.id;
+                    let helpFieldId = '';
+                    
+                    if (blockerId === 'blocker_internal') {
+                        helpFieldId = 'blocker_internal_help_text';
+                    } else if (blockerId === 'blocker_adoption') {
+                        helpFieldId = 'blocker_adoption_help_text';
+                    } else if (blockerId === 'blocker_budget') {
+                        helpFieldId = 'blocker_budget_help_text';
+                    } else if (blockerId === 'blocker_internal_legal_talent') {
+                        helpFieldId = 'blocker_internal_legal_talent_help_text';
+                    } else if (blockerId === 'blocker_external_legal_talent') {
+                        helpFieldId = 'blocker_external_legal_talent_help_text';
+                    } else if (blockerId === 'blocker_internal_engineering_talent') {
+                        helpFieldId = 'blocker_internal_engineering_talent_help_text';
+                    } else if (blockerId === 'blocker_external_engineering_talent') {
+                        helpFieldId = 'blocker_external_engineering_talent_help_text';
+                    }
+                    
+                    if (helpFieldId) {
+                        const helpField = document.getElementById(helpFieldId);
+                        if (helpField && !helpField.value.trim()) {
+                            isValid = false;
+                            helpField.style.borderColor = '#e74c3c';
+                        } else if (helpField) {
+                            helpField.style.borderColor = '';
+                        }
+                    }
+                });
+                
+                // Check checkbox groups
+                const checkboxGroups = stepElement.querySelectorAll('.checkbox-group');
+                checkboxGroups.forEach(group => {
+                    const checkboxes = group.querySelectorAll('input[type="checkbox"]');
+                    const checked = Array.from(checkboxes).some(cb => cb.checked);
+                    if (checkboxes.length > 0 && !checked) {
+                        const parentLabel = group.closest('.form-group')?.querySelector('label');
+                        if (parentLabel && parentLabel.querySelector('.required')) {
+                            isValid = false;
+                            group.style.border = '2px solid #e74c3c';
+                            group.style.borderRadius = '8px';
+                            group.style.padding = '8px';
+                        }
+                    } else if (checked) {
+                        group.style.border = '';
+                        group.style.padding = '';
+                    }
+                });
+                
+                if (!isValid) {
+                    alert('Please fill in all required fields before submitting.');
+                    return;
+                }
+            }
+            
+            // Trigger form submission
+            document.getElementById('surveyForm').dispatchEvent(new Event('submit'));
+        });
+
+        // Form submission
+        document.getElementById('surveyForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Collect form data
+            const formData = new FormData(this);
+            const data = {};
+            
+            // Collect checkboxes
+            data.blockers = Array.from(formData.getAll('blockers'));
+            
+            // Collect outcome importance ratings
+            data.outcome_ratings = {
+                'Decrease Outside Counsel Costs': formData.get('rating_outcome_counsel_costs') || '',
+                'Decrease Internal Team Costs': formData.get('rating_outcome_internal_costs') || '',
+                'Increase Contracting Velocity': formData.get('rating_outcome_contracting_velocity') || '',
+                'Deeper Insights': formData.get('rating_outcome_insights') || '',
+                'Improve Marketing Compliance': formData.get('rating_outcome_marketing_compliance') || '',
+                'Decrease Litigation Costs': formData.get('rating_outcome_litigation_costs') || '',
+                'Accelerate M&A Due Diligence': formData.get('rating_outcome_ma_dd') || ''
+            };
+            
+            // Collect tech stack data (single select values)
+            data.tech_clm = formData.get('tech_clm') || '';
+            data.tech_matter = formData.get('tech_matter') || '';
+            data.tech_ebilling = formData.get('tech_ebilling') || '';
+            data.tech_dms = formData.get('tech_dms') || '';
+            data.tech_esignature = formData.get('tech_esignature') || '';
+            data.tech_research = formData.get('tech_research') || '';
+            data.tech_ip = formData.get('tech_ip') || '';
+            data.tech_ediscovery = formData.get('tech_ediscovery') || '';
+            data.tech_compliance = formData.get('tech_compliance') || '';
+            data.tech_legalops = formData.get('tech_legalops') || '';
+            data.tech_chat = formData.get('tech_chat') || '';
+            data.tech_email = formData.get('tech_email') || '';
+            data.tech_aiml = formData.get('tech_aiml') || '';
+            data.tech_foundation = formData.get('tech_foundation') || '';
+            data.tech_cloud = formData.get('tech_cloud') || '';
+            data.tech_crm = formData.get('tech_crm') || '';
+            
+            // Collect other fields
+            const excludeFields = ['blockers', 
+                'tech_clm', 'tech_matter', 'tech_ebilling', 'tech_dms', 'tech_esignature',
+                'tech_research', 'tech_ip', 'tech_ediscovery', 'tech_compliance', 'tech_legalops',
+                'tech_chat', 'tech_email', 'tech_aiml', 'tech_foundation', 'tech_cloud', 'tech_crm',
+                'rating_outcome_counsel_costs', 'rating_outcome_internal_costs', 'rating_outcome_contracting_velocity',
+                'rating_outcome_insights', 'rating_outcome_marketing_compliance', 'rating_outcome_litigation_costs',
+                'rating_outcome_ma_dd'];
+            
+            for (let [key, value] of formData.entries()) {
+                if (!excludeFields.includes(key)) {
+                    data[key] = value;
+                }
+            }
+            
+            // Log to console (in production, this would be sent to a server)
+            console.log('Form Data:', JSON.stringify(data, null, 2));
+            console.log('Form submitted successfully');
+            
+            // Hide form and step indicator, show confirmation page
+            document.getElementById('surveyForm').style.display = 'none';
+            const stepIndicator = document.querySelector('.step-indicator');
+            if (stepIndicator) {
+                stepIndicator.style.display = 'none';
+            }
+            const title = document.querySelector('h1');
+            if (title) {
+                title.style.display = 'none';
+            }
+            const subtitle = document.querySelector('.subtitle');
+            if (subtitle) {
+                subtitle.style.display = 'none';
+            }
+            
+            // Show confirmation page
+            const confirmationPage = document.getElementById('confirmationPage');
+            if (confirmationPage) {
+                confirmationPage.classList.add('active');
+            }
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    </script>
+</body>
+</html>
+

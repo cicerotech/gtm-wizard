@@ -793,6 +793,14 @@ class GTMBrainApp {
     this.expressApp.get('/playbook', (req, res) => res.redirect('/sales-process'));
     this.expressApp.get('/revops', (req, res) => res.redirect('/sales-process'));
 
+    // CAB Survey
+    this.expressApp.get('/cab-survey', (req, res) => {
+      const path = require('path');
+      const surveyPath = path.join(__dirname, '..', 'docs', 'cab-survey.html');
+      res.sendFile(surveyPath);
+    });
+    this.expressApp.get('/survey', (req, res) => res.redirect('/cab-survey'));
+
     // Email Builder API routes
     const emailBuilderRoutes = require('./routes/emailBuilder');
     this.expressApp.get('/api/search-accounts', emailBuilderRoutes.searchAccounts);
