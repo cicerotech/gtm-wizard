@@ -1157,8 +1157,8 @@
 
             <!-- Navigation Buttons -->
             <div class="step-navigation">
-                <button type="button" class="step-btn step-btn-secondary" id="prevBtn" onclick="changeStep(-1)" style="display: none;">Previous</button>
-                <button type="button" class="step-btn" id="nextBtn" onclick="changeStep(1)">Next</button>
+                <button type="button" class="step-btn step-btn-secondary" id="prevBtn" style="display: none;">Previous</button>
+                <button type="button" class="step-btn" id="nextBtn">Next</button>
                 <button type="submit" class="step-btn" id="submitBtn" style="display: none;">Submit Survey</button>
             </div>
         </form>
@@ -1275,6 +1275,15 @@
 
         // Initialize first step
         showStep(1);
+
+        // Navigation button event listeners
+        document.getElementById('prevBtn').addEventListener('click', function() {
+            changeStep(-1);
+        });
+        
+        document.getElementById('nextBtn').addEventListener('click', function() {
+            changeStep(1);
+        });
 
         // Blocker checkbox handlers
         document.getElementById('blocker_internal').addEventListener('change', function() {
