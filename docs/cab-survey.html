@@ -621,12 +621,13 @@
         <form id="surveyForm" novalidate>
             <!-- Step Indicator -->
             <div class="step-indicator">
-                <span class="step-counter">Step <span id="currentStep">1</span> of <span id="totalSteps">4</span>: <span id="stepLabel" style="color: #6366f1; font-weight: 600;">Vision & Outcomes</span></span>
+                <span class="step-counter">Step <span id="currentStep">1</span> of <span id="totalSteps">5</span>: <span id="stepLabel" style="color: #6366f1; font-weight: 600;">Vision & Outcomes</span></span>
                 <div style="display: flex; gap: 8px; margin-left: 15px;">
                     <div class="step-dot active" data-step="1"></div>
                     <div class="step-dot" data-step="2"></div>
                     <div class="step-dot" data-step="3"></div>
                     <div class="step-dot" data-step="4"></div>
+                    <div class="step-dot" data-step="5"></div>
                 </div>
             </div>
 
@@ -638,10 +639,24 @@
                     <input type="email" id="email" name="email" required placeholder="your.email@example.com">
                 </div>
 
-                <!-- Question 1: Vision for legal team -->
+                <!-- Primary Focus Area dropdown -->
                 <div class="form-group">
-                    <label for="vision">What is your vision for your legal team in 2026? <span class="required">*</span></label>
-                    <textarea id="vision" name="vision" required placeholder="Please describe your vision..."></textarea>
+                    <label for="primary_focus">Primary 2026 Focus Area <span class="required">*</span></label>
+                    <select id="primary_focus" name="primary_focus" required>
+                        <option value="">Select your primary focus...</option>
+                        <option value="Reduce legal spend (OC or internal)">Reduce legal spend (OC or internal)</option>
+                        <option value="Accelerate contract velocity">Accelerate contract velocity</option>
+                        <option value="Deeper data insights / analytics">Deeper data insights / analytics</option>
+                        <option value="Improve compliance posture">Improve compliance posture</option>
+                        <option value="M&A / Litigation efficiency">M&A / Litigation efficiency</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <!-- Question 1: Vision for legal team (optional elaboration) -->
+                <div class="form-group">
+                    <label for="vision">Tell us more about your vision <span style="font-size: 12px; color: #94a3b8;">(optional)</span></label>
+                    <textarea id="vision" name="vision" placeholder="Share additional details about your 2026 vision..."></textarea>
                 </div>
 
                 <!-- Question 2: Specific outcomes with dropdowns -->
@@ -797,6 +812,18 @@
                     </div>
                 </div>
             </div>
+
+                <!-- Blocker Impact Rating -->
+                <div class="form-group" style="margin-top: 20px;">
+                    <label for="blocker_impact">How much are these blockers impacting your ability to achieve goals? <span class="required">*</span></label>
+                    <select id="blocker_impact" name="blocker_impact" required>
+                        <option value="">Select impact level...</option>
+                        <option value="Minor inconvenience">Minor inconvenience</option>
+                        <option value="Moderate impact">Moderate impact</option>
+                        <option value="Significant barrier">Significant barrier</option>
+                        <option value="Critical blocker">Critical blocker</option>
+                    </select>
+                </div>
             </div>
 
             <!-- Step 3: How Eudia Can Help - COMMENTED OUT (can be restored if needed) -->
@@ -1141,19 +1168,149 @@
 
             <!-- Step 3: How Eudia Can Better Serve (formerly Step 4) -->
             <div class="form-step" data-step="3">
-                <!-- Question 8: How Eudia can better serve -->
+                <!-- Engagement Preferences -->
                 <div class="form-group">
-                    <label for="eudia_serve">How can Eudia better serve you as a CAB member and customer? <span class="required">*</span></label>
-                    <textarea id="eudia_serve" name="eudia_serve" required placeholder="Please share your thoughts..."></textarea>
+                    <label>How would you like Eudia to engage with you? <span class="required">*</span></label>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="engage_qbr" name="engagement_preferences" value="Quarterly business reviews">
+                            <label for="engage_qbr">Quarterly business reviews</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="engage_roadmap" name="engagement_preferences" value="Product roadmap previews">
+                            <label for="engage_roadmap">Product roadmap previews</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="engage_beta" name="engagement_preferences" value="Beta feature access">
+                            <label for="engage_beta">Beta feature access</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="engage_networking" name="engagement_preferences" value="Peer networking / case studies">
+                            <label for="engage_networking">Peer networking / case studies</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="engage_executive" name="engagement_preferences" value="Executive sponsorship">
+                            <label for="engage_executive">Executive sponsorship</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="engage_training" name="engagement_preferences" value="Training / enablement">
+                            <label for="engage_training">Training / enablement</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="engage_other" name="engagement_preferences" value="Other">
+                            <label for="engage_other">Other</label>
+                        </div>
+                        <div class="other-input hidden" id="engage_other_input" style="margin-left: 28px; margin-top: 8px;">
+                            <input type="text" id="engage_other_text" name="engage_other_text" placeholder="Please specify...">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Optional elaboration -->
+                <div class="form-group">
+                    <label for="eudia_serve">Additional thoughts on how we can serve you <span style="font-size: 12px; color: #94a3b8;">(optional)</span></label>
+                    <textarea id="eudia_serve" name="eudia_serve" placeholder="Share any additional thoughts..."></textarea>
                 </div>
             </div>
 
             <!-- Step 4: CAB Goals (formerly Step 5) -->
             <div class="form-step" data-step="4">
-                <!-- Question 9: Goals as CAB member -->
+                <!-- Primary CAB Objective -->
                 <div class="form-group">
-                    <label for="cab_goals">What are your goals as a CAB member to partner with Eudia to transform labor as we know it? <span class="required">*</span></label>
-                    <textarea id="cab_goals" name="cab_goals" required placeholder="Please describe your goals..."></textarea>
+                    <label for="cab_objective">What's your primary objective as a CAB member? <span class="required">*</span></label>
+                    <select id="cab_objective" name="cab_objective" required>
+                        <option value="">Select your primary objective...</option>
+                        <option value="Influence product roadmap">Influence product roadmap</option>
+                        <option value="Access to new features first">Access to new features first</option>
+                        <option value="Networking with peers">Networking with peers</option>
+                        <option value="Showcase our team externally">Showcase our team externally</option>
+                        <option value="Strategic partnership discussions">Strategic partnership discussions</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <!-- Engagement Level -->
+                <div class="form-group">
+                    <label for="engagement_level">What's your preferred level of engagement? <span class="required">*</span></label>
+                    <select id="engagement_level" name="engagement_level" required>
+                        <option value="">Select engagement level...</option>
+                        <option value="Light touch (1-2 touches/year)">Light touch (1-2 touches/year)</option>
+                        <option value="Moderate (quarterly)">Moderate (quarterly)</option>
+                        <option value="Active (monthly or more)">Active (monthly or more)</option>
+                    </select>
+                </div>
+
+                <!-- Optional elaboration -->
+                <div class="form-group">
+                    <label for="cab_goals">Tell us more about your CAB goals <span style="font-size: 12px; color: #94a3b8;">(optional)</span></label>
+                    <textarea id="cab_goals" name="cab_goals" placeholder="Share additional details about your goals..."></textarea>
+                </div>
+            </div>
+
+            <!-- Step 5: Tech Stack (Optional) -->
+            <div class="form-step" data-step="5">
+                <div class="form-group">
+                    <label style="font-size: 16px; margin-bottom: 4px;">Tech Stack Overview</label>
+                    <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px;">Help us understand your current tools (all optional)</p>
+
+                    <!-- CLM -->
+                    <div style="margin-bottom: 16px;">
+                        <label for="tech_clm" style="font-size: 13px; margin-bottom: 4px;">Contract Lifecycle Management (CLM)</label>
+                        <select id="tech_clm" name="tech_clm" style="width: 100%;">
+                            <option value="">Select...</option>
+                            <option value="Ironclad">Ironclad</option>
+                            <option value="DocuSign CLM">DocuSign CLM</option>
+                            <option value="Icertis">Icertis</option>
+                            <option value="Agiloft">Agiloft</option>
+                            <option value="ContractPodAi">ContractPodAi</option>
+                            <option value="LinkSquares">LinkSquares</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                        </select>
+                    </div>
+
+                    <!-- DMS -->
+                    <div style="margin-bottom: 16px;">
+                        <label for="tech_dms" style="font-size: 13px; margin-bottom: 4px;">Document Management</label>
+                        <select id="tech_dms" name="tech_dms" style="width: 100%;">
+                            <option value="">Select...</option>
+                            <option value="iManage">iManage</option>
+                            <option value="NetDocuments">NetDocuments</option>
+                            <option value="SharePoint">SharePoint</option>
+                            <option value="Google Workspace">Google Workspace</option>
+                            <option value="Microsoft 365">Microsoft 365</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                        </select>
+                    </div>
+
+                    <!-- AI/ML Tools -->
+                    <div style="margin-bottom: 16px;">
+                        <label for="tech_aiml" style="font-size: 13px; margin-bottom: 4px;">AI/ML Tools for Legal</label>
+                        <select id="tech_aiml" name="tech_aiml" style="width: 100%;">
+                            <option value="">Select...</option>
+                            <option value="Harvey AI">Harvey AI</option>
+                            <option value="Kira Systems">Kira Systems</option>
+                            <option value="Luminance">Luminance</option>
+                            <option value="Evisort">Evisort</option>
+                            <option value="Casetext">Casetext</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                        </select>
+                    </div>
+
+                    <!-- CRM -->
+                    <div style="margin-bottom: 16px;">
+                        <label for="tech_crm" style="font-size: 13px; margin-bottom: 4px;">CRM</label>
+                        <select id="tech_crm" name="tech_crm" style="width: 100%;">
+                            <option value="">Select...</option>
+                            <option value="Salesforce">Salesforce</option>
+                            <option value="Microsoft Dynamics">Microsoft Dynamics</option>
+                            <option value="HubSpot">HubSpot</option>
+                            <option value="Other">Other</option>
+                            <option value="Not using">Not using</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -1179,12 +1336,13 @@
     <script>
         // Multi-step form navigation
         let currentStep = 1;
-        const totalSteps = 4;
+        const totalSteps = 5;
         const stepLabels = {
             1: 'Vision & Outcomes',
             2: 'Challenges',
             3: 'Partnership',
-            4: 'CAB Goals'
+            4: 'CAB Goals',
+            5: 'Tech Stack'
         };
 
         function showStep(step) {
@@ -1362,6 +1520,11 @@
 
         document.getElementById('blocker_other').addEventListener('change', function() {
             document.getElementById('blocker_other_input').classList.toggle('hidden', !this.checked);
+        });
+
+        // Engagement "Other" handler
+        document.getElementById('engage_other').addEventListener('change', function() {
+            document.getElementById('engage_other_input').classList.toggle('hidden', !this.checked);
         });
 
         // Tech stack "Other" handlers for dropdowns
