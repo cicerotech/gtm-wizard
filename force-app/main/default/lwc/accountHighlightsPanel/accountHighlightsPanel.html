@@ -1,136 +1,53 @@
 <template>
-    <lightning-card class="highlights-card">
-        <template if:true={isLoading}>
-            <div class="slds-p-around_medium">
-                <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+    <template if:true={isLoading}>
+        <div class="loading-container">
+            <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+        </div>
+    </template>
+    
+    <template if:false={isLoading}>
+        <div class="highlights-container">
+            <!-- Logo -->
+            <div class="logo-section">
+                <template if:true={hasLogo}>
+                    <img 
+                        src={logoUrl} 
+                        alt={accountName}
+                        class="company-logo"
+                        onerror={handleImageError}
+                    />
+                </template>
+                <template if:false={hasLogo}>
+                    <lightning-icon 
+                        icon-name="standard:account" 
+                        size="large">
+                    </lightning-icon>
+                </template>
             </div>
-        </template>
-        
-        <template if:false={isLoading}>
-            <div class="slds-page-header slds-page-header_record-home">
-                <div class="slds-page-header__row">
-                    <!-- Logo / Icon Section -->
-                    <div class="slds-page-header__col-title">
-                        <div class="slds-media">
-                            <div class="slds-media__figure">
-                                <template if:true={hasLogo}>
-                                    <span class="logo-wrapper">
-                                        <img 
-                                            src={logoUrl} 
-                                            alt={accountName}
-                                            class="company-logo"
-                                            onerror={handleImageError}
-                                        />
-                                    </span>
-                                </template>
-                                <template if:false={hasLogo}>
-                                    <lightning-icon 
-                                        icon-name="standard:account" 
-                                        size="large">
-                                    </lightning-icon>
-                                </template>
-                            </div>
-                            <div class="slds-media__body">
-                                <div class="slds-page-header__name">
-                                    <div class="slds-page-header__name-title">
-                                        <h1>
-                                            <span class="slds-page-header__title slds-truncate" title={accountName}>
-                                                {accountName}
-                                            </span>
-                                        </h1>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Action Buttons -->
-                    <div class="slds-page-header__col-actions">
-                        <div class="slds-page-header__controls">
-                            <div class="slds-page-header__control">
-                                <lightning-button-group>
-                                    <lightning-button 
-                                        label="Follow" 
-                                        icon-name="utility:add"
-                                        onclick={handleFollow}>
-                                    </lightning-button>
-                                    <lightning-button 
-                                        label="New Opportunity" 
-                                        onclick={handleNewOpportunity}>
-                                    </lightning-button>
-                                    <lightning-button 
-                                        label="Edit" 
-                                        onclick={handleEdit}>
-                                    </lightning-button>
-                                </lightning-button-group>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Detail Row -->
-                <div class="slds-page-header__row slds-page-header__row_gutters">
-                    <div class="slds-page-header__col-details">
-                        <ul class="slds-page-header__detail-row">
-                            <!-- Phone -->
-                            <li class="slds-page-header__detail-block">
-                                <div class="slds-text-title slds-truncate" title="Phone">Phone</div>
-                                <div class="slds-truncate" title={phone}>
-                                    <template if:true={phone}>
-                                        <a href={phoneLink}>{phone}</a>
-                                    </template>
-                                    <template if:false={phone}>
-                                        <span class="slds-text-color_weak">--</span>
-                                    </template>
-                                </div>
-                            </li>
-                            
-                            <!-- Billing Address -->
-                            <li class="slds-page-header__detail-block">
-                                <div class="slds-text-title slds-truncate" title="Billing Address">Billing Address</div>
-                                <div title={billingAddress}>
-                                    <template if:true={billingAddress}>
-                                        <lightning-formatted-address
-                                            street={billingAddress}
-                                            disabled>
-                                        </lightning-formatted-address>
-                                    </template>
-                                    <template if:false={billingAddress}>
-                                        <span class="slds-text-color_weak">--</span>
-                                    </template>
-                                </div>
-                            </li>
-                            
-                            <!-- Website -->
-                            <li class="slds-page-header__detail-block">
-                                <div class="slds-text-title slds-truncate" title="Website">Website</div>
-                                <div class="slds-truncate" title={website}>
-                                    <template if:true={website}>
-                                        <a href={websiteLink} target="_blank">{website}</a>
-                                    </template>
-                                    <template if:false={website}>
-                                        <span class="slds-text-color_weak">--</span>
-                                    </template>
-                                </div>
-                            </li>
-                            
-                            <!-- Account Owner -->
-                            <li class="slds-page-header__detail-block">
-                                <div class="slds-text-title slds-truncate" title="Account Owner">Account Owner</div>
-                                <div class="slds-truncate" title={ownerName}>
-                                    <template if:true={ownerName}>
-                                        {ownerName}
-                                    </template>
-                                    <template if:false={ownerName}>
-                                        <span class="slds-text-color_weak">--</span>
-                                    </template>
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
+            
+            <!-- Account Name -->
+            <div class="name-section">
+                <h1 class="account-name">{accountName}</h1>
             </div>
-        </template>
-    </lightning-card>
+            
+            <!-- Action Buttons -->
+            <div class="actions-section">
+                <lightning-button-group>
+                    <lightning-button 
+                        label="Follow" 
+                        icon-name="utility:add"
+                        onclick={handleFollow}>
+                    </lightning-button>
+                    <lightning-button 
+                        label="New Opportunity" 
+                        onclick={handleNewOpportunity}>
+                    </lightning-button>
+                    <lightning-button 
+                        label="Edit" 
+                        onclick={handleEdit}>
+                    </lightning-button>
+                </lightning-button-group>
+            </div>
+        </div>
+    </template>
 </template>
-
