@@ -1,0 +1,60 @@
+/* Custom Highlights Panel Styling */
+
+.highlights-card {
+    margin: 0;
+    padding: 0;
+}
+
+/* Logo styling */
+.logo-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: #fff;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.company-logo {
+    max-width: 48px;
+    max-height: 48px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+/* Account name styling */
+.slds-page-header__title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #080707;
+}
+
+/* Detail blocks */
+.slds-page-header__detail-block {
+    padding-right: 2rem;
+    min-width: 150px;
+}
+
+/* Ensure proper spacing */
+.slds-page-header {
+    padding: 1rem;
+    background: #fff;
+    border-radius: 0.25rem;
+}
+
+/* Action buttons alignment */
+.slds-page-header__col-actions {
+    display: flex;
+    align-items: center;
+}
+
+/* Remove card border for seamless look */
+:host {
+    --slds-c-card-radius-border: 0;
+    --slds-c-card-shadow: none;
+}
+
