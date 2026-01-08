@@ -48,15 +48,14 @@ export default class AccountHighlightsPanel extends NavigationMixin(LightningEle
     }
 
     handleNewOpportunity() {
-        // Invoke the New Opportunity quick action (which triggers the Flow)
+        // Invoke the Account.New_Opportunity quick action (which triggers the Flow)
         this[NavigationMixin.Navigate]({
             type: 'standard__quickAction',
             attributes: {
-                apiName: 'NewOpportunity'
+                apiName: 'Account.New_Opportunity'
             },
             state: {
-                recordId: this.recordId,
-                defaultFieldValues: `AccountId=${this.recordId}`
+                recordId: this.recordId
             }
         });
     }
