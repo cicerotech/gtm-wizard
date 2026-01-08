@@ -1,6 +1,5 @@
 import { LightningElement, api, wire } from 'lwc';
 import { getRecord, getFieldValue } from 'lightning/uiRecordApi';
-import { NavigationMixin } from 'lightning/navigation';
 
 // Import Account fields
 import NAME_FIELD from '@salesforce/schema/Account.Name';
@@ -8,7 +7,7 @@ import LOGO_URL_FIELD from '@salesforce/schema/Account.Logo_URL__c';
 
 const FIELDS = [NAME_FIELD, LOGO_URL_FIELD];
 
-export default class AccountHighlightsPanel extends NavigationMixin(LightningElement) {
+export default class AccountHighlightsPanel extends LightningElement {
     @api recordId;
     
     accountData;
@@ -45,29 +44,5 @@ export default class AccountHighlightsPanel extends NavigationMixin(LightningEle
 
     handleImageError() {
         this.imageError = true;
-    }
-
-    handleNewOpportunity() {
-        this[NavigationMixin.Navigate]({
-            type: 'standard__objectPage',
-            attributes: {
-                objectApiName: 'Opportunity',
-                actionName: 'new'
-            },
-            state: {
-                defaultFieldValues: `AccountId=${this.recordId}`
-            }
-        });
-    }
-
-    handleEdit() {
-        this[NavigationMixin.Navigate]({
-            type: 'standard__recordPage',
-            attributes: {
-                recordId: this.recordId,
-                objectApiName: 'Account',
-                actionName: 'edit'
-            }
-        });
     }
 }
