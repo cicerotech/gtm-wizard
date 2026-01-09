@@ -5,8 +5,9 @@
  */
 
 require('dotenv').config();
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const fs = require('fs');
+const jsforce = require('jsforce');
 const { query, sfConnection } = require('../src/salesforce/connection');
 
 const INPUT_FILE = '/Users/keiganpesenti/Desktop/JH_Contracts_DataLoader.xlsx';
@@ -66,9 +67,20 @@ async function main() {
 
         // Load the DataLoader file
         console.log('Loading DataLoader file...');
-        const workbook = XLSX.readFile(INPUT_FILE);
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(sheet);
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.readFile(INPUT_FILE);
+        const sheet = workbook.worksheets[0];
+        const data = [];
+        const headers = [];
+        sheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) {
+                row.eachCell((cell, colNumber) => { headers[colNumber] = cell.value; });
+            } else {
+                const rowData = {};
+                row.eachCell((cell, colNumber) => { rowData[headers[colNumber]] = cell.value; });
+                data.push(rowData);
+            }
+        });
         console.log(`Loaded ${data.length} contracts\n`);
 
         // Get unique account names to query
@@ -171,22 +183,33 @@ async function main() {
         // Filter to only rows with AccountId
         const validRecords = csvData.filter(r => r.AccountId);
         
-        const newWorkbook = XLSX.utils.book_new();
+        // Helper to add data to worksheet
+        const addDataToSheet = (ws, records) => {
+            if (records.length === 0) return;
+            const cols = Object.keys(records[0]);
+            ws.addRow(cols);
+            records.forEach(r => ws.addRow(cols.map(c => r[c])));
+        };
+
+        const newWorkbook = new ExcelJS.Workbook();
         
         // All records sheet
-        XLSX.utils.book_append_sheet(newWorkbook, XLSX.utils.json_to_sheet(data), 'All Contracts');
+        const allSheet = newWorkbook.addWorksheet('All Contracts');
+        addDataToSheet(allSheet, data);
         
         // Ready for upload sheet (only valid records)
-        XLSX.utils.book_append_sheet(newWorkbook, XLSX.utils.json_to_sheet(validRecords), 'Ready for Upload');
+        const readySheet = newWorkbook.addWorksheet('Ready for Upload');
+        addDataToSheet(readySheet, validRecords);
         
         // Save Excel
-        XLSX.writeFile(newWorkbook, OUTPUT_XLSX);
+        await newWorkbook.xlsx.writeFile(OUTPUT_XLSX);
         console.log(`Excel saved to: ${OUTPUT_XLSX}`);
 
         // Save CSV (only valid records)
-        const csvWorkbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(csvWorkbook, XLSX.utils.json_to_sheet(validRecords), 'Sheet1');
-        XLSX.writeFile(csvWorkbook, OUTPUT_CSV, { bookType: 'csv' });
+        const csvWorkbook = new ExcelJS.Workbook();
+        const csvSheet = csvWorkbook.addWorksheet('Sheet1');
+        addDataToSheet(csvSheet, validRecords);
+        await csvWorkbook.csv.writeFile(OUTPUT_CSV);
         console.log(`CSV saved to: ${OUTPUT_CSV}`);
 
         // Summary

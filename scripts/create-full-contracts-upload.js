@@ -7,7 +7,7 @@
  */
 
 require('dotenv').config();
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const fs = require('fs');
 const path = require('path');
 const { query, sfConnection } = require('../src/salesforce/connection');
@@ -62,9 +62,20 @@ async function main() {
 
         // Load surgical extraction data
         console.log('Loading surgical extraction data...');
-        const workbook = XLSX.readFile(SURGICAL_FILE);
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(sheet);
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.readFile(SURGICAL_FILE);
+        const sheet = workbook.worksheets[0];
+        const data = [];
+        const headers = [];
+        sheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) {
+                row.eachCell((cell, colNumber) => { headers[colNumber] = cell.value; });
+            } else {
+                const rowData = {};
+                row.eachCell((cell, colNumber) => { rowData[headers[colNumber]] = cell.value; });
+                data.push(rowData);
+            }
+        });
         console.log(`Loaded ${data.length} contracts\n`);
 
         // Get unique client folder names
@@ -240,27 +251,39 @@ async function main() {
             return csvRow;
         });
 
+        // Helper to add data to worksheet
+        const addDataToSheet = (ws, records) => {
+            if (records.length === 0) return;
+            const cols = Object.keys(records[0]);
+            ws.addRow(cols);
+            records.forEach(r => ws.addRow(cols.map(c => r[c])));
+        };
+
         // Save CSV
-        const csvWorkbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(csvWorkbook, XLSX.utils.json_to_sheet(csvRecords), 'Upload');
-        XLSX.writeFile(csvWorkbook, OUTPUT_CSV, { bookType: 'csv' });
+        const csvWorkbook = new ExcelJS.Workbook();
+        const csvSheet = csvWorkbook.addWorksheet('Upload');
+        addDataToSheet(csvSheet, csvRecords);
+        await csvWorkbook.csv.writeFile(OUTPUT_CSV);
         console.log(`CSV: ${OUTPUT_CSV}`);
 
         // Save full Excel with tracking columns
-        const xlsxWorkbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(xlsxWorkbook, XLSX.utils.json_to_sheet(uploadRecords), 'All Contracts');
+        const xlsxWorkbook = new ExcelJS.Workbook();
+        const allSheet = xlsxWorkbook.addWorksheet('All Contracts');
+        addDataToSheet(allSheet, uploadRecords);
         
         // Add sheet for contracts needing ACV review
         const needsReview = uploadRecords.filter(r => r._Has_ACV === 'NO');
-        XLSX.utils.book_append_sheet(xlsxWorkbook, XLSX.utils.json_to_sheet(needsReview), 'Review ACV');
+        const reviewSheet = xlsxWorkbook.addWorksheet('Review ACV');
+        addDataToSheet(reviewSheet, needsReview);
         
         // Add sheet for missing Account IDs
         const missingAccounts = uploadRecords.filter(r => !r.AccountId);
         if (missingAccounts.length > 0) {
-            XLSX.utils.book_append_sheet(xlsxWorkbook, XLSX.utils.json_to_sheet(missingAccounts), 'Missing Account ID');
+            const missingSheet = xlsxWorkbook.addWorksheet('Missing Account ID');
+            addDataToSheet(missingSheet, missingAccounts);
         }
 
-        XLSX.writeFile(xlsxWorkbook, OUTPUT_XLSX);
+        await xlsxWorkbook.xlsx.writeFile(OUTPUT_XLSX);
         console.log(`Excel: ${OUTPUT_XLSX}`);
 
         // Print contracts by client

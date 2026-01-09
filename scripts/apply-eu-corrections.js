@@ -6,7 +6,7 @@
 
 require('dotenv').config();
 const jsforce = require('jsforce');
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const fs = require('fs');
 const path = require('path');
 
@@ -39,15 +39,32 @@ const conn = new jsforce.Connection({
 async function loadCorrections() {
     console.log('Loading corrections from Excel...');
     
-    const workbook = XLSX.readFile(RECONCILIATION_FILE);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(RECONCILIATION_FILE);
+    
+    // Helper to convert sheet to JSON
+    const sheetToJson = (sheet) => {
+        const data = [];
+        const headers = [];
+        sheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) {
+                row.eachCell((cell, colNumber) => { headers[colNumber] = cell.value; });
+            } else {
+                const rowData = {};
+                row.eachCell((cell, colNumber) => { rowData[headers[colNumber]] = cell.value; });
+                data.push(rowData);
+            }
+        });
+        return data;
+    };
     
     // Load SF Corrections sheet
-    const correctionsSheet = workbook.Sheets['SF Corrections'];
-    const corrections = XLSX.utils.sheet_to_json(correctionsSheet);
+    const correctionsSheet = workbook.getWorksheet('SF Corrections');
+    const corrections = correctionsSheet ? sheetToJson(correctionsSheet) : [];
     
     // Load DataLoader Updates sheet
-    const dataLoaderSheet = workbook.Sheets['DataLoader Updates'];
-    const dataLoaderUpdates = XLSX.utils.sheet_to_json(dataLoaderSheet);
+    const dataLoaderSheet = workbook.getWorksheet('DataLoader Updates');
+    const dataLoaderUpdates = dataLoaderSheet ? sheetToJson(dataLoaderSheet) : [];
     
     console.log(`  Found ${corrections.length} corrections`);
     console.log(`  Found ${dataLoaderUpdates.length} DataLoader updates`);

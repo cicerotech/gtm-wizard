@@ -3,7 +3,6 @@
  * Analyzes when deals started, duration, and correct ACV values
  */
 
-const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
 
 const SF_FILE = '/Users/keiganpesenti/Desktop/JOHNSON HANA CLOSED WON SALESFORCE UPDATED.xls';
@@ -83,28 +82,31 @@ const SF_TO_RR = {
   'Coimisiún na Meán': 'Coimisiún na Meán',
 };
 
-function readSFData() {
-  const workbook = XLSX.readFile(SF_FILE);
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+async function readSFData() {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(SF_FILE);
+  const sheet = workbook.worksheets[0];
   
   const sfData = [];
   
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    if (!row || !row[14]) continue;
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return; // Skip header
     
-    const accountName = row[14] || '';
-    const oppName = row[2] || '';
-    const acv = parseFloat(row[5]) || 0;
-    const tcv = parseFloat(row[6]) || 0;
-    const term = parseFloat(row[10]) || 0;
-    const endDateSerial = row[9];
-    const targetSignDateSerial = row[4];
-    const type = row[12] || '';
+    const accountName = row.getCell(15).value || '';
+    if (!accountName) return;
     
-    const endDate = endDateSerial ? new Date((endDateSerial - 25569) * 86400 * 1000) : null;
-    const targetSignDate = targetSignDateSerial ? new Date((targetSignDateSerial - 25569) * 86400 * 1000) : null;
+    const oppName = row.getCell(3).value || '';
+    const acv = parseFloat(row.getCell(6).value) || 0;
+    const tcv = parseFloat(row.getCell(7).value) || 0;
+    const term = parseFloat(row.getCell(11).value) || 0;
+    const endDateVal = row.getCell(10).value;
+    const targetSignDateVal = row.getCell(5).value;
+    const type = row.getCell(13).value || '';
+    
+    const endDate = endDateVal instanceof Date ? endDateVal : 
+                    (typeof endDateVal === 'number' ? new Date((endDateVal - 25569) * 86400 * 1000) : null);
+    const targetSignDate = targetSignDateVal instanceof Date ? targetSignDateVal :
+                           (typeof targetSignDateVal === 'number' ? new Date((targetSignDateVal - 25569) * 86400 * 1000) : null);
     
     sfData.push({
       accountName,
@@ -116,7 +118,7 @@ function readSFData() {
       targetSignDate,
       type,
     });
-  }
+  });
   
   return sfData;
 }
@@ -145,7 +147,7 @@ function runAudit() {
   console.log('COMPREHENSIVE JH AUDIT - SF vs RR Revenue');
   console.log('═══════════════════════════════════════════════════════════════════════════════════════════════════\n');
   
-  const sfData = readSFData();
+  const sfData = await readSFData();
   const sfByAccount = aggregateSFByAccount(sfData);
   
   const comparison = [];
