@@ -74,10 +74,12 @@ async function main() {
         const headers = [];
         sheet.eachRow((row, rowNumber) => {
             if (rowNumber === 1) {
-                row.eachCell((cell, colNumber) => { headers[colNumber] = cell.value; });
+                row.eachCell({ includeEmpty: true }, (cell, colNumber) => { headers[colNumber] = cell.value; });
             } else {
                 const rowData = {};
-                row.eachCell((cell, colNumber) => { rowData[headers[colNumber]] = cell.value; });
+                row.eachCell({ includeEmpty: true }, (cell, colNumber) => { 
+                    if (headers[colNumber]) rowData[headers[colNumber]] = cell.value; 
+                });
                 data.push(rowData);
             }
         });

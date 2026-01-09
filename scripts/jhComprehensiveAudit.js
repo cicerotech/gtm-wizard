@@ -5,7 +5,8 @@
 
 const ExcelJS = require('exceljs');
 
-const SF_FILE = '/Users/keiganpesenti/Desktop/JOHNSON HANA CLOSED WON SALESFORCE UPDATED.xls';
+// NOTE: ExcelJS only supports .xlsx format. If you have a .xls file, re-export it from Excel as .xlsx
+const SF_FILE = '/Users/keiganpesenti/Desktop/JOHNSON HANA CLOSED WON SALESFORCE UPDATED.xlsx';
 const OUTPUT_FILE = '/Users/keiganpesenti/Desktop/JH_Comprehensive_Audit.xlsx';
 
 // RR Revenue data from user's paste - Account -> { month: revenue } with November as final target
