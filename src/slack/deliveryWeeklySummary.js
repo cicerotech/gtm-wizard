@@ -880,9 +880,7 @@ function formatSlackMessage(deliveryData, dateStr) {
   // ═══════════════════════════════════════════════════════════════════════
   message += '*DELIVERY OVERVIEW*\n';
   message += `Total Deliveries: ${totals.totalRecords} across ${totals.totalAccounts} accounts\n`;
-  message += `Total Contract Value: ${formatCurrencyFull(totals.totalContractValue)}\n`;
-  message += `Active: ${totals.activeCount} | Completed: ${totals.completedCount}\n`;
-  message += `Total Planned Hours: ${formatNumber(totals.totalPlannedHours)}\n\n`;
+  message += `Active: ${totals.activeCount} | Completed: ${totals.completedCount}\n\n`;
   
   // ═══════════════════════════════════════════════════════════════════════
   // BY STATUS
@@ -1053,11 +1051,15 @@ async function sendDeliveryWeeklySummary(app, testMode = false, targetChannel = 
         if (csmResult.buffer) {
           const csmFilename = `Eudia_CSM_Account_Health_${dateStr}.xlsx`;
           
-          // Format CSM message
+          // Salesforce CSM Report URL
+          const csmReportUrl = 'https://eudia.lightning.force.com/lightning/r/Report/00OWj000004tO7RMAU/view?queryScope=userFolders';
+          
+          // Format CSM message with Salesforce link
           let csmMessage = `📋 *CSM Account Health Report*\n\n`;
-          csmMessage += `*Accounts with Active Deliveries:* ${csmResult.accountCount}\n`;
-          csmMessage += `*Total Delivery Items:* ${csmResult.recordCount}\n\n`;
-          csmMessage += `_CSMs: Please review and update Account Health and Account Health Details in Salesforce._`;
+          csmMessage += `*Accounts with Active Deliveries:* ${csmResult.accountCount}\n\n`;
+          csmMessage += `👉 *<${csmReportUrl}|Update Account Health in Salesforce>*\n\n`;
+          csmMessage += `_CSMs: Please review and update Account Health and Account Health Details directly in Salesforce._\n\n`;
+          csmMessage += `_For accounts without CSM assignment, Business Leads will need to populate relevant updates._`;
           
           // Upload CSM Excel as threaded reply
           await app.client.files.uploadV2({
