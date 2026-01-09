@@ -192,51 +192,54 @@ async function queryPipelineData() {
 }
 
 /**
- * Query current logos by Account.Type__c
- * Type values: Revenue, Pilot, LOI with $ attached, LOI no $ attached
+ * Query current logos by Account.Customer_Type__c
+ * Type values: Revenue, Project, Pilot, LOI (with $ attached, no $ attached)
+ * 
+ * Mapping aligned with accountDashboard.js for consistency
  */
 async function queryLogosByType() {
   try {
     logger.info('Querying logos by type from Salesforce...');
     
     const soql = `
-      SELECT Name, Type__c, First_Deal_Closed__c
+      SELECT Name, Customer_Type__c, First_Deal_Closed__c
       FROM Account
-      WHERE Type__c != null
-      ORDER BY Type__c, Name
+      WHERE Customer_Type__c != null
+      ORDER BY Customer_Type__c, Name
     `;
     
     const result = await query(soql, false);
     
     if (!result || !result.records) {
       logger.warn('No logos found');
-      return { revenue: [], pilot: [], loiWithDollar: [], loiNoDollar: [] };
+      return { revenue: [], project: [], pilot: [], loi: [] };
     }
     
-    // Categorize by Type__c
-    const logos = { revenue: [], pilot: [], loiWithDollar: [], loiNoDollar: [] };
+    // Categorize by Customer_Type__c
+    // Aligned with accountDashboard.js mapping
+    const logos = { revenue: [], project: [], pilot: [], loi: [] };
     
     result.records.forEach(acc => {
-      const type = (acc.Type__c || '').toLowerCase().trim();
+      const type = (acc.Customer_Type__c || '').toLowerCase().trim();
       const entry = { name: acc.Name, firstClosed: acc.First_Deal_Closed__c };
       
       if (type.includes('revenue') || type === 'arr' || type === 'recurring') {
         logos.revenue.push(entry);
+      } else if (type.includes('project')) {
+        logos.project.push(entry);
       } else if (type.includes('pilot')) {
         logos.pilot.push(entry);
-      } else if (type.includes('loi') && type.includes('with')) {
-        logos.loiWithDollar.push(entry);
-      } else if (type.includes('loi')) {
-        logos.loiNoDollar.push(entry);
+      } else if (type.includes('loi') || type === 'commitment') {
+        logos.loi.push(entry);
       }
     });
     
-    logger.info(`Logos by type: Revenue=${logos.revenue.length}, Pilot=${logos.pilot.length}, LOI$=${logos.loiWithDollar.length}, LOI=${logos.loiNoDollar.length}`);
+    logger.info(`Logos by type: Revenue=${logos.revenue.length}, Project=${logos.project.length}, Pilot=${logos.pilot.length}, LOI=${logos.loi.length}`);
     return logos;
     
   } catch (error) {
     logger.error('Failed to query logos:', error);
-    return { revenue: [], pilot: [], loiWithDollar: [], loiNoDollar: [] };
+    return { revenue: [], project: [], pilot: [], loi: [] };
   }
 }
 
@@ -293,7 +296,7 @@ async function querySignedDeals() {
 
 /**
  * Process signed deals data - by Revenue_Type__c
- * Revenue_Type__c values: Recurring (ARR), Commitment (LOI), Project
+ * Revenue_Type__c values: Recurring (ARR), Commitment (LOI), Project, Pilot
  */
 function processSignedDeals(records) {
   const now = new Date();
@@ -309,6 +312,7 @@ function processSignedDeals(records) {
   let recurringDeals = 0, recurringACV = 0;
   let loiDeals = 0, loiACV = 0;       // Commitment = LOI
   let projectDeals = 0, projectACV = 0;
+  let pilotDeals = 0, pilotACV = 0;   // Pilot engagements
   
   // This month
   let thisMonthDeals = 0;
@@ -333,6 +337,9 @@ function processSignedDeals(records) {
     } else if (revenueType.includes('commitment') || revenueType.includes('booking') || revenueType.includes('loi')) {
       loiDeals++;
       loiACV += acv;
+    } else if (revenueType.includes('pilot')) {
+      pilotDeals++;
+      pilotACV += acv;
     } else if (revenueType.includes('project')) {
       projectDeals++;
       projectACV += acv;
@@ -369,6 +376,8 @@ function processSignedDeals(records) {
     loiACV,
     projectDeals,
     projectACV,
+    pilotDeals,
+    pilotACV,
     // This month
     thisMonthLogos: thisMonthAccountSet.size,
     thisMonthDeals,
@@ -388,14 +397,14 @@ async function queryActiveRevenue() {
   try {
     logger.info('Querying active revenue (Closed Won with active contracts)...');
     
-    // Query all Closed Won deals with Recurring or Project revenue type
+    // Query all Closed Won deals with Recurring, Project, or Pilot revenue type
     // Include Term__c to calculate end date
     const soql = `
       SELECT Id, Name, AccountId, Account.Name, ACV__c, Revenue_Type__c, 
              CloseDate, Term__c, Owner.Name
       FROM Opportunity
       WHERE StageName = 'Stage 6. Closed(Won)'
-        AND Revenue_Type__c IN ('Recurring', 'Project')
+        AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot')
       ORDER BY ACV__c DESC
     `;
     
@@ -746,12 +755,12 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       const metricsY = y;
       const colWidth = PAGE_WIDTH / 5;
       
-      // Calculate logos
+      // Calculate logos (aligned with accountDashboard.js)
       const revenueLogos = (logosByType.revenue || []).length;
+      const projectLogos = (logosByType.project || []).length;
       const pilotLogos = (logosByType.pilot || []).length;
-      const loiWithLogos = (logosByType.loiWithDollar || []).length;
-      const loiNoLogos = (logosByType.loiNoDollar || []).length;
-      const totalLogos = revenueLogos + pilotLogos + loiWithLogos + loiNoLogos;
+      const loiLogos = (logosByType.loi || []).length;
+      const totalLogos = revenueLogos + projectLogos + pilotLogos + loiLogos;
       
       // Use ACTIVE revenue for "By Revenue Type" section
       // activeRevenue comes from queryActiveRevenue() which:
@@ -795,7 +804,7 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);  // Same size as other metric values
       doc.text(totalLogos.toString(), colX, metricsY + 12, { width: colWidth, align: 'center' });  // Moved up from +22 to +12
       doc.font(fontRegular).fontSize(7).fillColor(DARK_TEXT);
-      doc.text(`Rev: ${revenueLogos} • Pilot: ${pilotLogos} • LOI$: ${loiWithLogos} • LOI: ${loiNoLogos}`, colX, metricsY + 32, { width: colWidth, align: 'center' });
+      doc.text(`Rev: ${revenueLogos} • Proj: ${projectLogos} • Pilot: ${pilotLogos} • LOI: ${loiLogos}`, colX, metricsY + 32, { width: colWidth, align: 'center' });
       
       // Column 5: By Revenue Type
       colX = LEFT + colWidth * 4;
@@ -1358,7 +1367,7 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     
     // Upload PDF and send message together
     logger.info(`📊 Uploading PDF to channel: ${channel}`);
-    await app.client.files.uploadV2({
+    const uploadResult = await app.client.files.uploadV2({
       channel_id: channel,
       file: pdfBuffer,
       filename: pdfFilename,
@@ -1367,6 +1376,67 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     });
     
     logger.info(`✅ Weekly BL summary with PDF sent to ${channel}`);
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // THREADED REPLY: Late-Stage Pipeline Excel (S3 + S4)
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      // Get the message timestamp from the upload result
+      const messageTs = uploadResult?.files?.[0]?.shares?.public?.[channel]?.[0]?.ts ||
+                        uploadResult?.files?.[0]?.shares?.private?.[channel]?.[0]?.ts;
+      
+      if (messageTs) {
+        logger.info(`📊 Generating Late-Stage Pipeline Excel as threaded reply...`);
+        
+        const { generateLateStageExcel } = require('./reportToSlack');
+        const lateStageResult = await generateLateStageExcel();
+        
+        if (lateStageResult.buffer && lateStageResult.recordCount > 0) {
+          const lateStageFilename = `Eudia_LateStage_Pipeline_${dateStr}.xlsx`;
+          
+          // Format currency
+          const formatCurrency = (amount) => {
+            if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
+            if (amount >= 1000) return `$${(amount / 1000).toFixed(0)}K`;
+            return `$${amount.toLocaleString()}`;
+          };
+          
+          // Format late-stage summary message
+          let lateStageMessage = `📊 *Late-Stage Pipeline (S3 + S4)*\n\n`;
+          lateStageMessage += `*Total:* ${lateStageResult.recordCount} opportunities • ${formatCurrency(lateStageResult.totalACV)} ACV\n\n`;
+          lateStageMessage += `*Breakdown:*\n`;
+          if (lateStageResult.stage4Count > 0) lateStageMessage += `• Stage 4 - Proposal: ${lateStageResult.stage4Count}\n`;
+          if (lateStageResult.stage3Count > 0) lateStageMessage += `• Stage 3 - Pilot: ${lateStageResult.stage3Count}\n`;
+          lateStageMessage += `\n*Targeting Signature This Month:* ${lateStageResult.thisMonthCount}\n\n`;
+          lateStageMessage += `_See attached Excel for full details by product line._`;
+          
+          // Upload Late-Stage Excel as threaded reply
+          await app.client.files.uploadV2({
+            channel_id: channel,
+            thread_ts: messageTs,
+            file: lateStageResult.buffer,
+            filename: lateStageFilename,
+            title: `Late-Stage Pipeline (S3+S4) — ${displayDate}`,
+            initial_comment: lateStageMessage
+          });
+          
+          logger.info(`✅ Late-Stage Pipeline Excel threaded to GTM snapshot`);
+        } else {
+          // Post a message if no late-stage opportunities
+          await app.client.chat.postMessage({
+            channel: channel,
+            thread_ts: messageTs,
+            text: `📊 *Late-Stage Pipeline (S3 + S4)*\n\nNo Stage 3 or Stage 4 opportunities currently in pipeline.`
+          });
+          logger.info(`📊 No late-stage opps - posted informational thread`);
+        }
+      } else {
+        logger.warn('📊 Could not get message timestamp for late-stage reply, skipping thread');
+      }
+    } catch (lateStageError) {
+      logger.error('📊 Failed to generate late-stage threaded reply:', lateStageError);
+      // Don't throw - the main report was successful
+    }
     
     return {
       success: true,

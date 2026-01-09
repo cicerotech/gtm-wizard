@@ -8,13 +8,16 @@ const { cache } = require('../utils/cache');
 // Fixed: Double-counting bug, better error logging, startup protection
 // ═══════════════════════════════════════════════════════════════════════════
 const AUTH_RATE_LIMIT = {
-  maxAttempts: 5,           // Increased: Max auth attempts before circuit breaker trips
+  maxAttempts: 3,           // Reduced: Max auth attempts before circuit breaker trips
   attemptCount: 0,          // Current attempt count
   lastAttemptTime: 0,       // Timestamp of last attempt
-  cooldownMs: 2 * 60 * 1000, // Reduced to 2 minute cooldown (was 5)
+  cooldownMs: 15 * 60 * 1000, // 15 minute cooldown to prevent drip attacks on SF limits
   circuitOpen: false,       // Circuit breaker state
   circuitOpenTime: 0,       // When circuit was opened
-  lastError: null           // Store last error for debugging
+  lastError: null,          // Store last error for debugging
+  invalidCredentialsCooldown: 60 * 60 * 1000, // 1 hour if INVALID_LOGIN detected
+  authInProgress: false,    // MUTEX: Prevents parallel auth attempts
+  authPromise: null         // Shared promise for parallel queries to wait on
 };
 
 // Track if initial startup auth completed
@@ -56,10 +59,29 @@ function recordAuthAttempt(success, errorMessage = null) {
     AUTH_RATE_LIMIT.lastError = errorMessage;
     logger.warn(`⚠️ Auth attempt ${AUTH_RATE_LIMIT.attemptCount}/${AUTH_RATE_LIMIT.maxAttempts} failed: ${errorMessage || 'unknown error'}`);
     
+    // Check if this is an INVALID_LOGIN error - use longer cooldown
+    const isInvalidCredentials = errorMessage && 
+      (errorMessage.includes('INVALID_LOGIN') || 
+       errorMessage.includes('Invalid username') ||
+       errorMessage.includes('user locked out'));
+    
     if (AUTH_RATE_LIMIT.attemptCount >= AUTH_RATE_LIMIT.maxAttempts) {
       AUTH_RATE_LIMIT.circuitOpen = true;
       AUTH_RATE_LIMIT.circuitOpenTime = Date.now();
-      logger.error(`🛑 Auth circuit breaker TRIPPED after ${AUTH_RATE_LIMIT.maxAttempts} failures. Cooldown: ${AUTH_RATE_LIMIT.cooldownMs / 1000}s. Last error: ${errorMessage}`);
+      
+      // Use 1-hour cooldown for credential errors, 15-min for other errors
+      const cooldown = isInvalidCredentials 
+        ? AUTH_RATE_LIMIT.invalidCredentialsCooldown 
+        : AUTH_RATE_LIMIT.cooldownMs;
+      
+      if (isInvalidCredentials) {
+        logger.error(`🚨 INVALID CREDENTIALS DETECTED - Circuit breaker LOCKED for 1 HOUR.`);
+        logger.error(`🚨 Please update SF_PASSWORD and SF_SECURITY_TOKEN in environment variables.`);
+        // Override cooldown for this session
+        AUTH_RATE_LIMIT.cooldownMs = AUTH_RATE_LIMIT.invalidCredentialsCooldown;
+      }
+      
+      logger.error(`🛑 Auth circuit breaker TRIPPED after ${AUTH_RATE_LIMIT.maxAttempts} failures. Cooldown: ${cooldown / 60000} minutes. Last error: ${errorMessage}`);
     }
   }
 }
@@ -303,19 +325,54 @@ class SalesforceConnection {
         throw new Error('Salesforce is temporarily unavailable. Please try again in a few minutes.');
       }
       
-      // Attempt to reconnect
-      logger.info('🔐 Attempting Salesforce reconnection...');
-      try {
-        await this.initialAuthentication();
-        this.isConnected = true;
-        this.degradedMode = false; // EXIT degraded mode on successful auth
-        logger.info('✅ Reconnection successful - exited degraded mode');
-      } catch (authError) {
-        logger.error('❌ Reconnection failed:', authError.message);
-        // Stay in degraded mode
-        this.degradedMode = true;
-        this.isConnected = false;
-        throw new Error('Salesforce is temporarily unavailable. Please try again in a few minutes.');
+      // ═══════════════════════════════════════════════════════════════════════════
+      // MUTEX: Prevent parallel authentication attempts
+      // If another query is already authenticating, wait for that result instead
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (AUTH_RATE_LIMIT.authInProgress && AUTH_RATE_LIMIT.authPromise) {
+        logger.info('⏳ Another authentication in progress - waiting for result...');
+        try {
+          await AUTH_RATE_LIMIT.authPromise;
+          if (this.isConnected && !this.degradedMode) {
+            logger.info('✅ Shared authentication succeeded - proceeding with query');
+          } else {
+            throw new Error('Salesforce is temporarily unavailable. Please try again in a few minutes.');
+          }
+        } catch (waitError) {
+          logger.error('❌ Shared authentication failed:', waitError.message);
+          throw new Error('Salesforce is temporarily unavailable. Please try again in a few minutes.');
+        }
+      } else {
+        // This is the first query to try - set the mutex and authenticate
+        AUTH_RATE_LIMIT.authInProgress = true;
+        
+        // Create a promise that other parallel queries can wait on
+        AUTH_RATE_LIMIT.authPromise = (async () => {
+          logger.info('🔐 Attempting Salesforce reconnection (first query)...');
+          try {
+            await this.initialAuthentication();
+            this.isConnected = true;
+            this.degradedMode = false;
+            logger.info('✅ Reconnection successful - exited degraded mode');
+          } catch (authError) {
+            logger.error('❌ Reconnection failed:', authError.message);
+            this.degradedMode = true;
+            this.isConnected = false;
+            throw authError;
+          } finally {
+            // Release the mutex after a short delay to catch stragglers
+            setTimeout(() => {
+              AUTH_RATE_LIMIT.authInProgress = false;
+              AUTH_RATE_LIMIT.authPromise = null;
+            }, 1000);
+          }
+        })();
+        
+        try {
+          await AUTH_RATE_LIMIT.authPromise;
+        } catch (authError) {
+          throw new Error('Salesforce is temporarily unavailable. Please try again in a few minutes.');
+        }
       }
     }
 
@@ -522,13 +579,24 @@ const isSalesforceAvailable = () => {
 };
 
 // Get rate limit status
-const getAuthRateLimitStatus = () => ({
-  circuitOpen: AUTH_RATE_LIMIT.circuitOpen,
-  attemptCount: AUTH_RATE_LIMIT.attemptCount,
-  maxAttempts: AUTH_RATE_LIMIT.maxAttempts,
-  cooldownMs: AUTH_RATE_LIMIT.cooldownMs,
-  lastAttemptTime: AUTH_RATE_LIMIT.lastAttemptTime
-});
+const getAuthRateLimitStatus = () => {
+  const now = Date.now();
+  const timeSinceOpen = AUTH_RATE_LIMIT.circuitOpen ? (now - AUTH_RATE_LIMIT.circuitOpenTime) : 0;
+  const cooldownRemaining = AUTH_RATE_LIMIT.circuitOpen 
+    ? Math.max(0, AUTH_RATE_LIMIT.cooldownMs - timeSinceOpen)
+    : 0;
+  
+  return {
+    circuitOpen: AUTH_RATE_LIMIT.circuitOpen,
+    attemptCount: AUTH_RATE_LIMIT.attemptCount,
+    maxAttempts: AUTH_RATE_LIMIT.maxAttempts,
+    cooldownMs: AUTH_RATE_LIMIT.cooldownMs,
+    cooldownRemaining: cooldownRemaining,  // FIX: Now properly calculated
+    lastAttemptTime: AUTH_RATE_LIMIT.lastAttemptTime,
+    lastError: AUTH_RATE_LIMIT.lastError,
+    authInProgress: AUTH_RATE_LIMIT.authInProgress
+  };
+};
 
 // Export connection instance and methods
 module.exports = {

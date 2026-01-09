@@ -426,7 +426,7 @@ async function processQuery(text, userId, channelId, client, threadTs = null) {
 • "what closed this month?" - Monthly results
 
 *PRODUCT LINES*
-I can filter by: AI-Augmented Contracting, M&A, Compliance, Litigation
+I can filter by: Contracting, M&A, Compliance, Litigation, sigma, Custom Agents
 
 Ask me anything about your pipeline, accounts, or deals!`;
       
@@ -586,6 +586,18 @@ Ask me anything about your pipeline, accounts, or deals!`;
     } else if (parsedIntent.intent === 'generate_delivery_summary') {
       // Handle weekly Delivery summary PDF generation
       await handleGenerateDeliverySummary(userId, channelId, client, threadTs);
+      return; // Exit early
+    } else if (parsedIntent.intent === 'generate_unified_report') {
+      // Handle unified weekly report (all three reports)
+      await handleGenerateUnifiedReport(userId, channelId, client, threadTs);
+      return; // Exit early
+    } else if (parsedIntent.intent === 'generate_late_stage_report') {
+      // Handle late-stage pipeline report (S3/S4 only)
+      await handleGenerateLateStageReport(userId, channelId, client, threadTs);
+      return; // Exit early
+    } else if (parsedIntent.intent === 'generate_csm_report') {
+      // Handle CSM Account Health report
+      await handleGenerateCSMReport(userId, channelId, client, threadTs);
       return; // Exit early
     } else if (parsedIntent.intent === 'batch_move_to_nurture') {
       // Handle batch move to nurture (Keigan only)
@@ -1900,20 +1912,31 @@ function buildAccountFieldQuery(entities) {
                 LIMIT 20`;
       } else if (entities.searchTerm) {
         // Product line search - query opportunities then group by account
+        // Updated product line mappings for new structure
         const productLineMap = {
-          'contracting': 'AI-Augmented Contracting',
-          'm&a': 'Augmented-M&A', // Actual Salesforce value
-          'mna': 'Augmented-M&A',
-          'compliance': 'Compliance',
+          'contracting': 'AI-Augmented Contracting', // Will use LIKE match
+          'contracting managed': 'AI-Augmented Contracting - Managed Services',
+          'contracting in-house': 'AI-Augmented Contracting - In-House Technology',
+          'm&a': 'AI-Augmented M&A - Managed Service',
+          'mna': 'AI-Augmented M&A - Managed Service',
+          'compliance': 'AI-Augmented Compliance - In-House Technology',
           'sigma': 'sigma',
-          'cortex': 'Cortex'
+          'litigation': 'Litigation',
+          'custom agents': 'Custom Agents',
+          'secondee': 'Contracting – Secondee'
         };
         
         const productLine = productLineMap[entities.searchTerm.toLowerCase()] || entities.searchTerm;
         
+        // Use LIKE for partial matches (e.g., 'contracting' matches both variants)
+        const isPartialMatch = productLine === 'AI-Augmented Contracting';
+        const whereClause = isPartialMatch 
+          ? `Product_Line__c LIKE '${productLine}%'`
+          : `Product_Line__c = '${productLine}'`;
+        
         soql = `SELECT Account.Name, Account.Owner.Name, Name, Amount, StageName
                 FROM Opportunity 
-                WHERE Product_Line__c = '${productLine}' AND IsClosed = false
+                WHERE ${whereClause} AND IsClosed = false
                 ORDER BY Account.Name, Amount DESC
                 LIMIT 50`;
       } else {
@@ -1953,21 +1976,21 @@ function buildCountQuery(entities) {
   switch (countType) {
     case 'total_customers':
       // Return account names for listing
-      return `SELECT Name, Owner.Name, Type__c
+      return `SELECT Name, Owner.Name, Customer_Type__c
               FROM Account 
-              WHERE Type__c != null
+              WHERE Customer_Type__c != null
               ORDER BY Name`;
     
     case 'arr_customers':
       return `SELECT Name, Owner.Name
               FROM Account 
-              WHERE Type__c = 'ARR'
+              WHERE Customer_Type__c = 'Revenue'
               ORDER BY Name`;
     
     case 'loi_customers':
       return `SELECT Name, Owner.Name
               FROM Account 
-              WHERE Type__c = 'LOI, with $ attached'
+              WHERE Customer_Type__c = 'LOI, with $ attached'
               ORDER BY Name`;
     
     case 'arr_contracts':
@@ -2723,6 +2746,125 @@ async function handleGenerateDeliverySummary(userId, channelId, client, threadTs
     await client.chat.postMessage({
       channel: channelId,
       text: `❌ Error generating delivery summary: ${error.message}\n\nPlease try again or contact support.`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle Generate Unified Report
+ * Generates and sends all three weekly reports:
+ * 1. GTM Weekly Snapshot PDF
+ * 2. Delivery Report PDF
+ * 3. Pipeline Excel (2 tabs)
+ * 
+ * BEHAVIOR: Sends all reports to the same channel where the request was made
+ */
+async function handleGenerateUnifiedReport(userId, channelId, client, threadTs) {
+  try {
+    logger.info(`📊 Unified Report requested by ${userId} in channel: ${channelId}`);
+    
+    // Show loading message
+    await client.chat.postMessage({
+      channel: channelId,
+      text: '📊 Generating unified weekly report (GTM Snapshot + Delivery Report + Pipeline Excel)... This will take a moment.',
+      thread_ts: threadTs
+    });
+    
+    // Import the unified weekly report module
+    const unifiedReport = require('./unifiedWeeklyReport');
+    
+    // Generate and send all reports to this channel
+    logger.info(`📊 Calling sendUnifiedReportNow with targetChannel: ${channelId}`);
+    
+    const result = await unifiedReport.sendUnifiedReportNow({ client }, channelId);
+    
+    // Summary message
+    const successCount = [result.gtmSnapshot, result.deliveryReport, result.pipelineExcel].filter(Boolean).length;
+    const errorCount = result.errors?.length || 0;
+    
+    if (errorCount > 0) {
+      const errorDetails = result.errors.map(e => `• ${e.report}: ${e.error}`).join('\n');
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `⚠️ Unified report completed with ${errorCount} error(s):\n${errorDetails}`,
+        thread_ts: threadTs
+      });
+    }
+    
+    logger.info(`✅ Unified report sent to channel ${channelId} by ${userId} (${successCount}/3 reports)`);
+    
+  } catch (error) {
+    logger.error('Failed to generate unified report:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Error generating unified report: ${error.message}\n\nPlease try again or contact support.`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle Generate Late-Stage Pipeline Report (S3/S4 Only)
+ * Can be triggered standalone OR is included in GTM Weekly Snapshot as threaded reply
+ */
+async function handleGenerateLateStageReport(userId, channelId, client, threadTs) {
+  try {
+    logger.info(`📊 Late-Stage Pipeline Report requested by ${userId} in channel: ${channelId}`);
+    
+    // Show loading message
+    await client.chat.postMessage({
+      channel: channelId,
+      text: '📊 Generating late-stage pipeline report (S3 + S4)... This will take a moment.',
+      thread_ts: threadTs
+    });
+    
+    // Import the report module - still support standalone generation
+    const { sendLateStageReportToSlack } = require('./reportToSlack');
+    
+    // Generate and send the report
+    await sendLateStageReportToSlack(client, channelId);
+    
+    logger.info(`✅ Late-stage pipeline report sent to channel ${channelId} by ${userId}`);
+    
+  } catch (error) {
+    logger.error('Failed to generate late-stage pipeline report:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Error generating late-stage pipeline report: ${error.message}\n\nPlease try again or contact support.`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle Generate CSM Account Health Report
+ * CSM report is now generated from delivery data
+ * Triggering the delivery report will include the CSM Excel as a threaded reply
+ */
+async function handleGenerateCSMReport(userId, channelId, client, threadTs) {
+  try {
+    logger.info(`📋 CSM Account Health Report requested by ${userId} in channel: ${channelId}`);
+    
+    // Show loading message
+    await client.chat.postMessage({
+      channel: channelId,
+      text: '📋 Generating CSM Account Health report from delivery data... This will take a moment.',
+      thread_ts: threadTs
+    });
+    
+    // CSM report is now derived from delivery data
+    // We'll run the delivery report which will auto-thread the CSM Excel
+    const deliverySummary = require('./deliveryWeeklySummary');
+    await deliverySummary.sendDeliverySummaryNow({ client }, false, channelId);
+    
+    logger.info(`✅ Delivery Report + CSM Account Health sent to channel ${channelId} by ${userId}`);
+    
+  } catch (error) {
+    logger.error('Failed to generate CSM Account Health report:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Error generating CSM report: ${error.message}\n\nPlease try again or contact support.`,
       thread_ts: threadTs
     });
   }
@@ -5090,7 +5232,7 @@ async function handleAccountsByOwner(parsedIntent, userId, channelId, client, th
     
     // Query accounts directly
     const soql = `
-      SELECT Id, Name, Owner.Name, Type__c, 
+      SELECT Id, Name, Owner.Name, Customer_Type__c, 
              (SELECT Id, Amount, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
       FROM Account 
       WHERE Owner.Name LIKE '%${ownerName}%'
@@ -5118,7 +5260,7 @@ async function handleAccountsByOwner(parsedIntent, userId, channelId, client, th
     response += `${accounts.length} accounts\n\n`;
     
     accounts.forEach((acc, i) => {
-      const customerType = acc.Type__c ? ` (${acc.Type__c})` : '';
+      const customerType = acc.Customer_Type__c ? ` (${acc.Customer_Type__c})` : '';
       const oppCount = acc.Opportunities?.totalSize || 0;
       const oppText = oppCount > 0 ? ` • ${oppCount} active opp${oppCount !== 1 ? 's' : ''}` : '';
       
@@ -5479,13 +5621,13 @@ async function handleLogoRightsQuery(userId, channelId, client, threadTs) {
  */
 async function handleCustomerListQuery(userId, channelId, client, threadTs) {
   try {
-    // Query accounts with Type__c set (these are customers)
+    // Query accounts with Customer_Type__c set (these are customers)
     const soql = `
-      SELECT Id, Name, Type__c, Owner.Name, 
+      SELECT Id, Name, Customer_Type__c, Owner.Name, 
              (SELECT Name, Amount FROM Opportunities WHERE IsClosed = false LIMIT 1)
       FROM Account 
-      WHERE Type__c != null 
-      ORDER BY Type__c, Name 
+      WHERE Customer_Type__c != null 
+      ORDER BY Customer_Type__c, Name 
       LIMIT 50
     `;
     
@@ -5494,7 +5636,7 @@ async function handleCustomerListQuery(userId, channelId, client, threadTs) {
     if (!result || result.totalSize === 0) {
       await client.chat.postMessage({
         channel: channelId,
-        text: `No customers found with Type__c set.\n\nCustomers are accounts with a defined Customer Type (Revenue, Pilot, LOI).`,
+        text: `No customers found with Customer_Type__c set.\n\nCustomers are accounts with a defined Customer Type (Revenue, Pilot, LOI).`,
         thread_ts: threadTs
       });
       return;
@@ -5503,7 +5645,7 @@ async function handleCustomerListQuery(userId, channelId, client, threadTs) {
     // Group by customer type
     const byType = { Revenue: [], Pilot: [], LOI: [], Other: [] };
     result.records.forEach(account => {
-      const type = account.Type__c || 'Other';
+      const type = account.Customer_Type__c || 'Other';
       if (type.includes('Revenue') || type.includes('ARR')) {
         byType.Revenue.push(account);
       } else if (type.includes('Pilot')) {

@@ -72,14 +72,73 @@
       "description": "New customer acquisitions and expansions"
     },
     "arr": {
-      "definition": "Type = 'Renewal' OR Type = 'Upsell'", 
+      "definition": "Revenue_Type__c = 'Recurring'", 
       "label": "ARR/Recurring",
-      "description": "Annual recurring revenue deals"
+      "description": "Annual recurring revenue deals (Term >= 12 months)"
     },
     "new_business": {
-      "definition": "Type = 'New Business'",
+      "definition": "Sales_Type__c = 'New business'",
       "label": "New Business",
-      "description": "New customer acquisitions"
+      "description": "Net new logos or net new product lines at existing customers"
+    },
+    "expansion": {
+      "definition": "Sales_Type__c = 'Expansion'",
+      "label": "Expansion",
+      "description": "Growth within existing product lines for existing ARR customers"
+    },
+    "renewal": {
+      "definition": "Sales_Type__c = 'Renewal'",
+      "label": "Renewal",
+      "description": "Full annualized renewal value (not just net-new uplift)"
+    },
+    "eudia_counsel": {
+      "definition": "Sales_Type__c = 'Eudia Counsel'",
+      "label": "Eudia Counsel",
+      "description": "Eudia Counsel engagements"
+    }
+  },
+  "revenue_types": {
+    "recurring": {
+      "definition": "Revenue_Type__c = 'Recurring'",
+      "label": "Recurring",
+      "description": "Auto-set if Term >= 12 months"
+    },
+    "project": {
+      "definition": "Revenue_Type__c = 'Project'",
+      "label": "Project",
+      "description": "Auto-set if Term < 12 months (pilots, short-term)"
+    },
+    "commitment": {
+      "definition": "Revenue_Type__c = 'Commitment'",
+      "label": "Commitment",
+      "description": "LOI only, input Commitment ACV"
+    },
+    "pilot": {
+      "definition": "Revenue_Type__c = 'Pilot'",
+      "label": "Pilot",
+      "description": "Pilot engagements"
+    }
+  },
+  "sales_types": {
+    "eudia_counsel": {
+      "definition": "Sales_Type__c = 'Eudia Counsel'",
+      "label": "Eudia Counsel",
+      "description": "Eudia Counsel engagements"
+    },
+    "new_business": {
+      "definition": "Sales_Type__c = 'New business'",
+      "label": "New business",
+      "description": "Net new logos OR net new product lines at existing customers"
+    },
+    "expansion": {
+      "definition": "Sales_Type__c = 'Expansion'",
+      "label": "Expansion",
+      "description": "Growth within existing product lines for existing ARR customers"
+    },
+    "renewal": {
+      "definition": "Sales_Type__c = 'Renewal'",
+      "label": "Renewal",
+      "description": "Full annualized renewal value"
     }
   },
   "stage_mapping": {

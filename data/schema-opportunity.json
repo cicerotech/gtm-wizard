@@ -105,11 +105,19 @@
     },
     {
       "apiName": "Revenue_Type__c",
-      "label": "Recurring, Project, or Booking",
+      "label": "Recurring, Project, or Commit",
       "type": "picklist",
       "custom": true,
-      "synonyms": ["revenue type", "booking type", "deal category", "recurring project booking"],
-      "values": ["Booking", "ARR", "Project"]
+      "synonyms": ["revenue type", "booking type", "deal category", "recurring project commitment"],
+      "values": ["Recurring", "Commitment", "Project", "Pilot"]
+    },
+    {
+      "apiName": "Sales_Type__c",
+      "label": "Sales Type",
+      "type": "picklist",
+      "custom": true,
+      "synonyms": ["sales type", "deal classification", "business type"],
+      "values": ["Eudia Counsel", "New business", "Expansion", "Renewal"]
     },
     {
       "apiName": "Type",
@@ -196,7 +204,20 @@
       "type": "picklist",
       "custom": true,
       "synonyms": ["product line", "product", "solution"],
-      "values": ["AI-Augmented Contracting", "Augmented-M&A", "Compliance", "sigma", "Cortex", "Multiple", "Undetermined"]
+      "values": [
+        "AI-Augmented Contracting - Managed Services",
+        "AI-Augmented Contracting - In-House Technology",
+        "AI-Augmented Compliance - In-House Technology",
+        "AI-Augmented M&A - Managed Service",
+        "Custom Agents",
+        "Contracting – Secondee",
+        "Other - Secondee",
+        "Other - Managed Service",
+        "sigma",
+        "Litigation",
+        "Multiple",
+        "Undetermined"
+      ]
     },
     {
       "apiName": "Week_Created__c",

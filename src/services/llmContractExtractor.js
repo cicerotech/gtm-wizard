@@ -286,7 +286,7 @@ Extract these fields:
 - customerSigner: Name of person who signed for customer
 - customerSignerTitle: Title of customer signer
 - eudiaSigner: Name of person who signed for Eudia (Omar Haroun, David Van Ryk, or Keigan Pesenti)
-- productLines: Array of products (AI-Augmented Contracting, M&A, sigma, Compliance, Litigation, Cortex)
+- productLines: Array of products for Contracts (AI Augmented - Contracting, AI Augmented - M&A, sigma, Litigation, Compliance, Cortex, Insights, Other, ODL, MLS, BAU, Legal Support, DSAR, Discovery, Privacy)
 - signedDate: Date the contract was signed (format: YYYY-MM-DD)
 
 Respond with JSON only:

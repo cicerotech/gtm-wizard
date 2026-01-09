@@ -20,10 +20,13 @@ async function getJohnsonHanaReport() {
                        FROM Opportunity
                        WHERE IsClosed = false
                          AND StageName IN ('Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
-                         AND (Product_Line__c = 'AI-Augmented Contracting'
+                         AND (Product_Line__c LIKE 'AI-Augmented Contracting%'
+                              OR Product_Line__c LIKE 'AI-Augmented Compliance%'
+                              OR Product_Line__c LIKE 'AI-Augmented M&A%'
+                              OR Product_Line__c = 'Custom Agents'
                               OR Product_Line__c = 'Multiple'
                               OR Product_Line__c = 'sigma'
-                              OR Product_Line__c = 'Insights')
+                              OR Product_Line__c = 'Litigation')
                        ORDER BY StageName, Account.Name`;
 
   return await query(reportQuery, false);

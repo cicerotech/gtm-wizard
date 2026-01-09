@@ -377,6 +377,8 @@ Return JSON with this exact structure:
     "industry": "Healthcare & Pharmaceuticals|Technology|null",
     "amountThreshold": { "min": 100000, "max": null } | null,
     "type": "New Business|Upsell|Renewal|null",
+    "salesType": "Eudia Counsel|New business|Expansion|Renewal|null",
+    "revenueType": "Recurring|Commitment|Project|Pilot|null",
     "isClosed": true|false|null,
     "isWon": true|false|null,
     "staleDays": 30|null,
@@ -1057,13 +1059,14 @@ Business Context:
       }
       
       // Revenue Type detection - Map to API names
-      // User says "recurring" → API name "ARR"
-      // User says "recurring" → API name "Recurring"  
-      // User says "commitment" or "booking" → API name "Commitment"
-      // User says "project" → API name "Project"
-      const revenueMatch = message.match(/revenue type:?\s+(recurring|arr|booking|project|commitment)/i) ||
-                          message.match(/type:?\s+(recurring|arr|booking|project|commitment)/i) ||
-                          message.match(/\b(recurring|arr|booking|project|commitment)\s+opp/i);
+      // Revenue Type mappings:
+      // User says "recurring" or "arr" → API name "Recurring" (Term >= 12 months)
+      // User says "commitment" or "booking" → API name "Commitment" (LOI only)
+      // User says "project" → API name "Project" (Term < 12 months)
+      // User says "pilot" → API name "Pilot" (Pilot engagements)
+      const revenueMatch = message.match(/revenue type:?\s+(recurring|arr|booking|project|commitment|pilot)/i) ||
+                          message.match(/type:?\s+(recurring|arr|booking|project|commitment|pilot)/i) ||
+                          message.match(/\b(recurring|arr|booking|project|commitment|pilot)\s+opp/i);
       if (revenueMatch) {
         const userValue = revenueMatch[1].toLowerCase();
         // Map to Salesforce API names
@@ -1072,7 +1075,8 @@ Business Context:
           'arr': 'Recurring',
           'booking': 'Commitment',
           'commitment': 'Commitment',
-          'project': 'Project'
+          'project': 'Project',
+          'pilot': 'Pilot'
         };
         entities.revenueType = typeMap[userValue] || 'Recurring';
       }
@@ -1305,7 +1309,42 @@ Business Context:
       };
     }
     
-    // Delivery Weekly Summary / Snapshot
+    // Late-Stage Pipeline Report (S3 + S4 only)
+    // Patterns: "late stage", "late-stage", "s3 s4", "proposal pilot", "deal focused"
+    if ((message.includes('late') && message.includes('stage')) ||
+        (message.includes('late-stage')) ||
+        (message.includes('s3') && message.includes('s4')) ||
+        (message.includes('proposal') && message.includes('pilot')) ||
+        (message.includes('deal') && message.includes('focus'))) {
+      return {
+        intent: 'generate_late_stage_report',
+        entities: {},
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'Generate late-stage pipeline Excel (S3 + S4 opportunities)',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
+    // CSM Account Health Report
+    // Patterns: "csm report", "account health", "csm accounts", "customer success"
+    if ((message.includes('csm') && message.includes('report')) ||
+        (message.includes('csm') && message.includes('account')) ||
+        (message.includes('account') && message.includes('health') && message.includes('report')) ||
+        (message.includes('customer') && message.includes('success') && message.includes('report'))) {
+      return {
+        intent: 'generate_csm_report',
+        entities: {},
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'Generate CSM Account Health Excel report',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
+    // Delivery Weekly Summary / Snapshot (PDF + Excel)
     // MUST be checked BEFORE general weekly summary to catch delivery-specific requests
     if ((message.includes('delivery') && message.includes('snapshot')) ||
         (message.includes('delivery') && message.includes('summary')) ||
@@ -1316,7 +1355,7 @@ Business Context:
         entities: {},
         followUp: false,
         confidence: 0.95,
-        explanation: 'Generate weekly delivery summary PDF',
+        explanation: 'Generate weekly delivery summary (PDF + Excel)',
         originalMessage: userMessage,
         timestamp: Date.now()
       };
@@ -1625,27 +1664,43 @@ Business Context:
     }
     
     // Product line + stage queries (HIGHEST PRIORITY - check before general stage queries)
+    // Product lines: AI-Augmented Contracting (Managed Services or In-House), AI-Augmented Compliance,
+    // AI-Augmented M&A, Custom Agents, sigma, Litigation, Multiple, Undetermined, Secondees, Other
     if (message.includes('contracting') || message.includes('m&a') || 
         message.includes('compliance') || message.includes('sigma') || 
-        message.includes('cortex') || message.includes('litigation')) {
+        message.includes('custom agent') || message.includes('litigation') ||
+        message.includes('secondee') || message.includes('managed service')) {
       intent = 'pipeline_summary';
       entities.isClosed = false;
       
-      // Map product line to EXACT Salesforce values
-      if (message.includes('contracting')) {
-        entities.productLine = 'AI-Augmented Contracting';
+      // Map product line to EXACT Salesforce values (updated for new product line structure)
+      if (message.includes('contracting') && message.includes('managed')) {
+        entities.productLine = 'AI-Augmented Contracting - Managed Services';
+      } else if (message.includes('contracting') && message.includes('in-house')) {
+        entities.productLine = 'AI-Augmented Contracting - In-House Technology';
+      } else if (message.includes('contracting') && message.includes('secondee')) {
+        entities.productLine = 'Contracting – Secondee';
+      } else if (message.includes('contracting')) {
+        // Default to searching both contracting product lines
+        entities.productLine = 'AI-Augmented Contracting'; // Will use LIKE match
       } else if (message.includes('m&a') || message.includes('mna') || message.includes('m and a')) {
-        entities.productLine = 'Augmented-M&A'; // Actual value in Salesforce
+        entities.productLine = 'AI-Augmented M&A - Managed Service';
       } else if (message.includes('compliance')) {
-        entities.productLine = 'Compliance';
+        entities.productLine = 'AI-Augmented Compliance - In-House Technology';
+      } else if (message.includes('custom agent')) {
+        entities.productLine = 'Custom Agents';
       } else if (message.includes('sigma')) {
         entities.productLine = 'sigma';
-      } else if (message.includes('cortex')) {
-        entities.productLine = 'Cortex';
+      } else if (message.includes('litigation')) {
+        entities.productLine = 'Litigation';
+      } else if (message.includes('secondee') && !message.includes('contracting')) {
+        entities.productLine = 'Other - Secondee';
       } else if (message.includes('multiple')) {
         entities.productLine = 'Multiple';
-      } else if (message.includes('litigation')) {
-        entities.productLine = 'LITIGATION_NOT_EXIST'; // Flag for no results message
+      } else if (message.includes('undetermined')) {
+        entities.productLine = 'Undetermined';
+      } else if (message.includes('other') && message.includes('managed')) {
+        entities.productLine = 'Other - Managed Service';
       }
       
       // Map stage if specified (Early = 0-1, Mid = 2, Late = 3-4)

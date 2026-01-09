@@ -35,20 +35,56 @@ const SALESFORCE_CONTRACT_FIELDS = {
   'Annualized_Revenue__c': { label: 'Annual Contract Value', required: false, type: 'currency' },
   'Amount__c': { label: 'Monthly Amount (subscription)', required: false, type: 'currency' },
   
-  // PRODUCT FIELDS
+  // PRODUCT FIELDS (Contract object - different from Opportunity!)
   // Parent Product is SINGLE SELECT
   'Parent_Product__c': { 
     label: 'Parent Product', 
     required: false, 
     type: 'picklist', 
-    values: ['AI Augmented - Contracting', 'AI Augmented - M&A', 'Compliance', 'Litigation', 'sigma', 'Other', 'Insights', 'Multiple', 'None specified'] 
+    values: [
+      'AI Augmented - Contracting',
+      'AI Augmented - M&A',
+      'Compliance',
+      'Litigation',
+      'sigma',
+      'Other',
+      'Insights',
+      'Multiple',
+      'None specified',
+      'Cortex',
+      'Contracting',
+      'MLS',
+      'ODL',
+      'Lift & Shift'
+    ] 
   },
-  // Product Line(s) is MULTI-SELECT
+  // Product Line(s) is MULTI-SELECT (Contract object - includes EU service lines)
   'Product_Line__c': { 
     label: 'Product Line(s)', 
     required: false, 
     type: 'multipicklist',
-    values: ['AI Augmented - Contracting', 'AI Augmented - M&A', 'sigma', 'Litigation', 'Cortex', 'Compliance']
+    values: [
+      'AI Augmented - Contracting',
+      'AI Augmented - M&A',
+      'sigma',
+      'Litigation',
+      'Compliance',
+      'Cortex',
+      'Multiple',
+      'Undetermined',
+      'Insights',
+      'Other',
+      'Data Privacy Support',
+      'Legal Support',
+      'BAU',
+      'Paralegal Support',
+      'Discovery',
+      'Privacy',
+      'Legal & Compliance',
+      'Contracting',
+      'Lift & Shift',
+      'DSAR'
+    ]
   },
   
   // SIGNATURE FIELDS

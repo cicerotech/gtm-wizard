@@ -184,11 +184,18 @@
         "Opportunity.ACV__c"
       ],
       "validProducts": [
-        "AI-Augmented Contracting",
-        "Augmented-M&A",
-        "Compliance",
+        "AI-Augmented Contracting - Managed Services",
+        "AI-Augmented Contracting - In-House Technology",
+        "AI-Augmented Compliance - In-House Technology",
+        "AI-Augmented M&A - Managed Service",
+        "Custom Agents",
+        "Contracting – Secondee",
+        "Other - Secondee",
+        "Other - Managed Service",
         "sigma",
-        "Cortex"
+        "Litigation",
+        "Multiple",
+        "Undetermined"
       ],
       "complexity": "medium",
       "estimatedTime": "3s"
@@ -331,10 +338,12 @@
     },
     "product": {
       "type": "enum",
-      "values": ["contracting", "compliance", "m&a", "sigma", "cortex"],
+      "values": ["contracting", "compliance", "m&a", "sigma", "litigation", "custom agents"],
       "aliases": {
-        "contracting": ["AI-Augmented Contracting", "augmented contracting"],
-        "m&a": ["Augmented-M&A", "mergers and acquisitions"]
+        "contracting": ["AI-Augmented Contracting - Managed Services", "AI-Augmented Contracting - In-House Technology", "augmented contracting"],
+        "m&a": ["AI-Augmented M&A - Managed Service", "mergers and acquisitions"],
+        "compliance": ["AI-Augmented Compliance - In-House Technology"],
+        "custom agents": ["Custom Agents"]
       }
     },
     "month": {

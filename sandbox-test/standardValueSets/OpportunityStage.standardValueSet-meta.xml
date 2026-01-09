@@ -46,7 +46,7 @@
         <label>Stage 4. Proposal</label>
         <closed>false</closed>
         <forecastCategory>BestCase</forecastCategory>
-        <probability>50</probability>
+        <probability>75</probability>
         <won>false</won>
     </standardValue>
     <standardValue>
@@ -71,6 +71,24 @@
         <fullName>Stage 7. Closed Lost</fullName>
         <default>false</default>
         <label>Stage 7. Closed Lost</label>
+        <closed>true</closed>
+        <forecastCategory>Omitted</forecastCategory>
+        <probability>0</probability>
+        <won>false</won>
+    </standardValue>
+    <standardValue>
+        <fullName>Closed Won</fullName>
+        <default>false</default>
+        <label>Closed Won</label>
+        <closed>true</closed>
+        <forecastCategory>Closed</forecastCategory>
+        <probability>100</probability>
+        <won>true</won>
+    </standardValue>
+    <standardValue>
+        <fullName>Closed Lost</fullName>
+        <default>false</default>
+        <label>Closed Lost</label>
         <closed>true</closed>
         <forecastCategory>Omitted</forecastCategory>
         <probability>0</probability>
@@ -252,8 +270,8 @@
         <default>false</default>
         <label>Stage 4 - Proposal</label>
         <closed>false</closed>
-        <forecastCategory>Pipeline</forecastCategory>
-        <probability>50</probability>
+        <forecastCategory>BestCase</forecastCategory>
+        <probability>75</probability>
         <won>false</won>
     </standardValue>
 </StandardValueSet>

@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
+const ExcelJS = require('exceljs');
 const { query } = require('../salesforce/connection');
 const logger = require('../utils/logger');
 
@@ -706,6 +707,166 @@ function generateDeliveryPDF(deliveryData, dateStr) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// EXCEL GENERATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function generateDeliveryExcel(deliveryData) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Eudia GTM Brain';
+  workbook.created = new Date();
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TAB 1: ALL DELIVERIES (RAW DATA)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const rawSheet = workbook.addWorksheet('All Deliveries');
+  
+  // Define columns
+  rawSheet.columns = [
+    { header: 'Account', key: 'accountName', width: 30 },
+    { header: 'Delivery Name', key: 'name', width: 35 },
+    { header: 'Opportunity', key: 'opportunityName', width: 35 },
+    { header: 'Delivery Owner', key: 'ownerName', width: 20 },
+    { header: 'Status', key: 'status', width: 18 },
+    { header: 'Product Line', key: 'productLine', width: 20 },
+    { header: 'Deployment Model', key: 'deploymentModel', width: 18 },
+    { header: 'Project Size', key: 'projectSize', width: 15 },
+    { header: 'Contract Value', key: 'contractValue', width: 18 },
+    { header: 'Planned Hours', key: 'plannedHours', width: 15 },
+    { header: 'Kickoff Date', key: 'kickoffDate', width: 14 },
+    { header: 'Close Date', key: 'closeDate', width: 14 }
+  ];
+  
+  // Style header row - Black fill, white text, Times New Roman
+  const rawHeaderRow = rawSheet.getRow(1);
+  rawHeaderRow.font = { name: 'Times New Roman', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+  rawHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } };
+  rawHeaderRow.alignment = { vertical: 'middle', horizontal: 'left' };
+  rawHeaderRow.height = 22;
+  
+  // Add data rows
+  deliveryData.allDeliveries.forEach(delivery => {
+    rawSheet.addRow({
+      accountName: delivery.accountName,
+      name: delivery.name,
+      opportunityName: delivery.opportunityName,
+      ownerName: delivery.ownerName,
+      status: delivery.status,
+      productLine: delivery.productLine,
+      deploymentModel: delivery.deploymentModel,
+      projectSize: delivery.projectSize,
+      contractValue: delivery.contractValue,
+      plannedHours: delivery.plannedHours || 0,
+      kickoffDate: delivery.kickoffDate || '-',
+      closeDate: delivery.closeDate || '-'
+    });
+  });
+  
+  // Format data rows with Times New Roman
+  rawSheet.eachRow((row, rowNumber) => {
+    if (rowNumber > 1) {
+      row.font = { name: 'Times New Roman', size: 12 };
+      row.alignment = { vertical: 'middle', horizontal: 'left' };
+    }
+  });
+  
+  // Format currency column
+  rawSheet.getColumn('contractValue').numFmt = '$#,##0.00';
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TAB 2: SUMMARY BY OWNER
+  // ═══════════════════════════════════════════════════════════════════════════
+  const summarySheet = workbook.addWorksheet('Summary by Owner');
+  
+  summarySheet.columns = [
+    { header: 'Delivery Owner', key: 'owner', width: 25 },
+    { header: 'Deliveries', key: 'deliveries', width: 12 },
+    { header: 'Accounts', key: 'accounts', width: 12 },
+    { header: 'Contract Value', key: 'contractValue', width: 18 },
+    { header: 'Active', key: 'active', width: 10 },
+    { header: 'Completed', key: 'completed', width: 12 }
+  ];
+  
+  // Style header row
+  const summaryHeaderRow = summarySheet.getRow(1);
+  summaryHeaderRow.font = { name: 'Times New Roman', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+  summaryHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } };
+  summaryHeaderRow.alignment = { vertical: 'middle', horizontal: 'left' };
+  summaryHeaderRow.height = 22;
+  
+  // Add owner data
+  const sortedOwners = Object.entries(deliveryData.ownerMetrics)
+    .sort((a, b) => b[1].contractValue - a[1].contractValue);
+  
+  sortedOwners.forEach(([owner, metrics]) => {
+    summarySheet.addRow({
+      owner: owner,
+      deliveries: metrics.deliveries,
+      accounts: metrics.accounts,
+      contractValue: metrics.contractValue,
+      active: metrics.byStatus?.['Active'] || 0,
+      completed: metrics.byStatus?.['Completed'] || 0
+    });
+  });
+  
+  // Format data rows
+  summarySheet.eachRow((row, rowNumber) => {
+    if (rowNumber > 1) {
+      row.font = { name: 'Times New Roman', size: 12 };
+      row.alignment = { vertical: 'middle', horizontal: 'left' };
+    }
+  });
+  
+  summarySheet.getColumn('contractValue').numFmt = '$#,##0.00';
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TAB 3: SUMMARY BY STATUS
+  // ═══════════════════════════════════════════════════════════════════════════
+  const statusSheet = workbook.addWorksheet('Summary by Status');
+  
+  statusSheet.columns = [
+    { header: 'Status', key: 'status', width: 20 },
+    { header: 'Deliveries', key: 'count', width: 12 },
+    { header: 'Accounts', key: 'accounts', width: 12 },
+    { header: 'Contract Value', key: 'contractValue', width: 18 }
+  ];
+  
+  // Style header row
+  const statusHeaderRow = statusSheet.getRow(1);
+  statusHeaderRow.font = { name: 'Times New Roman', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+  statusHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } };
+  statusHeaderRow.alignment = { vertical: 'middle', horizontal: 'left' };
+  statusHeaderRow.height = 22;
+  
+  // Add status data
+  const sortedStatuses = Object.entries(deliveryData.statusBreakdown)
+    .sort((a, b) => b[1].count - a[1].count);
+  
+  sortedStatuses.forEach(([status, data]) => {
+    statusSheet.addRow({
+      status: status,
+      count: data.count,
+      accounts: data.accounts,
+      contractValue: data.contractValue
+    });
+  });
+  
+  // Format data rows
+  statusSheet.eachRow((row, rowNumber) => {
+    if (rowNumber > 1) {
+      row.font = { name: 'Times New Roman', size: 12 };
+      row.alignment = { vertical: 'middle', horizontal: 'left' };
+    }
+  });
+  
+  statusSheet.getColumn('contractValue').numFmt = '$#,##0.00';
+  
+  // Generate buffer
+  const buffer = await workbook.xlsx.writeBuffer();
+  logger.info('📦 Delivery Excel workbook generated successfully');
+  return buffer;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MESSAGE FORMATTING
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -765,9 +926,9 @@ function formatSlackMessage(deliveryData, dateStr) {
   message += '\n';
   
   // ═══════════════════════════════════════════════════════════════════════
-  // PDF REFERENCE
+  // FILE REFERENCE
   // ═══════════════════════════════════════════════════════════════════════
-  message += '_See attached PDF for full details._';
+  message += '_See attached PDF and Excel for full details._';
   
   return message;
 }
@@ -813,6 +974,11 @@ async function sendDeliveryWeeklySummary(app, testMode = false, targetChannel = 
     const pdfBuffer = await generateDeliveryPDF(deliveryData, displayDate);
     const pdfFilename = `Eudia_Delivery_Weekly_Snapshot_${dateStr}.pdf`;
     
+    // Generate Excel
+    logger.info('📦 Generating Delivery Excel workbook...');
+    const excelBuffer = await generateDeliveryExcel(deliveryData);
+    const excelFilename = `Eudia_Delivery_Weekly_Data_${dateStr}.xlsx`;
+    
     // Save current snapshot
     saveSnapshot(dateStr, {
       totals: deliveryData.totals,
@@ -849,17 +1015,69 @@ async function sendDeliveryWeeklySummary(app, testMode = false, targetChannel = 
       logger.info(`📦 Channel ${channel} is a channel ID - posting directly`);
     }
     
-    // Upload PDF and send message together
-    logger.info(`📦 Uploading Delivery PDF to channel: ${channel}`);
-    await app.client.files.uploadV2({
+    // Upload PDF and Excel together
+    logger.info(`📦 Uploading Delivery PDF and Excel to channel: ${channel}`);
+    const uploadResult = await app.client.files.uploadV2({
       channel_id: channel,
-      file: pdfBuffer,
-      filename: pdfFilename,
-      title: `Eudia Delivery Weekly Snapshot — ${displayDate}`,
-      initial_comment: message
+      initial_comment: message,
+      file_uploads: [
+        { 
+          file: pdfBuffer, 
+          filename: pdfFilename, 
+          title: `Eudia Delivery Weekly Snapshot — ${displayDate}` 
+        },
+        { 
+          file: excelBuffer, 
+          filename: excelFilename, 
+          title: `Eudia Delivery Weekly Data — ${displayDate}` 
+        }
+      ]
     });
     
-    logger.info(`✅ Weekly Delivery summary with PDF sent to ${channel}`);
+    logger.info(`✅ Weekly Delivery summary with PDF and Excel sent to ${channel}`);
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // THREADED REPLY: CSM Account Health Excel
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      // Get the message timestamp from the upload result
+      const messageTs = uploadResult?.files?.[0]?.shares?.public?.[channel]?.[0]?.ts ||
+                        uploadResult?.files?.[0]?.shares?.private?.[channel]?.[0]?.ts;
+      
+      if (messageTs && deliveryData.allDeliveries && deliveryData.allDeliveries.length > 0) {
+        logger.info(`📋 Generating CSM Account Health Excel as threaded reply...`);
+        
+        const { generateCSMExcelFromDeliveries } = require('./csmAccountHealth');
+        const csmResult = await generateCSMExcelFromDeliveries(deliveryData.allDeliveries);
+        
+        if (csmResult.buffer) {
+          const csmFilename = `Eudia_CSM_Account_Health_${dateStr}.xlsx`;
+          
+          // Format CSM message
+          let csmMessage = `📋 *CSM Account Health Report*\n\n`;
+          csmMessage += `*Accounts with Active Deliveries:* ${csmResult.accountCount}\n`;
+          csmMessage += `*Total Delivery Items:* ${csmResult.recordCount}\n\n`;
+          csmMessage += `_CSMs: Please review and update Account Health and Account Health Details in Salesforce._`;
+          
+          // Upload CSM Excel as threaded reply
+          await app.client.files.uploadV2({
+            channel_id: channel,
+            thread_ts: messageTs,
+            file: csmResult.buffer,
+            filename: csmFilename,
+            title: `CSM Account Health — ${displayDate}`,
+            initial_comment: csmMessage
+          });
+          
+          logger.info(`✅ CSM Account Health Excel threaded to delivery report`);
+        }
+      } else {
+        logger.warn('📋 Could not get message timestamp for CSM reply, skipping thread');
+      }
+    } catch (csmError) {
+      logger.error('📋 Failed to generate CSM threaded reply:', csmError);
+      // Don't throw - the main report was successful
+    }
     
     return {
       success: true,
@@ -868,7 +1086,8 @@ async function sendDeliveryWeeklySummary(app, testMode = false, targetChannel = 
       deliveryCount: deliveryData.totals.totalRecords,
       totals: deliveryData.totals,
       message,
-      pdfFilename
+      pdfFilename,
+      excelFilename
     };
     
   } catch (error) {
@@ -918,5 +1137,6 @@ module.exports = {
   getDeliverySnapshotData,
   formatSlackMessage,
   queryDeliveryData,
-  processDeliveryData
+  processDeliveryData,
+  generateDeliveryExcel
 };

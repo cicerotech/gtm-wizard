@@ -283,6 +283,14 @@ docker-compose up
 - `REDIS_URL` — Optional (falls back to in-memory cache)
 - `DASHBOARD_PASSWORD` — Dashboard authentication
 
+**Weekly Reports (optional):**
+- `GTM_ACCOUNT_PLANNING_CHANNEL` — Slack channel ID for weekly reports (default: `#gtm-account-planning`)
+- `WEEKLY_REPORT_TEST_CHANNEL` — When set, reports go to this test channel instead of production
+
+**Closed Won Alerts (optional):**
+- `CLOSED_WON_ALERTS_ENABLED` — Set to `true` to enable closed deal notifications
+- `CLOSED_WON_ALERT_CHANNEL` — Slack channel ID for closed won alerts (e.g., `#gtm-account-planning`)
+
 **Channel Intelligence Scraper (optional):**
 - `INTEL_SCRAPER_ENABLED` — Set to `true` to enable the intelligence scraper
 - `INTEL_DIGEST_CHANNEL` — Slack channel ID for daily intelligence digest

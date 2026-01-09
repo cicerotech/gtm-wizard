@@ -53,7 +53,7 @@ class QueryBuilder {
         'Account.Legal_Department_Size__c',
         'Account.Pain_Points_Identified__c',
         'Account.Target_LOI_Sign_Date__c',
-        'Account.Type__c',
+        'Account.Customer_Type__c',
         'Account.CLO_Engaged__c'
       );
     }
@@ -208,7 +208,7 @@ class QueryBuilder {
     }
 
     // Deal type filters (LOI, ARR, etc.) - Use Revenue_Type__c field
-    // Updated mappings: Commitment = LOI, Recurring = ARR, Project = Pilot/Revenue (based on term)
+    // Mappings: Commitment = LOI, Recurring = ARR (12+ months), Project = < 12 months, Pilot = pilot engagements
     if (entities.dealType) {
       if (entities.dealType === 'bookings' || entities.dealType === 'loi') {
         conditions.push("Revenue_Type__c = 'Commitment'");
@@ -216,6 +216,8 @@ class QueryBuilder {
         conditions.push("Revenue_Type__c = 'Recurring'");
       } else if (entities.dealType === 'project') {
         conditions.push("Revenue_Type__c = 'Project'");
+      } else if (entities.dealType === 'pilot') {
+        conditions.push("Revenue_Type__c = 'Pilot'");
       }
     }
 
@@ -227,6 +229,21 @@ class QueryBuilder {
         conditions.push("Revenue_Type__c = 'Recurring'");
       } else if (entities.bookingType === 'Project') {
         conditions.push("Revenue_Type__c = 'Project'");
+      } else if (entities.bookingType === 'Pilot') {
+        conditions.push("Revenue_Type__c = 'Pilot'");
+      }
+    }
+
+    // Sales Type filter (Sales_Type__c: Eudia Counsel, New business, Expansion, Renewal)
+    if (entities.salesType) {
+      if (entities.salesType === 'eudia_counsel' || entities.salesType === 'Eudia Counsel') {
+        conditions.push("Sales_Type__c = 'Eudia Counsel'");
+      } else if (entities.salesType === 'new_business' || entities.salesType === 'New business') {
+        conditions.push("Sales_Type__c = 'New business'");
+      } else if (entities.salesType === 'expansion' || entities.salesType === 'Expansion') {
+        conditions.push("Sales_Type__c = 'Expansion'");
+      } else if (entities.salesType === 'renewal' || entities.salesType === 'Renewal') {
+        conditions.push("Sales_Type__c = 'Renewal'");
       }
     }
 
@@ -377,7 +394,7 @@ class QueryBuilder {
    */
   buildAccountQuery(entities = {}) {
     let soql = 'SELECT Id, Name, Industry, Website, Domain, AnnualRevenue, ';
-    soql += 'CLO_Engaged__c, CLO_Reports_to_CEO__c, Type__c, ';
+    soql += 'CLO_Engaged__c, CLO_Reports_to_CEO__c, Customer_Type__c, Customer_Subtype__c, ';
     soql += 'Is_New_Logo__c, Owner.Name, CreatedDate, LastActivityDate ';
     soql += 'FROM Account';
 
