@@ -22,7 +22,8 @@ async function generateFullPipelineExcel() {
                          AND StageName != 'Stage 7. Closed Lost'
                        ORDER BY ACV__c DESC NULLS LAST, Name`;
 
-  const data = await query(reportQuery, false);
+  // Enable caching (5 min TTL) to avoid SF rate limits when multiple reports run back-to-back
+  const data = await query(reportQuery, true);
   
   // Sort in memory by stage (Stage 4 first, then 3, 2, 1, 0) then by ACV
   const stageOrder = {

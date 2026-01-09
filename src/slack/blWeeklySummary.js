@@ -175,7 +175,8 @@ async function queryPipelineData() {
       ORDER BY Owner.Name, Target_LOI_Date__c ASC NULLS LAST
     `;
     
-    const result = await query(soql, false);
+    // Enable caching (5 min TTL) to avoid SF rate limits when multiple reports run back-to-back
+    const result = await query(soql, true);
     
     if (!result || !result.records) {
       logger.warn('No opportunity records found');
@@ -210,7 +211,8 @@ async function queryLogosByType() {
       ORDER BY Customer_Subtype__c, Customer_Type__c, Name
     `;
     
-    const result = await query(soql, false);
+    // Enable caching (5 min TTL) to avoid SF rate limits when multiple reports run back-to-back
+    const result = await query(soql, true);
     
     if (!result || !result.records) {
       logger.warn('No logos found');
@@ -310,7 +312,8 @@ async function querySignedDeals() {
       ORDER BY CloseDate DESC
     `;
     
-    const result = await query(soql, false);
+    // Enable caching (5 min TTL) to avoid SF rate limits when multiple reports run back-to-back
+    const result = await query(soql, true);
     
     if (!result || !result.records) {
       logger.warn('No signed deals found');
@@ -440,7 +443,8 @@ async function queryActiveRevenue() {
       ORDER BY ACV__c DESC
     `;
     
-    const result = await query(soql, false);
+    // Enable caching (5 min TTL) to avoid SF rate limits when multiple reports run back-to-back
+    const result = await query(soql, true);
     
     if (!result || !result.records) {
       logger.warn('No closed won revenue deals found');

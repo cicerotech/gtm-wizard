@@ -36,7 +36,8 @@ async function generatePipelineExcel() {
                          )
                        ORDER BY StageName DESC, ACV__c DESC NULLS LAST`;
 
-  const data = await query(reportQuery, false);
+  // Enable caching (5 min TTL) to avoid SF rate limits when multiple reports run back-to-back
+  const data = await query(reportQuery, true);
 
   if (!data || !data.records || data.records.length === 0) {
     throw new Error('No pipeline data found for report');
@@ -361,7 +362,8 @@ async function generateLateStageExcel() {
                          )
                        ORDER BY StageName DESC, ACV__c DESC NULLS LAST`;
 
-  const data = await query(reportQuery, false);
+  // Enable caching (5 min TTL) to avoid SF rate limits when multiple reports run back-to-back
+  const data = await query(reportQuery, true);
 
   if (!data || !data.records) {
     logger.info('No late-stage pipeline data found');

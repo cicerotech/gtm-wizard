@@ -479,7 +479,8 @@ async function approveAndSync(id, reviewedBy) {
     
     // Get the current Customer_Brain__c field value
     const accountQuery = `SELECT Id, Name, Customer_Brain__c FROM Account WHERE Id = '${item.account_id}'`;
-    const result = await query(accountQuery, false);
+    // Enable caching to avoid SF rate limits
+    const result = await query(accountQuery, true);
     
     if (!result.records || result.records.length === 0) {
       return { success: false, error: 'Account not found in Salesforce' };

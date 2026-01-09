@@ -29,7 +29,8 @@ async function getJohnsonHanaReport() {
                               OR Product_Line__c = 'Litigation')
                        ORDER BY StageName, Account.Name`;
 
-  return await query(reportQuery, false);
+  // Enable caching (5 min TTL) to avoid SF rate limits when multiple reports run back-to-back
+  return await query(reportQuery, true);
 }
 
 /**
