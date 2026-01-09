@@ -414,7 +414,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
       
       return allClosedDeals.map(deal => {
         const legacyDot = '';
-        const techBadge = deal.eudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;"></span>' : '';
+        const techBadge = deal.aiEnabled ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;" title="AI Enabled"></span>' : '';
         const closeDateStr = deal.closeDate ? new Date(deal.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : '';
         const ownerName = deal.owner ? (deal.owner.split(' ')[0]) : '';
         const details = [deal.product, ownerName, closeDateStr].filter(x => x).join(' • ');
