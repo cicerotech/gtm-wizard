@@ -1207,7 +1207,7 @@ async function generateAccountDashboard() {
   
   // Also keep opportunity query for Revenue/Pilot/LOI categorization
   const signedDealsQuery = `
-    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName, Contract_Term_Months__c
+    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName, Contract_Term_Months__c, Sales_Type__c
     FROM Opportunity
     WHERE (StageName = 'Closed Won' OR StageName = 'Stage 6. Closed(Won)')
       AND (NOT Account.Name LIKE '%Sample%')
@@ -1356,7 +1356,8 @@ async function generateAccountDashboard() {
           acv: opp.ACV__c || 0,
           product: opp.Product_Line__c || '',
           revenueType: opp.Revenue_Type__c || '',
-          contractTermMonths: opp.Contract_Term_Months__c || null
+          contractTermMonths: opp.Contract_Term_Months__c || null,
+          salesType: opp.Sales_Type__c || ''
         };
         
         const category = categorizeByRevenueType(deal.revenueType, deal.contractTermMonths);
@@ -1393,44 +1394,55 @@ async function generateAccountDashboard() {
   } catch (e) { console.error('Signed deals query error:', e.message); }
   
   // ═══════════════════════════════════════════════════════════════════════
-  // LOGOS BY TYPE - Query Account directly for Customer_Type__c
-  // Includes ALL accounts with Customer_Type__c set (not just open pipeline)
+  // LOGOS BY TYPE - Query Account for Customer_Type__c and Customer_Subtype__c
+  // Customer_Subtype__c = New or Existing (top level)
+  // Customer_Type__c = Revenue, Pilot, LOI (second level for Existing)
   // ═══════════════════════════════════════════════════════════════════════
-  // Query accounts with Customer_Type__c for logo counts
-  // Note: First close date will be derived from opportunity data if account field not available
   const logosQuery = `
-    SELECT Name, Customer_Type__c
+    SELECT Name, Customer_Type__c, Customer_Subtype__c
     FROM Account
-    WHERE Customer_Type__c != null
+    WHERE Customer_Type__c != null OR Customer_Subtype__c != null
     ORDER BY Name
   `;
   
   let logosByType = { revenue: [], project: [], pilot: [], loi: [] };
+  let logosBySubtype = { new: [], existing: [] };
   
   try {
     const logosData = await query(logosQuery, true);
-    console.log(`[Dashboard] Logos query returned ${logosData?.records?.length || 0} accounts with Customer_Type__c`);
+    console.log(`[Dashboard] Logos query returned ${logosData?.records?.length || 0} accounts`);
     if (logosData?.records) {
-      // Log all unique Customer_Type__c values for debugging
+      // Log all unique values for debugging
       const uniqueTypes = [...new Set(logosData.records.map(a => a.Customer_Type__c).filter(Boolean))];
-      console.log(`[Dashboard] Customer_Type__c values found: ${JSON.stringify(uniqueTypes)}`);
+      const uniqueSubtypes = [...new Set(logosData.records.map(a => a.Customer_Subtype__c).filter(Boolean))];
+      console.log(`[Dashboard] Customer_Type__c values: ${JSON.stringify(uniqueTypes)}`);
+      console.log(`[Dashboard] Customer_Subtype__c values: ${JSON.stringify(uniqueSubtypes)}`);
       
       logosData.records.forEach(acc => {
         const ct = (acc.Customer_Type__c || '').toLowerCase().trim();
+        const subtype = (acc.Customer_Subtype__c || '').toLowerCase().trim();
         
-        // Categorize by Customer_Type__c
+        // Categorize by Customer_Subtype__c (New/Existing)
+        if (subtype.includes('new')) {
+          logosBySubtype.new.push(acc.Name);
+        } else if (subtype.includes('existing') || ct) {
+          logosBySubtype.existing.push(acc.Name);
+        }
+        
+        // Categorize by Customer_Type__c (Revenue/Pilot/LOI/Project)
         if (ct.includes('revenue') || ct === 'arr' || ct === 'recurring') {
-          logosByType.revenue.push({ accountName: acc.Name });
-        } else if (ct.includes('project')) {
-          logosByType.project.push({ accountName: acc.Name });
+          logosByType.revenue.push(acc.Name);
         } else if (ct.includes('pilot')) {
-          logosByType.pilot.push({ accountName: acc.Name });
-        } else if (ct.includes('loi') || ct === 'commitment') {
-          logosByType.loi.push({ accountName: acc.Name });
+          logosByType.pilot.push(acc.Name);
+        } else if (ct.includes('loi') || ct.includes('commitment')) {
+          logosByType.loi.push(acc.Name);
+        } else if (ct.includes('project')) {
+          logosByType.project.push(acc.Name);
         }
       });
     }
-    console.log(`[Dashboard] Logos by type: revenue=${logosByType.revenue.length}, project=${logosByType.project.length}, pilot=${logosByType.pilot.length}, loi=${logosByType.loi.length}`);
+    console.log(`[Dashboard] Logos by subtype: new=${logosBySubtype.new.length}, existing=${logosBySubtype.existing.length}`);
+    console.log(`[Dashboard] Logos by type: revenue=${logosByType.revenue.length}, pilot=${logosByType.pilot.length}, loi=${logosByType.loi.length}, project=${logosByType.project.length}`);
   } catch (e) { console.error('Logos query error:', e.message); }
   
   // Helper function to format currency
@@ -2312,7 +2324,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         const salesTypeAgg = {};
         Array.from(accountMap.values()).forEach(acc => {
           acc.opportunities.forEach(opp => {
-            const sType = opp.Sales_Type__c || 'Unassigned';
+            // Normalize Sales Type - "Expansion / Upsell" -> "Expansion"
+            let sType = opp.Sales_Type__c || 'Unassigned';
+            if (sType.toLowerCase().includes('expansion')) sType = 'Expansion';
             if (!salesTypeAgg[sType]) salesTypeAgg[sType] = { count: 0, acv: 0, weighted: 0 };
             salesTypeAgg[sType].count++;
             salesTypeAgg[sType].acv += opp.ACV__c || 0;
@@ -2320,22 +2334,50 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           });
         });
         
+        // Display order - skip duplicates/unassigned
         const salesTypeOrder = ['New business', 'Expansion', 'Renewal', 'Eudia Counsel', 'Pilot'];
-        const sortedTypes = [...salesTypeOrder.filter(t => salesTypeAgg[t]), ...Object.keys(salesTypeAgg).filter(t => !salesTypeOrder.includes(t)).sort()];
+        const displayTypes = salesTypeOrder.filter(t => salesTypeAgg[t] && salesTypeAgg[t].acv > 0);
         const fmt = (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(1) + 'm' : '$' + (val / 1000).toFixed(0) + 'k';
-        const colors = { 'New business': '#dbeafe', 'Expansion': '#d1fae5', 'Renewal': '#fef3c7', 'Eudia Counsel': '#e0e7ff', 'Pilot': '#fce7f3' };
-        const textColors = { 'New business': '#1e40af', 'Expansion': '#047857', 'Renewal': '#92400e', 'Eudia Counsel': '#4338ca', 'Pilot': '#be185d' };
         
-        return sortedTypes.map(type => {
+        return displayTypes.map(type => {
           const data = salesTypeAgg[type] || { count: 0, acv: 0, weighted: 0 };
-          const bgColor = colors[type] || '#f3f4f6';
-          const txtColor = textColors[type] || '#374151';
-          return '<div style="flex: 1; min-width: 140px; background: ' + bgColor + '; padding: 10px; border-radius: 6px; text-align: center;">' +
-            '<div style="font-size: 0.65rem; font-weight: 600; color: ' + txtColor + '; margin-bottom: 4px;">' + type.toUpperCase() + '</div>' +
-            '<div style="font-size: 1.1rem; font-weight: 700; color: ' + txtColor + ';">' + fmt(data.acv) + '</div>' +
-            '<div style="font-size: 0.6rem; color: ' + txtColor + ';">' + data.count + ' opps • ' + fmt(data.weighted) + ' wtd</div>' +
+          return '<div style="flex: 1; min-width: 140px; background: #1f2937; padding: 12px; border-radius: 6px; text-align: center;">' +
+            '<div style="font-size: 0.65rem; font-weight: 600; color: #9ca3af; margin-bottom: 4px;">' + type.toUpperCase() + '</div>' +
+            '<div style="font-size: 1.25rem; font-weight: 700; color: #fff;">' + fmt(data.acv) + '</div>' +
+            '<div style="font-size: 0.6rem; color: #9ca3af;">' + data.count + ' opps • ' + fmt(data.weighted) + ' wtd</div>' +
           '</div>';
         }).join('');
+      })()}
+    </div>
+  </div>
+  
+  <!-- NEW vs EXISTING LOGOS -->
+  <div class="stage-section" style="margin-bottom: 16px;">
+    <div class="stage-title">Pipeline by Logo Type</div>
+    <div style="display: flex; gap: 8px; margin-top: 8px;">
+      ${(() => {
+        let newLogoACV = 0, newLogoCount = 0, existingACV = 0, existingCount = 0;
+        Array.from(accountMap.values()).forEach(acc => {
+          const acv = acc.totalACV || 0;
+          if (acc.isNewLogo) {
+            newLogoACV += acv;
+            newLogoCount++;
+          } else {
+            existingACV += acv;
+            existingCount++;
+          }
+        });
+        const fmt = (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(1) + 'm' : '$' + (val / 1000).toFixed(0) + 'k';
+        return '<div style="flex: 1; background: #dbeafe; padding: 12px; border-radius: 6px; text-align: center; border-left: 4px solid #3b82f6;">' +
+          '<div style="font-size: 0.65rem; font-weight: 600; color: #1e40af; margin-bottom: 4px;">NEW LOGOS</div>' +
+          '<div style="font-size: 1.25rem; font-weight: 700; color: #1e3a8a;">' + fmt(newLogoACV) + '</div>' +
+          '<div style="font-size: 0.6rem; color: #1e40af;">' + newLogoCount + ' accounts</div>' +
+        '</div>' +
+        '<div style="flex: 1; background: #f3f4f6; padding: 12px; border-radius: 6px; text-align: center; border-left: 4px solid #6b7280;">' +
+          '<div style="font-size: 0.65rem; font-weight: 600; color: #374151; margin-bottom: 4px;">EXISTING LOGOS</div>' +
+          '<div style="font-size: 1.25rem; font-weight: 700; color: #1f2937;">' + fmt(existingACV) + '</div>' +
+          '<div style="font-size: 0.6rem; color: #6b7280;">' + existingCount + ' accounts</div>' +
+        '</div>';
       })()}
     </div>
   </div>
@@ -2454,71 +2496,6 @@ ${late.map((acc, idx) => {
         '</details>';
       }).join('')}
       ${late.length > 10 ? `<div id="show-more-late" class="account-item" style="color: #1e40af; font-weight: 600; cursor: pointer; text-align: center; padding: 8px; background: #eff6ff; border-radius: 6px; margin-top: 4px;">+${late.length - 10} more... (click to expand)</div>` : ''}
-    </div>
-  </div>
-  
-  <div class="stage-section">
-    <div class="stage-title">Mid Stage (${mid.length})</div>
-    <div class="account-list" id="mid-stage-list">
-${mid.map((acc, idx) => {
-        let badge = '';
-        const legacyDot = '';
-        const aiEnabledBadge = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;" title="AI Enabled"></span>' : '';
-        
-        if (acc.isNewLogo) {
-          badge = '<span class="badge badge-new">New</span>';
-        } else if (acc.customerType) {
-          const type = acc.customerType.toLowerCase();
-          if (type.includes('revenue') || type === 'arr' || type === 'recurring') {
-            badge = '<span class="badge badge-revenue">Revenue</span>';
-          } else if (type.includes('project')) {
-            badge = '<span class="badge badge-project">Project</span>';
-          } else if (type.includes('pilot')) {
-            badge = '<span class="badge badge-pilot">Pilot</span>';
-          } else if (type.includes('loi') || type === 'commitment') {
-            badge = '<span class="badge badge-loi">LOI</span>';
-          } else {
-            badge = '<span class="badge badge-other">' + acc.customerType + '</span>';
-          }
-        }
-        
-        // Add potential value badge
-        const potentialValue = potentialValueMap[acc.name];
-        if (potentialValue === 'marquee') {
-          badge += '<span class="badge badge-marquee">High-Touch Marquee</span>';
-        } else if (potentialValue === 'velocity') {
-          badge += '<span class="badge badge-velocity">High-Velocity</span>';
-        }
-        
-        const acvDisplay = acc.totalACV >= 1000000 
-          ? '$' + (acc.totalACV / 1000000).toFixed(1) + 'm' 
-          : acc.totalACV >= 1000 
-            ? '$' + (acc.totalACV / 1000).toFixed(0) + 'k' 
-            : '$' + acc.totalACV.toFixed(0);
-        
-        // Only show meetings for Eudia accounts (not legacy)
-        const accountMeetings = !acc.isLegacy ? (meetingData.get(acc.accountId) || {}) : {};
-        const lastMeetingDate = accountMeetings.lastMeeting ? new Date(accountMeetings.lastMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-        const nextMeetingDate = accountMeetings.nextMeeting ? new Date(accountMeetings.nextMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-        const lastMeetingSubject = accountMeetings.lastMeetingSubject || '';
-        const nextMeetingSubject = accountMeetings.nextMeetingSubject || '';
-        const products = [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))];
-        const productList = products.map(p => formatProductLine(p)).join(', ') || 'TBD';
-        
-        return '<details class="summary-expandable" style="display: ' + (idx < 10 ? 'block' : 'none') + '; background: #fff; border-left: 3px solid #3b82f6; padding: 10px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; border: 1px solid #e5e7eb;">' +
-          '<summary style="list-style: none; font-size: 0.875rem;">' +
-            '<div class="account-name">' + acc.name + legacyDot + aiEnabledBadge + ' ' + badge + '</div>' +
-            '<div class="account-owner">' + acc.owner + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') + ' • ' + acvDisplay + '</div>' +
-          '</summary>' +
-          '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 0.8125rem;">' +
-            (!acc.isLegacy && (lastMeetingDate || nextMeetingDate) ? '<div style="background: #ecfdf5; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 0.75rem; color: #065f46;">' + (lastMeetingDate ? '<div><strong>📅 Prior:</strong> ' + lastMeetingDate + (lastMeetingSubject ? ' - ' + lastMeetingSubject : '') + '</div>' : '') + (nextMeetingDate ? '<div style="margin-top: 4px;"><strong>📅 Next:</strong> ' + nextMeetingDate + (nextMeetingSubject ? ' - ' + nextMeetingSubject : '') + '</div>' : (lastMeetingDate ? '<div style="margin-top: 4px; color: #991b1b;"><strong>📭 No next meeting scheduled</strong></div>' : '')) + '</div>' : '') +
-            '<div style="color: #374151; margin-bottom: 4px;"><strong>Products:</strong> ' + productList + '</div>' +
-            '<div style="color: #374151; margin-top: 6px;"><strong>Opportunities (' + acc.opportunities.length + '):</strong></div>' +
-            acc.opportunities.map(o => { const av = o.ACV__c || 0; const af = av >= 1000000 ? '$' + (av / 1000000).toFixed(1) + 'm' : '$' + (av / 1000).toFixed(0) + 'k'; return '<div style="font-size: 0.75rem; color: #6b7280; margin-left: 12px; margin-top: 2px;">• ' + cleanStageName(o.StageName) + ' - ' + (o.Product_Line__c || 'TBD') + ' - ' + af + '</div>'; }).join('') +
-          '</div>' +
-        '</details>';
-      }).join('')}
-      ${mid.length > 10 ? `<div id="show-more-mid" class="account-item" style="color: #1e40af; font-weight: 600; cursor: pointer; text-align: center; padding: 8px; background: #eff6ff; border-radius: 6px; margin-top: 4px;">+${mid.length - 10} more... (click to expand)</div>` : ''}
     </div>
   </div>
   
@@ -2642,6 +2619,41 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
 
 <!-- TAB 3: REVENUE -->
 <div id="revenue" class="tab-content">
+  <!-- Closed Won by Sales Type Summary -->
+  <div class="stage-section" style="margin-bottom: 16px;">
+    <div class="stage-title">Closed Won by Sales Type</div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+      ${(() => {
+        // Aggregate closed won by Sales Type
+        const salesTypeClosedWon = {};
+        [...signedByType.revenue, ...signedByType.project, ...signedByType.pilot].forEach(deal => {
+          let sType = deal.salesType || 'Unassigned';
+          if (sType.toLowerCase().includes('expansion')) sType = 'Expansion';
+          if (!salesTypeClosedWon[sType]) salesTypeClosedWon[sType] = { count: 0, acv: 0 };
+          salesTypeClosedWon[sType].count++;
+          salesTypeClosedWon[sType].acv += deal.acv || 0;
+        });
+        
+        const salesTypeOrder = ['New business', 'Expansion', 'Renewal'];
+        const displayTypes = salesTypeOrder.filter(t => salesTypeClosedWon[t]);
+        const fmt = (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(1) + 'm' : '$' + (val / 1000).toFixed(0) + 'k';
+        
+        if (displayTypes.length === 0) {
+          return '<div style="font-size: 0.75rem; color: #6b7280;">No closed won deals with Sales Type</div>';
+        }
+        
+        return displayTypes.map(type => {
+          const data = salesTypeClosedWon[type] || { count: 0, acv: 0 };
+          return '<div style="flex: 1; min-width: 120px; background: #1f2937; padding: 12px; border-radius: 6px; text-align: center;">' +
+            '<div style="font-size: 0.6rem; font-weight: 600; color: #9ca3af; margin-bottom: 4px;">' + type.toUpperCase() + '</div>' +
+            '<div style="font-size: 1.1rem; font-weight: 700; color: #fff;">' + fmt(data.acv) + '</div>' +
+            '<div style="font-size: 0.55rem; color: #9ca3af;">' + data.count + ' deals</div>' +
+          '</div>';
+        }).join('');
+      })()}
+    </div>
+  </div>
+  
   <!-- Active Revenue by Account -->
   <div class="stage-section">
     <div class="stage-title">Active Revenue by Account</div>
@@ -2719,40 +2731,34 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
   <div class="stage-section" style="margin-top: 16px;">
     <div class="stage-title">All Closed Won</div>
     <div class="stage-subtitle">${combinedRevenue.length} revenue • ${signedByType.project.length} project • ${signedByType.pilot.length} pilot • ${signedByType.loi.length} LOI</div>
-    <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 8px; padding: 8px; background: #f9fafb; border-radius: 4px;">
-      <strong>Revenue:</strong> Recurring/ARR subscription contracts &nbsp;|&nbsp;
-      <strong>Project:</strong> Long-term project deals (12+ months) &nbsp;|&nbsp;
-      <strong>Pilot:</strong> Short-term deals (less than 12 months) &nbsp;|&nbsp;
-      <strong>LOI:</strong> Signed commitments to spend
-    </div>
   </div>
   
   <div class="section-card" style="padding: 0;">
     ${combinedRevenue.length > 0 ? `
     <details open style="margin-bottom: 12px;">
-      <summary style="background: #059669; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
-        <span>REVENUE</span>
+      <summary style="background: #1f2937; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
+        <span>REVENUE (ARR)</span>
         <span>${formatCurrency(combinedRevenueTotal)} • ${combinedRevenue.length} deal${combinedRevenue.length !== 1 ? 's' : ''}</span>
       </summary>
-      <div style="padding: 0 12px 12px 12px; background: #f0fdf4; border-radius: 0 0 6px 6px;">
+      <div style="padding: 0 12px 12px 12px; background: #f9fafb; border-radius: 0 0 6px 6px;">
       ${combinedRevenue.slice(0, 5).map(d => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9f5ec; font-size: 0.75rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-size: 0.75rem;">
           <span style="font-weight: 500;">${d.accountName}</span>
           <div style="display: flex; gap: 12px; align-items: center;">
             <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
-            <span style="color: #15803d; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+            <span style="color: #1f2937; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
         </div>
       </div>
       `).join('')}
       ${combinedRevenue.length > 5 ? `
         <details style="margin-top: 4px;">
-          <summary style="font-size: 0.65rem; color: #15803d; cursor: pointer; padding: 4px 0;">+${combinedRevenue.length - 5} more deals ›</summary>
+          <summary style="font-size: 0.65rem; color: #374151; cursor: pointer; padding: 4px 0;">+${combinedRevenue.length - 5} more deals ›</summary>
           ${combinedRevenue.slice(5).map(d => `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9f5ec; font-size: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-size: 0.75rem;">
               <span style="font-weight: 500;">${d.accountName}</span>
               <div style="display: flex; gap: 12px; align-items: center;">
                 <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
-                <span style="color: #15803d; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+                <span style="color: #1f2937; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
               </div>
             </div>
           `).join('')}
@@ -2864,67 +2870,86 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
 <!-- TAB 4: ACCOUNTS -->
 <div id="account-plans" class="tab-content">
   <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: #374151;">
-    <strong>All Accounts</strong> — Current active accounts and pipeline. Totals based on Salesforce Customer_Type__c field.
+    <strong>All Accounts</strong> — By Customer Subtype (New/Existing) and Customer Type (Revenue/Pilot/LOI).
   </div>
   
-  <!-- Logos by Customer Type - Using consistent logosByType data -->
-  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px;">
-    <!-- REVENUE Tile -->
+  <!-- New vs Existing Logos - Top level grouping -->
+  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
+    <div style="background: #dbeafe; padding: 16px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-size: 0.8rem; font-weight: 700; color: #1e40af;">NEW LOGOS</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: #1e3a8a;">${logosBySubtype.new.length}</div>
+      </div>
+      <div style="font-size: 0.6rem; color: #3b82f6; margin-top: 4px;">First-time customers</div>
+    </div>
+    <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; border-left: 4px solid #6b7280;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-size: 0.8rem; font-weight: 700; color: #374151;">EXISTING LOGOS</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: #1f2937;">${logosBySubtype.existing.length}</div>
+      </div>
+      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 4px;">Returning customers</div>
+    </div>
+  </div>
+  
+  <!-- Existing Logos by Customer Type -->
+  <div style="font-size: 0.75rem; font-weight: 600; color: #374151; margin-bottom: 8px;">Existing Customers by Type</div>
+  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px;">
+    <!-- MSA/REVENUE Tile -->
     <div style="background: #f0fdf4; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="font-size: 0.7rem; font-weight: 700; color: #059669;">REVENUE</div>
-        <div style="font-size: 1.25rem; font-weight: 700; color: #15803d;">${logosByType.revenue.length}</div>
+        <div style="font-size: 0.65rem; font-weight: 700; color: #059669;">MSA</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #15803d;">${logosByType.revenue.length}</div>
       </div>
-      <div style="font-size: 0.55rem; color: #6b7280; margin: 4px 0;">Recurring/ARR contracts</div>
-      <details style="font-size: 0.6rem; color: #6b7280;">
-        <summary style="cursor: pointer; color: #059669; font-weight: 500;">View accounts ›</summary>
-        <div style="margin-top: 6px; display: grid; grid-template-columns: 1fr; gap: 2px; max-height: 200px; overflow-y: auto;">
-          ${logosByType.revenue.map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a.accountName + '</div>').sort().join('') || '-'}
-        </div>
-      </details>
-      </div>
-    
-    <!-- PROJECT Tile -->
-    <div style="background: #faf5ff; padding: 12px; border-radius: 6px;">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="font-size: 0.7rem; font-weight: 700; color: #7c3aed;">PROJECT</div>
-        <div style="font-size: 1.25rem; font-weight: 700; color: #6b21a8;">${logosByType.project.length}</div>
-    </div>
-      <div style="font-size: 0.55rem; color: #6b7280; margin: 4px 0;">Long-term projects (12+ mo)</div>
-      <details style="font-size: 0.6rem; color: #6b7280;">
-        <summary style="cursor: pointer; color: #7c3aed; font-weight: 500;">View accounts ›</summary>
-        <div style="margin-top: 6px; display: grid; grid-template-columns: 1fr; gap: 2px; max-height: 200px; overflow-y: auto;">
-          ${logosByType.project.map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a.accountName + '</div>').sort().join('') || '-'}
+      <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">ARR/Recurring</div>
+      <details style="font-size: 0.55rem; color: #6b7280;">
+        <summary style="cursor: pointer; color: #059669;">View ›</summary>
+        <div style="margin-top: 4px; max-height: 150px; overflow-y: auto;">
+          ${logosByType.revenue.sort().map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a + '</div>').join('') || '-'}
         </div>
       </details>
     </div>
     
     <!-- PILOT Tile -->
+    <div style="background: #fef3c7; padding: 12px; border-radius: 6px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-size: 0.65rem; font-weight: 700; color: #d97706;">PILOT</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #92400e;">${logosByType.pilot.length}</div>
+      </div>
+      <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">< 12 months</div>
+      <details style="font-size: 0.55rem; color: #6b7280;">
+        <summary style="cursor: pointer; color: #d97706;">View ›</summary>
+        <div style="margin-top: 4px; max-height: 150px; overflow-y: auto;">
+          ${logosByType.pilot.sort().map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a + '</div>').join('') || '-'}
+        </div>
+      </details>
+    </div>
+    
+    <!-- PROJECT Tile -->
     <div style="background: #eff6ff; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="font-size: 0.7rem; font-weight: 700; color: #2563eb;">PILOT</div>
-      <div style="font-size: 1.25rem; font-weight: 700; color: #1e40af;">${logosByType.pilot.length}</div>
-    </div>
-      <div style="font-size: 0.55rem; color: #6b7280; margin: 4px 0;">Short-term deals (< 12 mo)</div>
-      <details style="font-size: 0.6rem; color: #6b7280;">
-        <summary style="cursor: pointer; color: #2563eb; font-weight: 500;">View accounts ›</summary>
-        <div style="margin-top: 6px; display: grid; grid-template-columns: 1fr; gap: 2px; max-height: 200px; overflow-y: auto;">
-          ${logosByType.pilot.map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a.accountName + '</div>').sort().join('') || '-'}
-    </div>
+        <div style="font-size: 0.65rem; font-weight: 700; color: #2563eb;">PROJECT</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #1e40af;">${logosByType.project.length}</div>
+      </div>
+      <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">12+ months</div>
+      <details style="font-size: 0.55rem; color: #6b7280;">
+        <summary style="cursor: pointer; color: #2563eb;">View ›</summary>
+        <div style="margin-top: 4px; max-height: 150px; overflow-y: auto;">
+          ${logosByType.project.sort().map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a + '</div>').join('') || '-'}
+        </div>
       </details>
     </div>
     
     <!-- LOI Tile -->
-    <div style="background: #fef3c7; padding: 12px; border-radius: 6px;">
+    <div style="background: #f5f3ff; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="font-size: 0.7rem; font-weight: 700; color: #d97706;">LOI</div>
-        <div style="font-size: 1.25rem; font-weight: 700; color: #92400e;">${logosByType.loi.length}</div>
+        <div style="font-size: 0.65rem; font-weight: 700; color: #7c3aed;">LOI</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #6b21a8;">${logosByType.loi.length}</div>
       </div>
-      <div style="font-size: 0.55rem; color: #6b7280; margin: 4px 0;">Signed LOI, pending contract</div>
-      <details style="font-size: 0.6rem; color: #6b7280;">
-        <summary style="cursor: pointer; color: #d97706; font-weight: 500;">View accounts ›</summary>
-        <div style="margin-top: 6px; display: grid; grid-template-columns: 1fr; gap: 2px; max-height: 200px; overflow-y: auto;">
-          ${logosByType.loi.map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a.accountName + '</div>').sort().join('') || '-'}
+      <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">Pending contract</div>
+      <details style="font-size: 0.55rem; color: #6b7280;">
+        <summary style="cursor: pointer; color: #7c3aed;">View ›</summary>
+        <div style="margin-top: 4px; max-height: 150px; overflow-y: auto;">
+          ${logosByType.loi.sort().map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a + '</div>').join('') || '-'}
         </div>
       </details>
     </div>
@@ -3181,7 +3206,6 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   setupExpandCollapse(showMoreLate, 'late-stage-list', 'summary-expandable', 5);
-  setupExpandCollapse(showMoreMid, 'mid-stage-list', 'summary-expandable', 5);
   setupExpandCollapse(showMoreEarly, 'early-stage-list', 'summary-expandable', 5);
   
   // Top Co tab - Consolidated accounts expand/collapse
