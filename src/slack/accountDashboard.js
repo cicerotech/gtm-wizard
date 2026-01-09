@@ -146,9 +146,10 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   const allJHAccounts = jhAccounts;
   const topJHAccounts = allJHAccounts.slice(0, 10);
   
-  // Count JH accounts with AI Enabled (formerly Eudia Tech)
+  // Count all accounts with AI Enabled (Eudia_Tech__c = true on any opp)
+  const eudiaAIEnabledAccounts = Array.from(accountMap.values()).filter(a => a.hasEudiaTech);
   const jhAIEnabledAccounts = allJHAccounts.filter(a => a.hasEudiaTech);
-  const jhAIEnabledAccountPct = allJHAccounts.length > 0 ? Math.round((jhAIEnabledAccounts.length / allJHAccounts.length) * 100) : 0;
+  const totalAIEnabledAccounts = eudiaAIEnabledAccounts.length + jhAIEnabledAccounts.length;
   
   // Eudia closed deals - Last 60 days, includes Recurring, Project, and Pilot (excludes LOI)
   const eudiaRevenueDeals = novDecRevenue || [];
@@ -318,7 +319,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
     <div class="stage-subtitle">${blendedAccounts} accounts in pipeline</div>
     <div style="font-size: 0.65rem; color: #374151; margin-bottom: 6px;">
       <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; vertical-align: middle;"></span>
-      AI Enabled: ${jhAIEnabledAccounts.length} accounts
+      AI Enabled: ${totalAIEnabledAccounts} accounts
     </div>
     <div style="margin-top: 8px;" id="consolidated-top-accounts">
       ${(() => {
@@ -1221,7 +1222,7 @@ async function generateAccountDashboard() {
   // LAST 60 DAYS - Dynamic lookback for closed revenue
   // For Top Co Closed Revenue section - includes Recurring, Project, Pilot (excludes LOI/Commitment)
   const novDecDealsQuery = `
-    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName, AI_Enabled__c
+    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName, Eudia_Tech__c
     FROM Opportunity
     WHERE (StageName = 'Closed Won' OR StageName = 'Stage 6. Closed(Won)')
       AND CloseDate >= LAST_N_DAYS:60
@@ -1383,7 +1384,7 @@ async function generateAccountDashboard() {
           acv: opp.ACV__c || 0,
           product: opp.Product_Line__c || '',
           revenueType: opp.Revenue_Type__c || '',
-          aiEnabled: opp.AI_Enabled__c || false
+          aiEnabled: opp.Eudia_Tech__c || false
         });
         novDecRevenueTotal += opp.ACV__c || 0;
       });
@@ -1912,7 +1913,7 @@ async function generateAccountDashboard() {
   const accountQuery = `SELECT Account.Id, Account.Name, Owner.Name, Account.Is_New_Logo__c,
                                Account.Account_Plan_s__c, Account.Customer_Type__c,
                                Name, StageName, ACV__c, Weighted_ACV__c, Product_Line__c,
-                               Target_LOI_Date__c, Johnson_Hana_Owner__c
+                               Target_LOI_Date__c, Johnson_Hana_Owner__c, Eudia_Tech__c, Sales_Type__c
                         FROM Opportunity
                         WHERE IsClosed = false
                           AND StageName IN ('Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
@@ -2036,7 +2037,8 @@ async function generateAccountDashboard() {
         highestStage: 0,
         totalACV: 0,
         weightedACV: 0,
-        isJohnsonHana: !!opp.Johnson_Hana_Owner__c // Track if this is a JH opportunity
+        isJohnsonHana: !!opp.Johnson_Hana_Owner__c, // Track if this is a JH opportunity
+        hasEudiaTech: false // Track AI Enabled (Eudia_Tech__c)
       });
       if (opp.Account?.Is_New_Logo__c) newLogoCount++;
     }
@@ -2045,6 +2047,8 @@ async function generateAccountDashboard() {
     account.opportunities.push(opp);
     account.totalACV += (opp.ACV__c || 0); // SUM the ACVs!
     account.weightedACV += (opp.Weighted_ACV__c || 0);
+    // Track AI Enabled - if any opp has Eudia_Tech__c, mark account as AI Enabled
+    if (opp.Eudia_Tech__c) account.hasEudiaTech = true;
     
     const stageNum = parseInt(opp.StageName.match(/Stage (\d)/)?.[1] || 0);
     account.highestStage = Math.max(account.highestStage, stageNum);
@@ -2206,13 +2210,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .tab { background: #fff; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 500; cursor: pointer; white-space: nowrap; color: #6b7280; transition: all 0.2s; }
 .tab:hover { background: #e5e7eb; }
 #tab-topco:checked ~ .tabs label[for="tab-topco"],
-#tab-weekly:checked ~ .tabs label[for="tab-weekly"],
 #tab-summary:checked ~ .tabs label[for="tab-summary"],
 #tab-revenue:checked ~ .tabs label[for="tab-revenue"],
 #tab-account-plans:checked ~ .tabs label[for="tab-account-plans"] { background: #8e99e1; color: #fff; }
 .tab-content { display: none; }
 #tab-topco:checked ~ #topco,
-#tab-weekly:checked ~ #weekly,
 #tab-summary:checked ~ #summary,
 #tab-revenue:checked ~ #revenue,
 #tab-account-plans:checked ~ #account-plans { display: block; }
@@ -2284,26 +2286,112 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 <!-- Pure CSS Tabs (No JavaScript - CSP Safe) -->
 <input type="radio" name="tabs" id="tab-topco" checked style="display: none;">
-<input type="radio" name="tabs" id="tab-weekly" style="display: none;">
 <input type="radio" name="tabs" id="tab-summary" style="display: none;">
 <input type="radio" name="tabs" id="tab-revenue" style="display: none;">
 <input type="radio" name="tabs" id="tab-account-plans" style="display: none;">
 
 <div class="tabs">
   <label for="tab-topco" class="tab">Summary</label>
-  <label for="tab-weekly" class="tab">Weekly</label>
   <label for="tab-summary" class="tab">Pipeline</label>
   <label for="tab-revenue" class="tab">Revenue</label>
   <label for="tab-account-plans" class="tab">Accounts</label>
 </div>
 
-<!-- TAB 1: BUSINESS LEADS -->
+<!-- TAB 1: PIPELINE -->
 <div id="summary" class="tab-content">
   <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: #374151;">
-    <strong>Pipeline Overview</strong> — Accounts by stage and owner.
-    <span style="color: #9ca3af; font-size: 0.6rem; margin-left: 8px;">• = legacy acquisition (updated weekly)</span>
+    <strong>Pipeline Overview</strong> — Sales Type breakdown and Product Line details.
   </div>
   
+  <!-- SALES TYPE SUMMARY -->
+  <div class="stage-section" style="margin-bottom: 16px;">
+    <div class="stage-title">Pipeline by Sales Type</div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+      ${(() => {
+        // Aggregate by Sales Type from all opportunities
+        const salesTypeAgg = {};
+        Array.from(accountMap.values()).forEach(acc => {
+          acc.opportunities.forEach(opp => {
+            const sType = opp.Sales_Type__c || 'Unassigned';
+            if (!salesTypeAgg[sType]) salesTypeAgg[sType] = { count: 0, acv: 0, weighted: 0 };
+            salesTypeAgg[sType].count++;
+            salesTypeAgg[sType].acv += opp.ACV__c || 0;
+            salesTypeAgg[sType].weighted += opp.Weighted_ACV__c || 0;
+          });
+        });
+        
+        const salesTypeOrder = ['New business', 'Expansion', 'Renewal', 'Eudia Counsel', 'Pilot'];
+        const sortedTypes = [...salesTypeOrder.filter(t => salesTypeAgg[t]), ...Object.keys(salesTypeAgg).filter(t => !salesTypeOrder.includes(t)).sort()];
+        const fmt = (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(1) + 'm' : '$' + (val / 1000).toFixed(0) + 'k';
+        const colors = { 'New business': '#dbeafe', 'Expansion': '#d1fae5', 'Renewal': '#fef3c7', 'Eudia Counsel': '#e0e7ff', 'Pilot': '#fce7f3' };
+        const textColors = { 'New business': '#1e40af', 'Expansion': '#047857', 'Renewal': '#92400e', 'Eudia Counsel': '#4338ca', 'Pilot': '#be185d' };
+        
+        return sortedTypes.map(type => {
+          const data = salesTypeAgg[type] || { count: 0, acv: 0, weighted: 0 };
+          const bgColor = colors[type] || '#f3f4f6';
+          const txtColor = textColors[type] || '#374151';
+          return '<div style="flex: 1; min-width: 140px; background: ' + bgColor + '; padding: 10px; border-radius: 6px; text-align: center;">' +
+            '<div style="font-size: 0.65rem; font-weight: 600; color: ' + txtColor + '; margin-bottom: 4px;">' + type.toUpperCase() + '</div>' +
+            '<div style="font-size: 1.1rem; font-weight: 700; color: ' + txtColor + ';">' + fmt(data.acv) + '</div>' +
+            '<div style="font-size: 0.6rem; color: ' + txtColor + ';">' + data.count + ' opps • ' + fmt(data.weighted) + ' wtd</div>' +
+          '</div>';
+        }).join('');
+      })()}
+    </div>
+  </div>
+  
+  <!-- PRODUCT LINE BREAKDOWN -->
+  <div class="stage-section" style="margin-bottom: 16px;">
+    <div class="stage-title">Pipeline by Product Line</div>
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem; margin-top: 8px;">
+      <thead>
+        <tr style="background: #1f2937; color: white;">
+          <th style="padding: 8px 10px; text-align: left;">Product Line</th>
+          <th style="padding: 8px 10px; text-align: right;">Sum of ACV</th>
+          <th style="padding: 8px 10px; text-align: right;">Weighted ACV</th>
+          <th style="padding: 8px 10px; text-align: center;">Opps</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${(() => {
+          const fmt = (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(2) + 'm' : '$' + (val / 1000).toFixed(0) + 'k';
+          
+          // Sort product breakdown by ACV, put Undetermined last
+          const sortedProducts = Object.entries(productBreakdown)
+            .filter(([name]) => name && name !== 'Undetermined')
+            .sort((a, b) => b[1].totalACV - a[1].totalACV);
+          if (productBreakdown['Undetermined']) {
+            sortedProducts.push(['Undetermined', productBreakdown['Undetermined']]);
+          }
+          
+          let totalACV = 0, totalWeighted = 0, totalCount = 0;
+          sortedProducts.forEach(([,data]) => {
+            totalACV += data.totalACV || 0;
+            totalWeighted += data.weightedACV || 0;
+            totalCount += data.count || 0;
+          });
+          
+          const rows = sortedProducts.map(([name, data]) => {
+            return '<tr style="border-bottom: 1px solid #e5e7eb;">' +
+              '<td style="padding: 6px 10px;">' + formatProductLine(name) + '</td>' +
+              '<td style="padding: 6px 10px; text-align: right;">' + fmt(data.totalACV) + '</td>' +
+              '<td style="padding: 6px 10px; text-align: right;">' + fmt(data.weightedACV) + '</td>' +
+              '<td style="padding: 6px 10px; text-align: center;">' + data.count + '</td>' +
+            '</tr>';
+          }).join('');
+          
+          return rows + '<tr style="font-weight: 600; background: #e5e7eb;">' +
+            '<td style="padding: 6px 10px;">Total</td>' +
+            '<td style="padding: 6px 10px; text-align: right;">' + fmt(totalACV) + '</td>' +
+            '<td style="padding: 6px 10px; text-align: right;">' + fmt(totalWeighted) + '</td>' +
+            '<td style="padding: 6px 10px; text-align: center;">' + totalCount + '</td>' +
+          '</tr>';
+        })()}
+      </tbody>
+    </table>
+  </div>
+  
+  <!-- ACCOUNTS BY STAGE -->
   <div class="stage-section">
     <div class="stage-title">Late Stage (${late.length})</div>
     <div class="account-list" id="late-stage-list">
@@ -2551,17 +2639,6 @@ ${mid.map((acc, idx) => {
 <!-- TAB: PIPELINE OVERVIEW -->
 ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stageBreakdown, productBreakdown, accountMap, signedByType, meetingData, novDecRevenue, novDecRevenueTotal)}
 
-<!-- TAB: WEEKLY REVOPS SUMMARY -->
-${generateWeeklyTab({
-  totalGross, totalWeighted, totalDeals, accountMap,
-  stageBreakdown, jhSummary: getJohnsonHanaSummary(), jhAccounts: getJHAccounts(),
-  signedByType, signedDealsTotal,
-  novDecRevenue, novDecRevenueTotal,
-  contractsByAccount, recurringTotal, projectTotal,
-  closedLostDeals, nurturedAccounts, daysInStageByStage, logosByType,
-  newOppsThisWeek, newOppsTotal, signedThisWeek, signedThisWeekTotal, signedByFiscalQuarter,
-  customerAccounts, salesTypeByPod, salesTypeTotals
-})}
 
 <!-- TAB 3: REVENUE -->
 <div id="revenue" class="tab-content">
