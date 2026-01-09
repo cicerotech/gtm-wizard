@@ -753,58 +753,13 @@ function generateWeeklyTab(params) {
   </div>
   <div id="email-copy-status" style="display: none; background: #d1fae5; color: #065f46; padding: 8px 12px; border-radius: 4px; margin-bottom: 12px; font-size: 0.75rem;">✓ Copied to clipboard! Paste into your email.</div>
 
-  <!-- SECTION 1: REVENUE FORECAST SNAPSHOT -->
+  <!-- SECTION 1: PIPELINE SNAPSHOT -->
   <div class="weekly-section">
-    <div class="weekly-section-title">1. Revenue Forecast Snapshot</div>
+    <div class="weekly-section-title">1. Pipeline Snapshot</div>
     
-    <!-- Signed Since Last Week - Static data (8 deals, $1.46M total) -->
+    <!-- Opportunities with Target Sign Date - Two Column Layout -->
     <div class="weekly-subsection">
-      <div style="font-weight: 600; font-size: 0.75rem; color: #374151; margin-bottom: 4px;">Signed Revenue since last week</div>
-      <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #e5e7eb;">
-        <div style="font-size: 0.65rem; color: #111827; font-weight: 600;">TOTAL SIGNED (8 deals)</div>
-        <div style="font-size: 1.1rem; font-weight: 700; color: #111827;">$1.46m</div>
-      </div>
-      <div style="font-size: 0.7rem; color: #374151;">
-        <div style="font-weight: 600; color: #047857; margin: 8px 0 4px 0; font-size: 0.65rem;">RECURRING (4)</div>
-        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
-          <span><strong>Intuit</strong> <span style="color: #6b7280;">(Multiple)</span></span>
-          <span style="font-weight: 600; color: #065f46;">$410k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Recurring</span></span>
-        </div>
-        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
-          <span><strong>Cargill</strong> <span style="color: #6b7280;">(AI-Augmented Contracting)</span></span>
-          <span style="font-weight: 600; color: #065f46;">$521k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Recurring</span></span>
-        </div>
-        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
-          <span><strong>Dropbox</strong> <span style="color: #6b7280;">(Contracting-BAU)</span></span>
-          <span style="font-weight: 600; color: #065f46;">$67k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Recurring</span></span>
-        </div>
-        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
-          <span><strong>TikTok</strong> <span style="color: #6b7280;">(Privacy-Outsourced Ops)</span></span>
-          <span style="font-weight: 600; color: #065f46;">$88k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Recurring</span></span>
-        </div>
-        <div style="font-weight: 600; color: #1e40af; margin: 12px 0 4px 0; font-size: 0.65rem;">PROJECT (4)</div>
-        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
-          <span><strong>Etsy Ireland</strong> <span style="color: #6b7280;">(Privacy)</span></span>
-          <span style="font-weight: 600; color: #1e40af;">$58k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Project</span></span>
-        </div>
-        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
-          <span><strong>Perrigo Pharma</strong> <span style="color: #6b7280;">(Contracting-BAU)</span></span>
-          <span style="font-weight: 600; color: #1e40af;">$81k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Project</span></span>
-        </div>
-        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
-          <span><strong>Sequoia Climate Fund</strong> <span style="color: #6b7280;">(Technology)</span></span>
-          <span style="font-weight: 600; color: #1e40af;">$87k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Project</span></span>
-        </div>
-        <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e5e7eb;">
-          <span><strong>Wellspring Philanthropic</strong> <span style="color: #6b7280;">(Technology)</span></span>
-          <span style="font-weight: 600; color: #1e40af;">$145k <span style="font-weight: 400; color: #6b7280; font-size: 0.6rem;">Project</span></span>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Opportunities with Q4 Target Sign Date - Two Column Layout -->
-    <div class="weekly-subsection">
-      <div class="weekly-subsection-title">Opportunities with Q4 Target Sign Date</div>
+      <div class="weekly-subsection-title">Target Close by Month</div>
       
       <!-- Q4 Stats Tiles - Live from Salesforce -->
           ${(() => {
@@ -901,95 +856,36 @@ function generateWeeklyTab(params) {
     
     <!-- Current Customers by Type -->
     <div class="weekly-subsection" style="margin-top: 16px;">
-      <div class="weekly-subsection-title">Current Logos (81)</div>
-      <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 4px;">Accounts where Type = Customer in Salesforce</div>
+      <div class="weekly-subsection-title">Current Logos (${logosByType.revenue.length + logosByType.project.length + logosByType.pilot.length + logosByType.loi.length})</div>
+      <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 4px;">Accounts by Customer_Type__c: Revenue, Pilot, Project, LOI</div>
       <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-top: 8px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 80px; background: #d1fae5; padding: 6px 8px; border-radius: 4px; text-align: center;">
+            <div style="font-size: 0.6rem; color: #065f46; font-weight: 600;">REVENUE</div>
+            <div style="font-size: 1rem; font-weight: 700; color: #047857;">${logosByType.revenue.length}</div>
+          </div>
+          <div style="flex: 1; min-width: 80px; background: #fef3c7; padding: 6px 8px; border-radius: 4px; text-align: center;">
+            <div style="font-size: 0.6rem; color: #92400e; font-weight: 600;">PILOT</div>
+            <div style="font-size: 1rem; font-weight: 700; color: #d97706;">${logosByType.pilot.length}</div>
+          </div>
+          <div style="flex: 1; min-width: 80px; background: #dbeafe; padding: 6px 8px; border-radius: 4px; text-align: center;">
+            <div style="font-size: 0.6rem; color: #1e40af; font-weight: 600;">PROJECT</div>
+            <div style="font-size: 1rem; font-weight: 700; color: #1e3a8a;">${logosByType.project.length}</div>
+          </div>
+          <div style="flex: 1; min-width: 80px; background: #f3f4f6; padding: 6px 8px; border-radius: 4px; text-align: center;">
+            <div style="font-size: 0.6rem; color: #374151; font-weight: 600;">LOI</div>
+            <div style="font-size: 1rem; font-weight: 700; color: #1f2937;">${logosByType.loi.length}</div>
+          </div>
+        </div>
         <details>
           <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827;">
-            ▸ All Logos (81 accounts) - click to expand
+            ▸ All Logos (${logosByType.revenue.length + logosByType.project.length + logosByType.pilot.length + logosByType.loi.length} accounts) - click to expand
           </summary>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 0.65rem; color: #374151; margin-top: 8px;">
-            <div style="padding: 2px 0;">AES</div>
-            <div style="padding: 2px 0;">Airbnb</div>
-            <div style="padding: 2px 0;">Airship Group</div>
-            <div style="padding: 2px 0;">Amazon</div>
-            <div style="padding: 2px 0;">Arabic Computer Systems</div>
-            <div style="padding: 2px 0;">Aramark Ireland</div>
-            <div style="padding: 2px 0;">Aryza</div>
-            <div style="padding: 2px 0;">Asana</div>
-            <div style="padding: 2px 0;">Bank of Ireland</div>
-            <div style="padding: 2px 0;">Bayer</div>
-            <div style="padding: 2px 0;">Best Buy</div>
-            <div style="padding: 2px 0;">BNY Mellon</div>
-            <div style="padding: 2px 0;">Cargill</div>
-            <div style="padding: 2px 0;">Chevron</div>
-            <div style="padding: 2px 0;">CHS</div>
-            <div style="padding: 2px 0;">Coherent</div>
-            <div style="padding: 2px 0;">Coillte</div>
-            <div style="padding: 2px 0;">Coimisiun na Mean</div>
-            <div style="padding: 2px 0;">Coleman Legal</div>
-            <div style="padding: 2px 0;">CommScope</div>
-            <div style="padding: 2px 0;">Consensys</div>
-            <div style="padding: 2px 0;">Cox Media Group</div>
-            <div style="padding: 2px 0;">Creed McStay</div>
-            <div style="padding: 2px 0;">Datalex</div>
-            <div style="padding: 2px 0;">Delinea</div>
-            <div style="padding: 2px 0;">Dept of Children</div>
-            <div style="padding: 2px 0;">DHL North America</div>
-            <div style="padding: 2px 0;">Dolby</div>
-            <div style="padding: 2px 0;">Dropbox</div>
-            <div style="padding: 2px 0;">Duracell</div>
-            <div style="padding: 2px 0;">ECMS</div>
-            <div style="padding: 2px 0;">Ecolab</div>
-            <div style="padding: 2px 0;">ESB NI/Electric Ireland</div>
-            <div style="padding: 2px 0;">Etsy Ireland</div>
-            <div style="padding: 2px 0;">Fresh Del Monte</div>
-            <div style="padding: 2px 0;">GE Vernova</div>
-            <div style="padding: 2px 0;">Gilead Sciences</div>
-            <div style="padding: 2px 0;">Glanbia</div>
-            <div style="padding: 2px 0;">Graybar Electric</div>
-            <div style="padding: 2px 0;">Hayes Solicitors</div>
-            <div style="padding: 2px 0;">ICON</div>
-            <div style="padding: 2px 0;">Indeed Ireland</div>
-            <div style="padding: 2px 0;">Intuit</div>
-            <div style="padding: 2px 0;">IQVIA</div>
-            <div style="padding: 2px 0;">Kellanova</div>
-            <div style="padding: 2px 0;">Kingspan</div>
-            <div style="padding: 2px 0;">LinkedIn Ireland</div>
-            <div style="padding: 2px 0;">Mediolanum</div>
-            <div style="padding: 2px 0;">Meta</div>
-            <div style="padding: 2px 0;">Moy Park</div>
-            <div style="padding: 2px 0;">National Grid</div>
-            <div style="padding: 2px 0;">Northern Trust</div>
-            <div style="padding: 2px 0;">Novelis</div>
-            <div style="padding: 2px 0;">NTMA</div>
-            <div style="padding: 2px 0;">OpenAi</div>
-            <div style="padding: 2px 0;">Orsted</div>
-            <div style="padding: 2px 0;">Peregrine Hospitality</div>
-            <div style="padding: 2px 0;">Perrigo Pharma</div>
-            <div style="padding: 2px 0;">PetSmart</div>
-            <div style="padding: 2px 0;">Pure Storage</div>
-            <div style="padding: 2px 0;">Sandbox</div>
-            <div style="padding: 2px 0;">Sequoia Climate Fund</div>
-            <div style="padding: 2px 0;">Sisk Group</div>
-            <div style="padding: 2px 0;">Southwest Airlines</div>
-            <div style="padding: 2px 0;">Stripe</div>
-            <div style="padding: 2px 0;">Tailored Brands</div>
-            <div style="padding: 2px 0;">Taoglas</div>
-            <div style="padding: 2px 0;">Teamwork.com</div>
-            <div style="padding: 2px 0;">The Weir Group</div>
-            <div style="padding: 2px 0;">The Wonderful Company</div>
-            <div style="padding: 2px 0;">TikTok</div>
-            <div style="padding: 2px 0;">Tinder LLC</div>
-            <div style="padding: 2px 0;">Toshiba US</div>
-            <div style="padding: 2px 0;">Twitter</div>
-            <div style="padding: 2px 0;">U.S. Air Force</div>
-            <div style="padding: 2px 0;">Udemy Ireland</div>
-            <div style="padding: 2px 0;">Uisce Eireann</div>
-            <div style="padding: 2px 0;">Wealth Partners</div>
-            <div style="padding: 2px 0;">Wellspring</div>
-            <div style="padding: 2px 0;">Western Digital</div>
-            <div style="padding: 2px 0;">World Wide Technology</div>
+            ${[...logosByType.revenue, ...logosByType.project, ...logosByType.pilot, ...logosByType.loi]
+              .sort((a, b) => a.localeCompare(b))
+              .map(name => '<div style="padding: 2px 0;">' + name + '</div>')
+              .join('')}
           </div>
         </details>
           </div>
@@ -1062,46 +958,42 @@ function generateWeeklyTab(params) {
           </tr>
         </thead>
         <tbody style="color: #374151;">
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">New business</td>
-            <td style="padding: 6px 8px; text-align: right;">$5.1m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">37%</td>
-            <td style="padding: 6px 8px; text-align: right;">$1.2m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">30%</td>
-            <td style="padding: 6px 8px; text-align: center;">38</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Expansion / Upsell</td>
-            <td style="padding: 6px 8px; text-align: right;">$7.4m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">54%</td>
-            <td style="padding: 6px 8px; text-align: right;">$2.5m</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">63%</td>
-            <td style="padding: 6px 8px; text-align: center;">34</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">New business via LOI</td>
-            <td style="padding: 6px 8px; text-align: right;">$810k</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">6%</td>
-            <td style="padding: 6px 8px; text-align: right;">$159k</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">4%</td>
-            <td style="padding: 6px 8px; text-align: center;">6</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Renewal + Expansion</td>
-            <td style="padding: 6px 8px; text-align: right;">$400k</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">3%</td>
-            <td style="padding: 6px 8px; text-align: right;">$100k</td>
-            <td style="padding: 6px 8px; text-align: center; color: #6b7280;">3%</td>
-            <td style="padding: 6px 8px; text-align: center;">2</td>
-          </tr>
-          <tr style="font-weight: 600; background: #e5e7eb;">
-            <td style="padding: 6px 8px;">Total</td>
-            <td style="padding: 6px 8px; text-align: right;">$13.7m</td>
-            <td style="padding: 6px 8px; text-align: center;">100%</td>
-            <td style="padding: 6px 8px; text-align: right;">$4.0m</td>
-            <td style="padding: 6px 8px; text-align: center;">100%</td>
-            <td style="padding: 6px 8px; text-align: center;">80</td>
-          </tr>
+          ${(() => {
+            // Aggregate by sales type across all pods
+            const bySalesType = {};
+            Object.values(salesTypeByPod).forEach(pod => {
+              Object.entries(pod).forEach(([type, data]) => {
+                if (!bySalesType[type]) bySalesType[type] = { acv: 0, weighted: 0, count: 0 };
+                bySalesType[type].acv += data.acv || 0;
+                bySalesType[type].weighted += data.weighted || 0;
+                bySalesType[type].count += data.count || 0;
+              });
+            });
+            
+            // Sort by ACV descending
+            const sortedTypes = Object.entries(bySalesType).sort((a, b) => b[1].acv - a[1].acv);
+            
+            return sortedTypes.map(([type, data]) => {
+              const acvPct = salesTypeTotals.acv > 0 ? Math.round((data.acv / salesTypeTotals.acv) * 100) : 0;
+              const wtdPct = salesTypeTotals.weighted > 0 ? Math.round((data.weighted / salesTypeTotals.weighted) * 100) : 0;
+              return '<tr style="border-bottom: 1px solid #e5e7eb;">' +
+                '<td style="padding: 6px 8px;">' + type + '</td>' +
+                '<td style="padding: 6px 8px; text-align: right;">' + fmt(data.acv) + '</td>' +
+                '<td style="padding: 6px 8px; text-align: center; color: #6b7280;">' + acvPct + '%</td>' +
+                '<td style="padding: 6px 8px; text-align: right;">' + fmt(data.weighted) + '</td>' +
+                '<td style="padding: 6px 8px; text-align: center; color: #6b7280;">' + wtdPct + '%</td>' +
+                '<td style="padding: 6px 8px; text-align: center;">' + data.count + '</td>' +
+              '</tr>';
+            }).join('') + 
+            '<tr style="font-weight: 600; background: #e5e7eb;">' +
+              '<td style="padding: 6px 8px;">Total</td>' +
+              '<td style="padding: 6px 8px; text-align: right;">' + fmt(salesTypeTotals.acv) + '</td>' +
+              '<td style="padding: 6px 8px; text-align: center;">100%</td>' +
+              '<td style="padding: 6px 8px; text-align: right;">' + fmt(salesTypeTotals.weighted) + '</td>' +
+              '<td style="padding: 6px 8px; text-align: center;">100%</td>' +
+              '<td style="padding: 6px 8px; text-align: center;">' + salesTypeTotals.count + '</td>' +
+            '</tr>';
+          })()}
         </tbody>
       </table>
     </div>
@@ -1332,7 +1224,7 @@ async function generateAccountDashboard() {
     SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName, AI_Enabled__c
     FROM Opportunity
     WHERE (StageName = 'Closed Won' OR StageName = 'Stage 6. Closed(Won)')
-      AND CloseDate = LAST_N_DAYS:60
+      AND CloseDate >= LAST_N_DAYS:60
       AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot')
       AND (NOT Account.Name LIKE '%Sample%')
       AND (NOT Account.Name LIKE '%Acme%')
