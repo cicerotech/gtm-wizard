@@ -41,6 +41,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 }
 
 /**
+ * Format product line for display - replace underscores with dashes
+ */
+function formatProductLine(productLine) {
+  if (!productLine) return 'TBD';
+  return productLine.replace(/_/g, ' - ').replace(/  +/g, ' ');
+}
+
+/**
  * Generate Pipeline Overview Tab - Combined Eudia pipeline data
  * Updated weekly until systems sync
  */
@@ -56,10 +64,14 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   
   // === TREND BULLET CALCULATIONS ===
   
-  // Top Product/Service Line calculation
+  // Top Product/Service Line calculation (Undetermined goes last)
   const sortedProducts = Object.entries(productBreakdown)
-    .filter(([name, data]) => name !== 'Undetermined')
+    .filter(([name, data]) => name !== 'Undetermined' && name)
     .sort((a, b) => b[1].totalACV - a[1].totalACV);
+  // Add Undetermined at end if it exists
+  if (productBreakdown['Undetermined']) {
+    sortedProducts.push(['Undetermined', productBreakdown['Undetermined']]);
+  }
   const topProduct = sortedProducts[0] || ['N/A', { totalACV: 0, count: 0 }];
   const topProductPct = blendedGross > 0 ? Math.round((topProduct[1].totalACV / blendedGross) * 100) : 0;
   const avgDealSize = blendedDeals > 0 ? Math.round((blendedGross / blendedDeals) / 1000) : 0;
@@ -134,11 +146,11 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   const allJHAccounts = jhAccounts;
   const topJHAccounts = allJHAccounts.slice(0, 10);
   
-  // Count JH accounts with Eudia Tech
-  const jhEudiaTechAccounts = allJHAccounts.filter(a => a.hasEudiaTech);
-  const jhEudiaTechAccountPct = Math.round((jhEudiaTechAccounts.length / allJHAccounts.length) * 100);
+  // Count JH accounts with AI Enabled (formerly Eudia Tech)
+  const jhAIEnabledAccounts = allJHAccounts.filter(a => a.hasEudiaTech);
+  const jhAIEnabledAccountPct = allJHAccounts.length > 0 ? Math.round((jhAIEnabledAccounts.length / allJHAccounts.length) * 100) : 0;
   
-  // Eudia closed deals - Nov-Dec ONLY, REVENUE (ARR/Recurring) only, not LOI/Pilot
+  // Eudia closed deals - Last 60 days, includes Recurring, Project, and Pilot (excludes LOI)
   const eudiaRevenueDeals = novDecRevenue || [];
   const eudiaRevenueTotal = novDecRevenueTotal || 0;
   
@@ -306,7 +318,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
     <div class="stage-subtitle">${blendedAccounts} accounts in pipeline</div>
     <div style="font-size: 0.65rem; color: #374151; margin-bottom: 6px;">
       <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; vertical-align: middle;"></span>
-      Eudia Tech enabled: ${jhEudiaTechAccounts.length} accounts
+      AI Enabled: ${jhAIEnabledAccounts.length} accounts
     </div>
     <div style="margin-top: 8px;" id="consolidated-top-accounts">
       ${(() => {
@@ -325,12 +337,12 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
           const nextMeetingDate = accMeetings.nextMeeting ? new Date(accMeetings.nextMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
           const legalContacts = accMeetings.contacts ? Array.from(accMeetings.contacts) : [];
           const legacyDot = '';
-          const eudiaTechDot = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;"></span>' : '';
+          const aiEnabledDot = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;" title="AI Enabled"></span>' : '';
           
           return '<details class="topco-account" style="border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 6px; overflow: hidden; display: ' + (idx < 10 ? 'block' : 'none') + ';">' +
             '<summary style="padding: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb; font-size: 0.8rem;">' +
               '<div>' +
-                '<span style="font-weight: 500;">' + acc.name + '</span>' + legacyDot + eudiaTechDot +
+                '<span style="font-weight: 500;">' + acc.name + '</span>' + legacyDot + aiEnabledDot +
                 '<div style="font-size: 0.65rem; color: #6b7280;">S' + acc.highestStage + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') + (products.length ? ' • ' + products.slice(0,2).join(', ') : '') + '</div>' +
               '</div>' +
               '<div style="text-align: right;">' +
@@ -349,7 +361,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
                   const targetDate = o.Target_LOI_Date__c ? new Date(o.Target_LOI_Date__c).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
                   const acvVal = o.ACV__c || 0;
                   const acvFmt = acvVal >= 1000000 ? '$' + (acvVal / 1000000).toFixed(1) + 'm' : '$' + (acvVal / 1000).toFixed(0) + 'k';
-                  return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span style="font-weight: 500;">' + (o.Product_Line__c || 'TBD') + '</span><div style="font-size: 0.6rem; color: #6b7280;">' + stageLabel + (targetDate ? ' • Target: ' + targetDate : '') + '</div></div><span style="font-weight: 600;">' + acvFmt + '</span></div>';
+                  return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span style="font-weight: 500;">' + formatProductLine(o.Product_Line__c) + '</span><div style="font-size: 0.6rem; color: #6b7280;">' + stageLabel + (targetDate ? ' • Target: ' + targetDate : '') + '</div></div><span style="font-weight: 600;">' + acvFmt + '</span></div>';
                 } else {
                   const stageMatch = o.stage ? o.stage.match(/Stage\\s*(\\d)\\s*(.*)/i) : null;
                   const stageLabel = stageMatch ? 'S' + stageMatch[1] + (stageMatch[2] ? ' ' + stageMatch[2].trim() : '') : (o.stage || 'TBD');
@@ -357,7 +369,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
                   const ownerName = o.owner ? o.owner.split(' ')[0] : '';
                   const jhAcvVal = o.acv || 0;
                   const jhAcvFmt = jhAcvVal >= 1000000 ? '$' + (jhAcvVal / 1000000).toFixed(1) + 'm' : '$' + (jhAcvVal / 1000).toFixed(0) + 'k';
-                  return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span style="font-weight: 500;">' + (o.mappedServiceLine || 'Other') + '</span>' + (o.eudiaTech ? ' <span style="color: #047857; font-size: 0.6rem;">●</span>' : '') + '<div style="font-size: 0.6rem; color: #6b7280;">' + stageLabel + (ownerName ? ' • ' + ownerName : '') + (targetDate ? ' • ' + targetDate : '') + '</div></div><span style="font-weight: 600;">' + jhAcvFmt + '</span></div>';
+                  return '<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f1f3f5;"><div><span style="font-weight: 500;">' + (o.mappedServiceLine || 'Other') + '</span>' + (o.eudiaTech ? ' <span style="color: #047857; font-size: 0.6rem;" title="AI Enabled">●</span>' : '') + '<div style="font-size: 0.6rem; color: #6b7280;">' + stageLabel + (ownerName ? ' • ' + ownerName : '') + (targetDate ? ' • ' + targetDate : '') + '</div></div><span style="font-weight: 600;">' + jhAcvFmt + '</span></div>';
                 }
               }).join('') +
             '</div>' +
@@ -372,9 +384,9 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   <!-- CLOSED REVENUE (NOV-DEC) - Consolidated -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">Closed Revenue (Nov-Dec)</div>
+    <div class="stage-title">Closed Revenue (Last 60 Days)</div>
     <div class="stage-subtitle">${combinedClosedCount} revenue deals • ${fmt(combinedClosedTotal)} total</div>
-    <div style="font-size: 0.6rem; color: #9ca3af; margin-bottom: 6px;">Recurring/ARR deals only. LOI & Pilot excluded.</div>
+    <div style="font-size: 0.6rem; color: #9ca3af; margin-bottom: 6px;">Recurring, Project & Pilot deals. LOI excluded.</div>
     
     <!-- Combined Closed Revenue - sorted by ACV with details -->
     ${(() => {
@@ -471,11 +483,11 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
           serviceTiles.push({ name: sl + ' •', count: data.count, acv: data.acv, opps });
         });
       
-      // Generate HTML for product tiles (blue, on top)
+      // Generate HTML for product tiles (blue, on top) - Format product name with dashes instead of underscores
       const productHTML = productTiles.map(t => 
         '<details style="flex: 0 0 auto;">' +
           '<summary style="background: #eff6ff; padding: 6px 10px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; list-style: none;">' +
-            '<div style="font-weight: 600; color: #1e40af;">' + t.name + ' ▾</div>' +
+            '<div style="font-weight: 600; color: #1e40af;">' + formatProductLine(t.name) + ' ▾</div>' +
             '<div style="color: #6b7280;">' + t.count + ' opps • ' + fmt(t.acv) + '</div>' +
           '</summary>' +
           '<div style="background: #eff6ff; padding: 6px 10px; border-radius: 0 0 4px 4px; margin-top: -4px; font-size: 0.65rem;">' +
@@ -715,7 +727,7 @@ function generateWeeklyTab(params) {
   const stageTotalACV = stageWoW.reduce((sum, s) => sum + s.acv, 0);
   const stageTotalCount = stageWoW.reduce((sum, s) => sum + s.oppCount, 0);
   
-  // Current logos count - LIVE from Salesforce Type__c = 'Customer'
+  // Current logos count - LIVE from Salesforce Customer_Type__c = 'Revenue'
   const currentLogosCount = customerAccounts.length;
   const uniqueLogos = customerAccounts.map(a => a.name).sort();
   
@@ -887,85 +899,7 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Signed Logos by Type + Pipeline Summary -->
-    <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; align-items: stretch;">
-      <!-- Signed Logos by Fiscal Quarter - Expandable (from SF Current Logos report - 81 total) -->
-      <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
-        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">SIGNED LOGOS BY QUARTER</div>
-        <div style="font-size: 0.75rem;">
-          <details style="border-bottom: 1px solid #e5e7eb;">
-            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #374151;">Q4 FY2024 & Prior</span>
-              <span style="font-weight: 600; color: #374151;">30</span>
-            </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Twitter, Cargill, Southwest Airlines, ECMS, Uisce Eireann, Udemy Ireland, Tinder LLC, TikTok, Teamwork, Stripe, OpenAi, NTMA, Moy Park, LinkedIn Ireland, Kellanova, Indeed Ireland, Hayes Solicitors, Graybar Electric, Glanbia, Etsy Ireland, ESB NI/Electric Ireland, Dropbox, Datalex, Creed McStay, CommScope, Coleman Legal, Bank of Ireland, Arabic Computer Systems, Airship Group, Airbnb</div>
-          </details>
-          <details style="border-bottom: 1px solid #e5e7eb;">
-            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #374151;">Q1 FY2025</span>
-              <span style="font-weight: 600; color: #374151;">8</span>
-            </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Taoglas, Sisk Group, Northern Trust, Duracell, Dept of Children/Disability/Equality, Consensys, Coillte, Coherent</div>
-          </details>
-          <details style="border-bottom: 1px solid #e5e7eb;">
-            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #374151;">Q2 FY2025</span>
-              <span style="font-weight: 600; color: #374151;">6</span>
-            </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Perrigo Pharma, Orsted, National Grid, Mediolanum, Intuit, Gilead Sciences</div>
-          </details>
-          <details style="border-bottom: 1px solid #e5e7eb;">
-            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #374151;">Q3 FY2025</span>
-              <span style="font-weight: 600; color: #374151;">29</span>
-            </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #6b7280; background: #f3f4f6;">Western Digital, Wealth Partners, U.S. Air Force, Toshiba US, The Wonderful Company, The Weir Group, Tailored Brands, Sandbox, Pure Storage, Petsmart, Peregrine Hospitality, Novelis, Meta Platforms, Kingspan, ICON Clinical Research, GE Vernova, Fresh Del Monte, Ecolab, Dolby, DHL North America, Cox Media Group, Coimisiun na Mean, CHS, Chevron, Best Buy, Bayer, Asana, Amazon, AES</div>
-          </details>
-          <details style="background: #dbeafe;">
-            <summary style="display: flex; justify-content: space-between; padding: 8px 4px; cursor: pointer;">
-              <span style="color: #1e40af;">Q4 FY2025 (QTD)</span>
-              <span style="font-weight: 600; color: #1e40af;">8</span>
-            </summary>
-            <div style="padding: 6px 8px; font-size: 0.65rem; color: #1e3a8a; background: #bfdbfe;">World Wide Technology, Wellspring Philanthropic Fund, Sequoia Climate Fund, IQVIA, Delinea, BNY Mellon, Aryza, Aramark Ireland</div>
-          </details>
-          <div style="display: flex; justify-content: space-between; padding: 6px 8px; font-weight: 600; background: #e5e7eb; margin-top: 6px; border-radius: 3px; font-size: 0.7rem; color: #374151;">
-            <span>Total Signed</span>
-            <span>81</span>
-        </div>
-        </div>
-        <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Unique accounts by first Closed Won date • Click to expand<br>* Minor adjustments during migration</div>
-      </div>
-      
-      <!-- Run-Rate Forecast Table -->
-      <div style="flex: 1 1 calc(50% - 6px); min-width: 280px; background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
-        <div style="font-weight: 600; color: #111827; margin-bottom: 8px; font-size: 0.75rem;">RUN-RATE FORECAST ($)</div>
-        <table class="weekly-table" style="width: 100%; flex: 1;">
-          <thead>
-            <tr><th style="width: 65%;">Month</th><th style="text-align: right; width: 35%;">Combined</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>August</td><td style="text-align: right;">$17.6m</td></tr>
-            <tr><td>September</td><td style="text-align: right;">$18.4m</td></tr>
-            <tr><td>October</td><td style="text-align: right;">$19.8m</td></tr>
-            <tr><td>November</td><td style="text-align: right;">$19.3m</td></tr>
-            <tr style="background: #dbeafe;">
-              <td style="color: #1e40af; font-weight: 600;">December (Current)</td>
-              <td style="text-align: right; color: #1e40af; font-weight: 600;">$20.4m</td>
-            </tr>
-            <tr style="background: #f3f4f6;">
-              <td style="color: #111827; font-weight: 600;">+ Q4 Weighted Pipeline</td>
-              <td style="text-align: right; color: #111827; font-weight: 600;">$4.0m</td>
-            </tr>
-            <tr style="font-weight: 600; background: #e5e7eb;">
-              <td>FY2025E Total</td>
-              <td style="text-align: right; color: #111827;">$24.4m</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    
-    <!-- Current Logos (Static - 81 accounts from 4444.xlsx) -->
+    <!-- Current Customers by Type -->
     <div class="weekly-subsection" style="margin-top: 16px;">
       <div class="weekly-subsection-title">Current Logos (81)</div>
       <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 4px;">Accounts where Type = Customer in Salesforce</div>
@@ -1112,10 +1046,10 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Pipeline by Sales Type - Q4 Target Sign Only -->
+    <!-- Pipeline by Sales Type - Dynamic from Sales_Type__c -->
     <div class="weekly-subsection">
-      <div class="weekly-subsection-title">Q4 Pipeline by Sales Type (Combined)</div>
-      <div style="font-size: 0.65rem; color: #6b7280; margin-bottom: 8px;">Target Sign Date ≤ Jan 31, 2026 • 80 opportunities</div>
+      <div class="weekly-subsection-title">Pipeline by Sales Type</div>
+      <div style="font-size: 0.65rem; color: #6b7280; margin-bottom: 8px;">New business, Expansion, Renewal, Eudia Counsel, Pilot</div>
       <table style="width: 100%; font-size: 0.7rem; margin-top: 8px; border-collapse: collapse; border: 1px solid #e5e7eb;">
         <thead>
           <tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
@@ -1233,103 +1167,6 @@ function generateWeeklyTab(params) {
       </table>
     </div>
     
-    <!-- Closed Lost This Week - Static (18 opportunities) -->
-    <div class="weekly-subsection">
-      <div class="weekly-subsection-title" style="color: #000000; font-weight: 700;">Closed Lost This Week (18)</div>
-      <table style="width: 100%; font-size: 0.7rem; margin-top: 8px; border-collapse: collapse;">
-        <thead>
-          <tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
-            <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Opportunity Name</th>
-            <th style="padding: 6px 8px; text-align: left; color: #374151; font-weight: 600;">Closed Lost Detail</th>
-          </tr>
-        </thead>
-        <tbody style="color: #374151;">
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">DHL North America - M&A (Global)</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Latin American deal going to have only 50-100 documents, law firm cost only $15-20K</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Emory - Discovery</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Stale opportunity, 92 days in stage 1</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Honeywell - Discovery</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Stale opportunity, 77 days in stage 1</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Piramal Finance - Nurture</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Unresponsive after multiple follow-ups</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Nykaa - Nurture</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Unresponsive after multiple follow-ups</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Genpact - Nurture</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Unresponsive after multiple follow-ups</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Clear - Discovery</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Nurture - too small / low budget</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Acrisure - Nurture</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Unresponsive after multiple follow-ups</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Reliance - Discovery</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Not a priority at this time. Re-engage Q1/Q2 2026</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Axis Bank - Nurture</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Unresponsive after multiple follow-ups</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Moderna - Nurture</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Unresponsive after multiple follow-ups</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Tinder LLC - Discovery</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Timing related. Re-engage late Q1 2026</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Team Car Care dba Jiffy Lube - Qualifying</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">No reasoning provided</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Johnson Hana - RTE DSAR Support</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">No reasoning provided</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Meetingsbooker - Qualifying</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Limited opportunity scope</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Anthropic - ODL Privacy Secondment - 6 months</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">Timing / no need at this time. Re-engage if needs arise</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">White Swan Data - Qualifying</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">No reasoning provided</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 6px 8px;">Davy - FTC 12 month AI Enabled Secondee</td>
-            <td style="padding: 6px 8px; font-size: 0.65rem;">No reasoning provided</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    
-    <!-- New Opportunities Added This Week - Consolidated -->
-    <div class="weekly-subsection">
-      <div class="weekly-subsection-title">New opportunities added this week: ${newOppsThisWeek.length} opportunities, +${fmt(newOppsTotal)} ACV</div>
-      <div style="font-size: 0.65rem; color: #9ca3af; font-style: italic; margin-top: 4px; margin-bottom: 8px;">
-        Note: Johnson Hana data was merged to Eudia Salesforce this week. New opportunity counts may reflect this migration.
-      </div>
-      <div style="font-size: 0.75rem; color: #374151;">
-        <strong>Companies:</strong> ${newOppsThisWeek.map(o => o.accountName).filter((v, i, a) => a.indexOf(v) === i).join(', ') || 'None'}
-      </div>
-    </div>
   </div>
 
   <!-- SECTION 3: DEALS IMPACTING THE FORECAST (T10) - Consolidated -->
@@ -1401,27 +1238,6 @@ function generateWeeklyTab(params) {
     </div>
   </div>
 
-  <!-- SECTION 4: LONGEST DEALS BY STAGE (T10) - Live from Salesforce -->
-  <div class="weekly-section">
-    <div class="weekly-section-title">4. Longest Deals by Stage (T10)</div>
-    <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 12px;">Top 10 deals per stage • Numbers show days in current stage • Live from Salesforce</div>
-    
-    ${Object.entries(daysInStageByStage).map(([stage, deals]) => {
-      const stageName = stage.replace('Stage ', 'S').replace(' - ', ': ');
-      const dealsList = deals.length > 0 
-        ? deals.map(d => d.accountName + ' (' + Math.round(d.daysInStage) + ')').join(', ')
-        : 'No deals in this stage';
-      return `
-    <div class="weekly-subsection">
-      <div class="weekly-subsection-title">${stage}</div>
-      <div style="font-size: 0.75rem; color: #374151; line-height: 1.6;">
-        ${dealsList}
-      </div>
-    </div>`;
-    }).join('')}
-    
-    <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 8px; font-style: italic;">Using Days_in_Stage1__c formula field • Top 10 per stage • Updated live from Salesforce</div>
-  </div>
 </div>`;
 }
 
@@ -1484,7 +1300,7 @@ async function generateAccountDashboard() {
   // Group accounts by fiscal quarter (Q4 2025 = Nov 1, 2025 - Jan 31, 2026)
   // ═══════════════════════════════════════════════════════════════════════
   const signedAccountsQuery = `
-    SELECT Name, First_Deal_Closed__c, Type__c
+    SELECT Name, First_Deal_Closed__c, Customer_Type__c
     FROM Account
     WHERE First_Deal_Closed__c != null
       AND (NOT Name LIKE '%Sample%')
@@ -1510,13 +1326,14 @@ async function generateAccountDashboard() {
     ORDER BY CloseDate DESC
   `;
   
-  // FQ4 TO DATE (Fiscal Q4: Nov 1, 2025 - Jan 31, 2026)
-  // For Top Co Closed Revenue section - only deals closed since fiscal quarter start
+  // LAST 60 DAYS - Dynamic lookback for closed revenue
+  // For Top Co Closed Revenue section - includes Recurring, Project, Pilot (excludes LOI/Commitment)
   const novDecDealsQuery = `
-    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName
+    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName, AI_Enabled__c
     FROM Opportunity
     WHERE (StageName = 'Closed Won' OR StageName = 'Stage 6. Closed(Won)')
-      AND CloseDate >= 2025-11-01
+      AND CloseDate = LAST_N_DAYS:60
+      AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot')
       AND (NOT Account.Name LIKE '%Sample%')
       AND (NOT Account.Name LIKE '%Acme%')
       AND (NOT Account.Name LIKE '%Sandbox%')
@@ -1656,9 +1473,9 @@ async function generateAccountDashboard() {
     }
     console.log(`[Dashboard] All Closed Won by type: revenue=${signedByType.revenue.length}, project=${signedByType.project.length}, pilot=${signedByType.pilot.length}, loi=${signedByType.loi.length}`);
     
-    // Query Nov 1, 2024+ deals separately for Top Co section
+    // Query last 60 days deals for Top Co section (includes Recurring, Project, Pilot)
     const novDecData = await query(novDecDealsQuery, true);
-    console.log(`[Dashboard] Nov 1+ Closed Won returned ${novDecData?.records?.length || 0} records`);
+    console.log(`[Dashboard] Last 60 Days Closed Won returned ${novDecData?.records?.length || 0} records`);
     if (novDecData?.records) {
       novDecData.records.forEach(opp => {
         const accountName = opp.Account?.Name || 'Unknown';
@@ -1666,32 +1483,32 @@ async function generateAccountDashboard() {
         if (isSampleAccount(accountName)) return;
         
         const revType = (opp.Revenue_Type__c || '').toLowerCase().trim();
-        // Only include recurring/ARR deals for revenue section
-        if (revType === 'arr' || revType === 'recurring') {
-          novDecRevenue.push({
-            accountName,
-            oppName: opp.Name || '',
-            closeDate: opp.CloseDate,
-            acv: opp.ACV__c || 0,
-            product: opp.Product_Line__c || ''
-          });
-          novDecRevenueTotal += opp.ACV__c || 0;
-        }
+        // Include Recurring, Project, and Pilot deals (already filtered in query)
+        novDecRevenue.push({
+          accountName,
+          oppName: opp.Name || '',
+          closeDate: opp.CloseDate,
+          acv: opp.ACV__c || 0,
+          product: opp.Product_Line__c || '',
+          revenueType: opp.Revenue_Type__c || '',
+          aiEnabled: opp.AI_Enabled__c || false
+        });
+        novDecRevenueTotal += opp.ACV__c || 0;
       });
     }
-    console.log(`[Dashboard] Nov 1+ Revenue deals: ${novDecRevenue.length}, total: $${novDecRevenueTotal}`);
+    console.log(`[Dashboard] Last 60 Days Revenue deals: ${novDecRevenue.length}, total: $${novDecRevenueTotal}`);
   } catch (e) { console.error('Signed deals query error:', e.message); }
   
   // ═══════════════════════════════════════════════════════════════════════
-  // LOGOS BY TYPE - Query Account directly for Type__c
-  // Includes ALL accounts with Type__c set (not just open pipeline)
+  // LOGOS BY TYPE - Query Account directly for Customer_Type__c
+  // Includes ALL accounts with Customer_Type__c set (not just open pipeline)
   // ═══════════════════════════════════════════════════════════════════════
-  // Query accounts with Type__c for logo counts
+  // Query accounts with Customer_Type__c for logo counts
   // Note: First close date will be derived from opportunity data if account field not available
   const logosQuery = `
-    SELECT Name, Type__c
+    SELECT Name, Customer_Type__c
     FROM Account
-    WHERE Type__c != null
+    WHERE Customer_Type__c != null
     ORDER BY Name
   `;
   
@@ -1699,16 +1516,16 @@ async function generateAccountDashboard() {
   
   try {
     const logosData = await query(logosQuery, true);
-    console.log(`[Dashboard] Logos query returned ${logosData?.records?.length || 0} accounts with Type__c`);
+    console.log(`[Dashboard] Logos query returned ${logosData?.records?.length || 0} accounts with Customer_Type__c`);
     if (logosData?.records) {
-      // Log all unique Type__c values for debugging
-      const uniqueTypes = [...new Set(logosData.records.map(a => a.Type__c).filter(Boolean))];
-      console.log(`[Dashboard] Type__c values found: ${JSON.stringify(uniqueTypes)}`);
+      // Log all unique Customer_Type__c values for debugging
+      const uniqueTypes = [...new Set(logosData.records.map(a => a.Customer_Type__c).filter(Boolean))];
+      console.log(`[Dashboard] Customer_Type__c values found: ${JSON.stringify(uniqueTypes)}`);
       
       logosData.records.forEach(acc => {
-        const ct = (acc.Type__c || '').toLowerCase().trim();
+        const ct = (acc.Customer_Type__c || '').toLowerCase().trim();
         
-        // Categorize by Type__c
+        // Categorize by Customer_Type__c
         if (ct.includes('revenue') || ct === 'arr' || ct === 'recurring') {
           logosByType.revenue.push({ accountName: acc.Name });
         } else if (ct.includes('project')) {
@@ -1833,7 +1650,7 @@ async function generateAccountDashboard() {
     FROM Opportunity
     WHERE (StageName = 'Stage 6. Closed Won' OR StageName = 'Stage 6. Closed(Won)' OR StageName = 'Closed Won')
       AND LastModifiedDate >= LAST_N_DAYS:7
-      AND Revenue_Type__c IN ('Recurring', 'Project', 'Commitment')
+      AND Revenue_Type__c IN ('Recurring', 'Project', 'Commitment', 'Pilot')
     ORDER BY Amount DESC
   `;
   
@@ -1918,13 +1735,13 @@ async function generateAccountDashboard() {
   }
   
   // ═══════════════════════════════════════════════════════════════════════
-  // CURRENT LOGOS - Accounts with Type__c = 'Customer' or 'Existing Client' 
+  // CURRENT LOGOS - Accounts with Customer_Type__c = 'Revenue' or 'Pilot' 
   // Fallback: Query unique accounts from Closed Won opportunities
   // ═══════════════════════════════════════════════════════════════════════
   const customerAccountsQuery = `
-    SELECT Name, Owner.Name, Type__c
+    SELECT Name, Owner.Name, Customer_Type__c
     FROM Account
-    WHERE Type__c IN ('Customer', 'Existing Client', 'Client')
+    WHERE Customer_Type__c IN ('Revenue', 'Pilot', 'LOI, with $ attached', 'LOI, no $ attached')
     ORDER BY Name ASC
   `;
   
@@ -1941,11 +1758,11 @@ async function generateAccountDashboard() {
   
   try {
     let customerData = await query(customerAccountsQuery, true);
-    console.log(`[Dashboard] Customer Accounts (Type__c) query returned ${customerData?.records?.length || 0} records`);
+    console.log(`[Dashboard] Customer Accounts (Customer_Type__c) query returned ${customerData?.records?.length || 0} records`);
     
-    // If no results from Type__c, try getting unique accounts from Closed Won opps
+    // If no results from Customer_Type__c, try getting unique accounts from Closed Won opps
     if (!customerData?.records || customerData.records.length === 0) {
-      console.log('[Dashboard] No Type__c customers, trying Closed Won accounts fallback...');
+      console.log('[Dashboard] No Customer_Type__c customers, trying Closed Won accounts fallback...');
       customerData = await query(closedWonAccountsQuery, true);
       console.log(`[Dashboard] Closed Won Accounts fallback returned ${customerData?.records?.length || 0} records`);
       
@@ -1958,7 +1775,7 @@ async function generateAccountDashboard() {
         customerAccounts = [...uniqueAccounts].sort().map(name => ({ name, owner: '' }));
       }
     } else {
-      // Type__c query returned results
+      // Customer_Type__c query returned results
       if (customerData?.records) {
         customerData.records.forEach(acc => {
           customerAccounts.push({
@@ -2201,7 +2018,7 @@ async function generateAccountDashboard() {
   // ADDED: Target_LOI_Date__c for target sign date display
   // ADDED: Johnson_Hana_Owner__c for JH opportunities (use this instead of Owner.Name when present)
   const accountQuery = `SELECT Account.Id, Account.Name, Owner.Name, Account.Is_New_Logo__c,
-                               Account.Account_Plan_s__c, Account.Type__c,
+                               Account.Account_Plan_s__c, Account.Customer_Type__c,
                                Name, StageName, ACV__c, Weighted_ACV__c, Product_Line__c,
                                Target_LOI_Date__c, Johnson_Hana_Owner__c
                         FROM Opportunity
@@ -2322,7 +2139,7 @@ async function generateAccountDashboard() {
         isNewLogo: opp.Account?.Is_New_Logo__c,
         hasAccountPlan: !!opp.Account?.Account_Plan_s__c,
         accountPlan: opp.Account?.Account_Plan_s__c,
-        customerType: opp.Account?.Type__c,
+        customerType: opp.Account?.Customer_Type__c,
         opportunities: [],
         highestStage: 0,
         totalACV: 0,
@@ -2601,7 +2418,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 ${late.map((acc, idx) => {
         let badge = '';
         const legacyDot = '';
-        const eudiaTechBadge = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;"></span>' : '';
+        const aiEnabledBadge = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;" title="AI Enabled"></span>' : '';
         
         if (acc.isNewLogo) {
           badge = '<span class="badge badge-new">New</span>';
@@ -2641,11 +2458,11 @@ ${late.map((acc, idx) => {
         const lastMeetingSubject = accountMeetings.lastMeetingSubject || '';
         const nextMeetingSubject = accountMeetings.nextMeetingSubject || '';
         const products = [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))];
-        const productList = products.join(', ') || 'TBD';
+        const productList = products.map(p => formatProductLine(p)).join(', ') || 'TBD';
         
         return '<details class="summary-expandable" style="display: ' + (idx < 10 ? 'block' : 'none') + '; background: #fff; border-left: 3px solid #34d399; padding: 10px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; border: 1px solid #e5e7eb;">' +
           '<summary style="list-style: none; font-size: 0.875rem;">' +
-            '<div class="account-name">' + acc.name + legacyDot + eudiaTechBadge + ' ' + badge + '</div>' +
+            '<div class="account-name">' + acc.name + legacyDot + aiEnabledBadge + ' ' + badge + '</div>' +
             '<div class="account-owner">' + acc.owner + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') + ' • ' + acvDisplay + '</div>' +
           '</summary>' +
           '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 0.8125rem;">' +
@@ -2666,7 +2483,7 @@ ${late.map((acc, idx) => {
 ${mid.map((acc, idx) => {
         let badge = '';
         const legacyDot = '';
-        const eudiaTechBadge = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;"></span>' : '';
+        const aiEnabledBadge = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;" title="AI Enabled"></span>' : '';
         
         if (acc.isNewLogo) {
           badge = '<span class="badge badge-new">New</span>';
@@ -2706,11 +2523,11 @@ ${mid.map((acc, idx) => {
         const lastMeetingSubject = accountMeetings.lastMeetingSubject || '';
         const nextMeetingSubject = accountMeetings.nextMeetingSubject || '';
         const products = [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))];
-        const productList = products.join(', ') || 'TBD';
+        const productList = products.map(p => formatProductLine(p)).join(', ') || 'TBD';
         
         return '<details class="summary-expandable" style="display: ' + (idx < 10 ? 'block' : 'none') + '; background: #fff; border-left: 3px solid #3b82f6; padding: 10px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; border: 1px solid #e5e7eb;">' +
           '<summary style="list-style: none; font-size: 0.875rem;">' +
-            '<div class="account-name">' + acc.name + legacyDot + eudiaTechBadge + ' ' + badge + '</div>' +
+            '<div class="account-name">' + acc.name + legacyDot + aiEnabledBadge + ' ' + badge + '</div>' +
             '<div class="account-owner">' + acc.owner + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') + ' • ' + acvDisplay + '</div>' +
           '</summary>' +
           '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 0.8125rem;">' +
@@ -3078,7 +2895,7 @@ ${generateWeeklyTab({
 <!-- TAB 4: ACCOUNTS -->
 <div id="account-plans" class="tab-content">
   <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: #374151;">
-    <strong>All Accounts</strong> — Current active accounts and pipeline. Totals based on Salesforce Type__c field.
+    <strong>All Accounts</strong> — Current active accounts and pipeline. Totals based on Salesforce Customer_Type__c field.
   </div>
   
   <!-- Logos by Customer Type - Using consistent logosByType data -->
@@ -3223,7 +3040,7 @@ ${generateWeeklyTab({
           const nextMeetingDate = nextMeeting ? new Date(nextMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
           
           const products = [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))];
-          const productList = products.join(', ') || 'TBD';
+          const productList = products.map(p => formatProductLine(p)).join(', ') || 'TBD';
         
           return '<details class="account-expandable" data-account="' + acc.name.toLowerCase() + '" style="display: ' + (idx < 10 ? 'block' : 'none') + '; background: #fff; border-left: 3px solid ' + (acc.highestStage >= 3 ? '#34d399' : acc.highestStage === 2 ? '#3b82f6' : '#f59e0b') + '; padding: 12px; border-radius: 6px; margin-bottom: 8px; cursor: pointer; border: 1px solid #e5e7eb;">' +
             '<summary style="list-style: none; display: flex; justify-content: space-between; align-items: center;">' +
@@ -3261,13 +3078,13 @@ ${generateWeeklyTab({
           : acc.totalACV >= 1000 
             ? '$' + (acc.totalACV / 1000).toFixed(0) + 'k' 
             : '$' + acc.totalACV.toFixed(0);
-        const eudiaTechBadge = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;"></span>' : '';
+        const aiEnabledBadge = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;" title="AI Enabled"></span>' : '';
         
         return '<details class="account-expandable" data-account="' + acc.name.toLowerCase() + '" style="display: none; background: #fff; border-left: 3px solid #9ca3af; padding: 12px; border-radius: 6px; margin-bottom: 8px; cursor: pointer; border: 1px solid #e5e7eb;">' +
           '<summary style="list-style: none; display: flex; justify-content: space-between; align-items: center;">' +
             '<div style="flex: 1;">' +
               '<div style="font-weight: 600; font-size: 0.9375rem; color: #1f2937;">' +
-                acc.name + ' <span style="color: #9ca3af;">•</span>' + eudiaTechBadge +
+                acc.name + ' <span style="color: #9ca3af;">•</span>' + aiEnabledBadge +
               '</div>' +
               '<div style="font-size: 0.8125rem; color: #6b7280; margin-top: 2px;">' +
                 'S' + acc.highestStage + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') +
