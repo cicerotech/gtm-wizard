@@ -65,45 +65,43 @@ function startScheduledJobs(app) {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // FRIDAY WEEKLY REPORTS - Midnight PST to #gtm-account-planning
-  // 2 main reports, each with threaded Excel attachments:
-  //   1. GTM Weekly Snapshot (PDF) → threads Late-Stage Pipeline Excel
-  //   2. Delivery Report (PDF + Excel) → threads CSM Account Health Excel
+  // FRIDAY WEEKLY REPORTS - DISABLED UNTIL SF AUTH IS RESOLVED
+  // These schedules were causing login storms when SF credentials are invalid
+  // Re-enable once SF_PASSWORD and SF_SECURITY_TOKEN are updated in Render
   // ═══════════════════════════════════════════════════════════════════════════
   
-  const GTM_CHANNEL = process.env.GTM_ACCOUNT_PLANNING_CHANNEL || 'C09RDPL1TUK';
+  // const GTM_CHANNEL = process.env.GTM_ACCOUNT_PLANNING_CHANNEL || 'C09RDPL1TUK';
   
-  // 1. GTM Weekly Snapshot PDF + Late-Stage Pipeline (threaded) - Friday 00:00 PST
-  cron.schedule('0 0 * * 5', async () => {
-    logger.info('📅 Running GTM Weekly Snapshot + Late-Stage Pipeline (Friday 00:00 PST)');
-    try {
-      const { sendBLWeeklySummary } = require('./blWeeklySummary');
-      await sendBLWeeklySummary(app, false, GTM_CHANNEL);
-      logger.info('✅ GTM Weekly Snapshot + Late-Stage thread sent');
-    } catch (error) {
-      logger.error('❌ GTM Weekly Snapshot failed:', error);
-    }
-  }, {
-    timezone: 'America/Los_Angeles'
-  });
+  // DISABLED: 1. GTM Weekly Snapshot PDF + Late-Stage Pipeline (threaded) - Friday 00:00 PST
+  // cron.schedule('0 0 * * 5', async () => {
+  //   logger.info('📅 Running GTM Weekly Snapshot + Late-Stage Pipeline (Friday 00:00 PST)');
+  //   try {
+  //     const { sendBLWeeklySummary } = require('./blWeeklySummary');
+  //     await sendBLWeeklySummary(app, false, GTM_CHANNEL);
+  //     logger.info('✅ GTM Weekly Snapshot + Late-Stage thread sent');
+  //   } catch (error) {
+  //     logger.error('❌ GTM Weekly Snapshot failed:', error);
+  //   }
+  // }, {
+  //   timezone: 'America/Los_Angeles'
+  // });
   
-  // 2. Delivery Report (PDF + Excel) + CSM Account Health (threaded) - Friday 00:02 PST
-  cron.schedule('2 0 * * 5', async () => {
-    logger.info('📅 Running Delivery Report + CSM Account Health (Friday 00:02 PST)');
-    try {
-      const { sendDeliveryWeeklySummary } = require('./deliveryWeeklySummary');
-      await sendDeliveryWeeklySummary(app, false, GTM_CHANNEL);
-      logger.info('✅ Delivery Report + CSM thread sent');
-    } catch (error) {
-      logger.error('❌ Delivery Report failed:', error);
-    }
-  }, {
-    timezone: 'America/Los_Angeles'
-  });
+  // DISABLED: 2. Delivery Report (PDF + Excel) + CSM Account Health (threaded) - Friday 00:02 PST
+  // cron.schedule('2 0 * * 5', async () => {
+  //   logger.info('📅 Running Delivery Report + CSM Account Health (Friday 00:02 PST)');
+  //   try {
+  //     const { sendDeliveryWeeklySummary } = require('./deliveryWeeklySummary');
+  //     await sendDeliveryWeeklySummary(app, false, GTM_CHANNEL);
+  //     logger.info('✅ Delivery Report + CSM thread sent');
+  //   } catch (error) {
+  //     logger.error('❌ Delivery Report failed:', error);
+  //   }
+  // }, {
+  //   timezone: 'America/Los_Angeles'
+  // });
   
-  logger.info('📅 Friday Weekly Reports scheduled (00:00-00:02 PST):');
-  logger.info('   1. GTM Weekly Snapshot PDF → threads Late-Stage Excel (00:00)');
-  logger.info('   2. Delivery Report PDF+Excel → threads CSM Health Excel (00:02)');
+  logger.info('⚠️ Friday Weekly Reports DISABLED - pending SF auth resolution');
+  logger.info('   To re-enable: Update SF credentials in Render, then uncomment schedules');
 
   logger.info('✅ Scheduled jobs started');
 }
