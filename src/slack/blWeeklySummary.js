@@ -192,8 +192,10 @@ async function queryPipelineData() {
 }
 
 /**
- * Query current logos by Account.Customer_Type__c
- * Type values: Revenue, Project, Pilot, LOI (with $ attached, no $ attached)
+ * Query current logos by Account.Customer_Type__c and Customer_Subtype__c
+ * 
+ * Customer_Subtype__c = New or Existing (top level distinction)
+ * Customer_Type__c = MSA, Pilot, LOI (second level breakdown for Existing)
  * 
  * Mapping aligned with accountDashboard.js for consistency
  */
@@ -202,29 +204,52 @@ async function queryLogosByType() {
     logger.info('Querying logos by type from Salesforce...');
     
     const soql = `
-      SELECT Name, Customer_Type__c, First_Deal_Closed__c
+      SELECT Name, Customer_Type__c, Customer_Subtype__c, First_Deal_Closed__c
       FROM Account
-      WHERE Customer_Type__c != null
-      ORDER BY Customer_Type__c, Name
+      WHERE Customer_Type__c != null OR Customer_Subtype__c != null
+      ORDER BY Customer_Subtype__c, Customer_Type__c, Name
     `;
     
     const result = await query(soql, false);
     
     if (!result || !result.records) {
       logger.warn('No logos found');
-      return { revenue: [], project: [], pilot: [], loi: [] };
+      return { 
+        existing: [], 
+        msa: [], 
+        pilot: [], 
+        loi: [],
+        // Legacy fields for backward compatibility
+        revenue: [], 
+        project: []
+      };
     }
     
-    // Categorize by Customer_Type__c
-    // Aligned with accountDashboard.js mapping
-    const logos = { revenue: [], project: [], pilot: [], loi: [] };
+    // Categorize by Customer_Type__c and Customer_Subtype__c
+    const logos = { 
+      existing: [],   // All existing customers (Customer_Subtype__c = 'Existing' or has Customer_Type__c)
+      msa: [],        // MSA/Revenue customers (Customer_Type__c includes 'MSA' or 'Revenue')
+      pilot: [],      // Pilot customers
+      loi: [],        // LOI customers
+      // Legacy fields for backward compatibility
+      revenue: [], 
+      project: []
+    };
     
     result.records.forEach(acc => {
       const type = (acc.Customer_Type__c || '').toLowerCase().trim();
+      const subtype = (acc.Customer_Subtype__c || '').toLowerCase().trim();
       const entry = { name: acc.Name, firstClosed: acc.First_Deal_Closed__c };
       
-      if (type.includes('revenue') || type === 'arr' || type === 'recurring') {
-        logos.revenue.push(entry);
+      // Track as "existing" if subtype is 'existing' OR has any Customer_Type__c value
+      if (subtype.includes('existing') || type) {
+        logos.existing.push(entry);
+      }
+      
+      // Categorize by Customer_Type__c for breakdown
+      if (type.includes('msa') || type.includes('revenue') || type === 'arr' || type === 'recurring') {
+        logos.msa.push(entry);
+        logos.revenue.push(entry); // Legacy
       } else if (type.includes('project')) {
         logos.project.push(entry);
       } else if (type.includes('pilot')) {
@@ -234,12 +259,19 @@ async function queryLogosByType() {
       }
     });
     
-    logger.info(`Logos by type: Revenue=${logos.revenue.length}, Project=${logos.project.length}, Pilot=${logos.pilot.length}, LOI=${logos.loi.length}`);
+    logger.info(`Logos: Existing=${logos.existing.length} (MSA=${logos.msa.length}, Pilot=${logos.pilot.length}, LOI=${logos.loi.length})`);
     return logos;
     
   } catch (error) {
     logger.error('Failed to query logos:', error);
-    return { revenue: [], project: [], pilot: [], loi: [] };
+    return { 
+      existing: [], 
+      msa: [], 
+      pilot: [], 
+      loi: [],
+      revenue: [], 
+      project: []
+    };
   }
 }
 
@@ -750,25 +782,17 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       y += 2 + SECTION_GAP;
       
       // ═══════════════════════════════════════════════════════════════════════
-      // TOP METRICS - 5 columns, COMPACT typography
+      // TOP METRICS - 4 columns (removed BY REVENUE TYPE), COMPACT typography
       // ═══════════════════════════════════════════════════════════════════════
       const metricsY = y;
-      const colWidth = PAGE_WIDTH / 5;
+      const colWidth = PAGE_WIDTH / 4;  // 4 columns now
       
       // Calculate logos (aligned with accountDashboard.js)
-      const revenueLogos = (logosByType.revenue || []).length;
-      const projectLogos = (logosByType.project || []).length;
-      const pilotLogos = (logosByType.pilot || []).length;
-      const loiLogos = (logosByType.loi || []).length;
-      const totalLogos = revenueLogos + projectLogos + pilotLogos + loiLogos;
-      
-      // Use ACTIVE revenue for "By Revenue Type" section
-      // activeRevenue comes from queryActiveRevenue() which:
-      // 1. Queries Closed Won deals with Recurring/Project revenue type
-      // 2. Filters to contracts where CloseDate + Term >= Today (still active)
-      // This matches Salesforce report "Active Revenue + Projects" (ID: 00OWj000003hVoPMAU)
-      const recurringACV = activeRevenue.recurringACV || 0;
-      const projectACV = activeRevenue.projectACV || 0;
+      // Use Customer_Subtype__c = Existing as the top-level count
+      const existingCount = (logosByType.existing || []).length;
+      const msaCount = (logosByType.msa || []).length;
+      const pilotCount = (logosByType.pilot || []).length;
+      const loiCount = (logosByType.loi || []).length;
       
       // Column 1: Pipeline Overview - Total Gross ACV
       let colX = LEFT;
@@ -797,22 +821,14 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);
       doc.text(formatCurrency(totals.avgDealSize), colX, metricsY + 22);
       
-      // Column 4: Current Logos - CENTER ALIGNED
+      // Column 4: Current Logos - Shows Existing count with MSA/Pilot/LOI breakdown
       colX = LEFT + colWidth * 3;
       doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('CURRENT LOGOS', colX, metricsY, { width: colWidth, align: 'center' });
-      doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);  // Same size as other metric values
-      doc.text(totalLogos.toString(), colX, metricsY + 12, { width: colWidth, align: 'center' });  // Moved up from +22 to +12
+      doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);
+      doc.text(existingCount.toString(), colX, metricsY + 12, { width: colWidth, align: 'center' });
       doc.font(fontRegular).fontSize(7).fillColor(DARK_TEXT);
-      doc.text(`Rev: ${revenueLogos} • Proj: ${projectLogos} • Pilot: ${pilotLogos} • LOI: ${loiLogos}`, colX, metricsY + 32, { width: colWidth, align: 'center' });
-      
-      // Column 5: By Revenue Type
-      colX = LEFT + colWidth * 4;
-      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-      doc.text('BY REVENUE TYPE', colX, metricsY);
-      doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
-      doc.text(`Recurring: ${formatCurrency(recurringACV)}`, colX, metricsY + 14);
-      doc.text(`Project: ${formatCurrency(projectACV)}`, colX, metricsY + 26);
+      doc.text(`MSA: ${msaCount} • Pilot: ${pilotCount} • LOI: ${loiCount}`, colX, metricsY + 32, { width: colWidth, align: 'center' });
       
       // Add extra spacing after header section (quarter inch = ~18 points)
       y = metricsY + 48 + SECTION_GAP + 18;

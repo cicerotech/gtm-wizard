@@ -314,6 +314,20 @@ class SalesforceConnection {
   async query(soql, useCache = true, maxRetries = 3) {
     logger.info(`🔍 SF Query called - isConnected: ${this.isConnected}, degradedMode: ${this.degradedMode}, hasConn: ${!!this.conn}, hasAccessToken: ${!!this.conn?.accessToken}`);
     
+    const queryHash = this.generateQueryHash(soql);
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CACHE-FIRST: Check cache BEFORE circuit breaker check
+    // This allows us to return cached data when SF is temporarily unavailable
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (useCache) {
+      const cachedResult = await cache.getCachedQuery(queryHash);
+      if (cachedResult) {
+        logger.info('📦 Using cached query result (before SF check)', { queryHash });
+        return cachedResult;
+      }
+    }
+    
     // If in degraded mode OR not connected, attempt to reconnect (with rate limit protection)
     if (this.degradedMode || !this.isConnected) {
       logger.info('🔄 Not connected to Salesforce - checking if we can attempt reconnection...');
@@ -377,16 +391,8 @@ class SalesforceConnection {
     }
 
     const startTime = Date.now();
-      const queryHash = this.generateQueryHash(soql);
       
-      // Check cache first if enabled
-      if (useCache) {
-        const cachedResult = await cache.getCachedQuery(queryHash);
-        if (cachedResult) {
-          logger.info('📦 Using cached query result', { queryHash });
-          return cachedResult;
-        }
-      }
+    // Note: Cache already checked at top of function (cache-first pattern)
 
     // Retry loop with exponential backoff
     for (let attempt = 1; attempt <= maxRetries; attempt++) {

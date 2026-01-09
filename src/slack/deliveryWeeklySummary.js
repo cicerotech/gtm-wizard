@@ -139,7 +139,9 @@ async function queryDeliveryData() {
     `;
     
     logger.info('📦 Executing SOQL query...');
-    const result = await query(soql, false);
+    // Enable caching (true) so we can fall back to cached data if SF is temporarily unavailable
+    // Cache TTL is 5 minutes by default - delivery data doesn't change frequently
+    const result = await query(soql, true);
     
     if (!result || !result.records) {
       logger.warn('📦 No delivery records found');
