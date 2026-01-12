@@ -1,9 +1,10 @@
+const crypto = require('crypto');
 const logger = require('../utils/logger');
 const { cache } = require('../utils/cache');
 const { parseIntent } = require('../ai/intentParser');
 const { getContext, updateContext, generateSuggestions } = require('../ai/contextManager');
 const { queryBuilder } = require('../salesforce/queries');
-const { query } = require('../salesforce/connection');
+const { query, getConnectionState } = require('../salesforce/connection');
 const { formatResponse } = require('./responseFormatter');
 const { optimizeQuery, trackQueryPerformance } = require('../ai/queryOptimizer');
 const { processFeedback, isFeedbackMessage } = require('../ai/feedbackLearning');
@@ -11,6 +12,13 @@ const { cleanStageName } = require('../utils/formatters');
 const { processContractUpload, handleContractCreationConfirmation, handleContractActivation, handleAccountCorrection } = require('../services/contractCreation');
 const { lookup: contactLookup } = require('../services/contactEnrichment');
 const contactFormatter = require('./contactFormatter');
+
+/**
+ * Generate a unique request ID for tracking requests through logs
+ */
+function generateRequestId() {
+  return `req_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+}
 
 /**
  * Decode Slack HTML entities in message text
@@ -91,10 +99,23 @@ function registerEventHandlers(app) {
  * Handle app mentions in channels
  */
 async function handleMention(event, client, context) {
+  // Generate unique request ID for tracking through logs
+  const requestId = generateRequestId();
+  
   const userId = event.user;
   const channelId = event.channel;
   // Decode Slack HTML entities (& → &amp;, etc.) to support company names like "Johnson & Johnson"
   const text = decodeSlackEntities(event.text);
+  
+  // Log request entry with connection state snapshot
+  const connState = getConnectionState();
+  logger.info(`[${requestId}] 📥 REQUEST RECEIVED`, {
+    requestId,
+    userId,
+    channelId,
+    textPreview: text?.substring(0, 50),
+    connectionState: connState
+  });
   
   // Log interaction
   logger.slackInteraction('mention', userId, channelId, text);

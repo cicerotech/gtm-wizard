@@ -116,6 +116,10 @@ class SalesforceConnection {
       // Check rate limit before attempting
       if (!canAttemptLogin()) {
         logger.error('🛑 Cannot initialize SF - rate limit protection active. App will run in degraded mode.');
+        logger.error('🔴 [DEGRADED_MODE_SET] Setting degradedMode=true at INITIALIZATION (rate limit)', { 
+          stack: new Error().stack,
+          location: 'initialize() - rate limit check'
+        });
         this.degradedMode = true;
         this.isConnected = false;
         startupAuthComplete = true;
@@ -155,6 +159,11 @@ class SalesforceConnection {
       
       // Enter degraded mode - don't crash the app
       logger.error('🛑 Running in DEGRADED MODE - Salesforce unavailable. Slack bot will respond with "SF unavailable" messages.');
+      logger.error('🔴 [DEGRADED_MODE_SET] Setting degradedMode=true at INITIALIZATION (auth failed)', { 
+        stack: new Error().stack,
+        location: 'initialize() - auth failed',
+        errorMessage: error.message
+      });
       this.degradedMode = true;
       this.isConnected = false;
       
@@ -312,7 +321,21 @@ class SalesforceConnection {
   }
 
   async query(soql, useCache = true, maxRetries = 3) {
-    logger.info(`🔍 SF Query called - isConnected: ${this.isConnected}, degradedMode: ${this.degradedMode}, hasConn: ${!!this.conn}, hasAccessToken: ${!!this.conn?.accessToken}`);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ENHANCED DEBUG LOGGING - Full state snapshot at query entry
+    // ═══════════════════════════════════════════════════════════════════════════
+    const stateSnapshot = {
+      isConnected: this.isConnected,
+      degradedMode: this.degradedMode,
+      hasConn: !!this.conn,
+      hasAccessToken: !!this.conn?.accessToken,
+      circuitOpen: AUTH_RATE_LIMIT.circuitOpen,
+      attemptCount: AUTH_RATE_LIMIT.attemptCount,
+      authInProgress: AUTH_RATE_LIMIT.authInProgress,
+      lastError: AUTH_RATE_LIMIT.lastError
+    };
+    logger.info(`🔍 [QUERY_ENTRY] SF Query called`, stateSnapshot);
+    logger.info(`🔍 [QUERY_ENTRY] SOQL preview: ${soql.substring(0, 100)}...`);
     
     const queryHash = this.generateQueryHash(soql);
     
@@ -323,19 +346,20 @@ class SalesforceConnection {
     if (useCache) {
       const cachedResult = await cache.getCachedQuery(queryHash);
       if (cachedResult) {
-        logger.info('📦 Using cached query result (before SF check)', { queryHash });
+        logger.info('📦 [CACHE_HIT] Using cached query result (before SF check)', { queryHash });
         return cachedResult;
       }
+      logger.info('📦 [CACHE_MISS] No cached result, will query Salesforce', { queryHash });
     }
     
     // If in degraded mode OR not connected, attempt to reconnect (with rate limit protection)
     if (this.degradedMode || !this.isConnected) {
-      logger.info('🔄 Not connected to Salesforce - checking if we can attempt reconnection...');
+      logger.info(`🔄 [RECONNECT_NEEDED] Not connected - degradedMode=${this.degradedMode}, isConnected=${this.isConnected}`);
       
       // Check if circuit breaker allows a login attempt
       if (!canAttemptLogin()) {
         const status = getAuthRateLimitStatus();
-        logger.error(`🛑 Circuit breaker is OPEN - waiting ${Math.ceil(status.cooldownRemaining / 1000)}s before retry`);
+        logger.error(`🛑 [CIRCUIT_BREAKER_BLOCKED] Circuit is OPEN - cooldown ${Math.ceil(status.cooldownRemaining / 1000)}s remaining`, status);
         throw new Error('Salesforce is temporarily unavailable. Please try again in a few minutes.');
       }
       
@@ -370,6 +394,11 @@ class SalesforceConnection {
             logger.info('✅ Reconnection successful - exited degraded mode');
           } catch (authError) {
             logger.error('❌ Reconnection failed:', authError.message);
+            logger.error('🔴 [DEGRADED_MODE_SET] Setting degradedMode=true during QUERY RECONNECTION', { 
+              stack: new Error().stack,
+              location: 'query() - reconnection failed',
+              errorMessage: authError.message
+            });
             this.degradedMode = true;
             this.isConnected = false;
             throw authError;
@@ -584,6 +613,19 @@ const isSalesforceAvailable = () => {
   return sfConnection.isConnected && !sfConnection.degradedMode;
 };
 
+// Get full connection state for debugging
+const getConnectionState = () => {
+  return {
+    isConnected: sfConnection.isConnected,
+    degradedMode: sfConnection.degradedMode,
+    circuitOpen: AUTH_RATE_LIMIT.circuitOpen,
+    attemptCount: AUTH_RATE_LIMIT.attemptCount,
+    authInProgress: AUTH_RATE_LIMIT.authInProgress,
+    hasAccessToken: !!sfConnection.conn?.accessToken,
+    lastError: AUTH_RATE_LIMIT.lastError
+  };
+};
+
 // Get rate limit status
 const getAuthRateLimitStatus = () => {
   const now = Date.now();
@@ -614,6 +656,7 @@ module.exports = {
   testConnection: () => sfConnection.testConnection(),
   isSalesforceAvailable,
   getAuthRateLimitStatus,
+  getConnectionState,  // New: full state snapshot for debugging
   resetCircuitBreaker  // New: manual reset for deployment scenarios
 };
 

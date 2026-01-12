@@ -196,7 +196,10 @@ async function queryPipelineData() {
  * Query current logos by Account.Customer_Type__c and Customer_Subtype__c
  * 
  * Customer_Subtype__c = New or Existing (top level distinction)
- * Customer_Type__c = MSA, Pilot, LOI (second level breakdown for Existing)
+ * Customer_Type__c = Revenue, Pilot, LOI, etc. (second level breakdown for Existing)
+ * 
+ * Primary count: Customer_Subtype__c = 'Existing'
+ * Breakdown: Customer_Type__c values mapped to MSA, Pilot, LOI
  * 
  * Mapping aligned with accountDashboard.js for consistency
  */
@@ -207,8 +210,8 @@ async function queryLogosByType() {
     const soql = `
       SELECT Name, Customer_Type__c, Customer_Subtype__c, First_Deal_Closed__c
       FROM Account
-      WHERE Customer_Type__c != null OR Customer_Subtype__c != null
-      ORDER BY Customer_Subtype__c, Customer_Type__c, Name
+      WHERE Customer_Subtype__c = 'Existing'
+      ORDER BY Customer_Type__c, Name
     `;
     
     // Enable caching (5 min TTL) to avoid SF rate limits when multiple reports run back-to-back
@@ -227,12 +230,12 @@ async function queryLogosByType() {
       };
     }
     
-    // Categorize by Customer_Type__c and Customer_Subtype__c
+    // Initialize counts
     const logos = { 
-      existing: [],   // All existing customers (Customer_Subtype__c = 'Existing' or has Customer_Type__c)
-      msa: [],        // MSA/Revenue customers (Customer_Type__c includes 'MSA' or 'Revenue')
+      existing: [],   // All existing customers (Customer_Subtype__c = 'Existing')
+      msa: [],        // MSA/Revenue/ARR customers
       pilot: [],      // Pilot customers
-      loi: [],        // LOI customers
+      loi: [],        // LOI customers (includes Commitment)
       // Legacy fields for backward compatibility
       revenue: [], 
       project: []
@@ -240,25 +243,25 @@ async function queryLogosByType() {
     
     result.records.forEach(acc => {
       const type = (acc.Customer_Type__c || '').toLowerCase().trim();
-      const subtype = (acc.Customer_Subtype__c || '').toLowerCase().trim();
       const entry = { name: acc.Name, firstClosed: acc.First_Deal_Closed__c };
       
-      // Track as "existing" if subtype is 'existing' OR has any Customer_Type__c value
-      if (subtype.includes('existing') || type) {
-        logos.existing.push(entry);
-      }
+      // All records with Customer_Subtype__c = 'Existing' are existing customers
+      logos.existing.push(entry);
       
       // Categorize by Customer_Type__c for breakdown
-      if (type.includes('msa') || type.includes('revenue') || type === 'arr' || type === 'recurring') {
+      // Customer_Type__c values: Revenue, Pilot, LOI (with $ attached), LOI (no $ attached), Project
+      if (type.includes('revenue') || type.includes('msa') || type === 'arr' || type === 'recurring') {
         logos.msa.push(entry);
         logos.revenue.push(entry); // Legacy
-      } else if (type.includes('project')) {
-        logos.project.push(entry);
       } else if (type.includes('pilot')) {
         logos.pilot.push(entry);
-      } else if (type.includes('loi') || type === 'commitment') {
+      } else if (type.includes('loi') || type.includes('commitment')) {
         logos.loi.push(entry);
+      } else if (type.includes('project')) {
+        logos.project.push(entry);
       }
+      // Note: If Customer_Type__c is null/empty but Customer_Subtype__c is Existing,
+      // they count toward existing total but not toward any breakdown category
     });
     
     logger.info(`Logos: Existing=${logos.existing.length} (MSA=${logos.msa.length}, Pilot=${logos.pilot.length}, LOI=${logos.loi.length})`);
@@ -698,13 +701,376 @@ const LIGHT_BORDER = '#f3f4f6';   // Table row borders
 const GREEN_BG = '#f0fdf4';       // Targeting box background
 
 /**
+ * Generate Page 1: RevOps Summary
+ * Includes: Run-Rate Forecast, Signed Revenue QTD/Weekly, Top 10 Pipeline, Pipeline by Sales Type
+ * 
+ * @param {PDFDocument} doc - PDFKit document instance
+ * @param {Object} revOpsData - Data for Page 1 sections
+ * @param {string} dateStr - Display date string
+ * @returns {number} Final y position after rendering
+ */
+function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
+  const {
+    runRateHistorical,
+    januaryWeightedACV,
+    q4WeightedPipeline,
+    signedQTD,
+    signedLastWeek,
+    top10January,
+    top10Q1,
+    pipelineBySalesType
+  } = revOpsData;
+  
+  // Page dimensions
+  const LEFT = 40;
+  const PAGE_WIDTH = 532;
+  const RIGHT = LEFT + PAGE_WIDTH;
+  const MID = LEFT + PAGE_WIDTH / 2;
+  const SECTION_GAP = 14;
+  
+  // Fonts
+  const fontRegular = 'Helvetica';
+  const fontBold = 'Helvetica-Bold';
+  
+  let y = 30;
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HEADER - Title and date
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  // Add Eudia logo centered
+  const logoPath = path.join(__dirname, '../../assets/eudia-logo.jpg');
+  const logoWidth = 160;
+  const pageCenter = LEFT + (PAGE_WIDTH / 2);
+  const logoX = pageCenter - (logoWidth / 2);
+  
+  try {
+    if (fs.existsSync(logoPath)) {
+      doc.image(logoPath, logoX, y, { fit: [logoWidth, 50], align: 'center' });
+      y += 38;
+    } else {
+      doc.font(fontBold).fontSize(24).fillColor(DARK_TEXT);
+      doc.text('EUDIA', LEFT, y, { width: PAGE_WIDTH, align: 'center' });
+      y += 28;
+    }
+  } catch (logoErr) {
+    doc.font(fontBold).fontSize(24).fillColor(DARK_TEXT);
+    doc.text('EUDIA', LEFT, y, { width: PAGE_WIDTH, align: 'center' });
+    y += 28;
+  }
+  
+  y += 6;
+  
+  // Subtitle
+  doc.font(fontBold).fontSize(16).fillColor(DARK_TEXT);
+  doc.text('RevOps Weekly Update', LEFT, y, { width: PAGE_WIDTH, align: 'center' });
+  y += 22;
+  
+  // Date
+  doc.font(fontRegular).fontSize(12).fillColor(DARK_TEXT);
+  doc.text(dateStr, LEFT, y, { width: PAGE_WIDTH, align: 'center' });
+  y += 16;
+  
+  // Gradient line
+  const grad = doc.linearGradient(LEFT, y, RIGHT, y);
+  grad.stop(0, GREEN_ACCENT).stop(1, BLUE_ACCENT);
+  doc.rect(LEFT, y, PAGE_WIDTH, 2).fill(grad);
+  y += 2 + SECTION_GAP;
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RUN-RATE FORECAST TABLE
+  // ═══════════════════════════════════════════════════════════════════════════
+  const runRateY = y;
+  const runRateWidth = 220;
+  
+  // Header
+  doc.rect(LEFT, y, runRateWidth, 22).fill('#1f2937');
+  doc.font(fontBold).fontSize(10).fillColor('#ffffff');
+  doc.text('RUN-RATE FORECAST ($)', LEFT + 8, y + 6);
+  
+  // Column headers
+  y += 22;
+  doc.rect(LEFT, y, runRateWidth / 2, 18).fill('#374151');
+  doc.rect(LEFT + runRateWidth / 2, y, runRateWidth / 2, 18).fill('#374151');
+  doc.font(fontBold).fontSize(9).fillColor('#ffffff');
+  doc.text('Month', LEFT + 8, y + 5);
+  doc.text('RR ($)', LEFT + runRateWidth / 2 + 8, y + 5);
+  y += 18;
+  
+  // Historical rows
+  const months = ['August', 'September', 'October', 'November', 'December'];
+  doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
+  
+  months.forEach((month, i) => {
+    const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
+    doc.rect(LEFT, y, runRateWidth, 16).fill(bg);
+    doc.fillColor(DARK_TEXT);
+    doc.text(month, LEFT + 8, y + 4);
+    doc.text(`${runRateHistorical[month] || 0}m`, LEFT + runRateWidth / 2 + 8, y + 4);
+    y += 16;
+  });
+  
+  // January row - highlighted (green background)
+  doc.rect(LEFT, y, runRateWidth, 22).fill('#dcfce7');
+  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
+  doc.text('January', LEFT + 8, y + 4);
+  doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
+  doc.text('Renewal deals excl. until incremental revenue is reviewed', LEFT + 8, y + 13);
+  const janValue = januaryWeightedACV / 1000000;
+  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
+  doc.text(`${janValue.toFixed(1)}m`, LEFT + runRateWidth / 2 + 8, y + 6);
+  y += 22;
+  
+  // + Q4 Weighted Pipeline row - highlighted
+  doc.rect(LEFT, y, runRateWidth, 22).fill('#dcfce7');
+  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
+  doc.text('+ Q4 Weighted Pipeline', LEFT + 8, y + 4);
+  doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
+  doc.text('Renewal deals excl. until incremental revenue is reviewed', LEFT + 8, y + 13);
+  const q4Value = q4WeightedPipeline / 1000000;
+  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
+  doc.text(`${q4Value.toFixed(1)}m`, LEFT + runRateWidth / 2 + 8, y + 6);
+  y += 22;
+  
+  // FY2025E Total row - dark
+  doc.rect(LEFT, y, runRateWidth, 22).fill('#1f2937');
+  doc.font(fontBold).fontSize(10).fillColor('#ffffff');
+  doc.text('FY2025E Total', LEFT + 8, y + 6);
+  // Calculate total: Dec value + Jan weighted + Q4 weighted
+  const fy2025Total = (runRateHistorical['December'] || 20.1) + janValue + q4Value;
+  doc.text(`${fy2025Total.toFixed(1)}m*`, LEFT + runRateWidth / 2 + 8, y + 6);
+  y += 22;
+  
+  // Note
+  y += 4;
+  doc.font(fontRegular).fontSize(7).fillColor('#9ca3af');
+  doc.text('Note: This week\'s forecast reflects post-migration reconciliation of EU data, including contract-level review and revenue segmentation. Renewal attribution remains subject to further review.', LEFT, y, { width: runRateWidth });
+  
+  const runRateEndY = y + 24;
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SIGNED REVENUE QTD (Right column, same row as Run-Rate)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const signedX = LEFT + runRateWidth + 20;
+  const signedWidth = PAGE_WIDTH - runRateWidth - 20;
+  y = runRateY;
+  
+  // Signed Revenue QTD header
+  doc.rect(signedX, y, signedWidth, 22).fill('#1f2937');
+  doc.font(fontBold).fontSize(10).fillColor('#ffffff');
+  doc.text('SIGNED REVENUE QTD', signedX + 8, y + 6);
+  y += 22;
+  
+  // Total signed box
+  doc.rect(signedX, y, signedWidth, 36).fill('#f3f4f6');
+  doc.strokeColor('#e5e7eb').lineWidth(1).rect(signedX, y, signedWidth, 36).stroke();
+  doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
+  doc.text(`TOTAL SIGNED (${signedQTD.totalDeals} deals)`, signedX + 10, y + 8);
+  doc.font(fontBold).fontSize(14).fillColor(DARK_TEXT);
+  const qtdValue = signedQTD.totalACV >= 1000000 
+    ? `$${(signedQTD.totalACV / 1000000).toFixed(1)}m`
+    : `$${(signedQTD.totalACV / 1000).toFixed(0)}k`;
+  doc.text(qtdValue, signedX + 10, y + 21);
+  y += 36;
+  
+  // Signed Revenue since last week
+  y += 8;
+  doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
+  doc.text('Signed Revenue since last week', signedX, y);
+  y += 14;
+  
+  // Weekly signed box
+  const weeklyValue = signedLastWeek.totalACV >= 1000000
+    ? `$${(signedLastWeek.totalACV / 1000000).toFixed(1)}m`
+    : `$${(signedLastWeek.totalACV / 1000).toFixed(0)}k`;
+  
+  doc.rect(signedX, y, signedWidth, 32).fill('#f3f4f6');
+  doc.strokeColor('#e5e7eb').lineWidth(1).rect(signedX, y, signedWidth, 32).stroke();
+  doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
+  doc.text(`TOTAL SIGNED (${signedLastWeek.totalDeals} deals | ${weeklyValue})`, signedX + 10, y + 6);
+  
+  // Kudos line (first 2 owners)
+  const owners = [...new Set(signedLastWeek.deals.map(d => d.ownerName?.split(' ')[0]).filter(Boolean))].slice(0, 2);
+  if (owners.length > 0) {
+    doc.font(fontRegular).fontSize(9).fillColor('#6b7280');
+    doc.text(`#kudos @${owners.join(' + @')}`, signedX + 10, y + 19);
+  }
+  y += 32;
+  
+  // Revenue type breakdown
+  y += 8;
+  Object.entries(signedLastWeek.byRevenueType || {}).forEach(([type, data]) => {
+    if (data.deals.length > 0) {
+      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
+      doc.text(`${type.toUpperCase()} (${data.deals.length})`, signedX, y);
+      y += 12;
+      
+      // Show top deals for this type
+      data.deals.slice(0, 2).forEach(deal => {
+        const dealValue = deal.acv >= 1000000 
+          ? `$${(deal.acv / 1000000).toFixed(1)}m`
+          : `$${(deal.acv / 1000).toFixed(0)}k`;
+        const name = deal.accountName.length > 20 ? deal.accountName.substring(0, 20) + '...' : deal.accountName;
+        doc.font(fontRegular).fontSize(8).fillColor(BODY_TEXT);
+        doc.text(`• ${dealValue}, ${name} | ${deal.salesType || 'N/A'}, ${deal.productLine || 'N/A'}`, signedX + 4, y);
+        y += 11;
+      });
+      y += 4;
+    }
+  });
+  
+  const signedEndY = y;
+  y = Math.max(runRateEndY, signedEndY) + SECTION_GAP;
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // OPPORTUNITIES WITH Q4 TARGET SIGN DATE
+  // ═══════════════════════════════════════════════════════════════════════════
+  doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
+  doc.text('Opportunities with Q4 Target Sign Date', LEFT, y);
+  y += 16;
+  
+  // Two columns: Targeting January (left) + Targeting Q1 (right)
+  const oppColWidth = (PAGE_WIDTH - 20) / 2;
+  const oppLeftX = LEFT;
+  const oppRightX = MID + 10;
+  
+  // Left column: TARGETING JANUARY
+  let leftY = y;
+  doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
+  doc.text(`TARGETING JANUARY (${top10January.totalCount})`, oppLeftX, leftY);
+  leftY += 12;
+  doc.font(fontRegular).fontSize(8).fillColor('#6b7280');
+  doc.text('Q4 Deals & aggregate open ACV by Account', oppLeftX, leftY);
+  leftY += 14;
+  
+  // Top 10 list for January
+  doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+  top10January.deals.slice(0, 10).forEach((deal, i) => {
+    const value = deal.acv >= 1000000 
+      ? `$${(deal.acv / 1000000).toFixed(1)}m`
+      : `$${(deal.acv / 1000).toFixed(0)}k`;
+    const name = deal.accountName.length > 22 ? deal.accountName.substring(0, 22) + '...' : deal.accountName;
+    doc.text(`${i + 1}. ${value}, ${name}`, oppLeftX, leftY);
+    leftY += 11;
+  });
+  
+  // Right column: TARGETING Q1 FY2026
+  let rightY = y;
+  doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
+  doc.text('TARGETING Q1 FY2026 CLOSE', oppRightX, rightY);
+  rightY += 14;
+  
+  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
+  doc.text('TOP 10 OPPORTUNITIES (ACV)', oppRightX, rightY);
+  rightY += 12;
+  
+  // Top 10 list for Q1
+  doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+  top10Q1.deals.slice(0, 10).forEach((deal, i) => {
+    const value = deal.acv >= 1000000 
+      ? `$${(deal.acv / 1000000).toFixed(1)}m`
+      : `$${(deal.acv / 1000).toFixed(0)}k`;
+    const name = deal.accountName.length > 22 ? deal.accountName.substring(0, 22) + '...' : deal.accountName;
+    doc.text(`${i + 1}. ${value}, ${name}`, oppRightX, rightY);
+    rightY += 11;
+  });
+  
+  // Q1 Summary line
+  rightY += 6;
+  doc.font(fontBold).fontSize(8).fillColor(GREEN_ACCENT);
+  const q1AcvValue = top10Q1.totalACV >= 1000000 
+    ? `$${(top10Q1.totalACV / 1000000).toFixed(1)}m`
+    : `$${(top10Q1.totalACV / 1000).toFixed(0)}k`;
+  doc.text(`Q1 FY2026: (${top10Q1.totalCount}) opportunities $300K+, totaling ${q1AcvValue} in ACV potential`, oppRightX, rightY);
+  
+  y = Math.max(leftY, rightY) + SECTION_GAP + 4;
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PIPELINE TARGETING SIGNATURE IN JANUARY - By Sales Type
+  // ═══════════════════════════════════════════════════════════════════════════
+  doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
+  doc.text('PIPELINE TARGETING SIGNATURE IN JANUARY', LEFT, y);
+  y += 16;
+  
+  doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
+  doc.text('By Sales Type', LEFT, y);
+  y += 14;
+  
+  // Sales Type table
+  const salesTypeTableWidth = PAGE_WIDTH;
+  
+  // Header row
+  doc.rect(LEFT, y, salesTypeTableWidth, 20).fill('#1f2937');
+  doc.font(fontBold).fontSize(9).fillColor('#ffffff');
+  doc.text('Sales Type', LEFT + 8, y + 6, { width: 160 });
+  doc.text('ACV (%)', LEFT + 180, y + 6, { width: 100, align: 'center' });
+  doc.text('Wtd ACV (%)', LEFT + 300, y + 6, { width: 100, align: 'center' });
+  doc.text('Count', LEFT + 420, y + 6, { width: 80, align: 'center' });
+  y += 20;
+  
+  // Data rows - ordered: New business, Expansion, Renewal
+  const salesTypeOrder = ['New business', 'Expansion', 'Renewal'];
+  const { bySalesType, totalACV: salesTypeTotalACV, totalWeighted: salesTypeTotalWeighted, totalCount: salesTypeTotalCount } = pipelineBySalesType;
+  
+  doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
+  
+  salesTypeOrder.forEach((type, i) => {
+    const data = bySalesType[type] || { acv: 0, weighted: 0, count: 0, acvPercent: 0, weightedPercent: 0 };
+    const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
+    doc.rect(LEFT, y, salesTypeTableWidth, 18).fill(bg);
+    doc.fillColor(DARK_TEXT);
+    doc.text(type, LEFT + 8, y + 5, { width: 160 });
+    
+    const acvStr = data.acv >= 1000000 
+      ? `${(data.acv / 1000000).toFixed(1)}m (${data.acvPercent})`
+      : `${(data.acv / 1000).toFixed(0)}k (${data.acvPercent})`;
+    const wtdStr = data.weighted >= 1000000
+      ? `${(data.weighted / 1000000).toFixed(1)}m (${data.weightedPercent})`
+      : `${(data.weighted / 1000).toFixed(0)}k (${data.weightedPercent})`;
+    
+    doc.text(acvStr, LEFT + 180, y + 5, { width: 100, align: 'center' });
+    doc.text(wtdStr, LEFT + 300, y + 5, { width: 100, align: 'center' });
+    doc.text(data.count.toString(), LEFT + 420, y + 5, { width: 80, align: 'center' });
+    y += 18;
+  });
+  
+  // Total row
+  doc.rect(LEFT, y, salesTypeTableWidth, 20).fill('#e5e7eb');
+  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
+  doc.text('Total', LEFT + 8, y + 6, { width: 160 });
+  
+  const totalAcvStr = salesTypeTotalACV >= 1000000 
+    ? `${(salesTypeTotalACV / 1000000).toFixed(1)}m`
+    : `${(salesTypeTotalACV / 1000).toFixed(0)}k`;
+  const totalWtdStr = salesTypeTotalWeighted >= 1000000
+    ? `${(salesTypeTotalWeighted / 1000000).toFixed(1)}m*`
+    : `${(salesTypeTotalWeighted / 1000).toFixed(0)}k*`;
+  
+  doc.text(totalAcvStr, LEFT + 180, y + 6, { width: 100, align: 'center' });
+  doc.text(totalWtdStr, LEFT + 300, y + 6, { width: 100, align: 'center' });
+  doc.text(salesTypeTotalCount.toString(), LEFT + 420, y + 6, { width: 80, align: 'center' });
+  y += 20;
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FOOTER
+  // ═══════════════════════════════════════════════════════════════════════════
+  y += 10;
+  doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, y).lineTo(RIGHT, y).stroke();
+  
+  doc.font(fontRegular).fontSize(7).fillColor(LIGHT_TEXT);
+  doc.text('Generated by Eudia GTM Brain • www.eudia.com • Internal use only', LEFT, y + 4, { width: PAGE_WIDTH, align: 'center' });
+  
+  return y + 20;
+}
+
+/**
  * Generate professional PDF snapshot - COMPACT ONE-PAGE VERSION
  * All typography and spacing optimized to fit on single Letter page
  * 
  * @param {Object} activeRevenue - Active revenue data from queryActiveRevenue()
  *   Contains recurringACV and projectACV for contracts still in term
  */
-function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByType = {}) {
+function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByType = {}, revOpsData = null) {
   return new Promise((resolve, reject) => {
     try {
       const { blMetrics, stageBreakdown, totals, fiscalQuarterLabel, proposalThisMonth, allDeals } = pipelineData;
@@ -721,6 +1087,18 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       doc.on('data', chunk => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
+      
+      // ═══════════════════════════════════════════════════════════════════════
+      // PAGE 1: RevOps Summary (if data provided)
+      // ═══════════════════════════════════════════════════════════════════════
+      if (revOpsData) {
+        generatePage1RevOpsSummary(doc, revOpsData, dateStr);
+        doc.addPage(); // Add page break before GTM Snapshot
+      }
+      
+      // ═══════════════════════════════════════════════════════════════════════
+      // PAGE 2: GTM Weekly Snapshot (existing content)
+      // ═══════════════════════════════════════════════════════════════════════
       
       // Page dimensions - COMPACT
       const LEFT = 40;
@@ -1043,20 +1421,21 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         bls.forEach(bl => {
           if (bl.deals.length === 0) return;
           
-          // BL Name (green) - increased font
-          doc.font(fontBold).fontSize(9).fillColor(GREEN_ACCENT);
+          // BL Name (green) - compact font
+          doc.font(fontBold).fontSize(8).fillColor(GREEN_ACCENT);
           doc.text(bl.name, startX, dealY);
-          dealY += 11;
+          dealY += 10;
           
-          // Deals - increased font for readability
-          doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+          // Deals - reduced font size (7pt) to prevent text overflow
+          doc.font(fontRegular).fontSize(7).fillColor(DARK_TEXT);
           bl.deals.forEach(deal => {
-            const name = deal.accountName.length > 22 ? deal.accountName.substring(0, 22) + '...' : deal.accountName;
+            // Truncate account names at 18 chars to prevent overflow
+            const name = deal.accountName.length > 18 ? deal.accountName.substring(0, 18) + '...' : deal.accountName;
             doc.text(`${name} • ${formatCurrency(deal.acv)} • ${formatDate(deal.targetDate)}`, startX, dealY);
-            dealY += 10;
+            dealY += 9;
           });
           
-          dealY += 8;  // Gap between BLs
+          dealY += 6;  // Gap between BLs
         });
         
         return dealY;
@@ -1330,6 +1709,44 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     // This calculates: CloseDate + Term >= Today for Recurring/Project deals
     const activeRevenue = await queryActiveRevenue();
     
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Query Page 1 RevOps Data
+    // ═══════════════════════════════════════════════════════════════════════════
+    logger.info('Querying Page 1 RevOps data...');
+    
+    // Query all RevOps data in parallel to minimize API calls
+    const [
+      januaryWeightedACV,
+      q4WeightedPipeline,
+      signedQTD,
+      signedLastWeek,
+      top10January,
+      top10Q1,
+      pipelineBySalesType
+    ] = await Promise.all([
+      queryNewBusinessWeightedACV(),
+      queryQ4WeightedPipeline(),
+      querySignedRevenueQTD(),
+      querySignedRevenueLastWeek(),
+      queryTop10TargetingJanuary(),
+      queryTop10TargetingQ1(),
+      queryPipelineBySalesType()
+    ]);
+    
+    // Assemble RevOps data for Page 1
+    const revOpsData = {
+      runRateHistorical: RUN_RATE_HISTORICAL,
+      januaryWeightedACV,
+      q4WeightedPipeline,
+      signedQTD,
+      signedLastWeek,
+      top10January,
+      top10Q1,
+      pipelineBySalesType
+    };
+    
+    logger.info('Page 1 RevOps data queried successfully');
+    
     // Process into metrics
     const pipelineData = processPipelineData(records);
     
@@ -1343,9 +1760,9 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     // Format the condensed Slack message
     const message = formatSlackMessage(pipelineData, previousMetrics, displayDate);
     
-    // Generate PDF snapshot with active revenue data and logos
-    logger.info('Generating PDF snapshot...');
-    const pdfBuffer = await generatePDFSnapshot(pipelineData, displayDate, activeRevenue, logosByType);
+    // Generate PDF snapshot with Page 1 RevOps + Page 2 GTM Snapshot
+    logger.info('Generating 2-page PDF snapshot...');
+    const pdfBuffer = await generatePDFSnapshot(pipelineData, displayDate, activeRevenue, logosByType, revOpsData);
     const pdfFilename = `Eudia_GTM_Weekly_Snapshot_${dateStr}.pdf`;
     
     // Save current snapshot (BL metrics only for comparison)
