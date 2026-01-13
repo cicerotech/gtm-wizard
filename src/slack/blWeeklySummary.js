@@ -1275,7 +1275,9 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   // RUN-RATE FORECAST TABLE
   // ═══════════════════════════════════════════════════════════════════════════
   const runRateY = y;
-  const runRateWidth = 220;
+  const runRateWidth = 260;  // Increased from 220 for subtext
+  const col1Width = 175;     // First column (Month labels + subtext)
+  const col2Width = runRateWidth - col1Width;  // Second column (values)
   
   // Header
   doc.rect(LEFT, y, runRateWidth, 22).fill('#1f2937');
@@ -1284,11 +1286,11 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   
   // Column headers
   y += 22;
-  doc.rect(LEFT, y, runRateWidth / 2, 18).fill('#374151');
-  doc.rect(LEFT + runRateWidth / 2, y, runRateWidth / 2, 18).fill('#374151');
+  doc.rect(LEFT, y, col1Width, 18).fill('#374151');
+  doc.rect(LEFT + col1Width, y, col2Width, 18).fill('#374151');
   doc.font(fontBold).fontSize(9).fillColor('#ffffff');
   doc.text('Month', LEFT + 8, y + 5);
-  doc.text('RR ($)', LEFT + runRateWidth / 2 + 8, y + 5);
+  doc.text('RR ($)', LEFT + col1Width + 8, y + 5);
   y += 18;
   
   // Historical rows
@@ -1300,7 +1302,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     doc.rect(LEFT, y, runRateWidth, 16).fill(bg);
     doc.fillColor(DARK_TEXT);
     doc.text(month, LEFT + 8, y + 4);
-    doc.text(`${runRateHistorical[month] || 0}m`, LEFT + runRateWidth / 2 + 8, y + 4);
+    doc.text(`${runRateHistorical[month] || 0}m`, LEFT + col1Width + 8, y + 4);
     y += 16;
   });
   
@@ -1313,7 +1315,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.text('New Business Closed Won only', LEFT + 8, y + 16);
   const janValue = (januaryClosedWon?.totalACV || 0) / 1000000;
   doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text(`${janValue.toFixed(1)}m`, LEFT + runRateWidth / 2 + 8, y + 10);
+  doc.text(`${janValue.toFixed(1)}m`, LEFT + col1Width + 8, y + 10);
   y += 28;
   
   // + Q4 Weighted Pipeline row - highlighted - increased height for subtext
@@ -1325,7 +1327,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.text('New Business + Expansion wtd ACV', LEFT + 8, y + 16);
   const q4Value = (q4WeightedPipeline?.weightedACV || 0) / 1000000;
   doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text(`${q4Value.toFixed(1)}m`, LEFT + runRateWidth / 2 + 8, y + 10);
+  doc.text(`${q4Value.toFixed(1)}m`, LEFT + col1Width + 8, y + 10);
   y += 28;
   
   // FY2025E Total row - dark
@@ -1334,7 +1336,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.font(fontBold).fontSize(10).fillColor('#ffffff');
   doc.text('FY2025E Total', LEFT + 8, y + 6);
   const fy2025Total = (runRateHistorical['December'] || 20.1) + janValue + q4Value;
-  doc.text(`${fy2025Total.toFixed(1)}m*`, LEFT + runRateWidth / 2 + 8, y + 6);
+  doc.text(`${fy2025Total.toFixed(1)}m*`, LEFT + col1Width + 8, y + 6);
   y += 22;
   
   // Note
