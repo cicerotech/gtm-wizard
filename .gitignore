@@ -130,3 +130,5 @@ coverage/
 # Setup docs with credentials (keep local only)
 MICROSOFT_GRAPH_SETUP.md
 
+.sf/
+.sfdx/
