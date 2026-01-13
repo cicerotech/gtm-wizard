@@ -6,63 +6,80 @@ const { formatResponse } = require('./responseFormatter');
 
 /**
  * Start scheduled jobs
+ * 
+ * NOTE: All scheduled jobs are currently DISABLED pending SF auth resolution.
+ * The token refresh interval in connection.js was causing repeated auth attempts.
+ * 
+ * To re-enable: uncomment the cron.schedule calls below after confirming SF credentials work.
  */
 function startScheduledJobs(app) {
   
-  // Daily morning summary - 8:00 AM EST
-  cron.schedule('0 8 * * 1-5', async () => {
-    try {
-      await sendDailySummary(app);
-    } catch (error) {
-      logger.error('Daily summary job failed:', error);
-    }
-  }, {
-    timezone: 'America/New_York'
-  });
+  logger.info('📅 [SCHEDULED_JOBS] Initializing scheduled jobs (CURRENTLY DISABLED pending SF auth fix)');
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ALL SCHEDULED JOBS DISABLED - These were causing auth storms with bad credentials
+  // Re-enable after SF_PASSWORD and SF_SECURITY_TOKEN are confirmed working
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  // DISABLED: Daily morning summary - 8:00 AM EST
+  // cron.schedule('0 8 * * 1-5', async () => {
+  //   logger.info('📅 [CRON_JOB] Daily morning summary starting...');
+  //   try {
+  //     await sendDailySummary(app);
+  //   } catch (error) {
+  //     logger.error('Daily summary job failed:', error);
+  //   }
+  // }, {
+  //   timezone: 'America/New_York'
+  // });
 
-  // Weekly pipeline review - Monday 9:00 AM EST
-  cron.schedule('0 9 * * 1', async () => {
-    try {
-      await sendWeeklyPipelineReview(app);
-    } catch (error) {
-      logger.error('Weekly pipeline review job failed:', error);
-    }
-  }, {
-    timezone: 'America/New_York'
-  });
+  // DISABLED: Weekly pipeline review - Monday 9:00 AM EST
+  // cron.schedule('0 9 * * 1', async () => {
+  //   logger.info('📅 [CRON_JOB] Weekly pipeline review starting...');
+  //   try {
+  //     await sendWeeklyPipelineReview(app);
+  //   } catch (error) {
+  //     logger.error('Weekly pipeline review job failed:', error);
+  //   }
+  // }, {
+  //   timezone: 'America/New_York'
+  // });
 
-  // End of day alerts - 6:00 PM EST
-  cron.schedule('0 18 * * 1-5', async () => {
-    try {
-      await sendEndOfDayAlerts(app);
-    } catch (error) {
-      logger.error('End of day alerts job failed:', error);
-    }
-  }, {
-    timezone: 'America/New_York'
-  });
+  // DISABLED: End of day alerts - 6:00 PM EST
+  // cron.schedule('0 18 * * 1-5', async () => {
+  //   logger.info('📅 [CRON_JOB] End of day alerts starting...');
+  //   try {
+  //     await sendEndOfDayAlerts(app);
+  //   } catch (error) {
+  //     logger.error('End of day alerts job failed:', error);
+  //   }
+  // }, {
+  //   timezone: 'America/New_York'
+  // });
 
-  // Monthly forecast review - First Monday of month, 10:00 AM EST
-  cron.schedule('0 10 1-7 * 1', async () => {
-    try {
-      await sendMonthlyForecastReview(app);
-    } catch (error) {
-      logger.error('Monthly forecast review job failed:', error);
-    }
-  }, {
-    timezone: 'America/New_York'
-  });
+  // DISABLED: Monthly forecast review - First Monday of month, 10:00 AM EST
+  // cron.schedule('0 10 1-7 * 1', async () => {
+  //   logger.info('📅 [CRON_JOB] Monthly forecast review starting...');
+  //   try {
+  //     await sendMonthlyForecastReview(app);
+  //   } catch (error) {
+  //     logger.error('Monthly forecast review job failed:', error);
+  //   }
+  // }, {
+  //   timezone: 'America/New_York'
+  // });
 
-  // Deal health check - Every 2 hours during business hours
-  cron.schedule('0 9-17/2 * * 1-5', async () => {
-    try {
-      await checkDealHealth(app);
-    } catch (error) {
-      logger.error('Deal health check job failed:', error);
-    }
-  }, {
-    timezone: 'America/New_York'
-  });
+  // DISABLED: Deal health check - Every 2 hours during business hours
+  // cron.schedule('0 9-17/2 * * 1-5', async () => {
+  //   logger.info('📅 [CRON_JOB] Deal health check starting...');
+  //   try {
+  //     await checkDealHealth(app);
+  //   } catch (error) {
+  //     logger.error('Deal health check job failed:', error);
+  //   }
+  // }, {
+  //   timezone: 'America/New_York'
+  // });
 
   // ═══════════════════════════════════════════════════════════════════════════
   // FRIDAY WEEKLY REPORTS - DISABLED UNTIL SF AUTH IS RESOLVED

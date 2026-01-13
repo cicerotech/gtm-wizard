@@ -195,7 +195,19 @@ class SalesforceConnection {
   }
 
   async initialAuthentication() {
-    logger.info('🔐 Performing Salesforce login... [v3.0 - Dec 22 with improved error handling]');
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ENHANCED LOGGING v4.0 - Diagnose which function triggers auth attempts
+    // ═══════════════════════════════════════════════════════════════════════════
+    const stack = new Error().stack;
+    const callerInfo = stack.split('\n').slice(2, 5).join(' <- ');
+    logger.info('🔐 ═══════════════════════════════════════════════════════════════');
+    logger.info('🔐 AUTHENTICATION ATTEMPT TRIGGERED');
+    logger.info(`🔐 Called from: ${callerInfo}`);
+    logger.info(`🔐 Timestamp: ${new Date().toISOString()}`);
+    logger.info(`🔐 isConnected: ${this.isConnected}, degradedMode: ${this.degradedMode}`);
+    logger.info('🔐 ═══════════════════════════════════════════════════════════════');
+    
+    logger.info('🔐 Performing Salesforce login... [v4.0 - Jan 13 with caller tracing]');
     
     // Check rate limit before attempting
     if (!canAttemptLogin()) {
@@ -293,24 +305,27 @@ class SalesforceConnection {
     // Only attempt if we're connected and circuit breaker is closed
     setInterval(async () => {
       try {
+        logger.info('🔄 [TOKEN_REFRESH_TIMER] 90-minute token refresh interval triggered');
+        
         // Skip refresh if not connected or in degraded mode
         if (!this.isConnected || this.degradedMode) {
-          logger.info('⏭️ Skipping token refresh - not connected or in degraded mode');
+          logger.info('⏭️ [TOKEN_REFRESH_SKIP] Skipping - not connected or in degraded mode');
           return;
         }
         
         // Skip if circuit breaker is open
         if (!canAttemptLogin()) {
-          logger.info('⏭️ Skipping token refresh - circuit breaker active');
+          logger.info('⏭️ [TOKEN_REFRESH_SKIP] Skipping - circuit breaker active');
           return;
         }
         
         const refreshToken = await cache.get('sf_refresh_token');
         if (refreshToken) {
+          logger.info('🔄 [TOKEN_REFRESH] Using cached refresh token');
           await this.refreshAccessToken(refreshToken);
         } else {
           // Only re-auth if we had a valid connection
-          logger.info('🔄 No refresh token cached, attempting re-authentication...');
+          logger.info('🔄 [TOKEN_REFRESH_REAUTH] No refresh token cached, attempting re-authentication...');
           await this.initialAuthentication();
         }
       } catch (error) {
