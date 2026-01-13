@@ -58,6 +58,48 @@ async function handleClosedWonEvent(app, message) {
   const closeDate = payload.Close_Date__c || 'Not specified';
   const revenueType = payload.Revenue_Type__c || 'Not specified';
   const ownerId = payload.Owner_Name__c || ''; // This contains OwnerId
+  const isEudiaCounselOpp = payload.Eudia_Counsel_Opp__c === true;
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONFIDENTIAL DEAL DETECTION (Eudia Counsel)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Some clients have privacy/confidentiality agreements (Eudia Counsel).
+  // For these deals, we REPLACE the account name with the codename from the opp name.
+  // 
+  // Conditions for confidentiality:
+  // 1. Eudia_Counsel_Opp__c checkbox is true, OR
+  // 2. Opportunity name contains "(EC)" or any parentheses with content
+  //
+  // Example: "Pluto (EC) - Contracting" on account "Petsmart"
+  //   → Client: Pluto (EC)      ← codename replaces real client
+  //   → Deal: Contracting       ← remainder of opp name
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  const hasCodename = /\([^)]+\)/.test(oppName); // Contains parentheses like (EC), (Project X), etc.
+  const isConfidential = isEudiaCounselOpp || hasCodename;
+  
+  let displayAccountName = accountName;
+  let displayOppName = oppName;
+  
+  if (isConfidential) {
+    logger.info(`Confidential deal detected: ${oppName} (EudiaCounsel: ${isEudiaCounselOpp}, Codename: ${hasCodename})`);
+    
+    // Extract codename and deal type from opportunity name
+    // Pattern: "Codename (EC) - Deal Type" or "Codename (EC)"
+    const oppParts = oppName.split(/\s*-\s*/);
+    
+    if (oppParts.length >= 2) {
+      // "Pluto (EC) - Contracting" → Client: "Pluto (EC)", Deal: "Contracting"
+      displayAccountName = oppParts[0].trim();
+      displayOppName = oppParts.slice(1).join(' - ').trim();
+    } else {
+      // Just "Pluto (EC)" with no dash → use full name as client
+      displayAccountName = oppName;
+      displayOppName = 'Eudia Counsel';
+    }
+    
+    logger.info(`Confidential display: Client="${displayAccountName}", Deal="${displayOppName}"`);
+  }
   
   // Look up owner name from ID if we have it
   let ownerName = 'Unknown';
@@ -83,13 +125,14 @@ async function handleClosedWonEvent(app, message) {
   
   // Format the message
   const slackMessage = formatClosedWonMessage({
-    accountName,
-    oppName,
+    accountName: displayAccountName,
+    oppName: displayOppName,
     productLine,
     acv: formattedACV,
     closeDate,
     revenueType,
-    ownerName
+    ownerName,
+    isConfidential
   });
   
   // Determine where to send
@@ -114,7 +157,8 @@ async function handleClosedWonEvent(app, message) {
       unfurl_links: false
     });
     
-    logger.info(`Closed Won alert posted to ${targetChannel} for ${accountName}`);
+    const logName = isConfidential ? `[CONFIDENTIAL] ${oppName}` : accountName;
+    logger.info(`Closed Won alert posted to ${targetChannel} for ${logName}`);
   } catch (error) {
     logger.error('Failed to post Closed Won alert to Slack:', error);
   }
@@ -122,23 +166,41 @@ async function handleClosedWonEvent(app, message) {
 
 /**
  * Format the Slack message for a closed won deal
+ * 
+ * @param {Object} params - Message parameters
+ * @param {string} params.accountName - Account name (or "[Confidential - Eudia Counsel]" for confidential deals)
+ * @param {string} params.oppName - Opportunity name
+ * @param {string} params.productLine - Product line
+ * @param {string} params.acv - Formatted ACV
+ * @param {string} params.closeDate - Close date
+ * @param {string} params.revenueType - Revenue type
+ * @param {string} params.ownerName - Deal owner name
+ * @param {boolean} params.isConfidential - Whether this is a confidential deal
  */
-function formatClosedWonMessage({ accountName, oppName, productLine, acv, closeDate, revenueType, ownerName }) {
+function formatClosedWonMessage({ accountName, oppName, productLine, acv, closeDate, revenueType, ownerName, isConfidential = false }) {
   // Format revenue type display
   let typeDisplay = revenueType;
   if (revenueType === 'Recurring') typeDisplay = 'Recurring (ARR)';
   if (revenueType === 'Commitment') typeDisplay = 'LOI';
   if (revenueType === 'Project') typeDisplay = 'Project';
   
-  return `*A Deal has been Won!*
-
-*Client:* ${accountName}
-*Deal:* ${oppName}
-*ACV:* ${acv}
-*Type:* ${typeDisplay}
-*Product Line:* ${productLine}
-*Close Date:* ${closeDate}
-*Deal Owner:* ${ownerName}`;
+  // Build the message
+  let message = `*A Deal has been Won!*\n\n`;
+  
+  message += `*Client:* ${accountName}\n`;
+  message += `*Deal:* ${oppName}\n`;
+  message += `*ACV:* ${acv}\n`;
+  message += `*Type:* ${typeDisplay}\n`;
+  message += `*Product Line:* ${productLine}\n`;
+  message += `*Close Date:* ${closeDate}\n`;
+  message += `*Deal Owner:* ${ownerName}`;
+  
+  // Add confidentiality note for private deals
+  if (isConfidential) {
+    message += `\n\n_This client has a confidentiality agreement._`;
+  }
+  
+  return message;
 }
 
 module.exports = {
