@@ -644,26 +644,27 @@ async function querySignedRevenueQTD() {
     const result = await query(soql, true);
     
     if (!result || !result.records || result.records.length === 0) {
-      return { totalACV: 0, dealCount: 0 };
+      return { totalACV: 0, totalDeals: 0 };
     }
     
     const row = result.records[0];
     const data = {
       totalACV: row.totalACV || 0,
-      dealCount: row.dealCount || 0
+      totalDeals: row.dealCount || 0
     };
     
-    logger.info(`Signed QTD: $${(data.totalACV/1000000).toFixed(2)}M (${data.dealCount} deals)`);
+    logger.info(`Signed QTD: $${(data.totalACV/1000000).toFixed(2)}M (${data.totalDeals} deals)`);
     return data;
     
   } catch (error) {
     logger.error('Failed to query signed revenue QTD:', error);
-    return { totalACV: 0, dealCount: 0 };
+    return { totalACV: 0, totalDeals: 0 };
   }
 }
 
 /**
- * Query signed revenue in last 7 days
+ * Query signed revenue in last 7 days with individual deal details
+ * Returns deals array and breakdown by revenue type for PDF rendering
  */
 async function querySignedRevenueLastWeek() {
   try {
@@ -674,36 +675,77 @@ async function querySignedRevenueLastWeek() {
     weekAgo.setDate(weekAgo.getDate() - 7);
     const weekAgoStr = weekAgo.toISOString().split('T')[0];
     
+    // Query individual deals (not aggregate) to get deal details
     const soql = `
-      SELECT SUM(ACV__c) totalACV, COUNT(Id) dealCount
+      SELECT Id, Name, Account.Name, ACV__c, Owner.Name, 
+             Sales_Type__c, Revenue_Type__c, Product_Line__c, CloseDate
       FROM Opportunity
       WHERE StageName = 'Stage 6. Closed(Won)'
         AND CloseDate >= ${weekAgoStr}
+      ORDER BY ACV__c DESC
     `;
     
     const result = await query(soql, true);
     
-    if (!result || !result.records || result.records.length === 0) {
-      return { totalACV: 0, dealCount: 0 };
-    }
-    
-    const row = result.records[0];
-    const data = {
-      totalACV: row.totalACV || 0,
-      dealCount: row.dealCount || 0
+    // Default empty structure
+    const emptyResult = { 
+      totalACV: 0, 
+      totalDeals: 0, 
+      deals: [], 
+      byRevenueType: {} 
     };
     
-    logger.info(`Signed Last Week: $${(data.totalACV/1000000).toFixed(2)}M (${data.dealCount} deals)`);
+    if (!result || !result.records || result.records.length === 0) {
+      return emptyResult;
+    }
+    
+    // Map records to deal objects
+    const deals = result.records.map(opp => ({
+      id: opp.Id,
+      name: opp.Name,
+      accountName: opp.Account?.Name || 'Unknown',
+      acv: opp.ACV__c || 0,
+      ownerName: opp.Owner?.Name || 'Unknown',
+      salesType: opp.Sales_Type__c || 'N/A',
+      revenueType: opp.Revenue_Type__c || 'Other',
+      productLine: opp.Product_Line__c || 'N/A',
+      closeDate: opp.CloseDate
+    }));
+    
+    // Calculate totals
+    const totalACV = deals.reduce((sum, d) => sum + d.acv, 0);
+    const totalDeals = deals.length;
+    
+    // Group by revenue type
+    const byRevenueType = {};
+    deals.forEach(deal => {
+      const type = deal.revenueType || 'Other';
+      if (!byRevenueType[type]) {
+        byRevenueType[type] = { deals: [], totalACV: 0 };
+      }
+      byRevenueType[type].deals.push(deal);
+      byRevenueType[type].totalACV += deal.acv;
+    });
+    
+    const data = {
+      totalACV,
+      totalDeals,
+      deals,
+      byRevenueType
+    };
+    
+    logger.info(`Signed Last Week: $${(totalACV/1000000).toFixed(2)}M (${totalDeals} deals)`);
     return data;
     
   } catch (error) {
     logger.error('Failed to query signed revenue last week:', error);
-    return { totalACV: 0, dealCount: 0 };
+    return { totalACV: 0, totalDeals: 0, deals: [], byRevenueType: {} };
   }
 }
 
 /**
  * Query Top 10 deals targeting January (current year)
+ * Also returns totalCount of all matching opportunities
  */
 async function queryTop10TargetingJanuary() {
   try {
@@ -714,6 +756,7 @@ async function queryTop10TargetingJanuary() {
     const janStart = `${year}-01-01`;
     const janEnd = `${year}-01-31`;
     
+    // Query top 10 deals by ACV
     const soql = `
       SELECT Id, Name, Account.Name, ACV__c, Finance_Weighted_ACV__c, Target_LOI_Date__c, 
              StageName, Owner.Name, Sales_Type__c
@@ -725,10 +768,22 @@ async function queryTop10TargetingJanuary() {
       LIMIT 10
     `;
     
-    const result = await query(soql, true);
+    // Also query total count of all matching opportunities
+    const countSoql = `
+      SELECT COUNT(Id) totalCount
+      FROM Opportunity
+      WHERE IsClosed = false
+        AND Target_LOI_Date__c >= ${janStart}
+        AND Target_LOI_Date__c <= ${janEnd}
+    `;
+    
+    const [result, countResult] = await Promise.all([
+      query(soql, true),
+      query(countSoql, true)
+    ]);
     
     if (!result || !result.records) {
-      return { deals: [], totalACV: 0 };
+      return { deals: [], totalACV: 0, totalCount: 0 };
     }
     
     const deals = result.records.map(opp => ({
@@ -744,18 +799,20 @@ async function queryTop10TargetingJanuary() {
     }));
     
     const totalACV = deals.reduce((sum, d) => sum + d.acv, 0);
+    const totalCount = countResult?.records?.[0]?.totalCount || deals.length;
     
-    logger.info(`Top 10 January: ${deals.length} deals, $${(totalACV/1000000).toFixed(2)}M`);
-    return { deals, totalACV };
+    logger.info(`Top 10 January: ${deals.length} deals (${totalCount} total), $${(totalACV/1000000).toFixed(2)}M`);
+    return { deals, totalACV, totalCount };
     
   } catch (error) {
     logger.error('Failed to query top 10 targeting January:', error);
-    return { deals: [], totalACV: 0 };
+    return { deals: [], totalACV: 0, totalCount: 0 };
   }
 }
 
 /**
  * Query Top 10 deals targeting Q1 (Jan-Mar current year)
+ * Also returns totalCount of all matching opportunities
  */
 async function queryTop10TargetingQ1() {
   try {
@@ -766,6 +823,7 @@ async function queryTop10TargetingQ1() {
     const q1Start = `${year}-01-01`;
     const q1End = `${year}-03-31`;
     
+    // Query top 10 deals by ACV
     const soql = `
       SELECT Id, Name, Account.Name, ACV__c, Finance_Weighted_ACV__c, Target_LOI_Date__c, 
              StageName, Owner.Name, Sales_Type__c
@@ -777,10 +835,22 @@ async function queryTop10TargetingQ1() {
       LIMIT 10
     `;
     
-    const result = await query(soql, true);
+    // Also query total count of all matching opportunities
+    const countSoql = `
+      SELECT COUNT(Id) totalCount
+      FROM Opportunity
+      WHERE IsClosed = false
+        AND Target_LOI_Date__c >= ${q1Start}
+        AND Target_LOI_Date__c <= ${q1End}
+    `;
+    
+    const [result, countResult] = await Promise.all([
+      query(soql, true),
+      query(countSoql, true)
+    ]);
     
     if (!result || !result.records) {
-      return { deals: [], totalACV: 0 };
+      return { deals: [], totalACV: 0, totalCount: 0 };
     }
     
     const deals = result.records.map(opp => ({
@@ -796,13 +866,14 @@ async function queryTop10TargetingQ1() {
     }));
     
     const totalACV = deals.reduce((sum, d) => sum + d.acv, 0);
+    const totalCount = countResult?.records?.[0]?.totalCount || deals.length;
     
-    logger.info(`Top 10 Q1: ${deals.length} deals, $${(totalACV/1000000).toFixed(2)}M`);
-    return { deals, totalACV };
+    logger.info(`Top 10 Q1: ${deals.length} deals (${totalCount} total), $${(totalACV/1000000).toFixed(2)}M`);
+    return { deals, totalACV, totalCount };
     
   } catch (error) {
     logger.error('Failed to query top 10 targeting Q1:', error);
-    return { deals: [], totalACV: 0 };
+    return { deals: [], totalACV: 0, totalCount: 0 };
   }
 }
 
