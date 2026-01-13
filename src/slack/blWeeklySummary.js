@@ -223,6 +223,28 @@ async function queryLogosByType() {
   try {
     logger.info('Querying logos by type from Salesforce...');
     
+    // DIAGNOSTIC: First query to see what Customer_Subtype__c values actually exist
+    const diagnosticSoql = `
+      SELECT Customer_Subtype__c, COUNT(Id) cnt
+      FROM Account
+      WHERE Customer_Subtype__c != null
+      GROUP BY Customer_Subtype__c
+    `;
+    
+    try {
+      const diagResult = await query(diagnosticSoql, true);
+      if (diagResult && diagResult.records) {
+        logger.info('DIAGNOSTIC - Customer_Subtype__c values in Salesforce:');
+        diagResult.records.forEach(r => {
+          logger.info(`  - "${r.Customer_Subtype__c}": ${r.cnt} accounts`);
+        });
+      } else {
+        logger.warn('DIAGNOSTIC - No Customer_Subtype__c values found in any accounts');
+      }
+    } catch (diagErr) {
+      logger.warn('DIAGNOSTIC query failed (non-critical):', diagErr.message);
+    }
+    
     const soql = `
       SELECT Name, Customer_Type__c, Customer_Subtype__c, First_Deal_Closed__c
       FROM Account
@@ -234,7 +256,7 @@ async function queryLogosByType() {
     const result = await query(soql, true);
     
     if (!result || !result.records) {
-      logger.warn('No logos found');
+      logger.warn('No logos found with Customer_Subtype__c = Existing');
       return { 
         existing: [], 
         msa: [], 
@@ -245,6 +267,8 @@ async function queryLogosByType() {
         project: []
       };
     }
+    
+    logger.info(`Found ${result.records.length} accounts with Customer_Subtype__c = 'Existing'`);
     
     // Initialize counts
     const logos = { 
@@ -260,6 +284,11 @@ async function queryLogosByType() {
     result.records.forEach(acc => {
       const type = (acc.Customer_Type__c || '').toLowerCase().trim();
       const entry = { name: acc.Name, firstClosed: acc.First_Deal_Closed__c };
+      
+      // Log first few records for debugging
+      if (logos.existing.length < 3) {
+        logger.info(`  Sample account: "${acc.Name}" - Customer_Type__c="${acc.Customer_Type__c}", Customer_Subtype__c="${acc.Customer_Subtype__c}"`);
+      }
       
       // All records with Customer_Subtype__c = 'Existing' are existing customers
       logos.existing.push(entry);
@@ -587,19 +616,45 @@ async function queryJanuaryClosedWonNewBusiness() {
 }
 
 /**
- * Query ALL active pipeline weighted ACV
- * Sum of Finance_Weighted_ACV__c for all open opportunities in active stages
+ * Query Q4 weighted pipeline - deals with Target_LOI_Date__c within fiscal Q4 (Nov 1 - Jan 31)
+ * Sum of Finance_Weighted_ACV__c for open opportunities targeting this fiscal quarter
  */
 async function queryQ4WeightedPipeline() {
   try {
-    logger.info('Querying all active pipeline weighted ACV...');
+    logger.info('Querying Q4 weighted pipeline (Target_LOI_Date within fiscal Q4)...');
     
-    // Sum all active pipeline weighted ACV (no date filter)
+    // Calculate fiscal Q4 date range (Nov 1 - Jan 31)
+    const now = new Date();
+    const month = now.getMonth(); // 0-indexed (0 = Jan)
+    
+    let q4Start, q4End;
+    if (month === 0) { 
+      // January - Q4 ends this month (Nov 1 last year to Jan 31 this year)
+      q4Start = new Date(now.getFullYear() - 1, 10, 1); // Nov 1 last year
+      q4End = new Date(now.getFullYear(), 0, 31);       // Jan 31 this year
+    } else if (month >= 10) { 
+      // Nov-Dec - Q4 spans into next year
+      q4Start = new Date(now.getFullYear(), 10, 1);     // Nov 1 this year
+      q4End = new Date(now.getFullYear() + 1, 0, 31);   // Jan 31 next year
+    } else {
+      // Feb-Oct - use upcoming Q4 for reference
+      q4Start = new Date(now.getFullYear(), 10, 1);     // Nov 1 this year
+      q4End = new Date(now.getFullYear() + 1, 0, 31);   // Jan 31 next year
+    }
+    
+    const q4StartStr = q4Start.toISOString().split('T')[0];
+    const q4EndStr = q4End.toISOString().split('T')[0];
+    
+    logger.info(`Fiscal Q4 date range: ${q4StartStr} to ${q4EndStr}`);
+    
+    // Filter by Target_LOI_Date__c within fiscal Q4
     const soql = `
       SELECT SUM(ACV__c) totalACV, SUM(Finance_Weighted_ACV__c) weightedACV, COUNT(Id) dealCount
       FROM Opportunity
       WHERE IsClosed = false
         AND StageName IN ('Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
+        AND Target_LOI_Date__c >= ${q4StartStr}
+        AND Target_LOI_Date__c <= ${q4EndStr}
     `;
     
     const result = await query(soql, true);
@@ -615,35 +670,52 @@ async function queryQ4WeightedPipeline() {
       dealCount: row.dealCount || 0
     };
     
-    logger.info(`Active Pipeline: $${(data.weightedACV/1000000).toFixed(2)}M weighted (${data.dealCount} deals)`);
+    logger.info(`Q4 Weighted Pipeline: $${(data.weightedACV/1000000).toFixed(2)}M weighted (${data.dealCount} deals targeting Q4)`);
     return data;
     
   } catch (error) {
-    logger.error('Failed to query active pipeline weighted ACV:', error);
+    logger.error('Failed to query Q4 weighted pipeline:', error);
     return { totalACV: 0, weightedACV: 0, dealCount: 0 };
   }
 }
 
 /**
- * Query signed revenue Quarter-to-Date (Closed Won this quarter)
- * Only includes New Business, Renewal, and Expansion deals
+ * Query signed revenue Quarter-to-Date (Closed Won this fiscal quarter)
+ * Includes Recurring, Project, and Pilot deals with CloseDate in fiscal quarter
+ * Fiscal Q4: Nov 1 - Jan 31
  */
 async function querySignedRevenueQTD() {
   try {
-    logger.info('Querying signed revenue QTD...');
+    logger.info('Querying signed revenue QTD (fiscal quarter)...');
     
-    // Calculate current quarter start date
+    // Calculate FISCAL quarter start date (Feb-Jan fiscal year)
+    // Q1: Feb 1 - Apr 30, Q2: May 1 - Jul 31, Q3: Aug 1 - Oct 31, Q4: Nov 1 - Jan 31
     const now = new Date();
-    const quarter = Math.floor(now.getMonth() / 3);
-    const quarterStart = new Date(now.getFullYear(), quarter * 3, 1);
-    const quarterStartStr = quarterStart.toISOString().split('T')[0];
+    const month = now.getMonth(); // 0-indexed (0 = Jan)
     
+    let fiscalQStart;
+    if (month >= 1 && month <= 3) {       // Feb-Apr = Q1
+      fiscalQStart = new Date(now.getFullYear(), 1, 1);     // Feb 1
+    } else if (month >= 4 && month <= 6) { // May-Jul = Q2
+      fiscalQStart = new Date(now.getFullYear(), 4, 1);     // May 1
+    } else if (month >= 7 && month <= 9) { // Aug-Oct = Q3
+      fiscalQStart = new Date(now.getFullYear(), 7, 1);     // Aug 1
+    } else {                               // Nov-Dec or Jan = Q4
+      fiscalQStart = month === 0 
+        ? new Date(now.getFullYear() - 1, 10, 1)  // Jan -> Nov 1 last year
+        : new Date(now.getFullYear(), 10, 1);     // Nov-Dec -> Nov 1 this year
+    }
+    
+    const fiscalQStartStr = fiscalQStart.toISOString().split('T')[0];
+    logger.info(`Fiscal quarter start: ${fiscalQStartStr}`);
+    
+    // Filter by Revenue_Type__c (Recurring, Project, Pilot) - NOT Sales_Type__c
     const soql = `
       SELECT SUM(ACV__c) totalACV, COUNT(Id) dealCount
       FROM Opportunity
       WHERE StageName = 'Stage 6. Closed(Won)'
-        AND CloseDate >= ${quarterStartStr}
-        AND Sales_Type__c IN ('New business', 'Renewal', 'Expansion / Upsell')
+        AND CloseDate >= ${fiscalQStartStr}
+        AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot')
     `;
     
     const result = await query(soql, true);
@@ -670,10 +742,11 @@ async function querySignedRevenueQTD() {
 /**
  * Query signed revenue in last 7 days with individual deal details
  * Returns deals array and breakdown by revenue type for PDF rendering
+ * Only includes Recurring, Project, and Pilot deals
  */
 async function querySignedRevenueLastWeek() {
   try {
-    logger.info('Querying signed revenue last week...');
+    logger.info('Querying signed revenue last week (Recurring/Project/Pilot only)...');
     
     const now = new Date();
     const weekAgo = new Date(now);
@@ -681,12 +754,14 @@ async function querySignedRevenueLastWeek() {
     const weekAgoStr = weekAgo.toISOString().split('T')[0];
     
     // Query individual deals (not aggregate) to get deal details
+    // Filter by Revenue_Type__c to include only Recurring, Project, Pilot
     const soql = `
       SELECT Id, Name, Account.Name, ACV__c, Owner.Name, 
              Sales_Type__c, Revenue_Type__c, Product_Line__c, CloseDate
       FROM Opportunity
       WHERE StageName = 'Stage 6. Closed(Won)'
         AND CloseDate >= ${weekAgoStr}
+        AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot')
       ORDER BY ACV__c DESC
     `;
     
@@ -1338,7 +1413,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   }
   y += 32;
   
-  // Revenue type breakdown - proper spacing between sections
+  // Revenue type breakdown - improved spacing to prevent text overlap
   y += 10;
   Object.entries(signedLastWeek.byRevenueType || {}).forEach(([type, data]) => {
     if (data.deals.length > 0) {
@@ -1347,19 +1422,20 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
       doc.text(`${type.toUpperCase()} (${data.deals.length})`, signedX, y);
       y += 14;
       
-      // Show top deals for this type (8pt regular, proper spacing)
+      // Show top deals for this type (8pt regular, increased spacing)
       data.deals.slice(0, 2).forEach(deal => {
         const dealValue = deal.acv >= 1000000 
           ? `$${(deal.acv / 1000000).toFixed(1)}m`
           : `$${(deal.acv / 1000).toFixed(0)}k`;
-        const name = deal.accountName.length > 18 ? deal.accountName.substring(0, 18) + '...' : deal.accountName;
+        // Truncate account name to 15 chars to prevent overflow
+        const name = deal.accountName.length > 15 ? deal.accountName.substring(0, 15) + '...' : deal.accountName;
         // Format product line: replace underscores with dashes
         const formattedProductLine = formatProductLine(deal.productLine);
         doc.font(fontRegular).fontSize(8).fillColor(BODY_TEXT);
         doc.text(`• ${dealValue}, ${name} | ${deal.salesType || 'N/A'}, ${formattedProductLine}`, signedX + 4, y);
-        y += 12;
+        y += 14; // Increased from 12 to prevent line overlap
       });
-      y += 6; // Extra spacing between revenue type sections
+      y += 10; // Increased from 6 for better section separation
     }
   });
   
@@ -1587,20 +1663,10 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         y += 28;
       }
       
-      // Add spacing before subtitle
+      // Add spacing before gradient line (no duplicate title - title is on Page 1 only)
       y += 6;
       
-      // Subtitle: GTM Weekly Snapshot
-      doc.font(fontBold).fontSize(16).fillColor(DARK_TEXT);
-      doc.text('GTM Weekly Snapshot', LEFT, y, { width: PAGE_WIDTH, align: 'center' });
-      y += 22;
-      
-      // Date - slightly larger
-      doc.font(fontRegular).fontSize(12).fillColor(DARK_TEXT);
-      doc.text(dateStr, LEFT, y, { width: PAGE_WIDTH, align: 'center' });
-      y += 16;
-      
-      // Gradient line (green to blue)
+      // Gradient line (green to blue) - visual separator for Page 2
       const gradientY = y;
       const grad = doc.linearGradient(LEFT, gradientY, LEFT + PAGE_WIDTH, gradientY);
       grad.stop(0, GREEN_ACCENT).stop(1, BLUE_ACCENT);
