@@ -1419,30 +1419,28 @@ async function generateAccountDashboard() {
       console.log(`[Dashboard] Customer_Subtype__c values: ${JSON.stringify(uniqueSubtypes)}`);
       
       logosData.records.forEach(acc => {
-        const ct = (acc.Customer_Type__c || '').toLowerCase().trim();
+        const type = (acc.Customer_Type__c || '').toLowerCase().trim();
         const subtype = (acc.Customer_Subtype__c || '').toLowerCase().trim();
         
-        // Categorize by Customer_Subtype__c (New/Existing)
-        if (subtype.includes('new')) {
+        // CORRECTED: Customer_Type__c = "Existing" or "New" (parent)
+        if (type.includes('new')) {
           logosBySubtype.new.push(acc.Name);
-        } else if (subtype.includes('existing') || ct) {
+        } else if (type.includes('existing')) {
           logosBySubtype.existing.push(acc.Name);
         }
         
-        // Categorize by Customer_Type__c (Revenue/Pilot/LOI/Project)
-        if (ct.includes('revenue') || ct === 'arr' || ct === 'recurring') {
-          logosByType.revenue.push(acc.Name);
-        } else if (ct.includes('pilot')) {
+        // CORRECTED: Customer_Subtype__c = MSA, Pilot, LOI (breakdown)
+        if (subtype === 'msa') {
+          logosByType.revenue.push(acc.Name); // MSA = revenue-paying
+        } else if (subtype === 'pilot') {
           logosByType.pilot.push(acc.Name);
-        } else if (ct.includes('loi') || ct.includes('commitment')) {
+        } else if (subtype === 'loi') {
           logosByType.loi.push(acc.Name);
-        } else if (ct.includes('project')) {
-          logosByType.project.push(acc.Name);
         }
       });
     }
-    console.log(`[Dashboard] Logos by subtype: new=${logosBySubtype.new.length}, existing=${logosBySubtype.existing.length}`);
-    console.log(`[Dashboard] Logos by type: revenue=${logosByType.revenue.length}, pilot=${logosByType.pilot.length}, loi=${logosByType.loi.length}, project=${logosByType.project.length}`);
+    console.log(`[Dashboard] Logos by type: new=${logosBySubtype.new.length}, existing=${logosBySubtype.existing.length}`);
+    console.log(`[Dashboard] Logos by subtype: msa=${logosByType.revenue.length}, pilot=${logosByType.pilot.length}, loi=${logosByType.loi.length}`);
   } catch (e) { console.error('Logos query error:', e.message); }
   
   // Helper function to format currency

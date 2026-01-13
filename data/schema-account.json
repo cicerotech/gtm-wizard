@@ -65,7 +65,7 @@
       "type": "picklist",
       "custom": true,
       "synonyms": ["type", "account type", "customer type", "classification"],
-      "values": ["Revenue", "Pilot", "LOI, with $ attached", "LOI, no $ attached"]
+      "values": ["Existing", "New"]
     },
     {
       "apiName": "Customer_Subtype__c",
@@ -73,7 +73,7 @@
       "type": "picklist",
       "custom": true,
       "synonyms": ["subtype", "customer subtype", "account subtype"],
-      "values": ["Existing", "New"]
+      "values": ["MSA", "Pilot", "LOI"]
     },
     {
       "apiName": "Is_New_Logo__c",

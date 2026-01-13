@@ -211,31 +211,30 @@ async function queryPipelineData() {
 /**
  * Query current logos by Account.Customer_Type__c and Customer_Subtype__c
  * 
- * Uses broader query matching accountDashboard.js approach:
- * - Query all accounts with Customer_Type__c OR Customer_Subtype__c populated
- * - Count as "existing" if: Customer_Subtype__c = 'Existing' OR Customer_Type__c is populated
- * - Breakdown by Customer_Type__c values: Revenue→MSA, Pilot, LOI
+ * CORRECT FIELD MAPPING (per Salesforce setup):
+ * - Customer_Type__c = "Existing" or "New" (parent filter)
+ * - Customer_Subtype__c = "MSA", "Pilot", "LOI" (breakdown categories)
  * 
- * This ensures alignment with the Account Dashboard logos count
+ * Primary count: Customer_Type__c = 'Existing'
+ * Breakdown: Customer_Subtype__c values (MSA, Pilot, LOI)
  */
 async function queryLogosByType() {
   try {
     logger.info('Querying logos by type from Salesforce...');
     
-    // Query all accounts with Customer_Type__c OR Customer_Subtype__c populated
-    // This matches accountDashboard.js approach for consistency
+    // Query accounts with Customer_Type__c = 'Existing'
     const soql = `
       SELECT Name, Customer_Type__c, Customer_Subtype__c, First_Deal_Closed__c
       FROM Account
-      WHERE Customer_Type__c != null OR Customer_Subtype__c != null
-      ORDER BY Customer_Type__c, Name
+      WHERE Customer_Type__c = 'Existing'
+      ORDER BY Customer_Subtype__c, Name
     `;
     
     // Enable caching (5 min TTL) to avoid SF rate limits when multiple reports run back-to-back
     const result = await query(soql, true);
     
     if (!result || !result.records) {
-      logger.warn('No logos found with Customer_Type__c or Customer_Subtype__c');
+      logger.warn('No logos found with Customer_Type__c = Existing');
       return { 
         existing: [], 
         msa: [], 
@@ -248,51 +247,44 @@ async function queryLogosByType() {
     }
     
     // Log unique values for debugging
-    const uniqueTypes = [...new Set(result.records.map(a => a.Customer_Type__c).filter(Boolean))];
     const uniqueSubtypes = [...new Set(result.records.map(a => a.Customer_Subtype__c).filter(Boolean))];
-    logger.info(`Customer_Type__c values in SF: ${JSON.stringify(uniqueTypes)}`);
-    logger.info(`Customer_Subtype__c values in SF: ${JSON.stringify(uniqueSubtypes)}`);
+    logger.info(`Found ${result.records.length} accounts with Customer_Type__c = 'Existing'`);
+    logger.info(`Customer_Subtype__c values: ${JSON.stringify(uniqueSubtypes)}`);
     
     // Initialize counts
     const logos = { 
-      existing: [],   // All existing customers
-      msa: [],        // MSA/Revenue customers (Customer_Type__c = 'Revenue')
-      pilot: [],      // Pilot customers (Customer_Type__c = 'Pilot')
-      loi: [],        // LOI customers (Customer_Type__c contains 'LOI')
+      existing: [],   // All existing customers (Customer_Type__c = 'Existing')
+      msa: [],        // MSA customers (Customer_Subtype__c = 'MSA')
+      pilot: [],      // Pilot customers (Customer_Subtype__c = 'Pilot')
+      loi: [],        // LOI customers (Customer_Subtype__c = 'LOI')
       // Legacy fields for backward compatibility
       revenue: [], 
       project: []
     };
     
     result.records.forEach(acc => {
-      const type = (acc.Customer_Type__c || '').toLowerCase().trim();
       const subtype = (acc.Customer_Subtype__c || '').toLowerCase().trim();
       const entry = { name: acc.Name, firstClosed: acc.First_Deal_Closed__c };
       
       // Log first few records for debugging
       if (logos.existing.length < 3) {
-        logger.info(`  Sample account: "${acc.Name}" - Customer_Type__c="${acc.Customer_Type__c}", Customer_Subtype__c="${acc.Customer_Subtype__c}"`);
+        logger.info(`  Sample: "${acc.Name}" - Customer_Type__c="${acc.Customer_Type__c}", Customer_Subtype__c="${acc.Customer_Subtype__c}"`);
       }
       
-      // Count as existing if: Customer_Subtype__c = 'Existing' OR Customer_Type__c is populated
-      // This matches accountDashboard.js line 1428 logic
-      if (subtype.includes('existing') || type) {
-        logos.existing.push(entry);
-      }
+      // All records with Customer_Type__c = 'Existing' count as existing
+      logos.existing.push(entry);
       
-      // Categorize by Customer_Type__c for breakdown
-      // Customer_Type__c values: Revenue, Pilot, LOI (with $ attached), LOI (no $ attached)
-      if (type.includes('revenue') || type.includes('msa') || type === 'arr' || type === 'recurring') {
+      // Categorize by Customer_Subtype__c for breakdown
+      // Customer_Subtype__c values: MSA, Pilot, LOI
+      if (subtype === 'msa') {
         logos.msa.push(entry);
         logos.revenue.push(entry); // Legacy
-      } else if (type.includes('pilot')) {
+      } else if (subtype === 'pilot') {
         logos.pilot.push(entry);
-      } else if (type.includes('loi') || type.includes('commitment')) {
+      } else if (subtype === 'loi') {
         logos.loi.push(entry);
-      } else if (type.includes('project')) {
-        logos.project.push(entry);
       }
-      // Note: If Customer_Type__c is null/empty, they only count in existing if subtype = 'Existing'
+      // Note: If Customer_Subtype__c is null/empty, they count in existing total only
     });
     
     logger.info(`Logos: Existing=${logos.existing.length} (MSA=${logos.msa.length}, Pilot=${logos.pilot.length}, LOI=${logos.loi.length})`);
@@ -1311,29 +1303,29 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     y += 16;
   });
   
-  // January row - highlighted (green background)
+  // January row - highlighted (green background) - increased height for subtext
   // Shows Closed Won New Business deals this month
-  doc.rect(LEFT, y, runRateWidth, 22).fill('#dcfce7');
+  doc.rect(LEFT, y, runRateWidth, 28).fill('#dcfce7');
   doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text('January', LEFT + 8, y + 4);
+  doc.text('January', LEFT + 8, y + 5);
   doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
-  doc.text('New Business Closed Won only', LEFT + 8, y + 13);
+  doc.text('New Business Closed Won only', LEFT + 8, y + 16);
   const janValue = (januaryClosedWon?.totalACV || 0) / 1000000;
   doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text(`${janValue.toFixed(1)}m`, LEFT + runRateWidth / 2 + 8, y + 6);
-  y += 22;
+  doc.text(`${janValue.toFixed(1)}m`, LEFT + runRateWidth / 2 + 8, y + 10);
+  y += 28;
   
-  // + Q4 Weighted Pipeline row - highlighted
+  // + Q4 Weighted Pipeline row - highlighted - increased height for subtext
   // Shows sum of all active pipeline weighted ACV
-  doc.rect(LEFT, y, runRateWidth, 22).fill('#dcfce7');
+  doc.rect(LEFT, y, runRateWidth, 28).fill('#dcfce7');
   doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text('+ Q4 Weighted Pipeline', LEFT + 8, y + 4);
+  doc.text('+ Q4 Weighted Pipeline', LEFT + 8, y + 5);
   doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
-  doc.text('New Business + Expansion weighted ACV', LEFT + 8, y + 13);
+  doc.text('New Business + Expansion weighted ACV', LEFT + 8, y + 16);
   const q4Value = (q4WeightedPipeline?.weightedACV || 0) / 1000000;
   doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text(`${q4Value.toFixed(1)}m`, LEFT + runRateWidth / 2 + 8, y + 6);
-  y += 22;
+  doc.text(`${q4Value.toFixed(1)}m`, LEFT + runRateWidth / 2 + 8, y + 10);
+  y += 28;
   
   // FY2025E Total row - dark
   // Formula: December (20.1m) + January Closed Won New Business + Q4 Weighted Pipeline
