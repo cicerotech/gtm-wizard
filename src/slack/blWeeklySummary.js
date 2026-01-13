@@ -540,62 +540,65 @@ async function queryActiveRevenue() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Query New Business weighted ACV from active pipeline
- * Sales_Type__c = 'New business' AND IsClosed = false
+ * Query January Closed Won New Business revenue
+ * Sum of New Business deals that moved to Closed Won with close date this month
+ * This is used for the January row in the Run Rate Forecast table
  */
-async function queryNewBusinessWeightedACV() {
+async function queryJanuaryClosedWonNewBusiness() {
   try {
-    logger.info('Querying New Business weighted ACV...');
+    logger.info('Querying January Closed Won New Business...');
+    
+    // Get current month boundaries
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth(); // 0-indexed
+    const monthStart = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`;
     
     const soql = `
-      SELECT SUM(ACV__c) totalACV, SUM(Finance_Weighted_ACV__c) weightedACV, COUNT(Id) dealCount
+      SELECT SUM(ACV__c) totalACV, COUNT(Id) dealCount
       FROM Opportunity
-      WHERE Sales_Type__c = 'New business'
-        AND IsClosed = false
-        AND StageName IN ('Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
+      WHERE StageName = 'Stage 6. Closed(Won)'
+        AND Sales_Type__c = 'New business'
+        AND CloseDate >= ${monthStart}
+        AND CloseDate <= ${monthEnd}
     `;
     
     const result = await query(soql, true);
     
     if (!result || !result.records || result.records.length === 0) {
-      return { totalACV: 0, weightedACV: 0, dealCount: 0 };
+      return { totalACV: 0, dealCount: 0 };
     }
     
     const row = result.records[0];
     const data = {
       totalACV: row.totalACV || 0,
-      weightedACV: row.weightedACV || 0,
       dealCount: row.dealCount || 0
     };
     
-    logger.info(`New Business: $${(data.weightedACV/1000000).toFixed(2)}M weighted (${data.dealCount} deals)`);
+    logger.info(`January Closed Won New Business: $${(data.totalACV/1000000).toFixed(2)}M (${data.dealCount} deals)`);
     return data;
     
   } catch (error) {
-    logger.error('Failed to query New Business weighted ACV:', error);
-    return { totalACV: 0, weightedACV: 0, dealCount: 0 };
+    logger.error('Failed to query January Closed Won New Business:', error);
+    return { totalACV: 0, dealCount: 0 };
   }
 }
 
 /**
- * Query Q4 weighted pipeline (Oct-Dec targeting)
+ * Query ALL active pipeline weighted ACV
+ * Sum of Finance_Weighted_ACV__c for all open opportunities in active stages
  */
 async function queryQ4WeightedPipeline() {
   try {
-    logger.info('Querying Q4 weighted pipeline...');
+    logger.info('Querying all active pipeline weighted ACV...');
     
-    // Q4 is October 1 - December 31 of current fiscal year
-    const now = new Date();
-    const year = now.getMonth() >= 9 ? now.getFullYear() : now.getFullYear() - 1; // Q4 starts in October
-    const q4Start = `${year}-10-01`;
-    const q4End = `${year}-12-31`;
-    
+    // Sum all active pipeline weighted ACV (no date filter)
     const soql = `
       SELECT SUM(ACV__c) totalACV, SUM(Finance_Weighted_ACV__c) weightedACV, COUNT(Id) dealCount
       FROM Opportunity
       WHERE IsClosed = false
-        AND Target_LOI_Date__c >= ${q4Start}
-        AND Target_LOI_Date__c <= ${q4End}
         AND StageName IN ('Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
     `;
     
@@ -612,17 +615,18 @@ async function queryQ4WeightedPipeline() {
       dealCount: row.dealCount || 0
     };
     
-    logger.info(`Q4 Pipeline: $${(data.weightedACV/1000000).toFixed(2)}M weighted (${data.dealCount} deals)`);
+    logger.info(`Active Pipeline: $${(data.weightedACV/1000000).toFixed(2)}M weighted (${data.dealCount} deals)`);
     return data;
     
   } catch (error) {
-    logger.error('Failed to query Q4 weighted pipeline:', error);
+    logger.error('Failed to query active pipeline weighted ACV:', error);
     return { totalACV: 0, weightedACV: 0, dealCount: 0 };
   }
 }
 
 /**
  * Query signed revenue Quarter-to-Date (Closed Won this quarter)
+ * Only includes New Business, Renewal, and Expansion deals
  */
 async function querySignedRevenueQTD() {
   try {
@@ -639,6 +643,7 @@ async function querySignedRevenueQTD() {
       FROM Opportunity
       WHERE StageName = 'Stage 6. Closed(Won)'
         AND CloseDate >= ${quarterStartStr}
+        AND Sales_Type__c IN ('New business', 'Renewal', 'Expansion / Upsell')
     `;
     
     const result = await query(soql, true);
@@ -1114,6 +1119,15 @@ function processPipelineData(records) {
 // PDF GENERATION
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * Format product line name for display
+ * Replaces underscores with dashes (e.g., "Contracting_Managed" → "Contracting-Managed")
+ */
+function formatProductLine(productLine) {
+  if (!productLine) return 'N/A';
+  return productLine.replace(/_/g, '-');
+}
+
 // PDF Design constants - matches gtm-snapshot-fixed.html exactly
 const GREEN_ACCENT = '#10b981';   // Pod titles, targeting box, gradient start
 const BLUE_ACCENT = '#3b82f6';    // Gradient end
@@ -1137,7 +1151,7 @@ const GREEN_BG = '#f0fdf4';       // Targeting box background
 function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   const {
     runRateHistorical,
-    januaryWeightedACV,
+    januaryClosedWon,
     q4WeightedPipeline,
     signedQTD,
     signedLastWeek,
@@ -1236,32 +1250,34 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   });
   
   // January row - highlighted (green background)
+  // Shows Closed Won New Business deals this month
   doc.rect(LEFT, y, runRateWidth, 22).fill('#dcfce7');
   doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
   doc.text('January', LEFT + 8, y + 4);
   doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
-  doc.text('Renewal deals excl. until incremental revenue is reviewed', LEFT + 8, y + 13);
-  const janValue = januaryWeightedACV / 1000000;
+  doc.text('New Business Closed Won only', LEFT + 8, y + 13);
+  const janValue = (januaryClosedWon?.totalACV || 0) / 1000000;
   doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
   doc.text(`${janValue.toFixed(1)}m`, LEFT + runRateWidth / 2 + 8, y + 6);
   y += 22;
   
   // + Q4 Weighted Pipeline row - highlighted
+  // Shows sum of all active pipeline weighted ACV
   doc.rect(LEFT, y, runRateWidth, 22).fill('#dcfce7');
   doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
   doc.text('+ Q4 Weighted Pipeline', LEFT + 8, y + 4);
   doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
-  doc.text('Renewal deals excl. until incremental revenue is reviewed', LEFT + 8, y + 13);
-  const q4Value = q4WeightedPipeline / 1000000;
+  doc.text('All active pipeline weighted ACV', LEFT + 8, y + 13);
+  const q4Value = (q4WeightedPipeline?.weightedACV || 0) / 1000000;
   doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
   doc.text(`${q4Value.toFixed(1)}m`, LEFT + runRateWidth / 2 + 8, y + 6);
   y += 22;
   
   // FY2025E Total row - dark
+  // Formula: December (20.1m) + January Closed Won New Business + Q4 Weighted Pipeline
   doc.rect(LEFT, y, runRateWidth, 22).fill('#1f2937');
   doc.font(fontBold).fontSize(10).fillColor('#ffffff');
   doc.text('FY2025E Total', LEFT + 8, y + 6);
-  // Calculate total: Dec value + Jan weighted + Q4 weighted
   const fy2025Total = (runRateHistorical['December'] || 20.1) + janValue + q4Value;
   doc.text(`${fy2025Total.toFixed(1)}m*`, LEFT + runRateWidth / 2 + 8, y + 6);
   y += 22;
@@ -1286,12 +1302,12 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.text('SIGNED REVENUE QTD', signedX + 8, y + 6);
   y += 22;
   
-  // Total signed box
+  // Total signed box - font sizes match header (10pt)
   doc.rect(signedX, y, signedWidth, 36).fill('#f3f4f6');
   doc.strokeColor('#e5e7eb').lineWidth(1).rect(signedX, y, signedWidth, 36).stroke();
-  doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
+  doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
   doc.text(`TOTAL SIGNED (${signedQTD.totalDeals} deals)`, signedX + 10, y + 8);
-  doc.font(fontBold).fontSize(14).fillColor(DARK_TEXT);
+  doc.font(fontBold).fontSize(12).fillColor(DARK_TEXT);
   const qtdValue = signedQTD.totalACV >= 1000000 
     ? `$${(signedQTD.totalACV / 1000000).toFixed(1)}m`
     : `$${(signedQTD.totalACV / 1000).toFixed(0)}k`;
@@ -1322,25 +1338,28 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   }
   y += 32;
   
-  // Revenue type breakdown
-  y += 8;
+  // Revenue type breakdown - proper spacing between sections
+  y += 10;
   Object.entries(signedLastWeek.byRevenueType || {}).forEach(([type, data]) => {
     if (data.deals.length > 0) {
+      // Section header (9pt bold)
       doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text(`${type.toUpperCase()} (${data.deals.length})`, signedX, y);
-      y += 12;
+      y += 14;
       
-      // Show top deals for this type
+      // Show top deals for this type (8pt regular, proper spacing)
       data.deals.slice(0, 2).forEach(deal => {
         const dealValue = deal.acv >= 1000000 
           ? `$${(deal.acv / 1000000).toFixed(1)}m`
           : `$${(deal.acv / 1000).toFixed(0)}k`;
-        const name = deal.accountName.length > 20 ? deal.accountName.substring(0, 20) + '...' : deal.accountName;
+        const name = deal.accountName.length > 18 ? deal.accountName.substring(0, 18) + '...' : deal.accountName;
+        // Format product line: replace underscores with dashes
+        const formattedProductLine = formatProductLine(deal.productLine);
         doc.font(fontRegular).fontSize(8).fillColor(BODY_TEXT);
-        doc.text(`• ${dealValue}, ${name} | ${deal.salesType || 'N/A'}, ${deal.productLine || 'N/A'}`, signedX + 4, y);
-        y += 11;
+        doc.text(`• ${dealValue}, ${name} | ${deal.salesType || 'N/A'}, ${formattedProductLine}`, signedX + 4, y);
+        y += 12;
       });
-      y += 4;
+      y += 6; // Extra spacing between revenue type sections
     }
   });
   
@@ -2141,7 +2160,7 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     
     // Query all RevOps data in parallel to minimize API calls
     const [
-      januaryWeightedACV,
+      januaryClosedWon,
       q4WeightedPipeline,
       signedQTD,
       signedLastWeek,
@@ -2149,7 +2168,7 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
       top10Q1,
       pipelineBySalesType
     ] = await Promise.all([
-      queryNewBusinessWeightedACV(),
+      queryJanuaryClosedWonNewBusiness(),
       queryQ4WeightedPipeline(),
       querySignedRevenueQTD(),
       querySignedRevenueLastWeek(),
@@ -2161,7 +2180,7 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     // Assemble RevOps data for Page 1
     const revOpsData = {
       runRateHistorical: RUN_RATE_HISTORICAL,
-      januaryWeightedACV,
+      januaryClosedWon,
       q4WeightedPipeline,
       signedQTD,
       signedLastWeek,
