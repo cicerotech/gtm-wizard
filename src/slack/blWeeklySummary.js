@@ -880,6 +880,7 @@ async function queryTop10TargetingQ1() {
 /**
  * Query pipeline grouped by Sales Type
  * Returns breakdown: New business, Expansion, Renewal, Eudia Counsel
+ * Returns structure expected by PDF: { bySalesType, totalACV, totalWeighted, totalCount }
  */
 async function queryPipelineBySalesType() {
   try {
@@ -896,31 +897,49 @@ async function queryPipelineBySalesType() {
     
     const result = await query(soql, true);
     
+    // Default empty structure matching PDF expectations
+    const emptyResult = { bySalesType: {}, totalACV: 0, totalWeighted: 0, totalCount: 0 };
+    
     if (!result || !result.records) {
-      return { byType: {}, totalACV: 0, totalWeighted: 0 };
+      return emptyResult;
     }
     
-    const byType = {};
+    // First pass: collect raw totals
     let totalACV = 0;
     let totalWeighted = 0;
+    let totalCount = 0;
+    const rawData = {};
     
     result.records.forEach(row => {
       const salesType = row.Sales_Type__c || 'Unassigned';
-      byType[salesType] = {
-        totalACV: row.totalACV || 0,
-        weightedACV: row.weightedACV || 0,
-        dealCount: row.dealCount || 0
-      };
-      totalACV += row.totalACV || 0;
-      totalWeighted += row.weightedACV || 0;
+      const acv = row.totalACV || 0;
+      const weighted = row.weightedACV || 0;
+      const count = row.dealCount || 0;
+      
+      rawData[salesType] = { acv, weighted, count };
+      totalACV += acv;
+      totalWeighted += weighted;
+      totalCount += count;
     });
     
-    logger.info(`Pipeline by Sales Type: ${Object.keys(byType).length} types, $${(totalWeighted/1000000).toFixed(2)}M weighted`);
-    return { byType, totalACV, totalWeighted };
+    // Second pass: calculate percentages and build final structure
+    const bySalesType = {};
+    Object.entries(rawData).forEach(([salesType, data]) => {
+      bySalesType[salesType] = {
+        acv: data.acv,
+        weighted: data.weighted,
+        count: data.count,
+        acvPercent: totalACV > 0 ? `${Math.round((data.acv / totalACV) * 100)}%` : '0%',
+        weightedPercent: totalWeighted > 0 ? `${Math.round((data.weighted / totalWeighted) * 100)}%` : '0%'
+      };
+    });
+    
+    logger.info(`Pipeline by Sales Type: ${Object.keys(bySalesType).length} types, $${(totalWeighted/1000000).toFixed(2)}M weighted, ${totalCount} deals`);
+    return { bySalesType, totalACV, totalWeighted, totalCount };
     
   } catch (error) {
     logger.error('Failed to query pipeline by Sales Type:', error);
-    return { byType: {}, totalACV: 0, totalWeighted: 0 };
+    return { bySalesType: {}, totalACV: 0, totalWeighted: 0, totalCount: 0 };
   }
 }
 
