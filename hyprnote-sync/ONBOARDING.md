@@ -87,6 +87,35 @@ The sync uses these methods to find the right Account (in order):
 
 ---
 
+## Speaker Identification Best Practices
+
+Hyprnote uses AI to transcribe and identify who said what. To improve accuracy:
+
+### Before the Meeting
+
+1. **Connect your calendar** - Hyprnote pre-populates attendees from calendar invites
+2. **Add participants manually** - If no calendar event, add attendee names/emails before recording
+3. **Include company names** - Add participant's company (e.g., "John Smith - IQVIA")
+
+### During the Meeting
+
+1. **Say names clearly** - When referencing someone, use their full name
+2. **Minimize crosstalk** - One person speaking at a time improves transcription
+3. **Use headphones** - Reduces audio bleed between speakers
+
+### Known Transcription Fixes
+
+The sync automatically corrects common name confusions:
+- **Justin/Julie** - Phonetically similar names are corrected based on who recorded
+- More corrections can be added to `sync.js` as patterns are identified
+
+### If Names Are Still Wrong
+
+1. Edit the notes in Hyprnote before syncing
+2. Or report the pattern to RevOps to add automatic correction
+
+---
+
 ## Daily Workflow
 
 ```
@@ -177,6 +206,12 @@ A: Not currently. The sync runs on your Mac.
 
 **Q: What if two people record the same meeting?**
 A: Both will sync - Salesforce will have two Events. Coordinate with your team.
+
+**Q: Why does the transcription mix up names (e.g., calling me by someone else's name)?**
+A: AI transcription struggles with phonetically similar names (Julie/Justin, Mike/Mark). The sync has built-in corrections for known patterns. To minimize this:
+- Add participants in Hyprnote before recording
+- Connect your calendar so attendees are pre-populated
+- Speak names clearly during the call
 
 ---
 

@@ -110,6 +110,56 @@ async function showStatus() {
 // Internal domains - meetings with only these participants are skipped
 const INTERNAL_DOMAINS = ['eudia.com', 'cicerotech.com', 'johnstonhana.com'];
 
+// ============================================================================
+// Name Correction - Fix LLM transcription confusions for similar-sounding names
+// ============================================================================
+// The LLM often confuses phonetically similar names (e.g., "Julie" vs "Justin")
+// This corrects speaker attributions based on who recorded the meeting
+const NAME_CORRECTIONS = {
+  // If rep is Justin, correct "Julie" mentions to "Justin" in speaker attributions
+  'justin.hills@eudia.com': [
+    { wrong: /\bJulie\b(?=\s+(?:said|mentioned|asked|noted|explained|agreed|confirmed|stated|added|replied|responded))/gi, correct: 'Justin' },
+    { wrong: /\bJulie:\s/gi, correct: 'Justin: ' },
+    { wrong: /\bJulie\s+\(Eudia\)/gi, correct: 'Justin (Eudia)' }
+  ],
+  // If rep is Julie, correct "Justin" mentions to "Julie" in speaker attributions
+  'julie.stefanich@eudia.com': [
+    { wrong: /\bJustin\b(?=\s+(?:said|mentioned|asked|noted|explained|agreed|confirmed|stated|added|replied|responded))/gi, correct: 'Julie' },
+    { wrong: /\bJustin:\s/gi, correct: 'Julie: ' },
+    { wrong: /\bJustin\s+\(Eudia\)/gi, correct: 'Julie (Eudia)' }
+  ]
+};
+
+/**
+ * Correct known name confusions in transcription based on the recording rep
+ * @param {string} text - The transcribed text
+ * @param {string} repEmail - Email of the rep who recorded
+ * @returns {string} - Corrected text
+ */
+function correctNameConfusions(text, repEmail) {
+  if (!text || !repEmail) return text;
+  
+  const corrections = NAME_CORRECTIONS[repEmail.toLowerCase()];
+  if (!corrections) return text;
+  
+  let corrected = text;
+  let correctionsMade = 0;
+  
+  for (const { wrong, correct } of corrections) {
+    const before = corrected;
+    corrected = corrected.replace(wrong, correct);
+    if (corrected !== before) {
+      correctionsMade++;
+    }
+  }
+  
+  if (correctionsMade > 0) {
+    console.log('    Name corrections applied: ' + correctionsMade);
+  }
+  
+  return corrected;
+}
+
 function isInternalMeeting(participants) {
   if (!participants || participants.length === 0) return true;
   
@@ -175,8 +225,12 @@ async function syncSession(session, config, sfConnection) {
     }
   }
   
-  // Prepare meeting notes
-  const notesText = hyprnote.htmlToText(session.enhanced_memo_html || session.raw_memo_html);
+  // Prepare meeting notes with name correction
+  let notesText = hyprnote.htmlToText(session.enhanced_memo_html || session.raw_memo_html);
+  
+  // Apply name corrections for known transcription confusions
+  notesText = correctNameConfusions(notesText, config.rep.email);
+  
   const duration = hyprnote.getDuration(session.record_start, session.record_end);
   
   const description = [

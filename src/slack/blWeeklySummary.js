@@ -51,6 +51,22 @@ const EU_POD = [
 const PROPOSAL_STAGE = 'Stage 4 - Proposal';
 
 // ═══════════════════════════════════════════════════════════════════════════
+// RUN RATE HISTORICAL DATA (Static - update manually as needed)
+// These are displayed in the RevOps Page 1 Run Rate section
+// Values are in MILLIONS (e.g., 17.5 = $17.5M)
+// ═══════════════════════════════════════════════════════════════════════════
+const RUN_RATE_HISTORICAL = {
+  // FY25 Historical Run Rate by Month (in millions USD)
+  // Update these values manually based on finance reporting
+  'August': 17.5,
+  'September': 18.2,
+  'October': 19.0,
+  'November': 19.5,
+  'December': 20.1,
+  // January is calculated dynamically from New Business weighted ACV query
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // FISCAL QUARTER LOGIC (Feb-Jan Fiscal Year)
 // ═══════════════════════════════════════════════════════════════════════════
 
