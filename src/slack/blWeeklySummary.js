@@ -645,18 +645,17 @@ async function queryQ4WeightedPipeline() {
     const q4StartStr = q4Start.toISOString().split('T')[0];
     const q4EndStr = q4End.toISOString().split('T')[0];
     
-    logger.info(`Fiscal Q4 date range: ${q4StartStr} to ${q4EndStr}`);
+    logger.info(`Fiscal Q4 end date: ${q4EndStr}`);
     
-    // Filter by Target_LOI_Date__c within fiscal Q4
+    // Filter by Target_LOI_Date__c <= Q4 end date (no lower bound to match SF report)
     // Only include New Business and Expansion (exclude Renewal)
     const soql = `
-      SELECT SUM(ACV__c) totalACV, SUM(Finance_Weighted_ACV__c) weightedACV, COUNT(Id) dealCount
+      SELECT SUM(ACV__c) totalACV, SUM(Weighted_ACV__c) weightedACV, COUNT(Id) dealCount
       FROM Opportunity
       WHERE IsClosed = false
         AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
-        AND Target_LOI_Date__c >= ${q4StartStr}
         AND Target_LOI_Date__c <= ${q4EndStr}
-        AND Sales_Type__c IN ('New business', 'Expansion / Upsell')
+        AND Sales_Type__c IN ('New business', 'Expansion')
     `;
     
     const result = await query(soql, true);
@@ -1897,9 +1896,10 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       // ═══════════════════════════════════════════════════════════════════════
       doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
       doc.text('TOP DEALS BY BUSINESS LEAD', LEFT, y);
-      doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
-      doc.text('Sorted by Target Sign Date', LEFT + 160, y + 1);
-      y += 14;
+      y += 12;
+      doc.font(fontRegular).fontSize(8).fillColor('#6b7280');
+      doc.text('Sorted by Target Sign Date', LEFT, y);
+      y += 10;
       
       // Get deals sorted by target date per BL
       const dealsForTop5 = allDeals || [];
