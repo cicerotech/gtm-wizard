@@ -1933,18 +1933,25 @@ function buildAccountFieldQuery(entities) {
                 LIMIT 20`;
       } else if (entities.searchTerm) {
         // Product line search - query opportunities then group by account
-        // Updated product line mappings for new structure
+        // Updated product line mappings to EXACT Salesforce API names (from picklist setup)
         const productLineMap = {
-          'contracting': 'AI-Augmented Contracting', // Will use LIKE match
-          'contracting managed': 'AI-Augmented Contracting - Managed Services',
-          'contracting in-house': 'AI-Augmented Contracting - In-House Technology',
-          'm&a': 'AI-Augmented M&A - Managed Service',
-          'mna': 'AI-Augmented M&A - Managed Service',
-          'compliance': 'AI-Augmented Compliance - In-House Technology',
+          'contracting': 'AI-Augmented Contracting', // Will use LIKE match for both variants
+          'contracting managed': 'AI-Augmented Contracting_Managed Services',
+          'contracting in-house': 'AI-Augmented Contracting_In-House Technology',
+          'm&a': 'AI-Augmented M&A_Managed Service',
+          'mna': 'AI-Augmented M&A_Managed Service',
+          'm&a in-house': 'Augmented-M&A',
+          'compliance': 'AI-Augmented Compliance_In-House Technology',
           'sigma': 'sigma',
           'litigation': 'Litigation',
           'custom agents': 'Custom Agents',
-          'secondee': 'Contracting – Secondee'
+          'secondee': 'Contracting - Secondee',
+          'contracting secondee': 'Contracting - Secondee',
+          'other managed': 'Other_Managed Service',
+          'other secondee': 'Other_Secondee',
+          'multiple': 'Multiple',
+          'undetermined': 'Undetermined',
+          'other': 'Other'
         };
         
         const productLine = productLineMap[entities.searchTerm.toLowerCase()] || entities.searchTerm;
@@ -4649,6 +4656,7 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
     }
     
     // SMART DEFAULTS (Salesforce flow defaults)
+    // NOTE: productLine must use EXACT Salesforce API name (underscores, not dashes)
     const DEFAULTS = {
       acv: 100000, // $100k default
       tcv: 100000, // Same as ACV by default
@@ -4657,7 +4665,7 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
       targetDate: null, // Will calculate: TODAY + 150 days
       revenueType: 'Recurring', // Correct Salesforce picklist value (not 'ARR')
       opportunitySource: 'Eudia Exec-Intro', // Default Opportunity Source
-      productLine: 'AI-Augmented Contracting' // Default product (can override)
+      productLine: 'Undetermined' // Default product - uses exact API name
     };
     
     // Calculate default target date (TODAY + 150 days, matching Salesforce formula)

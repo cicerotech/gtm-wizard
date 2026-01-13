@@ -1673,20 +1673,22 @@ Business Context:
       intent = 'pipeline_summary';
       entities.isClosed = false;
       
-      // Map product line to EXACT Salesforce values (updated for new product line structure)
+      // Map product line to EXACT Salesforce API names (underscores, not dashes for most)
       if (message.includes('contracting') && message.includes('managed')) {
-        entities.productLine = 'AI-Augmented Contracting - Managed Services';
+        entities.productLine = 'AI-Augmented Contracting_Managed Services';
       } else if (message.includes('contracting') && message.includes('in-house')) {
-        entities.productLine = 'AI-Augmented Contracting - In-House Technology';
+        entities.productLine = 'AI-Augmented Contracting_In-House Technology';
       } else if (message.includes('contracting') && message.includes('secondee')) {
-        entities.productLine = 'Contracting – Secondee';
+        entities.productLine = 'Contracting - Secondee';
       } else if (message.includes('contracting')) {
         // Default to searching both contracting product lines
         entities.productLine = 'AI-Augmented Contracting'; // Will use LIKE match
+      } else if ((message.includes('m&a') || message.includes('mna') || message.includes('m and a')) && message.includes('in-house')) {
+        entities.productLine = 'Augmented-M&A';
       } else if (message.includes('m&a') || message.includes('mna') || message.includes('m and a')) {
-        entities.productLine = 'AI-Augmented M&A - Managed Service';
+        entities.productLine = 'AI-Augmented M&A_Managed Service';
       } else if (message.includes('compliance')) {
-        entities.productLine = 'AI-Augmented Compliance - In-House Technology';
+        entities.productLine = 'AI-Augmented Compliance_In-House Technology';
       } else if (message.includes('custom agent')) {
         entities.productLine = 'Custom Agents';
       } else if (message.includes('sigma')) {
@@ -1694,13 +1696,17 @@ Business Context:
       } else if (message.includes('litigation')) {
         entities.productLine = 'Litigation';
       } else if (message.includes('secondee') && !message.includes('contracting')) {
-        entities.productLine = 'Other - Secondee';
+        entities.productLine = 'Other_Secondee';
       } else if (message.includes('multiple')) {
         entities.productLine = 'Multiple';
       } else if (message.includes('undetermined')) {
         entities.productLine = 'Undetermined';
       } else if (message.includes('other') && message.includes('managed')) {
-        entities.productLine = 'Other - Managed Service';
+        entities.productLine = 'Other_Managed Service';
+      } else if (message.includes('other') && message.includes('secondee')) {
+        entities.productLine = 'Other_Secondee';
+      } else if (message.includes('other')) {
+        entities.productLine = 'Other';
       }
       
       // Map stage if specified (Early = 0-1, Mid = 2, Late = 3-4)
