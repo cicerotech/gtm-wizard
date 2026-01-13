@@ -25,7 +25,7 @@ const schemas = {
       otherwise: Joi.forbidden()
     }),
     stages: Joi.array().items(Joi.string().valid(
-      'Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SOO',
+      'Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SOO',
       'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Closed Won', 'Closed Lost'
     )),
     segments: Joi.array().items(Joi.string().valid('enterprise', 'mid-market', 'smb')),
@@ -240,7 +240,7 @@ function validateStages(stages) {
   }
   
   const validStages = [
-    'Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SOO',
+    'Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SOO',
     'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Closed Won', 'Closed Lost'
   ];
   

@@ -709,7 +709,7 @@ Respond with JSON only:
     const stageMatch = queryLower.match(/stage\s*(\d)/);
     if (stageMatch) {
       const stageNames = {
-        '0': 'Stage 0 - Qualifying',
+        '0': 'Stage 0 - Prospecting',
         '1': 'Stage 1 - Discovery',
         '2': 'Stage 2 - SQO',
         '3': 'Stage 3 - Pilot',

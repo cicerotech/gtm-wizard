@@ -74,7 +74,7 @@
       "type": "picklist",
       "synonyms": ["stage", "phase", "status", "deal stage"],
       "values": [
-        "Stage 0 - Qualifying",
+        "Stage 0 - Prospecting",
         "Stage 1 - Discovery", 
         "Stage 2 - SQO",
         "Stage 3 - Pilot",

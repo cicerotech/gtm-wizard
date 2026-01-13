@@ -304,7 +304,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   <!-- Stage Definitions -->
   <div style="background: #f9fafb; padding: 10px 12px; border-radius: 6px; margin-top: 12px; font-size: 0.65rem; color: #6b7280;">
     <div style="font-weight: 600; color: #374151; margin-bottom: 4px;">Stage Definitions</div>
-    <div><strong>S0</strong> Qualifying - Initial outreach</div>
+    <div><strong>S0</strong> Prospecting - Initial outreach</div>
     <div><strong>S1</strong> Discovery - Meeting with client</div>
     <div><strong>S2</strong> SQO - Sales Qualified</div>
     <div><strong>S3</strong> Pilot - Trial underway</div>

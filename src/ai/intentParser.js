@@ -370,7 +370,7 @@ Return JSON with this exact structure:
     "timeframe": "today|this_week|this_month|this_quarter|last_30_days|custom|null",
     "customDateRange": { "start": "YYYY-MM-DD", "end": "YYYY-MM-DD" } | null,
     "targetSignDate": "this_week|this_month|null",
-    "stages": ["Stage 0 - Qualifying", "Stage 1 - Discovery"] | null,
+    "stages": ["Stage 0 - Prospecting", "Stage 1 - Discovery"] | null,
     "segments": ["enterprise", "mid-market", "smb"] | null,
     "owners": ["Julie Stefanich", "Mike Masiello"] | null,
     "accounts": ["Resmed", "Intuit"] | null,
@@ -649,7 +649,7 @@ Business Context:
         !message.includes('opportunities')) {
       const stageMatch = message.match(/stage (\d)/i);
       const stageMap = {
-        '0': 'Stage 0 - Qualifying',
+        '0': 'Stage 0 - Prospecting',
         '1': 'Stage 1 - Discovery',
         '2': 'Stage 2 - SQO',
         '3': 'Stage 3 - Pilot',
@@ -1643,7 +1643,7 @@ Business Context:
       const stageMatch = message.match(/stage (\d+)/i);
       if (stageMatch) {
         const stageMap = {
-          '0': 'Stage 0 - Qualifying',
+          '0': 'Stage 0 - Prospecting',
           '1': 'Stage 1 - Discovery',
           '2': 'Stage 2 - SQO',
           '3': 'Stage 3 - Pilot',
@@ -1713,11 +1713,11 @@ Business Context:
       } else if (message.includes('mid stage') || message.includes('mid-stage') || message.includes('stage 2')) {
         entities.stages = ['Stage 2 - SQO'];
       } else if (message.includes('early stage') || message.includes('early-stage')) {
-        entities.stages = ['Stage 0 - Qualifying', 'Stage 1 - Discovery'];
+        entities.stages = ['Stage 0 - Prospecting', 'Stage 1 - Discovery'];
       } else if (message.includes('stage 1')) {
         entities.stages = ['Stage 1 - Discovery'];
       } else if (message.includes('stage 0')) {
-        entities.stages = ['Stage 0 - Qualifying'];
+        entities.stages = ['Stage 0 - Prospecting'];
       }
       
       return {
@@ -1736,7 +1736,7 @@ Business Context:
     else if (message.includes('early stage') || message.includes('early-stage')) {
       intent = 'pipeline_summary';
       entities.isClosed = false;
-      entities.stages = ['Stage 0 - Qualifying', 'Stage 1 - Discovery'];
+      entities.stages = ['Stage 0 - Prospecting', 'Stage 1 - Discovery'];
     } else if (message.includes('mid stage') || message.includes('mid-stage')) {
       intent = 'pipeline_summary';
       entities.isClosed = false;
@@ -1751,7 +1751,7 @@ Business Context:
     else if (message.includes('stage 0') || message.includes('qualifying')) {
       intent = 'pipeline_summary';
       entities.isClosed = false;
-      entities.stages = ['Stage 0 - Qualifying'];
+      entities.stages = ['Stage 0 - Prospecting'];
     } else if (message.includes('stage 1') || message.includes('discovery')) {
       intent = 'pipeline_summary';
       entities.isClosed = false;
@@ -2043,12 +2043,12 @@ Business Context:
       const stageMatch = message.match(/stage (\d+)/i) || message.match(/(qualifying|discovery|sqo|pilot|proposal)/i);
       if (stageMatch) {
         const stageMap = {
-          '0': 'Stage 0 - Qualifying',
+          '0': 'Stage 0 - Prospecting',
           '1': 'Stage 1 - Discovery',
           '2': 'Stage 2 - SQO',
           '3': 'Stage 3 - Pilot', 
           '4': 'Stage 4 - Proposal',
-          'qualifying': 'Stage 0 - Qualifying',
+          'qualifying': 'Stage 0 - Prospecting',
           'discovery': 'Stage 1 - Discovery',
           'sqo': 'Stage 2 - SQO',
           'pilot': 'Stage 3 - Pilot',

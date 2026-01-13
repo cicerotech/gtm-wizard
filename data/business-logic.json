@@ -40,7 +40,7 @@
   },
   "stage_groups": {
     "active": {
-      "stages": ["Stage 0 - Qualifying", "Stage 1 - Discovery", "Stage 2 - SQO", "Stage 3 - Pilot", "Stage 4 - Proposal"],
+      "stages": ["Stage 0 - Prospecting", "Stage 1 - Discovery", "Stage 2 - SQO", "Stage 3 - Pilot", "Stage 4 - Proposal"],
       "label": "Active Pipeline",
       "description": "All active pipeline stages"
     },
@@ -142,7 +142,7 @@
     }
   },
   "stage_mapping": {
-    "Stage 0 - Qualifying": "Stage 0 - Qualifying",
+    "Stage 0 - Prospecting": "Stage 0 - Prospecting",
     "Stage 1 - Discovery": "Stage 1 - Discovery", 
     "Stage 2 - SQO": "Stage 2 - SQO",
     "Stage 3 - Pilot": "Stage 3 - Pilot",

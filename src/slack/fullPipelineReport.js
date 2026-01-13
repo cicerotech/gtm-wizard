@@ -36,7 +36,7 @@ async function generateFullPipelineExcel() {
     'Stage 1 - Discovery': 4,
     'Stage 1. Discovery': 4,
     'Stage 0 - Prospecting': 5,
-    'Stage 0. Qualifying': 5
+    'Stage 0. Prospecting': 5
   };
   
   if (data && data.records) {
@@ -165,7 +165,7 @@ async function sendFullPipelineToSlack(client, channelId, userId) {
     if (stage3Count > 0) message += `• Stage 3 (Pilot): ${stage3Count}\n`;
     if (stage2Count > 0) message += `• Stage 2 (SQO): ${stage2Count}\n`;
     if (stage1Count > 0) message += `• Stage 1 (Discovery): ${stage1Count}\n`;
-    if (stage0Count > 0) message += `• Stage 0 (Qualifying): ${stage0Count}\n`;
+    if (stage0Count > 0) message += `• Stage 0 (Prospecting): ${stage0Count}\n`;
     if (stage5Count > 0) message += `• Stage 5 (Negotiation): ${stage5Count}\n`;
     message += `\n_Sorted by stage (late to early), then by ACV. All product lines included._`;
 

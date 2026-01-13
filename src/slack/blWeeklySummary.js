@@ -211,11 +211,11 @@ async function queryPipelineData() {
 /**
  * Query current logos by Account.Customer_Type__c and Customer_Subtype__c
  * 
- * Customer_Type__c = "Existing" or "New" (top level distinction)
- * Customer_Subtype__c = MSA, Pilot, LOI (second level breakdown for Existing)
+ * Customer_Subtype__c = "Existing" or "New" (top level distinction)
+ * Customer_Type__c = "Revenue", "Pilot", "LOI..." (second level breakdown for Existing)
  * 
- * Primary count: Customer_Type__c = 'Existing'
- * Breakdown: Customer_Subtype__c values (MSA, Pilot, LOI)
+ * Primary count: Customer_Subtype__c = 'Existing'
+ * Breakdown: Customer_Type__c values mapped to MSA, Pilot, LOI
  * 
  * Mapping aligned with accountDashboard.js for consistency
  */
@@ -223,23 +223,23 @@ async function queryLogosByType() {
   try {
     logger.info('Querying logos by type from Salesforce...');
     
-    // DIAGNOSTIC: First query to see what Customer_Subtype__c values actually exist
+    // DIAGNOSTIC: First query to see what Customer_Type__c values actually exist
     const diagnosticSoql = `
-      SELECT Customer_Subtype__c, COUNT(Id) cnt
+      SELECT Customer_Type__c, COUNT(Id) cnt
       FROM Account
-      WHERE Customer_Subtype__c != null
-      GROUP BY Customer_Subtype__c
+      WHERE Customer_Subtype__c = 'Existing'
+      GROUP BY Customer_Type__c
     `;
     
     try {
       const diagResult = await query(diagnosticSoql, true);
       if (diagResult && diagResult.records) {
-        logger.info('DIAGNOSTIC - Customer_Subtype__c values in Salesforce:');
+        logger.info('DIAGNOSTIC - Customer_Type__c values for Existing accounts:');
         diagResult.records.forEach(r => {
-          logger.info(`  - "${r.Customer_Subtype__c}": ${r.cnt} accounts`);
+          logger.info(`  - "${r.Customer_Type__c}": ${r.cnt} accounts`);
         });
       } else {
-        logger.warn('DIAGNOSTIC - No Customer_Subtype__c values found in any accounts');
+        logger.warn('DIAGNOSTIC - No Customer_Type__c values found for Existing accounts');
       }
     } catch (diagErr) {
       logger.warn('DIAGNOSTIC query failed (non-critical):', diagErr.message);
@@ -248,15 +248,15 @@ async function queryLogosByType() {
     const soql = `
       SELECT Name, Customer_Type__c, Customer_Subtype__c, First_Deal_Closed__c
       FROM Account
-      WHERE Customer_Type__c = 'Existing'
-      ORDER BY Customer_Subtype__c, Name
+      WHERE Customer_Subtype__c = 'Existing'
+      ORDER BY Customer_Type__c, Name
     `;
     
     // Enable caching (5 min TTL) to avoid SF rate limits when multiple reports run back-to-back
     const result = await query(soql, true);
     
     if (!result || !result.records) {
-      logger.warn('No logos found with Customer_Type__c = Existing');
+      logger.warn('No logos found with Customer_Subtype__c = Existing');
       return { 
         existing: [], 
         msa: [], 
@@ -268,21 +268,21 @@ async function queryLogosByType() {
       };
     }
     
-    logger.info(`Found ${result.records.length} accounts with Customer_Type__c = 'Existing'`);
+    logger.info(`Found ${result.records.length} accounts with Customer_Subtype__c = 'Existing'`);
     
     // Initialize counts
     const logos = { 
-      existing: [],   // All existing customers (Customer_Type__c = 'Existing')
-      msa: [],        // MSA customers (Customer_Subtype__c = 'MSA')
-      pilot: [],      // Pilot customers (Customer_Subtype__c = 'Pilot')
-      loi: [],        // LOI customers (Customer_Subtype__c = 'LOI')
+      existing: [],   // All existing customers (Customer_Subtype__c = 'Existing')
+      msa: [],        // MSA/Revenue customers (Customer_Type__c = 'Revenue')
+      pilot: [],      // Pilot customers (Customer_Type__c = 'Pilot')
+      loi: [],        // LOI customers (Customer_Type__c contains 'LOI')
       // Legacy fields for backward compatibility
       revenue: [], 
       project: []
     };
     
     result.records.forEach(acc => {
-      const subtype = (acc.Customer_Subtype__c || '').toLowerCase().trim();
+      const type = (acc.Customer_Type__c || '').toLowerCase().trim();
       const entry = { name: acc.Name, firstClosed: acc.First_Deal_Closed__c };
       
       // Log first few records for debugging
@@ -290,22 +290,22 @@ async function queryLogosByType() {
         logger.info(`  Sample account: "${acc.Name}" - Customer_Type__c="${acc.Customer_Type__c}", Customer_Subtype__c="${acc.Customer_Subtype__c}"`);
       }
       
-      // All records with Customer_Type__c = 'Existing' are existing customers
+      // All records with Customer_Subtype__c = 'Existing' are existing customers
       logos.existing.push(entry);
       
-      // Categorize by Customer_Subtype__c for breakdown
-      // Customer_Subtype__c values: MSA, Pilot, LOI
-      if (subtype === 'msa' || subtype.includes('revenue') || subtype === 'arr' || subtype === 'recurring') {
+      // Categorize by Customer_Type__c for breakdown
+      // Customer_Type__c values: Revenue, Pilot, LOI (with $ attached), LOI (no $ attached)
+      if (type.includes('revenue') || type.includes('msa') || type === 'arr' || type === 'recurring') {
         logos.msa.push(entry);
         logos.revenue.push(entry); // Legacy
-      } else if (subtype === 'pilot' || subtype.includes('pilot')) {
+      } else if (type.includes('pilot')) {
         logos.pilot.push(entry);
-      } else if (subtype === 'loi' || subtype.includes('loi') || subtype.includes('commitment')) {
+      } else if (type.includes('loi') || type.includes('commitment')) {
         logos.loi.push(entry);
-      } else if (subtype.includes('project')) {
+      } else if (type.includes('project')) {
         logos.project.push(entry);
       }
-      // Note: If Customer_Subtype__c is null/empty but Customer_Type__c is Existing,
+      // Note: If Customer_Type__c is null/empty but Customer_Subtype__c is Existing,
       // they count toward existing total but not toward any breakdown category
     });
     

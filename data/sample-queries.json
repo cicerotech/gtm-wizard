@@ -184,7 +184,7 @@
       "query": "show me qualifying stage pipeline",
       "intent": "pipeline_summary",
       "entities": {
-        "stages": ["Stage 0 - Qualifying"],
+        "stages": ["Stage 0 - Prospecting"],
         "isClosed": false
       },
       "description": "Early stage qualification pipeline"

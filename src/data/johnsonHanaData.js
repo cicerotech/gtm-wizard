@@ -6,7 +6,7 @@
 
 // Stage mapping from Johnson Hana → Eudia format
 const stageMapping = {
-  'Stage 0 Qualifying': 'Stage 0 - Qualifying',
+  'Stage 0 Qualifying': 'Stage 0 - Prospecting',
   'Stage 1 Discovery': 'Stage 1 - Discovery',
   'Stage 2 SQO (Sales Qualified Op)': 'Stage 2 - SQO',
   'Stage 3 Pilot (Optional)': 'Stage 3 - Pilot',
@@ -302,7 +302,7 @@ function getOpportunitiesByStage() {
     'Stage 3 - Pilot': [],
     'Stage 2 - SQO': [],
     'Stage 1 - Discovery': [],
-    'Stage 0 - Qualifying': []
+    'Stage 0 - Prospecting': []
   };
   
   activePipeline.forEach(o => {
