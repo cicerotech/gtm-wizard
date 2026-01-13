@@ -35,7 +35,7 @@ async function generateFullPipelineExcel() {
     'Stage 2. SQO': 3,
     'Stage 1 - Discovery': 4,
     'Stage 1. Discovery': 4,
-    'Stage 0 - Qualifying': 5,
+    'Stage 0 - Prospecting': 5,
     'Stage 0. Qualifying': 5
   };
   

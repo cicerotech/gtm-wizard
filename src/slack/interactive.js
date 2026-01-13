@@ -293,9 +293,9 @@ function createQueryBuilderModal() {
             {
               text: {
                 type: 'plain_text',
-                text: 'Stage 0 - Qualifying'
+                text: 'Stage 0 - Prospecting'
               },
-              value: 'Stage 0 - Qualifying'
+              value: 'Stage 0 - Prospecting'
             },
             {
               text: {

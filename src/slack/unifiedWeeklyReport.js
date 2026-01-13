@@ -120,7 +120,7 @@ async function sendUnifiedWeeklyReport(app, testMode = false, targetChannel = nu
       if (stage3Count > 0) message += `• Stage 3 - Pilot: ${stage3Count}\n`;
       if (stage2Count > 0) message += `• Stage 2 - SQO: ${stage2Count}\n`;
       if (stage1Count > 0) message += `• Stage 1 - Discovery: ${stage1Count}\n`;
-      if (stage0Count > 0) message += `• Stage 0 - Qualifying: ${stage0Count}\n`;
+      if (stage0Count > 0) message += `• Stage 0 - Prospecting: ${stage0Count}\n`;
       message += `\n_See attached Excel for full pipeline data and late-stage summary._`;
       
       // Upload to Slack

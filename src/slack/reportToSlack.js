@@ -28,7 +28,7 @@ async function generatePipelineExcel() {
                        FROM Opportunity
                        WHERE IsClosed = false
                          AND StageName IN (
-                           'Stage 0 - Qualifying',
+                           'Stage 0 - Prospecting',
                            'Stage 1 - Discovery',
                            'Stage 2 - SQO',
                            'Stage 3 - Pilot',
@@ -49,7 +49,7 @@ async function generatePipelineExcel() {
     'Stage 3 - Pilot': 2,
     'Stage 2 - SQO': 3,
     'Stage 1 - Discovery': 4,
-    'Stage 0 - Qualifying': 5
+    'Stage 0 - Prospecting': 5
   };
 
   data.records.sort((a, b) => {
@@ -64,7 +64,7 @@ async function generatePipelineExcel() {
   const stage3Count = data.records.filter(r => r.StageName === 'Stage 3 - Pilot').length;
   const stage2Count = data.records.filter(r => r.StageName === 'Stage 2 - SQO').length;
   const stage1Count = data.records.filter(r => r.StageName === 'Stage 1 - Discovery').length;
-  const stage0Count = data.records.filter(r => r.StageName === 'Stage 0 - Qualifying').length;
+  const stage0Count = data.records.filter(r => r.StageName === 'Stage 0 - Prospecting').length;
   
   const totalACV = data.records.reduce((sum, r) => sum + (r.ACV__c || 0), 0);
   
@@ -315,7 +315,7 @@ async function sendPipelineReportToSlack(client, channelId, userId) {
     if (stage3Count > 0) message += `• Stage 3 - Pilot: ${stage3Count}\n`;
     if (stage2Count > 0) message += `• Stage 2 - SQO: ${stage2Count}\n`;
     if (stage1Count > 0) message += `• Stage 1 - Discovery: ${stage1Count}\n`;
-    if (stage0Count > 0) message += `• Stage 0 - Qualifying: ${stage0Count}\n`;
+    if (stage0Count > 0) message += `• Stage 0 - Prospecting: ${stage0Count}\n`;
     message += `\nTargeting Signature this Month: ${thisMonthCount}\n\n`;
     message += `_Excel includes 2 tabs: Raw Pipeline + Late Stage Summary_`;
 

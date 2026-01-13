@@ -166,7 +166,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   console.log(`[Dashboard] Closed Revenue Total: Eudia=$${eudiaRevenueTotal}, JH=$${jhClosedTotal}, Combined=$${combinedClosedTotal}, Count=${combinedClosedCount}`);
   
   // Eudia stage order
-  const stageOrder = ['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'];
+  const stageOrder = ['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Prospecting'];
   
   // JH Service lines breakdown
   const jhServiceLines = {};
@@ -647,7 +647,7 @@ function generateWeeklyTab(params) {
   // Last week's combined baseline values (Dec 12, 2025 - from SF report screenshot)
   // NOTE: S5 Negotiation is blended into S4 Proposal for reporting simplicity
   const lastWeekBaseline = {
-    'Stage 0 - Qualifying': { acv: 5000000, oppCount: 61 },
+    'Stage 0 - Prospecting': { acv: 5000000, oppCount: 61 },
     'Stage 1 - Discovery': { acv: 13100000, oppCount: 105 },
     'Stage 2 - SQO': { acv: 10700000, oppCount: 50 },
     'Stage 3 - Pilot': { acv: 325000, oppCount: 3 },
@@ -681,11 +681,11 @@ function generateWeeklyTab(params) {
   
   const stageWoW = [
     { 
-      stage: 'Stage 0 - Qualifying', 
-      acv: (stageBreakdown['Stage 0 - Qualifying']?.totalACV || 0) + getJHStageValue('Stage 0 - Qualifying', 'totalACV'), 
-      oppCount: (stageBreakdown['Stage 0 - Qualifying']?.count || 0) + getJHStageValue('Stage 0 - Qualifying', 'count'),
-      lastAcv: lastWeekBaseline['Stage 0 - Qualifying'].acv,
-      lastOppCount: lastWeekBaseline['Stage 0 - Qualifying'].oppCount
+      stage: 'Stage 0 - Prospecting', 
+      acv: (stageBreakdown['Stage 0 - Prospecting']?.totalACV || 0) + getJHStageValue('Stage 0 - Prospecting', 'totalACV'), 
+      oppCount: (stageBreakdown['Stage 0 - Prospecting']?.count || 0) + getJHStageValue('Stage 0 - Prospecting', 'count'),
+      lastAcv: lastWeekBaseline['Stage 0 - Prospecting'].acv,
+      lastOppCount: lastWeekBaseline['Stage 0 - Prospecting'].oppCount
     },
     { 
       stage: 'Stage 1 - Discovery', 
@@ -1899,7 +1899,7 @@ async function generateAccountDashboard() {
                                 COUNT(Id) DealCount
                          FROM Opportunity
                          WHERE IsClosed = false 
-                           AND StageName IN ('Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
+                           AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
                          GROUP BY StageName`;
   
   const pipelineData = await query(pipelineQuery, true);
@@ -1928,7 +1928,7 @@ async function generateAccountDashboard() {
                                Target_LOI_Date__c, Johnson_Hana_Owner__c, Eudia_Tech__c, Sales_Type__c
                         FROM Opportunity
                         WHERE IsClosed = false
-                          AND StageName IN ('Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
+                          AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
                         ORDER BY StageName DESC, Account.Name`;
   
   const accountData = await query(accountQuery, true);
@@ -2139,7 +2139,7 @@ async function generateAccountDashboard() {
     'Stage 3 - Pilot': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
     'Stage 2 - SQO': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
     'Stage 1 - Discovery': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
-    'Stage 0 - Qualifying': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
+    'Stage 0 - Prospecting': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 },
     'Stage 5 - Negotiation': { accounts: [], totalACV: 0, weightedACV: 0, count: 0 } // Blended into S4 for display
   };
   
@@ -2162,7 +2162,7 @@ async function generateAccountDashboard() {
   
   // Group by BL with stage breakdown
   const blBreakdown = {};
-  const stageOrder = ['Stage 5 - Negotiation', 'Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Qualifying'];
+  const stageOrder = ['Stage 5 - Negotiation', 'Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Prospecting'];
   accountData.records.forEach(opp => {
     const blName = opp.Owner?.Name || 'Unassigned';
     const stage = opp.StageName || 'Unknown';

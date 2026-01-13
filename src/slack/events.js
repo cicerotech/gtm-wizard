@@ -2094,7 +2094,7 @@ function buildContractQuery(entities) {
 function buildWeightedSummaryQuery(entities) {
   // Only include active stages (0-4)
   const activeStages = [
-    'Stage 0 - Qualifying',
+    'Stage 0 - Prospecting',
     'Stage 1 - Discovery',
     'Stage 2 - SQO',
     'Stage 3 - Pilot',
@@ -2522,7 +2522,7 @@ function formatWeightedSummary(queryResult, parsedIntent) {
     'Stage 3 - Pilot': 2,
     'Stage 2 - SQO': 3,
     'Stage 1 - Discovery': 4,
-    'Stage 0 - Qualifying': 5
+    'Stage 0 - Prospecting': 5
   };
   
   const activeStages = records
@@ -2547,7 +2547,7 @@ function formatWeightedSummary(queryResult, parsedIntent) {
 function formatAverageDaysResults(queryResult, parsedIntent) {
   // Default values from Days in Stage report
   const defaultAverages = {
-    'Stage 0 - Qualifying': 46,
+    'Stage 0 - Prospecting': 46,
     'Stage 1 - Discovery': 34,
     'Stage 2 - SQO': 43,
     'Stage 3 - Pilot': 84,
@@ -4681,7 +4681,7 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
     
     // Map stage number to full stage name
     const stageMap = {
-      '0': 'Stage 0 - Qualifying',
+      '0': 'Stage 0 - Prospecting',
       '1': 'Stage 1 - Discovery',
       '2': 'Stage 2 - SQO',
       '3': 'Stage 3 - Pilot',
@@ -5440,7 +5440,7 @@ async function handleWeightedPipelineQuery(parsedIntent, userId, channelId, clie
       'Stage 3 - Pilot': 2,
       'Stage 2 - SQO': 3,
       'Stage 1 - Discovery': 4,
-      'Stage 0 - Qualifying': 5
+      'Stage 0 - Prospecting': 5
     };
     
     const sorted = records.sort((a, b) => (stageOrder[a.StageName] || 99) - (stageOrder[b.StageName] || 99));
