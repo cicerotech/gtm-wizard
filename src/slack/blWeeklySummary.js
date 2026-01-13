@@ -518,6 +518,325 @@ async function queryActiveRevenue() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PAGE 1 REVOPS QUERY FUNCTIONS
+// These power the RevOps dashboard metrics on Page 1 of the weekly snapshot
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Query New Business weighted ACV from active pipeline
+ * Sales_Type__c = 'New business' AND IsClosed = false
+ */
+async function queryNewBusinessWeightedACV() {
+  try {
+    logger.info('Querying New Business weighted ACV...');
+    
+    const soql = `
+      SELECT SUM(ACV__c) totalACV, SUM(Finance_Weighted_ACV__c) weightedACV, COUNT(Id) dealCount
+      FROM Opportunity
+      WHERE Sales_Type__c = 'New business'
+        AND IsClosed = false
+        AND StageName IN ('Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
+    `;
+    
+    const result = await query(soql, true);
+    
+    if (!result || !result.records || result.records.length === 0) {
+      return { totalACV: 0, weightedACV: 0, dealCount: 0 };
+    }
+    
+    const row = result.records[0];
+    const data = {
+      totalACV: row.totalACV || 0,
+      weightedACV: row.weightedACV || 0,
+      dealCount: row.dealCount || 0
+    };
+    
+    logger.info(`New Business: $${(data.weightedACV/1000000).toFixed(2)}M weighted (${data.dealCount} deals)`);
+    return data;
+    
+  } catch (error) {
+    logger.error('Failed to query New Business weighted ACV:', error);
+    return { totalACV: 0, weightedACV: 0, dealCount: 0 };
+  }
+}
+
+/**
+ * Query Q4 weighted pipeline (Oct-Dec targeting)
+ */
+async function queryQ4WeightedPipeline() {
+  try {
+    logger.info('Querying Q4 weighted pipeline...');
+    
+    // Q4 is October 1 - December 31 of current fiscal year
+    const now = new Date();
+    const year = now.getMonth() >= 9 ? now.getFullYear() : now.getFullYear() - 1; // Q4 starts in October
+    const q4Start = `${year}-10-01`;
+    const q4End = `${year}-12-31`;
+    
+    const soql = `
+      SELECT SUM(ACV__c) totalACV, SUM(Finance_Weighted_ACV__c) weightedACV, COUNT(Id) dealCount
+      FROM Opportunity
+      WHERE IsClosed = false
+        AND Target_LOI_Date__c >= ${q4Start}
+        AND Target_LOI_Date__c <= ${q4End}
+        AND StageName IN ('Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
+    `;
+    
+    const result = await query(soql, true);
+    
+    if (!result || !result.records || result.records.length === 0) {
+      return { totalACV: 0, weightedACV: 0, dealCount: 0 };
+    }
+    
+    const row = result.records[0];
+    const data = {
+      totalACV: row.totalACV || 0,
+      weightedACV: row.weightedACV || 0,
+      dealCount: row.dealCount || 0
+    };
+    
+    logger.info(`Q4 Pipeline: $${(data.weightedACV/1000000).toFixed(2)}M weighted (${data.dealCount} deals)`);
+    return data;
+    
+  } catch (error) {
+    logger.error('Failed to query Q4 weighted pipeline:', error);
+    return { totalACV: 0, weightedACV: 0, dealCount: 0 };
+  }
+}
+
+/**
+ * Query signed revenue Quarter-to-Date (Closed Won this quarter)
+ */
+async function querySignedRevenueQTD() {
+  try {
+    logger.info('Querying signed revenue QTD...');
+    
+    // Calculate current quarter start date
+    const now = new Date();
+    const quarter = Math.floor(now.getMonth() / 3);
+    const quarterStart = new Date(now.getFullYear(), quarter * 3, 1);
+    const quarterStartStr = quarterStart.toISOString().split('T')[0];
+    
+    const soql = `
+      SELECT SUM(ACV__c) totalACV, COUNT(Id) dealCount
+      FROM Opportunity
+      WHERE StageName = 'Stage 6. Closed(Won)'
+        AND CloseDate >= ${quarterStartStr}
+    `;
+    
+    const result = await query(soql, true);
+    
+    if (!result || !result.records || result.records.length === 0) {
+      return { totalACV: 0, dealCount: 0 };
+    }
+    
+    const row = result.records[0];
+    const data = {
+      totalACV: row.totalACV || 0,
+      dealCount: row.dealCount || 0
+    };
+    
+    logger.info(`Signed QTD: $${(data.totalACV/1000000).toFixed(2)}M (${data.dealCount} deals)`);
+    return data;
+    
+  } catch (error) {
+    logger.error('Failed to query signed revenue QTD:', error);
+    return { totalACV: 0, dealCount: 0 };
+  }
+}
+
+/**
+ * Query signed revenue in last 7 days
+ */
+async function querySignedRevenueLastWeek() {
+  try {
+    logger.info('Querying signed revenue last week...');
+    
+    const now = new Date();
+    const weekAgo = new Date(now);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const weekAgoStr = weekAgo.toISOString().split('T')[0];
+    
+    const soql = `
+      SELECT SUM(ACV__c) totalACV, COUNT(Id) dealCount
+      FROM Opportunity
+      WHERE StageName = 'Stage 6. Closed(Won)'
+        AND CloseDate >= ${weekAgoStr}
+    `;
+    
+    const result = await query(soql, true);
+    
+    if (!result || !result.records || result.records.length === 0) {
+      return { totalACV: 0, dealCount: 0 };
+    }
+    
+    const row = result.records[0];
+    const data = {
+      totalACV: row.totalACV || 0,
+      dealCount: row.dealCount || 0
+    };
+    
+    logger.info(`Signed Last Week: $${(data.totalACV/1000000).toFixed(2)}M (${data.dealCount} deals)`);
+    return data;
+    
+  } catch (error) {
+    logger.error('Failed to query signed revenue last week:', error);
+    return { totalACV: 0, dealCount: 0 };
+  }
+}
+
+/**
+ * Query Top 10 deals targeting January (current year)
+ */
+async function queryTop10TargetingJanuary() {
+  try {
+    logger.info('Querying top 10 deals targeting January...');
+    
+    const now = new Date();
+    const year = now.getFullYear();
+    const janStart = `${year}-01-01`;
+    const janEnd = `${year}-01-31`;
+    
+    const soql = `
+      SELECT Id, Name, Account.Name, ACV__c, Finance_Weighted_ACV__c, Target_LOI_Date__c, 
+             StageName, Owner.Name, Sales_Type__c
+      FROM Opportunity
+      WHERE IsClosed = false
+        AND Target_LOI_Date__c >= ${janStart}
+        AND Target_LOI_Date__c <= ${janEnd}
+      ORDER BY ACV__c DESC
+      LIMIT 10
+    `;
+    
+    const result = await query(soql, true);
+    
+    if (!result || !result.records) {
+      return { deals: [], totalACV: 0 };
+    }
+    
+    const deals = result.records.map(opp => ({
+      id: opp.Id,
+      name: opp.Name,
+      accountName: opp.Account?.Name || 'Unknown',
+      acv: opp.ACV__c || 0,
+      weightedACV: opp.Finance_Weighted_ACV__c || 0,
+      targetDate: opp.Target_LOI_Date__c,
+      stage: opp.StageName,
+      owner: opp.Owner?.Name,
+      salesType: opp.Sales_Type__c
+    }));
+    
+    const totalACV = deals.reduce((sum, d) => sum + d.acv, 0);
+    
+    logger.info(`Top 10 January: ${deals.length} deals, $${(totalACV/1000000).toFixed(2)}M`);
+    return { deals, totalACV };
+    
+  } catch (error) {
+    logger.error('Failed to query top 10 targeting January:', error);
+    return { deals: [], totalACV: 0 };
+  }
+}
+
+/**
+ * Query Top 10 deals targeting Q1 (Jan-Mar current year)
+ */
+async function queryTop10TargetingQ1() {
+  try {
+    logger.info('Querying top 10 deals targeting Q1...');
+    
+    const now = new Date();
+    const year = now.getFullYear();
+    const q1Start = `${year}-01-01`;
+    const q1End = `${year}-03-31`;
+    
+    const soql = `
+      SELECT Id, Name, Account.Name, ACV__c, Finance_Weighted_ACV__c, Target_LOI_Date__c, 
+             StageName, Owner.Name, Sales_Type__c
+      FROM Opportunity
+      WHERE IsClosed = false
+        AND Target_LOI_Date__c >= ${q1Start}
+        AND Target_LOI_Date__c <= ${q1End}
+      ORDER BY ACV__c DESC
+      LIMIT 10
+    `;
+    
+    const result = await query(soql, true);
+    
+    if (!result || !result.records) {
+      return { deals: [], totalACV: 0 };
+    }
+    
+    const deals = result.records.map(opp => ({
+      id: opp.Id,
+      name: opp.Name,
+      accountName: opp.Account?.Name || 'Unknown',
+      acv: opp.ACV__c || 0,
+      weightedACV: opp.Finance_Weighted_ACV__c || 0,
+      targetDate: opp.Target_LOI_Date__c,
+      stage: opp.StageName,
+      owner: opp.Owner?.Name,
+      salesType: opp.Sales_Type__c
+    }));
+    
+    const totalACV = deals.reduce((sum, d) => sum + d.acv, 0);
+    
+    logger.info(`Top 10 Q1: ${deals.length} deals, $${(totalACV/1000000).toFixed(2)}M`);
+    return { deals, totalACV };
+    
+  } catch (error) {
+    logger.error('Failed to query top 10 targeting Q1:', error);
+    return { deals: [], totalACV: 0 };
+  }
+}
+
+/**
+ * Query pipeline grouped by Sales Type
+ * Returns breakdown: New business, Expansion, Renewal, Eudia Counsel
+ */
+async function queryPipelineBySalesType() {
+  try {
+    logger.info('Querying pipeline by Sales Type...');
+    
+    const soql = `
+      SELECT Sales_Type__c, SUM(ACV__c) totalACV, SUM(Finance_Weighted_ACV__c) weightedACV, COUNT(Id) dealCount
+      FROM Opportunity
+      WHERE IsClosed = false
+        AND StageName IN ('Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
+      GROUP BY Sales_Type__c
+      ORDER BY Sales_Type__c
+    `;
+    
+    const result = await query(soql, true);
+    
+    if (!result || !result.records) {
+      return { byType: {}, totalACV: 0, totalWeighted: 0 };
+    }
+    
+    const byType = {};
+    let totalACV = 0;
+    let totalWeighted = 0;
+    
+    result.records.forEach(row => {
+      const salesType = row.Sales_Type__c || 'Unassigned';
+      byType[salesType] = {
+        totalACV: row.totalACV || 0,
+        weightedACV: row.weightedACV || 0,
+        dealCount: row.dealCount || 0
+      };
+      totalACV += row.totalACV || 0;
+      totalWeighted += row.weightedACV || 0;
+    });
+    
+    logger.info(`Pipeline by Sales Type: ${Object.keys(byType).length} types, $${(totalWeighted/1000000).toFixed(2)}M weighted`);
+    return { byType, totalACV, totalWeighted };
+    
+  } catch (error) {
+    logger.error('Failed to query pipeline by Sales Type:', error);
+    return { byType: {}, totalACV: 0, totalWeighted: 0 };
+  }
+}
+
 /**
  * Check if date is in current month
  */
