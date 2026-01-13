@@ -648,6 +648,7 @@ async function queryQ4WeightedPipeline() {
     logger.info(`Fiscal Q4 date range: ${q4StartStr} to ${q4EndStr}`);
     
     // Filter by Target_LOI_Date__c within fiscal Q4
+    // Only include New Business and Expansion (exclude Renewal)
     const soql = `
       SELECT SUM(ACV__c) totalACV, SUM(Finance_Weighted_ACV__c) weightedACV, COUNT(Id) dealCount
       FROM Opportunity
@@ -655,6 +656,7 @@ async function queryQ4WeightedPipeline() {
         AND StageName IN ('Stage 0 - Qualifying', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
         AND Target_LOI_Date__c >= ${q4StartStr}
         AND Target_LOI_Date__c <= ${q4EndStr}
+        AND Sales_Type__c IN ('New business', 'Expansion / Upsell')
     `;
     
     const result = await query(soql, true);
@@ -1422,18 +1424,22 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
       doc.text(`${type.toUpperCase()} (${data.deals.length})`, signedX, y);
       y += 14;
       
-      // Show top deals for this type (8pt regular, increased spacing)
+      // Show top deals for this type (8pt regular, clean compact format)
       data.deals.slice(0, 2).forEach(deal => {
         const dealValue = deal.acv >= 1000000 
           ? `$${(deal.acv / 1000000).toFixed(1)}m`
           : `$${(deal.acv / 1000).toFixed(0)}k`;
-        // Truncate account name to 15 chars to prevent overflow
-        const name = deal.accountName.length > 15 ? deal.accountName.substring(0, 15) + '...' : deal.accountName;
-        // Format product line: replace underscores with dashes
-        const formattedProductLine = formatProductLine(deal.productLine);
+        // Truncate account name to 12 chars for compact display
+        const name = deal.accountName.length > 12 ? deal.accountName.substring(0, 12) + '...' : deal.accountName;
+        // Format product line: replace underscores with dashes, truncate to 20 chars
+        let formattedProductLine = formatProductLine(deal.productLine);
+        if (formattedProductLine.length > 20) {
+          formattedProductLine = formattedProductLine.substring(0, 20) + '...';
+        }
+        // Compact format: remove salesType (redundant with RECURRING/PROJECT header)
         doc.font(fontRegular).fontSize(8).fillColor(BODY_TEXT);
-        doc.text(`• ${dealValue}, ${name} | ${deal.salesType || 'N/A'}, ${formattedProductLine}`, signedX + 4, y);
-        y += 14; // Increased from 12 to prevent line overlap
+        doc.text(`• ${dealValue}, ${name} | ${formattedProductLine}`, signedX + 4, y);
+        y += 14;
       });
       y += 10; // Increased from 6 for better section separation
     }

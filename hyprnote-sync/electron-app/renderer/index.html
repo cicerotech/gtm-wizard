@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Eudia Meeting Sync</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #ffffff;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    
+    .header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #00d4aa;
+    }
+    
+    .header p {
+      color: #8892b0;
+      font-size: 14px;
+    }
+    
+    .status-card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    
+    .status-dot.ready { background: #00d4aa; }
+    .status-dot.syncing { background: #ffd93d; }
+    .status-dot.error { background: #ff6b6b; }
+    .status-dot.unconfigured { background: #8892b0; }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .status-text {
+      font-size: 16px;
+      font-weight: 500;
+    }
+    
+    .last-sync {
+      color: #8892b0;
+      font-size: 13px;
+    }
+    
+    .sync-btn {
+      width: 100%;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #1a1a2e;
+      background: linear-gradient(135deg, #00d4aa 0%, #00b894 100%);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .sync-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 212, 170, 0.3);
+    }
+    
+    .sync-btn:disabled {
+      background: #4a4a6a;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .recent-syncs {
+      margin-top: 24px;
+    }
+    
+    .recent-syncs h3 {
+      font-size: 14px;
+      color: #8892b0;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .sync-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .sync-item:last-child {
+      border-bottom: none;
+    }
+    
+    .sync-account {
+      font-weight: 500;
+    }
+    
+    .sync-time {
+      color: #8892b0;
+      font-size: 13px;
+    }
+    
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: rgba(0, 212, 170, 0.1);
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #00d4aa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      color: #1a1a2e;
+    }
+    
+    .user-details {
+      flex: 1;
+    }
+    
+    .user-name {
+      font-weight: 500;
+    }
+    
+    .user-email {
+      color: #8892b0;
+      font-size: 13px;
+    }
+    
+    .configure-link {
+      color: #00d4aa;
+      text-decoration: none;
+      font-size: 13px;
+    }
+    
+    .configure-link:hover {
+      text-decoration: underline;
+    }
+    
+    .footer {
+      text-align: center;
+      margin-top: 24px;
+      color: #8892b0;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Eudia Meeting Sync</h1>
+    <p>Hyprnote → Salesforce</p>
+  </div>
+  
+  <div id="user-section" class="user-info" style="display: none;">
+    <div class="user-avatar" id="user-initials">--</div>
+    <div class="user-details">
+      <div class="user-name" id="user-name">Not configured</div>
+      <div class="user-email" id="user-email">--</div>
+    </div>
+    <a href="#" class="configure-link" id="configure-btn">Configure</a>
+  </div>
+  
+  <div class="status-card">
+    <div class="status-indicator">
+      <div class="status-dot" id="status-dot"></div>
+      <span class="status-text" id="status-text">Checking...</span>
+    </div>
+    <div class="last-sync" id="last-sync"></div>
+  </div>
+  
+  <button class="sync-btn" id="sync-btn" disabled>
+    🔄 Sync Meetings Now
+  </button>
+  
+  <div class="recent-syncs" id="recent-syncs">
+    <h3>Recent Syncs</h3>
+    <div id="sync-list">
+      <p style="color: #8892b0; font-size: 14px;">No syncs yet</p>
+    </div>
+  </div>
+  
+  <div class="footer">
+    <p>Questions? Contact RevOps</p>
+  </div>
+  
+  <script>
+    const { ipcRenderer } = require('electron');
+    
+    async function init() {
+      // Load status
+      const status = await ipcRenderer.invoke('get-status');
+      const config = await ipcRenderer.invoke('get-config');
+      
+      updateUI(status, config);
+    }
+    
+    function updateUI(status, config) {
+      const statusDot = document.getElementById('status-dot');
+      const statusText = document.getElementById('status-text');
+      const lastSync = document.getElementById('last-sync');
+      const syncBtn = document.getElementById('sync-btn');
+      const userSection = document.getElementById('user-section');
+      
+      // User info
+      if (config && config.rep) {
+        userSection.style.display = 'flex';
+        document.getElementById('user-name').textContent = config.rep.name;
+        document.getElementById('user-email').textContent = config.rep.email;
+        
+        const initials = config.rep.name.split(' ').map(n => n[0]).join('').toUpperCase();
+        document.getElementById('user-initials').textContent = initials;
+      }
+      
+      // Status
+      if (!status.isConfigured) {
+        statusDot.className = 'status-dot unconfigured';
+        statusText.textContent = 'Not configured';
+        syncBtn.disabled = true;
+      } else {
+        switch (status.syncStatus) {
+          case 'idle':
+            statusDot.className = 'status-dot ready';
+            statusText.textContent = 'Ready to sync';
+            syncBtn.disabled = false;
+            break;
+          case 'syncing':
+            statusDot.className = 'status-dot syncing';
+            statusText.textContent = 'Syncing...';
+            syncBtn.disabled = true;
+            break;
+          case 'success':
+            statusDot.className = 'status-dot ready';
+            statusText.textContent = 'Sync complete';
+            syncBtn.disabled = false;
+            break;
+          case 'error':
+            statusDot.className = 'status-dot error';
+            statusText.textContent = 'Sync error';
+            syncBtn.disabled = false;
+            break;
+        }
+      }
+      
+      // Last sync time
+      if (status.lastSyncTime) {
+        const date = new Date(status.lastSyncTime);
+        lastSync.textContent = `Last synced: ${date.toLocaleString()}`;
+      } else {
+        lastSync.textContent = 'Never synced';
+      }
+    }
+    
+    // Sync button handler
+    document.getElementById('sync-btn').addEventListener('click', async () => {
+      await ipcRenderer.invoke('run-sync');
+      
+      // Poll for status updates
+      const pollStatus = async () => {
+        const status = await ipcRenderer.invoke('get-status');
+        const config = await ipcRenderer.invoke('get-config');
+        updateUI(status, config);
+        
+        if (status.syncStatus === 'syncing') {
+          setTimeout(pollStatus, 500);
+        }
+      };
+      
+      pollStatus();
+    });
+    
+    // Configure button
+    document.getElementById('configure-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      require('electron').remote.getCurrentWindow().close();
+      ipcRenderer.invoke('open-config');
+    });
+    
+    // Initialize
+    init();
+  </script>
+</body>
+</html>
+

@@ -154,7 +154,9 @@ async function main() {
         lookbackHours: 168,
         updateCustomerBrain: syncEnabled,
         createContacts: syncEnabled,
-        syncOwnedAccountsFirst: syncEnabled
+        syncOwnedAccountsFirst: syncEnabled,
+        exportToObsidian: false, // Enable for Obsidian vault export
+        obsidianVaultPath: null  // Uses default: ~/Documents/Obsidian/Sales Notes
       },
       setupDate: new Date().toISOString()
     };

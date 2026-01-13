@@ -2,7 +2,7 @@
  * Hyprnote Database Reader
  * 
  * Reads meeting sessions from Hyprnote's local SQLite database.
- * Handles both stable and nightly versions.
+ * Dynamically detects ANY Hyprnote version/installation.
  */
 
 const sqlite3 = require('sqlite3').verbose();
@@ -10,23 +10,108 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
-// Database paths for different Hyprnote versions
-const DB_PATHS = {
+// Known database paths (checked first for speed)
+const KNOWN_DB_PATHS = {
   stable: path.join(os.homedir(), 'Library/Application Support/com.hyprnote.stable/db.sqlite'),
   nightly: path.join(os.homedir(), 'Library/Application Support/com.hyprnote.nightly/db.sqlite'),
-  legacy: path.join(os.homedir(), 'Library/Application Support/hyprnote/db.sqlite')
+  legacy: path.join(os.homedir(), 'Library/Application Support/hyprnote/db.sqlite'),
+  app: path.join(os.homedir(), 'Library/Application Support/com.hyprnote.app/db.sqlite'),
+  dev: path.join(os.homedir(), 'Library/Application Support/com.hyprnote.dev/db.sqlite')
 };
+
+// Cache the found database to avoid repeated scans
+let cachedDatabase = null;
+
+/**
+ * Scan Application Support for any Hyprnote database
+ * This finds ANY version, even unknown future releases
+ */
+function scanForHyprnoteDatabase() {
+  const appSupport = path.join(os.homedir(), 'Library/Application Support');
+  
+  try {
+    const dirs = fs.readdirSync(appSupport);
+    
+    // Look for any folder containing 'hyprnote' or 'hypr'
+    for (const dir of dirs) {
+      const lowerDir = dir.toLowerCase();
+      if (lowerDir.includes('hyprnote') || lowerDir.includes('hypr')) {
+        const dbPath = path.join(appSupport, dir, 'db.sqlite');
+        if (fs.existsSync(dbPath)) {
+          console.log(`  Found Hyprnote database: ${dir}`);
+          return { version: dir, path: dbPath };
+        }
+        
+        // Also check for database in subdirectories
+        const dirPath = path.join(appSupport, dir);
+        if (fs.statSync(dirPath).isDirectory()) {
+          try {
+            const subFiles = fs.readdirSync(dirPath);
+            for (const file of subFiles) {
+              if (file === 'db.sqlite' || file.endsWith('.sqlite')) {
+                const fullPath = path.join(dirPath, file);
+                console.log(`  Found Hyprnote database: ${dir}/${file}`);
+                return { version: dir, path: fullPath };
+              }
+            }
+          } catch (e) {
+            // Can't read subdirectory, skip
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.log('Warning: Could not scan Application Support: ' + err.message);
+  }
+  
+  return null;
+}
 
 /**
  * Find the active Hyprnote database
+ * 1. First checks known paths for speed
+ * 2. Falls back to dynamic scan for unknown versions
+ * 3. Caches result for subsequent calls
  */
 function findDatabase() {
-  for (const [version, dbPath] of Object.entries(DB_PATHS)) {
+  // Return cached result if available
+  if (cachedDatabase) {
+    return cachedDatabase;
+  }
+  
+  // First, try known paths (fast)
+  for (const [version, dbPath] of Object.entries(KNOWN_DB_PATHS)) {
     if (fs.existsSync(dbPath)) {
-      return { version, path: dbPath };
+      cachedDatabase = { version, path: dbPath };
+      return cachedDatabase;
     }
   }
+  
+  // Fall back to dynamic scan (finds any version)
+  console.log('  Scanning for Hyprnote installation...');
+  const scannedResult = scanForHyprnoteDatabase();
+  if (scannedResult) {
+    cachedDatabase = scannedResult;
+    return cachedDatabase;
+  }
+  
   return null;
+}
+
+/**
+ * Clear the database cache (useful if user installs Hyprnote mid-session)
+ */
+function clearDatabaseCache() {
+  cachedDatabase = null;
+}
+
+/**
+ * Get all searched paths for error messages
+ */
+function getSearchedPaths() {
+  const paths = Object.values(KNOWN_DB_PATHS);
+  paths.push(path.join(os.homedir(), 'Library/Application Support/*hyprnote*/ (dynamic scan)'));
+  return paths;
 }
 
 /**
@@ -38,8 +123,8 @@ async function testConnection() {
   if (!dbInfo) {
     return {
       success: false,
-      error: 'Hyprnote database not found. Please ensure Hyprnote is installed.',
-      searchedPaths: Object.values(DB_PATHS)
+      error: 'Hyprnote database not found. Please ensure Hyprnote is installed and you have recorded at least one meeting.',
+      searchedPaths: getSearchedPaths()
     };
   }
   
@@ -304,6 +389,9 @@ function getDuration(startTime, endTime) {
 
 module.exports = {
   findDatabase,
+  scanForHyprnoteDatabase,
+  clearDatabaseCache,
+  getSearchedPaths,
   testConnection,
   getSessions,
   getSessionParticipants,
@@ -311,6 +399,7 @@ module.exports = {
   getCurrentUser,
   htmlToText,
   getDuration,
-  DB_PATHS
+  KNOWN_DB_PATHS
 };
+
 

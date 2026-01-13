@@ -17,6 +17,7 @@ const path = require('path');
 const hyprnote = require('./lib/hyprnote');
 const salesforce = require('./lib/salesforce');
 const matcher = require('./lib/matcher');
+const obsidian = require('./lib/obsidian');
 
 const CONFIG_FILE = path.join(__dirname, 'data', 'config.json');
 const SYNCED_FILE = path.join(__dirname, 'data', 'synced-sessions.json');
@@ -299,6 +300,27 @@ async function syncSession(session, config, sfConnection) {
       console.log('    Customer Brain updated');
     } catch (err) {
       console.log('    Customer Brain update failed: ' + err.message);
+    }
+  }
+  
+  // Export to Obsidian vault (if enabled)
+  if (config.settings.exportToObsidian) {
+    try {
+      obsidian.configure({
+        enabled: true,
+        vaultPath: config.settings.obsidianVaultPath || obsidian.DEFAULT_VAULT_PATH,
+        createAccountFolders: true,
+        includeParticipants: true,
+        includeActionItems: true,
+        linkToSalesforce: true
+      });
+      
+      const obsidianResult = obsidian.exportMeeting(session, participants, match, { success: true });
+      if (obsidianResult.success) {
+        console.log('    Obsidian: Exported to vault');
+      }
+    } catch (err) {
+      console.log('    Obsidian export failed: ' + err.message);
     }
   }
   

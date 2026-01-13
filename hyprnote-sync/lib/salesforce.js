@@ -3,14 +3,29 @@
  * 
  * Handles authentication and CRUD operations for syncing meeting notes.
  * Uses jsforce library for API calls.
+ * 
+ * Supports two auth methods:
+ * 1. Username/Password (legacy) - for CLI sync
+ * 2. OAuth 2.0 (preferred) - for Electron app with token refresh
  */
 
 const jsforce = require('jsforce');
+const fs = require('fs');
+const path = require('path');
 
 let connection = null;
 
+// OAuth configuration for Eudia Connected App
+// These should be set in environment or passed in
+const OAUTH_CONFIG = {
+  clientId: process.env.SF_OAUTH_CLIENT_ID || '',
+  clientSecret: process.env.SF_OAUTH_CLIENT_SECRET || '',
+  redirectUri: 'http://localhost:3000/oauth/callback',
+  loginUrl: 'https://login.salesforce.com'
+};
+
 /**
- * Initialize Salesforce connection
+ * Initialize Salesforce connection (username/password method)
  * @param {Object} config - Configuration with SF credentials
  */
 async function connect(config) {
@@ -26,6 +41,150 @@ async function connect(config) {
   
   connection = conn;
   return conn;
+}
+
+/**
+ * Initialize Salesforce connection using OAuth tokens
+ * @param {Object} tokens - OAuth tokens (accessToken, refreshToken, instanceUrl)
+ */
+async function connectWithOAuth(tokens) {
+  const conn = new jsforce.Connection({
+    oauth2: {
+      clientId: OAUTH_CONFIG.clientId,
+      clientSecret: OAUTH_CONFIG.clientSecret,
+      redirectUri: OAUTH_CONFIG.redirectUri
+    },
+    instanceUrl: tokens.instanceUrl,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken
+  });
+  
+  // Set up auto-refresh
+  conn.on('refresh', (accessToken, res) => {
+    console.log('Salesforce token refreshed');
+    // Store the new access token
+    saveOAuthTokens({
+      ...tokens,
+      accessToken
+    });
+  });
+  
+  connection = conn;
+  return conn;
+}
+
+/**
+ * Get OAuth authorization URL for user to login
+ */
+function getOAuthAuthorizationUrl() {
+  const oauth2 = new jsforce.OAuth2({
+    clientId: OAUTH_CONFIG.clientId,
+    clientSecret: OAUTH_CONFIG.clientSecret,
+    redirectUri: OAUTH_CONFIG.redirectUri,
+    loginUrl: OAUTH_CONFIG.loginUrl
+  });
+  
+  return oauth2.getAuthorizationUrl({ scope: 'api refresh_token' });
+}
+
+/**
+ * Exchange OAuth authorization code for tokens
+ * @param {string} code - Authorization code from callback
+ */
+async function exchangeOAuthCode(code) {
+  const oauth2 = new jsforce.OAuth2({
+    clientId: OAUTH_CONFIG.clientId,
+    clientSecret: OAUTH_CONFIG.clientSecret,
+    redirectUri: OAUTH_CONFIG.redirectUri
+  });
+  
+  const conn = new jsforce.Connection({ oauth2 });
+  await conn.authorize(code);
+  
+  const tokens = {
+    accessToken: conn.accessToken,
+    refreshToken: conn.refreshToken,
+    instanceUrl: conn.instanceUrl
+  };
+  
+  connection = conn;
+  return tokens;
+}
+
+/**
+ * Save OAuth tokens securely
+ * In production, use macOS Keychain via 'keytar' package
+ * @param {Object} tokens - OAuth tokens
+ */
+function saveOAuthTokens(tokens) {
+  // For now, save to file (in production, use keytar for Keychain)
+  const tokensPath = path.join(__dirname, '..', 'data', '.oauth-tokens.json');
+  try {
+    fs.writeFileSync(tokensPath, JSON.stringify(tokens, null, 2), { mode: 0o600 });
+    return true;
+  } catch (err) {
+    console.error('Failed to save OAuth tokens:', err);
+    return false;
+  }
+}
+
+/**
+ * Load OAuth tokens
+ */
+function loadOAuthTokens() {
+  const tokensPath = path.join(__dirname, '..', 'data', '.oauth-tokens.json');
+  try {
+    if (fs.existsSync(tokensPath)) {
+      return JSON.parse(fs.readFileSync(tokensPath, 'utf-8'));
+    }
+  } catch (err) {
+    console.error('Failed to load OAuth tokens:', err);
+  }
+  return null;
+}
+
+/**
+ * Clear stored OAuth tokens (logout)
+ */
+function clearOAuthTokens() {
+  const tokensPath = path.join(__dirname, '..', 'data', '.oauth-tokens.json');
+  try {
+    if (fs.existsSync(tokensPath)) {
+      fs.unlinkSync(tokensPath);
+    }
+    connection = null;
+    return true;
+  } catch (err) {
+    console.error('Failed to clear OAuth tokens:', err);
+    return false;
+  }
+}
+
+/**
+ * Check if OAuth is configured
+ */
+function isOAuthConfigured() {
+  return !!(OAUTH_CONFIG.clientId && OAUTH_CONFIG.clientSecret);
+}
+
+/**
+ * Try to connect using stored OAuth tokens
+ */
+async function tryAutoConnect() {
+  const tokens = loadOAuthTokens();
+  if (tokens && tokens.accessToken) {
+    try {
+      await connectWithOAuth(tokens);
+      // Test the connection
+      const test = await testConnection();
+      if (test.success) {
+        return true;
+      }
+    } catch (err) {
+      console.log('Auto-connect failed:', err.message);
+    }
+  }
+  return false;
 }
 
 /**
@@ -274,16 +433,31 @@ async function testConnection() {
 }
 
 module.exports = {
+  // Authentication
   connect,
+  connectWithOAuth,
+  getOAuthAuthorizationUrl,
+  exchangeOAuthCode,
+  saveOAuthTokens,
+  loadOAuthTokens,
+  clearOAuthTokens,
+  isOAuthConfigured,
+  tryAutoConnect,
   getConnection,
+  
+  // Queries
   findAccount,
   findContactByEmail,
+  findUserByName,
+  findUserByEmail,
+  
+  // CRUD
   createContact,
   createEvent,
   createTask,
   updateCustomerBrain,
-  findUserByName,
-  findUserByEmail,
+  
+  // Utilities
   testConnection
 };
 
