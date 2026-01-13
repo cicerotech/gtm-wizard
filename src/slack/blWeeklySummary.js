@@ -1160,6 +1160,7 @@ function processPipelineData(records) {
       // This month targeting
       proposalThisMonthCount: proposalThisMonth.length,
       proposalThisMonthACV: proposalThisMonth.reduce((sum, d) => sum + d.acv, 0),
+      proposalThisMonthWeightedACV: proposalThisMonth.reduce((sum, d) => sum + d.weightedAcv, 0),
       // This quarter targeting
       proposalThisQuarterCount: proposalThisQuarter.length,
       proposalThisQuarterGrossACV: proposalThisQuarter.reduce((sum, d) => sum + d.acv, 0),
@@ -1321,7 +1322,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
   doc.text('+ Q4 Weighted Pipeline', LEFT + 8, y + 5);
   doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
-  doc.text('New Business + Expansion weighted ACV', LEFT + 8, y + 16);
+  doc.text('New Business + Expansion wtd ACV', LEFT + 8, y + 16);
   const q4Value = (q4WeightedPipeline?.weightedACV || 0) / 1000000;
   doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
   doc.text(`${q4Value.toFixed(1)}m`, LEFT + runRateWidth / 2 + 8, y + 10);
@@ -1773,7 +1774,7 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       doc.text('This Month', RIGHT_COL, propTableY);
       doc.text(totals.proposalThisMonthCount.toString(), RIGHT_COL + 80, propTableY, { width: 30, align: 'right' });
       doc.text(formatCurrency(totals.proposalThisMonthACV), RIGHT_COL + 115, propTableY, { width: 50, align: 'right' });
-      doc.text('—', RIGHT_COL + 170, propTableY, { width: 45, align: 'right' });
+      doc.text(formatCurrency(totals.proposalThisMonthWeightedACV || 0), RIGHT_COL + 170, propTableY, { width: 45, align: 'right' });
       propTableY += 11;
       
       // This Quarter
