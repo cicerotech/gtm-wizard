@@ -156,9 +156,13 @@ function getLastSnapshotDate(snapshots) {
   return dates.length > 0 ? dates[dates.length - 1] : null;
 }
 
-function saveSnapshot(date, blData) {
+function saveSnapshot(date, blData, totals = null) {
   const data = readSnapshots();
-  data.snapshots[date] = blData;
+  // Store both BL data and totals for WoW comparison
+  data.snapshots[date] = {
+    blMetrics: blData,
+    totals: totals || null
+  };
   
   // Keep only last 12 weeks of snapshots
   const dates = Object.keys(data.snapshots).sort();
@@ -2117,62 +2121,154 @@ function formatBLLineForSlack(blName, metrics) {
 }
 
 /**
- * Format the complete Slack message - blended format with BL details
+ * Generate 3-5 dynamic, insight-driven bullets for the weekly summary
+ * Bullets adapt based on: WoW changes, EOQ timing, deals closed, pipeline health
  */
-function formatSlackMessage(pipelineData, previousMetrics, dateStr) {
-  const { blMetrics, totals, fiscalQuarterLabel } = pipelineData;
+function generateIntelligentSummary(pipelineData, previousSnapshot, revOpsData, fiscalQuarterEnd) {
+  const bullets = [];
+  const { totals, fiscalQuarterLabel, stageBreakdown } = pipelineData;
   
+  // Extract previous totals (handle both old and new snapshot formats)
+  const prevTotals = previousSnapshot?.totals || null;
+  
+  // Calculate days to end of quarter
+  const now = new Date();
+  const daysToEOQ = Math.max(0, Math.ceil((fiscalQuarterEnd - now) / (1000 * 60 * 60 * 24)));
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BULLET 1: Pipeline Overview with WoW Comparison
+  // ═══════════════════════════════════════════════════════════════════════════
+  let pipelineBullet = `*Pipeline*: ${formatCurrency(totals.grossACV)} (${totals.totalOpportunities} opps, ${totals.totalAccounts} accts)`;
+  
+  if (prevTotals && prevTotals.grossACV) {
+    const pipelineChange = totals.grossACV - prevTotals.grossACV;
+    const oppChange = totals.totalOpportunities - (prevTotals.totalOpportunities || 0);
+    
+    if (Math.abs(pipelineChange) >= 100000) { // Only show if $100k+ change
+      const direction = pipelineChange >= 0 ? '+' : '';
+      pipelineBullet += ` — ${direction}${formatCurrency(pipelineChange)} WoW`;
+      
+      if (oppChange !== 0) {
+        const oppDir = oppChange >= 0 ? '+' : '';
+        pipelineBullet += ` (${oppDir}${oppChange} opps)`;
+      }
+    }
+  }
+  bullets.push(pipelineBullet);
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BULLET 2: Proposal Stage Momentum (Late-stage health)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const proposalBullet = `*S4 Proposal*: ${totals.proposalCount} deals (${formatCurrency(totals.proposalGrossACV)}) — ${totals.proposalThisMonthCount} targeting close this month`;
+  bullets.push(proposalBullet);
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BULLET 3: EOQ Forecast (when within 45 days of quarter end)
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (daysToEOQ <= 45 && revOpsData) {
+    const decemberRR = RUN_RATE_HISTORICAL['December'] || 20.1;
+    const januaryClosed = (revOpsData.januaryClosedWon || 0) / 1000000;
+    const q4Weighted = (revOpsData.q4WeightedPipeline || 0) / 1000000;
+    const fy2025Total = decemberRR + januaryClosed + q4Weighted;
+    
+    bullets.push(`*EOQ Forecast* (${daysToEOQ} days): $${fy2025Total.toFixed(1)}m FY25E (Dec RR + Jan closed + wtd pipeline)`);
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BULLET 4: Deals Won This Week (if any)
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (revOpsData?.signedLastWeek?.deals?.length > 0) {
+    const weeklyDeals = revOpsData.signedLastWeek.deals;
+    const weeklyTotal = revOpsData.signedLastWeek.totalACV;
+    
+    // Highlight top deals with BL kudos
+    const topDeals = weeklyDeals.slice(0, 3).map(d => {
+      const owner = d.ownerName?.split(' ')[0] || '';
+      const acvStr = d.acv >= 1000000 ? `$${(d.acv/1000000).toFixed(1)}m` : `$${Math.round(d.acv/1000)}k`;
+      const acctShort = (d.accountName || '').substring(0, 15);
+      return `${acvStr} ${acctShort}`;
+    }).join(', ');
+    
+    const totalStr = weeklyTotal >= 1000000 ? `$${(weeklyTotal/1000000).toFixed(1)}m` : `$${Math.round(weeklyTotal/1000)}k`;
+    bullets.push(`*Closed Won*: ${totalStr} this week — ${topDeals}`);
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BULLET 5: Risk/Opportunity Insight (Dynamic based on data patterns)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Calculate early stage percentage
+  const s0Count = stageBreakdown?.['Stage 0 - Prospecting']?.count || 0;
+  const earlyStagePercent = totals.totalOpportunities > 0 
+    ? Math.round((s0Count / totals.totalOpportunities) * 100) 
+    : 0;
+  
+  // Determine which risk/opportunity insight to show
+  if (daysToEOQ <= 20 && totals.proposalThisMonthCount < 10) {
+    // EOQ warning: few deals targeting close
+    bullets.push(`⚠️ *EOQ Alert*: Only ${totals.proposalThisMonthCount} deals targeting close this month — ${daysToEOQ} days left`);
+  } else if (earlyStagePercent > 30) {
+    // Heavy early-stage concentration
+    bullets.push(`*Pipeline Mix*: ${earlyStagePercent}% in S0 Prospecting — consider accelerating qualification`);
+  } else if (prevTotals && totals.proposalCount > (prevTotals.proposalCount || 0) + 3) {
+    // Strong late-stage growth
+    const proposalGrowth = totals.proposalCount - (prevTotals.proposalCount || 0);
+    bullets.push(`*Late-Stage Momentum*: +${proposalGrowth} deals moved to S4 Proposal WoW`);
+  } else if (revOpsData?.signedQTD?.totalDeals > 0) {
+    // QTD signed summary
+    const qtdValue = revOpsData.signedQTD.totalACV >= 1000000 
+      ? `$${(revOpsData.signedQTD.totalACV/1000000).toFixed(1)}m` 
+      : `$${Math.round(revOpsData.signedQTD.totalACV/1000)}k`;
+    bullets.push(`*${fiscalQuarterLabel} Signed*: ${qtdValue} across ${revOpsData.signedQTD.totalDeals} deals`);
+  }
+  
+  // Return max 5 bullets
+  return bullets.slice(0, 5);
+}
+
+/**
+ * Format the complete Slack message - concise bullet format with insights
+ */
+function formatSlackMessage(pipelineData, previousSnapshot, dateStr, revOpsData = null) {
   let message = `*Eudia GTM Weekly Snapshot — ${dateStr}*\n\n`;
   
-  // ═══════════════════════════════════════════════════════════════════════
-  // PIPELINE SNAPSHOT
-  // ═══════════════════════════════════════════════════════════════════════
-  message += '*PIPELINE SNAPSHOT*\n';
-  message += `Total Gross ACV: ${formatCurrency(totals.grossACV)} (${totals.totalOpportunities} opps across ${totals.totalAccounts} accounts)\n`;
-  message += `Weighted Pipeline (${fiscalQuarterLabel}): ${formatCurrency(totals.weightedThisQuarter)}\n`;
-  message += `Avg Deal Size: ${formatCurrency(totals.avgDealSize)}\n\n`;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INTELLIGENT SUMMARY - 3-5 Dynamic Bullets
+  // ═══════════════════════════════════════════════════════════════════════════
+  const fiscalQuarterEnd = getFiscalQuarterEnd();
+  const bullets = generateIntelligentSummary(pipelineData, previousSnapshot, revOpsData, fiscalQuarterEnd);
   
-  // ═══════════════════════════════════════════════════════════════════════
-  // PROPOSAL STAGE SUMMARY
-  // ═══════════════════════════════════════════════════════════════════════
-  message += `*PROPOSAL STAGE (S4)* — ${totals.proposalCount} deals, ${formatCurrency(totals.proposalGrossACV)} gross ACV\n`;
-  message += `Targeting This Month: ${totals.proposalThisMonthCount} deals, ${formatCurrency(totals.proposalThisMonthACV)} ACV\n`;
-  message += `Targeting This Quarter: ${totals.proposalThisQuarterCount} deals, ${formatCurrency(totals.proposalThisQuarterGrossACV)} gross, ${formatCurrency(totals.proposalThisQuarterWeightedACV)} weighted\n\n`;
+  message += '*WEEKLY INSIGHTS*\n';
+  bullets.forEach(bullet => {
+    message += `${bullet}\n`;
+  });
+  message += '\n';
   
-  // ═══════════════════════════════════════════════════════════════════════
-  // BY REGION BUSINESS LEAD VIEW
-  // ═══════════════════════════════════════════════════════════════════════
-  message += '*BY BUSINESS LEAD* _(accounts, opps, gross ACV)_\n\n';
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BY BUSINESS LEAD (condensed summary)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const { blMetrics } = pipelineData;
   
-  // US Pod
-  const usPodBLs = US_POD
+  // Get top 5 BLs by gross ACV for concise summary
+  const allBLs = [...US_POD, ...EU_POD]
     .filter(bl => blMetrics[bl] && (blMetrics[bl].accounts > 0 || blMetrics[bl].opportunities > 0))
     .sort((a, b) => (blMetrics[b]?.grossACV || 0) - (blMetrics[a]?.grossACV || 0));
   
-  if (usPodBLs.length > 0) {
-    message += '*US Pod*\n';
-    usPodBLs.forEach(bl => {
+  const topBLs = allBLs.slice(0, 6);
+  
+  if (topBLs.length > 0) {
+    message += '*TOP BLs BY PIPELINE*\n';
+    topBLs.forEach(bl => {
       message += formatBLLineForSlack(bl, blMetrics[bl]) + '\n';
     });
+    if (allBLs.length > 6) {
+      message += `_+${allBLs.length - 6} more in PDF_\n`;
+    }
     message += '\n';
   }
   
-  // EU Pod
-  const euPodBLs = EU_POD
-    .filter(bl => blMetrics[bl] && (blMetrics[bl].accounts > 0 || blMetrics[bl].opportunities > 0))
-    .sort((a, b) => (blMetrics[b]?.grossACV || 0) - (blMetrics[a]?.grossACV || 0));
-  
-  if (euPodBLs.length > 0) {
-    message += '*EU Pod*\n';
-    euPodBLs.forEach(bl => {
-      message += formatBLLineForSlack(bl, blMetrics[bl]) + '\n';
-    });
-    message += '\n';
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
   // PDF REFERENCE
-  // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
   message += '_See attached PDF for full details._';
   
   return message;
@@ -2254,16 +2350,16 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     
     logger.info(`Previous snapshot date: ${lastSnapshotDate || 'none'}`);
     
-    // Format the condensed Slack message
-    const message = formatSlackMessage(pipelineData, previousMetrics, displayDate);
+    // Format the condensed Slack message with intelligent summary
+    const message = formatSlackMessage(pipelineData, previousMetrics, displayDate, revOpsData);
     
     // Generate PDF snapshot with Page 1 RevOps + Page 2 GTM Snapshot
     logger.info('Generating 2-page PDF snapshot...');
     const pdfBuffer = await generatePDFSnapshot(pipelineData, displayDate, activeRevenue, logosByType, revOpsData);
     const pdfFilename = `Eudia_GTM_Weekly_Snapshot_${dateStr}.pdf`;
     
-    // Save current snapshot (BL metrics only for comparison)
-    saveSnapshot(dateStr, pipelineData.blMetrics);
+    // Save current snapshot (BL metrics + totals for WoW comparison)
+    saveSnapshot(dateStr, pipelineData.blMetrics, pipelineData.totals);
     
     // ═══════════════════════════════════════════════════════════════════════════
     // CHANNEL SELECTION - CRITICAL FOR RESPONDING IN CORRECT LOCATION
