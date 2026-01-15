@@ -3,6 +3,7 @@ const logger = require('../utils/logger');
 class SocratesAdapter {
   constructor() {
     this.fallbackApiKey = process.env.OPENAI_API_KEY; // Fallback API key
+    this.anthropicApiKey = process.env.ANTHROPIC_API_KEY; // Anthropic Claude fallback
     
     // Okta M2M configuration for Socrates authentication
     this.oktaConfig = {
@@ -159,6 +160,22 @@ class SocratesAdapter {
         }
       }
 
+      // If all Socrates endpoints fail, try Anthropic fallback
+      if (this.anthropicApiKey) {
+        logger.info('🔄 Socrates failed, trying Anthropic Claude fallback...');
+        try {
+          const anthropicResponse = await this.tryAnthropicFallback(messages, options);
+          if (anthropicResponse) {
+            const duration = Date.now() - startTime;
+            logger.aiRequest(JSON.stringify(messages), anthropicResponse.usage?.total_tokens || 0, duration);
+            logger.info('✅ Anthropic Claude fallback successful');
+            return anthropicResponse;
+          }
+        } catch (anthropicError) {
+          logger.error('Anthropic fallback also failed:', anthropicError.message);
+        }
+      }
+
       // If all endpoints fail, throw the last error
       throw lastError || new Error('All Socrates endpoints failed');
 
@@ -251,6 +268,46 @@ class SocratesAdapter {
 
     // If all auth methods fail, throw the last error
     throw lastError || new Error(`All authentication methods failed for ${url}`);
+  }
+
+  /**
+   * Try Anthropic Claude API as fallback when Socrates fails
+   */
+  async tryAnthropicFallback(messages, options = {}) {
+    if (!this.anthropicApiKey) {
+      return null;
+    }
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.anthropicApiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: options.max_tokens || 500,
+          messages: messages.map(m => ({
+            role: m.role === 'system' ? 'user' : m.role, // Anthropic handles system differently
+            content: m.content
+          }))
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Anthropic HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      return this.normalizeResponse(data);
+
+    } catch (error) {
+      logger.error('Anthropic API request failed:', error.message);
+      throw error;
+    }
   }
 
   /**

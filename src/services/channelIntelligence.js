@@ -219,6 +219,19 @@ async function pollChannel(channel) {
     
     let intelligenceFound = 0;
     
+    // Patterns for Slack system messages to skip (saves LLM calls)
+    const SYSTEM_MESSAGE_PATTERNS = [
+      /^\/\w+/,                        // Slash commands like /invite, /remind
+      /<@\w+>\s+has\s+joined/i,        // "User has joined the channel"
+      /<@\w+>\s+has\s+left/i,          // "User has left the channel"
+      /set\s+the\s+channel/i,          // Channel setting changes
+      /pinned\s+a\s+message/i,         // Pinned message notifications
+      /changed\s+the\s+channel/i,      // Channel changes
+      /added\s+an\s+integration/i,     // Integration added
+      /removed\s+an\s+integration/i,   // Integration removed
+      /^<https?:\/\/[^|]+\|[^>]+>$/,   // Pure link messages with no context
+    ];
+
     for (const message of messages) {
       // Skip bot messages and very short messages
       if (message.bot_id || message.subtype === 'bot_message') {
@@ -226,6 +239,12 @@ async function pollChannel(channel) {
       }
       
       if (!message.text || message.text.length < MIN_MESSAGE_LENGTH) {
+        continue;
+      }
+
+      // Skip Slack system messages to save LLM calls
+      if (SYSTEM_MESSAGE_PATTERNS.some(pattern => pattern.test(message.text))) {
+        logger.debug(`Skipping system message: "${message.text.substring(0, 50)}..."`);
         continue;
       }
       
