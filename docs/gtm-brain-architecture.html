@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>How GTM Brain Works | Eudia</title>
+    <title>GTM Brain | Intelligence Layer</title>
     <style>
         * {
             margin: 0;
@@ -15,13 +15,13 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: #f5f7fe;
             color: #1f2937;
-            line-height: 1.5;
+            min-height: 100vh;
         }
         
         /* Header */
         .header {
             background: #fff;
-            padding: 20px 32px;
+            padding: 16px 32px;
             border-bottom: 1px solid #e5e7eb;
             display: flex;
             justify-content: space-between;
@@ -29,8 +29,8 @@
         }
         
         .header h1 {
-            font-size: 1.25rem;
-            font-weight: 700;
+            font-size: 1.125rem;
+            font-weight: 600;
             color: #1f2937;
         }
         
@@ -41,13 +41,13 @@
         
         .nav-links {
             display: flex;
-            gap: 8px;
+            gap: 6px;
         }
         
         .nav-links a {
             color: #6b7280;
             text-decoration: none;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             padding: 6px 12px;
             border-radius: 6px;
             transition: all 0.2s;
@@ -58,448 +58,231 @@
             background: #f3f4f6;
         }
         
-        /* Container */
+        /* Main Container */
         .container {
-            max-width: 1000px;
+            max-width: 1100px;
             margin: 0 auto;
             padding: 32px 24px;
         }
         
-        /* Hero Section */
-        .hero {
+        /* Title Section */
+        .title-section {
             text-align: center;
-            margin-bottom: 40px;
-        }
-        
-        .hero h2 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: #1f2937;
-            margin-bottom: 8px;
-        }
-        
-        .hero p {
-            color: #6b7280;
-            font-size: 1rem;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        
-        /* Main Diagram Section */
-        .diagram-section {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            padding: 32px;
-            margin-bottom: 32px;
-        }
-        
-        .section-label {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #8e99e1;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-        
-        .section-title {
-            font-size: 1.125rem;
-            font-weight: 600;
-            color: #1f2937;
             margin-bottom: 24px;
         }
         
-        /* Hub Diagram */
-        .hub-diagram {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 24px;
-        }
-        
-        /* User Input Row */
-        .input-row {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 32px;
-        }
-        
-        .input-node {
-            text-align: center;
-        }
-        
-        .input-icon {
-            width: 64px;
-            height: 64px;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            margin: 0 auto 8px;
-        }
-        
-        .input-icon.slack {
-            background: linear-gradient(135deg, #4A154B, #611f69);
-            color: white;
-        }
-        
-        .input-node h4 {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: #1f2937;
-            margin-bottom: 2px;
-        }
-        
-        .input-node p {
-            font-size: 0.75rem;
-            color: #6b7280;
-        }
-        
-        /* Arrow down */
-        .arrow-down {
-            width: 2px;
-            height: 32px;
-            background: #d1d5db;
-            position: relative;
-        }
-        
-        .arrow-down::after {
-            content: '';
-            position: absolute;
-            bottom: -6px;
-            left: 50%;
-            transform: translateX(-50%);
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-top: 8px solid #d1d5db;
-        }
-        
-        .arrow-label {
-            font-size: 0.65rem;
-            color: #9ca3af;
-            text-align: center;
-            margin-top: 4px;
-        }
-        
-        /* Central Hub */
-        .central-hub {
-            background: linear-gradient(135deg, #8e99e1, #7c8bd4);
-            border-radius: 16px;
-            padding: 24px 40px;
-            text-align: center;
-            color: white;
-            box-shadow: 0 4px 12px rgba(142, 153, 225, 0.3);
-        }
-        
-        .central-hub h3 {
-            font-size: 1.25rem;
+        .title-section h2 {
+            font-size: 1.5rem;
             font-weight: 700;
-            margin-bottom: 4px;
-        }
-        
-        .central-hub p {
-            font-size: 0.8rem;
-            opacity: 0.9;
-        }
-        
-        .hub-features {
-            display: flex;
-            gap: 24px;
-            margin-top: 16px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        
-        .hub-feature {
-            background: rgba(255,255,255,0.15);
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: 500;
-        }
-        
-        /* Connection to Salesforce */
-        .sf-connection {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-        
-        .connection-line {
-            width: 60px;
-            height: 2px;
-            background: linear-gradient(90deg, #8e99e1, #34d399);
-        }
-        
-        .sf-node {
-            background: linear-gradient(135deg, #34d399, #10b981);
-            border-radius: 12px;
-            padding: 16px 24px;
-            text-align: center;
-            color: white;
-        }
-        
-        .sf-node h4 {
-            font-size: 0.9rem;
-            font-weight: 600;
-            margin-bottom: 2px;
-        }
-        
-        .sf-node p {
-            font-size: 0.7rem;
-            opacity: 0.9;
-        }
-        
-        /* Response path */
-        .response-section {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .arrow-up {
-            width: 2px;
-            height: 24px;
-            background: #d1d5db;
-            position: relative;
-        }
-        
-        .arrow-up::before {
-            content: '';
-            position: absolute;
-            top: -6px;
-            left: 50%;
-            transform: translateX(-50%);
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-bottom: 8px solid #d1d5db;
-        }
-        
-        .response-node {
-            background: #f0fdf4;
-            border: 1px solid #34d399;
-            border-radius: 8px;
-            padding: 12px 24px;
-            text-align: center;
-        }
-        
-        .response-node p {
-            font-size: 0.8rem;
-            color: #065f46;
-            font-weight: 500;
-        }
-        
-        /* Example Queries */
-        .examples-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
-            margin-top: 24px;
-            padding-top: 24px;
-            border-top: 1px solid #e5e7eb;
-        }
-        
-        .example-item {
-            background: #f9fafb;
-            border-radius: 8px;
-            padding: 12px 16px;
-            font-size: 0.8rem;
-        }
-        
-        .example-item code {
-            color: #8e99e1;
-            font-family: 'SF Mono', Menlo, monospace;
-            font-size: 0.75rem;
-        }
-        
-        .example-item p {
-            color: #6b7280;
-            font-size: 0.7rem;
-            margin-top: 4px;
-        }
-        
-        /* Admin Tools Section */
-        .admin-section {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            padding: 24px 32px;
-            margin-bottom: 32px;
-        }
-        
-        .admin-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 20px;
-            margin-top: 16px;
-        }
-        
-        .admin-card {
-            background: #f9fafb;
-            border-radius: 10px;
-            padding: 20px;
-            border-left: 4px solid #f59e0b;
-        }
-        
-        .admin-card h4 {
-            font-size: 0.9rem;
-            font-weight: 600;
             color: #1f2937;
             margin-bottom: 6px;
         }
         
-        .admin-card p {
+        .title-section p {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+        
+        /* Diagram Container */
+        .diagram-container {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+            padding: 32px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* SVG Diagram */
+        .neural-svg {
+            width: 100%;
+            height: 560px;
+            display: block;
+        }
+        
+        /* Node Styles */
+        .node {
+            cursor: pointer;
+            transition: transform 0.2s, filter 0.2s;
+        }
+        
+        .node:hover {
+            filter: brightness(1.05);
+        }
+        
+        .node-rect {
+            transition: all 0.2s;
+        }
+        
+        .node:hover .node-rect {
+            filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));
+        }
+        
+        .node-label {
+            font-family: inherit;
+            font-weight: 600;
+            pointer-events: none;
+        }
+        
+        .node-sublabel {
+            font-family: inherit;
+            pointer-events: none;
+            opacity: 0.8;
+        }
+        
+        /* Connection Paths */
+        .connection {
+            fill: none;
+            stroke-linecap: round;
+            opacity: 0.6;
+            transition: opacity 0.3s, stroke-width 0.3s;
+        }
+        
+        .connection.highlight {
+            opacity: 1;
+            stroke-width: 3;
+        }
+        
+        /* Animated pulse effect */
+        .connection-pulse {
+            fill: none;
+            stroke-linecap: round;
+            stroke-dasharray: 8 12;
+            animation: flowPulse 2s linear infinite;
+        }
+        
+        @keyframes flowPulse {
+            from { stroke-dashoffset: 20; }
+            to { stroke-dashoffset: 0; }
+        }
+        
+        /* Central hub glow */
+        .hub-glow {
+            animation: hubPulse 3s ease-in-out infinite;
+        }
+        
+        @keyframes hubPulse {
+            0%, 100% { opacity: 0.15; r: 120; }
+            50% { opacity: 0.25; r: 130; }
+        }
+        
+        /* Detail Panel */
+        .detail-panel {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            right: 24px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        .detail-panel.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        
+        .detail-panel h4 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+        
+        .detail-panel p {
             font-size: 0.8rem;
             color: #6b7280;
             line-height: 1.5;
         }
         
-        .admin-card .admin-tag {
-            display: inline-block;
-            font-size: 0.65rem;
-            background: #fef3c7;
-            color: #92400e;
-            padding: 2px 8px;
-            border-radius: 4px;
-            margin-top: 8px;
-        }
-        
-        /* Sales Process Section */
-        .sales-process-section {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            padding: 32px;
-            margin-bottom: 32px;
-        }
-        
-        .process-stages {
+        .detail-tags {
             display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            padding: 16px 0;
+            gap: 6px;
+            margin-top: 10px;
+            flex-wrap: wrap;
         }
         
-        .stage-card {
-            flex: 1;
-            min-width: 160px;
-            background: #f9fafb;
-            border-radius: 10px;
-            padding: 16px;
-            position: relative;
+        .detail-tag {
+            font-size: 0.65rem;
+            padding: 3px 8px;
+            background: #f3f4f6;
+            border-radius: 4px;
+            color: #6b7280;
         }
         
-        .stage-card::after {
-            content: '→';
-            position: absolute;
-            right: -12px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #d1d5db;
-            font-size: 1.25rem;
+        /* Legend */
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
         }
         
-        .stage-card:last-child::after {
-            display: none;
-        }
-        
-        .stage-number {
-            width: 24px;
-            height: 24px;
-            background: #8e99e1;
-            color: white;
-            border-radius: 50%;
+        .legend-item {
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-        
-        .stage-card h5 {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: #1f2937;
-            margin-bottom: 6px;
-        }
-        
-        .stage-card p {
-            font-size: 0.7rem;
+            gap: 8px;
+            font-size: 0.75rem;
             color: #6b7280;
-            line-height: 1.4;
         }
         
-        .gtm-helps {
-            font-size: 0.7rem;
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        /* Footer info */
+        .footer-info {
+            text-align: center;
+            margin-top: 24px;
+            padding: 16px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        
+        .footer-info p {
+            font-size: 0.8rem;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+        
+        .footer-info strong {
             color: #8e99e1;
-            font-weight: 500;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px dashed #e5e7eb;
         }
         
-        /* Footer */
-        .footer {
+        /* Page Footer */
+        footer {
             text-align: center;
             padding: 24px;
             color: #6b7280;
             font-size: 0.75rem;
         }
         
-        .footer a {
+        footer a {
             color: #8e99e1;
             text-decoration: none;
         }
         
-        .footer a:hover {
+        footer a:hover {
             text-decoration: underline;
-        }
-        
-        /* Tech note */
-        .tech-note {
-            background: #eff6ff;
-            border: 1px solid #bfdbfe;
-            border-radius: 8px;
-            padding: 12px 16px;
-            font-size: 0.75rem;
-            color: #1e40af;
-            margin-top: 24px;
-        }
-        
-        /* Responsive */
-        @media (max-width: 640px) {
-            .process-stages {
-                flex-direction: column;
-            }
-            
-            .stage-card::after {
-                display: none;
-            }
-            
-            .input-row {
-                flex-direction: column;
-                gap: 16px;
-            }
-            
-            .sf-connection {
-                flex-direction: column;
-            }
-            
-            .connection-line {
-                width: 2px;
-                height: 24px;
-            }
         }
     </style>
 </head>
 <body>
     <header class="header">
-        <h1>GTM Brain <span>/ How It Works</span></h1>
+        <h1>GTM Brain <span>/ Intelligence Layer</span></h1>
         <nav class="nav-links">
             <a href="/account-dashboard">Dashboard</a>
             <a href="/cheat-sheet">Commands</a>
@@ -508,162 +291,369 @@
     </header>
     
     <div class="container">
-        <!-- Hero -->
-        <div class="hero">
-            <h2>Your Salesforce Assistant in Slack</h2>
-            <p>Ask questions in plain English. Get instant answers from your pipeline data. No SOQL, no digging through reports.</p>
+        <div class="title-section">
+            <h2>The Connected Sales Intelligence Layer</h2>
+            <p>One hub connecting your conversations, data, and insights</p>
         </div>
         
-        <!-- Main Diagram: How Queries Work -->
-        <section class="diagram-section">
-            <div class="section-label">For Everyone</div>
-            <div class="section-title">Ask a Question, Get an Answer</div>
+        <div class="diagram-container">
+            <svg class="neural-svg" viewBox="0 0 1000 520" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                    <!-- Gradients for connections -->
+                    <linearGradient id="gradSlackToHub" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#611f69"/>
+                        <stop offset="100%" stop-color="#8e99e1"/>
+                    </linearGradient>
+                    <linearGradient id="gradHubToSF" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#8e99e1"/>
+                        <stop offset="100%" stop-color="#34d399"/>
+                    </linearGradient>
+                    <linearGradient id="gradHyprnoteToHub" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#0ea5e9"/>
+                        <stop offset="100%" stop-color="#8e99e1"/>
+                    </linearGradient>
+                    <linearGradient id="gradHubToCampfire" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#8e99e1"/>
+                        <stop offset="100%" stop-color="#f59e0b"/>
+                    </linearGradient>
+                    <linearGradient id="gradHubToReports" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#8e99e1"/>
+                        <stop offset="100%" stop-color="#f59e0b"/>
+                    </linearGradient>
+                    <linearGradient id="gradHubToDash" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#8e99e1"/>
+                        <stop offset="100%" stop-color="#6366f1"/>
+                    </linearGradient>
+                    
+                    <!-- Glow filter -->
+                    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur stdDeviation="3" result="blur"/>
+                        <feMerge>
+                            <feMergeNode in="blur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                </defs>
+                
+                <!-- Background subtle pattern -->
+                <pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                    <circle cx="2" cy="2" r="0.5" fill="#e5e7eb"/>
+                </pattern>
+                <rect width="100%" height="100%" fill="url(#dots)" opacity="0.5"/>
+                
+                <!-- Central hub glow -->
+                <circle class="hub-glow" cx="500" cy="260" r="120" fill="#8e99e1"/>
+                
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- CONNECTION PATHS - Curved Bezier Lines -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                
+                <!-- Slack to Hub -->
+                <path class="connection" id="conn-slack" 
+                      d="M 500 80 C 500 140, 500 180, 500 200"
+                      stroke="url(#gradSlackToHub)" stroke-width="2"/>
+                <path class="connection-pulse" 
+                      d="M 500 80 C 500 140, 500 180, 500 200"
+                      stroke="#611f69" stroke-width="1.5" opacity="0.4"/>
+                
+                <!-- Hub to Salesforce -->
+                <path class="connection" id="conn-salesforce"
+                      d="M 600 260 C 700 260, 750 220, 850 180"
+                      stroke="url(#gradHubToSF)" stroke-width="2"/>
+                <path class="connection-pulse"
+                      d="M 600 260 C 700 260, 750 220, 850 180"
+                      stroke="#34d399" stroke-width="1.5" opacity="0.4"/>
+                
+                <!-- Hyprnote to Hub -->
+                <path class="connection" id="conn-hyprnote"
+                      d="M 150 180 C 250 180, 300 220, 400 260"
+                      stroke="url(#gradHyprnoteToHub)" stroke-width="2"/>
+                <path class="connection-pulse"
+                      d="M 150 180 C 250 180, 300 220, 400 260"
+                      stroke="#0ea5e9" stroke-width="1.5" opacity="0.4"/>
+                
+                <!-- Hub to Campfire -->
+                <path class="connection" id="conn-campfire"
+                      d="M 600 280 C 700 300, 750 340, 850 380"
+                      stroke="url(#gradHubToCampfire)" stroke-width="2"/>
+                <path class="connection-pulse"
+                      d="M 600 280 C 700 300, 750 340, 850 380"
+                      stroke="#f59e0b" stroke-width="1.5" opacity="0.3"/>
+                
+                <!-- Hub to Reports -->
+                <path class="connection" id="conn-reports"
+                      d="M 450 320 C 400 380, 300 420, 200 450"
+                      stroke="url(#gradHubToReports)" stroke-width="2"/>
+                <path class="connection-pulse"
+                      d="M 450 320 C 400 380, 300 420, 200 450"
+                      stroke="#f59e0b" stroke-width="1.5" opacity="0.3"/>
+                
+                <!-- Hub to Dashboard -->
+                <path class="connection" id="conn-dashboard"
+                      d="M 550 320 C 600 380, 700 420, 800 450"
+                      stroke="url(#gradHubToDash)" stroke-width="2"/>
+                <path class="connection-pulse"
+                      d="M 550 320 C 600 380, 700 420, 800 450"
+                      stroke="#6366f1" stroke-width="1.5" opacity="0.3"/>
+                
+                <!-- Secondary connections (lighter) -->
+                <!-- Salesforce to Campfire -->
+                <path class="connection" 
+                      d="M 880 220 C 890 280, 890 320, 880 360"
+                      stroke="#d1d5db" stroke-width="1" opacity="0.4"/>
+                
+                <!-- Reports to Slack (feedback loop) -->
+                <path class="connection"
+                      d="M 200 430 C 150 350, 200 200, 400 80"
+                      stroke="#d1d5db" stroke-width="1" opacity="0.3" stroke-dasharray="4 4"/>
+                
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- CENTRAL HUB: GTM Brain -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                
+                <g class="node" data-node="gtm-brain" filter="url(#glow)">
+                    <rect class="node-rect" x="400" y="200" width="200" height="120" rx="16" 
+                          fill="#8e99e1" stroke="#7c8bd4" stroke-width="2"/>
+                    <text x="500" y="235" class="node-label" text-anchor="middle" 
+                          fill="white" font-size="18">GTM Brain</text>
+                    <text x="500" y="255" class="node-sublabel" text-anchor="middle" 
+                          fill="white" font-size="11">Intelligence Layer</text>
+                    
+                    <!-- Inner capability nodes -->
+                    <rect x="420" y="270" width="50" height="36" rx="6" fill="rgba(255,255,255,0.2)"/>
+                    <text x="445" y="284" text-anchor="middle" fill="white" font-size="8" font-weight="500">Intent</text>
+                    <text x="445" y="296" text-anchor="middle" fill="white" font-size="7" opacity="0.8">Router</text>
+                    
+                    <rect x="475" y="270" width="50" height="36" rx="6" fill="rgba(255,255,255,0.2)"/>
+                    <text x="500" y="284" text-anchor="middle" fill="white" font-size="8" font-weight="500">Query</text>
+                    <text x="500" y="296" text-anchor="middle" fill="white" font-size="7" opacity="0.8">Engine</text>
+                    
+                    <rect x="530" y="270" width="50" height="36" rx="6" fill="rgba(255,255,255,0.2)"/>
+                    <text x="555" y="284" text-anchor="middle" fill="white" font-size="8" font-weight="500">Sync</text>
+                    <text x="555" y="296" text-anchor="middle" fill="white" font-size="7" opacity="0.8">Services</text>
+                </g>
+                
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- INPUT NODES (Top) -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                
+                <!-- Slack -->
+                <g class="node" data-node="slack">
+                    <rect class="node-rect" x="440" y="30" width="120" height="56" rx="12" 
+                          fill="#611f69" stroke="#4a154b" stroke-width="1.5"/>
+                    <text x="500" y="55" class="node-label" text-anchor="middle" 
+                          fill="white" font-size="14">Slack</text>
+                    <text x="500" y="72" class="node-sublabel" text-anchor="middle" 
+                          fill="white" font-size="10">@gtm-brain</text>
+                </g>
+                
+                <!-- Hyprnote -->
+                <g class="node" data-node="hyprnote">
+                    <rect class="node-rect" x="60" y="140" width="120" height="56" rx="12" 
+                          fill="#0ea5e9" stroke="#0284c7" stroke-width="1.5"/>
+                    <text x="120" y="165" class="node-label" text-anchor="middle" 
+                          fill="white" font-size="13">Hyprnote</text>
+                    <text x="120" y="182" class="node-sublabel" text-anchor="middle" 
+                          fill="white" font-size="9">Meeting Notes</text>
+                </g>
+                
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- DATA SYSTEMS (Right) -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                
+                <!-- Salesforce -->
+                <g class="node" data-node="salesforce">
+                    <rect class="node-rect" x="820" y="130" width="140" height="80" rx="12" 
+                          fill="#34d399" stroke="#10b981" stroke-width="1.5"/>
+                    <text x="890" y="160" class="node-label" text-anchor="middle" 
+                          fill="white" font-size="14">Salesforce</text>
+                    <text x="890" y="178" class="node-sublabel" text-anchor="middle" 
+                          fill="white" font-size="9">Accounts • Opportunities</text>
+                    <text x="890" y="192" class="node-sublabel" text-anchor="middle" 
+                          fill="white" font-size="9">Contracts • Contacts</text>
+                </g>
+                
+                <!-- Campfire ERP -->
+                <g class="node" data-node="campfire">
+                    <rect class="node-rect" x="820" y="350" width="130" height="56" rx="12" 
+                          fill="#f59e0b" stroke="#d97706" stroke-width="1.5"/>
+                    <text x="885" y="375" class="node-label" text-anchor="middle" 
+                          fill="white" font-size="13">Campfire</text>
+                    <text x="885" y="392" class="node-sublabel" text-anchor="middle" 
+                          fill="white" font-size="9">ARR + Finance</text>
+                </g>
+                
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- OUTPUT NODES (Bottom) -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                
+                <!-- Reports -->
+                <g class="node" data-node="reports">
+                    <rect class="node-rect" x="120" y="420" width="120" height="56" rx="12" 
+                          fill="#f59e0b" stroke="#d97706" stroke-width="1.5"/>
+                    <text x="180" y="445" class="node-label" text-anchor="middle" 
+                          fill="white" font-size="13">Reports</text>
+                    <text x="180" y="462" class="node-sublabel" text-anchor="middle" 
+                          fill="white" font-size="9">Weekly + On-demand</text>
+                </g>
+                
+                <!-- Dashboard -->
+                <g class="node" data-node="dashboard">
+                    <rect class="node-rect" x="740" y="420" width="120" height="56" rx="12" 
+                          fill="#6366f1" stroke="#4f46e5" stroke-width="1.5"/>
+                    <text x="800" y="445" class="node-label" text-anchor="middle" 
+                          fill="white" font-size="13">Dashboard</text>
+                    <text x="800" y="462" class="node-sublabel" text-anchor="middle" 
+                          fill="white" font-size="9">Real-time Pipeline</text>
+                </g>
+                
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- FLOW LABELS -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                
+                <text x="520" y="150" font-size="9" fill="#6b7280" font-style="italic">queries</text>
+                <text x="720" y="215" font-size="9" fill="#6b7280" font-style="italic">SOQL</text>
+                <text x="260" y="200" font-size="9" fill="#6b7280" font-style="italic">transcripts</text>
+                <text x="720" y="355" font-size="9" fill="#6b7280" font-style="italic">revenue data</text>
+                <text x="290" y="400" font-size="9" fill="#6b7280" font-style="italic">PDF / Excel</text>
+                <text x="680" y="400" font-size="9" fill="#6b7280" font-style="italic">live data</text>
+            </svg>
             
-            <div class="hub-diagram">
-                <!-- User Input -->
-                <div class="input-row">
-                    <div class="input-node">
-                        <div class="input-icon slack">S</div>
-                        <h4>Slack</h4>
-                        <p>@gtm-brain + your question</p>
-                    </div>
-                </div>
-                
-                <!-- Arrow Down -->
-                <div class="arrow-down"></div>
-                <div class="arrow-label">Your question</div>
-                
-                <!-- Central Hub -->
-                <div class="central-hub">
-                    <h3>GTM Brain</h3>
-                    <p>Understands what you're asking</p>
-                    <div class="hub-features">
-                        <span class="hub-feature">Natural Language</span>
-                        <span class="hub-feature">Account Lookup</span>
-                        <span class="hub-feature">Pipeline Queries</span>
-                    </div>
-                </div>
-                
-                <!-- Connection to Salesforce -->
-                <div class="sf-connection">
-                    <div class="connection-line"></div>
-                    <div class="sf-node">
-                        <h4>Salesforce</h4>
-                        <p>Your pipeline data</p>
-                    </div>
-                    <div class="connection-line"></div>
-                </div>
-                
-                <!-- Response -->
-                <div class="response-section">
-                    <div class="arrow-up"></div>
-                    <div class="response-node">
-                        <p>Answer delivered back to Slack</p>
-                    </div>
-                </div>
+            <!-- Detail Panel -->
+            <div class="detail-panel" id="detailPanel">
+                <h4 id="detailTitle"></h4>
+                <p id="detailDesc"></p>
+                <div class="detail-tags" id="detailTags"></div>
             </div>
             
-            <!-- Example Queries -->
-            <div class="examples-grid">
-                <div class="example-item">
-                    <code>"show me Cargill"</code>
-                    <p>Get account overview with stage, ACV, owner</p>
+            <!-- Legend -->
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #8e99e1;"></div>
+                    <span>GTM Brain</span>
                 </div>
-                <div class="example-item">
-                    <code>"what's in S3 and S4?"</code>
-                    <p>See late-stage pipeline summary</p>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #611f69;"></div>
+                    <span>User Interface</span>
                 </div>
-                <div class="example-item">
-                    <code>"total pipeline"</code>
-                    <p>Current pipeline value and breakdown</p>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #34d399;"></div>
+                    <span>Data Systems</span>
                 </div>
-                <div class="example-item">
-                    <code>"accounts with meetings this week"</code>
-                    <p>Activity-based lookups</p>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #f59e0b;"></div>
+                    <span>Outputs</span>
                 </div>
             </div>
-            
-            <div class="tech-note">
-                <strong>How it works:</strong> Your question is matched against known patterns and semantically compared to example queries. The best match determines which Salesforce query runs. All execution is reliable and deterministic.
-            </div>
-        </section>
+        </div>
         
-        <!-- Admin Tools -->
-        <section class="admin-section">
-            <div class="section-label">Admin Tools</div>
-            <div class="section-title">Behind the Scenes</div>
-            
-            <div class="admin-grid">
-                <div class="admin-card">
-                    <h4>Contract Review Assistant</h4>
-                    <p>Upload a contract PDF and GTM Brain extracts key terms, dates, and parties. Creates a draft Salesforce record for review before saving.</p>
-                    <span class="admin-tag">RevOps Only</span>
-                </div>
-                
-                <div class="admin-card">
-                    <h4>Weekly Reports</h4>
-                    <p>Automated pipeline snapshots delivered to Slack. BL summaries, stage breakdowns, and closed revenue tracking.</p>
-                    <span class="admin-tag">Scheduled</span>
-                </div>
-                
-                <div class="admin-card">
-                    <h4>Meeting Sync</h4>
-                    <p>Hyprnote meeting transcripts sync to Salesforce. New contacts created automatically, events logged to accounts.</p>
-                    <span class="admin-tag">RevOps Only</span>
-                </div>
-            </div>
-        </section>
-        
-        <!-- Sales Process Integration -->
-        <section class="sales-process-section">
-            <div class="section-label">Sales Process</div>
-            <div class="section-title">Where GTM Brain Helps</div>
-            
-            <div class="process-stages">
-                <div class="stage-card">
-                    <div class="stage-number">1</div>
-                    <h5>Discovery</h5>
-                    <p>Initial conversations, understanding needs</p>
-                    <div class="gtm-helps">Quick account lookup before calls</div>
-                </div>
-                
-                <div class="stage-card">
-                    <div class="stage-number">2</div>
-                    <h5>SQO</h5>
-                    <p>Qualified opportunity, building relationship</p>
-                    <div class="gtm-helps">Meeting sync logs conversations</div>
-                </div>
-                
-                <div class="stage-card">
-                    <div class="stage-number">3</div>
-                    <h5>Pilot</h5>
-                    <p>Proof of value, technical validation</p>
-                    <div class="gtm-helps">Track pilot accounts with "show S3"</div>
-                </div>
-                
-                <div class="stage-card">
-                    <div class="stage-number">4</div>
-                    <h5>Proposal</h5>
-                    <p>Commercial negotiation, contracting</p>
-                    <div class="gtm-helps">Contract review for quick drafts</div>
-                </div>
-                
-                <div class="stage-card" style="border-left: 3px solid #34d399;">
-                    <div class="stage-number" style="background: #34d399;">W</div>
-                    <h5>Closed Won</h5>
-                    <p>Deal signed, handoff to delivery</p>
-                    <div class="gtm-helps">Weekly reports track revenue</div>
-                </div>
-            </div>
-            
-            <div class="tech-note" style="background: #f0fdf4; border-color: #86efac; color: #166534;">
-                <strong>Result:</strong> Less time searching Salesforce, more time selling. BLs can self-serve pipeline questions. RevOps can focus on strategy instead of fielding data requests.
-            </div>
-        </section>
+        <!-- Footer Info -->
+        <div class="footer-info">
+            <p>
+                <strong>One integration layer</strong> connecting Slack conversations to Salesforce data, 
+                syncing meeting notes, and delivering automated insights. 
+                Ask questions in plain English, get answers instantly.
+            </p>
+        </div>
     </div>
     
-    <footer class="footer">
-        GTM Brain by Eudia RevOps &bull; <a href="/cheat-sheet">All Commands</a> &bull; <a href="/account-dashboard">Dashboard</a>
+    <footer>
+        GTM Brain by Eudia RevOps &bull; <a href="/cheat-sheet">View All Commands</a> &bull; <a href="/account-dashboard">Open Dashboard</a>
     </footer>
+    
+    <script>
+        const nodeDetails = {
+            'gtm-brain': {
+                title: 'GTM Brain Intelligence Layer',
+                desc: 'The central nervous system connecting all your sales tools. Routes natural language queries through intent classification, executes Salesforce lookups, and orchestrates data sync between systems.',
+                tags: ['Intent Router', 'Query Engine', 'Sync Services', 'Pattern + Semantic + ML']
+            },
+            'slack': {
+                title: 'Slack Integration',
+                desc: 'Your primary interface. Mention @gtm-brain in any channel or DM to ask questions, upload contracts, or request reports. Responses formatted with Slack Block Kit for clean display.',
+                tags: ['@gtm-brain', 'Natural Language', 'File Uploads', 'Thread Responses']
+            },
+            'hyprnote': {
+                title: 'Hyprnote Meeting Sync',
+                desc: 'Meeting transcripts flow into Salesforce automatically. New contacts created for unknown attendees, events logged to accounts, and Customer Brain field updated with conversation summaries.',
+                tags: ['Transcripts', 'Contact Matching', 'Event Logging', 'Customer Brain']
+            },
+            'salesforce': {
+                title: 'Salesforce (Source of Truth)',
+                desc: 'Your pipeline data lives here. GTM Brain queries Accounts, Opportunities, Contracts, Contacts, and Events via jsforce with OAuth. Circuit breaker protects against rate limits.',
+                tags: ['jsforce', 'OAuth 2.0', 'REST API', 'Circuit Breaker']
+            },
+            'campfire': {
+                title: 'Campfire ERP',
+                desc: 'Finance-owned system for ARR and contract management. Used for revenue reconciliation in weekly reports. Provides authoritative financial data.',
+                tags: ['ARR Tracking', 'Finance Data', 'Revenue Reconciliation']
+            },
+            'reports': {
+                title: 'Automated Reports',
+                desc: 'Weekly RevOps PDF with pipeline snapshots, BL summaries, and closed revenue. On-demand Excel exports for deal reviews. Delivered via Slack or Email.',
+                tags: ['Weekly PDF', 'Pipeline Excel', 'BL Summaries', 'Scheduled Delivery']
+            },
+            'dashboard': {
+                title: 'Web Dashboard',
+                desc: 'Real-time pipeline visualization at gtm-wizard.onrender.com/account-dashboard. Stage breakdowns, account details, and closed revenue tracking. Auto-refreshes with live Salesforce data.',
+                tags: ['Pipeline View', 'Stage Breakdown', 'Account Details', 'Real-time']
+            }
+        };
+        
+        // Hover interactions
+        document.querySelectorAll('.node').forEach(node => {
+            node.addEventListener('mouseenter', (e) => {
+                const nodeId = node.dataset.node;
+                const detail = nodeDetails[nodeId];
+                if (detail) {
+                    showDetail(detail);
+                    highlightConnections(nodeId);
+                }
+            });
+            
+            node.addEventListener('mouseleave', () => {
+                hideDetail();
+                resetConnections();
+            });
+        });
+        
+        function showDetail(detail) {
+            const panel = document.getElementById('detailPanel');
+            document.getElementById('detailTitle').textContent = detail.title;
+            document.getElementById('detailDesc').textContent = detail.desc;
+            document.getElementById('detailTags').innerHTML = detail.tags
+                .map(t => `<span class="detail-tag">${t}</span>`)
+                .join('');
+            panel.classList.add('visible');
+        }
+        
+        function hideDetail() {
+            document.getElementById('detailPanel').classList.remove('visible');
+        }
+        
+        function highlightConnections(nodeId) {
+            const connectionMap = {
+                'slack': ['conn-slack'],
+                'gtm-brain': ['conn-slack', 'conn-salesforce', 'conn-hyprnote', 'conn-campfire', 'conn-reports', 'conn-dashboard'],
+                'salesforce': ['conn-salesforce'],
+                'hyprnote': ['conn-hyprnote'],
+                'campfire': ['conn-campfire'],
+                'reports': ['conn-reports'],
+                'dashboard': ['conn-dashboard']
+            };
+            
+            const connections = connectionMap[nodeId] || [];
+            connections.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('highlight');
+            });
+        }
+        
+        function resetConnections() {
+            document.querySelectorAll('.connection').forEach(c => {
+                c.classList.remove('highlight');
+            });
+        }
+    </script>
 </body>
 </html>
