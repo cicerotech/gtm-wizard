@@ -550,7 +550,7 @@ class GTMBrainApp {
       try {
         const client = await getOktaClient();
         if (!client) {
-          return res.redirect('/account-dashboard');
+          return res.redirect('/gtm');
         }
         
         const params = client.callbackParams(req);
@@ -581,7 +581,7 @@ class GTMBrainApp {
         });
         
         logger.info(`✅ Okta SSO login successful: ${userInfo.email}`);
-        res.redirect('/account-dashboard');
+        res.redirect('/gtm');
       } catch (error) {
         logger.error('Okta callback error:', error.message);
         res.send(`
@@ -764,7 +764,55 @@ class GTMBrainApp {
     
     // Legacy redirect
     this.expressApp.get('/dashboard', (req, res) => {
-      res.redirect('/account-dashboard');
+      res.redirect('/gtm');
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // UNIFIED GTM RESOURCES HUB (Okta Protected)
+    // ═══════════════════════════════════════════════════════════════════════
+    const { generateUnifiedHub } = require('./views/unifiedHub');
+    
+    // Main unified hub - redirects to login if not authenticated
+    this.expressApp.get('/gtm', async (req, res) => {
+      const oktaSession = validateOktaSession(req);
+      
+      if (oktaSession) {
+        try {
+          const userName = oktaSession.name || oktaSession.email;
+          const html = generateUnifiedHub({ userName });
+          res.send(html);
+        } catch (error) {
+          res.status(500).send(`Error: ${error.message}`);
+        }
+      } else {
+        return res.redirect('/login');
+      }
+    });
+    
+    // Dashboard content for iframe (protected - same auth as /gtm)
+    this.expressApp.get('/gtm/dashboard', async (req, res) => {
+      const oktaSession = validateOktaSession(req);
+      
+      if (oktaSession) {
+        try {
+          const { html, cached } = await getCachedDashboard();
+          res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline'");
+          res.setHeader('Cache-Control', 'private, max-age=60');
+          res.send(html);
+        } catch (error) {
+          res.status(500).send(`Error: ${error.message}`);
+        }
+      } else {
+        res.status(401).send('Unauthorized');
+      }
+    });
+    
+    // GTM Hub logout
+    this.expressApp.get('/gtm/logout', (req, res) => {
+      res.clearCookie(OKTA_SESSION_COOKIE);
+      res.clearCookie('gtm_dash_auth');
+      res.clearCookie('gtm_dash_user');
+      res.redirect('/gtm');
     });
 
     // Email Builder interface
