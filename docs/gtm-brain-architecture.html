@@ -351,140 +351,140 @@
                 <rect width="100%" height="100%" fill="url(#dots)" opacity="0.3"/>
                 
                 <!-- BACKDROP 1: User Inputs (left) -->
-                <rect x="40" y="80" width="200" height="360" rx="16" fill="#fafbfc" stroke="#e5e7eb" stroke-width="1"/>
-                <text x="140" y="110" text-anchor="middle" font-size="11" font-weight="600" fill="#6b7280">USER INPUTS</text>
+                <rect x="40" y="100" width="200" height="320" rx="14" fill="#fafbfc" stroke="#e5e7eb" stroke-width="1"/>
+                <text x="140" y="128" text-anchor="middle" font-size="10" font-weight="600" fill="#9ca3af" letter-spacing="0.5">USER INPUTS</text>
                 
                 <!-- BACKDROP 2: Salesforce (center-right) -->
-                <rect x="680" y="80" width="180" height="360" rx="16" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
-                <text x="770" y="110" text-anchor="middle" font-size="11" font-weight="600" fill="#16a34a">SYSTEM OF RECORD</text>
+                <rect x="700" y="100" width="160" height="320" rx="14" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+                <text x="780" y="128" text-anchor="middle" font-size="10" font-weight="600" fill="#22c55e" letter-spacing="0.5">SYSTEM OF RECORD</text>
                 
                 <!-- BACKDROP 3: Outputs (right) -->
-                <rect x="900" y="80" width="170" height="360" rx="16" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1"/>
-                <text x="985" y="110" text-anchor="middle" font-size="11" font-weight="600" fill="#6b7280">OUTPUTS</text>
+                <rect x="920" y="100" width="150" height="320" rx="14" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1"/>
+                <text x="995" y="128" text-anchor="middle" font-size="10" font-weight="600" fill="#9ca3af" letter-spacing="0.5">OUTPUTS</text>
                 
                 <!-- === CENTERED TILES === -->
                 
-                <!-- Slack (centered in User Inputs backdrop: x=40, width=200, so center=140) -->
+                <!-- Slack (centered in User Inputs backdrop: x=40, width=200, center=140) -->
                 <g class="node" data-node="slack">
-                    <rect class="node-rect" x="60" y="160" width="160" height="70" rx="12" fill="#611f69" stroke="#4a154b" stroke-width="1.5" filter="url(#softShadow)"/>
-                    <text x="140" y="192" class="node-label" text-anchor="middle" fill="white" font-size="15">Slack</text>
-                    <text x="140" y="212" class="node-sublabel" text-anchor="middle" fill="white" font-size="10">@gtm-brain • side channels</text>
+                    <rect class="node-rect" x="60" y="170" width="160" height="70" rx="12" fill="#611f69" stroke="#4a154b" stroke-width="1.5" filter="url(#softShadow)"/>
+                    <text x="140" y="202" class="node-label" text-anchor="middle" fill="white" font-size="15">Slack</text>
+                    <text x="140" y="222" class="node-sublabel" text-anchor="middle" fill="white" font-size="10">@gtm-brain • side channels</text>
                 </g>
                 
                 <!-- Hyprnote (centered in User Inputs backdrop) -->
                 <g class="node" data-node="hyprnote">
-                    <rect class="node-rect" x="60" y="280" width="160" height="70" rx="12" fill="#0ea5e9" stroke="#0284c7" stroke-width="1.5" filter="url(#softShadow)"/>
-                    <text x="140" y="312" class="node-label" text-anchor="middle" fill="white" font-size="14">Hyprnote</text>
-                    <text x="140" y="332" class="node-sublabel" text-anchor="middle" fill="white" font-size="10">Meeting transcripts</text>
+                    <rect class="node-rect" x="60" y="290" width="160" height="70" rx="12" fill="#0ea5e9" stroke="#0284c7" stroke-width="1.5" filter="url(#softShadow)"/>
+                    <text x="140" y="322" class="node-label" text-anchor="middle" fill="white" font-size="14">Hyprnote</text>
+                    <text x="140" y="342" class="node-sublabel" text-anchor="middle" fill="white" font-size="10">Meeting transcripts</text>
                 </g>
                 
-                <!-- GTM Brain (TRUE CENTER - no backdrop, positioned at visual center x≈450) -->
+                <!-- GTM Brain (TRUE CENTER - no backdrop, standalone centerpiece) -->
                 <g class="node" data-node="gtm-brain">
-                    <rect class="node-rect" x="360" y="180" width="180" height="160" rx="16" fill="#8e99e1" stroke="#7c8bd4" stroke-width="2" filter="url(#softShadow)"/>
-                    <text x="450" y="220" class="node-label" text-anchor="middle" fill="white" font-size="18">GTM Brain</text>
-                    <text x="450" y="242" class="node-sublabel" text-anchor="middle" fill="white" font-size="10">Intelligence Layer</text>
+                    <rect class="node-rect" x="400" y="185" width="180" height="150" rx="16" fill="#8e99e1" stroke="#7c8bd4" stroke-width="2" filter="url(#softShadow)"/>
+                    <text x="490" y="220" class="node-label" text-anchor="middle" fill="white" font-size="18">GTM Brain</text>
+                    <text x="490" y="240" class="node-sublabel" text-anchor="middle" fill="white" font-size="10">Intelligence Layer</text>
                     <!-- Sub-components -->
-                    <rect x="375" y="260" width="50" height="36" rx="6" fill="rgba(255,255,255,0.2)"/>
-                    <text x="400" y="277" text-anchor="middle" fill="white" font-size="8" font-weight="600">Intent</text>
-                    <text x="400" y="289" text-anchor="middle" fill="white" font-size="7" opacity="0.8">Router</text>
-                    <rect x="430" y="260" width="50" height="36" rx="6" fill="rgba(255,255,255,0.2)"/>
-                    <text x="455" y="277" text-anchor="middle" fill="white" font-size="8" font-weight="600">Query</text>
-                    <text x="455" y="289" text-anchor="middle" fill="white" font-size="7" opacity="0.8">Engine</text>
-                    <rect x="485" y="260" width="50" height="36" rx="6" fill="rgba(255,255,255,0.2)"/>
-                    <text x="510" y="277" text-anchor="middle" fill="white" font-size="8" font-weight="600">Sync</text>
-                    <text x="510" y="289" text-anchor="middle" fill="white" font-size="7" opacity="0.8">Services</text>
+                    <rect x="415" y="256" width="48" height="34" rx="6" fill="rgba(255,255,255,0.2)"/>
+                    <text x="439" y="272" text-anchor="middle" fill="white" font-size="8" font-weight="600">Intent</text>
+                    <text x="439" y="283" text-anchor="middle" fill="white" font-size="7" opacity="0.8">Router</text>
+                    <rect x="468" y="256" width="48" height="34" rx="6" fill="rgba(255,255,255,0.2)"/>
+                    <text x="492" y="272" text-anchor="middle" fill="white" font-size="8" font-weight="600">Query</text>
+                    <text x="492" y="283" text-anchor="middle" fill="white" font-size="7" opacity="0.8">Engine</text>
+                    <rect x="521" y="256" width="48" height="34" rx="6" fill="rgba(255,255,255,0.2)"/>
+                    <text x="545" y="272" text-anchor="middle" fill="white" font-size="8" font-weight="600">Sync</text>
+                    <text x="545" y="283" text-anchor="middle" fill="white" font-size="7" opacity="0.8">Services</text>
                     <!-- Subtext below Brain -->
-                    <text x="450" y="320" text-anchor="middle" fill="white" font-size="8" opacity="0.75">Powered by Claude LLM</text>
+                    <text x="490" y="318" text-anchor="middle" fill="white" font-size="8" opacity="0.75">Powered by Claude LLM</text>
                 </g>
                 
-                <!-- Salesforce (centered in its backdrop: x=680, width=180, center=770) -->
+                <!-- Salesforce (centered in its backdrop: x=700, width=160, center=780) -->
                 <g class="node" data-node="salesforce">
-                    <rect class="node-rect" x="705" y="200" width="130" height="120" rx="14" fill="#34d399" stroke="#10b981" stroke-width="1.5" filter="url(#softShadow)"/>
-                    <text x="770" y="240" class="node-label" text-anchor="middle" fill="white" font-size="15">Salesforce</text>
-                    <text x="770" y="260" class="node-sublabel" text-anchor="middle" fill="white" font-size="9">Accounts • Opps</text>
-                    <text x="770" y="276" class="node-sublabel" text-anchor="middle" fill="white" font-size="9">Contacts • Contracts</text>
-                    <text x="770" y="292" class="node-sublabel" text-anchor="middle" fill="white" font-size="9">Events</text>
+                    <rect class="node-rect" x="720" y="200" width="120" height="120" rx="14" fill="#34d399" stroke="#10b981" stroke-width="1.5" filter="url(#softShadow)"/>
+                    <text x="780" y="240" class="node-label" text-anchor="middle" fill="white" font-size="15">Salesforce</text>
+                    <text x="780" y="260" class="node-sublabel" text-anchor="middle" fill="white" font-size="9">Accounts • Opps</text>
+                    <text x="780" y="276" class="node-sublabel" text-anchor="middle" fill="white" font-size="9">Contacts • Contracts</text>
+                    <text x="780" y="292" class="node-sublabel" text-anchor="middle" fill="white" font-size="9">Events</text>
                 </g>
                 
-                <!-- OUTPUTS (centered in Outputs backdrop: x=900, width=170, center=985) -->
+                <!-- OUTPUTS (centered in Outputs backdrop: x=920, width=150, center=995) -->
                 
                 <!-- Reports -->
                 <g class="node" data-node="reports">
-                    <rect class="node-rect" x="920" y="135" width="130" height="55" rx="10" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="985" y="162" class="node-label" text-anchor="middle" fill="#374151" font-size="13">Reports</text>
-                    <text x="985" y="178" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="9">Weekly + On-demand</text>
+                    <rect class="node-rect" x="935" y="150" width="120" height="50" rx="10" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="995" y="174" class="node-label" text-anchor="middle" fill="#374151" font-size="12">Reports</text>
+                    <text x="995" y="189" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="8">Weekly + On-demand</text>
                 </g>
                 
                 <!-- Sales Process Doc -->
                 <g class="node" data-node="playbook">
-                    <rect class="node-rect" x="920" y="200" width="130" height="55" rx="10" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="985" y="225" class="node-label" text-anchor="middle" fill="#4338ca" font-size="12">Sales Process</text>
-                    <text x="985" y="242" class="node-sublabel" text-anchor="middle" fill="#6366f1" font-size="9">Central GTM resource</text>
+                    <rect class="node-rect" x="935" y="210" width="120" height="50" rx="10" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="995" y="234" class="node-label" text-anchor="middle" fill="#4338ca" font-size="11">Sales Process</text>
+                    <text x="995" y="249" class="node-sublabel" text-anchor="middle" fill="#6366f1" font-size="8">Central GTM resource</text>
                 </g>
                 
                 <!-- Campfire -->
                 <g class="node" data-node="campfire">
-                    <rect class="node-rect" x="920" y="265" width="130" height="55" rx="10" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="985" y="292" class="node-label" text-anchor="middle" fill="#374151" font-size="13">Campfire</text>
-                    <text x="985" y="308" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="9">ARR + Finance</text>
+                    <rect class="node-rect" x="935" y="270" width="120" height="50" rx="10" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="995" y="294" class="node-label" text-anchor="middle" fill="#374151" font-size="12">Campfire</text>
+                    <text x="995" y="309" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="8">ARR + Finance</text>
                 </g>
                 
                 <!-- Dashboard -->
                 <g class="node" data-node="dashboard">
-                    <rect class="node-rect" x="920" y="330" width="130" height="55" rx="10" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="985" y="357" class="node-label" text-anchor="middle" fill="#374151" font-size="13">Dashboard</text>
-                    <text x="985" y="373" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="9">Live pipeline view</text>
+                    <rect class="node-rect" x="935" y="330" width="120" height="50" rx="10" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="995" y="354" class="node-label" text-anchor="middle" fill="#374151" font-size="12">Dashboard</text>
+                    <text x="995" y="369" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="8">Live pipeline view</text>
                 </g>
                 
                 <!-- === CONNECTION LINES (carefully bowed to avoid overlap) === -->
                 
                 <!-- Slack → GTM Brain (bow upward) -->
                 <path class="connection" id="conn-slack-brain" 
-                      d="M 220 195 C 280 170, 320 165, 360 200" 
+                      d="M 220 205 C 290 165, 340 160, 400 210" 
                       stroke="#611f69" stroke-width="2" opacity="0.6"/>
-                <text x="285" y="162" font-size="9" fill="#6b7280" font-style="italic">questions</text>
+                <text x="300" y="155" font-size="9" fill="#6b7280" font-style="italic">questions</text>
                 
                 <!-- Hyprnote → GTM Brain (bow downward) -->
                 <path class="connection" id="conn-hypr-brain" 
-                      d="M 220 315 C 280 340, 320 345, 360 300" 
+                      d="M 220 325 C 290 360, 340 365, 400 310" 
                       stroke="#0ea5e9" stroke-width="2" opacity="0.6"/>
-                <text x="275" y="355" font-size="9" fill="#6b7280" font-style="italic">transcripts</text>
+                <text x="295" y="378" font-size="9" fill="#6b7280" font-style="italic">transcripts</text>
                 
                 <!-- GTM Brain → Salesforce (straight with slight curve) -->
                 <path class="connection" id="conn-brain-sf" 
-                      d="M 540 260 C 600 260, 660 260, 705 260" 
+                      d="M 580 260 C 630 260, 680 260, 720 260" 
                       stroke="#34d399" stroke-width="2.5" opacity="0.7"/>
-                <text x="610" y="248" font-size="9" fill="#6b7280" font-style="italic">sync + queries</text>
+                <text x="640" y="248" font-size="9" fill="#6b7280" font-style="italic">sync + queries</text>
                 
                 <!-- Salesforce ↔ GTM Brain hygiene loop (dashed, bowed above) -->
                 <path class="connection" id="conn-hygiene" 
-                      d="M 705 210 C 660 160, 580 160, 540 210" 
+                      d="M 720 210 C 680 160, 620 160, 580 200" 
                       stroke="#94a3b8" stroke-width="1.5" opacity="0.5" stroke-dasharray="5 4"/>
-                <text x="605" y="150" font-size="8" fill="#94a3b8" font-style="italic">SOQL hygiene (bidirectional)</text>
+                <text x="640" y="148" font-size="8" fill="#94a3b8" font-style="italic">SOQL hygiene</text>
                 
                 <!-- GTM Brain → Reports (bow upward, high arc) -->
                 <path class="connection" id="conn-brain-reports" 
-                      d="M 540 210 C 620 130, 800 115, 920 160" 
+                      d="M 580 200 C 700 100, 850 90, 935 170" 
                       stroke="#9ca3af" stroke-width="1.8" opacity="0.5"/>
-                <text x="730" y="108" font-size="8" fill="#6b7280" font-style="italic">weekly snapshots</text>
+                <text x="760" y="85" font-size="8" fill="#6b7280" font-style="italic">weekly snapshots</text>
                 
                 <!-- GTM Brain → Sales Process Doc (mid-high arc) -->
                 <path class="connection" id="conn-brain-playbook" 
-                      d="M 540 230 C 640 180, 780 175, 920 215" 
+                      d="M 580 220 C 700 160, 850 155, 935 230" 
                       stroke="#a5b4fc" stroke-width="1.8" opacity="0.5"/>
-                <text x="720" y="172" font-size="8" fill="#8e99e1" font-style="italic">process reference</text>
+                <text x="760" y="145" font-size="8" fill="#8e99e1" font-style="italic">process reference</text>
                 
                 <!-- GTM Brain → Campfire (mid-low arc) -->
                 <path class="connection" id="conn-brain-campfire" 
-                      d="M 540 280 C 640 320, 780 330, 920 295" 
+                      d="M 580 290 C 700 350, 850 360, 935 295" 
                       stroke="#9ca3af" stroke-width="1.8" opacity="0.5"/>
-                <text x="730" y="345" font-size="8" fill="#6b7280" font-style="italic">ARR sync</text>
+                <text x="760" y="378" font-size="8" fill="#6b7280" font-style="italic">ARR sync</text>
                 
                 <!-- GTM Brain → Dashboard (bow downward, low arc) -->
                 <path class="connection" id="conn-brain-dashboard" 
-                      d="M 540 300 C 620 380, 800 395, 920 360" 
+                      d="M 580 310 C 700 400, 850 420, 935 355" 
                       stroke="#6366f1" stroke-width="1.8" opacity="0.5"/>
-                <text x="720" y="405" font-size="8" fill="#6b7280" font-style="italic">live feed</text>
+                <text x="760" y="430" font-size="8" fill="#6b7280" font-style="italic">live feed</text>
                 
             </svg>
             
