@@ -91,11 +91,32 @@ async function subscribeToClosedWonEvents(app) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SPECIAL DEAL OVERRIDES
+// ═══════════════════════════════════════════════════════════════════════════
+// Some deals require custom messaging (e.g., finance review notes).
+// Add Opportunity IDs here with their custom overrides.
+// ═══════════════════════════════════════════════════════════════════════════
+const DEAL_OVERRIDES = {
+  '006Wj00000LbDRjIAN': {
+    typeOverride: 'Subject to Finance Review*',
+    forceNetChangeZero: true,
+    footnote: '*No incremental revenue vs. December run-rate. 27-month term secures capacity for near-term expansion.'
+  }
+};
+
 /**
  * Handle incoming Closed Won event and post to Slack
  */
 async function handleClosedWonEvent(app, message) {
   const payload = message.payload;
+  const oppId = payload.Opportunity_Id__c || null;
+  
+  // Check for special deal overrides
+  const override = oppId ? DEAL_OVERRIDES[oppId] : null;
+  if (override) {
+    logger.info(`Special override detected for Opp ${oppId}:`, override);
+  }
   
   // Extract fields from Platform Event
   const accountName = payload.Account_Name__c || 'Unknown Account';
@@ -197,12 +218,14 @@ async function handleClosedWonEvent(app, message) {
     productLine,
     acv: formattedACV,
     salesType,
-    renewalNetChange: formattedNetChange,
-    rawNetChange: renewalNetChange,
+    renewalNetChange: override?.forceNetChangeZero ? '$0' : formattedNetChange,
+    rawNetChange: override?.forceNetChangeZero ? 0 : renewalNetChange,
     closeDate,
     revenueType,
     ownerName,
-    isConfidential
+    isConfidential,
+    typeOverride: override?.typeOverride || null,
+    footnote: override?.footnote || null
   });
   
   // Determine where to send
@@ -249,13 +272,16 @@ async function handleClosedWonEvent(app, message) {
  * @param {string} params.revenueType - Revenue type (Recurring, Project, Commitment)
  * @param {string} params.ownerName - Deal owner name
  * @param {boolean} params.isConfidential - Whether this is a confidential deal
+ * @param {string|null} params.typeOverride - Override for Type display (e.g., "Subject to Finance Review*")
+ * @param {string|null} params.footnote - Custom footnote for special deals
  */
-function formatClosedWonMessage({ accountName, oppName, productLine, acv, salesType, renewalNetChange, rawNetChange, closeDate, revenueType, ownerName, isConfidential = false }) {
-  // Format revenue type display - just Recurring or Project, no ARR
-  let typeDisplay = revenueType || 'Not specified';
-  if (typeDisplay === 'Recurring, Project, or Commit') typeDisplay = 'Recurring';
-  if (typeDisplay === 'Commitment') typeDisplay = 'Recurring';
-  // Keep Project as-is, keep Recurring as-is
+function formatClosedWonMessage({ accountName, oppName, productLine, acv, salesType, renewalNetChange, rawNetChange, closeDate, revenueType, ownerName, isConfidential = false, typeOverride = null, footnote = null }) {
+  // Format revenue type display - use override if provided
+  let typeDisplay = typeOverride || revenueType || 'Not specified';
+  if (!typeOverride) {
+    if (typeDisplay === 'Recurring, Project, or Commit') typeDisplay = 'Recurring';
+    if (typeDisplay === 'Commitment') typeDisplay = 'Recurring';
+  }
   
   // Build the message in requested order
   let message = `*A Deal has been Won!*\n\n`;
@@ -265,18 +291,26 @@ function formatClosedWonMessage({ accountName, oppName, productLine, acv, salesT
   message += `*Product Line:* ${productLine}\n`;
   message += `*ACV:* ${acv}\n`;
   
-  // Show Net Change for Expansion/Renewal deals with +/- prefix
-  if (renewalNetChange && ['Expansion', 'Renewal'].includes(salesType)) {
-    const prefix = rawNetChange >= 0 ? '+' : '';
-    message += `*Net Change:* ${prefix}${renewalNetChange}\n`;
+  // Show Net Change for Expansion/Renewal deals
+  if (['Expansion', 'Renewal'].includes(salesType)) {
+    if (renewalNetChange) {
+      const prefix = rawNetChange >= 0 ? '+' : '';
+      message += `*Net Change:* ${prefix}${renewalNetChange}\n`;
+    } else {
+      message += `*Net Change:* $0\n`;
+    }
   }
   
   message += `*Sales Type:* ${salesType}\n`;
   message += `*Type:* ${typeDisplay}\n`;
   message += `*Close Date:* ${closeDate}`;
   
-  // Add confidentiality note for private deals
-  if (isConfidential) {
+  // Add custom footnote if provided
+  if (footnote) {
+    message += `\n\n_${footnote}_`;
+  }
+  // Add confidentiality note for private deals (if no custom footnote)
+  else if (isConfidential) {
     message += `\n\n_This client has a confidentiality agreement._`;
   }
   
