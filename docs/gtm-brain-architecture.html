@@ -350,6 +350,98 @@
             .support-grid {
                 grid-template-columns: 1fr;
             }
+            
+            .header {
+                padding: 12px 16px;
+                flex-direction: column;
+                gap: 12px;
+            }
+            
+            .header h1 {
+                font-size: 1rem;
+            }
+            
+            .nav-links {
+                gap: 4px;
+            }
+            
+            .nav-links a {
+                font-size: 0.7rem;
+                padding: 4px 8px;
+            }
+            
+            .container {
+                padding: 16px 12px;
+            }
+            
+            .title-section h2 {
+                font-size: 1.2rem;
+            }
+            
+            .title-section p {
+                font-size: 0.8rem;
+            }
+            
+            .diagram-container {
+                padding: 12px;
+                border-radius: 12px;
+            }
+            
+            /* SVG scales properly on mobile */
+            .neural-svg {
+                height: auto;
+                min-height: 400px;
+                max-height: 70vh;
+            }
+            
+            .legend {
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+            
+            .legend-item {
+                font-size: 0.65rem;
+            }
+            
+            .pipeline-support {
+                padding: 16px;
+            }
+            
+            .pipeline-support-title {
+                font-size: 0.9rem;
+            }
+            
+            .support-section {
+                padding: 14px;
+            }
+            
+            .support-list li {
+                font-size: 0.72rem;
+            }
+            
+            .footer-info p {
+                font-size: 0.72rem;
+            }
+        }
+        
+        /* Extra small mobile devices */
+        @media (max-width: 480px) {
+            .neural-svg {
+                min-height: 350px;
+            }
+            
+            .legend {
+                gap: 8px;
+            }
+            
+            .legend-item {
+                font-size: 0.6rem;
+            }
+            
+            .legend-dot {
+                width: 8px;
+                height: 8px;
+            }
         }
     </style>
 </head>
@@ -442,9 +534,9 @@
                       stroke="#9ca3af" stroke-width="1.5" opacity="0.5" marker-start="url(#dotGray)" marker-end="url(#dotGray)"/>
                 
                 <!-- Labels - positioned to the side of lines, not overlapping -->
-                <text x="195" y="160" font-size="7" fill="#8e99e1" font-style="italic">questions + transcripts</text>
+                <text x="170" y="160" font-size="7" fill="#8e99e1" font-style="italic">questions + transcripts</text>
                 <text x="475" y="152" font-size="7" fill="#22c55e" font-style="italic">sync</text>
-                <text x="665" y="160" font-size="7" fill="#6b7280" font-style="italic">generates</text>
+                <text x="690" y="160" font-size="7" fill="#6b7280" font-style="italic">generates</text>
                 
                 <!-- === THREE COLUMNS (EVENLY SPACED, CENTERED) === -->
                 <!-- Col 1 center: 170, Col 2 center: 450, Col 3 center: 730 -->
@@ -520,9 +612,13 @@
                     <text x="565" y="467" class="node-sublabel" text-anchor="middle" fill="#0284c7" font-size="6">Project Delivery</text>
                 </g>
                 
-                <!-- Connection: Salesforce → Rocket Lane (no sync label, dot only at RL end) -->
-                <path class="connection" d="M 480 385 C 480 405, 565 405, 565 430" 
+                <!-- Connection: Salesforce → Rocket Lane (dot only at RL end) -->
+                <path class="connection" d="M 490 385 C 490 405, 565 405, 565 430" 
                       stroke="#bae6fd" stroke-width="1.5" opacity="0.7" marker-end="url(#dotBlue)"/>
+                
+                <!-- Connection: Salesforce → Campfire (dot only at Campfire end) -->
+                <path class="connection" d="M 410 385 C 410 405, 335 405, 335 430" 
+                      stroke="#fed7aa" stroke-width="1.5" opacity="0.7" marker-end="url(#dotOrange)"/>
                 
                 <!-- Connection: Rocket Lane → Campfire (project utilization - gray dotted) -->
                 <path class="connection" d="M 510 457 C 460 457, 440 457, 390 457" 
