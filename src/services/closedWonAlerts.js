@@ -60,6 +60,10 @@ async function handleClosedWonEvent(app, message) {
   const ownerId = payload.Owner_Name__c || ''; // This contains OwnerId
   const isEudiaCounselOpp = payload.Eudia_Counsel_Opp__c === true;
   
+  // New fields for Sales Type and Renewal tracking
+  const salesType = payload.Sales_Type__c || 'New Business';
+  const renewalNetChange = payload.Renewal_Net_Change__c || null;
+  
   // ═══════════════════════════════════════════════════════════════════════════
   // CONFIDENTIAL DEAL DETECTION (Eudia Counsel)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -123,12 +127,25 @@ async function handleClosedWonEvent(app, message) {
     maximumFractionDigits: 0
   }).format(acv);
   
+  // Format renewal net change if present
+  let formattedNetChange = null;
+  if (renewalNetChange !== null && renewalNetChange !== 0) {
+    formattedNetChange = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(renewalNetChange);
+  }
+  
   // Format the message
   const slackMessage = formatClosedWonMessage({
     accountName: displayAccountName,
     oppName: displayOppName,
     productLine,
     acv: formattedACV,
+    salesType,
+    renewalNetChange: formattedNetChange,
     closeDate,
     revenueType,
     ownerName,
@@ -168,16 +185,18 @@ async function handleClosedWonEvent(app, message) {
  * Format the Slack message for a closed won deal
  * 
  * @param {Object} params - Message parameters
- * @param {string} params.accountName - Account name (or "[Confidential - Eudia Counsel]" for confidential deals)
+ * @param {string} params.accountName - Account name (or codename for confidential deals)
  * @param {string} params.oppName - Opportunity name
  * @param {string} params.productLine - Product line
  * @param {string} params.acv - Formatted ACV
+ * @param {string} params.salesType - Sales Type (New Business, Expansion, Renewal)
+ * @param {string|null} params.renewalNetChange - Formatted net change for Expansion/Renewal deals
  * @param {string} params.closeDate - Close date
- * @param {string} params.revenueType - Revenue type
+ * @param {string} params.revenueType - Revenue type (Recurring, Project, Commitment)
  * @param {string} params.ownerName - Deal owner name
  * @param {boolean} params.isConfidential - Whether this is a confidential deal
  */
-function formatClosedWonMessage({ accountName, oppName, productLine, acv, closeDate, revenueType, ownerName, isConfidential = false }) {
+function formatClosedWonMessage({ accountName, oppName, productLine, acv, salesType, renewalNetChange, closeDate, revenueType, ownerName, isConfidential = false }) {
   // Format revenue type display
   let typeDisplay = revenueType;
   if (revenueType === 'Recurring') typeDisplay = 'Recurring (ARR)';
@@ -190,6 +209,13 @@ function formatClosedWonMessage({ accountName, oppName, productLine, acv, closeD
   message += `*Client:* ${accountName}\n`;
   message += `*Deal:* ${oppName}\n`;
   message += `*ACV:* ${acv}\n`;
+  message += `*Sales Type:* ${salesType}\n`;
+  
+  // Show Net Change for Expansion/Renewal deals if value exists
+  if (renewalNetChange && ['Expansion', 'Renewal'].includes(salesType)) {
+    message += `*Net Change:* ${renewalNetChange}\n`;
+  }
+  
   message += `*Type:* ${typeDisplay}\n`;
   message += `*Product Line:* ${productLine}\n`;
   message += `*Close Date:* ${closeDate}\n`;
