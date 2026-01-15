@@ -87,6 +87,26 @@ function isLikelyRelevant(text) {
   return LIKELY_RELEVANT_PATTERNS.some(pattern => pattern.test(text));
 }
 
+/**
+ * Extract account name from channel name
+ * e.g., "customer-acme-corp" → "Acme Corp"
+ */
+function extractAccountName(channelName) {
+  if (!channelName) return 'Unknown';
+  
+  // Remove common prefixes
+  let name = channelName.toLowerCase()
+    .replace(/^(customer|cust|acct|account|client|ext|external)-/, '')
+    .replace(/-?(internal|external|support|team|project)$/, '');
+  
+  // Convert to title case
+  return name
+    .split(/[-_]/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+    .trim() || 'Unknown';
+}
+
 // LLM Relevance Classification Prompt
 const RELEVANCE_PROMPT = `You are an AI analyzing Slack messages from customer account channels for a fast-paced B2B sales team. Your job is to identify actionable account intelligence worth syncing to Salesforce.
 
@@ -739,6 +759,61 @@ function formatWeekLabel(weekStartStr) {
 }
 
 /**
+ * Auto-discover channels the bot is a member of
+ * Uses Slack's users.conversations API to find all channels
+ */
+async function discoverBotChannels() {
+  if (!slackClient) return [];
+  
+  try {
+    let allChannels = [];
+    let cursor = null;
+    
+    do {
+      const params = {
+        types: 'public_channel,private_channel',
+        exclude_archived: true,
+        limit: 200
+      };
+      if (cursor) params.cursor = cursor;
+      
+      const response = await slackClient.users.conversations(params);
+      
+      if (!response.ok) {
+        logger.error('Failed to list bot channels:', response.error);
+        break;
+      }
+      
+      // Filter to likely customer channels (has "customer-", "acct-", or similar prefix)
+      const customerChannels = (response.channels || []).filter(ch => {
+        const name = ch.name?.toLowerCase() || '';
+        return name.includes('customer') || 
+               name.includes('acct-') || 
+               name.includes('account-') ||
+               name.includes('client-') ||
+               name.includes('ext-') ||
+               name.startsWith('cust-');
+      });
+      
+      allChannels.push(...customerChannels);
+      cursor = response.response_metadata?.next_cursor;
+      
+      if (cursor) {
+        await sleep(500); // Rate limit
+      }
+      
+    } while (cursor);
+    
+    logger.info(`📡 Discovered ${allChannels.length} customer channels bot is in`);
+    return allChannels;
+    
+  } catch (error) {
+    logger.error('Error discovering bot channels:', error.message);
+    return [];
+  }
+}
+
+/**
  * Run historical backfill on monitored channels
  * @param {Object} options - { dryRun, channelId, progressCallback }
  */
@@ -769,14 +844,36 @@ async function backfillChannels(options = {}) {
   tokensUsedThisRun = 0;
   
   try {
-    // Get channels to process
+    // First try registered channels, then auto-discover if none
     let channels = await intelligenceStore.getMonitoredChannels();
+    
+    // If no registered channels, auto-discover from Slack
+    if (channels.length === 0) {
+      logger.info('No registered channels - auto-discovering from Slack...');
+      if (progressCallback) {
+        progressCallback('🔍 No registered channels found. Auto-discovering customer channels...');
+      }
+      
+      const discoveredChannels = await discoverBotChannels();
+      
+      // Convert to the format expected by backfill
+      channels = discoveredChannels.map(ch => ({
+        channel_id: ch.id,
+        channel_name: ch.name,
+        account_name: extractAccountName(ch.name),
+        account_id: null // Will need to match later
+      }));
+      
+      if (progressCallback && channels.length > 0) {
+        progressCallback(`✅ Found ${channels.length} customer channels: ${channels.map(c => '#' + c.channel_name).join(', ')}`);
+      }
+    }
     
     if (channelId) {
       channels = channels.filter(c => c.channel_id === channelId);
       if (channels.length === 0) {
         backfillInProgress = false;
-        return { error: `Channel ${channelId} is not being monitored. Add it first with /intel add` };
+        return { error: `Channel ${channelId} not found. Make sure the bot is added to the channel.` };
       }
     } else {
       // Limit channels per run to protect API
@@ -785,7 +882,7 @@ async function backfillChannels(options = {}) {
     
     if (channels.length === 0) {
       backfillInProgress = false;
-      return { error: 'No channels to backfill. Add channels with /intel add first.' };
+      return { error: 'No customer channels found. Add the bot to customer channels (e.g., #customer-acme) first.' };
     }
     
     const results = {
@@ -1032,8 +1129,10 @@ module.exports = {
   // Backfill functions
   backfillChannels,
   formatBackfillResults,
+  discoverBotChannels,
   shouldSkipMessage,
   isLikelyRelevant,
+  extractAccountName,
   BACKFILL_CONFIG
 };
 
