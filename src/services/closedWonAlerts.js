@@ -101,6 +101,7 @@ const DEAL_OVERRIDES_BY_ACCOUNT = {
   'OpenAi': {
     typeOverride: 'Subject to Finance Review*',
     forceNetChangeZero: true,
+    tcvOverride: '$3,325,367',
     footnote: '*No incremental revenue vs. December run-rate. 27-month term secures capacity for near-term expansion.'
   }
 };
@@ -218,6 +219,7 @@ async function handleClosedWonEvent(app, message) {
     oppName: displayOppName,
     productLine,
     acv: formattedACV,
+    tcv: override?.tcvOverride || null,
     salesType,
     renewalNetChange: override?.forceNetChangeZero ? '$0' : formattedNetChange,
     rawNetChange: override?.forceNetChangeZero ? 0 : renewalNetChange,
@@ -276,7 +278,7 @@ async function handleClosedWonEvent(app, message) {
  * @param {string|null} params.typeOverride - Override for Type display (e.g., "Subject to Finance Review*")
  * @param {string|null} params.footnote - Custom footnote for special deals
  */
-function formatClosedWonMessage({ accountName, oppName, productLine, acv, salesType, renewalNetChange, rawNetChange, closeDate, revenueType, ownerName, isConfidential = false, typeOverride = null, footnote = null }) {
+function formatClosedWonMessage({ accountName, oppName, productLine, acv, tcv = null, salesType, renewalNetChange, rawNetChange, closeDate, revenueType, ownerName, isConfidential = false, typeOverride = null, footnote = null }) {
   // Format revenue type display - use override if provided
   let typeDisplay = typeOverride || revenueType || 'Not specified';
   if (!typeOverride) {
@@ -291,6 +293,9 @@ function formatClosedWonMessage({ accountName, oppName, productLine, acv, salesT
   message += `*Deal Owner:* ${ownerName}\n`;
   message += `*Product Line:* ${productLine}\n`;
   message += `*ACV:* ${acv}\n`;
+  if (tcv) {
+    message += `*TCV:* ${tcv}\n`;
+  }
   
   // Show Net Change for Expansion/Renewal deals
   if (['Expansion', 'Renewal'].includes(salesType)) {
