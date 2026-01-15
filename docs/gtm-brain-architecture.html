@@ -353,85 +353,59 @@
             
             .header {
                 padding: 12px 16px;
-                flex-direction: column;
-                gap: 12px;
+                flex-direction: row;
+                gap: 8px;
             }
             
             .header h1 {
-                font-size: 1rem;
-            }
-            
-            .nav-links {
-                gap: 4px;
-            }
-            
-            .nav-links a {
-                font-size: 0.7rem;
-                padding: 4px 8px;
-            }
-            
-            .container {
-                padding: 16px 12px;
-            }
-            
-            .title-section h2 {
-                font-size: 1.2rem;
-            }
-            
-            .title-section p {
-                font-size: 0.8rem;
-            }
-            
-            .diagram-container {
-                padding: 12px;
-                border-radius: 12px;
-            }
-            
-            /* SVG scales properly on mobile */
-            .neural-svg {
-                height: auto;
-                min-height: 400px;
-                max-height: 70vh;
-            }
-            
-            .legend {
-                gap: 12px;
-                flex-wrap: wrap;
-            }
-            
-            .legend-item {
-                font-size: 0.65rem;
-            }
-            
-            .pipeline-support {
-                padding: 16px;
-            }
-            
-            .pipeline-support-title {
                 font-size: 0.9rem;
             }
             
-            .support-section {
-                padding: 14px;
+            .nav-links {
+                gap: 2px;
             }
             
-            .support-list li {
-                font-size: 0.72rem;
+            .nav-links a {
+                font-size: 0.65rem;
+                padding: 4px 6px;
             }
             
-            .footer-info p {
-                font-size: 0.72rem;
+            .container {
+                padding: 12px 8px;
             }
-        }
-        
-        /* Extra small mobile devices */
-        @media (max-width: 480px) {
+            
+            .title-section {
+                margin-bottom: 16px;
+            }
+            
+            .title-section h2 {
+                font-size: 1.1rem;
+            }
+            
+            .title-section p {
+                font-size: 0.75rem;
+            }
+            
+            .diagram-container {
+                padding: 8px;
+                border-radius: 10px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            /* SVG fills width and allows horizontal scroll if needed */
             .neural-svg {
-                min-height: 350px;
+                width: 100%;
+                height: auto;
+                min-width: 600px;
+                min-height: 450px;
             }
             
             .legend {
                 gap: 8px;
+                flex-wrap: wrap;
+                justify-content: flex-start;
+                padding: 10px 4px;
             }
             
             .legend-item {
@@ -441,6 +415,90 @@
             .legend-dot {
                 width: 8px;
                 height: 8px;
+            }
+            
+            .pipeline-support {
+                padding: 14px;
+                margin-top: 20px;
+            }
+            
+            .pipeline-support-title {
+                font-size: 0.85rem;
+            }
+            
+            .support-section {
+                padding: 12px;
+            }
+            
+            .support-section h5 {
+                font-size: 0.8rem;
+            }
+            
+            .support-badge {
+                font-size: 0.6rem;
+                padding: 3px 8px;
+            }
+            
+            .support-list li {
+                font-size: 0.7rem;
+                padding: 3px 0;
+                padding-left: 14px;
+            }
+            
+            .footer-info {
+                padding: 12px;
+                margin-top: 16px;
+            }
+            
+            .footer-info p {
+                font-size: 0.7rem;
+            }
+            
+            footer {
+                padding: 16px;
+                font-size: 0.65rem;
+            }
+        }
+        
+        /* Extra small mobile devices */
+        @media (max-width: 480px) {
+            .header {
+                padding: 10px 12px;
+            }
+            
+            .header h1 {
+                font-size: 0.8rem;
+            }
+            
+            .nav-links a {
+                font-size: 0.6rem;
+                padding: 3px 5px;
+            }
+            
+            .title-section h2 {
+                font-size: 1rem;
+            }
+            
+            .diagram-container {
+                padding: 6px;
+            }
+            
+            .neural-svg {
+                min-width: 550px;
+                min-height: 400px;
+            }
+            
+            .legend {
+                gap: 6px;
+            }
+            
+            .legend-item {
+                font-size: 0.55rem;
+            }
+            
+            .legend-dot {
+                width: 7px;
+                height: 7px;
             }
         }
     </style>
