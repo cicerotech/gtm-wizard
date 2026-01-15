@@ -793,6 +793,15 @@ class GTMBrainApp {
     this.expressApp.get('/playbook', (req, res) => res.redirect('/sales-process'));
     this.expressApp.get('/revops', (req, res) => res.redirect('/sales-process'));
 
+    // GTM Brain Architecture / Data Flow Diagram
+    this.expressApp.get('/architecture', (req, res) => {
+      const path = require('path');
+      const archPath = path.join(__dirname, '..', 'docs', 'gtm-brain-architecture.html');
+      res.sendFile(archPath);
+    });
+    this.expressApp.get('/data-flow', (req, res) => res.redirect('/architecture'));
+    this.expressApp.get('/how-it-works', (req, res) => res.redirect('/architecture'));
+
     // CAB Survey
     this.expressApp.get('/cab-survey', (req, res) => {
       const path = require('path');

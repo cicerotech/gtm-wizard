@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GTM Brain - Data Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-primary: #0f1419;
+            --bg-secondary: #1a1f2e;
+            --bg-card: #232b3d;
+            --border: #2d3748;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #60a5fa;
+            --accent-purple: #a78bfa;
+            --accent-green: #4ade80;
+            --accent-orange: #fb923c;
+            --accent-pink: #f472b6;
+            --accent-cyan: #22d3ee;
+        }
+        
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* Header */
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        
+        h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+        
+        h1 span {
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.8rem;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .nav-links a:hover {
+            color: var(--text-primary);
+            background: var(--bg-card);
+            border-color: var(--border);
+        }
+        
+        /* Main Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+        
+        /* Intro Section */
+        .intro {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .intro h2 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .intro p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        /* Legend */
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-bottom: 32px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        .legend-dot.user { background: var(--accent-blue); }
+        .legend-dot.brain { background: var(--accent-purple); }
+        .legend-dot.data { background: var(--accent-green); }
+        .legend-dot.output { background: var(--accent-orange); }
+        
+        /* Diagram Container */
+        .diagram-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .diagram-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(96, 165, 250, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(167, 139, 250, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        
+        /* SVG Diagram */
+        .diagram-svg {
+            width: 100%;
+            height: 700px;
+            display: block;
+        }
+        
+        /* Node Styles */
+        .node {
+            cursor: pointer;
+            transition: transform 0.2s, filter 0.2s;
+        }
+        
+        .node:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+        
+        .node-rect {
+            rx: 12;
+            ry: 12;
+            stroke-width: 1.5;
+            transition: stroke-width 0.2s;
+        }
+        
+        .node:hover .node-rect {
+            stroke-width: 2.5;
+        }
+        
+        .node-label {
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            fill: var(--text-primary);
+            pointer-events: none;
+        }
+        
+        .node-sublabel {
+            font-family: inherit;
+            font-size: 10px;
+            fill: var(--text-secondary);
+            pointer-events: none;
+        }
+        
+        .node-icon {
+            font-size: 18px;
+            pointer-events: none;
+        }
+        
+        /* Connection Paths */
+        .connection {
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            opacity: 0.6;
+            transition: opacity 0.3s, stroke-width 0.3s;
+        }
+        
+        .connection.highlighted {
+            opacity: 1;
+            stroke-width: 3;
+        }
+        
+        .connection-animated {
+            stroke-dasharray: 8 4;
+            animation: flowAnimation 1s linear infinite;
+        }
+        
+        @keyframes flowAnimation {
+            from { stroke-dashoffset: 12; }
+            to { stroke-dashoffset: 0; }
+        }
+        
+        /* Flow Labels */
+        .flow-label {
+            font-family: inherit;
+            font-size: 9px;
+            fill: var(--text-muted);
+            text-anchor: middle;
+        }
+        
+        /* Swim Lane Labels */
+        .lane-label {
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            fill: var(--text-muted);
+        }
+        
+        /* Detail Panel */
+        .detail-panel {
+            position: fixed;
+            top: 80px;
+            right: 32px;
+            width: 320px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            opacity: 0;
+            transform: translateX(20px);
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+            z-index: 200;
+        }
+        
+        .detail-panel.visible {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+        
+        .detail-panel h3 {
+            font-size: 1rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .detail-panel p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+        
+        .detail-panel .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        
+        .detail-panel .tech-tag {
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+        }
+        
+        .detail-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 18px;
+        }
+        
+        .detail-close:hover {
+            color: var(--text-primary);
+        }
+        
+        /* Flow Section Cards */
+        .flows-section {
+            margin-top: 40px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        
+        .flow-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: border-color 0.2s;
+        }
+        
+        .flow-card:hover {
+            border-color: var(--text-muted);
+        }
+        
+        .flow-card h4 {
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .flow-card .flow-steps {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            margin-top: 12px;
+        }
+        
+        .flow-step {
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            background: var(--bg-card);
+            border-radius: 4px;
+            color: var(--text-secondary);
+        }
+        
+        .flow-arrow {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+        }
+        
+        .flow-card p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 32px;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+        
+        footer a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+        
+        footer a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 900px) {
+            .diagram-svg {
+                height: 500px;
+            }
+            .detail-panel {
+                position: static;
+                width: 100%;
+                margin-top: 20px;
+                transform: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo-section">
+            <div class="logo-icon">G</div>
+            <h1>GTM Brain <span>/ Data Architecture</span></h1>
+        </div>
+        <nav class="nav-links">
+            <a href="/account-dashboard">Dashboard</a>
+            <a href="/cheat-sheet">Commands</a>
+            <a href="/sales-process">Sales Process</a>
+        </nav>
+    </header>
+    
+    <div class="container">
+        <div class="intro">
+            <h2>How Data Flows Through GTM Brain</h2>
+            <p>From Slack queries through AI classification to Salesforce and back. Click any node to see technical details.</p>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-dot user"></div>
+                <span>User Interface</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot brain"></div>
+                <span>GTM Brain Processing</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot data"></div>
+                <span>Data Systems</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot output"></div>
+                <span>Output / Reports</span>
+            </div>
+        </div>
+        
+        <div class="diagram-container">
+            <svg class="diagram-svg" viewBox="0 0 1200 650" preserveAspectRatio="xMidYMid meet">
+                <!-- Background Grid -->
+                <defs>
+                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.02)" stroke-width="1"/>
+                    </pattern>
+                    
+                    <!-- Gradients -->
+                    <linearGradient id="gradBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="gradPurple" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#8b5cf6;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#6d28d9;stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="gradGreen" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#22c55e;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#16a34a;stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="gradOrange" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#f97316;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#ea580c;stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="gradCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#0891b2;stop-opacity:1" />
+                    </linearGradient>
+                    
+                    <!-- Arrow Marker -->
+                    <marker id="arrowBlue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 z" fill="#60a5fa" opacity="0.8"/>
+                    </marker>
+                    <marker id="arrowPurple" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 z" fill="#a78bfa" opacity="0.8"/>
+                    </marker>
+                    <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 z" fill="#4ade80" opacity="0.8"/>
+                    </marker>
+                    <marker id="arrowOrange" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 z" fill="#fb923c" opacity="0.8"/>
+                    </marker>
+                </defs>
+                
+                <rect width="100%" height="100%" fill="url(#grid)"/>
+                
+                <!-- Swim Lane Labels -->
+                <text x="120" y="30" class="lane-label">User Layer</text>
+                <text x="530" y="30" class="lane-label">GTM Brain</text>
+                <text x="980" y="30" class="lane-label">Data Systems</text>
+                
+                <!-- Swim Lane Dividers -->
+                <line x1="350" y1="50" x2="350" y2="620" stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="4 4"/>
+                <line x1="850" y1="50" x2="850" y2="620" stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="4 4"/>
+                
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- CONNECTION PATHS (drawn first, behind nodes) -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                
+                <!-- Slack to Intent Router -->
+                <path class="connection connection-animated" 
+                      d="M 220 140 C 300 140, 380 120, 460 120" 
+                      stroke="#60a5fa" marker-end="url(#arrowBlue)"
+                      data-flow="query"/>
+                <text x="340" y="115" class="flow-label">@mention / DM</text>
+                
+                <!-- Intent Router to Pattern/Semantic/Neural -->
+                <path class="connection" 
+                      d="M 600 100 C 620 80, 560 60, 600 60" 
+                      stroke="#a78bfa" marker-end="url(#arrowPurple)"
+                      data-flow="classify"/>
+                
+                <!-- Intent Router to Query Builder -->
+                <path class="connection connection-animated" 
+                      d="M 600 140 C 680 150, 680 200, 600 220" 
+                      stroke="#a78bfa" marker-end="url(#arrowPurple)"
+                      data-flow="query"/>
+                <text x="660" y="180" class="flow-label">SOQL</text>
+                
+                <!-- Query Builder to Salesforce -->
+                <path class="connection connection-animated" 
+                      d="M 680 240 C 780 240, 850 200, 950 200" 
+                      stroke="#22c55e" marker-end="url(#arrowGreen)"
+                      data-flow="query"/>
+                <text x="820" y="210" class="flow-label">REST API</text>
+                
+                <!-- Salesforce back to Response Formatter -->
+                <path class="connection" 
+                      d="M 950 220 C 850 260, 750 300, 680 320" 
+                      stroke="#22c55e" marker-end="url(#arrowGreen)"
+                      data-flow="query"/>
+                <text x="820" y="290" class="flow-label">Records</text>
+                
+                <!-- Response Formatter to Slack -->
+                <path class="connection connection-animated" 
+                      d="M 520 340 C 400 340, 300 200, 220 180" 
+                      stroke="#60a5fa" marker-end="url(#arrowBlue)"
+                      data-flow="query"/>
+                <text x="350" y="280" class="flow-label">Formatted Response</text>
+                
+                <!-- Contract PDF Flow -->
+                <path class="connection" 
+                      d="M 220 280 C 320 280, 380 380, 460 380" 
+                      stroke="#fb923c" marker-end="url(#arrowOrange)"
+                      data-flow="contract"/>
+                <text x="320" y="345" class="flow-label">PDF Upload</text>
+                
+                <!-- LLM Extractor to Contract Creation -->
+                <path class="connection" 
+                      d="M 680 380 C 750 380, 750 440, 680 460" 
+                      stroke="#fb923c" marker-end="url(#arrowOrange)"
+                      data-flow="contract"/>
+                
+                <!-- Contract Creation to Salesforce -->
+                <path class="connection connection-animated" 
+                      d="M 680 480 C 800 500, 880 350, 950 280" 
+                      stroke="#22c55e" marker-end="url(#arrowGreen)"
+                      data-flow="contract"/>
+                <text x="840" y="420" class="flow-label">Contract Record</text>
+                
+                <!-- Hyprnote to Meeting Sync -->
+                <path class="connection" 
+                      d="M 1080 420 C 900 420, 800 520, 680 520" 
+                      stroke="#06b6d4" marker-end="url(#arrowPurple)"
+                      data-flow="sync"/>
+                <text x="880" y="470" class="flow-label">Transcription</text>
+                
+                <!-- Meeting Sync to Salesforce -->
+                <path class="connection connection-animated" 
+                      d="M 680 540 C 780 560, 880 400, 950 320" 
+                      stroke="#22c55e" marker-end="url(#arrowGreen)"
+                      data-flow="sync"/>
+                <text x="840" y="500" class="flow-label">Contact + Event</text>
+                
+                <!-- Report Generation Flow -->
+                <path class="connection" 
+                      d="M 600 260 C 620 320, 500 380, 600 400" 
+                      stroke="#a78bfa"
+                      data-flow="report"/>
+                
+                <!-- Reports to Email/Slack -->
+                <path class="connection connection-animated" 
+                      d="M 520 600 C 380 600, 280 500, 160 500" 
+                      stroke="#fb923c" marker-end="url(#arrowOrange)"
+                      data-flow="report"/>
+                <text x="340" y="560" class="flow-label">PDF / Excel</text>
+                
+                <!-- Dashboard to Salesforce -->
+                <path class="connection" 
+                      d="M 160 400 C 400 400, 700 300, 950 260" 
+                      stroke="#22c55e" opacity="0.3"
+                      data-flow="dashboard"/>
+                <text x="550" y="340" class="flow-label" opacity="0.5">Direct Query</text>
+                
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- USER LAYER NODES -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                
+                <!-- Slack -->
+                <g class="node" data-node="slack" transform="translate(60, 100)">
+                    <rect class="node-rect" width="160" height="80" fill="url(#gradBlue)" stroke="#60a5fa"/>
+                    <text x="80" y="35" class="node-label" text-anchor="middle">Slack</text>
+                    <text x="80" y="52" class="node-sublabel" text-anchor="middle">@gtm-brain mentions</text>
+                    <text x="80" y="66" class="node-sublabel" text-anchor="middle">DMs + File uploads</text>
+                </g>
+                
+                <!-- PDF Upload -->
+                <g class="node" data-node="pdf" transform="translate(60, 240)">
+                    <rect class="node-rect" width="160" height="60" fill="var(--bg-card)" stroke="#fb923c"/>
+                    <text x="80" y="30" class="node-label" text-anchor="middle">Contract PDF</text>
+                    <text x="80" y="46" class="node-sublabel" text-anchor="middle">Upload to analyze</text>
+                </g>
+                
+                <!-- Web Dashboard -->
+                <g class="node" data-node="dashboard" transform="translate(60, 360)">
+                    <rect class="node-rect" width="160" height="60" fill="var(--bg-card)" stroke="#60a5fa"/>
+                    <text x="80" y="30" class="node-label" text-anchor="middle">Web Dashboard</text>
+                    <text x="80" y="46" class="node-sublabel" text-anchor="middle">Account Status UI</text>
+                </g>
+                
+                <!-- Email Output -->
+                <g class="node" data-node="email" transform="translate(60, 460)">
+                    <rect class="node-rect" width="160" height="60" fill="var(--bg-card)" stroke="#fb923c"/>
+                    <text x="80" y="30" class="node-label" text-anchor="middle">Email / Slack</text>
+                    <text x="80" y="46" class="node-sublabel" text-anchor="middle">Report delivery</text>
+                </g>
+                
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- GTM BRAIN PROCESSING NODES -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                
+                <!-- Intent Router (Main) -->
+                <g class="node" data-node="router" transform="translate(460, 80)">
+                    <rect class="node-rect" width="180" height="80" fill="url(#gradPurple)" stroke="#a78bfa"/>
+                    <text x="90" y="30" class="node-label" text-anchor="middle">Intelligent Router</text>
+                    <text x="90" y="48" class="node-sublabel" text-anchor="middle">Ensemble Classification</text>
+                    <text x="90" y="64" class="node-sublabel" text-anchor="middle">Pattern + Semantic + ML</text>
+                </g>
+                
+                <!-- Query Builder -->
+                <g class="node" data-node="query" transform="translate(520, 200)">
+                    <rect class="node-rect" width="160" height="60" fill="var(--bg-card)" stroke="#a78bfa"/>
+                    <text x="80" y="30" class="node-label" text-anchor="middle">Query Builder</text>
+                    <text x="80" y="46" class="node-sublabel" text-anchor="middle">SOQL Generation</text>
+                </g>
+                
+                <!-- Response Formatter -->
+                <g class="node" data-node="formatter" transform="translate(520, 300)">
+                    <rect class="node-rect" width="160" height="60" fill="var(--bg-card)" stroke="#a78bfa"/>
+                    <text x="80" y="30" class="node-label" text-anchor="middle">Formatter</text>
+                    <text x="80" y="46" class="node-sublabel" text-anchor="middle">Slack Block Kit</text>
+                </g>
+                
+                <!-- LLM Contract Extractor -->
+                <g class="node" data-node="extractor" transform="translate(520, 350)">
+                    <rect class="node-rect" width="160" height="60" fill="var(--bg-card)" stroke="#fb923c"/>
+                    <text x="80" y="30" class="node-label" text-anchor="middle">LLM Extractor</text>
+                    <text x="80" y="46" class="node-sublabel" text-anchor="middle">Contract parsing</text>
+                </g>
+                
+                <!-- Contract Creation -->
+                <g class="node" data-node="contract-create" transform="translate(520, 440)">
+                    <rect class="node-rect" width="160" height="60" fill="var(--bg-card)" stroke="#fb923c"/>
+                    <text x="80" y="30" class="node-label" text-anchor="middle">Contract Creation</text>
+                    <text x="80" y="46" class="node-sublabel" text-anchor="middle">SF Record Builder</text>
+                </g>
+                
+                <!-- Meeting Sync -->
+                <g class="node" data-node="meeting-sync" transform="translate(520, 520)">
+                    <rect class="node-rect" width="160" height="60" fill="var(--bg-card)" stroke="#06b6d4"/>
+                    <text x="80" y="30" class="node-label" text-anchor="middle">Meeting Sync</text>
+                    <text x="80" y="46" class="node-sublabel" text-anchor="middle">Contact + Event Match</text>
+                </g>
+                
+                <!-- Report Generator -->
+                <g class="node" data-node="reports" transform="translate(520, 600)">
+                    <rect class="node-rect" width="160" height="40" fill="var(--bg-card)" stroke="#fb923c"/>
+                    <text x="80" y="26" class="node-label" text-anchor="middle">Report Generator</text>
+                </g>
+                
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- DATA SYSTEMS NODES -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                
+                <!-- Salesforce (Main) -->
+                <g class="node" data-node="salesforce" transform="translate(920, 140)">
+                    <rect class="node-rect" width="180" height="180" fill="url(#gradGreen)" stroke="#4ade80"/>
+                    <text x="90" y="35" class="node-label" text-anchor="middle">Salesforce</text>
+                    <text x="90" y="55" class="node-sublabel" text-anchor="middle">Source of Truth</text>
+                    <line x1="20" y1="70" x2="160" y2="70" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                    <text x="90" y="90" class="node-sublabel" text-anchor="middle">Accounts</text>
+                    <text x="90" y="108" class="node-sublabel" text-anchor="middle">Opportunities</text>
+                    <text x="90" y="126" class="node-sublabel" text-anchor="middle">Contracts</text>
+                    <text x="90" y="144" class="node-sublabel" text-anchor="middle">Contacts + Events</text>
+                    <text x="90" y="165" class="node-sublabel" text-anchor="middle" style="font-style: italic">jsforce + OAuth</text>
+                </g>
+                
+                <!-- Campfire ERP -->
+                <g class="node" data-node="campfire" transform="translate(920, 340)">
+                    <rect class="node-rect" width="180" height="60" fill="var(--bg-card)" stroke="#4ade80"/>
+                    <text x="90" y="28" class="node-label" text-anchor="middle">Campfire ERP</text>
+                    <text x="90" y="46" class="node-sublabel" text-anchor="middle">ARR + Finance Data</text>
+                </g>
+                
+                <!-- Hyprnote -->
+                <g class="node" data-node="hyprnote" transform="translate(980, 400)">
+                    <rect class="node-rect" width="140" height="60" fill="var(--bg-card)" stroke="#06b6d4"/>
+                    <text x="70" y="28" class="node-label" text-anchor="middle">Hyprnote</text>
+                    <text x="70" y="46" class="node-sublabel" text-anchor="middle">Meeting Transcripts</text>
+                </g>
+                
+                <!-- OpenAI -->
+                <g class="node" data-node="openai" transform="translate(920, 480)">
+                    <rect class="node-rect" width="140" height="50" fill="var(--bg-card)" stroke="#a78bfa"/>
+                    <text x="70" y="28" class="node-label" text-anchor="middle">OpenAI</text>
+                    <text x="70" y="42" class="node-sublabel" text-anchor="middle">Embeddings + LLM</text>
+                </g>
+                
+                <!-- Socrates -->
+                <g class="node" data-node="socrates" transform="translate(920, 545)">
+                    <rect class="node-rect" width="140" height="50" fill="var(--bg-card)" stroke="#a78bfa"/>
+                    <text x="70" y="28" class="node-label" text-anchor="middle">Socrates</text>
+                    <text x="70" y="42" class="node-sublabel" text-anchor="middle">Claude Gateway</text>
+                </g>
+                
+                <!-- Classification Box (small, top center) -->
+                <g transform="translate(530, 40)">
+                    <rect width="100" height="30" rx="4" fill="var(--bg-card)" stroke="var(--border)" stroke-width="1"/>
+                    <text x="50" y="12" class="node-sublabel" text-anchor="middle">30% Pattern</text>
+                    <text x="50" y="24" class="node-sublabel" text-anchor="middle">35% Sem + 35% ML</text>
+                </g>
+            </svg>
+        </div>
+        
+        <!-- Flow Cards Section -->
+        <section class="flows-section">
+            <div class="flow-card">
+                <h4><span style="color: var(--accent-blue);">1.</span> Query Flow</h4>
+                <p>Natural language Salesforce queries via Slack. AI routes to the right handler, builds SOQL, returns formatted results.</p>
+                <div class="flow-steps">
+                    <span class="flow-step">@gtm-brain query</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step">Intent Router</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step">SOQL</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step">Salesforce</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step">Slack Response</span>
+                </div>
+            </div>
+            
+            <div class="flow-card">
+                <h4><span style="color: var(--accent-orange);">2.</span> Contract Processing</h4>
+                <p>Upload a PDF contract. LLM extracts terms, dates, parties. One-click creates Salesforce Contract record.</p>
+                <div class="flow-steps">
+                    <span class="flow-step">PDF Upload</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step">LLM Extraction</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step">Review</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step">Create Record</span>
+                </div>
+            </div>
+            
+            <div class="flow-card">
+                <h4><span style="color: var(--accent-cyan);">3.</span> Meeting Sync</h4>
+                <p>Hyprnote transcriptions flow to Salesforce. Creates Contacts, Events, and updates Account Customer Brain.</p>
+                <div class="flow-steps">
+                    <span class="flow-step">Hyprnote</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step">Name Matcher</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step">Contact/Event</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step">Salesforce</span>
+                </div>
+            </div>
+            
+            <div class="flow-card">
+                <h4><span style="color: var(--accent-purple);">4.</span> Reporting</h4>
+                <p>Scheduled and on-demand reports. Weekly RevOps PDF, pipeline Excel, BL summaries via Slack/Email.</p>
+                <div class="flow-steps">
+                    <span class="flow-step">Cron / Request</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step">Query Aggregation</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step">PDF / Excel</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step">Deliver</span>
+                </div>
+            </div>
+        </section>
+    </div>
+    
+    <!-- Detail Panel -->
+    <div class="detail-panel" id="detailPanel">
+        <button class="detail-close" onclick="closeDetail()">&times;</button>
+        <h3 id="detailTitle"></h3>
+        <p id="detailDesc"></p>
+        <div class="tech-stack" id="detailTech"></div>
+    </div>
+    
+    <footer>
+        GTM Brain Data Architecture &bull; Eudia RevOps &bull; <a href="/cheat-sheet">View Commands</a>
+    </footer>
+    
+    <script>
+        // Node detail information
+        const nodeDetails = {
+            slack: {
+                title: 'Slack Interface',
+                desc: 'Primary user interface via @slack/bolt in socket mode. Handles @mentions in channels and direct messages. Supports file uploads for contract processing.',
+                tech: ['@slack/bolt', 'Socket Mode', 'Block Kit', 'File API']
+            },
+            router: {
+                title: 'Intelligent Router',
+                desc: 'Ensemble intent classification combining 3 approaches: Pattern matching (30%), Semantic similarity via OpenAI embeddings (35%), and a custom neural network (35%). Confidence threshold of 0.6 determines routing.',
+                tech: ['intelligentRouter.js', 'semanticMatcher.js', 'mlIntentClassifier.js', 'OpenAI Embeddings']
+            },
+            query: {
+                title: 'Query Builder',
+                desc: 'Translates parsed intent into valid SOQL queries. Handles field mappings, filter construction, and Salesforce-specific syntax. Uses schema definitions for validation.',
+                tech: ['queries.js', 'SOQL', 'schema-account.json', 'schema-opportunity.json']
+            },
+            formatter: {
+                title: 'Response Formatter',
+                desc: 'Converts Salesforce query results into rich Slack Block Kit messages. Handles pagination, currency formatting, and account/opportunity display.',
+                tech: ['responseFormatter.js', 'Block Kit', 'formatters.js']
+            },
+            salesforce: {
+                title: 'Salesforce CRM',
+                desc: 'Source of truth for pipeline data. Connected via jsforce with OAuth 2.0. Circuit breaker logic prevents auth rate limit issues. Key objects: Account, Opportunity, Contract, Contact.',
+                tech: ['jsforce', 'OAuth 2.0', 'REST API', 'Circuit Breaker']
+            },
+            extractor: {
+                title: 'LLM Contract Extractor',
+                desc: 'Uses Claude (via Socrates gateway) to parse uploaded PDF contracts. Extracts: financial terms, dates, parties, product mapping, contract type.',
+                tech: ['llmContractExtractor.js', 'Claude API', 'Socrates', 'PDFKit']
+            },
+            'contract-create': {
+                title: 'Contract Creation',
+                desc: 'Takes extracted contract data and creates Salesforce Contract records. Links to Account and Opportunity. Sets AI_Enabled__c flag.',
+                tech: ['contractCreation.js', 'Salesforce REST', 'Account Matching']
+            },
+            'meeting-sync': {
+                title: 'Meeting Sync Service',
+                desc: 'Syncs Hyprnote meeting transcriptions to Salesforce. Creates Contact records for new attendees, Event records for meetings, updates Account Customer_Brain__c with insights.',
+                tech: ['hyprnoteSyncService.js', 'fuzzyAccountMatcher.js', 'Contact API']
+            },
+            hyprnote: {
+                title: 'Hyprnote',
+                desc: 'External meeting transcription tool. Captures conversation summaries, action items, attendees. Data flows to GTM Brain via sync command.',
+                tech: ['External Service', 'Transcription', 'Meeting Notes']
+            },
+            openai: {
+                title: 'OpenAI',
+                desc: 'Powers semantic matching with text-embedding-ada-002. Used for query similarity matching and intent classification confidence.',
+                tech: ['text-embedding-ada-002', 'Embeddings API', 'Similarity Search']
+            },
+            socrates: {
+                title: 'Socrates Gateway',
+                desc: 'Internal LLM gateway providing Claude access with Okta M2M authentication. Used for contract parsing and complex query understanding.',
+                tech: ['Claude API', 'Okta M2M', 'socratesAdapter.js']
+            },
+            campfire: {
+                title: 'Campfire ERP',
+                desc: 'Finance-owned ERP system for contract and ARR management. REST API integration for revenue data reconciliation.',
+                tech: ['REST API', 'ARR Tracking', 'Finance Integration']
+            },
+            dashboard: {
+                title: 'Web Dashboard',
+                desc: 'Password-protected HTML dashboard at /account-dashboard. Shows pipeline summary, revenue breakdowns, account health. 30-day session cookies.',
+                tech: ['accountDashboard.js', 'Express.js', 'SSO (Okta)']
+            },
+            pdf: {
+                title: 'Contract PDF Upload',
+                desc: 'Drag-and-drop PDF contracts into Slack. Detected by file handler, processed by LLM extractor, reviewed in thread before creation.',
+                tech: ['Slack Files API', 'MIME Detection', 'Thread UI']
+            },
+            email: {
+                title: 'Report Delivery',
+                desc: 'Weekly RevOps email via Microsoft Graph API. Slack channel delivery for BL summaries. Supports PDF and Excel attachments.',
+                tech: ['Microsoft Graph', 'nodemailer', 'PDFKit', 'ExcelJS']
+            },
+            reports: {
+                title: 'Report Generator',
+                desc: 'Generates weekly snapshot PDFs, pipeline Excel exports, BL summaries. Aggregates Salesforce data with business logic from config.',
+                tech: ['blWeeklySummary.js', 'weeklyReport.js', 'PDFKit', 'ExcelJS']
+            }
+        };
+        
+        // Handle node clicks
+        document.querySelectorAll('.node').forEach(node => {
+            node.addEventListener('click', (e) => {
+                const nodeId = node.dataset.node;
+                const detail = nodeDetails[nodeId];
+                if (detail) {
+                    showDetail(detail);
+                    
+                    // Highlight related connections
+                    document.querySelectorAll('.connection').forEach(conn => {
+                        conn.classList.remove('highlighted');
+                    });
+                }
+            });
+        });
+        
+        function showDetail(detail) {
+            const panel = document.getElementById('detailPanel');
+            document.getElementById('detailTitle').textContent = detail.title;
+            document.getElementById('detailDesc').textContent = detail.desc;
+            document.getElementById('detailTech').innerHTML = detail.tech
+                .map(t => `<span class="tech-tag">${t}</span>`)
+                .join('');
+            panel.classList.add('visible');
+        }
+        
+        function closeDetail() {
+            document.getElementById('detailPanel').classList.remove('visible');
+        }
+        
+        // Close panel on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.node') && !e.target.closest('.detail-panel')) {
+                closeDetail();
+            }
+        });
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeDetail();
+            }
+        });
+    </script>
+</body>
+</html>
+
