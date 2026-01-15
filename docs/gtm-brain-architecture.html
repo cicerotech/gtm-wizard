@@ -370,7 +370,7 @@
         </div>
         
         <div class="diagram-container">
-            <svg class="neural-svg" viewBox="0 0 900 520" preserveAspectRatio="xMidYMid meet">
+            <svg class="neural-svg" viewBox="0 0 900 540" preserveAspectRatio="xMidYMid meet">
                 <defs>
                     <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
                         <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.1"/>
@@ -480,7 +480,7 @@
                 </g>
                 
                 <!-- COLUMN 3: OUTPUTS (x: 635-825, center: 730) -->
-                <rect x="635" y="185" width="190" height="230" rx="12" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1"/>
+                <rect x="635" y="185" width="190" height="170" rx="12" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1"/>
                 <text x="730" y="208" text-anchor="middle" font-size="9" font-weight="600" fill="#6b7280" letter-spacing="0.5">OUTPUTS</text>
                 <text x="730" y="220" text-anchor="middle" font-size="7" fill="#9ca3af">What gets generated</text>
                 
@@ -491,29 +491,42 @@
                     <text x="730" y="270" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="7">Weekly + On-demand</text>
                 </g>
                 
-                <!-- Campfire -->
-                <g class="node" data-node="campfire">
-                    <rect class="node-rect" x="650" y="290" width="160" height="45" rx="8" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="730" y="310" class="node-label" text-anchor="middle" fill="#374151" font-size="11">Campfire</text>
-                    <text x="730" y="325" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="7">ARR + Finance sync</text>
-                </g>
-                
                 <!-- Dashboard -->
                 <g class="node" data-node="dashboard">
-                    <rect class="node-rect" x="650" y="345" width="160" height="45" rx="8" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="730" y="365" class="node-label" text-anchor="middle" fill="#374151" font-size="11">Dashboard</text>
-                    <text x="730" y="380" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="7">Live pipeline view</text>
+                    <rect class="node-rect" x="650" y="290" width="160" height="45" rx="8" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="730" y="310" class="node-label" text-anchor="middle" fill="#374151" font-size="11">Dashboard</text>
+                    <text x="730" y="325" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="7">Live pipeline view</text>
                 </g>
                 
+                <!-- === SALESFORCE INTEGRATIONS (below SF, showing connectivity) === -->
+                <text x="450" y="405" text-anchor="middle" font-size="7" fill="#6b7280" font-style="italic">Salesforce syncs to →</text>
+                
+                <!-- Campfire -->
+                <g class="node" data-node="campfire">
+                    <rect class="node-rect" x="355" y="415" width="90" height="50" rx="6" fill="#fff7ed" stroke="#fed7aa" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="400" y="437" class="node-label" text-anchor="middle" fill="#c2410c" font-size="9">Campfire</text>
+                    <text x="400" y="450" class="node-sublabel" text-anchor="middle" fill="#ea580c" font-size="6">ERP • Contract Terms</text>
+                </g>
+                
+                <!-- Rocket Lane -->
+                <g class="node" data-node="rocketlane">
+                    <rect class="node-rect" x="455" y="415" width="90" height="50" rx="6" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="500" y="437" class="node-label" text-anchor="middle" fill="#0369a1" font-size="9">Rocket Lane</text>
+                    <text x="500" y="450" class="node-sublabel" text-anchor="middle" fill="#0284c7" font-size="6">Project Delivery</text>
+                </g>
+                
+                <!-- Connection lines from Salesforce to Campfire/Rocket Lane -->
+                <path class="connection" d="M 420 385 L 400 415" stroke="#fed7aa" stroke-width="1" opacity="0.6"/>
+                <path class="connection" d="M 480 385 L 500 415" stroke="#bae6fd" stroke-width="1" opacity="0.6"/>
+                
                 <!-- === FEEDBACK LOOP (bottom) === -->
-                <rect x="125" y="440" width="650" height="40" rx="8" fill="#fefce8" stroke="#fde047" stroke-width="1"/>
-                <text x="450" y="458" text-anchor="middle" font-size="10" font-weight="600" fill="#854d0e">↻ Feedback Loop</text>
-                <text x="450" y="472" text-anchor="middle" font-size="7" fill="#a16207">GTM Brain responds to Slack queries • Reports delivered to Slack • Pipeline visibility for all</text>
+                <rect x="125" y="485" width="650" height="35" rx="8" fill="#fefce8" stroke="#fde047" stroke-width="1"/>
+                <text x="450" y="500" text-anchor="middle" font-size="9" font-weight="600" fill="#854d0e">↻ Feedback Loop</text>
+                <text x="450" y="512" text-anchor="middle" font-size="6" fill="#a16207">GTM Brain responds to Slack queries • Reports delivered to Slack • Pipeline visibility for all</text>
                 
                 <!-- Feedback connectors (subtle) -->
-                <path class="connection" d="M 170 415 L 170 440" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
-                <path class="connection" d="M 450 440 L 450 385" stroke="#fbbf24" stroke-width="1.5" opacity="0.5"/>
-                <path class="connection" d="M 730 415 L 730 440" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
+                <path class="connection" d="M 170 415 L 170 485" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
+                <path class="connection" d="M 730 355 L 730 485" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
                 
             </svg>
             
@@ -559,12 +572,12 @@
                         <h5>Building the Foundation</h5>
                     </div>
                     <ul class="support-list">
-                        <li><span class="support-highlight">Account ownership</span> clarity—know who owns what instantly</li>
-                        <li>Early-stage engagement notes logged directly to accounts</li>
-                        <li>Proactively <span class="support-highlight">update Salesforce</span> and create new opportunities as service lines are identified</li>
-                        <li>Pipeline stays current <span class="support-highlight">without admin burden</span> on sales reps</li>
-                        <li>Reassign transition accounts; initial assignment based on <span class="support-highlight">coverage + geography</span></li>
-                        <li>Meeting context captured via Hyprnote and synced to accounts</li>
+                        <li><span class="support-highlight">Account ownership queries</span> for top-of-funnel accounts—instant clarity on who owns what</li>
+                        <li>Account context provided: <span class="support-highlight">"What do we know about this client?"</span> returns a summary if it exists in our systems</li>
+                        <li>Proactively <span class="support-highlight">update CRM</span>—add notes, reminders, create new opportunities</li>
+                        <li>Mid-week or post-meeting updates can action <span class="support-highlight">pipeline adjustments</span>, saving time in Thursday reviews</li>
+                        <li>Reassign or transition accounts; initial assignment based on <span class="support-highlight">coverage + geography</span></li>
+                        <li>Meetings held with accounts → BLs use Hyprnote → <span class="support-highlight">GTM Brain syncs notes</span> to Salesforce accounts</li>
                     </ul>
                 </div>
                 <div class="support-section">
@@ -573,12 +586,9 @@
                         <h5>Accuracy & Handoff</h5>
                     </div>
                     <ul class="support-list">
-                        <li>Continued logging: meetings + emails via <span class="support-highlight">Einstein Activity Capture</span></li>
+                        <li>Continued logging of notes via <span class="support-highlight">Einstein Activity Capture</span> for meetings + emails</li>
                         <li>Notes synced from Hyprnote if not shared in GTM account planning</li>
                         <li>Account updates shared week-over-week; inputs validated in <span class="support-highlight">weekly BL reviews</span></li>
-                        <li>Late-stage confirmation: ACV, term, product, net new $ (renewal vs. new)</li>
-                        <li>On close: smart capture + flows for <span class="support-highlight">revenue tagging</span> (project vs. recurring)</li>
-                        <li>GTM Brain <span class="support-highlight">contract review</span> + initial draft → syncs to Campfire</li>
                     </ul>
                 </div>
             </div>
@@ -625,9 +635,14 @@
                 tags: ['Account Lookup', 'Opp Updates', 'Contact Creation', 'Event Logging', 'SOQL Hygiene']
             },
             'campfire': {
-                title: 'Campfire — Finance Sync',
-                desc: 'ARR and revenue data synced from Salesforce after deals close. Revenue tagged as project or recurring for finance reporting.',
-                tags: ['ARR Tracking', 'Revenue Tagging', 'Finance Integration']
+                title: 'Campfire — ERP Platform',
+                desc: 'Salesforce syncs contract terms and deal data to Campfire for finance and operations tracking. Keeps ERP aligned with closed deals.',
+                tags: ['ERP Sync', 'Contract Terms', 'Finance Integration']
+            },
+            'rocketlane': {
+                title: 'Rocket Lane — Project Delivery',
+                desc: 'Salesforce syncs deal data to Rocket Lane for project kickoff and delivery tracking. Ensures smooth handoff from sales to implementation.',
+                tags: ['Project Delivery', 'Implementation', 'Handoff']
             },
             'reports': {
                 title: 'Reports — Weekly + On-Demand',
