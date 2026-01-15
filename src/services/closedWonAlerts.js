@@ -95,10 +95,10 @@ async function subscribeToClosedWonEvents(app) {
 // SPECIAL DEAL OVERRIDES
 // ═══════════════════════════════════════════════════════════════════════════
 // Some deals require custom messaging (e.g., finance review notes).
-// Add Opportunity IDs here with their custom overrides.
+// Match by Account Name for simplicity (no Platform Event changes needed).
 // ═══════════════════════════════════════════════════════════════════════════
-const DEAL_OVERRIDES = {
-  '006Wj00000LbDRjIAN': {
+const DEAL_OVERRIDES_BY_ACCOUNT = {
+  'OpenAi': {
     typeOverride: 'Subject to Finance Review*',
     forceNetChangeZero: true,
     footnote: '*No incremental revenue vs. December run-rate. 27-month term secures capacity for near-term expansion.'
@@ -110,16 +110,17 @@ const DEAL_OVERRIDES = {
  */
 async function handleClosedWonEvent(app, message) {
   const payload = message.payload;
-  const oppId = payload.Opportunity_Id__c || null;
   
-  // Check for special deal overrides
-  const override = oppId ? DEAL_OVERRIDES[oppId] : null;
+  // Extract account name first for override lookup
+  const accountName = payload.Account_Name__c || 'Unknown Account';
+  
+  // Check for special deal overrides by account name
+  const override = DEAL_OVERRIDES_BY_ACCOUNT[accountName] || null;
   if (override) {
-    logger.info(`Special override detected for Opp ${oppId}:`, override);
+    logger.info(`Special override detected for Account "${accountName}":`, override);
   }
   
   // Extract fields from Platform Event
-  const accountName = payload.Account_Name__c || 'Unknown Account';
   const oppName = payload.Opportunity_Name__c || 'Unknown Deal';
   // Clean product line: replace underscores with spaces for display
   const productLineRaw = payload.Product_Line__c || 'Not specified';
