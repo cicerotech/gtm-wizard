@@ -31,19 +31,19 @@ class LLMFrontAgent {
       'create_account': {
         description: 'Create a new account in Salesforce with geographic assignment',
         params: ['companyName'],
-        examples: ['create Boeing', 'add Intel to salesforce', 'create account for Microsoft'],
+        examples: ['create Asana', 'add Novelis to salesforce', 'create account for PetSmart'],
         keywords: ['create', 'add', 'new account']
       },
       'account_ownership': {
         description: 'Get account owner information',
         params: ['companyName'],
-        examples: ['who owns Intel', 'Intel owner', 'who is the owner of Boeing'],
+        examples: ['who owns Dolby', 'Pure Storage owner', 'who is the owner of Ecolab'],
         keywords: ['who owns', 'owner', 'owned by']
       },
       'account_reassign': {
         description: 'Reassign account to different Business Lead',
         params: ['companyName', 'newOwner'],
-        examples: ['reassign Intel to Julie', 'transfer Boeing to Himanshu'],
+        examples: ['reassign Dolby to Julie', 'transfer Ecolab to Himanshu'],
         keywords: ['reassign', 'transfer', 'change owner']
       },
       'late_stage_pipeline': {
@@ -55,7 +55,7 @@ class LLMFrontAgent {
       'account_opportunities': {
         description: 'Show all opportunities for an account',
         params: ['companyName'],
-        examples: ['show me Intel opportunities', 'what opps does Boeing have'],
+        examples: ['show me Pure Storage opportunities', 'what opps does Dolby have'],
         keywords: ['opportunities', 'opps', 'deals at']
       }
       // Add all other capabilities...
@@ -189,7 +189,7 @@ Respond ONLY with JSON:
       return `I'm not sure exactly what you're asking, but based on your question, I can help with:\n\n${related.map(r => `• ${r.description}\n  Example: "${r.examples[0]}"`).join('\n\n')}`;
     }
     
-    return `I didn't understand that. Here are some things I can help with:\n\n• Account ownership: "who owns Intel?"\n• Pipeline queries: "late stage pipeline"\n• Create accounts: "create Boeing and assign to BL"\n\nTry rephrasing your question to match one of these patterns.`;
+    return `I didn't understand that. Here are some things I can help with:\n\n• Account ownership: "who owns Pure Storage?"\n• Pipeline queries: "late stage pipeline"\n• Create accounts: "create Asana and assign to BL"\n\nTry rephrasing your question to match one of these patterns.`;
   }
 
   /**

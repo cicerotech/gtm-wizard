@@ -20,9 +20,9 @@ class SemanticMatcher {
   loadQueryPatterns() {
     return [
       // Account ownership patterns
-      { pattern: "who owns this company", intent: "account_ownership", examples: ["who owns intel", "who's the owner of boeing", "account owner"] },
-      { pattern: "does this account exist", intent: "account_exists", examples: ["do we have boeing", "is intel in salesforce", "does this company exist"] },
-      { pattern: "tell me about this account", intent: "account_context", examples: ["what do we know about intel", "give me context on boeing", "account details"] },
+      { pattern: "who owns this company", intent: "account_ownership", examples: ["who owns Dolby", "who's the owner of Pure Storage", "account owner"] },
+      { pattern: "does this account exist", intent: "account_exists", examples: ["do we have Dolby", "is Ecolab in salesforce", "does this company exist"] },
+      { pattern: "tell me about this account", intent: "account_context", examples: ["what do we know about Dolby", "give me context on Pure Storage", "account details"] },
       
       // Pipeline patterns
       { pattern: "show me late stage pipeline", intent: "late_stage_pipeline", examples: ["late stage opportunities", "stage 3 and 4 deals", "proposal and pilot stage"] },
@@ -30,15 +30,15 @@ class SemanticMatcher {
       { pattern: "pipeline for specific product", intent: "product_pipeline", examples: ["contracting pipeline", "compliance opportunities", "m&a deals"] },
       
       // Opportunity patterns
-      { pattern: "show opportunities for account", intent: "account_opportunities", examples: ["intel opportunities", "what opps does boeing have", "deals at this company"] },
+      { pattern: "show opportunities for account", intent: "account_opportunities", examples: ["Dolby opportunities", "what opps does Pure Storage have", "deals at this company"] },
       { pattern: "what is the target close date", intent: "loi_date", examples: ["when is loi", "target sign date", "expected close"] },
       
       // Meeting intelligence
       { pattern: "when was last meeting", intent: "last_meeting", examples: ["recent meeting with intel", "last time we met", "meeting history"] },
-      { pattern: "who have we met with", intent: "contacts", examples: ["legal contacts at boeing", "decision makers", "people we've engaged"] },
+      { pattern: "who have we met with", intent: "contacts", examples: ["legal contacts at Bayer", "decision makers", "people we've engaged"] },
       
       // Actions
-      { pattern: "create new account", intent: "create_account", examples: ["add new company", "create account for boeing", "register new prospect"] },
+      { pattern: "create new account", intent: "create_account", examples: ["add new company", "create account for Asana", "register new prospect"] },
       { pattern: "create opportunity", intent: "create_opportunity", examples: ["add new opp", "start tracking deal", "new opportunity"] },
       { pattern: "generate pipeline report", intent: "export_pipeline", examples: ["excel export", "download report", "pipeline spreadsheet"] }
     ];

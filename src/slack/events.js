@@ -164,6 +164,25 @@ async function handleMention(event, client, context) {
     return;
   }
 
+  // Check for digest command via mention (e.g., "@gtm-brain digest")
+  if (cleanText.toLowerCase().match(/^(digest|intel digest|show digest|get digest|channel digest)$/)) {
+    const intelligenceDigest = require('./intelligenceDigest');
+    await client.chat.postMessage({
+      channel: channelId,
+      text: '⏳ Generating intelligence digest from monitored channels...',
+      thread_ts: event.ts
+    });
+    const result = await intelligenceDigest.triggerDigest(channelId);
+    if (result.error) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `❌ ${result.error}`,
+        thread_ts: event.ts
+      });
+    }
+    return;
+  }
+
   await processQuery(cleanText, userId, channelId, client, event.ts);
 }
 
@@ -5841,7 +5860,7 @@ async function handleUnknownQuery(parsedIntent, userId, channelId, client, threa
       },
       'contract': { 
         suggestion: 'contracts', 
-        examples: ['show contracts', 'contracts for Boeing'] 
+        examples: ['show contracts', 'contracts for Dolby'] 
       },
       'excel': { 
         suggestion: 'excel export', 
@@ -5857,7 +5876,7 @@ async function handleUnknownQuery(parsedIntent, userId, channelId, client, threa
       },
       'owner': { 
         suggestion: 'account owner', 
-        examples: ['who owns Boeing', 'BL for Intel'] 
+        examples: ['who owns Pure Storage', 'BL for Dolby'] 
       },
       'pipeline': { 
         suggestion: 'pipeline queries', 
@@ -5873,15 +5892,15 @@ async function handleUnknownQuery(parsedIntent, userId, channelId, client, threa
       },
       'account': { 
         suggestion: 'account queries', 
-        examples: ['who owns Boeing', 'what accounts does Julie own', 'accounts in Stage 2'] 
+        examples: ['who owns Pure Storage', 'what accounts does Julie own', 'accounts in Stage 2'] 
       },
       'reassign': { 
         suggestion: 'reassign accounts', 
-        examples: ['reassign Boeing to Julie', 'batch reassign: A, B to Owner'] 
+        examples: ['reassign Ecolab to Julie', 'batch reassign: Dolby, Asana to Owner'] 
       },
       'nurture': { 
         suggestion: 'nurture accounts', 
-        examples: ['move Boeing to nurture', 'batch nurture: A, B, C'] 
+        examples: ['move TestCo to nurture', 'batch nurture: TestCo1, TestCo2'] 
       },
       'closed': { 
         suggestion: 'closed deals', 
@@ -5927,7 +5946,7 @@ async function handleUnknownQuery(parsedIntent, userId, channelId, client, threa
       response = `I'm not sure what you're looking for. Here are some things I can do:\n\n`;
       response += `*Quick Examples:*\n`;
       response += `• "show me pipeline" - Active opportunities\n`;
-      response += `• "who owns Boeing" - Account ownership\n`;
+      response += `• "who owns Dolby" - Account ownership\n`;
       response += `• "Julie's deals" - Owner-specific pipeline\n`;
       response += `• "what closed this month" - Recent wins\n`;
       response += `• "send pipeline excel" - Export to spreadsheet\n`;

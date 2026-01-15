@@ -267,12 +267,12 @@ class MLIntentClassifier {
       // Account Queries
       account_lookup: {
         description: 'Get information about a specific account',
-        examples: ['tell me about acme', 'who owns dhl', 'what do we know about intel', 'account info for boeing'],
+        examples: ['tell me about Pure Storage', 'who owns Dolby', 'what do we know about Ecolab', 'account info for Bayer'],
         entities: ['accounts']
       },
       account_existence_check: {
         description: 'Check if account exists in Salesforce',
-        examples: ['does acme exist', 'do we have intel', 'is boeing in salesforce', 'check if microsoft exists'],
+        examples: ['does Novelis exist', 'do we have Dolby', 'is Pure Storage in salesforce', 'check if Ecolab exists'],
         entities: ['accounts']
       },
       owner_accounts_list: {
@@ -291,17 +291,17 @@ class MLIntentClassifier {
       // Account Actions
       create_account: {
         description: 'Create a new account in Salesforce',
-        examples: ['create boeing', 'add intel to salesforce', 'create account for microsoft', 'create acme and assign to bl'],
+        examples: ['create Asana', 'add Novelis to salesforce', 'create account for PetSmart', 'create Western Digital and assign to bl'],
         entities: ['accounts']
       },
       reassign_account: {
         description: 'Reassign account to different owner',
-        examples: ['reassign intel to julie', 'transfer boeing to himanshu', 'move acme to justin'],
+        examples: ['reassign Dolby to julie', 'transfer Ecolab to himanshu', 'move Asana to justin'],
         entities: ['accounts', 'targetBL']
       },
       create_opportunity: {
         description: 'Create a new opportunity',
-        examples: ['create opp for intel', 'add opportunity for boeing', 'new deal for microsoft'],
+        examples: ['create opp for Dolby', 'add opportunity for Asana', 'new deal for Novelis'],
         entities: ['accounts', 'stage', 'acv']
       },
       
@@ -332,7 +332,7 @@ class MLIntentClassifier {
       },
       query_account_plan: {
         description: 'Get account plan/strategy',
-        examples: ['account plan for intel', 'what\'s the strategy for boeing', 'show account plan'],
+        examples: ['account plan for Dolby', 'what\'s the strategy for Pure Storage', 'show account plan'],
         entities: ['accounts']
       },
       save_account_plan: {
