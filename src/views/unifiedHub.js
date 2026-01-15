@@ -7,11 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 
-// EUDIA Logo SVG (matching account dashboard style)
-const EUDIA_LOGO = `<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <ellipse cx="16" cy="16" rx="14" ry="10" stroke="#1f2937" stroke-width="2.5" fill="none" transform="rotate(-30 16 16)"/>
-  <ellipse cx="16" cy="16" rx="6" ry="4" fill="#1f2937" transform="rotate(-30 16 16)"/>
-</svg>`;
+// Use the actual JPEG logo served from /logo endpoint
 
 /**
  * Generate the unified hub HTML with tabbed navigation
@@ -31,7 +27,7 @@ function generateUnifiedHub(options = {}) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Eudia GTM Resources</title>
+<title>GTM Resources</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -66,15 +62,12 @@ body {
 .header-logo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #1f2937;
   text-decoration: none;
 }
 
-.header-logo svg {
-  flex-shrink: 0;
+.header-logo img {
+  max-height: 36px;
+  width: auto;
 }
 
 .header-subtitle {
@@ -138,9 +131,9 @@ body {
 input[name="main-tab"] { display: none; }
 
 /* Active tab styling */
+#tab-sales:checked ~ .tab-nav label[for="tab-sales"],
 #tab-dashboard:checked ~ .tab-nav label[for="tab-dashboard"],
 #tab-architecture:checked ~ .tab-nav label[for="tab-architecture"],
-#tab-sales:checked ~ .tab-nav label[for="tab-sales"],
 #tab-commands:checked ~ .tab-nav label[for="tab-commands"] {
   color: #8e99e1;
   border-bottom-color: #8e99e1;
@@ -149,9 +142,9 @@ input[name="main-tab"] { display: none; }
 /* Tab content visibility */
 .tab-content { display: none; }
 
+#tab-sales:checked ~ .content-area #content-sales,
 #tab-dashboard:checked ~ .content-area #content-dashboard,
 #tab-architecture:checked ~ .content-area #content-architecture,
-#tab-sales:checked ~ .content-area #content-sales,
 #tab-commands:checked ~ .content-area #content-commands {
   display: block;
 }
@@ -210,8 +203,7 @@ input[name="main-tab"] { display: none; }
 <header class="unified-header">
   <div class="header-left">
     <a href="/gtm" class="header-logo">
-      ${EUDIA_LOGO}
-      EUDIA
+      <img src="/logo" alt="Eudia">
     </a>
     <span class="header-subtitle">GTM Resources • Updated ${updateTime} PT</span>
   </div>
@@ -222,16 +214,16 @@ input[name="main-tab"] { display: none; }
 </header>
 
 <!-- Tab Radio Inputs (CSS-only tabs) -->
-<input type="radio" name="main-tab" id="tab-dashboard" checked>
+<input type="radio" name="main-tab" id="tab-sales" checked>
+<input type="radio" name="main-tab" id="tab-dashboard">
 <input type="radio" name="main-tab" id="tab-architecture">
-<input type="radio" name="main-tab" id="tab-sales">
 <input type="radio" name="main-tab" id="tab-commands">
 
 <!-- Tab Navigation -->
 <nav class="tab-nav">
+  <label for="tab-sales">Sales Process</label>
   <label for="tab-dashboard">Dashboard</label>
   <label for="tab-architecture">Architecture</label>
-  <label for="tab-sales">Sales Process</label>
   <label for="tab-commands">Commands</label>
 </nav>
 

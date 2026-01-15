@@ -11,7 +11,7 @@ function generateLoginPage() {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Eudia GTM Dashboard</title>
+<title>GTM Dashboard</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fe; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
@@ -27,7 +27,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 </head>
 <body>
 <div class="login-container">
-  <h1>Eudia GTM Dashboard</h1>
+  <h1>GTM Dashboard</h1>
   <p>Enter password to continue</p>
   <form method="POST" action="/account-dashboard">
     <div class="optional">Your name (optional, for analytics)</div>
@@ -855,35 +855,31 @@ function generateWeeklyTab(params) {
       </div>
     </div>
     
-    <!-- Current Customers by Type -->
+    <!-- Signed Logos Summary -->
     <div class="weekly-subsection" style="margin-top: 16px;">
-      <div class="weekly-subsection-title">Current Logos (${logosByType.revenue.length + logosByType.project.length + logosByType.pilot.length + logosByType.loi.length})</div>
-      <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 4px;">Accounts by Customer_Type__c: Revenue, Pilot, Project, LOI</div>
+      <div class="weekly-subsection-title">Signed Logos (${signedLogos.length})</div>
+      <div style="font-size: 0.6rem; color: #6b7280; margin-bottom: 4px;">Accounts with Customer_Type__c = "Existing"</div>
       <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-top: 8px;">
         <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
           <div style="flex: 1; min-width: 80px; background: #d1fae5; padding: 6px 8px; border-radius: 4px; text-align: center;">
-            <div style="font-size: 0.6rem; color: #065f46; font-weight: 600;">REVENUE</div>
-            <div style="font-size: 1rem; font-weight: 700; color: #047857;">${logosByType.revenue.length}</div>
+            <div style="font-size: 0.6rem; color: #065f46; font-weight: 600;">MSA</div>
+            <div style="font-size: 1rem; font-weight: 700; color: #047857;">${customerSubtypes.msa.length}</div>
           </div>
           <div style="flex: 1; min-width: 80px; background: #fef3c7; padding: 6px 8px; border-radius: 4px; text-align: center;">
             <div style="font-size: 0.6rem; color: #92400e; font-weight: 600;">PILOT</div>
-            <div style="font-size: 1rem; font-weight: 700; color: #d97706;">${logosByType.pilot.length}</div>
+            <div style="font-size: 1rem; font-weight: 700; color: #d97706;">${customerSubtypes.pilot.length}</div>
           </div>
-          <div style="flex: 1; min-width: 80px; background: #dbeafe; padding: 6px 8px; border-radius: 4px; text-align: center;">
-            <div style="font-size: 0.6rem; color: #1e40af; font-weight: 600;">PROJECT</div>
-            <div style="font-size: 1rem; font-weight: 700; color: #1e3a8a;">${logosByType.project.length}</div>
-          </div>
-          <div style="flex: 1; min-width: 80px; background: #f3f4f6; padding: 6px 8px; border-radius: 4px; text-align: center;">
-            <div style="font-size: 0.6rem; color: #374151; font-weight: 600;">LOI</div>
-            <div style="font-size: 1rem; font-weight: 700; color: #1f2937;">${logosByType.loi.length}</div>
+          <div style="flex: 1; min-width: 80px; background: #f5f3ff; padding: 6px 8px; border-radius: 4px; text-align: center;">
+            <div style="font-size: 0.6rem; color: #7c3aed; font-weight: 600;">LOI</div>
+            <div style="font-size: 1rem; font-weight: 700; color: #6b21a8;">${customerSubtypes.loi.length}</div>
           </div>
         </div>
         <details>
           <summary style="cursor: pointer; font-weight: 600; font-size: 0.75rem; color: #111827;">
-            ▸ All Logos (${logosByType.revenue.length + logosByType.project.length + logosByType.pilot.length + logosByType.loi.length} accounts) - click to expand
+            ▸ All Signed Logos (${signedLogos.length} accounts) - click to expand
           </summary>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 0.65rem; color: #374151; margin-top: 8px;">
-            ${[...logosByType.revenue, ...logosByType.project, ...logosByType.pilot, ...logosByType.loi]
+            ${signedLogos
               .sort((a, b) => a.localeCompare(b))
               .map(name => '<div style="padding: 2px 0;">' + name + '</div>')
               .join('')}
@@ -1394,9 +1390,9 @@ async function generateAccountDashboard() {
   } catch (e) { console.error('Signed deals query error:', e.message); }
   
   // ═══════════════════════════════════════════════════════════════════════
-  // LOGOS BY TYPE - Query Account for Customer_Type__c and Customer_Subtype__c
-  // Customer_Subtype__c = New or Existing (top level)
-  // Customer_Type__c = Revenue, Pilot, LOI (second level for Existing)
+  // ACCOUNT CLASSIFICATION - Customer_Type__c and Customer_Subtype__c
+  // Customer_Type__c = "New" or "Existing" (Existing = Signed Logo)
+  // Customer_Subtype__c = MSA, Pilot, LOI (breakdown by contract type)
   // ═══════════════════════════════════════════════════════════════════════
   const logosQuery = `
     SELECT Name, Customer_Type__c, Customer_Subtype__c
@@ -1405,8 +1401,10 @@ async function generateAccountDashboard() {
     ORDER BY Name
   `;
   
-  let logosByType = { revenue: [], project: [], pilot: [], loi: [] };
-  let logosBySubtype = { new: [], existing: [] };
+  // signedLogos = accounts with Customer_Type__c = "Existing"
+  let signedLogos = [];
+  // customerSubtypes = MSA, Pilot, LOI (buckets by Customer_Subtype__c)
+  let customerSubtypes = { msa: [], pilot: [], loi: [] };
   
   try {
     const logosData = await query(logosQuery, true);
@@ -1422,25 +1420,23 @@ async function generateAccountDashboard() {
         const type = (acc.Customer_Type__c || '').toLowerCase().trim();
         const subtype = (acc.Customer_Subtype__c || '').toLowerCase().trim();
         
-        // CORRECTED: Customer_Type__c = "Existing" or "New" (parent)
-        if (type.includes('new')) {
-          logosBySubtype.new.push(acc.Name);
-        } else if (type.includes('existing')) {
-          logosBySubtype.existing.push(acc.Name);
+        // Customer_Type__c = "Existing" = Signed Logo
+        if (type === 'existing') {
+          signedLogos.push(acc.Name);
         }
         
-        // CORRECTED: Customer_Subtype__c = MSA, Pilot, LOI (breakdown)
+        // Customer_Subtype__c = MSA, Pilot, LOI (breakdown)
         if (subtype === 'msa') {
-          logosByType.revenue.push(acc.Name); // MSA = revenue-paying
+          customerSubtypes.msa.push(acc.Name);
         } else if (subtype === 'pilot') {
-          logosByType.pilot.push(acc.Name);
+          customerSubtypes.pilot.push(acc.Name);
         } else if (subtype === 'loi') {
-          logosByType.loi.push(acc.Name);
+          customerSubtypes.loi.push(acc.Name);
         }
       });
     }
-    console.log(`[Dashboard] Logos by type: new=${logosBySubtype.new.length}, existing=${logosBySubtype.existing.length}`);
-    console.log(`[Dashboard] Logos by subtype: msa=${logosByType.revenue.length}, pilot=${logosByType.pilot.length}, loi=${logosByType.loi.length}`);
+    console.log(`[Dashboard] Signed Logos (Existing): ${signedLogos.length}`);
+    console.log(`[Dashboard] By Subtype: MSA=${customerSubtypes.msa.length}, Pilot=${customerSubtypes.pilot.length}, LOI=${customerSubtypes.loi.length}`);
   } catch (e) { console.error('Logos query error:', e.message); }
   
   // Helper function to format currency
@@ -2209,7 +2205,7 @@ async function generateAccountDashboard() {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Eudia GTM Dashboard</title>
+<title>GTM Dashboard</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fe; padding: 16px; }
@@ -2285,7 +2281,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 <div class="header">
   <img src="/logo" alt="Eudia" style="max-width: 200px; max-height: 60px; margin-bottom: 20px; display: block;">
-  <h1>Eudia GTM Dashboard</h1>
+  <h1>GTM Dashboard</h1>
   <p>Real-time pipeline overview • Updated ${new Date().toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit', hour12: true })} PT</p>
   <div style="margin-top: 8px; font-size: 0.75rem;">
     <a href="/cheat-sheet" target="_blank" style="color: #1e40af; text-decoration: none; font-weight: 500;">📋 Query Commands</a>
@@ -2868,41 +2864,34 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
 <!-- TAB 4: ACCOUNTS -->
 <div id="account-plans" class="tab-content">
   <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: #374151;">
-    <strong>All Accounts</strong> — By Customer Subtype (New/Existing) and Customer Type (Revenue/Pilot/LOI).
+    <strong>All Accounts</strong> — By Customer Type (New/Existing) and Customer Subtype (MSA/Pilot/LOI).
   </div>
   
-  <!-- New vs Existing Logos - Top level grouping -->
-  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
-    <div style="background: #dbeafe; padding: 16px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+  <!-- Signed Logos - Top level count -->
+  <div style="display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 16px;">
+    <div style="background: #f0fdf4; padding: 16px; border-radius: 8px; border-left: 4px solid #10b981;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="font-size: 0.8rem; font-weight: 700; color: #1e40af;">NEW LOGOS</div>
-        <div style="font-size: 1.5rem; font-weight: 700; color: #1e3a8a;">${logosBySubtype.new.length}</div>
+        <div style="font-size: 0.8rem; font-weight: 700; color: #065f46;">SIGNED LOGOS</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: #047857;">${signedLogos.length}</div>
       </div>
-      <div style="font-size: 0.6rem; color: #3b82f6; margin-top: 4px;">First-time customers</div>
-    </div>
-    <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; border-left: 4px solid #6b7280;">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="font-size: 0.8rem; font-weight: 700; color: #374151;">EXISTING LOGOS</div>
-        <div style="font-size: 1.5rem; font-weight: 700; color: #1f2937;">${logosBySubtype.existing.length}</div>
-      </div>
-      <div style="font-size: 0.6rem; color: #6b7280; margin-top: 4px;">Returning customers</div>
+      <div style="font-size: 0.6rem; color: #059669; margin-top: 4px;">Accounts with Customer_Type__c = "Existing"</div>
     </div>
   </div>
   
-  <!-- Existing Logos by Customer Type -->
+  <!-- Existing Customers by Subtype (MSA, Pilot, LOI) -->
   <div style="font-size: 0.75rem; font-weight: 600; color: #374151; margin-bottom: 8px;">Existing Customers by Type</div>
-  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px;">
-    <!-- MSA/REVENUE Tile -->
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px;">
+    <!-- MSA Tile -->
     <div style="background: #f0fdf4; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.65rem; font-weight: 700; color: #059669;">MSA</div>
-        <div style="font-size: 1.1rem; font-weight: 700; color: #15803d;">${logosByType.revenue.length}</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #15803d;">${customerSubtypes.msa.length}</div>
       </div>
-      <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">ARR/Recurring</div>
+      <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">Recurring</div>
       <details style="font-size: 0.55rem; color: #6b7280;">
         <summary style="cursor: pointer; color: #059669;">View ›</summary>
         <div style="margin-top: 4px; max-height: 150px; overflow-y: auto;">
-          ${logosByType.revenue.sort().map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a + '</div>').join('') || '-'}
+          ${customerSubtypes.msa.sort().map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a + '</div>').join('') || '-'}
         </div>
       </details>
     </div>
@@ -2911,28 +2900,13 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     <div style="background: #fef3c7; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.65rem; font-weight: 700; color: #d97706;">PILOT</div>
-        <div style="font-size: 1.1rem; font-weight: 700; color: #92400e;">${logosByType.pilot.length}</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #92400e;">${customerSubtypes.pilot.length}</div>
       </div>
       <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">< 12 months</div>
       <details style="font-size: 0.55rem; color: #6b7280;">
         <summary style="cursor: pointer; color: #d97706;">View ›</summary>
         <div style="margin-top: 4px; max-height: 150px; overflow-y: auto;">
-          ${logosByType.pilot.sort().map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a + '</div>').join('') || '-'}
-        </div>
-      </details>
-    </div>
-    
-    <!-- PROJECT Tile -->
-    <div style="background: #eff6ff; padding: 12px; border-radius: 6px;">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="font-size: 0.65rem; font-weight: 700; color: #2563eb;">PROJECT</div>
-        <div style="font-size: 1.1rem; font-weight: 700; color: #1e40af;">${logosByType.project.length}</div>
-      </div>
-      <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">12+ months</div>
-      <details style="font-size: 0.55rem; color: #6b7280;">
-        <summary style="cursor: pointer; color: #2563eb;">View ›</summary>
-        <div style="margin-top: 4px; max-height: 150px; overflow-y: auto;">
-          ${logosByType.project.sort().map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a + '</div>').join('') || '-'}
+          ${customerSubtypes.pilot.sort().map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a + '</div>').join('') || '-'}
         </div>
       </details>
     </div>
@@ -2941,13 +2915,13 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     <div style="background: #f5f3ff; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.65rem; font-weight: 700; color: #7c3aed;">LOI</div>
-        <div style="font-size: 1.1rem; font-weight: 700; color: #6b21a8;">${logosByType.loi.length}</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #6b21a8;">${customerSubtypes.loi.length}</div>
       </div>
       <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">Pending contract</div>
       <details style="font-size: 0.55rem; color: #6b7280;">
         <summary style="cursor: pointer; color: #7c3aed;">View ›</summary>
         <div style="margin-top: 4px; max-height: 150px; overflow-y: auto;">
-          ${logosByType.loi.sort().map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a + '</div>').join('') || '-'}
+          ${customerSubtypes.loi.sort().map(a => '<div style="padding: 2px 0; border-bottom: 1px solid #e5e7eb;">' + a + '</div>').join('') || '-'}
         </div>
       </details>
     </div>
@@ -2956,7 +2930,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
   <!-- Total Signed Logos Summary -->
   <div style="background: #1f2937; color: white; padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
     <span style="font-size: 0.75rem; font-weight: 600;">Total Signed Logos</span>
-    <span style="font-size: 1rem; font-weight: 700;">${logosByType.revenue.length + logosByType.project.length + logosByType.pilot.length + logosByType.loi.length}</span>
+    <span style="font-size: 1rem; font-weight: 700;">${signedLogos.length}</span>
   </div>
   
   <div class="section-card" style="padding: 12px; margin-bottom: 12px;">
