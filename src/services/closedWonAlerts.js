@@ -11,10 +11,19 @@ const logger = require('../utils/logger');
 const ALERT_CHANNEL = process.env.CLOSED_WON_ALERT_CHANNEL || null;
 const ALERT_USER = process.env.CLOSED_WON_ALERT_USER || null; // For DM testing
 
+// Guard against double subscription
+let isSubscribed = false;
+
 /**
  * Subscribe to Closed Won Platform Events
  */
 async function subscribeToClosedWonEvents(app) {
+  // Prevent double subscription
+  if (isSubscribed) {
+    logger.warn('Already subscribed to Closed Won Platform Events - skipping duplicate subscription');
+    return;
+  }
+  
   try {
     const { sfConnection } = require('../salesforce/connection');
     const conn = sfConnection.getConnection();
@@ -37,6 +46,7 @@ async function subscribeToClosedWonEvents(app) {
       }
     });
     
+    isSubscribed = true;
     logger.info('Successfully subscribed to Closed Won Platform Events');
     
   } catch (error) {
