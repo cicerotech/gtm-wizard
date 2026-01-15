@@ -946,13 +946,11 @@ class GTMBrainApp {
         const testUserId = process.env.CLOSED_WON_ALERT_USER || 'U094AQE9V7D';
         
         // OpenAI deal preview with override
-        // TCV = ACV × (Term/12) = $1,477,941 × (27/12) = $3,325,367
         const previewMessage = formatClosedWonMessage({
           accountName: 'OpenAi',
           oppName: 'OpenAI ODL ---> MLS',
           productLine: 'Other Managed Service',
           acv: '$1,477,941',
-          tcv: '$3,325,367',
           salesType: 'Expansion',
           renewalNetChange: '$0',
           rawNetChange: 0,
