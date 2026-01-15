@@ -38,6 +38,9 @@ function scheduleDigest() {
   const cronExpression = `${minute || 0} ${hour || 8} * * *`;
   
   digestSchedule = cron.schedule(cronExpression, async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'intelligenceDigest.js:cronTrigger',message:'CRON_TRIGGER - Digest scheduled task triggered',data:{cronExpression},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     logger.info('📊 Generating daily intelligence digest...');
     await sendDigest();
   }, {
@@ -81,6 +84,9 @@ async function sendDigest(targetChannel = null) {
     if (accountGroups.length === 0) {
       logger.info('No pending intelligence to digest');
       
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'intelligenceDigest.js:noItems',message:'SENDING no-items digest message',data:{channel},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       await slackClient.chat.postMessage({
         channel,
         text: '📊 *Intelligence Digest*\n\nNo new account intelligence to review today. 🎉'
@@ -96,6 +102,9 @@ async function sendDigest(targetChannel = null) {
     // Build the digest message with Block Kit
     const blocks = buildDigestBlocks(accountGroups);
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'intelligenceDigest.js:sendDigest',message:'SENDING DIGEST to channel',data:{channel,totalItems,totalAccounts},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     // Send the digest
     const result = await slackClient.chat.postMessage({
       channel,

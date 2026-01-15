@@ -136,6 +136,9 @@ function registerChannelMonitorHandlers(app) {
         ? `🧠 *Intelligence Monitoring Active*\n\nThis channel is now linked to account *${accountName}*. I'll capture relevant meeting notes, deal updates, and stakeholder intel for the daily digest.\n\nTo change the linked account, use: \`/intel set-account AccountName\``
         : `🧠 *Intelligence Monitoring Active*\n\nI couldn't auto-detect which account this channel is for. Please link it manually:\n\n\`/intel set-account AccountName\``;
       
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'channelMonitor.js:welcome',message:'SENDING welcome message to channel',data:{channelId,channelName,accountName},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       await client.chat.postMessage({
         channel: channelId,
         text: welcomeMessage

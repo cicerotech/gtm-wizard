@@ -144,6 +144,9 @@ function stopPolling() {
  * Poll all monitored channels for new messages
  */
 async function pollAllChannels() {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'channelIntelligence.js:pollAllChannels',message:'POLL_START - Starting channel poll',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+  // #endregion
   if (!slackClient) {
     logger.error('Slack client not initialized');
     return { error: 'Slack client not initialized' };

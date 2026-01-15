@@ -53,6 +53,9 @@ function registerEventHandlers(app) {
   
   // Handle direct mentions (@gtmbrain)
   app.event('app_mention', async ({ event, client, context }) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'events.js:app_mention',message:'APP_MENTION received',data:{channel:event.channel,user:event.user,text:event.text?.substring(0,100)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     try {
       await handleMention(event, client, context);
     } catch (error) {
@@ -72,6 +75,9 @@ function registerEventHandlers(app) {
       return;
     }
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'events.js:message_dm',message:'DM_RECEIVED - handling direct message',data:{channel:event.channel,user:event.user,text:event.text?.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     try {
       await handleDirectMessage(event, client, context);
     } catch (error) {
