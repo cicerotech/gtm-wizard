@@ -18,6 +18,75 @@ const MAX_INTEL_PER_CHANNEL_PER_DAY = 20;  // Prevent digest overload from high-
 // Track daily intel counts per channel (resets on poll)
 const dailyIntelCounts = new Map();
 
+// ═══════════════════════════════════════════════════════════════════════════
+// BACKFILL CONFIGURATION - Conservative limits to protect shared Claude API
+// ═══════════════════════════════════════════════════════════════════════════
+const BACKFILL_CONFIG = {
+  MAX_TOKENS_PER_RUN: 50000,      // Hard cap on API tokens per backfill
+  MAX_CHANNELS_PER_RUN: 3,        // Process max 3 channels at a time
+  BATCH_SIZE: 20,                 // Messages per LLM call (batched)
+  DAYS_BACK: 90,                  // How far back to scrape
+  RATE_LIMIT_MS: 2000,            // 2 seconds between API calls
+  SLACK_RATE_LIMIT_MS: 1200,      // 1.2 seconds between Slack API calls
+  TOKENS_PER_MESSAGE_ESTIMATE: 150  // Rough estimate for budget calculation
+};
+
+// Pre-filtering patterns - applied BEFORE LLM to save API calls
+const SKIP_PATTERNS = [
+  /^(ok|okay|k|thanks|thank you|thx|ty|got it|sounds good|perfect|great|cool|nice|yep|yup|yes|no|sure|will do)[\s!.]*$/i,
+  /^(👍|🙏|✅|👌|💯|🎉|😊|😀|🙂|👏|❤️|💪|🔥|✨|⭐)+$/,  // Pure emoji responses
+  /^<@\w+>[\s]*$/,                                    // Just a mention with no content
+  /^\s*$/,                                            // Empty/whitespace
+  /^(hi|hello|hey|good morning|good afternoon|gm|morning)[\s!]*$/i,  // Greetings only
+  /has joined the channel/i,                          // System: user joined
+  /has left the channel/i,                            // System: user left
+  /set the channel (topic|description|purpose)/i,    // System: channel settings
+  /pinned a message/i,                               // System: pinned
+  /unpinned a message/i,                             // System: unpinned
+  /added an integration/i,                           // System: integration
+  /removed an integration/i,                         // System: integration
+  /archived this channel/i,                          // System: archived
+  /^<https?:\/\/[^|]+>$/,                            // Just a URL with no context
+  /^<https?:\/\/[^|]+\|[^>]+>$/,                     // Slack formatted URL only
+  /This message was deleted/i,                       // Deleted message placeholder
+  /^(brb|bbl|afk|gtg|ttyl)[\s!.]*$/i,               // Away messages
+];
+
+// Patterns that indicate likely relevance - fast-track to LLM
+const LIKELY_RELEVANT_PATTERNS = [
+  /\$[\d,]+/,                      // Dollar amounts ($500, $1,000,000)
+  /\d+k\b/i,                       // K notation (500k, 50K)
+  /closed|won|signed|booked/i,    // Deal signals
+  /lost|churned|cancelled/i,       // Churn signals
+  /meeting|call|demo|presentation/i,  // Meeting references
+  /contract|deal|renewal|expansion/i, // Deal terms
+  /POC|pilot|trial|proof of concept/i, // POC references
+  /decision maker|dm|champion|blocker|sponsor/i, // Stakeholder terms
+  /timeline|deadline|go-live|launch/i,  // Timeline references
+  /competitor|competing|alternative/i,  // Competitive intel
+  /budget|pricing|discount|proposal/i,  // Commercial terms
+  /risk|concern|blocker|issue|problem/i, // Risk signals
+  /ACV|TCV|ARR|MRR/i,              // Revenue metrics
+  /MSA|SOW|NDA|DPA/i,              // Legal docs
+  /CFO|CEO|CTO|CLO|GC|VP|Director/i, // Exec titles
+];
+
+/**
+ * Check if a message should be skipped (obvious noise)
+ */
+function shouldSkipMessage(text) {
+  if (!text || text.length < MIN_MESSAGE_LENGTH) return true;
+  return SKIP_PATTERNS.some(pattern => pattern.test(text.trim()));
+}
+
+/**
+ * Check if a message is likely relevant (fast-track to LLM)
+ */
+function isLikelyRelevant(text) {
+  if (!text) return false;
+  return LIKELY_RELEVANT_PATTERNS.some(pattern => pattern.test(text));
+}
+
 // LLM Relevance Classification Prompt
 const RELEVANCE_PROMPT = `You are an AI analyzing Slack messages from customer account channels for a fast-paced B2B sales team. Your job is to identify actionable account intelligence worth syncing to Salesforce.
 
@@ -491,6 +560,465 @@ function getStatus() {
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// HISTORICAL BACKFILL FUNCTIONS - One-time scrape with API safeguards
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Track backfill state
+let backfillInProgress = false;
+let tokensUsedThisRun = 0;
+
+/**
+ * Sleep utility for rate limiting
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Batch classify messages using a single LLM call
+ * Reduces API calls by ~95% compared to individual classification
+ */
+async function classifyMessageBatch(messages, accountName) {
+  if (!messages || messages.length === 0) return [];
+  
+  const batchPrompt = `You are analyzing ${messages.length} Slack messages from the "${accountName}" customer account channel.
+Classify EACH message for sales intelligence. Focus on deal signals, meeting notes, stakeholder info, risks, and action items.
+
+RESPOND WITH A JSON ARRAY - one object per message:
+[
+  {"index": 0, "relevant": true/false, "category": "deal_update|meeting_notes|stakeholder|technical|risk_signal|competitive|action_items|other", "summary": "One sentence if relevant, null if noise", "confidence": 0.0-1.0},
+  ...
+]
+
+MESSAGES TO ANALYZE:
+${messages.map((m, i) => `[${i}] @${m.authorName || 'unknown'}: ${m.text.substring(0, 500)}`).join('\n\n')}
+
+RESPOND WITH VALID JSON ARRAY ONLY:`;
+
+  try {
+    const response = await socratesAdapter.createChatCompletion({
+      messages: [{ role: 'user', content: batchPrompt }],
+      temperature: 0.3,
+      max_tokens: 2000
+    });
+    
+    // Track token usage (estimate)
+    tokensUsedThisRun += (batchPrompt.length / 4) + 500; // Rough estimate
+    
+    const content = response.choices?.[0]?.message?.content;
+    if (!content) {
+      logger.error('Empty response from LLM batch classification');
+      return messages.map(() => ({ relevant: false, error: 'Empty response' }));
+    }
+    
+    // Parse JSON response
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      logger.error('Could not extract JSON array from LLM response');
+      return messages.map(() => ({ relevant: false, error: 'Parse error' }));
+    }
+    
+    const results = JSON.parse(jsonMatch[0]);
+    return results;
+    
+  } catch (error) {
+    logger.error('Batch classification failed:', error.message);
+    return messages.map(() => ({ relevant: false, error: error.message }));
+  }
+}
+
+/**
+ * Fetch all messages from a channel going back N days with pagination
+ */
+async function fetchChannelHistory(channelId, channelName, daysBack) {
+  const oldest = (Date.now() - daysBack * 24 * 60 * 60 * 1000) / 1000;
+  let cursor = null;
+  let allMessages = [];
+  let pageCount = 0;
+  
+  logger.info(`📜 Fetching ${daysBack} days of history from #${channelName}...`);
+  
+  do {
+    try {
+      const params = {
+        channel: channelId,
+        oldest: oldest.toString(),
+        limit: 200
+      };
+      if (cursor) params.cursor = cursor;
+      
+      const response = await slackClient.conversations.history(params);
+      
+      if (!response.ok) {
+        logger.error(`Failed to fetch history from #${channelName}: ${response.error}`);
+        break;
+      }
+      
+      allMessages.push(...(response.messages || []));
+      cursor = response.response_metadata?.next_cursor;
+      pageCount++;
+      
+      logger.info(`  Page ${pageCount}: ${response.messages?.length || 0} messages (total: ${allMessages.length})`);
+      
+      // Rate limit for Slack API
+      if (cursor) {
+        await sleep(BACKFILL_CONFIG.SLACK_RATE_LIMIT_MS);
+      }
+      
+    } catch (error) {
+      logger.error(`Error fetching history page ${pageCount} from #${channelName}:`, error.message);
+      break;
+    }
+    
+  } while (cursor);
+  
+  return allMessages;
+}
+
+/**
+ * Fetch thread replies for a parent message
+ */
+async function fetchThreadReplies(channelId, threadTs) {
+  try {
+    const response = await slackClient.conversations.replies({
+      channel: channelId,
+      ts: threadTs,
+      limit: 100
+    });
+    
+    if (!response.ok || !response.messages) return [];
+    
+    // Skip the parent message (first one), return only replies
+    return response.messages.slice(1);
+    
+  } catch (error) {
+    logger.warn(`Failed to fetch thread replies: ${error.message}`);
+    return [];
+  }
+}
+
+/**
+ * Group intelligence items by week for organized output
+ */
+function groupByWeek(items) {
+  const weeks = {};
+  
+  for (const item of items) {
+    const date = new Date(parseFloat(item.message_ts) * 1000);
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - date.getDay()); // Start of week (Sunday)
+    const weekKey = weekStart.toISOString().split('T')[0];
+    
+    if (!weeks[weekKey]) {
+      weeks[weekKey] = [];
+    }
+    weeks[weekKey].push(item);
+  }
+  
+  // Sort weeks descending (newest first)
+  return Object.entries(weeks)
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([weekStart, items]) => ({
+      weekStart,
+      weekLabel: formatWeekLabel(weekStart),
+      items: items.sort((a, b) => parseFloat(b.message_ts) - parseFloat(a.message_ts))
+    }));
+}
+
+/**
+ * Format week label for display
+ */
+function formatWeekLabel(weekStartStr) {
+  const start = new Date(weekStartStr);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  
+  const formatDate = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `Week of ${formatDate(start)} - ${formatDate(end)}`;
+}
+
+/**
+ * Run historical backfill on monitored channels
+ * @param {Object} options - { dryRun, channelId, progressCallback }
+ */
+async function backfillChannels(options = {}) {
+  const { dryRun = false, channelId = null, progressCallback = null } = options;
+  
+  if (!slackClient) {
+    return { error: 'Slack client not initialized' };
+  }
+  
+  if (backfillInProgress) {
+    return { error: 'Backfill already in progress. Please wait.' };
+  }
+  
+  // Check daily limit (stored in intelligence database)
+  if (!dryRun) {
+    const lastBackfill = await intelligenceStore.getLastBackfillTime();
+    if (lastBackfill) {
+      const lastDate = new Date(lastBackfill).toDateString();
+      const today = new Date().toDateString();
+      if (lastDate === today) {
+        return { error: 'Daily backfill limit reached. Try again tomorrow to protect API budget.' };
+      }
+    }
+  }
+  
+  backfillInProgress = true;
+  tokensUsedThisRun = 0;
+  
+  try {
+    // Get channels to process
+    let channels = await intelligenceStore.getMonitoredChannels();
+    
+    if (channelId) {
+      channels = channels.filter(c => c.channel_id === channelId);
+      if (channels.length === 0) {
+        backfillInProgress = false;
+        return { error: `Channel ${channelId} is not being monitored. Add it first with /intel add` };
+      }
+    } else {
+      // Limit channels per run to protect API
+      channels = channels.slice(0, BACKFILL_CONFIG.MAX_CHANNELS_PER_RUN);
+    }
+    
+    if (channels.length === 0) {
+      backfillInProgress = false;
+      return { error: 'No channels to backfill. Add channels with /intel add first.' };
+    }
+    
+    const results = {
+      dryRun,
+      channelsProcessed: 0,
+      totalMessages: 0,
+      messagesAfterFilter: 0,
+      intelligenceFound: 0,
+      tokensUsed: 0,
+      channelDetails: [],
+      weeklyGroups: []
+    };
+    
+    // Process each channel
+    for (const channel of channels) {
+      const channelResult = {
+        channelName: channel.channel_name,
+        accountName: channel.account_name,
+        messagesFound: 0,
+        messagesAfterFilter: 0,
+        intelligenceFound: 0,
+        items: []
+      };
+      
+      // Fetch history
+      const messages = await fetchChannelHistory(
+        channel.channel_id, 
+        channel.channel_name, 
+        BACKFILL_CONFIG.DAYS_BACK
+      );
+      
+      channelResult.messagesFound = messages.length;
+      results.totalMessages += messages.length;
+      
+      // Pre-filter messages to save LLM calls
+      const filteredMessages = [];
+      for (const msg of messages) {
+        if (msg.bot_id || msg.subtype === 'bot_message') continue;
+        if (shouldSkipMessage(msg.text)) continue;
+        
+        filteredMessages.push({
+          ts: msg.ts,
+          text: msg.text,
+          author: msg.user,
+          authorName: msg.user, // Will resolve later if needed
+          threadTs: msg.thread_ts,
+          replyCount: msg.reply_count || 0
+        });
+        
+        // Also fetch thread replies for messages with threads
+        if (msg.reply_count > 0 && msg.thread_ts === msg.ts) {
+          await sleep(BACKFILL_CONFIG.SLACK_RATE_LIMIT_MS);
+          const replies = await fetchThreadReplies(channel.channel_id, msg.ts);
+          
+          for (const reply of replies) {
+            if (reply.bot_id || shouldSkipMessage(reply.text)) continue;
+            filteredMessages.push({
+              ts: reply.ts,
+              text: reply.text,
+              author: reply.user,
+              authorName: reply.user,
+              threadTs: msg.ts,
+              isThreadReply: true
+            });
+          }
+        }
+      }
+      
+      channelResult.messagesAfterFilter = filteredMessages.length;
+      results.messagesAfterFilter += filteredMessages.length;
+      
+      if (progressCallback) {
+        progressCallback(`#${channel.channel_name}: ${messages.length} messages → ${filteredMessages.length} after filtering`);
+      }
+      
+      // DRY RUN: Just count, don't call LLM
+      if (dryRun) {
+        results.channelDetails.push(channelResult);
+        results.channelsProcessed++;
+        continue;
+      }
+      
+      // Process in batches to limit API usage
+      const batches = [];
+      for (let i = 0; i < filteredMessages.length; i += BACKFILL_CONFIG.BATCH_SIZE) {
+        batches.push(filteredMessages.slice(i, i + BACKFILL_CONFIG.BATCH_SIZE));
+      }
+      
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        // Check token budget
+        if (tokensUsedThisRun >= BACKFILL_CONFIG.MAX_TOKENS_PER_RUN) {
+          logger.warn(`⚠️ Token budget exhausted (${tokensUsedThisRun}/${BACKFILL_CONFIG.MAX_TOKENS_PER_RUN}). Stopping backfill.`);
+          if (progressCallback) {
+            progressCallback(`⚠️ Token budget reached. Partial results saved.`);
+          }
+          break;
+        }
+        
+        const batch = batches[batchIndex];
+        
+        if (progressCallback) {
+          progressCallback(`#${channel.channel_name}: Processing batch ${batchIndex + 1}/${batches.length}...`);
+        }
+        
+        // Classify batch
+        const classifications = await classifyMessageBatch(batch, channel.account_name);
+        
+        // Store relevant items
+        for (let i = 0; i < classifications.length; i++) {
+          const classification = classifications[i];
+          const message = batch[i];
+          
+          if (classification.relevant && classification.confidence >= CONFIDENCE_THRESHOLD) {
+            try {
+              await intelligenceStore.storeIntelligence({
+                channelId: channel.channel_id,
+                accountName: channel.account_name,
+                accountId: channel.account_id,
+                messageTs: message.ts,
+                messageAuthor: message.author,
+                messageAuthorName: message.authorName,
+                messageText: message.text,
+                category: classification.category,
+                summary: classification.summary,
+                confidence: classification.confidence
+              });
+              
+              channelResult.items.push({
+                message_ts: message.ts,
+                category: classification.category,
+                summary: classification.summary,
+                author: message.authorName
+              });
+              
+              channelResult.intelligenceFound++;
+              results.intelligenceFound++;
+              
+            } catch (error) {
+              // Likely duplicate - skip silently
+              if (!error.message?.includes('UNIQUE constraint')) {
+                logger.warn(`Failed to store intelligence: ${error.message}`);
+              }
+            }
+          }
+        }
+        
+        // Rate limit between batches
+        await sleep(BACKFILL_CONFIG.RATE_LIMIT_MS);
+      }
+      
+      results.channelDetails.push(channelResult);
+      results.channelsProcessed++;
+    }
+    
+    results.tokensUsed = tokensUsedThisRun;
+    
+    // Record backfill completion (for daily limit tracking)
+    if (!dryRun) {
+      await intelligenceStore.recordBackfill(results);
+      
+      // Group results by week for organized output
+      const allItems = results.channelDetails.flatMap(cd => 
+        cd.items.map(item => ({ ...item, channelName: cd.channelName }))
+      );
+      results.weeklyGroups = groupByWeek(allItems);
+    }
+    
+    backfillInProgress = false;
+    return results;
+    
+  } catch (error) {
+    backfillInProgress = false;
+    logger.error('Backfill failed:', error);
+    return { error: error.message };
+  }
+}
+
+/**
+ * Format backfill results for Slack message
+ */
+function formatBackfillResults(results) {
+  if (results.error) {
+    return `❌ Backfill failed: ${results.error}`;
+  }
+  
+  if (results.dryRun) {
+    const estimatedBatches = Math.ceil(results.messagesAfterFilter / BACKFILL_CONFIG.BATCH_SIZE);
+    const estimatedTokens = results.messagesAfterFilter * BACKFILL_CONFIG.TOKENS_PER_MESSAGE_ESTIMATE;
+    
+    let msg = `📊 *BACKFILL ESTIMATE* (Dry Run - No API calls made)\n\n`;
+    msg += `*Channels to process:* ${results.channelsProcessed}\n`;
+    msg += `*Total messages found:* ${results.totalMessages.toLocaleString()}\n`;
+    msg += `*After pre-filtering:* ${results.messagesAfterFilter.toLocaleString()} messages\n`;
+    msg += `*Estimated API calls:* ${estimatedBatches} (${BACKFILL_CONFIG.BATCH_SIZE} msgs/batch)\n`;
+    msg += `*Estimated tokens:* ~${estimatedTokens.toLocaleString()} / ${BACKFILL_CONFIG.MAX_TOKENS_PER_RUN.toLocaleString()} budget\n\n`;
+    
+    msg += `*Channel Breakdown:*\n`;
+    for (const cd of results.channelDetails) {
+      msg += `• #${cd.channelName}: ${cd.messagesFound} → ${cd.messagesAfterFilter} after filter\n`;
+    }
+    
+    msg += `\n_Run \`/intel backfill confirm\` or \`@gtm-brain backfill confirm\` to proceed._`;
+    return msg;
+  }
+  
+  // Actual results
+  let msg = `✅ *BACKFILL COMPLETE*\n\n`;
+  msg += `*Processed:* ${results.channelsProcessed} channels, ${results.messagesAfterFilter.toLocaleString()} messages\n`;
+  msg += `*API tokens used:* ${results.tokensUsed.toLocaleString()} / ${BACKFILL_CONFIG.MAX_TOKENS_PER_RUN.toLocaleString()} budget\n`;
+  msg += `*Intelligence found:* ${results.intelligenceFound} items\n\n`;
+  
+  // Show weekly breakdown (limit to avoid message length issues)
+  if (results.weeklyGroups && results.weeklyGroups.length > 0) {
+    msg += `*Weekly Summary:*\n`;
+    for (const week of results.weeklyGroups.slice(0, 5)) {
+      msg += `\n📅 *${week.weekLabel}* (${week.items.length} items)\n`;
+      for (const item of week.items.slice(0, 5)) {
+        const category = item.category?.replace('_', ' ') || 'other';
+        msg += `  • [${category}] ${item.summary || item.text?.substring(0, 50)}\n`;
+      }
+      if (week.items.length > 5) {
+        msg += `  _...and ${week.items.length - 5} more_\n`;
+      }
+    }
+    if (results.weeklyGroups.length > 5) {
+      msg += `\n_...and ${results.weeklyGroups.length - 5} more weeks_\n`;
+    }
+  }
+  
+  msg += `\n_Use \`/intel digest\` to review and approve items for Salesforce sync._`;
+  return msg;
+}
+
 module.exports = {
   initialize,
   startPolling,
@@ -500,6 +1028,12 @@ module.exports = {
   classifyMessage,
   processMessageRealtime,
   forcePoll,
-  getStatus
+  getStatus,
+  // Backfill functions
+  backfillChannels,
+  formatBackfillResults,
+  shouldSkipMessage,
+  isLikelyRelevant,
+  BACKFILL_CONFIG
 };
 

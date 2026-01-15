@@ -508,6 +508,55 @@ async function handleIntelCommand(command, respond, client) {
       });
     }
 
+  } else if (subcommand === 'backfill') {
+    // Historical backfill with API safeguards
+    const isDryRun = args.includes('dry-run') || args.includes('--dry-run') || args.includes('estimate');
+    const isConfirm = args.includes('confirm') || args.includes('--confirm');
+    
+    // Default to dry-run unless explicitly confirmed
+    if (!isDryRun && !isConfirm) {
+      await respond({
+        response_type: 'ephemeral',
+        text: `📊 *Historical Backfill*\n\nThis will scrape 90 days of channel history and use the Claude API for classification.\n\n*Options:*\n• \`/intel backfill dry-run\` - Estimate usage without API calls\n• \`/intel backfill confirm\` - Run the backfill\n\n⚠️ _API budget is shared with engineering. Run dry-run first._`
+      });
+      return;
+    }
+    
+    await respond({
+      response_type: 'ephemeral',
+      text: isDryRun 
+        ? '📊 Scanning channels for backfill estimate...' 
+        : '⏳ Starting historical backfill (this may take several minutes)...'
+    });
+    
+    // Run backfill with progress updates
+    const result = await channelIntelligence.backfillChannels({
+      dryRun: isDryRun,
+      progressCallback: async (msg) => {
+        // Note: Can't easily send progress updates in slash command context
+        logger.info(`Backfill progress: ${msg}`);
+      }
+    });
+    
+    const formattedResults = channelIntelligence.formatBackfillResults(result);
+    
+    // Send results (may need to split if too long)
+    if (formattedResults.length > 3000) {
+      // Split into chunks
+      const chunks = formattedResults.match(/[\s\S]{1,2900}/g) || [formattedResults];
+      for (const chunk of chunks) {
+        await respond({
+          response_type: 'in_channel',
+          text: chunk
+        });
+      }
+    } else {
+      await respond({
+        response_type: 'in_channel',
+        text: formattedResults
+      });
+    }
+
   } else {
     // Unknown subcommand
     await respond({
@@ -531,6 +580,8 @@ Usage: \`/intel [command] [options]\`
 • \`/intel status\` - View monitoring status and stats
 • \`/intel poll\` - Force poll all channels now
 • \`/intel digest\` - Generate digest in this channel
+• \`/intel backfill dry-run\` - Estimate historical scrape (no API calls)
+• \`/intel backfill confirm\` - Run 90-day historical scrape
 
 *How It Works:*
 1. Add bot to customer channels

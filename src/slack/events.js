@@ -183,6 +183,67 @@ async function handleMention(event, client, context) {
     return;
   }
 
+  // Check for backfill command via mention (e.g., "@gtm-brain backfill dry-run")
+  const backfillMatch = cleanText.toLowerCase().match(/^backfill\s*(dry-run|confirm|estimate)?$/);
+  if (backfillMatch) {
+    const channelIntelligence = require('../services/channelIntelligence');
+    const arg = backfillMatch[1] || '';
+    const isDryRun = arg === 'dry-run' || arg === 'estimate';
+    const isConfirm = arg === 'confirm';
+    
+    // Default to info if no argument
+    if (!isDryRun && !isConfirm) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `📊 *Historical Backfill*\n\nThis will scrape 90 days of channel history using the Claude API.\n\n*Usage:*\n• \`@gtm-brain backfill dry-run\` - Estimate usage (no API calls)\n• \`@gtm-brain backfill confirm\` - Run the backfill\n\n⚠️ _API budget is shared with engineering. Run dry-run first._`,
+        thread_ts: event.ts
+      });
+      return;
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: isDryRun 
+        ? '📊 Scanning channels for backfill estimate...' 
+        : '⏳ Starting historical backfill (this may take several minutes)...',
+      thread_ts: event.ts
+    });
+    
+    // Run backfill with progress updates
+    const result = await channelIntelligence.backfillChannels({
+      dryRun: isDryRun,
+      progressCallback: async (msg) => {
+        // Send progress updates as thread replies
+        await client.chat.postMessage({
+          channel: channelId,
+          text: msg,
+          thread_ts: event.ts
+        });
+      }
+    });
+    
+    const formattedResults = channelIntelligence.formatBackfillResults(result);
+    
+    // Send results (may need to split if too long)
+    if (formattedResults.length > 3000) {
+      const chunks = formattedResults.match(/[\s\S]{1,2900}/g) || [formattedResults];
+      for (const chunk of chunks) {
+        await client.chat.postMessage({
+          channel: channelId,
+          text: chunk,
+          thread_ts: event.ts
+        });
+      }
+    } else {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: formattedResults,
+        thread_ts: event.ts
+      });
+    }
+    return;
+  }
+
   await processQuery(cleanText, userId, channelId, client, event.ts);
 }
 

@@ -444,6 +444,78 @@ async function isMessageProcessed(messageTs) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// BACKFILL TRACKING
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Get the last backfill timestamp
+ */
+async function getLastBackfillTime() {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      resolve(null);
+      return;
+    }
+    
+    // Check if backfill_history table exists, create if not
+    db.run(`
+      CREATE TABLE IF NOT EXISTS backfill_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        backfill_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        channels_processed INTEGER,
+        messages_processed INTEGER,
+        intelligence_found INTEGER,
+        tokens_used INTEGER
+      )
+    `, (err) => {
+      if (err) {
+        logger.error('Failed to create backfill_history table:', err);
+      }
+      
+      db.get(
+        'SELECT backfill_at FROM backfill_history ORDER BY id DESC LIMIT 1',
+        [],
+        (err, row) => {
+          if (err) {
+            logger.error('Error getting last backfill time:', err);
+            resolve(null);
+          } else {
+            resolve(row?.backfill_at || null);
+          }
+        }
+      );
+    });
+  });
+}
+
+/**
+ * Record a backfill run
+ */
+async function recordBackfill(results) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      resolve();
+      return;
+    }
+    
+    db.run(`
+      INSERT INTO backfill_history (channels_processed, messages_processed, intelligence_found, tokens_used)
+      VALUES (?, ?, ?, ?)
+    `, [
+      results.channelsProcessed || 0,
+      results.messagesAfterFilter || 0,
+      results.intelligenceFound || 0,
+      results.tokensUsed || 0
+    ], (err) => {
+      if (err) {
+        logger.error('Failed to record backfill:', err);
+      }
+      resolve();
+    });
+  });
+}
+
 module.exports = {
   initialize,
   close,
@@ -462,6 +534,9 @@ module.exports = {
   getIntelligenceById,
   batchUpdateIntelligenceStatus,
   getIntelligenceStats,
-  isMessageProcessed
+  isMessageProcessed,
+  // Backfill tracking
+  getLastBackfillTime,
+  recordBackfill
 };
 
