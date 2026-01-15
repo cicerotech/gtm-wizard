@@ -100,7 +100,9 @@ async function handleClosedWonEvent(app, message) {
   // Extract fields from Platform Event
   const accountName = payload.Account_Name__c || 'Unknown Account';
   const oppName = payload.Opportunity_Name__c || 'Unknown Deal';
-  const productLine = payload.Product_Line__c || 'Not specified';
+  // Clean product line: replace underscores with spaces for display
+  const productLineRaw = payload.Product_Line__c || 'Not specified';
+  const productLine = productLineRaw.replace(/_/g, ' ');
   const acv = payload.ACV__c || 0;
   const closeDate = payload.Close_Date__c || 'Not specified';
   const revenueType = payload.Revenue_Type__c || 'Not specified';
