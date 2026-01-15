@@ -939,6 +939,48 @@ class GTMBrainApp {
       }
     });
 
+    // Preview Closed Won Alert - sends test message to DM for QA before actual close
+    this.expressApp.get('/preview-closed-won', async (req, res) => {
+      try {
+        const { formatClosedWonMessage } = require('./services/closedWonAlerts');
+        const testUserId = process.env.CLOSED_WON_ALERT_USER || 'U094AQE9V7D';
+        
+        // OpenAI deal preview with override
+        const previewMessage = formatClosedWonMessage({
+          accountName: 'OpenAi',
+          oppName: 'OpenAI ODL ---> MLS',
+          productLine: 'Other Managed Service',
+          acv: '$1,477,941',
+          salesType: 'Expansion',
+          renewalNetChange: '$0',
+          rawNetChange: 0,
+          closeDate: 'January 15, 2026',
+          revenueType: 'Recurring, Project, or Commit',
+          ownerName: 'Alex Fox',
+          isConfidential: false,
+          typeOverride: 'Subject to Finance Review*',
+          footnote: '*No incremental revenue vs. December run-rate. 27-month term secures capacity for near-term expansion.'
+        });
+        
+        await this.app.client.chat.postMessage({
+          channel: testUserId,
+          text: `📋 *PREVIEW - Closed Won Alert*\n_This is how it will appear when you close the deal:_\n\n---\n\n${previewMessage}`,
+          unfurl_links: false
+        });
+        
+        res.json({ 
+          success: true, 
+          message: 'Preview sent to your DM',
+          preview: previewMessage
+        });
+      } catch (error) {
+        res.status(500).json({ 
+          success: false, 
+          error: error.message
+        });
+      }
+    });
+
     // Send BL Summary to production channel (use with caution)
     this.expressApp.get('/send-bl-summary-prod', async (req, res) => {
       try {
