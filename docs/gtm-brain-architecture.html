@@ -227,7 +227,7 @@
             padding-top: 12px;
             border-top: 1px solid #e5e7eb;
         }
-        
+
         .legend-item {
             display: flex;
             align-items: center;
@@ -235,7 +235,7 @@
             font-size: 0.75rem;
             color: #6b7280;
         }
-        
+
         .legend-dot {
             width: 10px;
             height: 10px;
@@ -381,7 +381,7 @@
                     </linearGradient>
                     <linearGradient id="gradBrainToOutputs" x1="0%" y1="0%" x2="100%" y2="0%">
                         <stop offset="0%" stop-color="#8e99e1"/>
-                        <stop offset="100%" stop-color="#f59e0b"/>
+                        <stop offset="100%" stop-color="#cbd5e1"/>
                     </linearGradient>
                     <linearGradient id="gradBrainToDash" x1="0%" y1="0%" x2="100%" y2="0%">
                         <stop offset="0%" stop-color="#8e99e1"/>
@@ -389,7 +389,7 @@
                     </linearGradient>
                     <linearGradient id="gradBrainToCamp" x1="0%" y1="0%" x2="100%" y2="0%">
                         <stop offset="0%" stop-color="#8e99e1"/>
-                        <stop offset="100%" stop-color="#f59e0b"/>
+                        <stop offset="100%" stop-color="#cbd5e1"/>
                     </linearGradient>
                     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
                         <feGaussianBlur stdDeviation="3" result="blur"/>
@@ -406,23 +406,23 @@
                 <rect width="100%" height="100%" fill="url(#dots)" opacity="0.45"/>
                 
                 <!-- Three-tier guides -->
-                <rect x="40" y="40" width="220" height="560" rx="14" fill="rgba(98,105,221,0.04)" stroke="rgba(98,105,221,0.08)" stroke-width="1"/>
-                <rect x="300" y="120" width="200" height="400" rx="14" fill="rgba(52,211,153,0.05)" stroke="rgba(52,211,153,0.12)" stroke-width="1"/>
-                <rect x="540" y="140" width="180" height="360" rx="14" fill="rgba(142,153,225,0.05)" stroke="rgba(142,153,225,0.12)" stroke-width="1"/>
-                <rect x="760" y="140" width="190" height="360" rx="14" fill="rgba(245,158,11,0.04)" stroke="rgba(245,158,11,0.12)" stroke-width="1"/>
+                <rect x="40" y="40" width="220" height="560" rx="14" fill="rgba(98,105,221,0.05)" stroke="rgba(98,105,221,0.12)" stroke-width="1"/>
+                <rect x="300" y="120" width="200" height="400" rx="14" fill="rgba(52,211,153,0.06)" stroke="rgba(52,211,153,0.14)" stroke-width="1"/>
+                <rect x="540" y="140" width="180" height="360" rx="14" fill="rgba(142,153,225,0.08)" stroke="rgba(142,153,225,0.16)" stroke-width="1"/>
+                <rect x="780" y="140" width="170" height="360" rx="14" fill="rgba(203,213,225,0.35)" stroke="rgba(203,213,225,0.6)" stroke-width="1"/>
                 
                 <!-- Glow for brain -->
                 <circle class="hub-glow" cx="630" cy="260" r="110" fill="#8e99e1"/>
                 
                 <!-- Connections -->
-                <path class="connection" id="conn-slack-sf" d="M 210 220 C 270 230, 320 240, 360 250" stroke="url(#gradSlack)" stroke-width="2"/>
-                <path class="connection-pulse" d="M 210 220 C 270 230, 320 240, 360 250" stroke="#611f69" stroke-width="1.3" opacity="0.35"/>
+                <path class="connection" id="conn-slack-sf" d="M 240 230 C 280 240, 320 245, 360 255" stroke="url(#gradSlack)" stroke-width="2"/>
+                <path class="connection-pulse" d="M 240 230 C 280 240, 320 245, 360 255" stroke="#611f69" stroke-width="1.3" opacity="0.35"/>
                 
-                <path class="connection" id="conn-hyprnote-sf" d="M 210 340 C 270 320, 320 300, 360 280" stroke="url(#gradHypr)" stroke-width="2"/>
-                <path class="connection-pulse" d="M 210 340 C 270 320, 320 300, 360 280" stroke="#0ea5e9" stroke-width="1.3" opacity="0.35"/>
+                <path class="connection" id="conn-hyprnote-sf" d="M 240 340 C 280 325, 320 310, 360 290" stroke="url(#gradHypr)" stroke-width="2"/>
+                <path class="connection-pulse" d="M 240 340 C 280 325, 320 310, 360 290" stroke="#0ea5e9" stroke-width="1.3" opacity="0.35"/>
                 
-                <path class="connection" id="conn-playbook-brain" d="M 200 90 C 330 120, 470 180, 600 220" stroke="url(#gradPlaybook)" stroke-width="2"/>
-                <path class="connection-pulse" d="M 200 90 C 330 120, 470 180, 600 220" stroke="#8e99e1" stroke-width="1.2" opacity="0.3"/>
+                <path class="connection" id="conn-playbook-brain" d="M 820 120 C 740 150, 700 180, 650 200" stroke="url(#gradPlaybook)" stroke-width="2"/>
+                <path class="connection-pulse" d="M 820 120 C 740 150, 700 180, 650 200" stroke="#8e99e1" stroke-width="1.2" opacity="0.3"/>
                 
                 <path class="connection" id="conn-sf-brain" d="M 500 260 C 540 260, 580 255, 630 250" stroke="url(#gradSFToBrain)" stroke-width="2.2"/>
                 <path class="connection-pulse" d="M 500 260 C 540 260, 580 255, 630 250" stroke="#34d399" stroke-width="1.2" opacity="0.35"/>
@@ -455,22 +455,16 @@
                 </g>
                 
                 <!-- Inputs -->
-                <g class="node" data-node="playbook">
-                    <rect class="node-rect" x="60" y="70" width="170" height="56" rx="12" fill="#a5b4fc" stroke="#818cf8" stroke-width="1.4"/>
-                    <text x="145" y="98" class="node-label" text-anchor="middle" fill="white" font-size="12">Sales Process Doc</text>
-                    <text x="145" y="114" class="node-sublabel" text-anchor="middle" fill="white" font-size="9">Central GTM resource</text>
-                </g>
-                
                 <g class="node" data-node="slack">
-                    <rect class="node-rect" x="70" y="190" width="170" height="64" rx="12" fill="#611f69" stroke="#4a154b" stroke-width="1.5"/>
-                    <text x="155" y="220" class="node-label" text-anchor="middle" fill="white" font-size="14">Slack</text>
-                    <text x="155" y="238" class="node-sublabel" text-anchor="middle" fill="white" font-size="10">@gtm-brain • side channels</text>
+                    <rect class="node-rect" x="70" y="160" width="170" height="64" rx="12" fill="#611f69" stroke="#4a154b" stroke-width="1.5"/>
+                    <text x="155" y="190" class="node-label" text-anchor="middle" fill="white" font-size="14">Slack</text>
+                    <text x="155" y="208" class="node-sublabel" text-anchor="middle" fill="white" font-size="10">@gtm-brain • side channels</text>
                 </g>
                 
                 <g class="node" data-node="hyprnote">
-                    <rect class="node-rect" x="70" y="330" width="170" height="64" rx="12" fill="#0ea5e9" stroke="#0284c7" stroke-width="1.5"/>
-                    <text x="155" y="360" class="node-label" text-anchor="middle" fill="white" font-size="13">Hyprnote</text>
-                    <text x="155" y="378" class="node-sublabel" text-anchor="middle" fill="white" font-size="9">Meeting transcripts</text>
+                    <rect class="node-rect" x="70" y="300" width="170" height="64" rx="12" fill="#0ea5e9" stroke="#0284c7" stroke-width="1.5"/>
+                    <text x="155" y="330" class="node-label" text-anchor="middle" fill="white" font-size="13">Hyprnote</text>
+                    <text x="155" y="348" class="node-sublabel" text-anchor="middle" fill="white" font-size="9">Meeting transcripts</text>
                 </g>
                 
                 <!-- System of record -->
@@ -481,23 +475,29 @@
                     <text x="425" y="286" class="node-sublabel" text-anchor="middle" fill="white" font-size="9">Contracts • Events</text>
                 </g>
                 
-                <!-- Outputs (stacked) -->
+                <!-- Outputs (stacked, light gray) + Sales Process Doc top-right -->
                 <g class="node" data-node="reports">
-                    <rect class="node-rect" x="820" y="180" width="150" height="64" rx="12" fill="#f59e0b" stroke="#d97706" stroke-width="1.5"/>
-                    <text x="895" y="210" class="node-label" text-anchor="middle" fill="white" font-size="13">Reports</text>
-                    <text x="895" y="230" class="node-sublabel" text-anchor="middle" fill="white" font-size="9">Weekly + On-demand</text>
+                    <rect class="node-rect" x="820" y="160" width="150" height="60" rx="12" fill="#f3f4f6" stroke="#e5e7eb" stroke-width="1.2"/>
+                    <text x="895" y="190" class="node-label" text-anchor="middle" fill="#1f2937" font-size="13">Reports</text>
+                    <text x="895" y="206" class="node-sublabel" text-anchor="middle" fill="#4b5563" font-size="9">Weekly + On-demand</text>
+                </g>
+                
+                <g class="node" data-node="playbook">
+                    <rect class="node-rect" x="820" y="230" width="150" height="60" rx="12" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1.2"/>
+                    <text x="895" y="260" class="node-label" text-anchor="middle" fill="#312e81" font-size="13">Sales Process Doc</text>
+                    <text x="895" y="276" class="node-sublabel" text-anchor="middle" fill="#4338ca" font-size="9">Central GTM resource</text>
                 </g>
                 
                 <g class="node" data-node="campfire">
-                    <rect class="node-rect" x="820" y="300" width="150" height="64" rx="12" fill="#f59e0b" stroke="#d97706" stroke-width="1.5"/>
-                    <text x="895" y="330" class="node-label" text-anchor="middle" fill="white" font-size="13">Campfire</text>
-                    <text x="895" y="350" class="node-sublabel" text-anchor="middle" fill="white" font-size="9">ARR + Finance</text>
+                    <rect class="node-rect" x="820" y="310" width="150" height="60" rx="12" fill="#f3f4f6" stroke="#e5e7eb" stroke-width="1.2"/>
+                    <text x="895" y="340" class="node-label" text-anchor="middle" fill="#1f2937" font-size="13">Campfire</text>
+                    <text x="895" y="356" class="node-sublabel" text-anchor="middle" fill="#4b5563" font-size="9">ARR + Finance</text>
                 </g>
                 
                 <g class="node" data-node="dashboard">
-                    <rect class="node-rect" x="820" y="420" width="150" height="64" rx="12" fill="#6366f1" stroke="#4f46e5" stroke-width="1.5"/>
-                    <text x="895" y="450" class="node-label" text-anchor="middle" fill="white" font-size="13">Dashboard</text>
-                    <text x="895" y="470" class="node-sublabel" text-anchor="middle" fill="white" font-size="9">Live pipeline (no SF login)</text>
+                    <rect class="node-rect" x="820" y="390" width="150" height="60" rx="12" fill="#f3f4f6" stroke="#e5e7eb" stroke-width="1.2"/>
+                    <text x="895" y="420" class="node-label" text-anchor="middle" fill="#1f2937" font-size="13">Dashboard</text>
+                    <text x="895" y="436" class="node-sublabel" text-anchor="middle" fill="#4b5563" font-size="9">Live pipeline (no SF login)</text>
                 </g>
                 
                 <!-- Labels -->
