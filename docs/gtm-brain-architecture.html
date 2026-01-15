@@ -418,34 +418,30 @@
                 </g>
                 <path class="connection" d="M 630 62 L 680 62" stroke="#c7d2fe" stroke-width="1" stroke-dasharray="3 2" opacity="0.5"/>
                 
-                <!-- === CLEAN CONNECTORS (no chunky arrows, just lines with small dots) === -->
+                <!-- === CLEAN CONNECTORS === -->
                 
                 <!-- Left connector: Inputs → GTM Brain -->
                 <path class="connection" id="conn-inputs-brain" 
-                      d="M 170 185 C 170 150, 320 150, 320 120" 
+                      d="M 170 185 C 170 155, 320 155, 320 120" 
                       stroke="#8e99e1" stroke-width="1.5" opacity="0.5" marker-end="url(#dotPurple)"/>
-                <text x="230" y="142" font-size="7" fill="#8e99e1" font-style="italic">questions + transcripts</text>
                 
-                <!-- Center connector: GTM Brain ↔ Salesforce (simple bidirectional line) -->
+                <!-- Center connector: GTM Brain ↔ Salesforce -->
                 <path class="connection" id="conn-brain-sf" 
                       d="M 450 120 L 450 185" 
                       stroke="#34d399" stroke-width="2" opacity="0.6"/>
-                <!-- Small arrows using text for clean look -->
-                <text x="458" y="138" font-size="9" fill="#34d399">↓</text>
-                <text x="458" y="175" font-size="9" fill="#34d399">↑</text>
-                <text x="470" y="155" font-size="7" fill="#22c55e" font-style="italic">sync</text>
+                <!-- Subtle sync icon centered on the line -->
+                <circle cx="450" cy="152" r="10" fill="white" stroke="#34d399" stroke-width="1"/>
+                <text x="450" y="156" text-anchor="middle" font-size="10" fill="#34d399">⟲</text>
                 
                 <!-- Right connector: GTM Brain → Outputs -->
                 <path class="connection" id="conn-brain-outputs" 
-                      d="M 580 120 C 580 150, 730 150, 730 185" 
+                      d="M 580 120 C 580 155, 730 155, 730 185" 
                       stroke="#9ca3af" stroke-width="1.5" opacity="0.5" marker-end="url(#dotGray)"/>
-                <text x="665" y="142" font-size="7" fill="#6b7280" font-style="italic">generates</text>
                 
-                <!-- Slack → Salesforce connection (subtle) -->
-                <path class="connection" id="conn-slack-sf" 
-                      d="M 265 290 L 335 290" 
-                      stroke="#611f69" stroke-width="1" opacity="0.4" stroke-dasharray="2 2"/>
-                <text x="295" y="282" font-size="6" fill="#611f69">enriches →</text>
+                <!-- Labels - all at same y-level (y=138), positioned to not overlap lines -->
+                <text x="240" y="138" font-size="7" fill="#8e99e1" font-style="italic">questions + transcripts</text>
+                <text x="450" y="138" text-anchor="middle" font-size="7" fill="#22c55e" font-style="italic">sync</text>
+                <text x="660" y="138" font-size="7" fill="#6b7280" font-style="italic">generates</text>
                 
                 <!-- === THREE COLUMNS (EVENLY SPACED, CENTERED) === -->
                 <!-- Col 1 center: 170, Col 2 center: 450, Col 3 center: 730 -->
@@ -519,6 +515,7 @@
                 
                 <!-- Feedback connectors (subtle) -->
                 <path class="connection" d="M 170 415 L 170 440" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
+                <path class="connection" d="M 450 440 L 450 385" stroke="#fbbf24" stroke-width="1.5" opacity="0.5"/>
                 <path class="connection" d="M 730 415 L 730 440" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
                 
             </svg>
