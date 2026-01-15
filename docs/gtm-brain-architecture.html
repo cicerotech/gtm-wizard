@@ -504,36 +504,30 @@
                     <text x="730" y="325" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="7">Live pipeline view</text>
                 </g>
                 
-                <!-- === SALESFORCE INTEGRATIONS (below SF, wider spacing) === -->
+                <!-- === SALESFORCE INTEGRATIONS (below SF, flow: SF → Rocket Lane → Campfire) === -->
                 
-                <!-- Campfire (positioned left with spacing) -->
+                <!-- Campfire (positioned left with more spacing) -->
                 <g class="node" data-node="campfire">
-                    <rect class="node-rect" x="310" y="430" width="100" height="55" rx="8" fill="#fff7ed" stroke="#fed7aa" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="360" y="452" class="node-label" text-anchor="middle" fill="#c2410c" font-size="10">Campfire</text>
-                    <text x="360" y="467" class="node-sublabel" text-anchor="middle" fill="#ea580c" font-size="6">ERP • Contract Terms</text>
+                    <rect class="node-rect" x="280" y="430" width="110" height="55" rx="8" fill="#fff7ed" stroke="#fed7aa" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="335" y="452" class="node-label" text-anchor="middle" fill="#c2410c" font-size="10">Campfire</text>
+                    <text x="335" y="467" class="node-sublabel" text-anchor="middle" fill="#ea580c" font-size="6">ERP • Contract Terms</text>
                 </g>
                 
-                <!-- Rocket Lane (positioned right with spacing) -->
+                <!-- Rocket Lane (positioned right with more spacing) -->
                 <g class="node" data-node="rocketlane">
-                    <rect class="node-rect" x="490" y="430" width="100" height="55" rx="8" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="540" y="452" class="node-label" text-anchor="middle" fill="#0369a1" font-size="10">Rocket Lane</text>
-                    <text x="540" y="467" class="node-sublabel" text-anchor="middle" fill="#0284c7" font-size="6">Project Delivery</text>
+                    <rect class="node-rect" x="510" y="430" width="110" height="55" rx="8" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="565" y="452" class="node-label" text-anchor="middle" fill="#0369a1" font-size="10">Rocket Lane</text>
+                    <text x="565" y="467" class="node-sublabel" text-anchor="middle" fill="#0284c7" font-size="6">Project Delivery</text>
                 </g>
                 
-                <!-- Connection: Salesforce → Campfire (one-way sync with dots) -->
-                <path class="connection" d="M 410 385 C 410 405, 360 410, 360 430" 
-                      stroke="#fed7aa" stroke-width="1.5" opacity="0.7" marker-start="url(#dotGreen)" marker-end="url(#dotOrange)"/>
-                <text x="375" y="408" font-size="6" fill="#c2410c" font-style="italic">sync</text>
+                <!-- Connection: Salesforce → Rocket Lane (no sync label, dot only at RL end) -->
+                <path class="connection" d="M 480 385 C 480 405, 565 405, 565 430" 
+                      stroke="#bae6fd" stroke-width="1.5" opacity="0.7" marker-end="url(#dotBlue)"/>
                 
-                <!-- Connection: Salesforce → Rocket Lane (one-way sync with dots) -->
-                <path class="connection" d="M 490 385 C 490 405, 540 410, 540 430" 
-                      stroke="#bae6fd" stroke-width="1.5" opacity="0.7" marker-start="url(#dotGreen)" marker-end="url(#dotBlue)"/>
-                <text x="510" y="408" font-size="6" fill="#0369a1" font-style="italic">sync</text>
-                
-                <!-- Connection: Rocket Lane → Campfire (revenue tracking) -->
-                <path class="connection" d="M 490 457 C 460 457, 440 457, 410 457" 
-                      stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="4 2" opacity="0.6" marker-end="url(#dotOrange)"/>
-                <text x="450" y="472" text-anchor="middle" font-size="6" fill="#7c3aed" font-style="italic">variable + managed services revenue</text>
+                <!-- Connection: Rocket Lane → Campfire (project utilization - gray dotted) -->
+                <path class="connection" d="M 510 457 C 460 457, 440 457, 390 457" 
+                      stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="4 2" opacity="0.6" marker-end="url(#dotOrange)"/>
+                <text x="450" y="448" text-anchor="middle" font-size="6" fill="#6b7280" font-style="italic">project utilization</text>
                 
                 <!-- === FEEDBACK LOOP (bottom) === -->
                 <rect x="125" y="505" width="650" height="35" rx="8" fill="#fefce8" stroke="#fde047" stroke-width="1"/>
@@ -604,7 +598,10 @@
                     <ul class="support-list">
                         <li>Continued logging of notes via <span class="support-highlight">Einstein Activity Capture</span> for meetings + emails</li>
                         <li>Notes synced from Hyprnote if not shared in GTM account planning</li>
-                        <li>Account updates shared week-over-week; inputs validated in <span class="support-highlight">weekly BL reviews</span></li>
+                        <li>At <span class="support-highlight">Stage 4</span>: Delivery object created and associated with the opportunity</li>
+                        <li>Weekly reports shared with leadership for visibility into pipeline movement, late-stage deals, and <span class="support-highlight">resource planning needs</span></li>
+                        <li>At <span class="support-highlight">Closed Won</span>: Deal terms, product lines, ACV, TCV captured and validated</li>
+                        <li>Syncs to <span class="support-highlight">Rocket Lane</span> where reps interact and update for internal/external use</li>
                     </ul>
                 </div>
             </div>
