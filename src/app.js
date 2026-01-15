@@ -959,7 +959,7 @@ class GTMBrainApp {
           ownerName: 'Alex Fox',
           isConfidential: false,
           typeOverride: 'Subject to Finance Review*',
-          footnote: '*No incremental revenue vs. December run-rate. 27-month term secures capacity for near-term expansion.'
+          footnote: '*No incremental revenue vs. December run-rate. 21-month term secures capacity for near-term expansion.'
         });
         
         await this.app.client.chat.postMessage({

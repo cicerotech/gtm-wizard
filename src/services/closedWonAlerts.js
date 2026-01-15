@@ -101,7 +101,7 @@ const DEAL_OVERRIDES_BY_ACCOUNT = {
   'OpenAi': {
     typeOverride: 'Subject to Finance Review*',
     forceNetChangeZero: true,
-    footnote: '*No incremental revenue vs. December run-rate. 27-month term secures capacity for near-term expansion.'
+    footnote: '*No incremental revenue vs. December run-rate. 21-month term secures capacity for near-term expansion.'
   }
 };
 
