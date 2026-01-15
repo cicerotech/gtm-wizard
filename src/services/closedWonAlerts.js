@@ -135,8 +135,11 @@ async function handleClosedWonEvent(app, message) {
       currency: 'USD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
-    }).format(renewalNetChange);
+    }).format(Math.abs(renewalNetChange)); // Use absolute value, we'll add +/- in formatter
   }
+  
+  // Log what we received for debugging
+  logger.info(`Closed Won fields - Sales Type: "${salesType}", Net Change: ${renewalNetChange}`);
   
   // Format the message
   const slackMessage = formatClosedWonMessage({
@@ -146,6 +149,7 @@ async function handleClosedWonEvent(app, message) {
     acv: formattedACV,
     salesType,
     renewalNetChange: formattedNetChange,
+    rawNetChange: renewalNetChange,
     closeDate,
     revenueType,
     ownerName,
@@ -191,35 +195,36 @@ async function handleClosedWonEvent(app, message) {
  * @param {string} params.acv - Formatted ACV
  * @param {string} params.salesType - Sales Type (New Business, Expansion, Renewal)
  * @param {string|null} params.renewalNetChange - Formatted net change for Expansion/Renewal deals
+ * @param {number|null} params.rawNetChange - Raw net change value for +/- formatting
  * @param {string} params.closeDate - Close date
  * @param {string} params.revenueType - Revenue type (Recurring, Project, Commitment)
  * @param {string} params.ownerName - Deal owner name
  * @param {boolean} params.isConfidential - Whether this is a confidential deal
  */
-function formatClosedWonMessage({ accountName, oppName, productLine, acv, salesType, renewalNetChange, closeDate, revenueType, ownerName, isConfidential = false }) {
-  // Format revenue type display
-  let typeDisplay = revenueType;
-  if (revenueType === 'Recurring') typeDisplay = 'Recurring (ARR)';
-  if (revenueType === 'Commitment') typeDisplay = 'LOI';
-  if (revenueType === 'Project') typeDisplay = 'Project';
+function formatClosedWonMessage({ accountName, oppName, productLine, acv, salesType, renewalNetChange, rawNetChange, closeDate, revenueType, ownerName, isConfidential = false }) {
+  // Format revenue type display - just Recurring or Project, no ARR
+  let typeDisplay = revenueType || 'Not specified';
+  if (typeDisplay === 'Recurring, Project, or Commit') typeDisplay = 'Recurring';
+  if (typeDisplay === 'Commitment') typeDisplay = 'Recurring';
+  // Keep Project as-is, keep Recurring as-is
   
-  // Build the message
+  // Build the message in requested order
   let message = `*A Deal has been Won!*\n\n`;
   
   message += `*Client:* ${accountName}\n`;
-  message += `*Deal:* ${oppName}\n`;
+  message += `*Deal Owner:* ${ownerName}\n`;
+  message += `*Product Line:* ${productLine}\n`;
   message += `*ACV:* ${acv}\n`;
-  message += `*Sales Type:* ${salesType}\n`;
   
-  // Show Net Change for Expansion/Renewal deals if value exists
+  // Show Net Change for Expansion/Renewal deals with +/- prefix
   if (renewalNetChange && ['Expansion', 'Renewal'].includes(salesType)) {
-    message += `*Net Change:* ${renewalNetChange}\n`;
+    const prefix = rawNetChange >= 0 ? '+' : '';
+    message += `*Net Change:* ${prefix}${renewalNetChange}\n`;
   }
   
+  message += `*Sales Type:* ${salesType}\n`;
   message += `*Type:* ${typeDisplay}\n`;
-  message += `*Product Line:* ${productLine}\n`;
-  message += `*Close Date:* ${closeDate}\n`;
-  message += `*Deal Owner:* ${ownerName}`;
+  message += `*Close Date:* ${closeDate}`;
   
   // Add confidentiality note for private deals
   if (isConfidential) {
