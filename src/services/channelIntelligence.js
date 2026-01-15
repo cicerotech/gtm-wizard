@@ -22,8 +22,8 @@ const dailyIntelCounts = new Map();
 // BACKFILL CONFIGURATION - Conservative limits to protect shared Claude API
 // ═══════════════════════════════════════════════════════════════════════════
 const BACKFILL_CONFIG = {
-  MAX_TOKENS_PER_RUN: 50000,      // Hard cap on API tokens per backfill
-  MAX_CHANNELS_PER_RUN: 3,        // Process max 3 channels at a time
+  MAX_TOKENS_PER_RUN: 100000,     // Increased for one-time historical backfill
+  MAX_CHANNELS_PER_RUN: 10,       // Increased to handle all target channels
   BATCH_SIZE: 20,                 // Messages per LLM call (batched)
   DAYS_BACK: 90,                  // How far back to scrape
   RATE_LIMIT_MS: 2000,            // 2 seconds between API calls
@@ -34,24 +34,57 @@ const BACKFILL_CONFIG = {
 
 /**
  * Parse target channels from environment variable
- * Format: "C09HXRTASN8:Bayer,C12345ABCDE:Acme" or just "C09HXRTASN8,C12345ABCDE"
+ * Format: "C09HXRTASN8:Bayer,C12345ABCDE:Acme Corp" or just "C09HXRTASN8,C12345ABCDE"
+ * Supports account names with spaces (e.g., "Southwest Airlines")
  */
 function getTargetChannels() {
   const targetEnv = process.env.INTEL_TARGET_CHANNELS;
   if (!targetEnv) return null;
   
-  return targetEnv.split(',').map(entry => {
-    const parts = entry.trim().split(':');
-    const channelId = parts[0].trim();
-    const accountName = parts[1]?.trim() || extractAccountName(channelId);
+  const channels = [];
+  
+  // Split on comma, but handle potential edge cases
+  const entries = targetEnv.split(',').map(e => e.trim()).filter(e => e);
+  
+  for (const entry of entries) {
+    // Split only on FIRST colon to preserve account names with colons
+    const colonIndex = entry.indexOf(':');
     
-    return {
+    let channelId, accountName;
+    if (colonIndex > 0) {
+      channelId = entry.substring(0, colonIndex).trim();
+      accountName = entry.substring(colonIndex + 1).trim();
+    } else {
+      channelId = entry.trim();
+      accountName = null;
+    }
+    
+    // Validate channel ID format (starts with C, followed by alphanumeric)
+    if (!channelId || !/^C[A-Z0-9]+$/i.test(channelId)) {
+      logger.warn(`Invalid channel ID format: "${channelId}" - skipping`);
+      continue;
+    }
+    
+    // Default account name if not provided
+    if (!accountName) {
+      accountName = extractAccountName(channelId) || 'Unknown';
+    }
+    
+    channels.push({
       channel_id: channelId,
       channel_name: accountName.toLowerCase().replace(/\s+/g, '-'),
       account_name: accountName,
       account_id: null
-    };
-  }).filter(ch => ch.channel_id);
+    });
+    
+    logger.debug(`Parsed target channel: ${channelId} → ${accountName}`);
+  }
+  
+  if (channels.length > 0) {
+    logger.info(`Loaded ${channels.length} target channels: ${channels.map(c => c.account_name).join(', ')}`);
+  }
+  
+  return channels.length > 0 ? channels : null;
 }
 
 // Pre-filtering patterns - applied BEFORE LLM to save API calls
@@ -718,7 +751,7 @@ async function fetchChannelHistory(channelId, channelName, daysBack) {
   let allMessages = [];
   let pageCount = 0;
   
-  logger.info(`📜 Fetching ${daysBack} days of history from #${channelName}...`);
+  logger.info(`📜 Fetching ${daysBack} days of history from #${channelName} (${channelId})...`);
   
   do {
     try {
@@ -732,7 +765,16 @@ async function fetchChannelHistory(channelId, channelName, daysBack) {
       const response = await slackClient.conversations.history(params);
       
       if (!response.ok) {
-        logger.error(`Failed to fetch history from #${channelName}: ${response.error}`);
+        // Handle common access errors with helpful messages
+        if (response.error === 'channel_not_found') {
+          logger.error(`❌ Channel ${channelId} not found - check if ID is correct`);
+        } else if (response.error === 'not_in_channel') {
+          logger.error(`❌ Bot not in #${channelName} (${channelId}) - invite bot with /invite @gtm-brain`);
+        } else if (response.error === 'missing_scope') {
+          logger.error(`❌ Missing permission to read #${channelName} - check Slack app scopes`);
+        } else {
+          logger.error(`Failed to fetch history from #${channelName}: ${response.error}`);
+        }
         break;
       }
       
@@ -748,11 +790,21 @@ async function fetchChannelHistory(channelId, channelName, daysBack) {
       }
       
     } catch (error) {
+      // Handle Slack API errors (rate limits, network issues, etc.)
+      if (error.message?.includes('ratelimited')) {
+        logger.warn(`Rate limited on #${channelName}, waiting 30s...`);
+        await sleep(30000);
+        continue; // Retry this page
+      }
       logger.error(`Error fetching history page ${pageCount} from #${channelName}:`, error.message);
       break;
     }
     
   } while (cursor);
+  
+  if (allMessages.length === 0) {
+    logger.warn(`⚠️ No messages found in #${channelName} for last ${daysBack} days - channel may be empty or inaccessible`);
+  }
   
   return allMessages;
 }
@@ -977,12 +1029,14 @@ async function backfillChannels(options = {}) {
     // Process each channel
     for (const channel of channels) {
       const channelResult = {
+        channelId: channel.channel_id,
         channelName: channel.channel_name,
         accountName: channel.account_name,
         messagesFound: 0,
         messagesAfterFilter: 0,
         intelligenceFound: 0,
-        items: []
+        items: [],
+        error: null
       };
       
       // Fetch history
@@ -991,6 +1045,14 @@ async function backfillChannels(options = {}) {
         channel.channel_name, 
         BACKFILL_CONFIG.DAYS_BACK
       );
+      
+      // Check for empty results (possible access issue)
+      if (messages.length === 0) {
+        channelResult.error = 'No messages found - check bot access';
+        if (progressCallback) {
+          progressCallback(`⚠️ #${channel.channel_name}: No messages found (check if bot is invited)`);
+        }
+      }
       
       channelResult.messagesFound = messages.length;
       results.totalMessages += messages.length;
@@ -1033,7 +1095,9 @@ async function backfillChannels(options = {}) {
       results.messagesAfterFilter += filteredMessages.length;
       
       if (progressCallback) {
-        progressCallback(`#${channel.channel_name}: ${messages.length} messages → ${filteredMessages.length} after filtering`);
+        // Note: filteredMessages may be higher than messages.length because it includes thread replies
+        const threadNote = filteredMessages.length > messages.length ? ' (incl. thread replies)' : '';
+        progressCallback(`#${channel.channel_name}: ${messages.length} top-level → ${filteredMessages.length} to analyze${threadNote}`);
       }
       
       // DRY RUN: Just count, don't call LLM
@@ -1152,14 +1216,19 @@ function formatBackfillResults(results) {
     
     let msg = `📊 *BACKFILL ESTIMATE* (Dry Run - No API calls made)\n\n`;
     msg += `*Channels to process:* ${results.channelsProcessed}\n`;
-    msg += `*Total messages found:* ${results.totalMessages.toLocaleString()}\n`;
-    msg += `*After pre-filtering:* ${results.messagesAfterFilter.toLocaleString()} messages\n`;
+    msg += `*Top-level messages:* ${results.totalMessages.toLocaleString()}\n`;
+    msg += `*To analyze (incl. threads):* ${results.messagesAfterFilter.toLocaleString()} messages\n`;
     msg += `*Estimated API calls:* ${estimatedBatches} (${BACKFILL_CONFIG.BATCH_SIZE} msgs/batch)\n`;
     msg += `*Estimated tokens:* ~${estimatedTokens.toLocaleString()} / ${BACKFILL_CONFIG.MAX_TOKENS_PER_RUN.toLocaleString()} budget\n\n`;
     
     msg += `*Channel Breakdown:*\n`;
     for (const cd of results.channelDetails) {
-      msg += `• #${cd.channelName}: ${cd.messagesFound} → ${cd.messagesAfterFilter} after filter\n`;
+      if (cd.error) {
+        msg += `• #${cd.channelName}: ⚠️ ${cd.error}\n`;
+      } else {
+        const threadNote = cd.messagesAfterFilter > cd.messagesFound ? ' (incl. threads)' : '';
+        msg += `• #${cd.channelName}: ${cd.messagesFound} top-level → ${cd.messagesAfterFilter} to analyze${threadNote}\n`;
+      }
     }
     
     msg += `\n_Run \`/intel backfill confirm\` or \`@gtm-brain backfill confirm\` to proceed._`;
