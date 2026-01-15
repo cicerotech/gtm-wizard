@@ -222,22 +222,38 @@ async function handleMention(event, client, context) {
       }
     });
     
-    const formattedResults = channelIntelligence.formatBackfillResults(result);
-    
-    // Send results (may need to split if too long)
-    if (formattedResults.length > 3000) {
-      const chunks = formattedResults.match(/[\s\S]{1,2900}/g) || [formattedResults];
-      for (const chunk of chunks) {
-        await client.chat.postMessage({
-          channel: channelId,
-          text: chunk,
-          thread_ts: event.ts
-        });
-      }
-    } else {
+    // For dry-run, just send text summary
+    if (isDryRun || result.error) {
+      const formattedResults = channelIntelligence.formatBackfillResults(result);
       await client.chat.postMessage({
         channel: channelId,
         text: formattedResults,
+        thread_ts: event.ts
+      });
+      return;
+    }
+    
+    // For actual backfill, generate and upload Excel file
+    try {
+      const excel = await channelIntelligence.generateBackfillExcel(result);
+      
+      // Upload Excel file to Slack
+      await client.files.uploadV2({
+        channel_id: channelId,
+        thread_ts: event.ts,
+        file: excel.buffer,
+        filename: excel.filename,
+        title: `Channel Intelligence Report - ${new Date().toLocaleDateString()}`,
+        initial_comment: `✅ *Backfill Complete*\n\n• Channels: ${result.channelsProcessed}\n• Messages analyzed: ${result.messagesAfterFilter?.toLocaleString()}\n• Intelligence found: ${result.intelligenceFound}\n• Tokens used: ${result.tokensUsed?.toLocaleString()} / ${channelIntelligence.BACKFILL_CONFIG.MAX_TOKENS_PER_RUN.toLocaleString()}\n\n📊 See attached Excel for week-over-week breakdown by account.`
+      });
+      
+    } catch (excelError) {
+      logger.error('Failed to generate/upload Excel:', excelError);
+      // Fallback to text if Excel fails
+      const formattedResults = channelIntelligence.formatBackfillResults(result);
+      await client.chat.postMessage({
+        channel: channelId,
+        text: formattedResults + '\n\n_Note: Excel export failed._',
         thread_ts: event.ts
       });
     }

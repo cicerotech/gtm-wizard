@@ -28,8 +28,31 @@ const BACKFILL_CONFIG = {
   DAYS_BACK: 90,                  // How far back to scrape
   RATE_LIMIT_MS: 2000,            // 2 seconds between API calls
   SLACK_RATE_LIMIT_MS: 1200,      // 1.2 seconds between Slack API calls
-  TOKENS_PER_MESSAGE_ESTIMATE: 150  // Rough estimate for budget calculation
+  TOKENS_PER_MESSAGE_ESTIMATE: 150,  // Rough estimate for budget calculation
+  MESSAGE_LENGTH_THRESHOLD: 50    // Min chars for automatic LLM analysis
 };
+
+/**
+ * Parse target channels from environment variable
+ * Format: "C09HXRTASN8:Bayer,C12345ABCDE:Acme" or just "C09HXRTASN8,C12345ABCDE"
+ */
+function getTargetChannels() {
+  const targetEnv = process.env.INTEL_TARGET_CHANNELS;
+  if (!targetEnv) return null;
+  
+  return targetEnv.split(',').map(entry => {
+    const parts = entry.trim().split(':');
+    const channelId = parts[0].trim();
+    const accountName = parts[1]?.trim() || extractAccountName(channelId);
+    
+    return {
+      channel_id: channelId,
+      channel_name: accountName.toLowerCase().replace(/\s+/g, '-'),
+      account_name: accountName,
+      account_id: null
+    };
+  }).filter(ch => ch.channel_id);
+}
 
 // Pre-filtering patterns - applied BEFORE LLM to save API calls
 const SKIP_PATTERNS = [
@@ -73,10 +96,48 @@ const LIKELY_RELEVANT_PATTERNS = [
 
 /**
  * Check if a message should be skipped (obvious noise)
+ * Uses length-based threshold: messages >= 50 chars always analyzed
+ * Shorter messages filtered if they match noise patterns
  */
 function shouldSkipMessage(text) {
-  if (!text || text.length < MIN_MESSAGE_LENGTH) return true;
-  return SKIP_PATTERNS.some(pattern => pattern.test(text.trim()));
+  if (!text) return true;
+  
+  const trimmed = text.trim();
+  
+  // Very short messages (< 15 chars) - skip unless they contain deal signals
+  if (trimmed.length < 15) {
+    // Exception: short celebratory messages like "🎉 CLOSED!" or "$500k!"
+    if (/\$[\d,]+|\bclosed\b|\bwon\b|🎉/i.test(trimmed)) return false;
+    return true;
+  }
+  
+  // Substantive messages (>= 50 chars) - always analyze, let LLM decide
+  if (trimmed.length >= BACKFILL_CONFIG.MESSAGE_LENGTH_THRESHOLD) {
+    // Only skip obvious system messages
+    if (/has joined the channel|has left the channel|set the channel|pinned a message/i.test(trimmed)) {
+      return true;
+    }
+    return false;  // Analyze everything else
+  }
+  
+  // Medium messages (15-50 chars) - check for noise patterns
+  // Skip pure acknowledgments
+  if (/^(ok|okay|k|thanks|thank you|thx|ty|got it|sounds good|perfect|great|cool|nice|yep|yup|yes|no|sure|will do)[\s!.]*$/i.test(trimmed)) {
+    return true;
+  }
+  
+  // Skip pure emoji
+  if (/^(👍|🙏|✅|👌|💯|😊|😀|🙂|👏|❤️|💪|🔥|✨|⭐|\s)+$/.test(trimmed)) {
+    return true;
+  }
+  
+  // Skip greetings only
+  if (/^(hi|hello|hey|good morning|good afternoon|gm|morning|afternoon)[\s!]*$/i.test(trimmed)) {
+    return true;
+  }
+  
+  // Everything else in 15-50 range - analyze (let LLM decide)
+  return false;
 }
 
 /**
@@ -844,24 +905,40 @@ async function backfillChannels(options = {}) {
   tokensUsedThisRun = 0;
   
   try {
-    // First try registered channels, then auto-discover if none
-    let channels = await intelligenceStore.getMonitoredChannels();
+    let channels = [];
     
-    // If no registered channels, auto-discover from Slack
-    if (channels.length === 0) {
-      logger.info('No registered channels - auto-discovering from Slack...');
+    // PRIORITY 1: Use explicit target channels from environment variable
+    const targetChannels = getTargetChannels();
+    if (targetChannels && targetChannels.length > 0) {
+      logger.info(`📍 Using ${targetChannels.length} target channels from INTEL_TARGET_CHANNELS`);
       if (progressCallback) {
-        progressCallback('🔍 No registered channels found. Auto-discovering customer channels...');
+        progressCallback(`📍 Using configured target channels: ${targetChannels.map(c => c.account_name).join(', ')}`);
+      }
+      channels = targetChannels;
+    }
+    
+    // PRIORITY 2: Try registered channels from database
+    if (channels.length === 0) {
+      channels = await intelligenceStore.getMonitoredChannels();
+      if (channels.length > 0 && progressCallback) {
+        progressCallback(`📦 Found ${channels.length} registered channels in database`);
+      }
+    }
+    
+    // PRIORITY 3: Auto-discover from Slack as last resort
+    if (channels.length === 0) {
+      logger.info('No configured channels - auto-discovering from Slack...');
+      if (progressCallback) {
+        progressCallback('🔍 No configured channels. Auto-discovering customer channels...');
       }
       
       const discoveredChannels = await discoverBotChannels();
       
-      // Convert to the format expected by backfill
       channels = discoveredChannels.map(ch => ({
         channel_id: ch.id,
         channel_name: ch.name,
         account_name: extractAccountName(ch.name),
-        account_id: null // Will need to match later
+        account_id: null
       }));
       
       if (progressCallback && channels.length > 0) {
@@ -869,11 +946,12 @@ async function backfillChannels(options = {}) {
       }
     }
     
+    // Filter to specific channel if requested
     if (channelId) {
       channels = channels.filter(c => c.channel_id === channelId);
       if (channels.length === 0) {
         backfillInProgress = false;
-        return { error: `Channel ${channelId} not found. Make sure the bot is added to the channel.` };
+        return { error: `Channel ${channelId} not found. Check the channel ID or add it to INTEL_TARGET_CHANNELS.` };
       }
     } else {
       // Limit channels per run to protect API
@@ -882,7 +960,7 @@ async function backfillChannels(options = {}) {
     
     if (channels.length === 0) {
       backfillInProgress = false;
-      return { error: 'No customer channels found. Add the bot to customer channels (e.g., #customer-acme) first.' };
+      return { error: 'No channels to backfill. Set INTEL_TARGET_CHANNELS env var (e.g., C09HXRTASN8:Bayer) or add bot to customer channels.' };
     }
     
     const results = {
@@ -1116,6 +1194,146 @@ function formatBackfillResults(results) {
   return msg;
 }
 
+/**
+ * Generate Excel file with backfill results
+ * Creates Summary sheet + per-account sheets with week-over-week breakdown
+ */
+async function generateBackfillExcel(results) {
+  const ExcelJS = require('exceljs');
+  const workbook = new ExcelJS.Workbook();
+  
+  workbook.creator = 'GTM Brain';
+  workbook.created = new Date();
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SUMMARY SHEET
+  // ═══════════════════════════════════════════════════════════════════════════
+  const summary = workbook.addWorksheet('Summary');
+  
+  // Header styling
+  const headerStyle = {
+    font: { bold: true, color: { argb: 'FFFFFFFF' } },
+    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } },
+    alignment: { horizontal: 'center' }
+  };
+  
+  // Summary stats
+  summary.addRow(['Channel Intelligence Backfill Report']);
+  summary.getRow(1).font = { bold: true, size: 16 };
+  summary.addRow([`Generated: ${new Date().toLocaleString()}`]);
+  summary.addRow([]);
+  summary.addRow(['Metric', 'Value']);
+  summary.getRow(4).eachCell(cell => Object.assign(cell, headerStyle));
+  
+  summary.addRow(['Channels Processed', results.channelsProcessed || 0]);
+  summary.addRow(['Total Messages Scanned', results.totalMessages || 0]);
+  summary.addRow(['After Pre-filtering', results.messagesAfterFilter || 0]);
+  summary.addRow(['Intelligence Found', results.intelligenceFound || 0]);
+  summary.addRow(['API Tokens Used', results.tokensUsed || 0]);
+  summary.addRow(['Days Analyzed', BACKFILL_CONFIG.DAYS_BACK]);
+  
+  summary.addRow([]);
+  summary.addRow(['Channel Breakdown']);
+  summary.getRow(summary.rowCount).font = { bold: true, size: 14 };
+  summary.addRow(['Account', 'Messages', 'After Filter', 'Intelligence Found']);
+  summary.getRow(summary.rowCount).eachCell(cell => Object.assign(cell, headerStyle));
+  
+  for (const cd of (results.channelDetails || [])) {
+    summary.addRow([cd.accountName, cd.messagesFound, cd.messagesAfterFilter, cd.intelligenceFound]);
+  }
+  
+  // Set column widths
+  summary.columns = [
+    { width: 30 },
+    { width: 20 },
+    { width: 20 },
+    { width: 20 }
+  ];
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PER-ACCOUNT SHEETS WITH WEEK-OVER-WEEK BREAKDOWN
+  // ═══════════════════════════════════════════════════════════════════════════
+  for (const channelDetail of (results.channelDetails || [])) {
+    // Sanitize sheet name (Excel limits to 31 chars, no special chars)
+    const sheetName = (channelDetail.accountName || 'Unknown')
+      .substring(0, 31)
+      .replace(/[*?:/\\[\]]/g, '');
+    
+    const sheet = workbook.addWorksheet(sheetName);
+    
+    // Set up columns
+    sheet.columns = [
+      { header: 'Week', key: 'week', width: 18 },
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'Time', key: 'time', width: 10 },
+      { header: 'Author', key: 'author', width: 18 },
+      { header: 'Category', key: 'category', width: 15 },
+      { header: 'Summary', key: 'summary', width: 50 },
+      { header: 'Original Message', key: 'original', width: 60 },
+      { header: 'Confidence', key: 'confidence', width: 12 }
+    ];
+    
+    // Style header row
+    sheet.getRow(1).eachCell(cell => Object.assign(cell, headerStyle));
+    
+    // Group items by week
+    const itemsByWeek = {};
+    for (const item of (channelDetail.items || [])) {
+      const ts = parseFloat(item.message_ts || item.ts || 0);
+      const date = new Date(ts * 1000);
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay());
+      const weekKey = weekStart.toISOString().split('T')[0];
+      
+      if (!itemsByWeek[weekKey]) {
+        itemsByWeek[weekKey] = [];
+      }
+      itemsByWeek[weekKey].push({ ...item, date, weekKey });
+    }
+    
+    // Sort weeks descending (newest first) and add rows
+    const sortedWeeks = Object.keys(itemsByWeek).sort((a, b) => b.localeCompare(a));
+    
+    for (const weekKey of sortedWeeks) {
+      const weekItems = itemsByWeek[weekKey].sort((a, b) => b.date - a.date);
+      const weekLabel = formatWeekLabel(weekKey);
+      
+      for (const item of weekItems) {
+        sheet.addRow({
+          week: weekLabel,
+          date: item.date.toLocaleDateString(),
+          time: item.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          author: item.author || item.message_author_name || 'Unknown',
+          category: (item.category || 'other').replace(/_/g, ' '),
+          summary: item.summary || '',
+          original: (item.text || item.message_text || '').substring(0, 500),
+          confidence: item.confidence ? (item.confidence * 100).toFixed(0) + '%' : ''
+        });
+      }
+    }
+    
+    // Auto-filter
+    if (sheet.rowCount > 1) {
+      sheet.autoFilter = {
+        from: { row: 1, column: 1 },
+        to: { row: sheet.rowCount, column: 8 }
+      };
+    }
+    
+    // Wrap text in summary and original columns
+    sheet.getColumn('summary').alignment = { wrapText: true, vertical: 'top' };
+    sheet.getColumn('original').alignment = { wrapText: true, vertical: 'top' };
+  }
+  
+  // Generate buffer
+  const buffer = await workbook.xlsx.writeBuffer();
+  
+  return {
+    buffer,
+    filename: `channel-intelligence-${new Date().toISOString().split('T')[0]}.xlsx`
+  };
+}
+
 module.exports = {
   initialize,
   startPolling,
@@ -1129,7 +1347,9 @@ module.exports = {
   // Backfill functions
   backfillChannels,
   formatBackfillResults,
+  generateBackfillExcel,
   discoverBotChannels,
+  getTargetChannels,
   shouldSkipMessage,
   isLikelyRelevant,
   extractAccountName,
