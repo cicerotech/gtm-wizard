@@ -218,68 +218,95 @@
             border-radius: 50%;
         }
         
-        /* Stage Strip */
-        .stages {
+        /* Pipeline Support Section */
+        .pipeline-support {
             margin-top: 28px;
             background: #fff;
             border-radius: 14px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-            padding: 20px;
+            padding: 24px;
             border: 1px solid #e5e7eb;
         }
 
-        .stages-title {
-            font-size: 0.9rem;
-            font-weight: 600;
+        .pipeline-support-title {
+            font-size: 1rem;
+            font-weight: 700;
             color: #1f2937;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .support-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .support-section {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 18px;
+        }
+
+        .support-section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
             margin-bottom: 12px;
         }
 
-        .stage-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 10px;
+        .support-badge {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .stage-card {
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 12px;
+        .support-badge.early {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .support-badge.late {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .support-section h5 {
+            font-size: 0.9rem;
+            color: #1f2937;
+            font-weight: 600;
+        }
+
+        .support-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .support-list li {
+            font-size: 0.78rem;
+            color: #4b5563;
+            line-height: 1.5;
+            padding: 4px 0;
+            padding-left: 16px;
             position: relative;
         }
 
-        .stage-badge {
-            width: 22px;
-            height: 22px;
-            border-radius: 6px;
-            background: #8e99e1;
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 6px;
-        }
-
-        .stage-card h5 {
-            font-size: 0.85rem;
-            color: #1f2937;
-            margin-bottom: 4px;
-        }
-
-        .stage-card p {
-            font-size: 0.74rem;
-            color: #6b7280;
-            line-height: 1.35;
-        }
-
-        .stage-help {
-            font-size: 0.72rem;
+        .support-list li::before {
+            content: "→";
+            position: absolute;
+            left: 0;
             color: #8e99e1;
             font-weight: 600;
-            margin-top: 6px;
+        }
+
+        .support-highlight {
+            color: #8e99e1;
+            font-weight: 600;
         }
 
         /* Footer info */
@@ -317,6 +344,12 @@
         
         footer a:hover {
             text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .support-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -358,24 +391,31 @@
                 <rect x="700" y="100" width="160" height="320" rx="14" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
                 <text x="780" y="128" text-anchor="middle" font-size="10" font-weight="600" fill="#22c55e" letter-spacing="0.5">SYSTEM OF RECORD</text>
                 
-                <!-- BACKDROP 3: Outputs (right) -->
-                <rect x="920" y="100" width="150" height="320" rx="14" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1"/>
-                <text x="995" y="128" text-anchor="middle" font-size="10" font-weight="600" fill="#9ca3af" letter-spacing="0.5">OUTPUTS</text>
+                <!-- BACKDROP 3: Outputs (right) - now only 3 items -->
+                <rect x="920" y="140" width="150" height="260" rx="14" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1"/>
+                <text x="995" y="168" text-anchor="middle" font-size="10" font-weight="600" fill="#9ca3af" letter-spacing="0.5">OUTPUTS</text>
                 
                 <!-- === CENTERED TILES === -->
                 
-                <!-- Slack (centered in User Inputs backdrop: x=40, width=200, center=140) -->
+                <!-- Slack (centered in User Inputs backdrop) -->
                 <g class="node" data-node="slack">
                     <rect class="node-rect" x="60" y="170" width="160" height="70" rx="12" fill="#611f69" stroke="#4a154b" stroke-width="1.5" filter="url(#softShadow)"/>
                     <text x="140" y="202" class="node-label" text-anchor="middle" fill="white" font-size="15">Slack</text>
                     <text x="140" y="222" class="node-sublabel" text-anchor="middle" fill="white" font-size="10">@gtm-brain • side channels</text>
                 </g>
                 
-                <!-- Hyprnote (centered in User Inputs backdrop) -->
+                <!-- Hyprnote (slightly darker gray than outputs) -->
                 <g class="node" data-node="hyprnote">
-                    <rect class="node-rect" x="60" y="290" width="160" height="70" rx="12" fill="#0ea5e9" stroke="#0284c7" stroke-width="1.5" filter="url(#softShadow)"/>
+                    <rect class="node-rect" x="60" y="290" width="160" height="70" rx="12" fill="#9ca3af" stroke="#6b7280" stroke-width="1.5" filter="url(#softShadow)"/>
                     <text x="140" y="322" class="node-label" text-anchor="middle" fill="white" font-size="14">Hyprnote</text>
                     <text x="140" y="342" class="node-sublabel" text-anchor="middle" fill="white" font-size="10">Meeting transcripts</text>
+                </g>
+                
+                <!-- Sales Process Doc (prong off top of GTM Brain) -->
+                <g class="node" data-node="playbook">
+                    <rect class="node-rect" x="430" y="50" width="120" height="45" rx="10" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="490" y="72" class="node-label" text-anchor="middle" fill="#4338ca" font-size="11">Sales Process</text>
+                    <text x="490" y="86" class="node-sublabel" text-anchor="middle" fill="#6366f1" font-size="8">Central GTM resource</text>
                 </g>
                 
                 <!-- GTM Brain (TRUE CENTER - no backdrop, standalone centerpiece) -->
@@ -397,7 +437,7 @@
                     <text x="490" y="318" text-anchor="middle" fill="white" font-size="8" opacity="0.75">Powered by Claude LLM</text>
                 </g>
                 
-                <!-- Salesforce (centered in its backdrop: x=700, width=160, center=780) -->
+                <!-- Salesforce (centered in its backdrop) -->
                 <g class="node" data-node="salesforce">
                     <rect class="node-rect" x="720" y="200" width="120" height="120" rx="14" fill="#34d399" stroke="#10b981" stroke-width="1.5" filter="url(#softShadow)"/>
                     <text x="780" y="240" class="node-label" text-anchor="middle" fill="white" font-size="15">Salesforce</text>
@@ -406,37 +446,36 @@
                     <text x="780" y="292" class="node-sublabel" text-anchor="middle" fill="white" font-size="9">Events</text>
                 </g>
                 
-                <!-- OUTPUTS (centered in Outputs backdrop: x=920, width=150, center=995) -->
+                <!-- OUTPUTS (now only 3 items: Reports, Campfire, Dashboard) -->
                 
                 <!-- Reports -->
                 <g class="node" data-node="reports">
-                    <rect class="node-rect" x="935" y="150" width="120" height="50" rx="10" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="995" y="174" class="node-label" text-anchor="middle" fill="#374151" font-size="12">Reports</text>
-                    <text x="995" y="189" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="8">Weekly + On-demand</text>
-                </g>
-                
-                <!-- Sales Process Doc -->
-                <g class="node" data-node="playbook">
-                    <rect class="node-rect" x="935" y="210" width="120" height="50" rx="10" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="995" y="234" class="node-label" text-anchor="middle" fill="#4338ca" font-size="11">Sales Process</text>
-                    <text x="995" y="249" class="node-sublabel" text-anchor="middle" fill="#6366f1" font-size="8">Central GTM resource</text>
+                    <rect class="node-rect" x="935" y="190" width="120" height="50" rx="10" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="995" y="214" class="node-label" text-anchor="middle" fill="#374151" font-size="12">Reports</text>
+                    <text x="995" y="229" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="8">Weekly + On-demand</text>
                 </g>
                 
                 <!-- Campfire -->
                 <g class="node" data-node="campfire">
-                    <rect class="node-rect" x="935" y="270" width="120" height="50" rx="10" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="995" y="294" class="node-label" text-anchor="middle" fill="#374151" font-size="12">Campfire</text>
-                    <text x="995" y="309" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="8">ARR + Finance</text>
+                    <rect class="node-rect" x="935" y="255" width="120" height="50" rx="10" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="995" y="279" class="node-label" text-anchor="middle" fill="#374151" font-size="12">Campfire</text>
+                    <text x="995" y="294" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="8">ARR + Finance</text>
                 </g>
                 
                 <!-- Dashboard -->
                 <g class="node" data-node="dashboard">
-                    <rect class="node-rect" x="935" y="330" width="120" height="50" rx="10" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="995" y="354" class="node-label" text-anchor="middle" fill="#374151" font-size="12">Dashboard</text>
-                    <text x="995" y="369" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="8">Live pipeline view</text>
+                    <rect class="node-rect" x="935" y="320" width="120" height="50" rx="10" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="995" y="344" class="node-label" text-anchor="middle" fill="#374151" font-size="12">Dashboard</text>
+                    <text x="995" y="359" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="8">Live pipeline view</text>
                 </g>
                 
-                <!-- === CONNECTION LINES (carefully bowed to avoid overlap) === -->
+                <!-- === CONNECTION LINES === -->
+                
+                <!-- Sales Process prong from GTM Brain (dotted gray, upward) -->
+                <path class="connection" id="conn-brain-playbook" 
+                      d="M 490 185 L 490 95" 
+                      stroke="#c7d2fe" stroke-width="1.5" opacity="0.6" stroke-dasharray="4 3"/>
+                <text x="502" y="140" font-size="7" fill="#a5b4fc" font-style="italic">GTM reference</text>
                 
                 <!-- Slack → GTM Brain (bow upward) -->
                 <path class="connection" id="conn-slack-brain" 
@@ -447,7 +486,7 @@
                 <!-- Hyprnote → GTM Brain (bow downward) -->
                 <path class="connection" id="conn-hypr-brain" 
                       d="M 220 325 C 290 360, 340 365, 400 310" 
-                      stroke="#0ea5e9" stroke-width="2" opacity="0.6"/>
+                      stroke="#9ca3af" stroke-width="2" opacity="0.6"/>
                 <text x="295" y="378" font-size="9" fill="#6b7280" font-style="italic">transcripts</text>
                 
                 <!-- GTM Brain → Salesforce (straight with slight curve) -->
@@ -462,29 +501,23 @@
                       stroke="#94a3b8" stroke-width="1.5" opacity="0.5" stroke-dasharray="5 4"/>
                 <text x="640" y="148" font-size="8" fill="#94a3b8" font-style="italic">SOQL hygiene</text>
                 
-                <!-- GTM Brain → Reports (bow upward, high arc) -->
+                <!-- GTM Brain → Reports (high arc) -->
                 <path class="connection" id="conn-brain-reports" 
-                      d="M 580 200 C 700 100, 850 90, 935 170" 
+                      d="M 580 200 C 700 120, 850 110, 935 210" 
                       stroke="#9ca3af" stroke-width="1.8" opacity="0.5"/>
-                <text x="760" y="85" font-size="8" fill="#6b7280" font-style="italic">weekly snapshots</text>
+                <text x="760" y="105" font-size="8" fill="#6b7280" font-style="italic">weekly snapshots</text>
                 
-                <!-- GTM Brain → Sales Process Doc (mid-high arc) -->
-                <path class="connection" id="conn-brain-playbook" 
-                      d="M 580 220 C 700 160, 850 155, 935 230" 
-                      stroke="#a5b4fc" stroke-width="1.8" opacity="0.5"/>
-                <text x="760" y="145" font-size="8" fill="#8e99e1" font-style="italic">process reference</text>
-                
-                <!-- GTM Brain → Campfire (mid-low arc) -->
+                <!-- GTM Brain → Campfire (mid arc) -->
                 <path class="connection" id="conn-brain-campfire" 
-                      d="M 580 290 C 700 350, 850 360, 935 295" 
+                      d="M 580 280 C 700 320, 850 330, 935 280" 
                       stroke="#9ca3af" stroke-width="1.8" opacity="0.5"/>
-                <text x="760" y="378" font-size="8" fill="#6b7280" font-style="italic">ARR sync</text>
+                <text x="760" y="340" font-size="8" fill="#6b7280" font-style="italic">ARR sync</text>
                 
-                <!-- GTM Brain → Dashboard (bow downward, low arc) -->
+                <!-- GTM Brain → Dashboard (low arc) -->
                 <path class="connection" id="conn-brain-dashboard" 
-                      d="M 580 310 C 700 400, 850 420, 935 355" 
+                      d="M 580 310 C 700 390, 850 400, 935 345" 
                       stroke="#6366f1" stroke-width="1.8" opacity="0.5"/>
-                <text x="760" y="430" font-size="8" fill="#6b7280" font-style="italic">live feed</text>
+                <text x="760" y="410" font-size="8" fill="#6b7280" font-style="italic">live feed</text>
                 
             </svg>
             
@@ -502,7 +535,7 @@
                     <span>Slack</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-dot" style="background: #0ea5e9;"></div>
+                    <div class="legend-dot" style="background: #9ca3af;"></div>
                     <span>Hyprnote</span>
                 </div>
                 <div class="legend-item">
@@ -520,39 +553,37 @@
             </div>
         </div>
         
-        <!-- Stage Strip -->
-        <div class="stages">
-            <div class="stages-title">Sales Stages & How GTM Brain Helps</div>
-            <div class="stage-row">
-                <div class="stage-card">
-                    <div class="stage-badge">1</div>
-                    <h5>Discovery</h5>
-                    <p>Initial conversations, gather context, share early notes.</p>
-                    <div class="stage-help">Slack lookup + Playbook</div>
+        <!-- Pipeline Support Section -->
+        <div class="pipeline-support">
+            <div class="pipeline-support-title">How GTM Brain Supports Your Pipeline</div>
+            <div class="support-grid">
+                <div class="support-section">
+                    <div class="support-section-header">
+                        <span class="support-badge early">Early → Mid Stage</span>
+                        <h5>Building the Foundation</h5>
+                    </div>
+                    <ul class="support-list">
+                        <li><span class="support-highlight">Account ownership</span> clarity—know who owns what instantly</li>
+                        <li>Early-stage engagement notes logged directly to accounts</li>
+                        <li>Proactively <span class="support-highlight">update Salesforce</span> and create new opportunities as service lines are identified</li>
+                        <li>Pipeline stays current <span class="support-highlight">without admin burden</span> on sales reps</li>
+                        <li>Reassign transition accounts; initial assignment based on <span class="support-highlight">coverage + geography</span></li>
+                        <li>Meeting context captured via Hyprnote and synced to accounts</li>
+                    </ul>
                 </div>
-                <div class="stage-card">
-                    <div class="stage-badge">2</div>
-                    <h5>SQO</h5>
-                    <p>Qualified opp; meetings logged; side-channel visibility.</p>
-                    <div class="stage-help">Hyprnote sync → Contacts/Events</div>
-                </div>
-                <div class="stage-card">
-                    <div class="stage-badge">3</div>
-                    <h5>Pilot</h5>
-                    <p>Proof of value; tight tracking on pilot accounts.</p>
-                    <div class="stage-help">Query: "show S3 pilot accounts"</div>
-                </div>
-                <div class="stage-card">
-                    <div class="stage-badge">4</div>
-                    <h5>Proposal</h5>
-                    <p>Commercial negotiation; contract drafting assistance.</p>
-                    <div class="stage-help">GTM Brain contract field prep</div>
-                </div>
-                <div class="stage-card">
-                    <div class="stage-badge" style="background:#34d399;">W</div>
-                    <h5>Closed Won</h5>
-                    <p>Revenue booked; finance sync; reporting & handoff.</p>
-                    <div class="stage-help">Reports + Campfire ARR sync</div>
+                <div class="support-section">
+                    <div class="support-section-header">
+                        <span class="support-badge late">Mid → Close</span>
+                        <h5>Accuracy & Handoff</h5>
+                    </div>
+                    <ul class="support-list">
+                        <li>Continued logging: meetings + emails via <span class="support-highlight">Einstein Activity Capture</span></li>
+                        <li>Notes synced from Hyprnote if not shared in GTM account planning</li>
+                        <li>Account updates shared week-over-week; inputs validated in <span class="support-highlight">weekly BL reviews</span></li>
+                        <li>Late-stage confirmation: ACV, term, product, net new $ (renewal vs. new)</li>
+                        <li>On close: smart capture + flows for <span class="support-highlight">revenue tagging</span> (project vs. recurring)</li>
+                        <li>GTM Brain <span class="support-highlight">contract review</span> + initial draft → syncs to Campfire</li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -584,8 +615,8 @@
             },
             'playbook': {
                 title: 'Sales Process Doc',
-                desc: 'Central GTM resource linked from Slack. Hosts sales process, commands, and key resources—keeps the team aligned and reduces guesswork.',
-                tags: ['Central Resource', 'Process', 'Links Out']
+                desc: 'Central GTM resource linked from GTM Brain. Hosts sales process, commands, and key resources—keeps the team aligned and reduces guesswork.',
+                tags: ['Central Resource', 'Process', 'Team Alignment']
             },
             'hyprnote': {
                 title: 'Hyprnote Meeting Sync',
@@ -594,13 +625,13 @@
             },
             'salesforce': {
                 title: 'Salesforce (Source of Truth)',
-                desc: 'Accounts, Opportunities, Contacts, Contracts, Events. Queried via jsforce. Hygiene flows keep fields current; weekly BL reviews reinforce accuracy.',
-                tags: ['jsforce', 'OAuth 2.0', 'REST API', 'Hygiene Flows']
+                desc: 'GTM Brain interacts with: Accounts (ownership, notes, customer brain), Opportunities (stage, ACV, close date), Contacts (new attendees from meetings), Contracts (term extraction), and Events (meeting logs). Hygiene flows keep fields current; weekly BL reviews reinforce accuracy.',
+                tags: ['Account Lookup', 'Opp Updates', 'Contact Creation', 'Event Logging', 'Contract Fields', 'Hygiene Flows']
             },
             'campfire': {
                 title: 'Campfire ERP',
-                desc: 'ARR and finance system for reconciliation. Synced from clean Salesforce data to ensure revenue accuracy in reporting.',
-                tags: ['ARR Tracking', 'Finance Data', 'Reconciliation']
+                desc: 'ARR and finance system for reconciliation. Receives clean contract data after close—revenue tagged as project or recurring, ready for finance reporting.',
+                tags: ['ARR Tracking', 'Revenue Tagging', 'Finance Sync']
             },
             'reports': {
                 title: 'Automated Reports',
