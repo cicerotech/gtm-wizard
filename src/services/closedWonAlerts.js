@@ -14,6 +14,28 @@ const ALERT_USER = process.env.CLOSED_WON_ALERT_USER || null; // For DM testing
 // Guard against double subscription
 let isSubscribed = false;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// EVENT DEDUPLICATION
+// ═══════════════════════════════════════════════════════════════════════════
+// During zero-downtime deployments, Render briefly runs two instances.
+// Both subscribe to Salesforce Platform Events and receive the same broadcast.
+// We deduplicate by tracking each event's unique ReplayId for 60 seconds.
+// ═══════════════════════════════════════════════════════════════════════════
+const processedEvents = new Map(); // ReplayId -> timestamp
+const DEDUP_TTL_MS = 60000; // 60 seconds
+
+/**
+ * Clean up expired entries from the deduplication cache
+ */
+function cleanupProcessedEvents() {
+  const now = Date.now();
+  for (const [replayId, timestamp] of processedEvents) {
+    if (now - timestamp > DEDUP_TTL_MS) {
+      processedEvents.delete(replayId);
+    }
+  }
+}
+
 /**
  * Subscribe to Closed Won Platform Events
  */
@@ -39,6 +61,21 @@ async function subscribeToClosedWonEvents(app) {
     
     conn.streaming.topic(channel).subscribe(async (message) => {
       try {
+        // Extract ReplayId for deduplication
+        const replayId = message.event?.replayId;
+        
+        // Check if we've already processed this event (from another instance)
+        if (replayId && processedEvents.has(replayId)) {
+          logger.info(`Skipping duplicate Closed Won event (ReplayId: ${replayId})`);
+          return;
+        }
+        
+        // Mark as processed before handling
+        if (replayId) {
+          processedEvents.set(replayId, Date.now());
+          cleanupProcessedEvents(); // Prevent memory growth
+        }
+        
         logger.info('Received Closed Won Alert:', JSON.stringify(message));
         await handleClosedWonEvent(app, message);
       } catch (error) {
