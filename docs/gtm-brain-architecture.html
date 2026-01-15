@@ -370,7 +370,7 @@
         </div>
         
         <div class="diagram-container">
-            <svg class="neural-svg" viewBox="0 0 900 540" preserveAspectRatio="xMidYMid meet">
+            <svg class="neural-svg" viewBox="0 0 900 560" preserveAspectRatio="xMidYMid meet">
                 <defs>
                     <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
                         <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.1"/>
@@ -384,6 +384,12 @@
                     </marker>
                     <marker id="dotGray" markerWidth="6" markerHeight="6" refX="3" refY="3">
                         <circle cx="3" cy="3" r="2.5" fill="#9ca3af"/>
+                    </marker>
+                    <marker id="dotOrange" markerWidth="6" markerHeight="6" refX="3" refY="3">
+                        <circle cx="3" cy="3" r="2.5" fill="#f97316"/>
+                    </marker>
+                    <marker id="dotBlue" markerWidth="6" markerHeight="6" refX="3" refY="3">
+                        <circle cx="3" cy="3" r="2.5" fill="#0ea5e9"/>
                     </marker>
                 </defs>
                 
@@ -436,9 +442,9 @@
                       stroke="#9ca3af" stroke-width="1.5" opacity="0.5" marker-start="url(#dotGray)" marker-end="url(#dotGray)"/>
                 
                 <!-- Labels - positioned to the side of lines, not overlapping -->
-                <text x="240" y="145" font-size="7" fill="#8e99e1" font-style="italic">questions + transcripts</text>
+                <text x="195" y="160" font-size="7" fill="#8e99e1" font-style="italic">questions + transcripts</text>
                 <text x="475" y="152" font-size="7" fill="#22c55e" font-style="italic">sync</text>
-                <text x="665" y="145" font-size="7" fill="#6b7280" font-style="italic">generates</text>
+                <text x="665" y="160" font-size="7" fill="#6b7280" font-style="italic">generates</text>
                 
                 <!-- === THREE COLUMNS (EVENLY SPACED, CENTERED) === -->
                 <!-- Col 1 center: 170, Col 2 center: 450, Col 3 center: 730 -->
@@ -498,35 +504,45 @@
                     <text x="730" y="325" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="7">Live pipeline view</text>
                 </g>
                 
-                <!-- === SALESFORCE INTEGRATIONS (below SF, showing connectivity) === -->
-                <text x="450" y="405" text-anchor="middle" font-size="7" fill="#6b7280" font-style="italic">Salesforce syncs to →</text>
+                <!-- === SALESFORCE INTEGRATIONS (below SF, wider spacing) === -->
                 
-                <!-- Campfire -->
+                <!-- Campfire (positioned left with spacing) -->
                 <g class="node" data-node="campfire">
-                    <rect class="node-rect" x="355" y="415" width="90" height="50" rx="6" fill="#fff7ed" stroke="#fed7aa" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="400" y="437" class="node-label" text-anchor="middle" fill="#c2410c" font-size="9">Campfire</text>
-                    <text x="400" y="450" class="node-sublabel" text-anchor="middle" fill="#ea580c" font-size="6">ERP • Contract Terms</text>
+                    <rect class="node-rect" x="310" y="430" width="100" height="55" rx="8" fill="#fff7ed" stroke="#fed7aa" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="360" y="452" class="node-label" text-anchor="middle" fill="#c2410c" font-size="10">Campfire</text>
+                    <text x="360" y="467" class="node-sublabel" text-anchor="middle" fill="#ea580c" font-size="6">ERP • Contract Terms</text>
                 </g>
                 
-                <!-- Rocket Lane -->
+                <!-- Rocket Lane (positioned right with spacing) -->
                 <g class="node" data-node="rocketlane">
-                    <rect class="node-rect" x="455" y="415" width="90" height="50" rx="6" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="500" y="437" class="node-label" text-anchor="middle" fill="#0369a1" font-size="9">Rocket Lane</text>
-                    <text x="500" y="450" class="node-sublabel" text-anchor="middle" fill="#0284c7" font-size="6">Project Delivery</text>
+                    <rect class="node-rect" x="490" y="430" width="100" height="55" rx="8" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="540" y="452" class="node-label" text-anchor="middle" fill="#0369a1" font-size="10">Rocket Lane</text>
+                    <text x="540" y="467" class="node-sublabel" text-anchor="middle" fill="#0284c7" font-size="6">Project Delivery</text>
                 </g>
                 
-                <!-- Connection lines from Salesforce to Campfire/Rocket Lane -->
-                <path class="connection" d="M 420 385 L 400 415" stroke="#fed7aa" stroke-width="1" opacity="0.6"/>
-                <path class="connection" d="M 480 385 L 500 415" stroke="#bae6fd" stroke-width="1" opacity="0.6"/>
+                <!-- Connection: Salesforce → Campfire (one-way sync with dots) -->
+                <path class="connection" d="M 410 385 C 410 405, 360 410, 360 430" 
+                      stroke="#fed7aa" stroke-width="1.5" opacity="0.7" marker-start="url(#dotGreen)" marker-end="url(#dotOrange)"/>
+                <text x="375" y="408" font-size="6" fill="#c2410c" font-style="italic">sync</text>
+                
+                <!-- Connection: Salesforce → Rocket Lane (one-way sync with dots) -->
+                <path class="connection" d="M 490 385 C 490 405, 540 410, 540 430" 
+                      stroke="#bae6fd" stroke-width="1.5" opacity="0.7" marker-start="url(#dotGreen)" marker-end="url(#dotBlue)"/>
+                <text x="510" y="408" font-size="6" fill="#0369a1" font-style="italic">sync</text>
+                
+                <!-- Connection: Rocket Lane → Campfire (revenue tracking) -->
+                <path class="connection" d="M 490 457 C 460 457, 440 457, 410 457" 
+                      stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="4 2" opacity="0.6" marker-end="url(#dotOrange)"/>
+                <text x="450" y="472" text-anchor="middle" font-size="6" fill="#7c3aed" font-style="italic">variable + managed services revenue</text>
                 
                 <!-- === FEEDBACK LOOP (bottom) === -->
-                <rect x="125" y="485" width="650" height="35" rx="8" fill="#fefce8" stroke="#fde047" stroke-width="1"/>
-                <text x="450" y="500" text-anchor="middle" font-size="9" font-weight="600" fill="#854d0e">↻ Feedback Loop</text>
-                <text x="450" y="512" text-anchor="middle" font-size="6" fill="#a16207">GTM Brain responds to Slack queries • Reports delivered to Slack • Pipeline visibility for all</text>
+                <rect x="125" y="505" width="650" height="35" rx="8" fill="#fefce8" stroke="#fde047" stroke-width="1"/>
+                <text x="450" y="520" text-anchor="middle" font-size="9" font-weight="600" fill="#854d0e">↻ Feedback Loop</text>
+                <text x="450" y="532" text-anchor="middle" font-size="6" fill="#a16207">GTM Brain responds to Slack queries • Reports delivered to Slack • Pipeline visibility for all</text>
                 
                 <!-- Feedback connectors (subtle) -->
-                <path class="connection" d="M 170 415 L 170 485" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
-                <path class="connection" d="M 730 355 L 730 485" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
+                <path class="connection" d="M 170 415 L 170 505" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
+                <path class="connection" d="M 730 355 L 730 505" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
                 
             </svg>
             
