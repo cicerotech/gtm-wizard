@@ -814,7 +814,9 @@ class GTMBrainApp {
       if (oktaSession) {
         try {
           const { generateMeetingPrepHTML } = require('./views/meetingPrepView');
-          const html = await generateMeetingPrepHTML();
+          // Pass filterUser query param if present
+          const filterUserId = req.query.filterUser || null;
+          const html = await generateMeetingPrepHTML(filterUserId);
           res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline'");
           res.send(html);
         } catch (error) {

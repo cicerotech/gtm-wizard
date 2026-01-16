@@ -18,7 +18,7 @@ const DEMO_PRODUCTS = [
   { id: 'other', label: 'Other' }
 ];
 
-// First meeting template defaults
+// First meeting template defaults (original)
 const FIRST_MEETING_TEMPLATES = {
   agenda: [
     'Introductions and company overview',
@@ -31,6 +31,29 @@ const FIRST_MEETING_TEMPLATES = {
     'Determine fit for pilot or engagement'
   ]
 };
+
+// First meeting template for BLs (updated per team standards)
+const FIRST_MEETING_BL_TEMPLATE = {
+  agenda: [
+    'Discovery around current state of AI at the customer (qualification opportunity)',
+    'Give the pitch',
+    'Introduce the CAB'
+  ],
+  goals: [
+    'Qualify customer',
+    'Identify stakeholder for priority use case, CLO agrees to connect us',
+    'CLO agrees to learn more about CAB and/or sign a memorandum'
+  ]
+};
+
+// Accounts/subjects to exclude from meeting prep
+const EXCLUDED_ACCOUNTS = [
+  'Event Triage',
+  'Sample',
+  'Test',
+  'Acme',
+  'Sandbox'
+];
 
 /**
  * Create a new meeting entry (manual)
@@ -191,37 +214,140 @@ async function getUpcomingMeetings(startDate, endDate) {
 
 /**
  * Get Salesforce Events for date range
+ * Filters out: Event Triage, internal-only meetings, excluded accounts
  */
 async function getSalesforceEvents(startDate, endDate) {
   try {
+    // Format dates for SOQL (remove milliseconds, ensure proper format)
+    const formatDateForSOQL = (dateStr) => {
+      const d = new Date(dateStr);
+      return d.toISOString().replace('.000Z', 'Z');
+    };
+    
+    const startFormatted = formatDateForSOQL(startDate);
+    const endFormatted = formatDateForSOQL(endDate);
+    
+    logger.info(`[MeetingPrep] Querying SF Events from ${startFormatted} to ${endFormatted}`);
+    
+    // Query events with EventRelations for all attendees
     const sfQuery = `
       SELECT Id, Subject, StartDateTime, EndDateTime,
-             Account.Id, Account.Name, Owner.Name, 
-             WhoId, Who.Name, Description
+             Account.Id, Account.Name, Owner.Name, Owner.Email,
+             WhoId, Who.Name, Who.Email, Description,
+             (SELECT RelationId, Relation.Name, Relation.Email FROM EventRelations)
       FROM Event
-      WHERE StartDateTime >= ${startDate}
-        AND StartDateTime <= ${endDate}
+      WHERE StartDateTime >= ${startFormatted}
+        AND StartDateTime <= ${endFormatted}
         AND AccountId != null
+        AND (NOT Account.Name LIKE '%Event Triage%')
+        AND (NOT Account.Name LIKE '%Sample%')
+        AND (NOT Account.Name LIKE '%Test%')
+        AND (NOT Account.Name LIKE '%Acme%')
+        AND (NOT Subject LIKE '%Event Triage%')
       ORDER BY StartDateTime ASC
       LIMIT 100
     `;
     
     const result = await query(sfQuery, true);
     
+    logger.info(`[MeetingPrep] SF Events query returned ${result?.records?.length || 0} records`);
+    
     if (!result?.records) return [];
     
-    return result.records.map(event => ({
-      meetingId: event.Id,
-      accountId: event.Account?.Id,
-      accountName: event.Account?.Name,
-      meetingTitle: event.Subject,
-      meetingDate: event.StartDateTime,
-      endDate: event.EndDateTime,
-      owner: event.Owner?.Name,
-      attendees: event.Who?.Name ? [{ name: event.Who.Name, contactId: event.WhoId, isExternal: false }] : [],
-      description: event.Description,
-      source: 'salesforce'
-    }));
+    // Process events and filter out internal-only meetings
+    const processedEvents = [];
+    
+    for (const event of result.records) {
+      // Parse all attendees from EventRelations
+      const allAttendees = [];
+      let hasExternalAttendee = false;
+      
+      // Add primary contact (Who)
+      if (event.Who?.Name) {
+        const email = event.Who.Email || '';
+        const isExternal = !email.toLowerCase().endsWith('@eudia.com');
+        if (isExternal) hasExternalAttendee = true;
+        allAttendees.push({
+          name: event.Who.Name,
+          email: email,
+          contactId: event.WhoId,
+          isExternal
+        });
+      }
+      
+      // Add EventRelations (other attendees)
+      if (event.EventRelations?.records) {
+        for (const rel of event.EventRelations.records) {
+          if (rel.Relation) {
+            const email = rel.Relation.Email || '';
+            const isExternal = !email.toLowerCase().endsWith('@eudia.com');
+            if (isExternal) hasExternalAttendee = true;
+            
+            // Avoid duplicates
+            if (!allAttendees.find(a => a.name === rel.Relation.Name)) {
+              allAttendees.push({
+                name: rel.Relation.Name,
+                email: email,
+                contactId: rel.RelationId,
+                isExternal
+              });
+            }
+          }
+        }
+      }
+      
+      // Check account name - if it looks like an external company, consider it external
+      const accountName = event.Account?.Name || '';
+      if (accountName && !accountName.toLowerCase().includes('eudia')) {
+        hasExternalAttendee = true;
+      }
+      
+      // Skip internal-only meetings (no external attendees and no real account)
+      // But keep meetings that have a valid external account
+      if (!hasExternalAttendee && allAttendees.length > 0) {
+        // All attendees are internal - skip unless it has a real customer account
+        const isRealAccount = accountName && 
+          !EXCLUDED_ACCOUNTS.some(ex => accountName.toLowerCase().includes(ex.toLowerCase()));
+        
+        if (!isRealAccount) {
+          logger.debug(`[MeetingPrep] Skipping internal-only meeting: ${event.Subject}`);
+          continue;
+        }
+      }
+      
+      // Separate into external and internal attendees
+      const externalAttendees = allAttendees.filter(a => a.isExternal);
+      const internalAttendees = allAttendees.filter(a => !a.isExternal);
+      
+      // Add owner as internal if not already in list
+      if (event.Owner?.Name && !internalAttendees.find(a => a.name === event.Owner.Name)) {
+        internalAttendees.push({
+          name: event.Owner.Name,
+          email: event.Owner.Email || '',
+          isExternal: false
+        });
+      }
+      
+      processedEvents.push({
+        meetingId: event.Id,
+        accountId: event.Account?.Id,
+        accountName: event.Account?.Name,
+        meetingTitle: event.Subject,
+        meetingDate: event.StartDateTime,
+        endDate: event.EndDateTime,
+        owner: event.Owner?.Name,
+        ownerId: event.OwnerId,
+        attendees: allAttendees,
+        externalAttendees,
+        internalAttendees,
+        description: event.Description,
+        source: 'salesforce'
+      });
+    }
+    
+    logger.info(`[MeetingPrep] After filtering: ${processedEvents.length} meetings (excluded ${result.records.length - processedEvents.length} internal-only)`);
+    
+    return processedEvents;
   } catch (error) {
     logger.error('Error fetching Salesforce events:', error);
     return [];
@@ -317,6 +443,7 @@ async function getAccounts() {
 
 /**
  * Group meetings by day of week
+ * Fixed to handle UTC dates correctly by using UTC day
  */
 function groupMeetingsByDay(meetings) {
   const days = {
@@ -330,14 +457,71 @@ function groupMeetingsByDay(meetings) {
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   
   for (const meeting of meetings) {
-    const date = new Date(meeting.meetingDate || meeting.meeting_date);
-    const dayName = dayNames[date.getDay()];
+    const dateStr = meeting.meetingDate || meeting.meeting_date;
+    if (!dateStr) continue;
+    
+    const date = new Date(dateStr);
+    // Use UTC day to avoid timezone issues (SF returns UTC times)
+    const utcDay = date.getUTCDay();
+    const dayName = dayNames[utcDay];
+    
+    logger.debug(`[MeetingPrep] Meeting "${meeting.meetingTitle || meeting.meeting_title}" on ${dateStr} -> UTC day ${utcDay} (${dayName})`);
+    
     if (days[dayName]) {
       days[dayName].push(meeting);
     }
   }
   
+  // Log summary
+  logger.info(`[MeetingPrep] Grouped meetings: Mon=${days.monday.length}, Tue=${days.tuesday.length}, Wed=${days.wednesday.length}, Thu=${days.thursday.length}, Fri=${days.friday.length}`);
+  
   return days;
+}
+
+/**
+ * Get BL users for filter dropdown
+ */
+async function getBLUsers() {
+  try {
+    const sfQuery = `
+      SELECT Id, Name, Email
+      FROM User
+      WHERE IsActive = true
+        AND Profile.Name IN ('Standard User', 'System Administrator', 'Eudia Sales')
+        AND Email LIKE '%@eudia.com'
+      ORDER BY Name ASC
+      LIMIT 50
+    `;
+    
+    const result = await query(sfQuery, true);
+    
+    if (!result?.records) return [];
+    
+    return result.records.map(user => ({
+      userId: user.Id,
+      name: user.Name,
+      email: user.Email
+    }));
+  } catch (error) {
+    logger.error('Error fetching BL users:', error);
+    return [];
+  }
+}
+
+/**
+ * Filter meetings by user (owner or attendee)
+ */
+function filterMeetingsByUser(meetings, userId) {
+  if (!userId) return meetings;
+  
+  return meetings.filter(meeting => {
+    // Check if user is owner
+    if (meeting.ownerId === userId) return true;
+    
+    // Check if user is in attendees
+    const attendees = meeting.attendees || meeting.internalAttendees || [];
+    return attendees.some(a => a.userId === userId || a.contactId === userId);
+  });
 }
 
 /**
@@ -378,13 +562,17 @@ module.exports = {
   getAccountContacts,
   getAccounts,
   isFirstMeeting,
+  getBLUsers,
   
   // Utility
   groupMeetingsByDay,
   getCurrentWeekRange,
+  filterMeetingsByUser,
   
   // Constants
   DEMO_PRODUCTS,
-  FIRST_MEETING_TEMPLATES
+  FIRST_MEETING_TEMPLATES,
+  FIRST_MEETING_BL_TEMPLATE,
+  EXCLUDED_ACCOUNTS
 };
 

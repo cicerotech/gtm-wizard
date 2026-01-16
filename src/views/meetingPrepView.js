@@ -4,13 +4,28 @@
  */
 
 const meetingPrepService = require('../services/meetingPrepService');
+const logger = require('../utils/logger');
 
 /**
  * Generate the Meeting Prep HTML page
  */
-async function generateMeetingPrepHTML() {
+async function generateMeetingPrepHTML(filterUserId = null) {
   const weekRange = meetingPrepService.getCurrentWeekRange();
-  const meetings = await meetingPrepService.getUpcomingMeetings(weekRange.start, weekRange.end);
+  let meetings = await meetingPrepService.getUpcomingMeetings(weekRange.start, weekRange.end);
+  
+  // Get BL users for filter dropdown
+  let blUsers = [];
+  try {
+    blUsers = await meetingPrepService.getBLUsers();
+  } catch (e) {
+    logger.error('Failed to load BL users:', e);
+  }
+  
+  // Filter by user if specified
+  if (filterUserId) {
+    meetings = meetingPrepService.filterMeetingsByUser(meetings, filterUserId);
+  }
+  
   const grouped = meetingPrepService.groupMeetingsByDay(meetings);
   
   // Generate week dates
@@ -28,6 +43,7 @@ async function generateMeetingPrepHTML() {
   }
   
   const demoProducts = meetingPrepService.DEMO_PRODUCTS;
+  const firstMeetingTemplate = meetingPrepService.FIRST_MEETING_BL_TEMPLATE;
   
   return `<!DOCTYPE html>
 <html lang="en">
@@ -84,6 +100,63 @@ body {
 
 .btn-primary:hover {
   background: #7a86d4;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-dropdown {
+  padding: 10px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  min-width: 180px;
+}
+
+.filter-dropdown:focus {
+  outline: none;
+  border-color: #8e99e1;
+}
+
+.template-btn {
+  background: #f0f9ff;
+  border: 1px dashed #0ea5e9;
+  color: #0369a1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.template-btn:hover {
+  background: #e0f2fe;
+}
+
+.attendee-section-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #6b7280;
+  margin: 12px 0 6px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.attendee-section-label.external {
+  color: #d97706;
+}
+
+.attendee-section-label.internal {
+  color: #059669;
 }
 
 /* Week Grid */
@@ -548,9 +621,15 @@ textarea.input-field {
       <h1 class="page-title">Meeting Prep</h1>
       <p class="page-subtitle">Week of ${weekDays[0].date} - ${weekDays[4].date}</p>
     </div>
-    <button class="btn-primary" onclick="openCreateModal()">
-      <span>+</span> Create Meeting
-    </button>
+    <div class="header-actions">
+      <select class="filter-dropdown" id="userFilter" onchange="filterByUser(this.value)">
+        <option value="">All Meetings</option>
+        ${blUsers.map(u => `<option value="${u.userId}">${u.name}</option>`).join('')}
+      </select>
+      <button class="btn-primary" onclick="openCreateModal()">
+        <span>+</span> Create Meeting
+      </button>
+    </div>
   </div>
 
   <div class="week-grid">
@@ -565,11 +644,11 @@ textarea.input-field {
             <div class="empty-day">No meetings</div>
           ` : (grouped[day.key] || []).map(meeting => `
             <div class="meeting-card ${meeting.agenda?.some(a => a?.trim()) ? 'has-prep' : ''}" 
-                 onclick="openMeetingPrep('${meeting.meeting_id || meeting.meetingId}')">
+                 onclick="openMeetingPrep('${meeting.meeting_id || meeting.meetingId}')"
+                 data-attendees='${JSON.stringify((meeting.attendees || []).map(a => ({name: a.name, isExternal: a.isExternal})))}'>
               <div class="meeting-account">${meeting.account_name || meeting.accountName || 'Unknown'}</div>
               <div class="meeting-title">${meeting.meeting_title || meeting.meetingTitle || 'Untitled'}</div>
               <div class="meeting-time">
-                <span>🕐</span>
                 ${formatTime(meeting.meeting_date || meeting.meetingDate)}
                 <span class="meeting-source ${meeting.source}">${meeting.source}</span>
               </div>
@@ -729,7 +808,7 @@ async function openMeetingPrep(meetingId) {
 
 // Format context section HTML
 function formatContextSection(ctx) {
-  let html = '<div class="context-section"><div class="context-header"><span class="context-title">📊 Account Context</span></div><div class="context-content">';
+  let html = '<div class="context-section"><div class="context-header"><span class="context-title">Account Context</span></div><div class="context-content">';
   
   if (ctx.salesforce) {
     const sf = ctx.salesforce;
@@ -744,14 +823,14 @@ function formatContextSection(ctx) {
   }
   
   if (ctx.slackIntel?.length) {
-    html += '<div class="context-item" style="margin-top: 12px;"><span class="context-label">💬 Recent Slack Insights:</span></div>';
+    html += '<div class="context-item" style="margin-top: 12px;"><span class="context-label">Recent Slack Insights:</span></div>';
     ctx.slackIntel.slice(0, 3).forEach(intel => {
       html += '<div class="context-item" style="margin-left: 12px; font-size: 0.7rem;">[' + intel.category + '] ' + intel.summary + '</div>';
     });
   }
   
   if (ctx.priorMeetings?.length) {
-    html += '<div class="context-item" style="margin-top: 12px;"><span class="context-label">📅 Prior Meetings:</span> ' + ctx.priorMeetings.length + '</div>';
+    html += '<div class="context-item" style="margin-top: 12px;"><span class="context-label">Prior Meetings:</span> ' + ctx.priorMeetings.length + '</div>';
   }
   
   html += '</div></div>';
@@ -762,6 +841,8 @@ function formatContextSection(ctx) {
 function renderPrepForm(contextHtml) {
   const data = currentMeetingData;
   const attendees = data.attendees || [];
+  const externalAttendees = data.externalAttendees || attendees.filter(a => a.isExternal);
+  const internalAttendees = data.internalAttendees || attendees.filter(a => !a.isExternal);
   const agenda = data.agenda || ['', '', ''];
   const goals = data.goals || ['', '', ''];
   const demos = data.demoSelections || [{ product: '', subtext: '' }, { product: '', subtext: '' }, { product: '', subtext: '' }];
@@ -773,25 +854,50 @@ function renderPrepForm(contextHtml) {
     \${contextHtml}
     
     <div class="form-section">
-      <div class="form-section-title">👥 Attendees</div>
-      <div class="attendees-section">
+      <div class="form-section-title">Attendees</div>
+      
+      \${externalAttendees.length > 0 ? \`
+        <div class="attendee-section-label external">External Attendees (\${externalAttendees.length})</div>
+        <div class="attendee-chips">
+          \${externalAttendees.map((a, i) => \`
+            <span class="attendee-chip external">
+              \${a.name}\${a.title ? ' - ' + a.title : ''}
+              <button class="attendee-remove" onclick="removeAttendee(\${i}, true)">&times;</button>
+            </span>
+          \`).join('')}
+        </div>
+      \` : ''}
+      
+      \${internalAttendees.length > 0 ? \`
+        <div class="attendee-section-label internal">Internal Attendees (\${internalAttendees.length})</div>
+        <div class="attendee-chips">
+          \${internalAttendees.map((a, i) => \`
+            <span class="attendee-chip">
+              \${a.name}
+            </span>
+          \`).join('')}
+        </div>
+      \` : ''}
+      
+      <div class="attendees-section" style="margin-top: 12px;">
         <select class="input-field attendees-dropdown" id="attendeeSelect" onchange="addAttendee(this)">
           <option value="">Add from contacts...</option>
         </select>
         <button class="add-external-btn" onclick="addExternalAttendee()">+ Add External</button>
       </div>
       <div class="attendee-chips" id="attendeeChips">
-        \${attendees.map((a, i) => \`
+        \${(data.addedAttendees || []).map((a, i) => \`
           <span class="attendee-chip \${a.isExternal ? 'external' : ''}">
             \${a.name}
-            <button class="attendee-remove" onclick="removeAttendee(\${i})">&times;</button>
+            <button class="attendee-remove" onclick="removeAddedAttendee(\${i})">&times;</button>
           </span>
         \`).join('')}
       </div>
     </div>
     
     <div class="form-section">
-      <div class="form-section-title">📋 Agenda</div>
+      <div class="form-section-title">Agenda</div>
+      <button class="template-btn" onclick="loadFirstMeetingTemplate()">Load First Meeting Template</button>
       \${agenda.map((item, i) => \`
         <div class="input-row">
           <span class="input-number">\${i + 1}.</span>
@@ -801,7 +907,7 @@ function renderPrepForm(contextHtml) {
     </div>
     
     <div class="form-section">
-      <div class="form-section-title">🎯 Meeting Goals</div>
+      <div class="form-section-title">Meeting Goals</div>
       \${goals.map((item, i) => \`
         <div class="input-row">
           <span class="input-number">\${i + 1}.</span>
@@ -811,7 +917,7 @@ function renderPrepForm(contextHtml) {
     </div>
     
     <div class="form-section">
-      <div class="form-section-title">🖥️ Demo Requirements</div>
+      <div class="form-section-title">Demo Requirements</div>
       \${demos.map((demo, i) => \`
         <div class="demo-row">
           <select class="demo-select" data-index="\${i}" onchange="toggleDemoSubtext(this)">
@@ -907,6 +1013,116 @@ function toggleDemoSubtext(select) {
   subtext.disabled = !select.value;
   if (!select.value) subtext.value = '';
 }
+
+// Filter by user
+function filterByUser(userId) {
+  // Store in localStorage for persistence
+  if (userId) {
+    localStorage.setItem('meetingPrepUserFilter', userId);
+  } else {
+    localStorage.removeItem('meetingPrepUserFilter');
+  }
+  
+  // Reload the page with filter parameter
+  const url = new URL(window.location.href);
+  if (userId) {
+    url.searchParams.set('filterUser', userId);
+  } else {
+    url.searchParams.delete('filterUser');
+  }
+  window.location.href = url.toString();
+}
+
+// Load first meeting template (standard BL template)
+function loadFirstMeetingTemplate() {
+  const hasContent = 
+    Array.from(document.querySelectorAll('.agenda-input')).some(el => el.value.trim()) ||
+    Array.from(document.querySelectorAll('.goal-input')).some(el => el.value.trim());
+  
+  if (hasContent && !confirm('This will overwrite existing agenda and goals. Continue?')) {
+    return;
+  }
+  
+  // BL Standard First Meeting Template
+  const template = {
+    agenda: [
+      'Discovery around current state of AI at the customer (qualification opportunity)',
+      'Give the pitch',
+      'Introduce the CAB'
+    ],
+    goals: [
+      'Qualify customer',
+      'Identify stakeholder for priority use case, CLO agrees to connect us',
+      'CLO agrees to learn more about CAB and/or sign a memorandum'
+    ]
+  };
+  
+  // Populate agenda fields
+  const agendaInputs = document.querySelectorAll('.agenda-input');
+  template.agenda.forEach((item, i) => {
+    if (agendaInputs[i]) agendaInputs[i].value = item;
+  });
+  
+  // Populate goals fields
+  const goalInputs = document.querySelectorAll('.goal-input');
+  template.goals.forEach((item, i) => {
+    if (goalInputs[i]) goalInputs[i].value = item;
+  });
+  
+  // Update currentMeetingData
+  currentMeetingData.agenda = template.agenda;
+  currentMeetingData.goals = template.goals;
+  
+  // Show confirmation
+  const templateBtn = document.querySelector('.template-btn');
+  if (templateBtn) {
+    templateBtn.textContent = 'Template Applied';
+    templateBtn.style.background = '#dcfce7';
+    templateBtn.style.borderColor = '#10b981';
+    templateBtn.style.color = '#166534';
+    templateBtn.disabled = true;
+  }
+}
+
+// Remove added attendee (ones added via form, not from SF event)
+function removeAddedAttendee(index) {
+  if (!currentMeetingData.addedAttendees) return;
+  currentMeetingData.addedAttendees.splice(index, 1);
+  renderAddedAttendeeChips();
+}
+
+// Render added attendee chips
+function renderAddedAttendeeChips() {
+  const chips = document.getElementById('attendeeChips');
+  if (!chips) return;
+  chips.innerHTML = (currentMeetingData.addedAttendees || []).map((a, i) => \`
+    <span class="attendee-chip \${a.isExternal ? 'external' : ''}">
+      \${a.name}
+      <button class="attendee-remove" onclick="removeAddedAttendee(\${i})">&times;</button>
+    </span>
+  \`).join('');
+}
+
+// Initialize user filter from localStorage on page load
+(function initUserFilter() {
+  const savedFilter = localStorage.getItem('meetingPrepUserFilter');
+  if (savedFilter) {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!urlParams.has('filterUser')) {
+      // Apply saved filter if not already in URL
+      const select = document.getElementById('userFilter');
+      if (select) {
+        select.value = savedFilter;
+        // Reload with filter (only once)
+        filterByUser(savedFilter);
+      }
+    } else {
+      // Set dropdown to match URL param
+      const select = document.getElementById('userFilter');
+      if (select) select.value = urlParams.get('filterUser');
+    }
+  }
+})();
 
 // Save meeting prep
 async function saveMeetingPrep() {
