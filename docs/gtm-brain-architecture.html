@@ -506,11 +506,7 @@
 <body>
     <header class="header">
         <h1>GTM Brain <span>/ Intelligence Layer</span></h1>
-        <nav class="nav-links">
-            <a href="/account-dashboard">Dashboard</a>
-            <a href="/cheat-sheet">Commands</a>
-            <a href="/sales-process">Sales Playbook</a>
-        </nav>
+        <!-- Nav links removed - now available via unified hub tabs -->
     </header>
     
     <div class="container">
@@ -554,7 +550,7 @@
                 <g class="node" data-node="gtm-brain">
                     <rect class="node-rect" x="270" y="25" width="360" height="95" rx="14" fill="#8e99e1" stroke="#7c8bd4" stroke-width="2" filter="url(#softShadow)"/>
                     <text x="450" y="58" class="node-label" text-anchor="middle" fill="white" font-size="20">GTM Brain</text>
-                    <text x="450" y="78" class="node-sublabel" text-anchor="middle" fill="white" font-size="10">Intelligence Layer • Powered by Claude</text>
+                    <text x="450" y="78" class="node-sublabel" text-anchor="middle" fill="white" font-size="10">Intelligence Layer • Powered by Cursor + Claude</text>
                     <!-- Sub-components in a row -->
                     <rect x="295" y="92" width="60" height="18" rx="4" fill="rgba(255,255,255,0.2)"/>
                     <text x="325" y="104" text-anchor="middle" fill="white" font-size="7" font-weight="500">Intent Router</text>
@@ -635,23 +631,37 @@
                     <text x="450" y="344" text-anchor="middle" fill="white" font-size="7" font-weight="500">↔ SOQL Hygiene Sync</text>
                 </g>
                 
-                <!-- COLUMN 3: OUTPUTS (x: 635-825, center: 730) -->
-                <rect x="635" y="185" width="190" height="170" rx="12" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1"/>
+                <!-- COLUMN 3: OUTPUTS (x: 635-825, center: 730) - height matches Input Channels (230) -->
+                <rect x="635" y="185" width="190" height="230" rx="12" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1"/>
                 <text x="730" y="208" text-anchor="middle" font-size="9" font-weight="600" fill="#6b7280" letter-spacing="0.5">OUTPUTS</text>
                 <text x="730" y="220" text-anchor="middle" font-size="7" fill="#9ca3af">What gets generated</text>
                 
+                <!-- Live Client Context + Meeting Prep -->
+                <g class="node" data-node="client-context">
+                    <rect class="node-rect" x="650" y="232" width="160" height="40" rx="8" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="730" y="250" class="node-label" text-anchor="middle" fill="#374151" font-size="9">Live Client Context</text>
+                    <text x="730" y="262" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="6">Meeting Prep • Account Briefs</text>
+                </g>
+                
+                <!-- Query Responses -->
+                <g class="node" data-node="query-responses">
+                    <rect class="node-rect" x="650" y="280" width="160" height="40" rx="8" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="730" y="298" class="node-label" text-anchor="middle" fill="#374151" font-size="9">Query Responses</text>
+                    <text x="730" y="310" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="6">On-demand Slack answers</text>
+                </g>
+                
                 <!-- Reports -->
                 <g class="node" data-node="reports">
-                    <rect class="node-rect" x="650" y="235" width="160" height="45" rx="8" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="730" y="255" class="node-label" text-anchor="middle" fill="#374151" font-size="11">Reports</text>
-                    <text x="730" y="270" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="6">RevOps, Demand/Delivery + CS</text>
+                    <rect class="node-rect" x="650" y="328" width="160" height="40" rx="8" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="730" y="346" class="node-label" text-anchor="middle" fill="#374151" font-size="9">Reports</text>
+                    <text x="730" y="358" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="6">RevOps, Demand/Delivery + CS</text>
                 </g>
                 
                 <!-- Dashboard -->
                 <g class="node" data-node="dashboard">
-                    <rect class="node-rect" x="650" y="290" width="160" height="45" rx="8" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="730" y="310" class="node-label" text-anchor="middle" fill="#374151" font-size="11">Dashboard</text>
-                    <text x="730" y="325" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="6">SF projection for non-SF users</text>
+                    <rect class="node-rect" x="650" y="376" width="160" height="40" rx="8" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="730" y="394" class="node-label" text-anchor="middle" fill="#374151" font-size="9">Dashboard</text>
+                    <text x="730" y="406" class="node-sublabel" text-anchor="middle" fill="#6b7280" font-size="6">SF projection for non-SF users</text>
                 </g>
                 
                 <!-- === SALESFORCE INTEGRATIONS (below SF, flow: SF → Rocket Lane → Campfire) === -->
@@ -690,7 +700,7 @@
                 
                 <!-- Feedback connectors (subtle) -->
                 <path class="connection" d="M 170 415 L 170 505" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
-                <path class="connection" d="M 730 355 L 730 505" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
+                <path class="connection" d="M 730 416 L 730 505" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
                 
             </svg>
             
@@ -811,6 +821,16 @@
                 desc: 'Salesforce syncs deal data to Rocket Lane for project kickoff and delivery tracking. Ensures smooth handoff from sales to implementation.',
                 tags: ['Project Delivery', 'Implementation', 'Handoff']
             },
+            'client-context': {
+                title: 'Live Client Context + Meeting Prep',
+                desc: 'Before any client meeting, get a full account brief: recent activity, open deals, key contacts, and talking points—all pulled dynamically.',
+                tags: ['Account Briefs', 'Meeting Prep', 'Client History', 'Real-Time Context']
+            },
+            'query-responses': {
+                title: 'Query Responses — On-Demand Answers',
+                desc: 'Ask @gtm-brain anything in Slack and get instant answers. Ownership, pipeline status, contact info—no SF login required.',
+                tags: ['Slack Answers', 'Natural Language', 'Instant Lookups', '@gtm-brain']
+            },
             'reports': {
                 title: 'Reports — Weekly + On-Demand',
                 desc: 'GTM Brain generates weekly PDFs, pipeline Excel exports, and BL summaries. Delivered to Slack automatically or on request.',
@@ -859,6 +879,8 @@
                 'slack': ['conn-brain-inputs'],
                 'hyprnote': ['conn-brain-inputs'],
                 'salesforce': ['conn-brain-sf'],
+                'client-context': ['conn-brain-outputs'],
+                'query-responses': ['conn-brain-outputs'],
                 'reports': ['conn-brain-outputs'],
                 'campfire': ['conn-brain-outputs'],
                 'dashboard': ['conn-brain-outputs']

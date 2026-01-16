@@ -1,6 +1,8 @@
 const { query } = require('../salesforce/connection');
 const { cleanStageName } = require('../utils/formatters');
-const { getJohnsonHanaSummary, getAccountSummaries: getJHAccounts, closedWonNovDec, mapStage, lastUpdate: jhLastUpdate, getJHSignedLogosByPeriod, jhSignedLogos, eudiaNovemberARR, eudiaNovemberARRTotal, jhNovemberARR, jhNovemberARRTotal, outHouseNovemberARR, outHouseNovemberARRTotal, totalNovemberARR } = require('../data/johnsonHanaData');
+const { getJohnsonHanaSummary, getAccountSummaries: getJHAccounts, mapStage, lastUpdate: jhLastUpdate, getJHSignedLogosByPeriod, jhSignedLogos, eudiaNovemberARR, eudiaNovemberARRTotal, jhNovemberARR, jhNovemberARRTotal, outHouseNovemberARR, outHouseNovemberARRTotal, totalNovemberARR } = require('../data/johnsonHanaData');
+
+// Note: closedWonNovDec is now dynamically queried from Salesforce instead of using hardcoded data
 
 /**
  * Generate password-protected Account Status Dashboard
@@ -151,19 +153,14 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
   const jhAIEnabledAccounts = allJHAccounts.filter(a => a.hasEudiaTech);
   const totalAIEnabledAccounts = eudiaAIEnabledAccounts.length + jhAIEnabledAccounts.length;
   
-  // Eudia closed deals - Last 60 days, includes Recurring, Project, and Pilot (excludes LOI)
-  const eudiaRevenueDeals = novDecRevenue || [];
-  const eudiaRevenueTotal = novDecRevenueTotal || 0;
+  // Closed deals - Last 60 days, includes Recurring, Project, and Pilot (excludes LOI)
+  // All closed deals now come from Salesforce dynamically (no more hardcoded JH data)
+  const allClosedDeals = novDecRevenue || [];
+  const closedTotal = novDecRevenueTotal || 0;
+  const combinedClosedCount = allClosedDeals.length;
+  const combinedClosedTotal = closedTotal;
   
-  // JH closed deals
-  const jhClosedDeals = closedWonNovDec;
-  const jhClosedTotal = jhSummary.closedTotal;
-  
-  // Combined closed (using revenue-only for Eudia)
-  const combinedClosedTotal = eudiaRevenueTotal + jhClosedTotal;
-  const combinedClosedCount = eudiaRevenueDeals.length + jhClosedDeals.length;
-  
-  console.log(`[Dashboard] Closed Revenue Total: Eudia=$${eudiaRevenueTotal}, JH=$${jhClosedTotal}, Combined=$${combinedClosedTotal}, Count=${combinedClosedCount}`);
+  console.log(`[Dashboard] Closed Revenue (Last 60 Days): ${combinedClosedCount} deals, $${combinedClosedTotal}`);
   
   // Eudia stage order
   const stageOrder = ['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery', 'Stage 0 - Prospecting'];
@@ -389,39 +386,35 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
     <div class="stage-subtitle">${combinedClosedCount} revenue deals • ${fmt(combinedClosedTotal)} total</div>
     <div style="font-size: 0.6rem; color: #9ca3af; margin-bottom: 6px;">Recurring, Project & Pilot deals. LOI excluded.</div>
     
-    <!-- Combined Closed Revenue - sorted by ACV with details -->
+    <!-- Closed Revenue - dynamically pulled from Salesforce, sorted by ACV -->
     ${(() => {
-      const allClosedDeals = [
-        ...eudiaRevenueDeals.map(d => ({ 
+      // All deals now come from the dynamic Salesforce query (allClosedDeals defined above)
+      const sortedDeals = allClosedDeals
+        .map(d => ({ 
           ...d, 
           name: d.accountName, 
           product: d.product || d.oppName, 
           owner: d.owner || '', 
           closeDate: d.closeDate,
-          isLegacy: false 
-        })),
-        ...jhClosedDeals.map(d => ({ 
-          ...d, 
-          name: d.account, 
-          product: d.serviceLine || 'Other', 
-          isLegacy: true 
+          revenueType: d.revenueType || '',
+          salesType: d.salesType || ''
         }))
-      ].sort((a, b) => (b.acv || 0) - (a.acv || 0)).slice(0, 15);
+        .sort((a, b) => (b.acv || 0) - (a.acv || 0));
       
-      if (allClosedDeals.length === 0) {
-        return '<div style="margin-top: 8px; font-size: 0.75rem; color: #9ca3af;">No revenue deals closed</div>';
+      if (sortedDeals.length === 0) {
+        return '<div style="margin-top: 8px; font-size: 0.75rem; color: #9ca3af;">No revenue deals closed in last 60 days</div>';
       }
       
-      return allClosedDeals.map(deal => {
-        const legacyDot = '';
+      return sortedDeals.map(deal => {
         const techBadge = deal.aiEnabled ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;" title="AI Enabled"></span>' : '';
         const closeDateStr = deal.closeDate ? new Date(deal.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : '';
         const ownerName = deal.owner ? (deal.owner.split(' ')[0]) : '';
+        // Show: Product • Owner • Close Date
         const details = [deal.product, ownerName, closeDateStr].filter(x => x).join(' • ');
         
         return '<div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">' +
           '<div style="flex: 1;">' +
-            '<span style="font-weight: 500;">' + deal.name + '</span>' + legacyDot + techBadge +
+            '<span style="font-weight: 500;">' + deal.name + '</span>' + techBadge +
             (details ? '<div style="font-size: 0.6rem; color: #6b7280;">' + details + '</div>' : '') +
           '</div>' +
           '<div style="font-weight: 600; color: #22c55e; text-align: right; min-width: 60px;">' + fmt(deal.acv) + '</div>' +
@@ -1217,8 +1210,10 @@ async function generateAccountDashboard() {
   
   // LAST 60 DAYS - Dynamic lookback for closed revenue
   // For Top Co Closed Revenue section - includes Recurring, Project, Pilot (excludes LOI/Commitment)
+  // Now includes Owner.Name and Sales_Type__c for dashboard display
   const novDecDealsQuery = `
-    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName, Eudia_Tech__c
+    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
+           StageName, Eudia_Tech__c, Owner.Name, Sales_Type__c
     FROM Opportunity
     WHERE (StageName = 'Closed Won' OR StageName = 'Stage 6. Closed(Won)')
       AND CloseDate >= LAST_N_DAYS:60
@@ -1229,7 +1224,7 @@ async function generateAccountDashboard() {
       AND (NOT Account.Name LIKE '%Test%')
       AND (NOT Account.Name LIKE '%MasterCard Rose%')
       AND (NOT Account.Name LIKE '%DXC Technology%')
-    ORDER BY CloseDate DESC
+    ORDER BY ACV__c DESC
   `;
   
   // Categorize by Revenue_Type__c and Contract_Term_Months__c
@@ -1381,6 +1376,8 @@ async function generateAccountDashboard() {
           acv: opp.ACV__c || 0,
           product: opp.Product_Line__c || '',
           revenueType: opp.Revenue_Type__c || '',
+          salesType: opp.Sales_Type__c || '',
+          owner: opp.Owner?.Name || '',
           aiEnabled: opp.Eudia_Tech__c || false
         });
         novDecRevenueTotal += opp.ACV__c || 0;
