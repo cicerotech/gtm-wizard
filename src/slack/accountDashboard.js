@@ -1149,12 +1149,27 @@ async function generateAccountDashboard() {
   let recurringTotal = 0;
   let projectTotal = 0;
   let totalARR = 0;
+  let activeRevenueCustomerCount = 0;
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // DECEMBER RUN RATE - Active recurring contracts (current month)
+  // This replaces hardcoded November ARR data
+  // ═══════════════════════════════════════════════════════════════════════
+  let decemberRunRate = 0;
+  let decemberCustomerCount = 0;
+  const decemberContractsByAccount = new Map();
   
   try {
     const contractData = await query(contractsQuery, true);
+    console.log(`[Dashboard] Contracts query returned ${contractData?.records?.length || 0} records`);
     if (contractData?.records) {
       contractData.records.forEach(c => {
         const accountName = c.Account?.Name || 'Unknown';
+        // Skip sample/test accounts
+        const lower = accountName.toLowerCase();
+        if (lower.includes('sample') || lower.includes('acme') || lower.includes('sandbox') || lower.includes('test')) return;
+        if (lower.includes('mastercard rose') || lower.includes('dxc technology')) return;
+        
         if (!contractsByAccount.has(accountName)) {
           contractsByAccount.set(accountName, { recurring: [], project: [], totalARR: 0, totalProject: 0 });
         }
@@ -1166,6 +1181,15 @@ async function generateAccountDashboard() {
           acct.totalARR += acv;
           recurringTotal += acv;
           totalARR += acv;
+          
+          // Track for December run rate
+          if (!decemberContractsByAccount.has(accountName)) {
+            decemberContractsByAccount.set(accountName, { totalARR: 0, contracts: [] });
+            decemberCustomerCount++;
+          }
+          decemberContractsByAccount.get(accountName).totalARR += acv;
+          decemberContractsByAccount.get(accountName).contracts.push(c);
+          decemberRunRate += acv;
         } else {
           // LOI, Project, One-Time
           acct.project.push(c);
@@ -1174,6 +1198,8 @@ async function generateAccountDashboard() {
         }
       });
     }
+    console.log(`[Dashboard] December Run Rate: $${decemberRunRate.toLocaleString()} from ${decemberCustomerCount} active revenue customers`);
+    activeRevenueCustomerCount = decemberCustomerCount;
   } catch (e) { console.error('Contracts query error:', e.message); }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -2610,27 +2636,42 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
 
 <!-- TAB 3: REVENUE -->
 <div id="revenue" class="tab-content">
-  <!-- Closed Won by Sales Type Summary -->
+  <!-- Closed Won by Sales Type Summary (Dynamic from Salesforce Sales_Type__c) -->
   <div class="stage-section" style="margin-bottom: 16px;">
     <div class="stage-title">Closed Won by Sales Type</div>
     <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
       ${(() => {
-        // Aggregate closed won by Sales Type
+        // Aggregate closed won by Sales Type (case-insensitive normalization)
         const salesTypeClosedWon = {};
-        [...signedByType.revenue, ...signedByType.project, ...signedByType.pilot].forEach(deal => {
-          let sType = deal.salesType || 'Unassigned';
-          if (sType.toLowerCase().includes('expansion')) sType = 'Expansion';
+        const allClosedWonDeals = [...signedByType.revenue, ...signedByType.project, ...signedByType.pilot];
+        
+        allClosedWonDeals.forEach(deal => {
+          let sType = (deal.salesType || 'Unassigned').trim();
+          // Normalize case: "New business", "New Business", "NEW BUSINESS" → "New Business"
+          const sTypeLower = sType.toLowerCase();
+          if (sTypeLower.includes('new')) sType = 'New Business';
+          else if (sTypeLower.includes('expansion')) sType = 'Expansion';
+          else if (sTypeLower.includes('renewal')) sType = 'Renewal';
+          else if (sType === '' || sType === 'Unassigned') sType = 'Unassigned';
+          
           if (!salesTypeClosedWon[sType]) salesTypeClosedWon[sType] = { count: 0, acv: 0 };
           salesTypeClosedWon[sType].count++;
           salesTypeClosedWon[sType].acv += deal.acv || 0;
         });
         
-        const salesTypeOrder = ['New business', 'Expansion', 'Renewal'];
-        const displayTypes = salesTypeOrder.filter(t => salesTypeClosedWon[t]);
+        // Order: New Business, Renewal, Expansion (skip Unassigned in display unless it's all we have)
+        const salesTypeOrder = ['New Business', 'Renewal', 'Expansion'];
+        let displayTypes = salesTypeOrder.filter(t => salesTypeClosedWon[t] && salesTypeClosedWon[t].count > 0);
+        
+        // Add Unassigned if no other types exist
+        if (displayTypes.length === 0 && salesTypeClosedWon['Unassigned']) {
+          displayTypes = ['Unassigned'];
+        }
+        
         const fmt = (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(1) + 'm' : '$' + (val / 1000).toFixed(0) + 'k';
         
         if (displayTypes.length === 0) {
-          return '<div style="font-size: 0.75rem; color: #6b7280;">No closed won deals with Sales Type</div>';
+          return '<div style="font-size: 0.75rem; color: #6b7280;">No closed won deals found</div>';
         }
         
         return displayTypes.map(type => {
@@ -2645,45 +2686,40 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     </div>
   </div>
   
-  <!-- Active Revenue by Account -->
+  <!-- Active Revenue by Account - DECEMBER RUN RATE (Dynamic from Salesforce Contracts) -->
   <div class="stage-section">
-    <div class="stage-title">Active Revenue by Account</div>
-    <div class="stage-subtitle">${Object.keys(eudiaNovemberARR).length + Object.keys(jhNovemberARR).length + Object.keys(outHouseNovemberARR).length} accounts • ${formatCurrency(totalNovemberARR)} total ARR (Nov)</div>
+    <div class="stage-title">Active Revenue</div>
+    <div class="stage-subtitle" style="font-size: 0.9rem; font-weight: 600; color: #1f2937;">
+      ${formatCurrency(decemberRunRate)} total RR (Dec) | ${activeRevenueCustomerCount} active rev customers
+    </div>
   </div>
   
   <div class="section-card">
     ${(() => {
-      // Combine all November ARR from source data
+      // Use dynamic December contract data from Salesforce
       const allRevenue = [];
       
-      // Add EUDIA November ARR accounts (from source file)
-      Object.entries(eudiaNovemberARR).forEach(([name, arr]) => {
-        allRevenue.push({ name, arr, indicator: '' });
+      decemberContractsByAccount.forEach((data, name) => {
+        allRevenue.push({ name, arr: data.totalARR, indicator: '' });
       });
       
-      // Add JH November ARR accounts
-      Object.entries(jhNovemberARR).forEach(([name, arr]) => {
-        allRevenue.push({ name, arr, indicator: '' });
-      });
-      
-      // Add Out-House November ARR accounts (Meta)
-      Object.entries(outHouseNovemberARR).forEach(([name, arr]) => {
-        allRevenue.push({ name, arr, indicator: ' ◊' });
-      });
-      
-      // Sort by ARR
+      // Sort by ARR descending
       const sorted = allRevenue.sort((a, b) => b.arr - a.arr);
       const top15 = sorted.slice(0, 15);
       const rest = sorted.slice(15);
       
       const renderRow = (item) => `<tr style="border-bottom: 1px solid #f1f3f5;"><td style="padding: 4px 4px; font-size: 0.7rem;">${item.name}${item.indicator}</td><td style="padding: 4px 4px; text-align: right; font-size: 0.7rem;">${formatCurrency(item.arr)}</td></tr>`;
       
+      if (sorted.length === 0) {
+        return '<div style="padding: 12px; font-size: 0.75rem; color: #6b7280;">No active recurring contracts found</div>';
+      }
+      
       return `
     <table style="width: 100%; border-collapse: collapse;">
       <thead>
         <tr style="border-bottom: 2px solid #e5e7eb; text-align: left;">
           <th style="padding: 6px 4px; font-weight: 600; font-size: 0.7rem;">Account</th>
-          <th style="padding: 6px 4px; font-weight: 600; text-align: right; font-size: 0.7rem;">Nov ARR</th>
+          <th style="padding: 6px 4px; font-weight: 600; text-align: right; font-size: 0.7rem;">Dec RR</th>
         </tr>
       </thead>
       <tbody>
@@ -2701,53 +2737,57 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     </details>` : ''}
     <div style="display: flex; justify-content: space-between; padding: 8px 4px; margin-top: 8px; border-top: 2px solid #e5e7eb; font-weight: 700; font-size: 0.75rem;">
       <span>TOTAL</span>
-      <span>${formatCurrency(totalNovemberARR)}</span>
+      <span>${formatCurrency(decemberRunRate)}</span>
     </div>`;
     })()}
-    <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">* Awaiting contract &nbsp;† Signed LOI before converting &nbsp;◊ Out-House</div>
+    <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Source: Active Contracts (Recurring type) from Salesforce</div>
   </div>
 
-  <!-- All Closed Won Deals - By Revenue_Type__c -->
+  <!-- All Closed Won Deals - By Revenue_Type__c (Dynamic from Salesforce) -->
   ${(() => {
-    // Combine EUDIA and JH closed won deals for Revenue section
-    const jhRevenue = Object.entries(jhNovemberARR).map(([name, acv]) => ({
-      accountName: name,
-      acv,
-      closeDate: '2025-11-01'
-    }));
-    const combinedRevenue = [...signedByType.revenue, ...jhRevenue].sort((a, b) => b.acv - a.acv);
-    const combinedRevenueTotal = eudiaNovemberARRTotal + jhNovemberARRTotal;
+    // All deals come from signedByType which is populated from Salesforce query
+    const revenueDeals = signedByType.revenue || [];
+    const projectDeals = signedByType.project || [];
+    const pilotDeals = signedByType.pilot || [];
+    const loiDeals = signedByType.loi || [];
+    
+    const revenueTotal = revenueDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
+    const projectTotal = projectDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
+    const pilotTotal = pilotDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
+    const loiTotal = loiDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
     
     return `
   <div class="stage-section" style="margin-top: 16px;">
     <div class="stage-title">All Closed Won</div>
-    <div class="stage-subtitle">${combinedRevenue.length} revenue • ${signedByType.project.length} project • ${signedByType.pilot.length} pilot • ${signedByType.loi.length} LOI</div>
+    <div class="stage-subtitle">${revenueDeals.length} recurring • ${projectDeals.length} project • ${pilotDeals.length} pilot • ${loiDeals.length} commitment</div>
   </div>
   
   <div class="section-card" style="padding: 0;">
-    ${combinedRevenue.length > 0 ? `
+    ${revenueDeals.length > 0 ? `
     <details open style="margin-bottom: 12px;">
       <summary style="background: #1f2937; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
-        <span>REVENUE (ARR)</span>
-        <span>${formatCurrency(combinedRevenueTotal)} • ${combinedRevenue.length} deal${combinedRevenue.length !== 1 ? 's' : ''}</span>
+        <span>RECURRING</span>
+        <span>${formatCurrency(revenueTotal)} • ${revenueDeals.length} deal${revenueDeals.length !== 1 ? 's' : ''}</span>
       </summary>
       <div style="padding: 0 12px 12px 12px; background: #f9fafb; border-radius: 0 0 6px 6px;">
-      ${combinedRevenue.slice(0, 5).map(d => `
+      ${revenueDeals.sort((a, b) => b.acv - a.acv).slice(0, 5).map(d => `
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-size: 0.75rem;">
           <span style="font-weight: 500;">${d.accountName}</span>
           <div style="display: flex; gap: 12px; align-items: center;">
+            <span style="color: #6b7280; font-size: 0.65rem;">${d.salesType || ''}</span>
             <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
             <span style="color: #1f2937; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
         </div>
       </div>
       `).join('')}
-      ${combinedRevenue.length > 5 ? `
+      ${revenueDeals.length > 5 ? `
         <details style="margin-top: 4px;">
-          <summary style="font-size: 0.65rem; color: #374151; cursor: pointer; padding: 4px 0;">+${combinedRevenue.length - 5} more deals ›</summary>
-          ${combinedRevenue.slice(5).map(d => `
+          <summary style="font-size: 0.65rem; color: #374151; cursor: pointer; padding: 4px 0;">+${revenueDeals.length - 5} more deals ›</summary>
+          ${revenueDeals.slice(5).map(d => `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-size: 0.75rem;">
               <span style="font-weight: 500;">${d.accountName}</span>
               <div style="display: flex; gap: 12px; align-items: center;">
+                <span style="color: #6b7280; font-size: 0.65rem;">${d.salesType || ''}</span>
                 <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
                 <span style="color: #1f2937; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
               </div>
