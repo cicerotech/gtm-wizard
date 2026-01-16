@@ -74,6 +74,28 @@ async function getDeliveryDataSimple() {
 }
 
 /**
+ * Helper to check if an opportunity is "Won"
+ * Handles both boolean and string values from Salesforce
+ */
+function isOpportunityWon(opp) {
+  if (!opp) return false;
+  
+  // Check IsClosed - can be boolean true or string "true"
+  const isClosed = opp.IsClosed === true || opp.IsClosed === 'true';
+  const isWon = opp.IsWon === true || opp.IsWon === 'true';
+  
+  // Also check StageName as fallback
+  const stageIsWon = opp.StageName && (
+    opp.StageName.includes('Closed') && opp.StageName.includes('Won') ||
+    opp.StageName === 'Stage 6. Closed(Won)' ||
+    opp.StageName === 'Stage 6. Closed Won' ||
+    opp.StageName === 'Closed Won'
+  );
+  
+  return (isClosed && isWon) || stageIsWon;
+}
+
+/**
  * Generate Delivery Excel Report
  * 
  * Categories based on Opportunity status:
@@ -86,15 +108,23 @@ async function generateDeliveryExcel() {
   const data = await getDeliveryDataSimple();
   const deliveries = data.deliveries?.records || [];
 
+  // Debug: Log first few records to understand data structure
+  if (deliveries.length > 0) {
+    const sample = deliveries[0];
+    logger.info(`📊 Sample delivery - Opp: ${sample.Opportunity__r?.Name}, IsClosed: ${sample.Opportunity__r?.IsClosed} (type: ${typeof sample.Opportunity__r?.IsClosed}), IsWon: ${sample.Opportunity__r?.IsWon}, Stage: ${sample.Opportunity__r?.StageName}`);
+  }
+
   // Categorize deliveries by their opportunity status
-  // Won = IsClosed=true AND IsWon=true
-  // Active = Everything else (primarily Stage 4 - Proposal)
-  const wonDeliveries = deliveries.filter(d => 
-    d.Opportunity__r?.IsClosed === true && d.Opportunity__r?.IsWon === true
-  );
-  const activeDeliveries = deliveries.filter(d => 
-    !(d.Opportunity__r?.IsClosed === true && d.Opportunity__r?.IsWon === true)
-  );
+  const wonDeliveries = deliveries.filter(d => isOpportunityWon(d.Opportunity__r));
+  const activeDeliveries = deliveries.filter(d => !isOpportunityWon(d.Opportunity__r));
+
+  // Debug: Log a few won and active examples
+  if (wonDeliveries.length > 0) {
+    logger.info(`📊 Sample WON: ${wonDeliveries[0].Opportunity__r?.Name} - Stage: ${wonDeliveries[0].Opportunity__r?.StageName}`);
+  }
+  if (activeDeliveries.length > 0) {
+    logger.info(`📊 Sample ACTIVE: ${activeDeliveries[0].Opportunity__r?.Name} - Stage: ${activeDeliveries[0].Opportunity__r?.StageName}`);
+  }
 
   // Calculate metrics using Contract_Value__c from Delivery records
   const totalWonValue = wonDeliveries.reduce((sum, d) => sum + (d.Contract_Value__c || 0), 0);
