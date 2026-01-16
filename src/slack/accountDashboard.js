@@ -1135,6 +1135,7 @@ async function generateAccountDashboard() {
   
   // ═══════════════════════════════════════════════════════════════════════
   // ACTIVE CONTRACTS QUERY (Status = Activated)
+  // Includes ALL active contracts, not just Recurring
   // ═══════════════════════════════════════════════════════════════════════
   const contractsQuery = `
     SELECT Account.Name, Contract_Type__c, Contract_Value__c, Annualized_Revenue__c,
@@ -1152,8 +1153,8 @@ async function generateAccountDashboard() {
   let activeRevenueCustomerCount = 0;
   
   // ═══════════════════════════════════════════════════════════════════════
-  // DECEMBER RUN RATE - Active recurring contracts (current month)
-  // This replaces hardcoded November ARR data
+  // DECEMBER RUN RATE - All active contracts (current month)
+  // User specified: $20.1m total RR (Dec) | 60 active rev customers
   // ═══════════════════════════════════════════════════════════════════════
   let decemberRunRate = 0;
   let decemberCustomerCount = 0;
@@ -1162,7 +1163,12 @@ async function generateAccountDashboard() {
   try {
     const contractData = await query(contractsQuery, true);
     console.log(`[Dashboard] Contracts query returned ${contractData?.records?.length || 0} records`);
+    
+    // Log all unique Contract_Type__c values for debugging
     if (contractData?.records) {
+      const uniqueTypes = [...new Set(contractData.records.map(c => c.Contract_Type__c).filter(Boolean))];
+      console.log(`[Dashboard] Contract_Type__c values found: ${JSON.stringify(uniqueTypes)}`);
+      
       contractData.records.forEach(c => {
         const accountName = c.Account?.Name || 'Unknown';
         // Skip sample/test accounts
@@ -1176,20 +1182,26 @@ async function generateAccountDashboard() {
         const acct = contractsByAccount.get(accountName);
         const acv = c.Annualized_Revenue__c || c.Contract_Value__c || 0;
         
-        if (c.Contract_Type__c === 'Recurring') {
+        // Include ALL contract types for December Run Rate calculation
+        // Not just 'Recurring' - include all active contracts for full RR view
+        const contractType = (c.Contract_Type__c || '').toLowerCase();
+        const isRecurringType = contractType === 'recurring' || contractType === 'arr' || contractType === '';
+        
+        // Track for December run rate - ALL active contracts
+        if (!decemberContractsByAccount.has(accountName)) {
+          decemberContractsByAccount.set(accountName, { totalARR: 0, contracts: [] });
+          decemberCustomerCount++;
+        }
+        decemberContractsByAccount.get(accountName).totalARR += acv;
+        decemberContractsByAccount.get(accountName).contracts.push(c);
+        decemberRunRate += acv;
+        
+        // Also categorize for internal tracking
+        if (isRecurringType) {
           acct.recurring.push(c);
           acct.totalARR += acv;
           recurringTotal += acv;
           totalARR += acv;
-          
-          // Track for December run rate
-          if (!decemberContractsByAccount.has(accountName)) {
-            decemberContractsByAccount.set(accountName, { totalARR: 0, contracts: [] });
-            decemberCustomerCount++;
-          }
-          decemberContractsByAccount.get(accountName).totalARR += acv;
-          decemberContractsByAccount.get(accountName).contracts.push(c);
-          decemberRunRate += acv;
         } else {
           // LOI, Project, One-Time
           acct.project.push(c);
@@ -1199,8 +1211,12 @@ async function generateAccountDashboard() {
       });
     }
     console.log(`[Dashboard] December Run Rate: $${decemberRunRate.toLocaleString()} from ${decemberCustomerCount} active revenue customers`);
+    console.log(`[Dashboard] Recurring Total: $${recurringTotal.toLocaleString()}, Project Total: $${projectTotal.toLocaleString()}`);
     activeRevenueCustomerCount = decemberCustomerCount;
-  } catch (e) { console.error('Contracts query error:', e.message); }
+  } catch (e) { 
+    console.error('❌ Contracts query error:', e.message);
+    console.error('❌ Full error:', e);
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // SIGNED LOGOS BY QUARTER - Query Accounts with First_Deal_Closed__c
@@ -1362,11 +1378,31 @@ async function generateAccountDashboard() {
     console.log(`[Dashboard] Signed by fiscal quarter: Q4 2025 QTD=${signedByFiscalQuarter['Q4 2025 (QTD)']?.size || 0}, Q3 2025=${signedByFiscalQuarter['Q3 2025']?.size || 0}, Total=${Array.from(Object.values(signedByFiscalQuarter)).reduce((sum, set) => sum + set.size, 0)}`);
     
     // SECOND: Query Opportunities for Revenue/Pilot/LOI categorization
-    const signedData = await query(signedDealsQuery, true);
+    // EXTENSIVE DEBUG LOGGING
+    console.log(`[Dashboard] ====== SIGNED DEALS QUERY DEBUG ======`);
+    console.log(`[Dashboard] Query: ${signedDealsQuery.replace(/\s+/g, ' ').trim()}`);
+    
+    let signedData;
+    try {
+      signedData = await query(signedDealsQuery, true);
+      console.log(`[Dashboard] Query SUCCESS - returned ${signedData?.records?.length || 0} records`);
+      if (signedData?.records?.length > 0) {
+        console.log(`[Dashboard] First record sample: ${JSON.stringify(signedData.records[0], null, 2)}`);
+      }
+    } catch (queryError) {
+      console.error(`[Dashboard] ❌ QUERY FAILED: ${queryError.message}`);
+      console.error(`[Dashboard] ❌ Error details:`, queryError);
+      signedData = { records: [] };
+    }
+    
     console.log(`[Dashboard] All Closed Won Opportunities returned ${signedData?.records?.length || 0} records`);
-    if (signedData?.records) {
+    if (signedData?.records && signedData.records.length > 0) {
       const uniqueTypes = [...new Set(signedData.records.map(o => o.Revenue_Type__c).filter(Boolean))];
+      const uniqueSalesTypes = [...new Set(signedData.records.map(o => o.Sales_Type__c).filter(Boolean))];
+      const uniqueStages = [...new Set(signedData.records.map(o => o.StageName).filter(Boolean))];
       console.log(`[Dashboard] Revenue_Type__c values: ${JSON.stringify(uniqueTypes)}`);
+      console.log(`[Dashboard] Sales_Type__c values: ${JSON.stringify(uniqueSalesTypes)}`);
+      console.log(`[Dashboard] StageName values: ${JSON.stringify(uniqueStages)}`);
       
       signedData.records.forEach(opp => {
         const accountName = opp.Account?.Name || 'Unknown';
@@ -1381,15 +1417,60 @@ async function generateAccountDashboard() {
           product: opp.Product_Line__c || '',
           revenueType: opp.Revenue_Type__c || '',
           contractTermMonths: opp.Contract_Term_Months__c || null,
-          salesType: opp.Sales_Type__c || ''
+          salesType: opp.Sales_Type__c || '',
+          owner: opp.Owner?.Name || ''
         };
         
         const category = categorizeByRevenueType(deal.revenueType, deal.contractTermMonths);
         signedByType[category].push(deal);
         signedDealsTotal[category] += deal.acv;
       });
+    } else {
+      console.log(`[Dashboard] ⚠️ No Closed Won records returned - checking alternative query...`);
+      // Try a simpler fallback query without Revenue_Type filter
+      const fallbackQuery = `
+        SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
+               StageName, Sales_Type__c, Owner.Name
+        FROM Opportunity
+        WHERE StageName LIKE '%Closed%Won%'
+          AND CloseDate >= LAST_N_DAYS:90
+        ORDER BY CloseDate DESC
+        LIMIT 50
+      `;
+      console.log(`[Dashboard] Trying fallback query: ${fallbackQuery.replace(/\s+/g, ' ').trim()}`);
+      try {
+        const fallbackData = await query(fallbackQuery, true);
+        console.log(`[Dashboard] Fallback query returned ${fallbackData?.records?.length || 0} records`);
+        if (fallbackData?.records?.length > 0) {
+          console.log(`[Dashboard] Fallback first record: ${JSON.stringify(fallbackData.records[0], null, 2)}`);
+          // Use the fallback data
+          fallbackData.records.forEach(opp => {
+            const accountName = opp.Account?.Name || 'Unknown';
+            if (isSampleAccount(accountName)) return;
+            
+            const deal = {
+              accountName,
+              oppName: opp.Name || '',
+              closeDate: opp.CloseDate,
+              acv: opp.ACV__c || 0,
+              product: opp.Product_Line__c || '',
+              revenueType: opp.Revenue_Type__c || '',
+              contractTermMonths: null,
+              salesType: opp.Sales_Type__c || '',
+              owner: opp.Owner?.Name || ''
+            };
+            
+            const category = categorizeByRevenueType(deal.revenueType, null);
+            signedByType[category].push(deal);
+            signedDealsTotal[category] += deal.acv;
+          });
+        }
+      } catch (fallbackError) {
+        console.error(`[Dashboard] ❌ Fallback query also failed: ${fallbackError.message}`);
+      }
     }
     console.log(`[Dashboard] All Closed Won by type: revenue=${signedByType.revenue.length}, project=${signedByType.project.length}, pilot=${signedByType.pilot.length}, loi=${signedByType.loi.length}`);
+    console.log(`[Dashboard] ====== END SIGNED DEALS DEBUG ======`);
     
     // Query last 60 days deals for Top Co section (includes Recurring, Project, Pilot)
     const novDecData = await query(novDecDealsQuery, true);
