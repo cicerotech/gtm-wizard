@@ -25,38 +25,30 @@ async function getDeliveryData() {
 }
 
 /**
- * Fallback: Query opportunities and deliveries separately
+ * Query from Delivery__c object directly (matches the Salesforce Report structure)
+ * Report ID: 00OWj000004joxdMAA
+ * 
+ * The report groups by Deal Status (Won vs Active/Proposal)
+ * Won = Opportunities where IsClosed=true AND IsWon=true
+ * Active = Opportunities in Stage 4 - Proposal
  */
 async function getDeliveryDataSimple() {
-  // Query closed won and proposal stage opportunities
-  const oppsQuery = `
-    SELECT 
-      Id,
-      Name,
-      Account.Name,
-      StageName,
-      Product_Line__c,
-      ACV__c,
-      CloseDate,
-      Owner.Name
-    FROM Opportunity
-    WHERE (StageName = 'Closed Won' OR StageName = 'Stage 4 - Proposal')
-      AND CloseDate >= LAST_N_MONTHS:6
-    ORDER BY CloseDate DESC, Account.Name
-  `;
-
-  const oppsData = await query(oppsQuery, true);
-  
-  // Query deliveries - using confirmed field names from Salesforce
+  // Query Deliveries with their related Opportunity data
+  // This matches the "Delivery Weekly" report structure exactly
   const deliveriesQuery = `
     SELECT 
       Id,
       Name,
       Opportunity__c,
+      Opportunity__r.Id,
       Opportunity__r.Name,
       Opportunity__r.Account.Name,
       Opportunity__r.StageName,
+      Opportunity__r.IsClosed,
+      Opportunity__r.IsWon,
       Opportunity__r.CloseDate,
+      Opportunity__r.ACV__c,
+      Opportunity__r.Owner.Name,
       Account__c,
       Account__r.Name,
       Product_Line__c,
@@ -68,45 +60,47 @@ async function getDeliveryDataSimple() {
       Eudia_Delivery_Owner__c,
       Eudia_Delivery_Owner__r.Name
     FROM Delivery__c
-    WHERE Opportunity__r.StageName IN ('Closed Won', 'Stage 4 - Proposal')
-      AND Opportunity__r.CloseDate >= LAST_N_MONTHS:6
-    ORDER BY Opportunity__r.CloseDate DESC
+    ORDER BY Opportunity__r.CloseDate DESC, Account__r.Name
   `;
 
   try {
     const deliveriesData = await query(deliveriesQuery, true);
-    return { opps: oppsData, deliveries: deliveriesData };
+    logger.info(`📊 Queried ${deliveriesData?.records?.length || 0} delivery records`);
+    return { deliveries: deliveriesData };
   } catch (error) {
-    logger.warn('Deliveries query failed, returning opps only:', error.message);
-    return { opps: oppsData, deliveries: { records: [] } };
+    logger.error('Deliveries query failed:', error.message);
+    return { deliveries: { records: [] } };
   }
 }
 
 /**
  * Generate Delivery Excel Report
+ * 
+ * Categories based on Opportunity status:
+ * - Won: IsClosed=true AND IsWon=true (Stage 6. Closed(Won))
+ * - Active (Proposal): Stage 4 - Proposal or any other open stage
  */
 async function generateDeliveryExcel() {
   logger.info('📊 Generating Weekly Delivery Excel report...');
   
   const data = await getDeliveryDataSimple();
-  const opps = data.opps?.records || [];
   const deliveries = data.deliveries?.records || [];
 
-  // Build delivery lookup by opportunity ID
-  const deliveryByOpp = {};
-  deliveries.forEach(d => {
-    const oppId = d.Opportunity__c;
-    if (!deliveryByOpp[oppId]) deliveryByOpp[oppId] = [];
-    deliveryByOpp[oppId].push(d);
-  });
+  // Categorize deliveries by their opportunity status
+  // Won = IsClosed=true AND IsWon=true
+  // Active = Everything else (primarily Stage 4 - Proposal)
+  const wonDeliveries = deliveries.filter(d => 
+    d.Opportunity__r?.IsClosed === true && d.Opportunity__r?.IsWon === true
+  );
+  const activeDeliveries = deliveries.filter(d => 
+    !(d.Opportunity__r?.IsClosed === true && d.Opportunity__r?.IsWon === true)
+  );
 
-  // Separate won deals from proposal stage
-  const wonDeals = opps.filter(o => o.StageName === 'Closed Won');
-  const proposalDeals = opps.filter(o => o.StageName === 'Stage 4 - Proposal');
-
-  // Calculate metrics
-  const totalWonValue = wonDeals.reduce((sum, o) => sum + (o.ACV__c || 0), 0);
-  const totalProposalValue = proposalDeals.reduce((sum, o) => sum + (o.ACV__c || 0), 0);
+  // Calculate metrics using Contract_Value__c from Delivery records
+  const totalWonValue = wonDeliveries.reduce((sum, d) => sum + (d.Contract_Value__c || 0), 0);
+  const totalActiveValue = activeDeliveries.reduce((sum, d) => sum + (d.Contract_Value__c || 0), 0);
+  
+  logger.info(`📊 Delivery breakdown: Won=${wonDeliveries.length} ($${(totalWonValue/1000000).toFixed(1)}M), Active=${activeDeliveries.length} ($${(totalActiveValue/1000000).toFixed(1)}M)`);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Create Excel Workbook
@@ -177,72 +171,47 @@ async function generateDeliveryExcel() {
     cell.border = headerStyle.border;
   });
 
-  // Add data rows - combine opps with their deliveries
-  opps.forEach(opp => {
-    const oppDeliveries = deliveryByOpp[opp.Id] || [];
+  // Add all delivery rows
+  deliveries.forEach(del => {
+    const isWon = del.Opportunity__r?.IsClosed === true && del.Opportunity__r?.IsWon === true;
+    const row = summarySheet.addRow({
+      status: isWon ? 'Won' : 'Active',
+      deliveryOwner: del.Eudia_Delivery_Owner__r?.Name || del.Opportunity__r?.Owner?.Name || '',
+      account: del.Account__r?.Name || del.Opportunity__r?.Account?.Name || '',
+      productLine: del.Product_Line__c || '',
+      deliveryName: del.Name || '',
+      contractValue: del.Contract_Value__c || 0,
+      closeDate: del.Opportunity__r?.CloseDate || '',
+      kickoffDate: del.Kickoff_Date__c || '',
+      deliveryStatus: del.Status__c || '',
+      deliveryModel: del.Delivery_Model__c || '',
+      phase: del.Phase__c || ''
+    });
     
-    if (oppDeliveries.length > 0) {
-      // Add a row for each delivery
-      oppDeliveries.forEach(del => {
-        const row = summarySheet.addRow({
-          status: opp.StageName === 'Closed Won' ? 'Won' : 'Proposal',
-          deliveryOwner: del.Eudia_Delivery_Owner__r?.Name || opp.Owner?.Name || '',
-          account: del.Account__r?.Name || opp.Account?.Name || '',
-          productLine: del.Product_Line__c || opp.Product_Line__c || '',
-          deliveryName: del.Name || '',
-          contractValue: del.Contract_Value__c || opp.ACV__c || 0,
-          closeDate: opp.CloseDate || '',
-          kickoffDate: del.Kickoff_Date__c || '',
-          deliveryStatus: del.Status__c || '',
-          deliveryModel: del.Delivery_Model__c || '',
-          phase: del.Phase__c || ''
-        });
-        
-        row.eachCell((cell) => {
-          cell.font = bodyStyle.font;
-          cell.alignment = bodyStyle.alignment;
-          cell.border = bodyStyle.border;
-        });
-      });
-    } else {
-      // Add opp without delivery details
-      const row = summarySheet.addRow({
-        status: opp.StageName === 'Closed Won' ? 'Won' : 'Proposal',
-        deliveryOwner: opp.Owner?.Name || '',
-        account: opp.Account?.Name || '',
-        productLine: opp.Product_Line__c || '',
-        deliveryName: '',
-        contractValue: opp.ACV__c || 0,
-        closeDate: opp.CloseDate || '',
-        kickoffDate: '',
-        deliveryStatus: '',
-        deliveryModel: '',
-        phase: ''
-      });
-      
-      row.eachCell((cell) => {
-        cell.font = bodyStyle.font;
-        cell.alignment = bodyStyle.alignment;
-        cell.border = bodyStyle.border;
-      });
-    }
+    row.eachCell((cell) => {
+      cell.font = bodyStyle.font;
+      cell.alignment = bodyStyle.alignment;
+      cell.border = bodyStyle.border;
+    });
   });
 
   // Format currency column
   summarySheet.getColumn('contractValue').numFmt = '$#,##0';
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // TAB 2: Won Deals
+  // TAB 2: Won Deliveries
   // ═══════════════════════════════════════════════════════════════════════════
-  const wonSheet = workbook.addWorksheet('Won Deals');
+  const wonSheet = workbook.addWorksheet('Won');
 
   wonSheet.columns = [
+    { header: 'Delivery Owner', key: 'deliveryOwner', width: 20 },
     { header: 'Account Name', key: 'account', width: 30 },
-    { header: 'Opportunity Name', key: 'oppName', width: 40 },
+    { header: 'Delivery Name', key: 'deliveryName', width: 35 },
     { header: 'Product Line', key: 'productLine', width: 28 },
-    { header: 'ACV', key: 'acv', width: 15 },
+    { header: 'Contract Value', key: 'contractValue', width: 16 },
     { header: 'Close Date', key: 'closeDate', width: 14 },
-    { header: 'Owner', key: 'owner', width: 20 }
+    { header: 'Kickoff Date', key: 'kickoffDate', width: 14 },
+    { header: 'Status', key: 'status', width: 14 }
   ];
 
   // Apply header styling
@@ -255,15 +224,17 @@ async function generateDeliveryExcel() {
     cell.border = headerStyle.border;
   });
 
-  // Add won deals
-  wonDeals.forEach(opp => {
+  // Add won deliveries
+  wonDeliveries.forEach(del => {
     const row = wonSheet.addRow({
-      account: opp.Account?.Name || '',
-      oppName: opp.Name || '',
-      productLine: opp.Product_Line__c || '',
-      acv: opp.ACV__c || 0,
-      closeDate: opp.CloseDate || '',
-      owner: opp.Owner?.Name || ''
+      deliveryOwner: del.Eudia_Delivery_Owner__r?.Name || '',
+      account: del.Account__r?.Name || del.Opportunity__r?.Account?.Name || '',
+      deliveryName: del.Name || '',
+      productLine: del.Product_Line__c || '',
+      contractValue: del.Contract_Value__c || 0,
+      closeDate: del.Opportunity__r?.CloseDate || '',
+      kickoffDate: del.Kickoff_Date__c || '',
+      status: del.Status__c || ''
     });
     
     row.eachCell((cell) => {
@@ -273,41 +244,45 @@ async function generateDeliveryExcel() {
     });
   });
 
-  wonSheet.getColumn('acv').numFmt = '$#,##0';
+  wonSheet.getColumn('contractValue').numFmt = '$#,##0';
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // TAB 3: Proposal Stage
+  // TAB 3: Active (Proposal) Deliveries
   // ═══════════════════════════════════════════════════════════════════════════
-  const proposalSheet = workbook.addWorksheet('Proposal Stage');
+  const activeSheet = workbook.addWorksheet('Active');
 
-  proposalSheet.columns = [
+  activeSheet.columns = [
+    { header: 'Delivery Owner', key: 'deliveryOwner', width: 20 },
     { header: 'Account Name', key: 'account', width: 30 },
-    { header: 'Opportunity Name', key: 'oppName', width: 40 },
+    { header: 'Delivery Name', key: 'deliveryName', width: 35 },
     { header: 'Product Line', key: 'productLine', width: 28 },
-    { header: 'ACV', key: 'acv', width: 15 },
+    { header: 'Contract Value', key: 'contractValue', width: 16 },
     { header: 'Close Date', key: 'closeDate', width: 14 },
-    { header: 'Owner', key: 'owner', width: 20 }
+    { header: 'Kickoff Date', key: 'kickoffDate', width: 14 },
+    { header: 'Status', key: 'status', width: 14 }
   ];
 
   // Apply header styling
-  const proposalHeader = proposalSheet.getRow(1);
-  proposalHeader.height = 24;
-  proposalHeader.eachCell((cell) => {
+  const activeHeader = activeSheet.getRow(1);
+  activeHeader.height = 24;
+  activeHeader.eachCell((cell) => {
     cell.font = headerStyle.font;
     cell.fill = headerStyle.fill;
     cell.alignment = headerStyle.alignment;
     cell.border = headerStyle.border;
   });
 
-  // Add proposal deals
-  proposalDeals.forEach(opp => {
-    const row = proposalSheet.addRow({
-      account: opp.Account?.Name || '',
-      oppName: opp.Name || '',
-      productLine: opp.Product_Line__c || '',
-      acv: opp.ACV__c || 0,
-      closeDate: opp.CloseDate || '',
-      owner: opp.Owner?.Name || ''
+  // Add active deliveries
+  activeDeliveries.forEach(del => {
+    const row = activeSheet.addRow({
+      deliveryOwner: del.Eudia_Delivery_Owner__r?.Name || '',
+      account: del.Account__r?.Name || del.Opportunity__r?.Account?.Name || '',
+      deliveryName: del.Name || '',
+      productLine: del.Product_Line__c || '',
+      contractValue: del.Contract_Value__c || 0,
+      closeDate: del.Opportunity__r?.CloseDate || '',
+      kickoffDate: del.Kickoff_Date__c || '',
+      status: del.Status__c || ''
     });
     
     row.eachCell((cell) => {
@@ -317,22 +292,21 @@ async function generateDeliveryExcel() {
     });
   });
 
-  proposalSheet.getColumn('acv').numFmt = '$#,##0';
+  activeSheet.getColumn('contractValue').numFmt = '$#,##0';
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Generate Buffer
   // ═══════════════════════════════════════════════════════════════════════════
   const buffer = await workbook.xlsx.writeBuffer();
-  logger.info(`📊 Delivery Excel generated: ${opps.length} opportunities, ${deliveries.length} deliveries`);
+  logger.info(`📊 Delivery Excel generated: ${deliveries.length} total deliveries (Won: ${wonDeliveries.length}, Active: ${activeDeliveries.length})`);
 
   return { 
     buffer, 
-    totalRecords: opps.length,
-    wonCount: wonDeals.length,
-    proposalCount: proposalDeals.length,
+    totalRecords: deliveries.length,
+    wonCount: wonDeliveries.length,
+    activeCount: activeDeliveries.length,
     totalWonValue,
-    totalProposalValue,
-    deliveryCount: deliveries.length
+    totalActiveValue
   };
 }
 
@@ -348,12 +322,12 @@ async function sendDeliveryReportToSlack(client, channelId, userId) {
     if (!result.buffer || result.totalRecords === 0) {
       await client.chat.postMessage({
         channel: channelId,
-        text: '📊 *Weekly Delivery Report*\n\nNo closed won or proposal stage opportunities found in the last 6 months.'
+        text: '📊 *Weekly Delivery Report*\n\nNo delivery records found.'
       });
       return;
     }
     
-    const { buffer, totalRecords, wonCount, proposalCount, totalWonValue, totalProposalValue } = result;
+    const { buffer, totalRecords, wonCount, activeCount, totalWonValue, totalActiveValue } = result;
     
     const date = new Date().toISOString().split('T')[0];
     const filename = `Weekly_Delivery_Report_${date}.xlsx`;
@@ -365,11 +339,11 @@ async function sendDeliveryReportToSlack(client, channelId, userId) {
       return `$${amount.toLocaleString()}`;
     };
 
-    // Format message with report link
+    // Format message with Salesforce report hyperlink
     let message = `*Weekly Delivery Report*\n\n`;
     message += `*Total Records:* ${totalRecords}\n`;
     message += `• Won: ${wonCount} (${formatCurrency(totalWonValue)})\n`;
-    message += `• Proposal: ${proposalCount} (${formatCurrency(totalProposalValue)})\n\n`;
+    message += `• Active: ${activeCount} (${formatCurrency(totalActiveValue)})\n\n`;
     message += `See attached the Weekly Delivery Excel report. This includes closed won deals & opportunities in the proposal stage.\n\n`;
     message += `For updates or adjustments, view the <${DELIVERY_REPORT_URL}|Delivery Report> in Salesforce. If you select 'Enable Field Editing' in the upper right, you can edit the inputs within the report view.`;
 
