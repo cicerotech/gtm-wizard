@@ -2782,61 +2782,12 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     </div>
   </div>
   
-  <!-- Active Revenue by Account - DECEMBER RUN RATE (Dynamic from Salesforce Contracts) -->
+  <!-- Active Revenue - Hard-coded per user request -->
   <div class="stage-section">
     <div class="stage-title">Active Revenue</div>
     <div class="stage-subtitle" style="font-size: 0.9rem; font-weight: 600; color: #1f2937;">
-      ${formatCurrency(decemberRunRate)} total RR (Dec) | ${activeRevenueCustomerCount} active rev customers
+      $20.1m (Dec) | 60 active rev customers
     </div>
-  </div>
-  
-  <div class="section-card">
-    ${(() => {
-      // Use dynamic December contract data from Salesforce
-      const allRevenue = [];
-      
-      decemberContractsByAccount.forEach((data, name) => {
-        allRevenue.push({ name, arr: data.totalARR, indicator: '' });
-      });
-      
-      // Sort by ARR descending
-      const sorted = allRevenue.sort((a, b) => b.arr - a.arr);
-      const top15 = sorted.slice(0, 15);
-      const rest = sorted.slice(15);
-      
-      const renderRow = (item) => `<tr style="border-bottom: 1px solid #f1f3f5;"><td style="padding: 4px 4px; font-size: 0.7rem;">${item.name}${item.indicator}</td><td style="padding: 4px 4px; text-align: right; font-size: 0.7rem;">${formatCurrency(item.arr)}</td></tr>`;
-      
-      if (sorted.length === 0) {
-        return '<div style="padding: 12px; font-size: 0.75rem; color: #6b7280;">No active recurring contracts found</div>';
-      }
-      
-      return `
-    <table style="width: 100%; border-collapse: collapse;">
-      <thead>
-        <tr style="border-bottom: 2px solid #e5e7eb; text-align: left;">
-          <th style="padding: 6px 4px; font-weight: 600; font-size: 0.7rem;">Account</th>
-          <th style="padding: 6px 4px; font-weight: 600; text-align: right; font-size: 0.7rem;">Dec RR</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${top15.map(renderRow).join('')}
-      </tbody>
-    </table>
-    ${rest.length > 0 ? `
-    <details style="margin-top: 4px;">
-      <summary style="cursor: pointer; padding: 8px 4px; background: #f3f4f6; border-radius: 4px; font-size: 0.65rem; color: #1e40af; font-weight: 600; text-align: center;">
-        +${rest.length} more accounts (click to expand)
-      </summary>
-      <table style="width: 100%; border-collapse: collapse; margin-top: 4px;">
-        <tbody>${rest.map(renderRow).join('')}</tbody>
-      </table>
-    </details>` : ''}
-    <div style="display: flex; justify-content: space-between; padding: 8px 4px; margin-top: 8px; border-top: 2px solid #e5e7eb; font-weight: 700; font-size: 0.75rem;">
-      <span>TOTAL</span>
-      <span>${formatCurrency(decemberRunRate)}</span>
-    </div>`;
-    })()}
-    <div style="font-size: 0.55rem; color: #9ca3af; margin-top: 6px;">Source: Active Contracts (Recurring type) from Salesforce</div>
   </div>
 
   <!-- All Closed Won Deals - By Revenue_Type__c (Dynamic from Salesforce) -->
@@ -2863,7 +2814,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     <details open style="margin-bottom: 12px;">
       <summary style="background: #1f2937; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
         <span>RECURRING</span>
-        <span>${formatCurrency(revenueTotal)} • ${revenueDeals.length} deal${revenueDeals.length !== 1 ? 's' : ''}</span>
+        <span>${revenueDeals.length} deal${revenueDeals.length !== 1 ? 's' : ''}</span>
       </summary>
       <div style="padding: 0 12px 12px 12px; background: #f9fafb; border-radius: 0 0 6px 6px;">
       ${revenueDeals.sort((a, b) => b.acv - a.acv).slice(0, 5).map(d => `
@@ -2898,7 +2849,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     <details open style="margin-bottom: 12px;">
       <summary style="background: #7c3aed; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
         <span>PROJECT</span>
-        <span>${formatCurrency(signedDealsTotal.project)} • ${signedByType.project.length} deal${signedByType.project.length !== 1 ? 's' : ''}</span>
+        <span>${signedByType.project.length} deal${signedByType.project.length !== 1 ? 's' : ''}</span>
       </summary>
       <div style="padding: 0 12px 12px 12px; background: #faf5ff; border-radius: 0 0 6px 6px;">
       ${signedByType.project.slice(0, 5).map(d => `
@@ -2930,7 +2881,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     <details open style="margin-bottom: 12px;">
       <summary style="background: #2563eb; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
         <span>PILOT</span>
-        <span>${formatCurrency(signedDealsTotal.pilot)} • ${signedByType.pilot.length} deal${signedByType.pilot.length !== 1 ? 's' : ''}</span>
+        <span>${signedByType.pilot.length} deal${signedByType.pilot.length !== 1 ? 's' : ''}</span>
       </summary>
       <div style="padding: 0 12px 12px 12px; background: #eff6ff; border-radius: 0 0 6px 6px;">
       ${signedByType.pilot.slice(0, 5).map(d => `
@@ -2961,8 +2912,8 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     ${signedByType.loi.length > 0 ? `
     <details open>
       <summary style="background: #374151; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
-        <span>LOI</span>
-        <span>${formatCurrency(signedDealsTotal.loi)} • ${signedByType.loi.length} deal${signedByType.loi.length !== 1 ? 's' : ''}</span>
+        <span>COMMITMENT</span>
+        <span>${signedByType.loi.length} deal${signedByType.loi.length !== 1 ? 's' : ''}</span>
       </summary>
       <div style="padding: 0 12px 12px 12px; background: #f9fafb; border-radius: 0 0 6px 6px;">
       ${signedByType.loi.slice(0, 5).map(d => `
@@ -3000,27 +2951,27 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     <strong>All Accounts</strong> — By Customer Type (New/Existing) and Customer Subtype (MSA/Pilot/LOI).
   </div>
   
-  <!-- Signed Logos - Top level count -->
+  <!-- Signed Logos - Top level count (hardcoded per user request) -->
   <div style="display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 16px;">
     <div style="background: #f0fdf4; padding: 16px; border-radius: 8px; border-left: 4px solid #10b981;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.8rem; font-weight: 700; color: #065f46;">SIGNED LOGOS</div>
-        <div style="font-size: 1.5rem; font-weight: 700; color: #047857;">${signedLogos.length}</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: #047857;">81</div>
       </div>
       <div style="font-size: 0.6rem; color: #059669; margin-top: 4px;">Accounts with Customer_Type__c = "Existing"</div>
     </div>
   </div>
   
-  <!-- Existing Customers by Subtype (MSA, Pilot, LOI) -->
+  <!-- Existing Customers by Subtype (MSA, Pilot, LOI) - hardcoded per user request -->
   <div style="font-size: 0.75rem; font-weight: 600; color: #374151; margin-bottom: 8px;">Existing Customers by Type</div>
   <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px;">
     <!-- MSA Tile -->
     <div style="background: #f0fdf4; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.65rem; font-weight: 700; color: #059669;">MSA</div>
-        <div style="font-size: 1.1rem; font-weight: 700; color: #15803d;">${customerSubtypes.msa.length}</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #15803d;">60</div>
       </div>
-      <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">Recurring</div>
+      <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">Active recurring or project revenue</div>
       <details style="font-size: 0.55rem; color: #6b7280;">
         <summary style="cursor: pointer; color: #059669;">View ›</summary>
         <div style="margin-top: 4px; max-height: 150px; overflow-y: auto;">
@@ -3033,7 +2984,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     <div style="background: #fef3c7; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.65rem; font-weight: 700; color: #d97706;">PILOT</div>
-        <div style="font-size: 1.1rem; font-weight: 700; color: #92400e;">${customerSubtypes.pilot.length}</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #92400e;">5</div>
       </div>
       <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">< 12 months</div>
       <details style="font-size: 0.55rem; color: #6b7280;">
@@ -3048,7 +2999,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     <div style="background: #f5f3ff; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.65rem; font-weight: 700; color: #7c3aed;">LOI</div>
-        <div style="font-size: 1.1rem; font-weight: 700; color: #6b21a8;">${customerSubtypes.loi.length}</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #6b21a8;">16</div>
       </div>
       <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">Pending contract</div>
       <details style="font-size: 0.55rem; color: #6b7280;">
@@ -3060,10 +3011,10 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     </div>
   </div>
   
-  <!-- Total Signed Logos Summary -->
+  <!-- Total Signed Logos Summary (hardcoded per user request) -->
   <div style="background: #1f2937; color: white; padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
     <span style="font-size: 0.75rem; font-weight: 600;">Total Signed Logos</span>
-    <span style="font-size: 1rem; font-weight: 700;">${signedLogos.length}</span>
+    <span style="font-size: 1rem; font-weight: 700;">81</span>
   </div>
   
   <div class="section-card" style="padding: 12px; margin-bottom: 12px;">
