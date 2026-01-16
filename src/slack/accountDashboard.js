@@ -1220,11 +1220,17 @@ async function generateAccountDashboard() {
     ORDER BY First_Deal_Closed__c DESC
   `;
   
-  // Also keep opportunity query for Revenue/Pilot/LOI categorization
+  // All Closed Won deals - matches Salesforce report "Signed Revenue - L7D" filters
+  // Stage: Stage 6. Closed(Won)
+  // Revenue_Type__c: Recurring, Project, Pilot, Commitment
+  // Date: Last 90 days (dynamic lookback)
   const signedDealsQuery = `
-    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, StageName, Contract_Term_Months__c, Sales_Type__c
+    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
+           StageName, Contract_Term_Months__c, Sales_Type__c, Owner.Name
     FROM Opportunity
-    WHERE (StageName = 'Closed Won' OR StageName = 'Stage 6. Closed(Won)')
+    WHERE StageName = 'Stage 6. Closed(Won)'
+      AND CloseDate >= LAST_N_DAYS:90
+      AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot', 'Commitment')
       AND (NOT Account.Name LIKE '%Sample%')
       AND (NOT Account.Name LIKE '%Acme%')
       AND (NOT Account.Name LIKE '%Sandbox%')
@@ -1237,11 +1243,12 @@ async function generateAccountDashboard() {
   // LAST 60 DAYS - Dynamic lookback for closed revenue
   // For Top Co Closed Revenue section - includes Recurring, Project, Pilot (excludes LOI/Commitment)
   // Now includes Owner.Name and Sales_Type__c for dashboard display
+  // Last 60 days Closed Won - for Top Co section (Recurring, Project, Pilot only)
   const novDecDealsQuery = `
     SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
            StageName, Eudia_Tech__c, Owner.Name, Sales_Type__c
     FROM Opportunity
-    WHERE (StageName = 'Closed Won' OR StageName = 'Stage 6. Closed(Won)')
+    WHERE StageName = 'Stage 6. Closed(Won)'
       AND CloseDate >= LAST_N_DAYS:60
       AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot')
       AND (NOT Account.Name LIKE '%Sample%')
@@ -1410,7 +1417,11 @@ async function generateAccountDashboard() {
       });
     }
     console.log(`[Dashboard] Last 60 Days Revenue deals: ${novDecRevenue.length}, total: $${novDecRevenueTotal}`);
-  } catch (e) { console.error('Signed deals query error:', e.message); }
+  } catch (e) { 
+    console.error('❌ [Dashboard] Signed deals query error:', e.message);
+    console.error('❌ [Dashboard] Full error:', e);
+    console.error('❌ [Dashboard] Stack:', e.stack);
+  }
   
   // ═══════════════════════════════════════════════════════════════════════
   // ACCOUNT CLASSIFICATION - Customer_Type__c and Customer_Subtype__c
@@ -1568,22 +1579,22 @@ async function generateAccountDashboard() {
   // ═══════════════════════════════════════════════════════════════════════
   const closedWonThisWeekQuery = `
     SELECT Account.Name, Name, ACV__c, Amount, CloseDate, Product_Line__c, 
-           Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name, LastModifiedDate
+           Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name, LastModifiedDate, Sales_Type__c
     FROM Opportunity
-    WHERE (StageName = 'Stage 6. Closed Won' OR StageName = 'Stage 6. Closed(Won)' OR StageName = 'Closed Won')
+    WHERE StageName = 'Stage 6. Closed(Won)'
       AND LastModifiedDate >= LAST_N_DAYS:7
       AND Revenue_Type__c IN ('Recurring', 'Project', 'Commitment', 'Pilot')
-    ORDER BY Amount DESC
+    ORDER BY ACV__c DESC
   `;
   
   // Fallback query without Revenue_Type__c filter (catches all closed won this week)
   const closedWonFallbackQuery = `
     SELECT Account.Name, Name, ACV__c, Amount, CloseDate, Product_Line__c, 
-           Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name, LastModifiedDate
+           Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name, LastModifiedDate, Sales_Type__c
     FROM Opportunity
-    WHERE (StageName = 'Stage 6. Closed Won' OR StageName = 'Stage 6. Closed(Won)' OR StageName = 'Closed Won')
+    WHERE StageName = 'Stage 6. Closed(Won)'
       AND LastModifiedDate >= LAST_N_DAYS:7
-    ORDER BY Amount DESC
+    ORDER BY ACV__c DESC
   `;
   
   let signedThisWeek = [];
@@ -1671,7 +1682,7 @@ async function generateAccountDashboard() {
   const closedWonAccountsQuery = `
     SELECT Account.Name
     FROM Opportunity
-    WHERE (StageName = 'Stage 6. Closed Won' OR StageName = 'Stage 6. Closed(Won)' OR StageName = 'Closed Won')
+    WHERE StageName = 'Stage 6. Closed(Won)'
       AND IsWon = true
     ORDER BY Account.Name ASC
   `;
