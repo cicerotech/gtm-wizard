@@ -443,7 +443,7 @@ async function getAccounts() {
 
 /**
  * Group meetings by day of week
- * Fixed to handle UTC dates correctly by using UTC day
+ * Uses LOCAL day for display (user sees meetings in their timezone)
  */
 function groupMeetingsByDay(meetings) {
   const days = {
@@ -461,11 +461,11 @@ function groupMeetingsByDay(meetings) {
     if (!dateStr) continue;
     
     const date = new Date(dateStr);
-    // Use UTC day to avoid timezone issues (SF returns UTC times)
-    const utcDay = date.getUTCDay();
-    const dayName = dayNames[utcDay];
+    // Use LOCAL day for display (user sees in their timezone)
+    const localDay = date.getDay();
+    const dayName = dayNames[localDay];
     
-    logger.debug(`[MeetingPrep] Meeting "${meeting.meetingTitle || meeting.meeting_title}" on ${dateStr} -> UTC day ${utcDay} (${dayName})`);
+    logger.debug(`[MeetingPrep] Meeting "${meeting.meetingTitle || meeting.meeting_title}" on ${dateStr} -> Local day ${localDay} (${dayName})`);
     
     if (days[dayName]) {
       days[dayName].push(meeting);
@@ -480,17 +480,39 @@ function groupMeetingsByDay(meetings) {
 
 /**
  * Get BL users for filter dropdown
+ * Uses hardcoded list of actual Business Leads (US and EU Pods)
  */
 async function getBLUsers() {
+  // Actual Business Leads - US and EU Pods
+  const BUSINESS_LEAD_NAMES = [
+    // US Pod
+    'Asad Hussain',
+    'Himanshu Agarwal',
+    'Julie Stefanich',
+    'Olivia Jung',
+    'Ananth Cherukupally',
+    'Justin Hills',
+    'Mike Masiello',
+    // EU Pod
+    'Greg MacHale',
+    'Nathan Shine',
+    'Tom Clancy',
+    'Conor Molloy',
+    'Alex Fox',
+    'Nicola Fratini',
+    'Emer Flynn',
+    'Riona McHale'
+  ];
+  
   try {
+    // Build SOQL to find these specific users
+    const nameConditions = BUSINESS_LEAD_NAMES.map(name => `Name = '${name}'`).join(' OR ');
     const sfQuery = `
       SELECT Id, Name, Email
       FROM User
       WHERE IsActive = true
-        AND Profile.Name IN ('Standard User', 'System Administrator', 'Eudia Sales')
-        AND Email LIKE '%@eudia.com'
+        AND (${nameConditions})
       ORDER BY Name ASC
-      LIMIT 50
     `;
     
     const result = await query(sfQuery, true);
@@ -526,17 +548,31 @@ function filterMeetingsByUser(meetings, userId) {
 
 /**
  * Get week date range (Mon-Fri of current week)
+ * Uses UTC to avoid timezone issues with Salesforce
  */
 function getCurrentWeekRange() {
   const now = new Date();
-  const dayOfWeek = now.getDay();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-  monday.setHours(0, 0, 0, 0);
   
-  const friday = new Date(monday);
-  friday.setDate(monday.getDate() + 4);
-  friday.setHours(23, 59, 59, 999);
+  // Get current day in UTC (0=Sunday, 1=Monday, etc.)
+  const dayOfWeek = now.getUTCDay();
+  
+  // Calculate Monday of this week (in UTC)
+  const monday = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1),
+    0, 0, 0, 0
+  ));
+  
+  // Calculate Friday end of day (in UTC)
+  const friday = new Date(Date.UTC(
+    monday.getUTCFullYear(),
+    monday.getUTCMonth(),
+    monday.getUTCDate() + 4,
+    23, 59, 59, 999
+  ));
+  
+  logger.info(`[MeetingPrep] Week range: ${monday.toISOString()} to ${friday.toISOString()}`);
   
   return {
     start: monday.toISOString(),
