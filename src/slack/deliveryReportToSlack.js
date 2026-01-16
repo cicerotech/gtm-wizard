@@ -96,6 +96,26 @@ function isOpportunityWon(opp) {
 }
 
 /**
+ * Helper to check if an opportunity is "Closed Lost" (should be excluded)
+ */
+function isOpportunityClosedLost(opp) {
+  if (!opp) return false;
+  
+  // Check for Closed but NOT Won
+  const isClosed = opp.IsClosed === true || opp.IsClosed === 'true';
+  const isWon = opp.IsWon === true || opp.IsWon === 'true';
+  
+  // Also check StageName for "Lost" indicator
+  const stageIsLost = opp.StageName && (
+    opp.StageName.includes('Lost') ||
+    opp.StageName === 'Stage 7. Closed Lost' ||
+    opp.StageName === 'Closed Lost'
+  );
+  
+  return (isClosed && !isWon) || stageIsLost;
+}
+
+/**
  * Generate Delivery Excel Report
  * 
  * Categories based on Opportunity status:
@@ -114,9 +134,19 @@ async function generateDeliveryExcel() {
     logger.info(`📊 Sample delivery - Opp: ${sample.Opportunity__r?.Name}, IsClosed: ${sample.Opportunity__r?.IsClosed} (type: ${typeof sample.Opportunity__r?.IsClosed}), IsWon: ${sample.Opportunity__r?.IsWon}, Stage: ${sample.Opportunity__r?.StageName}`);
   }
 
-  // Categorize deliveries by their opportunity status
-  const wonDeliveries = deliveries.filter(d => isOpportunityWon(d.Opportunity__r));
-  const activeDeliveries = deliveries.filter(d => !isOpportunityWon(d.Opportunity__r));
+  // Filter OUT Closed Lost opportunities first
+  const validDeliveries = deliveries.filter(d => !isOpportunityClosedLost(d.Opportunity__r));
+  const closedLostCount = deliveries.length - validDeliveries.length;
+  
+  if (closedLostCount > 0) {
+    logger.info(`📊 Excluded ${closedLostCount} Closed Lost deliveries from report`);
+  }
+
+  // Categorize remaining deliveries by their opportunity status
+  // Won = Closed Won opportunities
+  // Active = Everything else (open opportunities, primarily Stage 4 - Proposal)
+  const wonDeliveries = validDeliveries.filter(d => isOpportunityWon(d.Opportunity__r));
+  const activeDeliveries = validDeliveries.filter(d => !isOpportunityWon(d.Opportunity__r));
 
   // Debug: Log a few won and active examples
   if (wonDeliveries.length > 0) {
@@ -201,9 +231,9 @@ async function generateDeliveryExcel() {
     cell.border = headerStyle.border;
   });
 
-  // Add all delivery rows
-  deliveries.forEach(del => {
-    const isWon = del.Opportunity__r?.IsClosed === true && del.Opportunity__r?.IsWon === true;
+  // Add all valid delivery rows (excludes Closed Lost)
+  validDeliveries.forEach(del => {
+    const isWon = isOpportunityWon(del.Opportunity__r);
     const row = summarySheet.addRow({
       status: isWon ? 'Won' : 'Active',
       deliveryOwner: del.Eudia_Delivery_Owner__r?.Name || del.Opportunity__r?.Owner?.Name || '',
@@ -328,11 +358,11 @@ async function generateDeliveryExcel() {
   // Generate Buffer
   // ═══════════════════════════════════════════════════════════════════════════
   const buffer = await workbook.xlsx.writeBuffer();
-  logger.info(`📊 Delivery Excel generated: ${deliveries.length} total deliveries (Won: ${wonDeliveries.length}, Active: ${activeDeliveries.length})`);
+  logger.info(`📊 Delivery Excel generated: ${validDeliveries.length} total deliveries (Won: ${wonDeliveries.length}, Active: ${activeDeliveries.length}) - Excluded ${closedLostCount} Closed Lost`);
 
   return { 
     buffer, 
-    totalRecords: deliveries.length,
+    totalRecords: validDeliveries.length,
     wonCount: wonDeliveries.length,
     activeCount: activeDeliveries.length,
     totalWonValue,
