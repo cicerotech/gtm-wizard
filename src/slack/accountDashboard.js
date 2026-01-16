@@ -1237,14 +1237,15 @@ async function generateAccountDashboard() {
   `;
   
   // All Closed Won deals - matches Salesforce report "Signed Revenue - L7D" filters
-  // Stage: Stage 6. Closed(Won)
+  // Using IsWon = true instead of StageName for reliability (stage names vary)
   // Revenue_Type__c: Recurring, Project, Pilot, Commitment
   // Date: Last 90 days (dynamic lookback)
   const signedDealsQuery = `
     SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
            StageName, Contract_Term_Months__c, Sales_Type__c, Owner.Name
     FROM Opportunity
-    WHERE StageName = 'Stage 6. Closed(Won)'
+    WHERE IsClosed = true
+      AND IsWon = true
       AND CloseDate >= LAST_N_DAYS:90
       AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot', 'Commitment')
       AND (NOT Account.Name LIKE '%Sample%')
@@ -1264,7 +1265,8 @@ async function generateAccountDashboard() {
     SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
            StageName, Eudia_Tech__c, Owner.Name, Sales_Type__c
     FROM Opportunity
-    WHERE StageName = 'Stage 6. Closed(Won)'
+    WHERE IsClosed = true
+      AND IsWon = true
       AND CloseDate >= LAST_N_DAYS:60
       AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot')
       AND (NOT Account.Name LIKE '%Sample%')
@@ -1662,7 +1664,8 @@ async function generateAccountDashboard() {
     SELECT Account.Name, Name, ACV__c, Amount, CloseDate, Product_Line__c, 
            Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name, LastModifiedDate, Sales_Type__c
     FROM Opportunity
-    WHERE StageName = 'Stage 6. Closed(Won)'
+    WHERE IsClosed = true
+      AND IsWon = true
       AND LastModifiedDate >= LAST_N_DAYS:7
       AND Revenue_Type__c IN ('Recurring', 'Project', 'Commitment', 'Pilot')
     ORDER BY ACV__c DESC
@@ -1673,7 +1676,8 @@ async function generateAccountDashboard() {
     SELECT Account.Name, Name, ACV__c, Amount, CloseDate, Product_Line__c, 
            Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name, LastModifiedDate, Sales_Type__c
     FROM Opportunity
-    WHERE StageName = 'Stage 6. Closed(Won)'
+    WHERE IsClosed = true
+      AND IsWon = true
       AND LastModifiedDate >= LAST_N_DAYS:7
     ORDER BY ACV__c DESC
   `;
@@ -1763,7 +1767,7 @@ async function generateAccountDashboard() {
   const closedWonAccountsQuery = `
     SELECT Account.Name
     FROM Opportunity
-    WHERE StageName = 'Stage 6. Closed(Won)'
+    WHERE IsClosed = true
       AND IsWon = true
     ORDER BY Account.Name ASC
   `;
