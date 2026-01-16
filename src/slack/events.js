@@ -694,9 +694,13 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle unknown queries with clarification
       await handleUnknownQuery(parsedIntent, userId, channelId, client, threadTs);
       return; // Exit early
+    } else if (parsedIntent.intent === 'send_delivery_excel') {
+      // Handle Weekly Delivery Excel report (replaces Johnson Hana report)
+      await handleDeliveryExcelReport(userId, channelId, client, threadTs);
+      return; // Exit early
     } else if (parsedIntent.intent === 'send_johnson_hana_excel') {
-      // Handle Johnson Hana specific Excel report
-      await handleJohnsonHanaExcelReport(userId, channelId, client, threadTs);
+      // DEPRECATED: Redirect to delivery report
+      await handleDeliveryExcelReport(userId, channelId, client, threadTs);
       return; // Exit early
     } else if (parsedIntent.intent === 'send_excel_report') {
       // Handle full active pipeline Excel report
@@ -2736,35 +2740,48 @@ function formatDate(dateString) {
 }
 
 /**
- * Handle Johnson Hana Excel Report Generation
- * Available to: Everyone (read-only operation, no Salesforce writes)
- * Allows: Users, workflows, scheduled messages
+ * Handle Weekly Delivery Excel Report Generation
+ * Command: @gtm-brain send delivery report
+ * 
+ * Pulls data from Salesforce Report ID: 00OWj000004joxdMAA
+ * Includes: Closed won deals & opportunities in proposal stage
  */
-async function handleJohnsonHanaExcelReport(userId, channelId, client, threadTs) {
+async function handleDeliveryExcelReport(userId, channelId, client, threadTs) {
   try {
     // Show loading message
     await client.chat.postMessage({
       channel: channelId,
-      text: 'Generating Johnson Hana pipeline report... This will take a moment.',
+      text: 'Generating Weekly Delivery report... This will take a moment.',
       thread_ts: threadTs
     });
     
-    // Import the report module
-    const { sendPipelineReportToSlack } = require('./reportToSlack');
+    // Import the delivery report module
+    const { sendDeliveryReportToSlack } = require('./deliveryReportToSlack');
     
-    // Generate and upload Johnson Hana specific Excel
-    await sendPipelineReportToSlack(client, channelId, userId);
+    // Generate and upload Delivery Excel report
+    await sendDeliveryReportToSlack(client, channelId, userId);
     
-    logger.info(`✅ Johnson Hana Excel report sent to Slack by ${userId}`);
+    logger.info(`✅ Weekly Delivery Excel report sent to Slack by ${userId}`);
     
   } catch (error) {
-    logger.error('Failed to send Johnson Hana Excel report:', error);
+    logger.error('Failed to send Delivery Excel report:', error);
     await client.chat.postMessage({
       channel: channelId,
-      text: `❌ Error generating Johnson Hana report: ${error.message}\n\nPlease try again or contact support.`,
+      text: `❌ Error generating Delivery report: ${error.message}\n\nPlease try again or contact support.`,
       thread_ts: threadTs
     });
   }
+}
+
+/**
+ * DEPRECATED: Handle Johnson Hana Excel Report Generation
+ * Now redirects to handleDeliveryExcelReport
+ * Available to: Everyone (read-only operation, no Salesforce writes)
+ * Allows: Users, workflows, scheduled messages
+ */
+async function handleJohnsonHanaExcelReport(userId, channelId, client, threadTs) {
+  // Redirect to new delivery report
+  await handleDeliveryExcelReport(userId, channelId, client, threadTs);
 }
 
 /**

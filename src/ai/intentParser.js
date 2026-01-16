@@ -1274,19 +1274,34 @@ Business Context:
       };
     }
     
-    // Send Johnson Hana Pipeline Report (specific filtered report)
+    // Send Delivery Report (Weekly Delivery Excel from Salesforce report)
+    // Trigger: "@gtm-brain send delivery report"
+    if ((message.includes('send') || message.includes('generate') || message.includes('create')) &&
+        message.includes('delivery') &&
+        (message.includes('report') || message.includes('excel') || message.includes('weekly'))) {
+      return {
+        intent: 'send_delivery_excel',
+        entities: { reportType: 'delivery' },
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'Generate Weekly Delivery Excel report from Salesforce',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
+    // DEPRECATED: Send Johnson Hana Pipeline Report (replaced by Delivery Report)
     if ((message.includes('send') || message.includes('generate') || message.includes('create')) &&
         (message.includes('johnson') || message.includes('hana')) &&
         (message.includes('pipeline') || message.includes('report')) &&
         (message.includes('excel') || message.includes('spreadsheet') || message.includes('xlsx'))) {
-      intent = 'send_johnson_hana_excel';
-      
+      // Redirect to new delivery report
       return {
-        intent: 'send_johnson_hana_excel',
-        entities: { reportType: 'johnson_hana' },
+        intent: 'send_delivery_excel',
+        entities: { reportType: 'delivery' },
         followUp: false,
         confidence: 0.95,
-        explanation: 'Generate Johnson Hana filtered pipeline Excel report',
+        explanation: 'Generate Weekly Delivery Excel report (redirected from Johnson Hana)',
         originalMessage: userMessage,
         timestamp: Date.now()
       };
