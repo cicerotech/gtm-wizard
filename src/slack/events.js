@@ -68,24 +68,45 @@ function registerEventHandlers(app) {
     }
   });
 
-  // Handle direct messages
+  // Handle direct messages AND workflow-triggered channel messages
   app.event('message', async ({ event, client, context }) => {
-    // Skip bot messages and messages in channels (handled by app_mention)
-    if (event.subtype === 'bot_message' || event.channel_type !== 'im') {
+    // Skip bot messages
+    if (event.subtype === 'bot_message') {
       return;
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'events.js:message_dm',message:'DM_RECEIVED - handling direct message',data:{channel:event.channel,user:event.user,text:event.text?.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
-    try {
-      await handleDirectMessage(event, client, context);
-    } catch (error) {
-      logger.error('Error handling direct message:', error);
-      await client.chat.postMessage({
-        channel: event.channel,
-        text: '🤖 Sorry, I encountered an error. Please try again or use `/pipeline help` for assistance.'
-      });
+    // Handle direct messages
+    if (event.channel_type === 'im') {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'events.js:message_dm',message:'DM_RECEIVED - handling direct message',data:{channel:event.channel,user:event.user,text:event.text?.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+      try {
+        await handleDirectMessage(event, client, context);
+      } catch (error) {
+        logger.error('Error handling direct message:', error);
+        await client.chat.postMessage({
+          channel: event.channel,
+          text: '🤖 Sorry, I encountered an error. Please try again or use `/pipeline help` for assistance.'
+        });
+      }
+      return;
+    }
+
+    // Handle channel messages from workflows that mention @gtm-brain
+    // Workflows may send messages that don't trigger app_mention but contain bot mentions
+    const text = event.text || '';
+    const botId = context?.botId || process.env.SLACK_BOT_ID;
+    const hasBotMention = botId && text.includes(`<@${botId}>`);
+    const hasTextMention = text.toLowerCase().includes('@gtm-brain');
+    
+    if (hasBotMention || hasTextMention) {
+      logger.info(`📨 Workflow/Channel message detected with bot mention: ${text.substring(0, 100)}`);
+      try {
+        // Treat this like an app_mention event
+        await handleMention(event, client, context);
+      } catch (error) {
+        logger.error('Error handling workflow channel message:', error);
+      }
     }
   });
 

@@ -28,13 +28,17 @@ async function getDeliveryData() {
  * Query from Delivery__c object directly (matches the Salesforce Report structure)
  * Report ID: 00OWj000004joxdMAA
  * 
- * The report groups by Deal Status (Won vs Active/Proposal)
- * Won = Opportunities where IsClosed=true AND IsWon=true
- * Active = Opportunities in Stage 4 - Proposal
+ * The report filters by Stage to include:
+ * - Stage 0 - Prospecting, Stage 0 - Qualifying, Stage 1 - Discovery
+ * - Stage 2 - SQO, Stage 3 - Pilot, Stage 4 - Proposal
+ * - Stage 5 - Negotiation, Stage 6. Closed(Won)
+ * 
+ * EXCLUDES: Stage 7. Closed Lost
  */
 async function getDeliveryDataSimple() {
   // Query Deliveries with their related Opportunity data
-  // This matches the "Delivery Weekly" report structure exactly
+  // Match the exact stage filter from the Salesforce "Delivery Weekly" report
+  // This explicitly excludes Closed Lost (Stage 7)
   const deliveriesQuery = `
     SELECT 
       Id,
@@ -60,12 +64,25 @@ async function getDeliveryDataSimple() {
       Eudia_Delivery_Owner__c,
       Eudia_Delivery_Owner__r.Name
     FROM Delivery__c
+    WHERE Opportunity__r.StageName IN (
+      'Stage 0 - Prospecting',
+      'Stage 0 - Qualifying', 
+      'Stage 1 - Discovery',
+      'Stage 2 - SQO',
+      'Stage 3 - Pilot',
+      'Stage 4 - Proposal',
+      'Stage 5 - Negotiation',
+      'Stage 6. Closed(Won)',
+      'Stage 6. Closed Won',
+      'Closed Won'
+    )
+    OR Opportunity__r.StageName = null
     ORDER BY Opportunity__r.CloseDate DESC, Account__r.Name
   `;
 
   try {
     const deliveriesData = await query(deliveriesQuery, true);
-    logger.info(`📊 Queried ${deliveriesData?.records?.length || 0} delivery records`);
+    logger.info(`📊 Queried ${deliveriesData?.records?.length || 0} delivery records (filtered by report stages)`);
     return { deliveries: deliveriesData };
   } catch (error) {
     logger.error('Deliveries query failed:', error.message);
@@ -128,33 +145,22 @@ async function generateDeliveryExcel() {
   const data = await getDeliveryDataSimple();
   const deliveries = data.deliveries?.records || [];
 
-  // Debug: Log first few records to understand data structure
-  if (deliveries.length > 0) {
-    const sample = deliveries[0];
-    logger.info(`📊 Sample delivery - Opp: ${sample.Opportunity__r?.Name}, IsClosed: ${sample.Opportunity__r?.IsClosed} (type: ${typeof sample.Opportunity__r?.IsClosed}), IsWon: ${sample.Opportunity__r?.IsWon}, Stage: ${sample.Opportunity__r?.StageName}`);
-  }
+  // Diagnostic: Log stage distribution
+  const stageCounts = {};
+  deliveries.forEach(d => {
+    const stage = d.Opportunity__r?.StageName || 'NULL';
+    stageCounts[stage] = (stageCounts[stage] || 0) + 1;
+  });
+  logger.info(`📊 Stage distribution: ${JSON.stringify(stageCounts)}`);
 
-  // Filter OUT Closed Lost opportunities first
-  const validDeliveries = deliveries.filter(d => !isOpportunityClosedLost(d.Opportunity__r));
-  const closedLostCount = deliveries.length - validDeliveries.length;
-  
-  if (closedLostCount > 0) {
-    logger.info(`📊 Excluded ${closedLostCount} Closed Lost deliveries from report`);
-  }
+  // Categorize deliveries:
+  // Won = Closed Won opportunities (Stage 6)
+  // Active = Everything else (open opportunities)
+  const wonDeliveries = deliveries.filter(d => isOpportunityWon(d.Opportunity__r));
+  const activeDeliveries = deliveries.filter(d => !isOpportunityWon(d.Opportunity__r));
 
-  // Categorize remaining deliveries by their opportunity status
-  // Won = Closed Won opportunities
-  // Active = Everything else (open opportunities, primarily Stage 4 - Proposal)
-  const wonDeliveries = validDeliveries.filter(d => isOpportunityWon(d.Opportunity__r));
-  const activeDeliveries = validDeliveries.filter(d => !isOpportunityWon(d.Opportunity__r));
-
-  // Debug: Log a few won and active examples
-  if (wonDeliveries.length > 0) {
-    logger.info(`📊 Sample WON: ${wonDeliveries[0].Opportunity__r?.Name} - Stage: ${wonDeliveries[0].Opportunity__r?.StageName}`);
-  }
-  if (activeDeliveries.length > 0) {
-    logger.info(`📊 Sample ACTIVE: ${activeDeliveries[0].Opportunity__r?.Name} - Stage: ${activeDeliveries[0].Opportunity__r?.StageName}`);
-  }
+  // Log categorization results
+  logger.info(`📊 Categorized: Won=${wonDeliveries.length}, Active=${activeDeliveries.length}, Total=${deliveries.length}`);
 
   // Calculate metrics using Contract_Value__c from Delivery records
   const totalWonValue = wonDeliveries.reduce((sum, d) => sum + (d.Contract_Value__c || 0), 0);
@@ -231,8 +237,8 @@ async function generateDeliveryExcel() {
     cell.border = headerStyle.border;
   });
 
-  // Add all valid delivery rows (excludes Closed Lost)
-  validDeliveries.forEach(del => {
+  // Add all delivery rows (Closed Lost already excluded by query filter)
+  deliveries.forEach(del => {
     const isWon = isOpportunityWon(del.Opportunity__r);
     const row = summarySheet.addRow({
       status: isWon ? 'Won' : 'Active',
@@ -358,11 +364,11 @@ async function generateDeliveryExcel() {
   // Generate Buffer
   // ═══════════════════════════════════════════════════════════════════════════
   const buffer = await workbook.xlsx.writeBuffer();
-  logger.info(`📊 Delivery Excel generated: ${validDeliveries.length} total deliveries (Won: ${wonDeliveries.length}, Active: ${activeDeliveries.length}) - Excluded ${closedLostCount} Closed Lost`);
+  logger.info(`📊 Delivery Excel generated: Total=${deliveries.length}, Won=${wonDeliveries.length}, Active=${activeDeliveries.length}`);
 
   return { 
     buffer, 
-    totalRecords: validDeliveries.length,
+    totalRecords: deliveries.length,
     wonCount: wonDeliveries.length,
     activeCount: activeDeliveries.length,
     totalWonValue,
