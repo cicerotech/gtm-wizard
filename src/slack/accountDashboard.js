@@ -1242,7 +1242,8 @@ async function generateAccountDashboard() {
   // Date: Last 90 days (dynamic lookback)
   const signedDealsQuery = `
     SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
-           StageName, Contract_Term_Months__c, Sales_Type__c, Owner.Name
+           StageName, Contract_Term_Months__c, Sales_Type__c, Owner.Name,
+           Renewal_Net_Change__c, Booking_ACV__c
     FROM Opportunity
     WHERE IsClosed = true
       AND IsWon = true
@@ -1420,7 +1421,9 @@ async function generateAccountDashboard() {
           revenueType: opp.Revenue_Type__c || '',
           contractTermMonths: opp.Contract_Term_Months__c || null,
           salesType: opp.Sales_Type__c || '',
-          owner: opp.Owner?.Name || ''
+          owner: opp.Owner?.Name || '',
+          renewalNetChange: opp.Renewal_Net_Change__c || null,
+          bookingAcv: opp.Booking_ACV__c || null
         };
         
         const category = categorizeByRevenueType(deal.revenueType, deal.contractTermMonths);
@@ -1432,7 +1435,7 @@ async function generateAccountDashboard() {
       // Try a simpler fallback query without Revenue_Type filter
       const fallbackQuery = `
         SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
-               StageName, Sales_Type__c, Owner.Name
+               StageName, Sales_Type__c, Owner.Name, Renewal_Net_Change__c, Booking_ACV__c
         FROM Opportunity
         WHERE StageName LIKE '%Closed%Won%'
           AND CloseDate >= LAST_N_DAYS:90
@@ -1459,7 +1462,9 @@ async function generateAccountDashboard() {
               revenueType: opp.Revenue_Type__c || '',
               contractTermMonths: null,
               salesType: opp.Sales_Type__c || '',
-              owner: opp.Owner?.Name || ''
+              owner: opp.Owner?.Name || '',
+              renewalNetChange: opp.Renewal_Net_Change__c || null,
+              bookingAcv: opp.Booking_ACV__c || null
             };
             
             const category = categorizeByRevenueType(deal.revenueType, null);
@@ -2772,10 +2777,10 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
         
         return displayTypes.map(type => {
           const data = salesTypeClosedWon[type] || { count: 0, acv: 0 };
-          return '<div style="flex: 1; min-width: 120px; background: #1f2937; padding: 12px; border-radius: 6px; text-align: center;">' +
-            '<div style="font-size: 0.6rem; font-weight: 600; color: #9ca3af; margin-bottom: 4px;">' + type.toUpperCase() + '</div>' +
-            '<div style="font-size: 1.1rem; font-weight: 700; color: #fff;">' + fmt(data.acv) + '</div>' +
-            '<div style="font-size: 0.55rem; color: #9ca3af;">' + data.count + ' deals</div>' +
+          return '<div style="flex: 1; min-width: 120px; background: #f3f4f6; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #e5e7eb;">' +
+            '<div style="font-size: 0.65rem; font-weight: 700; color: #1f2937; margin-bottom: 4px;">' + type.toUpperCase() + '</div>' +
+            '<div style="font-size: 1.1rem; font-weight: 700; color: #111827;">' + fmt(data.acv) + '</div>' +
+            '<div style="font-size: 0.55rem; color: #6b7280;">' + data.count + ' deals</div>' +
           '</div>';
         }).join('');
       })()}
@@ -2790,7 +2795,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     </div>
   </div>
 
-  <!-- All Closed Won Deals - By Revenue_Type__c (Dynamic from Salesforce) -->
+  <!-- Closed Won QTD - By Revenue_Type__c (Dynamic from Salesforce) -->
   ${(() => {
     // All deals come from signedByType which is populated from Salesforce query
     const revenueDeals = signedByType.revenue || [];
@@ -2805,7 +2810,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     
     return `
   <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">All Closed Won</div>
+    <div class="stage-title">Closed Won QTD</div>
     <div class="stage-subtitle">${revenueDeals.length} recurring • ${projectDeals.length} project • ${pilotDeals.length} pilot • ${loiDeals.length} commitment</div>
   </div>
   
@@ -2817,29 +2822,35 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
         <span>${revenueDeals.length} deal${revenueDeals.length !== 1 ? 's' : ''}</span>
       </summary>
       <div style="padding: 0 12px 12px 12px; background: #f9fafb; border-radius: 0 0 6px 6px;">
-      ${revenueDeals.sort((a, b) => b.acv - a.acv).slice(0, 5).map(d => `
+      ${revenueDeals.sort((a, b) => b.acv - a.acv).slice(0, 5).map(d => {
+        const netNew = d.renewalNetChange !== null ? d.renewalNetChange : d.acv;
+        return `
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-size: 0.75rem;">
           <span style="font-weight: 500;">${d.accountName}</span>
           <div style="display: flex; gap: 12px; align-items: center;">
             <span style="color: #6b7280; font-size: 0.65rem;">${d.salesType || ''}</span>
             <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
             <span style="color: #1f2937; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+            <span style="color: #059669; font-weight: 500; min-width: 55px; text-align: right; font-size: 0.6rem;">${formatCurrency(netNew)}</span>
         </div>
-      </div>
-      `).join('')}
+      </div>`;
+      }).join('')}
       ${revenueDeals.length > 5 ? `
         <details style="margin-top: 4px;">
           <summary style="font-size: 0.65rem; color: #374151; cursor: pointer; padding: 4px 0;">+${revenueDeals.length - 5} more deals ›</summary>
-          ${revenueDeals.slice(5).map(d => `
+          ${revenueDeals.slice(5).map(d => {
+            const netNew = d.renewalNetChange !== null ? d.renewalNetChange : d.acv;
+            return `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-size: 0.75rem;">
               <span style="font-weight: 500;">${d.accountName}</span>
               <div style="display: flex; gap: 12px; align-items: center;">
                 <span style="color: #6b7280; font-size: 0.65rem;">${d.salesType || ''}</span>
                 <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
                 <span style="color: #1f2937; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+                <span style="color: #059669; font-weight: 500; min-width: 55px; text-align: right; font-size: 0.6rem;">${formatCurrency(netNew)}</span>
               </div>
-            </div>
-          `).join('')}
+            </div>`;
+          }).join('')}
         </details>` : ''}
       </div>
     </details>` : ''}`;
@@ -2852,27 +2863,35 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
         <span>${signedByType.project.length} deal${signedByType.project.length !== 1 ? 's' : ''}</span>
       </summary>
       <div style="padding: 0 12px 12px 12px; background: #faf5ff; border-radius: 0 0 6px 6px;">
-      ${signedByType.project.slice(0, 5).map(d => `
+      ${signedByType.project.slice(0, 5).map(d => {
+        const netNew = d.renewalNetChange !== null ? d.renewalNetChange : d.acv;
+        return `
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f3e8ff; font-size: 0.75rem;">
           <span style="font-weight: 500;">${d.accountName}</span>
           <div style="display: flex; gap: 12px; align-items: center;">
+            <span style="color: #6b7280; font-size: 0.65rem;">${d.salesType || ''}</span>
             <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
             <span style="color: #6b21a8; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+            <span style="color: #059669; font-weight: 500; min-width: 55px; text-align: right; font-size: 0.6rem;">${formatCurrency(netNew)}</span>
           </div>
-        </div>
-      `).join('')}
+        </div>`;
+      }).join('')}
       ${signedByType.project.length > 5 ? `
         <details style="margin-top: 4px;">
           <summary style="font-size: 0.65rem; color: #6b21a8; cursor: pointer; padding: 4px 0;">+${signedByType.project.length - 5} more deals ›</summary>
-          ${signedByType.project.slice(5).map(d => `
+          ${signedByType.project.slice(5).map(d => {
+            const netNew = d.renewalNetChange !== null ? d.renewalNetChange : d.acv;
+            return `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f3e8ff; font-size: 0.75rem;">
               <span style="font-weight: 500;">${d.accountName}</span>
               <div style="display: flex; gap: 12px; align-items: center;">
+                <span style="color: #6b7280; font-size: 0.65rem;">${d.salesType || ''}</span>
                 <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
                 <span style="color: #6b21a8; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+                <span style="color: #059669; font-weight: 500; min-width: 55px; text-align: right; font-size: 0.6rem;">${formatCurrency(netNew)}</span>
               </div>
-            </div>
-          `).join('')}
+            </div>`;
+          }).join('')}
         </details>` : ''}
       </div>
     </details>` : ''}
@@ -2921,7 +2940,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
           <span style="font-weight: 500;">${d.accountName}</span>
           <div style="display: flex; gap: 12px; align-items: center;">
             <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
-            <span style="color: #374151; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+            <span style="color: #374151; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.bookingAcv || d.acv)}</span>
         </div>
       </div>
       `).join('')}
@@ -2933,8 +2952,8 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
               <span style="font-weight: 500;">${d.accountName}</span>
               <div style="display: flex; gap: 12px; align-items: center;">
                 <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
-                <span style="color: #374151; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
-  </div>
+                <span style="color: #374151; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.bookingAcv || d.acv)}</span>
+</div>
             </div>
           `).join('')}
         </details>` : ''}
