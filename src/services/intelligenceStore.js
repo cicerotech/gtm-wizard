@@ -71,6 +71,35 @@ async function initialize() {
         db.run(`CREATE INDEX IF NOT EXISTS idx_intel_channel ON pending_intelligence(channel_id)`);
         db.run(`CREATE INDEX IF NOT EXISTS idx_intel_account ON pending_intelligence(account_name)`);
         
+        // Meeting Prep table - for BL meeting preparation
+        db.run(`
+          CREATE TABLE IF NOT EXISTS meeting_prep (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            meeting_id TEXT UNIQUE,
+            account_id TEXT NOT NULL,
+            account_name TEXT,
+            meeting_title TEXT,
+            meeting_date TEXT,
+            attendees TEXT,
+            agenda TEXT,
+            goals TEXT,
+            demo_required INTEGER DEFAULT 0,
+            demo_selections TEXT,
+            context_snapshot TEXT,
+            is_first_meeting INTEGER DEFAULT 0,
+            author_id TEXT,
+            source TEXT DEFAULT 'manual',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+          )
+        `, (err) => {
+          if (err) logger.error('Failed to create meeting_prep table:', err);
+        });
+        
+        // Create indexes for meeting_prep
+        db.run(`CREATE INDEX IF NOT EXISTS idx_meeting_prep_account ON meeting_prep(account_id)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_meeting_prep_date ON meeting_prep(meeting_date)`);
+        
         logger.info('✅ Intelligence database tables initialized');
         resolve();
       });
@@ -516,6 +545,241 @@ async function recordBackfill(results) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// MEETING PREP FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Save or update meeting prep (upsert by meeting_id)
+ */
+async function saveMeetingPrep(data) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    const {
+      meetingId,
+      accountId,
+      accountName,
+      meetingTitle,
+      meetingDate,
+      attendees,
+      agenda,
+      goals,
+      demoRequired,
+      demoSelections,
+      contextSnapshot,
+      isFirstMeeting,
+      authorId,
+      source
+    } = data;
+    
+    db.run(`
+      INSERT INTO meeting_prep 
+      (meeting_id, account_id, account_name, meeting_title, meeting_date,
+       attendees, agenda, goals, demo_required, demo_selections,
+       context_snapshot, is_first_meeting, author_id, source, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(meeting_id) DO UPDATE SET
+        account_id = excluded.account_id,
+        account_name = excluded.account_name,
+        meeting_title = excluded.meeting_title,
+        meeting_date = excluded.meeting_date,
+        attendees = excluded.attendees,
+        agenda = excluded.agenda,
+        goals = excluded.goals,
+        demo_required = excluded.demo_required,
+        demo_selections = excluded.demo_selections,
+        context_snapshot = excluded.context_snapshot,
+        is_first_meeting = excluded.is_first_meeting,
+        author_id = excluded.author_id,
+        source = excluded.source,
+        updated_at = CURRENT_TIMESTAMP
+    `, [
+      meetingId,
+      accountId,
+      accountName,
+      meetingTitle,
+      meetingDate,
+      JSON.stringify(attendees || []),
+      JSON.stringify(agenda || []),
+      JSON.stringify(goals || []),
+      demoRequired ? 1 : 0,
+      JSON.stringify(demoSelections || []),
+      JSON.stringify(contextSnapshot || {}),
+      isFirstMeeting ? 1 : 0,
+      authorId,
+      source || 'manual'
+    ], function(err) {
+      if (err) {
+        logger.error('Failed to save meeting prep:', err);
+        reject(err);
+      } else {
+        logger.info(`📅 Saved meeting prep: ${meetingTitle} (${meetingId})`);
+        resolve({ meetingId, saved: true });
+      }
+    });
+  });
+}
+
+/**
+ * Get meeting prep by meeting ID
+ */
+async function getMeetingPrep(meetingId) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.get(`SELECT * FROM meeting_prep WHERE meeting_id = ?`, [meetingId], (err, row) => {
+      if (err) {
+        logger.error('Failed to get meeting prep:', err);
+        reject(err);
+      } else if (row) {
+        // Parse JSON fields
+        resolve({
+          ...row,
+          attendees: JSON.parse(row.attendees || '[]'),
+          agenda: JSON.parse(row.agenda || '[]'),
+          goals: JSON.parse(row.goals || '[]'),
+          demoSelections: JSON.parse(row.demo_selections || '[]'),
+          contextSnapshot: JSON.parse(row.context_snapshot || '{}'),
+          demoRequired: row.demo_required === 1,
+          isFirstMeeting: row.is_first_meeting === 1
+        });
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+
+/**
+ * Get all meeting preps for an account (historical context)
+ */
+async function getMeetingPrepsByAccount(accountId) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.all(`
+      SELECT * FROM meeting_prep 
+      WHERE account_id = ? 
+      ORDER BY meeting_date DESC
+    `, [accountId], (err, rows) => {
+      if (err) {
+        logger.error('Failed to get meeting preps by account:', err);
+        reject(err);
+      } else {
+        const parsed = (rows || []).map(row => ({
+          ...row,
+          attendees: JSON.parse(row.attendees || '[]'),
+          agenda: JSON.parse(row.agenda || '[]'),
+          goals: JSON.parse(row.goals || '[]'),
+          demoSelections: JSON.parse(row.demo_selections || '[]'),
+          contextSnapshot: JSON.parse(row.context_snapshot || '{}'),
+          demoRequired: row.demo_required === 1,
+          isFirstMeeting: row.is_first_meeting === 1
+        }));
+        resolve(parsed);
+      }
+    });
+  });
+}
+
+/**
+ * Get upcoming meetings within date range
+ */
+async function getUpcomingMeetingPreps(startDate, endDate) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.all(`
+      SELECT * FROM meeting_prep 
+      WHERE meeting_date >= ? AND meeting_date <= ?
+      ORDER BY meeting_date ASC
+    `, [startDate, endDate], (err, rows) => {
+      if (err) {
+        logger.error('Failed to get upcoming meeting preps:', err);
+        reject(err);
+      } else {
+        const parsed = (rows || []).map(row => ({
+          ...row,
+          attendees: JSON.parse(row.attendees || '[]'),
+          agenda: JSON.parse(row.agenda || '[]'),
+          goals: JSON.parse(row.goals || '[]'),
+          demoSelections: JSON.parse(row.demo_selections || '[]'),
+          contextSnapshot: JSON.parse(row.context_snapshot || '{}'),
+          demoRequired: row.demo_required === 1,
+          isFirstMeeting: row.is_first_meeting === 1
+        }));
+        resolve(parsed);
+      }
+    });
+  });
+}
+
+/**
+ * Delete a meeting prep
+ */
+async function deleteMeetingPrep(meetingId) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.run(`DELETE FROM meeting_prep WHERE meeting_id = ?`, [meetingId], function(err) {
+      if (err) {
+        logger.error('Failed to delete meeting prep:', err);
+        reject(err);
+      } else {
+        logger.info(`📅 Deleted meeting prep: ${meetingId}`);
+        resolve({ meetingId, deleted: this.changes > 0 });
+      }
+    });
+  });
+}
+
+/**
+ * Get all meeting preps (for admin/dashboard view)
+ */
+async function getAllMeetingPreps() {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.all(`SELECT * FROM meeting_prep ORDER BY meeting_date DESC`, [], (err, rows) => {
+      if (err) {
+        logger.error('Failed to get all meeting preps:', err);
+        reject(err);
+      } else {
+        const parsed = (rows || []).map(row => ({
+          ...row,
+          attendees: JSON.parse(row.attendees || '[]'),
+          agenda: JSON.parse(row.agenda || '[]'),
+          goals: JSON.parse(row.goals || '[]'),
+          demoSelections: JSON.parse(row.demo_selections || '[]'),
+          contextSnapshot: JSON.parse(row.context_snapshot || '{}'),
+          demoRequired: row.demo_required === 1,
+          isFirstMeeting: row.is_first_meeting === 1
+        }));
+        resolve(parsed);
+      }
+    });
+  });
+}
+
 module.exports = {
   initialize,
   close,
@@ -537,6 +801,13 @@ module.exports = {
   isMessageProcessed,
   // Backfill tracking
   getLastBackfillTime,
-  recordBackfill
+  recordBackfill,
+  // Meeting prep
+  saveMeetingPrep,
+  getMeetingPrep,
+  getMeetingPrepsByAccount,
+  getUpcomingMeetingPreps,
+  deleteMeetingPrep,
+  getAllMeetingPreps
 };
 

@@ -806,6 +806,45 @@ class GTMBrainApp {
         res.status(401).send('Unauthorized');
       }
     });
+
+    // Meeting Prep view for iframe (protected - same auth as /gtm)
+    this.expressApp.get('/gtm/meeting-prep', async (req, res) => {
+      const oktaSession = validateOktaSession(req);
+      
+      if (oktaSession) {
+        try {
+          const { generateMeetingPrepHTML } = require('./views/meetingPrepView');
+          const html = await generateMeetingPrepHTML();
+          res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline'");
+          res.send(html);
+        } catch (error) {
+          logger.error('Error generating meeting prep view:', error);
+          res.status(500).send(`Error: ${error.message}`);
+        }
+      } else {
+        res.status(401).send('Unauthorized');
+      }
+    });
+
+    // Meeting Prep detail view (shareable URL for specific meeting)
+    this.expressApp.get('/gtm/meeting-prep/:meetingId', async (req, res) => {
+      const oktaSession = validateOktaSession(req);
+      
+      if (oktaSession) {
+        try {
+          const { generateMeetingPrepHTML } = require('./views/meetingPrepView');
+          const html = await generateMeetingPrepHTML();
+          // The meetingId is handled client-side via URL parsing
+          res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline'");
+          res.send(html);
+        } catch (error) {
+          logger.error('Error generating meeting prep view:', error);
+          res.status(500).send(`Error: ${error.message}`);
+        }
+      } else {
+        res.status(401).send('Unauthorized');
+      }
+    });
     
     // GTM Hub logout
     this.expressApp.get('/gtm/logout', (req, res) => {
@@ -1016,6 +1055,164 @@ class GTMBrainApp {
           error: error.message
         });
       }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MEETING PREP API ENDPOINTS
+    // ═══════════════════════════════════════════════════════════════════════════
+    const meetingPrepService = require('./services/meetingPrepService');
+    const meetingContextService = require('./services/meetingContextService');
+
+    // Get upcoming meetings for week view
+    this.expressApp.get('/api/meetings', async (req, res) => {
+      try {
+        const { start, end } = req.query;
+        const weekRange = meetingPrepService.getCurrentWeekRange();
+        const startDate = start || weekRange.start;
+        const endDate = end || weekRange.end;
+        
+        const meetings = await meetingPrepService.getUpcomingMeetings(startDate, endDate);
+        const grouped = meetingPrepService.groupMeetingsByDay(meetings);
+        
+        res.json({ 
+          success: true, 
+          meetings,
+          grouped,
+          weekRange: { start: startDate, end: endDate }
+        });
+      } catch (error) {
+        logger.error('Error fetching meetings:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Create a new meeting (manual entry)
+    this.expressApp.post('/api/meetings', async (req, res) => {
+      try {
+        const { accountId, accountName, meetingTitle, meetingDate, authorId } = req.body;
+        
+        if (!accountId || !meetingTitle || !meetingDate) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Missing required fields: accountId, meetingTitle, meetingDate' 
+          });
+        }
+        
+        const meeting = await meetingPrepService.createMeeting({
+          accountId,
+          accountName,
+          meetingTitle,
+          meetingDate,
+          authorId
+        });
+        
+        res.json({ success: true, meeting });
+      } catch (error) {
+        logger.error('Error creating meeting:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get meeting prep by ID
+    this.expressApp.get('/api/meeting-prep/:meetingId', async (req, res) => {
+      try {
+        const { meetingId } = req.params;
+        const prep = await meetingPrepService.getMeetingPrep(meetingId);
+        
+        if (!prep) {
+          return res.status(404).json({ success: false, error: 'Meeting prep not found' });
+        }
+        
+        res.json({ success: true, prep });
+      } catch (error) {
+        logger.error('Error fetching meeting prep:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Save/update meeting prep
+    this.expressApp.post('/api/meeting-prep', async (req, res) => {
+      try {
+        const data = req.body;
+        
+        if (!data.meetingId) {
+          return res.status(400).json({ success: false, error: 'Missing meetingId' });
+        }
+        
+        await meetingPrepService.saveMeetingPrep(data);
+        res.json({ success: true, message: 'Meeting prep saved' });
+      } catch (error) {
+        logger.error('Error saving meeting prep:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Delete meeting prep
+    this.expressApp.delete('/api/meeting-prep/:meetingId', async (req, res) => {
+      try {
+        const { meetingId } = req.params;
+        const result = await meetingPrepService.deleteMeetingPrep(meetingId);
+        res.json({ success: true, deleted: result.deleted });
+      } catch (error) {
+        logger.error('Error deleting meeting prep:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get aggregated context for an account
+    this.expressApp.get('/api/meeting-context/:accountId', async (req, res) => {
+      try {
+        const { accountId } = req.params;
+        const context = await meetingContextService.generateMeetingContext(accountId);
+        res.json({ success: true, context });
+      } catch (error) {
+        logger.error('Error fetching meeting context:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get contacts for account (attendee dropdown)
+    this.expressApp.get('/api/accounts/contacts/:accountId', async (req, res) => {
+      try {
+        const { accountId } = req.params;
+        const contacts = await meetingPrepService.getAccountContacts(accountId);
+        res.json({ success: true, contacts });
+      } catch (error) {
+        logger.error('Error fetching contacts:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get all accounts (for meeting creation dropdown)
+    this.expressApp.get('/api/accounts', async (req, res) => {
+      try {
+        const accounts = await meetingPrepService.getAccounts();
+        res.json({ success: true, accounts });
+      } catch (error) {
+        logger.error('Error fetching accounts:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get historical meeting preps for an account
+    this.expressApp.get('/api/meeting-prep/account/:accountId', async (req, res) => {
+      try {
+        const { accountId } = req.params;
+        const preps = await meetingPrepService.getMeetingPrepsByAccount(accountId);
+        res.json({ success: true, preps });
+      } catch (error) {
+        logger.error('Error fetching account meeting preps:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get demo product options
+    this.expressApp.get('/api/meeting-prep/options', (req, res) => {
+      res.json({ 
+        success: true, 
+        demoProducts: meetingPrepService.DEMO_PRODUCTS,
+        templates: meetingPrepService.FIRST_MEETING_TEMPLATES
+      });
     });
 
     logger.info('✅ Express server configured');

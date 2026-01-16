@@ -134,7 +134,8 @@ input[name="main-tab"] { display: none; }
 #tab-sales:checked ~ .tab-nav label[for="tab-sales"],
 #tab-dashboard:checked ~ .tab-nav label[for="tab-dashboard"],
 #tab-architecture:checked ~ .tab-nav label[for="tab-architecture"],
-#tab-commands:checked ~ .tab-nav label[for="tab-commands"] {
+#tab-commands:checked ~ .tab-nav label[for="tab-commands"],
+#tab-meeting-prep:checked ~ .tab-nav label[for="tab-meeting-prep"] {
   color: #8e99e1;
   border-bottom-color: #8e99e1;
 }
@@ -145,7 +146,8 @@ input[name="main-tab"] { display: none; }
 #tab-sales:checked ~ .content-area #content-sales,
 #tab-dashboard:checked ~ .content-area #content-dashboard,
 #tab-architecture:checked ~ .content-area #content-architecture,
-#tab-commands:checked ~ .content-area #content-commands {
+#tab-commands:checked ~ .content-area #content-commands,
+#tab-meeting-prep:checked ~ .content-area #content-meeting-prep {
   display: block;
 }
 
@@ -216,6 +218,7 @@ input[name="main-tab"] { display: none; }
 <!-- Tab Radio Inputs (CSS-only tabs) -->
 <input type="radio" name="main-tab" id="tab-sales" checked>
 <input type="radio" name="main-tab" id="tab-dashboard">
+<input type="radio" name="main-tab" id="tab-meeting-prep">
 <input type="radio" name="main-tab" id="tab-architecture">
 <input type="radio" name="main-tab" id="tab-commands">
 
@@ -223,6 +226,7 @@ input[name="main-tab"] { display: none; }
 <nav class="tab-nav">
   <label for="tab-sales">Sales Process</label>
   <label for="tab-dashboard">Dashboard</label>
+  <label for="tab-meeting-prep">Meeting Prep</label>
   <label for="tab-architecture">Architecture</label>
   <label for="tab-commands">Commands</label>
 </nav>
@@ -233,6 +237,11 @@ input[name="main-tab"] { display: none; }
   <!-- Dashboard Tab - Loads dashboard via iframe -->
   <div id="content-dashboard" class="tab-content">
     <iframe src="/gtm/dashboard" title="Dashboard"></iframe>
+  </div>
+  
+  <!-- Meeting Prep Tab - Loads meeting prep view via iframe -->
+  <div id="content-meeting-prep" class="tab-content">
+    <iframe src="/gtm/meeting-prep" title="Meeting Prep"></iframe>
   </div>
   
   <!-- Architecture Tab - Loads architecture page via iframe -->
