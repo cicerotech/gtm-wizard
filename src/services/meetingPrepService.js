@@ -158,7 +158,7 @@ async function isFirstMeeting(accountId) {
 }
 
 /**
- * Get upcoming meetings for a date range (combines manual + Salesforce)
+ * Get upcoming meetings for a date range (combines manual + Salesforce + Outlook)
  */
 async function getUpcomingMeetings(startDate, endDate) {
   try {
@@ -167,6 +167,20 @@ async function getUpcomingMeetings(startDate, endDate) {
     
     // Get Salesforce Events
     const sfEvents = await getSalesforceEvents(startDate, endDate);
+    
+    // Get Outlook Calendar events (if available)
+    let outlookEvents = [];
+    try {
+      const { calendarService } = require('./calendarService');
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const daysAhead = Math.ceil((end - start) / (24 * 60 * 60 * 1000));
+      const result = await calendarService.getUpcomingMeetingsForAllBLs(daysAhead);
+      outlookEvents = result.meetings || [];
+      logger.info(`[MeetingPrep] Fetched ${outlookEvents.length} Outlook meetings`);
+    } catch (outlookError) {
+      logger.warn('[MeetingPrep] Outlook calendar fetch failed, using SF only:', outlookError.message);
+    }
     
     // Merge and dedupe (Salesforce events take precedence if same ID)
     const meetingsMap = new Map();
@@ -177,6 +191,36 @@ async function getUpcomingMeetings(startDate, endDate) {
         ...meeting,
         source: 'manual'
       });
+    }
+    
+    // Add Outlook events
+    for (const event of outlookEvents) {
+      // Normalize Outlook event to match our format
+      const normalizedEvent = {
+        meetingId: event.eventId,
+        accountId: null, // Outlook doesn't have SF account ID
+        accountName: extractAccountFromAttendees(event.externalAttendees),
+        meetingTitle: event.subject,
+        meetingDate: event.startDateTime,
+        endDate: event.endDateTime,
+        owner: event.ownerEmail,
+        attendees: event.allAttendees,
+        externalAttendees: event.externalAttendees,
+        internalAttendees: event.internalAttendees,
+        source: 'outlook'
+      };
+      
+      // Check if similar meeting already exists (same time, same subject)
+      const isDupe = Array.from(meetingsMap.values()).some(m => {
+        const mDate = new Date(m.meetingDate || m.meeting_date);
+        const eDate = new Date(normalizedEvent.meetingDate);
+        return Math.abs(mDate - eDate) < 3600000 && // Within 1 hour
+               (m.meetingTitle || m.meeting_title || '').toLowerCase().includes(normalizedEvent.meetingTitle?.toLowerCase()?.substring(0, 20) || '');
+      });
+      
+      if (!isDupe) {
+        meetingsMap.set(normalizedEvent.meetingId, normalizedEvent);
+      }
     }
     
     // Add/override with Salesforce events
@@ -205,11 +249,40 @@ async function getUpcomingMeetings(startDate, endDate) {
     const allMeetings = Array.from(meetingsMap.values());
     allMeetings.sort((a, b) => new Date(a.meetingDate || a.meeting_date) - new Date(b.meetingDate || b.meeting_date));
     
+    logger.info(`[MeetingPrep] Total meetings: ${allMeetings.length} (Manual: ${manualMeetings.length}, SF: ${sfEvents.length}, Outlook: ${outlookEvents.length})`);
+    
     return allMeetings;
   } catch (error) {
     logger.error('Error getting upcoming meetings:', error);
     return [];
   }
+}
+
+/**
+ * Extract account name from external attendees (best guess from email domains)
+ */
+function extractAccountFromAttendees(attendees) {
+  if (!attendees || attendees.length === 0) return 'Unknown';
+  
+  // Get most common external domain
+  const domains = attendees.map(a => {
+    const email = a.email || '';
+    return email.split('@')[1];
+  }).filter(Boolean);
+  
+  if (domains.length === 0) return 'Unknown';
+  
+  const domainCounts = {};
+  domains.forEach(d => { domainCounts[d] = (domainCounts[d] || 0) + 1; });
+  const topDomain = Object.entries(domainCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+  
+  if (topDomain) {
+    // Convert domain to company name (e.g., stripe.com → Stripe)
+    const name = topDomain.split('.')[0];
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  }
+  
+  return 'Unknown';
 }
 
 /**
