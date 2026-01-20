@@ -34,15 +34,26 @@ function fetch(url, options) {
   });
 }
 
+// In-memory cache for enrichments (with TTL)
+const enrichmentCache = new Map();
+const CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
 /**
- * Clay API Integration for Company Enrichment
+ * Clay API Integration for Company & Attendee Enrichment
  * Enriches company data with headquarters, revenue, website, LinkedIn, employee count
+ * Enriches attendees with title, company, LinkedIn, seniority
  */
 class ClayEnrichment {
   constructor() {
     this.apiKey = process.env.CLAY_API_KEY;
+    // NOTE: This endpoint is a guess - needs actual Clay API documentation
+    // Current approach: Use Clay Tables via UI, then query via webhook
     this.baseUrl = 'https://api.clay.com/v1';
     this.enabled = !!this.apiKey;
+    
+    // Clay Table IDs (set these after creating tables in Clay UI)
+    this.companyTableId = process.env.CLAY_COMPANY_TABLE_ID || null;
+    this.attendeeTableId = process.env.CLAY_ATTENDEE_TABLE_ID || null;
   }
 
   /**
@@ -233,6 +244,134 @@ class ClayEnrichment {
   hasMinimumData(enrichment) {
     return !!(enrichment.headquarters?.state || enrichment.headquarters?.country);
   }
+
+  /**
+   * Enrich attendee data (name + email → title, company, LinkedIn, seniority)
+   * Uses cache to avoid re-enriching same person within TTL
+   * @param {string} name - Full name
+   * @param {string} email - Email address
+   * @returns {Object} Enrichment data
+   */
+  async enrichAttendee(name, email) {
+    // Check cache first
+    const cacheKey = `attendee:${email?.toLowerCase() || name?.toLowerCase()}`;
+    const cached = enrichmentCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      logger.debug(`Cache hit for attendee: ${name}`);
+      return cached.data;
+    }
+
+    // Extract company from email domain
+    const emailDomain = email?.split('@')[1] || '';
+    const isExternalEmail = emailDomain && !emailDomain.toLowerCase().includes('eudia');
+    
+    // For now, return basic parsed data
+    // TODO: Replace with actual Clay Table API call when configured
+    const enrichment = {
+      name,
+      email,
+      company: isExternalEmail ? this.formatCompanyFromDomain(emailDomain) : null,
+      title: null,
+      linkedinUrl: null,
+      headshotUrl: null,
+      seniority: null,
+      success: false,
+      source: 'inferred'
+    };
+
+    // If Clay Table is configured, try to enrich via API
+    if (this.enabled && this.attendeeTableId) {
+      try {
+        logger.info(`🔍 Calling Clay Table API for attendee: ${name}`);
+        
+        // TODO: Implement actual Clay Table API call
+        // This would add a row to Clay Table, wait for enrichment, then fetch result
+        // For now, mark as pending
+        enrichment.source = 'clay_pending';
+        enrichment.message = 'Clay Table enrichment pending - configure attendeeTableId';
+        
+      } catch (error) {
+        logger.error(`Clay attendee enrichment failed for ${name}:`, error.message);
+        enrichment.error = error.message;
+      }
+    }
+
+    // Cache the result
+    enrichmentCache.set(cacheKey, { data: enrichment, timestamp: Date.now() });
+    
+    return enrichment;
+  }
+
+  /**
+   * Batch enrich multiple attendees
+   * @param {Array} attendees - Array of { name, email } objects
+   * @returns {Array} Enriched attendees
+   */
+  async enrichAttendees(attendees) {
+    if (!attendees || attendees.length === 0) {
+      return [];
+    }
+
+    logger.info(`🔍 Enriching ${attendees.length} attendees`);
+
+    const results = await Promise.allSettled(
+      attendees.map(att => this.enrichAttendee(att.name, att.email))
+    );
+
+    return results.map((result, idx) => ({
+      ...attendees[idx],
+      ...(result.status === 'fulfilled' ? result.value : { error: result.reason?.message })
+    }));
+  }
+
+  /**
+   * Format company name from email domain
+   */
+  formatCompanyFromDomain(domain) {
+    if (!domain) return null;
+    
+    // Remove common TLDs and clean up
+    const parts = domain.split('.');
+    if (parts.length >= 2) {
+      const companyPart = parts[0];
+      // Capitalize first letter
+      return companyPart.charAt(0).toUpperCase() + companyPart.slice(1);
+    }
+    return domain;
+  }
+
+  /**
+   * Clear cache (for testing or refresh)
+   */
+  clearCache() {
+    enrichmentCache.clear();
+    logger.info('🧹 Clay enrichment cache cleared');
+  }
+
+  /**
+   * Get cache stats
+   */
+  getCacheStats() {
+    let validEntries = 0;
+    let expiredEntries = 0;
+    const now = Date.now();
+
+    for (const [key, value] of enrichmentCache.entries()) {
+      if (now - value.timestamp < CACHE_TTL_MS) {
+        validEntries++;
+      } else {
+        expiredEntries++;
+      }
+    }
+
+    return {
+      totalEntries: enrichmentCache.size,
+      validEntries,
+      expiredEntries,
+      ttlDays: CACHE_TTL_MS / (24 * 60 * 60 * 1000)
+    };
+  }
 }
 
 // Singleton instance
@@ -241,6 +380,8 @@ const clayEnrichment = new ClayEnrichment();
 module.exports = {
   ClayEnrichment,
   clayEnrichment,
-  enrichCompanyData: (companyName) => clayEnrichment.enrichCompanyData(companyName)
+  enrichCompanyData: (companyName) => clayEnrichment.enrichCompanyData(companyName),
+  enrichAttendee: (name, email) => clayEnrichment.enrichAttendee(name, email),
+  enrichAttendees: (attendees) => clayEnrichment.enrichAttendees(attendees)
 };
 

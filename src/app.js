@@ -1217,6 +1217,66 @@ class GTMBrainApp {
       });
     });
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ENRICHMENT JOB ROUTES
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Manually trigger meeting enrichment job
+    this.expressApp.post('/api/enrichment/run', async (req, res) => {
+      try {
+        const { triggerEnrichmentJob } = require('./jobs/enrichMeetings');
+        const result = await triggerEnrichmentJob();
+        res.json({ success: true, result });
+      } catch (error) {
+        logger.error('Error running enrichment job:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get enrichment job status
+    this.expressApp.get('/api/enrichment/status', (req, res) => {
+      try {
+        const { getJobStatus } = require('./jobs/enrichMeetings');
+        const { attendeeBioService } = require('./services/attendeeBioService');
+        const { clayEnrichment } = require('./services/clayEnrichment');
+        
+        res.json({ 
+          success: true, 
+          job: getJobStatus(),
+          claude: attendeeBioService.getUsageStats(),
+          clay: clayEnrichment.getCacheStats()
+        });
+      } catch (error) {
+        logger.error('Error getting enrichment status:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Test calendar connection
+    this.expressApp.get('/api/calendar/test', async (req, res) => {
+      try {
+        const { calendarService } = require('./services/calendarService');
+        const result = await calendarService.testConnection();
+        res.json({ success: true, result });
+      } catch (error) {
+        logger.error('Error testing calendar:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get upcoming meetings from Outlook calendars
+    this.expressApp.get('/api/calendar/upcoming', async (req, res) => {
+      try {
+        const { calendarService } = require('./services/calendarService');
+        const daysAhead = parseInt(req.query.days) || 7;
+        const result = await calendarService.getUpcomingMeetingsForAllBLs(daysAhead);
+        res.json({ success: true, ...result });
+      } catch (error) {
+        logger.error('Error fetching calendar meetings:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     logger.info('✅ Express server configured');
   }
 

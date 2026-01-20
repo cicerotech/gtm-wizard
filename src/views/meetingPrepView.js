@@ -518,6 +518,171 @@ textarea.input-field {
   font-size: 0.9rem;
 }
 
+/* Enriched Attendee Intel Section */
+.attendee-intel-section {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #0ea5e9;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.attendee-intel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.attendee-intel-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0369a1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-badge {
+  font-size: 0.6rem;
+  background: #7c3aed;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.enriched-attendee {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.enriched-attendee:last-child {
+  margin-bottom: 0;
+}
+
+.enriched-attendee-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.attendee-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #8e99e1;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.attendee-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.attendee-info {
+  flex: 1;
+}
+
+.attendee-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.attendee-title-company {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.seniority-badge {
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.seniority-badge.clo { background: #fef3c7; color: #92400e; }
+.seniority-badge.gc { background: #dbeafe; color: #1e40af; }
+.seniority-badge.director { background: #e0e7ff; color: #4338ca; }
+.seniority-badge.manager { background: #f3e8ff; color: #7c3aed; }
+.seniority-badge.other { background: #f3f4f6; color: #4b5563; }
+
+.attendee-bio {
+  font-size: 0.75rem;
+  color: #4b5563;
+  line-height: 1.5;
+  margin-top: 8px;
+  padding: 8px;
+  background: #f9fafb;
+  border-radius: 6px;
+}
+
+.attendee-linkedin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: #0077b5;
+  text-decoration: none;
+  margin-top: 6px;
+}
+
+.attendee-linkedin:hover {
+  text-decoration: underline;
+}
+
+.talking-points {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.talking-points-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.talking-point {
+  font-size: 0.7rem;
+  color: #4b5563;
+  padding-left: 12px;
+  position: relative;
+  margin-bottom: 2px;
+}
+
+.talking-point::before {
+  content: '•';
+  position: absolute;
+  left: 4px;
+  color: #8e99e1;
+}
+
+.enrichment-pending {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 0.75rem;
+  color: #92400e;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Submit Button */
 .modal-footer {
   padding: 16px 24px;
@@ -847,11 +1012,54 @@ function renderPrepForm(contextHtml) {
   const goals = data.goals || ['', '', ''];
   const demos = data.demoSelections || [{ product: '', subtext: '' }, { product: '', subtext: '' }, { product: '', subtext: '' }];
   
+  // Check if any attendees have enriched bios
+  const enrichedAttendees = externalAttendees.filter(a => a.bio && a.confidence !== 'low');
+  const hasEnrichedAttendees = enrichedAttendees.length > 0;
+  
   const demoOptions = '<option value="">Select product...</option>' + 
     DEMO_PRODUCTS.map(p => '<option value="' + p.id + '">' + p.label + '</option>').join('');
   
+  // Generate enriched attendee intel section
+  const attendeeIntelHtml = hasEnrichedAttendees ? \`
+    <div class="attendee-intel-section">
+      <div class="attendee-intel-header">
+        <span class="attendee-intel-title">
+          👥 Attendee Intel <span class="ai-badge">AI-Generated</span>
+        </span>
+      </div>
+      \${enrichedAttendees.map(a => \`
+        <div class="enriched-attendee">
+          <div class="enriched-attendee-header">
+            <div class="attendee-avatar">
+              \${a.headshotUrl ? '<img src="' + a.headshotUrl + '" alt="' + a.name + '">' : getInitials(a.name)}
+            </div>
+            <div class="attendee-info">
+              <div class="attendee-name">\${a.name}</div>
+              <div class="attendee-title-company">\${a.title || 'Title unknown'} • \${a.company || 'Company unknown'}</div>
+            </div>
+            <span class="seniority-badge \${getSeniorityClass(a.seniority)}">\${a.seniority || 'Unknown'}</span>
+          </div>
+          \${a.bio ? '<div class="attendee-bio">' + a.bio + '</div>' : ''}
+          \${a.linkedinUrl ? '<a href="' + a.linkedinUrl + '" target="_blank" class="attendee-linkedin">🔗 LinkedIn Profile</a>' : ''}
+          \${a.talkingPoints && a.talkingPoints.length > 0 ? \`
+            <div class="talking-points">
+              <div class="talking-points-title">Suggested Talking Points</div>
+              \${a.talkingPoints.map(tp => '<div class="talking-point">' + tp + '</div>').join('')}
+            </div>
+          \` : ''}
+        </div>
+      \`).join('')}
+    </div>
+  \` : (externalAttendees.length > 0 ? \`
+    <div class="enrichment-pending">
+      ⏳ Attendee enrichment pending — profiles will be generated automatically
+    </div>
+  \` : '');
+  
   document.getElementById('modalBody').innerHTML = \`
     \${contextHtml}
+    
+    \${attendeeIntelHtml}
     
     <div class="form-section">
       <div class="form-section-title">Attendees</div>
@@ -1230,6 +1438,27 @@ async function createMeeting() {
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Get initials from name
+function getInitials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(' ');
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return parts[0][0].toUpperCase();
+}
+
+// Get CSS class for seniority badge
+function getSeniorityClass(seniority) {
+  if (!seniority) return 'other';
+  const s = seniority.toLowerCase();
+  if (s.includes('clo') || s.includes('chief')) return 'clo';
+  if (s.includes('gc') || s.includes('general counsel')) return 'gc';
+  if (s.includes('director') || s.includes('vp')) return 'director';
+  if (s.includes('manager')) return 'manager';
+  return 'other';
 }
 </script>
 

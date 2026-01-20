@@ -1,0 +1,332 @@
+/**
+ * Calendar Service
+ * Reads Outlook calendars via Microsoft Graph API for all BLs
+ * Permission: Calendars.Read (Application) - APPROVED
+ */
+
+const { Client } = require('@microsoft/microsoft-graph-client');
+const { ClientSecretCredential } = require('@azure/identity');
+require('isomorphic-fetch');
+const logger = require('../utils/logger');
+
+// Business Lead email list (US + EU Pods)
+const BL_EMAILS = [
+  // US Pod
+  'asad.hussain@eudia.com',
+  'himanshu.agarwal@eudia.com',
+  'julie.stefanich@eudia.com',
+  'olivia.jung@eudia.com',
+  'ananth.cherukupally@eudia.com',
+  'justin.hills@eudia.com',
+  'mike.masiello@eudia.com',
+  // EU Pod
+  'greg.machale@eudia.com',
+  'nathan.shine@eudia.com',
+  'tom.clancy@eudia.com',
+  'conor.molloy@eudia.com',
+  'alex.fox@eudia.com',
+  'nicola.fratini@eudia.com',
+  'emer.flynn@eudia.com',
+  'riona.mchale@eudia.com'
+];
+
+class CalendarService {
+  constructor() {
+    this.graphClient = null;
+    this.initialized = false;
+  }
+
+  /**
+   * Initialize the Microsoft Graph client
+   */
+  async initialize() {
+    if (this.initialized) return true;
+
+    try {
+      const tenantId = process.env.AZURE_TENANT_ID;
+      const clientId = process.env.AZURE_CLIENT_ID;
+      const clientSecret = process.env.AZURE_CLIENT_SECRET;
+
+      if (!tenantId || !clientId || !clientSecret) {
+        logger.warn('⚠️ Calendar service: Azure credentials not configured');
+        return false;
+      }
+
+      const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+
+      this.graphClient = Client.initWithMiddleware({
+        authProvider: {
+          getAccessToken: async () => {
+            const token = await credential.getToken('https://graph.microsoft.com/.default');
+            return token.token;
+          }
+        }
+      });
+
+      this.initialized = true;
+      logger.info('✅ Calendar service initialized (Microsoft Graph API)');
+      return true;
+    } catch (error) {
+      logger.error('Calendar service initialization failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get calendar events for a specific user within a date range
+   * @param {string} userEmail - User's email address
+   * @param {Date} startDate - Start of date range
+   * @param {Date} endDate - End of date range
+   * @returns {Array} Array of calendar events
+   */
+  async getCalendarEvents(userEmail, startDate, endDate) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    if (!this.graphClient) {
+      logger.error('Calendar service not initialized');
+      return [];
+    }
+
+    try {
+      const startISO = startDate.toISOString();
+      const endISO = endDate.toISOString();
+
+      logger.info(`📅 Fetching calendar for ${userEmail}: ${startISO} to ${endISO}`);
+
+      // Query user's calendar events
+      const response = await this.graphClient
+        .api(`/users/${userEmail}/calendar/calendarView`)
+        .query({
+          startDateTime: startISO,
+          endDateTime: endISO,
+          $top: 100,
+          $orderby: 'start/dateTime',
+          $select: 'id,subject,start,end,attendees,organizer,location,bodyPreview,isOnlineMeeting,onlineMeetingUrl'
+        })
+        .get();
+
+      const events = response.value || [];
+      logger.info(`📅 Found ${events.length} calendar events for ${userEmail}`);
+
+      return events.map(event => this.normalizeEvent(event, userEmail));
+
+    } catch (error) {
+      // Handle specific Graph API errors
+      if (error.statusCode === 404) {
+        logger.warn(`Calendar not found for ${userEmail} - user may not exist or no calendar access`);
+      } else if (error.statusCode === 403) {
+        logger.warn(`Access denied to calendar for ${userEmail} - check permissions`);
+      } else {
+        logger.error(`Failed to fetch calendar for ${userEmail}:`, error.message);
+      }
+      return [];
+    }
+  }
+
+  /**
+   * Normalize Graph API event to internal format
+   */
+  normalizeEvent(event, ownerEmail) {
+    // Parse attendees
+    const allAttendees = (event.attendees || []).map(att => ({
+      name: att.emailAddress?.name || '',
+      email: att.emailAddress?.address || '',
+      responseStatus: att.status?.response || 'none',
+      isExternal: !att.emailAddress?.address?.toLowerCase().endsWith('@eudia.com')
+    }));
+
+    const externalAttendees = allAttendees.filter(a => a.isExternal);
+    const internalAttendees = allAttendees.filter(a => !a.isExternal);
+
+    // Determine if this is a customer meeting (has external attendees)
+    const isCustomerMeeting = externalAttendees.length > 0;
+
+    return {
+      eventId: event.id,
+      subject: event.subject || 'No Subject',
+      startDateTime: event.start?.dateTime,
+      endDateTime: event.end?.dateTime,
+      timezone: event.start?.timeZone || 'UTC',
+      location: event.location?.displayName || '',
+      bodyPreview: event.bodyPreview || '',
+      isOnlineMeeting: event.isOnlineMeeting || false,
+      meetingUrl: event.onlineMeetingUrl || '',
+      organizer: {
+        name: event.organizer?.emailAddress?.name || '',
+        email: event.organizer?.emailAddress?.address || ''
+      },
+      ownerEmail,
+      allAttendees,
+      externalAttendees,
+      internalAttendees,
+      isCustomerMeeting,
+      source: 'outlook'
+    };
+  }
+
+  /**
+   * Get upcoming meetings for all BLs
+   * @param {number} daysAhead - How many days ahead to fetch (default 7)
+   * @returns {Array} All meetings across all BLs
+   */
+  async getUpcomingMeetingsForAllBLs(daysAhead = 7) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + daysAhead);
+
+    logger.info(`📅 Fetching calendars for ${BL_EMAILS.length} BLs (next ${daysAhead} days)`);
+
+    const allMeetings = [];
+    const errors = [];
+
+    // Fetch calendars in parallel (but limit concurrency to avoid rate limits)
+    const batchSize = 5;
+    for (let i = 0; i < BL_EMAILS.length; i += batchSize) {
+      const batch = BL_EMAILS.slice(i, i + batchSize);
+      const batchResults = await Promise.allSettled(
+        batch.map(email => this.getCalendarEvents(email, startDate, endDate))
+      );
+
+      batchResults.forEach((result, idx) => {
+        if (result.status === 'fulfilled') {
+          allMeetings.push(...result.value);
+        } else {
+          errors.push({ email: batch[idx], error: result.reason?.message });
+        }
+      });
+    }
+
+    // Filter to only customer meetings (with external attendees)
+    const customerMeetings = allMeetings.filter(m => m.isCustomerMeeting);
+
+    // Dedupe by eventId (same meeting might appear for multiple attendees)
+    const uniqueMeetings = this.deduplicateMeetings(customerMeetings);
+
+    logger.info(`📅 Total: ${allMeetings.length} events, ${customerMeetings.length} customer meetings, ${uniqueMeetings.length} unique`);
+
+    if (errors.length > 0) {
+      logger.warn(`📅 Calendar errors for ${errors.length} BLs:`, errors);
+    }
+
+    return {
+      meetings: uniqueMeetings,
+      stats: {
+        totalEvents: allMeetings.length,
+        customerMeetings: customerMeetings.length,
+        uniqueMeetings: uniqueMeetings.length,
+        errors: errors.length
+      }
+    };
+  }
+
+  /**
+   * Deduplicate meetings (same meeting may appear on multiple BL calendars)
+   */
+  deduplicateMeetings(meetings) {
+    const seen = new Map();
+
+    for (const meeting of meetings) {
+      // Create a key based on subject + start time
+      const key = `${meeting.subject}_${meeting.startDateTime}`;
+      
+      if (!seen.has(key)) {
+        seen.set(key, meeting);
+      } else {
+        // Merge attendees from duplicate
+        const existing = seen.get(key);
+        const existingEmails = new Set(existing.allAttendees.map(a => a.email.toLowerCase()));
+        
+        for (const att of meeting.allAttendees) {
+          if (!existingEmails.has(att.email.toLowerCase())) {
+            existing.allAttendees.push(att);
+            if (att.isExternal) {
+              existing.externalAttendees.push(att);
+            } else {
+              existing.internalAttendees.push(att);
+            }
+          }
+        }
+      }
+    }
+
+    return Array.from(seen.values());
+  }
+
+  /**
+   * Get customer meetings for a specific date (for daily enrichment job)
+   * @param {Date} targetDate - The date to fetch meetings for
+   * @returns {Array} Customer meetings for that date
+   */
+  async getCustomerMeetingsForDate(targetDate) {
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const result = await this.getUpcomingMeetingsForAllBLs();
+    
+    // Filter to target date
+    return result.meetings.filter(m => {
+      const meetingDate = new Date(m.startDateTime);
+      return meetingDate >= startOfDay && meetingDate <= endOfDay;
+    });
+  }
+
+  /**
+   * Get meetings for tomorrow (for daily enrichment job)
+   */
+  async getTomorrowsMeetings() {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return this.getCustomerMeetingsForDate(tomorrow);
+  }
+
+  /**
+   * Test connection to Graph API
+   */
+  async testConnection() {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    if (!this.graphClient) {
+      return { success: false, error: 'Graph client not initialized' };
+    }
+
+    try {
+      // Try to get a simple API endpoint
+      const response = await this.graphClient.api('/organization').get();
+      return { 
+        success: true, 
+        org: response.value?.[0]?.displayName || 'Unknown',
+        message: 'Calendar API connection successful'
+      };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get BL email list
+   */
+  getBLEmails() {
+    return [...BL_EMAILS];
+  }
+}
+
+// Singleton instance
+const calendarService = new CalendarService();
+
+module.exports = {
+  calendarService,
+  initializeCalendar: () => calendarService.initialize(),
+  BL_EMAILS
+};
+
