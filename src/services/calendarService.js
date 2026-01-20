@@ -289,7 +289,7 @@ class CalendarService {
   }
 
   /**
-   * Test connection to Graph API
+   * Test connection to Graph API using Calendars.Read permission
    */
   async testConnection() {
     if (!this.initialized) {
@@ -301,15 +301,35 @@ class CalendarService {
     }
 
     try {
-      // Try to get a simple API endpoint
-      const response = await this.graphClient.api('/organization').get();
+      // Test with a real BL calendar (uses Calendars.Read permission)
+      const testEmail = 'asad.hussain@eudia.com';
+      const now = new Date();
+      const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      
+      const response = await this.graphClient
+        .api(`/users/${testEmail}/calendar/calendarView`)
+        .query({
+          startDateTime: now.toISOString(),
+          endDateTime: nextWeek.toISOString(),
+          $top: 5,
+          $select: 'id,subject,start'
+        })
+        .get();
+      
       return { 
         success: true, 
-        org: response.value?.[0]?.displayName || 'Unknown',
-        message: 'Calendar API connection successful'
+        testUser: testEmail,
+        eventsFound: response.value?.length || 0,
+        message: 'Calendar API connection successful - Calendars.Read permission working'
       };
     } catch (error) {
-      return { success: false, error: error.message };
+      return { 
+        success: false, 
+        error: error.message,
+        hint: error.code === 'Authorization_RequestDenied' 
+          ? 'Calendars.Read permission may not be granted yet. Check Azure AD app permissions.'
+          : null
+      };
     }
   }
 
