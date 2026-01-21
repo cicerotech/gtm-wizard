@@ -267,6 +267,24 @@ async function generateMeetingPrepHTML(filterUserId = null) {
     const dateStr = meeting.meetingDate || meeting.meeting_date;
     if (!dateStr) continue;
     
+    // Filter out internal-only meetings (no external attendees = internal sync)
+    const externalAttendees = meeting.externalAttendees || [];
+    // Apply ghost/EA filters to get real external attendees
+    const realExternal = externalAttendees.filter(a => {
+      const email = (a.email || '').toLowerCase();
+      const name = (a.name || '').toLowerCase();
+      // Ghost check
+      if (email.includes('zoom') || email.includes('teams') || email.includes('webex')) return false;
+      if (email.includes('conference') || email.includes('room') || email.includes('bridge')) return false;
+      if (name.includes('conference') || name.includes('meeting room') || name.includes('dial-in')) return false;
+      // EA check
+      if (email.includes('alyssa.gradstein') || email.includes('cassie.farber')) return false;
+      return true;
+    });
+    
+    // Skip meetings with no real external attendees (internal syncs)
+    if (realExternal.length === 0) continue;
+    
     const meetingDate = new Date(dateStr);
     const fullDate = meetingDate.toISOString().split('T')[0];
     
@@ -1941,59 +1959,69 @@ async function openMeetingPrep(meetingId) {
   }
 }
 
-// Format context section HTML with priority-based display and fallbacks
+// Format context section HTML with priority-based display
+// Shows: Type, Owner, Recent Context (from various sources), Key Contacts
 function formatContextSection(ctx) {
   let html = '<div class="context-section"><div class="context-header"><span class="context-title">Account Context</span></div><div class="context-content">';
   
-  // Always show: Account basics (type, industry, owner)
+  // Account basics: Type and Owner only (industry removed - not actionable)
   if (ctx.salesforce) {
     const sf = ctx.salesforce;
     if (sf.customerType) html += '<div class="context-item"><span class="context-label">Type:</span> ' + sf.customerType + (sf.customerSubtype ? ' (' + sf.customerSubtype + ')' : '') + '</div>';
-    if (sf.industry) html += '<div class="context-item"><span class="context-label">Industry:</span> ' + sf.industry + '</div>';
     if (sf.owner) html += '<div class="context-item"><span class="context-label">Owner:</span> ' + sf.owner + '</div>';
   }
   
-  // Priority 1: Meeting Notes from Customer Brain (if available)
+  // === RECENT CONTEXT SECTION ===
+  // Dynamic context from multiple sources with source indicators
+  let hasRecentContext = false;
+  let recentContextHtml = '<div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">';
+  recentContextHtml += '<div class="context-label" style="margin-bottom: 10px; font-size: 0.85rem;">📊 Recent Context</div>';
+  
+  // Source 1: Meeting Notes from Customer Brain
   if (ctx.meetingNotes?.length) {
-    html += '<div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">';
-    html += '<div class="context-label" style="color: #4ade80; margin-bottom: 8px;">📝 Recent Meeting Notes</div>';
-    ctx.meetingNotes.slice(0, 3).forEach(note => {
-      html += '<div style="margin-bottom: 10px; padding: 8px; background: rgba(74, 222, 128, 0.1); border-radius: 6px; border-left: 3px solid #4ade80;">';
-      html += '<div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 4px;">' + note.date + ' • ' + note.rep;
-      if (note.duration) html += ' • ' + note.duration;
-      html += '</div>';
-      if (note.participants) {
-        html += '<div style="font-size: 0.7rem; color: #6b7280; margin-bottom: 4px;">With: ' + note.participants + '</div>';
-      }
-      html += '<div style="font-size: 0.8rem; line-height: 1.4;">' + note.summary + '</div>';
-      html += '</div>';
+    hasRecentContext = true;
+    ctx.meetingNotes.slice(0, 2).forEach(note => {
+      recentContextHtml += '<div style="margin-bottom: 10px; padding: 8px; background: rgba(74, 222, 128, 0.1); border-radius: 6px; border-left: 3px solid #4ade80;">';
+      recentContextHtml += '<div style="font-size: 0.7rem; color: #4ade80; margin-bottom: 2px;">📝 Meeting Notes</div>';
+      recentContextHtml += '<div style="font-size: 0.7rem; color: #9ca3af; margin-bottom: 4px;">' + note.date + ' • ' + note.rep + '</div>';
+      recentContextHtml += '<div style="font-size: 0.8rem; line-height: 1.4;">' + note.summary + '</div>';
+      recentContextHtml += '</div>';
     });
-    html += '</div>';
-  }
-  // Priority 2: Account Description as fallback context
-  else if (ctx.salesforce?.description) {
-    html += '<div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">';
-    html += '<div class="context-label" style="margin-bottom: 8px;">📋 Account Overview</div>';
-    const desc = ctx.salesforce.description.length > 300 
-      ? ctx.salesforce.description.substring(0, 300) + '...' 
-      : ctx.salesforce.description;
-    html += '<div style="font-size: 0.8rem; line-height: 1.4; color: #d1d5db;">' + desc + '</div>';
-    html += '</div>';
   }
   
-  // Priority 3: Recent Activities (if no meeting notes)
-  if (!ctx.meetingNotes?.length && ctx.activities?.length) {
-    html += '<div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">';
-    html += '<div class="context-label" style="margin-bottom: 8px;">📅 Recent Activity</div>';
-    ctx.activities.slice(0, 3).forEach(act => {
-      const dateStr = act.date ? new Date(act.date).toLocaleDateString() : '';
-      const icon = act.type === 'event' ? '📞' : '✅';
-      html += '<div style="font-size: 0.75rem; margin-bottom: 6px;">';
-      html += icon + ' <span style="color: #9ca3af;">' + dateStr + '</span> ';
-      html += act.subject || 'Activity';
-      if (act.owner) html += ' <span style="color: #6b7280;">(' + act.owner + ')</span>';
-      html += '</div>';
+  // Source 2: Slack Intel
+  if (ctx.slackIntel?.length) {
+    hasRecentContext = true;
+    ctx.slackIntel.slice(0, 2).forEach(intel => {
+      recentContextHtml += '<div style="margin-bottom: 8px; padding: 8px; background: rgba(244, 114, 182, 0.1); border-radius: 6px; border-left: 3px solid #f472b6;">';
+      recentContextHtml += '<div style="font-size: 0.7rem; color: #f472b6; margin-bottom: 2px;">💬 Slack</div>';
+      recentContextHtml += '<div style="font-size: 0.75rem;"><span style="color: #d1d5db;">[' + intel.category + ']</span> ' + intel.summary + '</div>';
+      recentContextHtml += '</div>';
     });
+  }
+  
+  // Source 3: Prior Meeting Preps
+  if (ctx.priorMeetings?.length) {
+    hasRecentContext = true;
+    ctx.priorMeetings.slice(0, 2).forEach(m => {
+      const dateStr = m.date ? new Date(m.date).toLocaleDateString() : '';
+      recentContextHtml += '<div style="margin-bottom: 6px; padding: 6px 8px; background: rgba(96, 165, 250, 0.1); border-radius: 6px; border-left: 3px solid #60a5fa;">';
+      recentContextHtml += '<div style="font-size: 0.7rem; color: #60a5fa; margin-bottom: 2px;">📋 Prior Prep</div>';
+      recentContextHtml += '<div style="font-size: 0.75rem;">' + dateStr + ' - ' + (m.title || 'Meeting') + '</div>';
+      recentContextHtml += '</div>';
+    });
+  }
+  
+  recentContextHtml += '</div>';
+  
+  // Only add Recent Context section if we have content
+  if (hasRecentContext) {
+    html += recentContextHtml;
+  } else {
+    // Empty state - first meeting or no context yet
+    html += '<div style="margin-top: 12px; padding: 12px; background: rgba(251, 191, 36, 0.1); border-radius: 6px; border: 1px solid rgba(251, 191, 36, 0.3);">';
+    html += '<div style="font-size: 0.8rem; color: #fbbf24;">💡 No recent context available</div>';
+    html += '<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px;">First meeting? Record with Hyprnote to build account history.</div>';
     html += '</div>';
   }
   
@@ -2021,39 +2049,6 @@ function formatContextSection(ctx) {
       if (c.title) html += ' <span style="color: #9ca3af;">- ' + c.title + '</span>';
       html += '</div>';
     });
-    html += '</div>';
-  }
-  
-  // Slack Intel (if any)
-  if (ctx.slackIntel?.length) {
-    html += '<div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">';
-    html += '<div class="context-label" style="margin-bottom: 8px;">💬 Recent Slack Insights</div>';
-    ctx.slackIntel.slice(0, 3).forEach(intel => {
-      html += '<div style="font-size: 0.75rem; margin-bottom: 4px;">';
-      html += '<span style="color: #f472b6;">[' + intel.category + ']</span> ' + intel.summary;
-      html += '</div>';
-    });
-    html += '</div>';
-  }
-  
-  // Prior Meetings
-  if (ctx.priorMeetings?.length) {
-    html += '<div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">';
-    html += '<div class="context-label" style="margin-bottom: 8px;">📆 Prior Meeting Preps (' + ctx.priorMeetings.length + ')</div>';
-    ctx.priorMeetings.slice(0, 2).forEach(m => {
-      const dateStr = m.date ? new Date(m.date).toLocaleDateString() : '';
-      html += '<div style="font-size: 0.75rem; margin-bottom: 4px;">';
-      html += dateStr + ' - ' + (m.title || 'Meeting');
-      html += '</div>';
-    });
-    html += '</div>';
-  }
-  
-  // Empty state message - encourage Hyprnote adoption
-  if (!ctx.hasRichContext && !ctx.salesforce?.description) {
-    html += '<div style="margin-top: 12px; padding: 12px; background: rgba(251, 191, 36, 0.1); border-radius: 6px; border: 1px solid rgba(251, 191, 36, 0.3);">';
-    html += '<div style="font-size: 0.8rem; color: #fbbf24;">💡 Limited context available</div>';
-    html += '<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px;">Record meetings with Hyprnote to build account history and improve prep quality.</div>';
     html += '</div>';
   }
   
