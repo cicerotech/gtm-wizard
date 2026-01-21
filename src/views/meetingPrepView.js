@@ -1050,14 +1050,6 @@ async function openMeetingPrep(meetingId) {
       }
     }
     
-    // Trigger Clay enrichment for external attendees (fire and forget)
-    const externalAttendees = currentMeetingData.externalAttendees || 
-      (currentMeetingData.attendees || []).filter(a => a.isExternal);
-    
-    if (externalAttendees.length > 0) {
-      triggerClayEnrichment(externalAttendees);
-    }
-    
     // Render form
     renderPrepForm(contextHtml);
     
@@ -1557,34 +1549,6 @@ function getSeniorityClass(seniority) {
   return 'other';
 }
 
-// Trigger Clay enrichment for external attendees (fire and forget)
-async function triggerClayEnrichment(attendees) {
-  if (!attendees || attendees.length === 0) return;
-  
-  try {
-    const response = await fetch('/api/clay/enrich-attendees', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        attendees: attendees.map(a => ({
-          name: a.name || '',
-          email: a.email || ''
-        }))
-      })
-    });
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      console.log('Clay enrichment triggered:', result.submitted, 'attendees submitted');
-    } else {
-      console.warn('Clay enrichment failed:', result.error);
-    }
-  } catch (err) {
-    console.warn('Failed to trigger Clay enrichment:', err.message);
-    // Don't throw - this is fire and forget
-  }
-}
 </script>
 
 </body>

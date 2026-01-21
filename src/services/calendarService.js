@@ -261,6 +261,9 @@ class CalendarService {
       logger.warn(`📅 Calendar errors for ${errors.length} BLs:`, errors);
     }
 
+    // Proactively enrich external attendees via Clay webhook (fire and forget)
+    this.enrichExternalAttendeesAsync(uniqueMeetings);
+
     return {
       meetings: uniqueMeetings,
       stats: {
@@ -270,6 +273,52 @@ class CalendarService {
         errors: errors.length
       }
     };
+  }
+
+  /**
+   * Proactively enrich external attendees via Clay webhook
+   * Runs asynchronously - doesn't block calendar fetch
+   */
+  async enrichExternalAttendeesAsync(meetings) {
+    try {
+      // Collect all unique external attendees
+      const attendeeMap = new Map();
+      
+      for (const meeting of meetings) {
+        for (const att of (meeting.externalAttendees || [])) {
+          if (att.email && !attendeeMap.has(att.email.toLowerCase())) {
+            attendeeMap.set(att.email.toLowerCase(), {
+              name: att.name || '',
+              email: att.email
+            });
+          }
+        }
+      }
+
+      const uniqueAttendees = Array.from(attendeeMap.values());
+      
+      if (uniqueAttendees.length === 0) {
+        logger.debug('📤 No external attendees to enrich');
+        return;
+      }
+
+      logger.info(`📤 Proactively enriching ${uniqueAttendees.length} external attendees via Clay`);
+
+      // Import Clay enrichment service
+      const { enrichAttendeesViaWebhook } = require('./clayEnrichment');
+      
+      // Fire and forget - don't await
+      enrichAttendeesViaWebhook(uniqueAttendees)
+        .then(result => {
+          logger.info(`📤 Clay enrichment complete: ${result.submitted} submitted, ${result.errors} errors`);
+        })
+        .catch(err => {
+          logger.warn(`📤 Clay enrichment failed: ${err.message}`);
+        });
+
+    } catch (error) {
+      logger.warn(`📤 Failed to trigger Clay enrichment: ${error.message}`);
+    }
   }
 
   /**
