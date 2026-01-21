@@ -9,8 +9,15 @@ const { ClientSecretCredential } = require('@azure/identity');
 require('isomorphic-fetch');
 const logger = require('../utils/logger');
 
-// Business Lead email list (US + EU Pods)
-const BL_EMAILS = [
+// Business Lead email list - PILOT GROUP (3 BLs for initial testing)
+const BL_EMAILS_PILOT = [
+  'asad.hussain@eudia.com',
+  'olivia.jung@eudia.com',
+  'julie.stefanich@eudia.com'
+];
+
+// Full BL list (US + EU Pods) - enable when ready
+const BL_EMAILS_FULL = [
   // US Pod
   'asad.hussain@eudia.com',
   'himanshu.agarwal@eudia.com',
@@ -29,6 +36,9 @@ const BL_EMAILS = [
   'emer.flynn@eudia.com',
   'riona.mchale@eudia.com'
 ];
+
+// Use pilot group for now (switch to BL_EMAILS_FULL when ready to scale)
+const BL_EMAILS = process.env.USE_FULL_BL_LIST === 'true' ? BL_EMAILS_FULL : BL_EMAILS_PILOT;
 
 class CalendarService {
   constructor() {
