@@ -1406,8 +1406,11 @@ class GTMBrainApp {
           
           // Handle various Clay column name formats - check ALL variations
           // The key might have different casing or formatting from Clay
+          // IMPORTANT: Include "Sanitized Summary" and "safeSummary" - these are the actual column names used
           const summaryKeys = [
-            'summary', 'attendee_summary', 'Attendee Summary (2)', 'Attendee Summary (2.0)',
+            'attendee_summary', 'Sanitized Summary', 'safeSummary', 'sanitizedSummary',
+            'Sanitized_Summary', 'sanitized_summary',
+            'summary', 'Summary', 'Attendee Summary (2)', 'Attendee Summary (2.0)',
             'attendee_summary_2', 'Attendee Summary', 'bio', 'Bio', 'attendeeSummary',
             'Attendee_Summary_2', 'attendee summary 2'
           ];

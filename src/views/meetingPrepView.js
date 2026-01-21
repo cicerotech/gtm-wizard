@@ -107,10 +107,15 @@ function formatAttendeeName(att) {
  * Shows formatted names with title abbreviations when available
  */
 function renderAttendeeChips(meeting) {
-  const external = meeting.externalAttendees || [];
-  const internal = meeting.internalAttendees || [];
+  const rawExternal = meeting.externalAttendees || [];
+  const rawInternal = meeting.internalAttendees || [];
   
-  // If no attendee data, show nothing
+  // Filter out ghost attendees and EAs from external
+  const external = rawExternal.filter(a => !isGhostAttendee(a) && !isExecutiveAssistant(a));
+  // Filter out EAs from internal
+  const internal = rawInternal.filter(a => !isExecutiveAssistant(a));
+  
+  // If no attendee data after filtering, show nothing
   if (external.length === 0 && internal.length === 0) {
     return '';
   }
@@ -1478,30 +1483,39 @@ let accountsList = [];
 
 // EA exclusion list - Executive Assistants to filter from internal attendees
 // Use partial names/emails for robust matching (handles truncated display names)
+// EA exclusion list - Executive Assistants to completely exclude from all views
+// Uses multiple matching strategies for robust filtering
 const EA_EXCLUSIONS = [
-  { name: 'alyssa gradstein', email: 'alyssa.gradstein' },
-  { name: 'cassie farber', email: 'cassie.farber' }
+  { name: 'alyssa gradstein', email: 'alyssa.gradstein', aliases: ['alyssa', 'gradstein', 'gradstei'] },
+  { name: 'cassie farber', email: 'cassie.farber', aliases: ['cassie', 'farber'] }
 ];
 
-// Check if attendee is an EA (should be excluded)
+// Check if attendee is an EA (should be excluded from ALL views)
 function isExecutiveAssistant(attendee) {
+  if (!attendee) return false;
+  
   const email = (attendee.email || '').toLowerCase();
-  const name = (attendee.name || '').toLowerCase().replace(/[,.\-_]/g, ' ').replace(/\s+/g, ' ').trim();
+  const rawName = attendee.name || attendee.full_name || attendee.fullName || '';
+  const name = rawName.toLowerCase().replace(/[,.\-_@]/g, ' ').replace(/\s+/g, ' ').trim();
   
   return EA_EXCLUSIONS.some(ea => {
     // Match by email (partial - handles variations)
     if (email && email.includes(ea.email)) return true;
     
-    // Match by name (partial - handles truncated names like "Alyssa Gradstei")
-    // Check if first and last name parts appear in the attendee name
+    // Match by any alias (catches truncated names like "Alyssa Gradstei")
+    for (const alias of (ea.aliases || [])) {
+      if (name.includes(alias) || email.includes(alias)) return true;
+    }
+    
+    // Match by full name parts
     const eaParts = ea.name.split(' ');
     const firstName = eaParts[0] || '';
     const lastName = eaParts[1] || '';
     
-    // Match if name contains both first name AND significant portion of last name
+    // Match if name contains both first name AND any portion of last name (at least 4 chars)
     if (firstName && lastName) {
       const hasFirst = name.includes(firstName);
-      const hasLastPartial = name.includes(lastName.substring(0, Math.min(5, lastName.length)));
+      const hasLastPartial = name.includes(lastName.substring(0, Math.min(4, lastName.length)));
       if (hasFirst && hasLastPartial) return true;
     }
     
@@ -1866,9 +1880,9 @@ function renderPrepForm(contextHtml) {
   const data = currentMeetingData;
   const attendees = data.attendees || [];
   
-  // Filter external attendees: remove ghost entries (conference rooms, dial-ins, etc.)
+  // Filter external attendees: remove ghost entries (conference rooms, dial-ins, etc.) AND EAs
   const allExternal = data.externalAttendees || attendees.filter(a => a.isExternal);
-  const externalAttendees = allExternal.filter(a => !isGhostAttendee(a));
+  const externalAttendees = allExternal.filter(a => !isGhostAttendee(a) && !isExecutiveAssistant(a));
   
   // Filter out EAs from internal attendees
   const allInternal = data.internalAttendees || attendees.filter(a => !a.isExternal);
