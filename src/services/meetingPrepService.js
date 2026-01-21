@@ -320,7 +320,7 @@ async function getUpcomingMeetings(startDate, endDate) {
     
     const excludedCount = allMeetings.length - filteredMeetings.length;
     logger.info(`[MeetingPrep] Total meetings: ${filteredMeetings.length} (Excluded ${excludedCount} internal/hold/canceled)`);
-    logger.debug(`[MeetingPrep] Sources - Manual: ${manualMeetings.length}, SF: ${sfEvents.length}, Outlook: ${outlookEvents.length}`);
+    logger.debug(`[MeetingPrep] Sources - Manual: ${manualMeetings.length}, Outlook: ${outlookEvents.length}`);
     
     return filteredMeetings;
   } catch (error) {
