@@ -1838,11 +1838,10 @@ function parseAttendeeSummary(rawSummary) {
 
 /**
  * Post-process and standardize attendee summary for consistent display
- * Target format: "Name – Title at Company. [Details without redundant intro]"
+ * Target format: "Name – Title at Company. [Unique details only]"
  * 
- * Example transformations:
- * "Vidisha Patel is a Senior Director at IQVIA..." → "Vidisha Patel – Senior Director at IQVIA. ..."
- * "John Smith serves as VP..." → "John Smith – VP at Company. ..."
+ * Key principle: NO DUPLICATION - if the summary already says the title/company,
+ * extract and use only the NEW information.
  * 
  * @param {string} summary - Raw or parsed summary
  * @param {string} displayName - The attendee's display name
@@ -1855,6 +1854,16 @@ function standardizeSummary(summary, displayName, title, company) {
   
   let cleanSummary = summary.trim();
   
+  // Build the header we'll use
+  let header = displayName + ' –';
+  if (title && company) {
+    header = displayName + ' – ' + title + ' at ' + company + '.';
+  } else if (title) {
+    header = displayName + ' – ' + title + '.';
+  } else if (company) {
+    header = displayName + ' at ' + company + '.';
+  }
+  
   // ======================================================================
   // STEP 1: Check if already in correct format "Name – Title at Company"
   // ======================================================================
@@ -1865,75 +1874,35 @@ function standardizeSummary(summary, displayName, title, company) {
   }
   
   // ======================================================================
-  // STEP 2: Reformat "Name is a/an/the Title at Company" pattern
+  // STEP 2: Remove redundant intro patterns and extract unique content
   // ======================================================================
-  // Pattern: "John Smith is a Senior VP at Microsoft and leads..."
-  const isPattern = /^([A-Z][a-z]+(?:\s+[A-Z]'?[a-z]+)*)\s+is\s+(?:a|an|the)?\s*([^.]+?)(?:\s+at\s+([^.]+?))?[.,]/i;
-  const isMatch = cleanSummary.match(isPattern);
+  // Remove "Name is the Title at Company." pattern completely
+  const redundantIntroPattern = /^[A-Z][a-z]+(?:\s+[A-Z]'?[a-z]+)*\s+is\s+(?:a|an|the\s+)?[^.]+(?:\s+at\s+[^.]+)?[.]/i;
+  let uniqueContent = cleanSummary.replace(redundantIntroPattern, '').trim();
   
-  if (isMatch) {
-    const extractedName = isMatch[1];
-    const extractedTitle = isMatch[2].trim();
-    const extractedCompany = isMatch[3]?.trim() || company;
-    
-    // Remove the matched intro and get the rest
-    const restOfSummary = cleanSummary.substring(isMatch[0].length).trim();
-    
-    // Build new summary
-    const newHeader = displayName + ' – ' + (title || extractedTitle) + 
-                      (extractedCompany ? ' at ' + extractedCompany : '') + '.';
-    
-    cleanSummary = restOfSummary ? newHeader + ' ' + capitalizeFirst(restOfSummary) : newHeader;
-    console.log('[Summary Format] Reformatted from "is a/an" pattern');
-    return cleanSummary;
+  // Also remove patterns like "They are the..." or "He/She is the..."
+  uniqueContent = uniqueContent.replace(/^(?:They|He|She)\s+(?:is|are)\s+(?:a|an|the\s+)?[^.]+(?:\s+at\s+[^.]+)?[.]\s*/i, '').trim();
+  
+  // Remove duplicate "Name is the Title" if it appears again
+  const nameVariants = [displayName, displayName.split(' ')[0]];
+  for (const name of nameVariants) {
+    const dupePattern = new RegExp(escapeRegex(name) + '\\s+is\\s+(?:a|an|the\\s+)?[^.]+(?:\\s+at\\s+[^.]+)?[.]\\s*', 'gi');
+    uniqueContent = uniqueContent.replace(dupePattern, '').trim();
   }
   
   // ======================================================================
-  // STEP 3: Reformat "Name serves as / works as / leads" patterns
+  // STEP 3: Build final summary with header + unique content
   // ======================================================================
-  const servesPattern = /^([A-Z][a-z]+(?:\s+[A-Z]'?[a-z]+)*)\s+(serves as|works as|leads|joined|holds|has been|currently)\s+(?:the\s+)?([^.]+?)(?:\s+at\s+([^.]+?))?[.,]/i;
-  const servesMatch = cleanSummary.match(servesPattern);
-  
-  if (servesMatch) {
-    const extractedTitle = servesMatch[3].trim();
-    const extractedCompany = servesMatch[4]?.trim() || company;
-    
-    const restOfSummary = cleanSummary.substring(servesMatch[0].length).trim();
-    
-    const newHeader = displayName + ' – ' + (title || extractedTitle) + 
-                      (extractedCompany ? ' at ' + extractedCompany : '') + '.';
-    
-    cleanSummary = restOfSummary ? newHeader + ' ' + capitalizeFirst(restOfSummary) : newHeader;
-    console.log('[Summary Format] Reformatted from "serves as" pattern');
-    return cleanSummary;
+  if (uniqueContent && uniqueContent.length > 10) {
+    // Capitalize first letter of unique content
+    uniqueContent = uniqueContent.charAt(0).toUpperCase() + uniqueContent.slice(1);
+    console.log('[Summary Format] Extracted unique content:', uniqueContent.substring(0, 50) + '...');
+    return header + ' ' + uniqueContent;
   }
   
-  // ======================================================================
-  // STEP 4: Summary starts with name but wrong format - prepend header
-  // ======================================================================
-  const startsWithName = cleanSummary.toLowerCase().startsWith(displayName.toLowerCase());
-  if (startsWithName) {
-    // Remove the name from the start and rebuild
-    const afterName = cleanSummary.substring(displayName.length).trim();
-    
-    if (title && company) {
-      return displayName + ' – ' + title + ' at ' + company + '. ' + capitalizeFirst(afterName);
-    }
-  }
-  
-  // ======================================================================
-  // STEP 5: Summary doesn't start with name - prepend full header
-  // ======================================================================
-  if (title && company) {
-    return displayName + ' – ' + title + ' at ' + company + '. ' + cleanSummary;
-  } else if (title) {
-    return displayName + ' – ' + title + '. ' + cleanSummary;
-  } else if (company) {
-    return displayName + ' at ' + company + '. ' + cleanSummary;
-  }
-  
-  // Fallback: prepend just the name
-  return displayName + ' – ' + cleanSummary;
+  // If no unique content, just return the header (title + company is enough)
+  console.log('[Summary Format] No unique content, using header only');
+  return header;
 }
 
 // Helper: Escape special regex characters
@@ -2430,12 +2399,7 @@ function renderPrepForm(contextHtml) {
                 \${isEnriched && standardizedSummary ? \`
                   <div class="attendee-bio">\${standardizedSummary}</div>
                 \` : ''}
-                \${linkedinUrl ? \`
-                  <a href="\${linkedinUrl}" target="_blank" class="attendee-linkedin">LinkedIn Profile</a>
-                  <a href="https://www.linkedin.com/search/results/all/?keywords=\${encodeURIComponent(displayName + ' ' + companyDisplay)}" target="_blank" class="attendee-linkedin-fallback" title="Search LinkedIn if link doesn't work">(search)</a>
-                \` : \`
-                  <a href="https://www.linkedin.com/search/results/all/?keywords=\${encodeURIComponent(displayName + ' ' + companyDisplay)}" target="_blank" class="attendee-linkedin-search">Search LinkedIn</a>
-                \`}
+                <a href="https://www.linkedin.com/search/results/all/?keywords=\${encodeURIComponent(displayName + ' ' + companyDisplay)}" target="_blank" class="attendee-linkedin">Find on LinkedIn</a>
                 \${!isEnriched ? \`
                   <div class="attendee-pending-subtle">Enrichment in progress...</div>
                 \` : ''}
