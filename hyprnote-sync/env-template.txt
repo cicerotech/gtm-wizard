@@ -1,0 +1,18 @@
+# Salesforce Credentials for Hyprnote Sync
+# ==========================================
+#
+# INSTRUCTIONS:
+# 1. Copy this file to .env (in the same folder)
+# 2. Fill in the values below
+# 3. Get credentials from RevOps (Keigan)
+#
+# COMMAND TO COPY:
+#   cp env-template.txt .env
+#
+
+# Salesforce service account credentials
+SF_USERNAME=sync.service@eudia.com
+SF_PASSWORD=your_password_here
+SF_SECURITY_TOKEN=your_security_token_here
+SF_INSTANCE_URL=https://eudia.my.salesforce.com
+

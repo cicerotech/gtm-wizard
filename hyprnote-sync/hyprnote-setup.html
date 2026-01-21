@@ -231,22 +231,49 @@
       </div>
     </div>
     
-    <!-- SALES: STEP 5 - RUN SETUP -->
+    <!-- SALES: STEP 5 - ADD CREDENTIALS -->
     <div class="section sales-only">
-      <div class="section-title"><span class="step-num">5</span> Run Setup</div>
-      <p class="desc">Paste this command and press Enter:</p>
+      <div class="section-title"><span class="step-num">5</span> Add Salesforce Credentials</div>
+      <p class="desc">Create the .env file with credentials (get password from Keigan):</p>
       <div class="cmd-box">
-        <code id="cmd3">cd ~/Documents/hyprnote-sync && npm install --silent && node setup-quick.js</code>
+        <code id="cmd3">cd ~/Documents/hyprnote-sync && cat > .env << 'EOF'
+SF_USERNAME=sync.service@eudia.com
+SF_PASSWORD=ASK_KEIGAN_FOR_PASSWORD
+SF_SECURITY_TOKEN=
+SF_INSTANCE_URL=https://eudia.my.salesforce.com
+EOF</code>
         <button class="copy-btn" onclick="copyCmd('cmd3', this)">Copy</button>
       </div>
-      <p class="note">Enter your Eudia email when prompted. Wait for "Setup Complete".</p>
+      <p class="note"><strong>Important:</strong> Replace ASK_KEIGAN_FOR_PASSWORD with the actual password from Keigan on Slack.</p>
+    </div>
+    
+    <!-- SALES: STEP 6 - RUN SETUP -->
+    <div class="section sales-only">
+      <div class="section-title"><span class="step-num">6</span> Run Setup</div>
+      <p class="desc">Paste this command and press Enter:</p>
+      <div class="cmd-box">
+        <code id="cmd4">cd ~/Documents/hyprnote-sync && npm install --silent && node setup-quick.js</code>
+        <button class="copy-btn" onclick="copyCmd('cmd4', this)">Copy</button>
+      </div>
+      <p class="note">Confirm your name when prompted. Wait for "Setup Complete".</p>
+    </div>
+    
+    <!-- SALES: STEP 7 - TEST SYNC -->
+    <div class="section sales-only">
+      <div class="section-title"><span class="step-num">7</span> Test Sync</div>
+      <p class="desc">Run a test sync to verify everything works:</p>
+      <div class="cmd-box">
+        <code id="cmd5">cd ~/Documents/hyprnote-sync && npm run sync</code>
+        <button class="copy-btn" onclick="copyCmd('cmd5', this)">Copy</button>
+      </div>
+      <p class="note">Should show "Connected!" and list your recent meetings.</p>
     </div>
     
     <!-- SALES: DONE -->
     <div class="section sales-only">
       <div class="done-box">
         <strong>Done</strong>
-        <p>Meetings sync to Salesforce every 3 hours automatically.</p>
+        <p>Run <code style="background:#eee;padding:2px 6px;border-radius:3px;">npm run sync</code> after meetings to sync to Salesforce.</p>
       </div>
     </div>
     
