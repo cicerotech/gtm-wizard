@@ -65,22 +65,40 @@ function abbreviateTitle(title) {
 
 /**
  * Normalize and format attendee name for display
+ * Handles: email-style names (first.last), run-together names (Flastname), 
+ * "Last, First" format, ALL CAPS, and mixed case issues
  */
 function formatAttendeeName(att) {
   let name = att.name || '';
   
-  // If no name, try to extract from email
+  // If no name or name looks like an email, extract from email
   if (!name || name.includes('@')) {
     const email = att.email || '';
     if (email) {
       const localPart = email.split('@')[0];
-      name = localPart
-        .replace(/\d+$/g, '')
-        .replace(/[._-]/g, ' ')
-        .trim()
-        .split(' ')
-        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-        .join(' ');
+      name = parseEmailLocalPart(localPart);
+    }
+  }
+  
+  // If name contains periods/underscores but no spaces, it's email-style (e.g., "steve.drake")
+  if (name && !name.includes(' ') && /[._-]/.test(name)) {
+    name = parseEmailLocalPart(name);
+  }
+  
+  // Handle run-together names like "Dcronkey" or "Njellis" (FirstInitialLastName)
+  // Pattern: Single capital followed by lowercase = likely run-together
+  if (name && !name.includes(' ') && name.length > 3) {
+    // Check if it looks like FirstInitialLastname (e.g., "Dcronkey" -> "D. Cronkey")
+    const runTogetherMatch = name.match(/^([A-Z])([a-z]+)$/);
+    if (runTogetherMatch) {
+      const initial = runTogetherMatch[1];
+      const lastName = runTogetherMatch[2];
+      name = initial + '. ' + lastName.charAt(0).toUpperCase() + lastName.slice(1);
+    }
+    // Check for "FirstnameLastname" pattern (e.g., "NickEllis" -> "Nick Ellis")
+    const camelMatch = name.match(/^([A-Z][a-z]+)([A-Z][a-z]+)$/);
+    if (camelMatch) {
+      name = camelMatch[1] + ' ' + camelMatch[2];
     }
   }
   
@@ -99,7 +117,27 @@ function formatAttendeeName(att) {
       .join(' ');
   }
   
+  // Final cleanup: ensure proper capitalization for single words
+  if (name && !name.includes(' ') && name.length > 1) {
+    name = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+  }
+  
   return name || 'Unknown';
+}
+
+/**
+ * Parse email local part (before @) into a readable name
+ * e.g., "john.smith" -> "John Smith", "jsmith123" -> "Jsmith"
+ */
+function parseEmailLocalPart(localPart) {
+  return localPart
+    .replace(/\d+$/g, '')           // Remove trailing numbers
+    .replace(/[._-]/g, ' ')         // Replace separators with spaces
+    .trim()
+    .split(' ')
+    .filter(w => w.length > 0)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
 }
 
 /**
