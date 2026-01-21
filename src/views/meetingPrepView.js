@@ -1975,14 +1975,14 @@ function formatContextSection(ctx) {
   // Dynamic context from multiple sources with source indicators
   let hasRecentContext = false;
   let recentContextHtml = '<div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">';
-  recentContextHtml += '<div class="context-label" style="margin-bottom: 10px; font-size: 0.85rem;">📊 Recent Context</div>';
+  recentContextHtml += '<div class="context-label" style="margin-bottom: 10px; font-size: 0.85rem;">Recent Context</div>';
   
   // Source 1: Meeting Notes from Customer Brain
   if (ctx.meetingNotes?.length) {
     hasRecentContext = true;
     ctx.meetingNotes.slice(0, 2).forEach(note => {
       recentContextHtml += '<div style="margin-bottom: 10px; padding: 8px; background: rgba(74, 222, 128, 0.1); border-radius: 6px; border-left: 3px solid #4ade80;">';
-      recentContextHtml += '<div style="font-size: 0.7rem; color: #4ade80; margin-bottom: 2px;">📝 Meeting Notes</div>';
+      recentContextHtml += '<div style="font-size: 0.7rem; color: #4ade80; margin-bottom: 2px;">Meeting Notes</div>';
       recentContextHtml += '<div style="font-size: 0.7rem; color: #9ca3af; margin-bottom: 4px;">' + note.date + ' • ' + note.rep + '</div>';
       recentContextHtml += '<div style="font-size: 0.8rem; line-height: 1.4;">' + note.summary + '</div>';
       recentContextHtml += '</div>';
@@ -1994,7 +1994,7 @@ function formatContextSection(ctx) {
     hasRecentContext = true;
     ctx.slackIntel.slice(0, 2).forEach(intel => {
       recentContextHtml += '<div style="margin-bottom: 8px; padding: 8px; background: rgba(244, 114, 182, 0.1); border-radius: 6px; border-left: 3px solid #f472b6;">';
-      recentContextHtml += '<div style="font-size: 0.7rem; color: #f472b6; margin-bottom: 2px;">💬 Slack</div>';
+      recentContextHtml += '<div style="font-size: 0.7rem; color: #f472b6; margin-bottom: 2px;">Slack</div>';
       recentContextHtml += '<div style="font-size: 0.75rem;"><span style="color: #d1d5db;">[' + intel.category + ']</span> ' + intel.summary + '</div>';
       recentContextHtml += '</div>';
     });
@@ -2006,7 +2006,7 @@ function formatContextSection(ctx) {
     ctx.priorMeetings.slice(0, 2).forEach(m => {
       const dateStr = m.date ? new Date(m.date).toLocaleDateString() : '';
       recentContextHtml += '<div style="margin-bottom: 6px; padding: 6px 8px; background: rgba(96, 165, 250, 0.1); border-radius: 6px; border-left: 3px solid #60a5fa;">';
-      recentContextHtml += '<div style="font-size: 0.7rem; color: #60a5fa; margin-bottom: 2px;">📋 Prior Prep</div>';
+      recentContextHtml += '<div style="font-size: 0.7rem; color: #60a5fa; margin-bottom: 2px;">Prior Prep</div>';
       recentContextHtml += '<div style="font-size: 0.75rem;">' + dateStr + ' - ' + (m.title || 'Meeting') + '</div>';
       recentContextHtml += '</div>';
     });
@@ -2020,7 +2020,7 @@ function formatContextSection(ctx) {
   } else {
     // Empty state - first meeting or no context yet
     html += '<div style="margin-top: 12px; padding: 12px; background: rgba(251, 191, 36, 0.1); border-radius: 6px; border: 1px solid rgba(251, 191, 36, 0.3);">';
-    html += '<div style="font-size: 0.8rem; color: #fbbf24;">💡 No recent context available</div>';
+    html += '<div style="font-size: 0.8rem; color: #fbbf24;">No recent context available</div>';
     html += '<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px;">First meeting? Record with Hyprnote to build account history.</div>';
     html += '</div>';
   }
@@ -2028,7 +2028,7 @@ function formatContextSection(ctx) {
   // Always show: Open Opportunities
   if (ctx.salesforce?.openOpportunities?.length) {
     html += '<div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">';
-    html += '<div class="context-label" style="margin-bottom: 8px;">💼 Open Opportunities (' + ctx.salesforce.openOpportunities.length + ')</div>';
+    html += '<div class="context-label" style="margin-bottom: 8px;">Open Opportunities (' + ctx.salesforce.openOpportunities.length + ')</div>';
     ctx.salesforce.openOpportunities.slice(0, 3).forEach(opp => {
       const acvStr = opp.acv ? '$' + (opp.acv / 1000).toFixed(0) + 'k' : '';
       html += '<div style="font-size: 0.75rem; margin-bottom: 4px;">';
@@ -2042,7 +2042,7 @@ function formatContextSection(ctx) {
   // Always show: Key Contacts
   if (ctx.salesforce?.keyContacts?.length) {
     html += '<div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">';
-    html += '<div class="context-label" style="margin-bottom: 8px;">👥 Key Contacts</div>';
+    html += '<div class="context-label" style="margin-bottom: 8px;">Key Contacts</div>';
     ctx.salesforce.keyContacts.slice(0, 4).forEach(c => {
       html += '<div style="font-size: 0.75rem; margin-bottom: 4px;">';
       html += c.name;
@@ -2060,6 +2060,7 @@ function formatContextSection(ctx) {
 function renderPrepForm(contextHtml) {
   const data = currentMeetingData;
   const attendees = data.attendees || [];
+  const meetingSource = data.source || 'unknown';
   
   // Filter external attendees: remove ghost entries (conference rooms, dial-ins, etc.) AND EAs
   const allExternal = data.externalAttendees || attendees.filter(a => a.isExternal);
@@ -2068,6 +2069,11 @@ function renderPrepForm(contextHtml) {
   // Filter out EAs from internal attendees
   const allInternal = data.internalAttendees || attendees.filter(a => !a.isExternal);
   const internalAttendees = allInternal.filter(a => !isExecutiveAssistant(a));
+  
+  // Determine empty attendees message based on source
+  const noAttendeesMessage = meetingSource === 'salesforce' 
+    ? 'Attendees not specified — see Key Contacts above'
+    : 'No external attendees';
   
   const agenda = data.agenda || ['', '', ''];
   const goals = data.goals || ['', '', ''];
@@ -2087,7 +2093,7 @@ function renderPrepForm(contextHtml) {
     
     <div class="form-section">
       <div class="form-section-title">
-        👥 Attendees
+        Attendees
         \${hasEnrichedAttendees ? '<span class="ai-badge">AI-Enhanced</span>' : ''}
       </div>
       
@@ -2143,7 +2149,7 @@ function renderPrepForm(contextHtml) {
             \`;
           }).join('')}
         </div>
-      \` : '<div class="no-attendees">No external attendees</div>'}
+      \` : '<div class="no-attendees">' + noAttendeesMessage + '</div>'}
       
       \${internalAttendees.length > 0 ? \`
         <div class="attendee-section-label internal">Internal Attendees (\${internalAttendees.length})</div>

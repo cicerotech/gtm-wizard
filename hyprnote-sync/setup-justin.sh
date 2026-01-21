@@ -50,6 +50,9 @@ echo "  ✓ lib/matcher.js"
 curl -sL "$BASE_URL/lib/obsidian.js" -o lib/obsidian.js
 echo "  ✓ lib/obsidian.js"
 
+curl -sL "$BASE_URL/lib/team-registry.js" -o lib/team-registry.js
+echo "  ✓ lib/team-registry.js"
+
 # Step 4: Create .env with credentials
 echo ""
 echo "Step 4: Creating credentials file..."
