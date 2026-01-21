@@ -1333,6 +1333,65 @@ class GTMBrainApp {
       }
     });
     
+    // Fallback enrichment using Claude API when Clay data is insufficient
+    this.expressApp.post('/api/attendee/fallback-enrich', async (req, res) => {
+      try {
+        const { attendees } = req.body;
+        
+        if (!attendees || !Array.isArray(attendees) || attendees.length === 0) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'attendees array required' 
+          });
+        }
+
+        logger.info(`[Fallback Enrich API] Processing ${attendees.length} attendees`);
+
+        const { enrichAttendeesBatch, getRateLimitStatus } = require('./services/attendeeFallbackEnrichment');
+        
+        // Log rate limit status
+        const rateLimits = getRateLimitStatus();
+        logger.info(`[Fallback Enrich API] Rate limits: ${rateLimits.hourly.remaining} hourly, ${rateLimits.daily.remaining} daily remaining`);
+        
+        const enrichedAttendees = await enrichAttendeesBatch(attendees);
+        
+        // Count results by source
+        const sources = {};
+        enrichedAttendees.forEach(a => {
+          const src = a.source || a.fallbackSkipped || 'unknown';
+          sources[src] = (sources[src] || 0) + 1;
+        });
+        
+        logger.info(`[Fallback Enrich API] Complete. Sources: ${JSON.stringify(sources)}`);
+        
+        res.json({ 
+          success: true, 
+          enrichedAttendees,
+          rateLimits,
+          sources
+        });
+      } catch (error) {
+        logger.error('[Fallback Enrich API] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Get fallback enrichment rate limit status
+    this.expressApp.get('/api/attendee/fallback-status', async (req, res) => {
+      try {
+        const { getRateLimitStatus, CONFIG } = require('./services/attendeeFallbackEnrichment');
+        const status = getRateLimitStatus();
+        
+        res.json({
+          success: true,
+          enabled: CONFIG.enabled,
+          ...status
+        });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // Debug endpoint: Check SQLite directly for enrichment count
     this.expressApp.get('/api/clay/debug-db', async (req, res) => {
       try {

@@ -120,6 +120,23 @@ async function initialize() {
         
         db.run(`CREATE INDEX IF NOT EXISTS idx_enrichment_email ON attendee_enrichment(email)`);
         
+        // Attendee Enrichment Cache - for Claude fallback enrichments
+        db.run(`
+          CREATE TABLE IF NOT EXISTS attendee_enrichment_cache (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            title TEXT,
+            summary TEXT,
+            confidence TEXT,
+            source TEXT DEFAULT 'claude_fallback',
+            enriched_at TEXT DEFAULT CURRENT_TIMESTAMP
+          )
+        `, (err) => {
+          if (err) logger.error('Failed to create attendee_enrichment_cache table:', err);
+        });
+        
+        db.run(`CREATE INDEX IF NOT EXISTS idx_cache_email ON attendee_enrichment_cache(email)`);
+        
         logger.info('✅ Intelligence database tables initialized');
         resolve();
       });
@@ -138,6 +155,14 @@ function close() {
     });
     db = null;
   }
+}
+
+/**
+ * Get the database instance (for use by other services)
+ * @returns {sqlite3.Database|null} Database instance
+ */
+function getDb() {
+  return db;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -910,6 +935,7 @@ async function getAttendeeEnrichments(emails) {
 module.exports = {
   initialize,
   close,
+  getDb,
   // Channel registry
   addMonitoredChannel,
   removeMonitoredChannel,

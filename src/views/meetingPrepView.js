@@ -1970,6 +1970,8 @@ async function openMeetingPrep(meetingId) {
     
     if (externalEmails.length > 0) {
       try {
+        // Step 1: Try Clay enrichment first
+        console.log('[Enrichment] Step 1: Fetching Clay enrichment for', externalEmails.length, 'attendees');
         const enrichRes = await fetch('/api/clay/get-enrichment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1988,12 +1990,65 @@ async function openMeetingPrep(meetingId) {
                 linkedinUrl: enrichment.linkedinUrl || a.linkedinUrl,
                 company: enrichment.company || a.company,
                 summary: enrichment.summary || a.summary,
-                enriched: true
+                enriched: true,
+                source: 'clay'
               };
             }
             return a;
           });
         }
+        
+        // Step 2: Identify attendees needing fallback (no title AND no valid summary)
+        const needsFallback = currentMeetingData.externalAttendees.filter(a => {
+          const hasTitle = a.title && a.title.trim().length > 3;
+          const summary = a.summary || '';
+          const hasSummary = summary.length > 50 && 
+            !summary.toLowerCase().includes('no public linkedin') &&
+            !summary.toLowerCase().includes('profile information limited');
+          return !hasTitle && !hasSummary;
+        });
+        
+        console.log('[Enrichment] Step 2: ', needsFallback.length, 'attendees need fallback enrichment');
+        
+        // Step 3: Call fallback enrichment for those without data
+        if (needsFallback.length > 0) {
+          console.log('[Enrichment] Step 3: Calling Claude fallback for:', needsFallback.map(a => a.email));
+          try {
+            const fallbackRes = await fetch('/api/attendee/fallback-enrich', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ attendees: needsFallback })
+            });
+            const fallbackData = await fallbackRes.json();
+            
+            if (fallbackData.success && fallbackData.enrichedAttendees) {
+              console.log('[Enrichment] Step 4: Fallback complete. Sources:', fallbackData.sources);
+              
+              // Merge fallback data back into main array
+              const fallbackMap = {};
+              fallbackData.enrichedAttendees.forEach(a => {
+                if (a.email) fallbackMap[a.email.toLowerCase()] = a;
+              });
+              
+              currentMeetingData.externalAttendees = currentMeetingData.externalAttendees.map(a => {
+                const fallback = fallbackMap[a.email?.toLowerCase()];
+                if (fallback && (fallback.title || fallback.summary)) {
+                  return {
+                    ...a,
+                    title: fallback.title || a.title,
+                    summary: fallback.summary || a.summary,
+                    source: fallback.source || 'claude_fallback',
+                    confidence: fallback.confidence
+                  };
+                }
+                return a;
+              });
+            }
+          } catch (fallbackErr) {
+            console.warn('[Enrichment] Fallback failed (non-critical):', fallbackErr.message);
+          }
+        }
+        
       } catch (e) {
         console.error('Failed to fetch enrichment:', e);
       }
