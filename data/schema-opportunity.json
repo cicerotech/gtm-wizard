@@ -69,6 +69,63 @@
       "synonyms": ["weighted acv", "finance weighted", "weighted amount"]
     },
     {
+      "apiName": "Weighted_ACV__c",
+      "label": "Weighted ACV",
+      "type": "currency",
+      "custom": true,
+      "synonyms": ["weighted", "probability weighted", "expected value"]
+    },
+    {
+      "apiName": "Renewal_Net_Change__c",
+      "label": "Renewal Net Change",
+      "type": "currency",
+      "custom": true,
+      "synonyms": ["net new", "incremental", "net change", "renewal uplift"]
+    },
+    {
+      "apiName": "Prior_Opp_ACV__c",
+      "label": "Prior Opp ACV",
+      "type": "currency",
+      "custom": true,
+      "synonyms": ["prior acv", "base acv", "renewal base"]
+    },
+    {
+      "apiName": "BL_Forecast_Category__c",
+      "label": "BL Forecast Category",
+      "type": "picklist",
+      "custom": true,
+      "synonyms": ["bl forecast", "forecast category", "commit category"],
+      "values": ["Pipeline", "Gut", "Commit", "Closed"]
+    },
+    {
+      "apiName": "BL_Quarterly_Forecast__c",
+      "label": "BL Quarterly Forecast",
+      "type": "currency",
+      "custom": true,
+      "synonyms": ["bl forecast amount", "quarterly forecast"]
+    },
+    {
+      "apiName": "BL_Quarterly_Forecast_NN__c",
+      "label": "BL Quarterly Forecast NN",
+      "type": "currency",
+      "custom": true,
+      "synonyms": ["bl forecast net new", "forecast net new"]
+    },
+    {
+      "apiName": "Blended_Forecast__c",
+      "label": "Blended Forecast",
+      "type": "currency",
+      "custom": true,
+      "synonyms": ["blended", "midpoint forecast", "combined forecast"]
+    },
+    {
+      "apiName": "Quarterly_Commit_Amount__c",
+      "label": "Quarterly Commit Amount",
+      "type": "currency",
+      "custom": true,
+      "synonyms": ["commit amount", "quarterly commit"]
+    },
+    {
       "apiName": "StageName",
       "label": "Stage",
       "type": "picklist",
