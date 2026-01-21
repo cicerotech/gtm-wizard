@@ -68,3 +68,4 @@ console.log(`Inactive stages: ${inactiveCount}`);
 console.log(`Total: ${activeCount + inactiveCount}`);
 console.log(`\nXML saved to: temp-stages/OpportunityStage.standardValueSet-meta.xml`);
 
+

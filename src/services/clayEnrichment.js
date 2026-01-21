@@ -54,6 +54,9 @@ class ClayEnrichment {
     // Clay Table IDs (set these after creating tables in Clay UI)
     this.companyTableId = process.env.CLAY_COMPANY_TABLE_ID || null;
     this.attendeeTableId = process.env.CLAY_ATTENDEE_TABLE_ID || null;
+    
+    // Clay Webhook URL for attendee enrichment (set in environment)
+    this.webhookUrl = process.env.CLAY_WEBHOOK_URL || null;
   }
 
   /**
@@ -246,6 +249,113 @@ class ClayEnrichment {
   }
 
   /**
+   * Enrich attendee via Clay Webhook
+   * Posts attendee data to Clay webhook, which triggers internal enrichments
+   * @param {string} name - Full name
+   * @param {string} email - Email address
+   * @returns {Object} Response from webhook
+   */
+  async enrichAttendeeViaWebhook(name, email) {
+    if (!this.webhookUrl) {
+      logger.warn('⚠️ CLAY_WEBHOOK_URL not configured');
+      return { success: false, error: 'Webhook URL not configured' };
+    }
+
+    // Check cache first
+    const cacheKey = `webhook:${email?.toLowerCase() || name?.toLowerCase()}`;
+    const cached = enrichmentCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      logger.debug(`Cache hit for webhook attendee: ${name}`);
+      return cached.data;
+    }
+
+    try {
+      logger.info(`📤 Posting to Clay webhook: ${name} <${email}>`);
+      
+      const response = await fetch(this.webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: email || '',
+          full_name: name || ''
+        })
+      });
+
+      const responseText = await response.text();
+      
+      if (!response.ok) {
+        logger.error(`Clay webhook error: ${response.status} - ${responseText}`);
+        return { 
+          success: false, 
+          error: `Webhook returned ${response.status}`,
+          name,
+          email
+        };
+      }
+
+      logger.info(`✅ Clay webhook accepted: ${name}`);
+      
+      // Webhook accepted - enrichment happens async in Clay
+      // Results will be fetched later or via Clay callback
+      const result = {
+        success: true,
+        status: 'pending',
+        message: 'Submitted to Clay for enrichment',
+        name,
+        email,
+        submittedAt: new Date().toISOString()
+      };
+
+      // Cache the submission
+      enrichmentCache.set(cacheKey, { data: result, timestamp: Date.now() });
+      
+      return result;
+
+    } catch (error) {
+      logger.error(`Clay webhook failed for ${name}:`, error.message);
+      return {
+        success: false,
+        error: error.message,
+        name,
+        email
+      };
+    }
+  }
+
+  /**
+   * Batch enrich attendees via webhook
+   * @param {Array} attendees - Array of { name, email } objects
+   * @returns {Object} Summary of submissions
+   */
+  async enrichAttendeesViaWebhook(attendees) {
+    if (!attendees || attendees.length === 0) {
+      return { submitted: 0, errors: 0, results: [] };
+    }
+
+    logger.info(`📤 Submitting ${attendees.length} attendees to Clay webhook`);
+
+    const results = await Promise.allSettled(
+      attendees.map(att => this.enrichAttendeeViaWebhook(att.name, att.email))
+    );
+
+    const submitted = results.filter(r => r.status === 'fulfilled' && r.value?.success).length;
+    const errors = results.filter(r => r.status === 'rejected' || !r.value?.success).length;
+
+    return {
+      submitted,
+      errors,
+      total: attendees.length,
+      results: results.map((r, i) => ({
+        ...attendees[i],
+        ...(r.status === 'fulfilled' ? r.value : { error: r.reason?.message })
+      }))
+    };
+  }
+
+  /**
    * Enrich attendee data (name + email → title, company, LinkedIn, seniority)
    * Uses cache to avoid re-enriching same person within TTL
    * @param {string} name - Full name
@@ -382,6 +492,8 @@ module.exports = {
   clayEnrichment,
   enrichCompanyData: (companyName) => clayEnrichment.enrichCompanyData(companyName),
   enrichAttendee: (name, email) => clayEnrichment.enrichAttendee(name, email),
-  enrichAttendees: (attendees) => clayEnrichment.enrichAttendees(attendees)
+  enrichAttendees: (attendees) => clayEnrichment.enrichAttendees(attendees),
+  enrichAttendeeViaWebhook: (name, email) => clayEnrichment.enrichAttendeeViaWebhook(name, email),
+  enrichAttendeesViaWebhook: (attendees) => clayEnrichment.enrichAttendeesViaWebhook(attendees)
 };
 

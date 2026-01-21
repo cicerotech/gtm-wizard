@@ -21,9 +21,11 @@ async function generateMeetingPrepHTML(filterUserId = null) {
     logger.error('Failed to load BL users:', e);
   }
   
-  // Filter by user if specified
+  // Filter by user if specified (pass both userId and email for Outlook matching)
   if (filterUserId) {
-    meetings = meetingPrepService.filterMeetingsByUser(meetings, filterUserId);
+    const selectedUser = blUsers.find(u => u.userId === filterUserId);
+    const userEmail = selectedUser?.email || null;
+    meetings = meetingPrepService.filterMeetingsByUser(meetings, filterUserId, userEmail);
   }
   
   const grouped = meetingPrepService.groupMeetingsByDay(meetings);
@@ -253,6 +255,48 @@ body {
 
 .meeting-source.salesforce { background: #dbeafe; color: #1e40af; }
 .meeting-source.manual { background: #f3e8ff; color: #7c3aed; }
+.meeting-source.outlook { background: #ecfdf5; color: #047857; }
+
+/* Attendee Chips */
+.meeting-attendees {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.attendee-chip {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  white-space: nowrap;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attendee-chip.external {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.attendee-chip.internal {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+.attendee-count {
+  font-size: 0.65rem;
+  color: #6b7280;
+  margin-top: 6px;
+}
+
+.attendee-count .external-count {
+  color: #d97706;
+  font-weight: 500;
+}
 
 .empty-day {
   text-align: center;
@@ -810,13 +854,14 @@ textarea.input-field {
           ` : (grouped[day.key] || []).map(meeting => `
             <div class="meeting-card ${meeting.agenda?.some(a => a?.trim()) ? 'has-prep' : ''}" 
                  onclick="openMeetingPrep('${meeting.meeting_id || meeting.meetingId}')"
-                 data-attendees='${JSON.stringify((meeting.attendees || []).map(a => ({name: a.name, isExternal: a.isExternal})))}'>
+                 data-attendees='${JSON.stringify((meeting.attendees || meeting.externalAttendees || []).map(a => ({name: a.name, email: a.email, isExternal: a.isExternal})))}'>
               <div class="meeting-account">${meeting.account_name || meeting.accountName || 'Unknown'}</div>
               <div class="meeting-title">${meeting.meeting_title || meeting.meetingTitle || 'Untitled'}</div>
               <div class="meeting-time">
                 ${formatTime(meeting.meeting_date || meeting.meetingDate)}
                 <span class="meeting-source ${meeting.source}">${meeting.source}</span>
               </div>
+              ${renderAttendeeChips(meeting)}
             </div>
           `).join('')}
         </div>
@@ -910,6 +955,38 @@ async function loadAccounts() {
   }
 }
 
+// Render attendee chips for meeting card
+function renderAttendeeChips(meeting) {
+  const external = meeting.externalAttendees || [];
+  const internal = meeting.internalAttendees || [];
+  
+  // If no attendee data, show nothing
+  if (external.length === 0 && internal.length === 0) {
+    return '';
+  }
+  
+  // Show up to 3 external attendees as chips, then count
+  const externalChips = external.slice(0, 3).map(att => {
+    const firstName = (att.name || att.email || 'Unknown').split(' ')[0].split('@')[0];
+    return \`<span class="attendee-chip external" title="\${att.name || att.email}">\${firstName}</span>\`;
+  }).join('');
+  
+  const moreCount = external.length > 3 ? external.length - 3 : 0;
+  const moreChip = moreCount > 0 ? \`<span class="attendee-chip external">+\${moreCount}</span>\` : '';
+  
+  // Build count string
+  const countParts = [];
+  if (external.length > 0) countParts.push(\`<span class="external-count">\${external.length} external</span>\`);
+  if (internal.length > 0) countParts.push(\`\${internal.length} internal\`);
+  
+  return \`
+    <div class="meeting-attendees">
+      \${externalChips}\${moreChip}
+    </div>
+    <div class="attendee-count">\${countParts.join(', ')}</div>
+  \`;
+}
+
 // Format time from ISO string
 function formatTime(isoString) {
   if (!isoString) return '';
@@ -960,6 +1037,14 @@ async function openMeetingPrep(meetingId) {
       } catch (e) {
         console.error('Failed to load context:', e);
       }
+    }
+    
+    // Trigger Clay enrichment for external attendees (fire and forget)
+    const externalAttendees = currentMeetingData.externalAttendees || 
+      (currentMeetingData.attendees || []).filter(a => a.isExternal);
+    
+    if (externalAttendees.length > 0) {
+      triggerClayEnrichment(externalAttendees);
     }
     
     // Render form
@@ -1459,6 +1544,35 @@ function getSeniorityClass(seniority) {
   if (s.includes('director') || s.includes('vp')) return 'director';
   if (s.includes('manager')) return 'manager';
   return 'other';
+}
+
+// Trigger Clay enrichment for external attendees (fire and forget)
+async function triggerClayEnrichment(attendees) {
+  if (!attendees || attendees.length === 0) return;
+  
+  try {
+    const response = await fetch('/api/clay/enrich-attendees', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        attendees: attendees.map(a => ({
+          name: a.name || '',
+          email: a.email || ''
+        }))
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      console.log('Clay enrichment triggered:', result.submitted, 'attendees submitted');
+    } else {
+      console.warn('Clay enrichment failed:', result.error);
+    }
+  } catch (err) {
+    console.warn('Failed to trigger Clay enrichment:', err.message);
+    // Don't throw - this is fire and forget
+  }
 }
 </script>
 

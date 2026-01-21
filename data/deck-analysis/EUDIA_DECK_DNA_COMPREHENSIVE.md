@@ -353,3 +353,4 @@ Full extracted content available in:
 4. **Generation System:** Build intake form (industry, use case, stakeholder, size) → auto-populated deck
 
 
+

@@ -204,6 +204,7 @@ async function getUpcomingMeetings(startDate, endDate) {
         meetingDate: event.startDateTime,
         endDate: event.endDateTime,
         owner: event.ownerEmail,
+        ownerEmail: event.ownerEmail, // Explicit email for filtering
         attendees: event.allAttendees,
         externalAttendees: event.externalAttendees,
         internalAttendees: event.internalAttendees,
@@ -606,16 +607,29 @@ async function getBLUsers() {
 /**
  * Filter meetings by user (owner or attendee)
  */
-function filterMeetingsByUser(meetings, userId) {
+function filterMeetingsByUser(meetings, userId, userEmail = null) {
   if (!userId) return meetings;
   
   return meetings.filter(meeting => {
-    // Check if user is owner
+    // Check if user is owner (SF events use ownerId)
     if (meeting.ownerId === userId) return true;
+    
+    // Check if user is owner by email (Outlook events use ownerEmail)
+    if (userEmail && meeting.owner) {
+      const ownerEmail = typeof meeting.owner === 'string' ? meeting.owner : meeting.owner.email;
+      if (ownerEmail && ownerEmail.toLowerCase() === userEmail.toLowerCase()) return true;
+    }
+    
+    // Check ownerEmail field directly (Outlook normalized events)
+    if (userEmail && meeting.ownerEmail && meeting.ownerEmail.toLowerCase() === userEmail.toLowerCase()) return true;
     
     // Check if user is in attendees
     const attendees = meeting.attendees || meeting.internalAttendees || [];
-    return attendees.some(a => a.userId === userId || a.contactId === userId);
+    return attendees.some(a => {
+      if (a.userId === userId || a.contactId === userId) return true;
+      if (userEmail && a.email && a.email.toLowerCase() === userEmail.toLowerCase()) return true;
+      return false;
+    });
   });
 }
 

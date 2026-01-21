@@ -20,3 +20,4 @@ pd.set_option('display.max_colwidth', 60)
 for idx, row in df_sf.iterrows():
     print(f'{idx+1}. {row.iloc[0]}')
 
+

@@ -40,6 +40,28 @@ const BL_EMAILS_FULL = [
 // Use pilot group for now (switch to BL_EMAILS_FULL when ready to scale)
 const BL_EMAILS = process.env.USE_FULL_BL_LIST === 'true' ? BL_EMAILS_FULL : BL_EMAILS_PILOT;
 
+// Internal meeting keywords to exclude (case-insensitive)
+const INTERNAL_MEETING_KEYWORDS = [
+  'jhi',           // Jump-in-here internal syncs
+  '1:1',           // One-on-ones
+  'all hands',
+  'team sync',
+  'standup',
+  'stand-up',
+  'internal',
+  'sync with',
+  'weekly sync',
+  'eudia team',
+  'eudia meeting',
+  'office hours',
+  'training',
+  'onboarding',
+  'planning',
+  'retrospective',
+  'retro',
+  'sprint'
+];
+
 class CalendarService {
   constructor() {
     this.graphClient = null;
@@ -136,6 +158,15 @@ class CalendarService {
   }
 
   /**
+   * Check if meeting subject matches internal meeting keywords
+   */
+  isInternalMeetingBySubject(subject) {
+    if (!subject) return false;
+    const subjectLower = subject.toLowerCase();
+    return INTERNAL_MEETING_KEYWORDS.some(keyword => subjectLower.includes(keyword));
+  }
+
+  /**
    * Normalize Graph API event to internal format
    */
   normalizeEvent(event, ownerEmail) {
@@ -150,8 +181,13 @@ class CalendarService {
     const externalAttendees = allAttendees.filter(a => a.isExternal);
     const internalAttendees = allAttendees.filter(a => !a.isExternal);
 
-    // Determine if this is a customer meeting (has external attendees)
-    const isCustomerMeeting = externalAttendees.length > 0;
+    // Check if subject matches internal meeting keywords
+    const hasInternalKeyword = this.isInternalMeetingBySubject(event.subject);
+
+    // Determine if this is a customer meeting:
+    // - Must have at least one external attendee
+    // - Must NOT match internal meeting keywords
+    const isCustomerMeeting = externalAttendees.length > 0 && !hasInternalKeyword;
 
     return {
       eventId: event.id,
@@ -172,6 +208,7 @@ class CalendarService {
       externalAttendees,
       internalAttendees,
       isCustomerMeeting,
+      hasInternalKeyword, // For debugging
       source: 'outlook'
     };
   }

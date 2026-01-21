@@ -1277,6 +1277,31 @@ class GTMBrainApp {
       }
     });
 
+    // Trigger Clay enrichment for meeting attendees
+    this.expressApp.post('/api/clay/enrich-attendees', async (req, res) => {
+      try {
+        const { attendees } = req.body;
+        
+        if (!attendees || !Array.isArray(attendees) || attendees.length === 0) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'attendees array required' 
+          });
+        }
+
+        const { enrichAttendeesViaWebhook } = require('./services/clayEnrichment');
+        const result = await enrichAttendeesViaWebhook(attendees);
+        
+        res.json({ 
+          success: true, 
+          ...result 
+        });
+      } catch (error) {
+        logger.error('Error enriching attendees via Clay:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     logger.info('✅ Express server configured');
   }
 
