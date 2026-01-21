@@ -23,7 +23,7 @@ const CONFIG = {
   
   // Model selection - use Haiku for cost efficiency
   model: process.env.CLAUDE_ENRICHMENT_MODEL || 'eudia-claude-sonnet-45',
-  maxTokens: 300,
+  maxTokens: 500, // Increased for detailed summaries
   
   // Personal email domains to skip (not worth enriching)
   personalDomains: ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 'icloud.com', 'protonmail.com'],
@@ -175,21 +175,45 @@ async function enrichAttendeeWithClaude(attendee) {
   
   logger.info(`[Fallback Enrich] CHECKPOINT: Starting Claude enrichment for ${formattedName} (${email})`);
   
-  // Build focused prompt - minimal tokens, structured output
-  const prompt = `Based on publicly available professional information, provide a brief profile.
+  // Build focused prompt - detailed format for legal AI sales prep
+  const emailDomain = email.split('@')[1] || 'unknown';
+  const companyCapitalized = company.charAt(0).toUpperCase() + company.slice(1);
+  
+  const prompt = `Generate a professional attendee profile for a legal AI sales meeting prep document.
 
-Name: ${formattedName}
-Email Domain: ${email.split('@')[1] || 'unknown'}
-Company: ${company}
+**Attendee:**
+- Name: ${formattedName}
+- Email Domain: ${emailDomain}
+- Company: ${companyCapitalized}
 
-Return ONLY valid JSON (no markdown, no explanation):
+**Format Required (follow this structure exactly):**
+"[Full Name] – [Current Title] at [Company] [since start date OR tenure if known]. [1-2 sentences about role scope/responsibilities]. [Previous roles AT THIS COMPANY with dates if they've held multiple positions]. [Prior experience at other notable companies - 1 sentence]. Based in [City, State/Country]."
+
+**Guidelines:**
+1. Always start with: "Name – Title at Company"
+2. Include tenure or start date when identifiable
+3. Show career PROGRESSION at current company if multiple roles held
+4. Briefly mention 1-2 prior notable employers (especially legal, tech, finance)
+5. End with location if identifiable from professional sources
+6. Focus on legal, compliance, operations, or executive roles (relevant for legal AI sales)
+7. Total length: 3-5 sentences
+
+**Example Outputs:**
+"Russell Elmer – General Counsel at ServiceNow. Leading legal function since November 2018. Previously served as General Counsel at Lending Club (2016-2018) and VP, Deputy General Counsel at PayPal (2015-2016)."
+
+"Niki Armstrong – Chief Administrative & Legal Officer at Pure Storage since January 2024. Previously served as Chief Legal Officer & Corporate Secretary (2022-2024), General Counsel & Corporate Secretary (2021-2022), and VP & AGC (2020-2021). With company for 8 years. Based in Menlo Park, California."
+
+Return ONLY valid JSON (no markdown, no extra text):
 {
-  "title": "Current job title or null",
-  "summary": "1-2 sentence professional summary (max 150 chars). Format: '[Name] – [Title] at [Company]. [Key detail].'",
+  "title": "Current job title",
+  "summary": "The formatted summary following template above (3-5 sentences)",
+  "location": "City, State/Country or null if unknown",
+  "yearsAtCompany": number or null,
   "confidence": "high|medium|low"
 }
 
-If insufficient information, use: {"title": null, "summary": "${formattedName} – Profile information limited.", "confidence": "low"}`;
+If insufficient public information available:
+{"title": null, "summary": "${formattedName} – Profile information limited. Unable to verify current role details.", "location": null, "yearsAtCompany": null, "confidence": "low"}`;
 
   try {
     const startTime = Date.now();
@@ -252,6 +276,7 @@ If insufficient information, use: {"title": null, "summary": "${formattedName} �
     logger.info(`[Fallback Enrich] SUCCESS: Enriched ${formattedName} via Claude`, {
       title: parsed.title,
       confidence: parsed.confidence,
+      location: parsed.location,
       duration,
       summaryLength: parsed.summary?.length || 0
     });
@@ -260,6 +285,8 @@ If insufficient information, use: {"title": null, "summary": "${formattedName} �
       success: true,
       title: parsed.title || null,
       summary: parsed.summary || `${formattedName} – Profile information limited.`,
+      location: parsed.location || null,
+      yearsAtCompany: parsed.yearsAtCompany || null,
       confidence: parsed.confidence || 'medium',
       source: 'claude_fallback',
       duration,

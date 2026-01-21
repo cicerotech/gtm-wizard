@@ -1687,6 +1687,60 @@ function extractNameFromEmail(email) {
 }
 
 /**
+ * Extract the best available full name for an attendee
+ * Priority: full_name from enrichment > name extracted from summary > raw name > email extraction
+ * @param {Object} attendee - Attendee object with name/email/enrichment data
+ * @param {string} summary - Parsed summary text (may contain full name at start)
+ * @returns {string} Best available full name
+ */
+function extractBestName(attendee, summary) {
+  // Priority 1: full_name from Clay enrichment
+  if (attendee.full_name && attendee.full_name.trim().length > 2 && !attendee.full_name.includes('@')) {
+    const fullName = normalizeName(attendee.full_name);
+    if (fullName.includes(' ') || fullName.length > 5) {
+      console.log('[Name Extract] Using full_name:', fullName);
+      return fullName;
+    }
+  }
+  
+  // Priority 2: Extract name from summary (format: "FirstName LastName – Title...")
+  if (summary && typeof summary === 'string') {
+    const dashMatch = summary.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*[–\-—]/);
+    if (dashMatch && dashMatch[1]) {
+      console.log('[Name Extract] Extracted from summary:', dashMatch[1]);
+      return dashMatch[1].trim();
+    }
+  }
+  
+  // Priority 3: Raw name field (normalize it)
+  if (attendee.name && attendee.name.trim().length > 2 && !attendee.name.includes('@')) {
+    const normalizedName = normalizeName(attendee.name);
+    
+    // If it's a single word, try to expand from email
+    if (!normalizedName.includes(' ') && attendee.email) {
+      const emailName = extractNameFromEmail(attendee.email);
+      // If email gives us a two-part name, use it but keep the original as last name
+      if (emailName.includes(' ')) {
+        console.log('[Name Extract] Expanded single name via email:', emailName);
+        return emailName;
+      }
+    }
+    
+    console.log('[Name Extract] Using normalized name:', normalizedName);
+    return normalizedName;
+  }
+  
+  // Priority 4: Extract from email
+  if (attendee.email) {
+    const emailName = extractNameFromEmail(attendee.email);
+    console.log('[Name Extract] Extracted from email:', emailName);
+    return emailName;
+  }
+  
+  return 'Unknown';
+}
+
+/**
  * Check if an attendee has valid enrichment data (not limited/empty)
  * Returns true if attendee has: title, LinkedIn URL, or valid summary
  * @param {Object} attendee - Attendee object with potential enrichment
@@ -1780,6 +1834,57 @@ function parseAttendeeSummary(rawSummary) {
   }
   
   return trimmed;
+}
+
+/**
+ * Post-process and standardize attendee summary for consistent display
+ * Ensures format: "Name – Title at Company. Details..."
+ * @param {string} summary - Raw or parsed summary
+ * @param {string} displayName - The attendee's display name
+ * @param {string} title - Job title if available
+ * @param {string} company - Company name if available
+ * @returns {string} Standardized summary
+ */
+function standardizeSummary(summary, displayName, title, company) {
+  if (!summary) return null;
+  
+  // If summary already starts with name, return as-is (already formatted)
+  if (summary.startsWith(displayName)) {
+    return summary;
+  }
+  
+  // Check if summary starts with a different name format
+  // Pattern: "FirstName LastName is..." or "FirstName is..."
+  const startsWithNamePattern = /^[A-Z][a-z]+\s+([A-Z][a-z]+\s+)?(?:is|serves|works|leads|has|holds|was|joined)/i;
+  if (startsWithNamePattern.test(summary)) {
+    // Extract and replace with consistent name
+    const formattedSummary = summary.replace(
+      /^([A-Z][a-z]+(?:\s+[A-Z]'?[a-z]+)*)\s+(is|serves|works|leads|has|holds|was|joined)/i,
+      displayName + ' – ' + (title || '') + (title && company ? ' at ' : '') + (company || '') + '. $1 $2'
+    );
+    
+    // If replacement made it worse, try a simpler approach
+    if (formattedSummary.length > summary.length + 50) {
+      // Just prepend "Name – Title at Company. " if we have that info
+      if (title && company) {
+        return displayName + ' – ' + title + ' at ' + company + '. ' + summary;
+      }
+    }
+    
+    return formattedSummary;
+  }
+  
+  // If summary doesn't start with a name, prepend the header
+  if (title && company) {
+    return displayName + ' – ' + title + ' at ' + company + '. ' + summary;
+  } else if (title) {
+    return displayName + ' – ' + title + '. ' + summary;
+  } else if (company) {
+    return displayName + ' at ' + company + '. ' + summary;
+  }
+  
+  // Just return original if we can't improve it
+  return summary;
 }
 
 // ============================================================
@@ -2223,17 +2328,7 @@ function renderPrepForm(contextHtml) {
         <div class="attendee-intel-cards">
           \${externalAttendees.map((a, i) => {
             // QUALITY CHECK: Log attendee data for debugging
-            console.log('[Attendee ' + i + '] Processing:', a.email, '| Raw summary type:', typeof a.summary);
-            
-            // Extract name properly - use extractNameFromEmail if no name provided
-            const rawName = a.name && !a.name.includes('@') 
-              ? a.name 
-              : extractNameFromEmail(a.email);
-            const displayName = normalizeName(rawName);
-            
-            // Get company from enrichment or parse from email
-            const company = a.company || (a.email ? a.email.split('@')[1]?.split('.')[0] : '');
-            const companyDisplay = company ? company.charAt(0).toUpperCase() + company.slice(1) : '';
+            console.log('[Attendee ' + i + '] Processing:', a.email, '| full_name:', a.full_name, '| name:', a.name);
             
             // Get enrichment data - PARSE the summary to extract clean text
             const rawSummary = a.summary || a.attendee_summary || a.bio || null;
@@ -2241,8 +2336,18 @@ function renderPrepForm(contextHtml) {
             const title = a.title || null;
             const linkedinUrl = a.linkedinUrl || a.linkedin_url || null;
             
+            // Extract FULL name with priority: full_name > name from summary > name > email
+            let displayName = extractBestName(a, summary);
+            
+            // Get company from enrichment or parse from email
+            const company = a.company || (a.email ? a.email.split('@')[1]?.split('.')[0] : '');
+            const companyDisplay = company ? company.charAt(0).toUpperCase() + company.slice(1) : '';
+            
+            // Standardize the summary format for consistent display
+            const standardizedSummary = summary ? standardizeSummary(summary, displayName, title, companyDisplay) : null;
+            
             // QUALITY CHECK: Log parsed result
-            console.log('[Attendee ' + i + '] Parsed summary:', summary ? summary.substring(0, 50) + '...' : 'null');
+            console.log('[Attendee ' + i + '] Display name:', displayName, '| Has summary:', !!standardizedSummary);
             
             // Check if has valid enrichment (filters out "Profile information limited")
             const isEnriched = hasValidEnrichment(a);
@@ -2261,8 +2366,8 @@ function renderPrepForm(contextHtml) {
                     </div>
                   </div>
                 </div>
-                \${isEnriched && summary ? \`
-                  <div class="attendee-bio">\${summary}</div>
+                \${isEnriched && standardizedSummary ? \`
+                  <div class="attendee-bio">\${standardizedSummary}</div>
                 \` : ''}
                 \${linkedinUrl ? \`
                   <a href="\${linkedinUrl}" target="_blank" class="attendee-linkedin">LinkedIn Profile</a>
