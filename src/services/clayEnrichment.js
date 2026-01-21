@@ -472,8 +472,9 @@ class ClayEnrichment {
     try {
       const intelligenceStore = require('./intelligenceStore');
       const stored = await intelligenceStore.getAttendeeEnrichment(email);
-      if (stored && stored.title) {
+      if (stored && stored.summary && !stored.summary.toLowerCase().includes('profile information limited')) {
         enrichmentCache.set(cacheKey, { data: stored, timestamp: Date.now() });
+        logger.debug(`✅ Found local enrichment for: ${email}`);
         return { success: true, ...stored, fromCache: false, source: 'local_store' };
       }
     } catch (err) {
@@ -481,11 +482,15 @@ class ClayEnrichment {
     }
 
     // If Clay API is configured with table ID, try to query
-    if (this.enabled && this.attendeeTableId) {
+    if (this.apiKey && this.attendeeTableId) {
       try {
-        logger.info(`🔍 Querying Clay table for: ${email}`);
+        logger.info(`🔍 Querying Clay table (${this.attendeeTableId}) for: ${email}`);
         
-        const response = await fetch(`${this.baseUrl}/tables/${this.attendeeTableId}/rows`, {
+        // Use Clay API v3 endpoint
+        const clayApiUrl = `https://api.clay.com/v3/tables/${this.attendeeTableId}/rows`;
+        logger.debug(`Clay API URL: ${clayApiUrl}`);
+        
+        const response = await fetch(clayApiUrl, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${this.apiKey}`,
@@ -495,51 +500,100 @@ class ClayEnrichment {
 
         if (response.ok) {
           const data = await response.json();
-          // Find row matching email
-          const row = (data.rows || []).find(r => 
-            (r.email || '').toLowerCase() === email.toLowerCase()
-          );
+          logger.debug(`Clay API returned ${(data.rows || data.data || []).length} rows`);
+          
+          // Find row matching email - check multiple email field variations
+          const rows = data.rows || data.data || [];
+          const row = rows.find(r => {
+            const rowEmail = (r.email || r.Email || r['Email'] || '').toLowerCase();
+            return rowEmail === email.toLowerCase();
+          });
           
           if (row) {
+            logger.info(`✅ Found Clay enrichment for: ${email}`);
+            
             // Clay column names can vary - check multiple variations
             // "Attendee Summary (2)" might come through as various formats
             const getSummary = (r) => {
-              return r.attendee_summary 
-                || r['attendee_summary'] 
-                || r['Attendee Summary (2)']
+              // Log available keys for debugging
+              logger.debug(`Row keys: ${Object.keys(r).join(', ')}`);
+              
+              return r['Attendee Summary (2)']
                 || r['attendee_summary_2']
                 || r['Attendee Summary']
+                || r.attendee_summary 
+                || r['attendee_summary'] 
                 || r.summary 
+                || r.Summary
                 || r.bio 
+                || r.Bio
                 || null;
             };
             
             const getLinkedIn = (r) => {
-              return r.linkedin_url 
+              return r['LinkedIn URL']
                 || r['linkedin_url']
-                || r['LinkedIn URL']
+                || r.linkedin_url 
                 || r.linkedin 
                 || r['LinkedIn']
+                || r.LinkedIn
                 || null;
             };
             
+            const getTitle = (r) => {
+              return r['Title']
+                || r.title
+                || r['Job Title']
+                || r.job_title
+                || null;
+            };
+            
+            const summary = getSummary(row);
+            
+            // Filter out "Profile information limited" results
+            if (summary && summary.toLowerCase().includes('profile information limited')) {
+              logger.info(`⚠️ Skipping limited profile for: ${email}`);
+              return { 
+                success: false, 
+                email, 
+                status: 'limited',
+                message: 'Profile information limited - insufficient data'
+              };
+            }
+            
             const enriched = {
               email,
-              name: row.full_name || row.name || row['Full Name'] || null,
-              title: row.title || row.job_title || row['Title'] || row['Job Title'] || null,
+              name: row['Full Name'] || row.full_name || row.name || row.Name || null,
+              title: getTitle(row),
               linkedinUrl: getLinkedIn(row),
-              company: row.company || row.company_name || row['Company'] || null,
-              summary: getSummary(row),
+              company: row['Company'] || row.company || row.company_name || null,
+              summary: summary,
               source: 'clay_table'
             };
             
+            // Store locally for future use
+            try {
+              const intelligenceStore = require('./intelligenceStore');
+              await intelligenceStore.saveAttendeeEnrichment(enriched);
+              logger.info(`💾 Saved enrichment locally for: ${email}`);
+            } catch (storeErr) {
+              logger.warn(`Failed to store enrichment locally: ${storeErr.message}`);
+            }
+            
             enrichmentCache.set(cacheKey, { data: enriched, timestamp: Date.now() });
             return { success: true, ...enriched };
+          } else {
+            logger.debug(`No matching row found in Clay for: ${email}`);
           }
+        } else {
+          const errorText = await response.text();
+          logger.error(`Clay API error ${response.status}: ${errorText}`);
         }
       } catch (error) {
         logger.error(`Clay table query failed for ${email}:`, error.message);
       }
+    } else {
+      logger.debug(`Clay not configured - apiKey: ${!!this.apiKey}, tableId: ${!!this.attendeeTableId}`);
     }
 
     return { 

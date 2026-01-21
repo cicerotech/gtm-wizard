@@ -805,6 +805,56 @@ textarea.input-field {
   color: #9ca3af;
 }
 
+/* Attendee meta row (title + company in footer) */
+.attendee-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.attendee-title-badge {
+  background: #e0e7ff;
+  color: #3730a3;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.attendee-card.enriched .attendee-title-badge {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* LinkedIn link variations */
+.linkedin-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #0077b5;
+  text-decoration: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.linkedin-link:hover {
+  color: #005582;
+}
+
+.linkedin-link-small {
+  display: inline-block;
+  color: #0077b5;
+  text-decoration: none;
+  font-size: 0.7rem;
+  margin-top: 6px;
+}
+
+.linkedin-link-small:hover {
+  text-decoration: underline;
+}
+
 /* Enriched Attendee Intel Section */
 .attendee-intel-section {
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
@@ -1244,6 +1294,58 @@ function normalizeName(rawName) {
   return name;
 }
 
+/**
+ * Extract a readable name from an email address
+ * Handles patterns like: first.last@, first_last@, firstlast1@
+ * @param {string} email - Email address
+ * @returns {string} Extracted name in Title Case
+ */
+function extractNameFromEmail(email) {
+  if (!email || !email.includes('@')) return 'Unknown';
+  
+  const localPart = email.split('@')[0];
+  
+  // Handle patterns: first.last, first_last, first-last, firstlast1
+  let name = localPart
+    .replace(/\d+$/g, '')           // Remove trailing numbers (e.g., jsmith1 → jsmith)
+    .replace(/[._-]/g, ' ')         // Replace dots, underscores, hyphens with spaces
+    .replace(/(\d+)/g, ' ')         // Replace any remaining numbers with spaces
+    .trim();
+  
+  // If still no spaces (e.g., "jsmith"), try to split on camelCase or common patterns
+  if (!name.includes(' ') && name.length > 3) {
+    // Try camelCase split: johnSmith → john Smith
+    name = name.replace(/([a-z])([A-Z])/g, '$1 $2');
+  }
+  
+  // Title case each word
+  return name
+    .split(' ')
+    .filter(w => w.length > 0)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/**
+ * Check if an attendee has valid enrichment data (not limited/empty)
+ * @param {Object} attendee - Attendee object with potential enrichment
+ * @returns {boolean} True if has useful enrichment data
+ */
+function hasValidEnrichment(attendee) {
+  const summary = attendee.summary || attendee.attendee_summary || attendee.bio || '';
+  
+  // No summary at all
+  if (!summary || summary.trim().length === 0) return false;
+  
+  // Filter out "Profile information limited" results
+  if (summary.toLowerCase().includes('profile information limited')) return false;
+  
+  // Too short to be useful (less than 30 chars is probably not a real bio)
+  if (summary.trim().length < 30) return false;
+  
+  return true;
+}
+
 // ============================================================
 // GHOST ATTENDEE FILTERING
 // Filters out non-human calendar entries (conference rooms, dial-ins, etc.)
@@ -1535,10 +1637,9 @@ function renderPrepForm(contextHtml) {
   const goals = data.goals || ['', '', ''];
   const demos = data.demoSelections || [{ product: '', subtext: '' }, { product: '', subtext: '' }, { product: '', subtext: '' }];
   
-  // Check if any attendees have enriched data (bio/summary or title)
-  const enrichedAttendees = externalAttendees.filter(a => 
-    (a.bio || a.summary || a.attendee_summary || a.title) && a.confidence !== 'low'
-  );
+  // Check if any attendees have valid enrichment data
+  // Uses hasValidEnrichment to filter out "Profile information limited" results
+  const enrichedAttendees = externalAttendees.filter(a => hasValidEnrichment(a));
   const hasEnrichedAttendees = enrichedAttendees.length > 0;
   
   const demoOptions = '<option value="">Select product...</option>' + 
@@ -1598,31 +1699,45 @@ function renderPrepForm(contextHtml) {
         <div class="attendee-section-label external">External Attendees (\${externalAttendees.length})</div>
         <div class="attendee-list">
           \${externalAttendees.map((a, i) => {
-            const rawName = a.name || (a.email ? a.email.split('@')[0].replace(/[._]/g, ' ') : 'Unknown');
+            // Extract name properly - use extractNameFromEmail if no name provided
+            const rawName = a.name && !a.name.includes('@') 
+              ? a.name 
+              : extractNameFromEmail(a.email);
             const displayName = normalizeName(rawName);
+            
+            // Get company from enrichment or parse from email
             const company = a.company || (a.email ? a.email.split('@')[1]?.split('.')[0] : '');
             const companyDisplay = company ? company.charAt(0).toUpperCase() + company.slice(1) : '';
+            
+            // Get enrichment data
             const summary = a.summary || a.attendee_summary || a.bio || null;
-            const hasEnrichment = summary || a.title;
+            const title = a.title || null;
+            const linkedinUrl = a.linkedinUrl || a.linkedin_url || null;
+            
+            // Check if has valid enrichment (filters out "Profile information limited")
+            const isEnriched = hasValidEnrichment(a);
             
             return \`
-              <div class="attendee-card \${hasEnrichment ? 'enriched' : ''}">
-                \${summary ? \`
+              <div class="attendee-card \${isEnriched ? 'enriched' : ''}">
+                \${isEnriched && summary ? \`
                   <div class="attendee-summary">\${summary}</div>
                   <div class="attendee-card-footer">
-                    \${companyDisplay ? '<span class="company-tag">' + companyDisplay + '</span>' : ''}
-                    \${a.linkedinUrl ? '<a href="' + a.linkedinUrl + '" target="_blank" class="linkedin-link" title="View LinkedIn Profile">🔗</a>' : ''}
+                    <div class="attendee-meta">
+                      \${title ? '<span class="attendee-title-badge">' + title + '</span>' : ''}
+                      \${companyDisplay ? '<span class="company-tag">' + companyDisplay + '</span>' : ''}
+                    </div>
+                    \${linkedinUrl ? '<a href="' + linkedinUrl + '" target="_blank" class="linkedin-link" title="View LinkedIn Profile">🔗 LinkedIn</a>' : ''}
                   </div>
                 \` : \`
                   <div class="attendee-card-header">
                     <span class="attendee-name">\${displayName}</span>
-                    \${a.linkedinUrl ? '<a href="' + a.linkedinUrl + '" target="_blank" class="linkedin-link" title="LinkedIn Profile">🔗</a>' : ''}
                   </div>
                   <div class="attendee-card-details">
-                    \${a.title ? '<span class="attendee-title">' + a.title + '</span>' : ''}
+                    \${title ? '<span class="attendee-title">' + title + '</span>' : ''}
                     \${companyDisplay ? '<span class="attendee-company">' + companyDisplay + '</span>' : ''}
                   </div>
-                  <div class="attendee-pending">Enrichment pending...</div>
+                  \${linkedinUrl ? '<a href="' + linkedinUrl + '" target="_blank" class="linkedin-link-small">🔗 LinkedIn</a>' : ''}
+                  <div class="attendee-pending">Enrichment in progress...</div>
                 \`}
               </div>
             \`;
@@ -1634,7 +1749,10 @@ function renderPrepForm(contextHtml) {
         <div class="attendee-section-label internal">Internal Attendees (\${internalAttendees.length})</div>
         <div class="attendee-chips">
           \${internalAttendees.map((a, i) => {
-            const rawName = a.name || (a.email ? a.email.split('@')[0].replace(/[._]/g, ' ') : 'Unknown');
+            // Extract name properly - use extractNameFromEmail if no name provided
+            const rawName = a.name && !a.name.includes('@') 
+              ? a.name 
+              : extractNameFromEmail(a.email);
             const displayName = normalizeName(rawName);
             return \`
               <span class="attendee-chip internal" title="\${a.email || ''}">
