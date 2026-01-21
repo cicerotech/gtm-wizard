@@ -22,10 +22,17 @@ const obsidian = require('./lib/obsidian');
 const CONFIG_FILE = path.join(__dirname, 'data', 'config.json');
 const SYNCED_FILE = path.join(__dirname, 'data', 'synced-sessions.json');
 
-// Load parent .env if needed
+// Load .env file - check local directory first, then parent
 function loadEnv() {
-  const envPath = path.join(__dirname, '..', '.env');
+  // Check local .env first (in hyprnote-sync folder)
+  const localEnvPath = path.join(__dirname, '.env');
+  // Then check parent directory
+  const parentEnvPath = path.join(__dirname, '..', '.env');
+  
+  const envPath = fs.existsSync(localEnvPath) ? localEnvPath : parentEnvPath;
+  
   if (fs.existsSync(envPath)) {
+    console.log(`Loading credentials from: ${envPath}`);
     const envContent = fs.readFileSync(envPath, 'utf-8');
     envContent.split('\n').forEach(line => {
       const match = line.match(/^([^=]+)=(.*)$/);
@@ -353,23 +360,27 @@ async function runSync() {
   // Connect to Salesforce
   console.log('\nConnecting to Salesforce...');
   
-  let sfConfig = {};
-  if (config.salesforce.useEnvFile) {
-    sfConfig = {
-      username: process.env.SF_USERNAME,
-      password: process.env.SF_PASSWORD,
-      securityToken: process.env.SF_SECURITY_TOKEN || '',
-      instanceUrl: process.env.SF_INSTANCE_URL
-    };
-  } else {
-    sfConfig = config.salesforce;
-  }
+  // Always try environment variables first (most secure), then fall back to config
+  let sfConfig = {
+    username: process.env.SF_USERNAME || config.salesforce?.username,
+    password: process.env.SF_PASSWORD || config.salesforce?.password,
+    securityToken: process.env.SF_SECURITY_TOKEN || config.salesforce?.securityToken || '',
+    instanceUrl: process.env.SF_INSTANCE_URL || config.salesforce?.instanceUrl || 'https://eudia.my.salesforce.com'
+  };
   
   if (!sfConfig.username || !sfConfig.password) {
     console.log('ERROR: Salesforce credentials not configured');
-    console.log('  Run setup again or add credentials to .env file');
+    console.log('');
+    console.log('  Create a .env file in this folder with:');
+    console.log('    SF_USERNAME=your-username');
+    console.log('    SF_PASSWORD=your-password');
+    console.log('    SF_SECURITY_TOKEN=your-token');
+    console.log('    SF_INSTANCE_URL=https://eudia.my.salesforce.com');
+    console.log('');
     process.exit(1);
   }
+  
+  console.log('  Using credentials for: ' + sfConfig.username);
   
   try {
     await salesforce.connect(sfConfig);
