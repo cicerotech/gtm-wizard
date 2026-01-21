@@ -1938,7 +1938,8 @@ function standardizeSummary(summary, displayName, title, company) {
 
 // Helper: Escape special regex characters
 function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Escape special regex characters: . * + ? ^ $ { } ( ) | [ ] \
+  return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 }
 
 // Helper: Capitalize first letter
