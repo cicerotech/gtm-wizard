@@ -327,6 +327,7 @@ class ClayEnrichment {
 
   /**
    * Batch enrich attendees via webhook
+   * Uses sequential processing with delay to avoid rate limiting (429 errors)
    * @param {Array} attendees - Array of { name, email } objects
    * @returns {Object} Summary of submissions
    */
@@ -335,23 +336,39 @@ class ClayEnrichment {
       return { submitted: 0, errors: 0, results: [] };
     }
 
-    logger.info(`📤 Submitting ${attendees.length} attendees to Clay webhook`);
+    logger.info(`📤 Submitting ${attendees.length} attendees to Clay webhook (sequential with 150ms delay)`);
 
-    const results = await Promise.allSettled(
-      attendees.map(att => this.enrichAttendeeViaWebhook(att.name, att.email))
-    );
+    const results = [];
+    let submitted = 0;
+    let errors = 0;
 
-    const submitted = results.filter(r => r.status === 'fulfilled' && r.value?.success).length;
-    const errors = results.filter(r => r.status === 'rejected' || !r.value?.success).length;
+    // Process sequentially with delay to avoid rate limiting
+    for (const att of attendees) {
+      try {
+        const result = await this.enrichAttendeeViaWebhook(att.name, att.email);
+        results.push({ ...att, ...result });
+        
+        if (result?.success) {
+          submitted++;
+        } else {
+          errors++;
+        }
+        
+        // Add 150ms delay between requests to avoid Clay rate limiting
+        await new Promise(resolve => setTimeout(resolve, 150));
+      } catch (error) {
+        errors++;
+        results.push({ ...att, error: error.message });
+      }
+    }
+
+    logger.info(`📤 Clay webhook batch complete: ${submitted} submitted, ${errors} errors`);
 
     return {
       submitted,
       errors,
       total: attendees.length,
-      results: results.map((r, i) => ({
-        ...attendees[i],
-        ...(r.status === 'fulfilled' ? r.value : { error: r.reason?.message })
-      }))
+      results
     };
   }
 

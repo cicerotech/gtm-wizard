@@ -1604,10 +1604,20 @@ function extractNameFromEmail(email) {
 
 /**
  * Check if an attendee has valid enrichment data (not limited/empty)
+ * Returns true if attendee has: title, LinkedIn URL, or valid summary
  * @param {Object} attendee - Attendee object with potential enrichment
  * @returns {boolean} True if has useful enrichment data
  */
 function hasValidEnrichment(attendee) {
+  // Check for title - valid if exists and non-empty
+  const title = attendee.title || '';
+  if (title.trim().length > 0) return true;
+  
+  // Check for LinkedIn URL - valid if exists
+  const linkedinUrl = attendee.linkedinUrl || attendee.linkedin_url || '';
+  if (linkedinUrl.trim().length > 0) return true;
+  
+  // Check for summary/bio
   const summary = attendee.summary || attendee.attendee_summary || attendee.bio || '';
   
   // No summary at all

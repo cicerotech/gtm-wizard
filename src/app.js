@@ -1367,9 +1367,11 @@ class GTMBrainApp {
     // Accepts: { attendees: [...] } OR single object { email, name, ... } OR array [{ email, ... }]
     this.expressApp.post('/api/clay/store-enrichment', async (req, res) => {
       try {
-        // DIAGNOSTIC: Log the full raw payload from Clay
+        // DIAGNOSTIC: Log the full raw payload from Clay (verbose mode for debugging)
+        logger.info(`📥 [Clay Store] === INCOMING REQUEST ===`);
+        logger.info(`📥 [Clay Store] Request body type: ${typeof req.body}, isArray: ${Array.isArray(req.body)}`);
         logger.info(`📥 [Clay Store] Raw request body keys: ${Object.keys(req.body).join(', ')}`);
-        logger.info(`📥 [Clay Store] Raw payload sample: ${JSON.stringify(req.body).substring(0, 800)}`);
+        logger.info(`📥 [Clay Store] FULL PAYLOAD: ${JSON.stringify(req.body, null, 2).substring(0, 2000)}`);
         
         let attendees = req.body.attendees;
         
