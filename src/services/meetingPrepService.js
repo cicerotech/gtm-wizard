@@ -55,6 +55,73 @@ const EXCLUDED_ACCOUNTS = [
   'Sandbox'
 ];
 
+// Ghost attendee patterns - conference rooms, dial-ins, etc.
+const GHOST_ATTENDEE_PATTERNS = {
+  namePatterns: ['conference', 'meeting room', 'video enabled', 'dial-in', 'bridge', 'huddle', 'board room', 'training room', 'zoom room', 'teams room', 'webex', 'polycom'],
+  emailPrefixes: ['corp', 'conf', 'room', 'mtg', 'bridge', 'dial', 'noreply', 'calendar', 'booking']
+};
+
+/**
+ * Check if an attendee is a ghost (conference room, dial-in, etc.)
+ */
+function isGhostAttendee(attendee) {
+  const email = (attendee.email || '').toLowerCase();
+  const name = (attendee.name || '').toLowerCase();
+  
+  // Check name patterns
+  if (GHOST_ATTENDEE_PATTERNS.namePatterns.some(p => name.includes(p))) return true;
+  
+  // Check email prefixes
+  const localPart = email.split('@')[0];
+  if (GHOST_ATTENDEE_PATTERNS.emailPrefixes.some(p => localPart.startsWith(p) && /\d/.test(localPart))) return true;
+  
+  // Check for room codes (e.g., "State Street Salem 2320 (11)")
+  if (/\(\d+\)/.test(attendee.name || '') && /\d{3,}/.test(attendee.name || '')) return true;
+  
+  // Check for system emails (all caps with numbers)
+  if (/^[A-Z]{4,}[A-Z0-9]*\d{2,}[A-Z]?@/i.test(email)) return true;
+  
+  return false;
+}
+
+/**
+ * Check if a meeting should be excluded from the meeting prep view
+ * Filters out: internal-only, calendar holds, canceled, ghost-only meetings
+ */
+function shouldExcludeMeeting(meeting) {
+  const title = (meeting.meetingTitle || meeting.meeting_title || '').toLowerCase();
+  
+  // Canceled meetings
+  if (title.startsWith('canceled:') || title.startsWith('cancelled:')) {
+    return true;
+  }
+  
+  // Get attendees
+  const external = meeting.externalAttendees || [];
+  const internal = meeting.internalAttendees || [];
+  
+  // No external attendees = internal only or calendar hold
+  if (external.length === 0) {
+    return true;
+  }
+  
+  // Filter out ghost attendees
+  const realExternal = external.filter(a => !isGhostAttendee(a));
+  
+  // Only ghost attendees after filtering
+  if (realExternal.length === 0) {
+    return true;
+  }
+  
+  // Excluded accounts
+  const accountName = (meeting.accountName || meeting.account_name || '').toLowerCase();
+  if (EXCLUDED_ACCOUNTS.some(ea => accountName.includes(ea.toLowerCase()))) {
+    return true;
+  }
+  
+  return false;
+}
+
 /**
  * Create a new meeting entry (manual)
  */
@@ -250,9 +317,14 @@ async function getUpcomingMeetings(startDate, endDate) {
     const allMeetings = Array.from(meetingsMap.values());
     allMeetings.sort((a, b) => new Date(a.meetingDate || a.meeting_date) - new Date(b.meetingDate || b.meeting_date));
     
-    logger.info(`[MeetingPrep] Total meetings: ${allMeetings.length} (Manual: ${manualMeetings.length}, SF: ${sfEvents.length}, Outlook: ${outlookEvents.length})`);
+    // Filter out internal-only, calendar holds, canceled meetings, and ghost-only meetings
+    const filteredMeetings = allMeetings.filter(m => !shouldExcludeMeeting(m));
     
-    return allMeetings;
+    const excludedCount = allMeetings.length - filteredMeetings.length;
+    logger.info(`[MeetingPrep] Total meetings: ${filteredMeetings.length} (Excluded ${excludedCount} internal/hold/canceled)`);
+    logger.debug(`[MeetingPrep] Sources - Manual: ${manualMeetings.length}, SF: ${sfEvents.length}, Outlook: ${outlookEvents.length}`);
+    
+    return filteredMeetings;
   } catch (error) {
     logger.error('Error getting upcoming meetings:', error);
     return [];

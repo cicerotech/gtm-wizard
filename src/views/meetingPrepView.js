@@ -855,7 +855,120 @@ textarea.input-field {
   text-decoration: underline;
 }
 
-/* Enriched Attendee Intel Section */
+/* Unified Attendee Intel Cards */
+.attendee-intel-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.unified-attendee-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.unified-attendee-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.unified-attendee-card.enriched {
+  border-color: #0ea5e9;
+  background: linear-gradient(135deg, #f8fafc 0%, #f0f9ff 100%);
+}
+
+.attendee-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.attendee-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.attendee-header-info {
+  flex: 1;
+}
+
+.attendee-header-info .attendee-name {
+  font-weight: 600;
+  color: #111827;
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+
+.attendee-title-company {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.attendee-bio {
+  font-size: 0.85rem;
+  color: #374151;
+  line-height: 1.6;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 6px;
+  margin: 10px 0;
+}
+
+.unified-attendee-card.enriched .attendee-bio {
+  background: #f0f9ff;
+}
+
+.attendee-linkedin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #0077b5;
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-top: 8px;
+  transition: color 0.2s;
+}
+
+.attendee-linkedin:hover {
+  color: #005582;
+  text-decoration: underline;
+}
+
+.attendee-pending-subtle {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-style: italic;
+  margin-top: 8px;
+}
+
+.ai-badge {
+  background: linear-gradient(135deg, #0ea5e9, #6366f1);
+  color: white;
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Legacy Enriched Attendee Intel Section (keeping for backward compat) */
 .attendee-intel-section {
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
   border: 1px solid #0ea5e9;
@@ -1645,59 +1758,19 @@ function renderPrepForm(contextHtml) {
   const demoOptions = '<option value="">Select product...</option>' + 
     DEMO_PRODUCTS.map(p => '<option value="' + p.id + '">' + p.label + '</option>').join('');
   
-  // Generate enriched attendee intel section
-  const attendeeIntelHtml = hasEnrichedAttendees ? \`
-    <div class="attendee-intel-section">
-      <div class="attendee-intel-header">
-        <span class="attendee-intel-title">
-          👥 Attendee Intel <span class="ai-badge">AI-Generated</span>
-        </span>
-      </div>
-      \${enrichedAttendees.map(a => {
-        const displayName = normalizeName(a.name || '');
-        const bioText = a.bio || a.summary || a.attendee_summary || '';
-        const company = a.company || (a.email ? a.email.split('@')[1]?.split('.')[0] : '');
-        const companyDisplay = company ? company.charAt(0).toUpperCase() + company.slice(1) : 'Company unknown';
-        return \`
-        <div class="enriched-attendee">
-          <div class="enriched-attendee-header">
-            <div class="attendee-avatar">
-              \${a.headshotUrl ? '<img src="' + a.headshotUrl + '" alt="' + displayName + '">' : getInitials(displayName)}
-            </div>
-            <div class="attendee-info">
-              <div class="attendee-name">\${displayName}</div>
-              <div class="attendee-title-company">\${a.title || 'Title unknown'} • \${companyDisplay}</div>
-            </div>
-            \${a.seniority ? '<span class="seniority-badge ' + getSeniorityClass(a.seniority) + '">' + a.seniority + '</span>' : ''}
-          </div>
-          \${bioText ? '<div class="attendee-bio">' + bioText + '</div>' : ''}
-          \${a.linkedinUrl ? '<a href="' + a.linkedinUrl + '" target="_blank" class="attendee-linkedin">🔗 LinkedIn Profile</a>' : ''}
-          \${a.talkingPoints && a.talkingPoints.length > 0 ? \`
-            <div class="talking-points">
-              <div class="talking-points-title">Suggested Talking Points</div>
-              \${a.talkingPoints.map(tp => '<div class="talking-point">' + tp + '</div>').join('')}
-            </div>
-          \` : ''}
-        </div>
-      \`}).join('')}
-    </div>
-  \` : (externalAttendees.length > 0 ? \`
-    <div class="enrichment-pending">
-      ⏳ Attendee enrichment pending — profiles will be generated automatically
-    </div>
-  \` : '');
-  
+  // Unified attendee section - uses clean card format for all attendees
   document.getElementById('modalBody').innerHTML = \`
     \${contextHtml}
     
-    \${attendeeIntelHtml}
-    
     <div class="form-section">
-      <div class="form-section-title">Attendees</div>
+      <div class="form-section-title">
+        👥 Attendees
+        \${hasEnrichedAttendees ? '<span class="ai-badge">AI-Enhanced</span>' : ''}
+      </div>
       
       \${externalAttendees.length > 0 ? \`
         <div class="attendee-section-label external">External Attendees (\${externalAttendees.length})</div>
-        <div class="attendee-list">
+        <div class="attendee-intel-cards">
           \${externalAttendees.map((a, i) => {
             // Extract name properly - use extractNameFromEmail if no name provided
             const rawName = a.name && !a.name.includes('@') 
@@ -1718,27 +1791,28 @@ function renderPrepForm(contextHtml) {
             const isEnriched = hasValidEnrichment(a);
             
             return \`
-              <div class="attendee-card \${isEnriched ? 'enriched' : ''}">
-                \${isEnriched && summary ? \`
-                  <div class="attendee-summary">\${summary}</div>
-                  <div class="attendee-card-footer">
-                    <div class="attendee-meta">
-                      \${title ? '<span class="attendee-title-badge">' + title + '</span>' : ''}
-                      \${companyDisplay ? '<span class="company-tag">' + companyDisplay + '</span>' : ''}
+              <div class="unified-attendee-card \${isEnriched ? 'enriched' : ''}">
+                <div class="attendee-card-top">
+                  <div class="attendee-avatar">\${getInitials(displayName)}</div>
+                  <div class="attendee-header-info">
+                    <div class="attendee-name">\${displayName}</div>
+                    <div class="attendee-title-company">
+                      \${title ? title : ''}
+                      \${title && companyDisplay ? ' • ' : ''}
+                      \${companyDisplay ? companyDisplay : ''}
+                      \${!title && !companyDisplay ? 'Details pending...' : ''}
                     </div>
-                    \${linkedinUrl ? '<a href="' + linkedinUrl + '" target="_blank" class="linkedin-link" title="View LinkedIn Profile">🔗 LinkedIn</a>' : ''}
                   </div>
-                \` : \`
-                  <div class="attendee-card-header">
-                    <span class="attendee-name">\${displayName}</span>
-                  </div>
-                  <div class="attendee-card-details">
-                    \${title ? '<span class="attendee-title">' + title + '</span>' : ''}
-                    \${companyDisplay ? '<span class="attendee-company">' + companyDisplay + '</span>' : ''}
-                  </div>
-                  \${linkedinUrl ? '<a href="' + linkedinUrl + '" target="_blank" class="linkedin-link-small">🔗 LinkedIn</a>' : ''}
-                  <div class="attendee-pending">Enrichment in progress...</div>
-                \`}
+                </div>
+                \${isEnriched && summary ? \`
+                  <div class="attendee-bio">\${summary}</div>
+                \` : ''}
+                \${linkedinUrl ? \`
+                  <a href="\${linkedinUrl}" target="_blank" class="attendee-linkedin">🔗 LinkedIn Profile</a>
+                \` : ''}
+                \${!isEnriched ? \`
+                  <div class="attendee-pending-subtle">Enrichment in progress...</div>
+                \` : ''}
               </div>
             \`;
           }).join('')}
