@@ -249,10 +249,17 @@ async function getUpcomingMeetings(startDate, endDate) {
       logger.warn('[MeetingPrep] Outlook calendar fetch failed, using SF only:', outlookError.message);
     }
     
-    // Merge and dedupe (Salesforce events take precedence if same ID)
+    // ========================================================================
+    // MEETING AGGREGATION STRATEGY:
+    // 1. Outlook Calendar is PRIMARY source (has attendees)
+    // 2. Salesforce provides account context (accountId) but NOT attendees
+    // 3. Match Outlook events to SF account IDs when possible
+    // 4. Only include SF-only events if no matching Outlook event exists
+    // ========================================================================
+    
     const meetingsMap = new Map();
     
-    // Add manual meetings first
+    // Step 1: Add manual meetings first
     for (const meeting of manualMeetings) {
       meetingsMap.set(meeting.meeting_id, {
         ...meeting,
@@ -260,25 +267,51 @@ async function getUpcomingMeetings(startDate, endDate) {
       });
     }
     
-    // Add Outlook events
+    // Step 2: Build SF account lookup for matching
+    const sfAccountLookup = new Map(); // accountName.lower -> { accountId, accountName }
+    for (const event of sfEvents) {
+      const nameKey = (event.accountName || '').toLowerCase().trim();
+      if (nameKey && event.accountId) {
+        sfAccountLookup.set(nameKey, {
+          accountId: event.accountId,
+          accountName: event.accountName
+        });
+      }
+    }
+    logger.debug(`[MeetingPrep] SF Account lookup: ${sfAccountLookup.size} accounts`);
+    
+    // Step 3: Add Outlook events as PRIMARY source (they have attendees!)
+    const outlookMeetingTimes = new Set(); // For dedup: "accountName|timestamp"
+    
     for (const event of outlookEvents) {
-      // Normalize Outlook event to match our format
+      const extractedAccountName = extractAccountFromAttendees(event.externalAttendees);
+      
+      // Try to match to SF account for context
+      const accountNameLower = extractedAccountName.toLowerCase().trim();
+      const sfMatch = sfAccountLookup.get(accountNameLower);
+      
+      // Normalize Outlook event with SF account ID if matched
       const normalizedEvent = {
         meetingId: event.eventId,
-        accountId: null, // Outlook doesn't have SF account ID
-        accountName: extractAccountFromAttendees(event.externalAttendees),
+        accountId: sfMatch?.accountId || null,
+        accountName: sfMatch?.accountName || extractedAccountName,
         meetingTitle: event.subject,
         meetingDate: event.startDateTime,
         endDate: event.endDateTime,
         owner: event.ownerEmail,
-        ownerEmail: event.ownerEmail, // Explicit email for filtering
+        ownerEmail: event.ownerEmail,
         attendees: event.allAttendees,
         externalAttendees: event.externalAttendees,
         internalAttendees: event.internalAttendees,
         source: 'outlook'
       };
       
-      // Check if similar meeting already exists (same time, same subject)
+      // Track for dedup against SF events
+      const timestamp = new Date(normalizedEvent.meetingDate).getTime();
+      const roundedTime = Math.floor(timestamp / 3600000) * 3600000; // Round to hour
+      outlookMeetingTimes.add(`${accountNameLower}|${roundedTime}`);
+      
+      // Check if similar meeting already exists in manual entries
       const isDupe = Array.from(meetingsMap.values()).some(m => {
         const mDate = new Date(m.meetingDate || m.meeting_date);
         const eDate = new Date(normalizedEvent.meetingDate);
@@ -291,11 +324,25 @@ async function getUpcomingMeetings(startDate, endDate) {
       }
     }
     
-    // Add/override with Salesforce events
+    // Step 4: Add Salesforce events ONLY if no matching Outlook event exists
+    // This prevents SF events (which have no attendees) from cluttering the view
+    let sfSkippedCount = 0;
     for (const event of sfEvents) {
+      const accountNameLower = (event.accountName || '').toLowerCase().trim();
+      const timestamp = new Date(event.meetingDate).getTime();
+      const roundedTime = Math.floor(timestamp / 3600000) * 3600000;
+      const dedupeKey = `${accountNameLower}|${roundedTime}`;
+      
+      // Skip if Outlook already has this meeting (same account, same time)
+      if (outlookMeetingTimes.has(dedupeKey)) {
+        sfSkippedCount++;
+        continue;
+      }
+      
+      // Check for existing manual entry
       const existingManual = manualMeetings.find(m => 
         m.account_id === event.accountId && 
-        Math.abs(new Date(m.meeting_date) - new Date(event.meetingDate)) < 3600000 // Within 1 hour
+        Math.abs(new Date(m.meeting_date) - new Date(event.meetingDate)) < 3600000
       );
       
       if (existingManual) {
@@ -306,12 +353,15 @@ async function getUpcomingMeetings(startDate, endDate) {
           source: 'synced'
         });
       } else {
+        // Add SF event (no attendees, but has account context)
         meetingsMap.set(event.meetingId, {
           ...event,
           source: 'salesforce'
         });
       }
     }
+    
+    logger.info(`[MeetingPrep] SF events skipped (covered by Outlook): ${sfSkippedCount}`)
     
     // Convert to array and sort by date
     const allMeetings = Array.from(meetingsMap.values());

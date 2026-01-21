@@ -1838,7 +1838,12 @@ function parseAttendeeSummary(rawSummary) {
 
 /**
  * Post-process and standardize attendee summary for consistent display
- * Ensures format: "Name – Title at Company. Details..."
+ * Target format: "Name – Title at Company. [Details without redundant intro]"
+ * 
+ * Example transformations:
+ * "Vidisha Patel is a Senior Director at IQVIA..." → "Vidisha Patel – Senior Director at IQVIA. ..."
+ * "John Smith serves as VP..." → "John Smith – VP at Company. ..."
+ * 
  * @param {string} summary - Raw or parsed summary
  * @param {string} displayName - The attendee's display name
  * @param {string} title - Job title if available
@@ -1848,43 +1853,98 @@ function parseAttendeeSummary(rawSummary) {
 function standardizeSummary(summary, displayName, title, company) {
   if (!summary) return null;
   
-  // If summary already starts with name, return as-is (already formatted)
-  if (summary.startsWith(displayName)) {
-    return summary;
+  let cleanSummary = summary.trim();
+  
+  // ======================================================================
+  // STEP 1: Check if already in correct format "Name – Title at Company"
+  // ======================================================================
+  const correctFormatPattern = new RegExp('^' + escapeRegex(displayName) + '\\s*[–\\-—]\\s*.+', 'i');
+  if (correctFormatPattern.test(cleanSummary)) {
+    console.log('[Summary Format] Already in correct format');
+    return cleanSummary;
   }
   
-  // Check if summary starts with a different name format
-  // Pattern: "FirstName LastName is..." or "FirstName is..."
-  const startsWithNamePattern = /^[A-Z][a-z]+\s+([A-Z][a-z]+\s+)?(?:is|serves|works|leads|has|holds|was|joined)/i;
-  if (startsWithNamePattern.test(summary)) {
-    // Extract and replace with consistent name
-    const formattedSummary = summary.replace(
-      /^([A-Z][a-z]+(?:\s+[A-Z]'?[a-z]+)*)\s+(is|serves|works|leads|has|holds|was|joined)/i,
-      displayName + ' – ' + (title || '') + (title && company ? ' at ' : '') + (company || '') + '. $1 $2'
-    );
+  // ======================================================================
+  // STEP 2: Reformat "Name is a/an/the Title at Company" pattern
+  // ======================================================================
+  // Pattern: "John Smith is a Senior VP at Microsoft and leads..."
+  const isPattern = /^([A-Z][a-z]+(?:\s+[A-Z]'?[a-z]+)*)\s+is\s+(?:a|an|the)?\s*([^.]+?)(?:\s+at\s+([^.]+?))?[.,]/i;
+  const isMatch = cleanSummary.match(isPattern);
+  
+  if (isMatch) {
+    const extractedName = isMatch[1];
+    const extractedTitle = isMatch[2].trim();
+    const extractedCompany = isMatch[3]?.trim() || company;
     
-    // If replacement made it worse, try a simpler approach
-    if (formattedSummary.length > summary.length + 50) {
-      // Just prepend "Name – Title at Company. " if we have that info
-      if (title && company) {
-        return displayName + ' – ' + title + ' at ' + company + '. ' + summary;
-      }
+    // Remove the matched intro and get the rest
+    const restOfSummary = cleanSummary.substring(isMatch[0].length).trim();
+    
+    // Build new summary
+    const newHeader = displayName + ' – ' + (title || extractedTitle) + 
+                      (extractedCompany ? ' at ' + extractedCompany : '') + '.';
+    
+    cleanSummary = restOfSummary ? newHeader + ' ' + capitalizeFirst(restOfSummary) : newHeader;
+    console.log('[Summary Format] Reformatted from "is a/an" pattern');
+    return cleanSummary;
+  }
+  
+  // ======================================================================
+  // STEP 3: Reformat "Name serves as / works as / leads" patterns
+  // ======================================================================
+  const servesPattern = /^([A-Z][a-z]+(?:\s+[A-Z]'?[a-z]+)*)\s+(serves as|works as|leads|joined|holds|has been|currently)\s+(?:the\s+)?([^.]+?)(?:\s+at\s+([^.]+?))?[.,]/i;
+  const servesMatch = cleanSummary.match(servesPattern);
+  
+  if (servesMatch) {
+    const extractedTitle = servesMatch[3].trim();
+    const extractedCompany = servesMatch[4]?.trim() || company;
+    
+    const restOfSummary = cleanSummary.substring(servesMatch[0].length).trim();
+    
+    const newHeader = displayName + ' – ' + (title || extractedTitle) + 
+                      (extractedCompany ? ' at ' + extractedCompany : '') + '.';
+    
+    cleanSummary = restOfSummary ? newHeader + ' ' + capitalizeFirst(restOfSummary) : newHeader;
+    console.log('[Summary Format] Reformatted from "serves as" pattern');
+    return cleanSummary;
+  }
+  
+  // ======================================================================
+  // STEP 4: Summary starts with name but wrong format - prepend header
+  // ======================================================================
+  const startsWithName = cleanSummary.toLowerCase().startsWith(displayName.toLowerCase());
+  if (startsWithName) {
+    // Remove the name from the start and rebuild
+    const afterName = cleanSummary.substring(displayName.length).trim();
+    
+    if (title && company) {
+      return displayName + ' – ' + title + ' at ' + company + '. ' + capitalizeFirst(afterName);
     }
-    
-    return formattedSummary;
   }
   
-  // If summary doesn't start with a name, prepend the header
+  // ======================================================================
+  // STEP 5: Summary doesn't start with name - prepend full header
+  // ======================================================================
   if (title && company) {
-    return displayName + ' – ' + title + ' at ' + company + '. ' + summary;
+    return displayName + ' – ' + title + ' at ' + company + '. ' + cleanSummary;
   } else if (title) {
-    return displayName + ' – ' + title + '. ' + summary;
+    return displayName + ' – ' + title + '. ' + cleanSummary;
   } else if (company) {
-    return displayName + ' at ' + company + '. ' + summary;
+    return displayName + ' at ' + company + '. ' + cleanSummary;
   }
   
-  // Just return original if we can't improve it
-  return summary;
+  // Fallback: prepend just the name
+  return displayName + ' – ' + cleanSummary;
+}
+
+// Helper: Escape special regex characters
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Helper: Capitalize first letter
+function capitalizeFirst(str) {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 // ============================================================
