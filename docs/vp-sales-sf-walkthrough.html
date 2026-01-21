@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VP Sales — Salesforce Account & Opportunity Walkthrough</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #000000;
+            background: #ffffff;
+            padding: 40px;
+            max-width: 850px;
+            margin: 0 auto;
+            font-size: 11pt;
+            line-height: 1.5;
+        }
+        h1 {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #000000;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #000000;
+        }
+        h2 {
+            font-size: 12pt;
+            font-weight: bold;
+            color: #000000;
+            background: #f3f4f6;
+            padding: 10px 12px;
+            margin: 25px 0 10px 0;
+        }
+        h3 {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #000000;
+            margin: 15px 0 8px 0;
+        }
+        .header-info {
+            background: #f3f4f6;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .header-info p {
+            margin: 5px 0;
+            font-size: 11pt;
+        }
+        .header-info strong {
+            font-weight: bold;
+        }
+        .goal-box {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 12px 15px;
+            margin: 15px 0;
+        }
+        ul {
+            margin: 10px 0 10px 25px;
+            font-size: 11pt;
+        }
+        ul li {
+            margin: 6px 0;
+        }
+        ul ul {
+            margin: 5px 0 5px 20px;
+        }
+        ul ul li {
+            margin: 4px 0;
+            color: #374151;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0 15px 0;
+            font-size: 11pt;
+        }
+        table th {
+            background: #f3f4f6;
+            font-weight: bold;
+            text-align: left;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            font-size: 11pt;
+        }
+        table td {
+            background: #ffffff;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            vertical-align: top;
+        }
+        .field-required {
+            color: #dc2626;
+            font-weight: bold;
+        }
+        .field-optional {
+            color: #6b7280;
+        }
+        .note {
+            font-style: italic;
+            color: #4b5563;
+            margin: 10px 0;
+            padding-left: 15px;
+            border-left: 3px solid #d1d5db;
+        }
+        .pause {
+            background: #f3f4f6;
+            padding: 8px 12px;
+            margin: 15px 0;
+            font-weight: bold;
+            text-align: center;
+            font-size: 11pt;
+        }
+        .why-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 12px 15px;
+            margin: 10px 0;
+        }
+        .why-box strong {
+            color: #b45309;
+        }
+        .flow-diagram {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 20px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        .flow-step {
+            display: inline-block;
+            background: #3b82f6;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: bold;
+            margin: 0 5px;
+        }
+        .flow-arrow {
+            font-size: 18pt;
+            color: #9ca3af;
+            margin: 0 8px;
+        }
+        .key-message {
+            background: #ffffff;
+            border: 2px solid #000000;
+            padding: 12px 15px;
+            margin: 15px 0;
+        }
+        .key-message strong {
+            font-weight: bold;
+        }
+        .tone-reminder {
+            background: #f3f4f6;
+            padding: 12px 15px;
+            margin-top: 25px;
+            border-left: 4px solid #000000;
+        }
+        .skip-note {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            padding: 10px 15px;
+            margin: 10px 0;
+            font-size: 10pt;
+        }
+        .stage-table td:first-child {
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        .prompt-questions {
+            margin: 10px 0 10px 25px;
+        }
+        .prompt-questions li {
+            font-style: italic;
+            color: #374151;
+        }
+        .section-time {
+            float: right;
+            background: #e5e7eb;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10pt;
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>VP Sales — Salesforce Account & Opportunity Walkthrough</h1>
+
+    <div class="header-info">
+        <p><strong>Duration:</strong> 25-35 min</p>
+        <p><strong>Audience:</strong> New VP/Head of Sales — experienced with Salesforce, new to Eudia's setup</p>
+        <p><strong>Goal:</strong> Walk through Account → Opportunity flow so he understands our data model and can coach reps</p>
+    </div>
+
+    <div class="goal-box">
+        <strong>Session Outcome:</strong> He leaves knowing (1) how deals flow through our pipeline, (2) what fields matter and why, (3) who to ask if stuck.
+    </div>
+
+    <!-- SECTION 1: FRAMING -->
+    <h2>1. Framing — Why This Matters <span class="section-time">3 min</span></h2>
+    
+    <p class="note">Set context before clicking around. He's experienced — connect to things he cares about.</p>
+    
+    <ul>
+        <li><strong>Our Salesforce = our operating system.</strong> Pipeline, forecasting, reporting all flow from it.</li>
+        <li><strong>Data quality = forecast accuracy.</strong> What reps put in determines what we report to leadership.</li>
+        <li><strong>You're not learning this to do data entry</strong> — you're learning it so you can coach reps and spot issues in deals.</li>
+    </ul>
+
+    <div class="why-box">
+        <strong>Why this walkthrough:</strong> When a rep's deal is stuck or data looks off, you'll know exactly where to look and what questions to ask.
+    </div>
+
+    <!-- SECTION 2: THE BIG PICTURE -->
+    <h2>2. The Data Model — 30-Second Overview <span class="section-time">2 min</span></h2>
+
+    <div class="flow-diagram">
+        <span class="flow-step">Account</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">Contact(s)</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">Opportunity</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">Close Won</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">Delivery</span>
+    </div>
+
+    <ul>
+        <li><strong>Account</strong> = the company (1 per customer)</li>
+        <li><strong>Contact</strong> = people at that company (multiple per account)</li>
+        <li><strong>Opportunity</strong> = a deal in flight (multiple per account over time)</li>
+        <li><strong>Delivery</strong> = post-sale project tracking (auto-created on Close Won)</li>
+    </ul>
+
+    <p class="note">Don't dwell here — just establishing vocabulary. Move to the live demo.</p>
+
+    <!-- SECTION 3: ACCOUNT CREATION -->
+    <h2>3. Creating an Account — The Foundation <span class="section-time">5 min</span></h2>
+
+    <p><strong>When:</strong> Prospecting a new company we've never worked with.</p>
+
+    <h3>Fields That Matter</h3>
+    <table>
+        <tr>
+            <th>Field</th>
+            <th>What It Is</th>
+            <th>Why It Matters</th>
+        </tr>
+        <tr>
+            <td><span class="field-required">Account Name *</span></td>
+            <td>Legal or common company name</td>
+            <td>How we identify them everywhere</td>
+        </tr>
+        <tr>
+            <td><span class="field-required">Account Owner *</span></td>
+            <td>The rep who owns this relationship</td>
+            <td>Determines territory, reporting, comp</td>
+        </tr>
+        <tr>
+            <td>Industry</td>
+            <td>Their vertical (Healthcare, Finance, etc.)</td>
+            <td>Segmentation, ICP analysis</td>
+        </tr>
+        <tr>
+            <td>Customer Type</td>
+            <td>Prospect, Customer, Partner, etc.</td>
+            <td>Filters reports, drives automation</td>
+        </tr>
+        <tr>
+            <td>Website</td>
+            <td>Company URL</td>
+            <td>Deduplication, research</td>
+        </tr>
+    </table>
+
+    <div class="skip-note">
+        <strong>What you can skip:</strong> Billing Address, Phone, Description are nice-to-have but not blocking. Reps can fill later.
+    </div>
+
+    <div class="key-message">
+        <strong>Coaching moment:</strong> If a rep creates an Account, they own the relationship. Orphan accounts = chaos.
+    </div>
+
+    <div class="pause">✋ Any questions on Accounts before we move to Opportunities?</div>
+
+    <!-- SECTION 4: OPPORTUNITY CREATION -->
+    <h2>4. Creating an Opportunity — Where Deals Live <span class="section-time">8-10 min</span></h2>
+
+    <p><strong>When:</strong> A qualified prospect is ready to be worked as a deal.</p>
+
+    <h3>The Critical Fields</h3>
+    <table>
+        <tr>
+            <th>Field</th>
+            <th>What It Is</th>
+            <th>Why It Matters</th>
+        </tr>
+        <tr>
+            <td><span class="field-required">Opportunity Name *</span></td>
+            <td>Account Name - Product - Use Case</td>
+            <td>Readable in reports, forecasts</td>
+        </tr>
+        <tr>
+            <td><span class="field-required">Account *</span></td>
+            <td>The company this deal is for</td>
+            <td>Links to Account record</td>
+        </tr>
+        <tr>
+            <td><span class="field-required">Stage *</span></td>
+            <td>Where the deal is in our process</td>
+            <td>Drives pipeline reporting, forecast</td>
+        </tr>
+        <tr>
+            <td><span class="field-required">Close Date *</span></td>
+            <td>Expected close date</td>
+            <td>Forecast accuracy — must be realistic</td>
+        </tr>
+        <tr>
+            <td><span class="field-required">ACV *</span></td>
+            <td>Annual Contract Value</td>
+            <td>Pipeline value, quota tracking</td>
+        </tr>
+        <tr>
+            <td><span class="field-required">Sales Type *</span></td>
+            <td>New, Expansion, Renewal</td>
+            <td>How we report growth vs. retention</td>
+        </tr>
+        <tr>
+            <td><span class="field-required">Product Line *</span></td>
+            <td>Which product(s) we're selling</td>
+            <td>Product team reporting, delivery routing</td>
+        </tr>
+    </table>
+
+    <h3>Stage Definitions — What You'll Coach To</h3>
+    <table class="stage-table">
+        <tr>
+            <th>Stage</th>
+            <th>Meaning</th>
+            <th>Exit Criteria</th>
+        </tr>
+        <tr>
+            <td>Stage 1</td>
+            <td>Discovery</td>
+            <td>Initial meeting held, pain identified</td>
+        </tr>
+        <tr>
+            <td>Stage 2 (SQO)</td>
+            <td>Qualified</td>
+            <td>MEDDPICC started, budget confirmed, real pipeline</td>
+        </tr>
+        <tr>
+            <td>Stage 3</td>
+            <td>Solution Dev</td>
+            <td>Technical validation, demo/POC planned</td>
+        </tr>
+        <tr>
+            <td>Stage 4</td>
+            <td>Proposal</td>
+            <td>Proposal delivered, pricing discussed</td>
+        </tr>
+        <tr>
+            <td>Stage 5</td>
+            <td>Negotiation</td>
+            <td>Legal/procurement engaged, contract in flight</td>
+        </tr>
+        <tr>
+            <td>Closed Won</td>
+            <td>Deal signed</td>
+            <td>Contract executed, Delivery object auto-creates</td>
+        </tr>
+        <tr>
+            <td>Closed Lost</td>
+            <td>Deal lost</td>
+            <td>Close Reason required</td>
+        </tr>
+    </table>
+
+    <div class="why-box">
+        <strong>Stage 2 = SQO:</strong> This is when a deal becomes "real pipeline." It's our Sales Qualified Opportunity threshold. Deals below Stage 2 are prospects, not pipeline.
+    </div>
+
+    <div class="key-message">
+        <strong>Coaching moment:</strong> Close dates that slip every week = forecast problem. Stage 2+ deals should have realistic dates. Push reps on this.
+    </div>
+
+    <div class="pause">✋ Questions on Opportunity fields or stages?</div>
+
+    <!-- SECTION 5: THE FLOW IN ACTION -->
+    <h2>5. Quick Demo — See It Live <span class="section-time">5 min</span></h2>
+
+    <p class="note">Screen share Salesforce. Walk through, don't lecture.</p>
+
+    <h3>Demo Flow</h3>
+    <ol style="margin: 10px 0 10px 25px;">
+        <li>Open an existing Account (pick a real customer)</li>
+        <li>Show the related Contacts, Opportunities</li>
+        <li>Click into an Opportunity → show the fields, stage history</li>
+        <li>Show where MEDDPICC scores live (if applicable)</li>
+        <li>(Optional) Create a dummy Opp to show the form — delete after</li>
+    </ol>
+
+    <div class="skip-note">
+        <strong>Keep it tight:</strong> 5 min max. He'll explore on his own later. Goal is familiarity, not mastery.
+    </div>
+
+    <!-- SECTION 6: WHAT HAPPENS NEXT -->
+    <h2>6. What Happens After Close Won <span class="section-time">3 min</span></h2>
+
+    <ul>
+        <li><strong>Delivery Object:</strong> Auto-created when Opp closes. Tracks implementation.</li>
+        <li><strong>Handoff:</strong> Sales → CS/Delivery. PM platform sync in progress.</li>
+        <li><strong>ARR/Revenue:</strong> Flows to finance (Campfire ERP) for revenue recognition.</li>
+    </ul>
+
+    <p class="note">He doesn't need to know Delivery deeply — just that it exists and someone else owns it post-sale.</p>
+
+    <!-- SECTION 7: TOOLS THAT HELP -->
+    <h2>7. Tools That Make This Easier <span class="section-time">2 min</span></h2>
+
+    <table>
+        <tr>
+            <th>Tool</th>
+            <th>What It Does</th>
+        </tr>
+        <tr>
+            <td><strong>GTM Brain (Slack)</strong></td>
+            <td>Quick account lookups, pipeline snapshot, deal intel</td>
+        </tr>
+        <tr>
+            <td><strong>Hypernote</strong></td>
+            <td>Meeting notes auto-summarized, synced to Salesforce</td>
+        </tr>
+        <tr>
+            <td><strong>Weekly Snapshot</strong></td>
+            <td>PDF with pipeline health, forecast, closed deals</td>
+        </tr>
+    </table>
+
+    <p class="note">These are nice-to-know. Point him to the Slack channels if he wants to explore.</p>
+
+    <!-- SECTION 8: OPEN Q&A -->
+    <h2>8. Questions & What's Unclear <span class="section-time">5 min</span></h2>
+
+    <h3>Prompt questions:</h3>
+    <ul class="prompt-questions">
+        <li>"What's different from how you've seen Salesforce set up before?"</li>
+        <li>"Any fields or stages that don't make sense?"</li>
+        <li>"What would you want to see in reports that you don't see here?"</li>
+    </ul>
+
+    <div class="goal-box">
+        <strong>Listen for:</strong> Red flags about process gaps, or insights from his past experience we should adopt.
+    </div>
+
+    <!-- SECTION 9: NEXT STEPS -->
+    <h2>9. Wrap-Up & Next Steps <span class="section-time">2 min</span></h2>
+
+    <ul>
+        <li>Offer to connect again in 1-2 weeks after he's worked deals</li>
+        <li>Point him to the <strong>Sales Process doc</strong> (if not already shared)</li>
+        <li>Remind him: Slack you anytime with questions</li>
+    </ul>
+
+    <div class="tone-reminder">
+        <strong>Tone reminder:</strong> He's a peer, not a trainee. You're orienting him to *our* way, not teaching Salesforce basics. Keep it conversational, not tutorial.
+    </div>
+
+    <!-- CHEAT SHEET -->
+    <h2 style="margin-top: 40px;">📋 Quick Reference — Fields Reps Must Fill</h2>
+    
+    <table>
+        <tr>
+            <th>Object</th>
+            <th>Required Fields</th>
+        </tr>
+        <tr>
+            <td><strong>Account</strong></td>
+            <td>Account Name, Account Owner, Industry, Customer Type</td>
+        </tr>
+        <tr>
+            <td><strong>Opportunity</strong></td>
+            <td>Opp Name, Account, Stage, Close Date, ACV, Sales Type, Product Line</td>
+        </tr>
+    </table>
+
+    <div class="key-message" style="margin-top: 20px;">
+        <strong>The one thing:</strong> If reps keep Stage and Close Date accurate, forecasting works. Everything else is gravy.
+    </div>
+
+</body>
+</html>
+
