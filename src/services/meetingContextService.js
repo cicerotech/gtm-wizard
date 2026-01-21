@@ -8,21 +8,83 @@ const intelligenceStore = require('./intelligenceStore');
 const logger = require('../utils/logger');
 
 /**
+ * Parse Customer_Brain__c field into structured meeting notes
+ * Format: "--- Meeting: Jan 15, 10:30 AM ---\nRep: Name\nDuration: X min\nParticipants: ...\n\n[notes]"
+ */
+function parseCustomerBrainNotes(rawBrain) {
+  if (!rawBrain || typeof rawBrain !== 'string') return [];
+  
+  // Split by meeting delimiter
+  const entries = rawBrain.split(/---\s*Meeting:/i);
+  
+  return entries
+    .filter(e => e && e.trim().length > 10)
+    .slice(0, 5)  // Last 5 meetings
+    .map(entry => {
+      const lines = entry.trim().split('\n');
+      
+      // Parse date from first line (e.g., "Jan 15, 10:30 AM ---")
+      const dateMatch = lines[0]?.match(/^(.+?)\s*---/);
+      const date = dateMatch?.[1]?.trim() || 'Unknown date';
+      
+      // Parse metadata fields
+      const repMatch = entry.match(/Rep:\s*(.+)/i);
+      const durationMatch = entry.match(/Duration:\s*(.+)/i);
+      const participantsMatch = entry.match(/Participants:\s*(.+)/i);
+      
+      // Extract notes content (everything after the empty line following metadata)
+      let summary = '';
+      const doubleNewline = entry.indexOf('\n\n');
+      if (doubleNewline > -1) {
+        const notesContent = entry.substring(doubleNewline + 2).trim();
+        // Take first 300 chars as summary
+        summary = notesContent.substring(0, 300);
+        if (notesContent.length > 300) summary += '...';
+      }
+      
+      return {
+        date,
+        rep: repMatch?.[1]?.trim() || 'Unknown',
+        duration: durationMatch?.[1]?.trim() || null,
+        participants: participantsMatch?.[1]?.trim() || null,
+        summary: summary || 'No summary available'
+      };
+    })
+    .filter(note => note.summary && note.summary !== 'No summary available');
+}
+
+/**
  * Generate aggregated meeting context for an account
- * Combines: Salesforce data, Slack intel, prior meeting preps
+ * Combines: Salesforce data, Slack intel, prior meeting preps, recent activities
+ * Uses priority-based fallbacks when Customer_Brain is empty
  */
 async function generateMeetingContext(accountId) {
   try {
-    const [salesforce, slackIntel, priorMeetings] = await Promise.all([
+    const [salesforce, slackIntel, priorMeetings, activities] = await Promise.all([
       getSalesforceContext(accountId),
       getSlackIntelligence(accountId),
-      getPriorMeetingContext(accountId)
+      getPriorMeetingContext(accountId),
+      getRecentActivities(accountId)
     ]);
+    
+    // Parse Customer Brain meeting notes if available
+    const meetingNotes = salesforce?.customerBrain 
+      ? parseCustomerBrainNotes(salesforce.customerBrain)
+      : [];
+    
+    // Determine context richness for UI feedback
+    const hasRichContext = meetingNotes.length > 0 || 
+                           slackIntel.length > 0 || 
+                           activities.length > 0 ||
+                           priorMeetings.length > 0;
     
     return {
       salesforce,
       slackIntel,
       priorMeetings,
+      meetingNotes,       // Parsed from Customer_Brain__c
+      activities,         // Recent Events/Tasks as fallback
+      hasRichContext,     // Flag for UI to show/hide empty state
       generatedAt: new Date().toISOString()
     };
   } catch (error) {
@@ -31,6 +93,9 @@ async function generateMeetingContext(accountId) {
       salesforce: null,
       slackIntel: [],
       priorMeetings: [],
+      meetingNotes: [],
+      activities: [],
+      hasRichContext: false,
       generatedAt: new Date().toISOString(),
       error: error.message
     };
@@ -42,11 +107,12 @@ async function generateMeetingContext(accountId) {
  */
 async function getSalesforceContext(accountId) {
   try {
-    // Get account details
+    // Get account details including Customer_Brain__c for meeting notes
     const accountQuery = `
       SELECT Id, Name, Customer_Type__c, Customer_Subtype__c, 
              Industry, Website, Owner.Name, Description,
-             First_Deal_Closed__c, BillingCity, BillingState, BillingCountry
+             First_Deal_Closed__c, BillingCity, BillingState, BillingCountry,
+             Customer_Brain__c
       FROM Account
       WHERE Id = '${accountId}'
     `;
@@ -126,6 +192,7 @@ async function getSalesforceContext(accountId) {
       website: account.Website,
       owner: account.Owner?.Name,
       description: account.Description,
+      customerBrain: account.Customer_Brain__c,
       firstDealClosed: account.First_Deal_Closed__c,
       location: [account.BillingCity, account.BillingState, account.BillingCountry]
         .filter(Boolean).join(', '),
@@ -191,6 +258,67 @@ async function getSlackIntelligence(accountId) {
     }));
   } catch (error) {
     logger.error('Error fetching Slack intelligence:', error);
+    return [];
+  }
+}
+
+/**
+ * Get recent Activities (Events + Tasks) from Salesforce
+ * Provides fallback context when Customer_Brain is empty
+ */
+async function getRecentActivities(accountId) {
+  try {
+    // Get recent completed Tasks (last 90 days)
+    const tasksQuery = `
+      SELECT Id, Subject, ActivityDate, Description, Owner.Name, Type
+      FROM Task
+      WHERE AccountId = '${accountId}'
+        AND ActivityDate >= LAST_N_DAYS:90
+        AND Status = 'Completed'
+      ORDER BY ActivityDate DESC
+      LIMIT 10
+    `;
+    
+    // Get recent Events (last 90 days)
+    const eventsQuery = `
+      SELECT Id, Subject, StartDateTime, Description, Owner.Name
+      FROM Event
+      WHERE AccountId = '${accountId}'
+        AND StartDateTime >= LAST_N_DAYS:90
+      ORDER BY StartDateTime DESC
+      LIMIT 10
+    `;
+    
+    const [tasksResult, eventsResult] = await Promise.all([
+      query(tasksQuery, true).catch(() => ({ records: [] })),
+      query(eventsQuery, true).catch(() => ({ records: [] }))
+    ]);
+    
+    const tasks = (tasksResult?.records || []).map(t => ({
+      type: 'task',
+      subject: t.Subject,
+      date: t.ActivityDate,
+      description: t.Description?.substring(0, 200),
+      owner: t.Owner?.Name,
+      taskType: t.Type
+    }));
+    
+    const events = (eventsResult?.records || []).map(e => ({
+      type: 'event',
+      subject: e.Subject,
+      date: e.StartDateTime,
+      description: e.Description?.substring(0, 200),
+      owner: e.Owner?.Name
+    }));
+    
+    // Combine and sort by date (most recent first)
+    const combined = [...tasks, ...events].sort((a, b) => 
+      new Date(b.date) - new Date(a.date)
+    );
+    
+    return combined.slice(0, 10);
+  } catch (error) {
+    logger.error('Error fetching recent activities:', error);
     return [];
   }
 }
@@ -282,6 +410,8 @@ module.exports = {
   getSalesforceContext,
   getSlackIntelligence,
   getPriorMeetingContext,
+  getRecentActivities,
+  parseCustomerBrainNotes,
   formatContextSummary
 };
 
