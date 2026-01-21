@@ -16,7 +16,95 @@ function formatTimeServer(isoString) {
 }
 
 /**
+ * Abbreviate common legal/executive titles for compact display
+ */
+function abbreviateTitle(title) {
+  if (!title) return '';
+  const lower = title.toLowerCase();
+  
+  const abbreviations = {
+    'general counsel': 'GC',
+    'chief legal officer': 'CLO',
+    'chief compliance officer': 'CCO',
+    'head of legal': 'Legal',
+    'deputy general counsel': 'DGC',
+    'associate general counsel': 'AGC',
+    'assistant general counsel': 'AGC',
+    'vp of legal': 'VP Legal',
+    'vice president of legal': 'VP Legal',
+    'vp legal': 'VP Legal',
+    'vp, legal': 'VP Legal',
+    'director of legal': 'Dir Legal',
+    'senior counsel': 'Sr. Counsel',
+    'corporate counsel': 'Corp Counsel',
+    'legal counsel': 'Counsel',
+    'corporate secretary': 'Corp Sec',
+    'senior director': 'Sr. Dir',
+    'senior manager': 'Sr. Mgr',
+    'director': 'Dir',
+    'manager': 'Mgr',
+    'senior vice president': 'SVP',
+    'vice president': 'VP',
+    'chief executive officer': 'CEO',
+    'chief financial officer': 'CFO',
+    'chief technology officer': 'CTO',
+    'chief operating officer': 'COO'
+  };
+  
+  for (const [full, abbr] of Object.entries(abbreviations)) {
+    if (lower.includes(full)) return abbr;
+  }
+  
+  // If title is short enough, return as-is
+  if (title.length <= 15) return title;
+  
+  // Otherwise return first word or first 12 chars
+  const firstWord = title.split(' ')[0];
+  return firstWord.length <= 12 ? firstWord : firstWord.substring(0, 10) + '...';
+}
+
+/**
+ * Normalize and format attendee name for display
+ */
+function formatAttendeeName(att) {
+  let name = att.name || '';
+  
+  // If no name, try to extract from email
+  if (!name || name.includes('@')) {
+    const email = att.email || '';
+    if (email) {
+      const localPart = email.split('@')[0];
+      name = localPart
+        .replace(/\d+$/g, '')
+        .replace(/[._-]/g, ' ')
+        .trim()
+        .split(' ')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+    }
+  }
+  
+  // Handle "Last, First" format
+  if (name.includes(',')) {
+    const parts = name.split(',').map(s => s.trim());
+    if (parts.length >= 2) {
+      name = parts[1] + ' ' + parts[0];
+    }
+  }
+  
+  // Normalize ALL CAPS
+  if (name === name.toUpperCase() && name.length > 3) {
+    name = name.split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  }
+  
+  return name || 'Unknown';
+}
+
+/**
  * Server-side helper: Render attendee chips for meeting card
+ * Shows formatted names with title abbreviations when available
  */
 function renderAttendeeChips(meeting) {
   const external = meeting.externalAttendees || [];
@@ -27,10 +115,22 @@ function renderAttendeeChips(meeting) {
     return '';
   }
   
-  // Show up to 3 external attendees as chips, then count
+  // Show up to 3 external attendees as chips with enhanced formatting
   const externalChips = external.slice(0, 3).map(att => {
-    const firstName = (att.name || att.email || 'Unknown').split(' ')[0].split('@')[0];
-    return `<span class="attendee-chip external" title="${att.name || att.email}">${firstName}</span>`;
+    const fullName = formatAttendeeName(att);
+    // Get first name and last initial for compact display
+    const nameParts = fullName.split(' ');
+    const firstName = nameParts[0] || 'Unknown';
+    const lastInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1][0] + '.' : '';
+    const displayName = nameParts.length > 1 ? `${firstName} ${lastInitial}` : firstName;
+    
+    // Add title abbreviation if available
+    const titleAbbr = att.title ? abbreviateTitle(att.title) : '';
+    const chipContent = titleAbbr 
+      ? `${displayName} <span class="chip-title">(${titleAbbr})</span>`
+      : displayName;
+    
+    return `<span class="attendee-chip external" title="${fullName}${att.title ? ' - ' + att.title : ''}">${chipContent}</span>`;
   }).join('');
   
   const moreCount = external.length > 3 ? external.length - 3 : 0;
@@ -354,10 +454,10 @@ body {
 
 .attendee-chip {
   font-size: 0.65rem;
-  padding: 2px 6px;
+  padding: 2px 8px;
   border-radius: 10px;
   white-space: nowrap;
-  max-width: 100px;
+  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -366,6 +466,13 @@ body {
   background: #fef3c7;
   color: #92400e;
   border: 1px solid #fcd34d;
+}
+
+.attendee-chip .chip-title {
+  font-size: 0.55rem;
+  color: #b45309;
+  font-weight: 500;
+  margin-left: 2px;
 }
 
 .attendee-chip.internal {
@@ -697,12 +804,12 @@ textarea.input-field {
 }
 
 .attendee-card.enriched {
-  background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
-  border-color: #fcd34d;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-color: #94a3b8;
 }
 
 .attendee-card.enriched:hover {
-  border-color: #f59e0b;
+  border-color: #64748b;
 }
 
 /* Summary-first card layout */
@@ -732,8 +839,8 @@ textarea.input-field {
 }
 
 .attendee-card.enriched .company-tag {
-  background: rgba(251, 191, 36, 0.2);
-  color: #92400e;
+  background: rgba(100, 116, 139, 0.15);
+  color: #475569;
 }
 
 .linkedin-link {
@@ -823,8 +930,8 @@ textarea.input-field {
 }
 
 .attendee-card.enriched .attendee-title-badge {
-  background: #fef3c7;
-  color: #92400e;
+  background: #e2e8f0;
+  color: #475569;
 }
 
 /* LinkedIn link variations */
@@ -877,8 +984,8 @@ textarea.input-field {
 }
 
 .unified-attendee-card.enriched {
-  border-color: #0ea5e9;
-  background: linear-gradient(135deg, #f8fafc 0%, #f0f9ff 100%);
+  border-color: #64748b;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 }
 
 .attendee-card-top {
@@ -929,7 +1036,7 @@ textarea.input-field {
 }
 
 .unified-attendee-card.enriched .attendee-bio {
-  background: #f0f9ff;
+  background: #f1f5f9;
 }
 
 .attendee-linkedin {
@@ -1370,15 +1477,36 @@ let currentMeetingData = null;
 let accountsList = [];
 
 // EA exclusion list - Executive Assistants to filter from internal attendees
+// Use partial names/emails for robust matching (handles truncated display names)
 const EA_EXCLUSIONS = [
-  'alyssa.gradstein@eudia.com',
-  'cassie.farber@eudia.com'
+  { name: 'alyssa gradstein', email: 'alyssa.gradstein' },
+  { name: 'cassie farber', email: 'cassie.farber' }
 ];
 
 // Check if attendee is an EA (should be excluded)
 function isExecutiveAssistant(attendee) {
   const email = (attendee.email || '').toLowerCase();
-  return EA_EXCLUSIONS.some(ea => email.includes(ea.toLowerCase()));
+  const name = (attendee.name || '').toLowerCase().replace(/[,.\-_]/g, ' ').replace(/\s+/g, ' ').trim();
+  
+  return EA_EXCLUSIONS.some(ea => {
+    // Match by email (partial - handles variations)
+    if (email && email.includes(ea.email)) return true;
+    
+    // Match by name (partial - handles truncated names like "Alyssa Gradstei")
+    // Check if first and last name parts appear in the attendee name
+    const eaParts = ea.name.split(' ');
+    const firstName = eaParts[0] || '';
+    const lastName = eaParts[1] || '';
+    
+    // Match if name contains both first name AND significant portion of last name
+    if (firstName && lastName) {
+      const hasFirst = name.includes(firstName);
+      const hasLastPartial = name.includes(lastName.substring(0, Math.min(5, lastName.length)));
+      if (hasFirst && hasLastPartial) return true;
+    }
+    
+    return false;
+  });
 }
 
 // Normalize name display (handles "Last, First" format)

@@ -1367,6 +1367,10 @@ class GTMBrainApp {
     // Accepts: { attendees: [...] } OR single object { email, name, ... } OR array [{ email, ... }]
     this.expressApp.post('/api/clay/store-enrichment', async (req, res) => {
       try {
+        // DIAGNOSTIC: Log the full raw payload from Clay
+        logger.info(`📥 [Clay Store] Raw request body keys: ${Object.keys(req.body).join(', ')}`);
+        logger.info(`📥 [Clay Store] Raw payload sample: ${JSON.stringify(req.body).substring(0, 800)}`);
+        
         let attendees = req.body.attendees;
         
         // Handle single attendee object (Clay HTTP API sends this way)
@@ -1392,20 +1396,41 @@ class GTMBrainApp {
         const results = [];
         
         for (const attendee of attendees) {
+          // DIAGNOSTIC: Log all keys for this attendee
+          logger.info(`📋 [Clay Store] Attendee keys: ${Object.keys(attendee).join(', ')}`);
+          
           if (!attendee.email) {
             logger.warn('⚠️ Attendee missing email, skipping');
             continue;
           }
           
-          // Handle various Clay column name formats
-          const summary = attendee.summary 
-            || attendee.attendee_summary 
-            || attendee['Attendee Summary (2)']
-            || attendee['Attendee Summary (2.0)']
-            || attendee['attendee_summary_2']
-            || attendee['Attendee Summary']
-            || attendee.bio
-            || null;
+          // Handle various Clay column name formats - check ALL variations
+          // The key might have different casing or formatting from Clay
+          const summaryKeys = [
+            'summary', 'attendee_summary', 'Attendee Summary (2)', 'Attendee Summary (2.0)',
+            'attendee_summary_2', 'Attendee Summary', 'bio', 'Bio', 'attendeeSummary',
+            'Attendee_Summary_2', 'attendee summary 2'
+          ];
+          
+          let summary = null;
+          for (const key of summaryKeys) {
+            if (attendee[key] && typeof attendee[key] === 'string' && attendee[key].trim().length > 0) {
+              summary = attendee[key];
+              logger.info(`✅ Found summary in key: "${key}" = ${summary.substring(0, 60)}...`);
+              break;
+            }
+          }
+          
+          // If no summary found in known keys, search all keys for ones containing "summary"
+          if (!summary) {
+            for (const key of Object.keys(attendee)) {
+              if (key.toLowerCase().includes('summary') && attendee[key] && attendee[key].trim?.().length > 0) {
+                summary = attendee[key];
+                logger.info(`✅ Found summary in dynamic key: "${key}"`);
+                break;
+              }
+            }
+          }
           
           const linkedinUrl = attendee.linkedinUrl 
             || attendee.linkedin_url 
@@ -1432,7 +1457,7 @@ class GTMBrainApp {
             || attendee['Company']
             || null;
           
-          logger.info(`💾 Saving enrichment: ${attendee.email} - Title: ${title ? 'YES' : 'NO'}, Summary: ${summary ? 'YES' : 'NO'}`);
+          logger.info(`💾 Saving enrichment: ${attendee.email} - Title: ${title ? 'YES' : 'NO'}, Summary: ${summary ? 'YES (' + summary.length + ' chars)' : 'NO'}, LinkedIn: ${linkedinUrl ? 'YES' : 'NO'}`);
           
           await intelligenceStore.saveAttendeeEnrichment({
             email: attendee.email,
@@ -1443,7 +1468,7 @@ class GTMBrainApp {
             summary,
             source: attendee.source || 'clay'
           });
-          results.push({ email: attendee.email, saved: true });
+          results.push({ email: attendee.email, saved: true, hasSummary: !!summary });
         }
         
         logger.info(`✅ Stored enrichment for ${results.length} attendees`);
