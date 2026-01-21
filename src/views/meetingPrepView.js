@@ -71,20 +71,44 @@ async function generateMeetingPrepHTML(filterUserId = null) {
     meetings = meetingPrepService.filterMeetingsByUser(meetings, filterUserId, userEmail);
   }
   
-  const grouped = meetingPrepService.groupMeetingsByDay(meetings);
-  
-  // Generate week dates
-  const monday = new Date(weekRange.mondayDate);
+  // Generate rolling day view - today + next 4 business days
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const weekDays = [];
-  for (let i = 0; i < 5; i++) {
-    const day = new Date(monday);
-    day.setDate(monday.getDate() + i);
-    weekDays.push({
-      name: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'][i],
-      key: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'][i],
-      date: day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      fullDate: day.toISOString().split('T')[0]
-    });
+  let currentDate = new Date();
+  currentDate.setHours(0, 0, 0, 0); // Start of today
+  
+  while (weekDays.length < 5) {
+    const dayOfWeek = currentDate.getDay();
+    // Skip weekends (0 = Sunday, 6 = Saturday)
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      weekDays.push({
+        name: dayNames[dayOfWeek],
+        key: dayKeys[dayOfWeek],
+        date: currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        fullDate: currentDate.toISOString().split('T')[0],
+        isToday: weekDays.length === 0 && dayOfWeek === new Date().getDay()
+      });
+    }
+    currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000); // Next day
+  }
+  
+  // Group meetings by date (YYYY-MM-DD format)
+  const grouped = {};
+  for (const day of weekDays) {
+    grouped[day.fullDate] = [];
+  }
+  
+  for (const meeting of meetings) {
+    const dateStr = meeting.meetingDate || meeting.meeting_date;
+    if (!dateStr) continue;
+    
+    const meetingDate = new Date(dateStr);
+    const fullDate = meetingDate.toISOString().split('T')[0];
+    
+    if (grouped[fullDate]) {
+      grouped[fullDate].push(meeting);
+    }
   }
   
   const demoProducts = meetingPrepService.DEMO_PRODUCTS;
@@ -230,6 +254,26 @@ body {
   font-size: 0.875rem;
   font-weight: 600;
   color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.today-badge {
+  font-size: 0.65rem;
+  background: #8e99e1;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.day-column.today {
+  border: 2px solid #8e99e1;
+}
+
+.day-column.today .day-header {
+  background: linear-gradient(135deg, #eef1ff 0%, #e8ebff 100%);
 }
 
 .day-date {
@@ -388,6 +432,32 @@ body {
   top: 0;
   background: #fff;
   z-index: 10;
+}
+
+.modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.copy-link-btn {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.copy-link-btn:hover {
+  background: #e5e7eb;
+}
+
+.copy-link-btn.copied {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
 }
 
 .modal-title {
@@ -886,18 +956,26 @@ textarea.input-field {
 
   <div class="week-grid">
     ${weekDays.map(day => `
-      <div class="day-column">
+      <div class="day-column ${day.isToday ? 'today' : ''}">
         <div class="day-header">
-          <div class="day-name">${day.name}</div>
+          <div class="day-name">${day.name}${day.isToday ? ' <span class="today-badge">Today</span>' : ''}</div>
           <div class="day-date">${day.date}</div>
         </div>
-        <div class="day-meetings" id="meetings-${day.key}">
-          ${(grouped[day.key] || []).length === 0 ? `
+        <div class="day-meetings" id="meetings-${day.fullDate}">
+          ${(grouped[day.fullDate] || []).length === 0 ? `
             <div class="empty-day">No meetings</div>
-          ` : (grouped[day.key] || []).map(meeting => `
+          ` : (grouped[day.fullDate] || []).map(meeting => `
             <div class="meeting-card ${meeting.agenda?.some(a => a?.trim()) ? 'has-prep' : ''}" 
-                 onclick="openMeetingPrep('${meeting.meeting_id || meeting.meetingId}')"
-                 data-attendees='${JSON.stringify((meeting.attendees || meeting.externalAttendees || []).map(a => ({name: a.name, email: a.email, isExternal: a.isExternal})))}'>
+                 onclick="openMeetingPrep('${meeting.meeting_id || meeting.meetingId}', ${JSON.stringify({
+                   accountName: meeting.account_name || meeting.accountName || 'Unknown',
+                   meetingTitle: meeting.meeting_title || meeting.meetingTitle || 'Untitled',
+                   meetingDate: meeting.meeting_date || meeting.meetingDate,
+                   externalAttendees: (meeting.externalAttendees || []).map(a => ({name: a.name || '', email: a.email || '', isExternal: true})),
+                   internalAttendees: (meeting.internalAttendees || []).map(a => ({name: a.name || '', email: a.email || '', isExternal: false})),
+                   accountId: meeting.account_id || meeting.accountId || null,
+                   source: meeting.source
+                 }).replace(/'/g, "\\'")})"
+                 data-meeting-id="${meeting.meeting_id || meeting.meetingId}">
               <div class="meeting-account">${meeting.account_name || meeting.accountName || 'Unknown'}</div>
               <div class="meeting-title">${meeting.meeting_title || meeting.meetingTitle || 'Untitled'}</div>
               <div class="meeting-time">
@@ -921,7 +999,12 @@ textarea.input-field {
         <div class="modal-title" id="modalTitle">Meeting Prep</div>
         <div class="modal-subtitle" id="modalSubtitle">Loading...</div>
       </div>
-      <button class="modal-close" onclick="closeModal()">&times;</button>
+      <div class="modal-actions">
+        <button class="copy-link-btn" onclick="copyMeetingLink()" title="Copy shareable link">
+          📋 Copy Link
+        </button>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
     </div>
     <div class="modal-body" id="modalBody">
       <div class="loading">
@@ -1006,35 +1089,61 @@ function formatTime(isoString) {
 }
 
 // Open meeting prep modal
-async function openMeetingPrep(meetingId) {
+async function openMeetingPrep(meetingId, meetingInfo) {
   currentMeetingId = meetingId;
   document.getElementById('prepModal').classList.add('active');
   document.getElementById('modalBody').innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading meeting details...</p></div>';
   
+  // Parse meeting info if it's a string
+  const parsedMeetingInfo = typeof meetingInfo === 'string' ? JSON.parse(meetingInfo) : meetingInfo;
+  
   try {
-    // Load meeting prep data
+    // Load saved meeting prep data
     const prepRes = await fetch('/api/meeting-prep/' + meetingId);
     const prepData = await prepRes.json();
     
-    if (!prepData.success || !prepData.prep) {
-      // Meeting exists but no prep yet - create structure
-      currentMeetingData = {
-        meetingId,
-        attendees: [],
-        agenda: ['', '', ''],
-        goals: ['', '', ''],
-        demoSelections: [{ product: '', subtext: '' }, { product: '', subtext: '' }, { product: '', subtext: '' }]
-      };
-    } else {
-      currentMeetingData = prepData.prep;
-      // Ensure arrays have 3 slots
-      while ((currentMeetingData.agenda || []).length < 3) currentMeetingData.agenda.push('');
-      while ((currentMeetingData.goals || []).length < 3) currentMeetingData.goals.push('');
-      while ((currentMeetingData.demoSelections || []).length < 3) currentMeetingData.demoSelections.push({ product: '', subtext: '' });
+    // Start with meeting info from Outlook (has attendees)
+    currentMeetingData = {
+      meetingId,
+      accountName: parsedMeetingInfo?.accountName || '',
+      meetingTitle: parsedMeetingInfo?.meetingTitle || '',
+      meetingDate: parsedMeetingInfo?.meetingDate || '',
+      accountId: parsedMeetingInfo?.accountId || null,
+      source: parsedMeetingInfo?.source || 'unknown',
+      externalAttendees: parsedMeetingInfo?.externalAttendees || [],
+      internalAttendees: parsedMeetingInfo?.internalAttendees || [],
+      agenda: ['', '', ''],
+      goals: ['', '', ''],
+      demoSelections: [{ product: '', subtext: '' }, { product: '', subtext: '' }, { product: '', subtext: '' }],
+      context: '',
+      additionalNotes: ['', '', '']
+    };
+    
+    // Merge with saved prep data if exists
+    if (prepData.success && prepData.prep) {
+      const saved = prepData.prep;
+      currentMeetingData.agenda = saved.agenda || currentMeetingData.agenda;
+      currentMeetingData.goals = saved.goals || currentMeetingData.goals;
+      currentMeetingData.demoSelections = saved.demoSelections || currentMeetingData.demoSelections;
+      currentMeetingData.context = saved.context || '';
+      currentMeetingData.additionalNotes = saved.additionalNotes || ['', '', ''];
+      // Use saved attendees if they exist (user may have added more)
+      if (saved.externalAttendees?.length > 0) {
+        currentMeetingData.externalAttendees = saved.externalAttendees;
+      }
+      if (saved.internalAttendees?.length > 0) {
+        currentMeetingData.internalAttendees = saved.internalAttendees;
+      }
     }
     
-    document.getElementById('modalTitle').textContent = currentMeetingData.account_name || currentMeetingData.accountName || 'Meeting Prep';
-    document.getElementById('modalSubtitle').textContent = currentMeetingData.meeting_title || currentMeetingData.meetingTitle || '';
+    // Ensure arrays have 3 slots
+    while ((currentMeetingData.agenda || []).length < 3) currentMeetingData.agenda.push('');
+    while ((currentMeetingData.goals || []).length < 3) currentMeetingData.goals.push('');
+    while ((currentMeetingData.demoSelections || []).length < 3) currentMeetingData.demoSelections.push({ product: '', subtext: '' });
+    while ((currentMeetingData.additionalNotes || []).length < 3) currentMeetingData.additionalNotes.push('');
+    
+    document.getElementById('modalTitle').textContent = currentMeetingData.accountName || 'Meeting Prep';
+    document.getElementById('modalSubtitle').textContent = currentMeetingData.meetingTitle || '';
     
     // Load context
     let contextHtml = '<div class="context-section"><div class="context-content">No context available</div></div>';
@@ -1155,23 +1264,29 @@ function renderPrepForm(contextHtml) {
       \${externalAttendees.length > 0 ? \`
         <div class="attendee-section-label external">External Attendees (\${externalAttendees.length})</div>
         <div class="attendee-chips">
-          \${externalAttendees.map((a, i) => \`
-            <span class="attendee-chip external">
-              \${a.name}\${a.title ? ' - ' + a.title : ''}
-              <button class="attendee-remove" onclick="removeAttendee(\${i}, true)">&times;</button>
-            </span>
-          \`).join('')}
+          \${externalAttendees.map((a, i) => {
+            const displayName = a.name || (a.email ? a.email.split('@')[0].replace(/[._]/g, ' ') : 'Unknown');
+            const company = a.email ? a.email.split('@')[1]?.split('.')[0] : '';
+            return \`
+              <span class="attendee-chip external" title="\${a.email || ''}">
+                \${displayName}\${company ? ' (' + company + ')' : ''}
+              </span>
+            \`;
+          }).join('')}
         </div>
-      \` : ''}
+      \` : '<div class="no-attendees">No external attendees</div>'}
       
       \${internalAttendees.length > 0 ? \`
         <div class="attendee-section-label internal">Internal Attendees (\${internalAttendees.length})</div>
         <div class="attendee-chips">
-          \${internalAttendees.map((a, i) => \`
-            <span class="attendee-chip">
-              \${a.name}
-            </span>
-          \`).join('')}
+          \${internalAttendees.map((a, i) => {
+            const displayName = a.name || (a.email ? a.email.split('@')[0].replace(/[._]/g, ' ') : 'Unknown');
+            return \`
+              <span class="attendee-chip internal" title="\${a.email || ''}">
+                \${displayName}
+              </span>
+            \`;
+          }).join('')}
         </div>
       \` : ''}
       
@@ -1220,6 +1335,21 @@ function renderPrepForm(contextHtml) {
             \${demoOptions.replace('value="' + (demo.product || '') + '"', 'value="' + (demo.product || '') + '" selected')}
           </select>
           <input type="text" class="demo-subtext" data-index="\${i}" value="\${escapeHtml(demo.subtext || '')}" placeholder="Additional details..." \${!demo.product ? 'disabled' : ''}>
+        </div>
+      \`).join('')}
+    </div>
+    
+    <div class="form-section">
+      <div class="form-section-title">Context</div>
+      <textarea class="input-field context-textarea" id="contextInput" placeholder="Background information, recent interactions, key topics to address...">\${escapeHtml(data.context || '')}</textarea>
+    </div>
+    
+    <div class="form-section">
+      <div class="form-section-title">Additional Notes</div>
+      \${(data.additionalNotes || ['', '', '']).map((note, i) => \`
+        <div class="input-row">
+          <span class="input-number">\${i + 1}.</span>
+          <input type="text" class="input-field note-input" value="\${escapeHtml(note || '')}" placeholder="Note \${i + 1}">
         </div>
       \`).join('')}
     </div>
@@ -1429,21 +1559,26 @@ async function saveMeetingPrep() {
     product: sel.value,
     subtext: document.querySelector('.demo-subtext[data-index="' + i + '"]').value
   }));
+  const context = document.getElementById('contextInput')?.value || '';
+  const additionalNotes = Array.from(document.querySelectorAll('.note-input')).map(el => el.value);
   
   const demoRequired = demoSelections.some(d => d.product);
   
   const payload = {
     meetingId: currentMeetingId,
-    accountId: currentMeetingData.account_id || currentMeetingData.accountId,
-    accountName: currentMeetingData.account_name || currentMeetingData.accountName,
-    meetingTitle: currentMeetingData.meeting_title || currentMeetingData.meetingTitle,
-    meetingDate: currentMeetingData.meeting_date || currentMeetingData.meetingDate,
-    attendees: currentMeetingData.attendees || [],
+    accountId: currentMeetingData.accountId,
+    accountName: currentMeetingData.accountName,
+    meetingTitle: currentMeetingData.meetingTitle,
+    meetingDate: currentMeetingData.meetingDate,
+    externalAttendees: currentMeetingData.externalAttendees || [],
+    internalAttendees: currentMeetingData.internalAttendees || [],
     agenda,
     goals,
     demoRequired,
     demoSelections,
-    contextSnapshot: {}
+    context,
+    additionalNotes,
+    savedAt: new Date().toISOString()
   };
   
   try {
@@ -1470,6 +1605,26 @@ function closeModal() {
   document.getElementById('prepModal').classList.remove('active');
   currentMeetingId = null;
   currentMeetingData = null;
+}
+
+// Copy shareable meeting prep link
+function copyMeetingLink() {
+  const shareUrl = window.location.origin + '/gtm?tab=meeting-prep&meeting=' + currentMeetingId;
+  
+  navigator.clipboard.writeText(shareUrl).then(() => {
+    const btn = document.querySelector('.copy-link-btn');
+    const originalText = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.classList.remove('copied');
+    }, 2000);
+  }).catch(err => {
+    console.error('Failed to copy link:', err);
+    alert('Failed to copy link. URL: ' + shareUrl);
+  });
 }
 
 // Open create modal
