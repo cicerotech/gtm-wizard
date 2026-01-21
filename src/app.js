@@ -1360,6 +1360,119 @@ class GTMBrainApp {
       }
     });
     
+    // Clay configuration helper - shows exact JSON body to paste
+    this.expressApp.get('/api/clay/config-helper', async (req, res) => {
+      const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Clay HTTP API Configuration</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; background: #1a1a2e; color: #eee; }
+    h1 { color: #4ade80; }
+    h2 { color: #60a5fa; margin-top: 30px; }
+    .config-box { background: #16213e; border: 1px solid #4ade80; border-radius: 8px; padding: 20px; margin: 20px 0; }
+    pre { background: #0f0f23; padding: 15px; border-radius: 6px; overflow-x: auto; color: #4ade80; }
+    .step { background: #1e3a5f; padding: 15px; margin: 10px 0; border-radius: 6px; border-left: 4px solid #60a5fa; }
+    .step-num { font-weight: bold; color: #4ade80; }
+    code { background: #0f0f23; padding: 2px 6px; border-radius: 3px; color: #f472b6; }
+    .warning { background: #7c2d12; border: 1px solid #ea580c; padding: 15px; border-radius: 6px; margin: 20px 0; }
+    .success { background: #14532d; border: 1px solid #22c55e; padding: 15px; border-radius: 6px; margin: 20px 0; }
+    button { background: #4ade80; color: #1a1a2e; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    button:hover { background: #22c55e; }
+  </style>
+</head>
+<body>
+  <h1>🔧 Clay HTTP API Configuration</h1>
+  
+  <div class="warning">
+    <strong>⚠️ Important:</strong> SQLite data is wiped on every Render deploy. After configuring Clay, you must run the HTTP API column to repopulate data.
+  </div>
+  
+  <h2>Endpoint URL</h2>
+  <div class="config-box">
+    <pre>https://gtm-wizard.onrender.com/api/clay/store-enrichment</pre>
+  </div>
+  
+  <h2>Method</h2>
+  <div class="config-box">
+    <pre>POST</pre>
+  </div>
+  
+  <h2>Headers</h2>
+  <div class="config-box">
+    <pre>Content-Type: application/json</pre>
+  </div>
+  
+  <h2>Body Configuration (Step by Step)</h2>
+  <div class="config-box">
+    <div class="step">
+      <span class="step-num">Step 1:</span> Click in the Body field and type: <code>{</code>
+    </div>
+    <div class="step">
+      <span class="step-num">Step 2:</span> Type <code>"email": </code> then press <code>/</code> and select <strong>Email</strong> from dropdown
+    </div>
+    <div class="step">
+      <span class="step-num">Step 3:</span> Type <code>, "full_name": </code> then press <code>/</code> and select <strong>Full Name</strong>
+    </div>
+    <div class="step">
+      <span class="step-num">Step 4:</span> Type <code>, "title": </code> then press <code>/</code> and select <strong>Title</strong>
+    </div>
+    <div class="step">
+      <span class="step-num">Step 5:</span> Type <code>, "linkedin_url": </code> then press <code>/</code> and select <strong>Linkedin Url</strong>
+    </div>
+    <div class="step">
+      <span class="step-num">Step 6:</span> Type <code>, "company": </code> then press <code>/</code> and select <strong>Company</strong>
+    </div>
+    <div class="step">
+      <span class="step-num">Step 7:</span> Type <code>, "attendee_summary": </code> then press <code>/</code> and select <strong>Sanitized Summary</strong>
+    </div>
+    <div class="step">
+      <span class="step-num">Step 8:</span> Type <code>}</code> to close the JSON object
+    </div>
+  </div>
+  
+  <h2>Expected Result</h2>
+  <div class="config-box">
+    <p>The body should look like this (with Clay's internal column references):</p>
+    <pre>{
+  "email": Clay.formatForJSON({{Email}}),
+  "full_name": Clay.formatForJSON({{Full Name}}),
+  "title": Clay.formatForJSON({{Title}}),
+  "linkedin_url": Clay.formatForJSON({{Linkedin Url}}),
+  "company": Clay.formatForJSON({{Company}}),
+  "attendee_summary": Clay.formatForJSON({{Sanitized Summary}})
+}</pre>
+  </div>
+  
+  <h2>After Configuration</h2>
+  <div class="success">
+    <strong>✅ Click "Save and run 799 rows"</strong> to send all enrichment data to GTM Brain.
+  </div>
+  
+  <h2>Verify Data</h2>
+  <p>After running, check these endpoints:</p>
+  <ul>
+    <li><a href="/api/clay/debug-db" style="color: #60a5fa;">/api/clay/debug-db</a> - Should show "found": true</li>
+    <li><a href="/api/clay/test?email=jgenua@massmutual.com" style="color: #60a5fa;">/api/clay/test?email=jgenua@massmutual.com</a> - Should show enrichment data</li>
+  </ul>
+  
+  <h2>For Persistent Storage</h2>
+  <div class="warning">
+    <p>To prevent data loss on deploys, add a <strong>Render Disk</strong>:</p>
+    <ol>
+      <li>Go to Render Dashboard → Your Service → Disks</li>
+      <li>Add a disk with mount path: <code>/data</code></li>
+      <li>Add environment variable: <code>INTEL_DB_PATH=/data/intelligence.db</code></li>
+      <li>Redeploy</li>
+    </ol>
+  </div>
+</body>
+</html>
+      `;
+      res.type('html').send(html);
+    });
+    
     // Test Clay API connection - for debugging
     this.expressApp.get('/api/clay/test', async (req, res) => {
       try {
