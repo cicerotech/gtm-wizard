@@ -270,7 +270,7 @@ async function getRecentActivities(accountId) {
   try {
     // Get recent completed Tasks (last 90 days)
     const tasksQuery = `
-      SELECT Id, Subject, ActivityDate, Description, Owner.Name, Type
+      SELECT Id, Subject, ActivityDate, Description, Owner.Name
       FROM Task
       WHERE AccountId = '${accountId}'
         AND ActivityDate >= LAST_N_DAYS:90
@@ -299,8 +299,7 @@ async function getRecentActivities(accountId) {
       subject: t.Subject,
       date: t.ActivityDate,
       description: t.Description?.substring(0, 200),
-      owner: t.Owner?.Name,
-      taskType: t.Type
+      owner: t.Owner?.Name
     }));
     
     const events = (eventsResult?.records || []).map(e => ({

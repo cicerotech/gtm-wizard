@@ -1082,6 +1082,34 @@ textarea.input-field {
   text-decoration: underline;
 }
 
+.attendee-linkedin-fallback {
+  font-size: 0.65rem;
+  color: #6b7280;
+  text-decoration: none;
+  margin-left: 6px;
+}
+
+.attendee-linkedin-fallback:hover {
+  color: #0077b5;
+  text-decoration: underline;
+}
+
+.attendee-linkedin-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #6b7280;
+  text-decoration: none;
+  font-size: 0.75rem;
+  margin-top: 8px;
+  transition: color 0.2s;
+}
+
+.attendee-linkedin-search:hover {
+  color: #0077b5;
+  text-decoration: underline;
+}
+
 .attendee-pending-subtle {
   font-size: 0.75rem;
   color: #9ca3af;
@@ -2071,7 +2099,10 @@ function renderPrepForm(contextHtml) {
                 \` : ''}
                 \${linkedinUrl ? \`
                   <a href="\${linkedinUrl}" target="_blank" class="attendee-linkedin">🔗 LinkedIn Profile</a>
-                \` : ''}
+                  <a href="https://www.linkedin.com/search/results/all/?keywords=\${encodeURIComponent(displayName + ' ' + companyDisplay)}" target="_blank" class="attendee-linkedin-fallback" title="Search LinkedIn if link doesn't work">(search)</a>
+                \` : \`
+                  <a href="https://www.linkedin.com/search/results/all/?keywords=\${encodeURIComponent(displayName + ' ' + companyDisplay)}" target="_blank" class="attendee-linkedin-search">🔍 Search LinkedIn</a>
+                \`}
                 \${!isEnriched ? \`
                   <div class="attendee-pending-subtle">Enrichment in progress...</div>
                 \` : ''}
