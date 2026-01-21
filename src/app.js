@@ -1364,14 +1364,27 @@ class GTMBrainApp {
     });
 
     // Store enrichment data (for Clay callback or manual entry)
+    // Accepts: { attendees: [...] } OR single object { email, name, ... } OR array [{ email, ... }]
     this.expressApp.post('/api/clay/store-enrichment', async (req, res) => {
       try {
-        const { attendees } = req.body;
+        let attendees = req.body.attendees;
         
-        if (!attendees || !Array.isArray(attendees)) {
+        // Handle single attendee object (Clay HTTP API sends this way)
+        if (!attendees && req.body.email) {
+          logger.info('📥 Received single attendee from Clay');
+          attendees = [req.body];
+        }
+        
+        // Handle array directly at root level
+        if (!attendees && Array.isArray(req.body)) {
+          attendees = req.body;
+        }
+        
+        if (!attendees || !Array.isArray(attendees) || attendees.length === 0) {
+          logger.warn('⚠️ Invalid request body:', JSON.stringify(req.body).substring(0, 200));
           return res.status(400).json({ 
             success: false, 
-            error: 'attendees array required' 
+            error: 'attendees array or single attendee object with email required' 
           });
         }
 
@@ -1379,12 +1392,16 @@ class GTMBrainApp {
         const results = [];
         
         for (const attendee of attendees) {
-          if (!attendee.email) continue;
+          if (!attendee.email) {
+            logger.warn('⚠️ Attendee missing email, skipping');
+            continue;
+          }
           
           // Handle various Clay column name formats
           const summary = attendee.summary 
             || attendee.attendee_summary 
             || attendee['Attendee Summary (2)']
+            || attendee['Attendee Summary (2.0)']
             || attendee['attendee_summary_2']
             || attendee['Attendee Summary']
             || attendee.bio
@@ -1393,16 +1410,36 @@ class GTMBrainApp {
           const linkedinUrl = attendee.linkedinUrl 
             || attendee.linkedin_url 
             || attendee['LinkedIn URL']
+            || attendee['Linkedin Url']
             || attendee.linkedin
             || attendee['LinkedIn']
             || null;
           
+          const title = attendee.title 
+            || attendee.job_title 
+            || attendee['Title'] 
+            || attendee['Job Title']
+            || null;
+          
+          const name = attendee.name 
+            || attendee.full_name 
+            || attendee['Full Name']
+            || attendee['full_name']
+            || null;
+          
+          const company = attendee.company 
+            || attendee.company_name 
+            || attendee['Company']
+            || null;
+          
+          logger.info(`💾 Saving enrichment: ${attendee.email} - Title: ${title ? 'YES' : 'NO'}, Summary: ${summary ? 'YES' : 'NO'}`);
+          
           await intelligenceStore.saveAttendeeEnrichment({
             email: attendee.email,
-            name: attendee.name || attendee.full_name || attendee['Full Name'],
-            title: attendee.title || attendee.job_title || attendee['Title'] || attendee['Job Title'],
+            name,
+            title,
             linkedinUrl,
-            company: attendee.company || attendee.company_name || attendee['Company'],
+            company,
             summary,
             source: attendee.source || 'clay'
           });
