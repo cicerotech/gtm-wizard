@@ -501,13 +501,35 @@ class ClayEnrichment {
           );
           
           if (row) {
+            // Clay column names can vary - check multiple variations
+            // "Attendee Summary (2)" might come through as various formats
+            const getSummary = (r) => {
+              return r.attendee_summary 
+                || r['attendee_summary'] 
+                || r['Attendee Summary (2)']
+                || r['attendee_summary_2']
+                || r['Attendee Summary']
+                || r.summary 
+                || r.bio 
+                || null;
+            };
+            
+            const getLinkedIn = (r) => {
+              return r.linkedin_url 
+                || r['linkedin_url']
+                || r['LinkedIn URL']
+                || r.linkedin 
+                || r['LinkedIn']
+                || null;
+            };
+            
             const enriched = {
               email,
-              name: row.full_name || row.name || null,
-              title: row.title || row.job_title || null,
-              linkedinUrl: row.linkedin_url || row.linkedin || null,
-              company: row.company || row.company_name || null,
-              summary: row.attendee_summary || row.summary || row.bio || null,
+              name: row.full_name || row.name || row['Full Name'] || null,
+              title: row.title || row.job_title || row['Title'] || row['Job Title'] || null,
+              linkedinUrl: getLinkedIn(row),
+              company: row.company || row.company_name || row['Company'] || null,
+              summary: getSummary(row),
               source: 'clay_table'
             };
             

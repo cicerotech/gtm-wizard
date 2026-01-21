@@ -679,34 +679,93 @@ textarea.input-field {
 .attendee-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   margin-top: 12px;
 }
 
 .attendee-card {
   background: #f9fafb;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 12px;
-  transition: border-color 0.2s;
+  border-radius: 10px;
+  padding: 14px 16px;
+  transition: all 0.2s ease;
+}
+
+.attendee-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .attendee-card.enriched {
-  background: #fefce8;
+  background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
   border-color: #fcd34d;
 }
 
+.attendee-card.enriched:hover {
+  border-color: #f59e0b;
+}
+
+/* Summary-first card layout */
+.attendee-summary {
+  font-size: 0.85rem;
+  color: #374151;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.attendee-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0,0,0,0.08);
+}
+
+.company-tag {
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 0.7rem;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.attendee-card.enriched .company-tag {
+  background: rgba(251, 191, 36, 0.2);
+  color: #92400e;
+}
+
+.linkedin-link {
+  text-decoration: none;
+  font-size: 1rem;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.linkedin-link:hover {
+  opacity: 1;
+}
+
+/* Fallback layout for non-enriched attendees */
 .attendee-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .attendee-card-header .attendee-name {
   font-weight: 600;
   color: #111827;
   font-size: 0.9rem;
+}
+
+.attendee-pending {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-style: italic;
+  margin-top: 6px;
 }
 
 .attendee-card-header .linkedin-link {
@@ -1064,7 +1123,7 @@ textarea.input-field {
       </div>
       <div class="modal-actions">
         <button class="copy-link-btn" onclick="copyMeetingLink()" title="Copy shareable link">
-          📋 Copy Link
+          🔗 Copy Link
         </button>
         <button class="modal-close" onclick="closeModal()">&times;</button>
       </div>
@@ -1183,6 +1242,105 @@ function normalizeName(rawName) {
   }
   
   return name;
+}
+
+// ============================================================
+// GHOST ATTENDEE FILTERING
+// Filters out non-human calendar entries (conference rooms, dial-ins, etc.)
+// This configuration is designed to be easily extensible
+// ============================================================
+const GHOST_ATTENDEE_CONFIG = {
+  // Name patterns to exclude (case-insensitive partial match)
+  namePatterns: [
+    'conference',
+    'meeting room',
+    'video enabled',
+    'dial-in',
+    'dial in',
+    'bridge',
+    'huddle room',
+    'board room',
+    'training room',
+    'phone room',
+    'zoom room',
+    'teams room',
+    'webex',
+    'polycom',
+    'cisco'
+  ],
+  
+  // Email local part prefixes to exclude (before @)
+  emailPrefixes: [
+    'corp',
+    'conf',
+    'room',
+    'mtg',
+    'bridge',
+    'dial',
+    'noreply',
+    'no-reply',
+    'calendar',
+    'booking'
+  ],
+  
+  // Regex patterns for complex email matching
+  emailRegexPatterns: [
+    /^[A-Z]{4,}[A-Z0-9]*\d{2,}[A-Z]?@/i,  // All-caps codes with numbers: CORPRMSS2320A@
+    /^\d{4,}@/,                             // Starts with 4+ digits
+    /^(room|conf|mtg|res)\d+@/i,           // room123@, conf456@, etc.
+    /^[a-z]{1,3}\d{5,}@/i                  // Short prefix + many digits: rm12345@
+  ]
+};
+
+/**
+ * Determines if an attendee is a "ghost" (non-human calendar entry)
+ * Examples: conference rooms, video bridges, dial-in numbers
+ * @param {Object} attendee - { name, email }
+ * @returns {boolean} true if should be filtered out
+ */
+function isGhostAttendee(attendee) {
+  const email = (attendee.email || '').toLowerCase();
+  const name = (attendee.name || '');
+  const nameLower = name.toLowerCase();
+  
+  // Check name patterns
+  for (const pattern of GHOST_ATTENDEE_CONFIG.namePatterns) {
+    if (nameLower.includes(pattern)) {
+      return true;
+    }
+  }
+  
+  // Check email prefixes
+  const localPart = email.split('@')[0];
+  for (const prefix of GHOST_ATTENDEE_CONFIG.emailPrefixes) {
+    if (localPart.startsWith(prefix) && localPart.length > prefix.length) {
+      // Ensure it's not a real name like "confalonieri@..."
+      const afterPrefix = localPart.slice(prefix.length);
+      if (/^\d/.test(afterPrefix) || afterPrefix.startsWith('-') || afterPrefix.startsWith('_')) {
+        return true;
+      }
+    }
+  }
+  
+  // Check email regex patterns
+  for (const regex of GHOST_ATTENDEE_CONFIG.emailRegexPatterns) {
+    if (regex.test(email)) {
+      return true;
+    }
+  }
+  
+  // Check if name looks like a room code (e.g., "State Street Salem 2320 (11)")
+  // Pattern: Contains both a multi-digit number AND parenthetical number
+  if (/\(\d+\)/.test(name) && /\d{3,}/.test(name)) {
+    return true;
+  }
+  
+  // Check for very short or numeric-only local parts
+  if (localPart.length <= 2 || /^\d+$/.test(localPart)) {
+    return true;
+  }
+  
+  return false;
 }
 
 // Initialize
@@ -1364,17 +1522,22 @@ function formatContextSection(ctx) {
 function renderPrepForm(contextHtml) {
   const data = currentMeetingData;
   const attendees = data.attendees || [];
-  const externalAttendees = data.externalAttendees || attendees.filter(a => a.isExternal);
+  
+  // Filter external attendees: remove ghost entries (conference rooms, dial-ins, etc.)
+  const allExternal = data.externalAttendees || attendees.filter(a => a.isExternal);
+  const externalAttendees = allExternal.filter(a => !isGhostAttendee(a));
+  
   // Filter out EAs from internal attendees
   const allInternal = data.internalAttendees || attendees.filter(a => !a.isExternal);
   const internalAttendees = allInternal.filter(a => !isExecutiveAssistant(a));
+  
   const agenda = data.agenda || ['', '', ''];
   const goals = data.goals || ['', '', ''];
   const demos = data.demoSelections || [{ product: '', subtext: '' }, { product: '', subtext: '' }, { product: '', subtext: '' }];
   
   // Check if any attendees have enriched data (bio/summary or title)
   const enrichedAttendees = externalAttendees.filter(a => 
-    (a.bio || a.summary || a.title) && a.confidence !== 'low'
+    (a.bio || a.summary || a.attendee_summary || a.title) && a.confidence !== 'low'
   );
   const hasEnrichedAttendees = enrichedAttendees.length > 0;
   
@@ -1391,7 +1554,9 @@ function renderPrepForm(contextHtml) {
       </div>
       \${enrichedAttendees.map(a => {
         const displayName = normalizeName(a.name || '');
-        const bioText = a.bio || a.summary || '';
+        const bioText = a.bio || a.summary || a.attendee_summary || '';
+        const company = a.company || (a.email ? a.email.split('@')[1]?.split('.')[0] : '');
+        const companyDisplay = company ? company.charAt(0).toUpperCase() + company.slice(1) : 'Company unknown';
         return \`
         <div class="enriched-attendee">
           <div class="enriched-attendee-header">
@@ -1400,7 +1565,7 @@ function renderPrepForm(contextHtml) {
             </div>
             <div class="attendee-info">
               <div class="attendee-name">\${displayName}</div>
-              <div class="attendee-title-company">\${a.title || 'Title unknown'} • \${a.company || 'Company unknown'}</div>
+              <div class="attendee-title-company">\${a.title || 'Title unknown'} • \${companyDisplay}</div>
             </div>
             \${a.seniority ? '<span class="seniority-badge ' + getSeniorityClass(a.seniority) + '">' + a.seniority + '</span>' : ''}
           </div>
@@ -1436,18 +1601,29 @@ function renderPrepForm(contextHtml) {
             const rawName = a.name || (a.email ? a.email.split('@')[0].replace(/[._]/g, ' ') : 'Unknown');
             const displayName = normalizeName(rawName);
             const company = a.company || (a.email ? a.email.split('@')[1]?.split('.')[0] : '');
-            const hasEnrichment = a.title || a.linkedinUrl;
+            const companyDisplay = company ? company.charAt(0).toUpperCase() + company.slice(1) : '';
+            const summary = a.summary || a.attendee_summary || a.bio || null;
+            const hasEnrichment = summary || a.title;
+            
             return \`
               <div class="attendee-card \${hasEnrichment ? 'enriched' : ''}">
-                <div class="attendee-card-header">
-                  <span class="attendee-name">\${displayName}</span>
-                  \${a.linkedinUrl ? '<a href="' + a.linkedinUrl + '" target="_blank" class="linkedin-link" title="LinkedIn Profile">🔗</a>' : ''}
-                </div>
-                <div class="attendee-card-details">
-                  \${a.title ? '<span class="attendee-title">' + a.title + '</span>' : ''}
-                  \${company ? '<span class="attendee-company">' + (company.charAt(0).toUpperCase() + company.slice(1)) + '</span>' : ''}
-                </div>
-                <div class="attendee-email">\${a.email || ''}</div>
+                \${summary ? \`
+                  <div class="attendee-summary">\${summary}</div>
+                  <div class="attendee-card-footer">
+                    \${companyDisplay ? '<span class="company-tag">' + companyDisplay + '</span>' : ''}
+                    \${a.linkedinUrl ? '<a href="' + a.linkedinUrl + '" target="_blank" class="linkedin-link" title="View LinkedIn Profile">🔗</a>' : ''}
+                  </div>
+                \` : \`
+                  <div class="attendee-card-header">
+                    <span class="attendee-name">\${displayName}</span>
+                    \${a.linkedinUrl ? '<a href="' + a.linkedinUrl + '" target="_blank" class="linkedin-link" title="LinkedIn Profile">🔗</a>' : ''}
+                  </div>
+                  <div class="attendee-card-details">
+                    \${a.title ? '<span class="attendee-title">' + a.title + '</span>' : ''}
+                    \${companyDisplay ? '<span class="attendee-company">' + companyDisplay + '</span>' : ''}
+                  </div>
+                  <div class="attendee-pending">Enrichment pending...</div>
+                \`}
               </div>
             \`;
           }).join('')}

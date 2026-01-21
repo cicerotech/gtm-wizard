@@ -1344,13 +1344,30 @@ class GTMBrainApp {
         
         for (const attendee of attendees) {
           if (!attendee.email) continue;
+          
+          // Handle various Clay column name formats
+          const summary = attendee.summary 
+            || attendee.attendee_summary 
+            || attendee['Attendee Summary (2)']
+            || attendee['attendee_summary_2']
+            || attendee['Attendee Summary']
+            || attendee.bio
+            || null;
+          
+          const linkedinUrl = attendee.linkedinUrl 
+            || attendee.linkedin_url 
+            || attendee['LinkedIn URL']
+            || attendee.linkedin
+            || attendee['LinkedIn']
+            || null;
+          
           await intelligenceStore.saveAttendeeEnrichment({
             email: attendee.email,
-            name: attendee.name || attendee.full_name,
-            title: attendee.title || attendee.job_title,
-            linkedinUrl: attendee.linkedinUrl || attendee.linkedin_url || attendee.linkedin,
-            company: attendee.company || attendee.company_name,
-            summary: attendee.summary || attendee.attendee_summary || attendee.bio,
+            name: attendee.name || attendee.full_name || attendee['Full Name'],
+            title: attendee.title || attendee.job_title || attendee['Title'] || attendee['Job Title'],
+            linkedinUrl,
+            company: attendee.company || attendee.company_name || attendee['Company'],
+            summary,
             source: attendee.source || 'clay'
           });
           results.push({ email: attendee.email, saved: true });
