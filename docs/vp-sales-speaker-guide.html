@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VP Sales Walkthrough — Speaker Guide</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #1e293b;
+            background: #f8fafc;
+            padding: 30px;
+            max-width: 900px;
+            margin: 0 auto;
+            font-size: 12pt;
+            line-height: 1.5;
+        }
+        h1 {
+            font-size: 18pt;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #0f172a;
+        }
+        .meta {
+            color: #64748b;
+            font-size: 11pt;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .section {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin-bottom: 15px;
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .section-title {
+            font-size: 13pt;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .section-time {
+            background: #f1f5f9;
+            color: #64748b;
+            font-size: 10pt;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 4px;
+        }
+        .say {
+            background: #ecfdf5;
+            border-left: 4px solid #10b981;
+            padding: 10px 14px;
+            margin: 10px 0;
+            font-size: 11pt;
+            color: #064e3b;
+        }
+        .say::before {
+            content: "SAY: ";
+            font-weight: 700;
+        }
+        .dont-say {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            padding: 8px 14px;
+            margin: 10px 0;
+            font-size: 10pt;
+            color: #7f1d1d;
+        }
+        .dont-say::before {
+            content: "DON'T: ";
+            font-weight: 700;
+        }
+        .bullet-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin: 10px 0;
+        }
+        .bullet-box h4 {
+            font-size: 11pt;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #334155;
+        }
+        ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+        li {
+            font-size: 11pt;
+            margin: 4px 0;
+            color: #475569;
+        }
+        li strong {
+            color: #1e293b;
+        }
+        .transition {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 10px 14px;
+            margin: 12px 0;
+            font-size: 11pt;
+            color: #78350f;
+        }
+        .transition::before {
+            content: "→ TRANSITION: ";
+            font-weight: 700;
+        }
+        .action {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 10px 14px;
+            margin: 10px 0;
+            font-size: 11pt;
+            color: #1e3a8a;
+        }
+        .action::before {
+            content: "ACTION: ";
+            font-weight: 700;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11pt;
+            margin: 10px 0;
+        }
+        th {
+            background: #1e293b;
+            color: white;
+            text-align: left;
+            padding: 8px 12px;
+            font-size: 10pt;
+        }
+        td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        tr:nth-child(even) { background: #f8fafc; }
+        .key-point {
+            background: #faf5ff;
+            border: 2px solid #a855f7;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 12px 0;
+        }
+        .key-point::before {
+            content: "🎯 KEY POINT: ";
+            font-weight: 700;
+            color: #7c3aed;
+        }
+        .stop {
+            text-align: center;
+            background: #f1f5f9;
+            padding: 10px;
+            font-weight: 700;
+            color: #64748b;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-size: 11pt;
+        }
+        .principle {
+            background: #0f172a;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .principle h3 {
+            font-size: 12pt;
+            margin-bottom: 8px;
+        }
+        .principle p {
+            font-size: 11pt;
+            color: #cbd5e1;
+            margin: 4px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>VP Sales Walkthrough — Speaker Guide</h1>
+    <div class="meta">
+        <strong>For:</strong> You (Keigan) | <strong>Duration:</strong> 20-25 min | <strong>Format:</strong> 5 min talk → 15 min Salesforce demo
+    </div>
+
+    <div class="principle">
+        <h3>Your Guiding Principle</h3>
+        <p><strong>Tell him 20%. Show him 80%.</strong></p>
+        <p>He's experienced. He'll pick up context from what you show him. Your job is to give him the vocabulary (stages, fields, why) so he can follow along — then let Salesforce do the talking.</p>
+    </div>
+
+    <!-- PART 1: THE 5-MINUTE CONTEXT -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-title">Part 1: Context Before Clicking</span>
+            <span class="section-time">5 min total</span>
+        </div>
+
+        <div class="say">"Before I pull up Salesforce, let me give you a 5-minute framework so the screen makes sense."</div>
+
+        <!-- 1A: STAGES -->
+        <div class="bullet-box">
+            <h4>1. Stages — The Deal Journey (90 sec)</h4>
+            <table>
+                <tr><th>Stage</th><th>What It Means</th><th>What Matters</th></tr>
+                <tr><td><strong>0</strong></td><td>Prospecting</td><td>Account exists, no meeting yet</td></tr>
+                <tr><td><strong>1</strong></td><td>Discovery</td><td>Meeting scheduled, qualifying</td></tr>
+                <tr><td><strong>2 (SQO)</strong></td><td>Qualified</td><td>✅ <strong>This is real pipeline.</strong> Must close in 90 days.</td></tr>
+                <tr><td><strong>3</strong></td><td>Pilot</td><td>Running POC (optional — can skip)</td></tr>
+                <tr><td><strong>4</strong></td><td>Proposal</td><td>Contract in negotiation</td></tr>
+            </table>
+        </div>
+
+        <div class="key-point">
+            Stage 2 = SQO = real pipeline. Anything below Stage 2 is prospects, not pipeline. This is the line.
+        </div>
+
+        <div class="dont-say">Go into MEDDPIC details. Just say "Stage 2 requires qualification — budget, timeline, champion confirmed."</div>
+
+        <!-- 1B: FIELDS -->
+        <div class="bullet-box">
+            <h4>2. Fields That Matter (90 sec)</h4>
+            <table>
+                <tr><th>Field</th><th>1-Line Definition</th></tr>
+                <tr><td><strong>Sales Type</strong></td><td>New Business / Expansion / Renewal — how we bucket growth</td></tr>
+                <tr><td><strong>Product Line</strong></td><td>What we're selling (Contracting, Sigma, Litigation, etc.)</td></tr>
+                <tr><td><strong>ACV</strong></td><td>Annual Contract Value — the number we forecast</td></tr>
+                <tr><td><strong>Revenue Type</strong></td><td>Recurring (12+ mo) vs. Project (<12 mo) — auto-set on close</td></tr>
+            </table>
+        </div>
+
+        <div class="say">"These four fields drive all our reporting. Sales Type tells us growth vs. retention. Product Line tells us what's selling. ACV is the number. Revenue Type separates recurring from one-time."</div>
+
+        <!-- 1C: WHY WEEKLY -->
+        <div class="bullet-box">
+            <h4>3. Why This Matters Weekly (60 sec)</h4>
+            <ul>
+                <li><strong>Thursdays EOD:</strong> BLs update Stage, ACV, Close Date on active opps</li>
+                <li><strong>Friday:</strong> RevOps sends weekly snapshot to leadership</li>
+                <li><strong>Forecast accuracy:</strong> What's in Salesforce = what we report</li>
+            </ul>
+        </div>
+
+        <div class="key-point">
+            Garbage in, garbage out. If reps keep Stage and Close Date accurate, forecasting works. That's the discipline we need.
+        </div>
+
+        <div class="stop">✋ STOP. "Any questions before I show you?"</div>
+    </div>
+
+    <!-- PART 2: THE DEMO -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-title">Part 2: Salesforce Demo</span>
+            <span class="section-time">15 min</span>
+        </div>
+
+        <div class="transition">"Now let me just show you. I'll walk through an account and opp so you can see how this looks in practice."</div>
+
+        <div class="action">Open Salesforce. Pick a real account with an active opp (ideally Stage 2+).</div>
+
+        <!-- DEMO SCRIPT -->
+        <div class="bullet-box">
+            <h4>Demo Flow — What to Click & Say</h4>
+
+            <p style="font-weight: 700; margin: 10px 0 5px 0;">A. Account (2 min)</p>
+            <ul>
+                <li>Show the Account record — name, owner, customer type</li>
+                <li><strong>Say:</strong> "This is the company. One account per customer. Owner = who's responsible."</li>
+                <li>Show Related Contacts, Related Opportunities</li>
+                <li><strong>Say:</strong> "Contacts are people. Opps are deals. Multiple opps can exist over time."</li>
+            </ul>
+
+            <p style="font-weight: 700; margin: 15px 0 5px 0;">B. Opportunity (5 min)</p>
+            <ul>
+                <li>Click into an Opportunity</li>
+                <li>Point to <strong>Stage</strong> — "This is where it's at in the process"</li>
+                <li>Point to <strong>ACV</strong> — "This is the number we're tracking"</li>
+                <li>Point to <strong>Close Date</strong> — "This is when we expect signature"</li>
+                <li>Point to <strong>Sales Type</strong> — "New, Expansion, or Renewal"</li>
+                <li>Point to <strong>Product Line</strong> — "What we're selling"</li>
+            </ul>
+            
+            <div class="say">"These five fields are the core. Stage, ACV, Close Date, Sales Type, Product Line. If those are accurate, we can forecast."</div>
+
+            <p style="font-weight: 700; margin: 15px 0 5px 0;">C. Stage History (2 min)</p>
+            <ul>
+                <li>Show Stage History (if visible on layout)</li>
+                <li><strong>Say:</strong> "You can see when it moved through stages. Useful for coaching — if something's stuck, you'll see it here."</li>
+            </ul>
+
+            <p style="font-weight: 700; margin: 15px 0 5px 0;">D. Close Won → Delivery (3 min)</p>
+            <ul>
+                <li>If possible, show a Closed Won opp with Delivery object</li>
+                <li><strong>Say:</strong> "When we close, a Delivery object auto-creates. That's the handoff to implementation. Revenue Type gets set based on term length."</li>
+            </ul>
+
+            <p style="font-weight: 700; margin: 15px 0 5px 0;">E. (Optional) Create a Test Opp (3 min)</p>
+            <ul>
+                <li>Only if he wants to see the form</li>
+                <li>Create, show the required fields, then delete</li>
+            </ul>
+        </div>
+
+        <div class="dont-say">Explain every field on the page. Only point to what matters. Let him ask if curious.</div>
+
+        <div class="stop">✋ STOP. "That's the core flow. Questions on anything you saw?"</div>
+    </div>
+
+    <!-- PART 3: WRAP -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-title">Part 3: Wrap Up</span>
+            <span class="section-time">3 min</span>
+        </div>
+
+        <div class="say">"That's the 80/20. Stage discipline, accurate fields, Thursday updates. Everything else flows from that."</div>
+
+        <div class="bullet-box">
+            <h4>Offer Follow-Ups</h4>
+            <ul>
+                <li>"I can send you the Sales Process doc if you want the full reference"</li>
+                <li>"Happy to do a deeper dive on any of this after you've worked a few deals"</li>
+                <li>"Slack me anytime — I'm your RevOps partner"</li>
+            </ul>
+        </div>
+
+        <div class="transition">"Any early observations or things that feel off compared to how you've seen it done elsewhere?"</div>
+    </div>
+
+    <!-- ANTI-PATTERNS -->
+    <div class="section" style="background: #fef2f2; border-color: #fecaca;">
+        <div class="section-header">
+            <span class="section-title" style="color: #991b1b;">🚫 Traps to Avoid</span>
+        </div>
+        <ul>
+            <li><strong>Don't explain Stage 0 in detail.</strong> It's prospecting. Move on.</li>
+            <li><strong>Don't explain Clay, GTM Brain, inbound routing.</strong> That's your ops — not his concern yet.</li>
+            <li><strong>Don't read the Sales Process doc aloud.</strong> He can read. You're giving context, not content.</li>
+            <li><strong>Don't explain every field on the Opp.</strong> Five fields: Stage, ACV, Close Date, Sales Type, Product Line. Done.</li>
+            <li><strong>Don't explain account assignment methodology.</strong> Say "we assign based on coverage and geography" — that's it.</li>
+            <li><strong>Don't explain meeting prep, Hypernote, Customer Brain.</strong> Those are tools. Mention them if asked.</li>
+        </ul>
+    </div>
+
+    <!-- QUICK REFERENCE -->
+    <div class="section" style="background: #f0fdf4; border-color: #86efac;">
+        <div class="section-header">
+            <span class="section-title" style="color: #166534;">✅ If He Asks...</span>
+        </div>
+        <table>
+            <tr><th>Question</th><th>Your Answer</th></tr>
+            <tr><td>"How do leads come in?"</td><td>"Multiple channels — referrals, events, inbound. We qualify inbound through a Clay workflow."</td></tr>
+            <tr><td>"How are accounts assigned?"</td><td>"Based on coverage and geography. We're refining the methodology."</td></tr>
+            <tr><td>"What's MEDDPIC?"</td><td>"Our qualification framework. Required for Stage 2. I can send you the details."</td></tr>
+            <tr><td>"What happens post-close?"</td><td>"Delivery object auto-creates, implementation kicks off."</td></tr>
+            <tr><td>"What tools do reps use?"</td><td>"Salesforce daily, Hypernote for meeting notes, Slack for GTM Brain lookups."</td></tr>
+        </table>
+    </div>
+
+</body>
+</html>
+
