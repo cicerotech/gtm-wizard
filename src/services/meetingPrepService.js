@@ -225,17 +225,22 @@ async function isFirstMeeting(accountId) {
 }
 
 /**
- * Get upcoming meetings for a date range (combines manual + Salesforce + Outlook)
+ * Get upcoming meetings for a date range
+ * 
+ * SOURCE PRIORITY:
+ * 1. Outlook Calendar - PRIMARY source (has attendees, Clay enrichment works)
+ * 2. Manual entries - User-created preps
+ * 
+ * NOTE: Salesforce Events are NO LONGER included as meeting sources.
+ * They don't have attendee lists, causing "Attendees not specified" issues.
+ * SF is still used for account ID lookups to enrich Outlook events with context.
  */
 async function getUpcomingMeetings(startDate, endDate) {
   try {
     // Get manual entries from SQLite
     const manualMeetings = await intelligenceStore.getUpcomingMeetingPreps(startDate, endDate);
     
-    // Get Salesforce Events
-    const sfEvents = await getSalesforceEvents(startDate, endDate);
-    
-    // Get Outlook Calendar events (if available)
+    // Get Outlook Calendar events (PRIMARY source - has attendees!)
     let outlookEvents = [];
     try {
       const { calendarService } = require('./calendarService');
@@ -246,20 +251,18 @@ async function getUpcomingMeetings(startDate, endDate) {
       outlookEvents = result.meetings || [];
       logger.info(`[MeetingPrep] Fetched ${outlookEvents.length} Outlook meetings`);
     } catch (outlookError) {
-      logger.warn('[MeetingPrep] Outlook calendar fetch failed, using SF only:', outlookError.message);
+      logger.error('[MeetingPrep] Outlook calendar fetch failed:', outlookError.message);
+      // Continue with manual meetings only - no SF fallback
     }
     
-    // ========================================================================
-    // MEETING AGGREGATION STRATEGY:
-    // 1. Outlook Calendar is PRIMARY source (has attendees)
-    // 2. Salesforce provides account context (accountId) but NOT attendees
-    // 3. Match Outlook events to SF account IDs when possible
-    // 4. Only include SF-only events if no matching Outlook event exists
-    // ========================================================================
+    // Build SF account lookup for matching Outlook events to SF account IDs
+    // This allows us to get account context without using SF as a meeting source
+    const sfAccountLookup = await buildSfAccountLookup();
+    logger.debug(`[MeetingPrep] SF Account lookup: ${sfAccountLookup.size} accounts for context matching`);
     
     const meetingsMap = new Map();
     
-    // Step 1: Add manual meetings first
+    // Step 1: Add manual meetings
     for (const meeting of manualMeetings) {
       meetingsMap.set(meeting.meeting_id, {
         ...meeting,
@@ -267,28 +270,13 @@ async function getUpcomingMeetings(startDate, endDate) {
       });
     }
     
-    // Step 2: Build SF account lookup for matching
-    const sfAccountLookup = new Map(); // accountName.lower -> { accountId, accountName }
-    for (const event of sfEvents) {
-      const nameKey = (event.accountName || '').toLowerCase().trim();
-      if (nameKey && event.accountId) {
-        sfAccountLookup.set(nameKey, {
-          accountId: event.accountId,
-          accountName: event.accountName
-        });
-      }
-    }
-    logger.debug(`[MeetingPrep] SF Account lookup: ${sfAccountLookup.size} accounts`);
-    
-    // Step 3: Add Outlook events as PRIMARY source (they have attendees!)
-    const outlookMeetingTimes = new Set(); // For dedup: "accountName|timestamp"
-    
+    // Step 2: Add Outlook events (PRIMARY source - has attendees!)
     for (const event of outlookEvents) {
       const extractedAccountName = extractAccountFromAttendees(event.externalAttendees);
       
-      // Try to match to SF account for context
+      // Try to match to SF account for context enrichment
       const accountNameLower = extractedAccountName.toLowerCase().trim();
-      const sfMatch = sfAccountLookup.get(accountNameLower);
+      const sfMatch = findBestAccountMatch(accountNameLower, sfAccountLookup);
       
       // Normalize Outlook event with SF account ID if matched
       const normalizedEvent = {
@@ -306,11 +294,6 @@ async function getUpcomingMeetings(startDate, endDate) {
         source: 'outlook'
       };
       
-      // Track for dedup against SF events
-      const timestamp = new Date(normalizedEvent.meetingDate).getTime();
-      const roundedTime = Math.floor(timestamp / 3600000) * 3600000; // Round to hour
-      outlookMeetingTimes.add(`${accountNameLower}|${roundedTime}`);
-      
       // Check if similar meeting already exists in manual entries
       const isDupe = Array.from(meetingsMap.values()).some(m => {
         const mDate = new Date(m.meetingDate || m.meeting_date);
@@ -324,44 +307,9 @@ async function getUpcomingMeetings(startDate, endDate) {
       }
     }
     
-    // Step 4: Add Salesforce events ONLY if no matching Outlook event exists
-    // This prevents SF events (which have no attendees) from cluttering the view
-    let sfSkippedCount = 0;
-    for (const event of sfEvents) {
-      const accountNameLower = (event.accountName || '').toLowerCase().trim();
-      const timestamp = new Date(event.meetingDate).getTime();
-      const roundedTime = Math.floor(timestamp / 3600000) * 3600000;
-      const dedupeKey = `${accountNameLower}|${roundedTime}`;
-      
-      // Skip if Outlook already has this meeting (same account, same time)
-      if (outlookMeetingTimes.has(dedupeKey)) {
-        sfSkippedCount++;
-        continue;
-      }
-      
-      // Check for existing manual entry
-      const existingManual = manualMeetings.find(m => 
-        m.account_id === event.accountId && 
-        Math.abs(new Date(m.meeting_date) - new Date(event.meetingDate)) < 3600000
-      );
-      
-      if (existingManual) {
-        // Update manual entry with SF event ID
-        meetingsMap.set(existingManual.meeting_id, {
-          ...existingManual,
-          salesforceEventId: event.meetingId,
-          source: 'synced'
-        });
-      } else {
-        // Add SF event (no attendees, but has account context)
-        meetingsMap.set(event.meetingId, {
-          ...event,
-          source: 'salesforce'
-        });
-      }
-    }
-    
-    logger.info(`[MeetingPrep] SF events skipped (covered by Outlook): ${sfSkippedCount}`)
+    // NOTE: Salesforce events are intentionally NOT added as meeting sources
+    // They lack attendee data and cause "Attendees not specified" issues
+    logger.info(`[MeetingPrep] Using Outlook Calendar only - SF events excluded (no attendees)`)
     
     // Convert to array and sort by date
     const allMeetings = Array.from(meetingsMap.values());
@@ -379,6 +327,96 @@ async function getUpcomingMeetings(startDate, endDate) {
     logger.error('Error getting upcoming meetings:', error);
     return [];
   }
+}
+
+/**
+ * Build a lookup map of SF account names to account IDs
+ * Used to enrich Outlook events with SF account context
+ */
+async function buildSfAccountLookup() {
+  const lookup = new Map();
+  
+  try {
+    // Query accounts that have active opportunities or are customers
+    const accountQuery = `
+      SELECT Id, Name, Website
+      FROM Account
+      WHERE (
+        Customer_Type__c IN ('Revenue', 'Pilot', 'LOI, with $ attached', 'LOI, no $ attached')
+        OR Id IN (SELECT AccountId FROM Opportunity WHERE IsClosed = false)
+      )
+      AND Name != null
+      ORDER BY Name ASC
+      LIMIT 500
+    `;
+    
+    const result = await query(accountQuery, true);
+    
+    if (result?.records) {
+      for (const account of result.records) {
+        const nameKey = (account.Name || '').toLowerCase().trim();
+        if (nameKey) {
+          lookup.set(nameKey, {
+            accountId: account.Id,
+            accountName: account.Name,
+            website: account.Website
+          });
+          
+          // Also add domain-based keys from website
+          if (account.Website) {
+            try {
+              const url = new URL(account.Website.startsWith('http') ? account.Website : 'https://' + account.Website);
+              const domain = url.hostname.replace('www.', '').split('.')[0];
+              if (domain && domain.length > 2) {
+                lookup.set(domain.toLowerCase(), {
+                  accountId: account.Id,
+                  accountName: account.Name,
+                  website: account.Website
+                });
+              }
+            } catch (e) {
+              // Ignore invalid URLs
+            }
+          }
+        }
+      }
+    }
+    
+    logger.debug(`[MeetingPrep] Built SF account lookup with ${lookup.size} entries`);
+  } catch (error) {
+    logger.warn('[MeetingPrep] Failed to build SF account lookup:', error.message);
+  }
+  
+  return lookup;
+}
+
+/**
+ * Find best matching SF account for a given account name
+ * Supports exact match, partial match, and fuzzy matching
+ */
+function findBestAccountMatch(accountNameLower, sfAccountLookup) {
+  // Exact match
+  if (sfAccountLookup.has(accountNameLower)) {
+    return sfAccountLookup.get(accountNameLower);
+  }
+  
+  // Try without common suffixes
+  const cleanedName = accountNameLower
+    .replace(/\s*(inc\.?|llc\.?|ltd\.?|corp\.?|corporation|company|co\.?)$/i, '')
+    .trim();
+  
+  if (sfAccountLookup.has(cleanedName)) {
+    return sfAccountLookup.get(cleanedName);
+  }
+  
+  // Try partial match (account name contains or is contained by)
+  for (const [key, value] of sfAccountLookup.entries()) {
+    if (key.includes(cleanedName) || cleanedName.includes(key)) {
+      return value;
+    }
+  }
+  
+  return null;
 }
 
 /**
