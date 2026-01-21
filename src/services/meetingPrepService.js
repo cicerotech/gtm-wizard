@@ -606,30 +606,70 @@ async function getBLUsers() {
 
 /**
  * Filter meetings by user (owner or attendee)
+ * Matches by userId (Salesforce) or email (Outlook)
  */
 function filterMeetingsByUser(meetings, userId, userEmail = null) {
   if (!userId) return meetings;
   
+  const userEmailLower = userEmail?.toLowerCase();
+  
+  logger.debug(`[Filter] Filtering ${meetings.length} meetings for userId=${userId}, email=${userEmail}`);
+  
   return meetings.filter(meeting => {
-    // Check if user is owner (SF events use ownerId)
-    if (meeting.ownerId === userId) return true;
+    const meetingTitle = meeting.meeting_title || meeting.meetingTitle || 'Untitled';
     
-    // Check if user is owner by email (Outlook events use ownerEmail)
-    if (userEmail && meeting.owner) {
-      const ownerEmail = typeof meeting.owner === 'string' ? meeting.owner : meeting.owner.email;
-      if (ownerEmail && ownerEmail.toLowerCase() === userEmail.toLowerCase()) return true;
+    // Check if user is owner (SF events use ownerId)
+    if (meeting.ownerId === userId) {
+      logger.debug(`[Filter] MATCH (ownerId): ${meetingTitle}`);
+      return true;
     }
     
-    // Check ownerEmail field directly (Outlook normalized events)
-    if (userEmail && meeting.ownerEmail && meeting.ownerEmail.toLowerCase() === userEmail.toLowerCase()) return true;
+    // Check if user is owner by email (Outlook events use ownerEmail or owner field)
+    if (userEmailLower) {
+      // Check ownerEmail field directly
+      if (meeting.ownerEmail && meeting.ownerEmail.toLowerCase() === userEmailLower) {
+        logger.debug(`[Filter] MATCH (ownerEmail): ${meetingTitle}`);
+        return true;
+      }
+      
+      // Check owner field (can be string or object)
+      if (meeting.owner) {
+        const ownerEmail = typeof meeting.owner === 'string' ? meeting.owner : meeting.owner.email;
+        if (ownerEmail && ownerEmail.toLowerCase() === userEmailLower) {
+          logger.debug(`[Filter] MATCH (owner): ${meetingTitle}`);
+          return true;
+        }
+      }
+    }
     
-    // Check if user is in attendees
-    const attendees = meeting.attendees || meeting.internalAttendees || [];
-    return attendees.some(a => {
+    // Check if user is in any attendee list (internal, external, or all)
+    const allAttendees = [
+      ...(meeting.attendees || []),
+      ...(meeting.internalAttendees || []),
+      ...(meeting.allAttendees || [])
+    ];
+    
+    const isAttendee = allAttendees.some(a => {
       if (a.userId === userId || a.contactId === userId) return true;
-      if (userEmail && a.email && a.email.toLowerCase() === userEmail.toLowerCase()) return true;
+      if (userEmailLower && a.email && a.email.toLowerCase() === userEmailLower) return true;
       return false;
     });
+    
+    if (isAttendee) {
+      logger.debug(`[Filter] MATCH (attendee): ${meetingTitle}`);
+      return true;
+    }
+    
+    // Check organizer field (Outlook meetings)
+    if (userEmailLower && meeting.organizer?.email) {
+      if (meeting.organizer.email.toLowerCase() === userEmailLower) {
+        logger.debug(`[Filter] MATCH (organizer): ${meetingTitle}`);
+        return true;
+      }
+    }
+    
+    logger.debug(`[Filter] NO MATCH: ${meetingTitle} | ownerEmail=${meeting.ownerEmail}, source=${meeting.source}`);
+    return false;
   });
 }
 

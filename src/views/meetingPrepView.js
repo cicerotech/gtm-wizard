@@ -7,6 +7,49 @@ const meetingPrepService = require('../services/meetingPrepService');
 const logger = require('../utils/logger');
 
 /**
+ * Server-side helper: Format time from ISO string
+ */
+function formatTimeServer(isoString) {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+/**
+ * Server-side helper: Render attendee chips for meeting card
+ */
+function renderAttendeeChips(meeting) {
+  const external = meeting.externalAttendees || [];
+  const internal = meeting.internalAttendees || [];
+  
+  // If no attendee data, show nothing
+  if (external.length === 0 && internal.length === 0) {
+    return '';
+  }
+  
+  // Show up to 3 external attendees as chips, then count
+  const externalChips = external.slice(0, 3).map(att => {
+    const firstName = (att.name || att.email || 'Unknown').split(' ')[0].split('@')[0];
+    return `<span class="attendee-chip external" title="${att.name || att.email}">${firstName}</span>`;
+  }).join('');
+  
+  const moreCount = external.length > 3 ? external.length - 3 : 0;
+  const moreChip = moreCount > 0 ? `<span class="attendee-chip external">+${moreCount}</span>` : '';
+  
+  // Build count string
+  const countParts = [];
+  if (external.length > 0) countParts.push(`<span class="external-count">${external.length} external</span>`);
+  if (internal.length > 0) countParts.push(`${internal.length} internal`);
+  
+  return `
+    <div class="meeting-attendees">
+      ${externalChips}${moreChip}
+    </div>
+    <div class="attendee-count">${countParts.join(', ')}</div>
+  `;
+}
+
+/**
  * Generate the Meeting Prep HTML page
  */
 async function generateMeetingPrepHTML(filterUserId = null) {
@@ -858,7 +901,7 @@ textarea.input-field {
               <div class="meeting-account">${meeting.account_name || meeting.accountName || 'Unknown'}</div>
               <div class="meeting-title">${meeting.meeting_title || meeting.meetingTitle || 'Untitled'}</div>
               <div class="meeting-time">
-                ${formatTime(meeting.meeting_date || meeting.meetingDate)}
+                ${formatTimeServer(meeting.meeting_date || meeting.meetingDate)}
                 <span class="meeting-source ${meeting.source}">${meeting.source}</span>
               </div>
               ${renderAttendeeChips(meeting)}
@@ -955,39 +998,7 @@ async function loadAccounts() {
   }
 }
 
-// Render attendee chips for meeting card
-function renderAttendeeChips(meeting) {
-  const external = meeting.externalAttendees || [];
-  const internal = meeting.internalAttendees || [];
-  
-  // If no attendee data, show nothing
-  if (external.length === 0 && internal.length === 0) {
-    return '';
-  }
-  
-  // Show up to 3 external attendees as chips, then count
-  const externalChips = external.slice(0, 3).map(att => {
-    const firstName = (att.name || att.email || 'Unknown').split(' ')[0].split('@')[0];
-    return \`<span class="attendee-chip external" title="\${att.name || att.email}">\${firstName}</span>\`;
-  }).join('');
-  
-  const moreCount = external.length > 3 ? external.length - 3 : 0;
-  const moreChip = moreCount > 0 ? \`<span class="attendee-chip external">+\${moreCount}</span>\` : '';
-  
-  // Build count string
-  const countParts = [];
-  if (external.length > 0) countParts.push(\`<span class="external-count">\${external.length} external</span>\`);
-  if (internal.length > 0) countParts.push(\`\${internal.length} internal\`);
-  
-  return \`
-    <div class="meeting-attendees">
-      \${externalChips}\${moreChip}
-    </div>
-    <div class="attendee-count">\${countParts.join(', ')}</div>
-  \`;
-}
-
-// Format time from ISO string
+// Format time from ISO string (client-side version for modal)
 function formatTime(isoString) {
   if (!isoString) return '';
   const date = new Date(isoString);
