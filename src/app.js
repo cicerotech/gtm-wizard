@@ -1302,7 +1302,7 @@ class GTMBrainApp {
       }
     });
 
-    // Get enrichment data for attendees
+    // Get enrichment data for attendees - checks local store first, then Clay API
     this.expressApp.post('/api/clay/get-enrichment', async (req, res) => {
       try {
         const { emails } = req.body;
@@ -1314,8 +1314,8 @@ class GTMBrainApp {
           });
         }
 
-        const intelligenceStore = require('./services/intelligenceStore');
-        const enrichments = await intelligenceStore.getAttendeeEnrichments(emails);
+        const { getEnrichedAttendees } = require('./services/clayEnrichment');
+        const enrichments = await getEnrichedAttendees(emails);
         
         res.json({ 
           success: true, 
@@ -1323,6 +1323,42 @@ class GTMBrainApp {
         });
       } catch (error) {
         logger.error('Error getting enrichment data:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Test Clay API connection - for debugging
+    this.expressApp.get('/api/clay/test', async (req, res) => {
+      try {
+        const { clayEnrichment } = require('./services/clayEnrichment');
+        
+        const config = {
+          apiKeyConfigured: !!process.env.CLAY_API_KEY,
+          apiKeyPrefix: process.env.CLAY_API_KEY ? process.env.CLAY_API_KEY.substring(0, 8) + '...' : 'NOT SET',
+          tableIdConfigured: !!process.env.CLAY_ATTENDEE_TABLE_ID,
+          tableId: process.env.CLAY_ATTENDEE_TABLE_ID || 'NOT SET',
+          webhookUrlConfigured: !!process.env.CLAY_WEBHOOK_URL
+        };
+        
+        // Try to fetch one row to test connectivity
+        let testResult = null;
+        if (config.apiKeyConfigured && config.tableIdConfigured) {
+          try {
+            const testEmail = req.query.email || 'jgenua@massmutual.com';
+            testResult = await clayEnrichment.getEnrichedAttendee(testEmail);
+          } catch (testErr) {
+            testResult = { error: testErr.message };
+          }
+        }
+        
+        res.json({
+          success: true,
+          config,
+          testResult,
+          cacheStats: clayEnrichment.getCacheStats()
+        });
+      } catch (error) {
+        logger.error('Error testing Clay connection:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });

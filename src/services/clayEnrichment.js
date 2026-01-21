@@ -510,45 +510,112 @@ class ClayEnrichment {
           });
           
           if (row) {
-            logger.info(`✅ Found Clay enrichment for: ${email}`);
+            // Log all available keys for debugging
+            logger.info(`✅ Found Clay row for: ${email}`);
+            logger.info(`📋 Available columns: ${Object.keys(row).join(', ')}`);
             
-            // Clay column names can vary - check multiple variations
-            // "Attendee Summary (2)" might come through as various formats
+            // Clay column names - match EXACTLY what's in the table
+            // Based on user's Clay table: "Attendee Summary (2)", "Linkedin Url", "Title", "Full Name", "Company"
             const getSummary = (r) => {
-              // Log available keys for debugging
-              logger.debug(`Row keys: ${Object.keys(r).join(', ')}`);
+              // Check all possible variations of the summary column
+              const possibleKeys = [
+                'Attendee Summary (2)',
+                'Attendee Summary (2.0)',
+                'attendee_summary_2',
+                'Attendee Summary',
+                'attendee_summary',
+                'summary',
+                'Summary',
+                'bio',
+                'Bio'
+              ];
               
-              return r['Attendee Summary (2)']
-                || r['attendee_summary_2']
-                || r['Attendee Summary']
-                || r.attendee_summary 
-                || r['attendee_summary'] 
-                || r.summary 
-                || r.Summary
-                || r.bio 
-                || r.Bio
-                || null;
+              for (const key of possibleKeys) {
+                if (r[key] && r[key].trim().length > 0) {
+                  logger.debug(`Found summary in column: ${key}`);
+                  return r[key];
+                }
+              }
+              return null;
             };
             
             const getLinkedIn = (r) => {
-              return r['LinkedIn URL']
-                || r['linkedin_url']
-                || r.linkedin_url 
-                || r.linkedin 
-                || r['LinkedIn']
-                || r.LinkedIn
-                || null;
+              // Clay table shows "Linkedin Url" (capital L, lowercase rest)
+              const possibleKeys = [
+                'Linkedin Url',
+                'LinkedIn Url', 
+                'LinkedIn URL',
+                'linkedin_url',
+                'linkedinUrl',
+                'linkedin',
+                'LinkedIn'
+              ];
+              
+              for (const key of possibleKeys) {
+                if (r[key] && r[key].trim().length > 0) {
+                  return r[key];
+                }
+              }
+              return null;
             };
             
             const getTitle = (r) => {
-              return r['Title']
-                || r.title
-                || r['Job Title']
-                || r.job_title
-                || null;
+              const possibleKeys = [
+                'Title',
+                'title',
+                'Job Title',
+                'job_title',
+                'jobTitle'
+              ];
+              
+              for (const key of possibleKeys) {
+                if (r[key] && r[key].trim().length > 0) {
+                  return r[key];
+                }
+              }
+              return null;
+            };
+            
+            const getCompany = (r) => {
+              const possibleKeys = [
+                'Company',
+                'company',
+                'company_name',
+                'companyName'
+              ];
+              
+              for (const key of possibleKeys) {
+                if (r[key] && r[key].trim().length > 0) {
+                  return r[key];
+                }
+              }
+              return null;
+            };
+            
+            const getName = (r) => {
+              const possibleKeys = [
+                'Full Name',
+                'full_name',
+                'fullName',
+                'Name',
+                'name'
+              ];
+              
+              for (const key of possibleKeys) {
+                if (r[key] && r[key].trim().length > 0) {
+                  return r[key];
+                }
+              }
+              return null;
             };
             
             const summary = getSummary(row);
+            const title = getTitle(row);
+            const linkedinUrl = getLinkedIn(row);
+            const company = getCompany(row);
+            const name = getName(row);
+            
+            logger.info(`📊 Enrichment data found - Title: ${title ? 'YES' : 'NO'}, LinkedIn: ${linkedinUrl ? 'YES' : 'NO'}, Summary: ${summary ? summary.substring(0, 50) + '...' : 'NO'}`);
             
             // Filter out "Profile information limited" results
             if (summary && summary.toLowerCase().includes('profile information limited')) {
@@ -563,10 +630,10 @@ class ClayEnrichment {
             
             const enriched = {
               email,
-              name: row['Full Name'] || row.full_name || row.name || row.Name || null,
-              title: getTitle(row),
-              linkedinUrl: getLinkedIn(row),
-              company: row['Company'] || row.company || row.company_name || null,
+              name: name,
+              title: title,
+              linkedinUrl: linkedinUrl,
+              company: company,
               summary: summary,
               source: 'clay_table'
             };
