@@ -1701,8 +1701,9 @@ function hasValidEnrichment(attendee) {
   const linkedinUrl = attendee.linkedinUrl || attendee.linkedin_url || '';
   if (linkedinUrl.trim().length > 0) return true;
   
-  // Check for summary/bio
-  const summary = attendee.summary || attendee.attendee_summary || attendee.bio || '';
+  // Check for summary/bio - use parsed version
+  const rawSummary = attendee.summary || attendee.attendee_summary || attendee.bio || '';
+  const summary = parseAttendeeSummary(rawSummary);
   
   // No summary at all
   if (!summary || summary.trim().length === 0) return false;
@@ -1714,6 +1715,71 @@ function hasValidEnrichment(attendee) {
   if (summary.trim().length < 30) return false;
   
   return true;
+}
+
+/**
+ * Parse and clean attendee summary from Clay's JSON response
+ * Extracts just the attendeeSummary text, filtering out metadata
+ * @param {string} rawSummary - Raw summary (may be JSON or plain text)
+ * @returns {string|null} Clean summary text or null if invalid
+ */
+function parseAttendeeSummary(rawSummary) {
+  // CHECKPOINT 1: Validate input
+  if (!rawSummary || typeof rawSummary !== 'string') {
+    console.log('[Summary Parse] CHECKPOINT 1: Invalid input - null or not string');
+    return null;
+  }
+  
+  const trimmed = rawSummary.trim();
+  
+  // CHECKPOINT 2: Check if JSON format
+  if (trimmed.startsWith('{')) {
+    console.log('[Summary Parse] CHECKPOINT 2: Detected JSON format, attempting parse...');
+    try {
+      const parsed = JSON.parse(trimmed);
+      
+      // CHECKPOINT 3: Extract summary field
+      // Priority: attendeeSummary > response > raw fallback
+      const summary = parsed.attendeeSummary || parsed.response || null;
+      
+      if (!summary) {
+        console.warn('[Summary Parse] CHECKPOINT 3: JSON parsed but no attendeeSummary/response field found. Keys:', Object.keys(parsed));
+        return null;
+      }
+      
+      // CHECKPOINT 4: Filter out "no data" responses
+      const lowerSummary = summary.toLowerCase();
+      if (lowerSummary.includes('no public linkedin data') || 
+          lowerSummary.includes('profile information limited') ||
+          lowerSummary.includes('unable to verify')) {
+        console.log('[Summary Parse] CHECKPOINT 4: Filtered out "no data" response');
+        return null;
+      }
+      
+      console.log('[Summary Parse] SUCCESS: Extracted clean summary (' + summary.length + ' chars)');
+      return summary;
+      
+    } catch (parseError) {
+      // CHECKPOINT ERROR: JSON parse failed
+      console.error('[Summary Parse] ERROR: Failed to parse JSON:', parseError.message);
+      console.error('[Summary Parse] Raw input (first 200 chars):', trimmed.substring(0, 200));
+      // Return as-is since it might be malformed but readable
+      return trimmed;
+    }
+  }
+  
+  // CHECKPOINT 5: Plain text - return as-is (already clean)
+  console.log('[Summary Parse] CHECKPOINT 5: Plain text format, returning as-is');
+  
+  // Still filter "no data" responses in plain text
+  const lowerTrimmed = trimmed.toLowerCase();
+  if (lowerTrimmed.includes('no public linkedin data') || 
+      lowerTrimmed.includes('profile information limited')) {
+    console.log('[Summary Parse] Filtered out "no data" plain text');
+    return null;
+  }
+  
+  return trimmed;
 }
 
 // ============================================================
@@ -2101,6 +2167,9 @@ function renderPrepForm(contextHtml) {
         <div class="attendee-section-label external">External Attendees (\${externalAttendees.length})</div>
         <div class="attendee-intel-cards">
           \${externalAttendees.map((a, i) => {
+            // QUALITY CHECK: Log attendee data for debugging
+            console.log('[Attendee ' + i + '] Processing:', a.email, '| Raw summary type:', typeof a.summary);
+            
             // Extract name properly - use extractNameFromEmail if no name provided
             const rawName = a.name && !a.name.includes('@') 
               ? a.name 
@@ -2111,10 +2180,14 @@ function renderPrepForm(contextHtml) {
             const company = a.company || (a.email ? a.email.split('@')[1]?.split('.')[0] : '');
             const companyDisplay = company ? company.charAt(0).toUpperCase() + company.slice(1) : '';
             
-            // Get enrichment data
-            const summary = a.summary || a.attendee_summary || a.bio || null;
+            // Get enrichment data - PARSE the summary to extract clean text
+            const rawSummary = a.summary || a.attendee_summary || a.bio || null;
+            const summary = parseAttendeeSummary(rawSummary);
             const title = a.title || null;
             const linkedinUrl = a.linkedinUrl || a.linkedin_url || null;
+            
+            // QUALITY CHECK: Log parsed result
+            console.log('[Attendee ' + i + '] Parsed summary:', summary ? summary.substring(0, 50) + '...' : 'null');
             
             // Check if has valid enrichment (filters out "Profile information limited")
             const isEnriched = hasValidEnrichment(a);
@@ -2137,10 +2210,10 @@ function renderPrepForm(contextHtml) {
                   <div class="attendee-bio">\${summary}</div>
                 \` : ''}
                 \${linkedinUrl ? \`
-                  <a href="\${linkedinUrl}" target="_blank" class="attendee-linkedin">🔗 LinkedIn Profile</a>
+                  <a href="\${linkedinUrl}" target="_blank" class="attendee-linkedin">LinkedIn Profile</a>
                   <a href="https://www.linkedin.com/search/results/all/?keywords=\${encodeURIComponent(displayName + ' ' + companyDisplay)}" target="_blank" class="attendee-linkedin-fallback" title="Search LinkedIn if link doesn't work">(search)</a>
                 \` : \`
-                  <a href="https://www.linkedin.com/search/results/all/?keywords=\${encodeURIComponent(displayName + ' ' + companyDisplay)}" target="_blank" class="attendee-linkedin-search">🔍 Search LinkedIn</a>
+                  <a href="https://www.linkedin.com/search/results/all/?keywords=\${encodeURIComponent(displayName + ' ' + companyDisplay)}" target="_blank" class="attendee-linkedin-search">Search LinkedIn</a>
                 \`}
                 \${!isEnriched ? \`
                   <div class="attendee-pending-subtle">Enrichment in progress...</div>
