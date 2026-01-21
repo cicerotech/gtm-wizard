@@ -110,10 +110,31 @@ function renderAttendeeChips(meeting) {
   const rawExternal = meeting.externalAttendees || [];
   const rawInternal = meeting.internalAttendees || [];
   
-  // Filter out ghost attendees and EAs from external
-  const external = rawExternal.filter(a => !isGhostAttendee(a) && !isExecutiveAssistant(a));
-  // Filter out EAs from internal
-  const internal = rawInternal.filter(a => !isExecutiveAssistant(a));
+  // Filter out ghost attendees and EAs inline (functions defined later in file)
+  // Ghost attendee check: conference rooms, dial-ins, system emails
+  const isGhost = (a) => {
+    const email = (a.email || '').toLowerCase();
+    const name = (a.name || '').toLowerCase();
+    if (email.includes('zoom') || email.includes('teams') || email.includes('webex')) return true;
+    if (email.includes('conference') || email.includes('room') || email.includes('bridge')) return true;
+    if (name.includes('conference') || name.includes('meeting room') || name.includes('dial-in')) return true;
+    return false;
+  };
+  
+  // EA check: Alyssa Gradstein and Cassie Farber
+  const isEA = (a) => {
+    const email = (a.email || '').toLowerCase();
+    const name = (a.name || '').toLowerCase();
+    if (email.includes('alyssa.gradstein') || email.includes('cassie.farber')) return true;
+    if (name.includes('alyssa') && name.includes('gradstein')) return true;
+    if (name.includes('cassie') && name.includes('farber')) return true;
+    // Catch truncated names
+    if (name.includes('alyssa') && name.includes('gradstei')) return true;
+    return false;
+  };
+  
+  const external = rawExternal.filter(a => !isGhost(a) && !isEA(a));
+  const internal = rawInternal.filter(a => !isEA(a));
   
   // If no attendee data after filtering, show nothing
   if (external.length === 0 && internal.length === 0) {
