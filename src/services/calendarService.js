@@ -9,11 +9,13 @@ const { ClientSecretCredential } = require('@azure/identity');
 require('isomorphic-fetch');
 const logger = require('../utils/logger');
 
-// Business Lead email list - PILOT GROUP (3 BLs for initial testing)
+// Business Lead email list - PILOT GROUP (5 BLs for initial testing)
 const BL_EMAILS_PILOT = [
   'asad.hussain@eudia.com',
   'olivia.jung@eudia.com',
-  'julie.stefanich@eudia.com'
+  'julie.stefanich@eudia.com',
+  'olivia@eudia.com',
+  'justin.hills@eudia.com'
 ];
 
 // Full BL list (US + EU Pods) - enable when ready
@@ -23,6 +25,7 @@ const BL_EMAILS_FULL = [
   'himanshu.agarwal@eudia.com',
   'julie.stefanich@eudia.com',
   'olivia.jung@eudia.com',
+  'olivia@eudia.com',
   'ananth.cherukupally@eudia.com',
   'justin.hills@eudia.com',
   'mike.masiello@eudia.com',
