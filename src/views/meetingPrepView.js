@@ -966,15 +966,7 @@ textarea.input-field {
             <div class="empty-day">No meetings</div>
           ` : (grouped[day.fullDate] || []).map(meeting => `
             <div class="meeting-card ${meeting.agenda?.some(a => a?.trim()) ? 'has-prep' : ''}" 
-                 onclick="openMeetingPrep('${meeting.meeting_id || meeting.meetingId}', ${JSON.stringify({
-                   accountName: meeting.account_name || meeting.accountName || 'Unknown',
-                   meetingTitle: meeting.meeting_title || meeting.meetingTitle || 'Untitled',
-                   meetingDate: meeting.meeting_date || meeting.meetingDate,
-                   externalAttendees: (meeting.externalAttendees || []).map(a => ({name: a.name || '', email: a.email || '', isExternal: true})),
-                   internalAttendees: (meeting.internalAttendees || []).map(a => ({name: a.name || '', email: a.email || '', isExternal: false})),
-                   accountId: meeting.account_id || meeting.accountId || null,
-                   source: meeting.source
-                 }).replace(/'/g, "\\'")})"
+                 onclick="openMeetingPrep('${meeting.meeting_id || meeting.meetingId}')"
                  data-meeting-id="${meeting.meeting_id || meeting.meetingId}">
               <div class="meeting-account">${meeting.account_name || meeting.accountName || 'Unknown'}</div>
               <div class="meeting-title">${meeting.meeting_title || meeting.meetingTitle || 'Untitled'}</div>
@@ -1056,6 +1048,30 @@ textarea.input-field {
 
 <script>
 const DEMO_PRODUCTS = ${JSON.stringify(demoProducts)};
+const MEETINGS_DATA = ${JSON.stringify(
+  meetings.reduce((acc, m) => {
+    const id = m.meeting_id || m.meetingId;
+    acc[id] = {
+      meetingId: id,
+      accountName: m.account_name || m.accountName || 'Unknown',
+      meetingTitle: m.meeting_title || m.meetingTitle || 'Untitled',
+      meetingDate: m.meeting_date || m.meetingDate,
+      accountId: m.account_id || m.accountId || null,
+      source: m.source || 'unknown',
+      externalAttendees: (m.externalAttendees || []).map(a => ({
+        name: a.name || '',
+        email: a.email || '',
+        isExternal: true
+      })),
+      internalAttendees: (m.internalAttendees || []).map(a => ({
+        name: a.name || '',
+        email: a.email || '',
+        isExternal: false
+      }))
+    };
+    return acc;
+  }, {})
+)};
 let currentMeetingId = null;
 let currentMeetingData = null;
 let accountsList = [];
@@ -1089,13 +1105,13 @@ function formatTime(isoString) {
 }
 
 // Open meeting prep modal
-async function openMeetingPrep(meetingId, meetingInfo) {
+async function openMeetingPrep(meetingId) {
   currentMeetingId = meetingId;
   document.getElementById('prepModal').classList.add('active');
   document.getElementById('modalBody').innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading meeting details...</p></div>';
   
-  // Parse meeting info if it's a string
-  const parsedMeetingInfo = typeof meetingInfo === 'string' ? JSON.parse(meetingInfo) : meetingInfo;
+  // Get meeting info from pre-loaded data
+  const meetingInfo = MEETINGS_DATA[meetingId] || {};
   
   try {
     // Load saved meeting prep data
@@ -1105,13 +1121,13 @@ async function openMeetingPrep(meetingId, meetingInfo) {
     // Start with meeting info from Outlook (has attendees)
     currentMeetingData = {
       meetingId,
-      accountName: parsedMeetingInfo?.accountName || '',
-      meetingTitle: parsedMeetingInfo?.meetingTitle || '',
-      meetingDate: parsedMeetingInfo?.meetingDate || '',
-      accountId: parsedMeetingInfo?.accountId || null,
-      source: parsedMeetingInfo?.source || 'unknown',
-      externalAttendees: parsedMeetingInfo?.externalAttendees || [],
-      internalAttendees: parsedMeetingInfo?.internalAttendees || [],
+      accountName: meetingInfo.accountName || '',
+      meetingTitle: meetingInfo.meetingTitle || '',
+      meetingDate: meetingInfo.meetingDate || '',
+      accountId: meetingInfo.accountId || null,
+      source: meetingInfo.source || 'unknown',
+      externalAttendees: meetingInfo.externalAttendees || [],
+      internalAttendees: meetingInfo.internalAttendees || [],
       agenda: ['', '', ''],
       goals: ['', '', ''],
       demoSelections: [{ product: '', subtext: '' }, { product: '', subtext: '' }, { product: '', subtext: '' }],
@@ -1127,7 +1143,7 @@ async function openMeetingPrep(meetingId, meetingInfo) {
       currentMeetingData.demoSelections = saved.demoSelections || currentMeetingData.demoSelections;
       currentMeetingData.context = saved.context || '';
       currentMeetingData.additionalNotes = saved.additionalNotes || ['', '', ''];
-      // Use saved attendees if they exist (user may have added more)
+      // Merge attendees - prefer saved if they have more data, otherwise use Outlook
       if (saved.externalAttendees?.length > 0) {
         currentMeetingData.externalAttendees = saved.externalAttendees;
       }
