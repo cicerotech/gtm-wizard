@@ -1314,8 +1314,14 @@ class GTMBrainApp {
           });
         }
 
+        logger.info(`📤 [Get Enrichment] Fetching enrichment for ${emails.length} emails: ${emails.slice(0, 5).join(', ')}${emails.length > 5 ? '...' : ''}`);
+
         const { getEnrichedAttendees } = require('./services/clayEnrichment');
         const enrichments = await getEnrichedAttendees(emails);
+        
+        // Log how many have data
+        const withData = Object.values(enrichments).filter(e => e.success).length;
+        logger.info(`📤 [Get Enrichment] Result: ${withData}/${emails.length} have enrichment data`);
         
         res.json({ 
           success: true, 
@@ -1323,6 +1329,33 @@ class GTMBrainApp {
         });
       } catch (error) {
         logger.error('Error getting enrichment data:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Debug endpoint: Check SQLite directly for enrichment count
+    this.expressApp.get('/api/clay/debug-db', async (req, res) => {
+      try {
+        const intelligenceStore = require('./services/intelligenceStore');
+        
+        // Get count from SQLite
+        const testEmails = [
+          'jgenua@massmutual.com',
+          'takinbajo@massmutual.com'
+        ];
+        
+        const results = {};
+        for (const email of testEmails) {
+          const data = await intelligenceStore.getAttendeeEnrichment(email);
+          results[email] = data ? { found: true, title: data.title, hasLinkedin: !!data.linkedinUrl, hasSummary: !!data.summary } : { found: false };
+        }
+        
+        res.json({
+          success: true,
+          message: 'Direct SQLite check',
+          results
+        });
+      } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }
     });
