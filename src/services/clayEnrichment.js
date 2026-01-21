@@ -452,6 +452,123 @@ class ClayEnrichment {
   }
 
   /**
+   * Fetch enriched attendee data from Clay Table
+   * Queries Clay API for rows matching the email
+   * @param {string} email - Email to lookup
+   * @returns {Object} Enriched attendee data
+   */
+  async getEnrichedAttendee(email) {
+    if (!email) return { success: false, error: 'Email required' };
+    
+    const cacheKey = `enriched:${email.toLowerCase()}`;
+    const cached = enrichmentCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      logger.debug(`Cache hit for enriched attendee: ${email}`);
+      return { success: true, ...cached.data, fromCache: true };
+    }
+
+    // Check if we have stored enrichment data locally
+    try {
+      const intelligenceStore = require('./intelligenceStore');
+      const stored = await intelligenceStore.getAttendeeEnrichment(email);
+      if (stored && stored.title) {
+        enrichmentCache.set(cacheKey, { data: stored, timestamp: Date.now() });
+        return { success: true, ...stored, fromCache: false, source: 'local_store' };
+      }
+    } catch (err) {
+      logger.debug('No local enrichment stored for:', email);
+    }
+
+    // If Clay API is configured with table ID, try to query
+    if (this.enabled && this.attendeeTableId) {
+      try {
+        logger.info(`🔍 Querying Clay table for: ${email}`);
+        
+        const response = await fetch(`${this.baseUrl}/tables/${this.attendeeTableId}/rows`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          // Find row matching email
+          const row = (data.rows || []).find(r => 
+            (r.email || '').toLowerCase() === email.toLowerCase()
+          );
+          
+          if (row) {
+            const enriched = {
+              email,
+              name: row.full_name || row.name || null,
+              title: row.title || row.job_title || null,
+              linkedinUrl: row.linkedin_url || row.linkedin || null,
+              company: row.company || row.company_name || null,
+              summary: row.attendee_summary || row.summary || row.bio || null,
+              source: 'clay_table'
+            };
+            
+            enrichmentCache.set(cacheKey, { data: enriched, timestamp: Date.now() });
+            return { success: true, ...enriched };
+          }
+        }
+      } catch (error) {
+        logger.error(`Clay table query failed for ${email}:`, error.message);
+      }
+    }
+
+    return { 
+      success: false, 
+      email, 
+      status: 'not_found',
+      message: 'No enrichment data available yet'
+    };
+  }
+
+  /**
+   * Batch fetch enriched data for multiple attendees
+   * @param {Array} emails - Array of email addresses
+   * @returns {Object} Map of email -> enrichment data
+   */
+  async getEnrichedAttendees(emails) {
+    if (!emails || emails.length === 0) return {};
+    
+    const results = {};
+    
+    await Promise.all(emails.map(async (email) => {
+      const enriched = await this.getEnrichedAttendee(email);
+      results[email.toLowerCase()] = enriched;
+    }));
+    
+    return results;
+  }
+
+  /**
+   * Store enrichment data locally (called when Clay sends data back or manual update)
+   * @param {Object} data - Enrichment data with email, title, linkedinUrl, summary
+   */
+  async storeEnrichment(data) {
+    if (!data.email) return { success: false, error: 'Email required' };
+    
+    try {
+      const intelligenceStore = require('./intelligenceStore');
+      await intelligenceStore.saveAttendeeEnrichment(data);
+      
+      const cacheKey = `enriched:${data.email.toLowerCase()}`;
+      enrichmentCache.set(cacheKey, { data, timestamp: Date.now() });
+      
+      logger.info(`✅ Stored enrichment for: ${data.email}`);
+      return { success: true };
+    } catch (error) {
+      logger.error('Failed to store enrichment:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Clear cache (for testing or refresh)
    */
   clearCache() {
@@ -494,6 +611,9 @@ module.exports = {
   enrichAttendee: (name, email) => clayEnrichment.enrichAttendee(name, email),
   enrichAttendees: (attendees) => clayEnrichment.enrichAttendees(attendees),
   enrichAttendeeViaWebhook: (name, email) => clayEnrichment.enrichAttendeeViaWebhook(name, email),
-  enrichAttendeesViaWebhook: (attendees) => clayEnrichment.enrichAttendeesViaWebhook(attendees)
+  enrichAttendeesViaWebhook: (attendees) => clayEnrichment.enrichAttendeesViaWebhook(attendees),
+  getEnrichedAttendee: (email) => clayEnrichment.getEnrichedAttendee(email),
+  getEnrichedAttendees: (emails) => clayEnrichment.getEnrichedAttendees(emails),
+  storeEnrichment: (data) => clayEnrichment.storeEnrichment(data)
 };
 

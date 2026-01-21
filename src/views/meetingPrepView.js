@@ -675,6 +675,77 @@ textarea.input-field {
   font-size: 0.9rem;
 }
 
+/* Attendee Card List (with enrichment data) */
+.attendee-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.attendee-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  transition: border-color 0.2s;
+}
+
+.attendee-card.enriched {
+  background: #fefce8;
+  border-color: #fcd34d;
+}
+
+.attendee-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.attendee-card-header .attendee-name {
+  font-weight: 600;
+  color: #111827;
+  font-size: 0.9rem;
+}
+
+.attendee-card-header .linkedin-link {
+  text-decoration: none;
+  font-size: 1rem;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.attendee-card-header .linkedin-link:hover {
+  opacity: 1;
+}
+
+.attendee-card-details {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 2px;
+}
+
+.attendee-card-details .attendee-title {
+  color: #374151;
+  font-weight: 500;
+}
+
+.attendee-card-details .attendee-company::before {
+  content: '•';
+  margin-right: 8px;
+  color: #9ca3af;
+}
+
+.attendee-email {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
 /* Enriched Attendee Intel Section */
 .attendee-intel-section {
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
@@ -1076,6 +1147,44 @@ let currentMeetingId = null;
 let currentMeetingData = null;
 let accountsList = [];
 
+// EA exclusion list - Executive Assistants to filter from internal attendees
+const EA_EXCLUSIONS = [
+  'alyssa.gradstein@eudia.com',
+  'cassie.farber@eudia.com'
+];
+
+// Check if attendee is an EA (should be excluded)
+function isExecutiveAssistant(attendee) {
+  const email = (attendee.email || '').toLowerCase();
+  return EA_EXCLUSIONS.some(ea => email.includes(ea.toLowerCase()));
+}
+
+// Normalize name display (handles "Last, First" format)
+function normalizeName(rawName) {
+  if (!rawName) return 'Unknown';
+  
+  const name = rawName.trim();
+  
+  // Pattern: "Last, First" or "Last, First Middle"
+  if (name.includes(',')) {
+    const parts = name.split(',').map(s => s.trim());
+    if (parts.length >= 2) {
+      const [lastName, ...rest] = parts;
+      const firstName = rest.join(' ').trim();
+      return firstName + ' ' + lastName;
+    }
+  }
+  
+  // Pattern: All caps - normalize to title case
+  if (name === name.toUpperCase() && name.length > 3) {
+    return name.split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  }
+  
+  return name;
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   loadAccounts();
@@ -1158,6 +1267,42 @@ async function openMeetingPrep(meetingId) {
     while ((currentMeetingData.demoSelections || []).length < 3) currentMeetingData.demoSelections.push({ product: '', subtext: '' });
     while ((currentMeetingData.additionalNotes || []).length < 3) currentMeetingData.additionalNotes.push('');
     
+    // Fetch enrichment data for external attendees
+    const externalEmails = (currentMeetingData.externalAttendees || [])
+      .map(a => a.email)
+      .filter(e => e);
+    
+    if (externalEmails.length > 0) {
+      try {
+        const enrichRes = await fetch('/api/clay/get-enrichment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emails: externalEmails })
+        });
+        const enrichData = await enrichRes.json();
+        
+        if (enrichData.success && enrichData.enrichments) {
+          // Merge enrichment data into attendees
+          currentMeetingData.externalAttendees = currentMeetingData.externalAttendees.map(a => {
+            const enrichment = enrichData.enrichments[a.email?.toLowerCase()];
+            if (enrichment) {
+              return {
+                ...a,
+                title: enrichment.title || a.title,
+                linkedinUrl: enrichment.linkedinUrl || a.linkedinUrl,
+                company: enrichment.company || a.company,
+                summary: enrichment.summary || a.summary,
+                enriched: true
+              };
+            }
+            return a;
+          });
+        }
+      } catch (e) {
+        console.error('Failed to fetch enrichment:', e);
+      }
+    }
+    
     document.getElementById('modalTitle').textContent = currentMeetingData.accountName || 'Meeting Prep';
     document.getElementById('modalSubtitle').textContent = currentMeetingData.meetingTitle || '';
     
@@ -1220,13 +1365,17 @@ function renderPrepForm(contextHtml) {
   const data = currentMeetingData;
   const attendees = data.attendees || [];
   const externalAttendees = data.externalAttendees || attendees.filter(a => a.isExternal);
-  const internalAttendees = data.internalAttendees || attendees.filter(a => !a.isExternal);
+  // Filter out EAs from internal attendees
+  const allInternal = data.internalAttendees || attendees.filter(a => !a.isExternal);
+  const internalAttendees = allInternal.filter(a => !isExecutiveAssistant(a));
   const agenda = data.agenda || ['', '', ''];
   const goals = data.goals || ['', '', ''];
   const demos = data.demoSelections || [{ product: '', subtext: '' }, { product: '', subtext: '' }, { product: '', subtext: '' }];
   
-  // Check if any attendees have enriched bios
-  const enrichedAttendees = externalAttendees.filter(a => a.bio && a.confidence !== 'low');
+  // Check if any attendees have enriched data (bio/summary or title)
+  const enrichedAttendees = externalAttendees.filter(a => 
+    (a.bio || a.summary || a.title) && a.confidence !== 'low'
+  );
   const hasEnrichedAttendees = enrichedAttendees.length > 0;
   
   const demoOptions = '<option value="">Select product...</option>' + 
@@ -1240,19 +1389,22 @@ function renderPrepForm(contextHtml) {
           👥 Attendee Intel <span class="ai-badge">AI-Generated</span>
         </span>
       </div>
-      \${enrichedAttendees.map(a => \`
+      \${enrichedAttendees.map(a => {
+        const displayName = normalizeName(a.name || '');
+        const bioText = a.bio || a.summary || '';
+        return \`
         <div class="enriched-attendee">
           <div class="enriched-attendee-header">
             <div class="attendee-avatar">
-              \${a.headshotUrl ? '<img src="' + a.headshotUrl + '" alt="' + a.name + '">' : getInitials(a.name)}
+              \${a.headshotUrl ? '<img src="' + a.headshotUrl + '" alt="' + displayName + '">' : getInitials(displayName)}
             </div>
             <div class="attendee-info">
-              <div class="attendee-name">\${a.name}</div>
+              <div class="attendee-name">\${displayName}</div>
               <div class="attendee-title-company">\${a.title || 'Title unknown'} • \${a.company || 'Company unknown'}</div>
             </div>
-            <span class="seniority-badge \${getSeniorityClass(a.seniority)}">\${a.seniority || 'Unknown'}</span>
+            \${a.seniority ? '<span class="seniority-badge ' + getSeniorityClass(a.seniority) + '">' + a.seniority + '</span>' : ''}
           </div>
-          \${a.bio ? '<div class="attendee-bio">' + a.bio + '</div>' : ''}
+          \${bioText ? '<div class="attendee-bio">' + bioText + '</div>' : ''}
           \${a.linkedinUrl ? '<a href="' + a.linkedinUrl + '" target="_blank" class="attendee-linkedin">🔗 LinkedIn Profile</a>' : ''}
           \${a.talkingPoints && a.talkingPoints.length > 0 ? \`
             <div class="talking-points">
@@ -1261,7 +1413,7 @@ function renderPrepForm(contextHtml) {
             </div>
           \` : ''}
         </div>
-      \`).join('')}
+      \`}).join('')}
     </div>
   \` : (externalAttendees.length > 0 ? \`
     <div class="enrichment-pending">
@@ -1279,14 +1431,24 @@ function renderPrepForm(contextHtml) {
       
       \${externalAttendees.length > 0 ? \`
         <div class="attendee-section-label external">External Attendees (\${externalAttendees.length})</div>
-        <div class="attendee-chips">
+        <div class="attendee-list">
           \${externalAttendees.map((a, i) => {
-            const displayName = a.name || (a.email ? a.email.split('@')[0].replace(/[._]/g, ' ') : 'Unknown');
-            const company = a.email ? a.email.split('@')[1]?.split('.')[0] : '';
+            const rawName = a.name || (a.email ? a.email.split('@')[0].replace(/[._]/g, ' ') : 'Unknown');
+            const displayName = normalizeName(rawName);
+            const company = a.company || (a.email ? a.email.split('@')[1]?.split('.')[0] : '');
+            const hasEnrichment = a.title || a.linkedinUrl;
             return \`
-              <span class="attendee-chip external" title="\${a.email || ''}">
-                \${displayName}\${company ? ' (' + company + ')' : ''}
-              </span>
+              <div class="attendee-card \${hasEnrichment ? 'enriched' : ''}">
+                <div class="attendee-card-header">
+                  <span class="attendee-name">\${displayName}</span>
+                  \${a.linkedinUrl ? '<a href="' + a.linkedinUrl + '" target="_blank" class="linkedin-link" title="LinkedIn Profile">🔗</a>' : ''}
+                </div>
+                <div class="attendee-card-details">
+                  \${a.title ? '<span class="attendee-title">' + a.title + '</span>' : ''}
+                  \${company ? '<span class="attendee-company">' + (company.charAt(0).toUpperCase() + company.slice(1)) + '</span>' : ''}
+                </div>
+                <div class="attendee-email">\${a.email || ''}</div>
+              </div>
             \`;
           }).join('')}
         </div>
@@ -1296,7 +1458,8 @@ function renderPrepForm(contextHtml) {
         <div class="attendee-section-label internal">Internal Attendees (\${internalAttendees.length})</div>
         <div class="attendee-chips">
           \${internalAttendees.map((a, i) => {
-            const displayName = a.name || (a.email ? a.email.split('@')[0].replace(/[._]/g, ' ') : 'Unknown');
+            const rawName = a.name || (a.email ? a.email.split('@')[0].replace(/[._]/g, ' ') : 'Unknown');
+            const displayName = normalizeName(rawName);
             return \`
               <span class="attendee-chip internal" title="\${a.email || ''}">
                 \${displayName}
@@ -1353,11 +1516,6 @@ function renderPrepForm(contextHtml) {
           <input type="text" class="demo-subtext" data-index="\${i}" value="\${escapeHtml(demo.subtext || '')}" placeholder="Additional details..." \${!demo.product ? 'disabled' : ''}>
         </div>
       \`).join('')}
-    </div>
-    
-    <div class="form-section">
-      <div class="form-section-title">Context</div>
-      <textarea class="input-field context-textarea" id="contextInput" placeholder="Background information, recent interactions, key topics to address...">\${escapeHtml(data.context || '')}</textarea>
     </div>
     
     <div class="form-section">
@@ -1575,7 +1733,6 @@ async function saveMeetingPrep() {
     product: sel.value,
     subtext: document.querySelector('.demo-subtext[data-index="' + i + '"]').value
   }));
-  const context = document.getElementById('contextInput')?.value || '';
   const additionalNotes = Array.from(document.querySelectorAll('.note-input')).map(el => el.value);
   
   const demoRequired = demoSelections.some(d => d.product);
@@ -1592,7 +1749,6 @@ async function saveMeetingPrep() {
     goals,
     demoRequired,
     demoSelections,
-    context,
     additionalNotes,
     savedAt: new Date().toISOString()
   };

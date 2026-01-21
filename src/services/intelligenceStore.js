@@ -100,6 +100,26 @@ async function initialize() {
         db.run(`CREATE INDEX IF NOT EXISTS idx_meeting_prep_account ON meeting_prep(account_id)`);
         db.run(`CREATE INDEX IF NOT EXISTS idx_meeting_prep_date ON meeting_prep(meeting_date)`);
         
+        // Attendee Enrichment table - stores Clay enrichment data
+        db.run(`
+          CREATE TABLE IF NOT EXISTS attendee_enrichment (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            name TEXT,
+            title TEXT,
+            linkedin_url TEXT,
+            company TEXT,
+            summary TEXT,
+            source TEXT DEFAULT 'clay',
+            enriched_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+          )
+        `, (err) => {
+          if (err) logger.error('Failed to create attendee_enrichment table:', err);
+        });
+        
+        db.run(`CREATE INDEX IF NOT EXISTS idx_enrichment_email ON attendee_enrichment(email)`);
+        
         logger.info('✅ Intelligence database tables initialized');
         resolve();
       });
@@ -780,6 +800,113 @@ async function getAllMeetingPreps() {
   });
 }
 
+/**
+ * Save attendee enrichment data
+ * @param {Object} data - { email, name, title, linkedinUrl, company, summary, source }
+ */
+async function saveAttendeeEnrichment(data) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    const { email, name, title, linkedinUrl, company, summary, source = 'clay' } = data;
+    
+    db.run(`
+      INSERT INTO attendee_enrichment (email, name, title, linkedin_url, company, summary, source, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(email) DO UPDATE SET
+        name = COALESCE(excluded.name, attendee_enrichment.name),
+        title = COALESCE(excluded.title, attendee_enrichment.title),
+        linkedin_url = COALESCE(excluded.linkedin_url, attendee_enrichment.linkedin_url),
+        company = COALESCE(excluded.company, attendee_enrichment.company),
+        summary = COALESCE(excluded.summary, attendee_enrichment.summary),
+        source = excluded.source,
+        updated_at = CURRENT_TIMESTAMP
+    `, [email.toLowerCase(), name, title, linkedinUrl, company, summary, source], function(err) {
+      if (err) {
+        logger.error('Failed to save attendee enrichment:', err);
+        reject(err);
+      } else {
+        logger.info(`👤 Saved enrichment for: ${email}`);
+        resolve({ email, saved: true });
+      }
+    });
+  });
+}
+
+/**
+ * Get attendee enrichment by email
+ * @param {string} email
+ */
+async function getAttendeeEnrichment(email) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.get(`SELECT * FROM attendee_enrichment WHERE email = ?`, [email.toLowerCase()], (err, row) => {
+      if (err) {
+        logger.error('Failed to get attendee enrichment:', err);
+        reject(err);
+      } else if (row) {
+        resolve({
+          email: row.email,
+          name: row.name,
+          title: row.title,
+          linkedinUrl: row.linkedin_url,
+          company: row.company,
+          summary: row.summary,
+          source: row.source,
+          enrichedAt: row.enriched_at,
+          updatedAt: row.updated_at
+        });
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+
+/**
+ * Get enrichment for multiple attendees
+ * @param {Array<string>} emails
+ */
+async function getAttendeeEnrichments(emails) {
+  return new Promise((resolve, reject) => {
+    if (!db || !emails || emails.length === 0) {
+      resolve({});
+      return;
+    }
+    
+    const placeholders = emails.map(() => '?').join(',');
+    const lowerEmails = emails.map(e => e.toLowerCase());
+    
+    db.all(`SELECT * FROM attendee_enrichment WHERE email IN (${placeholders})`, lowerEmails, (err, rows) => {
+      if (err) {
+        logger.error('Failed to get attendee enrichments:', err);
+        reject(err);
+      } else {
+        const result = {};
+        (rows || []).forEach(row => {
+          result[row.email] = {
+            email: row.email,
+            name: row.name,
+            title: row.title,
+            linkedinUrl: row.linkedin_url,
+            company: row.company,
+            summary: row.summary,
+            source: row.source
+          };
+        });
+        resolve(result);
+      }
+    });
+  });
+}
+
 module.exports = {
   initialize,
   close,
@@ -808,6 +935,10 @@ module.exports = {
   getMeetingPrepsByAccount,
   getUpcomingMeetingPreps,
   deleteMeetingPrep,
-  getAllMeetingPreps
+  getAllMeetingPreps,
+  // Attendee enrichment
+  saveAttendeeEnrichment,
+  getAttendeeEnrichment,
+  getAttendeeEnrichments
 };
 

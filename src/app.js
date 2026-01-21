@@ -1302,6 +1302,73 @@ class GTMBrainApp {
       }
     });
 
+    // Get enrichment data for attendees
+    this.expressApp.post('/api/clay/get-enrichment', async (req, res) => {
+      try {
+        const { emails } = req.body;
+        
+        if (!emails || !Array.isArray(emails) || emails.length === 0) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'emails array required' 
+          });
+        }
+
+        const intelligenceStore = require('./services/intelligenceStore');
+        const enrichments = await intelligenceStore.getAttendeeEnrichments(emails);
+        
+        res.json({ 
+          success: true, 
+          enrichments 
+        });
+      } catch (error) {
+        logger.error('Error getting enrichment data:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Store enrichment data (for Clay callback or manual entry)
+    this.expressApp.post('/api/clay/store-enrichment', async (req, res) => {
+      try {
+        const { attendees } = req.body;
+        
+        if (!attendees || !Array.isArray(attendees)) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'attendees array required' 
+          });
+        }
+
+        const intelligenceStore = require('./services/intelligenceStore');
+        const results = [];
+        
+        for (const attendee of attendees) {
+          if (!attendee.email) continue;
+          await intelligenceStore.saveAttendeeEnrichment({
+            email: attendee.email,
+            name: attendee.name || attendee.full_name,
+            title: attendee.title || attendee.job_title,
+            linkedinUrl: attendee.linkedinUrl || attendee.linkedin_url || attendee.linkedin,
+            company: attendee.company || attendee.company_name,
+            summary: attendee.summary || attendee.attendee_summary || attendee.bio,
+            source: attendee.source || 'clay'
+          });
+          results.push({ email: attendee.email, saved: true });
+        }
+        
+        logger.info(`✅ Stored enrichment for ${results.length} attendees`);
+        
+        res.json({ 
+          success: true, 
+          saved: results.length,
+          results 
+        });
+      } catch (error) {
+        logger.error('Error storing enrichment data:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     logger.info('✅ Express server configured');
   }
 
