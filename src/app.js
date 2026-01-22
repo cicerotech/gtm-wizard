@@ -1324,6 +1324,85 @@ class GTMBrainApp {
       }
     });
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // ICS CALENDAR FEED FOR OBSIDIAN
+    // Serves each BL's calendar as an ICS feed for Obsidian Full Calendar plugin
+    // ═══════════════════════════════════════════════════════════════════════
+    this.expressApp.get('/api/calendar/:email/feed.ics', async (req, res) => {
+      try {
+        const { calendarService, BL_EMAILS } = require('./services/calendarService');
+        const email = req.params.email.toLowerCase();
+        
+        // Security: only serve calendars for registered BLs
+        if (!BL_EMAILS.map(e => e.toLowerCase()).includes(email)) {
+          logger.warn(`ICS feed requested for non-BL email: ${email}`);
+          return res.status(403).send('Access denied: Email not in BL list');
+        }
+        
+        // Initialize and fetch calendar
+        await calendarService.initialize();
+        
+        // Fetch 30 days ahead (good balance for Obsidian view)
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7); // Include 7 days back for context
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + 30);
+        
+        const events = await calendarService.getCalendarEvents(email, startDate, endDate);
+        
+        // Convert to ICS format
+        const icsContent = this.generateICSFeed(events, email);
+        
+        // Set proper headers for ICS
+        res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+        res.setHeader('Content-Disposition', `inline; filename="${email.split('@')[0]}-calendar.ics"`);
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        
+        res.send(icsContent);
+        
+        logger.info(`📅 ICS feed served for ${email}: ${events.length} events`);
+        
+      } catch (error) {
+        logger.error('Error generating ICS feed:', error);
+        res.status(500).send('Error generating calendar feed');
+      }
+    });
+    
+    // List available ICS feeds
+    this.expressApp.get('/api/calendar/feeds', async (req, res) => {
+      try {
+        const { BL_EMAILS } = require('./services/calendarService');
+        const baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://gtm-brain.onrender.com';
+        
+        const feeds = BL_EMAILS.map(email => ({
+          email,
+          name: email.split('@')[0].replace('.', ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          icsUrl: `${baseUrl}/api/calendar/${email}/feed.ics`,
+          obsidianFormat: `${baseUrl}/api/calendar/${email}/feed.ics`
+        }));
+        
+        res.json({
+          success: true,
+          totalFeeds: feeds.length,
+          feeds,
+          instructions: {
+            obsidian: [
+              '1. Open Obsidian → Settings → Community Plugins → Full Calendar',
+              '2. In Full Calendar settings, click "Add Calendar"',
+              '3. Choose "Remote" or "ICS/Remote"',
+              '4. Paste the icsUrl for your email',
+              '5. Set a name (e.g., "Work Calendar")',
+              '6. Save and refresh'
+            ]
+          }
+        });
+        
+      } catch (error) {
+        logger.error('Error listing calendar feeds:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // Trigger Clay enrichment for meeting attendees
     this.expressApp.post('/api/clay/enrich-attendees', async (req, res) => {
       try {
@@ -1868,6 +1947,90 @@ class GTMBrainApp {
 
     process.on('SIGTERM', () => shutdown('SIGTERM'));
     process.on('SIGINT', () => shutdown('SIGINT'));
+  }
+
+  /**
+   * Generate ICS (iCalendar) feed from calendar events
+   * @param {Array} events - Calendar events from Graph API
+   * @param {string} email - BL email address
+   * @returns {string} ICS formatted calendar string
+   */
+  generateICSFeed(events, email) {
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//GTM Brain//Calendar Feed//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      `X-WR-CALNAME:${email.split('@')[0]} - GTM Brain`,
+      'X-WR-TIMEZONE:UTC'
+    ];
+
+    for (const event of events) {
+      // Format dates for ICS (YYYYMMDDTHHMMSSZ format)
+      const formatICSDate = (dateStr) => {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+      };
+
+      // Escape special characters for ICS
+      const escapeICS = (str) => {
+        if (!str) return '';
+        return str
+          .replace(/\\/g, '\\\\')
+          .replace(/;/g, '\\;')
+          .replace(/,/g, '\\,')
+          .replace(/\n/g, '\\n');
+      };
+
+      // Build attendee list for description
+      const attendeeList = (event.externalAttendees || [])
+        .map(a => a.name || a.email)
+        .join(', ');
+
+      const description = [
+        event.bodyPreview ? escapeICS(event.bodyPreview.substring(0, 200)) : '',
+        attendeeList ? `\\n\\nExternal Attendees: ${escapeICS(attendeeList)}` : ''
+      ].filter(Boolean).join('');
+
+      lines.push('BEGIN:VEVENT');
+      lines.push(`UID:${event.eventId}@gtm-brain`);
+      lines.push(`DTSTAMP:${formatICSDate(new Date().toISOString())}`);
+      lines.push(`DTSTART:${formatICSDate(event.startDateTime)}`);
+      lines.push(`DTEND:${formatICSDate(event.endDateTime)}`);
+      lines.push(`SUMMARY:${escapeICS(event.subject)}`);
+      
+      if (event.location) {
+        lines.push(`LOCATION:${escapeICS(event.location)}`);
+      }
+      
+      if (description) {
+        lines.push(`DESCRIPTION:${description}`);
+      }
+      
+      if (event.meetingUrl) {
+        lines.push(`URL:${event.meetingUrl}`);
+      }
+
+      // Add attendees
+      for (const att of (event.allAttendees || [])) {
+        if (att.email) {
+          const role = att.isExternal ? 'REQ-PARTICIPANT' : 'OPT-PARTICIPANT';
+          lines.push(`ATTENDEE;ROLE=${role};CN=${escapeICS(att.name || att.email)}:mailto:${att.email}`);
+        }
+      }
+
+      // Mark customer meetings
+      if (event.isCustomerMeeting) {
+        lines.push('CATEGORIES:Customer Meeting');
+      }
+
+      lines.push('END:VEVENT');
+    }
+
+    lines.push('END:VCALENDAR');
+    return lines.join('\r\n');
   }
 }
 
