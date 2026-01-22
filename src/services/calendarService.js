@@ -72,7 +72,9 @@ const INTERNAL_MEETING_KEYWORDS = [
   'planning',
   'retrospective',
   'retro',
-  'sprint'
+  'sprint',
+  'johnson hana',   // Internal account meetings
+  'johnsonhana'     // Alternate spelling
 ];
 
 class CalendarService {
@@ -241,9 +243,11 @@ class CalendarService {
     endDate.setDate(endDate.getDate() + daysAhead);
 
     logger.info(`📅 Fetching calendars for ${BL_EMAILS.length} BLs (next ${daysAhead} days)`);
+    logger.info(`📅 BL emails: ${BL_EMAILS.join(', ')}`);
 
     const allMeetings = [];
     const errors = [];
+    const blEventCounts = {}; // Track events per BL for diagnostics
 
     // Fetch calendars in parallel (but limit concurrency to avoid rate limits)
     const batchSize = 5;
@@ -254,13 +258,20 @@ class CalendarService {
       );
 
       batchResults.forEach((result, idx) => {
+        const email = batch[idx];
         if (result.status === 'fulfilled') {
-          allMeetings.push(...result.value);
+          const events = result.value;
+          blEventCounts[email] = events.length;
+          allMeetings.push(...events);
         } else {
-          errors.push({ email: batch[idx], error: result.reason?.message });
+          blEventCounts[email] = 'ERROR';
+          errors.push({ email, error: result.reason?.message });
         }
       });
     }
+
+    // Log per-BL breakdown for diagnostics
+    logger.info(`📅 Per-BL event counts: ${JSON.stringify(blEventCounts)}`);
 
     // Filter to only customer meetings (with external attendees)
     const customerMeetings = allMeetings.filter(m => m.isCustomerMeeting);
@@ -271,7 +282,7 @@ class CalendarService {
     logger.info(`📅 Total: ${allMeetings.length} events, ${customerMeetings.length} customer meetings, ${uniqueMeetings.length} unique`);
 
     if (errors.length > 0) {
-      logger.warn(`📅 Calendar errors for ${errors.length} BLs:`, errors);
+      logger.warn(`📅 Calendar errors for ${errors.length} BLs:`, JSON.stringify(errors));
     }
 
     // Proactively enrich external attendees via Clay webhook (fire and forget)

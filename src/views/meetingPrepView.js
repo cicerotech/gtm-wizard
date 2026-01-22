@@ -1876,17 +1876,19 @@ function standardizeSummary(summary, displayName, title, company) {
   // ======================================================================
   // STEP 2: Remove redundant intro patterns and extract unique content
   // ======================================================================
-  // Remove "Name is the Title at Company." pattern completely
-  const redundantIntroPattern = /^[A-Z][a-z]+(?:\s+[A-Z]'?[a-z]+)*\s+is\s+(?:a|an|the\s+)?[^.]+(?:\s+at\s+[^.]+)?[.]/i;
+  // Remove "Name is the Title at/of Company." pattern completely
+  // Handles: "Jason Taylor is the President of Graybar Canada."
+  // Handles: "Steve Drake is a VP at Coherent Corp."
+  const redundantIntroPattern = /^[A-Z][a-z]+(?:\s+[A-Z]'?[a-z]+)*\s+is\s+(?:a|an|the\s+)?[^.]+(?:\s+(?:at|of|for)\s+[^.]+)?[.]/i;
   let uniqueContent = cleanSummary.replace(redundantIntroPattern, '').trim();
   
   // Also remove patterns like "They are the..." or "He/She is the..."
-  uniqueContent = uniqueContent.replace(/^(?:They|He|She)\s+(?:is|are)\s+(?:a|an|the\s+)?[^.]+(?:\s+at\s+[^.]+)?[.]\s*/i, '').trim();
+  uniqueContent = uniqueContent.replace(/^(?:They|He|She)\s+(?:is|are)\s+(?:a|an|the\s+)?[^.]+(?:\s+(?:at|of|for)\s+[^.]+)?[.]\s*/i, '').trim();
   
-  // Remove duplicate "Name is the Title" if it appears again
+  // Remove duplicate "Name is the Title" if it appears again in the middle
   const nameVariants = [displayName, displayName.split(' ')[0]];
   for (const name of nameVariants) {
-    const dupePattern = new RegExp(escapeRegex(name) + '\\s+is\\s+(?:a|an|the\\s+)?[^.]+(?:\\s+at\\s+[^.]+)?[.]\\s*', 'gi');
+    const dupePattern = new RegExp(escapeRegex(name) + '\\s+is\\s+(?:a|an|the\\s+)?[^.]+(?:\\s+(?:at|of|for)\\s+[^.]+)?[.]\\s*', 'gi');
     uniqueContent = uniqueContent.replace(dupePattern, '').trim();
   }
   
