@@ -1796,6 +1796,33 @@ Your Vault/
     // CONTEXT SUMMARIZER TEST ENDPOINTS
     // ============================================================
     
+    // Get rate limit status for context summarizer (MUST be before :accountId route)
+    this.expressApp.get('/api/test/context-summary/status', async (req, res) => {
+      try {
+        const contextSummarizer = require('./services/contextSummarizer');
+        const intelligenceStore = require('./services/intelligenceStore');
+        
+        const rateLimits = contextSummarizer.getRateLimitStatus();
+        const allSummaries = await intelligenceStore.getAllContextSummaries();
+        
+        res.json({
+          success: true,
+          rateLimits,
+          cachedSummaries: allSummaries.length,
+          summaries: allSummaries.slice(0, 10),  // Last 10
+          config: {
+            enabled: contextSummarizer.CONFIG.enabled,
+            dailyLimit: contextSummarizer.CONFIG.dailyLimitTotal,
+            cacheTTLHours: contextSummarizer.CONFIG.cacheTTLHours
+          }
+        });
+        
+      } catch (error) {
+        logger.error('Error getting context summary status:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
     // Generate or get AI summary for an account's context
     this.expressApp.get('/api/test/context-summary/:accountId', async (req, res) => {
       try {
@@ -1840,33 +1867,6 @@ Your Vault/
         
       } catch (error) {
         logger.error('Error generating context summary:', error);
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-    
-    // Get rate limit status for context summarizer
-    this.expressApp.get('/api/test/context-summary/status', async (req, res) => {
-      try {
-        const contextSummarizer = require('./services/contextSummarizer');
-        const intelligenceStore = require('./services/intelligenceStore');
-        
-        const rateLimits = contextSummarizer.getRateLimitStatus();
-        const allSummaries = await intelligenceStore.getAllContextSummaries();
-        
-        res.json({
-          success: true,
-          rateLimits,
-          cachedSummaries: allSummaries.length,
-          summaries: allSummaries.slice(0, 10),  // Last 10
-          config: {
-            enabled: contextSummarizer.CONFIG.enabled,
-            dailyLimit: contextSummarizer.CONFIG.dailyLimitTotal,
-            cacheTTLHours: contextSummarizer.CONFIG.cacheTTLHours
-          }
-        });
-        
-      } catch (error) {
-        logger.error('Error getting context summary status:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });
