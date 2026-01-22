@@ -1709,35 +1709,60 @@ Your Vault/
           accountId = '001Hp00003lhyCxIAI',
           accountName = 'Eudia Testing',
           meetingTitle = 'Test Meeting - Obsidian Sync Validation',
-          meetingDate = new Date().toISOString(),
-          attendees = [{ name: 'Keigan Pesenti', email: 'keigan@eudia.com' }]
+          meetingDate = null, // Will be set to today at 2pm
+          externalAttendees = [{ 
+            name: 'John Test', 
+            email: 'john.test@eudia-testing.com',
+            isExternal: true
+          }],
+          internalAttendees = [{ 
+            name: 'Keigan Pesenti', 
+            email: 'keigan.pesenti@eudia.com',
+            isExternal: false 
+          }]
         } = req.body;
         
         // Generate a unique meeting ID
         const meetingId = `test-${Date.now()}`;
+        
+        // Set meeting time to today at 2pm if not provided
+        let finalMeetingDate = meetingDate;
+        if (!finalMeetingDate) {
+          const today = new Date();
+          today.setHours(14, 0, 0, 0); // 2pm today
+          finalMeetingDate = today.toISOString();
+        }
+        
+        // Combine attendees for storage but keep external/internal structure
+        const allAttendees = [
+          ...externalAttendees.map(a => ({ ...a, isExternal: true })),
+          ...internalAttendees.map(a => ({ ...a, isExternal: false }))
+        ];
         
         await intelligenceStore.saveMeetingPrep({
           meetingId,
           accountId,
           accountName,
           meetingTitle,
-          meetingDate,
-          attendees: JSON.stringify(attendees),
+          meetingDate: finalMeetingDate,
+          attendees: allAttendees, // Not stringified - saveMeetingPrep handles that
           source: 'manual_test',
           isFirstMeeting: false
         });
         
-        logger.info(`📅 Mock meeting created: ${meetingTitle}`);
+        logger.info(`📅 Mock meeting created: ${meetingTitle} with ${externalAttendees.length} external attendees`);
         
         res.json({
           success: true,
-          message: 'Mock meeting created',
+          message: 'Mock meeting created with external attendees',
           meetingId,
           accountId,
           accountName,
           meetingTitle,
-          meetingDate,
-          nextStep: 'Visit /meetings to see this meeting tile'
+          meetingDate: finalMeetingDate,
+          externalAttendees,
+          internalAttendees,
+          nextStep: 'Refresh /gtm > Meeting Prep tab to see this meeting tile in Thursday column'
         });
         
       } catch (error) {

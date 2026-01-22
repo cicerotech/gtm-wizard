@@ -262,11 +262,23 @@ async function getUpcomingMeetings(startDate, endDate) {
     
     const meetingsMap = new Map();
     
-    // Step 1: Add manual meetings
+    // Step 1: Add manual meetings (normalize attendees structure)
     for (const meeting of manualMeetings) {
+      // Parse attendees and split into external/internal arrays
+      const allAttendees = meeting.attendees || [];
+      const externalAttendees = allAttendees.filter(a => a.isExternal !== false);
+      const internalAttendees = allAttendees.filter(a => a.isExternal === false);
+      
       meetingsMap.set(meeting.meeting_id, {
         ...meeting,
-        source: 'manual'
+        meetingId: meeting.meeting_id,
+        accountId: meeting.account_id,
+        accountName: meeting.account_name,
+        meetingTitle: meeting.meeting_title,
+        meetingDate: meeting.meeting_date,
+        externalAttendees,
+        internalAttendees,
+        source: meeting.source === 'manual_test' ? 'manual' : (meeting.source || 'manual')
       });
     }
     
