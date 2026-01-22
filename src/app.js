@@ -1648,6 +1648,125 @@ Your Vault/
       res.send(html);
     });
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // TEST ENDPOINTS - For validating Obsidian sync pipeline
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    // Manually push a test note to the database (bypasses file reading)
+    this.expressApp.post('/api/obsidian/test-push', async (req, res) => {
+      try {
+        const intelligenceStore = require('./services/intelligenceStore');
+        
+        const {
+          accountId = '001Hp00003lhyCxIAI',  // Eudia Testing default
+          accountName = 'Eudia Testing',
+          noteTitle = 'Test Meeting Note',
+          noteDate = new Date().toISOString().split('T')[0],
+          summary = 'Test meeting note pushed via API.',
+          sentiment = 'Positive',
+          blEmail = 'keigan@eudia.com'
+        } = req.body;
+        
+        const result = await intelligenceStore.storeObsidianNote({
+          accountId,
+          accountName,
+          blEmail,
+          noteTitle,
+          noteDate,
+          notePath: `Meetings/${accountName}/${noteDate} ${noteTitle}.md`,
+          summary,
+          fullSummary: summary,
+          sentiment,
+          matchMethod: 'manual_test',
+          matchConfidence: 1.0
+        });
+        
+        logger.info(`📝 Test note pushed: ${noteTitle} → ${accountName}`);
+        
+        res.json({
+          success: true,
+          message: 'Test note stored successfully',
+          noteId: result.id,
+          accountId,
+          accountName,
+          noteTitle,
+          noteDate,
+          nextStep: `Visit /meetings to see this in Meeting Prep for ${accountName}`
+        });
+        
+      } catch (error) {
+        logger.error('Error pushing test note:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Create a mock meeting for testing (appears in Meeting Prep)
+    this.expressApp.post('/api/test/mock-meeting', async (req, res) => {
+      try {
+        const intelligenceStore = require('./services/intelligenceStore');
+        
+        const {
+          accountId = '001Hp00003lhyCxIAI',
+          accountName = 'Eudia Testing',
+          meetingTitle = 'Test Meeting - Obsidian Sync Validation',
+          meetingDate = new Date().toISOString(),
+          attendees = [{ name: 'Keigan Pesenti', email: 'keigan@eudia.com' }]
+        } = req.body;
+        
+        // Generate a unique meeting ID
+        const meetingId = `test-${Date.now()}`;
+        
+        await intelligenceStore.saveMeetingPrep({
+          meetingId,
+          accountId,
+          accountName,
+          meetingTitle,
+          meetingDate,
+          attendees: JSON.stringify(attendees),
+          source: 'manual_test',
+          isFirstMeeting: false
+        });
+        
+        logger.info(`📅 Mock meeting created: ${meetingTitle}`);
+        
+        res.json({
+          success: true,
+          message: 'Mock meeting created',
+          meetingId,
+          accountId,
+          accountName,
+          meetingTitle,
+          meetingDate,
+          nextStep: 'Visit /meetings to see this meeting tile'
+        });
+        
+      } catch (error) {
+        logger.error('Error creating mock meeting:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Get all Obsidian notes for an account (for verification)
+    this.expressApp.get('/api/test/obsidian-notes/:accountId', async (req, res) => {
+      try {
+        const { accountId } = req.params;
+        const intelligenceStore = require('./services/intelligenceStore');
+        
+        const notes = await intelligenceStore.getObsidianNotesByAccount(accountId);
+        
+        res.json({
+          success: true,
+          accountId,
+          noteCount: notes.length,
+          notes
+        });
+        
+      } catch (error) {
+        logger.error('Error fetching test notes:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // Trigger Clay enrichment for meeting attendees
     this.expressApp.post('/api/clay/enrich-attendees', async (req, res) => {
       try {
