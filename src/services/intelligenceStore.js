@@ -164,6 +164,27 @@ async function initialize() {
         db.run(`CREATE INDEX IF NOT EXISTS idx_obsidian_bl ON obsidian_notes(bl_email)`);
         db.run(`CREATE INDEX IF NOT EXISTS idx_obsidian_date ON obsidian_notes(note_date)`);
         
+        // Context Summaries table - AI-generated meeting context summaries
+        db.run(`
+          CREATE TABLE IF NOT EXISTS context_summaries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id TEXT NOT NULL,
+            source_type TEXT NOT NULL DEFAULT 'combined',
+            source_hash TEXT NOT NULL,
+            summary_json TEXT NOT NULL,
+            raw_excerpt TEXT,
+            full_notes_url TEXT,
+            generated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            expires_at TEXT,
+            UNIQUE(account_id, source_type)
+          )
+        `, (err) => {
+          if (err) logger.error('Failed to create context_summaries table:', err);
+        });
+        
+        db.run(`CREATE INDEX IF NOT EXISTS idx_context_account ON context_summaries(account_id)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_context_hash ON context_summaries(source_hash)`);
+        
         logger.info('✅ Intelligence database tables initialized');
         resolve();
       });
@@ -1130,6 +1151,154 @@ async function getObsidianNotesPendingPush() {
   });
 }
 
+// ============================================================
+// CONTEXT SUMMARIES - AI-generated meeting context
+// ============================================================
+
+/**
+ * Save or update an AI-generated context summary
+ * @param {Object} data - Summary data
+ */
+async function saveContextSummary(data) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    const {
+      accountId,
+      sourceType = 'combined',
+      sourceHash,
+      summaryJson,
+      rawExcerpt,
+      fullNotesUrl
+    } = data;
+    
+    // Calculate expiry (24 hours from now)
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    
+    db.run(`
+      INSERT INTO context_summaries 
+      (account_id, source_type, source_hash, summary_json, raw_excerpt, full_notes_url, generated_at, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+      ON CONFLICT(account_id, source_type) DO UPDATE SET
+        source_hash = excluded.source_hash,
+        summary_json = excluded.summary_json,
+        raw_excerpt = excluded.raw_excerpt,
+        full_notes_url = excluded.full_notes_url,
+        generated_at = CURRENT_TIMESTAMP,
+        expires_at = excluded.expires_at
+    `, [accountId, sourceType, sourceHash, summaryJson, rawExcerpt, fullNotesUrl, expiresAt], function(err) {
+      if (err) {
+        logger.error('Failed to save context summary:', err);
+        reject(err);
+      } else {
+        logger.debug(`[IntelStore] Saved context summary for account ${accountId}`);
+        resolve({ id: this.lastID, accountId, sourceType });
+      }
+    });
+  });
+}
+
+/**
+ * Get cached context summary for an account
+ * @param {string} accountId - Salesforce Account ID
+ * @param {string} sourceType - Source type (default 'combined')
+ * @returns {Object|null} Cached summary or null
+ */
+async function getContextSummary(accountId, sourceType = 'combined') {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.get(`
+      SELECT * FROM context_summaries 
+      WHERE account_id = ? AND source_type = ?
+    `, [accountId, sourceType], (err, row) => {
+      if (err) {
+        logger.error('Failed to get context summary:', err);
+        reject(err);
+      } else {
+        resolve(row || null);
+      }
+    });
+  });
+}
+
+/**
+ * Check if context summary is stale (hash mismatch)
+ * @param {string} accountId - Salesforce Account ID
+ * @param {string} newSourceHash - Hash of current source content
+ * @returns {boolean} True if stale or missing
+ */
+async function isContextSummaryStale(accountId, newSourceHash) {
+  const cached = await getContextSummary(accountId);
+  
+  if (!cached) return true;
+  if (cached.source_hash !== newSourceHash) return true;
+  
+  // Also check expiry
+  if (cached.expires_at && new Date(cached.expires_at) < new Date()) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Delete expired context summaries
+ * @returns {number} Number of deleted rows
+ */
+async function cleanExpiredContextSummaries() {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.run(`
+      DELETE FROM context_summaries 
+      WHERE expires_at < CURRENT_TIMESTAMP
+    `, function(err) {
+      if (err) {
+        logger.error('Failed to clean expired summaries:', err);
+        reject(err);
+      } else {
+        if (this.changes > 0) {
+          logger.info(`[IntelStore] Cleaned ${this.changes} expired context summaries`);
+        }
+        resolve(this.changes);
+      }
+    });
+  });
+}
+
+/**
+ * Get all cached context summaries (for stats/debugging)
+ * @returns {Array} All summaries
+ */
+async function getAllContextSummaries() {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.all(`
+      SELECT account_id, source_type, source_hash, generated_at, expires_at,
+             LENGTH(summary_json) as summary_length
+      FROM context_summaries 
+      ORDER BY generated_at DESC
+    `, [], (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
+}
+
 module.exports = {
   initialize,
   close,
@@ -1170,6 +1339,12 @@ module.exports = {
   getObsidianNotesByBL,
   getRecentObsidianNotes,
   markObsidianNotePushed,
-  getObsidianNotesPendingPush
+  getObsidianNotesPendingPush,
+  // Context summaries
+  saveContextSummary,
+  getContextSummary,
+  isContextSummaryStale,
+  cleanExpiredContextSummaries,
+  getAllContextSummaries
 };
 

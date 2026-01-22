@@ -1791,6 +1791,85 @@ Your Vault/
         res.status(500).json({ success: false, error: error.message });
       }
     });
+    
+    // ============================================================
+    // CONTEXT SUMMARIZER TEST ENDPOINTS
+    // ============================================================
+    
+    // Generate or get AI summary for an account's context
+    this.expressApp.get('/api/test/context-summary/:accountId', async (req, res) => {
+      try {
+        const { accountId } = req.params;
+        const { force } = req.query;  // ?force=true to bypass cache
+        
+        const contextSummarizer = require('./services/contextSummarizer');
+        const meetingContextService = require('./services/meetingContextService');
+        const intelligenceStore = require('./services/intelligenceStore');
+        
+        // Get all context sources
+        const context = await meetingContextService.generateMeetingContext(accountId);
+        
+        if (!context) {
+          return res.status(404).json({
+            success: false,
+            error: 'Account not found or no context available'
+          });
+        }
+        
+        // Build sources object for summarizer
+        const sources = {
+          customerBrain: context.salesforce?.customerBrain || '',
+          obsidianNotes: context.obsidianNotes || [],
+          slackIntel: context.slackIntel || [],
+          priorMeetings: context.priorMeetings || []
+        };
+        
+        // Get or generate summary
+        const accountName = context.salesforce?.name || 'Unknown Account';
+        const result = force === 'true'
+          ? await contextSummarizer.refreshSummary(accountId, accountName, sources)
+          : await contextSummarizer.getOrGenerateSummary(accountId, accountName, sources);
+        
+        res.json({
+          success: true,
+          accountId,
+          accountName,
+          ...result,
+          rateLimitStatus: contextSummarizer.getRateLimitStatus()
+        });
+        
+      } catch (error) {
+        logger.error('Error generating context summary:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Get rate limit status for context summarizer
+    this.expressApp.get('/api/test/context-summary/status', async (req, res) => {
+      try {
+        const contextSummarizer = require('./services/contextSummarizer');
+        const intelligenceStore = require('./services/intelligenceStore');
+        
+        const rateLimits = contextSummarizer.getRateLimitStatus();
+        const allSummaries = await intelligenceStore.getAllContextSummaries();
+        
+        res.json({
+          success: true,
+          rateLimits,
+          cachedSummaries: allSummaries.length,
+          summaries: allSummaries.slice(0, 10),  // Last 10
+          config: {
+            enabled: contextSummarizer.CONFIG.enabled,
+            dailyLimit: contextSummarizer.CONFIG.dailyLimitTotal,
+            cacheTTLHours: contextSummarizer.CONFIG.cacheTTLHours
+          }
+        });
+        
+      } catch (error) {
+        logger.error('Error getting context summary status:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
 
     // Trigger Clay enrichment for meeting attendees
     this.expressApp.post('/api/clay/enrich-attendees', async (req, res) => {
