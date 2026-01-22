@@ -262,24 +262,30 @@ async function getUpcomingMeetings(startDate, endDate) {
     
     const meetingsMap = new Map();
     
-    // Step 1: Add manual meetings (normalize attendees structure)
+    // Step 1: Add manual meetings
     for (const meeting of manualMeetings) {
-      // Parse attendees and split into external/internal arrays
-      const allAttendees = meeting.attendees || [];
-      const externalAttendees = allAttendees.filter(a => a.isExternal !== false);
-      const internalAttendees = allAttendees.filter(a => a.isExternal === false);
-      
       meetingsMap.set(meeting.meeting_id, {
         ...meeting,
-        meetingId: meeting.meeting_id,
-        accountId: meeting.account_id,
-        accountName: meeting.account_name,
-        meetingTitle: meeting.meeting_title,
-        meetingDate: meeting.meeting_date,
-        externalAttendees,
-        internalAttendees,
-        source: meeting.source === 'manual_test' ? 'manual' : (meeting.source || 'manual')
+        source: 'manual'
       });
+    }
+    
+    // Step 1b: Inject test meeting for Obsidian sync validation (if enabled via env)
+    if (process.env.INCLUDE_TEST_MEETING === 'true') {
+      const today = new Date();
+      today.setHours(14, 0, 0, 0); // 2pm today
+      const testMeeting = {
+        meetingId: 'test-obsidian-sync-' + today.toISOString().split('T')[0],
+        accountId: '001Hp00003lhyCxIAI',
+        accountName: 'Eudia Testing',
+        meetingTitle: 'Eudia Testing - Obsidian Sync Validation',
+        meetingDate: today.toISOString(),
+        externalAttendees: [{ name: 'John Test', email: 'john.test@eudia-testing.com', isExternal: true }],
+        internalAttendees: [{ name: 'Keigan Pesenti', email: 'keigan.pesenti@eudia.com', isExternal: false }],
+        source: 'manual'
+      };
+      meetingsMap.set(testMeeting.meetingId, testMeeting);
+      logger.info('[MeetingPrep] 🧪 Test meeting injected for Obsidian validation');
     }
     
     // Step 2: Add Outlook events (PRIMARY source - has attendees!)
