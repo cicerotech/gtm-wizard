@@ -2229,15 +2229,52 @@ Your Vault/
           .replace(/\n/g, '\\n');
       };
 
+      // Strip HTML from body content
+      const stripHtml = (html) => {
+        if (!html) return '';
+        return html
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<\/p>/gi, '\n\n')
+          .replace(/<[^>]+>/g, '')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .trim();
+      };
+
       // Build attendee list for description
       const attendeeList = (event.externalAttendees || [])
-        .map(a => a.name || a.email)
-        .join(', ');
+        .map(a => `• ${a.name || a.email}${a.email ? ' (' + a.email + ')' : ''}`)
+        .join('\\n');
 
-      const description = [
-        event.bodyPreview ? escapeICS(event.bodyPreview.substring(0, 200)) : '',
-        attendeeList ? `\\n\\nExternal Attendees: ${escapeICS(attendeeList)}` : ''
-      ].filter(Boolean).join('');
+      // Build rich description with full meeting details
+      const descriptionParts = [];
+      
+      // Full body content (HTML stripped)
+      const bodyContent = stripHtml(event.body);
+      if (bodyContent && bodyContent.length > 10) {
+        descriptionParts.push(escapeICS(bodyContent.substring(0, 2000)));
+      } else if (event.bodyPreview) {
+        descriptionParts.push(escapeICS(event.bodyPreview));
+      }
+      
+      // External attendees
+      if (attendeeList) {
+        descriptionParts.push('\\n\\n--- EXTERNAL ATTENDEES ---\\n' + escapeICS(attendeeList));
+      }
+      
+      // Meeting link
+      if (event.meetingUrl) {
+        descriptionParts.push('\\n\\n--- JOIN MEETING ---\\n' + event.meetingUrl);
+      }
+      
+      // Open in Outlook link
+      if (event.webLink) {
+        descriptionParts.push('\\n\\n--- OPEN IN OUTLOOK ---\\n' + event.webLink);
+      }
+
+      const description = descriptionParts.filter(Boolean).join('');
 
       lines.push('BEGIN:VEVENT');
       lines.push(`UID:${event.eventId}@gtm-brain`);
@@ -2254,8 +2291,11 @@ Your Vault/
         lines.push(`DESCRIPTION:${description}`);
       }
       
+      // Primary URL - meeting link or Outlook web link
       if (event.meetingUrl) {
         lines.push(`URL:${event.meetingUrl}`);
+      } else if (event.webLink) {
+        lines.push(`URL:${event.webLink}`);
       }
 
       // Add attendees

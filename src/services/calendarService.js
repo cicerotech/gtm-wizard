@@ -185,7 +185,7 @@ class CalendarService {
           endDateTime: endISO,
           $top: 100,
           $orderby: 'start/dateTime',
-          $select: 'id,subject,start,end,attendees,organizer,location,bodyPreview,isOnlineMeeting,onlineMeetingUrl'
+          $select: 'id,subject,start,end,attendees,organizer,location,body,bodyPreview,isOnlineMeeting,onlineMeetingUrl,webLink'
         })
         .get();
 
@@ -251,9 +251,11 @@ class CalendarService {
       endDateTime: event.end?.dateTime,
       timezone: event.start?.timeZone || 'UTC',
       location: event.location?.displayName || '',
-      bodyPreview: event.bodyPreview || '',
+      body: event.body?.content || '',           // Full HTML body
+      bodyPreview: event.bodyPreview || '',      // Short preview
       isOnlineMeeting: event.isOnlineMeeting || false,
       meetingUrl: event.onlineMeetingUrl || '',
+      webLink: event.webLink || '',              // Link to open in Outlook
       organizer: {
         name: event.organizer?.emailAddress?.name || '',
         email: event.organizer?.emailAddress?.address || ''
