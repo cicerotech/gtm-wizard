@@ -1242,7 +1242,7 @@ async function generateAccountDashboard() {
   // Date: Last 90 days (dynamic lookback)
   const signedDealsQuery = `
     SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
-           StageName, Contract_Term_Months__c, Sales_Type__c, Owner.Name,
+           StageName, Sales_Type__c, Owner.Name,
            Renewal_Net_Change__c, Booking_ACV__c
     FROM Opportunity
     WHERE IsClosed = true
@@ -1667,7 +1667,7 @@ async function generateAccountDashboard() {
   // ═══════════════════════════════════════════════════════════════════════
   const closedWonThisWeekQuery = `
     SELECT Account.Name, Name, ACV__c, Amount, CloseDate, Product_Line__c, 
-           Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name, LastModifiedDate, Sales_Type__c
+           TCV__c, Revenue_Type__c, Owner.Name, LastModifiedDate, Sales_Type__c
     FROM Opportunity
     WHERE IsClosed = true
       AND IsWon = true
@@ -1679,7 +1679,7 @@ async function generateAccountDashboard() {
   // Fallback query without Revenue_Type__c filter (catches all closed won this week)
   const closedWonFallbackQuery = `
     SELECT Account.Name, Name, ACV__c, Amount, CloseDate, Product_Line__c, 
-           Contract_Term_Months__c, TCV__c, Revenue_Type__c, Owner.Name, LastModifiedDate, Sales_Type__c
+           TCV__c, Revenue_Type__c, Owner.Name, LastModifiedDate, Sales_Type__c
     FROM Opportunity
     WHERE IsClosed = true
       AND IsWon = true
@@ -1919,15 +1919,16 @@ async function generateAccountDashboard() {
   } catch (e) { console.error('Days in Stage query error:', e.message); }
   
   // ═══════════════════════════════════════════════════════════════════════
-  // PIPELINE BY SALES TYPE & POD - Active pipeline breakdown by deal type
+  // PIPELINE BY SALES TYPE - Active pipeline breakdown by deal type
+  // Note: Pod__c field removed (does not exist on User object)
   // ═══════════════════════════════════════════════════════════════════════
   const salesTypeBreakdownQuery = `
-    SELECT Owner.Pod__c, Sales_Type__c, SUM(ACV__c) acvSum, SUM(Weighted_ACV__c) weightedSum, COUNT(Id) recordCount
+    SELECT Sales_Type__c, SUM(ACV__c) acvSum, SUM(Weighted_ACV__c) weightedSum, COUNT(Id) recordCount
     FROM Opportunity
     WHERE IsClosed = false
       AND ACV__c > 0
-    GROUP BY Owner.Pod__c, Sales_Type__c
-    ORDER BY Owner.Pod__c, Sales_Type__c
+    GROUP BY Sales_Type__c
+    ORDER BY Sales_Type__c
   `;
   
   let salesTypeByPod = {
@@ -1941,14 +1942,16 @@ async function generateAccountDashboard() {
     console.log(`[Dashboard] Sales Type Breakdown query returned ${salesTypeData?.records?.length || 0} records`);
     if (salesTypeData?.records) {
       salesTypeData.records.forEach(row => {
-        const pod = row.Pod__c || 'Other';
         const salesType = row.Sales_Type__c || 'Unknown';
         const acv = row.acvSum || 0;
         const weighted = row.weightedSum || 0;
         const count = row.recordCount || 0;
         
-        if (!salesTypeByPod[pod]) salesTypeByPod[pod] = {};
-        salesTypeByPod[pod][salesType] = { acv, weighted, count };
+        // All go into 'US' bucket since we can't determine Pod
+        if (!salesTypeByPod['US'][salesType]) salesTypeByPod['US'][salesType] = { acv: 0, weighted: 0, count: 0 };
+        salesTypeByPod['US'][salesType].acv += acv;
+        salesTypeByPod['US'][salesType].weighted += weighted;
+        salesTypeByPod['US'][salesType].count += count;
         
         salesTypeTotals.acv += acv;
         salesTypeTotals.weighted += weighted;

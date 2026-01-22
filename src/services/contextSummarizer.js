@@ -1,17 +1,21 @@
 /**
  * Context Summarizer Service
- * Uses Claude (via Socrates) to generate AI-powered meeting context summaries
+ * Uses Claude (direct Anthropic API) to generate AI-powered meeting context summaries
  * 
  * Purpose: Transform raw meeting notes from Customer_Brain, Obsidian, and Slack
  * into concise, actionable intelligence for sales rep meeting preparation.
  * 
  * IMPORTANT: This service respects rate limits and caches results to control costs.
+ * PRIORITY: Uses direct Anthropic API when key is available (more reliable than Socrates)
  */
 
 const crypto = require('crypto');
 const logger = require('../utils/logger');
-const { socratesAdapter } = require('../ai/socratesAdapter');
 const intelligenceStore = require('./intelligenceStore');
+
+// Check for direct Anthropic API key (preferred over Socrates)
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const USE_DIRECT_ANTHROPIC = !!ANTHROPIC_API_KEY;
 
 // ============================================================
 // CONFIGURATION - Cost Control & Rate Limiting
@@ -260,23 +264,58 @@ async function callClaude(content, accountName) {
   const userPrompt = `Account: ${accountName}\n\nPlease summarize the following meeting notes and context:\n\n${content}`;
   
   try {
-    const response = await socratesAdapter.makeRequest(
-      [
-        { role: 'system', content: EUDIA_CONTEXT_PROMPT },
-        { role: 'user', content: userPrompt }
-      ],
-      {
-        model: CONFIG.model,
-        max_tokens: CONFIG.maxTokens,
-        temperature: CONFIG.temperature
-      }
-    );
+    let text;
     
-    // Extract text from response
-    const text = response?.choices?.[0]?.message?.content || 
-                 response?.content?.[0]?.text ||
-                 response?.content ||
-                 response;
+    // PRIORITY: Use direct Anthropic API when available (more reliable)
+    if (USE_DIRECT_ANTHROPIC) {
+      logger.info('[ContextSummarizer] Using direct Anthropic API');
+      
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: CONFIG.maxTokens,
+          temperature: CONFIG.temperature,
+          system: EUDIA_CONTEXT_PROMPT,
+          messages: [{ role: 'user', content: userPrompt }]
+        })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Anthropic HTTP ${response.status}: ${errorText}`);
+      }
+      
+      const data = await response.json();
+      text = data.content?.[0]?.text || '';
+      
+    } else {
+      // Fallback to Socrates if no direct Anthropic key
+      logger.info('[ContextSummarizer] Using Socrates adapter (no ANTHROPIC_API_KEY)');
+      const { socratesAdapter } = require('../ai/socratesAdapter');
+      
+      const response = await socratesAdapter.makeRequest(
+        [
+          { role: 'system', content: EUDIA_CONTEXT_PROMPT },
+          { role: 'user', content: userPrompt }
+        ],
+        {
+          model: CONFIG.model,
+          max_tokens: CONFIG.maxTokens,
+          temperature: CONFIG.temperature
+        }
+      );
+      
+      text = response?.choices?.[0]?.message?.content || 
+             response?.content?.[0]?.text ||
+             response?.content ||
+             response;
+    }
     
     if (!text || typeof text !== 'string') {
       logger.error('[ContextSummarizer] Invalid Claude response format');

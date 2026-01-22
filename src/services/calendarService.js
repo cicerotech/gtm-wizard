@@ -9,6 +9,34 @@ const { ClientSecretCredential } = require('@azure/identity');
 require('isomorphic-fetch');
 const logger = require('../utils/logger');
 
+// ============================================================
+// CALENDAR CACHE - Prevents repeated API calls on page loads
+// ============================================================
+const CALENDAR_CACHE = {
+  data: null,
+  timestamp: 0,
+  TTL_MS: 5 * 60 * 1000,  // 5 minutes cache - prevents excessive Graph API calls
+  inProgress: false       // Prevents concurrent fetches
+};
+
+function isCalendarCacheValid() {
+  return CALENDAR_CACHE.data && 
+         (Date.now() - CALENDAR_CACHE.timestamp) < CALENDAR_CACHE.TTL_MS;
+}
+
+function setCalendarCache(data) {
+  CALENDAR_CACHE.data = data;
+  CALENDAR_CACHE.timestamp = Date.now();
+  CALENDAR_CACHE.inProgress = false;
+  logger.info(`📦 Calendar cache SET (expires in ${CALENDAR_CACHE.TTL_MS / 1000}s)`);
+}
+
+function getCalendarCache() {
+  const age = Math.round((Date.now() - CALENDAR_CACHE.timestamp) / 1000);
+  logger.info(`📦 Calendar cache HIT (age: ${age}s, expires in ${Math.round(CALENDAR_CACHE.TTL_MS / 1000 - age)}s)`);
+  return CALENDAR_CACHE.data;
+}
+
 // Business Lead email list - US + EU Pods
 const BL_EMAILS_PILOT = [
   // US Pod
@@ -277,7 +305,29 @@ class CalendarService {
    * @param {number} daysAhead - How many days ahead to fetch (default 7)
    * @returns {Array} All meetings across all BLs
    */
-  async getUpcomingMeetingsForAllBLs(daysAhead = 7) {
+  async getUpcomingMeetingsForAllBLs(daysAhead = 7, forceRefresh = false) {
+    // CHECK CACHE FIRST - prevents repeated Graph API calls on every page load
+    if (!forceRefresh && isCalendarCacheValid()) {
+      const cached = getCalendarCache();
+      logger.info(`📦 Returning cached calendar data (${cached.meetings.length} meetings)`);
+      return cached;
+    }
+
+    // Prevent concurrent fetches (multiple page loads at once)
+    if (CALENDAR_CACHE.inProgress) {
+      logger.info(`📅 Calendar fetch already in progress, waiting...`);
+      // Wait up to 30 seconds for the in-progress fetch
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        if (isCalendarCacheValid()) {
+          return getCalendarCache();
+        }
+        if (!CALENDAR_CACHE.inProgress) break;
+      }
+    }
+
+    CALENDAR_CACHE.inProgress = true;
+
     if (!this.initialized) {
       await this.initialize();
     }
@@ -286,7 +336,7 @@ class CalendarService {
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + daysAhead);
 
-    logger.info(`📅 Fetching calendars for ${BL_EMAILS.length} BLs (next ${daysAhead} days)`);
+    logger.info(`📅 Fetching calendars for ${BL_EMAILS.length} BLs (next ${daysAhead} days) - FRESH FETCH`);
     logger.info(`📅 BL emails: ${BL_EMAILS.join(', ')}`);
 
     const allMeetings = [];
@@ -332,7 +382,7 @@ class CalendarService {
     // Proactively enrich external attendees via Clay webhook (fire and forget)
     this.enrichExternalAttendeesAsync(uniqueMeetings);
 
-    return {
+    const result = {
       meetings: uniqueMeetings,
       stats: {
         totalEvents: allMeetings.length,
@@ -341,6 +391,11 @@ class CalendarService {
         errors: errors.length
       }
     };
+
+    // Cache the result
+    setCalendarCache(result);
+
+    return result;
   }
 
   /**
