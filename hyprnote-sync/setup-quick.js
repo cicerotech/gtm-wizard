@@ -44,14 +44,26 @@ async function main() {
     const hyprnoteStatus = await hyprnote.testConnection();
     
     if (!hyprnoteStatus.success) {
-      console.log('\n❌ Hyprnote not found!');
-      console.log('   Please install Hyprnote from https://hyprnote.com/');
-      console.log('   Then record at least one test meeting.\n');
-      rl.close();
-      process.exit(1);
+      console.log('\n⚠️  Hyprnote database not detected automatically.');
+      console.log('   This usually means one of these:');
+      console.log('   1. You have Hyprnote but haven\'t recorded a meeting yet');
+      console.log('   2. Hyprnote uses a different data folder on your machine\n');
+      
+      console.log('   📋 QUICK FIX - Run this in Terminal to find your database:');
+      console.log('   find ~/Library/Application\\ Support -name "*.sqlite" 2>/dev/null | grep -i hypr\n');
+      
+      const skipCheck = await question(rl, '   Continue setup anyway? (Y/n):');
+      
+      if (skipCheck.toLowerCase() === 'n') {
+        console.log('\n   Setup cancelled. Please record at least one meeting in Hyprnote first.\n');
+        rl.close();
+        process.exit(1);
+      }
+      
+      console.log('   ⚠️  Continuing without Hyprnote verification...\n');
+    } else {
+      console.log('   ✓ Hyprnote connected (' + hyprnoteStatus.sessionCount + ' sessions)\n');
     }
-    
-    console.log('   ✓ Hyprnote connected (' + hyprnoteStatus.sessionCount + ' sessions)\n');
     
     // Step 2: Auto-detect user from Hyprnote
     console.log('[2/3] Detecting your profile...');

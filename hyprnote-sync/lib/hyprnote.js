@@ -16,7 +16,15 @@ const KNOWN_DB_PATHS = {
   nightly: path.join(os.homedir(), 'Library/Application Support/com.hyprnote.nightly/db.sqlite'),
   legacy: path.join(os.homedir(), 'Library/Application Support/hyprnote/db.sqlite'),
   app: path.join(os.homedir(), 'Library/Application Support/com.hyprnote.app/db.sqlite'),
-  dev: path.join(os.homedir(), 'Library/Application Support/com.hyprnote.dev/db.sqlite')
+  dev: path.join(os.homedir(), 'Library/Application Support/com.hyprnote.dev/db.sqlite'),
+  // Additional paths for different installations
+  hyprnoteApp: path.join(os.homedir(), 'Library/Application Support/Hyprnote/db.sqlite'),
+  macApp: path.join(os.homedir(), 'Library/Application Support/com.hyprnote.macos/db.sqlite'),
+  beta: path.join(os.homedir(), 'Library/Application Support/com.hyprnote.beta/db.sqlite'),
+  production: path.join(os.homedir(), 'Library/Application Support/com.hyprnote.production/db.sqlite'),
+  // Containers (sandboxed apps)
+  container: path.join(os.homedir(), 'Library/Containers/com.hyprnote.app/Data/Library/Application Support/db.sqlite'),
+  containerStable: path.join(os.homedir(), 'Library/Containers/com.hyprnote.stable/Data/Library/Application Support/db.sqlite')
 };
 
 // Cache the found database to avoid repeated scans
@@ -27,31 +35,45 @@ let cachedDatabase = null;
  * This finds ANY version, even unknown future releases
  */
 function scanForHyprnoteDatabase() {
-  const appSupport = path.join(os.homedir(), 'Library/Application Support');
+  const searchLocations = [
+    path.join(os.homedir(), 'Library/Application Support'),
+    path.join(os.homedir(), 'Library/Containers')
+  ];
   
-  try {
-    const dirs = fs.readdirSync(appSupport);
-    
-    // Look for any folder containing 'hyprnote' or 'hypr'
-    for (const dir of dirs) {
-      const lowerDir = dir.toLowerCase();
-      if (lowerDir.includes('hyprnote') || lowerDir.includes('hypr')) {
-        const dbPath = path.join(appSupport, dir, 'db.sqlite');
-        if (fs.existsSync(dbPath)) {
-          console.log(`  Found Hyprnote database: ${dir}`);
-          return { version: dir, path: dbPath };
-        }
-        
-        // Also check for database in subdirectories
-        const dirPath = path.join(appSupport, dir);
-        if (fs.statSync(dirPath).isDirectory()) {
+  for (const searchPath of searchLocations) {
+    try {
+      if (!fs.existsSync(searchPath)) continue;
+      const dirs = fs.readdirSync(searchPath);
+      
+      // Look for any folder containing 'hyprnote' or 'hypr'
+      for (const dir of dirs) {
+        const lowerDir = dir.toLowerCase();
+        if (lowerDir.includes('hyprnote') || lowerDir.includes('hypr')) {
+          // Check direct path
+          const dbPath = path.join(searchPath, dir, 'db.sqlite');
+          if (fs.existsSync(dbPath)) {
+            console.log(`  Found Hyprnote database: ${dir}`);
+            return { version: dir, path: dbPath };
+          }
+          
+          // Check in Data/Library/Application Support (for sandboxed apps)
+          const containerPath = path.join(searchPath, dir, 'Data/Library/Application Support/db.sqlite');
+          if (fs.existsSync(containerPath)) {
+            console.log(`  Found Hyprnote database: ${dir} (sandboxed)`);
+            return { version: dir, path: containerPath };
+          }
+          
+          // Also check for database in subdirectories
+          const dirPath = path.join(searchPath, dir);
           try {
-            const subFiles = fs.readdirSync(dirPath);
-            for (const file of subFiles) {
-              if (file === 'db.sqlite' || file.endsWith('.sqlite')) {
-                const fullPath = path.join(dirPath, file);
-                console.log(`  Found Hyprnote database: ${dir}/${file}`);
-                return { version: dir, path: fullPath };
+            if (fs.statSync(dirPath).isDirectory()) {
+              const subFiles = fs.readdirSync(dirPath);
+              for (const file of subFiles) {
+                if (file === 'db.sqlite' || file.endsWith('.sqlite')) {
+                  const fullPath = path.join(dirPath, file);
+                  console.log(`  Found Hyprnote database: ${dir}/${file}`);
+                  return { version: dir, path: fullPath };
+                }
               }
             }
           } catch (e) {
@@ -59,9 +81,9 @@ function scanForHyprnoteDatabase() {
           }
         }
       }
+    } catch (err) {
+      console.log('Warning: Could not scan ' + searchPath + ': ' + err.message);
     }
-  } catch (err) {
-    console.log('Warning: Could not scan Application Support: ' + err.message);
   }
   
   return null;

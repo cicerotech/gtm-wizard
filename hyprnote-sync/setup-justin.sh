@@ -70,9 +70,25 @@ echo "Step 5: Installing dependencies..."
 npm install --silent 2>/dev/null || npm install
 echo "  ✓ Dependencies installed"
 
-# Step 6: Run initial setup
+# Step 6: Pre-flight check for Hyprnote database
 echo ""
-echo "Step 6: Running setup wizard..."
+echo "Step 6: Checking for Hyprnote database..."
+HYPR_DB=$(find ~/Library/Application\ Support -name "*.sqlite" 2>/dev/null | grep -i hypr | head -1)
+
+if [ -n "$HYPR_DB" ]; then
+  echo "  ✓ Found Hyprnote database at:"
+  echo "    $HYPR_DB"
+else
+  echo "  ⚠️  No Hyprnote database found yet."
+  echo "     This is normal if you haven't recorded a meeting."
+  echo ""
+  echo "  📋 NEXT STEP: Open Hyprnote and record a quick test meeting,"
+  echo "     then re-run: npm run setup"
+fi
+
+# Step 7: Run initial setup
+echo ""
+echo "Step 7: Running setup wizard..."
 echo ""
 node setup-quick.js
 
@@ -83,5 +99,10 @@ echo "========================================="
 echo ""
 echo "To sync your meetings, run:"
 echo "  cd ~/Documents/hyprnote-sync && npm run sync"
+echo ""
+echo "If you get 'Hyprnote not found', please:"
+echo "  1. Open Hyprnote app"
+echo "  2. Record at least one test meeting (30 seconds is fine)"
+echo "  3. Re-run: npm run setup"
 echo ""
 
