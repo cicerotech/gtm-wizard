@@ -565,9 +565,9 @@ body {
 }
 
 .attendee-chip.external {
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fcd34d;
+  background: #ede9fe;
+  color: #5b21b6;
+  border: 1px solid #c4b5fd;
 }
 
 .attendee-chip .chip-title {
@@ -873,7 +873,7 @@ textarea.input-field {
 }
 
 .attendee-chip.external {
-  background: #fef3c7;
+  background: #ede9fe;
 }
 
 .attendee-remove {
@@ -1860,8 +1860,7 @@ function parseAttendeeSummary(rawSummary) {
  * Post-process and standardize attendee summary for consistent display
  * Target format: "Name – Title at Company. [Unique details only]"
  * 
- * Key principle: NO DUPLICATION - if the summary already says the title/company,
- * extract and use only the NEW information.
+ * Key principle: NO DUPLICATION - aggressively strips all redundant name/title mentions
  * 
  * @param {string} summary - Raw or parsed summary
  * @param {string} displayName - The attendee's display name
@@ -1874,7 +1873,7 @@ function standardizeSummary(summary, displayName, title, company) {
   
   let cleanSummary = summary.trim();
   
-  // Build the header we'll use
+  // Build the header we'll use (this is the ONE place name/title should appear)
   let header = displayName + ' –';
   if (title && company) {
     header = displayName + ' – ' + title + ' at ' + company + '.';
@@ -1885,31 +1884,53 @@ function standardizeSummary(summary, displayName, title, company) {
   }
   
   // ======================================================================
-  // STEP 1: Check if already in correct format "Name – Title at Company"
+  // STEP 1: Strip ALL variations of "Name – Title" and "Name is a Title"
   // ======================================================================
-  const correctFormatPattern = new RegExp('^' + escapeRegex(displayName) + '\\s*[–\\-—]\\s*.+', 'i');
-  if (correctFormatPattern.test(cleanSummary)) {
-    console.log('[Summary Format] Already in correct format');
-    return cleanSummary;
+  let uniqueContent = cleanSummary;
+  
+  // Get name parts for matching (handle "First Last" and "First" alone)
+  const firstName = displayName.split(' ')[0];
+  const namePatterns = [displayName, firstName];
+  
+  // Remove ALL occurrences of these patterns (not just first):
+  for (const name of namePatterns) {
+    const escapedName = escapeRegex(name);
+    
+    // Pattern 1: "Name – Title at Company." (dash format)
+    const dashPattern = new RegExp(escapedName + '\\s*[–\\-—]\\s*[^.]+(?:\\s+(?:at|of|for)\\s+[^.]+)?[.]\\s*', 'gi');
+    uniqueContent = uniqueContent.replace(dashPattern, '').trim();
+    
+    // Pattern 2: "Name is a/an/the Title at Company." 
+    const isPattern = new RegExp(escapedName + '\\s+is\\s+(?:a|an|the\\s+)?[^.]+(?:\\s+(?:at|of|for)\\s+[^.]+)?[.]\\s*', 'gi');
+    uniqueContent = uniqueContent.replace(isPattern, '').trim();
+    
+    // Pattern 3: "Name, Title at Company," or "Name, the Title"
+    const commaPattern = new RegExp(escapedName + ',\\s+(?:the\\s+)?[^,.]+(?:\\s+(?:at|of|for)\\s+[^,.]+)?[,.]\\s*', 'gi');
+    uniqueContent = uniqueContent.replace(commaPattern, '').trim();
   }
   
-  // ======================================================================
-  // STEP 2: Remove redundant intro patterns and extract unique content
-  // ======================================================================
-  // Remove "Name is the Title at/of Company." pattern completely
-  // Handles: "Jason Taylor is the President of Graybar Canada."
-  // Handles: "Steve Drake is a VP at Coherent Corp."
-  const redundantIntroPattern = /^[A-Z][a-z]+(?:\s+[A-Z]'?[a-z]+)*\s+is\s+(?:a|an|the\s+)?[^.]+(?:\s+(?:at|of|for)\s+[^.]+)?[.]/i;
-  let uniqueContent = cleanSummary.replace(redundantIntroPattern, '').trim();
+  // Pattern 4: "He/She/They is/are a/the Title" at start
+  uniqueContent = uniqueContent.replace(/^(?:They|He|She)\s+(?:is|are)\s+(?:a|an|the\s+)?[^.]+(?:\s+(?:at|of|for)\s+[^.]+)?[.]\s*/gi, '').trim();
   
-  // Also remove patterns like "They are the..." or "He/She is the..."
-  uniqueContent = uniqueContent.replace(/^(?:They|He|She)\s+(?:is|are)\s+(?:a|an|the\s+)?[^.]+(?:\s+(?:at|of|for)\s+[^.]+)?[.]\s*/i, '').trim();
-  
-  // Remove duplicate "Name is the Title" if it appears again in the middle
-  const nameVariants = [displayName, displayName.split(' ')[0]];
-  for (const name of nameVariants) {
-    const dupePattern = new RegExp(escapeRegex(name) + '\\s+is\\s+(?:a|an|the\\s+)?[^.]+(?:\\s+(?:at|of|for)\\s+[^.]+)?[.]\\s*', 'gi');
-    uniqueContent = uniqueContent.replace(dupePattern, '').trim();
+  // ======================================================================
+  // STEP 2: Check for contradictory info (different companies mentioned)
+  // ======================================================================
+  if (company && uniqueContent.length > 50) {
+    const sentences = uniqueContent.split(/[.!?]+/).filter(s => s.trim().length > 10);
+    const mentionedCompanies = [];
+    sentences.forEach(s => {
+      const atMatch = s.match(/(?:at|for|with)\s+([A-Z][a-zA-Z\s&]+?)(?:\s+(?:since|from|in|\.|,|$))/i);
+      if (atMatch) mentionedCompanies.push(atMatch[1].trim().toLowerCase());
+    });
+    
+    // If different companies mentioned, truncate to first valid sentence only
+    const uniqueCompanies = [...new Set(mentionedCompanies)].filter(c => c.length > 2);
+    if (uniqueCompanies.length > 1) {
+      console.log('[Summary Format] Contradictory companies detected:', uniqueCompanies);
+      // Keep only first sentence after our header
+      const firstSentence = sentences[0] || '';
+      uniqueContent = firstSentence.trim();
+    }
   }
   
   // ======================================================================

@@ -61,11 +61,29 @@ const INTERNAL_DOMAINS = [
   'johnson-hana.com'    // Hyphenated variant
 ];
 
+// Personal email domains - if ALL external attendees have these, treat meeting as internal
+const PERSONAL_EMAIL_DOMAINS = [
+  'gmail.com',
+  'yahoo.com',
+  'hotmail.com',
+  'outlook.com',
+  'icloud.com',
+  'aol.com',
+  'protonmail.com'
+];
+
 // Helper: Check if email is from an internal/affiliate domain
 function isInternalEmail(email) {
   if (!email) return false;
   const emailLower = email.toLowerCase();
   return INTERNAL_DOMAINS.some(domain => emailLower.endsWith('@' + domain));
+}
+
+// Helper: Check if email is a personal email domain
+function isPersonalEmail(email) {
+  if (!email) return false;
+  const emailLower = email.toLowerCase();
+  return PERSONAL_EMAIL_DOMAINS.some(domain => emailLower.endsWith('@' + domain));
 }
 
 // Internal meeting keywords to exclude (case-insensitive)
@@ -89,7 +107,9 @@ const INTERNAL_MEETING_KEYWORDS = [
   'retro',
   'sprint',
   'johnson hana',   // Internal account meetings
-  'johnsonhana'     // Alternate spelling
+  'johnsonhana',    // Alternate spelling
+  'interview',      // Candidate interviews
+  'greenhouse'      // Greenhouse ATS meetings
 ];
 
 class CalendarService {
@@ -205,19 +225,24 @@ class CalendarService {
       name: att.emailAddress?.name || '',
       email: att.emailAddress?.address || '',
       responseStatus: att.status?.response || 'none',
-      isExternal: !isInternalEmail(att.emailAddress?.address)
+      isExternal: !isInternalEmail(att.emailAddress?.address),
+      isPersonalEmail: isPersonalEmail(att.emailAddress?.address)
     }));
 
     const externalAttendees = allAttendees.filter(a => a.isExternal);
     const internalAttendees = allAttendees.filter(a => !a.isExternal);
+    
+    // Filter out personal email attendees for customer meeting determination
+    // If ALL external attendees are personal emails (gmail, etc.), treat as internal meeting
+    const realExternalAttendees = externalAttendees.filter(a => !a.isPersonalEmail);
 
     // Check if subject matches internal meeting keywords
     const hasInternalKeyword = this.isInternalMeetingBySubject(event.subject);
 
     // Determine if this is a customer meeting:
-    // - Must have at least one external attendee
+    // - Must have at least one REAL external attendee (not personal email)
     // - Must NOT match internal meeting keywords
-    const isCustomerMeeting = externalAttendees.length > 0 && !hasInternalKeyword;
+    const isCustomerMeeting = realExternalAttendees.length > 0 && !hasInternalKeyword;
 
     return {
       eventId: event.id,
