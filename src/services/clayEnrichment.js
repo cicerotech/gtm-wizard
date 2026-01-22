@@ -333,17 +333,60 @@ class ClayEnrichment {
    */
   async enrichAttendeesViaWebhook(attendees) {
     if (!attendees || attendees.length === 0) {
-      return { submitted: 0, errors: 0, results: [] };
+      return { submitted: 0, errors: 0, skipped: 0, results: [] };
     }
 
-    logger.info(`📤 Submitting ${attendees.length} attendees to Clay webhook (sequential with 150ms delay)`);
-
-    const results = [];
+    // ====================================================================
+    // OPTIMIZATION: Check SQLite for already-enriched contacts FIRST
+    // This prevents sending duplicates to Clay and saves credits
+    // ====================================================================
+    const intelligenceStore = require('./intelligenceStore');
+    const MAX_DAILY_SUBMISSIONS = 100; // Conservative daily limit
+    const ENRICHMENT_STALENESS_DAYS = 90; // Re-enrich after 90 days
+    
+    // Filter to only attendees we haven't enriched (or enrichment is stale)
+    const toEnrich = [];
+    const alreadyEnriched = [];
+    
+    for (const att of attendees) {
+      if (!att.email) continue;
+      
+      try {
+        const existing = await intelligenceStore.getAttendeeEnrichment(att.email);
+        
+        if (existing && existing.summary) {
+          // Check if enrichment is too old (stale)
+          const enrichedAt = existing.updated_at ? new Date(existing.updated_at) : new Date();
+          const daysSinceEnrichment = (Date.now() - enrichedAt.getTime()) / (1000 * 60 * 60 * 24);
+          
+          if (daysSinceEnrichment < ENRICHMENT_STALENESS_DAYS) {
+            // Skip - we have recent data
+            alreadyEnriched.push({ ...att, source: 'database', ...existing });
+            continue;
+          }
+        }
+        
+        toEnrich.push(att);
+      } catch (err) {
+        // If DB check fails, still try to enrich
+        toEnrich.push(att);
+      }
+    }
+    
+    logger.info(`📤 Clay enrichment: ${toEnrich.length} to enrich, ${alreadyEnriched.length} already in database`);
+    
+    // Apply daily limit to prevent runaway costs
+    const limitedToEnrich = toEnrich.slice(0, MAX_DAILY_SUBMISSIONS);
+    if (toEnrich.length > MAX_DAILY_SUBMISSIONS) {
+      logger.warn(`⚠️ Clay daily limit reached: processing ${MAX_DAILY_SUBMISSIONS} of ${toEnrich.length} attendees`);
+    }
+    
+    const results = [...alreadyEnriched];
     let submitted = 0;
     let errors = 0;
 
     // Process sequentially with delay to avoid rate limiting
-    for (const att of attendees) {
+    for (const att of limitedToEnrich) {
       try {
         const result = await this.enrichAttendeeViaWebhook(att.name, att.email);
         results.push({ ...att, ...result });
@@ -354,19 +397,20 @@ class ClayEnrichment {
           errors++;
         }
         
-        // Add 150ms delay between requests to avoid Clay rate limiting
-        await new Promise(resolve => setTimeout(resolve, 150));
+        // Add 200ms delay between requests to be extra cautious with Clay rate limiting
+        await new Promise(resolve => setTimeout(resolve, 200));
       } catch (error) {
         errors++;
         results.push({ ...att, error: error.message });
       }
     }
 
-    logger.info(`📤 Clay webhook batch complete: ${submitted} submitted, ${errors} errors`);
+    logger.info(`📤 Clay webhook batch complete: ${submitted} submitted, ${errors} errors, ${alreadyEnriched.length} skipped (cached)`);
 
     return {
       submitted,
       errors,
+      skipped: alreadyEnriched.length,
       total: attendees.length,
       results
     };
