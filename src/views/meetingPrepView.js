@@ -200,6 +200,19 @@ function renderAttendeeChips(meeting) {
   const moreCount = external.length > 3 ? external.length - 3 : 0;
   const moreChip = moreCount > 0 ? `<span class="attendee-chip external">+${moreCount}</span>` : '';
   
+  // Show internal attendees (BLs) as chips - up to 2 for space
+  const internalChips = internal.slice(0, 2).map(att => {
+    const fullName = formatAttendeeName(att);
+    const nameParts = fullName.split(' ');
+    const firstName = nameParts[0] || 'Unknown';
+    const lastInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1][0] + '.' : '';
+    const displayName = nameParts.length > 1 ? `${firstName} ${lastInitial}` : firstName;
+    return `<span class="attendee-chip internal" title="${fullName}">${displayName}</span>`;
+  }).join('');
+  
+  const internalMoreCount = internal.length > 2 ? internal.length - 2 : 0;
+  const internalMoreChip = internalMoreCount > 0 ? `<span class="attendee-chip internal">+${internalMoreCount}</span>` : '';
+  
   // Build count string
   const countParts = [];
   if (external.length > 0) countParts.push(`<span class="external-count">${external.length} external</span>`);
@@ -208,6 +221,9 @@ function renderAttendeeChips(meeting) {
   return `
     <div class="meeting-attendees">
       ${externalChips}${moreChip}
+    </div>
+    <div class="meeting-attendees internal-row">
+      ${internalChips}${internalMoreChip}
     </div>
     <div class="attendee-count">${countParts.join(', ')}</div>
   `;
@@ -532,6 +548,10 @@ body {
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 8px;
+}
+
+.meeting-attendees.internal-row {
+  margin-top: 4px;
 }
 
 .attendee-chip {

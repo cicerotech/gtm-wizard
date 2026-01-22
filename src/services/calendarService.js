@@ -53,6 +53,21 @@ const BL_EMAILS_FULL = [
 // Use pilot group for now (switch to BL_EMAILS_FULL when ready to scale)
 const BL_EMAILS = process.env.USE_FULL_BL_LIST === 'true' ? BL_EMAILS_FULL : BL_EMAILS_PILOT;
 
+// Internal/affiliate domains - attendees from these domains are treated as internal
+const INTERNAL_DOMAINS = [
+  'eudia.com',
+  'johnsonhana.com',    // Internal client account
+  'johnsonhana.ie',     // Ireland domain variant
+  'johnson-hana.com'    // Hyphenated variant
+];
+
+// Helper: Check if email is from an internal/affiliate domain
+function isInternalEmail(email) {
+  if (!email) return false;
+  const emailLower = email.toLowerCase();
+  return INTERNAL_DOMAINS.some(domain => emailLower.endsWith('@' + domain));
+}
+
 // Internal meeting keywords to exclude (case-insensitive)
 const INTERNAL_MEETING_KEYWORDS = [
   'jhi',           // Jump-in-here internal syncs
@@ -185,12 +200,12 @@ class CalendarService {
    * Normalize Graph API event to internal format
    */
   normalizeEvent(event, ownerEmail) {
-    // Parse attendees
+    // Parse attendees - use INTERNAL_DOMAINS to classify
     const allAttendees = (event.attendees || []).map(att => ({
       name: att.emailAddress?.name || '',
       email: att.emailAddress?.address || '',
       responseStatus: att.status?.response || 'none',
-      isExternal: !att.emailAddress?.address?.toLowerCase().endsWith('@eudia.com')
+      isExternal: !isInternalEmail(att.emailAddress?.address)
     }));
 
     const externalAttendees = allAttendees.filter(a => a.isExternal);

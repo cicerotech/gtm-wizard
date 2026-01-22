@@ -834,7 +834,7 @@ function filterMeetingsByUser(meetings, userId, userEmail = null) {
 }
 
 /**
- * Get week date range (Mon-Fri of current week)
+ * Get week date range (This week Mon through next week Fri - 2 week view)
  * Uses UTC to avoid timezone issues with Salesforce
  */
 function getCurrentWeekRange() {
@@ -851,19 +851,19 @@ function getCurrentWeekRange() {
     0, 0, 0, 0
   ));
   
-  // Calculate Friday end of day (in UTC)
-  const friday = new Date(Date.UTC(
+  // Calculate NEXT Friday end of day (11 days from Monday = next week Friday)
+  const nextFriday = new Date(Date.UTC(
     monday.getUTCFullYear(),
     monday.getUTCMonth(),
-    monday.getUTCDate() + 4,
+    monday.getUTCDate() + 11,  // 11 days = next week Friday
     23, 59, 59, 999
   ));
   
-  logger.info(`[MeetingPrep] Week range: ${monday.toISOString()} to ${friday.toISOString()}`);
+  logger.info(`[MeetingPrep] Week range: ${monday.toISOString()} to ${nextFriday.toISOString()} (2-week view)`);
   
   return {
     start: monday.toISOString(),
-    end: friday.toISOString(),
+    end: nextFriday.toISOString(),
     mondayDate: monday
   };
 }
