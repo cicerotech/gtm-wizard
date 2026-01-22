@@ -278,10 +278,10 @@ async function getUpcomingMeetings(startDate, endDate) {
       const testMeeting = {
         meetingId: 'test-obsidian-sync-' + today.toISOString().split('T')[0],
         accountId: '001Hp00003lhyCxIAI',
-        accountName: 'Eudia Testing',
-        meetingTitle: 'Eudia Testing - Obsidian Sync Validation',
+        accountName: 'Obsidian Sync Demo',
+        meetingTitle: 'Obsidian Sync Demo - Validation Meeting',
         meetingDate: today.toISOString(),
-        externalAttendees: [{ name: 'John Test', email: 'john.test@eudia-testing.com', isExternal: true }],
+        externalAttendees: [{ name: 'John Demo', email: 'john.demo@obsidian-demo.com', isExternal: true }],
         internalAttendees: [{ name: 'Keigan Pesenti', email: 'keigan.pesenti@eudia.com', isExternal: false }],
         source: 'manual'
       };
