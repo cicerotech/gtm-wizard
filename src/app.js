@@ -1173,6 +1173,53 @@ class GTMBrainApp {
       }
     });
 
+    // Lookup account by email domain (for Outlook meetings without accountId)
+    this.expressApp.get('/api/account/lookup-by-domain', async (req, res) => {
+      try {
+        const { domain } = req.query;
+        if (!domain) {
+          return res.status(400).json({ success: false, error: 'domain required' });
+        }
+        
+        // Search Salesforce for accounts with matching website or contact emails
+        const accountQuery = `
+          SELECT Id, Name, Website
+          FROM Account 
+          WHERE Website LIKE '%${domain}%'
+          ORDER BY LastModifiedDate DESC
+          LIMIT 1
+        `;
+        
+        const { query: sfQuery } = require('./salesforce/connection');
+        const result = await sfQuery(accountQuery, true);
+        
+        if (result?.records?.length > 0) {
+          const account = result.records[0];
+          res.json({ success: true, accountId: account.Id, accountName: account.Name });
+        } else {
+          // Fallback: Check contacts by email domain
+          const contactQuery = `
+            SELECT AccountId, Account.Name
+            FROM Contact 
+            WHERE Email LIKE '%@${domain}'
+            ORDER BY LastModifiedDate DESC
+            LIMIT 1
+          `;
+          const contactResult = await sfQuery(contactQuery, true);
+          
+          if (contactResult?.records?.length > 0 && contactResult.records[0].AccountId) {
+            const contact = contactResult.records[0];
+            res.json({ success: true, accountId: contact.AccountId, accountName: contact.Account?.Name });
+          } else {
+            res.json({ success: false, message: 'No account found for domain' });
+          }
+        }
+      } catch (error) {
+        logger.error('Error looking up account by domain:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // Get contacts for account (attendee dropdown)
     this.expressApp.get('/api/accounts/contacts/:accountId', async (req, res) => {
       try {

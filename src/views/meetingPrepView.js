@@ -2293,18 +2293,49 @@ async function openMeetingPrep(meetingId) {
     document.getElementById('modalTitle').textContent = currentMeetingData.accountName || 'Meeting Prep';
     document.getElementById('modalSubtitle').textContent = currentMeetingData.meetingTitle || '';
     
-    // Load context
-    let contextHtml = '<div class="context-section"><div class="context-content">No context available</div></div>';
-    if (currentMeetingData.account_id || currentMeetingData.accountId) {
+    // Load context - try accountId first, then lookup by external attendee domain
+    let contextHtml = '';
+    let accountId = currentMeetingData.account_id || currentMeetingData.accountId;
+    
+    // If no accountId, try to find account by external attendee domain
+    if (!accountId && currentMeetingData.externalAttendees?.length > 0) {
       try {
-        const ctxRes = await fetch('/api/meeting-context/' + (currentMeetingData.account_id || currentMeetingData.accountId));
+        const firstExternal = currentMeetingData.externalAttendees[0];
+        const domain = (firstExternal.email || '').split('@')[1];
+        if (domain && !['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com'].includes(domain.toLowerCase())) {
+          const lookupRes = await fetch('/api/account/lookup-by-domain?domain=' + encodeURIComponent(domain));
+          const lookupData = await lookupRes.json();
+          if (lookupData.success && lookupData.accountId) {
+            accountId = lookupData.accountId;
+            console.log('[Context] Found account by domain:', domain, '→', lookupData.accountName);
+          }
+        }
+      } catch (e) {
+        console.log('[Context] Domain lookup failed:', e.message);
+      }
+    }
+    
+    if (accountId) {
+      try {
+        const ctxRes = await fetch('/api/meeting-context/' + accountId);
         const ctxData = await ctxRes.json();
         if (ctxData.success && ctxData.context) {
-          contextHtml = formatContextSection(ctxData.context);
+          contextHtml = formatContextSection(ctxData.context, currentMeetingData);
         }
       } catch (e) {
         console.error('Failed to load context:', e);
       }
+    }
+    
+    // Show empty state if no context loaded
+    if (!contextHtml) {
+      const accountName = currentMeetingData.accountName || 'this account';
+      contextHtml = '<div class="context-section"><div class="context-content">';
+      contextHtml += '<div style="padding: 16px; background: rgba(251, 191, 36, 0.1); border-radius: 8px; border: 1px solid rgba(251, 191, 36, 0.3);">';
+      contextHtml += '<div style="font-size: 0.85rem; color: #fbbf24; margin-bottom: 6px;">First Engagement</div>';
+      contextHtml += '<div style="font-size: 0.75rem; color: #9ca3af; line-height: 1.5;">No prior meetings on record for ' + accountName + '. ';
+      contextHtml += 'Use Hyprnote to record this call and build account history.</div>';
+      contextHtml += '</div></div></div>';
     }
     
     // Render form
@@ -2316,10 +2347,70 @@ async function openMeetingPrep(meetingId) {
   }
 }
 
+// Generate "Story So Far" narrative synthesis
+// Combines meeting history, opportunity stage, and recent activity into a 2-3 sentence summary
+function generateStorySoFar(ctx, meetingData) {
+  const parts = [];
+  const sf = ctx.salesforce;
+  
+  // Determine engagement phase
+  const meetingCount = (ctx.meetingNotes?.length || 0) + (ctx.priorMeetings?.length || 0);
+  const hasOpps = sf?.openOpportunities?.length > 0;
+  const hasWins = sf?.recentWins?.length > 0;
+  
+  // Build narrative based on available data
+  if (hasWins && sf.recentWins.length > 0) {
+    // Existing customer
+    const lastWin = sf.recentWins[0];
+    const winDate = lastWin.closeDate ? new Date(lastWin.closeDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '';
+    parts.push('Existing customer' + (winDate ? ' since ' + winDate : '') + '.');
+    if (hasOpps) {
+      const opp = sf.openOpportunities[0];
+      parts.push('Active ' + (opp.salesType || 'opportunity') + ' in ' + (opp.stage || 'pipeline') + '.');
+    }
+  } else if (hasOpps) {
+    // Active prospect with opportunity
+    const opp = sf.openOpportunities[0];
+    const stage = opp.stage || 'Unknown Stage';
+    parts.push('Active prospect in ' + stage + '.');
+    if (meetingCount > 0) {
+      parts.push(meetingCount + ' meeting' + (meetingCount > 1 ? 's' : '') + ' on record.');
+    }
+  } else if (meetingCount > 0) {
+    // Early engagement - meetings but no opp yet
+    parts.push('Early engagement - ' + meetingCount + ' meeting' + (meetingCount > 1 ? 's' : '') + ' held.');
+    parts.push('No active opportunity yet.');
+  } else if (ctx.slackIntel?.length > 0) {
+    // Only Slack intel
+    parts.push('Account mentioned in Slack discussions.');
+  }
+  
+  // Add most recent meeting context if available
+  if (ctx.meetingNotes?.length > 0) {
+    const lastNote = ctx.meetingNotes[0];
+    if (lastNote.date && lastNote.rep) {
+      parts.push('Last meeting: ' + lastNote.date + ' (' + lastNote.rep + ').');
+    }
+  }
+  
+  if (parts.length === 0) return '';
+  
+  return '<div style="margin-bottom: 12px; padding: 10px 12px; background: rgba(99, 102, 241, 0.1); border-radius: 8px; border-left: 3px solid #6366f1;">' +
+         '<div style="font-size: 0.7rem; color: #818cf8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Story So Far</div>' +
+         '<div style="font-size: 0.8rem; line-height: 1.5; color: #e5e7eb;">' + parts.join(' ') + '</div>' +
+         '</div>';
+}
+
 // Format context section HTML with priority-based display
-// Shows: Type, Owner, Recent Context (from various sources), Key Contacts
-function formatContextSection(ctx) {
+// Shows: Story So Far, Type, Owner, Recent Context (from various sources), Key Contacts
+function formatContextSection(ctx, meetingData) {
   let html = '<div class="context-section"><div class="context-header"><span class="context-title">Account Context</span></div><div class="context-content">';
+  
+  // === STORY SO FAR (Synthesized Narrative) ===
+  const storyHtml = generateStorySoFar(ctx, meetingData);
+  if (storyHtml) {
+    html += storyHtml;
+  }
   
   // Account basics: Type and Owner only (industry removed - not actionable)
   if (ctx.salesforce) {
