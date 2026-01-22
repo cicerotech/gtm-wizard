@@ -1,8 +1,9 @@
 ---
-account: ""
-date: {{date}}
+account: "{{account}}"
+date: {{date:YYYY-MM-DD}}
 attendees: []
 type: meeting
+sync: true
 synced_to_sf: false
 ---
 
@@ -20,8 +21,12 @@ synced_to_sf: false
 ## Next Steps
 - 
 
+## Buying Signals / Objections
+*Note any positive indicators or concerns raised*
+
+
 ---
 ## Transcription
-*Paste or record transcription below*
+*Paste your Wispr Flow transcription below*
 
 

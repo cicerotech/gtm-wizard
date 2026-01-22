@@ -2460,6 +2460,28 @@ function formatContextSection(ctx, meetingData) {
     });
   }
   
+  // Source 4: Obsidian Notes (synced from BL vaults)
+  if (ctx.obsidianNotes?.length) {
+    hasRecentContext = true;
+    ctx.obsidianNotes.slice(0, 2).forEach(note => {
+      const dateStr = note.date ? new Date(note.date).toLocaleDateString() : '';
+      const sentimentColor = note.sentiment === 'Positive' ? '#10b981' : 
+                            note.sentiment === 'Negative' ? '#ef4444' : '#6b7280';
+      recentContextHtml += '<div style="margin-bottom: 10px; padding: 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #8b5cf6;">';
+      recentContextHtml += '<div style="display: flex; justify-content: space-between; align-items: center;">';
+      recentContextHtml += '<div style="font-size: 0.7rem; color: #7c3aed; margin-bottom: 2px; font-weight: 500;">Obsidian Notes</div>';
+      if (note.sentiment) {
+        recentContextHtml += '<span style="font-size: 0.65rem; padding: 2px 6px; background: ' + sentimentColor + '20; color: ' + sentimentColor + '; border-radius: 4px;">' + note.sentiment + '</span>';
+      }
+      recentContextHtml += '</div>';
+      recentContextHtml += '<div style="font-size: 0.7rem; color: #6b7280; margin-bottom: 4px;">' + dateStr + ' • ' + (note.title || 'Meeting Note') + '</div>';
+      if (note.summary) {
+        recentContextHtml += '<div style="font-size: 0.8rem; line-height: 1.4; color: #1f2937;">' + note.summary.substring(0, 200) + (note.summary.length > 200 ? '...' : '') + '</div>';
+      }
+      recentContextHtml += '</div>';
+    });
+  }
+  
   recentContextHtml += '</div>';
   
   // Only add Recent Context section if we have content
@@ -2469,7 +2491,7 @@ function formatContextSection(ctx, meetingData) {
     // Empty state - first meeting or no context yet
     html += '<div style="margin-top: 12px; padding: 12px; background: rgba(251, 191, 36, 0.1); border-radius: 6px; border: 1px solid rgba(251, 191, 36, 0.3);">';
     html += '<div style="font-size: 0.8rem; color: #fbbf24;">No recent context available</div>';
-    html += '<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px;">First meeting? Record with Hyprnote to build account history.</div>';
+    html += '<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px;">First meeting? Record with Obsidian + Wispr Flow to build account history.</div>';
     html += '</div>';
   }
   

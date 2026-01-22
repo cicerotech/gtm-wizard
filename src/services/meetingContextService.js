@@ -55,16 +55,17 @@ function parseCustomerBrainNotes(rawBrain) {
 
 /**
  * Generate aggregated meeting context for an account
- * Combines: Salesforce data, Slack intel, prior meeting preps, recent activities
+ * Combines: Salesforce data, Slack intel, prior meeting preps, Obsidian notes, recent activities
  * Uses priority-based fallbacks when Customer_Brain is empty
  */
 async function generateMeetingContext(accountId) {
   try {
-    const [salesforce, slackIntel, priorMeetings, activities] = await Promise.all([
+    const [salesforce, slackIntel, priorMeetings, activities, obsidianNotes] = await Promise.all([
       getSalesforceContext(accountId),
       getSlackIntelligence(accountId),
       getPriorMeetingContext(accountId),
-      getRecentActivities(accountId)
+      getRecentActivities(accountId),
+      getObsidianNotes(accountId)
     ]);
     
     // Parse Customer Brain meeting notes if available
@@ -76,13 +77,15 @@ async function generateMeetingContext(accountId) {
     const hasRichContext = meetingNotes.length > 0 || 
                            slackIntel.length > 0 || 
                            activities.length > 0 ||
-                           priorMeetings.length > 0;
+                           priorMeetings.length > 0 ||
+                           obsidianNotes.length > 0;
     
     return {
       salesforce,
       slackIntel,
       priorMeetings,
       meetingNotes,       // Parsed from Customer_Brain__c
+      obsidianNotes,      // Synced from Obsidian vaults
       activities,         // Recent Events/Tasks as fallback
       hasRichContext,     // Flag for UI to show/hide empty state
       generatedAt: new Date().toISOString()
@@ -94,6 +97,7 @@ async function generateMeetingContext(accountId) {
       slackIntel: [],
       priorMeetings: [],
       meetingNotes: [],
+      obsidianNotes: [],
       activities: [],
       hasRichContext: false,
       generatedAt: new Date().toISOString(),
@@ -350,6 +354,30 @@ async function getPriorMeetingContext(accountId) {
 }
 
 /**
+ * Get Obsidian notes for an account
+ * These are meeting notes synced from BL Obsidian vaults
+ */
+async function getObsidianNotes(accountId) {
+  try {
+    const notes = await intelligenceStore.getObsidianNotesByAccount(accountId);
+    
+    return notes.map(note => ({
+      date: note.note_date,
+      title: note.note_title,
+      summary: note.summary,
+      fullSummary: note.full_summary,
+      sentiment: note.sentiment,
+      blEmail: note.bl_email,
+      syncedAt: note.synced_at,
+      source: 'obsidian'
+    }));
+  } catch (error) {
+    logger.error('Error fetching Obsidian notes:', error);
+    return [];
+  }
+}
+
+/**
  * Format context for display (summarized text version)
  */
 function formatContextSummary(context) {
@@ -410,6 +438,7 @@ module.exports = {
   getSlackIntelligence,
   getPriorMeetingContext,
   getRecentActivities,
+  getObsidianNotes,
   parseCustomerBrainNotes,
   formatContextSummary
 };

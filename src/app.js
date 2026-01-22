@@ -1403,6 +1403,251 @@ class GTMBrainApp {
       }
     });
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // OBSIDIAN SYNC ENDPOINTS
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    // Get Obsidian sync status
+    this.expressApp.get('/api/obsidian/status', async (req, res) => {
+      try {
+        const obsidianSync = require('./services/obsidianSyncService');
+        const intelligenceStore = require('./services/intelligenceStore');
+        
+        // Get recent synced notes
+        const recentNotes = await intelligenceStore.getRecentObsidianNotes(10);
+        
+        // Get rate limit status from summarizer
+        let summarizerStatus = { enabled: false };
+        try {
+          const summarizer = require('../obsidian-sync/lib/summarizer');
+          summarizerStatus = {
+            enabled: true,
+            ...summarizer.getRateLimitStatus()
+          };
+        } catch (e) {
+          // Summarizer not loaded
+        }
+        
+        res.json({
+          success: true,
+          status: 'operational',
+          recentNotes: recentNotes.map(n => ({
+            account: n.account_name,
+            title: n.note_title,
+            date: n.note_date,
+            syncedAt: n.synced_at,
+            sentiment: n.sentiment
+          })),
+          summarizer: summarizerStatus,
+          config: {
+            syncDays: obsidianSync.CONFIG.SYNC_DAYS,
+            maxNotesPerSync: obsidianSync.CONFIG.MAX_NOTES_PER_SYNC
+          }
+        });
+      } catch (error) {
+        logger.error('Error getting Obsidian status:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Get Obsidian notes for an account
+    this.expressApp.get('/api/obsidian/notes/:accountId', async (req, res) => {
+      try {
+        const { accountId } = req.params;
+        const intelligenceStore = require('./services/intelligenceStore');
+        
+        const notes = await intelligenceStore.getObsidianNotesByAccount(accountId);
+        
+        res.json({
+          success: true,
+          accountId,
+          noteCount: notes.length,
+          notes: notes.map(n => ({
+            id: n.id,
+            title: n.note_title,
+            date: n.note_date,
+            summary: n.summary,
+            sentiment: n.sentiment,
+            blEmail: n.bl_email,
+            syncedAt: n.synced_at
+          }))
+        });
+      } catch (error) {
+        logger.error('Error getting Obsidian notes:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Discover Obsidian vaults on the system (local use only)
+    this.expressApp.get('/api/obsidian/discover', async (req, res) => {
+      try {
+        const obsidianSync = require('./services/obsidianSyncService');
+        const vaults = obsidianSync.discoverVaults();
+        
+        res.json({
+          success: true,
+          vaults,
+          message: vaults.length > 0 
+            ? `Found ${vaults.length} Obsidian vault(s)` 
+            : 'No Obsidian vaults found in common locations'
+        });
+      } catch (error) {
+        logger.error('Error discovering vaults:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // BL Setup guide
+    this.expressApp.get('/api/obsidian/setup-guide', async (req, res) => {
+      const { email } = req.query;
+      const baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://gtm-brain.onrender.com';
+      
+      const icsUrl = email 
+        ? `${baseUrl}/api/calendar/${email}/feed.ics`
+        : `${baseUrl}/api/calendar/YOUR_EMAIL@eudia.com/feed.ics`;
+      
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Obsidian Setup Guide - GTM Brain</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9fafb; color: #1f2937; line-height: 1.6; padding: 40px 20px; }
+    .container { max-width: 700px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; margin-bottom: 8px; }
+    .subtitle { color: #6b7280; margin-bottom: 24px; }
+    .section { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+    .section h2 { font-size: 1.1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .step { margin-left: 28px; margin-bottom: 8px; }
+    .code { background: #f3f4f6; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; word-break: break-all; }
+    .highlight { background: #fef3c7; padding: 2px 6px; border-radius: 2px; }
+    .ics-url { background: #ecfdf5; border: 1px solid #10b981; padding: 12px; border-radius: 6px; margin: 12px 0; }
+    .folder-structure { background: #f3f4f6; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; }
+    .privacy { background: #fef2f2; border-left: 3px solid #ef4444; padding: 12px; margin: 12px 0; }
+    .tip { background: #eff6ff; border-left: 3px solid #3b82f6; padding: 12px; margin: 12px 0; }
+    ol { margin-left: 20px; }
+    li { margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📓 Obsidian Setup Guide</h1>
+    <p class="subtitle">Connect your Obsidian vault to GTM Brain for meeting note sync</p>
+    
+    <div class="section">
+      <h2>📥 Step 1: Install Required Plugins</h2>
+      <ol>
+        <li>Open Obsidian → Settings (gear icon)</li>
+        <li>Go to <strong>Community Plugins</strong> → Turn off Safe Mode if prompted</li>
+        <li>Click <strong>Browse</strong> and install:
+          <ul>
+            <li><strong>Full Calendar</strong> - Display your calendar</li>
+            <li><strong>Templater</strong> - For meeting note templates (optional)</li>
+          </ul>
+        </li>
+        <li>Enable each plugin after installing</li>
+      </ol>
+    </div>
+    
+    <div class="section">
+      <h2>📅 Step 2: Add Your Calendar</h2>
+      <ol>
+        <li>Go to Settings → Full Calendar</li>
+        <li>Click <strong>Add Calendar</strong></li>
+        <li>Choose <strong>Remote</strong> or <strong>ICS/Remote</strong></li>
+        <li>Paste this URL:</li>
+      </ol>
+      <div class="ics-url">
+        <code>${icsUrl}</code>
+      </div>
+      <ol start="5">
+        <li>Name it "Work Calendar"</li>
+        <li>Save and close settings</li>
+      </ol>
+      <p style="margin-top: 12px; font-size: 0.85rem; color: #6b7280;">Your calendar will now appear in Obsidian! Customer meetings are already filtered.</p>
+    </div>
+    
+    <div class="section">
+      <h2>📁 Step 3: Create Your Folder Structure</h2>
+      <p style="margin-bottom: 12px;">Create these folders in your vault:</p>
+      <div class="folder-structure">
+Your Vault/
+├── Meetings/           ← Meeting notes go here
+│   └── _Inbox/         ← New notes land here
+├── _Private/           ← Notes here will NOT sync
+└── Templates/          ← Note templates (optional)
+      </div>
+      <p style="margin-top: 12px; font-size: 0.85rem;">Right-click in the file explorer → New Folder</p>
+    </div>
+    
+    <div class="section">
+      <h2>🎙️ Step 4: Recording Meetings</h2>
+      <p><strong>Using Wispr Flow (Recommended):</strong></p>
+      <ol>
+        <li>Enable <strong>Hands-Free Mode</strong> in Wispr Flow settings</li>
+        <li>Double-tap <span class="highlight">Fn key</span> to start/stop recording</li>
+        <li>Wispr transcribes in real-time as you speak</li>
+        <li>Paste transcription into your Obsidian note</li>
+      </ol>
+    </div>
+    
+    <div class="section">
+      <h2>📝 Step 5: Creating Meeting Notes</h2>
+      <p style="margin-bottom: 12px;">Name your notes with this pattern for automatic matching:</p>
+      <div class="code">YYYY-MM-DD Account Name - Meeting Title.md</div>
+      <p style="margin-top: 8px;">Examples:</p>
+      <ul style="margin-left: 20px; margin-top: 8px;">
+        <li><code>2026-01-22 AT&T - Discovery Call.md</code></li>
+        <li><code>2026-01-22 Coherent - Demo Follow-up.md</code></li>
+      </ul>
+      
+      <div class="tip">
+        <strong>💡 Pro Tip:</strong> GTM Brain smart-matches notes to accounts using:
+        <ul style="margin-top: 8px; margin-left: 20px;">
+          <li>Account name in file name or folder</li>
+          <li>Meeting time matching your calendar</li>
+          <li>Email domains mentioned in notes</li>
+        </ul>
+      </div>
+    </div>
+    
+    <div class="section">
+      <h2>🔒 Privacy Controls</h2>
+      <div class="privacy">
+        <strong>These notes will NEVER sync to Salesforce:</strong>
+        <ul style="margin-top: 8px; margin-left: 20px;">
+          <li>Notes in the <code>_Private/</code> folder</li>
+          <li>Notes with <code>sync: false</code> in frontmatter</li>
+          <li>1:1s, internal meetings, interviews</li>
+        </ul>
+      </div>
+      <p style="margin-top: 12px;">To exclude any note, add this at the top:</p>
+      <div class="code">---<br>sync: false<br>---</div>
+    </div>
+    
+    <div class="section">
+      <h2>⚡ What Happens Next</h2>
+      <ol>
+        <li><strong>Daily Sync (6 PM):</strong> GTM Brain pulls new meeting notes</li>
+        <li><strong>Smart Summary:</strong> AI generates key points, action items, sentiment</li>
+        <li><strong>Salesforce Push:</strong> Summary added to Account's Customer Brain field</li>
+        <li><strong>Meeting Prep:</strong> Context appears in GTM Brain for future meetings</li>
+      </ol>
+    </div>
+    
+    <p style="text-align: center; margin-top: 24px; color: #6b7280;">
+      Questions? Reach out in <strong>#gtm-brain</strong> on Slack
+    </p>
+  </div>
+</body>
+</html>`;
+      
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
+    });
+
     // Trigger Clay enrichment for meeting attendees
     this.expressApp.post('/api/clay/enrich-attendees', async (req, res) => {
       try {

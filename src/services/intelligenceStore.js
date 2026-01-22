@@ -137,6 +137,33 @@ async function initialize() {
         
         db.run(`CREATE INDEX IF NOT EXISTS idx_cache_email ON attendee_enrichment_cache(email)`);
         
+        // Obsidian Notes table - for synced meeting notes from Obsidian vaults
+        db.run(`
+          CREATE TABLE IF NOT EXISTS obsidian_notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id TEXT NOT NULL,
+            account_name TEXT,
+            bl_email TEXT,
+            note_title TEXT,
+            note_date TEXT,
+            note_path TEXT,
+            summary TEXT,
+            full_summary TEXT,
+            sentiment TEXT,
+            match_method TEXT,
+            match_confidence REAL,
+            synced_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            pushed_to_sf INTEGER DEFAULT 0,
+            pushed_at TEXT
+          )
+        `, (err) => {
+          if (err) logger.error('Failed to create obsidian_notes table:', err);
+        });
+        
+        db.run(`CREATE INDEX IF NOT EXISTS idx_obsidian_account ON obsidian_notes(account_id)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_obsidian_bl ON obsidian_notes(bl_email)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_obsidian_date ON obsidian_notes(note_date)`);
+        
         logger.info('✅ Intelligence database tables initialized');
         resolve();
       });
@@ -932,6 +959,177 @@ async function getAttendeeEnrichments(emails) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// OBSIDIAN NOTES FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Store an Obsidian note
+ */
+async function storeObsidianNote(noteData) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    const {
+      accountId, accountName, blEmail, noteTitle, noteDate,
+      notePath, summary, fullSummary, sentiment, matchMethod, matchConfidence
+    } = noteData;
+    
+    // Check if note already exists (by path + account)
+    db.get(
+      `SELECT id FROM obsidian_notes WHERE note_path = ? AND account_id = ?`,
+      [notePath, accountId],
+      (err, existing) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        
+        if (existing) {
+          // Update existing note
+          db.run(`
+            UPDATE obsidian_notes SET
+              summary = ?,
+              full_summary = ?,
+              sentiment = ?,
+              synced_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `, [summary, fullSummary, sentiment, existing.id], function(err) {
+            if (err) reject(err);
+            else resolve({ id: existing.id, updated: true });
+          });
+        } else {
+          // Insert new note
+          db.run(`
+            INSERT INTO obsidian_notes 
+            (account_id, account_name, bl_email, note_title, note_date, note_path, 
+             summary, full_summary, sentiment, match_method, match_confidence)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            accountId, accountName, blEmail, noteTitle, noteDate, notePath,
+            summary, fullSummary, sentiment, matchMethod, matchConfidence
+          ], function(err) {
+            if (err) reject(err);
+            else resolve({ id: this.lastID, inserted: true });
+          });
+        }
+      }
+    );
+  });
+}
+
+/**
+ * Get Obsidian notes for an account
+ */
+async function getObsidianNotesByAccount(accountId) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.all(`
+      SELECT * FROM obsidian_notes 
+      WHERE account_id = ?
+      ORDER BY note_date DESC, synced_at DESC
+      LIMIT 20
+    `, [accountId], (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
+}
+
+/**
+ * Get Obsidian notes for a BL
+ */
+async function getObsidianNotesByBL(blEmail) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.all(`
+      SELECT * FROM obsidian_notes 
+      WHERE bl_email = ?
+      ORDER BY synced_at DESC
+      LIMIT 100
+    `, [blEmail], (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
+}
+
+/**
+ * Get recent Obsidian notes (for dashboard/stats)
+ */
+async function getRecentObsidianNotes(limit = 20) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.all(`
+      SELECT * FROM obsidian_notes 
+      ORDER BY synced_at DESC
+      LIMIT ?
+    `, [limit], (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
+}
+
+/**
+ * Mark an Obsidian note as pushed to Salesforce
+ */
+async function markObsidianNotePushed(noteId) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.run(`
+      UPDATE obsidian_notes SET 
+        pushed_to_sf = 1,
+        pushed_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [noteId], function(err) {
+      if (err) reject(err);
+      else resolve({ updated: this.changes > 0 });
+    });
+  });
+}
+
+/**
+ * Get Obsidian notes pending Salesforce push
+ */
+async function getObsidianNotesPendingPush() {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.all(`
+      SELECT * FROM obsidian_notes 
+      WHERE pushed_to_sf = 0
+      ORDER BY synced_at ASC
+      LIMIT 50
+    `, [], (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
+}
+
 module.exports = {
   initialize,
   close,
@@ -965,6 +1163,13 @@ module.exports = {
   // Attendee enrichment
   saveAttendeeEnrichment,
   getAttendeeEnrichment,
-  getAttendeeEnrichments
+  getAttendeeEnrichments,
+  // Obsidian notes
+  storeObsidianNote,
+  getObsidianNotesByAccount,
+  getObsidianNotesByBL,
+  getRecentObsidianNotes,
+  markObsidianNotePushed,
+  getObsidianNotesPendingPush
 };
 
