@@ -1917,6 +1917,64 @@ function capitalizeFirst(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+/**
+ * Build a LinkedIn search query that actually finds the person
+ * Handles malformed names (single letters, initials, weird formats)
+ * 
+ * Example issues this fixes:
+ * - "Hmanko I" → searches "Hmanko Charlesbank" (drops single-letter)
+ * - "Jr A." → uses just company
+ * - "Steve.Drake" → normalizes to "Steve Drake"
+ */
+function buildLinkedInSearchQuery(displayName, company) {
+  if (!displayName) return company || '';
+  
+  // Normalize the name first (handle Steve.Drake formats)
+  let normalizedName = displayName
+    .replace(/\./g, ' ')      // Periods to spaces
+    .replace(/_/g, ' ')       // Underscores to spaces
+    .replace(/\s+/g, ' ')     // Multiple spaces to single
+    .trim();
+  
+  // Split name into parts and filter out garbage
+  const nameParts = normalizedName.split(/\s+/).filter(function(part) {
+    // Remove single letters
+    if (part.length <= 1) return false;
+    // Remove common suffixes that don't help search
+    if (/^(jr|sr|ii|iii|iv|mr|ms|mrs|dr)\.?$/i.test(part)) return false;
+    // Remove parts that are just punctuation
+    if (/^[^a-zA-Z]+$/.test(part)) return false;
+    return true;
+  });
+  
+  // If we have no valid name parts, just search by company
+  if (nameParts.length === 0) {
+    return company || '';
+  }
+  
+  // Build search: FirstName + LastName (if valid) + Company
+  // This is more reliable than full multi-word names
+  var searchTerms = [];
+  
+  // Always include first name
+  searchTerms.push(nameParts[0]);
+  
+  // Include last name only if it's substantial (>2 chars)
+  if (nameParts.length > 1) {
+    var lastName = nameParts[nameParts.length - 1];
+    if (lastName.length > 2) {
+      searchTerms.push(lastName);
+    }
+  }
+  
+  // Always include company for disambiguation
+  if (company) {
+    searchTerms.push(company);
+  }
+  
+  return searchTerms.join(' ');
+}
+
 // ============================================================
 // GHOST ATTENDEE FILTERING
 // Filters out non-human calendar entries (conference rooms, dial-ins, etc.)
@@ -2399,7 +2457,7 @@ function renderPrepForm(contextHtml) {
                 \${isEnriched && standardizedSummary ? \`
                   <div class="attendee-bio">\${standardizedSummary}</div>
                 \` : ''}
-                <a href="https://www.linkedin.com/search/results/all/?keywords=\${encodeURIComponent(displayName + ' ' + companyDisplay)}" target="_blank" class="attendee-linkedin">Find on LinkedIn</a>
+                <a href="https://www.linkedin.com/search/results/all/?keywords=\${encodeURIComponent(buildLinkedInSearchQuery(displayName, companyDisplay))}" target="_blank" class="attendee-linkedin">Find on LinkedIn</a>
                 \${!isEnriched ? \`
                   <div class="attendee-pending-subtle">Enrichment in progress...</div>
                 \` : ''}
