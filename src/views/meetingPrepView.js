@@ -2395,9 +2395,9 @@ function generateStorySoFar(ctx, meetingData) {
   
   if (parts.length === 0) return '';
   
-  return '<div style="margin-bottom: 12px; padding: 10px 12px; background: rgba(99, 102, 241, 0.1); border-radius: 8px; border-left: 3px solid #6366f1;">' +
-         '<div style="font-size: 0.7rem; color: #818cf8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Story So Far</div>' +
-         '<div style="font-size: 0.8rem; line-height: 1.5; color: #e5e7eb;">' + parts.join(' ') + '</div>' +
+  return '<div style="margin-bottom: 12px; padding: 10px 12px; background: #f3f4f6; border-radius: 8px; border-left: 3px solid #6b7280;">' +
+         '<div style="font-size: 0.7rem; color: #374151; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Story So Far</div>' +
+         '<div style="font-size: 0.8rem; line-height: 1.5; color: #1f2937;">' + parts.join(' ') + '</div>' +
          '</div>';
 }
 
@@ -2422,17 +2422,17 @@ function formatContextSection(ctx, meetingData) {
   // === RECENT CONTEXT SECTION ===
   // Dynamic context from multiple sources with source indicators
   let hasRecentContext = false;
-  let recentContextHtml = '<div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">';
-  recentContextHtml += '<div class="context-label" style="margin-bottom: 10px; font-size: 0.85rem;">Recent Context</div>';
+  let recentContextHtml = '<div style="margin-top: 12px; border-top: 1px solid #e5e7eb; padding-top: 12px;">';
+  recentContextHtml += '<div style="margin-bottom: 10px; font-size: 0.7rem; color: #374151; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Recent Context</div>';
   
   // Source 1: Meeting Notes from Customer Brain
   if (ctx.meetingNotes?.length) {
     hasRecentContext = true;
     ctx.meetingNotes.slice(0, 2).forEach(note => {
-      recentContextHtml += '<div style="margin-bottom: 10px; padding: 8px; background: rgba(74, 222, 128, 0.1); border-radius: 6px; border-left: 3px solid #4ade80;">';
-      recentContextHtml += '<div style="font-size: 0.7rem; color: #4ade80; margin-bottom: 2px;">Meeting Notes</div>';
-      recentContextHtml += '<div style="font-size: 0.7rem; color: #9ca3af; margin-bottom: 4px;">' + note.date + ' • ' + note.rep + '</div>';
-      recentContextHtml += '<div style="font-size: 0.8rem; line-height: 1.4;">' + note.summary + '</div>';
+      recentContextHtml += '<div style="margin-bottom: 10px; padding: 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #6b7280;">';
+      recentContextHtml += '<div style="font-size: 0.7rem; color: #374151; margin-bottom: 2px; font-weight: 500;">Meeting Notes</div>';
+      recentContextHtml += '<div style="font-size: 0.7rem; color: #6b7280; margin-bottom: 4px;">' + note.date + ' • ' + note.rep + '</div>';
+      recentContextHtml += '<div style="font-size: 0.8rem; line-height: 1.4; color: #1f2937;">' + note.summary + '</div>';
       recentContextHtml += '</div>';
     });
   }
@@ -2441,9 +2441,9 @@ function formatContextSection(ctx, meetingData) {
   if (ctx.slackIntel?.length) {
     hasRecentContext = true;
     ctx.slackIntel.slice(0, 2).forEach(intel => {
-      recentContextHtml += '<div style="margin-bottom: 8px; padding: 8px; background: rgba(244, 114, 182, 0.1); border-radius: 6px; border-left: 3px solid #f472b6;">';
-      recentContextHtml += '<div style="font-size: 0.7rem; color: #f472b6; margin-bottom: 2px;">Slack</div>';
-      recentContextHtml += '<div style="font-size: 0.75rem;"><span style="color: #d1d5db;">[' + intel.category + ']</span> ' + intel.summary + '</div>';
+      recentContextHtml += '<div style="margin-bottom: 8px; padding: 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #6b7280;">';
+      recentContextHtml += '<div style="font-size: 0.7rem; color: #374151; margin-bottom: 2px; font-weight: 500;">Slack</div>';
+      recentContextHtml += '<div style="font-size: 0.75rem; color: #1f2937;"><span style="color: #6b7280;">[' + intel.category + ']</span> ' + intel.summary + '</div>';
       recentContextHtml += '</div>';
     });
   }
@@ -2453,9 +2453,9 @@ function formatContextSection(ctx, meetingData) {
     hasRecentContext = true;
     ctx.priorMeetings.slice(0, 2).forEach(m => {
       const dateStr = m.date ? new Date(m.date).toLocaleDateString() : '';
-      recentContextHtml += '<div style="margin-bottom: 6px; padding: 6px 8px; background: rgba(96, 165, 250, 0.1); border-radius: 6px; border-left: 3px solid #60a5fa;">';
-      recentContextHtml += '<div style="font-size: 0.7rem; color: #60a5fa; margin-bottom: 2px;">Prior Prep</div>';
-      recentContextHtml += '<div style="font-size: 0.75rem;">' + dateStr + ' - ' + (m.title || 'Meeting') + '</div>';
+      recentContextHtml += '<div style="margin-bottom: 6px; padding: 6px 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #6b7280;">';
+      recentContextHtml += '<div style="font-size: 0.7rem; color: #374151; margin-bottom: 2px; font-weight: 500;">Prior Prep</div>';
+      recentContextHtml += '<div style="font-size: 0.75rem; color: #1f2937;">' + dateStr + ' - ' + (m.title || 'Meeting') + '</div>';
       recentContextHtml += '</div>';
     });
   }
