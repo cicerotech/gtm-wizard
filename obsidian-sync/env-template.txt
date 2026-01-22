@@ -1,0 +1,6 @@
+# Copy this to .env and fill in your credentials
+SF_USERNAME=sync.service@eudia.com
+SF_PASSWORD=Augment2026!
+SF_SECURITY_TOKEN=RXizwN59kueiS8dlXjWivVl2
+SF_INSTANCE_URL=https://eudia.my.salesforce.com
+
