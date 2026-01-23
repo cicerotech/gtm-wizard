@@ -230,6 +230,47 @@ async function initialize() {
           if (err) logger.error('Failed to create calendar_sync_status table:', err);
         });
         
+        // Meeting Milestones table - for sales velocity tracking
+        db.run(`
+          CREATE TABLE IF NOT EXISTS meeting_milestones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id TEXT NOT NULL,
+            account_name TEXT,
+            opportunity_id TEXT,
+            
+            -- Meeting details
+            meeting_id TEXT,
+            meeting_date TEXT,
+            meeting_subject TEXT,
+            meeting_type TEXT,
+            classification_confidence REAL,
+            classification_method TEXT,
+            
+            -- Sequence tracking
+            sequence_number INTEGER,
+            days_from_first INTEGER,
+            days_from_previous INTEGER,
+            
+            -- Stage context
+            stage_at_meeting TEXT,
+            
+            -- Source
+            source TEXT,
+            bl_email TEXT,
+            
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            
+            UNIQUE(account_id, meeting_date, meeting_subject)
+          )
+        `, (err) => {
+          if (err) logger.error('Failed to create meeting_milestones table:', err);
+        });
+        
+        // Create indexes for meeting_milestones
+        db.run(`CREATE INDEX IF NOT EXISTS idx_milestones_account ON meeting_milestones(account_id)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_milestones_type ON meeting_milestones(meeting_type)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_milestones_date ON meeting_milestones(meeting_date)`);
+        
         logger.info('✅ Intelligence database tables initialized');
         resolve();
       });
@@ -1609,6 +1650,341 @@ async function getCalendarStats() {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// MEETING MILESTONES - Sales Velocity Tracking
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Save a meeting milestone for velocity tracking
+ * @param {Object} milestone - Milestone data
+ */
+async function saveMeetingMilestone(milestone) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    const {
+      accountId,
+      accountName,
+      opportunityId,
+      meetingId,
+      meetingDate,
+      meetingSubject,
+      meetingType,
+      classificationConfidence,
+      classificationMethod,
+      sequenceNumber,
+      daysFromFirst,
+      daysFromPrevious,
+      stageAtMeeting,
+      source,
+      blEmail
+    } = milestone;
+    
+    db.run(`
+      INSERT OR REPLACE INTO meeting_milestones 
+      (account_id, account_name, opportunity_id, meeting_id, meeting_date, 
+       meeting_subject, meeting_type, classification_confidence, classification_method,
+       sequence_number, days_from_first, days_from_previous, stage_at_meeting, 
+       source, bl_email, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `, [
+      accountId, accountName, opportunityId, meetingId, meetingDate,
+      meetingSubject, meetingType, classificationConfidence, classificationMethod,
+      sequenceNumber, daysFromFirst, daysFromPrevious, stageAtMeeting,
+      source, blEmail
+    ], function(err) {
+      if (err) {
+        logger.error('Failed to save meeting milestone:', err);
+        reject(err);
+      } else {
+        logger.info(`📊 Saved milestone: ${meetingType} for ${accountName} (#${sequenceNumber})`);
+        resolve({ id: this.lastID, ...milestone });
+      }
+    });
+  });
+}
+
+/**
+ * Get meeting milestones for an account
+ * @param {string} accountId - Salesforce account ID
+ * @returns {Array} Milestones sorted by date
+ */
+async function getMilestonesByAccount(accountId) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.all(`
+      SELECT * FROM meeting_milestones 
+      WHERE account_id = ?
+      ORDER BY meeting_date ASC
+    `, [accountId], (err, rows) => {
+      if (err) {
+        logger.error('Failed to get milestones:', err);
+        reject(err);
+      } else {
+        resolve(rows || []);
+      }
+    });
+  });
+}
+
+/**
+ * Get meeting count for an account (for sequence number calculation)
+ * @param {string} accountId - Salesforce account ID
+ * @returns {number} Number of meetings
+ */
+async function getMeetingCountForAccount(accountId) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.get(`
+      SELECT COUNT(*) as count FROM meeting_milestones 
+      WHERE account_id = ?
+    `, [accountId], (err, row) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(row?.count || 0);
+      }
+    });
+  });
+}
+
+/**
+ * Get first meeting date for an account
+ * @param {string} accountId - Salesforce account ID
+ * @returns {string|null} First meeting date
+ */
+async function getFirstMeetingDate(accountId) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.get(`
+      SELECT MIN(meeting_date) as first_date FROM meeting_milestones 
+      WHERE account_id = ?
+    `, [accountId], (err, row) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(row?.first_date || null);
+      }
+    });
+  });
+}
+
+/**
+ * Get most recent meeting date for an account
+ * @param {string} accountId - Salesforce account ID
+ * @returns {string|null} Most recent meeting date
+ */
+async function getLastMeetingDate(accountId) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.get(`
+      SELECT MAX(meeting_date) as last_date FROM meeting_milestones 
+      WHERE account_id = ?
+    `, [accountId], (err, row) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(row?.last_date || null);
+      }
+    });
+  });
+}
+
+/**
+ * Get velocity metrics for an account
+ * Returns days between key milestones
+ */
+async function getAccountVelocityMetrics(accountId) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.get(`
+      SELECT 
+        account_id,
+        account_name,
+        MIN(meeting_date) as first_meeting_date,
+        MAX(meeting_date) as last_meeting_date,
+        COUNT(*) as total_meetings,
+        MIN(CASE WHEN meeting_type = 'intro' THEN meeting_date END) as first_intro,
+        MIN(CASE WHEN meeting_type = 'demo' THEN meeting_date END) as first_demo,
+        MIN(CASE WHEN meeting_type = 'cab' THEN meeting_date END) as first_cab,
+        MIN(CASE WHEN meeting_type = 'discovery' THEN meeting_date END) as first_discovery,
+        MIN(CASE WHEN meeting_type = 'scoping' THEN meeting_date END) as first_scoping,
+        MIN(CASE WHEN meeting_type = 'compliance' THEN meeting_date END) as first_compliance,
+        MIN(CASE WHEN meeting_type = 'proposal' THEN meeting_date END) as first_proposal,
+        MIN(CASE WHEN meeting_type = 'negotiation' THEN meeting_date END) as first_negotiation,
+        GROUP_CONCAT(DISTINCT meeting_type) as meeting_types_seen
+      FROM meeting_milestones 
+      WHERE account_id = ?
+      GROUP BY account_id, account_name
+    `, [accountId], (err, row) => {
+      if (err) {
+        logger.error('Failed to get velocity metrics:', err);
+        reject(err);
+      } else {
+        if (!row) {
+          resolve(null);
+          return;
+        }
+        
+        // Calculate days between milestones
+        const metrics = {
+          accountId: row.account_id,
+          accountName: row.account_name,
+          totalMeetings: row.total_meetings,
+          meetingTypesSeen: row.meeting_types_seen?.split(',') || [],
+          milestones: {
+            firstMeeting: row.first_meeting_date,
+            firstDemo: row.first_demo,
+            firstCab: row.first_cab,
+            firstProposal: row.first_proposal
+          },
+          velocity: {}
+        };
+        
+        // Calculate days between stages
+        if (row.first_meeting_date && row.first_demo) {
+          const d1 = new Date(row.first_meeting_date);
+          const d2 = new Date(row.first_demo);
+          metrics.velocity.introToDemo = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+        }
+        
+        if (row.first_meeting_date && row.first_proposal) {
+          const d1 = new Date(row.first_meeting_date);
+          const d2 = new Date(row.first_proposal);
+          metrics.velocity.introToProposal = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+        }
+        
+        if (row.first_demo && row.first_proposal) {
+          const d1 = new Date(row.first_demo);
+          const d2 = new Date(row.first_proposal);
+          metrics.velocity.demoToProposal = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+        }
+        
+        resolve(metrics);
+      }
+    });
+  });
+}
+
+/**
+ * Get aggregate velocity benchmarks across all accounts
+ */
+async function getVelocityBenchmarks() {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.all(`
+      SELECT 
+        account_id,
+        MIN(meeting_date) as first_meeting,
+        MIN(CASE WHEN meeting_type = 'demo' THEN meeting_date END) as first_demo,
+        MIN(CASE WHEN meeting_type = 'proposal' THEN meeting_date END) as first_proposal
+      FROM meeting_milestones 
+      GROUP BY account_id
+      HAVING first_demo IS NOT NULL OR first_proposal IS NOT NULL
+    `, [], (err, rows) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      const introToDemos = [];
+      const introToProposals = [];
+      const demoToProposals = [];
+      
+      for (const row of (rows || [])) {
+        if (row.first_meeting && row.first_demo) {
+          const days = Math.round((new Date(row.first_demo) - new Date(row.first_meeting)) / (1000 * 60 * 60 * 24));
+          if (days > 0) introToDemos.push(days);
+        }
+        if (row.first_meeting && row.first_proposal) {
+          const days = Math.round((new Date(row.first_proposal) - new Date(row.first_meeting)) / (1000 * 60 * 60 * 24));
+          if (days > 0) introToProposals.push(days);
+        }
+        if (row.first_demo && row.first_proposal) {
+          const days = Math.round((new Date(row.first_proposal) - new Date(row.first_demo)) / (1000 * 60 * 60 * 24));
+          if (days > 0) demoToProposals.push(days);
+        }
+      }
+      
+      const avg = arr => arr.length > 0 ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+      
+      resolve({
+        sampleSize: rows?.length || 0,
+        introToDemo: {
+          avg: avg(introToDemos),
+          min: introToDemos.length > 0 ? Math.min(...introToDemos) : null,
+          max: introToDemos.length > 0 ? Math.max(...introToDemos) : null,
+          samples: introToDemos.length
+        },
+        introToProposal: {
+          avg: avg(introToProposals),
+          min: introToProposals.length > 0 ? Math.min(...introToProposals) : null,
+          max: introToProposals.length > 0 ? Math.max(...introToProposals) : null,
+          samples: introToProposals.length
+        },
+        demoToProposal: {
+          avg: avg(demoToProposals),
+          min: demoToProposals.length > 0 ? Math.min(...demoToProposals) : null,
+          max: demoToProposals.length > 0 ? Math.max(...demoToProposals) : null,
+          samples: demoToProposals.length
+        }
+      });
+    });
+  });
+}
+
+/**
+ * Get previous meeting types for an account (for LLM context)
+ */
+async function getPreviousMeetingTypes(accountId) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.all(`
+      SELECT meeting_type FROM meeting_milestones 
+      WHERE account_id = ?
+      ORDER BY meeting_date DESC
+      LIMIT 5
+    `, [accountId], (err, rows) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve((rows || []).map(r => r.meeting_type));
+      }
+    });
+  });
+}
+
 module.exports = {
   initialize,
   close,
@@ -1662,6 +2038,15 @@ module.exports = {
   clearOldCalendarEvents,
   updateCalendarSyncStatus,
   getCalendarSyncStatus,
-  getCalendarStats
+  getCalendarStats,
+  // Meeting milestones (sales velocity tracking)
+  saveMeetingMilestone,
+  getMilestonesByAccount,
+  getMeetingCountForAccount,
+  getFirstMeetingDate,
+  getLastMeetingDate,
+  getAccountVelocityMetrics,
+  getVelocityBenchmarks,
+  getPreviousMeetingTypes
 };
 

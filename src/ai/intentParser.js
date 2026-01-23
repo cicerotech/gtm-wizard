@@ -1376,6 +1376,60 @@ Business Context:
       };
     }
     
+    // ═══════════════════════════════════════════════════════════════════════
+    // SALES VELOCITY TRACKING
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    // Velocity report for specific account
+    // "show velocity for Acme", "velocity analysis for Bayer", "how fast is Amazon moving"
+    if ((message.includes('velocity') || message.includes('sales cycle') || message.includes('how fast')) &&
+        (message.includes('for ') || message.includes('on '))) {
+      // Extract account name after "for" or "on"
+      const forMatch = message.match(/(?:for|on)\s+([a-zA-Z0-9\s]+?)(?:\s+moving|\s+deal|\s*$|\?)/i);
+      const accountName = forMatch ? forMatch[1].trim() : null;
+      
+      return {
+        intent: 'show_velocity',
+        entities: { accountName },
+        followUp: false,
+        confidence: 0.90,
+        explanation: 'Show sales velocity metrics for account',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
+    // Velocity benchmarks / averages
+    // "what's our avg time to demo", "average sales cycle", "velocity benchmarks"
+    if ((message.includes('average') || message.includes('avg') || message.includes('benchmark')) &&
+        (message.includes('velocity') || message.includes('demo') || message.includes('sales cycle') || 
+         message.includes('time to') || message.includes('days to'))) {
+      return {
+        intent: 'velocity_benchmarks',
+        entities: {},
+        followUp: false,
+        confidence: 0.85,
+        explanation: 'Show aggregate velocity benchmarks',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
+    // Slow/stuck deals
+    // "which deals are stuck", "slow moving deals", "deals behind schedule"
+    if ((message.includes('stuck') || message.includes('slow') || message.includes('behind')) &&
+        (message.includes('deal') || message.includes('account') || message.includes('opportunity'))) {
+      return {
+        intent: 'slow_deals',
+        entities: {},
+        followUp: false,
+        confidence: 0.85,
+        explanation: 'Find deals moving slower than benchmark',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
     // Delivery Weekly Summary / Snapshot (PDF + Excel)
     // MUST be checked BEFORE general weekly summary to catch delivery-specific requests
     if ((message.includes('delivery') && message.includes('snapshot')) ||

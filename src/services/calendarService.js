@@ -144,6 +144,143 @@ const INTERNAL_MEETING_KEYWORDS = [
   'greenhouse'      // Greenhouse ATS meetings
 ];
 
+// ============================================================
+// MEETING TYPE CLASSIFICATION - AI Sales Velocity Tracking
+// ============================================================
+// High-confidence patterns that can skip LLM classification
+const MEETING_TYPE_PATTERNS = {
+  cab: /\bcab\b|customer advisory|advisory board|memorandum|strategic partnership/i,
+  demo: /\bdemo\b|demonstration|product (walk|over|show)|platform (walk|over|show)|sigma (demo|overview)|contracts (demo|overview)/i,
+  intro: /\bintro\b|introduction|first (meeting|call)|meet.*eudia|eudia.*intro|initial (call|meeting)/i,
+  compliance: /\binfosec\b|security (review|questionnaire)|compliance|legal review|\bdpa\b|data (processing|privacy)|soc.?2/i,
+  proposal: /\bproposal\b|contract (review|walkthrough)|msa|sow|\bredlin/i,
+  negotiation: /\bnegotiat/i,
+  scoping: /\bscoping\b|pricing (review|discussion)|pilot (plan|scope)|assessment/i,
+  discovery: /\bdiscovery\b|use case|deep dive|requirements|pain points/i,
+  followup: /\bfollow.?up\b|check.?in|\bsync\b|touchpoint|office hours|status (update|call)/i
+};
+
+// Meeting type definitions for reference
+const MEETING_TYPES = {
+  intro: { label: 'Intro', stage: 'Stage 0/1', description: 'First substantive meeting, CLO engagement' },
+  cab: { label: 'CAB', stage: 'Stage 1', description: 'Customer Advisory Board discussion, memorandum' },
+  demo: { label: 'Demo', stage: 'Stage 1/2', description: 'Product demonstration, platform walkthrough' },
+  discovery: { label: 'Discovery', stage: 'Stage 1', description: 'Deep dive on requirements, use cases' },
+  scoping: { label: 'Scoping', stage: 'Stage 2/3', description: 'Pricing discussion, pilot planning' },
+  compliance: { label: 'Compliance', stage: 'Stage 3/4', description: 'InfoSec, legal review, DPA' },
+  proposal: { label: 'Proposal', stage: 'Stage 4', description: 'Contract review, MSA/SOW walkthrough' },
+  negotiation: { label: 'Negotiation', stage: 'Stage 5', description: 'Final terms, pricing negotiation' },
+  followup: { label: 'Follow-up', stage: 'Any', description: 'General sync, check-in, status update' },
+  unknown: { label: 'Unknown', stage: 'Unknown', description: 'Could not classify' }
+};
+
+/**
+ * Classify meeting type using high-confidence pattern matching
+ * Returns { type, confidence, method } or null if LLM needed
+ */
+function classifyMeetingByPattern(subject) {
+  if (!subject) return null;
+  
+  const subjectLower = subject.toLowerCase();
+  
+  for (const [type, pattern] of Object.entries(MEETING_TYPE_PATTERNS)) {
+    if (pattern.test(subjectLower)) {
+      // Determine confidence based on type
+      let confidence = 0.85;
+      
+      // CAB is almost always explicit
+      if (type === 'cab') confidence = 0.95;
+      // Demo is usually explicit
+      if (type === 'demo') confidence = 0.90;
+      // Intro can be ambiguous
+      if (type === 'intro') confidence = 0.80;
+      // Followup is a catch-all, lower confidence
+      if (type === 'followup') confidence = 0.70;
+      
+      return {
+        type,
+        confidence,
+        method: 'pattern',
+        matchedPattern: pattern.toString()
+      };
+    }
+  }
+  
+  return null; // No pattern match - needs LLM or contextual classification
+}
+
+/**
+ * Classify meeting with full context (includes sequence, stage, attendees)
+ * This is the main classification function that combines pattern + context
+ */
+function classifyMeeting(subject, context = {}) {
+  const { sequenceNumber, opportunityStage, attendeeTitles } = context;
+  
+  // Try pattern matching first (fast, no API call)
+  const patternMatch = classifyMeetingByPattern(subject);
+  
+  if (patternMatch) {
+    // Boost confidence if sequence aligns with type
+    if (patternMatch.type === 'intro' && sequenceNumber === 1) {
+      patternMatch.confidence = 0.95;
+    }
+    return patternMatch;
+  }
+  
+  // Contextual classification fallback
+  // If first meeting and no other pattern, likely intro
+  if (sequenceNumber === 1) {
+    return {
+      type: 'intro',
+      confidence: 0.75,
+      method: 'sequence',
+      reasoning: 'First meeting with account'
+    };
+  }
+  
+  // Check attendee titles for hints
+  if (attendeeTitles) {
+    const titlesLower = attendeeTitles.join(' ').toLowerCase();
+    if (titlesLower.includes('legal') || titlesLower.includes('compliance') || titlesLower.includes('security')) {
+      return {
+        type: 'compliance',
+        confidence: 0.70,
+        method: 'attendee_titles',
+        reasoning: 'Legal/compliance attendees detected'
+      };
+    }
+  }
+  
+  // Check opportunity stage for hints
+  if (opportunityStage) {
+    const stageLower = opportunityStage.toLowerCase();
+    if (stageLower.includes('stage 4') || stageLower.includes('proposal')) {
+      return {
+        type: 'proposal',
+        confidence: 0.65,
+        method: 'stage_context',
+        reasoning: 'Opportunity in Stage 4 - Proposal'
+      };
+    }
+    if (stageLower.includes('stage 5') || stageLower.includes('negotiation')) {
+      return {
+        type: 'negotiation',
+        confidence: 0.65,
+        method: 'stage_context',
+        reasoning: 'Opportunity in Stage 5 - Negotiation'
+      };
+    }
+  }
+  
+  // Default to followup if no other signal
+  return {
+    type: 'followup',
+    confidence: 0.50,
+    method: 'default',
+    reasoning: 'No specific signals detected - defaulting to followup'
+  };
+}
+
 class CalendarService {
   constructor() {
     this.graphClient = null;
@@ -276,6 +413,10 @@ class CalendarService {
     // - Must NOT match internal meeting keywords
     const isCustomerMeeting = realExternalAttendees.length > 0 && !hasInternalKeyword;
 
+    // Classify meeting type using pattern matching
+    // Context will be enriched later with sequence/stage data
+    const classification = classifyMeeting(event.subject, {});
+    
     return {
       eventId: event.id,
       subject: event.subject || 'No Subject',
@@ -298,6 +439,10 @@ class CalendarService {
       internalAttendees,
       isCustomerMeeting,
       hasInternalKeyword, // For debugging
+      // Meeting classification for velocity tracking
+      meetingType: classification.type,
+      meetingTypeConfidence: classification.confidence,
+      meetingTypeMethod: classification.method,
       source: 'outlook'
     };
   }
@@ -779,6 +924,11 @@ const calendarService = new CalendarService();
 module.exports = {
   calendarService,
   initializeCalendar: () => calendarService.initialize(),
-  BL_EMAILS
+  BL_EMAILS,
+  // Meeting classification exports
+  classifyMeeting,
+  classifyMeetingByPattern,
+  MEETING_TYPES,
+  MEETING_TYPE_PATTERNS
 };
 

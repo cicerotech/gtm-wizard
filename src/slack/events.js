@@ -751,6 +751,18 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle Finance Weekly Audit report
       await handleFinanceAuditReport(userId, channelId, client, threadTs);
       return; // Exit early
+    } else if (parsedIntent.intent === 'show_velocity') {
+      // Handle velocity report for specific account
+      await handleShowVelocity(parsedIntent.entities, userId, channelId, client, threadTs);
+      return; // Exit early
+    } else if (parsedIntent.intent === 'velocity_benchmarks') {
+      // Handle velocity benchmarks
+      await handleVelocityBenchmarks(userId, channelId, client, threadTs);
+      return; // Exit early
+    } else if (parsedIntent.intent === 'slow_deals') {
+      // Handle slow/stuck deals report
+      await handleSlowDeals(userId, channelId, client, threadTs);
+      return; // Exit early
     } else if (parsedIntent.intent === 'batch_move_to_nurture') {
       // Handle batch move to nurture (Keigan only)
       await handleBatchMoveToNurture(parsedIntent.entities, userId, channelId, client, threadTs);
@@ -3069,7 +3081,216 @@ async function handleFinanceAuditReport(userId, channelId, client, threadTs) {
     logger.error('Failed to generate Finance Weekly Audit report:', error);
     await client.chat.postMessage({
       channel: channelId,
-      text: `❌ Error generating Finance Audit report: ${error.message}\n\nPlease try again or contact support.`,
+      text: `Error generating Finance Audit report: ${error.message}\n\nPlease try again or contact support.`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SALES VELOCITY TRACKING HANDLERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Handle Show Velocity for Account
+ * Command: @gtm-brain show velocity for [account]
+ */
+async function handleShowVelocity(entities, userId, channelId, client, threadTs) {
+  try {
+    const { accountName } = entities;
+    
+    if (!accountName) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: 'Please specify an account name. Example: "show velocity for Acme Corp"',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    logger.info(`[Velocity] Report requested for ${accountName} by ${userId}`);
+    
+    // Find account in Salesforce
+    const { query } = require('../salesforce/connection');
+    const accountResult = await query(`
+      SELECT Id, Name FROM Account 
+      WHERE Name LIKE '%${accountName.replace(/'/g, "\\'")}%' 
+      LIMIT 1
+    `);
+    
+    if (!accountResult.records?.length) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `Could not find account matching "${accountName}". Try the exact account name.`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const account = accountResult.records[0];
+    
+    // Get velocity report
+    const { getAccountVelocityReport } = require('../services/velocityTracker');
+    const report = await getAccountVelocityReport(account.Id);
+    
+    if (!report.found) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `No meeting history found for *${account.Name}*. Velocity tracking starts when calendar events are synced.`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    // Format response
+    let message = `*Sales Velocity Report: ${report.account.name}*\n\n`;
+    
+    message += `*Summary*\n`;
+    message += `• Total Meetings: ${report.summary.totalMeetings}\n`;
+    message += `• Meeting Types: ${report.summary.meetingTypes.join(', ')}\n`;
+    message += `• First Meeting: ${report.summary.firstMeeting || 'N/A'}\n\n`;
+    
+    message += `*Velocity Metrics*\n`;
+    if (report.velocity.introToDemo) {
+      message += `• Intro → Demo: ${report.velocity.introToDemo} days`;
+      if (report.comparisons.introToDemo) {
+        const comp = report.comparisons.introToDemo;
+        message += ` (benchmark: ${comp.benchmark} days, ${comp.status === 'ahead' ? 'ahead' : comp.status === 'behind' ? 'behind' : 'on track'})\n`;
+      } else {
+        message += '\n';
+      }
+    }
+    if (report.velocity.introToProposal) {
+      message += `• Intro → Proposal: ${report.velocity.introToProposal} days`;
+      if (report.comparisons.introToProposal) {
+        const comp = report.comparisons.introToProposal;
+        message += ` (benchmark: ${comp.benchmark} days, ${comp.status === 'ahead' ? 'ahead' : comp.status === 'behind' ? 'behind' : 'on track'})\n`;
+      } else {
+        message += '\n';
+      }
+    }
+    if (report.velocity.demoToProposal) {
+      message += `• Demo → Proposal: ${report.velocity.demoToProposal} days\n`;
+    }
+    
+    if (!report.velocity.introToDemo && !report.velocity.introToProposal) {
+      message += `Not enough milestone data yet. Need Demo or Proposal meetings to calculate velocity.\n`;
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: message,
+      thread_ts: threadTs
+    });
+    
+  } catch (error) {
+    logger.error('Failed to generate velocity report:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `Error generating velocity report: ${error.message}`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle Velocity Benchmarks
+ * Command: @gtm-brain velocity benchmarks, avg time to demo
+ */
+async function handleVelocityBenchmarks(userId, channelId, client, threadTs) {
+  try {
+    logger.info(`[Velocity] Benchmarks requested by ${userId}`);
+    
+    const intelligenceStore = require('../services/intelligenceStore');
+    const benchmarks = await intelligenceStore.getVelocityBenchmarks();
+    
+    let message = `*Sales Velocity Benchmarks*\n`;
+    message += `_Based on ${benchmarks.sampleSize} accounts with milestone data_\n\n`;
+    
+    if (benchmarks.introToDemo.avg) {
+      message += `*Intro → Demo*\n`;
+      message += `• Average: ${benchmarks.introToDemo.avg} days\n`;
+      message += `• Range: ${benchmarks.introToDemo.min} - ${benchmarks.introToDemo.max} days\n`;
+      message += `• Sample: ${benchmarks.introToDemo.samples} accounts\n\n`;
+    }
+    
+    if (benchmarks.introToProposal.avg) {
+      message += `*Intro → Proposal*\n`;
+      message += `• Average: ${benchmarks.introToProposal.avg} days\n`;
+      message += `• Range: ${benchmarks.introToProposal.min} - ${benchmarks.introToProposal.max} days\n`;
+      message += `• Sample: ${benchmarks.introToProposal.samples} accounts\n\n`;
+    }
+    
+    if (benchmarks.demoToProposal.avg) {
+      message += `*Demo → Proposal*\n`;
+      message += `• Average: ${benchmarks.demoToProposal.avg} days\n`;
+      message += `• Range: ${benchmarks.demoToProposal.min} - ${benchmarks.demoToProposal.max} days\n`;
+      message += `• Sample: ${benchmarks.demoToProposal.samples} accounts\n`;
+    }
+    
+    if (!benchmarks.introToDemo.avg && !benchmarks.introToProposal.avg) {
+      message = `*Sales Velocity Benchmarks*\n\nNot enough milestone data yet. Benchmarks will be calculated as more meetings are tracked.\n\nTry "show velocity for [account]" to see data for a specific account.`;
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: message,
+      thread_ts: threadTs
+    });
+    
+  } catch (error) {
+    logger.error('Failed to get velocity benchmarks:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `Error getting velocity benchmarks: ${error.message}`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle Slow/Stuck Deals
+ * Command: @gtm-brain slow deals, which deals are stuck
+ */
+async function handleSlowDeals(userId, channelId, client, threadTs) {
+  try {
+    logger.info(`[Velocity] Slow deals requested by ${userId}`);
+    
+    const { getSlowDeals } = require('../services/velocityTracker');
+    const slowDeals = await getSlowDeals(14); // 14+ days behind benchmark
+    
+    if (slowDeals.length === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `*Slow Deals Report*\n\nNo deals are significantly behind benchmark. All tracked accounts are moving at expected velocity.`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    let message = `*Slow Deals Report*\n`;
+    message += `_Accounts moving slower than benchmark_\n\n`;
+    
+    for (const deal of slowDeals.slice(0, 10)) {
+      message += `• *${deal.accountName}*\n`;
+      message += `  ${deal.metric}: ${deal.actual} days (benchmark: ${deal.benchmark}, +${deal.daysOver} days behind)\n\n`;
+    }
+    
+    if (slowDeals.length > 10) {
+      message += `_...and ${slowDeals.length - 10} more_`;
+    }
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      text: message,
+      thread_ts: threadTs
+    });
+    
+  } catch (error) {
+    logger.error('Failed to get slow deals:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `Error getting slow deals: ${error.message}`,
       thread_ts: threadTs
     });
   }
