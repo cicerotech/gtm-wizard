@@ -408,19 +408,31 @@ async function findExistingEvent({ accountId, contactId, subject, startDateTime 
     const windowEnd = new Date(startDate.getTime() + CONFIG.EVENT_DEDUPE_WINDOW_HOURS * 60 * 60 * 1000);
     
     // Build query based on available identifiers
+    // SOQL datetime format requires the literal datetime value directly (not quoted)
     let whereClause = `StartDateTime >= ${windowStart.toISOString()} AND StartDateTime <= ${windowEnd.toISOString()}`;
     
+    // Try contactId first (WhoId), then accountId (WhatId)
+    // Note: When event has WhoId, WhatId may be null
     if (contactId) {
       whereClause += ` AND WhoId = '${contactId}'`;
-    } else if (accountId) {
+    }
+    if (accountId) {
       whereClause += ` AND WhatId = '${accountId}'`;
     }
     
-    // Check for subject similarity
+    // If neither specified, can't dedupe meaningfully
+    if (!contactId && !accountId) {
+      logger.debug(`${CONFIG.LOG_PREFIX} Event dedupe skipped - no contactId or accountId`);
+      return null;
+    }
+    
+    // Check for subject similarity (first 3 words)
     if (subject) {
       const subjectWords = subject.split(/\s+/).slice(0, 3).join('%');
       whereClause += ` AND Subject LIKE '%${escapeSOQL(subjectWords)}%'`;
     }
+    
+    logger.debug(`${CONFIG.LOG_PREFIX} Event dedupe query: ${whereClause}`);
     
     const result = await query(`
       SELECT Id, Subject, StartDateTime
@@ -651,7 +663,7 @@ async function syncMeetingToSalesforce({
       startDateTime: startTime,
       endDateTime: endTime,
       contactId: primaryContactId,
-      accountId: primaryContactId ? null : resolvedAccountId
+      accountId: resolvedAccountId  // Always pass for deduplication, even if contactId exists
     });
     
     if (eventResult.success) {
