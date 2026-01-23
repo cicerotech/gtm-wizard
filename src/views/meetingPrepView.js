@@ -16,6 +16,23 @@ function formatTimeServer(isoString) {
 }
 
 /**
+ * Format sync time for display (e.g., "2 hours ago")
+ */
+function formatSyncTime(isoString) {
+  if (!isoString) return 'never';
+  const syncDate = new Date(isoString);
+  const now = new Date();
+  const diffMs = now - syncDate;
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return syncDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/**
  * Abbreviate common legal/executive titles for compact display
  */
 function abbreviateTitle(title) {
@@ -236,6 +253,15 @@ async function generateMeetingPrepHTML(filterUserId = null) {
   const weekRange = meetingPrepService.getCurrentWeekRange();
   let meetings = await meetingPrepService.getUpcomingMeetings(weekRange.start, weekRange.end);
   
+  // Get calendar sync status for display
+  let syncStatus = null;
+  try {
+    const { getSyncStatus } = require('../jobs/calendarSyncJob');
+    syncStatus = await getSyncStatus();
+  } catch (e) {
+    logger.debug('Could not get calendar sync status:', e.message);
+  }
+  
   // Get BL users for filter dropdown
   let blUsers = [];
   try {
@@ -349,6 +375,35 @@ body {
   font-size: 0.85rem;
   color: #6b7280;
   margin-top: 4px;
+}
+
+.sync-status {
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-top: 6px;
+  display: inline-block;
+}
+
+.sync-status.synced {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.sync-status.syncing {
+  background: #fef3c7;
+  color: #92400e;
+  animation: pulse 1.5s infinite;
+}
+
+.sync-status.no-data {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 .btn-primary {
@@ -1472,6 +1527,14 @@ textarea.input-field {
     <div>
       <h1 class="page-title">Meeting Prep</h1>
       <p class="page-subtitle">Week of ${weekDays[0].date} - ${weekDays[4].date}</p>
+      ${syncStatus ? `
+        <div class="sync-status ${syncStatus.syncInProgress ? 'syncing' : syncStatus.databaseStats?.totalEvents > 0 ? 'synced' : 'no-data'}">
+          ${syncStatus.syncInProgress ? 'Syncing calendars...' : 
+            syncStatus.databaseStats?.totalEvents > 0 ? 
+              `${syncStatus.databaseStats.customerMeetings} meetings cached (${formatSyncTime(syncStatus.syncStatus?.lastSync)})` :
+              'Calendar sync pending...'}
+        </div>
+      ` : ''}
     </div>
     <div class="header-actions">
       <select class="filter-dropdown" id="userFilter" onchange="filterByUser(this.value)">

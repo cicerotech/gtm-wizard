@@ -240,19 +240,30 @@ async function getUpcomingMeetings(startDate, endDate) {
     // Get manual entries from SQLite
     const manualMeetings = await intelligenceStore.getUpcomingMeetingPreps(startDate, endDate);
     
-    // Get Outlook Calendar events (PRIMARY source - has attendees!)
+    // Get calendar events from SQLite (FAST - instant read, no Graph API calls!)
+    // Background job handles fetching and storing calendar data
     let outlookEvents = [];
+    let calendarSyncStatus = null;
     try {
       const { calendarService } = require('./calendarService');
       const start = new Date(startDate);
       const end = new Date(endDate);
       const daysAhead = Math.ceil((end - start) / (24 * 60 * 60 * 1000));
-      const result = await calendarService.getUpcomingMeetingsForAllBLs(daysAhead);
+      
+      // Read from SQLite database (instant) instead of Graph API (slow)
+      const result = await calendarService.getCalendarEventsFromDatabase(daysAhead);
       outlookEvents = result.meetings || [];
-      logger.info(`[MeetingPrep] Fetched ${outlookEvents.length} Outlook meetings`);
+      calendarSyncStatus = result.stats;
+      
+      logger.info(`[MeetingPrep] Loaded ${outlookEvents.length} meetings from database (last sync: ${result.stats?.lastSync || 'never'})`);
+      
+      // If sync is needed, log it but don't block - background job handles it
+      if (result.needsSync) {
+        logger.info('[MeetingPrep] Calendar data needs sync - background job will handle');
+      }
     } catch (outlookError) {
-      logger.error('[MeetingPrep] Outlook calendar fetch failed:', outlookError.message);
-      // Continue with manual meetings only - no SF fallback
+      logger.error('[MeetingPrep] Failed to read calendar from database:', outlookError.message);
+      // Continue with manual meetings only
     }
     
     // Build SF account lookup for matching Outlook events to SF account IDs

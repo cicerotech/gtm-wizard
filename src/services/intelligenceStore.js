@@ -185,6 +185,51 @@ async function initialize() {
         db.run(`CREATE INDEX IF NOT EXISTS idx_context_account ON context_summaries(account_id)`);
         db.run(`CREATE INDEX IF NOT EXISTS idx_context_hash ON context_summaries(source_hash)`);
         
+        // Calendar Events table - persistent storage for fetched calendar data
+        // Survives deploys, eliminates need to re-fetch on every page load
+        db.run(`
+          CREATE TABLE IF NOT EXISTS calendar_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id TEXT UNIQUE NOT NULL,
+            owner_email TEXT NOT NULL,
+            subject TEXT,
+            start_datetime TEXT NOT NULL,
+            end_datetime TEXT,
+            external_attendees TEXT,
+            internal_attendees TEXT,
+            all_attendees TEXT,
+            account_id TEXT,
+            account_name TEXT,
+            is_customer_meeting INTEGER DEFAULT 0,
+            location TEXT,
+            body_preview TEXT,
+            web_link TEXT,
+            raw_event_json TEXT,
+            fetched_at TEXT DEFAULT CURRENT_TIMESTAMP
+          )
+        `, (err) => {
+          if (err) logger.error('Failed to create calendar_events table:', err);
+        });
+        
+        db.run(`CREATE INDEX IF NOT EXISTS idx_calendar_owner ON calendar_events(owner_email)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_calendar_start ON calendar_events(start_datetime)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_calendar_account ON calendar_events(account_id)`);
+        
+        // Calendar Sync Status table - tracks when calendars were last synced
+        db.run(`
+          CREATE TABLE IF NOT EXISTS calendar_sync_status (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sync_type TEXT UNIQUE DEFAULT 'full',
+            last_sync_at TEXT,
+            next_sync_at TEXT,
+            events_fetched INTEGER DEFAULT 0,
+            errors TEXT,
+            status TEXT DEFAULT 'idle'
+          )
+        `, (err) => {
+          if (err) logger.error('Failed to create calendar_sync_status table:', err);
+        });
+        
         logger.info('✅ Intelligence database tables initialized');
         resolve();
       });
@@ -1299,6 +1344,271 @@ async function getAllContextSummaries() {
   });
 }
 
+// ============================================================
+// CALENDAR EVENTS - Persistent storage for calendar data
+// ============================================================
+
+/**
+ * Save calendar events to database (bulk upsert)
+ * @param {Array} events - Array of normalized calendar events
+ * @returns {Object} { saved: number, errors: number }
+ */
+async function saveCalendarEvents(events) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    if (!events || events.length === 0) {
+      resolve({ saved: 0, errors: 0 });
+      return;
+    }
+    
+    let saved = 0;
+    let errors = 0;
+    
+    const stmt = db.prepare(`
+      INSERT INTO calendar_events 
+      (event_id, owner_email, subject, start_datetime, end_datetime,
+       external_attendees, internal_attendees, all_attendees,
+       account_id, account_name, is_customer_meeting, location, body_preview, web_link, raw_event_json, fetched_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(event_id) DO UPDATE SET
+        owner_email = excluded.owner_email,
+        subject = excluded.subject,
+        start_datetime = excluded.start_datetime,
+        end_datetime = excluded.end_datetime,
+        external_attendees = excluded.external_attendees,
+        internal_attendees = excluded.internal_attendees,
+        all_attendees = excluded.all_attendees,
+        account_id = excluded.account_id,
+        account_name = excluded.account_name,
+        is_customer_meeting = excluded.is_customer_meeting,
+        location = excluded.location,
+        body_preview = excluded.body_preview,
+        web_link = excluded.web_link,
+        raw_event_json = excluded.raw_event_json,
+        fetched_at = CURRENT_TIMESTAMP
+    `);
+    
+    db.serialize(() => {
+      for (const event of events) {
+        stmt.run([
+          event.eventId,
+          event.ownerEmail,
+          event.subject,
+          event.startDateTime,
+          event.endDateTime,
+          JSON.stringify(event.externalAttendees || []),
+          JSON.stringify(event.internalAttendees || []),
+          JSON.stringify(event.allAttendees || []),
+          event.accountId || null,
+          event.accountName || null,
+          event.isCustomerMeeting ? 1 : 0,
+          event.location || null,
+          event.bodyPreview || null,
+          event.webLink || null,
+          JSON.stringify(event)
+        ], function(err) {
+          if (err) {
+            errors++;
+            logger.error(`Failed to save calendar event ${event.eventId}:`, err.message);
+          } else {
+            saved++;
+          }
+        });
+      }
+      
+      stmt.finalize((err) => {
+        if (err) {
+          logger.error('Failed to finalize calendar events statement:', err);
+        }
+        logger.info(`📅 [CalendarDB] Saved ${saved} events, ${errors} errors`);
+        resolve({ saved, errors });
+      });
+    });
+  });
+}
+
+/**
+ * Get stored calendar events for a date range
+ * @param {Date} startDate - Start of date range
+ * @param {Date} endDate - End of date range
+ * @param {Object} options - { ownerEmail, customerMeetingsOnly }
+ * @returns {Array} Calendar events
+ */
+async function getStoredCalendarEvents(startDate, endDate, options = {}) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    let query = `
+      SELECT * FROM calendar_events 
+      WHERE start_datetime >= ? AND start_datetime <= ?
+    `;
+    const params = [startDate.toISOString(), endDate.toISOString()];
+    
+    if (options.ownerEmail) {
+      query += ` AND owner_email = ?`;
+      params.push(options.ownerEmail);
+    }
+    
+    if (options.customerMeetingsOnly) {
+      query += ` AND is_customer_meeting = 1`;
+    }
+    
+    query += ` ORDER BY start_datetime ASC`;
+    
+    db.all(query, params, (err, rows) => {
+      if (err) {
+        logger.error('Failed to get stored calendar events:', err);
+        reject(err);
+      } else {
+        // Parse JSON fields
+        const events = (rows || []).map(row => ({
+          ...row,
+          externalAttendees: JSON.parse(row.external_attendees || '[]'),
+          internalAttendees: JSON.parse(row.internal_attendees || '[]'),
+          allAttendees: JSON.parse(row.all_attendees || '[]'),
+          isCustomerMeeting: row.is_customer_meeting === 1
+        }));
+        resolve(events);
+      }
+    });
+  });
+}
+
+/**
+ * Clear old calendar events (older than specified days)
+ * @param {number} daysOld - Delete events older than this many days (default 30)
+ * @returns {number} Number of deleted rows
+ */
+async function clearOldCalendarEvents(daysOld = 30) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+    
+    db.run(`
+      DELETE FROM calendar_events 
+      WHERE end_datetime < ?
+    `, [cutoffDate.toISOString()], function(err) {
+      if (err) {
+        logger.error('Failed to clear old calendar events:', err);
+        reject(err);
+      } else {
+        if (this.changes > 0) {
+          logger.info(`📅 [CalendarDB] Cleared ${this.changes} old calendar events`);
+        }
+        resolve(this.changes);
+      }
+    });
+  });
+}
+
+/**
+ * Update calendar sync status
+ * @param {Object} status - { lastSyncAt, nextSyncAt, eventsFetched, errors, status }
+ */
+async function updateCalendarSyncStatus(status) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.run(`
+      INSERT INTO calendar_sync_status (sync_type, last_sync_at, next_sync_at, events_fetched, errors, status)
+      VALUES ('full', ?, ?, ?, ?, ?)
+      ON CONFLICT(sync_type) DO UPDATE SET
+        last_sync_at = excluded.last_sync_at,
+        next_sync_at = excluded.next_sync_at,
+        events_fetched = excluded.events_fetched,
+        errors = excluded.errors,
+        status = excluded.status
+    `, [
+      status.lastSyncAt || new Date().toISOString(),
+      status.nextSyncAt || null,
+      status.eventsFetched || 0,
+      JSON.stringify(status.errors || []),
+      status.status || 'idle'
+    ], function(err) {
+      if (err) {
+        logger.error('Failed to update calendar sync status:', err);
+        reject(err);
+      } else {
+        resolve({ updated: true });
+      }
+    });
+  });
+}
+
+/**
+ * Get calendar sync status
+ * @returns {Object|null} Sync status
+ */
+async function getCalendarSyncStatus() {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.get(`SELECT * FROM calendar_sync_status WHERE sync_type = 'full'`, (err, row) => {
+      if (err) {
+        logger.error('Failed to get calendar sync status:', err);
+        reject(err);
+      } else {
+        if (row) {
+          row.errors = JSON.parse(row.errors || '[]');
+        }
+        resolve(row || null);
+      }
+    });
+  });
+}
+
+/**
+ * Get calendar event count and stats
+ * @returns {Object} { totalEvents, customerMeetings, lastSync }
+ */
+async function getCalendarStats() {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.get(`
+      SELECT 
+        COUNT(*) as total_events,
+        SUM(CASE WHEN is_customer_meeting = 1 THEN 1 ELSE 0 END) as customer_meetings,
+        MAX(fetched_at) as last_fetched,
+        COUNT(DISTINCT owner_email) as unique_owners
+      FROM calendar_events
+    `, (err, row) => {
+      if (err) {
+        logger.error('Failed to get calendar stats:', err);
+        reject(err);
+      } else {
+        resolve({
+          totalEvents: row?.total_events || 0,
+          customerMeetings: row?.customer_meetings || 0,
+          lastFetched: row?.last_fetched || null,
+          uniqueOwners: row?.unique_owners || 0
+        });
+      }
+    });
+  });
+}
+
 module.exports = {
   initialize,
   close,
@@ -1345,6 +1655,13 @@ module.exports = {
   getContextSummary,
   isContextSummaryStale,
   cleanExpiredContextSummaries,
-  getAllContextSummaries
+  getAllContextSummaries,
+  // Calendar events (persistent storage)
+  saveCalendarEvents,
+  getStoredCalendarEvents,
+  clearOldCalendarEvents,
+  updateCalendarSyncStatus,
+  getCalendarSyncStatus,
+  getCalendarStats
 };
 

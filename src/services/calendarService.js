@@ -577,6 +577,199 @@ class CalendarService {
   getBLEmails() {
     return [...BL_EMAILS];
   }
+
+  // ============================================================
+  // DATABASE-BACKED CALENDAR METHODS (Fast reads, background sync)
+  // ============================================================
+
+  /**
+   * Sync all BL calendars to SQLite database
+   * This is meant to run as a BACKGROUND JOB - not on page load
+   * @param {number} daysAhead - How many days ahead to fetch (default 14)
+   * @returns {Object} Sync results
+   */
+  async syncCalendarsToDatabase(daysAhead = 14) {
+    const intelligenceStore = require('./intelligenceStore');
+    
+    logger.info(`📅 [CalendarSync] Starting background sync for ${BL_EMAILS.length} BLs...`);
+    
+    // Mark sync as in progress
+    await intelligenceStore.updateCalendarSyncStatus({
+      status: 'syncing',
+      lastSyncAt: new Date().toISOString()
+    });
+    
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + daysAhead);
+
+    const allEvents = [];
+    const errors = [];
+    const blEventCounts = {};
+
+    // Fetch calendars sequentially to avoid rate limits
+    for (const email of BL_EMAILS) {
+      try {
+        logger.info(`📅 [CalendarSync] Fetching calendar for ${email}...`);
+        const events = await this.getCalendarEvents(email, startDate, endDate);
+        blEventCounts[email] = events.length;
+        
+        // Only add customer meetings (with external attendees)
+        const customerMeetings = events.filter(e => e.isCustomerMeeting);
+        allEvents.push(...customerMeetings);
+        
+        // Small delay between users to avoid rate limits
+        await new Promise(r => setTimeout(r, 300));
+        
+      } catch (error) {
+        blEventCounts[email] = 'ERROR';
+        errors.push({ email, error: error.message });
+        logger.warn(`📅 [CalendarSync] Failed to fetch calendar for ${email}: ${error.message}`);
+      }
+    }
+
+    // Deduplicate before saving
+    const uniqueEvents = this.deduplicateMeetings(allEvents);
+    
+    logger.info(`📅 [CalendarSync] Fetched ${allEvents.length} customer meetings, ${uniqueEvents.length} unique`);
+
+    // Save to database
+    const saveResult = await intelligenceStore.saveCalendarEvents(uniqueEvents);
+    
+    // Clear old events
+    await intelligenceStore.clearOldCalendarEvents(30);
+    
+    // Calculate next sync time (6 hours from now)
+    const nextSync = new Date();
+    nextSync.setHours(nextSync.getHours() + 6);
+    
+    // Update sync status
+    await intelligenceStore.updateCalendarSyncStatus({
+      status: 'idle',
+      lastSyncAt: new Date().toISOString(),
+      nextSyncAt: nextSync.toISOString(),
+      eventsFetched: uniqueEvents.length,
+      errors: errors
+    });
+
+    // Proactively enrich attendees via Clay (fire and forget)
+    this.enrichExternalAttendeesAsync(uniqueEvents);
+
+    return {
+      success: true,
+      eventsFetched: uniqueEvents.length,
+      eventsSaved: saveResult.saved,
+      errors: errors,
+      blEventCounts,
+      nextSync: nextSync.toISOString()
+    };
+  }
+
+  /**
+   * Get calendar events from SQLite (FAST - for page loads)
+   * Falls back to empty if no data, triggers background sync
+   * @param {number} daysAhead - How many days ahead (default 14)
+   * @returns {Object} { meetings, stats, syncStatus }
+   */
+  async getCalendarEventsFromDatabase(daysAhead = 14) {
+    const intelligenceStore = require('./intelligenceStore');
+    
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + daysAhead);
+    
+    try {
+      // Get sync status
+      const syncStatus = await intelligenceStore.getCalendarSyncStatus();
+      
+      // Get stored events (FAST - SQLite query)
+      const events = await intelligenceStore.getStoredCalendarEvents(
+        startDate, 
+        endDate, 
+        { customerMeetingsOnly: true }
+      );
+      
+      // Convert stored format back to normalized meeting format
+      const meetings = events.map(e => ({
+        eventId: e.event_id,
+        subject: e.subject,
+        startDateTime: e.start_datetime,
+        endDateTime: e.end_datetime,
+        ownerEmail: e.owner_email,
+        externalAttendees: e.externalAttendees,
+        internalAttendees: e.internalAttendees,
+        allAttendees: e.allAttendees,
+        accountId: e.account_id,
+        accountName: e.account_name,
+        isCustomerMeeting: e.isCustomerMeeting,
+        location: e.location,
+        bodyPreview: e.body_preview,
+        webLink: e.web_link
+      }));
+      
+      const stats = await intelligenceStore.getCalendarStats();
+      
+      // Check if we need a background sync
+      let needsSync = false;
+      if (!syncStatus || !syncStatus.last_sync_at) {
+        needsSync = true;
+      } else {
+        const lastSync = new Date(syncStatus.last_sync_at);
+        const hoursSinceSync = (Date.now() - lastSync.getTime()) / (1000 * 60 * 60);
+        if (hoursSinceSync > 6) {
+          needsSync = true;
+        }
+      }
+      
+      return {
+        meetings,
+        stats: {
+          totalEvents: stats.totalEvents,
+          customerMeetings: stats.customerMeetings,
+          uniqueMeetings: meetings.length,
+          lastSync: syncStatus?.last_sync_at || null,
+          nextSync: syncStatus?.next_sync_at || null,
+          syncStatus: syncStatus?.status || 'unknown'
+        },
+        needsSync
+      };
+      
+    } catch (error) {
+      logger.error(`📅 [CalendarDB] Failed to read from database:`, error.message);
+      return {
+        meetings: [],
+        stats: { totalEvents: 0, customerMeetings: 0, uniqueMeetings: 0, error: error.message },
+        needsSync: true
+      };
+    }
+  }
+
+  /**
+   * Check if calendar data is stale (>6 hours old) or missing
+   * @returns {boolean} True if sync is needed
+   */
+  async isCalendarSyncNeeded() {
+    const intelligenceStore = require('./intelligenceStore');
+    
+    try {
+      const syncStatus = await intelligenceStore.getCalendarSyncStatus();
+      
+      if (!syncStatus || !syncStatus.last_sync_at) {
+        return true;
+      }
+      
+      const lastSync = new Date(syncStatus.last_sync_at);
+      const hoursSinceSync = (Date.now() - lastSync.getTime()) / (1000 * 60 * 60);
+      
+      return hoursSinceSync > 6;
+    } catch (error) {
+      return true;
+    }
+  }
 }
 
 // Singleton instance

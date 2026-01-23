@@ -361,6 +361,20 @@ class GTMBrainApp {
       await initializeEmail();
       logger.info('✅ Email service initialized');
 
+      // Initialize Calendar Sync Job (background sync to SQLite)
+      try {
+        const { initializeCalendarSync } = require('./jobs/calendarSyncJob');
+        const calendarInit = await initializeCalendarSync();
+        if (calendarInit.initialized) {
+          logger.info(`✅ Calendar sync initialized (${calendarInit.currentEvents} cached events)`);
+        } else {
+          logger.warn('⚠️  Calendar sync initialization failed:', calendarInit.error);
+        }
+      } catch (calendarError) {
+        logger.warn('⚠️  Calendar sync service failed to initialize:', calendarError.message);
+        // Don't throw - app can still run, just without calendar caching
+      }
+
     } catch (error) {
       logger.error('Failed to initialize external services:', error);
       throw error;
@@ -1399,6 +1413,64 @@ class GTMBrainApp {
         
       } catch (error) {
         logger.error('Error listing calendar feeds:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // CALENDAR SYNC ENDPOINTS (Background Job Management)
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    // Get calendar sync status (instant - reads from SQLite)
+    this.expressApp.get('/api/calendar/sync/status', async (req, res) => {
+      try {
+        const { getSyncStatus } = require('./jobs/calendarSyncJob');
+        const status = await getSyncStatus();
+        res.json({ success: true, ...status });
+      } catch (error) {
+        logger.error('Error getting calendar sync status:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Trigger manual calendar sync (admin only)
+    this.expressApp.post('/api/calendar/sync/trigger', async (req, res) => {
+      try {
+        const { triggerManualSync } = require('./jobs/calendarSyncJob');
+        
+        // Start sync in background
+        res.json({ 
+          success: true, 
+          message: 'Calendar sync started in background',
+          note: 'Check /api/calendar/sync/status for progress'
+        });
+        
+        // Don't await - let it run in background
+        triggerManualSync().catch(err => {
+          logger.error('Manual calendar sync failed:', err.message);
+        });
+        
+      } catch (error) {
+        logger.error('Error triggering calendar sync:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Get stored calendar events from database (fast - for debugging)
+    this.expressApp.get('/api/calendar/stored', async (req, res) => {
+      try {
+        const { calendarService } = require('./services/calendarService');
+        const result = await calendarService.getCalendarEventsFromDatabase(14);
+        
+        res.json({
+          success: true,
+          meetingCount: result.meetings.length,
+          stats: result.stats,
+          needsSync: result.needsSync,
+          meetings: result.meetings.slice(0, 20) // First 20 for preview
+        });
+      } catch (error) {
+        logger.error('Error getting stored calendar events:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });
