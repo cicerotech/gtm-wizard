@@ -1915,6 +1915,25 @@ Your Vault/
       }
     });
     
+    // Debug endpoint: Test Clay lookup + domain fallback for an email
+    this.expressApp.get('/api/salesforce/debug-contact/:email', async (req, res) => {
+      try {
+        const contactSync = require('./services/salesforceContactSync');
+        const email = decodeURIComponent(req.params.email);
+        
+        const results = {
+          email,
+          clayData: await contactSync.getClayEnrichmentData(email),
+          domainLookup: await contactSync.findAccountByDomain(email),
+          existingContact: await contactSync.findContactByEmail(email)
+        };
+        
+        res.json(results);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+    
     // ═══════════════════════════════════════════════════════════════════════
     // TEST ENDPOINTS - For validating Obsidian sync pipeline
     // ═══════════════════════════════════════════════════════════════════════

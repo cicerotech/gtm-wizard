@@ -16,10 +16,12 @@
 const logger = require('../utils/logger');
 const { calendarService } = require('../services/calendarService');
 const intelligenceStore = require('../services/intelligenceStore');
+const contactSync = require('../services/salesforceContactSync');
 
 // Configuration
 const DAYS_AHEAD = 14; // Sync next 14 days of meetings
 const SYNC_INTERVAL_HOURS = 6; // Sync every 6 hours
+const SYNC_CONTACTS_ON_CALENDAR = true; // Create missing contacts during calendar sync
 
 // State
 let syncInProgress = false;
@@ -54,16 +56,46 @@ async function runCalendarSync() {
   logger.info('📅 [CalendarSync] Starting background calendar sync...');
 
   try {
-    // Run the sync
+    // Run the calendar sync
     const result = await calendarService.syncCalendarsToDatabase(DAYS_AHEAD);
+    
+    logger.info(`📅 [CalendarSync] Calendar sync complete: ${result.eventsSaved} events saved`);
+    
+    // ENHANCED: Create missing contacts from calendar attendees
+    let contactSyncResult = null;
+    if (SYNC_CONTACTS_ON_CALENDAR && result.eventsSaved > 0) {
+      try {
+        logger.info(`📅 [CalendarSync] Processing attendees for contact creation...`);
+        
+        // Get the saved events with external attendees
+        const storedEvents = await intelligenceStore.getStoredCalendarEvents(
+          new Date().toISOString(),
+          new Date(Date.now() + DAYS_AHEAD * 24 * 60 * 60 * 1000).toISOString()
+        );
+        
+        // Filter to events with external attendees
+        const eventsWithAttendees = storedEvents.filter(e => 
+          e.externalAttendees && e.externalAttendees.length > 0
+        );
+        
+        if (eventsWithAttendees.length > 0) {
+          contactSyncResult = await contactSync.syncCalendarAttendees(eventsWithAttendees);
+          logger.info(`📅 [CalendarSync] Contact sync: ${contactSyncResult.contactsCreated} created, ${contactSyncResult.contactsFound} found`);
+        }
+      } catch (contactError) {
+        logger.warn(`📅 [CalendarSync] Contact sync failed (non-blocking):`, contactError.message);
+        contactSyncResult = { error: contactError.message };
+      }
+    }
     
     lastSyncResult = {
       ...result,
+      contactSync: contactSyncResult,
       completedAt: new Date().toISOString(),
       durationMs: Date.now() - startTime
     };
 
-    logger.info(`📅 [CalendarSync] Sync complete: ${result.eventsSaved} events saved in ${Date.now() - startTime}ms`);
+    logger.info(`📅 [CalendarSync] Full sync complete in ${Date.now() - startTime}ms`);
     
     return lastSyncResult;
 
