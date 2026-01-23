@@ -2380,10 +2380,11 @@ async function openMeetingPrep(meetingId) {
     
     if (accountId) {
       try {
-        const ctxRes = await fetch('/api/meeting-context/' + accountId);
+        // Request AI summary for accounts with context
+        const ctxRes = await fetch('/api/meeting-context/' + accountId + '?summarize=true');
         const ctxData = await ctxRes.json();
         if (ctxData.success && ctxData.context) {
-          contextHtml = formatContextSection(ctxData.context, currentMeetingData);
+          contextHtml = formatContextSection(ctxData.context, currentMeetingData, ctxData.aiSummary);
         }
       } catch (e) {
         console.error('Failed to load context:', e);
@@ -2466,13 +2467,75 @@ function generateStorySoFar(ctx, meetingData) {
 
 // Format context section HTML with priority-based display
 // Shows: Story So Far, Type, Owner, Recent Context (from various sources), Key Contacts
-function formatContextSection(ctx, meetingData) {
+function formatContextSection(ctx, meetingData, aiSummary = null) {
   let html = '<div class="context-section"><div class="context-header"><span class="context-title">Account Context</span></div><div class="context-content">';
   
-  // === STORY SO FAR (Synthesized Narrative) ===
-  const storyHtml = generateStorySoFar(ctx, meetingData);
-  if (storyHtml) {
-    html += storyHtml;
+  // === AI-GENERATED SUMMARY (if available) ===
+  if (aiSummary && aiSummary.executiveSummary) {
+    html += '<div style="margin-bottom: 14px; padding: 12px; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 8px; border: 1px solid #86efac;">';
+    html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">';
+    html += '<div style="font-size: 0.7rem; color: #15803d; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">AI Brief</div>';
+    
+    // Sentiment badge
+    const sentimentColors = {
+      'positive': { bg: '#dcfce7', text: '#166534' },
+      'neutral': { bg: '#f3f4f6', text: '#374151' },
+      'cautious': { bg: '#fef3c7', text: '#92400e' },
+      'at-risk': { bg: '#fee2e2', text: '#991b1b' }
+    };
+    const sentColors = sentimentColors[aiSummary.sentiment] || sentimentColors.neutral;
+    if (aiSummary.sentiment) {
+      html += '<span style="font-size: 0.65rem; padding: 2px 6px; background: ' + sentColors.bg + '; color: ' + sentColors.text + '; border-radius: 4px; text-transform: capitalize;">' + aiSummary.sentiment + '</span>';
+    }
+    html += '</div>';
+    
+    // Executive summary
+    html += '<div style="font-size: 0.85rem; line-height: 1.5; color: #1f2937; margin-bottom: 10px;">' + aiSummary.executiveSummary + '</div>';
+    
+    // Key takeaways
+    if (aiSummary.keyTakeaways && aiSummary.keyTakeaways.length > 0) {
+      html += '<div style="margin-top: 8px;">';
+      aiSummary.keyTakeaways.slice(0, 3).forEach(function(takeaway) {
+        html += '<div style="font-size: 0.75rem; color: #374151; margin-bottom: 4px; padding-left: 12px; position: relative;">';
+        html += '<span style="position: absolute; left: 0; color: #22c55e;">•</span>' + takeaway;
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    
+    // Deal intel (stage & blockers)
+    if (aiSummary.dealIntel) {
+      const intel = aiSummary.dealIntel;
+      if (intel.stage && intel.stage !== 'Unknown') {
+        html += '<div style="margin-top: 10px; display: flex; gap: 12px; flex-wrap: wrap;">';
+        html += '<span style="font-size: 0.7rem; padding: 3px 8px; background: #dbeafe; color: #1e40af; border-radius: 4px;">Stage: ' + intel.stage + '</span>';
+        if (intel.champions && intel.champions.length > 0) {
+          html += '<span style="font-size: 0.7rem; padding: 3px 8px; background: #f3e8ff; color: #7c3aed; border-radius: 4px;">Champion: ' + intel.champions[0] + '</span>';
+        }
+        if (intel.competitors && intel.competitors.length > 0) {
+          html += '<span style="font-size: 0.7rem; padding: 3px 8px; background: #fef3c7; color: #92400e; border-radius: 4px;">vs ' + intel.competitors.join(', ') + '</span>';
+        }
+        html += '</div>';
+      }
+    }
+    
+    // Next steps
+    if (aiSummary.nextSteps && aiSummary.nextSteps.length > 0) {
+      html += '<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #bbf7d0;">';
+      html += '<div style="font-size: 0.65rem; color: #15803d; margin-bottom: 4px;">Recommended Next Steps:</div>';
+      aiSummary.nextSteps.slice(0, 2).forEach(function(step) {
+        html += '<div style="font-size: 0.75rem; color: #374151;">→ ' + step + '</div>';
+      });
+      html += '</div>';
+    }
+    
+    html += '</div>';
+  } else {
+    // Fall back to static Story So Far if no AI summary
+    const storyHtml = generateStorySoFar(ctx, meetingData);
+    if (storyHtml) {
+      html += storyHtml;
+    }
   }
   
   // Account basics: Type and Owner only (industry removed - not actionable)

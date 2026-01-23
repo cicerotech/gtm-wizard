@@ -1175,12 +1175,61 @@ class GTMBrainApp {
       }
     });
 
-    // Get aggregated context for an account
+    // Get aggregated context for an account (with optional AI summary)
     this.expressApp.get('/api/meeting-context/:accountId', async (req, res) => {
       try {
         const { accountId } = req.params;
+        const { summarize } = req.query; // ?summarize=true to get AI summary
+        
+        // Get raw context from various sources
         const context = await meetingContextService.generateMeetingContext(accountId);
-        res.json({ success: true, context });
+        
+        // Optionally generate AI summary
+        let aiSummary = null;
+        if (summarize === 'true' && context) {
+          try {
+            const contextSummarizer = require('./services/contextSummarizer');
+            
+            // Transform context to the format expected by aggregateContextSources
+            const sources = {
+              customerBrain: context.salesforce?.customerBrain || '',
+              obsidianNotes: context.obsidianNotes || [],
+              slackIntel: context.slackIntel || [],
+              priorMeetings: context.priorMeetings || []
+            };
+            
+            // Also include meeting notes if available
+            if (context.meetingNotes && Array.isArray(context.meetingNotes)) {
+              sources.customerBrain += '\n\n' + context.meetingNotes
+                .map(n => `[${n.date}] ${n.rep}: ${n.summary}`)
+                .join('\n\n');
+            }
+            
+            const rawContent = contextSummarizer.aggregateContextSources(sources);
+            
+            if (rawContent && rawContent.length >= 100) {
+              const summaryResult = await contextSummarizer.getOrGenerateSummary(
+                accountId,
+                context.salesforce?.accountName || 'Unknown',
+                sources
+              );
+              
+              if (summaryResult.success) {
+                aiSummary = summaryResult.summary;
+              }
+            }
+          } catch (summaryError) {
+            logger.warn(`AI summary failed for ${accountId}:`, summaryError.message);
+            // Continue without AI summary
+          }
+        }
+        
+        res.json({ 
+          success: true, 
+          context,
+          aiSummary,
+          hasAiSummary: !!aiSummary
+        });
       } catch (error) {
         logger.error('Error fetching meeting context:', error);
         res.status(500).json({ success: false, error: error.message });
