@@ -1520,12 +1520,13 @@ class GTMBrainApp {
 
         // Check Salesforce connection
         try {
-          const { isConnected, getDegradedModeStatus } = require('./salesforce/connection');
-          const degraded = getDegradedModeStatus();
+          const { isConnected, getConnectionState } = require('./salesforce/connection');
+          const connState = getConnectionState();
           checks.salesforce = {
-            status: isConnected() ? 'ok' : (degraded.inDegradedMode ? 'degraded' : 'error'),
-            degradedMode: degraded.inDegradedMode,
-            reason: degraded.reason || null
+            status: isConnected() ? 'ok' : (connState.degradedMode ? 'degraded' : 'error'),
+            degradedMode: connState.degradedMode,
+            circuitOpen: connState.circuitOpen,
+            lastError: connState.lastError || null
           };
         } catch (e) {
           checks.salesforce = { status: 'error', message: e.message };
