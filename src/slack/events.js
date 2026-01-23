@@ -747,6 +747,10 @@ Ask me anything about your pipeline, accounts, or deals!`;
       // Handle CSM Account Health report
       await handleGenerateCSMReport(userId, channelId, client, threadTs);
       return; // Exit early
+    } else if (parsedIntent.intent === 'send_finance_report') {
+      // Handle Finance Weekly Audit report
+      await handleFinanceAuditReport(userId, channelId, client, threadTs);
+      return; // Exit early
     } else if (parsedIntent.intent === 'batch_move_to_nurture') {
       // Handle batch move to nurture (Keigan only)
       await handleBatchMoveToNurture(parsedIntent.entities, userId, channelId, client, threadTs);
@@ -3033,6 +3037,39 @@ async function handleGenerateCSMReport(userId, channelId, client, threadTs) {
     await client.chat.postMessage({
       channel: channelId,
       text: `❌ Error generating CSM report: ${error.message}\n\nPlease try again or contact support.`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle Finance Weekly Audit Report
+ * Command: @gtm-brain send finance report
+ */
+async function handleFinanceAuditReport(userId, channelId, client, threadTs) {
+  try {
+    logger.info(`📊 Finance Weekly Audit Report requested by ${userId} in channel: ${channelId}`);
+    
+    // Show loading message
+    await client.chat.postMessage({
+      channel: channelId,
+      text: '📊 Generating Finance Weekly Audit report... This will take a moment.',
+      thread_ts: threadTs
+    });
+    
+    // Import the finance audit module
+    const { sendFinanceAuditToSlack } = require('./financeWeeklyAudit');
+    
+    // Generate and upload Finance Audit Excel report
+    await sendFinanceAuditToSlack(client, channelId, userId);
+    
+    logger.info(`✅ Finance Weekly Audit report sent to channel ${channelId} by ${userId}`);
+    
+  } catch (error) {
+    logger.error('Failed to generate Finance Weekly Audit report:', error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Error generating Finance Audit report: ${error.message}\n\nPlease try again or contact support.`,
       thread_ts: threadTs
     });
   }

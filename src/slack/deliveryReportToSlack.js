@@ -29,16 +29,15 @@ async function getDeliveryData() {
  * Report ID: 00OWj000004joxdMAA
  * 
  * The report filters by Stage to include:
- * - Stage 0 - Prospecting, Stage 0 - Qualifying, Stage 1 - Discovery
- * - Stage 2 - SQO, Stage 3 - Pilot, Stage 4 - Proposal
- * - Stage 5 - Negotiation, Stage 6. Closed(Won)
+ * - Stage 4 - Proposal
+ * - Stage 6. Closed(Won)
  * 
- * EXCLUDES: Stage 7. Closed Lost
+ * EXCLUDES: All other stages (matches SF "Delivery Weekly" report filter)
  */
 async function getDeliveryDataSimple() {
   // Query Deliveries with their related Opportunity data
-  // Match the exact stage filter from the Salesforce "Delivery Weekly" report
-  // This explicitly excludes Closed Lost (Stage 7)
+  // Match the EXACT stage filter from the Salesforce "Delivery Weekly" report
+  // Only includes: Stage 4 - Proposal and Stage 6. Closed(Won)
   const deliveriesQuery = `
     SELECT 
       Id,
@@ -65,18 +64,9 @@ async function getDeliveryDataSimple() {
       Eudia_Delivery_Owner__r.Name
     FROM Delivery__c
     WHERE Opportunity__r.StageName IN (
-      'Stage 0 - Prospecting',
-      'Stage 0 - Qualifying', 
-      'Stage 1 - Discovery',
-      'Stage 2 - SQO',
-      'Stage 3 - Pilot',
       'Stage 4 - Proposal',
-      'Stage 5 - Negotiation',
-      'Stage 6. Closed(Won)',
-      'Stage 6. Closed Won',
-      'Closed Won'
+      'Stage 6. Closed(Won)'
     )
-    OR Opportunity__r.StageName = null
     ORDER BY Opportunity__r.CloseDate DESC, Account__r.Name
   `;
 

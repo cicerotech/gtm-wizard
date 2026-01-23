@@ -1359,6 +1359,23 @@ Business Context:
       };
     }
     
+    // Finance Weekly Audit Report
+    // Patterns: "finance report", "finance audit", "finance weekly", "send finance"
+    if ((message.includes('finance') && message.includes('report')) ||
+        (message.includes('finance') && message.includes('audit')) ||
+        (message.includes('finance') && message.includes('weekly')) ||
+        (message.includes('send') && message.includes('finance'))) {
+      return {
+        intent: 'send_finance_report',
+        entities: {},
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'Generate Finance Weekly Audit Excel report',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
     // Delivery Weekly Summary / Snapshot (PDF + Excel)
     // MUST be checked BEFORE general weekly summary to catch delivery-specific requests
     if ((message.includes('delivery') && message.includes('snapshot')) ||
