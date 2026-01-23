@@ -56,7 +56,8 @@ const BL_EMAILS_PILOT = [
   'nicola.fratini@eudia.com',
   'riona.mchale@eudia.com',
   // Test/Admin
-  'keigan.pesenti@eudia.com'
+  'keigan.pesenti@eudia.com',
+  'ben.brosnahan@eudia.com'
 ];
 
 // Full BL list (US + EU Pods) - enable when ready
