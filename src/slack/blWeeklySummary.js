@@ -1434,10 +1434,15 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.font(fontBold).fontSize(10).fillColor('#ffffff');
   doc.text('FY2025E Total', LEFT + 8, y + 6);
   const fy2025Total = (runRateHistorical['December'] || 20.1) + janValue + q4Value;
-  doc.text(`${fy2025Total.toFixed(1)}m`, LEFT + col1Width + 8, y + 6);
+  doc.text(`${fy2025Total.toFixed(1)}m*`, LEFT + col1Width + 8, y + 6);
   y += 22;
   
-  const runRateEndY = y + 4;
+  // Footnote for FY2025E Total
+  y += 3;
+  doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
+  doc.text('*Includes MS; prior month churn not yet reconciled', LEFT, y);
+  
+  const runRateEndY = y + 12;
   
   // ═══════════════════════════════════════════════════════════════════════════
   // SIGNED REVENUE QTD (Right column, same row as Run-Rate)
@@ -1574,26 +1579,14 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     rightY += 11;
   });
   
-  // Q1 Summary line
-  rightY += 6;
-  doc.font(fontBold).fontSize(8).fillColor(GREEN_ACCENT);
-  const q1AcvValue = top10Q1.totalACV >= 1000000 
-    ? `$${(top10Q1.totalACV / 1000000).toFixed(1)}m`
-    : `$${(top10Q1.totalACV / 1000).toFixed(0)}k`;
-  doc.text(`Q1 FY2026: (${top10Q1.totalCount}) opportunities $300K+, totaling ${q1AcvValue} in ACV potential`, oppRightX, rightY);
-  
   y = Math.max(leftY, rightY) + SECTION_GAP + 4;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // PIPELINE TARGETING SIGNATURE IN JANUARY - By Sales Type
+  // PIPELINE BY SALES TYPE
   // ═══════════════════════════════════════════════════════════════════════════
   doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
-  doc.text('PIPELINE TARGETING SIGNATURE IN JANUARY', LEFT, y);
+  doc.text('PIPELINE BY SALES TYPE', LEFT, y);
   y += 16;
-  
-  doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
-  doc.text('By Sales Type', LEFT, y);
-  y += 14;
   
   // Sales Type table
   const salesTypeTableWidth = PAGE_WIDTH;
@@ -2353,14 +2346,14 @@ function formatSlackMessage(pipelineData, previousSnapshot, dateStr, revOpsData 
   }
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // TOP CONTRIBUTORS - Condensed by Pod
+  // TOP BLs BY PIPELINE ACV - Condensed by Pod
   // ═══════════════════════════════════════════════════════════════════════════
   const usBLs = US_POD.filter(bl => blMetrics[bl]?.grossACV > 0)
     .sort((a, b) => blMetrics[b].grossACV - blMetrics[a].grossACV).slice(0, 3);
   const euBLs = EU_POD.filter(bl => blMetrics[bl]?.grossACV > 0)
     .sort((a, b) => blMetrics[b].grossACV - blMetrics[a].grossACV).slice(0, 3);
   
-  message += `*TOP CONTRIBUTORS*\n`;
+  message += `*PIPELINE BY BL*\n`;
   if (usBLs.length > 0) {
     const usLine = usBLs.map(bl => `${bl.split(' ')[0]} ${formatCurrency(blMetrics[bl].grossACV)}`).join(', ');
     message += `US: ${usLine}\n`;
