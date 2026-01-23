@@ -185,7 +185,7 @@ function formatFieldName(apiName) {
     'Account.Name': 'Account',
     'Account.Industry': 'Industry',
     'Finance_Weighted_ACV__c': 'Weighted ACV',
-    'Target_LOI_Date__c': 'Target LOI Date',
+    'Target_LOI_Date__c': 'Target Sign Date',
     'Days_in_Stage__c': 'Days in Stage'
   };
 

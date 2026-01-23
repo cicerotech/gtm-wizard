@@ -72,6 +72,7 @@ async function getDeliveryDataSimple() {
         'Stage 4 - Proposal',
         'Stage 6. Closed(Won)'
       )
+      AND Eudia_Delivery_Owner__r.Name != 'Keigan Pesenti'
     ORDER BY Opportunity__r.CloseDate DESC, Account__r.Name
   `;
 

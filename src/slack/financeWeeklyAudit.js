@@ -4,7 +4,7 @@
  * Generates Excel report from Salesforce Finance Audit - Target Opps This Quarter
  * Report ID: 00OWj0000050WOSMA2
  * 
- * Includes: Opportunities with Target LOI Sign Date this fiscal quarter
+ * Includes: Opportunities with Target Sign Date this fiscal quarter
  * Groups by: Pod (US/EU) and Opportunity Owner
  * Metrics: ACV, BL Quarterly Forecast, Weighted ACV, Blended Forecast (base)
  */
@@ -82,12 +82,13 @@ async function getFinanceAuditData() {
       'Stage 4 - Proposal'
     )
     AND Target_LOI_Date__c < ${quarterEnd}
+    AND Owner.Name != 'Keigan Pesenti'
     ORDER BY Pod__c, Owner.Name, ACV__c DESC
   `;
 
   try {
     const result = await query(opportunitiesQuery, true);
-    logger.info(`[FinanceAudit] Queried ${result?.records?.length || 0} opportunities (Stages 0-4, Target LOI < ${quarterEnd})`);
+    logger.info(`[FinanceAudit] Queried ${result?.records?.length || 0} opportunities (Stages 0-4, Target Sign Date < ${quarterEnd})`);
     
     // VALIDATION: Log totals for verification
     if (result?.records) {
@@ -362,7 +363,7 @@ async function generateFinanceAuditExcel() {
     { header: 'BL Forecast', key: 'blForecast', width: 14 },
     { header: 'Weighted ACV', key: 'weightedACV', width: 14 },
     { header: 'Blended (base)', key: 'blendedForecast', width: 14 },
-    { header: 'Target LOI', key: 'targetLOI', width: 12 }
+    { header: 'Target Sign Date', key: 'targetSignDate', width: 14 }
   ];
 
   // Apply header styling
@@ -389,7 +390,7 @@ async function generateFinanceAuditExcel() {
       blForecast: opp.BL_Quarterly_Forecast__c || 0,
       weightedACV: opp.Weighted_ACV__c || 0,
       blendedForecast: opp.Blended_Forecast_base__c || 0,
-      targetLOI: opp.Target_LOI_Date__c || ''
+      targetSignDate: opp.Target_LOI_Date__c || ''
     });
     
     row.eachCell((cell) => {
@@ -436,7 +437,7 @@ async function sendFinanceAuditToSlack(client, channelId, userId) {
     if (!result.buffer || result.totalRecords === 0) {
       await client.chat.postMessage({
         channel: channelId,
-        text: '*Finance Weekly Audit - Target Opps This Quarter*\n\nNo opportunities found with Target LOI Date this quarter.'
+        text: '*Finance Weekly Audit - Target Opps This Quarter*\n\nNo opportunities found with Target Sign Date this quarter.'
       });
       return;
     }
