@@ -1842,13 +1842,89 @@ Your Vault/
     });
 
     // ═══════════════════════════════════════════════════════════════════════
+    // SALESFORCE CONTACT + EVENT SYNC ENDPOINTS
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    // Sync a meeting to Salesforce (create contacts + event with notes)
+    this.expressApp.post('/api/salesforce/sync-meeting', async (req, res) => {
+      try {
+        const contactSync = require('./services/salesforceContactSync');
+        
+        const {
+          accountId,
+          accountName = 'Unknown Account',
+          attendees = [],
+          subject = 'Meeting',
+          dateTime = new Date().toISOString(),
+          notes = '',
+          durationMinutes = 60,
+          dryRun = false
+        } = req.body;
+        
+        if (!accountId) {
+          return res.status(400).json({
+            success: false,
+            error: 'accountId is required - cannot create orphan contacts'
+          });
+        }
+        
+        const result = await contactSync.syncMeetingToSalesforce({
+          accountId,
+          accountName,
+          attendees,
+          subject,
+          dateTime,
+          notes,
+          durationMinutes,
+          dryRun
+        });
+        
+        res.json(result);
+        
+      } catch (error) {
+        logger.error('Error syncing meeting to Salesforce:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Find or create a single contact
+    this.expressApp.post('/api/salesforce/find-or-create-contact', async (req, res) => {
+      try {
+        const contactSync = require('./services/salesforceContactSync');
+        
+        const { email, name, firstName, lastName, title, accountId } = req.body;
+        
+        if (!email) {
+          return res.status(400).json({ success: false, error: 'email is required' });
+        }
+        
+        const result = await contactSync.findOrCreateContact({
+          email,
+          name,
+          firstName,
+          lastName,
+          title,
+          accountId
+        });
+        
+        res.json(result);
+        
+      } catch (error) {
+        logger.error('Error finding/creating contact:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // ═══════════════════════════════════════════════════════════════════════
     // TEST ENDPOINTS - For validating Obsidian sync pipeline
     // ═══════════════════════════════════════════════════════════════════════
     
     // Manually push a test note to the database (bypasses file reading)
+    // Now also supports syncing to Salesforce (contacts + event)
     this.expressApp.post('/api/obsidian/test-push', async (req, res) => {
       try {
         const intelligenceStore = require('./services/intelligenceStore');
+        const contactSync = require('./services/salesforceContactSync');
         
         const {
           accountId = '001Hp00003lhyCxIAI',  // Eudia Testing default
@@ -1857,9 +1933,14 @@ Your Vault/
           noteDate = new Date().toISOString().split('T')[0],
           summary = 'Test meeting note pushed via API.',
           sentiment = 'Positive',
-          blEmail = 'keigan@eudia.com'
+          blEmail = 'keigan@eudia.com',
+          // NEW: Optional Salesforce sync
+          syncToSalesforce = false,
+          attendees = [],
+          durationMinutes = 60
         } = req.body;
         
+        // Store in GTM Brain database
         const result = await intelligenceStore.storeObsidianNote({
           accountId,
           accountName,
@@ -1876,14 +1957,31 @@ Your Vault/
         
         logger.info(`📝 Test note pushed: ${noteTitle} → ${accountName}`);
         
+        // Optional: Sync to Salesforce (create contacts + event)
+        let salesforceSync = null;
+        if (syncToSalesforce) {
+          logger.info(`📤 Syncing to Salesforce: ${noteTitle}`);
+          
+          salesforceSync = await contactSync.syncMeetingToSalesforce({
+            accountId,
+            accountName,
+            attendees,
+            subject: noteTitle,
+            dateTime: `${noteDate}T10:00:00Z`,
+            notes: summary,
+            durationMinutes
+          });
+        }
+        
         res.json({
           success: true,
-          message: 'Test note stored successfully',
+          message: 'Test note stored successfully' + (syncToSalesforce ? ' + synced to Salesforce' : ''),
           noteId: result.id,
           accountId,
           accountName,
           noteTitle,
           noteDate,
+          salesforceSync,
           nextStep: `Visit /meetings to see this in Meeting Prep for ${accountName}`
         });
         

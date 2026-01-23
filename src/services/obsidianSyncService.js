@@ -15,6 +15,7 @@ const logger = require('../utils/logger');
 const { query } = require('../salesforce/connection');
 const intelligenceStore = require('./intelligenceStore');
 const { calendarService, BL_EMAILS } = require('./calendarService');
+const contactSync = require('./salesforceContactSync');
 
 // Import Obsidian sync libraries (from obsidian-sync module)
 let vaultReader, smartMatcher, summarizer;
@@ -48,6 +49,11 @@ const CONFIG = {
   // Summarization
   ENABLE_SUMMARIZATION: true,
   SUMMARIZE_LONG_NOTES_ONLY: true,
+  
+  // Salesforce sync (contact creation + event logging)
+  SYNC_TO_SALESFORCE: true,              // Enable auto-sync to SF
+  CREATE_MISSING_CONTACTS: true,         // Create contacts if they don't exist
+  CREATE_SF_EVENTS: true,                // Create Events with meeting notes
   MIN_LENGTH_FOR_SUMMARY: 1000  // Only summarize notes > 1000 chars
 };
 
@@ -326,6 +332,52 @@ async function processNote(file, context, options = {}) {
     matchConfidence: match.confidence
   });
   
+  // ═══════════════════════════════════════════════════════════════════════
+  // SALESFORCE SYNC: Create contacts + Event with meeting notes
+  // ═══════════════════════════════════════════════════════════════════════
+  let salesforceResult = null;
+  
+  if (CONFIG.SYNC_TO_SALESFORCE && options.syncToSalesforce !== false) {
+    try {
+      // Format attendees for Salesforce sync
+      const attendees = (meetingInfo.attendees || []).map(a => {
+        if (typeof a === 'string') {
+          // Parse "Name (email)" or just "Name"
+          const emailMatch = a.match(/\(([^)]+@[^)]+)\)/);
+          return {
+            name: a.replace(/\s*\([^)]+\)\s*$/, '').trim(),
+            email: emailMatch ? emailMatch[1] : null
+          };
+        }
+        return { name: a.name, email: a.email, title: a.title };
+      }).filter(a => a.email); // Only sync attendees with emails
+      
+      if (attendees.length > 0 || CONFIG.CREATE_SF_EVENTS) {
+        logger.info(`[ObsidianSync] 📤 Syncing to Salesforce: ${meetingInfo.title}`);
+        
+        salesforceResult = await contactSync.syncMeetingToSalesforce({
+          accountId: match.accountId,
+          accountName: match.accountName,
+          attendees,
+          subject: meetingInfo.title,
+          dateTime: meetingInfo.date ? `${meetingInfo.date}T10:00:00Z` : new Date().toISOString(),
+          notes: summary?.fullText || meetingInfo.rawBody?.substring(0, 5000) || '',
+          durationMinutes: 60
+        });
+        
+        if (salesforceResult.contactsCreated?.length > 0) {
+          logger.info(`[ObsidianSync] ✅ Created ${salesforceResult.contactsCreated.length} contacts in Salesforce`);
+        }
+        if (salesforceResult.event) {
+          logger.info(`[ObsidianSync] ✅ Created Salesforce Event: ${salesforceResult.event.id}`);
+        }
+      }
+    } catch (sfError) {
+      logger.warn(`[ObsidianSync] Salesforce sync failed (non-blocking):`, sfError.message);
+      salesforceResult = { success: false, error: sfError.message };
+    }
+  }
+  
   // Optionally mark as synced in Obsidian
   if (options.markAsSynced !== false) {
     vaultReader.markAsSynced(file.path);
@@ -337,7 +389,8 @@ async function processNote(file, context, options = {}) {
     accountName: match.accountName,
     matchMethod: match.matchMethod,
     confidence: match.confidence,
-    hasSummary: !!summary
+    hasSummary: !!summary,
+    salesforce: salesforceResult
   };
 }
 
