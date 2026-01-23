@@ -331,3 +331,4 @@ To use the Channel Intelligence Scraper, add these to your Slack App:
 ## License
 
 MIT
+
