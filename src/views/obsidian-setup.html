@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Obsidian Setup | Eudia</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    :root {
+      --bg: #0a0a0a;
+      --card: #141414;
+      --border: #2a2a2a;
+      --text: #e5e5e5;
+      --text-muted: #888;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #22c55e;
+      --warning: #eab308;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+    
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    
+    .logo {
+      font-size: 14px;
+      letter-spacing: 2px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    
+    h1 {
+      font-size: 32px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+    
+    .time-estimate {
+      display: inline-block;
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 20px;
+    }
+    
+    /* Progress */
+    .progress-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 40px;
+    }
+    
+    .progress-step {
+      flex: 1;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      transition: background 0.3s;
+    }
+    
+    .progress-step.active {
+      background: var(--accent);
+    }
+    
+    .progress-step.done {
+      background: var(--success);
+    }
+    
+    /* Steps */
+    .step {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+    
+    .step.collapsed {
+      padding: 20px 28px;
+      cursor: pointer;
+    }
+    
+    .step.collapsed .step-content {
+      display: none;
+    }
+    
+    .step.completed {
+      border-color: var(--success);
+      background: rgba(34, 197, 94, 0.05);
+    }
+    
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    
+    .step.collapsed .step-header {
+      margin-bottom: 0;
+    }
+    
+    .step-number {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    
+    .step.completed .step-number {
+      background: var(--success);
+    }
+    
+    .step.completed .step-number::after {
+      content: '✓';
+    }
+    
+    .step.completed .step-number span {
+      display: none;
+    }
+    
+    .step-title {
+      font-size: 18px;
+      font-weight: 600;
+    }
+    
+    .step-content p {
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    
+    .step-content ol {
+      margin: 16px 0;
+      padding-left: 20px;
+    }
+    
+    .step-content li {
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    
+    .step-content li::marker {
+      color: var(--accent);
+    }
+    
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+    
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    
+    .btn-secondary:hover {
+      border-color: var(--text-muted);
+    }
+    
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    
+    /* Copy box */
+    .copy-box {
+      display: flex;
+      align-items: center;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin: 16px 0;
+      gap: 12px;
+    }
+    
+    .copy-box code {
+      flex: 1;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 14px;
+      color: var(--accent);
+      word-break: break-all;
+    }
+    
+    .copy-box button {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+    
+    .copy-box button:hover {
+      border-color: var(--text);
+      color: var(--text);
+    }
+    
+    .copy-box button.copied {
+      border-color: var(--success);
+      color: var(--success);
+    }
+    
+    /* Callout */
+    .callout {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+    
+    .callout.warning {
+      background: rgba(234, 179, 8, 0.1);
+      border-color: rgba(234, 179, 8, 0.3);
+    }
+    
+    .callout-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .callout p {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin: 0;
+    }
+    
+    /* Screenshot placeholder */
+    .screenshot {
+      background: var(--bg);
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      padding: 40px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+      margin: 16px 0;
+    }
+    
+    /* Help footer */
+    .help-footer {
+      text-align: center;
+      padding: 40px 20px;
+      border-top: 1px solid var(--border);
+      margin-top: 40px;
+    }
+    
+    .help-footer p {
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    
+    /* Hotkey visual */
+    .hotkey {
+      display: inline-flex;
+      gap: 6px;
+      margin: 8px 0;
+    }
+    
+    .key {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 13px;
+      box-shadow: 0 2px 0 var(--border);
+    }
+    
+    .key-plus {
+      display: flex;
+      align-items: center;
+      color: var(--text-muted);
+    }
+    
+    /* Checklist */
+    .checklist {
+      list-style: none;
+      padding: 0;
+      margin: 16px 0;
+    }
+    
+    .checklist li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .checklist li:last-child {
+      border-bottom: none;
+    }
+    
+    .checklist input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--success);
+      margin-top: 2px;
+    }
+    
+    .checklist label {
+      flex: 1;
+      cursor: pointer;
+    }
+    
+    .checklist label span {
+      display: block;
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">EUDIA</div>
+      <h1>Meeting Notes Setup</h1>
+      <p class="subtitle">Get Obsidian + Wispr configured for automatic transcription</p>
+      <div class="time-estimate">⏱ About 5 minutes</div>
+    </header>
+    
+    <!-- Progress Bar -->
+    <div class="progress-bar">
+      <div class="progress-step active" data-step="1"></div>
+      <div class="progress-step" data-step="2"></div>
+      <div class="progress-step" data-step="3"></div>
+      <div class="progress-step" data-step="4"></div>
+      <div class="progress-step" data-step="5"></div>
+    </div>
+    
+    <!-- Step 1: Download Obsidian -->
+    <div class="step" id="step-1">
+      <div class="step-header">
+        <div class="step-number"><span>1</span></div>
+        <div class="step-title">Download Obsidian</div>
+      </div>
+      <div class="step-content">
+        <p>Obsidian is where you'll write and store your meeting notes. It's free.</p>
+        
+        <div class="btn-group">
+          <a href="https://obsidian.md/download" target="_blank" class="btn btn-primary">
+            ↓ Download Obsidian for Mac
+          </a>
+        </div>
+        
+        <ol>
+          <li>Click the download button above</li>
+          <li>Open the downloaded file</li>
+          <li>Drag Obsidian to your Applications folder</li>
+          <li>Launch Obsidian from Applications</li>
+        </ol>
+        
+        <div class="btn-group">
+          <button class="btn btn-success" onclick="completeStep(1)">
+            ✓ I've installed Obsidian
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Step 2: Create Account & Connect -->
+    <div class="step collapsed" id="step-2">
+      <div class="step-header">
+        <div class="step-number"><span>2</span></div>
+        <div class="step-title">Connect to Team Vault</div>
+      </div>
+      <div class="step-content">
+        <p>Connect to Eudia's shared vault to get the templates and plugins.</p>
+        
+        <ol>
+          <li>In Obsidian, click <strong>"Open another vault"</strong></li>
+          <li>Click <strong>"Sign in"</strong> to create your account
+            <ul style="margin-top: 8px; color: var(--text-muted);">
+              <li>Use your <strong>Eudia email</strong> (e.g., you@eudia.com)</li>
+              <li>Create any password you'll remember</li>
+            </ul>
+          </li>
+          <li>Go to <strong>Settings</strong> (gear icon, bottom-left)</li>
+          <li>Click <strong>"Sync"</strong> in the left sidebar</li>
+          <li>Click <strong>"Enter sync key"</strong></li>
+          <li>Paste the key below:</li>
+        </ol>
+        
+        <div class="copy-box">
+          <code id="sync-key">Ask Keigan for your sync key via Slack</code>
+          <button onclick="copyKey()">Copy</button>
+        </div>
+        
+        <div class="callout">
+          <div class="callout-title">⏳ Wait for sync</div>
+          <p>After entering the key, wait 1-2 minutes. You'll see folders appear: Meetings, Templates, Recordings.</p>
+        </div>
+        
+        <div class="btn-group">
+          <button class="btn btn-success" onclick="completeStep(2)">
+            ✓ I can see the Meetings folder
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Step 3: Install Wispr -->
+    <div class="step collapsed" id="step-3">
+      <div class="step-header">
+        <div class="step-number"><span>3</span></div>
+        <div class="step-title">Install Wispr</div>
+      </div>
+      <div class="step-content">
+        <p>Wispr handles voice-to-text transcription. You'll use it inside Obsidian.</p>
+        
+        <div class="callout warning">
+          <div class="callout-title">📧 Check your email first</div>
+          <p>Keigan will send you a Wispr invite. Check your inbox before installing.</p>
+        </div>
+        
+        <div class="btn-group">
+          <a href="https://wispr.com/download" target="_blank" class="btn btn-primary">
+            ↓ Download Wispr for Mac
+          </a>
+        </div>
+        
+        <ol>
+          <li>Download and install Wispr</li>
+          <li>Open Wispr and sign in with the invite link from your email</li>
+          <li>Grant microphone access when prompted</li>
+          <li><strong>Don't</strong> add it to your Dock (it runs in the background)</li>
+        </ol>
+        
+        <div class="btn-group">
+          <button class="btn btn-success" onclick="completeStep(3)">
+            ✓ Wispr is installed
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Step 4: Configure Hotkey -->
+    <div class="step collapsed" id="step-4">
+      <div class="step-header">
+        <div class="step-number"><span>4</span></div>
+        <div class="step-title">Set Up Your Hotkey</div>
+      </div>
+      <div class="step-content">
+        <p>Create a two-key shortcut to start/stop transcription hands-free.</p>
+        
+        <ol>
+          <li>Click the Wispr icon in your menu bar (top-right of screen)</li>
+          <li>Go to <strong>Settings</strong> → <strong>Hands-Free</strong></li>
+          <li>Click <strong>"Add New Action"</strong></li>
+          <li>Click in the empty hotkey box</li>
+          <li>Press two keys at the same time:</li>
+        </ol>
+        
+        <div class="hotkey">
+          <span class="key">Fn</span>
+          <span class="key-plus">+</span>
+          <span class="key">Z</span>
+        </div>
+        
+        <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">
+          Or use any two adjacent keys you prefer (like Ctrl + Z)
+        </p>
+        
+        <ol start="6">
+          <li>Set the action to <strong>"Toggle Dictation"</strong> (or similar)</li>
+          <li>Save your settings</li>
+        </ol>
+        
+        <div class="btn-group">
+          <button class="btn btn-success" onclick="completeStep(4)">
+            ✓ Hotkey configured
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Step 5: Test It -->
+    <div class="step collapsed" id="step-5">
+      <div class="step-header">
+        <div class="step-number"><span>5</span></div>
+        <div class="step-title">Test Your Setup</div>
+      </div>
+      <div class="step-content">
+        <p>Let's make sure everything works together.</p>
+        
+        <ul class="checklist">
+          <li>
+            <input type="checkbox" id="check-1">
+            <label for="check-1">
+              Open Obsidian
+              <span>You should see the Meetings folder</span>
+            </label>
+          </li>
+          <li>
+            <input type="checkbox" id="check-2">
+            <label for="check-2">
+              Go to Meetings → _Inbox
+              <span>This is where test notes go</span>
+            </label>
+          </li>
+          <li>
+            <input type="checkbox" id="check-3">
+            <label for="check-3">
+              Create a new note (Cmd + N)
+              <span>Name it "Test Note"</span>
+            </label>
+          </li>
+          <li>
+            <input type="checkbox" id="check-4">
+            <label for="check-4">
+              Press your hotkey (Fn + Z)
+              <span>You should see Wispr start listening</span>
+            </label>
+          </li>
+          <li>
+            <input type="checkbox" id="check-5">
+            <label for="check-5">
+              Say "This is a test"
+              <span>Speak clearly for 5 seconds</span>
+            </label>
+          </li>
+          <li>
+            <input type="checkbox" id="check-6">
+            <label for="check-6">
+              Press your hotkey again to stop
+              <span>Text should appear in your note!</span>
+            </label>
+          </li>
+        </ul>
+        
+        <div class="callout" style="background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.3);">
+          <div class="callout-title">🎉 You're all set!</div>
+          <p>Your meeting notes will automatically sync to Salesforce via GTM Brain.</p>
+        </div>
+        
+        <div class="btn-group">
+          <button class="btn btn-success" onclick="completeStep(5)">
+            ✓ Test successful!
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Help Footer -->
+    <footer class="help-footer">
+      <p>Stuck or something not working?</p>
+      <a href="https://eudia.slack.com/team/U05BXXXXXXX" class="btn btn-secondary" target="_blank">
+        💬 Message @keigan in Slack
+      </a>
+    </footer>
+  </div>
+  
+  <script>
+    // Track completed steps
+    let completedSteps = new Set();
+    
+    function completeStep(stepNum) {
+      const step = document.getElementById(`step-${stepNum}`);
+      const progressStep = document.querySelector(`.progress-step[data-step="${stepNum}"]`);
+      
+      // Mark as completed
+      step.classList.add('completed');
+      step.classList.add('collapsed');
+      progressStep.classList.remove('active');
+      progressStep.classList.add('done');
+      
+      completedSteps.add(stepNum);
+      
+      // Open next step
+      const nextStep = document.getElementById(`step-${stepNum + 1}`);
+      const nextProgress = document.querySelector(`.progress-step[data-step="${stepNum + 1}"]`);
+      
+      if (nextStep) {
+        nextStep.classList.remove('collapsed');
+        if (nextProgress) {
+          nextProgress.classList.add('active');
+        }
+        
+        // Scroll to next step
+        setTimeout(() => {
+          nextStep.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
+      }
+      
+      // Save progress
+      localStorage.setItem('obsidianSetupProgress', JSON.stringify([...completedSteps]));
+    }
+    
+    function copyKey() {
+      const keyElement = document.getElementById('sync-key');
+      const button = keyElement.nextElementSibling;
+      
+      navigator.clipboard.writeText(keyElement.textContent).then(() => {
+        button.textContent = 'Copied!';
+        button.classList.add('copied');
+        setTimeout(() => {
+          button.textContent = 'Copy';
+          button.classList.remove('copied');
+        }, 2000);
+      });
+    }
+    
+    // Click to expand collapsed steps
+    document.querySelectorAll('.step.collapsed').forEach(step => {
+      step.addEventListener('click', function(e) {
+        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') return;
+        
+        const stepNum = parseInt(this.id.split('-')[1]);
+        
+        // Only allow expanding if previous step is done or it's step 1
+        if (stepNum === 1 || completedSteps.has(stepNum - 1)) {
+          this.classList.remove('collapsed');
+        }
+      });
+    });
+    
+    // Restore progress on load
+    const saved = localStorage.getItem('obsidianSetupProgress');
+    if (saved) {
+      const steps = JSON.parse(saved);
+      steps.forEach(stepNum => {
+        completedSteps.add(stepNum);
+        const step = document.getElementById(`step-${stepNum}`);
+        const progressStep = document.querySelector(`.progress-step[data-step="${stepNum}"]`);
+        
+        if (step) {
+          step.classList.add('completed');
+          step.classList.add('collapsed');
+        }
+        if (progressStep) {
+          progressStep.classList.remove('active');
+          progressStep.classList.add('done');
+        }
+      });
+      
+      // Open the next uncompleted step
+      for (let i = 1; i <= 5; i++) {
+        if (!completedSteps.has(i)) {
+          const step = document.getElementById(`step-${i}`);
+          const progressStep = document.querySelector(`.progress-step[data-step="${i}"]`);
+          if (step) step.classList.remove('collapsed');
+          if (progressStep) progressStep.classList.add('active');
+          break;
+        }
+      }
+    }
+  </script>
+</body>
+</html>
+

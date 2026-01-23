@@ -913,6 +913,14 @@ class GTMBrainApp {
     });
     this.expressApp.get('/survey', (req, res) => res.redirect('/cab-survey'));
 
+    // Obsidian Setup Guide for BL Onboarding
+    this.expressApp.get('/setup/obsidian', (req, res) => {
+      const path = require('path');
+      const setupPath = path.join(__dirname, 'views', 'obsidian-setup.html');
+      res.sendFile(setupPath);
+    });
+    this.expressApp.get('/obsidian-setup', (req, res) => res.redirect('/setup/obsidian'));
+
     // Email Builder API routes
     const emailBuilderRoutes = require('./routes/emailBuilder');
     this.expressApp.get('/api/search-accounts', emailBuilderRoutes.searchAccounts);
