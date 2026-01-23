@@ -921,6 +921,13 @@ class GTMBrainApp {
     });
     this.expressApp.get('/obsidian-setup', (req, res) => res.redirect('/setup/obsidian'));
     
+    // Demo walkthrough page
+    this.expressApp.get('/demo', (req, res) => {
+      const path = require('path');
+      const demoPath = path.join(__dirname, 'views', 'demo-walkthrough.html');
+      res.sendFile(demoPath);
+    });
+    
     // Serve downloadable files (Sync-Notes.command, etc.)
     const path = require('path');
     this.expressApp.use('/downloads', express.static(path.join(__dirname, '..', 'public', 'downloads')));

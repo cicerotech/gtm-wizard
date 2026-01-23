@@ -608,11 +608,11 @@
                     <text x="170" y="276" class="node-sublabel" text-anchor="middle" fill="white" font-size="8">@gtm-brain • side channels</text>
                 </g>
                 
-                <!-- Hyprnote -->
-                <g class="node" data-node="hyprnote">
-                    <rect class="node-rect" x="90" y="305" width="160" height="55" rx="10" fill="#9ca3af" stroke="#6b7280" stroke-width="1" filter="url(#softShadow)"/>
-                    <text x="170" y="330" class="node-label" text-anchor="middle" fill="white" font-size="12">Hyprnote</text>
-                    <text x="170" y="346" class="node-sublabel" text-anchor="middle" fill="white" font-size="8">Meeting transcripts</text>
+                <!-- Obsidian -->
+                <g class="node" data-node="obsidian">
+                    <rect class="node-rect" x="90" y="305" width="160" height="55" rx="10" fill="#7c3aed" stroke="#5b21b6" stroke-width="1" filter="url(#softShadow)"/>
+                    <text x="170" y="330" class="node-label" text-anchor="middle" fill="white" font-size="12">Obsidian</text>
+                    <text x="170" y="346" class="node-sublabel" text-anchor="middle" fill="white" font-size="8">Meeting notes + Wispr</text>
                 </g>
                 
                 <!-- COLUMN 2: SYSTEM OF RECORD (x: 355-545, center: 450) -->
@@ -722,8 +722,8 @@
                     <span>Slack</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-dot" style="background: #9ca3af;"></div>
-                    <span>Hyprnote</span>
+                    <div class="legend-dot" style="background: #7c3aed;"></div>
+                    <span>Obsidian</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-dot" style="background: #34d399;"></div>
@@ -751,7 +751,7 @@
                         <li>Proactively <span class="support-highlight">update CRM</span>—add notes, reminders, create new opportunities</li>
                         <li>Mid-week or post-meeting updates can action <span class="support-highlight">pipeline adjustments</span>, saving time in Thursday reviews</li>
                         <li>Reassign or transition accounts; initial assignment based on <span class="support-highlight">coverage + geography</span></li>
-                        <li>Meetings held with accounts → BLs use Hyprnote → <span class="support-highlight">GTM Brain syncs notes</span> to Salesforce accounts</li>
+                        <li>Meetings held with accounts → BLs use Obsidian + Wispr → <span class="support-highlight">GTM Brain syncs notes</span> to Salesforce accounts</li>
                     </ul>
                 </div>
                 <div class="support-section">
@@ -761,7 +761,7 @@
                     </div>
                     <ul class="support-list">
                         <li>Continued logging of notes via <span class="support-highlight">Einstein Activity Capture</span> for meetings + emails</li>
-                        <li>Notes synced from Hyprnote if not shared in GTM account planning</li>
+                        <li>Notes synced from Obsidian if not shared in GTM account planning</li>
                         <li>At <span class="support-highlight">Stage 4</span>: Delivery object created and associated with the opportunity</li>
                         <li>Weekly reports shared with leadership for visibility into pipeline movement, late-stage deals, and <span class="support-highlight">resource planning needs</span></li>
                         <li>At <span class="support-highlight">Closed Won</span>: Deal terms, product lines, ACV, TCV captured and validated</li>
@@ -788,7 +788,7 @@
         const nodeDetails = {
             'gtm-brain': {
                 title: 'GTM Brain — The Overarching Intelligence Layer',
-                desc: 'Sits above all systems as the orchestration layer. Processes questions from Slack, syncs meeting notes from Hyprnote, maintains Salesforce hygiene, and generates reports. All powered by Claude LLM for natural language understanding.',
+                desc: 'Sits above all systems as the orchestration layer. Processes questions from Slack, syncs meeting notes from Obsidian, maintains Salesforce hygiene, and generates reports. All powered by Claude LLM for natural language understanding.',
                 tags: ['Intent Router', 'Query Engine', 'Sync Services', 'Hygiene Flows', 'Claude LLM']
             },
             'slack': {
@@ -801,10 +801,10 @@
                 desc: 'Central GTM reference document. Links to all key resources, process documentation, and commands. Keeps the team aligned.',
                 tags: ['Central Resource', 'Process Docs', 'Team Alignment']
             },
-            'hyprnote': {
-                title: 'Hyprnote — Meeting Capture',
-                desc: 'Meeting transcripts are processed by GTM Brain. New contacts are created, events logged, and account context updated automatically.',
-                tags: ['Transcripts', 'Contact Creation', 'Event Logging', 'Account Updates']
+            'obsidian': {
+                title: 'Obsidian — Meeting Notes',
+                desc: 'BLs capture meeting notes with Wispr voice-to-text. Notes are processed by GTM Brain—contacts created, events logged, account context updated. Local vault, zero cloud dependencies.',
+                tags: ['Wispr Transcription', 'Contact Creation', 'Event Logging', 'Account Updates', 'Local Vault']
             },
             'salesforce': {
                 title: 'Salesforce — Source of Truth',
@@ -877,7 +877,7 @@
             const connectionMap = {
                 'gtm-brain': ['conn-brain-inputs', 'conn-brain-sf', 'conn-brain-outputs'],
                 'slack': ['conn-brain-inputs'],
-                'hyprnote': ['conn-brain-inputs'],
+                'obsidian': ['conn-brain-inputs'],
                 'salesforce': ['conn-brain-sf'],
                 'client-context': ['conn-brain-outputs'],
                 'query-responses': ['conn-brain-outputs'],

@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GTM Brain Demo | Sales Process Walkthrough</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f7fe;
+      color: #1f2937;
+      min-height: 100vh;
+    }
+    
+    /* Header */
+    .header {
+      background: #fff;
+      padding: 16px 32px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .header h1 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #1f2937;
+    }
+    
+    .header h1 span {
+      color: #6b7280;
+      font-weight: 400;
+    }
+    
+    .nav-links {
+      display: flex;
+      gap: 6px;
+    }
+    
+    .nav-links a {
+      color: #6b7280;
+      text-decoration: none;
+      font-size: 0.75rem;
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+    
+    .nav-links a:hover {
+      color: #1f2937;
+      background: #f3f4f6;
+    }
+    
+    /* Main Container */
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+    
+    /* Progress Navigation */
+    .demo-nav {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 32px;
+      background: #fff;
+      padding: 12px 16px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      overflow-x: auto;
+    }
+    
+    .demo-nav-item {
+      flex: 1;
+      min-width: 100px;
+      padding: 10px 8px;
+      text-align: center;
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: #6b7280;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      background: transparent;
+    }
+    
+    .demo-nav-item:hover {
+      background: #f3f4f6;
+    }
+    
+    .demo-nav-item.active {
+      background: #8e99e1;
+      color: white;
+    }
+    
+    .demo-nav-item.visited {
+      color: #8e99e1;
+    }
+    
+    .demo-nav-item .nav-num {
+      display: block;
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    
+    /* Sections */
+    .demo-section {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+    
+    .demo-section.active {
+      display: block;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Section Cards */
+    .section-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+      padding: 32px;
+      margin-bottom: 20px;
+    }
+    
+    .section-card h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1f2937;
+      margin-bottom: 8px;
+    }
+    
+    .section-card .subtitle {
+      color: #6b7280;
+      font-size: 0.95rem;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    
+    /* Key Point Boxes */
+    .key-points {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin: 24px 0;
+    }
+    
+    .key-point {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 18px;
+      transition: all 0.2s;
+    }
+    
+    .key-point:hover {
+      border-color: #8e99e1;
+      transform: translateY(-2px);
+    }
+    
+    .key-point .icon {
+      font-size: 1.5rem;
+      margin-bottom: 10px;
+    }
+    
+    .key-point h4 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 6px;
+    }
+    
+    .key-point p {
+      font-size: 0.8rem;
+      color: #6b7280;
+      line-height: 1.4;
+    }
+    
+    /* Flow Diagram */
+    .flow-diagram {
+      background: #fafbfc;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 24px;
+      margin: 24px 0;
+    }
+    
+    .flow-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    
+    .flow-box {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 14px 18px;
+      text-align: center;
+      min-width: 120px;
+    }
+    
+    .flow-box.highlight {
+      border-color: #8e99e1;
+      background: #f0f1fa;
+    }
+    
+    .flow-box.sf {
+      border-color: #34d399;
+      background: #f0fdf4;
+    }
+    
+    .flow-box.output {
+      border-color: #fbbf24;
+      background: #fefce8;
+    }
+    
+    .flow-box .label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #1f2937;
+    }
+    
+    .flow-box .sub {
+      font-size: 0.65rem;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+    
+    .flow-arrow {
+      font-size: 1.2rem;
+      color: #9ca3af;
+    }
+    
+    /* Demo Box */
+    .demo-box {
+      background: linear-gradient(135deg, #8e99e1 0%, #7c8bd4 100%);
+      border-radius: 12px;
+      padding: 24px;
+      color: white;
+      margin: 24px 0;
+    }
+    
+    .demo-box h4 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      opacity: 0.9;
+    }
+    
+    .demo-box .command {
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.85rem;
+      margin: 8px 0;
+    }
+    
+    .demo-box .response {
+      background: rgba(255,255,255,0.15);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 0.8rem;
+      margin: 8px 0;
+      line-height: 1.5;
+    }
+    
+    /* Metric Grid */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 24px 0;
+    }
+    
+    .metric {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+    
+    .metric .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #8e99e1;
+    }
+    
+    .metric .label {
+      font-size: 0.7rem;
+      color: #6b7280;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    /* Timeline */
+    .timeline {
+      position: relative;
+      padding-left: 24px;
+      margin: 24px 0;
+    }
+    
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 6px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #e5e7eb;
+    }
+    
+    .timeline-item {
+      position: relative;
+      padding-bottom: 20px;
+    }
+    
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -20px;
+      top: 4px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #8e99e1;
+    }
+    
+    .timeline-item.auto::before {
+      background: #34d399;
+    }
+    
+    .timeline-item h5 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 4px;
+    }
+    
+    .timeline-item p {
+      font-size: 0.8rem;
+      color: #6b7280;
+      line-height: 1.4;
+    }
+    
+    .timeline-item .tag {
+      display: inline-block;
+      font-size: 0.65rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: #f3f4f6;
+      color: #6b7280;
+      margin-top: 6px;
+    }
+    
+    .timeline-item .tag.auto {
+      background: #dcfce7;
+      color: #166534;
+    }
+    
+    /* Navigation Buttons */
+    .nav-buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid #e5e7eb;
+    }
+    
+    .nav-btn {
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+    
+    .nav-btn.prev {
+      background: #f3f4f6;
+      color: #6b7280;
+    }
+    
+    .nav-btn.prev:hover {
+      background: #e5e7eb;
+    }
+    
+    .nav-btn.next {
+      background: #8e99e1;
+      color: white;
+    }
+    
+    .nav-btn.next:hover {
+      background: #7c8bd4;
+    }
+    
+    .nav-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    /* Callout */
+    .callout {
+      background: #fefce8;
+      border: 1px solid #fde047;
+      border-radius: 10px;
+      padding: 16px;
+      margin: 20px 0;
+    }
+    
+    .callout.insight {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+    
+    .callout .callout-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #854d0e;
+      margin-bottom: 6px;
+    }
+    
+    .callout.insight .callout-title {
+      color: #1e40af;
+    }
+    
+    .callout p {
+      font-size: 0.8rem;
+      color: #6b7280;
+      line-height: 1.5;
+    }
+    
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: #6b7280;
+      font-size: 0.75rem;
+    }
+    
+    footer a {
+      color: #8e99e1;
+      text-decoration: none;
+    }
+    
+    footer a:hover {
+      text-decoration: underline;
+    }
+    
+    /* Mobile */
+    @media (max-width: 768px) {
+      .container { padding: 16px; }
+      .section-card { padding: 20px; }
+      .metric-grid { grid-template-columns: repeat(2, 1fr); }
+      .flow-row { flex-direction: column; }
+      .flow-arrow { transform: rotate(90deg); }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1>gtm-brain <span>/ Demo Walkthrough</span></h1>
+    <div class="nav-links">
+      <a href="/account-dashboard">Dashboard</a>
+      <a href="/cheat-sheet">Commands</a>
+      <a href="/architecture">Architecture</a>
+    </div>
+  </header>
+  
+  <div class="container">
+    <!-- Progress Navigation -->
+    <nav class="demo-nav">
+      <button class="demo-nav-item active" onclick="goToSection(0)">
+        <span class="nav-num">1</span>
+        The Challenge
+      </button>
+      <button class="demo-nav-item" onclick="goToSection(1)">
+        <span class="nav-num">2</span>
+        How It Works
+      </button>
+      <button class="demo-nav-item" onclick="goToSection(2)">
+        <span class="nav-num">3</span>
+        Meeting Capture
+      </button>
+      <button class="demo-nav-item" onclick="goToSection(3)">
+        <span class="nav-num">4</span>
+        Instant Access
+      </button>
+      <button class="demo-nav-item" onclick="goToSection(4)">
+        <span class="nav-num">5</span>
+        Automated Intel
+      </button>
+      <button class="demo-nav-item" onclick="goToSection(5)">
+        <span class="nav-num">6</span>
+        Sales Velocity
+      </button>
+      <button class="demo-nav-item" onclick="goToSection(6)">
+        <span class="nav-num">7</span>
+        Clean Handoff
+      </button>
+    </nav>
+    
+    <!-- Section 1: The Challenge -->
+    <section class="demo-section active" id="section-0">
+      <div class="section-card">
+        <h2>The Challenge</h2>
+        <p class="subtitle">Customer intelligence is scattered. By the time it reaches CRM, it's incomplete or delayed.</p>
+        
+        <div class="key-points">
+          <div class="key-point">
+            <div class="icon">⏱️</div>
+            <h4>Admin Overhead</h4>
+            <p>BLs spend hours weekly on manual CRM updates, note logging, and data entry.</p>
+          </div>
+          <div class="key-point">
+            <div class="icon">🔍</div>
+            <h4>Lost Context</h4>
+            <p>Meeting notes live in scattered docs. Critical details never make it to the account record.</p>
+          </div>
+          <div class="key-point">
+            <div class="icon">📊</div>
+            <h4>Data Gaps</h4>
+            <p>Leadership lacks real-time visibility. Weekly reviews reveal stale or missing information.</p>
+          </div>
+          <div class="key-point">
+            <div class="icon">🔗</div>
+            <h4>Handoff Friction</h4>
+            <p>Downstream teams (finance, delivery) inherit incomplete data. Manual cleanup required.</p>
+          </div>
+        </div>
+        
+        <div class="callout">
+          <div class="callout-title">What This Costs</div>
+          <p>Inconsistent forecasting, missed follow-ups, longer ramp time for new hires, and friction in deal-to-delivery handoffs.</p>
+        </div>
+      </div>
+      
+      <div class="nav-buttons">
+        <button class="nav-btn prev" disabled>← Previous</button>
+        <button class="nav-btn next" onclick="goToSection(1)">How It Works →</button>
+      </div>
+    </section>
+    
+    <!-- Section 2: How It Works -->
+    <section class="demo-section" id="section-1">
+      <div class="section-card">
+        <h2>How It Works</h2>
+        <p class="subtitle">gtm-brain sits between your conversations and Salesforce—capturing, processing, and syncing automatically.</p>
+        
+        <div class="flow-diagram">
+          <div class="flow-row">
+            <div class="flow-box">
+              <div class="label">Slack</div>
+              <div class="sub">Questions + deal context</div>
+            </div>
+            <div class="flow-box">
+              <div class="label">Obsidian</div>
+              <div class="sub">Meeting notes</div>
+            </div>
+            <div class="flow-box">
+              <div class="label">Outlook</div>
+              <div class="sub">Calendar events</div>
+            </div>
+          </div>
+          
+          <div class="flow-row" style="margin: 16px 0;">
+            <span class="flow-arrow">↓</span>
+          </div>
+          
+          <div class="flow-row">
+            <div class="flow-box highlight" style="min-width: 200px;">
+              <div class="label">gtm-brain</div>
+              <div class="sub">Process + Sync + Hygiene</div>
+            </div>
+          </div>
+          
+          <div class="flow-row" style="margin: 16px 0;">
+            <span class="flow-arrow">↓</span>
+          </div>
+          
+          <div class="flow-row">
+            <div class="flow-box sf" style="min-width: 200px;">
+              <div class="label">Salesforce</div>
+              <div class="sub">Accounts • Opps • Contacts • Events</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="key-points">
+          <div class="key-point">
+            <div class="icon">🧠</div>
+            <h4>AI-Powered</h4>
+            <p>Claude LLM understands natural language. Ask questions like you'd ask a colleague.</p>
+          </div>
+          <div class="key-point">
+            <div class="icon">⚡</div>
+            <h4>Real-Time</h4>
+            <p>No batch processing. Intelligence flows continuously throughout the day.</p>
+          </div>
+          <div class="key-point">
+            <div class="icon">🔄</div>
+            <h4>Bi-Directional</h4>
+            <p>Pull data out. Push updates in. Always in sync with Salesforce.</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="nav-buttons">
+        <button class="nav-btn prev" onclick="goToSection(0)">← Previous</button>
+        <button class="nav-btn next" onclick="goToSection(2)">Meeting Capture →</button>
+      </div>
+    </section>
+    
+    <!-- Section 3: Meeting Capture -->
+    <section class="demo-section" id="section-2">
+      <div class="section-card">
+        <h2>Meeting Capture</h2>
+        <p class="subtitle">Every external meeting automatically flows into Salesforce—contacts created, events logged, notes attached.</p>
+        
+        <div class="timeline">
+          <div class="timeline-item">
+            <h5>Meeting occurs</h5>
+            <p>BL meets with client. Uses Wispr voice-to-text in Obsidian to capture notes.</p>
+            <span class="tag">Natural workflow</span>
+          </div>
+          <div class="timeline-item auto">
+            <h5>Calendar sync runs</h5>
+            <p>gtm-brain detects external attendees from Outlook calendar.</p>
+            <span class="tag auto">Automatic</span>
+          </div>
+          <div class="timeline-item auto">
+            <h5>Contacts created</h5>
+            <p>New attendees added to Salesforce with Clay enrichment (title, company, LinkedIn).</p>
+            <span class="tag auto">Automatic</span>
+          </div>
+          <div class="timeline-item auto">
+            <h5>Event logged</h5>
+            <p>Meeting recorded as Salesforce Event, linked to Account and Contacts.</p>
+            <span class="tag auto">Automatic</span>
+          </div>
+          <div class="timeline-item">
+            <h5>Notes synced</h5>
+            <p>BL clicks sync script. Notes processed by Claude, structured summary added to Account.</p>
+            <span class="tag">One click</span>
+          </div>
+        </div>
+        
+        <div class="callout insight">
+          <div class="callout-title">Zero CRM Entry Required</div>
+          <p>BLs focus on the meeting. The system handles contact creation, event logging, and note organization. Einstein Activity Capture supplements with email context.</p>
+        </div>
+      </div>
+      
+      <div class="nav-buttons">
+        <button class="nav-btn prev" onclick="goToSection(1)">← Previous</button>
+        <button class="nav-btn next" onclick="goToSection(3)">Instant Access →</button>
+      </div>
+    </section>
+    
+    <!-- Section 4: Instant Access -->
+    <section class="demo-section" id="section-3">
+      <div class="section-card">
+        <h2>Instant Access</h2>
+        <p class="subtitle">Ask @gtm-brain anything in Slack. Get formatted answers instantly—no Salesforce login required.</p>
+        
+        <div class="demo-box">
+          <h4>Try These in Slack</h4>
+          <div class="command">@gtm-brain what do we know about Acme Corp?</div>
+          <div class="response">
+            <strong>Acme Corp</strong> — Stage 3: Proposal<br>
+            ACV: $180K • Close: Feb 15 • Owner: Julie S.<br>
+            Last meeting: Jan 18 (demo) • Next: TBD<br>
+            Notes: Technical evaluation positive. CFO sign-off needed.
+          </div>
+        </div>
+        
+        <div class="demo-box">
+          <div class="command">@gtm-brain who owns accounts with no activity in 30 days?</div>
+          <div class="response">
+            Found 4 accounts with no recent activity:<br>
+            • TechStart (Ananth) — last touch: Dec 12<br>
+            • GlobalFin (Asad) — last touch: Dec 18<br>
+            • CloudCo (Alex) — last touch: Dec 20<br>
+            • DataSys (Conor) — last touch: Dec 22
+          </div>
+        </div>
+        
+        <div class="key-points">
+          <div class="key-point">
+            <h4>Account Briefs</h4>
+            <p>"What do we know about [Company]?" — full context before any call.</p>
+          </div>
+          <div class="key-point">
+            <h4>Pipeline Queries</h4>
+            <p>"Show Stage 3+ opps closing this month" — instant filtered view.</p>
+          </div>
+          <div class="key-point">
+            <h4>Ownership Clarity</h4>
+            <p>"Who owns [Account]?" — no hunting through Salesforce.</p>
+          </div>
+          <div class="key-point">
+            <h4>Meeting Prep</h4>
+            <p>"Prep me for my 2pm call" — talking points ready.</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="nav-buttons">
+        <button class="nav-btn prev" onclick="goToSection(2)">← Previous</button>
+        <button class="nav-btn next" onclick="goToSection(4)">Automated Intel →</button>
+      </div>
+    </section>
+    
+    <!-- Section 5: Automated Intelligence -->
+    <section class="demo-section" id="section-4">
+      <div class="section-card">
+        <h2>Automated Intelligence</h2>
+        <p class="subtitle">Weekly reports delivered to Slack. Hygiene checks run automatically. Leadership stays informed without asking.</p>
+        
+        <div class="metric-grid">
+          <div class="metric">
+            <div class="value">Mon</div>
+            <div class="label">BL Summaries</div>
+          </div>
+          <div class="metric">
+            <div class="value">Wed</div>
+            <div class="label">Finance Audit</div>
+          </div>
+          <div class="metric">
+            <div class="value">Thu</div>
+            <div class="label">Delivery Report</div>
+          </div>
+          <div class="metric">
+            <div class="value">Daily</div>
+            <div class="label">Hygiene Checks</div>
+          </div>
+        </div>
+        
+        <div class="key-points">
+          <div class="key-point">
+            <h4>BL Weekly Summary</h4>
+            <p>Pipeline movement, wins/losses, forecast accuracy per rep. Delivered Monday AM.</p>
+          </div>
+          <div class="key-point">
+            <h4>Finance Forecast</h4>
+            <p>ACV totals, weighted forecast, Target Sign Date opps. Audit-ready numbers.</p>
+          </div>
+          <div class="key-point">
+            <h4>Delivery Pipeline</h4>
+            <p>Stage 4+ deals, delivery assignments, implementation readiness.</p>
+          </div>
+          <div class="key-point">
+            <h4>Hygiene Automation</h4>
+            <p>Stale opportunities flagged, missing close dates surfaced, data gaps identified.</p>
+          </div>
+        </div>
+        
+        <div class="callout">
+          <div class="callout-title">On-Demand Reports</div>
+          <p>"Send pipeline report" or "send finance report" in Slack—Excel export delivered in seconds.</p>
+        </div>
+      </div>
+      
+      <div class="nav-buttons">
+        <button class="nav-btn prev" onclick="goToSection(3)">← Previous</button>
+        <button class="nav-btn next" onclick="goToSection(5)">Sales Velocity →</button>
+      </div>
+    </section>
+    
+    <!-- Section 6: Sales Velocity -->
+    <section class="demo-section" id="section-5">
+      <div class="section-card">
+        <h2>Sales Velocity Tracking</h2>
+        <p class="subtitle">Understand exactly how long deals take to progress—from first meeting to close.</p>
+        
+        <div class="flow-diagram">
+          <div class="flow-row">
+            <div class="flow-box">
+              <div class="label">Discovery</div>
+              <div class="sub">Avg: 12 days</div>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-box">
+              <div class="label">Demo</div>
+              <div class="sub">Avg: 8 days</div>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-box">
+              <div class="label">Technical</div>
+              <div class="sub">Avg: 15 days</div>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-box">
+              <div class="label">Proposal</div>
+              <div class="sub">Avg: 21 days</div>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-box sf">
+              <div class="label">Close</div>
+              <div class="sub">Win/Loss</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="key-points">
+          <div class="key-point">
+            <h4>Meeting Classification</h4>
+            <p>AI identifies meeting type from subject/attendees. Discovery, demo, technical review—automatically tagged.</p>
+          </div>
+          <div class="key-point">
+            <h4>Stage Benchmarks</h4>
+            <p>Know average days per stage. Identify deals moving slower than expected.</p>
+          </div>
+          <div class="key-point">
+            <h4>BL Performance</h4>
+            <p>Track ramp time, productivity trends, and quota attainment by rep.</p>
+          </div>
+          <div class="key-point">
+            <h4>Deal Insights</h4>
+            <p>"Show slow deals" surfaces opportunities that need attention.</p>
+          </div>
+        </div>
+        
+        <div class="callout insight">
+          <div class="callout-title">The Insight</div>
+          <p>When you know Discovery → Demo takes 12 days on average, you can spot an 18-day deal and intervene early. Forecasting becomes predictable.</p>
+        </div>
+      </div>
+      
+      <div class="nav-buttons">
+        <button class="nav-btn prev" onclick="goToSection(4)">← Previous</button>
+        <button class="nav-btn next" onclick="goToSection(6)">Clean Handoff →</button>
+      </div>
+    </section>
+    
+    <!-- Section 7: Clean Handoff -->
+    <section class="demo-section" id="section-6">
+      <div class="section-card">
+        <h2>Clean Downstream Handoff</h2>
+        <p class="subtitle">When data enters Salesforce correctly, downstream systems inherit it automatically.</p>
+        
+        <div class="timeline">
+          <div class="timeline-item">
+            <h5>Stage 4: Proposal</h5>
+            <p>Salesforce Flow auto-creates Delivery object, linked to opportunity.</p>
+            <span class="tag auto">Flow-triggered</span>
+          </div>
+          <div class="timeline-item auto">
+            <h5>Delivery → Rocket Lane</h5>
+            <p>Project created automatically. Implementation team has full context.</p>
+            <span class="tag auto">Synced</span>
+          </div>
+          <div class="timeline-item">
+            <h5>Close Won</h5>
+            <p>Contract object created with ACV, term, product line pulled from opp.</p>
+            <span class="tag auto">Flow-triggered</span>
+          </div>
+          <div class="timeline-item auto">
+            <h5>Contract → Campfire</h5>
+            <p>Finance has accurate contract data. No manual entry. Clean audit trail.</p>
+            <span class="tag auto">Synced</span>
+          </div>
+        </div>
+        
+        <div class="flow-diagram">
+          <div class="flow-row">
+            <div class="flow-box sf">
+              <div class="label">Salesforce</div>
+              <div class="sub">Clean opportunity data</div>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-box output">
+              <div class="label">Campfire</div>
+              <div class="sub">Finance + ERP</div>
+            </div>
+          </div>
+          <div class="flow-row" style="margin-top: 12px;">
+            <div class="flow-box sf">
+              <div class="label">Salesforce</div>
+              <div class="sub">Delivery object</div>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-box output">
+              <div class="label">Rocket Lane</div>
+              <div class="sub">Implementation</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="callout">
+          <div class="callout-title">The Key Dependency</div>
+          <p>Correct initial input at opportunity creation. If validated, downstream systems inherit clean data automatically—no BL follow-up needed.</p>
+        </div>
+        
+        <div class="section-card" style="background: linear-gradient(135deg, #8e99e1 0%, #7c8bd4 100%); color: white; margin-top: 24px;">
+          <h2 style="color: white;">Summary</h2>
+          <p style="color: rgba(255,255,255,0.9); margin-bottom: 20px;">gtm-brain removes admin friction while ensuring clean data flows from first meeting to contract close.</p>
+          
+          <div class="key-points" style="margin: 0;">
+            <div class="key-point" style="background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2);">
+              <h4 style="color: white;">For BLs</h4>
+              <p style="color: rgba(255,255,255,0.8);">Less time on admin. More time selling. Meeting notes flow automatically.</p>
+            </div>
+            <div class="key-point" style="background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2);">
+              <h4 style="color: white;">For Leadership</h4>
+              <p style="color: rgba(255,255,255,0.8);">Real-time visibility. Automated reports. Forecast accuracy.</p>
+            </div>
+            <div class="key-point" style="background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2);">
+              <h4 style="color: white;">For Org</h4>
+              <p style="color: rgba(255,255,255,0.8);">Clean data to finance + delivery. Scalable as team grows.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="nav-buttons">
+        <button class="nav-btn prev" onclick="goToSection(5)">← Previous</button>
+        <a href="/account-dashboard" class="nav-btn next" style="text-decoration: none;">View Dashboard →</a>
+      </div>
+    </section>
+  </div>
+  
+  <footer>
+    gtm-brain by Eudia RevOps &bull; <a href="/cheat-sheet">View Commands</a> &bull; <a href="/architecture">Architecture</a>
+  </footer>
+  
+  <script>
+    let currentSection = 0;
+    const totalSections = 7;
+    
+    function goToSection(index) {
+      // Update sections
+      document.querySelectorAll('.demo-section').forEach((section, i) => {
+        section.classList.toggle('active', i === index);
+      });
+      
+      // Update nav
+      document.querySelectorAll('.demo-nav-item').forEach((btn, i) => {
+        btn.classList.remove('active');
+        if (i < index) btn.classList.add('visited');
+        if (i === index) btn.classList.add('active');
+      });
+      
+      currentSection = index;
+      
+      // Scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' && currentSection < totalSections - 1) {
+        goToSection(currentSection + 1);
+      } else if (e.key === 'ArrowLeft' && currentSection > 0) {
+        goToSection(currentSection - 1);
+      }
+    });
+  </script>
+</body>
+</html>
+
