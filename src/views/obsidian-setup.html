@@ -116,6 +116,16 @@
     
     .step.collapsed .step-header { margin-bottom: 0; }
     
+    .step-header .expand-icon {
+      margin-left: auto;
+      color: #9ca3af;
+      font-size: 1rem;
+      transition: transform 0.2s;
+    }
+    
+    .step.collapsed .expand-icon { transform: rotate(0deg); }
+    .step:not(.collapsed) .expand-icon { transform: rotate(90deg); }
+    
     .step-number {
       width: 28px;
       height: 28px;
@@ -373,9 +383,10 @@
     
     <!-- Step 1: Download Obsidian -->
     <div class="step active" id="step-1">
-      <div class="step-header">
+      <div class="step-header" onclick="toggleStep(1)">
         <div class="step-number"><span>1</span></div>
         <div class="step-title">Download Obsidian</div>
+        <div class="expand-icon">▶</div>
       </div>
       <div class="step-content">
         <p>Obsidian is where you'll write and store meeting notes locally on your Mac.</p>
@@ -401,9 +412,10 @@
     
     <!-- Step 2: Create Vault -->
     <div class="step collapsed" id="step-2">
-      <div class="step-header">
+      <div class="step-header" onclick="toggleStep(2)">
         <div class="step-number"><span>2</span></div>
         <div class="step-title">Create Your Vault</div>
+        <div class="expand-icon">▶</div>
       </div>
       <div class="step-content">
         <p>Create a local vault for your meeting notes. This stays private on your Mac.</p>
@@ -435,9 +447,10 @@
     
     <!-- Step 3: Install Wispr -->
     <div class="step collapsed" id="step-3">
-      <div class="step-header">
+      <div class="step-header" onclick="toggleStep(3)">
         <div class="step-number"><span>3</span></div>
         <div class="step-title">Install Wispr</div>
+        <div class="expand-icon">▶</div>
       </div>
       <div class="step-content">
         <p>Wispr is the voice-to-text tool. It runs in the background and types what you say.</p>
@@ -468,9 +481,10 @@
     
     <!-- Step 4: Hotkey -->
     <div class="step collapsed" id="step-4">
-      <div class="step-header">
+      <div class="step-header" onclick="toggleStep(4)">
         <div class="step-number"><span>4</span></div>
         <div class="step-title">Set Your Hotkey</div>
+        <div class="expand-icon">▶</div>
       </div>
       <div class="step-content">
         <p>Configure a two-key shortcut to start/stop transcription.</p>
@@ -504,9 +518,10 @@
     
     <!-- Step 5: Test -->
     <div class="step collapsed" id="step-5">
-      <div class="step-header">
+      <div class="step-header" onclick="toggleStep(5)">
         <div class="step-number"><span>5</span></div>
         <div class="step-title">Test Your Setup</div>
+        <div class="expand-icon">▶</div>
       </div>
       <div class="step-content">
         <p>Quick test to make sure everything works.</p>
@@ -545,6 +560,31 @@
   <script>
     let completedSteps = new Set();
     
+    // Toggle any step open/closed (no restrictions)
+    function toggleStep(stepNum) {
+      const step = document.getElementById(`step-${stepNum}`);
+      if (!step) return;
+      
+      if (step.classList.contains('collapsed')) {
+        // Collapse other non-completed steps
+        document.querySelectorAll('.step').forEach(s => {
+          if (!s.classList.contains('completed') && s.id !== `step-${stepNum}`) {
+            s.classList.add('collapsed');
+            s.classList.remove('active');
+          }
+        });
+        // Expand this step
+        step.classList.remove('collapsed');
+        step.classList.add('active');
+      } else {
+        // Collapse this step (unless it's completed)
+        if (!step.classList.contains('completed')) {
+          step.classList.add('collapsed');
+          step.classList.remove('active');
+        }
+      }
+    }
+    
     function completeStep(stepNum) {
       const step = document.getElementById(`step-${stepNum}`);
       const progressStep = document.querySelector(`.progress-step[data-step="${stepNum}"]`);
@@ -568,26 +608,6 @@
       
       localStorage.setItem('obsidianSetupProgress', JSON.stringify([...completedSteps]));
     }
-    
-    // Click to expand
-    document.querySelectorAll('.step').forEach(step => {
-      step.addEventListener('click', function(e) {
-        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.tagName === 'INPUT') return;
-        if (!this.classList.contains('collapsed')) return;
-        
-        const stepNum = parseInt(this.id.split('-')[1]);
-        if (stepNum === 1 || completedSteps.has(stepNum - 1)) {
-          document.querySelectorAll('.step').forEach(s => {
-            if (!s.classList.contains('completed')) {
-              s.classList.add('collapsed');
-              s.classList.remove('active');
-            }
-          });
-          this.classList.remove('collapsed');
-          this.classList.add('active');
-        }
-      });
-    });
     
     // Restore progress
     const saved = localStorage.getItem('obsidianSetupProgress');
