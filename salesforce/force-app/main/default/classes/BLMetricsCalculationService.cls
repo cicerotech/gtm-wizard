@@ -110,6 +110,9 @@ public class BLMetricsCalculationService {
         // Query 4: For BLs who haven't hit ramp yet, find the exact date they crossed milestone
         Map<Id, Date> rampDates = findRampAchievementDates(metricsByBLId, blIds);
         
+        // Calculate months elapsed in fiscal year for productivity calc
+        Integer monthsInFY = getMonthsElapsedInFiscalYear();
+        
         // Update all metrics records
         for (BL_Performance_Metrics__c m : metrics) {
             Id blId = m.Business_Lead__c;
@@ -119,6 +122,14 @@ public class BLMetricsCalculationService {
             m.Fiscal_YTD_ACV__c = ytdAcvByBL.get(blId);
             m.Fiscal_QTD_ACV__c = qtdAcvByBL.get(blId);
             m.Last_Calculated__c = DateTime.now();
+            
+            // Calculate average monthly productivity
+            // YTD ACV / months elapsed in fiscal year
+            if (m.Fiscal_YTD_ACV__c != null && monthsInFY > 0) {
+                m.Avg_Monthly_Productivity__c = m.Fiscal_YTD_ACV__c / monthsInFY;
+            } else {
+                m.Avg_Monthly_Productivity__c = 0;
+            }
             
             // Calculate ramp achievement if newly crossed threshold
             if (m.Ramp_Achieved_Date__c == null && m.Ramp_Milestone__c != null) {
@@ -254,6 +265,27 @@ public class BLMetricsCalculationService {
             // January: Q4 started Nov 1 of previous year
             return Date.newInstance(year - 1, 11, 1);
         }
+    }
+    
+    /**
+     * Get number of months elapsed in the current fiscal year
+     * Used for calculating average monthly productivity
+     */
+    public static Integer getMonthsElapsedInFiscalYear() {
+        Date today = Date.today();
+        Date fyStart = getFiscalYearStart();
+        
+        // Calculate months between FY start and today
+        Integer monthsElapsed = 0;
+        
+        if (today.year() == fyStart.year()) {
+            monthsElapsed = today.month() - fyStart.month() + 1;
+        } else {
+            // Spans year boundary (e.g., FY started Feb 2025, now Jan 2026)
+            monthsElapsed = (12 - fyStart.month() + 1) + today.month();
+        }
+        
+        return Math.max(monthsElapsed, 1); // At least 1 month
     }
 }
 

@@ -5,51 +5,70 @@
  * 
  * This script:
  * 1. Creates BL_Performance_Metrics__c records for each Business Lead
- * 2. Sets their Pod (US/EU) and Start Date
+ * 2. Sets their Pod (US/EU), Start Date, and Ramp Status
  * 3. Runs the initial calculation to populate metrics
  * 
- * IMPORTANT: Update the start dates below with actual BL hire/start dates!
+ * BL ROSTER (from BL Productivity Report Dec 2025):
+ * - Mature BLs (6): Julie Stefanich, Ananth Cherukapally, Asad Hussain, Olivia Jung, Alex Fox, Nathan Shine
+ * - Ramping BLs (1): Conor Molloy (started ~Jun 2025, ramping through Dec 2025)
+ * 
+ * RAMP ASSUMPTIONS:
+ * - 6-month ramp period to reach full productivity
+ * - $2M ACV milestone = "fully ramped"
+ * - Avg BL Productivity benchmark: ~$350K/month (mature BLs)
  */
 
 // ═══════════════════════════════════════════════════════════════════════════
-// STEP 1: Define BL roster with Pod and Start Dates
+// STEP 1: Define BL roster with Pod, Start Dates, and Ramp Status
 // ═══════════════════════════════════════════════════════════════════════════
-// UPDATE THESE WITH ACTUAL START DATES!
+// Start dates estimated based on "Mature" status as of Jun-25 (6+ months tenure)
 Map<String, Map<String, Object>> blRoster = new Map<String, Map<String, Object>>{
-    // US Pod
-    'Asad Hussain' => new Map<String, Object>{
-        'pod' => 'US',
-        'startDate' => Date.newInstance(2024, 6, 1)  // REPLACE with actual start date
-    },
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // MATURE BLs (6) - Fully ramped, 6+ months tenure
+    // ═══════════════════════════════════════════════════════════════════════
+    
     'Julie Stefanich' => new Map<String, Object>{
         'pod' => 'US',
-        'startDate' => Date.newInstance(2024, 3, 1)  // REPLACE with actual start date
+        'startDate' => Date.newInstance(2024, 6, 1),   // Mature by Jun-25 = started before Dec-24
+        'isRamping' => false
     },
-    'Justin Hills' => new Map<String, Object>{
+    'Ananth Cherukapally' => new Map<String, Object>{
         'pod' => 'US',
-        'startDate' => Date.newInstance(2024, 8, 1)  // REPLACE with actual start date
+        'startDate' => Date.newInstance(2024, 9, 1),   // Mature by Jun-25
+        'isRamping' => false
     },
-    'Mike Masiello' => new Map<String, Object>{
+    'Asad Hussain' => new Map<String, Object>{
         'pod' => 'US',
-        'startDate' => Date.newInstance(2024, 9, 1)  // REPLACE with actual start date
+        'startDate' => Date.newInstance(2024, 10, 1),  // Mature by Jun-25
+        'isRamping' => false
     },
     'Olivia Jung' => new Map<String, Object>{
         'pod' => 'US',
-        'startDate' => Date.newInstance(2024, 7, 1)  // REPLACE with actual start date
+        'startDate' => Date.newInstance(2024, 11, 1),  // Mature by Jun-25
+        'isRamping' => false
     },
     
-    // EU Pod
+    // EU Pod - Mature
     'Alex Fox' => new Map<String, Object>{
         'pod' => 'EU',
-        'startDate' => Date.newInstance(2024, 4, 1)  // REPLACE with actual start date
+        'startDate' => Date.newInstance(2024, 8, 1),   // Mature by Jun-25
+        'isRamping' => false
     },
     'Nathan Shine' => new Map<String, Object>{
         'pod' => 'EU',
-        'startDate' => Date.newInstance(2024, 5, 1)  // REPLACE with actual start date
+        'startDate' => Date.newInstance(2024, 7, 1),   // Mature by Jun-25
+        'isRamping' => false
     },
-    'Tom Clancy' => new Map<String, Object>{
-        'pod' => 'EU',
-        'startDate' => Date.newInstance(2024, 6, 1)  // REPLACE with actual start date
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // RAMPING BLs (1) - In 6-month ramp period
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    'Conor Molloy' => new Map<String, Object>{
+        'pod' => 'US',
+        'startDate' => Date.newInstance(2025, 6, 1),   // First revenue Oct-25 = ~4 months in
+        'isRamping' => true
     }
 };
 
