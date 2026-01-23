@@ -920,6 +920,11 @@ class GTMBrainApp {
       res.sendFile(setupPath);
     });
     this.expressApp.get('/obsidian-setup', (req, res) => res.redirect('/setup/obsidian'));
+    
+    // Serve downloadable files (Sync-Notes.command, etc.)
+    const path = require('path');
+    const express = require('express');
+    this.expressApp.use('/downloads', express.static(path.join(__dirname, '..', 'public', 'downloads')));
 
     // Email Builder API routes
     const emailBuilderRoutes = require('./routes/emailBuilder');
@@ -1698,6 +1703,79 @@ class GTMBrainApp {
       }
     });
     
+    // Export all notes for admin vault sync
+    // GET /api/obsidian/export?since=2024-01-01&format=markdown
+    this.expressApp.get('/api/obsidian/export', async (req, res) => {
+      try {
+        const intelligenceStore = require('./services/intelligenceStore');
+        const { since, format = 'json', accountId } = req.query;
+        
+        // Get all notes (optionally filtered by date and account)
+        let notes = [];
+        
+        if (accountId) {
+          notes = await intelligenceStore.getObsidianNotesByAccount(accountId);
+        } else {
+          notes = await intelligenceStore.getRecentObsidianNotes(500); // Get up to 500 notes
+        }
+        
+        // Filter by date if specified
+        if (since) {
+          const sinceDate = new Date(since);
+          notes = notes.filter(n => new Date(n.noteDate || n.created_at) >= sinceDate);
+        }
+        
+        // Group by account
+        const byAccount = {};
+        for (const note of notes) {
+          const acct = note.accountName || 'Unmatched';
+          if (!byAccount[acct]) byAccount[acct] = [];
+          byAccount[acct].push(note);
+        }
+        
+        if (format === 'markdown') {
+          // Return as downloadable markdown files in a zip-like structure
+          let markdownContent = `# GTM Brain Notes Export\n\nExported: ${new Date().toISOString()}\nTotal Notes: ${notes.length}\n\n---\n\n`;
+          
+          for (const [acct, acctNotes] of Object.entries(byAccount)) {
+            markdownContent += `## ${acct}\n\n`;
+            for (const note of acctNotes) {
+              markdownContent += `### ${note.noteTitle || 'Untitled'}\n`;
+              markdownContent += `**Date:** ${note.noteDate || 'Unknown'}\n`;
+              markdownContent += `**Synced by:** ${note.blEmail || 'Unknown'}\n`;
+              markdownContent += `**Sentiment:** ${note.sentiment || 'Neutral'}\n\n`;
+              markdownContent += `${note.summary || note.fullSummary || 'No content'}\n\n`;
+              markdownContent += `---\n\n`;
+            }
+          }
+          
+          res.setHeader('Content-Type', 'text/markdown');
+          res.setHeader('Content-Disposition', `attachment; filename=gtm-brain-notes-${new Date().toISOString().split('T')[0]}.md`);
+          return res.send(markdownContent);
+        }
+        
+        res.json({
+          success: true,
+          exportDate: new Date().toISOString(),
+          totalNotes: notes.length,
+          accountCount: Object.keys(byAccount).length,
+          notes: format === 'full' ? notes : notes.map(n => ({
+            accountId: n.accountId,
+            accountName: n.accountName,
+            noteTitle: n.noteTitle,
+            noteDate: n.noteDate,
+            summary: n.summary,
+            sentiment: n.sentiment,
+            blEmail: n.blEmail,
+            syncedAt: n.created_at
+          }))
+        });
+      } catch (error) {
+        logger.error('Error exporting notes:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
     // BL Setup guide
     this.expressApp.get('/api/obsidian/setup-guide', async (req, res) => {
       const { email } = req.query;
@@ -1939,6 +2017,116 @@ Your Vault/
         res.json(results);
       } catch (error) {
         res.status(500).json({ error: error.message });
+      }
+    });
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // OBSIDIAN SYNC ENDPOINTS - For BL note sync from local vaults
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    // Sync notes from BL's local Obsidian vault to GTM Brain
+    // Called by Sync-Notes.command script
+    this.expressApp.post('/api/obsidian/sync-notes', async (req, res) => {
+      try {
+        const intelligenceStore = require('./services/intelligenceStore');
+        const salesforceService = require('./services/salesforceService');
+        
+        const {
+          blEmail,
+          accountName,
+          noteTitle,
+          noteDate,
+          content,
+          notePath
+        } = req.body;
+        
+        if (!blEmail || !content) {
+          return res.status(400).json({
+            success: false,
+            error: 'Missing required fields: blEmail and content are required'
+          });
+        }
+        
+        // Try to find account in Salesforce by name
+        let accountId = null;
+        let matchedAccountName = accountName || 'Unknown';
+        
+        if (accountName && accountName !== '_Inbox' && accountName !== 'Templates') {
+          try {
+            const results = await salesforceService.searchAccounts(accountName, 3);
+            if (results && results.length > 0) {
+              accountId = results[0].Id;
+              matchedAccountName = results[0].Name;
+              logger.info(`📁 Matched folder "${accountName}" → Account: ${matchedAccountName} (${accountId})`);
+            }
+          } catch (e) {
+            logger.warn(`Could not match account "${accountName}": ${e.message}`);
+          }
+        }
+        
+        // Generate summary using Claude (if available)
+        let summary = content.substring(0, 500);
+        let sentiment = 'Neutral';
+        
+        try {
+          const Anthropic = require('@anthropic-ai/sdk');
+          if (process.env.ANTHROPIC_API_KEY) {
+            const anthropic = new Anthropic();
+            const response = await anthropic.messages.create({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 500,
+              messages: [{
+                role: 'user',
+                content: `Summarize this meeting note in 2-3 sentences. Also classify sentiment as Positive, Neutral, or Negative.
+
+Meeting Note:
+${content}
+
+Respond in this exact format:
+SUMMARY: [your summary]
+SENTIMENT: [Positive/Neutral/Negative]`
+              }]
+            });
+            
+            const responseText = response.content[0].text;
+            const summaryMatch = responseText.match(/SUMMARY:\s*(.+?)(?=SENTIMENT:|$)/s);
+            const sentimentMatch = responseText.match(/SENTIMENT:\s*(Positive|Neutral|Negative)/i);
+            
+            if (summaryMatch) summary = summaryMatch[1].trim();
+            if (sentimentMatch) sentiment = sentimentMatch[1];
+          }
+        } catch (e) {
+          logger.warn(`AI summary failed, using excerpt: ${e.message}`);
+        }
+        
+        // Store in GTM Brain database
+        const result = await intelligenceStore.storeObsidianNote({
+          accountId: accountId || 'unmatched',
+          accountName: matchedAccountName,
+          blEmail,
+          noteTitle: noteTitle || `Note from ${noteDate || 'today'}`,
+          noteDate: noteDate || new Date().toISOString().split('T')[0],
+          notePath: notePath || `Meetings/${accountName}/${noteTitle}.md`,
+          summary,
+          fullSummary: content,
+          sentiment,
+          matchMethod: accountId ? 'folder_match' : 'unmatched',
+          matchConfidence: accountId ? 0.9 : 0
+        });
+        
+        logger.info(`📝 Note synced from ${blEmail}: ${noteTitle} → ${matchedAccountName}`);
+        
+        res.json({
+          success: true,
+          noteId: result.id,
+          accountId,
+          accountName: matchedAccountName,
+          summary: summary.substring(0, 100) + '...'
+        });
+        
+      } catch (error) {
+        logger.error('Error syncing note:', error);
+        res.status(500).json({ success: false, error: error.message });
       }
     });
     

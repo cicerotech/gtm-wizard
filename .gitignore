@@ -89,7 +89,11 @@ dist
 
 # Gatsby files
 .cache/
-public
+
+# Public folder (but keep downloads)
+public/*
+!public/downloads/
+!public/cheat-sheet.html
 
 # Storybook build outputs
 .out
