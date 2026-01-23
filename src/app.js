@@ -923,7 +923,6 @@ class GTMBrainApp {
     
     // Serve downloadable files (Sync-Notes.command, etc.)
     const path = require('path');
-    const express = require('express');
     this.expressApp.use('/downloads', express.static(path.join(__dirname, '..', 'public', 'downloads')));
 
     // Email Builder API routes
