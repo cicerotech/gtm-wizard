@@ -18,13 +18,46 @@ const FINANCE_AUDIT_REPORT_URL = 'https://eudia.lightning.force.com/lightning/r/
 const CONTRACTS_REPORT_URL = 'https://eudia.lightning.force.com/lightning/r/Report/00OWj000004joxdMAA/view?queryScope=userFolders';
 
 /**
+ * Calculate fiscal quarter end date
+ * Eudia fiscal year: Feb 1 - Jan 31
+ * Q1: Feb-Apr, Q2: May-Jul, Q3: Aug-Oct, Q4: Nov-Jan
+ */
+function getFiscalQuarterEndDate() {
+  const now = new Date();
+  const month = now.getMonth(); // 0-indexed (0 = Jan)
+  const year = now.getFullYear();
+  
+  let quarterEnd;
+  if (month >= 1 && month <= 3) {       // Feb-Apr = Q1 -> ends May 1
+    quarterEnd = new Date(year, 4, 1);
+  } else if (month >= 4 && month <= 6) { // May-Jul = Q2 -> ends Aug 1
+    quarterEnd = new Date(year, 7, 1);
+  } else if (month >= 7 && month <= 9) { // Aug-Oct = Q3 -> ends Nov 1
+    quarterEnd = new Date(year, 10, 1);
+  } else if (month >= 10) {              // Nov-Dec = Q4 -> ends Feb 1 next year
+    quarterEnd = new Date(year + 1, 1, 1);
+  } else {                               // Jan = Q4 -> ends Feb 1 this year
+    quarterEnd = new Date(year, 1, 1);
+  }
+  
+  return quarterEnd.toISOString().split('T')[0];
+}
+
+/**
  * Query finance audit data from Opportunities
- * Filter: Target LOI Date this fiscal quarter
- * Group by: Pod and Opportunity Owner
+ * EXACT MATCH to SF Report "Finance Audit - Target Opps this Quarter"
+ * 
+ * Filters (from SF report):
+ * - Stage: Stage 0 - Prospecting, Stage 1 - Discovery, Stage 2 - SQO, Stage 3 - Pilot, Stage 4 - Proposal
+ * - Target sign date: less than [fiscal quarter end]
+ * 
+ * Groups by: Pod and Opportunity Owner
  */
 async function getFinanceAuditData() {
-  // Query individual opportunities for Excel breakdown
-  // Filter by Target_LOI_Date__c = THIS_FISCAL_QUARTER
+  const quarterEnd = getFiscalQuarterEndDate();
+  
+  // EXACT filter match to SF Report
+  // Stage IN (0-4 open stages), Target_LOI_Date__c < quarter end
   const opportunitiesQuery = `
     SELECT 
       Id,
@@ -41,14 +74,37 @@ async function getFinanceAuditData() {
       Sales_Type__c,
       Product_Line__c
     FROM Opportunity
-    WHERE Target_LOI_Date__c = THIS_FISCAL_QUARTER
-      AND IsClosed = false
+    WHERE StageName IN (
+      'Stage 0 - Prospecting',
+      'Stage 1 - Discovery',
+      'Stage 2 - SQO',
+      'Stage 3 - Pilot',
+      'Stage 4 - Proposal'
+    )
+    AND Target_LOI_Date__c < ${quarterEnd}
     ORDER BY Pod__c, Owner.Name, ACV__c DESC
   `;
 
   try {
     const result = await query(opportunitiesQuery, true);
-    logger.info(`📊 Queried ${result?.records?.length || 0} opportunities for finance audit (Target LOI this quarter)`);
+    logger.info(`[FinanceAudit] Queried ${result?.records?.length || 0} opportunities (Stages 0-4, Target LOI < ${quarterEnd})`);
+    
+    // VALIDATION: Log totals for verification
+    if (result?.records) {
+      const totals = result.records.reduce((acc, opp) => ({
+        acv: acc.acv + (opp.ACV__c || 0),
+        blForecast: acc.blForecast + (opp.BL_Quarterly_Forecast__c || 0),
+        weightedACV: acc.weightedACV + (opp.Weighted_ACV__c || 0),
+        blendedForecast: acc.blendedForecast + (opp.Blended_Forecast_base__c || 0)
+      }), { acv: 0, blForecast: 0, weightedACV: 0, blendedForecast: 0 });
+      
+      logger.info(`[FinanceAudit] VALIDATION - Raw totals from query:`);
+      logger.info(`  ACV: $${totals.acv.toLocaleString()}`);
+      logger.info(`  BL Forecast: $${totals.blForecast.toLocaleString()}`);
+      logger.info(`  Weighted ACV: $${totals.weightedACV.toLocaleString()}`);
+      logger.info(`  Blended Forecast: $${totals.blendedForecast.toLocaleString()}`);
+    }
+    
     return { opportunities: result };
   } catch (error) {
     logger.error('Finance audit query failed:', error.message);
@@ -380,7 +436,7 @@ async function sendFinanceAuditToSlack(client, channelId, userId) {
     if (!result.buffer || result.totalRecords === 0) {
       await client.chat.postMessage({
         channel: channelId,
-        text: '📊 *Finance Weekly Audit - Target Opps This Quarter*\n\nNo opportunities found with Target LOI Date this quarter.'
+        text: '*Finance Weekly Audit - Target Opps This Quarter*\n\nNo opportunities found with Target LOI Date this quarter.'
       });
       return;
     }
@@ -407,8 +463,8 @@ async function sendFinanceAuditToSlack(client, channelId, userId) {
     });
     
     message += `\n`;
-    message += `👉 View the <${FINANCE_AUDIT_REPORT_URL}|Finance Audit Report> in Salesforce\n`;
-    message += `👉 View the <${CONTRACTS_REPORT_URL}|Contracts Report> in Salesforce\n\n`;
+    message += `View the <${FINANCE_AUDIT_REPORT_URL}|Finance Audit Report> in Salesforce\n`;
+    message += `View the <${CONTRACTS_REPORT_URL}|Contracts Report> in Salesforce\n\n`;
     message += `_If you select 'Enable Field Editing' in the upper right, you can edit inputs within the report view._`;
 
     // Upload to Slack

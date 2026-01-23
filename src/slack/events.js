@@ -3048,12 +3048,12 @@ async function handleGenerateCSMReport(userId, channelId, client, threadTs) {
  */
 async function handleFinanceAuditReport(userId, channelId, client, threadTs) {
   try {
-    logger.info(`📊 Finance Weekly Audit Report requested by ${userId} in channel: ${channelId}`);
+    logger.info(`[FinanceAudit] Report requested by ${userId} in channel: ${channelId}`);
     
     // Show loading message
     await client.chat.postMessage({
       channel: channelId,
-      text: '📊 Generating Finance Weekly Audit report... This will take a moment.',
+      text: 'Generating Finance Weekly Audit report... This will take a moment.',
       thread_ts: threadTs
     });
     
@@ -3063,7 +3063,7 @@ async function handleFinanceAuditReport(userId, channelId, client, threadTs) {
     // Generate and upload Finance Audit Excel report
     await sendFinanceAuditToSlack(client, channelId, userId);
     
-    logger.info(`✅ Finance Weekly Audit report sent to channel ${channelId} by ${userId}`);
+    logger.info(`[FinanceAudit] Report sent to channel ${channelId} by ${userId}`);
     
   } catch (error) {
     logger.error('Failed to generate Finance Weekly Audit report:', error);

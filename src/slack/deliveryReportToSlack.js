@@ -32,12 +32,15 @@ async function getDeliveryData() {
  * - Stage 4 - Proposal
  * - Stage 6. Closed(Won)
  * 
- * EXCLUDES: All other stages (matches SF "Delivery Weekly" report filter)
+ * EXCLUDES: 
+ * - All other stages (matches SF "Delivery Weekly" report filter)
+ * - Orphaned deliveries (where Opportunity was deleted)
  */
 async function getDeliveryDataSimple() {
   // Query Deliveries with their related Opportunity data
   // Match the EXACT stage filter from the Salesforce "Delivery Weekly" report
   // Only includes: Stage 4 - Proposal and Stage 6. Closed(Won)
+  // CRITICAL: Also filter out orphaned deliveries where Opportunity__c is null or Opportunity was deleted
   const deliveriesQuery = `
     SELECT 
       Id,
@@ -63,16 +66,18 @@ async function getDeliveryDataSimple() {
       Eudia_Delivery_Owner__c,
       Eudia_Delivery_Owner__r.Name
     FROM Delivery__c
-    WHERE Opportunity__r.StageName IN (
-      'Stage 4 - Proposal',
-      'Stage 6. Closed(Won)'
-    )
+    WHERE Opportunity__c != null
+      AND Opportunity__r.Id != null
+      AND Opportunity__r.StageName IN (
+        'Stage 4 - Proposal',
+        'Stage 6. Closed(Won)'
+      )
     ORDER BY Opportunity__r.CloseDate DESC, Account__r.Name
   `;
 
   try {
     const deliveriesData = await query(deliveriesQuery, true);
-    logger.info(`📊 Queried ${deliveriesData?.records?.length || 0} delivery records (filtered by report stages)`);
+    logger.info(`[DeliveryReport] Queried ${deliveriesData?.records?.length || 0} delivery records (Stage 4 + Stage 6, excluding orphans)`);
     return { deliveries: deliveriesData };
   } catch (error) {
     logger.error('Deliveries query failed:', error.message);
