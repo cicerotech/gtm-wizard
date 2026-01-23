@@ -7,10 +7,9 @@
     <label>Business Lead</label>
     <referenceTo>User</referenceTo>
     <relationshipName>BL_Performance_Metrics</relationshipName>
-    <required>true</required>
+    <required>false</required>
     <trackHistory>false</trackHistory>
     <trackTrending>false</trackTrending>
     <type>Lookup</type>
-    <unique>true</unique>
 </CustomField>
 
