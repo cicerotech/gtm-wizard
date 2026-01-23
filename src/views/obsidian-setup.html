@@ -7,159 +7,168 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
-    :root {
-      --bg: #0a0a0a;
-      --card: #141414;
-      --border: #2a2a2a;
-      --text: #e5e5e5;
-      --text-muted: #888;
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
-      --success: #22c55e;
-      --warning: #eab308;
-    }
-    
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f7fe;
+      color: #1f2937;
       line-height: 1.6;
       min-height: 100vh;
+      padding: 24px;
     }
     
     .container {
-      max-width: 680px;
+      max-width: 640px;
       margin: 0 auto;
-      padding: 40px 24px 80px;
     }
     
+    /* Header */
     .header {
+      background: #fff;
+      padding: 24px;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 24px;
       text-align: center;
-      margin-bottom: 48px;
     }
     
-    .logo {
-      font-size: 14px;
-      letter-spacing: 2px;
-      color: var(--text-muted);
+    .header img {
+      max-width: 140px;
       margin-bottom: 16px;
     }
     
     h1 {
-      font-size: 32px;
-      font-weight: 600;
-      margin-bottom: 12px;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1f2937;
+      margin-bottom: 6px;
     }
     
     .subtitle {
-      color: var(--text-muted);
-      font-size: 16px;
+      color: #6b7280;
+      font-size: 0.9rem;
     }
     
     .time-estimate {
       display: inline-block;
-      background: var(--card);
-      border: 1px solid var(--border);
-      padding: 8px 16px;
+      background: #f3f4f6;
+      padding: 6px 14px;
       border-radius: 20px;
-      font-size: 13px;
-      color: var(--text-muted);
-      margin-top: 20px;
+      font-size: 0.75rem;
+      color: #6b7280;
+      margin-top: 12px;
     }
     
+    /* Progress Bar */
     .progress-bar {
       display: flex;
-      gap: 8px;
-      margin-bottom: 40px;
+      gap: 6px;
+      margin-bottom: 24px;
+      padding: 0 4px;
     }
     
     .progress-step {
       flex: 1;
       height: 4px;
-      background: var(--border);
+      background: #e5e7eb;
       border-radius: 2px;
       transition: background 0.3s;
     }
     
-    .progress-step.active { background: var(--accent); }
-    .progress-step.done { background: var(--success); }
+    .progress-step.active { background: #8e99e1; }
+    .progress-step.done { background: #10b981; }
     
+    /* Steps */
     .step {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 28px;
-      margin-bottom: 20px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 20px 24px;
+      margin-bottom: 16px;
+      border-left: 4px solid #e5e7eb;
+    }
+    
+    .step.active {
+      border-left-color: #8e99e1;
     }
     
     .step.collapsed {
-      padding: 20px 28px;
+      padding: 16px 24px;
       cursor: pointer;
+    }
+    
+    .step.collapsed:hover {
+      background: #fafafa;
     }
     
     .step.collapsed .step-content { display: none; }
     
     .step.completed {
-      border-color: var(--success);
-      background: rgba(34, 197, 94, 0.05);
+      border-left-color: #10b981;
+      background: #fafafa;
     }
     
     .step-header {
       display: flex;
       align-items: center;
-      gap: 16px;
-      margin-bottom: 20px;
+      gap: 14px;
+      margin-bottom: 16px;
     }
     
     .step.collapsed .step-header { margin-bottom: 0; }
     
     .step-number {
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       border-radius: 50%;
-      background: var(--accent);
+      background: #8e99e1;
       color: white;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 600;
-      font-size: 14px;
+      font-size: 0.8rem;
       flex-shrink: 0;
     }
     
-    .step.completed .step-number { background: var(--success); }
+    .step.completed .step-number { background: #10b981; }
     .step.completed .step-number::after { content: '✓'; }
     .step.completed .step-number span { display: none; }
     
     .step-title {
-      font-size: 18px;
+      font-size: 1rem;
       font-weight: 600;
+      color: #1f2937;
     }
     
     .step-content p {
-      color: var(--text-muted);
-      margin-bottom: 16px;
+      color: #6b7280;
+      font-size: 0.875rem;
+      margin-bottom: 14px;
     }
     
     .step-content ol, .step-content ul {
-      margin: 16px 0;
+      margin: 14px 0;
       padding-left: 20px;
+      font-size: 0.875rem;
     }
     
     .step-content li {
-      margin-bottom: 12px;
-      color: var(--text);
+      margin-bottom: 10px;
+      color: #374151;
     }
     
-    .step-content li::marker { color: var(--accent); }
+    .step-content li strong {
+      color: #1f2937;
+    }
     
+    /* Buttons */
     .btn {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 12px 24px;
+      gap: 6px;
+      padding: 10px 20px;
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 0.875rem;
       font-weight: 500;
       text-decoration: none;
       cursor: pointer;
@@ -168,198 +177,192 @@
     }
     
     .btn-primary {
-      background: var(--accent);
+      background: #8e99e1;
       color: white;
     }
     
-    .btn-primary:hover { background: var(--accent-hover); }
-    
-    .btn-secondary {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-    }
-    
-    .btn-secondary:hover { border-color: var(--text-muted); }
+    .btn-primary:hover { background: #7a86d4; }
     
     .btn-success {
-      background: var(--success);
+      background: #10b981;
       color: white;
     }
+    
+    .btn-success:hover { background: #059669; }
     
     .btn-group {
       display: flex;
-      gap: 12px;
-      margin-top: 20px;
+      gap: 10px;
+      margin-top: 16px;
       flex-wrap: wrap;
     }
     
+    /* Copy Box */
     .copy-box {
       display: flex;
       align-items: center;
-      background: var(--bg);
-      border: 1px solid var(--border);
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
       border-radius: 8px;
-      padding: 12px 16px;
-      margin: 16px 0;
-      gap: 12px;
+      padding: 10px 14px;
+      margin: 14px 0;
+      gap: 10px;
     }
     
     .copy-box code {
       flex: 1;
-      font-family: 'SF Mono', Monaco, monospace;
-      font-size: 14px;
-      color: var(--accent);
+      font-family: 'SF Mono', Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+      color: #374151;
       word-break: break-all;
     }
     
     .copy-box button {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-muted);
+      background: #8e99e1;
+      border: none;
+      color: white;
       padding: 6px 12px;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 0.75rem;
+      font-weight: 500;
       transition: all 0.2s;
     }
     
-    .copy-box button:hover {
-      border-color: var(--text);
-      color: var(--text);
-    }
+    .copy-box button:hover { background: #7a86d4; }
+    .copy-box button.copied { background: #10b981; }
     
-    .copy-box button.copied {
-      border-color: var(--success);
-      color: var(--success);
-    }
-    
+    /* Callouts */
     .callout {
-      background: rgba(59, 130, 246, 0.1);
-      border: 1px solid rgba(59, 130, 246, 0.3);
-      border-radius: 8px;
-      padding: 16px;
-      margin: 16px 0;
+      background: #eff6ff;
+      border-left: 3px solid #3b82f6;
+      border-radius: 6px;
+      padding: 12px 14px;
+      margin: 14px 0;
+      font-size: 0.8rem;
     }
     
     .callout.warning {
-      background: rgba(234, 179, 8, 0.1);
-      border-color: rgba(234, 179, 8, 0.3);
+      background: #fef3c7;
+      border-left-color: #f59e0b;
     }
     
     .callout.success {
-      background: rgba(34, 197, 94, 0.1);
-      border-color: rgba(34, 197, 94, 0.3);
+      background: #ecfdf5;
+      border-left-color: #10b981;
     }
     
     .callout-title {
       font-weight: 600;
       margin-bottom: 4px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      color: #1f2937;
     }
     
     .callout p {
-      color: var(--text-muted);
-      font-size: 14px;
+      color: #4b5563;
       margin: 0;
     }
     
+    /* Hotkey */
     .hotkey {
       display: inline-flex;
       gap: 6px;
-      margin: 8px 0;
+      margin: 10px 0;
     }
     
     .key {
-      background: var(--bg);
-      border: 1px solid var(--border);
+      background: #f3f4f6;
+      border: 1px solid #d1d5db;
       border-radius: 6px;
-      padding: 8px 14px;
+      padding: 6px 12px;
       font-family: 'SF Mono', Monaco, monospace;
-      font-size: 13px;
-      box-shadow: 0 2px 0 var(--border);
+      font-size: 0.8rem;
+      color: #374151;
+      box-shadow: 0 1px 0 #d1d5db;
     }
     
     .key-plus {
       display: flex;
       align-items: center;
-      color: var(--text-muted);
+      color: #9ca3af;
+      font-weight: 500;
     }
     
+    /* Checklist */
     .checklist {
       list-style: none;
       padding: 0;
-      margin: 16px 0;
+      margin: 14px 0;
     }
     
     .checklist li {
       display: flex;
       align-items: flex-start;
-      gap: 12px;
-      padding: 12px 0;
-      border-bottom: 1px solid var(--border);
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f3f4f6;
     }
     
     .checklist li:last-child { border-bottom: none; }
     
     .checklist input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
-      accent-color: var(--success);
+      width: 18px;
+      height: 18px;
+      accent-color: #10b981;
       margin-top: 2px;
+      flex-shrink: 0;
     }
     
     .checklist label {
       flex: 1;
       cursor: pointer;
+      font-size: 0.875rem;
+      color: #374151;
     }
     
     .checklist label span {
       display: block;
-      color: var(--text-muted);
-      font-size: 13px;
-      margin-top: 4px;
+      color: #9ca3af;
+      font-size: 0.75rem;
+      margin-top: 2px;
     }
     
-    .help-footer {
-      text-align: center;
-      padding: 40px 20px;
-      border-top: 1px solid var(--border);
-      margin-top: 40px;
-    }
-    
-    .help-footer p {
-      color: var(--text-muted);
-      margin-bottom: 16px;
-    }
-    
+    /* Folder Tree */
     .folder-tree {
-      background: var(--bg);
-      border: 1px solid var(--border);
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
       border-radius: 8px;
-      padding: 16px;
+      padding: 14px;
       font-family: 'SF Mono', Monaco, monospace;
-      font-size: 13px;
-      margin: 16px 0;
+      font-size: 0.8rem;
+      margin: 14px 0;
       white-space: pre;
-      color: var(--text-muted);
+      color: #6b7280;
     }
     
-    .folder-tree .folder { color: var(--accent); }
-    .folder-tree .file { color: var(--text); }
+    .folder-tree .folder { color: #8e99e1; font-weight: 500; }
+    .folder-tree .file { color: #374151; }
+    
+    /* Responsive */
+    @media (max-width: 640px) {
+      body { padding: 16px; }
+      .header { padding: 20px; }
+      .step { padding: 16px 18px; }
+      h1 { font-size: 1.25rem; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
+    <!-- Header -->
     <header class="header">
-      <div class="logo">EUDIA</div>
+      <img src="/logo" alt="Eudia">
       <h1>Meeting Notes Setup</h1>
-      <p class="subtitle">Obsidian + Wispr for voice-to-text meeting notes</p>
+      <p class="subtitle">Obsidian + Wispr for voice-to-text transcription</p>
       <div class="time-estimate">⏱ About 5 minutes</div>
     </header>
     
+    <!-- Progress Bar -->
     <div class="progress-bar">
       <div class="progress-step active" data-step="1"></div>
       <div class="progress-step" data-step="2"></div>
@@ -369,7 +372,7 @@
     </div>
     
     <!-- Step 1: Download Obsidian -->
-    <div class="step" id="step-1">
+    <div class="step active" id="step-1">
       <div class="step-header">
         <div class="step-number"><span>1</span></div>
         <div class="step-title">Download Obsidian</div>
@@ -379,15 +382,15 @@
         
         <div class="btn-group">
           <a href="https://obsidian.md/download" target="_blank" class="btn btn-primary">
-            ↓ Download Obsidian for Mac
+            ↓ Download Obsidian
           </a>
         </div>
         
         <ol>
           <li>Click the download button above</li>
-          <li>Open the downloaded .dmg file</li>
-          <li>Drag Obsidian to Applications</li>
-          <li>Launch Obsidian</li>
+          <li>Open the downloaded <strong>.dmg</strong> file</li>
+          <li>Drag Obsidian to <strong>Applications</strong></li>
+          <li>Open Obsidian from Applications</li>
         </ol>
         
         <div class="btn-group">
@@ -396,37 +399,32 @@
       </div>
     </div>
     
-    <!-- Step 2: Create Your Vault -->
+    <!-- Step 2: Create Vault -->
     <div class="step collapsed" id="step-2">
       <div class="step-header">
         <div class="step-number"><span>2</span></div>
         <div class="step-title">Create Your Vault</div>
       </div>
       <div class="step-content">
-        <p>Create a local vault for your meeting notes. This stays on your Mac.</p>
+        <p>Create a local vault for your meeting notes. This stays private on your Mac.</p>
         
         <ol>
           <li>When Obsidian opens, click <strong>"Create new vault"</strong></li>
           <li>Name it: <strong>Eudia Meetings</strong></li>
-          <li>Location: Leave as default (Documents folder)</li>
-          <li>Click <strong>"Create"</strong></li>
+          <li>Location: Leave default (Documents folder)</li>
+          <li>Click <strong>Create</strong></li>
         </ol>
         
-        <p>Now set up the folder structure:</p>
-        
-        <ol start="5">
-          <li>Right-click in the left sidebar → <strong>New folder</strong></li>
-          <li>Create these folders:</li>
-        </ol>
+        <p>Now set up folders. Right-click in the sidebar → <strong>New folder</strong>:</p>
         
         <div class="folder-tree"><span class="folder">Meetings/</span>
-├── <span class="folder">_Inbox/</span>        ← Transcriptions go here first
-├── <span class="folder">Templates/</span>    ← Meeting note template
-└── <span class="folder">[Account folders as needed]</span></div>
+├── <span class="folder">_Inbox/</span>        ← Draft notes go here
+├── <span class="folder">Templates/</span>    ← Meeting templates
+└── <span class="folder">[Account folders]</span></div>
         
         <div class="callout">
-          <div class="callout-title">💡 Commercial License (Optional)</div>
-          <p>If you want to register the commercial license: Settings → License → paste: <code>59939774BCB53619BD02219A2E1179D3</code></p>
+          <div class="callout-title">💡 Commercial License</div>
+          <p>Optional: Settings → About → Commercial license → paste: <code>59939774BCB53619BD02219A2E1179D3</code></p>
         </div>
         
         <div class="btn-group">
@@ -457,9 +455,9 @@
         
         <ol>
           <li>Download and install Wispr</li>
-          <li>Sign in using the invite from your email</li>
+          <li>Sign in with the invite from your email</li>
           <li>Grant microphone access when prompted</li>
-          <li>Wispr will appear in your menu bar (top-right)</li>
+          <li>Wispr appears in your menu bar (top-right)</li>
         </ol>
         
         <div class="btn-group">
@@ -468,7 +466,7 @@
       </div>
     </div>
     
-    <!-- Step 4: Configure Hotkey -->
+    <!-- Step 4: Hotkey -->
     <div class="step collapsed" id="step-4">
       <div class="step-header">
         <div class="step-number"><span>4</span></div>
@@ -480,7 +478,7 @@
         <ol>
           <li>Click the Wispr icon in your menu bar</li>
           <li>Go to <strong>Settings → Hands-Free</strong></li>
-          <li>Click <strong>"Add New Action"</strong></li>
+          <li>Click <strong>Add New Action</strong></li>
           <li>Click in the hotkey box</li>
           <li>Press two keys together:</li>
         </ol>
@@ -491,89 +489,57 @@
           <span class="key">Z</span>
         </div>
         
-        <p style="font-size: 13px; color: var(--text-muted);">Or any two keys you prefer (Ctrl+Z, etc.)</p>
+        <p style="font-size: 0.8rem; color: #9ca3af;">Or any two adjacent keys you prefer</p>
         
         <ol start="6">
-          <li>Set action to <strong>"Toggle Dictation"</strong></li>
+          <li>Set action to <strong>Toggle Dictation</strong></li>
           <li>Save</li>
         </ol>
         
         <div class="btn-group">
-          <button class="btn btn-success" onclick="completeStep(4)">✓ Hotkey configured</button>
+          <button class="btn btn-success" onclick="completeStep(4)">✓ Hotkey set</button>
         </div>
       </div>
     </div>
     
-    <!-- Step 5: Download Sync Tool -->
+    <!-- Step 5: Test -->
     <div class="step collapsed" id="step-5">
       <div class="step-header">
         <div class="step-number"><span>5</span></div>
-        <div class="step-title">Test & Sync</div>
+        <div class="step-title">Test Your Setup</div>
       </div>
       <div class="step-content">
-        <p>Test transcription and download the sync tool.</p>
+        <p>Quick test to make sure everything works.</p>
         
         <ul class="checklist">
           <li>
-            <input type="checkbox" id="check-1">
-            <label for="check-1">
-              Open Obsidian, create a new note
-              <span>Cmd+N → name it "Test Note"</span>
-            </label>
+            <input type="checkbox" id="c1">
+            <label for="c1">Open Obsidian, create a new note (⌘N)<span>Name it "Test Note"</span></label>
           </li>
           <li>
-            <input type="checkbox" id="check-2">
-            <label for="check-2">
-              Press your hotkey (Fn+Z)
-              <span>Wispr should start listening</span>
-            </label>
+            <input type="checkbox" id="c2">
+            <label for="c2">Press your hotkey (Fn + Z)<span>Wispr should start listening</span></label>
           </li>
           <li>
-            <input type="checkbox" id="check-3">
-            <label for="check-3">
-              Say "This is a test transcription"
-              <span>Speak clearly</span>
-            </label>
+            <input type="checkbox" id="c3">
+            <label for="c3">Say "This is a test transcription"<span>Speak clearly for a few seconds</span></label>
           </li>
           <li>
-            <input type="checkbox" id="check-4">
-            <label for="check-4">
-              Press hotkey again to stop
-              <span>Text appears in your note!</span>
-            </label>
+            <input type="checkbox" id="c4">
+            <label for="c4">Press hotkey again to stop<span>Text appears in your note</span></label>
           </li>
         </ul>
         
         <div class="callout success">
-          <div class="callout-title">🎉 Transcription works!</div>
-          <p>Now download the sync tool to send notes to GTM Brain.</p>
+          <div class="callout-title">🎉 You're all set!</div>
+          <p>Create notes in your Meetings folder during calls. Use your hotkey to transcribe.</p>
         </div>
         
         <div class="btn-group">
-          <a href="/downloads/Sync-Notes.command" download class="btn btn-primary">
-            ↓ Download Sync Tool
-          </a>
-        </div>
-        
-        <p style="margin-top: 16px;">After downloading:</p>
-        <ol>
-          <li>Move <code>Sync-Notes.command</code> to your Desktop</li>
-          <li>Double-click it after meetings to sync your notes</li>
-          <li>Notes will appear in GTM Brain Meeting Prep</li>
-        </ol>
-        
-        <div class="btn-group">
-          <button class="btn btn-success" onclick="completeStep(5)">✓ All done!</button>
+          <button class="btn btn-success" onclick="completeStep(5)">✓ Done!</button>
         </div>
       </div>
     </div>
-    
-    <footer class="help-footer">
-      <p>Questions or issues?</p>
-      <a href="https://eudia.slack.com/team/U094AQE9V7D" class="btn btn-secondary" target="_blank">
-        💬 Message @keigan in Slack
-      </a>
-    </footer>
   </div>
   
   <script>
@@ -583,7 +549,9 @@
       const step = document.getElementById(`step-${stepNum}`);
       const progressStep = document.querySelector(`.progress-step[data-step="${stepNum}"]`);
       
-      step.classList.add('completed', 'collapsed');
+      step.classList.add('completed');
+      step.classList.add('collapsed');
+      step.classList.remove('active');
       progressStep.classList.remove('active');
       progressStep.classList.add('done');
       completedSteps.add(stepNum);
@@ -593,40 +561,59 @@
       
       if (nextStep) {
         nextStep.classList.remove('collapsed');
+        nextStep.classList.add('active');
         if (nextProgress) nextProgress.classList.add('active');
-        setTimeout(() => nextStep.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+        setTimeout(() => nextStep.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
       }
       
       localStorage.setItem('obsidianSetupProgress', JSON.stringify([...completedSteps]));
     }
     
+    // Click to expand
     document.querySelectorAll('.step').forEach(step => {
       step.addEventListener('click', function(e) {
         if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.tagName === 'INPUT') return;
+        if (!this.classList.contains('collapsed')) return;
+        
         const stepNum = parseInt(this.id.split('-')[1]);
         if (stepNum === 1 || completedSteps.has(stepNum - 1)) {
+          document.querySelectorAll('.step').forEach(s => {
+            if (!s.classList.contains('completed')) {
+              s.classList.add('collapsed');
+              s.classList.remove('active');
+            }
+          });
           this.classList.remove('collapsed');
+          this.classList.add('active');
         }
       });
     });
     
+    // Restore progress
     const saved = localStorage.getItem('obsidianSetupProgress');
     if (saved) {
       JSON.parse(saved).forEach(stepNum => {
         completedSteps.add(stepNum);
         const step = document.getElementById(`step-${stepNum}`);
         const progressStep = document.querySelector(`.progress-step[data-step="${stepNum}"]`);
-        if (step) step.classList.add('completed', 'collapsed');
+        if (step) {
+          step.classList.add('completed', 'collapsed');
+          step.classList.remove('active');
+        }
         if (progressStep) {
           progressStep.classList.remove('active');
           progressStep.classList.add('done');
         }
       });
+      
       for (let i = 1; i <= 5; i++) {
         if (!completedSteps.has(i)) {
           const step = document.getElementById(`step-${i}`);
           const progressStep = document.querySelector(`.progress-step[data-step="${i}"]`);
-          if (step) step.classList.remove('collapsed');
+          if (step) {
+            step.classList.remove('collapsed');
+            step.classList.add('active');
+          }
           if (progressStep) progressStep.classList.add('active');
           break;
         }
@@ -635,3 +622,4 @@
   </script>
 </body>
 </html>
+
