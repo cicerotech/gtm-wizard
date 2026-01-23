@@ -551,18 +551,21 @@ async function queryActiveRevenue() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Query January Closed Won New Business revenue
+ * Query January Closed Won Net New Revenue
  * 
  * REVENUE CLASSIFICATION (matching finance requirements):
- * - New Business deals with Revenue_Type__c = 'Recurring' or 'Project' → count full ACV
- * - Renewals → only count Net_New_ACV__c (net change) if positive
- * - Excludes Commitment/LOI and Pilot from run-rate calculation
+ * - All deals with Revenue_Type__c = 'Recurring' or 'Project'
+ * - Use Net_ACV__c field for ALL deals (this captures net new for renewals/expansions)
+ * - For New Business, Net_ACV__c = ACV__c (full amount)
+ * - For Renewals/Expansions, Net_ACV__c = net change amount
+ * 
+ * Based on SF report: Total Net ACV = $235,787.24 for 6 deals in January
  * 
  * This is used for the January row in the Run Rate Forecast table
  */
 async function queryJanuaryClosedWonNewBusiness() {
   try {
-    logger.info('Querying January Closed Won New Business...');
+    logger.info('Querying January Closed Won Net New Revenue...');
     
     // Get current month boundaries
     const now = new Date();
@@ -572,73 +575,64 @@ async function queryJanuaryClosedWonNewBusiness() {
     const lastDay = new Date(year, month + 1, 0).getDate();
     const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`;
     
-    // Query individual deals to properly calculate revenue
-    // Include Net_New_ACV__c for renewals and Revenue_Type__c for classification
+    // Query individual deals - use Net_ACV__c for net new calculation
+    // Include all Recurring and Project revenue types (incl. renewals, expansions)
     const soql = `
-      SELECT Id, Name, Account.Name, ACV__c, Net_New_ACV__c, Sales_Type__c, Revenue_Type__c, Owner.Name
+      SELECT Id, Name, Account.Name, ACV__c, Net_ACV__c, Sales_Type__c, Revenue_Type__c, Owner.Name
       FROM Opportunity
       WHERE StageName = 'Stage 6. Closed(Won)'
         AND CloseDate >= ${monthStart}
         AND CloseDate <= ${monthEnd}
         AND Revenue_Type__c IN ('Recurring', 'Project')
-      ORDER BY ACV__c DESC
+      ORDER BY Net_ACV__c DESC
     `;
     
     const result = await query(soql, true);
     
     if (!result || !result.records || result.records.length === 0) {
       logger.info('No Closed Won Recurring/Project deals found this month');
-      return { totalACV: 0, dealCount: 0, deals: [] };
+      return { totalACV: 0, totalNetACV: 0, dealCount: 0, deals: [] };
     }
     
-    // Calculate revenue based on sales type
-    let totalACV = 0;
+    // Sum Net_ACV__c for all deals (this is the net new amount)
+    let totalNetACV = 0;
+    let totalGrossACV = 0;
     const validDeals = [];
     
     result.records.forEach(opp => {
-      const salesType = (opp.Sales_Type__c || '').toLowerCase();
-      const acv = opp.ACV__c || 0;
-      const netNew = opp.Net_New_ACV__c || 0;
+      const salesType = opp.Sales_Type__c || 'Unknown';
+      const grossACV = opp.ACV__c || 0;
+      const netACV = opp.Net_ACV__c || 0;
       
-      if (salesType.includes('renewal')) {
-        // Renewals: only count net change (positive only)
-        if (netNew > 0) {
-          totalACV += netNew;
-          validDeals.push({
-            name: opp.Name,
-            accountName: opp.Account?.Name,
-            acv: netNew,
-            type: 'Renewal (net)',
-            owner: opp.Owner?.Name
-          });
-        }
-      } else {
-        // New Business, Expansion: count full ACV
-        totalACV += acv;
-        validDeals.push({
-          name: opp.Name,
-          accountName: opp.Account?.Name,
-          acv: acv,
-          type: opp.Sales_Type__c || 'New Business',
-          owner: opp.Owner?.Name
-        });
-      }
+      totalGrossACV += grossACV;
+      totalNetACV += netACV;
+      
+      validDeals.push({
+        name: opp.Name,
+        accountName: opp.Account?.Name,
+        grossACV: grossACV,
+        netACV: netACV,
+        type: salesType,
+        owner: opp.Owner?.Name
+      });
     });
     
     const data = {
-      totalACV,
+      totalACV: totalNetACV,  // Use Net ACV as the primary value for run rate
+      totalNetACV,
+      totalGrossACV,
       dealCount: validDeals.length,
       deals: validDeals
     };
     
-    logger.info(`January Closed Won (Recurring/Project): $${(data.totalACV/1000000).toFixed(2)}M (${data.dealCount} deals)`);
-    validDeals.forEach(d => logger.info(`  - ${d.accountName}: $${(d.acv/1000).toFixed(0)}K (${d.type})`));
+    logger.info(`January Closed Won: $${(data.totalNetACV/1000000).toFixed(2)}M net new, $${(data.totalGrossACV/1000000).toFixed(2)}M gross (${data.dealCount} deals)`);
+    validDeals.forEach(d => logger.info(`  - ${d.accountName}: $${(d.netACV/1000).toFixed(0)}K net (${d.type})`));
     
     return data;
     
   } catch (error) {
-    logger.error('Failed to query January Closed Won New Business:', error);
-    return { totalACV: 0, dealCount: 0, deals: [] };
+    logger.error('Failed to query January Closed Won:', error);
+    return { totalACV: 0, totalNetACV: 0, dealCount: 0, deals: [] };
   }
 }
 
@@ -1196,15 +1190,22 @@ function processPipelineData(records) {
   // Calculate proposal stage totals
   const proposalGrossACV = proposalDeals.reduce((sum, d) => sum + d.acv, 0);
   
-  // Calculate proposal targeting this month vs this quarter
+  // Calculate proposal targeting this month vs this quarter (Stage 4 only)
   const proposalThisMonth = proposalDeals.filter(d => isInCurrentMonth(d.targetDate));
   const proposalThisQuarter = proposalDeals.filter(d => isInCurrentFiscalQuarter(d.targetDate));
+  
+  // Calculate ALL active deals targeting this month/quarter (Stages 0-4)
+  // This is the correct count for "deals targeting close this month"
+  const allDealsThisMonth = allDeals.filter(d => isInCurrentMonth(d.targetDate));
+  const allDealsThisQuarter = allDeals.filter(d => isInCurrentFiscalQuarter(d.targetDate));
   
   return {
     blMetrics: finalBLMetrics,
     proposalDeals,
     allDeals, // All deals for Top 5 section
     proposalThisMonth, // Include for PDF
+    allDealsThisMonth, // All stages targeting this month
+    allDealsThisQuarter, // All stages targeting this quarter
     stageBreakdown,
     totals: {
       grossACV: totalGrossACV,
@@ -1215,14 +1216,20 @@ function processPipelineData(records) {
       avgDealSize: records.length > 0 ? totalGrossACV / records.length : 0,
       proposalCount: proposalDeals.length,
       proposalGrossACV,
-      // This month targeting
+      // This month targeting - Stage 4 only (for proposal-specific metrics)
       proposalThisMonthCount: proposalThisMonth.length,
       proposalThisMonthACV: proposalThisMonth.reduce((sum, d) => sum + d.acv, 0),
       proposalThisMonthWeightedACV: proposalThisMonth.reduce((sum, d) => sum + d.weightedAcv, 0),
-      // This quarter targeting
+      // This quarter targeting - Stage 4 only
       proposalThisQuarterCount: proposalThisQuarter.length,
       proposalThisQuarterGrossACV: proposalThisQuarter.reduce((sum, d) => sum + d.acv, 0),
-      proposalThisQuarterWeightedACV: proposalThisQuarter.reduce((sum, d) => sum + d.weightedAcv, 0)
+      proposalThisQuarterWeightedACV: proposalThisQuarter.reduce((sum, d) => sum + d.weightedAcv, 0),
+      // ALL STAGES targeting this month (for message headline)
+      allDealsThisMonthCount: allDealsThisMonth.length,
+      allDealsThisMonthACV: allDealsThisMonth.reduce((sum, d) => sum + d.acv, 0),
+      // ALL STAGES targeting this quarter
+      allDealsThisQuarterCount: allDealsThisQuarter.length,
+      allDealsThisQuarterACV: allDealsThisQuarter.reduce((sum, d) => sum + d.acv, 0)
     },
     fiscalQuarterLabel: getFiscalQuarterLabel()
   };
@@ -2189,6 +2196,9 @@ function generateWeekHeadline(totals, prevTotals, signedLastWeek, daysToEOQ, sta
   const earlyStagePercent = totals.totalOpportunities > 0 
     ? Math.round((s0Count / totals.totalOpportunities) * 100) : 0;
   
+  // Use ALL deals targeting this month (Stages 0-4), not just Stage 4
+  const dealsTargetingThisMonth = totals.allDealsThisMonthCount || totals.proposalThisMonthCount;
+  
   // SCENARIO 1: Big win week ($200k+)
   if (hasWins && winTotal >= 200000) {
     const winStr = winTotal >= 1000000 ? `$${(winTotal/1000000).toFixed(1)}m` : `$${Math.round(winTotal/1000)}k`;
@@ -2198,7 +2208,7 @@ function generateWeekHeadline(totals, prevTotals, signedLastWeek, daysToEOQ, sta
   
   // SCENARIO 2: EOQ crunch (< 21 days remaining)
   if (daysToEOQ <= 21 && daysToEOQ > 0) {
-    return `${daysToEOQ} days to EOQ with ${totals.proposalThisMonthCount} deals targeting close this month.`;
+    return `${daysToEOQ} days to EOQ with ${dealsTargetingThisMonth} deals targeting close this month.`;
   }
   
   // SCENARIO 3: Significant pipeline growth ($1m+)
@@ -2232,16 +2242,16 @@ function generateWeekHeadline(totals, prevTotals, signedLastWeek, daysToEOQ, sta
   // SCENARIO 8: Moderate pipeline change
   if (Math.abs(pipelineChange) >= 500000) {
     const dir = pipelineChange >= 0 ? 'up' : 'down';
-    return `Pipeline ${dir} ${formatCurrency(Math.abs(pipelineChange))} WoW. ${totals.proposalThisMonthCount} deals targeting ${getCurrentMonthName()}.`;
+    return `Pipeline ${dir} ${formatCurrency(Math.abs(pipelineChange))} WoW. ${dealsTargetingThisMonth} deals targeting ${getCurrentMonthName()}.`;
   }
   
   // SCENARIO 9: First week of quarter or stable state
   if (daysToEOQ > 60) {
-    return `${totals.totalOpportunities} active opportunities, ${totals.proposalCount} in late stage targeting ${getCurrentMonthName()}.`;
+    return `${totals.totalOpportunities} active opportunities, ${dealsTargetingThisMonth} targeting ${getCurrentMonthName()}.`;
   }
   
   // DEFAULT: Steady state summary
-  return `${totals.proposalCount} deals in S4 Proposal, ${totals.proposalThisMonthCount} targeting close this month.`;
+  return `${totals.proposalCount} deals in S4 Proposal, ${dealsTargetingThisMonth} targeting close this month.`;
 }
 
 /**
@@ -2271,9 +2281,12 @@ function formatSlackMessage(pipelineData, previousSnapshot, dateStr, revOpsData 
     ? ` (${pipelineChange >= 0 ? '+' : ''}${formatCurrency(pipelineChange)} WoW)` 
     : '';
   
+  // Use ALL active stages targeting this month for the count
+  const dealsTargetingThisMonth = totals.allDealsThisMonthCount || totals.proposalThisMonthCount;
+  
   message += `*PIPELINE*\n`;
   message += `${formatCurrency(totals.grossACV)} total${changeStr} • ${totals.totalOpportunities} opps • ${totals.totalAccounts} accounts\n`;
-  message += `S4 Proposal: ${totals.proposalCount} deals, ${formatCurrency(totals.proposalGrossACV)} gross • ${totals.proposalThisMonthCount} targeting this month\n\n`;
+  message += `S4 Proposal: ${totals.proposalCount} deals, ${formatCurrency(totals.proposalGrossACV)} gross • ${dealsTargetingThisMonth} targeting this month\n\n`;
   
   // ═══════════════════════════════════════════════════════════════════════════
   // EOQ STATUS (only within 45 days of quarter end)
@@ -2282,9 +2295,11 @@ function formatSlackMessage(pipelineData, previousSnapshot, dateStr, revOpsData 
   if (daysToEOQ <= 45 && daysToEOQ > 0) {
     // Use blended forecast from q4WeightedPipeline (renamed from weightedACV)
     const blendedForecast = revOpsData?.q4WeightedPipeline?.blendedACV || totals.proposalThisQuarterWeightedACV || 0;
+    // Use ALL active stages targeting this month, not just Stage 4
+    const dealsTargetingThisMonth = totals.allDealsThisMonthCount || totals.proposalThisMonthCount;
     message += `*EOQ STATUS* — ${daysToEOQ} days remaining\n`;
     message += `Blended forecast: ${formatCurrency(blendedForecast)}\n`;
-    message += `${totals.proposalThisMonthCount} deals targeting ${getCurrentMonthName()} close\n\n`;
+    message += `${dealsTargetingThisMonth} deals targeting ${getCurrentMonthName()} close\n\n`;
   }
   
   // ═══════════════════════════════════════════════════════════════════════════
