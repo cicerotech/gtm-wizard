@@ -15,8 +15,9 @@ const logger = require('../utils/logger');
 const CALENDAR_CACHE = {
   data: null,
   timestamp: 0,
-  TTL_MS: 5 * 60 * 1000,  // 5 minutes cache - prevents excessive Graph API calls
-  inProgress: false       // Prevents concurrent fetches
+  TTL_MS: 10 * 60 * 1000,  // 10 minutes cache - prevents excessive Graph API calls
+  inProgress: false,       // Prevents concurrent fetches
+  lastFetchTime: 0         // Track when last fetch started
 };
 
 function isCalendarCacheValid() {
@@ -316,86 +317,104 @@ class CalendarService {
     // Prevent concurrent fetches (multiple page loads at once)
     if (CALENDAR_CACHE.inProgress) {
       logger.info(`📅 Calendar fetch already in progress, waiting...`);
-      // Wait up to 30 seconds for the in-progress fetch
-      for (let i = 0; i < 60; i++) {
+      // Wait up to 15 seconds for the in-progress fetch (reduced from 30)
+      for (let i = 0; i < 30; i++) {
         await new Promise(r => setTimeout(r, 500));
         if (isCalendarCacheValid()) {
           return getCalendarCache();
         }
         if (!CALENDAR_CACHE.inProgress) break;
       }
+      // If still in progress after 15s, return empty result to prevent pile-up
+      if (CALENDAR_CACHE.inProgress) {
+        logger.warn(`📅 Calendar fetch timeout - returning empty to prevent pile-up`);
+        return { meetings: [], stats: { totalEvents: 0, customerMeetings: 0, uniqueMeetings: 0, errors: 0, timedOut: true } };
+      }
     }
 
     CALENDAR_CACHE.inProgress = true;
 
-    if (!this.initialized) {
-      await this.initialize();
-    }
-
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + daysAhead);
-
-    logger.info(`📅 Fetching calendars for ${BL_EMAILS.length} BLs (next ${daysAhead} days) - FRESH FETCH`);
-    logger.info(`📅 BL emails: ${BL_EMAILS.join(', ')}`);
-
-    const allMeetings = [];
-    const errors = [];
-    const blEventCounts = {}; // Track events per BL for diagnostics
-
-    // Fetch calendars in parallel (but limit concurrency to avoid rate limits)
-    const batchSize = 5;
-    for (let i = 0; i < BL_EMAILS.length; i += batchSize) {
-      const batch = BL_EMAILS.slice(i, i + batchSize);
-      const batchResults = await Promise.allSettled(
-        batch.map(email => this.getCalendarEvents(email, startDate, endDate))
-      );
-
-      batchResults.forEach((result, idx) => {
-        const email = batch[idx];
-        if (result.status === 'fulfilled') {
-          const events = result.value;
-          blEventCounts[email] = events.length;
-          allMeetings.push(...events);
-        } else {
-          blEventCounts[email] = 'ERROR';
-          errors.push({ email, error: result.reason?.message });
-        }
-      });
-    }
-
-    // Log per-BL breakdown for diagnostics
-    logger.info(`📅 Per-BL event counts: ${JSON.stringify(blEventCounts)}`);
-
-    // Filter to only customer meetings (with external attendees)
-    const customerMeetings = allMeetings.filter(m => m.isCustomerMeeting);
-
-    // Dedupe by eventId (same meeting might appear for multiple attendees)
-    const uniqueMeetings = this.deduplicateMeetings(customerMeetings);
-
-    logger.info(`📅 Total: ${allMeetings.length} events, ${customerMeetings.length} customer meetings, ${uniqueMeetings.length} unique`);
-
-    if (errors.length > 0) {
-      logger.warn(`📅 Calendar errors for ${errors.length} BLs:`, JSON.stringify(errors));
-    }
-
-    // Proactively enrich external attendees via Clay webhook (fire and forget)
-    this.enrichExternalAttendeesAsync(uniqueMeetings);
-
-    const result = {
-      meetings: uniqueMeetings,
-      stats: {
-        totalEvents: allMeetings.length,
-        customerMeetings: customerMeetings.length,
-        uniqueMeetings: uniqueMeetings.length,
-        errors: errors.length
+    try {
+      if (!this.initialized) {
+        await this.initialize();
       }
-    };
 
-    // Cache the result
-    setCalendarCache(result);
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + daysAhead);
 
-    return result;
+      logger.info(`📅 Fetching calendars for ${BL_EMAILS.length} BLs (next ${daysAhead} days) - FRESH FETCH`);
+      logger.info(`📅 BL emails: ${BL_EMAILS.join(', ')}`);
+
+      const allMeetings = [];
+      const errors = [];
+      const blEventCounts = {}; // Track events per BL for diagnostics
+
+      // Fetch calendars in parallel (but limit concurrency to avoid rate limits)
+      const batchSize = 3; // Reduced from 5 to prevent Graph API rate limits
+      for (let i = 0; i < BL_EMAILS.length; i += batchSize) {
+        const batch = BL_EMAILS.slice(i, i + batchSize);
+        const batchResults = await Promise.allSettled(
+          batch.map(email => this.getCalendarEvents(email, startDate, endDate))
+        );
+
+        batchResults.forEach((result, idx) => {
+          const email = batch[idx];
+          if (result.status === 'fulfilled') {
+            const events = result.value;
+            blEventCounts[email] = events.length;
+            allMeetings.push(...events);
+          } else {
+            blEventCounts[email] = 'ERROR';
+            errors.push({ email, error: result.reason?.message });
+          }
+        });
+        
+        // Small delay between batches to prevent rate limiting
+        if (i + batchSize < BL_EMAILS.length) {
+          await new Promise(r => setTimeout(r, 200));
+        }
+      }
+
+      // Log per-BL breakdown for diagnostics
+      logger.info(`📅 Per-BL event counts: ${JSON.stringify(blEventCounts)}`);
+
+      // Filter to only customer meetings (with external attendees)
+      const customerMeetings = allMeetings.filter(m => m.isCustomerMeeting);
+
+      // Dedupe by eventId (same meeting might appear for multiple attendees)
+      const uniqueMeetings = this.deduplicateMeetings(customerMeetings);
+
+      logger.info(`📅 Total: ${allMeetings.length} events, ${customerMeetings.length} customer meetings, ${uniqueMeetings.length} unique`);
+
+      if (errors.length > 0) {
+        logger.warn(`📅 Calendar errors for ${errors.length} BLs:`, JSON.stringify(errors));
+      }
+
+      // Proactively enrich external attendees via Clay webhook (fire and forget)
+      this.enrichExternalAttendeesAsync(uniqueMeetings);
+
+      const result = {
+        meetings: uniqueMeetings,
+        stats: {
+          totalEvents: allMeetings.length,
+          customerMeetings: customerMeetings.length,
+          uniqueMeetings: uniqueMeetings.length,
+          errors: errors.length
+        }
+      };
+
+      // Cache the result (even if some calendars failed - we have partial data)
+      setCalendarCache(result);
+
+      return result;
+      
+    } catch (error) {
+      logger.error(`📅 Calendar fetch failed critically:`, error.message);
+      CALENDAR_CACHE.inProgress = false; // Always reset on error
+      // Return empty result instead of throwing
+      return { meetings: [], stats: { totalEvents: 0, customerMeetings: 0, uniqueMeetings: 0, errors: 1, criticalError: error.message } };
+    }
   }
 
   /**
