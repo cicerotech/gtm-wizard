@@ -25,17 +25,30 @@ const SYNC_INTERVAL_HOURS = 6; // Sync every 6 hours
 let syncInProgress = false;
 let lastSyncResult = null;
 let scheduledInterval = null;
+let syncStartTime = null;
+const MAX_SYNC_DURATION_MS = 10 * 60 * 1000; // 10 minute max sync time
 
 /**
  * Main sync job - fetches all BL calendars and stores to SQLite
  */
 async function runCalendarSync() {
+  // Check if sync is stuck (been running too long)
+  if (syncInProgress && syncStartTime) {
+    const elapsed = Date.now() - syncStartTime;
+    if (elapsed > MAX_SYNC_DURATION_MS) {
+      logger.warn(`📅 [CalendarSync] Previous sync appears stuck (${Math.round(elapsed/1000)}s), forcing reset`);
+      syncInProgress = false;
+      syncStartTime = null;
+    }
+  }
+
   if (syncInProgress) {
     logger.info('📅 [CalendarSync] Sync already in progress, skipping');
     return { skipped: true, reason: 'Already in progress' };
   }
 
   syncInProgress = true;
+  syncStartTime = Date.now();
   const startTime = Date.now();
   
   logger.info('📅 [CalendarSync] Starting background calendar sync...');
@@ -74,6 +87,7 @@ async function runCalendarSync() {
 
   } finally {
     syncInProgress = false;
+    syncStartTime = null;
   }
 }
 
@@ -181,8 +195,19 @@ async function getSyncStatus() {
     const stats = await intelligenceStore.getCalendarStats();
     const syncStatus = await intelligenceStore.getCalendarSyncStatus();
     
+    // Check if sync is stuck
+    let syncState = syncInProgress ? 'syncing' : 'idle';
+    if (syncInProgress && syncStartTime) {
+      const elapsed = Date.now() - syncStartTime;
+      if (elapsed > MAX_SYNC_DURATION_MS) {
+        syncState = 'stuck';
+      }
+    }
+    
     return {
       syncInProgress,
+      syncState,
+      syncElapsedMs: syncStartTime ? Date.now() - syncStartTime : null,
       lastSyncResult,
       databaseStats: stats,
       syncStatus: {
@@ -193,7 +218,8 @@ async function getSyncStatus() {
       },
       config: {
         daysAhead: DAYS_AHEAD,
-        syncIntervalHours: SYNC_INTERVAL_HOURS
+        syncIntervalHours: SYNC_INTERVAL_HOURS,
+        maxSyncDurationMs: MAX_SYNC_DURATION_MS
       }
     };
   } catch (error) {

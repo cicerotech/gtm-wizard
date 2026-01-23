@@ -1475,6 +1475,77 @@ class GTMBrainApp {
       }
     });
 
+    // Health check endpoint - comprehensive system status
+    this.expressApp.get('/api/health', async (req, res) => {
+      try {
+        const intelligenceStore = require('./services/intelligenceStore');
+        const { getSyncStatus } = require('./jobs/calendarSyncJob');
+        
+        const checks = {
+          server: { status: 'ok', timestamp: new Date().toISOString() },
+          database: { status: 'unknown' },
+          calendarSync: { status: 'unknown' },
+          salesforce: { status: 'unknown' }
+        };
+
+        // Check SQLite database
+        try {
+          const stats = await intelligenceStore.getCalendarStats();
+          checks.database = { 
+            status: 'ok', 
+            totalEvents: stats.totalEvents,
+            lastFetched: stats.lastFetched
+          };
+        } catch (e) {
+          checks.database = { status: 'error', message: e.message };
+        }
+
+        // Check calendar sync status
+        try {
+          const syncStatus = await getSyncStatus();
+          const lastSync = syncStatus.syncStatus?.lastSync;
+          const hoursSinceSync = lastSync ? 
+            (Date.now() - new Date(lastSync).getTime()) / (1000 * 60 * 60) : null;
+          
+          checks.calendarSync = {
+            status: syncStatus.syncInProgress ? 'syncing' : 
+                    (hoursSinceSync && hoursSinceSync < 12) ? 'ok' : 'stale',
+            lastSync,
+            hoursSinceSync: hoursSinceSync ? Math.round(hoursSinceSync * 10) / 10 : null,
+            eventsCached: syncStatus.databaseStats?.customerMeetings || 0
+          };
+        } catch (e) {
+          checks.calendarSync = { status: 'error', message: e.message };
+        }
+
+        // Check Salesforce connection
+        try {
+          const { isConnected, getDegradedModeStatus } = require('./salesforce/connection');
+          const degraded = getDegradedModeStatus();
+          checks.salesforce = {
+            status: isConnected() ? 'ok' : (degraded.inDegradedMode ? 'degraded' : 'error'),
+            degradedMode: degraded.inDegradedMode,
+            reason: degraded.reason || null
+          };
+        } catch (e) {
+          checks.salesforce = { status: 'error', message: e.message };
+        }
+
+        const overallStatus = Object.values(checks).every(c => c.status === 'ok') ? 'healthy' :
+                              Object.values(checks).some(c => c.status === 'error') ? 'unhealthy' : 'degraded';
+
+        res.json({
+          status: overallStatus,
+          checks,
+          version: process.env.npm_package_version || '1.0.0',
+          uptime: Math.round(process.uptime())
+        });
+      } catch (error) {
+        logger.error('Health check failed:', error);
+        res.status(500).json({ status: 'error', error: error.message });
+      }
+    });
+
     // ═══════════════════════════════════════════════════════════════════════
     // OBSIDIAN SYNC ENDPOINTS
     // ═══════════════════════════════════════════════════════════════════════

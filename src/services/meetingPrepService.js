@@ -281,9 +281,9 @@ async function getUpcomingMeetings(startDate, endDate) {
       });
     }
     
-    // Step 1b: Inject test meeting for Obsidian sync validation
-    // TEMPORARY: Hardcoded for testing - remove after validation
-    if (true) { // TODO: Change back to process.env.INCLUDE_TEST_MEETING === 'true'
+    // Step 1b: Inject test meeting for Obsidian sync validation (disabled by default)
+    // Set INCLUDE_TEST_MEETING=true in env to enable for testing
+    if (process.env.INCLUDE_TEST_MEETING === 'true') {
       const today = new Date();
       today.setHours(14, 0, 0, 0); // 2pm today
       const testMeeting = {
