@@ -2529,6 +2529,12 @@ function formatContextSection(ctx, meetingData, aiSummary = null) {
       html += '</div>';
     }
     
+    // Source attribution footer
+    const sourceCount = (ctx.meetingNotes?.length || 0) + (ctx.obsidianNotes?.length || 0) + (ctx.slackIntel?.length || 0);
+    if (sourceCount > 0) {
+      html += '<div style="margin-top: 8px; font-size: 0.65rem; color: #9ca3af; font-style: italic;">Based on ' + sourceCount + ' source' + (sourceCount > 1 ? 's' : '') + '</div>';
+    }
+    
     html += '</div>';
   } else {
     // Fall back to static Story So Far if no AI summary
@@ -2545,80 +2551,107 @@ function formatContextSection(ctx, meetingData, aiSummary = null) {
     if (sf.owner) html += '<div class="context-item"><span class="context-label">Owner:</span> ' + sf.owner + '</div>';
   }
   
-  // === RECENT CONTEXT SECTION ===
-  // Dynamic context from multiple sources with source indicators
-  let hasRecentContext = false;
-  let recentContextHtml = '<div style="margin-top: 12px; border-top: 1px solid #e5e7eb; padding-top: 12px;">';
-  recentContextHtml += '<div style="margin-bottom: 10px; font-size: 0.7rem; color: #374151; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Recent Context</div>';
+  // === SOURCE NOTES SECTION (Obsidian Links) ===
+  // When AI Brief exists, show just clickable links to source notes
+  // When no AI Brief, fall back to full Recent Context display
   
-  // Source 1: Meeting Notes from Customer Brain
-  if (ctx.meetingNotes?.length) {
-    hasRecentContext = true;
-    ctx.meetingNotes.slice(0, 2).forEach(note => {
-      recentContextHtml += '<div style="margin-bottom: 10px; padding: 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #6b7280;">';
-      recentContextHtml += '<div style="font-size: 0.7rem; color: #374151; margin-bottom: 2px; font-weight: 500;">Meeting Notes</div>';
-      recentContextHtml += '<div style="font-size: 0.7rem; color: #6b7280; margin-bottom: 4px;">' + note.date + ' • ' + note.rep + '</div>';
-      recentContextHtml += '<div style="font-size: 0.8rem; line-height: 1.4; color: #1f2937;">' + note.summary + '</div>';
-      recentContextHtml += '</div>';
-    });
-  }
-  
-  // Source 2: Slack Intel
-  if (ctx.slackIntel?.length) {
-    hasRecentContext = true;
-    ctx.slackIntel.slice(0, 2).forEach(intel => {
-      recentContextHtml += '<div style="margin-bottom: 8px; padding: 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #6b7280;">';
-      recentContextHtml += '<div style="font-size: 0.7rem; color: #374151; margin-bottom: 2px; font-weight: 500;">Slack</div>';
-      recentContextHtml += '<div style="font-size: 0.75rem; color: #1f2937;"><span style="color: #6b7280;">[' + intel.category + ']</span> ' + intel.summary + '</div>';
-      recentContextHtml += '</div>';
-    });
-  }
-  
-  // Source 3: Prior Meeting Preps
-  if (ctx.priorMeetings?.length) {
-    hasRecentContext = true;
-    ctx.priorMeetings.slice(0, 2).forEach(m => {
-      const dateStr = m.date ? new Date(m.date).toLocaleDateString() : '';
-      recentContextHtml += '<div style="margin-bottom: 6px; padding: 6px 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #6b7280;">';
-      recentContextHtml += '<div style="font-size: 0.7rem; color: #374151; margin-bottom: 2px; font-weight: 500;">Prior Prep</div>';
-      recentContextHtml += '<div style="font-size: 0.75rem; color: #1f2937;">' + dateStr + ' - ' + (m.title || 'Meeting') + '</div>';
-      recentContextHtml += '</div>';
-    });
-  }
-  
-  // Source 4: Obsidian Notes (synced from BL vaults)
-  if (ctx.obsidianNotes?.length) {
-    hasRecentContext = true;
-    ctx.obsidianNotes.slice(0, 2).forEach(note => {
-      const dateStr = note.date ? new Date(note.date).toLocaleDateString() : '';
-      const sentimentColor = note.sentiment === 'Positive' ? '#10b981' : 
-                            note.sentiment === 'Negative' ? '#ef4444' : '#6b7280';
-      recentContextHtml += '<div style="margin-bottom: 10px; padding: 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #8b5cf6;">';
-      recentContextHtml += '<div style="display: flex; justify-content: space-between; align-items: center;">';
-      recentContextHtml += '<div style="font-size: 0.7rem; color: #7c3aed; margin-bottom: 2px; font-weight: 500;">Obsidian Notes</div>';
-      if (note.sentiment) {
-        recentContextHtml += '<span style="font-size: 0.65rem; padding: 2px 6px; background: ' + sentimentColor + '20; color: ' + sentimentColor + '; border-radius: 4px;">' + note.sentiment + '</span>';
-      }
-      recentContextHtml += '</div>';
-      recentContextHtml += '<div style="font-size: 0.7rem; color: #6b7280; margin-bottom: 4px;">' + dateStr + ' • ' + (note.title || 'Meeting Note') + '</div>';
-      if (note.summary) {
-        recentContextHtml += '<div style="font-size: 0.8rem; line-height: 1.4; color: #1f2937;">' + note.summary.substring(0, 200) + (note.summary.length > 200 ? '...' : '') + '</div>';
-      }
-      recentContextHtml += '</div>';
-    });
-  }
-  
-  recentContextHtml += '</div>';
-  
-  // Only add Recent Context section if we have content
-  if (hasRecentContext) {
-    html += recentContextHtml;
+  if (aiSummary) {
+    // AI Brief exists - show clean source note links only (not raw content)
+    if (ctx.obsidianNotes?.length) {
+      html += '<div style="margin-top: 12px; border-top: 1px solid #e5e7eb; padding-top: 12px;">';
+      html += '<div style="margin-bottom: 8px; font-size: 0.7rem; color: #374151; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Source Notes</div>';
+      ctx.obsidianNotes.slice(0, 3).forEach(note => {
+        const dateStr = note.date ? new Date(note.date).toLocaleDateString() : '';
+        const sentimentColor = note.sentiment === 'Positive' ? '#10b981' : 
+                              note.sentiment === 'Negative' ? '#ef4444' : '#6b7280';
+        html += '<div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: #f9fafb; border-radius: 4px; margin-bottom: 4px; border-left: 3px solid #8b5cf6;">';
+        html += '<div style="display: flex; align-items: center; gap: 8px;">';
+        html += '<span style="font-size: 0.7rem; color: #7c3aed;">&#128221;</span>'; // Note icon
+        html += '<span style="font-size: 0.75rem; color: #374151;">' + (note.title || 'Meeting Note') + '</span>';
+        html += '<span style="font-size: 0.65rem; color: #9ca3af;">' + dateStr + '</span>';
+        html += '</div>';
+        if (note.sentiment) {
+          html += '<span style="font-size: 0.6rem; padding: 2px 6px; background: ' + sentimentColor + '15; color: ' + sentimentColor + '; border-radius: 4px;">' + note.sentiment + '</span>';
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+    }
   } else {
-    // Empty state - first meeting or no context yet
-    html += '<div style="margin-top: 12px; padding: 12px; background: rgba(251, 191, 36, 0.1); border-radius: 6px; border: 1px solid rgba(251, 191, 36, 0.3);">';
-    html += '<div style="font-size: 0.8rem; color: #fbbf24;">No recent context available</div>';
-    html += '<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px;">First meeting? Record with Obsidian + Wispr Flow to build account history.</div>';
-    html += '</div>';
+    // No AI Brief - show full Recent Context as fallback
+    let hasRecentContext = false;
+    let recentContextHtml = '<div style="margin-top: 12px; border-top: 1px solid #e5e7eb; padding-top: 12px;">';
+    recentContextHtml += '<div style="margin-bottom: 10px; font-size: 0.7rem; color: #374151; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Recent Context</div>';
+    
+    // Source 1: Meeting Notes from Customer Brain
+    if (ctx.meetingNotes?.length) {
+      hasRecentContext = true;
+      ctx.meetingNotes.slice(0, 2).forEach(note => {
+        recentContextHtml += '<div style="margin-bottom: 10px; padding: 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #6b7280;">';
+        recentContextHtml += '<div style="font-size: 0.7rem; color: #374151; margin-bottom: 2px; font-weight: 500;">Meeting Notes</div>';
+        recentContextHtml += '<div style="font-size: 0.7rem; color: #6b7280; margin-bottom: 4px;">' + note.date + ' • ' + note.rep + '</div>';
+        recentContextHtml += '<div style="font-size: 0.8rem; line-height: 1.4; color: #1f2937;">' + note.summary + '</div>';
+        recentContextHtml += '</div>';
+      });
+    }
+    
+    // Source 2: Slack Intel
+    if (ctx.slackIntel?.length) {
+      hasRecentContext = true;
+      ctx.slackIntel.slice(0, 2).forEach(intel => {
+        recentContextHtml += '<div style="margin-bottom: 8px; padding: 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #6b7280;">';
+        recentContextHtml += '<div style="font-size: 0.7rem; color: #374151; margin-bottom: 2px; font-weight: 500;">Slack</div>';
+        recentContextHtml += '<div style="font-size: 0.75rem; color: #1f2937;"><span style="color: #6b7280;">[' + intel.category + ']</span> ' + intel.summary + '</div>';
+        recentContextHtml += '</div>';
+      });
+    }
+    
+    // Source 3: Prior Meeting Preps
+    if (ctx.priorMeetings?.length) {
+      hasRecentContext = true;
+      ctx.priorMeetings.slice(0, 2).forEach(m => {
+        const dateStr = m.date ? new Date(m.date).toLocaleDateString() : '';
+        recentContextHtml += '<div style="margin-bottom: 6px; padding: 6px 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #6b7280;">';
+        recentContextHtml += '<div style="font-size: 0.7rem; color: #374151; margin-bottom: 2px; font-weight: 500;">Prior Prep</div>';
+        recentContextHtml += '<div style="font-size: 0.75rem; color: #1f2937;">' + dateStr + ' - ' + (m.title || 'Meeting') + '</div>';
+        recentContextHtml += '</div>';
+      });
+    }
+    
+    // Source 4: Obsidian Notes (synced from BL vaults) - full display when no AI Brief
+    if (ctx.obsidianNotes?.length) {
+      hasRecentContext = true;
+      ctx.obsidianNotes.slice(0, 2).forEach(note => {
+        const dateStr = note.date ? new Date(note.date).toLocaleDateString() : '';
+        const sentimentColor = note.sentiment === 'Positive' ? '#10b981' : 
+                              note.sentiment === 'Negative' ? '#ef4444' : '#6b7280';
+        recentContextHtml += '<div style="margin-bottom: 10px; padding: 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #8b5cf6;">';
+        recentContextHtml += '<div style="display: flex; justify-content: space-between; align-items: center;">';
+        recentContextHtml += '<div style="font-size: 0.7rem; color: #7c3aed; margin-bottom: 2px; font-weight: 500;">Obsidian Notes</div>';
+        if (note.sentiment) {
+          recentContextHtml += '<span style="font-size: 0.65rem; padding: 2px 6px; background: ' + sentimentColor + '20; color: ' + sentimentColor + '; border-radius: 4px;">' + note.sentiment + '</span>';
+        }
+        recentContextHtml += '</div>';
+        recentContextHtml += '<div style="font-size: 0.7rem; color: #6b7280; margin-bottom: 4px;">' + dateStr + ' • ' + (note.title || 'Meeting Note') + '</div>';
+        if (note.summary) {
+          recentContextHtml += '<div style="font-size: 0.8rem; line-height: 1.4; color: #1f2937;">' + note.summary.substring(0, 200) + (note.summary.length > 200 ? '...' : '') + '</div>';
+        }
+        recentContextHtml += '</div>';
+      });
+    }
+    
+    recentContextHtml += '</div>';
+    
+    // Only add Recent Context section if we have content
+    if (hasRecentContext) {
+      html += recentContextHtml;
+    } else {
+      // Empty state - first meeting or no context yet
+      html += '<div style="margin-top: 12px; padding: 12px; background: rgba(251, 191, 36, 0.1); border-radius: 6px; border: 1px solid rgba(251, 191, 36, 0.3);">';
+      html += '<div style="font-size: 0.8rem; color: #fbbf24;">No recent context available</div>';
+      html += '<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px;">First meeting? Record with Obsidian + Wispr Flow to build account history.</div>';
+      html += '</div>';
+    }
   }
   
   // Always show: Open Opportunities
