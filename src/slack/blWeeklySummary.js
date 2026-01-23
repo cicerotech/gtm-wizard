@@ -195,8 +195,8 @@ async function queryPipelineData() {
       ORDER BY Owner.Name, Target_LOI_Date__c ASC NULLS LAST
     `;
     
-    // Enable caching (5 min TTL) to avoid SF rate limits when multiple reports run back-to-back
-    const result = await query(soql, true);
+    // Disable caching to ensure fresh data for weekly snapshot
+    const result = await query(soql, false);
     
     if (!result || !result.records) {
       logger.warn('No opportunity records found');
@@ -555,9 +555,8 @@ async function queryActiveRevenue() {
  * 
  * REVENUE CLASSIFICATION (matching finance requirements):
  * - All deals with Revenue_Type__c = 'Recurring' or 'Project'
- * - Use Net_ACV__c field for ALL deals (this captures net new for renewals/expansions)
- * - For New Business, Net_ACV__c = ACV__c (full amount)
- * - For Renewals/Expansions, Net_ACV__c = net change amount
+ * - Use Renewal_Net_Change__c for renewals/expansions (the net change amount)
+ * - For New Business where Renewal_Net_Change__c is null, use full ACV__c
  * 
  * Based on SF report: Total Net ACV = $235,787.24 for 6 deals in January
  * 
@@ -575,26 +574,28 @@ async function queryJanuaryClosedWonNewBusiness() {
     const lastDay = new Date(year, month + 1, 0).getDate();
     const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`;
     
-    // Query individual deals - use Net_ACV__c for net new calculation
+    // Query individual deals - use Renewal_Net_Change__c for net new calculation
     // Include all Recurring and Project revenue types (incl. renewals, expansions)
     const soql = `
-      SELECT Id, Name, Account.Name, ACV__c, Net_ACV__c, Sales_Type__c, Revenue_Type__c, Owner.Name
+      SELECT Id, Name, Account.Name, ACV__c, Renewal_Net_Change__c, Sales_Type__c, Revenue_Type__c, Owner.Name
       FROM Opportunity
       WHERE StageName = 'Stage 6. Closed(Won)'
         AND CloseDate >= ${monthStart}
         AND CloseDate <= ${monthEnd}
         AND Revenue_Type__c IN ('Recurring', 'Project')
-      ORDER BY Net_ACV__c DESC
+      ORDER BY ACV__c DESC
     `;
     
-    const result = await query(soql, true);
+    // Disable caching to ensure fresh data
+    const result = await query(soql, false);
     
     if (!result || !result.records || result.records.length === 0) {
       logger.info('No Closed Won Recurring/Project deals found this month');
       return { totalACV: 0, totalNetACV: 0, dealCount: 0, deals: [] };
     }
     
-    // Sum Net_ACV__c for all deals (this is the net new amount)
+    // Calculate net new: use Renewal_Net_Change__c if set, otherwise use ACV__c
+    // This matches the logic in accountDashboard.js
     let totalNetACV = 0;
     let totalGrossACV = 0;
     const validDeals = [];
@@ -602,7 +603,10 @@ async function queryJanuaryClosedWonNewBusiness() {
     result.records.forEach(opp => {
       const salesType = opp.Sales_Type__c || 'Unknown';
       const grossACV = opp.ACV__c || 0;
-      const netACV = opp.Net_ACV__c || 0;
+      // If Renewal_Net_Change__c exists, use it; otherwise use full ACV (for new business)
+      const netACV = opp.Renewal_Net_Change__c !== null && opp.Renewal_Net_Change__c !== undefined
+        ? opp.Renewal_Net_Change__c 
+        : grossACV;
       
       totalGrossACV += grossACV;
       totalNetACV += netACV;
@@ -615,6 +619,8 @@ async function queryJanuaryClosedWonNewBusiness() {
         type: salesType,
         owner: opp.Owner?.Name
       });
+      
+      logger.info(`  Deal: ${opp.Account?.Name} - Gross: $${grossACV}, Net Change: ${opp.Renewal_Net_Change__c}, Using Net: $${netACV} (${salesType})`);
     });
     
     const data = {
@@ -626,7 +632,6 @@ async function queryJanuaryClosedWonNewBusiness() {
     };
     
     logger.info(`January Closed Won: $${(data.totalNetACV/1000000).toFixed(2)}M net new, $${(data.totalGrossACV/1000000).toFixed(2)}M gross (${data.dealCount} deals)`);
-    validDeals.forEach(d => logger.info(`  - ${d.accountName}: $${(d.netACV/1000).toFixed(0)}K net (${d.type})`));
     
     return data;
     
@@ -1055,7 +1060,25 @@ async function queryPipelineBySalesType() {
 }
 
 /**
- * Check if date is in current month
+ * Check if date is targeting close this month
+ * Matches SF report filter: Target_LOI_Date__c <= end of current month
+ * This includes overdue deals that haven't been rescheduled
+ */
+function isTargetingThisMonth(dateStr) {
+  if (!dateStr) return false;
+  const targetDate = new Date(dateStr + 'T12:00:00Z');
+  const now = new Date();
+  
+  // End of current month
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  
+  // Include all deals with target date <= end of this month
+  return targetDate <= endOfMonth;
+}
+
+/**
+ * Check if date is in current month (exact match)
+ * Used for closed deals date filtering
  */
 function isInCurrentMonth(dateStr) {
   if (!dateStr) return false;
@@ -1191,13 +1214,23 @@ function processPipelineData(records) {
   const proposalGrossACV = proposalDeals.reduce((sum, d) => sum + d.acv, 0);
   
   // Calculate proposal targeting this month vs this quarter (Stage 4 only)
-  const proposalThisMonth = proposalDeals.filter(d => isInCurrentMonth(d.targetDate));
+  // Uses isTargetingThisMonth which includes overdue deals (Target <= end of month)
+  const proposalThisMonth = proposalDeals.filter(d => isTargetingThisMonth(d.targetDate));
   const proposalThisQuarter = proposalDeals.filter(d => isInCurrentFiscalQuarter(d.targetDate));
   
   // Calculate ALL active deals targeting this month/quarter (Stages 0-4)
   // This is the correct count for "deals targeting close this month"
-  const allDealsThisMonth = allDeals.filter(d => isInCurrentMonth(d.targetDate));
+  // Matches SF report: Target_LOI_Date__c <= Jan 31
+  const allDealsThisMonth = allDeals.filter(d => isTargetingThisMonth(d.targetDate));
   const allDealsThisQuarter = allDeals.filter(d => isInCurrentFiscalQuarter(d.targetDate));
+  
+  // DEBUG: Log the counts
+  logger.info(`📊 Pipeline counts:`);
+  logger.info(`   Total deals: ${allDeals.length}`);
+  logger.info(`   Stage 4 (Proposal) deals: ${proposalDeals.length}`);
+  logger.info(`   S4 targeting this month: ${proposalThisMonth.length}`);
+  logger.info(`   ALL stages targeting this month: ${allDealsThisMonth.length}`);
+  logger.info(`   ALL stages targeting this quarter: ${allDealsThisQuarter.length}`);
   
   return {
     blMetrics: finalBLMetrics,
