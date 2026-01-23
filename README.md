@@ -50,9 +50,9 @@ gtm-brain is the intelligence layer that connects conversations, CRM data, and d
 
 ## why it exists
 
-**the problem**: customer intelligence is scattered across Slack threads, meeting notes, and email. by the time it reaches CRM, it's incomplete or delayed. downstream systems (finance, delivery) inherit that mess.
+**the problem**: customer intelligence is scattered across Slack threads, meeting notes, and email. by the time it reaches CRM, it's incomplete or delayed. manual data entry post-close creates errors. downstream systems (finance, delivery) inherit that mess.
 
-**the solution**: gtm-brain captures intelligence at the source—Slack conversations, meeting transcriptions, calendars—and flows it into Salesforce automatically. clean data in SF means accurate data in Campfire and Rocket Lane.
+**the solution**: gtm-brain captures intelligence at the source—Slack conversations, meeting transcriptions, calendars—and flows it into Salesforce automatically. SF Flows then auto-populate contract and delivery records at key stages, removing BL input burden. clean data in SF means accurate data in Campfire (finance audit, revenue visibility) and Rocket Lane (project handoff, implementation tracking).
 
 ---
 
@@ -75,12 +75,45 @@ gtm-brain is the intelligence layer that connects conversations, CRM data, and d
 - **opportunities**: created/updated via natural language
 - **contracts**: extracted from PDFs with full field mapping
 
-### salesforce → downstream
+### salesforce → downstream (powered by SF Flows)
 
-| system | what syncs | business value |
-|--------|------------|----------------|
-| **campfire** | contract terms, ACV, close dates | finance reconciliation, revenue recognition |
-| **rocket lane** | deal data, delivery owner | project kickoff, resource planning |
+Salesforce Flows auto-capture data at key moments, removing BL input burden post-close. if initial opp data is validated correctly, contract and delivery data flows cleanly downstream.
+
+```
+     ┌─────────────────┐        ┌─────────────────┐
+     │  PROPOSAL       │        │  CLOSED WON     │
+     │  (Stage 4)      │        │  (Stage 6)      │
+     └────────┬────────┘        └────────┬────────┘
+              │                          │
+              ▼                          ▼
+     ┌─────────────────┐        ┌─────────────────┐
+     │  Delivery__c    │        │  Contract__c    │
+     │  auto-created   │        │  fields synced  │
+     └────────┬────────┘        └────────┬────────┘
+              │                          │
+              ▼                          ▼
+     ┌─────────────────┐        ┌─────────────────┐
+     │  ROCKET LANE    │        │    CAMPFIRE     │
+     │                 │        │                 │
+     │  project        │        │  contract terms │
+     │  kickoff +      │◄──────►│  ACV, term,     │
+     │  implementation │  util  │  product line   │
+     │  handoff        │        │  dates          │
+     └─────────────────┘        └─────────────────┘
+```
+
+**campfire (ERP)**:
+- at Close Won, Flow pulls contract fields from validated opportunity data
+- ACV, term, product line, close date—no manual BL entry needed
+- saves finance time in audit process, clear line of sight into revenue
+
+**rocket lane (delivery)**:
+- at Stage 4 (Proposal), Delivery object auto-created
+- structured by product line—templates differ per offering
+- syncs to Rocket Lane for project kickoff and implementation
+- enables client data transfer through sales phases → drives successful outcomes
+
+**the dependency**: correct initial input at opportunity creation. if validated, downstream systems inherit clean data automatically.
 
 ---
 
