@@ -167,11 +167,6 @@
       transform: translateY(-2px);
     }
     
-    .key-point .icon {
-      font-size: 1.5rem;
-      margin-bottom: 10px;
-    }
-    
     .key-point h4 {
       font-size: 0.9rem;
       font-weight: 600;
@@ -485,31 +480,31 @@
   <div class="container">
     <!-- Progress Navigation -->
     <nav class="demo-nav">
-      <button class="demo-nav-item active" onclick="goToSection(0)">
+      <button class="demo-nav-item active" data-section="0">
         <span class="nav-num">1</span>
         The Challenge
       </button>
-      <button class="demo-nav-item" onclick="goToSection(1)">
+      <button class="demo-nav-item" data-section="1">
         <span class="nav-num">2</span>
         How It Works
       </button>
-      <button class="demo-nav-item" onclick="goToSection(2)">
+      <button class="demo-nav-item" data-section="2">
         <span class="nav-num">3</span>
         Meeting Capture
       </button>
-      <button class="demo-nav-item" onclick="goToSection(3)">
+      <button class="demo-nav-item" data-section="3">
         <span class="nav-num">4</span>
         Instant Access
       </button>
-      <button class="demo-nav-item" onclick="goToSection(4)">
+      <button class="demo-nav-item" data-section="4">
         <span class="nav-num">5</span>
         Automated Intel
       </button>
-      <button class="demo-nav-item" onclick="goToSection(5)">
+      <button class="demo-nav-item" data-section="5">
         <span class="nav-num">6</span>
         Sales Velocity
       </button>
-      <button class="demo-nav-item" onclick="goToSection(6)">
+      <button class="demo-nav-item" data-section="6">
         <span class="nav-num">7</span>
         Clean Handoff
       </button>
@@ -523,22 +518,18 @@
         
         <div class="key-points">
           <div class="key-point">
-            <div class="icon">⏱️</div>
             <h4>Admin Overhead</h4>
             <p>BLs spend hours weekly on manual CRM updates, note logging, and data entry.</p>
           </div>
           <div class="key-point">
-            <div class="icon">🔍</div>
             <h4>Lost Context</h4>
             <p>Meeting notes live in scattered docs. Critical details never make it to the account record.</p>
           </div>
           <div class="key-point">
-            <div class="icon">📊</div>
             <h4>Data Gaps</h4>
             <p>Leadership lacks real-time visibility. Weekly reviews reveal stale or missing information.</p>
           </div>
           <div class="key-point">
-            <div class="icon">🔗</div>
             <h4>Handoff Friction</h4>
             <p>Downstream teams (finance, delivery) inherit incomplete data. Manual cleanup required.</p>
           </div>
@@ -551,8 +542,8 @@
       </div>
       
       <div class="nav-buttons">
-        <button class="nav-btn prev" disabled>← Previous</button>
-        <button class="nav-btn next" onclick="goToSection(1)">How It Works →</button>
+        <button class="nav-btn prev" disabled>Previous</button>
+        <button class="nav-btn next" data-goto="1">How It Works</button>
       </div>
     </section>
     
@@ -603,17 +594,14 @@
         
         <div class="key-points">
           <div class="key-point">
-            <div class="icon">🧠</div>
             <h4>AI-Powered</h4>
             <p>Claude LLM understands natural language. Ask questions like you'd ask a colleague.</p>
           </div>
           <div class="key-point">
-            <div class="icon">⚡</div>
             <h4>Real-Time</h4>
             <p>No batch processing. Intelligence flows continuously throughout the day.</p>
           </div>
           <div class="key-point">
-            <div class="icon">🔄</div>
             <h4>Bi-Directional</h4>
             <p>Pull data out. Push updates in. Always in sync with Salesforce.</p>
           </div>
@@ -621,8 +609,8 @@
       </div>
       
       <div class="nav-buttons">
-        <button class="nav-btn prev" onclick="goToSection(0)">← Previous</button>
-        <button class="nav-btn next" onclick="goToSection(2)">Meeting Capture →</button>
+        <button class="nav-btn prev" data-goto="0">Previous</button>
+        <button class="nav-btn next" data-goto="2">Meeting Capture</button>
       </div>
     </section>
     
@@ -667,8 +655,8 @@
       </div>
       
       <div class="nav-buttons">
-        <button class="nav-btn prev" onclick="goToSection(1)">← Previous</button>
-        <button class="nav-btn next" onclick="goToSection(3)">Instant Access →</button>
+        <button class="nav-btn prev" data-goto="1">Previous</button>
+        <button class="nav-btn next" data-goto="3">Instant Access</button>
       </div>
     </section>
     
@@ -721,8 +709,8 @@
       </div>
       
       <div class="nav-buttons">
-        <button class="nav-btn prev" onclick="goToSection(2)">← Previous</button>
-        <button class="nav-btn next" onclick="goToSection(4)">Automated Intel →</button>
+        <button class="nav-btn prev" data-goto="2">Previous</button>
+        <button class="nav-btn next" data-goto="4">Automated Intel</button>
       </div>
     </section>
     
@@ -777,8 +765,8 @@
       </div>
       
       <div class="nav-buttons">
-        <button class="nav-btn prev" onclick="goToSection(3)">← Previous</button>
-        <button class="nav-btn next" onclick="goToSection(5)">Sales Velocity →</button>
+        <button class="nav-btn prev" data-goto="3">Previous</button>
+        <button class="nav-btn next" data-goto="5">Sales Velocity</button>
       </div>
     </section>
     
@@ -843,8 +831,8 @@
       </div>
       
       <div class="nav-buttons">
-        <button class="nav-btn prev" onclick="goToSection(4)">← Previous</button>
-        <button class="nav-btn next" onclick="goToSection(6)">Clean Handoff →</button>
+        <button class="nav-btn prev" data-goto="4">Previous</button>
+        <button class="nav-btn next" data-goto="6">Clean Handoff</button>
       </div>
     </section>
     
@@ -929,7 +917,7 @@
       </div>
       
       <div class="nav-buttons">
-        <button class="nav-btn prev" onclick="goToSection(5)">← Previous</button>
+        <button class="nav-btn prev" data-goto="5">Previous</button>
         <a href="/account-dashboard" class="nav-btn next" style="text-decoration: none;">View Dashboard →</a>
       </div>
     </section>
@@ -962,8 +950,33 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     
+    // Initialize event listeners when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      // Nav buttons in the top progress bar
+      document.querySelectorAll('.demo-nav-item').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const sectionIndex = parseInt(this.getAttribute('data-section'));
+          if (!isNaN(sectionIndex)) {
+            goToSection(sectionIndex);
+          }
+        });
+      });
+      
+      // Previous/Next buttons at bottom of sections
+      document.querySelectorAll('.nav-btn[data-goto]').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const targetSection = parseInt(this.getAttribute('data-goto'));
+          if (!isNaN(targetSection)) {
+            goToSection(targetSection);
+          }
+        });
+      });
+    });
+    
     // Keyboard navigation
-    document.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', function(e) {
       if (e.key === 'ArrowRight' && currentSection < totalSections - 1) {
         goToSection(currentSection + 1);
       } else if (e.key === 'ArrowLeft' && currentSection > 0) {
