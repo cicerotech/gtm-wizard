@@ -411,17 +411,17 @@ async function findExistingEvent({ accountId, contactId, subject, startDateTime 
     // SOQL datetime format requires the literal datetime value directly (not quoted)
     let whereClause = `StartDateTime >= ${windowStart.toISOString()} AND StartDateTime <= ${windowEnd.toISOString()}`;
     
-    // Try contactId first (WhoId), then accountId (WhatId)
-    // Note: When event has WhoId, WhatId may be null
-    if (contactId) {
+    // Query by contactId (WhoId) OR accountId (WhatId)
+    // Note: Salesforce only allows WhatId when WhoId is not set, so we need OR logic
+    if (contactId && accountId) {
+      // If both provided, check for either match
+      whereClause += ` AND (WhoId = '${contactId}' OR WhatId = '${accountId}')`;
+    } else if (contactId) {
       whereClause += ` AND WhoId = '${contactId}'`;
-    }
-    if (accountId) {
+    } else if (accountId) {
       whereClause += ` AND WhatId = '${accountId}'`;
-    }
-    
-    // If neither specified, can't dedupe meaningfully
-    if (!contactId && !accountId) {
+    } else {
+      // If neither specified, can't dedupe meaningfully
       logger.debug(`${CONFIG.LOG_PREFIX} Event dedupe skipped - no contactId or accountId`);
       return null;
     }
