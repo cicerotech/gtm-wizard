@@ -552,7 +552,12 @@ async function queryActiveRevenue() {
 
 /**
  * Query January Closed Won New Business revenue
- * Sum of New Business deals that moved to Closed Won with close date this month
+ * 
+ * REVENUE CLASSIFICATION (matching finance requirements):
+ * - New Business deals with Revenue_Type__c = 'Recurring' or 'Project' → count full ACV
+ * - Renewals → only count Net_New_ACV__c (net change) if positive
+ * - Excludes Commitment/LOI and Pilot from run-rate calculation
+ * 
  * This is used for the January row in the Run Rate Forecast table
  */
 async function queryJanuaryClosedWonNewBusiness() {
@@ -567,33 +572,73 @@ async function queryJanuaryClosedWonNewBusiness() {
     const lastDay = new Date(year, month + 1, 0).getDate();
     const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`;
     
+    // Query individual deals to properly calculate revenue
+    // Include Net_New_ACV__c for renewals and Revenue_Type__c for classification
     const soql = `
-      SELECT SUM(ACV__c) totalACV, COUNT(Id) dealCount
+      SELECT Id, Name, Account.Name, ACV__c, Net_New_ACV__c, Sales_Type__c, Revenue_Type__c, Owner.Name
       FROM Opportunity
       WHERE StageName = 'Stage 6. Closed(Won)'
-        AND Sales_Type__c = 'New business'
         AND CloseDate >= ${monthStart}
         AND CloseDate <= ${monthEnd}
+        AND Revenue_Type__c IN ('Recurring', 'Project')
+      ORDER BY ACV__c DESC
     `;
     
     const result = await query(soql, true);
     
     if (!result || !result.records || result.records.length === 0) {
-      return { totalACV: 0, dealCount: 0 };
+      logger.info('No Closed Won Recurring/Project deals found this month');
+      return { totalACV: 0, dealCount: 0, deals: [] };
     }
     
-    const row = result.records[0];
+    // Calculate revenue based on sales type
+    let totalACV = 0;
+    const validDeals = [];
+    
+    result.records.forEach(opp => {
+      const salesType = (opp.Sales_Type__c || '').toLowerCase();
+      const acv = opp.ACV__c || 0;
+      const netNew = opp.Net_New_ACV__c || 0;
+      
+      if (salesType.includes('renewal')) {
+        // Renewals: only count net change (positive only)
+        if (netNew > 0) {
+          totalACV += netNew;
+          validDeals.push({
+            name: opp.Name,
+            accountName: opp.Account?.Name,
+            acv: netNew,
+            type: 'Renewal (net)',
+            owner: opp.Owner?.Name
+          });
+        }
+      } else {
+        // New Business, Expansion: count full ACV
+        totalACV += acv;
+        validDeals.push({
+          name: opp.Name,
+          accountName: opp.Account?.Name,
+          acv: acv,
+          type: opp.Sales_Type__c || 'New Business',
+          owner: opp.Owner?.Name
+        });
+      }
+    });
+    
     const data = {
-      totalACV: row.totalACV || 0,
-      dealCount: row.dealCount || 0
+      totalACV,
+      dealCount: validDeals.length,
+      deals: validDeals
     };
     
-    logger.info(`January Closed Won New Business: $${(data.totalACV/1000000).toFixed(2)}M (${data.dealCount} deals)`);
+    logger.info(`January Closed Won (Recurring/Project): $${(data.totalACV/1000000).toFixed(2)}M (${data.dealCount} deals)`);
+    validDeals.forEach(d => logger.info(`  - ${d.accountName}: $${(d.acv/1000).toFixed(0)}K (${d.type})`));
+    
     return data;
     
   } catch (error) {
     logger.error('Failed to query January Closed Won New Business:', error);
-    return { totalACV: 0, dealCount: 0 };
+    return { totalACV: 0, dealCount: 0, deals: [] };
   }
 }
 
@@ -631,8 +676,9 @@ async function queryQ4WeightedPipeline() {
     
     // Filter by Target_LOI_Date__c <= Q4 end date (no lower bound to match SF report)
     // Only include New Business and Expansion (exclude Renewal)
+    // Use Blended_Forecast_base__c as the forecast metric
     const soql = `
-      SELECT SUM(ACV__c) totalACV, SUM(Weighted_ACV__c) weightedACV, COUNT(Id) dealCount
+      SELECT SUM(ACV__c) totalACV, SUM(Blended_Forecast_base__c) blendedACV, COUNT(Id) dealCount
       FROM Opportunity
       WHERE IsClosed = false
         AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
@@ -643,17 +689,19 @@ async function queryQ4WeightedPipeline() {
     const result = await query(soql, true);
     
     if (!result || !result.records || result.records.length === 0) {
-      return { totalACV: 0, weightedACV: 0, dealCount: 0 };
+      return { totalACV: 0, blendedACV: 0, dealCount: 0 };
     }
     
     const row = result.records[0];
     const data = {
       totalACV: row.totalACV || 0,
-      weightedACV: row.weightedACV || 0,
+      blendedACV: row.blendedACV || 0,
+      // Keep weightedACV for backward compatibility in PDF rendering
+      weightedACV: row.blendedACV || 0,
       dealCount: row.dealCount || 0
     };
     
-    logger.info(`Q4 Weighted Pipeline: $${(data.weightedACV/1000000).toFixed(2)}M weighted (${data.dealCount} deals targeting Q4)`);
+    logger.info(`Q4 Blended Pipeline: $${(data.blendedACV/1000000).toFixed(2)}M blended (${data.dealCount} deals targeting Q4)`);
     return data;
     
   } catch (error) {
@@ -809,6 +857,7 @@ async function querySignedRevenueLastWeek() {
 /**
  * Query Top 10 deals targeting January (current year)
  * Also returns totalCount of all matching opportunities
+ * ONLY includes active stages (0-4) to match SF "All Active Pipeline" report
  */
 async function queryTop10TargetingJanuary() {
   try {
@@ -816,27 +865,26 @@ async function queryTop10TargetingJanuary() {
     
     const now = new Date();
     const year = now.getFullYear();
-    const janStart = `${year}-01-01`;
     const janEnd = `${year}-01-31`;
     
-    // Query top 10 deals by ACV
+    // Query top 10 deals by ACV - filter by active stages AND target date <= Jan 31
     const soql = `
-      SELECT Id, Name, Account.Name, ACV__c, Finance_Weighted_ACV__c, Target_LOI_Date__c, 
+      SELECT Id, Name, Account.Name, ACV__c, Blended_Forecast_base__c, Target_LOI_Date__c, 
              StageName, Owner.Name, Sales_Type__c
       FROM Opportunity
       WHERE IsClosed = false
-        AND Target_LOI_Date__c >= ${janStart}
+        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
         AND Target_LOI_Date__c <= ${janEnd}
       ORDER BY ACV__c DESC
       LIMIT 10
     `;
     
-    // Also query total count of all matching opportunities
+    // Also query total count of all matching opportunities with same filters
     const countSoql = `
       SELECT COUNT(Id) totalCount
       FROM Opportunity
       WHERE IsClosed = false
-        AND Target_LOI_Date__c >= ${janStart}
+        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
         AND Target_LOI_Date__c <= ${janEnd}
     `;
     
@@ -854,7 +902,7 @@ async function queryTop10TargetingJanuary() {
       name: opp.Name,
       accountName: opp.Account?.Name || 'Unknown',
       acv: opp.ACV__c || 0,
-      weightedACV: opp.Finance_Weighted_ACV__c || 0,
+      blendedForecast: opp.Blended_Forecast_base__c || 0,
       targetDate: opp.Target_LOI_Date__c,
       stage: opp.StageName,
       owner: opp.Owner?.Name,
@@ -862,10 +910,11 @@ async function queryTop10TargetingJanuary() {
     }));
     
     const totalACV = deals.reduce((sum, d) => sum + d.acv, 0);
+    const totalBlended = deals.reduce((sum, d) => sum + d.blendedForecast, 0);
     const totalCount = countResult?.records?.[0]?.totalCount || deals.length;
     
-    logger.info(`Top 10 January: ${deals.length} deals (${totalCount} total), $${(totalACV/1000000).toFixed(2)}M`);
-    return { deals, totalACV, totalCount };
+    logger.info(`Top 10 January: ${deals.length} deals (${totalCount} total), $${(totalACV/1000000).toFixed(2)}M ACV, $${(totalBlended/1000000).toFixed(2)}M blended`);
+    return { deals, totalACV, totalBlended, totalCount };
     
   } catch (error) {
     logger.error('Failed to query top 10 targeting January:', error);
@@ -874,24 +923,27 @@ async function queryTop10TargetingJanuary() {
 }
 
 /**
- * Query Top 10 deals targeting Q1 (Jan-Mar current year)
+ * Query Top 10 deals targeting Q1 FY2026 (Feb-Apr 2026 fiscal Q1)
  * Also returns totalCount of all matching opportunities
+ * ONLY includes active stages (0-4) to match SF "All Active Pipeline" report
  */
 async function queryTop10TargetingQ1() {
   try {
-    logger.info('Querying top 10 deals targeting Q1...');
+    logger.info('Querying top 10 deals targeting Q1 FY2026...');
     
     const now = new Date();
     const year = now.getFullYear();
-    const q1Start = `${year}-01-01`;
-    const q1End = `${year}-03-31`;
+    // Fiscal Q1 FY2026 = Feb 1, 2026 - Apr 30, 2026
+    const q1Start = `${year}-02-01`;
+    const q1End = `${year}-04-30`;
     
-    // Query top 10 deals by ACV
+    // Query top 10 deals by ACV - filter by active stages
     const soql = `
-      SELECT Id, Name, Account.Name, ACV__c, Finance_Weighted_ACV__c, Target_LOI_Date__c, 
+      SELECT Id, Name, Account.Name, ACV__c, Blended_Forecast_base__c, Target_LOI_Date__c, 
              StageName, Owner.Name, Sales_Type__c
       FROM Opportunity
       WHERE IsClosed = false
+        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
         AND Target_LOI_Date__c >= ${q1Start}
         AND Target_LOI_Date__c <= ${q1End}
       ORDER BY ACV__c DESC
@@ -903,6 +955,7 @@ async function queryTop10TargetingQ1() {
       SELECT COUNT(Id) totalCount
       FROM Opportunity
       WHERE IsClosed = false
+        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
         AND Target_LOI_Date__c >= ${q1Start}
         AND Target_LOI_Date__c <= ${q1End}
     `;
@@ -913,7 +966,7 @@ async function queryTop10TargetingQ1() {
     ]);
     
     if (!result || !result.records) {
-      return { deals: [], totalACV: 0, totalCount: 0 };
+      return { deals: [], totalACV: 0, totalBlended: 0, totalCount: 0 };
     }
     
     const deals = result.records.map(opp => ({
@@ -921,7 +974,7 @@ async function queryTop10TargetingQ1() {
       name: opp.Name,
       accountName: opp.Account?.Name || 'Unknown',
       acv: opp.ACV__c || 0,
-      weightedACV: opp.Finance_Weighted_ACV__c || 0,
+      blendedForecast: opp.Blended_Forecast_base__c || 0,
       targetDate: opp.Target_LOI_Date__c,
       stage: opp.StageName,
       owner: opp.Owner?.Name,
@@ -929,14 +982,15 @@ async function queryTop10TargetingQ1() {
     }));
     
     const totalACV = deals.reduce((sum, d) => sum + d.acv, 0);
+    const totalBlended = deals.reduce((sum, d) => sum + d.blendedForecast, 0);
     const totalCount = countResult?.records?.[0]?.totalCount || deals.length;
     
-    logger.info(`Top 10 Q1: ${deals.length} deals (${totalCount} total), $${(totalACV/1000000).toFixed(2)}M`);
-    return { deals, totalACV, totalCount };
+    logger.info(`Top 10 Q1 FY2026: ${deals.length} deals (${totalCount} total), $${(totalACV/1000000).toFixed(2)}M ACV, $${(totalBlended/1000000).toFixed(2)}M blended`);
+    return { deals, totalACV, totalBlended, totalCount };
     
   } catch (error) {
     logger.error('Failed to query top 10 targeting Q1:', error);
-    return { deals: [], totalACV: 0, totalCount: 0 };
+    return { deals: [], totalACV: 0, totalBlended: 0, totalCount: 0 };
   }
 }
 
@@ -1335,20 +1389,15 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   y += 28;
   
   // FY2025E Total row - dark
-  // Formula: December (20.1m) + January Closed Won New Business + Q4 Weighted Pipeline
+  // Formula: December (20.1m) + January Closed Won New Business + Q4 Blended Pipeline
   doc.rect(LEFT, y, runRateWidth, 22).fill('#1f2937');
   doc.font(fontBold).fontSize(10).fillColor('#ffffff');
   doc.text('FY2025E Total', LEFT + 8, y + 6);
   const fy2025Total = (runRateHistorical['December'] || 20.1) + janValue + q4Value;
-  doc.text(`${fy2025Total.toFixed(1)}m*`, LEFT + col1Width + 8, y + 6);
+  doc.text(`${fy2025Total.toFixed(1)}m`, LEFT + col1Width + 8, y + 6);
   y += 22;
   
-  // Note
-  y += 4;
-  doc.font(fontRegular).fontSize(7).fillColor('#9ca3af');
-  doc.text('Note: This week\'s forecast reflects post-migration reconciliation of EU data, including contract-level review and revenue segmentation. Renewal attribution remains subject to further review.', LEFT, y, { width: runRateWidth });
-  
-  const runRateEndY = y + 24;
+  const runRateEndY = y + 4;
   
   // ═══════════════════════════════════════════════════════════════════════════
   // SIGNED REVENUE QTD (Right column, same row as Run-Rate)
@@ -2228,10 +2277,13 @@ function formatSlackMessage(pipelineData, previousSnapshot, dateStr, revOpsData 
   
   // ═══════════════════════════════════════════════════════════════════════════
   // EOQ STATUS (only within 45 days of quarter end)
+  // Uses Blended Forecast (base) = 70% weighted + 30% BL forecast
   // ═══════════════════════════════════════════════════════════════════════════
   if (daysToEOQ <= 45 && daysToEOQ > 0) {
+    // Use blended forecast from q4WeightedPipeline (renamed from weightedACV)
+    const blendedForecast = revOpsData?.q4WeightedPipeline?.blendedACV || totals.proposalThisQuarterWeightedACV || 0;
     message += `*EOQ STATUS* — ${daysToEOQ} days remaining\n`;
-    message += `Weighted forecast: ${formatCurrency(totals.proposalThisQuarterWeightedACV)}\n`;
+    message += `Blended forecast: ${formatCurrency(blendedForecast)}\n`;
     message += `${totals.proposalThisMonthCount} deals targeting ${getCurrentMonthName()} close\n\n`;
   }
   

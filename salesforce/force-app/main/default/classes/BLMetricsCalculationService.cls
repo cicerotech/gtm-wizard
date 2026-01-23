@@ -19,8 +19,11 @@
  */
 public class BLMetricsCalculationService {
     
-    // Closed Won stage name (exact match from Salesforce)
-    private static final String CLOSED_WON_STAGE = 'Stage 6. Closed(Won)';
+    // Closed Won stage names (includes legacy stage for comprehensive tracking)
+    private static final Set<String> CLOSED_WON_STAGES = new Set<String>{
+        'Stage 6. Closed(Won)',
+        '6.) Closed-won'  // Legacy stage
+    };
     
     /**
      * Main entry point - calculate metrics for all active BL records
@@ -71,7 +74,7 @@ public class BLMetricsCalculationService {
             SELECT OwnerId, SUM(ACV__c) totalAcv
             FROM Opportunity
             WHERE OwnerId IN :blIds
-            AND StageName = :CLOSED_WON_STAGE
+            AND StageName IN :CLOSED_WON_STAGES
             GROUP BY OwnerId
         ]) {
             Id ownerId = (Id)ar.get('OwnerId');
@@ -84,7 +87,7 @@ public class BLMetricsCalculationService {
             SELECT OwnerId, SUM(ACV__c) ytdAcv
             FROM Opportunity
             WHERE OwnerId IN :blIds
-            AND StageName = :CLOSED_WON_STAGE
+            AND StageName IN :CLOSED_WON_STAGES
             AND CloseDate >= :fyStart
             GROUP BY OwnerId
         ]) {
@@ -98,7 +101,7 @@ public class BLMetricsCalculationService {
             SELECT OwnerId, SUM(ACV__c) qtdAcv
             FROM Opportunity
             WHERE OwnerId IN :blIds
-            AND StageName = :CLOSED_WON_STAGE
+            AND StageName IN :CLOSED_WON_STAGES
             AND CloseDate >= :fqStart
             GROUP BY OwnerId
         ]) {
@@ -189,7 +192,7 @@ public class BLMetricsCalculationService {
             SELECT OwnerId, ACV__c, CloseDate
             FROM Opportunity
             WHERE OwnerId IN :needsRampDate
-            AND StageName = :CLOSED_WON_STAGE
+            AND StageName IN :CLOSED_WON_STAGES
             ORDER BY OwnerId, CloseDate ASC
         ];
         
