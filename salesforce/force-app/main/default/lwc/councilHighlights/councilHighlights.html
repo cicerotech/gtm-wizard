@@ -1,0 +1,70 @@
+<template>
+    <div class="slds-page-header slds-page-header_record-home">
+        <div class="slds-page-header__row">
+            <div class="slds-page-header__col-title">
+                <div class="slds-media">
+                    <div class="slds-media__figure">
+                        <span class="slds-icon_container slds-icon-standard-account" title="Council Account">
+                            <lightning-icon icon-name="standard:account" size="large"></lightning-icon>
+                        </span>
+                    </div>
+                    <div class="slds-media__body">
+                        <div class="slds-page-header__name">
+                            <div class="slds-page-header__name-title">
+                                <h1>
+                                    <span class="slds-page-header__title slds-truncate" title={codeName}>
+                                        {codeName}
+                                    </span>
+                                </h1>
+                            </div>
+                        </div>
+                        <p class="slds-page-header__name-meta">
+                            <span class="council-badge">COUNCIL ACCOUNT</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="slds-page-header__col-actions">
+                <div class="slds-page-header__controls">
+                    <div class="slds-page-header__control">
+                        <lightning-button-group>
+                            <lightning-button label="New Opportunity" onclick={handleNewOpportunity}></lightning-button>
+                            <lightning-button label="Edit" onclick={handleEdit}></lightning-button>
+                        </lightning-button-group>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slds-page-header__row slds-page-header__row_gutters">
+            <div class="slds-page-header__col-details">
+                <ul class="slds-page-header__detail-row">
+                    <li class="slds-page-header__detail-block">
+                        <div class="slds-text-title slds-truncate" title="Account Owner">Account Owner</div>
+                        <div class="slds-truncate" title={ownerName}>
+                            <lightning-formatted-text value={ownerName}></lightning-formatted-text>
+                        </div>
+                    </li>
+                    <li class="slds-page-header__detail-block">
+                        <div class="slds-text-title slds-truncate" title="CLO">CLO</div>
+                        <div class="slds-truncate" title={clo}>
+                            <lightning-formatted-text value={clo}></lightning-formatted-text>
+                        </div>
+                    </li>
+                    <li class="slds-page-header__detail-block">
+                        <div class="slds-text-title slds-truncate" title="Customer Type">Customer Type</div>
+                        <div class="slds-truncate" title={customerType}>
+                            <lightning-formatted-text value={customerType}></lightning-formatted-text>
+                        </div>
+                    </li>
+                    <li class="slds-page-header__detail-block">
+                        <div class="slds-text-title slds-truncate" title="Pod">Pod</div>
+                        <div class="slds-truncate" title={pod}>
+                            <lightning-formatted-text value={pod}></lightning-formatted-text>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</template>
+

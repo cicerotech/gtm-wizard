@@ -132,6 +132,55 @@ After deployment, if fields are not visible:
    - Click "Set Field-Level Security"
    - Grant visibility to appropriate profiles
 
+## Step 8: Configure Lightning Page with Component Visibility
+
+This is the recommended approach - use a SINGLE page with conditional component visibility:
+
+### In Lightning App Builder:
+
+1. Go to **Setup → Lightning App Builder**
+2. Find and edit "Account Record Page - Three Column" (or your active Account page)
+3. Click on the **Account Highlights Panel** component in the left column
+4. In the right panel, click **Set Component Visibility**
+5. Click **Add Filter**
+6. Configure:
+   - **Field**: `Eudia_Council_Account__c`
+   - **Operator**: `Equals`
+   - **Value**: `False`
+7. Click **Done**
+
+### Add Council Highlights Component:
+
+1. In the Components panel (left), search for "Council Highlights"
+2. Drag it to the TOP of the left column (above or where Highlights Panel is)
+3. Click on the Council Highlights component
+4. Click **Set Component Visibility**
+5. Add Filter:
+   - **Field**: `Eudia_Council_Account__c`
+   - **Operator**: `Equals`
+   - **Value**: `True`
+6. Click **Done**
+
+### Hide Logo for Council Accounts:
+
+1. Click on the **AccountLogo** component
+2. Click **Set Component Visibility**
+3. Add Filter:
+   - **Field**: `Eudia_Council_Account__c`
+   - **Operator**: `Equals`
+   - **Value**: `False`
+4. Click **Done**
+
+### Save and Activate:
+
+1. Click **Save**
+2. Click **Activation**
+3. Assign as Org Default (or by App/Profile as needed)
+
+### Result:
+- **Non-Council accounts**: See standard Highlights Panel + Logo + real Name
+- **Council accounts**: See Council Highlights (Code Name) + no Logo
+
 ## Verification Checklist
 
 - [ ] Account fields deployed: Eudia_Council_Account__c, Code_Name__c, Account_Display_Name__c

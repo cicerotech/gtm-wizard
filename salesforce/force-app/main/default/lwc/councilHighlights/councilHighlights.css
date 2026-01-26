@@ -1,0 +1,27 @@
+.council-badge {
+    background-color: #7B68EE;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.slds-page-header__title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #16325c;
+}
+
+.slds-page-header__detail-block {
+    padding-right: 2rem;
+}
+
+.slds-text-title {
+    color: #706e6b;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025rem;
+}
+
