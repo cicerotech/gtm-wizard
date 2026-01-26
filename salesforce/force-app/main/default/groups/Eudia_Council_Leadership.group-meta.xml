@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Group xmlns="http://soap.sforce.com/2006/04/metadata">
+    <doesIncludeBosses>true</doesIncludeBosses>
+    <fullName>Eudia_Council_Leadership</fullName>
+    <name>Eudia Council Leadership</name>
+</Group>
+

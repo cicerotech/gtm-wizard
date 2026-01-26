@@ -1265,7 +1265,7 @@ class GTMBrainApp {
         
         // Search Salesforce for accounts with matching website or contact emails
         const accountQuery = `
-          SELECT Id, Name, Website
+          SELECT Id, Name, Account_Display_Name__c, Website
           FROM Account 
           WHERE Website LIKE '%${domain}%'
           ORDER BY LastModifiedDate DESC
@@ -1277,11 +1277,11 @@ class GTMBrainApp {
         
         if (result?.records?.length > 0) {
           const account = result.records[0];
-          res.json({ success: true, accountId: account.Id, accountName: account.Name });
+          res.json({ success: true, accountId: account.Id, accountName: account.Account_Display_Name__c || account.Name });
         } else {
           // Fallback: Check contacts by email domain
           const contactQuery = `
-            SELECT AccountId, Account.Name
+            SELECT AccountId, Account.Name, Account.Account_Display_Name__c
             FROM Contact 
             WHERE Email LIKE '%@${domain}'
             ORDER BY LastModifiedDate DESC
@@ -1291,7 +1291,7 @@ class GTMBrainApp {
           
           if (contactResult?.records?.length > 0 && contactResult.records[0].AccountId) {
             const contact = contactResult.records[0];
-            res.json({ success: true, accountId: contact.AccountId, accountName: contact.Account?.Name });
+            res.json({ success: true, accountId: contact.AccountId, accountName: contact.Account?.Account_Display_Name__c || contact.Account?.Name });
           } else {
             res.json({ success: false, message: 'No account found for domain' });
           }

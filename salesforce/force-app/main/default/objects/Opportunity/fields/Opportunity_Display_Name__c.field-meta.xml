@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Opportunity_Display_Name__c</fullName>
+    <description>Shows the Code Name for Council opportunities, otherwise shows the Account Name. Use this field for display purposes to ensure Council opportunities are properly anonymized.</description>
+    <externalId>false</externalId>
+    <formula>IF(Eudia_Council_Op__c, Code_Name__c, Account.Name)</formula>
+    <inlineHelpText>Displays the anonymized code name for Council opportunities, or the account name for standard opportunities.</inlineHelpText>
+    <label>Opportunity Display Name</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+</CustomField>
+

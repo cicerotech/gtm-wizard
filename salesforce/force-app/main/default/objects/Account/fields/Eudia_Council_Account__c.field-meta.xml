@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Eudia_Council_Account__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Master flag indicating this is a Council engagement under attorney-client privilege. When checked, the account name will be anonymized for restricted users.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Check this box to mark this account as a Council engagement. This will anonymize the account name for non-leadership users.</inlineHelpText>
+    <label>Eudia Council Account</label>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <type>Checkbox</type>
+</CustomField>
+

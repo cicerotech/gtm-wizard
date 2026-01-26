@@ -47,6 +47,15 @@ function escapeForSOQLLike(str) {
 }
 
 /**
+ * Get account display name (anonymized for Council accounts, real name otherwise)
+ * @param {Object} record - Salesforce record with Account relationship
+ * @returns {string} Display name for the account
+ */
+function getAccountDisplayName(record) {
+  return record.Account?.Account_Display_Name__c || record.Account?.Name || 'Unknown';
+}
+
+/**
  * Register Slack event handlers
  */
 function registerEventHandlers(app) {
@@ -2069,7 +2078,7 @@ function buildAccountFieldQuery(entities) {
       if (entities.accounts && entities.accounts.length > 0) {
         // Specific account - query opportunities for that account to see what they're discussing
         const accountName = entities.accounts[0];
-        soql = `SELECT Account.Name, Account.Owner.Name, Name, Product_Line__c, StageName, Amount
+        soql = `SELECT Account.Name, Account.Account_Display_Name__c, Account.Owner.Name, Name, Product_Line__c, StageName, Amount
                 FROM Opportunity 
                 WHERE Account.Name LIKE '%${escapeForSOQLLike(accountName)}%' AND IsClosed = false
                 ORDER BY Amount DESC
@@ -2105,7 +2114,7 @@ function buildAccountFieldQuery(entities) {
           ? `Product_Line__c LIKE '${productLine}%'`
           : `Product_Line__c = '${productLine}'`;
         
-        soql = `SELECT Account.Name, Account.Owner.Name, Name, Amount, StageName
+        soql = `SELECT Account.Name, Account.Account_Display_Name__c, Account.Owner.Name, Name, Amount, StageName
                 FROM Opportunity 
                 WHERE ${whereClause} AND IsClosed = false
                 ORDER BY Account.Name, Amount DESC
@@ -2176,7 +2185,7 @@ function buildCountQuery(entities) {
     
     case 'loi_accounts':
       // What accounts/companies have signed LOIs
-      return `SELECT DISTINCT Account.Name, Account.Owner.Name, CloseDate, Amount, ACV__c
+      return `SELECT DISTINCT Account.Name, Account.Account_Display_Name__c, Account.Owner.Name, CloseDate, Amount, ACV__c
               FROM Opportunity 
               WHERE Revenue_Type__c = 'Commitment' AND IsClosed = true AND IsWon = true
               ORDER BY CloseDate DESC`;
@@ -2230,7 +2239,7 @@ function buildContractQuery(entities) {
   // Remove LIMIT entirely for "all contracts" - get everything
   const limitClause = entities.accounts ? 'LIMIT 50' : ''; // No limit for all contracts
   
-  return `SELECT Id, ContractNumber, Account.Name, StartDate, EndDate, 
+  return `SELECT Id, ContractNumber, Account.Name, Account.Account_Display_Name__c, StartDate, EndDate, 
                  Status, ContractTerm, Contract_Name_Campfire__c
           FROM Contract
           WHERE ${whereClause}
@@ -2297,7 +2306,7 @@ function buildAverageDaysQuery(entities) {
  */
 function buildCrossQuery(entities) {
   if (entities.crossType === 'contracting_stage') {
-    return `SELECT Account.Name, Account.Owner.Name, Account.Use_Cases_Interested__c, Name, Amount, StageName
+    return `SELECT Account.Name, Account.Account_Display_Name__c, Account.Owner.Name, Account.Use_Cases_Interested__c, Name, Amount, StageName
             FROM Opportunity 
             WHERE StageName IN (${entities.stages.map(s => `'${s}'`).join(',')})
               AND IsClosed = false
@@ -5493,7 +5502,7 @@ async function handleAccountsByStage(parsedIntent, userId, channelId, client, th
     
     // Query opportunities but GROUP BY Account to get unique accounts
     const soql = `
-      SELECT Account.Name, Account.Id, Account.Owner.Name, COUNT(Id) oppCount, SUM(Amount) totalAmount
+      SELECT Account.Name, Account.Account_Display_Name__c, Account.Id, Account.Owner.Name, COUNT(Id) oppCount, SUM(Amount) totalAmount
       FROM Opportunity 
       WHERE IsClosed = false 
         AND Account.Name != null
@@ -5565,7 +5574,7 @@ async function handleAccountsByStageSimple(parsedIntent, userId, channelId, clie
     }
     
     const soql = `
-      SELECT Id, Name, Account.Name, Account.Owner.Name, Amount, StageName
+      SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, Account.Owner.Name, Amount, StageName
       FROM Opportunity 
       WHERE IsClosed = false 
         AND Account.Name != null
@@ -5740,7 +5749,7 @@ async function handlePipelineAddedQuery(parsedIntent, userId, channelId, client,
     }
     
     const soql = `
-      SELECT Id, Name, Account.Name, Amount, StageName, Owner.Name, 
+      SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, Amount, StageName, Owner.Name, 
              CreatedDate, Target_LOI_Date__c, Product_Line__c
       FROM Opportunity 
       WHERE IsClosed = false 
@@ -5883,7 +5892,7 @@ async function handleWeightedPipelineQuery(parsedIntent, userId, channelId, clie
 async function handleLOIQuery(parsedIntent, userId, channelId, client, threadTs) {
   try {
     // Build query for LOIs (Revenue_Type__c = 'Commitment')
-    let soql = `SELECT Id, Name, Account.Name, Account.Owner.Name, ACV__c, CloseDate 
+    let soql = `SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, Account.Owner.Name, ACV__c, CloseDate 
                 FROM Opportunity 
                 WHERE IsClosed = true AND IsWon = true AND Revenue_Type__c = 'Commitment'`;
     
@@ -5958,7 +5967,7 @@ async function handleLOIQuery(parsedIntent, userId, channelId, client, threadTs)
 async function handleARRQuery(parsedIntent, userId, channelId, client, threadTs) {
   try {
     // Query for recurring revenue deals
-    const soql = `SELECT Account.Name, Account.Owner.Name, Name, Amount, ACV__c, CloseDate, Owner.Name
+    const soql = `SELECT Account.Name, Account.Account_Display_Name__c, Account.Owner.Name, Name, Amount, ACV__c, CloseDate, Owner.Name
                   FROM Opportunity 
                   WHERE Revenue_Type__c = 'Recurring' AND IsClosed = true AND IsWon = true
                   ORDER BY CloseDate DESC

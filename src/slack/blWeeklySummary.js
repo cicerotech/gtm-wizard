@@ -17,12 +17,14 @@ const MAX_DEALS_PER_BL = 3; // Max deals to show per BL in proposal section
 const DIVIDER = '───────────────────────';
 
 // Active pipeline stages (must match Salesforce "All Active Pipeline" report)
+// Stage 5 - Negotiation added for Council accounts in contracting phase
 const ACTIVE_STAGES = [
   'Stage 0 - Prospecting',
   'Stage 1 - Discovery',
   'Stage 2 - SQO',
   'Stage 3 - Pilot',
-  'Stage 4 - Proposal'
+  'Stage 4 - Proposal',
+  'Stage 5 - Negotiation'
 ];
 
 // US and EU Pod categorization for display
@@ -46,6 +48,11 @@ const EU_POD = [
   'Emer Flynn',
   'Riona McHale'
 ];
+
+// Helper: Get display name (anonymized for Council accounts, real name otherwise)
+function getAccountDisplayName(opp) {
+  return opp.Account?.Account_Display_Name__c || opp.Account?.Name || 'Unknown';
+}
 
 // Proposal stage = Stage 4 - Proposal
 const PROPOSAL_STAGE = 'Stage 4 - Proposal';
@@ -186,7 +193,7 @@ async function queryPipelineData() {
     const stageFilter = ACTIVE_STAGES.map(s => `'${s}'`).join(', ');
     
     const soql = `
-      SELECT Owner.Name, AccountId, Account.Name, 
+      SELECT Owner.Name, AccountId, Account.Name, Account.Account_Display_Name__c,
              ACV__c, Weighted_ACV__c, StageName,
              Target_LOI_Date__c, Product_Line__c
       FROM Opportunity
@@ -335,7 +342,7 @@ async function querySignedDeals() {
     const startStr = fiscalQStart.toISOString().split('T')[0];
     
     const soql = `
-      SELECT AccountId, Account.Name, Name, ACV__c, CloseDate, Revenue_Type__c, Owner.Name
+      SELECT AccountId, Account.Name, Account.Account_Display_Name__c, Name, ACV__c, CloseDate, Revenue_Type__c, Owner.Name
       FROM Opportunity
       WHERE StageName = 'Stage 6. Closed(Won)'
         AND CloseDate >= ${startStr}
@@ -420,7 +427,7 @@ function processSignedDeals(records) {
       thisMonthACV += acv;
       thisMonthAccountSet.add(accountId);
       thisMonthDealsList.push({
-        accountName: opp.Account?.Name || 'Unknown',
+        accountName: getAccountDisplayName(opp),
         oppName: opp.Name,
         acv,
         closeDate: opp.CloseDate,
@@ -465,7 +472,7 @@ async function queryActiveRevenue() {
     // Query all Closed Won deals with Recurring, Project, or Pilot revenue type
     // Include Term__c to calculate end date
     const soql = `
-      SELECT Id, Name, AccountId, Account.Name, ACV__c, Revenue_Type__c, 
+      SELECT Id, Name, AccountId, Account.Name, Account.Account_Display_Name__c, ACV__c, Revenue_Type__c, 
              CloseDate, Term__c, Owner.Name
       FROM Opportunity
       WHERE StageName = 'Stage 6. Closed(Won)'
@@ -515,7 +522,7 @@ async function queryActiveRevenue() {
         activeDeals.push({
           id: opp.Id,
           name: opp.Name,
-          accountName: opp.Account?.Name || 'Unknown',
+          accountName: getAccountDisplayName(opp),
           acv,
           revenueType: opp.Revenue_Type__c,
           closeDate: opp.CloseDate,
@@ -577,7 +584,7 @@ async function queryJanuaryClosedWonNewBusiness() {
     // Query individual deals - use Renewal_Net_Change__c for net new calculation
     // Include all Recurring and Project revenue types (incl. renewals, expansions)
     const soql = `
-      SELECT Id, Name, Account.Name, ACV__c, Renewal_Net_Change__c, Sales_Type__c, Revenue_Type__c, Owner.Name
+      SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Renewal_Net_Change__c, Sales_Type__c, Revenue_Type__c, Owner.Name
       FROM Opportunity
       WHERE StageName = 'Stage 6. Closed(Won)'
         AND CloseDate >= ${monthStart}
@@ -613,14 +620,14 @@ async function queryJanuaryClosedWonNewBusiness() {
       
       validDeals.push({
         name: opp.Name,
-        accountName: opp.Account?.Name,
+        accountName: getAccountDisplayName(opp),
         grossACV: grossACV,
         netACV: netACV,
         type: salesType,
         owner: opp.Owner?.Name
       });
       
-      logger.info(`  Deal: ${opp.Account?.Name} - Gross: $${grossACV}, Net Change: ${opp.Renewal_Net_Change__c}, Using Net: $${netACV} (${salesType})`);
+      logger.info(`  Deal: ${getAccountDisplayName(opp)} - Gross: $${grossACV}, Net Change: ${opp.Renewal_Net_Change__c}, Using Net: $${netACV} (${salesType})`);
     });
     
     const data = {
@@ -680,7 +687,7 @@ async function queryQ4WeightedPipeline() {
       SELECT SUM(ACV__c) totalACV, SUM(Blended_Forecast_base__c) blendedACV, COUNT(Id) dealCount
       FROM Opportunity
       WHERE IsClosed = false
-        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
+        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
         AND Target_LOI_Date__c <= ${q4EndStr}
         AND Sales_Type__c IN ('New business', 'Expansion')
     `;
@@ -786,7 +793,7 @@ async function querySignedRevenueLastWeek() {
     // Query individual deals (not aggregate) to get deal details
     // Filter by Revenue_Type__c to include only Recurring, Project, Pilot
     const soql = `
-      SELECT Id, Name, Account.Name, ACV__c, Owner.Name, 
+      SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Owner.Name, 
              Sales_Type__c, Revenue_Type__c, Product_Line__c, CloseDate
       FROM Opportunity
       WHERE StageName = 'Stage 6. Closed(Won)'
@@ -813,7 +820,7 @@ async function querySignedRevenueLastWeek() {
     const deals = result.records.map(opp => ({
       id: opp.Id,
       name: opp.Name,
-      accountName: opp.Account?.Name || 'Unknown',
+      accountName: getAccountDisplayName(opp),
       acv: opp.ACV__c || 0,
       ownerName: opp.Owner?.Name || 'Unknown',
       salesType: opp.Sales_Type__c || 'N/A',
@@ -868,11 +875,11 @@ async function queryTop10TargetingJanuary() {
     
     // Query top 10 deals by ACV - filter by active stages AND target date <= Jan 31
     const soql = `
-      SELECT Id, Name, Account.Name, ACV__c, Blended_Forecast_base__c, Target_LOI_Date__c, 
+      SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Blended_Forecast_base__c, Target_LOI_Date__c, 
              StageName, Owner.Name, Sales_Type__c
       FROM Opportunity
       WHERE IsClosed = false
-        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
+        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
         AND Target_LOI_Date__c <= ${janEnd}
       ORDER BY ACV__c DESC
       LIMIT 10
@@ -883,7 +890,7 @@ async function queryTop10TargetingJanuary() {
       SELECT COUNT(Id) totalCount
       FROM Opportunity
       WHERE IsClosed = false
-        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
+        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
         AND Target_LOI_Date__c <= ${janEnd}
     `;
     
@@ -899,7 +906,7 @@ async function queryTop10TargetingJanuary() {
     const deals = result.records.map(opp => ({
       id: opp.Id,
       name: opp.Name,
-      accountName: opp.Account?.Name || 'Unknown',
+      accountName: getAccountDisplayName(opp),
       acv: opp.ACV__c || 0,
       blendedForecast: opp.Blended_Forecast_base__c || 0,
       targetDate: opp.Target_LOI_Date__c,
@@ -938,11 +945,11 @@ async function queryTop10TargetingQ1() {
     
     // Query top 10 deals by ACV - filter by active stages
     const soql = `
-      SELECT Id, Name, Account.Name, ACV__c, Blended_Forecast_base__c, Target_LOI_Date__c, 
+      SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Blended_Forecast_base__c, Target_LOI_Date__c, 
              StageName, Owner.Name, Sales_Type__c
       FROM Opportunity
       WHERE IsClosed = false
-        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
+        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
         AND Target_LOI_Date__c >= ${q1Start}
         AND Target_LOI_Date__c <= ${q1End}
       ORDER BY ACV__c DESC
@@ -954,7 +961,7 @@ async function queryTop10TargetingQ1() {
       SELECT COUNT(Id) totalCount
       FROM Opportunity
       WHERE IsClosed = false
-        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
+        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
         AND Target_LOI_Date__c >= ${q1Start}
         AND Target_LOI_Date__c <= ${q1End}
     `;
@@ -971,7 +978,7 @@ async function queryTop10TargetingQ1() {
     const deals = result.records.map(opp => ({
       id: opp.Id,
       name: opp.Name,
-      accountName: opp.Account?.Name || 'Unknown',
+      accountName: getAccountDisplayName(opp),
       acv: opp.ACV__c || 0,
       blendedForecast: opp.Blended_Forecast_base__c || 0,
       targetDate: opp.Target_LOI_Date__c,
@@ -1006,7 +1013,7 @@ async function queryPipelineBySalesType() {
       SELECT Sales_Type__c, SUM(ACV__c) totalACV, SUM(Finance_Weighted_ACV__c) weightedACV, COUNT(Id) dealCount
       FROM Opportunity
       WHERE IsClosed = false
-        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal')
+        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
       GROUP BY Sales_Type__c
       ORDER BY Sales_Type__c
     `;
@@ -1113,7 +1120,7 @@ function processPipelineData(records) {
   records.forEach(opp => {
     const ownerName = opp.Owner?.Name;
     const accountId = opp.AccountId;
-    const accountName = opp.Account?.Name || 'Unknown';
+    const accountName = getAccountDisplayName(opp);
     const acv = opp.ACV__c || 0;
     const weightedAcv = opp.Weighted_ACV__c || 0;
     const stageName = opp.StageName;
