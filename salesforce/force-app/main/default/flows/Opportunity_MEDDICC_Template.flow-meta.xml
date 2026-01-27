@@ -6,20 +6,23 @@
     <formulas>
         <name>MEDDICCTemplate</name>
         <dataType>String</dataType>
-        <expression>"[M] METRICS" &amp; BR() &amp;
-"..." &amp; BR() &amp; BR() &amp;
-"[E] ECONOMIC BUYER" &amp; BR() &amp;
-"..." &amp; BR() &amp; BR() &amp;
-"[D] DECISION CRITERIA" &amp; BR() &amp;
-"..." &amp; BR() &amp; BR() &amp;
-"[D] DECISION PROCESS" &amp; BR() &amp;
-"..." &amp; BR() &amp; BR() &amp;
-"[I] PAIN / COMPELLING EVENT" &amp; BR() &amp;
-"..." &amp; BR() &amp; BR() &amp;
-"[C] CHAMPION" &amp; BR() &amp;
-"..." &amp; BR() &amp; BR() &amp;
-"[C] COMPETITION" &amp; BR() &amp;
-"..."</expression>
+        <expression>"[M] METRICS (quantifiable impact/ROI)" &amp; BR() &amp;
+"- " &amp; BR() &amp;
+"- " &amp; BR() &amp; BR() &amp;
+"[E] ECONOMIC BUYER (budget holder)" &amp; BR() &amp;
+"- " &amp; BR() &amp; BR() &amp;
+"[D] DECISION CRITERIA (key requirements)" &amp; BR() &amp;
+"- " &amp; BR() &amp;
+"- " &amp; BR() &amp; BR() &amp;
+"[D] DECISION PROCESS (timeline, stakeholders)" &amp; BR() &amp;
+"- " &amp; BR() &amp;
+"- " &amp; BR() &amp; BR() &amp;
+"[I] PAIN / COMPELLING EVENT (urgency)" &amp; BR() &amp;
+"- " &amp; BR() &amp; BR() &amp;
+"[C] CHAMPION (internal advocate)" &amp; BR() &amp;
+"- " &amp; BR() &amp; BR() &amp;
+"[C] COMPETITION (alternatives)" &amp; BR() &amp;
+"- "</expression>
     </formulas>
     <interviewLabel>Opportunity MEDDICC Template {!$Flow.CurrentDateTime}</interviewLabel>
     <label>Opportunity MEDDICC Template</label>
