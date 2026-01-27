@@ -5,159 +5,206 @@
  * 
  * Execute in: Developer Console → Debug → Open Execute Anonymous Window
  * 
- * This script creates:
- * - 9 Products representing Eudia's product lines
- * - Standard Price Book entries with default ACV pricing
+ * This script creates Products that MATCH your existing Product_Line__c picklist values.
+ * This ensures 1:1 alignment between picklist values and Products.
+ * 
+ * DEFAULT ACV: $120,000 for all products (user can override per Opportunity)
+ * 
+ * NOTE: Your existing Product_Line__c field is NOT modified.
+ *       Flows and automations continue to work unchanged.
  */
 
-// Step 1: Get Standard Price Book (always exists in Salesforce)
+// ============================================================
+// CONFIGURATION
+// ============================================================
+Decimal DEFAULT_ACV = 120000;  // $120K default for all products
+
+// ============================================================
+// Step 1: Get Standard Price Book
+// ============================================================
 Pricebook2 standardPB = [SELECT Id FROM Pricebook2 WHERE IsStandard = true LIMIT 1];
 System.debug('Found Standard Price Book: ' + standardPB.Id);
 
-// Step 2: Check if products already exist (prevent duplicates)
+// ============================================================
+// Step 2: Check existing products (prevent duplicates)
+// ============================================================
 Set<String> existingCodes = new Set<String>();
 for (Product2 p : [SELECT ProductCode FROM Product2 WHERE ProductCode != null]) {
     existingCodes.add(p.ProductCode);
 }
 
-// Step 3: Define Products
+// ============================================================
+// Step 3: Define Products (matching existing picklist values)
+// ============================================================
+// Product names EXACTLY match your Product_Line__c picklist values
+// This ensures consistency and easy mapping
+
 List<Product2> products = new List<Product2>();
 
-// Contracting Products
-if (!existingCodes.contains('CONT-INH')) {
+// --- Contracting ---
+if (!existingCodes.contains('AI-Augmented Contracting_In-House Technology')) {
     products.add(new Product2(
-        Name = 'AI-Augmented Contracting - In-House',
-        ProductCode = 'CONT-INH',
+        Name = 'AI-Augmented Contracting - In-House Technology',
+        ProductCode = 'AI-Augmented Contracting_In-House Technology',
         Family = 'Contracting',
-        Description = 'Contract Review Solution with MIND and Word Plugin. Includes AI-powered contract analysis, playbook codification, and redlining assistance.',
+        Description = 'Contract Review Solution with MIND and Word Plugin. AI-powered contract analysis, playbook codification, and redlining.',
         IsActive = true
     ));
 }
 
-if (!existingCodes.contains('CONT-MS')) {
+if (!existingCodes.contains('AI-Augmented Contracting_Managed Services')) {
     products.add(new Product2(
-        Name = 'AI-Augmented Contracting - Managed Service',
-        ProductCode = 'CONT-MS',
+        Name = 'AI-Augmented Contracting - Managed Services',
+        ProductCode = 'AI-Augmented Contracting_Managed Services',
         Family = 'Contracting',
-        Description = 'Augmented Contracting with AI-Augmented Legal Consultant. End-to-end review, redlining, negotiation support, and execution management.',
+        Description = 'Augmented Contracting with AI-Augmented Legal Consultant. End-to-end review, negotiation, and execution management.',
         IsActive = true
     ));
 }
 
-// Platform Products
-if (!existingCodes.contains('SIGMA')) {
+if (!existingCodes.contains('Contracting - Secondee')) {
     products.add(new Product2(
-        Name = 'Sigma & Insights',
-        ProductCode = 'SIGMA',
-        Family = 'Platform',
-        Description = 'Self-serve agent suite with Q&A, Summarization, Drafting, Translation. Insights transforms contracts into a living source of truth.',
+        Name = 'Contracting - Secondee',
+        ProductCode = 'Contracting - Secondee',
+        Family = 'Contracting',
+        Description = 'Embedded legal professional (secondee) for contracting support.',
         IsActive = true
     ));
 }
 
-if (!existingCodes.contains('AGENTS')) {
+// --- Compliance ---
+if (!existingCodes.contains('AI-Augmented Compliance_In-House Technology')) {
     products.add(new Product2(
-        Name = 'Custom Agents',
-        ProductCode = 'AGENTS',
-        Family = 'Platform',
-        Description = 'Custom AI agent development and deployment for specialized workflows.',
-        IsActive = true
-    ));
-}
-
-// M&A Products
-if (!existingCodes.contains('MA-INH')) {
-    products.add(new Product2(
-        Name = 'AI-Augmented M&A - In-House',
-        ProductCode = 'MA-INH',
-        Family = 'M&A',
-        Description = 'M&A due diligence platform license. AI-powered document review and risk analysis for transactions.',
-        IsActive = true
-    ));
-}
-
-if (!existingCodes.contains('MA-MS')) {
-    products.add(new Product2(
-        Name = 'AI-Augmented M&A - Managed Service',
-        ProductCode = 'MA-MS',
-        Family = 'M&A',
-        Description = 'M&A with managed legal team. Full-service due diligence support with embedded professionals.',
-        IsActive = true
-    ));
-}
-
-// Compliance Products
-if (!existingCodes.contains('COMP-INH')) {
-    products.add(new Product2(
-        Name = 'AI-Augmented Compliance - In-House',
-        ProductCode = 'COMP-INH',
+        Name = 'AI-Augmented Compliance - In-House Technology',
+        ProductCode = 'AI-Augmented Compliance_In-House Technology',
         Family = 'Compliance',
         Description = 'Compliance monitoring, audit support, and regulatory tracking platform.',
         IsActive = true
     ));
 }
 
-// Litigation Products
-if (!existingCodes.contains('LIT')) {
+// --- M&A ---
+if (!existingCodes.contains('Augmented-M&A')) {
     products.add(new Product2(
-        Name = 'Litigation Support',
-        ProductCode = 'LIT',
+        Name = 'AI-Augmented M&A - In-House Technology',
+        ProductCode = 'Augmented-M&A',
+        Family = 'M&A',
+        Description = 'M&A due diligence platform. AI-powered document review and risk analysis.',
+        IsActive = true
+    ));
+}
+
+if (!existingCodes.contains('AI-Augmented M&A_Managed Service')) {
+    products.add(new Product2(
+        Name = 'AI-Augmented M&A - Managed Service',
+        ProductCode = 'AI-Augmented M&A_Managed Service',
+        Family = 'M&A',
+        Description = 'M&A with managed legal team. Full-service due diligence support.',
+        IsActive = true
+    ));
+}
+
+// --- Platform ---
+if (!existingCodes.contains('sigma')) {
+    products.add(new Product2(
+        Name = 'Sigma',
+        ProductCode = 'sigma',
+        Family = 'Platform',
+        Description = 'Self-serve agent suite with Q&A, Summarization, Drafting, Translation, and Insights.',
+        IsActive = true
+    ));
+}
+
+if (!existingCodes.contains('Custom Agents')) {
+    products.add(new Product2(
+        Name = 'Custom Agents',
+        ProductCode = 'Custom Agents',
+        Family = 'Platform',
+        Description = 'Custom AI agent development and deployment for specialized workflows.',
+        IsActive = true
+    ));
+}
+
+// --- Litigation ---
+if (!existingCodes.contains('Litigation')) {
+    products.add(new Product2(
+        Name = 'Litigation',
+        ProductCode = 'Litigation',
         Family = 'Litigation',
         Description = 'Litigation support and e-discovery services with AI-powered document review.',
         IsActive = true
     ));
 }
 
-// Services
-if (!existingCodes.contains('CONFIG')) {
+// --- Other ---
+if (!existingCodes.contains('Other_Managed Service')) {
     products.add(new Product2(
-        Name = 'Configuration & Implementation',
-        ProductCode = 'CONFIG',
-        Family = 'Services',
-        Description = 'Setup, training, integration services, and ongoing configuration support.',
+        Name = 'Other - Managed Service',
+        ProductCode = 'Other_Managed Service',
+        Family = 'Other',
+        Description = 'Other managed service engagements.',
         IsActive = true
     ));
 }
 
+if (!existingCodes.contains('Other_Secondee')) {
+    products.add(new Product2(
+        Name = 'Other - Secondee',
+        ProductCode = 'Other_Secondee',
+        Family = 'Other',
+        Description = 'Other secondee/embedded professional engagements.',
+        IsActive = true
+    ));
+}
+
+// ============================================================
 // Step 4: Insert Products
+// ============================================================
+List<String> allProductCodes = new List<String>{
+    'AI-Augmented Contracting_In-House Technology',
+    'AI-Augmented Contracting_Managed Services',
+    'Contracting - Secondee',
+    'AI-Augmented Compliance_In-House Technology',
+    'Augmented-M&A',
+    'AI-Augmented M&A_Managed Service',
+    'sigma',
+    'Custom Agents',
+    'Litigation',
+    'Other_Managed Service',
+    'Other_Secondee'
+};
+
 if (!products.isEmpty()) {
     insert products;
     System.debug('✅ Created ' + products.size() + ' new products');
-} else {
-    System.debug('ℹ️ All products already exist');
-    // Get existing products for price book entries
-    products = [SELECT Id, ProductCode FROM Product2 WHERE ProductCode IN 
-        ('CONT-INH','CONT-MS','SIGMA','AGENTS','MA-INH','MA-MS','COMP-INH','LIT','CONFIG')];
 }
 
-// Step 5: Define Default Pricing (ACV)
-Map<String, Decimal> defaultPrices = new Map<String, Decimal>{
-    'CONT-INH' => 100000,   // $100K - AI-Augmented Contracting In-House
-    'CONT-MS' => 100000,    // $100K - AI-Augmented Contracting Managed
-    'SIGMA' => 100000,      // $100K - Sigma & Insights
-    'AGENTS' => 100000,     // $100K - Custom Agents
-    'MA-INH' => 250000,     // $250K - M&A In-House
-    'MA-MS' => 250000,      // $250K - M&A Managed Service
-    'COMP-INH' => 100000,   // $100K - Compliance In-House
-    'LIT' => 100000,        // $100K - Litigation
-    'CONFIG' => 50000       // $50K - Configuration & Implementation
-};
+// Get all products (including existing) for price book entries
+List<Product2> allProducts = [
+    SELECT Id, Name, ProductCode 
+    FROM Product2 
+    WHERE ProductCode IN :allProductCodes
+];
 
-// Step 6: Check existing Price Book Entries
+// ============================================================
+// Step 5: Check existing Price Book Entries
+// ============================================================
 Set<Id> existingPBEProductIds = new Set<Id>();
 for (PricebookEntry pbe : [SELECT Product2Id FROM PricebookEntry WHERE Pricebook2Id = :standardPB.Id]) {
     existingPBEProductIds.add(pbe.Product2Id);
 }
 
-// Step 7: Create Standard Price Book Entries
+// ============================================================
+// Step 6: Create Standard Price Book Entries (all at $120K default)
+// ============================================================
 List<PricebookEntry> standardEntries = new List<PricebookEntry>();
 
-for (Product2 p : products) {
-    if (!existingPBEProductIds.contains(p.Id) && defaultPrices.containsKey(p.ProductCode)) {
+for (Product2 p : allProducts) {
+    if (!existingPBEProductIds.contains(p.Id)) {
         standardEntries.add(new PricebookEntry(
             Pricebook2Id = standardPB.Id,
             Product2Id = p.Id,
-            UnitPrice = defaultPrices.get(p.ProductCode),
+            UnitPrice = DEFAULT_ACV,  // $120,000 default - users can override per Opp
             IsActive = true
         ));
     }
@@ -170,22 +217,29 @@ if (!standardEntries.isEmpty()) {
     System.debug('ℹ️ All price book entries already exist');
 }
 
-// Step 8: Summary Output
+// ============================================================
+// Step 7: Summary Output
+// ============================================================
+System.debug('');
 System.debug('========================================');
 System.debug('PRODUCT SETUP COMPLETE');
 System.debug('========================================');
-System.debug('Products created: ' + products.size());
-System.debug('Price Book entries created: ' + standardEntries.size());
 System.debug('');
-System.debug('Default Pricing:');
-System.debug('  Contracting In-House:  $100,000');
-System.debug('  Contracting Managed:   $100,000');
-System.debug('  Sigma & Insights:      $100,000');
-System.debug('  Custom Agents:         $100,000');
-System.debug('  M&A In-House:          $250,000');
-System.debug('  M&A Managed:           $250,000');
-System.debug('  Compliance In-House:   $100,000');
-System.debug('  Litigation:            $100,000');
-System.debug('  Config/Implementation: $50,000');
+System.debug('Products in system: ' + allProducts.size());
+System.debug('New products created: ' + products.size());
+System.debug('Price book entries created: ' + standardEntries.size());
+System.debug('');
+System.debug('DEFAULT ACV: $' + DEFAULT_ACV + ' (user can override per Opportunity)');
+System.debug('');
+System.debug('Products (matching Product_Line__c picklist):');
+for (Product2 p : allProducts) {
+    System.debug('  ✓ ' + p.Name);
+}
+System.debug('');
+System.debug('========================================');
+System.debug('NEXT STEPS:');
+System.debug('1. Add "Products" related list to Opportunity page layout');
+System.debug('2. Test with a sample Opportunity');
+System.debug('3. Existing Product_Line__c field unchanged');
 System.debug('========================================');
 

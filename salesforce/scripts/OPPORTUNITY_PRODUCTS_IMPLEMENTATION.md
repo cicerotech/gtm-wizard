@@ -27,17 +27,30 @@ This guide implements Salesforce Opportunity Products (Line Items) to properly c
 
 ## Products & Default Pricing
 
-| Product Name | Family | Default ACV | Description |
-|--------------|--------|-------------|-------------|
-| AI-Augmented Contracting - In-House | Contracting | $100,000 | Contract Review Solution, MIND, Word Plugin |
-| AI-Augmented Contracting - Managed Service | Contracting | $100,000 | Augmented Contracting with Legal Consultant |
-| Sigma & Insights | Platform | $100,000 | Q&A, Summarization, Drafting, Translation |
-| AI-Augmented M&A - In-House | M&A | $250,000 | M&A platform license |
-| AI-Augmented M&A - Managed Service | M&A | $250,000 | M&A with managed team |
-| AI-Augmented Compliance - In-House | Compliance | $100,000 | Compliance platform |
-| Litigation Support | Litigation | $100,000 | Litigation support services |
-| Custom Agents | Platform | $100,000 | Custom AI agent development |
-| Configuration & Implementation | Services | $50,000 | Setup, training, integration |
+**All products default to $120,000 ACV** — users can override per Opportunity.
+
+**Product names match your existing `Product_Line__c` picklist values exactly.**
+
+| Product Name (matches picklist) | Family | Default ACV |
+|--------------------------------|--------|-------------|
+| AI-Augmented Contracting - In-House Technology | Contracting | $120,000 |
+| AI-Augmented Contracting - Managed Services | Contracting | $120,000 |
+| Contracting - Secondee | Contracting | $120,000 |
+| AI-Augmented Compliance - In-House Technology | Compliance | $120,000 |
+| AI-Augmented M&A - In-House Technology | M&A | $120,000 |
+| AI-Augmented M&A - Managed Service | M&A | $120,000 |
+| Sigma | Platform | $120,000 |
+| Custom Agents | Platform | $120,000 |
+| Litigation | Litigation | $120,000 |
+| Other - Managed Service | Other | $120,000 |
+| Other - Secondee | Other | $120,000 |
+
+### Key Design Decisions
+
+1. **Existing `Product_Line__c` field is NOT modified** — flows keep working
+2. **Products mirror picklist values** — easy mental mapping, consistent data
+3. **Default ACV is $120K** — quick entry, override when needed
+4. **Multi-product → use Products related list** — single Product_Line__c can stay "Multiple"
 
 ---
 
