@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>59.0</apiVersion>
+    <description>Auto-populates the MEDDICC Qualification field with a template when a new Opportunity is created.</description>
+    <environments>Default</environments>
+    <formulas>
+        <name>MEDDICCTemplate</name>
+        <dataType>String</dataType>
+        <expression>"M - METRICS" &amp; BR() &amp;
+"Desired state metrics/quantifiable impact:" &amp; BR() &amp; BR() &amp;
+"E - ECONOMIC BUYER" &amp; BR() &amp;
+"Economic buyer engagement and their goals/needs/decision criteria:" &amp; BR() &amp; BR() &amp;
+"D - DECISION CRITERIA" &amp; BR() &amp;
+"Main decision criteria with emphasis on pressing needs + use cases:" &amp; BR() &amp; BR() &amp;
+"D - DECISION PROCESS" &amp; BR() &amp;
+"Key decision making process (timeline, budget, stakeholders, purchase process):" &amp; BR() &amp; BR() &amp;
+"I - IDENTIFY PAIN / COMPELLING EVENT" &amp; BR() &amp;
+"Root causes, quantifiable impact, implementation timeline, cost of inaction:" &amp; BR() &amp; BR() &amp;
+"C - CHAMPION" &amp; BR() &amp;
+"Champion identified and tested:" &amp; BR() &amp; BR() &amp;
+"C - COMPETITION" &amp; BR() &amp;
+"Competitors (new and incumbent) and sentiment:" &amp; BR()</expression>
+    </formulas>
+    <interviewLabel>Opportunity MEDDICC Template {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Opportunity MEDDICC Template</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordUpdates>
+        <name>Set_MEDDICC_Template</name>
+        <label>Set MEDDICC Template</label>
+        <locationX>176</locationX>
+        <locationY>335</locationY>
+        <inputAssignments>
+            <field>MEDDICC_Qualification__c</field>
+            <value>
+                <elementReference>MEDDICCTemplate</elementReference>
+            </value>
+        </inputAssignments>
+        <inputReference>$Record</inputReference>
+    </recordUpdates>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Set_MEDDICC_Template</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>MEDDICC_Qualification__c</field>
+            <operator>IsNull</operator>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </filters>
+        <object>Opportunity</object>
+        <recordTriggerType>Create</recordTriggerType>
+        <triggerType>RecordBeforeSave</triggerType>
+    </start>
+    <status>Active</status>
+</Flow>
+
