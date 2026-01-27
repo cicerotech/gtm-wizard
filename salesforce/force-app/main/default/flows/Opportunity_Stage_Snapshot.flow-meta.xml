@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>59.0</apiVersion>
+    <description>Creates a Stage Snapshot record when Opportunity stage changes.</description>
+    <environments>Default</environments>
+    <interviewLabel>Opportunity Stage Snapshot</interviewLabel>
+    <label>Opportunity Stage Snapshot</label>
+    <processType>AutoLaunchedFlow</processType>
+    <recordCreates>
+        <name>Create_Stage_Snapshot</name>
+        <label>Create Stage Snapshot</label>
+        <locationX>176</locationX>
+        <locationY>335</locationY>
+        <inputAssignments>
+            <field>ACV__c</field>
+            <value>
+                <elementReference>$Record.ACV__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>BL_Forecast_Category__c</field>
+            <value>
+                <elementReference>$Record.BL_Quarterly_Forecast__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Modified_By__c</field>
+            <value>
+                <elementReference>$Record.LastModifiedById</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Opportunity__c</field>
+            <value>
+                <elementReference>$Record.Id</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Snapshot_Date__c</field>
+            <value>
+                <elementReference>$Flow.CurrentDateTime</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Stage__c</field>
+            <value>
+                <elementReference>$Record.StageName</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Target_Sign_Date__c</field>
+            <value>
+                <elementReference>$Record.Target_LOI_Date__c</elementReference>
+            </value>
+        </inputAssignments>
+        <object>Stage_Snapshot__c</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordCreates>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Create_Stage_Snapshot</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>StageName</field>
+            <operator>IsChanged</operator>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </filters>
+        <object>Opportunity</object>
+        <recordTriggerType>Update</recordTriggerType>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    <status>Active</status>
+</Flow>
+
