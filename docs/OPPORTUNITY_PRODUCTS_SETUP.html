@@ -489,29 +489,43 @@
                     <li class="step">
                         <div class="step-number">4</div>
                         <div class="step-content">
-                            <h4>Verify in Setup</h4>
-                            <p>Go to Setup → Products → Verify all 9 products are created and active</p>
+                            <h4>Verify Products in Setup</h4>
+                            <p>Go to Setup → Products → Verify all 11 products are created and active</p>
                         </div>
                     </li>
                     <li class="step">
                         <div class="step-number">5</div>
                         <div class="step-content">
                             <h4>Check Price Book</h4>
-                            <p>Go to App Launcher → Price Books → Standard Price Book → Verify entries</p>
+                            <p>Go to App Launcher → Price Books → Standard Price Book → Verify 11 entries at $120,000</p>
                         </div>
                     </li>
                     <li class="step">
                         <div class="step-number">6</div>
+                        <div class="step-content">
+                            <h4>Deploy ACV Sync Flows</h4>
+                            <p>Deploy <code>Sync_Products_to_ACV.flow-meta.xml</code> and <code>Sync_Products_to_ACV_On_Delete.flow-meta.xml</code> → Activate both</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <div class="step-number">7</div>
+                        <div class="step-content">
+                            <h4>Update "Create Opp Assist v2" Flow</h4>
+                            <p>Follow <code>UPDATE_CREATE_OPP_ASSIST_FLOW.md</code> to add Products as ACV source</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <div class="step-number">8</div>
                         <div class="step-content">
                             <h4>Add Products Related List to Opportunity Layout</h4>
                             <p>Setup → Object Manager → Opportunity → Page Layouts → Add "Products" related list</p>
                         </div>
                     </li>
                     <li class="step">
-                        <div class="step-number">7</div>
+                        <div class="step-number">9</div>
                         <div class="step-content">
-                            <h4>Test with Sample Opportunity</h4>
-                            <p>Create a test Opp → Click "Add Products" → Select products → Save → Verify</p>
+                            <h4>Run Validation Tests</h4>
+                            <p>Use <code>OPPORTUNITY_PRODUCTS_TESTING.html</code> interactive checklist to validate all scenarios</p>
                         </div>
                     </li>
                 </ol>
@@ -645,15 +659,19 @@ System.debug('Deactivated ' + products.size() + ' products');</pre>
                     </li>
                     <li>
                         <div class="checkbox"></div>
-                        <span>Run creation script in Sandbox</span>
+                        <span>Run creation script in Sandbox (11 products)</span>
                     </li>
                     <li>
                         <div class="checkbox"></div>
-                        <span>Verify products created (9 products)</span>
+                        <span>Verify products created (11 products at $120K each)</span>
                     </li>
                     <li>
                         <div class="checkbox"></div>
-                        <span>Verify price book entries (9 entries)</span>
+                        <span>Deploy and activate ACV sync flows</span>
+                    </li>
+                    <li>
+                        <div class="checkbox"></div>
+                        <span>Update "Create Opp Assist v2" flow</span>
                     </li>
                     <li>
                         <div class="checkbox"></div>
@@ -661,19 +679,19 @@ System.debug('Deactivated ' + products.size() + ' products');</pre>
                     </li>
                     <li>
                         <div class="checkbox"></div>
-                        <span>Create test Opportunity with products</span>
+                        <span>Test: Opp without Products → Default ACV applied</span>
                     </li>
                     <li>
                         <div class="checkbox"></div>
-                        <span>Verify Amount roll-up works</span>
+                        <span>Test: Opp with Products → ACV = sum of Products</span>
                     </li>
                     <li>
                         <div class="checkbox"></div>
-                        <span>Update Delivery trigger for line items</span>
+                        <span>Test: Manual ACV → Not overwritten by Products</span>
                     </li>
                     <li>
                         <div class="checkbox"></div>
-                        <span>Test Stage 4 → Delivery creation</span>
+                        <span>Test: Stage change → Snapshot captures ACV</span>
                     </li>
                     <li>
                         <div class="checkbox"></div>
@@ -682,6 +700,10 @@ System.debug('Deactivated ' + products.size() + ' products');</pre>
                     <li>
                         <div class="checkbox"></div>
                         <span>Deploy to Production</span>
+                    </li>
+                    <li>
+                        <div class="checkbox"></div>
+                        <span>Update Delivery trigger for multi-product</span>
                     </li>
                     <li>
                         <div class="checkbox"></div>

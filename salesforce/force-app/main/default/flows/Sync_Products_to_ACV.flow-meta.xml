@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>59.0</apiVersion>
+    <description>Syncs Opportunity Product Line Item totals to ACV__c field. Only updates ACV when user has NOT manually entered a value (ACV__c is null). Preserves user-entered ACV values.</description>
+    <interviewLabel>Sync Products to ACV {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Sync Products to ACV</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    
+    <!-- Get the parent Opportunity -->
+    <recordLookups>
+        <name>Get_Parent_Opportunity</name>
+        <label>Get Parent Opportunity</label>
+        <locationX>176</locationX>
+        <locationY>252</locationY>
+        <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
+        <connector>
+            <targetReference>Check_ACV_Status</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Id</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>$Record.OpportunityId</elementReference>
+            </value>
+        </filters>
+        <getFirstRecordOnly>true</getFirstRecordOnly>
+        <object>Opportunity</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    
+    <!-- Decision: Check if ACV is null AND Amount > 0 -->
+    <decisions>
+        <name>Check_ACV_Status</name>
+        <label>Check ACV Status</label>
+        <locationX>176</locationX>
+        <locationY>360</locationY>
+        <defaultConnectorLabel>ACV Already Set</defaultConnectorLabel>
+        <rules>
+            <name>ACV_Is_Null_And_Has_Products</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>Get_Parent_Opportunity.ACV__c</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>true</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>Get_Parent_Opportunity.Amount</leftValueReference>
+                <operator>GreaterThan</operator>
+                <rightValue>
+                    <numberValue>0</numberValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Update_Opportunity_ACV</targetReference>
+            </connector>
+            <label>ACV Is Null And Has Products</label>
+        </rules>
+    </decisions>
+    
+    <!-- Update Opportunity ACV from Amount -->
+    <recordUpdates>
+        <name>Update_Opportunity_ACV</name>
+        <label>Update Opportunity ACV</label>
+        <locationX>50</locationX>
+        <locationY>468</locationY>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Id</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>$Record.OpportunityId</elementReference>
+            </value>
+        </filters>
+        <inputAssignments>
+            <field>ACV__c</field>
+            <value>
+                <elementReference>Get_Parent_Opportunity.Amount</elementReference>
+            </value>
+        </inputAssignments>
+        <object>Opportunity</object>
+    </recordUpdates>
+    
+    <!-- Start element -->
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Get_Parent_Opportunity</targetReference>
+        </connector>
+        <object>OpportunityLineItem</object>
+        <recordTriggerType>CreateAndUpdate</recordTriggerType>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    
+    <status>Draft</status>
+</Flow>
+
