@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>59.0</apiVersion>
-    <description>When Next Steps is updated, captures the prior value and prepends it to Customer History + Next Steps field with a date stamp.</description>
+    <description>Captures Next Steps in Customer History field. On Create: copies initial value. On Update: prepends old value to create running history.</description>
     <environments>Default</environments>
     <formulas>
         <name>TodayFormatted</name>
@@ -11,9 +11,15 @@ IF(MONTH(TODAY()) &lt; 10, "0", "") &amp; TEXT(MONTH(TODAY())) &amp; "-" &amp;
 IF(DAY(TODAY()) &lt; 10, "0", "") &amp; TEXT(DAY(TODAY()))</expression>
     </formulas>
     <formulas>
-        <name>NewHistoryValue</name>
+        <name>HistoryFromPrior</name>
         <dataType>String</dataType>
-        <expression>{!TodayFormatted} &amp; ": " &amp; {!$Record__Prior.Next_Steps__c} &amp; BR() &amp; "---" &amp; BR() &amp; BR() &amp; 
+        <expression>{!TodayFormatted} &amp; ": " &amp; {!$Record__Prior.Next_Steps__c} &amp; BR() &amp; "---" &amp; BR() &amp; 
+IF(ISBLANK({!$Record.Next_Step_Eudia__c}), "", {!$Record.Next_Step_Eudia__c})</expression>
+    </formulas>
+    <formulas>
+        <name>HistoryFromCurrent</name>
+        <dataType>String</dataType>
+        <expression>{!TodayFormatted} &amp; ": " &amp; {!$Record.Next_Steps__c} &amp; BR() &amp; "---" &amp; BR() &amp; 
 IF(ISBLANK({!$Record.Next_Step_Eudia__c}), "", {!$Record.Next_Step_Eudia__c})</expression>
     </formulas>
     <interviewLabel>Opportunity Next Steps History {!$Flow.CurrentDateTime}</interviewLabel>
@@ -37,35 +43,98 @@ IF(ISBLANK({!$Record.Next_Step_Eudia__c}), "", {!$Record.Next_Step_Eudia__c})</e
         </value>
     </processMetadataValues>
     <processType>AutoLaunchedFlow</processType>
-    <assignments>
-        <name>Set_History_Value</name>
-        <label>Set History Value</label>
-        <locationX>176</locationX>
+    <decisions>
+        <name>Check_Trigger_Type</name>
+        <label>Check Trigger Type</label>
+        <locationX>182</locationX>
         <locationY>335</locationY>
+        <defaultConnectorLabel>Default</defaultConnectorLabel>
+        <rules>
+            <name>Is_Create</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>$Record__Prior</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>true</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.Next_Steps__c</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Set_History_On_Create</targetReference>
+            </connector>
+            <label>Is Create</label>
+        </rules>
+        <rules>
+            <name>Is_Update_With_Change</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>$Record__Prior</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record__Prior.Next_Steps__c</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.Next_Steps__c</leftValueReference>
+                <operator>NotEqualTo</operator>
+                <rightValue>
+                    <elementReference>$Record__Prior.Next_Steps__c</elementReference>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Set_History_On_Update</targetReference>
+            </connector>
+            <label>Is Update With Change</label>
+        </rules>
+    </decisions>
+    <assignments>
+        <name>Set_History_On_Create</name>
+        <label>Set History On Create</label>
+        <locationX>50</locationX>
+        <locationY>455</locationY>
         <assignmentItems>
             <assignToReference>$Record.Next_Step_Eudia__c</assignToReference>
             <operator>Assign</operator>
             <value>
-                <elementReference>NewHistoryValue</elementReference>
+                <elementReference>HistoryFromCurrent</elementReference>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <assignments>
+        <name>Set_History_On_Update</name>
+        <label>Set History On Update</label>
+        <locationX>314</locationX>
+        <locationY>455</locationY>
+        <assignmentItems>
+            <assignToReference>$Record.Next_Step_Eudia__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>HistoryFromPrior</elementReference>
             </value>
         </assignmentItems>
     </assignments>
     <start>
-        <locationX>50</locationX>
+        <locationX>56</locationX>
         <locationY>0</locationY>
         <connector>
-            <targetReference>Set_History_Value</targetReference>
+            <targetReference>Check_Trigger_Type</targetReference>
         </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>Next_Steps__c</field>
-            <operator>IsChanged</operator>
-            <value>
-                <booleanValue>true</booleanValue>
-            </value>
-        </filters>
         <object>Opportunity</object>
-        <recordTriggerType>Update</recordTriggerType>
+        <recordTriggerType>CreateAndUpdate</recordTriggerType>
         <triggerType>RecordBeforeSave</triggerType>
     </start>
     <status>Active</status>
