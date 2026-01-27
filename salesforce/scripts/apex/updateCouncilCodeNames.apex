@@ -1,86 +1,61 @@
-// Update Council Accounts with Code Names and Eudia_Council_Account__c = true
-// Run this in Developer Console → Debug → Open Execute Anonymous Window
+// Populates Code Names for Eudia Council accounts
+// Run this AFTER marking accounts as Eudia_Council_Account__c = true
+// This script sets up anonymized display names for sensitive accounts
 
+// Define code names for Council accounts (customize as needed)
 Map<String, String> accountCodeNames = new Map<String, String>{
-    'Peregrine' => 'Pete',
-    'Seyfarth' => 'Sparky',
-    'Novelis' => 'Nordy',
-    'Graybar' => 'Goofy',
-    'Amazon' => 'Albert',
-    'Cox Media' => 'Cosmo',
-    'Del Monte' => 'Dinger',
-    'Fox' => 'Fredbird',
-    'Corebridge' => 'Clutch',
-    'Duracell' => 'Daisy',
-    'DHL' => 'Dory',
-    'GE Vernova' => 'Goldy',
-    'Petsmart' => 'Pluto',
-    'Ecolab USA' => 'Eddie',
-    'American Express' => 'Ace',
-    'Vista' => 'Vic',
-    'National Grid' => 'Nemo',
-    'Plusgrade' => 'Plus',  // Needs a code name - using 'Plus' as placeholder
-    'JSRK dba Away' => 'Atari'
+    // Format: 'Account Name' => 'Code Name'
+    // Add your Council account names and desired code names here
+    // Example entries - update with actual account names from screenshot
 };
 
-// Build LIKE conditions for partial matching
-List<String> searchTerms = new List<String>();
-for (String companyName : accountCodeNames.keySet()) {
-    searchTerms.add('%' + companyName + '%');
-}
-
-// Query accounts
-List<Account> accounts = [
-    SELECT Id, Name, Code_Name__c, Eudia_Council_Account__c 
-    FROM Account 
-    WHERE Name LIKE :searchTerms[0]
-       OR Name LIKE :searchTerms[1]
-       OR Name LIKE :searchTerms[2]
-       OR Name LIKE :searchTerms[3]
-       OR Name LIKE :searchTerms[4]
-       OR Name LIKE :searchTerms[5]
-       OR Name LIKE :searchTerms[6]
-       OR Name LIKE :searchTerms[7]
-       OR Name LIKE :searchTerms[8]
-       OR Name LIKE :searchTerms[9]
-       OR Name LIKE :searchTerms[10]
-       OR Name LIKE :searchTerms[11]
-       OR Name LIKE :searchTerms[12]
-       OR Name LIKE :searchTerms[13]
-       OR Name LIKE :searchTerms[14]
-       OR Name LIKE :searchTerms[15]
-       OR Name LIKE :searchTerms[16]
-       OR Name LIKE :searchTerms[17]
-       OR Name LIKE :searchTerms[18]
+// Query Council accounts without code names
+List<Account> councilAccounts = [
+    SELECT Id, Name, Code_Name__c, Eudia_Council_Account__c
+    FROM Account
+    WHERE Eudia_Council_Account__c = true
+    AND Code_Name__c = null
 ];
 
-System.debug('Found ' + accounts.size() + ' accounts to update');
+System.debug('Found ' + councilAccounts.size() + ' Council accounts without code names');
 
-List<Account> toUpdate = new List<Account>();
+// Update with code names from map, or generate sequential names
+Integer counter = 1;
+List<Account> accountsToUpdate = new List<Account>();
 
-for (Account acc : accounts) {
-    String codeName = null;
-    
-    // Find matching code name
-    for (String companyName : accountCodeNames.keySet()) {
-        if (acc.Name.containsIgnoreCase(companyName)) {
-            codeName = accountCodeNames.get(companyName);
-            break;
-        }
+for (Account acc : councilAccounts) {
+    if (accountCodeNames.containsKey(acc.Name)) {
+        acc.Code_Name__c = accountCodeNames.get(acc.Name);
+    } else {
+        // Auto-generate code name if not in map
+        acc.Code_Name__c = 'Project ' + String.valueOf(counter).leftPad(3, '0');
+        counter++;
     }
-    
-    if (codeName != null) {
-        acc.Code_Name__c = codeName;
-        acc.Eudia_Council_Account__c = true;
-        toUpdate.add(acc);
-        System.debug('Will update: ' + acc.Name + ' → ' + codeName);
-    }
+    accountsToUpdate.add(acc);
+    System.debug('Setting code name for ' + acc.Name + ' => ' + acc.Code_Name__c);
 }
 
-if (!toUpdate.isEmpty()) {
-    update toUpdate;
-    System.debug('✅ Updated ' + toUpdate.size() + ' accounts with code names');
-} else {
-    System.debug('⚠️ No accounts found to update');
+if (!accountsToUpdate.isEmpty()) {
+    update accountsToUpdate;
+    System.debug('Successfully updated ' + accountsToUpdate.size() + ' Council accounts with code names');
 }
 
+// Also update related opportunities to sync code names
+List<Opportunity> councilOpps = [
+    SELECT Id, Name, AccountId, Account.Code_Name__c, Eudia_Council_Op__c, Code_Name__c
+    FROM Opportunity
+    WHERE Account.Eudia_Council_Account__c = true
+    AND Code_Name__c = null
+];
+
+System.debug('Found ' + councilOpps.size() + ' Council opportunities without code names');
+
+for (Opportunity opp : councilOpps) {
+    opp.Eudia_Council_Op__c = true;
+    opp.Code_Name__c = opp.Account.Code_Name__c;
+}
+
+if (!councilOpps.isEmpty()) {
+    update councilOpps;
+    System.debug('Successfully updated ' + councilOpps.size() + ' Council opportunities');
+}
