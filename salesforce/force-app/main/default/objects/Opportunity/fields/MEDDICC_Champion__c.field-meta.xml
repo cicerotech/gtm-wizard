@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>MEDDICC_Champion__c</fullName>
+    <description>[C] Who is our internal advocate? Name, title, and how they are helping us win.</description>
+    <externalId>false</externalId>
+    <label>Champion (C)</label>
+    <length>2000</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>2</visibleLines>
+</CustomField>
+

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>59.0</apiVersion>
-    <description>On Opportunity UPDATE: When Next Steps changes, captures the OLD value in Customer History. Does NOT modify Next Steps field.</description>
+    <description>On Opportunity UPDATE: When Next Steps changes, captures the OLD value in Customer History with clean formatting. Does NOT modify Next Steps field.</description>
     <environments>Default</environments>
     <formulas>
         <name>TodayFormatted</name>
@@ -13,8 +13,11 @@ IF(DAY(TODAY()) &lt; 10, "0", "") &amp; TEXT(DAY(TODAY()))</expression>
     <formulas>
         <name>NewHistoryEntry</name>
         <dataType>String</dataType>
-        <expression>{!TodayFormatted} &amp; ": " &amp; {!$Record__Prior.Next_Steps__c} &amp; BR() &amp; "---" &amp; BR() &amp; 
-IF(ISBLANK({!$Record.Next_Step_Eudia__c}), "", {!$Record.Next_Step_Eudia__c})</expression>
+        <expression>{!TodayFormatted} &amp; ": " &amp; {!$Record__Prior.Next_Steps__c} &amp; "
+
+---
+
+" &amp; IF(ISBLANK({!$Record.Next_Step_Eudia__c}), "", {!$Record.Next_Step_Eudia__c})</expression>
     </formulas>
     <interviewLabel>Next Steps History On Update {!$Flow.CurrentDateTime}</interviewLabel>
     <label>Next Steps History On Update</label>
@@ -52,4 +55,3 @@ IF(ISBLANK({!$Record.Next_Step_Eudia__c}), "", {!$Record.Next_Step_Eudia__c})</e
     </start>
     <status>Active</status>
 </Flow>
-

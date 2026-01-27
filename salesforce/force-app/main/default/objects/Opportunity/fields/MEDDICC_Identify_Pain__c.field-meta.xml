@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>MEDDICC_Identify_Pain__c</fullName>
+    <description>[I] What problems are they trying to solve? Current pain points and business impact of not solving them.</description>
+    <externalId>false</externalId>
+    <label>Identify Pain (I)</label>
+    <length>5000</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>
+

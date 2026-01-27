@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>MEDDICC_Competition__c</fullName>
+    <description>[C] Who are we competing against? Other vendors, DIY solutions, or status quo.</description>
+    <externalId>false</externalId>
+    <label>Competition (C)</label>
+    <length>2000</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>2</visibleLines>
+</CustomField>
+
