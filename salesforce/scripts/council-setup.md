@@ -1,5 +1,7 @@
 # Eudia Council Security Setup - Manual Steps
 
+> **📋 COMPREHENSIVE GUIDE:** See [COUNCIL_SECURITY_IMPLEMENTATION.md](./COUNCIL_SECURITY_IMPLEMENTATION.md) for the full safe rollout guide with profile cloning strategy, account mappings, and validation checklist.
+
 ## Overview
 
 This framework anonymizes sensitive account names for restricted users while maintaining full access for leadership.
