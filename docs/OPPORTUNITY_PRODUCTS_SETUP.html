@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opportunity Products Setup Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg: #0a0a0a;
+            --card: #141414;
+            --border: #252525;
+            --text: #e8e8e8;
+            --text-muted: #888;
+            --text-dim: #555;
+            --accent: #2563eb;
+            --accent-soft: rgba(37, 99, 235, 0.15);
+            --success: #10b981;
+            --success-soft: rgba(16, 185, 129, 0.15);
+            --warning: #f59e0b;
+            --warning-soft: rgba(245, 158, 11, 0.15);
+            --danger: #ef4444;
+            --purple: #8b5cf6;
+        }
+        
+        body {
+            font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 48px 24px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .doc-type {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent);
+            margin-bottom: 12px;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+        
+        /* Warning Box */
+        .warning-box {
+            background: var(--warning-soft);
+            border: 1px solid var(--warning);
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+        
+        .warning-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+        
+        .warning-content h3 {
+            color: var(--warning);
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+        
+        .warning-content p {
+            font-size: 0.9rem;
+            color: var(--text);
+        }
+        
+        /* Phase Timeline */
+        .phase-timeline {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+        
+        .phase-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .phase-card.active {
+            border-color: var(--accent);
+            background: var(--accent-soft);
+        }
+        
+        .phase-number {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        
+        .phase-card.active .phase-number {
+            color: var(--accent);
+        }
+        
+        .phase-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .phase-timing {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+        
+        /* Section */
+        .section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        
+        .section-header {
+            background: rgba(255,255,255,0.03);
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .section-number {
+            background: var(--accent);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .section-content {
+            padding: 24px;
+        }
+        
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        th {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            font-weight: 500;
+            background: rgba(255,255,255,0.02);
+        }
+        
+        td {
+            font-size: 0.9rem;
+        }
+        
+        tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .amount {
+            font-family: 'SF Mono', Monaco, Consolas, monospace;
+            font-weight: 600;
+            color: var(--success);
+        }
+        
+        /* Code Block */
+        .code-block {
+            background: #1a1a1a;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+            overflow-x: auto;
+        }
+        
+        .code-block pre {
+            font-family: 'SF Mono', Monaco, Consolas, monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #a0a0a0;
+        }
+        
+        .code-block .comment {
+            color: #6a737d;
+        }
+        
+        .code-block .keyword {
+            color: #ff7b72;
+        }
+        
+        .code-block .string {
+            color: #a5d6ff;
+        }
+        
+        /* Steps */
+        .steps {
+            list-style: none;
+        }
+        
+        .step {
+            display: flex;
+            gap: 16px;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .step:last-child {
+            border-bottom: none;
+        }
+        
+        .step-number {
+            background: var(--accent-soft);
+            color: var(--accent);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        
+        .step-content h4 {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .step-content p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge-family {
+            background: rgba(139, 92, 246, 0.15);
+            color: #8b5cf6;
+        }
+        
+        /* Checklist */
+        .checklist {
+            list-style: none;
+        }
+        
+        .checklist li {
+            padding: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .checklist li:last-child {
+            border-bottom: none;
+        }
+        
+        .checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 0.8rem;
+        }
+        
+        @media (max-width: 700px) {
+            .phase-timeline { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="doc-type">Salesforce Implementation Guide</div>
+            <h1>Opportunity Products Setup</h1>
+            <p class="subtitle">Multi-product deal capture with automatic Delivery creation</p>
+        </header>
+        
+        <!-- Warning -->
+        <div class="warning-box">
+            <div class="warning-icon">⚠️</div>
+            <div class="warning-content">
+                <h3>Cautious Rollout Approach</h3>
+                <p>All changes should be tested in <strong>Sandbox first</strong>. Do not run any scripts in Production until validated. This guide follows a phased approach to minimize risk.</p>
+            </div>
+        </div>
+        
+        <!-- Phase Timeline -->
+        <div class="phase-timeline">
+            <div class="phase-card active">
+                <div class="phase-number">Phase 1</div>
+                <div class="phase-title">Sandbox Testing</div>
+                <div class="phase-timing">Week 1</div>
+            </div>
+            <div class="phase-card">
+                <div class="phase-number">Phase 2</div>
+                <div class="phase-title">Pilot (1-2 BLs)</div>
+                <div class="phase-timing">Week 2</div>
+            </div>
+            <div class="phase-card">
+                <div class="phase-number">Phase 3</div>
+                <div class="phase-title">Full Rollout</div>
+                <div class="phase-timing">Week 3+</div>
+            </div>
+        </div>
+        
+        <!-- Section 1: Products -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">1</div>
+                <h2 class="section-title">Products & Default Pricing</h2>
+            </div>
+            <div class="section-content">
+                <p style="margin-bottom:16px; color:var(--text-muted)">These products will be created in Salesforce. Default prices are editable per Opportunity.</p>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Code</th>
+                            <th>Family</th>
+                            <th>Default ACV</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>AI-Augmented Contracting - In-House</td>
+                            <td><code>CONT-INH</code></td>
+                            <td><span class="badge badge-family">Contracting</span></td>
+                            <td class="amount">$100,000</td>
+                        </tr>
+                        <tr>
+                            <td>AI-Augmented Contracting - Managed Service</td>
+                            <td><code>CONT-MS</code></td>
+                            <td><span class="badge badge-family">Contracting</span></td>
+                            <td class="amount">$100,000</td>
+                        </tr>
+                        <tr>
+                            <td>Sigma & Insights</td>
+                            <td><code>SIGMA</code></td>
+                            <td><span class="badge badge-family">Platform</span></td>
+                            <td class="amount">$100,000</td>
+                        </tr>
+                        <tr>
+                            <td>Custom Agents</td>
+                            <td><code>AGENTS</code></td>
+                            <td><span class="badge badge-family">Platform</span></td>
+                            <td class="amount">$100,000</td>
+                        </tr>
+                        <tr>
+                            <td>AI-Augmented M&A - In-House</td>
+                            <td><code>MA-INH</code></td>
+                            <td><span class="badge badge-family">M&A</span></td>
+                            <td class="amount">$250,000</td>
+                        </tr>
+                        <tr>
+                            <td>AI-Augmented M&A - Managed Service</td>
+                            <td><code>MA-MS</code></td>
+                            <td><span class="badge badge-family">M&A</span></td>
+                            <td class="amount">$250,000</td>
+                        </tr>
+                        <tr>
+                            <td>AI-Augmented Compliance - In-House</td>
+                            <td><code>COMP-INH</code></td>
+                            <td><span class="badge badge-family">Compliance</span></td>
+                            <td class="amount">$100,000</td>
+                        </tr>
+                        <tr>
+                            <td>Litigation Support</td>
+                            <td><code>LIT</code></td>
+                            <td><span class="badge badge-family">Litigation</span></td>
+                            <td class="amount">$100,000</td>
+                        </tr>
+                        <tr>
+                            <td>Configuration & Implementation</td>
+                            <td><code>CONFIG</code></td>
+                            <td><span class="badge badge-family">Services</span></td>
+                            <td class="amount">$50,000</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Section 2: Sandbox Setup -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">2</div>
+                <h2 class="section-title">Sandbox Setup Steps</h2>
+            </div>
+            <div class="section-content">
+                <ol class="steps">
+                    <li class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h4>Open Developer Console in Sandbox</h4>
+                            <p>Login to your Sandbox org → Gear icon → Developer Console</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h4>Open Execute Anonymous Window</h4>
+                            <p>Debug menu → Open Execute Anonymous Window (or Ctrl+E)</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h4>Run Product Creation Script</h4>
+                            <p>Copy the contents of <code>createProductsAndPriceBook.apex</code> and execute</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <h4>Verify in Setup</h4>
+                            <p>Go to Setup → Products → Verify all 9 products are created and active</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <div class="step-number">5</div>
+                        <div class="step-content">
+                            <h4>Check Price Book</h4>
+                            <p>Go to App Launcher → Price Books → Standard Price Book → Verify entries</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <div class="step-number">6</div>
+                        <div class="step-content">
+                            <h4>Add Products Related List to Opportunity Layout</h4>
+                            <p>Setup → Object Manager → Opportunity → Page Layouts → Add "Products" related list</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <div class="step-number">7</div>
+                        <div class="step-content">
+                            <h4>Test with Sample Opportunity</h4>
+                            <p>Create a test Opp → Click "Add Products" → Select products → Save → Verify</p>
+                        </div>
+                    </li>
+                </ol>
+            </div>
+        </div>
+        
+        <!-- Section 3: Validation -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">3</div>
+                <h2 class="section-title">Validation Queries</h2>
+            </div>
+            <div class="section-content">
+                <p style="margin-bottom:16px; color:var(--text-muted)">Run these in Developer Console → Query Editor to verify setup:</p>
+                
+                <div class="code-block">
+                    <pre><span class="comment">-- Check Products Created</span>
+SELECT Id, Name, ProductCode, Family, IsActive 
+FROM Product2 
+WHERE IsActive = true
+ORDER BY Family, Name</pre>
+                </div>
+                
+                <div class="code-block">
+                    <pre><span class="comment">-- Check Price Book Entries</span>
+SELECT Product2.Name, Pricebook2.Name, UnitPrice, IsActive
+FROM PricebookEntry
+WHERE IsActive = true
+ORDER BY Product2.Family, Product2.Name</pre>
+                </div>
+                
+                <div class="code-block">
+                    <pre><span class="comment">-- Check Opportunity with Products (after testing)</span>
+SELECT Id, Name, Amount,
+    (SELECT Product2.Name, Quantity, UnitPrice, TotalPrice 
+     FROM OpportunityLineItems)
+FROM Opportunity
+WHERE Name LIKE '%Test%'</pre>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section 4: UI Configuration -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">4</div>
+                <h2 class="section-title">Opportunity Page Layout</h2>
+            </div>
+            <div class="section-content">
+                <ol class="steps">
+                    <li class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h4>Navigate to Page Layouts</h4>
+                            <p>Setup → Object Manager → Opportunity → Page Layouts</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h4>Edit the Layout</h4>
+                            <p>Click on your active layout (e.g., "Opportunity Layout")</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h4>Add Products Related List</h4>
+                            <p>Scroll to Related Lists → Drag "Products" to the layout → Position below key fields</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <h4>Configure Related List Columns</h4>
+                            <p>Click wrench on Products list → Add: Product Name, Quantity, Sales Price, Total Price</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <div class="step-number">5</div>
+                        <div class="step-content">
+                            <h4>Save Layout</h4>
+                            <p>Save the layout changes</p>
+                        </div>
+                    </li>
+                </ol>
+            </div>
+        </div>
+        
+        <!-- Section 5: Rollback -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">5</div>
+                <h2 class="section-title">Rollback Plan</h2>
+            </div>
+            <div class="section-content">
+                <p style="margin-bottom:16px; color:var(--text-muted)">If issues occur, deactivate products (doesn't delete existing data):</p>
+                
+                <div class="code-block">
+                    <pre><span class="comment">// Deactivate all Eudia products</span>
+List&lt;Product2&gt; products = [
+    SELECT Id, IsActive 
+    FROM Product2 
+    WHERE ProductCode IN (
+        'CONT-INH','CONT-MS','SIGMA','AGENTS',
+        'MA-INH','MA-MS','COMP-INH','LIT','CONFIG'
+    )
+];
+
+for (Product2 p : products) {
+    p.IsActive = false;
+}
+update products;
+
+System.debug('Deactivated ' + products.size() + ' products');</pre>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section 6: Checklist -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">6</div>
+                <h2 class="section-title">Implementation Checklist</h2>
+            </div>
+            <div class="section-content">
+                <ul class="checklist">
+                    <li>
+                        <div class="checkbox"></div>
+                        <span>Review product list with leadership</span>
+                    </li>
+                    <li>
+                        <div class="checkbox"></div>
+                        <span>Run creation script in Sandbox</span>
+                    </li>
+                    <li>
+                        <div class="checkbox"></div>
+                        <span>Verify products created (9 products)</span>
+                    </li>
+                    <li>
+                        <div class="checkbox"></div>
+                        <span>Verify price book entries (9 entries)</span>
+                    </li>
+                    <li>
+                        <div class="checkbox"></div>
+                        <span>Add Products related list to Opp layout</span>
+                    </li>
+                    <li>
+                        <div class="checkbox"></div>
+                        <span>Create test Opportunity with products</span>
+                    </li>
+                    <li>
+                        <div class="checkbox"></div>
+                        <span>Verify Amount roll-up works</span>
+                    </li>
+                    <li>
+                        <div class="checkbox"></div>
+                        <span>Update Delivery trigger for line items</span>
+                    </li>
+                    <li>
+                        <div class="checkbox"></div>
+                        <span>Test Stage 4 → Delivery creation</span>
+                    </li>
+                    <li>
+                        <div class="checkbox"></div>
+                        <span>Pilot with 1-2 BLs</span>
+                    </li>
+                    <li>
+                        <div class="checkbox"></div>
+                        <span>Deploy to Production</span>
+                    </li>
+                    <li>
+                        <div class="checkbox"></div>
+                        <span>Full team training</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <footer>
+            <p>RevOps Implementation Guide | Eudia | January 2026</p>
+        </footer>
+    </div>
+</body>
+</html>
+
