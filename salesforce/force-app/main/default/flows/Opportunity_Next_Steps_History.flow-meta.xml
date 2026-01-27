@@ -37,24 +37,24 @@ IF(ISBLANK({!$Record.Next_Step_Eudia__c}), "", {!$Record.Next_Step_Eudia__c})</e
         </value>
     </processMetadataValues>
     <processType>AutoLaunchedFlow</processType>
-    <recordUpdates>
-        <name>Update_History_Field</name>
-        <label>Update History Field</label>
+    <assignments>
+        <name>Set_History_Value</name>
+        <label>Set History Value</label>
         <locationX>176</locationX>
         <locationY>335</locationY>
-        <inputAssignments>
-            <field>Next_Step_Eudia__c</field>
+        <assignmentItems>
+            <assignToReference>$Record.Next_Step_Eudia__c</assignToReference>
+            <operator>Assign</operator>
             <value>
                 <elementReference>NewHistoryValue</elementReference>
             </value>
-        </inputAssignments>
-        <inputReference>$Record</inputReference>
-    </recordUpdates>
+        </assignmentItems>
+    </assignments>
     <start>
         <locationX>50</locationX>
         <locationY>0</locationY>
         <connector>
-            <targetReference>Update_History_Field</targetReference>
+            <targetReference>Set_History_Value</targetReference>
         </connector>
         <filterLogic>and</filterLogic>
         <filters>
@@ -64,17 +64,9 @@ IF(ISBLANK({!$Record.Next_Step_Eudia__c}), "", {!$Record.Next_Step_Eudia__c})</e
                 <booleanValue>true</booleanValue>
             </value>
         </filters>
-        <filters>
-            <field>Next_Steps__c</field>
-            <operator>IsNull</operator>
-            <value>
-                <booleanValue>false</booleanValue>
-            </value>
-        </filters>
         <object>Opportunity</object>
         <recordTriggerType>Update</recordTriggerType>
         <triggerType>RecordBeforeSave</triggerType>
     </start>
     <status>Active</status>
 </Flow>
-

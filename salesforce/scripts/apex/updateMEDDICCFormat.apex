@@ -1,5 +1,5 @@
-// Backfill MEDDICC Qualification template for opportunities in active stages
-// Safe: Only updates records where MEDDICC_Qualification__c is null or empty
+// Update MEDDICC Qualification to cleaner format for active stage opportunities
+// This overwrites existing verbose templates with the lighter format
 
 String meddiccTemplate = '[M] METRICS\n' +
     '...\n\n' +
@@ -16,7 +16,7 @@ String meddiccTemplate = '[M] METRICS\n' +
     '[C] COMPETITION\n' +
     '...';
 
-// Active stages to backfill
+// Active stages to update
 Set<String> activeStages = new Set<String>{
     'Stage 0 - Prospecting',
     'Stage 1 - Discovery',
@@ -26,7 +26,7 @@ Set<String> activeStages = new Set<String>{
     'Stage 5 - Negotiation'
 };
 
-// Query opportunities in active stages (can't filter on Long Text Area in SOQL)
+// Query opportunities in active stages where MEDDICC starts with old format
 List<Opportunity> allOpps = [
     SELECT Id, Name, StageName, MEDDICC_Qualification__c
     FROM Opportunity
@@ -35,22 +35,23 @@ List<Opportunity> allOpps = [
 
 System.debug('Found ' + allOpps.size() + ' opportunities in active stages');
 
-// Filter in Apex and update only those with empty MEDDICC field
+// Filter to only those with the old verbose format (starts with "M - METRICS")
 List<Opportunity> oppsToUpdate = new List<Opportunity>();
 for (Opportunity opp : allOpps) {
-    if (String.isBlank(opp.MEDDICC_Qualification__c)) {
+    if (opp.MEDDICC_Qualification__c != null && 
+        opp.MEDDICC_Qualification__c.startsWith('M - METRICS')) {
         opp.MEDDICC_Qualification__c = meddiccTemplate;
         oppsToUpdate.add(opp);
-        System.debug('Updating: ' + opp.Name + ' (' + opp.StageName + ')');
+        System.debug('Updating: ' + opp.Name);
     }
 }
 
-System.debug('Filtered to ' + oppsToUpdate.size() + ' opportunities needing backfill');
+System.debug('Filtered to ' + oppsToUpdate.size() + ' opportunities with old format');
 
 // Perform update
 if (!oppsToUpdate.isEmpty()) {
     update oppsToUpdate;
-    System.debug('Successfully updated ' + oppsToUpdate.size() + ' opportunities with MEDDICC template');
+    System.debug('Successfully updated ' + oppsToUpdate.size() + ' opportunities to new format');
 } else {
     System.debug('No opportunities needed updating');
 }
