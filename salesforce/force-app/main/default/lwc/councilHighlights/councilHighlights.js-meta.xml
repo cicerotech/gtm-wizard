@@ -12,7 +12,7 @@
             </objects>
         </targetConfig>
     </targetConfigs>
-    <masterLabel>Council Highlights</masterLabel>
-    <description>Displays anonymized account information for Council accounts, showing Code Name instead of real Account Name.</description>
+    <masterLabel>Counsel Highlights</masterLabel>
+    <description>Displays anonymized account information for Counsel accounts, showing Code Name instead of real Account Name.</description>
 </LightningComponentBundle>
 

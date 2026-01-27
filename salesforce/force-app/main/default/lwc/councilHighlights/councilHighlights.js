@@ -23,7 +23,7 @@ export default class CouncilHighlights extends NavigationMixin(LightningElement)
     account;
 
     get codeName() {
-        return getFieldValue(this.account.data, CODE_NAME_FIELD) || 'Council Account';
+        return getFieldValue(this.account.data, CODE_NAME_FIELD) || 'Counsel Account';
     }
 
     get ownerName() {
