@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contract Analysis - Plusgrade Inc.</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg: #0a0a0a;
+            --card: #141414;
+            --border: #252525;
+            --text: #e8e8e8;
+            --text-muted: #888;
+            --text-dim: #555;
+            --accent: #2563eb;
+            --accent-soft: rgba(37, 99, 235, 0.15);
+            --success: #10b981;
+            --success-soft: rgba(16, 185, 129, 0.15);
+            --warning: #f59e0b;
+            --warning-soft: rgba(245, 158, 11, 0.15);
+            --danger: #ef4444;
+            --danger-soft: rgba(239, 68, 68, 0.15);
+            --purple: #8b5cf6;
+            --purple-soft: rgba(139, 92, 246, 0.15);
+        }
+        
+        body {
+            font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 48px 24px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .doc-type {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent);
+            margin-bottom: 12px;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+        
+        .meta {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            margin-top: 20px;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+        
+        /* Summary Cards */
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+        
+        .summary-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .summary-card.highlight {
+            border-color: var(--success);
+            background: var(--success-soft);
+        }
+        
+        .summary-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        
+        .summary-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        
+        .summary-card.highlight .summary-value {
+            color: var(--success);
+        }
+        
+        /* Sections */
+        .section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        
+        .section-header {
+            background: rgba(255,255,255,0.03);
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .section-number {
+            background: var(--accent);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .section-content {
+            padding: 24px;
+        }
+        
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        th {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            font-weight: 500;
+            background: rgba(255,255,255,0.02);
+        }
+        
+        td {
+            font-size: 0.9rem;
+        }
+        
+        tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .amount {
+            font-family: 'SF Mono', Monaco, Consolas, monospace;
+            font-weight: 600;
+        }
+        
+        .good { color: var(--success); }
+        .warning { color: var(--warning); }
+        .bad { color: var(--danger); }
+        
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge-success {
+            background: var(--success-soft);
+            color: var(--success);
+        }
+        
+        .badge-warning {
+            background: var(--warning-soft);
+            color: var(--warning);
+        }
+        
+        .badge-danger {
+            background: var(--danger-soft);
+            color: var(--danger);
+        }
+        
+        .badge-info {
+            background: var(--accent-soft);
+            color: var(--accent);
+        }
+        
+        .badge-purple {
+            background: var(--purple-soft);
+            color: var(--purple);
+        }
+        
+        /* Product Breakdown */
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+        
+        .product-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        
+        .product-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .product-price {
+            font-family: 'SF Mono', Monaco, Consolas, monospace;
+            font-size: 1.1rem;
+            color: var(--success);
+            margin-bottom: 8px;
+        }
+        
+        .product-notes {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        
+        /* Checklist */
+        .checklist {
+            list-style: none;
+        }
+        
+        .checklist li {
+            padding: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .checklist li:last-child {
+            border-bottom: none;
+        }
+        
+        .check-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            flex-shrink: 0;
+        }
+        
+        .check-icon.pass {
+            background: var(--success-soft);
+            color: var(--success);
+        }
+        
+        .check-icon.fail {
+            background: var(--danger-soft);
+            color: var(--danger);
+        }
+        
+        .check-icon.warn {
+            background: var(--warning-soft);
+            color: var(--warning);
+        }
+        
+        /* Recommendation Box */
+        .recommendation {
+            background: var(--success-soft);
+            border: 1px solid var(--success);
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 32px;
+        }
+        
+        .recommendation-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--success);
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        
+        .recommendation-text {
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+        
+        /* Salesforce Capture */
+        .sf-capture {
+            background: var(--accent-soft);
+            border: 1px solid var(--accent);
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 24px;
+        }
+        
+        .sf-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent);
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+        
+        .sf-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        
+        .sf-item {
+            text-align: center;
+        }
+        
+        .sf-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        
+        .sf-value {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 0.8rem;
+        }
+        
+        @media (max-width: 700px) {
+            .summary-cards { grid-template-columns: repeat(2, 1fr); }
+            .product-grid { grid-template-columns: 1fr; }
+            .sf-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="doc-type">Contract Analysis</div>
+            <h1>Plusgrade Inc. — MSA + Order No. 1</h1>
+            <p class="subtitle">AI-Augmented Legal Technology Services</p>
+            <div class="meta">
+                <span>📄 Contract Type: MSA + Order</span>
+                <span>📅 Effective: January 31, 2026</span>
+                <span>✅ Executed: January 27, 2026</span>
+            </div>
+        </header>
+        
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="summary-card highlight">
+                <div class="summary-label">Total Contract Value</div>
+                <div class="summary-value">$336K</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Year 1 ACV</div>
+                <div class="summary-value">$288K</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Term</div>
+                <div class="summary-value">1 Year</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Users</div>
+                <div class="summary-value">40+</div>
+            </div>
+        </div>
+        
+        <!-- Section 1: Deal Structure -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">1</div>
+                <h2 class="section-title">Deal Structure</h2>
+            </div>
+            <div class="section-content">
+                <table>
+                    <tr>
+                        <th style="width:40%">Field</th>
+                        <th>Value</th>
+                    </tr>
+                    <tr>
+                        <td>Contract Type</td>
+                        <td><span class="badge badge-info">MSA + Order</span></td>
+                    </tr>
+                    <tr>
+                        <td>Client Name</td>
+                        <td><strong>Plusgrade Inc.</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Client Address</td>
+                        <td>2200 Stanley St., Suite 700, Montréal, Québec H3A 1R6, Canada</td>
+                    </tr>
+                    <tr>
+                        <td>Effective Date</td>
+                        <td>January 31, 2026</td>
+                    </tr>
+                    <tr>
+                        <td>Term Length</td>
+                        <td>12 months (Initial Term)</td>
+                    </tr>
+                    <tr>
+                        <td>End Date</td>
+                        <td>January 30, 2027</td>
+                    </tr>
+                    <tr>
+                        <td>Auto-Renewal</td>
+                        <td><span class="badge badge-success">Yes</span> — Successive 1-year terms unless 90-day notice (MSA) / 60-day notice (Order components)</td>
+                    </tr>
+                    <tr>
+                        <td>Signatories (Plusgrade)</td>
+                        <td>
+                            <strong>Fady Hammal</strong> — SVP & General Counsel<br>
+                            <strong>George Yao</strong> — CFO
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Signatories (Eudia)</td>
+                        <td><strong>Omar Haroun</strong> — CEO</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Section 2: Financial Terms -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">2</div>
+                <h2 class="section-title">Financial Terms</h2>
+            </div>
+            <div class="section-content">
+                <div class="product-grid">
+                    <div class="product-card">
+                        <div class="product-name">Contract Review Solution</div>
+                        <div class="product-price">$120,000/year</div>
+                        <div class="product-notes">
+                            MIND development + Word plugin<br>
+                            20 Legal Users + Non-Legal Users<br>
+                            45-day early termination window
+                        </div>
+                    </div>
+                    <div class="product-card">
+                        <div class="product-name">Sigma & Insights</div>
+                        <div class="product-price">$120,000/year</div>
+                        <div class="product-notes">
+                            Q&A, Summarization, Drafting, Translation<br>
+                            Up to 10,000 documents<br>
+                            45-day early termination window
+                        </div>
+                    </div>
+                    <div class="product-card">
+                        <div class="product-name">Config & Implementation</div>
+                        <div class="product-price">$48,000/year</div>
+                        <div class="product-notes">
+                            Linksquares integration<br>
+                            <strong>WAIVED</strong> if Augmented Contracting is purchased
+                        </div>
+                    </div>
+                    <div class="product-card">
+                        <div class="product-name">Augmented Contracting</div>
+                        <div class="product-price">$48,000/year</div>
+                        <div class="product-notes">
+                            AI-Augmented Legal Consultant<br>
+                            Per-contract pricing (see rate card)<br>
+                            Waives Config/Impl fee
+                        </div>
+                    </div>
+                </div>
+                
+                <table style="margin-top:24px">
+                    <tr>
+                        <th>Term</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>Total Contract Value (TCV)</td>
+                        <td class="amount good">$336,000</td>
+                    </tr>
+                    <tr>
+                        <td>Annual Contract Value (ACV)</td>
+                        <td class="amount good">$288,000</td>
+                    </tr>
+                    <tr>
+                        <td>Billing Model</td>
+                        <td><span class="badge badge-success">Fixed Fee</span> + Usage-based for Augmented Contracting</td>
+                    </tr>
+                    <tr>
+                        <td>Monthly Minimum Commitment</td>
+                        <td class="amount">$24,000/month (implied)</td>
+                    </tr>
+                    <tr>
+                        <td>Payment Terms</td>
+                        <td>Net 30</td>
+                    </tr>
+                    <tr>
+                        <td>Currency</td>
+                        <td>USD</td>
+                    </tr>
+                    <tr>
+                        <td>Invoicing Frequency</td>
+                        <td>Annually (prior to start of each year)</td>
+                    </tr>
+                    <tr>
+                        <td>Late Payment Interest</td>
+                        <td>2% per month</td>
+                    </tr>
+                    <tr>
+                        <td>Price Lock</td>
+                        <td><span class="badge badge-success">3 years</span> for Contract Review & Sigma/Insights</td>
+                    </tr>
+                </table>
+                
+                <!-- Augmented Contracting Rate Card -->
+                <h3 style="margin-top:24px; margin-bottom:16px; font-size:0.9rem; color:var(--text-muted)">Augmented Contracting Rate Card</h3>
+                <table>
+                    <tr>
+                        <th>Contract Type</th>
+                        <th>Price</th>
+                    </tr>
+                    <tr>
+                        <td>Vendor SaaS Agreement</td>
+                        <td class="amount">$2,000</td>
+                    </tr>
+                    <tr>
+                        <td>Vendor Hosting/Cloud Agreement</td>
+                        <td class="amount">$2,000</td>
+                    </tr>
+                    <tr>
+                        <td>PSP Service Agreement</td>
+                        <td class="amount">$2,000</td>
+                    </tr>
+                    <tr>
+                        <td>Customer's MSA and Services Schedules</td>
+                        <td class="amount">$3,000</td>
+                    </tr>
+                    <tr>
+                        <td>Customer DPA with Partners</td>
+                        <td class="amount">$750</td>
+                    </tr>
+                    <tr>
+                        <td>Partner MSA (Third-party paper)</td>
+                        <td class="amount">$4,500</td>
+                    </tr>
+                    <tr>
+                        <td>NDA</td>
+                        <td class="amount">$150</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Section 3: Termination & Flexibility -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">3</div>
+                <h2 class="section-title">Termination & Flexibility</h2>
+            </div>
+            <div class="section-content">
+                <table>
+                    <tr>
+                        <th style="width:40%">Term</th>
+                        <th>Details</th>
+                    </tr>
+                    <tr>
+                        <td>Termination for Convenience</td>
+                        <td><span class="badge badge-warning">Limited</span> — Only during early termination windows for each product</td>
+                    </tr>
+                    <tr>
+                        <td>Early Termination Windows</td>
+                        <td>
+                            <strong>Contract Review:</strong> 45 days after first MIND release<br>
+                            <strong>Sigma/Insights:</strong> 45 days after initial deployment
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Non-Renewal Notice Period</td>
+                        <td>
+                            <strong>MSA:</strong> 90 days before term end<br>
+                            <strong>Contract Review:</strong> 60 days before anniversary<br>
+                            <strong>Sigma/Insights:</strong> 60 days before anniversary
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Termination for Cause</td>
+                        <td><span class="badge badge-success">Yes</span> — 30-day cure period for material breaches</td>
+                    </tr>
+                    <tr>
+                        <td>Early Termination Penalties</td>
+                        <td><span class="badge badge-success">None</span> — Pro-rated refund within early termination windows</td>
+                    </tr>
+                    <tr>
+                        <td>SLA Termination Right</td>
+                        <td><span class="badge badge-success">Yes</span> — If SLA breached 3 consecutive months or 4 in 12 months, 30-day notice + pro-rated refund</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Section 4: Revenue Classification -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">4</div>
+                <h2 class="section-title">Revenue Classification (Eudia Internal)</h2>
+            </div>
+            <div class="section-content">
+                <table>
+                    <tr>
+                        <th style="width:40%">Classification</th>
+                        <th>Recommendation</th>
+                    </tr>
+                    <tr>
+                        <td>Recurring Revenue?</td>
+                        <td><span class="badge badge-success">Yes — Recurring</span> Guaranteed annual subscription fees with auto-renewal</td>
+                    </tr>
+                    <tr>
+                        <td>Recommended Sales Type</td>
+                        <td><span class="badge badge-purple">New Business</span></td>
+                    </tr>
+                    <tr>
+                        <td>Product Line Breakdown</td>
+                        <td>
+                            <strong>AI-Augmented Contracting (In-House):</strong> $120K (Contract Review Solution)<br>
+                            <strong>AI-Augmented Contracting (Managed Service):</strong> $48K (Augmented Contracting)<br>
+                            <strong>Sigma & Insights:</strong> $120K
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Section 5: Risk Assessment -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">5</div>
+                <h2 class="section-title">Risk Assessment</h2>
+            </div>
+            <div class="section-content">
+                <ul class="checklist">
+                    <li>
+                        <span class="check-icon pass">✓</span>
+                        <span><strong>Monthly minimum:</strong> Implied via annual commitment ($24K/mo)</span>
+                    </li>
+                    <li>
+                        <span class="check-icon pass">✓</span>
+                        <span><strong>Notice period:</strong> 60-90 days (adequate)</span>
+                    </li>
+                    <li>
+                        <span class="check-icon pass">✓</span>
+                        <span><strong>Liability cap:</strong> 12-month fees or $5M for confidentiality (capped)</span>
+                    </li>
+                    <li>
+                        <span class="check-icon pass">✓</span>
+                        <span><strong>Termination rights:</strong> Balanced (both parties have cause termination)</span>
+                    </li>
+                    <li>
+                        <span class="check-icon pass">✓</span>
+                        <span><strong>Scope of work:</strong> Clearly defined for each product line</span>
+                    </li>
+                    <li>
+                        <span class="check-icon warn">⚠</span>
+                        <span><strong>Rate escalation:</strong> Price lock for 3 years (favorable to customer, limits Eudia flexibility)</span>
+                    </li>
+                    <li>
+                        <span class="check-icon pass">✓</span>
+                        <span><strong>IP ownership:</strong> Clear — Eudia owns platform/trained models, Customer owns data/outputs</span>
+                    </li>
+                    <li>
+                        <span class="check-icon pass">✓</span>
+                        <span><strong>Payment terms:</strong> Net 30 (standard)</span>
+                    </li>
+                    <li>
+                        <span class="check-icon pass">✓</span>
+                        <span><strong>Exclusivity:</strong> None</span>
+                    </li>
+                    <li>
+                        <span class="check-icon pass">✓</span>
+                        <span><strong>Non-compete:</strong> None</span>
+                    </li>
+                    <li>
+                        <span class="check-icon warn">⚠</span>
+                        <span><strong>Early termination:</strong> 45-day windows create revenue uncertainty during implementation</span>
+                    </li>
+                    <li>
+                        <span class="check-icon pass">✓</span>
+                        <span><strong>Non-solicitation:</strong> 6-month protection + 30% recruiting fee for AI-Augmented Legal Consultant</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Section 6: Key Dates -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">6</div>
+                <h2 class="section-title">Key Dates & Obligations</h2>
+            </div>
+            <div class="section-content">
+                <table>
+                    <tr>
+                        <th>Date</th>
+                        <th>Event</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Jan 27, 2026</strong></td>
+                        <td>Contract executed (DocuSign completed)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Jan 31, 2026</strong></td>
+                        <td>Effective Date — Order Term begins</td>
+                    </tr>
+                    <tr>
+                        <td>~Mar 2026</td>
+                        <td>First MIND release → 45-day Contract Review Early Termination window opens</td>
+                    </tr>
+                    <tr>
+                        <td>~Mar 2026</td>
+                        <td>Sigma/Insights deployment → 45-day Early Termination window opens</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Dec 1, 2026</strong></td>
+                        <td>Non-renewal notice deadline for Contract Review (60 days)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Dec 1, 2026</strong></td>
+                        <td>Non-renewal notice deadline for Sigma/Insights (60 days)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Nov 1, 2026</strong></td>
+                        <td>Non-renewal notice deadline for MSA (90 days)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Jan 31, 2027</strong></td>
+                        <td>Initial Term ends — Auto-renewal to Year 2 if no notice given</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Section 7: Summary & Recommendation -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-number">7</div>
+                <h2 class="section-title">Summary & Recommendation</h2>
+            </div>
+            <div class="section-content">
+                <div class="recommendation">
+                    <div class="recommendation-title">Executive Summary</div>
+                    <div class="recommendation-text">
+                        <strong>This is a strong, well-structured deal for Eudia.</strong> Plusgrade Inc. is a Canadian travel tech company (loyalty/ancillary revenue platform) with a sophisticated legal team. The $288K ACV represents significant new logo revenue with multi-product adoption across Contract Review ($120K), Sigma/Insights ($120K), and Augmented Contracting ($48K). 
+                        <br><br>
+                        <strong>Revenue predictability is high</strong> — the deal features annual upfront billing, auto-renewal with 60-90 day notice periods, and a 3-year price lock (favorable to customer but provides planning certainty). The main risk is the 45-day early termination windows during initial implementation, which could result in pro-rated refunds if implementation doesn't go well.
+                        <br><br>
+                        <strong>Realistic Year 1 revenue: $288,000.</strong> The Augmented Contracting fee ($48K) waives the Config/Implementation fee, so effective ACV is the sum of the three main products. Additional upside exists from per-contract charges under Augmented Contracting if volume exceeds the $48K prepay.
+                        <br><br>
+                        <strong>No negotiation needed</strong> — contract is fully executed. Ensure CS/Implementation team is aware of 45-day early termination windows to prioritize fast time-to-value.
+                    </div>
+                </div>
+                
+                <div class="sf-capture">
+                    <div class="sf-title">Recommended Salesforce Capture</div>
+                    <div class="sf-grid">
+                        <div class="sf-item">
+                            <div class="sf-label">Gross ACV</div>
+                            <div class="sf-value">$288,000</div>
+                        </div>
+                        <div class="sf-item">
+                            <div class="sf-label">Product Line</div>
+                            <div class="sf-value">Multi-Product</div>
+                        </div>
+                        <div class="sf-item">
+                            <div class="sf-label">Revenue Type</div>
+                            <div class="sf-value">Recurring</div>
+                        </div>
+                    </div>
+                    <table style="margin-top:20px">
+                        <tr>
+                            <th>Product</th>
+                            <th>ACV</th>
+                            <th>Type</th>
+                        </tr>
+                        <tr>
+                            <td>Contract Review Solution</td>
+                            <td class="amount">$120,000</td>
+                            <td><span class="badge badge-info">In-House Platform</span></td>
+                        </tr>
+                        <tr>
+                            <td>Sigma & Insights</td>
+                            <td class="amount">$120,000</td>
+                            <td><span class="badge badge-info">In-House Platform</span></td>
+                        </tr>
+                        <tr>
+                            <td>Augmented Contracting</td>
+                            <td class="amount">$48,000</td>
+                            <td><span class="badge badge-purple">Managed Service</span></td>
+                        </tr>
+                        <tr>
+                            <td>Config & Implementation</td>
+                            <td class="amount warning">$0 (waived)</td>
+                            <td>—</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Contract Analysis prepared by RevOps | Eudia | January 27, 2026</p>
+        </footer>
+    </div>
+</body>
+</html>
+
