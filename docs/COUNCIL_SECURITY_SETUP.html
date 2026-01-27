@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Council Security Setup Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg: #0f0f0f;
+            --card: #1a1a1a;
+            --border: #2a2a2a;
+            --text: #e5e5e5;
+            --text-muted: #888;
+            --accent: #3b82f6;
+            --accent-dim: #1e3a5f;
+            --success: #22c55e;
+            --success-dim: #14532d;
+            --warning: #f59e0b;
+            --warning-dim: #78350f;
+            --danger: #ef4444;
+        }
+        
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 48px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+        
+        .status-banner {
+            background: var(--accent-dim);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .status-banner .icon {
+            font-size: 1.5rem;
+        }
+        
+        .status-banner .text {
+            flex: 1;
+        }
+        
+        .status-banner .title {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        
+        .status-banner .desc {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+        
+        .deployed-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 12px;
+        }
+        
+        .deployed-item {
+            background: var(--success-dim);
+            border: 1px solid var(--success);
+            border-radius: 6px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.875rem;
+        }
+        
+        .deployed-item .check {
+            color: var(--success);
+        }
+        
+        .step-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+        
+        .step-number {
+            width: 36px;
+            height: 36px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        
+        .step-info {
+            flex: 1;
+        }
+        
+        .step-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 2px;
+        }
+        
+        .step-meta {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+        
+        .step-time {
+            background: var(--border);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        
+        .step-content {
+            padding: 24px;
+        }
+        
+        .instruction {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .instruction:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .instruction-num {
+            width: 24px;
+            height: 24px;
+            background: var(--border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        
+        .instruction-text {
+            flex: 1;
+        }
+        
+        .instruction-text strong {
+            color: var(--accent);
+        }
+        
+        .nav-path {
+            background: var(--bg);
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin: 8px 0;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.8rem;
+            color: var(--warning);
+        }
+        
+        .field-table {
+            width: 100%;
+            margin: 12px 0;
+            border-collapse: collapse;
+        }
+        
+        .field-table th,
+        .field-table td {
+            text-align: left;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.875rem;
+        }
+        
+        .field-table th {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .code-value {
+            font-family: 'SF Mono', Monaco, monospace;
+            background: var(--bg);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+        
+        .tip-box {
+            background: var(--warning-dim);
+            border-left: 3px solid var(--warning);
+            padding: 12px 16px;
+            margin: 16px 0;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.875rem;
+        }
+        
+        .tip-box strong {
+            color: var(--warning);
+        }
+        
+        .danger-box {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 3px solid var(--danger);
+            padding: 12px 16px;
+            margin: 16px 0;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.875rem;
+        }
+        
+        .danger-box strong {
+            color: var(--danger);
+        }
+        
+        .code-block {
+            background: #000;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin: 16px 0;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+        }
+        
+        .code-block .comment {
+            color: #6a737d;
+        }
+        
+        .code-block .command {
+            color: var(--success);
+        }
+        
+        .accounts-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin: 16px 0;
+        }
+        
+        .account-chip {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .account-chip .real {
+            color: var(--text-muted);
+        }
+        
+        .account-chip .code {
+            color: var(--accent);
+            font-weight: 600;
+        }
+        
+        .checklist {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+        
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .checklist-item:last-child {
+            border-bottom: none;
+        }
+        
+        .checkbox {
+            width: 22px;
+            height: 22px;
+            border: 2px solid var(--border);
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        
+        .checklist-text {
+            flex: 1;
+        }
+        
+        .checklist-expected {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+        
+        @media (max-width: 600px) {
+            .accounts-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .deployed-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Council Security Setup</h1>
+            <p class="subtitle">Anonymize sensitive account names for non-leadership users</p>
+        </header>
+        
+        <div class="status-banner">
+            <span class="icon">🛡️</span>
+            <div class="text">
+                <div class="title">Framework Ready</div>
+                <div class="desc">Components deployed. Complete manual steps below to activate.</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">Already Deployed</div>
+            <div class="deployed-grid">
+                <div class="deployed-item">
+                    <span class="check">✓</span>
+                    <span>Council Account Fields</span>
+                </div>
+                <div class="deployed-item">
+                    <span class="check">✓</span>
+                    <span>Code Name Sync Flow</span>
+                </div>
+                <div class="deployed-item">
+                    <span class="check">✓</span>
+                    <span>Council Highlights LWC</span>
+                </div>
+                <div class="deployed-item">
+                    <span class="check">✓</span>
+                    <span>Leadership Group (9 members)</span>
+                </div>
+                <div class="deployed-item">
+                    <span class="check">✓</span>
+                    <span>Apex Script (18 accounts)</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">Setup Steps</div>
+            
+            <!-- Step 1 -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-number">1</div>
+                    <div class="step-info">
+                        <div class="step-title">Clone Profile</div>
+                        <div class="step-meta">Create isolated profile for Council view</div>
+                    </div>
+                    <span class="step-time">~5 min</span>
+                </div>
+                <div class="step-content">
+                    <div class="instruction">
+                        <div class="instruction-num">1</div>
+                        <div class="instruction-text">
+                            Navigate to Profiles in Salesforce Setup
+                            <div class="nav-path">Setup → Quick Find: "Profiles"</div>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">2</div>
+                        <div class="instruction-text">
+                            Find <strong>Eudia Standard Sales Profile</strong> and click the profile name
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">3</div>
+                        <div class="instruction-text">
+                            Click <strong>Clone</strong> button
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">4</div>
+                        <div class="instruction-text">
+                            Enter profile name:
+                            <div class="nav-path">Eudia Standard Sales - Council View</div>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">5</div>
+                        <div class="instruction-text">
+                            Click <strong>Save</strong>
+                        </div>
+                    </div>
+                    <div class="tip-box">
+                        <strong>Note:</strong> No users are assigned yet. This profile exists for testing only.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Step 2 -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-number">2</div>
+                    <div class="step-info">
+                        <div class="step-title">Create Sharing Rule</div>
+                        <div class="step-meta">Grant leadership access to Council accounts</div>
+                    </div>
+                    <span class="step-time">~5 min</span>
+                </div>
+                <div class="step-content">
+                    <div class="instruction">
+                        <div class="instruction-num">1</div>
+                        <div class="instruction-text">
+                            Navigate to Sharing Settings
+                            <div class="nav-path">Setup → Quick Find: "Sharing Settings"</div>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">2</div>
+                        <div class="instruction-text">
+                            Scroll to <strong>Account Sharing Rules</strong> section and click <strong>New</strong>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">3</div>
+                        <div class="instruction-text">
+                            Configure the sharing rule:
+                            <table class="field-table">
+                                <tr>
+                                    <th>Field</th>
+                                    <th>Value</th>
+                                </tr>
+                                <tr>
+                                    <td>Label</td>
+                                    <td><span class="code-value">Council Leadership Full Access</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Rule Type</td>
+                                    <td><span class="code-value">Based on criteria</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Field</td>
+                                    <td><span class="code-value">Eudia Council Account</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Operator</td>
+                                    <td><span class="code-value">equals</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Value</td>
+                                    <td><span class="code-value">True</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Share with</td>
+                                    <td><span class="code-value">Eudia Council Leadership</span> (Public Group)</td>
+                                </tr>
+                                <tr>
+                                    <td>Account Access</td>
+                                    <td><span class="code-value">Read/Write</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Opportunity Access</td>
+                                    <td><span class="code-value">Read/Write</span></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">4</div>
+                        <div class="instruction-text">
+                            Click <strong>Save</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Step 3 -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-number">3</div>
+                    <div class="step-info">
+                        <div class="step-title">Configure Lightning Page</div>
+                        <div class="step-meta">Add Council Highlights component with visibility rules</div>
+                    </div>
+                    <span class="step-time">~10 min</span>
+                </div>
+                <div class="step-content">
+                    <div class="instruction">
+                        <div class="instruction-num">1</div>
+                        <div class="instruction-text">
+                            Open Lightning App Builder
+                            <div class="nav-path">Setup → Quick Find: "Lightning App Builder"</div>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">2</div>
+                        <div class="instruction-text">
+                            Click <strong>New</strong> → Select <strong>Record Page</strong> → Click <strong>Next</strong>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">3</div>
+                        <div class="instruction-text">
+                            Configure new page:
+                            <table class="field-table">
+                                <tr>
+                                    <td>Label</td>
+                                    <td><span class="code-value">Account Record Page - Council View</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Object</td>
+                                    <td><span class="code-value">Account</span></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">4</div>
+                        <div class="instruction-text">
+                            Select <strong>Clone Salesforce Default Page</strong> → Choose your current Account page → Click <strong>Finish</strong>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">5</div>
+                        <div class="instruction-text">
+                            In the left panel under <strong>Custom Components</strong>, find <strong>councilHighlights</strong>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">6</div>
+                        <div class="instruction-text">
+                            Drag <strong>councilHighlights</strong> to the top of the page (above Highlights Panel)
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">7</div>
+                        <div class="instruction-text">
+                            Click the <strong>councilHighlights</strong> component → In right panel, click <strong>Set Component Visibility</strong>
+                            <table class="field-table">
+                                <tr>
+                                    <td>Field</td>
+                                    <td><span class="code-value">Eudia_Council_Account__c</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Operator</td>
+                                    <td><span class="code-value">Equal</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Value</td>
+                                    <td><span class="code-value">True</span></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">8</div>
+                        <div class="instruction-text">
+                            Click the <strong>Highlights Panel</strong> component → Set visibility:
+                            <table class="field-table">
+                                <tr>
+                                    <td>Field</td>
+                                    <td><span class="code-value">Eudia_Council_Account__c</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Operator</td>
+                                    <td><span class="code-value">Equal</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Value</td>
+                                    <td><span class="code-value">False</span></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">9</div>
+                        <div class="instruction-text">
+                            Click <strong>Save</strong> → Click <strong>Activation</strong>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">10</div>
+                        <div class="instruction-text">
+                            Click <strong>Assign to Apps, Record Types, and Profiles</strong> → Assign to <strong>Eudia Standard Sales - Council View</strong> profile only
+                        </div>
+                    </div>
+                    <div class="tip-box">
+                        <strong>Result:</strong> Council accounts show code name header. Non-Council accounts show normal header.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Step 4 -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-number">4</div>
+                    <div class="step-info">
+                        <div class="step-title">Pilot Test</div>
+                        <div class="step-meta">Validate with single user before rollout</div>
+                    </div>
+                    <span class="step-time">~5 min</span>
+                </div>
+                <div class="step-content">
+                    <div class="instruction">
+                        <div class="instruction-num">1</div>
+                        <div class="instruction-text">
+                            Navigate to Users
+                            <div class="nav-path">Setup → Quick Find: "Users"</div>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">2</div>
+                        <div class="instruction-text">
+                            Find your own user account and click <strong>Edit</strong>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">3</div>
+                        <div class="instruction-text">
+                            Change <strong>Profile</strong> to:
+                            <div class="nav-path">Eudia Standard Sales - Council View</div>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">4</div>
+                        <div class="instruction-text">
+                            Click <strong>Save</strong>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">5</div>
+                        <div class="instruction-text">
+                            Navigate to a Council account (after running the Apex script) and verify you see the code name instead of real name
+                        </div>
+                    </div>
+                    <div class="danger-box">
+                        <strong>Rollback:</strong> If issues occur, simply change your profile back to "Eudia Standard Sales Profile"
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Step 5 -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-number">5</div>
+                    <div class="step-info">
+                        <div class="step-title">Populate Code Names</div>
+                        <div class="step-meta">Run Apex script to mark 18 Council accounts</div>
+                    </div>
+                    <span class="step-time">~2 min</span>
+                </div>
+                <div class="step-content">
+                    <div class="instruction">
+                        <div class="instruction-num">1</div>
+                        <div class="instruction-text">
+                            Run the following command in terminal:
+                            <div class="code-block">
+                                <span class="comment"># Navigate to salesforce directory</span><br>
+                                <span class="command">cd ~/revops_weekly_update/gtm-brain/salesforce</span><br><br>
+                                <span class="comment"># Run the Apex script</span><br>
+                                <span class="command">sf apex run --file scripts/apex/updateCouncilCodeNames.apex --target-org eudia-prod</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="instruction">
+                        <div class="instruction-num">2</div>
+                        <div class="instruction-text">
+                            Verify the output shows success for all 18 accounts
+                        </div>
+                    </div>
+                    
+                    <div class="tip-box">
+                        <strong>Accounts to be marked:</strong>
+                    </div>
+                    <div class="accounts-grid">
+                        <div class="account-chip"><span class="real">Peregrine</span><span class="code">→ Pete</span></div>
+                        <div class="account-chip"><span class="real">Seyfarth</span><span class="code">→ Sparky</span></div>
+                        <div class="account-chip"><span class="real">Novelis</span><span class="code">→ Nordy</span></div>
+                        <div class="account-chip"><span class="real">Graybar</span><span class="code">→ Goofy</span></div>
+                        <div class="account-chip"><span class="real">Amazon</span><span class="code">→ Albert</span></div>
+                        <div class="account-chip"><span class="real">Cox Media</span><span class="code">→ Cosmo</span></div>
+                        <div class="account-chip"><span class="real">Del Monte</span><span class="code">→ Dinger</span></div>
+                        <div class="account-chip"><span class="real">Fox</span><span class="code">→ Fredbird</span></div>
+                        <div class="account-chip"><span class="real">Corebridge</span><span class="code">→ Clutch</span></div>
+                        <div class="account-chip"><span class="real">Duracell</span><span class="code">→ Daisy</span></div>
+                        <div class="account-chip"><span class="real">DHL</span><span class="code">→ Dory</span></div>
+                        <div class="account-chip"><span class="real">GE Vernova</span><span class="code">→ Goldy</span></div>
+                        <div class="account-chip"><span class="real">Petsmart</span><span class="code">→ Pluto</span></div>
+                        <div class="account-chip"><span class="real">Ecolab USA</span><span class="code">→ Eddie</span></div>
+                        <div class="account-chip"><span class="real">American Express</span><span class="code">→ Ace</span></div>
+                        <div class="account-chip"><span class="real">Vista</span><span class="code">→ Vic</span></div>
+                        <div class="account-chip"><span class="real">National Grid</span><span class="code">→ Nemo</span></div>
+                        <div class="account-chip"><span class="real">JSRK dba Away</span><span class="code">→ Atari</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">Validation Checklist</div>
+            <div class="checklist">
+                <div class="checklist-item">
+                    <div class="checkbox"></div>
+                    <div class="checklist-text">
+                        View non-Council account
+                        <div class="checklist-expected">Expected: Normal account name displayed</div>
+                    </div>
+                </div>
+                <div class="checklist-item">
+                    <div class="checkbox"></div>
+                    <div class="checklist-text">
+                        View Council account (e.g., Peregrine)
+                        <div class="checklist-expected">Expected: Shows "Pete" with Council badge</div>
+                    </div>
+                </div>
+                <div class="checklist-item">
+                    <div class="checkbox"></div>
+                    <div class="checklist-text">
+                        View opportunity on Council account
+                        <div class="checklist-expected">Expected: Code name synced to opportunity</div>
+                    </div>
+                </div>
+                <div class="checklist-item">
+                    <div class="checkbox"></div>
+                    <div class="checklist-text">
+                        Leadership user views Council account
+                        <div class="checklist-expected">Expected: Full access, sees real name</div>
+                    </div>
+                </div>
+                <div class="checklist-item">
+                    <div class="checkbox"></div>
+                    <div class="checklist-text">
+                        Search by code name
+                        <div class="checklist-expected">Expected: Account is findable</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Last Updated: January 27, 2026</p>
+            <p>Questions? Contact RevOps</p>
+        </footer>
+    </div>
+</body>
+</html>
+
