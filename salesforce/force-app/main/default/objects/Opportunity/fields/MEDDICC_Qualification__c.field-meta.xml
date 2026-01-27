@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>MEDDICC_Qualification__c</fullName>
+    <description>MEDDICC qualification framework for opportunity assessment. Sales reps should complete this by Stage 2.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Document your MEDDICC qualification details. Complete this by Stage 2.</inlineHelpText>
+    <label>MEDDICC Qualification</label>
+    <length>32768</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>LongTextArea</type>
+    <visibleLines>15</visibleLines>
+</CustomField>
+
