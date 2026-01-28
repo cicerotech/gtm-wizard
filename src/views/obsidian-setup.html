@@ -229,7 +229,7 @@
     .copy-box code {
       flex: 1;
       font-family: 'SF Mono', Monaco, Consolas, monospace;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: #374151;
       word-break: break-all;
     }
@@ -244,6 +244,7 @@
       font-size: 0.75rem;
       font-weight: 500;
       transition: all 0.2s;
+      flex-shrink: 0;
     }
     
     .copy-box button:hover { background: #7a86d4; }
@@ -278,31 +279,6 @@
     .callout p {
       color: #4b5563;
       margin: 0;
-    }
-    
-    /* Hotkey */
-    .hotkey {
-      display: inline-flex;
-      gap: 6px;
-      margin: 10px 0;
-    }
-    
-    .key {
-      background: #f3f4f6;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      padding: 6px 12px;
-      font-family: 'SF Mono', Monaco, monospace;
-      font-size: 0.8rem;
-      color: #374151;
-      box-shadow: 0 1px 0 #d1d5db;
-    }
-    
-    .key-plus {
-      display: flex;
-      align-items: center;
-      color: #9ca3af;
-      font-weight: 500;
     }
     
     /* Checklist */
@@ -360,6 +336,31 @@
     .folder-tree .folder { color: #8e99e1; font-weight: 500; }
     .folder-tree .file { color: #374151; }
     
+    /* Plugin badge */
+    .plugin-badge {
+      display: inline-block;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #6b7280;
+      margin: 2px;
+    }
+    
+    .plugin-badge.required {
+      background: #fef3c7;
+      border-color: #fde68a;
+      color: #92400e;
+    }
+    
+    .plugin-badge.optional {
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+      color: #047857;
+    }
+    
     /* Responsive */
     @media (max-width: 640px) {
       body { padding: 16px; }
@@ -375,7 +376,7 @@
     <header class="header">
       <img src="/logo" alt="Eudia">
       <h1>Meeting Notes Setup</h1>
-      <p class="subtitle">Obsidian + Wispr for voice-to-text transcription</p>
+      <p class="subtitle">Obsidian + Scribe for AI-powered meeting transcription</p>
       <div class="time-estimate">⏱ About 5 minutes</div>
     </header>
     
@@ -385,18 +386,17 @@
       <div class="progress-step" data-step="2"></div>
       <div class="progress-step" data-step="3"></div>
       <div class="progress-step" data-step="4"></div>
-      <div class="progress-step" data-step="5"></div>
     </div>
     
-    <!-- Step 1: Download Obsidian -->
+    <!-- Step 1: Download & Install Obsidian -->
     <div class="step active" id="step-1">
       <div class="step-header" onclick="toggleStep(1, event)">
         <div class="step-number"><span>1</span></div>
-        <div class="step-title">Download Obsidian</div>
+        <div class="step-title">Install Obsidian</div>
         <div class="expand-icon">▶</div>
       </div>
       <div class="step-content">
-        <p>Obsidian is where you'll write and store meeting notes locally on your Mac.</p>
+        <p>Obsidian is a note-taking app that stores files locally on your Mac.</p>
         
         <div class="btn-group">
           <a href="https://obsidian.md/download" target="_blank" class="btn btn-primary">
@@ -405,11 +405,18 @@
         </div>
         
         <ol>
-          <li>Click the download button above</li>
-          <li>Open the downloaded <strong>.dmg</strong> file</li>
+          <li>Download and open the <strong>.dmg</strong> file</li>
           <li>Drag Obsidian to <strong>Applications</strong></li>
-          <li>Open Obsidian from Applications</li>
+          <li>Open Obsidian</li>
+          <li>Click <strong>"Create new vault"</strong></li>
+          <li>Name it: <strong>Eudia Meetings</strong></li>
+          <li>Click <strong>Create</strong></li>
         </ol>
+        
+        <div class="callout">
+          <div class="callout-title">💡 What's a vault?</div>
+          <p>A vault is just a folder on your computer where notes are stored. Each note is a simple text file.</p>
+        </div>
         
         <div class="btn-group">
           <button class="btn btn-success" onclick="completeStep(1)">✓ Obsidian installed</button>
@@ -417,149 +424,178 @@
       </div>
     </div>
     
-    <!-- Step 2: Create Vault -->
+    <!-- Step 2: Install Plugins -->
     <div class="step collapsed" id="step-2">
       <div class="step-header" onclick="toggleStep(2, event)">
         <div class="step-number"><span>2</span></div>
-        <div class="step-title">Create Your Vault</div>
+        <div class="step-title">Install Scribe Plugin</div>
         <div class="expand-icon">▶</div>
       </div>
       <div class="step-content">
-        <p>Create a local vault for your meeting notes. This stays private on your Mac.</p>
+        <p>Scribe records your meetings and uses AI to transcribe and summarize them.</p>
         
         <ol>
-          <li>When Obsidian opens, click <strong>"Create new vault"</strong></li>
-          <li>Name it: <strong>Eudia Meetings</strong></li>
-          <li>Location: Leave default (Documents folder)</li>
-          <li>Click <strong>Create</strong></li>
+          <li>In Obsidian, open <strong>Settings</strong> (gear icon, bottom-left)</li>
+          <li>Go to <strong>Community plugins</strong></li>
+          <li>Click <strong>Turn on community plugins</strong> (if prompted)</li>
+          <li>Click <strong>Browse</strong></li>
+          <li>Search for <strong>"Scribe"</strong></li>
+          <li>Click <strong>Install</strong>, then <strong>Enable</strong></li>
         </ol>
         
-        <p>Now set up folders. Right-click in the sidebar → <strong>New folder</strong>:</p>
+        <div class="callout warning">
+          <div class="callout-title">⚠️ Important: Add the API Key</div>
+          <p>After installing Scribe, you must add our OpenAI API key for transcription to work.</p>
+        </div>
         
-        <div class="folder-tree"><span class="folder">Meetings/</span>
-├── <span class="folder">_Inbox/</span>        ← Draft notes go here
-├── <span class="folder">Templates/</span>    ← Meeting templates
-└── <span class="folder">[Account folders]</span></div>
+        <ol start="7">
+          <li>Go to <strong>Settings → Scribe</strong> (in the left sidebar under Community plugins)</li>
+          <li>Click the <strong>AI Providers</strong> tab</li>
+          <li>Paste the <strong>OpenAI API key</strong> (provided by Keigan via Slack or during onboarding)</li>
+        </ol>
         
         <div class="callout">
-          <div class="callout-title">💡 Commercial License</div>
-          <p>Optional: Settings → About → Commercial license → paste: <code>59939774BCB53619BD02219A2E1179D3</code></p>
+          <div class="callout-title">🔑 Need the API key?</div>
+          <p>Ask <strong>@Keigan</strong> in Slack for the Eudia OpenAI API key. Do not share this key publicly.</p>
+        </div>
+        
+        <ol start="10">
+          <li>Set <strong>Transcript platform</strong> to: <strong>OpenAI</strong></li>
+          <li>Set <strong>LLM model</strong> to: <strong>gpt-4o</strong></li>
+          <li><strong>Close Settings and restart Obsidian</strong> (Cmd+Q, then reopen)</li>
+        </ol>
+        
+        <div class="callout success">
+          <div class="callout-title">✓ That's it for core setup!</div>
+          <p>Scribe is now ready. You can record meetings and it will transcribe + summarize automatically.</p>
         </div>
         
         <div class="btn-group">
-          <button class="btn btn-success" onclick="completeStep(2)">✓ Vault created</button>
+          <button class="btn btn-success" onclick="completeStep(2)">✓ Scribe installed</button>
         </div>
       </div>
     </div>
     
-    <!-- Step 3: Install Wispr -->
+    <!-- Step 3: Create Your First Note -->
     <div class="step collapsed" id="step-3">
       <div class="step-header" onclick="toggleStep(3, event)">
         <div class="step-number"><span>3</span></div>
-        <div class="step-title">Install Wispr</div>
+        <div class="step-title">Record Your First Meeting</div>
         <div class="expand-icon">▶</div>
       </div>
       <div class="step-content">
-        <p>Wispr is the voice-to-text tool. It runs in the background and types what you say.</p>
-        
-        <div class="callout warning">
-          <div class="callout-title">📧 Check your email</div>
-          <p>Keigan will send you a Wispr team invite. Accept it before continuing.</p>
-        </div>
-        
-        <div class="btn-group">
-          <a href="https://www.wispr.flow/" target="_blank" class="btn btn-primary">
-            ↓ Download Wispr
-          </a>
-        </div>
+        <p>Test that everything works by recording a quick test.</p>
         
         <ol>
-          <li>Download and install Wispr</li>
-          <li>Sign in with the invite from your email</li>
-          <li>Grant microphone access when prompted</li>
-          <li>Wispr appears in your menu bar (top-right)</li>
+          <li>Create a new note: <strong>Cmd + N</strong></li>
+          <li>Name it something like: <strong>Test Recording</strong></li>
+          <li>Open the <strong>Command Palette</strong>: <strong>Cmd + P</strong></li>
+          <li>Type <strong>"Scribe"</strong> and select <strong>"Scribe: Start recording"</strong></li>
+          <li>Speak for 10-15 seconds (e.g., "This is a test recording to make sure transcription works.")</li>
+          <li>Open Command Palette again (<strong>Cmd + P</strong>) → <strong>"Scribe: Stop recording"</strong></li>
+          <li>Wait a few seconds — Scribe will transcribe and summarize your audio</li>
         </ol>
         
+        <div class="callout">
+          <div class="callout-title">💡 Pro tip: Organizing notes by account</div>
+          <p>Create a folder for each account (right-click in sidebar → New folder). Put meeting notes inside the account folder. Example: <code>Salesforce/2026-01-28 Discovery Call</code></p>
+        </div>
+        
         <div class="btn-group">
-          <button class="btn btn-success" onclick="completeStep(3)">✓ Wispr installed</button>
+          <button class="btn btn-success" onclick="completeStep(3)">✓ Recording works</button>
         </div>
       </div>
     </div>
     
-    <!-- Step 4: Hotkey -->
+    <!-- Step 4: Optional Enhancements -->
     <div class="step collapsed" id="step-4">
       <div class="step-header" onclick="toggleStep(4, event)">
         <div class="step-number"><span>4</span></div>
-        <div class="step-title">Set Your Hotkey</div>
+        <div class="step-title">Optional: Calendar Sync</div>
         <div class="expand-icon">▶</div>
       </div>
       <div class="step-content">
-        <p>Configure a two-key shortcut to start/stop transcription.</p>
+        <p>Connect your Outlook calendar to see meetings directly in Obsidian.</p>
         
+        <h4 style="margin: 16px 0 10px; font-size: 0.9rem;">Get Your Calendar URL</h4>
         <ol>
-          <li>Click the Wispr icon in your menu bar</li>
-          <li>Go to <strong>Settings → Hands-Free</strong></li>
-          <li>Click <strong>Add New Action</strong></li>
-          <li>Click in the hotkey box</li>
-          <li>Press two keys together:</li>
+          <li>Go to <a href="https://outlook.office365.com/calendar" target="_blank">outlook.office365.com/calendar</a></li>
+          <li>Click <strong>Settings</strong> (gear icon) → <strong>View all Outlook settings</strong></li>
+          <li>Go to <strong>Calendar → Shared calendars</strong></li>
+          <li>Under <strong>"Publish a calendar"</strong>, select your calendar</li>
+          <li>Set permissions to <strong>"Can view all details"</strong></li>
+          <li>Click <strong>Publish</strong></li>
+          <li>Copy the <strong>ICS</strong> link (not HTML)</li>
         </ol>
         
-        <div class="hotkey">
-          <span class="key">Fn</span>
-          <span class="key-plus">+</span>
-          <span class="key">Z</span>
+        <h4 style="margin: 16px 0 10px; font-size: 0.9rem;">Install Full Calendar Plugin</h4>
+        <ol>
+          <li>Settings → Community plugins → Browse</li>
+          <li>Search <strong>"Full Calendar"</strong> → Install → Enable</li>
+          <li>Go to Settings → Full Calendar</li>
+          <li>Under <strong>Manage Calendars</strong>, click <strong>Add calendar</strong></li>
+          <li>Select <strong>Remote (.ics format)</strong></li>
+          <li>Paste your ICS URL and enable it</li>
+        </ol>
+        
+        <div class="callout success">
+          <div class="callout-title">🎉 You're all set!</div>
+          <p>Your calendar will now appear in Obsidian. Create notes for meetings, record with Scribe, and organize by account.</p>
         </div>
         
-        <p style="font-size: 0.8rem; color: #9ca3af;">Or any two adjacent keys you prefer</p>
-        
-        <ol start="6">
-          <li>Set action to <strong>Toggle Dictation</strong></li>
-          <li>Save</li>
-        </ol>
-        
         <div class="btn-group">
-          <button class="btn btn-success" onclick="completeStep(4)">✓ Hotkey set</button>
+          <button class="btn btn-success" onclick="completeStep(4)">✓ Done!</button>
         </div>
       </div>
     </div>
     
-    <!-- Step 5: Test -->
-    <div class="step collapsed" id="step-5">
-      <div class="step-header" onclick="toggleStep(5, event)">
-        <div class="step-number"><span>5</span></div>
-        <div class="step-title">Test Your Setup</div>
-        <div class="expand-icon">▶</div>
+    <!-- Quick Reference -->
+    <div class="step" style="border-left-color: #e5e7eb; margin-top: 24px;">
+      <div class="step-header" style="cursor: default; margin-bottom: 12px;">
+        <div class="step-title">Quick Reference</div>
       </div>
-      <div class="step-content">
-        <p>Quick test to make sure everything works.</p>
+      <div class="step-content" style="display: block;">
+        <p style="margin-bottom: 10px;"><strong>Recording a meeting:</strong></p>
+        <ol style="margin-top: 0;">
+          <li>Create new note (Cmd + N)</li>
+          <li>Cmd + P → "Scribe: Start recording"</li>
+          <li>When done: Cmd + P → "Scribe: Stop recording"</li>
+          <li>Wait for AI summary to appear</li>
+        </ol>
         
-        <ul class="checklist">
-          <li>
-            <input type="checkbox" id="c1">
-            <label for="c1">Open Obsidian, create a new note (⌘N)<span>Name it "Test Note"</span></label>
-          </li>
-          <li>
-            <input type="checkbox" id="c2">
-            <label for="c2">Press your hotkey (Fn + Z)<span>Wispr should start listening</span></label>
-          </li>
-          <li>
-            <input type="checkbox" id="c3">
-            <label for="c3">Say "This is a test transcription"<span>Speak clearly for a few seconds</span></label>
-          </li>
-          <li>
-            <input type="checkbox" id="c4">
-            <label for="c4">Press hotkey again to stop<span>Text appears in your note</span></label>
-          </li>
+        <p style="margin-bottom: 10px; margin-top: 16px;"><strong>Organizing notes:</strong></p>
+        <div class="folder-tree"><span class="folder">Eudia Meetings/</span>
+├── <span class="folder">Salesforce/</span>
+│   └── <span class="file">2026-01-28 Discovery Call</span>
+├── <span class="folder">AT&T/</span>
+│   └── <span class="file">2026-01-27 Follow-up</span>
+└── <span class="folder">OpenAI/</span>
+    └── <span class="file">2026-01-26 Demo</span></div>
+        
+        <p style="font-size: 0.8rem; color: #9ca3af;">Create a folder for each account, put meeting notes inside.</p>
+      </div>
+    </div>
+    
+    <!-- Troubleshooting -->
+    <div class="step" style="border-left-color: #f59e0b; margin-top: 16px;">
+      <div class="step-header" style="cursor: default; margin-bottom: 12px;">
+        <div class="step-title">Troubleshooting</div>
+      </div>
+      <div class="step-content" style="display: block;">
+        <p><strong>Recording doesn't transcribe?</strong></p>
+        <ul>
+          <li>Make sure you restarted Obsidian after adding the API key</li>
+          <li>Check Settings → Scribe → AI Providers: API key should be filled</li>
+          <li>Check Settings → Scribe → AI Providers: Transcript platform = OpenAI</li>
         </ul>
         
-        <div class="callout success">
-          <div class="callout-title">🎉 You're all set!</div>
-          <p>Create notes in your Meetings folder during calls. Use your hotkey to transcribe.</p>
-        </div>
+        <p style="margin-top: 12px;"><strong>Microphone not working?</strong></p>
+        <ul>
+          <li>System Settings → Privacy & Security → Microphone</li>
+          <li>Make sure Obsidian is allowed</li>
+        </ul>
         
-        <div class="btn-group">
-          <button class="btn btn-success" onclick="completeStep(5)">✓ Done!</button>
-        </div>
+        <p style="margin-top: 12px;"><strong>Need help?</strong> Ping <strong>@Keigan</strong> in Slack.</p>
       </div>
     </div>
   </div>
@@ -567,7 +603,17 @@
   <script>
     let completedSteps = new Set();
     
-    // Toggle any step open/closed (no restrictions)
+    function copyToClipboard(button, text) {
+      navigator.clipboard.writeText(text).then(() => {
+        button.textContent = 'Copied!';
+        button.classList.add('copied');
+        setTimeout(() => {
+          button.textContent = 'Copy';
+          button.classList.remove('copied');
+        }, 2000);
+      });
+    }
+    
     function toggleStep(stepNum, event) {
       if (event) event.stopPropagation();
       
@@ -575,20 +621,16 @@
       if (!step) return;
       
       if (step.classList.contains('collapsed')) {
-        // Collapse other non-completed steps
         document.querySelectorAll('.step').forEach(s => {
-          if (!s.classList.contains('completed') && s.id !== `step-${stepNum}`) {
+          if (!s.classList.contains('completed') && s.id !== `step-${stepNum}` && s.id) {
             s.classList.add('collapsed');
             s.classList.remove('active');
           }
         });
-        // Expand this step
         step.classList.remove('collapsed');
         step.classList.add('active');
-        // Scroll into view
         setTimeout(() => step.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
       } else {
-        // Collapse this step (unless it's completed)
         if (!step.classList.contains('completed')) {
           step.classList.add('collapsed');
           step.classList.remove('active');
@@ -596,9 +638,8 @@
       }
     }
     
-    // Also allow clicking anywhere on collapsed step
     document.addEventListener('DOMContentLoaded', function() {
-      document.querySelectorAll('.step').forEach(step => {
+      document.querySelectorAll('.step[id]').forEach(step => {
         step.addEventListener('click', function(e) {
           if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.tagName === 'INPUT' || e.target.tagName === 'CODE') return;
           if (this.classList.contains('collapsed')) {
@@ -650,7 +691,7 @@
         }
       });
       
-      for (let i = 1; i <= 5; i++) {
+      for (let i = 1; i <= 4; i++) {
         if (!completedSteps.has(i)) {
           const step = document.getElementById(`step-${i}`);
           const progressStep = document.querySelector(`.progress-step[data-step="${i}"]`);
@@ -666,4 +707,3 @@
   </script>
 </body>
 </html>
-
