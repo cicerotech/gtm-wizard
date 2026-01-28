@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Getting Started | BL Onboarding</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: #1e293b;
+            line-height: 1.5;
+            padding: 24px 20px;
+            font-size: 13px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        /* Welcome Header */
+        .welcome-header {
+            background: linear-gradient(135deg, #8e99e1 0%, #6b7cb8 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 28px 32px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .welcome-header h1 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .welcome-header p {
+            font-size: 13px;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .time-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-top: 12px;
+        }
+        
+        /* Section Cards */
+        .section-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        
+        .section-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .section-number {
+            background: #8e99e1;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+        
+        .section-header h2 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .section-content {
+            padding: 20px;
+        }
+        
+        /* Value Props Grid */
+        .value-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        
+        @media (max-width: 640px) {
+            .value-grid { grid-template-columns: 1fr; }
+        }
+        
+        .value-item {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        
+        .value-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .value-title {
+            font-weight: 600;
+            font-size: 12px;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+        
+        .value-desc {
+            font-size: 11px;
+            color: #64748b;
+        }
+        
+        /* Weekly Fields Grid */
+        .weekly-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .weekly-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        .weekly-field {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 12px;
+        }
+        
+        .weekly-field-name {
+            font-weight: 600;
+            font-size: 11px;
+            color: #1e293b;
+            margin-bottom: 3px;
+        }
+        
+        .weekly-field-hint {
+            font-size: 10px;
+            color: #64748b;
+        }
+        
+        .deadline-badge {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            text-align: center;
+            margin-top: 12px;
+        }
+        
+        /* Setup Steps */
+        .setup-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .setup-step {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+            padding: 14px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 3px solid #8e99e1;
+        }
+        
+        .step-number {
+            background: #e2e8f0;
+            color: #475569;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+        
+        .step-content h3 {
+            font-size: 12px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+        
+        .step-content p {
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 6px;
+        }
+        
+        .step-link {
+            display: inline-block;
+            color: #8e99e1;
+            font-size: 11px;
+            font-weight: 500;
+            text-decoration: none;
+        }
+        
+        .step-link:hover {
+            text-decoration: underline;
+        }
+        
+        /* Resources Grid */
+        .resources-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+        
+        @media (max-width: 768px) {
+            .resources-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        .resource-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            color: inherit;
+        }
+        
+        .resource-card:hover {
+            border-color: #8e99e1;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        
+        .resource-icon {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+        
+        .resource-title {
+            font-weight: 600;
+            font-size: 12px;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+        
+        .resource-desc {
+            font-size: 10px;
+            color: #64748b;
+        }
+        
+        /* Checklist */
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .checklist li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 12px;
+        }
+        
+        .checklist li:last-child {
+            border-bottom: none;
+        }
+        
+        .checkbox {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #d1d5db;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        
+        /* Quick tip */
+        .quick-tip {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-top: 16px;
+            font-size: 11px;
+            color: #065f46;
+        }
+        
+        .quick-tip strong {
+            color: #047857;
+        }
+        
+        /* Stage reference */
+        .stage-reference {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+        
+        .stage-ref-item {
+            background: #e2e8f0;
+            color: #475569;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+        
+        .stage-ref-item.highlight {
+            background: #8e99e1;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <!-- Welcome Header -->
+        <div class="welcome-header">
+            <h1>Welcome to the Eudia GTM System</h1>
+            <p>Your playbook for pipeline management, meeting prep, and closing deals efficiently. Get set up in minutes.</p>
+            <div class="time-badge">Setup Time: ~10 minutes</div>
+        </div>
+        
+        <!-- Section 1: Why This System -->
+        <div class="section-card">
+            <div class="section-header">
+                <div class="section-number">1</div>
+                <h2>Why This System?</h2>
+            </div>
+            <div class="section-content">
+                <div class="value-grid">
+                    <div class="value-item">
+                        <div class="value-icon">⚡</div>
+                        <div class="value-title">Zero Manual Data Entry</div>
+                        <div class="value-desc">Meeting notes auto-sync to accounts. Calendar events flow to Salesforce. Spend time selling, not logging.</div>
+                    </div>
+                    <div class="value-item">
+                        <div class="value-icon">🎯</div>
+                        <div class="value-title">Meeting Prep in Seconds</div>
+                        <div class="value-desc">Every meeting gets auto-generated context: prior notes, open opps, key contacts, and next steps.</div>
+                    </div>
+                    <div class="value-item">
+                        <div class="value-icon">📊</div>
+                        <div class="value-title">Accurate Forecasting</div>
+                        <div class="value-desc">Weekly updates drive EOQ projections, product traction insights, and resource planning.</div>
+                    </div>
+                </div>
+                
+                <div class="quick-tip">
+                    <strong>Bottom line:</strong> This system removes friction from your workflow while ensuring leadership has the visibility they need. Update 7 fields weekly, and the rest handles itself.
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section 2: Your Weekly Workflow -->
+        <div class="section-card">
+            <div class="section-header">
+                <div class="section-number">2</div>
+                <h2>Your Weekly Workflow</h2>
+            </div>
+            <div class="section-content">
+                <p style="font-size: 12px; color: #64748b; margin-bottom: 14px;">
+                    Every Thursday by EOD, update these fields on your active opportunities. This is what drives the Friday pipeline email and EOQ forecasting.
+                </p>
+                
+                <div class="weekly-grid">
+                    <div class="weekly-field">
+                        <div class="weekly-field-name">Stage</div>
+                        <div class="weekly-field-hint">Current position (0-5)</div>
+                    </div>
+                    <div class="weekly-field">
+                        <div class="weekly-field-name">ACV</div>
+                        <div class="weekly-field-hint">Annual contract value</div>
+                    </div>
+                    <div class="weekly-field">
+                        <div class="weekly-field-name">Target Sign Date</div>
+                        <div class="weekly-field-hint">Expected close date</div>
+                    </div>
+                    <div class="weekly-field">
+                        <div class="weekly-field-name">Sales Type</div>
+                        <div class="weekly-field-hint">New / Expansion / Renewal</div>
+                    </div>
+                    <div class="weekly-field">
+                        <div class="weekly-field-name">Product Line(s)</div>
+                        <div class="weekly-field-hint">Multi-select field</div>
+                    </div>
+                    <div class="weekly-field">
+                        <div class="weekly-field-name">Revenue Type</div>
+                        <div class="weekly-field-hint">Recurring / Project / Commitment</div>
+                    </div>
+                    <div class="weekly-field">
+                        <div class="weekly-field-name">BL Forecast Category</div>
+                        <div class="weekly-field-hint">Pipeline (0%) / Gut (60%) / Commit</div>
+                    </div>
+                </div>
+                
+                <div class="deadline-badge">
+                    Due: Thursday EOD → Feeds Friday Pipeline Email + EOQ Forecasting
+                </div>
+                
+                <div style="margin-top: 16px;">
+                    <p style="font-size: 11px; color: #64748b; margin-bottom: 8px;"><strong>Stage Reference:</strong></p>
+                    <div class="stage-reference">
+                        <span class="stage-ref-item">Lead → Cold outreach</span>
+                        <span class="stage-ref-item">0 → Prospecting</span>
+                        <span class="stage-ref-item">1 → Discovery</span>
+                        <span class="stage-ref-item highlight">2 → SQO (Qualified)</span>
+                        <span class="stage-ref-item">3 → Pilot</span>
+                        <span class="stage-ref-item">4 → Proposal</span>
+                        <span class="stage-ref-item">5 → Negotiation</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section 3: Quick Setup -->
+        <div class="section-card">
+            <div class="section-header">
+                <div class="section-number">3</div>
+                <h2>Quick Setup</h2>
+            </div>
+            <div class="section-content">
+                <div class="setup-steps">
+                    <div class="setup-step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h3>Install Obsidian</h3>
+                            <p>Download from obsidian.md and create a new vault named "Eudia" or similar. This is where your meeting notes will live.</p>
+                            <a href="https://obsidian.md" target="_blank" class="step-link">Download Obsidian →</a>
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h3>Install Scribe Plugin</h3>
+                            <p>Open Settings → Community Plugins → Browse → Search "Scribe" → Install & Enable. This handles voice-to-text transcription and AI summaries.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h3>Configure Scribe with OpenAI</h3>
+                            <p>In Scribe settings, paste the shared OpenAI API key (provided by RevOps). Select "GPT-4o" as the model. This powers the AI meeting summaries.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <h3>Create Account Folders</h3>
+                            <p>Create a folder for each account you're working. Inside each, add meeting notes as you go. Example: <code>Amazon/2026-01-28 Discovery.md</code></p>
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-number">5</div>
+                        <div class="step-content">
+                            <h3>Calendar Sync</h3>
+                            <p>Your calendar is already synced via Microsoft Graph. Meeting prep sheets are auto-generated daily for external meetings. Check the Meeting Prep tab.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="quick-tip">
+                    <strong>Recording meetings:</strong> In Obsidian, use Scribe's record button during calls. When you stop, it transcribes and generates a summary with action items and next steps. Notes sync to Customer Brain in Salesforce.
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section 4: Day 1 Checklist -->
+        <div class="section-card">
+            <div class="section-header">
+                <div class="section-number">4</div>
+                <h2>Day 1 Checklist</h2>
+            </div>
+            <div class="section-content">
+                <ul class="checklist">
+                    <li><span class="checkbox"></span> Obsidian installed and vault created</li>
+                    <li><span class="checkbox"></span> Scribe plugin installed and configured with OpenAI key</li>
+                    <li><span class="checkbox"></span> Account folders created for active opportunities</li>
+                    <li><span class="checkbox"></span> Read through Sales Process tab (stages, fields, MEDDICC)</li>
+                    <li><span class="checkbox"></span> Check Meeting Prep tab for upcoming meeting context</li>
+                    <li><span class="checkbox"></span> Familiarize with Dashboard tab for pipeline visibility</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Section 5: Resources -->
+        <div class="section-card">
+            <div class="section-header">
+                <div class="section-number">5</div>
+                <h2>Resources & Next Steps</h2>
+            </div>
+            <div class="section-content">
+                <div class="resources-grid">
+                    <div class="resource-card" onclick="parent.document.getElementById('tab-sales').click()">
+                        <div class="resource-icon">📋</div>
+                        <div class="resource-title">Sales Process</div>
+                        <div class="resource-desc">Stages, MEDDICC, field definitions</div>
+                    </div>
+                    <div class="resource-card" onclick="parent.document.getElementById('tab-dashboard').click()">
+                        <div class="resource-icon">📊</div>
+                        <div class="resource-title">Dashboard</div>
+                        <div class="resource-desc">Pipeline, accounts, revenue</div>
+                    </div>
+                    <div class="resource-card" onclick="parent.document.getElementById('tab-meeting-prep').click()">
+                        <div class="resource-icon">📅</div>
+                        <div class="resource-title">Meeting Prep</div>
+                        <div class="resource-desc">Context for upcoming calls</div>
+                    </div>
+                    <div class="resource-card" onclick="parent.document.getElementById('tab-commands').click()">
+                        <div class="resource-icon">⌨️</div>
+                        <div class="resource-title">Commands</div>
+                        <div class="resource-desc">Slack commands reference</div>
+                    </div>
+                </div>
+                
+                <div class="quick-tip" style="margin-top: 16px; background: #f0f9ff; border-color: #93c5fd;">
+                    <strong style="color: #1e40af;">Need help?</strong> <span style="color: #1e40af;">Reach out in #revops-support on Slack for setup assistance or questions.</span>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</body>
+</html>
+

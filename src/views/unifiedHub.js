@@ -131,6 +131,7 @@ body {
 input[name="main-tab"] { display: none; }
 
 /* Active tab styling */
+#tab-start:checked ~ .tab-nav label[for="tab-start"],
 #tab-sales:checked ~ .tab-nav label[for="tab-sales"],
 #tab-dashboard:checked ~ .tab-nav label[for="tab-dashboard"],
 #tab-architecture:checked ~ .tab-nav label[for="tab-architecture"],
@@ -143,6 +144,7 @@ input[name="main-tab"] { display: none; }
 /* Tab content visibility */
 .tab-content { display: none; }
 
+#tab-start:checked ~ .content-area #content-start,
 #tab-sales:checked ~ .content-area #content-sales,
 #tab-dashboard:checked ~ .content-area #content-dashboard,
 #tab-architecture:checked ~ .content-area #content-architecture,
@@ -221,6 +223,7 @@ input[name="main-tab"] { display: none; }
 <input type="radio" name="main-tab" id="tab-meeting-prep">
 <input type="radio" name="main-tab" id="tab-architecture">
 <input type="radio" name="main-tab" id="tab-commands">
+<input type="radio" name="main-tab" id="tab-start">
 
 <!-- Tab Navigation -->
 <nav class="tab-nav">
@@ -229,6 +232,7 @@ input[name="main-tab"] { display: none; }
   <label for="tab-meeting-prep">Meeting Prep</label>
   <label for="tab-architecture">Architecture</label>
   <label for="tab-commands">Commands</label>
+  <label for="tab-start" style="color: #8e99e1; font-weight: 600;">Getting Started</label>
 </nav>
 
 <!-- Content Area -->
@@ -257,6 +261,11 @@ input[name="main-tab"] { display: none; }
   <!-- Commands Tab - Loads cheat sheet via iframe -->
   <div id="content-commands" class="tab-content">
     <iframe src="/cheat-sheet" title="Commands"></iframe>
+  </div>
+  
+  <!-- Getting Started Tab - Onboarding guide -->
+  <div id="content-start" class="tab-content">
+    <iframe src="/getting-started" title="Getting Started"></iframe>
   </div>
   
 </div>
