@@ -71,13 +71,15 @@ public class ProductLineSyncService {
             if (req.opportunityId == null) continue;
             
             // Parse selected products (multi-select values are semicolon-separated)
-            // Skip "Undetermined" - it's just a placeholder flag, not an actual product
+            // Skip placeholder values that are flags, not actual products
             Set<String> selectedProducts = new Set<String>();
+            Set<String> skipValues = new Set<String>{'Undetermined', 'Multiple (BL Review)'};
+            
             if (String.isNotBlank(req.selectedProductLines)) {
                 for (String product : req.selectedProductLines.split(';')) {
                     String trimmed = product.trim();
-                    // Skip Undetermined - it's a flag, not a product
-                    if (trimmed != 'Undetermined') {
+                    // Skip placeholder flags - they don't create products
+                    if (!skipValues.contains(trimmed)) {
                         selectedProducts.add(trimmed);
                     }
                 }

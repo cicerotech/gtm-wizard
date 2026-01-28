@@ -74,6 +74,11 @@
                 <default>false</default>
                 <label>Undetermined</label>
             </value>
+            <value>
+                <fullName>Multiple (BL Review)</fullName>
+                <default>false</default>
+                <label>Multiple (BL Review)</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
     <visibleLines>4</visibleLines>
