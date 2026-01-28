@@ -1534,11 +1534,12 @@ async function generateAccountDashboard() {
   // ACCOUNT CLASSIFICATION - Customer_Type__c and Customer_Subtype__c
   // Customer_Type__c = "New" or "Existing" (Existing = Signed Logo)
   // Customer_Subtype__c = MSA, Pilot, LOI (breakdown by contract type)
+  // IMPORTANT: No caching (false) to ensure fresh data from Salesforce
   // ═══════════════════════════════════════════════════════════════════════
   const logosQuery = `
-    SELECT Name, Customer_Type__c, Customer_Subtype__c
+    SELECT Id, Name, Customer_Type__c, Customer_Subtype__c
     FROM Account
-    WHERE Customer_Type__c != null OR Customer_Subtype__c != null
+    WHERE Customer_Type__c = 'Existing' OR Customer_Subtype__c != null
     ORDER BY Name
   `;
   
@@ -1548,14 +1549,15 @@ async function generateAccountDashboard() {
   let customerSubtypes = { msa: [], pilot: [], loi: [] };
   
   try {
-    const logosData = await query(logosQuery, true);
-    console.log(`[Dashboard] Logos query returned ${logosData?.records?.length || 0} accounts`);
+    // CRITICAL: Disable cache (false) to get real-time counts from Salesforce
+    const logosData = await query(logosQuery, false);
+    console.log(`[Dashboard] Logos query returned ${logosData?.records?.length || 0} accounts (no cache)`);
     if (logosData?.records) {
       // Log all unique values for debugging
       const uniqueTypes = [...new Set(logosData.records.map(a => a.Customer_Type__c).filter(Boolean))];
       const uniqueSubtypes = [...new Set(logosData.records.map(a => a.Customer_Subtype__c).filter(Boolean))];
-      console.log(`[Dashboard] Customer_Type__c values: ${JSON.stringify(uniqueTypes)}`);
-      console.log(`[Dashboard] Customer_Subtype__c values: ${JSON.stringify(uniqueSubtypes)}`);
+      console.log(`[Dashboard] Customer_Type__c values found: ${JSON.stringify(uniqueTypes)}`);
+      console.log(`[Dashboard] Customer_Subtype__c values found: ${JSON.stringify(uniqueSubtypes)}`);
       
       logosData.records.forEach(acc => {
         const type = (acc.Customer_Type__c || '').toLowerCase().trim();
@@ -1567,18 +1569,22 @@ async function generateAccountDashboard() {
         }
         
         // Customer_Subtype__c = MSA, Pilot, LOI (breakdown)
-        if (subtype === 'msa') {
+        // Use includes() for more flexible matching
+        if (subtype === 'msa' || subtype.includes('msa')) {
           customerSubtypes.msa.push(acc.Name);
-        } else if (subtype === 'pilot') {
+        } else if (subtype === 'pilot' || subtype.includes('pilot')) {
           customerSubtypes.pilot.push(acc.Name);
-        } else if (subtype === 'loi') {
+        } else if (subtype === 'loi' || subtype.includes('loi')) {
           customerSubtypes.loi.push(acc.Name);
         }
       });
     }
-    console.log(`[Dashboard] Signed Logos (Existing): ${signedLogos.length}`);
-    console.log(`[Dashboard] By Subtype: MSA=${customerSubtypes.msa.length}, Pilot=${customerSubtypes.pilot.length}, LOI=${customerSubtypes.loi.length}`);
-  } catch (e) { console.error('Logos query error:', e.message); }
+    console.log(`[Dashboard] ✅ Signed Logos (Existing): ${signedLogos.length}`);
+    console.log(`[Dashboard] ✅ By Subtype: MSA=${customerSubtypes.msa.length}, Pilot=${customerSubtypes.pilot.length}, LOI=${customerSubtypes.loi.length}`);
+  } catch (e) { 
+    console.error('❌ Logos query error:', e.message); 
+    console.error('❌ Full error:', e);
+  }
   
   // Helper function to format currency
   const formatCurrency = (val) => {
@@ -2419,6 +2425,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .plan-stat-value { font-weight: 700; font-size: 1.25rem; color: #1f2937; }
 .plan-stat-label { font-size: 0.75rem; color: #6b7280; }
 @media (min-width: 1024px) { .metrics { grid-template-columns: repeat(4, 1fr); } }
+
+/* Navigation Helper Styles */
+.nav-helper { position: fixed; bottom: 20px; right: 20px; z-index: 1000; }
+.nav-helper-btn { width: 44px; height: 44px; border-radius: 50%; background: #1f2937; color: #fff; border: none; cursor: pointer; font-size: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+.nav-helper-btn:hover { transform: scale(1.1); background: #374151; }
+.nav-helper-panel { display: none; position: absolute; bottom: 54px; right: 0; width: 280px; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); overflow: hidden; }
+.nav-helper-panel.active { display: block; animation: slideUp 0.2s ease-out; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.nav-helper-header { background: #1f2937; color: #fff; padding: 12px 16px; font-weight: 600; font-size: 0.85rem; }
+.nav-helper-section { padding: 12px 16px; border-bottom: 1px solid #e5e7eb; }
+.nav-helper-section:last-child { border-bottom: none; }
+.nav-helper-title { font-size: 0.7rem; font-weight: 600; color: #6b7280; text-transform: uppercase; margin-bottom: 8px; }
+.nav-helper-link { display: block; padding: 6px 0; color: #374151; text-decoration: none; font-size: 0.8rem; transition: color 0.15s; }
+.nav-helper-link:hover { color: #1e40af; }
+.nav-helper-link span { margin-right: 8px; }
 </style>
 </head>
 <body>
@@ -2528,7 +2549,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
   <div class="section-card" style="padding: 0;">
     ${revenueDeals.length > 0 ? `
     <details open style="margin-bottom: 12px;">
-      <summary style="background: #059669; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
+      <summary style="background: #d1fae5; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #065f46; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
         <span>RECURRING</span>
         <span>${revenueDeals.length} deal${revenueDeals.length !== 1 ? 's' : ''}</span>
       </summary>
@@ -2569,7 +2590,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     
     ${signedByType.project.length > 0 ? `
     <details open style="margin-bottom: 12px;">
-      <summary style="background: #3b82f6; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
+      <summary style="background: #fef3c7; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #92400e; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
         <span>PROJECT</span>
         <span>${signedByType.project.length} deal${signedByType.project.length !== 1 ? 's' : ''}</span>
       </summary>
@@ -2641,7 +2662,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     
     ${signedByType.loi.length > 0 ? `
     <details open>
-      <summary style="background: #9ca3af; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
+      <summary style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #374151; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
         <span>COMMITMENT</span>
         <span>${signedByType.loi.length} deal${signedByType.loi.length !== 1 ? 's' : ''}</span>
       </summary>
@@ -3925,7 +3946,51 @@ function downloadWeeklyHTML_legacy() {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// Navigation Helper Toggle
+function toggleNavHelper() {
+  const panel = document.getElementById('nav-helper-panel');
+  const btn = document.getElementById('nav-helper-btn');
+  if (panel.classList.contains('active')) {
+    panel.classList.remove('active');
+    btn.textContent = '?';
+  } else {
+    panel.classList.add('active');
+    btn.textContent = '×';
+  }
+}
+
+// Navigate to tab
+function navToTab(tabId) {
+  document.getElementById(tabId).checked = true;
+  toggleNavHelper();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 </script>
+
+<!-- Navigation Helper -->
+<div class="nav-helper">
+  <div id="nav-helper-panel" class="nav-helper-panel">
+    <div class="nav-helper-header">Quick Navigation</div>
+    <div class="nav-helper-section">
+      <div class="nav-helper-title">Dashboard Views</div>
+      <a href="#" onclick="navToTab('tab-topco'); return false;" class="nav-helper-link"><span>📊</span> Summary Overview</a>
+      <a href="#" onclick="navToTab('tab-revenue'); return false;" class="nav-helper-link"><span>💰</span> Revenue & Closed Deals</a>
+      <a href="#" onclick="navToTab('tab-account-plans'); return false;" class="nav-helper-link"><span>🏢</span> Accounts & Logos</a>
+    </div>
+    <div class="nav-helper-section">
+      <div class="nav-helper-title">Resources</div>
+      <a href="/gtm" target="_blank" class="nav-helper-link"><span>📚</span> GTM Hub & Documentation</a>
+      <a href="/sales-process" target="_blank" class="nav-helper-link"><span>📋</span> Sales Process Playbook</a>
+      <a href="/meeting-prep" target="_blank" class="nav-helper-link"><span>🗓️</span> Meeting Prep</a>
+    </div>
+    <div class="nav-helper-section">
+      <div class="nav-helper-title">Need Help?</div>
+      <a href="https://eudia.slack.com/archives/C07GZJJQZ36" target="_blank" class="nav-helper-link"><span>💬</span> #revops-support in Slack</a>
+    </div>
+  </div>
+  <button id="nav-helper-btn" class="nav-helper-btn" onclick="toggleNavHelper()">?</button>
+</div>
 
 </body>
 </html>`;
