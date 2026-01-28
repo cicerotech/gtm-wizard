@@ -2960,6 +2960,13 @@ SENTIMENT: [Positive/Neutral/Negative]`
         logger.info('🎉 Closed Won alerts subscription started');
       }
 
+      // Subscribe to CS Staffing Platform Events
+      if (process.env.CS_STAFFING_ALERTS_ENABLED === 'true') {
+        const { subscribeToCSStaffingEvents } = require('./services/csStaffingAlerts');
+        await subscribeToCSStaffingEvents(this.app);
+        logger.info('👥 CS Staffing alerts subscription started');
+      }
+
       // Initialize Channel Intelligence Scraper
       if (process.env.INTEL_SCRAPER_ENABLED === 'true') {
         await channelIntelligence.initialize(this.app.client);

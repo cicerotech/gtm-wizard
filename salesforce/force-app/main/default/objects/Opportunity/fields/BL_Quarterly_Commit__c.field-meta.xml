@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>BL_Quarterly_Commit__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Checkbox to indicate this is a priority deal expected to close this quarter. Populated at the start of each quarter by the Business Lead.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Populated at the start of the quarter, tagging priority deals. Provides estimated total expected to close per BL.</inlineHelpText>
+    <label>BL Quarterly Commit</label>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <type>Checkbox</type>
+</CustomField>
+

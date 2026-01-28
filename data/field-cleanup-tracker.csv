@@ -1,0 +1,57 @@
+Field API Name,Object,Code References,File Count,Population Count,Population %,In Flows,In Reports,In Formulas,Recommendation,Notes
+ACV__c,Opportunity,179,22,PENDING,PENDING,Yes,CHECK,CHECK,KEEP,CRITICAL - Used in 22 files for pipeline reporting
+Weighted_ACV__c,Opportunity,27,9,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - Used for weighted pipeline calculations
+Target_LOI_Date__c,Opportunity,80,17,PENDING,PENDING,Yes,CHECK,CHECK,KEEP,CRITICAL - Target sign date for pipeline
+Product_Line__c,Opportunity,144,28,PENDING,PENDING,Yes,CHECK,CHECK,KEEP,CRITICAL - Primary product categorization
+Product_Lines_Multi__c,Opportunity,74,12,PENDING,PENDING,Yes,CHECK,CHECK,KEEP,CRITICAL - Multi-product support
+Sales_Type__c,Opportunity,43,6,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - Sales type classification
+Revenue_Type__c,Opportunity,59,6,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - Revenue categorization
+Days_in_Stage__c,Opportunity,5,3,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - Stage velocity tracking
+Days_in_Stage1__c,Opportunity,11,6,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - Stage 1 velocity
+Johnson_Hana_Owner__c,Opportunity,6,1,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - JH ownership tracking
+Blended_Forecast_base__c,Opportunity,10,2,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - Forecast calculations
+Week_Created__c,Opportunity,3,1,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - Weekly tracking
+Eudia_Tech__c,Opportunity,7,1,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - Tech flag
+Products_Breakdown__c,Opportunity,20,6,PENDING,PENDING,Yes,CHECK,CHECK,KEEP,CRITICAL - Auto-populated by flow
+MEDDICC_Qualification__c,Opportunity,11,3,PENDING,PENDING,Yes,CHECK,CHECK,KEEP,CRITICAL - MEDDICC framework
+MEDDICC_Metrics__c,Opportunity,0,0,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,MEDDICC field - check usage
+MEDDICC_Economic_Buyer__c,Opportunity,0,0,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,MEDDICC field - check usage
+MEDDICC_Decision_Criteria__c,Opportunity,0,0,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,MEDDICC field - check usage
+MEDDICC_Decision_Process__c,Opportunity,0,0,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,MEDDICC field - check usage
+MEDDICC_Identify_Pain__c,Opportunity,0,0,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,MEDDICC field - check usage
+MEDDICC_Champion__c,Opportunity,0,0,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,MEDDICC field - check usage
+MEDDICC_Competition__c,Opportunity,0,0,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,MEDDICC field - check usage
+Eudia_Council_Op__c,Opportunity,6,2,PENDING,PENDING,Yes,CHECK,CHECK,KEEP,Council anonymization - has flow
+Code_Name__c,Opportunity,10,2,PENDING,PENDING,Yes,CHECK,CHECK,KEEP,Council code name - has flow
+Opportunity_Display_Name__c,Opportunity,0,0,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,Check if formula field
+Products_Summary__c,Opportunity,1,1,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,Low code references
+Product_Lines_Text__c,Opportunity,3,2,PENDING,PENDING,Yes,CHECK,CHECK,KEEP,Text version of multi-select
+Delivery_Links__c,Opportunity,5,2,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,Delivery hyperlinks - recently created
+Deliveries_Summary__c,Opportunity,0,0,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,Check if populated
+ACV_Products_Mismatch__c,Opportunity,0,0,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,Validation field - check if formula
+Account_Display_Name__c,Account,24,4,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - Display name
+Customer_Type__c,Account,59,8,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - Customer classification
+Customer_Subtype__c,Account,29,4,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - Customer subtype
+Account_Plan_s__c,Account,15,3,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - Account planning
+Is_New_Logo__c,Account,7,3,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - New logo tracking
+CLO_Engaged__c,Account,2,1,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - CLO engagement
+Key_Decision_Makers__c,Account,7,2,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - Stakeholder info
+Region__c,Account,9,3,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - Geographic region
+State__c,Account,9,2,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - State
+Customer_Brain__c,Account,26,5,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - AI notes
+Linked_in_URL__c,Account,6,2,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - LinkedIn profile
+Rev_MN__c,Account,6,2,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,CRITICAL - Revenue data
+Eudia_Council_Account__c,Account,3,1,PENDING,PENDING,Yes,CHECK,CHECK,KEEP,Council flag - has flow
+Code_Name__c,Account,10,2,PENDING,PENDING,Yes,CHECK,CHECK,KEEP,Council code name
+LinkedIn_Display__c,Account,0,0,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,Check if formula
+Phone_Display__c,Account,0,0,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,Check if formula
+Website_Display__c,Account,0,0,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,Check if formula
+Nurture__c,Account,9,3,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,Used in account management
+Legal_Department_Size__c,Account,8,2,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,Sales intel
+Pain_Points_Identified__c,Account,5,2,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,Sales intel
+Competitive_Landscape__c,Account,6,1,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,Sales intel
+Industry_Grouping__c,Account,1,1,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,Low references
+Use_Cases_Interested__c,Account,2,1,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,Low references
+Use_Cases_Discussed__c,Account,1,1,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,Low references
+CLO_Reports_to_CEO__c,Account,1,1,PENDING,PENDING,CHECK,CHECK,CHECK,REVIEW,Low references
+First_Deal_Closed__c,Account,12,3,PENDING,PENDING,CHECK,CHECK,CHECK,KEEP,Historical tracking

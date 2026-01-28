@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>BL_Forecast_Category__c</fullName>
+    <description>Weekly forecast category set by the Business Lead. Drives the BL Quarterly Forecast calculation.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Updated weekly. Default is Pipeline (0%). Use Gut (60%) for higher confidence deals, or Commit (100%) for quarterly commit deals. This drives the BL Quarterly Forecast value.</inlineHelpText>
+    <label>BL Forecast Category</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Pipeline</fullName>
+                <default>true</default>
+                <label>Pipeline</label>
+            </value>
+            <value>
+                <fullName>Gut</fullName>
+                <default>false</default>
+                <label>Gut</label>
+            </value>
+            <value>
+                <fullName>Commit</fullName>
+                <default>false</default>
+                <label>Commit</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
+

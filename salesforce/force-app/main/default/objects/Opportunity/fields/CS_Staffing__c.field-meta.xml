@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CS_Staffing__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Indicates that CS team has been alerted about this opportunity reaching Stage 4 or 5. Set automatically by Flow when deal enters Proposal or Negotiation stage. Only triggers once per opportunity.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Auto-set when deal reaches Stage 4 (Proposal) or Stage 5 (Negotiation). Triggers CS staffing notification.</inlineHelpText>
+    <label>CS Staffing Alert Sent</label>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>
+

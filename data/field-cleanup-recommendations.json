@@ -1,0 +1,513 @@
+{
+  "KEEP": [
+    {
+      "field": "ACV__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Used in 22 files for pipeline reporting"
+    },
+    {
+      "field": "Weighted_ACV__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Used for weighted pipeline calculations"
+    },
+    {
+      "field": "Target_LOI_Date__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Target sign date for pipeline"
+    },
+    {
+      "field": "Product_Line__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Primary product categorization"
+    },
+    {
+      "field": "Product_Lines_Multi__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Multi-product support"
+    },
+    {
+      "field": "Sales_Type__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Sales type classification"
+    },
+    {
+      "field": "Revenue_Type__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Revenue categorization"
+    },
+    {
+      "field": "Days_in_Stage__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Stage velocity tracking"
+    },
+    {
+      "field": "Days_in_Stage1__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Stage 1 velocity"
+    },
+    {
+      "field": "Johnson_Hana_Owner__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - JH ownership tracking"
+    },
+    {
+      "field": "Blended_Forecast_base__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Forecast calculations"
+    },
+    {
+      "field": "Week_Created__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Weekly tracking"
+    },
+    {
+      "field": "Eudia_Tech__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Tech flag"
+    },
+    {
+      "field": "Products_Breakdown__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Auto-populated by flow"
+    },
+    {
+      "field": "MEDDICC_Qualification__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - MEDDICC framework"
+    },
+    {
+      "field": "Eudia_Council_Op__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "Council anonymization - has flow"
+    },
+    {
+      "field": "Code_Name__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "Council code name - has flow"
+    },
+    {
+      "field": "Products_Summary__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Referenced in 1 places in codebase",
+      "riskLevel": "MEDIUM",
+      "currentRecommendation": "REVIEW",
+      "notes": "Low code references"
+    },
+    {
+      "field": "Product_Lines_Text__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Used in Salesforce Flow",
+      "riskLevel": "HIGH",
+      "currentRecommendation": "KEEP",
+      "notes": "Text version of multi-select"
+    },
+    {
+      "field": "Delivery_Links__c",
+      "object": "Opportunity",
+      "category": "KEEP",
+      "reason": "Referenced in 5 places in codebase",
+      "riskLevel": "MEDIUM",
+      "currentRecommendation": "KEEP",
+      "notes": "Delivery hyperlinks - recently created"
+    },
+    {
+      "field": "Account_Display_Name__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Display name"
+    },
+    {
+      "field": "Customer_Type__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Customer classification"
+    },
+    {
+      "field": "Customer_Subtype__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Customer subtype"
+    },
+    {
+      "field": "Account_Plan_s__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Account planning"
+    },
+    {
+      "field": "Is_New_Logo__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - New logo tracking"
+    },
+    {
+      "field": "CLO_Engaged__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - CLO engagement"
+    },
+    {
+      "field": "Key_Decision_Makers__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Stakeholder info"
+    },
+    {
+      "field": "Region__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Geographic region"
+    },
+    {
+      "field": "State__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - State"
+    },
+    {
+      "field": "Customer_Brain__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - AI notes"
+    },
+    {
+      "field": "Linked_in_URL__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - LinkedIn profile"
+    },
+    {
+      "field": "Rev_MN__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "CRITICAL - Revenue data"
+    },
+    {
+      "field": "Eudia_Council_Account__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "Council flag - has flow"
+    },
+    {
+      "field": "Code_Name__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Protected critical field",
+      "riskLevel": "NONE",
+      "currentRecommendation": "KEEP",
+      "notes": "Council code name"
+    },
+    {
+      "field": "Nurture__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Referenced in 9 places in codebase",
+      "riskLevel": "MEDIUM",
+      "currentRecommendation": "KEEP",
+      "notes": "Used in account management"
+    },
+    {
+      "field": "Legal_Department_Size__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Referenced in 8 places in codebase",
+      "riskLevel": "MEDIUM",
+      "currentRecommendation": "KEEP",
+      "notes": "Sales intel"
+    },
+    {
+      "field": "Pain_Points_Identified__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Referenced in 5 places in codebase",
+      "riskLevel": "MEDIUM",
+      "currentRecommendation": "KEEP",
+      "notes": "Sales intel"
+    },
+    {
+      "field": "Competitive_Landscape__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Referenced in 6 places in codebase",
+      "riskLevel": "MEDIUM",
+      "currentRecommendation": "KEEP",
+      "notes": "Sales intel"
+    },
+    {
+      "field": "Industry_Grouping__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Referenced in 1 places in codebase",
+      "riskLevel": "MEDIUM",
+      "currentRecommendation": "REVIEW",
+      "notes": "Low references"
+    },
+    {
+      "field": "Use_Cases_Interested__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Referenced in 2 places in codebase",
+      "riskLevel": "MEDIUM",
+      "currentRecommendation": "REVIEW",
+      "notes": "Low references"
+    },
+    {
+      "field": "Use_Cases_Discussed__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Referenced in 1 places in codebase",
+      "riskLevel": "MEDIUM",
+      "currentRecommendation": "REVIEW",
+      "notes": "Low references"
+    },
+    {
+      "field": "CLO_Reports_to_CEO__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Referenced in 1 places in codebase",
+      "riskLevel": "MEDIUM",
+      "currentRecommendation": "REVIEW",
+      "notes": "Low references"
+    },
+    {
+      "field": "First_Deal_Closed__c",
+      "object": "Account",
+      "category": "KEEP",
+      "reason": "Referenced in 12 places in codebase",
+      "riskLevel": "MEDIUM",
+      "currentRecommendation": "KEEP",
+      "notes": "Historical tracking"
+    }
+  ],
+  "RISKY": [],
+  "SAFE": [],
+  "PENDING": [
+    {
+      "field": "MEDDICC_Metrics__c",
+      "object": "Opportunity",
+      "category": "PENDING",
+      "reason": "Awaiting population data from Salesforce",
+      "riskLevel": "UNKNOWN",
+      "currentRecommendation": "REVIEW",
+      "notes": "MEDDICC field - check usage"
+    },
+    {
+      "field": "MEDDICC_Economic_Buyer__c",
+      "object": "Opportunity",
+      "category": "PENDING",
+      "reason": "Awaiting population data from Salesforce",
+      "riskLevel": "UNKNOWN",
+      "currentRecommendation": "REVIEW",
+      "notes": "MEDDICC field - check usage"
+    },
+    {
+      "field": "MEDDICC_Decision_Criteria__c",
+      "object": "Opportunity",
+      "category": "PENDING",
+      "reason": "Awaiting population data from Salesforce",
+      "riskLevel": "UNKNOWN",
+      "currentRecommendation": "REVIEW",
+      "notes": "MEDDICC field - check usage"
+    },
+    {
+      "field": "MEDDICC_Decision_Process__c",
+      "object": "Opportunity",
+      "category": "PENDING",
+      "reason": "Awaiting population data from Salesforce",
+      "riskLevel": "UNKNOWN",
+      "currentRecommendation": "REVIEW",
+      "notes": "MEDDICC field - check usage"
+    },
+    {
+      "field": "MEDDICC_Identify_Pain__c",
+      "object": "Opportunity",
+      "category": "PENDING",
+      "reason": "Awaiting population data from Salesforce",
+      "riskLevel": "UNKNOWN",
+      "currentRecommendation": "REVIEW",
+      "notes": "MEDDICC field - check usage"
+    },
+    {
+      "field": "MEDDICC_Champion__c",
+      "object": "Opportunity",
+      "category": "PENDING",
+      "reason": "Awaiting population data from Salesforce",
+      "riskLevel": "UNKNOWN",
+      "currentRecommendation": "REVIEW",
+      "notes": "MEDDICC field - check usage"
+    },
+    {
+      "field": "MEDDICC_Competition__c",
+      "object": "Opportunity",
+      "category": "PENDING",
+      "reason": "Awaiting population data from Salesforce",
+      "riskLevel": "UNKNOWN",
+      "currentRecommendation": "REVIEW",
+      "notes": "MEDDICC field - check usage"
+    },
+    {
+      "field": "Opportunity_Display_Name__c",
+      "object": "Opportunity",
+      "category": "PENDING",
+      "reason": "Awaiting population data from Salesforce",
+      "riskLevel": "UNKNOWN",
+      "currentRecommendation": "REVIEW",
+      "notes": "Check if formula field"
+    },
+    {
+      "field": "Deliveries_Summary__c",
+      "object": "Opportunity",
+      "category": "PENDING",
+      "reason": "Awaiting population data from Salesforce",
+      "riskLevel": "UNKNOWN",
+      "currentRecommendation": "REVIEW",
+      "notes": "Check if populated"
+    },
+    {
+      "field": "ACV_Products_Mismatch__c",
+      "object": "Opportunity",
+      "category": "PENDING",
+      "reason": "Awaiting population data from Salesforce",
+      "riskLevel": "UNKNOWN",
+      "currentRecommendation": "REVIEW",
+      "notes": "Validation field - check if formula"
+    },
+    {
+      "field": "LinkedIn_Display__c",
+      "object": "Account",
+      "category": "PENDING",
+      "reason": "Awaiting population data from Salesforce",
+      "riskLevel": "UNKNOWN",
+      "currentRecommendation": "REVIEW",
+      "notes": "Check if formula"
+    },
+    {
+      "field": "Phone_Display__c",
+      "object": "Account",
+      "category": "PENDING",
+      "reason": "Awaiting population data from Salesforce",
+      "riskLevel": "UNKNOWN",
+      "currentRecommendation": "REVIEW",
+      "notes": "Check if formula"
+    },
+    {
+      "field": "Website_Display__c",
+      "object": "Account",
+      "category": "PENDING",
+      "reason": "Awaiting population data from Salesforce",
+      "riskLevel": "UNKNOWN",
+      "currentRecommendation": "REVIEW",
+      "notes": "Check if formula"
+    }
+  ],
+  "REVIEW": []
+}

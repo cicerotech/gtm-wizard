@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>BL_Quarterly_Forecast__c</fullName>
+    <description>Calculated forecast amount based on ACV and BL Forecast Category weighting.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Auto-calculated: ACV × Forecast Category weight. Pipeline = 0%, Gut = 60%, Commit = 100%.</inlineHelpText>
+    <label>BL Quarterly Forecast</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Currency</type>
+</CustomField>
+

@@ -1,0 +1,1005 @@
+{
+  "generatedAt": "2026-01-28T09:42:19.212Z",
+  "summary": {
+    "totalFieldsFound": 117,
+    "criticalOpportunityFields": 15,
+    "criticalAccountFields": 12
+  },
+  "fieldUsage": {
+    "ACV__c": {
+      "count": 179,
+      "files": [
+        "src/config/queryPatterns.json",
+        "src/routes/emailBuilder.js",
+        "src/salesforce/queries.js",
+        "src/services/closedWonAlerts.js",
+        "src/services/meetingContextService.js",
+        "src/slack/accountDashboard.js",
+        "src/slack/blWeeklySummary.js",
+        "src/slack/deliveryReportToSlack.js",
+        "src/slack/events.js",
+        "src/slack/financeWeeklyAudit.js",
+        "src/slack/fullPipelineReport.js",
+        "src/slack/reportToSlack.js",
+        "src/slack/responseFormatter.js",
+        "src/slack/weeklyReport.js",
+        "src/utils/emailService.js",
+        "src/utils/emailServiceGraph.js",
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationService.cls",
+        "salesforce/force-app/main/default/classes/DeliveryCreationService.cls",
+        "salesforce/force-app/main/default/classes/DeliveryCreationServiceTest.cls",
+        "salesforce/force-app/main/default/classes/ProductLineSyncService.cls",
+        "salesforce/force-app/main/default/flows/Opportunity_Stage_Snapshot.flow-meta.xml",
+        "salesforce/scripts/apex/createDeliveryFromProducts.apex"
+      ]
+    },
+    "Product_Line__c": {
+      "count": 144,
+      "files": [
+        "src/config/queryPatterns.json",
+        "src/routes/emailBuilder.js",
+        "src/salesforce/queries.js",
+        "src/services/closedWonAlerts.js",
+        "src/services/contractAnalyzer.js",
+        "src/services/llmContractExtractor.js",
+        "src/services/meetingContextService.js",
+        "src/slack/accountDashboard.js",
+        "src/slack/blWeeklySummary.js",
+        "src/slack/deliveryReportToSlack.js",
+        "src/slack/deliveryWeeklySummary.js",
+        "src/slack/events.js",
+        "src/slack/financeWeeklyAudit.js",
+        "src/slack/fullPipelineReport.js",
+        "src/slack/reportToSlack.js",
+        "src/slack/weeklyReport.js",
+        "src/utils/emailService.js",
+        "src/utils/emailServiceGraph.js",
+        "salesforce/force-app/main/default/classes/DeliveryCreationService.cls",
+        "salesforce/force-app/main/default/classes/DeliveryCreationServiceTest.cls",
+        "salesforce/force-app/main/default/flows/Sync_ProductLine_To_Multi_On_Create.flow-meta.xml",
+        "salesforce/scripts/apex/checkFieldAccess.apex",
+        "salesforce/scripts/apex/createDeliveryFromProducts.apex",
+        "salesforce/scripts/apex/createProductsAndPriceBook.apex",
+        "salesforce/scripts/apex/migrateProductLineToMultiSelect.apex",
+        "salesforce/scripts/apex/simpleMigration.apex",
+        "salesforce/scripts/apex/tagBlanks.apex",
+        "salesforce/scripts/apex/updateDeliverySummary.apex"
+      ]
+    },
+    "Target_LOI_Date__c": {
+      "count": 80,
+      "files": [
+        "src/config/queryPatterns.json",
+        "src/salesforce/queries.js",
+        "src/services/accountAssignment.js",
+        "src/slack/accountDashboard.js",
+        "src/slack/blWeeklySummary.js",
+        "src/slack/events.js",
+        "src/slack/financeWeeklyAudit.js",
+        "src/slack/fullPipelineReport.js",
+        "src/slack/reportToSlack.js",
+        "src/slack/responseFormatter.js",
+        "src/slack/weeklyReport.js",
+        "src/utils/emailService.js",
+        "src/utils/emailServiceGraph.js",
+        "src/utils/formatters.js",
+        "salesforce/force-app/main/default/classes/DeliveryCreationService.cls",
+        "salesforce/force-app/main/default/flows/Opportunity_Stage_Snapshot.flow-meta.xml",
+        "salesforce/scripts/apex/createDeliveryFromProducts.apex"
+      ]
+    },
+    "Product_Lines_Multi__c": {
+      "count": 74,
+      "files": [
+        "salesforce/force-app/main/default/classes/ProductLineSyncService.cls",
+        "salesforce/force-app/main/default/classes/ProductLineSyncServiceTest.cls",
+        "salesforce/force-app/main/default/flows/Sync_MultiSelect_To_Products.flow-meta.xml",
+        "salesforce/force-app/main/default/flows/Sync_ProductLine_To_Multi_On_Create.flow-meta.xml",
+        "salesforce/force-app/main/default/flows/Sync_Product_Lines_To_Text.flow-meta.xml",
+        "salesforce/scripts/apex/backfillProducts.apex",
+        "salesforce/scripts/apex/checkFieldAccess.apex",
+        "salesforce/scripts/apex/cleanupProductLineValues.apex",
+        "salesforce/scripts/apex/migrateProductLineToMultiSelect.apex",
+        "salesforce/scripts/apex/simpleMigration.apex",
+        "salesforce/scripts/apex/syncActivePipeline.apex",
+        "salesforce/scripts/apex/tagBlanks.apex"
+      ]
+    },
+    "BL_Performance_Metrics__c": {
+      "count": 62,
+      "files": [
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationService.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationServiceTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsRealDataTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsSchedulerTest.cls",
+        "salesforce/scripts/apex/addAnanthAndRecalc.apex",
+        "salesforce/scripts/apex/initialSetup.apex",
+        "salesforce/scripts/apex/quickSetup.apex"
+      ]
+    },
+    "Revenue_Type__c": {
+      "count": 59,
+      "files": [
+        "src/ai/intentParser.js",
+        "src/salesforce/queries.js",
+        "src/services/closedWonAlerts.js",
+        "src/slack/accountDashboard.js",
+        "src/slack/blWeeklySummary.js",
+        "src/slack/events.js"
+      ]
+    },
+    "Customer_Type__c": {
+      "count": 59,
+      "files": [
+        "src/routes/emailBuilder.js",
+        "src/salesforce/queries.js",
+        "src/services/meetingContextService.js",
+        "src/services/meetingPrepService.js",
+        "src/services/obsidianSyncService.js",
+        "src/slack/accountDashboard.js",
+        "src/slack/blWeeklySummary.js",
+        "src/slack/events.js"
+      ]
+    },
+    "Delivery__c": {
+      "count": 44,
+      "files": [
+        "src/slack/deliveryReportToSlack.js",
+        "src/slack/deliveryWeeklySummary.js",
+        "salesforce/force-app/main/default/classes/DeliveryCreationService.cls",
+        "salesforce/force-app/main/default/classes/DeliveryCreationServiceTest.cls",
+        "salesforce/scripts/apex/createDeliveryFromProducts.apex",
+        "salesforce/scripts/apex/updateDeliverySummary.apex"
+      ]
+    },
+    "Sales_Type__c": {
+      "count": 43,
+      "files": [
+        "src/salesforce/queries.js",
+        "src/services/closedWonAlerts.js",
+        "src/services/meetingContextService.js",
+        "src/slack/accountDashboard.js",
+        "src/slack/blWeeklySummary.js",
+        "src/slack/financeWeeklyAudit.js"
+      ]
+    },
+    "Contract_Value__c": {
+      "count": 37,
+      "files": [
+        "src/services/contractAnalyzer.js",
+        "src/services/contractCreation.js",
+        "src/services/llmContractExtractor.js",
+        "src/slack/accountDashboard.js",
+        "src/slack/deliveryReportToSlack.js",
+        "src/slack/deliveryWeeklySummary.js",
+        "salesforce/force-app/main/default/classes/DeliveryCreationService.cls",
+        "salesforce/force-app/main/default/classes/DeliveryCreationServiceTest.cls",
+        "salesforce/scripts/apex/updateDeliverySummary.apex"
+      ]
+    },
+    "Customer_Subtype__c": {
+      "count": 29,
+      "files": [
+        "src/salesforce/queries.js",
+        "src/services/meetingContextService.js",
+        "src/slack/accountDashboard.js",
+        "src/slack/blWeeklySummary.js"
+      ]
+    },
+    "Weighted_ACV__c": {
+      "count": 27,
+      "files": [
+        "src/salesforce/queries.js",
+        "src/slack/accountDashboard.js",
+        "src/slack/blWeeklySummary.js",
+        "src/slack/events.js",
+        "src/slack/financeWeeklyAudit.js",
+        "src/slack/reportToSlack.js",
+        "src/slack/responseFormatter.js",
+        "src/utils/emailService.js",
+        "src/utils/emailServiceGraph.js"
+      ]
+    },
+    "Customer_Brain__c": {
+      "count": 26,
+      "files": [
+        "src/config/queryPatterns.json",
+        "src/services/hyprnoteSyncService.js",
+        "src/services/meetingContextService.js",
+        "src/slack/events.js",
+        "src/slack/intelligenceDigest.js"
+      ]
+    },
+    "Account_Display_Name__c": {
+      "count": 24,
+      "files": [
+        "src/app.js",
+        "src/slack/blWeeklySummary.js",
+        "src/slack/events.js",
+        "salesforce/scripts/apex/updateCouncilCodeNames.apex"
+      ]
+    },
+    "Products_Breakdown__c": {
+      "count": 20,
+      "files": [
+        "src/services/closedWonAlerts.js",
+        "salesforce/force-app/main/default/classes/ProductsBreakdownService.cls",
+        "salesforce/force-app/main/default/classes/ProductsBreakdownServiceTest.cls",
+        "salesforce/force-app/main/default/flows/Update_Products_Breakdown.flow-meta.xml",
+        "salesforce/scripts/apex/checkFieldAccess.apex",
+        "salesforce/scripts/apex/updateProductsBreakdown.apex"
+      ]
+    },
+    "Contract_Name_Campfire__c": {
+      "count": 20,
+      "files": [
+        "src/services/contractAnalyzer.js",
+        "src/services/contractCreation.js",
+        "src/services/llmContractExtractor.js",
+        "src/slack/events.js"
+      ]
+    },
+    "Business_Lead__c": {
+      "count": 18,
+      "files": [
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationService.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationServiceTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsRealDataTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsSchedulerTest.cls",
+        "salesforce/scripts/apex/addAnanthAndRecalc.apex",
+        "salesforce/scripts/apex/initialSetup.apex",
+        "salesforce/scripts/apex/quickSetup.apex"
+      ]
+    },
+    "Opportunity__c": {
+      "count": 16,
+      "files": [
+        "src/slack/deliveryReportToSlack.js",
+        "src/slack/deliveryWeeklySummary.js",
+        "salesforce/force-app/main/default/classes/DeliveryCreationService.cls",
+        "salesforce/force-app/main/default/classes/DeliveryCreationServiceTest.cls",
+        "salesforce/force-app/main/default/flows/Opportunity_Stage_Snapshot.flow-meta.xml",
+        "salesforce/scripts/apex/createDeliveryFromProducts.apex",
+        "salesforce/scripts/apex/updateDeliverySummary.apex"
+      ]
+    },
+    "Account_Plan_s__c": {
+      "count": 15,
+      "files": [
+        "src/ai/intentParser.js",
+        "src/slack/accountDashboard.js",
+        "src/slack/events.js"
+      ]
+    },
+    "Renewal_Net_Change__c": {
+      "count": 15,
+      "files": [
+        "src/services/closedWonAlerts.js",
+        "src/slack/accountDashboard.js",
+        "src/slack/blWeeklySummary.js"
+      ]
+    },
+    "Pod__c": {
+      "count": 15,
+      "files": [
+        "src/slack/accountDashboard.js",
+        "src/slack/financeWeeklyAudit.js",
+        "src/slack/reportToSlack.js",
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationServiceTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsRealDataTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsSchedulerTest.cls",
+        "salesforce/scripts/apex/initialSetup.apex"
+      ]
+    },
+    "Account__c": {
+      "count": 15,
+      "files": [
+        "src/slack/deliveryReportToSlack.js",
+        "src/slack/deliveryWeeklySummary.js",
+        "salesforce/force-app/main/default/classes/DeliveryCreationService.cls",
+        "salesforce/force-app/main/default/classes/DeliveryCreationServiceTest.cls",
+        "salesforce/scripts/apex/createDeliveryFromProducts.apex"
+      ]
+    },
+    "Ramp_Milestone__c": {
+      "count": 15,
+      "files": [
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationService.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationServiceTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsRealDataTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsSchedulerTest.cls",
+        "salesforce/scripts/apex/addAnanthAndRecalc.apex",
+        "salesforce/scripts/apex/initialSetup.apex",
+        "salesforce/scripts/apex/quickSetup.apex"
+      ]
+    },
+    "Total_Closed_Won_ACV__c": {
+      "count": 14,
+      "files": [
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationService.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationServiceTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsRealDataTest.cls",
+        "salesforce/scripts/apex/initialSetup.apex"
+      ]
+    },
+    "Contract_Type__c": {
+      "count": 13,
+      "files": [
+        "src/services/contractAnalyzer.js",
+        "src/services/contractCreation.js",
+        "src/services/llmContractExtractor.js",
+        "src/slack/accountDashboard.js",
+        "src/slack/events.js"
+      ]
+    },
+    "Start_Date__c": {
+      "count": 13,
+      "files": [
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationService.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationServiceTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsRealDataTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsSchedulerTest.cls",
+        "salesforce/scripts/apex/addAnanthAndRecalc.apex",
+        "salesforce/scripts/apex/initialSetup.apex",
+        "salesforce/scripts/apex/quickSetup.apex"
+      ]
+    },
+    "Active__c": {
+      "count": 13,
+      "files": [
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationService.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationServiceTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsRealDataTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsSchedulerTest.cls",
+        "salesforce/scripts/apex/addAnanthAndRecalc.apex",
+        "salesforce/scripts/apex/initialSetup.apex",
+        "salesforce/scripts/apex/quickSetup.apex"
+      ]
+    },
+    "Next_Step_Eudia__c": {
+      "count": 13,
+      "files": [
+        "salesforce/force-app/main/default/flows/Next_Steps_History_On_Create.flow-meta.xml",
+        "salesforce/force-app/main/default/flows/Next_Steps_History_On_Update.flow-meta.xml",
+        "salesforce/force-app/main/default/flows/Opportunity_Next_Steps_History.flow-meta.xml",
+        "salesforce/scripts/apex/cleanupNextStepsHistory.apex"
+      ]
+    },
+    "First_Deal_Closed__c": {
+      "count": 12,
+      "files": [
+        "src/services/meetingContextService.js",
+        "src/slack/accountDashboard.js",
+        "src/slack/blWeeklySummary.js"
+      ]
+    },
+    "Days_in_Stage1__c": {
+      "count": 11,
+      "files": [
+        "src/salesforce/queries.js",
+        "src/slack/accountDashboard.js",
+        "src/slack/events.js",
+        "src/slack/weeklyReport.js",
+        "src/utils/emailService.js",
+        "src/utils/emailServiceGraph.js"
+      ]
+    },
+    "Ramp_Achieved_Date__c": {
+      "count": 11,
+      "files": [
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationService.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationServiceTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsRealDataTest.cls",
+        "salesforce/scripts/apex/initialSetup.apex"
+      ]
+    },
+    "MEDDICC_Qualification__c": {
+      "count": 11,
+      "files": [
+        "salesforce/force-app/main/default/flows/Opportunity_MEDDICC_Template.flow-meta.xml",
+        "salesforce/scripts/apex/backfillMEDDICC.apex",
+        "salesforce/scripts/apex/updateMEDDICCFormat.apex"
+      ]
+    },
+    "Blended_Forecast_base__c": {
+      "count": 10,
+      "files": [
+        "src/slack/blWeeklySummary.js",
+        "src/slack/financeWeeklyAudit.js"
+      ]
+    },
+    "Kickoff_Date__c": {
+      "count": 10,
+      "files": [
+        "src/slack/deliveryReportToSlack.js",
+        "src/slack/deliveryWeeklySummary.js",
+        "salesforce/force-app/main/default/classes/DeliveryCreationService.cls"
+      ]
+    },
+    "Code_Name__c": {
+      "count": 10,
+      "files": [
+        "salesforce/force-app/main/default/flows/Council_Code_Name_Sync.flow-meta.xml",
+        "salesforce/scripts/apex/updateCouncilCodeNames.apex"
+      ]
+    },
+    "Next_Steps__c": {
+      "count": 10,
+      "files": [
+        "salesforce/force-app/main/default/flows/Next_Steps_History_On_Create.flow-meta.xml",
+        "salesforce/force-app/main/default/flows/Next_Steps_History_On_Update.flow-meta.xml",
+        "salesforce/force-app/main/default/flows/Opportunity_Next_Steps_History.flow-meta.xml"
+      ]
+    },
+    "Region__c": {
+      "count": 9,
+      "files": [
+        "src/services/accountAssignment.js",
+        "src/services/accountCreation.js",
+        "src/slack/events.js"
+      ]
+    },
+    "State__c": {
+      "count": 9,
+      "files": [
+        "src/services/accountCreation.js",
+        "src/slack/events.js"
+      ]
+    },
+    "Annualized_Revenue__c": {
+      "count": 9,
+      "files": [
+        "src/services/contractAnalyzer.js",
+        "src/services/contractCreation.js",
+        "src/services/llmContractExtractor.js",
+        "src/slack/accountDashboard.js"
+      ]
+    },
+    "Contact_Signed__c": {
+      "count": 9,
+      "files": [
+        "src/services/contractAnalyzer.js",
+        "src/services/contractCreation.js"
+      ]
+    },
+    "Nurture__c": {
+      "count": 9,
+      "files": [
+        "src/slack/accountDashboard.js",
+        "src/slack/events.js",
+        "src/utils/accountManagement.js"
+      ]
+    },
+    "Days_to_Ramp__c": {
+      "count": 9,
+      "files": [
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationService.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationServiceTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsRealDataTest.cls",
+        "salesforce/scripts/apex/initialSetup.apex"
+      ]
+    },
+    "Last_Calculated__c": {
+      "count": 9,
+      "files": [
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationService.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationServiceTest.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsRealDataTest.cls"
+      ]
+    },
+    "Legal_Department_Size__c": {
+      "count": 8,
+      "files": [
+        "src/salesforce/queries.js",
+        "src/slack/events.js"
+      ]
+    },
+    "Status__c": {
+      "count": 8,
+      "files": [
+        "src/slack/deliveryReportToSlack.js",
+        "src/slack/deliveryWeeklySummary.js"
+      ]
+    },
+    "Is_New_Logo__c": {
+      "count": 7,
+      "files": [
+        "src/routes/emailBuilder.js",
+        "src/salesforce/queries.js",
+        "src/slack/accountDashboard.js"
+      ]
+    },
+    "Key_Decision_Makers__c": {
+      "count": 7,
+      "files": [
+        "src/salesforce/queries.js",
+        "src/slack/events.js"
+      ]
+    },
+    "Parent_Product__c": {
+      "count": 7,
+      "files": [
+        "src/services/contractAnalyzer.js",
+        "src/services/contractCreation.js",
+        "src/services/llmContractExtractor.js",
+        "src/slack/accountDashboard.js"
+      ]
+    },
+    "Eudia_Tech__c": {
+      "count": 7,
+      "files": [
+        "src/slack/accountDashboard.js"
+      ]
+    },
+    "Fiscal_YTD_ACV__c": {
+      "count": 7,
+      "files": [
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationService.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationServiceTest.cls",
+        "salesforce/scripts/apex/initialSetup.apex"
+      ]
+    },
+    "Finance_Weighted_ACV__c": {
+      "count": 6,
+      "files": [
+        "src/config/queryPatterns.json",
+        "src/slack/blWeeklySummary.js",
+        "src/slack/weeklyReport.js",
+        "src/utils/formatters.js"
+      ]
+    },
+    "Linked_in_URL__c": {
+      "count": 6,
+      "files": [
+        "src/services/accountCreation.js",
+        "src/slack/events.js"
+      ]
+    },
+    "Rev_MN__c": {
+      "count": 6,
+      "files": [
+        "src/services/accountCreation.js",
+        "src/slack/events.js"
+      ]
+    },
+    "Amount__c": {
+      "count": 6,
+      "files": [
+        "src/services/contractAnalyzer.js",
+        "src/services/contractCreation.js",
+        "src/services/llmContractExtractor.js",
+        "src/slack/accountDashboard.js"
+      ]
+    },
+    "Closed_Lost_Detail__c": {
+      "count": 6,
+      "files": [
+        "src/slack/accountDashboard.js",
+        "src/utils/accountManagement.js"
+      ]
+    },
+    "Johnson_Hana_Owner__c": {
+      "count": 6,
+      "files": [
+        "src/slack/accountDashboard.js"
+      ]
+    },
+    "Competitive_Landscape__c": {
+      "count": 6,
+      "files": [
+        "src/slack/events.js"
+      ]
+    },
+    "Is_Ramped__c": {
+      "count": 6,
+      "files": [
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationServiceTest.cls",
+        "salesforce/scripts/apex/initialSetup.apex"
+      ]
+    },
+    "Eudia_Council_Op__c": {
+      "count": 6,
+      "files": [
+        "salesforce/force-app/main/default/flows/Council_Code_Name_Sync.flow-meta.xml",
+        "salesforce/scripts/apex/updateCouncilCodeNames.apex"
+      ]
+    },
+    "Days_in_Stage__c": {
+      "count": 5,
+      "files": [
+        "src/ml/mlOpportunities.js",
+        "src/salesforce/queries.js",
+        "src/utils/formatters.js"
+      ]
+    },
+    "Pain_Points_Identified__c": {
+      "count": 5,
+      "files": [
+        "src/salesforce/queries.js",
+        "src/slack/events.js"
+      ]
+    },
+    "Delivery_Model__c": {
+      "count": 5,
+      "files": [
+        "src/slack/deliveryReportToSlack.js",
+        "salesforce/force-app/main/default/classes/DeliveryCreationService.cls",
+        "salesforce/force-app/main/default/classes/DeliveryCreationServiceTest.cls"
+      ]
+    },
+    "Opportunity_Source__c": {
+      "count": 5,
+      "files": [
+        "src/slack/events.js",
+        "salesforce/force-app/main/default/classes/DeliveryCreationServiceTest.cls"
+      ]
+    },
+    "BL_Quarterly_Forecast__c": {
+      "count": 5,
+      "files": [
+        "src/slack/financeWeeklyAudit.js",
+        "salesforce/force-app/main/default/flows/Opportunity_Stage_Snapshot.flow-meta.xml"
+      ]
+    },
+    "Delivery_Links__c": {
+      "count": 5,
+      "files": [
+        "salesforce/force-app/main/default/classes/DeliveryCreationService.cls",
+        "salesforce/scripts/apex/updateDeliverySummary.apex"
+      ]
+    },
+    "Notes__c": {
+      "count": 4,
+      "files": [
+        "src/services/contractAnalyzer.js"
+      ]
+    },
+    "Booking_ACV__c": {
+      "count": 4,
+      "files": [
+        "src/slack/accountDashboard.js"
+      ]
+    },
+    "Closed_Lost_Reason__c": {
+      "count": 4,
+      "files": [
+        "src/slack/accountDashboard.js"
+      ]
+    },
+    "TCV__c": {
+      "count": 4,
+      "files": [
+        "src/slack/accountDashboard.js",
+        "src/slack/events.js"
+      ]
+    },
+    "Term__c": {
+      "count": 4,
+      "files": [
+        "src/slack/blWeeklySummary.js"
+      ]
+    },
+    "Eudia_Delivery_Owner__c": {
+      "count": 4,
+      "files": [
+        "src/slack/deliveryReportToSlack.js",
+        "src/slack/deliveryWeeklySummary.js",
+        "salesforce/force-app/main/default/classes/DeliveryCreationService.cls"
+      ]
+    },
+    "All_Delivery_Codes__c": {
+      "count": 4,
+      "files": [
+        "salesforce/force-app/main/default/classes/DeliveryCreationService.cls",
+        "salesforce/scripts/apex/updateDeliverySummary.apex"
+      ]
+    },
+    "Week_Created__c": {
+      "count": 3,
+      "files": [
+        "src/salesforce/queries.js"
+      ]
+    },
+    "Currency__c": {
+      "count": 3,
+      "files": [
+        "src/services/contractAnalyzer.js",
+        "src/services/llmContractExtractor.js"
+      ]
+    },
+    "AI_Enabled__c": {
+      "count": 3,
+      "files": [
+        "src/services/contractAnalyzer.js",
+        "src/services/llmContractExtractor.js"
+      ]
+    },
+    "Industry__c": {
+      "count": 3,
+      "files": [
+        "src/services/contractAnalyzer.js"
+      ]
+    },
+    "Contract_Term_Months__c": {
+      "count": 3,
+      "files": [
+        "src/slack/accountDashboard.js"
+      ]
+    },
+    "Prior_Account_Owner_Name__c": {
+      "count": 3,
+      "files": [
+        "src/slack/events.js"
+      ]
+    },
+    "Product_Lines_Text__c": {
+      "count": 3,
+      "files": [
+        "salesforce/force-app/main/default/flows/Sync_Product_Lines_To_Text.flow-meta.xml",
+        "salesforce/scripts/apex/checkFieldAccess.apex"
+      ]
+    },
+    "Target_Start_Date__c": {
+      "count": 3,
+      "files": [
+        "salesforce/scripts/apex/createDeliveryFromProducts.apex"
+      ]
+    },
+    "Source_Line_Item__c": {
+      "count": 3,
+      "files": [
+        "salesforce/scripts/apex/createDeliveryFromProducts.apex"
+      ]
+    },
+    "Eudia_Council_Account__c": {
+      "count": 3,
+      "files": [
+        "salesforce/scripts/apex/updateCouncilCodeNames.apex"
+      ]
+    },
+    "Close_Date_Push_Count__c": {
+      "count": 2,
+      "files": [
+        "src/ml/mlOpportunities.js"
+      ]
+    },
+    "CLO_Engaged__c": {
+      "count": 2,
+      "files": [
+        "src/salesforce/queries.js"
+      ]
+    },
+    "Eudia_Counsel_Opp__c": {
+      "count": 2,
+      "files": [
+        "src/services/closedWonAlerts.js"
+      ]
+    },
+    "Lost_Reason__c": {
+      "count": 2,
+      "files": [
+        "src/slack/accountDashboard.js"
+      ]
+    },
+    "Lost_Detail__c": {
+      "count": 2,
+      "files": [
+        "src/slack/accountDashboard.js"
+      ]
+    },
+    "Phase__c": {
+      "count": 2,
+      "files": [
+        "src/slack/deliveryReportToSlack.js"
+      ]
+    },
+    "Deployment_Model__c": {
+      "count": 2,
+      "files": [
+        "src/slack/deliveryWeeklySummary.js"
+      ]
+    },
+    "Contract_Volume__c": {
+      "count": 2,
+      "files": [
+        "src/slack/deliveryWeeklySummary.js"
+      ]
+    },
+    "Project_Size__c": {
+      "count": 2,
+      "files": [
+        "src/slack/deliveryWeeklySummary.js"
+      ]
+    },
+    "Planned_JH_Hours__c": {
+      "count": 2,
+      "files": [
+        "src/slack/deliveryWeeklySummary.js"
+      ]
+    },
+    "Use_Cases_Interested__c": {
+      "count": 2,
+      "files": [
+        "src/slack/events.js"
+      ]
+    },
+    "Fiscal_QTD_ACV__c": {
+      "count": 2,
+      "files": [
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationService.cls",
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationServiceTest.cls"
+      ]
+    },
+    "Avg_Monthly_Productivity__c": {
+      "count": 2,
+      "files": [
+        "salesforce/force-app/main/default/classes/BLMetricsCalculationService.cls"
+      ]
+    },
+    "Johnson_Hana_Account_Owner__c": {
+      "count": 1,
+      "files": [
+        "src/data/johnsonHanaData.js"
+      ]
+    },
+    "Contact_Name__c": {
+      "count": 1,
+      "files": [
+        "src/ml/mlOpportunities.js"
+      ]
+    },
+    "Product_Line_s__c": {
+      "count": 1,
+      "files": [
+        "src/ml/mlOpportunities.js"
+      ]
+    },
+    "Target_LOI_Sign_Date__c": {
+      "count": 1,
+      "files": [
+        "src/salesforce/queries.js"
+      ]
+    },
+    "CLO_Reports_to_CEO__c": {
+      "count": 1,
+      "files": [
+        "src/salesforce/queries.js"
+      ]
+    },
+    "Account_Name__c": {
+      "count": 1,
+      "files": [
+        "src/services/closedWonAlerts.js"
+      ]
+    },
+    "Opportunity_Name__c": {
+      "count": 1,
+      "files": [
+        "src/services/closedWonAlerts.js"
+      ]
+    },
+    "Close_Date__c": {
+      "count": 1,
+      "files": [
+        "src/services/closedWonAlerts.js"
+      ]
+    },
+    "Owner_Name__c": {
+      "count": 1,
+      "files": [
+        "src/services/closedWonAlerts.js"
+      ]
+    },
+    "Legal_Entity__c": {
+      "count": 1,
+      "files": [
+        "src/services/contractAnalyzer.js"
+      ]
+    },
+    "Billing_Frequency__c": {
+      "count": 1,
+      "files": [
+        "src/services/contractAnalyzer.js"
+      ]
+    },
+    "Related_Opp_s__c": {
+      "count": 1,
+      "files": [
+        "src/services/contractAnalyzer.js"
+      ]
+    },
+    "Use_Cases_Discussed__c": {
+      "count": 1,
+      "files": [
+        "src/slack/events.js"
+      ]
+    },
+    "Industry_Grouping__c": {
+      "count": 1,
+      "files": [
+        "src/slack/events.js"
+      ]
+    },
+    "BL_Forecast_Category__c": {
+      "count": 1,
+      "files": [
+        "salesforce/force-app/main/default/flows/Opportunity_Stage_Snapshot.flow-meta.xml"
+      ]
+    },
+    "Modified_By__c": {
+      "count": 1,
+      "files": [
+        "salesforce/force-app/main/default/flows/Opportunity_Stage_Snapshot.flow-meta.xml"
+      ]
+    },
+    "Snapshot_Date__c": {
+      "count": 1,
+      "files": [
+        "salesforce/force-app/main/default/flows/Opportunity_Stage_Snapshot.flow-meta.xml"
+      ]
+    },
+    "Stage__c": {
+      "count": 1,
+      "files": [
+        "salesforce/force-app/main/default/flows/Opportunity_Stage_Snapshot.flow-meta.xml"
+      ]
+    },
+    "Target_Sign_Date__c": {
+      "count": 1,
+      "files": [
+        "salesforce/force-app/main/default/flows/Opportunity_Stage_Snapshot.flow-meta.xml"
+      ]
+    },
+    "Stage_Snapshot__c": {
+      "count": 1,
+      "files": [
+        "salesforce/force-app/main/default/flows/Opportunity_Stage_Snapshot.flow-meta.xml"
+      ]
+    },
+    "Products_Summary__c": {
+      "count": 1,
+      "files": [
+        "salesforce/scripts/apex/checkFieldAccess.apex"
+      ]
+    },
+    "Owner__c": {
+      "count": 1,
+      "files": [
+        "salesforce/scripts/apex/createDeliveryFromProducts.apex"
+      ]
+    }
+  },
+  "criticalFields": {
+    "Opportunity": [
+      "ACV__c",
+      "Weighted_ACV__c",
+      "Target_LOI_Date__c",
+      "Product_Line__c",
+      "Product_Lines_Multi__c",
+      "Sales_Type__c",
+      "Revenue_Type__c",
+      "Days_in_Stage__c",
+      "Days_in_Stage1__c",
+      "Johnson_Hana_Owner__c",
+      "Blended_Forecast_base__c",
+      "Week_Created__c",
+      "Eudia_Tech__c",
+      "Products_Breakdown__c",
+      "MEDDICC_Qualification__c"
+    ],
+    "Account": [
+      "Account_Display_Name__c",
+      "Customer_Type__c",
+      "Customer_Subtype__c",
+      "Account_Plan_s__c",
+      "Is_New_Logo__c",
+      "CLO_Engaged__c",
+      "Key_Decision_Makers__c",
+      "Region__c",
+      "State__c",
+      "Customer_Brain__c",
+      "Linked_in_URL__c",
+      "Rev_MN__c"
+    ]
+  }
+}
