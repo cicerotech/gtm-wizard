@@ -105,9 +105,16 @@ public class ProductLineSyncService {
             }
             
             // Calculate price per product: ACV / number of products
-            Decimal oppACV = opp.ACV__c != null ? opp.ACV__c : DEFAULT_ACV;
+            // SAFEGUARD: If ACV is null, 0, or negative, use the default
+            Decimal oppACV = (opp.ACV__c != null && opp.ACV__c > 0) ? opp.ACV__c : DEFAULT_ACV;
             Integer productCount = selectedProducts.size();
             Decimal pricePerProduct = productCount > 0 ? oppACV / productCount : oppACV;
+            
+            // SAFEGUARD: Never allow $0 or negative prices
+            if (pricePerProduct <= 0) {
+                pricePerProduct = DEFAULT_ACV / Math.max(productCount, 1);
+                System.debug('WARNING: Calculated price was $0 or negative. Using default: $' + pricePerProduct);
+            }
             
             // Round to 2 decimal places
             pricePerProduct = pricePerProduct.setScale(2, RoundingMode.HALF_UP);

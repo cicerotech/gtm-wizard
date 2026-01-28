@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>59.0</apiVersion>
+    <assignments>
+        <name>Capture_Existing_History</name>
+        <label>Capture Existing History</label>
+        <locationX>176</locationX>
+        <locationY>252</locationY>
+        <assignmentItems>
+            <assignToReference>ExistingHistory</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>$Record.Next_Step_Eudia__c</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Set_New_History</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>Set_New_History</name>
+        <label>Set New History</label>
+        <locationX>176</locationX>
+        <locationY>360</locationY>
+        <assignmentItems>
+            <assignToReference>$Record.Next_Step_Eudia__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>NewEntryTemplate</elementReference>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <description>On Opportunity UPDATE: When Next Steps changes, captures the OLD value in Customer History with clean formatting using Text Templates for reliable newlines.</description>
+    <environments>Default</environments>
+    <formulas>
+        <name>TodayFormatted</name>
+        <dataType>String</dataType>
+        <expression>TEXT(YEAR(TODAY())) &amp; &quot;-&quot; &amp; 
+IF(MONTH(TODAY()) &lt; 10, &quot;0&quot;, &quot;&quot;) &amp; TEXT(MONTH(TODAY())) &amp; &quot;-&quot; &amp; 
+IF(DAY(TODAY()) &lt; 10, &quot;0&quot;, &quot;&quot;) &amp; TEXT(DAY(TODAY()))</expression>
+    </formulas>
+    <interviewLabel>Next Steps History On Update {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Next Steps History On Update</label>
+    <processType>AutoLaunchedFlow</processType>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Capture_Existing_History</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Next_Steps__c</field>
+            <operator>IsChanged</operator>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </filters>
+        <object>Opportunity</object>
+        <recordTriggerType>Update</recordTriggerType>
+        <triggerType>RecordBeforeSave</triggerType>
+    </start>
+    <status>Active</status>
+    <textTemplates>
+        <name>NewEntryTemplate</name>
+        <isViewedAsPlainText>true</isViewedAsPlainText>
+        <text>{!TodayFormatted}: {!$Record__Prior.Next_Steps__c}
+
+---
+
+{!ExistingHistory}</text>
+    </textTemplates>
+    <variables>
+        <name>ExistingHistory</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+</Flow>

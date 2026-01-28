@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>59.0</apiVersion>
+    <assignments>
+        <name>Set_MEDDICC_Template</name>
+        <label>Set MEDDICC Template</label>
+        <locationX>176</locationX>
+        <locationY>335</locationY>
+        <assignmentItems>
+            <assignToReference>$Record.MEDDICC_Qualification__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>MEDDICCTemplate</elementReference>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <description>Auto-populates the MEDDICC Qualification field with a clean template when a new Opportunity is created.</description>
+    <environments>Default</environments>
+    <formulas>
+        <name>MEDDICCTemplate</name>
+        <dataType>String</dataType>
+        <expression>&quot;[M] METRICS (quantifiable impact/ROI)&quot; &amp; BR() &amp;
+&quot;- &quot; &amp; BR() &amp;
+&quot;- &quot; &amp; BR() &amp; BR() &amp;
+&quot;[E] ECONOMIC BUYER (budget holder)&quot; &amp; BR() &amp;
+&quot;- &quot; &amp; BR() &amp; BR() &amp;
+&quot;[D] DECISION CRITERIA (key requirements)&quot; &amp; BR() &amp;
+&quot;- &quot; &amp; BR() &amp;
+&quot;- &quot; &amp; BR() &amp; BR() &amp;
+&quot;[D] DECISION PROCESS (timeline, stakeholders)&quot; &amp; BR() &amp;
+&quot;- &quot; &amp; BR() &amp;
+&quot;- &quot; &amp; BR() &amp; BR() &amp;
+&quot;[I] PAIN / COMPELLING EVENT (urgency)&quot; &amp; BR() &amp;
+&quot;- &quot; &amp; BR() &amp; BR() &amp;
+&quot;[C] CHAMPION (internal advocate)&quot; &amp; BR() &amp;
+&quot;- &quot; &amp; BR() &amp; BR() &amp;
+&quot;[C] COMPETITION (alternatives)&quot; &amp; BR() &amp;
+&quot;- &quot;</expression>
+    </formulas>
+    <interviewLabel>Opportunity MEDDICC Template {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Opportunity MEDDICC Template</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Set_MEDDICC_Template</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>MEDDICC_Qualification__c</field>
+            <operator>IsNull</operator>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </filters>
+        <object>Opportunity</object>
+        <recordTriggerType>Create</recordTriggerType>
+        <triggerType>RecordBeforeSave</triggerType>
+    </start>
+    <status>Draft</status>
+</Flow>
