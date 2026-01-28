@@ -7,7 +7,7 @@ const logger = require('../utils/logger');
  * Query for Johnson Hana weekly pipeline report
  */
 async function getJohnsonHanaReport() {
-  // Report filters: Stages 2, 3, 4 + Product lines: Contracting, Multiple, sigma, Insights
+  // Report filters: Stages 2, 3, 4 + Product lines: Contracting, Multiple, Sigma, Insights, Litigation, FDE
   const reportQuery = `SELECT Account.Name,
                               Name,
                               StageName,
