@@ -210,8 +210,8 @@ public class DeliveryCreationService {
         // Update Opportunity
         Opportunity oppUpdate = new Opportunity(Id = opportunityId);
         
-        // Set Deliveries_Summary__c text field
-        oppUpdate.Deliveries_Summary__c = summaryText;
+        // Set All_Delivery_Codes__c text field (using existing field)
+        oppUpdate.All_Delivery_Codes__c = summaryText;
         
         // Set primary Delivery lookup (first/largest delivery)
         oppUpdate.Delivery__c = deliveries[0].Id;

@@ -43,7 +43,7 @@ for (AggregateResult ar : [
     
     Opportunity opp = new Opportunity(
         Id = oppId,
-        Deliveries_Summary__c = String.join(lines, '\n'),
+        All_Delivery_Codes__c = String.join(lines, '\n'),
         Delivery__c = deliveries[0].Id  // Primary delivery
     );
     oppsToUpdate.add(opp);
