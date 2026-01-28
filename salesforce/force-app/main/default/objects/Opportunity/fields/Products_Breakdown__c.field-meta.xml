@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Products_Breakdown__c</fullName>
+    <description>Auto-populated breakdown of products on this opportunity. Updated by Flow when products change. Format: Product Name: $XXK per line.</description>
+    <externalId>false</externalId>
+    <label>Products Breakdown</label>
+    <length>5000</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>4</visibleLines>
+</CustomField>
+

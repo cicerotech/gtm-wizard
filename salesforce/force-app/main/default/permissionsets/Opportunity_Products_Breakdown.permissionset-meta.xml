@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Grants read access to Products_Breakdown__c field on Opportunity</description>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.Products_Breakdown__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Opportunity Products Breakdown</label>
+</PermissionSet>
+
