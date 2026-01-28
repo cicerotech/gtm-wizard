@@ -11,10 +11,11 @@ const logger = require('../utils/logger');
 // Demo product options
 const DEMO_PRODUCTS = [
   { id: 'contracts', label: 'Contracts' },
-  { id: 'sigma', label: 'Sigma' },
-  { id: 'insights', label: 'Insights' },
+  { id: 'sigma', label: 'AI Platform - Sigma' },
+  { id: 'insights', label: 'AI Platform - Insights' },
   { id: 'compliance', label: 'Compliance' },
-  { id: 'litigation', label: 'Litigation' },
+  { id: 'litigation', label: 'AI Platform - Litigation' },
+  { id: 'fde', label: 'FDE - Custom AI Solution' },
   { id: 'other', label: 'Other' }
 ];
 

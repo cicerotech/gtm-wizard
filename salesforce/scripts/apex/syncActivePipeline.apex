@@ -9,9 +9,10 @@ Set<String> validProductLines = new Set<String>{
     'AI-Augmented Compliance - In-House Technology',
     'AI-Augmented M&A - In-House Technology',
     'AI-Augmented M&A - Managed Service',
-    'Sigma',
-    'Custom Agents',
-    'Litigation',
+    'AI Platform - Sigma',
+    'AI Platform - Insights',
+    'AI Platform - Litigation',
+    'FDE - Custom AI Solution',
     'Other - Managed Service',
     'Other - Secondee'
 };

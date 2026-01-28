@@ -23,10 +23,11 @@ async function getJohnsonHanaReport() {
                          AND (Product_Line__c LIKE 'AI-Augmented Contracting%'
                               OR Product_Line__c LIKE 'AI-Augmented Compliance%'
                               OR Product_Line__c LIKE 'AI-Augmented M&A%'
-                              OR Product_Line__c = 'Custom Agents'
+                              OR Product_Line__c = 'FDE - Custom AI Solution'
                               OR Product_Line__c = 'Multiple'
-                              OR Product_Line__c = 'sigma'
-                              OR Product_Line__c = 'Litigation')
+                              OR Product_Line__c = 'AI Platform - Sigma'
+                              OR Product_Line__c = 'AI Platform - Insights'
+                              OR Product_Line__c = 'AI Platform - Litigation')
                        ORDER BY StageName, Account.Name`;
 
   // Enable caching (5 min TTL) to avoid SF rate limits when multiple reports run back-to-back
@@ -68,7 +69,7 @@ async function sendJohnsonHanaReport(testMode = false) {
     
     const body = `Here's this week's pipeline filtered to Stage 2, 3, and 4.
 
-Includes contracting opportunities and those tagged as Multiple/sigma/Insights.
+Includes contracting opportunities and those tagged as Multiple/Sigma/Insights/Litigation.
 
 Total Opportunities: ${reportData.totalSize}
 

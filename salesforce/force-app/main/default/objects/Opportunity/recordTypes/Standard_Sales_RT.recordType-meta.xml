@@ -148,15 +148,19 @@
             <default>false</default>
         </values>
         <values>
-            <fullName>Sigma</fullName>
+            <fullName>AI Platform - Sigma</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Custom Agents</fullName>
+            <fullName>AI Platform - Insights</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Litigation</fullName>
+            <fullName>AI Platform - Litigation</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>FDE - Custom AI Solution</fullName>
             <default>false</default>
         </values>
         <values>

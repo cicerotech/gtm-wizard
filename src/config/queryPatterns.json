@@ -189,12 +189,13 @@
         "AI-Augmented Compliance_In-House Technology",
         "AI-Augmented M&A_Managed Service",
         "Augmented-M&A",
-        "Custom Agents",
+        "FDE - Custom AI Solution",
         "Contracting - Secondee",
         "Other_Secondee",
         "Other_Managed Service",
-        "sigma",
-        "Litigation",
+        "AI Platform - Sigma",
+        "AI Platform - Insights",
+        "AI Platform - Litigation",
         "Multiple",
         "Undetermined",
         "Other"
@@ -340,14 +341,18 @@
     },
     "product": {
       "type": "enum",
-      "values": ["contracting", "compliance", "m&a", "sigma", "litigation", "custom agents", "secondee", "other"],
+      "values": ["contracting", "compliance", "m&a", "sigma", "insights", "litigation", "fde", "custom agents", "secondee", "other"],
       "aliases": {
         "contracting": ["AI-Augmented Contracting_Managed Services", "AI-Augmented Contracting_In-House Technology", "augmented contracting"],
         "contracting managed": ["AI-Augmented Contracting_Managed Services"],
         "contracting in-house": ["AI-Augmented Contracting_In-House Technology"],
         "m&a": ["AI-Augmented M&A_Managed Service", "Augmented-M&A", "mergers and acquisitions"],
         "compliance": ["AI-Augmented Compliance_In-House Technology"],
-        "custom agents": ["Custom Agents"],
+        "sigma": ["AI Platform - Sigma"],
+        "insights": ["AI Platform - Insights"],
+        "litigation": ["AI Platform - Litigation"],
+        "fde": ["FDE - Custom AI Solution"],
+        "custom agents": ["FDE - Custom AI Solution"],
         "secondee": ["Contracting - Secondee", "Other_Secondee"],
         "other": ["Other_Managed Service", "Other_Secondee", "Other"]
       }

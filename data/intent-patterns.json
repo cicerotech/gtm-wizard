@@ -285,7 +285,10 @@
     "ama": "Augmented-M&A",
     "m&a": "Augmented-M&A",
     "compliance": "Compliance",
-    "sigma": "sigma",
+    "sigma": "AI Platform - Sigma",
+    "insights": "AI Platform - Insights",
+    "litigation": "AI Platform - Litigation",
+    "fde": "FDE - Custom AI Solution",
     "cortex": "Cortex"
   }
 }

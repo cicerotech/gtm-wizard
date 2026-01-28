@@ -1751,10 +1751,10 @@ Business Context:
     
     // Product line + stage queries (HIGHEST PRIORITY - check before general stage queries)
     // Product lines: AI-Augmented Contracting (Managed Services or In-House), AI-Augmented Compliance,
-    // AI-Augmented M&A, Custom Agents, sigma, Litigation, Multiple, Undetermined, Secondees, Other
+    // AI-Augmented M&A, FDE - Custom AI Solution, AI Platform - Sigma/Insights/Litigation, Multiple, Undetermined, Secondees, Other
     if (message.includes('contracting') || message.includes('m&a') || 
-        message.includes('compliance') || message.includes('sigma') || 
-        message.includes('custom agent') || message.includes('litigation') ||
+        message.includes('compliance') || message.includes('sigma') || message.includes('insights') ||
+        message.includes('custom agent') || message.includes('fde') || message.includes('litigation') ||
         message.includes('secondee') || message.includes('managed service')) {
       intent = 'pipeline_summary';
       entities.isClosed = false;
@@ -1775,12 +1775,14 @@ Business Context:
         entities.productLine = 'AI-Augmented M&A_Managed Service';
       } else if (message.includes('compliance')) {
         entities.productLine = 'AI-Augmented Compliance_In-House Technology';
-      } else if (message.includes('custom agent')) {
-        entities.productLine = 'Custom Agents';
+      } else if (message.includes('custom agent') || message.includes('fde')) {
+        entities.productLine = 'FDE - Custom AI Solution';
       } else if (message.includes('sigma')) {
-        entities.productLine = 'sigma';
+        entities.productLine = 'AI Platform - Sigma';
+      } else if (message.includes('insights')) {
+        entities.productLine = 'AI Platform - Insights';
       } else if (message.includes('litigation')) {
-        entities.productLine = 'Litigation';
+        entities.productLine = 'AI Platform - Litigation';
       } else if (message.includes('secondee') && !message.includes('contracting')) {
         entities.productLine = 'Other_Secondee';
       } else if (message.includes('multiple')) {

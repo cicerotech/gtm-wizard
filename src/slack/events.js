@@ -579,7 +579,7 @@ async function processQuery(text, userId, channelId, client, threadTs = null) {
 • "what closed this month?" - Monthly results
 
 *PRODUCT LINES*
-I can filter by: Contracting, M&A, Compliance, Litigation, sigma, Custom Agents
+I can filter by: Contracting, M&A, Compliance, Litigation, Sigma, Insights, FDE
 
 Ask me anything about your pipeline, accounts, or deals!`;
       
@@ -609,7 +609,7 @@ Ask me anything about your pipeline, accounts, or deals!`;
       const stageName = parsedIntent.entities.stages?.[0] || 'the pipeline';
       await client.chat.postMessage({
         channel: channelId,
-        text: `No Litigation deals currently in ${stageName}.`,
+        text: `No AI Platform - Litigation deals currently in ${stageName}.`,
         thread_ts: threadTs,
         replace_original: true
       });
@@ -2094,9 +2094,11 @@ function buildAccountFieldQuery(entities) {
           'mna': 'AI-Augmented M&A_Managed Service',
           'm&a in-house': 'Augmented-M&A',
           'compliance': 'AI-Augmented Compliance_In-House Technology',
-          'sigma': 'sigma',
-          'litigation': 'Litigation',
-          'custom agents': 'Custom Agents',
+          'sigma': 'AI Platform - Sigma',
+          'insights': 'AI Platform - Insights',
+          'litigation': 'AI Platform - Litigation',
+          'custom agents': 'FDE - Custom AI Solution',
+          'fde': 'FDE - Custom AI Solution',
           'secondee': 'Contracting - Secondee',
           'contracting secondee': 'Contracting - Secondee',
           'other managed': 'Other_Managed Service',

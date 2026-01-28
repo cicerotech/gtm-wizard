@@ -80,7 +80,7 @@ private class DeliveryCreationServiceTest {
             AccountId = testAccount.Id,
             StageName = 'Stage 1. Discovery',
             CloseDate = Date.today().addDays(30),
-            Product_Line__c = 'Sigma',
+            Product_Line__c = 'AI Platform - Sigma',
             ACV__c = 100000,
             Opportunity_Source__c = 'Inbound'  // Required by validation rule
         );
@@ -109,7 +109,7 @@ private class DeliveryCreationServiceTest {
             AccountId = testAccount.Id,
             StageName = 'Stage 1. Discovery',
             CloseDate = Date.today().addDays(30),
-            Product_Line__c = 'Custom Agents',
+            Product_Line__c = 'FDE - Custom AI Solution',
             ACV__c = 150000,
             Opportunity_Source__c = 'Inbound'  // Required by validation rule
         );
@@ -143,7 +143,7 @@ private class DeliveryCreationServiceTest {
             AccountId = testAccount.Id,
             StageName = 'Stage 1. Discovery',
             CloseDate = Date.today().addDays(30),
-            Product_Line__c = 'Litigation',
+            Product_Line__c = 'AI Platform - Litigation',
             ACV__c = 200000,
             Opportunity_Source__c = 'Inbound'  // Required by validation rule
         );
@@ -153,7 +153,7 @@ private class DeliveryCreationServiceTest {
         Delivery__c existingDelivery = new Delivery__c(
             Opportunity__c = testOpp.Id,
             Account__c = testAccount.Id,
-            Product_Line__c = 'Litigation',
+            Product_Line__c = 'AI Platform - Litigation',
             Delivery_Model__c = 'AI-First (95% AI / 5% Human)'
         );
         insert existingDelivery;

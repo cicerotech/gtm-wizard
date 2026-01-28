@@ -20,8 +20,11 @@ Map<String, String> corrections = new Map<String, String>{
     'Other_Managed Service' => 'Other - Managed Service',
     'Other_Secondee' => 'Other - Secondee',
     
-    // Case fixes
-    'sigma' => 'Sigma',
+    // Product line renames (Jan 2026)
+    'Sigma' => 'AI Platform - Sigma',
+    'sigma' => 'AI Platform - Sigma',
+    'Litigation' => 'AI Platform - Litigation',
+    'Custom Agents' => 'FDE - Custom AI Solution',
     
     // Legacy format fixes
     'Augmented-M&A' => 'AI-Augmented M&A - In-House Technology'

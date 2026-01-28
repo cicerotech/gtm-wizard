@@ -213,7 +213,7 @@ class ResponseFormatter {
    */
   formatNoResults(parsedIntent) {
     if (parsedIntent.entities.productLine === 'LITIGATION_NOT_EXIST') {
-      return `No results found for Litigation.\n\n*Available:* Contracting (Managed/In-House), M&A, Compliance, sigma, Litigation, Custom Agents`;
+      return `No results found for Litigation.\n\n*Available:* Contracting (Managed/In-House), M&A, Compliance, Sigma, Insights, Litigation, FDE`;
     }
     
     return `No results found.\n\nTry:\n• "show me pipeline"\n• "late stage deals"\n• "who owns [company]"`;

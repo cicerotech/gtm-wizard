@@ -45,19 +45,24 @@
                 <label>AI-Augmented M&amp;A - Managed Service</label>
             </value>
             <value>
-                <fullName>Sigma</fullName>
+                <fullName>AI Platform - Sigma</fullName>
                 <default>false</default>
-                <label>Sigma</label>
+                <label>AI Platform - Sigma</label>
             </value>
             <value>
-                <fullName>Custom Agents</fullName>
+                <fullName>AI Platform - Insights</fullName>
                 <default>false</default>
-                <label>Custom Agents</label>
+                <label>AI Platform - Insights</label>
             </value>
             <value>
-                <fullName>Litigation</fullName>
+                <fullName>AI Platform - Litigation</fullName>
                 <default>false</default>
-                <label>Litigation</label>
+                <label>AI Platform - Litigation</label>
+            </value>
+            <value>
+                <fullName>FDE - Custom AI Solution</fullName>
+                <default>false</default>
+                <label>FDE - Custom AI Solution</label>
             </value>
             <value>
                 <fullName>Other - Managed Service</fullName>

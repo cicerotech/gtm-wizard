@@ -45,10 +45,10 @@ const SALESFORCE_CONTRACT_FIELDS = {
       'AI Augmented - Contracting',
       'AI Augmented - M&A',
       'Compliance',
-      'Litigation',
-      'sigma',
+      'AI Platform - Litigation',
+      'AI Platform - Sigma',
       'Other',
-      'Insights',
+      'AI Platform - Insights',
       'Multiple',
       'None specified',
       'Cortex',
@@ -66,13 +66,13 @@ const SALESFORCE_CONTRACT_FIELDS = {
     values: [
       'AI Augmented - Contracting',
       'AI Augmented - M&A',
-      'sigma',
-      'Litigation',
+      'AI Platform - Sigma',
+      'AI Platform - Litigation',
       'Compliance',
       'Cortex',
       'Multiple',
       'Undetermined',
-      'Insights',
+      'AI Platform - Insights',
       'Other',
       'Data Privacy Support',
       'Legal Support',
@@ -1859,10 +1859,10 @@ class ContractAnalyzer {
     if (normalized.includes('m&a') || normalized.includes('merger') || normalized.includes('acquisition')) {
       return 'AI Augmented - M&A';
     }
-    if (normalized.includes('insight')) return 'Insights';
-    if (normalized.includes('sigma')) return 'sigma';
+    if (normalized.includes('insight')) return 'AI Platform - Insights';
+    if (normalized.includes('sigma')) return 'AI Platform - Sigma';
     if (normalized.includes('compliance')) return 'Compliance';
-    if (normalized.includes('litigation')) return 'Litigation';
+    if (normalized.includes('litigation')) return 'AI Platform - Litigation';
     if (normalized.includes('cortex')) return 'Cortex';
     
     return null; // Unknown product

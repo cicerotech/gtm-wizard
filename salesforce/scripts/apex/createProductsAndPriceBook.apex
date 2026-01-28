@@ -104,34 +104,44 @@ if (!existingCodes.contains('AI-Augmented M&A_Managed Service')) {
     ));
 }
 
-// --- Platform ---
-if (!existingCodes.contains('sigma')) {
+// --- AI Platform ---
+if (!existingCodes.contains('AI Platform - Sigma')) {
     products.add(new Product2(
-        Name = 'Sigma',
-        ProductCode = 'sigma',
-        Family = 'Platform',
+        Name = 'AI Platform - Sigma',
+        ProductCode = 'AI Platform - Sigma',
+        Family = 'AI Platform',
         Description = 'Self-serve agent suite with Q&A, Summarization, Drafting, Translation, and Insights.',
         IsActive = true
     ));
 }
 
-if (!existingCodes.contains('Custom Agents')) {
+if (!existingCodes.contains('AI Platform - Insights')) {
     products.add(new Product2(
-        Name = 'Custom Agents',
-        ProductCode = 'Custom Agents',
-        Family = 'Platform',
-        Description = 'Custom AI agent development and deployment for specialized workflows.',
+        Name = 'AI Platform - Insights',
+        ProductCode = 'AI Platform - Insights',
+        Family = 'AI Platform',
+        Description = 'AI-powered insights and analytics for legal operations.',
         IsActive = true
     ));
 }
 
-// --- Litigation ---
-if (!existingCodes.contains('Litigation')) {
+if (!existingCodes.contains('AI Platform - Litigation')) {
     products.add(new Product2(
-        Name = 'Litigation',
-        ProductCode = 'Litigation',
-        Family = 'Litigation',
+        Name = 'AI Platform - Litigation',
+        ProductCode = 'AI Platform - Litigation',
+        Family = 'AI Platform',
         Description = 'Litigation support and e-discovery services with AI-powered document review.',
+        IsActive = true
+    ));
+}
+
+// --- FDE ---
+if (!existingCodes.contains('FDE - Custom AI Solution')) {
+    products.add(new Product2(
+        Name = 'FDE - Custom AI Solution',
+        ProductCode = 'FDE - Custom AI Solution',
+        Family = 'FDE',
+        Description = 'Custom AI agent development and deployment for specialized workflows.',
         IsActive = true
     ));
 }
@@ -167,9 +177,10 @@ List<String> allProductCodes = new List<String>{
     'AI-Augmented Compliance_In-House Technology',
     'Augmented-M&A',
     'AI-Augmented M&A_Managed Service',
-    'sigma',
-    'Custom Agents',
-    'Litigation',
+    'AI Platform - Sigma',
+    'AI Platform - Insights',
+    'AI Platform - Litigation',
+    'FDE - Custom AI Solution',
     'Other_Managed Service',
     'Other_Secondee'
 };
