@@ -522,6 +522,45 @@
         .stage-card.lead-card .stage-label {
             color: #64748b;
         }
+        
+        /* BL Summary Stage Actions Grid */
+        .bl-stage-actions {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+        
+        @media (max-width: 900px) {
+            .bl-stage-actions { grid-template-columns: repeat(4, 1fr); }
+        }
+        
+        @media (max-width: 500px) {
+            .bl-stage-actions { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        .bl-stage-action {
+            background: #f8fafc;
+            border-radius: 6px;
+            padding: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .bl-stage-action-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .bl-stage-action-label.lead { color: #64748b; }
+        .bl-stage-action-label.stage { color: #6366f1; }
+        
+        .bl-stage-action-text {
+            font-size: 10px;
+            color: #475569;
+            margin-top: 2px;
+        }
     </style>
 </head>
 <body>
@@ -552,38 +591,81 @@
             </div>
         </header>
 
-        <!-- WEEKLY UPDATE REFERENCE -->
-        <div class="weekly-update-ref">
-            <div class="weekly-update-header">
-                <div class="weekly-update-title">
-                    <span class="bl-tag">BL</span> Weekly Pipeline Update
+        <!-- BL BUSINESS LEADS SUMMARY -->
+        <div class="weekly-update-ref" style="background: white; border: 1px solid #e2e8f0;">
+            <div style="margin-bottom: 16px;">
+                <div style="font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 4px;">
+                    <span class="bl-tag">BL</span> Business Leads Summary
                 </div>
-                <div class="weekly-update-deadline">Due: Thursday EOD</div>
+                <div style="font-size: 11px; color: #64748b;">What matters at each stage — your focus areas and key actions</div>
             </div>
-            <div class="weekly-update-grid">
-                <div class="update-field">
-                    <div class="update-field-name">Stage</div>
-                    <div class="update-field-hint">Current position (0-5)</div>
+            
+            <!-- Stage Actions Grid -->
+            <div class="bl-stage-actions">
+                <div class="bl-stage-action">
+                    <div class="bl-stage-action-label lead">Lead</div>
+                    <div class="bl-stage-action-text">Outreach & engage</div>
                 </div>
-                <div class="update-field">
-                    <div class="update-field-name">ACV</div>
-                    <div class="update-field-hint">Annual contract value</div>
+                <div class="bl-stage-action">
+                    <div class="bl-stage-action-label stage">Stage 0</div>
+                    <div class="bl-stage-action-text">Book the meeting</div>
                 </div>
-                <div class="update-field">
-                    <div class="update-field-name">Target Sign Date</div>
-                    <div class="update-field-hint">Expected close</div>
+                <div class="bl-stage-action">
+                    <div class="bl-stage-action-label stage">Stage 1</div>
+                    <div class="bl-stage-action-text">Qualify with MEDDICC</div>
                 </div>
-                <div class="update-field">
-                    <div class="update-field-name">Sales Type</div>
-                    <div class="update-field-hint">New / Expansion / Renewal</div>
+                <div class="bl-stage-action">
+                    <div class="bl-stage-action-label stage">Stage 2</div>
+                    <div class="bl-stage-action-text">Build Account Plan</div>
                 </div>
-                <div class="update-field">
-                    <div class="update-field-name">Product Line</div>
-                    <div class="update-field-hint">Primary offering</div>
+                <div class="bl-stage-action">
+                    <div class="bl-stage-action-label stage">Stage 3</div>
+                    <div class="bl-stage-action-text">Run pilot (if needed)</div>
                 </div>
-                <div class="update-field">
-                    <div class="update-field-name">Forecast Category</div>
-                    <div class="update-field-hint">Pipeline / Gut / Commit</div>
+                <div class="bl-stage-action">
+                    <div class="bl-stage-action-label stage">Stage 4</div>
+                    <div class="bl-stage-action-text">Send proposal</div>
+                </div>
+                <div class="bl-stage-action">
+                    <div class="bl-stage-action-label stage">Stage 5</div>
+                    <div class="bl-stage-action-text">Close the deal</div>
+                </div>
+            </div>
+            
+            <!-- Weekly Update Fields -->
+            <div style="border-top: 1px solid #e2e8f0; padding-top: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div style="font-size: 12px; font-weight: 600; color: #1e293b;">Weekly Update Fields</div>
+                    <div class="weekly-update-deadline">Due: Thursday EOD</div>
+                </div>
+                <div class="weekly-update-grid">
+                    <div class="update-field">
+                        <div class="update-field-name">Stage</div>
+                        <div class="update-field-hint">Current position (0-5)</div>
+                    </div>
+                    <div class="update-field">
+                        <div class="update-field-name">ACV</div>
+                        <div class="update-field-hint">Annual contract value</div>
+                    </div>
+                    <div class="update-field">
+                        <div class="update-field-name">Target Sign Date</div>
+                        <div class="update-field-hint">Expected close</div>
+                    </div>
+                    <div class="update-field">
+                        <div class="update-field-name">Sales Type</div>
+                        <div class="update-field-hint">New / Expansion / Renewal</div>
+                    </div>
+                    <div class="update-field">
+                        <div class="update-field-name">Product Line</div>
+                        <div class="update-field-hint">Primary offering</div>
+                    </div>
+                    <div class="update-field">
+                        <div class="update-field-name">Forecast Category</div>
+                        <div class="update-field-hint">Pipeline / Gut / Commit</div>
+                    </div>
+                </div>
+                <div style="font-size: 10px; color: #64748b; margin-top: 10px; text-align: center;">
+                    These fields drive revenue forecasting, correct attribution, and product traction insights.
                 </div>
             </div>
         </div>
@@ -746,51 +828,9 @@
             </div>
         </details>
 
-        <!-- 4. AUTOMATION -->
+        <!-- 4. PRODUCT LINES -->
         <details open>
-            <summary><h2>4. Automation & Data Capture</h2></summary>
-            <div class="section-content">
-                <div class="automation-grid">
-                    <div class="automation-card">
-                        <div class="automation-title">Meeting Prep</div>
-                        <div class="automation-desc"><span class="person-tag">Keigan</span> prepares Stage 1-2 materials, shared with <span class="bl-tag">BLs</span> for revision.</div>
-                    </div>
-                    <div class="automation-card">
-                        <div class="automation-title">Meeting Notes</div>
-                        <div class="automation-desc"><span class="tool-tag">Obsidian</span> auto-captures meeting summaries, action items, and next steps. Syncs to SF.</div>
-                    </div>
-                    <div class="automation-card">
-                        <div class="automation-title">Weekly Review</div>
-                        <div class="automation-desc"><strong>Thu EOD:</strong> <span class="bl-tag">BLs</span> update active opps (ACV, stage, dates, notes).</div>
-                    </div>
-                    <div class="automation-card">
-                        <div class="automation-title">Close Won → Delivery</div>
-                        <div class="automation-desc">Delivery object auto-created. Revenue type set by term length.</div>
-                    </div>
-                    <div class="automation-card">
-                        <div class="automation-title">Contract Management</div>
-                        <div class="automation-desc"><span class="tool-tag">gtm-brain</span> assists. Auto-flows to ERP after review.</div>
-                    </div>
-                </div>
-
-                <h3>Close Won Data Flow</h3>
-                <div class="flow-steps">
-                    <div class="flow-step">Close Won</div>
-                    <span class="flow-arrow">→</span>
-                    <div class="flow-step">Delivery Object</div>
-                    <span class="flow-arrow">→</span>
-                    <div class="flow-step">Contract (Opp + Acct)</div>
-                    <span class="flow-arrow">→</span>
-                    <div class="flow-step">ERP Sync</div>
-                    <span class="flow-arrow">→</span>
-                    <div class="flow-step"><span class="tool-tag">PM Platform</span></div>
-                </div>
-            </div>
-        </details>
-
-        <!-- 5. PRODUCT LINES -->
-        <details open>
-            <summary><h2>5. Product Lines</h2></summary>
+            <summary><h2>4. Product Lines</h2></summary>
             <div class="section-content">
                 <table>
                     <thead><tr><th>Product Line</th><th>Notes</th></tr></thead>
@@ -813,9 +853,9 @@
             </div>
         </details>
 
-        <!-- 6. ACCOUNT & OPPORTUNITY TAGGING -->
+        <!-- 5. ACCOUNT & OPPORTUNITY TAGGING -->
         <details open>
-            <summary><h2>6. Account & Opportunity Tagging</h2></summary>
+            <summary><h2>5. Account & Opportunity Tagging</h2></summary>
             <div class="section-content">
                 <div class="note">
                     Account assignment and reporting structure documentation coming soon.
@@ -865,9 +905,9 @@
             </div>
         </details>
 
-        <!-- 7. OPPORTUNITY REVENUE TYPES -->
+        <!-- 6. OPPORTUNITY REVENUE TYPES -->
         <details open>
-            <summary><h2>7. Opportunity Revenue Types</h2></summary>
+            <summary><h2>6. Opportunity Revenue Types</h2></summary>
             <div class="section-content">
                 <p style="font-size: 11px; color: #64748b; margin-bottom: 10px;">Assigned at Close Won. Revenue $ only populated for Recurring + Project.</p>
                 <table>
@@ -878,6 +918,48 @@
                         <tr><td><strong>Commitment</strong></td><td>Manual — LOI only, input "Commitment ACV"</td></tr>
                     </tbody>
                 </table>
+            </div>
+        </details>
+
+        <!-- 7. AUTOMATION & DATA CAPTURE -->
+        <details open>
+            <summary><h2>7. Automation & Data Capture</h2></summary>
+            <div class="section-content">
+                <div class="automation-grid">
+                    <div class="automation-card">
+                        <div class="automation-title">Meeting Prep</div>
+                        <div class="automation-desc"><span class="person-tag">Keigan</span> prepares Stage 1-2 materials, shared with <span class="bl-tag">BLs</span> for revision.</div>
+                    </div>
+                    <div class="automation-card">
+                        <div class="automation-title">Meeting Notes</div>
+                        <div class="automation-desc"><span class="tool-tag">Obsidian</span> auto-captures meeting summaries, action items, and next steps. Syncs to SF.</div>
+                    </div>
+                    <div class="automation-card">
+                        <div class="automation-title">Weekly Review</div>
+                        <div class="automation-desc"><strong>Thu EOD:</strong> <span class="bl-tag">BLs</span> update active opps (ACV, stage, dates, notes).</div>
+                    </div>
+                    <div class="automation-card">
+                        <div class="automation-title">Close Won → Delivery</div>
+                        <div class="automation-desc">Delivery object auto-created. Revenue type set by term length.</div>
+                    </div>
+                    <div class="automation-card">
+                        <div class="automation-title">Contract Management</div>
+                        <div class="automation-desc"><span class="tool-tag">gtm-brain</span> assists. Auto-flows to ERP after review.</div>
+                    </div>
+                </div>
+
+                <h3>Close Won Data Flow</h3>
+                <div class="flow-steps">
+                    <div class="flow-step">Close Won</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">Delivery Object</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">Contract (Opp + Acct)</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">ERP Sync</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step"><span class="tool-tag">PM Platform</span></div>
+                </div>
             </div>
         </details>
 
