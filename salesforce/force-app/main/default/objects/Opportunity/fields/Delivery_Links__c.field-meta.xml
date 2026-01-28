@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Delivery_Links__c</fullName>
+    <description>Clickable links to all Delivery records associated with this Opportunity. Auto-populated when Deliveries are created.</description>
+    <externalId>false</externalId>
+    <label>Delivery Links</label>
+    <length>5000</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Html</type>
+    <visibleLines>15</visibleLines>
+</CustomField>
+

@@ -196,29 +196,50 @@ public class DeliveryCreationService {
     private static void updateOpportunityWithDeliveries(Id opportunityId, List<Delivery__c> deliveries) {
         if (deliveries == null || deliveries.isEmpty()) return;
         
-        // Build summary text
+        // Get base URL for hyperlinks
+        String baseUrl = URL.getOrgDomainUrl().toExternalForm();
+        
+        // Build summary text (plain text for All_Delivery_Codes__c)
         List<String> summaryLines = new List<String>();
+        // Build HTML links (for Delivery_Links__c Rich Text field)
+        List<String> htmlLines = new List<String>();
+        
         for (Delivery__c d : deliveries) {
+            // Plain text version
             String line = '• ' + d.Name + ' (' + d.Product_Line__c + ')';
             if (d.Contract_Value__c != null && d.Contract_Value__c > 0) {
                 line += ' - $' + formatCurrency(d.Contract_Value__c);
             }
             summaryLines.add(line);
+            
+            // HTML hyperlink version
+            String productInfo = d.Product_Line__c != null ? d.Product_Line__c : 'N/A';
+            String valueInfo = '';
+            if (d.Contract_Value__c != null && d.Contract_Value__c > 0) {
+                valueInfo = ' - $' + formatCurrency(d.Contract_Value__c);
+            }
+            String htmlLine = '<p>• <a href="' + baseUrl + '/' + d.Id + '" target="_blank">' + d.Name + '</a> (' + productInfo + ')' + valueInfo + '</p>';
+            htmlLines.add(htmlLine);
         }
+        
         String summaryText = String.join(summaryLines, '\n');
+        String htmlText = String.join(htmlLines, '');
         
         // Update Opportunity
         Opportunity oppUpdate = new Opportunity(Id = opportunityId);
         
-        // Set All_Delivery_Codes__c text field (using existing field)
+        // Set All_Delivery_Codes__c text field (plain text)
         oppUpdate.All_Delivery_Codes__c = summaryText;
+        
+        // Set Delivery_Links__c Rich Text field (HTML with hyperlinks)
+        oppUpdate.Delivery_Links__c = htmlText;
         
         // Set primary Delivery lookup (first/largest delivery)
         oppUpdate.Delivery__c = deliveries[0].Id;
         
         try {
             update oppUpdate;
-            System.debug('Updated Opportunity with Delivery summary: ' + summaryText);
+            System.debug('Updated Opportunity with Delivery links: ' + htmlText);
         } catch (Exception e) {
             System.debug('Error updating Opportunity with Delivery summary: ' + e.getMessage());
         }
