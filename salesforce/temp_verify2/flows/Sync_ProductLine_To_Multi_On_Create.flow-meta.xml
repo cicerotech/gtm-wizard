@@ -1,7 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>59.0</apiVersion>
-    <description>ACTIVE: When an Opportunity is created with Product_Line__c set, copy the value to Product_Lines_Multi__c if the multi-select field is blank. This ensures backwards compatibility with the New Opportunity quick action.</description>
+    <assignments>
+        <name>Copy_ProductLine_To_Multi</name>
+        <label>Copy ProductLine To Multi</label>
+        <locationX>176</locationX>
+        <locationY>323</locationY>
+        <assignmentItems>
+            <assignToReference>$Record.Product_Lines_Multi__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>$Record.Product_Line__c</elementReference>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <description>When an Opportunity is created with Product_Line__c set, copy the value to Product_Lines_Multi__c if the multi-select field is blank. This ensures backwards compatibility.</description>
     <interviewLabel>Sync ProductLine To Multi On Create {!$Flow.CurrentDateTime}</interviewLabel>
     <label>Sync ProductLine To Multi On Create</label>
     <processMetadataValues>
@@ -17,23 +30,6 @@
         </value>
     </processMetadataValues>
     <processType>AutoLaunchedFlow</processType>
-    
-    <!-- Copy Product_Line__c to Product_Lines_Multi__c -->
-    <assignments>
-        <name>Copy_ProductLine_To_Multi</name>
-        <label>Copy ProductLine To Multi</label>
-        <locationX>176</locationX>
-        <locationY>323</locationY>
-        <assignmentItems>
-            <assignToReference>$Record.Product_Lines_Multi__c</assignToReference>
-            <operator>Assign</operator>
-            <value>
-                <elementReference>$Record.Product_Line__c</elementReference>
-            </value>
-        </assignmentItems>
-    </assignments>
-    
-    <!-- Start - Trigger on Opportunity Create -->
     <start>
         <locationX>50</locationX>
         <locationY>0</locationY>
@@ -59,7 +55,5 @@
         <recordTriggerType>Create</recordTriggerType>
         <triggerType>RecordBeforeSave</triggerType>
     </start>
-    
-    <status>Active</status>
+    <status>Draft</status>
 </Flow>
-
