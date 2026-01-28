@@ -95,6 +95,31 @@
             padding: 20px;
         }
         
+        /* Modern Icon Styling */
+        .icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            margin: 0 auto 10px;
+        }
+        
+        .icon svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        .icon-sync { background: linear-gradient(135deg, #dbeafe, #bfdbfe); }
+        .icon-sync svg { stroke: #2563eb; }
+        
+        .icon-target { background: linear-gradient(135deg, #d1fae5, #a7f3d0); }
+        .icon-target svg { stroke: #059669; }
+        
+        .icon-chart { background: linear-gradient(135deg, #fef3c7, #fde68a); }
+        .icon-chart svg { stroke: #d97706; }
+        
         /* Value Props Grid */
         .value-grid {
             display: grid;
@@ -111,11 +136,6 @@
             border-radius: 8px;
             padding: 16px;
             text-align: center;
-        }
-        
-        .value-icon {
-            font-size: 24px;
-            margin-bottom: 8px;
         }
         
         .value-title {
@@ -171,60 +191,129 @@
             margin-top: 12px;
         }
         
-        /* Setup Steps */
+        /* Setup Steps - Cleaner */
         .setup-steps {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 16px;
         }
         
         .setup-step {
             display: flex;
-            gap: 14px;
+            gap: 16px;
             align-items: flex-start;
-            padding: 14px;
-            background: #f8fafc;
-            border-radius: 8px;
-            border-left: 3px solid #8e99e1;
+        }
+        
+        .step-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-shrink: 0;
         }
         
         .step-number {
-            background: #e2e8f0;
-            color: #475569;
-            width: 22px;
-            height: 22px;
+            background: #8e99e1;
+            color: white;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
             font-size: 11px;
-            flex-shrink: 0;
+        }
+        
+        .step-line {
+            width: 2px;
+            flex: 1;
+            background: #e2e8f0;
+            margin-top: 6px;
+            min-height: 20px;
+        }
+        
+        .setup-step:last-child .step-line {
+            display: none;
+        }
+        
+        .step-content {
+            flex: 1;
+            padding-bottom: 8px;
         }
         
         .step-content h3 {
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 600;
             color: #1e293b;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
         }
         
         .step-content p {
             font-size: 11px;
             color: #64748b;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
         }
         
         .step-link {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
             color: #8e99e1;
             font-size: 11px;
             font-weight: 500;
             text-decoration: none;
+            padding: 4px 10px;
+            background: #f0f1fa;
+            border-radius: 4px;
         }
         
         .step-link:hover {
-            text-decoration: underline;
+            background: #e4e6f5;
+        }
+        
+        /* Folder Structure Visual */
+        .folder-structure {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 14px 16px;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+            font-size: 11px;
+            color: #e2e8f0;
+            margin: 8px 0;
+        }
+        
+        .folder-structure .folder {
+            color: #fbbf24;
+        }
+        
+        .folder-structure .file {
+            color: #94a3b8;
+        }
+        
+        .folder-structure .indent {
+            margin-left: 16px;
+        }
+        
+        .folder-structure .indent-2 {
+            margin-left: 32px;
+        }
+        
+        /* Action Box */
+        .action-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 11px;
+            margin-top: 8px;
+        }
+        
+        .action-box code {
+            background: #e2e8f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'SF Mono', monospace;
+            font-size: 10px;
         }
         
         /* Resources Grid */
@@ -257,8 +346,20 @@
         }
         
         .resource-icon {
-            font-size: 20px;
-            margin-bottom: 8px;
+            width: 32px;
+            height: 32px;
+            margin: 0 auto 8px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .resource-icon svg {
+            width: 16px;
+            height: 16px;
+            stroke: #64748b;
         }
         
         .resource-title {
@@ -302,17 +403,17 @@
         
         /* Quick tip */
         .quick-tip {
-            background: #ecfdf5;
-            border: 1px solid #a7f3d0;
+            background: #f0f1fa;
+            border: 1px solid #d4d8f0;
             border-radius: 8px;
             padding: 14px 16px;
             margin-top: 16px;
             font-size: 11px;
-            color: #065f46;
+            color: #4b5563;
         }
         
         .quick-tip strong {
-            color: #047857;
+            color: #6b7cb8;
         }
         
         /* Stage reference */
@@ -336,6 +437,17 @@
             background: #8e99e1;
             color: white;
         }
+        
+        /* Note callout */
+        .note-callout {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 10px;
+            color: #92400e;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -357,17 +469,29 @@
             <div class="section-content">
                 <div class="value-grid">
                     <div class="value-item">
-                        <div class="value-icon">⚡</div>
+                        <div class="icon icon-sync">
+                            <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                            </svg>
+                        </div>
                         <div class="value-title">Zero Manual Data Entry</div>
                         <div class="value-desc">Meeting notes auto-sync to accounts. Calendar events flow to Salesforce. Spend time selling, not logging.</div>
                     </div>
                     <div class="value-item">
-                        <div class="value-icon">🎯</div>
+                        <div class="icon icon-target">
+                            <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
                         <div class="value-title">Meeting Prep in Seconds</div>
                         <div class="value-desc">Every meeting gets auto-generated context: prior notes, open opps, key contacts, and next steps.</div>
                     </div>
                     <div class="value-item">
-                        <div class="value-icon">📊</div>
+                        <div class="icon icon-chart">
+                            <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                            </svg>
+                        </div>
                         <div class="value-title">Accurate Forecasting</div>
                         <div class="value-desc">Weekly updates drive EOQ projections, product traction insights, and resource planning.</div>
                     </div>
@@ -449,49 +573,94 @@
             <div class="section-content">
                 <div class="setup-steps">
                     <div class="setup-step">
-                        <div class="step-number">1</div>
+                        <div class="step-indicator">
+                            <div class="step-number">1</div>
+                            <div class="step-line"></div>
+                        </div>
                         <div class="step-content">
                             <h3>Install Obsidian</h3>
-                            <p>Download from obsidian.md and create a new vault named "Eudia" or similar. This is where your meeting notes will live.</p>
-                            <a href="https://obsidian.md" target="_blank" class="step-link">Download Obsidian →</a>
+                            <p>Download and install from obsidian.md</p>
+                            <a href="https://obsidian.md" target="_blank" class="step-link">
+                                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                Download
+                            </a>
                         </div>
                     </div>
                     
                     <div class="setup-step">
-                        <div class="step-number">2</div>
+                        <div class="step-indicator">
+                            <div class="step-number">2</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step-content">
+                            <h3>Create Your Vault</h3>
+                            <p>When Obsidian opens, click "Create new vault" and name it (e.g., "Eudia Notes"). Choose a location on your computer.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-indicator">
+                            <div class="step-number">3</div>
+                            <div class="step-line"></div>
+                        </div>
                         <div class="step-content">
                             <h3>Install Scribe Plugin</h3>
-                            <p>Open Settings → Community Plugins → Browse → Search "Scribe" → Install & Enable. This handles voice-to-text transcription and AI summaries.</p>
+                            <div class="action-box">
+                                Settings <code>⌘ ,</code> → Community Plugins → Turn on → Browse → Search "Scribe" → Install → Enable
+                            </div>
                         </div>
                     </div>
                     
                     <div class="setup-step">
-                        <div class="step-number">3</div>
+                        <div class="step-indicator">
+                            <div class="step-number">4</div>
+                            <div class="step-line"></div>
+                        </div>
                         <div class="step-content">
-                            <h3>Configure Scribe with OpenAI</h3>
-                            <p>In Scribe settings, paste the shared OpenAI API key (provided by RevOps). Select "GPT-4o" as the model. This powers the AI meeting summaries.</p>
+                            <h3>Configure Scribe with OpenAI Key</h3>
+                            <div class="action-box">
+                                Settings → Scribe → Paste the API key (provided by RevOps) → Select "GPT-4o" model
+                            </div>
+                            <div class="note-callout">
+                                Once configured, Scribe records audio → transcribes → generates AI summary with action items automatically.
+                            </div>
                         </div>
                     </div>
                     
                     <div class="setup-step">
-                        <div class="step-number">4</div>
+                        <div class="step-indicator">
+                            <div class="step-number">5</div>
+                            <div class="step-line"></div>
+                        </div>
                         <div class="step-content">
-                            <h3>Create Account Folders</h3>
-                            <p>Create a folder for each account you're working. Inside each, add meeting notes as you go. Example: <code>Amazon/2026-01-28 Discovery.md</code></p>
+                            <h3>Set Up Your Folder Structure</h3>
+                            <p>Create one folder per account. Inside each, you'll add notes for meetings.</p>
+                            <div class="folder-structure">
+                                <div><span class="folder">📁 Accounts</span></div>
+                                <div class="indent"><span class="folder">📁 Amazon</span></div>
+                                <div class="indent-2"><span class="file">📄 2026-01-28 Discovery Call.md</span></div>
+                                <div class="indent-2"><span class="file">📄 2026-02-05 Follow-up.md</span></div>
+                                <div class="indent"><span class="folder">📁 Salesforce</span></div>
+                                <div class="indent-2"><span class="file">📄 2026-01-30 Demo.md</span></div>
+                            </div>
+                            <div class="action-box">
+                                <strong>To create:</strong> Right-click in sidebar → <code>New folder</code> for accounts, <code>New note</code> for meetings. Rename from "Untitled" to date + meeting type.
+                            </div>
                         </div>
                     </div>
                     
                     <div class="setup-step">
-                        <div class="step-number">5</div>
+                        <div class="step-indicator">
+                            <div class="step-number">6</div>
+                        </div>
                         <div class="step-content">
-                            <h3>Calendar Sync</h3>
-                            <p>Your calendar is already synced via Microsoft Graph. Meeting prep sheets are auto-generated daily for external meetings. Check the Meeting Prep tab.</p>
+                            <h3>Recording a Meeting</h3>
+                            <p>Open or create a note for the meeting. Click Scribe's record button in the ribbon. When done, Scribe transcribes and generates your summary.</p>
+                            <div class="note-callout">
+                                <strong>Calendar context:</strong> Your calendar is already synced. Use the <strong>Meeting Prep</strong> tab to see context (prior notes, opps, contacts) before calls. Obsidian is for capturing notes during/after — Meeting Prep provides the prep before.
+                            </div>
                         </div>
                     </div>
-                </div>
-                
-                <div class="quick-tip">
-                    <strong>Recording meetings:</strong> In Obsidian, use Scribe's record button during calls. When you stop, it transcribes and generates a summary with action items and next steps. Notes sync to Customer Brain in Salesforce.
                 </div>
             </div>
         </div>
@@ -523,29 +692,41 @@
             <div class="section-content">
                 <div class="resources-grid">
                     <div class="resource-card" onclick="parent.document.getElementById('tab-sales').click()">
-                        <div class="resource-icon">📋</div>
+                        <div class="resource-icon">
+                            <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
+                            </svg>
+                        </div>
                         <div class="resource-title">Sales Process</div>
-                        <div class="resource-desc">Stages, MEDDICC, field definitions</div>
+                        <div class="resource-desc">Stages, MEDDICC, definitions</div>
                     </div>
                     <div class="resource-card" onclick="parent.document.getElementById('tab-dashboard').click()">
-                        <div class="resource-icon">📊</div>
+                        <div class="resource-icon">
+                            <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                            </svg>
+                        </div>
                         <div class="resource-title">Dashboard</div>
                         <div class="resource-desc">Pipeline, accounts, revenue</div>
                     </div>
                     <div class="resource-card" onclick="parent.document.getElementById('tab-meeting-prep').click()">
-                        <div class="resource-icon">📅</div>
+                        <div class="resource-icon">
+                            <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                            </svg>
+                        </div>
                         <div class="resource-title">Meeting Prep</div>
                         <div class="resource-desc">Context for upcoming calls</div>
                     </div>
                     <div class="resource-card" onclick="parent.document.getElementById('tab-commands').click()">
-                        <div class="resource-icon">⌨️</div>
+                        <div class="resource-icon">
+                            <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
+                            </svg>
+                        </div>
                         <div class="resource-title">Commands</div>
                         <div class="resource-desc">Slack commands reference</div>
                     </div>
-                </div>
-                
-                <div class="quick-tip" style="margin-top: 16px; background: #f0f9ff; border-color: #93c5fd;">
-                    <strong style="color: #1e40af;">Need help?</strong> <span style="color: #1e40af;">Reach out in #revops-support on Slack for setup assistance or questions.</span>
                 </div>
             </div>
         </div>
