@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Strategy_M_A</fullName>
+    <active>true</active>
+    <businessProcess>Strategy - M%26A</businessProcess>
+    <label>Strategy - M&amp;A</label>
+    <picklistValues>
+        <picklist>ForecastCategoryName</picklist>
+        <values>
+            <fullName>Base Case</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Closed</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Commit</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Gut</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Omitted</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>LeadSource</picklist>
+        <values>
+            <fullName>Advertisement</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Customer Event</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Email</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Employee Referral</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>External Referral</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Google AdWords</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Inbound - Client Referral</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Inbound - Marketing Campaign</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Inbound - Webinar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Inbound - Website</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>M%26A Targets</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Other</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Outbound - Event</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Outbound - Sales Outreach</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Partner</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Purchased List</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Social</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Trade Show</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Webinar</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Website</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Type</picklist>
+        <values>
+            <fullName>Expansion</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>New Business</fullName>
+            <default>true</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Product_Lines_Multi__c</picklist>
+        <values>
+            <fullName>AI-Augmented Contracting - In-House Technology</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>AI-Augmented Contracting - Managed Services</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Contracting - Secondee</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>AI-Augmented Compliance - In-House Technology</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>AI-Augmented M%26A - In-House Technology</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>AI-Augmented M%26A - Managed Service</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sigma</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Custom Agents</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Litigation</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Other - Managed Service</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Other - Secondee</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Undetermined</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Multiple %28BL Review%29</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>
