@@ -69,6 +69,11 @@
                 <default>false</default>
                 <label>Other - Secondee</label>
             </value>
+            <value>
+                <fullName>Undetermined</fullName>
+                <default>false</default>
+                <label>Undetermined</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
     <visibleLines>4</visibleLines>

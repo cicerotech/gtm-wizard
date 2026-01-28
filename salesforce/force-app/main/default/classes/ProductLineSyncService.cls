@@ -71,10 +71,15 @@ public class ProductLineSyncService {
             if (req.opportunityId == null) continue;
             
             // Parse selected products (multi-select values are semicolon-separated)
+            // Skip "Undetermined" - it's just a placeholder flag, not an actual product
             Set<String> selectedProducts = new Set<String>();
             if (String.isNotBlank(req.selectedProductLines)) {
                 for (String product : req.selectedProductLines.split(';')) {
-                    selectedProducts.add(product.trim());
+                    String trimmed = product.trim();
+                    // Skip Undetermined - it's a flag, not a product
+                    if (trimmed != 'Undetermined') {
+                        selectedProducts.add(trimmed);
+                    }
                 }
             }
             
