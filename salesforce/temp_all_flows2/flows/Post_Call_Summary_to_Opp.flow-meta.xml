@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>64.0</apiVersion>
+    <assignments>
+        <name>Assignment_1</name>
+        <label>Assignment 1</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>newcleanname2</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>parsedCompanyName</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Get_Accounts</targetReference>
+        </connector>
+    </assignments>
+    <environments>Default</environments>
+    <formulas>
+        <name>cleanname</name>
+        <dataType>String</dataType>
+        <expression>LOWER(TRIM(
+   SUBSTITUTE(
+      SUBSTITUTE(
+         SUBSTITUTE({!accountNameSearch}, &quot;BL for&quot;, &quot;&quot;),
+      &quot;inc&quot;, &quot;&quot;), 
+   &quot;ltd&quot;, &quot;&quot;))
+)</expression>
+    </formulas>
+    <formulas>
+        <name>cleansearchcompany</name>
+        <dataType>String</dataType>
+        <expression>LOWER(TRIM(
+   SUBSTITUTE(
+      SUBSTITUTE(
+         SUBSTITUTE({!accountNameSearch}, &quot;BL for&quot;, &quot;&quot;),
+      &quot;inc&quot;, &quot;&quot;), 
+   &quot;ltd&quot;, &quot;&quot;))
+)</expression>
+    </formulas>
+    <formulas>
+        <name>constrainedOwnerName</name>
+        <dataType>String</dataType>
+        <expression>IF(
+    OR(
+        {!Get_Accounts.Owner.Name} = &quot;Himanshu&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Olivia&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Asad&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Jon&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Julie&quot;
+    ),
+    {!Get_Accounts.Owner.Name},
+    &quot;Unassigned&quot;
+)</expression>
+    </formulas>
+    <formulas>
+        <name>mynormalizeformula</name>
+        <dataType>String</dataType>
+        <expression>TRIM(
+  SUBSTITUTE(
+    SUBSTITUTE(
+      SUBSTITUTE(
+        SUBSTITUTE(
+          LOWER({!accountNameSearch}),
+        &quot;bl for&quot;, &quot;&quot;),
+      &quot;inc.&quot;, &quot;&quot;),
+    &quot;inc&quot;, &quot;&quot;),
+  &quot;ltd&quot;, &quot;&quot;)
+)</expression>
+    </formulas>
+    <formulas>
+        <name>newcleanname</name>
+        <dataType>String</dataType>
+        <expression>TRIM(
+  SUBSTITUTE(
+    SUBSTITUTE(
+      SUBSTITUTE(
+        SUBSTITUTE(LOWER({!accountNameSearch}), &quot;bl for&quot;, &quot;&quot;),
+      &quot;inc.&quot;, &quot;&quot;),
+    &quot;inc&quot;, &quot;&quot;),
+  &quot;ltd&quot;, &quot;&quot;)
+)</expression>
+    </formulas>
+    <formulas>
+        <name>newNotesFieldValue</name>
+        <dataType>String</dataType>
+        <expression>&quot;(&quot; &amp; TEXT(TODAY()) &amp; &quot;) &quot; &amp; {!slackUserName} &amp; &quot; Note: &quot; &amp; {!messageText} 
+&amp; BR() &amp; BR() &amp; 
+{!get_opp.Next_Step_Eudia__c}</expression>
+    </formulas>
+    <formulas>
+        <name>outputhandle</name>
+        <dataType>String</dataType>
+        <expression>IF(
+    OR(
+        {!Get_Accounts.Owner.Name} = &quot;Himanshu&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Olivia&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Asad&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Jon&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Julie&quot;
+    ),
+    {!Get_Accounts.Owner.Name},
+    &quot;Unassigned&quot;
+)</expression>
+    </formulas>
+    <formulas>
+        <name>outputnarrow</name>
+        <dataType>String</dataType>
+        <expression>IF(
+    OR(
+        {!Get_Accounts.Owner.Name} = &quot;Himanshu&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Olivia&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Asad&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Jon&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Julie&quot;
+    ),
+    {!Get_Accounts.Owner.Name},
+    &quot;Unassigned&quot;
+)</expression>
+    </formulas>
+    <formulas>
+        <name>parsedCompanyName</name>
+        <dataType>String</dataType>
+        <expression>IF(
+  CONTAINS(LOWER({!messageText}), &quot;company:&quot;),
+  TRIM(
+    LEFT(
+      MID(LOWER({!messageText}), FIND(&quot;company:&quot;, LOWER({!messageText})) + 8, 100),
+      FIND(BR(), MID(LOWER({!messageText}), FIND(&quot;company:&quot;, LOWER({!messageText})) + 8, 100)) - 1
+    )
+  ),
+  &quot;&quot;
+)</expression>
+    </formulas>
+    <interviewLabel>Post_Call_Summary_to_Opp {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Post_Call_Summary_to_Opp</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordLookups>
+        <name>Get_Accounts</name>
+        <label>Get Accounts</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
+        <connector>
+            <targetReference>get_opp</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Name</field>
+            <operator>Contains</operator>
+            <value>
+                <elementReference>newcleanname2</elementReference>
+            </value>
+        </filters>
+        <getFirstRecordOnly>true</getFirstRecordOnly>
+        <object>Account</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <recordLookups>
+        <name>get_opp</name>
+        <label>get opp</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
+        <connector>
+            <targetReference>push_update</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>AccountId</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>Get_Accounts.Id</elementReference>
+            </value>
+        </filters>
+        <filters>
+            <field>StageName</field>
+            <operator>NotEqualTo</operator>
+            <value>
+                <stringValue>Stage 6. Closed(Won)</stringValue>
+            </value>
+        </filters>
+        <filters>
+            <field>StageName</field>
+            <operator>NotEqualTo</operator>
+            <value>
+                <stringValue>Stage 7. Closed Lost</stringValue>
+            </value>
+        </filters>
+        <filters>
+            <field>StageName</field>
+            <operator>NotEqualTo</operator>
+            <value>
+                <stringValue>Stage 3 - Pilot</stringValue>
+            </value>
+        </filters>
+        <filters>
+            <field>StageName</field>
+            <operator>NotEqualTo</operator>
+            <value>
+                <stringValue>Stage 4 - Proposal</stringValue>
+            </value>
+        </filters>
+        <filters>
+            <field>Opportunity_Source__c</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>get_opp.Opportunity_Source__c</elementReference>
+            </value>
+        </filters>
+        <getFirstRecordOnly>true</getFirstRecordOnly>
+        <object>Opportunity</object>
+        <sortField>CreatedDate</sortField>
+        <sortOrder>Desc</sortOrder>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <recordUpdates>
+        <name>push_update</name>
+        <label>push update</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Id</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>get_opp.Id</elementReference>
+            </value>
+        </filters>
+        <inputAssignments>
+            <field>Next_Step_Eudia__c</field>
+            <value>
+                <elementReference>newNotesFieldValue</elementReference>
+            </value>
+        </inputAssignments>
+        <object>Opportunity</object>
+    </recordUpdates>
+    <start>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Assignment_1</targetReference>
+        </connector>
+    </start>
+    <status>Draft</status>
+    <variables>
+        <name>accountNameSearch</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>accountOwnerName</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>true</isOutput>
+    </variables>
+    <variables>
+        <name>accountOwnerName2</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>cleanCompanyName</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>messageText</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>newcleanname2</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>slackUserName</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+</Flow>

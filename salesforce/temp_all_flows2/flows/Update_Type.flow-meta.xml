@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>65.0</apiVersion>
+    <decisions>
+        <name>Should_Update_Client_Type</name>
+        <label>Should Update Client Type?</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <defaultConnectorLabel>Default Outcome</defaultConnectorLabel>
+        <rules>
+            <name>Yes_Upgrade_Type</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>fxOppPriority</leftValueReference>
+                <operator>GreaterThan</operator>
+                <rightValue>
+                    <elementReference>fxCurrentAccountPriority</elementReference>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.Account_Type_Classification__c</leftValueReference>
+                <operator>NotEqualTo</operator>
+                <rightValue>
+                    <stringValue>Existing Client</stringValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Update_Account_Client_Type</targetReference>
+            </connector>
+            <label>Yes - Upgrade Type</label>
+        </rules>
+    </decisions>
+    <environments>Default</environments>
+    <formulas>
+        <name>fxCurrentAccountPriority</name>
+        <dataType>Number</dataType>
+        <expression>CASE(
+  TEXT({!$Record.Sales_Type__c}),
+  &quot;ARR&quot;, 4,
+  &quot;Pilot&quot;, 3,
+  &quot;LOI, with $ attached&quot;, 2,
+  &quot;LOI, no $ attached&quot;, 1,
+  &quot;Prospect&quot;, 0,
+  0
+)</expression>
+        <scale>2</scale>
+    </formulas>
+    <formulas>
+        <name>fxNewClientType</name>
+        <dataType>String</dataType>
+        <expression>IF(
+  {!fxOppPriority} = 4,
+  &quot;ARR&quot;,
+  IF(
+    {!fxOppPriority} = 3,
+    &quot;Pilot&quot;,
+    IF(
+      {!fxOppPriority} = 2,
+      &quot;LOI, with $ attached&quot;,
+      IF(
+        {!fxOppPriority} = 1,
+        &quot;LOI, no $ attached&quot;,
+        &quot;Prospect&quot;
+      )
+    )
+  )
+)</expression>
+    </formulas>
+    <formulas>
+        <name>fxOppPriority</name>
+        <dataType>Number</dataType>
+        <expression>IF(
+  OR(
+    TEXT({!$Record.Revenue_Type__c}) = &quot;Recurring&quot;,
+    AND(
+      TEXT({!$Record.Revenue_Type__c}) = &quot;Project&quot;,
+      {!$Record.Term__c} &gt;= 12
+    )
+  ),
+  4,
+  IF(
+    AND(
+      TEXT({!$Record.Revenue_Type__c}) = &quot;Project&quot;,
+      {!$Record.Term__c} &lt; 12
+    ),
+    3,
+    IF(
+      TEXT({!$Record.Revenue_Type__c}) = &quot;LOI, with $ attached&quot;,
+      2,
+      IF(
+        TEXT({!$Record.Revenue_Type__c}) = &quot;LOI, no $ attached&quot;,
+        1,
+        0
+      )
+    )
+  )
+)</expression>
+        <scale>2</scale>
+    </formulas>
+    <interviewLabel>Update Type {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Update Type</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordLookups>
+        <name>Check_Client_Type</name>
+        <label>Check Client Type</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
+        <connector>
+            <targetReference>Should_Update_Client_Type</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Id</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>$Record.AccountId</elementReference>
+            </value>
+        </filters>
+        <getFirstRecordOnly>true</getFirstRecordOnly>
+        <object>Account</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <recordUpdates>
+        <name>Update_Account_Client_Type</name>
+        <label>Update Account Client Type</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <inputAssignments>
+            <field>Type__c</field>
+            <value>
+                <elementReference>fxNewClientType</elementReference>
+            </value>
+        </inputAssignments>
+        <inputReference>$Record.Account</inputReference>
+    </recordUpdates>
+    <start>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Check_Client_Type</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>StageName</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>Stage 6. Closed(Won)</stringValue>
+            </value>
+        </filters>
+        <filters>
+            <field>StageName</field>
+            <operator>IsChanged</operator>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </filters>
+        <object>Opportunity</object>
+        <recordTriggerType>CreateAndUpdate</recordTriggerType>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    <status>Active</status>
+    <variables>
+        <name>varAccount</name>
+        <dataType>SObject</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <objectType>Account</objectType>
+    </variables>
+</Flow>

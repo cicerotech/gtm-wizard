@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>59.0</apiVersion>
+    <assignments>
+        <name>Set_Initial_History</name>
+        <label>Set Initial History</label>
+        <locationX>176</locationX>
+        <locationY>252</locationY>
+        <assignmentItems>
+            <assignToReference>$Record.Next_Step_Eudia__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>InitialEntryTemplate</elementReference>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <description>On Opportunity CREATE: Captures initial Next Steps value in Customer History. Clean plain text formatting.</description>
+    <environments>Default</environments>
+    <formulas>
+        <name>TodayFormatted</name>
+        <dataType>String</dataType>
+        <expression>TEXT(YEAR(TODAY())) &amp; &quot;-&quot; &amp; 
+IF(MONTH(TODAY()) &lt; 10, &quot;0&quot;, &quot;&quot;) &amp; TEXT(MONTH(TODAY())) &amp; &quot;-&quot; &amp; 
+IF(DAY(TODAY()) &lt; 10, &quot;0&quot;, &quot;&quot;) &amp; TEXT(DAY(TODAY()))</expression>
+    </formulas>
+    <interviewLabel>Next Steps History On Create {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Next Steps History On Create</label>
+    <processType>AutoLaunchedFlow</processType>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Set_Initial_History</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Next_Steps__c</field>
+            <operator>IsNull</operator>
+            <value>
+                <booleanValue>false</booleanValue>
+            </value>
+        </filters>
+        <object>Opportunity</object>
+        <recordTriggerType>Create</recordTriggerType>
+        <triggerType>RecordBeforeSave</triggerType>
+    </start>
+    <status>Draft</status>
+    <textTemplates>
+        <name>InitialEntryTemplate</name>
+        <isViewedAsPlainText>true</isViewedAsPlainText>
+        <text>{!TodayFormatted}: {!$Record.Next_Steps__c}</text>
+    </textTemplates>
+</Flow>

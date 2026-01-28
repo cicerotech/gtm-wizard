@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>63.0</apiVersion>
+    <decisions>
+        <description>(Current Stage = 2, 3, 4, 5, or 6)
+AND
+(Prior Stage = 0, 1, or is Null) - null is basically create</description>
+        <name>MovedtoStage2orBeyond</name>
+        <label>Moved to Stage 2 or Beyond</label>
+        <locationX>182</locationX>
+        <locationY>323</locationY>
+        <defaultConnectorLabel>Default Outcome</defaultConnectorLabel>
+        <rules>
+            <name>Move_to_Stage_2</name>
+            <conditionLogic>(1 OR 2 OR 3 OR 4 OR 5) AND (6 OR 7 OR 8)</conditionLogic>
+            <conditions>
+                <leftValueReference>$Record.StageName</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>Stage 2. Discovery</stringValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.StageName</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>Stage 3. Engaged</stringValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.StageName</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>Stage 4. Proposal</stringValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.StageName</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>Stage 5. Negotiation</stringValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.StageName</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>Stage 6. Closed(Won)</stringValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record__Prior.StageName</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>Stage 0. Qualified Contact</stringValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record__Prior.StageName</leftValueReference>
+                <operator>IsBlank</operator>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record__Prior.StageName</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>Stage 1. Opportunity Qualification</stringValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Only_Set_Stage_2_Date_Once</targetReference>
+            </connector>
+            <label>Moved to Stage 2 or Beyond</label>
+        </rules>
+    </decisions>
+    <decisions>
+        <description>Although note this does not account for when a person goes backward.</description>
+        <name>Only_Set_Stage_2_Date_Once</name>
+        <label>Only Set Stage 2 Date Once</label>
+        <locationX>50</locationX>
+        <locationY>431</locationY>
+        <defaultConnector>
+            <targetReference>Stampe_Stage_2_Date</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>Default Outcome</defaultConnectorLabel>
+        <rules>
+            <name>Outcome_1_of_Only_Set_Stage_2_Date_Once</name>
+            <conditionLogic>1</conditionLogic>
+            <conditions>
+                <leftValueReference>$Record.Stage_2_Date__c</leftValueReference>
+                <operator>IsNull</operator>
+            </conditions>
+            <connector>
+                <targetReference>Stampe_Stage_2_Date</targetReference>
+            </connector>
+            <label>Outcome 1 of Only Set Stage 2 Date Once</label>
+        </rules>
+    </decisions>
+    <environments>Default</environments>
+    <interviewLabel>Stage 2 date population {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Stage 2 date population</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordUpdates>
+        <name>Stampe_Stage_2_Date</name>
+        <label>Stampe Stage 2 Date</label>
+        <locationX>50</locationX>
+        <locationY>623</locationY>
+        <inputAssignments>
+            <field>Stage_2_Date2__c</field>
+            <value>
+                <elementReference>$Flow.CurrentDate</elementReference>
+            </value>
+        </inputAssignments>
+        <inputReference>$Record</inputReference>
+    </recordUpdates>
+    <start>
+        <locationX>56</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>MovedtoStage2orBeyond</targetReference>
+        </connector>
+        <filterFormula>AND(
+  ISCHANGED({!$Record.StageName}),
+  ISBLANK({!$Record.Stage_2_Date2__c})
+)</filterFormula>
+        <object>Opportunity</object>
+        <recordTriggerType>CreateAndUpdate</recordTriggerType>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    <status>Active</status>
+</Flow>

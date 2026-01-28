@@ -1,0 +1,363 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>64.0</apiVersion>
+    <assignments>
+        <name>cleancompanyname</name>
+        <label>cleancompanyname</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>newcleanname2</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>mynormalizeformula</elementReference>
+            </value>
+        </assignmentItems>
+        <assignmentItems>
+            <assignToReference>accountOwnerName2</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>constrainedOwnerName</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Get_Accounts</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>Prior_Owner_Name</name>
+        <label>Prior Owner Name</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>accountOwnerName</assignToReference>
+            <operator>Assign</operator>
+        </assignmentItems>
+        <connector>
+            <targetReference>Get_Prior_Owner</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>Set_Not_Found</name>
+        <label>Set Not Found</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>accountOwnerName</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <stringValue>No account found with that name</stringValue>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <assignments>
+        <name>Set_Owner_Name3</name>
+        <label>Set Owner Name3</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>accountOwnerName</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>Get_Accounts.Owner.FirstName</elementReference>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <assignments>
+        <name>Set_Prior_Owner_Name</name>
+        <label>Set Prior Owner Name</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>accountOwnerName</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>Get_Prior_Owner.FirstName</elementReference>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <decisions>
+        <name>Account_Found</name>
+        <label>Account Found?</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <defaultConnector>
+            <targetReference>Set_Not_Found</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>No account found</defaultConnectorLabel>
+        <rules>
+            <name>Account_Exists</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>Get_Accounts</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Check_if_Account_Owner_Exists</targetReference>
+            </connector>
+            <label>Account Exists</label>
+        </rules>
+    </decisions>
+    <decisions>
+        <name>Check_if_Account_Owner_Exists</name>
+        <label>Check if Account Owner Exists</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <defaultConnector>
+            <targetReference>Set_Owner_Name3</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>Default Outcome</defaultConnectorLabel>
+        <rules>
+            <name>Is_Keigan_or_Emmit</name>
+            <conditionLogic>or</conditionLogic>
+            <conditions>
+                <leftValueReference>Get_Accounts.Owner.Id</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>005Wj00000IPqFZIA1</stringValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>Get_Accounts.Owner.Id</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>005Hp00000kyzNUIAY</stringValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Present</targetReference>
+            </connector>
+            <label>Is Keigan or Emmit</label>
+        </rules>
+    </decisions>
+    <decisions>
+        <name>Present</name>
+        <label>Prior Owner Present</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <defaultConnector>
+            <targetReference>Get_Prior_Owner</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>Default Outcome</defaultConnectorLabel>
+        <rules>
+            <name>Has_Prior_Owner</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>Get_Accounts.OwnerId</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>005Hp00000kyzNUIAY</stringValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>Get_Accounts.OwnerId</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>005Wj00000IPqFZIA1</stringValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Prior_Owner_Name</targetReference>
+            </connector>
+            <label>Has Prior Owner</label>
+        </rules>
+    </decisions>
+    <environments>Default</environments>
+    <formulas>
+        <name>cleanname</name>
+        <dataType>String</dataType>
+        <expression>LOWER(TRIM(
+   SUBSTITUTE(
+      SUBSTITUTE(
+         SUBSTITUTE({!accountNameSearch}, &quot;BL for&quot;, &quot;&quot;),
+      &quot;inc&quot;, &quot;&quot;), 
+   &quot;ltd&quot;, &quot;&quot;))
+)</expression>
+    </formulas>
+    <formulas>
+        <name>cleansearchcompany</name>
+        <dataType>String</dataType>
+        <expression>LOWER(TRIM(
+   SUBSTITUTE(
+      SUBSTITUTE(
+         SUBSTITUTE({!accountNameSearch}, &quot;BL for&quot;, &quot;&quot;),
+      &quot;inc&quot;, &quot;&quot;), 
+   &quot;ltd&quot;, &quot;&quot;))
+)</expression>
+    </formulas>
+    <formulas>
+        <name>constrainedOwnerName</name>
+        <dataType>String</dataType>
+        <expression>IF(
+    OR(
+        {!Get_Accounts.Owner.Name} = &quot;Himanshu&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Olivia&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Asad&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Jon&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Julie&quot;
+    ),
+    {!Get_Accounts.Owner.Name},
+    &quot;Unassigned&quot;
+)</expression>
+    </formulas>
+    <formulas>
+        <name>mynormalizeformula</name>
+        <dataType>String</dataType>
+        <expression>TRIM(
+  SUBSTITUTE(
+    SUBSTITUTE(
+      SUBSTITUTE(
+        SUBSTITUTE(
+          LOWER({!accountNameSearch}),
+        &quot;bl for&quot;, &quot;&quot;),
+      &quot;inc.&quot;, &quot;&quot;),
+    &quot;inc&quot;, &quot;&quot;),
+  &quot;ltd&quot;, &quot;&quot;)
+)</expression>
+    </formulas>
+    <formulas>
+        <name>newcleanname</name>
+        <dataType>String</dataType>
+        <expression>TRIM(
+  SUBSTITUTE(
+    SUBSTITUTE(
+      SUBSTITUTE(
+        SUBSTITUTE(LOWER({!accountNameSearch}), &quot;bl for&quot;, &quot;&quot;),
+      &quot;inc.&quot;, &quot;&quot;),
+    &quot;inc&quot;, &quot;&quot;),
+  &quot;ltd&quot;, &quot;&quot;)
+)</expression>
+    </formulas>
+    <formulas>
+        <name>outputhandle</name>
+        <dataType>String</dataType>
+        <expression>IF(
+    OR(
+        {!Get_Accounts.Owner.Name} = &quot;Himanshu&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Olivia&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Asad&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Jon&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Julie&quot;
+    ),
+    {!Get_Accounts.Owner.Name},
+    &quot;Unassigned&quot;
+)</expression>
+    </formulas>
+    <formulas>
+        <name>outputnarrow</name>
+        <dataType>String</dataType>
+        <expression>IF(
+    OR(
+        {!Get_Accounts.Owner.Name} = &quot;Himanshu&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Olivia&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Asad&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Jon&quot;,
+        {!Get_Accounts.Owner.Name} = &quot;Julie&quot;
+    ),
+    {!Get_Accounts.Owner.Name},
+    &quot;Unassigned&quot;
+)</expression>
+    </formulas>
+    <interviewLabel>Get_account_owner {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Get_account_owner_v0</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordLookups>
+        <name>Get_Accounts</name>
+        <label>Get Accounts</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
+        <connector>
+            <targetReference>Account_Found</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Name</field>
+            <operator>Contains</operator>
+            <value>
+                <elementReference>newcleanname2</elementReference>
+            </value>
+        </filters>
+        <getFirstRecordOnly>true</getFirstRecordOnly>
+        <object>Account</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <recordLookups>
+        <name>Get_Prior_Owner</name>
+        <label>Get Prior Owner</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
+        <connector>
+            <targetReference>Set_Prior_Owner_Name</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Id</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>Get_Accounts.Prior_Account_Owner_ID__c</elementReference>
+            </value>
+        </filters>
+        <getFirstRecordOnly>true</getFirstRecordOnly>
+        <object>User</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <start>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>cleancompanyname</targetReference>
+        </connector>
+    </start>
+    <status>Active</status>
+    <variables>
+        <name>accountNameSearch</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>accountOwnerName</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>true</isOutput>
+    </variables>
+    <variables>
+        <name>accountOwnerName2</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>newcleanname2</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+</Flow>

@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>65.0</apiVersion>
+    <assignments>
+        <name>Assignment_Values</name>
+        <label>Assignment Values</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>$Record.CloseDate</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>DefaultCloseOrTargetSign</elementReference>
+            </value>
+        </assignmentItems>
+        <assignmentItems>
+            <assignToReference>$Record.Target_LOI_Date__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>DefaultCloseOrTargetSign</elementReference>
+            </value>
+        </assignmentItems>
+        <assignmentItems>
+            <assignToReference>$Record.Target_Sign_for_Edit_NEW__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>DefaultCloseOrTargetSign</elementReference>
+            </value>
+        </assignmentItems>
+        <assignmentItems>
+            <assignToReference>$Record.Amount</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <numberValue>100000.0</numberValue>
+            </value>
+        </assignmentItems>
+        <assignmentItems>
+            <assignToReference>$Record.ACV__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <numberValue>100000.0</numberValue>
+            </value>
+        </assignmentItems>
+        <assignmentItems>
+            <assignToReference>$Record.Probability_for_edit__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>Probability</elementReference>
+            </value>
+        </assignmentItems>
+        <assignmentItems>
+            <assignToReference>$Record.Name</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>OppName</elementReference>
+            </value>
+        </assignmentItems>
+        <assignmentItems>
+            <assignToReference>$Record.RecordTypeId</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <stringValue>012Hp000001HYyxIAG</stringValue>
+            </value>
+        </assignmentItems>
+        <assignmentItems>
+            <assignToReference>$Record.Opportunity_Source__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <stringValue>Inbound</stringValue>
+            </value>
+        </assignmentItems>
+        <assignmentItems>
+            <assignToReference>$Record.TCV__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <numberValue>300000.0</numberValue>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <assignments>
+        <name>Sync_Target_Sign_To_Close</name>
+        <label>Sync_Target_Sign_To_Close</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>$Record.Target_LOI_Date__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>$Record.CloseDate</elementReference>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <decisions>
+        <name>ACV_Check</name>
+        <label>ACV Check</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <defaultConnector>
+            <targetReference>Assignment_Values</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>use defaults</defaultConnectorLabel>
+        <rules>
+            <name>User_Provided_ACV</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>$Record.ACV__c</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Close_Date</targetReference>
+            </connector>
+            <label>User_Provided_ACV</label>
+        </rules>
+    </decisions>
+    <decisions>
+        <name>Close_Date</name>
+        <label>Close Date</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <defaultConnectorLabel>Default Outcome</defaultConnectorLabel>
+        <rules>
+            <name>Close_Date_Is_Entered</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>$Record.CloseDate</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Sync_Target_Sign_To_Close</targetReference>
+            </connector>
+            <label>Close Date Entered</label>
+        </rules>
+    </decisions>
+    <environments>Default</environments>
+    <formulas>
+        <name>DefaultCloseOrTargetSign</name>
+        <dataType>Date</dataType>
+        <expression>IF(ISBLANK($Record.Target_LOI_Date__c), TODAY() + 150, $Record.Target_LOI_Date__c)</expression>
+    </formulas>
+    <formulas>
+        <name>OppName</name>
+        <dataType>String</dataType>
+        <expression>IF(
+ISBLANK($Record.Name),
+/* If you fetched Account in your Get Records step */
+IF(NOT(ISBLANK({!account.Name})),
+{!account.Name} &amp; &quot; - &quot; &amp; {!StageLabel},
+&quot;Untitled - &quot; &amp; {!StageLabel}
+),
+$Record.Name
+)</expression>
+    </formulas>
+    <formulas>
+        <name>Probability</name>
+        <dataType>Number</dataType>
+        <expression>IF(ISBLANK($Record.Probability), 10, $Record.Probability)</expression>
+        <scale>2</scale>
+    </formulas>
+    <formulas>
+        <name>StageLabel</name>
+        <dataType>String</dataType>
+        <expression>CASE(TEXT($Record.StageName),
+&quot;Stage 0 - Qualifying&quot;,&quot;Qualifying&quot;,
+&quot;Stage 1 - Discovery&quot;,&quot;Discovery&quot;,
+&quot;Stage 2 - SQO&quot;,&quot;SQO&quot;,
+TEXT($Record.StageName)
+)</expression>
+    </formulas>
+    <interviewLabel>Test {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Create Opp Assist v2</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordLookups>
+        <name>account</name>
+        <label>account</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
+        <connector>
+            <targetReference>ACV_Check</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Id</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>$Record.AccountId</elementReference>
+            </value>
+        </filters>
+        <getFirstRecordOnly>true</getFirstRecordOnly>
+        <object>Account</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <start>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>account</targetReference>
+        </connector>
+        <object>Opportunity</object>
+        <recordTriggerType>Create</recordTriggerType>
+        <triggerType>RecordBeforeSave</triggerType>
+    </start>
+    <status>Active</status>
+</Flow>
