@@ -1508,8 +1508,10 @@ async function generateAccountDashboard() {
           contractTermMonths: opp.Contract_Term_Months__c || null,
           salesType: opp.Sales_Type__c || '',
           owner: opp.Owner?.Name || '',
-          renewalNetChange: opp.Renewal_Net_Change__c || null,
-          bookingAcv: opp.Booking_ACV__c || null
+          // CRITICAL: Don't use || null - it converts 0 to null (0 is falsy!)
+          // Use explicit undefined check to preserve $0 values
+          renewalNetChange: opp.Renewal_Net_Change__c !== undefined ? opp.Renewal_Net_Change__c : null,
+          bookingAcv: opp.Booking_ACV__c !== undefined ? opp.Booking_ACV__c : null
         };
         
         const category = categorizeByRevenueType(deal.revenueType, deal.contractTermMonths);
@@ -1550,8 +1552,9 @@ async function generateAccountDashboard() {
               contractTermMonths: null,
               salesType: opp.Sales_Type__c || '',
               owner: opp.Owner?.Name || '',
-              renewalNetChange: opp.Renewal_Net_Change__c || null,
-              bookingAcv: opp.Booking_ACV__c || null
+              // CRITICAL: Preserve $0 values - don't convert to null
+              renewalNetChange: opp.Renewal_Net_Change__c !== undefined ? opp.Renewal_Net_Change__c : null,
+              bookingAcv: opp.Booking_ACV__c !== undefined ? opp.Booking_ACV__c : null
             };
             
             const category = categorizeByRevenueType(deal.revenueType, null);
@@ -2559,10 +2562,10 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
         const fmt = (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(1) + 'm' : '$' + (val / 1000).toFixed(0) + 'k';
         
         return '' +
-          // RECURRING card
-          '<div style="flex: 1; min-width: 160px; background: #d1fae5; padding: 16px; border-radius: 8px; text-align: center; border: 1px solid #a7f3d0;">' +
-            '<div style="font-size: 0.7rem; font-weight: 700; color: #065f46; margin-bottom: 6px;">RECURRING</div>' +
-            '<div style="font-size: 1.25rem; font-weight: 700; color: #065f46;">' + fmt(recurringRevenue) + '</div>' +
+          // RECURRING card - light gentle green (#ecfdf5 matches signed logos tile)
+          '<div style="flex: 1; min-width: 160px; background: #ecfdf5; padding: 16px; border-radius: 8px; text-align: center; border: 1px solid #d1fae5;">' +
+            '<div style="font-size: 0.7rem; font-weight: 700; color: #047857; margin-bottom: 6px;">RECURRING</div>' +
+            '<div style="font-size: 1.25rem; font-weight: 700; color: #047857;">' + fmt(recurringRevenue) + '</div>' +
             '<div style="font-size: 0.75rem; color: #059669; font-weight: 500; margin-top: 2px;">Net: ' + fmt(recurringNetACV) + '</div>' +
             '<div style="font-size: 0.6rem; color: #047857; margin-top: 4px;">' + recurringDeals.length + ' deals</div>' +
           '</div>' +
@@ -2576,7 +2579,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
       })()}
     </div>
     <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 10px; font-style: italic;">
-      Net ACV excludes renewal base dollars (e.g., flat renewals like OpenAI are $0 net new)
+      Net ACV excludes renewal base dollars. E.g., OpenAI: $0 net new ACV included, though phased expansion opportunities are baked into the agreement structure.
     </div>
   </div>
   
@@ -2635,7 +2638,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
   <div class="section-card" style="padding: 0;">
     ${revenueDeals.length > 0 ? `
     <details open style="margin-bottom: 12px;">
-      <summary style="background: #d1fae5; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #065f46; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
+      <summary style="background: #ecfdf5; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #047857; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
         <span>RECURRING</span>
         <span>${revenueDeals.length} deal${revenueDeals.length !== 1 ? 's' : ''}</span>
       </summary>
