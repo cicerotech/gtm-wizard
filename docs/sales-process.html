@@ -656,8 +656,8 @@
                         <div class="update-field-hint">New / Expansion / Renewal</div>
                     </div>
                     <div class="update-field">
-                        <div class="update-field-name">Product Line</div>
-                        <div class="update-field-hint">Primary offering</div>
+                        <div class="update-field-name">Product Line(s)</div>
+                        <div class="update-field-hint">Multi-select field</div>
                     </div>
                     <div class="update-field">
                         <div class="update-field-name">Forecast Category</div>
@@ -801,7 +801,7 @@
                     <tbody>
                         <tr><td><strong>ACV</strong></td><td>Annual Contract Value</td></tr>
                         <tr><td><strong>Stage</strong></td><td>Current sales stage (0-4)</td></tr>
-                        <tr><td><strong>Product Line</strong></td><td>Primary offering (see Section 4)</td></tr>
+                        <tr><td><strong>Product Line(s)</strong></td><td>Multi-select field — which offerings are in conversation (see Section 4)</td></tr>
                         <tr><td><strong>Target Sign Date</strong></td><td>Expected signature date (becomes Close Date when won)</td></tr>
                         <tr><td><strong>Sales Type</strong></td><td>New Business, Expansion, Renewal</td></tr>
                         <tr><td><strong>Revenue Type</strong></td><td>Recurring (12+ mo), Project (&lt;12 mo), Commitment (LOI)</td></tr>
@@ -816,6 +816,27 @@
                         <tr><td><strong>New Business</strong></td><td>Net new logos OR net new product lines at existing customers (dollars are net new)</td></tr>
                         <tr><td><strong>Expansion</strong></td><td>Growth within existing product lines for existing ARR customers</td></tr>
                         <tr><td><strong>Renewal</strong></td><td>Full annualized renewal value (not just net-new uplift)</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>Opportunity-Level Tags (Sales Type)</h3>
+                <table>
+                    <thead><tr><th>Tag</th><th>Definition</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>New</strong></td><td>Net new logos OR net new product lines (dollars are net new)</td></tr>
+                        <tr><td><strong>Expansion</strong></td><td>Growth within existing product lines for existing ARR customers</td></tr>
+                        <tr><td><strong>Renewal</strong></td><td>Full annualized renewal value (not just net-new uplift)</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>Opportunity Revenue Types <span style="font-weight: 400; font-size: 11px; color: #64748b;">(Assigned at Close Won)</span></h3>
+                <p style="font-size: 11px; color: #64748b; margin-bottom: 10px;">Revenue $ only populated for Recurring + Project.</p>
+                <table>
+                    <thead><tr><th>Type</th><th>Rule</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>Recurring</strong></td><td>Auto-set if Term ≥ 12 months</td></tr>
+                        <tr><td><strong>Project</strong></td><td>Auto-set if Term &lt; 12 months (pilots, short-term)</td></tr>
+                        <tr><td><strong>Commitment</strong></td><td>Manual — LOI only, input "Commitment ACV"</td></tr>
                     </tbody>
                 </table>
 
@@ -853,46 +874,32 @@
             </div>
         </details>
 
-        <!-- 5. ACCOUNT & OPPORTUNITY TAGGING -->
+        <!-- 5. ACCOUNT TAGGING -->
         <details open>
-            <summary><h2>5. Account & Opportunity Tagging</h2></summary>
+            <summary><h2>5. Account Tagging</h2></summary>
             <div class="section-content">
                 <div class="note">
                     Account assignment and reporting structure documentation coming soon.
                 </div>
 
-                <div class="two-col">
-                    <div>
-                        <h3 style="margin-top: 0;">Account-Level Tags</h3>
-                        <table>
-                            <thead><tr><th>Tag</th><th>Definition</th></tr></thead>
-                            <tbody>
-                                <tr><td><strong>New</strong></td><td>Net new customer — no prior relationship</td></tr>
-                                <tr><td><strong>Existing</strong></td><td>Prior or current relationship (see sub-tags)</td></tr>
-                            </tbody>
-                        </table>
-                        <h3>Existing Customer Sub-Tags</h3>
-                        <table>
-                            <thead><tr><th>Sub-Tag</th><th>Definition</th></tr></thead>
-                            <tbody>
-                                <tr><td><strong>MSA</strong></td><td>Active revenue-paying customer (includes Recurring and Project)</td></tr>
-                                <tr><td><strong>Pilot</strong></td><td>Currently running or completed pilot</td></tr>
-                                <tr><td><strong>LOI</strong></td><td>Letter of Intent signed</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div>
-                        <h3 style="margin-top: 0;">Opportunity-Level Tags</h3>
-                        <table>
-                            <thead><tr><th>Tag</th><th>Definition</th></tr></thead>
-                            <tbody>
-                                <tr><td><strong>New</strong></td><td>Net new logos OR net new product lines (dollars are net new)</td></tr>
-                                <tr><td><strong>Expansion</strong></td><td>Growth within existing product lines for existing ARR customers</td></tr>
-                                <tr><td><strong>Renewal</strong></td><td>Full annualized renewal value (not just net-new uplift)</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <h3 style="margin-top: 0;">Account-Level Tags</h3>
+                <table>
+                    <thead><tr><th>Tag</th><th>Definition</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>New</strong></td><td>Net new customer — no prior relationship</td></tr>
+                        <tr><td><strong>Existing</strong></td><td>Prior or current relationship (see sub-tags)</td></tr>
+                    </tbody>
+                </table>
+                
+                <h3>Existing Customer Sub-Tags</h3>
+                <table>
+                    <thead><tr><th>Sub-Tag</th><th>Definition</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>MSA</strong></td><td>Active revenue-paying customer (includes Recurring and Project)</td></tr>
+                        <tr><td><strong>Pilot</strong></td><td>Currently running or completed pilot</td></tr>
+                        <tr><td><strong>LOI</strong></td><td>Letter of Intent signed</td></tr>
+                    </tbody>
+                </table>
 
                 <h3>Key Account Fields</h3>
                 <ul class="inline-list">
@@ -905,25 +912,9 @@
             </div>
         </details>
 
-        <!-- 6. OPPORTUNITY REVENUE TYPES -->
+        <!-- 6. AUTOMATION & DATA CAPTURE -->
         <details open>
-            <summary><h2>6. Opportunity Revenue Types</h2></summary>
-            <div class="section-content">
-                <p style="font-size: 11px; color: #64748b; margin-bottom: 10px;">Assigned at Close Won. Revenue $ only populated for Recurring + Project.</p>
-                <table>
-                    <thead><tr><th>Type</th><th>Rule</th></tr></thead>
-                    <tbody>
-                        <tr><td><strong>Recurring</strong></td><td>Auto-set if Term ≥ 12 months</td></tr>
-                        <tr><td><strong>Project</strong></td><td>Auto-set if Term &lt; 12 months (pilots, short-term)</td></tr>
-                        <tr><td><strong>Commitment</strong></td><td>Manual — LOI only, input "Commitment ACV"</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </details>
-
-        <!-- 7. AUTOMATION & DATA CAPTURE -->
-        <details open>
-            <summary><h2>7. Automation & Data Capture</h2></summary>
+            <summary><h2>6. Automation & Data Capture</h2></summary>
             <div class="section-content">
                 <div class="automation-grid">
                     <div class="automation-card">
@@ -963,9 +954,9 @@
             </div>
         </details>
 
-        <!-- 8. GLOSSARY -->
+        <!-- 7. GLOSSARY -->
         <details open>
-            <summary><h2>8. Glossary</h2></summary>
+            <summary><h2>7. Glossary</h2></summary>
             <div class="section-content">
                 <div class="glossary-grid">
                     <div class="glossary-item"><span class="glossary-term">ACV</span> — <span class="glossary-def">Annual Contract Value</span></div>
