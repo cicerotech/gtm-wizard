@@ -441,77 +441,76 @@
             text-align: center;
         }
         
-        /* BL Quick Reference */
-        .bl-quickref {
-            background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
-            border: 1px solid #fde047;
+        /* Weekly Update Reference */
+        .weekly-update-ref {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1px solid #e2e8f0;
             border-radius: 10px;
             padding: 16px 20px;
             margin-bottom: 12px;
         }
         
-        .bl-quickref-title {
+        .weekly-update-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .weekly-update-title {
             font-size: 13px;
             font-weight: 700;
-            color: #a16207;
-            margin-bottom: 10px;
+            color: #1e293b;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
         }
         
-        .bl-quickref-flow {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
-            margin-bottom: 12px;
-            padding: 10px 12px;
-            background: white;
-            border-radius: 6px;
-            border: 1px solid #fde68a;
-        }
-        
-        .bl-quickref-flow .flow-item {
+        .weekly-update-deadline {
             font-size: 11px;
             font-weight: 600;
-            color: #1e293b;
-            padding: 4px 8px;
-            background: #f8fafc;
+            color: #dc2626;
+            background: #fef2f2;
+            padding: 4px 10px;
             border-radius: 4px;
+            border: 1px solid #fecaca;
+        }
+        
+        .weekly-update-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+        }
+        
+        @media (max-width: 900px) {
+            .weekly-update-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        
+        @media (max-width: 500px) {
+            .weekly-update-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        .update-field {
+            text-align: center;
+            padding: 8px 6px;
+            background: white;
+            border-radius: 6px;
             border: 1px solid #e2e8f0;
         }
         
-        .bl-quickref-flow .flow-item.lead {
-            background: #f1f5f9;
-            border-color: #94a3b8;
-            color: #475569;
-        }
-        
-        .bl-quickref-flow .flow-item.won {
-            background: #dcfce7;
-            border-color: #86efac;
-            color: #166534;
-        }
-        
-        .bl-quickref-flow .flow-arrow {
-            color: #d97706;
-            font-weight: bold;
-        }
-        
-        .bl-quickref-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 8px;
+        .update-field-name {
             font-size: 11px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 2px;
         }
         
-        .bl-quickref-item {
-            color: #78350f;
-        }
-        
-        .bl-quickref-item strong {
-            color: #92400e;
+        .update-field-hint {
+            font-size: 9px;
+            color: #64748b;
+            line-height: 1.3;
         }
         
         /* Lead card styling */
@@ -553,33 +552,39 @@
             </div>
         </header>
 
-        <!-- BL QUICK REFERENCE -->
-        <div class="bl-quickref">
-            <div class="bl-quickref-title">
-                <span class="bl-tag">BL</span> Quick Reference
+        <!-- WEEKLY UPDATE REFERENCE -->
+        <div class="weekly-update-ref">
+            <div class="weekly-update-header">
+                <div class="weekly-update-title">
+                    <span class="bl-tag">BL</span> Weekly Pipeline Update
+                </div>
+                <div class="weekly-update-deadline">Due: Thursday EOD</div>
             </div>
-            <div class="bl-quickref-flow">
-                <span class="flow-item lead">Lead</span>
-                <span class="flow-arrow">→</span>
-                <span class="flow-item">Stage 0</span>
-                <span class="flow-arrow">→</span>
-                <span class="flow-item">Stage 1</span>
-                <span class="flow-arrow">→</span>
-                <span class="flow-item">Stage 2</span>
-                <span class="flow-arrow">→</span>
-                <span class="flow-item">Stage 3/4</span>
-                <span class="flow-arrow">→</span>
-                <span class="flow-item">Stage 5</span>
-                <span class="flow-arrow">→</span>
-                <span class="flow-item won">Won</span>
-            </div>
-            <div class="bl-quickref-grid">
-                <div class="bl-quickref-item"><strong>Lead:</strong> Cold outreach (LinkedIn, email). No response yet.</div>
-                <div class="bl-quickref-item"><strong>Stage 0:</strong> Warm contact. In dialogue, scheduling meeting.</div>
-                <div class="bl-quickref-item"><strong>Stage 1:</strong> Discovery meeting scheduled or held.</div>
-                <div class="bl-quickref-item"><strong>Stage 2+:</strong> Qualified opportunity with Account Plan.</div>
-                <div class="bl-quickref-item"><strong>Stage 5:</strong> Contract sent, active negotiation (redlines, pricing).</div>
-                <div class="bl-quickref-item"><strong>Weekly:</strong> Update ACV, Stage, Target Date, Notes by <strong>Thu EOD</strong>.</div>
+            <div class="weekly-update-grid">
+                <div class="update-field">
+                    <div class="update-field-name">Stage</div>
+                    <div class="update-field-hint">Current position (0-5)</div>
+                </div>
+                <div class="update-field">
+                    <div class="update-field-name">ACV</div>
+                    <div class="update-field-hint">Annual contract value</div>
+                </div>
+                <div class="update-field">
+                    <div class="update-field-name">Target Sign Date</div>
+                    <div class="update-field-hint">Expected close</div>
+                </div>
+                <div class="update-field">
+                    <div class="update-field-name">Sales Type</div>
+                    <div class="update-field-hint">New / Expansion / Renewal</div>
+                </div>
+                <div class="update-field">
+                    <div class="update-field-name">Product Line</div>
+                    <div class="update-field-hint">Primary offering</div>
+                </div>
+                <div class="update-field">
+                    <div class="update-field-name">Forecast Category</div>
+                    <div class="update-field-hint">Pipeline / Gut / Commit</div>
+                </div>
             </div>
         </div>
 
