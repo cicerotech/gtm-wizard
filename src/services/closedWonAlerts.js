@@ -135,6 +135,9 @@ async function handleClosedWonEvent(app, message) {
   const salesType = payload.Sales_Type__c || 'New Business';
   const renewalNetChange = payload.Renewal_Net_Change__c || null;
   
+  // Products Breakdown - itemized list when multiple products exist
+  const productsBreakdown = payload.Products_Breakdown__c || null;
+  
   // ═══════════════════════════════════════════════════════════════════════════
   // CONFIDENTIAL DEAL DETECTION (Eudia Counsel)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -217,6 +220,7 @@ async function handleClosedWonEvent(app, message) {
     accountName: displayAccountName,
     oppName: displayOppName,
     productLine,
+    productsBreakdown,
     acv: formattedACV,
     salesType,
     renewalNetChange: override?.forceNetChangeZero ? '$0' : formattedNetChange,
@@ -264,7 +268,8 @@ async function handleClosedWonEvent(app, message) {
  * @param {Object} params - Message parameters
  * @param {string} params.accountName - Account name (or codename for confidential deals)
  * @param {string} params.oppName - Opportunity name
- * @param {string} params.productLine - Product line
+ * @param {string} params.productLine - Product line (single value, fallback)
+ * @param {string|null} params.productsBreakdown - Itemized products with ACV (multi-product deals)
  * @param {string} params.acv - Formatted ACV
  * @param {string} params.salesType - Sales Type (New Business, Expansion, Renewal)
  * @param {string|null} params.renewalNetChange - Formatted net change for Expansion/Renewal deals
@@ -276,7 +281,7 @@ async function handleClosedWonEvent(app, message) {
  * @param {string|null} params.typeOverride - Override for Type display (e.g., "Subject to Finance Review*")
  * @param {string|null} params.footnote - Custom footnote for special deals
  */
-function formatClosedWonMessage({ accountName, oppName, productLine, acv, salesType, renewalNetChange, rawNetChange, closeDate, revenueType, ownerName, isConfidential = false, typeOverride = null, footnote = null }) {
+function formatClosedWonMessage({ accountName, oppName, productLine, productsBreakdown, acv, salesType, renewalNetChange, rawNetChange, closeDate, revenueType, ownerName, isConfidential = false, typeOverride = null, footnote = null }) {
   // Format revenue type display - use override if provided
   let typeDisplay = typeOverride || revenueType || 'Not specified';
   if (!typeOverride) {
@@ -289,8 +294,37 @@ function formatClosedWonMessage({ accountName, oppName, productLine, acv, salesT
   
   message += `*Client:* ${accountName}\n`;
   message += `*Deal Owner:* ${ownerName}\n`;
-  message += `*Product Line:* ${productLine}\n`;
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PRODUCT LINE DISPLAY LOGIC
+  // ═══════════════════════════════════════════════════════════════════════════
+  // If productsBreakdown exists (multi-product deal), show itemized list below ACV
+  // Otherwise, fall back to single Product Line field
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  const hasMultipleProducts = productsBreakdown && productsBreakdown.trim().length > 0;
+  
+  if (!hasMultipleProducts) {
+    // Single product - show Product Line as before
+    message += `*Product Line:* ${productLine}\n`;
+  }
+  
   message += `*ACV:* ${acv}\n`;
+  
+  // If multi-product deal, show itemized breakdown as subtext below ACV
+  if (hasMultipleProducts) {
+    // Parse the products breakdown and format for Slack
+    // Input format: "• Product Name: $XXK\n• Product 2: $XXK\n\nTotal: $XXXK"
+    // Output: indented subtext without the Total line (ACV already shown above)
+    const lines = productsBreakdown.split('\n')
+      .filter(line => line.trim().startsWith('•'))  // Only product lines, not Total
+      .map(line => `  ${line.trim()}`)  // Indent for subtext appearance
+      .join('\n');
+    
+    if (lines) {
+      message += `${lines}\n`;
+    }
+  }
   
   // Show Net Change for Expansion/Renewal deals
   if (['Expansion', 'Renewal'].includes(salesType)) {
