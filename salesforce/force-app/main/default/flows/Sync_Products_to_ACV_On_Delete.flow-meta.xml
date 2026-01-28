@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>59.0</apiVersion>
-    <description>DEPRECATED - This flow is intentionally disabled. ACV should never be auto-updated from products. ACV is the source of truth.</description>
+    <description>DEPRECATED - This flow intentionally does nothing. ACV is the source of truth and should never be auto-updated from products.</description>
     <interviewLabel>Sync Products to ACV On Delete {!$Flow.CurrentDateTime}</interviewLabel>
     <label>Sync Products to ACV On Delete</label>
     <processMetadataValues>
@@ -12,10 +12,33 @@
     </processMetadataValues>
     <processType>AutoLaunchedFlow</processType>
     
-    <!-- This flow intentionally does nothing - just ends immediately -->
+    <!-- Decision that always takes the default path (do nothing) -->
+    <decisions>
+        <name>Do_Nothing</name>
+        <label>Do Nothing</label>
+        <locationX>176</locationX>
+        <locationY>311</locationY>
+        <defaultConnectorLabel>End Flow</defaultConnectorLabel>
+        <rules>
+            <name>Never_Execute</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>$Record.Id</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>true</booleanValue>
+                </rightValue>
+            </conditions>
+            <label>Never Execute</label>
+        </rules>
+    </decisions>
+    
     <start>
         <locationX>50</locationX>
         <locationY>0</locationY>
+        <connector>
+            <targetReference>Do_Nothing</targetReference>
+        </connector>
         <object>OpportunityLineItem</object>
         <recordTriggerType>Delete</recordTriggerType>
         <triggerType>RecordBeforeDelete</triggerType>
