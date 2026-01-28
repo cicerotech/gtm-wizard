@@ -180,8 +180,22 @@ public class DeliveryCreationService {
             
             System.debug('Created ' + deliveriesToCreate.size() + ' Delivery record(s)');
             
+            // Re-query to get auto-generated Name field (DEL-XXXX)
+            Set<Id> deliveryIds = new Set<Id>();
+            for (Delivery__c d : deliveriesToCreate) {
+                deliveryIds.add(d.Id);
+            }
+            List<Delivery__c> deliveriesWithNames = [
+                SELECT Id, Name, Product_Line__c, Contract_Value__c 
+                FROM Delivery__c 
+                WHERE Id IN :deliveryIds
+                ORDER BY Contract_Value__c DESC
+            ];
+            
             // Update Opportunity with Delivery summary and primary Delivery link
-            updateOpportunityWithDeliveries(opp.Id, deliveriesToCreate);
+            updateOpportunityWithDeliveries(opp.Id, deliveriesWithNames);
+            
+            return deliveriesWithNames;
         }
         
         return deliveriesToCreate;
