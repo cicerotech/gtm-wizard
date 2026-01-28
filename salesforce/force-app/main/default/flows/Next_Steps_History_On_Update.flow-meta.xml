@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>59.0</apiVersion>
-    <description>On Opportunity UPDATE: When Next Steps changes, captures the OLD value in Customer History with clean formatting. Does NOT modify Next Steps field.</description>
+    <description>On Opportunity UPDATE: When Next Steps changes, captures the OLD value in Customer History with clean formatting using Text Templates for reliable newlines.</description>
     <environments>Default</environments>
+    
+    <!-- Date formatter -->
     <formulas>
         <name>TodayFormatted</name>
         <dataType>String</dataType>
@@ -10,36 +12,69 @@
 IF(MONTH(TODAY()) &lt; 10, "0", "") &amp; TEXT(MONTH(TODAY())) &amp; "-" &amp; 
 IF(DAY(TODAY()) &lt; 10, "0", "") &amp; TEXT(DAY(TODAY()))</expression>
     </formulas>
-    <formulas>
-        <name>NewHistoryEntry</name>
-        <dataType>String</dataType>
-        <expression>{!TodayFormatted} &amp; ": " &amp; {!$Record__Prior.Next_Steps__c} &amp; "
+    
+    <!-- Text Template for the new entry - preserves newlines reliably -->
+    <textTemplates>
+        <name>NewEntryTemplate</name>
+        <isViewedAsPlainText>true</isViewedAsPlainText>
+        <text>{!TodayFormatted}: {!$Record__Prior.Next_Steps__c}
 
 ---
 
-" &amp; IF(ISBLANK({!$Record.Next_Step_Eudia__c}), "", {!$Record.Next_Step_Eudia__c})</expression>
-    </formulas>
+{!ExistingHistory}</text>
+    </textTemplates>
+    
+    <!-- Variable to hold existing history or empty string -->
+    <variables>
+        <name>ExistingHistory</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    
     <interviewLabel>Next Steps History On Update {!$Flow.CurrentDateTime}</interviewLabel>
     <label>Next Steps History On Update</label>
     <processType>AutoLaunchedFlow</processType>
+    
+    <!-- First, capture existing history into variable -->
     <assignments>
-        <name>Prepend_To_History</name>
-        <label>Prepend To History</label>
+        <name>Capture_Existing_History</name>
+        <label>Capture Existing History</label>
         <locationX>176</locationX>
-        <locationY>335</locationY>
+        <locationY>252</locationY>
+        <assignmentItems>
+            <assignToReference>ExistingHistory</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>$Record.Next_Step_Eudia__c</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Set_New_History</targetReference>
+        </connector>
+    </assignments>
+    
+    <!-- Set the history field using the text template -->
+    <assignments>
+        <name>Set_New_History</name>
+        <label>Set New History</label>
+        <locationX>176</locationX>
+        <locationY>360</locationY>
         <assignmentItems>
             <assignToReference>$Record.Next_Step_Eudia__c</assignToReference>
             <operator>Assign</operator>
             <value>
-                <elementReference>NewHistoryEntry</elementReference>
+                <elementReference>NewEntryTemplate</elementReference>
             </value>
         </assignmentItems>
     </assignments>
+    
     <start>
         <locationX>50</locationX>
         <locationY>0</locationY>
         <connector>
-            <targetReference>Prepend_To_History</targetReference>
+            <targetReference>Capture_Existing_History</targetReference>
         </connector>
         <filterLogic>and</filterLogic>
         <filters>
@@ -53,5 +88,6 @@ IF(DAY(TODAY()) &lt; 10, "0", "") &amp; TEXT(DAY(TODAY()))</expression>
         <recordTriggerType>Update</recordTriggerType>
         <triggerType>RecordBeforeSave</triggerType>
     </start>
+    
     <status>Active</status>
 </Flow>

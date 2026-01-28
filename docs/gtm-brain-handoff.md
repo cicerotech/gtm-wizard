@@ -1,384 +1,379 @@
-# GTM Brain Project Handoff Document
+# GTM Brain - Complete Technical Handoff Document
 
-## Project Identity
+## Project Overview
 
-### What is GTM Brain?
-GTM Brain is a conversational Salesforce data assistant deployed as a Slack bot. It enables real-time pipeline queries, automated reporting, contact enrichment, and go-to-market intelligence for the Eudia sales team.
+**GTM Brain** is Eudia's internal go-to-market intelligence platform that:
+- Aggregates meeting prep data from Outlook calendars, Salesforce, and Obsidian notes
+- Enriches attendee profiles via Clay integration
+- Provides AI-powered meeting context summaries via Claude
+- Automates Salesforce data entry (Contacts, Events, Customer Brain notes)
+- Tracks BL performance metrics and sales velocity
+- Generates weekly reports (Finance, Delivery, Pipeline Snapshot)
+- Serves a unified web dashboard for Business Leads (BLs)
 
-### User Context
-- **Primary User:** Chief of Staff on GTM & Revenue Operations
-- **Company:** Eudia — Series A legal tech startup specializing in AI-augmented contracting, compliance, and M&A services
-- **Team Structure:** Business Leads (BLs) manage deals, Customer Success Managers (CSMs) manage accounts, Finance uses Campfire ERP for ARR tracking
-
-### Your Role as Agent
-You act as a **production engineer, advisor, and go-to-market expert**. You should:
-- Understand Salesforce schema and SOQL deeply
-- Know the sales process and revenue classification rules
-- Be able to modify Node.js code, PDFKit reports, and Slack handlers
-- Advise on RevOps best practices and investor reporting
-- Act as an expert — don't ask basic questions
+**Primary Users:** 15-25 Business Leads (sales reps) across US and EU pods
 
 ---
 
 ## Architecture Overview
 
-### Tech Stack
-| Component | Technology |
-|-----------|------------|
-| Runtime | Node.js 18+ |
-| Web Framework | Express.js |
-| Slack Integration | @slack/bolt |
-| Salesforce API | jsforce |
-| PDF Generation | PDFKit |
-| Excel Reports | ExcelJS |
-| Scheduling | node-cron |
-| Logging | Winston |
-| AI/LLM | OpenAI, Anthropic (via Socrates gateway) |
-
-### Deployment
-- **Platform:** Render (Git-based auto-deploy)
-- **Repository:** GitHub → pushes to `main` trigger deploy
-- **URL:** https://gtm-wizard.onrender.com
-- **Health Check:** `GET /health`
-
-### Key Integrations
-| System | Purpose | Connection |
-|--------|---------|------------|
-| Salesforce | Source of truth for pipeline, accounts, opportunities | jsforce with username/password + security token |
-| Slack | User interface for queries and reports | Slack Bolt with bot token |
-| Campfire | ERP for contract/ARR management (Finance-owned) | REST API |
-| Socrates | Internal LLM gateway for Claude access | Okta M2M auth |
-
----
-
-## Core File Map
-
-### Entry Points
 ```
-src/app.js                    # Main Express + Slack Bolt app
-src/routes/emailBuilder.js    # API routes for email builder tool
-```
-
-### Salesforce Layer
-```
-src/salesforce/connection.js  # SF auth, circuit breaker, rate limiting
-src/salesforce/queries.js     # SOQL query builders
-```
-
-### Slack Handlers
-```
-src/slack/events.js           # Main @gtm-brain mention handler, SOQL queries
-src/slack/commands.js         # Slash command handlers
-src/slack/interactive.js      # Button/modal interactions
-src/slack/responseFormatter.js # Formats query results for Slack
-src/slack/contactFormatter.js  # Contact enrichment formatting
-src/slack/scheduled.js        # Cron jobs (CURRENTLY DISABLED)
-```
-
-### Report Generation
-```
-src/slack/blWeeklySummary.js      # Weekly snapshot PDF (Page 1 + 2)
-src/slack/accountDashboard.js     # HTML account dashboard
-src/slack/weeklyReport.js         # Pipeline reports
-src/slack/fullPipelineReport.js   # Full pipeline Excel
-src/slack/deliveryWeeklySummary.js # Delivery team reports
-src/slack/csmAccountHealth.js     # CSM account health
-```
-
-### AI/Intent Parsing
-```
-src/ai/intentParser.js        # NL → structured query intent
-src/ai/intelligentRouter.js   # Routes queries to handlers
-src/ai/contextManager.js      # Conversation context
-src/ai/semanticMatcher.js     # Fuzzy matching
-src/ai/socratesAdapter.js     # LLM gateway integration
-```
-
-### Data Schemas & Config
-```
-data/schema-account.json      # Account object field definitions
-data/schema-opportunity.json  # Opportunity object field definitions
-data/business-logic.json      # Business rules, stage groups, thresholds
-data/intent-patterns.json     # Query pattern matching
-src/config/queryPatterns.json # Valid field values, aliases
-```
-
-### Services
-```
-src/services/contactEnrichment.js  # OSINT contact finding
-src/services/contractAnalyzer.js   # Contract data processing
-src/services/llmContractExtractor.js # LLM-based contract parsing
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                           DATA SOURCES                                        │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  Microsoft Graph API     │  Salesforce API      │  Obsidian Vaults           │
+│  (Outlook Calendars)     │  (Accounts, Contacts,│  (Meeting Notes via        │
+│                          │   Opps, Deliveries)  │   Wispr dictation)         │
+└────────────┬─────────────┴──────────┬───────────┴──────────────┬─────────────┘
+             │                        │                          │
+             ▼                        ▼                          ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                       GTM BRAIN BACKEND (Node.js/Express)                    │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  Calendar Sync │ Clay Enrichment │ SF Contact Sync │ Obsidian Sync │ Reports│
+│  (6-hourly)    │ (HTTP Webhook)  │ (Auto-create)   │ (BL Notes)    │ (Slack)│
+└──────────────────────────────────────────────────────────────────────────────┘
+             │
+             ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  SQLite Database │ Salesforce Custom Objects │ Slack Channels               │
+│  (Render Disk)   │ (BL_Performance_Metrics,  │ (Weekly Reports, Alerts)     │
+│                  │  Stage_Snapshot, etc.)    │                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+             │
+             ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  DOWNSTREAM SYSTEMS                                                          │
+│  Campfire (Finance) ← Contract auto-creation Flow on Closed Won             │
+│  Rocket Lane (Delivery) ← Delivery auto-creation Flow on Proposal stage     │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Salesforce Schema — Critical Fields
+## Recent Enhancements (January 2026)
 
-### Account Object
-| API Name | Label | Values | Notes |
-|----------|-------|--------|-------|
-| `Customer_Type__c` | Customer Type | `Existing`, `New` | Primary segmentation |
-| `Customer_Subtype__c` | Customer Subtype | `MSA`, `Pilot`, `LOI` | Only applies to Existing |
+### ✅ Salesforce Flows - Opportunity Automation
 
-**Logo Counting Logic:**
-- Count accounts where `Customer_Type__c = 'Existing'`
-- Then break down by `Customer_Subtype__c` (MSA, Pilot, LOI)
+| Flow | Trigger | Purpose |
+|------|---------|---------|
+| `Opportunity_MEDDICC_Template` | Create | Auto-populates MEDDICC Qualification field with template |
+| `Next_Steps_History_On_Create` | Create | Copies initial Next Steps to Customer History |
+| `Next_Steps_History_On_Update` | Update (Next Steps changed) | Prepends OLD Next Steps value to Customer History |
+| `Opportunity_Stage_Snapshot` | Update (Stage changed) | Creates Stage_Snapshot__c record with ACV, BL Forecast, Target Sign Date |
+| `Create_Delivery_on_Proposal` | Stage → Proposal | Creates Delivery__c record |
+| `Create_Contract_on_Close` | Stage → Closed Won | Creates Contract record with dynamic naming |
+| `Sync_Products_to_ACV` | OpportunityLineItem Create/Update | Syncs Product totals to ACV__c when ACV is null |
+| `Sync_Products_to_ACV_On_Delete` | OpportunityLineItem Delete | Recalculates ACV when Products removed |
 
-### Opportunity Object
-| API Name | Label | Values |
-|----------|-------|--------|
-| `StageName` | Stage | `Stage 0 - Prospecting`, `Stage 1 - Discovery`, `Stage 2 - SQO`, `Stage 3 - Pilot`, `Stage 4 - Proposal`, `Stage 6. Closed(Won)`, `Stage 7. Closed Lost` |
-| `Sales_Type__c` | Sales Type | `New business`, `Expansion`, `Renewal`, `Eudia Counsel` |
-| `Revenue_Type__c` | Revenue Type | `Recurring`, `Project`, `Pilot`, `Commitment` |
-| `Product_Line__c` | Product Line | See table below |
-| `ACV__c` | Annual Contract Value | Currency |
-| `Weighted_ACV__c` | Weighted ACV | Currency (stage-based) |
-| `Finance_Weighted_ACV__c` | Finance Weighted ACV | Currency (Finance uses this) |
-| `Target_LOI_Date__c` | Target Sign Date | Date |
-| `Eudia_Tech__c` | AI Enabled | Boolean |
+### ✅ Custom Objects Created
 
-### Product Line Values (Exact API Names)
+**BL_Performance_Metrics__c** - Tracks sales rep performance:
+- `Business_Lead__c` (Lookup to User)
+- `Pod__c`, `Start_Date__c`, `Ramp_Milestone__c`
+- `Total_Closed_Won_ACV__c`, `Fiscal_YTD_ACV__c`, `Fiscal_QTD_ACV__c`
+- `Avg_Monthly_Productivity__c`, `Days_to_Ramp__c`, `Is_Ramped__c`
+- Weekly refresh via scheduled Apex: `BLMetricsScheduler`
+
+**Stage_Snapshot__c** - Tracks stage changes with key metrics:
+- `Opportunity__c` (Master-Detail)
+- `Stage__c`, `ACV__c`, `BL_Forecast_Category__c`, `Target_Sign_Date__c`
+- `Modified_By__c`, `Snapshot_Date__c`
+
+### ✅ MEDDICC Qualification Template
+
+New field on Opportunity: `MEDDICC_Qualification__c` (Long Text Area)
+- Auto-populated on new Opportunity creation
+- Clean template format with section headers and pre-created bullets:
 ```
-AI-Augmented Contracting_In-House Technology
-AI-Augmented Contracting_Managed Services
-AI-Augmented Compliance_In-House Technology
-AI-Augmented M&A_Managed Service
-Augmented-M&A
-Custom Agents
-Contracting - Secondee
-Other_Managed Service
-Other_Secondee
-Litigation
-sigma
-Multiple
-Undetermined
+[M] METRICS (quantifiable impact/ROI)
+- 
+- 
+
+[E] ECONOMIC BUYER (budget holder)
+- 
+
+[D] DECISION CRITERIA (key requirements)
+...
 ```
-**Important:** Use exact API names with underscores, not display labels with dashes.
 
-### Contract Object (Different from Opportunity)
-| API Name | Values |
-|----------|--------|
-| `Parent_Product__c` | Different optionality than Opportunity |
-| `Product_Line__c` | Slightly different values |
-| `Status` | `Draft`, `Activated`, `Expired` |
+### ✅ Next Steps → Customer History Flow
+
+**Behavior:**
+- Rep enters/updates `Next_Steps__c` field freely
+- Flow ONLY READS from Next Steps, NEVER modifies it
+- Flow ONLY WRITES to `Next_Step_Eudia__c` (Customer History)
+- Creates running history with date stamps:
+```
+2026-01-27: Previous next steps text
+---
+
+2026-01-26: Earlier next steps text
+---
+```
+
+### ✅ Slack Reports
+
+| Report | Trigger | Output |
+|--------|---------|--------|
+| `sendDeliveryReport` | Weekly/On-demand | Excel of deliveries, sent to Slack |
+| `sendFinanceAuditReport` | Weekly/On-demand | ACV/BL Forecast/Weighted totals for finance |
+| `sendWeeklySnapshot` | Weekly | PDF + Slack message with pipeline summary |
+
+**Key Fixes Applied:**
+- Excludes data tied to 'Keigan Pesenti' (test data)
+- Uses `Target_LOI_Date__c` filtered correctly for fiscal quarters
+- "Target LOI" renamed to "Target Sign Date" in all user-facing text
+
+### ✅ Obsidian Integration
+
+**Setup Page:** `/setup/obsidian` - Interactive HTML guide for BL onboarding
+**Demo Page:** `/demo` - VP Sales demo walkthrough
+
+**Sync Flow:**
+1. BL creates note in local Obsidian vault with frontmatter (account, date, attendees)
+2. `Sync-Notes.command` script pushes to GTM Brain
+3. Claude summarizes and matches to Salesforce Account
+4. Stored in `obsidian_notes` table
+5. Optional: Creates Salesforce Event and updates Customer_Brain__c
+
+### ✅ Closed Won Alerts
+
+Platform Event: `Closed_Won_Alert__e`
+- Triggers on Opportunity stage change to Closed Won
+- Posts to Slack channel `C097L4HK3PY` (GTM Account Planning)
+- **CAUTION:** Bulk Data Loader updates can trigger hundreds of alerts
+- Toggle: `CLOSED_WON_ALERTS_ENABLED` environment variable
 
 ---
 
-## Business Logic Definitions
+## Pending Implementation: Eudia Council Security
 
-### Revenue Classification
-| Type | Definition | ARR? |
-|------|------------|------|
-| **Recurring** | Term >= 12 months, predictable contracted revenue | Yes |
-| **Project** | Term < 12 months, one-time or short-term | No |
-| **Pilot** | Trial engagement | No |
-| **Managed Services** | Variable utilization-based (if not fixed monthly) | No |
+**Purpose:** Anonymize sensitive account names for restricted users while maintaining full access for leadership.
 
-**Critical:** ARR = only truly recurring, predictable revenue. Do not annualize project or variable managed services revenue.
+### Field Architecture (TO BE DEPLOYED)
 
-### Sales Type Classification
-| Type | Definition |
-|------|------------|
-| **New business** | Net new logos OR net new product lines at existing customers |
-| **Expansion** | Growth within existing product lines for existing ARR customers |
-| **Renewal** | Full annualized renewal value (not just uplift) |
-| **Eudia Counsel** | Eudia Counsel engagements |
+**Account Object:**
+- `Eudia_Council_Account__c` (Checkbox) - Marks account as Council
+- `Code_Name__c` (Text) - Anonymous display name (e.g., "Project Alpha")
+- `Account_Display_Name__c` (Formula) - Shows Code_Name if Council, else real Name
 
-### Stage Definitions
-| Stage | Milestone |
-|-------|-----------|
-| Stage 0 - Prospecting | Initial outreach, no meeting yet |
-| Stage 1 - Discovery | First meeting held, pain points identified |
-| Stage 2 - SQO | Sales Qualified Opportunity, use cases defined, account plan developed |
-| Stage 3 - Pilot | Active pilot or POC |
-| Stage 4 - Proposal | Proposal sent, delivery details populated |
-| Stage 6. Closed(Won) | Contract signed |
-| Stage 7. Closed Lost | Lost deal |
+**Opportunity Object:**
+- `Eudia_Council_Op__c` (Checkbox) - Inherited from Account
+- `Code_Name__c` (Text) - Inherits from Account.Code_Name__c
+- `Opportunity_Display_Name__c` (Formula) - Shows Code_Name if Council
 
-**Note:** Stage 0 was renamed from "Qualifying" to "Prospecting" (label only, API name unchanged).
+### Automation Flows (TO BE DEPLOYED)
 
-### Qualification Framework
-MEDDPICC:
-- **M**etrics — Quantified business impact
-- **E**conomic Buyer — Identified and engaged
-- **D**ecision Criteria — Understood
-- **D**ecision Process — Mapped
-- **P**aper Process — Known (legal, procurement)
-- **I**dentify Pain — Explicit pain documented
-- **C**hampion — Internal advocate confirmed
+1. **Council_Code_Name_Sync** - Syncs Account.Code_Name__c to Opportunity.Code_Name__c
+2. **Council_Leadership_Auto_Share** - Creates sharing records for leadership group
 
----
+### Profile/Sharing Strategy (Option B - Page Layout Approach)
 
-## Recent Changes Log
+- Use page layouts to hide `Name` field on Council accounts for restricted profiles
+- Create "Eudia Council Leadership" public group
+- Manual sharing rule: Council accounts shared with Leadership group (Read/Write)
+- Sales reps who own the account still have access
 
-### Stage Cleanup (January 2026)
-- Attempted to rename "Stage 0 - Qualifying" to "Stage 0 - Prospecting" via metadata API
-- **Limitation discovered:** Salesforce does not allow label changes on OpportunityStage values via metadata API
-- **Workaround:** Changed label in code/docs; API name unchanged
-- Deactivated 40 unused stages, kept 9 active
+### Implementation Status
 
-### Weekly Snapshot Revamp
-- Added **Page 1** with RevOps summary (run rate, signed revenue, top deals)
-- Existing GTM snapshot content moved to **Page 2**
-- Key queries added:
-  - `querySignedRevenueQTD()` — Fiscal quarter closed won deals
-  - `querySignedRevenueLastWeek()` — Last 7 days signed
-  - `queryQ4WeightedPipeline()` — New Business + Expansion weighted ACV
-  - `queryLogosByType()` — Existing accounts by subtype
+| Item | Status |
+|------|--------|
+| Public Group: Eudia_Council_Leadership | ✅ Configured (9 members) |
+| Account fields (Council checkbox, Code_Name, Display_Name) | ✅ Created |
+| Opportunity fields (Council checkbox, Code_Name, Display_Name) | ✅ Created |
+| Sharing Rule: Council_Leadership_Full_Access | ⏳ Manual step in Salesforce Setup |
+| Council_Code_Name_Sync Flow | ✅ Created |
+| Profile cloning strategy | ✅ Documented |
+| Page layout configuration | ⏳ After profile cloning |
+| Stage 5 Reactivation | ⏳ Manual step needed |
+| Code name population script (18 accounts) | ✅ Ready (DO NOT RUN until validation) |
 
-### Account Dashboard Updates
-- Replaced `UDATechEnabled` with `Eudia_Tech__c` (AI Enabled)
-- Updated closed revenue to use `LAST_N_DAYS:60` dynamic lookback
-- Removed Weekly tab
-- Updated Pipeline tab with Sales Type and Product Line breakdowns
-- Fixed account classification to use `Customer_Type__c` / `Customer_Subtype__c`
-
-### Product Line API Names
-- Corrected all code to use exact Salesforce API names (underscores, not dashes)
-- Updated: `events.js`, `intentParser.js`, `queryPatterns.json`, `schema-opportunity.json`
-
-### Authentication Issues (January 2026)
-- Hit Salesforce login attempt limits due to multiple local processes running
-- **Root cause:** `nodemon` respawning processes with old credentials
-- **Fix:** Disabled all scheduled cron jobs in `scheduled.js`
-- Added circuit breaker logic in `connection.js`
-- Added enhanced logging for auth diagnostics
+**Full Implementation Guide:** `salesforce/scripts/COUNCIL_SECURITY_IMPLEMENTATION.md`
 
 ---
 
-## Known Issues / Watch Items
+## Pending Implementation: Opportunity Products
 
-### Salesforce API Limits
-- Circuit breaker implemented in `src/salesforce/connection.js`
-- If auth fails 5+ times, enters degraded mode for 15 minutes
-- Reset via `POST /sf-reset` endpoint
+**Purpose:** Enable multi-product deal capture with proper ACV attribution and automated Delivery record creation.
 
-### Scheduled Jobs (DISABLED)
-All cron jobs in `src/slack/scheduled.js` are currently commented out:
-- Weekly snapshot
-- Delivery summary
-- BL reports
-These must be manually re-enabled after confirming auth stability.
+### Architecture: Hybrid ACV Integration
 
-### Stage Label Limitation
-- Cannot rename existing OpportunityStage labels via Salesforce Metadata API
-- "Stage 0 - Qualifying" cannot be changed to "Stage 0 - Prospecting" at the platform level
-- Code and documentation updated, but Salesforce UI still shows old label
+```
+Opportunity
+  ├── ACV__c (Currency) ← MASTER VALUE, user-editable
+  │     └── Default populated from SUM(OpportunityLineItems.TotalPrice)
+  │         BUT user can override anytime
+  └── OpportunityLineItems (Products related list)
+        └── Multiple products per opportunity
+```
 
-### Dependent Picklist: Product Line
-- `Product_Line__c` depends on `Sales_Type__c`
-- When editing opportunities, must select Sales Type first to enable Product Line
-- This is Salesforce configuration, not a bug
+**Key Behavior:**
+- If `ACV__c IS NULL` and Products exist → `ACV__c = Amount`
+- If user enters `ACV__c` manually → User value preserved, never overwritten
+- Products use $120,000 default ACV (user can override per line item)
 
-### Weighted ACV Field Discrepancy
-- `Weighted_ACV__c` — Used in most code
-- `Finance_Weighted_ACV__c` — Used by Finance in some contexts
-- Ensure correct field is used based on context
+### Products Available (11 total)
+
+All products match existing `Product_Line__c` picklist values:
+
+| Family | Products |
+|--------|----------|
+| Contracting | AI-Augmented Contracting - In-House Technology, Managed Services, Secondee |
+| M&A | AI-Augmented M&A - In-House Technology, Managed Service |
+| Compliance | AI-Augmented Compliance - In-House Technology |
+| Platform | Sigma, Custom Agents |
+| Litigation | Litigation |
+| Other | Other - Managed Service, Other - Secondee |
+
+### Implementation Status
+
+| Item | Status |
+|------|--------|
+| Products script (`createProductsAndPriceBook.apex`) | ✅ Ready |
+| Sync Products to ACV Flow | ✅ Created |
+| Sync Products to ACV On Delete Flow | ✅ Created |
+| Create Opp Assist v2 update (documentation) | ✅ Documented |
+| Delivery trigger update (template) | ✅ Template ready |
+| Sandbox testing | ⏳ Ready to run |
+| Production deployment | ⏳ After sandbox validation |
+
+**Full Implementation Guide:** `salesforce/scripts/OPPORTUNITY_PRODUCTS_IMPLEMENTATION.md`
+**Interactive Testing Guide:** `docs/OPPORTUNITY_PRODUCTS_TESTING.html`
 
 ---
 
-## Key Commands and Queries
+## Key Files Reference
 
-### Slack Commands
-| Command | Description |
-|---------|-------------|
-| `@gtm-brain weekly snapshot` | Generates RevOps Weekly PDF |
-| `@gtm-brain who owns [account]` | Returns account owner |
-| `@gtm-brain [account] pipeline` | Shows account's opportunities |
-| `@gtm-brain dashboard` | Returns account dashboard link |
-| `@gtm-brain contact [name] at [company]` | Contact enrichment |
+### Salesforce Flows
+```
+salesforce/force-app/main/default/flows/
+├── Opportunity_MEDDICC_Template.flow-meta.xml
+├── Next_Steps_History_On_Create.flow-meta.xml
+├── Next_Steps_History_On_Update.flow-meta.xml
+├── Opportunity_Stage_Snapshot.flow-meta.xml
+├── Council_Code_Name_Sync.flow-meta.xml
+├── Create_Delivery_Record_on_Proposal.flow-meta.xml
+└── Create_Contract_on_Close.flow-meta.xml
+```
 
-### Deployment Process
+### Apex Classes
+```
+salesforce/force-app/main/default/classes/
+├── BLMetricsCalculationService.cls  - Calculates BL performance metrics
+├── BLMetricsScheduler.cls           - Weekly scheduled job
+└── BLMetricsCalculationServiceTest.cls
+```
+
+### Apex Scripts (one-time execution)
+```
+salesforce/scripts/apex/
+├── backfillMEDDICC.apex             - Backfill MEDDICC template
+├── updateMEDDICCFormat.apex         - Update to cleaner format
+├── initialSetup.apex                - Create BL_Performance_Metrics records
+└── updateCouncilCodeNames.apex      - Populate code names (pending)
+```
+
+### Node.js Services
+```
+src/services/
+├── calendarService.js      - Outlook calendar sync
+├── clayEnrichment.js       - Clay data enrichment
+├── salesforceContactSync.js - Contact/Event creation
+├── obsidianSyncService.js  - Obsidian note processing
+├── meetingClassifier.js    - AI meeting type classification
+├── velocityTracker.js      - Sales velocity tracking
+└── intelligenceStore.js    - SQLite database operations
+```
+
+### Slack Integration
+```
+src/slack/
+├── events.js               - Slack event handlers
+├── blWeeklySummary.js      - Weekly snapshot report
+├── financeWeeklyAudit.js   - Finance report
+├── deliveryReportToSlack.js - Delivery report
+└── fullPipelineReport.js   - Pipeline Excel export
+```
+
+---
+
+## Environment Variables
+
 ```bash
-# Make changes
-git add .
-git commit -m "description"
-git push origin main
+# Salesforce
+SF_LOGIN_URL=https://login.salesforce.com
+SF_USERNAME=service.account@eudia.com
+SF_PASSWORD=*****
+SF_SECURITY_TOKEN=*****
 
-# Render auto-deploys from main branch
-# If issues, do "Clear build cache & deploy" in Render dashboard
+# Microsoft Graph (Calendar Access)
+AZURE_TENANT_ID=*****
+AZURE_CLIENT_ID=*****
+AZURE_CLIENT_SECRET=*****
+
+# Clay
+CLAY_WEBHOOK_URL=https://api.clay.com/v3/webhooks/*****
+CLAY_API_KEY=*****
+
+# Anthropic (Claude)
+ANTHROPIC_API_KEY=*****
+
+# Slack
+SLACK_BOT_TOKEN=xoxb-*****
+SLACK_SIGNING_SECRET=*****
+
+# Database
+INTEL_DB_PATH=/data/intelligence.db
+
+# Feature Flags
+USE_FULL_BL_LIST=false
+CLOSED_WON_ALERTS_ENABLED=true
 ```
 
-### Local Development
+---
+
+## Deployment
+
+**Platform:** Render (Web Service)
+**URL:** https://gtm-wizard.onrender.com
+**Database:** SQLite on Render Disk (`/data/intelligence.db`)
+**Auto-deploy:** On push to `main` branch
+
+**Salesforce Deployment:**
 ```bash
-# Install dependencies
-npm install
-
-# Run locally (ensure .env has SF credentials)
-npm run dev
-
-# Run tests
-npm test
-```
-
-### Environment Variables (Required in Render)
-```
-SALESFORCE_USERNAME
-SALESFORCE_PASSWORD
-SALESFORCE_SECURITY_TOKEN
-SALESFORCE_LOGIN_URL=https://login.salesforce.com
-SLACK_BOT_TOKEN
-SLACK_SIGNING_SECRET
-SLACK_APP_TOKEN
+cd salesforce
+sf project deploy start --source-dir force-app --target-org eudia-prod
 ```
 
 ---
 
-## User Preferences and Communication Style
+## Known Issues & Cautions
 
-### What the User Expects
-- **Short, tactical responses** — Don't over-explain
-- **No emojis** in code output or Slack messages
-- **Accuracy over speed** — Validate logic before claiming it's done
-- **Expert behavior** — Don't ask basic questions; research first
-- **Proactive problem identification** — Flag issues before they become blockers
+1. **Closed Won Alerts:** Bulk Data Loader updates trigger platform events. Disable alerts before bulk operations.
 
-### Common Feedback Patterns
-- "This is still not correct" — Usually means a query filter or field name is wrong
-- "Remove [X]" — Wants cleaner, simpler output
-- "Make this dynamic" — Wants real-time data, not static values
-- "Act as an advisor" — Wants strategic input, not just code
+2. **Next Steps History Flow:** Two separate flows handle Create vs Update. The flow ONLY reads from Next_Steps__c and writes to Next_Step_Eudia__c.
 
-### Things That Frustrate the User
-- Repeating the same mistake after being corrected
-- Claiming changes were made when they weren't deployed
-- Over-engineering simple requests
-- Adding emojis or unnecessary formatting
+3. **MEDDICC Template:** Backfilled for 266 active stage opportunities. New opportunities auto-populate.
+
+4. **Stage Snapshot:** Only captures when stage actually changes. Historical data not backfilled.
+
+5. **Eudia Council:** Partial implementation - fields and sharing rules deployed, but page layout configuration is manual.
 
 ---
 
-## Quick Reference: File Locations by Task
+## Testing Checklist
 
-| Task | Primary File |
-|------|--------------|
-| Fix a Slack query response | `src/slack/events.js` |
-| Update weekly snapshot PDF | `src/slack/blWeeklySummary.js` |
-| Modify account dashboard | `src/slack/accountDashboard.js` |
-| Change field mappings | `data/schema-*.json` |
-| Update business rules | `data/business-logic.json` |
-| Fix intent parsing | `src/ai/intentParser.js` |
-| Debug SF connection | `src/salesforce/connection.js` |
-| Update sales process doc | `docs/sales-process.html` |
+| Feature | Test Steps | Expected |
+|---------|------------|----------|
+| MEDDICC on new Opp | Create new opportunity | Template auto-populates |
+| Next Steps → History | Update Next Steps, save | Old value appears in Customer History with date |
+| Stage Snapshot | Change opportunity stage | New Stage_Snapshot__c record created |
+| Closed Won Alert | Move opp to Closed Won | Slack message in GTM Account Planning |
+| Weekly Snapshot | `/api/slack/send-weekly-snapshot` | PDF + Slack message |
 
 ---
 
-## Fiscal Calendar Reference
-
-- **Fiscal Year:** February 1 - January 31
-- **Q4 FY25:** November 1, 2025 - January 31, 2026
-- **Current Month (January 2026):** Last month of Q4
-
----
-
-## Final Notes
-
-This project is actively used by the sales team. Changes to queries, reports, or field mappings directly impact how leadership views pipeline and revenue data. Always:
-
-1. Test queries before deploying
-2. Verify field API names match Salesforce exactly
-3. Check for existing patterns in the codebase before creating new ones
-4. Deploy cautiously — circuit breaker and auth issues are real risks
-
-When in doubt, ask clarifying questions about business intent, but never about technical basics you should already know.
-
+*Last Updated: January 27, 2026*
+*Contact: keigan@eudia.com*
 

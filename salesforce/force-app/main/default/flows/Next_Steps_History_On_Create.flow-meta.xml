@@ -3,6 +3,8 @@
     <apiVersion>59.0</apiVersion>
     <description>On Opportunity CREATE: Captures initial Next Steps value in Customer History. Clean plain text formatting.</description>
     <environments>Default</environments>
+    
+    <!-- Date formatter -->
     <formulas>
         <name>TodayFormatted</name>
         <dataType>String</dataType>
@@ -10,27 +12,32 @@
 IF(MONTH(TODAY()) &lt; 10, "0", "") &amp; TEXT(MONTH(TODAY())) &amp; "-" &amp; 
 IF(DAY(TODAY()) &lt; 10, "0", "") &amp; TEXT(DAY(TODAY()))</expression>
     </formulas>
-    <formulas>
-        <name>InitialHistoryEntry</name>
-        <dataType>String</dataType>
-        <expression>{!TodayFormatted} &amp; ": " &amp; {!$Record.Next_Steps__c}</expression>
-    </formulas>
+    
+    <!-- Text Template for initial entry -->
+    <textTemplates>
+        <name>InitialEntryTemplate</name>
+        <isViewedAsPlainText>true</isViewedAsPlainText>
+        <text>{!TodayFormatted}: {!$Record.Next_Steps__c}</text>
+    </textTemplates>
+    
     <interviewLabel>Next Steps History On Create {!$Flow.CurrentDateTime}</interviewLabel>
     <label>Next Steps History On Create</label>
     <processType>AutoLaunchedFlow</processType>
+    
     <assignments>
         <name>Set_Initial_History</name>
         <label>Set Initial History</label>
         <locationX>176</locationX>
-        <locationY>335</locationY>
+        <locationY>252</locationY>
         <assignmentItems>
             <assignToReference>$Record.Next_Step_Eudia__c</assignToReference>
             <operator>Assign</operator>
             <value>
-                <elementReference>InitialHistoryEntry</elementReference>
+                <elementReference>InitialEntryTemplate</elementReference>
             </value>
         </assignmentItems>
     </assignments>
+    
     <start>
         <locationX>50</locationX>
         <locationY>0</locationY>
@@ -49,5 +56,6 @@ IF(DAY(TODAY()) &lt; 10, "0", "") &amp; TEXT(DAY(TODAY()))</expression>
         <recordTriggerType>Create</recordTriggerType>
         <triggerType>RecordBeforeSave</triggerType>
     </start>
+    
     <status>Active</status>
 </Flow>
