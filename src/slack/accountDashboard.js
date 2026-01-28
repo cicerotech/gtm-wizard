@@ -43,10 +43,29 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 }
 
 /**
- * Format product line for display - replace underscores with dashes
+ * Product line display name mapping
+ * Maps old Salesforce values to new standardized display names
+ */
+const PRODUCT_LINE_DISPLAY_NAMES = {
+  'sigma': 'AI Platform - Sigma',
+  'Sigma': 'AI Platform - Sigma',
+  'Litigation': 'AI Platform - Litigation',
+  'Custom Agents': 'FDE - Custom AI Solution',
+  'Insights': 'AI Platform - Insights'
+};
+
+/**
+ * Format product line for display - maps old values to new names
  */
 function formatProductLine(productLine) {
   if (!productLine) return 'TBD';
+  
+  // Check if this is a value that needs renaming
+  if (PRODUCT_LINE_DISPLAY_NAMES[productLine]) {
+    return PRODUCT_LINE_DISPLAY_NAMES[productLine];
+  }
+  
+  // Otherwise, just clean up underscores
   return productLine.replace(/_/g, ' - ').replace(/  +/g, ' ');
 }
 
@@ -341,7 +360,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
             '<summary style="padding: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb; font-size: 0.8rem;">' +
               '<div>' +
                 '<span style="font-weight: 500;">' + acc.name + '</span>' + legacyDot + aiEnabledDot +
-                '<div style="font-size: 0.65rem; color: #6b7280;">S' + acc.highestStage + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') + (products.length ? ' • ' + products.slice(0,2).join(', ') : '') + '</div>' +
+                '<div style="font-size: 0.65rem; color: #6b7280;">S' + acc.highestStage + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') + (products.length ? ' • ' + products.slice(0,2).map(p => formatProductLine(p)).join(', ') : '') + '</div>' +
               '</div>' +
               '<div style="text-align: right;">' +
                 '<div style="font-weight: 600;">' + fmt(acc.totalACV) + '</div>' +
@@ -410,7 +429,7 @@ function generateTopCoTab(eudiaGross, eudiaWeighted, eudiaDeals, eudiaAccounts, 
         const closeDateStr = deal.closeDate ? new Date(deal.closeDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : '';
         const ownerName = deal.owner ? (deal.owner.split(' ')[0]) : '';
         // Show: Product • Owner • Close Date
-        const details = [deal.product, ownerName, closeDateStr].filter(x => x).join(' • ');
+        const details = [formatProductLine(deal.product), ownerName, closeDateStr].filter(x => x).join(' • ');
         
         return '<div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.75rem;">' +
           '<div style="flex: 1;">' +
