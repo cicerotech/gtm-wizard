@@ -102,11 +102,14 @@ function getDomain(email) {
 
 /**
  * Parse name from email address (fallback)
+ * Handles: first.last, first_last, first-last, firstlast, first.m.last, first.last1
  */
 function parseNameFromEmail(email) {
   if (!email) return { firstName: 'Unknown', lastName: 'Contact' };
   
-  const localPart = email.split('@')[0];
+  // Get local part and strip numbers
+  let localPart = email.split('@')[0];
+  localPart = localPart.replace(/[0-9]/g, ''); // Remove numbers like "hernandez1"
   
   const patterns = [
     /^([a-z]+)\.([a-z]+)$/i,      // first.last
@@ -132,11 +135,33 @@ function parseNameFromEmail(email) {
     }
   }
   
-  // Try to extract any name-like pattern
-  const cleaned = localPart.replace(/[0-9]/g, '');
-  if (cleaned.length > 1) {
+  // Try camelCase detection (e.g., "chrisRoberts" or "ChrisRoberts")
+  const camelMatch = localPart.match(/^([a-z]+)([A-Z][a-z]+)$/);
+  if (camelMatch) {
     return {
-      firstName: capitalize(cleaned),
+      firstName: capitalize(camelMatch[1]),
+      lastName: capitalize(camelMatch[2])
+    };
+  }
+  
+  // Try to split long names heuristically (common first names)
+  const commonFirstNames = ['chris', 'michael', 'john', 'james', 'robert', 'david', 'william', 'richard', 'joseph', 'thomas', 'charles', 'daniel', 'matthew', 'anthony', 'mark', 'donald', 'steven', 'paul', 'andrew', 'joshua', 'kenneth', 'kevin', 'brian', 'george', 'edward', 'ronald', 'timothy', 'jason', 'jeffrey', 'ryan', 'jacob', 'gary', 'nicholas', 'eric', 'jonathan', 'stephen', 'larry', 'justin', 'scott', 'brandon', 'benjamin', 'samuel', 'raymond', 'gregory', 'frank', 'alexander', 'patrick', 'jack', 'dennis', 'jerry', 'tyler', 'aaron', 'jose', 'adam', 'nathan', 'henry', 'douglas', 'zachary', 'peter', 'kyle', 'mary', 'patricia', 'jennifer', 'linda', 'elizabeth', 'barbara', 'susan', 'jessica', 'sarah', 'karen', 'nancy', 'lisa', 'betty', 'margaret', 'sandra', 'ashley', 'dorothy', 'kimberly', 'emily', 'donna', 'michelle', 'carol', 'amanda', 'melissa', 'deborah', 'stephanie', 'rebecca', 'sharon', 'laura', 'cynthia', 'kathleen', 'amy', 'angela', 'shirley', 'anna', 'brenda', 'pamela', 'emma', 'nicole', 'helen', 'samantha', 'katherine', 'christine', 'debra', 'rachel', 'carolyn', 'janet', 'catherine', 'maria', 'heather', 'diane', 'ruth', 'julie', 'olivia', 'joyce', 'virginia', 'victoria', 'kelly', 'lauren', 'christina', 'joan', 'evelyn', 'judith', 'megan', 'andrea', 'cheryl', 'hannah', 'jacqueline', 'martha', 'gloria', 'teresa', 'ann', 'sara', 'madison', 'frances', 'kathryn', 'janice', 'jean', 'abigail', 'alice', 'judy', 'sophia', 'grace', 'denise', 'amber', 'doris', 'marilyn', 'danielle', 'beverly', 'isabella', 'theresa', 'diana', 'natalie', 'brittany', 'charlotte', 'marie', 'kayla', 'alexis', 'lori'];
+  
+  const lowerLocal = localPart.toLowerCase();
+  for (const firstName of commonFirstNames) {
+    if (lowerLocal.startsWith(firstName) && lowerLocal.length > firstName.length + 2) {
+      const lastName = lowerLocal.substring(firstName.length);
+      return {
+        firstName: capitalize(firstName),
+        lastName: capitalize(lastName)
+      };
+    }
+  }
+  
+  // Last resort: just capitalize the whole thing as first name
+  if (localPart.length > 1) {
+    return {
+      firstName: capitalize(localPart),
       lastName: 'Unknown'
     };
   }
