@@ -2427,8 +2427,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <h1>GTM Dashboard</h1>
   <p>Real-time pipeline overview • Updated ${new Date().toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit', hour12: true })} PT</p>
   <div style="margin-top: 8px; font-size: 0.75rem;">
-    <a href="/cheat-sheet" target="_blank" style="color: #1e40af; text-decoration: none; font-weight: 500;">📋 Query Commands</a>
-    <span style="color: #d1d5db; margin: 0 8px;">|</span>
     <a href="/account-dashboard/logout" style="color: #9ca3af; text-decoration: none;">🔒 Logout</a>
   </div>
 </div>
@@ -2530,7 +2528,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
   <div class="section-card" style="padding: 0;">
     ${revenueDeals.length > 0 ? `
     <details open style="margin-bottom: 12px;">
-      <summary style="background: #1f2937; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
+      <summary style="background: #059669; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
         <span>RECURRING</span>
         <span>${revenueDeals.length} deal${revenueDeals.length !== 1 ? 's' : ''}</span>
       </summary>
@@ -2571,7 +2569,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     
     ${signedByType.project.length > 0 ? `
     <details open style="margin-bottom: 12px;">
-      <summary style="background: #7c3aed; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
+      <summary style="background: #3b82f6; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
         <span>PROJECT</span>
         <span>${signedByType.project.length} deal${signedByType.project.length !== 1 ? 's' : ''}</span>
       </summary>
@@ -2643,7 +2641,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     
     ${signedByType.loi.length > 0 ? `
     <details open>
-      <summary style="background: #374151; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
+      <summary style="background: #9ca3af; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
         <span>COMMITMENT</span>
         <span>${signedByType.loi.length} deal${signedByType.loi.length !== 1 ? 's' : ''}</span>
       </summary>
@@ -2683,25 +2681,25 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     <strong>All Accounts</strong> — By Customer Type (New/Existing) and Customer Subtype (MSA/Pilot/LOI).
   </div>
   
-  <!-- Signed Logos - Top level count (hardcoded per user request) -->
+  <!-- Signed Logos - Dynamic count from Customer_Type__c = 'Existing' -->
   <div style="display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 16px;">
     <div style="background: #f0fdf4; padding: 16px; border-radius: 8px; border-left: 4px solid #10b981;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.8rem; font-weight: 700; color: #065f46;">SIGNED LOGOS</div>
-        <div style="font-size: 1.5rem; font-weight: 700; color: #047857;">81</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: #047857;">${signedLogos.length}</div>
       </div>
       <div style="font-size: 0.6rem; color: #059669; margin-top: 4px;">Accounts with Customer_Type__c = "Existing"</div>
     </div>
   </div>
   
-  <!-- Existing Customers by Subtype (MSA, Pilot, LOI) - hardcoded per user request -->
+  <!-- Existing Customers by Subtype (MSA, Pilot, LOI) - Dynamic from Customer_Subtype__c -->
   <div style="font-size: 0.75rem; font-weight: 600; color: #374151; margin-bottom: 8px;">Existing Customers by Type</div>
   <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px;">
     <!-- MSA Tile -->
     <div style="background: #f0fdf4; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.65rem; font-weight: 700; color: #059669;">MSA</div>
-        <div style="font-size: 1.1rem; font-weight: 700; color: #15803d;">60</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #15803d;">${customerSubtypes.msa.length}</div>
       </div>
       <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">Active recurring or project revenue</div>
       <details style="font-size: 0.55rem; color: #6b7280;">
@@ -2716,7 +2714,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     <div style="background: #fef3c7; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.65rem; font-weight: 700; color: #d97706;">PILOT</div>
-        <div style="font-size: 1.1rem; font-weight: 700; color: #92400e;">5</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #92400e;">${customerSubtypes.pilot.length}</div>
       </div>
       <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">< 12 months</div>
       <details style="font-size: 0.55rem; color: #6b7280;">
@@ -2731,7 +2729,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     <div style="background: #f5f3ff; padding: 12px; border-radius: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="font-size: 0.65rem; font-weight: 700; color: #7c3aed;">LOI</div>
-        <div style="font-size: 1.1rem; font-weight: 700; color: #6b21a8;">16</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #6b21a8;">${customerSubtypes.loi.length}</div>
       </div>
       <div style="font-size: 0.5rem; color: #6b7280; margin: 4px 0;">Pending contract</div>
       <details style="font-size: 0.55rem; color: #6b7280;">
@@ -2743,10 +2741,10 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     </div>
   </div>
   
-  <!-- Total Signed Logos Summary (hardcoded per user request) -->
+  <!-- Total Signed Logos Summary (Dynamic) -->
   <div style="background: #1f2937; color: white; padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
     <span style="font-size: 0.75rem; font-weight: 600;">Total Signed Logos</span>
-    <span style="font-size: 1rem; font-weight: 700;">81</span>
+    <span style="font-size: 1rem; font-weight: 700;">${signedLogos.length}</span>
   </div>
   
   <div class="section-card" style="padding: 12px; margin-bottom: 12px;">
