@@ -800,8 +800,8 @@
                     </thead>
                     <tbody>
                         <tr><td><strong>ACV</strong></td><td>Annual Contract Value</td></tr>
-                        <tr><td><strong>Stage</strong></td><td>Current sales stage (0-4)</td></tr>
-                        <tr><td><strong>Product Line(s)</strong></td><td>Multi-select field — which offerings are in conversation (see Section 4)</td></tr>
+                        <tr><td><strong>Stage</strong></td><td>Current sales stage (0-5)</td></tr>
+                        <tr><td><strong>Product Line(s)</strong></td><td>Multi-select field — which offerings are in conversation</td></tr>
                         <tr><td><strong>Target Sign Date</strong></td><td>Expected signature date (becomes Close Date when won)</td></tr>
                         <tr><td><strong>Sales Type</strong></td><td>New Business, Expansion, Renewal</td></tr>
                         <tr><td><strong>Revenue Type</strong></td><td>Recurring (12+ mo), Project (&lt;12 mo), Commitment (LOI)</td></tr>
@@ -809,36 +809,11 @@
                     </tbody>
                 </table>
 
-                <h3>Sales Type Definitions</h3>
-                <table>
-                    <thead><tr><th>Type</th><th>Definition</th></tr></thead>
-                    <tbody>
-                        <tr><td><strong>New Business</strong></td><td>Net new logos OR net new product lines at existing customers (dollars are net new)</td></tr>
-                        <tr><td><strong>Expansion</strong></td><td>Growth within existing product lines for existing ARR customers</td></tr>
-                        <tr><td><strong>Renewal</strong></td><td>Full annualized renewal value (not just net-new uplift)</td></tr>
-                    </tbody>
-                </table>
-
-                <h3>Opportunity-Level Tags (Sales Type)</h3>
-                <table>
-                    <thead><tr><th>Tag</th><th>Definition</th></tr></thead>
-                    <tbody>
-                        <tr><td><strong>New</strong></td><td>Net new logos OR net new product lines (dollars are net new)</td></tr>
-                        <tr><td><strong>Expansion</strong></td><td>Growth within existing product lines for existing ARR customers</td></tr>
-                        <tr><td><strong>Renewal</strong></td><td>Full annualized renewal value (not just net-new uplift)</td></tr>
-                    </tbody>
-                </table>
-
-                <h3>Opportunity Revenue Types <span style="font-weight: 400; font-size: 11px; color: #64748b;">(Assigned at Close Won)</span></h3>
-                <p style="font-size: 11px; color: #64748b; margin-bottom: 10px;">Revenue $ only populated for Recurring + Project.</p>
-                <table>
-                    <thead><tr><th>Type</th><th>Rule</th></tr></thead>
-                    <tbody>
-                        <tr><td><strong>Recurring</strong></td><td>Auto-set if Term ≥ 12 months</td></tr>
-                        <tr><td><strong>Project</strong></td><td>Auto-set if Term &lt; 12 months (pilots, short-term)</td></tr>
-                        <tr><td><strong>Commitment</strong></td><td>Manual — LOI only, input "Commitment ACV"</td></tr>
-                    </tbody>
-                </table>
+                <h3>Stage Gates</h3>
+                <ul>
+                    <li><strong>To move to Stage 2 (SQO):</strong> <span class="bl-tag">BL</span> provides MEDDICC inputs — Economic Buyer, Decision Process, Champion, and Pain identified. Post update in <span class="tool-tag">#gtm-account-planning</span>.</li>
+                    <li><strong>To move to Stage 4 (Proposal):</strong> <span class="bl-tag">BL</span> provides all necessary inputs for delivery visibility — scope, timeline, resource requirements, and pricing confirmed.</li>
+                </ul>
 
                 <h3>Opportunity Basics</h3>
                 <ul>
@@ -849,72 +824,117 @@
             </div>
         </details>
 
-        <!-- 4. PRODUCT LINES -->
+        <!-- 4. DEFINITIONS (Reference Section) -->
         <details open>
-            <summary><h2>4. Product Lines</h2></summary>
-            <div class="section-content">
-                <table>
-                    <thead><tr><th>Product Line</th><th>Notes</th></tr></thead>
-                    <tbody>
-                        <tr><td><strong>AI-Augmented Contracting – Managed Services</strong></td><td>Full-service + tech</td></tr>
-                        <tr><td><strong>AI-Augmented Contracting – In-House Technology</strong></td><td>Tech license only</td></tr>
-                        <tr><td><strong>AI-Augmented Compliance – In-House Technology</strong></td><td>Compliance tech</td></tr>
-                        <tr><td><strong>AI-Augmented M&A – Managed Service</strong></td><td>M&A full-service</td></tr>
-                        <tr><td><strong>AI-Augmented M&A – In-House Technology</strong></td><td>M&A tech license</td></tr>
-                        <tr><td><strong>AI Platform - Sigma</strong></td><td>Self-serve AI agent suite</td></tr>
-                        <tr><td><strong>AI Platform - Insights</strong></td><td>AI-powered analytics</td></tr>
-                        <tr><td><strong>AI Platform - Litigation</strong></td><td>Litigation support</td></tr>
-                        <tr><td><strong>FDE - Custom AI Solution</strong></td><td>Custom AI development</td></tr>
-                        <tr><td><strong>Contracting – Secondee</strong></td><td>Contracting-specific placement</td></tr>
-                        <tr><td><strong>Multiple</strong></td><td>Bundled (specify in notes)</td></tr>
-                        <tr><td><strong>Other – Secondee</strong></td><td>Catch-all secondee</td></tr>
-                        <tr><td><strong>Other – Managed Service</strong></td><td>Catch-all non-tech managed service</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </details>
+            <summary><h2>4. Field Definitions</h2></summary>
+            <div class="section-content" style="background: #f8fafc;">
+                <p style="font-size: 11px; color: #64748b; margin-bottom: 16px;">Reference definitions for the fields above. Expand for details on each field type.</p>
 
-        <!-- 5. ACCOUNT TAGGING -->
-        <details open>
-            <summary><h2>5. Account Tagging</h2></summary>
-            <div class="section-content">
-                <div class="note">
-                    Account assignment and reporting structure documentation coming soon.
+                <!-- Sales Type Definitions -->
+                <div style="background: #f1f5f9; border-radius: 6px; padding: 12px 14px; margin-bottom: 12px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 12px; color: #475569;">Sales Type Definitions</h3>
+                    <table>
+                        <thead><tr><th style="background: #64748b;">Type</th><th style="background: #64748b;">Definition</th></tr></thead>
+                        <tbody>
+                            <tr><td><strong>New Business</strong></td><td>Net new logos OR net new product lines at existing customers (dollars are net new)</td></tr>
+                            <tr><td><strong>Expansion</strong></td><td>Growth within existing product lines for existing ARR customers</td></tr>
+                            <tr><td><strong>Renewal</strong></td><td>Full annualized renewal value (not just net-new uplift)</td></tr>
+                        </tbody>
+                    </table>
                 </div>
 
-                <h3 style="margin-top: 0;">Account-Level Tags</h3>
-                <table>
-                    <thead><tr><th>Tag</th><th>Definition</th></tr></thead>
-                    <tbody>
-                        <tr><td><strong>New</strong></td><td>Net new customer — no prior relationship</td></tr>
-                        <tr><td><strong>Existing</strong></td><td>Prior or current relationship (see sub-tags)</td></tr>
-                    </tbody>
-                </table>
-                
-                <h3>Existing Customer Sub-Tags</h3>
-                <table>
-                    <thead><tr><th>Sub-Tag</th><th>Definition</th></tr></thead>
-                    <tbody>
-                        <tr><td><strong>MSA</strong></td><td>Active revenue-paying customer (includes Recurring and Project)</td></tr>
-                        <tr><td><strong>Pilot</strong></td><td>Currently running or completed pilot</td></tr>
-                        <tr><td><strong>LOI</strong></td><td>Letter of Intent signed</td></tr>
-                    </tbody>
-                </table>
+                <!-- Opportunity-Level Tags -->
+                <div style="background: #f1f5f9; border-radius: 6px; padding: 12px 14px; margin-bottom: 12px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 12px; color: #475569;">Opportunity-Level Tags (Sales Type)</h3>
+                    <table>
+                        <thead><tr><th style="background: #64748b;">Tag</th><th style="background: #64748b;">Definition</th></tr></thead>
+                        <tbody>
+                            <tr><td><strong>New</strong></td><td>Net new logos OR net new product lines (dollars are net new)</td></tr>
+                            <tr><td><strong>Expansion</strong></td><td>Growth within existing product lines for existing ARR customers</td></tr>
+                            <tr><td><strong>Renewal</strong></td><td>Full annualized renewal value (not just net-new uplift)</td></tr>
+                        </tbody>
+                    </table>
+                </div>
 
-                <h3>Key Account Fields</h3>
-                <ul class="inline-list">
-                    <li><strong>Account Owner:</strong> <span class="bl-tag">BL</span> responsible</li>
-                    <li><strong>HQ State/Region:</strong> Geography</li>
-                    <li><strong>Customer Tag:</strong> New vs Existing</li>
-                    <li><strong>Account Plan:</strong> Strategy doc</li>
-                    <li><strong>Customer Brain:</strong> Meeting notes</li>
-                </ul>
+                <!-- Opportunity Revenue Types -->
+                <div style="background: #f1f5f9; border-radius: 6px; padding: 12px 14px; margin-bottom: 12px;">
+                    <h3 style="margin: 0 0 4px 0; font-size: 12px; color: #475569;">Opportunity Revenue Types <span style="font-weight: 400; font-size: 10px; color: #94a3b8;">(Assigned at Close Won)</span></h3>
+                    <p style="font-size: 10px; color: #94a3b8; margin-bottom: 10px;">Revenue $ only populated for Recurring + Project.</p>
+                    <table>
+                        <thead><tr><th style="background: #64748b;">Type</th><th style="background: #64748b;">Rule</th></tr></thead>
+                        <tbody>
+                            <tr><td><strong>Recurring</strong></td><td>Auto-set if Term ≥ 12 months</td></tr>
+                            <tr><td><strong>Project</strong></td><td>Auto-set if Term &lt; 12 months (pilots, short-term)</td></tr>
+                            <tr><td><strong>Commitment</strong></td><td>Manual — LOI only, input "Commitment ACV"</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Product Lines -->
+                <div style="background: #f1f5f9; border-radius: 6px; padding: 12px 14px; margin-bottom: 12px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 12px; color: #475569;">Product Lines <span style="font-weight: 400; font-size: 10px; color: #94a3b8;">(Multi-select field)</span></h3>
+                    <table>
+                        <thead><tr><th style="background: #64748b;">Product Line</th><th style="background: #64748b;">Notes</th></tr></thead>
+                        <tbody>
+                            <tr><td><strong>AI-Augmented Contracting – Managed Services</strong></td><td>Full-service + tech</td></tr>
+                            <tr><td><strong>AI-Augmented Contracting – In-House Technology</strong></td><td>Tech license only</td></tr>
+                            <tr><td><strong>AI-Augmented Compliance – In-House Technology</strong></td><td>Compliance tech</td></tr>
+                            <tr><td><strong>AI-Augmented M&A – Managed Service</strong></td><td>M&A full-service</td></tr>
+                            <tr><td><strong>AI-Augmented M&A – In-House Technology</strong></td><td>M&A tech license</td></tr>
+                            <tr><td><strong>AI Platform - Sigma</strong></td><td>Self-serve AI agent suite</td></tr>
+                            <tr><td><strong>AI Platform - Insights</strong></td><td>AI-powered analytics</td></tr>
+                            <tr><td><strong>AI Platform - Litigation</strong></td><td>Litigation support</td></tr>
+                            <tr><td><strong>FDE - Custom AI Solution</strong></td><td>Custom AI development</td></tr>
+                            <tr><td><strong>Contracting – Secondee</strong></td><td>Contracting-specific placement</td></tr>
+                            <tr><td><strong>Multiple</strong></td><td>Bundled (specify in notes)</td></tr>
+                            <tr><td><strong>Other – Secondee</strong></td><td>Catch-all secondee</td></tr>
+                            <tr><td><strong>Other – Managed Service</strong></td><td>Catch-all non-tech managed service</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Account Tagging -->
+                <div style="background: #f1f5f9; border-radius: 6px; padding: 12px 14px; margin-bottom: 12px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 12px; color: #475569;">Account-Level Tags</h3>
+                    <table>
+                        <thead><tr><th style="background: #64748b;">Tag</th><th style="background: #64748b;">Definition</th></tr></thead>
+                        <tbody>
+                            <tr><td><strong>New</strong></td><td>Net new customer — no prior relationship</td></tr>
+                            <tr><td><strong>Existing</strong></td><td>Prior or current relationship (see sub-tags below)</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Existing Customer Sub-Tags -->
+                <div style="background: #f1f5f9; border-radius: 6px; padding: 12px 14px; margin-bottom: 12px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 12px; color: #475569;">Existing Customer Sub-Tags</h3>
+                    <table>
+                        <thead><tr><th style="background: #64748b;">Sub-Tag</th><th style="background: #64748b;">Definition</th></tr></thead>
+                        <tbody>
+                            <tr><td><strong>MSA</strong></td><td>Active revenue-paying customer (includes Recurring and Project)</td></tr>
+                            <tr><td><strong>Pilot</strong></td><td>Currently running or completed pilot</td></tr>
+                            <tr><td><strong>LOI</strong></td><td>Letter of Intent signed</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Key Account Fields -->
+                <div style="background: #f1f5f9; border-radius: 6px; padding: 12px 14px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 12px; color: #475569;">Key Account Fields</h3>
+                    <ul class="inline-list" style="margin: 0;">
+                        <li><strong>Account Owner:</strong> <span class="bl-tag">BL</span> responsible</li>
+                        <li><strong>HQ State/Region:</strong> Geography</li>
+                        <li><strong>Customer Tag:</strong> New vs Existing</li>
+                        <li><strong>Account Plan:</strong> Strategy doc</li>
+                        <li><strong>Customer Brain:</strong> Meeting notes</li>
+                    </ul>
+                </div>
             </div>
         </details>
 
-        <!-- 6. AUTOMATION & DATA CAPTURE -->
+        <!-- 5. AUTOMATION & DATA CAPTURE -->
         <details open>
-            <summary><h2>6. Automation & Data Capture</h2></summary>
+            <summary><h2>5. Automation & Data Capture</h2></summary>
             <div class="section-content">
                 <div class="automation-grid">
                     <div class="automation-card">
@@ -954,9 +974,9 @@
             </div>
         </details>
 
-        <!-- 7. GLOSSARY -->
+        <!-- 6. GLOSSARY -->
         <details open>
-            <summary><h2>7. Glossary</h2></summary>
+            <summary><h2>6. Glossary</h2></summary>
             <div class="section-content">
                 <div class="glossary-grid">
                     <div class="glossary-item"><span class="glossary-term">ACV</span> — <span class="glossary-def">Annual Contract Value</span></div>

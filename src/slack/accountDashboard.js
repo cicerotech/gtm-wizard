@@ -2362,12 +2362,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .tab { background: #fff; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 500; cursor: pointer; white-space: nowrap; color: #6b7280; transition: all 0.2s; }
 .tab:hover { background: #e5e7eb; }
 #tab-topco:checked ~ .tabs label[for="tab-topco"],
-#tab-summary:checked ~ .tabs label[for="tab-summary"],
 #tab-revenue:checked ~ .tabs label[for="tab-revenue"],
 #tab-account-plans:checked ~ .tabs label[for="tab-account-plans"] { background: #8e99e1; color: #fff; }
 .tab-content { display: none; }
 #tab-topco:checked ~ #topco,
-#tab-summary:checked ~ #summary,
 #tab-revenue:checked ~ #revenue,
 #tab-account-plans:checked ~ #account-plans { display: block; }
 .weekly-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin: 8px 0; }
@@ -2426,7 +2424,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <body>
 
 <div class="header">
-  <img src="/logo" alt="Eudia" style="max-width: 200px; max-height: 60px; margin-bottom: 20px; display: block;">
   <h1>GTM Dashboard</h1>
   <p>Real-time pipeline overview • Updated ${new Date().toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit', hour12: true })} PT</p>
   <div style="margin-top: 8px; font-size: 0.75rem;">
@@ -2438,322 +2435,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 <!-- Pure CSS Tabs (No JavaScript - CSP Safe) -->
 <input type="radio" name="tabs" id="tab-topco" checked style="display: none;">
-<input type="radio" name="tabs" id="tab-summary" style="display: none;">
 <input type="radio" name="tabs" id="tab-revenue" style="display: none;">
 <input type="radio" name="tabs" id="tab-account-plans" style="display: none;">
 
 <div class="tabs">
   <label for="tab-topco" class="tab">Summary</label>
-  <label for="tab-summary" class="tab">Pipeline</label>
   <label for="tab-revenue" class="tab">Revenue</label>
   <label for="tab-account-plans" class="tab">Accounts</label>
 </div>
 
-<!-- TAB 1: PIPELINE -->
-<div id="summary" class="tab-content">
-  <div style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.7rem; color: #374151;">
-    <strong>Pipeline Overview</strong> — Sales Type breakdown and Product Line details.
-  </div>
-  
-  <!-- SALES TYPE SUMMARY -->
-  <div class="stage-section" style="margin-bottom: 16px;">
-    <div class="stage-title">Pipeline by Sales Type</div>
-    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
-      ${(() => {
-        // Aggregate by Sales Type from all opportunities
-        const salesTypeAgg = {};
-        Array.from(accountMap.values()).forEach(acc => {
-          acc.opportunities.forEach(opp => {
-            // Normalize Sales Type - "Expansion / Upsell" -> "Expansion"
-            let sType = opp.Sales_Type__c || 'Unassigned';
-            if (sType.toLowerCase().includes('expansion')) sType = 'Expansion';
-            if (!salesTypeAgg[sType]) salesTypeAgg[sType] = { count: 0, acv: 0, weighted: 0 };
-            salesTypeAgg[sType].count++;
-            salesTypeAgg[sType].acv += opp.ACV__c || 0;
-            salesTypeAgg[sType].weighted += opp.Weighted_ACV__c || 0;
-          });
-        });
-        
-        // Display order - skip duplicates/unassigned
-        const salesTypeOrder = ['New business', 'Expansion', 'Renewal', 'Eudia Counsel', 'Pilot'];
-        const displayTypes = salesTypeOrder.filter(t => salesTypeAgg[t] && salesTypeAgg[t].acv > 0);
-        const fmt = (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(1) + 'm' : '$' + (val / 1000).toFixed(0) + 'k';
-        
-        return displayTypes.map(type => {
-          const data = salesTypeAgg[type] || { count: 0, acv: 0, weighted: 0 };
-          return '<div style="flex: 1; min-width: 140px; background: #1f2937; padding: 12px; border-radius: 6px; text-align: center;">' +
-            '<div style="font-size: 0.65rem; font-weight: 600; color: #9ca3af; margin-bottom: 4px;">' + type.toUpperCase() + '</div>' +
-            '<div style="font-size: 1.25rem; font-weight: 700; color: #fff;">' + fmt(data.acv) + '</div>' +
-            '<div style="font-size: 0.6rem; color: #9ca3af;">' + data.count + ' opps • ' + fmt(data.weighted) + ' wtd</div>' +
-          '</div>';
-        }).join('');
-      })()}
-    </div>
-  </div>
-  
-  <!-- NEW vs EXISTING LOGOS -->
-  <div class="stage-section" style="margin-bottom: 16px;">
-    <div class="stage-title">Pipeline by Logo Type</div>
-    <div style="display: flex; gap: 8px; margin-top: 8px;">
-      ${(() => {
-        let newLogoACV = 0, newLogoCount = 0, existingACV = 0, existingCount = 0;
-        Array.from(accountMap.values()).forEach(acc => {
-          const acv = acc.totalACV || 0;
-          if (acc.isNewLogo) {
-            newLogoACV += acv;
-            newLogoCount++;
-          } else {
-            existingACV += acv;
-            existingCount++;
-          }
-        });
-        const fmt = (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(1) + 'm' : '$' + (val / 1000).toFixed(0) + 'k';
-        return '<div style="flex: 1; background: #dbeafe; padding: 12px; border-radius: 6px; text-align: center; border-left: 4px solid #3b82f6;">' +
-          '<div style="font-size: 0.65rem; font-weight: 600; color: #1e40af; margin-bottom: 4px;">NEW LOGOS</div>' +
-          '<div style="font-size: 1.25rem; font-weight: 700; color: #1e3a8a;">' + fmt(newLogoACV) + '</div>' +
-          '<div style="font-size: 0.6rem; color: #1e40af;">' + newLogoCount + ' accounts</div>' +
-        '</div>' +
-        '<div style="flex: 1; background: #f3f4f6; padding: 12px; border-radius: 6px; text-align: center; border-left: 4px solid #6b7280;">' +
-          '<div style="font-size: 0.65rem; font-weight: 600; color: #374151; margin-bottom: 4px;">EXISTING LOGOS</div>' +
-          '<div style="font-size: 1.25rem; font-weight: 700; color: #1f2937;">' + fmt(existingACV) + '</div>' +
-          '<div style="font-size: 0.6rem; color: #6b7280;">' + existingCount + ' accounts</div>' +
-        '</div>';
-      })()}
-    </div>
-  </div>
-  
-  <!-- PRODUCT LINE BREAKDOWN -->
-  <div class="stage-section" style="margin-bottom: 16px;">
-    <div class="stage-title">Pipeline by Product Line</div>
-    <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem; margin-top: 8px;">
-      <thead>
-        <tr style="background: #1f2937; color: white;">
-          <th style="padding: 8px 10px; text-align: left;">Product Line</th>
-          <th style="padding: 8px 10px; text-align: right;">Sum of ACV</th>
-          <th style="padding: 8px 10px; text-align: right;">Weighted ACV</th>
-          <th style="padding: 8px 10px; text-align: center;">Opps</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${(() => {
-          const fmt = (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(2) + 'm' : '$' + (val / 1000).toFixed(0) + 'k';
-          
-          // Sort product breakdown by ACV, put Undetermined last
-          const sortedProducts = Object.entries(productBreakdown)
-            .filter(([name]) => name && name !== 'Undetermined')
-            .sort((a, b) => b[1].totalACV - a[1].totalACV);
-          if (productBreakdown['Undetermined']) {
-            sortedProducts.push(['Undetermined', productBreakdown['Undetermined']]);
-          }
-          
-          let totalACV = 0, totalWeighted = 0, totalCount = 0;
-          sortedProducts.forEach(([,data]) => {
-            totalACV += data.totalACV || 0;
-            totalWeighted += data.weightedACV || 0;
-            totalCount += data.count || 0;
-          });
-          
-          const rows = sortedProducts.map(([name, data]) => {
-            return '<tr style="border-bottom: 1px solid #e5e7eb;">' +
-              '<td style="padding: 6px 10px;">' + formatProductLine(name) + '</td>' +
-              '<td style="padding: 6px 10px; text-align: right;">' + fmt(data.totalACV) + '</td>' +
-              '<td style="padding: 6px 10px; text-align: right;">' + fmt(data.weightedACV) + '</td>' +
-              '<td style="padding: 6px 10px; text-align: center;">' + data.count + '</td>' +
-            '</tr>';
-          }).join('');
-          
-          return rows + '<tr style="font-weight: 600; background: #e5e7eb;">' +
-            '<td style="padding: 6px 10px;">Total</td>' +
-            '<td style="padding: 6px 10px; text-align: right;">' + fmt(totalACV) + '</td>' +
-            '<td style="padding: 6px 10px; text-align: right;">' + fmt(totalWeighted) + '</td>' +
-            '<td style="padding: 6px 10px; text-align: center;">' + totalCount + '</td>' +
-          '</tr>';
-        })()}
-      </tbody>
-    </table>
-  </div>
-  
-  <!-- ACCOUNTS BY STAGE -->
-  <div class="stage-section">
-    <div class="stage-title">Late Stage (${late.length})</div>
-    <div class="account-list" id="late-stage-list">
-${late.map((acc, idx) => {
-        let badge = '';
-        const legacyDot = '';
-        const aiEnabledBadge = acc.hasEudiaTech ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399; margin-left: 4px; vertical-align: middle;" title="AI Enabled"></span>' : '';
-        
-        if (acc.isNewLogo) {
-          badge = '<span class="badge badge-new">New</span>';
-        } else if (acc.customerType) {
-          const type = acc.customerType.toLowerCase();
-          if (type.includes('revenue') || type === 'arr' || type === 'recurring') {
-            badge = '<span class="badge badge-revenue">Revenue</span>';
-          } else if (type.includes('project')) {
-            badge = '<span class="badge badge-project">Project</span>';
-          } else if (type.includes('pilot')) {
-            badge = '<span class="badge badge-pilot">Pilot</span>';
-          } else if (type.includes('loi') || type === 'commitment') {
-            badge = '<span class="badge badge-loi">LOI</span>';
-          } else {
-            badge = '<span class="badge badge-other">' + acc.customerType + '</span>';
-          }
-        }
-        
-        // Add potential value badge
-        const potentialValue = potentialValueMap[acc.name];
-        if (potentialValue === 'marquee') {
-          badge += '<span class="badge badge-marquee">High-Touch Marquee</span>';
-        } else if (potentialValue === 'velocity') {
-          badge += '<span class="badge badge-velocity">High-Velocity</span>';
-        }
-        
-        const acvDisplay = acc.totalACV >= 1000000 
-          ? '$' + (acc.totalACV / 1000000).toFixed(1) + 'm' 
-          : acc.totalACV >= 1000 
-            ? '$' + (acc.totalACV / 1000).toFixed(0) + 'k' 
-            : '$' + acc.totalACV.toFixed(0);
-        
-        // Only show meetings for Eudia accounts (not legacy)
-        const accountMeetings = !acc.isLegacy ? (meetingData.get(acc.accountId) || {}) : {};
-        const lastMeetingDate = accountMeetings.lastMeeting ? new Date(accountMeetings.lastMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-        const nextMeetingDate = accountMeetings.nextMeeting ? new Date(accountMeetings.nextMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : null;
-        const lastMeetingSubject = accountMeetings.lastMeetingSubject || '';
-        const nextMeetingSubject = accountMeetings.nextMeetingSubject || '';
-        const products = [...new Set(acc.opportunities.map(o => o.Product_Line__c).filter(p => p))];
-        const productList = products.map(p => formatProductLine(p)).join(', ') || 'TBD';
-        
-        return '<details class="summary-expandable" style="display: ' + (idx < 10 ? 'block' : 'none') + '; background: #fff; border-left: 3px solid #34d399; padding: 10px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; border: 1px solid #e5e7eb;">' +
-          '<summary style="list-style: none; font-size: 0.875rem;">' +
-            '<div class="account-name">' + acc.name + legacyDot + aiEnabledBadge + ' ' + badge + '</div>' +
-            '<div class="account-owner">' + acc.owner + ' • ' + acc.opportunities.length + ' opp' + (acc.opportunities.length > 1 ? 's' : '') + ' • ' + acvDisplay + '</div>' +
-          '</summary>' +
-          '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 0.8125rem;">' +
-            (!acc.isLegacy && (lastMeetingDate || nextMeetingDate) ? '<div style="background: #ecfdf5; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 0.75rem; color: #065f46;">' + (lastMeetingDate ? '<div><strong>📅 Prior:</strong> ' + lastMeetingDate + (lastMeetingSubject ? ' - ' + lastMeetingSubject : '') + '</div>' : '') + (nextMeetingDate ? '<div style="margin-top: 4px;"><strong>📅 Next:</strong> ' + nextMeetingDate + (nextMeetingSubject ? ' - ' + nextMeetingSubject : '') + '</div>' : (lastMeetingDate ? '<div style="margin-top: 4px; color: #991b1b;"><strong>📭 No next meeting scheduled</strong></div>' : '')) + '</div>' : '') +
-            '<div style="color: #374151; margin-bottom: 4px;"><strong>Products:</strong> ' + productList + '</div>' +
-            '<div style="color: #374151; margin-top: 6px;"><strong>Opportunities (' + acc.opportunities.length + '):</strong></div>' +
-            acc.opportunities.map(o => { const av = o.ACV__c || 0; const af = av >= 1000000 ? '$' + (av / 1000000).toFixed(1) + 'm' : '$' + (av / 1000).toFixed(0) + 'k'; return '<div style="font-size: 0.75rem; color: #6b7280; margin-left: 12px; margin-top: 2px;">• ' + cleanStageName(o.StageName) + ' - ' + (o.Product_Line__c || 'TBD') + ' - ' + af + '</div>'; }).join('') +
-          '</div>' +
-        '</details>';
-      }).join('')}
-      ${late.length > 10 ? `<div id="show-more-late" class="account-item" style="color: #1e40af; font-weight: 600; cursor: pointer; text-align: center; padding: 8px; background: #eff6ff; border-radius: 6px; margin-top: 4px;">+${late.length - 10} more... (click to expand)</div>` : ''}
-    </div>
-  </div>
-  
-  <!-- Business Lead Overview -->
-  <div class="stage-section">
-    <div class="stage-title" style="font-size: 0.9rem;">Business Lead Overview</div>
-    <div class="stage-subtitle" style="font-size: 0.65rem;">Top reps by pipeline value (click to expand)</div>
-    
-    ${(() => {
-      // Combine all BLs from both sources
-      const allBLs = [];
-      
-      // Add Eudia BLs
-      Object.entries(blBreakdown).forEach(([bl, data]) => {
-        const blOpps = accountData.records.filter(o => (o.Owner?.Name || 'Unassigned') === bl);
-        allBLs.push({
-          name: bl,
-          count: data.count,
-          totalACV: data.totalACV,
-          byStage: data.byStage,
-          opps: blOpps,
-          source: 'eudia'
-        });
-      });
-      
-      // Add JH BLs
-      const jhSummaryData = getJohnsonHanaSummary();
-      const jhByOwner = jhSummaryData.byOwner || {};
-      Object.entries(jhByOwner).forEach(([owner, data]) => {
-        const ownerOpps = jhSummaryData.pipeline.filter(o => o.owner === owner);
-        const byStage = {};
-        ownerOpps.forEach(o => {
-          const mappedStage = mapStage(o.stage);
-          if (!byStage[mappedStage]) byStage[mappedStage] = { count: 0, acv: 0, opps: [] };
-          byStage[mappedStage].count++;
-          byStage[mappedStage].acv += o.acv;
-          byStage[mappedStage].opps.push(o);
-        });
-        allBLs.push({
-          name: owner,
-          count: data.count,
-          totalACV: data.acv,
-          byStage,
-          opps: ownerOpps,
-          source: 'jh'
-        });
-      });
-      
-      // Sort by total ACV
-      const sortedBLs = allBLs.sort((a, b) => b.totalACV - a.totalACV);
-      const topBLs = sortedBLs.slice(0, 6);
-      const remainingBLs = sortedBLs.slice(6);
-      
-      const renderBL = (bl) => {
-        if (bl.source === 'eudia') {
-        return `
-          <details style="background: #fff; border: 1px solid #e5e7eb; border-radius: 4px; margin-bottom: 4px; overflow: hidden;">
-            <summary style="padding: 6px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;">
-              <span style="font-weight: 600; font-size: 0.7rem;">${bl.name}</span>
-              <span style="font-size: 0.65rem; color: #6b7280;">${bl.count} • <strong style="color: #1f2937;">$${(bl.totalACV / 1000000).toFixed(2)}m</strong></span>
-          </summary>
-            <div style="padding: 6px; border-top: 1px solid #e5e7eb; font-size: 0.6rem;">
-              ${['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery'].filter(s => bl.byStage[s]?.count > 0).map(stage => 
-                '<div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>' + cleanStageName(stage) + '</span><span style="color: #6b7280;">' + bl.byStage[stage].count + ' • $' + (bl.byStage[stage].acv / 1000000).toFixed(2) + 'm</span></div>'
-              ).join('')}
-            </div>
-          </details>`;
-        } else {
-              return `
-          <details style="background: #fff; border: 1px solid #e5e7eb; border-radius: 4px; margin-bottom: 4px; overflow: hidden;">
-            <summary style="padding: 6px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;">
-              <span style="font-weight: 600; font-size: 0.7rem;">${bl.name}</span>
-              <span style="font-size: 0.65rem; color: #6b7280;">${bl.count} • <strong style="color: #1f2937;">$${(bl.totalACV / 1000000).toFixed(2)}m</strong></span>
-                </summary>
-            <div style="padding: 6px; border-top: 1px solid #e5e7eb; font-size: 0.6rem;">
-              ${Object.entries(bl.byStage).sort((a, b) => {
-                const order = ['Stage 4 - Proposal', 'Stage 3 - Pilot', 'Stage 2 - SQO', 'Stage 1 - Discovery'];
-                return order.indexOf(a[0]) - order.indexOf(b[0]);
-              }).map(([stage, stageData]) => 
-                '<div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>' + cleanStageName(stage) + '</span><span style="color: #6b7280;">' + stageData.count + ' • $' + (stageData.acv / 1000000).toFixed(2) + 'm</span></div>'
-              ).join('')}
-                </div>
-              </details>`;
-        }
-      };
-      
-      return `
-      <div style="margin-top: 8px;">
-        ${topBLs.map(bl => renderBL(bl)).join('')}
-        ${remainingBLs.length > 0 ? `
-        <details style="margin-top: 4px;">
-          <summary style="cursor: pointer; padding: 8px; background: #f3f4f6; border-radius: 4px; font-size: 0.7rem; color: #1e40af; font-weight: 600; text-align: center;">
-            +${remainingBLs.length} more reps (click to expand)
-          </summary>
-          <div style="margin-top: 4px;">
-            ${remainingBLs.map(bl => renderBL(bl)).join('')}
-          </div>
-        </details>` : ''}
-    </div>
-      `;
-    })()}
-    
-    <!-- Total -->
-    <div style="background: #1f2937; padding: 8px 12px; border-radius: 6px; margin-top: 8px; display: flex; justify-content: space-between; font-weight: 700; color: #fff; font-size: 0.7rem;">
-      <span>TOTAL</span>
-      <span>${Object.values(blBreakdown).reduce((sum, data) => sum + data.count, 0) + getJohnsonHanaSummary().totalOpportunities} opps • $${((Object.values(blBreakdown).reduce((sum, data) => sum + data.totalACV, 0) + getJohnsonHanaSummary().totalPipeline) / 1000000).toFixed(2)}m</span>
-    </div>
-  </div>
-  
-  <!-- Account Tags Legend -->
-  <div style="margin-top: 12px; padding: 10px; background: #f9fafb; border-radius: 6px; font-size: 0.65rem; color: #6b7280;">
-    <div style="margin-bottom: 4px;"><span class="badge badge-marquee" style="font-size: 0.6rem;">High-Touch Marquee</span> Large enterprise, $1M+ ARR potential, requires senior engagement</div>
-    <div style="margin-bottom: 4px;"><span class="badge badge-velocity" style="font-size: 0.6rem;">High-Velocity</span> Mid-market, ~$150k ARR potential, faster sales cycle</div>
-    <div><span class="badge badge-new" style="font-size: 0.6rem;">New</span> Account with no prior closed deals</div>
-  </div>
-</div>
-
-<!-- TAB: PIPELINE OVERVIEW -->
+<!-- TAB: PIPELINE OVERVIEW (Summary) -->
 ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stageBreakdown, productBreakdown, accountMap, signedByType, meetingData, novDecRevenue, novDecRevenueTotal)}
 
 
