@@ -2430,7 +2430,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nav-helper { position: fixed; bottom: 20px; right: 20px; z-index: 1000; }
 .nav-helper-btn { width: 44px; height: 44px; border-radius: 50%; background: #1f2937; color: #fff; border: none; cursor: pointer; font-size: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
 .nav-helper-btn:hover { transform: scale(1.1); background: #374151; }
-.nav-helper-panel { display: none; position: absolute; bottom: 54px; right: 0; width: 280px; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); overflow: hidden; }
+.nav-helper-panel { display: none; position: absolute; bottom: 54px; right: 0; width: 320px; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); overflow: hidden; }
 .nav-helper-panel.active { display: block; animation: slideUp 0.2s ease-out; }
 @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .nav-helper-header { background: #1f2937; color: #fff; padding: 12px 16px; font-weight: 600; font-size: 0.85rem; }
@@ -2475,6 +2475,7 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
       ${(() => {
         // Aggregate closed won by Sales Type (case-insensitive normalization)
+        // Track both gross ACV (revenue) and Net ACV (true net new)
         const salesTypeClosedWon = {};
         const allClosedWonDeals = [...signedByType.revenue, ...signedByType.project, ...signedByType.pilot];
         
@@ -2487,13 +2488,15 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
           else if (sTypeLower.includes('renewal')) sType = 'Renewal';
           else if (sType === '' || sType === 'Unassigned') sType = 'Unassigned';
           
-          if (!salesTypeClosedWon[sType]) salesTypeClosedWon[sType] = { count: 0, acv: 0 };
+          if (!salesTypeClosedWon[sType]) salesTypeClosedWon[sType] = { count: 0, acv: 0, netAcv: 0 };
           salesTypeClosedWon[sType].count++;
           salesTypeClosedWon[sType].acv += deal.acv || 0;
+          // Net ACV = Renewal_Net_Change__c if available, otherwise full ACV
+          salesTypeClosedWon[sType].netAcv += (deal.renewalNetChange !== null ? deal.renewalNetChange : deal.acv) || 0;
         });
         
-        // Order: New Business, Renewal, Expansion (skip Unassigned in display unless it's all we have)
-        const salesTypeOrder = ['New Business', 'Renewal', 'Expansion'];
+        // Order: New Business, Expansion, Renewal (skip Unassigned in display unless it's all we have)
+        const salesTypeOrder = ['New Business', 'Expansion', 'Renewal'];
         let displayTypes = salesTypeOrder.filter(t => salesTypeClosedWon[t] && salesTypeClosedWon[t].count > 0);
         
         // Add Unassigned if no other types exist
@@ -2508,11 +2511,13 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
         }
         
         return displayTypes.map(type => {
-          const data = salesTypeClosedWon[type] || { count: 0, acv: 0 };
-          return '<div style="flex: 1; min-width: 120px; background: #f3f4f6; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #e5e7eb;">' +
+          const data = salesTypeClosedWon[type] || { count: 0, acv: 0, netAcv: 0 };
+          const showNetDiff = data.acv !== data.netAcv;
+          return '<div style="flex: 1; min-width: 140px; background: #f3f4f6; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #e5e7eb;">' +
             '<div style="font-size: 0.65rem; font-weight: 700; color: #1f2937; margin-bottom: 4px;">' + type.toUpperCase() + '</div>' +
             '<div style="font-size: 1.1rem; font-weight: 700; color: #111827;">' + fmt(data.acv) + '</div>' +
-            '<div style="font-size: 0.55rem; color: #6b7280;">' + data.count + ' deals</div>' +
+            (showNetDiff ? '<div style="font-size: 0.7rem; color: #059669; font-weight: 500;">Net: ' + fmt(data.netAcv) + '</div>' : '') +
+            '<div style="font-size: 0.55rem; color: #6b7280; margin-top: 2px;">' + data.count + ' deals</div>' +
           '</div>';
         }).join('');
       })()}
@@ -2535,15 +2540,45 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     const pilotDeals = signedByType.pilot || [];
     const loiDeals = signedByType.loi || [];
     
+    // Revenue totals (gross ACV - includes renewal dollars)
     const revenueTotal = revenueDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
     const projectTotal = projectDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
     const pilotTotal = pilotDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
     const loiTotal = loiDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
     
+    // Net ACV totals (excludes renewal base - true net new)
+    const revenueNetACV = revenueDeals.reduce((sum, d) => sum + (d.renewalNetChange !== null ? d.renewalNetChange : d.acv), 0);
+    const projectNetACV = projectDeals.reduce((sum, d) => sum + (d.renewalNetChange !== null ? d.renewalNetChange : d.acv), 0);
+    const pilotNetACV = pilotDeals.reduce((sum, d) => sum + (d.renewalNetChange !== null ? d.renewalNetChange : d.acv), 0);
+    const loiNetACV = loiDeals.reduce((sum, d) => sum + (d.renewalNetChange !== null ? d.renewalNetChange : d.acv), 0);
+    
+    // Aggregate totals
+    const totalDeals = revenueDeals.length + projectDeals.length + pilotDeals.length + loiDeals.length;
+    const totalRevenue = revenueTotal + projectTotal + pilotTotal + loiTotal;
+    const totalNetACV = revenueNetACV + projectNetACV + pilotNetACV + loiNetACV;
+    
+    const fmt = (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(1) + 'm' : '$' + (val / 1000).toFixed(0) + 'k';
+    
     return `
   <div class="stage-section" style="margin-top: 16px;">
     <div class="stage-title">Closed Won QTD</div>
     <div class="stage-subtitle">${revenueDeals.length} recurring • ${projectDeals.length} project • ${pilotDeals.length} pilot • ${loiDeals.length} commitment</div>
+    <div style="display: flex; gap: 16px; margin-top: 12px; padding: 12px; background: #f9fafb; border-radius: 6px;">
+      <div style="flex: 1; text-align: center; border-right: 1px solid #e5e7eb;">
+        <div style="font-size: 0.65rem; color: #6b7280; font-weight: 500;">TOTAL REVENUE</div>
+        <div style="font-size: 1.25rem; font-weight: 700; color: #1f2937;">${fmt(totalRevenue)}</div>
+        <div style="font-size: 0.6rem; color: #9ca3af;">incl. renewal base</div>
+      </div>
+      <div style="flex: 1; text-align: center;">
+        <div style="font-size: 0.65rem; color: #059669; font-weight: 500;">NET ACV</div>
+        <div style="font-size: 1.25rem; font-weight: 700; color: #059669;">${fmt(totalNetACV)}</div>
+        <div style="font-size: 0.6rem; color: #9ca3af;">true net new</div>
+      </div>
+      <div style="flex: 0.5; text-align: center; border-left: 1px solid #e5e7eb; padding-left: 16px;">
+        <div style="font-size: 0.65rem; color: #6b7280; font-weight: 500;">DEALS</div>
+        <div style="font-size: 1.25rem; font-weight: 700; color: #1f2937;">${totalDeals}</div>
+      </div>
+    </div>
   </div>
   
   <div class="section-card" style="padding: 0;">
@@ -2590,36 +2625,36 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     
     ${signedByType.project.length > 0 ? `
     <details open style="margin-bottom: 12px;">
-      <summary style="background: #fef3c7; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #92400e; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
+      <summary style="background: #f3f4f6; padding: 8px 12px; border-radius: 6px 6px 0 0; font-size: 0.75rem; font-weight: 700; color: #374151; display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none;">
         <span>PROJECT</span>
         <span>${signedByType.project.length} deal${signedByType.project.length !== 1 ? 's' : ''}</span>
       </summary>
-      <div style="padding: 0 12px 12px 12px; background: #faf5ff; border-radius: 0 0 6px 6px;">
+      <div style="padding: 0 12px 12px 12px; background: #f9fafb; border-radius: 0 0 6px 6px;">
       ${signedByType.project.slice(0, 5).map(d => {
         const netNew = d.renewalNetChange !== null ? d.renewalNetChange : d.acv;
         return `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f3e8ff; font-size: 0.75rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-size: 0.75rem;">
           <span style="font-weight: 500;">${d.accountName}</span>
           <div style="display: flex; gap: 12px; align-items: center;">
             <span style="color: #6b7280; font-size: 0.65rem;">${d.salesType || ''}</span>
             <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
-            <span style="color: #6b21a8; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+            <span style="color: #1f2937; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
             <span style="color: #059669; font-weight: 500; min-width: 55px; text-align: right; font-size: 0.6rem;">${formatCurrency(netNew)}</span>
           </div>
         </div>`;
       }).join('')}
       ${signedByType.project.length > 5 ? `
         <details style="margin-top: 4px;">
-          <summary style="font-size: 0.65rem; color: #6b21a8; cursor: pointer; padding: 4px 0;">+${signedByType.project.length - 5} more deals ›</summary>
+          <summary style="font-size: 0.65rem; color: #374151; cursor: pointer; padding: 4px 0;">+${signedByType.project.length - 5} more deals ›</summary>
           ${signedByType.project.slice(5).map(d => {
             const netNew = d.renewalNetChange !== null ? d.renewalNetChange : d.acv;
             return `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f3e8ff; font-size: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-size: 0.75rem;">
               <span style="font-weight: 500;">${d.accountName}</span>
               <div style="display: flex; gap: 12px; align-items: center;">
                 <span style="color: #6b7280; font-size: 0.65rem;">${d.salesType || ''}</span>
                 <span style="color: #6b7280; font-size: 0.65rem;">${formatDateAbbrev(d.closeDate)}</span>
-                <span style="color: #6b21a8; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
+                <span style="color: #1f2937; font-weight: 600; min-width: 55px; text-align: right;">${formatCurrency(d.acv)}</span>
                 <span style="color: #059669; font-weight: 500; min-width: 55px; text-align: right; font-size: 0.6rem;">${formatCurrency(netNew)}</span>
               </div>
             </div>`;
@@ -3966,27 +4001,108 @@ function navToTab(tabId) {
   toggleNavHelper();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
+// Smart Chat Handler
+async function handleSmartChat() {
+  const input = document.getElementById('smart-chat-input');
+  const resultsDiv = document.getElementById('smart-chat-results');
+  const query = input.value.trim();
+  
+  if (!query) return;
+  
+  resultsDiv.style.display = 'block';
+  resultsDiv.innerHTML = '<div style="color: #6b7280;">Searching...</div>';
+  
+  try {
+    const response = await fetch('/api/dashboard/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success && data.result) {
+      resultsDiv.innerHTML = formatChatResult(data);
+    } else {
+      resultsDiv.innerHTML = '<div style="color: #6b7280;">' + (data.message || 'No results found') + '</div>';
+    }
+  } catch (error) {
+    resultsDiv.innerHTML = '<div style="color: #dc2626;">Error: ' + error.message + '</div>';
+  }
+}
+
+function formatChatResult(data) {
+  const { result, intent } = data;
+  let html = '';
+  
+  // Account context result
+  if (result.account) {
+    html += '<div style="font-weight: 600; margin-bottom: 6px;">' + result.account.name + '</div>';
+    if (result.account.owner) html += '<div style="color: #6b7280; font-size: 0.7rem;">Owner: ' + result.account.owner + '</div>';
+    if (result.account.type) html += '<div style="color: #6b7280; font-size: 0.7rem;">Type: ' + result.account.type + '</div>';
+  }
+  
+  // Open opportunities
+  if (result.opportunities && result.opportunities.length > 0) {
+    html += '<div style="margin-top: 8px; font-weight: 500; font-size: 0.7rem; color: #374151;">Open Opportunities:</div>';
+    result.opportunities.slice(0, 3).forEach(opp => {
+      const acv = opp.acv ? '$' + (opp.acv >= 1000000 ? (opp.acv/1000000).toFixed(1) + 'm' : (opp.acv/1000).toFixed(0) + 'k') : '';
+      html += '<div style="padding: 4px 0; border-bottom: 1px solid #e5e7eb;">' +
+        '<span style="font-weight: 500;">' + (opp.name || opp.stage) + '</span>' +
+        (acv ? ' <span style="color: #059669;">' + acv + '</span>' : '') +
+      '</div>';
+    });
+  }
+  
+  // Key contacts
+  if (result.contacts && result.contacts.length > 0) {
+    html += '<div style="margin-top: 8px; font-weight: 500; font-size: 0.7rem; color: #374151;">Key Contacts:</div>';
+    result.contacts.slice(0, 3).forEach(c => {
+      html += '<div style="font-size: 0.7rem;">' + c.name + (c.title ? ' - ' + c.title : '') + '</div>';
+    });
+  }
+  
+  // Pipeline summary
+  if (result.pipeline) {
+    html += '<div style="font-weight: 600; margin-bottom: 6px;">Pipeline Summary</div>';
+    html += '<div>Total: $' + (result.pipeline.total >= 1000000 ? (result.pipeline.total/1000000).toFixed(1) + 'm' : (result.pipeline.total/1000).toFixed(0) + 'k') + '</div>';
+    html += '<div style="font-size: 0.7rem; color: #6b7280;">' + result.pipeline.count + ' opportunities</div>';
+  }
+  
+  // Generic message
+  if (result.message) {
+    html += '<div>' + result.message + '</div>';
+  }
+  
+  return html || '<div style="color: #6b7280;">No results found</div>';
+}
 </script>
 
-<!-- Navigation Helper -->
+<!-- Smart Navigation Helper -->
 <div class="nav-helper">
   <div id="nav-helper-panel" class="nav-helper-panel">
-    <div class="nav-helper-header">Quick Navigation</div>
+    <div class="nav-helper-header">GTM Assistant</div>
+    
+    <!-- Chat Input Section -->
+    <div class="nav-helper-section" style="padding-bottom: 8px;">
+      <input type="text" id="smart-chat-input" placeholder="Ask about an account, pipeline, or metrics..." 
+             style="width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 0.8rem; box-sizing: border-box;"
+             onkeypress="if(event.key==='Enter') handleSmartChat()">
+      <div id="smart-chat-results" style="display: none; margin-top: 8px; padding: 10px; background: #f9fafb; border-radius: 6px; font-size: 0.75rem; max-height: 200px; overflow-y: auto;"></div>
+    </div>
+    
     <div class="nav-helper-section">
       <div class="nav-helper-title">Dashboard Views</div>
-      <a href="#" onclick="navToTab('tab-topco'); return false;" class="nav-helper-link"><span>📊</span> Summary Overview</a>
-      <a href="#" onclick="navToTab('tab-revenue'); return false;" class="nav-helper-link"><span>💰</span> Revenue & Closed Deals</a>
-      <a href="#" onclick="navToTab('tab-account-plans'); return false;" class="nav-helper-link"><span>🏢</span> Accounts & Logos</a>
+      <a href="#" onclick="navToTab('tab-topco'); return false;" class="nav-helper-link">Summary Overview</a>
+      <a href="#" onclick="navToTab('tab-revenue'); return false;" class="nav-helper-link">Revenue & Closed Deals</a>
+      <a href="#" onclick="navToTab('tab-account-plans'); return false;" class="nav-helper-link">Accounts & Logos</a>
     </div>
     <div class="nav-helper-section">
       <div class="nav-helper-title">Resources</div>
-      <a href="/gtm" target="_blank" class="nav-helper-link"><span>📚</span> GTM Hub & Documentation</a>
-      <a href="/sales-process" target="_blank" class="nav-helper-link"><span>📋</span> Sales Process Playbook</a>
-      <a href="/meeting-prep" target="_blank" class="nav-helper-link"><span>🗓️</span> Meeting Prep</a>
-    </div>
-    <div class="nav-helper-section">
-      <div class="nav-helper-title">Need Help?</div>
-      <a href="https://eudia.slack.com/archives/C07GZJJQZ36" target="_blank" class="nav-helper-link"><span>💬</span> #revops-support in Slack</a>
+      <a href="/gtm" target="_blank" class="nav-helper-link">GTM Hub & Documentation</a>
+      <a href="/sales-process" target="_blank" class="nav-helper-link">Sales Process Playbook</a>
+      <a href="/meeting-prep" target="_blank" class="nav-helper-link">Meeting Prep</a>
     </div>
   </div>
   <button id="nav-helper-btn" class="nav-helper-btn" onclick="toggleNavHelper()">?</button>

@@ -1302,6 +1302,146 @@ class GTMBrainApp {
       }
     });
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DASHBOARD SMART CHAT ENDPOINT
+    // Natural language queries about accounts, pipeline, and metrics
+    // ═══════════════════════════════════════════════════════════════════════════
+    this.expressApp.post('/api/dashboard/query', async (req, res) => {
+      try {
+        const { query } = req.body;
+        if (!query || query.trim().length < 2) {
+          return res.json({ success: false, message: 'Please enter a query' });
+        }
+
+        const { query: sfQuery } = require('./salesforce/connection');
+        const FuzzyAccountMatcher = require('./utils/fuzzyAccountMatcher');
+        const accountMatcher = new FuzzyAccountMatcher();
+        
+        const queryLower = query.toLowerCase().trim();
+        
+        // Check if this is an account lookup query
+        const accountPatterns = [
+          /what do we know about (.+)/i,
+          /tell me about (.+)/i,
+          /show me (.+)/i,
+          /account[:\s]+(.+)/i,
+          /(.+) account/i
+        ];
+        
+        let accountName = null;
+        for (const pattern of accountPatterns) {
+          const match = query.match(pattern);
+          if (match) {
+            accountName = match[1].trim().replace(/\?$/, '');
+            break;
+          }
+        }
+        
+        // If it looks like just a company name (no obvious keywords)
+        if (!accountName && !queryLower.includes('pipeline') && !queryLower.includes('stage') && !queryLower.includes('deal')) {
+          accountName = query.trim().replace(/\?$/, '');
+        }
+        
+        // Account context lookup
+        if (accountName) {
+          logger.info('[Dashboard Query] Account lookup: ' + accountName);
+          
+          const matchResult = await accountMatcher.findAccount(accountName);
+          
+          if (matchResult) {
+            // Get account details
+            const accountQuery = `
+              SELECT Id, Name, Customer_Type__c, Customer_Subtype__c, Owner.Name, Industry, Website
+              FROM Account WHERE Id = '${matchResult.id}'
+            `;
+            const accResult = await sfQuery(accountQuery, true);
+            const account = accResult?.records?.[0];
+            
+            // Get open opportunities
+            const oppsQuery = `
+              SELECT Name, StageName, ACV__c, CloseDate, Product_Line__c, Owner.Name
+              FROM Opportunity 
+              WHERE AccountId = '${matchResult.id}' AND IsClosed = false
+              ORDER BY ACV__c DESC LIMIT 5
+            `;
+            const oppsResult = await sfQuery(oppsQuery, true);
+            const opportunities = (oppsResult?.records || []).map(o => ({
+              name: o.Name,
+              stage: o.StageName,
+              acv: o.ACV__c,
+              closeDate: o.CloseDate,
+              productLine: o.Product_Line__c,
+              owner: o.Owner?.Name
+            }));
+            
+            // Get key contacts
+            const contactsQuery = `
+              SELECT Name, Title, Email FROM Contact 
+              WHERE AccountId = '${matchResult.id}' 
+              ORDER BY CreatedDate DESC LIMIT 5
+            `;
+            const contactsResult = await sfQuery(contactsQuery, true);
+            const contacts = (contactsResult?.records || []).map(c => ({
+              name: c.Name,
+              title: c.Title,
+              email: c.Email
+            }));
+            
+            return res.json({
+              success: true,
+              intent: 'account_lookup',
+              result: {
+                account: {
+                  id: matchResult.id,
+                  name: matchResult.name,
+                  owner: account?.Owner?.Name,
+                  type: account?.Customer_Type__c,
+                  subtype: account?.Customer_Subtype__c,
+                  industry: account?.Industry
+                },
+                opportunities,
+                contacts
+              }
+            });
+          } else {
+            return res.json({ success: false, message: 'Account "' + accountName + '" not found' });
+          }
+        }
+        
+        // Pipeline summary query
+        if (queryLower.includes('pipeline') || queryLower.includes('stage')) {
+          const pipelineQuery = `
+            SELECT COUNT(Id) dealCount, SUM(ACV__c) totalACV
+            FROM Opportunity 
+            WHERE IsClosed = false AND StageName != null
+          `;
+          const pipeResult = await sfQuery(pipelineQuery, true);
+          const summary = pipeResult?.records?.[0];
+          
+          return res.json({
+            success: true,
+            intent: 'pipeline_summary',
+            result: {
+              pipeline: {
+                total: summary?.totalACV || 0,
+                count: summary?.dealCount || 0
+              }
+            }
+          });
+        }
+        
+        // Default response
+        return res.json({ 
+          success: false, 
+          message: 'Try asking about a specific account (e.g., "What do we know about Amazon?") or "pipeline summary"' 
+        });
+        
+      } catch (error) {
+        logger.error('[Dashboard Query] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // Get contacts for account (attendee dropdown)
     this.expressApp.get('/api/accounts/contacts/:accountId', async (req, res) => {
       try {
