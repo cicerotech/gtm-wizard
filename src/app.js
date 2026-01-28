@@ -1509,6 +1509,87 @@ class GTMBrainApp {
       }
     });
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // OBSIDIAN VAULT DOWNLOAD
+    // Generates a fully configured Obsidian vault with all SF account folders
+    // ═══════════════════════════════════════════════════════════════════════════
+    this.expressApp.get('/vault/download', async (req, res) => {
+      try {
+        const archiver = require('archiver');
+        const path = require('path');
+        const fs = require('fs');
+        
+        // Get all Salesforce accounts
+        const accounts = await meetingPrepService.getAccounts();
+        const accountNames = accounts.map(a => a.Name).sort();
+        
+        logger.info(`Generating Obsidian vault with ${accountNames.length} account folders`);
+        
+        // Set response headers for zip download
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', 'attachment; filename="eudia-sales-vault.zip"');
+        
+        // Create zip archive
+        const archive = archiver('zip', { zlib: { level: 9 } });
+        
+        // Pipe archive to response
+        archive.pipe(res);
+        
+        // Add template vault files from disk
+        const vaultTemplatePath = path.join(__dirname, '..', 'vault-template');
+        
+        // Add .obsidian configuration
+        archive.directory(path.join(vaultTemplatePath, '.obsidian'), '.obsidian');
+        
+        // Add Templates folder
+        archive.directory(path.join(vaultTemplatePath, 'Templates'), 'Templates');
+        
+        // Add _Setup.md
+        archive.file(path.join(vaultTemplatePath, '_Setup.md'), { name: '_Setup.md' });
+        
+        // Add Recordings folder with .gitkeep
+        archive.append('', { name: 'Recordings/.gitkeep' });
+        
+        // Create account folders dynamically from Salesforce
+        for (const accountName of accountNames) {
+          // Sanitize account name for filesystem
+          const safeName = accountName.replace(/[<>:"/\\|?*]/g, '_').trim();
+          // Add folder with a .gitkeep so it's not empty
+          archive.append('', { name: `Accounts/${safeName}/.gitkeep` });
+        }
+        
+        // Add an index note for the Accounts folder
+        const accountIndexMd = `# Accounts
+
+This folder contains one subfolder per Salesforce account. 
+
+**Generated:** ${new Date().toISOString()}
+**Total Accounts:** ${accountNames.length}
+
+## Quick Navigation
+
+\`\`\`dataview
+TABLE file.ctime as "Created", file.mtime as "Last Modified"
+FROM "Accounts"
+WHERE file.name != ".gitkeep"
+SORT file.mtime DESC
+LIMIT 20
+\`\`\`
+`;
+        archive.append(accountIndexMd, { name: 'Accounts/_index.md' });
+        
+        // Finalize the archive
+        await archive.finalize();
+        
+        logger.info('Obsidian vault download completed');
+      } catch (error) {
+        logger.error('Error generating Obsidian vault:', error);
+        if (!res.headersSent) {
+          res.status(500).json({ success: false, error: error.message });
+        }
+      }
+    });
+
     // Get historical meeting preps for an account
     this.expressApp.get('/api/meeting-prep/account/:accountId', async (req, res) => {
       try {

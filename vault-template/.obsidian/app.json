@@ -1,0 +1,14 @@
+{
+  "promptDelete": false,
+  "alwaysUpdateLinks": true,
+  "newFileLocation": "current",
+  "attachmentFolderPath": "Recordings",
+  "showLineNumber": true,
+  "spellcheck": true,
+  "strictLineBreaks": false,
+  "readableLineLength": true,
+  "showFrontmatter": true,
+  "foldHeading": true,
+  "foldIndent": true
+}
+

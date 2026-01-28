@@ -491,6 +491,82 @@
             font-weight: 600;
         }
         
+        /* Download Button */
+        .download-hero {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-radius: 10px;
+            padding: 24px 28px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        
+        @media (max-width: 640px) {
+            .download-hero {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+        
+        .download-hero-text h3 {
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .download-hero-text p {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #8e99e1 0%, #6b7cb8 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(142, 153, 225, 0.4);
+        }
+        
+        .download-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+        
+        .download-features {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+        }
+        
+        .download-feature {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #94a3b8;
+            font-size: 10px;
+        }
+        
+        .download-feature svg {
+            width: 14px;
+            height: 14px;
+            stroke: #8e99e1;
+        }
+        
         /* Template Sections */
         .template-sections {
             display: flex;
@@ -643,6 +719,32 @@
             </div>
         </div>
         
+        <!-- Download Hero -->
+        <div class="download-hero">
+            <div class="download-hero-text">
+                <h3>Download Your Pre-Configured Vault</h3>
+                <p>Skip manual setup — get a ready-to-use vault with all SF account folders, templates, and plugins pre-installed.</p>
+                <div class="download-features">
+                    <span class="download-feature">
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                        Scribe + Dataview installed
+                    </span>
+                    <span class="download-feature">
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                        All Salesforce accounts
+                    </span>
+                    <span class="download-feature">
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                        Sales template ready
+                    </span>
+                </div>
+            </div>
+            <a href="/vault/download" class="download-btn">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                Download Vault
+            </a>
+        </div>
+        
         <!-- Section 3: Quick Setup -->
         <div class="section-card">
             <div class="section-header">
@@ -672,8 +774,9 @@
                             <div class="step-line"></div>
                         </div>
                         <div class="step-content">
-                            <h3>Create Your Vault</h3>
-                            <p>When Obsidian opens, click "Create new vault" and name it (e.g., "Eudia Notes"). Choose a location on your computer.</p>
+                            <h3>Open Your Vault</h3>
+                            <p><strong>Option A (Recommended):</strong> Unzip the downloaded vault and open it in Obsidian: File → Open vault → Open folder as vault.</p>
+                            <p style="margin-top: 6px;"><strong>Option B:</strong> Create a new vault manually and follow the setup steps below.</p>
                         </div>
                     </div>
                     
@@ -886,12 +989,12 @@
             </div>
             <div class="section-content">
                 <ul class="checklist">
-                    <li><span class="checkbox"></span> Obsidian installed and vault created</li>
-                    <li><span class="checkbox"></span> Scribe plugin installed with OpenAI key</li>
+                    <li><span class="checkbox"></span> Obsidian installed</li>
+                    <li><span class="checkbox"></span> Pre-configured vault downloaded and opened (or created manually)</li>
+                    <li><span class="checkbox"></span> OpenAI API key entered in Scribe settings</li>
                     <li><span class="checkbox"></span> "Append transcript to active file" enabled in Scribe settings</li>
-                    <li><span class="checkbox"></span> Eudia Sales template created with all 8 sections</li>
-                    <li><span class="checkbox"></span> Template set as Active in Scribe settings</li>
-                    <li><span class="checkbox"></span> Accounts folder created with subfolders for each account</li>
+                    <li><span class="checkbox"></span> Eudia Sales template set as Active</li>
+                    <li><span class="checkbox"></span> Account folders present in vault</li>
                     <li><span class="checkbox"></span> Full Calendar connected (optional)</li>
                     <li><span class="checkbox"></span> Review Sales Process tab for stages and MEDDICC</li>
                 </ul>
