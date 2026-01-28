@@ -448,6 +448,85 @@
             color: #92400e;
             margin-top: 10px;
         }
+        
+        /* Settings Table */
+        .settings-table {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+        
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 11px;
+        }
+        
+        .setting-row:last-child {
+            border-bottom: none;
+        }
+        
+        .setting-name {
+            color: #374151;
+            font-weight: 500;
+        }
+        
+        .setting-value {
+            font-family: 'SF Mono', monospace;
+            font-size: 10px;
+            background: #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #475569;
+        }
+        
+        .setting-value.on {
+            background: #d1fae5;
+            color: #065f46;
+            font-weight: 600;
+        }
+        
+        /* Template Sections */
+        .template-sections {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 10px 0;
+        }
+        
+        .template-section {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .template-section-header {
+            background: #1e293b;
+            padding: 6px 12px;
+        }
+        
+        .template-section-name {
+            color: white;
+            font-weight: 600;
+            font-size: 11px;
+        }
+        
+        .template-section-instructions {
+            padding: 10px 12px;
+            font-size: 10px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+        
+        .template-section-instructions strong {
+            color: #374151;
+        }
     </style>
 </head>
 <body>
@@ -617,12 +696,11 @@
                             <div class="step-line"></div>
                         </div>
                         <div class="step-content">
-                            <h3>Configure Scribe with OpenAI Key</h3>
+                            <h3>Configure Scribe — AI Provider</h3>
+                            <p>Settings → Scribe → <strong>AI Providers</strong> tab</p>
                             <div class="action-box">
-                                Settings → Scribe → Paste the API key (provided by RevOps) → Select "GPT-4o" model
-                            </div>
-                            <div class="note-callout">
-                                Once configured, Scribe records audio → transcribes → generates AI summary with action items automatically.
+                                <strong>OpenAI API Key:</strong> Paste the key provided by RevOps<br>
+                                <strong>Model:</strong> Select <code>GPT-4o</code>
                             </div>
                         </div>
                     </div>
@@ -630,6 +708,96 @@
                     <div class="setup-step">
                         <div class="step-indicator">
                             <div class="step-number">5</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step-content">
+                            <h3>Configure Scribe — Critical Settings</h3>
+                            <p>Settings → Scribe → <strong>General</strong> tab. These settings ensure transcripts append to your meeting note:</p>
+                            <div class="settings-table">
+                                <div class="setting-row">
+                                    <span class="setting-name">Append transcript to active file</span>
+                                    <span class="setting-value on">ON</span>
+                                </div>
+                                <div class="setting-row">
+                                    <span class="setting-name">Save audio file</span>
+                                    <span class="setting-value on">ON</span>
+                                </div>
+                                <div class="setting-row">
+                                    <span class="setting-name">Directory for recordings</span>
+                                    <span class="setting-value">Vault folder</span>
+                                </div>
+                            </div>
+                            <div class="note-callout">
+                                With "Append to active file" ON, clicking Start Recording will add the transcript directly to your open note instead of creating a new file.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-indicator">
+                            <div class="step-number">6</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step-content">
+                            <h3>Configure Scribe — Sales Template</h3>
+                            <p>Settings → Scribe → <strong>Templates</strong> tab. Create a new template named <code>Eudia Sales</code> with these sections:</p>
+                            <div class="template-sections">
+                                <div class="template-section">
+                                    <div class="template-section-header">
+                                        <span class="template-section-name">Summary</span>
+                                    </div>
+                                    <div class="template-section-instructions">
+                                        A concise summary of this sales meeting in 3-5 bullet points. Focus on: what the customer needs, their timeline, and any decisions made.
+                                    </div>
+                                </div>
+                                <div class="template-section">
+                                    <div class="template-section-header">
+                                        <span class="template-section-name">MEDDICC Signals</span>
+                                    </div>
+                                    <div class="template-section-instructions">
+                                        Extract any signals related to MEDDICC qualification:<br>
+                                        • <strong>Economic Buyer:</strong> Who controls budget?<br>
+                                        • <strong>Decision Process:</strong> What approvals are needed?<br>
+                                        • <strong>Champion:</strong> Who is our internal advocate?<br>
+                                        • <strong>Pain Points:</strong> What problems are they solving?<br>
+                                        • <strong>Timeline:</strong> When do they need to act?<br>
+                                        • <strong>Competition:</strong> Who else are they evaluating?
+                                    </div>
+                                </div>
+                                <div class="template-section">
+                                    <div class="template-section-header">
+                                        <span class="template-section-name">Product Interest</span>
+                                    </div>
+                                    <div class="template-section-instructions">
+                                        Which product lines were discussed or are relevant? Tag any mentions of: AI-Augmented Contracting, Compliance, M&A, Sigma, Litigation, or Custom AI Solutions.
+                                    </div>
+                                </div>
+                                <div class="template-section">
+                                    <div class="template-section-header">
+                                        <span class="template-section-name">Next Steps</span>
+                                    </div>
+                                    <div class="template-section-instructions">
+                                        Concrete next steps with owners and dates. Format as checkboxes: - [ ] Action item (Owner, Date)
+                                    </div>
+                                </div>
+                                <div class="template-section">
+                                    <div class="template-section-header">
+                                        <span class="template-section-name">Action Items</span>
+                                    </div>
+                                    <div class="template-section-instructions">
+                                        Internal follow-up tasks for the BL. Include: emails to send, documents to prepare, internal people to loop in, Salesforce updates needed.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="note-callout">
+                                Set <code>Eudia Sales</code> as the <strong>Active Template</strong> in the dropdown at the top of the Templates tab.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-indicator">
+                            <div class="step-number">7</div>
                             <div class="step-line"></div>
                         </div>
                         <div class="step-content">
@@ -644,20 +812,21 @@
                                 <div class="indent-2"><span class="file">📄 2026-01-30 Demo.md</span></div>
                             </div>
                             <div class="action-box">
-                                <strong>To create:</strong> Right-click in sidebar → <code>New folder</code> for accounts, <code>New note</code> for meetings. Rename from "Untitled" to date + meeting type.
+                                <strong>To create:</strong> Right-click in sidebar → <code>New folder</code> for accounts, <code>New note</code> for meetings. Name notes: <code>YYYY-MM-DD Meeting Type</code>
                             </div>
                         </div>
                     </div>
                     
                     <div class="setup-step">
                         <div class="step-indicator">
-                            <div class="step-number">6</div>
+                            <div class="step-number">8</div>
                         </div>
                         <div class="step-content">
                             <h3>Recording a Meeting</h3>
-                            <p>Open or create a note for the meeting. Click Scribe's record button in the ribbon. When done, Scribe transcribes and generates your summary.</p>
+                            <p>Open or create a note for the meeting → Click Scribe's mic icon → Start Recording → When done, transcript + sales summary appears in your note.</p>
                             <div class="note-callout">
-                                <strong>Calendar context:</strong> Your calendar is already synced. Use the <strong>Meeting Prep</strong> tab to see context (prior notes, opps, contacts) before calls. Obsidian is for capturing notes during/after — Meeting Prep provides the prep before.
+                                <strong>Before the call:</strong> Use the <strong>Meeting Prep</strong> tab for context (prior notes, opps, contacts).<br>
+                                <strong>During/after:</strong> Obsidian captures your notes and generates actionable summaries.
                             </div>
                         </div>
                     </div>
@@ -674,11 +843,12 @@
             <div class="section-content">
                 <ul class="checklist">
                     <li><span class="checkbox"></span> Obsidian installed and vault created</li>
-                    <li><span class="checkbox"></span> Scribe plugin installed and configured with OpenAI key</li>
+                    <li><span class="checkbox"></span> Scribe plugin installed with OpenAI key</li>
+                    <li><span class="checkbox"></span> "Append transcript to active file" enabled</li>
+                    <li><span class="checkbox"></span> Eudia Sales template created and set as active</li>
                     <li><span class="checkbox"></span> Account folders created for active opportunities</li>
-                    <li><span class="checkbox"></span> Read through Sales Process tab (stages, fields, MEDDICC)</li>
+                    <li><span class="checkbox"></span> Read through Sales Process tab (stages, MEDDICC)</li>
                     <li><span class="checkbox"></span> Check Meeting Prep tab for upcoming meeting context</li>
-                    <li><span class="checkbox"></span> Familiarize with Dashboard tab for pipeline visibility</li>
                 </ul>
             </div>
         </div>
