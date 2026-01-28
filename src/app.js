@@ -1474,6 +1474,41 @@ class GTMBrainApp {
       }
     });
 
+    // Get accounts for Obsidian property autocomplete
+    // Returns account names as a simple list for Obsidian vault integration
+    this.expressApp.get('/api/accounts/obsidian', async (req, res) => {
+      try {
+        const accounts = await meetingPrepService.getAccounts();
+        const format = req.query.format || 'json';
+        
+        if (format === 'text') {
+          // Plain text list - one account per line
+          const accountNames = accounts.map(a => a.Name).sort().join('\n');
+          res.setHeader('Content-Type', 'text/plain');
+          res.setHeader('Content-Disposition', 'attachment; filename="salesforce-accounts.txt"');
+          res.send(accountNames);
+        } else if (format === 'markdown') {
+          // Markdown list with wiki-links for Obsidian
+          const markdown = `# Salesforce Accounts\n\nGenerated: ${new Date().toISOString()}\n\n` +
+            accounts.map(a => `- [[${a.Name}]]`).sort().join('\n');
+          res.setHeader('Content-Type', 'text/markdown');
+          res.setHeader('Content-Disposition', 'attachment; filename="salesforce-accounts.md"');
+          res.send(markdown);
+        } else {
+          // JSON format with ID and Name
+          res.json({
+            success: true,
+            generated: new Date().toISOString(),
+            count: accounts.length,
+            accounts: accounts.map(a => ({ id: a.Id, name: a.Name })).sort((a, b) => a.name.localeCompare(b.name))
+          });
+        }
+      } catch (error) {
+        logger.error('Error fetching accounts for Obsidian:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // Get historical meeting preps for an account
     this.expressApp.get('/api/meeting-prep/account/:accountId', async (req, res) => {
       try {

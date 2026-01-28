@@ -740,14 +740,25 @@
                         </div>
                         <div class="step-content">
                             <h3>Configure Scribe — Sales Template</h3>
-                            <p>Settings → Scribe → <strong>Templates</strong> tab. Create a new template named <code>Eudia Sales</code> with these sections:</p>
+                            <p>Settings → Scribe → <strong>Templates</strong> tab. Click <strong>New Template</strong>, name it <code>Eudia Sales</code>. Add these sections using "Add New Section":</p>
+                            <div class="note-callout" style="margin-bottom: 12px; background: #f0f9ff; border-color: #93c5fd;">
+                                <strong style="color: #1e40af;">How templates work:</strong> <span style="color: #1e40af;">The "Section Header" is what appears in your note. The "Section Instructions" is the AI prompt — it tells the AI what to generate, but the instructions themselves don't appear in the output.</span>
+                            </div>
                             <div class="template-sections">
                                 <div class="template-section">
                                     <div class="template-section-header">
                                         <span class="template-section-name">Summary</span>
                                     </div>
                                     <div class="template-section-instructions">
-                                        A concise summary of this sales meeting in 3-5 bullet points. Focus on: what the customer needs, their timeline, and any decisions made.
+                                        Summarize this sales meeting. Focus on: (1) what the customer needs, (2) their timeline for decision, (3) any commitments or decisions made. Use 3-5 concise bullet points.
+                                    </div>
+                                </div>
+                                <div class="template-section">
+                                    <div class="template-section-header">
+                                        <span class="template-section-name">Key Stakeholders</span>
+                                    </div>
+                                    <div class="template-section-instructions">
+                                        List all people mentioned by name with their role/title if stated. Format: Name - Role. If role is unclear, note "Role TBD". Use exact names as spoken; if pronunciation is ambiguous, note phonetic spelling in brackets.
                                     </div>
                                 </div>
                                 <div class="template-section">
@@ -755,13 +766,7 @@
                                         <span class="template-section-name">MEDDICC Signals</span>
                                     </div>
                                     <div class="template-section-instructions">
-                                        Extract any signals related to MEDDICC qualification:<br>
-                                        • <strong>Economic Buyer:</strong> Who controls budget?<br>
-                                        • <strong>Decision Process:</strong> What approvals are needed?<br>
-                                        • <strong>Champion:</strong> Who is our internal advocate?<br>
-                                        • <strong>Pain Points:</strong> What problems are they solving?<br>
-                                        • <strong>Timeline:</strong> When do they need to act?<br>
-                                        • <strong>Competition:</strong> Who else are they evaluating?
+                                        Extract qualification signals for each MEDDICC element. Note what was said for: Economic Buyer, Decision Process, Champion, Identified Pain, Timeline, Competition. If an element was not mentioned, write "Not discussed".
                                     </div>
                                 </div>
                                 <div class="template-section">
@@ -769,7 +774,15 @@
                                         <span class="template-section-name">Product Interest</span>
                                     </div>
                                     <div class="template-section-instructions">
-                                        Which product lines were discussed or are relevant? Tag any mentions of: AI-Augmented Contracting, Compliance, M&A, Sigma, Litigation, or Custom AI Solutions.
+                                        Tag product lines ONLY if explicitly discussed. Valid tags: [AI-Augmented Contracting - Managed Services], [AI-Augmented Contracting - In-House], [AI-Augmented M&A - Managed Service], [AI-Augmented M&A - In-House], [AI Platform - Sigma], [AI Platform - Insights], [AI Platform - Litigation], [FDE - Custom AI Solution]. Quote the relevant statement from the transcript.
+                                    </div>
+                                </div>
+                                <div class="template-section">
+                                    <div class="template-section-header">
+                                        <span class="template-section-name">Key Dates</span>
+                                    </div>
+                                    <div class="template-section-instructions">
+                                        Extract any specific dates or timeframes mentioned. Format: "Target: Q2 2026" or "Follow-up: February 15, 2026". Include context for what each date refers to.
                                     </div>
                                 </div>
                                 <div class="template-section">
@@ -777,7 +790,7 @@
                                         <span class="template-section-name">Next Steps</span>
                                     </div>
                                     <div class="template-section-instructions">
-                                        Concrete next steps with owners and dates. Format as checkboxes: - [ ] Action item (Owner, Date)
+                                        List concrete next steps with owner and target date if mentioned. Format as checkboxes: - [ ] Action (Owner, Date)
                                     </div>
                                 </div>
                                 <div class="template-section">
@@ -785,12 +798,21 @@
                                         <span class="template-section-name">Action Items</span>
                                     </div>
                                     <div class="template-section-instructions">
-                                        Internal follow-up tasks for the BL. Include: emails to send, documents to prepare, internal people to loop in, Salesforce updates needed.
+                                        List internal follow-up tasks for the Business Lead: emails to send, documents to prepare, people to loop in, Salesforce fields to update.
+                                    </div>
+                                </div>
+                                <div class="template-section">
+                                    <div class="template-section-header">
+                                        <span class="template-section-name">Meeting Card</span>
+                                        <span style="font-size: 9px; color: #94a3b8; margin-left: 8px;">(Optional)</span>
+                                    </div>
+                                    <div class="template-section-instructions">
+                                        Create a summary card using this format: &gt; [!summary] Meeting Overview followed by Account, Stage, ACV Potential, Key Contact, and Next Meeting date on separate lines. Use Obsidian callout syntax.
                                     </div>
                                 </div>
                             </div>
                             <div class="note-callout">
-                                Set <code>Eudia Sales</code> as the <strong>Active Template</strong> in the dropdown at the top of the Templates tab.
+                                Set <code>Eudia Sales</code> as the <strong>Active Template</strong> in the dropdown at the top. Mark "Meeting Card" as optional if desired.
                             </div>
                         </div>
                     </div>
@@ -814,12 +836,34 @@
                             <div class="action-box">
                                 <strong>To create:</strong> Right-click in sidebar → <code>New folder</code> for accounts, <code>New note</code> for meetings. Name notes: <code>YYYY-MM-DD Meeting Type</code>
                             </div>
+                            <div class="note-callout" style="margin-top: 10px;">
+                                <strong>Account linking:</strong> Folder names autocomplete in the "account" property. Type <code>[[AccountName</code> to link.<br>
+                                <strong>Get account list:</strong> Download current Salesforce accounts from <code>/api/accounts/obsidian?format=markdown</code> to create your folder structure.
+                            </div>
                         </div>
                     </div>
                     
                     <div class="setup-step">
                         <div class="step-indicator">
                             <div class="step-number">8</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step-content">
+                            <h3>Link Notes to Calendar Events (Optional)</h3>
+                            <p>If you have the <strong>Full Calendar</strong> plugin installed, you can create notes directly from calendar events:</p>
+                            <div class="action-box">
+                                <strong>Option A:</strong> In Full Calendar view, click an event → "Create Note" → Note is created with date, title, and attendees pre-filled.<br><br>
+                                <strong>Option B:</strong> In your note, click "+ Add property" → add <code>date</code> and <code>attendees</code> fields manually.
+                            </div>
+                            <div class="note-callout">
+                                <strong>Full Calendar Setup:</strong> Settings → Full Calendar → Add your calendar ICS URL (from Outlook/Google). Events then appear in the calendar view.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <div class="step-indicator">
+                            <div class="step-number">9</div>
                         </div>
                         <div class="step-content">
                             <h3>Recording a Meeting</h3>
@@ -844,11 +888,12 @@
                 <ul class="checklist">
                     <li><span class="checkbox"></span> Obsidian installed and vault created</li>
                     <li><span class="checkbox"></span> Scribe plugin installed with OpenAI key</li>
-                    <li><span class="checkbox"></span> "Append transcript to active file" enabled</li>
-                    <li><span class="checkbox"></span> Eudia Sales template created and set as active</li>
-                    <li><span class="checkbox"></span> Account folders created for active opportunities</li>
-                    <li><span class="checkbox"></span> Read through Sales Process tab (stages, MEDDICC)</li>
-                    <li><span class="checkbox"></span> Check Meeting Prep tab for upcoming meeting context</li>
+                    <li><span class="checkbox"></span> "Append transcript to active file" enabled in Scribe settings</li>
+                    <li><span class="checkbox"></span> Eudia Sales template created with all 8 sections</li>
+                    <li><span class="checkbox"></span> Template set as Active in Scribe settings</li>
+                    <li><span class="checkbox"></span> Accounts folder created with subfolders for each account</li>
+                    <li><span class="checkbox"></span> Full Calendar connected (optional)</li>
+                    <li><span class="checkbox"></span> Review Sales Process tab for stages and MEDDICC</li>
                 </ul>
             </div>
         </div>
