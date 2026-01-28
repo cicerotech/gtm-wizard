@@ -70,6 +70,62 @@ function formatProductLine(productLine) {
 }
 
 /**
+ * Get fiscal quarter date boundaries
+ * Eudia fiscal year starts February 1
+ * Q1: Feb 1 - Apr 30
+ * Q2: May 1 - Jul 31
+ * Q3: Aug 1 - Oct 31
+ * Q4: Nov 1 - Jan 31
+ */
+function getFiscalQuarterDates() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // 1-indexed
+  
+  let fqStart, fqEnd, fqLabel;
+  
+  if (month >= 2 && month <= 4) {
+    // Q1: Feb 1 - Apr 30
+    fqStart = new Date(year, 1, 1);
+    fqEnd = new Date(year, 4, 0);
+    fqLabel = `Q1 FY${year.toString().slice(2)}`;
+  } else if (month >= 5 && month <= 7) {
+    // Q2: May 1 - Jul 31
+    fqStart = new Date(year, 4, 1);
+    fqEnd = new Date(year, 7, 0);
+    fqLabel = `Q2 FY${year.toString().slice(2)}`;
+  } else if (month >= 8 && month <= 10) {
+    // Q3: Aug 1 - Oct 31
+    fqStart = new Date(year, 7, 1);
+    fqEnd = new Date(year, 10, 0);
+    fqLabel = `Q3 FY${year.toString().slice(2)}`;
+  } else {
+    // Q4: Nov 1 - Jan 31 (spans year boundary)
+    if (month === 1) {
+      fqStart = new Date(year - 1, 10, 1); // Nov 1 previous year
+      fqEnd = new Date(year, 1, 0);        // Jan 31 current year
+      fqLabel = `Q4 FY${year.toString().slice(2)}`;
+    } else {
+      // Nov or Dec
+      fqStart = new Date(year, 10, 1);     // Nov 1 current year
+      fqEnd = new Date(year + 1, 1, 0);    // Jan 31 next year
+      fqLabel = `Q4 FY${(year + 1).toString().slice(2)}`;
+    }
+  }
+  
+  // Format dates as YYYY-MM-DD for SOQL
+  const formatDate = (d) => d.toISOString().split('T')[0];
+  
+  return {
+    fqStart,
+    fqEnd,
+    fqStartStr: formatDate(fqStart),
+    fqEndStr: formatDate(fqEnd),
+    fqLabel
+  };
+}
+
+/**
  * Generate Pipeline Overview Tab - Combined Eudia pipeline data
  * Updated weekly until systems sync
  */
@@ -1238,6 +1294,13 @@ async function generateAccountDashboard() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
+  // FISCAL QUARTER CALCULATION - Feb fiscal year
+  // Q1: Feb-Apr, Q2: May-Jul, Q3: Aug-Oct, Q4: Nov-Jan
+  // ═══════════════════════════════════════════════════════════════════════
+  const { fqStartStr, fqEndStr, fqLabel } = getFiscalQuarterDates();
+  console.log(`[Dashboard] Current Fiscal Quarter: ${fqLabel} (${fqStartStr} to ${fqEndStr})`);
+  
+  // ═══════════════════════════════════════════════════════════════════════
   // SIGNED LOGOS BY QUARTER - Query Accounts with First_Deal_Closed__c
   // This field on Account object stores when the account's first deal closed
   // Group accounts by fiscal quarter (Q4 2025 = Nov 1, 2025 - Jan 31, 2026)
@@ -1255,10 +1318,13 @@ async function generateAccountDashboard() {
     ORDER BY First_Deal_Closed__c DESC
   `;
   
-  // All Closed Won deals - matches Salesforce report "Signed Revenue - L7D" filters
-  // Using IsWon = true instead of StageName for reliability (stage names vary)
-  // Revenue_Type__c: Recurring, Project, Pilot, Commitment
-  // Date: Last 90 days (dynamic lookback)
+  // ═══════════════════════════════════════════════════════════════════════
+  // CLOSED WON BY REVENUE TYPE - Fiscal Quarter query
+  // Matches Salesforce report "Signed Revenue - This Quarter" filters:
+  // - Revenue_Type__c IN ('Recurring', 'Project') - excludes Pilot, Commitment
+  // - CloseDate within current fiscal quarter
+  // - IsWon = true (Stage 6. Closed(Won))
+  // ═══════════════════════════════════════════════════════════════════════
   const signedDealsQuery = `
     SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
            StageName, Sales_Type__c, Owner.Name,
@@ -1266,8 +1332,9 @@ async function generateAccountDashboard() {
     FROM Opportunity
     WHERE IsClosed = true
       AND IsWon = true
-      AND CloseDate >= LAST_N_DAYS:90
-      AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot', 'Commitment')
+      AND CloseDate >= ${fqStartStr}
+      AND CloseDate <= ${fqEndStr}
+      AND Revenue_Type__c IN ('Recurring', 'Project')
       AND (NOT Account.Name LIKE '%Sample%')
       AND (NOT Account.Name LIKE '%Acme%')
       AND (NOT Account.Name LIKE '%Sandbox%')
@@ -1451,13 +1518,14 @@ async function generateAccountDashboard() {
       });
     } else {
       console.log(`[Dashboard] ⚠️ No Closed Won records returned - checking alternative query...`);
-      // Try a simpler fallback query without Revenue_Type filter
+      // Try a simpler fallback query without Revenue_Type filter but with FQ dates
       const fallbackQuery = `
         SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
                StageName, Sales_Type__c, Owner.Name, Renewal_Net_Change__c, Booking_ACV__c
         FROM Opportunity
         WHERE StageName LIKE '%Closed%Won%'
-          AND CloseDate >= LAST_N_DAYS:90
+          AND CloseDate >= ${fqStartStr}
+          AND CloseDate <= ${fqEndStr}
         ORDER BY CloseDate DESC
         LIMIT 50
       `;
@@ -2469,58 +2537,46 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
 
 <!-- TAB 3: REVENUE -->
 <div id="revenue" class="tab-content">
-  <!-- Closed Won by Sales Type Summary (Dynamic from Salesforce Sales_Type__c) -->
+  <!-- Closed Won by Revenue Type (Recurring vs Project) - Fiscal Quarter -->
+  <!-- Filters: Revenue_Type__c IN ('Recurring', 'Project'), CloseDate in FQ, IsWon = true -->
   <div class="stage-section" style="margin-bottom: 16px;">
-    <div class="stage-title">Closed Won by Sales Type</div>
-    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+    <div class="stage-title">Closed Won by Revenue Type</div>
+    <div class="stage-subtitle" style="font-size: 0.65rem; color: #6b7280; margin-bottom: 8px;">This fiscal quarter • Recurring + Project only</div>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px;">
       ${(() => {
-        // Aggregate closed won by Sales Type (case-insensitive normalization)
-        // Track both gross ACV (revenue) and Net ACV (true net new)
-        const salesTypeClosedWon = {};
-        const allClosedWonDeals = [...signedByType.revenue, ...signedByType.project, ...signedByType.pilot];
+        // Calculate totals from signedByType (already filtered to FQ + Recurring/Project)
+        const recurringDeals = signedByType.revenue || [];
+        const projectDeals = signedByType.project || [];
         
-        allClosedWonDeals.forEach(deal => {
-          let sType = (deal.salesType || 'Unassigned').trim();
-          // Normalize case: "New business", "New Business", "NEW BUSINESS" → "New Business"
-          const sTypeLower = sType.toLowerCase();
-          if (sTypeLower.includes('new')) sType = 'New Business';
-          else if (sTypeLower.includes('expansion')) sType = 'Expansion';
-          else if (sTypeLower.includes('renewal')) sType = 'Renewal';
-          else if (sType === '' || sType === 'Unassigned') sType = 'Unassigned';
-          
-          if (!salesTypeClosedWon[sType]) salesTypeClosedWon[sType] = { count: 0, acv: 0, netAcv: 0 };
-          salesTypeClosedWon[sType].count++;
-          salesTypeClosedWon[sType].acv += deal.acv || 0;
-          // Net ACV = Renewal_Net_Change__c if available, otherwise full ACV
-          salesTypeClosedWon[sType].netAcv += (deal.renewalNetChange !== null ? deal.renewalNetChange : deal.acv) || 0;
-        });
+        // Revenue = sum of ACV
+        const recurringRevenue = recurringDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
+        const projectRevenue = projectDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
         
-        // Order: New Business, Expansion, Renewal (skip Unassigned in display unless it's all we have)
-        const salesTypeOrder = ['New Business', 'Expansion', 'Renewal'];
-        let displayTypes = salesTypeOrder.filter(t => salesTypeClosedWon[t] && salesTypeClosedWon[t].count > 0);
-        
-        // Add Unassigned if no other types exist
-        if (displayTypes.length === 0 && salesTypeClosedWon['Unassigned']) {
-          displayTypes = ['Unassigned'];
-        }
+        // Net ACV = sum of Renewal_Net_Change__c (or ACV if null)
+        const recurringNetACV = recurringDeals.reduce((sum, d) => sum + (d.renewalNetChange !== null ? d.renewalNetChange : d.acv), 0);
+        const projectNetACV = projectDeals.reduce((sum, d) => sum + (d.renewalNetChange !== null ? d.renewalNetChange : d.acv), 0);
         
         const fmt = (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(1) + 'm' : '$' + (val / 1000).toFixed(0) + 'k';
         
-        if (displayTypes.length === 0) {
-          return '<div style="font-size: 0.75rem; color: #6b7280;">No closed won deals found</div>';
-        }
-        
-        return displayTypes.map(type => {
-          const data = salesTypeClosedWon[type] || { count: 0, acv: 0, netAcv: 0 };
-          const showNetDiff = data.acv !== data.netAcv;
-          return '<div style="flex: 1; min-width: 140px; background: #f3f4f6; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #e5e7eb;">' +
-            '<div style="font-size: 0.65rem; font-weight: 700; color: #1f2937; margin-bottom: 4px;">' + type.toUpperCase() + '</div>' +
-            '<div style="font-size: 1.1rem; font-weight: 700; color: #111827;">' + fmt(data.acv) + '</div>' +
-            (showNetDiff ? '<div style="font-size: 0.7rem; color: #059669; font-weight: 500;">Net: ' + fmt(data.netAcv) + '</div>' : '') +
-            '<div style="font-size: 0.55rem; color: #6b7280; margin-top: 2px;">' + data.count + ' deals</div>' +
+        return '' +
+          // RECURRING card
+          '<div style="flex: 1; min-width: 160px; background: #d1fae5; padding: 16px; border-radius: 8px; text-align: center; border: 1px solid #a7f3d0;">' +
+            '<div style="font-size: 0.7rem; font-weight: 700; color: #065f46; margin-bottom: 6px;">RECURRING</div>' +
+            '<div style="font-size: 1.25rem; font-weight: 700; color: #065f46;">' + fmt(recurringRevenue) + '</div>' +
+            '<div style="font-size: 0.75rem; color: #059669; font-weight: 500; margin-top: 2px;">Net: ' + fmt(recurringNetACV) + '</div>' +
+            '<div style="font-size: 0.6rem; color: #047857; margin-top: 4px;">' + recurringDeals.length + ' deals</div>' +
+          '</div>' +
+          // PROJECT card
+          '<div style="flex: 1; min-width: 160px; background: #f3f4f6; padding: 16px; border-radius: 8px; text-align: center; border: 1px solid #e5e7eb;">' +
+            '<div style="font-size: 0.7rem; font-weight: 700; color: #374151; margin-bottom: 6px;">PROJECT</div>' +
+            '<div style="font-size: 1.25rem; font-weight: 700; color: #1f2937;">' + fmt(projectRevenue) + '</div>' +
+            '<div style="font-size: 0.75rem; color: #059669; font-weight: 500; margin-top: 2px;">Net: ' + fmt(projectNetACV) + '</div>' +
+            '<div style="font-size: 0.6rem; color: #6b7280; margin-top: 4px;">' + projectDeals.length + ' deals</div>' +
           '</div>';
-        }).join('');
       })()}
+    </div>
+    <div style="font-size: 0.6rem; color: #9ca3af; margin-top: 10px; font-style: italic;">
+      Net ACV excludes renewal base dollars (e.g., flat renewals like OpenAI are $0 net new)
     </div>
   </div>
   
@@ -2532,37 +2588,32 @@ ${generateTopCoTab(totalGross, totalWeighted, totalDeals, accountMap.size, stage
     </div>
   </div>
 
-  <!-- Closed Won QTD - By Revenue_Type__c (Dynamic from Salesforce) -->
+  <!-- Closed Won This Fiscal Quarter - By Revenue_Type__c (Recurring + Project) -->
+  <!-- Filters: Revenue_Type__c IN ('Recurring', 'Project'), CloseDate in FQ, IsWon = true -->
   ${(() => {
-    // All deals come from signedByType which is populated from Salesforce query
+    // Deals are filtered to current fiscal quarter and Recurring/Project only
     const revenueDeals = signedByType.revenue || [];
     const projectDeals = signedByType.project || [];
-    const pilotDeals = signedByType.pilot || [];
-    const loiDeals = signedByType.loi || [];
     
     // Revenue totals (gross ACV - includes renewal dollars)
     const revenueTotal = revenueDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
     const projectTotal = projectDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
-    const pilotTotal = pilotDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
-    const loiTotal = loiDeals.reduce((sum, d) => sum + (d.acv || 0), 0);
     
     // Net ACV totals (excludes renewal base - true net new)
     const revenueNetACV = revenueDeals.reduce((sum, d) => sum + (d.renewalNetChange !== null ? d.renewalNetChange : d.acv), 0);
     const projectNetACV = projectDeals.reduce((sum, d) => sum + (d.renewalNetChange !== null ? d.renewalNetChange : d.acv), 0);
-    const pilotNetACV = pilotDeals.reduce((sum, d) => sum + (d.renewalNetChange !== null ? d.renewalNetChange : d.acv), 0);
-    const loiNetACV = loiDeals.reduce((sum, d) => sum + (d.renewalNetChange !== null ? d.renewalNetChange : d.acv), 0);
     
-    // Aggregate totals
-    const totalDeals = revenueDeals.length + projectDeals.length + pilotDeals.length + loiDeals.length;
-    const totalRevenue = revenueTotal + projectTotal + pilotTotal + loiTotal;
-    const totalNetACV = revenueNetACV + projectNetACV + pilotNetACV + loiNetACV;
+    // Aggregate totals (Recurring + Project only - matches SF report)
+    const totalDeals = revenueDeals.length + projectDeals.length;
+    const totalRevenue = revenueTotal + projectTotal;
+    const totalNetACV = revenueNetACV + projectNetACV;
     
     const fmt = (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(1) + 'm' : '$' + (val / 1000).toFixed(0) + 'k';
     
     return `
   <div class="stage-section" style="margin-top: 16px;">
-    <div class="stage-title">Closed Won QTD</div>
-    <div class="stage-subtitle">${revenueDeals.length} recurring • ${projectDeals.length} project • ${pilotDeals.length} pilot • ${loiDeals.length} commitment</div>
+    <div class="stage-title">Closed Won This Fiscal Quarter</div>
+    <div class="stage-subtitle">${revenueDeals.length} recurring • ${projectDeals.length} project</div>
     <div style="display: flex; gap: 16px; margin-top: 12px; padding: 12px; background: #f9fafb; border-radius: 6px;">
       <div style="flex: 1; text-align: center; border-right: 1px solid #e5e7eb;">
         <div style="font-size: 0.65rem; color: #6b7280; font-weight: 500;">TOTAL REVENUE</div>
