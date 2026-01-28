@@ -179,9 +179,62 @@ public class DeliveryCreationService {
             insert deliveriesToCreate;
             
             System.debug('Created ' + deliveriesToCreate.size() + ' Delivery record(s)');
+            
+            // Update Opportunity with Delivery summary and primary Delivery link
+            updateOpportunityWithDeliveries(opp.Id, deliveriesToCreate);
         }
         
         return deliveriesToCreate;
+    }
+    
+    /**
+     * Update Opportunity with Delivery summary and primary Delivery link
+     * 
+     * @param opportunityId The Opportunity ID
+     * @param deliveries List of created Delivery records
+     */
+    private static void updateOpportunityWithDeliveries(Id opportunityId, List<Delivery__c> deliveries) {
+        if (deliveries == null || deliveries.isEmpty()) return;
+        
+        // Build summary text
+        List<String> summaryLines = new List<String>();
+        for (Delivery__c d : deliveries) {
+            String line = '• ' + d.Name + ' (' + d.Product_Line__c + ')';
+            if (d.Contract_Value__c != null && d.Contract_Value__c > 0) {
+                line += ' - $' + formatCurrency(d.Contract_Value__c);
+            }
+            summaryLines.add(line);
+        }
+        String summaryText = String.join(summaryLines, '\n');
+        
+        // Update Opportunity
+        Opportunity oppUpdate = new Opportunity(Id = opportunityId);
+        
+        // Set Deliveries_Summary__c text field
+        oppUpdate.Deliveries_Summary__c = summaryText;
+        
+        // Set primary Delivery lookup (first/largest delivery)
+        oppUpdate.Delivery__c = deliveries[0].Id;
+        
+        try {
+            update oppUpdate;
+            System.debug('Updated Opportunity with Delivery summary: ' + summaryText);
+        } catch (Exception e) {
+            System.debug('Error updating Opportunity with Delivery summary: ' + e.getMessage());
+        }
+    }
+    
+    /**
+     * Format currency value
+     */
+    private static String formatCurrency(Decimal value) {
+        if (value == null) return '$0';
+        if (value >= 1000000) {
+            return String.valueOf((value / 1000000).setScale(1, RoundingMode.HALF_UP)) + 'M';
+        } else if (value >= 1000) {
+            return String.valueOf((value / 1000).setScale(0, RoundingMode.HALF_UP)) + 'K';
+        }
+        return String.valueOf(value.setScale(0, RoundingMode.HALF_UP));
     }
     
     /**
