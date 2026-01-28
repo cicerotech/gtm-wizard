@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Product_Lines_Multi__c</fullName>
-    <description>Multi-select version of Product Line. Select multiple products and the system will auto-create Product Line Items. Use this instead of the Products related list for quick entry.</description>
+    <description>Multi-select version of Product Line. Select multiple products for this opportunity. Use this field for quick multi-product tagging in reports and list views.</description>
     <externalId>false</externalId>
     <inlineHelpText>Select one or more product lines. Products will be auto-added to the opportunity.</inlineHelpText>
     <label>Product Lines</label>
