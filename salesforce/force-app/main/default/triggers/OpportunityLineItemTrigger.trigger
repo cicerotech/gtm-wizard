@@ -13,10 +13,15 @@ trigger OpportunityLineItemTrigger on OpportunityLineItem (after delete) {
             oppIds.add(oli.OpportunityId);
         }
         
-        // Call the service to update breakdown
+        // Call the service to update breakdown using wrapper class
         if (!oppIds.isEmpty()) {
-            ProductsBreakdownService.updateProductsBreakdown(new List<Id>(oppIds));
+            List<ProductsBreakdownService.BreakdownRequest> requests = new List<ProductsBreakdownService.BreakdownRequest>();
+            for (Id oppId : oppIds) {
+                ProductsBreakdownService.BreakdownRequest req = new ProductsBreakdownService.BreakdownRequest();
+                req.opportunityId = oppId;
+                requests.add(req);
+            }
+            ProductsBreakdownService.updateProductsBreakdown(requests);
         }
     }
 }
-

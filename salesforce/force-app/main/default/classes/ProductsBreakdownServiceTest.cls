@@ -40,6 +40,15 @@ private class ProductsBreakdownServiceTest {
         insert pbe;
     }
     
+    /**
+     * Helper method to create a BreakdownRequest
+     */
+    private static ProductsBreakdownService.BreakdownRequest createRequest(Id oppId) {
+        ProductsBreakdownService.BreakdownRequest req = new ProductsBreakdownService.BreakdownRequest();
+        req.opportunityId = oppId;
+        return req;
+    }
+    
     @isTest
     static void testUpdateProductsBreakdown() {
         // Get test data
@@ -59,9 +68,11 @@ private class ProductsBreakdownServiceTest {
         );
         insert oli;
         
-        // Call the service
+        // Call the service using the wrapper class
         Test.startTest();
-        ProductsBreakdownService.updateProductsBreakdown(new List<Id>{ testOpp.Id });
+        List<ProductsBreakdownService.BreakdownRequest> requests = new List<ProductsBreakdownService.BreakdownRequest>();
+        requests.add(createRequest(testOpp.Id));
+        ProductsBreakdownService.updateProductsBreakdown(requests);
         Test.stopTest();
         
         // Verify
@@ -75,7 +86,7 @@ private class ProductsBreakdownServiceTest {
     static void testEmptyOpportunityIds() {
         // Should not throw error with empty list
         Test.startTest();
-        ProductsBreakdownService.updateProductsBreakdown(new List<Id>());
+        ProductsBreakdownService.updateProductsBreakdown(new List<ProductsBreakdownService.BreakdownRequest>());
         ProductsBreakdownService.updateProductsBreakdown(null);
         Test.stopTest();
         
@@ -101,8 +112,10 @@ private class ProductsBreakdownServiceTest {
         );
         insert oli;
         
-        // Populate breakdown
-        ProductsBreakdownService.updateProductsBreakdown(new List<Id>{ testOpp.Id });
+        // Populate breakdown using wrapper
+        List<ProductsBreakdownService.BreakdownRequest> requests = new List<ProductsBreakdownService.BreakdownRequest>();
+        requests.add(createRequest(testOpp.Id));
+        ProductsBreakdownService.updateProductsBreakdown(requests);
         
         // Verify breakdown exists
         Opportunity oppBefore = [SELECT Products_Breakdown__c FROM Opportunity WHERE Id = :testOpp.Id];

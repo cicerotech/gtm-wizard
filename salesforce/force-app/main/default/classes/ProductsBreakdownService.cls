@@ -8,14 +8,32 @@
  */
 public class ProductsBreakdownService {
     
+    /**
+     * Request wrapper for invocable method
+     * This allows Flow to pass a single Opportunity ID per invocation
+     */
+    public class BreakdownRequest {
+        @InvocableVariable(label='Opportunity ID' required=true)
+        public Id opportunityId;
+    }
+    
     @InvocableMethod(label='Update Products Breakdown' description='Updates the Products_Breakdown__c field on Opportunity with formatted product list')
-    public static void updateProductsBreakdown(List<Id> opportunityIds) {
-        if (opportunityIds == null || opportunityIds.isEmpty()) {
+    public static void updateProductsBreakdown(List<BreakdownRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
             return;
         }
         
-        // Remove duplicates
-        Set<Id> uniqueOppIds = new Set<Id>(opportunityIds);
+        // Collect unique Opportunity IDs from requests
+        Set<Id> uniqueOppIds = new Set<Id>();
+        for (BreakdownRequest req : requests) {
+            if (req.opportunityId != null) {
+                uniqueOppIds.add(req.opportunityId);
+            }
+        }
+        
+        if (uniqueOppIds.isEmpty()) {
+            return;
+        }
         
         // Query opportunities with their line items
         List<Opportunity> opps = [
@@ -93,4 +111,3 @@ public class ProductsBreakdownService {
         }
     }
 }
-

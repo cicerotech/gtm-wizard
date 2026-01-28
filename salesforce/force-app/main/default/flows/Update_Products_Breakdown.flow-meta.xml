@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>59.0</apiVersion>
-    <description>Updates the Products_Breakdown__c field on the parent Opportunity when Line Items are added, updated, or deleted. Calls Apex for the heavy lifting.</description>
+    <description>Updates the Products_Breakdown__c field on the parent Opportunity when Line Items are added or updated. Calls Apex for the heavy lifting.</description>
     <interviewLabel>Update Products Breakdown {!$Flow.CurrentDateTime}</interviewLabel>
     <label>Update Products Breakdown</label>
     <processMetadataValues>
@@ -18,46 +18,19 @@
     </processMetadataValues>
     <processType>AutoLaunchedFlow</processType>
     
-    <!-- Collect Opportunity ID into a collection -->
-    <variables>
-        <name>varOpportunityIds</name>
-        <dataType>String</dataType>
-        <isCollection>true</isCollection>
-        <isInput>false</isInput>
-        <isOutput>false</isOutput>
-    </variables>
-    
-    <!-- Add the Opportunity ID to collection -->
-    <assignments>
-        <name>Add_Opp_Id_to_Collection</name>
-        <label>Add Opp Id to Collection</label>
-        <locationX>176</locationX>
-        <locationY>252</locationY>
-        <assignmentItems>
-            <assignToReference>varOpportunityIds</assignToReference>
-            <operator>Add</operator>
-            <value>
-                <elementReference>$Record.OpportunityId</elementReference>
-            </value>
-        </assignmentItems>
-        <connector>
-            <targetReference>Call_Apex_Update_Breakdown</targetReference>
-        </connector>
-    </assignments>
-    
-    <!-- Call Apex to update the breakdown -->
+    <!-- Call Apex to update the breakdown - pass single ID directly -->
     <actionCalls>
         <name>Call_Apex_Update_Breakdown</name>
         <label>Call Apex Update Breakdown</label>
         <locationX>176</locationX>
-        <locationY>360</locationY>
+        <locationY>252</locationY>
         <actionName>ProductsBreakdownService</actionName>
         <actionType>apex</actionType>
         <flowTransactionModel>CurrentTransaction</flowTransactionModel>
         <inputParameters>
-            <name>opportunityIds</name>
+            <name>opportunityId</name>
             <value>
-                <elementReference>varOpportunityIds</elementReference>
+                <elementReference>$Record.OpportunityId</elementReference>
             </value>
         </inputParameters>
     </actionCalls>
@@ -67,7 +40,7 @@
         <locationX>50</locationX>
         <locationY>0</locationY>
         <connector>
-            <targetReference>Add_Opp_Id_to_Collection</targetReference>
+            <targetReference>Call_Apex_Update_Breakdown</targetReference>
         </connector>
         <object>OpportunityLineItem</object>
         <recordTriggerType>CreateAndUpdate</recordTriggerType>
@@ -76,4 +49,3 @@
     
     <status>Active</status>
 </Flow>
-
