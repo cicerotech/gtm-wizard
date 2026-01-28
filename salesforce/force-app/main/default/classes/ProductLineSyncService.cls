@@ -5,6 +5,9 @@
  * When users select products in the multi-select, this creates the corresponding
  * line items. When they deselect, it removes them.
  * 
+ * Price Logic: ACV is divided equally among all selected products.
+ * Example: $120K ACV with 2 products = $60K each
+ * 
  * This provides a simple dropdown UX while maintaining the Products related list.
  * 
  * @author GTM Brain
@@ -12,7 +15,7 @@
  */
 public class ProductLineSyncService {
     
-    // Default ACV for new products
+    // Default ACV if opportunity has no ACV set
     private static final Decimal DEFAULT_ACV = 120000.00;
     
     /**
@@ -29,6 +32,12 @@ public class ProductLineSyncService {
     /**
      * Sync multi-select picklist with OpportunityLineItems
      * Called by Flow when Product_Lines_Multi__c changes
+     * 
+     * Logic:
+     * 1. Get the Opportunity's ACV
+     * 2. Divide ACV by number of selected products
+     * 3. Set each product's price to that amount
+     * 4. Update existing products to have equal distribution
      */
     @InvocableMethod(label='Sync Product Lines to Line Items' description='Creates/removes OpportunityLineItems based on multi-select product line field')
     public static void syncProductLines(List<SyncRequest> requests) {
@@ -55,6 +64,7 @@ public class ProductLineSyncService {
         
         List<OpportunityLineItem> toInsert = new List<OpportunityLineItem>();
         List<OpportunityLineItem> toDelete = new List<OpportunityLineItem>();
+        List<OpportunityLineItem> toUpdate = new List<OpportunityLineItem>();
         List<Opportunity> oppsToUpdate = new List<Opportunity>();
         
         for (SyncRequest req : requests) {
@@ -71,19 +81,31 @@ public class ProductLineSyncService {
             // Get existing line items for this opportunity
             Map<String, OpportunityLineItem> existingProducts = new Map<String, OpportunityLineItem>();
             for (OpportunityLineItem oli : [
-                SELECT Id, Product2Id, Product2.Name 
+                SELECT Id, Product2Id, Product2.Name, UnitPrice 
                 FROM OpportunityLineItem 
                 WHERE OpportunityId = :req.opportunityId
             ]) {
                 existingProducts.put(oli.Product2.Name, oli);
             }
             
+            // Get Opportunity with ACV
+            Opportunity opp = [SELECT Id, Pricebook2Id, ACV__c FROM Opportunity WHERE Id = :req.opportunityId LIMIT 1];
+            
             // Ensure Opp has Pricebook assigned
-            Opportunity opp = [SELECT Id, Pricebook2Id FROM Opportunity WHERE Id = :req.opportunityId LIMIT 1];
             if (opp.Pricebook2Id == null) {
                 opp.Pricebook2Id = standardPB.Id;
                 oppsToUpdate.add(opp);
             }
+            
+            // Calculate price per product: ACV / number of products
+            Decimal oppACV = opp.ACV__c != null ? opp.ACV__c : DEFAULT_ACV;
+            Integer productCount = selectedProducts.size();
+            Decimal pricePerProduct = productCount > 0 ? oppACV / productCount : oppACV;
+            
+            // Round to 2 decimal places
+            pricePerProduct = pricePerProduct.setScale(2, RoundingMode.HALF_UP);
+            
+            System.debug('ACV: ' + oppACV + ', Products: ' + productCount + ', Price each: ' + pricePerProduct);
             
             // Add new products (selected but not existing)
             for (String productName : selectedProducts) {
@@ -95,12 +117,20 @@ public class ProductLineSyncService {
                             OpportunityId = req.opportunityId,
                             PricebookEntryId = pbe.Id,
                             Quantity = 1,
-                            UnitPrice = pbe.UnitPrice != null ? pbe.UnitPrice : DEFAULT_ACV
+                            UnitPrice = pricePerProduct
                         );
                         toInsert.add(oli);
-                        System.debug('Adding product: ' + productName);
+                        System.debug('Adding product: ' + productName + ' at $' + pricePerProduct);
                     } else {
                         System.debug('Product not found in Pricebook: ' + productName);
+                    }
+                } else {
+                    // Product exists - update price if different
+                    OpportunityLineItem existingOli = existingProducts.get(productName);
+                    if (existingOli.UnitPrice != pricePerProduct) {
+                        existingOli.UnitPrice = pricePerProduct;
+                        toUpdate.add(existingOli);
+                        System.debug('Updating product: ' + productName + ' to $' + pricePerProduct);
                     }
                 }
             }
@@ -121,6 +151,10 @@ public class ProductLineSyncService {
         
         if (!toDelete.isEmpty()) {
             delete toDelete;
+        }
+        
+        if (!toUpdate.isEmpty()) {
+            update toUpdate;
         }
         
         if (!toInsert.isEmpty()) {
