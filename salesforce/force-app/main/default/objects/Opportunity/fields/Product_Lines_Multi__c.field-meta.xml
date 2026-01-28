@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Product_Lines_Multi__c</fullName>
+    <description>Multi-select version of Product Line. Select multiple products and the system will auto-create Product Line Items. Use this instead of the Products related list for quick entry.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Select one or more product lines. Products will be auto-added to the opportunity.</inlineHelpText>
+    <label>Product Lines</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>MultiselectPicklist</type>
+    <valueSet>
+        <restricted>false</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>AI-Augmented Contracting - In-House Technology</fullName>
+                <default>false</default>
+                <label>AI-Augmented Contracting - In-House Technology</label>
+            </value>
+            <value>
+                <fullName>AI-Augmented Contracting - Managed Services</fullName>
+                <default>false</default>
+                <label>AI-Augmented Contracting - Managed Services</label>
+            </value>
+            <value>
+                <fullName>Contracting - Secondee</fullName>
+                <default>false</default>
+                <label>Contracting - Secondee</label>
+            </value>
+            <value>
+                <fullName>AI-Augmented Compliance - In-House Technology</fullName>
+                <default>false</default>
+                <label>AI-Augmented Compliance - In-House Technology</label>
+            </value>
+            <value>
+                <fullName>AI-Augmented M&amp;A - In-House Technology</fullName>
+                <default>false</default>
+                <label>AI-Augmented M&amp;A - In-House Technology</label>
+            </value>
+            <value>
+                <fullName>AI-Augmented M&amp;A - Managed Service</fullName>
+                <default>false</default>
+                <label>AI-Augmented M&amp;A - Managed Service</label>
+            </value>
+            <value>
+                <fullName>Sigma</fullName>
+                <default>false</default>
+                <label>Sigma</label>
+            </value>
+            <value>
+                <fullName>Custom Agents</fullName>
+                <default>false</default>
+                <label>Custom Agents</label>
+            </value>
+            <value>
+                <fullName>Litigation</fullName>
+                <default>false</default>
+                <label>Litigation</label>
+            </value>
+            <value>
+                <fullName>Other - Managed Service</fullName>
+                <default>false</default>
+                <label>Other - Managed Service</label>
+            </value>
+            <value>
+                <fullName>Other - Secondee</fullName>
+                <default>false</default>
+                <label>Other - Secondee</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+    <visibleLines>4</visibleLines>
+</CustomField>
+
