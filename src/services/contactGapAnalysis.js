@@ -112,11 +112,19 @@ function parseNameFromEmail(email) {
     /^([a-z]+)\.([a-z]+)$/i,      // first.last
     /^([a-z]+)_([a-z]+)$/i,       // first_last
     /^([a-z]+)-([a-z]+)$/i,       // first-last
+    /^([a-z]+)\.([a-z])\.([a-z]+)$/i,  // first.m.last
   ];
   
   for (const pattern of patterns) {
     const match = localPart.match(pattern);
     if (match) {
+      // Handle first.m.last pattern
+      if (match.length === 4) {
+        return {
+          firstName: capitalize(match[1]),
+          lastName: capitalize(match[3])
+        };
+      }
       return {
         firstName: capitalize(match[1]),
         lastName: capitalize(match[2])
@@ -124,15 +132,74 @@ function parseNameFromEmail(email) {
     }
   }
   
+  // Try to extract any name-like pattern
+  const cleaned = localPart.replace(/[0-9]/g, '');
+  if (cleaned.length > 1) {
+    return {
+      firstName: capitalize(cleaned),
+      lastName: 'Unknown'
+    };
+  }
+  
   return {
-    firstName: capitalize(localPart),
-    lastName: 'Unknown'
+    firstName: 'Unknown',
+    lastName: 'Contact'
   };
 }
 
 function capitalize(str) {
   if (!str) return '';
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+/**
+ * Clean and normalize a name from various formats
+ * Handles: "LastName, FirstName", "email@domain.com", "FirstName LastName"
+ */
+function cleanName(rawName, email) {
+  if (!rawName || rawName === 'Unknown' || rawName.includes('@')) {
+    // Name is email or unknown - parse from email
+    return parseNameFromEmail(email);
+  }
+  
+  const trimmed = rawName.trim();
+  
+  // Check for "LastName, FirstName" format (comma indicates reversed order)
+  if (trimmed.includes(',')) {
+    const parts = trimmed.split(',').map(p => p.trim());
+    if (parts.length >= 2 && parts[0] && parts[1]) {
+      return {
+        firstName: capitalize(parts[1].split(' ')[0]), // Take first word after comma
+        lastName: capitalize(parts[0])
+      };
+    }
+  }
+  
+  // Check for parenthetical suffixes like "(CMG-Atlanta)" and remove
+  const cleanedName = trimmed.replace(/\s*\([^)]*\)\s*/g, '').trim();
+  
+  // Standard "FirstName LastName" format
+  const nameParts = cleanedName.split(/\s+/).filter(p => p.length > 0);
+  
+  if (nameParts.length === 0) {
+    return parseNameFromEmail(email);
+  }
+  
+  if (nameParts.length === 1) {
+    // Single name - check if it looks like an email local part
+    if (nameParts[0].includes('.') || nameParts[0].includes('_')) {
+      return parseNameFromEmail(nameParts[0] + '@fake.com');
+    }
+    return {
+      firstName: capitalize(nameParts[0]),
+      lastName: 'Unknown'
+    };
+  }
+  
+  return {
+    firstName: capitalize(nameParts[0]),
+    lastName: nameParts.slice(1).map(p => capitalize(p)).join(' ')
+  };
 }
 
 function escapeSOQL(str) {
@@ -351,6 +418,7 @@ async function checkExistingContacts(attendees) {
 
 /**
  * Enrich missing contacts with Clay data and email parsing
+ * Applies clean name parsing to handle "LastName, FirstName" and email-as-name cases
  * @param {Array} missingContacts - Array of missing contact objects
  * @returns {Array} Enriched contact objects
  */
@@ -365,27 +433,29 @@ async function enrichMissingContacts(missingContacts) {
     
     let enrichedContact = { ...contact };
     
+    // Determine raw name source (prefer Clay, then calendar attendee name)
+    const rawName = clayData?.name || contact.name;
+    
+    // Clean and parse the name properly
+    const cleanedName = cleanName(rawName, contact.email);
+    enrichedContact.firstName = cleanedName.firstName;
+    enrichedContact.lastName = cleanedName.lastName;
+    
     if (clayData && clayData.title) {
-      // Use Clay data
-      enrichedContact.name = clayData.name || contact.name;
+      // Use Clay data for title and other fields
       enrichedContact.title = clayData.title;
       enrichedContact.linkedinUrl = clayData.linkedin_url;
       enrichedContact.company = clayData.company;
       enrichedContact.enrichmentSource = 'clay';
-      
-      // Parse name if available
-      if (clayData.name) {
-        const nameParts = clayData.name.trim().split(/\s+/);
-        enrichedContact.firstName = nameParts[0];
-        enrichedContact.lastName = nameParts.slice(1).join(' ') || 'Unknown';
-      }
     } else {
-      // Fall back to email parsing
-      const parsed = parseNameFromEmail(contact.email);
-      enrichedContact.firstName = contact.name?.split(' ')[0] || parsed.firstName;
-      enrichedContact.lastName = contact.name?.split(' ').slice(1).join(' ') || parsed.lastName;
       enrichedContact.enrichmentSource = 'email_parse';
     }
+    
+    // Format the display name cleanly
+    enrichedContact.name = `${enrichedContact.firstName} ${enrichedContact.lastName}`.trim();
+    
+    // Add first meeting date for reference
+    enrichedContact.firstMeetingDate = contact.lastMeeting; // We track last, could add first too
     
     enriched.push(enrichedContact);
   }
@@ -488,6 +558,7 @@ async function analyzeContactGaps(options = {}) {
 
 /**
  * Create contacts in Salesforce (batch, with safety limits)
+ * Ensures clean data and prevents duplicates
  * @param {Array} contacts - Array of contact objects to create
  * @param {Object} options - { dryRun, approver }
  * @returns {Object} Creation results
@@ -517,56 +588,80 @@ async function createContactsBatch(contacts, options = {}) {
   
   for (const contact of contacts) {
     try {
+      // Clean the name one more time before creation
+      const cleanedName = cleanName(contact.name || `${contact.firstName} ${contact.lastName}`, contact.email);
+      const finalFirstName = cleanedName.firstName;
+      const finalLastName = cleanedName.lastName;
+      
+      // Validate we have a real name
+      if (finalFirstName === 'Unknown' && finalLastName === 'Unknown') {
+        results.skipped.push({
+          email: contact.email,
+          reason: 'Could not determine name'
+        });
+        continue;
+      }
+      
       // Final deduplication check
       const existing = await contactSync.findContactByEmail(contact.email);
       if (existing) {
         results.skipped.push({
           email: contact.email,
-          reason: 'Already exists',
-          existingId: existing.id
+          reason: 'Already exists in Salesforce',
+          existingId: existing.id,
+          existingName: `${existing.firstName} ${existing.lastName}`
         });
         continue;
       }
       
+      // Prepare clean contact data
+      const cleanContact = {
+        email: contact.email.toLowerCase().trim(),
+        firstName: finalFirstName,
+        lastName: finalLastName,
+        title: contact.title || null,
+        accountId: contact.account?.id,
+        accountName: contact.account?.name,
+        meetingCount: contact.meetingCount,
+        lastMeetingDate: contact.lastMeeting ? contact.lastMeeting.split('T')[0] : null
+      };
+      
       if (dryRun) {
         results.created.push({
-          email: contact.email,
-          firstName: contact.firstName,
-          lastName: contact.lastName,
-          title: contact.title,
-          accountId: contact.account?.id,
-          accountName: contact.account?.name,
+          ...cleanContact,
           status: 'would_create'
         });
       } else {
         // Actually create the contact
         const createResult = await contactSync.createContact({
-          email: contact.email,
-          firstName: contact.firstName,
-          lastName: contact.lastName,
-          title: contact.title,
-          accountId: contact.account?.id
+          email: cleanContact.email,
+          firstName: cleanContact.firstName,
+          lastName: cleanContact.lastName,
+          title: cleanContact.title,
+          accountId: cleanContact.accountId
         });
         
         if (createResult.success) {
           results.created.push({
-            ...createResult,
-            accountName: contact.account?.name,
+            ...cleanContact,
+            contactId: createResult.contactId,
             status: 'created'
           });
           
           // Log to gap tracking
           await intelligenceStore.logContactGapCreation({
-            email: contact.email,
+            email: cleanContact.email,
             contactId: createResult.contactId,
-            accountId: contact.account?.id,
-            accountName: contact.account?.name,
+            accountId: cleanContact.accountId,
+            accountName: cleanContact.accountName,
             approver,
             source: 'calendar_gap_analysis'
           });
+          
+          logger.info(`${CONFIG.LOG_PREFIX} ✅ Created: ${cleanContact.firstName} ${cleanContact.lastName} (${cleanContact.email})`);
         } else {
           results.errors.push({
-            email: contact.email,
+            email: cleanContact.email,
             error: createResult.error
           });
         }

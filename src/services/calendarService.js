@@ -40,12 +40,15 @@ function getCalendarCache() {
 
 // Business Lead email list - US + EU Pods
 const BL_EMAILS_PILOT = [
-  // US Pod
+  // US Pod (ALL US BLs now included)
   'asad.hussain@eudia.com',
-  'olivia.jung@eudia.com',
+  'himanshu.agarwal@eudia.com',
   'julie.stefanich@eudia.com',
+  'olivia.jung@eudia.com',
   'olivia@eudia.com',
+  'ananth.cherukupally@eudia.com',
   'justin.hills@eudia.com',
+  'mike.masiello@eudia.com',
   // EU Pod
   'greg.machale@eudia.com',
   'nathan.shine@eudia.com',
