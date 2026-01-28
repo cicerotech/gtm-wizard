@@ -271,6 +271,37 @@ async function initialize() {
         db.run(`CREATE INDEX IF NOT EXISTS idx_milestones_type ON meeting_milestones(meeting_type)`);
         db.run(`CREATE INDEX IF NOT EXISTS idx_milestones_date ON meeting_milestones(meeting_date)`);
         
+        // Contact Gap Analysis table - tracks identified and created contacts from gap analysis
+        db.run(`
+          CREATE TABLE IF NOT EXISTS contact_gaps (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            first_name TEXT,
+            last_name TEXT,
+            title TEXT,
+            account_id TEXT,
+            account_name TEXT,
+            account_owner TEXT,
+            domain TEXT,
+            meeting_count INTEGER DEFAULT 0,
+            last_meeting_date TEXT,
+            enrichment_source TEXT,
+            match_method TEXT,
+            status TEXT DEFAULT 'identified',
+            contact_id TEXT,
+            created_by TEXT,
+            created_at TEXT,
+            identified_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(email)
+          )
+        `, (err) => {
+          if (err) logger.error('Failed to create contact_gaps table:', err);
+        });
+        
+        db.run(`CREATE INDEX IF NOT EXISTS idx_gaps_email ON contact_gaps(email)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_gaps_status ON contact_gaps(status)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_gaps_account ON contact_gaps(account_id)`);
+        
         logger.info('✅ Intelligence database tables initialized');
         resolve();
       });
@@ -1985,6 +2016,183 @@ async function getPreviousMeetingTypes(accountId) {
   });
 }
 
+// ============================================================
+// CONTACT GAP ANALYSIS HELPERS
+// ============================================================
+
+/**
+ * Get calendar events after a cutoff date for specific BL emails
+ * @param {string} cutoffISO - ISO date string for cutoff
+ * @param {Array<string>} blEmails - Array of BL email addresses
+ * @returns {Array} Calendar events
+ */
+async function getCalendarEventsAfter(cutoffISO, blEmails = []) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    // Build owner email filter
+    const emailPlaceholders = blEmails.map(() => '?').join(',');
+    const params = [cutoffISO, ...blEmails.map(e => e.toLowerCase())];
+    
+    const query = blEmails.length > 0
+      ? `SELECT * FROM calendar_events WHERE start_datetime >= ? AND LOWER(owner_email) IN (${emailPlaceholders}) ORDER BY start_datetime DESC`
+      : `SELECT * FROM calendar_events WHERE start_datetime >= ? ORDER BY start_datetime DESC`;
+    
+    const queryParams = blEmails.length > 0 ? params : [cutoffISO];
+    
+    db.all(query, queryParams, (err, rows) => {
+      if (err) {
+        logger.error('Failed to get calendar events after date:', err);
+        reject(err);
+      } else {
+        resolve(rows || []);
+      }
+    });
+  });
+}
+
+/**
+ * Save or update a contact gap record
+ * @param {Object} data - Contact gap data
+ */
+async function saveContactGap(data) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    const {
+      email, firstName, lastName, title, accountId, accountName, accountOwner,
+      domain, meetingCount, lastMeetingDate, enrichmentSource, matchMethod, status = 'identified'
+    } = data;
+    
+    db.run(`
+      INSERT INTO contact_gaps 
+      (email, first_name, last_name, title, account_id, account_name, account_owner,
+       domain, meeting_count, last_meeting_date, enrichment_source, match_method, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(email) DO UPDATE SET
+        first_name = COALESCE(excluded.first_name, contact_gaps.first_name),
+        last_name = COALESCE(excluded.last_name, contact_gaps.last_name),
+        title = COALESCE(excluded.title, contact_gaps.title),
+        account_id = excluded.account_id,
+        account_name = excluded.account_name,
+        account_owner = excluded.account_owner,
+        meeting_count = excluded.meeting_count,
+        last_meeting_date = excluded.last_meeting_date,
+        enrichment_source = excluded.enrichment_source,
+        match_method = excluded.match_method
+    `, [
+      email?.toLowerCase(), firstName, lastName, title, accountId, accountName, accountOwner,
+      domain, meetingCount, lastMeetingDate, enrichmentSource, matchMethod, status
+    ], function(err) {
+      if (err) {
+        logger.error('Failed to save contact gap:', err);
+        reject(err);
+      } else {
+        resolve({ email, saved: true });
+      }
+    });
+  });
+}
+
+/**
+ * Log when a contact from gap analysis is created
+ * @param {Object} data - { email, contactId, accountId, accountName, approver, source }
+ */
+async function logContactGapCreation(data) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    const { email, contactId, accountId, accountName, approver, source } = data;
+    
+    db.run(`
+      UPDATE contact_gaps SET
+        status = 'created',
+        contact_id = ?,
+        created_by = ?,
+        created_at = CURRENT_TIMESTAMP
+      WHERE LOWER(email) = ?
+    `, [contactId, approver, email?.toLowerCase()], function(err) {
+      if (err) {
+        logger.error('Failed to log contact gap creation:', err);
+        reject(err);
+      } else {
+        logger.info(`[ContactGap] Logged creation: ${email} -> ${contactId}`);
+        resolve({ email, contactId, logged: true });
+      }
+    });
+  });
+}
+
+/**
+ * Get contact gaps by status
+ * @param {string} status - 'identified', 'created', 'skipped'
+ * @param {number} limit - Max records to return
+ */
+async function getContactGapsByStatus(status = 'identified', limit = 100) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.all(`
+      SELECT * FROM contact_gaps 
+      WHERE status = ?
+      ORDER BY meeting_count DESC, identified_at DESC
+      LIMIT ?
+    `, [status, limit], (err, rows) => {
+      if (err) {
+        logger.error('Failed to get contact gaps:', err);
+        reject(err);
+      } else {
+        resolve(rows || []);
+      }
+    });
+  });
+}
+
+/**
+ * Get contact gap stats
+ */
+async function getContactGapStats() {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
+    db.all(`
+      SELECT 
+        status,
+        COUNT(*) as count,
+        SUM(meeting_count) as total_meetings
+      FROM contact_gaps
+      GROUP BY status
+    `, [], (err, rows) => {
+      if (err) {
+        logger.error('Failed to get contact gap stats:', err);
+        reject(err);
+      } else {
+        const stats = { identified: 0, created: 0, skipped: 0, totalMeetings: 0 };
+        for (const row of (rows || [])) {
+          stats[row.status] = row.count;
+          stats.totalMeetings += row.total_meetings || 0;
+        }
+        resolve(stats);
+      }
+    });
+  });
+}
+
 module.exports = {
   initialize,
   close,
@@ -2047,6 +2255,12 @@ module.exports = {
   getLastMeetingDate,
   getAccountVelocityMetrics,
   getVelocityBenchmarks,
-  getPreviousMeetingTypes
+  getPreviousMeetingTypes,
+  // Contact gap analysis
+  getCalendarEventsAfter,
+  saveContactGap,
+  logContactGapCreation,
+  getContactGapsByStatus,
+  getContactGapStats
 };
 

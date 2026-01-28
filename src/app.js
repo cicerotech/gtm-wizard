@@ -1381,6 +1381,94 @@ class GTMBrainApp {
       }
     });
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // CONTACT GAP ANALYSIS
+    // Identifies missing contacts from BL calendars
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    // Run contact gap analysis
+    this.expressApp.get('/api/contacts/gap-analysis', async (req, res) => {
+      try {
+        const contactGapAnalysis = require('./services/contactGapAnalysis');
+        const daysBack = parseInt(req.query.days) || 90;
+        const minMeetings = parseInt(req.query.minMeetings) || 1;
+        
+        logger.info(`[ContactGap] Running analysis: ${daysBack} days, min ${minMeetings} meetings`);
+        
+        const report = await contactGapAnalysis.analyzeContactGaps({
+          daysBack,
+          minMeetingCount: minMeetings
+        });
+        
+        res.json({ success: true, ...report });
+      } catch (error) {
+        logger.error('Error running contact gap analysis:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Create contacts from gap analysis (batch)
+    this.expressApp.post('/api/contacts/create-batch', async (req, res) => {
+      try {
+        const contactGapAnalysis = require('./services/contactGapAnalysis');
+        const { contacts, dryRun = true, approver = 'api' } = req.body;
+        
+        if (!contacts || !Array.isArray(contacts) || contacts.length === 0) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'contacts array required' 
+          });
+        }
+        
+        if (contacts.length > 10) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Maximum 10 contacts per batch' 
+          });
+        }
+        
+        logger.info(`[ContactGap] Creating batch: ${contacts.length} contacts, dryRun: ${dryRun}`);
+        
+        const result = await contactGapAnalysis.createContactsBatch(contacts, {
+          dryRun,
+          approver
+        });
+        
+        res.json({ success: true, ...result });
+      } catch (error) {
+        logger.error('Error creating contacts batch:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Get contact gap stats
+    this.expressApp.get('/api/contacts/gap-stats', async (req, res) => {
+      try {
+        const intelligenceStore = require('./services/intelligenceStore');
+        const stats = await intelligenceStore.getContactGapStats();
+        res.json({ success: true, stats });
+      } catch (error) {
+        logger.error('Error getting contact gap stats:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Contact Gaps Dashboard (HTML view)
+    this.expressApp.get('/contacts/gaps', async (req, res) => {
+      try {
+        const { generateContactGapsHTML } = require('./views/contactGapsView');
+        const daysBack = parseInt(req.query.days) || 90;
+        const minMeetings = parseInt(req.query.minMeetings) || 1;
+        
+        const html = await generateContactGapsHTML({ daysBack, minMeetings });
+        res.setHeader('Content-Type', 'text/html');
+        res.send(html);
+      } catch (error) {
+        logger.error('Error generating contact gaps view:', error);
+        res.status(500).send(`<h1>Error</h1><p>${error.message}</p>`);
+      }
+    });
+
     // Test calendar connection
     this.expressApp.get('/api/calendar/test', async (req, res) => {
       try {
