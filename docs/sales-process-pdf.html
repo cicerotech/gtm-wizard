@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Process & RevOps Playbook</title>
+    <style>
+        @page {
+            margin: 0.5in;
+            size: letter;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: white;
+            color: #1e293b;
+            line-height: 1.4;
+            font-size: 9pt;
+            padding: 0;
+        }
+        
+        .container {
+            max-width: 100%;
+            padding: 0;
+        }
+        
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #1e293b;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .logo-area h1 {
+            font-size: 18pt;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 2px;
+        }
+        
+        .logo-area .subtitle {
+            font-size: 9pt;
+            color: #64748b;
+        }
+        
+        .header-right {
+            text-align: right;
+            font-size: 8pt;
+            color: #64748b;
+        }
+        
+        /* Sections */
+        .section {
+            margin-bottom: 14px;
+            page-break-inside: avoid;
+        }
+        
+        .section-title {
+            font-size: 11pt;
+            font-weight: 700;
+            color: #1e293b;
+            background: #f1f5f9;
+            padding: 6px 10px;
+            border-left: 3px solid #6366f1;
+            margin-bottom: 8px;
+        }
+        
+        .section-content {
+            padding: 0 4px;
+        }
+        
+        /* Stage Cards Grid */
+        .stage-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        
+        .stage-card {
+            background: #fafbfc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100px;
+        }
+        
+        .stage-label {
+            font-size: 7pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6366f1;
+            margin-bottom: 1px;
+        }
+        
+        .stage-card.lead-card .stage-label {
+            color: #64748b;
+        }
+        
+        .stage-title {
+            font-size: 10pt;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #1e293b;
+        }
+        
+        .stage-desc {
+            font-size: 7pt;
+            color: #64748b;
+            line-height: 1.3;
+            flex-grow: 1;
+        }
+        
+        .stage-goal {
+            font-size: 7pt;
+            color: #1e293b;
+            font-weight: 600;
+            padding-top: 4px;
+            border-top: 1px solid #e2e8f0;
+            margin-top: auto;
+        }
+        
+        /* Outcome Cards */
+        .outcome-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        
+        .outcome-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 8px;
+        }
+        
+        .outcome-card.won {
+            border-left: 3px solid #22c55e;
+            background: #f0fdf4;
+        }
+        
+        .outcome-card.lost {
+            border-left: 3px solid #94a3b8;
+            background: #f8fafc;
+        }
+        
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 8pt;
+            margin-bottom: 8px;
+        }
+        
+        th {
+            background: #1e293b;
+            color: white;
+            text-align: left;
+            padding: 5px 8px;
+            font-weight: 600;
+            font-size: 7pt;
+        }
+        
+        td {
+            padding: 5px 8px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+        
+        /* Lists */
+        ul {
+            margin: 6px 0;
+            padding-left: 16px;
+        }
+        
+        li {
+            margin-bottom: 2px;
+            font-size: 8pt;
+            color: #475569;
+        }
+        
+        li strong {
+            color: #1e293b;
+        }
+        
+        /* Tags */
+        .tag {
+            display: inline-block;
+            font-size: 6pt;
+            font-weight: 700;
+            padding: 1px 4px;
+            border-radius: 2px;
+        }
+        
+        .tag-bl {
+            background: #fef3c7;
+            color: #a16207;
+        }
+        
+        .tag-revops {
+            background: #fce7f3;
+            color: #be185d;
+        }
+        
+        .tag-tool {
+            background: #e0e7ff;
+            color: #4338ca;
+        }
+        
+        /* Note boxes */
+        .note {
+            background: #f1f5f9;
+            border-left: 3px solid #64748b;
+            padding: 6px 10px;
+            font-size: 8pt;
+            margin: 8px 0;
+        }
+        
+        .note.highlight {
+            border-left-color: #6366f1;
+            background: #eef2ff;
+        }
+        
+        /* Weekly Update Box */
+        .weekly-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 14px;
+        }
+        
+        .weekly-box-title {
+            font-size: 10pt;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .deadline {
+            font-size: 8pt;
+            font-weight: 600;
+            color: #dc2626;
+            background: #fef2f2;
+            padding: 2px 6px;
+            border-radius: 2px;
+        }
+        
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+        
+        .field-item {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 3px;
+            padding: 5px;
+            text-align: center;
+        }
+        
+        .field-name {
+            font-size: 7pt;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        
+        .field-hint {
+            font-size: 6pt;
+            color: #64748b;
+        }
+        
+        /* Stage Actions */
+        .stage-actions {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            margin-bottom: 10px;
+        }
+        
+        .action-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 3px;
+            padding: 4px 6px;
+        }
+        
+        .action-stage {
+            font-size: 6pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #6366f1;
+        }
+        
+        .action-text {
+            font-size: 7pt;
+            color: #475569;
+        }
+        
+        /* Two columns */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        /* Inline list */
+        .inline-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 12px;
+            list-style: none;
+            padding: 0;
+            margin: 6px 0;
+        }
+        
+        .inline-list li {
+            font-size: 7pt;
+            background: #f8fafc;
+            padding: 2px 6px;
+            border-radius: 2px;
+            border: 1px solid #e2e8f0;
+            margin: 0;
+        }
+        
+        /* Flow Steps */
+        .flow-steps {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin: 6px 0;
+            padding: 8px;
+            background: #f8fafc;
+            border-radius: 4px;
+        }
+        
+        .flow-step {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 3px;
+            padding: 4px 8px;
+            font-size: 7pt;
+            font-weight: 500;
+        }
+        
+        .flow-arrow {
+            color: #6366f1;
+            font-size: 10pt;
+            font-weight: bold;
+        }
+        
+        /* Glossary */
+        .glossary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px 12px;
+        }
+        
+        .glossary-item {
+            font-size: 7pt;
+            padding: 2px 0;
+        }
+        
+        .glossary-term {
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .glossary-def {
+            color: #64748b;
+        }
+        
+        /* Footer */
+        footer {
+            border-top: 1px solid #e2e8f0;
+            padding-top: 8px;
+            margin-top: 14px;
+            font-size: 7pt;
+            color: #64748b;
+            text-align: center;
+        }
+        
+        /* Page breaks */
+        .page-break {
+            page-break-before: always;
+        }
+        
+        /* Print-specific */
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            
+            .section {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <header>
+            <div class="logo-area">
+                <h1>Sales Process & RevOps Playbook</h1>
+                <p class="subtitle">Pipeline management, stage definitions, field standards</p>
+            </div>
+            <div class="header-right">
+                <div style="font-weight: 600; color: #1e293b;">Eudia</div>
+                <div>January 2026</div>
+            </div>
+        </header>
+
+        <!-- BL SUMMARY BOX -->
+        <div class="weekly-box">
+            <div class="weekly-box-title">
+                <span><span class="tag tag-bl">BL</span> Business Leads Summary</span>
+                <span class="deadline">Weekly Updates: Thursday EOD</span>
+            </div>
+            
+            <div class="stage-actions">
+                <div class="action-item">
+                    <div class="action-stage" style="color: #64748b;">Lead</div>
+                    <div class="action-text">Outreach & engage</div>
+                </div>
+                <div class="action-item">
+                    <div class="action-stage">Stage 0</div>
+                    <div class="action-text">Book the meeting</div>
+                </div>
+                <div class="action-item">
+                    <div class="action-stage">Stage 1</div>
+                    <div class="action-text">Qualify with MEDDICC</div>
+                </div>
+                <div class="action-item">
+                    <div class="action-stage">Stage 2</div>
+                    <div class="action-text">Build Path to Close</div>
+                </div>
+                <div class="action-item">
+                    <div class="action-stage">Stage 3</div>
+                    <div class="action-text">Run pilot (if needed)</div>
+                </div>
+                <div class="action-item">
+                    <div class="action-stage">Stage 4</div>
+                    <div class="action-text">Send proposal</div>
+                </div>
+                <div class="action-item">
+                    <div class="action-stage">Stage 5</div>
+                    <div class="action-text">Close the deal</div>
+                </div>
+            </div>
+            
+            <div class="field-grid">
+                <div class="field-item">
+                    <div class="field-name">Stage</div>
+                    <div class="field-hint">Position (0-5)</div>
+                </div>
+                <div class="field-item">
+                    <div class="field-name">ACV</div>
+                    <div class="field-hint">Contract value</div>
+                </div>
+                <div class="field-item">
+                    <div class="field-name">Target Sign</div>
+                    <div class="field-hint">Expected close</div>
+                </div>
+                <div class="field-item">
+                    <div class="field-name">Sales Type</div>
+                    <div class="field-hint">New/Exp/Ren</div>
+                </div>
+                <div class="field-item">
+                    <div class="field-name">Product Line</div>
+                    <div class="field-hint">Multi-select</div>
+                </div>
+                <div class="field-item">
+                    <div class="field-name">Next Steps</div>
+                    <div class="field-hint">Next action</div>
+                </div>
+                <div class="field-item">
+                    <div class="field-name">Forecast</div>
+                    <div class="field-hint">Pipe/Gut/Commit</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STAGE PROGRESSION -->
+        <div class="section">
+            <div class="section-title">1. Stage Progression</div>
+            <div class="section-content">
+                <div class="stage-grid">
+                    <div class="stage-card lead-card">
+                        <div class="stage-label">Pre-Stage</div>
+                        <div class="stage-title">Lead</div>
+                        <div class="stage-desc">Cold outreach via LinkedIn, email. BL-initiated prospecting.</div>
+                        <div class="stage-goal">Goal: Get response</div>
+                    </div>
+                    <div class="stage-card">
+                        <div class="stage-label">Stage 0</div>
+                        <div class="stage-title">Prospecting</div>
+                        <div class="stage-desc">Warm contact. In dialogue, scheduling initial meeting.</div>
+                        <div class="stage-goal">Goal: Secure meeting</div>
+                    </div>
+                    <div class="stage-card">
+                        <div class="stage-label">Stage 1</div>
+                        <div class="stage-title">Discovery</div>
+                        <div class="stage-desc">Meeting set. Assess fit, initiate MEDDICC.</div>
+                        <div class="stage-goal">Goal: Qualify opp</div>
+                    </div>
+                    <div class="stage-card">
+                        <div class="stage-label">Stage 2</div>
+                        <div class="stage-title">SQO</div>
+                        <div class="stage-desc">Qualified. Path to close defined, use case(s) ID'd.</div>
+                        <div class="stage-goal">Goal: Define scope</div>
+                    </div>
+                    <div class="stage-card">
+                        <div class="stage-label">Stage 3</div>
+                        <div class="stage-title">Pilot</div>
+                        <div class="stage-desc">Running pilot (optional). May skip to Stage 4.</div>
+                        <div class="stage-goal">Goal: Prove value</div>
+                    </div>
+                    <div class="stage-card">
+                        <div class="stage-label">Stage 4</div>
+                        <div class="stage-title">Proposal</div>
+                        <div class="stage-desc">Proposal/contract sent. Awaiting customer response.</div>
+                        <div class="stage-goal">Goal: Get to negotiation</div>
+                    </div>
+                    <div class="stage-card">
+                        <div class="stage-label">Stage 5</div>
+                        <div class="stage-title">Negotiation</div>
+                        <div class="stage-desc">Contract in active negotiation. Customer redlined.</div>
+                        <div class="stage-goal">Goal: Get signature</div>
+                    </div>
+                </div>
+
+                <div class="outcome-grid">
+                    <div class="outcome-card won">
+                        <div class="stage-label" style="color: #16a34a;">Close Won</div>
+                        <div style="font-weight: 600; font-size: 9pt;">Contract Signed</div>
+                        <div style="font-size: 7pt; color: #64748b;">Revenue type auto-set. Delivery object created.</div>
+                    </div>
+                    <div class="outcome-card lost">
+                        <div class="stage-label" style="color: #64748b;">Close Lost</div>
+                        <div style="font-weight: 600; font-size: 9pt;">Lost</div>
+                        <div style="font-size: 7pt; color: #64748b;">Document reason: Nurture · Re-engage · Disqualified</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- QUALIFICATION -->
+        <div class="section">
+            <div class="section-title">2. Qualification Criteria (MEDDICC)</div>
+            <div class="section-content">
+                <div class="note highlight">
+                    <strong>Urgency is key:</strong> Opportunity moves to Stage 2 (SQO) only if prospect is likely to transact within <strong>90 days</strong>.
+                </div>
+                <div class="two-col">
+                    <div>
+                        <ul>
+                            <li><strong>M</strong>etrics: What measurable outcomes expected?</li>
+                            <li><strong>E</strong>conomic Buyer: Who controls budget?</li>
+                            <li><strong>D</strong>ecision Criteria: What drives their decision?</li>
+                            <li><strong>D</strong>ecision Process: Steps/approvals required?</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <ul>
+                            <li><strong>I</strong>dentify Pain: What problem are we solving?</li>
+                            <li><strong>C</strong>hampion: Who is the internal advocate?</li>
+                            <li><strong>C</strong>ompetition: Who else is being evaluated?</li>
+                        </ul>
+                        <div class="note" style="margin-top: 8px;">
+                            <strong>Stage 2 Entry:</strong> Post in <span class="tag tag-tool">#gtm-account-planning</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CRITICAL FIELDS -->
+        <div class="section">
+            <div class="section-title">3. Critical Fields & Forecast Categories</div>
+            <div class="section-content">
+                <div class="two-col">
+                    <div>
+                        <table>
+                            <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>ACV</strong></td><td>Annual Contract Value</td></tr>
+                                <tr><td><strong>Stage</strong></td><td>Current sales stage (0-5)</td></tr>
+                                <tr><td><strong>Product Line(s)</strong></td><td>Multi-select offerings</td></tr>
+                                <tr><td><strong>Target Sign Date</strong></td><td>Expected signature date</td></tr>
+                                <tr><td><strong>Sales Type</strong></td><td>New / Expansion / Renewal</td></tr>
+                                <tr><td><strong>Next Steps</strong></td><td>Immediate next action</td></tr>
+                                <tr><td><strong>BL Forecast</strong></td><td>Confidence level</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <table>
+                            <thead><tr><th>Category</th><th>%</th><th>Meaning</th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Pipeline</strong></td>
+                                    <td style="color: #64748b;">0%</td>
+                                    <td>Early stage, still qualifying</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Gut</strong></td>
+                                    <td style="color: #d97706;">60%</td>
+                                    <td>Qualified, timing uncertain</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Commit</strong></td>
+                                    <td style="color: #16a34a;">100%</td>
+                                    <td>Will close this quarter</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PRODUCT LINES -->
+        <div class="section">
+            <div class="section-title">4. Product Lines</div>
+            <div class="section-content">
+                <table>
+                    <thead><tr><th>Product Line</th><th>Notes</th><th>Product Line</th><th>Notes</th></tr></thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>AI Contracting – Managed Services</strong></td>
+                            <td>Full-service + tech</td>
+                            <td><strong>AI Platform – Sigma</strong></td>
+                            <td>Self-serve AI agent suite</td>
+                        </tr>
+                        <tr>
+                            <td><strong>AI Contracting – Technology</strong></td>
+                            <td>Tech license only</td>
+                            <td><strong>AI Platform – Insights</strong></td>
+                            <td>AI-powered analytics</td>
+                        </tr>
+                        <tr>
+                            <td><strong>AI Compliance – Technology</strong></td>
+                            <td>Compliance tech</td>
+                            <td><strong>AI Platform – Litigation</strong></td>
+                            <td>Litigation support</td>
+                        </tr>
+                        <tr>
+                            <td><strong>AI M&A – Managed Services</strong></td>
+                            <td>M&A full-service</td>
+                            <td><strong>FDE – Custom AI Solution</strong></td>
+                            <td>Custom AI development</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- DEFINITIONS -->
+        <div class="section">
+            <div class="section-title">5. Sales Type & Account Definitions</div>
+            <div class="section-content">
+                <div class="two-col">
+                    <div>
+                        <table>
+                            <thead><tr><th>Sales Type</th><th>Definition</th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>New Business</strong></td><td>Net new logos OR net new product lines</td></tr>
+                                <tr><td><strong>Expansion</strong></td><td>Growth within existing product lines</td></tr>
+                                <tr><td><strong>Renewal</strong></td><td>Full annualized renewal value</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <table>
+                            <thead><tr><th>Account Tag</th><th>Definition</th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>New</strong></td><td>Net new customer</td></tr>
+                                <tr><td><strong>Existing – MSA</strong></td><td>Active revenue-paying</td></tr>
+                                <tr><td><strong>Existing – Pilot</strong></td><td>Running or completed pilot</td></tr>
+                                <tr><td><strong>Existing – LOI</strong></td><td>Letter of Intent signed</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AUTOMATION -->
+        <div class="section">
+            <div class="section-title">6. Automation & Data Flow</div>
+            <div class="section-content">
+                <div class="flow-steps">
+                    <div class="flow-step">Close Won</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">Delivery Object</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">Contract</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">ERP Sync</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">PM Platform</div>
+                </div>
+                <ul class="inline-list">
+                    <li><strong>Meeting Prep:</strong> Auto-generated for calendar invites</li>
+                    <li><strong>Meeting Notes:</strong> Obsidian → Customer Brain</li>
+                    <li><strong>Weekly Review:</strong> Thu EOD updates</li>
+                    <li><strong>Close Won:</strong> Auto-creates Delivery object</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- GLOSSARY -->
+        <div class="section">
+            <div class="section-title">7. Glossary</div>
+            <div class="section-content">
+                <div class="glossary-grid">
+                    <div class="glossary-item"><span class="glossary-term">ACV</span> — <span class="glossary-def">Annual Contract Value</span></div>
+                    <div class="glossary-item"><span class="glossary-term">SQO</span> — <span class="glossary-def">Sales Qualified Opp (Stage 2)</span></div>
+                    <div class="glossary-item"><span class="glossary-term">MEDDICC</span> — <span class="glossary-def">Qualification framework</span></div>
+                    <div class="glossary-item"><span class="glossary-term">LOI</span> — <span class="glossary-def">Letter of Intent</span></div>
+                    <div class="glossary-item"><span class="glossary-term">MSA</span> — <span class="glossary-def">Master Service Agreement</span></div>
+                    <div class="glossary-item"><span class="glossary-term">ICP</span> — <span class="glossary-def">Ideal Customer Profile</span></div>
+                    <div class="glossary-item"><span class="glossary-term">BL</span> — <span class="glossary-def">Business Lead (sales rep)</span></div>
+                    <div class="glossary-item"><span class="glossary-term">RevOps</span> — <span class="glossary-def">Revenue Operations</span></div>
+                    <div class="glossary-item"><span class="glossary-term">Path to Close</span> — <span class="glossary-def">Strategic deal plan</span></div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            Eudia Sales Process & RevOps Playbook • January 2026 • Questions? <span class="tag tag-tool">#revops-support</span>
+        </footer>
+    </div>
+</body>
+</html>
+
