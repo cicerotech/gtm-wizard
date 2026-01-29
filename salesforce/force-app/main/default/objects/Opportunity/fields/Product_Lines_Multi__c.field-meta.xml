@@ -36,7 +36,7 @@
                 <default>false</default>
                 <label>AI Compliance – Technology</label>
             </value>
-            <!-- M&A - Note: In-House Technology DEACTIVATED -->
+            <!-- M&A - In-House Technology DEACTIVATED (migrate to Managed) -->
             <value>
                 <fullName>AI-Augmented M&amp;A - In-House Technology</fullName>
                 <default>false</default>
@@ -87,12 +87,11 @@
                 <default>false</default>
                 <label>Undetermined</label>
             </value>
-            <!-- DEACTIVATED: Multiple (BL Review) -->
+            <!-- Multiple - ACTIVE for BL Review -->
             <value>
                 <fullName>Multiple (BL Review)</fullName>
                 <default>false</default>
-                <isActive>false</isActive>
-                <label>Multiple (Inactive)</label>
+                <label>Multiple (BL Review)</label>
             </value>
         </valueSetDefinition>
     </valueSet>
