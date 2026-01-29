@@ -122,6 +122,57 @@
         </values>
     </picklistValues>
     <picklistValues>
+        <picklist>Product_Line__c</picklist>
+        <values>
+            <fullName>AI Contracting - Technology</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>AI Contracting - Managed Services</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Contracting - Secondee</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>AI Compliance - Technology</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>AI M%26A - Managed Services</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>AI Platform - Sigma</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>AI Platform - Insights</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>AI Platform - Litigation</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>FDE - Custom AI Solution</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Other - Managed Service</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Other - Secondee</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Undetermined</fullName>
+            <default>true</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
         <picklist>Product_Lines_Multi__c</picklist>
         <values>
             <fullName>AI Contracting - Technology</fullName>

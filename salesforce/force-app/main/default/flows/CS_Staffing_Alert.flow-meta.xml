@@ -60,7 +60,7 @@
             <targetReference>Publish_CS_Staffing_Alert</targetReference>
         </connector>
         <inputAssignments>
-            <field>CS_Staffing__c</field>
+            <field>CS_Staffing_Flag__c</field>
             <value>
                 <booleanValue>true</booleanValue>
             </value>
@@ -148,7 +148,7 @@
             </value>
         </filters>
         <filters>
-            <field>CS_Staffing__c</field>
+            <field>CS_Staffing_Flag__c</field>
             <operator>EqualTo</operator>
             <value>
                 <booleanValue>false</booleanValue>

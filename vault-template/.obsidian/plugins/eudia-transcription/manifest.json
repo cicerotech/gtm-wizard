@@ -1,9 +1,9 @@
 {
   "id": "eudia-transcription",
   "name": "Eudia Transcription Plugin",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "minAppVersion": "1.0.0",
-  "description": "Record meetings, transcribe with AI, sync to Salesforce. OpenAI API key recommended for enhanced transcription.",
+  "description": "Record meetings, transcribe with AI, sync to Salesforce. Precision sales intelligence extraction with MEDDICC signals.",
   "author": "Eudia",
   "authorUrl": "https://eudia.com",
   "isDesktopOnly": false

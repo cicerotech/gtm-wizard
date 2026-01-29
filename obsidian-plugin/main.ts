@@ -427,8 +427,8 @@ class SetupWizardModal extends Modal {
     contentEl.empty();
     contentEl.addClass('eudia-setup-wizard');
 
-    // Header
-    contentEl.createEl('h2', { text: '👋 Welcome to Eudia Sales Intelligence' });
+    // Header - Clean, no emojis
+    contentEl.createEl('h2', { text: 'Welcome to Eudia Sales Intelligence' });
     contentEl.createEl('p', { 
       text: 'Quick setup to get you recording meetings and syncing to Salesforce.',
       cls: 'setting-item-description'
@@ -453,7 +453,7 @@ class SetupWizardModal extends Modal {
     this.emailInput.style.borderRadius = '6px';
     this.emailInput.style.border = '1px solid var(--background-modifier-border)';
 
-    // Features summary
+    // Features summary - Clean list without emojis
     const featuresSection = contentEl.createDiv({ cls: 'eudia-setup-section' });
     featuresSection.style.marginTop = '20px';
     featuresSection.createEl('h3', { text: '2. What Gets Configured' });
@@ -463,10 +463,10 @@ class SetupWizardModal extends Modal {
     featureList.style.color = 'var(--text-muted)';
     
     const features = [
-      '📁 Salesforce account folders synced',
-      '📅 Your calendar connected (for meeting context)',
-      '🎙️ Recording → Transcription → Summary ready',
-      '☁️ Auto-sync to Salesforce Customer Brain'
+      'Salesforce account folders synced',
+      'Calendar connected for meeting context',
+      'Recording, transcription, and summary ready',
+      'Auto-sync to Salesforce Customer Brain'
     ];
     features.forEach(f => featureList.createEl('li', { text: f }));
 
@@ -518,13 +518,13 @@ class SetupWizardModal extends Modal {
       this.plugin.settings.setupCompleted = true;
       await this.plugin.saveSettings();
 
-      this.showStatus('✓ Setup complete! You\'re ready to record meetings.', 'success');
+      this.showStatus('Setup complete. You\'re ready to record meetings.', 'success');
       
       // Close after delay
       setTimeout(() => {
         this.close();
         this.onComplete();
-        new Notice('🎉 Eudia Scribe is ready! Click the mic icon to record.');
+        new Notice('Eudia is ready. Click the mic icon to record.');
       }, 1500);
 
     } catch (error) {
@@ -789,6 +789,7 @@ export default class EudiaSyncPlugin extends Plugin {
 
   /**
    * Start audio recording
+   * Auto-detects current calendar meeting and populates note metadata
    */
   async startRecording(): Promise<void> {
     if (this.isRecording) return;
@@ -828,6 +829,9 @@ export default class EudiaSyncPlugin extends Plugin {
 
       new Notice('Recording started');
 
+      // Auto-detect current calendar meeting (non-blocking)
+      this.autoDetectCurrentMeeting(activeFile);
+
     } catch (error) {
       new Notice(`Failed to start recording: ${error.message}`);
       this.isRecording = false;
@@ -835,7 +839,65 @@ export default class EudiaSyncPlugin extends Plugin {
   }
 
   /**
-   * Stop recording and process
+   * Auto-detect current calendar meeting and update note metadata
+   * Runs in background - doesn't block recording start
+   */
+  async autoDetectCurrentMeeting(file: TFile): Promise<void> {
+    if (!this.settings.userEmail) return;
+
+    try {
+      // Fetch today's meetings from GTM Brain
+      const response = await requestUrl({
+        url: `${this.settings.serverUrl}/api/calendar/${this.settings.userEmail}/today`,
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!response.json.success || !response.json.meetings?.length) {
+        return; // No meetings found
+      }
+
+      // Find meeting happening now (within ±15 min window)
+      const now = new Date();
+      const meetings = response.json.meetings;
+      
+      const currentMeeting = meetings.find((m: any) => {
+        const start = new Date(m.start);
+        const end = new Date(m.end);
+        // Expand window: 15 min before start to end of meeting
+        const windowStart = new Date(start.getTime() - 15 * 60 * 1000);
+        return now >= windowStart && now <= end;
+      });
+
+      if (!currentMeeting) {
+        return; // No meeting happening now
+      }
+
+      // Extract attendees (external only)
+      const attendees = currentMeeting.attendees
+        ?.filter((a: any) => !a.email?.includes('@eudia.com'))
+        ?.map((a: any) => a.name || a.email)
+        ?.slice(0, 5)
+        ?.join(', ') || '';
+
+      // Update frontmatter with meeting info
+      await this.updateFrontmatter(file, {
+        meeting_title: currentMeeting.subject,
+        attendees: attendees,
+        meeting_start: currentMeeting.start
+      });
+
+      console.log('Auto-detected meeting:', currentMeeting.subject);
+
+    } catch (error) {
+      // Silent fail - calendar auto-detect is optional
+      console.warn('Calendar auto-detect failed:', error.message);
+    }
+  }
+
+  /**
+   * Stop recording and process - NON-BLOCKING
+   * User regains control immediately while transcription happens in background
    */
   async stopRecording(): Promise<void> {
     if (!this.isRecording) return;
@@ -851,7 +913,7 @@ export default class EudiaSyncPlugin extends Plugin {
       this.isRecording = false;
       this.isPaused = false;
 
-      // Hide status bar
+      // Hide status bar immediately
       if (this.recordingStatusBar) {
         this.recordingStatusBar.hide();
         this.recordingStatusBar = null;
@@ -862,19 +924,19 @@ export default class EudiaSyncPlugin extends Plugin {
         this.ribbonIcon.removeClass('eudia-ribbon-recording');
       }
 
-      // Show processing modal
-      const modal = new ProcessingModal(this.app);
-      modal.open();
-
-      try {
-        // Process the recording
-        await this.processRecording(result, modal);
-        modal.close();
-        new Notice('Transcription complete!');
-      } catch (error) {
-        modal.close();
-        new Notice(`Transcription failed: ${error.message}`);
+      // Get active file BEFORE any async operations
+      const activeFile = this.app.workspace.getActiveFile();
+      if (!activeFile) {
+        new Notice('No active file to save transcription');
+        return;
       }
+
+      // Insert placeholder immediately so user can continue working
+      await this.insertProcessingPlaceholder(activeFile);
+      new Notice('Processing audio... You can continue working.');
+
+      // Process in background - don't await
+      this.processRecordingInBackground(result, activeFile);
 
     } catch (error) {
       this.isRecording = false;
@@ -886,6 +948,128 @@ export default class EudiaSyncPlugin extends Plugin {
         this.ribbonIcon.removeClass('eudia-ribbon-recording');
       }
       new Notice(`Error stopping recording: ${error.message}`);
+    }
+  }
+
+  /**
+   * Insert a placeholder while transcription is processing
+   */
+  async insertProcessingPlaceholder(file: TFile): Promise<void> {
+    let content = await this.app.vault.read(file);
+    
+    const placeholder = `
+---
+
+> **Transcription in progress...**  
+> Your audio is being processed. This section will update automatically when complete.
+
+---
+
+`;
+    
+    // Find insertion point
+    const titleMatch = content.match(/^(---\n[\s\S]*?\n---\n)?# [^\n]+\n/);
+    if (titleMatch) {
+      const insertPoint = titleMatch[0].length;
+      content = content.substring(0, insertPoint) + placeholder + content.substring(insertPoint);
+    } else {
+      const frontmatterMatch = content.match(/^---\n[\s\S]*?\n---\n/);
+      if (frontmatterMatch) {
+        const insertPoint = frontmatterMatch[0].length;
+        content = content.substring(0, insertPoint) + placeholder + content.substring(insertPoint);
+      } else {
+        content = placeholder + content;
+      }
+    }
+    
+    await this.app.vault.modify(file, content);
+  }
+
+  /**
+   * Process recording in background without blocking UI
+   */
+  async processRecordingInBackground(result: RecordingResult, activeFile: TFile): Promise<void> {
+    try {
+      // Detect account from folder path
+      const accountInfo = this.detectAccountFromPath(activeFile.path);
+      
+      // Get meeting context if we have an account
+      let context: MeetingContext | undefined;
+      if (accountInfo) {
+        context = await this.transcriptionService.getMeetingContext(accountInfo.id);
+      }
+
+      // Convert audio to base64
+      const audioBase64 = await AudioRecorder.blobToBase64(result.audioBlob);
+
+      // Save audio file if enabled
+      let savedAudioPath: string | undefined;
+      if (this.settings.saveAudioFiles) {
+        savedAudioPath = await this.saveAudioFile(result, activeFile);
+      }
+
+      // Send for transcription
+      const transcriptionResult = await this.transcriptionService.transcribeAndSummarize(
+        audioBase64,
+        result.mimeType,
+        accountInfo?.name,
+        accountInfo?.id,
+        context
+      );
+
+      if (!transcriptionResult.success) {
+        // Replace placeholder with error
+        await this.replaceProcessingPlaceholder(
+          activeFile, 
+          `> **Transcription failed:** ${transcriptionResult.error}\n> \n> Try recording again or check your settings.`
+        );
+        new Notice(`Transcription failed: ${transcriptionResult.error}`);
+        return;
+      }
+
+      // Replace placeholder with actual results
+      await this.insertTranscriptionResults(activeFile, transcriptionResult, savedAudioPath);
+      new Notice('Transcription complete');
+
+      // Auto-sync to Salesforce if enabled
+      if (this.settings.autoSyncAfterTranscription && accountInfo) {
+        await this.transcriptionService.syncToSalesforce(
+          accountInfo.id,
+          accountInfo.name,
+          activeFile.basename,
+          transcriptionResult.sections,
+          transcriptionResult.transcript
+        );
+        new Notice('Synced to Salesforce');
+      }
+
+    } catch (error) {
+      console.error('Background transcription error:', error);
+      new Notice(`Transcription failed: ${error.message}`);
+      
+      // Try to update the placeholder with error
+      try {
+        await this.replaceProcessingPlaceholder(
+          activeFile,
+          `> **Transcription failed:** ${error.message}`
+        );
+      } catch (e) {
+        // File may have been closed/deleted
+      }
+    }
+  }
+
+  /**
+   * Replace processing placeholder with error message
+   */
+  async replaceProcessingPlaceholder(file: TFile, replacement: string): Promise<void> {
+    let content = await this.app.vault.read(file);
+    
+    // Find and replace placeholder
+    const placeholderRegex = /\n---\n\n> \*\*Transcription in progress\.\.\.\*\*[\s\S]*?\n\n---\n/;
+    if (placeholderRegex.test(content)) {
+      content = content.replace(placeholderRegex, `\n${replacement}\n\n`);
+      await this.app.vault.modify(file, content);
     }
   }
 
@@ -1040,7 +1224,7 @@ export default class EudiaSyncPlugin extends Plugin {
 
   /**
    * Insert transcription results into the active note
-   * Order: Summary → Structured Sections → Transcript → Audio Recording
+   * Removes placeholder if present, then inserts structured sections
    */
   async insertTranscriptionResults(
     file: TFile, 
@@ -1048,6 +1232,10 @@ export default class EudiaSyncPlugin extends Plugin {
     audioFilePath?: string
   ): Promise<void> {
     let content = await this.app.vault.read(file);
+    
+    // Remove processing placeholder if present
+    const placeholderRegex = /\n---\n\n> \*\*Transcription in progress\.\.\.\*\*[\s\S]*?\n\n---\n/;
+    content = content.replace(placeholderRegex, '\n');
     
     // Format the sections with audio (if saved)
     const formattedContent = TranscriptionService.formatSectionsWithAudio(
@@ -1075,10 +1263,11 @@ export default class EudiaSyncPlugin extends Plugin {
 
     await this.app.vault.modify(file, content);
 
-    // Update frontmatter
+    // Update frontmatter with transcription metadata
     await this.updateFrontmatter(file, {
       transcribed: true,
-      transcribed_at: new Date().toISOString()
+      transcribed_at: new Date().toISOString(),
+      duration_seconds: result.duration
     });
   }
 
@@ -1142,7 +1331,7 @@ export default class EudiaSyncPlugin extends Plugin {
   }
 
   /**
-   * Get meeting note template
+   * Get meeting note template - Clean, professional format
    */
   getMeetingTemplate(accountName: string, dateStr: string): string {
     return `---
@@ -1151,7 +1340,9 @@ date: ${dateStr}
 attendees: 
 tags: meeting
 account: ${accountName}
-sync_to_salesforce: true
+product_interest: []
+stage_signals: 
+sync_to_salesforce: pending
 ---
 
 # Meeting with ${accountName}
@@ -1159,11 +1350,12 @@ sync_to_salesforce: true
 ## Agenda
 - 
 
-## Notes
+## Pre-Call Notes
 
-*Click the 🎙️ mic icon to start recording, or take notes manually below.*
 
 ---
+
+*To record: Click the microphone icon in the sidebar or use Cmd/Ctrl+P → "Start Recording"*
 
 `;
   }
@@ -1363,7 +1555,7 @@ sync_to_salesforce: true
       });
 
       if (response.json.success) {
-        new Notice('✓ Note synced to Salesforce');
+        new Notice('Note synced to Salesforce');
         
         // Update frontmatter to mark as synced
         await this.updateFrontmatter(activeFile, {

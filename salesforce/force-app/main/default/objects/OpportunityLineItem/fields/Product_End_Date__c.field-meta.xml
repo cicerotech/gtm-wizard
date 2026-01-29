@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Product_End_Date__c</fullName>
+    <label>Product End Date</label>
+    <description>Optional: Product-specific end date. If blank, uses Contract end date.</description>
+    <type>Date</type>
+    <required>false</required>
+</CustomField>
+

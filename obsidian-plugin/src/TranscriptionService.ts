@@ -1,9 +1,31 @@
 /**
  * TranscriptionService - Handles communication with GTM-Brain backend
  * for audio transcription and AI summarization
+ * 
+ * v2.0 - Enhanced with precision prompts for consistent sales intelligence extraction
  */
 
 import { requestUrl } from 'obsidian';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EUDIA PRODUCT LINES - Canonical list for constraint enforcement
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const EUDIA_PRODUCT_LINES = [
+  'AI Contracting - Technology',
+  'AI Contracting - Services',
+  'AI Compliance - Technology',
+  'AI Compliance - Services',
+  'AI M&A - Technology',
+  'AI M&A - Services',
+  'Sigma'
+] as const;
+
+export type EudiaProductLine = typeof EUDIA_PRODUCT_LINES[number];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INTERFACES
+// ═══════════════════════════════════════════════════════════════════════════
 
 export interface TranscriptionResult {
   success: boolean;
@@ -14,16 +36,25 @@ export interface TranscriptionResult {
 }
 
 export interface ProcessedSections {
+  // Core sections
   summary: string;
-  keyStakeholders: string;
+  attendees: string;
+  
+  // Sales intelligence
   meddiccSignals: string;
   productInterest: string;
+  painPoints: string;
+  buyingTriggers: string;
+  
+  // Timeline & actions
   keyDates: string;
   nextSteps: string;
   actionItems: string;
-  dealSignals?: string;
-  risksObjections?: string;
-  competitiveIntel?: string;
+  
+  // Deal health
+  dealSignals: string;
+  risksObjections: string;
+  competitiveIntel: string;
 }
 
 export interface MeetingContext {
@@ -63,6 +94,185 @@ export interface SyncResult {
   tasksCreated?: number;
   error?: string;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRECISION PROMPT - The core intelligence extraction engine
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Build the system prompt for meeting analysis
+ * This is the most important function - it determines output quality
+ */
+function buildAnalysisPrompt(accountName?: string, context?: MeetingContext): string {
+  // Build context section if available
+  let contextSection = '';
+  if (context?.account || context?.opportunities?.length) {
+    contextSection = `
+ACCOUNT CONTEXT (use to inform your analysis):
+${context.account ? `- Account: ${context.account.name}` : ''}
+${context.account?.owner ? `- Account Owner: ${context.account.owner}` : ''}
+${context.opportunities?.length ? `- Open Opportunities: ${context.opportunities.map(o => `${o.name} (${o.stage}, $${(o.acv/1000).toFixed(0)}k)`).join('; ')}` : ''}
+${context.contacts?.length ? `- Known Contacts: ${context.contacts.slice(0, 5).map(c => `${c.name} - ${c.title}`).join('; ')}` : ''}
+`;
+  }
+
+  return `You are a senior sales intelligence analyst for Eudia, an AI-powered legal technology company. Your role is to extract precise, actionable intelligence from sales meeting transcripts.
+
+ABOUT EUDIA:
+Eudia provides AI solutions for legal teams at enterprise companies. Our products help in-house legal teams work faster on contracting, compliance, and M&A due diligence. We sell to CLOs, General Counsels, VP Legal, Legal Ops Directors, and Deputy GCs.
+
+${accountName ? `CURRENT ACCOUNT: ${accountName}` : ''}
+${contextSection}
+
+═══════════════════════════════════════════════════════════════════════════
+CRITICAL RULES - Follow these exactly:
+═══════════════════════════════════════════════════════════════════════════
+
+1. ONLY include information EXPLICITLY stated in the transcript
+   - Never infer, assume, or add information not present
+   - If something is unclear, mark it as "[unclear]"
+   - If a section has no relevant content, write "None identified in this conversation."
+
+2. NAMES must be exact
+   - Spell names exactly as you hear them
+   - If pronunciation is unclear, write "[unclear: sounds like 'Sarah']"
+   - Include title/role ONLY if explicitly mentioned
+
+3. QUOTES are required for key insights
+   - Include at least one direct quote per major finding where available
+   - Format quotes with quotation marks and attribution
+
+4. PRODUCT INTEREST must use ONLY these exact values:
+   - AI Contracting - Technology
+   - AI Contracting - Services
+   - AI Compliance - Technology
+   - AI Compliance - Services
+   - AI M&A - Technology
+   - AI M&A - Services
+   - Sigma
+   
+   If no products were explicitly discussed or implied, write "None identified."
+   Do NOT invent product interest. Only include if there's clear evidence.
+
+5. TIMESTAMPS
+   - If specific dates are mentioned, include them
+   - For relative dates ("next week", "end of quarter"), calculate from today's context
+
+═══════════════════════════════════════════════════════════════════════════
+OUTPUT FORMAT - Use these exact headers:
+═══════════════════════════════════════════════════════════════════════════
+
+## Summary
+Provide 5-7 bullet points covering:
+- Meeting purpose and context
+- Key discussion topics
+- Major decisions or conclusions
+- Tone and sentiment of the conversation
+- Overall assessment of the opportunity
+Each bullet should be a complete thought. Include direct quotes where impactful.
+
+## Attendees
+List each person identified on the call:
+- **[Name]** - [Title/Role if mentioned] ([Company if external])
+
+If attendee names are unclear, note: "[Several attendees - names unclear]"
+
+## MEDDICC Signals
+Analyze the conversation through the MEDDICC framework. For each element, provide specific evidence or mark as not identified:
+
+**Metrics:** What quantifiable goals or pain metrics were mentioned?
+> [Quote or evidence, or "Not discussed"]
+
+**Economic Buyer:** Who has budget authority? Were they on the call?
+> [Name and evidence, or "Not identified"]
+
+**Decision Criteria:** What will they evaluate solutions against?
+> [Specific criteria mentioned, or "Not discussed"]
+
+**Decision Process:** What is their buying process? Timeline?
+> [Process details, or "Not discussed"]
+
+**Identify Pain:** What specific problems are they trying to solve?
+> [Pain points with quotes, or "Not discussed"]
+
+**Champion:** Who is advocating for this internally?
+> [Name and evidence, or "Not identified"]
+
+**Competition:** Were other solutions or competitors mentioned?
+> [Competitor names and context, or "None mentioned"]
+
+## Product Interest
+From Eudia's product portfolio, which solutions are relevant based on the discussion:
+- [Product Line from allowed list]: [Evidence from conversation]
+
+If no clear product fit was discussed, write: "None identified - discovery needed."
+
+## Pain Points
+Top 3 challenges or problems mentioned by the prospect. For each:
+- **[Pain Point]**: "[Direct quote demonstrating the pain]"
+
+If no pain points surfaced, write: "None explicitly stated - deeper discovery recommended."
+
+## Buying Triggers
+What prompted this conversation? What's driving urgency?
+- [Trigger]: [Evidence]
+
+Examples: acquisition activity, compliance audit, new CLO hire, contract volume spike, budget cycle
+
+## Key Dates
+Important dates and deadlines mentioned:
+- **[Date/Timeframe]**: [What it relates to]
+
+If none mentioned, write: "No specific dates discussed."
+
+## Next Steps
+Agreed actions from the call. Use checkbox format for tracking:
+- [ ] [Action] - **Owner:** [Name or "TBD"] - **Due:** [Date if mentioned]
+
+Only include explicitly agreed next steps, not assumed ones.
+
+## Action Items (Internal)
+Follow-ups for the Eudia team (not discussed with prospect):
+- [ ] [Internal action needed]
+
+Examples: Send materials, schedule follow-up, loop in SE, update Salesforce
+
+## Deal Signals
+Indicators of deal health and stage progression:
+
+**Positive Signals:**
+- [Signal]: [Evidence]
+
+**Concerning Signals:**
+- [Signal]: [Evidence]
+
+**Recommended Stage:** [Stage 1-4 based on MEDDICC completion]
+
+## Risks & Objections
+Concerns or objections raised:
+- **[Objection]**: "[Quote or paraphrase]" → [Suggested response approach]
+
+If no objections raised, write: "None raised in this conversation."
+
+## Competitive Intelligence
+If competitors were mentioned:
+- **[Competitor]**: [What was said, sentiment, perceived strengths/weaknesses]
+
+If no competitors mentioned, write: "No competitive mentions."
+
+═══════════════════════════════════════════════════════════════════════════
+FINAL CHECKS:
+═══════════════════════════════════════════════════════════════════════════
+- Every claim has evidence from the transcript
+- Names are spelled exactly as heard
+- Product lines use only the allowed values
+- Quotes are properly attributed
+- Action items have clear owners`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRANSCRIPTION SERVICE CLASS
+// ═══════════════════════════════════════════════════════════════════════════
 
 export class TranscriptionService {
   private serverUrl: string;
@@ -111,12 +321,14 @@ export class TranscriptionService {
           mimeType,
           accountName,
           accountId,
-          openaiApiKey: this.openaiApiKey, // Pass key to server as fallback
+          openaiApiKey: this.openaiApiKey,
           context: context ? {
             customerBrain: context.account?.customerBrain,
             opportunities: context.opportunities,
             contacts: context.contacts
-          } : undefined
+          } : undefined,
+          // Send the enhanced prompt to server
+          systemPrompt: buildAnalysisPrompt(accountName, context)
         })
       });
 
@@ -124,7 +336,7 @@ export class TranscriptionService {
         // If server says OpenAI not initialized, try local fallback
         if (response.json.error?.includes('OpenAI not initialized') && this.openaiApiKey) {
           console.log('Server OpenAI unavailable, trying local fallback...');
-          return this.transcribeLocal(audioBase64, mimeType, accountName);
+          return this.transcribeLocal(audioBase64, mimeType, accountName, context);
         }
         
         return {
@@ -139,7 +351,7 @@ export class TranscriptionService {
       return {
         success: true,
         transcript: response.json.transcript || '',
-        sections: response.json.sections || this.getEmptySections(),
+        sections: this.normalizeSections(response.json.sections),
         duration: response.json.duration || 0
       };
 
@@ -149,7 +361,7 @@ export class TranscriptionService {
       // If server unreachable and we have local key, try local fallback
       if (this.openaiApiKey) {
         console.log('Server unreachable, trying local OpenAI fallback...');
-        return this.transcribeLocal(audioBase64, mimeType, accountName);
+        return this.transcribeLocal(audioBase64, mimeType, accountName, context);
       }
       
       return {
@@ -164,12 +376,12 @@ export class TranscriptionService {
 
   /**
    * Local fallback transcription using user's OpenAI key
-   * Uses Obsidian's requestUrl to call OpenAI directly
    */
   async transcribeLocal(
     audioBase64: string,
     mimeType: string,
-    accountName?: string
+    accountName?: string,
+    context?: MeetingContext
   ): Promise<TranscriptionResult> {
     if (!this.openaiApiKey) {
       return {
@@ -216,8 +428,8 @@ export class TranscriptionService {
       const transcript = whisperResult.text || '';
       const duration = whisperResult.duration || 0;
 
-      // Now summarize with GPT-4o
-      const sections = await this.summarizeLocal(transcript, accountName);
+      // Now summarize with GPT-4o using precision prompt
+      const sections = await this.summarizeLocal(transcript, accountName, context);
 
       return {
         success: true,
@@ -239,30 +451,19 @@ export class TranscriptionService {
   }
 
   /**
-   * Summarize transcript locally using GPT-4o
+   * Summarize transcript locally using GPT-4o with precision prompt
    */
-  async summarizeLocal(transcript: string, accountName?: string): Promise<ProcessedSections> {
+  async summarizeLocal(
+    transcript: string, 
+    accountName?: string,
+    context?: MeetingContext
+  ): Promise<ProcessedSections> {
     if (!this.openaiApiKey) {
       return this.getEmptySections();
     }
 
     try {
-      const systemPrompt = `You are a sales intelligence analyst. Extract structured insights from this meeting transcript.
-
-${accountName ? `Account: ${accountName}` : ''}
-
-Provide output with these sections (use ## headers):
-## Summary - 3-5 bullet points of key takeaways
-## Key Stakeholders - People mentioned with roles
-## MEDDICC Signals - Economic Buyer, Decision Process, Champion, Pain, Competition
-## Product Interest - Products discussed
-## Key Dates - Deadlines and timelines
-## Next Steps - Agreed actions as checkboxes
-## Action Items - Internal follow-ups as checkboxes
-## Deal Signals - Stage progression/regression indicators
-## Risks & Objections - Concerns raised
-
-Be specific, quote when helpful. If a section has no content, say so.`;
+      const systemPrompt = buildAnalysisPrompt(accountName, context);
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -274,10 +475,10 @@ Be specific, quote when helpful. If a section has no content, say so.`;
           model: 'gpt-4o',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Analyze this transcript:\n\n${transcript.substring(0, 100000)}` }
+            { role: 'user', content: `Analyze this meeting transcript:\n\n${transcript.substring(0, 100000)}` }
           ],
-          temperature: 0.3,
-          max_tokens: 4000
+          temperature: 0.2, // Lower temperature for more consistent output
+          max_tokens: 6000  // Increased for comprehensive analysis
         })
       });
 
@@ -299,31 +500,26 @@ Be specific, quote when helpful. If a section has no content, say so.`;
 
   /**
    * Parse GPT response into sections object
+   * Enhanced to handle new section types
    */
   parseSections(content: string): ProcessedSections {
-    const sections: ProcessedSections = {
-      summary: '',
-      keyStakeholders: '',
-      meddiccSignals: '',
-      productInterest: '',
-      keyDates: '',
-      nextSteps: '',
-      actionItems: '',
-      dealSignals: '',
-      risksObjections: ''
-    };
+    const sections: ProcessedSections = this.getEmptySections();
 
     const headerMap: Record<string, keyof ProcessedSections> = {
       'summary': 'summary',
-      'key stakeholders': 'keyStakeholders',
+      'attendees': 'attendees',
       'meddicc signals': 'meddiccSignals',
       'product interest': 'productInterest',
+      'pain points': 'painPoints',
+      'buying triggers': 'buyingTriggers',
       'key dates': 'keyDates',
       'next steps': 'nextSteps',
       'action items': 'actionItems',
+      'action items (internal)': 'actionItems',
       'deal signals': 'dealSignals',
       'risks & objections': 'risksObjections',
-      'risks and objections': 'risksObjections'
+      'risks and objections': 'risksObjections',
+      'competitive intelligence': 'competitiveIntel'
     };
 
     const sectionRegex = /## ([^\n]+)\n([\s\S]*?)(?=## |$)/g;
@@ -340,6 +536,19 @@ Be specific, quote when helpful. If a section has no content, say so.`;
     }
 
     return sections;
+  }
+
+  /**
+   * Normalize sections from server response to ensure all fields exist
+   */
+  private normalizeSections(serverSections: Partial<ProcessedSections> | null): ProcessedSections {
+    const empty = this.getEmptySections();
+    if (!serverSections) return empty;
+    
+    return {
+      ...empty,
+      ...serverSections
+    };
   }
 
   /**
@@ -434,70 +643,88 @@ Be specific, quote when helpful. If a section has no content, say so.`;
   }
 
   /**
-   * Get empty sections structure
+   * Get empty sections structure with all fields
    */
   private getEmptySections(): ProcessedSections {
     return {
       summary: '',
-      keyStakeholders: '',
+      attendees: '',
       meddiccSignals: '',
       productInterest: '',
+      painPoints: '',
+      buyingTriggers: '',
       keyDates: '',
       nextSteps: '',
-      actionItems: ''
+      actionItems: '',
+      dealSignals: '',
+      risksObjections: '',
+      competitiveIntel: ''
     };
   }
 
   /**
    * Format sections for note insertion
+   * Order optimized for quick scanning: Summary first, then context, then details
    */
   static formatSectionsForNote(sections: ProcessedSections, transcript?: string): string {
     let content = '';
 
+    // Priority 1: Quick Overview
     if (sections.summary) {
       content += `## Summary\n\n${sections.summary}\n\n`;
     }
 
-    if (sections.keyStakeholders) {
-      content += `## Key Stakeholders\n\n${sections.keyStakeholders}\n\n`;
+    if (sections.attendees) {
+      content += `## Attendees\n\n${sections.attendees}\n\n`;
     }
 
+    // Priority 2: Sales Intelligence
+    if (sections.productInterest && sections.productInterest !== 'None identified.') {
+      content += `## Product Interest\n\n${sections.productInterest}\n\n`;
+    }
+
+    if (sections.painPoints && sections.painPoints !== 'None explicitly stated - deeper discovery recommended.') {
+      content += `## Pain Points\n\n${sections.painPoints}\n\n`;
+    }
+
+    if (sections.buyingTriggers) {
+      content += `## Buying Triggers\n\n${sections.buyingTriggers}\n\n`;
+    }
+
+    // Priority 3: MEDDICC (detailed qualification)
     if (sections.meddiccSignals) {
       content += `## MEDDICC Signals\n\n${sections.meddiccSignals}\n\n`;
     }
 
-    if (sections.productInterest) {
-      content += `## Product Interest\n\n${sections.productInterest}\n\n`;
-    }
-
-    if (sections.keyDates) {
-      content += `## Key Dates\n\n${sections.keyDates}\n\n`;
-    }
-
+    // Priority 4: Actions & Timeline
     if (sections.nextSteps) {
       content += `## Next Steps\n\n${sections.nextSteps}\n\n`;
     }
 
     if (sections.actionItems) {
-      content += `## Action Items\n\n${sections.actionItems}\n\n`;
+      content += `## Action Items (Internal)\n\n${sections.actionItems}\n\n`;
     }
 
-    // Optional enhanced sections
+    if (sections.keyDates && sections.keyDates !== 'No specific dates discussed.') {
+      content += `## Key Dates\n\n${sections.keyDates}\n\n`;
+    }
+
+    // Priority 5: Deal Health
     if (sections.dealSignals) {
       content += `## Deal Signals\n\n${sections.dealSignals}\n\n`;
     }
 
-    if (sections.risksObjections) {
+    if (sections.risksObjections && sections.risksObjections !== 'None raised in this conversation.') {
       content += `## Risks & Objections\n\n${sections.risksObjections}\n\n`;
     }
 
-    if (sections.competitiveIntel) {
+    if (sections.competitiveIntel && sections.competitiveIntel !== 'No competitive mentions.') {
       content += `## Competitive Intelligence\n\n${sections.competitiveIntel}\n\n`;
     }
 
-    // Add transcript at the END (after all structured sections)
+    // Full transcript at end (collapsible section for reference)
     if (transcript) {
-      content += `---\n\n## Full Transcript\n\n${transcript}\n`;
+      content += `---\n\n<details>\n<summary><strong>Full Transcript</strong></summary>\n\n${transcript}\n\n</details>\n`;
     }
 
     return content;
@@ -563,7 +790,6 @@ Be specific, quote when helpful. If a section has no content, say so.`;
     }
 
     if (context.account?.customerBrain) {
-      // Show recent notes summary (first 500 chars)
       const recentNotes = context.account.customerBrain.substring(0, 500);
       if (recentNotes) {
         content += '### Recent Notes\n\n';
@@ -576,4 +802,3 @@ Be specific, quote when helpful. If a section has no content, say so.`;
     return content;
   }
 }
-

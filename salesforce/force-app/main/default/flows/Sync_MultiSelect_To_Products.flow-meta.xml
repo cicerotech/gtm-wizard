@@ -20,9 +20,9 @@
         <filterLogic>and</filterLogic>
         <filters>
             <field>Product_Lines_Multi__c</field>
-            <operator>IsChanged</operator>
+            <operator>IsNull</operator>
             <value>
-                <booleanValue>true</booleanValue>
+                <booleanValue>false</booleanValue>
             </value>
         </filters>
         <filters>
@@ -33,7 +33,7 @@
             </value>
         </filters>
         <object>Opportunity</object>
-        <recordTriggerType>Update</recordTriggerType>
+        <recordTriggerType>CreateAndUpdate</recordTriggerType>
         <triggerType>RecordAfterSave</triggerType>
     </start>
     <actionCalls>

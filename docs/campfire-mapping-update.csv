@@ -1,0 +1,42 @@
+Object,Salesforce Field API Name,Campfire Field Label,Field Type,Sync Status,Trigger,Action Required,Notes
+========== CONTRACT HEADER (Parent Record) ==========,,,,,,
+Contract,Id,Contract ID,Primary Key,ACTIVE,On Activation,KEEP,Primary key - unchanged
+Contract,Contract_Name_Campfire__c,Contract Name,Text,ACTIVE,On Activation,KEEP,Human-readable contract name
+Contract,AccountId,Account ID,Lookup,ACTIVE,On Activation,KEEP,Account reference
+Contract,Account.Name,Account Name,Relationship,ACTIVE,On Activation,KEEP,Account display name
+Contract,Legal_Entity__c,Legal Entity,Text,ACTIVE,On Activation,KEEP,Billing entity name
+Contract,CustomerSignedDate,Signed Date,Date,ACTIVE,On Activation,KEEP,Contract signature date
+Contract,Contract_Value__c,Total Contract Value,Currency,ACTIVE,On Activation,KEEP,Full contract value (TCV)
+Contract,Billing_Frequency__c,Billing Frequency,Picklist,ACTIVE,On Activation,KEEP,Monthly/Quarterly/Annual
+Contract,StartDate,Contract Start Date,Date,ACTIVE,On Activation,KEEP,Contract start
+Contract,EndDate,Contract End Date,Date,ACTIVE,On Activation,KEEP,Contract end (auto-calculated)
+Contract,ContractTerm,Contract Term (months),Number,ACTIVE,On Activation,KEEP,Duration in months
+Contract,Currency__c,Currency,Picklist,ACTIVE,On Activation,KEEP,USD/GBP/EUR
+Contract,Status,Status,Picklist,ACTIVE,On Activation,UPDATE,"CRITICAL: Only sync when Status = 'Activated'. Currently syncing Draft - MUST CHANGE"
+Contract,Notes__c,Notes,Text,ACTIVE,On Activation,KEEP,Contract notes
+Contract,AI_Enabled__c,AI Enabled,Checkbox,ACTIVE,On Activation,KEEP,AI technology included
+Contract,Owner__c,Account Owner (Consultant),Lookup,ACTIVE,On Activation,VERIFY,Consultant assigned
+Contract,CustomerSignedId,Customer Signed By,Lookup,ACTIVE,On Activation,KEEP,Signatory contact ID
+Contract,Contact_Signed__c,Customer Signed By (Name),Text,ACTIVE,On Activation,VERIFY,Signatory name
+Contract,CustomerSigned.Email,Signatory Email,Formula,ACTIVE,On Activation,KEEP,From Contact
+Contract,CustomerSigned.MailingStreet,Signatory Address,Formula,ACTIVE,On Activation,KEEP,From Contact
+Contract,CustomerSigned.MailingCity,Signatory City,Formula,ACTIVE,On Activation,KEEP,From Contact
+========== DEPRECATED CONTRACT FIELDS (Replace with Line Items) ==========,,,,,,
+Contract,Parent_Product__c,Parent Product,Multi-Select,DEPRECATED,-,REMOVE,"REMOVE: Now use Contract_Line_Item__c.Product_Name_Campfire__c"
+Contract,Product_Line__c,Product Line,Picklist,DEPRECATED,-,REMOVE,"REMOVE: Now use Contract_Line_Item__c records"
+========== CONTRACT LINE ITEMS (New - Child Records) ==========,,,,,,
+Contract_Line_Item__c,Id,Line Item ID,Primary Key,NEW,On Contract Activation,ADD,Primary key for line item
+Contract_Line_Item__c,Contract__c,Parent Contract ID,Master-Detail,NEW,On Contract Activation,ADD,Links to Contract
+Contract_Line_Item__c,Name,Line Item Name,Text,NEW,On Contract Activation,ADD,Auto-name from product
+Contract_Line_Item__c,Product_Name_Campfire__c,Product Name,Text,NEW,On Contract Activation,ADD,"REPLACES Parent_Product__c - e.g. 'AI Contracting - Managed Services'"
+Contract_Line_Item__c,Product_Id__c,Product ID,Text(18),NEW,On Contract Activation,ADD,Salesforce Product2 ID for ERP reconciliation
+Contract_Line_Item__c,Product_Code__c,Product Code,Text,NEW,On Contract Activation,ADD,Product SKU/Code from Price Book
+Contract_Line_Item__c,Amount_Campfire__c,Line Item Amount,Currency,NEW,On Contract Activation,ADD,"ACV allocation for this product (e.g. $60K if 2 products = $120K total)"
+Contract_Line_Item__c,Start_Date_Campfire__c,Product Start Date,Date,NEW,On Contract Activation,ADD,"Product-specific start (falls back to Contract.StartDate if blank)"
+Contract_Line_Item__c,End_Date_Campfire__c,Product End Date,Date,NEW,On Contract Activation,ADD,"Product-specific end (falls back to Contract.EndDate if blank)"
+Contract_Line_Item__c,Duration_Months__c,Duration (Months),Number,NEW,On Contract Activation,ADD,Calculated months between start and end dates
+========== TRIGGER CONFIGURATION ==========,,,,,,
+TRIGGER,Salesforce Object,Trigger Condition,Current State,Required State,Priority,
+TRIGGER,Contract,Status Change,Syncs on Draft,ONLY sync when Status = 'Activated',CRITICAL,"Draft contracts are internal - should not sync to Campfire until approved/activated"
+TRIGGER,Contract_Line_Item__c,Parent Activation,Not configured,Sync line items when parent Contract is Activated,HIGH,Line items should sync together with parent contract
+

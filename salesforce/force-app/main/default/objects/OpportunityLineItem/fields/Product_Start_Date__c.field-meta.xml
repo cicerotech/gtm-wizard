@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Product_Start_Date__c</fullName>
+    <label>Product Start Date</label>
+    <description>Optional: Product-specific start date. If blank, uses Contract start date.</description>
+    <type>Date</type>
+    <required>false</required>
+</CustomField>
+

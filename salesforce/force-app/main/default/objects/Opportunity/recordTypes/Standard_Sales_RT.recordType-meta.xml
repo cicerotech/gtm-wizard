@@ -122,7 +122,7 @@
         </values>
     </picklistValues>
     <picklistValues>
-        <picklist>Product_Lines_Multi__c</picklist>
+        <picklist>Product_Line__c</picklist>
         <values>
             <fullName>AI Contracting - Technology</fullName>
             <default>false</default>
@@ -169,11 +169,7 @@
         </values>
         <values>
             <fullName>Undetermined</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>Multiple %28BL Review%29</fullName>
-            <default>false</default>
+            <default>true</default>
         </values>
     </picklistValues>
 </RecordType>

@@ -1,0 +1,48 @@
+SECTION,Object,Salesforce API Name,Campfire Label,Type,Cardinality,Status,Action,Notes
+========== SYNC TRIGGER ==========,,,,,,,
+TRIGGER,Contract,Status,Sync Trigger,Picklist,-,CRITICAL,UPDATE,"MUST BE: Status = 'Activated' ONLY. Currently syncing Draft - FIX THIS."
+========== CONTRACT (Parent - 1 per sync) ==========,,,,,,,
+HEADER,Contract,Id,Contract ID,Text(18),1:1,ACTIVE,KEEP,Salesforce primary key
+HEADER,Contract,Contract_Name_Campfire__c,Contract Name,Text,1:1,ACTIVE,KEEP,Human-readable name
+HEADER,Contract,AccountId,Account ID,Text(18),1:1,ACTIVE,KEEP,Account reference
+HEADER,Contract,Account.Name,Account Name,Text,1:1,ACTIVE,KEEP,Display name
+HEADER,Contract,Legal_Entity__c,Legal Entity,Text,1:1,ACTIVE,KEEP,Billing entity
+HEADER,Contract,CustomerSignedDate,Signed Date,Date,1:1,ACTIVE,KEEP,Signature date
+HEADER,Contract,Contract_Value__c,Total Contract Value,Currency,1:1,ACTIVE,KEEP,Full TCV
+HEADER,Contract,Billing_Frequency__c,Billing Frequency,Picklist,1:1,ACTIVE,KEEP,Monthly/Quarterly/Annual
+HEADER,Contract,StartDate,Contract Start Date,Date,1:1,ACTIVE,KEEP,Contract start
+HEADER,Contract,EndDate,Contract End Date,Date,1:1,ACTIVE,KEEP,Contract end
+HEADER,Contract,ContractTerm,Contract Term (Months),Number,1:1,ACTIVE,KEEP,Duration
+HEADER,Contract,Currency__c,Currency,Picklist,1:1,ACTIVE,KEEP,USD/GBP/EUR
+HEADER,Contract,Notes__c,Notes,Text,1:1,ACTIVE,KEEP,Contract notes
+HEADER,Contract,AI_Enabled__c,AI Enabled,Checkbox,1:1,ACTIVE,KEEP,AI technology flag
+HEADER,Contract,Owner__c,Account Owner,Lookup(User),1:1,ACTIVE,VERIFY,Consultant assignment
+========== CUSTOMER SIGNED (Signatory Info) ==========,,,,,,,
+SIGNATORY,Contract,CustomerSignedId,Customer Signed By ID,Text(18),1:1,ACTIVE,VERIFY,Contact ID reference (standard field)
+SIGNATORY,Contract,CustomerSignedTitle,Customer Signed Title,Text,1:1,ACTIVE,VERIFY,Title from Contract (standard field)
+SIGNATORY,Contract,Contact_Signed__c,Contact Signed,Lookup(Contact),1:1,ACTIVE,VERIFY,Custom lookup to Contact
+========== DEPRECATED CONTRACT FIELDS ==========,,,,,,,
+DEPRECATED,Contract,Parent_Product__c,Parent Product,Multi-Select,-,REMOVE,REMOVE,"REPLACE with Contract_Line_Item__c records"
+DEPRECATED,Contract,Product_Line__c,Product Line,Picklist,-,REMOVE,REMOVE,"REPLACE with Contract_Line_Item__c records"
+========== CONTRACT LINE ITEMS (Children - MANY per Contract) ==========,,,,,,,
+LINE_ITEM,Contract_Line_Item__c,Id,Line Item Record ID,Text(18),N:1,NEW,ADD,Unique Salesforce ID per line item
+LINE_ITEM,Contract_Line_Item__c,Campfire_Line_Item_ID__c,Campfire Line Item ID,Text,N:1,ACTIVE,KEY,"EXTERNAL ID - Use this to upsert/identify each line item in Campfire"
+LINE_ITEM,Contract_Line_Item__c,Contract__c,Parent Contract ID,Lookup,N:1,ACTIVE,ADD,Links line item to parent Contract
+LINE_ITEM,Contract_Line_Item__c,Name,Line Item Name,Text,N:1,ACTIVE,ADD,Auto-generated name
+LINE_ITEM,Contract_Line_Item__c,Product_Name_Campfire__c,Product Name,Text,N:1,ACTIVE,ADD,"Product name (e.g. 'AI Contracting - Managed Services')"
+LINE_ITEM,Contract_Line_Item__c,Parent_Product__c,Parent Product Category,Picklist,N:1,ACTIVE,ADD,"Product category (e.g. 'AI Contracting')"
+LINE_ITEM,Contract_Line_Item__c,Amount_Campfire__c,Line Item Amount,Currency,N:1,ACTIVE,ADD,ACV allocation for this product
+LINE_ITEM,Contract_Line_Item__c,Start_Date_Campfire__c,Line Item Start Date,Date,N:1,ACTIVE,ADD,Product-specific start date
+LINE_ITEM,Contract_Line_Item__c,End_Date_Campfire__c,Line Item End Date,Date,N:1,ACTIVE,ADD,Product-specific end date
+LINE_ITEM,Contract_Line_Item__c,Duration__c,Duration (Months),Number,N:1,ACTIVE,ADD,Months between start/end
+LINE_ITEM,Contract_Line_Item__c,Billing_Frequency__c,Billing Frequency,Text,N:1,ACTIVE,ADD,Billing cycle for this product
+LINE_ITEM,Contract_Line_Item__c,Currency__c,Currency,Picklist,N:1,ACTIVE,ADD,Currency for this line
+LINE_ITEM,Contract_Line_Item__c,Legal_Entity__c,Legal Entity,Text,N:1,ACTIVE,ADD,Legal entity for this line
+LINE_ITEM,Contract_Line_Item__c,AI_Enabled__c,AI Enabled,Checkbox,N:1,ACTIVE,ADD,AI technology flag
+LINE_ITEM,Contract_Line_Item__c,Notes_Campfire__c,Line Item Notes,Text,N:1,ACTIVE,ADD,Notes for this line
+========== RELATIONSHIP EXPLANATION ==========,,,,,,,
+INFO,-,-,-,-,-,-,-,"Each Contract can have MULTIPLE Contract_Line_Item__c records"
+INFO,-,-,-,-,-,-,-,"Use Contract__c on each line item to join back to parent Contract"
+INFO,-,-,-,-,-,-,-,"Use Campfire_Line_Item_ID__c as the unique external ID for each line"
+INFO,-,-,-,-,-,-,-,"Query example: SELECT Id, Product_Name_Campfire__c, Amount_Campfire__c FROM Contract_Line_Item__c WHERE Contract__c = '{ContractId}'"
+

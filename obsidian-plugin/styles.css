@@ -1,176 +1,247 @@
-/* Eudia Scribe - Recording UI Styles */
+/* ═══════════════════════════════════════════════════════════════════════════
+   EUDIA TRANSCRIPTION PLUGIN - UDS-Aligned Styles
+   Clean, professional design matching GTM site aesthetics
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Recording Status Bar */
+/* ───────────────────────────────────────────────────────────────────────────
+   Design Tokens - GTM Site Aligned
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Core colors */
+  --eudia-bg: #f5f7fe;
+  --eudia-card: #ffffff;
+  --eudia-border: #e5e7eb;
+  --eudia-border-subtle: #f1f5f9;
+  
+  /* Text */
+  --eudia-text: #1f2937;
+  --eudia-text-muted: #6b7280;
+  --eudia-text-subtle: #9ca3af;
+  
+  /* Accent - Eudia purple */
+  --eudia-accent: #8e99e1;
+  --eudia-accent-hover: #7c89d8;
+  --eudia-accent-subtle: rgba(142, 153, 225, 0.1);
+  
+  /* Status colors - muted */
+  --eudia-success: #10b981;
+  --eudia-success-subtle: rgba(16, 185, 129, 0.1);
+  --eudia-warning: #f59e0b;
+  --eudia-warning-subtle: rgba(245, 158, 11, 0.1);
+  --eudia-recording: #ef4444;
+  --eudia-recording-subtle: rgba(239, 68, 68, 0.1);
+}
+
+/* Dark mode overrides */
+.theme-dark {
+  --eudia-bg: #1e1e1e;
+  --eudia-card: #252525;
+  --eudia-border: #333333;
+  --eudia-border-subtle: #2a2a2a;
+  --eudia-text: #e8e8e8;
+  --eudia-text-muted: #888888;
+  --eudia-text-subtle: #666666;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Recording Status Bar - Clean floating UI
+   ─────────────────────────────────────────────────────────────────────────── */
+
 .eudia-recording-bar {
   position: fixed;
-  bottom: 20px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 12px;
+  background: var(--eudia-card);
+  border: 1px solid var(--eudia-border);
+  border-radius: 10px;
   padding: 12px 20px;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   z-index: 1000;
   min-width: 320px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .eudia-recording-bar.recording {
-  border-color: var(--color-red);
-  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.2);
+  border-color: var(--eudia-recording);
+  box-shadow: 0 0 0 3px var(--eudia-recording-subtle), 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 .eudia-recording-bar.paused {
-  border-color: var(--color-yellow);
+  border-color: var(--eudia-warning);
+  box-shadow: 0 0 0 3px var(--eudia-warning-subtle), 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 .eudia-recording-bar.processing {
-  border-color: var(--color-blue);
+  border-color: var(--eudia-accent);
+  box-shadow: 0 0 0 3px var(--eudia-accent-subtle), 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
-/* Recording Indicator */
+/* Recording Indicator - Subtle pulse */
 .eudia-recording-indicator {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: var(--color-red);
-  animation: pulse 1.5s infinite;
+  background: var(--eudia-recording);
+  animation: eudia-pulse 2s ease-in-out infinite;
 }
 
 .eudia-recording-bar.paused .eudia-recording-indicator {
-  background: var(--color-yellow);
+  background: var(--eudia-warning);
   animation: none;
 }
 
 .eudia-recording-bar.processing .eudia-recording-indicator {
-  background: var(--color-blue);
-  animation: spin 1s linear infinite;
+  background: var(--eudia-accent);
+  animation: eudia-spin 1s linear infinite;
+  border-radius: 2px;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.9); }
+@keyframes eudia-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
-@keyframes spin {
+@keyframes eudia-spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
 
 /* Duration Display */
 .eudia-duration {
-  font-family: var(--font-monospace);
-  font-size: 18px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 16px;
   font-weight: 600;
-  color: var(--text-normal);
-  min-width: 60px;
+  color: var(--eudia-text);
+  min-width: 56px;
   text-align: center;
+  letter-spacing: 0.5px;
 }
 
 /* Audio Level Meter */
 .eudia-level-container {
-  width: 60px;
-  height: 8px;
-  background: var(--background-modifier-border);
-  border-radius: 4px;
+  width: 48px;
+  height: 6px;
+  background: var(--eudia-border);
+  border-radius: 3px;
   overflow: hidden;
 }
 
 .eudia-level-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-green), var(--color-yellow), var(--color-red));
+  background: var(--eudia-accent);
   transition: width 0.1s ease-out;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 /* Control Buttons */
 .eudia-controls {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .eudia-control-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--eudia-border);
+  background: var(--eudia-card);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all 0.15s ease;
+  color: var(--eudia-text-muted);
+  font-size: 14px;
 }
 
 .eudia-control-btn:hover {
-  transform: scale(1.1);
+  background: var(--eudia-border-subtle);
+  border-color: var(--eudia-text-subtle);
 }
 
-.eudia-control-btn.pause {
-  background: var(--color-yellow);
-  color: white;
+.eudia-control-btn:active {
+  transform: scale(0.96);
 }
 
-.eudia-control-btn.resume {
-  background: var(--color-green);
-  color: white;
+.eudia-control-btn.pause:hover,
+.eudia-control-btn.resume:hover {
+  border-color: var(--eudia-accent);
+  color: var(--eudia-accent);
 }
 
-.eudia-control-btn.stop {
-  background: var(--color-red);
-  color: white;
+.eudia-control-btn.stop:hover {
+  border-color: var(--eudia-recording);
+  color: var(--eudia-recording);
 }
 
-.eudia-control-btn.cancel {
-  background: var(--background-modifier-border);
-  color: var(--text-muted);
+.eudia-control-btn.cancel:hover {
+  border-color: var(--eudia-text-subtle);
+  color: var(--eudia-text);
 }
 
-.eudia-control-btn svg {
-  width: 16px;
-  height: 16px;
+.eudia-control-btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* Status Text */
 .eudia-status-text {
   font-size: 12px;
-  color: var(--text-muted);
-  min-width: 100px;
+  color: var(--eudia-text-muted);
+  min-width: 90px;
 }
 
 /* Ribbon Icon Active State */
 .eudia-ribbon-recording {
-  color: var(--color-red) !important;
-  animation: pulse 1.5s infinite;
+  color: var(--eudia-recording) !important;
+  animation: eudia-pulse 2s ease-in-out infinite;
 }
 
-/* Recording Modal */
+/* ───────────────────────────────────────────────────────────────────────────
+   Processing Modal - Clean and minimal
+   ─────────────────────────────────────────────────────────────────────────── */
+
 .eudia-transcribing-modal {
   text-align: center;
-  padding: 20px;
+  padding: 24px;
+  max-width: 320px;
 }
 
 .eudia-transcribing-modal .spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--background-modifier-border);
-  border-top-color: var(--interactive-accent);
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--eudia-border);
+  border-top-color: var(--eudia-accent);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 16px;
+  animation: eudia-spin 0.8s linear infinite;
+  margin: 0 auto 20px;
 }
 
 .eudia-transcribing-modal p {
-  color: var(--text-muted);
-  margin: 8px 0;
+  color: var(--eudia-text-muted);
+  margin: 6px 0;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
-/* Pre-call Context Box */
+.eudia-transcribing-modal p:first-of-type {
+  color: var(--eudia-text);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Pre-call Context Box
+   ─────────────────────────────────────────────────────────────────────────── */
+
 .eudia-context-box {
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
+  background: var(--eudia-bg);
+  border: 1px solid var(--eudia-border);
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
@@ -178,173 +249,249 @@
 
 .eudia-context-box h4 {
   margin: 0 0 12px 0;
-  color: var(--text-normal);
-  font-size: 14px;
+  color: var(--eudia-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .eudia-context-item {
   display: flex;
   justify-content: space-between;
-  padding: 4px 0;
+  padding: 6px 0;
   font-size: 13px;
+  border-bottom: 1px solid var(--eudia-border-subtle);
+}
+
+.eudia-context-item:last-child {
+  border-bottom: none;
 }
 
 .eudia-context-label {
-  color: var(--text-muted);
+  color: var(--eudia-text-muted);
 }
 
 .eudia-context-value {
-  color: var(--text-normal);
+  color: var(--eudia-text);
   font-weight: 500;
 }
 
-/* Settings Tab Enhancements */
-.eudia-settings-section {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid var(--background-modifier-border);
-}
-
-.eudia-settings-section h3 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
-  color: var(--text-normal);
-}
-
-.eudia-settings-info {
-  background: var(--background-secondary);
-  border-radius: 8px;
-  padding: 12px 16px;
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-bottom: 16px;
-}
-
-.eudia-settings-info code {
-  background: var(--background-primary);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-/* Toast Notifications */
-.eudia-toast {
-  position: fixed;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
-  padding: 12px 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1001;
-  animation: slideUp 0.3s ease-out;
-}
-
-.eudia-toast.success {
-  border-color: var(--color-green);
-}
-
-.eudia-toast.error {
-  border-color: var(--color-red);
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
-/* Account Detection Badge */
-.eudia-account-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--interactive-accent);
-  color: white;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.eudia-account-badge svg {
-  width: 14px;
-  height: 14px;
-}
-
-/* Sync Status Indicator */
-.eudia-sync-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 8px;
-}
-
-.eudia-sync-status.synced {
-  color: var(--color-green);
-}
-
-.eudia-sync-status.pending {
-  color: var(--color-yellow);
-}
-
-.eudia-sync-status.error {
-  color: var(--color-red);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   SETUP WIZARD
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ───────────────────────────────────────────────────────────────────────────
+   Setup Wizard - Clean onboarding
+   ─────────────────────────────────────────────────────────────────────────── */
 
 .eudia-setup-wizard {
-  max-width: 480px;
+  max-width: 440px;
+  padding: 8px;
 }
 
 .eudia-setup-wizard h2 {
   margin: 0 0 8px 0;
-  font-size: 20px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--eudia-text);
 }
 
 .eudia-setup-section {
-  margin-top: 20px;
+  margin-top: 24px;
 }
 
 .eudia-setup-section h3 {
-  margin: 0 0 4px 0;
-  font-size: 14px;
-  color: var(--text-normal);
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--eudia-text);
 }
 
 .eudia-email-input {
   font-size: 14px;
-  background: var(--background-primary);
-  color: var(--text-normal);
+  background: var(--eudia-card);
+  color: var(--eudia-text);
+  border: 1px solid var(--eudia-border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .eudia-email-input:focus {
-  border-color: var(--interactive-accent);
+  border-color: var(--eudia-accent);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(142, 153, 225, 0.2);
+  box-shadow: 0 0 0 3px var(--eudia-accent-subtle);
+}
+
+.eudia-setup-buttons {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .eudia-setup-buttons button {
-  padding: 8px 20px;
+  padding: 8px 16px;
   border-radius: 6px;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
+  transition: all 0.15s;
 }
 
 .eudia-setup-status {
   font-size: 13px;
   text-align: center;
+  padding: 12px;
+  border-radius: 6px;
+  margin-top: 16px;
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+   Account Selector Modal
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.eudia-account-selector h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--eudia-text);
+}
+
+.eudia-account-results {
+  border: 1px solid var(--eudia-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.eudia-account-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--eudia-border-subtle);
+  transition: background 0.1s;
+  font-size: 13px;
+  color: var(--eudia-text);
+}
+
+.eudia-account-item:last-child {
+  border-bottom: none;
+}
+
+.eudia-account-item:hover {
+  background: var(--eudia-accent-subtle);
+}
+
+.eudia-no-results {
+  padding: 16px;
+  text-align: center;
+  color: var(--eudia-text-muted);
+  font-size: 13px;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Account Badge
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.eudia-account-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--eudia-accent-subtle);
+  color: var(--eudia-accent);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Sync Status Indicator
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.eudia-sync-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--eudia-text-muted);
+  margin-top: 8px;
+}
+
+.eudia-sync-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--eudia-text-subtle);
+}
+
+.eudia-sync-status.synced {
+  color: var(--eudia-success);
+}
+
+.eudia-sync-status.synced::before {
+  background: var(--eudia-success);
+}
+
+.eudia-sync-status.pending {
+  color: var(--eudia-warning);
+}
+
+.eudia-sync-status.pending::before {
+  background: var(--eudia-warning);
+}
+
+.eudia-sync-status.error {
+  color: var(--eudia-recording);
+}
+
+.eudia-sync-status.error::before {
+  background: var(--eudia-recording);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Settings Tab Enhancements
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.eudia-settings-section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--eudia-border);
+}
+
+.eudia-settings-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--eudia-text);
+}
+
+.eudia-settings-info {
+  background: var(--eudia-bg);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--eudia-text-muted);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.eudia-settings-info code {
+  background: var(--eudia-card);
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  border: 1px solid var(--eudia-border);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Transcription Placeholder (in-note)
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Style the blockquote placeholder in notes */
+.markdown-preview-view blockquote:has(strong:contains("Transcription in progress")) {
+  background: var(--eudia-accent-subtle);
+  border-left-color: var(--eudia-accent);
+  padding: 16px;
+  border-radius: 0 6px 6px 0;
+}
