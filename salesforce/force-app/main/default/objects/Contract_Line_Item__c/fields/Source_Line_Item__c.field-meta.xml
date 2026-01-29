@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Source_Line_Item__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>The source Opportunity Line Item this was created from</description>
+    <externalId>false</externalId>
+    <label>Source Opportunity Product</label>
+    <referenceTo>OpportunityLineItem</referenceTo>
+    <relationshipLabel>Contract Line Items</relationshipLabel>
+    <relationshipName>Contract_Line_Items</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>
+
