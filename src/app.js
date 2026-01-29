@@ -1521,7 +1521,11 @@ class GTMBrainApp {
         
         // Get all Salesforce accounts
         const accounts = await meetingPrepService.getAccounts();
-        const accountNames = accounts.map(a => a.Name).sort();
+        // Filter out accounts without names and sort
+        const accountNames = accounts
+          .filter(a => a && a.Name)
+          .map(a => a.Name)
+          .sort();
         
         logger.info(`Generating Obsidian vault with ${accountNames.length} account folders`);
         
@@ -1552,8 +1556,14 @@ class GTMBrainApp {
         
         // Create account folders dynamically from Salesforce
         for (const accountName of accountNames) {
+          // Skip undefined or empty account names
+          if (!accountName || typeof accountName !== 'string') {
+            logger.warn('Skipping invalid account name:', accountName);
+            continue;
+          }
           // Sanitize account name for filesystem
           const safeName = accountName.replace(/[<>:"/\\|?*]/g, '_').trim();
+          if (!safeName) continue; // Skip if name becomes empty after sanitization
           // Add folder with a .gitkeep so it's not empty
           archive.append('', { name: `Accounts/${safeName}/.gitkeep` });
         }
