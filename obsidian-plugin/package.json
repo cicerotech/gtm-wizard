@@ -1,7 +1,7 @@
 {
   "name": "eudia-transcription",
-  "version": "3.0.0",
-  "description": "Record meetings, transcribe with AI, sync to Salesforce. OpenAI API key recommended.",
+  "version": "4.0.0",
+  "description": "Record meetings, transcribe with AI, sync to Salesforce. Native calendar integration and smart tagging.",
   "main": "main.js",
   "scripts": {
     "dev": "esbuild main.ts --bundle --outfile=main.js --external:obsidian --format=cjs --sourcemap --watch",

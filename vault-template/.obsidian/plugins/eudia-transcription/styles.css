@@ -495,3 +495,200 @@
   padding: 16px;
   border-radius: 0 6px 6px 0;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Calendar View
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.eudia-calendar-view {
+  padding: 16px;
+  background: var(--eudia-bg);
+  height: 100%;
+  overflow-y: auto;
+}
+
+.eudia-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--eudia-border);
+}
+
+.eudia-calendar-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--eudia-text);
+}
+
+.eudia-calendar-refresh {
+  background: transparent;
+  border: 1px solid var(--eudia-border);
+  border-radius: 4px;
+  color: var(--eudia-text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.eudia-calendar-refresh:hover {
+  background: var(--eudia-card);
+  color: var(--eudia-text);
+  border-color: var(--eudia-accent);
+}
+
+.eudia-calendar-loading {
+  text-align: center;
+  padding: 24px;
+  color: var(--eudia-text-muted);
+  font-size: 12px;
+}
+
+.eudia-calendar-empty {
+  text-align: center;
+  padding: 24px;
+  color: var(--eudia-text-muted);
+}
+
+.eudia-calendar-empty p {
+  font-size: 12px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.eudia-calendar-error {
+  text-align: center;
+  padding: 24px;
+  color: var(--eudia-recording);
+}
+
+.eudia-calendar-error p {
+  font-size: 12px;
+  margin: 0;
+}
+
+/* Day sections */
+.eudia-calendar-day {
+  margin-bottom: 16px;
+}
+
+.eudia-calendar-day-header {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--eudia-text-muted);
+  margin-bottom: 8px;
+  padding: 4px 0;
+}
+
+/* Individual meetings */
+.eudia-calendar-meeting {
+  display: flex;
+  gap: 12px;
+  background: var(--eudia-card);
+  border: 1px solid var(--eudia-border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.eudia-calendar-meeting:hover {
+  border-color: var(--eudia-accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.eudia-calendar-meeting.customer {
+  border-left: 3px solid var(--eudia-accent);
+}
+
+.eudia-calendar-meeting.internal {
+  border-left: 3px solid var(--eudia-text-subtle);
+}
+
+.eudia-calendar-time {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--eudia-text-muted);
+  white-space: nowrap;
+  min-width: 60px;
+}
+
+.eudia-calendar-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.eudia-calendar-subject {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--eudia-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.eudia-calendar-account {
+  font-size: 11px;
+  color: var(--eudia-accent);
+  font-weight: 500;
+}
+
+.eudia-calendar-attendees {
+  font-size: 11px;
+  color: var(--eudia-text-muted);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Smart Tags Display
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.eudia-smart-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.eudia-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.eudia-tag.product {
+  background: rgba(142, 153, 225, 0.15);
+  color: var(--eudia-accent);
+}
+
+.eudia-tag.meddicc {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--eudia-success);
+}
+
+.eudia-tag.deal-health {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--eudia-warning);
+}
+
+.eudia-tag.deal-health.progressing {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--eudia-success);
+}
+
+.eudia-tag.deal-health.at-risk {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--eudia-recording);
+}

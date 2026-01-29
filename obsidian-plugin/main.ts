@@ -13,11 +13,15 @@ import {
   Editor,
   EditorPosition,
   Modal,
-  MarkdownView
+  MarkdownView,
+  ItemView,
+  WorkspaceLeaf
 } from 'obsidian';
 
 import { AudioRecorder, RecordingState, RecordingResult } from './src/AudioRecorder';
 import { TranscriptionService, TranscriptionResult, MeetingContext, ProcessedSections } from './src/TranscriptionService';
+import { CalendarService, CalendarMeeting, TodayResponse } from './src/CalendarService';
+import { SmartTagService, SmartTags } from './src/SmartTagService';
 
 interface EudiaSyncSettings {
   serverUrl: string;
@@ -35,6 +39,10 @@ interface EudiaSyncSettings {
   calendarConfigured: boolean;
   // OpenAI configuration (fallback if server key unavailable)
   openaiApiKey: string;
+  // Smart tagging
+  enableSmartTags: boolean;
+  // Calendar
+  showCalendarView: boolean;
 }
 
 const DEFAULT_SETTINGS: EudiaSyncSettings = {
@@ -47,6 +55,10 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   appendTranscript: false,
   lastSyncTime: null,
   cachedAccounts: [],
+  // Smart tagging
+  enableSmartTags: true,
+  // Calendar
+  showCalendarView: true,
   // User configuration
   userEmail: '',
   setupCompleted: false,
@@ -599,6 +611,9 @@ class SetupWizardModal extends Modal {
   }
 }
 
+// Calendar View Type identifier
+const CALENDAR_VIEW_TYPE = 'eudia-calendar-view';
+
 export default class EudiaSyncPlugin extends Plugin {
   settings: EudiaSyncSettings;
   accountSuggester: AccountSuggester;
@@ -606,6 +621,8 @@ export default class EudiaSyncPlugin extends Plugin {
   // Recording components
   private audioRecorder: AudioRecorder;
   private transcriptionService: TranscriptionService;
+  private calendarService: CalendarService;
+  private smartTagService: SmartTagService;
   private recordingStatusBar: RecordingStatusBar | null = null;
   private ribbonIcon: HTMLElement | null = null;
   private isRecording: boolean = false;
@@ -620,6 +637,20 @@ export default class EudiaSyncPlugin extends Plugin {
       this.settings.serverUrl, 
       this.settings.openaiApiKey
     );
+    this.calendarService = new CalendarService(
+      this.settings.serverUrl,
+      this.settings.userEmail
+    );
+    this.smartTagService = new SmartTagService(
+      this.settings.serverUrl,
+      this.settings.openaiApiKey
+    );
+
+    // Register calendar view
+    this.registerView(
+      CALENDAR_VIEW_TYPE,
+      (leaf) => new EudiaCalendarView(leaf, this)
+    );
 
     // Set up audio recorder callbacks
     this.audioRecorder.onStateChange((state) => {
@@ -632,9 +663,14 @@ export default class EudiaSyncPlugin extends Plugin {
     this.accountSuggester = new AccountSuggester(this.app, this);
     this.registerEditorSuggest(this.accountSuggester);
 
-    // Add ribbon icon for recording (replaces sync icon as primary action)
+    // Add ribbon icon for recording (primary action)
     this.ribbonIcon = this.addRibbonIcon('microphone', 'Record Meeting', async () => {
       await this.toggleRecording();
+    });
+
+    // Add calendar ribbon icon
+    this.addRibbonIcon('calendar', 'Open Calendar', async () => {
+      await this.activateCalendarView();
     });
 
     // Add secondary ribbon icon for sync
@@ -668,6 +704,14 @@ export default class EudiaSyncPlugin extends Plugin {
       name: 'Toggle Recording',
       callback: async () => {
         await this.toggleRecording();
+      }
+    });
+
+    this.addCommand({
+      id: 'open-calendar',
+      name: 'Open Calendar View',
+      callback: async () => {
+        await this.activateCalendarView();
       }
     });
 
@@ -1031,6 +1075,20 @@ export default class EudiaSyncPlugin extends Plugin {
       await this.insertTranscriptionResults(activeFile, transcriptionResult, savedAudioPath);
       new Notice('Transcription complete');
 
+      // Extract smart tags if enabled (secondary AI call)
+      if (this.settings.enableSmartTags) {
+        try {
+          const tagResult = await this.smartTagService.extractTags(transcriptionResult.sections);
+          if (tagResult.success) {
+            await this.applySmartTags(activeFile, tagResult.tags);
+            console.log('Smart tags applied:', tagResult.tags);
+          }
+        } catch (tagError) {
+          console.warn('Smart tag extraction failed:', tagError.message);
+          // Non-fatal - continue without tags
+        }
+      }
+
       // Auto-sync to Salesforce if enabled
       if (this.settings.autoSyncAfterTranscription && accountInfo) {
         await this.transcriptionService.syncToSalesforce(
@@ -1057,6 +1115,32 @@ export default class EudiaSyncPlugin extends Plugin {
         // File may have been closed/deleted
       }
     }
+  }
+
+  /**
+   * Apply smart tags to note frontmatter
+   */
+  async applySmartTags(file: TFile, tags: SmartTags): Promise<void> {
+    const updates: Record<string, any> = {};
+    
+    if (tags.product_interest.length > 0) {
+      updates.product_interest = tags.product_interest;
+    }
+    
+    if (tags.meddicc_signals.length > 0) {
+      updates.meddicc_signals = tags.meddicc_signals;
+    }
+    
+    updates.deal_health = tags.deal_health;
+    updates.meeting_type = tags.meeting_type;
+    
+    if (tags.key_stakeholders.length > 0) {
+      updates.key_stakeholders = tags.key_stakeholders;
+    }
+    
+    updates.tag_confidence = Math.round(tags.confidence * 100);
+    
+    await this.updateFrontmatter(file, updates);
   }
 
   /**
@@ -1596,6 +1680,7 @@ sync_to_salesforce: pending
 
   /**
    * Update frontmatter properties in a file
+   * Handles arrays, objects, and primitive values
    */
   async updateFrontmatter(file: TFile, updates: Record<string, any>): Promise<void> {
     let content = await this.app.vault.read(file);
@@ -1606,11 +1691,28 @@ sync_to_salesforce: pending
       let frontmatterContent = frontmatterMatch[1];
       
       for (const [key, value] of Object.entries(updates)) {
-        const regex = new RegExp(`^${key}:.*$`, 'm');
-        const newLine = `${key}: ${value}`;
+        // Skip null/undefined values
+        if (value === null || value === undefined) continue;
         
-        if (regex.test(frontmatterContent)) {
-          frontmatterContent = frontmatterContent.replace(regex, newLine);
+        // Format value based on type
+        let formattedValue: string;
+        if (Array.isArray(value)) {
+          // YAML array format
+          if (value.length === 0) continue;
+          formattedValue = `\n${value.map(v => `  - ${v}`).join('\n')}`;
+        } else if (typeof value === 'object') {
+          // Simple YAML object format
+          formattedValue = JSON.stringify(value);
+        } else {
+          formattedValue = String(value);
+        }
+        
+        const newLine = `${key}:${Array.isArray(value) ? formattedValue : ` ${formattedValue}`}`;
+        
+        // Remove existing key (including multiline arrays)
+        const existingKeyRegex = new RegExp(`^${key}:.*(?:\\n  - .*)*`, 'm');
+        if (existingKeyRegex.test(frontmatterContent)) {
+          frontmatterContent = frontmatterContent.replace(existingKeyRegex, newLine);
         } else {
           frontmatterContent += `\n${newLine}`;
         }
@@ -1658,6 +1760,249 @@ sync_to_salesforce: pending
       .replace(/[<>:"/\\|?*]/g, '_')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  /**
+   * Activate or create the calendar view
+   */
+  async activateCalendarView(): Promise<void> {
+    const { workspace } = this.app;
+
+    let leaf: WorkspaceLeaf | null = null;
+    const leaves = workspace.getLeavesOfType(CALENDAR_VIEW_TYPE);
+
+    if (leaves.length > 0) {
+      // View already open - focus it
+      leaf = leaves[0];
+    } else {
+      // Create new leaf in right sidebar
+      leaf = workspace.getRightLeaf(false);
+      if (leaf) {
+        await leaf.setViewState({ type: CALENDAR_VIEW_TYPE, active: true });
+      }
+    }
+
+    if (leaf) {
+      workspace.revealLeaf(leaf);
+    }
+  }
+}
+
+/**
+ * Calendar View - Shows upcoming meetings from GTM Brain
+ */
+class EudiaCalendarView extends ItemView {
+  plugin: EudiaSyncPlugin;
+  private refreshInterval: number | null = null;
+
+  constructor(leaf: WorkspaceLeaf, plugin: EudiaSyncPlugin) {
+    super(leaf);
+    this.plugin = plugin;
+  }
+
+  getViewType(): string {
+    return CALENDAR_VIEW_TYPE;
+  }
+
+  getDisplayText(): string {
+    return 'Calendar';
+  }
+
+  getIcon(): string {
+    return 'calendar';
+  }
+
+  async onOpen(): Promise<void> {
+    await this.render();
+    
+    // Auto-refresh every 5 minutes
+    this.refreshInterval = window.setInterval(() => {
+      this.render();
+    }, 5 * 60 * 1000);
+  }
+
+  async onClose(): Promise<void> {
+    if (this.refreshInterval) {
+      window.clearInterval(this.refreshInterval);
+    }
+  }
+
+  async render(): Promise<void> {
+    const container = this.containerEl.children[1];
+    container.empty();
+    container.addClass('eudia-calendar-view');
+
+    // Header
+    const header = container.createDiv({ cls: 'eudia-calendar-header' });
+    header.createEl('h4', { text: 'Upcoming Meetings' });
+    
+    const refreshBtn = header.createEl('button', { cls: 'eudia-calendar-refresh' });
+    refreshBtn.innerHTML = '↻';
+    refreshBtn.title = 'Refresh';
+    refreshBtn.onclick = () => this.render();
+
+    // Check if email is configured
+    if (!this.plugin.settings.userEmail) {
+      container.createDiv({ cls: 'eudia-calendar-empty' }).createEl('p', {
+        text: 'Configure your email in plugin settings to see your calendar.'
+      });
+      return;
+    }
+
+    // Loading state
+    const loadingEl = container.createDiv({ cls: 'eudia-calendar-loading' });
+    loadingEl.textContent = 'Loading calendar...';
+
+    try {
+      // Fetch week's meetings
+      const calendarService = new CalendarService(
+        this.plugin.settings.serverUrl,
+        this.plugin.settings.userEmail
+      );
+      const weekData = await calendarService.getWeekMeetings();
+
+      loadingEl.remove();
+
+      if (!weekData.success || Object.keys(weekData.byDay).length === 0) {
+        container.createDiv({ cls: 'eudia-calendar-empty' }).createEl('p', {
+          text: weekData.error || 'No upcoming meetings found.'
+        });
+        return;
+      }
+
+      // Render by day
+      const days = Object.keys(weekData.byDay).sort();
+      
+      for (const day of days) {
+        const meetings = weekData.byDay[day];
+        if (meetings.length === 0) continue;
+
+        const daySection = container.createDiv({ cls: 'eudia-calendar-day' });
+        daySection.createEl('div', { 
+          cls: 'eudia-calendar-day-header',
+          text: CalendarService.getDayName(day)
+        });
+
+        for (const meeting of meetings) {
+          const meetingEl = daySection.createDiv({ 
+            cls: `eudia-calendar-meeting ${meeting.isCustomerMeeting ? 'customer' : 'internal'}`
+          });
+
+          // Time
+          meetingEl.createEl('div', {
+            cls: 'eudia-calendar-time',
+            text: CalendarService.formatTime(meeting.start)
+          });
+
+          // Details
+          const details = meetingEl.createDiv({ cls: 'eudia-calendar-details' });
+          details.createEl('div', { cls: 'eudia-calendar-subject', text: meeting.subject });
+          
+          if (meeting.accountName) {
+            details.createEl('div', { 
+              cls: 'eudia-calendar-account', 
+              text: meeting.accountName 
+            });
+          } else if (meeting.attendees.length > 0) {
+            details.createEl('div', { 
+              cls: 'eudia-calendar-attendees', 
+              text: meeting.attendees.slice(0, 2).map(a => a.name || a.email.split('@')[0]).join(', ')
+            });
+          }
+
+          // Click to create note
+          meetingEl.onclick = async () => {
+            await this.createNoteForMeeting(meeting);
+          };
+          meetingEl.title = 'Click to create meeting note';
+        }
+      }
+
+    } catch (error) {
+      loadingEl.remove();
+      container.createDiv({ cls: 'eudia-calendar-error' }).createEl('p', {
+        text: `Error loading calendar: ${error.message}`
+      });
+    }
+  }
+
+  /**
+   * Create a note for a calendar meeting
+   */
+  async createNoteForMeeting(meeting: CalendarMeeting): Promise<void> {
+    const dateStr = meeting.start.split('T')[0];
+    
+    // Try to find account folder
+    let folderPath = this.plugin.settings.accountsFolder;
+    if (meeting.accountName) {
+      const sanitizedName = meeting.accountName
+        .replace(/[<>:"/\\|?*]/g, '_')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const accountFolder = `${this.plugin.settings.accountsFolder}/${sanitizedName}`;
+      
+      // Check if folder exists
+      const folder = this.app.vault.getAbstractFileByPath(accountFolder);
+      if (folder && folder instanceof TFolder) {
+        folderPath = accountFolder;
+      }
+    }
+
+    // Create filename from meeting subject
+    const sanitizedSubject = meeting.subject
+      .replace(/[<>:"/\\|?*]/g, '_')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .substring(0, 50);
+    
+    const fileName = `${dateStr} ${sanitizedSubject}.md`;
+    const filePath = `${folderPath}/${fileName}`;
+
+    // Check if file exists
+    const existing = this.app.vault.getAbstractFileByPath(filePath);
+    if (existing && existing instanceof TFile) {
+      // Open existing file
+      const leaf = this.app.workspace.getLeaf();
+      await leaf.openFile(existing);
+      return;
+    }
+
+    // Create template content
+    const attendees = meeting.attendees
+      .map(a => a.name || a.email.split('@')[0])
+      .slice(0, 5)
+      .join(', ');
+
+    const template = `---
+title: ${meeting.subject}
+date: ${dateStr}
+attendees: ${attendees}
+account: ${meeting.accountName || ''}
+meeting_start: ${meeting.start}
+tags: meeting
+sync_to_salesforce: pending
+product_interest: []
+---
+
+# ${meeting.subject}
+
+## Pre-Call Notes
+
+
+---
+
+*To record: Click the microphone icon or use Cmd/Ctrl+P → "Start Recording"*
+
+`;
+
+    // Create file
+    const file = await this.app.vault.create(filePath, template);
+    
+    // Open the file
+    const leaf = this.app.workspace.getLeaf();
+    await leaf.openFile(file);
+    
+    new Notice(`Created meeting note for ${meeting.subject}`);
   }
 }
 

@@ -1,9 +1,9 @@
 {
   "id": "eudia-transcription",
   "name": "Eudia Transcription Plugin",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "minAppVersion": "1.0.0",
-  "description": "Record meetings, transcribe with AI, sync to Salesforce. Precision sales intelligence extraction with MEDDICC signals.",
+  "description": "Record meetings, transcribe with AI, sync to Salesforce. Native calendar integration, smart tagging, and precision sales intelligence extraction.",
   "author": "Eudia",
   "authorUrl": "https://eudia.com",
   "isDesktopOnly": false

@@ -2254,6 +2254,186 @@ LIMIT 20
       }
     });
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // OBSIDIAN CALENDAR INTEGRATION ENDPOINTS
+    // Used by Eudia Calendar plugin for native calendar view
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Get today's meetings for a specific user (Obsidian plugin)
+    this.expressApp.get('/api/calendar/:email/today', async (req, res) => {
+      try {
+        const { calendarService, BL_EMAILS } = require('./services/calendarService');
+        const intelligenceStore = require('./services/intelligenceStore');
+        const email = req.params.email.toLowerCase();
+        
+        // Security: only serve calendars for registered BLs
+        if (!BL_EMAILS.map(e => e.toLowerCase()).includes(email)) {
+          logger.warn(`Today's calendar requested for non-BL email: ${email}`);
+          return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+        
+        // Get today's date range
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        // Fetch from database (fast)
+        const events = await intelligenceStore.getStoredCalendarEvents(today, tomorrow, {
+          ownerEmail: email
+        });
+        
+        // Format for Obsidian plugin
+        const meetings = events.map(event => ({
+          id: event.id || event.event_id,
+          subject: event.subject,
+          start: event.start_datetime,
+          end: event.end_datetime,
+          location: event.location,
+          attendees: event.externalAttendees || [],
+          isCustomerMeeting: event.isCustomerMeeting,
+          accountName: event.matched_account_name,
+          accountId: event.matched_account_id,
+          onlineMeetingUrl: event.online_meeting_url
+        }));
+        
+        res.json({
+          success: true,
+          date: today.toISOString().split('T')[0],
+          email: email,
+          meetingCount: meetings.length,
+          meetings: meetings
+        });
+        
+        logger.info(`📅 Today's calendar served for ${email}: ${meetings.length} meetings`);
+        
+      } catch (error) {
+        logger.error('Error getting today\'s calendar:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get this week's meetings for a specific user (Obsidian plugin)
+    this.expressApp.get('/api/calendar/:email/week', async (req, res) => {
+      try {
+        const { calendarService, BL_EMAILS } = require('./services/calendarService');
+        const intelligenceStore = require('./services/intelligenceStore');
+        const email = req.params.email.toLowerCase();
+        
+        // Security: only serve calendars for registered BLs
+        if (!BL_EMAILS.map(e => e.toLowerCase()).includes(email)) {
+          logger.warn(`Week calendar requested for non-BL email: ${email}`);
+          return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+        
+        // Get this week's date range (today + 7 days)
+        const startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 7);
+        
+        // Fetch from database (fast)
+        const events = await intelligenceStore.getStoredCalendarEvents(startDate, endDate, {
+          ownerEmail: email
+        });
+        
+        // Group by day for easier rendering
+        const byDay = {};
+        events.forEach(event => {
+          const day = event.start_datetime.split('T')[0];
+          if (!byDay[day]) byDay[day] = [];
+          byDay[day].push({
+            id: event.id || event.event_id,
+            subject: event.subject,
+            start: event.start_datetime,
+            end: event.end_datetime,
+            location: event.location,
+            attendees: event.externalAttendees || [],
+            isCustomerMeeting: event.isCustomerMeeting,
+            accountName: event.matched_account_name,
+            accountId: event.matched_account_id,
+            onlineMeetingUrl: event.online_meeting_url
+          });
+        });
+        
+        res.json({
+          success: true,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          email: email,
+          totalMeetings: events.length,
+          byDay: byDay
+        });
+        
+        logger.info(`📅 Week calendar served for ${email}: ${events.length} meetings`);
+        
+      } catch (error) {
+        logger.error('Error getting week\'s calendar:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get meetings for a custom date range (Obsidian plugin)
+    this.expressApp.get('/api/calendar/:email/range', async (req, res) => {
+      try {
+        const { BL_EMAILS } = require('./services/calendarService');
+        const intelligenceStore = require('./services/intelligenceStore');
+        const email = req.params.email.toLowerCase();
+        const { start, end } = req.query;
+        
+        if (!start || !end) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Missing start or end query parameters' 
+          });
+        }
+        
+        // Security: only serve calendars for registered BLs
+        if (!BL_EMAILS.map(e => e.toLowerCase()).includes(email)) {
+          return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+        
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Invalid date format. Use ISO format.' 
+          });
+        }
+        
+        const events = await intelligenceStore.getStoredCalendarEvents(startDate, endDate, {
+          ownerEmail: email
+        });
+        
+        const meetings = events.map(event => ({
+          id: event.id || event.event_id,
+          subject: event.subject,
+          start: event.start_datetime,
+          end: event.end_datetime,
+          location: event.location,
+          attendees: event.externalAttendees || [],
+          isCustomerMeeting: event.isCustomerMeeting,
+          accountName: event.matched_account_name,
+          accountId: event.matched_account_id
+        }));
+        
+        res.json({
+          success: true,
+          startDate: start,
+          endDate: end,
+          email: email,
+          meetingCount: meetings.length,
+          meetings: meetings
+        });
+        
+      } catch (error) {
+        logger.error('Error getting calendar range:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // Health check endpoint - comprehensive system status
     this.expressApp.get('/api/health', async (req, res) => {
       try {

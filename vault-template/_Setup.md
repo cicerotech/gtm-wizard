@@ -48,6 +48,16 @@ After each recording, you get structured sections:
 - **Risks & Objections** - Concerns to address
 - **Competitive Intelligence** - Competitor mentions
 
+### Smart Tags (Auto-extracted)
+
+Your note's frontmatter is automatically updated with:
+
+- **product_interest** - Product lines mentioned (ai-contracting-tech, sigma, etc.)
+- **meddicc_signals** - Champion identified, pain confirmed, metrics discussed, etc.
+- **deal_health** - progressing, at-risk, stalled, early-stage
+- **meeting_type** - discovery, demo, negotiation, qbr, etc.
+- **key_stakeholders** - Names and roles of key people
+
 ### Automatic Salesforce Sync
 
 When you finish recording:
@@ -66,19 +76,24 @@ The **Eudia Transcription Plugin** handles everything:
 | **Record** | Click microphone icon → recording bar appears |
 | **Transcribe** | Stop recording → AI processes in background |
 | **Summarize** | Structured notes appear in your file |
+| **Smart Tags** | Auto-extracts product lines, MEDDICC signals, deal health |
 | **Sync** | Pushes to Salesforce Customer Brain |
 | **Pre-Call Context** | `Cmd/Ctrl + P` → "Fetch Pre-Call Context" |
 
 ---
 
-## Calendar Integration
+## Calendar Integration (Native)
 
-Your Outlook calendar appears in the Full Calendar plugin:
-- **View**: Click the calendar icon in the left sidebar
-- **Weekly view**: See upcoming meetings at a glance
-- **Click any event** to see details and prepare
+Your Outlook calendar is built directly into the plugin:
 
-The calendar syncs from Outlook via GTM-Brain and updates every 5 minutes.
+- **View**: Click the **calendar icon** in the left sidebar
+- **Weekly view**: See upcoming meetings grouped by day
+- **Customer vs. Internal**: Customer meetings are highlighted
+- **One-click notes**: Click any meeting to create a pre-filled note
+
+The calendar auto-detects your current meeting when you start recording, filling in the title and attendees automatically.
+
+Calendar data syncs from Outlook via GTM-Brain and updates every 5 minutes.
 
 ---
 
@@ -115,6 +130,7 @@ Open Command Palette (`Cmd/Ctrl + P`) and search:
 | Command | Description |
 |---------|-------------|
 | Run Setup Wizard | Configure email and calendar |
+| Open Calendar View | Show native calendar sidebar |
 | Start Recording | Begin audio capture |
 | Stop Recording & Transcribe | End recording and process |
 | Toggle Recording | Start or stop |
