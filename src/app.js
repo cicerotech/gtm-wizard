@@ -914,6 +914,15 @@ class GTMBrainApp {
     this.expressApp.get('/outbound', (req, res) => res.redirect('/outbound-playbook'));
     this.expressApp.get('/playbook', (req, res) => res.redirect('/outbound-playbook'));
 
+    // Cadence Generator (5-step email sequences)
+    this.expressApp.get('/cadence-generator', (req, res) => {
+      const path = require('path');
+      const cadencePath = path.join(__dirname, '..', 'docs', 'cadence-generator.html');
+      res.sendFile(cadencePath);
+    });
+    this.expressApp.get('/cadence', (req, res) => res.redirect('/cadence-generator'));
+    this.expressApp.get('/sequences', (req, res) => res.redirect('/cadence-generator'));
+
     // GTM Brain Architecture / Data Flow Diagram
     this.expressApp.get('/architecture', (req, res) => {
       const path = require('path');

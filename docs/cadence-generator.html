@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadence Generator | Eudia Outbound</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+        
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        
+        .logo {
+            font-size: 14px;
+            font-weight: 700;
+            color: #64748b;
+            letter-spacing: 2px;
+            margin-bottom: 16px;
+        }
+        
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: #64748b;
+            font-size: 15px;
+        }
+        
+        /* Input Section */
+        .input-section {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 24px;
+        }
+        
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .input-group.full-width {
+            grid-column: span 2;
+        }
+        
+        label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        input, select, textarea {
+            padding: 12px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #1e293b;
+            background: #fafbfc;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            background: white;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .generate-btn {
+            width: 100%;
+            padding: 14px 24px;
+            background: #0f172a;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.15s, transform 0.1s;
+        }
+        
+        .generate-btn:hover {
+            background: #1e293b;
+        }
+        
+        .generate-btn:active {
+            transform: scale(0.99);
+        }
+        
+        /* Cadence Output */
+        .cadence-output {
+            display: none;
+        }
+        
+        .cadence-output.visible {
+            display: block;
+        }
+        
+        .step {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px 20px;
+            background: #fafbfc;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .step-number {
+            width: 32px;
+            height: 32px;
+            background: #0f172a;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+        }
+        
+        .step-meta {
+            flex: 1;
+        }
+        
+        .step-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .step-timing {
+            font-size: 12px;
+            color: #64748b;
+        }
+        
+        .step-content {
+            padding: 20px;
+        }
+        
+        .email-subject {
+            background: #f1f5f9;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #475569;
+            margin-bottom: 14px;
+        }
+        
+        .email-body {
+            font-size: 14px;
+            color: #374151;
+            line-height: 1.7;
+            white-space: pre-line;
+        }
+        
+        .email-body p {
+            margin-bottom: 12px;
+        }
+        
+        .copy-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #475569;
+            cursor: pointer;
+            margin-top: 14px;
+            transition: all 0.15s;
+        }
+        
+        .copy-btn:hover {
+            background: #e2e8f0;
+            color: #1e293b;
+        }
+        
+        .copy-btn.copied {
+            background: #dcfce7;
+            color: #15803d;
+            border-color: #bbf7d0;
+        }
+        
+        /* Tactics Sidebar */
+        .tactics-bar {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            font-size: 13px;
+        }
+        
+        .tactics-bar strong {
+            color: #92400e;
+        }
+        
+        .tactics-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .tactic-tag {
+            background: white;
+            border: 1px solid #fde68a;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            color: #78350f;
+        }
+        
+        /* Footer */
+        footer {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 12px;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        @media (max-width: 640px) {
+            .input-grid {
+                grid-template-columns: 1fr;
+            }
+            .input-group.full-width {
+                grid-column: span 1;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <header>
+        <div class="logo">EUDIA</div>
+        <h1>5-Step Cadence Generator</h1>
+        <p class="subtitle">Non-canned, trigger-based outbound sequences</p>
+    </header>
+    
+    <div class="tactics-bar">
+        <strong>2026 Outbound Tactics Built In:</strong>
+        <div class="tactics-list">
+            <span class="tactic-tag">Pattern Interrupts</span>
+            <span class="tactic-tag">3-4 Sentences Max</span>
+            <span class="tactic-tag">Trigger-Based Opens</span>
+            <span class="tactic-tag">Specific Numbers</span>
+            <span class="tactic-tag">No "Just Checking In"</span>
+            <span class="tactic-tag">Soft Breakups</span>
+            <span class="tactic-tag">Thread Replies</span>
+        </div>
+    </div>
+    
+    <div class="input-section">
+        <div class="input-grid">
+            <div class="input-group">
+                <label>Company Name</label>
+                <input type="text" id="company" placeholder="e.g., Pfizer">
+            </div>
+            <div class="input-group">
+                <label>Contact First Name</label>
+                <input type="text" id="firstName" placeholder="e.g., Sarah">
+            </div>
+            <div class="input-group">
+                <label>Persona</label>
+                <select id="persona">
+                    <option value="CLO">CLO / General Counsel</option>
+                    <option value="VP Legal">VP Legal / Head of Contracting</option>
+                    <option value="Deputy GC">Deputy GC / M&A Counsel</option>
+                    <option value="Legal Ops">Legal Ops Director</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Trigger / Why Now</label>
+                <select id="trigger">
+                    <option value="ma">M&A Activity / Acquisition</option>
+                    <option value="expansion">Geographic Expansion</option>
+                    <option value="funding">Recent Funding Round</option>
+                    <option value="newhire">New CLO/GC Hire</option>
+                    <option value="clm">CLM Implementation (Underwhelmed)</option>
+                    <option value="general">General Outreach</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Product Focus</label>
+                <select id="product">
+                    <option value="contracting">AI Contracting (Speed)</option>
+                    <option value="compliance">AI Compliance</option>
+                    <option value="ma">AI M&A (Due Diligence)</option>
+                    <option value="sigma">Sigma Platform</option>
+                    <option value="full">Full Platform</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Your Name</label>
+                <input type="text" id="senderName" placeholder="e.g., Keigan">
+            </div>
+            <div class="input-group full-width">
+                <label>Specific Trigger Detail (Optional)</label>
+                <textarea id="triggerDetail" placeholder="e.g., Announced acquisition of BioTech Corp last week, expanding into EU market, just hired new CLO from Merck..."></textarea>
+            </div>
+        </div>
+        
+        <button class="generate-btn" onclick="generateCadence()">Generate 5-Step Cadence</button>
+    </div>
+    
+    <div class="cadence-output" id="cadenceOutput">
+        <!-- Steps will be inserted here -->
+    </div>
+    
+    <footer>
+        Eudia Cadence Generator | Non-canned sequences only
+    </footer>
+</div>
+
+<script>
+function generateCadence() {
+    const company = document.getElementById('company').value || '[Company]';
+    const firstName = document.getElementById('firstName').value || '[First Name]';
+    const persona = document.getElementById('persona').value;
+    const trigger = document.getElementById('trigger').value;
+    const product = document.getElementById('product').value;
+    const sender = document.getElementById('senderName').value || '[Your Name]';
+    const triggerDetail = document.getElementById('triggerDetail').value;
+    
+    // Build the cadence based on inputs
+    const cadence = buildCadence(company, firstName, persona, trigger, product, sender, triggerDetail);
+    
+    // Render
+    const output = document.getElementById('cadenceOutput');
+    output.innerHTML = cadence.map((step, i) => `
+        <div class="step">
+            <div class="step-header">
+                <div class="step-number">${i + 1}</div>
+                <div class="step-meta">
+                    <div class="step-title">${step.title}</div>
+                    <div class="step-timing">${step.timing}</div>
+                </div>
+            </div>
+            <div class="step-content">
+                <div class="email-subject">Subject: ${step.subject}</div>
+                <div class="email-body">${step.body}</div>
+                <button class="copy-btn" onclick="copyEmail(this, ${i})">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    Copy
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    output.classList.add('visible');
+    output.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function buildCadence(company, firstName, persona, trigger, product, sender, detail) {
+    // Trigger-specific openers
+    const triggerOpeners = {
+        ma: `Saw ${company}'s recent acquisition news.`,
+        expansion: `${company}'s expansion caught my attention.`,
+        funding: `Congrats on ${company}'s round.`,
+        newhire: `Noticed ${company} brought in new legal leadership.`,
+        clm: `Curious how CLM is working out at ${company}.`,
+        general: `Quick question about legal ops at ${company}.`
+    };
+    
+    // Product-specific value props
+    const productProps = {
+        contracting: { metric: '2-3x faster contract cycles', pain: 'contract turnaround', outcome: 'closed a Fortune 500 manufacturer's deals 3x faster' },
+        compliance: { metric: '40-70% compliance cost reduction', pain: 'regulatory burden', outcome: 'cut compliance review from 3 weeks to 3 days' },
+        ma: { metric: 'due diligence in 10 days vs 6 weeks', pain: 'deal velocity', outcome: 'compressed a $2B acquisition diligence to 10 days' },
+        sigma: { metric: 'visibility into legal ops within 48 hours', pain: 'workflow blind spots', outcome: 'gave a CLO real-time visibility into 400 matters' },
+        full: { metric: 'measurable outcomes in 30 days', pain: 'AI exploration without ROI', outcome: 'delivered $180K in OC savings in 90 days' }
+    };
+    
+    const prop = productProps[product];
+    const opener = triggerOpeners[trigger];
+    const customDetail = detail ? `\n\n${detail}` : '';
+    
+    // STEP 1: Pattern Interrupt + Trigger
+    const step1 = {
+        title: 'Pattern Interrupt',
+        timing: 'Day 1 (Trigger-Based)',
+        subject: trigger === 'ma' ? `${company} + due diligence` :
+                 trigger === 'expansion' ? `Legal ops at ${company}` :
+                 trigger === 'funding' ? `${company} legal scaling` :
+                 trigger === 'newhire' ? `90-day wins at ${company}` :
+                 trigger === 'clm' ? `Beyond CLM at ${company}` :
+                 `${company} + legal velocity`,
+        body: `${firstName},
+
+${opener}${customDetail}
+
+One question: how's the legal team handling ${prop.pain}?
+
+We ${prop.outcome}. Not with another tool—with embedded AI engineers and measurable outcomes.
+
+Worth 15 minutes?
+
+${sender}`
+    };
+    
+    // STEP 2: Value Add (No Ask)
+    const step2 = {
+        title: 'Value Add (No Ask)',
+        timing: 'Day 3 (Reply to Thread)',
+        subject: `Re: ${step1.subject}`,
+        body: `${firstName},
+
+Quick thought based on what I'm seeing with similar ${persona}s:
+
+Most are stuck between "AI experimentation" and "show me the ROI." The bridge is ${prop.metric}—not after a 6-month implementation, but within 30 days.
+
+Happy to share how if useful.
+
+${sender}`
+    };
+    
+    // STEP 3: Social Proof + Specificity
+    const step3 = {
+        title: 'Social Proof',
+        timing: 'Day 7 (New Angle)',
+        subject: `Re: ${step1.subject}`,
+        body: `${firstName},
+
+Sharing this because it mirrors ${company}'s situation:
+
+A ${persona === 'CLO' ? 'Fortune 500 CLO' : persona === 'VP Legal' ? 'VP Legal at a $10B manufacturer' : 'legal team at a top PE firm'} was drowning in ${prop.pain}. 90 days later: ${prop.metric}.
+
+No new software for your team to learn. We embed, deliver outcomes, build your Company Brain.
+
+If there's a fit, I'd rather show you than tell you. 15 minutes?
+
+${sender}`
+    };
+    
+    // STEP 4: Direct + Short
+    const step4 = {
+        title: 'Direct Ping',
+        timing: 'Day 12 (Ultra-Short)',
+        subject: `Re: ${step1.subject}`,
+        body: `${firstName},
+
+Still thinking about ${prop.pain} at ${company}?
+
+One call to see if there's a fit. If not, I'll disappear.
+
+${sender}`
+    };
+    
+    // STEP 5: Soft Breakup
+    const step5 = {
+        title: 'Soft Breakup',
+        timing: 'Day 18 (Final)',
+        subject: `Re: ${step1.subject}`,
+        body: `${firstName},
+
+I'll assume timing isn't right.
+
+If ${prop.pain} becomes a priority, I'm here. Otherwise, no more emails from me on this.
+
+One thing before I go: we're publishing a brief on how ${persona === 'CLO' ? 'CLOs' : 'legal leaders'} are actually showing AI ROI in 2026. Want me to send it when it's out?
+
+${sender}`
+    };
+    
+    return [step1, step2, step3, step4, step5];
+}
+
+function copyEmail(btn, index) {
+    const step = document.querySelectorAll('.step')[index];
+    const subject = step.querySelector('.email-subject').textContent.replace('Subject: ', '');
+    const body = step.querySelector('.email-body').textContent;
+    
+    const fullEmail = `Subject: ${subject}\n\n${body}`;
+    
+    navigator.clipboard.writeText(fullEmail).then(() => {
+        btn.classList.add('copied');
+        btn.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Copied`;
+        
+        setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg> Copy`;
+        }, 2000);
+    });
+}
+</script>
+
+</body>
+</html>
+
