@@ -124,11 +124,11 @@
     <picklistValues>
         <picklist>Product_Lines_Multi__c</picklist>
         <values>
-            <fullName>AI-Augmented Contracting - In-House Technology</fullName>
+            <fullName>AI Contracting - Technology</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>AI-Augmented Contracting - Managed Services</fullName>
+            <fullName>AI Contracting - Managed Services</fullName>
             <default>false</default>
         </values>
         <values>
@@ -136,15 +136,11 @@
             <default>false</default>
         </values>
         <values>
-            <fullName>AI-Augmented Compliance - In-House Technology</fullName>
+            <fullName>AI Compliance - Technology</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>AI-Augmented M%26A - In-House Technology</fullName>
-            <default>false</default>
-        </values>
-        <values>
-            <fullName>AI-Augmented M%26A - Managed Service</fullName>
+            <fullName>AI M%26A - Managed Services</fullName>
             <default>false</default>
         </values>
         <values>
