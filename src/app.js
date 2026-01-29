@@ -1064,6 +1064,65 @@ class GTMBrainApp {
       }
     });
 
+    // Check alert subscriptions status
+    this.expressApp.get('/alert-status', async (req, res) => {
+      res.json({
+        closedWonAlerts: {
+          enabled: process.env.CLOSED_WON_ALERTS_ENABLED === 'true',
+          channel: process.env.CLOSED_WON_ALERT_CHANNEL ? 'configured' : 'NOT SET',
+          user: process.env.CLOSED_WON_ALERT_USER ? 'configured' : 'NOT SET'
+        },
+        csStaffingAlerts: {
+          enabled: process.env.CS_STAFFING_ALERTS_ENABLED === 'true',
+          channel: process.env.CS_STAFFING_ALERT_CHANNEL || 'NOT SET'
+        }
+      });
+    });
+
+    // Preview CS Staffing Alert - sends test message to verify channel works
+    this.expressApp.get('/preview-cs-staffing', async (req, res) => {
+      try {
+        const { formatCSStaffingMessage } = require('./services/csStaffingAlerts');
+        const channelId = process.env.CS_STAFFING_ALERT_CHANNEL;
+        
+        if (!channelId) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'CS_STAFFING_ALERT_CHANNEL not configured'
+          });
+        }
+        
+        const testMessage = formatCSStaffingMessage({
+          accountName: 'TEST ACCOUNT',
+          opportunityName: 'Test Opportunity - Stage 4 Alert',
+          stageName: 'Stage 4 - Proposal',
+          acv: '$50,000',
+          productLine: 'AI Contracting – Managed Services',
+          ownerName: 'Test User',
+          targetSignDate: 'Feb 28, 2026',
+          oppUrl: 'https://eudia.lightning.force.com/lightning/r/Opportunity/006000000000000AAA/view'
+        });
+        
+        await this.app.client.chat.postMessage({
+          channel: channelId,
+          text: `🧪 *TEST - CS Staffing Alert Preview*\n_This is a test message to verify the channel is working:_\n\n---\n\n${testMessage}`,
+          unfurl_links: false
+        });
+        
+        res.json({ 
+          success: true, 
+          message: `Preview sent to channel ${channelId}`,
+          preview: testMessage
+        });
+      } catch (error) {
+        res.status(500).json({ 
+          success: false, 
+          error: error.message,
+          details: error.data || null
+        });
+      }
+    });
+
     // Send BL Summary to production channel (use with caution)
     this.expressApp.get('/send-bl-summary-prod', async (req, res) => {
       try {
@@ -3506,7 +3565,7 @@ SENTIMENT: [Positive/Neutral/Negative]`
         logger.info('🎉 Closed Won alerts subscription started');
       }
 
-      // Subscribe to CS Staffing Platform Events
+      // Subscribe to CS Staffing Platform Events (Stage 4/5)
       if (process.env.CS_STAFFING_ALERTS_ENABLED === 'true') {
         const { subscribeToCSStaffingEvents } = require('./services/csStaffingAlerts');
         await subscribeToCSStaffingEvents(this.app);
