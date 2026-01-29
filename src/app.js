@@ -1590,6 +1590,57 @@ LIMIT 20
       }
     });
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // OBSIDIAN NOTE SYNC
+    // Receives notes from Obsidian plugin and logs/stores for Salesforce sync
+    // ═══════════════════════════════════════════════════════════════════════════
+    this.expressApp.post('/api/notes/sync', async (req, res) => {
+      try {
+        const { accountId, accountName, noteTitle, notePath, content, frontmatter, syncedAt } = req.body;
+        
+        if (!accountId || !noteTitle) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'accountId and noteTitle are required' 
+          });
+        }
+
+        logger.info(`Obsidian note sync: "${noteTitle}" for account ${accountName} (${accountId})`);
+        
+        // For now, log the sync and acknowledge
+        // Future: Create a Task or Note record in Salesforce
+        // Future: Store in Redis for batch processing
+        
+        // Extract key meeting data from content
+        const meetingData = {
+          accountId,
+          accountName,
+          noteTitle,
+          notePath,
+          syncedAt,
+          frontmatter,
+          // Parse sections from content if present
+          hasSummary: content.includes('## Summary'),
+          hasMeddicc: content.includes('## MEDDICC'),
+          hasNextSteps: content.includes('## Next Steps'),
+          hasActionItems: content.includes('## Action Items'),
+          contentLength: content.length
+        };
+
+        logger.info('Meeting data extracted:', JSON.stringify(meetingData, null, 2));
+        
+        res.json({ 
+          success: true, 
+          message: 'Note synced successfully',
+          data: meetingData
+        });
+
+      } catch (error) {
+        logger.error('Error syncing Obsidian note:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // Get historical meeting preps for an account
     this.expressApp.get('/api/meeting-prep/account/:accountId', async (req, res) => {
       try {

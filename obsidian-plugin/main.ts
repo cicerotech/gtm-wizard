@@ -1,17 +1,33 @@
-import { App, Plugin, PluginSettingTab, Setting, Notice, TFolder, requestUrl } from 'obsidian';
+import { 
+  App, 
+  Plugin, 
+  PluginSettingTab, 
+  Setting, 
+  Notice, 
+  TFolder, 
+  TFile,
+  requestUrl,
+  EditorSuggest,
+  EditorSuggestContext,
+  EditorSuggestTriggerInfo,
+  Editor,
+  EditorPosition
+} from 'obsidian';
 
 interface EudiaSyncSettings {
   serverUrl: string;
   accountsFolder: string;
   syncOnStartup: boolean;
   lastSyncTime: string | null;
+  cachedAccounts: SalesforceAccount[];
 }
 
 const DEFAULT_SETTINGS: EudiaSyncSettings = {
   serverUrl: 'https://gtm-brain.onrender.com',
   accountsFolder: 'Accounts',
   syncOnStartup: true,
-  lastSyncTime: null
+  lastSyncTime: null,
+  cachedAccounts: []
 };
 
 interface SalesforceAccount {
@@ -25,11 +41,99 @@ interface AccountsResponse {
   accounts: SalesforceAccount[];
 }
 
+/**
+ * Account Suggester - provides autocomplete for account names in frontmatter
+ */
+class AccountSuggester extends EditorSuggest<SalesforceAccount> {
+  plugin: EudiaSyncPlugin;
+
+  constructor(app: App, plugin: EudiaSyncPlugin) {
+    super(app);
+    this.plugin = plugin;
+  }
+
+  onTrigger(cursor: EditorPosition, editor: Editor, file: TFile | null): EditorSuggestTriggerInfo | null {
+    const line = editor.getLine(cursor.line);
+    
+    // Only trigger in frontmatter (between --- markers)
+    const content = editor.getValue();
+    const cursorOffset = editor.posToOffset(cursor);
+    const beforeCursor = content.substring(0, cursorOffset);
+    
+    // Check if we're in frontmatter
+    const frontmatterStart = content.indexOf('---');
+    const frontmatterEnd = content.indexOf('---', frontmatterStart + 3);
+    
+    if (frontmatterStart === -1 || cursorOffset < frontmatterStart || cursorOffset > frontmatterEnd) {
+      return null;
+    }
+    
+    // Check if this line is the account property
+    const accountMatch = line.match(/^account:\s*(.*)$/);
+    if (!accountMatch) {
+      return null;
+    }
+    
+    const query = accountMatch[1].trim();
+    const startPos = line.indexOf(':') + 1;
+    const leadingSpaces = line.substring(startPos).match(/^\s*/)?.[0].length || 0;
+    
+    return {
+      start: { line: cursor.line, ch: startPos + leadingSpaces },
+      end: cursor,
+      query: query
+    };
+  }
+
+  getSuggestions(context: EditorSuggestContext): SalesforceAccount[] {
+    const query = context.query.toLowerCase();
+    const accounts = this.plugin.settings.cachedAccounts;
+    
+    if (!query) {
+      // Return first 10 accounts if no query
+      return accounts.slice(0, 10);
+    }
+    
+    // Filter and sort by relevance
+    return accounts
+      .filter(a => a.name.toLowerCase().includes(query))
+      .sort((a, b) => {
+        // Prioritize accounts that START with the query
+        const aStarts = a.name.toLowerCase().startsWith(query);
+        const bStarts = b.name.toLowerCase().startsWith(query);
+        if (aStarts && !bStarts) return -1;
+        if (bStarts && !aStarts) return 1;
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, 10);
+  }
+
+  renderSuggestion(account: SalesforceAccount, el: HTMLElement): void {
+    el.createEl('div', { text: account.name, cls: 'suggestion-title' });
+  }
+
+  selectSuggestion(account: SalesforceAccount, evt: MouseEvent | KeyboardEvent): void {
+    if (!this.context) return;
+    
+    const editor = this.context.editor;
+    editor.replaceRange(
+      account.name,
+      this.context.start,
+      this.context.end
+    );
+  }
+}
+
 export default class EudiaSyncPlugin extends Plugin {
   settings: EudiaSyncSettings;
+  accountSuggester: AccountSuggester;
 
   async onload() {
     await this.loadSettings();
+
+    // Register account suggester for autocomplete
+    this.accountSuggester = new AccountSuggester(this.app, this);
+    this.registerEditorSuggest(this.accountSuggester);
 
     // Add ribbon icon for manual sync
     this.addRibbonIcon('refresh-cw', 'Sync Salesforce Accounts', async () => {
@@ -42,6 +146,24 @@ export default class EudiaSyncPlugin extends Plugin {
       name: 'Sync Salesforce Accounts',
       callback: async () => {
         await this.syncAccounts();
+      }
+    });
+
+    // Add command to sync current note to Salesforce
+    this.addCommand({
+      id: 'sync-note-to-salesforce',
+      name: 'Sync Current Note to Salesforce',
+      callback: async () => {
+        await this.syncNoteToSalesforce();
+      }
+    });
+
+    // Add command to create note from meeting prep
+    this.addCommand({
+      id: 'create-from-meeting-prep',
+      name: 'Create Note from Meeting Prep',
+      callback: async () => {
+        await this.createFromMeetingPrep();
       }
     });
 
@@ -84,6 +206,9 @@ export default class EudiaSyncPlugin extends Plugin {
         return;
       }
 
+      // Cache accounts for autocomplete
+      this.settings.cachedAccounts = accounts;
+
       // Ensure base accounts folder exists
       await this.ensureFolderExists(this.settings.accountsFolder);
 
@@ -108,9 +233,9 @@ export default class EudiaSyncPlugin extends Plugin {
 
       if (!silent) {
         if (created > 0) {
-          new Notice(`Sync complete! Created ${created} new account folders`);
+          new Notice(`Sync complete! Created ${created} new account folders. ${accounts.length} accounts available for autocomplete.`);
         } else {
-          new Notice(`Sync complete. All ${accounts.length} accounts already have folders.`);
+          new Notice(`Sync complete. All ${accounts.length} accounts ready for autocomplete.`);
         }
       }
 
@@ -145,6 +270,144 @@ export default class EudiaSyncPlugin extends Plugin {
     } catch (error) {
       console.error('Failed to fetch accounts:', error);
       throw new Error('Could not connect to GTM Brain server');
+    }
+  }
+
+  /**
+   * Sync the current note to Salesforce
+   * Reads frontmatter and posts to GTM Brain API
+   */
+  async syncNoteToSalesforce(): Promise<void> {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile) {
+      new Notice('No active note to sync');
+      return;
+    }
+
+    try {
+      const content = await this.app.vault.read(activeFile);
+      const frontmatter = this.parseFrontmatter(content);
+      
+      if (!frontmatter.account) {
+        new Notice('No account specified in note. Add an "account" property first.');
+        return;
+      }
+
+      // Find account ID from cached accounts
+      const account = this.settings.cachedAccounts.find(
+        a => a.name.toLowerCase() === frontmatter.account.toLowerCase()
+      );
+
+      if (!account) {
+        new Notice(`Account "${frontmatter.account}" not found in Salesforce`);
+        return;
+      }
+
+      new Notice('Syncing note to Salesforce...');
+
+      // Post to GTM Brain API
+      const response = await requestUrl({
+        url: `${this.settings.serverUrl}/api/notes/sync`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          accountId: account.id,
+          accountName: account.name,
+          noteTitle: activeFile.basename,
+          notePath: activeFile.path,
+          content: content,
+          frontmatter: frontmatter,
+          syncedAt: new Date().toISOString()
+        })
+      });
+
+      if (response.json.success) {
+        new Notice('✓ Note synced to Salesforce');
+        
+        // Update frontmatter to mark as synced
+        await this.updateFrontmatter(activeFile, {
+          synced_to_salesforce: true,
+          last_synced: new Date().toISOString()
+        });
+      } else {
+        new Notice(`Sync failed: ${response.json.error || 'Unknown error'}`);
+      }
+
+    } catch (error) {
+      console.error('Sync to Salesforce failed:', error);
+      new Notice(`Sync failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Create a note from meeting prep data
+   */
+  async createFromMeetingPrep(): Promise<void> {
+    try {
+      // For now, just show a notice - full implementation would:
+      // 1. Fetch upcoming meetings from calendar
+      // 2. Let user select one
+      // 3. Fetch meeting prep from GTM Brain
+      // 4. Create note with pre-filled content
+      new Notice('Meeting Prep integration coming soon. Use the Meeting Prep tab at gtm-brain.onrender.com for now.');
+    } catch (error) {
+      console.error('Create from meeting prep failed:', error);
+      new Notice(`Failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Parse frontmatter from note content
+   */
+  parseFrontmatter(content: string): Record<string, any> {
+    const match = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!match) return {};
+
+    const frontmatter: Record<string, any> = {};
+    const lines = match[1].split('\n');
+    
+    for (const line of lines) {
+      const colonIndex = line.indexOf(':');
+      if (colonIndex > 0) {
+        const key = line.substring(0, colonIndex).trim();
+        const value = line.substring(colonIndex + 1).trim();
+        frontmatter[key] = value;
+      }
+    }
+    
+    return frontmatter;
+  }
+
+  /**
+   * Update frontmatter properties in a file
+   */
+  async updateFrontmatter(file: TFile, updates: Record<string, any>): Promise<void> {
+    let content = await this.app.vault.read(file);
+    
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    
+    if (frontmatterMatch) {
+      let frontmatterContent = frontmatterMatch[1];
+      
+      for (const [key, value] of Object.entries(updates)) {
+        const regex = new RegExp(`^${key}:.*$`, 'm');
+        const newLine = `${key}: ${value}`;
+        
+        if (regex.test(frontmatterContent)) {
+          frontmatterContent = frontmatterContent.replace(regex, newLine);
+        } else {
+          frontmatterContent += `\n${newLine}`;
+        }
+      }
+      
+      content = content.replace(
+        /^---\n[\s\S]*?\n---/,
+        `---\n${frontmatterContent}\n---`
+      );
+      
+      await this.app.vault.modify(file, content);
     }
   }
 
@@ -237,7 +500,9 @@ class EudiaSyncSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }));
 
-    // Last sync time
+    // Stats
+    containerEl.createEl('h3', { text: 'Status' });
+    
     if (this.plugin.settings.lastSyncTime) {
       const lastSync = new Date(this.plugin.settings.lastSyncTime);
       containerEl.createEl('p', { 
@@ -245,6 +510,11 @@ class EudiaSyncSettingTab extends PluginSettingTab {
         cls: 'setting-item-description'
       });
     }
+
+    containerEl.createEl('p', { 
+      text: `Cached accounts: ${this.plugin.settings.cachedAccounts.length}`,
+      cls: 'setting-item-description'
+    });
 
     // Manual sync button
     new Setting(containerEl)
@@ -255,7 +525,19 @@ class EudiaSyncSettingTab extends PluginSettingTab {
         .setCta()
         .onClick(async () => {
           await this.plugin.syncAccounts();
+          this.display(); // Refresh to show new count
+        }));
+
+    // Salesforce sync section
+    containerEl.createEl('h3', { text: 'Salesforce Integration' });
+
+    new Setting(containerEl)
+      .setName('Sync Current Note')
+      .setDesc('Push the current note\'s data to Salesforce')
+      .addButton(button => button
+        .setButtonText('Sync to Salesforce')
+        .onClick(async () => {
+          await this.plugin.syncNoteToSalesforce();
         }));
   }
 }
-

@@ -2,6 +2,7 @@
 account: 
 date: {{date}}
 attendees: 
+sync_to_salesforce: false
 ---
 
 # {{title}}
@@ -35,4 +36,3 @@ attendees:
 > **Account:**  | **Stage:**  | **ACV Potential:** 
 > **Key Contact:** 
 > **Next Meeting:** 
-
