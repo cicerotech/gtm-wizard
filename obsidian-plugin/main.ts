@@ -29,10 +29,12 @@ interface EudiaSyncSettings {
   appendTranscript: boolean;
   lastSyncTime: string | null;
   cachedAccounts: SalesforceAccount[];
-  // New: User configuration
+  // User configuration
   userEmail: string;
   setupCompleted: boolean;
   calendarConfigured: boolean;
+  // OpenAI configuration (fallback if server key unavailable)
+  openaiApiKey: string;
 }
 
 const DEFAULT_SETTINGS: EudiaSyncSettings = {
@@ -45,10 +47,12 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   appendTranscript: false,
   lastSyncTime: null,
   cachedAccounts: [],
-  // New: User configuration
+  // User configuration
   userEmail: '',
   setupCompleted: false,
-  calendarConfigured: false
+  calendarConfigured: false,
+  // OpenAI configuration
+  openaiApiKey: ''
 };
 
 interface SalesforceAccount {
@@ -308,6 +312,101 @@ class ProcessingModal extends Modal {
 }
 
 /**
+ * Account Selector Modal
+ * Quick account picker for creating new meeting notes
+ */
+class AccountSelectorModal extends Modal {
+  plugin: EudiaSyncPlugin;
+  private searchInput: HTMLInputElement;
+  private resultsContainer: HTMLElement;
+  private onSelect: (account: SalesforceAccount | null) => void;
+
+  constructor(app: App, plugin: EudiaSyncPlugin, onSelect: (account: SalesforceAccount | null) => void) {
+    super(app);
+    this.plugin = plugin;
+    this.onSelect = onSelect;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass('eudia-account-selector');
+
+    contentEl.createEl('h3', { text: 'Select Account for Meeting Note' });
+
+    // Search input
+    this.searchInput = contentEl.createEl('input', {
+      type: 'text',
+      placeholder: 'Search accounts...'
+    });
+    this.searchInput.style.width = '100%';
+    this.searchInput.style.padding = '10px';
+    this.searchInput.style.marginBottom = '10px';
+    this.searchInput.style.borderRadius = '6px';
+    this.searchInput.style.border = '1px solid var(--background-modifier-border)';
+
+    // Results container
+    this.resultsContainer = contentEl.createDiv({ cls: 'eudia-account-results' });
+    this.resultsContainer.style.maxHeight = '300px';
+    this.resultsContainer.style.overflowY = 'auto';
+
+    // Show initial results
+    this.updateResults('');
+
+    // Handle input
+    this.searchInput.addEventListener('input', () => {
+      this.updateResults(this.searchInput.value);
+    });
+
+    // Focus input
+    this.searchInput.focus();
+  }
+
+  updateResults(query: string): void {
+    this.resultsContainer.empty();
+
+    const accounts = this.plugin.settings.cachedAccounts;
+    const lowerQuery = query.toLowerCase();
+    
+    const filtered = query 
+      ? accounts.filter(a => a.name.toLowerCase().includes(lowerQuery))
+      : accounts.slice(0, 20);
+
+    if (filtered.length === 0) {
+      this.resultsContainer.createEl('div', { 
+        text: query ? 'No accounts found' : 'No accounts cached. Run "Sync Accounts" first.',
+        cls: 'eudia-no-results'
+      }).style.padding = '10px';
+      return;
+    }
+
+    for (const account of filtered.slice(0, 20)) {
+      const item = this.resultsContainer.createEl('div', { cls: 'eudia-account-item' });
+      item.style.padding = '8px 12px';
+      item.style.cursor = 'pointer';
+      item.style.borderRadius = '4px';
+      item.createEl('span', { text: account.name });
+
+      item.addEventListener('mouseenter', () => {
+        item.style.background = 'var(--background-modifier-hover)';
+      });
+      item.addEventListener('mouseleave', () => {
+        item.style.background = '';
+      });
+      item.addEventListener('click', () => {
+        this.onSelect(account);
+        this.close();
+      });
+    }
+  }
+
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+}
+
+/**
  * First-Launch Setup Wizard
  * Prompts for email, configures calendar, syncs accounts
  */
@@ -517,7 +616,10 @@ export default class EudiaSyncPlugin extends Plugin {
 
     // Initialize services
     this.audioRecorder = new AudioRecorder();
-    this.transcriptionService = new TranscriptionService(this.settings.serverUrl);
+    this.transcriptionService = new TranscriptionService(
+      this.settings.serverUrl, 
+      this.settings.openaiApiKey
+    );
 
     // Set up audio recorder callbacks
     this.audioRecorder.onStateChange((state) => {
@@ -604,6 +706,30 @@ export default class EudiaSyncPlugin extends Plugin {
       }
     });
 
+    this.addCommand({
+      id: 'create-meeting-note',
+      name: 'Create New Meeting Note',
+      callback: async () => {
+        await this.createMeetingNote();
+      }
+    });
+
+    // Register file creation hook to auto-apply template
+    this.registerEvent(
+      this.app.vault.on('create', async (file) => {
+        if (file instanceof TFile && file.extension === 'md') {
+          // Check if file is in Accounts folder and is empty
+          if (file.path.startsWith(this.settings.accountsFolder + '/')) {
+            const content = await this.app.vault.read(file);
+            if (content.trim() === '') {
+              // Auto-apply meeting template
+              await this.applyMeetingTemplate(file);
+            }
+          }
+        }
+      })
+    );
+
     // Add settings tab
     this.addSettingTab(new EudiaSyncSettingTab(this.app, this));
 
@@ -639,8 +765,11 @@ export default class EudiaSyncPlugin extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
-    // Update transcription service URL if changed
-    this.transcriptionService?.setServerUrl(this.settings.serverUrl);
+    // Update transcription service settings if changed
+    if (this.transcriptionService) {
+      this.transcriptionService.setServerUrl(this.settings.serverUrl);
+      this.transcriptionService.setOpenAIKey(this.settings.openaiApiKey);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -954,6 +1083,92 @@ export default class EudiaSyncPlugin extends Plugin {
   }
 
   /**
+   * Create a new meeting note with template
+   */
+  async createMeetingNote(): Promise<void> {
+    // Show account selector modal
+    new AccountSelectorModal(this.app, this, async (account) => {
+      if (!account) {
+        new Notice('No account selected');
+        return;
+      }
+
+      // Generate filename
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+      const fileName = `${dateStr} Meeting.md`;
+      
+      // Ensure account folder exists
+      const accountFolder = `${this.settings.accountsFolder}/${this.sanitizeFolderName(account.name)}`;
+      await this.ensureFolderExists(accountFolder);
+
+      // Create file path
+      const filePath = `${accountFolder}/${fileName}`;
+      
+      // Check if file exists
+      const existing = this.app.vault.getAbstractFileByPath(filePath);
+      if (existing) {
+        // Open existing file
+        const leaf = this.app.workspace.getLeaf();
+        await leaf.openFile(existing as TFile);
+        return;
+      }
+
+      // Create meeting template content
+      const templateContent = this.getMeetingTemplate(account.name, dateStr);
+      
+      // Create file
+      const file = await this.app.vault.create(filePath, templateContent);
+      
+      // Open the file
+      const leaf = this.app.workspace.getLeaf();
+      await leaf.openFile(file);
+
+      new Notice(`Created meeting note for ${account.name}`);
+    }).open();
+  }
+
+  /**
+   * Apply meeting template to a new file
+   */
+  async applyMeetingTemplate(file: TFile): Promise<void> {
+    const accountInfo = this.detectAccountFromPath(file.path);
+    if (!accountInfo) return;
+
+    const dateStr = new Date().toISOString().split('T')[0];
+    const templateContent = this.getMeetingTemplate(accountInfo.name, dateStr);
+    
+    await this.app.vault.modify(file, templateContent);
+  }
+
+  /**
+   * Get meeting note template
+   */
+  getMeetingTemplate(accountName: string, dateStr: string): string {
+    return `---
+title: Meeting with ${accountName}
+date: ${dateStr}
+attendees: 
+tags: meeting
+account: ${accountName}
+sync_to_salesforce: true
+---
+
+# Meeting with ${accountName}
+
+## Agenda
+- 
+
+## Notes
+
+*Click the 🎙️ mic icon to start recording, or take notes manually below.*
+
+---
+
+`;
+  }
+
+  /**
    * Fetch and insert pre-call context for current note
    */
   async fetchAndInsertContext(): Promise<void> {
@@ -1113,7 +1328,17 @@ export default class EudiaSyncPlugin extends Plugin {
       }
 
       if (!account) {
-        new Notice('No account found. Add an "account" property or move note to an account folder.');
+        // More helpful error with action
+        new Notice('No account found. Add an "account" property or move note to an account folder.', 5000);
+        
+        // Offer to show account selector
+        new AccountSelectorModal(this.app, this, async (selectedAccount) => {
+          if (selectedAccount) {
+            // Update frontmatter with selected account
+            await this.updateFrontmatter(activeFile, { account: selectedAccount.name });
+            new Notice(`Account set to ${selectedAccount.name}. Try syncing again.`);
+          }
+        }).open();
         return;
       }
 
@@ -1274,6 +1499,21 @@ class EudiaSyncSettingTab extends PluginSettingTab {
           this.plugin.settings.serverUrl = value;
           await this.plugin.saveSettings();
         }));
+
+    new Setting(containerEl)
+      .setName('OpenAI API Key')
+      .setDesc('Your OpenAI API key for transcription. Required if server is unavailable.')
+      .addText(text => {
+        text
+          .setPlaceholder('sk-...')
+          .setValue(this.plugin.settings.openaiApiKey)
+          .onChange(async (value) => {
+            this.plugin.settings.openaiApiKey = value;
+            await this.plugin.saveSettings();
+          });
+        text.inputEl.type = 'password';
+        text.inputEl.style.width = '300px';
+      });
 
     // Folder settings
     containerEl.createEl('h3', { text: 'Folders' });

@@ -1661,13 +1661,19 @@ LIMIT 20
     // Combined transcribe and summarize endpoint
     this.expressApp.post('/api/transcribe-and-summarize', async (req, res) => {
       try {
-        const { audio, mimeType, accountName, accountId, context } = req.body;
+        const { audio, mimeType, accountName, accountId, context, openaiApiKey } = req.body;
         
         if (!audio) {
           return res.status(400).json({ 
             success: false, 
             error: 'audio (base64) is required' 
           });
+        }
+
+        // If client provided an API key and server doesn't have one, use client's key
+        if (openaiApiKey && !transcriptionService.isReady()) {
+          logger.info('Using client-provided OpenAI API key');
+          transcriptionService.initWithKey(openaiApiKey);
         }
 
         logger.info(`Transcription request: account=${accountName || 'unknown'}, mimeType=${mimeType || 'audio/webm'}`);

@@ -10,5 +10,6 @@
   "cachedAccounts": [],
   "userEmail": "",
   "setupCompleted": false,
-  "calendarConfigured": false
+  "calendarConfigured": false,
+  "openaiApiKey": ""
 }

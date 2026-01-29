@@ -149,7 +149,7 @@ class TranscriptionService {
   }
 
   /**
-   * Initialize OpenAI client
+   * Initialize OpenAI client from environment
    */
   initOpenAI() {
     try {
@@ -161,6 +161,20 @@ class TranscriptionService {
       }
     } catch (error) {
       logger.error('❌ TranscriptionService: OpenAI init failed:', error.message);
+    }
+  }
+
+  /**
+   * Initialize OpenAI client with provided key (from client)
+   */
+  initWithKey(apiKey) {
+    try {
+      if (apiKey && apiKey.startsWith('sk-')) {
+        this.openai = new OpenAI({ apiKey });
+        logger.info('✅ TranscriptionService: OpenAI initialized with client key');
+      }
+    } catch (error) {
+      logger.error('❌ TranscriptionService: OpenAI init with client key failed:', error.message);
     }
   }
 
