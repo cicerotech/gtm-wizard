@@ -1,0 +1,350 @@
+/* Eudia Scribe - Recording UI Styles */
+
+/* Recording Status Bar */
+.eudia-recording-bar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 320px;
+}
+
+.eudia-recording-bar.recording {
+  border-color: var(--color-red);
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.2);
+}
+
+.eudia-recording-bar.paused {
+  border-color: var(--color-yellow);
+}
+
+.eudia-recording-bar.processing {
+  border-color: var(--color-blue);
+}
+
+/* Recording Indicator */
+.eudia-recording-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-red);
+  animation: pulse 1.5s infinite;
+}
+
+.eudia-recording-bar.paused .eudia-recording-indicator {
+  background: var(--color-yellow);
+  animation: none;
+}
+
+.eudia-recording-bar.processing .eudia-recording-indicator {
+  background: var(--color-blue);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.9); }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Duration Display */
+.eudia-duration {
+  font-family: var(--font-monospace);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-normal);
+  min-width: 60px;
+  text-align: center;
+}
+
+/* Audio Level Meter */
+.eudia-level-container {
+  width: 60px;
+  height: 8px;
+  background: var(--background-modifier-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.eudia-level-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-green), var(--color-yellow), var(--color-red));
+  transition: width 0.1s ease-out;
+  border-radius: 4px;
+}
+
+/* Control Buttons */
+.eudia-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.eudia-control-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.eudia-control-btn:hover {
+  transform: scale(1.1);
+}
+
+.eudia-control-btn.pause {
+  background: var(--color-yellow);
+  color: white;
+}
+
+.eudia-control-btn.resume {
+  background: var(--color-green);
+  color: white;
+}
+
+.eudia-control-btn.stop {
+  background: var(--color-red);
+  color: white;
+}
+
+.eudia-control-btn.cancel {
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+.eudia-control-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Status Text */
+.eudia-status-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 100px;
+}
+
+/* Ribbon Icon Active State */
+.eudia-ribbon-recording {
+  color: var(--color-red) !important;
+  animation: pulse 1.5s infinite;
+}
+
+/* Recording Modal */
+.eudia-transcribing-modal {
+  text-align: center;
+  padding: 20px;
+}
+
+.eudia-transcribing-modal .spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--background-modifier-border);
+  border-top-color: var(--interactive-accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+.eudia-transcribing-modal p {
+  color: var(--text-muted);
+  margin: 8px 0;
+}
+
+/* Pre-call Context Box */
+.eudia-context-box {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.eudia-context-box h4 {
+  margin: 0 0 12px 0;
+  color: var(--text-normal);
+  font-size: 14px;
+}
+
+.eudia-context-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.eudia-context-label {
+  color: var(--text-muted);
+}
+
+.eudia-context-value {
+  color: var(--text-normal);
+  font-weight: 500;
+}
+
+/* Settings Tab Enhancements */
+.eudia-settings-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.eudia-settings-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: var(--text-normal);
+}
+
+.eudia-settings-info {
+  background: var(--background-secondary);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.eudia-settings-info code {
+  background: var(--background-primary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* Toast Notifications */
+.eudia-toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 12px 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1001;
+  animation: slideUp 0.3s ease-out;
+}
+
+.eudia-toast.success {
+  border-color: var(--color-green);
+}
+
+.eudia-toast.error {
+  border-color: var(--color-red);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Account Detection Badge */
+.eudia-account-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--interactive-accent);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.eudia-account-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Sync Status Indicator */
+.eudia-sync-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.eudia-sync-status.synced {
+  color: var(--color-green);
+}
+
+.eudia-sync-status.pending {
+  color: var(--color-yellow);
+}
+
+.eudia-sync-status.error {
+  color: var(--color-red);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SETUP WIZARD
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.eudia-setup-wizard {
+  max-width: 480px;
+}
+
+.eudia-setup-wizard h2 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+}
+
+.eudia-setup-section {
+  margin-top: 20px;
+}
+
+.eudia-setup-section h3 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  color: var(--text-normal);
+}
+
+.eudia-email-input {
+  font-size: 14px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.eudia-email-input:focus {
+  border-color: var(--interactive-accent);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(142, 153, 225, 0.2);
+}
+
+.eudia-setup-buttons button {
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.eudia-setup-status {
+  font-size: 13px;
+  text-align: center;
+}
+

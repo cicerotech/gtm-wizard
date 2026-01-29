@@ -1,0 +1,14 @@
+{
+  "serverUrl": "https://gtm-brain.onrender.com",
+  "accountsFolder": "Accounts",
+  "recordingsFolder": "Recordings",
+  "syncOnStartup": true,
+  "autoSyncAfterTranscription": true,
+  "saveAudioFiles": true,
+  "appendTranscript": false,
+  "lastSyncTime": null,
+  "cachedAccounts": [],
+  "userEmail": "",
+  "setupCompleted": false,
+  "calendarConfigured": false
+}

@@ -1,14 +1,14 @@
 {
-  "name": "eudia-sync",
-  "version": "1.0.0",
-  "description": "Sync Salesforce accounts to Obsidian folder structure",
+  "name": "eudia-scribe",
+  "version": "2.0.0",
+  "description": "Record meetings, transcribe with AI, sync to Salesforce. Zero config required.",
   "main": "main.js",
   "scripts": {
     "dev": "esbuild main.ts --bundle --outfile=main.js --external:obsidian --format=cjs --sourcemap --watch",
     "build": "esbuild main.ts --bundle --outfile=main.js --external:obsidian --format=cjs --minify",
-    "copy-to-vault": "cp main.js manifest.json ../vault-template/.obsidian/plugins/eudia-sync/"
+    "copy-to-vault": "cp main.js manifest.json styles.css ../vault-template/.obsidian/plugins/eudia-scribe/"
   },
-  "keywords": ["obsidian", "plugin", "salesforce", "eudia"],
+  "keywords": ["obsidian", "plugin", "salesforce", "eudia", "transcription", "audio", "recording"],
   "author": "Eudia",
   "license": "MIT",
   "devDependencies": {

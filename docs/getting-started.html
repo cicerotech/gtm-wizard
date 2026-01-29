@@ -3,217 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Getting Started | BL Onboarding</title>
+    <title>Getting Started | Eudia Sales Intel</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            color: #1e293b;
-            line-height: 1.5;
-            padding: 24px 20px;
-            font-size: 13px;
+            background: #0f172a;
+            color: #e2e8f0;
+            line-height: 1.6;
             min-height: 100vh;
+            padding: 40px 20px;
         }
         
         .container {
-            max-width: 900px;
+            max-width: 640px;
             margin: 0 auto;
         }
         
-        /* Welcome Header */
-        .welcome-header {
-            background: linear-gradient(135deg, #8e99e1 0%, #6b7cb8 100%);
-            color: white;
-            border-radius: 12px;
-            padding: 28px 32px;
-            margin-bottom: 20px;
+        /* Hero */
+        .hero {
             text-align: center;
+            margin-bottom: 48px;
         }
         
-        .welcome-header h1 {
-            font-size: 22px;
+        .hero h1 {
+            font-size: 32px;
             font-weight: 700;
-            margin-bottom: 8px;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #8e99e1, #a5b4fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         
-        .welcome-header p {
-            font-size: 13px;
-            opacity: 0.9;
-            max-width: 600px;
+        .hero p {
+            color: #94a3b8;
+            font-size: 15px;
+            max-width: 400px;
             margin: 0 auto;
         }
         
         .time-badge {
             display: inline-block;
-            background: rgba(255,255,255,0.2);
-            padding: 4px 12px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 16px;
+        }
+        
+        /* Steps */
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        
+        .step {
+            background: #1e293b;
+            border: 1px solid #334155;
             border-radius: 12px;
-            font-size: 11px;
-            margin-top: 12px;
-        }
-        
-        /* Section Cards */
-        .section-card {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            margin-bottom: 16px;
-            overflow: hidden;
-        }
-        
-        .section-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid #f1f5f9;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .section-number {
-            background: #8e99e1;
-            color: white;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 12px;
-            flex-shrink: 0;
-        }
-        
-        .section-header h2 {
-            font-size: 14px;
-            font-weight: 600;
-            color: #1e293b;
-        }
-        
-        .section-content {
-            padding: 20px;
-        }
-        
-        /* Modern Icon Styling */
-        .icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            margin: 0 auto 10px;
-        }
-        
-        .icon svg {
-            width: 20px;
-            height: 20px;
-        }
-        
-        .icon-sync { background: linear-gradient(135deg, #dbeafe, #bfdbfe); }
-        .icon-sync svg { stroke: #2563eb; }
-        
-        .icon-target { background: linear-gradient(135deg, #d1fae5, #a7f3d0); }
-        .icon-target svg { stroke: #059669; }
-        
-        .icon-chart { background: linear-gradient(135deg, #fef3c7, #fde68a); }
-        .icon-chart svg { stroke: #d97706; }
-        
-        /* Value Props Grid */
-        .value-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-        }
-        
-        @media (max-width: 640px) {
-            .value-grid { grid-template-columns: 1fr; }
-        }
-        
-        .value-item {
-            background: #f8fafc;
-            border-radius: 8px;
-            padding: 16px;
-            text-align: center;
-        }
-        
-        .value-title {
-            font-weight: 600;
-            font-size: 12px;
-            color: #1e293b;
-            margin-bottom: 4px;
-        }
-        
-        .value-desc {
-            font-size: 11px;
-            color: #64748b;
-        }
-        
-        /* Weekly Fields Grid */
-        .weekly-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-        }
-        
-        @media (max-width: 768px) {
-            .weekly-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-        
-        .weekly-field {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 12px;
-        }
-        
-        .weekly-field-name {
-            font-weight: 600;
-            font-size: 11px;
-            color: #1e293b;
-            margin-bottom: 3px;
-        }
-        
-        .weekly-field-hint {
-            font-size: 10px;
-            color: #64748b;
-        }
-        
-        .deadline-badge {
-            background: #fee2e2;
-            color: #991b1b;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 600;
-            text-align: center;
-            margin-top: 12px;
-        }
-        
-        /* Setup Steps - Cleaner */
-        .setup-steps {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        
-        .setup-step {
-            display: flex;
-            gap: 16px;
-            align-items: flex-start;
-        }
-        
-        .step-indicator {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            flex-shrink: 0;
+            padding: 24px;
+            position: relative;
         }
         
         .step-number {
+            position: absolute;
+            top: -12px;
+            left: 24px;
             background: #8e99e1;
-            color: white;
+            color: #0f172a;
             width: 24px;
             height: 24px;
             border-radius: 50%;
@@ -221,891 +83,293 @@
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            font-size: 11px;
-        }
-        
-        .step-line {
-            width: 2px;
-            flex: 1;
-            background: #e2e8f0;
-            margin-top: 6px;
-            min-height: 20px;
-        }
-        
-        .setup-step:last-child .step-line {
-            display: none;
-        }
-        
-        .step-content {
-            flex: 1;
-            padding-bottom: 8px;
-        }
-        
-        .step-content h3 {
-            font-size: 13px;
-            font-weight: 600;
-            color: #1e293b;
-            margin-bottom: 6px;
-        }
-        
-        .step-content p {
-            font-size: 11px;
-            color: #64748b;
-            margin-bottom: 8px;
-        }
-        
-        .step-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            color: #8e99e1;
-            font-size: 11px;
-            font-weight: 500;
-            text-decoration: none;
-            padding: 4px 10px;
-            background: #f0f1fa;
-            border-radius: 4px;
-        }
-        
-        .step-link:hover {
-            background: #e4e6f5;
-        }
-        
-        /* Folder Structure Visual */
-        .folder-structure {
-            background: #1e293b;
-            border-radius: 8px;
-            padding: 14px 16px;
-            font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
-            font-size: 11px;
-            color: #e2e8f0;
-            margin: 8px 0;
-        }
-        
-        .folder-structure .folder {
-            color: #fbbf24;
-        }
-        
-        .folder-structure .file {
-            color: #94a3b8;
-        }
-        
-        .folder-structure .indent {
-            margin-left: 16px;
-        }
-        
-        .folder-structure .indent-2 {
-            margin-left: 32px;
-        }
-        
-        /* Action Box */
-        .action-box {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 10px 12px;
-            font-size: 11px;
-            margin-top: 8px;
-        }
-        
-        .action-box code {
-            background: #e2e8f0;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: 'SF Mono', monospace;
-            font-size: 10px;
-        }
-        
-        /* Resources Grid */
-        .resources-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-        }
-        
-        @media (max-width: 768px) {
-            .resources-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-        
-        .resource-card {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 16px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-decoration: none;
-            color: inherit;
-        }
-        
-        .resource-card:hover {
-            border-color: #8e99e1;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        }
-        
-        .resource-icon {
-            width: 32px;
-            height: 32px;
-            margin: 0 auto 8px;
-            background: #f1f5f9;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .resource-icon svg {
-            width: 16px;
-            height: 16px;
-            stroke: #64748b;
-        }
-        
-        .resource-title {
-            font-weight: 600;
-            font-size: 12px;
-            color: #1e293b;
-            margin-bottom: 4px;
-        }
-        
-        .resource-desc {
-            font-size: 10px;
-            color: #64748b;
-        }
-        
-        /* Checklist */
-        .checklist {
-            list-style: none;
-            padding: 0;
-        }
-        
-        .checklist li {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 0;
-            border-bottom: 1px solid #f1f5f9;
             font-size: 12px;
         }
         
-        .checklist li:last-child {
-            border-bottom: none;
-        }
-        
-        .checkbox {
-            width: 18px;
-            height: 18px;
-            border: 2px solid #d1d5db;
-            border-radius: 4px;
-            flex-shrink: 0;
-        }
-        
-        /* Quick tip */
-        .quick-tip {
-            background: #f0f1fa;
-            border: 1px solid #d4d8f0;
-            border-radius: 8px;
-            padding: 14px 16px;
-            margin-top: 16px;
-            font-size: 11px;
-            color: #4b5563;
-        }
-        
-        .quick-tip strong {
-            color: #6b7cb8;
-        }
-        
-        /* Stage reference */
-        .stage-reference {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-top: 12px;
-        }
-        
-        .stage-ref-item {
-            background: #e2e8f0;
-            color: #475569;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: 500;
-        }
-        
-        .stage-ref-item.highlight {
-            background: #8e99e1;
-            color: white;
-        }
-        
-        /* Note callout */
-        .note-callout {
-            background: #fffbeb;
-            border: 1px solid #fde68a;
-            border-radius: 6px;
-            padding: 10px 12px;
-            font-size: 10px;
-            color: #92400e;
-            margin-top: 10px;
-        }
-        
-        /* Settings Table */
-        .settings-table {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            overflow: hidden;
-            margin: 8px 0;
-        }
-        
-        .setting-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 12px;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 11px;
-        }
-        
-        .setting-row:last-child {
-            border-bottom: none;
-        }
-        
-        .setting-name {
-            color: #374151;
-            font-weight: 500;
-        }
-        
-        .setting-value {
-            font-family: 'SF Mono', monospace;
-            font-size: 10px;
-            background: #e2e8f0;
-            padding: 2px 8px;
-            border-radius: 4px;
-            color: #475569;
-        }
-        
-        .setting-value.on {
-            background: #d1fae5;
-            color: #065f46;
-            font-weight: 600;
-        }
-        
-        /* Download Button */
-        .download-hero {
-            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-            border-radius: 10px;
-            padding: 24px 28px;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 20px;
-        }
-        
-        @media (max-width: 640px) {
-            .download-hero {
-                flex-direction: column;
-                text-align: center;
-            }
-        }
-        
-        .download-hero-text h3 {
-            color: white;
+        .step h2 {
             font-size: 16px;
             font-weight: 600;
-            margin-bottom: 4px;
+            margin-bottom: 8px;
+            color: #f1f5f9;
         }
         
-        .download-hero-text p {
+        .step p {
+            font-size: 13px;
             color: #94a3b8;
-            font-size: 12px;
+            margin-bottom: 16px;
         }
         
-        .download-btn {
+        .step-action {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            background: linear-gradient(135deg, #8e99e1 0%, #6b7cb8 100%);
+            background: linear-gradient(135deg, #8e99e1, #6b7cb8);
             color: white;
-            padding: 12px 24px;
+            padding: 10px 20px;
             border-radius: 8px;
             text-decoration: none;
             font-weight: 600;
             font-size: 13px;
-            transition: all 0.2s;
-            flex-shrink: 0;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
         
-        .download-btn:hover {
+        .step-action:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(142, 153, 225, 0.4);
+            box-shadow: 0 4px 16px rgba(142, 153, 225, 0.3);
         }
         
-        .download-btn svg {
-            width: 18px;
-            height: 18px;
+        .step-action svg {
+            width: 16px;
+            height: 16px;
         }
         
-        .download-features {
+        .step-action.secondary {
+            background: #334155;
+        }
+        
+        .step-action.secondary:hover {
+            background: #475569;
+            box-shadow: none;
+        }
+        
+        /* What's Included */
+        .included {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        
+        .included-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: #8e99e1;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        
+        .included-list {
             display: flex;
-            gap: 16px;
-            margin-top: 12px;
+            flex-wrap: wrap;
+            gap: 8px;
         }
         
-        .download-feature {
+        .included-item {
             display: flex;
             align-items: center;
             gap: 6px;
-            color: #94a3b8;
-            font-size: 10px;
-        }
-        
-        .download-feature svg {
-            width: 14px;
-            height: 14px;
-            stroke: #8e99e1;
-        }
-        
-        /* Template Sections */
-        .template-sections {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin: 10px 0;
-        }
-        
-        .template-section {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            overflow: hidden;
-        }
-        
-        .template-section-header {
             background: #1e293b;
             padding: 6px 12px;
-        }
-        
-        .template-section-name {
-            color: white;
-            font-weight: 600;
+            border-radius: 6px;
             font-size: 11px;
+            color: #cbd5e1;
         }
         
-        .template-section-instructions {
-            padding: 10px 12px;
-            font-size: 10px;
+        .included-item svg {
+            width: 12px;
+            height: 12px;
+            stroke: #10b981;
+        }
+        
+        /* Handoff */
+        .handoff {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 1px solid #8e99e1;
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 32px;
+            text-align: center;
+        }
+        
+        .handoff h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #f1f5f9;
+        }
+        
+        .handoff p {
+            font-size: 12px;
+            color: #94a3b8;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .handoff-arrow {
+            font-size: 24px;
+            margin: 16px 0;
+        }
+        
+        /* Why section */
+        .why {
+            margin-top: 48px;
+            padding-top: 32px;
+            border-top: 1px solid #334155;
+        }
+        
+        .why h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #f1f5f9;
+        }
+        
+        .why-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        
+        @media (max-width: 600px) {
+            .why-grid { grid-template-columns: 1fr; }
+        }
+        
+        .why-item {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        
+        .why-item h4 {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #e2e8f0;
+        }
+        
+        .why-item p {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+        
+        /* Help link */
+        .help {
+            text-align: center;
+            margin-top: 32px;
+            font-size: 12px;
             color: #64748b;
-            line-height: 1.5;
         }
         
-        .template-section-instructions strong {
-            color: #374151;
+        .help a {
+            color: #8e99e1;
+            text-decoration: none;
+        }
+        
+        .help a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
     <div class="container">
         
-        <!-- Welcome Header -->
-        <div class="welcome-header">
-            <h1>Welcome to the Eudia GTM System</h1>
-            <p>Your playbook for pipeline management, meeting prep, and closing deals efficiently. Get set up in minutes.</p>
-            <div class="time-badge">Setup Time: ~10 minutes</div>
+        <!-- Hero -->
+        <div class="hero">
+            <h1>Get Started with Eudia Scribe</h1>
+            <p>Record meetings, get AI summaries, sync to Salesforce. 3 steps, 2 minutes.</p>
+            <div class="time-badge">⏱️ Setup: ~2 minutes</div>
         </div>
         
-        <!-- Section 1: Why This System -->
-        <div class="section-card">
-            <div class="section-header">
-                <div class="section-number">1</div>
-                <h2>Why This System?</h2>
+        <!-- Steps -->
+        <div class="steps">
+            
+            <!-- Step 1 -->
+            <div class="step">
+                <div class="step-number">1</div>
+                <h2>Install Obsidian</h2>
+                <p>Download the free Obsidian app for your platform.</p>
+                <a href="https://obsidian.md/download" target="_blank" class="step-action secondary">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Get Obsidian (Free)
+                </a>
             </div>
-            <div class="section-content">
-                <div class="value-grid">
-                    <div class="value-item">
-                        <div class="icon icon-sync">
-                            <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-                            </svg>
-                        </div>
-                        <div class="value-title">Minimal Data Entry</div>
-                        <div class="value-desc">Meeting notes sync to accounts. Calendar context flows to your prep sheets. Less time logging, more time selling.</div>
-                    </div>
-                    <div class="value-item">
-                        <div class="icon icon-target">
-                            <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <div class="value-title">Efficient Meeting Prep</div>
-                        <div class="value-desc">Context sheets generated for external meetings: prior notes, open opportunities, key contacts, and suggested talking points.</div>
-                    </div>
-                    <div class="value-item">
-                        <div class="icon icon-chart">
-                            <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-                            </svg>
-                        </div>
-                        <div class="value-title">Sales Intelligence</div>
-                        <div class="value-desc">Weekly updates drive pipeline visibility, product traction insights, and resource planning for leadership.</div>
-                    </div>
-                </div>
+            
+            <!-- Step 2 -->
+            <div class="step">
+                <div class="step-number">2</div>
+                <h2>Download Your Vault</h2>
+                <p>Pre-configured with all your Salesforce accounts and the Eudia Scribe plugin.</p>
+                <a href="/vault/download" class="step-action">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download Vault
+                </a>
                 
-                <div class="quick-tip">
-                    <strong>What this means for you:</strong> Update 7 fields weekly on your opportunities. The system uses this data to generate prep sheets, pipeline reports, and forecasting inputs.
+                <div class="included">
+                    <div class="included-title">What's Inside</div>
+                    <div class="included-list">
+                        <span class="included-item">
+                            <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            All SF Account Folders
+                        </span>
+                        <span class="included-item">
+                            <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            Eudia Scribe Plugin
+                        </span>
+                        <span class="included-item">
+                            <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            Calendar Integration
+                        </span>
+                        <span class="included-item">
+                            <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            Salesforce Sync
+                        </span>
+                        <span class="included-item">
+                            <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            No API Keys Needed
+                        </span>
+                    </div>
                 </div>
             </div>
+            
+            <!-- Step 3 -->
+            <div class="step">
+                <div class="step-number">3</div>
+                <h2>Open in Obsidian</h2>
+                <p>Unzip the download, then open it as a vault in Obsidian.</p>
+                <div style="background: #0f172a; border-radius: 6px; padding: 12px; font-size: 12px; color: #cbd5e1; font-family: monospace;">
+                    File → Open vault → Open folder as vault → Select folder
+                </div>
+            </div>
+            
         </div>
         
-        <!-- Section 2: Your Weekly Workflow -->
-        <div class="section-card">
-            <div class="section-header">
-                <div class="section-number">2</div>
-                <h2>Your Weekly Workflow</h2>
-            </div>
-            <div class="section-content">
-                <p style="font-size: 12px; color: #64748b; margin-bottom: 14px;">
-                    Every Thursday by EOD, update these fields on your active opportunities. This is what drives the Friday pipeline email and EOQ forecasting.
-                </p>
-                
-                <div class="weekly-grid">
-                    <div class="weekly-field">
-                        <div class="weekly-field-name">Stage</div>
-                        <div class="weekly-field-hint">Current position (0-5)</div>
-                    </div>
-                    <div class="weekly-field">
-                        <div class="weekly-field-name">ACV</div>
-                        <div class="weekly-field-hint">Annual contract value</div>
-                    </div>
-                    <div class="weekly-field">
-                        <div class="weekly-field-name">Target Sign Date</div>
-                        <div class="weekly-field-hint">Expected close date</div>
-                    </div>
-                    <div class="weekly-field">
-                        <div class="weekly-field-name">Sales Type</div>
-                        <div class="weekly-field-hint">New / Expansion / Renewal</div>
-                    </div>
-                    <div class="weekly-field">
-                        <div class="weekly-field-name">Product Line(s)</div>
-                        <div class="weekly-field-hint">Multi-select field</div>
-                    </div>
-                    <div class="weekly-field">
-                        <div class="weekly-field-name">Revenue Type</div>
-                        <div class="weekly-field-hint">Recurring / Project / Commitment</div>
-                    </div>
-                    <div class="weekly-field">
-                        <div class="weekly-field-name">BL Forecast Category</div>
-                        <div class="weekly-field-hint">Pipeline (0%) / Gut (60%) / Commit</div>
-                    </div>
+        <!-- Handoff -->
+        <div class="handoff">
+            <div class="handoff-arrow">⬇️</div>
+            <h3>Setup continues inside Obsidian</h3>
+            <p>A setup wizard appears when you open the vault. Enter your email and you're ready to record.</p>
+        </div>
+        
+        <!-- Why section -->
+        <div class="why">
+            <h3>What You Get</h3>
+            <div class="why-grid">
+                <div class="why-item">
+                    <h4>🎙️ Record</h4>
+                    <p>Click the mic, record your meeting, done.</p>
                 </div>
-                
-                <div class="deadline-badge">
-                    Due: Thursday EOD → Feeds Friday Pipeline Email + EOQ Forecasting
+                <div class="why-item">
+                    <h4>📝 Summarize</h4>
+                    <p>AI generates structured notes with MEDDICC signals.</p>
                 </div>
-                
-                <div style="margin-top: 16px;">
-                    <p style="font-size: 11px; color: #64748b; margin-bottom: 8px;"><strong>Stage Reference:</strong></p>
-                    <div class="stage-reference">
-                        <span class="stage-ref-item">Lead → Cold outreach</span>
-                        <span class="stage-ref-item">0 → Prospecting</span>
-                        <span class="stage-ref-item">1 → Discovery</span>
-                        <span class="stage-ref-item highlight">2 → SQO (Qualified)</span>
-                        <span class="stage-ref-item">3 → Pilot</span>
-                        <span class="stage-ref-item">4 → Proposal</span>
-                        <span class="stage-ref-item">5 → Negotiation</span>
-                    </div>
+                <div class="why-item">
+                    <h4>☁️ Sync</h4>
+                    <p>Notes push to Salesforce Customer Brain automatically.</p>
                 </div>
             </div>
         </div>
         
-        <!-- Section 3: Quick Setup (Pre-Configured Vault) -->
-        <div class="section-card">
-            <div class="section-header">
-                <div class="section-number">3</div>
-                <h2>Quick Setup</h2>
-                <span style="font-size: 10px; color: #64748b; margin-left: auto;">~5 minutes</span>
-            </div>
-            <div class="section-content">
-                <div class="setup-steps">
-                    <div class="setup-step">
-                        <div class="step-indicator">
-                            <div class="step-number">1</div>
-                            <div class="step-line"></div>
-                        </div>
-                        <div class="step-content">
-                            <h3>Install Obsidian</h3>
-                            <p>Download and install the Obsidian app (free).</p>
-                            <a href="https://obsidian.md" target="_blank" class="step-link">
-                                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                                obsidian.md
-                            </a>
-                        </div>
-                    </div>
-                    
-                    <div class="setup-step">
-                        <div class="step-indicator">
-                            <div class="step-number">2</div>
-                            <div class="step-line"></div>
-                        </div>
-                        <div class="step-content">
-                            <h3>Download Your Pre-Configured Vault</h3>
-                            <p>This ZIP contains your ready-to-use vault with all Salesforce account folders, the Eudia Sales template, and plugin settings pre-configured.</p>
-                            <a href="/vault/download" class="step-link" style="background: #1e293b; color: white; padding: 8px 16px;">
-                                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                                Download Vault ZIP
-                            </a>
-                            <div class="note-callout" style="margin-top: 10px; background: #f0fdf4; border-color: #86efac;">
-                                <strong style="color: #166534;">What's included:</strong>
-                                <ul style="margin: 6px 0 0 16px; color: #166534; font-size: 10px;">
-                                    <li>All Salesforce account folders (current as of download)</li>
-                                    <li>Eudia Sales template with 8 sections (pre-configured)</li>
-                                    <li>Scribe settings (just add your API key)</li>
-                                    <li>Eudia Sync plugin (keeps accounts updated)</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="setup-step">
-                        <div class="step-indicator">
-                            <div class="step-number">3</div>
-                            <div class="step-line"></div>
-                        </div>
-                        <div class="step-content">
-                            <h3>Open the Vault in Obsidian</h3>
-                            <div class="action-box">
-                                <strong>1.</strong> Unzip the downloaded file<br>
-                                <strong>2.</strong> Open Obsidian → File → <code>Open vault</code><br>
-                                <strong>3.</strong> Click <code>Open folder as vault</code><br>
-                                <strong>4.</strong> Select the unzipped <code>eudia-sales-vault</code> folder
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="setup-step">
-                        <div class="step-indicator">
-                            <div class="step-number">4</div>
-                            <div class="step-line"></div>
-                        </div>
-                        <div class="step-content">
-                            <h3>Enable Community Plugins</h3>
-                            <p>Obsidian will prompt you to trust the vault. Then enable community plugins:</p>
-                            <div class="action-box">
-                                Settings <code>⌘ ,</code> → Community Plugins → <code>Turn on community plugins</code>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="setup-step">
-                        <div class="step-indicator">
-                            <div class="step-number">5</div>
-                            <div class="step-line"></div>
-                        </div>
-                        <div class="step-content">
-                            <h3>Install Scribe Plugin</h3>
-                            <p>The template settings are pre-configured — you just need to install the plugin itself:</p>
-                            <div class="action-box">
-                                Settings → Community Plugins → <code>Browse</code> → Search "Scribe" → <code>Install</code> → <code>Enable</code>
-                            </div>
-                            <div class="note-callout" style="margin-top: 8px;">
-                                Once enabled, your <strong>Eudia Sales template</strong> will already be set as active with all 8 sections configured.
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="setup-step">
-                        <div class="step-indicator">
-                            <div class="step-number">6</div>
-                        </div>
-                        <div class="step-content">
-                            <h3>Add Your OpenAI API Key</h3>
-                            <p>This is the only manual configuration required:</p>
-                            <div class="action-box">
-                                Settings → Scribe → <strong>AI Providers</strong> tab<br>
-                                <strong>OpenAI API Key:</strong> Paste the key provided by RevOps<br>
-                                <strong>Model:</strong> Select <code>GPT-4o</code>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div style="background: linear-gradient(135deg, #8e99e1 0%, #6b7cb8 100%); border-radius: 8px; padding: 16px 20px; margin-top: 20px; color: white;">
-                    <strong style="font-size: 13px;">✓ You're ready to record!</strong>
-                    <p style="font-size: 11px; margin-top: 4px; opacity: 0.9;">
-                        Navigate to any account folder → Create a new note → Click the mic icon → Start recording. Your structured summary will appear automatically.
-                    </p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Section 4: Optional Enhancements -->
-        <div class="section-card">
-            <div class="section-header">
-                <div class="section-number">4</div>
-                <h2>Optional Enhancements</h2>
-            </div>
-            <div class="section-content">
-                <div class="setup-steps">
-                    <div class="setup-step">
-                        <div class="step-indicator">
-                            <div class="step-number" style="background: #94a3b8;">+</div>
-                            <div class="step-line"></div>
-                        </div>
-                        <div class="step-content">
-                            <h3>Connect Your Calendar</h3>
-                            <p>Create notes directly from calendar events with date and attendees pre-filled.</p>
-                            <div class="action-box">
-                                <strong>1.</strong> Settings → Community Plugins → Browse → Search "Full Calendar" → Install → Enable<br>
-                                <strong>2.</strong> Settings → Full Calendar → Add Calendar → Remote/ICS<br>
-                                <strong>3.</strong> Paste your Outlook/Google calendar ICS URL
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="setup-step">
-                        <div class="step-indicator">
-                            <div class="step-number" style="background: #94a3b8;">+</div>
-                            <div class="step-line"></div>
-                        </div>
-                        <div class="step-content">
-                            <h3>Install Dataview for Queries</h3>
-                            <p>Run queries across your notes (e.g., "show all meetings this month").</p>
-                            <div class="action-box">
-                                Settings → Community Plugins → Browse → Search "Dataview" → Install → Enable
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="setup-step">
-                        <div class="step-indicator">
-                            <div class="step-number" style="background: #94a3b8;">+</div>
-                        </div>
-                        <div class="step-content">
-                            <h3>Auto-Sync New Accounts</h3>
-                            <p>The Eudia Sync plugin is pre-installed and will create folders for new Salesforce accounts automatically on startup. To manually sync:</p>
-                            <div class="action-box">
-                                Click the refresh icon in the left sidebar, or Settings → Eudia Sync → <code>Sync Accounts</code>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Section 5: Recording a Meeting -->
-        <div class="section-card">
-            <div class="section-header">
-                <div class="section-number">5</div>
-                <h2>Recording a Meeting</h2>
-            </div>
-            <div class="section-content">
-                <div class="setup-steps">
-                    <div class="setup-step">
-                        <div class="step-indicator">
-                            <div class="step-number">1</div>
-                            <div class="step-line"></div>
-                        </div>
-                        <div class="step-content">
-                            <h3>Before the Call</h3>
-                            <p>Check the <strong>Meeting Prep</strong> tab for context: prior notes, open opportunities, key contacts, and suggested talking points.</p>
-                        </div>
-                    </div>
-                    
-                    <div class="setup-step">
-                        <div class="step-indicator">
-                            <div class="step-number">2</div>
-                            <div class="step-line"></div>
-                        </div>
-                        <div class="step-content">
-                            <h3>Create a Note</h3>
-                            <p>Navigate to the account folder (e.g., <code>Accounts/Amazon/</code>) and create a new note:</p>
-                            <div class="action-box">
-                                Right-click → <code>New note</code> → Name it: <code>2026-01-28 Discovery Call</code>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="setup-step">
-                        <div class="step-indicator">
-                            <div class="step-number">3</div>
-                            <div class="step-line"></div>
-                        </div>
-                        <div class="step-content">
-                            <h3>Record</h3>
-                            <p>Click Scribe's <strong>mic icon</strong> in the left sidebar → <code>Start Recording</code></p>
-                        </div>
-                    </div>
-                    
-                    <div class="setup-step">
-                        <div class="step-indicator">
-                            <div class="step-number">4</div>
-                        </div>
-                        <div class="step-content">
-                            <h3>Done</h3>
-                            <p>When you stop recording, Scribe transcribes and generates your structured summary using the Eudia Sales template:</p>
-                            <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
-                                <span style="background: #1e293b; color: white; padding: 4px 10px; border-radius: 4px; font-size: 10px;">Summary</span>
-                                <span style="background: #1e293b; color: white; padding: 4px 10px; border-radius: 4px; font-size: 10px;">Key Stakeholders</span>
-                                <span style="background: #1e293b; color: white; padding: 4px 10px; border-radius: 4px; font-size: 10px;">MEDDICC Signals</span>
-                                <span style="background: #1e293b; color: white; padding: 4px 10px; border-radius: 4px; font-size: 10px;">Product Interest</span>
-                                <span style="background: #1e293b; color: white; padding: 4px 10px; border-radius: 4px; font-size: 10px;">Key Dates</span>
-                                <span style="background: #1e293b; color: white; padding: 4px 10px; border-radius: 4px; font-size: 10px;">Next Steps</span>
-                                <span style="background: #1e293b; color: white; padding: 4px 10px; border-radius: 4px; font-size: 10px;">Action Items</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Manual Setup (Collapsed) -->
-        <details class="section-card" style="cursor: pointer;">
-            <summary class="section-header" style="list-style: none;">
-                <div class="section-number" style="background: #94a3b8;">?</div>
-                <h2>Manual Setup (Without Pre-Configured Vault)</h2>
-                <span style="font-size: 10px; color: #64748b; margin-left: auto;">Click to expand</span>
-            </summary>
-            <div class="section-content">
-                <p style="font-size: 11px; color: #64748b; margin-bottom: 16px;">
-                    If you prefer to set up from scratch instead of using the pre-configured vault, follow these steps:
-                </p>
-                
-                <h4 style="font-size: 12px; margin-bottom: 10px;">1. Create a New Vault</h4>
-                <p style="font-size: 11px; color: #64748b; margin-bottom: 12px;">Open Obsidian → Create new vault → Name it (e.g., "Eudia Notes")</p>
-                
-                <h4 style="font-size: 12px; margin-bottom: 10px;">2. Install Scribe</h4>
-                <p style="font-size: 11px; color: #64748b; margin-bottom: 12px;">Settings → Community Plugins → Turn on → Browse → Search "Scribe" → Install → Enable</p>
-                
-                <h4 style="font-size: 12px; margin-bottom: 10px;">3. Configure Scribe Settings</h4>
-                <div class="settings-table" style="margin-bottom: 12px;">
-                    <div class="setting-row">
-                        <span class="setting-name">Append transcript to active file</span>
-                        <span class="setting-value on">ON</span>
-                    </div>
-                    <div class="setting-row">
-                        <span class="setting-name">Save audio file</span>
-                        <span class="setting-value on">ON</span>
-                    </div>
-                </div>
-                
-                <h4 style="font-size: 12px; margin-bottom: 10px;">4. Create the Eudia Sales Template</h4>
-                <p style="font-size: 11px; color: #64748b; margin-bottom: 8px;">Settings → Scribe → Templates → New Template → Name it "Eudia Sales" and add these sections:</p>
-                <div class="template-sections">
-                    <div class="template-section">
-                        <div class="template-section-header"><span class="template-section-name">Summary</span></div>
-                        <div class="template-section-instructions">Summarize this sales meeting. Focus on: (1) what the customer needs, (2) their timeline for decision, (3) any commitments or decisions made. Use 3-5 concise bullet points.</div>
-                    </div>
-                    <div class="template-section">
-                        <div class="template-section-header"><span class="template-section-name">Key Stakeholders</span></div>
-                        <div class="template-section-instructions">List all people mentioned by name with their role/title if stated. Format: Name - Role. Use exact names as spoken.</div>
-                    </div>
-                    <div class="template-section">
-                        <div class="template-section-header"><span class="template-section-name">MEDDICC Signals</span></div>
-                        <div class="template-section-instructions">Extract qualification signals for: Economic Buyer, Decision Process, Champion, Identified Pain, Timeline, Competition. If not mentioned, write "Not discussed".</div>
-                    </div>
-                    <div class="template-section">
-                        <div class="template-section-header"><span class="template-section-name">Product Interest</span></div>
-                        <div class="template-section-instructions">Tag product lines ONLY if explicitly discussed. Valid tags: [AI-Augmented Contracting], [AI-Augmented M&A], [AI Platform - Sigma], [AI Platform - Insights], [FDE]. Quote evidence.</div>
-                    </div>
-                    <div class="template-section">
-                        <div class="template-section-header"><span class="template-section-name">Key Dates</span></div>
-                        <div class="template-section-instructions">Extract dates/timeframes mentioned. Format: "Target: Q2 2026" with context.</div>
-                    </div>
-                    <div class="template-section">
-                        <div class="template-section-header"><span class="template-section-name">Next Steps</span></div>
-                        <div class="template-section-instructions">List agreed next steps as checkboxes: - [ ] Action (Owner, Date)</div>
-                    </div>
-                    <div class="template-section">
-                        <div class="template-section-header"><span class="template-section-name">Action Items</span></div>
-                        <div class="template-section-instructions">List internal follow-ups: emails to send, documents to prepare, people to loop in.</div>
-                    </div>
-                </div>
-                
-                <h4 style="font-size: 12px; margin: 16px 0 10px;">5. Create Folder Structure</h4>
-                <div class="folder-structure">
-                    <div><span class="folder">📁 Accounts</span></div>
-                    <div class="indent"><span class="folder">📁 Amazon</span></div>
-                    <div class="indent"><span class="folder">📁 Salesforce</span></div>
-                    <div class="indent"><span class="folder">📁 ...</span></div>
-                </div>
-                <div class="note-callout" style="margin-top: 8px;">
-                    <strong>Get account list:</strong> Download from <code>/api/accounts/obsidian?format=text</code>
-                </div>
-            </div>
-        </details>
-        
-        <!-- Section 6: Day 1 Checklist -->
-        <div class="section-card">
-            <div class="section-header">
-                <div class="section-number">6</div>
-                <h2>Day 1 Checklist</h2>
-            </div>
-            <div class="section-content">
-                <ul class="checklist">
-                    <li><span class="checkbox"></span> Obsidian installed</li>
-                    <li><span class="checkbox"></span> Pre-configured vault downloaded, unzipped, and opened</li>
-                    <li><span class="checkbox"></span> Community plugins enabled</li>
-                    <li><span class="checkbox"></span> Scribe plugin installed from browser</li>
-                    <li><span class="checkbox"></span> OpenAI API key entered in Scribe → AI Providers</li>
-                    <li><span class="checkbox"></span> Test recording: create a note, record 10 seconds, verify summary appears</li>
-                </ul>
-                
-                <div class="note-callout" style="margin-top: 12px;">
-                    <strong>Everything else is pre-configured:</strong> The Eudia Sales template, account folders, and Scribe settings are already set up in the vault you downloaded.
-                </div>
-            </div>
-        </div>
-        
-        <!-- Section 7: Resources -->
-        <div class="section-card">
-            <div class="section-header">
-                <div class="section-number">7</div>
-                <h2>Resources & Next Steps</h2>
-            </div>
-            <div class="section-content">
-                <div class="resources-grid">
-                    <div class="resource-card" onclick="parent.document.getElementById('tab-sales').click()">
-                        <div class="resource-icon">
-                            <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
-                            </svg>
-                        </div>
-                        <div class="resource-title">Sales Process</div>
-                        <div class="resource-desc">Stages, MEDDICC, definitions</div>
-                    </div>
-                    <div class="resource-card" onclick="parent.document.getElementById('tab-dashboard').click()">
-                        <div class="resource-icon">
-                            <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-                            </svg>
-                        </div>
-                        <div class="resource-title">Dashboard</div>
-                        <div class="resource-desc">Pipeline, accounts, revenue</div>
-                    </div>
-                    <div class="resource-card" onclick="parent.document.getElementById('tab-meeting-prep').click()">
-                        <div class="resource-icon">
-                            <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                            </svg>
-                        </div>
-                        <div class="resource-title">Meeting Prep</div>
-                        <div class="resource-desc">Context for upcoming calls</div>
-                    </div>
-                    <div class="resource-card" onclick="parent.document.getElementById('tab-commands').click()">
-                        <div class="resource-icon">
-                            <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
-                            </svg>
-                        </div>
-                        <div class="resource-title">Commands</div>
-                        <div class="resource-desc">Slack commands reference</div>
-                    </div>
-                </div>
-            </div>
+        <!-- Help -->
+        <div class="help">
+            Questions? <a href="mailto:revops@eudia.com">Contact RevOps</a> or <a href="https://eudia.slack.com/archives/gtm-brain">#gtm-brain on Slack</a>
         </div>
         
     </div>
 </body>
 </html>
-

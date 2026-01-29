@@ -2,7 +2,8 @@
 account: 
 date: {{date}}
 attendees: 
-sync_to_salesforce: false
+transcribed: false
+synced_to_salesforce: false
 ---
 
 # {{title}}
@@ -27,6 +28,12 @@ sync_to_salesforce: false
 
 ## Action Items
 - [ ] 
+
+## Deal Signals
+<!-- AI will generate: Stage progression indicators, budget mentions, timeline changes -->
+
+## Risks & Objections
+<!-- AI will generate: Concerns raised, competitive threats, hesitations -->
 
 ---
 

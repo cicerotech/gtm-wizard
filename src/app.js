@@ -1651,6 +1651,220 @@ LIMIT 20
       }
     });
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AUDIO TRANSCRIPTION (Eudia Scribe)
+    // Handles audio transcription via Whisper and summarization via GPT-4o
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const { transcriptionService } = require('./services/transcriptionService');
+
+    // Combined transcribe and summarize endpoint
+    this.expressApp.post('/api/transcribe-and-summarize', async (req, res) => {
+      try {
+        const { audio, mimeType, accountName, accountId, context } = req.body;
+        
+        if (!audio) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'audio (base64) is required' 
+          });
+        }
+
+        logger.info(`Transcription request: account=${accountName || 'unknown'}, mimeType=${mimeType || 'audio/webm'}`);
+
+        // Build context for summarization
+        const summaryContext = {
+          accountName,
+          accountId,
+          ...context
+        };
+
+        // If we have an accountId, fetch additional context from Salesforce
+        if (accountId) {
+          try {
+            const sfContext = await this.fetchAccountContext(accountId);
+            if (sfContext) {
+              summaryContext.opportunities = sfContext.opportunities;
+              summaryContext.customerBrain = sfContext.customerBrain;
+              summaryContext.contacts = sfContext.contacts;
+            }
+          } catch (sfError) {
+            logger.warn('Failed to fetch SF context:', sfError.message);
+          }
+        }
+
+        // Process the audio
+        const result = await transcriptionService.transcribeAndSummarize(
+          audio,
+          mimeType || 'audio/webm',
+          summaryContext
+        );
+
+        if (!result.success) {
+          return res.status(500).json(result);
+        }
+
+        logger.info(`Transcription complete: ${result.transcript?.length || 0} chars, ${result.duration || 0}s`);
+
+        res.json({
+          success: true,
+          transcript: result.transcript,
+          sections: result.sections,
+          duration: result.duration
+        });
+
+      } catch (error) {
+        logger.error('Transcription error:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Transcribe only (without summarization)
+    this.expressApp.post('/api/transcribe', async (req, res) => {
+      try {
+        const { audio, mimeType } = req.body;
+        
+        if (!audio) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'audio (base64) is required' 
+          });
+        }
+
+        const audioBuffer = Buffer.from(audio, 'base64');
+        const result = await transcriptionService.transcribe(audioBuffer, mimeType || 'audio/webm');
+
+        res.json(result);
+
+      } catch (error) {
+        logger.error('Transcription error:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Summarize transcript only
+    this.expressApp.post('/api/summarize', async (req, res) => {
+      try {
+        const { transcript, accountName, accountId, context } = req.body;
+        
+        if (!transcript) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'transcript is required' 
+          });
+        }
+
+        const result = await transcriptionService.summarize(transcript, {
+          accountName,
+          accountId,
+          ...context
+        });
+
+        res.json(result);
+
+      } catch (error) {
+        logger.error('Summarization error:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get meeting context for pre-call injection
+    this.expressApp.get('/api/meeting-context/:accountId', async (req, res) => {
+      try {
+        const { accountId } = req.params;
+        
+        if (!accountId) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'accountId is required' 
+          });
+        }
+
+        const context = await this.fetchAccountContext(accountId);
+        
+        if (!context) {
+          return res.status(404).json({ 
+            success: false, 
+            error: 'Account not found' 
+          });
+        }
+
+        res.json({
+          success: true,
+          account: {
+            id: context.account.Id,
+            name: context.account.Name,
+            owner: context.account.Owner?.Name,
+            customerBrain: context.customerBrain
+          },
+          opportunities: context.opportunities,
+          contacts: context.contacts,
+          lastMeeting: context.lastMeeting
+        });
+
+      } catch (error) {
+        logger.error('Meeting context error:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Sync transcription results to Salesforce
+    this.expressApp.post('/api/transcription/sync-to-salesforce', async (req, res) => {
+      try {
+        const { accountId, accountName, noteTitle, sections, transcript, meetingDate } = req.body;
+        
+        if (!accountId || !noteTitle) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'accountId and noteTitle are required' 
+          });
+        }
+
+        logger.info(`Syncing transcription to Salesforce: ${noteTitle} for ${accountName}`);
+
+        const result = await this.syncTranscriptionToSalesforce(
+          accountId,
+          accountName,
+          noteTitle,
+          sections,
+          transcript,
+          meetingDate
+        );
+
+        res.json(result);
+
+      } catch (error) {
+        logger.error('Salesforce sync error:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Transcription service status (for monitoring)
+    this.expressApp.get('/api/transcription/status', (req, res) => {
+      try {
+        const { transcriptionService, CONFIG } = require('./services/transcriptionService');
+        
+        res.json({
+          success: true,
+          ready: transcriptionService.isReady(),
+          queue: transcriptionService.getQueueStatus(),
+          config: {
+            maxChunkSizeMB: CONFIG.MAX_CHUNK_SIZE / 1024 / 1024,
+            maxConcurrent: CONFIG.MAX_CONCURRENT,
+            maxDurationHours: CONFIG.MAX_DURATION_SECONDS / 3600,
+            maxRetries: CONFIG.MAX_RETRIES
+          },
+          limits: {
+            maxRecordingMinutes: 120,
+            estimatedCostPer60Min: '$0.44',
+            supportedFormats: ['webm', 'mp4', 'm4a', 'mp3', 'ogg', 'wav']
+          }
+        });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // Get historical meeting preps for an account
     this.expressApp.get('/api/meeting-prep/account/:accountId', async (req, res) => {
       try {
@@ -3308,6 +3522,218 @@ SENTIMENT: [Positive/Neutral/Negative]`
     } catch (error) {
       logger.error('Failed to start GTM Brain:', error);
       process.exit(1);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TRANSCRIPTION HELPER METHODS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Fetch account context from Salesforce for meeting prep
+   * @param {string} accountId - Salesforce Account ID
+   * @returns {Promise<object|null>}
+   */
+  async fetchAccountContext(accountId) {
+    try {
+      const { query } = require('./salesforce/queries');
+
+      // Fetch account details
+      const accountQuery = `
+        SELECT Id, Name, Owner.Name, Customer_Brain__c
+        FROM Account
+        WHERE Id = '${accountId}'
+        LIMIT 1
+      `;
+      const accountResult = await query(accountQuery);
+      
+      if (!accountResult.records || accountResult.records.length === 0) {
+        return null;
+      }
+
+      const account = accountResult.records[0];
+
+      // Fetch open opportunities
+      const oppQuery = `
+        SELECT Id, Name, StageName, ACV__c, Target_LOI_Date__c
+        FROM Opportunity
+        WHERE AccountId = '${accountId}'
+        AND IsClosed = false
+        ORDER BY ACV__c DESC NULLS LAST
+        LIMIT 5
+      `;
+      const oppResult = await query(oppQuery);
+      const opportunities = (oppResult.records || []).map(o => ({
+        id: o.Id,
+        name: o.Name,
+        stage: o.StageName,
+        acv: o.ACV__c,
+        targetSignDate: o.Target_LOI_Date__c
+      }));
+
+      // Fetch key contacts
+      const contactQuery = `
+        SELECT Id, Name, Title, Email
+        FROM Contact
+        WHERE AccountId = '${accountId}'
+        ORDER BY CreatedDate DESC
+        LIMIT 10
+      `;
+      const contactResult = await query(contactQuery);
+      const contacts = (contactResult.records || []).map(c => ({
+        id: c.Id,
+        name: c.Name,
+        title: c.Title,
+        email: c.Email
+      }));
+
+      // Fetch last meeting (Event)
+      const eventQuery = `
+        SELECT Id, Subject, ActivityDate
+        FROM Event
+        WHERE AccountId = '${accountId}'
+        AND ActivityDate < TODAY
+        ORDER BY ActivityDate DESC
+        LIMIT 1
+      `;
+      const eventResult = await query(eventQuery);
+      const lastMeeting = eventResult.records && eventResult.records[0] ? {
+        date: eventResult.records[0].ActivityDate,
+        subject: eventResult.records[0].Subject
+      } : null;
+
+      return {
+        account,
+        customerBrain: account.Customer_Brain__c || '',
+        opportunities,
+        contacts,
+        lastMeeting
+      };
+
+    } catch (error) {
+      logger.error('Error fetching account context:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Sync transcription results to Salesforce
+   * @param {string} accountId - Salesforce Account ID
+   * @param {string} accountName - Account name
+   * @param {string} noteTitle - Title of the meeting note
+   * @param {object} sections - Processed sections from transcription
+   * @param {string} transcript - Full transcript
+   * @param {string} meetingDate - ISO date string
+   * @returns {Promise<object>}
+   */
+  async syncTranscriptionToSalesforce(accountId, accountName, noteTitle, sections, transcript, meetingDate) {
+    try {
+      const { query } = require('./salesforce/queries');
+      const { sfConnection } = require('./salesforce/connection');
+      const conn = sfConnection.getConnection();
+
+      const results = {
+        success: true,
+        customerBrainUpdated: false,
+        eventCreated: false,
+        eventId: null,
+        contactsCreated: 0,
+        tasksCreated: 0
+      };
+
+      // 1. Update Customer Brain on Account
+      try {
+        const accountQuery = `SELECT Id, Customer_Brain__c FROM Account WHERE Id = '${accountId}' LIMIT 1`;
+        const accountResult = await query(accountQuery);
+        
+        if (accountResult.records && accountResult.records[0]) {
+          const existingBrain = accountResult.records[0].Customer_Brain__c || '';
+          
+          // Format new entry
+          const dateDisplay = new Date(meetingDate || new Date()).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          });
+          
+          const newEntry = `
+───────────────────────────────────────
+${dateDisplay} - ${noteTitle}
+───────────────────────────────────────
+${sections.summary || 'No summary available'}
+${sections.nextSteps ? `\nNext Steps:\n${sections.nextSteps}` : ''}
+`.trim();
+
+          const updatedBrain = newEntry + '\n\n' + existingBrain;
+          
+          await conn.sobject('Account').update({
+            Id: accountId,
+            Customer_Brain__c: updatedBrain.substring(0, 131072) // SF limit
+          });
+          
+          results.customerBrainUpdated = true;
+          logger.info(`Updated Customer_Brain__c for ${accountName}`);
+        }
+      } catch (brainError) {
+        logger.warn('Error updating Customer Brain:', brainError.message);
+      }
+
+      // 2. Create Event record
+      try {
+        const eventDate = meetingDate ? new Date(meetingDate) : new Date();
+        const eventData = {
+          Subject: noteTitle,
+          ActivityDate: eventDate.toISOString().split('T')[0],
+          WhatId: accountId,
+          Description: `## Summary\n${sections.summary || ''}\n\n## MEDDICC Signals\n${sections.meddiccSignals || ''}\n\n## Next Steps\n${sections.nextSteps || ''}`.substring(0, 32000),
+          DurationInMinutes: 60,
+          Type: 'Meeting'
+        };
+
+        const eventResult = await conn.sobject('Event').create(eventData);
+        
+        if (eventResult.success) {
+          results.eventCreated = true;
+          results.eventId = eventResult.id;
+          logger.info(`Created Event: ${eventResult.id}`);
+        }
+      } catch (eventError) {
+        logger.warn('Error creating Event:', eventError.message);
+      }
+
+      // 3. Parse and create Tasks from Action Items
+      if (sections.actionItems) {
+        try {
+          const actionLines = sections.actionItems.split('\n')
+            .filter(line => line.trim().startsWith('- [ ]') || line.trim().startsWith('-'));
+          
+          for (const line of actionLines.slice(0, 5)) { // Max 5 tasks
+            const taskSubject = line.replace(/^[-\s\[\]]+/, '').trim();
+            if (taskSubject.length > 5) {
+              await conn.sobject('Task').create({
+                Subject: taskSubject.substring(0, 255),
+                WhatId: accountId,
+                Status: 'Not Started',
+                Priority: 'Normal',
+                ActivityDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 1 week out
+              });
+              results.tasksCreated++;
+            }
+          }
+          logger.info(`Created ${results.tasksCreated} Tasks`);
+        } catch (taskError) {
+          logger.warn('Error creating Tasks:', taskError.message);
+        }
+      }
+
+      return results;
+
+    } catch (error) {
+      logger.error('Error syncing to Salesforce:', error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 
