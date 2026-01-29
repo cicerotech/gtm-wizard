@@ -905,6 +905,15 @@ class GTMBrainApp {
     this.expressApp.get('/onboarding', (req, res) => res.redirect('/getting-started'));
     this.expressApp.get('/setup', (req, res) => res.redirect('/getting-started'));
 
+    // Outbound Playbook (Private - Keigan only)
+    this.expressApp.get('/outbound-playbook', (req, res) => {
+      const path = require('path');
+      const playbookPath = path.join(__dirname, '..', 'docs', 'outbound-playbook.html');
+      res.sendFile(playbookPath);
+    });
+    this.expressApp.get('/outbound', (req, res) => res.redirect('/outbound-playbook'));
+    this.expressApp.get('/playbook', (req, res) => res.redirect('/outbound-playbook'));
+
     // GTM Brain Architecture / Data Flow Diagram
     this.expressApp.get('/architecture', (req, res) => {
       const path = require('path');

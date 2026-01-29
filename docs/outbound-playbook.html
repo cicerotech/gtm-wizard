@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Outbound Playbook | Eudia Sales Intel</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: #1f2937;
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 32px 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        /* Header */
+        header {
+            background: white;
+            border-radius: 12px;
+            padding: 28px 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            border: 1px solid #e2e8f0;
+        }
+        
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .header-logo {
+            height: 28px;
+            filter: grayscale(100%) brightness(0.3);
+            opacity: 0.9;
+        }
+        
+        .badge-private {
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 12px;
+            letter-spacing: 0.5px;
+        }
+        
+        h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 6px;
+        }
+        
+        .subtitle {
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        /* Sections */
+        .section {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        
+        .section-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .section-icon {
+            width: 36px;
+            height: 36px;
+            background: #f8fafc;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .section-icon svg {
+            width: 18px;
+            height: 18px;
+            stroke: #475569;
+        }
+        
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .section-content {
+            padding: 20px 24px;
+        }
+        
+        /* Cards Grid */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        
+        .card {
+            background: #fafbfc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 18px;
+        }
+        
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .card-badge {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        
+        .badge-primary { background: #dbeafe; color: #1d4ed8; }
+        .badge-success { background: #dcfce7; color: #15803d; }
+        .badge-warning { background: #fef3c7; color: #b45309; }
+        .badge-purple { background: #f3e8ff; color: #7c3aed; }
+        
+        .card p, .card li {
+            font-size: 13px;
+            color: #475569;
+        }
+        
+        .card ul {
+            margin-left: 16px;
+            margin-top: 8px;
+        }
+        
+        .card li {
+            margin-bottom: 4px;
+        }
+        
+        /* Product Lines Table */
+        .product-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        .product-table th {
+            text-align: left;
+            padding: 12px 16px;
+            background: #f8fafc;
+            font-weight: 600;
+            color: #475569;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .product-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #374151;
+        }
+        
+        .product-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .product-name {
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        /* Messaging Box */
+        .message-box {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .message-box-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0369a1;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .message-box p {
+            font-size: 14px;
+            color: #1e293b;
+            font-style: italic;
+        }
+        
+        /* Trigger List */
+        .trigger-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .trigger-item:last-child {
+            border-bottom: none;
+        }
+        
+        .trigger-icon {
+            width: 28px;
+            height: 28px;
+            background: #f0fdf4;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .trigger-icon svg {
+            width: 14px;
+            height: 14px;
+            stroke: #16a34a;
+        }
+        
+        .trigger-content h4 {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 2px;
+        }
+        
+        .trigger-content p {
+            font-size: 12px;
+            color: #64748b;
+        }
+        
+        /* Email Templates Quick Ref */
+        .template-ref {
+            background: #fafbfc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+        }
+        
+        .template-ref-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        
+        .template-ref-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .template-ref-use {
+            font-size: 11px;
+            color: #64748b;
+        }
+        
+        .template-ref-subject {
+            font-size: 12px;
+            color: #475569;
+            background: #fff;
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        /* Stats Row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-box {
+            text-align: center;
+            padding: 16px;
+            background: #f8fafc;
+            border-radius: 10px;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+        
+        /* Quick Links */
+        .quick-links {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #f1f5f9;
+        }
+        
+        .quick-link {
+            font-size: 12px;
+            color: #3b82f6;
+            text-decoration: none;
+            padding: 6px 12px;
+            background: #eff6ff;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        
+        .quick-link:hover {
+            background: #dbeafe;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            margin-top: 32px;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <header>
+        <div class="header-top">
+            <img src="/logo" alt="Eudia" class="header-logo" onerror="this.style.display='none'">
+            <span class="badge-private">PRIVATE VIEW</span>
+        </div>
+        <h1>Outbound Playbook</h1>
+        <p class="subtitle">Top-of-funnel targeting, messaging frameworks, and prospecting intelligence</p>
+    </header>
+
+    <!-- Key Metrics -->
+    <div class="section">
+        <div class="section-content">
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-value">CLO</div>
+                    <div class="stat-label">Primary Buyer</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">F500</div>
+                    <div class="stat-label">Target Segment</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">30-60%</div>
+                    <div class="stat-label">OC Cost Reduction</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">2-3x</div>
+                    <div class="stat-label">Velocity Gain</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Target Personas -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-icon">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            </div>
+            <span class="section-title">Target Personas</span>
+        </div>
+        <div class="section-content">
+            <div class="cards-grid">
+                <div class="card">
+                    <div class="card-title">
+                        Chief Legal Officer / General Counsel
+                        <span class="card-badge badge-primary">Primary</span>
+                    </div>
+                    <p>Strategic buyer. Cares about: operating model transformation, budget optimization, AI defensibility to board.</p>
+                    <ul>
+                        <li>Owns legal ops budget</li>
+                        <li>Reports to CEO/CFO</li>
+                        <li>Pain: "How do I show ROI on AI?"</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <div class="card-title">
+                        VP Legal / Head of Contracting
+                        <span class="card-badge badge-success">Champion</span>
+                    </div>
+                    <p>Operational buyer. Cares about: velocity, team capacity, reducing bottleneck reputation.</p>
+                    <ul>
+                        <li>Owns contracting workflow</li>
+                        <li>Measured on turnaround time</li>
+                        <li>Pain: "We're blocking deals"</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <div class="card-title">
+                        Deputy GC / M&A Counsel
+                        <span class="card-badge badge-purple">Specialist</span>
+                    </div>
+                    <p>Project buyer. Cares about: due diligence speed, cost per deal, data room efficiency.</p>
+                    <ul>
+                        <li>Owns deal execution</li>
+                        <li>High OC spend exposure</li>
+                        <li>Pain: "Each deal = 6-8 weeks"</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Lines -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-icon">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            </div>
+            <span class="section-title">Product Lines (2026)</span>
+        </div>
+        <div class="section-content">
+            <table class="product-table">
+                <thead>
+                    <tr>
+                        <th>Product Line</th>
+                        <th>Use Case</th>
+                        <th>Lead With</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="product-name">AI Contracting - Technology</td>
+                        <td>Contract review, redlining, playbook automation</td>
+                        <td>2-3x faster cycle times</td>
+                    </tr>
+                    <tr>
+                        <td class="product-name">AI Contracting - Managed Services</td>
+                        <td>End-to-end contract ops with embedded team</td>
+                        <td>Replace OC with flat fee</td>
+                    </tr>
+                    <tr>
+                        <td class="product-name">AI Compliance - Technology</td>
+                        <td>Regulatory tracking, policy compliance, audits</td>
+                        <td>40-70% compliance cost reduction</td>
+                    </tr>
+                    <tr>
+                        <td class="product-name">AI M&A - Managed Services</td>
+                        <td>Due diligence, data room analysis, deal execution</td>
+                        <td>6 weeks → 10 days</td>
+                    </tr>
+                    <tr>
+                        <td class="product-name">AI Platform - Sigma</td>
+                        <td>Legal workflow intelligence, productivity layer</td>
+                        <td>Visibility + Company Brain</td>
+                    </tr>
+                    <tr>
+                        <td class="product-name">AI Platform - Insights</td>
+                        <td>Analytics, reporting, matter tracking</td>
+                        <td>Data-driven legal ops</td>
+                    </tr>
+                    <tr>
+                        <td class="product-name">AI Platform - Litigation</td>
+                        <td>Litigation support, document review, case prep</td>
+                        <td>Litigation cost control</td>
+                    </tr>
+                    <tr>
+                        <td class="product-name">FDE - Custom AI Solution</td>
+                        <td>Bespoke AI engineering for unique workflows</td>
+                        <td>White-glove deployment</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Messaging Framework -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-icon">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+            </div>
+            <span class="section-title">Messaging Framework</span>
+        </div>
+        <div class="section-content">
+            <div class="message-box">
+                <div class="message-box-title">Core Value Prop</div>
+                <p>"We help in-house legal teams move from AI exploration to operational impact within days—not quarters. Measurable outcomes, not productivity dashboards."</p>
+            </div>
+            
+            <div class="message-box">
+                <div class="message-box-title">Differentiation</div>
+                <p>"Unlike LegalTech point solutions that require your team to learn new software, we embed AI engineers alongside your team and build on your existing processes. Our platform becomes your Company Brain."</p>
+            </div>
+            
+            <div class="message-box">
+                <div class="message-box-title">Urgency Hook (2026)</div>
+                <p>"The question isn't whether your team explores AI—it's whether you can demonstrate measurable business outcomes when budgets tighten and 'AI exploration' won't be defensible."</p>
+            </div>
+            
+            <div class="cards-grid" style="margin-top: 16px;">
+                <div class="card">
+                    <div class="card-title">Proof Points</div>
+                    <ul>
+                        <li>Fortune 500 manufacturer: 60% OC reduction, 90 days</li>
+                        <li>B2B SaaS: 14 days → 3 days contract turnaround</li>
+                        <li>PE portfolio: 6 weeks → 10 days due diligence</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <div class="card-title">Words to Avoid</div>
+                    <ul>
+                        <li>❌ "Solution" / "Platform" (generic)</li>
+                        <li>❌ "Leverage" / "Synergy" (jargon)</li>
+                        <li>❌ "AI-powered" (overused)</li>
+                        <li>❌ "Revolutionize" (salesy)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Buying Triggers -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-icon">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <span class="section-title">Buying Triggers</span>
+        </div>
+        <div class="section-content">
+            <div class="trigger-item">
+                <div class="trigger-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div class="trigger-content">
+                    <h4>M&A Activity</h4>
+                    <p>Announced acquisition, merger, or carve-out. Due diligence pain is acute and time-boxed.</p>
+                </div>
+            </div>
+            <div class="trigger-item">
+                <div class="trigger-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div class="trigger-content">
+                    <h4>Geographic Expansion</h4>
+                    <p>New markets (EMEA, APAC) create compliance complexity and contract volume spikes.</p>
+                </div>
+            </div>
+            <div class="trigger-item">
+                <div class="trigger-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div class="trigger-content">
+                    <h4>Funding Round</h4>
+                    <p>Series C+ indicates growth pressure, budget availability, and need to scale legal without linear headcount.</p>
+                </div>
+            </div>
+            <div class="trigger-item">
+                <div class="trigger-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div class="trigger-content">
+                    <h4>New CLO/GC Hire</h4>
+                    <p>New leader = mandate to show impact. 90-day window for quick wins.</p>
+                </div>
+            </div>
+            <div class="trigger-item">
+                <div class="trigger-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div class="trigger-content">
+                    <h4>CLM Fatigue</h4>
+                    <p>Implemented CLM 18+ months ago, underwhelmed by adoption. Looking for "what's next."</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Quick Reference -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-icon">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            </div>
+            <span class="section-title">Email Templates (Quick Ref)</span>
+        </div>
+        <div class="section-content">
+            <div class="template-ref">
+                <div class="template-ref-header">
+                    <span class="template-ref-title">CLO Outcome-Based Intro</span>
+                    <span class="template-ref-use">Cold → CLO/GC</span>
+                </div>
+                <div class="template-ref-subject">Subject: Legal operating model for [COMPANY]'s next phase</div>
+            </div>
+            <div class="template-ref">
+                <div class="template-ref-header">
+                    <span class="template-ref-title">VP Legal Contracting Focus</span>
+                    <span class="template-ref-use">Cold → VP Legal</span>
+                </div>
+                <div class="template-ref-subject">Subject: Contract turnaround at [COMPANY]</div>
+            </div>
+            <div class="template-ref">
+                <div class="template-ref-header">
+                    <span class="template-ref-title">M&A Due Diligence</span>
+                    <span class="template-ref-use">Cold → M&A Counsel</span>
+                </div>
+                <div class="template-ref-subject">Subject: M&A diligence at [COMPANY]</div>
+            </div>
+            <div class="template-ref">
+                <div class="template-ref-header">
+                    <span class="template-ref-title">CLM Underwhelmed</span>
+                    <span class="template-ref-use">Cold → Legal Ops</span>
+                </div>
+                <div class="template-ref-subject">Subject: Beyond CLM at [COMPANY]</div>
+            </div>
+            
+            <div class="quick-links">
+                <a href="/email-builder" class="quick-link">Open Email Builder →</a>
+                <a href="/docs/eudia_email_templates.html" class="quick-link">Full Template Bank →</a>
+                <a href="/docs/eudia_bl_email_templates.html" class="quick-link">BL Templates →</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Industry Focus -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-icon">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            </div>
+            <span class="section-title">Industry Focus</span>
+        </div>
+        <div class="section-content">
+            <div class="cards-grid">
+                <div class="card">
+                    <div class="card-title">
+                        Manufacturing
+                        <span class="card-badge badge-success">Strong Fit</span>
+                    </div>
+                    <p>High contract volume, complex compliance, global supply chains. Lead with: Compliance + Contracting.</p>
+                </div>
+                <div class="card">
+                    <div class="card-title">
+                        Financial Services
+                        <span class="card-badge badge-success">Strong Fit</span>
+                    </div>
+                    <p>Regulatory burden, M&A activity, PE portfolio management. Lead with: Compliance + M&A.</p>
+                </div>
+                <div class="card">
+                    <div class="card-title">
+                        Technology / SaaS
+                        <span class="card-badge badge-primary">Good Fit</span>
+                    </div>
+                    <p>High-velocity contracting, speed-to-revenue pressure. Lead with: Contracting velocity.</p>
+                </div>
+                <div class="card">
+                    <div class="card-title">
+                        Healthcare / Life Sciences
+                        <span class="card-badge badge-primary">Good Fit</span>
+                    </div>
+                    <p>Compliance-heavy, vendor contracting, M&A roll-ups. Lead with: Compliance + Contracting.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        Eudia Outbound Playbook | Updated January 2026 | Private View
+    </footer>
+</div>
+
+</body>
+</html>
+
