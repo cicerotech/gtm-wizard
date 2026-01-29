@@ -39,9 +39,66 @@
         }
         
         .header-logo {
-            height: 28px;
-            filter: grayscale(100%) brightness(0.3);
+            height: 32px;
+            filter: grayscale(100%) brightness(0.35);
             opacity: 0.9;
+        }
+        
+        /* Industry Cards Enhanced */
+        .industry-card {
+            background: #fafbfc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 12px;
+        }
+        
+        .industry-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .industry-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .industry-why {
+            font-size: 13px;
+            color: #475569;
+            margin-bottom: 14px;
+            line-height: 1.5;
+        }
+        
+        .industry-accounts {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        
+        .account-pill {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            padding: 5px 12px;
+            border-radius: 16px;
+            font-size: 11px;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .industry-lead {
+            font-size: 12px;
+            color: #64748b;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .industry-lead strong {
+            color: #1e293b;
         }
         
         .badge-private {
@@ -360,7 +417,7 @@
     
     <header>
         <div class="header-top">
-            <img src="/logo" alt="Eudia" class="header-logo" onerror="this.style.display='none'">
+            <img src="EudiaLogonew.jpg" alt="Eudia" class="header-logo" onerror="this.outerHTML='<span style=\"font-weight:700;font-size:18px;color:#374151;letter-spacing:-0.5px\">EUDIA</span>'">
             <span class="badge-private">PRIVATE VIEW</span>
         </div>
         <h1>Outbound Playbook</h1>
@@ -653,45 +710,160 @@
         </div>
     </div>
 
-    <!-- Industry Focus -->
+    <!-- Industry Targeting -->
     <div class="section">
         <div class="section-header">
             <div class="section-icon">
                 <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
             </div>
-            <span class="section-title">Industry Focus</span>
+            <span class="section-title">Industry Targeting & Account Intelligence</span>
         </div>
         <div class="section-content">
-            <div class="cards-grid">
-                <div class="card">
-                    <div class="card-title">
-                        Manufacturing
-                        <span class="card-badge badge-success">Strong Fit</span>
-                    </div>
-                    <p>High contract volume, complex compliance, global supply chains. Lead with: Compliance + Contracting.</p>
+            
+            <!-- Pharma / Life Sciences -->
+            <div class="industry-card">
+                <div class="industry-header">
+                    <span class="industry-name">Pharma & Life Sciences</span>
+                    <span class="card-badge badge-success">Tier 1</span>
                 </div>
-                <div class="card">
-                    <div class="card-title">
-                        Financial Services
-                        <span class="card-badge badge-success">Strong Fit</span>
-                    </div>
-                    <p>Regulatory burden, M&A activity, PE portfolio management. Lead with: Compliance + M&A.</p>
+                <div class="industry-why">
+                    <strong>Why target:</strong> Highest regulatory burden in any industry. FDA, EMA, and global compliance creates constant legal ops pressure. Heavy reliance on outside counsel for regulatory filings, clinical trial agreements, and IP. M&A consolidation continues—every deal = 6-8 week diligence cycles. Legal teams are cost centers under CFO scrutiny.
                 </div>
-                <div class="card">
-                    <div class="card-title">
-                        Technology / SaaS
-                        <span class="card-badge badge-primary">Good Fit</span>
-                    </div>
-                    <p>High-velocity contracting, speed-to-revenue pressure. Lead with: Contracting velocity.</p>
+                <div class="industry-accounts">
+                    <span class="account-pill">Pfizer</span>
+                    <span class="account-pill">Johnson & Johnson</span>
+                    <span class="account-pill">Merck</span>
+                    <span class="account-pill">AbbVie</span>
+                    <span class="account-pill">Bristol-Myers Squibb</span>
+                    <span class="account-pill">Eli Lilly</span>
+                    <span class="account-pill">Amgen</span>
+                    <span class="account-pill">Gilead</span>
                 </div>
-                <div class="card">
-                    <div class="card-title">
-                        Healthcare / Life Sciences
-                        <span class="card-badge badge-primary">Good Fit</span>
-                    </div>
-                    <p>Compliance-heavy, vendor contracting, M&A roll-ups. Lead with: Compliance + Contracting.</p>
+                <div class="industry-lead">
+                    <strong>Lead with:</strong> Compliance automation + M&A due diligence speed. Reference 40-70% OC reduction on regulatory work.
                 </div>
             </div>
+            
+            <!-- Oil & Gas / Energy -->
+            <div class="industry-card">
+                <div class="industry-header">
+                    <span class="industry-name">Oil & Gas / Energy</span>
+                    <span class="card-badge badge-success">Tier 1</span>
+                </div>
+                <div class="industry-why">
+                    <strong>Why target:</strong> Massive contract volumes—JV agreements, drilling contracts, land rights, environmental compliance, vendor MSAs across global operations. Highly regulated (EPA, state agencies, international). Energy transition creating new deal complexity (renewables, carbon credits). Mature legal ops teams with budget authority.
+                </div>
+                <div class="industry-accounts">
+                    <span class="account-pill">ExxonMobil</span>
+                    <span class="account-pill">Chevron</span>
+                    <span class="account-pill">ConocoPhillips</span>
+                    <span class="account-pill">Schlumberger</span>
+                    <span class="account-pill">Halliburton</span>
+                    <span class="account-pill">Baker Hughes</span>
+                    <span class="account-pill">Phillips 66</span>
+                    <span class="account-pill">Marathon</span>
+                </div>
+                <div class="industry-lead">
+                    <strong>Lead with:</strong> Contract velocity + compliance automation. Emphasize global ops complexity and outside counsel consolidation.
+                </div>
+            </div>
+            
+            <!-- Insurance -->
+            <div class="industry-card">
+                <div class="industry-header">
+                    <span class="industry-name">Insurance</span>
+                    <span class="card-badge badge-success">Tier 1</span>
+                </div>
+                <div class="industry-why">
+                    <strong>Why target:</strong> State-by-state regulatory complexity multiplies compliance burden. High policy/contract volume with tight turnaround expectations. Claims litigation creates constant document review. M&A activity ongoing (consolidation + InsurTech acquisitions). Legal ops maturity varies—opportunity to modernize.
+                </div>
+                <div class="industry-accounts">
+                    <span class="account-pill">State Farm</span>
+                    <span class="account-pill">Liberty Mutual</span>
+                    <span class="account-pill">Travelers</span>
+                    <span class="account-pill">Chubb</span>
+                    <span class="account-pill">Hartford</span>
+                    <span class="account-pill">Allstate</span>
+                    <span class="account-pill">Progressive</span>
+                    <span class="account-pill">Nationwide</span>
+                </div>
+                <div class="industry-lead">
+                    <strong>Lead with:</strong> Compliance + litigation support. Multi-state regulatory tracking and claims document review.
+                </div>
+            </div>
+            
+            <!-- Manufacturing -->
+            <div class="industry-card">
+                <div class="industry-header">
+                    <span class="industry-name">Manufacturing</span>
+                    <span class="card-badge badge-primary">Tier 2</span>
+                </div>
+                <div class="industry-why">
+                    <strong>Why target:</strong> Global supply chain = thousands of vendor contracts annually. Trade compliance (tariffs, export controls) intensifying. ESG/sustainability compliance requirements emerging. OEMs face product liability and IP protection needs. Legal teams often lean—high OC dependency.
+                </div>
+                <div class="industry-accounts">
+                    <span class="account-pill">Caterpillar</span>
+                    <span class="account-pill">3M</span>
+                    <span class="account-pill">Honeywell</span>
+                    <span class="account-pill">Ecolab</span>
+                    <span class="account-pill">Deere & Co</span>
+                    <span class="account-pill">Parker Hannifin</span>
+                    <span class="account-pill">Illinois Tool Works</span>
+                    <span class="account-pill">Emerson</span>
+                </div>
+                <div class="industry-lead">
+                    <strong>Lead with:</strong> Vendor contracting velocity + trade compliance. Reference Ecolab: 60% OC reduction in 90 days.
+                </div>
+            </div>
+            
+            <!-- Financial Services -->
+            <div class="industry-card">
+                <div class="industry-header">
+                    <span class="industry-name">Financial Services & PE</span>
+                    <span class="card-badge badge-primary">Tier 2</span>
+                </div>
+                <div class="industry-why">
+                    <strong>Why target:</strong> Heavy regulatory burden (SEC, FINRA, OCC). M&A is core business for PE firms—diligence speed = competitive advantage. Portfolio company legal ops often fragmented. Banks face vendor management and contract standardization challenges. Compliance costs under constant scrutiny.
+                </div>
+                <div class="industry-accounts">
+                    <span class="account-pill">BlackRock</span>
+                    <span class="account-pill">KKR</span>
+                    <span class="account-pill">Carlyle</span>
+                    <span class="account-pill">Apollo</span>
+                    <span class="account-pill">TPG</span>
+                    <span class="account-pill">Ares</span>
+                    <span class="account-pill">US Bank</span>
+                    <span class="account-pill">PNC</span>
+                </div>
+                <div class="industry-lead">
+                    <strong>Lead with:</strong> M&A diligence speed (6 weeks → 10 days) + portfolio company legal ops. Compliance for banks.
+                </div>
+            </div>
+            
+            <!-- Tech / SaaS -->
+            <div class="industry-card">
+                <div class="industry-header">
+                    <span class="industry-name">Technology / SaaS</span>
+                    <span class="card-badge badge-warning">Tier 3</span>
+                </div>
+                <div class="industry-why">
+                    <strong>Why target:</strong> High-velocity contracting is core to revenue. Legal is often seen as "blocking deals." Growth-stage companies scaling without proportional legal headcount. Enterprise sales = complex negotiations, custom terms. Data privacy (GDPR, CCPA) adds compliance layer.
+                </div>
+                <div class="industry-accounts">
+                    <span class="account-pill">Salesforce</span>
+                    <span class="account-pill">ServiceNow</span>
+                    <span class="account-pill">Workday</span>
+                    <span class="account-pill">Snowflake</span>
+                    <span class="account-pill">Datadog</span>
+                    <span class="account-pill">CrowdStrike</span>
+                    <span class="account-pill">Palo Alto</span>
+                    <span class="account-pill">Zscaler</span>
+                </div>
+                <div class="industry-lead">
+                    <strong>Lead with:</strong> Contract turnaround speed (14 days → 3 days). Revenue enablement angle—unblock deals faster.
+                </div>
+            </div>
+            
         </div>
     </div>
 
