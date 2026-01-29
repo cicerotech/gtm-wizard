@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <apiVersion>65.0</apiVersion>
+    <assignments>
+        <name>Assign_Account_Name</name>
+        <label>Assign Account Name</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>SelectedAccountName</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>AccountRecord.Name</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Create_Opportunity</targetReference>
+        </connector>
+    </assignments>
+    <choices>
+        <name>Stage_0_Qualifying</name>
+        <choiceText>Stage 0 - Qualifying</choiceText>
+        <dataType>String</dataType>
+        <value>
+            <stringValue>Stage 0 - Qualifying</stringValue>
+        </value>
+    </choices>
+    <choices>
+        <name>Stage_1_Discovery</name>
+        <choiceText>Stage 1 - Discovery</choiceText>
+        <dataType>String</dataType>
+        <value>
+            <stringValue>Stage 1 - Discovery</stringValue>
+        </value>
+    </choices>
+    <choices>
+        <name>Stage_2_SQO</name>
+        <choiceText>Stage 2 - SQO</choiceText>
+        <dataType>String</dataType>
+        <value>
+            <stringValue>Stage 2 - SQO</stringValue>
+        </value>
+    </choices>
+    <choices>
+        <name>Stage_3_Pilot</name>
+        <choiceText>Stage 3 - Pilot</choiceText>
+        <dataType>String</dataType>
+        <value>
+            <stringValue>Stage 3 - Pilot</stringValue>
+        </value>
+    </choices>
+    <choices>
+        <name>Stage_4_Proposal</name>
+        <choiceText>Stage 4 - Proposal</choiceText>
+        <dataType>String</dataType>
+        <value>
+            <stringValue>Stage 4 - Proposal</stringValue>
+        </value>
+    </choices>
+    <description>Single-screen opportunity creation with all accounts in searchable dropdown.</description>
+    <dynamicChoiceSets>
+        <name>AccountChoices</name>
+        <dataType>String</dataType>
+        <displayField>Name</displayField>
+        <limit>200</limit>
+        <object>Account</object>
+        <outputAssignments>
+            <assignToReference>SelectedAccountId</assignToReference>
+            <field>Id</field>
+        </outputAssignments>
+        <sortField>Name</sortField>
+        <sortOrder>Asc</sortOrder>
+        <valueField>Id</valueField>
+    </dynamicChoiceSets>
+    <dynamicChoiceSets>
+        <name>ProductLineChoices</name>
+        <dataType>Picklist</dataType>
+        <displayField xsi:nil="true"/>
+        <object xsi:nil="true"/>
+        <picklistField>Product_Line__c</picklistField>
+        <picklistObject>Opportunity</picklistObject>
+    </dynamicChoiceSets>
+    <environments>Default</environments>
+    <formulas>
+        <name>CalculatedCloseDate</name>
+        <dataType>Date</dataType>
+        <expression>IF(ISBLANK({!TargetSignDate}), TODAY() + 180, {!TargetSignDate})</expression>
+    </formulas>
+    <formulas>
+        <name>GeneratedOppName</name>
+        <dataType>String</dataType>
+        <expression>{!SelectedAccountName} &amp; &quot; - &quot; &amp; IF(ISBLANK({!ProductLine}) || {!ProductLine} = &quot;Undetermined&quot;, {!OpportunityStage}, {!ProductLine})</expression>
+    </formulas>
+    <interviewLabel>Quick Create Opp v2 {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Quick Create Opp v2</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>Flow</processType>
+    <recordCreates>
+        <name>Create_Opportunity</name>
+        <label>Create Opportunity</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Screen_Success</targetReference>
+        </connector>
+        <faultConnector>
+            <targetReference>Screen_Error</targetReference>
+        </faultConnector>
+        <inputAssignments>
+            <field>ACV__c</field>
+            <value>
+                <elementReference>ACVAmount</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>AccountId</field>
+            <value>
+                <elementReference>SelectedAccountId</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Amount</field>
+            <value>
+                <elementReference>ACVAmount</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>CloseDate</field>
+            <value>
+                <elementReference>CalculatedCloseDate</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Name</field>
+            <value>
+                <elementReference>GeneratedOppName</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Opportunity_Source__c</field>
+            <value>
+                <stringValue>Eudia Exec-Intro</stringValue>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Probability</field>
+            <value>
+                <numberValue>10.0</numberValue>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Product_Line__c</field>
+            <value>
+                <elementReference>ProductLine</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>RecordTypeId</field>
+            <value>
+                <stringValue>012Hp000001HYyxIAG</stringValue>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>StageName</field>
+            <value>
+                <elementReference>OpportunityStage</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Target_Sign_for_Edit_NEW__c</field>
+            <value>
+                <elementReference>CalculatedCloseDate</elementReference>
+            </value>
+        </inputAssignments>
+        <object>Opportunity</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordCreates>
+    <recordLookups>
+        <name>Get_Account_Record</name>
+        <label>Get Account Record</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
+        <connector>
+            <targetReference>Assign_Account_Name</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Id</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>SelectedAccountId</elementReference>
+            </value>
+        </filters>
+        <object>Account</object>
+        <outputReference>AccountRecord</outputReference>
+        <queriedFields>Id</queriedFields>
+        <queriedFields>Name</queriedFields>
+    </recordLookups>
+    <runInMode>DefaultMode</runInMode>
+    <screens>
+        <name>Screen_Create_Opportunity</name>
+        <label>Create Opportunity</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <allowBack>false</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>false</allowPause>
+        <connector>
+            <targetReference>Get_Account_Record</targetReference>
+        </connector>
+        <fields>
+            <name>Header</name>
+            <fieldText>&lt;p&gt;&lt;span style=&quot;font-size: 20px; font-weight: bold; color: #032D60;&quot;&gt;Create New Opportunity&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot;font-size: 13px; color: #706E6B;&quot;&gt;Select an account and fill in the opportunity details below. Click the Account dropdown and start typing to filter.&lt;/span&gt;&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <fields>
+            <name>Divider1</name>
+            <fieldText>&lt;p&gt;&lt;span style=&quot;background-color: #DDDBDA; font-size: 1px;&quot;&gt;​&lt;/span&gt;&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <fields>
+            <name>AccountDropdown</name>
+            <choiceReferences>AccountChoices</choiceReferences>
+            <dataType>String</dataType>
+            <fieldText>Account</fieldText>
+            <fieldType>DropdownBox</fieldType>
+            <helpText>Click to open list, then type to filter accounts</helpText>
+            <isRequired>true</isRequired>
+        </fields>
+        <fields>
+            <name>OpportunityStage</name>
+            <choiceReferences>Stage_0_Qualifying</choiceReferences>
+            <choiceReferences>Stage_1_Discovery</choiceReferences>
+            <choiceReferences>Stage_2_SQO</choiceReferences>
+            <choiceReferences>Stage_3_Pilot</choiceReferences>
+            <choiceReferences>Stage_4_Proposal</choiceReferences>
+            <dataType>String</dataType>
+            <fieldText>Stage</fieldText>
+            <fieldType>DropdownBox</fieldType>
+            <isRequired>true</isRequired>
+        </fields>
+        <fields>
+            <name>TargetSignDate</name>
+            <dataType>Date</dataType>
+            <fieldText>Target Sign Date</fieldText>
+            <fieldType>InputField</fieldType>
+            <helpText>Leave blank to default to 180 days from today</helpText>
+            <isRequired>false</isRequired>
+        </fields>
+        <fields>
+            <name>ACVAmount</name>
+            <dataType>Currency</dataType>
+            <defaultValue>
+                <numberValue>100000.0</numberValue>
+            </defaultValue>
+            <fieldText>ACV</fieldText>
+            <fieldType>InputField</fieldType>
+            <isRequired>false</isRequired>
+            <scale>0</scale>
+        </fields>
+        <fields>
+            <name>ProductLine</name>
+            <choiceReferences>ProductLineChoices</choiceReferences>
+            <dataType>String</dataType>
+            <fieldText>Product Line</fieldText>
+            <fieldType>DropdownBox</fieldType>
+            <isRequired>false</isRequired>
+        </fields>
+        <nextOrFinishButtonLabel>Create Opportunity</nextOrFinishButtonLabel>
+        <showFooter>true</showFooter>
+        <showHeader>false</showHeader>
+    </screens>
+    <screens>
+        <name>Screen_Error</name>
+        <label>Error</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <allowBack>true</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>false</allowPause>
+        <fields>
+            <name>ErrorHeader</name>
+            <fieldText>&lt;p&gt;&lt;span style=&quot;font-size: 18px; font-weight: bold; color: #BA0517;&quot;&gt;Unable to Create Opportunity&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot;color: #706E6B;&quot;&gt;{!$Flow.FaultMessage}&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot;font-size: 13px; color: #706E6B;&quot;&gt;Click Previous to go back and try again.&lt;/span&gt;&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <showFooter>true</showFooter>
+        <showHeader>false</showHeader>
+    </screens>
+    <screens>
+        <name>Screen_Success</name>
+        <label>Success</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <allowBack>false</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>false</allowPause>
+        <fields>
+            <name>SuccessHeader</name>
+            <fieldText>&lt;p&gt;&lt;span style=&quot;font-size: 20px; font-weight: bold; color: #2E844A;&quot;&gt;Opportunity Created Successfully&lt;/span&gt;&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <fields>
+            <name>SuccessDetails</name>
+            <fieldText>&lt;p&gt;&lt;span style=&quot;font-size: 14px; color: #706E6B;&quot;&gt;Your opportunity has been created with the following details:&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;&lt;strong&gt;Account:&lt;/strong&gt; {!SelectedAccountName}&lt;/p&gt;&lt;p&gt;&lt;strong&gt;Stage:&lt;/strong&gt; {!OpportunityStage}&lt;/p&gt;&lt;p&gt;&lt;strong&gt;ACV:&lt;/strong&gt; {!ACVAmount}&lt;/p&gt;&lt;p&gt;&lt;strong&gt;Close Date:&lt;/strong&gt; {!CalculatedCloseDate}&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <nextOrFinishButtonLabel>Done</nextOrFinishButtonLabel>
+        <showFooter>true</showFooter>
+        <showHeader>false</showHeader>
+    </screens>
+    <start>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Screen_Create_Opportunity</targetReference>
+        </connector>
+    </start>
+    <status>Active</status>
+    <variables>
+        <name>AccountRecord</name>
+        <dataType>SObject</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <objectType>Account</objectType>
+    </variables>
+    <variables>
+        <name>SelectedAccountId</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>true</isOutput>
+    </variables>
+    <variables>
+        <name>SelectedAccountName</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>true</isOutput>
+    </variables>
+</Flow>
+

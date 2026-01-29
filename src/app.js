@@ -1711,7 +1711,7 @@ LIMIT 20
     });
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // AUDIO TRANSCRIPTION (Eudia Scribe)
+    // AUDIO TRANSCRIPTION (Eudia Transcription Plugin)
     // Handles audio transcription via Whisper and summarization via GPT-4o
     // ═══════════════════════════════════════════════════════════════════════════
     

@@ -1,22 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>Product_Lines_Multi__c</fullName>
-    <description>Multi-select version of Product Line. Select multiple products for this opportunity.</description>
+    <fullName>Product_Line__c</fullName>
+    <description>Primary product line for this opportunity.</description>
     <externalId>false</externalId>
-    <inlineHelpText>Select one or more product lines.</inlineHelpText>
-    <label>Product Lines</label>
+    <label>Product Line</label>
     <required>false</required>
     <trackFeedHistory>false</trackFeedHistory>
     <trackHistory>false</trackHistory>
     <trackTrending>false</trackTrending>
-    <type>MultiselectPicklist</type>
+    <type>Picklist</type>
     <valueSet>
         <restricted>false</restricted>
         <valueSetDefinition>
             <sorted>false</sorted>
             
             <!-- ═══════════════════════════════════════════════════════════ -->
-            <!-- NEW VALUES (ACTIVE) - Regular hyphens -->
+            <!-- NEW VALUES (ACTIVE) - Regular hyphens in API name -->
             <!-- ═══════════════════════════════════════════════════════════ -->
             
             <!-- CONTRACTING -->
@@ -92,14 +91,9 @@
                 <default>false</default>
                 <label>Undetermined</label>
             </value>
-            <value>
-                <fullName>Multiple (BL Review)</fullName>
-                <default>false</default>
-                <label>Multiple (BL Review)</label>
-            </value>
             
             <!-- ═══════════════════════════════════════════════════════════ -->
-            <!-- LEGACY VALUES (INACTIVE) - Preserved for existing data -->
+            <!-- LEGACY VALUES (INACTIVE) - Hidden from dropdown -->
             <!-- ═══════════════════════════════════════════════════════════ -->
             
             <value>
@@ -150,8 +144,13 @@
                 <isActive>false</isActive>
                 <label>Custom Agents</label>
             </value>
+            <value>
+                <fullName>Multiple</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Multiple</label>
+            </value>
             
         </valueSetDefinition>
     </valueSet>
-    <visibleLines>4</visibleLines>
 </CustomField>

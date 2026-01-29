@@ -1,12 +1,12 @@
 {
-  "name": "eudia-scribe",
-  "version": "2.0.0",
-  "description": "Record meetings, transcribe with AI, sync to Salesforce. Zero config required.",
+  "name": "eudia-transcription",
+  "version": "2.1.0",
+  "description": "Record meetings, transcribe with AI, sync to Salesforce. OpenAI API key recommended.",
   "main": "main.js",
   "scripts": {
     "dev": "esbuild main.ts --bundle --outfile=main.js --external:obsidian --format=cjs --sourcemap --watch",
     "build": "esbuild main.ts --bundle --outfile=main.js --external:obsidian --format=cjs --minify",
-    "copy-to-vault": "cp main.js manifest.json styles.css ../vault-template/.obsidian/plugins/eudia-scribe/"
+    "copy-to-vault": "cp main.js manifest.json styles.css ../vault-template/.obsidian/plugins/eudia-transcription/"
   },
   "keywords": ["obsidian", "plugin", "salesforce", "eudia", "transcription", "audio", "recording"],
   "author": "Eudia",

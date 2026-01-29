@@ -54,7 +54,7 @@ When you finish recording:
 
 ## Plugin Features
 
-The **Eudia Scribe** plugin handles everything:
+The **Eudia Transcription Plugin** handles everything:
 
 | Feature | How |
 |---------|-----|

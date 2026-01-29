@@ -11,5 +11,6 @@
   "userEmail": "",
   "setupCompleted": false,
   "calendarConfigured": false,
-  "openaiApiKey": ""
+  "openaiApiKey": "",
+  "pluginVersion": "2.1.0"
 }

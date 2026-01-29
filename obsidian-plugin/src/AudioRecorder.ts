@@ -220,6 +220,7 @@ export class AudioRecorder {
 
   /**
    * Stop recording and return the audio data
+   * Includes a 10-second timeout to prevent hanging if onstop doesn't fire
    */
   async stopRecording(): Promise<RecordingResult> {
     return new Promise((resolve, reject) => {
@@ -230,8 +231,46 @@ export class AudioRecorder {
 
       const mimeType = this.mediaRecorder.mimeType;
       const duration = this.state.duration;
+      let resolved = false;
+
+      // Safety timeout - if onstop doesn't fire within 10 seconds, force completion
+      const safetyTimeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          console.warn('AudioRecorder: onstop timeout, forcing completion');
+          
+          try {
+            // Create blob from whatever chunks we have
+            const audioBlob = new Blob(this.audioChunks, { type: mimeType });
+            
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+            const extension = mimeType.includes('webm') ? 'webm' : 
+                             mimeType.includes('mp4') ? 'm4a' : 
+                             mimeType.includes('ogg') ? 'ogg' : 'webm';
+            const filename = `recording-${dateStr}-${timeStr}.${extension}`;
+
+            this.cleanup();
+
+            resolve({
+              audioBlob,
+              duration,
+              mimeType,
+              filename
+            });
+          } catch (error) {
+            this.cleanup();
+            reject(new Error('Failed to process recording after timeout'));
+          }
+        }
+      }, 10000);
 
       this.mediaRecorder.onstop = () => {
+        if (resolved) return; // Already resolved by timeout
+        resolved = true;
+        clearTimeout(safetyTimeout);
+        
         try {
           // Create blob from chunks
           const audioBlob = new Blob(this.audioChunks, { type: mimeType });
@@ -260,6 +299,9 @@ export class AudioRecorder {
       };
 
       this.mediaRecorder.onerror = (event) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(safetyTimeout);
         this.cleanup();
         reject(new Error('Recording error occurred'));
       };
