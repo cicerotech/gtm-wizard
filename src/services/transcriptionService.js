@@ -56,7 +56,7 @@ const TEMPLATE_SECTIONS = [
   },
   {
     header: 'Product Interest',
-    instructions: `Tag ONLY product lines explicitly discussed. Valid tags: AI-Augmented Contracting, AI-Augmented M&A, Compliance, Sigma, Platform, Litigation. For each, include a brief quote showing context. If no products discussed, write 'No specific products discussed'.`
+    instructions: `Tag ONLY product lines explicitly discussed. Valid tags: AI Contracting, AI M&A, AI Compliance, Sigma, Insights, Litigation. For each, include a brief quote showing context. If no products discussed, write 'No specific products discussed'.`
   },
   {
     header: 'Key Dates',

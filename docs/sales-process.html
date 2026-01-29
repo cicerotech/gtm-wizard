@@ -616,7 +616,7 @@
                 </div>
                 <div class="bl-stage-action">
                     <div class="bl-stage-action-label stage">Stage 2</div>
-                    <div class="bl-stage-action-text">Build Account Plan</div>
+                    <div class="bl-stage-action-text">Build Path to Close</div>
                 </div>
                 <div class="bl-stage-action">
                     <div class="bl-stage-action-label stage">Stage 3</div>
@@ -660,12 +660,12 @@
                         <div class="update-field-hint">Multi-select field</div>
                     </div>
                     <div class="update-field">
-                        <div class="update-field-name">Revenue Type</div>
-                        <div class="update-field-hint">Recurring / Project / Commitment</div>
+                        <div class="update-field-name">Next Steps</div>
+                        <div class="update-field-hint">What happens next?</div>
                     </div>
                     <div class="update-field">
                         <div class="update-field-name">BL Forecast Category</div>
-                        <div class="update-field-hint">Pipeline (0%) / Gut (60%) / Commit</div>
+                        <div class="update-field-hint">Pipeline / Gut / Commit</div>
                     </div>
                 </div>
                 <div style="font-size: 10px; color: #64748b; margin-top: 10px; text-align: center;">
@@ -700,7 +700,7 @@
                     <div class="stage-card">
                         <div class="stage-label">Stage 2</div>
                         <div class="stage-title">SQO</div>
-                        <div class="stage-desc">Qualified. Account Plan created, use case(s) ID'd.</div>
+                        <div class="stage-desc">Qualified. Path to close defined, use case(s) ID'd.</div>
                         <div class="stage-goal"><strong>Goal:</strong> Define scope</div>
                     </div>
                     <div class="stage-card">
@@ -740,7 +740,7 @@
                 <ul class="inline-list">
                     <li><strong>Lead→0:</strong> Response received</li>
                     <li><strong>0→1:</strong> Meeting scheduled</li>
-                    <li><strong>1→2:</strong> Qualified + Account Plan</li>
+                    <li><strong>1→2:</strong> Qualified + Path to Close defined</li>
                     <li><strong>2→3:</strong> Pilot signed (or skip to 4)</li>
                     <li><strong>3→4:</strong> Pilot complete</li>
                     <li><strong>4→5:</strong> Customer redlines or requests changes</li>
@@ -808,8 +808,32 @@
                         <tr><td><strong>Product Line(s)</strong></td><td>Multi-select field — which offerings are in conversation</td></tr>
                         <tr><td><strong>Target Sign Date</strong></td><td>Expected signature date (becomes Close Date when won)</td></tr>
                         <tr><td><strong>Sales Type</strong></td><td>New Business, Expansion, Renewal</td></tr>
-                        <tr><td><strong>Revenue Type</strong></td><td>Recurring (12+ mo), Project (&lt;12 mo), Commitment (LOI)</td></tr>
-                        <tr><td><strong>BL Forecast Category</strong></td><td>Pipeline (0%), Gut (60%), or Commit. Updated weekly — drives BL Quarterly Forecast calculation.</td></tr>
+                        <tr><td><strong>Next Steps</strong></td><td>What's the immediate next action to advance this deal?</td></tr>
+                        <tr><td><strong>BL Forecast Category</strong></td><td>Your confidence level — see definitions below</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>Forecast Categories</h3>
+                <table>
+                    <thead>
+                        <tr><th>Category</th><th>Confidence</th><th>What It Means</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Pipeline</strong></td>
+                            <td style="color: #64748b;">0%</td>
+                            <td>Early stage, still qualifying. No clear path to close yet.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Gut</strong></td>
+                            <td style="color: #d97706;">60%</td>
+                            <td>Qualified opportunity. You believe it will close, but timing or decision process has uncertainty.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Commit</strong></td>
+                            <td style="color: #16a34a;">100%</td>
+                            <td>Will close this quarter. You'd stake your reputation on it.</td>
+                        </tr>
                     </tbody>
                 </table>
 
@@ -822,7 +846,7 @@
                 <h3>Opportunity Basics</h3>
                 <ul>
                     <li>Each account starts with a single opp. Split into single-product-line opps where possible (flexibility allowed).</li>
-                    <li><strong>By Stage 2:</strong> Use cases identified, Account Plan developed.</li>
+                    <li><strong>By Stage 2:</strong> Use cases identified, Path to Close defined.</li>
                     <li><strong>By Stage 4:</strong> Delivery details ready to populate based on deal dynamics.</li>
                 </ul>
             </div>
@@ -854,17 +878,15 @@
                     <table>
                         <thead><tr><th style="background: #64748b;">Product Line</th><th style="background: #64748b;">Notes</th></tr></thead>
                         <tbody>
-                            <tr><td><strong>AI-Augmented Contracting – Managed Services</strong></td><td>Full-service + tech</td></tr>
-                            <tr><td><strong>AI-Augmented Contracting – In-House Technology</strong></td><td>Tech license only</td></tr>
-                            <tr><td><strong>AI-Augmented Compliance – In-House Technology</strong></td><td>Compliance tech</td></tr>
-                            <tr><td><strong>AI-Augmented M&A – Managed Service</strong></td><td>M&A full-service</td></tr>
-                            <tr><td><strong>AI-Augmented M&A – In-House Technology</strong></td><td>M&A tech license</td></tr>
-                            <tr><td><strong>AI Platform - Sigma</strong></td><td>Self-serve AI agent suite</td></tr>
-                            <tr><td><strong>AI Platform - Insights</strong></td><td>AI-powered analytics</td></tr>
-                            <tr><td><strong>AI Platform - Litigation</strong></td><td>Litigation support</td></tr>
-                            <tr><td><strong>FDE - Custom AI Solution</strong></td><td>Custom AI development</td></tr>
+                            <tr><td><strong>AI Contracting – Managed Services</strong></td><td>Full-service + tech</td></tr>
+                            <tr><td><strong>AI Contracting – Technology</strong></td><td>Tech license only</td></tr>
+                            <tr><td><strong>AI Compliance – Technology</strong></td><td>Compliance tech</td></tr>
+                            <tr><td><strong>AI M&A – Managed Services</strong></td><td>M&A full-service</td></tr>
+                            <tr><td><strong>AI Platform – Sigma</strong></td><td>Self-serve AI agent suite</td></tr>
+                            <tr><td><strong>AI Platform – Insights</strong></td><td>AI-powered analytics</td></tr>
+                            <tr><td><strong>AI Platform – Litigation</strong></td><td>Litigation support</td></tr>
+                            <tr><td><strong>FDE – Custom AI Solution</strong></td><td>Custom AI development</td></tr>
                             <tr><td><strong>Contracting – Secondee</strong></td><td>Contracting-specific placement</td></tr>
-                            <tr><td><strong>Multiple</strong></td><td>Bundled (specify in notes)</td></tr>
                             <tr><td><strong>Other – Secondee</strong></td><td>Catch-all secondee</td></tr>
                             <tr><td><strong>Other – Managed Service</strong></td><td>Catch-all non-tech managed service</td></tr>
                         </tbody>
@@ -903,7 +925,7 @@
                         <li><strong>Account Owner:</strong> <span class="bl-tag">BL</span> responsible</li>
                         <li><strong>HQ State/Region:</strong> Geography</li>
                         <li><strong>Customer Tag:</strong> New vs Existing</li>
-                        <li><strong>Account Plan:</strong> Strategy doc</li>
+                        <li><strong>Path to Close:</strong> Strategy doc</li>
                         <li><strong>Customer Brain:</strong> Meeting notes</li>
                     </ul>
                 </div>
@@ -982,8 +1004,8 @@
                     <div class="glossary-item"><span class="glossary-term"><span class="tool-tag">Obsidian</span></span> — <span class="glossary-def">Meeting notes tool — captures summaries, action items, syncs to SF via Customer Brain</span></div>
                     <div class="glossary-item"><span class="glossary-term"><span class="tool-tag">PM Platform</span></span> — <span class="glossary-def">Project management platform for post-sale delivery (future state)</span></div>
                     <div class="glossary-item"><span class="glossary-term"><span class="tool-tag">Customer Brain</span></span> — <span class="glossary-def">Account-level meeting notes in CRM</span></div>
-                    <div class="glossary-item"><span class="glossary-term">Account Plan</span> — <span class="glossary-def">Strategic plan (use cases, champions, value prop)</span></div>
-                    <div class="glossary-item"><span class="glossary-term">BL Forecast Category</span> — <span class="glossary-def">BL confidence level (Pipeline=0%, Gut=60%, Commit) — drives quarterly forecast</span></div>
+                    <div class="glossary-item"><span class="glossary-term">Path to Close</span> — <span class="glossary-def">Strategic plan (use cases, champions, value prop, decision process)</span></div>
+                    <div class="glossary-item"><span class="glossary-term">BL Forecast Category</span> — <span class="glossary-def">BL confidence: Pipeline (early, 0%), Gut (confident but uncertain, 60%), Commit (will close, 100%)</span></div>
                 </div>
             </div>
         </details>

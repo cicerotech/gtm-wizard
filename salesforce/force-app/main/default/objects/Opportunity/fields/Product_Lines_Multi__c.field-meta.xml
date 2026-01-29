@@ -14,78 +14,87 @@
         <restricted>false</restricted>
         <valueSetDefinition>
             <sorted>false</sorted>
+            <!-- CONTRACTING -->
             <value>
                 <fullName>AI-Augmented Contracting - In-House Technology</fullName>
                 <default>false</default>
-                <label>AI-Augmented Contracting - In-House Technology</label>
+                <label>AI Contracting – Technology</label>
             </value>
             <value>
                 <fullName>AI-Augmented Contracting - Managed Services</fullName>
                 <default>false</default>
-                <label>AI-Augmented Contracting - Managed Services</label>
+                <label>AI Contracting – Managed Services</label>
             </value>
             <value>
                 <fullName>Contracting - Secondee</fullName>
                 <default>false</default>
-                <label>Contracting - Secondee</label>
+                <label>Contracting – Secondee</label>
             </value>
+            <!-- COMPLIANCE -->
             <value>
                 <fullName>AI-Augmented Compliance - In-House Technology</fullName>
                 <default>false</default>
-                <label>AI-Augmented Compliance - In-House Technology</label>
+                <label>AI Compliance – Technology</label>
             </value>
+            <!-- M&A - Note: In-House Technology DEACTIVATED -->
             <value>
                 <fullName>AI-Augmented M&amp;A - In-House Technology</fullName>
                 <default>false</default>
-                <label>AI-Augmented M&amp;A - In-House Technology</label>
+                <isActive>false</isActive>
+                <label>AI M&amp;A – Technology (Inactive)</label>
             </value>
             <value>
                 <fullName>AI-Augmented M&amp;A - Managed Service</fullName>
                 <default>false</default>
-                <label>AI-Augmented M&amp;A - Managed Service</label>
+                <label>AI M&amp;A – Managed Services</label>
             </value>
+            <!-- AI PLATFORM -->
             <value>
                 <fullName>AI Platform - Sigma</fullName>
                 <default>false</default>
-                <label>AI Platform - Sigma</label>
+                <label>AI Platform – Sigma</label>
             </value>
             <value>
                 <fullName>AI Platform - Insights</fullName>
                 <default>false</default>
-                <label>AI Platform - Insights</label>
+                <label>AI Platform – Insights</label>
             </value>
             <value>
                 <fullName>AI Platform - Litigation</fullName>
                 <default>false</default>
-                <label>AI Platform - Litigation</label>
+                <label>AI Platform – Litigation</label>
             </value>
+            <!-- FDE -->
             <value>
                 <fullName>FDE - Custom AI Solution</fullName>
                 <default>false</default>
-                <label>FDE - Custom AI Solution</label>
+                <label>FDE – Custom AI Solution</label>
             </value>
+            <!-- OTHER -->
             <value>
                 <fullName>Other - Managed Service</fullName>
                 <default>false</default>
-                <label>Other - Managed Service</label>
+                <label>Other – Managed Service</label>
             </value>
             <value>
                 <fullName>Other - Secondee</fullName>
                 <default>false</default>
-                <label>Other - Secondee</label>
+                <label>Other – Secondee</label>
             </value>
+            <!-- FLAGS -->
             <value>
                 <fullName>Undetermined</fullName>
                 <default>false</default>
                 <label>Undetermined</label>
             </value>
+            <!-- DEACTIVATED: Multiple (BL Review) -->
             <value>
                 <fullName>Multiple (BL Review)</fullName>
                 <default>false</default>
-                <label>Multiple (BL Review)</label>
+                <isActive>false</isActive>
+                <label>Multiple (Inactive)</label>
             </value>
         </valueSetDefinition>
     </valueSet>
     <visibleLines>4</visibleLines>
 </CustomField>
-

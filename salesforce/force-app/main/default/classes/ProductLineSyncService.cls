@@ -72,8 +72,9 @@ public class ProductLineSyncService {
             
             // Parse selected products (multi-select values are semicolon-separated)
             // Skip placeholder values that are flags, not actual products
+            // Note: "Multiple (BL Review)" was deactivated Jan 2026
             Set<String> selectedProducts = new Set<String>();
-            Set<String> skipValues = new Set<String>{'Undetermined', 'Multiple (BL Review)'};
+            Set<String> skipValues = new Set<String>{'Undetermined'};
             
             if (String.isNotBlank(req.selectedProductLines)) {
                 for (String product : req.selectedProductLines.split(';')) {
