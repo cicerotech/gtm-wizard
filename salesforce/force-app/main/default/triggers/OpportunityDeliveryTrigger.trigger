@@ -14,7 +14,8 @@ trigger OpportunityDeliveryTrigger on Opportunity (after update) {
     Set<String> deliveryStages = new Set<String>{
         'Stage 4 - Proposal',
         'Stage 5 - Negotiation',
-        'Stage 6. Closed(Won)'
+        'Won',                    // Primary closed won stage (new)
+        'Stage 6. Closed(Won)'    // Legacy closed won stage
     };
     
     // Collect Opps where stage changed TO a delivery stage

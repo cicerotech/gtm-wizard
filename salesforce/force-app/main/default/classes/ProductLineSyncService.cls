@@ -15,6 +15,9 @@
  */
 public class ProductLineSyncService {
     
+    // Recursion control flag - prevents infinite loop between trigger and flow
+    public static Boolean isRunning = false;
+    
     // Default ACV if opportunity has no ACV set
     private static final Decimal DEFAULT_ACV = 120000.00;
     
@@ -42,6 +45,15 @@ public class ProductLineSyncService {
     @InvocableMethod(label='Sync Product Lines to Line Items' description='Creates/removes OpportunityLineItems based on multi-select product line field')
     public static void syncProductLines(List<SyncRequest> requests) {
         if (requests == null || requests.isEmpty()) return;
+        
+        // Recursion control - skip if already running (prevents loop with trigger)
+        if (isRunning) {
+            System.debug('ProductLineSyncService.syncProductLines: Skipping - already running');
+            return;
+        }
+        
+        // Set recursion flag to prevent trigger from firing back
+        isRunning = true;
         
         // Get Standard Pricebook
         Pricebook2 standardPB;
@@ -175,6 +187,9 @@ public class ProductLineSyncService {
         if (!toInsert.isEmpty()) {
             insert toInsert;
         }
+        
+        // Reset recursion flag
+        isRunning = false;
     }
     
     /**
@@ -183,6 +198,9 @@ public class ProductLineSyncService {
      */
     public static void updateMultiSelectFromLineItems(Set<Id> opportunityIds) {
         if (opportunityIds == null || opportunityIds.isEmpty()) return;
+        
+        // Set recursion flag to prevent Flow from firing back
+        isRunning = true;
         
         List<Opportunity> oppsToUpdate = new List<Opportunity>();
         
@@ -207,6 +225,48 @@ public class ProductLineSyncService {
         
         if (!oppsToUpdate.isEmpty()) {
             update oppsToUpdate;
+        }
+        
+        isRunning = false;
+    }
+    
+    /**
+     * Redistribute ACV equally among all products on an opportunity
+     * Called when products are added/removed directly (not via multi-select)
+     */
+    public static void redistributeACV(Set<Id> opportunityIds) {
+        if (opportunityIds == null || opportunityIds.isEmpty()) return;
+        
+        List<OpportunityLineItem> toUpdate = new List<OpportunityLineItem>();
+        
+        for (Id oppId : opportunityIds) {
+            // Get opportunity ACV
+            Opportunity opp = [SELECT Id, ACV__c FROM Opportunity WHERE Id = :oppId LIMIT 1];
+            Decimal acv = (opp.ACV__c != null && opp.ACV__c > 0) ? opp.ACV__c : DEFAULT_ACV;
+            
+            // Get all line items
+            List<OpportunityLineItem> lineItems = [
+                SELECT Id, UnitPrice 
+                FROM OpportunityLineItem 
+                WHERE OpportunityId = :oppId
+            ];
+            
+            if (lineItems.isEmpty()) continue;
+            
+            // Calculate equal distribution
+            Decimal pricePerProduct = (acv / lineItems.size()).setScale(2, RoundingMode.HALF_UP);
+            
+            // Update each line item
+            for (OpportunityLineItem oli : lineItems) {
+                if (oli.UnitPrice != pricePerProduct) {
+                    oli.UnitPrice = pricePerProduct;
+                    toUpdate.add(oli);
+                }
+            }
+        }
+        
+        if (!toUpdate.isEmpty()) {
+            update toUpdate;
         }
     }
 }

@@ -1696,89 +1696,108 @@ class GTMBrainApp {
 
     // ═══════════════════════════════════════════════════════════════════════════
     // OBSIDIAN VAULT DOWNLOAD
-    // Generates a fully configured Obsidian vault with all SF account folders
+    // Serves the pre-built Eudia BLS 2026 Vault with all account folders and notes
+    // Built using: node scripts/build-vault.js
     // ═══════════════════════════════════════════════════════════════════════════
     this.expressApp.get('/vault/download', async (req, res) => {
       try {
-        const archiver = require('archiver');
         const path = require('path');
         const fs = require('fs');
         
-        // Get all Salesforce accounts
-        const accounts = await meetingPrepService.getAccounts();
-        // Filter out accounts without names and sort
-        const accountNames = accounts
-          .filter(a => a && a.Name)
-          .map(a => a.Name)
-          .sort();
+        // Serve the pre-built vault ZIP
+        const vaultZipPath = path.join(__dirname, '..', 'dist', 'Eudia-BLS-2026-Vault.zip');
         
-        logger.info(`Generating Obsidian vault with ${accountNames.length} account folders`);
-        
-        // Set response headers for zip download
-        res.setHeader('Content-Type', 'application/zip');
-        res.setHeader('Content-Disposition', 'attachment; filename="eudia-sales-vault.zip"');
-        
-        // Create zip archive
-        const archive = archiver('zip', { zlib: { level: 9 } });
-        
-        // Pipe archive to response
-        archive.pipe(res);
-        
-        // Add template vault files from disk
-        const vaultTemplatePath = path.join(__dirname, '..', 'vault-template');
-        
-        // Add .obsidian configuration
-        archive.directory(path.join(vaultTemplatePath, '.obsidian'), '.obsidian');
-        
-        // Add Templates folder
-        archive.directory(path.join(vaultTemplatePath, 'Templates'), 'Templates');
-        
-        // Add _Setup.md
-        archive.file(path.join(vaultTemplatePath, '_Setup.md'), { name: '_Setup.md' });
-        
-        // Add Recordings folder with .gitkeep
-        archive.append('', { name: 'Recordings/.gitkeep' });
-        
-        // Create account folders dynamically from Salesforce
-        for (const accountName of accountNames) {
-          // Skip undefined or empty account names
-          if (!accountName || typeof accountName !== 'string') {
-            logger.warn('Skipping invalid account name:', accountName);
-            continue;
+        // Check if pre-built vault exists
+        if (!fs.existsSync(vaultZipPath)) {
+          logger.warn('Pre-built vault not found, generating dynamically...');
+          
+          // Fallback: Generate dynamically if pre-built doesn't exist
+          const archiver = require('archiver');
+          
+          // Get all Salesforce accounts
+          const accounts = await meetingPrepService.getAccounts();
+          const validAccounts = accounts.filter(a => a && a.accountName);
+          
+          logger.info(`Generating Obsidian vault with ${validAccounts.length} account folders`);
+          
+          res.setHeader('Content-Type', 'application/zip');
+          res.setHeader('Content-Disposition', 'attachment; filename="Eudia-BLS-2026-Vault.zip"');
+          
+          const archive = archiver('zip', { zlib: { level: 9 } });
+          archive.pipe(res);
+          
+          // Add template vault files from disk
+          const vaultTemplatePath = path.join(__dirname, '..', 'vault-template');
+          if (fs.existsSync(path.join(vaultTemplatePath, '.obsidian'))) {
+            archive.directory(path.join(vaultTemplatePath, '.obsidian'), 'Eudia BLS 2026 Vault/.obsidian');
           }
-          // Sanitize account name for filesystem
-          const safeName = accountName.replace(/[<>:"/\\|?*]/g, '_').trim();
-          if (!safeName) continue; // Skip if name becomes empty after sanitization
-          // Add folder with a .gitkeep so it's not empty
-          archive.append('', { name: `Accounts/${safeName}/.gitkeep` });
+          
+          // Create 00 - Setup folder
+          const welcomeMd = `# Welcome to Eudia BLS 2026 Vault 🎯
+
+This vault is pre-configured with:
+- **All accounts** from your pipeline, each with 5 note templates
+- **AI-powered transcription** for your customer meetings
+- **Automatic Salesforce sync** for meeting notes
+
+## Quick Start
+1. **Connect your calendar** by clicking the 📅 Calendar icon
+2. **Enter your @eudia.com email** when prompted
+3. **Start transcribing meetings** by clicking the 🎙️ microphone icon
+`;
+          archive.append(welcomeMd, { name: 'Eudia BLS 2026 Vault/00 - Setup/Welcome.md' });
+          
+          // Create account folders with 5 notes each
+          for (const account of validAccounts) {
+            const safeName = account.accountName.replace(/[<>:"/\\|?*]/g, '_').trim();
+            if (!safeName) continue;
+            
+            for (let i = 1; i <= 5; i++) {
+              const noteContent = `---
+title: Meeting Notes ${i}
+date: 
+account: "${account.accountName}"
+account_id: "${account.accountId || ''}"
+sync_to_salesforce: false
+---
+
+# Meeting Notes - ${account.accountName}
+
+*Click the microphone icon to transcribe a meeting, or start typing notes.*
+`;
+              archive.append(noteContent, { name: `Eudia BLS 2026 Vault/Accounts/${safeName}/Note ${i}.md` });
+            }
+          }
+          
+          // Add Recordings folder
+          archive.append('', { name: 'Eudia BLS 2026 Vault/Recordings/.gitkeep' });
+          
+          await archive.finalize();
+          logger.info('Dynamic vault generation completed');
+          return;
         }
         
-        // Add an index note for the Accounts folder
-        const accountIndexMd = `# Accounts
-
-This folder contains one subfolder per Salesforce account. 
-
-**Generated:** ${new Date().toISOString()}
-**Total Accounts:** ${accountNames.length}
-
-## Quick Navigation
-
-\`\`\`dataview
-TABLE file.ctime as "Created", file.mtime as "Last Modified"
-FROM "Accounts"
-WHERE file.name != ".gitkeep"
-SORT file.mtime DESC
-LIMIT 20
-\`\`\`
-`;
-        archive.append(accountIndexMd, { name: 'Accounts/_index.md' });
+        // Serve the pre-built vault
+        logger.info('Serving pre-built Eudia BLS 2026 Vault');
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', 'attachment; filename="Eudia-BLS-2026-Vault.zip"');
         
-        // Finalize the archive
-        await archive.finalize();
+        const fileStream = fs.createReadStream(vaultZipPath);
+        fileStream.pipe(res);
         
-        logger.info('Obsidian vault download completed');
+        fileStream.on('end', () => {
+          logger.info('Obsidian vault download completed');
+        });
+        
+        fileStream.on('error', (err) => {
+          logger.error('Error streaming vault:', err);
+          if (!res.headersSent) {
+            res.status(500).json({ success: false, error: err.message });
+          }
+        });
+        
       } catch (error) {
-        logger.error('Error generating Obsidian vault:', error);
+        logger.error('Error serving Obsidian vault:', error);
         if (!res.headersSent) {
           res.status(500).json({ success: false, error: error.message });
         }
@@ -2269,6 +2288,36 @@ LIMIT 20
       }
     });
     
+    // Validate email for calendar access (Obsidian plugin setup)
+    this.expressApp.get('/api/calendar/validate/:email', async (req, res) => {
+      try {
+        const { BL_EMAILS } = require('./services/calendarService');
+        const email = req.params.email.toLowerCase();
+        
+        const isAuthorized = BL_EMAILS.map(e => e.toLowerCase()).includes(email);
+        
+        if (isAuthorized) {
+          res.json({
+            success: true,
+            authorized: true,
+            email: email,
+            message: 'Email is authorized for calendar access'
+          });
+        } else {
+          res.json({
+            success: true,
+            authorized: false,
+            email: email,
+            message: 'Email not found in authorized users list. Please use your @eudia.com email or contact your administrator.',
+            suggestions: email.includes('@') ? [] : ['Did you forget to include the @eudia.com domain?']
+          });
+        }
+      } catch (error) {
+        logger.error('Error validating calendar email:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // List available ICS feeds
     this.expressApp.get('/api/calendar/feeds', async (req, res) => {
       try {
@@ -2377,7 +2426,11 @@ LIMIT 20
         // Security: only serve calendars for registered BLs
         if (!BL_EMAILS.map(e => e.toLowerCase()).includes(email)) {
           logger.warn(`Today's calendar requested for non-BL email: ${email}`);
-          return res.status(403).json({ success: false, error: 'Access denied' });
+          return res.status(403).json({ 
+            success: false, 
+            error: 'Email not registered for calendar access. Please use your @eudia.com email address. If you believe this is an error, contact your administrator to be added to the authorized users list.',
+            code: 'EMAIL_NOT_AUTHORIZED'
+          });
         }
         
         // Get today's date range
@@ -2431,7 +2484,11 @@ LIMIT 20
         // Security: only serve calendars for registered BLs
         if (!BL_EMAILS.map(e => e.toLowerCase()).includes(email)) {
           logger.warn(`Week calendar requested for non-BL email: ${email}`);
-          return res.status(403).json({ success: false, error: 'Access denied' });
+          return res.status(403).json({ 
+            success: false, 
+            error: 'Email not registered for calendar access. Please use your @eudia.com email address.',
+            code: 'EMAIL_NOT_AUTHORIZED'
+          });
         }
         
         // Get this week's date range (today + 7 days)

@@ -1,0 +1,401 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>64.0</apiVersion>
+    <decisions>
+        <name>Decision_1</name>
+        <label>Decision 1</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <defaultConnectorLabel>Default Outcome</defaultConnectorLabel>
+        <rules>
+            <name>Outcome_1_of_Decision_1</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>$Record.StageName</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>Stage 1 - Discovery</stringValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Copy_1_of_Copy_1_of_Update_Close_Date_and_Probability</targetReference>
+            </connector>
+            <label>Outcome 1 of Decision 1</label>
+        </rules>
+        <rules>
+            <name>Outcome_2_of_Decision_1</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>$Record.StageName</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>Stage 0 - Qualifying</stringValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Copy_2_of_Copy_1_of_Copy_2_of_Update_Close_Date_and_Probability</targetReference>
+            </connector>
+            <label>Outcome 2 of Decision 1</label>
+        </rules>
+    </decisions>
+    <description>Automatically updates Close Date and Probability fields when Opportunity Stage changes. Stage 0=4mo/10%, Stage 1=3mo/15%, Stage 2=2mo/20%, Stage 3=1mo/50%, Stage 4=Proposal/75%</description>
+    <environments>Default</environments>
+    <formulas>
+        <name>ACV1</name>
+        <dataType>Currency</dataType>
+        <expression>IF(
+  ISNULL({!$Record.ACV__c}),
+  300000,
+  {!$Record.ACV__c}
+)</expression>
+        <scale>2</scale>
+    </formulas>
+    <formulas>
+        <name>acv2</name>
+        <dataType>Currency</dataType>
+        <expression>IF(
+  ISNULL({!$Record.Amount}),
+  300000,
+  {!$Record.Amount}
+)</expression>
+        <scale>2</scale>
+    </formulas>
+    <formulas>
+        <name>acv3</name>
+        <dataType>Currency</dataType>
+        <expression>IF(
+  ISNULL({!$Record.ACV__c}),
+  300000,
+  {!$Record.ACV__c}
+)</expression>
+        <scale>2</scale>
+    </formulas>
+    <formulas>
+        <name>amount1</name>
+        <dataType>Currency</dataType>
+        <expression>IF(
+  ISNULL({!$Record.Amount}),
+  300000,
+  {!$Record.Amount}
+)</expression>
+        <scale>2</scale>
+    </formulas>
+    <formulas>
+        <description>Calculates close date based on stage</description>
+        <name>Calculate_Close_Date</name>
+        <dataType>Date</dataType>
+        <expression>CASE(TEXT({!$Record.StageName}),
+&quot;Stage 0&quot;, TODAY() + 120,
+&quot;Stage 1&quot;, TODAY() + 90,
+&quot;Stage 2&quot;, TODAY() + 60,
+&quot;Stage 3&quot;, TODAY() + 30,
+&quot;Stage 4&quot;, TODAY() + 15,
+TODAY() + 90
+)</expression>
+    </formulas>
+    <formulas>
+        <description>Calculates probability based on stage</description>
+        <name>Calculate_Probability</name>
+        <dataType>Number</dataType>
+        <expression>CASE(TEXT({!$Record.StageName}),
+&quot;Stage 0&quot;, 10,
+&quot;Stage 1&quot;, 15,
+&quot;Stage 2&quot;, 20,
+&quot;Stage 3&quot;, 50,
+&quot;Stage 4&quot;, 75,
+25
+)</expression>
+        <scale>2</scale>
+    </formulas>
+    <formulas>
+        <description>Calculate close date based on stage.</description>
+        <name>CalculateCloseDateV2</name>
+        <dataType>Date</dataType>
+        <expression>CASE(TEXT({!$Record.StageName}),
+&quot;Stage 0 - Qualifying&quot;, TODAY() + 120,
+&quot;Stage 1&quot;, TODAY() + 90,
+&quot;Stage 2&quot;, TODAY() + 60,
+&quot;Stage 3&quot;, TODAY() + 30,
+&quot;Stage 4&quot;, TODAY() + 15,
+TODAY() + 90
+)</expression>
+    </formulas>
+    <formulas>
+        <description>Calculate close probability based on stage.</description>
+        <name>CalculateProbabilityV2</name>
+        <dataType>Number</dataType>
+        <expression>CASE(TEXT({!$Record.StageName}),
+&quot;Stage 0 - Qualifying&quot;, 10,
+&quot;Stage 1&quot;, 15,
+&quot;Stage 2&quot;, 20,
+&quot;Stage 3&quot;, 50,
+&quot;Stage 4&quot;, 75,
+25
+)</expression>
+        <scale>2</scale>
+    </formulas>
+    <formulas>
+        <name>CloseAuto</name>
+        <dataType>Date</dataType>
+        <expression>TODAY() + 150</expression>
+    </formulas>
+    <formulas>
+        <name>CloseBasic</name>
+        <dataType>Date</dataType>
+        <expression>TODAY() + 150</expression>
+    </formulas>
+    <formulas>
+        <name>CLOSEDATECALCV3</name>
+        <dataType>DateTime</dataType>
+        <expression>CASE(TEXT({!$Record.StageName}),
+&quot;Stage 0 - Qualifying&quot;, DATETIMEVALUE(TODAY() + 120),
+&quot;Stage 1 - Discovery&quot;, DATETIMEVALUE(TODAY() + 90),
+&quot;Stage 2 - SQO&quot;, DATETIMEVALUE(TODAY() + 60),
+&quot;Stage 3 - Pilot&quot;, DATETIMEVALUE(TODAY() + 30),
+&quot;Stage 4 - Proposal&quot;, DATETIMEVALUE(TODAY() + 15),
+DATETIMEVALUE(TODAY() + 90)
+)</expression>
+    </formulas>
+    <formulas>
+        <name>CloseDateUpdate</name>
+        <dataType>Date</dataType>
+        <expression>IF(
+  ISNULL({!$Record.CloseDate}),
+  {!Stage1closedate},
+  {!$Record.CloseDate}
+)</expression>
+    </formulas>
+    <formulas>
+        <name>DateStage0_1</name>
+        <dataType>Date</dataType>
+        <expression>{!CloseBasic}</expression>
+    </formulas>
+    <formulas>
+        <name>DealStatusAuto</name>
+        <dataType>String</dataType>
+        <expression>IF(
+  ISBLANK(TEXT({!$Record.Deal_Status__c})),
+  &quot;Green&quot;,
+  TEXT({!$Record.Deal_Status__c})
+)</expression>
+    </formulas>
+    <formulas>
+        <name>Namingv0</name>
+        <dataType>String</dataType>
+        <expression>IF(
+  OR(
+    ISBLANK({!$Record.Name}),
+    CONTAINS({!$Record.Name}, &quot;Qualifying&quot;)
+  ),
+  {!$Record.Account.Name} &amp; &quot; - Discovery&quot;,
+  {!$Record.Name}
+)</expression>
+    </formulas>
+    <formulas>
+        <name>NewStage1Naming</name>
+        <dataType>String</dataType>
+        <expression>IF(
+  ISBLANK({!$Record.Name}),
+  {!$Record.Account.Name} &amp; &quot; - Discovery&quot;,
+  {!$Record.Name}
+)</expression>
+    </formulas>
+    <formulas>
+        <name>OppNamingv0</name>
+        <dataType>String</dataType>
+        <expression>IF(
+  ISBLANK({!$Record.Name}),
+  {!NewStage1Naming},
+  {!$Record.Name}
+)</expression>
+    </formulas>
+    <formulas>
+        <name>OpportunityNameCalc</name>
+        <dataType>String</dataType>
+        <expression>CASE(TEXT({!$Record.StageName}),
+&quot;Stage 0 - Qualifying&quot;, {!$Record.Account.Name} &amp; &quot; - Qualifying&quot;,
+&quot;Stage 1 - Discovery&quot;, {!$Record.Account.Name} &amp; &quot; - Discovery&quot;,
+{!$Record.Account.Name}
+)</expression>
+    </formulas>
+    <formulas>
+        <name>PercenttoClose</name>
+        <dataType>Number</dataType>
+        <expression>{!ProbabilityStage0_1}</expression>
+        <scale>2</scale>
+    </formulas>
+    <formulas>
+        <name>ProbabilityStage0_1</name>
+        <dataType>Number</dataType>
+        <expression>{!Calculate_Probability}</expression>
+        <scale>2</scale>
+    </formulas>
+    <formulas>
+        <name>Stage1closedate</name>
+        <dataType>Date</dataType>
+        <expression>TODAY()+120</expression>
+    </formulas>
+    <formulas>
+        <name>stage1oppnames</name>
+        <dataType>String</dataType>
+        <expression>IF(
+  TEXT({!$Record.StageName}) = &quot;Stage 1 - Discovery&quot;,
+  {!$Record.Account.Name} &amp; &quot; - Discovery&quot;,
+  {!$Record.Name}
+)</expression>
+    </formulas>
+    <formulas>
+        <name>tcv3</name>
+        <dataType>Currency</dataType>
+        <expression>IF(
+  ISNULL({!$Record.TCV__c}),
+  900000,
+  {!$Record.TCV__c}
+)</expression>
+        <scale>2</scale>
+    </formulas>
+    <interviewLabel>Auto Update Opportunity Close Date and Probability {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>[Master] Auto Update Opportunity Close Date and Probability</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordUpdates>
+        <description>Updates Close Date and Probability based on Stage</description>
+        <name>Copy_1_of_Copy_1_of_Update_Close_Date_and_Probability</name>
+        <label>Copy 1 of Copy 1 of Update Close Date and Probability</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>StageName</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>Stage 1 - Discovery</stringValue>
+            </value>
+        </filters>
+        <inputAssignments>
+            <field>CloseDate</field>
+            <value>
+                <elementReference>CloseDateUpdate</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Deal_Status__c</field>
+            <value>
+                <elementReference>DealStatusAuto</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Name</field>
+            <value>
+                <elementReference>Namingv0</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Probability</field>
+            <value>
+                <numberValue>15.0</numberValue>
+            </value>
+        </inputAssignments>
+        <inputReference>$Record</inputReference>
+    </recordUpdates>
+    <recordUpdates>
+        <description>Updates Close Date and Probability based on Stage</description>
+        <name>Copy_2_of_Copy_1_of_Copy_2_of_Update_Close_Date_and_Probability</name>
+        <label>Copy 2 of Copy 1 of Copy 2 of Update Close Date and Probability</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <filterLogic>or</filterLogic>
+        <filters>
+            <field>StageName</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>Stage 0 - Qualifying</stringValue>
+            </value>
+        </filters>
+        <inputAssignments>
+            <field>CloseDate</field>
+            <value>
+                <elementReference>CloseAuto</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Cortex__c</field>
+            <value>
+                <stringValue>-</stringValue>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Deal_Status__c</field>
+            <value>
+                <stringValue>Green</stringValue>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Insights_Status__c</field>
+            <value>
+                <stringValue>-</stringValue>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Name</field>
+            <value>
+                <elementReference>OpportunityNameCalc</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Probability</field>
+            <value>
+                <numberValue>3.0</numberValue>
+            </value>
+        </inputAssignments>
+        <inputReference>$Record</inputReference>
+    </recordUpdates>
+    <start>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Decision_1</targetReference>
+        </connector>
+        <filterLogic>or</filterLogic>
+        <filters>
+            <field>StageName</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>Stage 0 - Qualifying</stringValue>
+            </value>
+        </filters>
+        <filters>
+            <field>StageName</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>Stage 1 - Discovery</stringValue>
+            </value>
+        </filters>
+        <object>Opportunity</object>
+        <recordTriggerType>CreateAndUpdate</recordTriggerType>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    <status>Active</status>
+    <textTemplates>
+        <name>ACVUpdate</name>
+        <isViewedAsPlainText>false</isViewedAsPlainText>
+        <text>&lt;p&gt;300000&lt;/p&gt;</text>
+    </textTemplates>
+</Flow>

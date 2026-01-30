@@ -16,7 +16,7 @@ trigger OpportunityLineItemDeliveryTrigger on OpportunityLineItem (after insert)
         opportunityIds.add(oli.OpportunityId);
     }
     
-    // Query Opportunities to check their stage
+    // Query Opportunities to check their stage (includes Won + legacy stage)
     Map<Id, Opportunity> opps = new Map<Id, Opportunity>([
         SELECT Id, StageName
         FROM Opportunity
@@ -24,6 +24,7 @@ trigger OpportunityLineItemDeliveryTrigger on OpportunityLineItem (after insert)
         AND StageName IN (
             'Stage 4 - Proposal',
             'Stage 5 - Negotiation',
+            'Won',
             'Stage 6. Closed(Won)'
         )
     ]);

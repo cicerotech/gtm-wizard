@@ -1,48 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>59.0</apiVersion>
-    <description>Captures Next Steps in Customer History field. On Create: copies initial value. On Update: prepends old value to create running history.</description>
-    <environments>Default</environments>
-    <formulas>
-        <name>TodayFormatted</name>
-        <dataType>String</dataType>
-        <expression>TEXT(YEAR(TODAY())) &amp; "-" &amp; 
-IF(MONTH(TODAY()) &lt; 10, "0", "") &amp; TEXT(MONTH(TODAY())) &amp; "-" &amp; 
-IF(DAY(TODAY()) &lt; 10, "0", "") &amp; TEXT(DAY(TODAY()))</expression>
-    </formulas>
-    <formulas>
-        <name>HistoryFromPrior</name>
-        <dataType>String</dataType>
-        <expression>{!TodayFormatted} &amp; ": " &amp; {!$Record__Prior.Next_Steps__c} &amp; BR() &amp; "---" &amp; BR() &amp; 
-IF(ISBLANK({!$Record.Next_Step_Eudia__c}), "", {!$Record.Next_Step_Eudia__c})</expression>
-    </formulas>
-    <formulas>
-        <name>HistoryFromCurrent</name>
-        <dataType>String</dataType>
-        <expression>{!TodayFormatted} &amp; ": " &amp; {!$Record.Next_Steps__c} &amp; BR() &amp; "---" &amp; BR() &amp; 
-IF(ISBLANK({!$Record.Next_Step_Eudia__c}), "", {!$Record.Next_Step_Eudia__c})</expression>
-    </formulas>
-    <interviewLabel>Opportunity Next Steps History {!$Flow.CurrentDateTime}</interviewLabel>
-    <label>Opportunity Next Steps History</label>
-    <processMetadataValues>
-        <name>BuilderType</name>
-        <value>
-            <stringValue>LightningFlowBuilder</stringValue>
-        </value>
-    </processMetadataValues>
-    <processMetadataValues>
-        <name>CanvasMode</name>
-        <value>
-            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
-        </value>
-    </processMetadataValues>
-    <processMetadataValues>
-        <name>OriginBuilderType</name>
-        <value>
-            <stringValue>LightningFlowBuilder</stringValue>
-        </value>
-    </processMetadataValues>
-    <processType>AutoLaunchedFlow</processType>
+    <assignments>
+        <name>Set_History_On_Create</name>
+        <label>Set History On Create</label>
+        <locationX>50</locationX>
+        <locationY>455</locationY>
+        <assignmentItems>
+            <assignToReference>$Record.Next_Step_Eudia__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>HistoryFromCurrent</elementReference>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <assignments>
+        <name>Set_History_On_Update</name>
+        <label>Set History On Update</label>
+        <locationX>314</locationX>
+        <locationY>455</locationY>
+        <assignmentItems>
+            <assignToReference>$Record.Next_Step_Eudia__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>HistoryFromPrior</elementReference>
+            </value>
+        </assignmentItems>
+    </assignments>
     <decisions>
         <name>Check_Trigger_Type</name>
         <label>Check Trigger Type</label>
@@ -101,32 +85,48 @@ IF(ISBLANK({!$Record.Next_Step_Eudia__c}), "", {!$Record.Next_Step_Eudia__c})</e
             <label>Is Update With Change</label>
         </rules>
     </decisions>
-    <assignments>
-        <name>Set_History_On_Create</name>
-        <label>Set History On Create</label>
-        <locationX>50</locationX>
-        <locationY>455</locationY>
-        <assignmentItems>
-            <assignToReference>$Record.Next_Step_Eudia__c</assignToReference>
-            <operator>Assign</operator>
-            <value>
-                <elementReference>HistoryFromCurrent</elementReference>
-            </value>
-        </assignmentItems>
-    </assignments>
-    <assignments>
-        <name>Set_History_On_Update</name>
-        <label>Set History On Update</label>
-        <locationX>314</locationX>
-        <locationY>455</locationY>
-        <assignmentItems>
-            <assignToReference>$Record.Next_Step_Eudia__c</assignToReference>
-            <operator>Assign</operator>
-            <value>
-                <elementReference>HistoryFromPrior</elementReference>
-            </value>
-        </assignmentItems>
-    </assignments>
+    <description>Captures Next Steps in Customer History field. On Create: copies initial value. On Update: prepends old value to create running history.</description>
+    <environments>Default</environments>
+    <formulas>
+        <name>HistoryFromCurrent</name>
+        <dataType>String</dataType>
+        <expression>{!TodayFormatted} &amp; &quot;: &quot; &amp; {!$Record.Next_Steps__c} &amp; BR() &amp; &quot;---&quot; &amp; BR() &amp; 
+IF(ISBLANK({!$Record.Next_Step_Eudia__c}), &quot;&quot;, {!$Record.Next_Step_Eudia__c})</expression>
+    </formulas>
+    <formulas>
+        <name>HistoryFromPrior</name>
+        <dataType>String</dataType>
+        <expression>{!TodayFormatted} &amp; &quot;: &quot; &amp; {!$Record__Prior.Next_Steps__c} &amp; BR() &amp; &quot;---&quot; &amp; BR() &amp; 
+IF(ISBLANK({!$Record.Next_Step_Eudia__c}), &quot;&quot;, {!$Record.Next_Step_Eudia__c})</expression>
+    </formulas>
+    <formulas>
+        <name>TodayFormatted</name>
+        <dataType>String</dataType>
+        <expression>TEXT(YEAR(TODAY())) &amp; &quot;-&quot; &amp; 
+IF(MONTH(TODAY()) &lt; 10, &quot;0&quot;, &quot;&quot;) &amp; TEXT(MONTH(TODAY())) &amp; &quot;-&quot; &amp; 
+IF(DAY(TODAY()) &lt; 10, &quot;0&quot;, &quot;&quot;) &amp; TEXT(DAY(TODAY()))</expression>
+    </formulas>
+    <interviewLabel>Opportunity Next Steps History {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Opportunity Next Steps History</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
     <start>
         <locationX>56</locationX>
         <locationY>0</locationY>

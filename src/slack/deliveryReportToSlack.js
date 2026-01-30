@@ -79,6 +79,7 @@ async function getDeliveryDataSimple() {
         'Stage 3 - Pilot',
         'Stage 4 - Proposal',
         'Stage 5 - Negotiation',
+        'Won',
         'Stage 6. Closed(Won)'
       )
       AND Eudia_Delivery_Owner__r.Name != 'Keigan Pesenti'
@@ -106,8 +107,9 @@ function isOpportunityWon(opp) {
   const isClosed = opp.IsClosed === true || opp.IsClosed === 'true';
   const isWon = opp.IsWon === true || opp.IsWon === 'true';
   
-  // Also check StageName as fallback
+  // Also check StageName as fallback (includes new 'Won' stage + legacy)
   const stageIsWon = opp.StageName && (
+    opp.StageName === 'Won' ||
     opp.StageName.includes('Closed') && opp.StageName.includes('Won') ||
     opp.StageName === 'Stage 6. Closed(Won)' ||
     opp.StageName === 'Stage 6. Closed Won' ||

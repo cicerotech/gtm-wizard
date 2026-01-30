@@ -52,7 +52,7 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   syncOnStartup: true,
   autoSyncAfterTranscription: true,
   saveAudioFiles: true,
-  appendTranscript: false,
+  appendTranscript: true,  // Enabled by default for full transcript access
   lastSyncTime: null,
   cachedAccounts: [],
   // Smart tagging
@@ -63,7 +63,7 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   userEmail: '',
   setupCompleted: false,
   calendarConfigured: false,
-  // OpenAI configuration
+  // OpenAI configuration - Will be pre-configured in vault distribution data.json
   openaiApiKey: ''
 };
 
@@ -216,7 +216,7 @@ class RecordingStatusBar {
     // Status text
     this.statusTextEl = document.createElement('div');
     this.statusTextEl.className = 'eudia-status-text';
-    this.statusTextEl.textContent = 'Transcribing...';
+    this.statusTextEl.textContent = 'Listening...';
     this.containerEl.appendChild(this.statusTextEl);
 
     // Controls
@@ -1197,7 +1197,7 @@ export default class EudiaSyncPlugin extends Plugin {
 
     // Check browser support
     if (!AudioRecorder.isSupported()) {
-      new Notice('Audio recording is not supported in this browser');
+      new Notice('Audio transcription is not supported in this browser');
       this.log('error', 'Audio recording not supported', { correlationId });
       return;
     }
@@ -1240,7 +1240,7 @@ export default class EudiaSyncPlugin extends Plugin {
 
     } catch (error) {
       this.operationError('startRecording', error as Error, { correlationId });
-      new Notice(`Failed to start recording: ${(error as Error).message}`);
+      new Notice(`Failed to start transcription: ${(error as Error).message}`);
       this.isRecording = false;
     }
   }
@@ -1458,7 +1458,7 @@ export default class EudiaSyncPlugin extends Plugin {
       if (this.ribbonIcon) {
         this.ribbonIcon.removeClass('eudia-ribbon-recording');
       }
-      new Notice(`Error stopping recording: ${(error as Error).message}`);
+      new Notice(`Error stopping transcription: ${(error as Error).message}`);
     }
   }
 
@@ -2068,11 +2068,40 @@ recording_date: ${dateStr}
       }
 
       // Fetch accounts from GTM Brain API
-      const accounts = await this.fetchAccounts();
+      let accounts: SalesforceAccount[];
+      try {
+        accounts = await this.fetchAccounts();
+      } catch (fetchError) {
+        const errorMsg = (fetchError as Error).message || 'Unknown error';
+        
+        // Provide specific, actionable error messages
+        if (errorMsg.includes('Server unavailable') || errorMsg.includes('starting up')) {
+          if (!silent) {
+            new Notice('GTM Brain server is warming up. Please try again in 30 seconds.', 6000);
+          }
+          return;
+        }
+        
+        if (errorMsg.includes('Salesforce is not connected')) {
+          if (!silent) {
+            new Notice('Salesforce connection pending. Your admin has been notified.', 5000);
+          }
+          return;
+        }
+        
+        if (errorMsg.includes('No internet')) {
+          if (!silent) {
+            new Notice('No internet connection. Please check your network.', 4000);
+          }
+          return;
+        }
+        
+        throw fetchError;
+      }
       
       if (accounts.length === 0) {
         if (!silent) {
-          new Notice('No accounts found or server unavailable');
+          new Notice('No accounts found. Check Salesforce or contact your admin.', 5000);
         }
         return;
       }
@@ -2089,15 +2118,25 @@ recording_date: ${dateStr}
       // Get existing folders
       const existingFolders = this.getExistingAccountFolders();
 
-      // Create missing folders
+      // Create missing folders (gracefully skip existing)
       let created = 0;
+      let skipped = 0;
       for (const account of accounts) {
         const safeName = this.sanitizeFolderName(account.name);
         const folderPath = `${this.settings.accountsFolder}/${safeName}`;
         
-        if (!existingFolders.includes(safeName.toLowerCase())) {
+        if (existingFolders.includes(safeName.toLowerCase())) {
+          // Folder already exists - this is not an error
+          skipped++;
+          continue;
+        }
+        
+        try {
           await this.ensureFolderExists(folderPath);
           created++;
+        } catch (folderError) {
+          // Log but don't fail the entire sync for one folder
+          console.warn(`Could not create folder for ${account.name}:`, folderError);
         }
       }
 
@@ -2107,16 +2146,25 @@ recording_date: ${dateStr}
 
       if (!silent) {
         if (created > 0) {
-          new Notice(`Sync complete! Created ${created} new account folders. ${accounts.length} accounts available for autocomplete.`);
+          new Notice(`✓ Sync complete! Created ${created} new account folders.`, 4000);
+        } else if (skipped > 0) {
+          new Notice(`✓ All ${accounts.length} accounts synced and ready.`, 3000);
         } else {
-          new Notice(`Sync complete. All ${accounts.length} accounts ready for autocomplete.`);
+          new Notice(`✓ Sync complete. ${accounts.length} accounts available.`, 3000);
         }
       }
 
     } catch (error) {
       console.error('Eudia Sync error:', error);
+      const errorMsg = (error as Error).message || 'Unknown error';
+      
       if (!silent) {
-        new Notice(`Sync failed: ${error.message}`);
+        // Provide friendly, actionable error message
+        if (errorMsg.includes('ECONNREFUSED') || errorMsg.includes('Failed to fetch')) {
+          new Notice('Could not reach server. Check your internet and try again.', 5000);
+        } else {
+          new Notice(`Sync issue: ${errorMsg}`, 5000);
+        }
       }
     }
   }
@@ -2815,51 +2863,60 @@ After the meeting:
       
       // Show loading state
       connectBtn.disabled = true;
-      connectBtn.textContent = 'Connecting...';
+      connectBtn.textContent = 'Validating...';
       statusEl.textContent = '';
       statusEl.removeClass('error');
       
       try {
-        // Test calendar connection with this email
-        const testService = new CalendarService(
-          this.plugin.settings.serverUrl,
-          email
-        );
+        // First validate email is authorized using new endpoint
+        const serverUrl = this.plugin.settings.serverUrl || 'https://gtm-wizard.onrender.com';
+        const validateResponse = await requestUrl({
+          url: `${serverUrl}/api/calendar/validate/${email}`,
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
         
-        const testResult = await testService.getTodaysMeetings();
+        const validation = validateResponse.json;
         
-        if (testResult.success || testResult.error?.includes('not configured')) {
-          // Save email to settings
-          this.plugin.settings.userEmail = email;
-          this.plugin.settings.calendarConfigured = true;
-          await this.plugin.saveSettings();
-          
-          // Show success briefly then reload
-          statusEl.textContent = '✓ Calendar connected!';
-          statusEl.addClass('success');
-          
-          // Also sync Salesforce accounts in background
-          this.plugin.syncAccounts(true).catch(e => {
-            console.warn('Background account sync failed:', e);
-          });
-          
-          // Re-render to show calendar
-          setTimeout(() => this.render(), 500);
-          
-        } else if (testResult.error) {
-          // Show specific error
-          if (testResult.error.includes('not found') || testResult.error.includes('not in list')) {
-            statusEl.textContent = `⚠️ Email not recognized. Contact your admin to be added.`;
-          } else {
-            statusEl.textContent = `⚠️ ${testResult.error}`;
-          }
+        if (!validation.authorized) {
+          // Show helpful error message
+          statusEl.innerHTML = `⚠️ <strong>${email}</strong> is not in the authorized users list.<br>Please contact your administrator to be added.`;
           statusEl.addClass('error');
           connectBtn.disabled = false;
           connectBtn.textContent = 'Connect';
+          return;
         }
         
+        // Email is authorized - save and test connection
+        connectBtn.textContent = 'Connecting...';
+        
+        // Save email to settings
+        this.plugin.settings.userEmail = email;
+        this.plugin.settings.calendarConfigured = true;
+        await this.plugin.saveSettings();
+        
+        // Show success briefly then reload
+        statusEl.textContent = '✓ Calendar connected!';
+        statusEl.addClass('success');
+        
+        // Also sync Salesforce accounts in background
+        this.plugin.syncAccounts(true).catch(e => {
+          console.warn('Background account sync failed:', e);
+        });
+        
+        // Re-render to show calendar
+        setTimeout(() => this.render(), 500);
+        
       } catch (error) {
-        statusEl.textContent = `⚠️ Could not connect to server. Check your internet and try again.`;
+        // Network or server error - provide helpful message
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        if (errorMsg.includes('403') || errorMsg.includes('not authorized')) {
+          statusEl.innerHTML = `⚠️ <strong>${email}</strong> is not authorized for calendar access.<br>Contact your admin to be added to the list.`;
+        } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
+          statusEl.textContent = '⚠️ Calendar service not available. Server may be starting up - try again in 30 seconds.';
+        } else {
+          statusEl.textContent = '⚠️ Could not connect to server. Check your internet and try again.';
+        }
         statusEl.addClass('error');
         connectBtn.disabled = false;
         connectBtn.textContent = 'Connect';
@@ -2952,8 +3009,8 @@ class EudiaSyncSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }));
 
-    // Recording settings
-    containerEl.createEl('h3', { text: 'Recording' });
+    // Transcription settings
+    containerEl.createEl('h3', { text: 'Transcription' });
 
     new Setting(containerEl)
       .setName('Save Audio Files')
@@ -3017,7 +3074,7 @@ class EudiaSyncSettingTab extends PluginSettingTab {
     // Browser support check
     const isSupported = AudioRecorder.isSupported();
     containerEl.createEl('p', { 
-      text: `Audio recording: ${isSupported ? '✓ Supported' : '✗ Not supported'}`,
+      text: `Audio transcription: ${isSupported ? '✓ Supported' : '✗ Not supported'}`,
       cls: 'setting-item-description'
     });
 

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>Product2.Customer_Facing_Name__c</members>
+        <members>Product2.Requires_Delivery__c</members>
+        <name>CustomField</name>
+    </types>
+    <version>59.0</version>
+</Package>

@@ -27,6 +27,16 @@ const ACTIVE_STAGES = [
   'Stage 5 - Negotiation'
 ];
 
+// Closed Won stage names (primary + legacy for comprehensive queries)
+const CLOSED_WON_STAGES = [
+  'Won',                    // Primary stage (new)
+  'Stage 6. Closed(Won)',   // Legacy stage
+  '6.) Closed-won'          // Historical legacy
+];
+
+// Helper to build SOQL IN clause for closed won stages
+const CLOSED_WON_IN_CLAUSE = CLOSED_WON_STAGES.map(s => `'${s}'`).join(', ');
+
 // US and EU Pod categorization for display
 const US_POD = [
   'Asad Hussain',
@@ -344,7 +354,7 @@ async function querySignedDeals() {
     const soql = `
       SELECT AccountId, Account.Name, Account.Account_Display_Name__c, Name, ACV__c, CloseDate, Revenue_Type__c, Owner.Name
       FROM Opportunity
-      WHERE StageName = 'Stage 6. Closed(Won)'
+      WHERE StageName IN (${CLOSED_WON_IN_CLAUSE})
         AND CloseDate >= ${startStr}
       ORDER BY CloseDate DESC
     `;
@@ -475,7 +485,7 @@ async function queryActiveRevenue() {
       SELECT Id, Name, AccountId, Account.Name, Account.Account_Display_Name__c, ACV__c, Revenue_Type__c, 
              CloseDate, Term__c, Owner.Name
       FROM Opportunity
-      WHERE StageName = 'Stage 6. Closed(Won)'
+      WHERE StageName IN (${CLOSED_WON_IN_CLAUSE})
         AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot')
       ORDER BY ACV__c DESC
     `;
@@ -586,7 +596,7 @@ async function queryJanuaryClosedWonNewBusiness() {
     const soql = `
       SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Renewal_Net_Change__c, Sales_Type__c, Revenue_Type__c, Owner.Name
       FROM Opportunity
-      WHERE StageName = 'Stage 6. Closed(Won)'
+      WHERE StageName IN (${CLOSED_WON_IN_CLAUSE})
         AND CloseDate >= ${monthStart}
         AND CloseDate <= ${monthEnd}
         AND Revenue_Type__c IN ('Recurring', 'Project')
@@ -750,7 +760,7 @@ async function querySignedRevenueQTD() {
     const soql = `
       SELECT SUM(ACV__c) totalACV, COUNT(Id) dealCount
       FROM Opportunity
-      WHERE StageName = 'Stage 6. Closed(Won)'
+      WHERE StageName IN (${CLOSED_WON_IN_CLAUSE})
         AND CloseDate >= ${fiscalQStartStr}
         AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot')
     `;
@@ -796,7 +806,7 @@ async function querySignedRevenueLastWeek() {
       SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Owner.Name, 
              Sales_Type__c, Revenue_Type__c, Product_Line__c, CloseDate
       FROM Opportunity
-      WHERE StageName = 'Stage 6. Closed(Won)'
+      WHERE StageName IN (${CLOSED_WON_IN_CLAUSE})
         AND CloseDate >= ${weekAgoStr}
         AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot')
       ORDER BY ACV__c DESC

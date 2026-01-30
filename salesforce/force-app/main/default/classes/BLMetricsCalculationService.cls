@@ -19,10 +19,11 @@
  */
 public class BLMetricsCalculationService {
     
-    // Closed Won stage names (includes legacy stage for comprehensive tracking)
+    // Closed Won stage names (includes legacy stages for comprehensive tracking)
     private static final Set<String> CLOSED_WON_STAGES = new Set<String>{
-        'Stage 6. Closed(Won)',
-        '6.) Closed-won'  // Legacy stage
+        'Won',                    // Primary stage (new)
+        'Stage 6. Closed(Won)',   // Legacy stage
+        '6.) Closed-won'          // Historical legacy stage
     };
     
     /**

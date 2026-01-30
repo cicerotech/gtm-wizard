@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Forecast_Status__c</fullName>
+    <description>Delivery forecast status based on Opportunity probability. Used for resource planning.
+- Forecasted: Probability >= 50%
+- Reserved: Probability >= 80%
+- On Hold: Probability &lt; 50%
+- Booked: Opportunity is Closed Won
+- Cancelled: Opportunity is Closed Lost</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Automatically updated based on Opportunity probability/stage</inlineHelpText>
+    <label>Forecast Status</label>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Forecasted</fullName>
+                <default>false</default>
+                <label>Forecasted</label>
+            </value>
+            <value>
+                <fullName>Reserved</fullName>
+                <default>false</default>
+                <label>Reserved</label>
+            </value>
+            <value>
+                <fullName>On Hold</fullName>
+                <default>false</default>
+                <label>On Hold</label>
+            </value>
+            <value>
+                <fullName>Booked</fullName>
+                <default>false</default>
+                <label>Booked</label>
+            </value>
+            <value>
+                <fullName>Cancelled</fullName>
+                <default>false</default>
+                <label>Cancelled</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

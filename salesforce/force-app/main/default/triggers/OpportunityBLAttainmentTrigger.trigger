@@ -9,8 +9,12 @@
  */
 trigger OpportunityBLAttainmentTrigger on Opportunity (after insert, after update) {
     
-    // Closed Won stage name
-    private static final String CLOSED_WON_STAGE = 'Stage 6. Closed(Won)';
+    // Closed Won stage names (primary + legacy for comprehensive tracking)
+    private static final Set<String> CLOSED_WON_STAGES = new Set<String>{
+        'Won',                    // Primary stage (new)
+        'Stage 6. Closed(Won)',   // Legacy stage
+        '6.) Closed-won'          // Historical legacy stage
+    };
     
     Set<Id> blsToUpdate = new Set<Id>();
     
@@ -18,8 +22,8 @@ trigger OpportunityBLAttainmentTrigger on Opportunity (after insert, after updat
         Opportunity oldOpp = Trigger.isUpdate ? Trigger.oldMap.get(opp.Id) : null;
         
         // Determine trigger conditions
-        Boolean isClosedWon = opp.StageName == CLOSED_WON_STAGE;
-        Boolean wasClosedWon = oldOpp != null && oldOpp.StageName == CLOSED_WON_STAGE;
+        Boolean isClosedWon = CLOSED_WON_STAGES.contains(opp.StageName);
+        Boolean wasClosedWon = oldOpp != null && CLOSED_WON_STAGES.contains(oldOpp.StageName);
         Boolean ownerChanged = oldOpp != null && opp.OwnerId != oldOpp.OwnerId;
         Boolean acvChanged = oldOpp != null && opp.ACV__c != oldOpp.ACV__c;
         

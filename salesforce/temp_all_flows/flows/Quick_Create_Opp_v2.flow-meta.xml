@@ -57,7 +57,7 @@
             <stringValue>Stage 4 - Proposal</stringValue>
         </value>
     </choices>
-    <description>Single-screen opportunity creation with all accounts in searchable dropdown</description>
+    <description>Single-screen opportunity creation with all accounts in searchable dropdown.</description>
     <dynamicChoiceSets>
         <name>AccountChoices</name>
         <dataType>String</dataType>

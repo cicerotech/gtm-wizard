@@ -1,5 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <actionCalls>
+        <name>Sync_Opportunity_Products_to_Contract_Line_Items</name>
+        <label>Sync Opportunity Products to Contract Line Items</label>
+        <locationX>176</locationX>
+        <locationY>431</locationY>
+        <actionName>ContractLineItemSyncService</actionName>
+        <actionType>apex</actionType>
+        <connector>
+            <targetReference>LinktoContract</targetReference>
+        </connector>
+        <flowTransactionModel>Automatic</flowTransactionModel>
+        <inputParameters>
+            <name>contractId</name>
+            <value>
+                <elementReference>newContractId</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>opportunityId</name>
+            <value>
+                <elementReference>$Record.Id</elementReference>
+            </value>
+        </inputParameters>
+        <nameSegment>ContractLineItemSyncService</nameSegment>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </actionCalls>
     <apiVersion>60.0</apiVersion>
     <environments>Default</environments>
     <formulas>
@@ -40,7 +66,7 @@
         <locationY>323</locationY>
         <assignRecordIdToReference>newContractId</assignRecordIdToReference>
         <connector>
-            <targetReference>LinktoContract</targetReference>
+            <targetReference>Sync_Opportunity_Products_to_Contract_Line_Items</targetReference>
         </connector>
         <inputAssignments>
             <field>AI_Enabled__c</field>
@@ -52,6 +78,12 @@
             <field>AccountId</field>
             <value>
                 <elementReference>$Record.AccountId</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Annualized_Revenue__c</field>
+            <value>
+                <elementReference>$Record__Prior.ARR__c</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
@@ -73,6 +105,12 @@
             </value>
         </inputAssignments>
         <inputAssignments>
+            <field>Contract_Value__c</field>
+            <value>
+                <elementReference>$Record.TCV_Calculated__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
             <field>Currency__c</field>
             <value>
                 <stringValue>USD</stringValue>
@@ -81,13 +119,19 @@
         <inputAssignments>
             <field>Parent_Product__c</field>
             <value>
-                <stringValue>AI Augmented - Contracting</stringValue>
+                <stringValue>None specified</stringValue>
             </value>
         </inputAssignments>
         <inputAssignments>
             <field>Pod__c</field>
             <value>
                 <elementReference>$Record.Pod__c</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Related_Opp_s__c</field>
+            <value>
+                <elementReference>$Record.Id</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
@@ -108,7 +152,7 @@
         <name>LinktoContract</name>
         <label>Link to Contract</label>
         <locationX>176</locationX>
-        <locationY>431</locationY>
+        <locationY>539</locationY>
         <inputAssignments>
             <field>ContractId</field>
             <value>
