@@ -152,6 +152,41 @@ body {
   color: white;
 }
 
+.category-btn.featured-btn {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  border-color: #f59e0b;
+  color: white;
+  font-weight: 600;
+}
+
+.category-btn.featured-btn:hover {
+  background: linear-gradient(135deg, #d97706, #ea580c);
+  transform: translateY(-1px);
+}
+
+/* Featured command cards */
+.command-card.featured {
+  border: 2px solid var(--primary);
+  background: linear-gradient(180deg, var(--primary-bg) 0%, var(--card-bg) 100%);
+}
+
+.command-card.featured .command-title {
+  color: var(--primary);
+}
+
+/* Quick Actions section highlight */
+.cat-quick {
+  background: linear-gradient(180deg, #fef3c7 0%, transparent 100%);
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 32px;
+}
+
+.cat-quick .category-header {
+  border-bottom: 2px solid #f59e0b;
+  padding-bottom: 12px;
+}
+
 /* Category Sections */
 .category-section {
   margin-bottom: 32px;
@@ -441,14 +476,13 @@ body {
   <!-- Category Navigation -->
   <nav class="category-nav">
     <button class="category-btn active" data-category="all">All</button>
-    <button class="category-btn" data-category="accounts">📇 Accounts</button>
+    <button class="category-btn featured-btn" data-category="quick">⚡ Quick Actions</button>
     <button class="category-btn" data-category="pipeline">📈 Pipeline</button>
+    <button class="category-btn" data-category="accounts">📇 Accounts</button>
     <button class="category-btn" data-category="closed">💰 Closed Deals</button>
     <button class="category-btn" data-category="metrics">📏 Metrics</button>
-    <button class="category-btn" data-category="create">➕ Create</button>
     <button class="category-btn" data-category="update">✏️ Update</button>
     <button class="category-btn" data-category="export">📤 Export</button>
-    <button class="category-btn" data-category="other">🔧 Other</button>
   </nav>
 
   <!-- No Results Message -->
@@ -456,6 +490,93 @@ body {
     <h3>No commands found</h3>
     <p>Try different keywords or browse categories above</p>
   </div>
+
+  <!-- QUICK ACTIONS SECTION - BL ESSENTIAL -->
+  <section class="category-section cat-quick" data-category="quick">
+    <div class="category-header">
+      <div class="category-icon">⚡</div>
+      <h2>Quick Actions</h2>
+      <span class="count">5 essential commands</span>
+    </div>
+    <div class="commands-grid">
+
+      <div class="command-card featured" data-keywords="nurture move pause hold defer revisit later">
+        <div class="command-title">Move to Nurture</div>
+        <div class="command-desc">Pause deal, close all opps → revisit later</div>
+        <div class="command-examples">
+          <div class="command-example">
+            <code class="command-code">move Boeing to nurture</code>
+            <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+          </div>
+          <div class="command-example">
+            <code class="command-code">nurture Intel</code>
+            <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="command-card featured" data-keywords="lost close dead kill no budget timing competitor">
+        <div class="command-title">Mark as Lost</div>
+        <div class="command-desc">Close lost with optional reason</div>
+        <div class="command-examples">
+          <div class="command-example">
+            <code class="command-code">move Boeing to lost</code>
+            <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+          </div>
+          <div class="command-example">
+            <code class="command-code">close Intel lost - no budget</code>
+            <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="command-card featured" data-keywords="disqualify dq remove not fit unqualified bad">
+        <div class="command-title">Disqualify Deal</div>
+        <div class="command-desc">Remove from pipeline - not a fit</div>
+        <div class="command-examples">
+          <div class="command-example">
+            <code class="command-code">disqualify Boeing</code>
+            <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+          </div>
+          <div class="command-example">
+            <code class="command-code">move Intel to disqualified</code>
+            <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="command-card featured" data-keywords="close date sign target update change 3/31 q1 q2 q3 q4 eom eoy">
+        <div class="command-title">Update Close Date</div>
+        <div class="command-desc">Change target sign date</div>
+        <div class="command-examples">
+          <div class="command-example">
+            <code class="command-code">update Boeing close date to 3/31/2026</code>
+            <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+          </div>
+          <div class="command-example">
+            <code class="command-code">Intel target sign 3/31</code>
+            <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="command-card featured" data-keywords="stage move progress advance s1 s2 s3 s4 s5 discovery sqo pilot proposal negotiation">
+        <div class="command-title">Change Stage</div>
+        <div class="command-desc">Move deal to a different stage</div>
+        <div class="command-examples">
+          <div class="command-example">
+            <code class="command-code">move Boeing to stage 2</code>
+            <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+          </div>
+          <div class="command-example">
+            <code class="command-code">Intel to S3</code>
+            <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
 
   <!-- ACCOUNTS SECTION -->
   <section class="category-section cat-accounts" data-category="accounts">
@@ -481,7 +602,7 @@ body {
         </div>
       </div>
 
-      <div class="command-card" data-keywords="accounts owner julie himanshu asad mike justin belongs portfolio">
+      <div class="command-card" data-keywords="accounts owner julie mitchell steven asad mike justin belongs portfolio">
         <div class="command-title">Accounts by Owner</div>
         <div class="command-desc">See all accounts owned by someone</div>
         <div class="command-examples">
@@ -490,7 +611,7 @@ body {
             <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
           </div>
           <div class="command-example">
-            <code class="command-code">Himanshu's accounts</code>
+            <code class="command-code">Mitchell's accounts</code>
             <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
           </div>
         </div>
@@ -608,12 +729,12 @@ body {
         </div>
       </div>
 
-      <div class="command-card" data-keywords="owner pipeline deals julie himanshu asad mike someone else">
+      <div class="command-card" data-keywords="owner pipeline deals julie mitchell steven asad mike someone else">
         <div class="command-title">Someone's Pipeline</div>
         <div class="command-desc">See a specific person's deals</div>
         <div class="command-examples">
           <div class="command-example">
-            <code class="command-code">Himanshu's deals</code>
+            <code class="command-code">Mitchell's deals</code>
             <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
           </div>
           <div class="command-example">
@@ -937,7 +1058,7 @@ body {
             <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
           </div>
           <div class="command-example">
-            <code class="command-code">assign Intel to Himanshu</code>
+            <code class="command-code">assign Intel to Mitchell</code>
             <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
           </div>
         </div>
@@ -952,7 +1073,7 @@ body {
             <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
           </div>
           <div class="command-example">
-            <code class="command-code">reassign Boeing, Intel to Himanshu</code>
+            <code class="command-code">reassign Boeing, Intel to Mitchell</code>
             <button class="copy-btn" title="Copy"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
           </div>
         </div>

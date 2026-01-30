@@ -30,7 +30,7 @@ const ACTIVE_STAGES = [
 // US and EU Pod categorization for display
 const US_POD = [
   'Asad Hussain',
-  'Himanshu Agarwal',
+  'Mitchell Agarwal',
   'Julie Stefanich',
   'Olivia Jung',
   'Ananth Cherukupally',

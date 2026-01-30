@@ -752,7 +752,7 @@ async function getBLUsers() {
   const BUSINESS_LEAD_NAMES = [
     // US Pod
     'Asad Hussain',
-    'Himanshu Agarwal',
+    'Mitchell Agarwal',
     'Julie Stefanich',
     'Olivia Jung',
     'Ananth Cherukupally',

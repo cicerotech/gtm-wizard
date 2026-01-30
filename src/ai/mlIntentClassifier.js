@@ -250,7 +250,7 @@ class MLIntentClassifier {
       },
       pipeline_by_owner: {
         description: 'Show pipeline for a specific person',
-        examples: ['julie\'s deals', 'show me himanshu pipeline', 'what does justin have', 'asad\'s opportunities'],
+        examples: ['julie\'s deals', 'show me mitchell pipeline', 'what does justin have', 'asad\'s opportunities'],
         entities: ['owners']
       },
       late_stage_pipeline: {
@@ -277,7 +277,7 @@ class MLIntentClassifier {
       },
       owner_accounts_list: {
         description: 'List accounts owned by a person',
-        examples: ['julie\'s accounts', 'what accounts does himanshu own', 'show me justin\'s accounts'],
+        examples: ['julie\'s accounts', 'what accounts does mitchell own', 'show me justin\'s accounts'],
         entities: ['ownerName']
       },
       
@@ -296,7 +296,7 @@ class MLIntentClassifier {
       },
       reassign_account: {
         description: 'Reassign account to different owner',
-        examples: ['reassign Dolby to julie', 'transfer Ecolab to himanshu', 'move Asana to justin'],
+        examples: ['reassign Dolby to julie', 'transfer Ecolab to mitchell', 'move Asana to justin'],
         entities: ['accounts', 'targetBL']
       },
       create_opportunity: {

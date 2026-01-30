@@ -135,7 +135,7 @@ class ContractCreationService {
         } else if (field === 'OwnerId') {
           suggestedFixes.push({
             field: field,
-            suggestion: 'Assign to a Business Lead (Julie, Himanshu, Asad, Olivia, Justin)',
+            suggestion: 'Assign to a Business Lead (Julie, Mitchell, Asad, Olivia, Justin)',
             type: 'owner_select',
             options: Object.keys(OWNER_USER_IDS)
           });

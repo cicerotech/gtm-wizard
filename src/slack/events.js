@@ -1416,7 +1416,7 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
     // Find best match (prefer business lead)
     const businessLeads = [
       // US Pod
-      'Asad Hussain', 'Himanshu Agarwal', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
+      'Asad Hussain', 'Mitchell Carpenter', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
       // EU Pod
       'Greg MacHale', 'Nathan Shine', 'Tom Clancy', 'Conor Molloy', 'Alex Fox', 'Nicola Fratini', 'Emer Flynn', 'Riona McHale'
     ];
@@ -1811,7 +1811,7 @@ async function formatAccountLookup(queryResult, parsedIntent) {
   const records = queryResult.records;
   const businessLeads = [
     // US Pod
-    'Asad Hussain', 'Himanshu Agarwal', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
+    'Asad Hussain', 'Mitchell Carpenter', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
     // EU Pod
     'Greg MacHale', 'Nathan Shine', 'Tom Clancy', 'Conor Molloy', 'Alex Fox', 'Nicola Fratini', 'Emer Flynn', 'Riona McHale'
   ];
@@ -2470,7 +2470,7 @@ function formatAccountFieldResults(queryResult, parsedIntent) {
       const nonBLHolders = ['Keigan Pesenti', 'Emmit Hood', 'Emmitt Hood', 'Mark Runyon', 'Derreck Chu', 'Sarah Rakhine'];
       const validBLs = [
         // US Pod
-        'Asad Hussain', 'Himanshu Agarwal', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
+        'Asad Hussain', 'Mitchell Carpenter', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
         // EU Pod
         'Greg MacHale', 'Nathan Shine', 'Tom Clancy', 'Conor Molloy', 'Alex Fox', 'Nicola Fratini', 'Emer Flynn', 'Riona McHale'
       ];
@@ -3773,14 +3773,14 @@ async function handleBatchReassignAccounts(entities, userId, channelId, client, 
     // Validate target BL - US and EU Pods
     const businessLeads = [
       // US Pod
-      'Asad Hussain', 'Himanshu Agarwal', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
+      'Asad Hussain', 'Mitchell Carpenter', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
       // EU Pod
       'Greg MacHale', 'Nathan Shine', 'Tom Clancy', 'Conor Molloy', 'Alex Fox', 'Nicola Fratini', 'Emer Flynn', 'Riona McHale'
     ];
     const blNameMap = {
       // US Pod
       'julie': 'Julie Stefanich',
-      'himanshu': 'Himanshu Agarwal',
+      'mitchell': 'Mitchell Carpenter',
       'asad': 'Asad Hussain',
       'ananth': 'Ananth Cherukupally',
       'olivia': 'Olivia Jung',
@@ -3936,7 +3936,7 @@ async function handleMultiBatchReassign(entities, userId, channelId, client, thr
     'justin': 'Justin Hills',
     'olivia': 'Olivia Jung',
     'ananth': 'Ananth Cherukupally',
-    'himanshu': 'Himanshu Agarwal',
+    'mitchell': 'Mitchell Carpenter',
     'julie': 'Julie Stefanich',
     // EU Pod
     'greg': 'Greg MacHale',
@@ -4706,7 +4706,7 @@ async function handleAccountExistenceCheck(entities, userId, channelId, client, 
     // Account EXISTS
     const businessLeads = [
       // US Pod
-      'Asad Hussain', 'Himanshu Agarwal', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
+      'Asad Hussain', 'Mitchell Carpenter', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
       // EU Pod
       'Greg MacHale', 'Nathan Shine', 'Tom Clancy', 'Conor Molloy', 'Alex Fox', 'Nicola Fratini', 'Emer Flynn', 'Riona McHale'
     ];
@@ -6439,7 +6439,7 @@ async function getOwnerNameFromSlackUser(slackUserId, client) {
       'julie stefanich': 'Julie Stefanich',
       'justin hills': 'Justin Hills',
       'asad hussain': 'Asad Hussain',
-      'himanshu agarwal': 'Himanshu Agarwal',
+      'mitchell carpenter': 'Mitchell Carpenter',
       'ananth cherukupally': 'Ananth Cherukupally',
       'olivia jung': 'Olivia Jung',
       // EU Pod
@@ -6493,7 +6493,7 @@ async function handleUnknownQuery(parsedIntent, userId, channelId, client, threa
       "who's the BL on",
       'what do we know about',
       "Julie's deals",
-      "Himanshu's deals",
+      "Mitchell's deals",
       'what closed this month',
       'what closed this week',
       'what closed today',
@@ -6644,7 +6644,7 @@ async function handleOwnerAccountsList(entities, userId, channelId, client, thre
     if (!entities.ownerName) {
       await client.chat.postMessage({
         channel: channelId,
-        text: `Please specify whose accounts you want to see.\n\n*Examples:*\n• "Julie's accounts"\n• "What accounts does Himanshu own?"\n• "Show me Asad's accounts"`,
+        text: `Please specify whose accounts you want to see.\n\n*Examples:*\n• "Julie's accounts"\n• "What accounts does Mitchell own?"\n• "Show me Steven's accounts"`,
         thread_ts: threadTs
       });
       return;
@@ -6656,7 +6656,7 @@ async function handleOwnerAccountsList(entities, userId, channelId, client, thre
     const ownerMap = {
       // US Pod
       'julie': 'Julie Stefanich',
-      'himanshu': 'Himanshu Agarwal',
+      'mitchell': 'Mitchell Carpenter',
       'asad': 'Asad Hussain',
       'ananth': 'Ananth Cherukupally',
       'olivia': 'Olivia Jung',

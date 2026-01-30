@@ -102,12 +102,53 @@ const queryAnalytics = {
   }
 };
 
+// Fallback templates for graceful handling when intent is detected but entities are incomplete
+const FALLBACK_TEMPLATES = {
+  'move_to_nurture': {
+    template: 'move {account} to nurture',
+    examples: ['move Boeing to nurture', 'nurture Intel'],
+    requiredEntities: ['account'],
+    helpText: '💡 To move to nurture, try: "move Boeing to nurture" or "nurture Intel"'
+  },
+  'move_to_lost': {
+    template: 'move {account} to lost',
+    examples: ['move Boeing to lost', 'close Intel lost - no budget'],
+    requiredEntities: ['account'],
+    helpText: '💡 To mark as lost, try: "move Boeing to lost" or include a reason: "close Intel lost - no budget"'
+  },
+  'disqualify': {
+    template: 'disqualify {account}',
+    examples: ['disqualify Boeing', 'move Intel to disqualified'],
+    requiredEntities: ['account'],
+    helpText: '💡 To disqualify, try: "disqualify Boeing" or "move Intel to disqualified"'
+  },
+  'update_close_date': {
+    template: 'update {account} close date to {date}',
+    examples: ['update Boeing close date to 3/31/2026', 'Intel target sign 3/31'],
+    requiredEntities: ['account', 'date'],
+    helpText: '💡 To update close date, try: "update Boeing close date to 3/31/2026" or "Intel target sign 3/31"'
+  },
+  'stage_change': {
+    template: 'move {account} to stage {stage}',
+    examples: ['move Boeing to stage 2', 'Intel to S3'],
+    requiredEntities: ['account', 'stage'],
+    helpText: '💡 To change stage, try: "move Boeing to stage 2" or "Intel to S3"'
+  },
+  'account_reassign': {
+    template: 'reassign {account} to {owner}',
+    examples: ['reassign Boeing to Julie', 'assign Intel to Mitchell'],
+    requiredEntities: ['account', 'targetOwner'],
+    helpText: '💡 To reassign, try: "reassign Boeing to Julie" or "assign Intel to Mitchell"'
+  }
+};
+
 class IntentParser {
   constructor() {
     this.aiAdapter = socratesAdapter;
     this.model = process.env.SOCRATES_MODEL || process.env.OPENAI_MODEL || 'claude-opus-4.1';
     this.useOpenAI = process.env.USE_OPENAI === 'true';
     this.useMLClassifier = process.env.USE_ML_CLASSIFIER !== 'false'; // Default enabled
+    this.fallbackTemplates = FALLBACK_TEMPLATES;
     
     // Common typo corrections (normalized to lowercase)
     this.typoCorrections = {
@@ -180,6 +221,35 @@ class IntentParser {
       normalized = normalized.replace(regex, correct);
     }
     return normalized;
+  }
+
+  /**
+   * Generate a helpful fallback response when intent is detected but entities are missing
+   */
+  generateFallbackHelp(intent, entities = {}) {
+    const template = this.fallbackTemplates[intent];
+    if (!template) return null;
+    
+    const missingEntities = template.requiredEntities.filter(e => !entities[e]);
+    
+    if (missingEntities.length === 0) return null; // All entities present
+    
+    return {
+      helpText: template.helpText,
+      examples: template.examples,
+      missingEntities,
+      suggestedFormat: template.template
+    };
+  }
+
+  /**
+   * Check if an intent result needs fallback help
+   */
+  needsFallbackHelp(intent, entities) {
+    const template = this.fallbackTemplates[intent];
+    if (!template) return false;
+    
+    return template.requiredEntities.some(e => !entities[e]);
   }
 
   /**
@@ -759,7 +829,8 @@ Business Context:
         const ownerNameMap = {
           // US Pod
           'julie': 'Julie Stefanich',
-          'himanshu': 'Himanshu Agarwal',
+          'mitchell': 'Mitchell Carpenter',
+          'steven': 'Steven Leander',
           'asad': 'Asad Hussain',
           'ananth': 'Ananth Cherukupally',
           'olivia': 'Olivia Jung',
@@ -1557,6 +1628,102 @@ Business Context:
         followUp: false,
         confidence: 0.95,
         explanation: 'Close account and all opportunities as lost',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
+    // Account Management - Disqualify (Keigan only)
+    // Patterns: "disqualify Boeing", "move Boeing to disqualified", "DQ Intel"
+    if (message.match(/disqualif|move .+ to disqualified|\bdq\b/i)) {
+      intent = 'disqualify';
+      
+      const dqMatch = message.match(/disqualify (.+?)(?:\?|$)/i) ||
+                     message.match(/move (.+?) to disqualified/i) ||
+                     message.match(/dq (.+?)(?:\?|$)/i);
+      
+      if (dqMatch && dqMatch[1]) {
+        entities.accounts = [dqMatch[1].trim()];
+      }
+      
+      return {
+        intent: 'disqualify',
+        entities,
+        followUp: false,
+        confidence: 0.95,
+        explanation: 'Disqualify account - not a fit for our product',
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
+    // Account Management - Stage Change
+    // Patterns: "move Boeing to stage 2", "Intel to S3", "stage 4 Boeing", "advance Boeing to pilot"
+    const stageChangeMatch = message.match(/move (.+?) to (?:stage |s)(\d)/i) ||
+                            message.match(/(.+?) to (?:stage |s)(\d)/i) ||
+                            message.match(/advance (.+?) to (?:stage |s)?(\d)/i) ||
+                            message.match(/stage (\d) (.+?)(?:\?|$)/i);
+    
+    if (stageChangeMatch) {
+      intent = 'stage_change';
+      
+      const stageMap = {
+        '0': 'Stage 0 - Prospecting',
+        '1': 'Stage 1 - Discovery',
+        '2': 'Stage 2 - SQO',
+        '3': 'Stage 3 - Pilot',
+        '4': 'Stage 4 - Proposal',
+        '5': 'Stage 5 - Negotiation'
+      };
+      
+      // Handle reversed pattern: "stage 2 Boeing" vs "Boeing to stage 2"
+      let accountName, stageNum;
+      if (stageChangeMatch[0].match(/stage \d .+/i)) {
+        stageNum = stageChangeMatch[1];
+        accountName = stageChangeMatch[2];
+      } else {
+        accountName = stageChangeMatch[1];
+        stageNum = stageChangeMatch[2];
+      }
+      
+      entities.accounts = [accountName.trim()];
+      entities.targetStage = stageMap[stageNum] || `Stage ${stageNum}`;
+      
+      return {
+        intent: 'stage_change',
+        entities,
+        followUp: false,
+        confidence: 0.95,
+        explanation: `Move deal to ${entities.targetStage}`,
+        originalMessage: userMessage,
+        timestamp: Date.now()
+      };
+    }
+    
+    // Account Management - Update Close Date
+    // Patterns: "update Boeing close date to 3/31/2026", "Intel target sign 3/31", "Boeing close 3/31"
+    const closeDateMatch = message.match(/update (.+?) (?:close|target|sign) (?:date )?(?:to )?(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i) ||
+                          message.match(/(.+?) target sign (\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i) ||
+                          message.match(/(.+?) close (?:date )?(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
+    
+    if (closeDateMatch) {
+      intent = 'update_close_date';
+      
+      entities.accounts = [closeDateMatch[1].trim()];
+      entities.targetDate = closeDateMatch[2];
+      
+      // Normalize date to include year if missing
+      if (entities.targetDate && !entities.targetDate.match(/\/\d{4}$/)) {
+        const currentYear = new Date().getFullYear();
+        entities.targetDate = entities.targetDate + '/' + currentYear;
+      }
+      
+      return {
+        intent: 'update_close_date',
+        entities,
+        followUp: false,
+        confidence: 0.95,
+        explanation: `Update close date to ${entities.targetDate}`,
         originalMessage: userMessage,
         timestamp: Date.now()
       };

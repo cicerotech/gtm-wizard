@@ -43,7 +43,7 @@ class LLMFrontAgent {
       'account_reassign': {
         description: 'Reassign account to different Business Lead',
         params: ['companyName', 'newOwner'],
-        examples: ['reassign Dolby to Julie', 'transfer Ecolab to Himanshu'],
+        examples: ['reassign Dolby to Julie', 'transfer Ecolab to Mitchell'],
         keywords: ['reassign', 'transfer', 'change owner']
       },
       'late_stage_pipeline': {
@@ -171,7 +171,7 @@ Respond ONLY with JSON:
         return 'Which account would you like to reassign?';
       }
       if (!understanding.params.newOwner) {
-        return `Got it - reassigning ${understanding.params.companyName}. Who should I assign it to? (Julie Stefanich, Himanshu Agarwal, Justin Hills, etc.)`;
+        return `Got it - reassigning ${understanding.params.companyName}. Who should I assign it to? (Julie Stefanich, Mitchell Agarwal, Justin Hills, etc.)`;
       }
     }
     
