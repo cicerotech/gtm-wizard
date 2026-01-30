@@ -19,7 +19,7 @@ import {
 } from 'obsidian';
 
 import { AudioRecorder, RecordingState, RecordingResult } from './src/AudioRecorder';
-import { TranscriptionService, TranscriptionResult, MeetingContext, ProcessedSections } from './src/TranscriptionService';
+import { TranscriptionService, TranscriptionResult, MeetingContext, ProcessedSections, AccountDetector, accountDetector, AccountDetectionResult } from './src/TranscriptionService';
 import { CalendarService, CalendarMeeting, TodayResponse } from './src/CalendarService';
 import { SmartTagService, SmartTags } from './src/SmartTagService';
 
@@ -281,6 +281,94 @@ class RecordingStatusBar {
     }
   }
 
+  /**
+   * Show processing state while transcribing
+   */
+  showProcessing(): void {
+    if (!this.containerEl) return;
+    
+    this.containerEl.className = 'eudia-recording-bar processing';
+    if (this.statusTextEl) this.statusTextEl.textContent = 'Transcribing...';
+    
+    // Hide audio level during processing
+    if (this.levelBarEl && this.levelBarEl.parentElement) {
+      this.levelBarEl.parentElement.style.display = 'none';
+    }
+  }
+
+  /**
+   * Show transcription complete with stats
+   */
+  showComplete(stats: {
+    duration: number;
+    confidence: number;
+    meddiccCount: number;
+    nextStepsCount: number;
+    dealHealth?: string;
+  }): void {
+    if (!this.containerEl) return;
+    
+    // Clear and rebuild container for completion view
+    this.containerEl.innerHTML = '';
+    this.containerEl.className = 'eudia-recording-bar complete';
+    
+    // Success indicator
+    const successIcon = document.createElement('div');
+    successIcon.className = 'eudia-complete-icon';
+    successIcon.innerHTML = '✓';
+    this.containerEl.appendChild(successIcon);
+    
+    // Stats container
+    const statsContainer = document.createElement('div');
+    statsContainer.className = 'eudia-complete-stats';
+    
+    // Duration
+    const durationStat = document.createElement('div');
+    durationStat.className = 'eudia-stat';
+    durationStat.innerHTML = `<span class="eudia-stat-value">${Math.round(stats.duration / 60)}m</span><span class="eudia-stat-label">Duration</span>`;
+    statsContainer.appendChild(durationStat);
+    
+    // Confidence
+    const confidenceStat = document.createElement('div');
+    confidenceStat.className = 'eudia-stat';
+    const confidenceClass = stats.confidence >= 90 ? 'high' : stats.confidence >= 70 ? 'medium' : 'low';
+    confidenceStat.innerHTML = `<span class="eudia-stat-value ${confidenceClass}">${stats.confidence}%</span><span class="eudia-stat-label">Confidence</span>`;
+    statsContainer.appendChild(confidenceStat);
+    
+    // MEDDICC signals
+    const meddiccStat = document.createElement('div');
+    meddiccStat.className = 'eudia-stat';
+    meddiccStat.innerHTML = `<span class="eudia-stat-value">${stats.meddiccCount}/7</span><span class="eudia-stat-label">MEDDICC</span>`;
+    statsContainer.appendChild(meddiccStat);
+    
+    // Next steps
+    const nextStepsStat = document.createElement('div');
+    nextStepsStat.className = 'eudia-stat';
+    nextStepsStat.innerHTML = `<span class="eudia-stat-value">${stats.nextStepsCount}</span><span class="eudia-stat-label">Next Steps</span>`;
+    statsContainer.appendChild(nextStepsStat);
+    
+    this.containerEl.appendChild(statsContainer);
+    
+    // Deal health badge if available
+    if (stats.dealHealth) {
+      const healthBadge = document.createElement('div');
+      healthBadge.className = `eudia-deal-health-badge ${stats.dealHealth}`;
+      healthBadge.textContent = stats.dealHealth.charAt(0).toUpperCase() + stats.dealHealth.slice(1);
+      this.containerEl.appendChild(healthBadge);
+    }
+    
+    // Close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'eudia-control-btn close';
+    closeBtn.innerHTML = '✕';
+    closeBtn.title = 'Close';
+    closeBtn.onclick = () => this.hide();
+    this.containerEl.appendChild(closeBtn);
+    
+    // Auto-hide after 8 seconds
+    setTimeout(() => this.hide(), 8000);
+  }
+
   setProcessing(): void {
     if (!this.containerEl) return;
     this.containerEl.className = 'eudia-recording-bar processing';
@@ -464,12 +552,13 @@ class AccountSelectorModal extends Modal {
 
 /**
  * First-Launch Setup Wizard
- * Prompts for email, configures calendar, syncs accounts
+ * Polished onboarding with verification
  */
 class SetupWizardModal extends Modal {
   plugin: EudiaSyncPlugin;
   private emailInput: HTMLInputElement;
   private statusEl: HTMLElement;
+  private stepsContainer: HTMLElement;
   private onComplete: () => void;
 
   constructor(app: App, plugin: EudiaSyncPlugin, onComplete: () => void) {
@@ -483,20 +572,16 @@ class SetupWizardModal extends Modal {
     contentEl.empty();
     contentEl.addClass('eudia-setup-wizard');
 
-    // Header - Clean, no emojis
+    // Header
     contentEl.createEl('h2', { text: 'Welcome to Eudia Sales Intelligence' });
     contentEl.createEl('p', { 
-      text: 'Quick setup to get you recording meetings and syncing to Salesforce.',
+      text: 'Get set up in 30 seconds. Just enter your email to connect everything.',
       cls: 'setting-item-description'
     });
 
-    // Email input
+    // Email input - prominent
     const emailSection = contentEl.createDiv({ cls: 'eudia-setup-section' });
-    emailSection.createEl('h3', { text: '1. Enter Your Email' });
-    emailSection.createEl('p', { 
-      text: 'Your Eudia work email (used for calendar sync)',
-      cls: 'setting-item-description'
-    });
+    emailSection.createEl('h3', { text: 'Your Eudia Email' });
     
     this.emailInput = emailSection.createEl('input', {
       type: 'email',
@@ -504,27 +589,23 @@ class SetupWizardModal extends Modal {
       cls: 'eudia-email-input'
     });
     this.emailInput.style.width = '100%';
-    this.emailInput.style.padding = '8px 12px';
+    this.emailInput.style.padding = '12px 14px';
     this.emailInput.style.marginTop = '8px';
-    this.emailInput.style.borderRadius = '6px';
+    this.emailInput.style.borderRadius = '8px';
     this.emailInput.style.border = '1px solid var(--background-modifier-border)';
+    this.emailInput.style.fontSize = '15px';
+    
+    // Allow Enter to submit
+    this.emailInput.onkeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        this.runSetup();
+      }
+    };
 
-    // Features summary - Clean list without emojis
-    const featuresSection = contentEl.createDiv({ cls: 'eudia-setup-section' });
-    featuresSection.style.marginTop = '20px';
-    featuresSection.createEl('h3', { text: '2. What Gets Configured' });
-    
-    const featureList = featuresSection.createEl('ul');
-    featureList.style.fontSize = '13px';
-    featureList.style.color = 'var(--text-muted)';
-    
-    const features = [
-      'Salesforce account folders synced',
-      'Calendar connected for meeting context',
-      'Meeting transcription and AI summary ready',
-      'Auto-sync to Salesforce Customer Brain'
-    ];
-    features.forEach(f => featureList.createEl('li', { text: f }));
+    // Setup steps container (shows progress)
+    this.stepsContainer = contentEl.createDiv({ cls: 'eudia-setup-steps' });
+    this.stepsContainer.style.marginTop = '20px';
+    this.stepsContainer.style.display = 'none';
 
     // Status area
     this.statusEl = contentEl.createDiv({ cls: 'eudia-setup-status' });
@@ -532,6 +613,18 @@ class SetupWizardModal extends Modal {
     this.statusEl.style.padding = '12px';
     this.statusEl.style.borderRadius = '8px';
     this.statusEl.style.display = 'none';
+
+    // What gets connected
+    const infoSection = contentEl.createDiv({ cls: 'eudia-setup-info' });
+    infoSection.style.marginTop = '20px';
+    infoSection.style.fontSize = '12px';
+    infoSection.style.color = 'var(--text-muted)';
+    infoSection.innerHTML = `
+      <p style="margin: 0 0 8px 0;"><strong>This will automatically:</strong></p>
+      <p style="margin: 0;">• Connect your Outlook calendar for meeting context</p>
+      <p style="margin: 4px 0 0 0;">• Sync Salesforce accounts as folders for easy filing</p>
+      <p style="margin: 4px 0 0 0;">• Enable AI transcription and MEDDICC extraction</p>
+    `;
 
     // Button
     const buttonContainer = contentEl.createDiv({ cls: 'eudia-setup-buttons' });
@@ -543,49 +636,161 @@ class SetupWizardModal extends Modal {
     const skipBtn = buttonContainer.createEl('button', { text: 'Skip for Now' });
     skipBtn.onclick = () => this.close();
 
-    const setupBtn = buttonContainer.createEl('button', { text: 'Complete Setup', cls: 'mod-cta' });
+    const setupBtn = buttonContainer.createEl('button', { text: 'Connect & Continue', cls: 'mod-cta' });
+    setupBtn.style.padding = '10px 20px';
     setupBtn.onclick = () => this.runSetup();
   }
 
   async runSetup() {
     const email = this.emailInput.value.trim().toLowerCase();
     
+    // Validate email
     if (!email || !email.includes('@')) {
       this.showStatus('Please enter a valid email address', 'error');
       return;
     }
+    
+    if (!email.endsWith('@eudia.com')) {
+      this.showStatus('Please use your @eudia.com email address', 'error');
+      return;
+    }
 
-    this.showStatus('Setting up...', 'info');
+    // Show steps container
+    this.stepsContainer.style.display = 'block';
+    this.stepsContainer.innerHTML = '';
+    
+    // Create step indicators
+    const steps = [
+      { id: 'email', label: 'Saving email...' },
+      { id: 'accounts', label: 'Syncing Salesforce accounts...' },
+      { id: 'calendar', label: 'Connecting calendar...' },
+      { id: 'verify', label: 'Verifying connections...' }
+    ];
+    
+    steps.forEach(step => {
+      const stepEl = this.stepsContainer.createDiv({ cls: 'eudia-setup-step' });
+      stepEl.id = `step-${step.id}`;
+      stepEl.innerHTML = `<span class="step-indicator">○</span> ${step.label}`;
+      stepEl.style.padding = '6px 0';
+      stepEl.style.fontSize = '13px';
+      stepEl.style.color = 'var(--text-muted)';
+    });
 
     try {
-      // Save email
+      // Step 1: Save email
+      this.updateStep('email', 'running');
       this.plugin.settings.userEmail = email;
+      this.plugin.settings.calendarConfigured = true;
       await this.plugin.saveSettings();
+      this.updateStep('email', 'complete');
 
-      // Step 1: Sync accounts
-      this.showStatus('Syncing Salesforce accounts...', 'info');
+      // Step 2: Sync accounts
+      this.updateStep('accounts', 'running');
       await this.plugin.syncAccounts(true);
+      const accountCount = this.plugin.settings.cachedAccounts?.length || 0;
+      this.updateStep('accounts', 'complete', `${accountCount} accounts synced`);
 
-      // Step 2: Configure Full Calendar
-      this.showStatus('Configuring calendar...', 'info');
+      // Step 3: Configure calendar
+      this.updateStep('calendar', 'running');
       await this.configureCalendar(email);
+      this.updateStep('calendar', 'complete');
 
-      // Step 3: Mark setup complete
+      // Step 4: Verify
+      this.updateStep('verify', 'running');
+      const health = await this.plugin.checkServerHealth();
+      this.updateStep('verify', 'complete', health.salesforceConnected ? 'All systems connected' : 'Connected (Salesforce pending)');
+
+      // Mark setup complete
       this.plugin.settings.setupCompleted = true;
       await this.plugin.saveSettings();
 
-      this.showStatus('Setup complete. You\'re ready to record meetings.', 'success');
-      
-      // Close after delay
-      setTimeout(() => {
-        this.close();
-        this.onComplete();
-        new Notice('Eudia is ready. Click the mic icon to transcribe meetings.');
-      }, 1500);
+      // Show success summary
+      this.showSuccessSummary(accountCount, email);
 
     } catch (error) {
-      this.showStatus(`Setup failed: ${error.message}`, 'error');
+      this.showStatus(`Setup failed: ${(error as Error).message}. You can try again later in settings.`, 'error');
     }
+  }
+  
+  updateStep(stepId: string, status: 'running' | 'complete' | 'error', detail?: string) {
+    const stepEl = document.getElementById(`step-${stepId}`);
+    if (!stepEl) return;
+    
+    if (status === 'running') {
+      stepEl.querySelector('.step-indicator')!.textContent = '◐';
+      stepEl.style.color = 'var(--text-normal)';
+    } else if (status === 'complete') {
+      stepEl.querySelector('.step-indicator')!.textContent = '✓';
+      stepEl.style.color = 'var(--interactive-success)';
+      if (detail) {
+        stepEl.innerHTML = `<span class="step-indicator">✓</span> ${detail}`;
+      }
+    } else if (status === 'error') {
+      stepEl.querySelector('.step-indicator')!.textContent = '✕';
+      stepEl.style.color = 'var(--text-error)';
+    }
+  }
+  
+  showSuccessSummary(accountCount: number, email: string) {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass('eudia-setup-wizard');
+    
+    // Success header
+    const header = contentEl.createDiv({ cls: 'eudia-setup-success-header' });
+    header.innerHTML = `
+      <div style="text-align: center; padding: 20px 0;">
+        <div style="font-size: 48px; margin-bottom: 16px;">✓</div>
+        <h2 style="margin: 0;">You're All Set!</h2>
+      </div>
+    `;
+    
+    // Summary
+    const summary = contentEl.createDiv({ cls: 'eudia-setup-summary' });
+    summary.style.background = 'var(--background-secondary)';
+    summary.style.borderRadius = '8px';
+    summary.style.padding = '16px';
+    summary.style.marginTop = '16px';
+    summary.innerHTML = `
+      <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+        <span style="color: var(--text-muted);">Email</span>
+        <span style="font-weight: 500;">${email}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+        <span style="color: var(--text-muted);">Calendar</span>
+        <span style="color: var(--interactive-success); font-weight: 500;">Connected</span>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: var(--text-muted);">Accounts</span>
+        <span style="font-weight: 500;">${accountCount} available</span>
+      </div>
+    `;
+    
+    // Quick start guide
+    const guide = contentEl.createDiv({ cls: 'eudia-setup-guide' });
+    guide.style.marginTop = '20px';
+    guide.innerHTML = `
+      <h3 style="margin: 0 0 12px 0; font-size: 14px;">Quick Start</h3>
+      <div style="font-size: 13px; line-height: 1.6;">
+        <p style="margin: 0 0 8px 0;">🎙️ <strong>Transcribe a meeting:</strong> Click the microphone icon in the sidebar</p>
+        <p style="margin: 0 0 8px 0;">📅 <strong>View your calendar:</strong> Click the calendar icon to see upcoming meetings</p>
+        <p style="margin: 0;">📁 <strong>File notes:</strong> Save notes in account folders for auto-linking</p>
+      </div>
+    `;
+    
+    // Done button
+    const buttonContainer = contentEl.createDiv({ cls: 'eudia-setup-buttons' });
+    buttonContainer.style.marginTop = '24px';
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.justifyContent = 'center';
+    
+    const doneBtn = buttonContainer.createEl('button', { text: 'Start Using Eudia', cls: 'mod-cta' });
+    doneBtn.style.padding = '12px 32px';
+    doneBtn.onclick = () => {
+      this.close();
+      this.onComplete();
+      new Notice('Ready! Click the microphone to transcribe meetings.');
+    };
   }
 
   async configureCalendar(email: string) {
@@ -790,6 +995,11 @@ export default class EudiaSyncPlugin extends Plugin {
       this.settings.serverUrl,
       this.settings.openaiApiKey
     );
+    
+    // Initialize account detector with cached accounts
+    if (this.settings.cachedAccounts && this.settings.cachedAccounts.length > 0) {
+      accountDetector.setAccounts(this.settings.cachedAccounts.map(a => ({ id: a.id, name: a.name })));
+    }
 
     // Register calendar view
     this.registerView(
@@ -1328,8 +1538,12 @@ export default class EudiaSyncPlugin extends Plugin {
         this.log('info', 'Audio file saved', { correlationId, path: savedAudioPath });
       }
 
-      // Send for transcription
+      // Send for transcription - show processing status
       this.log('info', 'Starting transcription API call', { correlationId });
+      if (this.recordingStatusBar) {
+        this.recordingStatusBar.showProcessing();
+      }
+      
       const transcriptionResult = await this.transcriptionService.transcribeAndSummarize(
         audioBase64,
         result.mimeType,
@@ -1349,6 +1563,9 @@ export default class EudiaSyncPlugin extends Plugin {
           `> **Transcription failed:** ${transcriptionResult.error}\n> \n> Try recording again or check your settings.`
         );
         new Notice(`Transcription failed: ${transcriptionResult.error}`);
+        if (this.recordingStatusBar) {
+          this.recordingStatusBar.hide();
+        }
         return;
       }
 
@@ -1356,6 +1573,25 @@ export default class EudiaSyncPlugin extends Plugin {
       this.log('info', 'Inserting transcription results into note', { correlationId });
       await this.insertTranscriptionResults(activeFile, transcriptionResult, savedAudioPath);
       this.log('info', 'Transcription results inserted successfully', { correlationId });
+      
+      // Extract stats for completion display
+      const meddiccCount = (transcriptionResult as any).meddicc?.summary?.detected_count || 0;
+      const nextStepsCount = (transcriptionResult as any).next_steps?.count || 0;
+      const confidence = (transcriptionResult as any).meddicc?.summary?.average_confidence || 
+                         (transcriptionResult as any).quality?.confidence * 100 || 85;
+      const dealHealth = (transcriptionResult as any).meddicc?.summary?.deal_health || 'pending';
+      
+      // Show completion status with stats
+      if (this.recordingStatusBar) {
+        this.recordingStatusBar.showComplete({
+          duration: transcriptionResult.duration || 0,
+          confidence: Math.round(confidence),
+          meddiccCount,
+          nextStepsCount,
+          dealHealth
+        });
+      }
+      
       new Notice('Transcription complete');
 
       // CRITICAL: Smart tags run AFTER insertTranscriptionResults completes
@@ -1843,6 +2079,9 @@ recording_date: ${dateStr}
 
       // Cache accounts for autocomplete
       this.settings.cachedAccounts = accounts;
+      
+      // Populate account detector for auto-detection from meeting titles
+      accountDetector.setAccounts(accounts.map(a => ({ id: a.id, name: a.name })));
 
       // Ensure base accounts folder exists
       await this.ensureFolderExists(this.settings.accountsFolder);
@@ -1883,10 +2122,21 @@ recording_date: ${dateStr}
   }
 
   /**
-   * Fetch accounts from GTM Brain API
+   * Fetch accounts from GTM Brain API with graceful error handling
    */
   async fetchAccounts(): Promise<SalesforceAccount[]> {
     try {
+      // First, check server health
+      const health = await this.checkServerHealth();
+      
+      if (!health.healthy) {
+        throw new Error(`Server unavailable. ${health.error || 'Please try again in a moment.'}`);
+      }
+      
+      if (!health.salesforceConnected) {
+        throw new Error('Salesforce is not connected. Please contact your administrator.');
+      }
+
       const response = await requestUrl({
         url: `${this.settings.serverUrl}/api/accounts/obsidian`,
         method: 'GET',
@@ -1898,13 +2148,45 @@ recording_date: ${dateStr}
       const data: AccountsResponse = response.json;
       
       if (!data.success) {
-        throw new Error('API returned unsuccessful response');
+        // Provide specific error message based on error type
+        const errorMsg = data.error || 'Unknown error';
+        if (errorMsg.includes('localeCompare')) {
+          // This was the null sorting bug - now fixed but handle gracefully
+          throw new Error('Server error processing accounts. This has been reported.');
+        }
+        throw new Error(`Salesforce sync failed: ${errorMsg}`);
       }
 
-      return data.accounts || [];
+      if (!data.accounts || data.accounts.length === 0) {
+        console.warn('No accounts returned from Salesforce');
+        return [];
+      }
+
+      return data.accounts;
     } catch (error) {
       console.error('Failed to fetch accounts:', error);
-      throw new Error('Could not connect to GTM Brain server');
+      
+      // Provide user-friendly error messages
+      const msg = (error as Error).message || '';
+      
+      if (msg.includes('net::ERR') || msg.includes('fetch') || msg.includes('network')) {
+        throw new Error('No internet connection. Please check your network and try again.');
+      }
+      
+      if (msg.includes('timeout') || msg.includes('ETIMEDOUT')) {
+        throw new Error('Server took too long to respond. Please try again.');
+      }
+      
+      if (msg.includes('401') || msg.includes('403')) {
+        throw new Error('Authentication failed. Please check your API key in settings.');
+      }
+      
+      // Re-throw with original message if already user-friendly
+      if (msg.includes('Salesforce') || msg.includes('Server') || msg.includes('internet')) {
+        throw error;
+      }
+      
+      throw new Error('Could not sync Salesforce accounts. Please try again later.');
     }
   }
 
@@ -2298,11 +2580,9 @@ class EudiaCalendarView extends ItemView {
     refreshBtn.title = 'Refresh';
     refreshBtn.onclick = () => this.render();
 
-    // Check if email is configured
+    // Check if email is configured - show inline setup if not
     if (!this.plugin.settings.userEmail) {
-      container.createDiv({ cls: 'eudia-calendar-empty' }).createEl('p', {
-        text: 'Configure your email in plugin settings to see your calendar.'
-      });
+      this.renderCalendarSetup(container);
       return;
     }
 
@@ -2431,24 +2711,40 @@ class EudiaCalendarView extends ItemView {
       .join(', ');
 
     const template = `---
-title: ${meeting.subject}
+title: "${meeting.subject}"
 date: ${dateStr}
-attendees: ${attendees}
-account: ${meeting.accountName || ''}
+attendees: [${attendees}]
+account: "${meeting.accountName || ''}"
 meeting_start: ${meeting.start}
-tags: meeting
-sync_to_salesforce: pending
+meeting_type: discovery
+deal_health: pending
+sync_to_salesforce: false
+transcribed: false
 product_interest: []
+meddicc_signals: []
 ---
 
 # ${meeting.subject}
 
 ## Pre-Call Notes
 
+*Add any prep notes, context, or questions before the meeting*
+
+
 
 ---
 
-*To transcribe: Click the microphone icon or use Cmd/Ctrl+P → "Start Transcribing Meeting"*
+## 🎙️ Ready to Transcribe
+
+Click the **microphone icon** in the sidebar or use \`Cmd/Ctrl+P\` → **"Transcribe Meeting"**
+
+After the meeting:
+- AI will generate a structured summary
+- MEDDICC signals will be auto-extracted
+- Next steps will be formatted as checkboxes
+- Full transcript will be available for reference
+
+---
 
 `;
 
@@ -2460,6 +2756,126 @@ product_interest: []
     await leaf.openFile(file);
     
     new Notice(`Created meeting note for ${meeting.subject}`);
+  }
+
+  /**
+   * Render inline calendar setup form when email not configured
+   * Provides a zero-friction setup experience
+   */
+  renderCalendarSetup(container: Element): void {
+    const setupContainer = container.createDiv({ cls: 'eudia-calendar-setup' });
+    
+    // Header
+    setupContainer.createEl('div', { 
+      cls: 'eudia-calendar-setup-title',
+      text: '📅 Connect Your Calendar'
+    });
+    
+    setupContainer.createEl('p', { 
+      cls: 'eudia-calendar-setup-desc',
+      text: 'Enter your Eudia email to see your meetings'
+    });
+    
+    // Email input container
+    const inputContainer = setupContainer.createDiv({ cls: 'eudia-calendar-setup-input' });
+    
+    const emailInput = inputContainer.createEl('input', {
+      type: 'email',
+      placeholder: 'yourname@eudia.com'
+    }) as HTMLInputElement;
+    emailInput.addClass('eudia-calendar-email-input');
+    
+    const connectBtn = inputContainer.createEl('button', {
+      text: 'Connect',
+      cls: 'eudia-calendar-connect-btn'
+    });
+    
+    // Status message area
+    const statusEl = setupContainer.createDiv({ cls: 'eudia-calendar-setup-status' });
+    
+    // Connect button handler
+    connectBtn.onclick = async () => {
+      const email = emailInput.value.trim().toLowerCase();
+      
+      // Validate email format
+      if (!email || !email.includes('@')) {
+        statusEl.textContent = '⚠️ Please enter a valid email address';
+        statusEl.addClass('error');
+        return;
+      }
+      
+      // Must be @eudia.com email
+      if (!email.endsWith('@eudia.com')) {
+        statusEl.textContent = '⚠️ Please use your @eudia.com email address';
+        statusEl.addClass('error');
+        return;
+      }
+      
+      // Show loading state
+      connectBtn.disabled = true;
+      connectBtn.textContent = 'Connecting...';
+      statusEl.textContent = '';
+      statusEl.removeClass('error');
+      
+      try {
+        // Test calendar connection with this email
+        const testService = new CalendarService(
+          this.plugin.settings.serverUrl,
+          email
+        );
+        
+        const testResult = await testService.getTodaysMeetings();
+        
+        if (testResult.success || testResult.error?.includes('not configured')) {
+          // Save email to settings
+          this.plugin.settings.userEmail = email;
+          this.plugin.settings.calendarConfigured = true;
+          await this.plugin.saveSettings();
+          
+          // Show success briefly then reload
+          statusEl.textContent = '✓ Calendar connected!';
+          statusEl.addClass('success');
+          
+          // Also sync Salesforce accounts in background
+          this.plugin.syncAccounts(true).catch(e => {
+            console.warn('Background account sync failed:', e);
+          });
+          
+          // Re-render to show calendar
+          setTimeout(() => this.render(), 500);
+          
+        } else if (testResult.error) {
+          // Show specific error
+          if (testResult.error.includes('not found') || testResult.error.includes('not in list')) {
+            statusEl.textContent = `⚠️ Email not recognized. Contact your admin to be added.`;
+          } else {
+            statusEl.textContent = `⚠️ ${testResult.error}`;
+          }
+          statusEl.addClass('error');
+          connectBtn.disabled = false;
+          connectBtn.textContent = 'Connect';
+        }
+        
+      } catch (error) {
+        statusEl.textContent = `⚠️ Could not connect to server. Check your internet and try again.`;
+        statusEl.addClass('error');
+        connectBtn.disabled = false;
+        connectBtn.textContent = 'Connect';
+      }
+    };
+    
+    // Allow Enter key to submit
+    emailInput.onkeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        connectBtn.click();
+      }
+    };
+    
+    // Help text
+    setupContainer.createEl('p', {
+      cls: 'eudia-calendar-setup-help',
+      text: 'Your calendar syncs automatically via Microsoft 365 - no additional setup required.'
+    });
   }
 }
 

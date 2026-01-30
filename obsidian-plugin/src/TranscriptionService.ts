@@ -24,6 +24,311 @@ export const EUDIA_PRODUCT_LINES = [
 export type EudiaProductLine = typeof EUDIA_PRODUCT_LINES[number];
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ACCOUNT DETECTOR - Auto-detect account from meeting context
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface AccountDetectionResult {
+  account: string | null;
+  accountId: string | null;
+  confidence: number;
+  source: 'title' | 'attendee_domain' | 'salesforce_match' | 'none';
+  evidence: string;
+}
+
+export class AccountDetector {
+  private salesforceAccounts: Array<{ id: string; name: string }> = [];
+  
+  /**
+   * Set Salesforce accounts for matching
+   */
+  setAccounts(accounts: Array<{ id: string; name: string }>): void {
+    this.salesforceAccounts = accounts;
+  }
+
+  /**
+   * Detect account from meeting title and/or attendees
+   * Uses multiple strategies with confidence scoring
+   */
+  detectAccount(
+    meetingTitle?: string,
+    attendees?: string[],
+    filePath?: string
+  ): AccountDetectionResult {
+    // Strategy 1: Parse from meeting title (highest priority)
+    if (meetingTitle) {
+      const titleResult = this.detectFromTitle(meetingTitle);
+      if (titleResult.confidence >= 70) {
+        return titleResult;
+      }
+    }
+
+    // Strategy 2: Parse from file path (folder structure)
+    if (filePath) {
+      const pathResult = this.detectFromFilePath(filePath);
+      if (pathResult.confidence >= 70) {
+        return pathResult;
+      }
+    }
+
+    // Strategy 3: Parse from attendee domains
+    if (attendees && attendees.length > 0) {
+      const domainResult = this.detectFromAttendees(attendees);
+      if (domainResult.confidence >= 50) {
+        return domainResult;
+      }
+    }
+
+    return {
+      account: null,
+      accountId: null,
+      confidence: 0,
+      source: 'none',
+      evidence: 'No account detected from available context'
+    };
+  }
+
+  /**
+   * Detect account from meeting title
+   */
+  detectFromTitle(title: string): AccountDetectionResult {
+    if (!title) {
+      return { account: null, accountId: null, confidence: 0, source: 'title', evidence: 'No title' };
+    }
+
+    // Common meeting title patterns
+    const patterns = [
+      // "Southwest - James - Aug 19" → Southwest
+      { regex: /^([A-Za-z0-9][^-–—]+?)\s*[-–—]\s*(?:[A-Z][a-z]+|[A-Za-z]{2,})/, confidence: 85 },
+      
+      // "Call with Acme Corp" → Acme Corp
+      { regex: /(?:call|meeting|sync|check-in|demo|discovery)\s+(?:with|re:?|@)\s+([^-–—]+?)(?:\s*[-–—]|$)/i, confidence: 80 },
+      
+      // "Acme Corp Discovery Call" → Acme Corp
+      { regex: /^([A-Za-z][^-–—]+?)\s+(?:discovery|demo|review|kickoff|intro|onboarding|sync)\s*(?:call)?$/i, confidence: 75 },
+      
+      // "Acme: Weekly Sync" → Acme
+      { regex: /^([^:]+?):\s+/i, confidence: 70 },
+      
+      // "[Acme] Meeting Notes" → Acme
+      { regex: /^\[([^\]]+)\]/, confidence: 75 },
+    ];
+
+    // False positives to filter out
+    const falsePositives = [
+      'weekly', 'daily', 'monthly', 'internal', 'team', '1:1', 'one on one',
+      'standup', 'sync', 'meeting', 'call', 'notes', 'monday', 'tuesday',
+      'wednesday', 'thursday', 'friday', 'untitled', 'new', 'test'
+    ];
+
+    for (const pattern of patterns) {
+      const match = title.match(pattern.regex);
+      if (match && match[1]) {
+        const accountGuess = match[1].trim();
+        
+        // Skip false positives
+        if (falsePositives.some(fp => accountGuess.toLowerCase() === fp)) {
+          continue;
+        }
+        
+        // Skip if too short
+        if (accountGuess.length < 2) {
+          continue;
+        }
+
+        // Try to match against Salesforce accounts
+        const sfMatch = this.fuzzyMatchSalesforce(accountGuess);
+        if (sfMatch) {
+          return {
+            account: sfMatch.name,
+            accountId: sfMatch.id,
+            confidence: Math.min(pattern.confidence + 10, 100),
+            source: 'salesforce_match',
+            evidence: `Matched "${accountGuess}" from title to Salesforce account "${sfMatch.name}"`
+          };
+        }
+
+        // Return the parsed name even without SF match
+        return {
+          account: accountGuess,
+          accountId: null,
+          confidence: pattern.confidence,
+          source: 'title',
+          evidence: `Extracted from meeting title pattern`
+        };
+      }
+    }
+
+    return { account: null, accountId: null, confidence: 0, source: 'title', evidence: 'No pattern matched' };
+  }
+
+  /**
+   * Detect account from file path (Accounts/CompanyName/...)
+   */
+  detectFromFilePath(filePath: string): AccountDetectionResult {
+    // Look for Accounts folder pattern
+    const accountsMatch = filePath.match(/Accounts\/([^\/]+)\//i);
+    if (accountsMatch && accountsMatch[1]) {
+      const folderName = accountsMatch[1].trim();
+      
+      // Try to match against Salesforce
+      const sfMatch = this.fuzzyMatchSalesforce(folderName);
+      if (sfMatch) {
+        return {
+          account: sfMatch.name,
+          accountId: sfMatch.id,
+          confidence: 95,
+          source: 'salesforce_match',
+          evidence: `File in account folder "${folderName}" matched to "${sfMatch.name}"`
+        };
+      }
+
+      return {
+        account: folderName,
+        accountId: null,
+        confidence: 85,
+        source: 'title', // File path is treated like title
+        evidence: `File located in Accounts/${folderName} folder`
+      };
+    }
+
+    return { account: null, accountId: null, confidence: 0, source: 'none', evidence: 'Not in Accounts folder' };
+  }
+
+  /**
+   * Detect account from attendee email domains
+   */
+  detectFromAttendees(attendees: string[]): AccountDetectionResult {
+    // Extract external domains (not @eudia.com and not common email providers)
+    const commonProviders = ['gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com', 'icloud.com'];
+    const externalDomains = new Set<string>();
+
+    for (const attendee of attendees) {
+      const email = attendee.toLowerCase();
+      const domainMatch = email.match(/@([a-z0-9.-]+)/);
+      if (domainMatch) {
+        const domain = domainMatch[1];
+        if (!domain.includes('eudia.com') && !commonProviders.includes(domain)) {
+          externalDomains.add(domain);
+        }
+      }
+    }
+
+    if (externalDomains.size === 0) {
+      return { account: null, accountId: null, confidence: 0, source: 'attendee_domain', evidence: 'No external domains' };
+    }
+
+    // Try to match domains to Salesforce accounts
+    for (const domain of externalDomains) {
+      const companyName = domain.split('.')[0];
+      const capitalized = companyName.charAt(0).toUpperCase() + companyName.slice(1);
+      
+      const sfMatch = this.fuzzyMatchSalesforce(capitalized);
+      if (sfMatch) {
+        return {
+          account: sfMatch.name,
+          accountId: sfMatch.id,
+          confidence: 75,
+          source: 'salesforce_match',
+          evidence: `Matched attendee domain ${domain} to "${sfMatch.name}"`
+        };
+      }
+    }
+
+    // Return best guess from first external domain
+    const firstDomain = Array.from(externalDomains)[0];
+    const companyName = firstDomain.split('.')[0];
+    const capitalized = companyName.charAt(0).toUpperCase() + companyName.slice(1);
+
+    return {
+      account: capitalized,
+      accountId: null,
+      confidence: 50,
+      source: 'attendee_domain',
+      evidence: `Guessed from external attendee domain: ${firstDomain}`
+    };
+  }
+
+  /**
+   * Fuzzy match against Salesforce accounts
+   */
+  fuzzyMatchSalesforce(searchName: string): { id: string; name: string } | null {
+    if (!searchName || this.salesforceAccounts.length === 0) {
+      return null;
+    }
+
+    const search = searchName.toLowerCase().trim();
+
+    // Exact match
+    for (const acc of this.salesforceAccounts) {
+      if (acc.name?.toLowerCase() === search) {
+        return acc;
+      }
+    }
+
+    // Starts with match
+    for (const acc of this.salesforceAccounts) {
+      if (acc.name?.toLowerCase().startsWith(search)) {
+        return acc;
+      }
+    }
+
+    // Contains match (search in account name)
+    for (const acc of this.salesforceAccounts) {
+      if (acc.name?.toLowerCase().includes(search)) {
+        return acc;
+      }
+    }
+
+    // Contains match (account name in search)
+    for (const acc of this.salesforceAccounts) {
+      if (search.includes(acc.name?.toLowerCase())) {
+        return acc;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Suggest account matches for autocomplete
+   */
+  suggestAccounts(query: string, limit: number = 10): Array<{ id: string; name: string; score: number }> {
+    if (!query || query.length < 2) {
+      return this.salesforceAccounts.slice(0, limit).map(a => ({ ...a, score: 0 }));
+    }
+
+    const search = query.toLowerCase();
+    const results: Array<{ id: string; name: string; score: number }> = [];
+
+    for (const acc of this.salesforceAccounts) {
+      const name = acc.name?.toLowerCase() || '';
+      let score = 0;
+
+      if (name === search) {
+        score = 100;
+      } else if (name.startsWith(search)) {
+        score = 90;
+      } else if (name.includes(search)) {
+        score = 70;
+      } else if (search.includes(name)) {
+        score = 50;
+      }
+
+      if (score > 0) {
+        results.push({ ...acc, score });
+      }
+    }
+
+    return results
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+  }
+}
+
+// Singleton instance
+export const accountDetector = new AccountDetector();
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INTERFACES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -664,67 +969,89 @@ export class TranscriptionService {
 
   /**
    * Format sections for note insertion
-   * Order optimized for quick scanning: Summary first, then context, then details
+   * Optimized for busy salespeople: TL;DR first, evidence-based insights, actionable checklists
    */
   static formatSectionsForNote(sections: ProcessedSections, transcript?: string): string {
     let content = '';
 
-    // Priority 1: Quick Overview
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRIORITY 1: TL;DR - The headline for busy salespeople
+    // ═══════════════════════════════════════════════════════════════════════════
     if (sections.summary) {
-      content += `## Summary\n\n${sections.summary}\n\n`;
+      content += `## TL;DR\n\n${sections.summary}\n\n`;
     }
 
-    if (sections.attendees) {
-      content += `## Attendees\n\n${sections.attendees}\n\n`;
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRIORITY 2: Key Insights - What matters for the deal
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Pain points are critical - show prominently if present
+    if (sections.painPoints && !sections.painPoints.includes('None explicitly stated')) {
+      content += `## 😰 Pain Points\n\n${sections.painPoints}\n\n`;
     }
 
-    // Priority 2: Sales Intelligence
-    if (sections.productInterest && sections.productInterest !== 'None identified.') {
-      content += `## Product Interest\n\n${sections.productInterest}\n\n`;
+    // Product interest with emoji for visibility
+    if (sections.productInterest && !sections.productInterest.includes('None identified')) {
+      content += `## 🎯 Product Interest\n\n${sections.productInterest}\n\n`;
     }
 
-    if (sections.painPoints && sections.painPoints !== 'None explicitly stated - deeper discovery recommended.') {
-      content += `## Pain Points\n\n${sections.painPoints}\n\n`;
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRIORITY 3: MEDDICC Signals - With evidence (only show detected signals)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (sections.meddiccSignals) {
+      content += `## 📊 MEDDICC Signals\n\n${sections.meddiccSignals}\n\n`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRIORITY 4: Next Steps - Actionable checklist format
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (sections.nextSteps) {
+      content += `## ✅ Next Steps\n\n${sections.nextSteps}\n\n`;
+    }
+
+    // Internal action items
+    if (sections.actionItems) {
+      content += `## 📋 Action Items (Internal)\n\n${sections.actionItems}\n\n`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRIORITY 5: Timeline & Context
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (sections.keyDates && !sections.keyDates.includes('No specific dates')) {
+      content += `## 📅 Key Dates\n\n${sections.keyDates}\n\n`;
     }
 
     if (sections.buyingTriggers) {
-      content += `## Buying Triggers\n\n${sections.buyingTriggers}\n\n`;
+      content += `## ⚡ Buying Triggers\n\n${sections.buyingTriggers}\n\n`;
     }
 
-    // Priority 3: MEDDICC (detailed qualification)
-    if (sections.meddiccSignals) {
-      content += `## MEDDICC Signals\n\n${sections.meddiccSignals}\n\n`;
-    }
-
-    // Priority 4: Actions & Timeline
-    if (sections.nextSteps) {
-      content += `## Next Steps\n\n${sections.nextSteps}\n\n`;
-    }
-
-    if (sections.actionItems) {
-      content += `## Action Items (Internal)\n\n${sections.actionItems}\n\n`;
-    }
-
-    if (sections.keyDates && sections.keyDates !== 'No specific dates discussed.') {
-      content += `## Key Dates\n\n${sections.keyDates}\n\n`;
-    }
-
-    // Priority 5: Deal Health
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRIORITY 6: Deal Health & Risks
+    // ═══════════════════════════════════════════════════════════════════════════
     if (sections.dealSignals) {
-      content += `## Deal Signals\n\n${sections.dealSignals}\n\n`;
+      content += `## 📈 Deal Signals\n\n${sections.dealSignals}\n\n`;
     }
 
-    if (sections.risksObjections && sections.risksObjections !== 'None raised in this conversation.') {
-      content += `## Risks & Objections\n\n${sections.risksObjections}\n\n`;
+    if (sections.risksObjections && !sections.risksObjections.includes('None raised')) {
+      content += `## ⚠️ Risks & Objections\n\n${sections.risksObjections}\n\n`;
     }
 
-    if (sections.competitiveIntel && sections.competitiveIntel !== 'No competitive mentions.') {
-      content += `## Competitive Intelligence\n\n${sections.competitiveIntel}\n\n`;
+    if (sections.competitiveIntel && !sections.competitiveIntel.includes('No competitive')) {
+      content += `## ⚔️ Competitive Intelligence\n\n${sections.competitiveIntel}\n\n`;
     }
 
-    // Full transcript at end (collapsible section for reference)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRIORITY 7: Supporting Details
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (sections.attendees) {
+      content += `## 👥 Attendees\n\n${sections.attendees}\n\n`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TRANSCRIPT: Collapsible for reference
+    // ═══════════════════════════════════════════════════════════════════════════
     if (transcript) {
-      content += `---\n\n<details>\n<summary><strong>Full Transcript</strong></summary>\n\n${transcript}\n\n</details>\n`;
+      content += `---\n\n<details>\n<summary><strong>📝 Full Transcript</strong></summary>\n\n${transcript}\n\n</details>\n`;
     }
 
     return content;

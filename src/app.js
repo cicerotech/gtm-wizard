@@ -1639,34 +1639,57 @@ class GTMBrainApp {
     // Returns account names as a simple list for Obsidian vault integration
     this.expressApp.get('/api/accounts/obsidian', async (req, res) => {
       try {
-        const accounts = await meetingPrepService.getAccounts();
+        const rawAccounts = await meetingPrepService.getAccounts();
         const format = req.query.format || 'json';
+        
+        // Filter out accounts with null/undefined Name or Id to prevent crashes
+        const accounts = rawAccounts.filter(a => a && a.Name && a.Id);
+        const invalidCount = rawAccounts.length - accounts.length;
+        if (invalidCount > 0) {
+          logger.warn(`Filtered out ${invalidCount} accounts with missing Name or Id`);
+        }
         
         if (format === 'text') {
           // Plain text list - one account per line
-          const accountNames = accounts.map(a => a.Name).sort().join('\n');
+          const accountNames = accounts
+            .map(a => a.Name.trim())
+            .filter(name => name.length > 0)
+            .sort((a, b) => a.localeCompare(b))
+            .join('\n');
           res.setHeader('Content-Type', 'text/plain');
           res.setHeader('Content-Disposition', 'attachment; filename="salesforce-accounts.txt"');
           res.send(accountNames);
         } else if (format === 'markdown') {
           // Markdown list with wiki-links for Obsidian
+          const sortedNames = accounts
+            .map(a => a.Name.trim())
+            .filter(name => name.length > 0)
+            .sort((a, b) => a.localeCompare(b));
           const markdown = `# Salesforce Accounts\n\nGenerated: ${new Date().toISOString()}\n\n` +
-            accounts.map(a => `- [[${a.Name}]]`).sort().join('\n');
+            sortedNames.map(name => `- [[${name}]]`).join('\n');
           res.setHeader('Content-Type', 'text/markdown');
           res.setHeader('Content-Disposition', 'attachment; filename="salesforce-accounts.md"');
           res.send(markdown);
         } else {
           // JSON format with ID and Name
+          const sortedAccounts = accounts
+            .map(a => ({ id: a.Id, name: a.Name.trim() }))
+            .filter(a => a.name.length > 0)
+            .sort((a, b) => a.name.localeCompare(b.name));
           res.json({
             success: true,
             generated: new Date().toISOString(),
-            count: accounts.length,
-            accounts: accounts.map(a => ({ id: a.Id, name: a.Name })).sort((a, b) => a.name.localeCompare(b.name))
+            count: sortedAccounts.length,
+            accounts: sortedAccounts
           });
         }
       } catch (error) {
         logger.error('Error fetching accounts for Obsidian:', error);
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ 
+          success: false, 
+          error: 'Failed to fetch Salesforce accounts. Please try again.',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
       }
     });
 

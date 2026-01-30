@@ -495,7 +495,7 @@ class TranscriptionService {
   }
 
   /**
-   * Combined transcription and summarization
+   * Combined transcription and summarization with evidence-based MEDDICC
    */
   async transcribeAndSummarize(audioData, mimeType = 'audio/webm', context = {}) {
     try {
@@ -535,8 +535,7 @@ class TranscriptionService {
 
       logger.info(`[TranscribeAndSummarize] Transcription complete: ${transcribeResult.transcript?.length || 0} chars, ${transcribeResult.duration || 0}s`);
 
-      // Step 2: Summarize
-      // Generate quality summary with confidence indicators
+      // Step 2: Generate quality summary with confidence indicators
       const qualitySummary = this.generateQualitySummary(transcribeResult);
       
       // Get confidence indicators from Whisper segments
@@ -544,33 +543,75 @@ class TranscriptionService {
         ? this.getConfidenceIndicators(transcribeResult.segments)
         : null;
 
-      const summarizeResult = await this.summarize(transcribeResult.transcript, context);
+      // Step 3: Run parallel extractions for efficiency
+      const [summarizeResult, meddiccResult, nextStepsResult] = await Promise.all([
+        // Standard summarization
+        this.summarize(transcribeResult.transcript, context),
+        
+        // Evidence-based MEDDICC extraction with confidence thresholds
+        this.extractMEDDICCWithThreshold(transcribeResult.transcript, context),
+        
+        // Next steps extraction
+        this.extractNextStepsFromTranscript(transcribeResult.transcript, context)
+      ]);
+
+      // Build final result with all extractions
+      const sections = summarizeResult.success ? summarizeResult.sections : this.getEmptySections();
       
-      if (!summarizeResult.success) {
-        // Return transcript even if summarization fails
-        return {
-          success: true,
-          transcript: transcribeResult.transcript,
-          rawTranscript: transcribeResult.rawTranscript,
-          duration: transcribeResult.duration,
-          sections: this.getEmptySections(),
-          quality: qualitySummary,
-          confidence: confidenceIndicators,
-          corrections: transcribeResult.corrections || [],
-          warning: `Transcription succeeded but summarization failed: ${summarizeResult.error}`
-        };
+      // Merge MEDDICC results if successful (overrides the basic version)
+      if (meddiccResult.success && meddiccResult.summary) {
+        sections.meddiccSignals = meddiccResult.meddicc_display || sections.meddiccSignals;
       }
 
-      return {
+      // Merge next steps if successful
+      if (nextStepsResult.success && nextStepsResult.formatted) {
+        sections.nextSteps = nextStepsResult.formatted;
+      }
+
+      const result = {
         success: true,
         transcript: transcribeResult.transcript,
         rawTranscript: transcribeResult.rawTranscript,
         duration: transcribeResult.duration,
-        sections: summarizeResult.sections,
+        sections,
         quality: qualitySummary,
         confidence: confidenceIndicators,
-        corrections: transcribeResult.corrections || []
+        corrections: transcribeResult.corrections || [],
+        
+        // New evidence-based MEDDICC data
+        meddicc: meddiccResult.success ? {
+          signals: meddiccResult.signals,
+          summary: meddiccResult.summary,
+          tags: meddiccResult.meddicc_tags || [],
+          deal_health: meddiccResult.summary?.deal_health || 'unknown',
+          deal_health_score: meddiccResult.summary?.deal_health_score || 0
+        } : null,
+        
+        // Structured next steps
+        next_steps: nextStepsResult.success ? {
+          items: nextStepsResult.next_steps || [],
+          formatted: nextStepsResult.formatted,
+          count: nextStepsResult.count || 0
+        } : null
       };
+
+      // Add warnings if any extraction failed
+      const warnings = [];
+      if (!summarizeResult.success) {
+        warnings.push(`Summarization: ${summarizeResult.error}`);
+      }
+      if (!meddiccResult.success) {
+        warnings.push(`MEDDICC extraction: ${meddiccResult.error}`);
+      }
+      if (!nextStepsResult.success) {
+        warnings.push(`Next steps extraction: ${nextStepsResult.error}`);
+      }
+      
+      if (warnings.length > 0) {
+        result.warnings = warnings;
+      }
+
+      return result;
 
     } catch (error) {
       logger.error('[TranscribeAndSummarize] Error:', error);
@@ -578,6 +619,42 @@ class TranscriptionService {
         success: false,
         error: error.message || 'Processing failed'
       };
+    }
+  }
+
+  /**
+   * Extract MEDDICC with confidence thresholds
+   * Wrapper that creates extractor on demand
+   */
+  async extractMEDDICCWithThreshold(transcript, context = {}) {
+    try {
+      if (!this.openai) {
+        return { success: false, error: 'OpenAI not initialized' };
+      }
+      
+      const extractor = new MEDDICCExtractor(this.openai);
+      return await extractor.extractMEDDICC(transcript, context);
+    } catch (error) {
+      logger.error('[MEDDICC] Extraction failed:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Extract next steps from transcript
+   * Wrapper that creates extractor on demand
+   */
+  async extractNextStepsFromTranscript(transcript, context = {}) {
+    try {
+      if (!this.openai) {
+        return { success: false, error: 'OpenAI not initialized' };
+      }
+      
+      const extractor = new MEDDICCExtractor(this.openai);
+      return await extractor.extractNextSteps(transcript, context);
+    } catch (error) {
+      logger.error('[NextSteps] Extraction failed:', error);
+      return { success: false, error: error.message };
     }
   }
 
@@ -902,12 +979,725 @@ IMPORTANT:
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// EVIDENCE-BASED MEDDICC EXTRACTION
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * MEDDICC Confidence Thresholds
+ * Only signals meeting these thresholds are returned to the user
+ */
+const MEDDICC_THRESHOLDS = {
+  STRONG: 90,      // Show prominently with full evidence
+  DETECTED: 70,    // Show normally
+  WEAK: 50,        // Show with caveat (but we exclude these by default)
+  MINIMUM: 70      // Minimum confidence to include at all
+};
+
+/**
+ * MEDDICC extraction prompt - designed for evidence-based extraction
+ * Returns structured JSON with confidence scores and evidence quotes
+ */
+const MEDDICC_EXTRACTION_PROMPT = `You are a sales intelligence analyst extracting MEDDICC signals from a meeting transcript.
+
+CRITICAL RULES:
+1. Only identify signals with CLEAR, EXPLICIT evidence in the transcript
+2. Do NOT infer or assume - if it's not explicitly stated, mark as not detected
+3. Provide EXACT QUOTES as evidence (copy directly from transcript)
+4. Be conservative with confidence scores - 90%+ requires multiple strong indicators
+5. If evidence is ambiguous or weak, lower the confidence score accordingly
+
+For each MEDDICC element, analyze and return:
+- detected: boolean (true only if clear evidence exists)
+- confidence: number 0-100 (be conservative - 70+ requires solid evidence)
+- strength: "strong" (90+), "moderate" (70-89), "weak" (50-69), "none" (<50)
+- evidence: array of exact quotes from transcript (max 3, most relevant)
+- summary: one sentence summary of what was identified
+
+MEDDICC ELEMENTS:
+
+METRICS (M):
+- Specific numbers, dollar amounts, timelines, KPIs, ROI expectations
+- Must include ACTUAL FIGURES - vague statements don't count
+- Example evidence: "$300,000 annual contract", "reduce from 70 vendors to 15"
+
+ECONOMIC_BUYER (E):
+- Person with budget authority, final decision maker
+- Evidence must show their authority (approved, signed off, controls budget)
+- Example evidence: "Jeff approved the pricing", "CIO has final say"
+
+DECISION_CRITERIA (D):
+- Stated requirements, must-haves, evaluation criteria
+- What they're evaluating solutions against
+- Example evidence: "need governance controls", "must integrate with SAP"
+
+DECISION_PROCESS (D):
+- Timeline, steps to purchase, stakeholders involved, approvals needed
+- The actual process they'll follow
+- Example evidence: "meeting Wednesday to decide", "need board approval by Q2"
+
+IDENTIFY_PAIN (I):
+- Explicit problems, frustrations, challenges in their own words
+- Must be stated by customer, not implied
+- Example evidence: "we've let everyone go wild", "contractor model is foreign to us"
+
+CHAMPION (C):
+- Internal advocate pushing for the solution
+- Evidence must show advocacy behavior
+- Example evidence: "I'm leading by example", "I'll bring the right stakeholders"
+
+COMPETITION (C):
+- Other vendors mentioned, alternatives being considered
+- Must explicitly name competitors or alternatives
+- Example evidence: "also evaluating ServiceNow", "using MLNA currently"
+
+Return a JSON object with this exact structure:
+{
+  "metrics": { "detected": bool, "confidence": num, "strength": str, "evidence": [str], "summary": str },
+  "economic_buyer": { "detected": bool, "confidence": num, "strength": str, "evidence": [str], "summary": str },
+  "decision_criteria": { "detected": bool, "confidence": num, "strength": str, "evidence": [str], "summary": str },
+  "decision_process": { "detected": bool, "confidence": num, "strength": str, "evidence": [str], "summary": str },
+  "identify_pain": { "detected": bool, "confidence": num, "strength": str, "evidence": [str], "summary": str },
+  "champion": { "detected": bool, "confidence": num, "strength": str, "evidence": [str], "summary": str },
+  "competition": { "detected": bool, "confidence": num, "strength": str, "evidence": [str], "summary": str },
+  "overall_score": num,
+  "deal_health": "healthy" | "developing" | "at-risk" | "insufficient-data"
+}`;
+
+/**
+ * Next Steps extraction prompt
+ */
+const NEXT_STEPS_EXTRACTION_PROMPT = `Extract specific action items and next steps from this meeting transcript.
+
+For each next step, identify:
+1. WHAT: Specific action to take (be precise)
+2. WHO: Person responsible (if mentioned)
+3. WHEN: Date, day, or timeframe (be specific - "Wednesday" not "soon")
+4. TYPE: meeting | deliverable | decision | follow-up | introduction
+
+RULES:
+- Only extract EXPLICITLY AGREED next steps, not general discussion
+- Include the owner's name if mentioned
+- Convert relative dates to actual dates when possible (if today is mentioned)
+- Format dates consistently
+
+Return a JSON array:
+[
+  {
+    "action": "specific action description",
+    "owner": "person name or null",
+    "when": "specific date/time or null",
+    "type": "meeting|deliverable|decision|follow-up|introduction",
+    "priority": "high|medium|low",
+    "evidence": "quote from transcript"
+  }
+]`;
+
+/**
+ * Account detection prompt
+ */
+const ACCOUNT_DETECTION_PROMPT = `Analyze this meeting context to identify the customer account.
+
+Given:
+- Meeting title: {{title}}
+- Attendees: {{attendees}}
+- Transcript excerpt: {{transcript_start}}
+
+Return a JSON object:
+{
+  "detected_account": "company name or null",
+  "confidence": 0-100,
+  "evidence": "why you identified this account",
+  "alternative_names": ["other possible company names"],
+  "is_internal_meeting": boolean
+}`;
+
+/**
+ * Extended TranscriptionService with evidence-based MEDDICC extraction
+ */
+class MEDDICCExtractor {
+  constructor(openaiClient) {
+    this.openai = openaiClient;
+  }
+
+  /**
+   * Extract MEDDICC signals with evidence and confidence scores
+   * Only returns signals meeting the minimum confidence threshold
+   * 
+   * @param {string} transcript - Full meeting transcript
+   * @param {Object} context - Optional context (account, attendees)
+   * @returns {Promise<Object>} - MEDDICC extraction result
+   */
+  async extractMEDDICC(transcript, context = {}) {
+    if (!this.openai) {
+      return { success: false, error: 'OpenAI not initialized' };
+    }
+
+    try {
+      // Truncate transcript if too long (keep first and last parts for context)
+      const maxLength = 50000;
+      let processedTranscript = transcript;
+      if (transcript.length > maxLength) {
+        const halfLen = Math.floor(maxLength / 2);
+        processedTranscript = 
+          transcript.substring(0, halfLen) + 
+          '\n\n[... transcript continues ...]\n\n' +
+          transcript.substring(transcript.length - halfLen);
+      }
+
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: MEDDICC_EXTRACTION_PROMPT },
+          { role: 'user', content: `Analyze this meeting transcript and extract MEDDICC signals with evidence:\n\n${processedTranscript}` }
+        ],
+        temperature: 0.2, // Low temperature for consistent extraction
+        max_tokens: 3000,
+        response_format: { type: 'json_object' }
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No response from GPT');
+      }
+
+      const rawResult = JSON.parse(content);
+      
+      // Apply confidence threshold filtering
+      const filteredResult = this.applyConfidenceThreshold(rawResult);
+      
+      return {
+        success: true,
+        ...filteredResult
+      };
+
+    } catch (error) {
+      logger.error('[MEDDICC Extraction] Error:', error);
+      return {
+        success: false,
+        error: error.message || 'MEDDICC extraction failed'
+      };
+    }
+  }
+
+  /**
+   * Apply confidence thresholds and filter out weak signals
+   * @param {Object} rawResult - Raw MEDDICC extraction from GPT
+   * @returns {Object} - Filtered result with only high-confidence signals
+   */
+  applyConfidenceThreshold(rawResult) {
+    const signals = ['metrics', 'economic_buyer', 'decision_criteria', 'decision_process', 
+                     'identify_pain', 'champion', 'competition'];
+    
+    const filteredSignals = {};
+    const includedSignals = [];
+    const excludedSignals = [];
+    let totalConfidence = 0;
+    let detectedCount = 0;
+
+    for (const signal of signals) {
+      const data = rawResult[signal];
+      if (!data) {
+        filteredSignals[signal] = { detected: false, confidence: 0, excluded: true, reason: 'not_analyzed' };
+        continue;
+      }
+
+      const confidence = data.confidence || 0;
+      
+      if (data.detected && confidence >= MEDDICC_THRESHOLDS.MINIMUM) {
+        // Include this signal
+        filteredSignals[signal] = {
+          detected: true,
+          confidence,
+          strength: this.getStrengthLabel(confidence),
+          evidence: data.evidence || [],
+          summary: data.summary || '',
+          display: this.formatSignalForDisplay(signal, data)
+        };
+        includedSignals.push(signal);
+        totalConfidence += confidence;
+        detectedCount++;
+      } else {
+        // Exclude this signal (below threshold or not detected)
+        filteredSignals[signal] = {
+          detected: false,
+          confidence,
+          excluded: true,
+          reason: confidence < MEDDICC_THRESHOLDS.MINIMUM ? 'below_threshold' : 'not_detected'
+        };
+        excludedSignals.push({ signal, confidence, reason: filteredSignals[signal].reason });
+      }
+    }
+
+    // Calculate overall deal health
+    const avgConfidence = detectedCount > 0 ? totalConfidence / detectedCount : 0;
+    const dealHealth = this.calculateDealHealth(detectedCount, avgConfidence, filteredSignals);
+
+    return {
+      signals: filteredSignals,
+      summary: {
+        detected_count: detectedCount,
+        total_signals: signals.length,
+        average_confidence: Math.round(avgConfidence),
+        included_signals: includedSignals,
+        excluded_signals: excludedSignals,
+        deal_health: dealHealth.status,
+        deal_health_score: dealHealth.score,
+        deal_health_reasoning: dealHealth.reasoning
+      },
+      // Formatted for easy display in note properties
+      meddicc_tags: includedSignals.map(s => {
+        const data = filteredSignals[s];
+        return `${this.getSignalEmoji(s)} ${this.formatSignalName(s)} (${data.confidence}%)`;
+      }),
+      // Full display with evidence
+      meddicc_display: includedSignals.map(s => filteredSignals[s].display).join('\n\n')
+    };
+  }
+
+  /**
+   * Get strength label from confidence score
+   */
+  getStrengthLabel(confidence) {
+    if (confidence >= MEDDICC_THRESHOLDS.STRONG) return 'strong';
+    if (confidence >= MEDDICC_THRESHOLDS.DETECTED) return 'moderate';
+    if (confidence >= MEDDICC_THRESHOLDS.WEAK) return 'weak';
+    return 'none';
+  }
+
+  /**
+   * Format signal for display in note
+   */
+  formatSignalForDisplay(signal, data) {
+    const emoji = this.getSignalEmoji(signal);
+    const name = this.formatSignalName(signal);
+    const strength = this.getStrengthLabel(data.confidence);
+    
+    let display = `${emoji} **${name}** (${data.confidence}% - ${strength})\n`;
+    display += `${data.summary}\n`;
+    
+    if (data.evidence && data.evidence.length > 0) {
+      display += `Evidence:\n`;
+      data.evidence.forEach(e => {
+        display += `> "${e}"\n`;
+      });
+    }
+    
+    return display;
+  }
+
+  /**
+   * Get emoji for MEDDICC signal
+   */
+  getSignalEmoji(signal) {
+    const emojiMap = {
+      'metrics': '📊',
+      'economic_buyer': '💰',
+      'decision_criteria': '✅',
+      'decision_process': '🔄',
+      'identify_pain': '😰',
+      'champion': '🎯',
+      'competition': '⚔️'
+    };
+    return emojiMap[signal] || '•';
+  }
+
+  /**
+   * Format signal name for display
+   */
+  formatSignalName(signal) {
+    const nameMap = {
+      'metrics': 'Metrics',
+      'economic_buyer': 'Economic Buyer',
+      'decision_criteria': 'Decision Criteria',
+      'decision_process': 'Decision Process',
+      'identify_pain': 'Pain Identified',
+      'champion': 'Champion',
+      'competition': 'Competition'
+    };
+    return nameMap[signal] || signal;
+  }
+
+  /**
+   * Calculate overall deal health based on MEDDICC signals
+   */
+  calculateDealHealth(detectedCount, avgConfidence, signals) {
+    // Weight certain signals more heavily
+    const criticalSignals = ['economic_buyer', 'champion', 'identify_pain'];
+    const criticalDetected = criticalSignals.filter(s => 
+      signals[s]?.detected && signals[s]?.confidence >= MEDDICC_THRESHOLDS.MINIMUM
+    ).length;
+
+    let score = 0;
+    let reasoning = [];
+
+    // Base score from detected count (max 40 points)
+    score += (detectedCount / 7) * 40;
+
+    // Bonus for critical signals (max 30 points)
+    score += (criticalDetected / 3) * 30;
+
+    // Confidence bonus (max 30 points)
+    score += (avgConfidence / 100) * 30;
+
+    // Build reasoning
+    if (signals.champion?.detected) {
+      reasoning.push('Champion identified');
+    } else {
+      reasoning.push('No clear champion');
+    }
+
+    if (signals.economic_buyer?.detected) {
+      reasoning.push('Economic buyer known');
+    }
+
+    if (signals.identify_pain?.detected) {
+      reasoning.push('Pain confirmed');
+    }
+
+    if (signals.competition?.detected) {
+      reasoning.push('Competition present');
+    }
+
+    // Determine status
+    let status;
+    if (score >= 70) {
+      status = 'healthy';
+    } else if (score >= 50) {
+      status = 'developing';
+    } else if (detectedCount >= 2) {
+      status = 'at-risk';
+    } else {
+      status = 'insufficient-data';
+    }
+
+    return {
+      score: Math.round(score),
+      status,
+      reasoning: reasoning.join(', ')
+    };
+  }
+
+  /**
+   * Extract next steps with dates and owners
+   */
+  async extractNextSteps(transcript, context = {}) {
+    if (!this.openai) {
+      return { success: false, error: 'OpenAI not initialized' };
+    }
+
+    try {
+      // Use just the last portion of transcript for next steps (usually at end)
+      const lastPortion = transcript.length > 15000 
+        ? transcript.substring(transcript.length - 15000) 
+        : transcript;
+
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: NEXT_STEPS_EXTRACTION_PROMPT },
+          { role: 'user', content: `Extract next steps from this meeting transcript:\n\n${lastPortion}` }
+        ],
+        temperature: 0.2,
+        max_tokens: 1500,
+        response_format: { type: 'json_object' }
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No response from GPT');
+      }
+
+      const result = JSON.parse(content);
+      const nextSteps = Array.isArray(result) ? result : (result.next_steps || result.steps || []);
+
+      // Format for display as checkboxes
+      const formatted = nextSteps.map(step => {
+        let line = `- [ ] `;
+        if (step.when) {
+          line += `**${step.when}**: `;
+        }
+        if (step.owner) {
+          line += `${step.owner} - `;
+        }
+        line += step.action;
+        return line;
+      }).join('\n');
+
+      return {
+        success: true,
+        next_steps: nextSteps,
+        formatted,
+        count: nextSteps.length
+      };
+
+    } catch (error) {
+      logger.error('[Next Steps Extraction] Error:', error);
+      return {
+        success: false,
+        error: error.message || 'Next steps extraction failed'
+      };
+    }
+  }
+
+  /**
+   * Detect account from meeting title and transcript
+   */
+  async detectAccount(meetingTitle, attendees, transcriptStart, salesforceAccounts = []) {
+    if (!this.openai) {
+      return { success: false, error: 'OpenAI not initialized' };
+    }
+
+    try {
+      // First try rule-based detection from title
+      const titleMatch = this.detectAccountFromTitle(meetingTitle);
+      if (titleMatch.confidence >= 80) {
+        // Verify against Salesforce accounts if available
+        if (salesforceAccounts.length > 0) {
+          const sfMatch = this.fuzzyMatchAccount(titleMatch.account, salesforceAccounts);
+          if (sfMatch) {
+            return {
+              success: true,
+              account: sfMatch.name,
+              account_id: sfMatch.id,
+              confidence: Math.min(titleMatch.confidence + 10, 100),
+              source: 'title_and_salesforce',
+              evidence: `Matched "${titleMatch.account}" from title to Salesforce account "${sfMatch.name}"`
+            };
+          }
+        }
+        return {
+          success: true,
+          account: titleMatch.account,
+          confidence: titleMatch.confidence,
+          source: 'title',
+          evidence: titleMatch.evidence
+        };
+      }
+
+      // Try attendee domain matching
+      const domainMatch = this.detectAccountFromAttendees(attendees, salesforceAccounts);
+      if (domainMatch.confidence >= 70) {
+        return {
+          success: true,
+          ...domainMatch
+        };
+      }
+
+      // Fall back to GPT extraction from transcript
+      const prompt = ACCOUNT_DETECTION_PROMPT
+        .replace('{{title}}', meetingTitle || 'Unknown')
+        .replace('{{attendees}}', (attendees || []).join(', ') || 'Unknown')
+        .replace('{{transcript_start}}', (transcriptStart || '').substring(0, 2000));
+
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: prompt },
+          { role: 'user', content: 'Identify the customer account from this context.' }
+        ],
+        temperature: 0.2,
+        max_tokens: 500,
+        response_format: { type: 'json_object' }
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No response from GPT');
+      }
+
+      const result = JSON.parse(content);
+      
+      // Try to match detected account to Salesforce
+      if (result.detected_account && salesforceAccounts.length > 0) {
+        const sfMatch = this.fuzzyMatchAccount(result.detected_account, salesforceAccounts);
+        if (sfMatch) {
+          return {
+            success: true,
+            account: sfMatch.name,
+            account_id: sfMatch.id,
+            confidence: Math.min(result.confidence + 5, 100),
+            source: 'gpt_and_salesforce',
+            evidence: result.evidence,
+            is_internal: result.is_internal_meeting
+          };
+        }
+      }
+
+      return {
+        success: !!result.detected_account,
+        account: result.detected_account,
+        confidence: result.confidence || 50,
+        source: 'gpt',
+        evidence: result.evidence,
+        is_internal: result.is_internal_meeting
+      };
+
+    } catch (error) {
+      logger.error('[Account Detection] Error:', error);
+      return {
+        success: false,
+        error: error.message || 'Account detection failed'
+      };
+    }
+  }
+
+  /**
+   * Rule-based account detection from meeting title
+   */
+  detectAccountFromTitle(title) {
+    if (!title) {
+      return { account: null, confidence: 0, evidence: 'No title provided' };
+    }
+
+    // Common patterns for meeting titles
+    const patterns = [
+      // "Southwest - James - Aug 19" → Southwest
+      { regex: /^([^-]+?)\s*-\s*(?:[A-Z][a-z]+|[A-Z]{2,})/, confidence: 85 },
+      
+      // "Call with Acme Corp" → Acme Corp
+      { regex: /(?:call|meeting|sync|check-in|demo)\s+(?:with|re:?|@)\s+(.+?)(?:\s*[-–—]|$)/i, confidence: 80 },
+      
+      // "Acme Corp Discovery Call" → Acme Corp
+      { regex: /^(.+?)\s+(?:discovery|demo|review|kickoff|intro|onboarding)\s*(?:call)?/i, confidence: 75 },
+      
+      // "Acme: Weekly Sync" → Acme
+      { regex: /^([^:]+?):\s+/i, confidence: 70 },
+    ];
+
+    for (const pattern of patterns) {
+      const match = title.match(pattern.regex);
+      if (match && match[1]) {
+        const account = match[1].trim();
+        // Filter out common false positives
+        const falsePositives = ['weekly', 'daily', 'monthly', 'internal', 'team', '1:1', 'standup', 'sync'];
+        if (falsePositives.some(fp => account.toLowerCase() === fp)) {
+          continue;
+        }
+        return {
+          account,
+          confidence: pattern.confidence,
+          evidence: `Extracted from title pattern: "${title}"`
+        };
+      }
+    }
+
+    return { account: null, confidence: 0, evidence: 'No matching pattern found' };
+  }
+
+  /**
+   * Detect account from attendee email domains
+   */
+  detectAccountFromAttendees(attendees, salesforceAccounts) {
+    if (!attendees || attendees.length === 0) {
+      return { account: null, confidence: 0, source: 'attendees', evidence: 'No attendees' };
+    }
+
+    // Extract external domains (not @eudia.com)
+    const externalDomains = new Set();
+    for (const attendee of attendees) {
+      const email = typeof attendee === 'string' ? attendee : attendee.email;
+      if (!email) continue;
+      
+      const domain = email.split('@')[1]?.toLowerCase();
+      if (domain && !domain.includes('eudia.com') && !domain.includes('gmail.com') && 
+          !domain.includes('outlook.com') && !domain.includes('hotmail.com')) {
+        externalDomains.add(domain);
+      }
+    }
+
+    if (externalDomains.size === 0) {
+      return { account: null, confidence: 0, source: 'attendees', evidence: 'No external domains found' };
+    }
+
+    // Try to match domains to Salesforce accounts
+    for (const domain of externalDomains) {
+      const companyName = domain.split('.')[0];
+      const match = this.fuzzyMatchAccount(companyName, salesforceAccounts);
+      if (match) {
+        return {
+          account: match.name,
+          account_id: match.id,
+          confidence: 75,
+          source: 'attendee_domain',
+          evidence: `Matched domain ${domain} to account ${match.name}`
+        };
+      }
+    }
+
+    // Return the first external domain as a guess
+    const firstDomain = Array.from(externalDomains)[0];
+    const guessedName = firstDomain.split('.')[0].charAt(0).toUpperCase() + firstDomain.split('.')[0].slice(1);
+    
+    return {
+      account: guessedName,
+      confidence: 50,
+      source: 'attendee_domain_guess',
+      evidence: `Guessed from external domain: ${firstDomain}`
+    };
+  }
+
+  /**
+   * Fuzzy match account name against Salesforce accounts
+   */
+  fuzzyMatchAccount(searchName, salesforceAccounts) {
+    if (!searchName || !salesforceAccounts || salesforceAccounts.length === 0) {
+      return null;
+    }
+
+    const search = searchName.toLowerCase().trim();
+    
+    // Exact match
+    for (const acc of salesforceAccounts) {
+      if (acc.name?.toLowerCase() === search) {
+        return acc;
+      }
+    }
+
+    // Starts with match
+    for (const acc of salesforceAccounts) {
+      if (acc.name?.toLowerCase().startsWith(search)) {
+        return acc;
+      }
+    }
+
+    // Contains match
+    for (const acc of salesforceAccounts) {
+      if (acc.name?.toLowerCase().includes(search)) {
+        return acc;
+      }
+    }
+
+    // Reverse contains (search contains account name)
+    for (const acc of salesforceAccounts) {
+      if (search.includes(acc.name?.toLowerCase())) {
+        return acc;
+      }
+    }
+
+    return null;
+  }
+}
+
 // Singleton instance
 const transcriptionService = new TranscriptionService();
+
+// Create MEDDICC extractor that uses the same OpenAI client
+let meddiccExtractor = null;
+
+function getMEDDICCExtractor() {
+  if (!meddiccExtractor && transcriptionService.openai) {
+    meddiccExtractor = new MEDDICCExtractor(transcriptionService.openai);
+  }
+  return meddiccExtractor;
+}
 
 module.exports = {
   transcriptionService,
   TranscriptionService,
+  MEDDICCExtractor,
+  getMEDDICCExtractor,
   TEMPLATE_SECTIONS,
-  CONFIG
+  CONFIG,
+  MEDDICC_THRESHOLDS
 };
