@@ -336,10 +336,18 @@ async function pollAllChannels() {
   }
   
   try {
-    const channels = await intelligenceStore.getMonitoredChannels();
+    // PRIORITY 1: Use explicit target channels from environment variable
+    let channels = getTargetChannels();
     
-    if (channels.length === 0) {
-      logger.info('No channels to poll');
+    // PRIORITY 2: Fall back to database-registered channels
+    if (!channels || channels.length === 0) {
+      channels = await intelligenceStore.getMonitoredChannels();
+    } else {
+      logger.info(`📍 Using ${channels.length} target channels from INTEL_TARGET_CHANNELS for polling`);
+    }
+    
+    if (!channels || channels.length === 0) {
+      logger.info('No channels to poll (set INTEL_TARGET_CHANNELS or register via /intel register)');
       return { channelsPolled: 0, messagesProcessed: 0 };
     }
     
