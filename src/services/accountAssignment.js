@@ -9,11 +9,11 @@ const logger = require('../utils/logger');
 // Business Lead Mapping - US and EU Pods
 const BL_ASSIGNMENTS = {
   // US Pod - Domestic accounts
-  westCoast: ['Nathan Shine', 'Julie Stefanich', 'Justin Hills', 'Asad Hussain'],
-  eastCoast: ['Olivia Jung', 'Ananth Cherukupally'],
+  westCoast: ['Asad Hussain', 'Julie Stefanich', 'Justin Hills'],
+  eastCoast: ['Olivia Jung', 'Ananth Cherukupally', 'Mike Masiello'],
   
   // EU Pod - International accounts
-  international: ['Greg MacHale', 'Nathan Shine', 'Tom Clancy', 'Conor Molloy', 'Alex Fox', 'Nicola Fratini', 'Emer Flynn']
+  international: ['Alex Fox', 'Conor Molloy', 'Emer Flynn', 'Greg MacHale', 'Nathan Shine', 'Nicola Fratini', 'Tom Clancy']
 };
 
 // Geographic Regions
@@ -24,25 +24,21 @@ const CENTRAL_STATES = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX', 'MN', 'IA', 'MO', 'A
 // All BLs for reference - US and EU Pods
 const ALL_BUSINESS_LEADS = [
   // US Pod
-  'Asad Hussain',
-  'Nathan Shine',
-  'Julie Stefanich',
-  'Olivia Jung',
   'Ananth Cherukupally',
+  'Asad Hussain',
+  'Julie Stefanich',
   'Justin Hills',
   'Mike Masiello',
+  'Olivia Jung',
   
   // EU Pod
+  'Alex Fox',
+  'Conor Molloy',
+  'Emer Flynn',
   'Greg MacHale',
   'Nathan Shine',
-  'Tom Clancy',
-  'Conor Molloy',
-  'Alex Fox',
   'Nicola Fratini',
-  'Emer Flynn',
-  
-  // EU Sales Manager
-  'Riona McHale'
+  'Tom Clancy'
 ];
 
 /**

@@ -106,39 +106,39 @@ const queryAnalytics = {
 const FALLBACK_TEMPLATES = {
   'move_to_nurture': {
     template: 'move {account} to nurture',
-    examples: ['move Boeing to nurture', 'nurture Intel'],
+    examples: ['move Cargill to nurture', 'nurture Etsy'],
     requiredEntities: ['account'],
-    helpText: '💡 To move to nurture, try: "move Boeing to nurture" or "nurture Intel"'
+    helpText: '💡 To move to nurture, try: "move Cargill to nurture" or "nurture Etsy"'
   },
   'move_to_lost': {
     template: 'move {account} to lost',
-    examples: ['move Boeing to lost', 'close Intel lost - no budget'],
+    examples: ['move Cargill to lost', 'close Etsy lost - no budget'],
     requiredEntities: ['account'],
-    helpText: '💡 To mark as lost, try: "move Boeing to lost" or include a reason: "close Intel lost - no budget"'
+    helpText: '💡 To mark as lost, try: "move Cargill to lost" or include a reason: "close Etsy lost - no budget"'
   },
   'disqualify': {
     template: 'disqualify {account}',
-    examples: ['disqualify Boeing', 'move Intel to disqualified'],
+    examples: ['disqualify Cargill', 'move Etsy to disqualified'],
     requiredEntities: ['account'],
-    helpText: '💡 To disqualify, try: "disqualify Boeing" or "move Intel to disqualified"'
+    helpText: '💡 To disqualify, try: "disqualify Cargill" or "move Etsy to disqualified"'
   },
   'update_close_date': {
     template: 'update {account} close date to {date}',
-    examples: ['update Boeing close date to 3/31/2026', 'Intel target sign 3/31'],
+    examples: ['update Cargill close date to 3/31/2026', 'Etsy target sign 3/31'],
     requiredEntities: ['account', 'date'],
-    helpText: '💡 To update close date, try: "update Boeing close date to 3/31/2026" or "Intel target sign 3/31"'
+    helpText: '💡 To update close date, try: "update Cargill close date to 3/31/2026" or "Etsy target sign 3/31"'
   },
   'stage_change': {
     template: 'move {account} to stage {stage}',
-    examples: ['move Boeing to stage 2', 'Intel to S3'],
+    examples: ['move Cargill to stage 2', 'Etsy to S3'],
     requiredEntities: ['account', 'stage'],
-    helpText: '💡 To change stage, try: "move Boeing to stage 2" or "Intel to S3"'
+    helpText: '💡 To change stage, try: "move Cargill to stage 2" or "Etsy to S3"'
   },
   'account_reassign': {
     template: 'reassign {account} to {owner}',
-    examples: ['reassign Boeing to Julie', 'assign Intel to Nathan'],
+    examples: ['reassign Cargill to Julie', 'assign Etsy to Nathan'],
     requiredEntities: ['account', 'targetOwner'],
-    helpText: '💡 To reassign, try: "reassign Boeing to Julie" or "assign Intel to Nathan"'
+    helpText: '💡 To reassign, try: "reassign Cargill to Julie" or "assign Etsy to Nathan"'
   }
 };
 
@@ -1636,7 +1636,7 @@ Business Context:
     }
     
     // Account Management - Disqualify (Keigan only)
-    // Patterns: "disqualify Boeing", "move Boeing to disqualified", "DQ Intel"
+    // Patterns: "disqualify Cargill", "move Cargill to disqualified", "DQ Etsy"
     if (message.match(/disqualif|move .+ to disqualified|\bdq\b/i)) {
       intent = 'disqualify';
       
@@ -1660,7 +1660,7 @@ Business Context:
     }
     
     // Account Management - Stage Change
-    // Patterns: "move Boeing to stage 2", "Intel to S3", "stage 4 Boeing", "advance Boeing to pilot"
+    // Patterns: "move Cargill to stage 2", "Etsy to S3", "stage 4 Cargill", "advance Cargill to pilot"
     const stageChangeMatch = message.match(/move (.+?) to (?:stage |s)(\d)/i) ||
                             message.match(/(.+?) to (?:stage |s)(\d)/i) ||
                             message.match(/advance (.+?) to (?:stage |s)?(\d)/i) ||
@@ -1678,7 +1678,7 @@ Business Context:
         '5': 'Stage 5 - Negotiation'
       };
       
-      // Handle reversed pattern: "stage 2 Boeing" vs "Boeing to stage 2"
+      // Handle reversed pattern: "stage 2 Cargill" vs "Cargill to stage 2"
       let accountName, stageNum;
       if (stageChangeMatch[0].match(/stage \d .+/i)) {
         stageNum = stageChangeMatch[1];
@@ -1703,7 +1703,7 @@ Business Context:
     }
     
     // Account Management - Update Close Date
-    // Patterns: "update Boeing close date to 3/31/2026", "Intel target sign 3/31", "Boeing close 3/31"
+    // Patterns: "update Cargill close date to 3/31/2026", "Etsy target sign 3/31", "Cargill close 3/31"
     const closeDateMatch = message.match(/update (.+?) (?:close|target|sign) (?:date )?(?:to )?(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i) ||
                           message.match(/(.+?) target sign (\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i) ||
                           message.match(/(.+?) close (?:date )?(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
