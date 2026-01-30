@@ -1806,7 +1806,7 @@ sync_to_salesforce: false
 
     // ═══════════════════════════════════════════════════════════════════════════
     // OBSIDIAN NOTE SYNC
-    // Receives notes from Obsidian plugin and logs/stores for Salesforce sync
+    // Receives notes from Obsidian plugin and appends to Customer_Brain__c
     // ═══════════════════════════════════════════════════════════════════════════
     this.expressApp.post('/api/notes/sync', async (req, res) => {
       try {
@@ -1821,9 +1821,57 @@ sync_to_salesforce: false
 
         logger.info(`Obsidian note sync: "${noteTitle}" for account ${accountName} (${accountId})`);
         
-        // For now, log the sync and acknowledge
-        // Future: Create a Task or Note record in Salesforce
-        // Future: Store in Redis for batch processing
+        // Extract summary from content (between ## Summary and next ##)
+        let summary = '';
+        const summaryMatch = content.match(/## Summary\s*\n([\s\S]*?)(?=\n## |$)/);
+        if (summaryMatch) {
+          summary = summaryMatch[1].trim();
+        }
+        
+        // Extract next steps
+        let nextSteps = '';
+        const nextStepsMatch = content.match(/## Next Steps\s*\n([\s\S]*?)(?=\n## |$)/);
+        if (nextStepsMatch) {
+          nextSteps = nextStepsMatch[1].trim();
+        }
+        
+        // Format the meeting note for Customer Brain
+        const dateStr = new Date().toISOString().split('T')[0];
+        const meetingNote = `
+---
+**${noteTitle}** (${dateStr})
+${summary ? `\n${summary}` : ''}
+${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
+---
+`;
+        
+        // Push to Salesforce Customer_Brain__c
+        let sfResult = { updated: false };
+        try {
+          if (this.salesforceClient) {
+            // Get current Customer Brain
+            const account = await this.salesforceClient.sobject('Account').retrieve(accountId, ['Customer_Brain__c']);
+            const currentBrain = account.Customer_Brain__c || '';
+            
+            // Prepend new meeting note (most recent first)
+            const updatedBrain = meetingNote + currentBrain;
+            
+            // Update Salesforce
+            await this.salesforceClient.sobject('Account').update({
+              Id: accountId,
+              Customer_Brain__c: updatedBrain.substring(0, 131072) // Truncate to SF field limit
+            });
+            
+            sfResult = { updated: true, field: 'Customer_Brain__c' };
+            logger.info(`Salesforce Customer_Brain__c updated for ${accountName}`);
+          } else {
+            logger.warn('Salesforce client not available for note sync');
+            sfResult = { updated: false, reason: 'Salesforce not connected' };
+          }
+        } catch (sfError) {
+          logger.error('Failed to update Salesforce:', sfError.message);
+          sfResult = { updated: false, error: sfError.message };
+        }
         
         // Extract key meeting data from content
         const meetingData = {
@@ -1833,19 +1881,19 @@ sync_to_salesforce: false
           notePath,
           syncedAt,
           frontmatter,
-          // Parse sections from content if present
           hasSummary: content.includes('## Summary'),
           hasMeddicc: content.includes('## MEDDICC'),
           hasNextSteps: content.includes('## Next Steps'),
           hasActionItems: content.includes('## Action Items'),
-          contentLength: content.length
+          contentLength: content.length,
+          salesforce: sfResult
         };
 
         logger.info('Meeting data extracted:', JSON.stringify(meetingData, null, 2));
         
         res.json({ 
           success: true, 
-          message: 'Note synced successfully',
+          message: sfResult.updated ? 'Note synced to Salesforce' : 'Note received (Salesforce update pending)',
           data: meetingData
         });
 
