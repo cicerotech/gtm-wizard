@@ -250,7 +250,7 @@ const EUDIA_SIGNERS = {
 // If contract creation fails with "Owner ID not found", verify the ID in Salesforce
 const OWNER_USER_IDS = {
   'Julie Stefanich': '005Wj00000KDcFqIAL',
-  'Mitchell Agarwal': '005Wj00000M2FnHIAV',
+  'Nathan Agarwal': '005Wj00000M2FnHIAV',
   'Asad Hussain': '005Wj00000DT05BIAT',    // Updated 2025-12-03
   'Olivia Jung': '005Wj00000UVn0XIAT',
   'Justin Hills': '005Wj00000UVn1ZIAT',

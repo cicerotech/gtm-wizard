@@ -160,11 +160,12 @@ const EUDIA_GLOSSARY = {
   // ═══════════════════════════════════════════════════════════════════════════
   
   people: [
-    // Eudia team (add/update as needed)
-    'Mitchell',
-    'Steven',
-    'Keigan'
-    // Add more team members...
+    // Eudia Leadership
+    'Keigan', 'Omar',
+    // US Pod BLs
+    'Ananth', 'Asad', 'Julie', 'Justin', 'Mike', 'Olivia',
+    // EU Pod BLs
+    'Alex', 'Conor', 'Emer', 'Greg', 'Nathan', 'Nicola', 'Riona', 'Tom'
   ],
 
   // ═══════════════════════════════════════════════════════════════════════════

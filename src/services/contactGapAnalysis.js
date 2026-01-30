@@ -50,7 +50,7 @@ const CONFIG = {
 // US Pod Business Lead emails (starting scope)
 const US_BL_EMAILS = [
   'asad.hussain@eudia.com',
-  'mitchell.carpenter@eudia.com',
+  'nathan.shine@eudia.com',
   'julie.stefanich@eudia.com',
   'olivia.jung@eudia.com',
   'olivia@eudia.com',  // Alias
@@ -62,7 +62,7 @@ const US_BL_EMAILS = [
 // US Pod BL names for account ownership filtering
 const US_BL_NAMES = [
   'Asad Hussain',
-  'Mitchell Agarwal',
+  'Nathan Shine',
   'Julie Stefanich',
   'Olivia Jung',
   'Ananth Cherukupally',

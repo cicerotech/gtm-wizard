@@ -42,7 +42,7 @@ function getCalendarCache() {
 const BL_EMAILS_PILOT = [
   // US Pod (ALL US BLs now included)
   'asad.hussain@eudia.com',
-  'mitchell.carpenter@eudia.com',
+  'nathan.shine@eudia.com',
   'julie.stefanich@eudia.com',
   'olivia.jung@eudia.com',
   'olivia@eudia.com',
@@ -67,7 +67,7 @@ const BL_EMAILS_PILOT = [
 const BL_EMAILS_FULL = [
   // US Pod
   'asad.hussain@eudia.com',
-  'mitchell.carpenter@eudia.com',
+  'nathan.shine@eudia.com',
   'julie.stefanich@eudia.com',
   'olivia.jung@eudia.com',
   'olivia@eudia.com',

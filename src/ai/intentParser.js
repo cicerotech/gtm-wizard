@@ -136,9 +136,9 @@ const FALLBACK_TEMPLATES = {
   },
   'account_reassign': {
     template: 'reassign {account} to {owner}',
-    examples: ['reassign Boeing to Julie', 'assign Intel to Mitchell'],
+    examples: ['reassign Boeing to Julie', 'assign Intel to Nathan'],
     requiredEntities: ['account', 'targetOwner'],
-    helpText: '💡 To reassign, try: "reassign Boeing to Julie" or "assign Intel to Mitchell"'
+    helpText: '💡 To reassign, try: "reassign Boeing to Julie" or "assign Intel to Nathan"'
   }
 };
 
@@ -829,8 +829,10 @@ Business Context:
         const ownerNameMap = {
           // US Pod
           'julie': 'Julie Stefanich',
-          'mitchell': 'Mitchell Carpenter',
-          'steven': 'Steven Leander',
+          'nathan': 'Nathan Shine',
+          'tom': 'Tom Clancy',
+          'greg': 'Greg MacHale',
+          'nicola': 'Nicola Fratini',
           'asad': 'Asad Hussain',
           'ananth': 'Ananth Cherukupally',
           'olivia': 'Olivia Jung',

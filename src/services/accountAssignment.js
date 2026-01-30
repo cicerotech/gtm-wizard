@@ -9,7 +9,7 @@ const logger = require('../utils/logger');
 // Business Lead Mapping - US and EU Pods
 const BL_ASSIGNMENTS = {
   // US Pod - Domestic accounts
-  westCoast: ['Mitchell Carpenter', 'Julie Stefanich', 'Justin Hills', 'Asad Hussain'],
+  westCoast: ['Nathan Shine', 'Julie Stefanich', 'Justin Hills', 'Asad Hussain'],
   eastCoast: ['Olivia Jung', 'Ananth Cherukupally'],
   
   // EU Pod - International accounts
@@ -25,7 +25,7 @@ const CENTRAL_STATES = ['ND', 'SD', 'NE', 'KS', 'OK', 'TX', 'MN', 'IA', 'MO', 'A
 const ALL_BUSINESS_LEADS = [
   // US Pod
   'Asad Hussain',
-  'Mitchell Carpenter',
+  'Nathan Shine',
   'Julie Stefanich',
   'Olivia Jung',
   'Ananth Cherukupally',
