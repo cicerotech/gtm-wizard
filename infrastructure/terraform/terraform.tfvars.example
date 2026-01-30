@@ -1,0 +1,47 @@
+# =============================================================================
+# Terraform Variables - Copy to terraform.tfvars and fill in values
+# =============================================================================
+
+# AWS Region
+aws_region = "us-east-2"
+
+# Environment (sandbox, staging, production)
+environment = "sandbox"
+
+# -----------------------------------------------------------------------------
+# Networking (defaults are usually fine)
+# -----------------------------------------------------------------------------
+# vpc_cidr             = "10.0.0.0/16"
+# public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+# private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
+
+# -----------------------------------------------------------------------------
+# ECS / Fargate Configuration
+# -----------------------------------------------------------------------------
+
+# Container resources (start small for testing)
+container_cpu    = 256   # 0.25 vCPU
+container_memory = 512   # 512 MB
+
+# Number of tasks (1 is fine for testing)
+desired_count = 1
+
+# Port the application listens on
+container_port = 3000
+
+# Health check path
+health_check_path = "/health"
+
+# -----------------------------------------------------------------------------
+# Domain (optional - can be added later)
+# -----------------------------------------------------------------------------
+
+# Uncomment and set if you have a domain
+# domain_name       = "gtm-aws.eudia.com"
+# create_dns_record = true
+# route53_zone_id   = "Z1234567890ABC"
+
+# -----------------------------------------------------------------------------
+# Container Image (set by CI/CD, leave empty initially)
+# -----------------------------------------------------------------------------
+# container_image = ""

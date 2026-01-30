@@ -136,3 +136,16 @@ MICROSOFT_GRAPH_SETUP.md
 
 .sf/
 .sfdx/
+
+# Terraform
+infrastructure/terraform/.terraform/
+infrastructure/terraform/.terraform.lock.hcl
+infrastructure/terraform/*.tfstate
+infrastructure/terraform/*.tfstate.*
+infrastructure/terraform/terraform.tfvars
+infrastructure/terraform/*.backup
+
+# Secrets (NEVER commit real secrets!)
+secrets.json
+infrastructure/secrets.json
+*.secrets.json
