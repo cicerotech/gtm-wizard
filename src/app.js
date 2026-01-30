@@ -45,7 +45,7 @@ async function getOktaClient() {
 
 // Import handlers
 const { registerSlashCommands } = require('./slack/commands');
-const { registerEventHandlers } = require('./slack/events');
+const { registerEventHandlers, registerIntelActionHandlers } = require('./slack/events');
 const { registerInteractiveHandlers } = require('./slack/interactive');
 const { startScheduledJobs } = require('./slack/scheduled');
 const { scheduleWeeklyReport } = require('./slack/weeklyReport');
@@ -3776,6 +3776,7 @@ SENTIMENT: [Positive/Neutral/Negative]`
         channelMonitor.registerChannelMonitorHandlers(this.app);
         intelligenceDigest.initialize(this.app.client);
         intelligenceDigest.registerDigestHandlers(this.app);
+        registerIntelActionHandlers(this.app);
         logger.info('🧠 Channel Intelligence Scraper initialized');
       }
 

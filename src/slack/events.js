@@ -290,6 +290,107 @@ async function handleMention(event, client, context) {
     return;
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONVERSATIONAL INTEL COMMAND - @gtm-brain intel [company] or @gtm-brain poll [company]
+  // Provides graceful fallback with channel selection if no company specified
+  // ═══════════════════════════════════════════════════════════════════════════
+  const intelMatch = cleanText.toLowerCase().match(/^(intel|poll|intelligence|send intel|get intel|fetch intel)\s*(.*)$/);
+  if (intelMatch) {
+    const channelIntelligence = require('../services/channelIntelligence');
+    const companyQuery = intelMatch[2]?.trim();
+    
+    // Get all available target channels
+    const targetChannels = channelIntelligence.getTargetChannels() || [];
+    
+    if (targetChannels.length === 0) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `⚠️ *No channels configured*\n\nSet \`INTEL_TARGET_CHANNELS\` environment variable to monitor customer channels.\n\nFormat: \`C09HXRTASN8:Bayer,C12345ABCDE:Acme Corp\``,
+        thread_ts: event.ts
+      });
+      return;
+    }
+    
+    // If company specified, try to find a matching channel
+    if (companyQuery) {
+      const matchedChannel = targetChannels.find(ch => 
+        ch.account_name?.toLowerCase().includes(companyQuery.toLowerCase()) ||
+        ch.channel_name?.toLowerCase().includes(companyQuery.toLowerCase())
+      );
+      
+      if (matchedChannel) {
+        // Poll and return Excel for this specific channel
+        await handleIntelPollForChannel(matchedChannel, channelId, client, event.ts);
+        return;
+      } else {
+        // No match - show available channels as suggestions
+        const channelList = targetChannels.map(ch => `• ${ch.account_name}`).join('\n');
+        await client.chat.postMessage({
+          channel: channelId,
+          text: `🔍 No channel found matching "${companyQuery}".\n\n*Available accounts:*\n${channelList}\n\n_Try again with one of these names, or just say \`@gtm-brain intel\` to select from a list._`,
+          thread_ts: event.ts
+        });
+        return;
+      }
+    }
+    
+    // No company specified - show interactive channel selection
+    const channelOptions = targetChannels.slice(0, 10).map(ch => ({
+      text: { type: 'plain_text', text: ch.account_name || ch.channel_name, emoji: true },
+      value: `${ch.channel_id}:${ch.account_name}`
+    }));
+    
+    await client.chat.postMessage({
+      channel: channelId,
+      thread_ts: event.ts,
+      text: '📊 Select account(s) to fetch intelligence for:',
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: '*📊 Channel Intelligence*\n\nSelect one or more accounts to fetch and analyze recent channel activity. Results will be returned as an Excel file.'
+          }
+        },
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: '*Available Accounts:*'
+          },
+          accessory: {
+            type: 'multi_static_select',
+            placeholder: {
+              type: 'plain_text',
+              text: 'Select accounts...',
+              emoji: true
+            },
+            options: channelOptions,
+            action_id: 'intel_channel_select'
+          }
+        },
+        {
+          type: 'actions',
+          elements: [
+            {
+              type: 'button',
+              text: { type: 'plain_text', text: '📊 Fetch All', emoji: true },
+              style: 'primary',
+              action_id: 'intel_fetch_all',
+              value: 'all'
+            },
+            {
+              type: 'button',
+              text: { type: 'plain_text', text: '❌ Cancel', emoji: true },
+              action_id: 'intel_cancel'
+            }
+          ]
+        }
+      ]
+    });
+    return;
+  }
+
   await processQuery(cleanText, userId, channelId, client, event.ts);
 }
 
@@ -3096,6 +3197,185 @@ async function handleFinanceAuditReport(userId, channelId, client, threadTs) {
       thread_ts: threadTs
     });
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHANNEL INTELLIGENCE HANDLERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Handle intel poll for a specific channel
+ * Fetches messages, classifies, and returns Excel file
+ */
+async function handleIntelPollForChannel(channel, channelId, client, threadTs) {
+  const channelIntelligence = require('../services/channelIntelligence');
+  
+  try {
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `📊 Fetching intelligence for *${channel.account_name}*... This may take a moment.`,
+      thread_ts: threadTs
+    });
+    
+    // Run backfill for this specific channel (last 24 hours by default for quick poll)
+    const result = await channelIntelligence.backfillChannels({
+      dryRun: false,
+      channelId: channel.channel_id,
+      progressCallback: async (msg) => {
+        await client.chat.postMessage({
+          channel: channelId,
+          text: msg,
+          thread_ts: threadTs
+        });
+      }
+    });
+    
+    if (result.error) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `❌ Error: ${result.error}`,
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    // Generate Excel and upload
+    const excel = await channelIntelligence.generateBackfillExcel(result);
+    
+    await client.files.uploadV2({
+      channel_id: channelId,
+      thread_ts: threadTs,
+      file: excel.buffer,
+      filename: excel.filename,
+      title: `${channel.account_name} Intelligence Report - ${new Date().toLocaleDateString()}`,
+      initial_comment: `✅ *Intelligence Report: ${channel.account_name}*\n\n• Messages analyzed: ${result.messagesAfterFilter?.toLocaleString() || 0}\n• Intelligence found: ${result.intelligenceFound || 0}\n\n📊 See attached Excel for week-over-week breakdown.`
+    });
+    
+  } catch (error) {
+    logger.error(`Error polling channel ${channel.channel_id}:`, error);
+    await client.chat.postMessage({
+      channel: channelId,
+      text: `❌ Failed to fetch intelligence for ${channel.account_name}: ${error.message}`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Handle intel poll for multiple channels
+ * Used when user selects multiple from dropdown
+ */
+async function handleIntelPollMultiple(channelIds, responseChannel, client, threadTs) {
+  const channelIntelligence = require('../services/channelIntelligence');
+  const targetChannels = channelIntelligence.getTargetChannels() || [];
+  
+  try {
+    // Filter to selected channels
+    const selectedChannels = targetChannels.filter(ch => 
+      channelIds.includes(ch.channel_id)
+    );
+    
+    if (selectedChannels.length === 0) {
+      await client.chat.postMessage({
+        channel: responseChannel,
+        text: '⚠️ No valid channels selected.',
+        thread_ts: threadTs
+      });
+      return;
+    }
+    
+    const accountNames = selectedChannels.map(ch => ch.account_name).join(', ');
+    await client.chat.postMessage({
+      channel: responseChannel,
+      text: `📊 Fetching intelligence for: *${accountNames}*... This may take a few minutes.`,
+      thread_ts: threadTs
+    });
+    
+    // Process each channel
+    let totalIntel = 0;
+    let totalMessages = 0;
+    const allResults = [];
+    
+    for (const channel of selectedChannels) {
+      const result = await channelIntelligence.backfillChannels({
+        dryRun: false,
+        channelId: channel.channel_id
+      });
+      
+      if (!result.error) {
+        totalIntel += result.intelligenceFound || 0;
+        totalMessages += result.messagesAfterFilter || 0;
+        allResults.push(...(result.channelDetails || []));
+      }
+    }
+    
+    // Generate combined Excel
+    const combinedResult = {
+      channelsProcessed: selectedChannels.length,
+      totalMessages: totalMessages,
+      messagesAfterFilter: totalMessages,
+      intelligenceFound: totalIntel,
+      tokensUsed: 0,
+      channelDetails: allResults
+    };
+    
+    const excel = await channelIntelligence.generateBackfillExcel(combinedResult);
+    
+    await client.files.uploadV2({
+      channel_id: responseChannel,
+      thread_ts: threadTs,
+      file: excel.buffer,
+      filename: excel.filename,
+      title: `Channel Intelligence Report - ${new Date().toLocaleDateString()}`,
+      initial_comment: `✅ *Intelligence Report Complete*\n\n• Accounts: ${selectedChannels.length}\n• Messages analyzed: ${totalMessages.toLocaleString()}\n• Intelligence found: ${totalIntel}\n\n📊 See attached Excel for breakdown by account and week.`
+    });
+    
+  } catch (error) {
+    logger.error('Error in multi-channel poll:', error);
+    await client.chat.postMessage({
+      channel: responseChannel,
+      text: `❌ Error fetching intelligence: ${error.message}`,
+      thread_ts: threadTs
+    });
+  }
+}
+
+/**
+ * Register intel channel selection action handlers
+ */
+function registerIntelActionHandlers(app) {
+  // Handle multi-select dropdown
+  app.action('intel_channel_select', async ({ action, ack, body, client }) => {
+    await ack();
+    // Selection is captured - user needs to click a button to proceed
+  });
+  
+  // Handle "Fetch All" button
+  app.action('intel_fetch_all', async ({ ack, body, client }) => {
+    await ack();
+    
+    const channelIntelligence = require('../services/channelIntelligence');
+    const targetChannels = channelIntelligence.getTargetChannels() || [];
+    const allChannelIds = targetChannels.map(ch => ch.channel_id);
+    
+    await handleIntelPollMultiple(
+      allChannelIds,
+      body.channel?.id,
+      client,
+      body.message?.ts
+    );
+  });
+  
+  // Handle cancel button
+  app.action('intel_cancel', async ({ ack, respond }) => {
+    await ack();
+    await respond({
+      text: '❌ Intelligence fetch cancelled.',
+      replace_original: true
+    });
+  });
+  
+  logger.info('✅ Intel action handlers registered');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -6596,5 +6876,6 @@ async function handleHyprnoteSyncStatus(client, channelId, threadTs) {
 }
 
 module.exports = {
-  registerEventHandlers
+  registerEventHandlers,
+  registerIntelActionHandlers
 };
