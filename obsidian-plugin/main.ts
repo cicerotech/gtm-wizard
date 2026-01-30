@@ -46,7 +46,7 @@ interface EudiaSyncSettings {
 }
 
 const DEFAULT_SETTINGS: EudiaSyncSettings = {
-  serverUrl: 'https://gtm-brain.onrender.com',
+  serverUrl: 'https://gtm-wizard.onrender.com',
   accountsFolder: 'Accounts',
   recordingsFolder: 'Recordings',
   syncOnStartup: true,
@@ -192,9 +192,10 @@ class RecordingStatusBar {
     this.containerEl = document.createElement('div');
     this.containerEl.className = 'eudia-recording-bar recording';
     
-    // Recording indicator
+    // Voice wave indicator (3 bars)
     const indicator = document.createElement('div');
     indicator.className = 'eudia-recording-indicator';
+    indicator.appendChild(document.createElement('span')); // Middle bar for 3-bar animation
     this.containerEl.appendChild(indicator);
 
     // Duration
@@ -215,7 +216,7 @@ class RecordingStatusBar {
     // Status text
     this.statusTextEl = document.createElement('div');
     this.statusTextEl.className = 'eudia-status-text';
-    this.statusTextEl.textContent = 'Recording...';
+    this.statusTextEl.textContent = 'Transcribing...';
     this.containerEl.appendChild(this.statusTextEl);
 
     // Controls
@@ -276,7 +277,7 @@ class RecordingStatusBar {
       if (this.statusTextEl) this.statusTextEl.textContent = 'Paused';
     } else {
       this.containerEl.className = 'eudia-recording-bar recording';
-      if (this.statusTextEl) this.statusTextEl.textContent = 'Recording...';
+      if (this.statusTextEl) this.statusTextEl.textContent = 'Listening...';
     }
   }
 
@@ -520,7 +521,7 @@ class SetupWizardModal extends Modal {
     const features = [
       'Salesforce account folders synced',
       'Calendar connected for meeting context',
-      'Recording, transcription, and summary ready',
+      'Meeting transcription and AI summary ready',
       'Auto-sync to Salesforce Customer Brain'
     ];
     features.forEach(f => featureList.createEl('li', { text: f }));
@@ -579,7 +580,7 @@ class SetupWizardModal extends Modal {
       setTimeout(() => {
         this.close();
         this.onComplete();
-        new Notice('Eudia is ready. Click the mic icon to record.');
+        new Notice('Eudia is ready. Click the mic icon to transcribe meetings.');
       }, 1500);
 
     } catch (error) {
@@ -808,7 +809,7 @@ export default class EudiaSyncPlugin extends Plugin {
     this.registerEditorSuggest(this.accountSuggester);
 
     // Add ribbon icon for recording (primary action)
-    this.ribbonIcon = this.addRibbonIcon('microphone', 'Record Meeting', async () => {
+    this.ribbonIcon = this.addRibbonIcon('microphone', 'Transcribe Meeting', async () => {
       await this.toggleRecording();
     });
 
@@ -822,10 +823,10 @@ export default class EudiaSyncPlugin extends Plugin {
       await this.syncAccounts();
     });
 
-    // Recording commands
+    // Transcription commands
     this.addCommand({
       id: 'start-recording',
-      name: 'Start Recording',
+      name: 'Start Transcribing Meeting',
       callback: async () => {
         if (!this.isRecording) {
           await this.startRecording();
@@ -835,7 +836,7 @@ export default class EudiaSyncPlugin extends Plugin {
 
     this.addCommand({
       id: 'stop-recording',
-      name: 'Stop Recording & Transcribe',
+      name: 'Stop & Generate Summary',
       callback: async () => {
         if (this.isRecording) {
           await this.stopRecording();
@@ -845,7 +846,7 @@ export default class EudiaSyncPlugin extends Plugin {
 
     this.addCommand({
       id: 'toggle-recording',
-      name: 'Toggle Recording',
+      name: 'Toggle Meeting Transcription',
       callback: async () => {
         await this.toggleRecording();
       }
@@ -861,7 +862,7 @@ export default class EudiaSyncPlugin extends Plugin {
 
     this.addCommand({
       id: 'pause-recording',
-      name: 'Pause/Resume Recording',
+      name: 'Pause/Resume Transcription',
       callback: () => {
         if (this.isRecording) {
           this.togglePause();
@@ -1021,7 +1022,7 @@ export default class EudiaSyncPlugin extends Plugin {
       );
       this.recordingStatusBar.show();
 
-      new Notice('Recording started');
+      new Notice('Transcription started');
       this.operationSuccess('startRecording', { file: activeFile.path });
 
       // Auto-detect current calendar meeting (non-blocking)
@@ -1485,7 +1486,7 @@ export default class EudiaSyncPlugin extends Plugin {
       this.ribbonIcon.removeClass('eudia-ribbon-recording');
     }
 
-    new Notice('Recording cancelled');
+    new Notice('Transcription cancelled');
   }
 
   /**
@@ -1735,7 +1736,7 @@ recording_date: ${dateStr}
 
 ---
 
-*To record: Click the microphone icon in the sidebar or use Cmd/Ctrl+P → "Start Recording"*
+*To transcribe: Click the microphone icon in the sidebar or use Cmd/Ctrl+P → "Start Transcribing Meeting"*
 
 `;
   }
@@ -2447,7 +2448,7 @@ product_interest: []
 
 ---
 
-*To record: Click the microphone icon or use Cmd/Ctrl+P → "Start Recording"*
+*To transcribe: Click the microphone icon or use Cmd/Ctrl+P → "Start Transcribing Meeting"*
 
 `;
 

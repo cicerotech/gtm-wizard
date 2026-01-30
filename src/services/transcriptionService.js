@@ -11,7 +11,14 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const logger = require('../utils/logger') || console;
-const { transcriptCorrector } = require('./transcriptCorrector');
+
+// Import transcript corrector with graceful fallback
+let transcriptCorrector = null;
+try {
+  transcriptCorrector = require('./transcriptCorrector').transcriptCorrector;
+} catch (error) {
+  logger.warn('TranscriptCorrector not available, using raw transcripts:', error.message);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION
@@ -283,30 +290,32 @@ class TranscriptionService {
       // Clean up temp file
       this.cleanupTempFile(tempFilePath);
 
-      // Apply post-processing corrections to improve accuracy
+      // Apply post-processing corrections to improve accuracy (if corrector available)
       let finalTranscript = transcription.text;
       let corrections = [];
       let confidence = 1.0;
 
-      try {
-        // Initialize corrector with OpenAI client for potential GPT correction
-        transcriptCorrector.setOpenAI(this.openai);
-        
-        const correctionResult = await transcriptCorrector.correctTranscript(
-          transcription.text, 
-          context
-        );
-        
-        finalTranscript = correctionResult.corrected;
-        corrections = correctionResult.corrections;
-        confidence = correctionResult.confidence;
-        
-        if (corrections.length > 0) {
-          logger.info(`[Transcription] Post-processing: ${corrections.length} corrections, confidence=${confidence}`);
+      if (transcriptCorrector) {
+        try {
+          // Initialize corrector with OpenAI client for potential GPT correction
+          transcriptCorrector.setOpenAI(this.openai);
+          
+          const correctionResult = await transcriptCorrector.correctTranscript(
+            transcription.text, 
+            context
+          );
+          
+          finalTranscript = correctionResult.corrected;
+          corrections = correctionResult.corrections;
+          confidence = correctionResult.confidence;
+          
+          if (corrections.length > 0) {
+            logger.info(`[Transcription] Post-processing: ${corrections.length} corrections, confidence=${confidence}`);
+          }
+        } catch (correctionError) {
+          logger.warn(`[Transcription] Post-processing failed, using raw transcript: ${correctionError.message}`);
+          // Continue with raw transcript if correction fails
         }
-      } catch (correctionError) {
-        logger.warn(`[Transcription] Post-processing failed, using raw transcript: ${correctionError.message}`);
-        // Continue with raw transcript if correction fails
       }
 
       return {

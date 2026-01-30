@@ -31,6 +31,10 @@
   --eudia-warning-subtle: rgba(245, 158, 11, 0.1);
   --eudia-recording: #ef4444;
   --eudia-recording-subtle: rgba(239, 68, 68, 0.1);
+  
+  /* Transcription active - subtle purple instead of aggressive red */
+  --eudia-listening: #8e99e1;
+  --eudia-listening-subtle: rgba(142, 153, 225, 0.15);
 }
 
 /* Dark mode overrides */
@@ -67,8 +71,8 @@
 }
 
 .eudia-recording-bar.recording {
-  border-color: var(--eudia-recording);
-  box-shadow: 0 0 0 3px var(--eudia-recording-subtle), 0 4px 16px rgba(0, 0, 0, 0.08);
+  border-color: var(--eudia-listening);
+  box-shadow: 0 0 0 3px var(--eudia-listening-subtle), 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 .eudia-recording-bar.paused {
@@ -81,34 +85,73 @@
   box-shadow: 0 0 0 3px var(--eudia-accent-subtle), 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
-/* Recording Indicator - Subtle pulse */
+/* Voice Indicator - Subtle sound wave animation */
 .eudia-recording-indicator {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--eudia-recording);
-  animation: eudia-pulse 2s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 16px;
 }
 
-.eudia-recording-bar.paused .eudia-recording-indicator {
+.eudia-recording-indicator::before,
+.eudia-recording-indicator::after,
+.eudia-recording-indicator span {
+  content: '';
+  display: block;
+  width: 3px;
+  height: 8px;
+  background: var(--eudia-listening);
+  border-radius: 2px;
+  animation: eudia-wave 1.2s ease-in-out infinite;
+}
+
+.eudia-recording-indicator::before {
+  animation-delay: 0s;
+}
+
+.eudia-recording-indicator span {
+  animation-delay: 0.2s;
+}
+
+.eudia-recording-indicator::after {
+  animation-delay: 0.4s;
+}
+
+.eudia-recording-bar.paused .eudia-recording-indicator::before,
+.eudia-recording-bar.paused .eudia-recording-indicator::after,
+.eudia-recording-bar.paused .eudia-recording-indicator span {
   background: var(--eudia-warning);
   animation: none;
+  height: 6px;
 }
 
-.eudia-recording-bar.processing .eudia-recording-indicator {
+.eudia-recording-bar.processing .eudia-recording-indicator::before,
+.eudia-recording-bar.processing .eudia-recording-indicator::after,
+.eudia-recording-bar.processing .eudia-recording-indicator span {
   background: var(--eudia-accent);
-  animation: eudia-spin 1s linear infinite;
-  border-radius: 2px;
+  animation: eudia-processing 0.8s ease-in-out infinite;
 }
 
-@keyframes eudia-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+@keyframes eudia-wave {
+  0%, 100% { 
+    height: 6px;
+    opacity: 0.5;
+  }
+  50% { 
+    height: 14px;
+    opacity: 1;
+  }
 }
 
-@keyframes eudia-spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+@keyframes eudia-processing {
+  0%, 100% { 
+    height: 4px;
+    opacity: 0.4;
+  }
+  50% { 
+    height: 10px;
+    opacity: 0.8;
+  }
 }
 
 /* Duration Display */
@@ -196,10 +239,15 @@
   min-width: 90px;
 }
 
-/* Ribbon Icon Active State */
+/* Ribbon Icon Active State - Subtle glow instead of red */
 .eudia-ribbon-recording {
-  color: var(--eudia-recording) !important;
-  animation: eudia-pulse 2s ease-in-out infinite;
+  color: var(--eudia-listening) !important;
+  animation: eudia-glow 2s ease-in-out infinite;
+}
+
+@keyframes eudia-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
