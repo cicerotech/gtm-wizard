@@ -28,18 +28,23 @@ async function getDeliveryData() {
  * Query from Delivery__c object directly (matches the Salesforce Report structure)
  * Report ID: 00OWj000004joxdMAA
  * 
- * The report filters by Stage to include:
+ * The report filters by Stage to include ALL ACTIVE PIPELINE + CLOSED WON:
+ * - Stage 1 - Discovery
+ * - Stage 2 - SQO
+ * - Stage 3 - Pilot
  * - Stage 4 - Proposal
+ * - Stage 5 - Negotiation
  * - Stage 6. Closed(Won)
  * 
  * EXCLUDES: 
- * - All other stages (matches SF "Delivery Weekly" report filter)
+ * - Stage 0 - Prospecting (too early for delivery planning)
+ * - Closed Lost / Nurture / Disqualified / Lost stages
  * - Orphaned deliveries (where Opportunity was deleted)
  */
 async function getDeliveryDataSimple() {
   // Query Deliveries with their related Opportunity data
-  // Match the EXACT stage filter from the Salesforce "Delivery Weekly" report
-  // Only includes: Stage 4 - Proposal and Stage 6. Closed(Won)
+  // Include ALL active pipeline stages (1-5) plus Closed Won (6)
+  // This ensures the Slack count matches what users see in Salesforce
   // CRITICAL: Also filter out orphaned deliveries where Opportunity__c is null or Opportunity was deleted
   const deliveriesQuery = `
     SELECT 
@@ -69,7 +74,11 @@ async function getDeliveryDataSimple() {
     WHERE Opportunity__c != null
       AND Opportunity__r.Id != null
       AND Opportunity__r.StageName IN (
+        'Stage 1 - Discovery',
+        'Stage 2 - SQO',
+        'Stage 3 - Pilot',
         'Stage 4 - Proposal',
+        'Stage 5 - Negotiation',
         'Stage 6. Closed(Won)'
       )
       AND Eudia_Delivery_Owner__r.Name != 'Keigan Pesenti'
@@ -403,10 +412,10 @@ async function sendDeliveryReportToSlack(client, channelId, userId) {
 
     // Format message with Salesforce report hyperlink
     let message = `*Weekly Delivery Report*\n\n`;
-    message += `*Total Records:* ${totalRecords}\n`;
+    message += `*Total Deliveries:* ${totalRecords}\n`;
     message += `• Won: ${wonCount} (${formatCurrency(totalWonValue)})\n`;
-    message += `• Active: ${activeCount} (${formatCurrency(totalActiveValue)})\n\n`;
-    message += `See attached the Weekly Delivery Excel report. This includes closed won deals & opportunities in the proposal stage.\n\n`;
+    message += `• Active Pipeline: ${activeCount} (${formatCurrency(totalActiveValue)})\n\n`;
+    message += `See attached the Weekly Delivery Excel report. This includes closed won deals & all active pipeline opportunities (Stages 1-5).\n\n`;
     message += `For updates or adjustments, view the <${DELIVERY_REPORT_URL}|Delivery Report> in Salesforce. If you select 'Enable Field Editing' in the upper right, you can edit the inputs within the report view.`;
 
     // Upload to Slack
