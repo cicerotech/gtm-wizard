@@ -1642,17 +1642,18 @@ class GTMBrainApp {
         const rawAccounts = await meetingPrepService.getAccounts();
         const format = req.query.format || 'json';
         
-        // Filter out accounts with null/undefined Name or Id to prevent crashes
-        const accounts = rawAccounts.filter(a => a && a.Name && a.Id);
+        // getAccounts() returns { accountId, accountName, customerType, owner }
+        // Filter out accounts with null/undefined accountName or accountId
+        const accounts = rawAccounts.filter(a => a && a.accountName && a.accountId);
         const invalidCount = rawAccounts.length - accounts.length;
         if (invalidCount > 0) {
-          logger.warn(`Filtered out ${invalidCount} accounts with missing Name or Id`);
+          logger.warn(`Filtered out ${invalidCount} accounts with missing accountName or accountId`);
         }
         
         if (format === 'text') {
           // Plain text list - one account per line
           const accountNames = accounts
-            .map(a => a.Name.trim())
+            .map(a => a.accountName.trim())
             .filter(name => name.length > 0)
             .sort((a, b) => a.localeCompare(b))
             .join('\n');
@@ -1662,7 +1663,7 @@ class GTMBrainApp {
         } else if (format === 'markdown') {
           // Markdown list with wiki-links for Obsidian
           const sortedNames = accounts
-            .map(a => a.Name.trim())
+            .map(a => a.accountName.trim())
             .filter(name => name.length > 0)
             .sort((a, b) => a.localeCompare(b));
           const markdown = `# Salesforce Accounts\n\nGenerated: ${new Date().toISOString()}\n\n` +
@@ -1671,9 +1672,9 @@ class GTMBrainApp {
           res.setHeader('Content-Disposition', 'attachment; filename="salesforce-accounts.md"');
           res.send(markdown);
         } else {
-          // JSON format with ID and Name
+          // JSON format with ID and Name for Obsidian plugin
           const sortedAccounts = accounts
-            .map(a => ({ id: a.Id, name: a.Name.trim() }))
+            .map(a => ({ id: a.accountId, name: a.accountName.trim() }))
             .filter(a => a.name.length > 0)
             .sort((a, b) => a.name.localeCompare(b.name));
           res.json({

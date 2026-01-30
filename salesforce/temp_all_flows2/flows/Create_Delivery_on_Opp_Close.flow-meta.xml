@@ -523,12 +523,9 @@
         </filters>
         <filters>
             <field>StageName</field>
-            <operator>In</operator>
+            <operator>EqualTo</operator>
             <value>
                 <stringValue>Stage 4 - Proposal</stringValue>
-            </value>
-            <value>
-                <stringValue>Stage 5 - Negotiation</stringValue>
             </value>
         </filters>
         <object>Opportunity</object>
