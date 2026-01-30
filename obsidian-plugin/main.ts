@@ -2197,7 +2197,7 @@ recording_date: ${dateStr}
   async checkServerHealth(): Promise<{healthy: boolean, salesforceConnected: boolean, error?: string}> {
     try {
       const response = await requestUrl({
-        url: `${this.settings.serverUrl}/health`,
+        url: `${this.settings.serverUrl}/api/health`,
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         throw: false // Don't throw on error, handle gracefully
@@ -2208,10 +2208,12 @@ recording_date: ${dateStr}
       }
 
       const data = response.json;
+      // Server returns status: "ok" or "degraded" - both are acceptable
+      const isHealthy = data.status === 'ok' || data.status === 'degraded';
       return {
-        healthy: data.status === 'ok',
-        salesforceConnected: data.salesforce?.connected === true,
-        error: data.salesforce?.lastError || undefined
+        healthy: isHealthy,
+        salesforceConnected: data.checks?.salesforce?.status === 'ok',
+        error: data.checks?.salesforce?.lastError || undefined
       };
     } catch (error) {
       return {
