@@ -1,0 +1,17 @@
+Event Category,Event Name,Metric,Value,Supporting Detail,Defensibility Notes
+AI SUPPER CLUB SERIES,Multiple (5 events in Q1-Q2),Attendees,42,Palo Alto Jan 9 + NYC Jan 29 + SF March 18 + NYC March 26 + Palo Alto June,Registration data verified
+AI SUPPER CLUB SERIES,Multiple (5 events in Q1-Q2),Closed Won ARR Attributable,$5110000,"Pure Storage $3M + Coherent $1.15M + Intuit $410K + IQVIA $300K + DHL $250K",Account-attendee match verified in Salesforce
+AI SUPPER CLUB SERIES,Multiple (5 events in Q1-Q2),Revenue Contribution (Pipeline),$5110000,Same as closed - all converted,Conservative: only counting closed won
+LIGHTHOUSE EVENT,2025 Lighthouse Summit,Attendees,50+,25 registered in campaign + partners/customers,Customer + Prospect mix
+LIGHTHOUSE EVENT,2025 Lighthouse Summit,Closed Won ARR from Attendees,$2770000,"Cargill $1.25M + Coherent $1.15M + DHL $250K + Duracell $120K",Account-attendee match verified
+LIGHTHOUSE EVENT,2025 Lighthouse Summit,Intuit Conversion,$485000,2 deals: $75K + $410K,Intuit attended Palo Alto June & US Open Suite (adjacent events)
+LIGHTHOUSE EVENT,2025 Lighthouse Summit,Pure Storage Conversion,$3000000,1 deal,Niki Armstrong CLO attended Palo Alto June
+LIGHTHOUSE EVENT,2025 Lighthouse Summit,Total ARR (incl Intuit/Pure),$6255000,"$2.77M direct + $485K Intuit + $3M Pure Storage",Combined prospect-to-customer conversion
+AUGMENTED INTELLIGENCE SUMMIT,SummitX - September 2025,Attendees,200+,182 registered + speakers/staff,Registration verified
+AUGMENTED INTELLIGENCE SUMMIT,SummitX - September 2025,Closed Won ARR from Attendees,$8893333,24 unique accounts converted,Account-attendee match verified
+AUGMENTED INTELLIGENCE SUMMIT,SummitX - September 2025,Active Pipeline Opportunities,65,Net-new opportunities influenced,Estimate based on pipeline company matches
+AUGMENTED INTELLIGENCE SUMMIT,SummitX - September 2025,Media Placements,5+,Tier 1 outlets,Per PR report
+AUGMENTED INTELLIGENCE SUMMIT,SummitX - September 2025,Content Assets Created,15-17,Video recordings of sessions,Session recordings distributed
+THIRD-PARTY EVENTS,IQPC Corporate Compliance Exchange,Bayer ARR,$3300000,2 deals: $3M + $300K,Jeremy Jessen GC attended IQPC; deal directly sourced
+THIRD-PARTY EVENTS,Economist US Dinner 2025,DHL ARR,$250000,1 deal,Company match verified
+THIRD-PARTY EVENTS,US Open Suite 2025,Total ARR from Attendees,$8106000,12 deals from attendees,High-value networking event

@@ -1392,17 +1392,28 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
       .replace(/@gtm-brain/gi, '')
       .trim();
     
-    // STEP 3: Query Salesforce for THIS account name ONLY
+    // STEP 3: Query Salesforce for THIS account name with fuzzy matching
+    // First try exact LIKE match, then fall back to fuzzy matching for typos
     // Use escapeForSOQLLike to handle & in company names like "Johnson & Johnson"
+    const words = accountName.split(/\s+/).filter(w => w.length >= 3);
+    const firstWord = words[0] ? escapeForSOQLLike(words[0]) : escapeForSOQLLike(accountName);
+    
+    // Multi-word search: search for full term OR first word (catches typos)
+    let whereClause = `Name LIKE '%${escapeForSOQLLike(accountName)}%'`;
+    if (firstWord && firstWord !== escapeForSOQLLike(accountName)) {
+      whereClause += ` OR Name LIKE '%${firstWord}%'`;
+    }
+    
     const accountQuery = `SELECT Id, Name, Owner.Name, Customer_Brain__c
                           FROM Account
-                          WHERE Name LIKE '%${escapeForSOQLLike(accountName)}%'
-                          LIMIT 5`;
+                          WHERE ${whereClause}
+                          LIMIT 10`;
     
     logger.info(`Customer Brain: Looking for account "${accountName}"`);
     
-    const accountResult = await query(accountQuery);
+    let accountResult = await query(accountQuery);
     
+    // If no exact matches, use fuzzy matching to find best candidate
     if (!accountResult || accountResult.totalSize === 0) {
       const errorMessage = await formatAccountNotFoundError(accountName);
       await client.chat.postMessage({
@@ -1412,16 +1423,52 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
       });
       return;
     }
-
-    // Find best match (prefer business lead)
+    
+    // Score matches to find best one (handles typos like "Thorton" → "Thornton")
     const businessLeads = [
       // US Pod
       'Asad Hussain', 'Nathan Shine', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
       // EU Pod
       'Greg MacHale', 'Nathan Shine', 'Tom Clancy', 'Conor Molloy', 'Alex Fox', 'Nicola Fratini', 'Emer Flynn', 'Riona McHale'
     ];
-    const blMatch = accountResult.records.find(r => businessLeads.includes(r.Owner?.Name));
-    const account = blMatch || accountResult.records[0];
+    
+    // Score each result for best match
+    const scoredResults = accountResult.records.map(acc => {
+      const name = acc.Name.toLowerCase();
+      const search = accountName.toLowerCase();
+      const searchWords = search.split(/\s+/);
+      const nameWords = name.split(/\s+/);
+      
+      let score = 0;
+      
+      // Exact match bonus
+      if (name === search) score += 2.0;
+      else if (name.includes(search)) score += 1.0;
+      
+      // Word-level matching for typo tolerance
+      for (const searchWord of searchWords) {
+        for (const nameWord of nameWords) {
+          if (nameWord === searchWord) {
+            score += 0.5;
+          } else {
+            const distance = levenshteinDistance(nameWord, searchWord);
+            if (distance <= 2 && Math.abs(nameWord.length - searchWord.length) <= 2) {
+              // Close match (1-2 char diff) - likely a typo
+              score += 0.4 * (1 - distance / Math.max(nameWord.length, searchWord.length));
+            }
+          }
+        }
+      }
+      
+      // Business lead owned accounts get a small bonus
+      if (businessLeads.includes(acc.Owner?.Name)) score += 0.1;
+      
+      return { record: acc, score };
+    });
+    
+    // Sort by score and pick best match
+    scoredResults.sort((a, b) => b.score - a.score);
+    const account = scoredResults[0].record;
 
     logger.info(`Customer Brain: Found account ${account.Name} (searched for: ${accountName})`);
 
@@ -1718,6 +1765,7 @@ function findClosestMatch(userQuery, patterns) {
 
 /**
  * Find similar account names for "Did you mean?" suggestions
+ * Improved fuzzy matching for typos (e.g., "Grant Thorton" → "Grant Thornton")
  */
 async function findSimilarAccounts(searchTerm, limit = 3) {
   if (!searchTerm || searchTerm.length < 2) return [];
@@ -1726,14 +1774,29 @@ async function findSimilarAccounts(searchTerm, limit = 3) {
     // Use escapeForSOQLLike to handle & in company names like "Johnson & Johnson"
     const escapedTerm = escapeForSOQLLike(searchTerm);
     
-    // Search for accounts starting with or containing the term
+    // Split search term into words for better matching
+    // "Grant Thorton" → search for "Grant" OR "Thorton" patterns
+    const words = searchTerm.split(/\s+/).filter(w => w.length >= 3);
+    const firstWord = words[0] ? escapeForSOQLLike(words[0]) : escapedTerm;
+    
+    // Build a more comprehensive search query
+    // Prioritize: exact match > first word match > first letter match
+    let whereClause = `Name LIKE '%${escapedTerm}%'`;
+    
+    // Add first word search (catches "Grant Thornton" when searching "Grant Thorton")
+    if (firstWord && firstWord.length >= 3) {
+      whereClause += ` OR Name LIKE '%${firstWord}%'`;
+    }
+    
+    // Add first letter fallback for broader suggestions
+    whereClause += ` OR Name LIKE '${escapedTerm.charAt(0)}%'`;
+    
     const searchQuery = `
       SELECT Id, Name, Owner.Name 
       FROM Account 
-      WHERE Name LIKE '%${escapedTerm}%'
-         OR Name LIKE '${escapedTerm.charAt(0)}%'
+      WHERE ${whereClause}
       ORDER BY LastActivityDate DESC NULLS LAST
-      LIMIT 10
+      LIMIT 20
     `;
     
     const result = await query(searchQuery);
@@ -1742,27 +1805,56 @@ async function findSimilarAccounts(searchTerm, limit = 3) {
       return [];
     }
     
-    // Score matches by similarity
+    // Score matches by similarity with improved typo detection
     const scoredMatches = result.records.map(acc => {
       const name = acc.Name.toLowerCase();
       const search = searchTerm.toLowerCase();
+      const searchWords = search.split(/\s+/);
+      const nameWords = name.split(/\s+/);
       
-      // Calculate simple similarity score
       let score = 0;
-      if (name.includes(search)) score += 0.5;
-      if (name.startsWith(search)) score += 0.3;
       
-      // Levenshtein-based scoring
+      // Exact match bonus
+      if (name.includes(search)) score += 1.0;
+      if (name.startsWith(search)) score += 0.5;
+      
+      // Word-level matching (catches "Grant Thornton" when searching "Grant Thorton")
+      for (const searchWord of searchWords) {
+        for (const nameWord of nameWords) {
+          // Exact word match
+          if (nameWord === searchWord) {
+            score += 0.4;
+          }
+          // Close match (1-2 character difference) - catches typos like "Thorton" vs "Thornton"
+          else if (Math.abs(nameWord.length - searchWord.length) <= 2) {
+            const wordDistance = levenshteinDistance(nameWord, searchWord);
+            if (wordDistance <= 2) {
+              score += 0.5 * (1 - wordDistance / Math.max(nameWord.length, searchWord.length));
+            }
+          }
+        }
+      }
+      
+      // Overall Levenshtein-based scoring
       const maxLen = Math.max(name.length, search.length);
       const distance = levenshteinDistance(name, search);
-      score += (1 - distance / maxLen) * 0.5;
+      score += (1 - distance / maxLen) * 0.3;
       
-      return { name: acc.Name, owner: acc.Owner?.Name, score };
+      return { name: acc.Name, owner: acc.Owner?.Name, score, id: acc.Id };
     });
     
     // Sort by score and return top matches
     scoredMatches.sort((a, b) => b.score - a.score);
-    return scoredMatches.slice(0, limit);
+    
+    // Deduplicate by name
+    const seen = new Set();
+    const unique = scoredMatches.filter(m => {
+      if (seen.has(m.name)) return false;
+      seen.add(m.name);
+      return true;
+    });
+    
+    return unique.slice(0, limit);
     
   } catch (error) {
     logger.error('Error finding similar accounts:', error);
@@ -5423,7 +5515,9 @@ async function handleCreateOpportunity(message, entities, userId, channelId, cli
       StageName: stageName,
       ACV__c: oppData.acv,
       Amount: oppData.acv,
-      TCV__c: oppData.tcv,
+      // TCV_Calculated__c is a formula field (read-only) - Booking_TCV__c is writable
+      // Only set if explicitly provided, otherwise let formula calculate
+      ...(oppData.tcv ? { Booking_TCV__c: oppData.tcv } : {}),
       Product_Line__c: oppData.productLine,
       Target_LOI_Date__c: targetDateFormatted,
       CloseDate: targetDateFormatted,
