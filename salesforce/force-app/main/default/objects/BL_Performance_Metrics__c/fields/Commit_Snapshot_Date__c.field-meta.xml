@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Commit_Snapshot_Date__c</fullName>
+    <description>Date when the quarterly commit snapshot was captured. Used to track when the frozen value was taken.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Date when the commit snapshot was captured at quarter start.</inlineHelpText>
+    <label>Commit Snapshot Date</label>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Date</type>
+</CustomField>

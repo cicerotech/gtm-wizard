@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Quarterly_Commit_Snapshot__c</fullName>
+    <description>Frozen sum of ACV from all opportunities where BL Quarterly Commit = true at the time of snapshot. Captured at quarter start via manual Apex script.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Total committed ACV frozen at quarter start. Does not change as deals evolve.</inlineHelpText>
+    <label>Quarterly Commit Snapshot</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Currency</type>
+</CustomField>

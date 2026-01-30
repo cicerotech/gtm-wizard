@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>BL_Commit_Snapshot__c</fullName>
+    <description>Owner's total quarterly commit amount frozen at quarter start. Stamped by the commit snapshot Apex script. Shows the BL's total committed pipeline at the time of snapshot.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Your BL's total committed ACV at quarter start (frozen value).</inlineHelpText>
+    <label>BL Commit Snapshot</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <type>Currency</type>
+</CustomField>
