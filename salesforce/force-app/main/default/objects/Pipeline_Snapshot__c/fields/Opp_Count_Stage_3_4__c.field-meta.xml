@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Opp_Count_Stage_3_4__c</fullName>
+    <description>Count of opportunities in mid stages (3-4)</description>
+    <externalId>false</externalId>
+    <label>Opp Count (Mid: 3-4)</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,5 +1,37 @@
 const winston = require('winston');
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CORRELATION ID GENERATION - For cross-system traceability
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Generate a unique correlation ID for request tracing
+ * Format: timestamp-randomString (e.g., "1706547200000-abc123xyz")
+ */
+function generateCorrelationId() {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Store current correlation ID in async context (simple version)
+let currentCorrelationId = null;
+
+/**
+ * Set the current correlation ID for the request context
+ */
+function setCorrelationId(id) {
+  currentCorrelationId = id;
+}
+
+/**
+ * Get the current correlation ID, or generate a new one
+ */
+function getCorrelationId() {
+  return currentCorrelationId || generateCorrelationId();
+}
+
+// Verbose logging mode - enabled via VERBOSE_LOGGING=true
+const VERBOSE_LOGGING = process.env.VERBOSE_LOGGING === 'true';
+
 // Custom log format
 const logFormat = winston.format.combine(
   winston.format.timestamp({
@@ -112,5 +144,118 @@ logger.cacheOperation = (operation, key, hit) => {
   });
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// STRUCTURED LOGGING WITH CONTEXT - For Q1 FY26 Priorities
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Log with full context including correlation ID
+ * @param {string} level - Log level (info, warn, error, debug)
+ * @param {string} message - Log message
+ * @param {object} context - Additional context (service, operation, etc.)
+ * @returns {string} The correlation ID used
+ */
+function logWithContext(level, message, context = {}) {
+  const correlationId = context.correlationId || getCorrelationId();
+  
+  const entry = {
+    timestamp: new Date().toISOString(),
+    correlationId,
+    service: context.service || 'gtm-brain',
+    operation: context.operation || 'unknown',
+    ...context
+  };
+  
+  // Remove duplicates
+  delete entry.correlationId;
+  
+  logger[level](message, { correlationId, ...entry });
+  
+  return correlationId;
+}
+
+/**
+ * Log operation start with context
+ */
+logger.operationStart = (operation, context = {}) => {
+  const correlationId = context.correlationId || generateCorrelationId();
+  setCorrelationId(correlationId);
+  
+  logger.info(`[START] ${operation}`, {
+    correlationId,
+    operation,
+    service: context.service || 'gtm-brain',
+    ...context
+  });
+  
+  return correlationId;
+};
+
+/**
+ * Log operation success
+ */
+logger.operationSuccess = (operation, context = {}) => {
+  const correlationId = getCorrelationId();
+  
+  logger.info(`[SUCCESS] ${operation}`, {
+    correlationId,
+    operation,
+    result: 'success',
+    ...context
+  });
+};
+
+/**
+ * Log operation failure with full error context
+ */
+logger.operationError = (operation, error, context = {}) => {
+  const correlationId = getCorrelationId();
+  
+  logger.error(`[ERROR] ${operation}`, {
+    correlationId,
+    operation,
+    error: error.message,
+    stack: error.stack,
+    errorCode: error.code || 'UNKNOWN',
+    ...context
+  });
+};
+
+/**
+ * Verbose debug logging - only outputs if VERBOSE_LOGGING=true
+ */
+logger.verbose = (message, context = {}) => {
+  if (VERBOSE_LOGGING) {
+    const correlationId = getCorrelationId();
+    logger.debug(`[VERBOSE] ${message}`, {
+      correlationId,
+      ...context
+    });
+  }
+};
+
+/**
+ * Log for specific priority areas (P1-P7)
+ */
+logger.priority = (priorityId, operation, message, context = {}) => {
+  const correlationId = getCorrelationId();
+  
+  logger.info(`[${priorityId}] ${operation}: ${message}`, {
+    correlationId,
+    priority: priorityId,
+    operation,
+    ...context
+  });
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORTS
+// ═══════════════════════════════════════════════════════════════════════════
+
 module.exports = logger;
+module.exports.generateCorrelationId = generateCorrelationId;
+module.exports.setCorrelationId = setCorrelationId;
+module.exports.getCorrelationId = getCorrelationId;
+module.exports.logWithContext = logWithContext;
+module.exports.VERBOSE_LOGGING = VERBOSE_LOGGING;
 

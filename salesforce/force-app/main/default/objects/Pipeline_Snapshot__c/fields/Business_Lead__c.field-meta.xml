@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Business_Lead__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>The Business Lead (Opportunity Owner) this snapshot is for</description>
+    <externalId>false</externalId>
+    <label>Business Lead</label>
+    <referenceTo>User</referenceTo>
+    <relationshipName>Pipeline_Snapshots</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

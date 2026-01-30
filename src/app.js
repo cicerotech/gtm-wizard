@@ -940,6 +940,90 @@ class GTMBrainApp {
     });
     this.expressApp.get('/survey', (req, res) => res.redirect('/cab-survey'));
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CALL INTELLIGENCE API (P5)
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Get team coaching leaderboard
+    this.expressApp.get('/api/call-intelligence/leaderboard', async (req, res) => {
+      try {
+        const callIntelligence = require('./services/callIntelligence');
+        const days = parseInt(req.query.days) || 30;
+        const leaderboard = callIntelligence.getTeamLeaderboard(days);
+        res.json({ success: true, leaderboard });
+      } catch (error) {
+        logger.error('Failed to get leaderboard', { error: error.message });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get rep coaching insights
+    this.expressApp.get('/api/call-intelligence/rep/:repId', async (req, res) => {
+      try {
+        const callIntelligence = require('./services/callIntelligence');
+        const { repId } = req.params;
+        const days = parseInt(req.query.days) || 30;
+        const insights = callIntelligence.getRepCoachingInsights(repId, days);
+        res.json({ success: true, insights });
+      } catch (error) {
+        logger.error('Failed to get rep insights', { error: error.message });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Analyze a call recording
+    this.expressApp.post('/api/call-intelligence/analyze', async (req, res) => {
+      try {
+        const callIntelligence = require('./services/callIntelligence');
+        const { audioBase64, accountId, accountName, repId, repName } = req.body;
+        
+        if (!audioBase64) {
+          return res.status(400).json({ success: false, error: 'audioBase64 required' });
+        }
+        
+        const result = await callIntelligence.analyzeCall({
+          audioBase64,
+          accountId,
+          accountName,
+          repId,
+          repName
+        });
+        
+        res.json(result);
+      } catch (error) {
+        logger.error('Failed to analyze call', { error: error.message });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EMAIL INTELLIGENCE API (P4)
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Process inbound email case
+    this.expressApp.post('/api/email-intelligence/process', async (req, res) => {
+      try {
+        const emailIntelligence = require('./services/emailIntelligence');
+        const result = await emailIntelligence.processInboundEmail(req.body);
+        res.json(result);
+      } catch (error) {
+        logger.error('Failed to process email', { error: error.message });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get weekly email digest
+    this.expressApp.get('/api/email-intelligence/digest', async (req, res) => {
+      try {
+        const emailIntelligence = require('./services/emailIntelligence');
+        const digest = await emailIntelligence.generateWeeklyDigest();
+        res.json(digest);
+      } catch (error) {
+        logger.error('Failed to generate email digest', { error: error.message });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // Obsidian Setup Guide for BL Onboarding
     this.expressApp.get('/setup/obsidian', (req, res) => {
       const path = require('path');

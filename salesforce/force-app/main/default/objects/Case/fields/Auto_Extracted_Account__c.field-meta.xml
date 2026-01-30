@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Auto_Extracted_Account__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Account automatically matched from sender email domain</description>
+    <externalId>false</externalId>
+    <label>Auto-Extracted Account</label>
+    <referenceTo>Account</referenceTo>
+    <relationshipLabel>Cases (Auto-Extracted)</relationshipLabel>
+    <relationshipName>Auto_Extracted_Cases</relationshipName>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

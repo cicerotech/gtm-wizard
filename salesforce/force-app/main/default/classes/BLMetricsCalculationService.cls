@@ -290,5 +290,133 @@ public class BLMetricsCalculationService {
         
         return Math.max(monthsElapsed, 1); // At least 1 month
     }
+    
+    /**
+     * Async method for real-time BL attainment updates
+     * Called from OpportunityBLAttainmentTrigger when Closed Won changes occur
+     * Uses @future to avoid mixed DML and governor limit issues
+     * 
+     * @param blIds Set of BL User IDs to update
+     */
+    @future
+    public static void updateBLsAsync(Set<Id> blIds) {
+        String correlationId = GTMLogger.operationStart('updateBLsAsync', 
+            new Map<String, Object>{'blCount' => blIds.size()});
+        
+        try {
+            // Query BL metrics for the specified users
+            List<BL_Performance_Metrics__c> metrics = [
+                SELECT Id, Business_Lead__c, Start_Date__c, Ramp_Milestone__c,
+                       Ramp_Achieved_Date__c, Days_to_Ramp__c, Total_Closed_Won_ACV__c,
+                       Annual_Quota__c, Quota_Attainment__c
+                FROM BL_Performance_Metrics__c 
+                WHERE Business_Lead__c IN :blIds
+                AND Active__c = true
+            ];
+            
+            if (metrics.isEmpty()) {
+                GTMLogger.info('No active BL metrics found for specified users', 
+                    new Map<String, Object>{'blIds' => blIds});
+                return;
+            }
+            
+            // Get fiscal period boundaries
+            Date fyStart = getFiscalYearStart();
+            Date fqStart = getFiscalQuarterStart();
+            
+            // Query Closed Won totals for these specific BLs
+            Map<Id, Decimal> totalAcvByBL = new Map<Id, Decimal>();
+            Map<Id, Decimal> ytdAcvByBL = new Map<Id, Decimal>();
+            Map<Id, Decimal> qtdAcvByBL = new Map<Id, Decimal>();
+            
+            // Initialize with 0
+            for (Id blId : blIds) {
+                totalAcvByBL.put(blId, 0);
+                ytdAcvByBL.put(blId, 0);
+                qtdAcvByBL.put(blId, 0);
+            }
+            
+            // Total Closed Won ACV
+            for (AggregateResult ar : [
+                SELECT OwnerId, SUM(ACV__c) totalAcv
+                FROM Opportunity
+                WHERE OwnerId IN :blIds
+                AND StageName IN :CLOSED_WON_STAGES
+                GROUP BY OwnerId
+            ]) {
+                Id ownerId = (Id)ar.get('OwnerId');
+                Decimal total = (Decimal)ar.get('totalAcv');
+                totalAcvByBL.put(ownerId, total != null ? total : 0);
+            }
+            
+            // Fiscal YTD ACV
+            for (AggregateResult ar : [
+                SELECT OwnerId, SUM(ACV__c) ytdAcv
+                FROM Opportunity
+                WHERE OwnerId IN :blIds
+                AND StageName IN :CLOSED_WON_STAGES
+                AND CloseDate >= :fyStart
+                GROUP BY OwnerId
+            ]) {
+                Id ownerId = (Id)ar.get('OwnerId');
+                Decimal ytd = (Decimal)ar.get('ytdAcv');
+                ytdAcvByBL.put(ownerId, ytd != null ? ytd : 0);
+            }
+            
+            // Fiscal QTD ACV
+            for (AggregateResult ar : [
+                SELECT OwnerId, SUM(ACV__c) qtdAcv
+                FROM Opportunity
+                WHERE OwnerId IN :blIds
+                AND StageName IN :CLOSED_WON_STAGES
+                AND CloseDate >= :fqStart
+                GROUP BY OwnerId
+            ]) {
+                Id ownerId = (Id)ar.get('OwnerId');
+                Decimal qtd = (Decimal)ar.get('qtdAcv');
+                qtdAcvByBL.put(ownerId, qtd != null ? qtd : 0);
+            }
+            
+            // Update metrics records
+            Integer monthsInFY = getMonthsElapsedInFiscalYear();
+            
+            for (BL_Performance_Metrics__c m : metrics) {
+                Id blId = m.Business_Lead__c;
+                
+                m.Total_Closed_Won_ACV__c = totalAcvByBL.get(blId);
+                m.Fiscal_YTD_ACV__c = ytdAcvByBL.get(blId);
+                m.Fiscal_QTD_ACV__c = qtdAcvByBL.get(blId);
+                m.Last_Calculated__c = DateTime.now();
+                
+                // Calculate average monthly productivity
+                if (m.Fiscal_YTD_ACV__c != null && monthsInFY > 0) {
+                    m.Avg_Monthly_Productivity__c = m.Fiscal_YTD_ACV__c / monthsInFY;
+                }
+                
+                // Calculate quota attainment (QTD ACV / Quarterly Quota)
+                // Quarterly quota = Annual Quota / 4
+                if (m.Annual_Quota__c != null && m.Annual_Quota__c > 0) {
+                    Decimal quarterlyQuota = m.Annual_Quota__c / 4;
+                    m.Quota_Attainment__c = (m.Fiscal_QTD_ACV__c / quarterlyQuota) * 100;
+                }
+                
+                GTMLogger.priority('P3', 'updateBLsAsync', 'Updated BL metrics', 
+                    new Map<String, Object>{
+                        'blId' => blId,
+                        'qtdAcv' => m.Fiscal_QTD_ACV__c,
+                        'attainment' => m.Quota_Attainment__c
+                    });
+            }
+            
+            update metrics;
+            
+            GTMLogger.operationSuccess('updateBLsAsync', correlationId, 
+                new Map<String, Object>{'updated' => metrics.size()});
+            
+        } catch (Exception e) {
+            GTMLogger.operationError('updateBLsAsync', correlationId, e, 
+                new Map<String, Object>{'blIds' => blIds});
+        }
+    }
 }
 
