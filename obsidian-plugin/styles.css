@@ -29,10 +29,9 @@
   --eudia-success-subtle: rgba(16, 185, 129, 0.1);
   --eudia-warning: #f59e0b;
   --eudia-warning-subtle: rgba(245, 158, 11, 0.1);
-  --eudia-recording: #ef4444;
-  --eudia-recording-subtle: rgba(239, 68, 68, 0.1);
-  
-  /* Transcription active - subtle purple instead of aggressive red */
+  /* Use purple for all listening/transcription states - no red */
+  --eudia-recording: #8e99e1;
+  --eudia-recording-subtle: rgba(142, 153, 225, 0.1);
   --eudia-listening: #8e99e1;
   --eudia-listening-subtle: rgba(142, 153, 225, 0.15);
 }
@@ -154,15 +153,15 @@
   }
 }
 
-/* Duration Display */
+/* Duration Display - Subtle, not distracting */
 .eudia-duration {
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--eudia-text);
-  min-width: 56px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--eudia-text-muted);
+  min-width: 40px;
   text-align: center;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
 }
 
 /* Audio Level Meter */
