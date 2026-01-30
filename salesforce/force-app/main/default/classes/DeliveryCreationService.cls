@@ -109,25 +109,35 @@ public class DeliveryCreationService {
             LIMIT 1
         ];
         
-        // Check if deliveries already exist for this opportunity
+        // Check which products already have deliveries (for incremental creation)
         List<Delivery__c> existingDeliveries = [
-            SELECT Id FROM Delivery__c WHERE Opportunity__c = :opportunityId
+            SELECT Id, Product_Line__c FROM Delivery__c WHERE Opportunity__c = :opportunityId
         ];
         
-        if (!existingDeliveries.isEmpty()) {
-            System.debug('Deliveries already exist for this Opportunity. Skipping creation.');
-            return existingDeliveries;
+        // Build set of product names that already have deliveries
+        Set<String> productsWithDeliveries = new Set<String>();
+        for (Delivery__c d : existingDeliveries) {
+            if (d.Product_Line__c != null) {
+                productsWithDeliveries.add(d.Product_Line__c.toLowerCase());
+            }
         }
+        System.debug('Existing deliveries for ' + productsWithDeliveries.size() + ' products: ' + productsWithDeliveries);
         
         List<Delivery__c> deliveriesToCreate = new List<Delivery__c>();
         
         if (!opp.OpportunityLineItems.isEmpty()) {
             // ============================================================
-            // PATH A: Opportunity has Products - Create Delivery per product
+            // PATH A: Opportunity has Products - Create Delivery per product (if not exists)
             // ============================================================
-            System.debug('Creating Deliveries from ' + opp.OpportunityLineItems.size() + ' line items...');
+            System.debug('Checking ' + opp.OpportunityLineItems.size() + ' line items for Delivery creation...');
             
             for (OpportunityLineItem oli : opp.OpportunityLineItems) {
+                // Skip if delivery already exists for this product
+                if (productsWithDeliveries.contains(oli.Product2.Name.toLowerCase())) {
+                    System.debug('  → Skipping (exists): ' + oli.Product2.Name);
+                    continue;
+                }
+                
                 Delivery__c delivery = new Delivery__c();
                 
                 // Standard mappings (Name is auto-generated)
@@ -150,9 +160,9 @@ public class DeliveryCreationService {
                 System.debug('  → Delivery for: ' + oli.Product2.Name + ' ($' + oli.TotalPrice + ')');
             }
             
-        } else {
+        } else if (existingDeliveries.isEmpty()) {
             // ============================================================
-            // PATH B: No Products - Fall back to single Delivery (legacy)
+            // PATH B: No Products AND no existing deliveries - Fall back to single Delivery (legacy)
             // ============================================================
             System.debug('No line items found. Using legacy Product_Line__c field...');
             
@@ -172,33 +182,32 @@ public class DeliveryCreationService {
             deliveriesToCreate.add(delivery);
             
             System.debug('  → Delivery for: ' + opp.Product_Line__c + ' ($' + opp.ACV__c + ')');
+        } else {
+            System.debug('No new products to create deliveries for.');
         }
         
-        // Insert Deliveries
+        // Insert new Deliveries
         if (!deliveriesToCreate.isEmpty()) {
             insert deliveriesToCreate;
-            
-            System.debug('Created ' + deliveriesToCreate.size() + ' Delivery record(s)');
-            
-            // Re-query to get auto-generated Name field (DEL-XXXX)
-            Set<Id> deliveryIds = new Set<Id>();
-            for (Delivery__c d : deliveriesToCreate) {
-                deliveryIds.add(d.Id);
-            }
-            List<Delivery__c> deliveriesWithNames = [
-                SELECT Id, Name, Product_Line__c, Contract_Value__c 
-                FROM Delivery__c 
-                WHERE Id IN :deliveryIds
-                ORDER BY Contract_Value__c DESC
-            ];
-            
-            // Update Opportunity with Delivery summary and primary Delivery link
-            updateOpportunityWithDeliveries(opp.Id, deliveriesWithNames);
-            
-            return deliveriesWithNames;
+            System.debug('Created ' + deliveriesToCreate.size() + ' new Delivery record(s)');
+        } else {
+            System.debug('No new Deliveries to create.');
         }
         
-        return deliveriesToCreate;
+        // Re-query ALL deliveries for this Opp to update summary (existing + new)
+        List<Delivery__c> allDeliveries = [
+            SELECT Id, Name, Product_Line__c, Contract_Value__c 
+            FROM Delivery__c 
+            WHERE Opportunity__c = :opportunityId
+            ORDER BY Contract_Value__c DESC
+        ];
+        
+        // Update Opportunity with complete Delivery summary
+        if (!allDeliveries.isEmpty()) {
+            updateOpportunityWithDeliveries(opp.Id, allDeliveries);
+        }
+        
+        return allDeliveries;
     }
     
     /**
