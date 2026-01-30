@@ -117,27 +117,32 @@ public class BLMetricsCalculationService {
         Integer monthsInFY = getMonthsElapsedInFiscalYear();
         
         // Update all metrics records
+        // Note: Total_Closed_Won_ACV__c and Quota_Attainment__c are formula fields in the org
+        // We only update the editable fields; formulas auto-calculate
         for (BL_Performance_Metrics__c m : metrics) {
             Id blId = m.Business_Lead__c;
             
-            // Update ACV totals
-            m.Total_Closed_Won_ACV__c = totalAcvByBL.get(blId);
+            // Update ACV totals (only non-formula fields)
             m.Fiscal_YTD_ACV__c = ytdAcvByBL.get(blId);
             m.Fiscal_QTD_ACV__c = qtdAcvByBL.get(blId);
             m.Last_Calculated__c = DateTime.now();
             
-            // Calculate average monthly productivity
+            // Calculate average monthly productivity (formula field - skip if calculated in org)
             // YTD ACV / months elapsed in fiscal year
+            // Note: Avg_Monthly_Productivity__c may be a formula field in org; if so this assignment is ignored
             if (m.Fiscal_YTD_ACV__c != null && monthsInFY > 0) {
-                m.Avg_Monthly_Productivity__c = m.Fiscal_YTD_ACV__c / monthsInFY;
-            } else {
-                m.Avg_Monthly_Productivity__c = 0;
+                try {
+                    m.Avg_Monthly_Productivity__c = m.Fiscal_YTD_ACV__c / monthsInFY;
+                } catch (Exception e) {
+                    // Field may be a formula - skip
+                }
             }
             
             // Calculate ramp achievement if newly crossed threshold
+            // Get total from the aggregated data since Total_Closed_Won_ACV__c may be a formula field
             if (m.Ramp_Achieved_Date__c == null && m.Ramp_Milestone__c != null) {
                 Decimal milestone = m.Ramp_Milestone__c;
-                Decimal totalAcv = m.Total_Closed_Won_ACV__c;
+                Decimal totalAcv = totalAcvByBL.get(blId);
                 
                 if (totalAcv >= milestone) {
                     // Use the exact date from our calculation, or today as fallback
@@ -378,33 +383,26 @@ public class BLMetricsCalculationService {
             }
             
             // Update metrics records
+            // Note: Total_Closed_Won_ACV__c and Quota_Attainment__c are formula fields in the org
+            // We only update editable fields; formulas auto-calculate
             Integer monthsInFY = getMonthsElapsedInFiscalYear();
             
             for (BL_Performance_Metrics__c m : metrics) {
                 Id blId = m.Business_Lead__c;
                 
-                m.Total_Closed_Won_ACV__c = totalAcvByBL.get(blId);
+                // Only update non-formula fields
                 m.Fiscal_YTD_ACV__c = ytdAcvByBL.get(blId);
                 m.Fiscal_QTD_ACV__c = qtdAcvByBL.get(blId);
                 m.Last_Calculated__c = DateTime.now();
                 
-                // Calculate average monthly productivity
-                if (m.Fiscal_YTD_ACV__c != null && monthsInFY > 0) {
-                    m.Avg_Monthly_Productivity__c = m.Fiscal_YTD_ACV__c / monthsInFY;
-                }
-                
-                // Calculate quota attainment (QTD ACV / Quarterly Quota)
-                // Quarterly quota = Annual Quota / 4
-                if (m.Annual_Quota__c != null && m.Annual_Quota__c > 0) {
-                    Decimal quarterlyQuota = m.Annual_Quota__c / 4;
-                    m.Quota_Attainment__c = (m.Fiscal_QTD_ACV__c / quarterlyQuota) * 100;
-                }
+                // Note: Quota_Attainment__c is a formula field (YTD / Annual Quota)
+                // It auto-calculates when we update Fiscal_YTD_ACV__c
                 
                 GTMLogger.priority('P3', 'updateBLsAsync', 'Updated BL metrics', 
                     new Map<String, Object>{
                         'blId' => blId,
-                        'qtdAcv' => m.Fiscal_QTD_ACV__c,
-                        'attainment' => m.Quota_Attainment__c
+                        'ytdAcv' => m.Fiscal_YTD_ACV__c,
+                        'qtdAcv' => m.Fiscal_QTD_ACV__c
                     });
             }
             

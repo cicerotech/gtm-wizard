@@ -184,11 +184,11 @@ public class PipelineSnapshotService implements Schedulable {
         Map<Id, BL_Performance_Metrics__c> metricsMap = new Map<Id, BL_Performance_Metrics__c>();
         
         for (BL_Performance_Metrics__c metric : [
-            SELECT Id, User__c, Quota_Attainment__c
+            SELECT Id, Business_Lead__c, Quota_Attainment__c
             FROM BL_Performance_Metrics__c
-            WHERE User__c != null
+            WHERE Business_Lead__c != null
         ]) {
-            metricsMap.put(metric.User__c, metric);
+            metricsMap.put(metric.Business_Lead__c, metric);
         }
         
         return metricsMap;
