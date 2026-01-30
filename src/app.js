@@ -1704,8 +1704,8 @@ class GTMBrainApp {
         const path = require('path');
         const fs = require('fs');
         
-        // Serve the pre-built vault ZIP
-        const vaultZipPath = path.join(__dirname, '..', 'dist', 'Eudia-BLS-2026-Vault.zip');
+        // Serve the pre-built vault ZIP from public/downloads
+        const vaultZipPath = path.join(__dirname, '..', 'public', 'downloads', 'Eudia-BLS-2026-Vault.zip');
         
         // Check if pre-built vault exists
         if (!fs.existsSync(vaultZipPath)) {

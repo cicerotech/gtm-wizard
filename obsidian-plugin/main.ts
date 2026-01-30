@@ -190,21 +190,10 @@ class RecordingStatusBar {
     if (this.containerEl) return;
 
     this.containerEl = document.createElement('div');
-    this.containerEl.className = 'eudia-recording-bar recording';
+    this.containerEl.className = 'eudia-transcription-bar active';
     
-    // Voice wave indicator (3 bars)
-    const indicator = document.createElement('div');
-    indicator.className = 'eudia-recording-indicator';
-    indicator.appendChild(document.createElement('span')); // Middle bar for 3-bar animation
-    this.containerEl.appendChild(indicator);
-
-    // Duration
-    this.durationEl = document.createElement('div');
-    this.durationEl.className = 'eudia-duration';
-    this.durationEl.textContent = '00:00';
-    this.containerEl.appendChild(this.durationEl);
-
-    // Audio level meter
+    // Minimal design: just volume meter and stop button
+    // Audio level meter (primary visual feedback)
     const levelContainer = document.createElement('div');
     levelContainer.className = 'eudia-level-container';
     this.levelBarEl = document.createElement('div');
@@ -213,29 +202,28 @@ class RecordingStatusBar {
     levelContainer.appendChild(this.levelBarEl);
     this.containerEl.appendChild(levelContainer);
 
-    // Status text
+    // Hidden duration for internal tracking only
+    this.durationEl = document.createElement('div');
+    this.durationEl.className = 'eudia-duration-hidden';
+    this.durationEl.style.display = 'none';
+    this.containerEl.appendChild(this.durationEl);
+
+    // Hidden status text for accessibility
     this.statusTextEl = document.createElement('div');
-    this.statusTextEl.className = 'eudia-status-text';
-    this.statusTextEl.textContent = 'Listening...';
+    this.statusTextEl.className = 'eudia-status-hidden';
+    this.statusTextEl.style.display = 'none';
+    this.statusTextEl.textContent = 'Transcribing';
     this.containerEl.appendChild(this.statusTextEl);
 
-    // Controls
+    // Minimal controls - just stop and cancel
     const controls = document.createElement('div');
-    controls.className = 'eudia-controls';
+    controls.className = 'eudia-controls-minimal';
 
-    // Pause/Resume button
-    const pauseBtn = document.createElement('button');
-    pauseBtn.className = 'eudia-control-btn pause';
-    pauseBtn.innerHTML = '⏸';
-    pauseBtn.title = 'Pause';
-    pauseBtn.onclick = () => this.onPause();
-    controls.appendChild(pauseBtn);
-
-    // Stop button
+    // Stop button (primary action)
     const stopBtn = document.createElement('button');
     stopBtn.className = 'eudia-control-btn stop';
     stopBtn.innerHTML = '⏹';
-    stopBtn.title = 'Stop & Transcribe';
+    stopBtn.title = 'Stop & Summarize';
     stopBtn.onclick = () => this.onStop();
     controls.appendChild(stopBtn);
 
@@ -1220,7 +1208,7 @@ export default class EudiaSyncPlugin extends Plugin {
 
       // Update ribbon icon
       if (this.ribbonIcon) {
-        this.ribbonIcon.addClass('eudia-ribbon-recording');
+        this.ribbonIcon.addClass('eudia-ribbon-transcribing');
       }
 
       // Show status bar
@@ -1423,7 +1411,7 @@ export default class EudiaSyncPlugin extends Plugin {
 
       // Update ribbon icon
       if (this.ribbonIcon) {
-        this.ribbonIcon.removeClass('eudia-ribbon-recording');
+        this.ribbonIcon.removeClass('eudia-ribbon-transcribing');
       }
 
       // Get active file BEFORE any async operations
@@ -1456,7 +1444,7 @@ export default class EudiaSyncPlugin extends Plugin {
         this.recordingStatusBar = null;
       }
       if (this.ribbonIcon) {
-        this.ribbonIcon.removeClass('eudia-ribbon-recording');
+        this.ribbonIcon.removeClass('eudia-ribbon-transcribing');
       }
       new Notice(`Error stopping transcription: ${(error as Error).message}`);
     }
@@ -1719,7 +1707,7 @@ export default class EudiaSyncPlugin extends Plugin {
     }
 
     if (this.ribbonIcon) {
-      this.ribbonIcon.removeClass('eudia-ribbon-recording');
+      this.ribbonIcon.removeClass('eudia-ribbon-transcribing');
     }
 
     new Notice('Transcription cancelled');

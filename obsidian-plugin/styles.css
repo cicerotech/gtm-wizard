@@ -48,162 +48,180 @@
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Recording Status Bar - Clean floating UI
+   Transcription Bar - Minimal Granola-inspired floating UI
+   Clean, subtle, non-distracting design
    ─────────────────────────────────────────────────────────────────────────── */
 
+/* Minimal transcription bar - light gray border, no colors */
+.eudia-transcription-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--eudia-card);
+  border: 1px solid #d1d5db; /* Light gray border */
+  border-radius: 8px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  z-index: 1000;
+  min-width: 160px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.eudia-transcription-bar.active {
+  border-color: #d1d5db; /* Keep light gray, no color changes */
+}
+
+.eudia-transcription-bar.processing {
+  border-color: #d1d5db;
+}
+
+/* Audio Level Meter - Primary visual feedback */
+.eudia-transcription-bar .eudia-level-container {
+  width: 80px;
+  height: 4px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.eudia-transcription-bar .eudia-level-bar {
+  height: 100%;
+  background: #9ca3af; /* Muted gray for subtle feedback */
+  transition: width 0.08s ease-out;
+  border-radius: 2px;
+}
+
+/* Minimal controls */
+.eudia-controls-minimal {
+  display: flex;
+  gap: 4px;
+}
+
+.eudia-transcription-bar .eudia-control-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.eudia-transcription-bar .eudia-control-btn:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #374151;
+}
+
+.eudia-transcription-bar .eudia-control-btn.stop:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.eudia-transcription-bar .eudia-control-btn.cancel:hover {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Legacy recording bar styles - keep for backwards compatibility */
 .eudia-recording-bar {
   position: fixed;
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   background: var(--eudia-card);
-  border: 1px solid var(--eudia-border);
-  border-radius: 10px;
-  padding: 12px 20px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 16px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   z-index: 1000;
-  min-width: 320px;
+  min-width: 160px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-.eudia-recording-bar.recording {
-  border-color: var(--eudia-listening);
-  box-shadow: 0 0 0 3px var(--eudia-listening-subtle), 0 4px 16px rgba(0, 0, 0, 0.08);
-}
-
-.eudia-recording-bar.paused {
-  border-color: var(--eudia-warning);
-  box-shadow: 0 0 0 3px var(--eudia-warning-subtle), 0 4px 16px rgba(0, 0, 0, 0.08);
-}
-
+.eudia-recording-bar.recording,
+.eudia-recording-bar.paused,
 .eudia-recording-bar.processing {
-  border-color: var(--eudia-accent);
-  box-shadow: 0 0 0 3px var(--eudia-accent-subtle), 0 4px 16px rgba(0, 0, 0, 0.08);
+  border-color: #d1d5db; /* Always light gray */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-/* Voice Indicator - Subtle sound wave animation */
+/* Hide the old indicator completely */
 .eudia-recording-indicator {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  height: 16px;
+  display: none;
 }
 
-.eudia-recording-indicator::before,
-.eudia-recording-indicator::after,
-.eudia-recording-indicator span {
-  content: '';
-  display: block;
-  width: 3px;
-  height: 8px;
-  background: var(--eudia-listening);
-  border-radius: 2px;
-  animation: eudia-wave 1.2s ease-in-out infinite;
-}
-
-.eudia-recording-indicator::before {
-  animation-delay: 0s;
-}
-
-.eudia-recording-indicator span {
-  animation-delay: 0.2s;
-}
-
-.eudia-recording-indicator::after {
-  animation-delay: 0.4s;
-}
-
-.eudia-recording-bar.paused .eudia-recording-indicator::before,
-.eudia-recording-bar.paused .eudia-recording-indicator::after,
-.eudia-recording-bar.paused .eudia-recording-indicator span {
-  background: var(--eudia-warning);
-  animation: none;
-  height: 6px;
-}
-
-.eudia-recording-bar.processing .eudia-recording-indicator::before,
-.eudia-recording-bar.processing .eudia-recording-indicator::after,
-.eudia-recording-bar.processing .eudia-recording-indicator span {
-  background: var(--eudia-accent);
-  animation: eudia-processing 0.8s ease-in-out infinite;
-}
-
-@keyframes eudia-wave {
-  0%, 100% { 
-    height: 6px;
-    opacity: 0.5;
-  }
-  50% { 
-    height: 14px;
-    opacity: 1;
-  }
-}
-
-@keyframes eudia-processing {
-  0%, 100% { 
-    height: 4px;
-    opacity: 0.4;
-  }
-  50% { 
-    height: 10px;
-    opacity: 0.8;
-  }
-}
-
-/* Duration Display - Subtle, not distracting */
+/* Hide duration display */
 .eudia-duration {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--eudia-text-muted);
-  min-width: 40px;
-  text-align: center;
-  letter-spacing: 0;
+  display: none;
+}
+
+.eudia-duration-hidden {
+  display: none;
+}
+
+/* Hide status text */
+.eudia-status-text {
+  display: none;
+}
+
+.eudia-status-hidden {
+  display: none;
 }
 
 /* Audio Level Meter */
 .eudia-level-container {
-  width: 48px;
-  height: 6px;
-  background: var(--eudia-border);
-  border-radius: 3px;
+  width: 80px;
+  height: 4px;
+  background: #e5e7eb;
+  border-radius: 2px;
   overflow: hidden;
 }
 
 .eudia-level-bar {
   height: 100%;
-  background: var(--eudia-accent);
-  transition: width 0.1s ease-out;
-  border-radius: 3px;
+  background: #9ca3af;
+  transition: width 0.08s ease-out;
+  border-radius: 2px;
 }
 
 /* Control Buttons */
 .eudia-controls {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 .eudia-control-btn {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 6px;
-  border: 1px solid var(--eudia-border);
-  background: var(--eudia-card);
+  border: 1px solid #e5e7eb;
+  background: transparent;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
-  color: var(--eudia-text-muted);
-  font-size: 14px;
+  color: #6b7280;
+  font-size: 12px;
 }
 
 .eudia-control-btn:hover {
-  background: var(--eudia-border-subtle);
-  border-color: var(--eudia-text-subtle);
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #374151;
 }
 
 .eudia-control-btn:active {
@@ -212,18 +230,18 @@
 
 .eudia-control-btn.pause:hover,
 .eudia-control-btn.resume:hover {
-  border-color: var(--eudia-accent);
-  color: var(--eudia-accent);
+  background: #f3f4f6;
+  color: #374151;
 }
 
 .eudia-control-btn.stop:hover {
-  border-color: var(--eudia-recording);
-  color: var(--eudia-recording);
+  background: #f3f4f6;
+  color: #374151;
 }
 
 .eudia-control-btn.cancel:hover {
-  border-color: var(--eudia-text-subtle);
-  color: var(--eudia-text);
+  background: #f3f4f6;
+  color: #6b7280;
 }
 
 .eudia-control-btn[disabled] {
@@ -231,22 +249,10 @@
   cursor: not-allowed;
 }
 
-/* Status Text */
-.eudia-status-text {
-  font-size: 12px;
-  color: var(--eudia-text-muted);
-  min-width: 90px;
-}
-
-/* Ribbon Icon Active State - Subtle glow instead of red */
-.eudia-ribbon-recording {
-  color: var(--eudia-listening) !important;
-  animation: eudia-glow 2s ease-in-out infinite;
-}
-
-@keyframes eudia-glow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+/* Ribbon Icon Active State - No glow, just subtle opacity */
+.eudia-ribbon-recording,
+.eudia-ribbon-transcribing {
+  opacity: 0.8;
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
