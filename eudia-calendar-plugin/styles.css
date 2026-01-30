@@ -1,0 +1,297 @@
+/* Eudia Calendar Plugin Styles */
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* CONTAINER */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.eudia-calendar-container {
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* HEADER */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.eudia-calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.eudia-calendar-header h3 {
+  margin: 0;
+  font-size: 1.2em;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.eudia-calendar-refresh {
+  background: transparent;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+
+.eudia-calendar-refresh:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.eudia-calendar-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* NAVIGATION */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.eudia-calendar-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.eudia-nav-btn {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: all 0.2s ease;
+}
+
+.eudia-nav-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.eudia-nav-btn.active {
+  background: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* EVENTS LIST */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.eudia-calendar-events {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.eudia-date-header {
+  margin-top: 12px;
+  padding: 8px 0;
+  font-weight: 600;
+  font-size: 0.95em;
+  color: var(--text-accent);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.eudia-date-header:first-child {
+  margin-top: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* EVENT CARD */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.eudia-event-card {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s ease;
+}
+
+.eudia-event-card:hover {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.eudia-event-card.cancelled {
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+
+.eudia-event-time {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.eudia-event-title {
+  font-weight: 600;
+  font-size: 1em;
+  color: var(--text-normal);
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+.eudia-event-location {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* ATTENDEES */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.eudia-event-attendees {
+  margin: 8px 0;
+}
+
+.eudia-attendees-toggle {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-block;
+  padding: 4px 0;
+}
+
+.eudia-attendees-toggle:hover {
+  color: var(--text-accent);
+}
+
+.eudia-attendees-list {
+  margin-top: 8px;
+  padding-left: 16px;
+  font-size: 0.85em;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.eudia-attendees-list.hidden {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* BUTTONS */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.eudia-create-note-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: var(--interactive-accent);
+  border: none;
+  border-radius: 6px;
+  color: var(--text-on-accent);
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.eudia-create-note-btn:hover {
+  background: var(--interactive-accent-hover);
+  transform: translateY(-1px);
+}
+
+.eudia-create-note-btn:active {
+  transform: translateY(0);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* STATUS MESSAGES */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.eudia-calendar-loading,
+.eudia-no-events {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.eudia-calendar-error {
+  text-align: center;
+  padding: 24px;
+  background: var(--background-modifier-error);
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.eudia-calendar-error p {
+  margin-bottom: 12px;
+  color: var(--text-error);
+}
+
+.eudia-calendar-error button {
+  padding: 8px 16px;
+  background: var(--interactive-normal);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* SETUP SCREEN */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.eudia-calendar-setup {
+  padding: 24px;
+  text-align: center;
+}
+
+.eudia-calendar-setup h4 {
+  margin-bottom: 12px;
+  color: var(--text-normal);
+}
+
+.eudia-calendar-setup p {
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.eudia-calendar-instructions {
+  text-align: left;
+  background: var(--background-secondary);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.eudia-calendar-instructions h5 {
+  margin-bottom: 8px;
+  color: var(--text-normal);
+}
+
+.eudia-calendar-instructions ol {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-muted);
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+.eudia-calendar-setup button {
+  margin-top: 16px;
+  padding: 10px 20px;
+  background: var(--interactive-accent);
+  border: none;
+  border-radius: 6px;
+  color: var(--text-on-accent);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.eudia-calendar-setup button:hover {
+  background: var(--interactive-accent-hover);
+}

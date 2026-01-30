@@ -1908,7 +1908,78 @@ recording_date: ${dateStr}
   }
 
   /**
+   * Check if GTM Brain server is healthy and Salesforce is connected
+   * @returns {Promise<{healthy: boolean, salesforceConnected: boolean, error?: string}>}
+   */
+  async checkServerHealth(): Promise<{healthy: boolean, salesforceConnected: boolean, error?: string}> {
+    try {
+      const response = await requestUrl({
+        url: `${this.settings.serverUrl}/health`,
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        throw: false // Don't throw on error, handle gracefully
+      });
+
+      if (response.status !== 200) {
+        return { healthy: false, salesforceConnected: false, error: `Server returned ${response.status}` };
+      }
+
+      const data = response.json;
+      return {
+        healthy: data.status === 'ok',
+        salesforceConnected: data.salesforce?.connected === true,
+        error: data.salesforce?.lastError || undefined
+      };
+    } catch (error) {
+      return {
+        healthy: false,
+        salesforceConnected: false,
+        error: error.message || 'Cannot connect to server'
+      };
+    }
+  }
+
+  /**
+   * Get user-friendly error message for sync failures
+   */
+  getSyncErrorMessage(error: any, healthStatus: any): string {
+    // Network/connection errors
+    if (error.message?.includes('ECONNREFUSED') || error.message?.includes('ENOTFOUND')) {
+      return 'Cannot connect to GTM Brain server. Is it running?';
+    }
+    if (error.message?.includes('timeout') || error.message?.includes('ETIMEDOUT')) {
+      return 'Connection timed out. Server may be starting up.';
+    }
+    if (error.message?.includes('CORS') || error.message?.includes('NetworkError')) {
+      return 'Network error. Check your internet connection.';
+    }
+
+    // Server health issues
+    if (healthStatus && !healthStatus.healthy) {
+      return 'GTM Brain server is not responding. It may be restarting.';
+    }
+    if (healthStatus && !healthStatus.salesforceConnected) {
+      return `Salesforce not connected: ${healthStatus.error || 'Check server configuration'}`;
+    }
+
+    // API errors
+    if (error.status === 401 || error.status === 403) {
+      return 'Authentication error. Check API credentials.';
+    }
+    if (error.status === 404) {
+      return 'API endpoint not found. Server may need updating.';
+    }
+    if (error.status === 500) {
+      return 'Server error. Check server logs for details.';
+    }
+
+    // Default message
+    return error.message || 'Unknown error occurred';
+  }
+
+  /**
    * Sync the current note to Salesforce
+   * Enhanced with health checks and better error handling
    */
   async syncNoteToSalesforce(): Promise<void> {
     const activeFile = this.app.workspace.getActiveFile();
@@ -1918,10 +1989,23 @@ recording_date: ${dateStr}
     }
 
     try {
+      // Step 1: Check server health first
+      const healthStatus = await this.checkServerHealth();
+      
+      if (!healthStatus.healthy) {
+        new Notice(`Cannot sync: ${healthStatus.error || 'Server not available'}`, 8000);
+        return;
+      }
+      
+      if (!healthStatus.salesforceConnected) {
+        new Notice(`Cannot sync: Salesforce not connected. ${healthStatus.error || 'Check server config.'}`, 8000);
+        return;
+      }
+
       const content = await this.app.vault.read(activeFile);
       const frontmatter = this.parseFrontmatter(content);
       
-      // Try to get account from frontmatter or folder path
+      // Step 2: Try to get account from frontmatter or folder path
       let account: SalesforceAccount | null = null;
       
       if (frontmatter.account) {
@@ -1932,6 +2016,25 @@ recording_date: ${dateStr}
       
       if (!account) {
         account = this.detectAccountFromPath(activeFile.path);
+      }
+
+      // Step 3: If no cached accounts, try to fetch them first
+      if (!account && this.settings.cachedAccounts.length === 0) {
+        new Notice('Fetching accounts from Salesforce...', 3000);
+        try {
+          await this.syncAccounts();
+          // Try detecting account again after refresh
+          if (frontmatter.account) {
+            account = this.settings.cachedAccounts.find(
+              a => a.name.toLowerCase() === frontmatter.account.toLowerCase()
+            ) || null;
+          }
+          if (!account) {
+            account = this.detectAccountFromPath(activeFile.path);
+          }
+        } catch (fetchError) {
+          console.warn('Failed to fetch accounts:', fetchError);
+        }
       }
 
       if (!account) {
@@ -1951,39 +2054,61 @@ recording_date: ${dateStr}
 
       new Notice('Syncing note to Salesforce...');
 
-      // Post to GTM Brain API
-      const response = await requestUrl({
-        url: `${this.settings.serverUrl}/api/notes/sync`,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          accountId: account.id,
-          accountName: account.name,
-          noteTitle: activeFile.basename,
-          notePath: activeFile.path,
-          content: content,
-          frontmatter: frontmatter,
-          syncedAt: new Date().toISOString()
-        })
-      });
+      // Step 4: Post to GTM Brain API with retry logic
+      let lastError: any = null;
+      const maxRetries = 2;
+      
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await requestUrl({
+            url: `${this.settings.serverUrl}/api/notes/sync`,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              accountId: account.id,
+              accountName: account.name,
+              noteTitle: activeFile.basename,
+              notePath: activeFile.path,
+              content: content,
+              frontmatter: frontmatter,
+              syncedAt: new Date().toISOString()
+            })
+          });
 
-      if (response.json.success) {
-        new Notice('Note synced to Salesforce');
-        
-        // Update frontmatter to mark as synced
-        await this.updateFrontmatter(activeFile, {
-          synced_to_salesforce: true,
-          last_synced: new Date().toISOString()
-        });
-      } else {
-        new Notice(`Sync failed: ${response.json.error || 'Unknown error'}`);
+          if (response.json.success) {
+            new Notice('✓ Note synced to Salesforce');
+            
+            // Update frontmatter to mark as synced
+            await this.updateFrontmatter(activeFile, {
+              synced_to_salesforce: true,
+              last_synced: new Date().toISOString()
+            });
+            return; // Success, exit function
+          } else {
+            lastError = new Error(response.json.error || 'Unknown error');
+            // Don't retry on API errors (not transient)
+            break;
+          }
+        } catch (error) {
+          lastError = error;
+          if (attempt < maxRetries) {
+            // Wait before retry (exponential backoff)
+            await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          }
+        }
       }
+
+      // If we get here, all attempts failed
+      const errorMessage = this.getSyncErrorMessage(lastError, healthStatus);
+      new Notice(`Sync failed: ${errorMessage}`, 8000);
+      console.error('Sync to Salesforce failed after retries:', lastError);
 
     } catch (error) {
       console.error('Sync to Salesforce failed:', error);
-      new Notice(`Sync failed: ${error.message}`);
+      const errorMessage = this.getSyncErrorMessage(error, null);
+      new Notice(`Sync failed: ${errorMessage}`, 8000);
     }
   }
 

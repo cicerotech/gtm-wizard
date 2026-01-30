@@ -1,0 +1,28 @@
+{
+  "name": "eudia-calendar-plugin",
+  "version": "1.0.0",
+  "description": "Eudia Calendar plugin for Obsidian - ICS calendar integration",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
+  },
+  "keywords": [
+    "obsidian",
+    "calendar",
+    "ics",
+    "meeting"
+  ],
+  "author": "Eudia",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^16.18.0",
+    "esbuild": "^0.17.0",
+    "obsidian": "latest",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "ical.js": "^1.5.0"
+  }
+}

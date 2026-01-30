@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const logger = require('../utils/logger') || console;
+const { transcriptCorrector } = require('./transcriptCorrector');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION
@@ -33,6 +34,52 @@ const CONFIG = {
   // Maximum recording duration (2 hours = safety limit)
   MAX_DURATION_SECONDS: 2 * 60 * 60
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WHISPER PROMPT FOR DOMAIN-SPECIFIC ACCURACY
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Build a custom prompt for Whisper API to improve transcription accuracy.
+ * Whisper's prompt parameter (up to 224 tokens) provides context that helps
+ * the model correctly transcribe domain-specific terms.
+ * 
+ * @param {Object} context - Optional context with attendees, account info
+ * @returns {string} - Custom prompt for Whisper
+ */
+function buildWhisperPrompt(context = {}) {
+  // Base vocabulary for Eudia meetings
+  const basePrompt = `Eudia AI legal technology company meeting.
+Products: Sigma, AI Contracting, AI Compliance, AI M&A, Insights, Litigation.
+Roles: CLO, General Counsel, VP Legal, Legal Ops Director, Deputy GC, Chief Legal Officer.
+Sales terms: MEDDICC, ACV, ARR, MQL, SQL, BDR, SDR, POC, RFP, SOW, pipeline, quota.
+Legal terms: MSA, NDA, DPA, SLA, due diligence, contract lifecycle, compliance.
+Company: Eudia, eudia.ai, Cicero Technology.`;
+
+  // Add attendees if available (helps with name transcription)
+  let attendeePrompt = '';
+  if (context.attendees && context.attendees.length > 0) {
+    const names = context.attendees.slice(0, 10).join(', ');
+    attendeePrompt = `\nPeople on this call: ${names}.`;
+  }
+
+  // Add account name if available
+  let accountPrompt = '';
+  if (context.accountName) {
+    accountPrompt = `\nCustomer: ${context.accountName}.`;
+  }
+
+  // Combine but stay under ~200 tokens (Whisper limit is 224)
+  const fullPrompt = basePrompt + attendeePrompt + accountPrompt;
+  
+  // Truncate if too long (rough estimate: 1 token ≈ 4 chars)
+  const maxChars = 800;
+  if (fullPrompt.length > maxChars) {
+    return fullPrompt.substring(0, maxChars);
+  }
+  
+  return fullPrompt;
+}
 
 // Template sections configuration (matching Scribe template)
 const TEMPLATE_SECTIONS = [
@@ -182,9 +229,10 @@ class TranscriptionService {
    * Transcribe audio with automatic chunking for long recordings
    * @param {Buffer} audioBuffer - Audio file buffer
    * @param {string} mimeType - MIME type of audio (e.g., 'audio/webm')
+   * @param {Object} context - Optional context for custom vocabulary (attendees, accountName)
    * @returns {Promise<{success: boolean, transcript?: string, duration?: number, error?: string}>}
    */
-  async transcribe(audioBuffer, mimeType = 'audio/webm') {
+  async transcribe(audioBuffer, mimeType = 'audio/webm', context = {}) {
     if (!this.openai) {
       return { success: false, error: 'OpenAI not initialized' };
     }
@@ -195,17 +243,21 @@ class TranscriptionService {
     // Check if we need to chunk
     if (audioBuffer.length <= CONFIG.MAX_CHUNK_SIZE) {
       // Small file - direct transcription
-      return this.transcribeSingleChunk(audioBuffer, mimeType);
+      return this.transcribeSingleChunk(audioBuffer, mimeType, context);
     }
 
     // Large file - use chunking
-    return this.transcribeWithChunking(audioBuffer, mimeType);
+    return this.transcribeWithChunking(audioBuffer, mimeType, context);
   }
 
   /**
    * Transcribe a single chunk (under 25MB)
+   * @param {Buffer} audioBuffer - Audio data
+   * @param {string} mimeType - MIME type
+   * @param {Object} context - Optional context for custom vocabulary
+   * @param {number} retryCount - Current retry attempt
    */
-  async transcribeSingleChunk(audioBuffer, mimeType, retryCount = 0) {
+  async transcribeSingleChunk(audioBuffer, mimeType, context = {}, retryCount = 0) {
     let tempFilePath = null;
 
     try {
@@ -213,23 +265,58 @@ class TranscriptionService {
       tempFilePath = path.join(os.tmpdir(), `transcription-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`);
       fs.writeFileSync(tempFilePath, audioBuffer);
 
+      // Build custom prompt for domain-specific accuracy
+      const whisperPrompt = buildWhisperPrompt(context);
+      logger.info(`[Transcription] Using custom prompt (${whisperPrompt.length} chars)`);
+
       // Use queue to limit concurrency
       const transcription = await this.queue.enqueue(async () => {
         return this.openai.audio.transcriptions.create({
           file: fs.createReadStream(tempFilePath),
           model: 'whisper-1',
           response_format: 'verbose_json',
-          language: 'en'
+          language: 'en',
+          prompt: whisperPrompt
         });
       });
 
       // Clean up temp file
       this.cleanupTempFile(tempFilePath);
 
+      // Apply post-processing corrections to improve accuracy
+      let finalTranscript = transcription.text;
+      let corrections = [];
+      let confidence = 1.0;
+
+      try {
+        // Initialize corrector with OpenAI client for potential GPT correction
+        transcriptCorrector.setOpenAI(this.openai);
+        
+        const correctionResult = await transcriptCorrector.correctTranscript(
+          transcription.text, 
+          context
+        );
+        
+        finalTranscript = correctionResult.corrected;
+        corrections = correctionResult.corrections;
+        confidence = correctionResult.confidence;
+        
+        if (corrections.length > 0) {
+          logger.info(`[Transcription] Post-processing: ${corrections.length} corrections, confidence=${confidence}`);
+        }
+      } catch (correctionError) {
+        logger.warn(`[Transcription] Post-processing failed, using raw transcript: ${correctionError.message}`);
+        // Continue with raw transcript if correction fails
+      }
+
       return {
         success: true,
-        transcript: transcription.text,
-        duration: transcription.duration || 0
+        transcript: finalTranscript,
+        rawTranscript: transcription.text, // Keep original for debugging
+        duration: transcription.duration || 0,
+        corrections,
+        confidence,
+        segments: transcription.segments // Include Whisper segments for confidence analysis
       };
 
     } catch (error) {
@@ -239,7 +326,7 @@ class TranscriptionService {
       if (retryCount < CONFIG.MAX_RETRIES && this.isRetryableError(error)) {
         logger.warn(`[Transcription] Retry ${retryCount + 1}/${CONFIG.MAX_RETRIES}: ${error.message}`);
         await this.sleep(CONFIG.RETRY_DELAY_MS * (retryCount + 1));
-        return this.transcribeSingleChunk(audioBuffer, mimeType, retryCount + 1);
+        return this.transcribeSingleChunk(audioBuffer, mimeType, context, retryCount + 1);
       }
 
       logger.error('[Transcription] Failed:', error);
@@ -252,8 +339,11 @@ class TranscriptionService {
 
   /**
    * Transcribe long audio by splitting into chunks
+   * @param {Buffer} audioBuffer - Audio data
+   * @param {string} mimeType - MIME type
+   * @param {Object} context - Optional context for custom vocabulary
    */
-  async transcribeWithChunking(audioBuffer, mimeType) {
+  async transcribeWithChunking(audioBuffer, mimeType, context = {}) {
     const chunks = this.splitBuffer(audioBuffer, CONFIG.MAX_CHUNK_SIZE);
     logger.info(`[Transcription] Large file: splitting into ${chunks.length} chunks`);
 
@@ -265,7 +355,7 @@ class TranscriptionService {
       const chunkSizeMB = (chunks[i].length / 1024 / 1024).toFixed(1);
       logger.info(`[Transcription] Processing chunk ${i + 1}/${chunks.length} (${chunkSizeMB}MB)`);
 
-      const result = await this.transcribeSingleChunk(chunks[i], mimeType);
+      const result = await this.transcribeSingleChunk(chunks[i], mimeType, context);
 
       if (result.success) {
         transcripts.push(result.transcript);
@@ -421,8 +511,14 @@ class TranscriptionService {
         };
       }
 
-      // Step 1: Transcribe
-      const transcribeResult = await this.transcribe(audioBuffer, mimeType);
+      // Build transcription context from summarization context
+      const transcriptionContext = {
+        attendees: context.attendees || [],
+        accountName: context.accountName || ''
+      };
+
+      // Step 1: Transcribe with custom vocabulary prompt
+      const transcribeResult = await this.transcribe(audioBuffer, mimeType, transcriptionContext);
       
       if (!transcribeResult.success) {
         return transcribeResult;
@@ -431,6 +527,14 @@ class TranscriptionService {
       logger.info(`[TranscribeAndSummarize] Transcription complete: ${transcribeResult.transcript?.length || 0} chars, ${transcribeResult.duration || 0}s`);
 
       // Step 2: Summarize
+      // Generate quality summary with confidence indicators
+      const qualitySummary = this.generateQualitySummary(transcribeResult);
+      
+      // Get confidence indicators from Whisper segments
+      const confidenceIndicators = transcribeResult.segments 
+        ? this.getConfidenceIndicators(transcribeResult.segments)
+        : null;
+
       const summarizeResult = await this.summarize(transcribeResult.transcript, context);
       
       if (!summarizeResult.success) {
@@ -438,8 +542,12 @@ class TranscriptionService {
         return {
           success: true,
           transcript: transcribeResult.transcript,
+          rawTranscript: transcribeResult.rawTranscript,
           duration: transcribeResult.duration,
           sections: this.getEmptySections(),
+          quality: qualitySummary,
+          confidence: confidenceIndicators,
+          corrections: transcribeResult.corrections || [],
           warning: `Transcription succeeded but summarization failed: ${summarizeResult.error}`
         };
       }
@@ -447,8 +555,12 @@ class TranscriptionService {
       return {
         success: true,
         transcript: transcribeResult.transcript,
+        rawTranscript: transcribeResult.rawTranscript,
         duration: transcribeResult.duration,
-        sections: summarizeResult.sections
+        sections: summarizeResult.sections,
+        quality: qualitySummary,
+        confidence: confidenceIndicators,
+        corrections: transcribeResult.corrections || []
       };
 
     } catch (error) {
@@ -578,6 +690,153 @@ IMPORTANT:
       'audio/x-wav': 'wav'
     };
     return mimeMap[mimeType] || 'webm';
+  }
+
+  /**
+   * Extract confidence indicators from Whisper segments
+   * Identifies uncertain sections that users should verify
+   * @param {Array} segments - Whisper segments from verbose_json response
+   * @returns {{lowConfidenceSegments: Array, overallConfidence: number, qualityScore: string}}
+   */
+  getConfidenceIndicators(segments) {
+    if (!segments || segments.length === 0) {
+      return {
+        lowConfidenceSegments: [],
+        overallConfidence: 1.0,
+        qualityScore: 'unknown'
+      };
+    }
+
+    // Whisper's avg_logprob indicates confidence
+    // Values closer to 0 = higher confidence
+    // Values below -1.0 indicate potential issues
+    const LOW_CONFIDENCE_THRESHOLD = -1.0;
+    const VERY_LOW_THRESHOLD = -1.5;
+
+    const lowConfidenceSegments = segments
+      .filter(s => s.avg_logprob && s.avg_logprob < LOW_CONFIDENCE_THRESHOLD)
+      .map(s => ({
+        text: s.text,
+        start: s.start,
+        end: s.end,
+        confidence: this.logProbToPercent(s.avg_logprob),
+        severity: s.avg_logprob < VERY_LOW_THRESHOLD ? 'high' : 'medium',
+        needsReview: true
+      }));
+
+    // Calculate overall confidence from all segments
+    const avgLogProb = segments.reduce((sum, s) => sum + (s.avg_logprob || 0), 0) / segments.length;
+    const overallConfidence = this.logProbToPercent(avgLogProb);
+
+    // Determine quality score
+    let qualityScore;
+    if (overallConfidence >= 90) {
+      qualityScore = 'excellent';
+    } else if (overallConfidence >= 80) {
+      qualityScore = 'good';
+    } else if (overallConfidence >= 70) {
+      qualityScore = 'fair';
+    } else {
+      qualityScore = 'needs_review';
+    }
+
+    return {
+      lowConfidenceSegments,
+      overallConfidence: Math.round(overallConfidence),
+      qualityScore,
+      totalSegments: segments.length,
+      uncertainSegments: lowConfidenceSegments.length
+    };
+  }
+
+  /**
+   * Convert Whisper log probability to percentage confidence
+   * @param {number} logProb - Log probability from Whisper
+   * @returns {number} - Confidence as 0-100 percentage
+   */
+  logProbToPercent(logProb) {
+    // log_prob is negative, with 0 being perfect
+    // Convert to 0-100 scale where 100 = perfect
+    // Typical values range from -0.5 (good) to -2.0 (poor)
+    const normalized = Math.max(0, 1 + (logProb / 2)); // -2 → 0, 0 → 1
+    return Math.min(100, Math.max(0, normalized * 100));
+  }
+
+  /**
+   * Format transcript with uncertainty markers for display
+   * Wraps low-confidence sections in [?] markers
+   * @param {string} transcript - Full transcript text
+   * @param {Array} lowConfidenceSegments - Segments needing review
+   * @returns {string} - Transcript with uncertainty markers
+   */
+  formatWithUncertaintyMarkers(transcript, lowConfidenceSegments) {
+    if (!lowConfidenceSegments || lowConfidenceSegments.length === 0) {
+      return transcript;
+    }
+
+    let markedTranscript = transcript;
+
+    // Sort segments by position in transcript (reverse to maintain positions)
+    const sortedSegments = [...lowConfidenceSegments].sort((a, b) => {
+      const posA = transcript.indexOf(a.text);
+      const posB = transcript.indexOf(b.text);
+      return posB - posA; // Reverse order
+    });
+
+    for (const segment of sortedSegments) {
+      const text = segment.text.trim();
+      if (text.length < 3) continue; // Skip very short segments
+
+      // Find and wrap the segment
+      const index = markedTranscript.indexOf(text);
+      if (index !== -1) {
+        const marker = segment.severity === 'high' ? '[??]' : '[?]';
+        markedTranscript = 
+          markedTranscript.slice(0, index) + 
+          `${marker}${text}${marker}` + 
+          markedTranscript.slice(index + text.length);
+      }
+    }
+
+    return markedTranscript;
+  }
+
+  /**
+   * Generate a quality summary for the transcription
+   * @param {Object} result - Full transcription result
+   * @returns {Object} - Quality summary object
+   */
+  generateQualitySummary(result) {
+    const indicators = result.segments ? this.getConfidenceIndicators(result.segments) : null;
+    
+    return {
+      duration: result.duration,
+      wordCount: result.transcript ? result.transcript.split(/\s+/).length : 0,
+      correctionsMade: result.corrections?.length || 0,
+      confidence: result.confidence || (indicators?.overallConfidence / 100) || 1.0,
+      qualityScore: indicators?.qualityScore || 'unknown',
+      uncertainSections: indicators?.uncertainSegments || 0,
+      recommendation: this.getQualityRecommendation(indicators)
+    };
+  }
+
+  /**
+   * Get user-friendly recommendation based on quality
+   */
+  getQualityRecommendation(indicators) {
+    if (!indicators) {
+      return 'Quality metrics unavailable';
+    }
+
+    if (indicators.qualityScore === 'excellent') {
+      return 'High quality transcription. Review recommended for proper nouns only.';
+    } else if (indicators.qualityScore === 'good') {
+      return 'Good quality transcription. Quick review recommended.';
+    } else if (indicators.qualityScore === 'fair') {
+      return `Fair quality. ${indicators.uncertainSegments} sections may need verification.`;
+    } else {
+      return `Lower quality detected. Please review ${indicators.uncertainSegments} uncertain sections marked with [?].`;
+    }
   }
 
   /**
