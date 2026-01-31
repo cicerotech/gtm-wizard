@@ -15,6 +15,9 @@ const path = require('path');
 const XLSX = require('xlsx');
 const archiver = require('archiver');
 
+// Load environment variables from .env file
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
 // Configuration
 const VAULT_NAME = 'BL Sales Vault';
 const ACCOUNTS_FILE = path.join(__dirname, '..', '..', '..', 'Desktop', 'accts.xlsx');
@@ -23,8 +26,11 @@ const ZIP_OUTPUT = path.join(__dirname, '..', 'dist', 'BL-Sales-Vault.zip');
 const PLUGIN_DIR = path.join(__dirname, '..', 'obsidian-plugin');
 const CALENDAR_PLUGIN_DIR = path.join(__dirname, '..', 'eudia-calendar-plugin');
 
-// OpenAI API key (read from environment or placeholder)
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'sk-proj-YOUR_API_KEY_HERE';
+// OpenAI API key (read from environment)
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+if (!OPENAI_API_KEY || OPENAI_API_KEY === 'sk-proj-YOUR_API_KEY_HERE') {
+  console.warn('⚠️  Warning: OPENAI_API_KEY not set in .env - transcription will require manual key entry');
+}
 
 /**
  * Sanitize folder name for filesystem
