@@ -347,6 +347,45 @@ var AudioRecorder = class {
   static async blobToArrayBuffer(blob) {
     return blob.arrayBuffer();
   }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WRAPPER METHODS - Short aliases for main.ts compatibility
+  // ═══════════════════════════════════════════════════════════════════════════
+  /**
+   * Alias for startRecording()
+   */
+  async start() {
+    return this.startRecording();
+  }
+  /**
+   * Alias for stopRecording()
+   */
+  async stop() {
+    return this.stopRecording();
+  }
+  /**
+   * Alias for pauseRecording()
+   */
+  pause() {
+    return this.pauseRecording();
+  }
+  /**
+   * Alias for resumeRecording()
+   */
+  resume() {
+    return this.resumeRecording();
+  }
+  /**
+   * Alias for cancelRecording()
+   */
+  cancel() {
+    return this.cancelRecording();
+  }
+  /**
+   * Check if currently recording
+   */
+  isRecording() {
+    return this.state.isRecording;
+  }
 };
 
 // src/TranscriptionService.ts
@@ -2008,7 +2047,7 @@ var ProcessingModal = class extends import_obsidian3.Modal {
     contentEl.addClass("eudia-transcribing-modal");
     contentEl.createDiv({ cls: "spinner" });
     this.messageEl = contentEl.createEl("p", { text: "Transcribing audio..." });
-    contentEl.createEl("p", { text: "This may take a moment for longer recordings." });
+    contentEl.createEl("p", { text: "This may take a moment for longer transcriptions." });
   }
   setMessage(message) {
     if (this.messageEl)
@@ -2080,13 +2119,13 @@ var SetupWizardModal = class extends import_obsidian3.Modal {
   renderWelcome() {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl("h2", { text: "\u{1F44B} Welcome to Eudia" });
+    contentEl.createEl("h2", { text: "Welcome to Eudia" });
     contentEl.createEl("p", { text: "Let's get you set up in 30 seconds." });
     const infoBox = contentEl.createDiv({ cls: "eudia-setup-info" });
     infoBox.innerHTML = `
-      <p style="margin: 0 0 8px 0;">\u{1F399}\uFE0F <strong>Transcribe meetings</strong> with one click</p>
-      <p style="margin: 0 0 8px 0;">\u{1F4C5} <strong>View your calendar</strong> and create notes</p>
-      <p style="margin: 0;">\u2601\uFE0F <strong>Sync to Salesforce</strong> automatically</p>
+      <p style="margin: 0 0 8px 0;"><strong>Transcribe meetings</strong> with one click</p>
+      <p style="margin: 0 0 8px 0;"><strong>View your calendar</strong> and create notes</p>
+      <p style="margin: 0;"><strong>Sync to Salesforce</strong> automatically</p>
     `;
     const section = contentEl.createDiv({ cls: "eudia-setup-section" });
     section.createEl("h3", { text: "Your Eudia Email" });
@@ -2163,12 +2202,12 @@ var SetupWizardModal = class extends import_obsidian3.Modal {
   renderSuccess() {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl("h2", { text: "\u{1F389} You're All Set!" });
+    contentEl.createEl("h2", { text: "You're All Set!" });
     const tips = contentEl.createDiv({ cls: "eudia-setup-tips" });
     tips.innerHTML = `
-      <p style="margin: 0 0 8px 0;">\u{1F4C5} <strong>View your calendar:</strong> Click the calendar icon in the sidebar</p>
-      <p style="margin: 0 0 8px 0;">\u{1F399}\uFE0F <strong>Start transcribing:</strong> Click the microphone icon or Cmd+P \u2192 "Transcribe"</p>
-      <p style="margin: 0;">\u{1F4C2} <strong>Account folders:</strong> Your Salesforce accounts are ready in the Accounts folder</p>
+      <p style="margin: 0 0 8px 0;"><strong>View your calendar:</strong> Click the calendar icon in the sidebar</p>
+      <p style="margin: 0 0 8px 0;"><strong>Start transcribing:</strong> Click the microphone icon or Cmd+P \u2192 "Transcribe"</p>
+      <p style="margin: 0;"><strong>Account folders:</strong> Your Salesforce accounts are ready in the Accounts folder</p>
     `;
     const button = contentEl.createEl("button", { text: "Start Using Eudia \u2192" });
     button.setCssStyles({
@@ -2225,7 +2264,7 @@ var EudiaCalendarView = class extends import_obsidian3.ItemView {
   renderHeader(container) {
     const header = container.createDiv({ cls: "eudia-calendar-header" });
     const titleRow = header.createDiv({ cls: "eudia-calendar-title-row" });
-    titleRow.createEl("h4", { text: "\u{1F4C5} Your Meetings" });
+    titleRow.createEl("h4", { text: "Your Meetings" });
     const actions = titleRow.createDiv({ cls: "eudia-calendar-actions" });
     const refreshBtn = actions.createEl("button", { cls: "eudia-btn-icon", text: "\u21BB" });
     refreshBtn.title = "Refresh";
@@ -2401,7 +2440,7 @@ var EudiaCalendarView = class extends import_obsidian3.ItemView {
   renderEmptyState(container) {
     const empty = container.createDiv({ cls: "eudia-calendar-empty" });
     empty.innerHTML = `
-      <div class="eudia-empty-icon">\u{1F4C5}</div>
+      <div class="eudia-empty-icon" style="font-size: 48px; opacity: 0.5;">&#128197;</div>
       <p class="eudia-empty-title">No meetings this week</p>
       <p class="eudia-empty-subtitle">Enjoy your focus time!</p>
     `;
@@ -2436,7 +2475,7 @@ var EudiaCalendarView = class extends import_obsidian3.ItemView {
   renderSetupPanel(container) {
     const setup = container.createDiv({ cls: "eudia-calendar-setup-panel" });
     setup.innerHTML = `
-      <div class="eudia-setup-icon">\u{1F4C5}</div>
+      <div class="eudia-setup-icon" style="font-size: 48px; opacity: 0.5;">&#128197;</div>
       <h3 class="eudia-setup-title">Connect Your Calendar</h3>
       <p class="eudia-setup-desc">Enter your Eudia email to see your meetings and create notes with one click.</p>
     `;
@@ -2540,7 +2579,7 @@ transcribed: false
 
 ---
 
-## \u{1F399}\uFE0F Ready to Transcribe
+## Ready to Transcribe
 
 Click the **microphone icon** in the sidebar or use \`Cmd/Ctrl+P\` \u2192 **"Transcribe Meeting"**
 
@@ -2652,7 +2691,7 @@ var EudiaSyncPlugin = class extends import_obsidian3.Plugin {
   // ─────────────────────────────────────────────────────────────────────────
   async startRecording() {
     if (!AudioRecorder.isSupported()) {
-      new import_obsidian3.Notice("Audio recording is not supported in this browser");
+      new import_obsidian3.Notice("Audio transcription is not supported in this browser");
       return;
     }
     let activeFile = this.app.workspace.getActiveFile();
@@ -2684,7 +2723,7 @@ var EudiaSyncPlugin = class extends import_obsidian3.Plugin {
       }, 100);
       new import_obsidian3.Notice("Transcription started. Click stop when finished.");
     } catch (error) {
-      new import_obsidian3.Notice(`Failed to start recording: ${error.message}`);
+      new import_obsidian3.Notice(`Failed to start transcription: ${error.message}`);
       this.recordingStatusBar?.hide();
       this.recordingStatusBar = null;
     }
@@ -2957,7 +2996,7 @@ transcribed: false
 
 ---
 
-## \u{1F399}\uFE0F Ready to Transcribe
+## Ready to Transcribe
 
 Click the microphone icon or \`Cmd/Ctrl+P\` \u2192 "Transcribe Meeting"
 
@@ -3123,7 +3162,7 @@ var EudiaSyncSettingTab = class extends import_obsidian3.PluginSettingTab {
       });
     }
     containerEl.createEl("p", {
-      text: `Audio recording: ${AudioRecorder.isSupported() ? "\u2713 Supported" : "\u2717 Not supported"}`,
+      text: `Audio transcription: ${AudioRecorder.isSupported() ? "\u2713 Supported" : "\u2717 Not supported"}`,
       cls: "setting-item-description"
     });
   }

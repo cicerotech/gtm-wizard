@@ -416,17 +416,42 @@ class CalendarSettingsTab extends PluginSettingTab {
             const url = `${this.plugin.settings.serverUrl}/api/calendar/${this.plugin.settings.userEmail}/today`;
             const resp = await requestUrl({ url, method: 'GET' });
             if (resp.json.success) {
-              new Notice(`✓ Connected! ${resp.json.meetingCount} meetings today`);
-              btn.setButtonText('✓ Success');
+              new Notice(`Connected! ${resp.json.meetingCount} meetings today`);
+              btn.setButtonText('Success');
             } else {
               new Notice(`Error: ${resp.json.error}`);
-              btn.setButtonText('✗ Failed');
+              btn.setButtonText('Failed');
             }
           } catch (e) {
             new Notice('Connection failed');
-            btn.setButtonText('✗ Failed');
+            btn.setButtonText('Failed');
           }
           setTimeout(() => btn.setButtonText('Test'), 2000);
+        }));
+
+    // Sync Calendar button - triggers server-side refresh from Microsoft 365
+    new Setting(containerEl)
+      .setName('Sync Calendar')
+      .setDesc('Refresh calendar data from Microsoft 365')
+      .addButton(btn => btn
+        .setButtonText('Sync Now')
+        .onClick(async () => {
+          btn.setButtonText('Syncing...');
+          try {
+            const url = `${this.plugin.settings.serverUrl}/api/calendar/sync/trigger`;
+            const resp = await requestUrl({ url, method: 'POST' });
+            if (resp.json.success) {
+              new Notice('Calendar sync started. Data will refresh in a few moments.');
+              btn.setButtonText('Started');
+            } else {
+              new Notice(`Sync failed: ${resp.json.error}`);
+              btn.setButtonText('Failed');
+            }
+          } catch (e) {
+            new Notice('Failed to start sync');
+            btn.setButtonText('Failed');
+          }
+          setTimeout(() => btn.setButtonText('Sync Now'), 2000);
         }));
   }
 }

@@ -420,5 +420,51 @@ export class AudioRecorder {
   static async blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
     return blob.arrayBuffer();
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WRAPPER METHODS - Short aliases for main.ts compatibility
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Alias for startRecording()
+   */
+  async start(): Promise<void> {
+    return this.startRecording();
+  }
+
+  /**
+   * Alias for stopRecording()
+   */
+  async stop(): Promise<RecordingResult> {
+    return this.stopRecording();
+  }
+
+  /**
+   * Alias for pauseRecording()
+   */
+  pause(): void {
+    return this.pauseRecording();
+  }
+
+  /**
+   * Alias for resumeRecording()
+   */
+  resume(): void {
+    return this.resumeRecording();
+  }
+
+  /**
+   * Alias for cancelRecording()
+   */
+  cancel(): void {
+    return this.cancelRecording();
+  }
+
+  /**
+   * Check if currently recording
+   */
+  isRecording(): boolean {
+    return this.state.isRecording;
+  }
 }
 

@@ -343,17 +343,35 @@ var CalendarSettingsTab = class extends import_obsidian.PluginSettingTab {
         const url = `${this.plugin.settings.serverUrl}/api/calendar/${this.plugin.settings.userEmail}/today`;
         const resp = yield (0, import_obsidian.requestUrl)({ url, method: "GET" });
         if (resp.json.success) {
-          new import_obsidian.Notice(`\u2713 Connected! ${resp.json.meetingCount} meetings today`);
-          btn.setButtonText("\u2713 Success");
+          new import_obsidian.Notice(`Connected! ${resp.json.meetingCount} meetings today`);
+          btn.setButtonText("Success");
         } else {
           new import_obsidian.Notice(`Error: ${resp.json.error}`);
-          btn.setButtonText("\u2717 Failed");
+          btn.setButtonText("Failed");
         }
       } catch (e) {
         new import_obsidian.Notice("Connection failed");
-        btn.setButtonText("\u2717 Failed");
+        btn.setButtonText("Failed");
       }
       setTimeout(() => btn.setButtonText("Test"), 2e3);
+    })));
+    new import_obsidian.Setting(containerEl).setName("Sync Calendar").setDesc("Refresh calendar data from Microsoft 365").addButton((btn) => btn.setButtonText("Sync Now").onClick(() => __async(this, null, function* () {
+      btn.setButtonText("Syncing...");
+      try {
+        const url = `${this.plugin.settings.serverUrl}/api/calendar/sync/trigger`;
+        const resp = yield (0, import_obsidian.requestUrl)({ url, method: "POST" });
+        if (resp.json.success) {
+          new import_obsidian.Notice("Calendar sync started. Data will refresh in a few moments.");
+          btn.setButtonText("Started");
+        } else {
+          new import_obsidian.Notice(`Sync failed: ${resp.json.error}`);
+          btn.setButtonText("Failed");
+        }
+      } catch (e) {
+        new import_obsidian.Notice("Failed to start sync");
+        btn.setButtonText("Failed");
+      }
+      setTimeout(() => btn.setButtonText("Sync Now"), 2e3);
     })));
   }
 };
