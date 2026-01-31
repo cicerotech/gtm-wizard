@@ -1981,27 +1981,142 @@ sync_to_salesforce: false
         
         logger.info(`✅ SF OAuth complete for ${email} - tokens stored`);
         
-        // Return success page
+        // Return Eudia-branded success page
         res.send(`
+          <!DOCTYPE html>
           <html>
           <head>
-            <title>Connected to Salesforce</title>
+            <title>Connected - Eudia</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
             <style>
-              body { font-family: -apple-system, sans-serif; padding: 60px; text-align: center; background: #f8fafc; }
-              .success { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
-              .checkmark { font-size: 60px; margin-bottom: 20px; }
-              h1 { color: #1a1a1a; margin-bottom: 10px; }
-              p { color: #666; }
-              .email { font-weight: bold; color: #0066cc; }
+              * { box-sizing: border-box; margin: 0; padding: 0; }
+              body { 
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+                color: #ffffff;
+              }
+              .container {
+                text-align: center;
+                padding: 40px;
+                max-width: 420px;
+              }
+              .logo-wrapper {
+                margin-bottom: 32px;
+              }
+              .logo {
+                width: 48px;
+                height: 48px;
+                display: inline-block;
+              }
+              .logo-text {
+                font-size: 24px;
+                font-weight: 600;
+                margin-top: 12px;
+                color: #ffffff;
+                letter-spacing: -0.5px;
+              }
+              .card {
+                background: rgba(255, 255, 255, 0.08);
+                backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 16px;
+                padding: 40px 32px;
+              }
+              .checkmark-circle {
+                width: 72px;
+                height: 72px;
+                background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 24px;
+                box-shadow: 0 8px 32px rgba(34, 197, 94, 0.3);
+              }
+              .checkmark-circle svg {
+                width: 36px;
+                height: 36px;
+                stroke: white;
+                stroke-width: 3;
+                fill: none;
+              }
+              h1 {
+                font-size: 28px;
+                font-weight: 600;
+                margin-bottom: 12px;
+                color: #ffffff;
+              }
+              .subtitle {
+                color: rgba(255, 255, 255, 0.7);
+                font-size: 15px;
+                margin-bottom: 8px;
+              }
+              .email {
+                font-weight: 500;
+                color: #8b9bf4;
+                font-size: 16px;
+              }
+              .divider {
+                height: 1px;
+                background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+                margin: 28px 0;
+              }
+              .instructions {
+                color: rgba(255, 255, 255, 0.5);
+                font-size: 13px;
+                line-height: 1.5;
+              }
+              .close-btn {
+                display: inline-block;
+                margin-top: 24px;
+                padding: 12px 28px;
+                background: rgba(139, 155, 244, 0.15);
+                border: 1px solid rgba(139, 155, 244, 0.3);
+                color: #8b9bf4;
+                font-size: 14px;
+                font-weight: 500;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+              }
+              .close-btn:hover {
+                background: rgba(139, 155, 244, 0.25);
+                border-color: rgba(139, 155, 244, 0.5);
+              }
             </style>
           </head>
           <body>
-            <div class="success">
-              <div class="checkmark">✅</div>
-              <h1>Connected!</h1>
-              <p>Salesforce is now linked for</p>
-              <p class="email">${email}</p>
-              <p style="margin-top: 20px; font-size: 14px;">You can close this window and return to Obsidian.</p>
+            <div class="container">
+              <div class="logo-wrapper">
+                <svg class="logo" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="48" height="48" rx="12" fill="#8b9bf4"/>
+                  <path d="M14 24h20M24 14v20" stroke="white" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+                <div class="logo-text">Eudia</div>
+              </div>
+              <div class="card">
+                <div class="checkmark-circle">
+                  <svg viewBox="0 0 24 24">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </div>
+                <h1>Connected</h1>
+                <p class="subtitle">Salesforce is now linked to</p>
+                <p class="email">${email}</p>
+                <div class="divider"></div>
+                <p class="instructions">
+                  Return to Obsidian. Your notes will now sync<br>
+                  to Salesforce with your name as the author.
+                </p>
+                <button class="close-btn" onclick="window.close()">Close Window</button>
+              </div>
             </div>
           </body>
           </html>

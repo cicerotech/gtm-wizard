@@ -1,9 +1,9 @@
 {
   "id": "eudia-calendar",
   "name": "Eudia Calendar",
-  "version": "1.0.0",
-  "minAppVersion": "1.0.0",
-  "description": "Display your Microsoft/Google calendar meetings in Obsidian via ICS feed. Click any meeting to create a linked note.",
+  "version": "1.1.0",
+  "minAppVersion": "0.15.0",
+  "description": "Display your Microsoft 365 calendar meetings in Obsidian. Click any meeting to create a linked note.",
   "author": "Eudia",
   "authorUrl": "https://eudia.ai",
   "isDesktopOnly": false

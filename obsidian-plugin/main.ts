@@ -1609,6 +1609,9 @@ class EudiaSyncSettingTab extends PluginSettingTab {
     const sfButton = sfContainer.createEl('button');
     sfButton.style.cssText = 'padding: 10px 20px; cursor: pointer; border-radius: 6px;';
     
+    // Polling interval for OAuth status
+    let pollInterval: number | null = null;
+    
     // Check status
     const checkStatus = async () => {
       if (!this.plugin.settings.userEmail) {
@@ -1616,7 +1619,7 @@ class EudiaSyncSettingTab extends PluginSettingTab {
         statusText.setText('Enter email first');
         sfButton.setText('Setup Required');
         sfButton.disabled = true;
-        return;
+        return false;
       }
       
       try {
@@ -1626,22 +1629,57 @@ class EudiaSyncSettingTab extends PluginSettingTab {
           throw: false
         });
         
-        if (response.json?.connected) {
+        // API returns 'authenticated' not 'connected'
+        if (response.json?.authenticated === true) {
           statusDot.style.cssText = 'width: 8px; height: 8px; border-radius: 50%; background: #22c55e;';
-          statusText.setText('Connected to Salesforce ✓');
+          statusText.setText('Connected to Salesforce');
           sfButton.setText('Reconnect');
+          sfButton.disabled = false;
+          return true;  // Connected
         } else {
           statusDot.style.cssText = 'width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;';
           statusText.setText('Not connected');
           sfButton.setText('Connect to Salesforce');
+          sfButton.disabled = false;
+          return false;  // Not connected
         }
-        sfButton.disabled = false;
       } catch {
         statusDot.style.cssText = 'width: 8px; height: 8px; border-radius: 50%; background: #ef4444;';
         statusText.setText('Status unavailable');
         sfButton.setText('Connect to Salesforce');
         sfButton.disabled = false;
+        return false;
       }
+    };
+    
+    // Start polling for OAuth completion
+    const startPolling = () => {
+      if (pollInterval) {
+        window.clearInterval(pollInterval);
+      }
+      
+      let attempts = 0;
+      const maxAttempts = 30;  // Poll for up to 2.5 minutes
+      
+      pollInterval = window.setInterval(async () => {
+        attempts++;
+        const isConnected = await checkStatus();
+        
+        if (isConnected) {
+          // Success! Stop polling
+          if (pollInterval) {
+            window.clearInterval(pollInterval);
+            pollInterval = null;
+          }
+          new Notice('Salesforce connected successfully!');
+        } else if (attempts >= maxAttempts) {
+          // Timeout, stop polling
+          if (pollInterval) {
+            window.clearInterval(pollInterval);
+            pollInterval = null;
+          }
+        }
+      }, 5000);  // Check every 5 seconds
     };
     
     sfButton.onclick = async () => {
@@ -1651,8 +1689,10 @@ class EudiaSyncSettingTab extends PluginSettingTab {
       }
       const authUrl = `${this.plugin.settings.serverUrl}/api/sf/auth/start?email=${encodeURIComponent(this.plugin.settings.userEmail)}`;
       window.open(authUrl, '_blank');
-      new Notice('Complete the Salesforce login and return here', 5000);
-      setTimeout(checkStatus, 5000);
+      new Notice('Complete the Salesforce login in the popup window', 5000);
+      
+      // Start polling for OAuth completion
+      startPolling();
     };
     
     checkStatus();

@@ -3002,13 +3002,14 @@ var EudiaSyncSettingTab = class extends import_obsidian3.PluginSettingTab {
     sfDesc.setText("Connect with Salesforce to sync notes with your user attribution.");
     const sfButton = sfContainer.createEl("button");
     sfButton.style.cssText = "padding: 10px 20px; cursor: pointer; border-radius: 6px;";
+    let pollInterval = null;
     const checkStatus = async () => {
       if (!this.plugin.settings.userEmail) {
         statusDot.style.cssText = "width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted);";
         statusText.setText("Enter email first");
         sfButton.setText("Setup Required");
         sfButton.disabled = true;
-        return;
+        return false;
       }
       try {
         const response = await (0, import_obsidian3.requestUrl)({
@@ -3016,22 +3017,49 @@ var EudiaSyncSettingTab = class extends import_obsidian3.PluginSettingTab {
           method: "GET",
           throw: false
         });
-        if (response.json?.connected) {
+        if (response.json?.authenticated === true) {
           statusDot.style.cssText = "width: 8px; height: 8px; border-radius: 50%; background: #22c55e;";
-          statusText.setText("Connected to Salesforce \u2713");
+          statusText.setText("Connected to Salesforce");
           sfButton.setText("Reconnect");
+          sfButton.disabled = false;
+          return true;
         } else {
           statusDot.style.cssText = "width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;";
           statusText.setText("Not connected");
           sfButton.setText("Connect to Salesforce");
+          sfButton.disabled = false;
+          return false;
         }
-        sfButton.disabled = false;
       } catch {
         statusDot.style.cssText = "width: 8px; height: 8px; border-radius: 50%; background: #ef4444;";
         statusText.setText("Status unavailable");
         sfButton.setText("Connect to Salesforce");
         sfButton.disabled = false;
+        return false;
       }
+    };
+    const startPolling = () => {
+      if (pollInterval) {
+        window.clearInterval(pollInterval);
+      }
+      let attempts = 0;
+      const maxAttempts = 30;
+      pollInterval = window.setInterval(async () => {
+        attempts++;
+        const isConnected = await checkStatus();
+        if (isConnected) {
+          if (pollInterval) {
+            window.clearInterval(pollInterval);
+            pollInterval = null;
+          }
+          new import_obsidian3.Notice("Salesforce connected successfully!");
+        } else if (attempts >= maxAttempts) {
+          if (pollInterval) {
+            window.clearInterval(pollInterval);
+            pollInterval = null;
+          }
+        }
+      }, 5e3);
     };
     sfButton.onclick = async () => {
       if (!this.plugin.settings.userEmail) {
@@ -3040,8 +3068,8 @@ var EudiaSyncSettingTab = class extends import_obsidian3.PluginSettingTab {
       }
       const authUrl = `${this.plugin.settings.serverUrl}/api/sf/auth/start?email=${encodeURIComponent(this.plugin.settings.userEmail)}`;
       window.open(authUrl, "_blank");
-      new import_obsidian3.Notice("Complete the Salesforce login and return here", 5e3);
-      setTimeout(checkStatus, 5e3);
+      new import_obsidian3.Notice("Complete the Salesforce login in the popup window", 5e3);
+      startPolling();
     };
     checkStatus();
     containerEl.createEl("h3", { text: "Server" });

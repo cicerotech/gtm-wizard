@@ -1,7 +1,21 @@
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b ||= {})
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
@@ -43,6 +57,16 @@ __export(main_exports, {
 });
 module.exports = __toCommonJS(main_exports);
 var import_obsidian = require("obsidian");
+var LOG_PREFIX = "[Eudia Calendar]";
+function log(message, ...args) {
+  console.log(`${LOG_PREFIX} ${message}`, ...args);
+}
+function logError(message, error) {
+  console.error(`${LOG_PREFIX} ERROR: ${message}`, error || "");
+}
+function logWarn(message) {
+  console.warn(`${LOG_PREFIX} WARN: ${message}`);
+}
 var DEFAULT_SETTINGS = {
   userEmail: "",
   serverUrl: "https://gtm-wizard.onrender.com",
@@ -137,12 +161,55 @@ var EudiaCalendarView = class extends import_obsidian.ItemView {
   fetchMeetings() {
     return __async(this, null, function* () {
       const { serverUrl, userEmail } = this.plugin.settings;
-      const response = yield (0, import_obsidian.requestUrl)({
-        url: `${serverUrl}/api/calendar/${userEmail}/week`,
-        method: "GET",
-        headers: { "Accept": "application/json" }
-      });
-      return response.json;
+      log(`Fetching meetings for ${userEmail} from ${serverUrl}`);
+      try {
+        try {
+          const healthCheck = yield (0, import_obsidian.requestUrl)({
+            url: `${serverUrl}/api/health`,
+            method: "GET",
+            throw: false
+          });
+          if (healthCheck.status !== 200) {
+            logWarn("Server health check failed");
+          }
+        } catch (healthError) {
+          logWarn("Server may be starting up...");
+        }
+        const response = yield (0, import_obsidian.requestUrl)({
+          url: `${serverUrl}/api/calendar/${encodeURIComponent(userEmail)}/week`,
+          method: "GET",
+          headers: { "Accept": "application/json" },
+          throw: false
+        });
+        log(`Calendar API response status: ${response.status}`);
+        if (response.status === 403) {
+          return {
+            success: false,
+            totalMeetings: 0,
+            byDay: {},
+            error: "Email not authorized. Please use your @eudia.com email address."
+          };
+        }
+        if (response.status !== 200) {
+          return {
+            success: false,
+            totalMeetings: 0,
+            byDay: {},
+            error: `Server returned ${response.status}. Please try again.`
+          };
+        }
+        const data = response.json;
+        log(`Received ${data.totalMeetings || 0} meetings`);
+        return data;
+      } catch (error) {
+        logError("Failed to fetch meetings:", error);
+        return {
+          success: false,
+          totalMeetings: 0,
+          byDay: {},
+          error: error.message || "Network error. Check your connection."
+        };
+      }
     });
   }
   renderEmailSetup(container) {
@@ -293,50 +360,115 @@ var CalendarSettingsTab = class extends import_obsidian.PluginSettingTab {
 var EudiaCalendarPlugin = class extends import_obsidian.Plugin {
   onload() {
     return __async(this, null, function* () {
-      console.log("Loading Eudia Calendar");
-      yield this.loadSettings();
-      this.registerView(VIEW_TYPE, (leaf) => new EudiaCalendarView(leaf, this));
-      this.addRibbonIcon("calendar", "Eudia Calendar", () => this.openCalendar());
-      this.addCommand({
-        id: "open-calendar",
-        name: "Open Calendar",
-        callback: () => this.openCalendar()
+      log("Plugin loading...");
+      fetch("http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "eudia-calendar/main.ts:onload", message: "Plugin onload START", data: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }, timestamp: Date.now(), sessionId: "debug-session", hypothesisId: "H2" }) }).catch(() => {
       });
-      this.addSettingTab(new CalendarSettingsTab(this.app, this));
-      if (this.settings.userEmail) {
-        this.app.workspace.onLayoutReady(() => {
+      try {
+        yield this.loadSettings();
+        log("Settings loaded:", {
+          hasEmail: !!this.settings.userEmail,
+          serverUrl: this.settings.serverUrl
+        });
+        fetch("http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "eudia-calendar/main.ts:afterSettings", message: "Settings loaded successfully", data: { settings: this.settings }, timestamp: Date.now(), sessionId: "debug-session", hypothesisId: "H4" }) }).catch(() => {
+        });
+        fetch("http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "eudia-calendar/main.ts:beforeRegisterView", message: "About to register view", data: { viewType: VIEW_TYPE }, timestamp: Date.now(), sessionId: "debug-session", hypothesisId: "H5" }) }).catch(() => {
+        });
+        this.registerView(VIEW_TYPE, (leaf) => {
+          log("Creating EudiaCalendarView");
+          return new EudiaCalendarView(leaf, this);
+        });
+        log("View registered with type:", VIEW_TYPE);
+        fetch("http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "eudia-calendar/main.ts:afterRegisterView", message: "View registered successfully", data: { viewType: VIEW_TYPE }, timestamp: Date.now(), sessionId: "debug-session", hypothesisId: "H5" }) }).catch(() => {
+        });
+        this.addRibbonIcon("calendar", "Eudia Calendar", () => {
+          log("Ribbon icon clicked");
           this.openCalendar();
         });
+        log("Ribbon icon added");
+        this.addCommand({
+          id: "open-calendar",
+          name: "Open Calendar",
+          callback: () => this.openCalendar()
+        });
+        log("Command registered");
+        this.addSettingTab(new CalendarSettingsTab(this.app, this));
+        log("Settings tab added");
+        if (this.settings.userEmail) {
+          this.app.workspace.onLayoutReady(() => {
+            log("Workspace ready, auto-opening calendar");
+            this.openCalendar();
+          });
+        }
+        log("Plugin loaded successfully!");
+        fetch("http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "eudia-calendar/main.ts:loadComplete", message: "Plugin loaded SUCCESSFULLY", data: { success: true }, timestamp: Date.now(), sessionId: "debug-session", hypothesisId: "H2" }) }).catch(() => {
+        });
+      } catch (error) {
+        logError("Failed to load plugin:", error);
+        fetch("http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "eudia-calendar/main.ts:loadFailed", message: "Plugin load FAILED", data: { error: String(error), stack: error == null ? void 0 : error.stack }, timestamp: Date.now(), sessionId: "debug-session", hypothesisId: "H2" }) }).catch(() => {
+        });
+        new import_obsidian.Notice("Eudia Calendar: Failed to load. Check console for details.");
       }
     });
   }
   loadSettings() {
     return __async(this, null, function* () {
-      this.settings = Object.assign({}, DEFAULT_SETTINGS, yield this.loadData());
+      fetch("http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "eudia-calendar/main.ts:loadSettingsStart", message: "loadSettings called", data: {}, timestamp: Date.now(), sessionId: "debug-session", hypothesisId: "H4" }) }).catch(() => {
+      });
+      try {
+        const data = yield this.loadData();
+        fetch("http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "eudia-calendar/main.ts:loadDataResult", message: "loadData returned", data: { rawData: data, type: typeof data }, timestamp: Date.now(), sessionId: "debug-session", hypothesisId: "H4" }) }).catch(() => {
+        });
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, data || {});
+        log("Settings merged:", Object.keys(this.settings));
+      } catch (error) {
+        logError("Failed to load settings, using defaults:", error);
+        fetch("http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "eudia-calendar/main.ts:loadSettingsError", message: "loadSettings FAILED", data: { error: String(error) }, timestamp: Date.now(), sessionId: "debug-session", hypothesisId: "H4" }) }).catch(() => {
+        });
+        this.settings = __spreadValues({}, DEFAULT_SETTINGS);
+      }
     });
   }
   saveSettings() {
     return __async(this, null, function* () {
-      yield this.saveData(this.settings);
+      try {
+        yield this.saveData(this.settings);
+        log("Settings saved");
+      } catch (error) {
+        logError("Failed to save settings:", error);
+        new import_obsidian.Notice("Failed to save calendar settings");
+      }
     });
   }
   openCalendar() {
     return __async(this, null, function* () {
-      const { workspace } = this.app;
-      let leaf = workspace.getLeavesOfType(VIEW_TYPE)[0];
-      if (!leaf) {
-        const rightLeaf = workspace.getRightLeaf(false);
-        if (rightLeaf) {
-          yield rightLeaf.setViewState({ type: VIEW_TYPE, active: true });
-          leaf = rightLeaf;
+      log("Opening calendar view...");
+      try {
+        const { workspace } = this.app;
+        let leaf = workspace.getLeavesOfType(VIEW_TYPE)[0];
+        log("Existing leaf found:", !!leaf);
+        if (!leaf) {
+          const rightLeaf = workspace.getRightLeaf(false);
+          if (rightLeaf) {
+            log("Creating new view in right leaf");
+            yield rightLeaf.setViewState({ type: VIEW_TYPE, active: true });
+            leaf = rightLeaf;
+          } else {
+            logWarn("Could not get right leaf");
+          }
         }
-      }
-      if (leaf) {
-        workspace.revealLeaf(leaf);
+        if (leaf) {
+          workspace.revealLeaf(leaf);
+          log("Calendar view revealed");
+        } else {
+          logError("No leaf available for calendar view");
+        }
+      } catch (error) {
+        logError("Failed to open calendar:", error);
+        new import_obsidian.Notice("Could not open calendar view");
       }
     });
   }
   onunload() {
-    console.log("Unloading Eudia Calendar");
+    log("Plugin unloading...");
   }
 };
