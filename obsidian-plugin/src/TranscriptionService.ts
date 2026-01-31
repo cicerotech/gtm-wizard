@@ -987,71 +987,71 @@ export class TranscriptionService {
     
     // Pain points are critical - show prominently if present
     if (sections.painPoints && !sections.painPoints.includes('None explicitly stated')) {
-      content += `## 😰 Pain Points\n\n${sections.painPoints}\n\n`;
+      content += `## Pain Points\n\n${sections.painPoints}\n\n`;
     }
 
-    // Product interest with emoji for visibility
+    // Product interest
     if (sections.productInterest && !sections.productInterest.includes('None identified')) {
-      content += `## 🎯 Product Interest\n\n${sections.productInterest}\n\n`;
+      content += `## Product Interest\n\n${sections.productInterest}\n\n`;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PRIORITY 3: MEDDICC Signals - With evidence (only show detected signals)
     // ═══════════════════════════════════════════════════════════════════════════
     if (sections.meddiccSignals) {
-      content += `## 📊 MEDDICC Signals\n\n${sections.meddiccSignals}\n\n`;
+      content += `## MEDDICC Signals\n\n${sections.meddiccSignals}\n\n`;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PRIORITY 4: Next Steps - Actionable checklist format
     // ═══════════════════════════════════════════════════════════════════════════
     if (sections.nextSteps) {
-      content += `## ✅ Next Steps\n\n${sections.nextSteps}\n\n`;
+      content += `## Next Steps\n\n${sections.nextSteps}\n\n`;
     }
 
     // Internal action items
     if (sections.actionItems) {
-      content += `## 📋 Action Items (Internal)\n\n${sections.actionItems}\n\n`;
+      content += `## Action Items (Internal)\n\n${sections.actionItems}\n\n`;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PRIORITY 5: Timeline & Context
     // ═══════════════════════════════════════════════════════════════════════════
     if (sections.keyDates && !sections.keyDates.includes('No specific dates')) {
-      content += `## 📅 Key Dates\n\n${sections.keyDates}\n\n`;
+      content += `## Key Dates\n\n${sections.keyDates}\n\n`;
     }
 
     if (sections.buyingTriggers) {
-      content += `## ⚡ Buying Triggers\n\n${sections.buyingTriggers}\n\n`;
+      content += `## Buying Triggers\n\n${sections.buyingTriggers}\n\n`;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PRIORITY 6: Deal Health & Risks
     // ═══════════════════════════════════════════════════════════════════════════
     if (sections.dealSignals) {
-      content += `## 📈 Deal Signals\n\n${sections.dealSignals}\n\n`;
+      content += `## Deal Signals\n\n${sections.dealSignals}\n\n`;
     }
 
     if (sections.risksObjections && !sections.risksObjections.includes('None raised')) {
-      content += `## ⚠️ Risks & Objections\n\n${sections.risksObjections}\n\n`;
+      content += `## Risks & Objections\n\n${sections.risksObjections}\n\n`;
     }
 
     if (sections.competitiveIntel && !sections.competitiveIntel.includes('No competitive')) {
-      content += `## ⚔️ Competitive Intelligence\n\n${sections.competitiveIntel}\n\n`;
+      content += `## Competitive Intelligence\n\n${sections.competitiveIntel}\n\n`;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PRIORITY 7: Supporting Details
     // ═══════════════════════════════════════════════════════════════════════════
     if (sections.attendees) {
-      content += `## 👥 Attendees\n\n${sections.attendees}\n\n`;
+      content += `## Attendees\n\n${sections.attendees}\n\n`;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // TRANSCRIPT: Collapsible for reference
     // ═══════════════════════════════════════════════════════════════════════════
     if (transcript) {
-      content += `---\n\n<details>\n<summary><strong>📝 Full Transcript</strong></summary>\n\n${transcript}\n\n</details>\n`;
+      content += `---\n\n<details>\n<summary><strong>Full Transcript</strong></summary>\n\n${transcript}\n\n</details>\n`;
     }
 
     return content;

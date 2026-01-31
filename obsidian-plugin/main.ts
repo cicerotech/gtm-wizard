@@ -1302,6 +1302,8 @@ title: "${sections.title || 'Meeting Notes'}"
 date: ${new Date().toISOString().split('T')[0]}
 transcribed: true
 sync_to_salesforce: false
+clo_meeting: false
+source: ""
 confidence: ${transcription.confidence}
 ---
 

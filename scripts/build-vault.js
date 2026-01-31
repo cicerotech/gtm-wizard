@@ -16,11 +16,12 @@ const XLSX = require('xlsx');
 const archiver = require('archiver');
 
 // Configuration
-const VAULT_NAME = 'Eudia BLS 2026 Vault';
+const VAULT_NAME = 'BL Sales Vault';
 const ACCOUNTS_FILE = path.join(__dirname, '..', '..', '..', 'Desktop', 'accts.xlsx');
 const OUTPUT_DIR = path.join(__dirname, '..', 'dist', 'vault');
-const ZIP_OUTPUT = path.join(__dirname, '..', 'dist', 'Eudia-BLS-2026-Vault.zip');
+const ZIP_OUTPUT = path.join(__dirname, '..', 'dist', 'BL-Sales-Vault.zip');
 const PLUGIN_DIR = path.join(__dirname, '..', 'obsidian-plugin');
+const CALENDAR_PLUGIN_DIR = path.join(__dirname, '..', 'eudia-calendar-plugin');
 
 // OpenAI API key (read from environment or placeholder)
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'sk-proj-YOUR_API_KEY_HERE';
@@ -68,6 +69,8 @@ account: "${accountName}"
 account_id: "${accountId}"
 owner: "${accountOwner}"
 sync_to_salesforce: false
+clo_meeting: false
+source: ""
 transcribed: false
 ---
 
@@ -102,7 +105,7 @@ function createSetupFiles(outputDir) {
   fs.mkdirSync(setupDir, { recursive: true });
   
   // Welcome.md
-  const welcomeContent = `# Welcome to ${VAULT_NAME} 🎯
+  const welcomeContent = `# Welcome to ${VAULT_NAME}
 
 This vault is pre-configured with:
 - **266 accounts** from your pipeline, each with 5 note templates
@@ -133,6 +136,15 @@ This vault is pre-configured with:
    - MEDDICC signals
    - Next steps (as checkboxes)
 2. Click "Sync to Salesforce" to push notes to the account
+
+## Note Properties
+
+Each note has frontmatter properties you can edit:
+- **clo_meeting**: Check if this was a CLO (Chief Legal Officer) meeting
+- **source**: How the meeting came about. Recommended values:
+  - \`referral\`
+  - \`cold outreach\`
+  - \`BL sourced\`
 
 ## Tips
 
@@ -271,6 +283,42 @@ function copyPluginFiles(sourceDir, destDir) {
 }
 
 /**
+ * Copy calendar plugin files to vault
+ */
+function copyCalendarPlugin(sourceDir, destDir) {
+  const pluginDest = path.join(destDir, '.obsidian', 'plugins', 'eudia-calendar');
+  fs.mkdirSync(pluginDest, { recursive: true });
+  
+  // Copy main.js, styles.css, manifest.json
+  const filesToCopy = ['main.js', 'styles.css', 'manifest.json'];
+  
+  for (const file of filesToCopy) {
+    const sourcePath = path.join(sourceDir, file);
+    if (fs.existsSync(sourcePath)) {
+      fs.copyFileSync(sourcePath, path.join(pluginDest, file));
+      console.log(`   Copied calendar ${file}`);
+    } else {
+      console.warn(`   Warning: calendar ${file} not found in ${sourceDir}`);
+    }
+  }
+  
+  // Create pre-configured data.json for calendar plugin
+  const calendarData = {
+    userEmail: '',
+    serverUrl: 'https://gtm-wizard.onrender.com',
+    refreshMinutes: 5
+  };
+  
+  fs.writeFileSync(
+    path.join(pluginDest, 'data.json'),
+    JSON.stringify(calendarData, null, 2)
+  );
+  
+  console.log('📅 Copied calendar plugin with settings');
+  return pluginDest;
+}
+
+/**
  * Create Obsidian configuration files
  */
 function createObsidianConfig(outputDir) {
@@ -295,8 +343,8 @@ function createObsidianConfig(outputDir) {
     JSON.stringify(appConfig, null, 2)
   );
   
-  // community-plugins.json - Enable our plugin
-  const communityPlugins = ['eudia-transcription'];
+  // community-plugins.json - Enable both plugins
+  const communityPlugins = ['eudia-transcription', 'eudia-calendar'];
   
   fs.writeFileSync(
     path.join(obsidianDir, 'community-plugins.json'),
@@ -445,8 +493,9 @@ async function buildVault() {
   // Step 3: Configure Obsidian
   createObsidianConfig(OUTPUT_DIR);
   
-  // Step 4: Copy and configure plugin
+  // Step 4: Copy and configure plugins
   copyPluginFiles(PLUGIN_DIR, OUTPUT_DIR);
+  copyCalendarPlugin(CALENDAR_PLUGIN_DIR, OUTPUT_DIR);
   
   // Step 5: Create ZIP archive
   await createZipArchive(OUTPUT_DIR, ZIP_OUTPUT);

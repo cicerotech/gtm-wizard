@@ -1716,7 +1716,7 @@ class GTMBrainApp {
 
     // ═══════════════════════════════════════════════════════════════════════════
     // OBSIDIAN VAULT DOWNLOAD
-    // Serves the pre-built Eudia BLS 2026 Vault with all account folders and notes
+    // Serves the pre-built BL Sales Vault with all account folders and notes
     // Built using: node scripts/build-vault.js
     // ═══════════════════════════════════════════════════════════════════════════
     this.expressApp.get('/vault/download', async (req, res) => {
@@ -1725,7 +1725,7 @@ class GTMBrainApp {
         const fs = require('fs');
         
         // Serve the pre-built vault ZIP from public/downloads
-        const vaultZipPath = path.join(__dirname, '..', 'public', 'downloads', 'Eudia-BLS-2026-Vault.zip');
+        const vaultZipPath = path.join(__dirname, '..', 'public', 'downloads', 'BL-Sales-Vault.zip');
         
         // Check if pre-built vault exists
         if (!fs.existsSync(vaultZipPath)) {
@@ -1741,7 +1741,7 @@ class GTMBrainApp {
           logger.info(`Generating Obsidian vault with ${validAccounts.length} account folders`);
           
           res.setHeader('Content-Type', 'application/zip');
-          res.setHeader('Content-Disposition', 'attachment; filename="Eudia-BLS-2026-Vault.zip"');
+          res.setHeader('Content-Disposition', 'attachment; filename="BL-Sales-Vault.zip"');
           
           const archive = archiver('zip', { zlib: { level: 9 } });
           archive.pipe(res);
@@ -1749,11 +1749,11 @@ class GTMBrainApp {
           // Add template vault files from disk
           const vaultTemplatePath = path.join(__dirname, '..', 'vault-template');
           if (fs.existsSync(path.join(vaultTemplatePath, '.obsidian'))) {
-            archive.directory(path.join(vaultTemplatePath, '.obsidian'), 'Eudia BLS 2026 Vault/.obsidian');
+            archive.directory(path.join(vaultTemplatePath, '.obsidian'), 'BL Sales Vault/.obsidian');
           }
           
           // Create 00 - Setup folder
-          const welcomeMd = `# Welcome to Eudia BLS 2026 Vault 🎯
+          const welcomeMd = `# Welcome to BL Sales Vault
 
 This vault is pre-configured with:
 - **All accounts** from your pipeline, each with 5 note templates
@@ -1761,11 +1761,11 @@ This vault is pre-configured with:
 - **Automatic Salesforce sync** for meeting notes
 
 ## Quick Start
-1. **Connect your calendar** by clicking the 📅 Calendar icon
+1. **Connect your calendar** by clicking the Calendar icon
 2. **Enter your @eudia.com email** when prompted
-3. **Start transcribing meetings** by clicking the 🎙️ microphone icon
+3. **Start transcribing meetings** by clicking the microphone icon
 `;
-          archive.append(welcomeMd, { name: 'Eudia BLS 2026 Vault/00 - Setup/Welcome.md' });
+          archive.append(welcomeMd, { name: 'BL Sales Vault/00 - Setup/Welcome.md' });
           
           // Create account folders with 5 notes each
           for (const account of validAccounts) {
@@ -1785,12 +1785,12 @@ sync_to_salesforce: false
 
 *Click the microphone icon to transcribe a meeting, or start typing notes.*
 `;
-              archive.append(noteContent, { name: `Eudia BLS 2026 Vault/Accounts/${safeName}/Note ${i}.md` });
+              archive.append(noteContent, { name: `BL Sales Vault/Accounts/${safeName}/Note ${i}.md` });
             }
           }
           
           // Add Recordings folder
-          archive.append('', { name: 'Eudia BLS 2026 Vault/Recordings/.gitkeep' });
+          archive.append('', { name: 'BL Sales Vault/Recordings/.gitkeep' });
           
           await archive.finalize();
           logger.info('Dynamic vault generation completed');
@@ -1798,9 +1798,9 @@ sync_to_salesforce: false
         }
         
         // Serve the pre-built vault
-        logger.info('Serving pre-built Eudia BLS 2026 Vault');
+        logger.info('Serving pre-built BL Sales Vault');
         res.setHeader('Content-Type', 'application/zip');
-        res.setHeader('Content-Disposition', 'attachment; filename="Eudia-BLS-2026-Vault.zip"');
+        res.setHeader('Content-Disposition', 'attachment; filename="BL-Sales-Vault.zip"');
         
         const fileStream = fs.createReadStream(vaultZipPath);
         fileStream.pipe(res);

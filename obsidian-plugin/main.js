@@ -1092,77 +1092,77 @@ ${sections.summary}
 `;
     }
     if (sections.painPoints && !sections.painPoints.includes("None explicitly stated")) {
-      content += `## \u{1F630} Pain Points
+      content += `## Pain Points
 
 ${sections.painPoints}
 
 `;
     }
     if (sections.productInterest && !sections.productInterest.includes("None identified")) {
-      content += `## \u{1F3AF} Product Interest
+      content += `## Product Interest
 
 ${sections.productInterest}
 
 `;
     }
     if (sections.meddiccSignals) {
-      content += `## \u{1F4CA} MEDDICC Signals
+      content += `## MEDDICC Signals
 
 ${sections.meddiccSignals}
 
 `;
     }
     if (sections.nextSteps) {
-      content += `## \u2705 Next Steps
+      content += `## Next Steps
 
 ${sections.nextSteps}
 
 `;
     }
     if (sections.actionItems) {
-      content += `## \u{1F4CB} Action Items (Internal)
+      content += `## Action Items (Internal)
 
 ${sections.actionItems}
 
 `;
     }
     if (sections.keyDates && !sections.keyDates.includes("No specific dates")) {
-      content += `## \u{1F4C5} Key Dates
+      content += `## Key Dates
 
 ${sections.keyDates}
 
 `;
     }
     if (sections.buyingTriggers) {
-      content += `## \u26A1 Buying Triggers
+      content += `## Buying Triggers
 
 ${sections.buyingTriggers}
 
 `;
     }
     if (sections.dealSignals) {
-      content += `## \u{1F4C8} Deal Signals
+      content += `## Deal Signals
 
 ${sections.dealSignals}
 
 `;
     }
     if (sections.risksObjections && !sections.risksObjections.includes("None raised")) {
-      content += `## \u26A0\uFE0F Risks & Objections
+      content += `## Risks & Objections
 
 ${sections.risksObjections}
 
 `;
     }
     if (sections.competitiveIntel && !sections.competitiveIntel.includes("No competitive")) {
-      content += `## \u2694\uFE0F Competitive Intelligence
+      content += `## Competitive Intelligence
 
 ${sections.competitiveIntel}
 
 `;
     }
     if (sections.attendees) {
-      content += `## \u{1F465} Attendees
+      content += `## Attendees
 
 ${sections.attendees}
 
@@ -1172,7 +1172,7 @@ ${sections.attendees}
       content += `---
 
 <details>
-<summary><strong>\u{1F4DD} Full Transcript</strong></summary>
+<summary><strong>Full Transcript</strong></summary>
 
 ${transcript}
 
@@ -2765,6 +2765,8 @@ title: "${sections.title || "Meeting Notes"}"
 date: ${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}
 transcribed: true
 sync_to_salesforce: false
+clo_meeting: false
+source: ""
 confidence: ${transcription.confidence}
 ---
 
