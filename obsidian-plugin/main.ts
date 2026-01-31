@@ -2394,12 +2394,23 @@ recording_date: ${dateStr}
               notePath: activeFile.path,
               content: content,
               frontmatter: frontmatter,
-              syncedAt: new Date().toISOString()
+              syncedAt: new Date().toISOString(),
+              userEmail: this.settings.userEmail || undefined  // For per-user OAuth attribution
             })
           });
 
+          // Check if authentication is required
+          if (response.json.authRequired && response.json.authUrl) {
+            new Notice('Salesforce authentication required. Opening login...', 5000);
+            window.open(`${this.settings.serverUrl}${response.json.authUrl}`, '_blank');
+            return;
+          }
+
           if (response.json.success) {
-            new Notice('✓ Note synced to Salesforce');
+            const syncedBy = response.json.data?.salesforce?.usedUserToken 
+              ? ` (as ${this.settings.userEmail})` 
+              : '';
+            new Notice(`✓ Note synced to Salesforce${syncedBy}`);
             
             // Update frontmatter to mark as synced
             await this.updateFrontmatter(activeFile, {
@@ -2971,6 +2982,80 @@ class EudiaSyncSettingTab extends PluginSettingTab {
         text.inputEl.type = 'password';
         text.inputEl.style.width = '300px';
       });
+
+    // Salesforce OAuth section
+    containerEl.createEl('h3', { text: 'Salesforce Authentication' });
+    
+    const sfAuthContainer = containerEl.createDiv({ cls: 'sf-auth-container' });
+    sfAuthContainer.style.cssText = 'padding: 12px; background: var(--background-secondary); border-radius: 8px; margin-bottom: 16px;';
+    
+    const sfAuthStatus = sfAuthContainer.createDiv({ cls: 'sf-auth-status' });
+    sfAuthStatus.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 8px;';
+    
+    const statusIndicator = sfAuthStatus.createSpan();
+    const statusText = sfAuthStatus.createSpan();
+    
+    const sfAuthDesc = sfAuthContainer.createDiv();
+    sfAuthDesc.style.cssText = 'font-size: 12px; color: var(--text-muted); margin-bottom: 12px;';
+    sfAuthDesc.setText('Connect with Salesforce to sync notes with your user attribution (shows your name as LastModifiedBy).');
+    
+    const sfAuthButton = sfAuthContainer.createEl('button');
+    sfAuthButton.style.cssText = 'padding: 8px 16px; cursor: pointer;';
+    
+    // Check OAuth status
+    const checkSfAuthStatus = async () => {
+      if (!this.plugin.settings.userEmail) {
+        statusIndicator.style.cssText = 'width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted);';
+        statusText.setText('Enter your email above first');
+        sfAuthButton.setText('Setup Required');
+        sfAuthButton.disabled = true;
+        return;
+      }
+      
+      try {
+        const response = await requestUrl({
+          url: `${this.plugin.settings.serverUrl}/api/sf/auth/status?email=${encodeURIComponent(this.plugin.settings.userEmail)}`,
+          method: 'GET'
+        });
+        
+        if (response.json.authenticated) {
+          statusIndicator.style.cssText = 'width: 8px; height: 8px; border-radius: 50%; background: #22c55e;';
+          statusText.setText(`Connected${response.json.expired ? ' (refreshing...)' : ''}`);
+          sfAuthButton.setText('Reconnect');
+          sfAuthButton.disabled = false;
+        } else {
+          statusIndicator.style.cssText = 'width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;';
+          statusText.setText('Not connected');
+          sfAuthButton.setText('Connect to Salesforce');
+          sfAuthButton.disabled = false;
+        }
+      } catch (error) {
+        statusIndicator.style.cssText = 'width: 8px; height: 8px; border-radius: 50%; background: #ef4444;';
+        statusText.setText('Unable to check status');
+        sfAuthButton.setText('Connect to Salesforce');
+        sfAuthButton.disabled = false;
+      }
+    };
+    
+    sfAuthButton.addEventListener('click', async () => {
+      if (!this.plugin.settings.userEmail) {
+        new Notice('Please enter your email address first');
+        return;
+      }
+      
+      const authUrl = `${this.plugin.settings.serverUrl}/api/sf/auth/start?email=${encodeURIComponent(this.plugin.settings.userEmail)}`;
+      window.open(authUrl, '_blank');
+      
+      new Notice('Opening Salesforce login... Complete the login and return here.', 5000);
+      
+      // Check status after a delay (user may take time to complete OAuth)
+      setTimeout(async () => {
+        await checkSfAuthStatus();
+      }, 5000);
+    });
+    
+    // Initial status check
+    checkSfAuthStatus();
 
     // Folder settings
     containerEl.createEl('h3', { text: 'Folders' });

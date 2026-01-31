@@ -375,6 +375,26 @@ class GTMBrainApp {
         // Don't throw - app can still run, just without calendar caching
       }
 
+      // Initialize User Token Service (for SF OAuth per-user auth)
+      try {
+        const intelligenceStore = require('./services/intelligenceStore');
+        const userTokenService = require('./services/userTokenService');
+        
+        // Ensure intelligence store DB is initialized
+        await intelligenceStore.initialize();
+        const db = intelligenceStore.getDb();
+        
+        if (db) {
+          await userTokenService.init(db);
+          logger.info('✅ User token service initialized');
+        } else {
+          logger.warn('⚠️  User token service skipped - database not available');
+        }
+      } catch (tokenError) {
+        logger.warn('⚠️  User token service failed to initialize:', tokenError.message);
+        // Don't throw - app can still run, just without per-user OAuth
+      }
+
     } catch (error) {
       logger.error('Failed to initialize external services:', error);
       throw error;
@@ -1805,12 +1825,276 @@ sync_to_salesforce: false
     });
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // SALESFORCE OAUTH ENDPOINTS
+    // Per-user OAuth authentication for note sync with user attribution
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Start OAuth flow - redirects user to Salesforce login
+    this.expressApp.get('/api/sf/auth/start', async (req, res) => {
+      try {
+        const { email } = req.query;
+        
+        if (!email) {
+          return res.status(400).json({
+            success: false,
+            error: 'Email parameter required'
+          });
+        }
+        
+        const clientId = process.env.SF_OAUTH_CLIENT_ID;
+        const redirectUri = process.env.SF_OAUTH_REDIRECT_URI || 'https://gtm-wizard.onrender.com/api/sf/auth/callback';
+        
+        if (!clientId) {
+          return res.status(500).json({
+            success: false,
+            error: 'Salesforce OAuth not configured. Contact your administrator.'
+          });
+        }
+        
+        // Generate state parameter to prevent CSRF and carry email
+        const state = Buffer.from(JSON.stringify({ 
+          email: email.toLowerCase(),
+          timestamp: Date.now()
+        })).toString('base64url');
+        
+        // Salesforce OAuth authorization URL
+        const authUrl = new URL('https://login.salesforce.com/services/oauth2/authorize');
+        authUrl.searchParams.set('response_type', 'code');
+        authUrl.searchParams.set('client_id', clientId);
+        authUrl.searchParams.set('redirect_uri', redirectUri);
+        authUrl.searchParams.set('scope', 'api refresh_token offline_access');
+        authUrl.searchParams.set('state', state);
+        authUrl.searchParams.set('prompt', 'login'); // Always show login
+        
+        logger.info(`🔐 Starting SF OAuth for ${email}`);
+        res.redirect(authUrl.toString());
+        
+      } catch (error) {
+        logger.error('Error starting SF OAuth:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // OAuth callback - receives code from Salesforce, exchanges for tokens
+    this.expressApp.get('/api/sf/auth/callback', async (req, res) => {
+      try {
+        const { code, state, error: oauthError, error_description } = req.query;
+        
+        if (oauthError) {
+          logger.error(`SF OAuth error: ${oauthError} - ${error_description}`);
+          return res.status(400).send(`
+            <html>
+            <head><title>Authentication Failed</title></head>
+            <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+              <h1>Authentication Failed</h1>
+              <p style="color: red;">${error_description || oauthError}</p>
+              <p>Please close this window and try again.</p>
+            </body>
+            </html>
+          `);
+        }
+        
+        if (!code || !state) {
+          return res.status(400).send('Missing authorization code or state');
+        }
+        
+        // Decode state to get email
+        let stateData;
+        try {
+          stateData = JSON.parse(Buffer.from(state, 'base64url').toString());
+        } catch (e) {
+          return res.status(400).send('Invalid state parameter');
+        }
+        
+        const { email } = stateData;
+        if (!email) {
+          return res.status(400).send('Email not found in state');
+        }
+        
+        // Exchange code for tokens
+        const clientId = process.env.SF_OAUTH_CLIENT_ID;
+        const clientSecret = process.env.SF_OAUTH_CLIENT_SECRET;
+        const redirectUri = process.env.SF_OAUTH_REDIRECT_URI || 'https://gtm-wizard.onrender.com/api/sf/auth/callback';
+        
+        const tokenResponse = await fetch('https://login.salesforce.com/services/oauth2/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            code,
+            client_id: clientId,
+            client_secret: clientSecret,
+            redirect_uri: redirectUri
+          })
+        });
+        
+        if (!tokenResponse.ok) {
+          const errorBody = await tokenResponse.text();
+          logger.error(`SF token exchange failed: ${errorBody}`);
+          return res.status(400).send(`
+            <html>
+            <head><title>Token Exchange Failed</title></head>
+            <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+              <h1>Token Exchange Failed</h1>
+              <p>Please close this window and try again.</p>
+            </body>
+            </html>
+          `);
+        }
+        
+        const tokens = await tokenResponse.json();
+        
+        // Store tokens using the token service
+        const userTokenService = require('./services/userTokenService');
+        await userTokenService.storeTokens(email, {
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          instance_url: tokens.instance_url,
+          expires_in: 7200 // SF tokens expire in 2 hours
+        });
+        
+        logger.info(`✅ SF OAuth complete for ${email} - tokens stored`);
+        
+        // Return success page
+        res.send(`
+          <html>
+          <head>
+            <title>Connected to Salesforce</title>
+            <style>
+              body { font-family: -apple-system, sans-serif; padding: 60px; text-align: center; background: #f8fafc; }
+              .success { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+              .checkmark { font-size: 60px; margin-bottom: 20px; }
+              h1 { color: #1a1a1a; margin-bottom: 10px; }
+              p { color: #666; }
+              .email { font-weight: bold; color: #0066cc; }
+            </style>
+          </head>
+          <body>
+            <div class="success">
+              <div class="checkmark">✅</div>
+              <h1>Connected!</h1>
+              <p>Salesforce is now linked for</p>
+              <p class="email">${email}</p>
+              <p style="margin-top: 20px; font-size: 14px;">You can close this window and return to Obsidian.</p>
+            </div>
+          </body>
+          </html>
+        `);
+        
+      } catch (error) {
+        logger.error('Error in SF OAuth callback:', error);
+        res.status(500).send(`
+          <html>
+          <head><title>Error</title></head>
+          <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+            <h1>Something went wrong</h1>
+            <p>${error.message}</p>
+          </body>
+          </html>
+        `);
+      }
+    });
+    
+    // Check if user has valid SF OAuth tokens
+    this.expressApp.get('/api/sf/auth/status', async (req, res) => {
+      try {
+        const { email } = req.query;
+        
+        if (!email) {
+          return res.status(400).json({
+            success: false,
+            error: 'Email parameter required'
+          });
+        }
+        
+        const userTokenService = require('./services/userTokenService');
+        const status = await userTokenService.checkAuthStatus(email);
+        
+        res.json({
+          success: true,
+          email: email.toLowerCase(),
+          ...status
+        });
+        
+      } catch (error) {
+        logger.error('Error checking SF auth status:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Revoke user's SF tokens (admin only)
+    this.expressApp.post('/api/sf/auth/revoke', async (req, res) => {
+      try {
+        const { email, adminKey } = req.body;
+        
+        // Simple admin key check (should use proper auth in production)
+        const expectedAdminKey = process.env.ADMIN_API_KEY || 'eudia-admin-key';
+        if (adminKey !== expectedAdminKey) {
+          return res.status(403).json({
+            success: false,
+            error: 'Invalid admin key'
+          });
+        }
+        
+        if (!email) {
+          return res.status(400).json({
+            success: false,
+            error: 'Email parameter required'
+          });
+        }
+        
+        const userTokenService = require('./services/userTokenService');
+        await userTokenService.revokeTokens(email);
+        
+        logger.info(`🗑️ Admin revoked tokens for ${email}`);
+        
+        res.json({
+          success: true,
+          message: `Tokens revoked for ${email}`
+        });
+        
+      } catch (error) {
+        logger.error('Error revoking SF tokens:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // List all authenticated users (admin only)
+    this.expressApp.get('/api/sf/auth/users', async (req, res) => {
+      try {
+        const { adminKey } = req.query;
+        
+        const expectedAdminKey = process.env.ADMIN_API_KEY || 'eudia-admin-key';
+        if (adminKey !== expectedAdminKey) {
+          return res.status(403).json({
+            success: false,
+            error: 'Invalid admin key'
+          });
+        }
+        
+        const userTokenService = require('./services/userTokenService');
+        const users = await userTokenService.listAuthenticatedUsers();
+        
+        res.json({
+          success: true,
+          count: users.length,
+          users
+        });
+        
+      } catch (error) {
+        logger.error('Error listing authenticated users:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // OBSIDIAN NOTE SYNC
     // Receives notes from Obsidian plugin and appends to Customer_Brain__c
+    // Supports per-user OAuth for proper attribution (LastModifiedBy)
     // ═══════════════════════════════════════════════════════════════════════════
     this.expressApp.post('/api/notes/sync', async (req, res) => {
       try {
-        const { accountId, accountName, noteTitle, notePath, content, frontmatter, syncedAt } = req.body;
+        const { accountId, accountName, noteTitle, notePath, content, frontmatter, syncedAt, userEmail } = req.body;
         
         if (!accountId || !noteTitle) {
           return res.status(400).json({ 
@@ -1819,7 +2103,7 @@ sync_to_salesforce: false
           });
         }
 
-        logger.info(`Obsidian note sync: "${noteTitle}" for account ${accountName} (${accountId})`);
+        logger.info(`Obsidian note sync: "${noteTitle}" for account ${accountName} (${accountId})${userEmail ? ` by ${userEmail}` : ''}`);
         
         // Extract summary from content (between ## Summary and next ##)
         let summary = '';
@@ -1846,31 +2130,103 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
 `;
         
         // Push to Salesforce Customer_Brain__c
-        let sfResult = { updated: false };
+        let sfResult = { updated: false, usedUserToken: false };
+        
         try {
-          if (this.salesforceClient) {
+          let sfClient = null;
+          
+          // Try to use per-user OAuth token if userEmail is provided
+          if (userEmail) {
+            try {
+              const userTokenService = require('./services/userTokenService');
+              const jsforce = require('jsforce');
+              
+              const tokens = await userTokenService.getTokens(userEmail);
+              
+              if (tokens && tokens.accessToken) {
+                // Check if token is expired and needs refresh
+                if (tokens.isExpired && tokens.refreshToken) {
+                  logger.info(`🔄 Refreshing expired token for ${userEmail}`);
+                  
+                  const clientId = process.env.SF_OAUTH_CLIENT_ID;
+                  const clientSecret = process.env.SF_OAUTH_CLIENT_SECRET;
+                  
+                  const refreshResponse = await fetch('https://login.salesforce.com/services/oauth2/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                      grant_type: 'refresh_token',
+                      refresh_token: tokens.refreshToken,
+                      client_id: clientId,
+                      client_secret: clientSecret
+                    })
+                  });
+                  
+                  if (refreshResponse.ok) {
+                    const newTokens = await refreshResponse.json();
+                    await userTokenService.updateAccessToken(userEmail, newTokens.access_token);
+                    tokens.accessToken = newTokens.access_token;
+                    tokens.instanceUrl = newTokens.instance_url || tokens.instanceUrl;
+                  } else {
+                    logger.warn(`Token refresh failed for ${userEmail}, falling back to admin connection`);
+                  }
+                }
+                
+                // Create per-user connection
+                if (tokens.accessToken && !tokens.isExpired) {
+                  sfClient = new jsforce.Connection({
+                    instanceUrl: tokens.instanceUrl,
+                    accessToken: tokens.accessToken
+                  });
+                  sfResult.usedUserToken = true;
+                  sfResult.syncedBy = userEmail;
+                  logger.info(`🔐 Using OAuth token for ${userEmail}`);
+                }
+              } else {
+                logger.info(`No OAuth token for ${userEmail}, falling back to admin connection`);
+              }
+            } catch (tokenError) {
+              logger.warn(`Error getting user token for ${userEmail}:`, tokenError.message);
+              // Fall through to admin connection
+            }
+          }
+          
+          // Fall back to admin connection if no user token
+          if (!sfClient && this.salesforceClient) {
+            sfClient = this.salesforceClient;
+            sfResult.usedAdminConnection = true;
+          }
+          
+          if (sfClient) {
             // Get current Customer Brain
-            const account = await this.salesforceClient.sobject('Account').retrieve(accountId, ['Customer_Brain__c']);
+            const account = await sfClient.sobject('Account').retrieve(accountId, ['Customer_Brain__c']);
             const currentBrain = account.Customer_Brain__c || '';
             
             // Prepend new meeting note (most recent first)
             const updatedBrain = meetingNote + currentBrain;
             
             // Update Salesforce
-            await this.salesforceClient.sobject('Account').update({
+            await sfClient.sobject('Account').update({
               Id: accountId,
               Customer_Brain__c: updatedBrain.substring(0, 131072) // Truncate to SF field limit
             });
             
-            sfResult = { updated: true, field: 'Customer_Brain__c' };
-            logger.info(`Salesforce Customer_Brain__c updated for ${accountName}`);
+            sfResult.updated = true;
+            sfResult.field = 'Customer_Brain__c';
+            logger.info(`✅ Salesforce Customer_Brain__c updated for ${accountName}${sfResult.usedUserToken ? ` (by ${userEmail})` : ' (admin)'}`);
           } else {
-            logger.warn('Salesforce client not available for note sync');
-            sfResult = { updated: false, reason: 'Salesforce not connected' };
+            logger.warn('No Salesforce client available for note sync');
+            sfResult = { updated: false, reason: 'Salesforce not connected. Please authenticate first.' };
           }
         } catch (sfError) {
           logger.error('Failed to update Salesforce:', sfError.message);
           sfResult = { updated: false, error: sfError.message };
+          
+          // If it's a session error and we used user token, suggest re-auth
+          if (sfError.errorCode === 'INVALID_SESSION_ID' && userEmail) {
+            sfResult.authRequired = true;
+            sfResult.authUrl = `/api/sf/auth/start?email=${encodeURIComponent(userEmail)}`;
+          }
         }
         
         // Extract key meeting data from content
@@ -1892,9 +2248,15 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
         logger.info('Meeting data extracted:', JSON.stringify(meetingData, null, 2));
         
         res.json({ 
-          success: true, 
-          message: sfResult.updated ? 'Note synced to Salesforce' : 'Note received (Salesforce update pending)',
-          data: meetingData
+          success: sfResult.updated,
+          message: sfResult.updated 
+            ? `Note synced to Salesforce${sfResult.usedUserToken ? ` as ${userEmail}` : ''}` 
+            : sfResult.authRequired 
+              ? 'Authentication required. Please connect to Salesforce first.'
+              : 'Note received but Salesforce update failed',
+          data: meetingData,
+          authRequired: sfResult.authRequired,
+          authUrl: sfResult.authUrl
         });
 
       } catch (error) {
