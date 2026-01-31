@@ -71,7 +71,7 @@ interface WeekResponse {
 // CALENDAR VIEW
 // ═══════════════════════════════════════════════════════════════════════════
 
-const VIEW_TYPE = 'eudia-calendar-view';
+const VIEW_TYPE = 'eudia-calendar-standalone';
 
 class EudiaCalendarView extends ItemView {
   plugin: EudiaCalendarPlugin;

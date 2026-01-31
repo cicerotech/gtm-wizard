@@ -72,7 +72,7 @@ var DEFAULT_SETTINGS = {
   serverUrl: "https://gtm-wizard.onrender.com",
   refreshMinutes: 5
 };
-var VIEW_TYPE = "eudia-calendar-view";
+var VIEW_TYPE = "eudia-calendar-standalone";
 var EudiaCalendarView = class extends import_obsidian.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
