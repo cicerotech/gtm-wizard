@@ -1841,7 +1841,7 @@ sync_to_salesforce: false
           });
         }
         
-        const clientId = process.env.SF_OAUTH_CLIENT_ID;
+        const clientId = process.env.SF_CLIENT_ID;
         const redirectUri = process.env.SF_OAUTH_REDIRECT_URI || 'https://gtm-wizard.onrender.com/api/sf/auth/callback';
         
         if (!clientId) {
@@ -1912,8 +1912,8 @@ sync_to_salesforce: false
         }
         
         // Exchange code for tokens
-        const clientId = process.env.SF_OAUTH_CLIENT_ID;
-        const clientSecret = process.env.SF_OAUTH_CLIENT_SECRET;
+        const clientId = process.env.SF_CLIENT_ID;
+        const clientSecret = process.env.SF_CLIENT_SECRET;
         const redirectUri = process.env.SF_OAUTH_REDIRECT_URI || 'https://gtm-wizard.onrender.com/api/sf/auth/callback';
         
         const tokenResponse = await fetch('https://login.salesforce.com/services/oauth2/token', {
@@ -2148,8 +2148,8 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
                 if (tokens.isExpired && tokens.refreshToken) {
                   logger.info(`🔄 Refreshing expired token for ${userEmail}`);
                   
-                  const clientId = process.env.SF_OAUTH_CLIENT_ID;
-                  const clientSecret = process.env.SF_OAUTH_CLIENT_SECRET;
+                  const clientId = process.env.SF_CLIENT_ID;
+                  const clientSecret = process.env.SF_CLIENT_SECRET;
                   
                   const refreshResponse = await fetch('https://login.salesforce.com/services/oauth2/token', {
                     method: 'POST',
