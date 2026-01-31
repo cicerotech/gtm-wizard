@@ -1,247 +1,140 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   EUDIA TRANSCRIPTION PLUGIN - UDS-Aligned Styles
-   Clean, professional design matching GTM site aesthetics
+   EUDIA SYNC & SCRIBE - v28 Styles
+   Beautiful, polished UI matching GTM site aesthetics
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Design Tokens - GTM Site Aligned
+   Design Tokens
    ─────────────────────────────────────────────────────────────────────────── */
 
 :root {
   /* Core colors */
-  --eudia-bg: #f5f7fe;
+  --eudia-bg: #f8fafc;
   --eudia-card: #ffffff;
-  --eudia-border: #e5e7eb;
+  --eudia-border: #e2e8f0;
   --eudia-border-subtle: #f1f5f9;
   
   /* Text */
-  --eudia-text: #1f2937;
-  --eudia-text-muted: #6b7280;
-  --eudia-text-subtle: #9ca3af;
+  --eudia-text: #1e293b;
+  --eudia-text-muted: #64748b;
+  --eudia-text-subtle: #94a3b8;
   
   /* Accent - Eudia purple */
-  --eudia-accent: #8e99e1;
-  --eudia-accent-hover: #7c89d8;
-  --eudia-accent-subtle: rgba(142, 153, 225, 0.1);
+  --eudia-accent: #6366f1;
+  --eudia-accent-hover: #4f46e5;
+  --eudia-accent-subtle: rgba(99, 102, 241, 0.1);
   
-  /* Status colors - muted */
+  /* Status colors */
   --eudia-success: #10b981;
   --eudia-success-subtle: rgba(16, 185, 129, 0.1);
   --eudia-warning: #f59e0b;
   --eudia-warning-subtle: rgba(245, 158, 11, 0.1);
-  /* Use purple for all listening/transcription states - no red */
-  --eudia-recording: #8e99e1;
-  --eudia-recording-subtle: rgba(142, 153, 225, 0.1);
-  --eudia-listening: #8e99e1;
-  --eudia-listening-subtle: rgba(142, 153, 225, 0.15);
+  --eudia-error: #ef4444;
+  --eudia-error-subtle: rgba(239, 68, 68, 0.1);
+  
+  /* Shadows */
+  --eudia-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --eudia-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --eudia-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-/* Dark mode overrides */
+/* Dark mode */
 .theme-dark {
-  --eudia-bg: #1e1e1e;
-  --eudia-card: #252525;
-  --eudia-border: #333333;
-  --eudia-border-subtle: #2a2a2a;
-  --eudia-text: #e8e8e8;
-  --eudia-text-muted: #888888;
-  --eudia-text-subtle: #666666;
+  --eudia-bg: #0f172a;
+  --eudia-card: #1e293b;
+  --eudia-border: #334155;
+  --eudia-border-subtle: #1e293b;
+  --eudia-text: #f1f5f9;
+  --eudia-text-muted: #94a3b8;
+  --eudia-text-subtle: #64748b;
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Transcription Bar - Minimal Granola-inspired floating UI
-   Clean, subtle, non-distracting design
+   Transcription Bar - Minimal, Non-Distracting
    ─────────────────────────────────────────────────────────────────────────── */
 
-/* Minimal transcription bar - light gray border, no colors */
 .eudia-transcription-bar {
   position: fixed;
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   background: var(--eudia-card);
-  border: 1px solid #d1d5db; /* Light gray border */
-  border-radius: 8px;
-  padding: 10px 16px;
+  border: 1px solid var(--eudia-border);
+  border-radius: 12px;
+  padding: 12px 20px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  gap: 16px;
+  box-shadow: var(--eudia-shadow-lg);
   z-index: 1000;
-  min-width: 160px;
+  min-width: 180px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .eudia-transcription-bar.active {
-  border-color: #d1d5db; /* Keep light gray, no color changes */
+  border-color: var(--eudia-accent-subtle);
 }
 
 .eudia-transcription-bar.processing {
-  border-color: #d1d5db;
+  border-color: var(--eudia-warning-subtle);
 }
 
-/* Audio Level Meter - Primary visual feedback */
-.eudia-transcription-bar .eudia-level-container {
-  width: 80px;
-  height: 4px;
-  background: #e5e7eb;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.eudia-transcription-bar .eudia-level-bar {
-  height: 100%;
-  background: #9ca3af; /* Muted gray for subtle feedback */
-  transition: width 0.08s ease-out;
-  border-radius: 2px;
-}
-
-/* Minimal controls */
-.eudia-controls-minimal {
-  display: flex;
-  gap: 4px;
-}
-
-.eudia-transcription-bar .eudia-control-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
-  background: transparent;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-  color: #6b7280;
-  font-size: 12px;
-}
-
-.eudia-transcription-bar .eudia-control-btn:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
-  color: #374151;
-}
-
-.eudia-transcription-bar .eudia-control-btn.stop:hover {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.eudia-transcription-bar .eudia-control-btn.cancel:hover {
-  background: #f3f4f6;
-  color: #6b7280;
-}
-
-/* Legacy recording bar styles - keep for backwards compatibility */
-.eudia-recording-bar {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--eudia-card);
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 10px 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  z-index: 1000;
-  min-width: 160px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-
-.eudia-recording-bar.recording,
-.eudia-recording-bar.paused,
-.eudia-recording-bar.processing {
-  border-color: #d1d5db; /* Always light gray */
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-/* Hide the old indicator completely */
-.eudia-recording-indicator {
-  display: none;
-}
-
-/* Hide duration display */
-.eudia-duration {
-  display: none;
-}
-
-.eudia-duration-hidden {
-  display: none;
-}
-
-/* Hide status text */
-.eudia-status-text {
-  display: none;
-}
-
-.eudia-status-hidden {
-  display: none;
+.eudia-transcription-bar.complete {
+  border-color: var(--eudia-success);
+  min-width: 360px;
 }
 
 /* Audio Level Meter */
 .eudia-level-container {
-  width: 80px;
+  width: 100px;
   height: 4px;
-  background: #e5e7eb;
+  background: var(--eudia-border);
   border-radius: 2px;
   overflow: hidden;
 }
 
 .eudia-level-bar {
   height: 100%;
-  background: #9ca3af;
+  background: linear-gradient(90deg, var(--eudia-accent), var(--eudia-success));
   transition: width 0.08s ease-out;
   border-radius: 2px;
 }
 
 /* Control Buttons */
-.eudia-controls {
+.eudia-controls-minimal {
   display: flex;
-  gap: 4px;
+  gap: 6px;
 }
 
 .eudia-control-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--eudia-border);
   background: transparent;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
-  color: #6b7280;
-  font-size: 12px;
+  color: var(--eudia-text-muted);
+  font-size: 14px;
 }
 
 .eudia-control-btn:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
-  color: #374151;
-}
-
-.eudia-control-btn:active {
-  transform: scale(0.96);
-}
-
-.eudia-control-btn.pause:hover,
-.eudia-control-btn.resume:hover {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--eudia-bg);
+  border-color: var(--eudia-accent);
+  color: var(--eudia-accent);
 }
 
 .eudia-control-btn.stop:hover {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--eudia-error-subtle);
+  border-color: var(--eudia-error);
+  color: var(--eudia-error);
 }
 
 .eudia-control-btn.cancel:hover {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--eudia-bg);
 }
 
 .eudia-control-btn[disabled] {
@@ -249,383 +142,256 @@
   cursor: not-allowed;
 }
 
-/* Ribbon Icon Active State - No glow, just subtle opacity */
-.eudia-ribbon-recording,
-.eudia-ribbon-transcribing {
-  opacity: 0.8;
-}
-
-/* ───────────────────────────────────────────────────────────────────────────
-   Processing Modal - Clean and minimal
-   ─────────────────────────────────────────────────────────────────────────── */
-
-.eudia-transcribing-modal {
-  text-align: center;
-  padding: 24px;
-  max-width: 320px;
-}
-
-.eudia-transcribing-modal .spinner {
+/* Completion Stats */
+.eudia-complete-icon {
   width: 32px;
   height: 32px;
-  border: 2px solid var(--eudia-border);
-  border-top-color: var(--eudia-accent);
   border-radius: 50%;
-  animation: eudia-spin 0.8s linear infinite;
-  margin: 0 auto 20px;
-}
-
-.eudia-transcribing-modal p {
-  color: var(--eudia-text-muted);
-  margin: 6px 0;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.eudia-transcribing-modal p:first-of-type {
-  color: var(--eudia-text);
-  font-weight: 500;
-  font-size: 14px;
-}
-
-/* ───────────────────────────────────────────────────────────────────────────
-   Pre-call Context Box
-   ─────────────────────────────────────────────────────────────────────────── */
-
-.eudia-context-box {
-  background: var(--eudia-bg);
-  border: 1px solid var(--eudia-border);
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
-}
-
-.eudia-context-box h4 {
-  margin: 0 0 12px 0;
-  color: var(--eudia-text);
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.eudia-context-item {
+  background: var(--eudia-success);
+  color: white;
   display: flex;
-  justify-content: space-between;
-  padding: 6px 0;
-  font-size: 13px;
-  border-bottom: 1px solid var(--eudia-border-subtle);
-}
-
-.eudia-context-item:last-child {
-  border-bottom: none;
-}
-
-.eudia-context-label {
-  color: var(--eudia-text-muted);
-}
-
-.eudia-context-value {
-  color: var(--eudia-text);
-  font-weight: 500;
-}
-
-/* ───────────────────────────────────────────────────────────────────────────
-   Setup Wizard - Clean onboarding
-   ─────────────────────────────────────────────────────────────────────────── */
-
-.eudia-setup-wizard {
-  max-width: 440px;
-  padding: 8px;
-}
-
-.eudia-setup-wizard h2 {
-  margin: 0 0 8px 0;
-  font-size: 18px;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
   font-weight: 600;
-  color: var(--eudia-text);
 }
 
-.eudia-setup-section {
-  margin-top: 24px;
-}
-
-.eudia-setup-section h3 {
-  margin: 0 0 6px 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--eudia-text);
-}
-
-.eudia-email-input {
-  font-size: 14px;
-  background: var(--eudia-card);
-  color: var(--eudia-text);
-  border: 1px solid var(--eudia-border);
-  border-radius: 6px;
-  padding: 10px 12px;
-  width: 100%;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.eudia-email-input:focus {
-  border-color: var(--eudia-accent);
-  outline: none;
-  box-shadow: 0 0 0 3px var(--eudia-accent-subtle);
-}
-
-.eudia-setup-buttons {
-  margin-top: 24px;
+.eudia-complete-stats {
   display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+  gap: 20px;
+  flex: 1;
 }
 
-.eudia-setup-buttons button {
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
+.eudia-transcription-bar .eudia-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 8px;
 }
 
-.eudia-setup-status {
-  font-size: 13px;
-  text-align: center;
-  padding: 12px;
-  border-radius: 6px;
-  margin-top: 16px;
-}
-
-/* ───────────────────────────────────────────────────────────────────────────
-   Account Selector Modal
-   ─────────────────────────────────────────────────────────────────────────── */
-
-.eudia-account-selector h3 {
-  margin: 0 0 16px 0;
+.eudia-stat-value {
   font-size: 16px;
   font-weight: 600;
   color: var(--eudia-text);
 }
 
-.eudia-account-results {
-  border: 1px solid var(--eudia-border);
-  border-radius: 6px;
-  overflow: hidden;
-}
+.eudia-stat-value.high { color: var(--eudia-success); }
+.eudia-stat-value.medium { color: var(--eudia-accent); }
+.eudia-stat-value.low { color: var(--eudia-warning); }
 
-.eudia-account-item {
-  padding: 10px 14px;
-  cursor: pointer;
-  border-bottom: 1px solid var(--eudia-border-subtle);
-  transition: background 0.1s;
-  font-size: 13px;
-  color: var(--eudia-text);
-}
-
-.eudia-account-item:last-child {
-  border-bottom: none;
-}
-
-.eudia-account-item:hover {
-  background: var(--eudia-accent-subtle);
-}
-
-.eudia-no-results {
-  padding: 16px;
-  text-align: center;
-  color: var(--eudia-text-muted);
-  font-size: 13px;
-}
-
-/* ───────────────────────────────────────────────────────────────────────────
-   Account Badge
-   ─────────────────────────────────────────────────────────────────────────── */
-
-.eudia-account-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--eudia-accent-subtle);
-  color: var(--eudia-accent);
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
+.eudia-stat-label {
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-/* ───────────────────────────────────────────────────────────────────────────
-   Sync Status Indicator
-   ─────────────────────────────────────────────────────────────────────────── */
-
-.eudia-sync-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
+  letter-spacing: 0.5px;
   color: var(--eudia-text-muted);
-  margin-top: 8px;
-}
-
-.eudia-sync-status::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--eudia-text-subtle);
-}
-
-.eudia-sync-status.synced {
-  color: var(--eudia-success);
-}
-
-.eudia-sync-status.synced::before {
-  background: var(--eudia-success);
-}
-
-.eudia-sync-status.pending {
-  color: var(--eudia-warning);
-}
-
-.eudia-sync-status.pending::before {
-  background: var(--eudia-warning);
-}
-
-.eudia-sync-status.error {
-  color: var(--eudia-recording);
-}
-
-.eudia-sync-status.error::before {
-  background: var(--eudia-recording);
+  margin-top: 2px;
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Settings Tab Enhancements
-   ─────────────────────────────────────────────────────────────────────────── */
-
-.eudia-settings-section {
-  margin-top: 28px;
-  padding-top: 24px;
-  border-top: 1px solid var(--eudia-border);
-}
-
-.eudia-settings-section h3 {
-  margin: 0 0 16px 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--eudia-text);
-}
-
-.eudia-settings-info {
-  background: var(--eudia-bg);
-  border-radius: 6px;
-  padding: 12px 14px;
-  font-size: 12px;
-  color: var(--eudia-text-muted);
-  margin-bottom: 16px;
-  line-height: 1.5;
-}
-
-.eudia-settings-info code {
-  background: var(--eudia-card);
-  padding: 2px 5px;
-  border-radius: 3px;
-  font-size: 11px;
-  border: 1px solid var(--eudia-border);
-}
-
-/* ───────────────────────────────────────────────────────────────────────────
-   Transcription Placeholder (in-note)
-   ─────────────────────────────────────────────────────────────────────────── */
-
-/* Style the blockquote placeholder in notes */
-.markdown-preview-view blockquote:has(strong:contains("Transcription in progress")) {
-  background: var(--eudia-accent-subtle);
-  border-left-color: var(--eudia-accent);
-  padding: 16px;
-  border-radius: 0 6px 6px 0;
-}
-
-/* ───────────────────────────────────────────────────────────────────────────
-   Calendar View
+   Calendar View - Beautiful Native Panel
    ─────────────────────────────────────────────────────────────────────────── */
 
 .eudia-calendar-view {
-  padding: 16px;
+  padding: 20px;
   background: var(--eudia-bg);
   height: 100%;
   overflow-y: auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+/* Header */
 .eudia-calendar-header {
+  margin-bottom: 20px;
+}
+
+.eudia-calendar-title-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--eudia-border);
+  margin-bottom: 12px;
 }
 
-.eudia-calendar-header h4 {
+.eudia-calendar-title-row h4 {
   margin: 0;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--eudia-text);
 }
 
-.eudia-calendar-refresh {
-  background: transparent;
+.eudia-calendar-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.eudia-btn-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   border: 1px solid var(--eudia-border);
-  border-radius: 4px;
+  background: var(--eudia-card);
   color: var(--eudia-text-muted);
   cursor: pointer;
-  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 12px;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
 }
 
-.eudia-calendar-refresh:hover {
-  background: var(--eudia-card);
-  color: var(--eudia-text);
+.eudia-btn-icon:hover {
+  background: var(--eudia-bg);
   border-color: var(--eudia-accent);
+  color: var(--eudia-accent);
 }
 
+.eudia-btn-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Status Bar */
+.eudia-status-bar {
+  background: var(--eudia-card);
+  border: 1px solid var(--eudia-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.eudia-status-indicators {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.eudia-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.eudia-status-dot.connected { background: var(--eudia-success); }
+.eudia-status-dot.connecting { background: var(--eudia-warning); animation: pulse 1.5s infinite; }
+.eudia-status-dot.error, .eudia-status-dot.not_authorized { background: var(--eudia-error); }
+.eudia-status-dot.not_configured { background: var(--eudia-text-subtle); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.eudia-status-labels {
+  margin-top: 8px;
+}
+
+.eudia-status-label {
+  font-size: 11px;
+  color: var(--eudia-text-muted);
+}
+
+.eudia-status-warning {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--eudia-warning-subtle);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--eudia-warning);
+  line-height: 1.4;
+}
+
+/* Calendar Content */
+.eudia-calendar-content {
+  min-height: 200px;
+}
+
+/* Loading */
 .eudia-calendar-loading {
-  text-align: center;
-  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 20px;
   color: var(--eudia-text-muted);
+  font-size: 13px;
+}
+
+.eudia-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--eudia-border);
+  border-top-color: var(--eudia-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Now Card */
+.eudia-now-card {
+  background: linear-gradient(135deg, var(--eudia-accent-subtle), transparent);
+  border: 1px solid var(--eudia-accent);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.eudia-now-badge {
+  background: var(--eudia-accent);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.eudia-now-badge.soon {
+  background: var(--eudia-warning);
+}
+
+.eudia-now-content {
+  flex: 1;
+}
+
+.eudia-now-subject {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--eudia-text);
+  margin-bottom: 2px;
+}
+
+.eudia-now-account {
   font-size: 12px;
+  color: var(--eudia-accent);
+  font-weight: 500;
 }
 
-.eudia-calendar-empty {
-  text-align: center;
-  padding: 24px;
-  color: var(--eudia-text-muted);
-}
-
-.eudia-calendar-empty p {
+.eudia-now-action {
+  background: var(--eudia-accent);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
   font-size: 12px;
-  margin: 0;
-  line-height: 1.5;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.eudia-calendar-error {
-  text-align: center;
-  padding: 24px;
-  color: var(--eudia-recording);
+.eudia-now-action:hover {
+  background: var(--eudia-accent-hover);
+  transform: translateY(-1px);
 }
 
-.eudia-calendar-error p {
-  font-size: 12px;
-  margin: 0;
-}
-
-/* Day sections */
+/* Day Sections */
 .eudia-calendar-day {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .eudia-calendar-day-header {
@@ -638,22 +404,23 @@
   padding: 4px 0;
 }
 
-/* Individual meetings */
+/* Individual Meetings */
 .eudia-calendar-meeting {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   background: var(--eudia-card);
   border: 1px solid var(--eudia-border);
-  border-radius: 6px;
-  padding: 10px 12px;
-  margin-bottom: 6px;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
 }
 
 .eudia-calendar-meeting:hover {
   border-color: var(--eudia-accent);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--eudia-shadow-md);
+  transform: translateY(-1px);
 }
 
 .eudia-calendar-meeting.customer {
@@ -662,14 +429,15 @@
 
 .eudia-calendar-meeting.internal {
   border-left: 3px solid var(--eudia-text-subtle);
+  opacity: 0.7;
 }
 
 .eudia-calendar-time {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--eudia-text-muted);
   white-space: nowrap;
-  min-width: 60px;
+  min-width: 65px;
 }
 
 .eudia-calendar-details {
@@ -690,7 +458,7 @@
 .eudia-calendar-account {
   font-size: 11px;
   color: var(--eudia-accent);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .eudia-calendar-attendees {
@@ -698,481 +466,399 @@
   color: var(--eudia-text-muted);
 }
 
-/* ───────────────────────────────────────────────────────────────────────────
-   Smart Tags Display
-   ─────────────────────────────────────────────────────────────────────────── */
-
-.eudia-smart-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 8px 0;
-}
-
-.eudia-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.eudia-tag.product {
-  background: rgba(142, 153, 225, 0.15);
-  color: var(--eudia-accent);
-}
-
-.eudia-tag.meddicc {
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--eudia-success);
-}
-
-.eudia-tag.deal-health {
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--eudia-warning);
-}
-
-.eudia-tag.deal-health.progressing {
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--eudia-success);
-}
-
-.eudia-tag.deal-health.at-risk {
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--eudia-recording);
-}
-
-/* ───────────────────────────────────────────────────────────────────────────
-   Calendar Setup Form - Zero-Friction Onboarding
-   ─────────────────────────────────────────────────────────────────────────── */
-
-.eudia-calendar-setup {
-  padding: 24px 16px;
+/* Empty State */
+.eudia-calendar-empty {
   text-align: center;
-  max-width: 320px;
-  margin: 0 auto;
+  padding: 40px 20px;
 }
 
-.eudia-calendar-setup-title {
+.eudia-empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.eudia-empty-title {
   font-size: 16px;
   font-weight: 600;
   color: var(--eudia-text);
-  margin-bottom: 8px;
+  margin: 0 0 8px 0;
 }
 
-.eudia-calendar-setup-desc {
+.eudia-empty-subtitle {
   font-size: 13px;
   color: var(--eudia-text-muted);
+  margin: 0;
+}
+
+/* Error State */
+.eudia-calendar-error {
+  text-align: center;
+  padding: 32px 20px;
+  background: var(--eudia-card);
+  border-radius: 12px;
+  border: 1px solid var(--eudia-border);
+}
+
+.eudia-error-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.eudia-error-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--eudia-text);
+  margin: 0 0 8px 0;
+}
+
+.eudia-error-message {
+  font-size: 12px;
+  color: var(--eudia-error);
+  margin: 0 0 8px 0;
+}
+
+.eudia-error-action {
+  font-size: 12px;
+  color: var(--eudia-text-muted);
+  margin: 0 0 16px 0;
+}
+
+.eudia-btn-retry {
+  background: var(--eudia-card);
+  border: 1px solid var(--eudia-border);
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--eudia-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.eudia-btn-retry:hover {
+  border-color: var(--eudia-accent);
+  color: var(--eudia-accent);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Calendar Setup Panel - Zero-Friction Onboarding
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.eudia-calendar-setup-panel {
+  text-align: center;
+  padding: 40px 24px;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.eudia-setup-icon {
+  font-size: 56px;
   margin-bottom: 20px;
 }
 
-.eudia-calendar-setup-input {
+.eudia-setup-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--eudia-text);
+  margin: 0 0 8px 0;
+}
+
+.eudia-setup-desc {
+  font-size: 13px;
+  color: var(--eudia-text-muted);
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+.eudia-setup-input-group {
   display: flex;
   gap: 8px;
   margin-bottom: 12px;
 }
 
-.eudia-calendar-email-input {
+.eudia-setup-email {
   flex: 1;
+  padding: 12px 16px;
   font-size: 14px;
+  border: 1px solid var(--eudia-border);
+  border-radius: 8px;
   background: var(--eudia-card);
   color: var(--eudia-text);
-  border: 1px solid var(--eudia-border);
-  border-radius: 6px;
-  padding: 10px 12px;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: all 0.15s ease;
 }
 
-.eudia-calendar-email-input:focus {
-  border-color: var(--eudia-accent);
+.eudia-setup-email:focus {
   outline: none;
+  border-color: var(--eudia-accent);
   box-shadow: 0 0 0 3px var(--eudia-accent-subtle);
 }
 
-.eudia-calendar-email-input::placeholder {
+.eudia-setup-email::placeholder {
   color: var(--eudia-text-subtle);
 }
 
-.eudia-calendar-connect-btn {
-  padding: 10px 18px;
+.eudia-setup-connect {
+  padding: 12px 24px;
   background: var(--eudia-accent);
   color: white;
   border: none;
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
   white-space: nowrap;
 }
 
-.eudia-calendar-connect-btn:hover {
+.eudia-setup-connect:hover {
   background: var(--eudia-accent-hover);
 }
 
-.eudia-calendar-connect-btn:disabled {
+.eudia-setup-connect:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.eudia-calendar-setup-status {
+.eudia-setup-status {
+  min-height: 20px;
   font-size: 12px;
   color: var(--eudia-text-muted);
-  min-height: 18px;
-  transition: all 0.2s;
+  line-height: 1.5;
+  transition: all 0.2s ease;
 }
 
-.eudia-calendar-setup-status.error {
-  color: var(--eudia-recording);
+.eudia-setup-status.error {
+  color: var(--eudia-error);
 }
 
-.eudia-calendar-setup-status.success {
+.eudia-setup-status.success {
   color: var(--eudia-success);
 }
 
-.eudia-calendar-setup-help {
+.eudia-setup-help {
   font-size: 11px;
   color: var(--eudia-text-subtle);
-  margin-top: 20px;
+  margin-top: 24px;
   line-height: 1.5;
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Transcription Complete Summary Card
+   Setup Wizard Modal
    ─────────────────────────────────────────────────────────────────────────── */
 
-.eudia-transcription-complete {
-  background: var(--eudia-card);
-  border: 1px solid var(--eudia-success);
+.eudia-setup-wizard {
+  max-width: 440px;
+  padding: 8px;
+}
+
+.eudia-setup-wizard h2 {
+  margin: 0 0 12px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--eudia-text);
+}
+
+.eudia-setup-info {
+  background: var(--eudia-accent-subtle);
   border-radius: 8px;
   padding: 16px;
   margin: 16px 0;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
+  font-size: 13px;
+  color: var(--eudia-text);
+  line-height: 1.6;
 }
 
-.eudia-transcription-complete h4 {
+.eudia-setup-section {
+  margin-top: 24px;
+}
+
+.eudia-setup-section h3 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--eudia-text);
+}
+
+.eudia-email-input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 14px;
+  border: 1px solid var(--eudia-border);
+  border-radius: 8px;
+  background: var(--eudia-card);
+  color: var(--eudia-text);
+  transition: all 0.15s ease;
+}
+
+.eudia-email-input:focus {
+  outline: none;
+  border-color: var(--eudia-accent);
+  box-shadow: 0 0 0 3px var(--eudia-accent-subtle);
+}
+
+.eudia-setup-buttons {
+  margin-top: 28px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.eudia-setup-buttons button {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid var(--eudia-border);
+  background: var(--eudia-card);
+  color: var(--eudia-text);
+}
+
+.eudia-setup-buttons button:last-child {
+  background: var(--eudia-accent);
+  border-color: var(--eudia-accent);
+  color: white;
+}
+
+.eudia-setup-buttons button:last-child:hover {
+  background: var(--eudia-accent-hover);
+}
+
+/* Setup Steps */
+.eudia-setup-status-list {
+  margin: 24px 0;
+}
+
+.eudia-setup-step {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 0 0 12px 0;
+  gap: 12px;
+  padding: 12px 0;
   font-size: 14px;
-  font-weight: 600;
+  color: var(--eudia-text);
+  border-bottom: 1px solid var(--eudia-border-subtle);
+}
+
+.eudia-setup-step:last-child {
+  border-bottom: none;
+}
+
+.eudia-setup-step .step-icon {
+  width: 24px;
+  text-align: center;
+  color: var(--eudia-text-muted);
+}
+
+.eudia-setup-step.running .step-icon {
+  animation: pulse 1s infinite;
+}
+
+.eudia-setup-step.complete .step-icon {
   color: var(--eudia-success);
 }
 
-.eudia-transcription-stats {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin-bottom: 12px;
+.eudia-setup-step.error .step-icon {
+  color: var(--eudia-error);
 }
 
-.eudia-stat {
-  background: var(--eudia-bg);
-  padding: 8px 12px;
-  border-radius: 6px;
-  text-align: center;
+.eudia-setup-tips {
+  background: var(--eudia-success-subtle);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 20px 0;
+  font-size: 13px;
+  color: var(--eudia-text);
+  line-height: 1.6;
 }
 
-.eudia-stat-value {
+/* ───────────────────────────────────────────────────────────────────────────
+   Account Selector Modal
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.eudia-account-selector h3 {
+  margin: 0 0 16px 0;
   font-size: 16px;
   font-weight: 600;
   color: var(--eudia-text);
 }
 
-.eudia-stat-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--eudia-text-muted);
-  margin-top: 2px;
-}
-
-.eudia-transcription-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.eudia-transcription-actions button {
-  flex: 1;
-  padding: 10px 16px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.eudia-action-primary {
-  background: var(--eudia-accent);
-  color: white;
-  border: none;
-}
-
-.eudia-action-primary:hover {
-  background: var(--eudia-accent-hover);
-}
-
-.eudia-action-secondary {
-  background: var(--eudia-card);
-  color: var(--eudia-text);
-  border: 1px solid var(--eudia-border);
-}
-
-.eudia-action-secondary:hover {
-  background: var(--eudia-bg);
-  border-color: var(--eudia-accent);
-}
-
-/* ───────────────────────────────────────────────────────────────────────────
-   MEDDICC Signal Cards - Evidence-Based Display
-   ─────────────────────────────────────────────────────────────────────────── */
-
-.eudia-meddicc-signals {
-  margin: 16px 0;
-}
-
-.eudia-meddicc-signal {
-  background: var(--eudia-card);
+.eudia-account-results {
   border: 1px solid var(--eudia-border);
   border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 8px;
+  overflow: hidden;
 }
 
-.eudia-meddicc-signal.strong {
-  border-left: 3px solid var(--eudia-success);
-}
-
-.eudia-meddicc-signal.moderate {
-  border-left: 3px solid var(--eudia-accent);
-}
-
-.eudia-meddicc-signal-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.eudia-meddicc-signal-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--eudia-text);
-}
-
-.eudia-meddicc-signal-confidence {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 10px;
-  background: var(--eudia-success-subtle);
-  color: var(--eudia-success);
-}
-
-.eudia-meddicc-signal-summary {
-  font-size: 12px;
-  color: var(--eudia-text);
-  margin-bottom: 8px;
-}
-
-.eudia-meddicc-evidence {
-  background: var(--eudia-bg);
-  border-radius: 6px;
-  padding: 8px 12px;
-}
-
-.eudia-meddicc-evidence-quote {
-  font-size: 11px;
-  color: var(--eudia-text-muted);
-  font-style: italic;
-  margin: 4px 0;
-  padding-left: 8px;
-  border-left: 2px solid var(--eudia-border);
-}
-
-/* ───────────────────────────────────────────────────────────────────────────
-   Deal Health Badge
-   ─────────────────────────────────────────────────────────────────────────── */
-
-.eudia-deal-health {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.eudia-deal-health.healthy {
-  background: var(--eudia-success-subtle);
-  color: var(--eudia-success);
-}
-
-.eudia-deal-health.developing {
-  background: var(--eudia-accent-subtle);
-  color: var(--eudia-accent);
-}
-
-.eudia-deal-health.at-risk {
-  background: var(--eudia-warning-subtle);
-  color: var(--eudia-warning);
-}
-
-.eudia-deal-health.insufficient-data {
-  background: var(--eudia-border);
-  color: var(--eudia-text-muted);
-}
-
-/* ───────────────────────────────────────────────────────────────────────────
-   Next Steps Checklist
-   ─────────────────────────────────────────────────────────────────────────── */
-
-.eudia-next-steps {
-  margin: 16px 0;
-}
-
-.eudia-next-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 0;
+.eudia-account-item {
+  padding: 12px 16px;
+  cursor: pointer;
   border-bottom: 1px solid var(--eudia-border-subtle);
+  transition: background 0.1s ease;
+  font-size: 13px;
+  color: var(--eudia-text);
 }
 
-.eudia-next-step:last-child {
+.eudia-account-item:last-child {
   border-bottom: none;
 }
 
-.eudia-next-step-checkbox {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--eudia-border);
-  border-radius: 3px;
-  cursor: pointer;
-  flex-shrink: 0;
-  margin-top: 2px;
+.eudia-account-item:hover {
+  background: var(--eudia-accent-subtle);
 }
 
-.eudia-next-step-content {
-  flex: 1;
-}
-
-.eudia-next-step-date {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--eudia-accent);
-  margin-bottom: 2px;
-}
-
-.eudia-next-step-action {
-  font-size: 13px;
-  color: var(--eudia-text);
-}
-
-.eudia-next-step-owner {
-  font-size: 11px;
+.eudia-no-results {
+  padding: 20px;
+  text-align: center;
   color: var(--eudia-text-muted);
+  font-size: 13px;
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Recording Bar - Complete State
+   Processing Modal
    ─────────────────────────────────────────────────────────────────────────── */
 
-.eudia-recording-bar.complete {
-  border-color: var(--eudia-success);
-  box-shadow: 0 0 0 3px var(--eudia-success-subtle), 0 4px 16px rgba(0, 0, 0, 0.08);
-  min-width: 400px;
+.eudia-transcribing-modal {
+  text-align: center;
+  padding: 24px;
+  max-width: 320px;
 }
 
-.eudia-complete-icon {
-  width: 28px;
-  height: 28px;
+.eudia-transcribing-modal .spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--eudia-border);
+  border-top-color: var(--eudia-accent);
   border-radius: 50%;
-  background: var(--eudia-success);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 20px;
 }
 
-.eudia-complete-stats {
-  display: flex;
-  gap: 16px;
-  flex: 1;
+.eudia-transcribing-modal p {
+  color: var(--eudia-text-muted);
+  margin: 8px 0;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
-.eudia-recording-bar .eudia-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0 8px;
-}
-
-.eudia-recording-bar .eudia-stat-value {
-  font-size: 15px;
-  font-weight: 600;
+.eudia-transcribing-modal p:first-of-type {
   color: var(--eudia-text);
+  font-weight: 500;
+  font-size: 14px;
 }
 
-.eudia-recording-bar .eudia-stat-value.high {
-  color: var(--eudia-success);
+/* ───────────────────────────────────────────────────────────────────────────
+   Ribbon Icon States
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.eudia-ribbon-recording,
+.eudia-ribbon-transcribing {
+  opacity: 0.9;
 }
 
-.eudia-recording-bar .eudia-stat-value.medium {
-  color: var(--eudia-accent);
-}
+/* ───────────────────────────────────────────────────────────────────────────
+   Utility Classes
+   ─────────────────────────────────────────────────────────────────────────── */
 
-.eudia-recording-bar .eudia-stat-value.low {
-  color: var(--eudia-warning);
-}
-
-.eudia-recording-bar .eudia-stat-label {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--eudia-text-muted);
-  margin-top: 2px;
-}
-
-.eudia-deal-health-badge {
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.eudia-deal-health-badge.healthy {
-  background: var(--eudia-success-subtle);
-  color: var(--eudia-success);
-}
-
-.eudia-deal-health-badge.developing {
-  background: var(--eudia-accent-subtle);
-  color: var(--eudia-accent);
-}
-
-.eudia-deal-health-badge.at-risk {
-  background: var(--eudia-warning-subtle);
-  color: var(--eudia-warning);
-}
-
-.eudia-deal-health-badge.insufficient-data {
-  background: var(--eudia-border);
-  color: var(--eudia-text-muted);
-}
-
-.eudia-control-btn.close {
-  margin-left: 8px;
+.eudia-hidden {
+  display: none !important;
 }
