@@ -1830,9 +1830,11 @@ sync_to_salesforce: false
     // ═══════════════════════════════════════════════════════════════════════════
     
     // Start OAuth flow - redirects user to Salesforce login
+    // Implements PKCE (Proof Key for Code Exchange) for enhanced security
     this.expressApp.get('/api/sf/auth/start', async (req, res) => {
       try {
         const { email } = req.query;
+        const crypto = require('crypto');
         
         if (!email) {
           return res.status(400).json({
@@ -1851,22 +1853,34 @@ sync_to_salesforce: false
           });
         }
         
-        // Generate state parameter to prevent CSRF and carry email
+        // Generate PKCE code_verifier (43-128 chars, URL-safe base64)
+        const codeVerifier = crypto.randomBytes(32).toString('base64url');
+        
+        // Generate code_challenge (SHA256 hash of verifier, base64url encoded)
+        const codeChallenge = crypto
+          .createHash('sha256')
+          .update(codeVerifier)
+          .digest('base64url');
+        
+        // Generate state parameter to prevent CSRF and carry email + verifier
         const state = Buffer.from(JSON.stringify({ 
           email: email.toLowerCase(),
+          codeVerifier: codeVerifier,
           timestamp: Date.now()
         })).toString('base64url');
         
-        // Salesforce OAuth authorization URL
+        // Salesforce OAuth authorization URL with PKCE
         const authUrl = new URL('https://login.salesforce.com/services/oauth2/authorize');
         authUrl.searchParams.set('response_type', 'code');
         authUrl.searchParams.set('client_id', clientId);
         authUrl.searchParams.set('redirect_uri', redirectUri);
         authUrl.searchParams.set('scope', 'api refresh_token offline_access');
         authUrl.searchParams.set('state', state);
-        authUrl.searchParams.set('prompt', 'login'); // Always show login
+        authUrl.searchParams.set('code_challenge', codeChallenge);
+        authUrl.searchParams.set('code_challenge_method', 'S256');
+        authUrl.searchParams.set('prompt', 'login');
         
-        logger.info(`🔐 Starting SF OAuth for ${email}`);
+        logger.info(`Starting SF OAuth for ${email} with PKCE`);
         res.redirect(authUrl.toString());
         
       } catch (error) {
@@ -1906,26 +1920,38 @@ sync_to_salesforce: false
           return res.status(400).send('Invalid state parameter');
         }
         
-        const { email } = stateData;
+        const { email, codeVerifier } = stateData;
         if (!email) {
           return res.status(400).send('Email not found in state');
         }
         
-        // Exchange code for tokens
+        // Exchange code for tokens (with PKCE code_verifier)
         const clientId = process.env.SF_CLIENT_ID;
         const clientSecret = process.env.SF_CLIENT_SECRET;
         const redirectUri = process.env.SF_OAUTH_REDIRECT_URI || 'https://gtm-wizard.onrender.com/api/sf/auth/callback';
         
+        // Build token request body with PKCE
+        const tokenParams = {
+          grant_type: 'authorization_code',
+          code,
+          client_id: clientId,
+          redirect_uri: redirectUri
+        };
+        
+        // Include code_verifier for PKCE
+        if (codeVerifier) {
+          tokenParams.code_verifier = codeVerifier;
+        }
+        
+        // Include client_secret if available (for non-PKCE flows)
+        if (clientSecret) {
+          tokenParams.client_secret = clientSecret;
+        }
+        
         const tokenResponse = await fetch('https://login.salesforce.com/services/oauth2/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            grant_type: 'authorization_code',
-            code,
-            client_id: clientId,
-            client_secret: clientSecret,
-            redirect_uri: redirectUri
-          })
+          body: new URLSearchParams(tokenParams)
         });
         
         if (!tokenResponse.ok) {

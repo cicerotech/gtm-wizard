@@ -166,7 +166,7 @@ class EudiaCalendarView extends ItemView {
 
   renderEmailSetup(container: Element): void {
     const setup = container.createDiv({ cls: 'eudia-cal-setup' });
-    setup.createEl('h4', { text: '📅 Connect Your Calendar' });
+    setup.createEl('h4', { text: 'Connect Your Calendar' });
     setup.createEl('p', { text: 'Enter your work email to see your meetings:' });
 
     const form = setup.createDiv({ cls: 'eudia-cal-form' });

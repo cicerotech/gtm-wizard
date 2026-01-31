@@ -114,9 +114,9 @@ This vault is pre-configured with:
 
 ## Quick Start
 
-1. **Connect your calendar** by clicking the 📅 Calendar icon in the left sidebar
+1. **Connect your calendar** by clicking the Calendar icon in the left sidebar
 2. **Enter your @eudia.com email** when prompted
-3. **Start transcribing meetings** by clicking the 🎙️ microphone icon
+3. **Start transcribing meetings** by clicking the microphone icon
 
 ## How to Use
 
@@ -164,7 +164,7 @@ Each note has frontmatter properties you can edit:
 
 ## Step 1: Connect Your Calendar
 
-Click the **📅 Calendar** icon in the left sidebar, then enter your @eudia.com email.
+Click the **Calendar** icon in the left sidebar, then enter your @eudia.com email.
 
 Your calendar syncs automatically via Microsoft 365.
 
@@ -181,7 +181,7 @@ Use **Cmd/Ctrl + O** to quick-switch between files.
 ## Step 3: Transcribe a Meeting
 
 1. Open a note for the account
-2. Click the **🎙️ Microphone** icon
+2. Click the **Microphone** icon
 3. Meeting audio is captured automatically
 4. Click **Stop** when finished
 5. AI generates the summary
