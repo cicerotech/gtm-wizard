@@ -353,6 +353,7 @@ var EudiaCalendarView = class extends import_obsidian.ItemView {
   }
   /**
    * Find matching account folder in the vault
+   * Uses multiple matching strategies for robustness
    * Returns the full path if found, null otherwise
    */
   findAccountFolder(accountName) {
@@ -371,22 +372,39 @@ var EudiaCalendarView = class extends import_obsidian.ItemView {
         subfolders.push(child.name);
       }
     }
+    log(`Searching for "${normalizedSearch}" in ${subfolders.length} folders`);
     const exactMatch = subfolders.find((f) => f.toLowerCase() === normalizedSearch);
     if (exactMatch) {
+      log(`Exact match found: ${exactMatch}`);
       return `${accountsFolder}/${exactMatch}`;
     }
-    const startsWithMatch = subfolders.find(
-      (f) => f.toLowerCase().startsWith(normalizedSearch) || normalizedSearch.startsWith(f.toLowerCase())
-    );
-    if (startsWithMatch) {
-      return `${accountsFolder}/${startsWithMatch}`;
+    const folderStartsWith = subfolders.find((f) => f.toLowerCase().startsWith(normalizedSearch));
+    if (folderStartsWith) {
+      log(`Folder starts with match: ${folderStartsWith}`);
+      return `${accountsFolder}/${folderStartsWith}`;
     }
-    const containsMatch = subfolders.find(
-      (f) => f.toLowerCase().includes(normalizedSearch) || normalizedSearch.includes(f.toLowerCase())
-    );
-    if (containsMatch) {
-      return `${accountsFolder}/${containsMatch}`;
+    const searchStartsWith = subfolders.find((f) => normalizedSearch.startsWith(f.toLowerCase()));
+    if (searchStartsWith) {
+      log(`Search starts with folder match: ${searchStartsWith}`);
+      return `${accountsFolder}/${searchStartsWith}`;
     }
+    const searchContains = subfolders.find((f) => {
+      const folderLower = f.toLowerCase();
+      return folderLower.length >= 3 && normalizedSearch.includes(folderLower);
+    });
+    if (searchContains) {
+      log(`Search contains folder match: ${searchContains}`);
+      return `${accountsFolder}/${searchContains}`;
+    }
+    const folderContains = subfolders.find((f) => {
+      const folderLower = f.toLowerCase();
+      return normalizedSearch.length >= 3 && folderLower.includes(normalizedSearch);
+    });
+    if (folderContains) {
+      log(`Folder contains search match: ${folderContains}`);
+      return `${accountsFolder}/${folderContains}`;
+    }
+    log(`No folder match found for "${normalizedSearch}"`);
     return null;
   }
   createNoteForMeeting(meeting) {

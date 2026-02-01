@@ -1190,7 +1190,7 @@ export class TranscriptionService {
   async processTranscription(
     transcriptText: string,
     context?: { accountName?: string; accountId?: string }
-  ): Promise<TranscriptionSections> {
+  ): Promise<ProcessedSections> {
     // If we already have the transcript, we need to re-summarize it
     // This is a simplified version - in production, you might cache the sections
     if (!transcriptText || transcriptText.trim().length === 0) {
@@ -1239,25 +1239,74 @@ Extract the following in JSON format:
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
+            
+            // Convert arrays to formatted strings to match ProcessedSections interface
+            const formatNextSteps = (steps: any) => {
+              if (Array.isArray(steps)) {
+                return steps.map(s => `- [ ] ${s}`).join('\n');
+              }
+              return steps || '';
+            };
+            
+            const formatKeyPoints = (points: any) => {
+              if (Array.isArray(points)) {
+                return points.map(p => `- ${p}`).join('\n');
+              }
+              return points || '';
+            };
+            
+            const formatMeddicc = (signals: any) => {
+              if (Array.isArray(signals)) {
+                return signals.map(s => {
+                  if (typeof s === 'object' && s.category) {
+                    return `**${s.category}**: ${s.signal || s.insight || ''}`;
+                  }
+                  return `- ${s}`;
+                }).join('\n');
+              }
+              return signals || '';
+            };
+            
+            const formatAttendees = (attendees: any) => {
+              if (Array.isArray(attendees)) {
+                return attendees.map(a => `- ${a}`).join('\n');
+              }
+              return attendees || '';
+            };
+            
             return {
               summary: parsed.summary || '',
-              keyPoints: parsed.keyPoints || [],
-              nextSteps: parsed.nextSteps || [],
-              meddiccSignals: parsed.meddiccSignals || [],
-              attendees: parsed.attendees || [],
+              painPoints: formatKeyPoints(parsed.keyPoints || parsed.painPoints),
+              productInterest: '',
+              meddiccSignals: formatMeddicc(parsed.meddiccSignals),
+              nextSteps: formatNextSteps(parsed.nextSteps),
+              actionItems: '',
+              keyDates: '',
+              buyingTriggers: '',
+              dealSignals: '',
+              risksObjections: '',
+              competitiveIntel: '',
+              attendees: formatAttendees(parsed.attendees),
               transcript: transcriptText
             };
           }
         }
       }
 
-      // Fallback: return basic sections
+      // Fallback: return basic sections (all strings)
       return {
         summary: 'Meeting transcript captured. Review for key details.',
-        keyPoints: [],
-        nextSteps: [],
-        meddiccSignals: [],
-        attendees: [],
+        painPoints: '',
+        productInterest: '',
+        meddiccSignals: '',
+        nextSteps: '',
+        actionItems: '',
+        keyDates: '',
+        buyingTriggers: '',
+        dealSignals: '',
+        risksObjections: '',
+        competitiveIntel: '',
+        attendees: '',
         transcript: transcriptText
       };
 
@@ -1265,10 +1314,17 @@ Extract the following in JSON format:
       console.error('processTranscription error:', error);
       return {
         summary: '',
-        keyPoints: [],
-        nextSteps: [],
-        meddiccSignals: [],
-        attendees: [],
+        painPoints: '',
+        productInterest: '',
+        meddiccSignals: '',
+        nextSteps: '',
+        actionItems: '',
+        keyDates: '',
+        buyingTriggers: '',
+        dealSignals: '',
+        risksObjections: '',
+        competitiveIntel: '',
+        attendees: '',
         transcript: transcriptText
       };
     }

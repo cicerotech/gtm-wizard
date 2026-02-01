@@ -1425,7 +1425,8 @@ ${transcription.text}
         return;
       }
 
-      // Update cached accounts
+      // Update cached accounts for autocomplete and matching
+      // Note: We do NOT create folders here - account folders are pre-loaded in the vault
       this.settings.cachedAccounts = data.accounts.map(a => ({
         id: a.id,
         name: a.name
@@ -1433,29 +1434,8 @@ ${transcription.text}
       this.settings.lastSyncTime = new Date().toISOString();
       await this.saveSettings();
 
-      // Create account folders
-      const accountsFolder = this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);
-      if (!accountsFolder) {
-        await this.app.vault.createFolder(this.settings.accountsFolder);
-      }
-
-      let created = 0;
-      for (const account of this.settings.cachedAccounts) {
-        const sanitizedName = account.name.replace(/[<>:"/\\|?*]/g, '_').trim();
-        const folderPath = `${this.settings.accountsFolder}/${sanitizedName}`;
-        
-        if (!this.app.vault.getAbstractFileByPath(folderPath)) {
-          try {
-            await this.app.vault.createFolder(folderPath);
-            created++;
-          } catch (e) {
-            // Folder might already exist
-          }
-        }
-      }
-
       if (!silent) {
-        new Notice(`✓ Synced ${data.accounts.length} accounts${created > 0 ? `, created ${created} folders` : ''}`);
+        new Notice(`Synced ${data.accounts.length} accounts for matching`);
       }
 
     } catch (error) {

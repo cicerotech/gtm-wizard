@@ -1381,12 +1381,48 @@ Extract the following in JSON format:
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
+            const formatNextSteps = (steps) => {
+              if (Array.isArray(steps)) {
+                return steps.map((s) => `- [ ] ${s}`).join("\n");
+              }
+              return steps || "";
+            };
+            const formatKeyPoints = (points) => {
+              if (Array.isArray(points)) {
+                return points.map((p) => `- ${p}`).join("\n");
+              }
+              return points || "";
+            };
+            const formatMeddicc = (signals) => {
+              if (Array.isArray(signals)) {
+                return signals.map((s) => {
+                  if (typeof s === "object" && s.category) {
+                    return `**${s.category}**: ${s.signal || s.insight || ""}`;
+                  }
+                  return `- ${s}`;
+                }).join("\n");
+              }
+              return signals || "";
+            };
+            const formatAttendees = (attendees) => {
+              if (Array.isArray(attendees)) {
+                return attendees.map((a) => `- ${a}`).join("\n");
+              }
+              return attendees || "";
+            };
             return {
               summary: parsed.summary || "",
-              keyPoints: parsed.keyPoints || [],
-              nextSteps: parsed.nextSteps || [],
-              meddiccSignals: parsed.meddiccSignals || [],
-              attendees: parsed.attendees || [],
+              painPoints: formatKeyPoints(parsed.keyPoints || parsed.painPoints),
+              productInterest: "",
+              meddiccSignals: formatMeddicc(parsed.meddiccSignals),
+              nextSteps: formatNextSteps(parsed.nextSteps),
+              actionItems: "",
+              keyDates: "",
+              buyingTriggers: "",
+              dealSignals: "",
+              risksObjections: "",
+              competitiveIntel: "",
+              attendees: formatAttendees(parsed.attendees),
               transcript: transcriptText
             };
           }
@@ -1394,20 +1430,34 @@ Extract the following in JSON format:
       }
       return {
         summary: "Meeting transcript captured. Review for key details.",
-        keyPoints: [],
-        nextSteps: [],
-        meddiccSignals: [],
-        attendees: [],
+        painPoints: "",
+        productInterest: "",
+        meddiccSignals: "",
+        nextSteps: "",
+        actionItems: "",
+        keyDates: "",
+        buyingTriggers: "",
+        dealSignals: "",
+        risksObjections: "",
+        competitiveIntel: "",
+        attendees: "",
         transcript: transcriptText
       };
     } catch (error) {
       console.error("processTranscription error:", error);
       return {
         summary: "",
-        keyPoints: [],
-        nextSteps: [],
-        meddiccSignals: [],
-        attendees: [],
+        painPoints: "",
+        productInterest: "",
+        meddiccSignals: "",
+        nextSteps: "",
+        actionItems: "",
+        keyDates: "",
+        buyingTriggers: "",
+        dealSignals: "",
+        risksObjections: "",
+        competitiveIntel: "",
+        attendees: "",
         transcript: transcriptText
       };
     }
@@ -3031,24 +3081,8 @@ ${transcription.text}
       }));
       this.settings.lastSyncTime = (/* @__PURE__ */ new Date()).toISOString();
       await this.saveSettings();
-      const accountsFolder = this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);
-      if (!accountsFolder) {
-        await this.app.vault.createFolder(this.settings.accountsFolder);
-      }
-      let created = 0;
-      for (const account of this.settings.cachedAccounts) {
-        const sanitizedName = account.name.replace(/[<>:"/\\|?*]/g, "_").trim();
-        const folderPath = `${this.settings.accountsFolder}/${sanitizedName}`;
-        if (!this.app.vault.getAbstractFileByPath(folderPath)) {
-          try {
-            await this.app.vault.createFolder(folderPath);
-            created++;
-          } catch (e) {
-          }
-        }
-      }
       if (!silent) {
-        new import_obsidian3.Notice(`\u2713 Synced ${data.accounts.length} accounts${created > 0 ? `, created ${created} folders` : ""}`);
+        new import_obsidian3.Notice(`Synced ${data.accounts.length} accounts for matching`);
       }
     } catch (error) {
       if (!silent) {

@@ -409,6 +409,7 @@ class EudiaCalendarView extends ItemView {
 
   /**
    * Find matching account folder in the vault
+   * Uses multiple matching strategies for robustness
    * Returns the full path if found, null otherwise
    */
   findAccountFolder(accountName: string): string | null {
@@ -432,30 +433,52 @@ class EudiaCalendarView extends ItemView {
       }
     }
     
-    // Try exact match first
+    log(`Searching for "${normalizedSearch}" in ${subfolders.length} folders`);
+    
+    // Strategy 1: Exact match
     const exactMatch = subfolders.find(f => f.toLowerCase() === normalizedSearch);
     if (exactMatch) {
+      log(`Exact match found: ${exactMatch}`);
       return `${accountsFolder}/${exactMatch}`;
     }
     
-    // Try "starts with" match
-    const startsWithMatch = subfolders.find(f => 
-      f.toLowerCase().startsWith(normalizedSearch) || 
-      normalizedSearch.startsWith(f.toLowerCase())
-    );
-    if (startsWithMatch) {
-      return `${accountsFolder}/${startsWithMatch}`;
+    // Strategy 2: Folder starts with search term (e.g., "uber" matches "Uber Technologies")
+    const folderStartsWith = subfolders.find(f => f.toLowerCase().startsWith(normalizedSearch));
+    if (folderStartsWith) {
+      log(`Folder starts with match: ${folderStartsWith}`);
+      return `${accountsFolder}/${folderStartsWith}`;
     }
     
-    // Try "contains" match (for partial names)
-    const containsMatch = subfolders.find(f => 
-      f.toLowerCase().includes(normalizedSearch) || 
-      normalizedSearch.includes(f.toLowerCase())
-    );
-    if (containsMatch) {
-      return `${accountsFolder}/${containsMatch}`;
+    // Strategy 3: Search term starts with folder name (e.g., "chsinc" starts with "chs")
+    // This handles domain names like chsinc.com matching folder CHS
+    const searchStartsWith = subfolders.find(f => normalizedSearch.startsWith(f.toLowerCase()));
+    if (searchStartsWith) {
+      log(`Search starts with folder match: ${searchStartsWith}`);
+      return `${accountsFolder}/${searchStartsWith}`;
     }
     
+    // Strategy 4: Search term contains folder name (e.g., "ubertechnologies" contains "uber")
+    const searchContains = subfolders.find(f => {
+      const folderLower = f.toLowerCase();
+      // Only match if folder name is at least 3 chars to avoid false positives
+      return folderLower.length >= 3 && normalizedSearch.includes(folderLower);
+    });
+    if (searchContains) {
+      log(`Search contains folder match: ${searchContains}`);
+      return `${accountsFolder}/${searchContains}`;
+    }
+    
+    // Strategy 5: Folder name contains search term
+    const folderContains = subfolders.find(f => {
+      const folderLower = f.toLowerCase();
+      return normalizedSearch.length >= 3 && folderLower.includes(normalizedSearch);
+    });
+    if (folderContains) {
+      log(`Folder contains search match: ${folderContains}`);
+      return `${accountsFolder}/${folderContains}`;
+    }
+    
+    log(`No folder match found for "${normalizedSearch}"`);
     return null;
   }
 
