@@ -2956,12 +2956,20 @@ var EudiaSyncPlugin = class extends import_obsidian3.Plugin {
       );
       const noteContent = this.buildNoteContent(sections, transcription);
       await this.app.vault.modify(file, noteContent);
-      const countLines = (s) => s ? s.split("\n").filter((l) => l.trim()).length : 0;
+      const countItems = (val) => {
+        if (!val)
+          return 0;
+        if (Array.isArray(val))
+          return val.length;
+        if (typeof val === "string")
+          return val.split("\n").filter((l) => l.trim()).length;
+        return 0;
+      };
       this.recordingStatusBar?.showComplete({
         duration: result.duration,
         confidence: transcription.confidence,
-        meddiccCount: countLines(sections.meddiccSignals),
-        nextStepsCount: countLines(sections.nextSteps)
+        meddiccCount: countItems(sections.meddiccSignals),
+        nextStepsCount: countItems(sections.nextSteps)
       });
       modal.close();
       new import_obsidian3.Notice("Transcription complete!");
@@ -2974,8 +2982,35 @@ var EudiaSyncPlugin = class extends import_obsidian3.Plugin {
     }
   }
   buildNoteContent(sections, transcription) {
+    const ensureString = (val) => {
+      if (val === null || val === void 0)
+        return "";
+      if (Array.isArray(val)) {
+        return val.map((item) => {
+          if (typeof item === "object") {
+            if (item.category)
+              return `**${item.category}**: ${item.signal || item.insight || ""}`;
+            return JSON.stringify(item);
+          }
+          return String(item);
+        }).join("\n");
+      }
+      if (typeof val === "object")
+        return JSON.stringify(val);
+      return String(val);
+    };
+    const title = ensureString(sections.title) || "Meeting Notes";
+    const summary = ensureString(sections.summary);
+    const painPoints = ensureString(sections.painPoints);
+    const productInterest = ensureString(sections.productInterest);
+    const meddiccSignals = ensureString(sections.meddiccSignals);
+    const nextSteps = ensureString(sections.nextSteps);
+    const actionItems = ensureString(sections.actionItems);
+    const keyDates = ensureString(sections.keyDates);
+    const risksObjections = ensureString(sections.risksObjections);
+    const attendees = ensureString(sections.attendees);
     let content = `---
-title: "${sections.title || "Meeting Notes"}"
+title: "${title}"
 date: ${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}
 transcribed: true
 sync_to_salesforce: false
@@ -2984,66 +3019,66 @@ source: ""
 confidence: ${transcription.confidence}
 ---
 
-# ${sections.title || "Meeting Notes"}
+# ${title}
 
 ## Summary
 
-${sections.summary || "*AI summary will appear here*"}
+${summary || "*AI summary will appear here*"}
 
 `;
-    if (sections.painPoints && !sections.painPoints.includes("None explicitly")) {
+    if (painPoints && !painPoints.includes("None explicitly")) {
       content += `## Pain Points
 
-${sections.painPoints}
+${painPoints}
 
 `;
     }
-    if (sections.productInterest && !sections.productInterest.includes("None identified")) {
+    if (productInterest && !productInterest.includes("None identified")) {
       content += `## Product Interest
 
-${sections.productInterest}
+${productInterest}
 
 `;
     }
-    if (sections.meddiccSignals) {
+    if (meddiccSignals) {
       content += `## MEDDICC Signals
 
-${sections.meddiccSignals}
+${meddiccSignals}
 
 `;
     }
-    if (sections.nextSteps) {
+    if (nextSteps) {
       content += `## Next Steps
 
-${sections.nextSteps}
+${nextSteps}
 
 `;
     }
-    if (sections.actionItems) {
+    if (actionItems) {
       content += `## Action Items
 
-${sections.actionItems}
+${actionItems}
 
 `;
     }
-    if (sections.keyDates && !sections.keyDates.includes("No specific dates")) {
+    if (keyDates && !keyDates.includes("No specific dates")) {
       content += `## Key Dates
 
-${sections.keyDates}
+${keyDates}
 
 `;
     }
-    if (sections.risksObjections && !sections.risksObjections.includes("None raised")) {
+    if (risksObjections && !risksObjections.includes("None raised")) {
       content += `## Risks and Objections
 
-${sections.risksObjections}
+${risksObjections}
 
 `;
     }
-    if (sections.attendees) {
+    if (attendees) {
       content += `## Attendees
 
-${sections.attendees}
+${attendees}
 
 `;
     }

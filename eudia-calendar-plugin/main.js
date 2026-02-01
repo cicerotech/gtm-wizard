@@ -414,8 +414,11 @@ var EudiaCalendarView = class extends import_obsidian.ItemView {
       const fileName = `${dateStr} - ${safeName}.md`;
       let targetFolder = null;
       let accountName = meeting.accountName;
+      log(`=== Creating note for meeting: "${meeting.subject}" ===`);
+      log(`Attendees: ${JSON.stringify(meeting.attendees.map((a) => a.email))}`);
       if (!targetFolder && meeting.attendees && meeting.attendees.length > 0) {
         const domainName = this.extractAccountFromAttendees(meeting.attendees);
+        log(`Extracted domain company name: "${domainName || "none"}"`);
         if (domainName) {
           targetFolder = this.findAccountFolder(domainName);
           log(`Domain-based "${domainName}" -> folder: ${targetFolder || "not found"}`);

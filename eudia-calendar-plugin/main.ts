@@ -492,8 +492,12 @@ class EudiaCalendarView extends ItemView {
     let accountName = meeting.accountName;
     
     // PRIORITY 1: Try domain-based matching from attendee emails (highest confidence)
+    log(`=== Creating note for meeting: "${meeting.subject}" ===`);
+    log(`Attendees: ${JSON.stringify(meeting.attendees.map(a => a.email))}`);
+    
     if (!targetFolder && meeting.attendees && meeting.attendees.length > 0) {
       const domainName = this.extractAccountFromAttendees(meeting.attendees);
+      log(`Extracted domain company name: "${domainName || 'none'}"`);
       if (domainName) {
         targetFolder = this.findAccountFolder(domainName);
         log(`Domain-based "${domainName}" -> folder: ${targetFolder || 'not found'}`);

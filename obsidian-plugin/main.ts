@@ -1276,13 +1276,18 @@ export default class EudiaSyncPlugin extends Plugin {
       // Update file
       await this.app.vault.modify(file, noteContent);
 
-      // Show completion stats (sections are strings, count lines for metrics)
-      const countLines = (s: string | undefined) => s ? s.split('\n').filter(l => l.trim()).length : 0;
+      // Show completion stats - handle both string and array inputs defensively
+      const countItems = (val: any): number => {
+        if (!val) return 0;
+        if (Array.isArray(val)) return val.length;
+        if (typeof val === 'string') return val.split('\n').filter(l => l.trim()).length;
+        return 0;
+      };
       this.recordingStatusBar?.showComplete({
         duration: result.duration,
         confidence: transcription.confidence,
-        meddiccCount: countLines(sections.meddiccSignals),
-        nextStepsCount: countLines(sections.nextSteps)
+        meddiccCount: countItems(sections.meddiccSignals),
+        nextStepsCount: countItems(sections.nextSteps)
       });
 
       modal.close();
@@ -1300,9 +1305,38 @@ export default class EudiaSyncPlugin extends Plugin {
   }
 
   private buildNoteContent(sections: ProcessedSections, transcription: TranscriptionResult): string {
-    // Note: ProcessedSections fields are strings, not arrays
+    // Defensive helper: ensure any value is converted to string
+    // Handles arrays, objects, or already-strings from any code path
+    const ensureString = (val: any): string => {
+      if (val === null || val === undefined) return '';
+      if (Array.isArray(val)) {
+        return val.map(item => {
+          if (typeof item === 'object') {
+            // Handle MEDDICC signal objects
+            if (item.category) return `**${item.category}**: ${item.signal || item.insight || ''}`;
+            return JSON.stringify(item);
+          }
+          return String(item);
+        }).join('\n');
+      }
+      if (typeof val === 'object') return JSON.stringify(val);
+      return String(val);
+    };
+
+    // Normalize all sections to strings
+    const title = ensureString(sections.title) || 'Meeting Notes';
+    const summary = ensureString(sections.summary);
+    const painPoints = ensureString(sections.painPoints);
+    const productInterest = ensureString(sections.productInterest);
+    const meddiccSignals = ensureString(sections.meddiccSignals);
+    const nextSteps = ensureString(sections.nextSteps);
+    const actionItems = ensureString(sections.actionItems);
+    const keyDates = ensureString(sections.keyDates);
+    const risksObjections = ensureString(sections.risksObjections);
+    const attendees = ensureString(sections.attendees);
+
     let content = `---
-title: "${sections.title || 'Meeting Notes'}"
+title: "${title}"
 date: ${new Date().toISOString().split('T')[0]}
 transcribed: true
 sync_to_salesforce: false
@@ -1311,82 +1345,82 @@ source: ""
 confidence: ${transcription.confidence}
 ---
 
-# ${sections.title || 'Meeting Notes'}
+# ${title}
 
 ## Summary
 
-${sections.summary || '*AI summary will appear here*'}
+${summary || '*AI summary will appear here*'}
 
 `;
 
     // Key points / pain points section
-    if (sections.painPoints && !sections.painPoints.includes('None explicitly')) {
+    if (painPoints && !painPoints.includes('None explicitly')) {
       content += `## Pain Points
 
-${sections.painPoints}
+${painPoints}
 
 `;
     }
 
     // Product interest
-    if (sections.productInterest && !sections.productInterest.includes('None identified')) {
+    if (productInterest && !productInterest.includes('None identified')) {
       content += `## Product Interest
 
-${sections.productInterest}
+${productInterest}
 
 `;
     }
 
     // MEDDICC signals (string format)
-    if (sections.meddiccSignals) {
+    if (meddiccSignals) {
       content += `## MEDDICC Signals
 
-${sections.meddiccSignals}
+${meddiccSignals}
 
 `;
     }
 
     // Next steps (string format, already has checkboxes from AI)
-    if (sections.nextSteps) {
+    if (nextSteps) {
       content += `## Next Steps
 
-${sections.nextSteps}
+${nextSteps}
 
 `;
     }
 
     // Action items
-    if (sections.actionItems) {
+    if (actionItems) {
       content += `## Action Items
 
-${sections.actionItems}
+${actionItems}
 
 `;
     }
 
     // Key dates
-    if (sections.keyDates && !sections.keyDates.includes('No specific dates')) {
+    if (keyDates && !keyDates.includes('No specific dates')) {
       content += `## Key Dates
 
-${sections.keyDates}
+${keyDates}
 
 `;
     }
 
     // Risks and objections
-    if (sections.risksObjections && !sections.risksObjections.includes('None raised')) {
+    if (risksObjections && !risksObjections.includes('None raised')) {
       content += `## Risks and Objections
 
-${sections.risksObjections}
+${risksObjections}
 
 `;
     }
 
     // Attendees
-    if (sections.attendees) {
+    if (attendees) {
       content += `## Attendees
 
-${sections.attendees}
+${attendees}
 
 `;
     }
