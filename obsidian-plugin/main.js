@@ -2712,38 +2712,216 @@ var EudiaCalendarView = class extends import_obsidian3.ItemView {
       text: "Your calendar syncs automatically via Microsoft 365."
     });
   }
-  async createNoteForMeeting(meeting) {
-    const dateStr = meeting.start.split("T")[0];
-    let folderPath = this.plugin.settings.accountsFolder;
-    if (meeting.accountName) {
-      const sanitizedName = meeting.accountName.replace(/[<>:"/\\|?*]/g, "_").trim();
-      const accountFolder = `${this.plugin.settings.accountsFolder}/${sanitizedName}`;
-      const folder = this.app.vault.getAbstractFileByPath(accountFolder);
-      if (folder instanceof import_obsidian3.TFolder) {
-        folderPath = accountFolder;
+  // ─────────────────────────────────────────────────────────────────────────
+  // SMART ACCOUNT MATCHING METHODS
+  // ─────────────────────────────────────────────────────────────────────────
+  /**
+   * Extract company name from attendee email domains
+   * Higher confidence than subject parsing since emails are definitive
+   * Returns the company name derived from the domain (e.g., chsinc.com -> Chsinc)
+   */
+  extractAccountFromAttendees(attendees) {
+    if (!attendees || attendees.length === 0)
+      return null;
+    const commonProviders = [
+      "gmail.com",
+      "outlook.com",
+      "hotmail.com",
+      "yahoo.com",
+      "icloud.com",
+      "live.com",
+      "msn.com",
+      "aol.com",
+      "protonmail.com"
+    ];
+    const externalDomains = [];
+    for (const attendee of attendees) {
+      if (!attendee.email)
+        continue;
+      const email = attendee.email.toLowerCase();
+      const domainMatch = email.match(/@([a-z0-9.-]+)/);
+      if (domainMatch) {
+        const domain2 = domainMatch[1];
+        if (!domain2.includes("eudia.com") && !commonProviders.includes(domain2)) {
+          externalDomains.push(domain2);
+        }
       }
     }
-    const sanitizedSubject = meeting.subject.replace(/[<>:"/\\|?*]/g, "_").trim().substring(0, 50);
-    const fileName = `${dateStr} ${sanitizedSubject}.md`;
-    const filePath = `${folderPath}/${fileName}`;
+    if (externalDomains.length === 0)
+      return null;
+    const domain = externalDomains[0];
+    const companyPart = domain.split(".")[0];
+    const companyName = companyPart.charAt(0).toUpperCase() + companyPart.slice(1);
+    console.log(`[Eudia Calendar] Extracted company "${companyName}" from attendee domain ${domain}`);
+    return companyName;
+  }
+  /**
+   * Extract account name from meeting subject using common patterns
+   * Examples:
+   *   "CHS/Eudia - M&A Intro & Demo" -> "CHS"
+   *   "Graybar/Eudia Weekly Check in" -> "Graybar"
+   *   "Eudia - HATCo Connect | Intros" -> "HATCo"
+   */
+  extractAccountFromSubject(subject) {
+    if (!subject)
+      return null;
+    const slashPattern = subject.match(/^([^\/]+)\s*\/\s*Eudia|Eudia\s*\/\s*([^\/\-|]+)/i);
+    if (slashPattern) {
+      const match = (slashPattern[1] || slashPattern[2] || "").trim();
+      if (match.toLowerCase() !== "eudia")
+        return match;
+    }
+    const dashPattern = subject.match(/^Eudia\s*[-–]\s*([^|]+)|^([^-–]+)\s*[-–]\s*Eudia/i);
+    if (dashPattern) {
+      const match = (dashPattern[1] || dashPattern[2] || "").trim();
+      const cleaned = match.replace(/\s+(Connect|Weekly|Call|Meeting|Intro|Demo|Check\s*in|Sync).*$/i, "").trim();
+      if (cleaned.toLowerCase() !== "eudia" && cleaned.length > 0)
+        return cleaned;
+    }
+    if (!subject.toLowerCase().includes("eudia")) {
+      const simplePattern = subject.match(/^([^-–|]+)/);
+      if (simplePattern) {
+        const match = simplePattern[1].trim();
+        if (match.length > 2 && match.length < 50)
+          return match;
+      }
+    }
+    return null;
+  }
+  /**
+   * Find matching account folder in the vault
+   * Uses multiple matching strategies for robustness
+   * Returns the full path if found, null otherwise
+   */
+  findAccountFolder(accountName) {
+    if (!accountName)
+      return null;
+    const accountsFolder = this.plugin.settings.accountsFolder || "Accounts";
+    const folder = this.app.vault.getAbstractFileByPath(accountsFolder);
+    if (!(folder instanceof import_obsidian3.TFolder)) {
+      console.log(`[Eudia Calendar] Accounts folder "${accountsFolder}" not found`);
+      return null;
+    }
+    const normalizedSearch = accountName.toLowerCase().trim();
+    const subfolders = [];
+    for (const child of folder.children) {
+      if (child instanceof import_obsidian3.TFolder) {
+        subfolders.push(child.name);
+      }
+    }
+    console.log(`[Eudia Calendar] Searching for "${normalizedSearch}" in ${subfolders.length} folders`);
+    const exactMatch = subfolders.find((f) => f.toLowerCase() === normalizedSearch);
+    if (exactMatch) {
+      console.log(`[Eudia Calendar] Exact match found: ${exactMatch}`);
+      return `${accountsFolder}/${exactMatch}`;
+    }
+    const folderStartsWith = subfolders.find((f) => f.toLowerCase().startsWith(normalizedSearch));
+    if (folderStartsWith) {
+      console.log(`[Eudia Calendar] Folder starts with match: ${folderStartsWith}`);
+      return `${accountsFolder}/${folderStartsWith}`;
+    }
+    const searchStartsWith = subfolders.find((f) => normalizedSearch.startsWith(f.toLowerCase()));
+    if (searchStartsWith) {
+      console.log(`[Eudia Calendar] Search starts with folder match: ${searchStartsWith}`);
+      return `${accountsFolder}/${searchStartsWith}`;
+    }
+    const searchContains = subfolders.find((f) => {
+      const folderLower = f.toLowerCase();
+      return folderLower.length >= 3 && normalizedSearch.includes(folderLower);
+    });
+    if (searchContains) {
+      console.log(`[Eudia Calendar] Search contains folder match: ${searchContains}`);
+      return `${accountsFolder}/${searchContains}`;
+    }
+    const folderContains = subfolders.find((f) => {
+      const folderLower = f.toLowerCase();
+      return normalizedSearch.length >= 3 && folderLower.includes(normalizedSearch);
+    });
+    if (folderContains) {
+      console.log(`[Eudia Calendar] Folder contains search match: ${folderContains}`);
+      return `${accountsFolder}/${folderContains}`;
+    }
+    console.log(`[Eudia Calendar] No folder match found for "${normalizedSearch}"`);
+    return null;
+  }
+  async createNoteForMeeting(meeting) {
+    const dateStr = meeting.start.split("T")[0];
+    const safeName = meeting.subject.replace(/[<>:"/\\|?*]/g, "_").substring(0, 50);
+    const fileName = `${dateStr} - ${safeName}.md`;
+    let targetFolder = null;
+    let matchedAccountName = meeting.accountName || null;
+    let matchedAccountId = null;
+    console.log(`[Eudia Calendar] === Creating note for meeting: "${meeting.subject}" ===`);
+    console.log(`[Eudia Calendar] Attendees: ${JSON.stringify(meeting.attendees?.map((a) => a.email) || [])}`);
+    if (!targetFolder && meeting.attendees && meeting.attendees.length > 0) {
+      const domainName = this.extractAccountFromAttendees(meeting.attendees);
+      console.log(`[Eudia Calendar] Extracted domain company name: "${domainName || "none"}"`);
+      if (domainName) {
+        targetFolder = this.findAccountFolder(domainName);
+        console.log(`[Eudia Calendar] Domain-based "${domainName}" -> folder: ${targetFolder || "not found"}`);
+        if (targetFolder && !matchedAccountName) {
+          matchedAccountName = targetFolder.split("/").pop() || domainName;
+        }
+      }
+    }
+    if (!targetFolder && meeting.accountName) {
+      targetFolder = this.findAccountFolder(meeting.accountName);
+      console.log(`[Eudia Calendar] Server accountName "${meeting.accountName}" -> folder: ${targetFolder || "not found"}`);
+    }
+    if (!targetFolder) {
+      const extractedName = this.extractAccountFromSubject(meeting.subject);
+      if (extractedName) {
+        targetFolder = this.findAccountFolder(extractedName);
+        console.log(`[Eudia Calendar] Subject-based "${extractedName}" -> folder: ${targetFolder || "not found"}`);
+        if (targetFolder && !matchedAccountName) {
+          matchedAccountName = targetFolder.split("/").pop() || extractedName;
+        }
+      }
+    }
+    if (!targetFolder) {
+      const accountsFolder = this.plugin.settings.accountsFolder || "Accounts";
+      const folder = this.app.vault.getAbstractFileByPath(accountsFolder);
+      if (folder instanceof import_obsidian3.TFolder) {
+        targetFolder = accountsFolder;
+        console.log(`[Eudia Calendar] No match found, using Accounts root: ${targetFolder}`);
+      }
+    }
+    if (matchedAccountName) {
+      const cachedAccount = this.plugin.settings.cachedAccounts.find(
+        (a) => a.name.toLowerCase() === matchedAccountName?.toLowerCase()
+      );
+      if (cachedAccount) {
+        matchedAccountId = cachedAccount.id;
+        matchedAccountName = cachedAccount.name;
+        console.log(`[Eudia Calendar] Matched to cached account: ${cachedAccount.name} (${cachedAccount.id})`);
+      }
+    }
+    const filePath = targetFolder ? `${targetFolder}/${fileName}` : fileName;
     const existing = this.app.vault.getAbstractFileByPath(filePath);
     if (existing instanceof import_obsidian3.TFile) {
       await this.app.workspace.getLeaf().openFile(existing);
+      new import_obsidian3.Notice(`Opened existing note: ${fileName}`);
       return;
     }
-    const attendees = (meeting.attendees || []).map((a) => a.name || a.email?.split("@")[0] || "Unknown").slice(0, 5).join(", ");
+    const attendeeList = (meeting.attendees || []).map((a) => a.name || a.email?.split("@")[0] || "Unknown").slice(0, 5).join(", ");
     const template = `---
 title: "${meeting.subject}"
 date: ${dateStr}
-attendees: [${attendees}]
-account: "${meeting.accountName || ""}"
+attendees: [${attendeeList}]
+account: "${matchedAccountName || ""}"
+account_id: "${matchedAccountId || ""}"
 meeting_start: ${meeting.start}
 meeting_type: discovery
 sync_to_salesforce: false
+clo_meeting: false
+source: ""
 transcribed: false
 ---
 
 # ${meeting.subject}
+
+## Attendees
+${(meeting.attendees || []).map((a) => `- ${a.name || a.email}`).join("\n")}
 
 ## Pre-Call Notes
 
@@ -2760,9 +2938,14 @@ Click the **microphone icon** in the sidebar or use \`Cmd/Ctrl+P\` \u2192 **"Tra
 ---
 
 `;
-    const file = await this.app.vault.create(filePath, template);
-    await this.app.workspace.getLeaf().openFile(file);
-    new import_obsidian3.Notice(`Created note for: ${meeting.subject}`);
+    try {
+      const file = await this.app.vault.create(filePath, template);
+      await this.app.workspace.getLeaf().openFile(file);
+      new import_obsidian3.Notice(`Created: ${filePath}`);
+    } catch (e) {
+      console.error("[Eudia Calendar] Failed to create note:", e);
+      new import_obsidian3.Notice(`Could not create note: ${e.message || "Unknown error"}`);
+    }
   }
 };
 var EudiaSyncPlugin = class extends import_obsidian3.Plugin {
@@ -3386,7 +3569,7 @@ var EudiaSyncSettingTab = class extends import_obsidian3.PluginSettingTab {
       await this.plugin.saveSettings();
     }));
     containerEl.createEl("h3", { text: "Actions" });
-    new import_obsidian3.Setting(containerEl).setName("Sync Accounts Now").setDesc(`${this.plugin.settings.cachedAccounts.length} accounts cached`).addButton((button) => button.setButtonText("Sync").setCta().onClick(async () => {
+    new import_obsidian3.Setting(containerEl).setName("Sync Accounts Now").setDesc(`${this.plugin.settings.cachedAccounts.length} accounts available for matching (folders are pre-loaded)`).addButton((button) => button.setButtonText("Sync").setCta().onClick(async () => {
       await this.plugin.syncAccounts();
       this.display();
     }));
