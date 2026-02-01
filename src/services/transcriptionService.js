@@ -1206,13 +1206,21 @@ class MEDDICCExtractor {
       
       if (data.detected && confidence >= MEDDICC_THRESHOLDS.MINIMUM) {
         // Include this signal
+        // Ensure evidence is always an array (GPT may return string)
+        let evidence = [];
+        if (Array.isArray(data.evidence)) {
+          evidence = data.evidence;
+        } else if (typeof data.evidence === 'string' && data.evidence.trim()) {
+          evidence = data.evidence.split('\n').filter(e => e.trim());
+        }
+        
         filteredSignals[signal] = {
           detected: true,
           confidence,
           strength: this.getStrengthLabel(confidence),
-          evidence: data.evidence || [],
+          evidence,
           summary: data.summary || '',
-          display: this.formatSignalForDisplay(signal, data)
+          display: this.formatSignalForDisplay(signal, { ...data, evidence })
         };
         includedSignals.push(signal);
         totalConfidence += confidence;
@@ -1274,11 +1282,13 @@ class MEDDICCExtractor {
     const strength = this.getStrengthLabel(data.confidence);
     
     let display = `${emoji} **${name}** (${data.confidence}% - ${strength})\n`;
-    display += `${data.summary}\n`;
+    display += `${data.summary || ''}\n`;
     
-    if (data.evidence && data.evidence.length > 0) {
+    // Defensive: ensure evidence is iterable
+    const evidence = Array.isArray(data.evidence) ? data.evidence : [];
+    if (evidence.length > 0) {
       display += `Evidence:\n`;
-      data.evidence.forEach(e => {
+      evidence.forEach(e => {
         display += `> "${e}"\n`;
       });
     }
@@ -1409,7 +1419,45 @@ class MEDDICCExtractor {
       }
 
       const result = JSON.parse(content);
-      const nextSteps = Array.isArray(result) ? result : (result.next_steps || result.steps || []);
+      
+      // ═══════════════════════════════════════════════════════════════════════
+      // DEFENSIVE TYPE HANDLING - GPT may return strings instead of arrays
+      // ═══════════════════════════════════════════════════════════════════════
+      let nextSteps = [];
+      
+      if (Array.isArray(result)) {
+        // GPT returned array directly
+        nextSteps = result;
+      } else if (Array.isArray(result.next_steps)) {
+        nextSteps = result.next_steps;
+      } else if (Array.isArray(result.steps)) {
+        nextSteps = result.steps;
+      } else if (typeof result.next_steps === 'string' && result.next_steps.trim()) {
+        // GPT returned string - split by newlines and convert to objects
+        nextSteps = result.next_steps.split('\n')
+          .map(s => s.trim())
+          .filter(s => s.length > 0)
+          .map(s => ({ action: s.replace(/^[-*•\d.)\]]+\s*/, '').trim() }));
+      } else if (typeof result.steps === 'string' && result.steps.trim()) {
+        nextSteps = result.steps.split('\n')
+          .map(s => s.trim())
+          .filter(s => s.length > 0)
+          .map(s => ({ action: s.replace(/^[-*•\d.)\]]+\s*/, '').trim() }));
+      } else if (typeof result === 'string' && result.trim()) {
+        // Entire result is a string
+        nextSteps = result.split('\n')
+          .map(s => s.trim())
+          .filter(s => s.length > 0)
+          .map(s => ({ action: s.replace(/^[-*•\d.)\]]+\s*/, '').trim() }));
+      }
+      
+      // Ensure all items are objects with an action property
+      nextSteps = nextSteps.map(step => {
+        if (typeof step === 'string') {
+          return { action: step.replace(/^[-*•\d.)\]]+\s*/, '').trim() };
+        }
+        return step;
+      }).filter(step => step.action && step.action.trim());
 
       // Format for display as checkboxes
       const formatted = nextSteps.map(step => {
@@ -1420,7 +1468,7 @@ class MEDDICCExtractor {
         if (step.owner) {
           line += `${step.owner} - `;
         }
-        line += step.action;
+        line += step.action || 'Follow up';
         return line;
       }).join('\n');
 
