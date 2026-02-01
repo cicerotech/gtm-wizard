@@ -20,7 +20,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 // Configuration
 const VAULT_NAME = 'BL Sales Vault';
-const ACCOUNTS_FILE = path.join(__dirname, '..', '..', '..', 'Desktop', 'accts.xlsx');
+const ACCOUNTS_FILE = path.join(__dirname, '..', '..', '..', 'Desktop', 'Business Lead 2026 Accounts.xlsx');
 const OUTPUT_DIR = path.join(__dirname, '..', 'dist', 'vault');
 const ZIP_OUTPUT = path.join(__dirname, '..', 'dist', 'BL-Sales-Vault.zip');
 const PLUGIN_DIR = path.join(__dirname, '..', 'obsidian-plugin');

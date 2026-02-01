@@ -1128,4 +1128,149 @@ export class TranscriptionService {
     
     return content;
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WRAPPER METHODS - For main.ts compatibility
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Convert Blob to base64 string
+   */
+  private async blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  /**
+   * Wrapper method for main.ts - transcribes audio blob
+   * Called by main.ts line 1261
+   */
+  async transcribeAudio(
+    audioBlob: Blob, 
+    context?: { accountName?: string; accountId?: string }
+  ): Promise<{ text: string; confidence: number; duration?: number }> {
+    try {
+      const base64 = await this.blobToBase64(audioBlob);
+      const mimeType = audioBlob.type || 'audio/webm';
+      
+      const result = await this.transcribeAndSummarize(
+        base64, 
+        mimeType, 
+        context?.accountName, 
+        context?.accountId
+      );
+      
+      return {
+        text: result.transcript,
+        confidence: result.success ? 0.95 : 0,
+        duration: result.duration
+      };
+    } catch (error) {
+      console.error('transcribeAudio error:', error);
+      return {
+        text: '',
+        confidence: 0,
+        duration: 0
+      };
+    }
+  }
+
+  /**
+   * Wrapper method for main.ts - processes transcription into sections
+   * Called by main.ts line 1266
+   */
+  async processTranscription(
+    transcriptText: string,
+    context?: { accountName?: string; accountId?: string }
+  ): Promise<TranscriptionSections> {
+    // If we already have the transcript, we need to re-summarize it
+    // This is a simplified version - in production, you might cache the sections
+    if (!transcriptText || transcriptText.trim().length === 0) {
+      return this.getEmptySections();
+    }
+
+    try {
+      // Use OpenAI to extract sections from the transcript
+      if (this.openaiApiKey) {
+        const prompt = `Analyze this meeting transcript and extract structured information:
+
+TRANSCRIPT:
+${transcriptText}
+
+Extract the following in JSON format:
+{
+  "summary": "2-3 sentence meeting summary",
+  "keyPoints": ["key point 1", "key point 2", ...],
+  "nextSteps": ["action item 1", "action item 2", ...],
+  "meddiccSignals": [{"category": "Metrics|Economic Buyer|Decision Criteria|Decision Process|Identify Pain|Champion|Competition", "signal": "the signal text", "confidence": 0.8}],
+  "attendees": ["name 1", "name 2", ...]
+}`;
+
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.openaiApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: 'You are a sales meeting analyst. Extract structured information from transcripts. Return valid JSON only.' },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.3,
+            max_tokens: 2000
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const content = data.choices?.[0]?.message?.content || '';
+          
+          // Parse JSON from response
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            return {
+              summary: parsed.summary || '',
+              keyPoints: parsed.keyPoints || [],
+              nextSteps: parsed.nextSteps || [],
+              meddiccSignals: parsed.meddiccSignals || [],
+              attendees: parsed.attendees || [],
+              transcript: transcriptText
+            };
+          }
+        }
+      }
+
+      // Fallback: return basic sections
+      return {
+        summary: 'Meeting transcript captured. Review for key details.',
+        keyPoints: [],
+        nextSteps: [],
+        meddiccSignals: [],
+        attendees: [],
+        transcript: transcriptText
+      };
+
+    } catch (error) {
+      console.error('processTranscription error:', error);
+      return {
+        summary: '',
+        keyPoints: [],
+        nextSteps: [],
+        meddiccSignals: [],
+        attendees: [],
+        transcript: transcriptText
+      };
+    }
+  }
 }

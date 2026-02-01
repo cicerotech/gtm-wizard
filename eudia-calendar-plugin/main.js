@@ -144,9 +144,28 @@ var EudiaCalendarView = class extends import_obsidian.ItemView {
             details.createEl("div", { cls: "eudia-cal-subject", text: meeting.subject });
             if (meeting.accountName) {
               details.createEl("div", { cls: "eudia-cal-account", text: meeting.accountName });
-            } else if (meeting.attendees.length > 0) {
-              const names = meeting.attendees.slice(0, 2).map((a) => a.name || a.email.split("@")[0]).join(", ");
-              details.createEl("div", { cls: "eudia-cal-attendees", text: names });
+            }
+            if (meeting.attendees && meeting.attendees.length > 0) {
+              const attendeesRow = details.createDiv({ cls: "eudia-cal-attendee-chips" });
+              const displayLimit = 3;
+              for (let i = 0; i < Math.min(meeting.attendees.length, displayLimit); i++) {
+                const attendee = meeting.attendees[i];
+                const name = attendee.name || attendee.email.split("@")[0];
+                const initials = name.split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase();
+                const chip = attendeesRow.createEl("span", {
+                  cls: "eudia-cal-chip",
+                  text: initials
+                });
+                chip.title = `${name} (${attendee.email})`;
+              }
+              if (meeting.attendees.length > displayLimit) {
+                attendeesRow.createEl("span", {
+                  cls: "eudia-cal-chip more",
+                  text: `+${meeting.attendees.length - displayLimit}`
+                });
+              }
+              const countLabel = `${meeting.attendees.length} external`;
+              attendeesRow.createEl("span", { cls: "eudia-cal-attendee-count", text: countLabel });
             }
             meetingEl.title = "Click to create note";
             meetingEl.onclick = () => this.createNoteForMeeting(meeting);
@@ -232,7 +251,7 @@ var EudiaCalendarView = class extends import_obsidian.ItemView {
       btn.textContent = "Connecting...";
       btn.setAttribute("disabled", "true");
       try {
-        const testUrl = `${this.plugin.settings.serverUrl}/api/calendar/${email}/today`;
+        const testUrl = `${this.plugin.settings.serverUrl}/api/calendar/${email}/week`;
         const response = yield (0, import_obsidian.requestUrl)({ url: testUrl, method: "GET" });
         if (response.json.success !== false) {
           this.plugin.settings.userEmail = email;
@@ -340,10 +359,10 @@ var CalendarSettingsTab = class extends import_obsidian.PluginSettingTab {
       }
       btn.setButtonText("Testing...");
       try {
-        const url = `${this.plugin.settings.serverUrl}/api/calendar/${this.plugin.settings.userEmail}/today`;
+        const url = `${this.plugin.settings.serverUrl}/api/calendar/${this.plugin.settings.userEmail}/week`;
         const resp = yield (0, import_obsidian.requestUrl)({ url, method: "GET" });
         if (resp.json.success) {
-          new import_obsidian.Notice(`Connected! ${resp.json.meetingCount} meetings today`);
+          new import_obsidian.Notice(`Connected! ${resp.json.totalMeetings} meetings this week`);
           btn.setButtonText("Success");
         } else {
           new import_obsidian.Notice(`Error: ${resp.json.error}`);

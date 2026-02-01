@@ -188,3 +188,61 @@
   color: var(--text-muted);
   margin-top: 2px;
 }
+
+/* Attendee Chips (like GTM site Meeting Prep) */
+.eudia-cal-attendee-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  align-items: center;
+}
+
+.eudia-cal-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 12px;
+  background: var(--interactive-accent);
+  color: white;
+  min-width: 24px;
+  height: 20px;
+  cursor: default;
+}
+
+.eudia-cal-chip.more {
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+.eudia-cal-attendee-count {
+  font-size: 10px;
+  color: var(--interactive-accent);
+  margin-left: 4px;
+}
+
+/* Status indicator for email */
+.eudia-cal-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--background-secondary);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.eudia-cal-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+}
+
+.eudia-cal-status-email {
+  font-size: 13px;
+  color: var(--text-normal);
+}
