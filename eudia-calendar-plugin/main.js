@@ -70,7 +70,8 @@ function logWarn(message) {
 var DEFAULT_SETTINGS = {
   userEmail: "",
   serverUrl: "https://gtm-wizard.onrender.com",
-  refreshMinutes: 5
+  refreshMinutes: 5,
+  accountsFolder: "Accounts"
 };
 var VIEW_TYPE = "eudia-calendar-standalone";
 var EudiaCalendarView = class extends import_obsidian.ItemView {
@@ -276,18 +277,123 @@ var EudiaCalendarView = class extends import_obsidian.ItemView {
     const retryBtn = errorEl.createEl("button", { text: "Retry", cls: "eudia-cal-btn" });
     retryBtn.onclick = () => this.render();
   }
+  /**
+   * Extract account name from meeting subject using common patterns
+   * Examples:
+   *   "Eudia - HATCo Connect | Intros" -> "HATCo"
+   *   "Graybar/Eudia Weekly Check in" -> "Graybar"
+   *   "CHS/Eudia - M&A Intro & Demo" -> "CHS"
+   *   "Acme Corp - Discovery Call" -> "Acme Corp"
+   */
+  extractAccountFromSubject(subject) {
+    if (!subject)
+      return null;
+    const slashPattern = subject.match(/^([^\/]+)\s*\/\s*Eudia|Eudia\s*\/\s*([^\/\-|]+)/i);
+    if (slashPattern) {
+      const match = (slashPattern[1] || slashPattern[2] || "").trim();
+      if (match.toLowerCase() !== "eudia")
+        return match;
+    }
+    const dashPattern = subject.match(/^Eudia\s*[-–]\s*([^|]+)|^([^-–]+)\s*[-–]\s*Eudia/i);
+    if (dashPattern) {
+      const match = (dashPattern[1] || dashPattern[2] || "").trim();
+      const cleaned = match.replace(/\s+(Connect|Weekly|Call|Meeting|Intro|Demo|Check\s*in|Sync).*$/i, "").trim();
+      if (cleaned.toLowerCase() !== "eudia" && cleaned.length > 0)
+        return cleaned;
+    }
+    if (!subject.toLowerCase().includes("eudia")) {
+      const simplePattern = subject.match(/^([^-–|]+)/);
+      if (simplePattern) {
+        const match = simplePattern[1].trim();
+        if (match.length > 2 && match.length < 50)
+          return match;
+      }
+    }
+    return null;
+  }
+  /**
+   * Find matching account folder in the vault
+   * Returns the full path if found, null otherwise
+   */
+  findAccountFolder(accountName) {
+    if (!accountName)
+      return null;
+    const accountsFolder = this.plugin.settings.accountsFolder || "Accounts";
+    const folder = this.app.vault.getAbstractFileByPath(accountsFolder);
+    if (!(folder instanceof import_obsidian.TFolder)) {
+      log(`Accounts folder "${accountsFolder}" not found`);
+      return null;
+    }
+    const normalizedSearch = accountName.toLowerCase().trim();
+    const subfolders = [];
+    for (const child of folder.children) {
+      if (child instanceof import_obsidian.TFolder) {
+        subfolders.push(child.name);
+      }
+    }
+    const exactMatch = subfolders.find((f) => f.toLowerCase() === normalizedSearch);
+    if (exactMatch) {
+      return `${accountsFolder}/${exactMatch}`;
+    }
+    const startsWithMatch = subfolders.find(
+      (f) => f.toLowerCase().startsWith(normalizedSearch) || normalizedSearch.startsWith(f.toLowerCase())
+    );
+    if (startsWithMatch) {
+      return `${accountsFolder}/${startsWithMatch}`;
+    }
+    const containsMatch = subfolders.find(
+      (f) => f.toLowerCase().includes(normalizedSearch) || normalizedSearch.includes(f.toLowerCase())
+    );
+    if (containsMatch) {
+      return `${accountsFolder}/${containsMatch}`;
+    }
+    return null;
+  }
   createNoteForMeeting(meeting) {
     return __async(this, null, function* () {
       const dateStr = meeting.start.split("T")[0];
       const safeName = meeting.subject.replace(/[<>:"/\\|?*]/g, "_").substring(0, 50);
       const fileName = `${dateStr} - ${safeName}.md`;
+      let targetFolder = null;
+      let accountName = meeting.accountName;
+      if (accountName) {
+        targetFolder = this.findAccountFolder(accountName);
+        log(`Server accountName "${accountName}" -> folder: ${targetFolder || "not found"}`);
+      }
+      if (!targetFolder) {
+        const extractedName = this.extractAccountFromSubject(meeting.subject);
+        if (extractedName) {
+          targetFolder = this.findAccountFolder(extractedName);
+          log(`Extracted "${extractedName}" from subject -> folder: ${targetFolder || "not found"}`);
+          if (targetFolder && !accountName) {
+            accountName = extractedName;
+          }
+        }
+      }
+      if (!targetFolder) {
+        const accountsFolder = this.plugin.settings.accountsFolder || "Accounts";
+        const folder = this.app.vault.getAbstractFileByPath(accountsFolder);
+        if (folder instanceof import_obsidian.TFolder) {
+          targetFolder = accountsFolder;
+          log(`No match found, using Accounts root: ${targetFolder}`);
+        }
+      }
+      const filePath = targetFolder ? `${targetFolder}/${fileName}` : fileName;
+      const existing = this.app.vault.getAbstractFileByPath(filePath);
+      if (existing instanceof import_obsidian.TFile) {
+        yield this.app.workspace.getLeaf().openFile(existing);
+        new import_obsidian.Notice(`Opened existing note: ${fileName}`);
+        return;
+      }
       const attendeeList = meeting.attendees.map((a) => `- ${a.name || a.email}`).join("\n");
       const content = `---
 title: "${meeting.subject}"
 date: ${dateStr}
 meeting_time: ${this.formatTime(meeting.start)}
 attendees: ${meeting.attendees.map((a) => a.name || a.email).join(", ")}
-account: ${meeting.accountName || "TBD"}
+account: "${accountName || "TBD"}"
+clo_meeting: false
+source: ""
 sync_to_salesforce: false
 ---
 
@@ -301,16 +407,21 @@ ${attendeeList}
 
 ## Next Steps
 - [ ] 
+
 `;
       try {
-        yield this.app.vault.create(fileName, content);
-        const file = this.app.vault.getAbstractFileByPath(fileName);
-        if (file) {
-          yield this.app.workspace.openLinkText(fileName, "", true);
+        if (targetFolder) {
+          const folderExists = this.app.vault.getAbstractFileByPath(targetFolder);
+          if (!folderExists) {
+            yield this.app.vault.createFolder(targetFolder);
+          }
         }
-        new import_obsidian.Notice(`Created: ${fileName}`);
+        const file = yield this.app.vault.create(filePath, content);
+        yield this.app.workspace.getLeaf().openFile(file);
+        new import_obsidian.Notice(`Created: ${filePath}`);
       } catch (e) {
-        new import_obsidian.Notice("Could not create note");
+        logError("Failed to create note:", e);
+        new import_obsidian.Notice(`Could not create note: ${e.message || "Unknown error"}`);
       }
     });
   }
@@ -350,6 +461,10 @@ var CalendarSettingsTab = class extends import_obsidian.PluginSettingTab {
     })));
     new import_obsidian.Setting(containerEl).setName("Refresh Interval").setDesc("How often to refresh (minutes)").addSlider((slider) => slider.setLimits(1, 30, 1).setValue(this.plugin.settings.refreshMinutes).setDynamicTooltip().onChange((value) => __async(this, null, function* () {
       this.plugin.settings.refreshMinutes = value;
+      yield this.plugin.saveSettings();
+    })));
+    new import_obsidian.Setting(containerEl).setName("Accounts Folder").setDesc("Folder containing account subfolders (default: Accounts)").addText((text) => text.setPlaceholder("Accounts").setValue(this.plugin.settings.accountsFolder).onChange((value) => __async(this, null, function* () {
+      this.plugin.settings.accountsFolder = value || "Accounts";
       yield this.plugin.saveSettings();
     })));
     new import_obsidian.Setting(containerEl).setName("Test Connection").setDesc("Verify calendar is working").addButton((btn) => btn.setButtonText("Test").setCta().onClick(() => __async(this, null, function* () {

@@ -9,7 +9,7 @@
  * CHANGELOG:
  * - v1.1.0: Added robust error handling, server health checks, better logging
  */
-import { Plugin, Notice, ItemView, WorkspaceLeaf, Setting, PluginSettingTab, requestUrl } from 'obsidian';
+import { Plugin, Notice, ItemView, WorkspaceLeaf, Setting, PluginSettingTab, requestUrl, TFolder, TFile } from 'obsidian';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LOGGING - For debugging plugin load issues
@@ -37,12 +37,14 @@ interface CalendarSettings {
   userEmail: string;
   serverUrl: string;
   refreshMinutes: number;
+  accountsFolder: string;
 }
 
 const DEFAULT_SETTINGS: CalendarSettings = {
   userEmail: '',
   serverUrl: 'https://gtm-wizard.onrender.com',
-  refreshMinutes: 5
+  refreshMinutes: 5,
+  accountsFolder: 'Accounts'
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -323,10 +325,144 @@ class EudiaCalendarView extends ItemView {
     retryBtn.onclick = () => this.render();
   }
 
+  /**
+   * Extract account name from meeting subject using common patterns
+   * Examples:
+   *   "Eudia - HATCo Connect | Intros" -> "HATCo"
+   *   "Graybar/Eudia Weekly Check in" -> "Graybar"
+   *   "CHS/Eudia - M&A Intro & Demo" -> "CHS"
+   *   "Acme Corp - Discovery Call" -> "Acme Corp"
+   */
+  extractAccountFromSubject(subject: string): string | null {
+    if (!subject) return null;
+    
+    // Pattern 1: "CompanyName/Eudia" or "Eudia/CompanyName"
+    const slashPattern = subject.match(/^([^\/]+)\s*\/\s*Eudia|Eudia\s*\/\s*([^\/\-|]+)/i);
+    if (slashPattern) {
+      const match = (slashPattern[1] || slashPattern[2] || '').trim();
+      if (match.toLowerCase() !== 'eudia') return match;
+    }
+    
+    // Pattern 2: "Eudia - CompanyName" or "CompanyName - Eudia"
+    const dashPattern = subject.match(/^Eudia\s*[-–]\s*([^|]+)|^([^-–]+)\s*[-–]\s*Eudia/i);
+    if (dashPattern) {
+      const match = (dashPattern[1] || dashPattern[2] || '').trim();
+      // Clean up trailing descriptors like "Connect", "Weekly", etc.
+      const cleaned = match.replace(/\s+(Connect|Weekly|Call|Meeting|Intro|Demo|Check\s*in|Sync).*$/i, '').trim();
+      if (cleaned.toLowerCase() !== 'eudia' && cleaned.length > 0) return cleaned;
+    }
+    
+    // Pattern 3: Just "CompanyName - something" (if no Eudia in pattern)
+    if (!subject.toLowerCase().includes('eudia')) {
+      const simplePattern = subject.match(/^([^-–|]+)/);
+      if (simplePattern) {
+        const match = simplePattern[1].trim();
+        if (match.length > 2 && match.length < 50) return match;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Find matching account folder in the vault
+   * Returns the full path if found, null otherwise
+   */
+  findAccountFolder(accountName: string): string | null {
+    if (!accountName) return null;
+    
+    const accountsFolder = this.plugin.settings.accountsFolder || 'Accounts';
+    const folder = this.app.vault.getAbstractFileByPath(accountsFolder);
+    
+    if (!(folder instanceof TFolder)) {
+      log(`Accounts folder "${accountsFolder}" not found`);
+      return null;
+    }
+    
+    const normalizedSearch = accountName.toLowerCase().trim();
+    
+    // Get all subfolders in Accounts
+    const subfolders: string[] = [];
+    for (const child of folder.children) {
+      if (child instanceof TFolder) {
+        subfolders.push(child.name);
+      }
+    }
+    
+    // Try exact match first
+    const exactMatch = subfolders.find(f => f.toLowerCase() === normalizedSearch);
+    if (exactMatch) {
+      return `${accountsFolder}/${exactMatch}`;
+    }
+    
+    // Try "starts with" match
+    const startsWithMatch = subfolders.find(f => 
+      f.toLowerCase().startsWith(normalizedSearch) || 
+      normalizedSearch.startsWith(f.toLowerCase())
+    );
+    if (startsWithMatch) {
+      return `${accountsFolder}/${startsWithMatch}`;
+    }
+    
+    // Try "contains" match (for partial names)
+    const containsMatch = subfolders.find(f => 
+      f.toLowerCase().includes(normalizedSearch) || 
+      normalizedSearch.includes(f.toLowerCase())
+    );
+    if (containsMatch) {
+      return `${accountsFolder}/${containsMatch}`;
+    }
+    
+    return null;
+  }
+
   async createNoteForMeeting(meeting: Meeting): Promise<void> {
     const dateStr = meeting.start.split('T')[0];
     const safeName = meeting.subject.replace(/[<>:"/\\|?*]/g, '_').substring(0, 50);
     const fileName = `${dateStr} - ${safeName}.md`;
+    
+    // Determine the target folder
+    let targetFolder: string | null = null;
+    let accountName = meeting.accountName;
+    
+    // Try to find folder using server-provided accountName
+    if (accountName) {
+      targetFolder = this.findAccountFolder(accountName);
+      log(`Server accountName "${accountName}" -> folder: ${targetFolder || 'not found'}`);
+    }
+    
+    // If no match, try extracting from subject
+    if (!targetFolder) {
+      const extractedName = this.extractAccountFromSubject(meeting.subject);
+      if (extractedName) {
+        targetFolder = this.findAccountFolder(extractedName);
+        log(`Extracted "${extractedName}" from subject -> folder: ${targetFolder || 'not found'}`);
+        if (targetFolder && !accountName) {
+          accountName = extractedName;
+        }
+      }
+    }
+    
+    // Fallback to Accounts root if no match found
+    if (!targetFolder) {
+      const accountsFolder = this.plugin.settings.accountsFolder || 'Accounts';
+      const folder = this.app.vault.getAbstractFileByPath(accountsFolder);
+      if (folder instanceof TFolder) {
+        targetFolder = accountsFolder;
+        log(`No match found, using Accounts root: ${targetFolder}`);
+      }
+    }
+    
+    // Build full file path
+    const filePath = targetFolder ? `${targetFolder}/${fileName}` : fileName;
+    
+    // Check if file already exists
+    const existing = this.app.vault.getAbstractFileByPath(filePath);
+    if (existing instanceof TFile) {
+      await this.app.workspace.getLeaf().openFile(existing);
+      new Notice(`Opened existing note: ${fileName}`);
+      return;
+    }
     
     const attendeeList = meeting.attendees
       .map(a => `- ${a.name || a.email}`)
@@ -337,7 +473,9 @@ title: "${meeting.subject}"
 date: ${dateStr}
 meeting_time: ${this.formatTime(meeting.start)}
 attendees: ${meeting.attendees.map(a => a.name || a.email).join(', ')}
-account: ${meeting.accountName || 'TBD'}
+account: "${accountName || 'TBD'}"
+clo_meeting: false
+source: ""
 sync_to_salesforce: false
 ---
 
@@ -351,17 +489,24 @@ ${attendeeList}
 
 ## Next Steps
 - [ ] 
+
 `;
 
     try {
-      await this.app.vault.create(fileName, content);
-      const file = this.app.vault.getAbstractFileByPath(fileName);
-      if (file) {
-        await this.app.workspace.openLinkText(fileName, '', true);
+      // Ensure target folder exists
+      if (targetFolder) {
+        const folderExists = this.app.vault.getAbstractFileByPath(targetFolder);
+        if (!folderExists) {
+          await this.app.vault.createFolder(targetFolder);
+        }
       }
-      new Notice(`Created: ${fileName}`);
+      
+      const file = await this.app.vault.create(filePath, content);
+      await this.app.workspace.getLeaf().openFile(file);
+      new Notice(`Created: ${filePath}`);
     } catch (e) {
-      new Notice('Could not create note');
+      logError('Failed to create note:', e);
+      new Notice(`Could not create note: ${e.message || 'Unknown error'}`);
     }
   }
 
@@ -426,6 +571,17 @@ class CalendarSettingsTab extends PluginSettingTab {
         .setDynamicTooltip()
         .onChange(async (value) => {
           this.plugin.settings.refreshMinutes = value;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName('Accounts Folder')
+      .setDesc('Folder containing account subfolders (default: Accounts)')
+      .addText(text => text
+        .setPlaceholder('Accounts')
+        .setValue(this.plugin.settings.accountsFolder)
+        .onChange(async (value) => {
+          this.plugin.settings.accountsFolder = value || 'Accounts';
           await this.plugin.saveSettings();
         }));
 
