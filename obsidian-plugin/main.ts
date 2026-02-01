@@ -458,13 +458,13 @@ class SetupWizardModal extends Modal {
     const { contentEl } = this;
     contentEl.empty();
 
-    contentEl.createEl('h2', { text: '⚡ Setting Up...' });
+    contentEl.createEl('h2', { text: 'Setting Up...' });
     
     const statusContainer = contentEl.createDiv({ cls: 'eudia-setup-status-list' });
     this.steps.forEach(step => {
       const stepEl = statusContainer.createDiv({ cls: 'eudia-setup-step' });
       stepEl.id = `step-${step.id}`;
-      stepEl.createSpan({ text: '○', cls: 'step-icon' });
+      stepEl.createSpan({ text: '-', cls: 'step-icon' });
       stepEl.createSpan({ text: step.label, cls: 'step-label' });
     });
 
@@ -502,9 +502,9 @@ class SetupWizardModal extends Modal {
     if (stepEl) {
       const icon = stepEl.querySelector('.step-icon');
       if (icon) {
-        if (status === 'running') icon.textContent = '◐';
-        else if (status === 'complete') icon.textContent = '✓';
-        else if (status === 'error') icon.textContent = '✗';
+        if (status === 'running') icon.textContent = '...';
+        else if (status === 'complete') icon.textContent = '[done]';
+        else if (status === 'error') icon.textContent = '[x]';
       }
       stepEl.className = `eudia-setup-step ${status}`;
     }
@@ -514,16 +514,18 @@ class SetupWizardModal extends Modal {
     const { contentEl } = this;
     contentEl.empty();
 
-    contentEl.createEl('h2', { text: 'You\'re All Set!' });
+    contentEl.createEl('h2', { text: 'Setup Complete' });
     
     const tips = contentEl.createDiv({ cls: 'eudia-setup-tips' });
     tips.innerHTML = `
-      <p style="margin: 0 0 8px 0;"><strong>View your calendar:</strong> Click the calendar icon in the sidebar</p>
-      <p style="margin: 0 0 8px 0;"><strong>Start transcribing:</strong> Click the microphone icon or Cmd+P → "Transcribe"</p>
-      <p style="margin: 0;"><strong>Account folders:</strong> Your Salesforce accounts are ready in the Accounts folder</p>
+      <p style="margin: 0 0 12px 0; font-weight: 600;">Quick Reference:</p>
+      <p style="margin: 0 0 8px 0;">1. <strong>Calendar</strong> - Click calendar icon in left sidebar to view meetings</p>
+      <p style="margin: 0 0 8px 0;">2. <strong>Transcription</strong> - Click microphone icon or Cmd/Ctrl+P and search "Transcribe"</p>
+      <p style="margin: 0 0 8px 0;">3. <strong>Accounts</strong> - Pre-loaded folders are in the Accounts directory</p>
+      <p style="margin: 0;">4. <strong>Create notes</strong> - Click any meeting to create a note in the correct account folder</p>
     `;
 
-    const button = contentEl.createEl('button', { text: 'Start Using Eudia →' });
+    const button = contentEl.createEl('button', { text: 'Continue' });
     button.setCssStyles({ 
       background: 'var(--interactive-accent)', 
       color: 'white', 
@@ -1274,12 +1276,13 @@ export default class EudiaSyncPlugin extends Plugin {
       // Update file
       await this.app.vault.modify(file, noteContent);
 
-      // Show completion stats
+      // Show completion stats (sections are strings, count lines for metrics)
+      const countLines = (s: string | undefined) => s ? s.split('\n').filter(l => l.trim()).length : 0;
       this.recordingStatusBar?.showComplete({
         duration: result.duration,
         confidence: transcription.confidence,
-        meddiccCount: sections.meddiccSignals?.length || 0,
-        nextStepsCount: sections.nextSteps?.length || 0
+        meddiccCount: countLines(sections.meddiccSignals),
+        nextStepsCount: countLines(sections.nextSteps)
       });
 
       modal.close();
@@ -1297,6 +1300,7 @@ export default class EudiaSyncPlugin extends Plugin {
   }
 
   private buildNoteContent(sections: ProcessedSections, transcription: TranscriptionResult): string {
+    // Note: ProcessedSections fields are strings, not arrays
     let content = `---
 title: "${sections.title || 'Meeting Notes'}"
 date: ${new Date().toISOString().split('T')[0]}
@@ -1313,24 +1317,81 @@ confidence: ${transcription.confidence}
 
 ${sections.summary || '*AI summary will appear here*'}
 
-## Key Points
-
-${sections.keyPoints?.map(p => `- ${p}`).join('\n') || '*Key discussion points*'}
-
-## Next Steps
-
-${sections.nextSteps?.map(s => `- [ ] ${s}`).join('\n') || '*Action items*'}
-
 `;
 
-    if (sections.meddiccSignals && sections.meddiccSignals.length > 0) {
-      content += `## MEDDICC Signals
+    // Key points / pain points section
+    if (sections.painPoints && !sections.painPoints.includes('None explicitly')) {
+      content += `## Pain Points
 
-${sections.meddiccSignals.map(s => `**${s.category}**: ${s.insight}`).join('\n\n')}
+${sections.painPoints}
 
 `;
     }
 
+    // Product interest
+    if (sections.productInterest && !sections.productInterest.includes('None identified')) {
+      content += `## Product Interest
+
+${sections.productInterest}
+
+`;
+    }
+
+    // MEDDICC signals (string format)
+    if (sections.meddiccSignals) {
+      content += `## MEDDICC Signals
+
+${sections.meddiccSignals}
+
+`;
+    }
+
+    // Next steps (string format, already has checkboxes from AI)
+    if (sections.nextSteps) {
+      content += `## Next Steps
+
+${sections.nextSteps}
+
+`;
+    }
+
+    // Action items
+    if (sections.actionItems) {
+      content += `## Action Items
+
+${sections.actionItems}
+
+`;
+    }
+
+    // Key dates
+    if (sections.keyDates && !sections.keyDates.includes('No specific dates')) {
+      content += `## Key Dates
+
+${sections.keyDates}
+
+`;
+    }
+
+    // Risks and objections
+    if (sections.risksObjections && !sections.risksObjections.includes('None raised')) {
+      content += `## Risks and Objections
+
+${sections.risksObjections}
+
+`;
+    }
+
+    // Attendees
+    if (sections.attendees) {
+      content += `## Attendees
+
+${sections.attendees}
+
+`;
+    }
+
+    // Full transcript
     if (this.settings.appendTranscript && transcription.text) {
       content += `---
 

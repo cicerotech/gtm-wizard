@@ -326,6 +326,49 @@ class EudiaCalendarView extends ItemView {
   }
 
   /**
+   * Extract company name from attendee email domains
+   * Higher confidence than subject parsing since emails are definitive
+   * Returns the company name derived from the domain (e.g., uber.com -> Uber)
+   */
+  extractAccountFromAttendees(attendees: { name: string; email: string }[]): string | null {
+    if (!attendees || attendees.length === 0) return null;
+    
+    // Common email providers to ignore
+    const commonProviders = [
+      'gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com', 
+      'icloud.com', 'live.com', 'msn.com', 'aol.com', 'protonmail.com'
+    ];
+    
+    // Extract external domains (not eudia.com and not common providers)
+    const externalDomains: string[] = [];
+    
+    for (const attendee of attendees) {
+      if (!attendee.email) continue;
+      const email = attendee.email.toLowerCase();
+      const domainMatch = email.match(/@([a-z0-9.-]+)/);
+      
+      if (domainMatch) {
+        const domain = domainMatch[1];
+        if (!domain.includes('eudia.com') && !commonProviders.includes(domain)) {
+          externalDomains.push(domain);
+        }
+      }
+    }
+    
+    if (externalDomains.length === 0) return null;
+    
+    // Use the first external domain to get company name
+    const domain = externalDomains[0];
+    const companyPart = domain.split('.')[0]; // uber.com -> uber
+    
+    // Capitalize first letter
+    const companyName = companyPart.charAt(0).toUpperCase() + companyPart.slice(1);
+    
+    log(`Extracted company "${companyName}" from attendee domain ${domain}`);
+    return companyName;
+  }
+
+  /**
    * Extract account name from meeting subject using common patterns
    * Examples:
    *   "Eudia - HATCo Connect | Intros" -> "HATCo"
@@ -421,29 +464,41 @@ class EudiaCalendarView extends ItemView {
     const safeName = meeting.subject.replace(/[<>:"/\\|?*]/g, '_').substring(0, 50);
     const fileName = `${dateStr} - ${safeName}.md`;
     
-    // Determine the target folder
+    // Determine the target folder using multiple matching strategies
     let targetFolder: string | null = null;
     let accountName = meeting.accountName;
     
-    // Try to find folder using server-provided accountName
-    if (accountName) {
+    // PRIORITY 1: Try domain-based matching from attendee emails (highest confidence)
+    if (!targetFolder && meeting.attendees && meeting.attendees.length > 0) {
+      const domainName = this.extractAccountFromAttendees(meeting.attendees);
+      if (domainName) {
+        targetFolder = this.findAccountFolder(domainName);
+        log(`Domain-based "${domainName}" -> folder: ${targetFolder || 'not found'}`);
+        if (targetFolder && !accountName) {
+          accountName = domainName;
+        }
+      }
+    }
+    
+    // PRIORITY 2: Try server-provided accountName
+    if (!targetFolder && accountName) {
       targetFolder = this.findAccountFolder(accountName);
       log(`Server accountName "${accountName}" -> folder: ${targetFolder || 'not found'}`);
     }
     
-    // If no match, try extracting from subject
+    // PRIORITY 3: Try extracting from subject
     if (!targetFolder) {
       const extractedName = this.extractAccountFromSubject(meeting.subject);
       if (extractedName) {
         targetFolder = this.findAccountFolder(extractedName);
-        log(`Extracted "${extractedName}" from subject -> folder: ${targetFolder || 'not found'}`);
+        log(`Subject-based "${extractedName}" -> folder: ${targetFolder || 'not found'}`);
         if (targetFolder && !accountName) {
           accountName = extractedName;
         }
       }
     }
     
-    // Fallback to Accounts root if no match found
+    // FALLBACK: Use Accounts root if no match found
     if (!targetFolder) {
       const accountsFolder = this.plugin.settings.accountsFolder || 'Accounts';
       const folder = this.app.vault.getAbstractFileByPath(accountsFolder);

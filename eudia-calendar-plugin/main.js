@@ -278,6 +278,46 @@ var EudiaCalendarView = class extends import_obsidian.ItemView {
     retryBtn.onclick = () => this.render();
   }
   /**
+   * Extract company name from attendee email domains
+   * Higher confidence than subject parsing since emails are definitive
+   * Returns the company name derived from the domain (e.g., uber.com -> Uber)
+   */
+  extractAccountFromAttendees(attendees) {
+    if (!attendees || attendees.length === 0)
+      return null;
+    const commonProviders = [
+      "gmail.com",
+      "outlook.com",
+      "hotmail.com",
+      "yahoo.com",
+      "icloud.com",
+      "live.com",
+      "msn.com",
+      "aol.com",
+      "protonmail.com"
+    ];
+    const externalDomains = [];
+    for (const attendee of attendees) {
+      if (!attendee.email)
+        continue;
+      const email = attendee.email.toLowerCase();
+      const domainMatch = email.match(/@([a-z0-9.-]+)/);
+      if (domainMatch) {
+        const domain2 = domainMatch[1];
+        if (!domain2.includes("eudia.com") && !commonProviders.includes(domain2)) {
+          externalDomains.push(domain2);
+        }
+      }
+    }
+    if (externalDomains.length === 0)
+      return null;
+    const domain = externalDomains[0];
+    const companyPart = domain.split(".")[0];
+    const companyName = companyPart.charAt(0).toUpperCase() + companyPart.slice(1);
+    log(`Extracted company "${companyName}" from attendee domain ${domain}`);
+    return companyName;
+  }
+  /**
    * Extract account name from meeting subject using common patterns
    * Examples:
    *   "Eudia - HATCo Connect | Intros" -> "HATCo"
@@ -356,7 +396,17 @@ var EudiaCalendarView = class extends import_obsidian.ItemView {
       const fileName = `${dateStr} - ${safeName}.md`;
       let targetFolder = null;
       let accountName = meeting.accountName;
-      if (accountName) {
+      if (!targetFolder && meeting.attendees && meeting.attendees.length > 0) {
+        const domainName = this.extractAccountFromAttendees(meeting.attendees);
+        if (domainName) {
+          targetFolder = this.findAccountFolder(domainName);
+          log(`Domain-based "${domainName}" -> folder: ${targetFolder || "not found"}`);
+          if (targetFolder && !accountName) {
+            accountName = domainName;
+          }
+        }
+      }
+      if (!targetFolder && accountName) {
         targetFolder = this.findAccountFolder(accountName);
         log(`Server accountName "${accountName}" -> folder: ${targetFolder || "not found"}`);
       }
@@ -364,7 +414,7 @@ var EudiaCalendarView = class extends import_obsidian.ItemView {
         const extractedName = this.extractAccountFromSubject(meeting.subject);
         if (extractedName) {
           targetFolder = this.findAccountFolder(extractedName);
-          log(`Extracted "${extractedName}" from subject -> folder: ${targetFolder || "not found"}`);
+          log(`Subject-based "${extractedName}" -> folder: ${targetFolder || "not found"}`);
           if (targetFolder && !accountName) {
             accountName = extractedName;
           }

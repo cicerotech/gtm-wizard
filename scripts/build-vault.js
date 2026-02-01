@@ -26,10 +26,13 @@ const ZIP_OUTPUT = path.join(__dirname, '..', 'dist', 'BL-Sales-Vault.zip');
 const PLUGIN_DIR = path.join(__dirname, '..', 'obsidian-plugin');
 const CALENDAR_PLUGIN_DIR = path.join(__dirname, '..', 'eudia-calendar-plugin');
 
-// OpenAI API key (read from environment)
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-if (!OPENAI_API_KEY || OPENAI_API_KEY === 'sk-proj-YOUR_API_KEY_HERE') {
-  console.warn('⚠️  Warning: OPENAI_API_KEY not set in .env - transcription will require manual key entry');
+// OpenAI API key - read from environment variable or .env.local file
+// For Eudia: Set OPENAI_API_KEY in your .env or .env.local file
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+if (OPENAI_API_KEY) {
+  console.log('OpenAI API key configured for transcription');
+} else {
+  console.warn('Warning: OPENAI_API_KEY not set - users will need to configure in plugin settings');
 }
 
 /**
@@ -312,7 +315,8 @@ function copyCalendarPlugin(sourceDir, destDir) {
   const calendarData = {
     userEmail: '',
     serverUrl: 'https://gtm-wizard.onrender.com',
-    refreshMinutes: 5
+    refreshMinutes: 5,
+    accountsFolder: 'Accounts'
   };
   
   fs.writeFileSync(
