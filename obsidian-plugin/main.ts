@@ -471,10 +471,10 @@ class SetupWizardModal extends Modal {
     // Step 1: Email validated (already done)
     this.updateStep('email', 'complete');
 
-    // Step 2: Sync accounts
+    // Step 2: Detect pre-loaded accounts (skip server sync - use only vault folders)
     this.updateStep('accounts', 'running');
     try {
-      await this.plugin.syncAccounts(true);
+      await this.plugin.scanLocalAccountFolders();
       this.updateStep('accounts', 'complete');
     } catch (e) {
       this.updateStep('accounts', 'error');
@@ -929,8 +929,8 @@ class EudiaCalendarView extends ItemView {
         statusEl.textContent = '✓ Connected!';
         statusEl.className = 'eudia-setup-status success';
         
-        // Sync accounts in background
-        this.plugin.syncAccounts(true).catch(() => {});
+        // Scan local account folders (skip server sync - use only vault folders)
+        this.plugin.scanLocalAccountFolders().catch(() => {});
         
         // Refresh view
         setTimeout(() => this.render(), 500);
@@ -1344,7 +1344,8 @@ export default class EudiaSyncPlugin extends Plugin {
       if (!this.settings.setupCompleted && !this.settings.userEmail) {
         new SetupWizardModal(this.app, this).open();
       } else if (this.settings.syncOnStartup) {
-        await this.syncAccounts(true);
+        // Scan local folders instead of syncing from server
+        await this.scanLocalAccountFolders();
       }
       
       // Activate calendar view if configured
@@ -1705,6 +1706,41 @@ ${transcription.text}
       if (!silent) {
         new Notice(`Failed to sync accounts: ${error.message}`);
       }
+    }
+  }
+
+  /**
+   * Scan local account folders in the vault instead of fetching from server.
+   * This uses ONLY the pre-loaded account folders, avoiding unwanted Salesforce accounts.
+   */
+  async scanLocalAccountFolders(): Promise<void> {
+    try {
+      const accountsFolder = this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);
+      if (!accountsFolder || !(accountsFolder instanceof TFolder)) {
+        // No accounts folder exists yet
+        return;
+      }
+
+      const accounts: { id: string; name: string }[] = [];
+      
+      // Scan all subfolders in the Accounts folder
+      for (const child of accountsFolder.children) {
+        if (child instanceof TFolder) {
+          // Use folder name as account name
+          accounts.push({
+            id: `local-${child.name.replace(/\s+/g, '-').toLowerCase()}`,
+            name: child.name
+          });
+        }
+      }
+
+      // Update cached accounts
+      this.settings.cachedAccounts = accounts;
+      this.settings.lastSyncTime = new Date().toISOString();
+      await this.saveSettings();
+
+    } catch (error) {
+      console.error('Failed to scan local account folders:', error);
     }
   }
 
