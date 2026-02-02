@@ -1567,9 +1567,35 @@ export default class EudiaSyncPlugin extends Plugin {
   }
 
   private async processRecording(result: RecordingResult, file: TFile): Promise<void> {
-    const modal = new ProcessingModal(this.app);
-    modal.open();
+    // Validate audio was captured
+    const blobSize = result.audioBlob?.size || 0;
+    console.log(`[Eudia] Audio blob size: ${blobSize} bytes, duration: ${result.duration}s`);
+    
+    if (blobSize < 1000) {
+      new Notice('Recording too short or no audio captured. Please try again.');
+      return;
+    }
 
+    // Estimate processing time based on duration
+    const durationMin = Math.ceil(result.duration / 60);
+    const estimatedTime = Math.max(1, Math.ceil(durationMin / 5)); // ~1 min per 5 min of audio
+    
+    // Show non-blocking notice and add processing status to note
+    new Notice(`Transcription started. Estimated ${estimatedTime}-${estimatedTime + 1} minutes.`);
+    
+    // Add processing indicator to the note immediately
+    const currentContent = await this.app.vault.read(file);
+    const processingIndicator = `\n\n---\n**Transcription in progress...**\nStarted: ${new Date().toLocaleTimeString()}\nEstimated completion: ${estimatedTime}-${estimatedTime + 1} minutes\n\n*You can navigate away. Check back shortly.*\n---\n`;
+    await this.app.vault.modify(file, currentContent + processingIndicator);
+
+    // Process in background - user can navigate away
+    this.processTranscriptionAsync(result, file).catch(error => {
+      console.error('Background transcription failed:', error);
+      new Notice(`Transcription failed: ${error.message}`);
+    });
+  }
+
+  private async processTranscriptionAsync(result: RecordingResult, file: TFile): Promise<void> {
     try {
       // Detect account from file path
       let accountContext: MeetingContext | undefined;
@@ -1584,7 +1610,7 @@ export default class EudiaSyncPlugin extends Plugin {
         }
       }
 
-      // Get speaker hints from current calendar meeting for better name accuracy
+      // Get speaker hints from current calendar meeting
       let speakerHints: string[] = [];
       try {
         const currentMeeting = await this.calendarService.getCurrentMeeting();
@@ -1592,93 +1618,52 @@ export default class EudiaSyncPlugin extends Plugin {
           speakerHints = currentMeeting.meeting.attendees
             .map(a => a.name || a.email.split('@')[0])
             .filter(Boolean)
-            .slice(0, 10); // Limit to first 10 attendees
+            .slice(0, 10);
         }
       } catch {
-        // Calendar service may not be configured - continue without hints
+        // Calendar service may not be configured
       }
 
-      // Validate audio was captured
-      const blobSize = result.audioBlob?.size || 0;
-      console.log(`[Eudia] Audio blob size: ${blobSize} bytes, duration: ${result.duration}s`);
-      
-      if (blobSize < 1000) {
-        modal.close();
-        new Notice('Recording too short or no audio captured. Please try again.');
-        return;
-      }
-      
-      modal.setMessage('Transcribing audio...');
+      // Transcribe audio
       const transcription = await this.transcriptionService.transcribeAudio(
         result.audioBlob, 
         accountContext ? { ...accountContext, speakerHints } : { speakerHints }
       );
 
-      modal.setMessage('Analyzing content...');
-      
-      // Helper to check if sections have actual content (not just empty strings)
+      // Helper to check if sections have actual content
       const hasContent = (s: any): boolean => {
         if (!s) return false;
-        // Check if at least summary or nextSteps has content
         return Boolean(s.summary?.trim() || s.nextSteps?.trim());
       };
       
       // Use sections from server if they have content
-      // Otherwise fall back to local processing (requires OpenAI API key)
       let sections = transcription.sections;
       
       if (!hasContent(sections)) {
-        // Server returned empty sections - try local processing if we have transcript
         if (transcription.text?.trim()) {
-          modal.setMessage('Extracting insights...');
           sections = await this.transcriptionService.processTranscription(transcription.text, accountContext);
         }
       }
       
-      // Final check - if still no content, warn user
+      // Check if we got anything
       if (!hasContent(sections) && !transcription.text?.trim()) {
-        modal.close();
-        new Notice('No audio detected. Please try recording again.');
+        // Remove processing indicator and show error
+        const currentContent = await this.app.vault.read(file);
+        const cleanedContent = currentContent.replace(/\n\n---\n\*\*Transcription in progress\.\.\.\*\*[\s\S]*?\*You can navigate away\. Check back shortly\.\*\n---\n/g, '');
+        await this.app.vault.modify(file, cleanedContent + '\n\n**Transcription failed:** No audio detected.\n');
+        new Notice('Transcription failed: No audio detected.');
         return;
       }
 
-      // Build note content
+      // Build note content - this replaces entire note including processing indicator
       const noteContent = this.buildNoteContent(sections, transcription);
       
-      // Update file
+      // Update file with final content
       await this.app.vault.modify(file, noteContent);
 
-      // Show completion stats with summary preview
-      const countItems = (val: any): number => {
-        if (!val) return 0;
-        if (Array.isArray(val)) return val.length;
-        if (typeof val === 'string') return val.split('\n').filter(l => l.trim()).length;
-        return 0;
-      };
-      
-      // Extract summary preview
-      const summaryPreview = typeof sections.summary === 'string' 
-        ? sections.summary 
-        : '';
-      
-      this.recordingStatusBar?.showComplete({
-        duration: result.duration,
-        confidence: transcription.confidence,
-        meddiccCount: countItems(sections.meddiccSignals),
-        nextStepsCount: countItems(sections.nextSteps),
-        summaryPreview
-      });
-
-      modal.close();
-      
-      // Show appropriate notice based on what was captured
-      if (summaryPreview) {
-        new Notice('Transcription complete');
-      } else if (transcription.text?.trim()) {
-        new Notice('Audio captured - summary processing');
-      } else {
-        new Notice('Recording saved');
-      }
+      // Show completion notice
+      const durationMin = Math.floor(result.duration / 60);
+      new Notice(`Transcription complete (${durationMin} min recording)`);
 
       // Auto-sync if enabled
       if (this.settings.autoSyncAfterTranscription) {
@@ -1686,7 +1671,14 @@ export default class EudiaSyncPlugin extends Plugin {
       }
 
     } catch (error) {
-      modal.close();
+      // Try to update note with error status
+      try {
+        const currentContent = await this.app.vault.read(file);
+        const cleanedContent = currentContent.replace(/\n\n---\n\*\*Transcription in progress\.\.\.\*\*[\s\S]*?\*You can navigate away\. Check back shortly\.\*\n---\n/g, '');
+        await this.app.vault.modify(file, cleanedContent + `\n\n**Transcription failed:** ${error.message}\n`);
+      } catch (e) {
+        // File may have been moved/deleted
+      }
       throw error;
     }
   }
