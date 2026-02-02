@@ -1,15 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Quarterly_Commit__c</fullName>
-    <description>Returns ACV only when BL Forecast Category is Commit. Use for summing committed pipeline in reports.</description>
+    <description>Returns ACV only when BL Forecast Category is Commit and net value is greater than 0. For renewals, uses Renewal Net Change. Excludes flat/downgrade renewals.</description>
     <externalId>false</externalId>
     <formula>IF(
-  AND(Eudia_Tech__c, ISPICKVAL(BL_Forecast_Category__c, "Commit")),
+  AND(
+    Eudia_Tech__c, 
+    ISPICKVAL(BL_Forecast_Category__c, "Commit"),
+    IF(ISPICKVAL(Sales_Type__c, "Renewal"), Renewal_Net_Change__c, ACV__c) &gt; 0
+  ),
   IF(ISPICKVAL(Sales_Type__c, "Renewal"), Renewal_Net_Change__c, ACV__c),
   0
 )</formula>
     <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
-    <label>Quarterly Commit</label>
+    <label>Quarterly Commit Net (AI-Enabled)</label>
     <precision>18</precision>
     <required>false</required>
     <scale>2</scale>
