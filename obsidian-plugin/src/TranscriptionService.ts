@@ -654,16 +654,37 @@ export class TranscriptionService {
         duration: response.json.duration || 0
       };
 
-    } catch (error) {
+    } catch (error: any) {
+      // Log full error details for debugging
       console.error('Server transcription error:', error);
+      if (error.response) {
+        console.error('Server response:', error.response);
+      }
+      
+      // Try to extract server error message
+      let serverMessage = '';
+      try {
+        if (error.response?.json?.error) {
+          serverMessage = error.response.json.error;
+        } else if (typeof error.response === 'string') {
+          const parsed = JSON.parse(error.response);
+          serverMessage = parsed.error || '';
+        }
+      } catch (e) {
+        // Ignore parsing errors
+      }
       
       // Provide clear error message based on error type
-      let errorMessage = `Transcription failed: ${error.message}`;
+      let errorMessage = serverMessage || `Transcription failed: ${error.message}`;
       if (error.message?.includes('413')) {
         errorMessage = 'Audio file too large for server. Try a shorter recording.';
+      } else if (error.message?.includes('500')) {
+        errorMessage = serverMessage || 'Server error during transcription. Please try again.';
       } else if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
         errorMessage = 'Could not reach transcription server. Check your internet connection.';
       }
+      
+      console.error('Final error message:', errorMessage);
       
       return {
         success: false,

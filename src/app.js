@@ -2477,7 +2477,12 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
 
       } catch (error) {
         logger.error('Transcription error:', error);
-        res.status(500).json({ success: false, error: error.message });
+        logger.error('Transcription error stack:', error.stack);
+        res.status(500).json({ 
+          success: false, 
+          error: error.message || 'Unknown transcription error',
+          details: process.env.NODE_ENV !== 'production' ? error.stack?.split('\n').slice(0, 3).join(' | ') : undefined
+        });
       }
     });
 
