@@ -1598,6 +1598,16 @@ export default class EudiaSyncPlugin extends Plugin {
         // Calendar service may not be configured - continue without hints
       }
 
+      // Validate audio was captured
+      const blobSize = result.audioBlob?.size || 0;
+      console.log(`[Eudia] Audio blob size: ${blobSize} bytes, duration: ${result.duration}s`);
+      
+      if (blobSize < 1000) {
+        modal.close();
+        new Notice('Recording too short or no audio captured. Please try again.');
+        return;
+      }
+      
       modal.setMessage('Transcribing audio...');
       const transcription = await this.transcriptionService.transcribeAudio(
         result.audioBlob, 

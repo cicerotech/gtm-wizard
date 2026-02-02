@@ -271,8 +271,12 @@ export class AudioRecorder {
         clearTimeout(safetyTimeout);
         
         try {
+          // Log chunk count for debugging
+          console.log(`[AudioRecorder] Chunks collected: ${this.audioChunks.length}`);
+          
           // Create blob from chunks
           const audioBlob = new Blob(this.audioChunks, { type: mimeType });
+          console.log(`[AudioRecorder] Blob size: ${audioBlob.size} bytes`);
           
           // Generate filename
           const now = new Date();
@@ -305,8 +309,18 @@ export class AudioRecorder {
         reject(new Error('Recording error occurred'));
       };
 
-      // Stop the recorder
-      this.mediaRecorder.stop();
+      // Request any pending data before stopping
+      // This ensures we capture the final chunk
+      if (this.mediaRecorder.state === 'recording') {
+        this.mediaRecorder.requestData();
+      }
+      
+      // Small delay to allow final data to be collected, then stop
+      setTimeout(() => {
+        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+          this.mediaRecorder.stop();
+        }
+      }, 100);
     });
   }
 
