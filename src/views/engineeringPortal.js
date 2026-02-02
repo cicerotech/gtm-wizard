@@ -5,7 +5,8 @@
  * for engineering deployment purposes.
  */
 
-function generateEngineeringPortal(customers = []) {
+function generateEngineeringPortal(customers = [], options = {}) {
+  const { fieldsAccessible = true } = options;
   const lastUpdated = new Date().toLocaleString('en-US', {
     timeZone: 'America/Los_Angeles',
     month: 'short',
@@ -233,6 +234,21 @@ function generateEngineeringPortal(customers = []) {
       display: none !important;
     }
     
+    .setup-required ul {
+      color: #8b949e;
+      font-size: 14px;
+      line-height: 2;
+    }
+    
+    .setup-required code {
+      background: #21262d;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      color: #7ee787;
+    }
+    
     @media (max-width: 1024px) {
       .context {
         max-width: 300px;
@@ -276,7 +292,18 @@ function generateEngineeringPortal(customers = []) {
       <span><span class="count" id="customer-count">${customers.length}</span> approved customers</span>
     </div>
     
-    ${customers.length > 0 ? `
+    ${!fieldsAccessible ? `
+    <div class="empty-state setup-required">
+      <h3>Field Access Setup Required</h3>
+      <p style="margin-bottom: 16px;">The integration user needs access to the following custom fields on Account:</p>
+      <ul style="text-align: left; display: inline-block; margin-bottom: 16px;">
+        <li><code>Legal_Entity_Name__c</code></li>
+        <li><code>Company_Context__c</code></li>
+        <li><code>Deployment_Approved__c</code></li>
+      </ul>
+      <p style="color: #6e7681; font-size: 12px;">Go to Salesforce Setup > Profiles or Permission Sets to grant field-level access.</p>
+    </div>
+    ` : customers.length > 0 ? `
     <table id="customers-table">
       <thead>
         <tr>

@@ -1123,31 +1123,107 @@ class GTMBrainApp {
         const { generateEngineeringPortal } = require('./views/engineeringPortal');
         const { query } = require('./salesforce/connection');
         
-        // Query accounts where Deployment Approved is checked
-        const sfQuery = `
-          SELECT Id, Name, Legal_Entity_Name__c, Company_Context__c, 
-                 Deployment_Approved__c, LastModifiedDate
-          FROM Account
-          WHERE Deployment_Approved__c = true
-          ORDER BY Name ASC
-          LIMIT 200
-        `;
+        let customers = [];
+        let fieldsAccessible = true;
         
-        const result = await query(sfQuery, true);
+        try {
+          // Try to query with custom fields first
+          const sfQuery = `
+            SELECT Id, Name, Legal_Entity_Name__c, Company_Context__c, 
+                   Deployment_Approved__c, LastModifiedDate
+            FROM Account
+            WHERE Deployment_Approved__c = true
+            ORDER BY Name ASC
+            LIMIT 200
+          `;
+          
+          const result = await query(sfQuery, true);
+          
+          customers = (result?.records || []).map(acc => ({
+            accountId: acc.Id,
+            accountName: acc.Name,
+            legalEntity: acc.Legal_Entity_Name__c || '',
+            context: acc.Company_Context__c || '',
+            approvedDate: acc.LastModifiedDate ? new Date(acc.LastModifiedDate).toLocaleDateString() : ''
+          }));
+        } catch (fieldError) {
+          // If custom fields aren't accessible, show empty state with instructions
+          logger.warn('Engineering portal: Custom fields not accessible, showing setup instructions');
+          fieldsAccessible = false;
+        }
         
-        const customers = (result?.records || []).map(acc => ({
-          accountId: acc.Id,
-          accountName: acc.Name,
-          legalEntity: acc.Legal_Entity_Name__c || '',
-          context: acc.Company_Context__c || '',
-          approvedDate: acc.LastModifiedDate ? new Date(acc.LastModifiedDate).toLocaleDateString() : ''
-        }));
-        
-        const html = generateEngineeringPortal(customers);
+        const html = generateEngineeringPortal(customers, { fieldsAccessible });
         res.send(html);
       } catch (error) {
         logger.error('Failed to load engineering portal', { error: error.message });
-        res.status(500).send('Failed to load engineering portal: ' + error.message);
+        res.status(500).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Error - Engineering Portal</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+            <style>
+              * { box-sizing: border-box; margin: 0; padding: 0; }
+              body { 
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #0d1117;
+                color: #c9d1d9;
+              }
+              .container { text-align: center; padding: 40px; max-width: 500px; }
+              .logo-text { font-size: 24px; font-weight: 600; margin-bottom: 32px; color: #8b9bf4; }
+              .card {
+                background: #161b22;
+                border: 1px solid #30363d;
+                border-radius: 12px;
+                padding: 32px;
+              }
+              .error-icon {
+                width: 56px; height: 56px;
+                background: rgba(239, 68, 68, 0.15);
+                border-radius: 50%;
+                display: flex; align-items: center; justify-content: center;
+                margin: 0 auto 20px;
+              }
+              .error-icon svg { width: 28px; height: 28px; stroke: #f85149; stroke-width: 2; fill: none; }
+              h1 { font-size: 20px; font-weight: 600; margin-bottom: 12px; color: #f0f6fc; }
+              .subtitle { color: #8b949e; font-size: 14px; margin-bottom: 16px; }
+              .error-msg { 
+                color: #f85149; font-size: 12px; 
+                background: rgba(248, 81, 73, 0.1); 
+                padding: 12px; border-radius: 6px; 
+                font-family: monospace; text-align: left;
+                word-break: break-word;
+              }
+              .retry-btn {
+                display: inline-block; margin-top: 20px; padding: 10px 24px;
+                background: #21262d; border: 1px solid #30363d;
+                color: #c9d1d9; font-size: 14px; font-weight: 500; border-radius: 6px;
+                cursor: pointer; transition: all 0.15s; text-decoration: none;
+              }
+              .retry-btn:hover { background: #30363d; border-color: #8b949e; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="logo-text">Engineering Portal</div>
+              <div class="card">
+                <div class="error-icon">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </div>
+                <h1>Failed to Load</h1>
+                <p class="subtitle">There was an error loading customer data.</p>
+                <p class="error-msg">${error.message}</p>
+                <a href="/engineering/customers" class="retry-btn">Retry</a>
+              </div>
+            </div>
+          </body>
+          </html>
+        `);
       }
     });
     
