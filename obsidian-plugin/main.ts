@@ -1600,7 +1600,7 @@ export default class EudiaSyncPlugin extends Plugin {
 
       modal.setMessage('Transcribing audio...');
       const transcription = await this.transcriptionService.transcribeAudio(
-        result.blob, 
+        result.audioBlob, 
         accountContext ? { ...accountContext, speakerHints } : { speakerHints }
       );
 
