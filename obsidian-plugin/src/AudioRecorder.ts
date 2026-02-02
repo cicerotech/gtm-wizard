@@ -77,27 +77,26 @@ export class AudioRecorder {
     }
 
     try {
-      // Request microphone access
+      // Request microphone access with high quality settings for accurate transcription
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 44100
+          sampleRate: 48000,      // Higher sample rate for clarity
+          channelCount: 1         // Mono is optimal for speech
         }
       });
 
       // Set up audio analysis for level metering
       this.setupAudioAnalysis();
 
-      // Create MediaRecorder
-      // Use 48kbps for speech - sufficient quality, smaller files
-      // 48kbps allows ~70 min per 25MB (Whisper limit)
-      // 90 min call = ~33MB, easily chunked into 2 segments
+      // Create MediaRecorder with higher bitrate for better Whisper accuracy
+      // 96kbps provides clearer speech while still allowing ~35 min per 25MB
       const mimeType = this.getSupportedMimeType();
       this.mediaRecorder = new MediaRecorder(this.stream, {
         mimeType,
-        audioBitsPerSecond: 48000
+        audioBitsPerSecond: 96000
       });
 
       this.audioChunks = [];

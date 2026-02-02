@@ -160,12 +160,14 @@ class AccountSuggester extends EditorSuggest<SalesforceAccount> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// RECORDING STATUS BAR - Minimal, Non-Distracting UI
+// RECORDING STATUS BAR - Clean, Quiet, Professional UI
 // ═══════════════════════════════════════════════════════════════════════════
 
 class RecordingStatusBar {
   private containerEl: HTMLElement | null = null;
-  private levelBarEl: HTMLElement | null = null;
+  private waveformBars: HTMLElement[] = [];
+  private durationEl: HTMLElement | null = null;
+  private waveformData: number[] = new Array(16).fill(0);
   
   private onPause: () => void;
   private onResume: () => void;
@@ -190,14 +192,29 @@ class RecordingStatusBar {
     this.containerEl = document.createElement('div');
     this.containerEl.className = 'eudia-transcription-bar active';
     
-    // Audio level meter
-    const levelContainer = document.createElement('div');
-    levelContainer.className = 'eudia-level-container';
-    this.levelBarEl = document.createElement('div');
-    this.levelBarEl.className = 'eudia-level-bar';
-    this.levelBarEl.style.width = '0%';
-    levelContainer.appendChild(this.levelBarEl);
-    this.containerEl.appendChild(levelContainer);
+    // Recording indicator dot
+    const recordingDot = document.createElement('div');
+    recordingDot.className = 'eudia-recording-dot';
+    this.containerEl.appendChild(recordingDot);
+    
+    // Waveform visualization - 16 bars
+    const waveformContainer = document.createElement('div');
+    waveformContainer.className = 'eudia-waveform';
+    this.waveformBars = [];
+    for (let i = 0; i < 16; i++) {
+      const bar = document.createElement('div');
+      bar.className = 'eudia-waveform-bar';
+      bar.style.height = '2px';
+      waveformContainer.appendChild(bar);
+      this.waveformBars.push(bar);
+    }
+    this.containerEl.appendChild(waveformContainer);
+    
+    // Duration timer
+    this.durationEl = document.createElement('div');
+    this.durationEl.className = 'eudia-duration';
+    this.durationEl.textContent = '0:00';
+    this.containerEl.appendChild(this.durationEl);
 
     // Minimal controls
     const controls = document.createElement('div');
@@ -205,15 +222,14 @@ class RecordingStatusBar {
 
     const stopBtn = document.createElement('button');
     stopBtn.className = 'eudia-control-btn stop';
-    stopBtn.innerHTML = '⏹';
-    stopBtn.title = 'Stop & Summarize';
+    stopBtn.innerHTML = '<span class="eudia-stop-icon"></span>';
+    stopBtn.title = 'Stop and summarize';
     stopBtn.onclick = () => this.onStop();
     controls.appendChild(stopBtn);
 
     const cancelBtn = document.createElement('button');
     cancelBtn.className = 'eudia-control-btn cancel';
-    cancelBtn.innerHTML = '✕';
-    cancelBtn.title = 'Cancel';
+    cancelBtn.textContent = 'Cancel';
     cancelBtn.onclick = () => this.onCancel();
     controls.appendChild(cancelBtn);
 
@@ -225,12 +241,32 @@ class RecordingStatusBar {
     if (this.containerEl) {
       this.containerEl.remove();
       this.containerEl = null;
+      this.waveformBars = [];
+      this.durationEl = null;
     }
   }
 
   updateState(state: RecordingState): void {
-    if (!this.containerEl || !this.levelBarEl) return;
-    this.levelBarEl.style.width = `${state.audioLevel}%`;
+    if (!this.containerEl) return;
+    
+    // Update waveform - shift left and add new sample
+    this.waveformData.shift();
+    this.waveformData.push(state.audioLevel);
+    
+    // Render waveform bars with smooth heights
+    this.waveformBars.forEach((bar, i) => {
+      const level = this.waveformData[i] || 0;
+      const height = Math.max(2, Math.min(24, level * 0.24));
+      bar.style.height = `${height}px`;
+    });
+    
+    // Update duration display
+    if (this.durationEl) {
+      const mins = Math.floor(state.duration / 60);
+      const secs = Math.floor(state.duration % 60);
+      this.durationEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+    
     this.containerEl.className = state.isPaused 
       ? 'eudia-transcription-bar paused' 
       : 'eudia-transcription-bar active';
@@ -238,10 +274,19 @@ class RecordingStatusBar {
 
   showProcessing(): void {
     if (!this.containerEl) return;
+    this.containerEl.innerHTML = '';
     this.containerEl.className = 'eudia-transcription-bar processing';
-    if (this.levelBarEl?.parentElement) {
-      this.levelBarEl.parentElement.style.display = 'none';
-    }
+    
+    // Processing spinner
+    const spinner = document.createElement('div');
+    spinner.className = 'eudia-processing-spinner';
+    this.containerEl.appendChild(spinner);
+    
+    // Processing text
+    const text = document.createElement('div');
+    text.className = 'eudia-processing-text';
+    text.textContent = 'Processing...';
+    this.containerEl.appendChild(text);
   }
 
   showComplete(stats: {
@@ -249,42 +294,50 @@ class RecordingStatusBar {
     confidence: number;
     meddiccCount: number;
     nextStepsCount: number;
-    dealHealth?: string;
+    summaryPreview?: string;
   }): void {
     if (!this.containerEl) return;
     
     this.containerEl.innerHTML = '';
     this.containerEl.className = 'eudia-transcription-bar complete';
     
+    // Success checkmark (CSS-based, no emoji)
     const successIcon = document.createElement('div');
-    successIcon.className = 'eudia-complete-icon';
-    successIcon.innerHTML = '✓';
+    successIcon.className = 'eudia-complete-checkmark';
     this.containerEl.appendChild(successIcon);
     
-    const statsContainer = document.createElement('div');
-    statsContainer.className = 'eudia-complete-stats';
+    // Summary preview or stats
+    const content = document.createElement('div');
+    content.className = 'eudia-complete-content';
     
-    const durationStat = document.createElement('div');
-    durationStat.className = 'eudia-stat';
-    durationStat.innerHTML = `<span class="eudia-stat-value">${Math.round(stats.duration / 60)}m</span><span class="eudia-stat-label">Duration</span>`;
-    statsContainer.appendChild(durationStat);
+    if (stats.summaryPreview) {
+      const preview = document.createElement('div');
+      preview.className = 'eudia-summary-preview';
+      preview.textContent = stats.summaryPreview.length > 80 
+        ? stats.summaryPreview.substring(0, 80) + '...'
+        : stats.summaryPreview;
+      content.appendChild(preview);
+    }
     
-    const confidenceStat = document.createElement('div');
-    confidenceStat.className = 'eudia-stat';
-    const confidenceClass = stats.confidence >= 90 ? 'high' : stats.confidence >= 70 ? 'medium' : 'low';
-    confidenceStat.innerHTML = `<span class="eudia-stat-value ${confidenceClass}">${stats.confidence}%</span><span class="eudia-stat-label">Confidence</span>`;
-    statsContainer.appendChild(confidenceStat);
+    const statsRow = document.createElement('div');
+    statsRow.className = 'eudia-complete-stats-row';
+    const mins = Math.floor(stats.duration / 60);
+    const secs = Math.floor(stats.duration % 60);
+    statsRow.textContent = `${mins}:${secs.toString().padStart(2, '0')} recorded`;
+    if (stats.nextStepsCount > 0) {
+      statsRow.textContent += ` | ${stats.nextStepsCount} action${stats.nextStepsCount > 1 ? 's' : ''}`;
+    }
+    if (stats.meddiccCount > 0) {
+      statsRow.textContent += ` | ${stats.meddiccCount} signals`;
+    }
+    content.appendChild(statsRow);
     
-    const meddiccStat = document.createElement('div');
-    meddiccStat.className = 'eudia-stat';
-    meddiccStat.innerHTML = `<span class="eudia-stat-value">${stats.meddiccCount}/7</span><span class="eudia-stat-label">MEDDICC</span>`;
-    statsContainer.appendChild(meddiccStat);
+    this.containerEl.appendChild(content);
     
-    this.containerEl.appendChild(statsContainer);
-    
+    // Dismiss button
     const closeBtn = document.createElement('button');
     closeBtn.className = 'eudia-control-btn close';
-    closeBtn.innerHTML = '✕';
+    closeBtn.textContent = 'Dismiss';
     closeBtn.onclick = () => this.hide();
     this.containerEl.appendChild(closeBtn);
     
@@ -293,11 +346,12 @@ class RecordingStatusBar {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PROCESSING MODAL
+// PROCESSING MODAL - Clean staged progress
 // ═══════════════════════════════════════════════════════════════════════════
 
 class ProcessingModal extends Modal {
-  private messageEl: HTMLElement;
+  private stepsContainer: HTMLElement;
+  private steps: { el: HTMLElement; completed: boolean }[] = [];
 
   constructor(app: App) {
     super(app);
@@ -306,14 +360,55 @@ class ProcessingModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.addClass('eudia-transcribing-modal');
-    contentEl.createDiv({ cls: 'spinner' });
-    this.messageEl = contentEl.createEl('p', { text: 'Transcribing audio...' });
-    contentEl.createEl('p', { text: 'This may take a moment for longer transcriptions.' });
+    contentEl.addClass('eudia-processing-modal');
+    
+    // Title
+    contentEl.createEl('div', { 
+      text: 'Processing recording', 
+      cls: 'eudia-processing-title' 
+    });
+    
+    // Steps container
+    this.stepsContainer = contentEl.createDiv({ cls: 'eudia-processing-steps' });
+    
+    const stepLabels = [
+      'Transcribing audio',
+      'Analyzing content', 
+      'Extracting insights'
+    ];
+    
+    this.steps = stepLabels.map((label, i) => {
+      const stepEl = this.stepsContainer.createDiv({ cls: 'eudia-processing-step' });
+      const indicator = stepEl.createDiv({ cls: 'eudia-step-indicator' });
+      if (i === 0) indicator.addClass('active');
+      stepEl.createSpan({ text: label, cls: 'eudia-step-label' });
+      return { el: stepEl, completed: false };
+    });
+    
+    // Subtle note
+    contentEl.createEl('div', { 
+      text: 'This may take a moment for longer recordings.', 
+      cls: 'eudia-processing-note' 
+    });
   }
 
   setMessage(message: string) {
-    if (this.messageEl) this.messageEl.textContent = message;
+    // Map messages to step indices
+    const stepIndex = message.toLowerCase().includes('transcrib') ? 0
+      : message.toLowerCase().includes('summary') || message.toLowerCase().includes('analyz') ? 1
+      : 2;
+    
+    // Complete previous steps and activate current
+    this.steps.forEach((step, i) => {
+      const indicator = step.el.querySelector('.eudia-step-indicator');
+      if (i < stepIndex) {
+        step.completed = true;
+        indicator?.removeClass('active');
+        indicator?.addClass('completed');
+      } else if (i === stepIndex) {
+        indicator?.addClass('active');
+      }
+    });
   }
 
   onClose() {
@@ -716,7 +811,7 @@ class EudiaCalendarView extends ItemView {
     // Show warning if not authorized
     if (status.calendar === 'not_authorized') {
       const warning = container.createDiv({ cls: 'eudia-status-warning' });
-      warning.innerHTML = `⚠️ <strong>${userEmail}</strong> is not authorized for calendar access. Contact your admin.`;
+      warning.innerHTML = `<strong>${userEmail}</strong> is not authorized for calendar access. Contact your admin.`;
     }
   }
 
@@ -784,7 +879,7 @@ class EudiaCalendarView extends ItemView {
           nowContent.createEl('div', { cls: 'eudia-now-account', text: current.meeting.accountName });
         }
         
-        const nowAction = nowCard.createEl('button', { cls: 'eudia-now-action', text: '📝 Create Note' });
+        const nowAction = nowCard.createEl('button', { cls: 'eudia-now-action', text: 'Create Note' });
         nowAction.onclick = () => this.createNoteForMeeting(current.meeting!);
       }
     } catch (e) {
@@ -843,7 +938,7 @@ class EudiaCalendarView extends ItemView {
   private renderError(container: HTMLElement, message: string): void {
     const error = container.createDiv({ cls: 'eudia-calendar-error' });
     
-    let icon = '⚠️';
+    let icon = '';
     let title = 'Unable to load calendar';
     let action = '';
     
@@ -897,7 +992,7 @@ class EudiaCalendarView extends ItemView {
       const email = emailInput.value.trim().toLowerCase();
       
       if (!email || !email.endsWith('@eudia.com')) {
-        statusEl.textContent = '⚠️ Please use your @eudia.com email';
+        statusEl.textContent = 'Please use your @eudia.com email';
         statusEl.className = 'eudia-setup-status error';
         return;
       }
@@ -914,7 +1009,7 @@ class EudiaCalendarView extends ItemView {
         });
         
         if (!response.json?.authorized) {
-          statusEl.innerHTML = `⚠️ <strong>${email}</strong> is not authorized.<br>Contact your admin to be added.`;
+          statusEl.innerHTML = `<strong>${email}</strong> is not authorized. Contact your admin to be added.`;
           statusEl.className = 'eudia-setup-status error';
           connectBtn.disabled = false;
           connectBtn.textContent = 'Connect';
@@ -926,7 +1021,7 @@ class EudiaCalendarView extends ItemView {
         this.plugin.settings.calendarConfigured = true;
         await this.plugin.saveSettings();
         
-        statusEl.textContent = '✓ Connected!';
+        statusEl.textContent = 'Connected';
         statusEl.className = 'eudia-setup-status success';
         
         // Scan local account folders (skip server sync - use only vault folders)
@@ -938,9 +1033,9 @@ class EudiaCalendarView extends ItemView {
       } catch (error) {
         const msg = error.message || 'Connection failed';
         if (msg.includes('403')) {
-          statusEl.innerHTML = `⚠️ <strong>${email}</strong> is not authorized for calendar access.`;
+          statusEl.innerHTML = `<strong>${email}</strong> is not authorized for calendar access.`;
         } else {
-          statusEl.textContent = '⚠️ ' + msg;
+          statusEl.textContent = msg;
         }
         statusEl.className = 'eudia-setup-status error';
         connectBtn.disabled = false;
@@ -1489,16 +1584,33 @@ export default class EudiaSyncPlugin extends Plugin {
         }
       }
 
+      // Get speaker hints from current calendar meeting for better name accuracy
+      let speakerHints: string[] = [];
+      try {
+        const currentMeeting = await this.calendarService.getCurrentMeeting();
+        if (currentMeeting.meeting?.attendees) {
+          speakerHints = currentMeeting.meeting.attendees
+            .map(a => a.name || a.email.split('@')[0])
+            .filter(Boolean)
+            .slice(0, 10); // Limit to first 10 attendees
+        }
+      } catch {
+        // Calendar service may not be configured - continue without hints
+      }
+
       modal.setMessage('Transcribing audio...');
-      const transcription = await this.transcriptionService.transcribeAudio(result.blob, accountContext);
+      const transcription = await this.transcriptionService.transcribeAudio(
+        result.blob, 
+        accountContext ? { ...accountContext, speakerHints } : { speakerHints }
+      );
 
       modal.setMessage('Generating summary...');
       
-      // Get processed sections
-      const sections = await this.transcriptionService.processTranscription(
-        transcription.text,
-        accountContext
-      );
+      // Use sections from server response (already processed by GPT-4o)
+      // Only fall back to local processing if server didn't return sections
+      const sections = transcription.sections && Object.keys(transcription.sections).length > 0
+        ? transcription.sections
+        : await this.transcriptionService.processTranscription(transcription.text, accountContext);
 
       // Build note content
       const noteContent = this.buildNoteContent(sections, transcription);
@@ -1506,22 +1618,29 @@ export default class EudiaSyncPlugin extends Plugin {
       // Update file
       await this.app.vault.modify(file, noteContent);
 
-      // Show completion stats - handle both string and array inputs defensively
+      // Show completion stats with summary preview
       const countItems = (val: any): number => {
         if (!val) return 0;
         if (Array.isArray(val)) return val.length;
         if (typeof val === 'string') return val.split('\n').filter(l => l.trim()).length;
         return 0;
       };
+      
+      // Extract summary preview
+      const summaryPreview = typeof sections.summary === 'string' 
+        ? sections.summary 
+        : '';
+      
       this.recordingStatusBar?.showComplete({
         duration: result.duration,
         confidence: transcription.confidence,
         meddiccCount: countItems(sections.meddiccSignals),
-        nextStepsCount: countItems(sections.nextSteps)
+        nextStepsCount: countItems(sections.nextSteps),
+        summaryPreview
       });
 
       modal.close();
-      new Notice('Transcription complete!');
+      new Notice('Transcription complete');
 
       // Auto-sync if enabled
       if (this.settings.autoSyncAfterTranscription) {
@@ -1816,7 +1935,7 @@ ${transcription.text}
       });
 
       if (response.json?.success) {
-        new Notice('✓ Synced to Salesforce');
+        new Notice('Synced to Salesforce');
       } else {
         new Notice('Failed to sync: ' + (response.json?.error || 'Unknown error'));
       }
@@ -2171,7 +2290,7 @@ class EudiaSyncSettingTab extends PluginSettingTab {
     }
 
     containerEl.createEl('p', {
-      text: `Audio transcription: ${AudioRecorder.isSupported() ? '✓ Supported' : '✗ Not supported'}`,
+      text: `Audio transcription: ${AudioRecorder.isSupported() ? 'Supported' : 'Not supported'}`,
       cls: 'setting-item-description'
     });
   }

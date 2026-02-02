@@ -1151,12 +1151,12 @@ export class TranscriptionService {
 
   /**
    * Wrapper method for main.ts - transcribes audio blob
-   * Called by main.ts line 1261
+   * Returns both transcript AND sections from server (not discarding sections!)
    */
   async transcribeAudio(
     audioBlob: Blob, 
-    context?: { accountName?: string; accountId?: string }
-  ): Promise<{ text: string; confidence: number; duration?: number }> {
+    context?: { accountName?: string; accountId?: string; speakerHints?: string[] }
+  ): Promise<{ text: string; confidence: number; duration?: number; sections?: ProcessedSections }> {
     try {
       const base64 = await this.blobToBase64(audioBlob);
       const mimeType = audioBlob.type || 'audio/webm';
@@ -1171,14 +1171,16 @@ export class TranscriptionService {
       return {
         text: result.transcript,
         confidence: result.success ? 0.95 : 0,
-        duration: result.duration
+        duration: result.duration,
+        sections: result.sections  // Include server-generated sections!
       };
     } catch (error) {
       console.error('transcribeAudio error:', error);
       return {
         text: '',
         confidence: 0,
-        duration: 0
+        duration: 0,
+        sections: this.getEmptySections()
       };
     }
   }

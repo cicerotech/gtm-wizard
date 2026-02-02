@@ -84,32 +84,57 @@
   min-width: 360px;
 }
 
-/* Audio Level Meter */
-.eudia-level-container {
-  width: 100px;
-  height: 4px;
-  background: var(--eudia-border);
-  border-radius: 2px;
-  overflow: hidden;
+/* Recording Indicator */
+.eudia-recording-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--eudia-error);
+  animation: eudia-pulse 1.5s ease-in-out infinite;
 }
 
-.eudia-level-bar {
-  height: 100%;
-  background: linear-gradient(90deg, var(--eudia-accent), var(--eudia-success));
-  transition: width 0.08s ease-out;
-  border-radius: 2px;
+@keyframes eudia-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Waveform Visualization */
+.eudia-waveform {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 24px;
+  padding: 0 8px;
+}
+
+.eudia-waveform-bar {
+  width: 3px;
+  min-height: 2px;
+  background: var(--eudia-accent);
+  border-radius: 1px;
+  transition: height 0.08s ease-out;
+}
+
+/* Duration Display */
+.eudia-duration {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--eudia-text);
+  font-variant-numeric: tabular-nums;
+  min-width: 40px;
 }
 
 /* Control Buttons */
 .eudia-controls-minimal {
   display: flex;
-  gap: 6px;
+  gap: 8px;
+  align-items: center;
 }
 
 .eudia-control-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 6px;
   border: 1px solid var(--eudia-border);
   background: transparent;
   cursor: pointer;
@@ -118,23 +143,51 @@
   justify-content: center;
   transition: all 0.15s ease;
   color: var(--eudia-text-muted);
-  font-size: 14px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .eudia-control-btn:hover {
   background: var(--eudia-bg);
+  border-color: var(--eudia-text-muted);
+  color: var(--eudia-text);
+}
+
+.eudia-control-btn.stop {
+  background: var(--eudia-accent);
   border-color: var(--eudia-accent);
-  color: var(--eudia-accent);
+  color: white;
+  padding: 0 16px;
 }
 
 .eudia-control-btn.stop:hover {
-  background: var(--eudia-error-subtle);
-  border-color: var(--eudia-error);
-  color: var(--eudia-error);
+  background: var(--eudia-accent-hover);
+  border-color: var(--eudia-accent-hover);
+}
+
+/* Stop icon - CSS square */
+.eudia-stop-icon {
+  width: 10px;
+  height: 10px;
+  background: white;
+  border-radius: 2px;
+}
+
+.eudia-control-btn.cancel {
+  border: none;
+  background: transparent;
+  color: var(--eudia-text-subtle);
 }
 
 .eudia-control-btn.cancel:hover {
-  background: var(--eudia-bg);
+  color: var(--eudia-text-muted);
+  background: transparent;
+}
+
+.eudia-control-btn.close {
+  border: none;
+  background: transparent;
+  color: var(--eudia-text-muted);
 }
 
 .eudia-control-btn[disabled] {
@@ -142,49 +195,60 @@
   cursor: not-allowed;
 }
 
-/* Completion Stats */
-.eudia-complete-icon {
-  width: 32px;
-  height: 32px;
+/* Processing State */
+.eudia-processing-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--eudia-border);
+  border-top-color: var(--eudia-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.eudia-processing-text {
+  font-size: 13px;
+  color: var(--eudia-text-muted);
+}
+
+/* Completion State */
+.eudia-complete-checkmark {
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--eudia-success);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  font-weight: 600;
+  position: relative;
 }
 
-.eudia-complete-stats {
-  display: flex;
-  gap: 20px;
+.eudia-complete-checkmark::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 3px;
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.eudia-complete-content {
   flex: 1;
+  min-width: 0;
 }
 
-.eudia-transcription-bar .eudia-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0 8px;
-}
-
-.eudia-stat-value {
-  font-size: 16px;
-  font-weight: 600;
+.eudia-summary-preview {
+  font-size: 13px;
   color: var(--eudia-text);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
 }
 
-.eudia-stat-value.high { color: var(--eudia-success); }
-.eudia-stat-value.medium { color: var(--eudia-accent); }
-.eudia-stat-value.low { color: var(--eudia-warning); }
-
-.eudia-stat-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.eudia-complete-stats-row {
+  font-size: 11px;
   color: var(--eudia-text-muted);
-  margin-top: 2px;
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
@@ -814,36 +878,90 @@
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Processing Modal
+   Processing Modal - Clean staged progress
    ─────────────────────────────────────────────────────────────────────────── */
 
-.eudia-transcribing-modal {
-  text-align: center;
-  padding: 24px;
-  max-width: 320px;
+.eudia-processing-modal {
+  padding: 24px 28px;
+  max-width: 280px;
 }
 
-.eudia-transcribing-modal .spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid var(--eudia-border);
-  border-top-color: var(--eudia-accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto 20px;
-}
-
-.eudia-transcribing-modal p {
-  color: var(--eudia-text-muted);
-  margin: 8px 0;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.eudia-transcribing-modal p:first-of-type {
+.eudia-processing-title {
+  font-size: 15px;
+  font-weight: 600;
   color: var(--eudia-text);
-  font-weight: 500;
-  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.eudia-processing-steps {
+  margin-bottom: 16px;
+}
+
+.eudia-processing-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.eudia-step-indicator {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--eudia-border);
+  background: transparent;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.eudia-step-indicator.active {
+  border-color: var(--eudia-accent);
+}
+
+.eudia-step-indicator.active::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--eudia-accent);
+  animation: eudia-pulse 1s ease-in-out infinite;
+}
+
+.eudia-step-indicator.completed {
+  border-color: var(--eudia-success);
+  background: var(--eudia-success);
+}
+
+.eudia-step-indicator.completed::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 7px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  animation: none;
+}
+
+.eudia-step-label {
+  font-size: 13px;
+  color: var(--eudia-text-muted);
+}
+
+.eudia-processing-step:has(.active) .eudia-step-label,
+.eudia-processing-step:has(.completed) .eudia-step-label {
+  color: var(--eudia-text);
+}
+
+.eudia-processing-note {
+  font-size: 12px;
+  color: var(--eudia-text-subtle);
+  line-height: 1.4;
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
