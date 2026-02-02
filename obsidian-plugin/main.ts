@@ -1604,13 +1604,33 @@ export default class EudiaSyncPlugin extends Plugin {
         accountContext ? { ...accountContext, speakerHints } : { speakerHints }
       );
 
-      modal.setMessage('Generating summary...');
+      modal.setMessage('Analyzing content...');
       
-      // Use sections from server response (already processed by GPT-4o)
-      // Only fall back to local processing if server didn't return sections
-      const sections = transcription.sections && Object.keys(transcription.sections).length > 0
-        ? transcription.sections
-        : await this.transcriptionService.processTranscription(transcription.text, accountContext);
+      // Helper to check if sections have actual content (not just empty strings)
+      const hasContent = (s: any): boolean => {
+        if (!s) return false;
+        // Check if at least summary or nextSteps has content
+        return Boolean(s.summary?.trim() || s.nextSteps?.trim());
+      };
+      
+      // Use sections from server if they have content
+      // Otherwise fall back to local processing (requires OpenAI API key)
+      let sections = transcription.sections;
+      
+      if (!hasContent(sections)) {
+        // Server returned empty sections - try local processing if we have transcript
+        if (transcription.text?.trim()) {
+          modal.setMessage('Extracting insights...');
+          sections = await this.transcriptionService.processTranscription(transcription.text, accountContext);
+        }
+      }
+      
+      // Final check - if still no content, warn user
+      if (!hasContent(sections) && !transcription.text?.trim()) {
+        modal.close();
+        new Notice('No audio detected. Please try recording again.');
+        return;
+      }
 
       // Build note content
       const noteContent = this.buildNoteContent(sections, transcription);
@@ -1640,7 +1660,15 @@ export default class EudiaSyncPlugin extends Plugin {
       });
 
       modal.close();
-      new Notice('Transcription complete');
+      
+      // Show appropriate notice based on what was captured
+      if (summaryPreview) {
+        new Notice('Transcription complete');
+      } else if (transcription.text?.trim()) {
+        new Notice('Audio captured - summary processing');
+      } else {
+        new Notice('Recording saved');
+      }
 
       // Auto-sync if enabled
       if (this.settings.autoSyncAfterTranscription) {
