@@ -384,7 +384,8 @@ class MLIntentClassifier {
   }
 
   /**
-   * Main classification method - Hybrid cascade approach
+   * Main classification method - Optimized for speed
+   * Priority: Pattern Match (fast) > Exact Match > Semantic (if fast) > LLM (if needed)
    */
   async classify(query, conversationContext = null, userId = null) {
     const startTime = Date.now();
@@ -393,9 +394,17 @@ class MLIntentClassifier {
     const queryHash = this.hashQuery(query);
     const normalizedQuery = query.toLowerCase().trim();
     
-    logger.info(`🤖 MLIntentClassifier: Processing "${query.substring(0, 50)}..."`);
+    // Layer 1: Fast pattern matching FIRST (most reliable, no API calls)
+    const patternMatch = this.patternMatch(normalizedQuery, conversationContext);
+    if (patternMatch && patternMatch.confidence >= this.thresholds.patternMatch) {
+      this.stats.patternMatches++;
+      // Learn in background, don't await
+      this.learnQuery(queryHash, normalizedQuery, patternMatch).catch(() => {});
+      logger.info(`🔄 Using fallback pattern matching`);
+      return this.buildResult(patternMatch, 'pattern_match', Date.now() - startTime);
+    }
     
-    // Layer 1: Exact match from learning data
+    // Layer 2: Exact match from learning data (also fast, local lookup)
     const exactMatch = await this.checkExactMatch(queryHash, normalizedQuery);
     if (exactMatch && exactMatch.confidence >= this.thresholds.exactMatch) {
       this.stats.exactMatches++;
@@ -403,34 +412,44 @@ class MLIntentClassifier {
       return this.buildResult(exactMatch, 'exact_match', Date.now() - startTime);
     }
     
-    // Layer 2: Semantic similarity search
-    const semanticMatch = await this.semanticSearch(normalizedQuery);
-    if (semanticMatch && semanticMatch.confidence >= this.thresholds.semanticHigh) {
-      this.stats.semanticMatches++;
-      await this.learnQuery(queryHash, normalizedQuery, semanticMatch);
-      return this.buildResult(semanticMatch, 'semantic_match', Date.now() - startTime);
-    }
-    
-    // Layer 3: Pattern matching (fast regex)
-    const patternMatch = this.patternMatch(normalizedQuery, conversationContext);
-    if (patternMatch && patternMatch.confidence >= this.thresholds.patternMatch) {
-      this.stats.patternMatches++;
-      await this.learnQuery(queryHash, normalizedQuery, patternMatch);
-      return this.buildResult(patternMatch, 'pattern_match', Date.now() - startTime);
-    }
-    
-    // Layer 4: LLM classification (if available)
-    if (this.openai) {
-      const llmResult = await this.llmClassify(query, conversationContext);
-      if (llmResult && llmResult.confidence >= this.thresholds.clarificationNeeded) {
-        this.stats.llmClassifications++;
-        await this.learnQuery(queryHash, normalizedQuery, llmResult);
-        return this.buildResult(llmResult, 'llm_classification', Date.now() - startTime);
+    // Layer 3: Semantic similarity search (only if embeddings are working)
+    // Skip if embeddings are disabled or we've already spent >2s
+    if (!this.embeddingsDisabled && (Date.now() - startTime) < 2000) {
+      try {
+        // Set a hard timeout for semantic search
+        const semanticPromise = this.semanticSearch(normalizedQuery);
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 2000));
+        const semanticMatch = await Promise.race([semanticPromise, timeoutPromise]);
+        
+        if (semanticMatch && semanticMatch.confidence >= this.thresholds.semanticHigh) {
+          this.stats.semanticMatches++;
+          this.learnQuery(queryHash, normalizedQuery, semanticMatch).catch(() => {});
+          return this.buildResult(semanticMatch, 'semantic_match', Date.now() - startTime);
+        }
+      } catch (error) {
+        logger.debug('Semantic search skipped:', error.message);
       }
     }
     
-    // Fallback: Use best available result or unknown
-    const bestResult = semanticMatch || patternMatch || {
+    // Layer 4: LLM classification (only if other methods failed and we have time)
+    if (this.openai && (Date.now() - startTime) < 5000) {
+      try {
+        const llmPromise = this.llmClassify(query, conversationContext);
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 5000));
+        const llmResult = await Promise.race([llmPromise, timeoutPromise]);
+        
+        if (llmResult && llmResult.confidence >= this.thresholds.clarificationNeeded) {
+          this.stats.llmClassifications++;
+          this.learnQuery(queryHash, normalizedQuery, llmResult).catch(() => {});
+          return this.buildResult(llmResult, 'llm_classification', Date.now() - startTime);
+        }
+      } catch (error) {
+        logger.debug('LLM classification skipped:', error.message);
+      }
+    }
+    
+    // Fallback: Use pattern match if we have one, or return unknown
+    const bestResult = patternMatch || {
       intent: 'unknown_query',
       entities: { extractedWords: this.extractKeywords(normalizedQuery) },
       confidence: 0.3,
@@ -538,9 +557,9 @@ class MLIntentClassifier {
   }
 
   /**
-   * Get embedding for text (with caching)
+   * Get embedding for text (with caching and timeout)
    */
-  async getEmbedding(text) {
+  async getEmbedding(text, timeoutMs = 3000) {
     const cacheKey = text.toLowerCase().trim();
     
     // Check memory cache
@@ -548,16 +567,31 @@ class MLIntentClassifier {
       return this.embeddingsCache[cacheKey];
     }
     
+    // If embeddings are disabled due to repeated failures, skip
+    if (this.embeddingsDisabled) {
+      return null;
+    }
+    
     try {
-      const response = await this.openai.embeddings.create({
+      // Add timeout to prevent slow API calls from blocking
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Embedding timeout')), timeoutMs)
+      );
+      
+      const embeddingPromise = this.openai.embeddings.create({
         model: 'text-embedding-3-small',
         input: text
       });
+      
+      const response = await Promise.race([embeddingPromise, timeoutPromise]);
       
       const embedding = response.data[0].embedding;
       
       // Cache it
       this.embeddingsCache[cacheKey] = embedding;
+      
+      // Reset failure count on success
+      this.embeddingFailures = 0;
       
       // Save periodically (every 100 new embeddings)
       if (Object.keys(this.embeddingsCache).length % 100 === 0) {
@@ -567,7 +601,19 @@ class MLIntentClassifier {
       return embedding;
       
     } catch (error) {
-      logger.error('Embedding generation failed:', error.message);
+      // Track failures and disable embeddings after 3 consecutive failures
+      this.embeddingFailures = (this.embeddingFailures || 0) + 1;
+      if (this.embeddingFailures >= 3) {
+        logger.warn('⚠️ Disabling embeddings after 3 failures - using pattern matching only');
+        this.embeddingsDisabled = true;
+        // Re-enable after 5 minutes
+        setTimeout(() => {
+          this.embeddingsDisabled = false;
+          this.embeddingFailures = 0;
+          logger.info('🔄 Re-enabling embeddings');
+        }, 5 * 60 * 1000);
+      }
+      logger.debug('Embedding generation failed:', error.message);
       return null;
     }
   }
