@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Product_Bucket__c</fullName>
+    <description>Auto-categorizes opportunity into Pure Software, AI-Enabled Services, or Legacy Services based on Product Lines.</description>
+    <externalId>false</externalId>
+    <formula>IF(INCLUDES(Product_Lines_Multi__c, "Multiple (BL Review)"), "Mixed",
+IF(
+  (IF(OR(
+    INCLUDES(Product_Lines_Multi__c, "AI Contracting - Technology"),
+    INCLUDES(Product_Lines_Multi__c, "AI Compliance - Technology"),
+    INCLUDES(Product_Lines_Multi__c, "AI Platform - Sigma"),
+    INCLUDES(Product_Lines_Multi__c, "AI Platform - Litigation"),
+    INCLUDES(Product_Lines_Multi__c, "AI Platform - Insights"),
+    INCLUDES(Product_Lines_Multi__c, "FDE - Custom AI Solution")), 1, 0) +
+   IF(OR(
+    INCLUDES(Product_Lines_Multi__c, "AI Contracting - Managed Services"),
+    INCLUDES(Product_Lines_Multi__c, "AI M&A - Managed Services")), 1, 0) +
+   IF(OR(
+    INCLUDES(Product_Lines_Multi__c, "Other - Managed Service"),
+    INCLUDES(Product_Lines_Multi__c, "Contracting - Secondee"),
+    INCLUDES(Product_Lines_Multi__c, "Other - Secondee")), 1, 0)) > 1,
+  "Mixed",
+  IF(OR(
+    INCLUDES(Product_Lines_Multi__c, "AI Contracting - Technology"),
+    INCLUDES(Product_Lines_Multi__c, "AI Compliance - Technology"),
+    INCLUDES(Product_Lines_Multi__c, "AI Platform - Sigma"),
+    INCLUDES(Product_Lines_Multi__c, "AI Platform - Litigation"),
+    INCLUDES(Product_Lines_Multi__c, "AI Platform - Insights"),
+    INCLUDES(Product_Lines_Multi__c, "FDE - Custom AI Solution")),
+  "Pure Software",
+  IF(OR(
+    INCLUDES(Product_Lines_Multi__c, "AI Contracting - Managed Services"),
+    INCLUDES(Product_Lines_Multi__c, "AI M&A - Managed Services")),
+  "AI-Enabled Services",
+  IF(OR(
+    INCLUDES(Product_Lines_Multi__c, "Other - Managed Service"),
+    INCLUDES(Product_Lines_Multi__c, "Contracting - Secondee"),
+    INCLUDES(Product_Lines_Multi__c, "Other - Secondee")),
+  "Legacy Services",
+  "Undetermined")))))</formula>
+    <label>Product Bucket</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

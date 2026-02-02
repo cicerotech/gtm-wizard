@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Is_Billing_Contact__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Indicates this contact should receive invoices and billing communications. Used for Campfire integration and invoice automation.</description>
+    <externalId>false</externalId>
+    <label>Is Billing Contact</label>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Checkbox</type>
+</CustomField>

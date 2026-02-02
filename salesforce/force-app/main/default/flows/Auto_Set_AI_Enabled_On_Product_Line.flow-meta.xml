@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>59.0</apiVersion>
+    <description>Automatically sets Eudia_Tech__c (AI Enabled) to TRUE when Product Line contains "AI". Triggers on create and update of Opportunity.</description>
+    <environments>Default</environments>
+    
+    <!-- Check if Product Line contains AI -->
+    <formulas>
+        <name>ProductLineContainsAI</name>
+        <dataType>Boolean</dataType>
+        <expression>OR(
+  CONTAINS(TEXT({!$Record.Product_Line__c}), "AI"),
+  CONTAINS(TEXT({!$Record.Product_Line__c}), "FDE")
+)</expression>
+    </formulas>
+    
+    <interviewLabel>Auto Set AI Enabled {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Auto Set AI Enabled On Product Line</label>
+    <processType>AutoLaunchedFlow</processType>
+    
+    <!-- Decision: Check if should set AI Enabled -->
+    <decisions>
+        <name>Should_Set_AI_Enabled</name>
+        <label>Should Set AI Enabled</label>
+        <locationX>176</locationX>
+        <locationY>158</locationY>
+        <defaultConnectorLabel>No AI Products</defaultConnectorLabel>
+        <rules>
+            <name>Contains_AI_Product</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>ProductLineContainsAI</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <booleanValue>true</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.Eudia_Tech__c</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Set_AI_Enabled_True</targetReference>
+            </connector>
+            <label>Contains AI Product</label>
+        </rules>
+    </decisions>
+    
+    <!-- Set AI Enabled to TRUE -->
+    <assignments>
+        <name>Set_AI_Enabled_True</name>
+        <label>Set AI Enabled True</label>
+        <locationX>176</locationX>
+        <locationY>266</locationY>
+        <assignmentItems>
+            <assignToReference>$Record.Eudia_Tech__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </assignmentItems>
+    </assignments>
+    
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Should_Set_AI_Enabled</targetReference>
+        </connector>
+        <object>Opportunity</object>
+        <recordTriggerType>CreateAndUpdate</recordTriggerType>
+        <triggerType>RecordBeforeSave</triggerType>
+    </start>
+    
+    <status>Active</status>
+</Flow>

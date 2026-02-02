@@ -962,6 +962,232 @@ class GTMBrainApp {
     this.expressApp.get('/survey', (req, res) => res.redirect('/cab-survey'));
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // ENGINEERING CUSTOMER KEYS PORTAL
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Engineering Portal - Simple auth middleware
+    const ENGINEERING_ACCESS_KEY = process.env.ENGINEERING_ACCESS_KEY || 'eudia-eng-2026';
+    
+    const checkEngineeringAccess = (req, res, next) => {
+      // Check for access key in query, header, or session cookie
+      const accessKey = req.query.key || req.headers['x-engineering-key'] || req.cookies?.engineeringKey;
+      
+      if (accessKey === ENGINEERING_ACCESS_KEY) {
+        // Set cookie for future requests (7 days)
+        res.cookie('engineeringKey', accessKey, { 
+          maxAge: 7 * 24 * 60 * 60 * 1000, 
+          httpOnly: true,
+          sameSite: 'strict'
+        });
+        return next();
+      }
+      
+      // If no valid key, show login form
+      if (!req.query.key) {
+        return res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Engineering Access</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+      background: #0d1117; 
+      color: #c9d1d9;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-box {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 32px;
+      max-width: 400px;
+      width: 100%;
+    }
+    h2 { margin-bottom: 8px; color: #f0f6fc; }
+    p { color: #8b949e; font-size: 0.875rem; margin-bottom: 20px; }
+    input {
+      width: 100%;
+      padding: 10px 14px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      font-size: 0.875rem;
+      margin-bottom: 16px;
+    }
+    input:focus { outline: none; border-color: #58a6ff; }
+    button {
+      width: 100%;
+      padding: 10px 14px;
+      background: #238636;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    button:hover { background: #2ea043; }
+    .error { color: #f85149; font-size: 0.8rem; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h2>Engineering Portal</h2>
+    <p>Enter the access key to view customer deployment info.</p>
+    <form method="GET">
+      <input type="password" name="key" placeholder="Access Key" required autofocus>
+      <button type="submit">Access Portal</button>
+    </form>
+  </div>
+</body>
+</html>
+        `);
+      }
+      
+      // Invalid key provided
+      return res.status(401).send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Engineering Access</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+      background: #0d1117; 
+      color: #c9d1d9;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-box {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 32px;
+      max-width: 400px;
+      width: 100%;
+    }
+    h2 { margin-bottom: 8px; color: #f0f6fc; }
+    p { color: #8b949e; font-size: 0.875rem; margin-bottom: 20px; }
+    input {
+      width: 100%;
+      padding: 10px 14px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      font-size: 0.875rem;
+      margin-bottom: 16px;
+    }
+    input:focus { outline: none; border-color: #58a6ff; }
+    button {
+      width: 100%;
+      padding: 10px 14px;
+      background: #238636;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    button:hover { background: #2ea043; }
+    .error { color: #f85149; font-size: 0.8rem; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h2>Engineering Portal</h2>
+    <p class="error">Invalid access key. Please try again.</p>
+    <form method="GET">
+      <input type="password" name="key" placeholder="Access Key" required autofocus>
+      <button type="submit">Access Portal</button>
+    </form>
+  </div>
+</body>
+</html>
+      `);
+    };
+    
+    // Engineering Portal - View approved customers for deployment
+    this.expressApp.get('/engineering/customers', checkEngineeringAccess, async (req, res) => {
+      try {
+        const { generateEngineeringPortal } = require('./views/engineeringPortal');
+        const { query } = require('./salesforce/connection');
+        
+        // Query accounts where Deployment Approved is checked
+        const sfQuery = `
+          SELECT Id, Name, Legal_Entity_Name__c, Company_Context__c, 
+                 Deployment_Approved__c, LastModifiedDate
+          FROM Account
+          WHERE Deployment_Approved__c = true
+          ORDER BY Name ASC
+          LIMIT 200
+        `;
+        
+        const result = await query(sfQuery, true);
+        
+        const customers = (result?.records || []).map(acc => ({
+          accountId: acc.Id,
+          accountName: acc.Name,
+          legalEntity: acc.Legal_Entity_Name__c || '',
+          context: acc.Company_Context__c || '',
+          approvedDate: acc.LastModifiedDate ? new Date(acc.LastModifiedDate).toLocaleDateString() : ''
+        }));
+        
+        const html = generateEngineeringPortal(customers);
+        res.send(html);
+      } catch (error) {
+        logger.error('Failed to load engineering portal', { error: error.message });
+        res.status(500).send('Failed to load engineering portal: ' + error.message);
+      }
+    });
+    
+    // Engineering Portal API - JSON endpoint (also protected)
+    this.expressApp.get('/api/engineering/customers', checkEngineeringAccess, async (req, res) => {
+      try {
+        const { query } = require('./salesforce/connection');
+        
+        const sfQuery = `
+          SELECT Id, Name, Legal_Entity_Name__c, Company_Context__c, 
+                 Deployment_Approved__c, LastModifiedDate
+          FROM Account
+          WHERE Deployment_Approved__c = true
+          ORDER BY Name ASC
+          LIMIT 200
+        `;
+        
+        const result = await query(sfQuery, true);
+        
+        const customers = (result?.records || []).map(acc => ({
+          accountId: acc.Id,
+          accountName: acc.Name,
+          legalEntity: acc.Legal_Entity_Name__c || '',
+          context: acc.Company_Context__c || '',
+          approvedDate: acc.LastModifiedDate ? new Date(acc.LastModifiedDate).toLocaleDateString() : ''
+        }));
+        
+        res.json({ success: true, customers, count: customers.length });
+      } catch (error) {
+        logger.error('Failed to fetch engineering customers', { error: error.message });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Redirect shorthand
+    this.expressApp.get('/engineering', (req, res) => res.redirect('/engineering/customers'));
+    this.expressApp.get('/eng-customers', (req, res) => res.redirect('/engineering/customers'));
+    this.expressApp.get('/customer-keys', (req, res) => res.redirect('/engineering/customers'));
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // CALL INTELLIGENCE API (P5)
     // ═══════════════════════════════════════════════════════════════════════════
     

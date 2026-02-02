@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Deal_Influence__c</fullName>
+    <description>Captures how this contact typically influences deals. MEDDICC-aligned roles for sales intelligence. Can select multiple if contact plays multiple roles.</description>
+    <externalId>false</externalId>
+    <label>Deal Influence</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>MultiselectPicklist</type>
+    <valueSet>
+        <restricted>false</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Economic Buyer</fullName>
+                <default>false</default>
+                <label>Economic Buyer</label>
+            </value>
+            <value>
+                <fullName>Decision Maker</fullName>
+                <default>false</default>
+                <label>Decision Maker</label>
+            </value>
+            <value>
+                <fullName>Champion</fullName>
+                <default>false</default>
+                <label>Champion</label>
+            </value>
+            <value>
+                <fullName>Influencer</fullName>
+                <default>false</default>
+                <label>Influencer</label>
+            </value>
+            <value>
+                <fullName>Blocker</fullName>
+                <default>false</default>
+                <label>Blocker</label>
+            </value>
+            <value>
+                <fullName>Technical Evaluator</fullName>
+                <default>false</default>
+                <label>Technical Evaluator</label>
+            </value>
+            <value>
+                <fullName>End User</fullName>
+                <default>false</default>
+                <label>End User</label>
+            </value>
+            <value>
+                <fullName>Legal/Procurement</fullName>
+                <default>false</default>
+                <label>Legal/Procurement</label>
+            </value>
+            <value>
+                <fullName>Executive Sponsor</fullName>
+                <default>false</default>
+                <label>Executive Sponsor</label>
+            </value>
+            <value>
+                <fullName>Project Lead</fullName>
+                <default>false</default>
+                <label>Project Lead</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+    <visibleLines>5</visibleLines>
+</CustomField>
