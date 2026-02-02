@@ -7,11 +7,19 @@
  */
 
 const { OpenAI } = require('openai');
+const Anthropic = require('@anthropic-ai/sdk');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const logger = require('../utils/logger') || console;
 const { socratesAdapter } = require('../ai/socratesAdapter');
+
+// Initialize Anthropic client for summarization
+let anthropic = null;
+if (process.env.ANTHROPIC_API_KEY) {
+  anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  logger.info('Anthropic Claude configured for summarization');
+}
 
 // Import transcript corrector with graceful fallback
 let transcriptCorrector = null;
@@ -458,7 +466,8 @@ class TranscriptionService {
   }
 
   /**
-   * Summarize transcript into structured sections using GPT-4o via Socrates
+   * Summarize transcript using Anthropic Claude (claude-sonnet-4-20250514)
+   * Falls back to Socrates if Anthropic not available
    */
   async summarize(transcript, context = {}) {
     try {
@@ -471,7 +480,6 @@ class TranscriptionService {
         contextStr += `Open Opportunities: ${context.opportunities.map(o => `${o.name} (${o.stage})`).join(', ')}\n`;
       }
       if (context.customerBrain) {
-        // Truncate to avoid token limits
         const recentNotes = context.customerBrain.substring(0, 1000);
         contextStr += `Recent Notes Summary: ${recentNotes}\n`;
       }
@@ -479,40 +487,46 @@ class TranscriptionService {
       const systemPrompt = this.buildSystemPrompt(contextStr);
       const userPrompt = this.buildUserPrompt(transcript);
 
-      // Estimate tokens for long transcripts
+      // Estimate tokens
       const estimatedInputTokens = (systemPrompt.length + userPrompt.length) / 4;
       if (estimatedInputTokens > 100000) {
         logger.warn(`[Summarization] Very long transcript (~${Math.round(estimatedInputTokens)} tokens), may be truncated`);
       }
 
-      // Use Socrates adapter (internal model gateway) instead of direct OpenAI
-      logger.info('[Summarization] Using Socrates for GPT-4o summarization');
+      // Use Anthropic Claude (preferred - we have the API key)
+      if (anthropic) {
+        logger.info('[Summarization] Using Anthropic Claude for summarization');
+        const response = await anthropic.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4000,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }]
+        });
+
+        const content = response.content[0]?.text || '';
+        const sections = this.parseSections(content);
+
+        return { success: true, sections };
+      }
+
+      // Fallback to Socrates
+      logger.info('[Summarization] Falling back to Socrates');
       const response = await socratesAdapter.makeRequest(
         [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        {
-          model: 'eudia-4o',
-          temperature: 0.3,
-          max_tokens: 4000
-        }
+        { model: 'eudia-4o', temperature: 0.3, max_tokens: 4000 }
       );
 
       const content = response.choices[0]?.message?.content || '';
       const sections = this.parseSections(content);
 
-      return {
-        success: true,
-        sections
-      };
+      return { success: true, sections };
 
     } catch (error) {
       logger.error('[Summarization] Error:', error);
-      return {
-        success: false,
-        error: error.message || 'Summarization failed'
-      };
+      return { success: false, error: error.message || 'Summarization failed' };
     }
   }
 
@@ -1167,20 +1181,27 @@ class MEDDICCExtractor {
           transcript.substring(transcript.length - halfLen);
       }
 
-      // Use Socrates for MEDDICC extraction
-      const response = await socratesAdapter.makeRequest(
-        [
-          { role: 'system', content: MEDDICC_EXTRACTION_PROMPT },
-          { role: 'user', content: `Analyze this meeting transcript and extract MEDDICC signals with evidence:\n\n${processedTranscript}` }
-        ],
-        {
-          model: 'eudia-4o',
-          temperature: 0.2,
-          max_tokens: 3000
-        }
-      );
-
-      const content = response.choices[0]?.message?.content;
+      // Use Anthropic Claude for MEDDICC extraction
+      let content;
+      if (anthropic) {
+        logger.info('[MEDDICC] Using Anthropic Claude');
+        const response = await anthropic.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 3000,
+          system: MEDDICC_EXTRACTION_PROMPT,
+          messages: [{ role: 'user', content: `Analyze this meeting transcript and extract MEDDICC signals with evidence:\n\n${processedTranscript}` }]
+        });
+        content = response.content[0]?.text;
+      } else {
+        const response = await socratesAdapter.makeRequest(
+          [
+            { role: 'system', content: MEDDICC_EXTRACTION_PROMPT },
+            { role: 'user', content: `Analyze this meeting transcript and extract MEDDICC signals with evidence:\n\n${processedTranscript}` }
+          ],
+          { model: 'eudia-4o', temperature: 0.2, max_tokens: 3000 }
+        );
+        content = response.choices[0]?.message?.content;
+      }
       if (!content) {
         throw new Error('No response from GPT');
       }
@@ -1426,22 +1447,29 @@ class MEDDICCExtractor {
         ? transcript.substring(transcript.length - 15000) 
         : transcript;
 
-      // Use Socrates for next steps extraction
-      const response = await socratesAdapter.makeRequest(
-        [
-          { role: 'system', content: NEXT_STEPS_EXTRACTION_PROMPT },
-          { role: 'user', content: `Extract next steps from this meeting transcript:\n\n${lastPortion}` }
-        ],
-        {
-          model: 'eudia-4o',
-          temperature: 0.2,
-          max_tokens: 1500
-        }
-      );
-
-      const content = response.choices[0]?.message?.content;
+      // Use Anthropic Claude for next steps extraction
+      let content;
+      if (anthropic) {
+        logger.info('[Next Steps] Using Anthropic Claude');
+        const response = await anthropic.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1500,
+          system: NEXT_STEPS_EXTRACTION_PROMPT,
+          messages: [{ role: 'user', content: `Extract next steps from this meeting transcript:\n\n${lastPortion}` }]
+        });
+        content = response.content[0]?.text;
+      } else {
+        const response = await socratesAdapter.makeRequest(
+          [
+            { role: 'system', content: NEXT_STEPS_EXTRACTION_PROMPT },
+            { role: 'user', content: `Extract next steps from this meeting transcript:\n\n${lastPortion}` }
+          ],
+          { model: 'eudia-4o', temperature: 0.2, max_tokens: 1500 }
+        );
+        content = response.choices[0]?.message?.content;
+      }
       if (!content) {
-        throw new Error('No response from Socrates');
+        throw new Error('No response from AI');
       }
 
       const result = JSON.parse(content);
@@ -1564,22 +1592,29 @@ class MEDDICCExtractor {
         .replace('{{attendees}}', (attendees || []).join(', ') || 'Unknown')
         .replace('{{transcript_start}}', (transcriptStart || '').substring(0, 2000));
 
-      // Use Socrates for account detection
-      const response = await socratesAdapter.makeRequest(
-        [
-          { role: 'system', content: prompt },
-          { role: 'user', content: 'Identify the customer account from this context.' }
-        ],
-        {
-          model: 'eudia-4o',
-          temperature: 0.2,
-          max_tokens: 500
-        }
-      );
-
-      const content = response.choices[0]?.message?.content;
+      // Use Anthropic Claude for account detection
+      let content;
+      if (anthropic) {
+        logger.info('[Account Detection] Using Anthropic Claude');
+        const response = await anthropic.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 500,
+          system: prompt,
+          messages: [{ role: 'user', content: 'Identify the customer account from this context.' }]
+        });
+        content = response.content[0]?.text;
+      } else {
+        const response = await socratesAdapter.makeRequest(
+          [
+            { role: 'system', content: prompt },
+            { role: 'user', content: 'Identify the customer account from this context.' }
+          ],
+          { model: 'eudia-4o', temperature: 0.2, max_tokens: 500 }
+        );
+        content = response.choices[0]?.message?.content;
+      }
       if (!content) {
-        throw new Error('No response from Socrates');
+        throw new Error('No response from AI');
       }
 
       const result = JSON.parse(content);
