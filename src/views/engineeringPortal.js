@@ -1,8 +1,10 @@
 /**
  * Engineering Customer Keys Portal
  * 
- * Displays approved customers with their legal entity names and context
+ * Displays closed-won customers with their legal entity names and context
  * for engineering deployment purposes.
+ * 
+ * Styled to match the light GTM Resources site theme
  */
 
 function generateEngineeringPortal(customers = [], options = {}) {
@@ -18,13 +20,21 @@ function generateEngineeringPortal(customers = [], options = {}) {
 
   const customerRows = customers.map(c => `
     <tr>
-      <td class="account-name">${escapeHtml(c.accountName || '')}</td>
-      <td class="legal-entity">${escapeHtml(c.legalEntity || '')}</td>
+      <td class="account-name">
+        <a href="https://eudia.lightning.force.com/lightning/r/Account/${c.accountId}/view" target="_blank">
+          ${escapeHtml(c.accountName || '')}
+        </a>
+      </td>
+      <td class="legal-entity">${escapeHtml(c.legalEntity || c.accountName || '')}</td>
       <td class="context">${escapeHtml(c.context || '').replace(/\n/g, '<br>')}</td>
-      <td class="date">${c.approvedDate || '-'}</td>
+      <td class="deal-value">${c.dealValue || '-'}</td>
+      <td class="date">${c.closeDate || '-'}</td>
       <td class="actions">
-        <button class="copy-btn" onclick="copyToClipboard('${escapeHtml(c.legalEntity || '')}', this)" title="Copy Legal Entity">
-          Copy
+        <button class="copy-btn" onclick="copyToClipboard('${escapeHtml(c.legalEntity || c.accountName || '')}', this)" title="Copy Legal Entity">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
         </button>
       </td>
     </tr>
@@ -35,50 +45,85 @@ function generateEngineeringPortal(customers = [], options = {}) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Engineering Customer Keys</title>
+  <title>Customer Deployments - GTM Engineering</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0d1117;
-      color: #c9d1d9;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f7fe;
+      color: #1f2937;
       min-height: 100vh;
     }
     
+    /* Header - matches GTM site */
     .header {
-      background: #161b22;
-      border-bottom: 1px solid #30363d;
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
       padding: 16px 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
     
     .header-left {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 16px;
+    }
+    
+    .header-logo {
+      display: flex;
+      align-items: center;
+      text-decoration: none;
+    }
+    
+    .header-logo img {
+      height: 32px;
+      width: auto;
     }
     
     .header-title {
-      font-size: 1.25rem;
+      font-size: 1rem;
       font-weight: 600;
-      color: #f0f6fc;
+      color: #1f2937;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
     
     .header-badge {
-      background: #238636;
+      background: #8b9bf4;
       color: #fff;
-      font-size: 0.7rem;
-      padding: 2px 8px;
+      font-size: 0.65rem;
+      padding: 3px 8px;
       border-radius: 12px;
       font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     
     .header-meta {
       font-size: 0.75rem;
-      color: #8b949e;
+      color: #6b7280;
+    }
+    
+    .back-link {
+      color: #6b7280;
+      text-decoration: none;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: color 0.15s;
+    }
+    
+    .back-link:hover {
+      color: #8b9bf4;
     }
     
     .container {
@@ -87,74 +132,114 @@ function generateEngineeringPortal(customers = [], options = {}) {
       padding: 24px;
     }
     
+    /* Page title section */
+    .page-title {
+      margin-bottom: 24px;
+    }
+    
+    .page-title h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1f2937;
+      margin-bottom: 4px;
+    }
+    
+    .page-title p {
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+    
+    /* Search and filters */
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    
     .search-bar {
-      margin-bottom: 20px;
+      flex: 1;
+      max-width: 400px;
     }
     
     .search-bar input {
       width: 100%;
-      max-width: 400px;
-      padding: 10px 14px;
-      background: #0d1117;
-      border: 1px solid #30363d;
-      border-radius: 6px;
-      color: #c9d1d9;
+      padding: 10px 14px 10px 38px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      color: #1f2937;
       font-size: 0.875rem;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      transition: all 0.15s;
     }
     
     .search-bar input:focus {
       outline: none;
-      border-color: #58a6ff;
-      box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+      border-color: #8b9bf4;
+      box-shadow: 0 0 0 3px rgba(139, 155, 244, 0.15);
     }
     
     .search-bar input::placeholder {
-      color: #6e7681;
+      color: #9ca3af;
+    }
+    
+    .search-wrapper {
+      position: relative;
+    }
+    
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #9ca3af;
     }
     
     .stats {
-      display: flex;
-      gap: 24px;
-      margin-bottom: 20px;
       font-size: 0.875rem;
-      color: #8b949e;
-    }
-    
-    .stats span {
+      color: #6b7280;
       display: flex;
       align-items: center;
       gap: 6px;
     }
     
     .stats .count {
-      color: #58a6ff;
+      color: #8b9bf4;
       font-weight: 600;
+    }
+    
+    /* Table */
+    .table-container {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
     
     table {
       width: 100%;
       border-collapse: collapse;
-      background: #161b22;
-      border-radius: 8px;
-      overflow: hidden;
-      border: 1px solid #30363d;
     }
     
     th {
       text-align: left;
-      padding: 12px 16px;
-      background: #21262d;
+      padding: 14px 16px;
+      background: #f9fafb;
       font-size: 0.75rem;
       font-weight: 600;
-      color: #8b949e;
+      color: #6b7280;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      border-bottom: 1px solid #30363d;
+      border-bottom: 1px solid #e5e7eb;
     }
     
     td {
-      padding: 14px 16px;
-      border-bottom: 1px solid #21262d;
+      padding: 16px;
+      border-bottom: 1px solid #f3f4f6;
       font-size: 0.875rem;
       vertical-align: top;
     }
@@ -164,31 +249,49 @@ function generateEngineeringPortal(customers = [], options = {}) {
     }
     
     tr:hover {
-      background: #1c2128;
+      background: #f9fafb;
     }
     
     .account-name {
       font-weight: 600;
-      color: #f0f6fc;
-      white-space: nowrap;
+    }
+    
+    .account-name a {
+      color: #1f2937;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    
+    .account-name a:hover {
+      color: #8b9bf4;
     }
     
     .legal-entity {
-      color: #7ee787;
-      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: #059669;
+      font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
       font-size: 0.8rem;
+      background: #ecfdf5;
+      padding: 4px 8px;
+      border-radius: 4px;
+      display: inline-block;
     }
     
     .context {
-      color: #8b949e;
+      color: #6b7280;
       font-size: 0.8rem;
       line-height: 1.5;
-      max-width: 500px;
+      max-width: 300px;
+    }
+    
+    .deal-value {
+      color: #1f2937;
+      font-weight: 500;
+      white-space: nowrap;
     }
     
     .date {
-      color: #6e7681;
-      font-size: 0.75rem;
+      color: #9ca3af;
+      font-size: 0.8rem;
       white-space: nowrap;
     }
     
@@ -197,61 +300,99 @@ function generateEngineeringPortal(customers = [], options = {}) {
     }
     
     .copy-btn {
-      background: #21262d;
-      border: 1px solid #30363d;
-      color: #c9d1d9;
-      padding: 6px 12px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      color: #6b7280;
+      padding: 8px;
       border-radius: 6px;
-      font-size: 0.75rem;
       cursor: pointer;
       transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
     
     .copy-btn:hover {
-      background: #30363d;
-      border-color: #8b949e;
+      background: #f3f4f6;
+      border-color: #d1d5db;
+      color: #1f2937;
     }
     
     .copy-btn.copied {
-      background: #238636;
-      border-color: #238636;
+      background: #8b9bf4;
+      border-color: #8b9bf4;
       color: #fff;
     }
     
+    /* Empty state */
     .empty-state {
       text-align: center;
-      padding: 60px 20px;
-      color: #6e7681;
+      padding: 80px 20px;
+    }
+    
+    .empty-state .icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 20px;
+      background: #f3f4f6;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #9ca3af;
     }
     
     .empty-state h3 {
-      font-size: 1.25rem;
-      color: #8b949e;
+      font-size: 1.125rem;
+      color: #1f2937;
       margin-bottom: 8px;
+      font-weight: 600;
+    }
+    
+    .empty-state p {
+      color: #6b7280;
+      font-size: 0.875rem;
+      max-width: 400px;
+      margin: 0 auto;
     }
     
     .hidden {
       display: none !important;
     }
     
+    .setup-required {
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 12px;
+      padding: 24px;
+      margin-top: 24px;
+    }
+    
+    .setup-required h3 {
+      color: #92400e;
+      margin-bottom: 12px;
+    }
+    
     .setup-required ul {
-      color: #8b949e;
+      color: #78716c;
       font-size: 14px;
       line-height: 2;
+      margin-left: 20px;
     }
     
     .setup-required code {
-      background: #21262d;
+      background: #fef3c7;
       padding: 2px 8px;
       border-radius: 4px;
       font-family: 'SF Mono', 'Fira Code', monospace;
       font-size: 13px;
-      color: #7ee787;
+      color: #92400e;
     }
     
+    /* Responsive */
     @media (max-width: 1024px) {
       .context {
-        max-width: 300px;
+        max-width: 200px;
       }
     }
     
@@ -260,9 +401,17 @@ function generateEngineeringPortal(customers = [], options = {}) {
         padding: 16px;
       }
       
-      table {
-        display: block;
+      .table-container {
         overflow-x: auto;
+      }
+      
+      .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      .search-bar {
+        max-width: none;
       }
     }
   </style>
@@ -270,69 +419,96 @@ function generateEngineeringPortal(customers = [], options = {}) {
 <body>
   <header class="header">
     <div class="header-left">
-      <span class="header-title">Engineering Customer Keys</span>
-      <span class="header-badge">Internal</span>
+      <a href="/gtm" class="header-logo">
+        <img src="/logo" alt="Eudia">
+      </a>
+      <span class="header-title">
+        Customer Deployments
+        <span class="header-badge">Engineering</span>
+      </span>
     </div>
-    <div class="header-meta">
-      Last updated: ${lastUpdated} PT
+    <div style="display: flex; align-items: center; gap: 24px;">
+      <a href="/gtm" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back to GTM
+      </a>
+      <div class="header-meta">
+        Updated ${lastUpdated} PT
+      </div>
     </div>
   </header>
   
   <div class="container">
-    <div class="search-bar">
-      <input 
-        type="text" 
-        id="search" 
-        placeholder="Search by account name or legal entity..." 
-        onkeyup="filterTable()"
-      >
+    <div class="page-title">
+      <h1>Closed Won Customers</h1>
+      <p>Legal entities and deployment context for active customers</p>
     </div>
     
-    <div class="stats">
-      <span><span class="count" id="customer-count">${customers.length}</span> approved customers</span>
+    <div class="toolbar">
+      <div class="search-bar">
+        <div class="search-wrapper">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="M21 21l-4.35-4.35"></path>
+          </svg>
+          <input 
+            type="text" 
+            id="search" 
+            placeholder="Search by account name or legal entity..." 
+            onkeyup="filterTable()"
+          >
+        </div>
+      </div>
+      <div class="stats">
+        <span class="count" id="customer-count">${customers.length}</span> customers
+      </div>
     </div>
     
     ${!fieldsAccessible ? `
-    <div class="empty-state setup-required">
-      <h3>Field Access Setup Required</h3>
-      <p style="margin-bottom: 16px;">The integration user needs access to the following custom fields on Account:</p>
-      <ul style="text-align: left; display: inline-block; margin-bottom: 16px;">
-        <li><code>Legal_Entity_Name__c</code></li>
-        <li><code>Company_Context__c</code></li>
-        <li><code>Deployment_Approved__c</code></li>
-      </ul>
-      <p style="color: #6e7681; font-size: 12px;">Go to Salesforce Setup > Profiles or Permission Sets to grant field-level access.</p>
+    <div class="setup-required">
+      <h3>⚠️ Salesforce Connection Issue</h3>
+      <p style="margin-bottom: 16px;">Unable to retrieve customer data. This may be a permissions issue.</p>
+      <p style="color: #78716c; font-size: 12px;">Contact the admin to verify Salesforce integration access.</p>
     </div>
     ` : customers.length > 0 ? `
-    <table id="customers-table">
-      <thead>
-        <tr>
-          <th>Account Name</th>
-          <th>Legal Entity</th>
-          <th>Context</th>
-          <th>Approved</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${customerRows}
-      </tbody>
-    </table>
+    <div class="table-container">
+      <table id="customers-table">
+        <thead>
+          <tr>
+            <th>Account</th>
+            <th>Legal Entity</th>
+            <th>Industry / Context</th>
+            <th>Deal Value</th>
+            <th>Close Date</th>
+            <th style="width: 60px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${customerRows}
+        </tbody>
+      </table>
+    </div>
     ` : `
-    <div class="empty-state">
-      <h3>No approved customers yet</h3>
-      <p>Customers will appear here when Deployment Approved is checked on their Account.</p>
+    <div class="table-container">
+      <div class="empty-state">
+        <div class="icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <h3>No closed-won customers yet</h3>
+        <p>Customers will appear here once opportunities are marked as Closed Won in Salesforce.</p>
+      </div>
     </div>
     `}
   </div>
   
   <script>
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-    
     function filterTable() {
       const query = document.getElementById('search').value.toLowerCase();
       const rows = document.querySelectorAll('#customers-table tbody tr');
@@ -341,8 +517,9 @@ function generateEngineeringPortal(customers = [], options = {}) {
       rows.forEach(row => {
         const accountName = row.querySelector('.account-name')?.textContent.toLowerCase() || '';
         const legalEntity = row.querySelector('.legal-entity')?.textContent.toLowerCase() || '';
+        const context = row.querySelector('.context')?.textContent.toLowerCase() || '';
         
-        if (accountName.includes(query) || legalEntity.includes(query)) {
+        if (accountName.includes(query) || legalEntity.includes(query) || context.includes(query)) {
           row.classList.remove('hidden');
           visibleCount++;
         } else {
@@ -355,10 +532,8 @@ function generateEngineeringPortal(customers = [], options = {}) {
     
     function copyToClipboard(text, btn) {
       navigator.clipboard.writeText(text).then(() => {
-        btn.textContent = 'Copied';
         btn.classList.add('copied');
         setTimeout(() => {
-          btn.textContent = 'Copy';
           btn.classList.remove('copied');
         }, 2000);
       });

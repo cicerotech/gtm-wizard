@@ -1117,7 +1117,7 @@ class GTMBrainApp {
       `);
     };
     
-    // Engineering Portal - View approved customers for deployment
+    // Engineering Portal - View closed-won customers for deployment
     this.expressApp.get('/engineering/customers', checkEngineeringAccess, async (req, res) => {
       try {
         const { generateEngineeringPortal } = require('./views/engineeringPortal');
@@ -1127,29 +1127,63 @@ class GTMBrainApp {
         let fieldsAccessible = true;
         
         try {
-          // Try to query with custom fields first
+          // Query accounts with closed-won opportunities
           const sfQuery = `
             SELECT Id, Name, Legal_Entity_Name__c, Company_Context__c, 
-                   Deployment_Approved__c, LastModifiedDate
+                   Industry, Website, LastModifiedDate,
+                   (SELECT Id, Name, Amount, CloseDate, StageName 
+                    FROM Opportunities 
+                    WHERE StageName = 'Closed Won' 
+                    ORDER BY CloseDate DESC LIMIT 1)
             FROM Account
-            WHERE Deployment_Approved__c = true
+            WHERE Id IN (SELECT AccountId FROM Opportunity WHERE StageName = 'Closed Won')
             ORDER BY Name ASC
             LIMIT 200
           `;
           
           const result = await query(sfQuery, true);
           
-          customers = (result?.records || []).map(acc => ({
-            accountId: acc.Id,
-            accountName: acc.Name,
-            legalEntity: acc.Legal_Entity_Name__c || '',
-            context: acc.Company_Context__c || '',
-            approvedDate: acc.LastModifiedDate ? new Date(acc.LastModifiedDate).toLocaleDateString() : ''
-          }));
+          customers = (result?.records || []).map(acc => {
+            const latestOpp = acc.Opportunities?.records?.[0];
+            return {
+              accountId: acc.Id,
+              accountName: acc.Name,
+              legalEntity: acc.Legal_Entity_Name__c || acc.Name,
+              context: acc.Company_Context__c || acc.Industry || '',
+              website: acc.Website || '',
+              dealValue: latestOpp?.Amount ? `$${Number(latestOpp.Amount).toLocaleString()}` : '',
+              closeDate: latestOpp?.CloseDate ? new Date(latestOpp.CloseDate).toLocaleDateString() : ''
+            };
+          });
         } catch (fieldError) {
-          // If custom fields aren't accessible, show empty state with instructions
-          logger.warn('Engineering portal: Custom fields not accessible, showing setup instructions');
-          fieldsAccessible = false;
+          // If custom fields aren't accessible, fall back to basic query
+          logger.warn('Engineering portal: Custom fields not accessible, using basic query');
+          try {
+            const basicQuery = `
+              SELECT Id, Name, Industry, Website, LastModifiedDate,
+                     (SELECT Id, Name, Amount, CloseDate FROM Opportunities 
+                      WHERE StageName = 'Closed Won' ORDER BY CloseDate DESC LIMIT 1)
+              FROM Account
+              WHERE Id IN (SELECT AccountId FROM Opportunity WHERE StageName = 'Closed Won')
+              ORDER BY Name ASC
+              LIMIT 200
+            `;
+            const result = await query(basicQuery, true);
+            customers = (result?.records || []).map(acc => {
+              const latestOpp = acc.Opportunities?.records?.[0];
+              return {
+                accountId: acc.Id,
+                accountName: acc.Name,
+                legalEntity: acc.Name,
+                context: acc.Industry || '',
+                website: acc.Website || '',
+                dealValue: latestOpp?.Amount ? `$${Number(latestOpp.Amount).toLocaleString()}` : '',
+                closeDate: latestOpp?.CloseDate ? new Date(latestOpp.CloseDate).toLocaleDateString() : ''
+              };
+            });
+          } catch (basicError) {
+            fieldsAccessible = false;
+          }
         }
         
         const html = generateEngineeringPortal(customers, { fieldsAccessible });
