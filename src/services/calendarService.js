@@ -58,7 +58,8 @@ const BL_EMAILS_PILOT = [
   'emer.flynn@eudia.com',
   'nicola.fratini@eudia.com',
   'riona.mchale@eudia.com',
-  // Test/Admin
+  // Leadership/Admin
+  'zack@eudia.com',
   'keigan.pesenti@eudia.com',
   'ben.brosnahan@eudia.com'
 ];
