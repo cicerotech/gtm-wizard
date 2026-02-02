@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Blended_Forecast_AI_Enabled__c</fullName>
+    <description>AI-Enabled blended forecast using revised methodology: Commit deals at 95% (BL confidence), Gut deals at stage probability, others at 0. Uses Net ACV for existing customers.</description>
+    <externalId>false</externalId>
+    <formula>IF(
+  AND(
+    Eudia_Tech__c,
+    IF(Prior_Opp_ACV__c &gt; 0, Renewal_Net_Change__c, ACV__c) &gt; 0
+  ),
+  IF(Prior_Opp_ACV__c &gt; 0, Renewal_Net_Change__c, ACV__c) * 
+  CASE(TEXT(BL_Forecast_Category__c),
+    "Closed", 1.00,
+    "Commit", 0.95,
+    "Gut", IF(Probability_Override__c, Custom_Probability_Value__c, Calculated_Probability__c),
+    0
+  ),
+  0
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Blended Forecast (AI-Enabled)</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Currency</type>
+</CustomField>
