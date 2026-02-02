@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>AI_Enabled_Quarterly_Forecast_Net__c</fullName>
-    <description>Returns BL Quarterly Forecast for AI-Enabled opps. For Renewals, returns Renewal Net Change instead. Excludes opps where net value is 0 or less.</description>
+    <description>Returns net forecast for AI-Enabled opps. Uses Renewal_Net_Change for existing customers (Prior Opp ACV &gt; 0), otherwise BL Quarterly Forecast for new business. Excludes opps where net value is 0 or less.</description>
     <externalId>false</externalId>
     <formula>IF(
   AND(
     Eudia_Tech__c,
-    IF(ISPICKVAL(Sales_Type__c, "Renewal"), Renewal_Net_Change__c, BL_Quarterly_Forecast__c) &gt; 0
+    IF(Prior_Opp_ACV__c &gt; 0, Renewal_Net_Change__c, BL_Quarterly_Forecast__c) &gt; 0
   ),
-  IF(ISPICKVAL(Sales_Type__c, "Renewal"), Renewal_Net_Change__c, BL_Quarterly_Forecast__c),
+  IF(Prior_Opp_ACV__c &gt; 0, Renewal_Net_Change__c, BL_Quarterly_Forecast__c),
   0
 )</formula>
     <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
