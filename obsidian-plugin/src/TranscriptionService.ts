@@ -638,12 +638,6 @@ export class TranscriptionService {
       });
 
       if (!response.json.success) {
-        // If server says OpenAI not initialized, try local fallback
-        if (response.json.error?.includes('OpenAI not initialized') && this.openaiApiKey) {
-          console.log('Server OpenAI unavailable, trying local fallback...');
-          return this.transcribeLocal(audioBase64, mimeType, accountName, context);
-        }
-        
         return {
           success: false,
           transcript: '',
@@ -663,10 +657,12 @@ export class TranscriptionService {
     } catch (error) {
       console.error('Server transcription error:', error);
       
-      // If server unreachable and we have local key, try local fallback
-      if (this.openaiApiKey) {
-        console.log('Server unreachable, trying local OpenAI fallback...');
-        return this.transcribeLocal(audioBase64, mimeType, accountName, context);
+      // Provide clear error message based on error type
+      let errorMessage = `Transcription failed: ${error.message}`;
+      if (error.message?.includes('413')) {
+        errorMessage = 'Audio file too large for server. Try a shorter recording.';
+      } else if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+        errorMessage = 'Could not reach transcription server. Check your internet connection.';
       }
       
       return {
@@ -674,7 +670,7 @@ export class TranscriptionService {
         transcript: '',
         sections: this.getEmptySections(),
         duration: 0,
-        error: `Server unavailable: ${error.message}. Add OpenAI API key in settings for offline mode.`
+        error: errorMessage
       };
     }
   }

@@ -441,8 +441,9 @@ class GTMBrainApp {
       },
     }));
     this.expressApp.use(cors());
-    this.expressApp.use(express.json());
-    this.expressApp.use(express.urlencoded({ extended: true }));
+    // Large limit for audio transcription (1.5hr call @ 96kbps = ~65MB → ~87MB base64)
+    this.expressApp.use(express.json({ limit: '100mb' }));
+    this.expressApp.use(express.urlencoded({ extended: true, limit: '100mb' }));
     
     // Cookie parser for session
     const cookieParser = require('cookie-parser');
