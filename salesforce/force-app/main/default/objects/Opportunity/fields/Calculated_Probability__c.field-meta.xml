@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Calculated_Probability__c</fullName>
+    <description>Calculated probability based on stage and account type classification. Includes Government LOI date adjustment.</description>
+    <externalId>false</externalId>
+    <formula>CASE(TEXT(StageName),
+"Stage 0 - Prospecting", 0.02,
+"Stage 1 - Discovery", CASE(Account_Type_Classification__c, "Government", 0.08, "LOI", 0.17, "Existing Client", 0.18, 0.10),
+"Stage 2 - SQO", CASE(Account_Type_Classification__c, "Government", 0.12, "LOI", 0.30, "Existing Client", 0.32, 0.20),
+"Stage 3 - Pilot", CASE(Account_Type_Classification__c, "Government", 0.18, "LOI", 0.40, "Existing Client", 0.42, 0.25),
+"Stage 4 - Proposal", CASE(Account_Type_Classification__c, "Government", 0.22, "LOI", 0.48, "Existing Client", 0.50, 0.33),
+"Stage 5 - Negotiation", 0.75,
+"Stage 6. Closed(Won)", 1.00,
+0
+) * IF(AND(Account_Type_Classification__c = "Government", NOT(ISBLANK(Target_LOI_Date__c)), Target_LOI_Date__c &gt; DATE(YEAR(TODAY()), CEILING(MONTH(TODAY())/3)*3, 31)), 0.70, 1.00)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Calculated Probability</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Percent</type>
+</CustomField>
