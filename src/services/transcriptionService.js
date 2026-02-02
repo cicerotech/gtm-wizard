@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const logger = require('../utils/logger') || console;
+const { socratesAdapter } = require('../ai/socratesAdapter');
 
 // Import transcript corrector with graceful fallback
 let transcriptCorrector = null;
@@ -234,18 +235,39 @@ class TranscriptionService {
 
   /**
    * Transcribe audio with automatic chunking for long recordings
+   * Tries Socrates first (internal gateway), falls back to direct OpenAI
    * @param {Buffer} audioBuffer - Audio file buffer
    * @param {string} mimeType - MIME type of audio (e.g., 'audio/webm')
    * @param {Object} context - Optional context for custom vocabulary (attendees, accountName)
    * @returns {Promise<{success: boolean, transcript?: string, duration?: number, error?: string}>}
    */
   async transcribe(audioBuffer, mimeType = 'audio/webm', context = {}) {
-    if (!this.openai) {
-      return { success: false, error: 'OpenAI not initialized' };
-    }
-
     const fileSizeMB = (audioBuffer.length / 1024 / 1024).toFixed(1);
     logger.info(`[Transcription] Starting: ${fileSizeMB}MB, type=${mimeType}`);
+
+    // Try Socrates audio transcription first (internal gateway with Okta auth)
+    try {
+      logger.info('[Transcription] Trying Socrates audio endpoint...');
+      const whisperPrompt = buildWhisperPrompt(context);
+      const result = await socratesAdapter.transcribeAudio(audioBuffer, mimeType, {
+        language: 'en',
+        prompt: whisperPrompt
+      });
+      
+      if (result.success) {
+        logger.info(`[Transcription] Socrates success: ${result.duration}s`);
+        return result;
+      }
+    } catch (socratesError) {
+      logger.warn('[Transcription] Socrates audio not available:', socratesError.message);
+    }
+
+    // Fall back to direct OpenAI if Socrates doesn't support audio
+    if (!this.openai) {
+      return { success: false, error: 'Neither Socrates audio nor OpenAI available' };
+    }
+
+    logger.info('[Transcription] Falling back to direct OpenAI Whisper');
 
     // Check if we need to chunk
     if (audioBuffer.length <= CONFIG.MAX_CHUNK_SIZE) {
@@ -436,13 +458,9 @@ class TranscriptionService {
   }
 
   /**
-   * Summarize transcript into structured sections using GPT-4o
+   * Summarize transcript into structured sections using GPT-4o via Socrates
    */
   async summarize(transcript, context = {}) {
-    if (!this.openai) {
-      return { success: false, error: 'OpenAI not initialized' };
-    }
-
     try {
       // Build context string
       let contextStr = '';
@@ -467,15 +485,19 @@ class TranscriptionService {
         logger.warn(`[Summarization] Very long transcript (~${Math.round(estimatedInputTokens)} tokens), may be truncated`);
       }
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
+      // Use Socrates adapter (internal model gateway) instead of direct OpenAI
+      logger.info('[Summarization] Using Socrates for GPT-4o summarization');
+      const response = await socratesAdapter.makeRequest(
+        [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.3,
-        max_tokens: 4000
-      });
+        {
+          model: 'eudia-4o',
+          temperature: 0.3,
+          max_tokens: 4000
+        }
+      );
 
       const content = response.choices[0]?.message?.content || '';
       const sections = this.parseSections(content);
@@ -1145,16 +1167,18 @@ class MEDDICCExtractor {
           transcript.substring(transcript.length - halfLen);
       }
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
+      // Use Socrates for MEDDICC extraction
+      const response = await socratesAdapter.makeRequest(
+        [
           { role: 'system', content: MEDDICC_EXTRACTION_PROMPT },
           { role: 'user', content: `Analyze this meeting transcript and extract MEDDICC signals with evidence:\n\n${processedTranscript}` }
         ],
-        temperature: 0.2, // Low temperature for consistent extraction
-        max_tokens: 3000,
-        response_format: { type: 'json_object' }
-      });
+        {
+          model: 'eudia-4o',
+          temperature: 0.2,
+          max_tokens: 3000
+        }
+      );
 
       const content = response.choices[0]?.message?.content;
       if (!content) {
@@ -1402,20 +1426,22 @@ class MEDDICCExtractor {
         ? transcript.substring(transcript.length - 15000) 
         : transcript;
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
+      // Use Socrates for next steps extraction
+      const response = await socratesAdapter.makeRequest(
+        [
           { role: 'system', content: NEXT_STEPS_EXTRACTION_PROMPT },
           { role: 'user', content: `Extract next steps from this meeting transcript:\n\n${lastPortion}` }
         ],
-        temperature: 0.2,
-        max_tokens: 1500,
-        response_format: { type: 'json_object' }
-      });
+        {
+          model: 'eudia-4o',
+          temperature: 0.2,
+          max_tokens: 1500
+        }
+      );
 
       const content = response.choices[0]?.message?.content;
       if (!content) {
-        throw new Error('No response from GPT');
+        throw new Error('No response from Socrates');
       }
 
       const result = JSON.parse(content);
@@ -1538,20 +1564,22 @@ class MEDDICCExtractor {
         .replace('{{attendees}}', (attendees || []).join(', ') || 'Unknown')
         .replace('{{transcript_start}}', (transcriptStart || '').substring(0, 2000));
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
+      // Use Socrates for account detection
+      const response = await socratesAdapter.makeRequest(
+        [
           { role: 'system', content: prompt },
           { role: 'user', content: 'Identify the customer account from this context.' }
         ],
-        temperature: 0.2,
-        max_tokens: 500,
-        response_format: { type: 'json_object' }
-      });
+        {
+          model: 'eudia-4o',
+          temperature: 0.2,
+          max_tokens: 500
+        }
+      );
 
       const content = response.choices[0]?.message?.content;
       if (!content) {
-        throw new Error('No response from GPT');
+        throw new Error('No response from Socrates');
       }
 
       const result = JSON.parse(content);

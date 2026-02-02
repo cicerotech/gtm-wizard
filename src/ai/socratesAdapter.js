@@ -27,11 +27,17 @@ class SocratesAdapter {
     this.availableModels = {
       'gpt-4': 'gpt-4',
       'gpt-4.0': 'gpt-4',
+      'gpt-4o': 'eudia-4o',
+      'eudia-4o': 'eudia-4o',
       'gpt-5': 'gpt-5',
+      'claude-3.5': 'eudia-claude-35',
       'claude-opus-4': 'eudia-claude-opus-4',
       'claude-opus-4.1': 'eudia-claude-opus-41',
+      'claude-opus-4.5': 'eudia-claude-opus-45',
       'claude-sonnet-4.5': 'eudia-claude-sonnet-45',
       'claude-sonnet': 'eudia-claude-sonnet-45',
+      'o4-mini': 'eudia-o4-mini',
+      'o3-mini': 'eudia-o3-mini',
       'gemini-3.0-pro': 'eudia-gemini-30-pro-preview'
     };
     
@@ -394,6 +400,86 @@ class SocratesAdapter {
       logger.error('Socrates connection test failed:', error);
       return false;
     }
+  }
+
+  /**
+   * Transcribe audio using Socrates/OpenAI Whisper endpoint
+   * Uses same Okta auth as chat completions
+   * @param {Buffer} audioBuffer - Audio file buffer
+   * @param {string} mimeType - MIME type (e.g., 'audio/webm')
+   * @param {Object} options - Additional options (language, prompt)
+   */
+  async transcribeAudio(audioBuffer, mimeType = 'audio/webm', options = {}) {
+    const authToken = await this.getAuthToken();
+    if (!authToken) {
+      throw new Error('No authentication available for Socrates audio transcription');
+    }
+
+    const baseURL = this.workingConfig.baseURL;
+    // Try OpenAI-compatible audio endpoint
+    const audioEndpoints = [
+      '/api/audio/transcriptions',
+      '/v1/audio/transcriptions',
+      '/audio/transcriptions'
+    ];
+
+    const extension = mimeType.includes('webm') ? 'webm' : 
+                     mimeType.includes('mp4') ? 'm4a' : 
+                     mimeType.includes('ogg') ? 'ogg' : 'webm';
+
+    // Create form data for multipart upload
+    const FormData = require('form-data');
+    const formData = new FormData();
+    formData.append('file', audioBuffer, { 
+      filename: `audio.${extension}`,
+      contentType: mimeType 
+    });
+    formData.append('model', 'whisper-1');
+    formData.append('response_format', 'verbose_json');
+    formData.append('language', options.language || 'en');
+    if (options.prompt) {
+      formData.append('prompt', options.prompt);
+    }
+
+    let lastError = null;
+    
+    for (const endpoint of audioEndpoints) {
+      try {
+        const url = `${baseURL}${endpoint}`;
+        logger.info(`[Socrates Audio] Trying: ${url}`);
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            ...formData.getHeaders()
+          },
+          body: formData
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          logger.info(`[Socrates Audio] Success via ${endpoint}`);
+          return {
+            success: true,
+            text: result.text,
+            duration: result.duration,
+            segments: result.segments
+          };
+        }
+
+        const errorText = await response.text();
+        logger.warn(`[Socrates Audio] ${endpoint} failed: ${response.status} - ${errorText}`);
+        lastError = new Error(`${response.status}: ${errorText}`);
+
+      } catch (error) {
+        logger.warn(`[Socrates Audio] ${endpoint} error:`, error.message);
+        lastError = error;
+      }
+    }
+
+    // If Socrates doesn't support audio, throw with helpful message
+    throw new Error(`Socrates audio transcription not available. Last error: ${lastError?.message}`);
   }
 }
 
