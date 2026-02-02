@@ -49,6 +49,7 @@ const BL_EMAILS_PILOT = [
   'ananth.cherukupally@eudia.com',
   'justin.hills@eudia.com',
   'mike.masiello@eudia.com',
+  'mitchell.loquaci@eudia.com',
   // EU Pod
   'greg.machale@eudia.com',
   'nathan.shine@eudia.com',

@@ -2124,12 +2124,66 @@ sync_to_salesforce: false
         if (oauthError) {
           logger.error(`SF OAuth error: ${oauthError} - ${error_description}`);
           return res.status(400).send(`
+            <!DOCTYPE html>
             <html>
-            <head><title>Authentication Failed</title></head>
-            <body style="font-family: sans-serif; padding: 40px; text-align: center;">
-              <h1>Authentication Failed</h1>
-              <p style="color: red;">${error_description || oauthError}</p>
-              <p>Please close this window and try again.</p>
+            <head>
+              <title>Authentication Failed - Eudia</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+              <style>
+                * { box-sizing: border-box; margin: 0; padding: 0; }
+                body { 
+                  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                  min-height: 100vh;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+                  color: #ffffff;
+                }
+                .container { text-align: center; padding: 40px; max-width: 420px; }
+                .logo-text { font-size: 24px; font-weight: 600; margin-bottom: 32px; color: #8b9bf4; }
+                .card {
+                  background: rgba(255, 255, 255, 0.08);
+                  backdrop-filter: blur(20px);
+                  border: 1px solid rgba(255, 255, 255, 0.1);
+                  border-radius: 16px;
+                  padding: 40px 32px;
+                }
+                .error-circle {
+                  width: 72px; height: 72px;
+                  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+                  border-radius: 50%;
+                  display: flex; align-items: center; justify-content: center;
+                  margin: 0 auto 24px;
+                  box-shadow: 0 8px 32px rgba(239, 68, 68, 0.3);
+                }
+                .error-circle svg { width: 36px; height: 36px; stroke: white; stroke-width: 3; fill: none; }
+                h1 { font-size: 28px; font-weight: 600; margin-bottom: 12px; }
+                .subtitle { color: rgba(255, 255, 255, 0.7); font-size: 14px; margin-bottom: 20px; }
+                .error-msg { color: #fca5a5; font-size: 13px; background: rgba(239, 68, 68, 0.1); padding: 12px; border-radius: 8px; }
+                .close-btn {
+                  display: inline-block; margin-top: 24px; padding: 12px 28px;
+                  background: rgba(139, 155, 244, 0.15); border: 1px solid rgba(139, 155, 244, 0.3);
+                  color: #8b9bf4; font-size: 14px; font-weight: 500; border-radius: 8px;
+                  cursor: pointer; transition: all 0.2s ease; text-decoration: none;
+                }
+                .close-btn:hover { background: rgba(139, 155, 244, 0.25); }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="logo-text">Eudia</div>
+                <div class="card">
+                  <div class="error-circle">
+                    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </div>
+                  <h1>Authentication Failed</h1>
+                  <p class="subtitle">Unable to connect to Salesforce</p>
+                  <p class="error-msg">${error_description || oauthError}</p>
+                  <button class="close-btn" onclick="window.close()">Close Window</button>
+                </div>
+              </div>
             </body>
             </html>
           `);
@@ -2185,11 +2239,64 @@ sync_to_salesforce: false
           const errorBody = await tokenResponse.text();
           logger.error(`SF token exchange failed: ${errorBody}`);
           return res.status(400).send(`
+            <!DOCTYPE html>
             <html>
-            <head><title>Token Exchange Failed</title></head>
-            <body style="font-family: sans-serif; padding: 40px; text-align: center;">
-              <h1>Token Exchange Failed</h1>
-              <p>Please close this window and try again.</p>
+            <head>
+              <title>Connection Failed - Eudia</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+              <style>
+                * { box-sizing: border-box; margin: 0; padding: 0; }
+                body { 
+                  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                  min-height: 100vh;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+                  color: #ffffff;
+                }
+                .container { text-align: center; padding: 40px; max-width: 420px; }
+                .logo-text { font-size: 24px; font-weight: 600; margin-bottom: 32px; color: #8b9bf4; }
+                .card {
+                  background: rgba(255, 255, 255, 0.08);
+                  backdrop-filter: blur(20px);
+                  border: 1px solid rgba(255, 255, 255, 0.1);
+                  border-radius: 16px;
+                  padding: 40px 32px;
+                }
+                .error-circle {
+                  width: 72px; height: 72px;
+                  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+                  border-radius: 50%;
+                  display: flex; align-items: center; justify-content: center;
+                  margin: 0 auto 24px;
+                  box-shadow: 0 8px 32px rgba(239, 68, 68, 0.3);
+                }
+                .error-circle svg { width: 36px; height: 36px; stroke: white; stroke-width: 3; fill: none; }
+                h1 { font-size: 28px; font-weight: 600; margin-bottom: 12px; }
+                .subtitle { color: rgba(255, 255, 255, 0.7); font-size: 14px; }
+                .close-btn {
+                  display: inline-block; margin-top: 24px; padding: 12px 28px;
+                  background: rgba(139, 155, 244, 0.15); border: 1px solid rgba(139, 155, 244, 0.3);
+                  color: #8b9bf4; font-size: 14px; font-weight: 500; border-radius: 8px;
+                  cursor: pointer; transition: all 0.2s ease; text-decoration: none;
+                }
+                .close-btn:hover { background: rgba(139, 155, 244, 0.25); }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="logo-text">Eudia</div>
+                <div class="card">
+                  <div class="error-circle">
+                    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </div>
+                  <h1>Connection Failed</h1>
+                  <p class="subtitle">Please close this window and try again.</p>
+                  <button class="close-btn" onclick="window.close()">Close Window</button>
+                </div>
+              </div>
             </body>
             </html>
           `);
