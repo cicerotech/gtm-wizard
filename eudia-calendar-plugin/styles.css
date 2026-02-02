@@ -91,11 +91,35 @@
   cursor: not-allowed;
 }
 
+.eudia-cal-btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: eudia-spin 0.8s linear infinite;
+}
+
 /* Loading */
 .eudia-cal-loading {
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   padding: 40px 20px;
-  color: var(--text-muted);
+}
+
+.eudia-cal-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--background-modifier-border);
+  border-top-color: var(--interactive-accent);
+  border-radius: 50%;
+  animation: eudia-spin 0.8s linear infinite;
+}
+
+@keyframes eudia-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Empty State */

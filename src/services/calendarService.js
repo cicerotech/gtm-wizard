@@ -60,6 +60,9 @@ const BL_EMAILS_PILOT = [
   'riona.mchale@eudia.com',
   // Leadership/Admin
   'zack@eudia.com',
+  'michael.ayers@eudia.com',
+  'michael.flynn@eudia.com',
+  'daniel.kim@eudia.com',
   'keigan.pesenti@eudia.com',
   'ben.brosnahan@eudia.com'
 ];

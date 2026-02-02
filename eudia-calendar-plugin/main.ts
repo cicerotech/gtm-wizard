@@ -122,7 +122,8 @@ class EudiaCalendarView extends ItemView {
     }
 
     // Loading
-    const loadingEl = container.createDiv({ cls: 'eudia-cal-loading', text: 'Loading...' });
+    const loadingEl = container.createDiv({ cls: 'eudia-cal-loading' });
+    loadingEl.innerHTML = '<div class="eudia-cal-spinner"></div>';
 
     try {
       const data = await this.fetchMeetings();
@@ -291,7 +292,7 @@ class EudiaCalendarView extends ItemView {
         return;
       }
       
-      btn.textContent = 'Connecting...';
+      btn.innerHTML = '<span class="eudia-cal-btn-spinner"></span>';
       btn.setAttribute('disabled', 'true');
       
       // Test the connection (using /week to get accurate meeting count)
