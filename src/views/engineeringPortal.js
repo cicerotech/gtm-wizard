@@ -31,13 +31,15 @@ function generateEngineeringPortal(customers = [], options = {}) {
     closeDate: c.closeDate || ''
   })));
 
-  const customerRows = customers.map(c => `
+  const customerRows = customers.map(c => {
+    const hasLink = c.accountId && c.accountId !== 'null';
+    const accountCell = hasLink
+      ? `<a href="https://eudia.lightning.force.com/lightning/r/Account/${c.accountId}/view" target="_blank">${escapeHtml(c.accountName || '')}</a>`
+      : `<span>${escapeHtml(c.accountName || '')}</span>`;
+    
+    return `
     <tr data-account="${escapeHtml(c.accountName || '')}" data-legal="${escapeHtml(c.legalEntity || c.accountName || '')}" data-context="${escapeHtml(c.context || '')}">
-      <td class="account-name">
-        <a href="https://eudia.lightning.force.com/lightning/r/Account/${c.accountId}/view" target="_blank">
-          ${escapeHtml(c.accountName || '')}
-        </a>
-      </td>
+      <td class="account-name">${accountCell}</td>
       <td class="legal-entity">${escapeHtml(c.legalEntity || c.accountName || '')}</td>
       <td class="context">${escapeHtml(c.context || '').replace(/\n/g, '<br>')}</td>
       <td class="deal-value">${c.dealValue || '-'}</td>
@@ -51,7 +53,8 @@ function generateEngineeringPortal(customers = [], options = {}) {
         </button>
       </td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   return `<!DOCTYPE html>
 <html lang="en">

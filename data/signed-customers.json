@@ -1,0 +1,441 @@
+{
+  "customers": [
+    {
+      "accountName": "3M",
+      "legalEntity": "3M Company",
+      "context": "Global manufacturing conglomerate, diversified technology company with healthcare, safety, industrial, consumer, and transportation segments"
+    },
+    {
+      "accountName": "Advance Auto Parts",
+      "legalEntity": "Advance Auto Parts, Inc.",
+      "context": "Automotive aftermarket parts provider, retail and commercial distribution"
+    },
+    {
+      "accountName": "Alaska Airlines",
+      "legalEntity": "Alaska Air Group, Inc.",
+      "context": "Major US airline, west coast focused with Hawaii and Alaska routes"
+    },
+    {
+      "accountName": "Allianz",
+      "legalEntity": "Allianz SE",
+      "context": "Global financial services, insurance and asset management"
+    },
+    {
+      "accountName": "Allstate",
+      "legalEntity": "The Allstate Corporation",
+      "context": "Property and casualty insurance, personal lines and commercial"
+    },
+    {
+      "accountName": "American Family Insurance",
+      "legalEntity": "American Family Mutual Insurance Company, S.I.",
+      "context": "Mutual insurance company, property casualty and life insurance"
+    },
+    {
+      "accountName": "Ameriprise Financial",
+      "legalEntity": "Ameriprise Financial, Inc.",
+      "context": "Financial planning and wealth management services"
+    },
+    {
+      "accountName": "ASSA ABLOY",
+      "legalEntity": "ASSA ABLOY AB",
+      "context": "Global leader in door opening solutions, access control and security"
+    },
+    {
+      "accountName": "Astellas Pharma",
+      "legalEntity": "Astellas Pharma Inc.",
+      "context": "Japanese pharmaceutical company, focus on oncology and urology"
+    },
+    {
+      "accountName": "AXA XL",
+      "legalEntity": "AXA XL, a division of AXA",
+      "context": "Global specialty insurance and reinsurance"
+    },
+    {
+      "accountName": "Baxter International",
+      "legalEntity": "Baxter International Inc.",
+      "context": "Healthcare company, renal and hospital products"
+    },
+    {
+      "accountName": "BD (Becton Dickinson)",
+      "legalEntity": "Becton, Dickinson and Company",
+      "context": "Medical technology company, devices and diagnostics"
+    },
+    {
+      "accountName": "Blue Cross Blue Shield of Minnesota",
+      "legalEntity": "Blue Cross Blue Shield of Minnesota",
+      "context": "Health insurance provider, Minnesota-based nonprofit"
+    },
+    {
+      "accountName": "C.H. Robinson",
+      "legalEntity": "C.H. Robinson Worldwide, Inc.",
+      "context": "Third-party logistics and freight brokerage, Eden Prairie HQ"
+    },
+    {
+      "accountName": "Cardinal Health",
+      "legalEntity": "Cardinal Health, Inc.",
+      "context": "Healthcare services and products distribution"
+    },
+    {
+      "accountName": "Cargill",
+      "legalEntity": "Cargill, Incorporated",
+      "context": "Private multinational, food, agriculture, financial and industrial products"
+    },
+    {
+      "accountName": "Caterpillar",
+      "legalEntity": "Caterpillar Inc.",
+      "context": "Construction and mining equipment, diesel engines"
+    },
+    {
+      "accountName": "CenturyLink/Lumen",
+      "legalEntity": "Lumen Technologies, Inc.",
+      "context": "Telecommunications company, enterprise network services"
+    },
+    {
+      "accountName": "Chubb",
+      "legalEntity": "Chubb Limited",
+      "context": "Property and casualty insurance, global commercial and personal lines"
+    },
+    {
+      "accountName": "CIGNA",
+      "legalEntity": "The Cigna Group",
+      "context": "Global health services company, health insurance and services"
+    },
+    {
+      "accountName": "Colgate-Palmolive",
+      "legalEntity": "Colgate-Palmolive Company",
+      "context": "Consumer products, oral care, personal care, home care"
+    },
+    {
+      "accountName": "Comcast",
+      "legalEntity": "Comcast Corporation",
+      "context": "Telecommunications and media conglomerate"
+    },
+    {
+      "accountName": "Constellation Energy",
+      "legalEntity": "Constellation Energy Corporation",
+      "context": "Energy company, clean energy generation and retail"
+    },
+    {
+      "accountName": "Dairy Farmers of America",
+      "legalEntity": "Dairy Farmers of America, Inc.",
+      "context": "Dairy marketing cooperative, milk processing and products"
+    },
+    {
+      "accountName": "Danaher",
+      "legalEntity": "Danaher Corporation",
+      "context": "Science and technology company, life sciences and diagnostics"
+    },
+    {
+      "accountName": "Delta Dental",
+      "legalEntity": "Delta Dental Plans Association",
+      "context": "Dental benefits provider, nationwide network"
+    },
+    {
+      "accountName": "Donaldson Company",
+      "legalEntity": "Donaldson Company, Inc.",
+      "context": "Filtration systems manufacturer, Minneapolis HQ"
+    },
+    {
+      "accountName": "Ecolab",
+      "legalEntity": "Ecolab Inc.",
+      "context": "Water, hygiene, and infection prevention solutions, St. Paul HQ"
+    },
+    {
+      "accountName": "Equinix",
+      "legalEntity": "Equinix, Inc.",
+      "context": "Digital infrastructure, data centers and interconnection"
+    },
+    {
+      "accountName": "Fastenal",
+      "legalEntity": "Fastenal Company",
+      "context": "Industrial distribution, fasteners and supplies, Winona MN HQ"
+    },
+    {
+      "accountName": "General Mills",
+      "legalEntity": "General Mills, Inc.",
+      "context": "Food company, cereals, snacks, baking products, Minneapolis HQ"
+    },
+    {
+      "accountName": "Graco",
+      "legalEntity": "Graco Inc.",
+      "context": "Fluid handling equipment manufacturer, Minneapolis HQ"
+    },
+    {
+      "accountName": "Great-West Lifeco",
+      "legalEntity": "Great-West Lifeco Inc.",
+      "context": "Financial services holding company, insurance and wealth management"
+    },
+    {
+      "accountName": "H.B. Fuller",
+      "legalEntity": "H.B. Fuller Company",
+      "context": "Adhesives manufacturer, St. Paul HQ"
+    },
+    {
+      "accountName": "Hormel Foods",
+      "legalEntity": "Hormel Foods Corporation",
+      "context": "Food processing company, Austin MN HQ"
+    },
+    {
+      "accountName": "Huntington Ingalls",
+      "legalEntity": "Huntington Ingalls Industries, Inc.",
+      "context": "Shipbuilding and defense, naval vessels"
+    },
+    {
+      "accountName": "IDEXX Laboratories",
+      "legalEntity": "IDEXX Laboratories, Inc.",
+      "context": "Veterinary diagnostics and software"
+    },
+    {
+      "accountName": "Ingersoll Rand",
+      "legalEntity": "Ingersoll Rand Inc.",
+      "context": "Industrial equipment, compressors and climate solutions"
+    },
+    {
+      "accountName": "Johnson Controls",
+      "legalEntity": "Johnson Controls International plc",
+      "context": "Building technology and solutions, HVAC and security"
+    },
+    {
+      "accountName": "Land O'Lakes",
+      "legalEntity": "Land O'Lakes, Inc.",
+      "context": "Agricultural cooperative, dairy products, Arden Hills MN HQ"
+    },
+    {
+      "accountName": "Leidos",
+      "legalEntity": "Leidos Holdings, Inc.",
+      "context": "Defense, aviation, IT and biomedical research"
+    },
+    {
+      "accountName": "Liberty Mutual",
+      "legalEntity": "Liberty Mutual Holding Company Inc.",
+      "context": "Global insurance company, commercial and personal lines"
+    },
+    {
+      "accountName": "Markel",
+      "legalEntity": "Markel Group Inc.",
+      "context": "Specialty insurance holding company"
+    },
+    {
+      "accountName": "Medtronic",
+      "legalEntity": "Medtronic plc",
+      "context": "Medical device company, Minneapolis HQ, global leader in medical technology"
+    },
+    {
+      "accountName": "Merck",
+      "legalEntity": "Merck & Co., Inc.",
+      "context": "Pharmaceutical company, vaccines, oncology, hospital products"
+    },
+    {
+      "accountName": "MetLife",
+      "legalEntity": "MetLife, Inc.",
+      "context": "Insurance and employee benefits"
+    },
+    {
+      "accountName": "Mutual of Omaha",
+      "legalEntity": "Mutual of Omaha Insurance Company",
+      "context": "Insurance and financial services, mutual company"
+    },
+    {
+      "accountName": "Nasdaq",
+      "legalEntity": "Nasdaq, Inc.",
+      "context": "Stock exchange and financial technology"
+    },
+    {
+      "accountName": "Nationwide",
+      "legalEntity": "Nationwide Mutual Insurance Company",
+      "context": "Insurance and financial services, mutual company"
+    },
+    {
+      "accountName": "Navient",
+      "legalEntity": "Navient Corporation",
+      "context": "Student loan servicer and business processing"
+    },
+    {
+      "accountName": "Northwestern Mutual",
+      "legalEntity": "The Northwestern Mutual Life Insurance Company",
+      "context": "Life insurance and financial planning, Milwaukee HQ"
+    },
+    {
+      "accountName": "Optum",
+      "legalEntity": "Optum, Inc.",
+      "context": "Health services, part of UnitedHealth Group, Eden Prairie MN"
+    },
+    {
+      "accountName": "Patterson Companies",
+      "legalEntity": "Patterson Companies, Inc.",
+      "context": "Dental and veterinary supply distribution, St. Paul MN HQ"
+    },
+    {
+      "accountName": "Pentair",
+      "legalEntity": "Pentair plc",
+      "context": "Water solutions, filtration and flow control, Minneapolis HQ"
+    },
+    {
+      "accountName": "Piper Sandler",
+      "legalEntity": "Piper Sandler Companies",
+      "context": "Investment bank and institutional securities, Minneapolis HQ"
+    },
+    {
+      "accountName": "Polaris",
+      "legalEntity": "Polaris Inc.",
+      "context": "Powersports vehicles manufacturer, Medina MN HQ"
+    },
+    {
+      "accountName": "Principal Financial",
+      "legalEntity": "Principal Financial Group, Inc.",
+      "context": "Financial services, retirement and insurance"
+    },
+    {
+      "accountName": "Progressive",
+      "legalEntity": "The Progressive Corporation",
+      "context": "Auto insurance, commercial and personal lines"
+    },
+    {
+      "accountName": "Regis Corporation",
+      "legalEntity": "Regis Corporation",
+      "context": "Hair salon franchising, Minneapolis HQ"
+    },
+    {
+      "accountName": "RBC Wealth Management",
+      "legalEntity": "RBC Capital Markets, LLC",
+      "context": "Wealth management and investment banking, Minneapolis operations"
+    },
+    {
+      "accountName": "Roper Technologies",
+      "legalEntity": "Roper Technologies, Inc.",
+      "context": "Diversified technology company, software and engineered products"
+    },
+    {
+      "accountName": "Securian Financial",
+      "legalEntity": "Securian Financial Group, Inc.",
+      "context": "Insurance and financial services, St. Paul MN HQ"
+    },
+    {
+      "accountName": "Sleep Number",
+      "legalEntity": "Sleep Number Corporation",
+      "context": "Smart bed technology, Minneapolis HQ"
+    },
+    {
+      "accountName": "Sonoco",
+      "legalEntity": "Sonoco Products Company",
+      "context": "Packaging solutions, industrial and consumer"
+    },
+    {
+      "accountName": "St. Jude Medical (Abbott)",
+      "legalEntity": "Abbott Laboratories",
+      "context": "Medical devices, acquired St. Jude Medical, cardiovascular focus"
+    },
+    {
+      "accountName": "Stanley Black & Decker",
+      "legalEntity": "Stanley Black & Decker, Inc.",
+      "context": "Tools and industrial equipment"
+    },
+    {
+      "accountName": "Stryker",
+      "legalEntity": "Stryker Corporation",
+      "context": "Medical technology, orthopedics and surgical equipment"
+    },
+    {
+      "accountName": "Sun Life Financial",
+      "legalEntity": "Sun Life Financial Inc.",
+      "context": "Financial services, insurance and asset management"
+    },
+    {
+      "accountName": "Syngenta",
+      "legalEntity": "Syngenta AG",
+      "context": "Agricultural science, seeds and crop protection"
+    },
+    {
+      "accountName": "Target",
+      "legalEntity": "Target Corporation",
+      "context": "Retail corporation, Minneapolis HQ"
+    },
+    {
+      "accountName": "Taylor Corporation",
+      "legalEntity": "Taylor Corporation",
+      "context": "Printing and business communications, North Mankato MN HQ"
+    },
+    {
+      "accountName": "TCF Bank (Huntington)",
+      "legalEntity": "Huntington Bancshares Incorporated",
+      "context": "Regional bank, merged with TCF"
+    },
+    {
+      "accountName": "Tennant Company",
+      "legalEntity": "Tennant Company",
+      "context": "Floor care equipment manufacturer, Eden Prairie MN HQ"
+    },
+    {
+      "accountName": "The Hartford",
+      "legalEntity": "The Hartford Financial Services Group, Inc.",
+      "context": "Insurance and financial services, commercial and personal"
+    },
+    {
+      "accountName": "The Mosaic Company",
+      "legalEntity": "The Mosaic Company",
+      "context": "Phosphate and potash producer, Plymouth MN HQ"
+    },
+    {
+      "accountName": "The Travelers Companies",
+      "legalEntity": "The Travelers Companies, Inc.",
+      "context": "Property casualty insurance"
+    },
+    {
+      "accountName": "Thrivent",
+      "legalEntity": "Thrivent Financial",
+      "context": "Financial services for Christians, Minneapolis HQ"
+    },
+    {
+      "accountName": "Toro Company",
+      "legalEntity": "The Toro Company",
+      "context": "Outdoor equipment manufacturer, Bloomington MN HQ"
+    },
+    {
+      "accountName": "Travelers",
+      "legalEntity": "The Travelers Companies, Inc.",
+      "context": "Property casualty insurance, commercial and personal lines"
+    },
+    {
+      "accountName": "U.S. Bancorp",
+      "legalEntity": "U.S. Bancorp",
+      "context": "Financial services holding company, Minneapolis HQ"
+    },
+    {
+      "accountName": "UnitedHealth Group",
+      "legalEntity": "UnitedHealth Group Incorporated",
+      "context": "Diversified health care company, Minnetonka MN HQ"
+    },
+    {
+      "accountName": "Unum",
+      "legalEntity": "Unum Group",
+      "context": "Disability and employee benefits insurance"
+    },
+    {
+      "accountName": "Voya Financial",
+      "legalEntity": "Voya Financial, Inc.",
+      "context": "Retirement, investment, and insurance solutions"
+    },
+    {
+      "accountName": "WellSpan Health",
+      "legalEntity": "WellSpan Health",
+      "context": "Integrated health system, Pennsylvania-based nonprofit"
+    },
+    {
+      "accountName": "Western & Southern Financial",
+      "legalEntity": "Western & Southern Financial Group, Inc.",
+      "context": "Insurance and financial services"
+    },
+    {
+      "accountName": "Xcel Energy",
+      "legalEntity": "Xcel Energy Inc.",
+      "context": "Electric and natural gas utility, Minneapolis HQ"
+    },
+    {
+      "accountName": "Zurich Insurance",
+      "legalEntity": "Zurich Insurance Group Ltd",
+      "context": "Global insurance company, commercial and specialty"
+    }
+  ],
+  "lastUpdated": "2026-02-02",
+  "source": "Signed Logos - Overview and Legal Entity.xlsx"
+}

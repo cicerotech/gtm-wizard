@@ -1122,13 +1122,28 @@ class GTMBrainApp {
       try {
         const { generateEngineeringPortal } = require('./views/engineeringPortal');
         const { query } = require('./salesforce/connection');
+        const fs = require('fs');
+        const path = require('path');
         
         let customers = [];
         let fieldsAccessible = true;
         
+        // Load static customer data (from imported Excel)
+        let staticCustomers = [];
         try {
-          // Query accounts with closed-won opportunities OR with Legal Entity populated
-          // This supports both Closed Won deals AND manually imported customer data
+          const staticPath = path.join(__dirname, '../data/signed-customers.json');
+          if (fs.existsSync(staticPath)) {
+            const staticData = JSON.parse(fs.readFileSync(staticPath, 'utf8'));
+            staticCustomers = staticData.customers || [];
+            logger.info('Engineering portal: Loaded ' + staticCustomers.length + ' customers from static file');
+          }
+        } catch (staticError) {
+          logger.warn('Engineering portal: Could not load static customer data', { error: staticError.message });
+        }
+        
+        // Try to enrich with Salesforce data
+        let sfCustomerMap = new Map();
+        try {
           const sfQuery = `
             SELECT Id, Name, Legal_Entity_Name__c, Company_Context__c, 
                    Industry, Website, LastModifiedDate,
@@ -1143,13 +1158,13 @@ class GTMBrainApp {
             LIMIT 200
           `;
           
-          logger.info('Engineering portal: Executing query for closed-won customers');
           const result = await query(sfQuery, true);
-          logger.info('Engineering portal: Query returned ' + (result?.records?.length || 0) + ' accounts');
+          logger.info('Engineering portal: SF query returned ' + (result?.records?.length || 0) + ' accounts');
           
-          customers = (result?.records || []).map(acc => {
+          // Build map of Salesforce customers by name (lowercase for matching)
+          (result?.records || []).forEach(acc => {
             const latestOpp = acc.Opportunities?.records?.[0];
-            return {
+            sfCustomerMap.set(acc.Name.toLowerCase(), {
               accountId: acc.Id,
               accountName: acc.Name,
               legalEntity: acc.Legal_Entity_Name__c || acc.Name,
@@ -1157,40 +1172,42 @@ class GTMBrainApp {
               website: acc.Website || '',
               dealValue: latestOpp?.Amount ? `$${Number(latestOpp.Amount).toLocaleString()}` : '',
               closeDate: latestOpp?.CloseDate ? new Date(latestOpp.CloseDate).toLocaleDateString() : ''
-            };
-          });
-        } catch (fieldError) {
-          // If custom fields aren't accessible, fall back to basic query
-          logger.warn('Engineering portal: Custom fields not accessible, using basic query', { error: fieldError.message });
-          try {
-            const basicQuery = `
-              SELECT Id, Name, Industry, Website, LastModifiedDate,
-                     (SELECT Id, Name, Amount, CloseDate FROM Opportunities 
-                      WHERE IsClosed = true AND IsWon = true ORDER BY CloseDate DESC LIMIT 1)
-              FROM Account
-              WHERE Id IN (SELECT AccountId FROM Opportunity WHERE IsClosed = true AND IsWon = true)
-              ORDER BY Name ASC
-              LIMIT 200
-            `;
-            const result = await query(basicQuery, true);
-            logger.info('Engineering portal (basic): Query returned ' + (result?.records?.length || 0) + ' accounts');
-            customers = (result?.records || []).map(acc => {
-              const latestOpp = acc.Opportunities?.records?.[0];
-              return {
-                accountId: acc.Id,
-                accountName: acc.Name,
-                legalEntity: acc.Name,
-                context: acc.Industry || '',
-                website: acc.Website || '',
-                dealValue: latestOpp?.Amount ? `$${Number(latestOpp.Amount).toLocaleString()}` : '',
-                closeDate: latestOpp?.CloseDate ? new Date(latestOpp.CloseDate).toLocaleDateString() : ''
-              };
             });
-          } catch (basicError) {
-            logger.error('Engineering portal: Both queries failed', { error: basicError.message });
-            fieldsAccessible = false;
-          }
+          });
+        } catch (sfError) {
+          logger.warn('Engineering portal: Salesforce query failed, using static data only', { error: sfError.message });
         }
+        
+        // Merge: static data as base, Salesforce data enriches/overrides
+        const seenNames = new Set();
+        
+        // First, add all Salesforce customers (priority)
+        sfCustomerMap.forEach(customer => {
+          customers.push(customer);
+          seenNames.add(customer.accountName.toLowerCase());
+        });
+        
+        // Then add static customers not already in Salesforce
+        staticCustomers.forEach(sc => {
+          const key = sc.accountName.toLowerCase();
+          if (!seenNames.has(key)) {
+            customers.push({
+              accountId: null, // No SF link
+              accountName: sc.accountName,
+              legalEntity: sc.legalEntity,
+              context: sc.context || '',
+              website: '',
+              dealValue: '',
+              closeDate: ''
+            });
+            seenNames.add(key);
+          }
+        });
+        
+        // Sort alphabetically
+        customers.sort((a, b) => a.accountName.localeCompare(b.accountName));
+        
+        logger.info('Engineering portal: Total customers after merge: ' + customers.length);
         
         const html = generateEngineeringPortal(customers, { fieldsAccessible });
         res.send(html);
