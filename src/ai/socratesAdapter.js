@@ -2,6 +2,8 @@ const logger = require('../utils/logger');
 
 class SocratesAdapter {
   constructor() {
+    // Priority: SOCRATES_API_KEY > Okta M2M > OPENAI_API_KEY fallback
+    this.socratesApiKey = process.env.SOCRATES_API_KEY; // Direct Socrates API key (preferred)
     this.fallbackApiKey = process.env.OPENAI_API_KEY; // Fallback API key
     this.anthropicApiKey = process.env.ANTHROPIC_API_KEY; // Anthropic Claude fallback
     
@@ -102,13 +104,24 @@ class SocratesAdapter {
   }
 
   /**
-   * Get the best available auth token (Okta preferred, fallback to API key)
+   * Get the best available auth token
+   * Priority: SOCRATES_API_KEY > Okta M2M > OPENAI_API_KEY fallback
    */
   async getAuthToken() {
+    // 1. Direct Socrates API key (most reliable for internal gateway)
+    if (this.socratesApiKey) {
+      logger.debug('Using SOCRATES_API_KEY for auth');
+      return this.socratesApiKey;
+    }
+
+    // 2. Okta M2M token
     const oktaToken = await this.getOktaAccessToken();
     if (oktaToken) {
       return oktaToken;
     }
+
+    // 3. Fallback to OpenAI key
+    logger.warn('No Socrates auth available, falling back to OpenAI key');
     return this.fallbackApiKey;
   }
 
