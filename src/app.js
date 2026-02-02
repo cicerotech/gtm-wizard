@@ -1127,21 +1127,25 @@ class GTMBrainApp {
         let fieldsAccessible = true;
         
         try {
-          // Query accounts with closed-won opportunities
+          // Query accounts with closed-won opportunities OR with Legal Entity populated
+          // This supports both Closed Won deals AND manually imported customer data
           const sfQuery = `
             SELECT Id, Name, Legal_Entity_Name__c, Company_Context__c, 
                    Industry, Website, LastModifiedDate,
                    (SELECT Id, Name, Amount, CloseDate, StageName 
                     FROM Opportunities 
-                    WHERE StageName = 'Closed Won' 
+                    WHERE IsClosed = true AND IsWon = true
                     ORDER BY CloseDate DESC LIMIT 1)
             FROM Account
-            WHERE Id IN (SELECT AccountId FROM Opportunity WHERE StageName = 'Closed Won')
+            WHERE Id IN (SELECT AccountId FROM Opportunity WHERE IsClosed = true AND IsWon = true)
+               OR Legal_Entity_Name__c != null
             ORDER BY Name ASC
             LIMIT 200
           `;
           
+          logger.info('Engineering portal: Executing query for closed-won customers');
           const result = await query(sfQuery, true);
+          logger.info('Engineering portal: Query returned ' + (result?.records?.length || 0) + ' accounts');
           
           customers = (result?.records || []).map(acc => {
             const latestOpp = acc.Opportunities?.records?.[0];
@@ -1157,18 +1161,19 @@ class GTMBrainApp {
           });
         } catch (fieldError) {
           // If custom fields aren't accessible, fall back to basic query
-          logger.warn('Engineering portal: Custom fields not accessible, using basic query');
+          logger.warn('Engineering portal: Custom fields not accessible, using basic query', { error: fieldError.message });
           try {
             const basicQuery = `
               SELECT Id, Name, Industry, Website, LastModifiedDate,
                      (SELECT Id, Name, Amount, CloseDate FROM Opportunities 
-                      WHERE StageName = 'Closed Won' ORDER BY CloseDate DESC LIMIT 1)
+                      WHERE IsClosed = true AND IsWon = true ORDER BY CloseDate DESC LIMIT 1)
               FROM Account
-              WHERE Id IN (SELECT AccountId FROM Opportunity WHERE StageName = 'Closed Won')
+              WHERE Id IN (SELECT AccountId FROM Opportunity WHERE IsClosed = true AND IsWon = true)
               ORDER BY Name ASC
               LIMIT 200
             `;
             const result = await query(basicQuery, true);
+            logger.info('Engineering portal (basic): Query returned ' + (result?.records?.length || 0) + ' accounts');
             customers = (result?.records || []).map(acc => {
               const latestOpp = acc.Opportunities?.records?.[0];
               return {
@@ -1182,6 +1187,7 @@ class GTMBrainApp {
               };
             });
           } catch (basicError) {
+            logger.error('Engineering portal: Both queries failed', { error: basicError.message });
             fieldsAccessible = false;
           }
         }

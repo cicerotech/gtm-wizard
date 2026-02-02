@@ -4,7 +4,11 @@
  * Displays closed-won customers with their legal entity names and context
  * for engineering deployment purposes.
  * 
- * Styled to match the light GTM Resources site theme
+ * Features:
+ * - Password-protected access
+ * - Search/filter customers
+ * - One-click Excel export
+ * - Styled to match the light GTM Resources site theme
  */
 
 function generateEngineeringPortal(customers = [], options = {}) {
@@ -18,8 +22,17 @@ function generateEngineeringPortal(customers = [], options = {}) {
     minute: '2-digit'
   });
 
+  // Generate JSON for export functionality
+  const customersJson = JSON.stringify(customers.map(c => ({
+    account: c.accountName || '',
+    legalEntity: c.legalEntity || c.accountName || '',
+    context: c.context || '',
+    dealValue: c.dealValue || '',
+    closeDate: c.closeDate || ''
+  })));
+
   const customerRows = customers.map(c => `
-    <tr>
+    <tr data-account="${escapeHtml(c.accountName || '')}" data-legal="${escapeHtml(c.legalEntity || c.accountName || '')}" data-context="${escapeHtml(c.context || '')}">
       <td class="account-name">
         <a href="https://eudia.lightning.force.com/lightning/r/Account/${c.accountId}/view" target="_blank">
           ${escapeHtml(c.accountName || '')}
@@ -133,8 +146,13 @@ function generateEngineeringPortal(customers = [], options = {}) {
     }
     
     /* Page title section */
-    .page-title {
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
       margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
     }
     
     .page-title h1 {
@@ -146,6 +164,36 @@ function generateEngineeringPortal(customers = [], options = {}) {
     
     .page-title p {
       font-size: 0.875rem;
+      color: #6b7280;
+    }
+    
+    /* Export button */
+    .export-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      color: #374151;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    
+    .export-btn:hover {
+      background: #f9fafb;
+      border-color: #d1d5db;
+    }
+    
+    .export-btn:active {
+      background: #f3f4f6;
+    }
+    
+    .export-btn svg {
       color: #6b7280;
     }
     
@@ -389,6 +437,35 @@ function generateEngineeringPortal(customers = [], options = {}) {
       color: #92400e;
     }
     
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1f2937;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 1000;
+    }
+    
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    
+    .toast svg {
+      color: #10b981;
+    }
+    
     /* Responsive */
     @media (max-width: 1024px) {
       .context {
@@ -412,6 +489,10 @@ function generateEngineeringPortal(customers = [], options = {}) {
       
       .search-bar {
         max-width: none;
+      }
+      
+      .page-header {
+        flex-direction: column;
       }
     }
   </style>
@@ -441,9 +522,21 @@ function generateEngineeringPortal(customers = [], options = {}) {
   </header>
   
   <div class="container">
-    <div class="page-title">
-      <h1>Closed Won Customers</h1>
-      <p>Legal entities and deployment context for active customers</p>
+    <div class="page-header">
+      <div class="page-title">
+        <h1>Customer Deployments</h1>
+        <p>Legal entities and context for active customers</p>
+      </div>
+      ${customers.length > 0 ? `
+      <button class="export-btn" onclick="exportToExcel()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export to Excel
+      </button>
+      ` : ''}
     </div>
     
     <div class="toolbar">
@@ -468,7 +561,7 @@ function generateEngineeringPortal(customers = [], options = {}) {
     
     ${!fieldsAccessible ? `
     <div class="setup-required">
-      <h3>⚠️ Salesforce Connection Issue</h3>
+      <h3>Salesforce Connection Issue</h3>
       <p style="margin-bottom: 16px;">Unable to retrieve customer data. This may be a permissions issue.</p>
       <p style="color: #78716c; font-size: 12px;">Contact the admin to verify Salesforce integration access.</p>
     </div>
@@ -501,23 +594,34 @@ function generateEngineeringPortal(customers = [], options = {}) {
             <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
           </svg>
         </div>
-        <h3>No closed-won customers yet</h3>
-        <p>Customers will appear here once opportunities are marked as Closed Won in Salesforce.</p>
+        <h3>No customers yet</h3>
+        <p>Customers will appear here once opportunities are marked as Closed Won in Salesforce with Legal Entity information.</p>
       </div>
     </div>
     `}
   </div>
   
+  <!-- Toast notification -->
+  <div id="toast" class="toast">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+    <span id="toast-message">Copied!</span>
+  </div>
+  
   <script>
+    // Customer data for export
+    const customers = ${customersJson};
+    
     function filterTable() {
       const query = document.getElementById('search').value.toLowerCase();
       const rows = document.querySelectorAll('#customers-table tbody tr');
       let visibleCount = 0;
       
       rows.forEach(row => {
-        const accountName = row.querySelector('.account-name')?.textContent.toLowerCase() || '';
-        const legalEntity = row.querySelector('.legal-entity')?.textContent.toLowerCase() || '';
-        const context = row.querySelector('.context')?.textContent.toLowerCase() || '';
+        const accountName = row.dataset.account?.toLowerCase() || '';
+        const legalEntity = row.dataset.legal?.toLowerCase() || '';
+        const context = row.dataset.context?.toLowerCase() || '';
         
         if (accountName.includes(query) || legalEntity.includes(query) || context.includes(query)) {
           row.classList.remove('hidden');
@@ -533,10 +637,57 @@ function generateEngineeringPortal(customers = [], options = {}) {
     function copyToClipboard(text, btn) {
       navigator.clipboard.writeText(text).then(() => {
         btn.classList.add('copied');
+        showToast('Legal entity copied to clipboard');
         setTimeout(() => {
           btn.classList.remove('copied');
         }, 2000);
       });
+    }
+    
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-message').textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+    
+    function exportToExcel() {
+      // Generate CSV content
+      const headers = ['Account Name', 'Legal Entity', 'Industry/Context', 'Deal Value', 'Close Date'];
+      const rows = customers.map(c => [
+        c.account,
+        c.legalEntity,
+        c.context,
+        c.dealValue,
+        c.closeDate
+      ]);
+      
+      // Create CSV string with proper escaping
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => {
+          // Escape quotes and wrap in quotes if contains comma, newline, or quote
+          const escaped = String(cell || '').replace(/"/g, '""');
+          return escaped.includes(',') || escaped.includes('\\n') || escaped.includes('"') 
+            ? '"' + escaped + '"' 
+            : escaped;
+        }).join(','))
+      ].join('\\n');
+      
+      // Create and trigger download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'customer_deployments_' + new Date().toISOString().split('T')[0] + '.csv');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showToast('Downloaded customer_deployments.csv');
     }
   </script>
 </body>
