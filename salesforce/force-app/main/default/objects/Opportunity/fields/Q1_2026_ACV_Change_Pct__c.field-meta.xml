@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Q1_2026_ACV_Change_Pct__c</fullName>
+    <description>Shows percentage change between current ACV and original Q1 2026 snapshot. 100% = doubled, -50% = halved.</description>
+    <externalId>false</externalId>
+    <formula>IF(
+  Q1_2026_ACV_Snapshot__c > 0,
+  (ACV__c - Q1_2026_ACV_Snapshot__c) / Q1_2026_ACV_Snapshot__c,
+  NULL
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Q1 2026 ACV Change %</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Percent</type>
+</CustomField>
