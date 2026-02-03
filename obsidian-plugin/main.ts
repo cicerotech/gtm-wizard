@@ -2100,11 +2100,122 @@ export default class EudiaSyncPlugin extends Plugin {
         // Create the account folder
         await this.app.vault.createFolder(folderPath);
         
-        // Create all 5 subnotes for the account
+        // Create 7 subnotes for the account (new structure with Next Steps)
+        const dateStr = new Date().toISOString().split('T')[0];
         const subnotes = [
           {
-            name: 'Overview.md',
-            content: generateAccountOverviewNote(account)
+            name: 'Note 1.md',
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: meeting_note
+sync_to_salesforce: false
+created: ${dateStr}
+---
+
+# ${account.name} - Meeting Note
+
+**Date:** 
+**Attendees:** 
+
+---
+
+## Discussion
+
+*Add meeting notes here...*
+
+---
+
+## Next Steps
+
+- [ ] 
+
+`
+          },
+          {
+            name: 'Note 2.md',
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: meeting_note
+sync_to_salesforce: false
+created: ${dateStr}
+---
+
+# ${account.name} - Meeting Note
+
+**Date:** 
+**Attendees:** 
+
+---
+
+## Discussion
+
+*Add meeting notes here...*
+
+---
+
+## Next Steps
+
+- [ ] 
+
+`
+          },
+          {
+            name: 'Note 3.md',
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: meeting_note
+sync_to_salesforce: false
+created: ${dateStr}
+---
+
+# ${account.name} - Meeting Note
+
+**Date:** 
+**Attendees:** 
+
+---
+
+## Discussion
+
+*Add meeting notes here...*
+
+---
+
+## Next Steps
+
+- [ ] 
+
+`
+          },
+          {
+            name: 'Meeting Notes.md',
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: meetings_index
+sync_to_salesforce: false
+---
+
+# ${account.name} - Meeting Notes
+
+*Use Note 1, Note 2, Note 3 for your meeting notes. When full, create additional notes.*
+
+## Recent Meetings
+
+| Date | Note | Key Outcomes |
+|------|------|--------------|
+|      |      |              |
+
+## Quick Start
+
+1. Open **Note 1** for your next meeting
+2. Click the **microphone** to record and transcribe
+3. **Next Steps** are auto-extracted after transcription
+4. Set \`sync_to_salesforce: true\` to sync to Salesforce
+`
           },
           {
             name: 'Contacts.md',
@@ -2128,58 +2239,6 @@ sync_to_salesforce: false
 ## Contact History
 
 *Log key interactions and relationship developments.*
-`
-          },
-          {
-            name: 'Meeting Notes.md',
-            content: `---
-account: "${account.name}"
-account_id: "${account.id}"
-type: meetings
-sync_to_salesforce: false
----
-
-# ${account.name} - Meeting Notes
-
-*This folder will contain individual meeting notes. Create new notes for each meeting.*
-
-## Recent Meetings
-
-| Date | Title | Attendees | Key Outcomes |
-|------|-------|-----------|--------------|
-|      |       |           |              |
-
-## How to Create Meeting Notes
-
-1. Click a meeting in your calendar
-2. Or use **Cmd+P → "New Meeting Note"**
-3. Notes sync to Salesforce when you set \`sync_to_salesforce: true\`
-`
-          },
-          {
-            name: 'Opportunities.md',
-            content: `---
-account: "${account.name}"
-account_id: "${account.id}"
-type: opportunities
-sync_to_salesforce: false
----
-
-# ${account.name} - Opportunities
-
-## Active Opportunities
-
-| Opportunity | Stage | ACV | Close Date | Next Steps |
-|-------------|-------|-----|------------|------------|
-|             |       |     |            |            |
-
-## Opportunity Strategy
-
-*Document your approach, competitive positioning, and win themes.*
-
-## Deal History
-
-*Track won/lost deals and lessons learned.*
 `
           },
           {
@@ -2215,29 +2274,29 @@ sync_to_salesforce: false
 `
           },
           {
-            name: 'Action Items.md',
+            name: 'Next Steps.md',
             content: `---
 account: "${account.name}"
 account_id: "${account.id}"
-type: actions
+type: next_steps
+auto_updated: true
+last_updated: ${dateStr}
 sync_to_salesforce: false
 ---
 
-# ${account.name} - Action Items
+# ${account.name} - Next Steps
 
-## Open Tasks
+*This note is automatically updated after each meeting transcription.*
 
-- [ ] *Add your first action item*
+## Current Next Steps
 
-## Upcoming Deadlines
+*No next steps yet. Record a meeting to auto-populate.*
 
-| Task | Due Date | Owner | Status |
-|------|----------|-------|--------|
-|      |          |       |        |
+---
 
-## Completed
+## History
 
-*Move completed items here for reference.*
+*Previous next steps will be archived here.*
 `
           }
         ];
@@ -2263,6 +2322,252 @@ sync_to_salesforce: false
 
     if (createdCount > 0) {
       new Notice(`Created ${createdCount} account folders`);
+    }
+    
+    // Also create the Next Steps aggregation folder if it doesn't exist
+    await this.ensureNextStepsFolderExists();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // NEXT STEPS MANAGEMENT
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Ensure the Next Steps folder exists with the dashboard file
+   */
+  async ensureNextStepsFolderExists(): Promise<void> {
+    const nextStepsFolder = 'Next Steps';
+    const dashboardPath = `${nextStepsFolder}/All Next Steps.md`;
+    
+    // Create folder if it doesn't exist
+    const folder = this.app.vault.getAbstractFileByPath(nextStepsFolder);
+    if (!folder) {
+      await this.app.vault.createFolder(nextStepsFolder);
+    }
+    
+    // Create dashboard if it doesn't exist
+    const dashboard = this.app.vault.getAbstractFileByPath(dashboardPath);
+    if (!dashboard) {
+      const dateStr = new Date().toISOString().split('T')[0];
+      const timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      
+      const content = `---
+type: next_steps_dashboard
+auto_updated: true
+last_updated: ${dateStr}
+---
+
+# All Next Steps Dashboard
+
+*Last updated: ${dateStr} ${timeStr}*
+
+---
+
+## Your Next Steps
+
+*Complete your first meeting transcription to see next steps here.*
+
+---
+
+## Recently Updated
+
+| Account | Last Updated | Status |
+|---------|--------------|--------|
+| *None yet* | - | Complete a meeting transcription |
+`;
+      await this.app.vault.create(dashboardPath, content);
+    }
+  }
+
+  /**
+   * Update an account's Next Steps.md file after transcription
+   */
+  async updateAccountNextSteps(accountName: string, nextStepsContent: string, sourceNotePath: string): Promise<void> {
+    try {
+      const safeName = accountName.replace(/[<>:"/\\|?*]/g, '_').trim();
+      const nextStepsPath = `${this.settings.accountsFolder}/${safeName}/Next Steps.md`;
+      
+      const nextStepsFile = this.app.vault.getAbstractFileByPath(nextStepsPath);
+      if (!nextStepsFile || !(nextStepsFile instanceof TFile)) {
+        console.log(`[Eudia] Next Steps file not found for ${accountName}`);
+        return;
+      }
+      
+      const dateStr = new Date().toISOString().split('T')[0];
+      const timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      const sourceNote = sourceNotePath.split('/').pop()?.replace('.md', '') || 'Meeting';
+      
+      // Format next steps as checklist items if not already
+      let formattedNextSteps = nextStepsContent;
+      if (!nextStepsContent.includes('- [ ]') && !nextStepsContent.includes('- [x]')) {
+        // Convert plain text to checklist
+        formattedNextSteps = nextStepsContent
+          .split('\n')
+          .filter(line => line.trim())
+          .map(line => {
+            const cleaned = line.replace(/^[-•*]\s*/, '').trim();
+            return cleaned ? `- [ ] ${cleaned}` : '';
+          })
+          .filter(Boolean)
+          .join('\n');
+      }
+      
+      // Build new content
+      const newContent = `---
+account: "${accountName}"
+type: next_steps
+auto_updated: true
+last_updated: ${dateStr}
+sync_to_salesforce: false
+---
+
+# ${accountName} - Next Steps
+
+*Last updated: ${dateStr} ${timeStr} from ${sourceNote}*
+
+## Current Next Steps
+
+${formattedNextSteps || '*No next steps identified*'}
+
+---
+
+## History
+
+*Previous next steps are archived below.*
+
+### ${dateStr} - ${sourceNote}
+${formattedNextSteps || '*None*'}
+`;
+      
+      await this.app.vault.modify(nextStepsFile, newContent);
+      console.log(`[Eudia] Updated Next Steps for ${accountName}`);
+      
+      // Regenerate the aggregated dashboard
+      await this.regenerateNextStepsDashboard();
+      
+    } catch (error) {
+      console.error(`[Eudia] Failed to update Next Steps for ${accountName}:`, error);
+    }
+  }
+
+  /**
+   * Regenerate the All Next Steps dashboard by scanning all account folders
+   */
+  async regenerateNextStepsDashboard(): Promise<void> {
+    try {
+      const dashboardPath = 'Next Steps/All Next Steps.md';
+      const dashboardFile = this.app.vault.getAbstractFileByPath(dashboardPath);
+      
+      if (!dashboardFile || !(dashboardFile instanceof TFile)) {
+        await this.ensureNextStepsFolderExists();
+        return;
+      }
+      
+      // Scan all account folders for Next Steps.md files
+      const accountsFolder = this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);
+      if (!accountsFolder || !(accountsFolder instanceof TFolder)) {
+        return;
+      }
+      
+      const accountNextSteps: Array<{
+        account: string;
+        lastUpdated: string;
+        nextSteps: string[];
+      }> = [];
+      
+      for (const child of accountsFolder.children) {
+        if (child instanceof TFolder) {
+          const nextStepsPath = `${child.path}/Next Steps.md`;
+          const nextStepsFile = this.app.vault.getAbstractFileByPath(nextStepsPath);
+          
+          if (nextStepsFile instanceof TFile) {
+            const content = await this.app.vault.read(nextStepsFile);
+            
+            // Extract last updated date from frontmatter
+            const lastUpdatedMatch = content.match(/last_updated:\s*(\d{4}-\d{2}-\d{2})/);
+            const lastUpdated = lastUpdatedMatch ? lastUpdatedMatch[1] : 'Unknown';
+            
+            // Extract next steps (lines starting with - [ ] or - [x])
+            const nextStepsLines = content
+              .split('\n')
+              .filter(line => line.match(/^- \[[ x]\]/))
+              .slice(0, 5); // Limit to 5 per account
+            
+            if (nextStepsLines.length > 0 || lastUpdated !== 'Unknown') {
+              accountNextSteps.push({
+                account: child.name,
+                lastUpdated,
+                nextSteps: nextStepsLines
+              });
+            }
+          }
+        }
+      }
+      
+      // Sort by last updated (most recent first)
+      accountNextSteps.sort((a, b) => b.lastUpdated.localeCompare(a.lastUpdated));
+      
+      // Build dashboard content
+      const dateStr = new Date().toISOString().split('T')[0];
+      const timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      
+      let dashboardContent = `---
+type: next_steps_dashboard
+auto_updated: true
+last_updated: ${dateStr}
+---
+
+# All Next Steps Dashboard
+
+*Last updated: ${dateStr} ${timeStr}*
+
+---
+
+`;
+      
+      if (accountNextSteps.length === 0) {
+        dashboardContent += `## Your Next Steps
+
+*Complete your first meeting transcription to see next steps here.*
+
+---
+
+## Recently Updated
+
+| Account | Last Updated | Status |
+|---------|--------------|--------|
+| *None yet* | - | Complete a meeting transcription |
+`;
+      } else {
+        // Group by accounts with next steps
+        for (const item of accountNextSteps) {
+          dashboardContent += `## ${item.account}\n\n`;
+          
+          if (item.nextSteps.length > 0) {
+            dashboardContent += item.nextSteps.join('\n') + '\n';
+          } else {
+            dashboardContent += '*No current next steps*\n';
+          }
+          
+          dashboardContent += `\n*Updated: ${item.lastUpdated}*\n\n---\n\n`;
+        }
+        
+        // Add summary table
+        dashboardContent += `## Summary\n\n`;
+        dashboardContent += `| Account | Last Updated | Open Items |\n`;
+        dashboardContent += `|---------|--------------|------------|\n`;
+        
+        for (const item of accountNextSteps) {
+          const openCount = item.nextSteps.filter(s => s.includes('- [ ]')).length;
+          dashboardContent += `| ${item.account} | ${item.lastUpdated} | ${openCount} |\n`;
+        }
+      }
+      
+      await this.app.vault.modify(dashboardFile, dashboardContent);
+      console.log('[Eudia] Regenerated All Next Steps dashboard');
+      
+    } catch (error) {
+      console.error('[Eudia] Failed to regenerate Next Steps dashboard:', error);
     }
   }
 
@@ -2453,6 +2758,12 @@ sync_to_salesforce: false
       // Show completion notice
       const durationMin = Math.floor(result.duration / 60);
       new Notice(`Transcription complete (${durationMin} min recording)`);
+
+      // Extract and update Next Steps for the account
+      const nextStepsContent = sections.nextSteps || sections.actionItems;
+      if (nextStepsContent && accountContext?.account?.name) {
+        await this.updateAccountNextSteps(accountContext.account.name, nextStepsContent, file.path);
+      }
 
       // Auto-sync if enabled
       if (this.settings.autoSyncAfterTranscription) {

@@ -99,6 +99,58 @@ Delete this note after setup is complete.
 }
 
 /**
+ * Create Next Steps folder (aggregated dashboard)
+ */
+function createNextStepsFolder(destDir) {
+  console.log('📋 Creating Next Steps folder...');
+  const nextStepsDir = path.join(destDir, 'Next Steps');
+  fs.mkdirSync(nextStepsDir, { recursive: true });
+  
+  const dateStr = new Date().toISOString().split('T')[0];
+  const timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  
+  // Create the All Next Steps dashboard
+  const dashboardContent = `---
+type: next_steps_dashboard
+auto_updated: true
+last_updated: ${dateStr}
+---
+
+# All Next Steps Dashboard
+
+*Last updated: ${dateStr} ${timeStr}*
+
+---
+
+## How This Works
+
+This dashboard automatically aggregates next steps from all your account meetings.
+
+1. **Record a meeting** in any account folder
+2. **Transcribe** using the microphone button
+3. **Next steps are extracted** by AI and added to the account's Next Steps note
+4. **This dashboard updates** to show all accounts' next steps in one view
+
+---
+
+## Your Next Steps
+
+*Complete your first meeting transcription to see next steps here.*
+
+---
+
+## Recently Updated
+
+| Account | Last Meeting | Next Steps |
+|---------|--------------|------------|
+| *None yet* | - | Complete a meeting transcription |
+
+`;
+  
+  fs.writeFileSync(path.join(nextStepsDir, 'All Next Steps.md'), dashboardContent);
+}
+
+/**
  * Create Recordings folder
  */
 function createRecordingsFolder(destDir) {
@@ -247,6 +299,7 @@ async function buildVault() {
   // Step 1: Create basic structure
   createQuickStart(OUTPUT_DIR);
   createAccountsFolder(OUTPUT_DIR);
+  createNextStepsFolder(OUTPUT_DIR);
   createRecordingsFolder(OUTPUT_DIR);
   
   // Step 2: Configure Obsidian
