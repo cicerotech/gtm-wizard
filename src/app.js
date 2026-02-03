@@ -1205,13 +1205,8 @@ class GTMBrainApp {
           seenNames.add(key);
         });
         
-        // Then add any Salesforce customers NOT in static file (edge cases)
-        sfCustomerMap.forEach((sfCustomer, key) => {
-          if (!seenNames.has(key)) {
-            customers.push(sfCustomer);
-            seenNames.add(key);
-          }
-        });
+        // NOTE: Only show customers from static file (source of truth)
+        // Salesforce customers NOT in static file are intentionally excluded
         
         // Sort alphabetically
         customers.sort((a, b) => a.accountName.localeCompare(b.accountName));
