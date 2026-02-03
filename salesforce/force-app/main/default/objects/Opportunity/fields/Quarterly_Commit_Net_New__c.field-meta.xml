@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Quarterly_Commit_Net_New__c</fullName>
+    <description>Returns Net ACV only for deals where BL Forecast Category is Commit. Uses Net ACV for existing customers, ACV for new business. Only positive values.</description>
+    <externalId>false</externalId>
+    <formula>IF(
+  AND(
+    ISPICKVAL(BL_Forecast_Category__c, "Commit"),
+    IF(Prior_Opp_ACV__c &gt; 0, Renewal_Net_Change__c, ACV__c) &gt; 0
+  ),
+  IF(Prior_Opp_ACV__c &gt; 0, Renewal_Net_Change__c, ACV__c),
+  0
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Quarterly Commit (Net New)</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Currency</type>
+</CustomField>
