@@ -22,6 +22,7 @@ import { AudioRecorder, RecordingState, RecordingResult } from './src/AudioRecor
 import { TranscriptionService, TranscriptionResult, MeetingContext, ProcessedSections, AccountDetector, accountDetector, AccountDetectionResult } from './src/TranscriptionService';
 import { CalendarService, CalendarMeeting, TodayResponse, WeekResponse } from './src/CalendarService';
 import { SmartTagService, SmartTags } from './src/SmartTagService';
+import { AccountOwnershipService, OwnedAccount, generateAccountOverviewNote } from './src/AccountOwnership';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES & INTERFACES
@@ -41,6 +42,11 @@ interface EudiaSyncSettings {
   userEmail: string;
   setupCompleted: boolean;
   calendarConfigured: boolean;
+  // Salesforce connection status
+  salesforceConnected: boolean;
+  // Account import tracking
+  accountsImported: boolean;
+  importedAccountCount: number;
   // OpenAI configuration (fallback if server key unavailable)
   openaiApiKey: string;
   // Smart tagging
@@ -64,6 +70,9 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   userEmail: '',
   setupCompleted: false,
   calendarConfigured: false,
+  salesforceConnected: false,
+  accountsImported: false,
+  importedAccountCount: 0,
   openaiApiKey: ''
 };
 
@@ -92,6 +101,7 @@ interface ConnectionStatus {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const CALENDAR_VIEW_TYPE = 'eudia-calendar-view';
+const SETUP_VIEW_TYPE = 'eudia-setup-view';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ACCOUNT SUGGESTER
@@ -636,6 +646,530 @@ class SetupWizardModal extends Modal {
 
   onClose() {
     this.contentEl.empty();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EUDIA SETUP VIEW - Full-Page Onboarding Experience
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface SetupStep {
+  id: 'calendar' | 'salesforce' | 'transcribe';
+  title: string;
+  description: string;
+  status: 'pending' | 'in_progress' | 'complete' | 'error';
+  errorMessage?: string;
+}
+
+class EudiaSetupView extends ItemView {
+  plugin: EudiaSyncPlugin;
+  private steps: SetupStep[];
+  private emailInput: HTMLInputElement | null = null;
+  private pollInterval: number | null = null;
+  private accountOwnershipService: AccountOwnershipService;
+
+  constructor(leaf: WorkspaceLeaf, plugin: EudiaSyncPlugin) {
+    super(leaf);
+    this.plugin = plugin;
+    this.accountOwnershipService = new AccountOwnershipService(plugin.settings.serverUrl);
+    this.steps = [
+      {
+        id: 'calendar',
+        title: 'Connect Your Calendar',
+        description: 'View your meetings and create notes with one click',
+        status: 'pending'
+      },
+      {
+        id: 'salesforce',
+        title: 'Connect to Salesforce',
+        description: 'Sync notes and access your accounts',
+        status: 'pending'
+      },
+      {
+        id: 'transcribe',
+        title: 'Ready to Transcribe',
+        description: 'Record and summarize meetings automatically',
+        status: 'pending'
+      }
+    ];
+  }
+
+  getViewType(): string {
+    return SETUP_VIEW_TYPE;
+  }
+
+  getDisplayText(): string {
+    return 'Setup';
+  }
+
+  getIcon(): string {
+    return 'settings';
+  }
+
+  async onOpen(): Promise<void> {
+    await this.checkExistingStatus();
+    await this.render();
+  }
+
+  async onClose(): Promise<void> {
+    if (this.pollInterval) {
+      window.clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+  }
+
+  /**
+   * Check existing connection status on load
+   */
+  private async checkExistingStatus(): Promise<void> {
+    // Check if email is already configured
+    if (this.plugin.settings.userEmail) {
+      this.steps[0].status = 'complete';  // Calendar step complete if email set
+      
+      // Check Salesforce status
+      try {
+        const response = await requestUrl({
+          url: `${this.plugin.settings.serverUrl}/api/sf/auth/status?email=${encodeURIComponent(this.plugin.settings.userEmail)}`,
+          method: 'GET',
+          throw: false
+        });
+        
+        if (response.json?.authenticated === true) {
+          this.steps[1].status = 'complete';
+          this.plugin.settings.salesforceConnected = true;
+        }
+      } catch {
+        // Salesforce not connected
+      }
+      
+      // Check if accounts are imported
+      if (this.plugin.settings.accountsImported) {
+        this.steps[2].status = 'complete';
+      }
+    }
+  }
+
+  /**
+   * Calculate completion percentage
+   */
+  private getCompletionPercentage(): number {
+    const completed = this.steps.filter(s => s.status === 'complete').length;
+    return Math.round((completed / this.steps.length) * 100);
+  }
+
+  async render(): Promise<void> {
+    const container = this.containerEl.children[1] as HTMLElement;
+    container.empty();
+    container.addClass('eudia-setup-view');
+
+    // Header with progress
+    this.renderHeader(container);
+    
+    // Steps
+    this.renderSteps(container);
+    
+    // Footer actions
+    this.renderFooter(container);
+  }
+
+  private renderHeader(container: HTMLElement): void {
+    const header = container.createDiv({ cls: 'eudia-setup-header' });
+    
+    // Logo and title
+    const titleSection = header.createDiv({ cls: 'eudia-setup-title-section' });
+    titleSection.createEl('h1', { text: 'Welcome to Eudia Sales Vault', cls: 'eudia-setup-main-title' });
+    titleSection.createEl('p', { 
+      text: 'Complete these steps to unlock your sales superpowers',
+      cls: 'eudia-setup-subtitle'
+    });
+    
+    // Progress bar
+    const progressSection = header.createDiv({ cls: 'eudia-setup-progress-section' });
+    const percentage = this.getCompletionPercentage();
+    
+    const progressLabel = progressSection.createDiv({ cls: 'eudia-setup-progress-label' });
+    progressLabel.createSpan({ text: 'Setup Progress' });
+    progressLabel.createSpan({ text: `${percentage}%`, cls: 'eudia-setup-progress-value' });
+    
+    const progressBar = progressSection.createDiv({ cls: 'eudia-setup-progress-bar' });
+    const progressFill = progressBar.createDiv({ cls: 'eudia-setup-progress-fill' });
+    progressFill.style.width = `${percentage}%`;
+  }
+
+  private renderSteps(container: HTMLElement): void {
+    const stepsContainer = container.createDiv({ cls: 'eudia-setup-steps-container' });
+    
+    // Step 1: Calendar / Email
+    this.renderCalendarStep(stepsContainer);
+    
+    // Step 2: Salesforce
+    this.renderSalesforceStep(stepsContainer);
+    
+    // Step 3: Transcription
+    this.renderTranscribeStep(stepsContainer);
+  }
+
+  private renderCalendarStep(container: HTMLElement): void {
+    const step = this.steps[0];
+    const stepEl = container.createDiv({ cls: `eudia-setup-step-card ${step.status}` });
+    
+    // Step header
+    const stepHeader = stepEl.createDiv({ cls: 'eudia-setup-step-header' });
+    const stepNumber = stepHeader.createDiv({ cls: 'eudia-setup-step-number' });
+    stepNumber.setText(step.status === 'complete' ? '✓' : '1');
+    
+    const stepInfo = stepHeader.createDiv({ cls: 'eudia-setup-step-info' });
+    stepInfo.createEl('h3', { text: step.title });
+    stepInfo.createEl('p', { text: step.description });
+    
+    // Step content
+    const stepContent = stepEl.createDiv({ cls: 'eudia-setup-step-content' });
+    
+    if (step.status === 'complete') {
+      stepContent.createDiv({ 
+        cls: 'eudia-setup-complete-message',
+        text: `Connected as ${this.plugin.settings.userEmail}`
+      });
+    } else {
+      const inputGroup = stepContent.createDiv({ cls: 'eudia-setup-input-group' });
+      
+      this.emailInput = inputGroup.createEl('input', {
+        type: 'email',
+        placeholder: 'yourname@eudia.com',
+        cls: 'eudia-setup-input'
+      }) as HTMLInputElement;
+      
+      if (this.plugin.settings.userEmail) {
+        this.emailInput.value = this.plugin.settings.userEmail;
+      }
+      
+      const connectBtn = inputGroup.createEl('button', {
+        text: 'Connect',
+        cls: 'eudia-setup-btn primary'
+      });
+      
+      connectBtn.onclick = async () => {
+        await this.handleCalendarConnect();
+      };
+      
+      this.emailInput.onkeydown = async (e) => {
+        if (e.key === 'Enter') {
+          await this.handleCalendarConnect();
+        }
+      };
+      
+      // Validation message
+      stepContent.createDiv({ cls: 'eudia-setup-validation-message' });
+      
+      // Help text
+      stepContent.createEl('p', {
+        cls: 'eudia-setup-help-text',
+        text: 'Your calendar syncs automatically via Microsoft 365. We use your email to identify your meetings.'
+      });
+    }
+  }
+
+  private async handleCalendarConnect(): Promise<void> {
+    if (!this.emailInput) return;
+    
+    const email = this.emailInput.value.trim().toLowerCase();
+    const validationEl = this.containerEl.querySelector('.eudia-setup-validation-message');
+    
+    // Validate email
+    if (!email) {
+      if (validationEl) {
+        validationEl.textContent = 'Please enter your email';
+        validationEl.className = 'eudia-setup-validation-message error';
+      }
+      return;
+    }
+    
+    if (!email.endsWith('@eudia.com')) {
+      if (validationEl) {
+        validationEl.textContent = 'Please use your @eudia.com email address';
+        validationEl.className = 'eudia-setup-validation-message error';
+      }
+      return;
+    }
+    
+    // Show loading
+    if (validationEl) {
+      validationEl.textContent = 'Validating...';
+      validationEl.className = 'eudia-setup-validation-message loading';
+    }
+    
+    try {
+      // Validate with server
+      const response = await requestUrl({
+        url: `${this.plugin.settings.serverUrl}/api/calendar/validate/${encodeURIComponent(email)}`,
+        method: 'GET',
+        throw: false
+      });
+      
+      if (response.status === 200 && response.json?.authorized) {
+        // Success!
+        this.plugin.settings.userEmail = email;
+        this.plugin.settings.calendarConfigured = true;
+        await this.plugin.saveSettings();
+        
+        this.steps[0].status = 'complete';
+        new Notice('Calendar connected successfully!');
+        
+        await this.render();
+      } else {
+        if (validationEl) {
+          validationEl.innerHTML = `<strong>${email}</strong> is not authorized for calendar access. Contact your admin.`;
+          validationEl.className = 'eudia-setup-validation-message error';
+        }
+      }
+    } catch (error) {
+      if (validationEl) {
+        validationEl.textContent = 'Connection failed. Please try again.';
+        validationEl.className = 'eudia-setup-validation-message error';
+      }
+    }
+  }
+
+  private renderSalesforceStep(container: HTMLElement): void {
+    const step = this.steps[1];
+    const stepEl = container.createDiv({ cls: `eudia-setup-step-card ${step.status}` });
+    
+    // Step header
+    const stepHeader = stepEl.createDiv({ cls: 'eudia-setup-step-header' });
+    const stepNumber = stepHeader.createDiv({ cls: 'eudia-setup-step-number' });
+    stepNumber.setText(step.status === 'complete' ? '✓' : '2');
+    
+    const stepInfo = stepHeader.createDiv({ cls: 'eudia-setup-step-info' });
+    stepInfo.createEl('h3', { text: step.title });
+    stepInfo.createEl('p', { text: step.description });
+    
+    // Step content
+    const stepContent = stepEl.createDiv({ cls: 'eudia-setup-step-content' });
+    
+    if (!this.plugin.settings.userEmail) {
+      // Disabled state - need to complete step 1 first
+      stepContent.createDiv({
+        cls: 'eudia-setup-disabled-message',
+        text: 'Complete the calendar step first'
+      });
+      return;
+    }
+    
+    if (step.status === 'complete') {
+      stepContent.createDiv({ 
+        cls: 'eudia-setup-complete-message',
+        text: 'Salesforce connected successfully'
+      });
+      
+      // Show account import status
+      if (this.plugin.settings.accountsImported) {
+        stepContent.createDiv({
+          cls: 'eudia-setup-account-status',
+          text: `${this.plugin.settings.importedAccountCount} accounts imported`
+        });
+      }
+    } else {
+      const buttonGroup = stepContent.createDiv({ cls: 'eudia-setup-button-group' });
+      
+      const sfButton = buttonGroup.createEl('button', {
+        text: 'Connect to Salesforce',
+        cls: 'eudia-setup-btn primary'
+      });
+      
+      const statusEl = stepContent.createDiv({ cls: 'eudia-setup-sf-status' });
+      
+      sfButton.onclick = async () => {
+        // Open OAuth flow
+        const authUrl = `${this.plugin.settings.serverUrl}/api/sf/auth/start?email=${encodeURIComponent(this.plugin.settings.userEmail)}`;
+        window.open(authUrl, '_blank');
+        
+        statusEl.textContent = 'Complete the login in the popup window...';
+        statusEl.className = 'eudia-setup-sf-status loading';
+        
+        new Notice('Complete the Salesforce login in the popup window', 5000);
+        
+        // Start polling for OAuth completion
+        this.startSalesforcePolling(statusEl);
+      };
+      
+      stepContent.createEl('p', {
+        cls: 'eudia-setup-help-text',
+        text: 'This links your Obsidian notes to your Salesforce account for automatic sync.'
+      });
+    }
+  }
+
+  private startSalesforcePolling(statusEl: HTMLElement): void {
+    if (this.pollInterval) {
+      window.clearInterval(this.pollInterval);
+    }
+    
+    let attempts = 0;
+    const maxAttempts = 60; // Poll for up to 5 minutes
+    
+    this.pollInterval = window.setInterval(async () => {
+      attempts++;
+      
+      try {
+        const response = await requestUrl({
+          url: `${this.plugin.settings.serverUrl}/api/sf/auth/status?email=${encodeURIComponent(this.plugin.settings.userEmail)}`,
+          method: 'GET',
+          throw: false
+        });
+        
+        if (response.json?.authenticated === true) {
+          // Success!
+          if (this.pollInterval) {
+            window.clearInterval(this.pollInterval);
+            this.pollInterval = null;
+          }
+          
+          this.plugin.settings.salesforceConnected = true;
+          await this.plugin.saveSettings();
+          
+          this.steps[1].status = 'complete';
+          new Notice('Salesforce connected successfully!');
+          
+          // Import tailored account folders
+          await this.importTailoredAccounts(statusEl);
+          
+          await this.render();
+        } else if (attempts >= maxAttempts) {
+          // Timeout
+          if (this.pollInterval) {
+            window.clearInterval(this.pollInterval);
+            this.pollInterval = null;
+          }
+          statusEl.textContent = 'Connection timed out. Please try again.';
+          statusEl.className = 'eudia-setup-sf-status error';
+        }
+      } catch (error) {
+        // Continue polling
+      }
+    }, 5000);
+  }
+
+  private async importTailoredAccounts(statusEl: HTMLElement): Promise<void> {
+    statusEl.textContent = 'Importing your accounts...';
+    statusEl.className = 'eudia-setup-sf-status loading';
+    
+    try {
+      const accounts = await this.accountOwnershipService.getAccountsForUser(
+        this.plugin.settings.userEmail
+      );
+      
+      if (accounts.length === 0) {
+        statusEl.textContent = 'No accounts found for your email. Contact your admin.';
+        statusEl.className = 'eudia-setup-sf-status warning';
+        return;
+      }
+      
+      // Create account folders
+      await this.plugin.createTailoredAccountFolders(accounts);
+      
+      this.plugin.settings.accountsImported = true;
+      this.plugin.settings.importedAccountCount = accounts.length;
+      await this.plugin.saveSettings();
+      
+      this.steps[2].status = 'complete';
+      
+      statusEl.textContent = `${accounts.length} accounts imported successfully!`;
+      statusEl.className = 'eudia-setup-sf-status success';
+      
+    } catch (error) {
+      statusEl.textContent = 'Failed to import accounts. Please try again.';
+      statusEl.className = 'eudia-setup-sf-status error';
+    }
+  }
+
+  private renderTranscribeStep(container: HTMLElement): void {
+    const step = this.steps[2];
+    const stepEl = container.createDiv({ cls: `eudia-setup-step-card ${step.status}` });
+    
+    // Step header
+    const stepHeader = stepEl.createDiv({ cls: 'eudia-setup-step-header' });
+    const stepNumber = stepHeader.createDiv({ cls: 'eudia-setup-step-number' });
+    stepNumber.setText(step.status === 'complete' ? '✓' : '3');
+    
+    const stepInfo = stepHeader.createDiv({ cls: 'eudia-setup-step-info' });
+    stepInfo.createEl('h3', { text: step.title });
+    stepInfo.createEl('p', { text: step.description });
+    
+    // Step content - always show instructions
+    const stepContent = stepEl.createDiv({ cls: 'eudia-setup-step-content' });
+    
+    const instructions = stepContent.createDiv({ cls: 'eudia-setup-instructions' });
+    
+    const instruction1 = instructions.createDiv({ cls: 'eudia-setup-instruction' });
+    instruction1.createSpan({ cls: 'eudia-setup-instruction-icon', text: '🎙' });
+    instruction1.createSpan({ text: 'Click the microphone icon in the left sidebar during a call' });
+    
+    const instruction2 = instructions.createDiv({ cls: 'eudia-setup-instruction' });
+    instruction2.createSpan({ cls: 'eudia-setup-instruction-icon', text: '⌨' });
+    instruction2.createSpan({ text: 'Or press Cmd/Ctrl+P and search for "Transcribe Meeting"' });
+    
+    const instruction3 = instructions.createDiv({ cls: 'eudia-setup-instruction' });
+    instruction3.createSpan({ cls: 'eudia-setup-instruction-icon', text: '📝' });
+    instruction3.createSpan({ text: 'AI will summarize and extract key insights automatically' });
+    
+    if (step.status !== 'complete') {
+      stepContent.createEl('p', {
+        cls: 'eudia-setup-help-text muted',
+        text: 'This step completes automatically after connecting to Salesforce and importing accounts.'
+      });
+    }
+  }
+
+  private renderFooter(container: HTMLElement): void {
+    const footer = container.createDiv({ cls: 'eudia-setup-footer' });
+    
+    const allComplete = this.steps.every(s => s.status === 'complete');
+    
+    if (allComplete) {
+      // Show completion message
+      const completionMessage = footer.createDiv({ cls: 'eudia-setup-completion' });
+      completionMessage.createEl('h2', { text: '🎉 You\'re all set!' });
+      completionMessage.createEl('p', { text: 'Your sales vault is ready. Click below to start using Eudia.' });
+      
+      const finishBtn = footer.createEl('button', {
+        text: 'Open Calendar →',
+        cls: 'eudia-setup-btn primary large'
+      });
+      
+      finishBtn.onclick = async () => {
+        this.plugin.settings.setupCompleted = true;
+        await this.plugin.saveSettings();
+        
+        // Close setup view and open calendar
+        this.plugin.app.workspace.detachLeavesOfType(SETUP_VIEW_TYPE);
+        await this.plugin.activateCalendarView();
+      };
+    } else {
+      // Show skip option
+      const skipBtn = footer.createEl('button', {
+        text: 'Skip Setup (I\'ll do this later)',
+        cls: 'eudia-setup-btn secondary'
+      });
+      
+      skipBtn.onclick = async () => {
+        // Mark as partially completed so we don't show again automatically
+        this.plugin.settings.setupCompleted = true;
+        await this.plugin.saveSettings();
+        
+        this.plugin.app.workspace.detachLeavesOfType(SETUP_VIEW_TYPE);
+        new Notice('You can complete setup anytime from Settings → Eudia Sync');
+      };
+    }
+    
+    // Settings link
+    const settingsLink = footer.createEl('a', {
+      text: 'Advanced Settings',
+      cls: 'eudia-setup-settings-link'
+    });
+    settingsLink.onclick = () => {
+      (this.app as any).setting.open();
+      (this.app as any).setting.openTabById('eudia-sync');
+    };
   }
 }
 
@@ -1379,6 +1913,12 @@ export default class EudiaSyncPlugin extends Plugin {
       (leaf) => new EudiaCalendarView(leaf, this)
     );
 
+    // Register setup view
+    this.registerView(
+      SETUP_VIEW_TYPE,
+      (leaf) => new EudiaSetupView(leaf, this)
+    );
+
     // Add ribbon icons
     this.addRibbonIcon('calendar', 'Open Calendar', () => this.activateCalendarView());
     
@@ -1435,17 +1975,18 @@ export default class EudiaSyncPlugin extends Plugin {
 
     // On layout ready
     this.app.workspace.onLayoutReady(async () => {
-      // Show setup wizard for new users
+      // Show setup view for new users (full-page onboarding)
       if (!this.settings.setupCompleted && !this.settings.userEmail) {
-        new SetupWizardModal(this.app, this).open();
+        // Open the new setup view in the main content area
+        await this.activateSetupView();
       } else if (this.settings.syncOnStartup) {
         // Scan local folders instead of syncing from server
         await this.scanLocalAccountFolders();
-      }
-      
-      // Activate calendar view if configured
-      if (this.settings.showCalendarView && this.settings.userEmail) {
-        this.activateCalendarView();
+        
+        // Activate calendar view if configured
+        if (this.settings.showCalendarView && this.settings.userEmail) {
+          await this.activateCalendarView();
+        }
       }
     });
   }
@@ -1474,6 +2015,84 @@ export default class EudiaSyncPlugin extends Plugin {
         await rightLeaf.setViewState({ type: CALENDAR_VIEW_TYPE, active: true });
         workspace.revealLeaf(rightLeaf);
       }
+    }
+  }
+
+  /**
+   * Open the setup view in the main content area
+   * This provides a full-page onboarding experience for new users
+   */
+  async activateSetupView(): Promise<void> {
+    const workspace = this.app.workspace;
+    const leaves = workspace.getLeavesOfType(SETUP_VIEW_TYPE);
+
+    if (leaves.length > 0) {
+      workspace.revealLeaf(leaves[0]);
+    } else {
+      // Open in the main content area (not sidebar)
+      const leaf = workspace.getLeaf(true);
+      if (leaf) {
+        await leaf.setViewState({ type: SETUP_VIEW_TYPE, active: true });
+        workspace.revealLeaf(leaf);
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TAILORED ACCOUNT FOLDER CREATION
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Create account folders for the user's owned accounts only.
+   * This provides a tailored vault experience based on account ownership.
+   */
+  async createTailoredAccountFolders(accounts: OwnedAccount[]): Promise<void> {
+    const accountsFolder = this.settings.accountsFolder || 'Accounts';
+    
+    // Ensure the main Accounts folder exists
+    const existingFolder = this.app.vault.getAbstractFileByPath(accountsFolder);
+    if (!existingFolder) {
+      await this.app.vault.createFolder(accountsFolder);
+    }
+
+    let createdCount = 0;
+    
+    for (const account of accounts) {
+      const safeName = account.name.replace(/[<>:"/\\|?*]/g, '_').trim();
+      const folderPath = `${accountsFolder}/${safeName}`;
+      
+      // Check if folder already exists
+      const existing = this.app.vault.getAbstractFileByPath(folderPath);
+      if (existing instanceof TFolder) {
+        console.log(`[Eudia] Account folder already exists: ${safeName}`);
+        continue;
+      }
+      
+      try {
+        // Create the account folder
+        await this.app.vault.createFolder(folderPath);
+        
+        // Create an overview note for the account
+        const overviewPath = `${folderPath}/Overview.md`;
+        const overviewContent = generateAccountOverviewNote(account);
+        await this.app.vault.create(overviewPath, overviewContent);
+        
+        createdCount++;
+        console.log(`[Eudia] Created account folder: ${safeName}`);
+      } catch (error) {
+        console.error(`[Eudia] Failed to create folder for ${safeName}:`, error);
+      }
+    }
+
+    // Update cached accounts
+    this.settings.cachedAccounts = accounts.map(a => ({
+      id: a.id,
+      name: a.name
+    }));
+    await this.saveSettings();
+
+    if (createdCount > 0) {
+      new Notice(`Created ${createdCount} account folders`);
     }
   }
 
@@ -2065,25 +2684,13 @@ class EudiaSyncSettingTab extends PluginSettingTab {
 
     containerEl.createEl('h3', { text: 'Your Profile' });
 
-    new Setting(containerEl)
-      .setName('Eudia Email')
-      .setDesc('Your @eudia.com email address for calendar and Salesforce sync')
-      .addText(text => text
-        .setPlaceholder('yourname@eudia.com')
-        .setValue(this.plugin.settings.userEmail)
-        .onChange(async (value) => {
-          this.plugin.settings.userEmail = value.trim().toLowerCase();
-          await this.plugin.saveSettings();
-        }));
-
     // ─────────────────────────────────────────────────────────────────────
-    // SALESFORCE OAUTH
+    // SALESFORCE OAUTH - Define status checking functions FIRST
+    // (so they can be referenced by the email onChange handler)
     // ─────────────────────────────────────────────────────────────────────
-
-    containerEl.createEl('h3', { text: 'Salesforce Connection' });
     
     const sfContainer = containerEl.createDiv();
-    sfContainer.style.cssText = 'padding: 16px; background: var(--background-secondary); border-radius: 8px; margin-bottom: 16px;';
+    sfContainer.style.cssText = 'padding: 16px; background: var(--background-secondary); border-radius: 8px; margin-bottom: 16px; margin-top: 16px;';
     
     const sfStatus = sfContainer.createDiv();
     sfStatus.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 12px;';
@@ -2101,17 +2708,27 @@ class EudiaSyncSettingTab extends PluginSettingTab {
     // Polling interval for OAuth status
     let pollInterval: number | null = null;
     
-    // Check status
+    // Check status - now defined before email setting so it can be called on email change
     const checkStatus = async () => {
       if (!this.plugin.settings.userEmail) {
         statusDot.style.cssText = 'width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted);';
-        statusText.setText('Enter email first');
+        statusText.setText('Enter email above first');
         sfButton.setText('Setup Required');
         sfButton.disabled = true;
+        sfButton.style.opacity = '0.5';
+        sfButton.style.cursor = 'not-allowed';
         return false;
       }
       
+      // Enable button immediately when email is entered (while checking status)
+      sfButton.disabled = false;
+      sfButton.style.opacity = '1';
+      sfButton.style.cursor = 'pointer';
+      
       try {
+        statusDot.style.cssText = 'width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); animation: pulse 1s infinite;';
+        statusText.setText('Checking...');
+        
         const response = await requestUrl({
           url: `${this.plugin.settings.serverUrl}/api/sf/auth/status?email=${encodeURIComponent(this.plugin.settings.userEmail)}`,
           method: 'GET',
@@ -2123,23 +2740,43 @@ class EudiaSyncSettingTab extends PluginSettingTab {
           statusDot.style.cssText = 'width: 8px; height: 8px; border-radius: 50%; background: #22c55e;';
           statusText.setText('Connected to Salesforce');
           sfButton.setText('Reconnect');
-          sfButton.disabled = false;
+          this.plugin.settings.salesforceConnected = true;
+          await this.plugin.saveSettings();
           return true;  // Connected
         } else {
           statusDot.style.cssText = 'width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;';
           statusText.setText('Not connected');
           sfButton.setText('Connect to Salesforce');
-          sfButton.disabled = false;
           return false;  // Not connected
         }
       } catch {
         statusDot.style.cssText = 'width: 8px; height: 8px; border-radius: 50%; background: #ef4444;';
         statusText.setText('Status unavailable');
         sfButton.setText('Connect to Salesforce');
-        sfButton.disabled = false;
         return false;
       }
     };
+
+    // Email setting with onChange that triggers Salesforce status re-check
+    new Setting(containerEl)
+      .setName('Eudia Email')
+      .setDesc('Your @eudia.com email address for calendar and Salesforce sync')
+      .addText(text => text
+        .setPlaceholder('yourname@eudia.com')
+        .setValue(this.plugin.settings.userEmail)
+        .onChange(async (value) => {
+          const email = value.trim().toLowerCase();
+          this.plugin.settings.userEmail = email;
+          await this.plugin.saveSettings();
+          
+          // Re-check Salesforce status when email changes
+          await checkStatus();
+        }));
+
+    // Move the Salesforce container to after the email setting visually
+    // (it was already created above, now we add the header and rest)
+    containerEl.createEl('h3', { text: 'Salesforce Connection' });
+    containerEl.appendChild(sfContainer);
     
     // Start polling for OAuth completion
     const startPolling = () => {
