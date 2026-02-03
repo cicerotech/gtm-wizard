@@ -576,12 +576,21 @@ class SetupWizardModal extends Modal {
     // Step 1: Email validated (already done)
     this.updateStep('email', 'complete');
 
-    // Step 2: Detect pre-loaded accounts (skip server sync - use only vault folders)
+    // Step 2: Import tailored accounts based on user email
     this.updateStep('accounts', 'running');
     try {
-      await this.plugin.scanLocalAccountFolders();
+      const ownershipService = new AccountOwnershipService(this.plugin.settings.serverUrl);
+      const accounts = await ownershipService.getAccountsForUser(this.plugin.settings.userEmail);
+      
+      if (accounts.length > 0) {
+        await this.plugin.createTailoredAccountFolders(accounts);
+        this.plugin.settings.accountsImported = true;
+        this.plugin.settings.importedAccountCount = accounts.length;
+        await this.plugin.saveSettings();
+      }
       this.updateStep('accounts', 'complete');
     } catch (e) {
+      console.error('[Eudia] Account import failed:', e);
       this.updateStep('accounts', 'error');
     }
 
@@ -914,6 +923,25 @@ class EudiaSetupView extends ItemView {
         
         this.steps[0].status = 'complete';
         new Notice('Calendar connected successfully!');
+        
+        // Import tailored accounts based on user email
+        if (validationEl) {
+          validationEl.textContent = 'Importing your accounts...';
+          validationEl.className = 'eudia-setup-validation-message loading';
+        }
+        
+        try {
+          const accounts = await this.accountOwnershipService.getAccountsForUser(email);
+          if (accounts.length > 0) {
+            await this.plugin.createTailoredAccountFolders(accounts);
+            this.plugin.settings.accountsImported = true;
+            this.plugin.settings.importedAccountCount = accounts.length;
+            await this.plugin.saveSettings();
+            new Notice(`Imported ${accounts.length} account folders!`);
+          }
+        } catch (importError) {
+          console.error('[Eudia] Account import failed:', importError);
+        }
         
         await this.render();
       } else {
@@ -2072,13 +2100,155 @@ export default class EudiaSyncPlugin extends Plugin {
         // Create the account folder
         await this.app.vault.createFolder(folderPath);
         
-        // Create an overview note for the account
-        const overviewPath = `${folderPath}/Overview.md`;
-        const overviewContent = generateAccountOverviewNote(account);
-        await this.app.vault.create(overviewPath, overviewContent);
+        // Create all 5 subnotes for the account
+        const subnotes = [
+          {
+            name: 'Overview.md',
+            content: generateAccountOverviewNote(account)
+          },
+          {
+            name: 'Contacts.md',
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: contacts
+sync_to_salesforce: false
+---
+
+# ${account.name} - Key Contacts
+
+| Name | Title | Email | Phone | Notes |
+|------|-------|-------|-------|-------|
+|      |       |       |       |       |
+
+## Relationship Map
+
+*Add org chart, decision makers, champions, and blockers here.*
+
+## Contact History
+
+*Log key interactions and relationship developments.*
+`
+          },
+          {
+            name: 'Meeting Notes.md',
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: meetings
+sync_to_salesforce: false
+---
+
+# ${account.name} - Meeting Notes
+
+*This folder will contain individual meeting notes. Create new notes for each meeting.*
+
+## Recent Meetings
+
+| Date | Title | Attendees | Key Outcomes |
+|------|-------|-----------|--------------|
+|      |       |           |              |
+
+## How to Create Meeting Notes
+
+1. Click a meeting in your calendar
+2. Or use **Cmd+P → "New Meeting Note"**
+3. Notes sync to Salesforce when you set \`sync_to_salesforce: true\`
+`
+          },
+          {
+            name: 'Opportunities.md',
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: opportunities
+sync_to_salesforce: false
+---
+
+# ${account.name} - Opportunities
+
+## Active Opportunities
+
+| Opportunity | Stage | ACV | Close Date | Next Steps |
+|-------------|-------|-----|------------|------------|
+|             |       |     |            |            |
+
+## Opportunity Strategy
+
+*Document your approach, competitive positioning, and win themes.*
+
+## Deal History
+
+*Track won/lost deals and lessons learned.*
+`
+          },
+          {
+            name: 'Intelligence.md',
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: intelligence
+sync_to_salesforce: false
+---
+
+# ${account.name} - Account Intelligence
+
+## Company Overview
+
+*Industry, size, headquarters, key facts.*
+
+## Strategic Priorities
+
+*What's top of mind for leadership? Digital transformation initiatives?*
+
+## Legal/Compliance Landscape
+
+*Regulatory environment, compliance challenges, legal team structure.*
+
+## Competitive Intelligence
+
+*Incumbent vendors, evaluation history, competitive positioning.*
+
+## News & Signals
+
+*Recent news, earnings mentions, leadership changes.*
+`
+          },
+          {
+            name: 'Action Items.md',
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: actions
+sync_to_salesforce: false
+---
+
+# ${account.name} - Action Items
+
+## Open Tasks
+
+- [ ] *Add your first action item*
+
+## Upcoming Deadlines
+
+| Task | Due Date | Owner | Status |
+|------|----------|-------|--------|
+|      |          |       |        |
+
+## Completed
+
+*Move completed items here for reference.*
+`
+          }
+        ];
+        
+        for (const subnote of subnotes) {
+          const notePath = `${folderPath}/${subnote.name}`;
+          await this.app.vault.create(notePath, subnote.content);
+        }
         
         createdCount++;
-        console.log(`[Eudia] Created account folder: ${safeName}`);
+        console.log(`[Eudia] Created account folder with subnotes: ${safeName}`);
       } catch (error) {
         console.error(`[Eudia] Failed to create folder for ${safeName}:`, error);
       }

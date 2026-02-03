@@ -130,10 +130,10 @@ function createObsidianConfig(destDir) {
   };
   fs.writeFileSync(path.join(obsidianDir, 'app.json'), JSON.stringify(appConfig, null, 2));
   
-  // Appearance config
+  // Appearance config - Light theme to match GTM site branding
   const appearanceConfig = {
-    "accentColor": "#6366f1",
-    "theme": "obsidian",
+    "accentColor": "#8e99e1",
+    "theme": "moonstone",
     "cssTheme": ""
   };
   fs.writeFileSync(path.join(obsidianDir, 'appearance.json'), JSON.stringify(appearanceConfig, null, 2));

@@ -8,21 +8,21 @@
    ─────────────────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Core colors */
-  --eudia-bg: #f8fafc;
+  /* Core colors - GTM Site Branding */
+  --eudia-bg: #f5f7fe;
   --eudia-card: #ffffff;
-  --eudia-border: #e2e8f0;
-  --eudia-border-subtle: #f1f5f9;
+  --eudia-border: #e5e7eb;
+  --eudia-border-subtle: #f3f4f6;
   
-  /* Text */
-  --eudia-text: #1e293b;
-  --eudia-text-muted: #64748b;
-  --eudia-text-subtle: #94a3b8;
+  /* Text - GTM Site Typography */
+  --eudia-text: #1f2937;
+  --eudia-text-muted: #6b7280;
+  --eudia-text-subtle: #9ca3af;
   
-  /* Accent - Eudia purple */
-  --eudia-accent: #6366f1;
-  --eudia-accent-hover: #4f46e5;
-  --eudia-accent-subtle: rgba(99, 102, 241, 0.1);
+  /* Accent - Eudia purple (GTM Site) */
+  --eudia-accent: #8e99e1;
+  --eudia-accent-hover: #7a86d4;
+  --eudia-accent-subtle: rgba(142, 153, 225, 0.15);
   
   /* Status colors */
   --eudia-success: #10b981;
@@ -32,10 +32,10 @@
   --eudia-error: #ef4444;
   --eudia-error-subtle: rgba(239, 68, 68, 0.1);
   
-  /* Shadows */
+  /* Shadows - Softer for light theme */
   --eudia-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --eudia-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --eudia-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --eudia-shadow-md: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --eudia-shadow-lg: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 /* Dark mode */
@@ -975,39 +975,54 @@
 
 /* ───────────────────────────────────────────────────────────────────────────
    EUDIA SETUP VIEW - Full-Page Onboarding Experience
+   Matches GTM Site (obsidian-setup.html) Design System
    ─────────────────────────────────────────────────────────────────────────── */
 
 .eudia-setup-view {
-  padding: 40px;
-  max-width: 720px;
+  padding: 24px;
+  max-width: 640px;
   margin: 0 auto;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--eudia-bg);
   min-height: 100%;
+  line-height: 1.6;
 }
 
-/* Header Section */
+/* Header Section - Matches GTM Site Header */
 .eudia-setup-header {
+  background: var(--eudia-card);
+  padding: 24px;
+  border-radius: 10px;
+  box-shadow: var(--eudia-shadow-md);
+  margin-bottom: 24px;
   text-align: center;
-  margin-bottom: 48px;
 }
 
 .eudia-setup-title-section {
-  margin-bottom: 32px;
+  margin-bottom: 0;
 }
 
 .eudia-setup-main-title {
-  font-size: 28px;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--eudia-text);
-  margin: 0 0 12px 0;
-  letter-spacing: -0.5px;
+  margin: 0 0 6px 0;
 }
 
 .eudia-setup-subtitle {
-  font-size: 16px;
+  font-size: 0.9rem;
   color: var(--eudia-text-muted);
   margin: 0;
+}
+
+.eudia-setup-time-estimate {
+  display: inline-block;
+  background: var(--eudia-border-subtle);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  color: var(--eudia-text-muted);
+  margin-top: 12px;
 }
 
 /* Progress Bar */
@@ -1051,51 +1066,57 @@
   margin-bottom: 40px;
 }
 
-/* Step Card */
+/* Step Card - GTM Site Style with Left Border */
 .eudia-setup-step-card {
   background: var(--eudia-card);
   border: 1px solid var(--eudia-border);
-  border-radius: 16px;
-  padding: 24px;
+  border-radius: 10px;
+  box-shadow: var(--eudia-shadow-sm);
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  border-left: 4px solid var(--eudia-border);
   transition: all 0.2s ease;
 }
 
 .eudia-setup-step-card:hover {
-  box-shadow: var(--eudia-shadow-md);
+  background: #fafafa;
 }
 
 .eudia-setup-step-card.complete {
-  border-color: var(--eudia-success);
-  background: linear-gradient(135deg, var(--eudia-success-subtle), transparent);
+  border-left-color: var(--eudia-success);
+  background: #fafafa;
 }
 
 .eudia-setup-step-card.in_progress {
-  border-color: var(--eudia-accent);
+  border-left-color: var(--eudia-accent);
+}
+
+.eudia-setup-step-card.pending {
+  border-left-color: var(--eudia-border);
 }
 
 .eudia-setup-step-card.error {
-  border-color: var(--eudia-error);
-  background: linear-gradient(135deg, var(--eudia-error-subtle), transparent);
+  border-left-color: var(--eudia-error);
 }
 
-/* Step Header */
+/* Step Header - GTM Site Style */
 .eudia-setup-step-header {
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: center;
+  gap: 14px;
   margin-bottom: 16px;
 }
 
 .eudia-setup-step-number {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--eudia-accent);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 0.8rem;
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -1108,16 +1129,20 @@
   background: var(--eudia-text-subtle);
 }
 
+.eudia-setup-step-info {
+  flex: 1;
+}
+
 .eudia-setup-step-info h3 {
-  margin: 0 0 4px 0;
-  font-size: 16px;
+  margin: 0 0 2px 0;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--eudia-text);
 }
 
 .eudia-setup-step-info p {
   margin: 0;
-  font-size: 13px;
+  font-size: 0.875rem;
   color: var(--eudia-text-muted);
 }
 
@@ -1154,23 +1179,27 @@
   color: var(--eudia-text-subtle);
 }
 
-/* Buttons */
+/* Buttons - GTM Site Style */
 .eudia-setup-btn {
-  padding: 12px 24px;
-  font-size: 14px;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
   border-radius: 8px;
-  border: 1px solid var(--eudia-border);
-  background: var(--eudia-card);
-  color: var(--eudia-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
   cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
+  border: none;
+  transition: all 0.2s ease;
+  background: var(--eudia-card);
+  border: 1px solid var(--eudia-border);
+  color: var(--eudia-text);
 }
 
 .eudia-setup-btn:hover {
-  border-color: var(--eudia-accent);
-  color: var(--eudia-accent);
+  background: var(--eudia-bg);
+  border-color: var(--eudia-text-muted);
 }
 
 .eudia-setup-btn.primary {
@@ -1182,6 +1211,17 @@
 .eudia-setup-btn.primary:hover {
   background: var(--eudia-accent-hover);
   border-color: var(--eudia-accent-hover);
+}
+
+.eudia-setup-btn.success {
+  background: var(--eudia-success);
+  border-color: var(--eudia-success);
+  color: white;
+}
+
+.eudia-setup-btn.success:hover {
+  background: #059669;
+  border-color: #059669;
 }
 
 .eudia-setup-btn.secondary {
@@ -1196,12 +1236,12 @@
 }
 
 .eudia-setup-btn.large {
-  padding: 16px 32px;
-  font-size: 16px;
+  padding: 14px 28px;
+  font-size: 1rem;
 }
 
 .eudia-setup-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
