@@ -2234,7 +2234,8 @@ sync_to_salesforce: false
         })).toString('base64url');
         
         // Salesforce OAuth authorization URL with PKCE
-        const authUrl = new URL('https://login.salesforce.com/services/oauth2/authorize');
+        // Using Eudia My Domain to force org-specific login
+        const authUrl = new URL('https://eudia.my.salesforce.com/services/oauth2/authorize');
         authUrl.searchParams.set('response_type', 'code');
         authUrl.searchParams.set('client_id', clientId);
         authUrl.searchParams.set('redirect_uri', redirectUri);
@@ -2366,7 +2367,8 @@ sync_to_salesforce: false
           tokenParams.client_secret = clientSecret;
         }
         
-        const tokenResponse = await fetch('https://login.salesforce.com/services/oauth2/token', {
+        // Use Eudia My Domain for token exchange
+        const tokenResponse = await fetch('https://eudia.my.salesforce.com/services/oauth2/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams(tokenParams)
@@ -2763,7 +2765,8 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
                   const clientId = process.env.SF_CLIENT_ID;
                   const clientSecret = process.env.SF_CLIENT_SECRET;
                   
-                  const refreshResponse = await fetch('https://login.salesforce.com/services/oauth2/token', {
+                  // Use Eudia My Domain for token refresh
+                  const refreshResponse = await fetch('https://eudia.my.salesforce.com/services/oauth2/token', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: new URLSearchParams({
