@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Q1_2026_Forecast_Category_Snapshot__c</fullName>
+    <description>Locked snapshot of BL Forecast Category as of Q1 2026 start. Values: Commit, Gut, Pipeline, or blank.</description>
+    <externalId>false</externalId>
+    <label>Q1 2026 Forecast Category Snapshot</label>
+    <length>50</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

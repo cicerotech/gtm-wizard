@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Q1_2026_Commit_Variance__c</fullName>
+    <description>Dollar variance between Q1 2026 Commit Snapshot and actual closed amount. Positive = closed above commit, Negative = closed below or didn't close.</description>
+    <externalId>false</externalId>
+    <formula>IF(
+  Q1_2026_Commit_Snapshot__c &gt; 0,
+  IF(
+    ISPICKVAL(StageName, "Stage 6. Closed(Won)"),
+    ACV__c - Q1_2026_Commit_Snapshot__c,
+    IF(
+      IsClosed,
+      0 - Q1_2026_Commit_Snapshot__c,
+      NULL
+    )
+  ),
+  NULL
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Q1 2026 Commit Variance</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Currency</type>
+</CustomField>

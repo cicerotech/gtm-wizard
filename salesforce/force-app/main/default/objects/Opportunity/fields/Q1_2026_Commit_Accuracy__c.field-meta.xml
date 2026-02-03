@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Q1_2026_Commit_Accuracy__c</fullName>
+    <description>Measures BL forecast accuracy by comparing Q1 2026 Commit Snapshot against actual outcome. 100% = closed at/above commit, 0% = committed but didn't close, NULL = not committed.</description>
+    <externalId>false</externalId>
+    <formula>IF(
+  Q1_2026_Commit_Snapshot__c &gt; 0,
+  IF(
+    ISPICKVAL(StageName, "Stage 6. Closed(Won)"),
+    MIN(ACV__c / Q1_2026_Commit_Snapshot__c, 1),
+    IF(
+      AND(
+        NOT(ISPICKVAL(StageName, "Stage 6. Closed(Won)")),
+        OR(IsClosed, CloseDate &lt;= DATE(2026, 4, 30))
+      ),
+      0,
+      NULL
+    )
+  ),
+  NULL
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Q1 2026 Commit Accuracy</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Percent</type>
+</CustomField>
