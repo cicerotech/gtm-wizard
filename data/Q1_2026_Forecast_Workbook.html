@@ -1,0 +1,251 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+<head>
+<meta charset="UTF-8">
+<!--[if gte mso 9]>
+<xml>
+<x:ExcelWorkbook>
+<x:ExcelWorksheets>
+<x:ExcelWorksheet>
+<x:Name>Summary</x:Name>
+<x:WorksheetOptions><x:Selected/></x:WorksheetOptions>
+</x:ExcelWorksheet>
+<x:ExcelWorksheet>
+<x:Name>Raw Data</x:Name>
+</x:ExcelWorksheet>
+<x:ExcelWorksheet>
+<x:Name>By Pod</x:Name>
+</x:ExcelWorksheet>
+<x:ExcelWorksheet>
+<x:Name>By Rep</x:Name>
+</x:ExcelWorksheet>
+</x:ExcelWorksheets>
+</x:ExcelWorkbook>
+</xml>
+<![endif]-->
+<style>
+  body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; color: black; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+  th { background-color: black; color: white; font-weight: bold; padding: 6px 10px; text-align: left; border: 1px solid black; }
+  td { padding: 5px 10px; border: 1px solid #999; }
+  .number { text-align: right; mso-number-format:"\$\#\,\#\#0\.00"; }
+  .total-row { font-weight: bold; background-color: #e0e0e0; }
+  .section { font-size: 14pt; font-weight: bold; margin: 20px 0 10px 0; background-color: black; color: white; padding: 8px; }
+  .formula { background-color: #ffffcc; font-style: italic; font-size: 9pt; }
+</style>
+</head>
+<body>
+
+<div class="section">Q1 2026 FORECAST SNAPSHOT - February 2, 2026</div>
+
+<h3>SUMMARY METRICS</h3>
+<p class="formula">All values below should use formulas referencing 'Raw Data' tab. Example: =SUMIF('Raw Data'!$E:$E,"Commit",'Raw Data'!$D:$D)</p>
+
+<table>
+<tr>
+  <th>Metric</th>
+  <th>Formula Reference</th>
+  <th>Total (All)</th>
+  <th>AI-Enabled Only</th>
+</tr>
+<tr>
+  <td>Total Records</td>
+  <td class="formula">=COUNTA('Raw Data'!A:A)-1</td>
+  <td class="number">108</td>
+  <td class="number">-</td>
+</tr>
+<tr>
+  <td>Net ACV (Pipeline)</td>
+  <td class="formula">=SUM('Raw Data'!D:D)</td>
+  <td class="number">$25,431,235.40</td>
+  <td class="number">-</td>
+</tr>
+<tr>
+  <td>Quarterly Forecast Net</td>
+  <td class="formula">=SUM('Raw Data'!F:F)</td>
+  <td class="number">$8,620,475.00</td>
+  <td class="number">$7,951,350.00</td>
+</tr>
+<tr>
+  <td>Weighted ACV</td>
+  <td class="formula">=SUM('Raw Data'!G:G)</td>
+  <td class="number">$5,942,407.83</td>
+  <td class="number">$5,468,165.33</td>
+</tr>
+<tr>
+  <td><strong>Quarterly Commit (Net New)</strong></td>
+  <td class="formula">=SUMIF('Raw Data'!E:E,"Commit",'Raw Data'!D:D)</td>
+  <td class="number"><strong>$4,601,675.00</strong></td>
+  <td class="number">-</td>
+</tr>
+<tr>
+  <td>Blended Forecast (base)</td>
+  <td class="formula">=SUM('Raw Data'!K:K)</td>
+  <td class="number">$6,745,827.98</td>
+  <td class="number">$5,736,712.50</td>
+</tr>
+</table>
+
+<h3>BY POD BREAKDOWN</h3>
+<table>
+<tr>
+  <th>Pod</th>
+  <th>Formula Example</th>
+  <th>Opps</th>
+  <th>Net ACV</th>
+  <th>Quarterly Forecast</th>
+  <th>Weighted ACV</th>
+  <th>Commit (Net New)</th>
+  <th>Blended Forecast</th>
+</tr>
+<tr>
+  <td>US</td>
+  <td class="formula">=SUMIF('Raw Data'!M:M,"US",'Raw Data'!D:D)</td>
+  <td class="number">75</td>
+  <td class="number">$18,030,000.00</td>
+  <td class="number">$4,528,000.00</td>
+  <td class="number">$3,675,500.00</td>
+  <td class="number">$1,990,000.00</td>
+  <td class="number">$3,931,250.00</td>
+</tr>
+<tr>
+  <td>EU</td>
+  <td class="formula">=SUMIF('Raw Data'!M:M,"EU",'Raw Data'!D:D)</td>
+  <td class="number">33</td>
+  <td class="number">$7,401,235.40</td>
+  <td class="number">$4,092,475.00</td>
+  <td class="number">$2,266,907.83</td>
+  <td class="number">$2,611,675.00</td>
+  <td class="number">$2,814,577.98</td>
+</tr>
+<tr class="total-row">
+  <td>TOTAL</td>
+  <td class="formula">=SUM(above)</td>
+  <td class="number">108</td>
+  <td class="number">$25,431,235.40</td>
+  <td class="number">$8,620,475.00</td>
+  <td class="number">$5,942,407.83</td>
+  <td class="number">$4,601,675.00</td>
+  <td class="number">$6,745,827.98</td>
+</tr>
+</table>
+
+<h3>BY FORECAST CATEGORY</h3>
+<table>
+<tr>
+  <th>BL Forecast Category</th>
+  <th>Formula</th>
+  <th>Count</th>
+  <th>Net ACV</th>
+  <th>Weighted ACV</th>
+</tr>
+<tr>
+  <td>Commit</td>
+  <td class="formula">=SUMIF('Raw Data'!E:E,"Commit",'Raw Data'!D:D)</td>
+  <td class="number">=COUNTIF(E:E,"Commit")</td>
+  <td class="number">$4,601,675.00</td>
+  <td class="number">-</td>
+</tr>
+<tr>
+  <td>Gut</td>
+  <td class="formula">=SUMIF('Raw Data'!E:E,"Gut",'Raw Data'!D:D)</td>
+  <td class="number">=COUNTIF(E:E,"Gut")</td>
+  <td class="number">-</td>
+  <td class="number">-</td>
+</tr>
+<tr>
+  <td>Pipeline</td>
+  <td class="formula">=SUMIF('Raw Data'!E:E,"Pipeline",'Raw Data'!D:D)</td>
+  <td class="number">=COUNTIF(E:E,"Pipeline")</td>
+  <td class="number">-</td>
+  <td class="number">-</td>
+</tr>
+</table>
+
+<h3>CONSERVATIVE FORECAST RANGES</h3>
+<table>
+<tr>
+  <th>Call</th>
+  <th>Amount</th>
+  <th>Confidence</th>
+  <th>Description</th>
+</tr>
+<tr style="background-color: #e8f4e8;">
+  <td><strong>Floor (Commit)</strong></td>
+  <td class="number"><strong>$4,601,675.00</strong></td>
+  <td>90%+</td>
+  <td>BL-committed deals - highest confidence</td>
+</tr>
+<tr>
+  <td>Most Likely</td>
+  <td class="number">$5,500,000.00</td>
+  <td>70-80%</td>
+  <td>Between commit and weighted</td>
+</tr>
+<tr>
+  <td>Expected (Weighted)</td>
+  <td class="number">$5,942,407.83</td>
+  <td>60-70%</td>
+  <td>Statistical probability-adjusted</td>
+</tr>
+<tr>
+  <td>Target (Blended)</td>
+  <td class="number">$6,745,827.98</td>
+  <td>50-60%</td>
+  <td>Combo of BL forecast + weighted</td>
+</tr>
+<tr>
+  <td>Upside (Forecast)</td>
+  <td class="number">$8,620,475.00</td>
+  <td>40-50%</td>
+  <td>Full BL-submitted pipeline</td>
+</tr>
+</table>
+
+<h3>KEY RATIOS</h3>
+<table>
+<tr>
+  <th>Ratio</th>
+  <th>Formula</th>
+  <th>Value</th>
+</tr>
+<tr>
+  <td>Commit / Weighted</td>
+  <td class="formula">=Commit/Weighted</td>
+  <td class="number">77%</td>
+</tr>
+<tr>
+  <td>Commit / Forecast</td>
+  <td class="formula">=Commit/Forecast</td>
+  <td class="number">53%</td>
+</tr>
+<tr>
+  <td>Weighted / Forecast</td>
+  <td class="formula">=Weighted/Forecast</td>
+  <td class="number">69%</td>
+</tr>
+</table>
+
+<br><br>
+<div class="section">RAW DATA (Paste your data below)</div>
+<p>Column headers for reference:</p>
+<table>
+<tr>
+  <th>A: Target Date</th>
+  <th>B: Sales Type</th>
+  <th>C: Opportunity</th>
+  <th>D: Net ACV</th>
+  <th>E: BL Forecast Cat</th>
+  <th>F: Quarterly Forecast</th>
+  <th>G: Weighted ACV</th>
+  <th>H: Weighted (AI-E)</th>
+  <th>I: Quarterly Commit</th>
+  <th>J: Commit (AI-E)</th>
+  <th>K: Blended</th>
+  <th>L: Blended (AI-E)</th>
+  <th>M: Pod</th>
+  <th>N: Owner</th>
+</tr>
+</table>
+
+</body>
+</html>

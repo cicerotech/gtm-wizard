@@ -305,6 +305,8 @@ function generateEngineeringPortal(customers = [], options = {}) {
     
     .account-name {
       font-weight: 600;
+      min-width: 180px;
+      width: 18%;
     }
     
     .account-name a {
@@ -325,29 +327,38 @@ function generateEngineeringPortal(customers = [], options = {}) {
       padding: 4px 8px;
       border-radius: 4px;
       display: inline-block;
+      min-width: 200px;
+      width: 20%;
     }
     
     .context {
-      color: #6b7280;
+      color: #4b5563;
       font-size: 0.8rem;
-      line-height: 1.5;
-      max-width: 300px;
+      line-height: 1.6;
+      min-width: 280px;
+      width: 35%;
     }
     
     .deal-value {
       color: #1f2937;
       font-weight: 500;
       white-space: nowrap;
+      min-width: 100px;
+      width: 10%;
+      text-align: right;
     }
     
     .date {
-      color: #9ca3af;
+      color: #6b7280;
       font-size: 0.8rem;
       white-space: nowrap;
+      min-width: 90px;
+      width: 10%;
     }
     
     .actions {
       text-align: center;
+      width: 60px;
     }
     
     .copy-btn {
@@ -573,11 +584,11 @@ function generateEngineeringPortal(customers = [], options = {}) {
       <table id="customers-table">
         <thead>
           <tr>
-            <th>Account</th>
-            <th>Legal Entity</th>
-            <th>Industry / Context</th>
-            <th>Deal Value</th>
-            <th>Close Date</th>
+            <th style="width: 18%;">Account</th>
+            <th style="width: 20%;">Legal Entity</th>
+            <th style="width: 35%;">Overview / Context</th>
+            <th style="width: 10%; text-align: right;">Deal Value</th>
+            <th style="width: 10%;">Close Date</th>
             <th style="width: 60px;"></th>
           </tr>
         </thead>

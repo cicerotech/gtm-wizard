@@ -1178,28 +1178,37 @@ class GTMBrainApp {
           logger.warn('Engineering portal: Salesforce query failed, using static data only', { error: sfError.message });
         }
         
-        // Merge: static data as base, Salesforce data enriches/overrides
+        // Merge: static data as base (has good context), Salesforce enriches with deal info
+        // IMPORTANT: Static data has the authoritative context/legal entity from Excel import
         const seenNames = new Set();
         
-        // First, add all Salesforce customers (priority)
-        sfCustomerMap.forEach(customer => {
-          customers.push(customer);
-          seenNames.add(customer.accountName.toLowerCase());
+        // Build a lookup from static customers (by lowercase name)
+        const staticLookup = new Map();
+        staticCustomers.forEach(sc => {
+          staticLookup.set(sc.accountName.toLowerCase(), sc);
         });
         
-        // Then add static customers not already in Salesforce
+        // First, add all static customers (they have the good context data)
         staticCustomers.forEach(sc => {
           const key = sc.accountName.toLowerCase();
+          const sfData = sfCustomerMap.get(key);
+          
+          customers.push({
+            accountId: sfData?.accountId || null,
+            accountName: sc.accountName,
+            legalEntity: sc.legalEntity || sfData?.legalEntity || sc.accountName,
+            context: sc.context || sfData?.context || '', // Static context takes priority
+            website: sfData?.website || '',
+            dealValue: sfData?.dealValue || '',
+            closeDate: sfData?.closeDate || ''
+          });
+          seenNames.add(key);
+        });
+        
+        // Then add any Salesforce customers NOT in static file (edge cases)
+        sfCustomerMap.forEach((sfCustomer, key) => {
           if (!seenNames.has(key)) {
-            customers.push({
-              accountId: null, // No SF link
-              accountName: sc.accountName,
-              legalEntity: sc.legalEntity,
-              context: sc.context || '',
-              website: '',
-              dealValue: '',
-              closeDate: ''
-            });
+            customers.push(sfCustomer);
             seenNames.add(key);
           }
         });

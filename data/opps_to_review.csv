@@ -1,0 +1,109 @@
+Target sign date,Sales Type,Opportunity Name,Net ACV,BL Forecast Category,Quarterly Forecast Net,Quarterly Forecast Net (AI-Enabled),Weighted ACV,Weighted ACV (AI-Enabled),Quarterly Commit (Net New),Quarterly Commit Net (AI-Enabled),Blended Forecast (base),Blended Forecast (AI-Enabled),Pod,Opportunity Owner
+4/30/26,New business,Emigrant Bank - SQO,200000,Gut,120000,120000,40000,40000,0,0,64000,40000,US,Ananth Cherukupally
+4/15/26,New business,Pure Storage - Proposal,120000,Commit,120000,120000,60000,60000,120000,120000,78000,114000,US,Ananth Cherukupally
+4/15/26,New business,Petco,200000,Gut,120000,120000,40000,40000,0,0,64000,40000,US,Ananth Cherukupally
+2/27/26,New business,Vista Equity Partners - Proposal,275000,Commit,275000,275000,90750,90750,275000,275000,146025,261250,US,Ananth Cherukupally
+4/30/26,New business,Airbnb - Marketing Compliance,120000,Pipeline,0,0,38400,38400,0,0,26880,0,US,Asad Hussain
+4/30/26,New business,Ecolab - AI Contracting,120000,Pipeline,0,0,38400,38400,0,0,26880,0,US,Asad Hussain
+4/30/26,New business,Docusign - Discovery,120000,Pipeline,0,0,12000,12000,0,0,8400,0,US,Asad Hussain
+4/30/26,New business,Fluor - Contract Review Technology,500000,Pipeline,0,0,100000,100000,0,0,70000,0,US,Asad Hussain
+4/30/26,New business,Coherent Coherent  - Vendor Onboarding,1000000,Gut,600000,600000,320000,320000,0,0,404000,320000,US,Asad Hussain
+4/8/26,New business,Goosehead Insurance - Discovery,100000,Pipeline,0,0,10000,10000,0,0,7000,0,US,Asad Hussain
+3/31/26,New business,Away - Marketing Compliance,120000,Pipeline,0,0,24000,24000,0,0,16800,0,US,Asad Hussain
+3/31/26,New business,Zero RFI - AI-Augmented M&A,120000,Gut,72000,72000,24000,24000,0,0,38400,24000,US,Asad Hussain
+2/28/26,New business,Asana - AI-Augmented Contracting,250000,Pipeline,0,0,187500,187500,0,0,131250,0,US,Asad Hussain
+2/15/26,New business,Southwest Airlines - Contracting,180000,Commit,180000,180000,135000,135000,180000,180000,148500,171000,US,Asad Hussain
+4/30/26,New business,Apple - Discovery,300000,Pipeline,0,0,30000,30000,0,0,21000,0,US,Julie Stefanich
+4/30/26,New business,State Farm - Discovery,100000,Pipeline,0,0,10000,10000,0,0,7000,0,US,Julie Stefanich
+3/31/26,New business,Goldman Sachs Group - Discovery,240000,Pipeline,0,0,24000,24000,0,0,16800,0,US,Julie Stefanich
+3/31/26,New business,MetLife - Discovery,120000,Pipeline,0,0,24000,24000,0,0,16800,0,US,Julie Stefanich
+3/31/26,New business,Macmillan - Qualifying,100000,Pipeline,0,0,2000,2000,0,0,1400,0,US,Julie Stefanich
+3/31/26,New business,WWT - Discovery,120000,Pipeline,0,0,21600,21600,0,0,15120,0,US,Julie Stefanich
+3/31/26,New business,Mainsail Partners - Discovery,300000,Pipeline,0,0,60000,60000,0,0,42000,0,US,Julie Stefanich
+3/31/26,New business,Procter & Gamble - Discovery,300000,Pipeline,0,0,30000,30000,0,0,21000,0,US,Julie Stefanich
+3/31/26,New business,Chevron,300000,Gut,180000,180000,75000,75000,0,0,106500,75000,US,Julie Stefanich
+3/31/26,Expansion,Chevron,300000,Gut,180000,180000,30000,30000,0,0,75000,30000,US,Julie Stefanich
+2/28/26,New business,Corebridge Financial - SQO,300000,Pipeline,0,0,60000,60000,0,0,42000,0,US,Julie Stefanich
+2/28/26,Expansion,National Grid - Proposal,150000,Commit,150000,150000,75000,75000,150000,150000,97500,142500,US,Julie Stefanich
+2/28/26,New business,Uber - SQO,120000,Gut,72000,72000,24000,24000,0,0,38400,24000,US,Julie Stefanich
+2/28/26,New business,T-Mobile - SQO,120000,Pipeline,0,0,24000,24000,0,0,16800,0,US,Julie Stefanich
+2/28/26,New business,The Wonderful Company - SQO,250000,Gut,150000,150000,80000,80000,0,0,101000,80000,US,Julie Stefanich
+2/28/26,New business,Genworth Financial - Discovery,300000,Gut,180000,180000,60000,60000,0,0,96000,60000,US,Julie Stefanich
+2/28/26,New business,Charles Schwab,300000,Gut,180000,180000,30000,30000,0,0,75000,30000,US,Julie Stefanich
+2/28/26,Expansion,Cargill,500000,Commit,500000,500000,100000,100000,500000,500000,220000,475000,US,Julie Stefanich
+4/27/26,New business,Johnson & Johnson - Contracting,300000,Gut,180000,180000,60000,60000,0,0,96000,60000,US,Justin Hills
+4/24/26,New business,Intel - Insights & Sigma,100000,Pipeline,0,0,20000,20000,0,0,14000,0,US,Justin Hills
+4/10/26,New business,Cox Media Groups - M&A,120000,Gut,72000,72000,50400,50400,0,0,56880,50400,US,Justin Hills
+3/31/26,New business,AES - Sigma,60000,Gut,36000,36000,25200,25200,0,0,28440,25200,US,Justin Hills
+3/31/26,Expansion,IQVIA - Insights RFP,120000,Pipeline,0,0,60000,60000,0,0,42000,0,US,Justin Hills
+2/27/26,New business,Novelis - Sigma,95000,Gut,57000,57000,71250,71250,0,0,66975,71250,US,Justin Hills
+2/13/26,New business,Home Depot - Compliance + Sigma & Insights,120000,Commit,120000,120000,108000,108000,120000,120000,111600,114000,US,Justin Hills
+4/1/26,New business,Space Systems Command,1900000,Pipeline,0,0,106400,106400,0,0,74480,0,US,Mike Masiello
+3/18/26,New business,State of Alaska,100000,Pipeline,0,0,12000,12000,0,0,8400,0,US,Mike Masiello
+2/28/26,New business,SSA (Social Security Administration) Pilot Scoping,100000,Pipeline,0,0,8000,8000,0,0,5600,0,US,Mike Masiello
+2/28/26,New business,USDA Contracting OCIO,100000,Pipeline,0,0,8000,8000,0,0,5600,0,US,Mike Masiello
+2/28/26,New business,SOCOM SSA Solution (Source Selection),3000000,Pipeline,0,0,360000,360000,0,0,252000,0,US,Mike Masiello
+2/28/26,New business,UK Government - SQO,100000,Pipeline,0,0,12000,12000,0,0,8400,0,US,Mike Masiello
+2/28/26,New business,US Marine Corps (AI Workshop Quantico),100000,Commit,100000,100000,18000,18000,100000,100000,42600,95000,US,Mike Masiello
+2/28/26,New business,NATO - Proposal,150000,Pipeline,0,0,33000,33000,0,0,23100,0,US,Mike Masiello
+2/28/26,Expansion,Air Force STTR w/ Univ. of Michigan,130000,Gut,78000,78000,28600,28600,0,0,43420,28600,US,Mike Masiello
+2/28/26,New business,Army Futures Command - Discovery,100000,Pipeline,0,0,8000,8000,0,0,5600,0,US,Mike Masiello
+2/28/26,New business,State of Arizona,100000,Pipeline,0,0,12000,12000,0,0,8400,0,US,Mike Masiello
+2/28/26,New business,World Bank / IFC (PE),100000,Pipeline,0,0,12000,12000,0,0,8400,0,US,Mike Masiello
+2/28/26,Expansion,USAF SBIR Phase 1,75000,Gut,45000,45000,16500,16500,0,0,25050,16500,US,Mike Masiello
+2/28/26,New business,State of California (LADA),100000,Pipeline,0,0,12000,12000,0,0,8400,0,US,Mike Masiello
+2/28/26,New business,Vulcan Special Ops - AI Augmented Doc Review,340000,Pipeline,0,0,68000,68000,0,0,47600,0,US,Mike Masiello
+2/28/26,New business,DECA / Army - Phase 0,250000,Commit,250000,250000,55000,55000,250000,250000,113500,237500,US,Mike Masiello
+2/28/26,Expansion,USAF / Space Force (USSF),100000,Pipeline,0,0,12000,12000,0,0,8400,0,US,Mike Masiello
+2/11/26,New business,Army Applications Lab,150000,Pipeline,0,0,12000,12000,0,0,8400,0,US,Mike Masiello
+2/10/26,New business,DIU (Defense Innovation Unit),300000,Pipeline,0,0,24000,24000,0,0,16800,0,US,Mike Masiello
+4/30/26,New business,Datadog - Contracting,120000,Pipeline,0,0,24000,24000,0,0,16800,0,US,Olivia Jung
+4/30/26,Expansion,Gilead Sciences - Discovery,100000,Pipeline,0,0,18000,18000,0,0,12600,0,US,Olivia Jung
+4/30/26,New business,Bristol Myers Squibb - Discovery,100000,Pipeline,0,0,10000,10000,0,0,7000,0,US,Olivia Jung
+4/30/26,New business,Thermo Fisher - Discovery,120000,Pipeline,0,0,12000,12000,0,0,8400,0,US,Olivia Jung
+4/30/26,New business,CHS - M&A,120000,Pipeline,0,0,21600,21600,0,0,15120,0,US,Olivia Jung
+4/30/26,New business,Intuit - Litigation,120000,Pipeline,0,0,21600,21600,0,0,15120,0,US,Olivia Jung
+4/30/26,New business,Dolby - FDE (IP),100000,Pipeline,0,0,2000,2000,0,0,1400,0,US,Olivia Jung
+3/31/26,New business,Western Digital - Contracting,120000,Gut,72000,72000,60000,60000,0,0,63600,60000,US,Olivia Jung
+3/31/26,New business,Cummins - Contracting,120000,Pipeline,0,0,24000,24000,0,0,16800,0,US,Olivia Jung
+3/31/26,New business,Wellspan Health - Contracting Solution,120000,Gut,72000,72000,24000,24000,0,0,38400,24000,US,Olivia Jung
+3/31/26,New business,Crate & Barrel - Discovery,100000,Pipeline,0,0,20000,20000,0,0,14000,0,US,Olivia Jung
+3/31/26,New business,Meta - Litigation,400000,Pipeline,0,0,128000,128000,0,0,89600,0,US,Olivia Jung
+3/31/26,New business,TE Connectivity - Sigma/Contracting,240000,Commit,240000,240000,79200,79200,240000,240000,127440,228000,US,Olivia Jung
+3/31/26,New business,Best Buy - FDE - Claims Solution,120000,Pipeline,0,0,21600,21600,0,0,15120,0,US,Olivia Jung
+3/2/26,Expansion,Graybar Canada - Augmented Contracting,120000,Gut,72000,72000,90000,90000,0,0,84600,90000,US,Olivia Jung
+2/28/26,New business,White Cap - LOI,0,Pipeline,0,0,0,0,0,0,0,0,US,Olivia Jung
+2/28/26,Expansion,Etsy Privacy Support - Secondee,55000,Commit,55000,0,27500,0,55000,0,35750,0,US,Olivia Jung
+2/28/26,Renewal,BOI F&P March 26 March 29,0,Commit,0,0,0,0,0,0,0,0,EU,Alex Fox
+2/26/26,Renewal,BOI FSPO Tracker renewal 2026/2028,235125,Commit,235125,0,117562.5,0,235125,0,152831.25,0,EU,Alex Fox
+4/30/26,New business,Masdar Future Energy Company - Discovery,259200,Pipeline,0,0,25920,25920,0,0,18144,0,EU,Conor Molloy
+4/30/26,New business,Al Dahra Group Llc - Qualifying,129600,Pipeline,0,0,2592,2592,0,0,1814.4,0,EU,Conor Molloy
+3/31/26,New business,FNZ Group - Qualifying,129600,Pipeline,0,0,2592,2592,0,0,1814.4,0,EU,Conor Molloy
+3/31/26,New business,Accenture - Procurement Contracting,100000,Pipeline,0,0,20000,20000,0,0,14000,0,EU,Conor Molloy
+3/31/26,New business,AIR (Advanced Inhalation Rituals) - Discovery,278400,Gut,167040,167040,55680,55680,0,0,89088,55680,EU,Conor Molloy
+3/31/26,New business,ION - Discovery,129600,Pipeline,0,0,12960,12960,0,0,9072,0,EU,Conor Molloy
+3/31/26,Expansion,Consensys,120000,Gut,72000,72000,38400,38400,0,0,48480,38400,EU,Conor Molloy
+2/28/26,New business,Wellspring - AI Diligence ARR Conversion,800000,Commit,800000,800000,400000,400000,800000,800000,520000,760000,EU,Conor Molloy
+2/28/26,New business,Sequoia Climate Fund,480000,Commit,480000,480000,240000,240000,480000,480000,312000,456000,EU,Conor Molloy
+2/27/26,Expansion,Coillte AIE Support,348000,Pipeline,0,0,174000,0,0,0,121800,0,EU,Emer Flynn
+3/31/26,New business,Indeed Sigma Tech and Extension Solutions,371000,Pipeline,0,0,66780,66780,0,0,46746,0,EU,Nathan Shine
+3/31/26,New business,OKX Sigma Deal,139200,Pipeline,0,0,25056,25056,0,0,17539.2,0,EU,Nathan Shine
+3/31/26,New business,Perrigo Outsourced Contracts MLS,300000,Commit,300000,300000,96000,96000,300000,300000,157200,285000,EU,Nathan Shine
+3/31/26,New business,Regeneron Sigma Deal,144000,Commit,144000,144000,28800,28800,144000,144000,63360,136800,EU,Nathan Shine
+3/31/26,New business,Stepstone Contracting NDA Service,240000,Pipeline,0,0,43200,43200,0,0,30240,0,EU,Nathan Shine
+3/31/26,New business,Dropbox AI Augmented Contracting Deal,348000,Gut,208800,208800,111360,111360,0,0,140592,111360,EU,Nathan Shine
+3/31/26,New business,TikTok Contracting Technology,120000,Pipeline,0,0,38400,38400,0,0,26880,0,EU,Nathan Shine
+3/31/26,New business,Fexco Contracting Solution/Managed Service,232000,Gut,139200,139200,46400,46400,0,0,74240,46400,EU,Nathan Shine
+3/31/26,New business,Coimisiun na Mean - Sigma,140360.4,Pipeline,0,0,44915.33,44915.33,0,0,31440.73,0,EU,Nathan Shine
+2/20/26,Renewal,Airbnb Consultant extensions,139000,Commit,139000,0,44480,0,139000,0,72836,0,EU,Nathan Shine
+2/6/26,Expansion,Udemy Contracting Solution Secondments,0,Commit,0,0,0,0,0,0,0,0,EU,Nathan Shine
+2/6/26,New business,Keurig Dr Pepper Tech Enabled Consultant,143550,Commit,143550,143550,28710,28710,143550,143550,63162,136372.5,EU,Nathan Shine
+2/6/26,New business,Commscope Sigma/Extension Opp,170000,Commit,170000,170000,54400,54400,170000,170000,89080,161500,EU,Nathan Shine
+4/30/26,New business,Citi - RFP - Approved Service Provider,400000,Gut,240000,0,72000,0,0,0,122400,0,EU,Nicola Fratini
+4/29/26,New business,Goodbody - Sigma Insights & Contracting,240000,Gut,144000,144000,60000,60000,0,0,85200,60000,EU,Nicola Fratini
+4/29/26,Expansion,Northern Trust - Contracting - Irish regulated fund agreements,69600,Gut,41760,41760,34800,34800,0,0,36888,34800,EU,Nicola Fratini
+4/29/26,New business,Aviva Insurance - Sigma/Contracting/M&A,240000,Gut,144000,144000,79200,79200,0,0,98640,79200,EU,Nicola Fratini
+4/29/26,New business,AIB - Sigma & Contracting,240000,Gut,144000,144000,48000,48000,0,0,76800,48000,EU,Nicola Fratini
+3/31/26,Expansion,Datalex - Sigma/Contracting/MLS,300000,Gut,180000,180000,150000,150000,0,0,159000,150000,EU,Nicola Fratini
+2/28/26,New business,Re-Turn - Sigma and Contracting MLS,200000,Commit,200000,200000,66000,66000,200000,200000,106200,190000,EU,Nicola Fratini
+2/27/26,Expansion,Electricity Supply Board - DPO 12 month ODL,215000,Pipeline,0,0,38700,0,0,0,27090,0,EU,Tom Clancy
