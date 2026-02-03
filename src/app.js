@@ -4845,11 +4845,44 @@ SENTIMENT: [Positive/Neutral/Negative]`
             || attendee['Job Title']
             || null;
           
-          const name = attendee.name 
+          let name = attendee.name 
             || attendee.full_name 
             || attendee['Full Name']
             || attendee['full_name']
             || null;
+          
+          // === NAME CLEANUP ===
+          if (name) {
+            // CLEANUP 1: Strip orphan numbers between name and content
+            // Catches: "Padraic Carey 3 Usage limited" or "Ryan Lester 02 0 3 Managing Director"
+            const originalName = name;
+            name = name.replace(/\s+[\d\s]+(?=[A-Z]|$)/g, ' ').trim();
+            // Also strip trailing numbers: "Claire Davern 13" -> "Claire Davern"
+            name = name.replace(/\s+\d+\s*$/, '').trim();
+            if (name !== originalName) {
+              logger.info(`🧹 Cleaned name numbers: "${originalName}" → "${name}"`);
+            }
+            
+            // CLEANUP 2: Flip "Last, First" format to "First Last"
+            // Catches: "Carey, Padraic" or "AbdiShire, Bilan"
+            if (name.includes(',')) {
+              const parts = name.split(',').map(p => p.trim());
+              // Only flip if exactly 2 parts and both look like name parts (not titles with commas)
+              if (parts.length === 2 && 
+                  parts[0].length > 1 && parts[0].length < 25 &&
+                  parts[1].length > 1 && parts[1].length < 25 &&
+                  !parts[0].toLowerCase().includes('inc') &&
+                  !parts[0].toLowerCase().includes('llc')) {
+                const flippedName = parts[1] + ' ' + parts[0];
+                logger.info(`🧹 Flipped name format: "${name}" → "${flippedName}"`);
+                name = flippedName;
+              }
+            }
+            
+            // CLEANUP 3: Remove any trailing garbage like "e2", "a0" character codes
+            name = name.replace(/\s+[a-z]\d+\s*$/i, '').trim();
+            name = name.replace(/\s+[a-z]0['']s?\s*$/i, '').trim();
+          }
           
           const company = attendee.company 
             || attendee.company_name 
@@ -4860,27 +4893,80 @@ SENTIMENT: [Positive/Neutral/Negative]`
           // Clay sometimes merges two AI summaries that both start with the person's name
           let cleanedSummary = summary;
           if (cleanedSummary && name) {
-            // Extract first name for pattern matching
             const firstName = (name || '').split(' ')[0];
-            if (firstName && firstName.length > 2) {
-              // Split into sentences and remove duplicates
-              const sentences = cleanedSummary.split(/(?<=[.!?])\s+/);
-              const seen = new Set();
-              const uniqueSentences = sentences.filter(s => {
-                // Create a normalized key (first 50 chars, lowercase)
-                const key = s.substring(0, 50).toLowerCase().trim();
-                if (seen.has(key)) {
-                  logger.debug(`🧹 Removing duplicate sentence starting with: "${key.substring(0, 30)}..."`);
-                  return false;
+            const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            
+            // STEP 1: Remove sentences that start with the person's name after the first occurrence
+            // This catches: "Patrick Wilkinson - SVP at Ntrs." followed by "Patrick Wilkinson - SVP at Northern Trust..."
+            const sentences = cleanedSummary.split(/(?<=[.!?])\s+/);
+            let foundNameSentence = false;
+            const filteredSentences = sentences.filter(s => {
+              const startsWithName = s.trim().toLowerCase().startsWith(name.toLowerCase()) ||
+                                     s.trim().toLowerCase().startsWith(firstName.toLowerCase() + ' ');
+              if (startsWithName) {
+                if (foundNameSentence) {
+                  logger.info(`🧹 Removing duplicate name-starting sentence: "${s.substring(0, 60)}..."`);
+                  return false; // Skip subsequent sentences that start with the name
                 }
-                seen.add(key);
-                return true;
-              });
-              
-              if (uniqueSentences.length < sentences.length) {
-                cleanedSummary = uniqueSentences.join(' ');
-                logger.info(`🧹 De-duplicated summary: removed ${sentences.length - uniqueSentences.length} duplicate sentence(s)`);
+                foundNameSentence = true;
               }
+              return true;
+            });
+            
+            if (filteredSentences.length < sentences.length) {
+              cleanedSummary = filteredSentences.join(' ');
+              logger.info(`🧹 De-duplicated summary: removed ${sentences.length - filteredSentences.length} name-duplicate sentence(s)`);
+            }
+            
+            // STEP 2: Also remove exact duplicate sentences (first 50 chars match)
+            const finalSentences = cleanedSummary.split(/(?<=[.!?])\s+/);
+            const seen = new Set();
+            const uniqueSentences = finalSentences.filter(s => {
+              const key = s.substring(0, 50).toLowerCase().trim();
+              if (seen.has(key)) {
+                logger.debug(`🧹 Removing exact duplicate sentence: "${key.substring(0, 30)}..."`);
+                return false;
+              }
+              seen.add(key);
+              return true;
+            });
+            
+            if (uniqueSentences.length < finalSentences.length) {
+              cleanedSummary = uniqueSentences.join(' ');
+              logger.info(`🧹 Removed ${finalSentences.length - uniqueSentences.length} exact duplicate sentence(s)`);
+            }
+            
+            // STEP 3: Remove quoted duplicates like "Michelle - Title." followed by '"Michelle - Title."'
+            cleanedSummary = cleanedSummary.replace(/"([^"]+)"\s*\1/g, '$1');
+            cleanedSummary = cleanedSummary.replace(/([^"]+)"\s*\1"/g, '$1');
+          }
+          
+          // === SUMMARY VALIDATION: Null out "no data" responses ===
+          // These indicate Clay/LinkedIn couldn't find real profile data
+          if (cleanedSummary) {
+            const noDataPatterns = [
+              'profile information limited',
+              'unable to verify',
+              'usage limited',
+              'no public linkedin',
+              'could not find',
+              'no information available',
+              'information not available',
+              'details not available',
+              'unable to locate',
+              'no profile found',
+              'linkedin data unavailable'
+            ];
+            
+            const summaryLower = cleanedSummary.toLowerCase();
+            const isNoData = noDataPatterns.some(p => summaryLower.includes(p));
+            
+            // Also check if summary is too short to be useful (< 30 chars of actual content)
+            const isTooShort = cleanedSummary.trim().length < 30;
+            
+            if (isNoData || isTooShort) {
+              logger.info(`🚫 Nulling invalid summary for ${attendee.email}: "${cleanedSummary.substring(0, 50)}..."`);
+              cleanedSummary = null;
             }
           }
           

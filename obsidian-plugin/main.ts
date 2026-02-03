@@ -2397,14 +2397,26 @@ last_updated: ${dateStr}
    */
   async updateAccountNextSteps(accountName: string, nextStepsContent: string, sourceNotePath: string): Promise<void> {
     try {
+      console.log(`[Eudia] updateAccountNextSteps called for: ${accountName}`);
+      console.log(`[Eudia] Content length: ${nextStepsContent?.length || 0} chars`);
+      
       const safeName = accountName.replace(/[<>:"/\\|?*]/g, '_').trim();
       const nextStepsPath = `${this.settings.accountsFolder}/${safeName}/Next Steps.md`;
+      console.log(`[Eudia] Looking for Next Steps file at: ${nextStepsPath}`);
       
       const nextStepsFile = this.app.vault.getAbstractFileByPath(nextStepsPath);
       if (!nextStepsFile || !(nextStepsFile instanceof TFile)) {
-        console.log(`[Eudia] Next Steps file not found for ${accountName}`);
+        console.log(`[Eudia] ❌ Next Steps file NOT FOUND at: ${nextStepsPath}`);
+        // List files in the account folder to debug
+        const accountFolder = this.app.vault.getAbstractFileByPath(`${this.settings.accountsFolder}/${safeName}`);
+        if (accountFolder && accountFolder instanceof TFolder) {
+          console.log(`[Eudia] Files in ${safeName} folder:`, accountFolder.children.map(c => c.name));
+        } else {
+          console.log(`[Eudia] Account folder also not found: ${this.settings.accountsFolder}/${safeName}`);
+        }
         return;
       }
+      console.log(`[Eudia] ✓ Found Next Steps file, updating...`);
       
       const dateStr = new Date().toISOString().split('T')[0];
       const timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -2725,14 +2737,29 @@ last_updated: ${dateStr}
       // Detect account from file path
       let accountContext: MeetingContext | undefined;
       const pathParts = file.path.split('/');
+      console.log(`[Eudia] Processing transcription for: ${file.path}`);
+      console.log(`[Eudia] Path parts: ${JSON.stringify(pathParts)}, accountsFolder: ${this.settings.accountsFolder}`);
+      
       if (pathParts.length >= 2 && pathParts[0] === this.settings.accountsFolder) {
         const accountName = pathParts[1];
+        console.log(`[Eudia] Detected account folder: ${accountName}`);
+        
+        // Try to find in cached accounts for ID
         const account = this.settings.cachedAccounts.find(
           a => a.name.toLowerCase() === accountName.toLowerCase()
         );
+        
         if (account) {
           accountContext = { accountName: account.name, accountId: account.id };
+          console.log(`[Eudia] Found cached account: ${account.name} (${account.id})`);
+        } else {
+          // FALLBACK: Use folder name as account name even if not in cache
+          // This ensures Next Steps still works for accounts not yet synced
+          accountContext = { accountName: accountName, accountId: '' };
+          console.log(`[Eudia] Account not in cache, using folder name: ${accountName}`);
         }
+      } else {
+        console.log(`[Eudia] File not in Accounts folder, skipping account context`);
       }
 
       // Get speaker hints from current calendar meeting
@@ -2792,8 +2819,15 @@ last_updated: ${dateStr}
 
       // Extract and update Next Steps for the account
       const nextStepsContent = sections.nextSteps || sections.actionItems;
+      console.log(`[Eudia] Next Steps extraction - accountContext: ${accountContext?.accountName || 'undefined'}`);
+      console.log(`[Eudia] Next Steps content found: ${nextStepsContent ? 'YES (' + nextStepsContent.length + ' chars)' : 'NO'}`);
+      console.log(`[Eudia] sections.nextSteps: ${sections.nextSteps ? 'YES' : 'NO'}, sections.actionItems: ${sections.actionItems ? 'YES' : 'NO'}`);
+      
       if (nextStepsContent && accountContext?.accountName) {
+        console.log(`[Eudia] Calling updateAccountNextSteps for ${accountContext.accountName}`);
         await this.updateAccountNextSteps(accountContext.accountName, nextStepsContent, file.path);
+      } else {
+        console.log(`[Eudia] Skipping Next Steps update - missing content or account context`);
       }
 
       // Auto-sync if enabled

@@ -1248,6 +1248,31 @@ textarea.input-field {
   margin-top: 8px;
 }
 
+/* Skeleton loader for enrichment loading state */
+.skeleton-loader {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-bio {
+  height: 60px;
+  margin-top: 12px;
+  border-radius: 6px;
+}
+
+.skeleton-title {
+  height: 14px;
+  width: 60%;
+  margin-top: 4px;
+}
+
 .ai-badge {
   background: linear-gradient(135deg, #0ea5e9, #6366f1);
   color: white;
@@ -2307,8 +2332,9 @@ async function openMeetingPrep(meetingId) {
     additionalNotes: ['', '', '']
   };
   
-  // STEP 3: Render basic content immediately with "enriching" indicator
-  renderModalContent(currentMeetingData, { isEnriching: true });
+  // STEP 3: Render final form immediately with skeleton loaders for enrichment data
+  // Pass empty context and isEnriching flag - no more interim state flash!
+  renderPrepForm('', { isEnriching: true });
   
   // STEP 4: Fetch saved prep + enrichment data in BACKGROUND
   try {
@@ -2429,9 +2455,7 @@ async function openMeetingPrep(meetingId) {
       }
     }
     
-    // STEP 5: Re-render with enriched data (removes "enriching" indicator)
-    renderModalContent(currentMeetingData, { isEnriching: false });
-    
+    // STEP 5: Continue to load context (final render happens after context is ready)
     // Load context - try accountId first, then lookup by external attendee domain
     let contextHtml = '';
     let accountId = currentMeetingData.account_id || currentMeetingData.accountId;
@@ -2762,7 +2786,9 @@ function formatContextSection(ctx, meetingData, aiSummary = null) {
 }
 
 // Render the prep form
-function renderPrepForm(contextHtml) {
+// options.isEnriching: shows skeleton loaders for bio sections while fetching enrichment data
+function renderPrepForm(contextHtml, options = {}) {
+  const { isEnriching = false } = options;
   const data = currentMeetingData;
   const attendees = data.attendees || [];
   const meetingSource = data.source || 'unknown';
@@ -2838,20 +2864,20 @@ function renderPrepForm(contextHtml) {
                   <div class="attendee-header-info">
                     <div class="attendee-name">\${displayName}</div>
                     <div class="attendee-title-company">
-                      \${title ? title : ''}
-                      \${title && companyDisplay ? ' • ' : ''}
-                      \${companyDisplay ? companyDisplay : ''}
-                      \${!title && !companyDisplay ? 'Details pending...' : ''}
+                      \${isEnriching && !title ? '<div class="skeleton-loader skeleton-title"></div>' : ''}
+                      \${!isEnriching && title ? title : ''}
+                      \${!isEnriching && title && companyDisplay ? ' • ' : ''}
+                      \${!isEnriching && companyDisplay ? companyDisplay : ''}
+                      \${!isEnriching && !title && !companyDisplay ? '' : ''}
                     </div>
                   </div>
                 </div>
-                \${isEnriched && standardizedSummary ? \`
+                \${isEnriching ? \`
+                  <div class="skeleton-loader skeleton-bio"></div>
+                \` : (isEnriched && standardizedSummary ? \`
                   <div class="attendee-bio">\${standardizedSummary}</div>
-                \` : ''}
+                \` : '')}
                 <a href="https://www.linkedin.com/search/results/all/?keywords=\${encodeURIComponent(buildLinkedInSearchQuery(displayName, companyDisplay))}" target="_blank" class="attendee-linkedin">Find on LinkedIn</a>
-                \${!isEnriched ? \`
-                  <div class="attendee-pending-subtle">Enrichment in progress...</div>
-                \` : ''}
               </div>
             \`;
           }).join('')}
