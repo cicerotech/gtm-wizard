@@ -46,8 +46,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
   lastUpdated: '2026-02-03',
   businessLeads: {
     // ALEX FOX (8 accounts)
-    'alex@eudia.com': {
-      email: 'alex@eudia.com',
+    'alex.fox@eudia.com': {
+      email: 'alex.fox@eudia.com',
       name: 'Alex Fox',
       accounts: [
         { id: '001Wj00000mCFsTIAW', name: 'Arabic Computer Systems' },
@@ -62,8 +62,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
     },
 
     // ANANTH CHERUKUPALLY (13 accounts)
-    'ananth@eudia.com': {
-      email: 'ananth@eudia.com',
+    'ananth.cherukupally@eudia.com': {
+      email: 'ananth.cherukupally@eudia.com',
       name: 'Ananth Cherukupally',
       accounts: [
         { id: '001Wj00000RjuhjIAB', name: 'Citadel' },
@@ -83,8 +83,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
     },
 
     // ASAD HUSSAIN (35 accounts)
-    'asad@eudia.com': {
-      email: 'asad@eudia.com',
+    'asad.hussain@eudia.com': {
+      email: 'asad.hussain@eudia.com',
       name: 'Asad Hussain',
       accounts: [
         { id: '001Hp00003kIrCyIAK', name: 'Airbnb' },
@@ -126,8 +126,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
     },
 
     // CONOR MOLLOY (15 accounts)
-    'conor@eudia.com': {
-      email: 'conor@eudia.com',
+    'conor.molloy@eudia.com': {
+      email: 'conor.molloy@eudia.com',
       name: 'Conor Molloy',
       accounts: [
         { id: '001Hp00003kIrQDIA0', name: 'Accenture' },
@@ -149,8 +149,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
     },
 
     // EMER FLYNN (1 accounts)
-    'emer@eudia.com': {
-      email: 'emer@eudia.com',
+    'emer.flynn@eudia.com': {
+      email: 'emer.flynn@eudia.com',
       name: 'Emer Flynn',
       accounts: [
         { id: '001Wj00000mCFr6IAG', name: 'NTMA' },
@@ -158,8 +158,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
     },
 
     // GREG MACHALE (26 accounts)
-    'greg@eudia.com': {
-      email: 'greg@eudia.com',
+    'greg.machale@eudia.com': {
+      email: 'greg.machale@eudia.com',
       name: 'Greg MacHale',
       accounts: [
         { id: '001Hp00003kIrEFIA0', name: 'Abbott Laboratories' },
@@ -192,8 +192,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
     },
 
     // JULIE STEFANICH (31 accounts)
-    'julie@eudia.com': {
-      email: 'julie@eudia.com',
+    'julie.stefanich@eudia.com': {
+      email: 'julie.stefanich@eudia.com',
       name: 'Julie Stefanich',
       accounts: [
         { id: '001Wj00000asSHBIA2', name: 'Airbus' },
@@ -231,8 +231,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
     },
 
     // JUSTIN HILLS (20 accounts)
-    'justin@eudia.com': {
-      email: 'justin@eudia.com',
+    'justin.hills@eudia.com': {
+      email: 'justin.hills@eudia.com',
       name: 'Justin Hills',
       accounts: [
         { id: '001Hp00003kIrEOIA0', name: 'AES' },
@@ -259,8 +259,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
     },
 
     // KEIGAN PESENTI (11 accounts)
-    'keigan@eudia.com': {
-      email: 'keigan@eudia.com',
+    'keigan.pesenti@eudia.com': {
+      email: 'keigan.pesenti@eudia.com',
       name: 'Keigan Pesenti',
       accounts: [
         { id: '001Wj00000mCFt4IAG', name: 'BNRG Renewables Ltd' },
@@ -278,8 +278,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
     },
 
     // MIKE MASIELLO (17 accounts)
-    'mike@eudia.com': {
-      email: 'mike@eudia.com',
+    'mike.masiello@eudia.com': {
+      email: 'mike.masiello@eudia.com',
       name: 'Mike Masiello',
       accounts: [
         { id: '001Wj00000p1lCPIAY', name: 'Army Applications Lab' },
@@ -303,8 +303,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
     },
 
     // NATHAN SHINE (19 accounts)
-    'nathan@eudia.com': {
-      email: 'nathan@eudia.com',
+    'nathan.shine@eudia.com': {
+      email: 'nathan.shine@eudia.com',
       name: 'Nathan Shine',
       accounts: [
         { id: '001Hp00003kIrEnIAK', name: 'Amphenol' },
@@ -330,8 +330,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
     },
 
     // NICOLA FRATINI (29 accounts)
-    'nicola@eudia.com': {
-      email: 'nicola@eudia.com',
+    'nicola.fratini@eudia.com': {
+      email: 'nicola.fratini@eudia.com',
       name: 'Nicola Fratini',
       accounts: [
         { id: '001Wj00000mCFrGIAW', name: 'AerCap' },
@@ -367,8 +367,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
     },
 
     // OLIVIA JUNG (30 accounts)
-    'olivia@eudia.com': {
-      email: 'olivia@eudia.com',
+    'olivia.jung@eudia.com': {
+      email: 'olivia.jung@eudia.com',
       name: 'Olivia Jung',
       accounts: [
         { id: '001Wj00000mCFrdIAG', name: 'Airship Group Inc' },
@@ -405,8 +405,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
     },
 
     // TOM CLANCY (11 accounts)
-    'tom@eudia.com': {
-      email: 'tom@eudia.com',
+    'tom.clancy@eudia.com': {
+      email: 'tom.clancy@eudia.com',
       name: 'Tom Clancy',
       accounts: [
         { id: '001Wj00000pB30VIAS', name: 'AIR (Advanced Inhalation Rituals)' },
