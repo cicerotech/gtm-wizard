@@ -2208,36 +2208,112 @@ function formatTime(isoString) {
   return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
+/**
+ * Render modal content - handles both initial (enriching) and final states
+ * @param {Object} data - Meeting data to render
+ * @param {Object} options - { isEnriching: boolean } - shows loading indicator for attendees
+ */
+function renderModalContent(data, options = {}) {
+  const { isEnriching = false } = options;
+  
+  // Filter attendees
+  const allExternal = data.externalAttendees || [];
+  const externalAttendees = allExternal.filter(a => !isGhostAttendee(a) && !isExecutiveAssistant(a));
+  const allInternal = data.internalAttendees || [];
+  const internalAttendees = allInternal.filter(a => !isExecutiveAssistant(a));
+  
+  // Build attendee cards with enrichment status
+  let attendeesHtml = '';
+  
+  if (externalAttendees.length > 0) {
+    attendeesHtml += '<div class="attendees-group"><div class="attendees-group-title" style="color: #ea580c;">EXTERNAL ATTENDEES (' + externalAttendees.length + ')</div>';
+    
+    if (isEnriching) {
+      // Show basic attendee info with enrichment indicator
+      attendeesHtml += externalAttendees.map(a => {
+        const displayName = extractBestName(a, null);
+        const initials = displayName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+        return '<div class="attendee-card">' +
+          '<div class="attendee-avatar" style="background: #c4b5fd;">' + initials + '</div>' +
+          '<div class="attendee-info">' +
+          '<div class="attendee-name">' + displayName + '</div>' +
+          '<div class="attendee-title" style="color: #9ca3af; font-style: italic;">Enriching...</div>' +
+          '</div></div>';
+      }).join('');
+    } else {
+      // Full attendee cards (handled by renderPrepForm)
+      attendeesHtml += '<div style="color: #6b7280; font-size: 0.8rem;">Loading enriched profiles...</div>';
+    }
+    attendeesHtml += '</div>';
+  }
+  
+  if (internalAttendees.length > 0) {
+    attendeesHtml += '<div class="attendees-group"><div class="attendees-group-title" style="color: #ea580c;">INTERNAL ATTENDEES (' + internalAttendees.length + ')</div>';
+    attendeesHtml += internalAttendees.map(a => {
+      const displayName = normalizeName(a.name) || extractNameFromEmail(a.email);
+      const initials = displayName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+      return '<div class="attendee-card">' +
+        '<div class="attendee-avatar" style="background: #86efac;">' + initials + '</div>' +
+        '<div class="attendee-info">' +
+        '<div class="attendee-name">' + displayName + '</div>' +
+        '</div></div>';
+    }).join('');
+    attendeesHtml += '</div>';
+  }
+  
+  // Initial render - show attendees and loading indicator for context
+  const loadingContext = isEnriching ? 
+    '<div class="context-section"><div class="context-content" style="padding: 20px; text-align: center;">' +
+    '<div class="spinner" style="margin: 0 auto 10px;"></div>' +
+    '<div style="color: #6b7280; font-size: 0.85rem;">Loading account context...</div></div></div>' : '';
+  
+  document.getElementById('modalBody').innerHTML = 
+    loadingContext +
+    '<div class="form-section">' +
+    '<div class="form-section-title">Attendees</div>' +
+    attendeesHtml +
+    '</div>' +
+    (isEnriching ? '' : '<div id="prepFormContent"></div>');
+}
+
 // Open meeting prep modal
 async function openMeetingPrep(meetingId) {
+  // STEP 1: Clear previous state IMMEDIATELY (prevents stale data flash)
   currentMeetingId = meetingId;
-  document.getElementById('prepModal').classList.add('active');
-  document.getElementById('modalBody').innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading meeting details...</p></div>';
+  currentMeetingData = null;
   
-  // Get meeting info from pre-loaded data
+  // Get meeting info from pre-loaded data (ALREADY AVAILABLE - no API call needed!)
   const meetingInfo = MEETINGS_DATA[meetingId] || {};
   
+  // STEP 2: Show modal with pre-loaded data INSTANTLY (no spinner!)
+  document.getElementById('modalTitle').textContent = meetingInfo.accountName || 'Meeting Prep';
+  document.getElementById('modalSubtitle').textContent = meetingInfo.meetingTitle || '';
+  document.getElementById('prepModal').classList.add('active');
+  
+  // Initialize currentMeetingData from pre-loaded info
+  currentMeetingData = {
+    meetingId,
+    accountName: meetingInfo.accountName || '',
+    meetingTitle: meetingInfo.meetingTitle || '',
+    meetingDate: meetingInfo.meetingDate || '',
+    accountId: meetingInfo.accountId || null,
+    source: meetingInfo.source || 'unknown',
+    externalAttendees: meetingInfo.externalAttendees || [],
+    internalAttendees: meetingInfo.internalAttendees || [],
+    agenda: ['', '', ''],
+    goals: ['', '', ''],
+    demoSelections: [{ product: '', subtext: '' }, { product: '', subtext: '' }, { product: '', subtext: '' }],
+    context: '',
+    additionalNotes: ['', '', '']
+  };
+  
+  // STEP 3: Render basic content immediately with "enriching" indicator
+  renderModalContent(currentMeetingData, { isEnriching: true });
+  
+  // STEP 4: Fetch saved prep + enrichment data in BACKGROUND
   try {
-    // Load saved meeting prep data
     const prepRes = await fetch('/api/meeting-prep/' + meetingId);
     const prepData = await prepRes.json();
-    
-    // Start with meeting info from Outlook (has attendees)
-    currentMeetingData = {
-      meetingId,
-      accountName: meetingInfo.accountName || '',
-      meetingTitle: meetingInfo.meetingTitle || '',
-      meetingDate: meetingInfo.meetingDate || '',
-      accountId: meetingInfo.accountId || null,
-      source: meetingInfo.source || 'unknown',
-      externalAttendees: meetingInfo.externalAttendees || [],
-      internalAttendees: meetingInfo.internalAttendees || [],
-      agenda: ['', '', ''],
-      goals: ['', '', ''],
-      demoSelections: [{ product: '', subtext: '' }, { product: '', subtext: '' }, { product: '', subtext: '' }],
-      context: '',
-      additionalNotes: ['', '', '']
-    };
     
     // Merge with saved prep data if exists
     if (prepData.success && prepData.prep) {
@@ -2353,8 +2429,8 @@ async function openMeetingPrep(meetingId) {
       }
     }
     
-    document.getElementById('modalTitle').textContent = currentMeetingData.accountName || 'Meeting Prep';
-    document.getElementById('modalSubtitle').textContent = currentMeetingData.meetingTitle || '';
+    // STEP 5: Re-render with enriched data (removes "enriching" indicator)
+    renderModalContent(currentMeetingData, { isEnriching: false });
     
     // Load context - try accountId first, then lookup by external attendee domain
     let contextHtml = '';
@@ -3206,6 +3282,14 @@ function getSeniorityClass(seniority) {
   if (s.includes('manager')) return 'manager';
   return 'other';
 }
+
+// Listen for messages from parent window (for deep linking via Copy Link)
+window.addEventListener('message', function(event) {
+  if (event.data && event.data.action === 'openMeeting' && event.data.meetingId) {
+    console.log('[Deep Link] Received request to open meeting:', event.data.meetingId);
+    openMeetingPrep(event.data.meetingId);
+  }
+});
 
 </script>
 

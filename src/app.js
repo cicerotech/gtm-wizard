@@ -4856,7 +4856,35 @@ SENTIMENT: [Positive/Neutral/Negative]`
             || attendee['Company']
             || null;
           
-          logger.info(`💾 Saving enrichment: ${attendee.email} - Title: ${title ? 'YES' : 'NO'}, Summary: ${summary ? 'YES (' + summary.length + ' chars)' : 'NO'}, LinkedIn: ${linkedinUrl ? 'YES' : 'NO'}`);
+          // DE-DUPLICATE: Remove repeated name mentions from summary
+          // Clay sometimes merges two AI summaries that both start with the person's name
+          let cleanedSummary = summary;
+          if (cleanedSummary && name) {
+            // Extract first name for pattern matching
+            const firstName = (name || '').split(' ')[0];
+            if (firstName && firstName.length > 2) {
+              // Split into sentences and remove duplicates
+              const sentences = cleanedSummary.split(/(?<=[.!?])\s+/);
+              const seen = new Set();
+              const uniqueSentences = sentences.filter(s => {
+                // Create a normalized key (first 50 chars, lowercase)
+                const key = s.substring(0, 50).toLowerCase().trim();
+                if (seen.has(key)) {
+                  logger.debug(`🧹 Removing duplicate sentence starting with: "${key.substring(0, 30)}..."`);
+                  return false;
+                }
+                seen.add(key);
+                return true;
+              });
+              
+              if (uniqueSentences.length < sentences.length) {
+                cleanedSummary = uniqueSentences.join(' ');
+                logger.info(`🧹 De-duplicated summary: removed ${sentences.length - uniqueSentences.length} duplicate sentence(s)`);
+              }
+            }
+          }
+          
+          logger.info(`💾 Saving enrichment: ${attendee.email} - Title: ${title ? 'YES' : 'NO'}, Summary: ${cleanedSummary ? 'YES (' + cleanedSummary.length + ' chars)' : 'NO'}, LinkedIn: ${linkedinUrl ? 'YES' : 'NO'}`);
           
           await intelligenceStore.saveAttendeeEnrichment({
             email: attendee.email,
@@ -4864,7 +4892,7 @@ SENTIMENT: [Positive/Neutral/Negative]`
             title,
             linkedinUrl,
             company,
-            summary,
+            summary: cleanedSummary,
             source: attendee.source || 'clay'
           });
           results.push({ email: attendee.email, saved: true, hasSummary: !!summary });

@@ -270,6 +270,51 @@ input[name="main-tab"] { display: none; }
   
 </div>
 
+<script>
+// Handle deep linking via query params (for Copy Link feature)
+document.addEventListener('DOMContentLoaded', function() {
+  var urlParams = new URLSearchParams(window.location.search);
+  var tabParam = urlParams.get('tab');
+  var meetingParam = urlParams.get('meeting');
+  
+  // Switch to specified tab
+  if (tabParam) {
+    var tabMap = {
+      'sales': 'tab-sales',
+      'dashboard': 'tab-dashboard',
+      'meeting-prep': 'tab-meeting-prep',
+      'architecture': 'tab-architecture',
+      'commands': 'tab-commands',
+      'start': 'tab-start'
+    };
+    
+    var tabId = tabMap[tabParam];
+    if (tabId) {
+      document.getElementById(tabId).checked = true;
+    }
+  }
+  
+  // If meeting ID specified, tell the meeting-prep iframe to open that meeting
+  if (meetingParam && tabParam === 'meeting-prep') {
+    var iframe = document.querySelector('#content-meeting-prep iframe');
+    
+    var sendMessage = function() {
+      iframe.contentWindow.postMessage({ 
+        action: 'openMeeting', 
+        meetingId: meetingParam 
+      }, '*');
+    };
+    
+    if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+      setTimeout(sendMessage, 500);
+    } else {
+      iframe.addEventListener('load', function() {
+        setTimeout(sendMessage, 500);
+      });
+    }
+  }
+});
+</script>
 </body>
 </html>`;
 }

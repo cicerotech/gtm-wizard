@@ -2004,8 +2004,20 @@ export default class EudiaSyncPlugin extends Plugin {
     // On layout ready
     this.app.workspace.onLayoutReady(async () => {
       // Show setup view for new users (full-page onboarding)
-      if (!this.settings.setupCompleted && !this.settings.userEmail) {
-        // Open the new setup view in the main content area
+      // This runs after plugin trust, so we always check and redirect
+      if (!this.settings.setupCompleted) {
+        // Small delay to ensure any settings dialogs have opened
+        await new Promise(r => setTimeout(r, 100));
+        
+        // Close settings modal if open (user just trusted plugins)
+        const settingModal = document.querySelector('.modal-container .modal');
+        if (settingModal) {
+          // Settings modal is open - close it and show setup
+          const closeBtn = settingModal.querySelector('.modal-close-button') as HTMLElement;
+          if (closeBtn) closeBtn.click();
+        }
+        
+        // Open the setup view in the main content area
         await this.activateSetupView();
       } else if (this.settings.syncOnStartup) {
         // Scan local folders instead of syncing from server
@@ -2381,6 +2393,7 @@ last_updated: ${dateStr}
 
   /**
    * Update an account's Next Steps.md file after transcription
+   * Appends to history instead of overwriting
    */
   async updateAccountNextSteps(accountName: string, nextStepsContent: string, sourceNotePath: string): Promise<void> {
     try {
@@ -2412,9 +2425,26 @@ last_updated: ${dateStr}
           .join('\n');
       }
       
-      // Build new content
+      // Read existing content to preserve history
+      const existingContent = await this.app.vault.read(nextStepsFile);
+      
+      // Extract existing history section
+      let existingHistory = '';
+      const historyMatch = existingContent.match(/## History\n\n\*Previous next steps are archived below\.\*\n\n([\s\S]*?)$/);
+      if (historyMatch && historyMatch[1]) {
+        existingHistory = historyMatch[1].trim();
+      }
+      
+      // Build new history entry (prepend to existing)
+      const newHistoryEntry = `### ${dateStr} - ${sourceNote}\n${formattedNextSteps || '*None*'}`;
+      const combinedHistory = existingHistory 
+        ? `${newHistoryEntry}\n\n---\n\n${existingHistory}`
+        : newHistoryEntry;
+      
+      // Build new content with preserved history
       const newContent = `---
 account: "${accountName}"
+account_id: "${this.settings.cachedAccounts.find(a => a.name === accountName)?.id || ''}"
 type: next_steps
 auto_updated: true
 last_updated: ${dateStr}
@@ -2423,9 +2453,11 @@ sync_to_salesforce: false
 
 # ${accountName} - Next Steps
 
-*Last updated: ${dateStr} ${timeStr} from ${sourceNote}*
+*This note is automatically updated after each meeting transcription.*
 
 ## Current Next Steps
+
+*Last updated: ${dateStr} ${timeStr} from ${sourceNote}*
 
 ${formattedNextSteps || '*No next steps identified*'}
 
@@ -2435,12 +2467,11 @@ ${formattedNextSteps || '*No next steps identified*'}
 
 *Previous next steps are archived below.*
 
-### ${dateStr} - ${sourceNote}
-${formattedNextSteps || '*None*'}
+${combinedHistory}
 `;
       
       await this.app.vault.modify(nextStepsFile, newContent);
-      console.log(`[Eudia] Updated Next Steps for ${accountName}`);
+      console.log(`[Eudia] Updated Next Steps for ${accountName} (history preserved)`);
       
       // Regenerate the aggregated dashboard
       await this.regenerateNextStepsDashboard();
@@ -2761,8 +2792,8 @@ last_updated: ${dateStr}
 
       // Extract and update Next Steps for the account
       const nextStepsContent = sections.nextSteps || sections.actionItems;
-      if (nextStepsContent && accountContext?.account?.name) {
-        await this.updateAccountNextSteps(accountContext.account.name, nextStepsContent, file.path);
+      if (nextStepsContent && accountContext?.accountName) {
+        await this.updateAccountNextSteps(accountContext.accountName, nextStepsContent, file.path);
       }
 
       // Auto-sync if enabled
