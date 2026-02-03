@@ -9,7 +9,7 @@
  * - Run this ONCE at the start of Q1 (Feb 1, 2026)
  */
 
-// Query all Q1 2026 opportunities (Target Sign Date in Q1: Feb 1 - Apr 30, 2026)
+// Query all Q1 2026 opportunities (Target LOI Date in Q1: Feb 1 - Apr 30, 2026)
 List<Opportunity> q1Opps = [
     SELECT Id, Name, 
            Quarterly_Commit_Net_New__c,
@@ -17,12 +17,12 @@ List<Opportunity> q1Opps = [
            ACV__c,
            StageName,
            Owner.Name,
-           Target_Sign_Date__c,
+           Target_LOI_Date__c,
            Q1_2026_Commit_Snapshot__c,
            Q1_2026_Snapshot_Date__c
     FROM Opportunity
-    WHERE Target_Sign_Date__c >= 2026-02-01
-      AND Target_Sign_Date__c <= 2026-04-30
+    WHERE Target_LOI_Date__c >= 2026-02-01
+      AND Target_LOI_Date__c <= 2026-04-30
       AND IsClosed = false
     ORDER BY Owner.Name, Name
 ];
