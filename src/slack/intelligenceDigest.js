@@ -1,17 +1,26 @@
 /**
  * Intelligence Digest Service
- * Daily digest generation and interactive approval workflow
+ * Daily digest generation with layered, topic-based organization
+ * 
+ * Output Structure:
+ * - HEADLINES: 2-3 key takeaways per account
+ * - DETAIL BY TOPIC: Grouped signals with full quotes
+ * - Expandable full list
  */
 
 const cron = require('node-cron');
 const logger = require('../utils/logger');
 const intelligenceStore = require('../services/intelligenceStore');
 const { query, sfConnection } = require('../salesforce/connection');
+const { socratesAdapter } = require('../ai/socratesAdapter');
+const { buildTopicClusteringPrompt, TOPIC_CLUSTERING_SYSTEM } = require('../ai/digestPrompts');
 
 // Configuration
 const DIGEST_CHANNEL = process.env.INTEL_DIGEST_CHANNEL;
 const DIGEST_TIME = process.env.INTEL_DIGEST_TIME || '08:00';
 const MAX_ITEMS_PER_ACCOUNT = 5;  // Limit items shown per account in digest
+const MAX_TOPICS_PER_ACCOUNT = 5; // Max topics to show in layered view
+const MAX_SIGNALS_PER_TOPIC = 3;  // Max signals shown per topic in detail
 
 let digestSchedule = null;
 let slackClient = null;
@@ -99,8 +108,8 @@ async function sendDigest(targetChannel = null) {
     const totalItems = accountGroups.reduce((sum, g) => sum + g.items.length, 0);
     const totalAccounts = accountGroups.length;
     
-    // Build the digest message with Block Kit
-    const blocks = buildDigestBlocks(accountGroups);
+    // Build the digest message with Block Kit (now async for AI clustering)
+    const blocks = await buildDigestBlocks(accountGroups);
     
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/6cbaf1f9-0647-49b0-8811-5ad970525e48',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'intelligenceDigest.js:sendDigest',message:'SENDING DIGEST to channel',data:{channel,totalItems,totalAccounts},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
@@ -128,9 +137,105 @@ async function sendDigest(targetChannel = null) {
 }
 
 /**
- * Build Block Kit blocks for the digest
+ * Cluster signals by topic using Claude AI
+ * Groups related signals and generates headlines
  */
-function buildDigestBlocks(accountGroups) {
+async function clusterSignalsByTopic(signals, accountName) {
+  if (!signals || signals.length === 0) {
+    return { topics: [], signalCount: 0 };
+  }
+  
+  // For small signal counts, skip AI and use category-based grouping
+  if (signals.length <= 3) {
+    return fallbackCategoryClustering(signals);
+  }
+  
+  try {
+    const prompt = buildTopicClusteringPrompt(signals);
+    
+    const response = await socratesAdapter.makeRequest(
+      [
+        { role: 'system', content: TOPIC_CLUSTERING_SYSTEM },
+        { role: 'user', content: prompt }
+      ],
+      { 
+        model: 'eudia-claude-opus-4.5',
+        max_tokens: 2000,
+        temperature: 0.3  // Lower temperature for more consistent output
+      }
+    );
+    
+    // Extract content from response
+    const responseText = response?.choices?.[0]?.message?.content || '';
+    
+    // Parse the JSON response
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      logger.warn(`[Digest] Failed to parse topic clustering for ${accountName}, using fallback`);
+      return fallbackCategoryClustering(signals);
+    }
+    
+    const result = JSON.parse(jsonMatch[0]);
+    
+    // Validate and enrich with original signal data
+    if (result.topics && Array.isArray(result.topics)) {
+      result.topics = result.topics.map(topic => ({
+        ...topic,
+        signals: topic.signals.map(s => {
+          // Find the original signal to preserve all data
+          const original = signals.find(orig => orig.id === s.id);
+          return original || s;
+        })
+      }));
+    }
+    
+    return result;
+    
+  } catch (error) {
+    logger.error(`[Digest] Error clustering signals for ${accountName}:`, error.message);
+    return fallbackCategoryClustering(signals);
+  }
+}
+
+/**
+ * Fallback clustering when AI is unavailable
+ * Groups by category instead of topic
+ */
+function fallbackCategoryClustering(signals) {
+  const categoryGroups = {};
+  
+  for (const signal of signals) {
+    const category = signal.category || 'other';
+    if (!categoryGroups[category]) {
+      categoryGroups[category] = {
+        topicName: formatCategory(category),
+        headline: `${signals.length} ${formatCategory(category).toLowerCase()} signal${signals.length > 1 ? 's' : ''} captured`,
+        signals: []
+      };
+    }
+    categoryGroups[category].signals.push(signal);
+  }
+  
+  // Generate simple headlines based on first signal
+  Object.values(categoryGroups).forEach(group => {
+    if (group.signals.length > 0) {
+      const firstSignal = group.signals[0];
+      group.headline = firstSignal.summary || firstSignal.message_text?.substring(0, 100) + '...';
+    }
+  });
+  
+  return {
+    topics: Object.values(categoryGroups).slice(0, MAX_TOPICS_PER_ACCOUNT),
+    signalCount: signals.length
+  };
+}
+
+/**
+ * Build Block Kit blocks for the LAYERED digest
+ * Layer 1: Headlines per account
+ * Layer 2: Detail by topic with full quotes
+ */
+async function buildDigestBlocks(accountGroups) {
   const today = new Date().toLocaleDateString('en-US', { 
     weekday: 'long',
     month: 'long', 
@@ -163,75 +268,142 @@ function buildDigestBlocks(accountGroups) {
     }
   ];
   
-  // Add each account's intelligence
+  // Process each account with topic clustering
   for (const group of accountGroups) {
     const accountName = group.accountName;
-    const items = group.items.slice(0, MAX_ITEMS_PER_ACCOUNT);
-    const hasMore = group.items.length > MAX_ITEMS_PER_ACCOUNT;
+    const signalCount = group.items.length;
     
-    // Account header
+    // Cluster signals by topic (with AI if available)
+    const clustered = await clusterSignalsByTopic(group.items, accountName);
+    
+    // ═══════════════════════════════════════════════════
+    // ACCOUNT HEADER
+    // ═══════════════════════════════════════════════════
     blocks.push({
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*${accountName}* (${group.items.length} item${group.items.length > 1 ? 's' : ''})`
+        text: `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n*${accountName}*                                           _${signalCount} signals_`
       }
     });
     
-    // Add each item with approve/reject buttons
-    for (const item of items) {
-      const categoryEmoji = getCategoryEmoji(item.category);
-      const confidenceIndicator = item.confidence >= 0.9 ? '🟢' : item.confidence >= 0.8 ? '🟡' : '🟠';
+    // ═══════════════════════════════════════════════════
+    // LAYER 1: HEADLINES
+    // ═══════════════════════════════════════════════════
+    if (clustered.topics && clustered.topics.length > 0) {
+      const headlineText = clustered.topics
+        .slice(0, 3)  // Max 3 headlines
+        .map(t => `• ${t.headline}`)
+        .join('\n');
       
       blocks.push({
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `${categoryEmoji} *${formatCategory(item.category)}*\n${item.summary || item.message_text?.substring(0, 100)}...\n_by ${item.message_author_name} in #${item.channel_name || 'unknown'}_ ${confidenceIndicator}`
-        },
-        accessory: {
-          type: 'overflow',
-          options: [
-            {
-              text: {
-                type: 'plain_text',
-                text: '✅ Approve',
-                emoji: true
-              },
-              value: `approve_intel_${item.id}`
-            },
-            {
-              text: {
-                type: 'plain_text',
-                text: '❌ Reject',
-                emoji: true
-              },
-              value: `reject_intel_${item.id}`
-            },
-            {
-              text: {
-                type: 'plain_text',
-                text: '👁️ View Full',
-                emoji: true
-              },
-              value: `view_intel_${item.id}`
-            }
-          ],
-          action_id: 'intel_item_action'
+          text: `*HEADLINES*\n${headlineText}`
         }
       });
-    }
-    
-    if (hasMore) {
+      
+      // ═══════════════════════════════════════════════════
+      // LAYER 2: DETAIL BY TOPIC
+      // ═══════════════════════════════════════════════════
       blocks.push({
         type: 'context',
         elements: [
           {
             type: 'mrkdwn',
-            text: `_...and ${group.items.length - MAX_ITEMS_PER_ACCOUNT} more items_`
+            text: '─────────────────────────────────────────\n*DETAIL BY TOPIC*'
           }
         ]
       });
+      
+      for (const topic of clustered.topics.slice(0, MAX_TOPICS_PER_ACCOUNT)) {
+        // Topic header
+        blocks.push({
+          type: 'context',
+          elements: [
+            {
+              type: 'mrkdwn',
+              text: `\n📌 *${topic.topicName}*`
+            }
+          ]
+        });
+        
+        // Show signals with full quotes (up to MAX_SIGNALS_PER_TOPIC)
+        const topicSignals = topic.signals.slice(0, MAX_SIGNALS_PER_TOPIC);
+        
+        for (const signal of topicSignals) {
+          const categoryEmoji = getCategoryEmoji(signal.category);
+          const fullText = signal.message_text || signal.fullText || signal.summary || '';
+          const truncatedText = fullText.length > 300 
+            ? fullText.substring(0, 300) + '...' 
+            : fullText;
+          
+          blocks.push({
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: `${categoryEmoji} *${formatCategory(signal.category)}*: "${truncatedText}"\n_— ${signal.message_author_name || signal.author} in #${signal.channel_name || signal.channel || 'unknown'}_`
+            },
+            accessory: {
+              type: 'overflow',
+              options: [
+                {
+                  text: {
+                    type: 'plain_text',
+                    text: '✅ Approve',
+                    emoji: true
+                  },
+                  value: `approve_intel_${signal.id}`
+                },
+                {
+                  text: {
+                    type: 'plain_text',
+                    text: '❌ Reject',
+                    emoji: true
+                  },
+                  value: `reject_intel_${signal.id}`
+                },
+                {
+                  text: {
+                    type: 'plain_text',
+                    text: '👁️ View Full',
+                    emoji: true
+                  },
+                  value: `view_intel_${signal.id}`
+                }
+              ],
+              action_id: 'intel_item_action'
+            }
+          });
+        }
+        
+        // Show "more items" indicator for this topic
+        if (topic.signals.length > MAX_SIGNALS_PER_TOPIC) {
+          blocks.push({
+            type: 'context',
+            elements: [
+              {
+                type: 'mrkdwn',
+                text: `_...and ${topic.signals.length - MAX_SIGNALS_PER_TOPIC} more in this topic_`
+              }
+            ]
+          });
+        }
+      }
+    } else {
+      // Fallback to simple list if no topics
+      const items = group.items.slice(0, MAX_ITEMS_PER_ACCOUNT);
+      for (const item of items) {
+        const categoryEmoji = getCategoryEmoji(item.category);
+        blocks.push({
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `${categoryEmoji} *${formatCategory(item.category)}*\n${item.summary || item.message_text?.substring(0, 100)}...\n_by ${item.message_author_name} in #${item.channel_name || 'unknown'}_`
+          }
+        });
+      }
     }
     
     blocks.push({

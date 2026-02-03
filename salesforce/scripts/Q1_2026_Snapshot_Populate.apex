@@ -4,9 +4,7 @@
  * Run this in Salesforce Developer Console (Execute Anonymous)
  * This captures current BL commits and forecast data for Q1 2026 accuracy measurement
  * 
- * Prerequisites:
- * - Deploy the Q1_2026 snapshot fields first
- * - Run this ONCE at the start of Q1 (Feb 1, 2026)
+ * Updated: Processes in batches of 10 to avoid SOQL limits from flow triggers
  */
 
 // Query all Q1 2026 opportunities (Target LOI Date in Q1: Feb 1 - Apr 30, 2026)
@@ -24,22 +22,16 @@ List<Opportunity> q1Opps = [
     WHERE Target_LOI_Date__c >= 2026-02-01
       AND Target_LOI_Date__c <= 2026-04-30
       AND IsClosed = false
+      AND Q1_2026_Snapshot_Date__c = null
     ORDER BY Owner.Name, Name
+    LIMIT 10
 ];
 
-System.debug('Found ' + q1Opps.size() + ' Q1 2026 opportunities to snapshot');
+System.debug('Processing batch of ' + q1Opps.size() + ' Q1 2026 opportunities');
 
 List<Opportunity> toUpdate = new List<Opportunity>();
-Integer alreadySnapshotted = 0;
-Integer newSnapshots = 0;
 
 for (Opportunity opp : q1Opps) {
-    // Skip if already snapshotted (don't overwrite)
-    if (opp.Q1_2026_Snapshot_Date__c != null) {
-        alreadySnapshotted++;
-        continue;
-    }
-    
     // Capture current values
     opp.Q1_2026_Commit_Snapshot__c = opp.Quarterly_Commit_Net_New__c;
     opp.Q1_2026_Forecast_Category_Snapshot__c = opp.BL_Forecast_Category__c != null 
@@ -51,7 +43,6 @@ for (Opportunity opp : q1Opps) {
     opp.Q1_2026_Snapshot_Date__c = Date.today();
     
     toUpdate.add(opp);
-    newSnapshots++;
     
     System.debug('Snapshotting: ' + opp.Name + 
                  ' | Owner: ' + opp.Owner.Name +
@@ -59,14 +50,22 @@ for (Opportunity opp : q1Opps) {
                  ' | Category: ' + opp.BL_Forecast_Category__c);
 }
 
-// Update all opportunities
+// Update opportunities
 if (!toUpdate.isEmpty()) {
     update toUpdate;
     System.debug('SUCCESS: Updated ' + toUpdate.size() + ' opportunities with Q1 2026 snapshots');
+    System.debug('>>> RUN THIS SCRIPT AGAIN to process more records <<<');
+} else {
+    System.debug('=== ALL DONE! No more records to process ===');
 }
 
-System.debug('=== SUMMARY ===');
-System.debug('Total Q1 Opps: ' + q1Opps.size());
-System.debug('Already Snapshotted: ' + alreadySnapshotted);
-System.debug('New Snapshots Created: ' + newSnapshots);
-System.debug('Snapshot Date: ' + Date.today());
+// Check how many remain
+Integer remaining = [
+    SELECT COUNT() 
+    FROM Opportunity 
+    WHERE Target_LOI_Date__c >= 2026-02-01
+      AND Target_LOI_Date__c <= 2026-04-30
+      AND IsClosed = false
+      AND Q1_2026_Snapshot_Date__c = null
+];
+System.debug('Remaining to snapshot: ' + remaining);

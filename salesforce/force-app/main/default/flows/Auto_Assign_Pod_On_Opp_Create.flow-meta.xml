@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>59.0</apiVersion>
+    <description>Automatically assigns Pod field based on Opportunity Owner when an Opportunity is created. Allows manual override after creation.</description>
+    <environments>Default</environments>
+    
+    <!-- Formula to get Owner Name -->
+    <formulas>
+        <name>OwnerName</name>
+        <dataType>String</dataType>
+        <expression>{!$Record.Owner.Name}</expression>
+    </formulas>
+    
+    <!-- Formula to determine Pod -->
+    <formulas>
+        <name>DeterminedPod</name>
+        <dataType>String</dataType>
+        <expression>CASE({!OwnerName},
+    "Ananth Cherukupally", "US",
+    "Asad Hussain", "US",
+    "Julie Stefanich", "US",
+    "Justin Hills", "US",
+    "Mike Masiello", "US",
+    "Olivia Jung", "US",
+    "Alex Fox", "EU",
+    "Conor Molloy", "EU",
+    "Emer Flynn", "EU",
+    "Nathan Shine", "EU",
+    "Nicola Fratini", "EU",
+    "Tom Clancy", "EU",
+    ""
+)</expression>
+    </formulas>
+    
+    <interviewLabel>Auto Assign Pod On Opp Create {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Auto Assign Pod On Opp Create</label>
+    <processType>AutoLaunchedFlow</processType>
+    
+    <!-- Decision: Should we assign a Pod? -->
+    <decisions>
+        <name>Should_Assign_Pod</name>
+        <label>Should Assign Pod</label>
+        <locationX>176</locationX>
+        <locationY>158</locationY>
+        <defaultConnectorLabel>No Pod Match or Already Set</defaultConnectorLabel>
+        <rules>
+            <name>Pod_Determined</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>DeterminedPod</leftValueReference>
+                <operator>NotEqualTo</operator>
+                <rightValue>
+                    <stringValue></stringValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.Pod__c</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>true</booleanValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Assign_Pod</targetReference>
+            </connector>
+            <label>Pod Determined</label>
+        </rules>
+    </decisions>
+    
+    <!-- Assignment: Set Pod -->
+    <assignments>
+        <name>Assign_Pod</name>
+        <label>Assign Pod</label>
+        <locationX>176</locationX>
+        <locationY>266</locationY>
+        <assignmentItems>
+            <assignToReference>$Record.Pod__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>DeterminedPod</elementReference>
+            </value>
+        </assignmentItems>
+    </assignments>
+    
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Should_Assign_Pod</targetReference>
+        </connector>
+        <object>Opportunity</object>
+        <recordTriggerType>Create</recordTriggerType>
+        <triggerType>RecordBeforeSave</triggerType>
+    </start>
+    
+    <status>Active</status>
+</Flow>

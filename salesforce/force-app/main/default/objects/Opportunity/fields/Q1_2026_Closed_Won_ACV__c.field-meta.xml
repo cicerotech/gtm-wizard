@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Q1_2026_Closed_Won_ACV__c</fullName>
+    <description>Returns ACV only for deals that closed won in Q1 2026 (Feb 1 - Apr 30). Use this column to see closed revenue without double-counting open pipeline.</description>
+    <externalId>false</externalId>
+    <formula>IF(
+  AND(
+    ISPICKVAL(StageName, "Stage 6. Closed(Won)"),
+    CloseDate &gt;= DATE(2026, 2, 1),
+    CloseDate &lt;= DATE(2026, 4, 30)
+  ),
+  ACV__c,
+  0
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Q1 2026 Closed Won ACV</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Currency</type>
+</CustomField>
