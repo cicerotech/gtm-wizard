@@ -62,8 +62,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
     },
 
     // ANANTH CHERUKUPALLY (13 accounts)
-    'ananth.cherukupally@eudia.com': {
-      email: 'ananth.cherukupally@eudia.com',
+    'ananth@eudia.com': {
+      email: 'ananth@eudia.com',
       name: 'Ananth Cherukupally',
       accounts: [
         { id: '001Wj00000RjuhjIAB', name: 'Citadel' },
@@ -367,8 +367,8 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
     },
 
     // OLIVIA JUNG (30 accounts)
-    'olivia.jung@eudia.com': {
-      email: 'olivia.jung@eudia.com',
+    'olivia@eudia.com': {
+      email: 'olivia@eudia.com',
       name: 'Olivia Jung',
       accounts: [
         { id: '001Wj00000mCFrdIAG', name: 'Airship Group Inc' },
