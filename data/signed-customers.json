@@ -3,127 +3,427 @@
     {
       "accountName": "Toshiba US",
       "legalEntity": "Toshiba America, Inc.",
-      "context": "Provides comprehensive Energy, Industrial, and Electronics Solutions across the Americas. Develops advanced power generation and decarbonization technologies, industrial innovations, and semiconductor/data storage solutions."
+      "context": "• Provides comprehensive Energy, Industrial, and Electronics Solutions across the Americas.\n• Develops advanced power generation and decarbonization technologies, industrial innovations, and semiconductor/data storage solutions.\n• Supports industries such as energy, manufacturing, infrastructure, automotive, and AI development with its technologies."
     },
     {
       "accountName": "Airbnb",
       "legalEntity": "Airbnb, Inc.",
-      "context": "Operates a global online marketplace connecting hosts and guests for unique stays and experiences. Offers a wide range of accommodations, from homes to unique stays, alongside curated local experiences and services."
+      "context": "• Operates a global online marketplace connecting hosts and guests for unique stays and experiences.\n• Offers a wide range of accommodations, from homes to unique stays, alongside curated local experiences and services.\n• Facilitates authentic connections between people and communities, serving millions of hosts and billions of guests worldwide."
     },
     {
       "accountName": "Salesforce",
       "legalEntity": "Salesforce, Inc.",
-      "context": "Provides the #1 AI CRM platform to help companies build and improve customer relationships. Offers integrated apps for sales, service, marketing, commerce, and IT, powered by data tools and AI."
+      "context": "• Provides the #1 AI CRM platform to help companies build and improve customer relationships.\n• Offers integrated apps for sales, service, marketing, commerce, and IT, powered by data tools and AI.\n• Empowers digital transformation with autonomous AI agents (Agentforce) and a unified view of customer data."
     },
     {
       "accountName": "Dropbox",
       "legalEntity": "Dropbox, Inc.",
-      "context": "Provides cloud storage, file hosting, and content collaboration tools. Offers AI-powered features for smarter search, drafting, and organization. Serves individuals, teams, and businesses with a focus on simplifying workflows and securing data."
+      "context": "• Provides cloud storage, file hosting, and content collaboration tools.\n• Offers AI-powered features for smarter search, drafting, and organization.\n• Serves individuals, teams, and businesses across various industries with a focus on simplifying workflows and securing data."
     },
     {
       "accountName": "Duracell",
       "legalEntity": "Duracell U.S. Operations, Inc.",
-      "context": "Manufactures and sells alkaline batteries, specialty cells, and rechargeable batteries. Serves consumers and businesses globally with its battery products. Recognized as a leading brand for quality, dependability, and innovation in battery technology."
+      "context": "• Manufactures and sells alkaline batteries, specialty cells, and rechargeable batteries.\n• Serves consumers and businesses globally with its battery products.\n• Recognized as a leading brand for quality, dependability, and innovation in battery technology."
     },
     {
       "accountName": "Cargill",
       "legalEntity": "Cargill, Incorporated",
-      "context": "Provides food, agriculture, financial, and industrial products and services. Acts as a partner in the global supply chain, connecting producers and customers. Focuses on nourishing the world safely, responsibly, and sustainably."
+      "context": "• Provides food, agriculture, financial, and industrial products and services.\n• Acts as a partner in the global supply chain, connecting producers and customers.\n• Focuses on nourishing the world safely, responsibly, and sustainably."
     },
     {
       "accountName": "Chevron",
       "legalEntity": "Chevron Corporation",
-      "context": "Engages in integrated energy and chemicals operations, including exploration, production, refining, and marketing of oil, natural gas, and petrochemicals. Focuses on advancing technology to deliver current energy needs and build the lower-carbon energy system of the future."
+      "context": "• Engages in integrated energy and chemicals operations, including exploration, production, refining, and marketing of oil, natural gas, and petrochemicals.\n• Aims to provide affordable, reliable, and ever-cleaner energy to enable human progress and meet global demand.\n• Focuses on advancing technology to deliver current energy needs and build the lower-carbon energy system of the future."
     },
     {
       "accountName": "Coherent",
       "legalEntity": "Coherent Corp.",
-      "context": "Develops, manufactures, and markets engineered materials, optoelectronic components, and lasers. Serves diverse markets including industrial, optical communications, semiconductor equipment, life sciences, and consumer electronics."
+      "context": "• Develops, manufactures, and markets engineered materials, optoelectronic components, and lasers.\n• Serves diverse markets including industrial, optical communications, semiconductor equipment, life sciences, and consumer electronics.\n• Provides solutions for high-speed data transmission, precision manufacturing, and advanced sensing technologies."
     },
     {
       "accountName": "DHL",
       "legalEntity": "Deutsche Post AG",
-      "context": "Offers a comprehensive portfolio including parcel, express, freight transport, supply chain management, and e-commerce logistics solutions. Operates as the world's leading logistics company, connecting people and markets and enabling global trade across over 220 countries and territories."
+      "context": "• Offers a comprehensive portfolio including parcel, express, freight transport, supply chain management, and e-commerce logistics solutions.\n• Operates as the world's leading logistics company, connecting people and markets and enabling global trade across over 220 countries and territories.\n• Includes specialized divisions such as DHL Express for urgent shipments, DHL Global Forwarding for air and ocean freight, DHL Supply Chain for warehousing and transport, and DHL eCommerce for parcel delivery."
     },
     {
       "accountName": "ECMS",
       "legalEntity": "BASF Environmental Catalyst and Metal Solutions LLC",
-      "context": "Provides international logistics services including courier, forwarding, and warehousing, leveraging global networks and advanced IT. Specializes in cross-border e-commerce, offering low-cost, technology-driven, and customized solutions for over 50 industries worldwide."
+      "context": "• Provides international logistics services including courier, forwarding, and warehousing, leveraging global networks and advanced IT.\n• Specializes in cross-border e-commerce, offering low-cost, technology-driven, and customized solutions for over 50 industries worldwide.\n• Operates as the Japanese subsidiary of the ECMS Group, aiming to be a low-cost leader in the logistics industry."
     },
     {
       "accountName": "Graybar Electric",
       "legalEntity": "Graybar Electric Company, Inc.",
-      "context": "Leading North American distributor of electrical, communications, data networking, industrial, and automation products. Specializes in supply chain management and logistics services. Serves customers in construction, commercial, institutional, government, industrial, and utility markets."
+      "context": "• Leading North American distributor of electrical, communications, data networking, industrial, and automation products.\n• Specializes in supply chain management and logistics services.\n• Serves customers in construction, commercial, institutional, government, industrial, and utility markets."
     },
     {
       "accountName": "IQVIA",
       "legalEntity": "IQVIA Holdings Inc.",
-      "context": "Provides data, analytics, technology, and services to the life sciences and healthcare industries. Offers clinical research, commercial insights, real-world evidence, and healthcare intelligence solutions. Supports pharmaceutical, biotechnology, and MedTech companies in accelerating innovation."
+      "context": "• Provides data, analytics, technology, and services to the life sciences and healthcare industries.\n• Offers clinical research, commercial insights, real-world evidence, and healthcare intelligence solutions.\n• Supports pharmaceutical, biotechnology, and MedTech companies in accelerating innovation and improving patient outcomes."
     },
     {
       "accountName": "Aramark Ireland",
       "legalEntity": "Aramark Ireland Holdings Limited",
-      "context": "Provides food service, facilities management, property services, and retail solutions. Serves clients across sectors including healthcare, education, business and industry, sports and entertainment, and government. Operates as the largest dedicated property management company in Ireland."
+      "context": "• Provides food service, facilities management, property services, and retail solutions.\n• Serves clients across sectors including healthcare, education, business and industry, sports and entertainment, and government.\n• Operates as the largest dedicated property management company in Ireland and employs over 6,000 people across the country."
     },
     {
       "accountName": "CHS",
       "legalEntity": "CHS Inc.",
-      "context": "A diversified global agribusiness cooperative owned by farmers and member cooperatives, operating in energy, agronomy, grains, and foods. Supplies energy products, crop inputs, grain marketing, animal nutrition, food ingredients, and risk management services."
+      "context": "• A diversified global agribusiness cooperative owned by farmers and member cooperatives, operating in energy, agronomy, grains, and foods.\n• Supplies energy products, crop inputs, grain marketing, animal nutrition, food ingredients, and risk management services.\n• Operates petroleum refineries and pipelines, manufactures and distributes Cenex® brand energy products, and connects growers to global food and feed customers."
     },
     {
       "accountName": "Ecolab",
       "legalEntity": "Ecolab Inc.",
-      "context": "Provides water, hygiene, and infection prevention solutions and services. Serves customers in over 40 industries to advance food safety, maintain clean environments, and optimize water and energy use. Operates as a global sustainability leader."
+      "context": "• Provides water, hygiene, and infection prevention solutions and services.\n• Serves customers in over 40 industries to advance food safety, maintain clean environments, and optimize water and energy use.\n• Operates as a global sustainability leader, delivering science-based solutions and data-driven insights."
     },
     {
       "accountName": "Fox",
       "legalEntity": "Fox Corporation",
-      "context": "Produces and distributes compelling news, sports, and entertainment content through iconic domestic brands. Key brands include FOX News Media, FOX Sports, Tubi Media Group, FOX Entertainment, and FOX Television Stations."
+      "context": "• Produces and distributes compelling news, sports, and entertainment content through iconic domestic brands.\n• Key brands include FOX News Media, FOX Sports, Tubi Media Group, FOX Entertainment, and FOX Television Stations.\n• A leader in news, sports, and entertainment programming, focused on creative ideas and operational expertise."
     },
     {
       "accountName": "Gilead Sciences",
       "legalEntity": "GILEAD SCIENCES, INC.",
-      "context": "Discovers, develops, and commercializes innovative medicines for unmet medical needs. Focuses on therapeutic areas including HIV/AIDS, liver diseases, cancer, inflammation, and serious respiratory and cardiovascular conditions."
+      "context": "• Discovers, develops, and commercializes innovative medicines for unmet medical needs.\n• Focuses on therapeutic areas including HIV/AIDS, liver diseases, cancer, inflammation, and serious respiratory and cardiovascular conditions.\n• Researches and develops antiviral drugs for diseases such as HIV/AIDS, hepatitis B, hepatitis C, influenza, and COVID-19."
     },
     {
       "accountName": "Intuit",
       "legalEntity": "Intuit Inc.",
-      "context": "Provides financial software and services including TurboTax, Credit Karma, QuickBooks, and Mailchimp. Aims to help consumers and small businesses manage their finances, save time, and make confident financial decisions. Serves approximately 100 million customers worldwide."
+      "context": "• Provides financial software and services including TurboTax, Credit Karma, QuickBooks, and Mailchimp.\n• Aims to help consumers and small businesses manage their finances, save time, and make confident financial decisions.\n• Serves approximately 100 million customers worldwide."
     },
     {
       "accountName": "Northern Trust Management Services",
       "legalEntity": "Northern Trust Management Services Ltd",
-      "context": "Operates as an investment advisory firm. Provides asset and fund administration, fiduciary, and banking solutions. Serves successful individuals, families, and institutions globally."
+      "context": "• Operates as an investment advisory firm.\n• Provides asset and fund administration, fiduciary, and banking solutions.\n• Serves successful individuals, families, and institutions globally."
     },
     {
       "accountName": "Petsmart",
       "legalEntity": "PetSmart LLC",
-      "context": "Operates as a pet superstore and the largest omni-channel pet retailer in North America. Offers a wide range of pet food, products, and accessories for dogs, cats, birds, fish, reptiles, and small animals. Provides services including dog training, pet grooming, pet boarding, Doggie Day Camp, and operates veterinary hospitals."
+      "context": "• Operates as a pet superstore and the largest omni-channel pet retailer in North America.\n• Offers a wide range of pet food, products, and accessories for dogs, cats, birds, fish, reptiles, and small animals.\n• Provides services including dog training, pet grooming, pet boarding, Doggie Day Camp, and operates veterinary hospitals."
     },
     {
       "accountName": "ServiceNow",
       "legalEntity": "ServiceNow, Inc.",
-      "context": "Delivers a cloud-based platform (Now Platform) to digitize and automate enterprise workflows with AI. Connects AI, data, and workflows to reinvent business operations and enhance employee and customer experiences. Acts as an AI control tower for business reinvention."
+      "context": "• Delivers a cloud-based platform (Now Platform) to digitize and automate enterprise workflows with AI.\n• Connects AI, data, and workflows to reinvent business operations and enhance employee and customer experiences.\n• Acts as an AI control tower for business reinvention, aiming to make work flow better for everyone."
     },
     {
       "accountName": "Meta",
       "legalEntity": "Meta Platforms, Inc.",
-      "context": "Develops technology for social connection, community building, and business growth, including VR/AR experiences and the metaverse. Operates the Family of Apps segment, selling advertising placements on platforms like Facebook and Instagram."
+      "context": "• Develops technology for social connection, community building, and business growth, including VR/AR experiences and the metaverse.\n• Operates the Family of Apps segment, selling advertising placements on platforms like Facebook and Instagram.\n• Operates the Reality Labs segment, selling consumer hardware (like VR headsets), software, and content."
     },
     {
       "accountName": "Bayer",
       "legalEntity": "Bayer Aktiengesellschaft",
-      "context": "Global life science company with core competencies in health care and agriculture. Operates three divisions: Pharmaceuticals (prescription products, radiology), Consumer Health (self-care products), and Crop Science (seeds, crop protection)."
+      "context": "• Global life science company with core competencies in health care and agriculture.\n• Operates three divisions: Pharmaceuticals (prescription products, radiology), Consumer Health (self-care products), and Crop Science (seeds, crop protection).\n• Develops innovative products and services to address global challenges in health and nutrition."
     },
     {
       "accountName": "TikTok",
       "legalEntity": "TikTok USDS Joint Venture LLC",
-      "context": "Develops and operates a short-form mobile video application for creative expression and community engagement. Provides a global platform for users to create, view, interact with, and share content. Operates e-commerce, marketing, and advertising services in the U.S. under specific regulatory safeguards."
+      "context": "• Develops and operates a short-form mobile video application for creative expression and community engagement.\n• Provides a global platform for users to create, view, interact with, and share content.\n• Operates e-commerce, marketing, and advertising services in the U.S. under specific regulatory safeguards."
     },
     {
-      "accountName": "OpenAI",
+      "accountName": "OpenAi",
       "legalEntity": "OpenAI, Inc.",
-      "context": "Conducts AI research and development, focusing on creating artificial general intelligence (AGI). Aims to ensure AGI benefits all of humanity, prioritizing safety and alignment with human values. Develops AI technologies and platforms to support businesses, enterprises, and developers."
+      "context": "• Conducts AI research and development, focusing on creating artificial general intelligence (AGI).\n• Aims to ensure AGI benefits all of humanity, prioritizing safety and alignment with human values.\n• Develops AI technologies and platforms to support businesses, enterprises, and developers."
+    },
+    {
+      "accountName": "Delinea",
+      "legalEntity": "Delinea, Inc.",
+      "context": "• Provides privileged access management (PAM) and identity security solutions.\n• Offers an AI-driven platform that centralizes authorization for human, machine, and AI identities to manage access and detect threats.\n• Secures critical data, devices, code, and cloud infrastructure for modern, hybrid enterprises."
+    },
+    {
+      "accountName": "Perrigo Pharma",
+      "legalEntity": "Perrigo Company plc",
+      "context": "• Manufactures and sells consumer healthcare products, over-the-counter (OTC) pharmaceuticals, and generic prescription drugs.\n• Is a leading provider of store-brand infant formulas and the world's largest manufacturer of OTC products for the store brand market.\n• Focuses on providing quality, affordable self-care products and health and wellness solutions to consumers, primarily in North America and Europe."
+    },
+    {
+      "accountName": "Tinder LLC",
+      "legalEntity": "Tinder LLC",
+      "context": "• Operates Tinder, the world's most popular dating app.\n• Provides online dating services through its website and mobile application.\n• Facilitates users in meeting new people and developing meaningful connections."
+    },
+    {
+      "accountName": "Wellspring Philanthropic Fund",
+      "legalEntity": "Wellspring Philanthropic Fund Inc.",
+      "context": "• Supports the realization of human rights and social and economic justice for all people.\n• Focuses on addressing systemic drivers of inequity, building power among marginalized communities, and countering structural discrimination.\n• Funds initiatives related to girls' education, TGNC refugees, and antidiscrimination efforts."
+    },
+    {
+      "accountName": "U.S. Air Force",
+      "legalEntity": "Department of the Air Force (DAF)",
+      "context": "• Provides research-based evidence and policy analysis to support the formulation, implementation, monitoring, and evaluation of government policies.\n• Develops and implements a research agenda to facilitate the long-term objectives of the Ugandan government and development partners.\n• Operates as an autonomous, not-for-profit think tank focused on fostering sustainable growth and development in Uganda through research-based knowledge."
+    },
+    {
+      "accountName": "Udemy",
+      "legalEntity": "Udemy, Inc.",
+      "context": "• Operates a global online learning platform and marketplace for skill acquisition and development.\n• Empowers individuals and organizations with flexible, on-demand, and personalized learning experiences.\n• Enables subject matter experts to create and distribute content, serving a broad global audience."
+    },
+    {
+      "accountName": "Peregrine Hospitality",
+      "legalEntity": "PHG II Management Operations, LLC",
+      "context": "• Offers hotel/resort management, development/project management, and global sales support.\n• Manages 92 properties across the U.S., Fiji, Maldives, Mauritius, and Thailand.\n• Portfolio includes distinctive resorts, boutique hotels, and select-service properties."
+    },
+    {
+      "accountName": "Stripe",
+      "legalEntity": "Stripe, LLC",
+      "context": "• Provides financial infrastructure and payment processing solutions for online and in-person transactions.\n• Offers a suite of tools including payments, billing, fraud prevention, and financial services for e-commerce and mobile applications.\n• Empowers businesses of all sizes, from startups to large enterprises, to grow revenue and manage financial operations globally."
+    },
+    {
+      "accountName": "Bank of Ireland",
+      "legalEntity": "Bank of Ireland Group plc",
+      "context": "• Operates as a diversified financial services group offering retail and commercial banking, wealth management, and insurance products.\n• Serves individual customers, businesses, and corporate clients across Ireland and the UK through branches, digital channels, and partnerships.\n• Provides a broad range of financial services including mortgages, life assurance, investments, and treasury risk management."
+    },
+    {
+      "accountName": "Etsy",
+      "legalEntity": "Etsy, Inc.",
+      "context": "• Operates a global online marketplace for unique and creative goods, including handcrafted, vintage, and custom items.\n• Connects millions of buyers with independent sellers, facilitating commerce with a focus on human connection.\n• Offers a diverse product catalog encompassing home goods, fashion, beauty, electronics, arts, and more."
+    },
+    {
+      "accountName": "Kingspan",
+      "legalEntity": "Kingspan Group plc",
+      "context": "• Global leader in advanced insulation and building envelope solutions.\n• Operates through segments including Insulated Panels, Insulation, Data Solutions, Light/Air/Water, and Roofing/Waterproofing.\n• Provides solutions for new construction and renovation, aiming to accelerate a net-zero emissions built environment."
+    },
+    {
+      "accountName": "Plusgrade",
+      "legalEntity": "Plusgrade Inc.",
+      "context": "• Provides ancillary revenue solutions and loyalty program enhancement technologies for the global travel industry.\n• Partners with airlines, hospitality, cruise, passenger rail, and financial services companies.\n• Offers solutions for upgrades, seat blocking, pay-for-services, and personalized ancillaries to drive revenue and enhance customer experiences."
+    },
+    {
+      "accountName": "CommScope Technologies",
+      "legalEntity": "COMMSCOPE TECHNOLOGIES LLC",
+      "context": "• Designs and manufactures network infrastructure products for broadband, venue, campus, and outdoor wireless networks.\n• Provides solutions for data centers and building & campus connectivity, aiming to deliver seamless and reliable connectivity.\n• Connects people, businesses, and communities globally through its advanced network infrastructure."
+    },
+    {
+      "accountName": "NTMA",
+      "legalEntity": "National Treasury Management Agency",
+      "context": "• Provides asset and liability management services to the Government.\n• Manages a portfolio of public assets and liabilities, including debt, strategic investments, and state claims.\n• Operates as a commercial State body to manage financial resources for the Government of Ireland."
+    },
+    {
+      "accountName": "Orsted",
+      "legalEntity": "Ørsted A/S",
+      "context": "• Develops, constructs, and operates offshore and onshore wind farms, solar farms, energy storage, renewable hydrogen facilities, and bioenergy plants.\n• Operates globally across Europe, North America, and Asia Pacific, with a focus on renewable energy solutions.\n• Aims to transition the world to run entirely on green energy and is recognized as a global sustainability leader."
+    },
+    {
+      "accountName": "Sisk Group",
+      "legalEntity": "John Sisk & Son (Holdings) Ltd",
+      "context": "• Constructs commercial and domestic buildings, roads, and infrastructure across various sectors including data centers, life sciences, healthcare, and education.\n• Delivers projects using modern construction methods, advanced technologies, and a focus on sustainability.\n• Aims to create places for future generations, upholding values of care, integrity, and excellence."
+    },
+    {
+      "accountName": "Glanbia",
+      "legalEntity": "Glanbia plc",
+      "context": "• Manufactures and provides sports and lifestyle nutrition products, including powders, bars, dairy, and non-dairy ingredients.\n• Operates through brands such as Optimum Nutrition, BSN, and Isopure, serving health-conscious consumers globally.\n• Serves as a leading innovation and solutions partner to the global food and nutrition industry."
+    },
+    {
+      "accountName": "Airship Group Inc",
+      "legalEntity": "Airship Group, Inc.",
+      "context": "• Provides mobile marketing technology and customer engagement platforms.\n• Offers infrastructure and tools for real-time push notifications and in-app purchase content.\n• Helps brands deliver customer experiences in a mobile-first world."
+    },
+    {
+      "accountName": "Aryza",
+      "legalEntity": "Aryza Holdings Limited",
+      "context": "• Provides global SaaS solutions for businesses.\n• Specializes in software for debt, savings, insolvency, lending, and recovery.\n• Aims to improve financial health for individuals and businesses worldwide."
+    },
+    {
+      "accountName": "Coillte",
+      "legalEntity": "Coillte Cuideachta Ghníomhaíochta Ainmnithe",
+      "context": "• Manages Ireland's largest forest estate (440,000 hectares) for climate, nature, wood, and public recreation.\n• Operates Medite Smartply for wood panel manufacturing and its Land Solutions division, including nature restoration projects.\n• Serves as Ireland's largest forester, wood producer, and provider of outdoor recreational spaces."
+    },
+    {
+      "accountName": "Taoglas Limited",
+      "legalEntity": "Taoglas Limited",
+      "context": "• Designs and manufactures advanced RF components, including antennas, connectors, and cable assemblies.\n• Solves complex connectivity challenges for IoT industries such as automotive, medical, smart cities, and public safety.\n• Provides world-class design services and operates globally with quality certifications like ISO 9001 and IATF 16949."
+    },
+    {
+      "accountName": "Indeed",
+      "legalEntity": "Indeed, Inc.",
+      "context": "• Operates a global job site aggregating listings from thousands of sources.\n• Provides job seekers tools to search jobs, post resumes, and research companies.\n• Offers employers AI-driven recruitment solutions and advertising services to find talent."
+    },
+    {
+      "accountName": "Datalex",
+      "legalEntity": "Datalex plc",
+      "context": "• Empowers airlines to be great retailers by digitalizing the end-to-end travel retail experience.\n• Provides cutting-edge digital transformation solutions for offer and order management to help airlines differentiate their offerings.\n• A publicly listed company founded in 1985 with a global presence, serving progressive airline brands worldwide."
+    },
+    {
+      "accountName": "Consensys",
+      "legalEntity": "ConsenSys Software Inc.",
+      "context": "• Leading blockchain and Web3 software company founded in 2014 by Ethereum co-founder Joseph Lubin, dedicated to building infrastructure and applications for the Ethereum ecosystem."
+    },
+    {
+      "accountName": "Department of Climate, Energy and the Environment",
+      "legalEntity": "Department of Climate, Energy and the Environment",
+      "context": "• Delivers policies and programs related to climate action, energy, and environmental protection, aligning with EU and global obligations.\n• Manages telecommunications, broadcasting, digital sectors, and postal services, promoting competitive services and technology development.\n• Regulates and develops natural resources, including oil, gas, and minerals, focusing on state benefits and environmental considerations."
+    },
+    {
+      "accountName": "Arabic Computer Systems",
+      "legalEntity": "Arabic Computer Systems",
+      "context": "• Leading system integrator and provider of IT and digital transformation services in the MENA region.\n• Offers IT essentials, IT solutions, consultation, and tailored services across different business levels.\n• Helps customers transform their businesses by providing innovative, efficient, and effective technologies and services."
+    },
+    {
+      "accountName": "ESB NI/Electric Ireland",
+      "legalEntity": "ESB Independent Energy (NI) Limited",
+      "context": "• Operates as a diversified utility across electricity generation, transmission, distribution, and supply.\n• Provides telecommunications, electric vehicle charging, and home retrofit services.\n• Supplies electricity, gas, and energy services to over 1.2 million households and 95,000 businesses in the Republic of Ireland and Northern Ireland."
+    },
+    {
+      "accountName": "Department of Children, Disability and Equality",
+      "legalEntity": "Department of Children, Disability and Equality",
+      "context": "• Leads efforts to improve outcomes for children and young people in Ireland.\n• Enhances the lives of children, young people, adults, families, and communities by promoting equality, diversity, and rights.\n• Funds and delivers services and policies that realize rights, promote equality, and maximize opportunity, particularly for children, disabled people, and those experiencing inequalities, overseeing agencies like Tusla and the National Disability Authority."
+    },
+    {
+      "accountName": "Hayes Solicitors LLP",
+      "legalEntity": "Hayes solicitors LLP",
+      "context": "• Provides a comprehensive range of legal services to corporate, public, and private clients.\n• Offers expert and insightful legal advice, combining sectoral knowledge with technical excellence.\n• Operates as an independent Irish law firm with international reach, serving domestic and international clients."
+    },
+    {
+      "accountName": "Mediolanum",
+      "legalEntity": "Banca Mediolanum S.p.A.",
+      "context": "• Provides a range of banking, insurance, and asset management solutions, including accounts, loans, mutual funds, and investment strategies.\n• Catters to individual and family customers, as well as small and medium-sized enterprises (SMEs) and entrepreneurs, offering personalized financial advice.\n• Operates internationally in Italy, Spain, and Germany, with a focus on global financial advice and investment banking services."
+    },
+    {
+      "accountName": "Electricity Supply Board",
+      "legalEntity": "Electricity Supply Board",
+      "context": "• Operates across the electricity market, including generation, transmission, distribution, and supply.\n• Driven to achieve zero carbon emissions by 2040 and deliver a net-zero energy future.\n• Involved in related sectors such as telecommunications, electric vehicle charging, and home retrofits."
+    },
+    {
+      "accountName": "Kellanova",
+      "legalEntity": "Kellanova",
+      "context": "• A leading company in global snacking, international cereal and noodles, plant-based foods, and North American frozen breakfast.\n• Owns iconic and world-class brands including Pringles, Cheez-It, Pop-Tarts, Eggo, MorningStar Farms, and RXBAR.\n• Focuses on creating 'better days' and a place at the table for everyone with its trusted food products."
+    },
+    {
+      "accountName": "Uisce Eireann (Irish Water)",
+      "legalEntity": "Uisce Éireann",
+      "context": "• Operates as Ireland's national regulated water utility, delivering public water and wastewater services.\n• Manages national water and wastewater assets, encompassing maintenance, investment, planning, capital projects, and customer care.\n• Aims to provide secure, safe, and sustainable water services, supporting economic growth and environmental protection."
+    },
+    {
+      "accountName": "Teamwork.com",
+      "legalEntity": "Teamwork Crew Ltd.",
+      "context": "• Provides a comprehensive SaaS platform for project and work management, including task management, team collaboration, helpdesk, chat, CRM, and content collaboration.\n• Focuses on client services companies and teams of all sizes across various industries.\n• Aims to improve automation, productivity, and profitability for businesses managing client work."
+    },
+    {
+      "accountName": "Coleman Legal",
+      "legalEntity": "Coleman Legal, PLLC",
+      "context": "• Provides essential legal services for businesses of all sizes.\n• Offers expertise in entity formation, contract drafting, regulatory compliance, and M&A.\n• Delivers strategic counsel to manage legal risks and foster business growth."
+    },
+    {
+      "accountName": "Coimisiun na Mean",
+      "legalEntity": "Coimisiún na Meán",
+      "context": "• Regulates broadcasters, video-on-demand providers, and online platforms in Ireland.\n• Supports and develops the Irish media sector, including content creation and diversity initiatives.\n• Oversees Ireland's Online Safety Framework and media landscape regulation."
+    },
+    {
+      "accountName": "Sequoia Climate Fund",
+      "legalEntity": "Sequoia Climate Foundation",
+      "context": "• Supports organizations catalyzing rapid emissions reductions and accelerating the transition to clean energy.\n• Focuses grantmaking on speed, scale, cost, and probability of success in addressing climate change.\n• Aims to build a world powered by clean energy and protected by policies that avert the worst effects of climate change."
+    },
+    {
+      "accountName": "Creed McStay",
+      "legalEntity": "Creed McStay LLP",
+      "context": "• Provides comprehensive legal services in Dublin, including litigation, taxation, property, and corporate law.\n• Offers strategic advice and legal support to businesses, covering areas like shareholder agreements, funding, and asset transactions.\n• Specializes in dispute resolution, debt restructuring, commercial litigation, and revenue law."
+    },
+    {
+      "accountName": "National Grid",
+      "legalEntity": "National Grid plc",
+      "context": "• Owns and operates electricity and gas transmission and distribution networks in the UK and Northeastern United States.\n• Connects millions of people to energy and enables innovation in the energy system.\n• Develops, operates, and invests in large-scale clean energy infrastructure and technologies."
+    },
+    {
+      "accountName": "Southwest Airlines",
+      "legalEntity": "Southwest Airlines Co.",
+      "context": "• Operates as a major airline offering friendly, reliable, and low-cost air travel.\n• Serves 117 airports in 11 countries and is a leading carrier for nonstop flights within the U.S.\n• Provides additional travel services including cruises, car rentals, and hotel bookings."
+    },
+    {
+      "accountName": "Asana",
+      "legalEntity": "Asana, Inc.",
+      "context": "• Asana is a leading work management platform for human and AI collaboration, enabling teams to plan, track, and deliver work efficiently.\n• It supports over 170,000 customers, including large enterprises, to align teams, accelerate impact, and manage complex projects.\n• The platform provides AI-powered automation, comprehensive project management tools, and specialized solutions for various industries and use cases."
+    },
+    {
+      "accountName": "Novelis",
+      "legalEntity": "Novelis Inc.",
+      "context": "• Leading producer of flat-rolled aluminum products and the world's largest recycler of aluminum.\n• Supplies aluminum products to beverage packaging, automotive, aerospace, and specialties markets.\n• Focuses on innovative, sustainable, and low-carbon aluminum solutions, aiming for a circular economy."
+    },
+    {
+      "accountName": "Spark Brighter Thinking",
+      "legalEntity": "AGI Global Cooperatief U.A.",
+      "context": "• Provides creative production services for global brands, specializing in content adaptation and localization across markets, channels, and cultures.\n• Helps brands launch, scale, and adapt content using AI-enabled technology and ISO-certified processes, with expertise in over 100 languages.\n• Transforms global content management by unifying and automating graphic and language workflows for personalization and improved quality."
+    },
+    {
+      "accountName": "AES",
+      "legalEntity": "The AES Corporation",
+      "context": "• Fortune 500 global power company accelerating the energy transition through a diverse portfolio of renewables, energy storage, and utilities. Founded in 1981 and headquartered in Virginia, it aims for net-zero emissions by 2040, operating in 24+ US states and 14 countries"
+    },
+    {
+      "accountName": "Amazon",
+      "legalEntity": "Amazon.com, Inc.",
+      "context": "• Provides a wide range of customer experiences including online shopping, cloud computing, streaming entertainment, and consumer electronic devices.\n• Sells consumer products, advertising, and subscription services through online and physical stores in North America and internationally.\n• Offers compute, storage, database, analytics, and AI services, as well as develops and produces media content."
+    },
+    {
+      "accountName": "Best Buy",
+      "legalEntity": "Best Buy Co., Inc.",
+      "context": "• Operates as the world's largest specialty consumer electronics retailer, offering a wide range of technology products and solutions.\n• Provides customers with advice, products, and services through stores, online, and in-home consultations, including delivery, installation, and tech support.\n• Enriches lives through technology by personalizing and humanizing tech solutions for customers in the U.S. and Canada."
+    },
+    {
+      "accountName": "GE Vernova",
+      "legalEntity": "GE Vernova Inc.",
+      "context": "• Drives electrification and decarbonization by providing products and services that generate, transfer, orchestrate, convert, and store electricity.\n• Aims to accelerate the transition to more reliable, affordable, and sustainable energy sources globally.\n• Their technologies contribute to approximately 25% of the world's electricity generation."
+    },
+    {
+      "accountName": "The Wonderful Company",
+      "legalEntity": "The Wonderful Company LLC",
+      "context": "• Operates as a holding company for a portfolio of consumer brands.\n• Owns and markets products including fruits, nuts, water, wines, and juices.\n• Key brands include FIJI Water, POM Wonderful, Wonderful Pistachios, and Wonderful Halos."
+    },
+    {
+      "accountName": "Western Digital",
+      "legalEntity": "Western Digital Corporation",
+      "context": "• Develops, manufactures, and provides data storage devices and solutions using hard disk drive (HDD) and NAND flash technologies.\n• Offers solutions for consumers, businesses, enterprises, and public clouds to capture, preserve, access, and transform data.\n• Drives advancements in storage and semiconductor technologies for current and next-generation data workloads, including AI."
+    },
+    {
+      "accountName": "World Wide Technology",
+      "legalEntity": "World Wide Technology, Inc.",
+      "context": "• Provides technology and supply chain solutions, including IT consulting, engineering, and advanced technology implementation.\n• Specializes in AI, cybersecurity, digital transformation, cloud, data center infrastructure, networking, and data analytics.\n• Serves large public and private organizations across commercial, government, and telecom sectors, operating extensive global warehousing and integration facilities."
+    },
+    {
+      "accountName": "Fresh Del Monte",
+      "legalEntity": "Fresh Del Monte Produce Inc.",
+      "context": "• Leading vertically integrated producer, distributor, and marketer of fresh and fresh-cut fruits and vegetables.\n• Offers a range of products including prepared fruits and vegetables, juices, beverages, snacks, and desserts.\n• Operates globally, selling products in more than 80 countries worldwide."
+    },
+    {
+      "accountName": "Pure Storage",
+      "legalEntity": "Pure Storage, Inc.",
+      "context": "• Provides enterprise-grade, all-flash data storage solutions including block, file, and object storage.\n• Develops innovative, cloud-ready technologies to accelerate data-intensive applications and maximize data value.\n• Offers solutions for on-premise, cloud, and hybrid environments, including subscription models like Evergreen Storage."
+    },
+    {
+      "accountName": "The Weir Group PLC",
+      "legalEntity": "The Weir Group PLC",
+      "context": "• Provides mining technology, processing equipment, and wear parts for resource extraction.\n• Partners with mining customers to enhance efficiency, sustainability, and reduce environmental impact.\n• Supports the global energy transition by enabling the supply of critical metals and minerals."
+    },
+    {
+      "accountName": "BNY Mellon",
+      "legalEntity": "The Bank of New York Mellon Corporation",
+      "context": "• Operates as a global financial services platform company, managing, moving, and safeguarding assets for clients worldwide.\n• Offers comprehensive solutions across the financial lifecycle, including custody, securities lending, issuer services, and collateral services.\n• Empowers businesses, institutions, and individuals to achieve growth and efficiency through innovation and expertise."
+    },
+    {
+      "accountName": "Dolby",
+      "legalEntity": "Dolby Laboratories, Inc.",
+      "context": "• Provides funeral and cremation services.\n• Offers traditional, contemporary, and specialty services to create healing experiences for families.\n• Integrates technology for personalized tributes, including videos and musical playlists."
+    },
+    {
+      "accountName": "Wealth Partners Capital Group",
+      "legalEntity": "Wealth Partners Capital Group, LLC",
+      "context": "• Acts as a growth and M&A partner for best-in-class Registered Investment Advisors (RIAs).\n• Invests in and partners with leading wealth management firms, providing capital and strategic expertise.\n• Assists partner firms in expanding through acquisitions and organic growth initiatives."
+    },
+    {
+      "accountName": "Tailored Brands",
+      "legalEntity": "Tailored Brands, Inc.",
+      "context": "• Operates as a leading omnichannel retailer focused on apparel and accessories for important life moments.\n• Manages a portfolio of brands including Men's Wearhouse, Jos. A. Bank, Moores, and K&G Fashion Superstore.\n• Offers personalized products and services through physical stores and e-commerce sites in the US and Canada."
+    },
+    {
+      "accountName": "Cox Media Group",
+      "legalEntity": "CMG Media Corporation",
+      "context": "• Operates television and radio stations, streaming and digital platforms, and advertising businesses.\n• Delivers content to over 60 million Americans weekly through market-leading television and radio brands.\n• An integrated media company with a legacy of nearly 100 years, also involved in publishing and direct marketing."
+    },
+    {
+      "accountName": "Fluor",
+      "legalEntity": "FLUOR CORPORATION",
+      "context": "• Fortune 500 engineering and construction firm with 27,000 employees and $16.3 billion in revenue (2024). \n• It delivers large-scale infrastructure projects across energy, manufacturing, life sciences, mining, and government sectors worldwide. \n• The company operates through three segments—Urban Solutions, Energy Solutions, and Mission Solutions—providing end-to-end services from design through construction and operations."
+    },
+    {
+      "accountName": "Samsara",
+      "legalEntity": "Samsara Inc.",
+      "context": "Cloud-based Connected Operations Cloud designed to improve the safety, efficiency, and sustainability of physical operations through IoT data, AI-powered video, and real-time telematics. It offers a unified platform for fleet management, asset tracking, and driver safety, providing insights into vehicle locations, behavior, and maintenance."
     }
   ],
   "lastUpdated": "2026-02-03",
