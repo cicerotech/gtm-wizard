@@ -55,6 +55,8 @@ interface EudiaSyncSettings {
   showCalendarView: boolean;
   // Timezone for calendar display
   timezone: string;
+  // Daily account folder refresh tracking
+  lastAccountRefreshDate: string | null;
 }
 
 // Common timezone options for US/EU sales teams
@@ -89,7 +91,8 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   accountsImported: false,
   importedAccountCount: 0,
   openaiApiKey: '',
-  timezone: 'America/New_York'
+  timezone: 'America/New_York',
+  lastAccountRefreshDate: null
 };
 
 interface SalesforceAccount {
@@ -2256,6 +2259,26 @@ export default class EudiaSyncPlugin extends Plugin {
       } else if (this.settings.syncOnStartup) {
         // Scan local folders instead of syncing from server
         await this.scanLocalAccountFolders();
+        
+        // Daily auto-refresh: Check for new account assignments from Salesforce
+        // Runs once per day on startup to detect newly assigned accounts
+        if (this.settings.userEmail) {
+          const today = new Date().toISOString().split('T')[0];
+          if (this.settings.lastAccountRefreshDate !== today) {
+            try {
+              console.log('[Eudia] Daily account folder refresh - checking for new assignments...');
+              const newCount = await this.refreshAccountFolders();
+              this.settings.lastAccountRefreshDate = today;
+              await this.saveSettings();
+              if (newCount > 0) {
+                new Notice(`${newCount} new account folder(s) synced from Salesforce`);
+              }
+            } catch (e) {
+              // Silently skip if server is unreachable - will retry tomorrow
+              console.log('[Eudia] Daily refresh skipped (server unreachable), will retry tomorrow');
+            }
+          }
+        }
         
         // Activate calendar view if configured
         if (this.settings.showCalendarView && this.settings.userEmail) {

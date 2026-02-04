@@ -257,7 +257,9 @@ function copyPluginFiles(sourceDir, destDir) {
     "salesforceConnected": false,
     "accountsImported": false,
     "importedAccountCount": 0,
-    "openaiApiKey": OPENAI_API_KEY
+    "openaiApiKey": OPENAI_API_KEY,
+    "timezone": "America/New_York",
+    "lastAccountRefreshDate": null
   };
   fs.writeFileSync(path.join(pluginDest, 'data.json'), JSON.stringify(pluginData, null, 2));
   console.log('   ✓ data.json (plugin settings)');
