@@ -688,9 +688,10 @@ class IntelligenceQueryModal extends Modal {
     const query = this.queryInput.value.trim();
     if (!query) return;
     
-    // Show loading state
+    // Show loading state with context-aware message
     this.responseContainer.style.display = 'block';
-    this.responseContainer.innerHTML = '<div class="eudia-intelligence-loading">Thinking...</div>';
+    const accountMsg = this.accountContext?.name ? ` about ${this.accountContext.name}` : '';
+    this.responseContainer.innerHTML = `<div class="eudia-intelligence-loading">Gathering intelligence${accountMsg}...</div>`;
     
     try {
       const response = await requestUrl({
@@ -702,8 +703,17 @@ class IntelligenceQueryModal extends Modal {
           accountId: this.accountContext?.id,
           accountName: this.accountContext?.name,
           userEmail: this.plugin.settings.userEmail
-        })
+        }),
+        throw: false,  // Don't throw on HTTP errors - handle them gracefully
+        contentType: 'application/json'
       });
+      
+      // Check HTTP status first (since throw: false)
+      if (response.status >= 400) {
+        const errorMsg = response.json?.error || `Server error (${response.status}). Please try again.`;
+        this.responseContainer.innerHTML = `<div class="eudia-intelligence-error">${errorMsg}</div>`;
+        return;
+      }
       
       if (response.json?.success) {
         this.responseContainer.innerHTML = '';
@@ -734,9 +744,16 @@ class IntelligenceQueryModal extends Modal {
         const errorMsg = response.json?.error || 'Could not get an answer. Try rephrasing your question.';
         this.responseContainer.innerHTML = `<div class="eudia-intelligence-error">${errorMsg}</div>`;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[GTM Brain] Intelligence query error:', error);
-      this.responseContainer.innerHTML = `<div class="eudia-intelligence-error">Connection error. Please try again.</div>`;
+      // Provide more specific error messages
+      let errorMsg = 'Unable to connect. Please check your internet connection and try again.';
+      if (error?.message?.includes('timeout')) {
+        errorMsg = 'Request timed out. The server may be busy - please try again.';
+      } else if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+        errorMsg = 'Network error. Please check your connection and try again.';
+      }
+      this.responseContainer.innerHTML = `<div class="eudia-intelligence-error">${errorMsg}</div>`;
     }
   }
   
