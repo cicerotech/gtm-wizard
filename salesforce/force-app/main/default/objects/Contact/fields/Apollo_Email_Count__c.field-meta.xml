@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Apollo_Email_Count__c</fullName>
+    <description>Total number of emails sent to this contact via Apollo.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Total Apollo emails sent to this contact.</inlineHelpText>
+    <label>Apollo Email Count</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

@@ -329,6 +329,105 @@ export class AccountDetector {
 export const accountDetector = new AccountDetector();
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PIPELINE MEETING DETECTOR - Detects internal pipeline review meetings
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Keywords that indicate a pipeline review meeting
+ */
+const PIPELINE_MEETING_SIGNALS = [
+  'pipeline review',
+  'pipeline call',
+  'weekly pipeline',
+  'forecast call',
+  'forecast review',
+  'deal review',
+  'opportunity review',
+  'sales review',
+  'pipeline sync',
+  'forecast sync',
+  'deal sync',
+  'pipeline update',
+  'forecast meeting'
+];
+
+/**
+ * Result of pipeline meeting detection
+ */
+export interface PipelineMeetingDetectionResult {
+  isPipelineMeeting: boolean;
+  confidence: number;
+  evidence: string;
+}
+
+/**
+ * Detect if a meeting is an internal pipeline review meeting.
+ * Used to apply specialized prompts for admin users.
+ * 
+ * @param title - Meeting title
+ * @param attendees - List of attendee emails
+ * @returns Detection result with confidence
+ */
+export function detectPipelineMeeting(
+  title?: string,
+  attendees?: string[]
+): PipelineMeetingDetectionResult {
+  // Check title for pipeline signals
+  if (title) {
+    const titleLower = title.toLowerCase();
+    for (const signal of PIPELINE_MEETING_SIGNALS) {
+      if (titleLower.includes(signal)) {
+        return {
+          isPipelineMeeting: true,
+          confidence: 95,
+          evidence: `Title contains "${signal}"`
+        };
+      }
+    }
+  }
+
+  // Check if all attendees are internal (@eudia.com)
+  if (attendees && attendees.length >= 2) {
+    const internalDomains = ['eudia.com', 'johnsonhana.com'];
+    const allInternal = attendees.every(email => {
+      const domain = email.toLowerCase().split('@')[1] || '';
+      return internalDomains.some(d => domain.includes(d));
+    });
+    
+    if (allInternal && attendees.length >= 3) {
+      // All internal with 3+ people - likely a pipeline/team meeting
+      // But we need more evidence to be sure
+      if (title) {
+        const titleLower = title.toLowerCase();
+        const teamMeetingSignals = ['sync', 'review', 'update', 'weekly', 'team', 'forecast'];
+        const hasTeamSignal = teamMeetingSignals.some(s => titleLower.includes(s));
+        
+        if (hasTeamSignal) {
+          return {
+            isPipelineMeeting: true,
+            confidence: 70,
+            evidence: `All internal attendees (${attendees.length}) with team meeting signal`
+          };
+        }
+      }
+      
+      // All internal but no clear signal - lower confidence
+      return {
+        isPipelineMeeting: false,
+        confidence: 40,
+        evidence: `All internal attendees but no clear pipeline signal`
+      };
+    }
+  }
+
+  return {
+    isPipelineMeeting: false,
+    confidence: 0,
+    evidence: 'No pipeline meeting indicators found'
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INTERFACES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -573,6 +672,94 @@ FINAL CHECKS:
 - Product lines use only the allowed values
 - Quotes are properly attributed
 - Action items have clear owners`;
+}
+
+/**
+ * Build a specialized prompt for internal pipeline review meetings.
+ * This extracts per-account updates from team discussions about deals.
+ */
+export function buildPipelineReviewPrompt(): string {
+  return `You are analyzing an internal pipeline review meeting at Eudia, an AI-powered legal technology company. This is an internal team discussion about customer deals and opportunities.
+
+═══════════════════════════════════════════════════════════════════════════
+CONTEXT
+═══════════════════════════════════════════════════════════════════════════
+
+Eudia's sales team regularly holds pipeline review meetings to discuss:
+- Deal progress and stage movements
+- Blockers and risks on specific accounts
+- Next steps for advancing opportunities
+- Forecast updates
+
+Your job is to extract structured updates for EACH account/deal discussed.
+
+═══════════════════════════════════════════════════════════════════════════
+OUTPUT FORMAT - Use these exact headers:
+═══════════════════════════════════════════════════════════════════════════
+
+## Meeting Summary
+Brief 2-3 sentence overview of the pipeline review discussion.
+
+## Attendees
+- **[Name]** - Role (if mentioned)
+
+## Account Updates
+
+For EACH account or opportunity mentioned, create a subsection:
+
+### [Account Name]
+**Owner:** [BL Name if mentioned]
+**Status:** [Current stage or status discussed]
+
+**Updates Discussed:**
+- [Key update or development]
+- [Another update]
+
+**Blockers/Risks:**
+- [Any blockers mentioned, or "None discussed"]
+
+**Next Steps:**
+- [ ] [Action item] - **Owner:** [Name] - **Due:** [Date if mentioned]
+
+**Stage Movement:**
+- [e.g., "Moving from Stage 2 to Stage 3" or "No change discussed"]
+
+---
+
+*(Repeat the above format for each account discussed)*
+
+## Pipeline Health Summary
+
+### Accounts Advancing
+Accounts showing positive momentum:
+- **[Account]**: [Why it's advancing]
+
+### Accounts At Risk
+Accounts with blockers or concerns:
+- **[Account]**: [Risk/concern]
+
+### New Opportunities
+Any new deals or accounts mentioned:
+- **[Account]**: [Brief context]
+
+## Forecast Updates
+Any changes to forecast or expected close dates:
+- [Account]: [Forecast change]
+
+## Team Action Items
+Cross-functional or team-wide follow-ups:
+- [ ] [Action] - **Owner:** [Name]
+
+═══════════════════════════════════════════════════════════════════════════
+CRITICAL RULES:
+═══════════════════════════════════════════════════════════════════════════
+
+1. Extract EVERY account mentioned, even briefly
+2. Use exact names as spoken (accounts and people)
+3. If an account owner is unclear, mark as "[Owner unclear]"
+4. Include direct quotes for significant statements
+5. For accounts with no updates, note "Brief mention, no substantive updates"
+6. Capture ALL action items with clear ownership`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

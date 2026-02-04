@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>First_Outreach_By__c</fullName>
+    <description>The Business Lead who first contacted this lead.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Which Business Lead made the first contact?</inlineHelpText>
+    <label>First Outreach By</label>
+    <referenceTo>User</referenceTo>
+    <relationshipName>Leads_First_Outreach</relationshipName>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Lookup</type>
+</CustomField>

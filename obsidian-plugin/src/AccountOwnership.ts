@@ -8,6 +8,28 @@
  */
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ADMIN CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Admin users who can see ALL accounts (not just their owned ones).
+ * These users get "owned + read-only view of all" access.
+ */
+export const ADMIN_EMAILS = [
+  'keigan.pesenti@eudia.com',
+  'michael.ayers@eudia.com',
+  'zack@eudia.com'
+];
+
+/**
+ * Check if a user is an admin with elevated account visibility
+ */
+export function isAdminUser(email: string): boolean {
+  const normalizedEmail = email.toLowerCase().trim();
+  return ADMIN_EMAILS.includes(normalizedEmail);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INTERFACES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -15,6 +37,7 @@ export interface OwnedAccount {
   id: string;
   name: string;
   type?: 'Customer' | 'Prospect' | 'Target';
+  isOwned?: boolean;  // For admins: true if they own it, false if view-only
 }
 
 export interface BusinessLead {
@@ -545,6 +568,95 @@ export class AccountOwnershipService {
    */
   getDataVersion(): string {
     return OWNERSHIP_DATA.version;
+  }
+
+  /**
+   * Get ALL accounts for admin users
+   * Returns all accounts with isOwned flag to distinguish owned vs view-only
+   */
+  async getAllAccountsForAdmin(adminEmail: string): Promise<OwnedAccount[]> {
+    const normalizedEmail = adminEmail.toLowerCase().trim();
+    
+    if (!isAdminUser(normalizedEmail)) {
+      console.log(`[AccountOwnership] ${normalizedEmail} is not an admin, returning owned accounts only`);
+      return this.getAccountsForUser(normalizedEmail);
+    }
+
+    // Try server endpoint first (live Salesforce data for all accounts)
+    const serverAccounts = await this.fetchAllAccountsFromServer();
+    if (serverAccounts && serverAccounts.length > 0) {
+      // Get admin's owned accounts to mark ownership
+      const ownedAccounts = await this.getAccountsForUser(normalizedEmail);
+      const ownedIds = new Set(ownedAccounts.map(a => a.id));
+      
+      // Mark each account with ownership status
+      return serverAccounts.map(acc => ({
+        ...acc,
+        isOwned: ownedIds.has(acc.id)
+      }));
+    }
+
+    // Fall back to static data (combine all accounts from all BLs)
+    console.log(`[AccountOwnership] Using static data fallback for admin all-accounts`);
+    return this.getAllAccountsFromStatic(normalizedEmail);
+  }
+
+  /**
+   * Get all accounts from static mapping for admins
+   */
+  private getAllAccountsFromStatic(adminEmail: string): OwnedAccount[] {
+    const allAccounts: Map<string, OwnedAccount> = new Map();
+    const ownedIds = new Set<string>();
+    
+    // Get admin's owned accounts first
+    const adminLead = OWNERSHIP_DATA.businessLeads[adminEmail];
+    if (adminLead) {
+      for (const acc of adminLead.accounts) {
+        ownedIds.add(acc.id);
+        allAccounts.set(acc.id, { ...acc, isOwned: true });
+      }
+    }
+    
+    // Collect all accounts from all BLs
+    for (const lead of Object.values(OWNERSHIP_DATA.businessLeads)) {
+      for (const acc of lead.accounts) {
+        if (!allAccounts.has(acc.id)) {
+          allAccounts.set(acc.id, { ...acc, isOwned: false });
+        }
+      }
+    }
+    
+    // Sort by name
+    return Array.from(allAccounts.values()).sort((a, b) => 
+      a.name.localeCompare(b.name)
+    );
+  }
+
+  /**
+   * Fetch ALL accounts from server (for admin users)
+   */
+  private async fetchAllAccountsFromServer(): Promise<OwnedAccount[] | null> {
+    try {
+      const { requestUrl } = await import('obsidian');
+      
+      const response = await requestUrl({
+        url: `${this.serverUrl}/api/accounts/all`,
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      
+      if (response.json?.success && response.json?.accounts) {
+        return response.json.accounts.map((acc: any) => ({
+          id: acc.id,
+          name: acc.name,
+          type: acc.type || 'Prospect'
+        }));
+      }
+      return null;
+    } catch (error) {
+      console.log('[AccountOwnership] Server fetch all accounts failed:', error);
+      return null;
+    }
   }
 }
 

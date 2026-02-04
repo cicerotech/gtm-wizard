@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Report xmlns="http://soap.sforce.com/2006/04/metadata">
+    <columns>
+        <field>LEAD.NAME</field>
+    </columns>
+    <columns>
+        <field>COMPANY</field>
+    </columns>
+    <columns>
+        <field>Lead.Outreach_Source__c</field>
+    </columns>
+    <columns>
+        <field>Lead.Apollo_Sequence__c</field>
+    </columns>
+    <columns>
+        <field>Lead.Apollo_Status__c</field>
+    </columns>
+    <columns>
+        <field>Lead.First_Outreach_Date__c</field>
+    </columns>
+    <columns>
+        <field>Lead.Apollo_Last_Sent__c</field>
+    </columns>
+    <columns>
+        <field>Lead.LinkedIn_InMail_Sent__c</field>
+    </columns>
+    <columns>
+        <field>STATUS</field>
+    </columns>
+    <description>Tracks outreach activity by Business Lead for top-of-funnel prospecting</description>
+    <format>Summary</format>
+    <groupingsDown>
+        <dateGranularity>Day</dateGranularity>
+        <field>Lead.First_Outreach_By__c</field>
+        <sortOrder>Asc</sortOrder>
+    </groupingsDown>
+    <name>BL Outreach Activity</name>
+    <reportType>LeadList</reportType>
+    <scope>org</scope>
+    <showDetails>true</showDetails>
+    <showGrandTotal>true</showGrandTotal>
+    <showSubTotals>true</showSubTotals>
+    <timeFrameFilter>
+        <dateColumn>Lead.First_Outreach_Date__c</dateColumn>
+        <interval>INTERVAL_LAST90</interval>
+    </timeFrameFilter>
+</Report>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>First_Contact_Date__c</fullName>
+    <description>Date when the first outreach was made to the contact that led to this opportunity.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>When was the first outreach made?</inlineHelpText>
+    <label>First Contact Date</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Date</type>
+</CustomField>

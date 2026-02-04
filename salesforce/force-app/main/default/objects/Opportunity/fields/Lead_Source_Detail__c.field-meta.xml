@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Lead_Source_Detail__c</fullName>
+    <description>Detailed information about the lead source, such as specific campaign, sequence, or event name.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Specific campaign, sequence, or event that generated this opportunity.</inlineHelpText>
+    <label>Lead Source Detail</label>
+    <length>255</length>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

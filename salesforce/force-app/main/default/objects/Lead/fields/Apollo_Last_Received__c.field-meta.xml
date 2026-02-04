@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Apollo_Last_Received__c</fullName>
+    <description>Date and time of the last reply received from this lead via Apollo.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>When the lead last replied to an Apollo email.</inlineHelpText>
+    <label>Apollo Last Received</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>DateTime</type>
+</CustomField>

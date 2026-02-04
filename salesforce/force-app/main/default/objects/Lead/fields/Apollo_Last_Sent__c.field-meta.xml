@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Apollo_Last_Sent__c</fullName>
+    <description>Date and time of the last outbound email sent via Apollo.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Last outbound email sent through Apollo.</inlineHelpText>
+    <label>Apollo Last Sent</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>DateTime</type>
+</CustomField>

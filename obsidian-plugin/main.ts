@@ -18,11 +18,11 @@ import {
   WorkspaceLeaf
 } from 'obsidian';
 
-import { AudioRecorder, RecordingState, RecordingResult } from './src/AudioRecorder';
+import { AudioRecorder, RecordingState, RecordingResult, AudioDiagnostic } from './src/AudioRecorder';
 import { TranscriptionService, TranscriptionResult, MeetingContext, ProcessedSections, AccountDetector, accountDetector, AccountDetectionResult } from './src/TranscriptionService';
 import { CalendarService, CalendarMeeting, TodayResponse, WeekResponse } from './src/CalendarService';
 import { SmartTagService, SmartTags } from './src/SmartTagService';
-import { AccountOwnershipService, OwnedAccount, generateAccountOverviewNote } from './src/AccountOwnership';
+import { AccountOwnershipService, OwnedAccount, generateAccountOverviewNote, isAdminUser, ADMIN_EMAILS } from './src/AccountOwnership';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES & INTERFACES
@@ -805,10 +805,24 @@ class SetupWizardModal extends Modal {
     this.updateStep('accounts', 'running');
     try {
       const ownershipService = new AccountOwnershipService(this.plugin.settings.serverUrl);
-      const accounts = await ownershipService.getAccountsForUser(this.plugin.settings.userEmail);
+      const userEmail = this.plugin.settings.userEmail;
+      
+      // Check if user is an admin - admins get all accounts
+      let accounts: OwnedAccount[];
+      if (isAdminUser(userEmail)) {
+        console.log('[Eudia] Admin user detected - importing all accounts');
+        accounts = await ownershipService.getAllAccountsForAdmin(userEmail);
+      } else {
+        accounts = await ownershipService.getAccountsForUser(userEmail);
+      }
       
       if (accounts.length > 0) {
-        await this.plugin.createTailoredAccountFolders(accounts);
+        // Use admin method for admin users, regular method for others
+        if (isAdminUser(userEmail)) {
+          await this.plugin.createAdminAccountFolders(accounts);
+        } else {
+          await this.plugin.createTailoredAccountFolders(accounts);
+        }
         this.plugin.settings.accountsImported = true;
         this.plugin.settings.importedAccountCount = accounts.length;
         await this.plugin.saveSettings();
@@ -1156,9 +1170,21 @@ class EudiaSetupView extends ItemView {
         }
         
         try {
-          const accounts = await this.accountOwnershipService.getAccountsForUser(email);
+          // Check if user is an admin - admins get all accounts
+          let accounts: OwnedAccount[];
+          if (isAdminUser(email)) {
+            console.log('[Eudia] Admin user detected - importing all accounts');
+            accounts = await this.accountOwnershipService.getAllAccountsForAdmin(email);
+          } else {
+            accounts = await this.accountOwnershipService.getAccountsForUser(email);
+          }
+          
           if (accounts.length > 0) {
-            await this.plugin.createTailoredAccountFolders(accounts);
+            if (isAdminUser(email)) {
+              await this.plugin.createAdminAccountFolders(accounts);
+            } else {
+              await this.plugin.createTailoredAccountFolders(accounts);
+            }
             this.plugin.settings.accountsImported = true;
             this.plugin.settings.importedAccountCount = accounts.length;
             await this.plugin.saveSettings();
@@ -1307,9 +1333,17 @@ class EudiaSetupView extends ItemView {
     statusEl.className = 'eudia-setup-sf-status loading';
     
     try {
-      const accounts = await this.accountOwnershipService.getAccountsForUser(
-        this.plugin.settings.userEmail
-      );
+      const userEmail = this.plugin.settings.userEmail;
+      
+      // Check if user is an admin - admins get all accounts
+      let accounts: OwnedAccount[];
+      if (isAdminUser(userEmail)) {
+        console.log('[Eudia] Admin user detected - importing all accounts');
+        statusEl.textContent = 'Admin detected - importing all accounts...';
+        accounts = await this.accountOwnershipService.getAllAccountsForAdmin(userEmail);
+      } else {
+        accounts = await this.accountOwnershipService.getAccountsForUser(userEmail);
+      }
       
       if (accounts.length === 0) {
         statusEl.textContent = 'No accounts found for your email. Contact your admin.';
@@ -1317,8 +1351,12 @@ class EudiaSetupView extends ItemView {
         return;
       }
       
-      // Create account folders
-      await this.plugin.createTailoredAccountFolders(accounts);
+      // Create account folders - use admin method for admin users
+      if (isAdminUser(userEmail)) {
+        await this.plugin.createAdminAccountFolders(accounts);
+      } else {
+        await this.plugin.createTailoredAccountFolders(accounts);
+      }
       
       this.plugin.settings.accountsImported = true;
       this.plugin.settings.importedAccountCount = accounts.length;
@@ -1326,7 +1364,14 @@ class EudiaSetupView extends ItemView {
       
       this.steps[2].status = 'complete';
       
-      statusEl.textContent = `${accounts.length} accounts imported successfully!`;
+      const ownedCount = accounts.filter(a => a.isOwned !== false).length;
+      const viewOnlyCount = accounts.filter(a => a.isOwned === false).length;
+      
+      if (isAdminUser(userEmail) && viewOnlyCount > 0) {
+        statusEl.textContent = `${ownedCount} owned + ${viewOnlyCount} view-only accounts imported!`;
+      } else {
+        statusEl.textContent = `${accounts.length} accounts imported successfully!`;
+      }
       statusEl.className = 'eudia-setup-sf-status success';
       
     } catch (error) {
@@ -2597,6 +2642,235 @@ sync_to_salesforce: false
     await this.ensureNextStepsFolderExists();
   }
 
+  /**
+   * Create account folders for admin users with ALL accounts.
+   * Owned accounts get full folder structure, view-only get minimal read-only structure.
+   */
+  async createAdminAccountFolders(accounts: OwnedAccount[]): Promise<void> {
+    const accountsFolder = this.settings.accountsFolder || 'Accounts';
+    
+    // Ensure the main Accounts folder exists
+    const existingFolder = this.app.vault.getAbstractFileByPath(accountsFolder);
+    if (!existingFolder) {
+      await this.app.vault.createFolder(accountsFolder);
+    }
+
+    // Create Pipeline folder for admin pipeline review notes
+    await this.ensurePipelineFolderExists();
+
+    let createdOwned = 0;
+    let createdViewOnly = 0;
+    const dateStr = new Date().toISOString().split('T')[0];
+    
+    for (const account of accounts) {
+      const safeName = account.name.replace(/[<>:"/\\|?*]/g, '_').trim();
+      const folderPath = `${accountsFolder}/${safeName}`;
+      
+      // Check if folder already exists
+      const existing = this.app.vault.getAbstractFileByPath(folderPath);
+      if (existing instanceof TFolder) {
+        continue;
+      }
+      
+      try {
+        // Create the account folder
+        await this.app.vault.createFolder(folderPath);
+        
+        if (account.isOwned) {
+          // Full folder structure for owned accounts (same as regular users)
+          await this.createFullAccountSubnotes(folderPath, account, dateStr);
+          createdOwned++;
+        } else {
+          // Minimal read-only structure for view-only accounts
+          await this.createViewOnlyAccountNote(folderPath, account, dateStr);
+          createdViewOnly++;
+        }
+        
+        console.log(`[Eudia Admin] Created ${account.isOwned ? 'owned' : 'view-only'} folder: ${safeName}`);
+      } catch (error) {
+        console.error(`[Eudia Admin] Failed to create folder for ${safeName}:`, error);
+      }
+    }
+
+    // Update cached accounts
+    this.settings.cachedAccounts = accounts.map(a => ({
+      id: a.id,
+      name: a.name
+    }));
+    await this.saveSettings();
+
+    if (createdOwned + createdViewOnly > 0) {
+      new Notice(`Created ${createdOwned} owned + ${createdViewOnly} view-only account folders`);
+    }
+    
+    await this.ensureNextStepsFolderExists();
+  }
+
+  /**
+   * Create view-only account note for admins
+   */
+  private async createViewOnlyAccountNote(folderPath: string, account: OwnedAccount, dateStr: string): Promise<void> {
+    const ownerName = (account as any).ownerName || 'Unknown';
+    const content = `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: view_only
+owner: "${ownerName}"
+read_only: true
+created: ${dateStr}
+---
+
+# ${account.name}
+
+> **View-Only Account** - Owned by ${ownerName}
+
+This account is owned by another team member. You can view notes here but primary updates should come from the account owner.
+
+## Account Owner
+**${ownerName}**
+
+## Quick Info
+- Account ID: \`${account.id}\`
+- Type: ${account.type || 'Prospect'}
+
+---
+
+*To see recent activity, check Salesforce or reach out to ${ownerName}.*
+`;
+    
+    const notePath = `${folderPath}/_Account Info.md`;
+    await this.app.vault.create(notePath, content);
+  }
+
+  /**
+   * Create full account subnotes (used by both regular users and admin-owned accounts)
+   */
+  private async createFullAccountSubnotes(folderPath: string, account: OwnedAccount, dateStr: string): Promise<void> {
+    const subnotes = [
+      {
+        name: 'Note 1.md',
+        content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: meeting_note
+sync_to_salesforce: false
+created: ${dateStr}
+---
+
+# ${account.name} - Meeting Note
+
+**Date:** 
+**Attendees:** 
+
+---
+
+## Discussion
+
+*Add meeting notes here...*
+
+---
+
+## Next Steps
+
+- [ ] 
+
+`
+      },
+      {
+        name: 'Next Steps.md',
+        content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: next_steps
+auto_updated: true
+last_updated: ${dateStr}
+sync_to_salesforce: false
+---
+
+# ${account.name} - Next Steps
+
+*This note is automatically updated after each meeting transcription.*
+
+## Current Next Steps
+
+*No next steps yet. Record a meeting to auto-populate.*
+
+---
+
+## History
+
+*Previous next steps will be archived here.*
+`
+      }
+    ];
+    
+    for (const subnote of subnotes) {
+      const notePath = `${folderPath}/${subnote.name}`;
+      await this.app.vault.create(notePath, subnote.content);
+    }
+  }
+
+  /**
+   * Ensure Pipeline folder exists for admin pipeline review notes
+   */
+  private async ensurePipelineFolderExists(): Promise<void> {
+    const pipelineFolder = 'Pipeline';
+    const dashboardPath = `${pipelineFolder}/Pipeline Review Notes.md`;
+    
+    const folder = this.app.vault.getAbstractFileByPath(pipelineFolder);
+    if (!folder) {
+      await this.app.vault.createFolder(pipelineFolder);
+    }
+    
+    const dashboard = this.app.vault.getAbstractFileByPath(dashboardPath);
+    if (!dashboard) {
+      const dateStr = new Date().toISOString().split('T')[0];
+      
+      const content = `---
+type: pipeline_dashboard
+auto_updated: true
+last_updated: ${dateStr}
+---
+
+# Pipeline Review Notes
+
+This folder contains transcribed notes from internal pipeline review meetings.
+
+## How It Works
+
+1. **Record** a pipeline review meeting (forecast call, deal review, etc.)
+2. **Transcribe** using the microphone - the system detects it's a pipeline meeting
+3. **Account updates** are extracted per-account discussed
+4. **This dashboard** aggregates all pipeline review notes
+
+---
+
+## Recent Pipeline Reviews
+
+| Date | Meeting | Key Updates |
+|------|---------|-------------|
+|      |         |             |
+
+---
+
+## Pipeline Health Snapshot
+
+*Updated after each pipeline review meeting.*
+
+### Accounts Advancing
+*None yet*
+
+### Accounts At Risk
+*None yet*
+
+### New Opportunities
+*None yet*
+`;
+      
+      await this.app.vault.create(dashboardPath, content);
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // NEXT STEPS MANAGEMENT
   // ─────────────────────────────────────────────────────────────────────────
@@ -2968,6 +3242,29 @@ last_updated: ${dateStr}
     if (blobSize < 1000) {
       new Notice('Recording too short or no audio captured. Please try again.');
       return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AUDIO DIAGNOSTIC - Check for silent/low audio before transcription
+    // This catches issues that cause Whisper to hallucinate (e.g., "Yes. Yes. Yes.")
+    // ═══════════════════════════════════════════════════════════════════════
+    try {
+      const diagnostic = await AudioRecorder.analyzeAudioBlob(result.audioBlob);
+      console.log(`[Eudia] Audio diagnostic: hasAudio=${diagnostic.hasAudio}, peak=${diagnostic.peakLevel}, silent=${diagnostic.silentPercent}%`);
+      
+      if (diagnostic.warning) {
+        console.warn(`[Eudia] Audio warning: ${diagnostic.warning}`);
+        
+        // For silent audio, warn user but still attempt transcription
+        // (in case our detection is wrong)
+        if (!diagnostic.hasAudio) {
+          new Notice('Warning: Audio appears to be silent. Transcription may not work correctly. Check your microphone settings.', 8000);
+        } else {
+          new Notice(`Warning: ${diagnostic.warning.split(':')[0]}`, 5000);
+        }
+      }
+    } catch (diagError) {
+      console.warn('[Eudia] Audio diagnostic failed, continuing anyway:', diagError);
     }
 
     // Estimate processing time based on duration

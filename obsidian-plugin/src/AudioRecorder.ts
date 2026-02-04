@@ -17,6 +17,17 @@ export interface RecordingResult {
   filename: string;
 }
 
+/**
+ * Audio quality diagnostic result
+ */
+export interface AudioDiagnostic {
+  hasAudio: boolean;
+  averageLevel: number;
+  peakLevel: number;
+  silentPercent: number;
+  warning: string | null;
+}
+
 export type RecordingStateCallback = (state: RecordingState) => void;
 
 export class AudioRecorder {
@@ -478,6 +489,160 @@ export class AudioRecorder {
    */
   isRecording(): boolean {
     return this.state.isRecording;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO DIAGNOSTICS - Detect silent/low audio before transcription
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Track audio levels during recording for post-recording diagnostics.
+   * This is tracked automatically during recording via startLevelTracking().
+   */
+  private levelHistory: number[] = [];
+  private trackingLevels: boolean = false;
+
+  /**
+   * Start tracking audio levels for diagnostics
+   * (Called automatically during recording)
+   */
+  private startLevelHistoryTracking(): void {
+    this.levelHistory = [];
+    this.trackingLevels = true;
+  }
+
+  /**
+   * Add current level to history
+   * (Called during level tracking interval)
+   */
+  private recordLevelSample(): void {
+    if (this.trackingLevels) {
+      this.levelHistory.push(this.state.audioLevel);
+    }
+  }
+
+  /**
+   * Get audio diagnostic after recording completes.
+   * Call this after stopRecording() to check for potential issues.
+   */
+  getAudioDiagnostic(): AudioDiagnostic {
+    if (this.levelHistory.length === 0) {
+      // No level history - likely didn't track or very short recording
+      return {
+        hasAudio: true, // Assume true if we can't check
+        averageLevel: 0,
+        peakLevel: 0,
+        silentPercent: 100,
+        warning: 'Unable to analyze audio levels - recording may be too short'
+      };
+    }
+
+    const average = this.levelHistory.reduce((a, b) => a + b, 0) / this.levelHistory.length;
+    const peak = Math.max(...this.levelHistory);
+    const silentSamples = this.levelHistory.filter(l => l < 5).length;
+    const silentPercent = Math.round((silentSamples / this.levelHistory.length) * 100);
+
+    let warning: string | null = null;
+
+    // Check for common issues
+    if (peak < 5) {
+      warning = 'SILENT AUDIO: No audio was detected during recording. Check your microphone settings and ensure Obsidian has microphone permission.';
+    } else if (average < 10 && silentPercent > 80) {
+      warning = 'VERY LOW AUDIO: Audio levels were extremely low. The transcription may not be accurate. Check your microphone or move closer to it.';
+    } else if (silentPercent > 90) {
+      warning = 'MOSTLY SILENT: Over 90% of the recording had no audio. Make sure you\'re capturing the meeting audio, not just silence.';
+    }
+
+    return {
+      hasAudio: peak >= 5,
+      averageLevel: Math.round(average),
+      peakLevel: peak,
+      silentPercent,
+      warning
+    };
+  }
+
+  /**
+   * Analyze an audio blob for audio presence.
+   * This is a more thorough check that analyzes the actual audio data.
+   * Returns a diagnostic result.
+   */
+  static async analyzeAudioBlob(blob: Blob): Promise<AudioDiagnostic> {
+    try {
+      const audioContext = new AudioContext();
+      const arrayBuffer = await blob.arrayBuffer();
+      
+      let audioBuffer: AudioBuffer;
+      try {
+        audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      } catch (decodeError) {
+        // Can't decode - might be a codec issue, not necessarily silent
+        await audioContext.close();
+        return {
+          hasAudio: true, // Assume true - let the server handle it
+          averageLevel: 0,
+          peakLevel: 0,
+          silentPercent: 0,
+          warning: 'Could not analyze audio format. Proceeding with transcription.'
+        };
+      }
+
+      const channelData = audioBuffer.getChannelData(0);
+      
+      // Analyze the audio samples
+      let sum = 0;
+      let peak = 0;
+      let silentSamples = 0;
+      const sampleThreshold = 0.01; // Below this is considered silent
+      
+      // Sample every 100th sample for efficiency
+      const sampleStep = 100;
+      let samplesChecked = 0;
+      
+      for (let i = 0; i < channelData.length; i += sampleStep) {
+        const sample = Math.abs(channelData[i]);
+        sum += sample;
+        if (sample > peak) peak = sample;
+        if (sample < sampleThreshold) silentSamples++;
+        samplesChecked++;
+      }
+
+      await audioContext.close();
+
+      const average = sum / samplesChecked;
+      const silentPercent = Math.round((silentSamples / samplesChecked) * 100);
+      
+      // Convert to 0-100 scale
+      const averageLevel = Math.round(average * 100 * 10); // Amplify for readability
+      const peakLevel = Math.round(peak * 100);
+
+      let warning: string | null = null;
+
+      if (peak < 0.01) {
+        warning = 'SILENT AUDIO DETECTED: The recording appears to contain only silence. This typically causes Whisper to hallucinate random text like "Yes. Yes. Yes." Check your audio input source.';
+      } else if (average < 0.005 && silentPercent > 95) {
+        warning = 'NEAR-SILENT AUDIO: The recording is almost entirely silent. The transcription will likely be inaccurate.';
+      } else if (silentPercent > 90) {
+        warning = 'MOSTLY SILENT: Over 90% of the recording is silent. Consider checking your audio setup.';
+      }
+
+      return {
+        hasAudio: peak >= 0.01,
+        averageLevel,
+        peakLevel,
+        silentPercent,
+        warning
+      };
+    } catch (error) {
+      console.error('Audio analysis failed:', error);
+      return {
+        hasAudio: true, // Assume true if we can't check
+        averageLevel: 0,
+        peakLevel: 0,
+        silentPercent: 0,
+        warning: null
+      };
+    }
   }
 }
 

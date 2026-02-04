@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>Lead.Apollo_Sequence__c</members>
+        <members>Lead.Apollo_Last_Sent__c</members>
+        <members>Lead.Apollo_Last_Opened__c</members>
+        <members>Lead.Apollo_Last_Received__c</members>
+        <members>Lead.Apollo_Email_Count__c</members>
+        <members>Lead.Apollo_Status__c</members>
+        <members>Lead.Outreach_Source__c</members>
+        <members>Lead.First_Outreach_Date__c</members>
+        <members>Lead.First_Outreach_By__c</members>
+        <members>Lead.LinkedIn_InMail_Sent__c</members>
+        <members>Lead.LinkedIn_Connection_Status__c</members>
+        <members>Contact.Apollo_Sequence__c</members>
+        <members>Contact.Apollo_Email_Count__c</members>
+        <members>Contact.Apollo_Status__c</members>
+        <members>Contact.Outreach_Source__c</members>
+        <members>Contact.First_Outreach_Date__c</members>
+        <members>Contact.First_Outreach_By__c</members>
+        <members>Opportunity.Lead_Source_Detail__c</members>
+        <members>Opportunity.Original_Outreach_Source__c</members>
+        <members>Opportunity.First_Contact_Date__c</members>
+        <members>Opportunity.Sourced_By__c</members>
+        <name>CustomField</name>
+    </types>
+    <types>
+        <members>Auto_Populate_Lead_First_Outreach</members>
+        <members>Auto_Populate_Contact_First_Outreach</members>
+        <name>Flow</name>
+    </types>
+    <types>
+        <members>Outreach_Tracking</members>
+        <name>ReportFolder</name>
+    </types>
+    <types>
+        <members>Outreach_Tracking/BL_Outreach_Activity</members>
+        <members>Outreach_Tracking/Apollo_Sequence_Performance</members>
+        <members>Outreach_Tracking/Sales_Nav_Effectiveness</members>
+        <name>Report</name>
+    </types>
+    <types>
+        <members>Outreach_Tracking</members>
+        <name>DashboardFolder</name>
+    </types>
+    <types>
+        <members>Outreach_Tracking/Top_of_Funnel_Metrics</members>
+        <name>Dashboard</name>
+    </types>
+    <types>
+        <members>Lead-Lead Layout</members>
+        <members>Contact-Contact Layout</members>
+        <members>Opportunity-Opportunity Layout</members>
+        <name>Layout</name>
+    </types>
+    <version>63.0</version>
+</Package>

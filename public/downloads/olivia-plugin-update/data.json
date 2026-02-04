@@ -1,0 +1,22 @@
+{
+  "serverUrl": "https://gtm-wizard.onrender.com",
+  "accountsFolder": "Accounts",
+  "recordingsFolder": "Recordings",
+  "syncOnStartup": true,
+  "autoSyncAfterTranscription": true,
+  "saveAudioFiles": true,
+  "appendTranscript": true,
+  "lastSyncTime": null,
+  "cachedAccounts": [],
+  "enableSmartTags": true,
+  "showCalendarView": true,
+  "userEmail": "olivia.jung@eudia.com",
+  "setupCompleted": false,
+  "calendarConfigured": false,
+  "salesforceConnected": false,
+  "accountsImported": false,
+  "importedAccountCount": 0,
+  "openaiApiKey": "",
+  "timezone": "America/New_York",
+  "lastAccountRefreshDate": null
+}

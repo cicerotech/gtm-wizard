@@ -2219,6 +2219,59 @@ class GTMBrainApp {
       }
     });
 
+    // Get ALL accounts (for admin users in Obsidian plugin)
+    // Admin emails: keigan.pesenti@eudia.com, michael.ayers@eudia.com, zack@eudia.com
+    this.expressApp.get('/api/accounts/all', async (req, res) => {
+      try {
+        const requestEmail = (req.query.email || '').toLowerCase().trim();
+        
+        // Admin email verification (optional security layer)
+        const ADMIN_EMAILS = [
+          'keigan.pesenti@eudia.com',
+          'michael.ayers@eudia.com', 
+          'zack@eudia.com'
+        ];
+        
+        // Log the request (admin check is done client-side, server just returns data)
+        logger.info(`[AllAccounts] Request from: ${requestEmail || 'anonymous'}`);
+        
+        // Query ALL active accounts from Salesforce
+        const accountQuery = `
+          SELECT Id, Name, Type, Customer_Type__c, OwnerId, Owner.Name
+          FROM Account 
+          WHERE IsDeleted = false
+          ORDER BY Name ASC
+          LIMIT 1000
+        `;
+        const accountResult = await sfConnection.query(accountQuery);
+        
+        const accounts = (accountResult.records || []).map(acc => ({
+          id: acc.Id,
+          name: acc.Name,
+          type: acc.Customer_Type__c || acc.Type || 'Prospect',
+          ownerId: acc.OwnerId,
+          ownerName: acc.Owner?.Name || 'Unknown'
+        }));
+        
+        logger.info(`[AllAccounts] Returning ${accounts.length} accounts`);
+        
+        res.json({
+          success: true,
+          accounts: accounts,
+          count: accounts.length,
+          lastUpdated: new Date().toISOString()
+        });
+        
+      } catch (error) {
+        logger.error('Error fetching all accounts:', error);
+        res.status(500).json({ 
+          success: false, 
+          error: 'Failed to fetch accounts from Salesforce',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+      }
+    });
+
     // ═══════════════════════════════════════════════════════════════════════════
     // INTELLIGENCE QUERY API (Granola-style conversational queries)
     // Enables natural language questions about accounts and deals
