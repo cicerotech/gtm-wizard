@@ -238,6 +238,578 @@ document.querySelectorAll('.copy').forEach(btn=>btn.addEventListener('click',asy
 </html>`;
 }
 
+/**
+ * Generate Security & Compliance Documentation Page
+ * SOC 2-aligned documentation for stakeholder review
+ */
+function generateSecurityCompliancePage() {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security & Compliance | gtm-brain</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --primary:#1f2937;
+  --accent:#8e99e1;
+  --accent-light:rgba(142,153,225,0.1);
+  --text:#1f2937;
+  --text-muted:#6b7280;
+  --text-light:#9ca3af;
+  --bg:#f9fafb;
+  --card:#fff;
+  --border:#e5e7eb;
+  --success:#10b981;
+  --warning:#f59e0b;
+  --code-bg:#f3f4f6;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+.header{background:var(--primary);color:#fff;padding:40px 20px;text-align:center}
+.header h1{font-size:2rem;font-weight:700;margin-bottom:8px}
+.header p{color:rgba(255,255,255,0.8);font-size:1rem;max-width:600px;margin:0 auto}
+.header .badge{display:inline-block;background:var(--accent);color:#fff;padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:600;margin-top:16px}
+.nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;position:sticky;top:0;z-index:100}
+.nav-inner{max-width:900px;margin:0 auto;display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.nav a{color:var(--text-muted);text-decoration:none;font-size:0.8rem;padding:6px 12px;border-radius:6px;transition:all 0.15s}
+.nav a:hover{background:var(--accent-light);color:var(--accent)}
+.main{max-width:900px;margin:0 auto;padding:40px 20px}
+.section{margin-bottom:48px}
+.section-title{font-size:1.5rem;font-weight:700;color:var(--primary);margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.section-title .icon{width:32px;height:32px;background:var(--accent-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem}
+.section-subtitle{color:var(--text-muted);font-size:0.95rem;margin-bottom:24px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px}
+.card-title{font-size:1.1rem;font-weight:600;margin-bottom:8px}
+.card-text{color:var(--text-muted);font-size:0.9rem}
+.highlight-box{background:linear-gradient(135deg,var(--primary) 0%,#374151 100%);color:#fff;border-radius:12px;padding:32px;margin-bottom:32px}
+.highlight-box h2{font-size:1.25rem;font-weight:700;margin-bottom:12px}
+.highlight-box p{color:rgba(255,255,255,0.9);font-size:0.95rem;line-height:1.7}
+.highlight-box ul{margin-top:16px;padding-left:20px}
+.highlight-box li{color:rgba(255,255,255,0.9);margin-bottom:8px}
+table{width:100%;border-collapse:collapse;font-size:0.85rem;margin:16px 0}
+th{background:var(--code-bg);text-align:left;padding:12px;font-weight:600;border:1px solid var(--border)}
+td{padding:12px;border:1px solid var(--border);vertical-align:top}
+tr:nth-child(even){background:var(--code-bg)}
+.badge-green{background:#dcfce7;color:#166534;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:500}
+.badge-blue{background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:500}
+.badge-purple{background:var(--accent-light);color:#5b21b6;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:500}
+.accordion{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:8px}
+.accordion-header{background:var(--card);padding:16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-weight:500;transition:background 0.15s}
+.accordion-header:hover{background:var(--code-bg)}
+.accordion-header::after{content:'+';font-size:1.2rem;color:var(--text-muted)}
+.accordion-header.active::after{content:'-'}
+.accordion-content{display:none;padding:16px;background:var(--code-bg);border-top:1px solid var(--border)}
+.accordion-content.show{display:block}
+.diagram{background:var(--code-bg);border-radius:8px;padding:24px;font-family:'SF Mono',Monaco,monospace;font-size:0.8rem;overflow-x:auto;line-height:1.4;white-space:pre}
+.checklist{list-style:none;padding:0}
+.checklist li{padding:12px 16px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;display:flex;align-items:center;gap:12px;background:var(--card)}
+.checklist li::before{content:'✓';width:24px;height:24px;background:var(--success);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.stat-box{text-align:center;padding:24px;background:var(--card);border:1px solid var(--border);border-radius:12px}
+.stat-box .number{font-size:2rem;font-weight:700;color:var(--accent)}
+.stat-box .label{color:var(--text-muted);font-size:0.85rem;margin-top:4px}
+.code{background:var(--code-bg);padding:2px 6px;border-radius:4px;font-family:'SF Mono',Monaco,monospace;font-size:0.85rem}
+.footer{text-align:center;padding:40px 20px;color:var(--text-light);font-size:0.8rem;border-top:1px solid var(--border);margin-top:60px}
+@media(max-width:640px){
+  .header h1{font-size:1.5rem}
+  .section-title{font-size:1.25rem}
+  .nav-inner{justify-content:flex-start;overflow-x:auto}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <h1>Security & Compliance</h1>
+  <p>Enterprise-grade security controls for sales intelligence infrastructure</p>
+  <span class="badge">SOC 2 Aligned</span>
+</header>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#overview">Overview</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#data-flow">Data Flow</a>
+    <a href="#api-safeguards">API Safeguards</a>
+    <a href="#authentication">Authentication</a>
+    <a href="#controls">Security Controls</a>
+    <a href="#third-party">Third Parties</a>
+    <a href="#secrets">Secrets</a>
+    <a href="#faq">FAQ</a>
+    <a href="#checklist">Checklist</a>
+  </div>
+</nav>
+
+<main class="main">
+
+<!-- Executive Summary -->
+<section id="overview" class="section">
+  <div class="highlight-box">
+    <h2>Is gtm-brain safe for our organization?</h2>
+    <p>Yes. gtm-brain is designed with a <strong>data minimization philosophy</strong>. Audio recordings and full transcripts are never stored on our servers. Meeting notes remain in users' local Obsidian vaults until they explicitly choose to sync summaries to Salesforce. All OAuth tokens are encrypted with AES-256-GCM at rest, and all communications use TLS 1.3 encryption in transit.</p>
+    <ul>
+      <li><strong>No audio storage</strong> on any server - audio is sent directly to OpenAI Whisper and discarded</li>
+      <li><strong>User-controlled vault</strong> - full notes stay on the user's machine</li>
+      <li><strong>Enterprise OAuth</strong> - per-user Salesforce authentication with proper attribution</li>
+      <li><strong>Rate-limited APIs</strong> - circuit breakers and caching prevent excessive API usage</li>
+    </ul>
+  </div>
+  
+  <div class="grid-2">
+    <div class="stat-box">
+      <div class="number">0</div>
+      <div class="label">Audio files stored on server</div>
+    </div>
+    <div class="stat-box">
+      <div class="number">AES-256</div>
+      <div class="label">Token encryption standard</div>
+    </div>
+    <div class="stat-box">
+      <div class="number">TLS 1.3</div>
+      <div class="label">In-transit encryption</div>
+    </div>
+    <div class="stat-box">
+      <div class="number">OAuth 2.0</div>
+      <div class="label">Authentication protocol</div>
+    </div>
+  </div>
+</section>
+
+<!-- Architecture Overview -->
+<section id="architecture" class="section">
+  <h2 class="section-title"><span class="icon">🏗</span> Architecture Overview</h2>
+  <p class="section-subtitle">How data flows through the gtm-brain system</p>
+  
+  <div class="diagram">
+┌─────────────────────────────┐     ┌──────────────────────────────┐     ┌─────────────────────────┐
+│   USER'S LOCAL MACHINE      │     │   GTM-BRAIN SERVER           │     │   EXTERNAL SERVICES     │
+│                             │     │   (Render.com - US Oregon)   │     │                         │
+│  ┌───────────────────────┐  │     │                              │     │  ┌───────────────────┐  │
+│  │   Obsidian Vault      │  │     │  ┌────────────────────────┐  │     │  │   Salesforce      │  │
+│  │   (Markdown files)    │◄─┼────►│  │   Node.js API Server   │◄─┼────►│  │   (Customer CRM)  │  │
+│  │   - Full transcripts  │  │     │  │   - OAuth handling     │  │     │  └───────────────────┘  │
+│  │   - Meeting notes     │  │     │  │   - Query caching      │  │     │                         │
+│  │   - Audio (optional)  │  │     │  │   - Rate limiting      │  │     │  ┌───────────────────┐  │
+│  └───────────────────────┘  │     │  └────────────────────────┘  │     │  │   OpenAI Whisper  │  │
+│                             │     │                              │     │  │   (Transcription) │  │
+│  ┌───────────────────────┐  │     │  ┌────────────────────────┐  │     │  └───────────────────┘  │
+│  │   Eudia Plugin        │  │     │  │   SQLite Database      │  │     │                         │
+│  │   - Transcription     │──┼────►│  │   - Encrypted tokens   │  │     │  ┌───────────────────┐  │
+│  │   - Summarization     │  │     │  │   - Calendar cache     │  │     │  │   Anthropic       │  │
+│  │   - Calendar sync     │  │     │  │   - Note metadata      │  │     │  │   (Summarization) │  │
+│  └───────────────────────┘  │     │  └────────────────────────┘  │     │  └───────────────────┘  │
+│                             │     │                              │     │                         │
+│  Audio NEVER leaves this    │     │  NO audio or full           │     │  ┌───────────────────┐  │
+│  machine except to OpenAI   │     │  transcripts stored         │     │  │   Microsoft 365   │  │
+│  for transcription          │     │  on this server             │     │  │   (Calendar)      │  │
+└─────────────────────────────┘     └──────────────────────────────┘     └─────────────────────────┘
+  </div>
+</section>
+
+<!-- Data Flow & Storage -->
+<section id="data-flow" class="section">
+  <h2 class="section-title"><span class="icon">📊</span> Data Flow & Storage</h2>
+  <p class="section-subtitle">What data is collected, where it lives, and how long it's retained</p>
+  
+  <div class="accordion">
+    <div class="accordion-header" onclick="toggleAccordion(this)">What data is collected?</div>
+    <div class="accordion-content">
+      <table>
+        <tr><th>Data Type</th><th>Source</th><th>Purpose</th></tr>
+        <tr><td>Audio recordings</td><td>User's microphone</td><td>Transcribed to text, then discarded</td></tr>
+        <tr><td>Meeting transcripts</td><td>OpenAI Whisper</td><td>Summarized for meeting notes</td></tr>
+        <tr><td>Calendar events</td><td>Microsoft 365</td><td>Show upcoming meetings in plugin</td></tr>
+        <tr><td>Salesforce data</td><td>Salesforce API</td><td>Account context for intelligence queries</td></tr>
+        <tr><td>User email</td><td>User input</td><td>Authentication and authorization</td></tr>
+      </table>
+    </div>
+  </div>
+  
+  <div class="accordion">
+    <div class="accordion-header" onclick="toggleAccordion(this)">Where does data live?</div>
+    <div class="accordion-content">
+      <table>
+        <tr><th>Data</th><th>Location</th><th>Encryption</th></tr>
+        <tr><td>Full transcripts</td><td><span class="badge-green">Local vault only</span></td><td>User's disk encryption</td></tr>
+        <tr><td>Audio files</td><td><span class="badge-green">Local vault only</span></td><td>User's disk encryption</td></tr>
+        <tr><td>OAuth tokens</td><td>Server SQLite</td><td>AES-256-GCM</td></tr>
+        <tr><td>Calendar cache</td><td>Server SQLite</td><td>None (non-sensitive)</td></tr>
+        <tr><td>Note summaries</td><td>Salesforce + local</td><td>Salesforce encryption</td></tr>
+      </table>
+    </div>
+  </div>
+  
+  <div class="accordion">
+    <div class="accordion-header" onclick="toggleAccordion(this)">What gets sent to AI services?</div>
+    <div class="accordion-content">
+      <table>
+        <tr><th>Service</th><th>Data Sent</th><th>Purpose</th></tr>
+        <tr><td>OpenAI Whisper</td><td>Audio recording</td><td>Convert speech to text</td></tr>
+        <tr><td>Anthropic Claude</td><td>Transcript text, account context</td><td>Summarization, intelligence queries</td></tr>
+        <tr><td>OpenAI GPT-4o</td><td>Transcript text (fallback)</td><td>Summarization when Claude unavailable</td></tr>
+      </table>
+      <p style="margin-top:12px;font-size:0.85rem;color:var(--text-muted)"><strong>Note:</strong> We do NOT send sensitive data like SSNs, payment info, or credentials to AI services. Only meeting content and business context.</p>
+    </div>
+  </div>
+  
+  <div class="accordion">
+    <div class="accordion-header" onclick="toggleAccordion(this)">Data retention policies</div>
+    <div class="accordion-content">
+      <table>
+        <tr><th>Data</th><th>Retention</th><th>Cleanup</th></tr>
+        <tr><td>OAuth tokens</td><td>Until revoked</td><td>Manual via admin endpoint</td></tr>
+        <tr><td>Calendar cache</td><td>30 days</td><td>Automatic daily cleanup</td></tr>
+        <tr><td>Query cache</td><td>5 minutes</td><td>Automatic TTL expiration</td></tr>
+        <tr><td>Context summaries</td><td>24 hours</td><td>Automatic expiration</td></tr>
+        <tr><td>Server logs</td><td>7 days</td><td>Render.com automatic rotation</td></tr>
+        <tr><td>Local vault notes</td><td>Indefinite</td><td>User-controlled deletion</td></tr>
+      </table>
+    </div>
+  </div>
+  
+  <div class="accordion">
+    <div class="accordion-header" onclick="toggleAccordion(this)">What is NOT stored on server?</div>
+    <div class="accordion-content">
+      <ul class="checklist">
+        <li>Audio recordings - sent directly to OpenAI, never touch our server</li>
+        <li>Full meeting transcripts - only summaries may be synced to Salesforce</li>
+        <li>User passwords - OAuth tokens only, no credential storage</li>
+        <li>Credit card or payment data - not applicable to our use case</li>
+        <li>Social Security numbers or PII - not collected</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- API Usage Safeguards -->
+<section id="api-safeguards" class="section">
+  <h2 class="section-title"><span class="icon">🛡</span> API Usage Safeguards</h2>
+  <p class="section-subtitle">How we prevent excessive API calls and control costs</p>
+  
+  <div class="card">
+    <div class="card-title">Is it constantly API calling?</div>
+    <p class="card-text"><strong>No.</strong> gtm-brain uses multiple layers of caching, rate limiting, and scheduled jobs to minimize API usage. Here's exactly how:</p>
+  </div>
+  
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Rate Limiting</div>
+      <p class="card-text">Redis-based per-user limits prevent abuse:</p>
+      <ul style="margin-top:8px;font-size:0.85rem;color:var(--text-muted)">
+        <li>Slack mentions: 50 per 5 min</li>
+        <li>DMs: 60 per 5 min</li>
+        <li>Slash commands: 40 per 5 min</li>
+        <li>Dashboard: 30 per minute per IP</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">Caching Strategy</div>
+      <p class="card-text">Multi-layer caching reduces redundant calls:</p>
+      <ul style="margin-top:8px;font-size:0.85rem;color:var(--text-muted)">
+        <li>Query cache: 60 second TTL</li>
+        <li>Salesforce metadata: 24 hour cache</li>
+        <li>Calendar events: 15 min cache</li>
+        <li>Intelligence context: 15 min cache</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">Circuit Breakers</div>
+      <p class="card-text">Prevent cascading failures and auth storms:</p>
+      <ul style="margin-top:8px;font-size:0.85rem;color:var(--text-muted)">
+        <li>Max 3 auth attempts before lockout</li>
+        <li>15 min cooldown after failures</li>
+        <li>Mutex prevents parallel auth</li>
+        <li>Token caching: refresh every 90 min</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">Token Usage Limits</div>
+      <p class="card-text">AI service usage is controlled:</p>
+      <ul style="margin-top:8px;font-size:0.85rem;color:var(--text-muted)">
+        <li>Context summaries: 50/day total</li>
+        <li>Per-account limit: 3/hour</li>
+        <li>Max tokens per query: 800</li>
+        <li>Backfill limit: 100k tokens/run</li>
+      </ul>
+    </div>
+  </div>
+  
+  <h3 style="margin-top:32px;margin-bottom:16px;font-weight:600">Scheduled Jobs (Not Constant Polling)</h3>
+  <table>
+    <tr><th>Job</th><th>Frequency</th><th>Purpose</th></tr>
+    <tr><td>Calendar Sync</td><td>Every 6 hours</td><td>Pre-fetch calendar data</td></tr>
+    <tr><td>Token Refresh</td><td>Every 90 minutes</td><td>Refresh SF tokens before expiry</td></tr>
+    <tr><td>Channel Intelligence</td><td>Every 1 hour</td><td>Poll Slack for account mentions</td></tr>
+    <tr><td>Intelligence Digest</td><td>Daily at 8 AM</td><td>Send daily account summaries</td></tr>
+  </table>
+</section>
+
+<!-- Authentication & Authorization -->
+<section id="authentication" class="section">
+  <h2 class="section-title"><span class="icon">🔐</span> Authentication & Authorization</h2>
+  <p class="section-subtitle">How users are authenticated and authorized</p>
+  
+  <table>
+    <tr><th>Component</th><th>Method</th><th>Details</th></tr>
+    <tr><td>Obsidian Plugin</td><td>Email whitelist</td><td>Only authorized emails can access calendar endpoints</td></tr>
+    <tr><td>Salesforce Sync</td><td>OAuth 2.0 + PKCE</td><td>Per-user tokens with refresh; user attribution via LastModifiedBy</td></tr>
+    <tr><td>GTM Site Dashboard</td><td>Okta SSO</td><td>Enterprise SSO with session validation</td></tr>
+    <tr><td>Admin Endpoints</td><td>API Key</td><td>ADMIN_API_KEY environment variable</td></tr>
+    <tr><td>Slack Integration</td><td>Signing Secret</td><td>Request signature verification on all Slack requests</td></tr>
+  </table>
+  
+  <div class="card" style="margin-top:24px">
+    <div class="card-title">Token Encryption</div>
+    <p class="card-text">OAuth tokens are encrypted before storage using:</p>
+    <ul style="margin-top:8px;font-size:0.85rem">
+      <li><strong>Algorithm:</strong> AES-256-GCM (authenticated encryption)</li>
+      <li><strong>Key:</strong> 32-byte key from TOKEN_ENCRYPTION_KEY environment variable</li>
+      <li><strong>IV:</strong> Random 12-byte IV generated per encryption</li>
+      <li><strong>Auth Tag:</strong> 16-byte authentication tag for integrity verification</li>
+    </ul>
+  </div>
+</section>
+
+<!-- Security Controls Matrix -->
+<section id="controls" class="section">
+  <h2 class="section-title"><span class="icon">✓</span> Security Controls Matrix</h2>
+  <p class="section-subtitle">SOC 2 Trust Service Criteria alignment</p>
+  
+  <table>
+    <tr><th>Control Area</th><th>Implementation</th><th>SOC 2 Criteria</th></tr>
+    <tr>
+      <td><strong>Access Control</strong></td>
+      <td>OAuth 2.0, API keys, email whitelist, Okta SSO</td>
+      <td>CC6.1, CC6.2, CC6.3</td>
+    </tr>
+    <tr>
+      <td><strong>Data Encryption</strong></td>
+      <td>AES-256-GCM (at rest), TLS 1.3 (in transit)</td>
+      <td>CC6.1, CC6.7</td>
+    </tr>
+    <tr>
+      <td><strong>Audit Logging</strong></td>
+      <td>Render.com logs (7-day), SQLite timestamps, SF LastModifiedBy</td>
+      <td>CC7.1, CC7.2</td>
+    </tr>
+    <tr>
+      <td><strong>Incident Response</strong></td>
+      <td>Circuit breakers, graceful degradation, health endpoints</td>
+      <td>CC7.3, CC7.4</td>
+    </tr>
+    <tr>
+      <td><strong>Change Management</strong></td>
+      <td>GitHub version control, PR reviews, Render auto-deploy</td>
+      <td>CC8.1</td>
+    </tr>
+    <tr>
+      <td><strong>Availability</strong></td>
+      <td>Render.com managed hosting, Redis failover, graceful degradation</td>
+      <td>A1.1, A1.2</td>
+    </tr>
+    <tr>
+      <td><strong>Data Minimization</strong></td>
+      <td>No audio storage, local-first architecture, short cache TTLs</td>
+      <td>P4.1, P4.2</td>
+    </tr>
+  </table>
+</section>
+
+<!-- Third-Party Services -->
+<section id="third-party" class="section">
+  <h2 class="section-title"><span class="icon">🔗</span> Third-Party Services</h2>
+  <p class="section-subtitle">External services used and their security posture</p>
+  
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">OpenAI</div>
+      <p class="card-text"><strong>Services:</strong> Whisper (transcription), GPT-4o (summarization fallback)</p>
+      <p class="card-text"><strong>Data sent:</strong> Audio recordings, transcript text</p>
+      <p class="card-text"><strong>Certifications:</strong> SOC 2 Type II</p>
+      <p class="card-text"><a href="https://openai.com/security" target="_blank" style="color:var(--accent)">Security page →</a></p>
+    </div>
+    <div class="card">
+      <div class="card-title">Anthropic</div>
+      <p class="card-text"><strong>Services:</strong> Claude (summarization, intelligence queries)</p>
+      <p class="card-text"><strong>Data sent:</strong> Transcript text, account context</p>
+      <p class="card-text"><strong>Certifications:</strong> SOC 2 Type II</p>
+      <p class="card-text"><a href="https://www.anthropic.com/security" target="_blank" style="color:var(--accent)">Security page →</a></p>
+    </div>
+    <div class="card">
+      <div class="card-title">Salesforce</div>
+      <p class="card-text"><strong>Services:</strong> CRM data, Customer_Brain field storage</p>
+      <p class="card-text"><strong>Data sent:</strong> Meeting summaries, next steps</p>
+      <p class="card-text"><strong>Certifications:</strong> SOC 2, ISO 27001, FedRAMP</p>
+      <p class="card-text"><a href="https://trust.salesforce.com" target="_blank" style="color:var(--accent)">Trust page →</a></p>
+    </div>
+    <div class="card">
+      <div class="card-title">Microsoft 365</div>
+      <p class="card-text"><strong>Services:</strong> Calendar read access</p>
+      <p class="card-text"><strong>Data accessed:</strong> Calendar events (read-only)</p>
+      <p class="card-text"><strong>Certifications:</strong> SOC 2, ISO 27001, FedRAMP</p>
+      <p class="card-text"><a href="https://www.microsoft.com/trust-center" target="_blank" style="color:var(--accent)">Trust page →</a></p>
+    </div>
+    <div class="card">
+      <div class="card-title">Render.com</div>
+      <p class="card-text"><strong>Services:</strong> Application hosting (US Oregon)</p>
+      <p class="card-text"><strong>Data stored:</strong> Server logs, SQLite databases</p>
+      <p class="card-text"><strong>Certifications:</strong> SOC 2 Type II</p>
+      <p class="card-text"><a href="https://render.com/trust" target="_blank" style="color:var(--accent)">Trust page →</a></p>
+    </div>
+    <div class="card">
+      <div class="card-title">Clay</div>
+      <p class="card-text"><strong>Services:</strong> Contact/company enrichment</p>
+      <p class="card-text"><strong>Data sent:</strong> Email, company name</p>
+      <p class="card-text"><strong>Certifications:</strong> SOC 2 Type II</p>
+      <p class="card-text"><a href="https://www.clay.com/security" target="_blank" style="color:var(--accent)">Security page →</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- Secrets Management -->
+<section id="secrets" class="section">
+  <h2 class="section-title"><span class="icon">🗝</span> Secrets Management</h2>
+  <p class="section-subtitle">How sensitive credentials are protected</p>
+  
+  <div class="card">
+    <div class="card-title">Environment Variables</div>
+    <p class="card-text">All secrets are stored as environment variables in Render.com's secure environment. Secrets are never committed to Git or hardcoded in source code.</p>
+  </div>
+  
+  <table>
+    <tr><th>Secret Type</th><th>Storage</th><th>Access</th></tr>
+    <tr><td>API Keys (OpenAI, Anthropic, etc.)</td><td>Render environment variables</td><td>Server-side only</td></tr>
+    <tr><td>Salesforce OAuth credentials</td><td>Render environment variables</td><td>Server-side only</td></tr>
+    <tr><td>Token encryption key</td><td>Render environment variables</td><td>Server-side only</td></tr>
+    <tr><td>User OAuth tokens</td><td>Encrypted SQLite</td><td>Per-user decryption</td></tr>
+    <tr><td>Slack signing secret</td><td>Render environment variables</td><td>Server-side only</td></tr>
+  </table>
+  
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">Production vs Development</div>
+    <p class="card-text">
+      <strong>Production:</strong> AWS Secrets Manager integration available via Terraform infrastructure<br>
+      <strong>Development:</strong> <code class="code">.env</code> file (gitignored, never committed)
+    </p>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" class="section">
+  <h2 class="section-title"><span class="icon">❓</span> Frequently Asked Questions</h2>
+  <p class="section-subtitle">Answers to common security concerns</p>
+  
+  <div class="accordion">
+    <div class="accordion-header" onclick="toggleAccordion(this)">Where does my audio go?</div>
+    <div class="accordion-content">
+      Audio is recorded locally on your machine, sent <strong>directly to OpenAI Whisper</strong> for transcription, then discarded. The gtm-brain server <strong>never receives or stores</strong> audio files. Optionally, you can save audio locally in your vault if enabled in plugin settings.
+    </div>
+  </div>
+  
+  <div class="accordion">
+    <div class="accordion-header" onclick="toggleAccordion(this)">Who can see my notes?</div>
+    <div class="accordion-content">
+      Full meeting notes remain in your <strong>local Obsidian vault</strong> on your machine. If you choose to sync to Salesforce, only the <strong>summary and next steps</strong> are stored in the Account's Customer_Brain field. Anyone with access to that Account record in Salesforce can see the synced summary.
+    </div>
+  </div>
+  
+  <div class="accordion">
+    <div class="accordion-header" onclick="toggleAccordion(this)">Is data leaving my company?</div>
+    <div class="accordion-content">
+      Meeting audio and transcripts are sent to <strong>OpenAI and Anthropic</strong> for processing. Both services are SOC 2 Type II certified. Summaries are stored in your company's own Salesforce instance. Calendar data is read from your Microsoft 365 tenant. All services use your company's existing enterprise relationships.
+    </div>
+  </div>
+  
+  <div class="accordion">
+    <div class="accordion-header" onclick="toggleAccordion(this)">What happens if someone leaves the company?</div>
+    <div class="accordion-content">
+      <ol style="margin-left:20px">
+        <li>Revoke their Salesforce OAuth token via admin endpoint</li>
+        <li>Remove their email from the authorized users list</li>
+        <li>Their local Obsidian vault remains on their (now deprovisioned) machine</li>
+        <li>Synced notes in Salesforce remain with proper attribution</li>
+      </ol>
+    </div>
+  </div>
+  
+  <div class="accordion">
+    <div class="accordion-header" onclick="toggleAccordion(this)">How do I revoke access?</div>
+    <div class="accordion-content">
+      <strong>For a user:</strong> Use the admin API endpoint <code class="code">POST /api/admin/revoke-token</code> with the user's email.<br><br>
+      <strong>For the entire app:</strong> Revoke the Connected App in Salesforce Setup, or rotate API keys in Render environment.
+    </div>
+  </div>
+  
+  <div class="accordion">
+    <div class="accordion-header" onclick="toggleAccordion(this)">How much API calling is this doing?</div>
+    <div class="accordion-content">
+      <strong>Not constant.</strong> gtm-brain uses aggressive caching (15-60 min TTLs), rate limiting, and scheduled jobs instead of constant polling. Salesforce queries are cached for 60 seconds. Calendar data is cached for 15 minutes. Intelligence context is cached for 15 minutes. Most API calls happen only when users actively request data.
+    </div>
+  </div>
+</section>
+
+<!-- Compliance Checklist -->
+<section id="checklist" class="section">
+  <h2 class="section-title"><span class="icon">✅</span> Compliance Checklist</h2>
+  <p class="section-subtitle">Security controls verification</p>
+  
+  <ul class="checklist">
+    <li>OAuth tokens encrypted at rest with AES-256-GCM</li>
+    <li>HTTPS/TLS 1.3 enforced for all API endpoints</li>
+    <li>No audio storage on server - transcription via OpenAI only</li>
+    <li>Rate limiting prevents API abuse (Redis-based per-user limits)</li>
+    <li>Circuit breakers prevent cascading Salesforce auth failures</li>
+    <li>User attribution via Salesforce LastModifiedBy field</li>
+    <li>Email whitelist restricts calendar access to authorized users</li>
+    <li>Admin endpoints protected by API key</li>
+    <li>Secrets stored in environment variables, never in code</li>
+    <li>Audit logging via Render.com (7-day retention)</li>
+    <li>Token revocation capability for user deprovisioning</li>
+    <li>Graceful degradation maintains availability during failures</li>
+  </ul>
+</section>
+
+</main>
+
+<footer class="footer">
+  <p>gtm-brain Security Documentation • Last updated: February 2026</p>
+  <p style="margin-top:8px">Questions? Contact your RevOps administrator or see <a href="/architecture" style="color:var(--accent)">/architecture</a> for technical diagrams.</p>
+</footer>
+
+<script>
+function toggleAccordion(header) {
+  const content = header.nextElementSibling;
+  const isOpen = content.classList.contains('show');
+  
+  // Close all accordions in this section
+  const section = header.closest('.section');
+  section.querySelectorAll('.accordion-content').forEach(c => c.classList.remove('show'));
+  section.querySelectorAll('.accordion-header').forEach(h => h.classList.remove('active'));
+  
+  // Open this one if it was closed
+  if (!isOpen) {
+    content.classList.add('show');
+    header.classList.add('active');
+  }
+}
+
+// Smooth scroll for nav links
+document.querySelectorAll('.nav a').forEach(link => {
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    const target = document.querySelector(link.getAttribute('href'));
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+});
+</script>
+
+</body>
+</html>`;
+}
+
 class GTMBrainApp {
   constructor() {
     this.app = null;
@@ -1018,6 +1590,13 @@ class GTMBrainApp {
     });
     this.expressApp.get('/data-flow', (req, res) => res.redirect('/architecture'));
     this.expressApp.get('/how-it-works', (req, res) => res.redirect('/architecture'));
+
+    // Security & Compliance Documentation
+    this.expressApp.get('/security', (req, res) => {
+      res.send(generateSecurityCompliancePage());
+    });
+    this.expressApp.get('/compliance', (req, res) => res.redirect('/security'));
+    this.expressApp.get('/soc2', (req, res) => res.redirect('/security'));
 
     // CAB Survey
     this.expressApp.get('/cab-survey', (req, res) => {
