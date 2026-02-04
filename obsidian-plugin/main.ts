@@ -73,7 +73,7 @@ const TIMEZONE_OPTIONS = [
 ];
 
 const DEFAULT_SETTINGS: EudiaSyncSettings = {
-  serverUrl: 'https://gtm-brain.onrender.com',
+  serverUrl: 'https://gtm-wizard.onrender.com',
   accountsFolder: 'Accounts',
   recordingsFolder: 'Recordings',
   syncOnStartup: true,

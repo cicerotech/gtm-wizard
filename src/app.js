@@ -16,7 +16,7 @@ let oktaClient = null;
 const OKTA_ISSUER = process.env.OKTA_ISSUER || 'https://okta.eudia.com';
 const OKTA_CLIENT_ID = process.env.OKTA_CLIENT_ID;
 const OKTA_CLIENT_SECRET = process.env.OKTA_CLIENT_SECRET;
-const OKTA_REDIRECT_URI = process.env.OKTA_REDIRECT_URI || 'https://gtm-brain.onrender.com/auth/callback';
+const OKTA_REDIRECT_URI = process.env.OKTA_REDIRECT_URI || 'https://gtm-wizard.onrender.com/auth/callback';
 
 // Initialize Okta client (lazy loading)
 async function getOktaClient() {
@@ -222,7 +222,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 <div class="cards">
 <div class="card" data-k="excel export download spreadsheet"><div class="card-title">Excel Export</div><div class="card-desc">Download pipeline spreadsheet</div><div class="examples"><div class="example"><code class="code">send pipeline excel</code><button class="copy">copy</button></div><div class="example"><code class="code">export active pipeline</code><button class="copy">copy</button></div></div></div>
 <div class="card" data-k="show next 10 more pagination"><div class="card-title">Pagination</div><div class="card-desc">See more results in thread</div><div class="examples"><div class="example"><code class="code">show next 10</code><button class="copy">copy</button></div><div class="example"><code class="code">show all</code><button class="copy">copy</button></div></div></div>
-<div class="card" data-k="dashboard web view online"><div class="card-title">Dashboard</div><div class="card-desc">Web dashboard URL</div><div class="examples"><div class="example"><code class="code">gtm-brain.onrender.com/account-dashboard</code><button class="copy">copy</button></div></div></div>
+<div class="card" data-k="dashboard web view online"><div class="card-title">Dashboard</div><div class="card-desc">Web dashboard URL</div><div class="examples"><div class="example"><code class="code">gtm-wizard.onrender.com/account-dashboard</code><button class="copy">copy</button></div></div></div>
 </div>
 </section>
 
@@ -232,7 +232,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 const search=document.getElementById('search'),cards=document.querySelectorAll('.card'),sections=document.querySelectorAll('.section'),btns=document.querySelectorAll('.nav-btn'),none=document.getElementById('none');
 search.addEventListener('input',function(){const t=this.value.toLowerCase().trim();let v=0;btns.forEach(b=>b.classList.toggle('active',b.dataset.cat==='all'));sections.forEach(s=>s.style.display='block');cards.forEach(c=>{const k=c.dataset.k||'',ti=c.querySelector('.card-title').textContent.toLowerCase(),co=Array.from(c.querySelectorAll('.code')).map(x=>x.textContent.toLowerCase()).join(' ');if(t===''||(k+' '+ti+' '+co).includes(t)){c.classList.remove('hidden');v++}else{c.classList.add('hidden')}});sections.forEach(s=>{s.style.display=s.querySelectorAll('.card:not(.hidden)').length>0?'block':'none'});none.style.display=v===0?'block':'none'});
 btns.forEach(b=>b.addEventListener('click',function(){const cat=this.dataset.cat;btns.forEach(x=>x.classList.remove('active'));this.classList.add('active');search.value='';if(cat==='all'){sections.forEach(s=>s.style.display='block');cards.forEach(c=>c.classList.remove('hidden'))}else{sections.forEach(s=>s.style.display=s.dataset.cat===cat?'block':'none');cards.forEach(c=>c.classList.remove('hidden'))}none.style.display='none'}));
-document.querySelectorAll('.copy').forEach(btn=>btn.addEventListener('click',async function(){const code=this.parentElement.querySelector('.code').textContent;const textToCopy=code.startsWith('http')||code.includes('gtm-brain.onrender.com')?code:'@gtm-brain '+code;try{await navigator.clipboard.writeText(textToCopy);this.textContent='ok';this.classList.add('ok');setTimeout(()=>{this.textContent='copy';this.classList.remove('ok')},1500)}catch(e){}}));
+document.querySelectorAll('.copy').forEach(btn=>btn.addEventListener('click',async function(){const code=this.parentElement.querySelector('.code').textContent;const textToCopy=code.startsWith('http')||code.includes('gtm-wizard.onrender.com')?code:'@gtm-brain '+code;try{await navigator.clipboard.writeText(textToCopy);this.textContent='ok';this.classList.add('ok');setTimeout(()=>{this.textContent='copy';this.classList.remove('ok')},1500)}catch(e){}}));
 </script>
 </body>
 </html>`;
@@ -547,7 +547,7 @@ class GTMBrainApp {
         success: true,
         currentVersion: '4.0.0',
         minimumVersion: '3.0.0',
-        downloadUrl: 'https://gtm-brain.onrender.com/downloads/Business-Lead-Vault-2026.zip',
+        downloadUrl: 'https://gtm-wizard.onrender.com/downloads/Business-Lead-Vault-2026.zip',
         releaseNotes: 'Timezone fix, improved transcription reliability',
         timestamp: new Date().toISOString()
       });
@@ -703,7 +703,7 @@ class GTMBrainApp {
       
       // Redirect to Okta logout if configured
       if (OKTA_CLIENT_ID) {
-        const logoutUrl = `${OKTA_ISSUER}/oauth2/v1/logout?client_id=${OKTA_CLIENT_ID}&post_logout_redirect_uri=${encodeURIComponent('https://gtm-brain.onrender.com')}`;
+        const logoutUrl = `${OKTA_ISSUER}/oauth2/v1/logout?client_id=${OKTA_CLIENT_ID}&post_logout_redirect_uri=${encodeURIComponent('https://gtm-wizard.onrender.com')}`;
         return res.redirect(logoutUrl);
       }
       
@@ -2442,7 +2442,7 @@ sync_to_salesforce: false
         }
         
         const clientId = process.env.SF_CLIENT_ID;
-        const redirectUri = process.env.SF_OAUTH_REDIRECT_URI || 'https://gtm-brain.onrender.com/api/sf/auth/callback';
+        const redirectUri = process.env.SF_OAUTH_REDIRECT_URI || 'https://gtm-wizard.onrender.com/api/sf/auth/callback';
         
         if (!clientId) {
           return res.status(500).json({
@@ -2591,7 +2591,7 @@ sync_to_salesforce: false
         // Exchange code for tokens (with PKCE code_verifier)
         const clientId = process.env.SF_CLIENT_ID;
         const clientSecret = process.env.SF_CLIENT_SECRET;
-        const redirectUri = process.env.SF_OAUTH_REDIRECT_URI || 'https://gtm-brain.onrender.com/api/sf/auth/callback';
+        const redirectUri = process.env.SF_OAUTH_REDIRECT_URI || 'https://gtm-wizard.onrender.com/api/sf/auth/callback';
         
         // Build token request body with PKCE
         const tokenParams = {
@@ -3616,7 +3616,7 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
     this.expressApp.get('/api/calendar/feeds', async (req, res) => {
       try {
         const { BL_EMAILS } = require('./services/calendarService');
-        const baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://gtm-brain.onrender.com';
+        const baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://gtm-wizard.onrender.com';
         
         const feeds = BL_EMAILS.map(email => ({
           email,
@@ -4135,7 +4135,7 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
     // BL Setup guide
     this.expressApp.get('/api/obsidian/setup-guide', async (req, res) => {
       const { email } = req.query;
-      const baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://gtm-brain.onrender.com';
+      const baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://gtm-wizard.onrender.com';
       
       const icsUrl = email 
         ? `${baseUrl}/api/calendar/${email}/feed.ics`
@@ -4906,7 +4906,7 @@ SENTIMENT: [Positive/Neutral/Negative]`
   
   <h2>Endpoint URL</h2>
   <div class="config-box">
-    <pre>https://gtm-brain.onrender.com/api/clay/store-enrichment</pre>
+    <pre>https://gtm-wizard.onrender.com/api/clay/store-enrichment</pre>
   </div>
   
   <h2>Method</h2>
