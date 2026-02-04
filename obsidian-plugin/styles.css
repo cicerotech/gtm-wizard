@@ -1541,3 +1541,63 @@
   background: var(--background-secondary);
   border-color: var(--interactive-accent);
 }
+
+/* Enhanced Intelligence Response Formatting */
+.eudia-intel-header {
+  margin: 16px 0 8px 0;
+  padding-bottom: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-normal);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.eudia-intel-header:first-child {
+  margin-top: 0;
+}
+
+.eudia-intel-list {
+  margin: 8px 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.eudia-intel-list li {
+  margin: 4px 0;
+  padding-left: 16px;
+  position: relative;
+}
+
+.eudia-intel-list li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--text-muted);
+}
+
+.eudia-intel-todo,
+.eudia-intel-done {
+  padding-left: 0 !important;
+}
+
+.eudia-intel-todo::before,
+.eudia-intel-done::before {
+  content: none !important;
+}
+
+.eudia-intel-done {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.eudia-intelligence-perf {
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--text-faint);
+  font-family: var(--font-monospace);
+}
+
+.eudia-intelligence-answer strong {
+  color: var(--text-accent);
+  font-weight: 600;
+}

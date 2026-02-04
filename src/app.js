@@ -2275,6 +2275,7 @@ class GTMBrainApp {
     // ═══════════════════════════════════════════════════════════════════════════
     // INTELLIGENCE QUERY API (Granola-style conversational queries)
     // Enables natural language questions about accounts and deals
+    // Uses dedicated intelligenceQueryService with Anthropic Claude
     // ═══════════════════════════════════════════════════════════════════════════
     this.expressApp.post('/api/intelligence/query', async (req, res) => {
       try {
@@ -2282,102 +2283,24 @@ class GTMBrainApp {
           query,          // The user's natural language question
           accountId,      // Optional: Focus on a specific account
           accountName,    // Optional: Account name for context
-          userEmail,      // User's email for context
-          includeNotes    // Optional: Include meeting notes context
+          userEmail       // User's email for context
         } = req.body;
         
-        if (!query) {
-          return res.status(400).json({ 
-            success: false, 
-            error: 'Query is required' 
-          });
-        }
+        // Use the dedicated intelligence query service
+        const intelligenceQueryService = require('./services/intelligenceQueryService');
         
-        // Gather context for the LLM
-        let context = {
-          account: null,
-          opportunities: [],
-          recentActivity: [],
-          customerBrain: null
-        };
-        
-        // If account is specified, get context
-        if (accountId || accountName) {
-          try {
-            // Get account details
-            let accountQuery;
-            if (accountId) {
-              accountQuery = `SELECT Id, Name, Customer_Type__c, Customer_Brain__c, Owner.Name, Industry, Website 
-                              FROM Account WHERE Id = '${accountId}' LIMIT 1`;
-            } else {
-              const safeName = accountName.replace(/'/g, "\\'");
-              accountQuery = `SELECT Id, Name, Customer_Type__c, Customer_Brain__c, Owner.Name, Industry, Website 
-                              FROM Account WHERE Name LIKE '%${safeName}%' LIMIT 1`;
-            }
-            const accountResult = await sfConnection.query(accountQuery);
-            
-            if (accountResult.records && accountResult.records.length > 0) {
-              const acc = accountResult.records[0];
-              context.account = {
-                id: acc.Id,
-                name: acc.Name,
-                type: acc.Customer_Type__c,
-                owner: acc.Owner?.Name,
-                industry: acc.Industry,
-                website: acc.Website
-              };
-              context.customerBrain = acc.Customer_Brain__c;
-              
-              // Get opportunities for this account
-              const oppQuery = `SELECT Id, Name, StageName, ACV__c, Target_LOI_Date__c, Product_Line__c 
-                               FROM Opportunity WHERE AccountId = '${acc.Id}' 
-                               ORDER BY Target_LOI_Date__c DESC LIMIT 10`;
-              const oppResult = await sfConnection.query(oppQuery);
-              context.opportunities = oppResult.records || [];
-            }
-          } catch (sfError) {
-            logger.warn('Could not fetch Salesforce context:', sfError.message);
-          }
-        }
-        
-        // Use Socrates/OpenAI to answer the question with context
-        const socratesAdapter = require('./ai/socratesAdapter');
-        
-        const systemPrompt = `You are an AI sales assistant for Eudia, a legal AI company. 
-You help Business Leads prepare for meetings and understand their accounts.
-Be concise, actionable, and focus on insights that help close deals.
-
-${context.account ? `
-ACCOUNT CONTEXT:
-- Name: ${context.account.name}
-- Type: ${context.account.type || 'Unknown'}
-- Owner: ${context.account.owner || 'Unknown'}
-- Industry: ${context.account.industry || 'Unknown'}
-${context.customerBrain ? `- Meeting History: ${context.customerBrain.substring(0, 2000)}...` : ''}
-` : ''}
-
-${context.opportunities.length > 0 ? `
-OPPORTUNITIES:
-${context.opportunities.map(o => `- ${o.Name}: Stage ${o.StageName}, ACV $${o.ACV__c || 0}, Target: ${o.Target_LOI_Date__c || 'TBD'}`).join('\n')}
-` : ''}
-`;
-        
-        const response = await socratesAdapter.chat([
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: query }
-        ], { maxTokens: 500, temperature: 0.3 });
-        
-        res.json({
-          success: true,
-          query: query,
-          answer: response.content,
-          context: {
-            accountName: context.account?.name,
-            opportunityCount: context.opportunities.length,
-            hasCustomerBrain: !!context.customerBrain
-          },
-          timestamp: new Date().toISOString()
+        const result = await intelligenceQueryService.processQuery({
+          query,
+          accountId,
+          accountName,
+          userEmail
         });
+        
+        if (result.success) {
+          res.json(result);
+        } else {
+          res.status(result.error === 'Query is required' ? 400 : 500).json(result);
+        }
         
       } catch (error) {
         logger.error('Intelligence query error:', error);

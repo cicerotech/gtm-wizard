@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>LinkedIn_Headshot_URL__c</fullName>
+    <description>URL to the contact LinkedIn profile headshot image. Populated via HTTP POST from LinkedIn data enrichment.</description>
+    <externalId>false</externalId>
+    <label>LinkedIn Headshot URL</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Url</type>
+</CustomField>

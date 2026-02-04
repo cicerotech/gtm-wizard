@@ -688,23 +688,51 @@ class IntelligenceQueryModal extends Modal {
         const answer = this.responseContainer.createDiv({ cls: 'eudia-intelligence-answer' });
         answer.innerHTML = this.formatResponse(response.json.answer);
         
-        // Show context info
-        if (response.json.context?.accountName) {
+        // Show rich context info
+        if (response.json.context) {
+          const ctx = response.json.context;
           const contextInfo = this.responseContainer.createDiv({ cls: 'eudia-intelligence-context-info' });
-          contextInfo.setText(`Based on ${response.json.context.accountName} (${response.json.context.opportunityCount} opps)`);
+          
+          const parts: string[] = [];
+          if (ctx.accountName) parts.push(ctx.accountName);
+          if (ctx.opportunityCount > 0) parts.push(`${ctx.opportunityCount} opps`);
+          if (ctx.hasNotes) parts.push('notes');
+          if (ctx.hasCustomerBrain) parts.push('history');
+          
+          const freshness = ctx.dataFreshness === 'cached' ? ' (cached)' : '';
+          contextInfo.setText(`Based on: ${parts.join(' • ')}${freshness}`);
+        }
+        
+        // Show performance info in debug mode
+        if (response.json.performance && process.env.NODE_ENV === 'development') {
+          const perfInfo = this.responseContainer.createDiv({ cls: 'eudia-intelligence-perf' });
+          perfInfo.setText(`${response.json.performance.durationMs}ms • ${response.json.performance.tokensUsed} tokens`);
         }
       } else {
-        this.responseContainer.innerHTML = `<div class="eudia-intelligence-error">Could not get an answer. Try rephrasing your question.</div>`;
+        const errorMsg = response.json?.error || 'Could not get an answer. Try rephrasing your question.';
+        this.responseContainer.innerHTML = `<div class="eudia-intelligence-error">${errorMsg}</div>`;
       }
     } catch (error) {
+      console.error('[GTM Brain] Intelligence query error:', error);
       this.responseContainer.innerHTML = `<div class="eudia-intelligence-error">Connection error. Please try again.</div>`;
     }
   }
   
   private formatResponse(text: string): string {
-    // Simple markdown-like formatting
+    // Enhanced markdown formatting for sales-focused responses
     return text
+      // Headers (## Header)
+      .replace(/^## (.+)$/gm, '<h3 class="eudia-intel-header">$1</h3>')
+      // Bold (**text**)
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      // Bullet points (• or -)
+      .replace(/^[•\-]\s+(.+)$/gm, '<li>$1</li>')
+      // Checkboxes (- [ ] or - [x])
+      .replace(/^-\s+\[\s*\]\s+(.+)$/gm, '<li class="eudia-intel-todo">☐ $1</li>')
+      .replace(/^-\s+\[x\]\s+(.+)$/gm, '<li class="eudia-intel-done">☑ $1</li>')
+      // Wrap consecutive <li> in <ul>
+      .replace(/(<li[^>]*>.*?<\/li>\s*)+/g, '<ul class="eudia-intel-list">$&</ul>')
+      // Line breaks
       .replace(/\n/g, '<br>');
   }
 

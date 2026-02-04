@@ -1,0 +1,20 @@
+<template>
+    <div class="headshot-container">
+        <template lwc:if={hasHeadshot}>
+            <img 
+                src={headshotUrl} 
+                alt={contactName}
+                class="headshot-image"
+                onerror={handleImageError}
+            />
+            <div class="initials-fallback" style="display: none;">
+                {initials}
+            </div>
+        </template>
+        <template lwc:else>
+            <div class="initials-fallback">
+                {initials}
+            </div>
+        </template>
+    </div>
+</template>

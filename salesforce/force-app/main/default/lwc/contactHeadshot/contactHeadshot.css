@@ -1,0 +1,26 @@
+.headshot-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.headshot-image {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #dddbda;
+}
+
+.initials-fallback {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1b96ff 0%, #0176d3 100%);
+    color: white;
+    font-size: 24px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
