@@ -73,7 +73,7 @@ const TIMEZONE_OPTIONS = [
 ];
 
 const DEFAULT_SETTINGS: EudiaSyncSettings = {
-  serverUrl: 'https://gtm-wizard.onrender.com',
+  serverUrl: 'https://gtm-brain.onrender.com',
   accountsFolder: 'Accounts',
   recordingsFolder: 'Recordings',
   syncOnStartup: true,
@@ -598,7 +598,7 @@ class IntelligenceQueryModal extends Modal {
     header.createEl('h2', { 
       text: this.accountContext 
         ? `Ask about ${this.accountContext.name}` 
-        : 'Ask GTM Brain'
+        : 'Ask gtm-brain'
     });
     
     if (this.accountContext) {
@@ -640,23 +640,45 @@ class IntelligenceQueryModal extends Modal {
     this.responseContainer = contentEl.createDiv({ cls: 'eudia-intelligence-response' });
     this.responseContainer.style.display = 'none';
     
-    // Suggested questions
+    // Suggested questions - dynamic based on context
+    const suggestions = contentEl.createDiv({ cls: 'eudia-intelligence-suggestions' });
+    suggestions.createEl('p', { text: 'Suggested:', cls: 'eudia-suggestions-label' });
+    
+    let suggestionList: string[];
     if (this.accountContext) {
-      const suggestions = contentEl.createDiv({ cls: 'eudia-intelligence-suggestions' });
-      suggestions.createEl('p', { text: 'Suggested:', cls: 'eudia-suggestions-label' });
-      const suggestionList = [
+      // Account-specific suggestions
+      suggestionList = [
         'What should I know before my next meeting?',
         'Summarize our relationship and deal status',
-        'What are the key pain points we\'ve identified?'
+        'What are the key pain points?'
       ];
-      suggestionList.forEach(s => {
-        const btn = suggestions.createEl('button', { text: s, cls: 'eudia-suggestion-btn' });
-        btn.onclick = () => {
-          this.queryInput.value = s;
-          this.submitQuery();
-        };
-      });
+    } else {
+      // Use real accounts from cache for dynamic suggestions
+      const cachedAccounts = this.plugin.settings.cachedAccounts || [];
+      const sampleAccounts = cachedAccounts.slice(0, 3).map(a => a.name);
+      
+      if (sampleAccounts.length >= 2) {
+        suggestionList = [
+          `What should I know about ${sampleAccounts[0]} before my next meeting?`,
+          `What's the account history with ${sampleAccounts[1]}?`,
+          `What's my late-stage pipeline?`
+        ];
+      } else {
+        suggestionList = [
+          "What should I know before my next meeting?",
+          "What accounts need attention this week?",
+          "What is my late-stage pipeline?"
+        ];
+      }
     }
+    
+    suggestionList.forEach(s => {
+      const btn = suggestions.createEl('button', { text: s, cls: 'eudia-suggestion-btn' });
+      btn.onclick = () => {
+        this.queryInput.value = s;
+        this.submitQuery();
+      };
+    });
     
     // Focus the input
     setTimeout(() => this.queryInput.focus(), 100);
@@ -1092,7 +1114,8 @@ class EudiaSetupView extends ItemView {
     // Step header
     const stepHeader = stepEl.createDiv({ cls: 'eudia-setup-step-header' });
     const stepNumber = stepHeader.createDiv({ cls: 'eudia-setup-step-number' });
-    stepNumber.setText(step.status === 'complete' ? '✓' : '1');
+    stepNumber.setText(step.status === 'complete' ? '' : '1');
+    if (step.status === 'complete') stepNumber.addClass('eudia-step-complete');
     
     const stepInfo = stepHeader.createDiv({ cls: 'eudia-setup-step-info' });
     stepInfo.createEl('h3', { text: step.title });
@@ -1244,7 +1267,8 @@ class EudiaSetupView extends ItemView {
     // Step header
     const stepHeader = stepEl.createDiv({ cls: 'eudia-setup-step-header' });
     const stepNumber = stepHeader.createDiv({ cls: 'eudia-setup-step-number' });
-    stepNumber.setText(step.status === 'complete' ? '✓' : '2');
+    stepNumber.setText(step.status === 'complete' ? '' : '2');
+    if (step.status === 'complete') stepNumber.addClass('eudia-step-complete');
     
     const stepInfo = stepHeader.createDiv({ cls: 'eudia-setup-step-info' });
     stepInfo.createEl('h3', { text: step.title });
@@ -1415,7 +1439,8 @@ class EudiaSetupView extends ItemView {
     // Step header
     const stepHeader = stepEl.createDiv({ cls: 'eudia-setup-step-header' });
     const stepNumber = stepHeader.createDiv({ cls: 'eudia-setup-step-number' });
-    stepNumber.setText(step.status === 'complete' ? '✓' : '3');
+    stepNumber.setText(step.status === 'complete' ? '' : '3');
+    if (step.status === 'complete') stepNumber.addClass('eudia-step-complete');
     
     const stepInfo = stepHeader.createDiv({ cls: 'eudia-setup-step-info' });
     stepInfo.createEl('h3', { text: step.title });
@@ -2295,13 +2320,7 @@ export default class EudiaSyncPlugin extends Plugin {
 
     this.addCommand({
       id: 'ask-gtm-brain',
-      name: 'Ask GTM Brain',
-      callback: () => this.openIntelligenceQuery()
-    });
-
-    this.addCommand({
-      id: 'ask-about-account',
-      name: 'Ask About This Account',
+      name: 'Ask gtm-brain',
       callback: () => this.openIntelligenceQueryForCurrentNote()
     });
 
@@ -2975,7 +2994,7 @@ last_updated: ${dateStr}
         }
         return;
       }
-      console.log(`[Eudia] ✓ Found Next Steps file, updating...`);
+      console.log(`[Eudia] Found Next Steps file, updating...`);
       
       const dateStr = new Date().toISOString().split('T')[0];
       const timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -4108,9 +4127,9 @@ class EudiaSyncSettingTab extends PluginSettingTab {
           method: 'GET'
         });
         if (response.json?.capabilities?.serverTranscription) {
-          transcriptionStatus.innerHTML = '<span style="color: #22c55e;">✓</span> Server transcription is available. No local API key needed.';
+          transcriptionStatus.innerHTML = '<span class="eudia-check-icon"></span> Server transcription is available. No local API key needed.';
         } else {
-          transcriptionStatus.innerHTML = '<span style="color: #f59e0b;">⚠</span> Server transcription unavailable. Add a local API key below.';
+          transcriptionStatus.innerHTML = '<span class="eudia-warn-icon"></span> Server transcription unavailable. Add a local API key below.';
         }
       } catch {
         transcriptionStatus.innerHTML = '<span style="color: #f59e0b;">⚠</span> Could not check server status. Local API key recommended as backup.';
