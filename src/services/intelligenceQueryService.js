@@ -14,7 +14,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { query: sfQuery } = require('../salesforce/connection');
 const intelligenceStore = require('./intelligenceStore');
 const meetingContextService = require('./meetingContextService');
-const cache = require('../utils/cache');
+const { cache } = require('../utils/cache');
 const logger = require('../utils/logger');
 
 // Initialize Anthropic client
@@ -199,9 +199,11 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail 
   // For account-specific queries, we need an account
   if (!accountId && accountName) {
     // Try to find account by name
+    logger.info(`[Intelligence] Looking up account by name: "${accountName}"`);
     const account = await findAccountByName(accountName);
     if (account) {
       accountId = account.Id;
+      logger.info(`[Intelligence] Found account: ${account.Name} (${account.Id})`);
       context.account = {
         id: account.Id,
         name: account.Name,
@@ -211,11 +213,14 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail 
         industry: account.Industry,
         website: account.Website
       };
+    } else {
+      logger.warn(`[Intelligence] No account found matching: "${accountName}"`);
     }
   }
 
   if (!accountId) {
     // No account context - return minimal context
+    logger.warn(`[Intelligence] No accountId available - returning minimal context for query`);
     return context;
   }
 
@@ -236,16 +241,25 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail 
     meetingContextService.generateMeetingContext(accountId).catch(() => null)
   ]);
 
-  // Populate context
+  // Populate context and log data availability
   if (accountData) {
     context.account = accountData;
     context.customerBrain = accountData.customerBrain;
+    logger.info(`[Intelligence] Account data loaded: ${accountData.name}`);
+  } else {
+    logger.warn(`[Intelligence] No account data returned for ID: ${accountId}`);
   }
   
-  context.opportunities = opportunities;
-  context.contacts = contacts;
-  context.recentTasks = tasks;
-  context.recentEvents = events;
+  context.opportunities = opportunities || [];
+  context.contacts = contacts || [];
+  context.recentTasks = tasks || [];
+  context.recentEvents = events || [];
+  
+  // Log data summary for debugging
+  logger.info(`[Intelligence] Context summary for ${context.account?.name || accountId}: ` +
+    `${context.opportunities.length} opps, ${context.contacts.length} contacts, ` +
+    `${context.recentTasks.length} tasks, ${context.recentEvents.length} events, ` +
+    `customerBrain: ${context.customerBrain ? 'yes' : 'no'}`);
 
   // Get Obsidian notes and Slack intel from meeting context
   if (meetingContext) {
