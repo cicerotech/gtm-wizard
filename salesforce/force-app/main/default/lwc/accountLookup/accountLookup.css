@@ -1,0 +1,104 @@
+:host {
+    display: block;
+}
+
+.selected-account {
+    background: #f3f3f3;
+    border: 1px solid #dddbda;
+    border-radius: 4px;
+    padding: 8px 12px;
+}
+
+.selected-account .slds-grid {
+    display: flex;
+    align-items: center;
+}
+
+.account-icon {
+    display: inline-flex;
+    margin-right: 12px;
+}
+
+.account-info {
+    display: inline-flex;
+    flex-direction: column;
+}
+
+.account-name {
+    font-weight: 600;
+    color: #032d60;
+    font-size: 14px;
+}
+
+.account-subtitle {
+    font-size: 12px;
+    color: #706e6b;
+    margin-top: 2px;
+}
+
+.clear-button {
+    margin-left: 8px;
+}
+
+.slds-combobox_container {
+    position: relative;
+}
+
+.slds-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    background: white;
+    border: 1px solid #dddbda;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.slds-listbox__item {
+    cursor: pointer;
+}
+
+.slds-listbox__option:hover {
+    background-color: #f3f3f3;
+}
+
+.slds-listbox__option_entity {
+    padding: 8px 12px;
+}
+
+.no-results {
+    color: #706e6b;
+    font-style: italic;
+    padding: 12px;
+}
+
+.slds-input {
+    width: 100%;
+    padding-right: 36px;
+}
+
+.slds-input.has-error {
+    border-color: #c23934;
+}
+
+.slds-input__icon_right {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.slds-combobox__form-element {
+    position: relative;
+}
+
+lightning-spinner {
+    position: relative;
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+}

@@ -439,52 +439,82 @@ export class AccountOwnershipService {
 
   /**
    * Get accounts owned by a specific user
-   * Tries server first, falls back to static data
+   * Tries server first (live Salesforce data), falls back to static data
    */
   async getAccountsForUser(email: string): Promise<OwnedAccount[]> {
     const normalizedEmail = email.toLowerCase().trim();
     
-    // Try server endpoint first (future enhancement)
-    // const serverAccounts = await this.fetchFromServer(normalizedEmail);
-    // if (serverAccounts) return serverAccounts;
+    // Try server endpoint first (live Salesforce data)
+    const serverAccounts = await this.fetchFromServer(normalizedEmail);
+    if (serverAccounts && serverAccounts.length > 0) {
+      console.log(`[AccountOwnership] Got ${serverAccounts.length} accounts from server for ${normalizedEmail}`);
+      return serverAccounts;
+    }
     
-    // Fall back to static data
+    // Fall back to static data (offline support / backup)
+    console.log(`[AccountOwnership] Using static data fallback for ${normalizedEmail}`);
     return this.getAccountsFromStatic(normalizedEmail);
   }
 
   /**
-   * Get accounts from static mapping
+   * Get accounts from static mapping (offline fallback)
    */
   private getAccountsFromStatic(email: string): OwnedAccount[] {
     const lead = OWNERSHIP_DATA.businessLeads[email];
     if (!lead) {
-      console.log(`[AccountOwnership] No mapping found for: ${email}`);
+      console.log(`[AccountOwnership] No static mapping found for: ${email}`);
       return [];
     }
-    console.log(`[AccountOwnership] Found ${lead.accounts.length} accounts for ${email}`);
+    console.log(`[AccountOwnership] Found ${lead.accounts.length} static accounts for ${email}`);
     return lead.accounts;
   }
 
   /**
-   * Future: Fetch account ownership from server
+   * Fetch account ownership from server (live Salesforce data)
+   * This is now the PRIMARY source - static data is fallback
    */
   private async fetchFromServer(email: string): Promise<OwnedAccount[] | null> {
     try {
-      const response = await fetch(
-        `${this.serverUrl}/api/accounts/ownership/${encodeURIComponent(email)}`
-      );
+      // Use dynamic import to avoid issues in non-Obsidian environments
+      const { requestUrl } = await import('obsidian');
       
-      if (!response.ok) return null;
+      const response = await requestUrl({
+        url: `${this.serverUrl}/api/accounts/ownership/${encodeURIComponent(email)}`,
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
       
-      const data = await response.json();
-      if (data.success && data.accounts) {
-        return data.accounts;
+      if (response.json?.success && response.json?.accounts) {
+        return response.json.accounts.map((acc: any) => ({
+          id: acc.id,
+          name: acc.name,
+          type: acc.type || 'Prospect'
+        }));
       }
       return null;
     } catch (error) {
-      console.log('[AccountOwnership] Server fetch failed, using static data');
+      console.log('[AccountOwnership] Server fetch failed, will use static data:', error);
       return null;
     }
+  }
+
+  /**
+   * Check for new accounts that don't have folders yet
+   * Returns accounts that exist in ownership but not in the provided folder list
+   */
+  async getNewAccounts(email: string, existingFolderNames: string[]): Promise<OwnedAccount[]> {
+    const allAccounts = await this.getAccountsForUser(email);
+    const normalizedFolders = existingFolderNames.map(f => f.toLowerCase().trim());
+    
+    return allAccounts.filter(account => {
+      const normalizedAccountName = account.name.toLowerCase().trim();
+      // Check if any existing folder matches this account (fuzzy match)
+      return !normalizedFolders.some(folder => 
+        folder === normalizedAccountName ||
+        folder.startsWith(normalizedAccountName) ||
+        normalizedAccountName.startsWith(folder)
+      );
+    });
   }
 
   /**

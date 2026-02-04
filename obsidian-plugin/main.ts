@@ -53,7 +53,22 @@ interface EudiaSyncSettings {
   enableSmartTags: boolean;
   // Calendar
   showCalendarView: boolean;
+  // Timezone for calendar display
+  timezone: string;
 }
+
+// Common timezone options for US/EU sales teams
+const TIMEZONE_OPTIONS = [
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'Europe/London', label: 'London (GMT/BST)' },
+  { value: 'Europe/Dublin', label: 'Dublin (GMT/IST)' },
+  { value: 'Europe/Paris', label: 'Central Europe (CET)' },
+  { value: 'Europe/Berlin', label: 'Berlin (CET)' },
+  { value: 'UTC', label: 'UTC' }
+];
 
 const DEFAULT_SETTINGS: EudiaSyncSettings = {
   serverUrl: 'https://gtm-wizard.onrender.com',
@@ -73,12 +88,78 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   salesforceConnected: false,
   accountsImported: false,
   importedAccountCount: 0,
-  openaiApiKey: ''
+  openaiApiKey: '',
+  timezone: 'America/New_York'
 };
 
 interface SalesforceAccount {
   id: string;
   name: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TELEMETRY SERVICE - Optional remote debugging (non-blocking, privacy-conscious)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class TelemetryService {
+  private serverUrl: string;
+  private userEmail: string;
+  private enabled: boolean = true; // Can be disabled via settings in future
+  
+  constructor(serverUrl: string, userEmail: string = '') {
+    this.serverUrl = serverUrl;
+    this.userEmail = userEmail;
+  }
+  
+  setUserEmail(email: string): void {
+    this.userEmail = email;
+  }
+  
+  /**
+   * Report an error to the server for debugging
+   * Non-blocking - will not throw or interrupt user flow
+   */
+  async reportError(message: string, context?: Record<string, any>): Promise<void> {
+    if (!this.enabled) return;
+    this.send('error', message, context);
+  }
+  
+  /**
+   * Report a warning
+   */
+  async reportWarning(message: string, context?: Record<string, any>): Promise<void> {
+    if (!this.enabled) return;
+    this.send('warning', message, context);
+  }
+  
+  /**
+   * Report an info event (for debugging specific flows)
+   */
+  async reportInfo(message: string, context?: Record<string, any>): Promise<void> {
+    if (!this.enabled) return;
+    this.send('info', message, context);
+  }
+  
+  private async send(event: string, message: string, context?: Record<string, any>): Promise<void> {
+    try {
+      // Fire and forget - don't await, don't block
+      requestUrl({
+        url: `${this.serverUrl}/api/plugin/telemetry`,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event,
+          message,
+          context,
+          userEmail: this.userEmail || 'anonymous',
+          pluginVersion: '4.0.0',
+          platform: 'obsidian'
+        })
+      }).catch(() => {}); // Silently ignore failures
+    } catch {
+      // Never throw from telemetry
+    }
+  }
 }
 
 interface AccountsResponse {
@@ -481,6 +562,147 @@ class AccountSelectorModal extends Modal {
         this.close();
       };
     });
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INTELLIGENCE QUERY MODAL - Granola-style conversational queries
+// ═══════════════════════════════════════════════════════════════════════════
+
+class IntelligenceQueryModal extends Modal {
+  plugin: EudiaSyncPlugin;
+  private queryInput: HTMLTextAreaElement;
+  private responseContainer: HTMLElement;
+  private accountContext: { id: string; name: string } | null = null;
+
+  constructor(app: App, plugin: EudiaSyncPlugin, accountContext?: { id: string; name: string }) {
+    super(app);
+    this.plugin = plugin;
+    this.accountContext = accountContext || null;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass('eudia-intelligence-modal');
+    
+    // Header
+    const header = contentEl.createDiv({ cls: 'eudia-intelligence-header' });
+    header.createEl('h2', { 
+      text: this.accountContext 
+        ? `Ask about ${this.accountContext.name}` 
+        : 'Ask GTM Brain'
+    });
+    
+    if (this.accountContext) {
+      header.createEl('p', { 
+        text: 'Get insights, prep for meetings, or ask about this account.',
+        cls: 'eudia-intelligence-subtitle'
+      });
+    } else {
+      header.createEl('p', { 
+        text: 'Ask questions about your accounts, deals, or pipeline.',
+        cls: 'eudia-intelligence-subtitle'
+      });
+    }
+    
+    // Query input
+    const inputContainer = contentEl.createDiv({ cls: 'eudia-intelligence-input-container' });
+    this.queryInput = inputContainer.createEl('textarea', {
+      placeholder: this.accountContext 
+        ? `e.g., "What should I know before my next meeting?" or "What's the deal status?"`
+        : `e.g., "Who owns Dolby?" or "What's my late stage pipeline?"`
+    }) as HTMLTextAreaElement;
+    this.queryInput.addClass('eudia-intelligence-input');
+    this.queryInput.rows = 3;
+    
+    // Submit button
+    const actions = contentEl.createDiv({ cls: 'eudia-intelligence-actions' });
+    const askButton = actions.createEl('button', { text: 'Ask', cls: 'eudia-btn-primary' });
+    askButton.onclick = () => this.submitQuery();
+    
+    // Also submit on Enter (but not Shift+Enter)
+    this.queryInput.onkeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        this.submitQuery();
+      }
+    };
+    
+    // Response container
+    this.responseContainer = contentEl.createDiv({ cls: 'eudia-intelligence-response' });
+    this.responseContainer.style.display = 'none';
+    
+    // Suggested questions
+    if (this.accountContext) {
+      const suggestions = contentEl.createDiv({ cls: 'eudia-intelligence-suggestions' });
+      suggestions.createEl('p', { text: 'Suggested:', cls: 'eudia-suggestions-label' });
+      const suggestionList = [
+        'What should I know before my next meeting?',
+        'Summarize our relationship and deal status',
+        'What are the key pain points we\'ve identified?'
+      ];
+      suggestionList.forEach(s => {
+        const btn = suggestions.createEl('button', { text: s, cls: 'eudia-suggestion-btn' });
+        btn.onclick = () => {
+          this.queryInput.value = s;
+          this.submitQuery();
+        };
+      });
+    }
+    
+    // Focus the input
+    setTimeout(() => this.queryInput.focus(), 100);
+  }
+
+  private async submitQuery(): Promise<void> {
+    const query = this.queryInput.value.trim();
+    if (!query) return;
+    
+    // Show loading state
+    this.responseContainer.style.display = 'block';
+    this.responseContainer.innerHTML = '<div class="eudia-intelligence-loading">Thinking...</div>';
+    
+    try {
+      const response = await requestUrl({
+        url: `${this.plugin.settings.serverUrl}/api/intelligence/query`,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: query,
+          accountId: this.accountContext?.id,
+          accountName: this.accountContext?.name,
+          userEmail: this.plugin.settings.userEmail
+        })
+      });
+      
+      if (response.json?.success) {
+        this.responseContainer.innerHTML = '';
+        const answer = this.responseContainer.createDiv({ cls: 'eudia-intelligence-answer' });
+        answer.innerHTML = this.formatResponse(response.json.answer);
+        
+        // Show context info
+        if (response.json.context?.accountName) {
+          const contextInfo = this.responseContainer.createDiv({ cls: 'eudia-intelligence-context-info' });
+          contextInfo.setText(`Based on ${response.json.context.accountName} (${response.json.context.opportunityCount} opps)`);
+        }
+      } else {
+        this.responseContainer.innerHTML = `<div class="eudia-intelligence-error">Could not get an answer. Try rephrasing your question.</div>`;
+      }
+    } catch (error) {
+      this.responseContainer.innerHTML = `<div class="eudia-intelligence-error">Connection error. Please try again.</div>`;
+    }
+  }
+  
+  private formatResponse(text: string): string {
+    // Simple markdown-like formatting
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>');
   }
 
   onClose() {
@@ -1465,7 +1687,7 @@ class EudiaCalendarView extends ItemView {
       // Time
       meetingEl.createEl('div', {
         cls: 'eudia-calendar-time',
-        text: CalendarService.formatTime(meeting.start)
+        text: CalendarService.formatTime(meeting.start, this.plugin.settings.timezone)
       });
 
       // Details
@@ -1993,6 +2215,18 @@ export default class EudiaSyncPlugin extends Plugin {
       id: 'new-meeting-note',
       name: 'New Meeting Note',
       callback: () => this.createMeetingNote()
+    });
+
+    this.addCommand({
+      id: 'ask-gtm-brain',
+      name: 'Ask GTM Brain',
+      callback: () => this.openIntelligenceQuery()
+    });
+
+    this.addCommand({
+      id: 'ask-about-account',
+      name: 'Ask About This Account',
+      callback: () => this.openIntelligenceQueryForCurrentNote()
     });
 
     // Add settings tab
@@ -2983,6 +3217,63 @@ ${transcription.text}
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // INTELLIGENCE QUERY (GRANOLA-STYLE)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Open the Intelligence Query modal (no account context)
+   */
+  openIntelligenceQuery(): void {
+    new IntelligenceQueryModal(this.app, this).open();
+  }
+
+  /**
+   * Open the Intelligence Query modal with account context from current note
+   */
+  openIntelligenceQueryForCurrentNote(): void {
+    const activeFile = this.app.workspace.getActiveFile();
+    let accountContext: { id: string; name: string } | undefined = undefined;
+    
+    if (activeFile) {
+      const frontmatter = this.app.metadataCache.getFileCache(activeFile)?.frontmatter;
+      
+      // Try to get account from frontmatter
+      if (frontmatter?.account_id && frontmatter?.account) {
+        accountContext = {
+          id: frontmatter.account_id,
+          name: frontmatter.account
+        };
+      } else if (frontmatter?.account) {
+        // Try to find account ID from cached accounts
+        const account = this.settings.cachedAccounts.find(
+          a => a.name.toLowerCase() === frontmatter.account.toLowerCase()
+        );
+        if (account) {
+          accountContext = { id: account.id, name: account.name };
+        } else {
+          accountContext = { id: '', name: frontmatter.account };
+        }
+      } else {
+        // Try to detect account from file path (e.g., Accounts/Intel/Note1.md)
+        const pathParts = activeFile.path.split('/');
+        if (pathParts.length >= 2 && pathParts[0] === this.settings.accountsFolder) {
+          const folderName = pathParts[1];
+          const account = this.settings.cachedAccounts.find(
+            a => a.name.replace(/[<>:"/\\|?*]/g, '_').trim() === folderName
+          );
+          if (account) {
+            accountContext = { id: account.id, name: account.name };
+          } else {
+            accountContext = { id: '', name: folderName };
+          }
+        }
+      }
+    }
+    
+    new IntelligenceQueryModal(this.app, this, accountContext).open();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // ACCOUNT SYNC METHODS
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -3056,6 +3347,57 @@ ${transcription.text}
     } catch (error) {
       console.error('Failed to scan local account folders:', error);
     }
+  }
+
+  /**
+   * Refresh account folders by checking for new account assignments
+   * Creates folders for any accounts the user owns but doesn't have folders for
+   * Returns the number of new folders created
+   */
+  async refreshAccountFolders(): Promise<number> {
+    if (!this.settings.userEmail) {
+      throw new Error('Please configure your email first');
+    }
+
+    const ownershipService = new AccountOwnershipService(this.settings.serverUrl);
+    
+    // Get current owned accounts from server (live data)
+    const ownedAccounts = await ownershipService.getAccountsForUser(this.settings.userEmail);
+    
+    if (ownedAccounts.length === 0) {
+      console.log('[Eudia] No accounts found for user');
+      return 0;
+    }
+
+    // Get existing folder names
+    const accountsFolder = this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);
+    const existingFolderNames: string[] = [];
+    
+    if (accountsFolder && accountsFolder instanceof TFolder) {
+      for (const child of accountsFolder.children) {
+        if (child instanceof TFolder) {
+          existingFolderNames.push(child.name);
+        }
+      }
+    }
+
+    // Find accounts that don't have folders yet
+    const newAccounts = await ownershipService.getNewAccounts(
+      this.settings.userEmail, 
+      existingFolderNames
+    );
+
+    if (newAccounts.length === 0) {
+      console.log('[Eudia] All account folders exist');
+      return 0;
+    }
+
+    console.log(`[Eudia] Creating ${newAccounts.length} new account folders`);
+    
+    // Create folders for new accounts (reuses existing method)
+    await this.createTailoredAccountFolders(newAccounts);
+    
+    return newAccounts.length;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -3319,6 +3661,22 @@ class EudiaSyncSettingTab extends PluginSettingTab {
           await checkStatus();
         }));
 
+    // Timezone setting for calendar display
+    new Setting(containerEl)
+      .setName('Timezone')
+      .setDesc('Your local timezone for calendar event display')
+      .addDropdown(dropdown => {
+        TIMEZONE_OPTIONS.forEach(tz => {
+          dropdown.addOption(tz.value, tz.label);
+        });
+        dropdown.setValue(this.plugin.settings.timezone);
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.timezone = value;
+          await this.plugin.saveSettings();
+          new Notice(`Timezone set to ${TIMEZONE_OPTIONS.find(t => t.value === value)?.label || value}`);
+        });
+      });
+
     // Move the Salesforce container to after the email setting visually
     // (it was already created above, now we add the header and rest)
     containerEl.createEl('h3', { text: 'Salesforce Connection' });
@@ -3385,9 +3743,45 @@ class EudiaSyncSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }));
 
-    new Setting(containerEl)
-      .setName('OpenAI API Key')
-      .setDesc('For transcription (optional if server provides)')
+    // OpenAI key is now handled server-side - this is for fallback only
+    // Hidden by default since server provides the key
+    const advancedSection = containerEl.createDiv({ cls: 'settings-advanced-collapsed' });
+    
+    // Check server transcription capability
+    const transcriptionStatus = advancedSection.createDiv({ cls: 'eudia-transcription-status' });
+    transcriptionStatus.style.cssText = 'padding: 12px; background: var(--background-secondary); border-radius: 6px; margin-bottom: 12px; font-size: 13px;';
+    transcriptionStatus.innerHTML = '<span style="color: var(--text-muted);">Checking server transcription status...</span>';
+    
+    // Async check of server capability
+    (async () => {
+      try {
+        const response = await requestUrl({
+          url: `${this.plugin.settings.serverUrl}/api/plugin/config`,
+          method: 'GET'
+        });
+        if (response.json?.capabilities?.serverTranscription) {
+          transcriptionStatus.innerHTML = '<span style="color: #22c55e;">✓</span> Server transcription is available. No local API key needed.';
+        } else {
+          transcriptionStatus.innerHTML = '<span style="color: #f59e0b;">⚠</span> Server transcription unavailable. Add a local API key below.';
+        }
+      } catch {
+        transcriptionStatus.innerHTML = '<span style="color: #f59e0b;">⚠</span> Could not check server status. Local API key recommended as backup.';
+      }
+    })();
+    
+    const advancedToggle = new Setting(containerEl)
+      .setName('Advanced Options')
+      .setDesc('Show fallback API key (usually not needed)')
+      .addToggle(toggle => toggle
+        .setValue(false)
+        .onChange(value => {
+          advancedSection.style.display = value ? 'block' : 'none';
+        }));
+    
+    advancedSection.style.display = 'none';
+    new Setting(advancedSection)
+      .setName('OpenAI API Key (Fallback)')
+      .setDesc('Only needed if server transcription is unavailable')
       .addText(text => {
         text
           .setPlaceholder('sk-...')
@@ -3485,12 +3879,35 @@ class EudiaSyncSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Sync Accounts Now')
-      .setDesc(`${this.plugin.settings.cachedAccounts.length} accounts available for matching (folders are pre-loaded)`)
+      .setDesc(`${this.plugin.settings.cachedAccounts.length} accounts available for matching`)
       .addButton(button => button
         .setButtonText('Sync')
         .setCta()
         .onClick(async () => {
           await this.plugin.syncAccounts();
+          this.display();
+        }));
+
+    new Setting(containerEl)
+      .setName('Refresh Account Folders')
+      .setDesc('Check for new account assignments and create folders for them')
+      .addButton(button => button
+        .setButtonText('Refresh Folders')
+        .onClick(async () => {
+          button.setButtonText('Checking...');
+          button.setDisabled(true);
+          try {
+            const newCount = await this.plugin.refreshAccountFolders();
+            if (newCount > 0) {
+              new Notice(`Created ${newCount} new account folder${newCount > 1 ? 's' : ''}`);
+            } else {
+              new Notice('All account folders are up to date');
+            }
+          } catch (error) {
+            new Notice('Failed to refresh folders: ' + error.message);
+          }
+          button.setButtonText('Refresh Folders');
+          button.setDisabled(false);
           this.display();
         }));
 

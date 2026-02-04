@@ -521,6 +521,72 @@ class GTMBrainApp {
       });
     });
 
+    // Plugin configuration endpoint - tells Obsidian plugin what capabilities are available
+    this.expressApp.get('/api/plugin/config', (req, res) => {
+      res.json({
+        success: true,
+        version: '4.0.0',
+        capabilities: {
+          serverTranscription: transcriptionService.isReady(),
+          salesforce: sfConnection.isConnected,
+          calendar: true,
+          smartTags: true
+        },
+        messages: {
+          transcription: transcriptionService.isReady() 
+            ? 'Server transcription is available - no local API key needed'
+            : 'Server transcription unavailable - local API key required as fallback'
+        },
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    // Plugin version endpoint - for update checking
+    this.expressApp.get('/api/plugin/version', (req, res) => {
+      res.json({
+        success: true,
+        currentVersion: '4.0.0',
+        minimumVersion: '3.0.0',
+        downloadUrl: 'https://gtm-wizard.onrender.com/downloads/Business-Lead-Vault-2026.zip',
+        releaseNotes: 'Timezone fix, improved transcription reliability',
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    // Plugin telemetry endpoint - for remote debugging (opt-in)
+    // Receives error reports from the Obsidian plugin for debugging
+    this.expressApp.post('/api/plugin/telemetry', (req, res) => {
+      try {
+        const { 
+          event,           // 'error' | 'warning' | 'info'
+          message,         // Error message or description
+          context,         // Additional context (account, action, etc.)
+          userEmail,       // Optional user identifier
+          pluginVersion,   // Plugin version
+          platform         // 'obsidian' | 'web'
+        } = req.body;
+        
+        // Log for debugging (these appear in Render logs)
+        if (event === 'error') {
+          logger.error(`[Plugin Telemetry] ${message}`, { 
+            userEmail: userEmail || 'anonymous',
+            context,
+            pluginVersion,
+            platform
+          });
+        } else if (event === 'warning') {
+          logger.warn(`[Plugin Telemetry] ${message}`, { context, pluginVersion });
+        } else {
+          logger.info(`[Plugin Telemetry] ${message}`, { context, pluginVersion });
+        }
+        
+        res.json({ success: true, received: true });
+      } catch (error) {
+        // Don't fail on telemetry errors
+        res.json({ success: true, received: false });
+      }
+    });
+
     // Eudia Logo endpoint
     this.expressApp.get('/logo', (req, res) => {
       const fs = require('fs');
@@ -2078,6 +2144,198 @@ class GTMBrainApp {
       }
     });
 
+    // Get accounts owned by a specific user (for Obsidian plugin dynamic folder creation)
+    // This enables the plugin to fetch owned accounts and create folders for new assignments
+    this.expressApp.get('/api/accounts/ownership/:email', async (req, res) => {
+      try {
+        const { email } = req.params;
+        const normalizedEmail = email.toLowerCase().trim();
+        
+        if (!normalizedEmail || !normalizedEmail.includes('@')) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Valid email address required' 
+          });
+        }
+        
+        // Query Salesforce for accounts owned by this user
+        // First, find the User by email
+        const userQuery = `SELECT Id, Name, Email FROM User WHERE Email = '${normalizedEmail.replace(/'/g, "\\'")}' AND IsActive = true LIMIT 1`;
+        const userResult = await sfConnection.query(userQuery);
+        
+        if (!userResult.records || userResult.records.length === 0) {
+          // User not found in Salesforce - return empty but success
+          // (They may be a valid user but with no accounts yet)
+          logger.info(`[Ownership] No Salesforce user found for email: ${normalizedEmail}`);
+          return res.json({
+            success: true,
+            email: normalizedEmail,
+            userId: null,
+            userName: null,
+            accounts: [],
+            count: 0,
+            message: 'User not found in Salesforce. Contact your admin if this is unexpected.'
+          });
+        }
+        
+        const user = userResult.records[0];
+        const userId = user.Id;
+        const userName = user.Name;
+        
+        // Query accounts owned by this user
+        const accountQuery = `
+          SELECT Id, Name, Type, Customer_Type__c 
+          FROM Account 
+          WHERE OwnerId = '${userId}'
+          ORDER BY Name ASC
+        `;
+        const accountResult = await sfConnection.query(accountQuery);
+        
+        const accounts = (accountResult.records || []).map(acc => ({
+          id: acc.Id,
+          name: acc.Name,
+          type: acc.Customer_Type__c || acc.Type || 'Prospect'
+        }));
+        
+        logger.info(`[Ownership] Found ${accounts.length} accounts for ${userName} (${normalizedEmail})`);
+        
+        res.json({
+          success: true,
+          email: normalizedEmail,
+          userId: userId,
+          userName: userName,
+          accounts: accounts,
+          count: accounts.length,
+          lastUpdated: new Date().toISOString()
+        });
+        
+      } catch (error) {
+        logger.error('Error fetching account ownership:', error);
+        res.status(500).json({ 
+          success: false, 
+          error: 'Failed to fetch account ownership from Salesforce',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // INTELLIGENCE QUERY API (Granola-style conversational queries)
+    // Enables natural language questions about accounts and deals
+    // ═══════════════════════════════════════════════════════════════════════════
+    this.expressApp.post('/api/intelligence/query', async (req, res) => {
+      try {
+        const { 
+          query,          // The user's natural language question
+          accountId,      // Optional: Focus on a specific account
+          accountName,    // Optional: Account name for context
+          userEmail,      // User's email for context
+          includeNotes    // Optional: Include meeting notes context
+        } = req.body;
+        
+        if (!query) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Query is required' 
+          });
+        }
+        
+        // Gather context for the LLM
+        let context = {
+          account: null,
+          opportunities: [],
+          recentActivity: [],
+          customerBrain: null
+        };
+        
+        // If account is specified, get context
+        if (accountId || accountName) {
+          try {
+            // Get account details
+            let accountQuery;
+            if (accountId) {
+              accountQuery = `SELECT Id, Name, Customer_Type__c, Customer_Brain__c, Owner.Name, Industry, Website 
+                              FROM Account WHERE Id = '${accountId}' LIMIT 1`;
+            } else {
+              const safeName = accountName.replace(/'/g, "\\'");
+              accountQuery = `SELECT Id, Name, Customer_Type__c, Customer_Brain__c, Owner.Name, Industry, Website 
+                              FROM Account WHERE Name LIKE '%${safeName}%' LIMIT 1`;
+            }
+            const accountResult = await sfConnection.query(accountQuery);
+            
+            if (accountResult.records && accountResult.records.length > 0) {
+              const acc = accountResult.records[0];
+              context.account = {
+                id: acc.Id,
+                name: acc.Name,
+                type: acc.Customer_Type__c,
+                owner: acc.Owner?.Name,
+                industry: acc.Industry,
+                website: acc.Website
+              };
+              context.customerBrain = acc.Customer_Brain__c;
+              
+              // Get opportunities for this account
+              const oppQuery = `SELECT Id, Name, StageName, ACV__c, Target_LOI_Date__c, Product_Line__c 
+                               FROM Opportunity WHERE AccountId = '${acc.Id}' 
+                               ORDER BY Target_LOI_Date__c DESC LIMIT 10`;
+              const oppResult = await sfConnection.query(oppQuery);
+              context.opportunities = oppResult.records || [];
+            }
+          } catch (sfError) {
+            logger.warn('Could not fetch Salesforce context:', sfError.message);
+          }
+        }
+        
+        // Use Socrates/OpenAI to answer the question with context
+        const socratesAdapter = require('./ai/socratesAdapter');
+        
+        const systemPrompt = `You are an AI sales assistant for Eudia, a legal AI company. 
+You help Business Leads prepare for meetings and understand their accounts.
+Be concise, actionable, and focus on insights that help close deals.
+
+${context.account ? `
+ACCOUNT CONTEXT:
+- Name: ${context.account.name}
+- Type: ${context.account.type || 'Unknown'}
+- Owner: ${context.account.owner || 'Unknown'}
+- Industry: ${context.account.industry || 'Unknown'}
+${context.customerBrain ? `- Meeting History: ${context.customerBrain.substring(0, 2000)}...` : ''}
+` : ''}
+
+${context.opportunities.length > 0 ? `
+OPPORTUNITIES:
+${context.opportunities.map(o => `- ${o.Name}: Stage ${o.StageName}, ACV $${o.ACV__c || 0}, Target: ${o.Target_LOI_Date__c || 'TBD'}`).join('\n')}
+` : ''}
+`;
+        
+        const response = await socratesAdapter.chat([
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: query }
+        ], { maxTokens: 500, temperature: 0.3 });
+        
+        res.json({
+          success: true,
+          query: query,
+          answer: response.content,
+          context: {
+            accountName: context.account?.name,
+            opportunityCount: context.opportunities.length,
+            hasCustomerBrain: !!context.customerBrain
+          },
+          timestamp: new Date().toISOString()
+        });
+        
+      } catch (error) {
+        logger.error('Intelligence query error:', error);
+        res.status(500).json({ 
+          success: false, 
+          error: 'Failed to process intelligence query',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+      }
+    });
+
     // ═══════════════════════════════════════════════════════════════════════════
     // OBSIDIAN VAULT DOWNLOAD
     // Serves the pre-built BL Sales Vault with all account folders and notes
@@ -2089,7 +2347,7 @@ class GTMBrainApp {
         const fs = require('fs');
         
         // Serve the pre-built vault ZIP from public/downloads
-        const vaultZipPath = path.join(__dirname, '..', 'public', 'downloads', 'BL-Sales-Vault.zip');
+        const vaultZipPath = path.join(__dirname, '..', 'public', 'downloads', 'Business-Lead-Vault-2026.zip');
         
         // Check if pre-built vault exists
         if (!fs.existsSync(vaultZipPath)) {
@@ -2105,7 +2363,7 @@ class GTMBrainApp {
           logger.info(`Generating Obsidian vault with ${validAccounts.length} account folders`);
           
           res.setHeader('Content-Type', 'application/zip');
-          res.setHeader('Content-Disposition', 'attachment; filename="BL-Sales-Vault.zip"');
+          res.setHeader('Content-Disposition', 'attachment; filename="Business-Lead-Vault-2026.zip"');
           
           const archive = archiver('zip', { zlib: { level: 9 } });
           archive.pipe(res);

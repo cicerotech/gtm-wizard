@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://lwc.dev/2019/lwc-bundle-metadata">
+    <apiVersion>59.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Account Lookup</masterLabel>
+    <description>Custom Account Lookup component for Screen Flows - searches all accounts without limits</description>
+    <targets>
+        <target>lightning__FlowScreen</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__FlowScreen">
+            <property name="label" type="String" label="Label" default="Account" description="The label shown above the lookup field"/>
+            <property name="placeholder" type="String" label="Placeholder" default="Search accounts..." description="Placeholder text in the search input"/>
+            <property name="required" type="Boolean" label="Required" default="false" description="Whether the field is required"/>
+            <property name="selectedAccountId" type="String" label="Selected Account ID" description="The ID of the selected account (output)" role="outputOnly"/>
+            <property name="selectedAccountName" type="String" label="Selected Account Name" description="The name of the selected account (output)" role="outputOnly"/>
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

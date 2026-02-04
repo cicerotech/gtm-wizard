@@ -1,0 +1,199 @@
+<template>
+    <div class="opp-creator-container">
+        <!-- Success State -->
+        <template if:true={showSuccess}>
+            <div class="success-container">
+                <div class="success-icon">
+                    <lightning-icon icon-name="utility:success" size="large" variant="inverse"></lightning-icon>
+                </div>
+                <h2 class="success-title">Opportunity Created!</h2>
+                <p class="success-message">{successMessage}</p>
+                <div class="success-actions">
+                    <lightning-button 
+                        label="View Opportunity" 
+                        variant="brand" 
+                        onclick={handleViewOpportunity}>
+                    </lightning-button>
+                    <lightning-button 
+                        label="Create Another" 
+                        variant="neutral" 
+                        onclick={handleCreateAnother}>
+                    </lightning-button>
+                </div>
+            </div>
+        </template>
+        
+        <!-- Form -->
+        <template if:false={showSuccess}>
+            <div class="form-container">
+                <!-- Error Message -->
+                <template if:true={showError}>
+                    <div class="error-banner">
+                        <lightning-icon icon-name="utility:error" size="x-small" variant="inverse"></lightning-icon>
+                        <span>{errorMessage}</span>
+                    </div>
+                </template>
+                
+                <!-- Account Lookup -->
+                <div class="form-field">
+                    <label class="field-label">
+                        <abbr class="slds-required" title="required">*</abbr>
+                        Account
+                    </label>
+                    
+                    <!-- Selected Account Display -->
+                    <template if:true={hasSelectedAccount}>
+                        <div class="selected-account">
+                            <div class="selected-account-info">
+                                <lightning-icon icon-name="standard:account" size="small"></lightning-icon>
+                                <div class="account-details">
+                                    <span class="account-name">{selectedAccount.name}</span>
+                                    <template if:true={selectedAccount.subtitle}>
+                                        <span class="account-subtitle">{selectedAccount.subtitle}</span>
+                                    </template>
+                                </div>
+                            </div>
+                            <lightning-button-icon 
+                                icon-name="utility:close" 
+                                alternative-text="Clear" 
+                                variant="bare"
+                                onclick={handleClearAccount}>
+                            </lightning-button-icon>
+                        </div>
+                    </template>
+                    
+                    <!-- Account Search -->
+                    <template if:false={hasSelectedAccount}>
+                        <div class="search-container">
+                            <div class="search-input-wrapper">
+                                <input 
+                                    type="text" 
+                                    class="account-search-input slds-input"
+                                    placeholder="Search accounts..."
+                                    value={searchTerm}
+                                    oninput={handleSearchChange}
+                                    onfocus={handleSearchFocus}
+                                    onblur={handleSearchBlur}
+                                />
+                                <template if:true={isSearching}>
+                                    <div class="search-spinner">
+                                        <lightning-spinner alternative-text="Searching" size="small"></lightning-spinner>
+                                    </div>
+                                </template>
+                                <template if:false={isSearching}>
+                                    <lightning-icon 
+                                        icon-name="utility:search" 
+                                        size="x-small" 
+                                        class="search-icon">
+                                    </lightning-icon>
+                                </template>
+                            </div>
+                            
+                            <!-- Search Results Dropdown -->
+                            <template if:true={showDropdown}>
+                                <div class="search-dropdown">
+                                    <template if:true={searchResults.length}>
+                                        <ul class="results-list">
+                                            <template for:each={searchResults} for:item="account">
+                                                <li key={account.id} 
+                                                    class="result-item"
+                                                    data-id={account.id}
+                                                    onclick={handleSelectAccount}>
+                                                    <lightning-icon icon-name="standard:account" size="small"></lightning-icon>
+                                                    <div class="result-info">
+                                                        <span class="result-name">{account.name}</span>
+                                                        <template if:true={account.subtitle}>
+                                                            <span class="result-subtitle">{account.subtitle}</span>
+                                                        </template>
+                                                    </div>
+                                                </li>
+                                            </template>
+                                        </ul>
+                                    </template>
+                                    <template if:false={searchResults.length}>
+                                        <div class="no-results">
+                                            <template if:true={isSearching}>
+                                                Searching...
+                                            </template>
+                                            <template if:false={isSearching}>
+                                                No accounts found
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+                
+                <!-- Stage -->
+                <div class="form-field">
+                    <lightning-combobox
+                        name="stage"
+                        label="Stage"
+                        value={stage}
+                        options={stageOptions}
+                        required
+                        onchange={handleStageChange}>
+                    </lightning-combobox>
+                </div>
+                
+                <!-- Target Sign Date -->
+                <div class="form-field">
+                    <label class="field-label">Target Sign Date</label>
+                    <input 
+                        type="date" 
+                        class="slds-input"
+                        value={targetSignDate}
+                        onchange={handleDateChange}
+                    />
+                </div>
+                
+                <!-- ACV -->
+                <div class="form-field">
+                    <label class="field-label">ACV</label>
+                    <div class="currency-input">
+                        <span class="currency-symbol">$</span>
+                        <input 
+                            type="number" 
+                            class="slds-input currency-field"
+                            value={acv}
+                            onchange={handleAcvChange}
+                            min="0"
+                            step="1000"
+                        />
+                    </div>
+                </div>
+                
+                <!-- Product Line -->
+                <div class="form-field">
+                    <lightning-combobox
+                        name="productLine"
+                        label="Product Line"
+                        value={productLine}
+                        options={productLineOptions}
+                        required
+                        onchange={handleProductLineChange}>
+                    </lightning-combobox>
+                </div>
+                
+                <!-- Actions -->
+                <div class="form-actions">
+                    <lightning-button 
+                        label="Cancel" 
+                        onclick={handleCancel}>
+                    </lightning-button>
+                    <lightning-button 
+                        label="Create Opportunity" 
+                        variant="brand"
+                        disabled={isCreating}
+                        onclick={handleCreate}>
+                        <template if:true={isCreating}>
+                            <lightning-spinner alternative-text="Creating" size="small"></lightning-spinner>
+                        </template>
+                    </lightning-button>
+                </div>
+            </div>
+        </template>
+    </div>
+</template>

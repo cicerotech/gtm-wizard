@@ -19,14 +19,23 @@ const archiver = require('archiver');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 // Configuration
-const VAULT_NAME = 'BL Sales Vault';
+const VAULT_NAME = 'Business Lead Vault 2026';
 const OUTPUT_DIR = path.join(__dirname, '..', 'dist', 'vault-tailored');
-const ZIP_OUTPUT = path.join(__dirname, '..', 'public', 'downloads', 'BL-Sales-Vault.zip');
+const ZIP_OUTPUT = path.join(__dirname, '..', 'public', 'downloads', 'Business-Lead-Vault-2026.zip');
 const PLUGIN_DIR = path.join(__dirname, '..', 'obsidian-plugin');
 const CALENDAR_PLUGIN_DIR = path.join(__dirname, '..', 'eudia-calendar-plugin');
 
-// OpenAI API key from environment
+// OpenAI API key from environment (for local fallback transcription)
+// NOTE: This is OPTIONAL - server-side transcription is the primary method
+// The server has its own OPENAI_API_KEY, so users don't typically need this
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+
+// Log warning if no API key is set (informational, not critical)
+if (!OPENAI_API_KEY) {
+  console.log('ℹ️  Note: No OPENAI_API_KEY set in environment.');
+  console.log('   This is OK - server-side transcription will be used.');
+  console.log('   Local fallback transcription will be unavailable.');
+}
 
 /**
  * Create QuickStart guide

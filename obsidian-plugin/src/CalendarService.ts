@@ -293,14 +293,20 @@ export class CalendarService {
 
   /**
    * Format time for display (e.g., "10:00 AM")
+   * @param isoString - ISO date string
+   * @param timezone - Optional IANA timezone (e.g., 'America/New_York')
    */
-  static formatTime(isoString: string): string {
+  static formatTime(isoString: string, timezone?: string): string {
     const date = new Date(isoString);
-    return date.toLocaleTimeString('en-US', { 
+    const options: Intl.DateTimeFormatOptions = { 
       hour: 'numeric', 
       minute: '2-digit',
-      hour12: true 
-    });
+      hour12: true
+    };
+    if (timezone) {
+      options.timeZone = timezone;
+    }
+    return date.toLocaleTimeString('en-US', options);
   }
 
   /**

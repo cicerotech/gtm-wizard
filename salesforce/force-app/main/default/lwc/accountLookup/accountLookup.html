@@ -1,0 +1,116 @@
+<template>
+    <div class="slds-form-element">
+        <label class="slds-form-element__label">
+            <template if:true={required}>
+                <abbr class="slds-required" title="required">*</abbr>
+            </template>
+            {label}
+        </label>
+        
+        <div class="slds-form-element__control">
+            <!-- Selected Account Display -->
+            <template if:true={hasSelection}>
+                <div class="selected-account slds-box slds-box_x-small">
+                    <div class="slds-grid slds-grid_vertical-align-center">
+                        <div class="slds-col slds-grow">
+                            <div class="account-icon">
+                                <lightning-icon icon-name="standard:account" size="small"></lightning-icon>
+                            </div>
+                            <div class="account-info">
+                                <span class="account-name">{selectedAccount.name}</span>
+                                <template if:true={selectedAccount.subtitle}>
+                                    <span class="account-subtitle">{selectedAccount.subtitle}</span>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="slds-col slds-shrink-none">
+                            <lightning-button-icon
+                                icon-name="utility:close"
+                                alternative-text="Clear selection"
+                                variant="bare"
+                                onclick={handleClearSelection}
+                                class="clear-button">
+                            </lightning-button-icon>
+                        </div>
+                    </div>
+                </div>
+            </template>
+            
+            <!-- Search Input -->
+            <template if:false={hasSelection}>
+                <div class="slds-combobox_container">
+                    <div class="slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click slds-is-open">
+                        <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right">
+                            <input
+                                type="text"
+                                class={inputClass}
+                                placeholder={placeholder}
+                                value={searchTerm}
+                                oninput={handleSearchChange}
+                                onfocus={handleInputFocus}
+                                onblur={handleInputBlur}
+                                autocomplete="off"
+                            />
+                            <template if:true={isLoading}>
+                                <div class="slds-input__icon slds-input__icon_right">
+                                    <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                                </div>
+                            </template>
+                            <template if:false={isLoading}>
+                                <lightning-icon
+                                    icon-name="utility:search"
+                                    size="x-small"
+                                    class="slds-input__icon slds-input__icon_right slds-icon-text-default">
+                                </lightning-icon>
+                            </template>
+                        </div>
+                        
+                        <!-- Dropdown Results -->
+                        <template if:true={showDropdown}>
+                            <div class="slds-dropdown slds-dropdown_length-with-icon-7 slds-dropdown_fluid">
+                                <ul class="slds-listbox slds-listbox_vertical" role="listbox">
+                                    <!-- Results -->
+                                    <template for:each={searchResults} for:item="account">
+                                        <li key={account.id} 
+                                            class="slds-listbox__item"
+                                            role="option"
+                                            data-id={account.id}
+                                            onclick={handleSelectAccount}>
+                                            <div class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta">
+                                                <span class="slds-media__figure slds-listbox__option-icon">
+                                                    <lightning-icon icon-name="standard:account" size="small"></lightning-icon>
+                                                </span>
+                                                <span class="slds-media__body">
+                                                    <span class="slds-listbox__option-text slds-listbox__option-text_entity">{account.name}</span>
+                                                    <template if:true={account.subtitle}>
+                                                        <span class="slds-listbox__option-meta slds-listbox__option-meta_entity">{account.subtitle}</span>
+                                                    </template>
+                                                </span>
+                                            </div>
+                                        </li>
+                                    </template>
+                                    
+                                    <!-- No Results -->
+                                    <template if:true={showNoResults}>
+                                        <li class="slds-listbox__item">
+                                            <div class="slds-media slds-listbox__option">
+                                                <span class="slds-media__body">
+                                                    <span class="slds-listbox__option-text no-results">No accounts found</span>
+                                                </span>
+                                            </div>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+        </div>
+        
+        <!-- Error Message -->
+        <template if:true={errorMessage}>
+            <div class="slds-form-element__help slds-text-color_error">{errorMessage}</div>
+        </template>
+    </div>
+</template>

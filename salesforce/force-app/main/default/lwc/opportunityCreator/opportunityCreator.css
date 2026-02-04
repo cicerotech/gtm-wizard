@@ -1,0 +1,230 @@
+:host {
+    display: block;
+}
+
+.opp-creator-container {
+    padding: 16px;
+}
+
+/* Form Styles */
+.form-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.field-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #3e3e3c;
+    margin-bottom: 4px;
+}
+
+.slds-required {
+    color: #c23934;
+    margin-right: 4px;
+}
+
+/* Account Search */
+.search-container {
+    position: relative;
+}
+
+.search-input-wrapper {
+    position: relative;
+}
+
+.account-search-input {
+    padding-right: 36px;
+}
+
+.search-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #706e6b;
+}
+
+.search-spinner {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    background: white;
+    border: 1px solid #dddbda;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 2px;
+}
+
+.results-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.result-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: background-color 0.1s;
+}
+
+.result-item:hover {
+    background-color: #f3f3f3;
+}
+
+.result-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.result-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #032d60;
+}
+
+.result-subtitle {
+    font-size: 12px;
+    color: #706e6b;
+}
+
+.no-results {
+    padding: 16px;
+    text-align: center;
+    color: #706e6b;
+    font-style: italic;
+}
+
+/* Selected Account */
+.selected-account {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: #f3f3f3;
+    border: 1px solid #dddbda;
+    border-radius: 4px;
+}
+
+.selected-account-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.account-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.account-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #032d60;
+}
+
+.account-subtitle {
+    font-size: 12px;
+    color: #706e6b;
+}
+
+/* Currency Input */
+.currency-input {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+.currency-symbol {
+    position: absolute;
+    left: 12px;
+    color: #706e6b;
+    font-size: 14px;
+    z-index: 1;
+}
+
+.currency-field {
+    padding-left: 24px;
+}
+
+/* Form Actions */
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #dddbda;
+}
+
+/* Error Banner */
+.error-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: #c23934;
+    color: white;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+/* Success State */
+.success-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.success-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #2e844a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.success-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #2e844a;
+    margin: 0 0 8px 0;
+}
+
+.success-message {
+    font-size: 14px;
+    color: #706e6b;
+    margin: 0 0 24px 0;
+}
+
+.success-actions {
+    display: flex;
+    gap: 12px;
+}
