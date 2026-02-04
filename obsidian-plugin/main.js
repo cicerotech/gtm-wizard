@@ -1,16 +1,811 @@
-var z=Object.create;var k=Object.defineProperty;var V=Object.getOwnPropertyDescriptor;var Y=Object.getOwnPropertyNames;var q=Object.getPrototypeOf,J=Object.prototype.hasOwnProperty;var Q=(f,n)=>{for(var e in n)k(f,e,{get:n[e],enumerable:!0})},U=(f,n,e,t)=>{if(n&&typeof n=="object"||typeof n=="function")for(let s of Y(n))!J.call(f,s)&&s!==e&&k(f,s,{get:()=>n[s],enumerable:!(t=V(n,s))||t.enumerable});return f};var B=(f,n,e)=>(e=f!=null?z(q(f)):{},U(n||!f||!f.__esModule?k(e,"default",{value:f,enumerable:!0}):e,f)),Z=f=>U(k({},"__esModule",{value:!0}),f);var re={};Q(re,{default:()=>L});module.exports=Z(re);var l=require("obsidian");var w=class{constructor(){this.mediaRecorder=null;this.audioChunks=[];this.stream=null;this.startTime=0;this.pausedDuration=0;this.pauseStartTime=0;this.durationInterval=null;this.audioContext=null;this.analyser=null;this.levelInterval=null;this.state={isRecording:!1,isPaused:!1,duration:0,audioLevel:0};this.stateCallback=null;this.levelHistory=[];this.trackingLevels=!1}onStateChange(n){this.stateCallback=n}getSupportedMimeType(){let n=["audio/webm;codecs=opus","audio/webm","audio/mp4","audio/ogg;codecs=opus","audio/ogg"];for(let e of n)if(MediaRecorder.isTypeSupported(e))return e;return"audio/webm"}async startRecording(){if(this.state.isRecording)throw new Error("Already recording");try{this.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:!0,noiseSuppression:!0,autoGainControl:!0,sampleRate:48e3,channelCount:1}}),this.setupAudioAnalysis();let n=this.getSupportedMimeType();this.mediaRecorder=new MediaRecorder(this.stream,{mimeType:n,audioBitsPerSecond:96e3}),this.audioChunks=[],this.mediaRecorder.ondataavailable=e=>{e.data.size>0&&this.audioChunks.push(e.data)},this.mediaRecorder.start(1e3),this.startTime=Date.now(),this.pausedDuration=0,this.state={isRecording:!0,isPaused:!1,duration:0,audioLevel:0},this.startDurationTracking(),this.startLevelTracking(),this.notifyStateChange()}catch(n){throw this.cleanup(),new Error(`Failed to start recording: ${n.message}`)}}setupAudioAnalysis(){if(this.stream)try{this.audioContext=new AudioContext;let n=this.audioContext.createMediaStreamSource(this.stream);this.analyser=this.audioContext.createAnalyser(),this.analyser.fftSize=256,n.connect(this.analyser)}catch(n){console.warn("Failed to set up audio analysis:",n)}}startDurationTracking(){this.durationInterval=setInterval(()=>{if(this.state.isRecording&&!this.state.isPaused){let n=Date.now()-this.startTime-this.pausedDuration;this.state.duration=Math.floor(n/1e3),this.notifyStateChange()}},100)}startLevelTracking(){if(!this.analyser)return;let n=new Uint8Array(this.analyser.frequencyBinCount);this.levelInterval=setInterval(()=>{if(this.state.isRecording&&!this.state.isPaused&&this.analyser){this.analyser.getByteFrequencyData(n);let e=0;for(let s=0;s<n.length;s++)e+=n[s];let t=e/n.length;this.state.audioLevel=Math.min(100,Math.round(t/255*100*2)),this.notifyStateChange()}},50)}pauseRecording(){!this.state.isRecording||this.state.isPaused||this.mediaRecorder&&this.mediaRecorder.state==="recording"&&(this.mediaRecorder.pause(),this.pauseStartTime=Date.now(),this.state.isPaused=!0,this.notifyStateChange())}resumeRecording(){!this.state.isRecording||!this.state.isPaused||this.mediaRecorder&&this.mediaRecorder.state==="paused"&&(this.mediaRecorder.resume(),this.pausedDuration+=Date.now()-this.pauseStartTime,this.state.isPaused=!1,this.notifyStateChange())}async stopRecording(){return new Promise((n,e)=>{if(!this.mediaRecorder||!this.state.isRecording){e(new Error("Not currently recording"));return}let t=this.mediaRecorder.mimeType,s=this.state.duration,a=!1,i=setTimeout(()=>{if(!a){a=!0,console.warn("AudioRecorder: onstop timeout, forcing completion");try{let r=new Blob(this.audioChunks,{type:t}),o=new Date,c=o.toISOString().split("T")[0],u=o.toTimeString().split(" ")[0].replace(/:/g,"-"),m=t.includes("webm")?"webm":t.includes("mp4")?"m4a":t.includes("ogg")?"ogg":"webm",h=`recording-${c}-${u}.${m}`;this.cleanup(),n({audioBlob:r,duration:s,mimeType:t,filename:h})}catch{this.cleanup(),e(new Error("Failed to process recording after timeout"))}}},1e4);this.mediaRecorder.onstop=()=>{if(!a){a=!0,clearTimeout(i);try{console.log(`[AudioRecorder] Chunks collected: ${this.audioChunks.length}`);let r=new Blob(this.audioChunks,{type:t});console.log(`[AudioRecorder] Blob size: ${r.size} bytes`);let o=new Date,c=o.toISOString().split("T")[0],u=o.toTimeString().split(" ")[0].replace(/:/g,"-"),m=t.includes("webm")?"webm":t.includes("mp4")?"m4a":t.includes("ogg")?"ogg":"webm",h=`recording-${c}-${u}.${m}`;this.cleanup(),n({audioBlob:r,duration:s,mimeType:t,filename:h})}catch(r){this.cleanup(),e(r)}}},this.mediaRecorder.onerror=r=>{a||(a=!0,clearTimeout(i),this.cleanup(),e(new Error("Recording error occurred")))},this.mediaRecorder.state==="recording"&&this.mediaRecorder.requestData(),setTimeout(()=>{this.mediaRecorder&&this.mediaRecorder.state!=="inactive"&&this.mediaRecorder.stop()},100)})}cancelRecording(){this.cleanup()}cleanup(){this.durationInterval&&(clearInterval(this.durationInterval),this.durationInterval=null),this.levelInterval&&(clearInterval(this.levelInterval),this.levelInterval=null),this.audioContext&&(this.audioContext.close().catch(()=>{}),this.audioContext=null,this.analyser=null),this.stream&&(this.stream.getTracks().forEach(n=>n.stop()),this.stream=null),this.mediaRecorder=null,this.audioChunks=[],this.state={isRecording:!1,isPaused:!1,duration:0,audioLevel:0},this.notifyStateChange()}getState(){return{...this.state}}static isSupported(){return!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder)}notifyStateChange(){this.stateCallback&&this.stateCallback({...this.state})}static formatDuration(n){let e=Math.floor(n/60),t=n%60;return`${e.toString().padStart(2,"0")}:${t.toString().padStart(2,"0")}`}static async blobToBase64(n){return new Promise((e,t)=>{let s=new FileReader;s.onload=()=>{let i=s.result.split(",")[1];e(i)},s.onerror=t,s.readAsDataURL(n)})}static async blobToArrayBuffer(n){return n.arrayBuffer()}async start(){return this.startRecording()}async stop(){return this.stopRecording()}pause(){return this.pauseRecording()}resume(){return this.resumeRecording()}cancel(){return this.cancelRecording()}isRecording(){return this.state.isRecording}startLevelHistoryTracking(){this.levelHistory=[],this.trackingLevels=!0}recordLevelSample(){this.trackingLevels&&this.levelHistory.push(this.state.audioLevel)}getAudioDiagnostic(){if(this.levelHistory.length===0)return{hasAudio:!0,averageLevel:0,peakLevel:0,silentPercent:100,warning:"Unable to analyze audio levels - recording may be too short"};let n=this.levelHistory.reduce((i,r)=>i+r,0)/this.levelHistory.length,e=Math.max(...this.levelHistory),t=this.levelHistory.filter(i=>i<5).length,s=Math.round(t/this.levelHistory.length*100),a=null;return e<5?a="SILENT AUDIO: No audio was detected during recording. Check your microphone settings and ensure Obsidian has microphone permission.":n<10&&s>80?a="VERY LOW AUDIO: Audio levels were extremely low. The transcription may not be accurate. Check your microphone or move closer to it.":s>90&&(a="MOSTLY SILENT: Over 90% of the recording had no audio. Make sure you're capturing the meeting audio, not just silence."),{hasAudio:e>=5,averageLevel:Math.round(n),peakLevel:e,silentPercent:s,warning:a}}static async analyzeAudioBlob(n){try{let e=new AudioContext,t=await n.arrayBuffer(),s;try{s=await e.decodeAudioData(t)}catch{return await e.close(),{hasAudio:!0,averageLevel:0,peakLevel:0,silentPercent:0,warning:"Could not analyze audio format. Proceeding with transcription."}}let a=s.getChannelData(0),i=0,r=0,o=0,c=.01,u=100,m=0;for(let v=0;v<a.length;v+=u){let A=Math.abs(a[v]);i+=A,A>r&&(r=A),A<c&&o++,m++}await e.close();let h=i/m,d=Math.round(o/m*100),p=Math.round(h*100*10),g=Math.round(r*100),y=null;return r<.01?y='SILENT AUDIO DETECTED: The recording appears to contain only silence. This typically causes Whisper to hallucinate random text like "Yes. Yes. Yes." Check your audio input source.':h<.005&&d>95?y="NEAR-SILENT AUDIO: The recording is almost entirely silent. The transcription will likely be inaccurate.":d>90&&(y="MOSTLY SILENT: Over 90% of the recording is silent. Consider checking your audio setup."),{hasAudio:r>=.01,averageLevel:p,peakLevel:g,silentPercent:d,warning:y}}catch(e){return console.error("Audio analysis failed:",e),{hasAudio:!0,averageLevel:0,peakLevel:0,silentPercent:0,warning:null}}}};var $=require("obsidian");var j=class{constructor(){this.salesforceAccounts=[]}setAccounts(n){this.salesforceAccounts=n}detectAccount(n,e,t){if(n){let s=this.detectFromTitle(n);if(s.confidence>=70)return s}if(t){let s=this.detectFromFilePath(t);if(s.confidence>=70)return s}if(e&&e.length>0){let s=this.detectFromAttendees(e);if(s.confidence>=50)return s}return{account:null,accountId:null,confidence:0,source:"none",evidence:"No account detected from available context"}}detectFromTitle(n){if(!n)return{account:null,accountId:null,confidence:0,source:"title",evidence:"No title"};let e=[{regex:/^([A-Za-z0-9][^-–—]+?)\s*[-–—]\s*(?:[A-Z][a-z]+|[A-Za-z]{2,})/,confidence:85},{regex:/(?:call|meeting|sync|check-in|demo|discovery)\s+(?:with|re:?|@)\s+([^-–—]+?)(?:\s*[-–—]|$)/i,confidence:80},{regex:/^([A-Za-z][^-–—]+?)\s+(?:discovery|demo|review|kickoff|intro|onboarding|sync)\s*(?:call)?$/i,confidence:75},{regex:/^([^:]+?):\s+/i,confidence:70},{regex:/^\[([^\]]+)\]/,confidence:75}],t=["weekly","daily","monthly","internal","team","1:1","one on one","standup","sync","meeting","call","notes","monday","tuesday","wednesday","thursday","friday","untitled","new","test"];for(let s of e){let a=n.match(s.regex);if(a&&a[1]){let i=a[1].trim();if(t.some(o=>i.toLowerCase()===o)||i.length<2)continue;let r=this.fuzzyMatchSalesforce(i);return r?{account:r.name,accountId:r.id,confidence:Math.min(s.confidence+10,100),source:"salesforce_match",evidence:`Matched "${i}" from title to Salesforce account "${r.name}"`}:{account:i,accountId:null,confidence:s.confidence,source:"title",evidence:"Extracted from meeting title pattern"}}}return{account:null,accountId:null,confidence:0,source:"title",evidence:"No pattern matched"}}detectFromFilePath(n){let e=n.match(/Accounts\/([^\/]+)\//i);if(e&&e[1]){let t=e[1].trim(),s=this.fuzzyMatchSalesforce(t);return s?{account:s.name,accountId:s.id,confidence:95,source:"salesforce_match",evidence:`File in account folder "${t}" matched to "${s.name}"`}:{account:t,accountId:null,confidence:85,source:"title",evidence:`File located in Accounts/${t} folder`}}return{account:null,accountId:null,confidence:0,source:"none",evidence:"Not in Accounts folder"}}detectFromAttendees(n){let e=["gmail.com","outlook.com","hotmail.com","yahoo.com","icloud.com"],t=new Set;for(let r of n){let c=r.toLowerCase().match(/@([a-z0-9.-]+)/);if(c){let u=c[1];!u.includes("eudia.com")&&!e.includes(u)&&t.add(u)}}if(t.size===0)return{account:null,accountId:null,confidence:0,source:"attendee_domain",evidence:"No external domains"};for(let r of t){let o=r.split(".")[0],c=o.charAt(0).toUpperCase()+o.slice(1),u=this.fuzzyMatchSalesforce(c);if(u)return{account:u.name,accountId:u.id,confidence:75,source:"salesforce_match",evidence:`Matched attendee domain ${r} to "${u.name}"`}}let s=Array.from(t)[0],a=s.split(".")[0];return{account:a.charAt(0).toUpperCase()+a.slice(1),accountId:null,confidence:50,source:"attendee_domain",evidence:`Guessed from external attendee domain: ${s}`}}fuzzyMatchSalesforce(n){if(!n||this.salesforceAccounts.length===0)return null;let e=n.toLowerCase().trim();for(let t of this.salesforceAccounts)if(t.name?.toLowerCase()===e)return t;for(let t of this.salesforceAccounts)if(t.name?.toLowerCase().startsWith(e))return t;for(let t of this.salesforceAccounts)if(t.name?.toLowerCase().includes(e))return t;for(let t of this.salesforceAccounts)if(e.includes(t.name?.toLowerCase()))return t;return null}suggestAccounts(n,e=10){if(!n||n.length<2)return this.salesforceAccounts.slice(0,e).map(a=>({...a,score:0}));let t=n.toLowerCase(),s=[];for(let a of this.salesforceAccounts){let i=a.name?.toLowerCase()||"",r=0;i===t?r=100:i.startsWith(t)?r=90:i.includes(t)?r=70:t.includes(i)&&(r=50),r>0&&s.push({...a,score:r})}return s.sort((a,i)=>i.score-a.score).slice(0,e)}},le=new j;function G(f,n){let e="";return(n?.account||n?.opportunities?.length)&&(e=`
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// main.ts
+var main_exports = {};
+__export(main_exports, {
+  default: () => EudiaSyncPlugin
+});
+module.exports = __toCommonJS(main_exports);
+var import_obsidian3 = require("obsidian");
+
+// src/AudioRecorder.ts
+var AudioRecorder = class {
+  constructor() {
+    this.mediaRecorder = null;
+    this.audioChunks = [];
+    this.stream = null;
+    this.startTime = 0;
+    this.pausedDuration = 0;
+    this.pauseStartTime = 0;
+    this.durationInterval = null;
+    this.audioContext = null;
+    this.analyser = null;
+    this.levelInterval = null;
+    this.state = {
+      isRecording: false,
+      isPaused: false,
+      duration: 0,
+      audioLevel: 0
+    };
+    this.stateCallback = null;
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AUDIO DIAGNOSTICS - Detect silent/low audio before transcription
+    // ═══════════════════════════════════════════════════════════════════════════
+    /**
+     * Track audio levels during recording for post-recording diagnostics.
+     * This is tracked automatically during recording via startLevelTracking().
+     */
+    this.levelHistory = [];
+    this.trackingLevels = false;
+  }
+  /**
+   * Set callback for state updates (duration, audio levels, etc.)
+   */
+  onStateChange(callback) {
+    this.stateCallback = callback;
+  }
+  /**
+   * Get supported MIME type for recording
+   */
+  getSupportedMimeType() {
+    const types = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/mp4",
+      "audio/ogg;codecs=opus",
+      "audio/ogg"
+    ];
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        return type;
+      }
+    }
+    return "audio/webm";
+  }
+  /**
+   * Request microphone access and start recording
+   */
+  async startRecording() {
+    if (this.state.isRecording) {
+      throw new Error("Already recording");
+    }
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48e3,
+          // Higher sample rate for clarity
+          channelCount: 1
+          // Mono is optimal for speech
+        }
+      });
+      this.setupAudioAnalysis();
+      const mimeType = this.getSupportedMimeType();
+      this.mediaRecorder = new MediaRecorder(this.stream, {
+        mimeType,
+        audioBitsPerSecond: 96e3
+      });
+      this.audioChunks = [];
+      this.mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.audioChunks.push(event.data);
+        }
+      };
+      this.mediaRecorder.start(1e3);
+      this.startTime = Date.now();
+      this.pausedDuration = 0;
+      this.state = {
+        isRecording: true,
+        isPaused: false,
+        duration: 0,
+        audioLevel: 0
+      };
+      this.startDurationTracking();
+      this.startLevelTracking();
+      this.notifyStateChange();
+    } catch (error) {
+      this.cleanup();
+      throw new Error(`Failed to start recording: ${error.message}`);
+    }
+  }
+  /**
+   * Set up Web Audio API for level analysis
+   */
+  setupAudioAnalysis() {
+    if (!this.stream)
+      return;
+    try {
+      this.audioContext = new AudioContext();
+      const source = this.audioContext.createMediaStreamSource(this.stream);
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 256;
+      source.connect(this.analyser);
+    } catch (error) {
+      console.warn("Failed to set up audio analysis:", error);
+    }
+  }
+  /**
+   * Start tracking recording duration
+   */
+  startDurationTracking() {
+    this.durationInterval = setInterval(() => {
+      if (this.state.isRecording && !this.state.isPaused) {
+        const elapsed = Date.now() - this.startTime - this.pausedDuration;
+        this.state.duration = Math.floor(elapsed / 1e3);
+        this.notifyStateChange();
+      }
+    }, 100);
+  }
+  /**
+   * Start tracking audio levels
+   */
+  startLevelTracking() {
+    if (!this.analyser)
+      return;
+    const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+    this.levelInterval = setInterval(() => {
+      if (this.state.isRecording && !this.state.isPaused && this.analyser) {
+        this.analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / dataArray.length;
+        this.state.audioLevel = Math.min(100, Math.round(average / 255 * 100 * 2));
+        this.notifyStateChange();
+      }
+    }, 50);
+  }
+  /**
+   * Pause recording
+   */
+  pauseRecording() {
+    if (!this.state.isRecording || this.state.isPaused)
+      return;
+    if (this.mediaRecorder && this.mediaRecorder.state === "recording") {
+      this.mediaRecorder.pause();
+      this.pauseStartTime = Date.now();
+      this.state.isPaused = true;
+      this.notifyStateChange();
+    }
+  }
+  /**
+   * Resume recording
+   */
+  resumeRecording() {
+    if (!this.state.isRecording || !this.state.isPaused)
+      return;
+    if (this.mediaRecorder && this.mediaRecorder.state === "paused") {
+      this.mediaRecorder.resume();
+      this.pausedDuration += Date.now() - this.pauseStartTime;
+      this.state.isPaused = false;
+      this.notifyStateChange();
+    }
+  }
+  /**
+   * Stop recording and return the audio data
+   * Includes a 10-second timeout to prevent hanging if onstop doesn't fire
+   */
+  async stopRecording() {
+    return new Promise((resolve, reject) => {
+      if (!this.mediaRecorder || !this.state.isRecording) {
+        reject(new Error("Not currently recording"));
+        return;
+      }
+      const mimeType = this.mediaRecorder.mimeType;
+      const duration = this.state.duration;
+      let resolved = false;
+      const safetyTimeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          console.warn("AudioRecorder: onstop timeout, forcing completion");
+          try {
+            const audioBlob = new Blob(this.audioChunks, { type: mimeType });
+            const now = /* @__PURE__ */ new Date();
+            const dateStr = now.toISOString().split("T")[0];
+            const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "-");
+            const extension = mimeType.includes("webm") ? "webm" : mimeType.includes("mp4") ? "m4a" : mimeType.includes("ogg") ? "ogg" : "webm";
+            const filename = `recording-${dateStr}-${timeStr}.${extension}`;
+            this.cleanup();
+            resolve({
+              audioBlob,
+              duration,
+              mimeType,
+              filename
+            });
+          } catch (error) {
+            this.cleanup();
+            reject(new Error("Failed to process recording after timeout"));
+          }
+        }
+      }, 1e4);
+      this.mediaRecorder.onstop = () => {
+        if (resolved)
+          return;
+        resolved = true;
+        clearTimeout(safetyTimeout);
+        try {
+          console.log(`[AudioRecorder] Chunks collected: ${this.audioChunks.length}`);
+          const audioBlob = new Blob(this.audioChunks, { type: mimeType });
+          console.log(`[AudioRecorder] Blob size: ${audioBlob.size} bytes`);
+          const now = /* @__PURE__ */ new Date();
+          const dateStr = now.toISOString().split("T")[0];
+          const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "-");
+          const extension = mimeType.includes("webm") ? "webm" : mimeType.includes("mp4") ? "m4a" : mimeType.includes("ogg") ? "ogg" : "webm";
+          const filename = `recording-${dateStr}-${timeStr}.${extension}`;
+          this.cleanup();
+          resolve({
+            audioBlob,
+            duration,
+            mimeType,
+            filename
+          });
+        } catch (error) {
+          this.cleanup();
+          reject(error);
+        }
+      };
+      this.mediaRecorder.onerror = (event) => {
+        if (resolved)
+          return;
+        resolved = true;
+        clearTimeout(safetyTimeout);
+        this.cleanup();
+        reject(new Error("Recording error occurred"));
+      };
+      if (this.mediaRecorder.state === "recording") {
+        this.mediaRecorder.requestData();
+      }
+      setTimeout(() => {
+        if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
+          this.mediaRecorder.stop();
+        }
+      }, 100);
+    });
+  }
+  /**
+   * Cancel recording without saving
+   */
+  cancelRecording() {
+    this.cleanup();
+  }
+  /**
+   * Clean up all resources
+   */
+  cleanup() {
+    if (this.durationInterval) {
+      clearInterval(this.durationInterval);
+      this.durationInterval = null;
+    }
+    if (this.levelInterval) {
+      clearInterval(this.levelInterval);
+      this.levelInterval = null;
+    }
+    if (this.audioContext) {
+      this.audioContext.close().catch(() => {
+      });
+      this.audioContext = null;
+      this.analyser = null;
+    }
+    if (this.stream) {
+      this.stream.getTracks().forEach((track) => track.stop());
+      this.stream = null;
+    }
+    this.mediaRecorder = null;
+    this.audioChunks = [];
+    this.state = {
+      isRecording: false,
+      isPaused: false,
+      duration: 0,
+      audioLevel: 0
+    };
+    this.notifyStateChange();
+  }
+  /**
+   * Get current recording state
+   */
+  getState() {
+    return { ...this.state };
+  }
+  /**
+   * Check if browser supports audio recording
+   */
+  static isSupported() {
+    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+  }
+  /**
+   * Notify callback of state change
+   */
+  notifyStateChange() {
+    if (this.stateCallback) {
+      this.stateCallback({ ...this.state });
+    }
+  }
+  /**
+   * Format duration as MM:SS
+   */
+  static formatDuration(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }
+  /**
+   * Convert blob to base64 for transmission
+   */
+  static async blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+  /**
+   * Convert blob to ArrayBuffer for file saving
+   */
+  static async blobToArrayBuffer(blob) {
+    return blob.arrayBuffer();
+  }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WRAPPER METHODS - Short aliases for main.ts compatibility
+  // ═══════════════════════════════════════════════════════════════════════════
+  /**
+   * Alias for startRecording()
+   */
+  async start() {
+    return this.startRecording();
+  }
+  /**
+   * Alias for stopRecording()
+   */
+  async stop() {
+    return this.stopRecording();
+  }
+  /**
+   * Alias for pauseRecording()
+   */
+  pause() {
+    return this.pauseRecording();
+  }
+  /**
+   * Alias for resumeRecording()
+   */
+  resume() {
+    return this.resumeRecording();
+  }
+  /**
+   * Alias for cancelRecording()
+   */
+  cancel() {
+    return this.cancelRecording();
+  }
+  /**
+   * Check if currently recording
+   */
+  isRecording() {
+    return this.state.isRecording;
+  }
+  /**
+   * Start tracking audio levels for diagnostics
+   * (Called automatically during recording)
+   */
+  startLevelHistoryTracking() {
+    this.levelHistory = [];
+    this.trackingLevels = true;
+  }
+  /**
+   * Add current level to history
+   * (Called during level tracking interval)
+   */
+  recordLevelSample() {
+    if (this.trackingLevels) {
+      this.levelHistory.push(this.state.audioLevel);
+    }
+  }
+  /**
+   * Get audio diagnostic after recording completes.
+   * Call this after stopRecording() to check for potential issues.
+   */
+  getAudioDiagnostic() {
+    if (this.levelHistory.length === 0) {
+      return {
+        hasAudio: true,
+        // Assume true if we can't check
+        averageLevel: 0,
+        peakLevel: 0,
+        silentPercent: 100,
+        warning: "Unable to analyze audio levels - recording may be too short"
+      };
+    }
+    const average = this.levelHistory.reduce((a, b) => a + b, 0) / this.levelHistory.length;
+    const peak = Math.max(...this.levelHistory);
+    const silentSamples = this.levelHistory.filter((l) => l < 5).length;
+    const silentPercent = Math.round(silentSamples / this.levelHistory.length * 100);
+    let warning = null;
+    if (peak < 5) {
+      warning = "SILENT AUDIO: No audio was detected during recording. Check your microphone settings and ensure Obsidian has microphone permission.";
+    } else if (average < 10 && silentPercent > 80) {
+      warning = "VERY LOW AUDIO: Audio levels were extremely low. The transcription may not be accurate. Check your microphone or move closer to it.";
+    } else if (silentPercent > 90) {
+      warning = "MOSTLY SILENT: Over 90% of the recording had no audio. Make sure you're capturing the meeting audio, not just silence.";
+    }
+    return {
+      hasAudio: peak >= 5,
+      averageLevel: Math.round(average),
+      peakLevel: peak,
+      silentPercent,
+      warning
+    };
+  }
+  /**
+   * Analyze an audio blob for audio presence.
+   * This is a more thorough check that analyzes the actual audio data.
+   * Returns a diagnostic result.
+   */
+  static async analyzeAudioBlob(blob) {
+    try {
+      const audioContext = new AudioContext();
+      const arrayBuffer = await blob.arrayBuffer();
+      let audioBuffer;
+      try {
+        audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      } catch (decodeError) {
+        await audioContext.close();
+        return {
+          hasAudio: true,
+          // Assume true - let the server handle it
+          averageLevel: 0,
+          peakLevel: 0,
+          silentPercent: 0,
+          warning: "Could not analyze audio format. Proceeding with transcription."
+        };
+      }
+      const channelData = audioBuffer.getChannelData(0);
+      let sum = 0;
+      let peak = 0;
+      let silentSamples = 0;
+      const sampleThreshold = 0.01;
+      const sampleStep = 100;
+      let samplesChecked = 0;
+      for (let i = 0; i < channelData.length; i += sampleStep) {
+        const sample = Math.abs(channelData[i]);
+        sum += sample;
+        if (sample > peak)
+          peak = sample;
+        if (sample < sampleThreshold)
+          silentSamples++;
+        samplesChecked++;
+      }
+      await audioContext.close();
+      const average = sum / samplesChecked;
+      const silentPercent = Math.round(silentSamples / samplesChecked * 100);
+      const averageLevel = Math.round(average * 100 * 10);
+      const peakLevel = Math.round(peak * 100);
+      let warning = null;
+      if (peak < 0.01) {
+        warning = 'SILENT AUDIO DETECTED: The recording appears to contain only silence. This typically causes Whisper to hallucinate random text like "Yes. Yes. Yes." Check your audio input source.';
+      } else if (average < 5e-3 && silentPercent > 95) {
+        warning = "NEAR-SILENT AUDIO: The recording is almost entirely silent. The transcription will likely be inaccurate.";
+      } else if (silentPercent > 90) {
+        warning = "MOSTLY SILENT: Over 90% of the recording is silent. Consider checking your audio setup.";
+      }
+      return {
+        hasAudio: peak >= 0.01,
+        averageLevel,
+        peakLevel,
+        silentPercent,
+        warning
+      };
+    } catch (error) {
+      console.error("Audio analysis failed:", error);
+      return {
+        hasAudio: true,
+        // Assume true if we can't check
+        averageLevel: 0,
+        peakLevel: 0,
+        silentPercent: 0,
+        warning: null
+      };
+    }
+  }
+};
+
+// src/TranscriptionService.ts
+var import_obsidian = require("obsidian");
+var AccountDetector = class {
+  constructor() {
+    this.salesforceAccounts = [];
+  }
+  /**
+   * Set Salesforce accounts for matching
+   */
+  setAccounts(accounts) {
+    this.salesforceAccounts = accounts;
+  }
+  /**
+   * Detect account from meeting title and/or attendees
+   * Uses multiple strategies with confidence scoring
+   */
+  detectAccount(meetingTitle, attendees, filePath) {
+    if (meetingTitle) {
+      const titleResult = this.detectFromTitle(meetingTitle);
+      if (titleResult.confidence >= 70) {
+        return titleResult;
+      }
+    }
+    if (filePath) {
+      const pathResult = this.detectFromFilePath(filePath);
+      if (pathResult.confidence >= 70) {
+        return pathResult;
+      }
+    }
+    if (attendees && attendees.length > 0) {
+      const domainResult = this.detectFromAttendees(attendees);
+      if (domainResult.confidence >= 50) {
+        return domainResult;
+      }
+    }
+    return {
+      account: null,
+      accountId: null,
+      confidence: 0,
+      source: "none",
+      evidence: "No account detected from available context"
+    };
+  }
+  /**
+   * Detect account from meeting title
+   */
+  detectFromTitle(title) {
+    if (!title) {
+      return { account: null, accountId: null, confidence: 0, source: "title", evidence: "No title" };
+    }
+    const patterns = [
+      // "Southwest - James - Aug 19" → Southwest
+      { regex: /^([A-Za-z0-9][^-–—]+?)\s*[-–—]\s*(?:[A-Z][a-z]+|[A-Za-z]{2,})/, confidence: 85 },
+      // "Call with Acme Corp" → Acme Corp
+      { regex: /(?:call|meeting|sync|check-in|demo|discovery)\s+(?:with|re:?|@)\s+([^-–—]+?)(?:\s*[-–—]|$)/i, confidence: 80 },
+      // "Acme Corp Discovery Call" → Acme Corp
+      { regex: /^([A-Za-z][^-–—]+?)\s+(?:discovery|demo|review|kickoff|intro|onboarding|sync)\s*(?:call)?$/i, confidence: 75 },
+      // "Acme: Weekly Sync" → Acme
+      { regex: /^([^:]+?):\s+/i, confidence: 70 },
+      // "[Acme] Meeting Notes" → Acme
+      { regex: /^\[([^\]]+)\]/, confidence: 75 }
+    ];
+    const falsePositives = [
+      "weekly",
+      "daily",
+      "monthly",
+      "internal",
+      "team",
+      "1:1",
+      "one on one",
+      "standup",
+      "sync",
+      "meeting",
+      "call",
+      "notes",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "untitled",
+      "new",
+      "test"
+    ];
+    for (const pattern of patterns) {
+      const match = title.match(pattern.regex);
+      if (match && match[1]) {
+        const accountGuess = match[1].trim();
+        if (falsePositives.some((fp) => accountGuess.toLowerCase() === fp)) {
+          continue;
+        }
+        if (accountGuess.length < 2) {
+          continue;
+        }
+        const sfMatch = this.fuzzyMatchSalesforce(accountGuess);
+        if (sfMatch) {
+          return {
+            account: sfMatch.name,
+            accountId: sfMatch.id,
+            confidence: Math.min(pattern.confidence + 10, 100),
+            source: "salesforce_match",
+            evidence: `Matched "${accountGuess}" from title to Salesforce account "${sfMatch.name}"`
+          };
+        }
+        return {
+          account: accountGuess,
+          accountId: null,
+          confidence: pattern.confidence,
+          source: "title",
+          evidence: `Extracted from meeting title pattern`
+        };
+      }
+    }
+    return { account: null, accountId: null, confidence: 0, source: "title", evidence: "No pattern matched" };
+  }
+  /**
+   * Detect account from file path (Accounts/CompanyName/...)
+   */
+  detectFromFilePath(filePath) {
+    const accountsMatch = filePath.match(/Accounts\/([^\/]+)\//i);
+    if (accountsMatch && accountsMatch[1]) {
+      const folderName = accountsMatch[1].trim();
+      const sfMatch = this.fuzzyMatchSalesforce(folderName);
+      if (sfMatch) {
+        return {
+          account: sfMatch.name,
+          accountId: sfMatch.id,
+          confidence: 95,
+          source: "salesforce_match",
+          evidence: `File in account folder "${folderName}" matched to "${sfMatch.name}"`
+        };
+      }
+      return {
+        account: folderName,
+        accountId: null,
+        confidence: 85,
+        source: "title",
+        // File path is treated like title
+        evidence: `File located in Accounts/${folderName} folder`
+      };
+    }
+    return { account: null, accountId: null, confidence: 0, source: "none", evidence: "Not in Accounts folder" };
+  }
+  /**
+   * Detect account from attendee email domains
+   */
+  detectFromAttendees(attendees) {
+    const commonProviders = ["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "icloud.com"];
+    const externalDomains = /* @__PURE__ */ new Set();
+    for (const attendee of attendees) {
+      const email = attendee.toLowerCase();
+      const domainMatch = email.match(/@([a-z0-9.-]+)/);
+      if (domainMatch) {
+        const domain = domainMatch[1];
+        if (!domain.includes("eudia.com") && !commonProviders.includes(domain)) {
+          externalDomains.add(domain);
+        }
+      }
+    }
+    if (externalDomains.size === 0) {
+      return { account: null, accountId: null, confidence: 0, source: "attendee_domain", evidence: "No external domains" };
+    }
+    for (const domain of externalDomains) {
+      const companyName2 = domain.split(".")[0];
+      const capitalized2 = companyName2.charAt(0).toUpperCase() + companyName2.slice(1);
+      const sfMatch = this.fuzzyMatchSalesforce(capitalized2);
+      if (sfMatch) {
+        return {
+          account: sfMatch.name,
+          accountId: sfMatch.id,
+          confidence: 75,
+          source: "salesforce_match",
+          evidence: `Matched attendee domain ${domain} to "${sfMatch.name}"`
+        };
+      }
+    }
+    const firstDomain = Array.from(externalDomains)[0];
+    const companyName = firstDomain.split(".")[0];
+    const capitalized = companyName.charAt(0).toUpperCase() + companyName.slice(1);
+    return {
+      account: capitalized,
+      accountId: null,
+      confidence: 50,
+      source: "attendee_domain",
+      evidence: `Guessed from external attendee domain: ${firstDomain}`
+    };
+  }
+  /**
+   * Fuzzy match against Salesforce accounts
+   */
+  fuzzyMatchSalesforce(searchName) {
+    if (!searchName || this.salesforceAccounts.length === 0) {
+      return null;
+    }
+    const search = searchName.toLowerCase().trim();
+    for (const acc of this.salesforceAccounts) {
+      if (acc.name?.toLowerCase() === search) {
+        return acc;
+      }
+    }
+    for (const acc of this.salesforceAccounts) {
+      if (acc.name?.toLowerCase().startsWith(search)) {
+        return acc;
+      }
+    }
+    for (const acc of this.salesforceAccounts) {
+      if (acc.name?.toLowerCase().includes(search)) {
+        return acc;
+      }
+    }
+    for (const acc of this.salesforceAccounts) {
+      if (search.includes(acc.name?.toLowerCase())) {
+        return acc;
+      }
+    }
+    return null;
+  }
+  /**
+   * Suggest account matches for autocomplete
+   */
+  suggestAccounts(query, limit = 10) {
+    if (!query || query.length < 2) {
+      return this.salesforceAccounts.slice(0, limit).map((a) => ({ ...a, score: 0 }));
+    }
+    const search = query.toLowerCase();
+    const results = [];
+    for (const acc of this.salesforceAccounts) {
+      const name = acc.name?.toLowerCase() || "";
+      let score = 0;
+      if (name === search) {
+        score = 100;
+      } else if (name.startsWith(search)) {
+        score = 90;
+      } else if (name.includes(search)) {
+        score = 70;
+      } else if (search.includes(name)) {
+        score = 50;
+      }
+      if (score > 0) {
+        results.push({ ...acc, score });
+      }
+    }
+    return results.sort((a, b) => b.score - a.score).slice(0, limit);
+  }
+};
+var accountDetector = new AccountDetector();
+function buildAnalysisPrompt(accountName, context) {
+  let contextSection = "";
+  if (context?.account || context?.opportunities?.length) {
+    contextSection = `
 ACCOUNT CONTEXT (use to inform your analysis):
-${n.account?`- Account: ${n.account.name}`:""}
-${n.account?.owner?`- Account Owner: ${n.account.owner}`:""}
-${n.opportunities?.length?`- Open Opportunities: ${n.opportunities.map(t=>`${t.name} (${t.stage}, $${(t.acv/1e3).toFixed(0)}k)`).join("; ")}`:""}
-${n.contacts?.length?`- Known Contacts: ${n.contacts.slice(0,5).map(t=>`${t.name} - ${t.title}`).join("; ")}`:""}
-`),`You are a senior sales intelligence analyst for Eudia, an AI-powered legal technology company. Your role is to extract precise, actionable intelligence from sales meeting transcripts.
+${context.account ? `- Account: ${context.account.name}` : ""}
+${context.account?.owner ? `- Account Owner: ${context.account.owner}` : ""}
+${context.opportunities?.length ? `- Open Opportunities: ${context.opportunities.map((o) => `${o.name} (${o.stage}, $${(o.acv / 1e3).toFixed(0)}k)`).join("; ")}` : ""}
+${context.contacts?.length ? `- Known Contacts: ${context.contacts.slice(0, 5).map((c) => `${c.name} - ${c.title}`).join("; ")}` : ""}
+`;
+  }
+  return `You are a senior sales intelligence analyst for Eudia, an AI-powered legal technology company. Your role is to extract precise, actionable intelligence from sales meeting transcripts.
 
 ABOUT EUDIA:
 Eudia provides AI solutions for legal teams at enterprise companies. Our products help in-house legal teams work faster on contracting, compliance, and M&A due diligence. We sell to CLOs, General Counsels, VP Legal, Legal Ops Directors, and Deputy GCs.
 
-${f?`CURRENT ACCOUNT: ${f}`:""}
-${e}
+${accountName ? `CURRENT ACCOUNT: ${accountName}` : ""}
+${contextSection}
 
 \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 CRITICAL RULES - Follow these exactly:
@@ -155,97 +950,577 @@ FINAL CHECKS:
 - Names are spelled exactly as heard
 - Product lines use only the allowed values
 - Quotes are properly attributed
-- Action items have clear owners`}var N=class{constructor(n,e){this.openaiApiKey=null;this.serverUrl=n,this.openaiApiKey=e||null}setServerUrl(n){this.serverUrl=n}setOpenAIKey(n){this.openaiApiKey=n}async transcribeAndSummarize(n,e,t,s,a){try{let i=await(0,$.requestUrl)({url:`${this.serverUrl}/api/transcribe-and-summarize`,method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio:n,mimeType:e,accountName:t,accountId:s,openaiApiKey:this.openaiApiKey,context:a?{customerBrain:a.account?.customerBrain,opportunities:a.opportunities,contacts:a.contacts}:void 0,systemPrompt:G(t,a)})});return i.json.success?{success:!0,transcript:i.json.transcript||"",sections:this.normalizeSections(i.json.sections),duration:i.json.duration||0}:{success:!1,transcript:"",sections:this.getEmptySections(),duration:0,error:i.json.error||"Transcription failed"}}catch(i){console.error("Server transcription error:",i),i.response&&console.error("Server response:",i.response);let r="";try{i.response?.json?.error?r=i.response.json.error:typeof i.response=="string"&&(r=JSON.parse(i.response).error||"")}catch{}let o=r||`Transcription failed: ${i.message}`;return i.message?.includes("413")?o="Audio file too large for server. Try a shorter recording.":i.message?.includes("500")?o=r||"Server error during transcription. Please try again.":(i.message?.includes("Failed to fetch")||i.message?.includes("NetworkError"))&&(o="Could not reach transcription server. Check your internet connection."),console.error("Final error message:",o),{success:!1,transcript:"",sections:this.getEmptySections(),duration:0,error:o}}}async transcribeLocal(n,e,t,s){if(!this.openaiApiKey)return{success:!1,transcript:"",sections:this.getEmptySections(),duration:0,error:"No OpenAI API key configured. Add it in plugin settings."};try{let a=atob(n),i=new Uint8Array(a.length);for(let g=0;g<a.length;g++)i[g]=a.charCodeAt(g);let r=new Blob([i],{type:e}),o=new FormData,c=e.includes("webm")?"webm":e.includes("mp4")?"m4a":"ogg";o.append("file",r,`audio.${c}`),o.append("model","whisper-1"),o.append("response_format","verbose_json"),o.append("language","en");let u=await fetch("https://api.openai.com/v1/audio/transcriptions",{method:"POST",headers:{Authorization:`Bearer ${this.openaiApiKey}`},body:o});if(!u.ok){let g=await u.text();throw new Error(`Whisper API error: ${u.status} - ${g}`)}let m=await u.json(),h=m.text||"",d=m.duration||0,p=await this.summarizeLocal(h,t,s);return{success:!0,transcript:h,sections:p,duration:d}}catch(a){return console.error("Local transcription error:",a),{success:!1,transcript:"",sections:this.getEmptySections(),duration:0,error:a.message||"Local transcription failed"}}}async summarizeLocal(n,e,t){if(!this.openaiApiKey)return this.getEmptySections();try{let s=G(e,t),a=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",headers:{Authorization:`Bearer ${this.openaiApiKey}`,"Content-Type":"application/json"},body:JSON.stringify({model:"gpt-4o",messages:[{role:"system",content:s},{role:"user",content:`Analyze this meeting transcript:
+- Action items have clear owners`;
+}
+var TranscriptionService = class {
+  constructor(serverUrl, openaiApiKey) {
+    this.openaiApiKey = null;
+    this.serverUrl = serverUrl;
+    this.openaiApiKey = openaiApiKey || null;
+  }
+  /**
+   * Update server URL
+   */
+  setServerUrl(url) {
+    this.serverUrl = url;
+  }
+  /**
+   * Update OpenAI API key
+   */
+  setOpenAIKey(key) {
+    this.openaiApiKey = key;
+  }
+  /**
+   * Send audio for transcription and summarization
+   * Tries server first, falls back to local OpenAI if server unavailable
+   */
+  async transcribeAndSummarize(audioBase64, mimeType, accountName, accountId, context) {
+    try {
+      const response = await (0, import_obsidian.requestUrl)({
+        url: `${this.serverUrl}/api/transcribe-and-summarize`,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          audio: audioBase64,
+          mimeType,
+          accountName,
+          accountId,
+          openaiApiKey: this.openaiApiKey,
+          context: context ? {
+            customerBrain: context.account?.customerBrain,
+            opportunities: context.opportunities,
+            contacts: context.contacts
+          } : void 0,
+          // Send the enhanced prompt to server
+          systemPrompt: buildAnalysisPrompt(accountName, context)
+        })
+      });
+      if (!response.json.success) {
+        return {
+          success: false,
+          transcript: "",
+          sections: this.getEmptySections(),
+          duration: 0,
+          error: response.json.error || "Transcription failed"
+        };
+      }
+      return {
+        success: true,
+        transcript: response.json.transcript || "",
+        sections: this.normalizeSections(response.json.sections),
+        duration: response.json.duration || 0
+      };
+    } catch (error) {
+      console.error("Server transcription error:", error);
+      if (error.response) {
+        console.error("Server response:", error.response);
+      }
+      let serverMessage = "";
+      try {
+        if (error.response?.json?.error) {
+          serverMessage = error.response.json.error;
+        } else if (typeof error.response === "string") {
+          const parsed = JSON.parse(error.response);
+          serverMessage = parsed.error || "";
+        }
+      } catch (e) {
+      }
+      let errorMessage = serverMessage || `Transcription failed: ${error.message}`;
+      if (error.message?.includes("413")) {
+        errorMessage = "Audio file too large for server. Try a shorter recording.";
+      } else if (error.message?.includes("500")) {
+        errorMessage = serverMessage || "Server error during transcription. Please try again.";
+      } else if (error.message?.includes("Failed to fetch") || error.message?.includes("NetworkError")) {
+        errorMessage = "Could not reach transcription server. Check your internet connection.";
+      }
+      console.error("Final error message:", errorMessage);
+      return {
+        success: false,
+        transcript: "",
+        sections: this.getEmptySections(),
+        duration: 0,
+        error: errorMessage
+      };
+    }
+  }
+  /**
+   * Local fallback transcription using user's OpenAI key
+   */
+  async transcribeLocal(audioBase64, mimeType, accountName, context) {
+    if (!this.openaiApiKey) {
+      return {
+        success: false,
+        transcript: "",
+        sections: this.getEmptySections(),
+        duration: 0,
+        error: "No OpenAI API key configured. Add it in plugin settings."
+      };
+    }
+    try {
+      const binaryString = atob(audioBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const audioBlob = new Blob([bytes], { type: mimeType });
+      const formData = new FormData();
+      const extension = mimeType.includes("webm") ? "webm" : mimeType.includes("mp4") ? "m4a" : "ogg";
+      formData.append("file", audioBlob, `audio.${extension}`);
+      formData.append("model", "whisper-1");
+      formData.append("response_format", "verbose_json");
+      formData.append("language", "en");
+      const whisperResponse = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${this.openaiApiKey}`
+        },
+        body: formData
+      });
+      if (!whisperResponse.ok) {
+        const errorText = await whisperResponse.text();
+        throw new Error(`Whisper API error: ${whisperResponse.status} - ${errorText}`);
+      }
+      const whisperResult = await whisperResponse.json();
+      const transcript = whisperResult.text || "";
+      const duration = whisperResult.duration || 0;
+      const sections = await this.summarizeLocal(transcript, accountName, context);
+      return {
+        success: true,
+        transcript,
+        sections,
+        duration
+      };
+    } catch (error) {
+      console.error("Local transcription error:", error);
+      return {
+        success: false,
+        transcript: "",
+        sections: this.getEmptySections(),
+        duration: 0,
+        error: error.message || "Local transcription failed"
+      };
+    }
+  }
+  /**
+   * Summarize transcript locally using GPT-4o with precision prompt
+   */
+  async summarizeLocal(transcript, accountName, context) {
+    if (!this.openaiApiKey) {
+      return this.getEmptySections();
+    }
+    try {
+      const systemPrompt = buildAnalysisPrompt(accountName, context);
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${this.openaiApiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Analyze this meeting transcript:
 
-${n.substring(0,1e5)}`}],temperature:.2,max_tokens:6e3})});if(!a.ok)return console.warn("GPT summarization failed, returning empty sections"),this.getEmptySections();let r=(await a.json()).choices?.[0]?.message?.content||"";return this.parseSections(r)}catch(s){return console.error("Local summarization error:",s),this.getEmptySections()}}parseSections(n){let e=this.getEmptySections(),t={summary:"summary",attendees:"attendees","meddicc signals":"meddiccSignals","product interest":"productInterest","pain points":"painPoints","buying triggers":"buyingTriggers","key dates":"keyDates","next steps":"nextSteps","action items":"actionItems","action items (internal)":"actionItems","deal signals":"dealSignals","risks & objections":"risksObjections","risks and objections":"risksObjections","competitive intelligence":"competitiveIntel"},s=/## ([^\n]+)\n([\s\S]*?)(?=## |$)/g,a;for(;(a=s.exec(n))!==null;){let i=a[1].trim().toLowerCase(),r=a[2].trim(),o=t[i];o&&(e[o]=r)}return e}normalizeSections(n){let e=this.getEmptySections();return n?{...e,...n}:e}async getMeetingContext(n){try{let e=await(0,$.requestUrl)({url:`${this.serverUrl}/api/meeting-context/${n}`,method:"GET",headers:{Accept:"application/json"}});return e.json.success?{success:!0,account:e.json.account,opportunities:e.json.opportunities,contacts:e.json.contacts,lastMeeting:e.json.lastMeeting}:{success:!1,error:e.json.error||"Failed to fetch context"}}catch(e){return console.error("Meeting context error:",e),{success:!1,error:e.message||"Network error"}}}async syncToSalesforce(n,e,t,s,a,i){try{let r=await(0,$.requestUrl)({url:`${this.serverUrl}/api/transcription/sync-to-salesforce`,method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accountId:n,accountName:e,noteTitle:t,sections:s,transcript:a,meetingDate:i||new Date().toISOString(),syncedAt:new Date().toISOString()})});return r.json.success?{success:!0,customerBrainUpdated:r.json.customerBrainUpdated,eventCreated:r.json.eventCreated,eventId:r.json.eventId,contactsCreated:r.json.contactsCreated,tasksCreated:r.json.tasksCreated}:{success:!1,error:r.json.error||"Sync failed"}}catch(r){return console.error("Salesforce sync error:",r),{success:!1,error:r.message||"Network error"}}}getEmptySections(){return{summary:"",attendees:"",meddiccSignals:"",productInterest:"",painPoints:"",buyingTriggers:"",keyDates:"",nextSteps:"",actionItems:"",dealSignals:"",risksObjections:"",competitiveIntel:""}}static formatSectionsForNote(n,e){let t="";return n.summary&&(t+=`## TL;DR
+${transcript.substring(0, 1e5)}` }
+          ],
+          temperature: 0.2,
+          // Lower temperature for more consistent output
+          max_tokens: 6e3
+          // Increased for comprehensive analysis
+        })
+      });
+      if (!response.ok) {
+        console.warn("GPT summarization failed, returning empty sections");
+        return this.getEmptySections();
+      }
+      const result = await response.json();
+      const content = result.choices?.[0]?.message?.content || "";
+      return this.parseSections(content);
+    } catch (error) {
+      console.error("Local summarization error:", error);
+      return this.getEmptySections();
+    }
+  }
+  /**
+   * Parse GPT response into sections object
+   * Enhanced to handle new section types
+   */
+  parseSections(content) {
+    const sections = this.getEmptySections();
+    const headerMap = {
+      "summary": "summary",
+      "attendees": "attendees",
+      "meddicc signals": "meddiccSignals",
+      "product interest": "productInterest",
+      "pain points": "painPoints",
+      "buying triggers": "buyingTriggers",
+      "key dates": "keyDates",
+      "next steps": "nextSteps",
+      "action items": "actionItems",
+      "action items (internal)": "actionItems",
+      "deal signals": "dealSignals",
+      "risks & objections": "risksObjections",
+      "risks and objections": "risksObjections",
+      "competitive intelligence": "competitiveIntel"
+    };
+    const sectionRegex = /## ([^\n]+)\n([\s\S]*?)(?=## |$)/g;
+    let match;
+    while ((match = sectionRegex.exec(content)) !== null) {
+      const header = match[1].trim().toLowerCase();
+      const body = match[2].trim();
+      const key = headerMap[header];
+      if (key) {
+        sections[key] = body;
+      }
+    }
+    return sections;
+  }
+  /**
+   * Normalize sections from server response to ensure all fields exist
+   */
+  normalizeSections(serverSections) {
+    const empty = this.getEmptySections();
+    if (!serverSections)
+      return empty;
+    return {
+      ...empty,
+      ...serverSections
+    };
+  }
+  /**
+   * Fetch meeting context for an account (pre-call)
+   */
+  async getMeetingContext(accountId) {
+    try {
+      const response = await (0, import_obsidian.requestUrl)({
+        url: `${this.serverUrl}/api/meeting-context/${accountId}`,
+        method: "GET",
+        headers: {
+          "Accept": "application/json"
+        }
+      });
+      if (!response.json.success) {
+        return {
+          success: false,
+          error: response.json.error || "Failed to fetch context"
+        };
+      }
+      return {
+        success: true,
+        account: response.json.account,
+        opportunities: response.json.opportunities,
+        contacts: response.json.contacts,
+        lastMeeting: response.json.lastMeeting
+      };
+    } catch (error) {
+      console.error("Meeting context error:", error);
+      return {
+        success: false,
+        error: error.message || "Network error"
+      };
+    }
+  }
+  /**
+   * Sync transcription results to Salesforce
+   */
+  async syncToSalesforce(accountId, accountName, noteTitle, sections, transcript, meetingDate) {
+    try {
+      const response = await (0, import_obsidian.requestUrl)({
+        url: `${this.serverUrl}/api/transcription/sync-to-salesforce`,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          accountId,
+          accountName,
+          noteTitle,
+          sections,
+          transcript,
+          meetingDate: meetingDate || (/* @__PURE__ */ new Date()).toISOString(),
+          syncedAt: (/* @__PURE__ */ new Date()).toISOString()
+        })
+      });
+      if (!response.json.success) {
+        return {
+          success: false,
+          error: response.json.error || "Sync failed"
+        };
+      }
+      return {
+        success: true,
+        customerBrainUpdated: response.json.customerBrainUpdated,
+        eventCreated: response.json.eventCreated,
+        eventId: response.json.eventId,
+        contactsCreated: response.json.contactsCreated,
+        tasksCreated: response.json.tasksCreated
+      };
+    } catch (error) {
+      console.error("Salesforce sync error:", error);
+      return {
+        success: false,
+        error: error.message || "Network error"
+      };
+    }
+  }
+  /**
+   * Get empty sections structure with all fields
+   */
+  getEmptySections() {
+    return {
+      summary: "",
+      attendees: "",
+      meddiccSignals: "",
+      productInterest: "",
+      painPoints: "",
+      buyingTriggers: "",
+      keyDates: "",
+      nextSteps: "",
+      actionItems: "",
+      dealSignals: "",
+      risksObjections: "",
+      competitiveIntel: ""
+    };
+  }
+  /**
+   * Format sections for note insertion
+   * Optimized for busy salespeople: TL;DR first, evidence-based insights, actionable checklists
+   */
+  static formatSectionsForNote(sections, transcript) {
+    let content = "";
+    if (sections.summary) {
+      content += `## TL;DR
 
-${n.summary}
+${sections.summary}
 
-`),n.painPoints&&!n.painPoints.includes("None explicitly stated")&&(t+=`## Pain Points
+`;
+    }
+    if (sections.painPoints && !sections.painPoints.includes("None explicitly stated")) {
+      content += `## Pain Points
 
-${n.painPoints}
+${sections.painPoints}
 
-`),n.productInterest&&!n.productInterest.includes("None identified")&&(t+=`## Product Interest
+`;
+    }
+    if (sections.productInterest && !sections.productInterest.includes("None identified")) {
+      content += `## Product Interest
 
-${n.productInterest}
+${sections.productInterest}
 
-`),n.meddiccSignals&&(t+=`## MEDDICC Signals
+`;
+    }
+    if (sections.meddiccSignals) {
+      content += `## MEDDICC Signals
 
-${n.meddiccSignals}
+${sections.meddiccSignals}
 
-`),n.nextSteps&&(t+=`## Next Steps
+`;
+    }
+    if (sections.nextSteps) {
+      content += `## Next Steps
 
-${n.nextSteps}
+${sections.nextSteps}
 
-`),n.actionItems&&(t+=`## Action Items (Internal)
+`;
+    }
+    if (sections.actionItems) {
+      content += `## Action Items (Internal)
 
-${n.actionItems}
+${sections.actionItems}
 
-`),n.keyDates&&!n.keyDates.includes("No specific dates")&&(t+=`## Key Dates
+`;
+    }
+    if (sections.keyDates && !sections.keyDates.includes("No specific dates")) {
+      content += `## Key Dates
 
-${n.keyDates}
+${sections.keyDates}
 
-`),n.buyingTriggers&&(t+=`## Buying Triggers
+`;
+    }
+    if (sections.buyingTriggers) {
+      content += `## Buying Triggers
 
-${n.buyingTriggers}
+${sections.buyingTriggers}
 
-`),n.dealSignals&&(t+=`## Deal Signals
+`;
+    }
+    if (sections.dealSignals) {
+      content += `## Deal Signals
 
-${n.dealSignals}
+${sections.dealSignals}
 
-`),n.risksObjections&&!n.risksObjections.includes("None raised")&&(t+=`## Risks & Objections
+`;
+    }
+    if (sections.risksObjections && !sections.risksObjections.includes("None raised")) {
+      content += `## Risks & Objections
 
-${n.risksObjections}
+${sections.risksObjections}
 
-`),n.competitiveIntel&&!n.competitiveIntel.includes("No competitive")&&(t+=`## Competitive Intelligence
+`;
+    }
+    if (sections.competitiveIntel && !sections.competitiveIntel.includes("No competitive")) {
+      content += `## Competitive Intelligence
 
-${n.competitiveIntel}
+${sections.competitiveIntel}
 
-`),n.attendees&&(t+=`## Attendees
+`;
+    }
+    if (sections.attendees) {
+      content += `## Attendees
 
-${n.attendees}
+${sections.attendees}
 
-`),e&&(t+=`---
+`;
+    }
+    if (transcript) {
+      content += `---
 
 <details>
 <summary><strong>Full Transcript</strong></summary>
 
-${e}
+${transcript}
 
 </details>
-`),t}static formatSectionsWithAudio(n,e,t){let s=this.formatSectionsForNote(n,e);return t&&(s+=`
+`;
+    }
+    return content;
+  }
+  /**
+   * Format sections for note with audio file reference
+   */
+  static formatSectionsWithAudio(sections, transcript, audioFilePath) {
+    let content = this.formatSectionsForNote(sections, transcript);
+    if (audioFilePath) {
+      content += `
 ---
 
 ## Recording
 
-![[${t}]]
-`),s}static formatContextForNote(n){if(!n.success)return"";let e=`## Pre-Call Context
+![[${audioFilePath}]]
+`;
+    }
+    return content;
+  }
+  /**
+   * Format meeting context for pre-call injection
+   */
+  static formatContextForNote(context) {
+    if (!context.success)
+      return "";
+    let content = "## Pre-Call Context\n\n";
+    if (context.account) {
+      content += `**Account:** ${context.account.name}
+`;
+      content += `**Owner:** ${context.account.owner}
 
-`;if(n.account&&(e+=`**Account:** ${n.account.name}
-`,e+=`**Owner:** ${n.account.owner}
+`;
+    }
+    if (context.opportunities && context.opportunities.length > 0) {
+      content += "### Open Opportunities\n\n";
+      for (const opp of context.opportunities) {
+        const acvFormatted = opp.acv ? `$${(opp.acv / 1e3).toFixed(0)}k` : "TBD";
+        content += `- **${opp.name}** - ${opp.stage} - ${acvFormatted}`;
+        if (opp.targetSignDate) {
+          content += ` - Target: ${new Date(opp.targetSignDate).toLocaleDateString()}`;
+        }
+        content += "\n";
+      }
+      content += "\n";
+    }
+    if (context.contacts && context.contacts.length > 0) {
+      content += "### Key Contacts\n\n";
+      for (const contact of context.contacts.slice(0, 5)) {
+        content += `- **${contact.name}**`;
+        if (contact.title)
+          content += ` - ${contact.title}`;
+        content += "\n";
+      }
+      content += "\n";
+    }
+    if (context.lastMeeting) {
+      content += "### Last Meeting\n\n";
+      content += `${new Date(context.lastMeeting.date).toLocaleDateString()} - ${context.lastMeeting.subject}
 
-`),n.opportunities&&n.opportunities.length>0){e+=`### Open Opportunities
+`;
+    }
+    if (context.account?.customerBrain) {
+      const recentNotes = context.account.customerBrain.substring(0, 500);
+      if (recentNotes) {
+        content += "### Recent Notes\n\n";
+        content += `${recentNotes}${context.account.customerBrain.length > 500 ? "..." : ""}
 
-`;for(let t of n.opportunities){let s=t.acv?`$${(t.acv/1e3).toFixed(0)}k`:"TBD";e+=`- **${t.name}** - ${t.stage} - ${s}`,t.targetSignDate&&(e+=` - Target: ${new Date(t.targetSignDate).toLocaleDateString()}`),e+=`
-`}e+=`
-`}if(n.contacts&&n.contacts.length>0){e+=`### Key Contacts
-
-`;for(let t of n.contacts.slice(0,5))e+=`- **${t.name}**`,t.title&&(e+=` - ${t.title}`),e+=`
-`;e+=`
-`}if(n.lastMeeting&&(e+=`### Last Meeting
-
-`,e+=`${new Date(n.lastMeeting.date).toLocaleDateString()} - ${n.lastMeeting.subject}
-
-`),n.account?.customerBrain){let t=n.account.customerBrain.substring(0,500);t&&(e+=`### Recent Notes
-
-`,e+=`${t}${n.account.customerBrain.length>500?"...":""}
-
-`)}return e+=`---
-
-`,e}async blobToBase64(n){return new Promise((e,t)=>{let s=new FileReader;s.onload=()=>{let i=s.result.split(",")[1];e(i)},s.onerror=t,s.readAsDataURL(n)})}async transcribeAudio(n,e){try{let t=await this.blobToBase64(n),s=n.type||"audio/webm",a=await this.transcribeAndSummarize(t,s,e?.accountName,e?.accountId);return{text:a.transcript,confidence:a.success?.95:0,duration:a.duration,sections:a.sections}}catch(t){return console.error("transcribeAudio error:",t),{text:"",confidence:0,duration:0,sections:this.getEmptySections()}}}async processTranscription(n,e){if(!n||n.trim().length===0)return this.getEmptySections();try{if(this.openaiApiKey){let t=`Analyze this meeting transcript and extract structured information:
+`;
+      }
+    }
+    content += "---\n\n";
+    return content;
+  }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WRAPPER METHODS - For main.ts compatibility
+  // ═══════════════════════════════════════════════════════════════════════════
+  /**
+   * Convert Blob to base64 string
+   */
+  async blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+  /**
+   * Wrapper method for main.ts - transcribes audio blob
+   * Returns both transcript AND sections from server (not discarding sections!)
+   */
+  async transcribeAudio(audioBlob, context) {
+    try {
+      const base64 = await this.blobToBase64(audioBlob);
+      const mimeType = audioBlob.type || "audio/webm";
+      const result = await this.transcribeAndSummarize(
+        base64,
+        mimeType,
+        context?.accountName,
+        context?.accountId
+      );
+      return {
+        text: result.transcript,
+        confidence: result.success ? 0.95 : 0,
+        duration: result.duration,
+        sections: result.sections
+        // Include server-generated sections!
+      };
+    } catch (error) {
+      console.error("transcribeAudio error:", error);
+      return {
+        text: "",
+        confidence: 0,
+        duration: 0,
+        sections: this.getEmptySections()
+      };
+    }
+  }
+  /**
+   * Wrapper method for main.ts - processes transcription into sections
+   * Called by main.ts line 1266
+   */
+  async processTranscription(transcriptText, context) {
+    if (!transcriptText || transcriptText.trim().length === 0) {
+      return this.getEmptySections();
+    }
+    try {
+      if (this.openaiApiKey) {
+        const prompt = `Analyze this meeting transcript and extract structured information:
 
 TRANSCRIPT:
-${n}
+${transcriptText}
 
 Extract the following in JSON format:
 {
@@ -254,11 +1529,362 @@ Extract the following in JSON format:
   "nextSteps": ["action item 1", "action item 2", ...],
   "meddiccSignals": [{"category": "Metrics|Economic Buyer|Decision Criteria|Decision Process|Identify Pain|Champion|Competition", "signal": "the signal text", "confidence": 0.8}],
   "attendees": ["name 1", "name 2", ...]
-}`,s=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",headers:{Authorization:`Bearer ${this.openaiApiKey}`,"Content-Type":"application/json"},body:JSON.stringify({model:"gpt-4o-mini",messages:[{role:"system",content:"You are a sales meeting analyst. Extract structured information from transcripts. Return valid JSON only."},{role:"user",content:t}],temperature:.3,max_tokens:2e3})});if(s.ok){let r=((await s.json()).choices?.[0]?.message?.content||"").match(/\{[\s\S]*\}/);if(r){let o=JSON.parse(r[0]),c=d=>Array.isArray(d)?d.map(p=>`- [ ] ${p}`).join(`
-`):d||"",u=d=>Array.isArray(d)?d.map(p=>`- ${p}`).join(`
-`):d||"",m=d=>Array.isArray(d)?d.map(p=>typeof p=="object"&&p.category?`**${p.category}**: ${p.signal||p.insight||""}`:`- ${p}`).join(`
-`):d||"",h=d=>Array.isArray(d)?d.map(p=>`- ${p}`).join(`
-`):d||"";return{summary:o.summary||"",painPoints:u(o.keyPoints||o.painPoints),productInterest:"",meddiccSignals:m(o.meddiccSignals),nextSteps:c(o.nextSteps),actionItems:"",keyDates:"",buyingTriggers:"",dealSignals:"",risksObjections:"",competitiveIntel:"",attendees:h(o.attendees),transcript:n}}}}return{summary:"Meeting transcript captured. Review for key details.",painPoints:"",productInterest:"",meddiccSignals:"",nextSteps:"",actionItems:"",keyDates:"",buyingTriggers:"",dealSignals:"",risksObjections:"",competitiveIntel:"",attendees:"",transcript:n}}catch(t){return console.error("processTranscription error:",t),{summary:"",painPoints:"",productInterest:"",meddiccSignals:"",nextSteps:"",actionItems:"",keyDates:"",buyingTriggers:"",dealSignals:"",risksObjections:"",competitiveIntel:"",attendees:"",transcript:n}}}};var D=require("obsidian"),S=class{constructor(n,e){this.serverUrl=n,this.userEmail=e.toLowerCase()}setUserEmail(n){this.userEmail=n.toLowerCase()}setServerUrl(n){this.serverUrl=n}async getTodaysMeetings(){if(!this.userEmail)return{success:!1,date:new Date().toISOString().split("T")[0],email:"",meetingCount:0,meetings:[],error:"User email not configured"};try{return(await(0,D.requestUrl)({url:`${this.serverUrl}/api/calendar/${this.userEmail}/today`,method:"GET",headers:{Accept:"application/json"}})).json}catch(n){return console.error("Failed to fetch today's meetings:",n),{success:!1,date:new Date().toISOString().split("T")[0],email:this.userEmail,meetingCount:0,meetings:[],error:n.message||"Failed to fetch calendar"}}}async getWeekMeetings(){if(!this.userEmail)return{success:!1,startDate:"",endDate:"",email:"",totalMeetings:0,byDay:{},error:"User email not configured"};try{return(await(0,D.requestUrl)({url:`${this.serverUrl}/api/calendar/${this.userEmail}/week`,method:"GET",headers:{Accept:"application/json"}})).json}catch(n){return console.error("Failed to fetch week's meetings:",n),{success:!1,startDate:"",endDate:"",email:this.userEmail,totalMeetings:0,byDay:{},error:n.message||"Failed to fetch calendar"}}}async getMeetingsInRange(n,e){if(!this.userEmail)return[];try{let t=n.toISOString().split("T")[0],s=e.toISOString().split("T")[0],a=await(0,D.requestUrl)({url:`${this.serverUrl}/api/calendar/${this.userEmail}/range?start=${t}&end=${s}`,method:"GET",headers:{Accept:"application/json"}});return a.json.success?a.json.meetings||[]:[]}catch(t){return console.error("Failed to fetch calendar range:",t),[]}}async getCurrentMeeting(){let n=await this.getTodaysMeetings();if(!n.success||n.meetings.length===0)return{meeting:null,isNow:!1};let e=new Date;for(let t of n.meetings){let s=new Date(t.start),a=new Date(t.end);if(e>=s&&e<=a)return{meeting:t,isNow:!0};let i=(s.getTime()-e.getTime())/(1e3*60);if(i>0&&i<=15)return{meeting:t,isNow:!1,minutesUntilStart:Math.ceil(i)}}return{meeting:null,isNow:!1}}async getMeetingsForAccount(n){let e=await this.getWeekMeetings();if(!e.success)return[];let t=[];Object.values(e.byDay).forEach(a=>{t.push(...a)});let s=n.toLowerCase();return t.filter(a=>a.accountName?.toLowerCase().includes(s)||a.subject.toLowerCase().includes(s)||a.attendees.some(i=>i.email.toLowerCase().includes(s.split(" ")[0])))}static formatMeetingForNote(n){let e=n.attendees.filter(t=>t.isExternal!==!1).map(t=>t.name||t.email.split("@")[0]).slice(0,5).join(", ");return{title:n.subject,attendees:e,meetingStart:n.start,accountName:n.accountName}}static getDayName(n){let e=new Date(n),t=new Date;t.setHours(0,0,0,0);let s=new Date(e);s.setHours(0,0,0,0);let a=(s.getTime()-t.getTime())/(1e3*60*60*24);return a===0?"Today":a===1?"Tomorrow":e.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}static formatTime(n,e){let t=new Date(n),s={hour:"numeric",minute:"2-digit",hour12:!0};return e&&(s.timeZone=e),t.toLocaleTimeString("en-US",s)}static getMeetingDuration(n,e){let t=new Date(n),s=new Date(e);return Math.round((s.getTime()-t.getTime())/(1e3*60))}};var X=["ai-contracting-tech","ai-contracting-services","ai-compliance-tech","ai-compliance-services","ai-ma-tech","ai-ma-services","sigma"],ee=["metrics-identified","economic-buyer-identified","decision-criteria-discussed","decision-process-discussed","pain-confirmed","champion-identified","competition-mentioned"],te=["progressing","stalled","at-risk","champion-engaged","early-stage"],ne=["discovery","demo","negotiation","qbr","implementation","follow-up"],se=`You are a sales intelligence tagger for Eudia, an AI legal technology company. Extract structured tags from meeting analysis.
+}`;
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${this.openaiApiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "You are a sales meeting analyst. Extract structured information from transcripts. Return valid JSON only." },
+              { role: "user", content: prompt }
+            ],
+            temperature: 0.3,
+            max_tokens: 2e3
+          })
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const content = data.choices?.[0]?.message?.content || "";
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            const formatNextSteps = (steps) => {
+              if (Array.isArray(steps)) {
+                return steps.map((s) => `- [ ] ${s}`).join("\n");
+              }
+              return steps || "";
+            };
+            const formatKeyPoints = (points) => {
+              if (Array.isArray(points)) {
+                return points.map((p) => `- ${p}`).join("\n");
+              }
+              return points || "";
+            };
+            const formatMeddicc = (signals) => {
+              if (Array.isArray(signals)) {
+                return signals.map((s) => {
+                  if (typeof s === "object" && s.category) {
+                    return `**${s.category}**: ${s.signal || s.insight || ""}`;
+                  }
+                  return `- ${s}`;
+                }).join("\n");
+              }
+              return signals || "";
+            };
+            const formatAttendees = (attendees) => {
+              if (Array.isArray(attendees)) {
+                return attendees.map((a) => `- ${a}`).join("\n");
+              }
+              return attendees || "";
+            };
+            return {
+              summary: parsed.summary || "",
+              painPoints: formatKeyPoints(parsed.keyPoints || parsed.painPoints),
+              productInterest: "",
+              meddiccSignals: formatMeddicc(parsed.meddiccSignals),
+              nextSteps: formatNextSteps(parsed.nextSteps),
+              actionItems: "",
+              keyDates: "",
+              buyingTriggers: "",
+              dealSignals: "",
+              risksObjections: "",
+              competitiveIntel: "",
+              attendees: formatAttendees(parsed.attendees),
+              transcript: transcriptText
+            };
+          }
+        }
+      }
+      return {
+        summary: "Meeting transcript captured. Review for key details.",
+        painPoints: "",
+        productInterest: "",
+        meddiccSignals: "",
+        nextSteps: "",
+        actionItems: "",
+        keyDates: "",
+        buyingTriggers: "",
+        dealSignals: "",
+        risksObjections: "",
+        competitiveIntel: "",
+        attendees: "",
+        transcript: transcriptText
+      };
+    } catch (error) {
+      console.error("processTranscription error:", error);
+      return {
+        summary: "",
+        painPoints: "",
+        productInterest: "",
+        meddiccSignals: "",
+        nextSteps: "",
+        actionItems: "",
+        keyDates: "",
+        buyingTriggers: "",
+        dealSignals: "",
+        risksObjections: "",
+        competitiveIntel: "",
+        attendees: "",
+        transcript: transcriptText
+      };
+    }
+  }
+};
+
+// src/CalendarService.ts
+var import_obsidian2 = require("obsidian");
+var CalendarService = class {
+  constructor(serverUrl, userEmail) {
+    this.serverUrl = serverUrl;
+    this.userEmail = userEmail.toLowerCase();
+  }
+  /**
+   * Update user email
+   */
+  setUserEmail(email) {
+    this.userEmail = email.toLowerCase();
+  }
+  /**
+   * Update server URL
+   */
+  setServerUrl(url) {
+    this.serverUrl = url;
+  }
+  /**
+   * Fetch today's meetings
+   */
+  async getTodaysMeetings() {
+    if (!this.userEmail) {
+      return {
+        success: false,
+        date: (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+        email: "",
+        meetingCount: 0,
+        meetings: [],
+        error: "User email not configured"
+      };
+    }
+    try {
+      const response = await (0, import_obsidian2.requestUrl)({
+        url: `${this.serverUrl}/api/calendar/${this.userEmail}/today`,
+        method: "GET",
+        headers: { "Accept": "application/json" }
+      });
+      return response.json;
+    } catch (error) {
+      console.error("Failed to fetch today's meetings:", error);
+      return {
+        success: false,
+        date: (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+        email: this.userEmail,
+        meetingCount: 0,
+        meetings: [],
+        error: error.message || "Failed to fetch calendar"
+      };
+    }
+  }
+  /**
+   * Fetch this week's meetings
+   */
+  async getWeekMeetings() {
+    if (!this.userEmail) {
+      return {
+        success: false,
+        startDate: "",
+        endDate: "",
+        email: "",
+        totalMeetings: 0,
+        byDay: {},
+        error: "User email not configured"
+      };
+    }
+    try {
+      const response = await (0, import_obsidian2.requestUrl)({
+        url: `${this.serverUrl}/api/calendar/${this.userEmail}/week`,
+        method: "GET",
+        headers: { "Accept": "application/json" }
+      });
+      return response.json;
+    } catch (error) {
+      console.error("Failed to fetch week's meetings:", error);
+      return {
+        success: false,
+        startDate: "",
+        endDate: "",
+        email: this.userEmail,
+        totalMeetings: 0,
+        byDay: {},
+        error: error.message || "Failed to fetch calendar"
+      };
+    }
+  }
+  /**
+   * Fetch meetings for a custom date range
+   */
+  async getMeetingsInRange(startDate, endDate) {
+    if (!this.userEmail) {
+      return [];
+    }
+    try {
+      const start = startDate.toISOString().split("T")[0];
+      const end = endDate.toISOString().split("T")[0];
+      const response = await (0, import_obsidian2.requestUrl)({
+        url: `${this.serverUrl}/api/calendar/${this.userEmail}/range?start=${start}&end=${end}`,
+        method: "GET",
+        headers: { "Accept": "application/json" }
+      });
+      if (response.json.success) {
+        return response.json.meetings || [];
+      }
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch calendar range:", error);
+      return [];
+    }
+  }
+  /**
+   * Get the current or upcoming meeting (within 15 min window)
+   * Used for auto-detecting meeting at recording start
+   */
+  async getCurrentMeeting() {
+    const todayResponse = await this.getTodaysMeetings();
+    if (!todayResponse.success || todayResponse.meetings.length === 0) {
+      return { meeting: null, isNow: false };
+    }
+    const now = /* @__PURE__ */ new Date();
+    for (const meeting of todayResponse.meetings) {
+      const start = new Date(meeting.start);
+      const end = new Date(meeting.end);
+      if (now >= start && now <= end) {
+        return {
+          meeting,
+          isNow: true
+        };
+      }
+      const minutesUntilStart = (start.getTime() - now.getTime()) / (1e3 * 60);
+      if (minutesUntilStart > 0 && minutesUntilStart <= 15) {
+        return {
+          meeting,
+          isNow: false,
+          minutesUntilStart: Math.ceil(minutesUntilStart)
+        };
+      }
+    }
+    return { meeting: null, isNow: false };
+  }
+  /**
+   * Find upcoming meetings for a specific account
+   */
+  async getMeetingsForAccount(accountName) {
+    const weekResponse = await this.getWeekMeetings();
+    if (!weekResponse.success) {
+      return [];
+    }
+    const allMeetings = [];
+    Object.values(weekResponse.byDay).forEach((dayMeetings) => {
+      allMeetings.push(...dayMeetings);
+    });
+    const lowerAccountName = accountName.toLowerCase();
+    return allMeetings.filter(
+      (m) => m.accountName?.toLowerCase().includes(lowerAccountName) || m.subject.toLowerCase().includes(lowerAccountName) || m.attendees.some(
+        (a) => a.email.toLowerCase().includes(lowerAccountName.split(" ")[0])
+      )
+    );
+  }
+  /**
+   * Format meeting for note template
+   */
+  static formatMeetingForNote(meeting) {
+    const externalAttendees = meeting.attendees.filter((a) => a.isExternal !== false).map((a) => a.name || a.email.split("@")[0]).slice(0, 5).join(", ");
+    return {
+      title: meeting.subject,
+      attendees: externalAttendees,
+      meetingStart: meeting.start,
+      accountName: meeting.accountName
+    };
+  }
+  /**
+   * Get day name from date string
+   */
+  static getDayName(dateString) {
+    const date = new Date(dateString);
+    const today = /* @__PURE__ */ new Date();
+    today.setHours(0, 0, 0, 0);
+    const meetingDate = new Date(date);
+    meetingDate.setHours(0, 0, 0, 0);
+    const diff = (meetingDate.getTime() - today.getTime()) / (1e3 * 60 * 60 * 24);
+    if (diff === 0)
+      return "Today";
+    if (diff === 1)
+      return "Tomorrow";
+    return date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  }
+  /**
+   * Format time for display (e.g., "10:00 AM")
+   * @param isoString - ISO date string
+   * @param timezone - Optional IANA timezone (e.g., 'America/New_York')
+   */
+  static formatTime(isoString, timezone) {
+    const date = new Date(isoString);
+    const options = {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true
+    };
+    if (timezone) {
+      options.timeZone = timezone;
+    }
+    return date.toLocaleTimeString("en-US", options);
+  }
+  /**
+   * Calculate meeting duration in minutes
+   */
+  static getMeetingDuration(start, end) {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    return Math.round((endDate.getTime() - startDate.getTime()) / (1e3 * 60));
+  }
+};
+
+// src/SmartTagService.ts
+var PRODUCT_LINE_TAGS = [
+  "ai-contracting-tech",
+  "ai-contracting-services",
+  "ai-compliance-tech",
+  "ai-compliance-services",
+  "ai-ma-tech",
+  "ai-ma-services",
+  "sigma"
+];
+var MEDDICC_SIGNAL_TAGS = [
+  "metrics-identified",
+  "economic-buyer-identified",
+  "decision-criteria-discussed",
+  "decision-process-discussed",
+  "pain-confirmed",
+  "champion-identified",
+  "competition-mentioned"
+];
+var DEAL_HEALTH_TAGS = [
+  "progressing",
+  "stalled",
+  "at-risk",
+  "champion-engaged",
+  "early-stage"
+];
+var MEETING_TYPE_TAGS = [
+  "discovery",
+  "demo",
+  "negotiation",
+  "qbr",
+  "implementation",
+  "follow-up"
+];
+var TAG_EXTRACTION_PROMPT = `You are a sales intelligence tagger for Eudia, an AI legal technology company. Extract structured tags from meeting analysis.
 
 ALLOWED VALUES (use ONLY these exact values):
 
@@ -310,36 +1936,2183 @@ OUTPUT FORMAT (JSON only):
   "meeting_type": "tag",
   "key_stakeholders": ["Name - Role", "Name - Role"],
   "confidence": 0.85
-}`,P=class{constructor(n,e){this.openaiApiKey=null;this.serverUrl=n,this.openaiApiKey=e||null}setOpenAIKey(n){this.openaiApiKey=n}setServerUrl(n){this.serverUrl=n}async extractTags(n){let e=this.buildTagContext(n);if(!e.trim())return{success:!1,tags:this.getEmptyTags(),error:"No content to analyze"};try{return await this.extractTagsViaServer(e)}catch(t){return console.warn("Server tag extraction failed, trying local:",t.message),this.openaiApiKey?await this.extractTagsLocal(e):this.extractTagsRuleBased(n)}}buildTagContext(n){let e=[];return n.summary&&e.push(`SUMMARY:
-${n.summary}`),n.productInterest&&e.push(`PRODUCT INTEREST:
-${n.productInterest}`),n.meddiccSignals&&e.push(`MEDDICC SIGNALS:
-${n.meddiccSignals}`),n.dealSignals&&e.push(`DEAL SIGNALS:
-${n.dealSignals}`),n.painPoints&&e.push(`PAIN POINTS:
-${n.painPoints}`),n.attendees&&e.push(`ATTENDEES:
-${n.attendees}`),e.join(`
+}`;
+var SmartTagService = class {
+  constructor(serverUrl, openaiApiKey) {
+    this.openaiApiKey = null;
+    this.serverUrl = serverUrl;
+    this.openaiApiKey = openaiApiKey || null;
+  }
+  /**
+   * Update OpenAI API key
+   */
+  setOpenAIKey(key) {
+    this.openaiApiKey = key;
+  }
+  /**
+   * Update server URL
+   */
+  setServerUrl(url) {
+    this.serverUrl = url;
+  }
+  /**
+   * Extract smart tags from processed sections
+   * Makes a focused secondary call for tag extraction
+   */
+  async extractTags(sections) {
+    const context = this.buildTagContext(sections);
+    if (!context.trim()) {
+      return {
+        success: false,
+        tags: this.getEmptyTags(),
+        error: "No content to analyze"
+      };
+    }
+    try {
+      return await this.extractTagsViaServer(context);
+    } catch (serverError) {
+      console.warn("Server tag extraction failed, trying local:", serverError.message);
+      if (this.openaiApiKey) {
+        return await this.extractTagsLocal(context);
+      }
+      return this.extractTagsRuleBased(sections);
+    }
+  }
+  /**
+   * Build context string from sections for tag extraction
+   */
+  buildTagContext(sections) {
+    const parts = [];
+    if (sections.summary) {
+      parts.push(`SUMMARY:
+${sections.summary}`);
+    }
+    if (sections.productInterest) {
+      parts.push(`PRODUCT INTEREST:
+${sections.productInterest}`);
+    }
+    if (sections.meddiccSignals) {
+      parts.push(`MEDDICC SIGNALS:
+${sections.meddiccSignals}`);
+    }
+    if (sections.dealSignals) {
+      parts.push(`DEAL SIGNALS:
+${sections.dealSignals}`);
+    }
+    if (sections.painPoints) {
+      parts.push(`PAIN POINTS:
+${sections.painPoints}`);
+    }
+    if (sections.attendees) {
+      parts.push(`ATTENDEES:
+${sections.attendees}`);
+    }
+    return parts.join("\n\n");
+  }
+  /**
+   * Extract tags via GTM Brain server
+   */
+  async extractTagsViaServer(context) {
+    const response = await fetch(`${this.serverUrl}/api/extract-tags`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ context, openaiApiKey: this.openaiApiKey })
+    });
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}`);
+    }
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.error || "Tag extraction failed");
+    }
+    return {
+      success: true,
+      tags: this.validateAndNormalizeTags(result.tags)
+    };
+  }
+  /**
+   * Extract tags locally using OpenAI
+   */
+  async extractTagsLocal(context) {
+    if (!this.openaiApiKey) {
+      return {
+        success: false,
+        tags: this.getEmptyTags(),
+        error: "No OpenAI API key configured"
+      };
+    }
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${this.openaiApiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          // Faster and cheaper for structured extraction
+          messages: [
+            { role: "system", content: TAG_EXTRACTION_PROMPT },
+            { role: "user", content: `Extract tags from this meeting content:
 
-`)}async extractTagsViaServer(n){let e=await fetch(`${this.serverUrl}/api/extract-tags`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({context:n,openaiApiKey:this.openaiApiKey})});if(!e.ok)throw new Error(`Server returned ${e.status}`);let t=await e.json();if(!t.success)throw new Error(t.error||"Tag extraction failed");return{success:!0,tags:this.validateAndNormalizeTags(t.tags)}}async extractTagsLocal(n){if(!this.openaiApiKey)return{success:!1,tags:this.getEmptyTags(),error:"No OpenAI API key configured"};try{let e=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",headers:{Authorization:`Bearer ${this.openaiApiKey}`,"Content-Type":"application/json"},body:JSON.stringify({model:"gpt-4o-mini",messages:[{role:"system",content:se},{role:"user",content:`Extract tags from this meeting content:
+${context}` }
+          ],
+          temperature: 0.1,
+          // Very low for consistent output
+          response_format: { type: "json_object" }
+        })
+      });
+      if (!response.ok) {
+        throw new Error(`OpenAI returned ${response.status}`);
+      }
+      const result = await response.json();
+      const content = result.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error("No content in response");
+      }
+      const parsedTags = JSON.parse(content);
+      return {
+        success: true,
+        tags: this.validateAndNormalizeTags(parsedTags)
+      };
+    } catch (error) {
+      console.error("Local tag extraction error:", error);
+      return {
+        success: false,
+        tags: this.getEmptyTags(),
+        error: error.message || "Tag extraction failed"
+      };
+    }
+  }
+  /**
+   * Rule-based tag extraction as fallback
+   * Uses keyword matching when AI is unavailable
+   */
+  extractTagsRuleBased(sections) {
+    const content = Object.values(sections).join(" ").toLowerCase();
+    const tags = {
+      product_interest: [],
+      meddicc_signals: [],
+      deal_health: "early-stage",
+      meeting_type: "discovery",
+      key_stakeholders: [],
+      confidence: 0.4
+      // Lower confidence for rule-based
+    };
+    if (content.includes("contract") || content.includes("contracting")) {
+      if (content.includes("service")) {
+        tags.product_interest.push("ai-contracting-services");
+      } else {
+        tags.product_interest.push("ai-contracting-tech");
+      }
+    }
+    if (content.includes("compliance")) {
+      tags.product_interest.push("ai-compliance-tech");
+    }
+    if (content.includes("m&a") || content.includes("due diligence") || content.includes("acquisition")) {
+      tags.product_interest.push("ai-ma-tech");
+    }
+    if (content.includes("sigma")) {
+      tags.product_interest.push("sigma");
+    }
+    if (content.includes("metric") || content.includes("%") || content.includes("roi") || content.includes("save")) {
+      tags.meddicc_signals.push("metrics-identified");
+    }
+    if (content.includes("budget") || content.includes("cfo") || content.includes("economic buyer")) {
+      tags.meddicc_signals.push("economic-buyer-identified");
+    }
+    if (content.includes("pain") || content.includes("challenge") || content.includes("problem") || content.includes("struggle")) {
+      tags.meddicc_signals.push("pain-confirmed");
+    }
+    if (content.includes("champion") || content.includes("advocate") || content.includes("sponsor")) {
+      tags.meddicc_signals.push("champion-identified");
+    }
+    if (content.includes("competitor") || content.includes("alternative") || content.includes("vs") || content.includes("compared to")) {
+      tags.meddicc_signals.push("competition-mentioned");
+    }
+    if (content.includes("next step") || content.includes("follow up") || content.includes("schedule")) {
+      tags.deal_health = "progressing";
+    }
+    if (content.includes("concern") || content.includes("objection") || content.includes("hesitant") || content.includes("risk")) {
+      tags.deal_health = "at-risk";
+    }
+    if (content.includes("demo") || content.includes("show you") || content.includes("demonstration")) {
+      tags.meeting_type = "demo";
+    } else if (content.includes("pricing") || content.includes("negotiat") || content.includes("contract terms")) {
+      tags.meeting_type = "negotiation";
+    } else if (content.includes("quarterly") || content.includes("qbr") || content.includes("review")) {
+      tags.meeting_type = "qbr";
+    } else if (content.includes("implementation") || content.includes("onboard") || content.includes("rollout")) {
+      tags.meeting_type = "implementation";
+    }
+    return {
+      success: true,
+      tags
+    };
+  }
+  /**
+   * Validate and normalize tags to ensure they match allowed values
+   */
+  validateAndNormalizeTags(rawTags) {
+    const tags = {
+      product_interest: [],
+      meddicc_signals: [],
+      deal_health: "early-stage",
+      meeting_type: "discovery",
+      key_stakeholders: [],
+      confidence: rawTags.confidence || 0.8
+    };
+    if (Array.isArray(rawTags.product_interest)) {
+      tags.product_interest = rawTags.product_interest.filter(
+        (t) => PRODUCT_LINE_TAGS.includes(t)
+      );
+    }
+    if (Array.isArray(rawTags.meddicc_signals)) {
+      tags.meddicc_signals = rawTags.meddicc_signals.filter(
+        (t) => MEDDICC_SIGNAL_TAGS.includes(t)
+      );
+    }
+    if (DEAL_HEALTH_TAGS.includes(rawTags.deal_health)) {
+      tags.deal_health = rawTags.deal_health;
+    }
+    if (MEETING_TYPE_TAGS.includes(rawTags.meeting_type)) {
+      tags.meeting_type = rawTags.meeting_type;
+    }
+    if (Array.isArray(rawTags.key_stakeholders)) {
+      tags.key_stakeholders = rawTags.key_stakeholders.slice(0, 10);
+    }
+    return tags;
+  }
+  /**
+   * Get empty tags structure
+   */
+  getEmptyTags() {
+    return {
+      product_interest: [],
+      meddicc_signals: [],
+      deal_health: "early-stage",
+      meeting_type: "discovery",
+      key_stakeholders: [],
+      confidence: 0
+    };
+  }
+  /**
+   * Format tags for YAML frontmatter
+   */
+  static formatTagsForFrontmatter(tags) {
+    return {
+      product_interest: tags.product_interest.length > 0 ? tags.product_interest : null,
+      meddicc_signals: tags.meddicc_signals.length > 0 ? tags.meddicc_signals : null,
+      deal_health: tags.deal_health,
+      meeting_type: tags.meeting_type,
+      key_stakeholders: tags.key_stakeholders.length > 0 ? tags.key_stakeholders : null,
+      tag_confidence: Math.round(tags.confidence * 100)
+    };
+  }
+  /**
+   * Generate tag summary for display
+   */
+  static generateTagSummary(tags) {
+    const parts = [];
+    if (tags.product_interest.length > 0) {
+      parts.push(`**Products:** ${tags.product_interest.join(", ")}`);
+    }
+    if (tags.meddicc_signals.length > 0) {
+      parts.push(`**MEDDICC:** ${tags.meddicc_signals.join(", ")}`);
+    }
+    parts.push(`**Deal Health:** ${tags.deal_health}`);
+    parts.push(`**Meeting Type:** ${tags.meeting_type}`);
+    return parts.join(" | ");
+  }
+};
 
-${n}`}],temperature:.1,response_format:{type:"json_object"}})});if(!e.ok)throw new Error(`OpenAI returned ${e.status}`);let s=(await e.json()).choices?.[0]?.message?.content;if(!s)throw new Error("No content in response");let a=JSON.parse(s);return{success:!0,tags:this.validateAndNormalizeTags(a)}}catch(e){return console.error("Local tag extraction error:",e),{success:!1,tags:this.getEmptyTags(),error:e.message||"Tag extraction failed"}}}extractTagsRuleBased(n){let e=Object.values(n).join(" ").toLowerCase(),t={product_interest:[],meddicc_signals:[],deal_health:"early-stage",meeting_type:"discovery",key_stakeholders:[],confidence:.4};return(e.includes("contract")||e.includes("contracting"))&&(e.includes("service")?t.product_interest.push("ai-contracting-services"):t.product_interest.push("ai-contracting-tech")),e.includes("compliance")&&t.product_interest.push("ai-compliance-tech"),(e.includes("m&a")||e.includes("due diligence")||e.includes("acquisition"))&&t.product_interest.push("ai-ma-tech"),e.includes("sigma")&&t.product_interest.push("sigma"),(e.includes("metric")||e.includes("%")||e.includes("roi")||e.includes("save"))&&t.meddicc_signals.push("metrics-identified"),(e.includes("budget")||e.includes("cfo")||e.includes("economic buyer"))&&t.meddicc_signals.push("economic-buyer-identified"),(e.includes("pain")||e.includes("challenge")||e.includes("problem")||e.includes("struggle"))&&t.meddicc_signals.push("pain-confirmed"),(e.includes("champion")||e.includes("advocate")||e.includes("sponsor"))&&t.meddicc_signals.push("champion-identified"),(e.includes("competitor")||e.includes("alternative")||e.includes("vs")||e.includes("compared to"))&&t.meddicc_signals.push("competition-mentioned"),(e.includes("next step")||e.includes("follow up")||e.includes("schedule"))&&(t.deal_health="progressing"),(e.includes("concern")||e.includes("objection")||e.includes("hesitant")||e.includes("risk"))&&(t.deal_health="at-risk"),e.includes("demo")||e.includes("show you")||e.includes("demonstration")?t.meeting_type="demo":e.includes("pricing")||e.includes("negotiat")||e.includes("contract terms")?t.meeting_type="negotiation":e.includes("quarterly")||e.includes("qbr")||e.includes("review")?t.meeting_type="qbr":(e.includes("implementation")||e.includes("onboard")||e.includes("rollout"))&&(t.meeting_type="implementation"),{success:!0,tags:t}}validateAndNormalizeTags(n){let e={product_interest:[],meddicc_signals:[],deal_health:"early-stage",meeting_type:"discovery",key_stakeholders:[],confidence:n.confidence||.8};return Array.isArray(n.product_interest)&&(e.product_interest=n.product_interest.filter(t=>X.includes(t))),Array.isArray(n.meddicc_signals)&&(e.meddicc_signals=n.meddicc_signals.filter(t=>ee.includes(t))),te.includes(n.deal_health)&&(e.deal_health=n.deal_health),ne.includes(n.meeting_type)&&(e.meeting_type=n.meeting_type),Array.isArray(n.key_stakeholders)&&(e.key_stakeholders=n.key_stakeholders.slice(0,10)),e}getEmptyTags(){return{product_interest:[],meddicc_signals:[],deal_health:"early-stage",meeting_type:"discovery",key_stakeholders:[],confidence:0}}static formatTagsForFrontmatter(n){return{product_interest:n.product_interest.length>0?n.product_interest:null,meddicc_signals:n.meddicc_signals.length>0?n.meddicc_signals:null,deal_health:n.deal_health,meeting_type:n.meeting_type,key_stakeholders:n.key_stakeholders.length>0?n.key_stakeholders:null,tag_confidence:Math.round(n.confidence*100)}}static generateTagSummary(n){let e=[];return n.product_interest.length>0&&e.push(`**Products:** ${n.product_interest.join(", ")}`),n.meddicc_signals.length>0&&e.push(`**MEDDICC:** ${n.meddicc_signals.join(", ")}`),e.push(`**Deal Health:** ${n.deal_health}`),e.push(`**Meeting Type:** ${n.meeting_type}`),e.join(" | ")}};var ie=["keigan.pesenti@eudia.com","michael.ayers@eudia.com","zack@eudia.com"];function I(f){let n=f.toLowerCase().trim();return ie.includes(n)}var C={version:"2026-02",lastUpdated:"2026-02-03",businessLeads:{"alex.fox@eudia.com":{email:"alex.fox@eudia.com",name:"Alex Fox",accounts:[{id:"001Wj00000mCFsTIAW",name:"Arabic Computer Systems"},{id:"001Wj00000fFuFMIA0",name:"Bank of Ireland"},{id:"001Wj00000mCFsuIAG",name:"Corrigan & Corrigan Solicitors LLP"},{id:"001Wj00000mCFscIAG",name:"Department of Children, Disability and Equality"},{id:"001Wj00000mCFsNIAW",name:"Department of Climate, Energy and the Environment"},{id:"001Wj00000mCFsUIAW",name:"ESB NI/Electric Ireland"},{id:"001Wj00000TV1WzIAL",name:"OpenAi"},{id:"001Wj00000mCFrMIAW",name:"Sisk Group"}]},"ananth@eudia.com":{email:"ananth@eudia.com",name:"Ananth Cherukupally",accounts:[{id:"001Wj00000RjuhjIAB",name:"Citadel"},{id:"001Wj00000cejJzIAI",name:"CVC"},{id:"001Wj00000Y64qhIAB",name:"Emigrant Bank"},{id:"001Hp00003kIrIIIA0",name:"GE Healthcare"},{id:"001Hp00003kIrIJIA0",name:"GE Vernova"},{id:"001Wj00000Z6zhPIAR",name:"Liberty Mutual Insurance"},{id:"001Wj00000bWBlQIAW",name:"Pegasystems"},{id:"001Wj00000bzz9MIAQ",name:"Peregrine Hospitality"},{id:"001Hp00003ljCJ8IAM",name:"Petco"},{id:"001Hp00003kKXSIIA4",name:"Pure Storage"},{id:"001Wj00000lxbYRIAY",name:"Spark Brighter Thinking"},{id:"001Wj00000tOAoEIAW",name:"TA Associates"},{id:"001Wj00000bn8VSIAY",name:"Vista Equity Partners"}]},"asad.hussain@eudia.com":{email:"asad.hussain@eudia.com",name:"Asad Hussain",accounts:[{id:"001Hp00003kIrCyIAK",name:"Airbnb"},{id:"001Hp00003kIrEeIAK",name:"Amazon"},{id:"001Hp00003kIrCzIAK",name:"American Express"},{id:"001Wj00000TUdXwIAL",name:"Anthropic"},{id:"001Wj00000Y0g8ZIAR",name:"Asana"},{id:"001Wj00000c0wRAIAY",name:"Away"},{id:"001Wj00000WTMCRIA5",name:"BNY Mellon"},{id:"001Wj00000mosEXIAY",name:"Carta"},{id:"001Wj00000ah6dkIAA",name:"Charlesbank Capital Partners"},{id:"001Hp00003kIrE5IAK",name:"Coherent"},{id:"001Hp00003kIrGzIAK",name:"Deloitte"},{id:"001Hp00003kIrE6IAK",name:"DHL"},{id:"001Wj00000W8ZKlIAN",name:"Docusign"},{id:"001Hp00003kIrHNIA0",name:"Ecolab"},{id:"001Hp00003kIrI3IAK",name:"Fluor"},{id:"001Hp00003kIrIAIA0",name:"Fox"},{id:"001Hp00003kJ9oeIAC",name:"Fresh Del Monte"},{id:"001Hp00003kIrIKIA0",name:"Geico"},{id:"001Wj00000oqVXgIAM",name:"Goosehead Insurance"},{id:"001Wj00000tuXZbIAM",name:"Gopuff"},{id:"001Hp00003kIrItIAK",name:"HSBC"},{id:"001Hp00003kIrIyIAK",name:"Huntsman"},{id:"001Wj00000hdoLxIAI",name:"Insight Enterprises Inc."},{id:"001Hp00003kIrKCIA0",name:"Mass Mutual Life Insurance"},{id:"001Hp00003kIrKOIA0",name:"Microsoft"},{id:"001Wj00000lyDQkIAM",name:"MidOcean Partners"},{id:"001Hp00003kIrKTIA0",name:"Morgan Stanley"},{id:"001Wj00000kNp2XIAS",name:"Plusgrade"},{id:"001Hp00003kIrMKIA0",name:"ServiceNow"},{id:"001Hp00003kIrECIA0",name:"Southwest Airlines"},{id:"001Wj00000tuRNoIAM",name:"Virtusa"},{id:"001Hp00003kIrNwIAK",name:"W.W. Grainger"},{id:"001Wj00000bzz9NIAQ",name:"Wealth Partners Capital Group"},{id:"001Wj00000tuolfIAA",name:"Wynn Las Vegas"},{id:"001Wj00000uzs1fIAA",name:"Zero RFI"}]},"conor.molloy@eudia.com":{email:"conor.molloy@eudia.com",name:"Conor Molloy",accounts:[{id:"001Hp00003kIrQDIA0",name:"Accenture"},{id:"001Wj00000qLixnIAC",name:"Al Dahra Group Llc"},{id:"001Hp00003kIrEyIAK",name:"Aramark Ireland"},{id:"001Wj00000mCFrgIAG",name:"Aryza"},{id:"001Wj00000mCFrkIAG",name:"Coillte"},{id:"001Wj00000mCFsHIAW",name:"Consensys"},{id:"001Wj00000mCFr2IAG",name:"ICON Clinical Research"},{id:"001Wj00000Y64qdIAB",name:"ION"},{id:"001Wj00000mCFtMIAW",name:"Kellanova"},{id:"001Wj00000mCFrIIAW",name:"Orsted"},{id:"001Wj00000mI9NmIAK",name:"Sequoia Climate Fund"},{id:"001Wj00000mCFs0IAG",name:"Taoglas Limited"},{id:"001Wj00000mCFtPIAW",name:"Teamwork.com"},{id:"001Wj00000mIBpNIAW",name:"Transworld Business Advisors"},{id:"001Wj00000ZLVpTIAX",name:"Wellspring Philanthropic Fund"}]},"emer.flynn@eudia.com":{email:"emer.flynn@eudia.com",name:"Emer Flynn",accounts:[{id:"001Wj00000mCFr6IAG",name:"NTMA"}]},"greg.machale@eudia.com":{email:"greg.machale@eudia.com",name:"Greg MacHale",accounts:[{id:"001Hp00003kIrEFIA0",name:"Abbott Laboratories"},{id:"001Wj00000mCFqrIAG",name:"Biomarin International Limited"},{id:"001Wj00000Y6VMdIAN",name:"BNP Paribas"},{id:"001Hp00003kIrFdIAK",name:"Booking Holdings"},{id:"001Wj00000X4OqNIAV",name:"BT Group"},{id:"001Wj00000uZ5J7IAK",name:"Canada Life"},{id:"001Wj00000mCFt9IAG",name:"Cerberus European Servicing"},{id:"001Wj00000Y6VMkIAN",name:"Computershare"},{id:"001Wj00000uP5x8IAC",name:"Cornmarket Financial Services"},{id:"001Wj00000Y6VMMIA3",name:"Diageo"},{id:"001Wj00000prFOXIA2",name:"Doosan Bobcat"},{id:"001Wj00000mCFrmIAG",name:"eShopWorld"},{id:"001Wj00000fFuFYIA0",name:"Grant Thornton"},{id:"001Wj00000uZ4A9IAK",name:"Great West Lifec co"},{id:"001Wj00000uZtcTIAS",name:"Ineos"},{id:"001Wj00000tWwYpIAK",name:"Mail Metrics"},{id:"001Wj00000vwSUXIA2",name:"Mercor"},{id:"001Wj00000mCFtUIAW",name:"Mercury Engineering"},{id:"001Wj00000lPFP3IAO",name:"Nomura"},{id:"001Wj00000mCFr1IAG",name:"Permanent TSB plc"},{id:"001Wj00000Y6QfRIAV",name:"Pernod Ricard"},{id:"001Hp00003kIrLiIAK",name:"Quest Diagnostics"},{id:"001Wj00000mCFsFIAW",name:"Regeneron"},{id:"001Wj00000mCFsRIAW",name:"Ryanair"},{id:"001Hp00003kIrMjIAK",name:"State Street"},{id:"001Wj00000mCFsSIAW",name:"Uniphar PLC"}]},"julie.stefanich@eudia.com":{email:"julie.stefanich@eudia.com",name:"Julie Stefanich",accounts:[{id:"001Wj00000asSHBIA2",name:"Airbus"},{id:"001Hp00003kIrElIAK",name:"Ameriprise Financial"},{id:"001Hp00003kIrEvIAK",name:"Apple"},{id:"001Hp00003kJ9pXIAS",name:"Bayer"},{id:"001Hp00003kIrE3IAK",name:"Cargill"},{id:"001Hp00003kIrGDIA0",name:"Charles Schwab"},{id:"001Hp00003kIrE4IAK",name:"Chevron"},{id:"001Hp00003kIrGeIAK",name:"Corebridge Financial"},{id:"001Hp00003kIrE7IAK",name:"ECMS"},{id:"001Wj00000iRzqvIAC",name:"Florida Crystals Corporation"},{id:"001Hp00003kIrIPIA0",name:"Genworth Financial"},{id:"001Hp00003kIrIXIA0",name:"Goldman Sachs"},{id:"001Wj00000rceVpIAI",name:"Hikma"},{id:"001Hp00003kIrJVIA0",name:"KLA"},{id:"001Wj00000aLmheIAC",name:"Macmillan"},{id:"001Wj00000X6G8qIAF",name:"Mainsail Partners"},{id:"001Hp00003kIrKLIA0",name:"MetLife"},{id:"001Hp00003kIrDeIAK",name:"National Grid"},{id:"001Hp00003kIrKjIAK",name:"Nordstrom"},{id:"001Hp00003kIrDvIAK",name:"Oracle"},{id:"001Hp00003kIrLNIA0",name:"Petsmart"},{id:"001Hp00003kIrLZIA0",name:"Procter & Gamble"},{id:"001Hp00003lhsUYIAY",name:"Rio Tinto Group"},{id:"001Wj00000svQI3IAM",name:"Safelite"},{id:"001Wj00000fRtLmIAK",name:"State Farm"},{id:"001Wj00000bzz9TIAQ",name:"Tailored Brands"},{id:"001Hp00003kIrNBIA0",name:"The Wonderful Company"},{id:"001Hp00003kIrCrIAK",name:"TIAA"},{id:"001Hp00003kIrNHIA0",name:"T-Mobile"},{id:"001Hp00003kIrNVIA0",name:"Uber"},{id:"001Hp00003kIrOLIA0",name:"World Wide Technology"}]},"justin.hills@eudia.com":{email:"justin.hills@eudia.com",name:"Justin Hills",accounts:[{id:"001Hp00003kIrEOIA0",name:"AES"},{id:"001Wj00000Y6VM4IAN",name:"Ares Management Corporation"},{id:"001Wj00000XiEDyIAN",name:"Coinbase"},{id:"001Hp00003kIrDhIAK",name:"Comcast"},{id:"001Wj00000c9oCvIAI",name:"Cox Media Group"},{id:"001Wj00000Y0jPmIAJ",name:"Delinea"},{id:"001Wj00000iwKGQIA2",name:"Dominos"},{id:"001Hp00003kIrDaIAK",name:"Duracell"},{id:"001Hp00003kIrCnIAK",name:"Home Depot"},{id:"001Hp00003kIrDVIA0",name:"Intel"},{id:"001Hp00003kIrE9IAK",name:"IQVIA"},{id:"001Hp00003kIrJJIA0",name:"Johnson & Johnson"},{id:"001Wj00000gnrugIAA",name:"Kraken"},{id:"001Wj00000op4EWIAY",name:"McCormick & Co Inc"},{id:"001Wj00000ix7c2IAA",name:"Nouryon"},{id:"001Wj00000cpxt0IAA",name:"Novelis"},{id:"001Wj00000WYyKIIA1",name:"Ramp"},{id:"001Wj00000o5G0vIAE",name:"StockX"},{id:"001Wj00000YEMa8IAH",name:"Turing"},{id:"001Wj00000oqRycIAE",name:"Walgreens Boots Alliance"}]},"keigan.pesenti@eudia.com":{email:"keigan.pesenti@eudia.com",name:"Keigan Pesenti",accounts:[{id:"001Wj00000mCFt4IAG",name:"BNRG Renewables Ltd"},{id:"001Wj00000mCFtTIAW",name:"Coleman Legal"},{id:"001Wj00000pLPAyIAO",name:"Creed McStay"},{id:"001Hp00003lhyCxIAI",name:"Eudia Testing Account"},{id:"001Wj00000mCFsIIAW",name:"Fannin Limited"},{id:"001Wj00000mCFsJIAW",name:"Gas Networks Ireland"},{id:"001Wj00000mCFseIAG",name:"Hayes Solicitors LLP"},{id:"001Wj00000mCFtJIAW",name:"LinkedIn"},{id:"001Wj00000mCFspIAG",name:"Moy Park"},{id:"001Wj00000mCFt8IAG",name:"State Claims Agency"},{id:"001Wj00000mCFs3IAG",name:"Wayflyer"}]},"mike.masiello@eudia.com":{email:"mike.masiello@eudia.com",name:"Mike Masiello",accounts:[{id:"001Wj00000p1lCPIAY",name:"Army Applications Lab"},{id:"001Wj00000p1hYbIAI",name:"Army Corps of Engineers"},{id:"001Wj00000ZxEpDIAV",name:"Army Futures Command"},{id:"001Wj00000bWBlAIAW",name:"Defense Innovation Unit (DIU)"},{id:"001Hp00003kJuJ5IAK",name:"Gov - DOD"},{id:"001Hp00003lhcL9IAI",name:"GSA (General Services Administration)"},{id:"001Wj00000p1PVHIA2",name:"IFC"},{id:"001Wj00000VVJ31IAH",name:"NATO"},{id:"001Wj00000p1YbmIAE",name:"SOCOM"},{id:"001Wj00000p1jH3IAI",name:"State of Alaska"},{id:"001Wj00000hVa6VIAS",name:"State of Arizona"},{id:"001Wj00000p0PcEIAU",name:"State of California"},{id:"001Wj00000bWBkeIAG",name:"U.S. Air Force"},{id:"001Wj00000p1SRXIA2",name:"U.S. Marine Corps"},{id:"001Wj00000Rrm5OIAR",name:"UK Government"},{id:"001Hp00003lieJPIAY",name:"USDA"},{id:"001Wj00000p1SuZIAU",name:"Vulcan Special Ops"}]},"nathan.shine@eudia.com":{email:"nathan.shine@eudia.com",name:"Nathan Shine",accounts:[{id:"001Hp00003kIrEnIAK",name:"Amphenol"},{id:"001Wj00000mHDBoIAO",name:"Coimisiun na Mean"},{id:"001Wj00000mCFqtIAG",name:"CommScope Technologies"},{id:"001Hp00003kIrDMIA0",name:"Dropbox"},{id:"001Wj00000mCFquIAG",name:"Fexco"},{id:"001Wj00000mCFs5IAG",name:"Indeed"},{id:"001Hp00003kIrJOIA0",name:"Keurig Dr Pepper"},{id:"001Wj00000hkk0zIAA",name:"Kingspan"},{id:"001Wj00000mCFrsIAG",name:"Kitman Labs"},{id:"001Wj00000mCFsMIAW",name:"McDermott Creed & Martyn"},{id:"001Wj00000mCFsoIAG",name:"Mediolanum"},{id:"001Wj00000mCFrFIAW",name:"OKG Payments Services Limited"},{id:"001Wj00000ZDPUIIA5",name:"Perrigo Pharma"},{id:"001Wj00000mCFtSIAW",name:"Poe Kiely Hogan Lanigan"},{id:"001Wj00000mCFtHIAW",name:"StepStone Group"},{id:"001Wj00000c9oD6IAI",name:"Stripe"},{id:"001Wj00000SFiOvIAL",name:"TikTok"},{id:"001Wj00000ZDXTRIA5",name:"Tinder LLC"},{id:"001Wj00000bWBlEIAW",name:"Udemy"}]},"nicola.fratini@eudia.com":{email:"nicola.fratini@eudia.com",name:"Nicola Fratini",accounts:[{id:"001Wj00000mCFrGIAW",name:"AerCap"},{id:"001Wj00000thuKEIAY",name:"Aer Lingus"},{id:"001Wj00000sgXdBIAU",name:"Allianz Insurance"},{id:"001Wj00000mCFs7IAG",name:"Allied Irish Banks plc"},{id:"001Wj00000mCFrhIAG",name:"Avant Money"},{id:"001Wj00000mI7NaIAK",name:"Aviva Insurance"},{id:"001Wj00000uNUIBIA4",name:"Bank of China"},{id:"001Hp00003kJ9kNIAS",name:"Barclays"},{id:"001Wj00000ttPZBIA2",name:"Barings"},{id:"001Wj00000tWwXwIAK",name:"Cairn Homes"},{id:"001Wj00000Y6VLhIAN",name:"Citi"},{id:"001Wj00000tx2MQIAY",name:"CyberArk"},{id:"001Wj00000mCFsBIAW",name:"Datalex"},{id:"001Wj00000mCFrlIAG",name:"Davy"},{id:"001Wj00000w0uVVIAY",name:"Doceree"},{id:"001Wj00000uJwxoIAC",name:"Eir"},{id:"001Wj00000sg8GcIAI",name:"FARFETCH"},{id:"001Wj00000mIEAXIA4",name:"FNZ Group"},{id:"001Wj00000mCFt1IAG",name:"Goodbody Stockbrokers"},{id:"001Wj00000ZDXrdIAH",name:"Intercom"},{id:"001Wj00000ullPpIAI",name:"Jet2 Plc"},{id:"001Wj00000au3swIAA",name:"Lenovo"},{id:"001Hp00003kIrKmIAK",name:"Northern Trust Management Services"},{id:"001Wj00000u0eJpIAI",name:"Re-Turn"},{id:"001Wj00000sg2T0IAI",name:"SHEIN"},{id:"001Wj00000mCFs1IAG",name:"Twitter"},{id:"001Hp00003kIrDAIA0",name:"Verizon"},{id:"001Wj00000sgaj9IAA",name:"Volkswagon Group Ireland"},{id:"001Wj00000mIB6EIAW",name:"Zendesk"}]},"olivia@eudia.com":{email:"olivia@eudia.com",name:"Olivia Jung",accounts:[{id:"001Wj00000mCFrdIAG",name:"Airship Group Inc"},{id:"001Hp00003kIrFVIA0",name:"Best Buy"},{id:"001Hp00003kIrFkIAK",name:"Bristol-Myers Squibb"},{id:"001Hp00003kIrGKIA0",name:"CHS"},{id:"001Hp00003kIrDZIA0",name:"Ciena"},{id:"001Hp00003kIrGZIA0",name:"Consolidated Edison"},{id:"001Wj00000jK5HlIAK",name:"Crate & Barrel"},{id:"001Hp00003kJ9kwIAC",name:"CSL"},{id:"001Hp00003kIrGoIAK",name:"Cummins"},{id:"001Wj00000bzz9RIAQ",name:"Datadog"},{id:"001Wj00000aZvt9IAC",name:"Dolby"},{id:"001Wj00000hkk0jIAA",name:"Etsy"},{id:"001Hp00003kIrISIA0",name:"Gilead Sciences"},{id:"001Hp00003kIrE8IAK",name:"Graybar Electric"},{id:"001Wj00000dvgdbIAA",name:"HealthEquity"},{id:"001Hp00003kIrJ9IAK",name:"Intuit"},{id:"001Wj00000aLlyVIAS",name:"J.Crew"},{id:"001Hp00003kKKMcIAO",name:"JPmorganchase"},{id:"001Hp00003kIrDjIAK",name:"Marsh McLennan"},{id:"001Hp00003kIrD8IAK",name:"Medtronic"},{id:"001Hp00003kIrKKIA0",name:"Merck"},{id:"001Hp00003kJ9lGIAS",name:"Meta"},{id:"001Hp00003kIrKSIA0",name:"Mondelez International"},{id:"001Hp00003kIrLOIA0",name:"Pfizer"},{id:"001Wj00000iS9AJIA0",name:"TE Connectivity"},{id:"001Hp00003kIrDFIA0",name:"Thermo Fisher Scientific"},{id:"001Wj00000PjGDaIAN",name:"The Weir Group PLC"},{id:"001Hp00003kIrCwIAK",name:"Toshiba US"},{id:"001Wj00000kD7MAIA0",name:"Wellspan Health"},{id:"001Hp00003kIrOAIA0",name:"Western Digital"}]},"tom.clancy@eudia.com":{email:"tom.clancy@eudia.com",name:"Tom Clancy",accounts:[{id:"001Wj00000pB30VIAS",name:"AIR (Advanced Inhalation Rituals)"},{id:"001Wj00000qLRqWIAW",name:"ASML"},{id:"001Wj00000c9oCeIAI",name:"BLDG Management Co., Inc."},{id:"001Wj00000mCFszIAG",name:"Electricity Supply Board"},{id:"001Wj00000mCFrcIAG",name:"Glanbia"},{id:"001Wj00000pA6d7IAC",name:"Masdar Future Energy Company"},{id:"001Hp00003kIrD9IAK",name:"Salesforce"},{id:"001Wj00000qL7AGIA0",name:"Seismic"},{id:"001Wj00000pAPW2IAO",name:"Tarmac"},{id:"001Wj00000mCFtOIAW",name:"Uisce Eireann (Irish Water)"},{id:"001Wj00000pBibTIAS",name:"Version1"}]}}},E=class{constructor(n){this.cachedData=null;this.serverUrl=n}async getAccountsForUser(n){let e=n.toLowerCase().trim(),t=await this.fetchFromServer(e);return t&&t.length>0?(console.log(`[AccountOwnership] Got ${t.length} accounts from server for ${e}`),t):(console.log(`[AccountOwnership] Using static data fallback for ${e}`),this.getAccountsFromStatic(e))}getAccountsFromStatic(n){let e=C.businessLeads[n];return e?(console.log(`[AccountOwnership] Found ${e.accounts.length} static accounts for ${n}`),e.accounts):(console.log(`[AccountOwnership] No static mapping found for: ${n}`),[])}async fetchFromServer(n){try{let{requestUrl:e}=await import("obsidian"),t=await e({url:`${this.serverUrl}/api/accounts/ownership/${encodeURIComponent(n)}`,method:"GET",headers:{Accept:"application/json"}});return t.json?.success&&t.json?.accounts?t.json.accounts.map(s=>({id:s.id,name:s.name,type:s.type||"Prospect"})):null}catch(e){return console.log("[AccountOwnership] Server fetch failed, will use static data:",e),null}}async getNewAccounts(n,e){let t=await this.getAccountsForUser(n),s=e.map(a=>a.toLowerCase().trim());return t.filter(a=>{let i=a.name.toLowerCase().trim();return!s.some(r=>r===i||r.startsWith(i)||i.startsWith(r))})}hasUser(n){return n.toLowerCase().trim()in C.businessLeads}getAllBusinessLeads(){return Object.keys(C.businessLeads)}getBusinessLead(n){let e=n.toLowerCase().trim();return C.businessLeads[e]||null}getDataVersion(){return C.version}async getAllAccountsForAdmin(n){let e=n.toLowerCase().trim();if(!I(e))return console.log(`[AccountOwnership] ${e} is not an admin, returning owned accounts only`),this.getAccountsForUser(e);let t=await this.fetchAllAccountsFromServer();if(t&&t.length>0){let s=await this.getAccountsForUser(e),a=new Set(s.map(i=>i.id));return t.map(i=>({...i,isOwned:a.has(i.id)}))}return console.log("[AccountOwnership] Using static data fallback for admin all-accounts"),this.getAllAccountsFromStatic(e)}getAllAccountsFromStatic(n){let e=new Map,t=new Set,s=C.businessLeads[n];if(s)for(let a of s.accounts)t.add(a.id),e.set(a.id,{...a,isOwned:!0});for(let a of Object.values(C.businessLeads))for(let i of a.accounts)e.has(i.id)||e.set(i.id,{...i,isOwned:!1});return Array.from(e.values()).sort((a,i)=>a.name.localeCompare(i.name))}async fetchAllAccountsFromServer(){try{let{requestUrl:n}=await import("obsidian"),e=await n({url:`${this.serverUrl}/api/accounts/all`,method:"GET",headers:{Accept:"application/json"}});return e.json?.success&&e.json?.accounts?e.json.accounts.map(t=>({id:t.id,name:t.name,type:t.type||"Prospect"})):null}catch(n){return console.log("[AccountOwnership] Server fetch all accounts failed:",n),null}}};var K=[{value:"America/New_York",label:"Eastern Time (ET)"},{value:"America/Chicago",label:"Central Time (CT)"},{value:"America/Denver",label:"Mountain Time (MT)"},{value:"America/Los_Angeles",label:"Pacific Time (PT)"},{value:"Europe/London",label:"London (GMT/BST)"},{value:"Europe/Dublin",label:"Dublin (GMT/IST)"},{value:"Europe/Paris",label:"Central Europe (CET)"},{value:"Europe/Berlin",label:"Berlin (CET)"},{value:"UTC",label:"UTC"}],ae={serverUrl:"https://gtm-wizard.onrender.com",accountsFolder:"Accounts",recordingsFolder:"Recordings",syncOnStartup:!0,autoSyncAfterTranscription:!0,saveAudioFiles:!0,appendTranscript:!0,lastSyncTime:null,cachedAccounts:[],enableSmartTags:!0,showCalendarView:!0,userEmail:"",setupCompleted:!1,calendarConfigured:!1,salesforceConnected:!1,accountsImported:!1,importedAccountCount:0,openaiApiKey:"",timezone:"America/New_York",lastAccountRefreshDate:null};var x="eudia-calendar-view",b="eudia-setup-view",F=class extends l.EditorSuggest{constructor(n,e){super(n),this.plugin=e}onTrigger(n,e,t){let s=e.getLine(n.line),a=e.getValue(),i=e.posToOffset(n),r=a.indexOf("---"),o=a.indexOf("---",r+3);if(r===-1||i<r||i>o)return null;let c=s.match(/^account:\s*(.*)$/);if(!c)return null;let u=c[1].trim(),m=s.indexOf(":")+1,h=s.substring(m).match(/^\s*/)?.[0].length||0;return{start:{line:n.line,ch:m+h},end:n,query:u}}getSuggestions(n){let e=n.query.toLowerCase(),t=this.plugin.settings.cachedAccounts;return e?t.filter(s=>s.name.toLowerCase().includes(e)).sort((s,a)=>{let i=s.name.toLowerCase().startsWith(e),r=a.name.toLowerCase().startsWith(e);return i&&!r?-1:r&&!i?1:s.name.localeCompare(a.name)}).slice(0,10):t.slice(0,10)}renderSuggestion(n,e){e.createEl("div",{text:n.name,cls:"suggestion-title"})}selectSuggestion(n,e){this.context&&this.context.editor.replaceRange(n.name,this.context.start,this.context.end)}},W=class{constructor(n,e,t,s){this.containerEl=null;this.waveformBars=[];this.durationEl=null;this.waveformData=new Array(16).fill(0);this.onPause=n,this.onResume=e,this.onStop=t,this.onCancel=s}show(){if(this.containerEl)return;this.containerEl=document.createElement("div"),this.containerEl.className="eudia-transcription-bar active";let n=document.createElement("div");n.className="eudia-recording-dot",this.containerEl.appendChild(n);let e=document.createElement("div");e.className="eudia-waveform",this.waveformBars=[];for(let i=0;i<16;i++){let r=document.createElement("div");r.className="eudia-waveform-bar",r.style.height="2px",e.appendChild(r),this.waveformBars.push(r)}this.containerEl.appendChild(e),this.durationEl=document.createElement("div"),this.durationEl.className="eudia-duration",this.durationEl.textContent="0:00",this.containerEl.appendChild(this.durationEl);let t=document.createElement("div");t.className="eudia-controls-minimal";let s=document.createElement("button");s.className="eudia-control-btn stop",s.innerHTML='<span class="eudia-stop-icon"></span>',s.title="Stop and summarize",s.onclick=()=>this.onStop(),t.appendChild(s);let a=document.createElement("button");a.className="eudia-control-btn cancel",a.textContent="Cancel",a.onclick=()=>this.onCancel(),t.appendChild(a),this.containerEl.appendChild(t),document.body.appendChild(this.containerEl)}hide(){this.containerEl&&(this.containerEl.remove(),this.containerEl=null,this.waveformBars=[],this.durationEl=null)}updateState(n){if(this.containerEl){if(this.waveformData.shift(),this.waveformData.push(n.audioLevel),this.waveformBars.forEach((e,t)=>{let s=this.waveformData[t]||0,a=Math.max(2,Math.min(24,s*.24));e.style.height=`${a}px`}),this.durationEl){let e=Math.floor(n.duration/60),t=Math.floor(n.duration%60);this.durationEl.textContent=`${e}:${t.toString().padStart(2,"0")}`}this.containerEl.className=n.isPaused?"eudia-transcription-bar paused":"eudia-transcription-bar active"}}showProcessing(){if(!this.containerEl)return;this.containerEl.innerHTML="",this.containerEl.className="eudia-transcription-bar processing";let n=document.createElement("div");n.className="eudia-processing-spinner",this.containerEl.appendChild(n);let e=document.createElement("div");e.className="eudia-processing-text",e.textContent="Processing...",this.containerEl.appendChild(e)}showComplete(n){if(!this.containerEl)return;this.containerEl.innerHTML="",this.containerEl.className="eudia-transcription-bar complete";let e=document.createElement("div");e.className="eudia-complete-checkmark",this.containerEl.appendChild(e);let t=document.createElement("div");if(t.className="eudia-complete-content",n.summaryPreview){let o=document.createElement("div");o.className="eudia-summary-preview",o.textContent=n.summaryPreview.length>80?n.summaryPreview.substring(0,80)+"...":n.summaryPreview,t.appendChild(o)}let s=document.createElement("div");s.className="eudia-complete-stats-row";let a=Math.floor(n.duration/60),i=Math.floor(n.duration%60);s.textContent=`${a}:${i.toString().padStart(2,"0")} recorded`,n.nextStepsCount>0&&(s.textContent+=` | ${n.nextStepsCount} action${n.nextStepsCount>1?"s":""}`),n.meddiccCount>0&&(s.textContent+=` | ${n.meddiccCount} signals`),t.appendChild(s),this.containerEl.appendChild(t);let r=document.createElement("button");r.className="eudia-control-btn close",r.textContent="Dismiss",r.onclick=()=>this.hide(),this.containerEl.appendChild(r),setTimeout(()=>this.hide(),8e3)}};var R=class extends l.Modal{constructor(n,e,t){super(n),this.plugin=e,this.onSelect=t}onOpen(){let{contentEl:n}=this;n.empty(),n.addClass("eudia-account-selector"),n.createEl("h3",{text:"Select Account for Meeting Note"}),this.searchInput=n.createEl("input",{type:"text",placeholder:"Search accounts..."}),this.searchInput.style.cssText="width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 6px; border: 1px solid var(--background-modifier-border);",this.resultsContainer=n.createDiv({cls:"eudia-account-results"}),this.resultsContainer.style.cssText="max-height: 300px; overflow-y: auto;",this.updateResults(""),this.searchInput.addEventListener("input",()=>this.updateResults(this.searchInput.value)),this.searchInput.focus()}updateResults(n){this.resultsContainer.empty();let e=this.plugin.settings.cachedAccounts,t=n?e.filter(s=>s.name.toLowerCase().includes(n.toLowerCase())).slice(0,15):e.slice(0,15);if(t.length===0){this.resultsContainer.createDiv({cls:"eudia-no-results",text:"No accounts found"});return}t.forEach(s=>{let a=this.resultsContainer.createDiv({cls:"eudia-account-item",text:s.name});a.onclick=()=>{this.onSelect(s),this.close()}})}onClose(){this.contentEl.empty()}},M=class extends l.Modal{constructor(e,t,s){super(e);this.accountContext=null;this.plugin=t,this.accountContext=s||null}onOpen(){let{contentEl:e}=this;e.empty(),e.addClass("eudia-intelligence-modal");let t=e.createDiv({cls:"eudia-intelligence-header"});t.createEl("h2",{text:this.accountContext?`Ask about ${this.accountContext.name}`:"Ask gtm-brain"}),this.accountContext?t.createEl("p",{text:"Get insights, prep for meetings, or ask about this account.",cls:"eudia-intelligence-subtitle"}):t.createEl("p",{text:"Ask questions about your accounts, deals, or pipeline.",cls:"eudia-intelligence-subtitle"});let s=e.createDiv({cls:"eudia-intelligence-input-container"});this.queryInput=s.createEl("textarea",{placeholder:this.accountContext?`e.g., "What should I know before my next meeting?" or "What's the deal status?"`:`e.g., "Who owns Dolby?" or "What's my late stage pipeline?"`}),this.queryInput.addClass("eudia-intelligence-input"),this.queryInput.rows=3;let i=e.createDiv({cls:"eudia-intelligence-actions"}).createEl("button",{text:"Ask",cls:"eudia-btn-primary"});i.onclick=()=>this.submitQuery(),this.queryInput.onkeydown=c=>{c.key==="Enter"&&!c.shiftKey&&(c.preventDefault(),this.submitQuery())},this.responseContainer=e.createDiv({cls:"eudia-intelligence-response"}),this.responseContainer.style.display="none";let r=e.createDiv({cls:"eudia-intelligence-suggestions"});r.createEl("p",{text:"Suggested:",cls:"eudia-suggestions-label"});let o;if(this.accountContext)o=["What should I know before my next meeting?","Summarize our relationship and deal status","What are the key pain points?"];else{let u=(this.plugin.settings.cachedAccounts||[]).slice(0,3).map(m=>m.name);u.length>=2?o=[`What should I know about ${u[0]} before my next meeting?`,`What's the account history with ${u[1]}?`,"What's my late-stage pipeline?"]:o=["What should I know before my next meeting?","What accounts need attention this week?","What is my late-stage pipeline?"]}o.forEach(c=>{let u=r.createEl("button",{text:c,cls:"eudia-suggestion-btn"});u.onclick=()=>{this.queryInput.value=c,this.submitQuery()}}),setTimeout(()=>this.queryInput.focus(),100)}async submitQuery(){let e=this.queryInput.value.trim();if(!e)return;this.responseContainer.style.display="block";let t=this.accountContext?.name?` about ${this.accountContext.name}`:"";this.responseContainer.innerHTML=`<div class="eudia-intelligence-loading">Gathering intelligence${t}...</div>`;try{let s=await(0,l.requestUrl)({url:`${this.plugin.settings.serverUrl}/api/intelligence/query`,method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query:e,accountId:this.accountContext?.id,accountName:this.accountContext?.name,userEmail:this.plugin.settings.userEmail}),throw:!1,contentType:"application/json"});if(s.status>=400){let a=s.json?.error||`Server error (${s.status}). Please try again.`;this.responseContainer.innerHTML=`<div class="eudia-intelligence-error">${a}</div>`;return}if(s.json?.success){this.responseContainer.innerHTML="";let a=this.responseContainer.createDiv({cls:"eudia-intelligence-answer"});if(a.innerHTML=this.formatResponse(s.json.answer),s.json.context){let i=s.json.context,r=this.responseContainer.createDiv({cls:"eudia-intelligence-context-info"}),o=[];i.accountName&&o.push(i.accountName),i.opportunityCount>0&&o.push(`${i.opportunityCount} opps`),i.hasNotes&&o.push("notes"),i.hasCustomerBrain&&o.push("history");let c=i.dataFreshness==="cached"?" (cached)":"";r.setText(`Based on: ${o.join(" \u2022 ")}${c}`)}s.json.performance}else{let a=s.json?.error||"Could not get an answer. Try rephrasing your question.";this.responseContainer.innerHTML=`<div class="eudia-intelligence-error">${a}</div>`}}catch(s){console.error("[GTM Brain] Intelligence query error:",s);let a="Unable to connect. Please check your internet connection and try again.";s?.message?.includes("timeout")?a="Request timed out. The server may be busy - please try again.":(s?.message?.includes("network")||s?.message?.includes("fetch"))&&(a="Network error. Please check your connection and try again."),this.responseContainer.innerHTML=`<div class="eudia-intelligence-error">${a}</div>`}}formatResponse(e){return e.replace(/^## (.+)$/gm,'<h3 class="eudia-intel-header">$1</h3>').replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").replace(/^[•\-]\s+(.+)$/gm,"<li>$1</li>").replace(/^-\s+\[\s*\]\s+(.+)$/gm,'<li class="eudia-intel-todo">\u2610 $1</li>').replace(/^-\s+\[x\]\s+(.+)$/gm,'<li class="eudia-intel-done">\u2611 $1</li>').replace(/(<li[^>]*>.*?<\/li>\s*)+/g,'<ul class="eudia-intel-list">$&</ul>').replace(/\n/g,"<br>")}onClose(){this.contentEl.empty()}};var O=class extends l.ItemView{constructor(e,t){super(e);this.emailInput=null;this.pollInterval=null;this.plugin=t,this.accountOwnershipService=new E(t.settings.serverUrl),this.steps=[{id:"calendar",title:"Connect Your Calendar",description:"View your meetings and create notes with one click",status:"pending"},{id:"salesforce",title:"Connect to Salesforce",description:"Sync notes and access your accounts",status:"pending"},{id:"transcribe",title:"Ready to Transcribe",description:"Record and summarize meetings automatically",status:"pending"}]}getViewType(){return b}getDisplayText(){return"Setup"}getIcon(){return"settings"}async onOpen(){await this.checkExistingStatus(),await this.render()}async onClose(){this.pollInterval&&(window.clearInterval(this.pollInterval),this.pollInterval=null)}async checkExistingStatus(){if(this.plugin.settings.userEmail){this.steps[0].status="complete";try{(await(0,l.requestUrl)({url:`${this.plugin.settings.serverUrl}/api/sf/auth/status?email=${encodeURIComponent(this.plugin.settings.userEmail)}`,method:"GET",throw:!1})).json?.authenticated===!0&&(this.steps[1].status="complete",this.plugin.settings.salesforceConnected=!0)}catch{}this.plugin.settings.accountsImported&&(this.steps[2].status="complete")}}getCompletionPercentage(){let e=this.steps.filter(t=>t.status==="complete").length;return Math.round(e/this.steps.length*100)}async render(){let e=this.containerEl.children[1];e.empty(),e.addClass("eudia-setup-view"),this.renderHeader(e),this.renderSteps(e),this.renderFooter(e)}renderHeader(e){let t=e.createDiv({cls:"eudia-setup-header"}),s=t.createDiv({cls:"eudia-setup-title-section"});s.createEl("h1",{text:"Welcome to Eudia Sales Vault",cls:"eudia-setup-main-title"}),s.createEl("p",{text:"Complete these steps to unlock your sales superpowers",cls:"eudia-setup-subtitle"});let a=t.createDiv({cls:"eudia-setup-progress-section"}),i=this.getCompletionPercentage(),r=a.createDiv({cls:"eudia-setup-progress-label"});r.createSpan({text:"Setup Progress"}),r.createSpan({text:`${i}%`,cls:"eudia-setup-progress-value"});let c=a.createDiv({cls:"eudia-setup-progress-bar"}).createDiv({cls:"eudia-setup-progress-fill"});c.style.width=`${i}%`}renderSteps(e){let t=e.createDiv({cls:"eudia-setup-steps-container"});this.renderCalendarStep(t),this.renderSalesforceStep(t),this.renderTranscribeStep(t)}renderCalendarStep(e){let t=this.steps[0],s=e.createDiv({cls:`eudia-setup-step-card ${t.status}`}),a=s.createDiv({cls:"eudia-setup-step-header"}),i=a.createDiv({cls:"eudia-setup-step-number"});i.setText(t.status==="complete"?"":"1"),t.status==="complete"&&i.addClass("eudia-step-complete");let r=a.createDiv({cls:"eudia-setup-step-info"});r.createEl("h3",{text:t.title}),r.createEl("p",{text:t.description});let o=s.createDiv({cls:"eudia-setup-step-content"});if(t.status==="complete")o.createDiv({cls:"eudia-setup-complete-message",text:`Connected as ${this.plugin.settings.userEmail}`});else{let c=o.createDiv({cls:"eudia-setup-input-group"});this.emailInput=c.createEl("input",{type:"email",placeholder:"yourname@eudia.com",cls:"eudia-setup-input"}),this.plugin.settings.userEmail&&(this.emailInput.value=this.plugin.settings.userEmail);let u=c.createEl("button",{text:"Connect",cls:"eudia-setup-btn primary"});u.onclick=async()=>{await this.handleCalendarConnect()},this.emailInput.onkeydown=async m=>{m.key==="Enter"&&await this.handleCalendarConnect()},o.createDiv({cls:"eudia-setup-validation-message"}),o.createEl("p",{cls:"eudia-setup-help-text",text:"Your calendar syncs automatically via Microsoft 365. We use your email to identify your meetings."})}}async handleCalendarConnect(){if(!this.emailInput)return;let e=this.emailInput.value.trim().toLowerCase(),t=this.containerEl.querySelector(".eudia-setup-validation-message");if(!e){t&&(t.textContent="Please enter your email",t.className="eudia-setup-validation-message error");return}if(!e.endsWith("@eudia.com")){t&&(t.textContent="Please use your @eudia.com email address",t.className="eudia-setup-validation-message error");return}t&&(t.textContent="Validating...",t.className="eudia-setup-validation-message loading");try{let s=await(0,l.requestUrl)({url:`${this.plugin.settings.serverUrl}/api/calendar/validate/${encodeURIComponent(e)}`,method:"GET",throw:!1});if(s.status===200&&s.json?.authorized){this.plugin.settings.userEmail=e,this.plugin.settings.calendarConfigured=!0,await this.plugin.saveSettings(),this.steps[0].status="complete",new l.Notice("Calendar connected successfully!"),t&&(t.textContent="Importing your accounts...",t.className="eudia-setup-validation-message loading");try{let a;I(e)?(console.log("[Eudia] Admin user detected - importing all accounts"),a=await this.accountOwnershipService.getAllAccountsForAdmin(e)):a=await this.accountOwnershipService.getAccountsForUser(e),a.length>0&&(I(e)?await this.plugin.createAdminAccountFolders(a):await this.plugin.createTailoredAccountFolders(a),this.plugin.settings.accountsImported=!0,this.plugin.settings.importedAccountCount=a.length,await this.plugin.saveSettings(),new l.Notice(`Imported ${a.length} account folders!`))}catch(a){console.error("[Eudia] Account import failed:",a)}await this.render()}else t&&(t.innerHTML=`<strong>${e}</strong> is not authorized for calendar access. Contact your admin.`,t.className="eudia-setup-validation-message error")}catch{t&&(t.textContent="Connection failed. Please try again.",t.className="eudia-setup-validation-message error")}}renderSalesforceStep(e){let t=this.steps[1],s=e.createDiv({cls:`eudia-setup-step-card ${t.status}`}),a=s.createDiv({cls:"eudia-setup-step-header"}),i=a.createDiv({cls:"eudia-setup-step-number"});i.setText(t.status==="complete"?"":"2"),t.status==="complete"&&i.addClass("eudia-step-complete");let r=a.createDiv({cls:"eudia-setup-step-info"});r.createEl("h3",{text:t.title}),r.createEl("p",{text:t.description});let o=s.createDiv({cls:"eudia-setup-step-content"});if(!this.plugin.settings.userEmail){o.createDiv({cls:"eudia-setup-disabled-message",text:"Complete the calendar step first"});return}if(t.status==="complete")o.createDiv({cls:"eudia-setup-complete-message",text:"Salesforce connected successfully"}),this.plugin.settings.accountsImported&&o.createDiv({cls:"eudia-setup-account-status",text:`${this.plugin.settings.importedAccountCount} accounts imported`});else{let u=o.createDiv({cls:"eudia-setup-button-group"}).createEl("button",{text:"Connect to Salesforce",cls:"eudia-setup-btn primary"}),m=o.createDiv({cls:"eudia-setup-sf-status"});u.onclick=async()=>{let h=`${this.plugin.settings.serverUrl}/api/sf/auth/start?email=${encodeURIComponent(this.plugin.settings.userEmail)}`;window.open(h,"_blank"),m.textContent="Complete the login in the popup window...",m.className="eudia-setup-sf-status loading",new l.Notice("Complete the Salesforce login in the popup window",5e3),this.startSalesforcePolling(m)},o.createEl("p",{cls:"eudia-setup-help-text",text:"This links your Obsidian notes to your Salesforce account for automatic sync."})}}startSalesforcePolling(e){this.pollInterval&&window.clearInterval(this.pollInterval);let t=0,s=60;this.pollInterval=window.setInterval(async()=>{t++;try{(await(0,l.requestUrl)({url:`${this.plugin.settings.serverUrl}/api/sf/auth/status?email=${encodeURIComponent(this.plugin.settings.userEmail)}`,method:"GET",throw:!1})).json?.authenticated===!0?(this.pollInterval&&(window.clearInterval(this.pollInterval),this.pollInterval=null),this.plugin.settings.salesforceConnected=!0,await this.plugin.saveSettings(),this.steps[1].status="complete",new l.Notice("Salesforce connected successfully!"),await this.importTailoredAccounts(e),await this.render()):t>=s&&(this.pollInterval&&(window.clearInterval(this.pollInterval),this.pollInterval=null),e.textContent="Connection timed out. Please try again.",e.className="eudia-setup-sf-status error")}catch{}},5e3)}async importTailoredAccounts(e){e.textContent="Importing your accounts...",e.className="eudia-setup-sf-status loading";try{let t=this.plugin.settings.userEmail,s;if(I(t)?(console.log("[Eudia] Admin user detected - importing all accounts"),e.textContent="Admin detected - importing all accounts...",s=await this.accountOwnershipService.getAllAccountsForAdmin(t)):s=await this.accountOwnershipService.getAccountsForUser(t),s.length===0){e.textContent="No accounts found for your email. Contact your admin.",e.className="eudia-setup-sf-status warning";return}I(t)?await this.plugin.createAdminAccountFolders(s):await this.plugin.createTailoredAccountFolders(s),this.plugin.settings.accountsImported=!0,this.plugin.settings.importedAccountCount=s.length,await this.plugin.saveSettings(),this.steps[2].status="complete";let a=s.filter(r=>r.isOwned!==!1).length,i=s.filter(r=>r.isOwned===!1).length;I(t)&&i>0?e.textContent=`${a} owned + ${i} view-only accounts imported!`:e.textContent=`${s.length} accounts imported successfully!`,e.className="eudia-setup-sf-status success"}catch{e.textContent="Failed to import accounts. Please try again.",e.className="eudia-setup-sf-status error"}}renderTranscribeStep(e){let t=this.steps[2],s=e.createDiv({cls:`eudia-setup-step-card ${t.status}`}),a=s.createDiv({cls:"eudia-setup-step-header"}),i=a.createDiv({cls:"eudia-setup-step-number"});i.setText(t.status==="complete"?"":"3"),t.status==="complete"&&i.addClass("eudia-step-complete");let r=a.createDiv({cls:"eudia-setup-step-info"});r.createEl("h3",{text:t.title}),r.createEl("p",{text:t.description});let o=s.createDiv({cls:"eudia-setup-step-content"}),c=o.createDiv({cls:"eudia-setup-instructions"}),u=c.createDiv({cls:"eudia-setup-instruction"});u.createSpan({cls:"eudia-setup-instruction-icon",text:"\u{1F399}"}),u.createSpan({text:"Click the microphone icon in the left sidebar during a call"});let m=c.createDiv({cls:"eudia-setup-instruction"});m.createSpan({cls:"eudia-setup-instruction-icon",text:"\u2328"}),m.createSpan({text:'Or press Cmd/Ctrl+P and search for "Transcribe Meeting"'});let h=c.createDiv({cls:"eudia-setup-instruction"});h.createSpan({cls:"eudia-setup-instruction-icon",text:"\u{1F4DD}"}),h.createSpan({text:"AI will summarize and extract key insights automatically"}),t.status!=="complete"&&o.createEl("p",{cls:"eudia-setup-help-text muted",text:"This step completes automatically after connecting to Salesforce and importing accounts."})}renderFooter(e){let t=e.createDiv({cls:"eudia-setup-footer"});if(this.steps.every(i=>i.status==="complete")){let i=t.createDiv({cls:"eudia-setup-completion"});i.createEl("h2",{text:"\u{1F389} You're all set!"}),i.createEl("p",{text:"Your sales vault is ready. Click below to start using Eudia."});let r=t.createEl("button",{text:"Open Calendar \u2192",cls:"eudia-setup-btn primary large"});r.onclick=async()=>{this.plugin.settings.setupCompleted=!0,await this.plugin.saveSettings(),this.plugin.app.workspace.detachLeavesOfType(b),await this.plugin.activateCalendarView()}}else{let i=t.createEl("button",{text:"Skip Setup (I'll do this later)",cls:"eudia-setup-btn secondary"});i.onclick=async()=>{this.plugin.settings.setupCompleted=!0,await this.plugin.saveSettings(),this.plugin.app.workspace.detachLeavesOfType(b),new l.Notice("You can complete setup anytime from Settings \u2192 Eudia Sync")}}let a=t.createEl("a",{text:"Advanced Settings",cls:"eudia-setup-settings-link"});a.onclick=()=>{this.app.setting.open(),this.app.setting.openTabById("eudia-sync")}}},_=class extends l.ItemView{constructor(e,t){super(e);this.refreshInterval=null;this.lastError=null;this.plugin=t}getViewType(){return x}getDisplayText(){return"Calendar"}getIcon(){return"calendar"}async onOpen(){await this.render(),this.refreshInterval=window.setInterval(()=>this.render(),5*60*1e3)}async onClose(){this.refreshInterval&&window.clearInterval(this.refreshInterval)}async render(){let e=this.containerEl.children[1];if(e.empty(),e.addClass("eudia-calendar-view"),!this.plugin.settings.userEmail){this.renderSetupPanel(e);return}this.renderHeader(e),await this.renderCalendarContent(e)}renderHeader(e){let t=e.createDiv({cls:"eudia-calendar-header"}),s=t.createDiv({cls:"eudia-calendar-title-row"});s.createEl("h4",{text:"Your Meetings"});let a=s.createDiv({cls:"eudia-calendar-actions"}),i=a.createEl("button",{cls:"eudia-btn-icon",text:"\u21BB"});i.title="Refresh",i.onclick=async()=>{i.addClass("spinning"),await this.render(),i.removeClass("spinning")};let r=a.createEl("button",{cls:"eudia-btn-icon",text:"\u2699"});r.title="Settings",r.onclick=()=>{this.app.setting.open(),this.app.setting.openTabById("eudia-sync")};let o=t.createDiv({cls:"eudia-status-bar"});this.renderConnectionStatus(o)}async renderConnectionStatus(e){let t={server:"connecting",calendar:"not_configured",salesforce:"not_configured"},s=this.plugin.settings.serverUrl,a=this.plugin.settings.userEmail;try{(await(0,l.requestUrl)({url:`${s}/api/health`,method:"GET",throw:!1})).status===200?(t.server="connected",t.serverMessage="Server online"):(t.server="error",t.serverMessage="Server unavailable")}catch{t.server="error",t.serverMessage="Cannot reach server"}if(a&&t.server==="connected")try{let m=await(0,l.requestUrl)({url:`${s}/api/calendar/validate/${encodeURIComponent(a)}`,method:"GET",throw:!1});m.status===200&&m.json?.authorized?(t.calendar="connected",t.calendarMessage="Calendar synced"):(t.calendar="not_authorized",t.calendarMessage="Not authorized")}catch{t.calendar="error",t.calendarMessage="Error checking access"}if(a&&t.server==="connected")try{let m=await(0,l.requestUrl)({url:`${s}/api/sf/auth/status?email=${encodeURIComponent(a)}`,method:"GET",throw:!1});m.status===200&&m.json?.connected?(t.salesforce="connected",t.salesforceMessage="Salesforce connected"):(t.salesforce="not_configured",t.salesforceMessage="Not connected")}catch{t.salesforce="not_configured"}let i=e.createDiv({cls:"eudia-status-indicators"}),r=i.createSpan({cls:`eudia-status-dot ${t.server}`});r.title=t.serverMessage||"Server";let o=i.createSpan({cls:`eudia-status-dot ${t.calendar}`});o.title=t.calendarMessage||"Calendar";let c=i.createSpan({cls:`eudia-status-dot ${t.salesforce}`});if(c.title=t.salesforceMessage||"Salesforce",e.createDiv({cls:"eudia-status-labels"}).createSpan({cls:"eudia-status-label",text:this.plugin.settings.userEmail}),t.calendar==="not_authorized"){let m=e.createDiv({cls:"eudia-status-warning"});m.innerHTML=`<strong>${a}</strong> is not authorized for calendar access. Contact your admin.`}}async renderCalendarContent(e){let t=e.createDiv({cls:"eudia-calendar-content"}),s=t.createDiv({cls:"eudia-calendar-loading"});s.innerHTML='<div class="eudia-spinner"></div><span>Loading meetings...</span>';try{let a=new S(this.plugin.settings.serverUrl,this.plugin.settings.userEmail),i=await a.getWeekMeetings();if(s.remove(),!i.success){this.renderError(t,i.error||"Failed to load calendar");return}let r=Object.keys(i.byDay||{}).sort();if(r.length===0){this.renderEmptyState(t);return}await this.renderCurrentMeeting(t,a);for(let o of r){let c=i.byDay[o];!c||c.length===0||this.renderDaySection(t,o,c)}}catch(a){s.remove(),this.renderError(t,a.message||"Failed to load calendar")}}async renderCurrentMeeting(e,t){try{let s=await t.getCurrentMeeting();if(s.meeting){let a=e.createDiv({cls:"eudia-now-card"});s.isNow?a.createDiv({cls:"eudia-now-badge",text:"\u25CF NOW"}):a.createDiv({cls:"eudia-now-badge soon",text:`In ${s.minutesUntilStart}m`});let i=a.createDiv({cls:"eudia-now-content"});i.createEl("div",{cls:"eudia-now-subject",text:s.meeting.subject}),s.meeting.accountName&&i.createEl("div",{cls:"eudia-now-account",text:s.meeting.accountName});let r=a.createEl("button",{cls:"eudia-now-action",text:"Create Note"});r.onclick=()=>this.createNoteForMeeting(s.meeting)}}catch{}}renderDaySection(e,t,s){let a=e.createDiv({cls:"eudia-calendar-day"});a.createEl("div",{cls:"eudia-calendar-day-header",text:S.getDayName(t)});for(let i of s){let r=a.createDiv({cls:`eudia-calendar-meeting ${i.isCustomerMeeting?"customer":"internal"}`});r.createEl("div",{cls:"eudia-calendar-time",text:S.formatTime(i.start,this.plugin.settings.timezone)});let o=r.createDiv({cls:"eudia-calendar-details"});if(o.createEl("div",{cls:"eudia-calendar-subject",text:i.subject}),i.accountName)o.createEl("div",{cls:"eudia-calendar-account",text:i.accountName});else if(i.attendees&&i.attendees.length>0){let c=i.attendees.slice(0,2).map(u=>u.name||u.email?.split("@")[0]||"Unknown").join(", ");o.createEl("div",{cls:"eudia-calendar-attendees",text:c})}r.onclick=()=>this.createNoteForMeeting(i),r.title="Click to create meeting note"}}renderEmptyState(e){let t=e.createDiv({cls:"eudia-calendar-empty"});t.innerHTML=`
+// src/AccountOwnership.ts
+var ADMIN_EMAILS = [
+  "keigan.pesenti@eudia.com",
+  "michael.ayers@eudia.com",
+  "zack@eudia.com"
+];
+function isAdminUser(email) {
+  const normalizedEmail = email.toLowerCase().trim();
+  return ADMIN_EMAILS.includes(normalizedEmail);
+}
+var OWNERSHIP_DATA = {
+  version: "2026-02",
+  lastUpdated: "2026-02-03",
+  businessLeads: {
+    // ALEX FOX (8 accounts)
+    "alex.fox@eudia.com": {
+      email: "alex.fox@eudia.com",
+      name: "Alex Fox",
+      accounts: [
+        { id: "001Wj00000mCFsTIAW", name: "Arabic Computer Systems" },
+        { id: "001Wj00000fFuFMIA0", name: "Bank of Ireland" },
+        { id: "001Wj00000mCFsuIAG", name: "Corrigan & Corrigan Solicitors LLP" },
+        { id: "001Wj00000mCFscIAG", name: "Department of Children, Disability and Equality" },
+        { id: "001Wj00000mCFsNIAW", name: "Department of Climate, Energy and the Environment" },
+        { id: "001Wj00000mCFsUIAW", name: "ESB NI/Electric Ireland" },
+        { id: "001Wj00000TV1WzIAL", name: "OpenAi" },
+        { id: "001Wj00000mCFrMIAW", name: "Sisk Group" }
+      ]
+    },
+    // ANANTH CHERUKUPALLY (13 accounts)
+    "ananth@eudia.com": {
+      email: "ananth@eudia.com",
+      name: "Ananth Cherukupally",
+      accounts: [
+        { id: "001Wj00000RjuhjIAB", name: "Citadel" },
+        { id: "001Wj00000cejJzIAI", name: "CVC" },
+        { id: "001Wj00000Y64qhIAB", name: "Emigrant Bank" },
+        { id: "001Hp00003kIrIIIA0", name: "GE Healthcare" },
+        { id: "001Hp00003kIrIJIA0", name: "GE Vernova" },
+        { id: "001Wj00000Z6zhPIAR", name: "Liberty Mutual Insurance" },
+        { id: "001Wj00000bWBlQIAW", name: "Pegasystems" },
+        { id: "001Wj00000bzz9MIAQ", name: "Peregrine Hospitality" },
+        { id: "001Hp00003ljCJ8IAM", name: "Petco" },
+        { id: "001Hp00003kKXSIIA4", name: "Pure Storage" },
+        { id: "001Wj00000lxbYRIAY", name: "Spark Brighter Thinking" },
+        { id: "001Wj00000tOAoEIAW", name: "TA Associates" },
+        { id: "001Wj00000bn8VSIAY", name: "Vista Equity Partners" }
+      ]
+    },
+    // ASAD HUSSAIN (35 accounts)
+    "asad.hussain@eudia.com": {
+      email: "asad.hussain@eudia.com",
+      name: "Asad Hussain",
+      accounts: [
+        { id: "001Hp00003kIrCyIAK", name: "Airbnb" },
+        { id: "001Hp00003kIrEeIAK", name: "Amazon" },
+        { id: "001Hp00003kIrCzIAK", name: "American Express" },
+        { id: "001Wj00000TUdXwIAL", name: "Anthropic" },
+        { id: "001Wj00000Y0g8ZIAR", name: "Asana" },
+        { id: "001Wj00000c0wRAIAY", name: "Away" },
+        { id: "001Wj00000WTMCRIA5", name: "BNY Mellon" },
+        { id: "001Wj00000mosEXIAY", name: "Carta" },
+        { id: "001Wj00000ah6dkIAA", name: "Charlesbank Capital Partners" },
+        { id: "001Hp00003kIrE5IAK", name: "Coherent" },
+        { id: "001Hp00003kIrGzIAK", name: "Deloitte" },
+        { id: "001Hp00003kIrE6IAK", name: "DHL" },
+        { id: "001Wj00000W8ZKlIAN", name: "Docusign" },
+        { id: "001Hp00003kIrHNIA0", name: "Ecolab" },
+        { id: "001Hp00003kIrI3IAK", name: "Fluor" },
+        { id: "001Hp00003kIrIAIA0", name: "Fox" },
+        { id: "001Hp00003kJ9oeIAC", name: "Fresh Del Monte" },
+        { id: "001Hp00003kIrIKIA0", name: "Geico" },
+        { id: "001Wj00000oqVXgIAM", name: "Goosehead Insurance" },
+        { id: "001Wj00000tuXZbIAM", name: "Gopuff" },
+        { id: "001Hp00003kIrItIAK", name: "HSBC" },
+        { id: "001Hp00003kIrIyIAK", name: "Huntsman" },
+        { id: "001Wj00000hdoLxIAI", name: "Insight Enterprises Inc." },
+        { id: "001Hp00003kIrKCIA0", name: "Mass Mutual Life Insurance" },
+        { id: "001Hp00003kIrKOIA0", name: "Microsoft" },
+        { id: "001Wj00000lyDQkIAM", name: "MidOcean Partners" },
+        { id: "001Hp00003kIrKTIA0", name: "Morgan Stanley" },
+        { id: "001Wj00000kNp2XIAS", name: "Plusgrade" },
+        { id: "001Hp00003kIrMKIA0", name: "ServiceNow" },
+        { id: "001Hp00003kIrECIA0", name: "Southwest Airlines" },
+        { id: "001Wj00000tuRNoIAM", name: "Virtusa" },
+        { id: "001Hp00003kIrNwIAK", name: "W.W. Grainger" },
+        { id: "001Wj00000bzz9NIAQ", name: "Wealth Partners Capital Group" },
+        { id: "001Wj00000tuolfIAA", name: "Wynn Las Vegas" },
+        { id: "001Wj00000uzs1fIAA", name: "Zero RFI" }
+      ]
+    },
+    // CONOR MOLLOY (15 accounts)
+    "conor.molloy@eudia.com": {
+      email: "conor.molloy@eudia.com",
+      name: "Conor Molloy",
+      accounts: [
+        { id: "001Hp00003kIrQDIA0", name: "Accenture" },
+        { id: "001Wj00000qLixnIAC", name: "Al Dahra Group Llc" },
+        { id: "001Hp00003kIrEyIAK", name: "Aramark Ireland" },
+        { id: "001Wj00000mCFrgIAG", name: "Aryza" },
+        { id: "001Wj00000mCFrkIAG", name: "Coillte" },
+        { id: "001Wj00000mCFsHIAW", name: "Consensys" },
+        { id: "001Wj00000mCFr2IAG", name: "ICON Clinical Research" },
+        { id: "001Wj00000Y64qdIAB", name: "ION" },
+        { id: "001Wj00000mCFtMIAW", name: "Kellanova" },
+        { id: "001Wj00000mCFrIIAW", name: "Orsted" },
+        { id: "001Wj00000mI9NmIAK", name: "Sequoia Climate Fund" },
+        { id: "001Wj00000mCFs0IAG", name: "Taoglas Limited" },
+        { id: "001Wj00000mCFtPIAW", name: "Teamwork.com" },
+        { id: "001Wj00000mIBpNIAW", name: "Transworld Business Advisors" },
+        { id: "001Wj00000ZLVpTIAX", name: "Wellspring Philanthropic Fund" }
+      ]
+    },
+    // EMER FLYNN (1 accounts)
+    "emer.flynn@eudia.com": {
+      email: "emer.flynn@eudia.com",
+      name: "Emer Flynn",
+      accounts: [
+        { id: "001Wj00000mCFr6IAG", name: "NTMA" }
+      ]
+    },
+    // GREG MACHALE (26 accounts)
+    "greg.machale@eudia.com": {
+      email: "greg.machale@eudia.com",
+      name: "Greg MacHale",
+      accounts: [
+        { id: "001Hp00003kIrEFIA0", name: "Abbott Laboratories" },
+        { id: "001Wj00000mCFqrIAG", name: "Biomarin International Limited" },
+        { id: "001Wj00000Y6VMdIAN", name: "BNP Paribas" },
+        { id: "001Hp00003kIrFdIAK", name: "Booking Holdings" },
+        { id: "001Wj00000X4OqNIAV", name: "BT Group" },
+        { id: "001Wj00000uZ5J7IAK", name: "Canada Life" },
+        { id: "001Wj00000mCFt9IAG", name: "Cerberus European Servicing" },
+        { id: "001Wj00000Y6VMkIAN", name: "Computershare" },
+        { id: "001Wj00000uP5x8IAC", name: "Cornmarket Financial Services" },
+        { id: "001Wj00000Y6VMMIA3", name: "Diageo" },
+        { id: "001Wj00000prFOXIA2", name: "Doosan Bobcat" },
+        { id: "001Wj00000mCFrmIAG", name: "eShopWorld" },
+        { id: "001Wj00000fFuFYIA0", name: "Grant Thornton" },
+        { id: "001Wj00000uZ4A9IAK", name: "Great West Lifec co" },
+        { id: "001Wj00000uZtcTIAS", name: "Ineos" },
+        { id: "001Wj00000tWwYpIAK", name: "Mail Metrics" },
+        { id: "001Wj00000vwSUXIA2", name: "Mercor" },
+        { id: "001Wj00000mCFtUIAW", name: "Mercury Engineering" },
+        { id: "001Wj00000lPFP3IAO", name: "Nomura" },
+        { id: "001Wj00000mCFr1IAG", name: "Permanent TSB plc" },
+        { id: "001Wj00000Y6QfRIAV", name: "Pernod Ricard" },
+        { id: "001Hp00003kIrLiIAK", name: "Quest Diagnostics" },
+        { id: "001Wj00000mCFsFIAW", name: "Regeneron" },
+        { id: "001Wj00000mCFsRIAW", name: "Ryanair" },
+        { id: "001Hp00003kIrMjIAK", name: "State Street" },
+        { id: "001Wj00000mCFsSIAW", name: "Uniphar PLC" }
+      ]
+    },
+    // JULIE STEFANICH (31 accounts)
+    "julie.stefanich@eudia.com": {
+      email: "julie.stefanich@eudia.com",
+      name: "Julie Stefanich",
+      accounts: [
+        { id: "001Wj00000asSHBIA2", name: "Airbus" },
+        { id: "001Hp00003kIrElIAK", name: "Ameriprise Financial" },
+        { id: "001Hp00003kIrEvIAK", name: "Apple" },
+        { id: "001Hp00003kJ9pXIAS", name: "Bayer" },
+        { id: "001Hp00003kIrE3IAK", name: "Cargill" },
+        { id: "001Hp00003kIrGDIA0", name: "Charles Schwab" },
+        { id: "001Hp00003kIrE4IAK", name: "Chevron" },
+        { id: "001Hp00003kIrGeIAK", name: "Corebridge Financial" },
+        { id: "001Hp00003kIrE7IAK", name: "ECMS" },
+        { id: "001Wj00000iRzqvIAC", name: "Florida Crystals Corporation" },
+        { id: "001Hp00003kIrIPIA0", name: "Genworth Financial" },
+        { id: "001Hp00003kIrIXIA0", name: "Goldman Sachs" },
+        { id: "001Wj00000rceVpIAI", name: "Hikma" },
+        { id: "001Hp00003kIrJVIA0", name: "KLA" },
+        { id: "001Wj00000aLmheIAC", name: "Macmillan" },
+        { id: "001Wj00000X6G8qIAF", name: "Mainsail Partners" },
+        { id: "001Hp00003kIrKLIA0", name: "MetLife" },
+        { id: "001Hp00003kIrDeIAK", name: "National Grid" },
+        { id: "001Hp00003kIrKjIAK", name: "Nordstrom" },
+        { id: "001Hp00003kIrDvIAK", name: "Oracle" },
+        { id: "001Hp00003kIrLNIA0", name: "Petsmart" },
+        { id: "001Hp00003kIrLZIA0", name: "Procter & Gamble" },
+        { id: "001Hp00003lhsUYIAY", name: "Rio Tinto Group" },
+        { id: "001Wj00000svQI3IAM", name: "Safelite" },
+        { id: "001Wj00000fRtLmIAK", name: "State Farm" },
+        { id: "001Wj00000bzz9TIAQ", name: "Tailored Brands" },
+        { id: "001Hp00003kIrNBIA0", name: "The Wonderful Company" },
+        { id: "001Hp00003kIrCrIAK", name: "TIAA" },
+        { id: "001Hp00003kIrNHIA0", name: "T-Mobile" },
+        { id: "001Hp00003kIrNVIA0", name: "Uber" },
+        { id: "001Hp00003kIrOLIA0", name: "World Wide Technology" }
+      ]
+    },
+    // JUSTIN HILLS (20 accounts)
+    "justin.hills@eudia.com": {
+      email: "justin.hills@eudia.com",
+      name: "Justin Hills",
+      accounts: [
+        { id: "001Hp00003kIrEOIA0", name: "AES" },
+        { id: "001Wj00000Y6VM4IAN", name: "Ares Management Corporation" },
+        { id: "001Wj00000XiEDyIAN", name: "Coinbase" },
+        { id: "001Hp00003kIrDhIAK", name: "Comcast" },
+        { id: "001Wj00000c9oCvIAI", name: "Cox Media Group" },
+        { id: "001Wj00000Y0jPmIAJ", name: "Delinea" },
+        { id: "001Wj00000iwKGQIA2", name: "Dominos" },
+        { id: "001Hp00003kIrDaIAK", name: "Duracell" },
+        { id: "001Hp00003kIrCnIAK", name: "Home Depot" },
+        { id: "001Hp00003kIrDVIA0", name: "Intel" },
+        { id: "001Hp00003kIrE9IAK", name: "IQVIA" },
+        { id: "001Hp00003kIrJJIA0", name: "Johnson & Johnson" },
+        { id: "001Wj00000gnrugIAA", name: "Kraken" },
+        { id: "001Wj00000op4EWIAY", name: "McCormick & Co Inc" },
+        { id: "001Wj00000ix7c2IAA", name: "Nouryon" },
+        { id: "001Wj00000cpxt0IAA", name: "Novelis" },
+        { id: "001Wj00000WYyKIIA1", name: "Ramp" },
+        { id: "001Wj00000o5G0vIAE", name: "StockX" },
+        { id: "001Wj00000YEMa8IAH", name: "Turing" },
+        { id: "001Wj00000oqRycIAE", name: "Walgreens Boots Alliance" }
+      ]
+    },
+    // KEIGAN PESENTI (11 accounts)
+    "keigan.pesenti@eudia.com": {
+      email: "keigan.pesenti@eudia.com",
+      name: "Keigan Pesenti",
+      accounts: [
+        { id: "001Wj00000mCFt4IAG", name: "BNRG Renewables Ltd" },
+        { id: "001Wj00000mCFtTIAW", name: "Coleman Legal" },
+        { id: "001Wj00000pLPAyIAO", name: "Creed McStay" },
+        { id: "001Hp00003lhyCxIAI", name: "Eudia Testing Account" },
+        { id: "001Wj00000mCFsIIAW", name: "Fannin Limited" },
+        { id: "001Wj00000mCFsJIAW", name: "Gas Networks Ireland" },
+        { id: "001Wj00000mCFseIAG", name: "Hayes Solicitors LLP" },
+        { id: "001Wj00000mCFtJIAW", name: "LinkedIn" },
+        { id: "001Wj00000mCFspIAG", name: "Moy Park" },
+        { id: "001Wj00000mCFt8IAG", name: "State Claims Agency" },
+        { id: "001Wj00000mCFs3IAG", name: "Wayflyer" }
+      ]
+    },
+    // MIKE MASIELLO (17 accounts)
+    "mike.masiello@eudia.com": {
+      email: "mike.masiello@eudia.com",
+      name: "Mike Masiello",
+      accounts: [
+        { id: "001Wj00000p1lCPIAY", name: "Army Applications Lab" },
+        { id: "001Wj00000p1hYbIAI", name: "Army Corps of Engineers" },
+        { id: "001Wj00000ZxEpDIAV", name: "Army Futures Command" },
+        { id: "001Wj00000bWBlAIAW", name: "Defense Innovation Unit (DIU)" },
+        { id: "001Hp00003kJuJ5IAK", name: "Gov - DOD" },
+        { id: "001Hp00003lhcL9IAI", name: "GSA (General Services Administration)" },
+        { id: "001Wj00000p1PVHIA2", name: "IFC" },
+        { id: "001Wj00000VVJ31IAH", name: "NATO" },
+        { id: "001Wj00000p1YbmIAE", name: "SOCOM" },
+        { id: "001Wj00000p1jH3IAI", name: "State of Alaska" },
+        { id: "001Wj00000hVa6VIAS", name: "State of Arizona" },
+        { id: "001Wj00000p0PcEIAU", name: "State of California" },
+        { id: "001Wj00000bWBkeIAG", name: "U.S. Air Force" },
+        { id: "001Wj00000p1SRXIA2", name: "U.S. Marine Corps" },
+        { id: "001Wj00000Rrm5OIAR", name: "UK Government" },
+        { id: "001Hp00003lieJPIAY", name: "USDA" },
+        { id: "001Wj00000p1SuZIAU", name: "Vulcan Special Ops" }
+      ]
+    },
+    // NATHAN SHINE (19 accounts)
+    "nathan.shine@eudia.com": {
+      email: "nathan.shine@eudia.com",
+      name: "Nathan Shine",
+      accounts: [
+        { id: "001Hp00003kIrEnIAK", name: "Amphenol" },
+        { id: "001Wj00000mHDBoIAO", name: "Coimisiun na Mean" },
+        { id: "001Wj00000mCFqtIAG", name: "CommScope Technologies" },
+        { id: "001Hp00003kIrDMIA0", name: "Dropbox" },
+        { id: "001Wj00000mCFquIAG", name: "Fexco" },
+        { id: "001Wj00000mCFs5IAG", name: "Indeed" },
+        { id: "001Hp00003kIrJOIA0", name: "Keurig Dr Pepper" },
+        { id: "001Wj00000hkk0zIAA", name: "Kingspan" },
+        { id: "001Wj00000mCFrsIAG", name: "Kitman Labs" },
+        { id: "001Wj00000mCFsMIAW", name: "McDermott Creed & Martyn" },
+        { id: "001Wj00000mCFsoIAG", name: "Mediolanum" },
+        { id: "001Wj00000mCFrFIAW", name: "OKG Payments Services Limited" },
+        { id: "001Wj00000ZDPUIIA5", name: "Perrigo Pharma" },
+        { id: "001Wj00000mCFtSIAW", name: "Poe Kiely Hogan Lanigan" },
+        { id: "001Wj00000mCFtHIAW", name: "StepStone Group" },
+        { id: "001Wj00000c9oD6IAI", name: "Stripe" },
+        { id: "001Wj00000SFiOvIAL", name: "TikTok" },
+        { id: "001Wj00000ZDXTRIA5", name: "Tinder LLC" },
+        { id: "001Wj00000bWBlEIAW", name: "Udemy" }
+      ]
+    },
+    // NICOLA FRATINI (29 accounts)
+    "nicola.fratini@eudia.com": {
+      email: "nicola.fratini@eudia.com",
+      name: "Nicola Fratini",
+      accounts: [
+        { id: "001Wj00000mCFrGIAW", name: "AerCap" },
+        { id: "001Wj00000thuKEIAY", name: "Aer Lingus" },
+        { id: "001Wj00000sgXdBIAU", name: "Allianz Insurance" },
+        { id: "001Wj00000mCFs7IAG", name: "Allied Irish Banks plc" },
+        { id: "001Wj00000mCFrhIAG", name: "Avant Money" },
+        { id: "001Wj00000mI7NaIAK", name: "Aviva Insurance" },
+        { id: "001Wj00000uNUIBIA4", name: "Bank of China" },
+        { id: "001Hp00003kJ9kNIAS", name: "Barclays" },
+        { id: "001Wj00000ttPZBIA2", name: "Barings" },
+        { id: "001Wj00000tWwXwIAK", name: "Cairn Homes" },
+        { id: "001Wj00000Y6VLhIAN", name: "Citi" },
+        { id: "001Wj00000tx2MQIAY", name: "CyberArk" },
+        { id: "001Wj00000mCFsBIAW", name: "Datalex" },
+        { id: "001Wj00000mCFrlIAG", name: "Davy" },
+        { id: "001Wj00000w0uVVIAY", name: "Doceree" },
+        { id: "001Wj00000uJwxoIAC", name: "Eir" },
+        { id: "001Wj00000sg8GcIAI", name: "FARFETCH" },
+        { id: "001Wj00000mIEAXIA4", name: "FNZ Group" },
+        { id: "001Wj00000mCFt1IAG", name: "Goodbody Stockbrokers" },
+        { id: "001Wj00000ZDXrdIAH", name: "Intercom" },
+        { id: "001Wj00000ullPpIAI", name: "Jet2 Plc" },
+        { id: "001Wj00000au3swIAA", name: "Lenovo" },
+        { id: "001Hp00003kIrKmIAK", name: "Northern Trust Management Services" },
+        { id: "001Wj00000u0eJpIAI", name: "Re-Turn" },
+        { id: "001Wj00000sg2T0IAI", name: "SHEIN" },
+        { id: "001Wj00000mCFs1IAG", name: "Twitter" },
+        { id: "001Hp00003kIrDAIA0", name: "Verizon" },
+        { id: "001Wj00000sgaj9IAA", name: "Volkswagon Group Ireland" },
+        { id: "001Wj00000mIB6EIAW", name: "Zendesk" }
+      ]
+    },
+    // OLIVIA JUNG (30 accounts)
+    "olivia@eudia.com": {
+      email: "olivia@eudia.com",
+      name: "Olivia Jung",
+      accounts: [
+        { id: "001Wj00000mCFrdIAG", name: "Airship Group Inc" },
+        { id: "001Hp00003kIrFVIA0", name: "Best Buy" },
+        { id: "001Hp00003kIrFkIAK", name: "Bristol-Myers Squibb" },
+        { id: "001Hp00003kIrGKIA0", name: "CHS" },
+        { id: "001Hp00003kIrDZIA0", name: "Ciena" },
+        { id: "001Hp00003kIrGZIA0", name: "Consolidated Edison" },
+        { id: "001Wj00000jK5HlIAK", name: "Crate & Barrel" },
+        { id: "001Hp00003kJ9kwIAC", name: "CSL" },
+        { id: "001Hp00003kIrGoIAK", name: "Cummins" },
+        { id: "001Wj00000bzz9RIAQ", name: "Datadog" },
+        { id: "001Wj00000aZvt9IAC", name: "Dolby" },
+        { id: "001Wj00000hkk0jIAA", name: "Etsy" },
+        { id: "001Hp00003kIrISIA0", name: "Gilead Sciences" },
+        { id: "001Hp00003kIrE8IAK", name: "Graybar Electric" },
+        { id: "001Wj00000dvgdbIAA", name: "HealthEquity" },
+        { id: "001Hp00003kIrJ9IAK", name: "Intuit" },
+        { id: "001Wj00000aLlyVIAS", name: "J.Crew" },
+        { id: "001Hp00003kKKMcIAO", name: "JPmorganchase" },
+        { id: "001Hp00003kIrDjIAK", name: "Marsh McLennan" },
+        { id: "001Hp00003kIrD8IAK", name: "Medtronic" },
+        { id: "001Hp00003kIrKKIA0", name: "Merck" },
+        { id: "001Hp00003kJ9lGIAS", name: "Meta" },
+        { id: "001Hp00003kIrKSIA0", name: "Mondelez International" },
+        { id: "001Hp00003kIrLOIA0", name: "Pfizer" },
+        { id: "001Wj00000iS9AJIA0", name: "TE Connectivity" },
+        { id: "001Hp00003kIrDFIA0", name: "Thermo Fisher Scientific" },
+        { id: "001Wj00000PjGDaIAN", name: "The Weir Group PLC" },
+        { id: "001Hp00003kIrCwIAK", name: "Toshiba US" },
+        { id: "001Wj00000kD7MAIA0", name: "Wellspan Health" },
+        { id: "001Hp00003kIrOAIA0", name: "Western Digital" }
+      ]
+    },
+    // TOM CLANCY (11 accounts)
+    "tom.clancy@eudia.com": {
+      email: "tom.clancy@eudia.com",
+      name: "Tom Clancy",
+      accounts: [
+        { id: "001Wj00000pB30VIAS", name: "AIR (Advanced Inhalation Rituals)" },
+        { id: "001Wj00000qLRqWIAW", name: "ASML" },
+        { id: "001Wj00000c9oCeIAI", name: "BLDG Management Co., Inc." },
+        { id: "001Wj00000mCFszIAG", name: "Electricity Supply Board" },
+        { id: "001Wj00000mCFrcIAG", name: "Glanbia" },
+        { id: "001Wj00000pA6d7IAC", name: "Masdar Future Energy Company" },
+        { id: "001Hp00003kIrD9IAK", name: "Salesforce" },
+        { id: "001Wj00000qL7AGIA0", name: "Seismic" },
+        { id: "001Wj00000pAPW2IAO", name: "Tarmac" },
+        { id: "001Wj00000mCFtOIAW", name: "Uisce Eireann (Irish Water)" },
+        { id: "001Wj00000pBibTIAS", name: "Version1" }
+      ]
+    }
+  }
+};
+var AccountOwnershipService = class {
+  constructor(serverUrl) {
+    this.cachedData = null;
+    this.serverUrl = serverUrl;
+  }
+  /**
+   * Get accounts owned by a specific user
+   * Tries server first (live Salesforce data), falls back to static data
+   */
+  async getAccountsForUser(email) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const serverAccounts = await this.fetchFromServer(normalizedEmail);
+    if (serverAccounts && serverAccounts.length > 0) {
+      console.log(`[AccountOwnership] Got ${serverAccounts.length} accounts from server for ${normalizedEmail}`);
+      return serverAccounts;
+    }
+    console.log(`[AccountOwnership] Using static data fallback for ${normalizedEmail}`);
+    return this.getAccountsFromStatic(normalizedEmail);
+  }
+  /**
+   * Get accounts from static mapping (offline fallback)
+   */
+  getAccountsFromStatic(email) {
+    const lead = OWNERSHIP_DATA.businessLeads[email];
+    if (!lead) {
+      console.log(`[AccountOwnership] No static mapping found for: ${email}`);
+      return [];
+    }
+    console.log(`[AccountOwnership] Found ${lead.accounts.length} static accounts for ${email}`);
+    return lead.accounts;
+  }
+  /**
+   * Fetch account ownership from server (live Salesforce data)
+   * This is now the PRIMARY source - static data is fallback
+   */
+  async fetchFromServer(email) {
+    try {
+      const { requestUrl: requestUrl4 } = await import("obsidian");
+      const response = await requestUrl4({
+        url: `${this.serverUrl}/api/accounts/ownership/${encodeURIComponent(email)}`,
+        method: "GET",
+        headers: { "Accept": "application/json" }
+      });
+      if (response.json?.success && response.json?.accounts) {
+        return response.json.accounts.map((acc) => ({
+          id: acc.id,
+          name: acc.name,
+          type: acc.type || "Prospect"
+        }));
+      }
+      return null;
+    } catch (error) {
+      console.log("[AccountOwnership] Server fetch failed, will use static data:", error);
+      return null;
+    }
+  }
+  /**
+   * Check for new accounts that don't have folders yet
+   * Returns accounts that exist in ownership but not in the provided folder list
+   */
+  async getNewAccounts(email, existingFolderNames) {
+    const allAccounts = await this.getAccountsForUser(email);
+    const normalizedFolders = existingFolderNames.map((f) => f.toLowerCase().trim());
+    return allAccounts.filter((account) => {
+      const normalizedAccountName = account.name.toLowerCase().trim();
+      return !normalizedFolders.some(
+        (folder) => folder === normalizedAccountName || folder.startsWith(normalizedAccountName) || normalizedAccountName.startsWith(folder)
+      );
+    });
+  }
+  /**
+   * Check if a user exists in the ownership mapping
+   */
+  hasUser(email) {
+    const normalizedEmail = email.toLowerCase().trim();
+    return normalizedEmail in OWNERSHIP_DATA.businessLeads;
+  }
+  /**
+   * Get all registered business leads
+   */
+  getAllBusinessLeads() {
+    return Object.keys(OWNERSHIP_DATA.businessLeads);
+  }
+  /**
+   * Get business lead info by email
+   */
+  getBusinessLead(email) {
+    const normalizedEmail = email.toLowerCase().trim();
+    return OWNERSHIP_DATA.businessLeads[normalizedEmail] || null;
+  }
+  /**
+   * Get the version of the ownership data
+   */
+  getDataVersion() {
+    return OWNERSHIP_DATA.version;
+  }
+  /**
+   * Get ALL accounts for admin users
+   * Returns all accounts with isOwned flag to distinguish owned vs view-only
+   */
+  async getAllAccountsForAdmin(adminEmail) {
+    const normalizedEmail = adminEmail.toLowerCase().trim();
+    if (!isAdminUser(normalizedEmail)) {
+      console.log(`[AccountOwnership] ${normalizedEmail} is not an admin, returning owned accounts only`);
+      return this.getAccountsForUser(normalizedEmail);
+    }
+    const serverAccounts = await this.fetchAllAccountsFromServer();
+    if (serverAccounts && serverAccounts.length > 0) {
+      const ownedAccounts = await this.getAccountsForUser(normalizedEmail);
+      const ownedIds = new Set(ownedAccounts.map((a) => a.id));
+      return serverAccounts.map((acc) => ({
+        ...acc,
+        isOwned: ownedIds.has(acc.id)
+      }));
+    }
+    console.log(`[AccountOwnership] Using static data fallback for admin all-accounts`);
+    return this.getAllAccountsFromStatic(normalizedEmail);
+  }
+  /**
+   * Get all accounts from static mapping for admins
+   */
+  getAllAccountsFromStatic(adminEmail) {
+    const allAccounts = /* @__PURE__ */ new Map();
+    const ownedIds = /* @__PURE__ */ new Set();
+    const adminLead = OWNERSHIP_DATA.businessLeads[adminEmail];
+    if (adminLead) {
+      for (const acc of adminLead.accounts) {
+        ownedIds.add(acc.id);
+        allAccounts.set(acc.id, { ...acc, isOwned: true });
+      }
+    }
+    for (const lead of Object.values(OWNERSHIP_DATA.businessLeads)) {
+      for (const acc of lead.accounts) {
+        if (!allAccounts.has(acc.id)) {
+          allAccounts.set(acc.id, { ...acc, isOwned: false });
+        }
+      }
+    }
+    return Array.from(allAccounts.values()).sort(
+      (a, b) => a.name.localeCompare(b.name)
+    );
+  }
+  /**
+   * Fetch ALL accounts from server (for admin users)
+   */
+  async fetchAllAccountsFromServer() {
+    try {
+      const { requestUrl: requestUrl4 } = await import("obsidian");
+      const response = await requestUrl4({
+        url: `${this.serverUrl}/api/accounts/all`,
+        method: "GET",
+        headers: { "Accept": "application/json" }
+      });
+      if (response.json?.success && response.json?.accounts) {
+        return response.json.accounts.map((acc) => ({
+          id: acc.id,
+          name: acc.name,
+          type: acc.type || "Prospect"
+        }));
+      }
+      return null;
+    } catch (error) {
+      console.log("[AccountOwnership] Server fetch all accounts failed:", error);
+      return null;
+    }
+  }
+};
+
+// main.ts
+var TIMEZONE_OPTIONS = [
+  { value: "America/New_York", label: "Eastern Time (ET)" },
+  { value: "America/Chicago", label: "Central Time (CT)" },
+  { value: "America/Denver", label: "Mountain Time (MT)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+  { value: "Europe/London", label: "London (GMT/BST)" },
+  { value: "Europe/Dublin", label: "Dublin (GMT/IST)" },
+  { value: "Europe/Paris", label: "Central Europe (CET)" },
+  { value: "Europe/Berlin", label: "Berlin (CET)" },
+  { value: "UTC", label: "UTC" }
+];
+var DEFAULT_SETTINGS = {
+  serverUrl: "https://gtm-wizard.onrender.com",
+  accountsFolder: "Accounts",
+  recordingsFolder: "Recordings",
+  syncOnStartup: true,
+  autoSyncAfterTranscription: true,
+  saveAudioFiles: true,
+  appendTranscript: true,
+  lastSyncTime: null,
+  cachedAccounts: [],
+  enableSmartTags: true,
+  showCalendarView: true,
+  userEmail: "",
+  setupCompleted: false,
+  calendarConfigured: false,
+  salesforceConnected: false,
+  accountsImported: false,
+  importedAccountCount: 0,
+  openaiApiKey: "",
+  timezone: "America/New_York",
+  lastAccountRefreshDate: null
+};
+var CALENDAR_VIEW_TYPE = "eudia-calendar-view";
+var SETUP_VIEW_TYPE = "eudia-setup-view";
+var AccountSuggester = class extends import_obsidian3.EditorSuggest {
+  constructor(app, plugin) {
+    super(app);
+    this.plugin = plugin;
+  }
+  onTrigger(cursor, editor, file) {
+    const line = editor.getLine(cursor.line);
+    const content = editor.getValue();
+    const cursorOffset = editor.posToOffset(cursor);
+    const frontmatterStart = content.indexOf("---");
+    const frontmatterEnd = content.indexOf("---", frontmatterStart + 3);
+    if (frontmatterStart === -1 || cursorOffset < frontmatterStart || cursorOffset > frontmatterEnd) {
+      return null;
+    }
+    const accountMatch = line.match(/^account:\s*(.*)$/);
+    if (!accountMatch)
+      return null;
+    const query = accountMatch[1].trim();
+    const startPos = line.indexOf(":") + 1;
+    const leadingSpaces = line.substring(startPos).match(/^\s*/)?.[0].length || 0;
+    return {
+      start: { line: cursor.line, ch: startPos + leadingSpaces },
+      end: cursor,
+      query
+    };
+  }
+  getSuggestions(context) {
+    const query = context.query.toLowerCase();
+    const accounts = this.plugin.settings.cachedAccounts;
+    if (!query)
+      return accounts.slice(0, 10);
+    return accounts.filter((a) => a.name.toLowerCase().includes(query)).sort((a, b) => {
+      const aStarts = a.name.toLowerCase().startsWith(query);
+      const bStarts = b.name.toLowerCase().startsWith(query);
+      if (aStarts && !bStarts)
+        return -1;
+      if (bStarts && !aStarts)
+        return 1;
+      return a.name.localeCompare(b.name);
+    }).slice(0, 10);
+  }
+  renderSuggestion(account, el) {
+    el.createEl("div", { text: account.name, cls: "suggestion-title" });
+  }
+  selectSuggestion(account, evt) {
+    if (!this.context)
+      return;
+    this.context.editor.replaceRange(account.name, this.context.start, this.context.end);
+  }
+};
+var RecordingStatusBar = class {
+  constructor(onPause, onResume, onStop, onCancel) {
+    this.containerEl = null;
+    this.waveformBars = [];
+    this.durationEl = null;
+    this.waveformData = new Array(16).fill(0);
+    this.onPause = onPause;
+    this.onResume = onResume;
+    this.onStop = onStop;
+    this.onCancel = onCancel;
+  }
+  show() {
+    if (this.containerEl)
+      return;
+    this.containerEl = document.createElement("div");
+    this.containerEl.className = "eudia-transcription-bar active";
+    const recordingDot = document.createElement("div");
+    recordingDot.className = "eudia-recording-dot";
+    this.containerEl.appendChild(recordingDot);
+    const waveformContainer = document.createElement("div");
+    waveformContainer.className = "eudia-waveform";
+    this.waveformBars = [];
+    for (let i = 0; i < 16; i++) {
+      const bar = document.createElement("div");
+      bar.className = "eudia-waveform-bar";
+      bar.style.height = "2px";
+      waveformContainer.appendChild(bar);
+      this.waveformBars.push(bar);
+    }
+    this.containerEl.appendChild(waveformContainer);
+    this.durationEl = document.createElement("div");
+    this.durationEl.className = "eudia-duration";
+    this.durationEl.textContent = "0:00";
+    this.containerEl.appendChild(this.durationEl);
+    const controls = document.createElement("div");
+    controls.className = "eudia-controls-minimal";
+    const stopBtn = document.createElement("button");
+    stopBtn.className = "eudia-control-btn stop";
+    stopBtn.innerHTML = '<span class="eudia-stop-icon"></span>';
+    stopBtn.title = "Stop and summarize";
+    stopBtn.onclick = () => this.onStop();
+    controls.appendChild(stopBtn);
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "eudia-control-btn cancel";
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.onclick = () => this.onCancel();
+    controls.appendChild(cancelBtn);
+    this.containerEl.appendChild(controls);
+    document.body.appendChild(this.containerEl);
+  }
+  hide() {
+    if (this.containerEl) {
+      this.containerEl.remove();
+      this.containerEl = null;
+      this.waveformBars = [];
+      this.durationEl = null;
+    }
+  }
+  updateState(state) {
+    if (!this.containerEl)
+      return;
+    this.waveformData.shift();
+    this.waveformData.push(state.audioLevel);
+    this.waveformBars.forEach((bar, i) => {
+      const level = this.waveformData[i] || 0;
+      const height = Math.max(2, Math.min(24, level * 0.24));
+      bar.style.height = `${height}px`;
+    });
+    if (this.durationEl) {
+      const mins = Math.floor(state.duration / 60);
+      const secs = Math.floor(state.duration % 60);
+      this.durationEl.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
+    }
+    this.containerEl.className = state.isPaused ? "eudia-transcription-bar paused" : "eudia-transcription-bar active";
+  }
+  showProcessing() {
+    if (!this.containerEl)
+      return;
+    this.containerEl.innerHTML = "";
+    this.containerEl.className = "eudia-transcription-bar processing";
+    const spinner = document.createElement("div");
+    spinner.className = "eudia-processing-spinner";
+    this.containerEl.appendChild(spinner);
+    const text = document.createElement("div");
+    text.className = "eudia-processing-text";
+    text.textContent = "Processing...";
+    this.containerEl.appendChild(text);
+  }
+  showComplete(stats) {
+    if (!this.containerEl)
+      return;
+    this.containerEl.innerHTML = "";
+    this.containerEl.className = "eudia-transcription-bar complete";
+    const successIcon = document.createElement("div");
+    successIcon.className = "eudia-complete-checkmark";
+    this.containerEl.appendChild(successIcon);
+    const content = document.createElement("div");
+    content.className = "eudia-complete-content";
+    if (stats.summaryPreview) {
+      const preview = document.createElement("div");
+      preview.className = "eudia-summary-preview";
+      preview.textContent = stats.summaryPreview.length > 80 ? stats.summaryPreview.substring(0, 80) + "..." : stats.summaryPreview;
+      content.appendChild(preview);
+    }
+    const statsRow = document.createElement("div");
+    statsRow.className = "eudia-complete-stats-row";
+    const mins = Math.floor(stats.duration / 60);
+    const secs = Math.floor(stats.duration % 60);
+    statsRow.textContent = `${mins}:${secs.toString().padStart(2, "0")} recorded`;
+    if (stats.nextStepsCount > 0) {
+      statsRow.textContent += ` | ${stats.nextStepsCount} action${stats.nextStepsCount > 1 ? "s" : ""}`;
+    }
+    if (stats.meddiccCount > 0) {
+      statsRow.textContent += ` | ${stats.meddiccCount} signals`;
+    }
+    content.appendChild(statsRow);
+    this.containerEl.appendChild(content);
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "eudia-control-btn close";
+    closeBtn.textContent = "Dismiss";
+    closeBtn.onclick = () => this.hide();
+    this.containerEl.appendChild(closeBtn);
+    setTimeout(() => this.hide(), 8e3);
+  }
+};
+var AccountSelectorModal = class extends import_obsidian3.Modal {
+  constructor(app, plugin, onSelect) {
+    super(app);
+    this.plugin = plugin;
+    this.onSelect = onSelect;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("eudia-account-selector");
+    contentEl.createEl("h3", { text: "Select Account for Meeting Note" });
+    this.searchInput = contentEl.createEl("input", {
+      type: "text",
+      placeholder: "Search accounts..."
+    });
+    this.searchInput.style.cssText = "width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 6px; border: 1px solid var(--background-modifier-border);";
+    this.resultsContainer = contentEl.createDiv({ cls: "eudia-account-results" });
+    this.resultsContainer.style.cssText = "max-height: 300px; overflow-y: auto;";
+    this.updateResults("");
+    this.searchInput.addEventListener("input", () => this.updateResults(this.searchInput.value));
+    this.searchInput.focus();
+  }
+  updateResults(query) {
+    this.resultsContainer.empty();
+    const accounts = this.plugin.settings.cachedAccounts;
+    const filtered = query ? accounts.filter((a) => a.name.toLowerCase().includes(query.toLowerCase())).slice(0, 15) : accounts.slice(0, 15);
+    if (filtered.length === 0) {
+      this.resultsContainer.createDiv({ cls: "eudia-no-results", text: "No accounts found" });
+      return;
+    }
+    filtered.forEach((account) => {
+      const item = this.resultsContainer.createDiv({ cls: "eudia-account-item", text: account.name });
+      item.onclick = () => {
+        this.onSelect(account);
+        this.close();
+      };
+    });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var IntelligenceQueryModal = class extends import_obsidian3.Modal {
+  constructor(app, plugin, accountContext) {
+    super(app);
+    this.accountContext = null;
+    this.plugin = plugin;
+    this.accountContext = accountContext || null;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("eudia-intelligence-modal");
+    const header = contentEl.createDiv({ cls: "eudia-intelligence-header" });
+    header.createEl("h2", {
+      text: this.accountContext ? `Ask about ${this.accountContext.name}` : "Ask gtm-brain"
+    });
+    if (this.accountContext) {
+      header.createEl("p", {
+        text: "Get insights, prep for meetings, or ask about this account.",
+        cls: "eudia-intelligence-subtitle"
+      });
+    } else {
+      header.createEl("p", {
+        text: "Ask questions about your accounts, deals, or pipeline.",
+        cls: "eudia-intelligence-subtitle"
+      });
+    }
+    const inputContainer = contentEl.createDiv({ cls: "eudia-intelligence-input-container" });
+    this.queryInput = inputContainer.createEl("textarea", {
+      placeholder: this.accountContext ? `e.g., "What should I know before my next meeting?" or "What's the deal status?"` : `e.g., "Who owns Dolby?" or "What's my late stage pipeline?"`
+    });
+    this.queryInput.addClass("eudia-intelligence-input");
+    this.queryInput.rows = 3;
+    const actions = contentEl.createDiv({ cls: "eudia-intelligence-actions" });
+    const askButton = actions.createEl("button", { text: "Ask", cls: "eudia-btn-primary" });
+    askButton.onclick = () => this.submitQuery();
+    this.queryInput.onkeydown = (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        this.submitQuery();
+      }
+    };
+    this.responseContainer = contentEl.createDiv({ cls: "eudia-intelligence-response" });
+    this.responseContainer.style.display = "none";
+    const suggestions = contentEl.createDiv({ cls: "eudia-intelligence-suggestions" });
+    suggestions.createEl("p", { text: "Suggested:", cls: "eudia-suggestions-label" });
+    let suggestionList;
+    if (this.accountContext) {
+      suggestionList = [
+        "What should I know before my next meeting?",
+        "Summarize our relationship and deal status",
+        "What are the key pain points?"
+      ];
+    } else {
+      const cachedAccounts = this.plugin.settings.cachedAccounts || [];
+      const sampleAccounts = cachedAccounts.slice(0, 3).map((a) => a.name);
+      if (sampleAccounts.length >= 2) {
+        suggestionList = [
+          `What should I know about ${sampleAccounts[0]} before my next meeting?`,
+          `What's the account history with ${sampleAccounts[1]}?`,
+          `What's my late-stage pipeline?`
+        ];
+      } else {
+        suggestionList = [
+          "What should I know before my next meeting?",
+          "What accounts need attention this week?",
+          "What is my late-stage pipeline?"
+        ];
+      }
+    }
+    suggestionList.forEach((s) => {
+      const btn = suggestions.createEl("button", { text: s, cls: "eudia-suggestion-btn" });
+      btn.onclick = () => {
+        this.queryInput.value = s;
+        this.submitQuery();
+      };
+    });
+    setTimeout(() => this.queryInput.focus(), 100);
+  }
+  async submitQuery() {
+    const query = this.queryInput.value.trim();
+    if (!query)
+      return;
+    this.responseContainer.style.display = "block";
+    const accountMsg = this.accountContext?.name ? ` about ${this.accountContext.name}` : "";
+    this.responseContainer.innerHTML = `<div class="eudia-intelligence-loading">Gathering intelligence${accountMsg}...</div>`;
+    try {
+      const response = await (0, import_obsidian3.requestUrl)({
+        url: `${this.plugin.settings.serverUrl}/api/intelligence/query`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query,
+          accountId: this.accountContext?.id,
+          accountName: this.accountContext?.name,
+          userEmail: this.plugin.settings.userEmail
+        }),
+        throw: false,
+        // Don't throw on HTTP errors - handle them gracefully
+        contentType: "application/json"
+      });
+      if (response.status >= 400) {
+        const errorMsg = response.json?.error || `Server error (${response.status}). Please try again.`;
+        this.responseContainer.innerHTML = `<div class="eudia-intelligence-error">${errorMsg}</div>`;
+        return;
+      }
+      if (response.json?.success) {
+        this.responseContainer.innerHTML = "";
+        const answer = this.responseContainer.createDiv({ cls: "eudia-intelligence-answer" });
+        answer.innerHTML = this.formatResponse(response.json.answer);
+        if (response.json.context) {
+          const ctx = response.json.context;
+          const contextInfo = this.responseContainer.createDiv({ cls: "eudia-intelligence-context-info" });
+          const parts = [];
+          if (ctx.accountName)
+            parts.push(ctx.accountName);
+          if (ctx.opportunityCount > 0)
+            parts.push(`${ctx.opportunityCount} opps`);
+          if (ctx.hasNotes)
+            parts.push("notes");
+          if (ctx.hasCustomerBrain)
+            parts.push("history");
+          const freshness = ctx.dataFreshness === "cached" ? " (cached)" : "";
+          contextInfo.setText(`Based on: ${parts.join(" \u2022 ")}${freshness}`);
+        }
+        if (response.json.performance && process.env.NODE_ENV === "development") {
+          const perfInfo = this.responseContainer.createDiv({ cls: "eudia-intelligence-perf" });
+          perfInfo.setText(`${response.json.performance.durationMs}ms \u2022 ${response.json.performance.tokensUsed} tokens`);
+        }
+      } else {
+        const errorMsg = response.json?.error || "Could not get an answer. Try rephrasing your question.";
+        this.responseContainer.innerHTML = `<div class="eudia-intelligence-error">${errorMsg}</div>`;
+      }
+    } catch (error) {
+      console.error("[GTM Brain] Intelligence query error:", error);
+      let errorMsg = "Unable to connect. Please check your internet connection and try again.";
+      if (error?.message?.includes("timeout")) {
+        errorMsg = "Request timed out. The server may be busy - please try again.";
+      } else if (error?.message?.includes("network") || error?.message?.includes("fetch")) {
+        errorMsg = "Network error. Please check your connection and try again.";
+      }
+      this.responseContainer.innerHTML = `<div class="eudia-intelligence-error">${errorMsg}</div>`;
+    }
+  }
+  formatResponse(text) {
+    return text.replace(/^## (.+)$/gm, '<h3 class="eudia-intel-header">$1</h3>').replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/^[•\-]\s+(.+)$/gm, "<li>$1</li>").replace(/^-\s+\[\s*\]\s+(.+)$/gm, '<li class="eudia-intel-todo">\u2610 $1</li>').replace(/^-\s+\[x\]\s+(.+)$/gm, '<li class="eudia-intel-done">\u2611 $1</li>').replace(/(<li[^>]*>.*?<\/li>\s*)+/g, '<ul class="eudia-intel-list">$&</ul>').replace(/\n/g, "<br>");
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var EudiaSetupView = class extends import_obsidian3.ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.emailInput = null;
+    this.pollInterval = null;
+    this.plugin = plugin;
+    this.accountOwnershipService = new AccountOwnershipService(plugin.settings.serverUrl);
+    this.steps = [
+      {
+        id: "calendar",
+        title: "Connect Your Calendar",
+        description: "View your meetings and create notes with one click",
+        status: "pending"
+      },
+      {
+        id: "salesforce",
+        title: "Connect to Salesforce",
+        description: "Sync notes and access your accounts",
+        status: "pending"
+      },
+      {
+        id: "transcribe",
+        title: "Ready to Transcribe",
+        description: "Record and summarize meetings automatically",
+        status: "pending"
+      }
+    ];
+  }
+  getViewType() {
+    return SETUP_VIEW_TYPE;
+  }
+  getDisplayText() {
+    return "Setup";
+  }
+  getIcon() {
+    return "settings";
+  }
+  async onOpen() {
+    await this.checkExistingStatus();
+    await this.render();
+  }
+  async onClose() {
+    if (this.pollInterval) {
+      window.clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+  }
+  /**
+   * Check existing connection status on load
+   */
+  async checkExistingStatus() {
+    if (this.plugin.settings.userEmail) {
+      this.steps[0].status = "complete";
+      try {
+        const response = await (0, import_obsidian3.requestUrl)({
+          url: `${this.plugin.settings.serverUrl}/api/sf/auth/status?email=${encodeURIComponent(this.plugin.settings.userEmail)}`,
+          method: "GET",
+          throw: false
+        });
+        if (response.json?.authenticated === true) {
+          this.steps[1].status = "complete";
+          this.plugin.settings.salesforceConnected = true;
+        }
+      } catch {
+      }
+      if (this.plugin.settings.accountsImported) {
+        this.steps[2].status = "complete";
+      }
+    }
+  }
+  /**
+   * Calculate completion percentage
+   */
+  getCompletionPercentage() {
+    const completed = this.steps.filter((s) => s.status === "complete").length;
+    return Math.round(completed / this.steps.length * 100);
+  }
+  async render() {
+    const container = this.containerEl.children[1];
+    container.empty();
+    container.addClass("eudia-setup-view");
+    this.renderHeader(container);
+    this.renderSteps(container);
+    this.renderFooter(container);
+  }
+  renderHeader(container) {
+    const header = container.createDiv({ cls: "eudia-setup-header" });
+    const titleSection = header.createDiv({ cls: "eudia-setup-title-section" });
+    titleSection.createEl("h1", { text: "Welcome to Eudia Sales Vault", cls: "eudia-setup-main-title" });
+    titleSection.createEl("p", {
+      text: "Complete these steps to unlock your sales superpowers",
+      cls: "eudia-setup-subtitle"
+    });
+    const progressSection = header.createDiv({ cls: "eudia-setup-progress-section" });
+    const percentage = this.getCompletionPercentage();
+    const progressLabel = progressSection.createDiv({ cls: "eudia-setup-progress-label" });
+    progressLabel.createSpan({ text: "Setup Progress" });
+    progressLabel.createSpan({ text: `${percentage}%`, cls: "eudia-setup-progress-value" });
+    const progressBar = progressSection.createDiv({ cls: "eudia-setup-progress-bar" });
+    const progressFill = progressBar.createDiv({ cls: "eudia-setup-progress-fill" });
+    progressFill.style.width = `${percentage}%`;
+  }
+  renderSteps(container) {
+    const stepsContainer = container.createDiv({ cls: "eudia-setup-steps-container" });
+    this.renderCalendarStep(stepsContainer);
+    this.renderSalesforceStep(stepsContainer);
+    this.renderTranscribeStep(stepsContainer);
+  }
+  renderCalendarStep(container) {
+    const step = this.steps[0];
+    const stepEl = container.createDiv({ cls: `eudia-setup-step-card ${step.status}` });
+    const stepHeader = stepEl.createDiv({ cls: "eudia-setup-step-header" });
+    const stepNumber = stepHeader.createDiv({ cls: "eudia-setup-step-number" });
+    stepNumber.setText(step.status === "complete" ? "" : "1");
+    if (step.status === "complete")
+      stepNumber.addClass("eudia-step-complete");
+    const stepInfo = stepHeader.createDiv({ cls: "eudia-setup-step-info" });
+    stepInfo.createEl("h3", { text: step.title });
+    stepInfo.createEl("p", { text: step.description });
+    const stepContent = stepEl.createDiv({ cls: "eudia-setup-step-content" });
+    if (step.status === "complete") {
+      stepContent.createDiv({
+        cls: "eudia-setup-complete-message",
+        text: `Connected as ${this.plugin.settings.userEmail}`
+      });
+    } else {
+      const inputGroup = stepContent.createDiv({ cls: "eudia-setup-input-group" });
+      this.emailInput = inputGroup.createEl("input", {
+        type: "email",
+        placeholder: "yourname@eudia.com",
+        cls: "eudia-setup-input"
+      });
+      if (this.plugin.settings.userEmail) {
+        this.emailInput.value = this.plugin.settings.userEmail;
+      }
+      const connectBtn = inputGroup.createEl("button", {
+        text: "Connect",
+        cls: "eudia-setup-btn primary"
+      });
+      connectBtn.onclick = async () => {
+        await this.handleCalendarConnect();
+      };
+      this.emailInput.onkeydown = async (e) => {
+        if (e.key === "Enter") {
+          await this.handleCalendarConnect();
+        }
+      };
+      stepContent.createDiv({ cls: "eudia-setup-validation-message" });
+      stepContent.createEl("p", {
+        cls: "eudia-setup-help-text",
+        text: "Your calendar syncs automatically via Microsoft 365. We use your email to identify your meetings."
+      });
+    }
+  }
+  async handleCalendarConnect() {
+    if (!this.emailInput)
+      return;
+    const email = this.emailInput.value.trim().toLowerCase();
+    const validationEl = this.containerEl.querySelector(".eudia-setup-validation-message");
+    if (!email) {
+      if (validationEl) {
+        validationEl.textContent = "Please enter your email";
+        validationEl.className = "eudia-setup-validation-message error";
+      }
+      return;
+    }
+    if (!email.endsWith("@eudia.com")) {
+      if (validationEl) {
+        validationEl.textContent = "Please use your @eudia.com email address";
+        validationEl.className = "eudia-setup-validation-message error";
+      }
+      return;
+    }
+    if (validationEl) {
+      validationEl.textContent = "Validating...";
+      validationEl.className = "eudia-setup-validation-message loading";
+    }
+    try {
+      const response = await (0, import_obsidian3.requestUrl)({
+        url: `${this.plugin.settings.serverUrl}/api/calendar/validate/${encodeURIComponent(email)}`,
+        method: "GET",
+        throw: false
+      });
+      if (response.status === 200 && response.json?.authorized) {
+        this.plugin.settings.userEmail = email;
+        this.plugin.settings.calendarConfigured = true;
+        await this.plugin.saveSettings();
+        this.steps[0].status = "complete";
+        new import_obsidian3.Notice("Calendar connected successfully!");
+        if (validationEl) {
+          validationEl.textContent = "Importing your accounts...";
+          validationEl.className = "eudia-setup-validation-message loading";
+        }
+        try {
+          let accounts;
+          if (isAdminUser(email)) {
+            console.log("[Eudia] Admin user detected - importing all accounts");
+            accounts = await this.accountOwnershipService.getAllAccountsForAdmin(email);
+          } else {
+            accounts = await this.accountOwnershipService.getAccountsForUser(email);
+          }
+          if (accounts.length > 0) {
+            if (isAdminUser(email)) {
+              await this.plugin.createAdminAccountFolders(accounts);
+            } else {
+              await this.plugin.createTailoredAccountFolders(accounts);
+            }
+            this.plugin.settings.accountsImported = true;
+            this.plugin.settings.importedAccountCount = accounts.length;
+            await this.plugin.saveSettings();
+            new import_obsidian3.Notice(`Imported ${accounts.length} account folders!`);
+          }
+        } catch (importError) {
+          console.error("[Eudia] Account import failed:", importError);
+        }
+        await this.render();
+      } else {
+        if (validationEl) {
+          validationEl.innerHTML = `<strong>${email}</strong> is not authorized for calendar access. Contact your admin.`;
+          validationEl.className = "eudia-setup-validation-message error";
+        }
+      }
+    } catch (error) {
+      if (validationEl) {
+        validationEl.textContent = "Connection failed. Please try again.";
+        validationEl.className = "eudia-setup-validation-message error";
+      }
+    }
+  }
+  renderSalesforceStep(container) {
+    const step = this.steps[1];
+    const stepEl = container.createDiv({ cls: `eudia-setup-step-card ${step.status}` });
+    const stepHeader = stepEl.createDiv({ cls: "eudia-setup-step-header" });
+    const stepNumber = stepHeader.createDiv({ cls: "eudia-setup-step-number" });
+    stepNumber.setText(step.status === "complete" ? "" : "2");
+    if (step.status === "complete")
+      stepNumber.addClass("eudia-step-complete");
+    const stepInfo = stepHeader.createDiv({ cls: "eudia-setup-step-info" });
+    stepInfo.createEl("h3", { text: step.title });
+    stepInfo.createEl("p", { text: step.description });
+    const stepContent = stepEl.createDiv({ cls: "eudia-setup-step-content" });
+    if (!this.plugin.settings.userEmail) {
+      stepContent.createDiv({
+        cls: "eudia-setup-disabled-message",
+        text: "Complete the calendar step first"
+      });
+      return;
+    }
+    if (step.status === "complete") {
+      stepContent.createDiv({
+        cls: "eudia-setup-complete-message",
+        text: "Salesforce connected successfully"
+      });
+      if (this.plugin.settings.accountsImported) {
+        stepContent.createDiv({
+          cls: "eudia-setup-account-status",
+          text: `${this.plugin.settings.importedAccountCount} accounts imported`
+        });
+      }
+    } else {
+      const buttonGroup = stepContent.createDiv({ cls: "eudia-setup-button-group" });
+      const sfButton = buttonGroup.createEl("button", {
+        text: "Connect to Salesforce",
+        cls: "eudia-setup-btn primary"
+      });
+      const statusEl = stepContent.createDiv({ cls: "eudia-setup-sf-status" });
+      sfButton.onclick = async () => {
+        const authUrl = `${this.plugin.settings.serverUrl}/api/sf/auth/start?email=${encodeURIComponent(this.plugin.settings.userEmail)}`;
+        window.open(authUrl, "_blank");
+        statusEl.textContent = "Complete the login in the popup window...";
+        statusEl.className = "eudia-setup-sf-status loading";
+        new import_obsidian3.Notice("Complete the Salesforce login in the popup window", 5e3);
+        this.startSalesforcePolling(statusEl);
+      };
+      stepContent.createEl("p", {
+        cls: "eudia-setup-help-text",
+        text: "This links your Obsidian notes to your Salesforce account for automatic sync."
+      });
+    }
+  }
+  startSalesforcePolling(statusEl) {
+    if (this.pollInterval) {
+      window.clearInterval(this.pollInterval);
+    }
+    let attempts = 0;
+    const maxAttempts = 60;
+    this.pollInterval = window.setInterval(async () => {
+      attempts++;
+      try {
+        const response = await (0, import_obsidian3.requestUrl)({
+          url: `${this.plugin.settings.serverUrl}/api/sf/auth/status?email=${encodeURIComponent(this.plugin.settings.userEmail)}`,
+          method: "GET",
+          throw: false
+        });
+        if (response.json?.authenticated === true) {
+          if (this.pollInterval) {
+            window.clearInterval(this.pollInterval);
+            this.pollInterval = null;
+          }
+          this.plugin.settings.salesforceConnected = true;
+          await this.plugin.saveSettings();
+          this.steps[1].status = "complete";
+          new import_obsidian3.Notice("Salesforce connected successfully!");
+          await this.importTailoredAccounts(statusEl);
+          await this.render();
+        } else if (attempts >= maxAttempts) {
+          if (this.pollInterval) {
+            window.clearInterval(this.pollInterval);
+            this.pollInterval = null;
+          }
+          statusEl.textContent = "Connection timed out. Please try again.";
+          statusEl.className = "eudia-setup-sf-status error";
+        }
+      } catch (error) {
+      }
+    }, 5e3);
+  }
+  async importTailoredAccounts(statusEl) {
+    statusEl.textContent = "Importing your accounts...";
+    statusEl.className = "eudia-setup-sf-status loading";
+    try {
+      const userEmail = this.plugin.settings.userEmail;
+      let accounts;
+      if (isAdminUser(userEmail)) {
+        console.log("[Eudia] Admin user detected - importing all accounts");
+        statusEl.textContent = "Admin detected - importing all accounts...";
+        accounts = await this.accountOwnershipService.getAllAccountsForAdmin(userEmail);
+      } else {
+        accounts = await this.accountOwnershipService.getAccountsForUser(userEmail);
+      }
+      if (accounts.length === 0) {
+        statusEl.textContent = "No accounts found for your email. Contact your admin.";
+        statusEl.className = "eudia-setup-sf-status warning";
+        return;
+      }
+      if (isAdminUser(userEmail)) {
+        await this.plugin.createAdminAccountFolders(accounts);
+      } else {
+        await this.plugin.createTailoredAccountFolders(accounts);
+      }
+      this.plugin.settings.accountsImported = true;
+      this.plugin.settings.importedAccountCount = accounts.length;
+      await this.plugin.saveSettings();
+      this.steps[2].status = "complete";
+      const ownedCount = accounts.filter((a) => a.isOwned !== false).length;
+      const viewOnlyCount = accounts.filter((a) => a.isOwned === false).length;
+      if (isAdminUser(userEmail) && viewOnlyCount > 0) {
+        statusEl.textContent = `${ownedCount} owned + ${viewOnlyCount} view-only accounts imported!`;
+      } else {
+        statusEl.textContent = `${accounts.length} accounts imported successfully!`;
+      }
+      statusEl.className = "eudia-setup-sf-status success";
+    } catch (error) {
+      statusEl.textContent = "Failed to import accounts. Please try again.";
+      statusEl.className = "eudia-setup-sf-status error";
+    }
+  }
+  renderTranscribeStep(container) {
+    const step = this.steps[2];
+    const stepEl = container.createDiv({ cls: `eudia-setup-step-card ${step.status}` });
+    const stepHeader = stepEl.createDiv({ cls: "eudia-setup-step-header" });
+    const stepNumber = stepHeader.createDiv({ cls: "eudia-setup-step-number" });
+    stepNumber.setText(step.status === "complete" ? "" : "3");
+    if (step.status === "complete")
+      stepNumber.addClass("eudia-step-complete");
+    const stepInfo = stepHeader.createDiv({ cls: "eudia-setup-step-info" });
+    stepInfo.createEl("h3", { text: step.title });
+    stepInfo.createEl("p", { text: step.description });
+    const stepContent = stepEl.createDiv({ cls: "eudia-setup-step-content" });
+    const instructions = stepContent.createDiv({ cls: "eudia-setup-instructions" });
+    const instruction1 = instructions.createDiv({ cls: "eudia-setup-instruction" });
+    instruction1.createSpan({ cls: "eudia-setup-instruction-icon", text: "\u{1F399}" });
+    instruction1.createSpan({ text: "Click the microphone icon in the left sidebar during a call" });
+    const instruction2 = instructions.createDiv({ cls: "eudia-setup-instruction" });
+    instruction2.createSpan({ cls: "eudia-setup-instruction-icon", text: "\u2328" });
+    instruction2.createSpan({ text: 'Or press Cmd/Ctrl+P and search for "Transcribe Meeting"' });
+    const instruction3 = instructions.createDiv({ cls: "eudia-setup-instruction" });
+    instruction3.createSpan({ cls: "eudia-setup-instruction-icon", text: "\u{1F4DD}" });
+    instruction3.createSpan({ text: "AI will summarize and extract key insights automatically" });
+    if (step.status !== "complete") {
+      stepContent.createEl("p", {
+        cls: "eudia-setup-help-text muted",
+        text: "This step completes automatically after connecting to Salesforce and importing accounts."
+      });
+    }
+  }
+  renderFooter(container) {
+    const footer = container.createDiv({ cls: "eudia-setup-footer" });
+    const allComplete = this.steps.every((s) => s.status === "complete");
+    if (allComplete) {
+      const completionMessage = footer.createDiv({ cls: "eudia-setup-completion" });
+      completionMessage.createEl("h2", { text: "\u{1F389} You're all set!" });
+      completionMessage.createEl("p", { text: "Your sales vault is ready. Click below to start using Eudia." });
+      const finishBtn = footer.createEl("button", {
+        text: "Open Calendar \u2192",
+        cls: "eudia-setup-btn primary large"
+      });
+      finishBtn.onclick = async () => {
+        this.plugin.settings.setupCompleted = true;
+        await this.plugin.saveSettings();
+        this.plugin.app.workspace.detachLeavesOfType(SETUP_VIEW_TYPE);
+        await this.plugin.activateCalendarView();
+      };
+    } else {
+      const skipBtn = footer.createEl("button", {
+        text: "Skip Setup (I'll do this later)",
+        cls: "eudia-setup-btn secondary"
+      });
+      skipBtn.onclick = async () => {
+        this.plugin.settings.setupCompleted = true;
+        await this.plugin.saveSettings();
+        this.plugin.app.workspace.detachLeavesOfType(SETUP_VIEW_TYPE);
+        new import_obsidian3.Notice("You can complete setup anytime from Settings \u2192 Eudia Sync");
+      };
+    }
+    const settingsLink = footer.createEl("a", {
+      text: "Advanced Settings",
+      cls: "eudia-setup-settings-link"
+    });
+    settingsLink.onclick = () => {
+      this.app.setting.open();
+      this.app.setting.openTabById("eudia-sync");
+    };
+  }
+};
+var EudiaCalendarView = class extends import_obsidian3.ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.refreshInterval = null;
+    this.lastError = null;
+    this.plugin = plugin;
+  }
+  getViewType() {
+    return CALENDAR_VIEW_TYPE;
+  }
+  getDisplayText() {
+    return "Calendar";
+  }
+  getIcon() {
+    return "calendar";
+  }
+  async onOpen() {
+    await this.render();
+    this.refreshInterval = window.setInterval(() => this.render(), 5 * 60 * 1e3);
+  }
+  async onClose() {
+    if (this.refreshInterval)
+      window.clearInterval(this.refreshInterval);
+  }
+  async render() {
+    const container = this.containerEl.children[1];
+    container.empty();
+    container.addClass("eudia-calendar-view");
+    if (!this.plugin.settings.userEmail) {
+      this.renderSetupPanel(container);
+      return;
+    }
+    this.renderHeader(container);
+    await this.renderCalendarContent(container);
+  }
+  renderHeader(container) {
+    const header = container.createDiv({ cls: "eudia-calendar-header" });
+    const titleRow = header.createDiv({ cls: "eudia-calendar-title-row" });
+    titleRow.createEl("h4", { text: "Your Meetings" });
+    const actions = titleRow.createDiv({ cls: "eudia-calendar-actions" });
+    const refreshBtn = actions.createEl("button", { cls: "eudia-btn-icon", text: "\u21BB" });
+    refreshBtn.title = "Refresh";
+    refreshBtn.onclick = async () => {
+      refreshBtn.addClass("spinning");
+      await this.render();
+      refreshBtn.removeClass("spinning");
+    };
+    const settingsBtn = actions.createEl("button", { cls: "eudia-btn-icon", text: "\u2699" });
+    settingsBtn.title = "Settings";
+    settingsBtn.onclick = () => {
+      this.app.setting.open();
+      this.app.setting.openTabById("eudia-sync");
+    };
+    const statusBar = header.createDiv({ cls: "eudia-status-bar" });
+    this.renderConnectionStatus(statusBar);
+  }
+  async renderConnectionStatus(container) {
+    const status = {
+      server: "connecting",
+      calendar: "not_configured",
+      salesforce: "not_configured"
+    };
+    const serverUrl = this.plugin.settings.serverUrl;
+    const userEmail = this.plugin.settings.userEmail;
+    try {
+      const healthResponse = await (0, import_obsidian3.requestUrl)({
+        url: `${serverUrl}/api/health`,
+        method: "GET",
+        throw: false
+      });
+      if (healthResponse.status === 200) {
+        status.server = "connected";
+        status.serverMessage = "Server online";
+      } else {
+        status.server = "error";
+        status.serverMessage = "Server unavailable";
+      }
+    } catch {
+      status.server = "error";
+      status.serverMessage = "Cannot reach server";
+    }
+    if (userEmail && status.server === "connected") {
+      try {
+        const validateResponse = await (0, import_obsidian3.requestUrl)({
+          url: `${serverUrl}/api/calendar/validate/${encodeURIComponent(userEmail)}`,
+          method: "GET",
+          throw: false
+        });
+        if (validateResponse.status === 200 && validateResponse.json?.authorized) {
+          status.calendar = "connected";
+          status.calendarMessage = "Calendar synced";
+        } else {
+          status.calendar = "not_authorized";
+          status.calendarMessage = "Not authorized";
+        }
+      } catch {
+        status.calendar = "error";
+        status.calendarMessage = "Error checking access";
+      }
+    }
+    if (userEmail && status.server === "connected") {
+      try {
+        const sfResponse = await (0, import_obsidian3.requestUrl)({
+          url: `${serverUrl}/api/sf/auth/status?email=${encodeURIComponent(userEmail)}`,
+          method: "GET",
+          throw: false
+        });
+        if (sfResponse.status === 200 && sfResponse.json?.connected) {
+          status.salesforce = "connected";
+          status.salesforceMessage = "Salesforce connected";
+        } else {
+          status.salesforce = "not_configured";
+          status.salesforceMessage = "Not connected";
+        }
+      } catch {
+        status.salesforce = "not_configured";
+      }
+    }
+    const indicators = container.createDiv({ cls: "eudia-status-indicators" });
+    const serverDot = indicators.createSpan({ cls: `eudia-status-dot ${status.server}` });
+    serverDot.title = status.serverMessage || "Server";
+    const calendarDot = indicators.createSpan({ cls: `eudia-status-dot ${status.calendar}` });
+    calendarDot.title = status.calendarMessage || "Calendar";
+    const sfDot = indicators.createSpan({ cls: `eudia-status-dot ${status.salesforce}` });
+    sfDot.title = status.salesforceMessage || "Salesforce";
+    const labels = container.createDiv({ cls: "eudia-status-labels" });
+    labels.createSpan({ cls: "eudia-status-label", text: this.plugin.settings.userEmail });
+    if (status.calendar === "not_authorized") {
+      const warning = container.createDiv({ cls: "eudia-status-warning" });
+      warning.innerHTML = `<strong>${userEmail}</strong> is not authorized for calendar access. Contact your admin.`;
+    }
+  }
+  async renderCalendarContent(container) {
+    const contentArea = container.createDiv({ cls: "eudia-calendar-content" });
+    const loadingEl = contentArea.createDiv({ cls: "eudia-calendar-loading" });
+    loadingEl.innerHTML = '<div class="eudia-spinner"></div><span>Loading meetings...</span>';
+    try {
+      const calendarService = new CalendarService(
+        this.plugin.settings.serverUrl,
+        this.plugin.settings.userEmail
+      );
+      const weekData = await calendarService.getWeekMeetings();
+      loadingEl.remove();
+      if (!weekData.success) {
+        this.renderError(contentArea, weekData.error || "Failed to load calendar");
+        return;
+      }
+      const days = Object.keys(weekData.byDay || {}).sort();
+      if (days.length === 0) {
+        this.renderEmptyState(contentArea);
+        return;
+      }
+      await this.renderCurrentMeeting(contentArea, calendarService);
+      for (const day of days) {
+        const meetings = weekData.byDay[day];
+        if (!meetings || meetings.length === 0)
+          continue;
+        this.renderDaySection(contentArea, day, meetings);
+      }
+    } catch (error) {
+      loadingEl.remove();
+      this.renderError(contentArea, error.message || "Failed to load calendar");
+    }
+  }
+  async renderCurrentMeeting(container, calendarService) {
+    try {
+      const current = await calendarService.getCurrentMeeting();
+      if (current.meeting) {
+        const nowCard = container.createDiv({ cls: "eudia-now-card" });
+        if (current.isNow) {
+          nowCard.createDiv({ cls: "eudia-now-badge", text: "\u25CF NOW" });
+        } else {
+          nowCard.createDiv({ cls: "eudia-now-badge soon", text: `In ${current.minutesUntilStart}m` });
+        }
+        const nowContent = nowCard.createDiv({ cls: "eudia-now-content" });
+        nowContent.createEl("div", { cls: "eudia-now-subject", text: current.meeting.subject });
+        if (current.meeting.accountName) {
+          nowContent.createEl("div", { cls: "eudia-now-account", text: current.meeting.accountName });
+        }
+        const nowAction = nowCard.createEl("button", { cls: "eudia-now-action", text: "Create Note" });
+        nowAction.onclick = () => this.createNoteForMeeting(current.meeting);
+      }
+    } catch (e) {
+    }
+  }
+  renderDaySection(container, day, meetings) {
+    const section = container.createDiv({ cls: "eudia-calendar-day" });
+    section.createEl("div", {
+      cls: "eudia-calendar-day-header",
+      text: CalendarService.getDayName(day)
+    });
+    for (const meeting of meetings) {
+      const meetingEl = section.createDiv({
+        cls: `eudia-calendar-meeting ${meeting.isCustomerMeeting ? "customer" : "internal"}`
+      });
+      meetingEl.createEl("div", {
+        cls: "eudia-calendar-time",
+        text: CalendarService.formatTime(meeting.start, this.plugin.settings.timezone)
+      });
+      const details = meetingEl.createDiv({ cls: "eudia-calendar-details" });
+      details.createEl("div", { cls: "eudia-calendar-subject", text: meeting.subject });
+      if (meeting.accountName) {
+        details.createEl("div", { cls: "eudia-calendar-account", text: meeting.accountName });
+      } else if (meeting.attendees && meeting.attendees.length > 0) {
+        const attendeeNames = meeting.attendees.slice(0, 2).map((a) => a.name || a.email?.split("@")[0] || "Unknown").join(", ");
+        details.createEl("div", { cls: "eudia-calendar-attendees", text: attendeeNames });
+      }
+      meetingEl.onclick = () => this.createNoteForMeeting(meeting);
+      meetingEl.title = "Click to create meeting note";
+    }
+  }
+  renderEmptyState(container) {
+    const empty = container.createDiv({ cls: "eudia-calendar-empty" });
+    empty.innerHTML = `
       <div class="eudia-empty-icon" style="font-size: 48px; opacity: 0.5;">&#128197;</div>
       <p class="eudia-empty-title">No meetings this week</p>
       <p class="eudia-empty-subtitle">Enjoy your focus time!</p>
-    `}renderError(e,t){let s=e.createDiv({cls:"eudia-calendar-error"}),a="",i="Unable to load calendar",r="";t.includes("not authorized")||t.includes("403")?(a="\u{1F512}",i="Calendar Access Required",r="Contact your admin to be added to the authorized users list."):t.includes("network")||t.includes("fetch")?(a="\u{1F4E1}",i="Connection Issue",r="Check your internet connection and try again."):(t.includes("server")||t.includes("500"))&&(a="\u{1F527}",i="Server Unavailable",r="The server may be waking up. Try again in 30 seconds."),s.innerHTML=`
-      <div class="eudia-error-icon">${a}</div>
-      <p class="eudia-error-title">${i}</p>
-      <p class="eudia-error-message">${t}</p>
-      ${r?`<p class="eudia-error-action">${r}</p>`:""}
-    `;let o=s.createEl("button",{cls:"eudia-btn-retry",text:"Try Again"});o.onclick=()=>this.render()}renderSetupPanel(e){let t=e.createDiv({cls:"eudia-calendar-setup-panel"});t.innerHTML=`
+    `;
+  }
+  renderError(container, message) {
+    const error = container.createDiv({ cls: "eudia-calendar-error" });
+    let icon = "";
+    let title = "Unable to load calendar";
+    let action = "";
+    if (message.includes("not authorized") || message.includes("403")) {
+      icon = "\u{1F512}";
+      title = "Calendar Access Required";
+      action = "Contact your admin to be added to the authorized users list.";
+    } else if (message.includes("network") || message.includes("fetch")) {
+      icon = "\u{1F4E1}";
+      title = "Connection Issue";
+      action = "Check your internet connection and try again.";
+    } else if (message.includes("server") || message.includes("500")) {
+      icon = "\u{1F527}";
+      title = "Server Unavailable";
+      action = "The server may be waking up. Try again in 30 seconds.";
+    }
+    error.innerHTML = `
+      <div class="eudia-error-icon">${icon}</div>
+      <p class="eudia-error-title">${title}</p>
+      <p class="eudia-error-message">${message}</p>
+      ${action ? `<p class="eudia-error-action">${action}</p>` : ""}
+    `;
+    const retryBtn = error.createEl("button", { cls: "eudia-btn-retry", text: "Try Again" });
+    retryBtn.onclick = () => this.render();
+  }
+  renderSetupPanel(container) {
+    const setup = container.createDiv({ cls: "eudia-calendar-setup-panel" });
+    setup.innerHTML = `
       <div class="eudia-setup-icon" style="font-size: 48px; opacity: 0.5;">&#128197;</div>
       <h3 class="eudia-setup-title">Connect Your Calendar</h3>
       <p class="eudia-setup-desc">Enter your Eudia email to see your meetings and create notes with one click.</p>
-    `;let s=t.createDiv({cls:"eudia-setup-input-group"}),a=s.createEl("input",{type:"email",placeholder:"yourname@eudia.com"});a.addClass("eudia-setup-email");let i=s.createEl("button",{cls:"eudia-setup-connect",text:"Connect"}),r=t.createDiv({cls:"eudia-setup-status"});i.onclick=async()=>{let o=a.value.trim().toLowerCase();if(!o||!o.endsWith("@eudia.com")){r.textContent="Please use your @eudia.com email",r.className="eudia-setup-status error";return}i.disabled=!0,i.textContent="Connecting...",r.textContent="";try{if(!(await(0,l.requestUrl)({url:`${this.plugin.settings.serverUrl}/api/calendar/validate/${o}`,method:"GET"})).json?.authorized){r.innerHTML=`<strong>${o}</strong> is not authorized. Contact your admin to be added.`,r.className="eudia-setup-status error",i.disabled=!1,i.textContent="Connect";return}this.plugin.settings.userEmail=o,this.plugin.settings.calendarConfigured=!0,await this.plugin.saveSettings(),r.textContent="Connected",r.className="eudia-setup-status success",this.plugin.scanLocalAccountFolders().catch(()=>{}),setTimeout(()=>this.render(),500)}catch(c){let u=c.message||"Connection failed";u.includes("403")?r.innerHTML=`<strong>${o}</strong> is not authorized for calendar access.`:r.textContent=u,r.className="eudia-setup-status error",i.disabled=!1,i.textContent="Connect"}},a.onkeydown=o=>{o.key==="Enter"&&i.click()},t.createEl("p",{cls:"eudia-setup-help",text:"Your calendar syncs automatically via Microsoft 365."})}extractAccountFromAttendees(e){if(!e||e.length===0)return null;let t=["gmail.com","outlook.com","hotmail.com","yahoo.com","icloud.com","live.com","msn.com","aol.com","protonmail.com"],s=[];for(let o of e){if(!o.email)continue;let u=o.email.toLowerCase().match(/@([a-z0-9.-]+)/);if(u){let m=u[1];!m.includes("eudia.com")&&!t.includes(m)&&s.push(m)}}if(s.length===0)return null;let a=s[0],i=a.split(".")[0],r=i.charAt(0).toUpperCase()+i.slice(1);return console.log(`[Eudia Calendar] Extracted company "${r}" from attendee domain ${a}`),r}extractAccountFromSubject(e){if(!e)return null;let t=e.match(/^([^\/]+)\s*\/\s*Eudia|Eudia\s*\/\s*([^\/\-|]+)/i);if(t){let a=(t[1]||t[2]||"").trim();if(a.toLowerCase()!=="eudia")return a}let s=e.match(/^Eudia\s*[-–]\s*([^|]+)|^([^-–]+)\s*[-–]\s*Eudia/i);if(s){let i=(s[1]||s[2]||"").trim().replace(/\s+(Connect|Weekly|Call|Meeting|Intro|Demo|Check\s*in|Sync).*$/i,"").trim();if(i.toLowerCase()!=="eudia"&&i.length>0)return i}if(!e.toLowerCase().includes("eudia")){let a=e.match(/^([^-–|]+)/);if(a){let i=a[1].trim();if(i.length>2&&i.length<50)return i}}return null}findAccountFolder(e){if(!e)return null;let t=this.plugin.settings.accountsFolder||"Accounts",s=this.app.vault.getAbstractFileByPath(t);if(!(s instanceof l.TFolder))return console.log(`[Eudia Calendar] Accounts folder "${t}" not found`),null;let a=e.toLowerCase().trim(),i=[];for(let h of s.children)h instanceof l.TFolder&&i.push(h.name);console.log(`[Eudia Calendar] Searching for "${a}" in ${i.length} folders`);let r=i.find(h=>h.toLowerCase()===a);if(r)return console.log(`[Eudia Calendar] Exact match found: ${r}`),`${t}/${r}`;let o=i.find(h=>h.toLowerCase().startsWith(a));if(o)return console.log(`[Eudia Calendar] Folder starts with match: ${o}`),`${t}/${o}`;let c=i.find(h=>a.startsWith(h.toLowerCase()));if(c)return console.log(`[Eudia Calendar] Search starts with folder match: ${c}`),`${t}/${c}`;let u=i.find(h=>{let d=h.toLowerCase();return d.length>=3&&a.includes(d)});if(u)return console.log(`[Eudia Calendar] Search contains folder match: ${u}`),`${t}/${u}`;let m=i.find(h=>{let d=h.toLowerCase();return a.length>=3&&d.includes(a)});return m?(console.log(`[Eudia Calendar] Folder contains search match: ${m}`),`${t}/${m}`):(console.log(`[Eudia Calendar] No folder match found for "${a}"`),null)}async createNoteForMeeting(e){let t=e.start.split("T")[0],s=e.subject.replace(/[<>:"/\\|?*]/g,"_").substring(0,50),a=`${t} - ${s}.md`,i=null,r=e.accountName||null,o=null;if(console.log(`[Eudia Calendar] === Creating note for meeting: "${e.subject}" ===`),console.log(`[Eudia Calendar] Attendees: ${JSON.stringify(e.attendees?.map(d=>d.email)||[])}`),!i&&e.attendees&&e.attendees.length>0){let d=this.extractAccountFromAttendees(e.attendees);console.log(`[Eudia Calendar] Extracted domain company name: "${d||"none"}"`),d&&(i=this.findAccountFolder(d),console.log(`[Eudia Calendar] Domain-based "${d}" -> folder: ${i||"not found"}`),i&&!r&&(r=i.split("/").pop()||d))}if(!i&&e.accountName&&(i=this.findAccountFolder(e.accountName),console.log(`[Eudia Calendar] Server accountName "${e.accountName}" -> folder: ${i||"not found"}`)),!i){let d=this.extractAccountFromSubject(e.subject);d&&(i=this.findAccountFolder(d),console.log(`[Eudia Calendar] Subject-based "${d}" -> folder: ${i||"not found"}`),i&&!r&&(r=i.split("/").pop()||d))}if(!i){let d=this.plugin.settings.accountsFolder||"Accounts";this.app.vault.getAbstractFileByPath(d)instanceof l.TFolder&&(i=d,console.log(`[Eudia Calendar] No match found, using Accounts root: ${i}`))}if(r){let d=this.plugin.settings.cachedAccounts.find(p=>p.name.toLowerCase()===r?.toLowerCase());d&&(o=d.id,r=d.name,console.log(`[Eudia Calendar] Matched to cached account: ${d.name} (${d.id})`))}let c=i?`${i}/${a}`:a,u=this.app.vault.getAbstractFileByPath(c);if(u instanceof l.TFile){await this.app.workspace.getLeaf().openFile(u),new l.Notice(`Opened existing note: ${a}`);return}let m=(e.attendees||[]).map(d=>d.name||d.email?.split("@")[0]||"Unknown").slice(0,5).join(", "),h=`---
-title: "${e.subject}"
-date: ${t}
-attendees: [${m}]
-account: "${r||""}"
-account_id: "${o||""}"
-meeting_start: ${e.start}
+    `;
+    const inputGroup = setup.createDiv({ cls: "eudia-setup-input-group" });
+    const emailInput = inputGroup.createEl("input", {
+      type: "email",
+      placeholder: "yourname@eudia.com"
+    });
+    emailInput.addClass("eudia-setup-email");
+    const connectBtn = inputGroup.createEl("button", { cls: "eudia-setup-connect", text: "Connect" });
+    const statusEl = setup.createDiv({ cls: "eudia-setup-status" });
+    connectBtn.onclick = async () => {
+      const email = emailInput.value.trim().toLowerCase();
+      if (!email || !email.endsWith("@eudia.com")) {
+        statusEl.textContent = "Please use your @eudia.com email";
+        statusEl.className = "eudia-setup-status error";
+        return;
+      }
+      connectBtn.disabled = true;
+      connectBtn.textContent = "Connecting...";
+      statusEl.textContent = "";
+      try {
+        const response = await (0, import_obsidian3.requestUrl)({
+          url: `${this.plugin.settings.serverUrl}/api/calendar/validate/${email}`,
+          method: "GET"
+        });
+        if (!response.json?.authorized) {
+          statusEl.innerHTML = `<strong>${email}</strong> is not authorized. Contact your admin to be added.`;
+          statusEl.className = "eudia-setup-status error";
+          connectBtn.disabled = false;
+          connectBtn.textContent = "Connect";
+          return;
+        }
+        this.plugin.settings.userEmail = email;
+        this.plugin.settings.calendarConfigured = true;
+        await this.plugin.saveSettings();
+        statusEl.textContent = "Connected";
+        statusEl.className = "eudia-setup-status success";
+        this.plugin.scanLocalAccountFolders().catch(() => {
+        });
+        setTimeout(() => this.render(), 500);
+      } catch (error) {
+        const msg = error.message || "Connection failed";
+        if (msg.includes("403")) {
+          statusEl.innerHTML = `<strong>${email}</strong> is not authorized for calendar access.`;
+        } else {
+          statusEl.textContent = msg;
+        }
+        statusEl.className = "eudia-setup-status error";
+        connectBtn.disabled = false;
+        connectBtn.textContent = "Connect";
+      }
+    };
+    emailInput.onkeydown = (e) => {
+      if (e.key === "Enter")
+        connectBtn.click();
+    };
+    setup.createEl("p", {
+      cls: "eudia-setup-help",
+      text: "Your calendar syncs automatically via Microsoft 365."
+    });
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+  // SMART ACCOUNT MATCHING METHODS
+  // ─────────────────────────────────────────────────────────────────────────
+  /**
+   * Extract company name from attendee email domains
+   * Higher confidence than subject parsing since emails are definitive
+   * Returns the company name derived from the domain (e.g., chsinc.com -> Chsinc)
+   */
+  extractAccountFromAttendees(attendees) {
+    if (!attendees || attendees.length === 0)
+      return null;
+    const commonProviders = [
+      "gmail.com",
+      "outlook.com",
+      "hotmail.com",
+      "yahoo.com",
+      "icloud.com",
+      "live.com",
+      "msn.com",
+      "aol.com",
+      "protonmail.com"
+    ];
+    const externalDomains = [];
+    for (const attendee of attendees) {
+      if (!attendee.email)
+        continue;
+      const email = attendee.email.toLowerCase();
+      const domainMatch = email.match(/@([a-z0-9.-]+)/);
+      if (domainMatch) {
+        const domain2 = domainMatch[1];
+        if (!domain2.includes("eudia.com") && !commonProviders.includes(domain2)) {
+          externalDomains.push(domain2);
+        }
+      }
+    }
+    if (externalDomains.length === 0)
+      return null;
+    const domain = externalDomains[0];
+    const companyPart = domain.split(".")[0];
+    const companyName = companyPart.charAt(0).toUpperCase() + companyPart.slice(1);
+    console.log(`[Eudia Calendar] Extracted company "${companyName}" from attendee domain ${domain}`);
+    return companyName;
+  }
+  /**
+   * Extract account name from meeting subject using common patterns
+   * Examples:
+   *   "CHS/Eudia - M&A Intro & Demo" -> "CHS"
+   *   "Graybar/Eudia Weekly Check in" -> "Graybar"
+   *   "Eudia - HATCo Connect | Intros" -> "HATCo"
+   */
+  extractAccountFromSubject(subject) {
+    if (!subject)
+      return null;
+    const slashPattern = subject.match(/^([^\/]+)\s*\/\s*Eudia|Eudia\s*\/\s*([^\/\-|]+)/i);
+    if (slashPattern) {
+      const match = (slashPattern[1] || slashPattern[2] || "").trim();
+      if (match.toLowerCase() !== "eudia")
+        return match;
+    }
+    const dashPattern = subject.match(/^Eudia\s*[-–]\s*([^|]+)|^([^-–]+)\s*[-–]\s*Eudia/i);
+    if (dashPattern) {
+      const match = (dashPattern[1] || dashPattern[2] || "").trim();
+      const cleaned = match.replace(/\s+(Connect|Weekly|Call|Meeting|Intro|Demo|Check\s*in|Sync).*$/i, "").trim();
+      if (cleaned.toLowerCase() !== "eudia" && cleaned.length > 0)
+        return cleaned;
+    }
+    if (!subject.toLowerCase().includes("eudia")) {
+      const simplePattern = subject.match(/^([^-–|]+)/);
+      if (simplePattern) {
+        const match = simplePattern[1].trim();
+        if (match.length > 2 && match.length < 50)
+          return match;
+      }
+    }
+    return null;
+  }
+  /**
+   * Find matching account folder in the vault
+   * Uses multiple matching strategies for robustness
+   * Returns the full path if found, null otherwise
+   */
+  findAccountFolder(accountName) {
+    if (!accountName)
+      return null;
+    const accountsFolder = this.plugin.settings.accountsFolder || "Accounts";
+    const folder = this.app.vault.getAbstractFileByPath(accountsFolder);
+    if (!(folder instanceof import_obsidian3.TFolder)) {
+      console.log(`[Eudia Calendar] Accounts folder "${accountsFolder}" not found`);
+      return null;
+    }
+    const normalizedSearch = accountName.toLowerCase().trim();
+    const subfolders = [];
+    for (const child of folder.children) {
+      if (child instanceof import_obsidian3.TFolder) {
+        subfolders.push(child.name);
+      }
+    }
+    console.log(`[Eudia Calendar] Searching for "${normalizedSearch}" in ${subfolders.length} folders`);
+    const exactMatch = subfolders.find((f) => f.toLowerCase() === normalizedSearch);
+    if (exactMatch) {
+      console.log(`[Eudia Calendar] Exact match found: ${exactMatch}`);
+      return `${accountsFolder}/${exactMatch}`;
+    }
+    const folderStartsWith = subfolders.find((f) => f.toLowerCase().startsWith(normalizedSearch));
+    if (folderStartsWith) {
+      console.log(`[Eudia Calendar] Folder starts with match: ${folderStartsWith}`);
+      return `${accountsFolder}/${folderStartsWith}`;
+    }
+    const searchStartsWith = subfolders.find((f) => normalizedSearch.startsWith(f.toLowerCase()));
+    if (searchStartsWith) {
+      console.log(`[Eudia Calendar] Search starts with folder match: ${searchStartsWith}`);
+      return `${accountsFolder}/${searchStartsWith}`;
+    }
+    const searchContains = subfolders.find((f) => {
+      const folderLower = f.toLowerCase();
+      return folderLower.length >= 3 && normalizedSearch.includes(folderLower);
+    });
+    if (searchContains) {
+      console.log(`[Eudia Calendar] Search contains folder match: ${searchContains}`);
+      return `${accountsFolder}/${searchContains}`;
+    }
+    const folderContains = subfolders.find((f) => {
+      const folderLower = f.toLowerCase();
+      return normalizedSearch.length >= 3 && folderLower.includes(normalizedSearch);
+    });
+    if (folderContains) {
+      console.log(`[Eudia Calendar] Folder contains search match: ${folderContains}`);
+      return `${accountsFolder}/${folderContains}`;
+    }
+    console.log(`[Eudia Calendar] No folder match found for "${normalizedSearch}"`);
+    return null;
+  }
+  async createNoteForMeeting(meeting) {
+    const dateStr = meeting.start.split("T")[0];
+    const safeName = meeting.subject.replace(/[<>:"/\\|?*]/g, "_").substring(0, 50);
+    const fileName = `${dateStr} - ${safeName}.md`;
+    let targetFolder = null;
+    let matchedAccountName = meeting.accountName || null;
+    let matchedAccountId = null;
+    console.log(`[Eudia Calendar] === Creating note for meeting: "${meeting.subject}" ===`);
+    console.log(`[Eudia Calendar] Attendees: ${JSON.stringify(meeting.attendees?.map((a) => a.email) || [])}`);
+    if (!targetFolder && meeting.attendees && meeting.attendees.length > 0) {
+      const domainName = this.extractAccountFromAttendees(meeting.attendees);
+      console.log(`[Eudia Calendar] Extracted domain company name: "${domainName || "none"}"`);
+      if (domainName) {
+        targetFolder = this.findAccountFolder(domainName);
+        console.log(`[Eudia Calendar] Domain-based "${domainName}" -> folder: ${targetFolder || "not found"}`);
+        if (targetFolder && !matchedAccountName) {
+          matchedAccountName = targetFolder.split("/").pop() || domainName;
+        }
+      }
+    }
+    if (!targetFolder && meeting.accountName) {
+      targetFolder = this.findAccountFolder(meeting.accountName);
+      console.log(`[Eudia Calendar] Server accountName "${meeting.accountName}" -> folder: ${targetFolder || "not found"}`);
+    }
+    if (!targetFolder) {
+      const extractedName = this.extractAccountFromSubject(meeting.subject);
+      if (extractedName) {
+        targetFolder = this.findAccountFolder(extractedName);
+        console.log(`[Eudia Calendar] Subject-based "${extractedName}" -> folder: ${targetFolder || "not found"}`);
+        if (targetFolder && !matchedAccountName) {
+          matchedAccountName = targetFolder.split("/").pop() || extractedName;
+        }
+      }
+    }
+    if (!targetFolder) {
+      const accountsFolder = this.plugin.settings.accountsFolder || "Accounts";
+      const folder = this.app.vault.getAbstractFileByPath(accountsFolder);
+      if (folder instanceof import_obsidian3.TFolder) {
+        targetFolder = accountsFolder;
+        console.log(`[Eudia Calendar] No match found, using Accounts root: ${targetFolder}`);
+      }
+    }
+    if (matchedAccountName) {
+      const cachedAccount = this.plugin.settings.cachedAccounts.find(
+        (a) => a.name.toLowerCase() === matchedAccountName?.toLowerCase()
+      );
+      if (cachedAccount) {
+        matchedAccountId = cachedAccount.id;
+        matchedAccountName = cachedAccount.name;
+        console.log(`[Eudia Calendar] Matched to cached account: ${cachedAccount.name} (${cachedAccount.id})`);
+      }
+    }
+    const filePath = targetFolder ? `${targetFolder}/${fileName}` : fileName;
+    const existing = this.app.vault.getAbstractFileByPath(filePath);
+    if (existing instanceof import_obsidian3.TFile) {
+      await this.app.workspace.getLeaf().openFile(existing);
+      new import_obsidian3.Notice(`Opened existing note: ${fileName}`);
+      return;
+    }
+    const attendeeList = (meeting.attendees || []).map((a) => a.name || a.email?.split("@")[0] || "Unknown").slice(0, 5).join(", ");
+    const template = `---
+title: "${meeting.subject}"
+date: ${dateStr}
+attendees: [${attendeeList}]
+account: "${matchedAccountName || ""}"
+account_id: "${matchedAccountId || ""}"
+meeting_start: ${meeting.start}
 meeting_type: discovery
 sync_to_salesforce: false
 clo_meeting: false
@@ -347,11 +4120,10 @@ source: ""
 transcribed: false
 ---
 
-# ${e.subject}
+# ${meeting.subject}
 
 ## Attendees
-${(e.attendees||[]).map(d=>`- ${d.name||d.email}`).join(`
-`)}
+${(meeting.attendees || []).map((a) => `- ${a.name || a.email}`).join("\n")}
 
 ## Pre-Call Notes
 
@@ -367,15 +4139,198 @@ Click the **microphone icon** in the sidebar or use \`Cmd/Ctrl+P\` \u2192 **"Tra
 
 ---
 
-`;try{let d=await this.app.vault.create(c,h);await this.app.workspace.getLeaf().openFile(d),new l.Notice(`Created: ${c}`)}catch(d){console.error("[Eudia Calendar] Failed to create note:",d),new l.Notice(`Could not create note: ${d.message||"Unknown error"}`)}}},L=class extends l.Plugin{constructor(){super(...arguments);this.audioRecorder=null;this.recordingStatusBar=null}async onload(){await this.loadSettings(),this.transcriptionService=new N(this.settings.serverUrl,this.settings.openaiApiKey),this.calendarService=new S(this.settings.serverUrl,this.settings.userEmail),this.smartTagService=new P,this.registerView(x,e=>new _(e,this)),this.registerView(b,e=>new O(e,this)),this.addRibbonIcon("calendar","Open Calendar",()=>this.activateCalendarView()),this.addRibbonIcon("microphone","Transcribe Meeting",async()=>{this.audioRecorder?.isRecording()?await this.stopRecording():await this.startRecording()}),this.addCommand({id:"transcribe-meeting",name:"Transcribe Meeting",callback:async()=>{this.audioRecorder?.isRecording()?await this.stopRecording():await this.startRecording()}}),this.addCommand({id:"open-calendar",name:"Open Calendar",callback:()=>this.activateCalendarView()}),this.addCommand({id:"sync-accounts",name:"Sync Salesforce Accounts",callback:()=>this.syncAccounts()}),this.addCommand({id:"sync-note",name:"Sync Note to Salesforce",callback:()=>this.syncNoteToSalesforce()}),this.addCommand({id:"new-meeting-note",name:"New Meeting Note",callback:()=>this.createMeetingNote()}),this.addCommand({id:"ask-gtm-brain",name:"Ask gtm-brain",callback:()=>this.openIntelligenceQueryForCurrentNote()}),this.addSettingTab(new H(this.app,this)),this.registerEditorSuggest(new F(this.app,this)),this.app.workspace.onLayoutReady(async()=>{if(this.settings.setupCompleted){if(this.settings.syncOnStartup){if(await this.scanLocalAccountFolders(),this.settings.userEmail){let e=new Date().toISOString().split("T")[0];if(this.settings.lastAccountRefreshDate!==e)try{console.log("[Eudia] Daily account folder refresh - checking for new assignments...");let t=await this.refreshAccountFolders();this.settings.lastAccountRefreshDate=e,await this.saveSettings(),t>0&&new l.Notice(`${t} new account folder(s) synced from Salesforce`)}catch{console.log("[Eudia] Daily refresh skipped (server unreachable), will retry tomorrow")}}this.settings.showCalendarView&&this.settings.userEmail&&await this.activateCalendarView()}}else{await new Promise(t=>setTimeout(t,100));let e=document.querySelector(".modal-container .modal");if(e){let t=e.querySelector(".modal-close-button");t&&t.click()}await this.activateSetupView()}})}async onunload(){this.app.workspace.detachLeavesOfType(x)}async loadSettings(){this.settings=Object.assign({},ae,await this.loadData())}async saveSettings(){await this.saveData(this.settings)}async activateCalendarView(){let e=this.app.workspace,t=e.getLeavesOfType(x);if(t.length>0)e.revealLeaf(t[0]);else{let s=e.getRightLeaf(!1);s&&(await s.setViewState({type:x,active:!0}),e.revealLeaf(s))}}async activateSetupView(){let e=this.app.workspace,t=e.getLeavesOfType(b);if(t.length>0)e.revealLeaf(t[0]);else{let s=e.getLeaf(!0);s&&(await s.setViewState({type:b,active:!0}),e.revealLeaf(s))}}async createTailoredAccountFolders(e){let t=this.settings.accountsFolder||"Accounts";this.app.vault.getAbstractFileByPath(t)||await this.app.vault.createFolder(t);let a=0;for(let i of e){let r=i.name.replace(/[<>:"/\\|?*]/g,"_").trim(),o=`${t}/${r}`;if(this.app.vault.getAbstractFileByPath(o)instanceof l.TFolder){console.log(`[Eudia] Account folder already exists: ${r}`);continue}try{await this.app.vault.createFolder(o);let u=new Date().toISOString().split("T")[0],m=[{name:"Note 1.md",content:`---
-account: "${i.name}"
-account_id: "${i.id}"
+`;
+    try {
+      const file = await this.app.vault.create(filePath, template);
+      await this.app.workspace.getLeaf().openFile(file);
+      new import_obsidian3.Notice(`Created: ${filePath}`);
+    } catch (e) {
+      console.error("[Eudia Calendar] Failed to create note:", e);
+      new import_obsidian3.Notice(`Could not create note: ${e.message || "Unknown error"}`);
+    }
+  }
+};
+var EudiaSyncPlugin = class extends import_obsidian3.Plugin {
+  constructor() {
+    super(...arguments);
+    this.audioRecorder = null;
+    this.recordingStatusBar = null;
+  }
+  async onload() {
+    await this.loadSettings();
+    this.transcriptionService = new TranscriptionService(
+      this.settings.serverUrl,
+      this.settings.openaiApiKey
+    );
+    this.calendarService = new CalendarService(
+      this.settings.serverUrl,
+      this.settings.userEmail
+    );
+    this.smartTagService = new SmartTagService();
+    this.registerView(
+      CALENDAR_VIEW_TYPE,
+      (leaf) => new EudiaCalendarView(leaf, this)
+    );
+    this.registerView(
+      SETUP_VIEW_TYPE,
+      (leaf) => new EudiaSetupView(leaf, this)
+    );
+    this.addRibbonIcon("calendar", "Open Calendar", () => this.activateCalendarView());
+    this.addRibbonIcon("microphone", "Transcribe Meeting", async () => {
+      if (this.audioRecorder?.isRecording()) {
+        await this.stopRecording();
+      } else {
+        await this.startRecording();
+      }
+    });
+    this.addCommand({
+      id: "transcribe-meeting",
+      name: "Transcribe Meeting",
+      callback: async () => {
+        if (this.audioRecorder?.isRecording()) {
+          await this.stopRecording();
+        } else {
+          await this.startRecording();
+        }
+      }
+    });
+    this.addCommand({
+      id: "open-calendar",
+      name: "Open Calendar",
+      callback: () => this.activateCalendarView()
+    });
+    this.addCommand({
+      id: "sync-accounts",
+      name: "Sync Salesforce Accounts",
+      callback: () => this.syncAccounts()
+    });
+    this.addCommand({
+      id: "sync-note",
+      name: "Sync Note to Salesforce",
+      callback: () => this.syncNoteToSalesforce()
+    });
+    this.addCommand({
+      id: "new-meeting-note",
+      name: "New Meeting Note",
+      callback: () => this.createMeetingNote()
+    });
+    this.addCommand({
+      id: "ask-gtm-brain",
+      name: "Ask gtm-brain",
+      callback: () => this.openIntelligenceQueryForCurrentNote()
+    });
+    this.addSettingTab(new EudiaSyncSettingTab(this.app, this));
+    this.registerEditorSuggest(new AccountSuggester(this.app, this));
+    this.app.workspace.onLayoutReady(async () => {
+      if (!this.settings.setupCompleted) {
+        await new Promise((r) => setTimeout(r, 100));
+        const settingModal = document.querySelector(".modal-container .modal");
+        if (settingModal) {
+          const closeBtn = settingModal.querySelector(".modal-close-button");
+          if (closeBtn)
+            closeBtn.click();
+        }
+        await this.activateSetupView();
+      } else if (this.settings.syncOnStartup) {
+        await this.scanLocalAccountFolders();
+        if (this.settings.userEmail) {
+          const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+          if (this.settings.lastAccountRefreshDate !== today) {
+            try {
+              console.log("[Eudia] Daily account folder refresh - checking for new assignments...");
+              const newCount = await this.refreshAccountFolders();
+              this.settings.lastAccountRefreshDate = today;
+              await this.saveSettings();
+              if (newCount > 0) {
+                new import_obsidian3.Notice(`${newCount} new account folder(s) synced from Salesforce`);
+              }
+            } catch (e) {
+              console.log("[Eudia] Daily refresh skipped (server unreachable), will retry tomorrow");
+            }
+          }
+        }
+        if (this.settings.showCalendarView && this.settings.userEmail) {
+          await this.activateCalendarView();
+        }
+      }
+    });
+  }
+  async onunload() {
+    this.app.workspace.detachLeavesOfType(CALENDAR_VIEW_TYPE);
+  }
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+  async saveSettings() {
+    await this.saveData(this.settings);
+  }
+  async activateCalendarView() {
+    const workspace = this.app.workspace;
+    const leaves = workspace.getLeavesOfType(CALENDAR_VIEW_TYPE);
+    if (leaves.length > 0) {
+      workspace.revealLeaf(leaves[0]);
+    } else {
+      const rightLeaf = workspace.getRightLeaf(false);
+      if (rightLeaf) {
+        await rightLeaf.setViewState({ type: CALENDAR_VIEW_TYPE, active: true });
+        workspace.revealLeaf(rightLeaf);
+      }
+    }
+  }
+  /**
+   * Open the setup view in the main content area
+   * This provides a full-page onboarding experience for new users
+   */
+  async activateSetupView() {
+    const workspace = this.app.workspace;
+    const leaves = workspace.getLeavesOfType(SETUP_VIEW_TYPE);
+    if (leaves.length > 0) {
+      workspace.revealLeaf(leaves[0]);
+    } else {
+      const leaf = workspace.getLeaf(true);
+      if (leaf) {
+        await leaf.setViewState({ type: SETUP_VIEW_TYPE, active: true });
+        workspace.revealLeaf(leaf);
+      }
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+  // TAILORED ACCOUNT FOLDER CREATION
+  // ─────────────────────────────────────────────────────────────────────────
+  /**
+   * Create account folders for the user's owned accounts only.
+   * This provides a tailored vault experience based on account ownership.
+   */
+  async createTailoredAccountFolders(accounts) {
+    const accountsFolder = this.settings.accountsFolder || "Accounts";
+    const existingFolder = this.app.vault.getAbstractFileByPath(accountsFolder);
+    if (!existingFolder) {
+      await this.app.vault.createFolder(accountsFolder);
+    }
+    let createdCount = 0;
+    for (const account of accounts) {
+      const safeName = account.name.replace(/[<>:"/\\|?*]/g, "_").trim();
+      const folderPath = `${accountsFolder}/${safeName}`;
+      const existing = this.app.vault.getAbstractFileByPath(folderPath);
+      if (existing instanceof import_obsidian3.TFolder) {
+        console.log(`[Eudia] Account folder already exists: ${safeName}`);
+        continue;
+      }
+      try {
+        await this.app.vault.createFolder(folderPath);
+        const dateStr = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+        const subnotes = [
+          {
+            name: "Note 1.md",
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
 type: meeting_note
 sync_to_salesforce: false
-created: ${u}
+created: ${dateStr}
 ---
 
-# ${i.name} - Meeting Note
+# ${account.name} - Meeting Note
 
 **Date:** 
 **Attendees:** 
@@ -392,15 +4347,19 @@ created: ${u}
 
 - [ ] 
 
-`},{name:"Note 2.md",content:`---
-account: "${i.name}"
-account_id: "${i.id}"
+`
+          },
+          {
+            name: "Note 2.md",
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
 type: meeting_note
 sync_to_salesforce: false
-created: ${u}
+created: ${dateStr}
 ---
 
-# ${i.name} - Meeting Note
+# ${account.name} - Meeting Note
 
 **Date:** 
 **Attendees:** 
@@ -417,15 +4376,19 @@ created: ${u}
 
 - [ ] 
 
-`},{name:"Note 3.md",content:`---
-account: "${i.name}"
-account_id: "${i.id}"
+`
+          },
+          {
+            name: "Note 3.md",
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
 type: meeting_note
 sync_to_salesforce: false
-created: ${u}
+created: ${dateStr}
 ---
 
-# ${i.name} - Meeting Note
+# ${account.name} - Meeting Note
 
 **Date:** 
 **Attendees:** 
@@ -442,14 +4405,18 @@ created: ${u}
 
 - [ ] 
 
-`},{name:"Meeting Notes.md",content:`---
-account: "${i.name}"
-account_id: "${i.id}"
+`
+          },
+          {
+            name: "Meeting Notes.md",
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
 type: meetings_index
 sync_to_salesforce: false
 ---
 
-# ${i.name} - Meeting Notes
+# ${account.name} - Meeting Notes
 
 *Use Note 1, Note 2, Note 3 for your meeting notes. When full, create additional notes.*
 
@@ -465,14 +4432,18 @@ sync_to_salesforce: false
 2. Click the **microphone** to record and transcribe
 3. **Next Steps** are auto-extracted after transcription
 4. Set \`sync_to_salesforce: true\` to sync to Salesforce
-`},{name:"Contacts.md",content:`---
-account: "${i.name}"
-account_id: "${i.id}"
+`
+          },
+          {
+            name: "Contacts.md",
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
 type: contacts
 sync_to_salesforce: false
 ---
 
-# ${i.name} - Key Contacts
+# ${account.name} - Key Contacts
 
 | Name | Title | Email | Phone | Notes |
 |------|-------|-------|-------|-------|
@@ -485,14 +4456,18 @@ sync_to_salesforce: false
 ## Contact History
 
 *Log key interactions and relationship developments.*
-`},{name:"Intelligence.md",content:`---
-account: "${i.name}"
-account_id: "${i.id}"
+`
+          },
+          {
+            name: "Intelligence.md",
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
 type: intelligence
 sync_to_salesforce: false
 ---
 
-# ${i.name} - Account Intelligence
+# ${account.name} - Account Intelligence
 
 ## Company Overview
 
@@ -513,16 +4488,20 @@ sync_to_salesforce: false
 ## News & Signals
 
 *Recent news, earnings mentions, leadership changes.*
-`},{name:"Next Steps.md",content:`---
-account: "${i.name}"
-account_id: "${i.id}"
+`
+          },
+          {
+            name: "Next Steps.md",
+            content: `---
+account: "${account.name}"
+account_id: "${account.id}"
 type: next_steps
 auto_updated: true
-last_updated: ${u}
+last_updated: ${dateStr}
 sync_to_salesforce: false
 ---
 
-# ${i.name} - Next Steps
+# ${account.name} - Next Steps
 
 *This note is automatically updated after each meeting transcription.*
 
@@ -535,40 +4514,124 @@ sync_to_salesforce: false
 ## History
 
 *Previous next steps will be archived here.*
-`}];for(let h of m){let d=`${o}/${h.name}`;await this.app.vault.create(d,h.content)}a++,console.log(`[Eudia] Created account folder with subnotes: ${r}`)}catch(u){console.error(`[Eudia] Failed to create folder for ${r}:`,u)}}this.settings.cachedAccounts=e.map(i=>({id:i.id,name:i.name})),await this.saveSettings(),a>0&&new l.Notice(`Created ${a} account folders`),await this.ensureNextStepsFolderExists()}async createAdminAccountFolders(e){let t=this.settings.accountsFolder||"Accounts";this.app.vault.getAbstractFileByPath(t)||await this.app.vault.createFolder(t),await this.ensurePipelineFolderExists();let a=0,i=0,r=new Date().toISOString().split("T")[0];for(let o of e){let c=o.name.replace(/[<>:"/\\|?*]/g,"_").trim(),u=`${t}/${c}`;if(!(this.app.vault.getAbstractFileByPath(u)instanceof l.TFolder))try{await this.app.vault.createFolder(u),o.isOwned?(await this.createFullAccountSubnotes(u,o,r),a++):(await this.createViewOnlyAccountNote(u,o,r),i++),console.log(`[Eudia Admin] Created ${o.isOwned?"owned":"view-only"} folder: ${c}`)}catch(h){console.error(`[Eudia Admin] Failed to create folder for ${c}:`,h)}}this.settings.cachedAccounts=e.map(o=>({id:o.id,name:o.name})),await this.saveSettings(),a+i>0&&new l.Notice(`Created ${a} owned + ${i} view-only account folders`),await this.ensureNextStepsFolderExists()}async createViewOnlyAccountNote(e,t,s){let a=t.ownerName||"Unknown",i=`---
-account: "${t.name}"
-account_id: "${t.id}"
+`
+          }
+        ];
+        for (const subnote of subnotes) {
+          const notePath = `${folderPath}/${subnote.name}`;
+          await this.app.vault.create(notePath, subnote.content);
+        }
+        createdCount++;
+        console.log(`[Eudia] Created account folder with subnotes: ${safeName}`);
+      } catch (error) {
+        console.error(`[Eudia] Failed to create folder for ${safeName}:`, error);
+      }
+    }
+    this.settings.cachedAccounts = accounts.map((a) => ({
+      id: a.id,
+      name: a.name
+    }));
+    await this.saveSettings();
+    if (createdCount > 0) {
+      new import_obsidian3.Notice(`Created ${createdCount} account folders`);
+    }
+    await this.ensureNextStepsFolderExists();
+  }
+  /**
+   * Create account folders for admin users with ALL accounts.
+   * Owned accounts get full folder structure, view-only get minimal read-only structure.
+   */
+  async createAdminAccountFolders(accounts) {
+    const accountsFolder = this.settings.accountsFolder || "Accounts";
+    const existingFolder = this.app.vault.getAbstractFileByPath(accountsFolder);
+    if (!existingFolder) {
+      await this.app.vault.createFolder(accountsFolder);
+    }
+    await this.ensurePipelineFolderExists();
+    let createdOwned = 0;
+    let createdViewOnly = 0;
+    const dateStr = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+    for (const account of accounts) {
+      const safeName = account.name.replace(/[<>:"/\\|?*]/g, "_").trim();
+      const folderPath = `${accountsFolder}/${safeName}`;
+      const existing = this.app.vault.getAbstractFileByPath(folderPath);
+      if (existing instanceof import_obsidian3.TFolder) {
+        continue;
+      }
+      try {
+        await this.app.vault.createFolder(folderPath);
+        if (account.isOwned) {
+          await this.createFullAccountSubnotes(folderPath, account, dateStr);
+          createdOwned++;
+        } else {
+          await this.createViewOnlyAccountNote(folderPath, account, dateStr);
+          createdViewOnly++;
+        }
+        console.log(`[Eudia Admin] Created ${account.isOwned ? "owned" : "view-only"} folder: ${safeName}`);
+      } catch (error) {
+        console.error(`[Eudia Admin] Failed to create folder for ${safeName}:`, error);
+      }
+    }
+    this.settings.cachedAccounts = accounts.map((a) => ({
+      id: a.id,
+      name: a.name
+    }));
+    await this.saveSettings();
+    if (createdOwned + createdViewOnly > 0) {
+      new import_obsidian3.Notice(`Created ${createdOwned} owned + ${createdViewOnly} view-only account folders`);
+    }
+    await this.ensureNextStepsFolderExists();
+  }
+  /**
+   * Create view-only account note for admins
+   */
+  async createViewOnlyAccountNote(folderPath, account, dateStr) {
+    const ownerName = account.ownerName || "Unknown";
+    const content = `---
+account: "${account.name}"
+account_id: "${account.id}"
 type: view_only
-owner: "${a}"
+owner: "${ownerName}"
 read_only: true
-created: ${s}
+created: ${dateStr}
 ---
 
-# ${t.name}
+# ${account.name}
 
-> **View-Only Account** - Owned by ${a}
+> **View-Only Account** - Owned by ${ownerName}
 
 This account is owned by another team member. You can view notes here but primary updates should come from the account owner.
 
 ## Account Owner
-**${a}**
+**${ownerName}**
 
 ## Quick Info
-- Account ID: \`${t.id}\`
-- Type: ${t.type||"Prospect"}
+- Account ID: \`${account.id}\`
+- Type: ${account.type || "Prospect"}
 
 ---
 
-*To see recent activity, check Salesforce or reach out to ${a}.*
-`,r=`${e}/_Account Info.md`;await this.app.vault.create(r,i)}async createFullAccountSubnotes(e,t,s){let a=[{name:"Note 1.md",content:`---
-account: "${t.name}"
-account_id: "${t.id}"
+*To see recent activity, check Salesforce or reach out to ${ownerName}.*
+`;
+    const notePath = `${folderPath}/_Account Info.md`;
+    await this.app.vault.create(notePath, content);
+  }
+  /**
+   * Create full account subnotes (used by both regular users and admin-owned accounts)
+   */
+  async createFullAccountSubnotes(folderPath, account, dateStr) {
+    const subnotes = [
+      {
+        name: "Note 1.md",
+        content: `---
+account: "${account.name}"
+account_id: "${account.id}"
 type: meeting_note
 sync_to_salesforce: false
-created: ${s}
+created: ${dateStr}
 ---
 
-# ${t.name} - Meeting Note
+# ${account.name} - Meeting Note
 
 **Date:** 
 **Attendees:** 
@@ -585,16 +4648,20 @@ created: ${s}
 
 - [ ] 
 
-`},{name:"Next Steps.md",content:`---
-account: "${t.name}"
-account_id: "${t.id}"
+`
+      },
+      {
+        name: "Next Steps.md",
+        content: `---
+account: "${account.name}"
+account_id: "${account.id}"
 type: next_steps
 auto_updated: true
-last_updated: ${s}
+last_updated: ${dateStr}
 sync_to_salesforce: false
 ---
 
-# ${t.name} - Next Steps
+# ${account.name} - Next Steps
 
 *This note is automatically updated after each meeting transcription.*
 
@@ -607,10 +4674,31 @@ sync_to_salesforce: false
 ## History
 
 *Previous next steps will be archived here.*
-`}];for(let i of a){let r=`${e}/${i.name}`;await this.app.vault.create(r,i.content)}}async ensurePipelineFolderExists(){let e="Pipeline",t=`${e}/Pipeline Review Notes.md`;if(this.app.vault.getAbstractFileByPath(e)||await this.app.vault.createFolder(e),!this.app.vault.getAbstractFileByPath(t)){let r=`---
+`
+      }
+    ];
+    for (const subnote of subnotes) {
+      const notePath = `${folderPath}/${subnote.name}`;
+      await this.app.vault.create(notePath, subnote.content);
+    }
+  }
+  /**
+   * Ensure Pipeline folder exists for admin pipeline review notes
+   */
+  async ensurePipelineFolderExists() {
+    const pipelineFolder = "Pipeline";
+    const dashboardPath = `${pipelineFolder}/Pipeline Review Notes.md`;
+    const folder = this.app.vault.getAbstractFileByPath(pipelineFolder);
+    if (!folder) {
+      await this.app.vault.createFolder(pipelineFolder);
+    }
+    const dashboard = this.app.vault.getAbstractFileByPath(dashboardPath);
+    if (!dashboard) {
+      const dateStr = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+      const content = `---
 type: pipeline_dashboard
 auto_updated: true
-last_updated: ${new Date().toISOString().split("T")[0]}
+last_updated: ${dateStr}
 ---
 
 # Pipeline Review Notes
@@ -646,15 +4734,36 @@ This folder contains transcribed notes from internal pipeline review meetings.
 
 ### New Opportunities
 *None yet*
-`;await this.app.vault.create(t,r)}}async ensureNextStepsFolderExists(){let e="Next Steps",t=`${e}/All Next Steps.md`;if(this.app.vault.getAbstractFileByPath(e)||await this.app.vault.createFolder(e),!this.app.vault.getAbstractFileByPath(t)){let i=new Date().toISOString().split("T")[0],r=new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}),o=`---
+`;
+      await this.app.vault.create(dashboardPath, content);
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+  // NEXT STEPS MANAGEMENT
+  // ─────────────────────────────────────────────────────────────────────────
+  /**
+   * Ensure the Next Steps folder exists with the dashboard file
+   */
+  async ensureNextStepsFolderExists() {
+    const nextStepsFolder = "Next Steps";
+    const dashboardPath = `${nextStepsFolder}/All Next Steps.md`;
+    const folder = this.app.vault.getAbstractFileByPath(nextStepsFolder);
+    if (!folder) {
+      await this.app.vault.createFolder(nextStepsFolder);
+    }
+    const dashboard = this.app.vault.getAbstractFileByPath(dashboardPath);
+    if (!dashboard) {
+      const dateStr = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+      const timeStr = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      const content = `---
 type: next_steps_dashboard
 auto_updated: true
-last_updated: ${i}
+last_updated: ${dateStr}
 ---
 
 # All Next Steps Dashboard
 
-*Last updated: ${i} ${r}*
+*Last updated: ${dateStr} ${timeStr}*
 
 ---
 
@@ -669,31 +4778,74 @@ last_updated: ${i}
 | Account | Last Updated | Status |
 |---------|--------------|--------|
 | *None yet* | - | Complete a meeting transcription |
-`;await this.app.vault.create(t,o)}}async updateAccountNextSteps(e,t,s){try{console.log(`[Eudia] updateAccountNextSteps called for: ${e}`),console.log(`[Eudia] Content length: ${t?.length||0} chars`);let a=e.replace(/[<>:"/\\|?*]/g,"_").trim(),i=`${this.settings.accountsFolder}/${a}/Next Steps.md`;console.log(`[Eudia] Looking for Next Steps file at: ${i}`);let r=this.app.vault.getAbstractFileByPath(i);if(!r||!(r instanceof l.TFile)){console.log(`[Eudia] \u274C Next Steps file NOT FOUND at: ${i}`);let A=this.app.vault.getAbstractFileByPath(`${this.settings.accountsFolder}/${a}`);A&&A instanceof l.TFolder?console.log(`[Eudia] Files in ${a} folder:`,A.children.map(T=>T.name)):console.log(`[Eudia] Account folder also not found: ${this.settings.accountsFolder}/${a}`);return}console.log("[Eudia] Found Next Steps file, updating...");let o=new Date().toISOString().split("T")[0],c=new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}),u=s.split("/").pop()?.replace(".md","")||"Meeting",m=t;!t.includes("- [ ]")&&!t.includes("- [x]")&&(m=t.split(`
-`).filter(A=>A.trim()).map(A=>{let T=A.replace(/^[-•*]\s*/,"").trim();return T?`- [ ] ${T}`:""}).filter(Boolean).join(`
-`));let h=await this.app.vault.read(r),d="",p=h.match(/## History\n\n\*Previous next steps are archived below\.\*\n\n([\s\S]*?)$/);p&&p[1]&&(d=p[1].trim());let g=`### ${o} - ${u}
-${m||"*None*"}`,y=d?`${g}
+`;
+      await this.app.vault.create(dashboardPath, content);
+    }
+  }
+  /**
+   * Update an account's Next Steps.md file after transcription
+   * Appends to history instead of overwriting
+   */
+  async updateAccountNextSteps(accountName, nextStepsContent, sourceNotePath) {
+    try {
+      console.log(`[Eudia] updateAccountNextSteps called for: ${accountName}`);
+      console.log(`[Eudia] Content length: ${nextStepsContent?.length || 0} chars`);
+      const safeName = accountName.replace(/[<>:"/\\|?*]/g, "_").trim();
+      const nextStepsPath = `${this.settings.accountsFolder}/${safeName}/Next Steps.md`;
+      console.log(`[Eudia] Looking for Next Steps file at: ${nextStepsPath}`);
+      const nextStepsFile = this.app.vault.getAbstractFileByPath(nextStepsPath);
+      if (!nextStepsFile || !(nextStepsFile instanceof import_obsidian3.TFile)) {
+        console.log(`[Eudia] \u274C Next Steps file NOT FOUND at: ${nextStepsPath}`);
+        const accountFolder = this.app.vault.getAbstractFileByPath(`${this.settings.accountsFolder}/${safeName}`);
+        if (accountFolder && accountFolder instanceof import_obsidian3.TFolder) {
+          console.log(`[Eudia] Files in ${safeName} folder:`, accountFolder.children.map((c) => c.name));
+        } else {
+          console.log(`[Eudia] Account folder also not found: ${this.settings.accountsFolder}/${safeName}`);
+        }
+        return;
+      }
+      console.log(`[Eudia] Found Next Steps file, updating...`);
+      const dateStr = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+      const timeStr = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      const sourceNote = sourceNotePath.split("/").pop()?.replace(".md", "") || "Meeting";
+      let formattedNextSteps = nextStepsContent;
+      if (!nextStepsContent.includes("- [ ]") && !nextStepsContent.includes("- [x]")) {
+        formattedNextSteps = nextStepsContent.split("\n").filter((line) => line.trim()).map((line) => {
+          const cleaned = line.replace(/^[-•*]\s*/, "").trim();
+          return cleaned ? `- [ ] ${cleaned}` : "";
+        }).filter(Boolean).join("\n");
+      }
+      const existingContent = await this.app.vault.read(nextStepsFile);
+      let existingHistory = "";
+      const historyMatch = existingContent.match(/## History\n\n\*Previous next steps are archived below\.\*\n\n([\s\S]*?)$/);
+      if (historyMatch && historyMatch[1]) {
+        existingHistory = historyMatch[1].trim();
+      }
+      const newHistoryEntry = `### ${dateStr} - ${sourceNote}
+${formattedNextSteps || "*None*"}`;
+      const combinedHistory = existingHistory ? `${newHistoryEntry}
 
 ---
 
-${d}`:g,v=`---
-account: "${e}"
-account_id: "${this.settings.cachedAccounts.find(A=>A.name===e)?.id||""}"
+${existingHistory}` : newHistoryEntry;
+      const newContent = `---
+account: "${accountName}"
+account_id: "${this.settings.cachedAccounts.find((a) => a.name === accountName)?.id || ""}"
 type: next_steps
 auto_updated: true
-last_updated: ${o}
+last_updated: ${dateStr}
 sync_to_salesforce: false
 ---
 
-# ${e} - Next Steps
+# ${accountName} - Next Steps
 
 *This note is automatically updated after each meeting transcription.*
 
 ## Current Next Steps
 
-*Last updated: ${o} ${c} from ${u}*
+*Last updated: ${dateStr} ${timeStr} from ${sourceNote}*
 
-${m||"*No next steps identified*"}
+${formattedNextSteps || "*No next steps identified*"}
 
 ---
 
@@ -701,21 +4853,68 @@ ${m||"*No next steps identified*"}
 
 *Previous next steps are archived below.*
 
-${y}
-`;await this.app.vault.modify(r,v),console.log(`[Eudia] Updated Next Steps for ${e} (history preserved)`),await this.regenerateNextStepsDashboard()}catch(a){console.error(`[Eudia] Failed to update Next Steps for ${e}:`,a)}}async regenerateNextStepsDashboard(){try{let t=this.app.vault.getAbstractFileByPath("Next Steps/All Next Steps.md");if(!t||!(t instanceof l.TFile)){await this.ensureNextStepsFolderExists();return}let s=this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);if(!s||!(s instanceof l.TFolder))return;let a=[];for(let c of s.children)if(c instanceof l.TFolder){let u=`${c.path}/Next Steps.md`,m=this.app.vault.getAbstractFileByPath(u);if(m instanceof l.TFile){let h=await this.app.vault.read(m),d=h.match(/last_updated:\s*(\d{4}-\d{2}-\d{2})/),p=d?d[1]:"Unknown",g=h.split(`
-`).filter(y=>y.match(/^- \[[ x]\]/)).slice(0,5);(g.length>0||p!=="Unknown")&&a.push({account:c.name,lastUpdated:p,nextSteps:g})}}a.sort((c,u)=>u.lastUpdated.localeCompare(c.lastUpdated));let i=new Date().toISOString().split("T")[0],r=new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}),o=`---
+${combinedHistory}
+`;
+      await this.app.vault.modify(nextStepsFile, newContent);
+      console.log(`[Eudia] Updated Next Steps for ${accountName} (history preserved)`);
+      await this.regenerateNextStepsDashboard();
+    } catch (error) {
+      console.error(`[Eudia] Failed to update Next Steps for ${accountName}:`, error);
+    }
+  }
+  /**
+   * Regenerate the All Next Steps dashboard by scanning all account folders
+   */
+  async regenerateNextStepsDashboard() {
+    try {
+      const dashboardPath = "Next Steps/All Next Steps.md";
+      const dashboardFile = this.app.vault.getAbstractFileByPath(dashboardPath);
+      if (!dashboardFile || !(dashboardFile instanceof import_obsidian3.TFile)) {
+        await this.ensureNextStepsFolderExists();
+        return;
+      }
+      const accountsFolder = this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);
+      if (!accountsFolder || !(accountsFolder instanceof import_obsidian3.TFolder)) {
+        return;
+      }
+      const accountNextSteps = [];
+      for (const child of accountsFolder.children) {
+        if (child instanceof import_obsidian3.TFolder) {
+          const nextStepsPath = `${child.path}/Next Steps.md`;
+          const nextStepsFile = this.app.vault.getAbstractFileByPath(nextStepsPath);
+          if (nextStepsFile instanceof import_obsidian3.TFile) {
+            const content = await this.app.vault.read(nextStepsFile);
+            const lastUpdatedMatch = content.match(/last_updated:\s*(\d{4}-\d{2}-\d{2})/);
+            const lastUpdated = lastUpdatedMatch ? lastUpdatedMatch[1] : "Unknown";
+            const nextStepsLines = content.split("\n").filter((line) => line.match(/^- \[[ x]\]/)).slice(0, 5);
+            if (nextStepsLines.length > 0 || lastUpdated !== "Unknown") {
+              accountNextSteps.push({
+                account: child.name,
+                lastUpdated,
+                nextSteps: nextStepsLines
+              });
+            }
+          }
+        }
+      }
+      accountNextSteps.sort((a, b) => b.lastUpdated.localeCompare(a.lastUpdated));
+      const dateStr = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+      const timeStr = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      let dashboardContent = `---
 type: next_steps_dashboard
 auto_updated: true
-last_updated: ${i}
+last_updated: ${dateStr}
 ---
 
 # All Next Steps Dashboard
 
-*Last updated: ${i} ${r}*
+*Last updated: ${dateStr} ${timeStr}*
 
 ---
 
-`;if(a.length===0)o+=`## Your Next Steps
+`;
+      if (accountNextSteps.length === 0) {
+        dashboardContent += `## Your Next Steps
 
 *Complete your first meeting transcription to see next steps here.*
 
@@ -726,101 +4925,589 @@ last_updated: ${i}
 | Account | Last Updated | Status |
 |---------|--------------|--------|
 | *None yet* | - | Complete a meeting transcription |
-`;else{for(let c of a)o+=`## ${c.account}
+`;
+      } else {
+        for (const item of accountNextSteps) {
+          dashboardContent += `## ${item.account}
 
-`,c.nextSteps.length>0?o+=c.nextSteps.join(`
-`)+`
-`:o+=`*No current next steps*
-`,o+=`
-*Updated: ${c.lastUpdated}*
+`;
+          if (item.nextSteps.length > 0) {
+            dashboardContent += item.nextSteps.join("\n") + "\n";
+          } else {
+            dashboardContent += "*No current next steps*\n";
+          }
+          dashboardContent += `
+*Updated: ${item.lastUpdated}*
 
 ---
 
-`;o+=`## Summary
+`;
+        }
+        dashboardContent += `## Summary
 
-`,o+=`| Account | Last Updated | Open Items |
-`,o+=`|---------|--------------|------------|
-`;for(let c of a){let u=c.nextSteps.filter(m=>m.includes("- [ ]")).length;o+=`| ${c.account} | ${c.lastUpdated} | ${u} |
-`}}await this.app.vault.modify(t,o),console.log("[Eudia] Regenerated All Next Steps dashboard")}catch(e){console.error("[Eudia] Failed to regenerate Next Steps dashboard:",e)}}async startRecording(){if(!w.isSupported()){new l.Notice("Audio transcription is not supported in this browser");return}let e=this.app.workspace.getActiveFile();if(e||(await this.createMeetingNote(),e=this.app.workspace.getActiveFile()),!e){new l.Notice("Please open or create a note first");return}this.audioRecorder=new w,this.recordingStatusBar=new W(()=>this.audioRecorder?.pause(),()=>this.audioRecorder?.resume(),()=>this.stopRecording(),()=>this.cancelRecording());try{await this.audioRecorder.start(),this.recordingStatusBar.show();let t=setInterval(()=>{if(this.audioRecorder?.isRecording()){let s=this.audioRecorder.getState();this.recordingStatusBar?.updateState(s)}else clearInterval(t)},100);new l.Notice("Transcription started. Click stop when finished.")}catch(t){new l.Notice(`Failed to start transcription: ${t.message}`),this.recordingStatusBar?.hide(),this.recordingStatusBar=null}}async stopRecording(){if(!this.audioRecorder?.isRecording())return;let e=this.app.workspace.getActiveFile();if(!e){new l.Notice("No active file to save transcription"),this.cancelRecording();return}this.recordingStatusBar?.showProcessing();try{let t=await this.audioRecorder.stop();await this.processRecording(t,e)}catch(t){new l.Notice(`Transcription failed: ${t.message}`)}finally{this.recordingStatusBar?.hide(),this.recordingStatusBar=null,this.audioRecorder=null}}async cancelRecording(){this.audioRecorder?.isRecording()&&this.audioRecorder.cancel(),this.recordingStatusBar?.hide(),this.recordingStatusBar=null,this.audioRecorder=null,new l.Notice("Transcription cancelled")}async processRecording(e,t){let s=e.audioBlob?.size||0;if(console.log(`[Eudia] Audio blob size: ${s} bytes, duration: ${e.duration}s`),s<1e3){new l.Notice("Recording too short or no audio captured. Please try again.");return}try{let c=await w.analyzeAudioBlob(e.audioBlob);console.log(`[Eudia] Audio diagnostic: hasAudio=${c.hasAudio}, peak=${c.peakLevel}, silent=${c.silentPercent}%`),c.warning&&(console.warn(`[Eudia] Audio warning: ${c.warning}`),c.hasAudio?new l.Notice(`Warning: ${c.warning.split(":")[0]}`,5e3):new l.Notice("Warning: Audio appears to be silent. Transcription may not work correctly. Check your microphone settings.",8e3))}catch(c){console.warn("[Eudia] Audio diagnostic failed, continuing anyway:",c)}let a=Math.ceil(e.duration/60),i=Math.max(1,Math.ceil(a/5));new l.Notice(`Transcription started. Estimated ${i}-${i+1} minutes.`);let r=await this.app.vault.read(t),o=`
+`;
+        dashboardContent += `| Account | Last Updated | Open Items |
+`;
+        dashboardContent += `|---------|--------------|------------|
+`;
+        for (const item of accountNextSteps) {
+          const openCount = item.nextSteps.filter((s) => s.includes("- [ ]")).length;
+          dashboardContent += `| ${item.account} | ${item.lastUpdated} | ${openCount} |
+`;
+        }
+      }
+      await this.app.vault.modify(dashboardFile, dashboardContent);
+      console.log("[Eudia] Regenerated All Next Steps dashboard");
+    } catch (error) {
+      console.error("[Eudia] Failed to regenerate Next Steps dashboard:", error);
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+  // RECORDING METHODS
+  // ─────────────────────────────────────────────────────────────────────────
+  async startRecording() {
+    if (!AudioRecorder.isSupported()) {
+      new import_obsidian3.Notice("Audio transcription is not supported in this browser");
+      return;
+    }
+    let activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile) {
+      await this.createMeetingNote();
+      activeFile = this.app.workspace.getActiveFile();
+    }
+    if (!activeFile) {
+      new import_obsidian3.Notice("Please open or create a note first");
+      return;
+    }
+    this.audioRecorder = new AudioRecorder();
+    this.recordingStatusBar = new RecordingStatusBar(
+      () => this.audioRecorder?.pause(),
+      () => this.audioRecorder?.resume(),
+      () => this.stopRecording(),
+      () => this.cancelRecording()
+    );
+    try {
+      await this.audioRecorder.start();
+      this.recordingStatusBar.show();
+      const updateInterval = setInterval(() => {
+        if (this.audioRecorder?.isRecording()) {
+          const state = this.audioRecorder.getState();
+          this.recordingStatusBar?.updateState(state);
+        } else {
+          clearInterval(updateInterval);
+        }
+      }, 100);
+      new import_obsidian3.Notice("Transcription started. Click stop when finished.");
+    } catch (error) {
+      new import_obsidian3.Notice(`Failed to start transcription: ${error.message}`);
+      this.recordingStatusBar?.hide();
+      this.recordingStatusBar = null;
+    }
+  }
+  async stopRecording() {
+    if (!this.audioRecorder?.isRecording())
+      return;
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile) {
+      new import_obsidian3.Notice("No active file to save transcription");
+      this.cancelRecording();
+      return;
+    }
+    this.recordingStatusBar?.showProcessing();
+    try {
+      const result = await this.audioRecorder.stop();
+      await this.processRecording(result, activeFile);
+    } catch (error) {
+      new import_obsidian3.Notice(`Transcription failed: ${error.message}`);
+    } finally {
+      this.recordingStatusBar?.hide();
+      this.recordingStatusBar = null;
+      this.audioRecorder = null;
+    }
+  }
+  async cancelRecording() {
+    if (this.audioRecorder?.isRecording()) {
+      this.audioRecorder.cancel();
+    }
+    this.recordingStatusBar?.hide();
+    this.recordingStatusBar = null;
+    this.audioRecorder = null;
+    new import_obsidian3.Notice("Transcription cancelled");
+  }
+  async processRecording(result, file) {
+    const blobSize = result.audioBlob?.size || 0;
+    console.log(`[Eudia] Audio blob size: ${blobSize} bytes, duration: ${result.duration}s`);
+    if (blobSize < 1e3) {
+      new import_obsidian3.Notice("Recording too short or no audio captured. Please try again.");
+      return;
+    }
+    try {
+      const diagnostic = await AudioRecorder.analyzeAudioBlob(result.audioBlob);
+      console.log(`[Eudia] Audio diagnostic: hasAudio=${diagnostic.hasAudio}, peak=${diagnostic.peakLevel}, silent=${diagnostic.silentPercent}%`);
+      if (diagnostic.warning) {
+        console.warn(`[Eudia] Audio warning: ${diagnostic.warning}`);
+        if (!diagnostic.hasAudio) {
+          new import_obsidian3.Notice("Warning: Audio appears to be silent. Transcription may not work correctly. Check your microphone settings.", 8e3);
+        } else {
+          new import_obsidian3.Notice(`Warning: ${diagnostic.warning.split(":")[0]}`, 5e3);
+        }
+      }
+    } catch (diagError) {
+      console.warn("[Eudia] Audio diagnostic failed, continuing anyway:", diagError);
+    }
+    const durationMin = Math.ceil(result.duration / 60);
+    const estimatedTime = Math.max(1, Math.ceil(durationMin / 5));
+    new import_obsidian3.Notice(`Transcription started. Estimated ${estimatedTime}-${estimatedTime + 1} minutes.`);
+    const currentContent = await this.app.vault.read(file);
+    const processingIndicator = `
 
 ---
 **Transcription in progress...**
-Started: ${new Date().toLocaleTimeString()}
-Estimated completion: ${i}-${i+1} minutes
+Started: ${(/* @__PURE__ */ new Date()).toLocaleTimeString()}
+Estimated completion: ${estimatedTime}-${estimatedTime + 1} minutes
 
 *You can navigate away. Check back shortly.*
 ---
-`;await this.app.vault.modify(t,r+o),this.processTranscriptionAsync(e,t).catch(c=>{console.error("Background transcription failed:",c),new l.Notice(`Transcription failed: ${c.message}`)})}async processTranscriptionAsync(e,t){try{let s,a=t.path.split("/");if(console.log(`[Eudia] Processing transcription for: ${t.path}`),console.log(`[Eudia] Path parts: ${JSON.stringify(a)}, accountsFolder: ${this.settings.accountsFolder}`),a.length>=2&&a[0]===this.settings.accountsFolder){let d=a[1];console.log(`[Eudia] Detected account folder: ${d}`);let p=this.settings.cachedAccounts.find(g=>g.name.toLowerCase()===d.toLowerCase());p?(s={accountName:p.name,accountId:p.id},console.log(`[Eudia] Found cached account: ${p.name} (${p.id})`)):(s={accountName:d,accountId:""},console.log(`[Eudia] Account not in cache, using folder name: ${d}`))}else console.log("[Eudia] File not in Accounts folder, skipping account context");let i=[];try{let d=await this.calendarService.getCurrentMeeting();d.meeting?.attendees&&(i=d.meeting.attendees.map(p=>p.name||p.email.split("@")[0]).filter(Boolean).slice(0,10))}catch{}let r=await this.transcriptionService.transcribeAudio(e.audioBlob,s?{...s,speakerHints:i}:{speakerHints:i}),o=d=>d?!!(d.summary?.trim()||d.nextSteps?.trim()):!1,c=r.sections;if(o(c)||r.text?.trim()&&(c=await this.transcriptionService.processTranscription(r.text,s)),!o(c)&&!r.text?.trim()){let p=(await this.app.vault.read(t)).replace(/\n\n---\n\*\*Transcription in progress\.\.\.\*\*[\s\S]*?\*You can navigate away\. Check back shortly\.\*\n---\n/g,"");await this.app.vault.modify(t,p+`
+`;
+    await this.app.vault.modify(file, currentContent + processingIndicator);
+    this.processTranscriptionAsync(result, file).catch((error) => {
+      console.error("Background transcription failed:", error);
+      new import_obsidian3.Notice(`Transcription failed: ${error.message}`);
+    });
+  }
+  async processTranscriptionAsync(result, file) {
+    try {
+      let accountContext;
+      const pathParts = file.path.split("/");
+      console.log(`[Eudia] Processing transcription for: ${file.path}`);
+      console.log(`[Eudia] Path parts: ${JSON.stringify(pathParts)}, accountsFolder: ${this.settings.accountsFolder}`);
+      if (pathParts.length >= 2 && pathParts[0] === this.settings.accountsFolder) {
+        const accountName = pathParts[1];
+        console.log(`[Eudia] Detected account folder: ${accountName}`);
+        const account = this.settings.cachedAccounts.find(
+          (a) => a.name.toLowerCase() === accountName.toLowerCase()
+        );
+        if (account) {
+          accountContext = { accountName: account.name, accountId: account.id };
+          console.log(`[Eudia] Found cached account: ${account.name} (${account.id})`);
+        } else {
+          accountContext = { accountName, accountId: "" };
+          console.log(`[Eudia] Account not in cache, using folder name: ${accountName}`);
+        }
+      } else {
+        console.log(`[Eudia] File not in Accounts folder, skipping account context`);
+      }
+      let speakerHints = [];
+      try {
+        const currentMeeting = await this.calendarService.getCurrentMeeting();
+        if (currentMeeting.meeting?.attendees) {
+          speakerHints = currentMeeting.meeting.attendees.map((a) => a.name || a.email.split("@")[0]).filter(Boolean).slice(0, 10);
+        }
+      } catch {
+      }
+      const transcription = await this.transcriptionService.transcribeAudio(
+        result.audioBlob,
+        accountContext ? { ...accountContext, speakerHints } : { speakerHints }
+      );
+      const hasContent = (s) => {
+        if (!s)
+          return false;
+        return Boolean(s.summary?.trim() || s.nextSteps?.trim());
+      };
+      let sections = transcription.sections;
+      if (!hasContent(sections)) {
+        if (transcription.text?.trim()) {
+          sections = await this.transcriptionService.processTranscription(transcription.text, accountContext);
+        }
+      }
+      if (!hasContent(sections) && !transcription.text?.trim()) {
+        const currentContent = await this.app.vault.read(file);
+        const cleanedContent = currentContent.replace(/\n\n---\n\*\*Transcription in progress\.\.\.\*\*[\s\S]*?\*You can navigate away\. Check back shortly\.\*\n---\n/g, "");
+        await this.app.vault.modify(file, cleanedContent + "\n\n**Transcription failed:** No audio detected.\n");
+        new import_obsidian3.Notice("Transcription failed: No audio detected.");
+        return;
+      }
+      const noteContent = this.buildNoteContent(sections, transcription);
+      await this.app.vault.modify(file, noteContent);
+      const durationMin = Math.floor(result.duration / 60);
+      new import_obsidian3.Notice(`Transcription complete (${durationMin} min recording)`);
+      const nextStepsContent = sections.nextSteps || sections.actionItems;
+      console.log(`[Eudia] Next Steps extraction - accountContext: ${accountContext?.accountName || "undefined"}`);
+      console.log(`[Eudia] Next Steps content found: ${nextStepsContent ? "YES (" + nextStepsContent.length + " chars)" : "NO"}`);
+      console.log(`[Eudia] sections.nextSteps: ${sections.nextSteps ? "YES" : "NO"}, sections.actionItems: ${sections.actionItems ? "YES" : "NO"}`);
+      if (nextStepsContent && accountContext?.accountName) {
+        console.log(`[Eudia] Calling updateAccountNextSteps for ${accountContext.accountName}`);
+        await this.updateAccountNextSteps(accountContext.accountName, nextStepsContent, file.path);
+      } else {
+        console.log(`[Eudia] Skipping Next Steps update - missing content or account context`);
+      }
+      if (this.settings.autoSyncAfterTranscription) {
+        await this.syncNoteToSalesforce();
+      }
+    } catch (error) {
+      try {
+        const currentContent = await this.app.vault.read(file);
+        const cleanedContent = currentContent.replace(/\n\n---\n\*\*Transcription in progress\.\.\.\*\*[\s\S]*?\*You can navigate away\. Check back shortly\.\*\n---\n/g, "");
+        await this.app.vault.modify(file, cleanedContent + `
 
-**Transcription failed:** No audio detected.
-`),new l.Notice("Transcription failed: No audio detected.");return}let u=this.buildNoteContent(c,r);await this.app.vault.modify(t,u);let m=Math.floor(e.duration/60);new l.Notice(`Transcription complete (${m} min recording)`);let h=c.nextSteps||c.actionItems;console.log(`[Eudia] Next Steps extraction - accountContext: ${s?.accountName||"undefined"}`),console.log(`[Eudia] Next Steps content found: ${h?"YES ("+h.length+" chars)":"NO"}`),console.log(`[Eudia] sections.nextSteps: ${c.nextSteps?"YES":"NO"}, sections.actionItems: ${c.actionItems?"YES":"NO"}`),h&&s?.accountName?(console.log(`[Eudia] Calling updateAccountNextSteps for ${s.accountName}`),await this.updateAccountNextSteps(s.accountName,h,t.path)):console.log("[Eudia] Skipping Next Steps update - missing content or account context"),this.settings.autoSyncAfterTranscription&&await this.syncNoteToSalesforce()}catch(s){try{let i=(await this.app.vault.read(t)).replace(/\n\n---\n\*\*Transcription in progress\.\.\.\*\*[\s\S]*?\*You can navigate away\. Check back shortly\.\*\n---\n/g,"");await this.app.vault.modify(t,i+`
-
-**Transcription failed:** ${s.message}
-`)}catch{}throw s}}buildNoteContent(e,t){let s=y=>y==null?"":Array.isArray(y)?y.map(v=>typeof v=="object"?v.category?`**${v.category}**: ${v.signal||v.insight||""}`:JSON.stringify(v):String(v)).join(`
-`):typeof y=="object"?JSON.stringify(y):String(y),a=s(e.title)||"Meeting Notes",i=s(e.summary),r=s(e.painPoints),o=s(e.productInterest),c=s(e.meddiccSignals),u=s(e.nextSteps),m=s(e.actionItems),h=s(e.keyDates),d=s(e.risksObjections),p=s(e.attendees),g=`---
-title: "${a}"
-date: ${new Date().toISOString().split("T")[0]}
+**Transcription failed:** ${error.message}
+`);
+      } catch (e) {
+      }
+      throw error;
+    }
+  }
+  buildNoteContent(sections, transcription) {
+    const ensureString = (val) => {
+      if (val === null || val === void 0)
+        return "";
+      if (Array.isArray(val)) {
+        return val.map((item) => {
+          if (typeof item === "object") {
+            if (item.category)
+              return `**${item.category}**: ${item.signal || item.insight || ""}`;
+            return JSON.stringify(item);
+          }
+          return String(item);
+        }).join("\n");
+      }
+      if (typeof val === "object")
+        return JSON.stringify(val);
+      return String(val);
+    };
+    const title = ensureString(sections.title) || "Meeting Notes";
+    const summary = ensureString(sections.summary);
+    const painPoints = ensureString(sections.painPoints);
+    const productInterest = ensureString(sections.productInterest);
+    const meddiccSignals = ensureString(sections.meddiccSignals);
+    const nextSteps = ensureString(sections.nextSteps);
+    const actionItems = ensureString(sections.actionItems);
+    const keyDates = ensureString(sections.keyDates);
+    const risksObjections = ensureString(sections.risksObjections);
+    const attendees = ensureString(sections.attendees);
+    let content = `---
+title: "${title}"
+date: ${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}
 transcribed: true
 sync_to_salesforce: false
 clo_meeting: false
 source: ""
-confidence: ${t.confidence}
+confidence: ${transcription.confidence}
 ---
 
-# ${a}
+# ${title}
 
 ## Summary
 
-${i||"*AI summary will appear here*"}
+${summary || "*AI summary will appear here*"}
 
-`;return r&&!r.includes("None explicitly")&&(g+=`## Pain Points
+`;
+    if (painPoints && !painPoints.includes("None explicitly")) {
+      content += `## Pain Points
 
-${r}
+${painPoints}
 
-`),o&&!o.includes("None identified")&&(g+=`## Product Interest
+`;
+    }
+    if (productInterest && !productInterest.includes("None identified")) {
+      content += `## Product Interest
 
-${o}
+${productInterest}
 
-`),c&&(g+=`## MEDDICC Signals
+`;
+    }
+    if (meddiccSignals) {
+      content += `## MEDDICC Signals
 
-${c}
+${meddiccSignals}
 
-`),u&&(g+=`## Next Steps
+`;
+    }
+    if (nextSteps) {
+      content += `## Next Steps
 
-${u}
+${nextSteps}
 
-`),m&&(g+=`## Action Items
+`;
+    }
+    if (actionItems) {
+      content += `## Action Items
 
-${m}
+${actionItems}
 
-`),h&&!h.includes("No specific dates")&&(g+=`## Key Dates
+`;
+    }
+    if (keyDates && !keyDates.includes("No specific dates")) {
+      content += `## Key Dates
 
-${h}
+${keyDates}
 
-`),d&&!d.includes("None raised")&&(g+=`## Risks and Objections
+`;
+    }
+    if (risksObjections && !risksObjections.includes("None raised")) {
+      content += `## Risks and Objections
 
-${d}
+${risksObjections}
 
-`),p&&(g+=`## Attendees
+`;
+    }
+    if (attendees) {
+      content += `## Attendees
 
-${p}
+${attendees}
 
-`),this.settings.appendTranscript&&t.text&&(g+=`---
+`;
+    }
+    if (this.settings.appendTranscript && transcription.text) {
+      content += `---
 
 ## Full Transcript
 
-${t.text}
-`),g}openIntelligenceQuery(){new M(this.app,this).open()}openIntelligenceQueryForCurrentNote(){let e=this.app.workspace.getActiveFile(),t;if(e){let s=this.app.metadataCache.getFileCache(e)?.frontmatter;if(s?.account_id&&s?.account)t={id:s.account_id,name:s.account};else if(s?.account){let a=this.settings.cachedAccounts.find(i=>i.name.toLowerCase()===s.account.toLowerCase());a?t={id:a.id,name:a.name}:t={id:"",name:s.account}}else{let a=e.path.split("/");if(a.length>=2&&a[0]===this.settings.accountsFolder){let i=a[1],r=this.settings.cachedAccounts.find(o=>o.name.replace(/[<>:"/\\|?*]/g,"_").trim()===i);r?t={id:r.id,name:r.name}:t={id:"",name:i}}}}new M(this.app,this,t).open()}async syncAccounts(e=!1){e||new l.Notice("Syncing Salesforce accounts...");try{let s=(await(0,l.requestUrl)({url:`${this.settings.serverUrl}/api/accounts/obsidian`,method:"GET",headers:{Accept:"application/json"}})).json;if(!s.success||!s.accounts){e||new l.Notice("Failed to fetch accounts from server");return}this.settings.cachedAccounts=s.accounts.map(a=>({id:a.id,name:a.name})),this.settings.lastSyncTime=new Date().toISOString(),await this.saveSettings(),e||new l.Notice(`Synced ${s.accounts.length} accounts for matching`)}catch(t){e||new l.Notice(`Failed to sync accounts: ${t.message}`)}}async scanLocalAccountFolders(){try{let e=this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);if(!e||!(e instanceof l.TFolder))return;let t=[];for(let s of e.children)s instanceof l.TFolder&&t.push({id:`local-${s.name.replace(/\s+/g,"-").toLowerCase()}`,name:s.name});this.settings.cachedAccounts=t,this.settings.lastSyncTime=new Date().toISOString(),await this.saveSettings()}catch(e){console.error("Failed to scan local account folders:",e)}}async refreshAccountFolders(){if(!this.settings.userEmail)throw new Error("Please configure your email first");let e=new E(this.settings.serverUrl);if((await e.getAccountsForUser(this.settings.userEmail)).length===0)return console.log("[Eudia] No accounts found for user"),0;let s=this.app.vault.getAbstractFileByPath(this.settings.accountsFolder),a=[];if(s&&s instanceof l.TFolder)for(let r of s.children)r instanceof l.TFolder&&a.push(r.name);let i=await e.getNewAccounts(this.settings.userEmail,a);return i.length===0?(console.log("[Eudia] All account folders exist"),0):(console.log(`[Eudia] Creating ${i.length} new account folders`),await this.createTailoredAccountFolders(i),i.length)}async syncNoteToSalesforce(){let e=this.app.workspace.getActiveFile();if(!e){new l.Notice("No active file to sync");return}let t=await this.app.vault.read(e),s=this.app.metadataCache.getFileCache(e)?.frontmatter;if(!s?.sync_to_salesforce){new l.Notice("Set sync_to_salesforce: true in frontmatter to enable sync");return}let a=s.account_id,i=s.account;if(!a&&i){let r=this.settings.cachedAccounts.find(o=>o.name.toLowerCase()===i.toLowerCase());r&&(a=r.id)}if(!a){let r=e.path.split("/");if(r.length>=2&&r[0]===this.settings.accountsFolder){let o=r[1],c=this.settings.cachedAccounts.find(u=>u.name.replace(/[<>:"/\\|?*]/g,"_").trim()===o);c&&(a=c.id,i=c.name)}}if(!a){new l.Notice("Could not determine account for this note");return}try{new l.Notice("Syncing to Salesforce...");let r=await(0,l.requestUrl)({url:`${this.settings.serverUrl}/api/notes/sync`,method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accountId:a,accountName:i,noteTitle:e.basename,notePath:e.path,content:t,frontmatter:s,syncedAt:new Date().toISOString(),userEmail:this.settings.userEmail})});r.json?.success?new l.Notice("Synced to Salesforce"):new l.Notice("Failed to sync: "+(r.json?.error||"Unknown error"))}catch(r){new l.Notice(`Sync failed: ${r.message}`)}}async createMeetingNote(){return new Promise(e=>{new R(this.app,this,async s=>{if(!s){e();return}let a=new Date().toISOString().split("T")[0],i=s.name.replace(/[<>:"/\\|?*]/g,"_").trim(),r=`${this.settings.accountsFolder}/${i}`,o=`${a} Meeting.md`,c=`${r}/${o}`;this.app.vault.getAbstractFileByPath(r)||await this.app.vault.createFolder(r);let u=`---
-title: "Meeting with ${s.name}"
-date: ${a}
-account: "${s.name}"
-account_id: "${s.id}"
+${transcription.text}
+`;
+    }
+    return content;
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+  // INTELLIGENCE QUERY (GRANOLA-STYLE)
+  // ─────────────────────────────────────────────────────────────────────────
+  /**
+   * Open the Intelligence Query modal (no account context)
+   */
+  openIntelligenceQuery() {
+    new IntelligenceQueryModal(this.app, this).open();
+  }
+  /**
+   * Open the Intelligence Query modal with account context from current note
+   */
+  openIntelligenceQueryForCurrentNote() {
+    const activeFile = this.app.workspace.getActiveFile();
+    let accountContext = void 0;
+    if (activeFile) {
+      const frontmatter = this.app.metadataCache.getFileCache(activeFile)?.frontmatter;
+      if (frontmatter?.account_id && frontmatter?.account) {
+        accountContext = {
+          id: frontmatter.account_id,
+          name: frontmatter.account
+        };
+      } else if (frontmatter?.account) {
+        const account = this.settings.cachedAccounts.find(
+          (a) => a.name.toLowerCase() === frontmatter.account.toLowerCase()
+        );
+        if (account) {
+          accountContext = { id: account.id, name: account.name };
+        } else {
+          accountContext = { id: "", name: frontmatter.account };
+        }
+      } else {
+        const pathParts = activeFile.path.split("/");
+        if (pathParts.length >= 2 && pathParts[0] === this.settings.accountsFolder) {
+          const folderName = pathParts[1];
+          const account = this.settings.cachedAccounts.find(
+            (a) => a.name.replace(/[<>:"/\\|?*]/g, "_").trim() === folderName
+          );
+          if (account) {
+            accountContext = { id: account.id, name: account.name };
+          } else {
+            accountContext = { id: "", name: folderName };
+          }
+        }
+      }
+    }
+    new IntelligenceQueryModal(this.app, this, accountContext).open();
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+  // ACCOUNT SYNC METHODS
+  // ─────────────────────────────────────────────────────────────────────────
+  async syncAccounts(silent = false) {
+    if (!silent)
+      new import_obsidian3.Notice("Syncing Salesforce accounts...");
+    try {
+      const response = await (0, import_obsidian3.requestUrl)({
+        url: `${this.settings.serverUrl}/api/accounts/obsidian`,
+        method: "GET",
+        headers: { "Accept": "application/json" }
+      });
+      const data = response.json;
+      if (!data.success || !data.accounts) {
+        if (!silent)
+          new import_obsidian3.Notice("Failed to fetch accounts from server");
+        return;
+      }
+      this.settings.cachedAccounts = data.accounts.map((a) => ({
+        id: a.id,
+        name: a.name
+      }));
+      this.settings.lastSyncTime = (/* @__PURE__ */ new Date()).toISOString();
+      await this.saveSettings();
+      if (!silent) {
+        new import_obsidian3.Notice(`Synced ${data.accounts.length} accounts for matching`);
+      }
+    } catch (error) {
+      if (!silent) {
+        new import_obsidian3.Notice(`Failed to sync accounts: ${error.message}`);
+      }
+    }
+  }
+  /**
+   * Scan local account folders in the vault instead of fetching from server.
+   * This uses ONLY the pre-loaded account folders, avoiding unwanted Salesforce accounts.
+   */
+  async scanLocalAccountFolders() {
+    try {
+      const accountsFolder = this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);
+      if (!accountsFolder || !(accountsFolder instanceof import_obsidian3.TFolder)) {
+        return;
+      }
+      const accounts = [];
+      for (const child of accountsFolder.children) {
+        if (child instanceof import_obsidian3.TFolder) {
+          accounts.push({
+            id: `local-${child.name.replace(/\s+/g, "-").toLowerCase()}`,
+            name: child.name
+          });
+        }
+      }
+      this.settings.cachedAccounts = accounts;
+      this.settings.lastSyncTime = (/* @__PURE__ */ new Date()).toISOString();
+      await this.saveSettings();
+    } catch (error) {
+      console.error("Failed to scan local account folders:", error);
+    }
+  }
+  /**
+   * Refresh account folders by checking for new account assignments
+   * Creates folders for any accounts the user owns but doesn't have folders for
+   * Returns the number of new folders created
+   */
+  async refreshAccountFolders() {
+    if (!this.settings.userEmail) {
+      throw new Error("Please configure your email first");
+    }
+    const ownershipService = new AccountOwnershipService(this.settings.serverUrl);
+    const ownedAccounts = await ownershipService.getAccountsForUser(this.settings.userEmail);
+    if (ownedAccounts.length === 0) {
+      console.log("[Eudia] No accounts found for user");
+      return 0;
+    }
+    const accountsFolder = this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);
+    const existingFolderNames = [];
+    if (accountsFolder && accountsFolder instanceof import_obsidian3.TFolder) {
+      for (const child of accountsFolder.children) {
+        if (child instanceof import_obsidian3.TFolder) {
+          existingFolderNames.push(child.name);
+        }
+      }
+    }
+    const newAccounts = await ownershipService.getNewAccounts(
+      this.settings.userEmail,
+      existingFolderNames
+    );
+    if (newAccounts.length === 0) {
+      console.log("[Eudia] All account folders exist");
+      return 0;
+    }
+    console.log(`[Eudia] Creating ${newAccounts.length} new account folders`);
+    await this.createTailoredAccountFolders(newAccounts);
+    return newAccounts.length;
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+  // SALESFORCE NOTE SYNC
+  // ─────────────────────────────────────────────────────────────────────────
+  async syncNoteToSalesforce() {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile) {
+      new import_obsidian3.Notice("No active file to sync");
+      return;
+    }
+    const content = await this.app.vault.read(activeFile);
+    const frontmatter = this.app.metadataCache.getFileCache(activeFile)?.frontmatter;
+    if (!frontmatter?.sync_to_salesforce) {
+      new import_obsidian3.Notice("Set sync_to_salesforce: true in frontmatter to enable sync");
+      return;
+    }
+    let accountId = frontmatter.account_id;
+    let accountName = frontmatter.account;
+    if (!accountId && accountName) {
+      const account = this.settings.cachedAccounts.find(
+        (a) => a.name.toLowerCase() === accountName.toLowerCase()
+      );
+      if (account) {
+        accountId = account.id;
+      }
+    }
+    if (!accountId) {
+      const pathParts = activeFile.path.split("/");
+      if (pathParts.length >= 2 && pathParts[0] === this.settings.accountsFolder) {
+        const folderName = pathParts[1];
+        const account = this.settings.cachedAccounts.find(
+          (a) => a.name.replace(/[<>:"/\\|?*]/g, "_").trim() === folderName
+        );
+        if (account) {
+          accountId = account.id;
+          accountName = account.name;
+        }
+      }
+    }
+    if (!accountId) {
+      new import_obsidian3.Notice("Could not determine account for this note");
+      return;
+    }
+    try {
+      new import_obsidian3.Notice("Syncing to Salesforce...");
+      const response = await (0, import_obsidian3.requestUrl)({
+        url: `${this.settings.serverUrl}/api/notes/sync`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId,
+          accountName,
+          noteTitle: activeFile.basename,
+          notePath: activeFile.path,
+          content,
+          frontmatter,
+          syncedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          userEmail: this.settings.userEmail
+        })
+      });
+      if (response.json?.success) {
+        new import_obsidian3.Notice("Synced to Salesforce");
+      } else {
+        new import_obsidian3.Notice("Failed to sync: " + (response.json?.error || "Unknown error"));
+      }
+    } catch (error) {
+      new import_obsidian3.Notice(`Sync failed: ${error.message}`);
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+  // MEETING NOTE CREATION
+  // ─────────────────────────────────────────────────────────────────────────
+  async createMeetingNote() {
+    return new Promise((resolve) => {
+      const modal = new AccountSelectorModal(this.app, this, async (account) => {
+        if (!account) {
+          resolve();
+          return;
+        }
+        const dateStr = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+        const sanitizedName = account.name.replace(/[<>:"/\\|?*]/g, "_").trim();
+        const folderPath = `${this.settings.accountsFolder}/${sanitizedName}`;
+        const fileName = `${dateStr} Meeting.md`;
+        const filePath = `${folderPath}/${fileName}`;
+        if (!this.app.vault.getAbstractFileByPath(folderPath)) {
+          await this.app.vault.createFolder(folderPath);
+        }
+        const template = `---
+title: "Meeting with ${account.name}"
+date: ${dateStr}
+account: "${account.name}"
+account_id: "${account.id}"
 meeting_type: discovery
 sync_to_salesforce: false
 transcribed: false
 ---
 
-# Meeting with ${s.name}
+# Meeting with ${account.name}
 
 ## Pre-Call Notes
 
@@ -836,4 +5523,228 @@ Click the microphone icon or \`Cmd/Ctrl+P\` \u2192 "Transcribe Meeting"
 
 ---
 
-`,m=await this.app.vault.create(c,u);await this.app.workspace.getLeaf().openFile(m),new l.Notice(`Created meeting note for ${s.name}`),e()}).open()})}async fetchAndInsertContext(){new l.Notice("Fetching pre-call context...")}},H=class extends l.PluginSettingTab{constructor(n,e){super(n,e),this.plugin=e}display(){let{containerEl:n}=this;n.empty(),n.createEl("h2",{text:"Eudia Sync & Scribe"}),n.createEl("h3",{text:"Your Profile"});let e=n.createDiv();e.style.cssText="padding: 16px; background: var(--background-secondary); border-radius: 8px; margin-bottom: 16px; margin-top: 16px;";let t=e.createDiv();t.style.cssText="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;";let s=t.createSpan(),a=t.createSpan(),i=e.createDiv();i.style.cssText="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;",i.setText("Connect with Salesforce to sync notes with your user attribution.");let r=e.createEl("button");r.style.cssText="padding: 10px 20px; cursor: pointer; border-radius: 6px;";let o=null,c=async()=>{if(!this.plugin.settings.userEmail)return s.style.cssText="width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted);",a.setText("Enter email above first"),r.setText("Setup Required"),r.disabled=!0,r.style.opacity="0.5",r.style.cursor="not-allowed",!1;r.disabled=!1,r.style.opacity="1",r.style.cursor="pointer";try{return s.style.cssText="width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); animation: pulse 1s infinite;",a.setText("Checking..."),(await(0,l.requestUrl)({url:`${this.plugin.settings.serverUrl}/api/sf/auth/status?email=${encodeURIComponent(this.plugin.settings.userEmail)}`,method:"GET",throw:!1})).json?.authenticated===!0?(s.style.cssText="width: 8px; height: 8px; border-radius: 50%; background: #22c55e;",a.setText("Connected to Salesforce"),r.setText("Reconnect"),this.plugin.settings.salesforceConnected=!0,await this.plugin.saveSettings(),!0):(s.style.cssText="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;",a.setText("Not connected"),r.setText("Connect to Salesforce"),!1)}catch{return s.style.cssText="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;",a.setText("Status unavailable"),r.setText("Connect to Salesforce"),!1}};new l.Setting(n).setName("Eudia Email").setDesc("Your @eudia.com email address for calendar and Salesforce sync").addText(p=>p.setPlaceholder("yourname@eudia.com").setValue(this.plugin.settings.userEmail).onChange(async g=>{let y=g.trim().toLowerCase();this.plugin.settings.userEmail=y,await this.plugin.saveSettings(),await c()})),new l.Setting(n).setName("Timezone").setDesc("Your local timezone for calendar event display").addDropdown(p=>{K.forEach(g=>{p.addOption(g.value,g.label)}),p.setValue(this.plugin.settings.timezone),p.onChange(async g=>{this.plugin.settings.timezone=g,await this.plugin.saveSettings(),new l.Notice(`Timezone set to ${K.find(y=>y.value===g)?.label||g}`)})}),n.createEl("h3",{text:"Salesforce Connection"}),n.appendChild(e);let u=()=>{o&&window.clearInterval(o);let p=0,g=30;o=window.setInterval(async()=>{p++,await c()?(o&&(window.clearInterval(o),o=null),new l.Notice("Salesforce connected successfully!")):p>=g&&o&&(window.clearInterval(o),o=null)},5e3)};r.onclick=async()=>{if(!this.plugin.settings.userEmail){new l.Notice("Please enter your email first");return}let p=`${this.plugin.settings.serverUrl}/api/sf/auth/start?email=${encodeURIComponent(this.plugin.settings.userEmail)}`;window.open(p,"_blank"),new l.Notice("Complete the Salesforce login in the popup window",5e3),u()},c(),n.createEl("h3",{text:"Server"}),new l.Setting(n).setName("GTM Brain Server").setDesc("Server URL for calendar, accounts, and sync").addText(p=>p.setValue(this.plugin.settings.serverUrl).onChange(async g=>{this.plugin.settings.serverUrl=g,await this.plugin.saveSettings()}));let m=n.createDiv({cls:"settings-advanced-collapsed"}),h=m.createDiv({cls:"eudia-transcription-status"});h.style.cssText="padding: 12px; background: var(--background-secondary); border-radius: 6px; margin-bottom: 12px; font-size: 13px;",h.innerHTML='<span style="color: var(--text-muted);">Checking server transcription status...</span>',(async()=>{try{(await(0,l.requestUrl)({url:`${this.plugin.settings.serverUrl}/api/plugin/config`,method:"GET"})).json?.capabilities?.serverTranscription?h.innerHTML='<span class="eudia-check-icon"></span> Server transcription is available. No local API key needed.':h.innerHTML='<span class="eudia-warn-icon"></span> Server transcription unavailable. Add a local API key below.'}catch{h.innerHTML='<span style="color: #f59e0b;">\u26A0</span> Could not check server status. Local API key recommended as backup.'}})();let d=new l.Setting(n).setName("Advanced Options").setDesc("Show fallback API key (usually not needed)").addToggle(p=>p.setValue(!1).onChange(g=>{m.style.display=g?"block":"none"}));m.style.display="none",new l.Setting(m).setName("OpenAI API Key (Fallback)").setDesc("Only needed if server transcription is unavailable").addText(p=>{p.setPlaceholder("sk-...").setValue(this.plugin.settings.openaiApiKey).onChange(async g=>{this.plugin.settings.openaiApiKey=g,await this.plugin.saveSettings()}),p.inputEl.type="password"}),n.createEl("h3",{text:"Transcription"}),new l.Setting(n).setName("Save Audio Files").setDesc("Keep original audio recordings").addToggle(p=>p.setValue(this.plugin.settings.saveAudioFiles).onChange(async g=>{this.plugin.settings.saveAudioFiles=g,await this.plugin.saveSettings()})),new l.Setting(n).setName("Append Full Transcript").setDesc("Include complete transcript in notes").addToggle(p=>p.setValue(this.plugin.settings.appendTranscript).onChange(async g=>{this.plugin.settings.appendTranscript=g,await this.plugin.saveSettings()})),n.createEl("h3",{text:"Sync"}),new l.Setting(n).setName("Sync on Startup").setDesc("Automatically sync accounts when Obsidian opens").addToggle(p=>p.setValue(this.plugin.settings.syncOnStartup).onChange(async g=>{this.plugin.settings.syncOnStartup=g,await this.plugin.saveSettings()})),new l.Setting(n).setName("Auto-Sync After Transcription").setDesc("Push notes to Salesforce after transcription").addToggle(p=>p.setValue(this.plugin.settings.autoSyncAfterTranscription).onChange(async g=>{this.plugin.settings.autoSyncAfterTranscription=g,await this.plugin.saveSettings()})),n.createEl("h3",{text:"Folders"}),new l.Setting(n).setName("Accounts Folder").setDesc("Where account folders are stored").addText(p=>p.setValue(this.plugin.settings.accountsFolder).onChange(async g=>{this.plugin.settings.accountsFolder=g||"Accounts",await this.plugin.saveSettings()})),new l.Setting(n).setName("Recordings Folder").setDesc("Where audio files are saved").addText(p=>p.setValue(this.plugin.settings.recordingsFolder).onChange(async g=>{this.plugin.settings.recordingsFolder=g||"Recordings",await this.plugin.saveSettings()})),n.createEl("h3",{text:"Actions"}),new l.Setting(n).setName("Sync Accounts Now").setDesc(`${this.plugin.settings.cachedAccounts.length} accounts available for matching`).addButton(p=>p.setButtonText("Sync").setCta().onClick(async()=>{await this.plugin.syncAccounts(),this.display()})),new l.Setting(n).setName("Refresh Account Folders").setDesc("Check for new account assignments and create folders for them").addButton(p=>p.setButtonText("Refresh Folders").onClick(async()=>{p.setButtonText("Checking..."),p.setDisabled(!0);try{let g=await this.plugin.refreshAccountFolders();g>0?new l.Notice(`Created ${g} new account folder${g>1?"s":""}`):new l.Notice("All account folders are up to date")}catch(g){new l.Notice("Failed to refresh folders: "+g.message)}p.setButtonText("Refresh Folders"),p.setDisabled(!1),this.display()})),this.plugin.settings.lastSyncTime&&n.createEl("p",{text:`Last synced: ${new Date(this.plugin.settings.lastSyncTime).toLocaleString()}`,cls:"setting-item-description"}),n.createEl("p",{text:`Audio transcription: ${w.isSupported()?"Supported":"Not supported"}`,cls:"setting-item-description"})}};
+`;
+        const file = await this.app.vault.create(filePath, template);
+        await this.app.workspace.getLeaf().openFile(file);
+        new import_obsidian3.Notice(`Created meeting note for ${account.name}`);
+        resolve();
+      });
+      modal.open();
+    });
+  }
+  async fetchAndInsertContext() {
+    new import_obsidian3.Notice("Fetching pre-call context...");
+  }
+};
+var EudiaSyncSettingTab = class extends import_obsidian3.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    containerEl.createEl("h2", { text: "Eudia Sync & Scribe" });
+    containerEl.createEl("h3", { text: "Your Profile" });
+    const sfContainer = containerEl.createDiv();
+    sfContainer.style.cssText = "padding: 16px; background: var(--background-secondary); border-radius: 8px; margin-bottom: 16px; margin-top: 16px;";
+    const sfStatus = sfContainer.createDiv();
+    sfStatus.style.cssText = "display: flex; align-items: center; gap: 8px; margin-bottom: 12px;";
+    const statusDot = sfStatus.createSpan();
+    const statusText = sfStatus.createSpan();
+    const sfDesc = sfContainer.createDiv();
+    sfDesc.style.cssText = "font-size: 12px; color: var(--text-muted); margin-bottom: 16px;";
+    sfDesc.setText("Connect with Salesforce to sync notes with your user attribution.");
+    const sfButton = sfContainer.createEl("button");
+    sfButton.style.cssText = "padding: 10px 20px; cursor: pointer; border-radius: 6px;";
+    let pollInterval = null;
+    const checkStatus = async () => {
+      if (!this.plugin.settings.userEmail) {
+        statusDot.style.cssText = "width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted);";
+        statusText.setText("Enter email above first");
+        sfButton.setText("Setup Required");
+        sfButton.disabled = true;
+        sfButton.style.opacity = "0.5";
+        sfButton.style.cursor = "not-allowed";
+        return false;
+      }
+      sfButton.disabled = false;
+      sfButton.style.opacity = "1";
+      sfButton.style.cursor = "pointer";
+      try {
+        statusDot.style.cssText = "width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); animation: pulse 1s infinite;";
+        statusText.setText("Checking...");
+        const response = await (0, import_obsidian3.requestUrl)({
+          url: `${this.plugin.settings.serverUrl}/api/sf/auth/status?email=${encodeURIComponent(this.plugin.settings.userEmail)}`,
+          method: "GET",
+          throw: false
+        });
+        if (response.json?.authenticated === true) {
+          statusDot.style.cssText = "width: 8px; height: 8px; border-radius: 50%; background: #22c55e;";
+          statusText.setText("Connected to Salesforce");
+          sfButton.setText("Reconnect");
+          this.plugin.settings.salesforceConnected = true;
+          await this.plugin.saveSettings();
+          return true;
+        } else {
+          statusDot.style.cssText = "width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;";
+          statusText.setText("Not connected");
+          sfButton.setText("Connect to Salesforce");
+          return false;
+        }
+      } catch {
+        statusDot.style.cssText = "width: 8px; height: 8px; border-radius: 50%; background: #ef4444;";
+        statusText.setText("Status unavailable");
+        sfButton.setText("Connect to Salesforce");
+        return false;
+      }
+    };
+    new import_obsidian3.Setting(containerEl).setName("Eudia Email").setDesc("Your @eudia.com email address for calendar and Salesforce sync").addText((text) => text.setPlaceholder("yourname@eudia.com").setValue(this.plugin.settings.userEmail).onChange(async (value) => {
+      const email = value.trim().toLowerCase();
+      this.plugin.settings.userEmail = email;
+      await this.plugin.saveSettings();
+      await checkStatus();
+    }));
+    new import_obsidian3.Setting(containerEl).setName("Timezone").setDesc("Your local timezone for calendar event display").addDropdown((dropdown) => {
+      TIMEZONE_OPTIONS.forEach((tz) => {
+        dropdown.addOption(tz.value, tz.label);
+      });
+      dropdown.setValue(this.plugin.settings.timezone);
+      dropdown.onChange(async (value) => {
+        this.plugin.settings.timezone = value;
+        await this.plugin.saveSettings();
+        new import_obsidian3.Notice(`Timezone set to ${TIMEZONE_OPTIONS.find((t) => t.value === value)?.label || value}`);
+      });
+    });
+    containerEl.createEl("h3", { text: "Salesforce Connection" });
+    containerEl.appendChild(sfContainer);
+    const startPolling = () => {
+      if (pollInterval) {
+        window.clearInterval(pollInterval);
+      }
+      let attempts = 0;
+      const maxAttempts = 30;
+      pollInterval = window.setInterval(async () => {
+        attempts++;
+        const isConnected = await checkStatus();
+        if (isConnected) {
+          if (pollInterval) {
+            window.clearInterval(pollInterval);
+            pollInterval = null;
+          }
+          new import_obsidian3.Notice("Salesforce connected successfully!");
+        } else if (attempts >= maxAttempts) {
+          if (pollInterval) {
+            window.clearInterval(pollInterval);
+            pollInterval = null;
+          }
+        }
+      }, 5e3);
+    };
+    sfButton.onclick = async () => {
+      if (!this.plugin.settings.userEmail) {
+        new import_obsidian3.Notice("Please enter your email first");
+        return;
+      }
+      const authUrl = `${this.plugin.settings.serverUrl}/api/sf/auth/start?email=${encodeURIComponent(this.plugin.settings.userEmail)}`;
+      window.open(authUrl, "_blank");
+      new import_obsidian3.Notice("Complete the Salesforce login in the popup window", 5e3);
+      startPolling();
+    };
+    checkStatus();
+    containerEl.createEl("h3", { text: "Server" });
+    new import_obsidian3.Setting(containerEl).setName("GTM Brain Server").setDesc("Server URL for calendar, accounts, and sync").addText((text) => text.setValue(this.plugin.settings.serverUrl).onChange(async (value) => {
+      this.plugin.settings.serverUrl = value;
+      await this.plugin.saveSettings();
+    }));
+    const advancedSection = containerEl.createDiv({ cls: "settings-advanced-collapsed" });
+    const transcriptionStatus = advancedSection.createDiv({ cls: "eudia-transcription-status" });
+    transcriptionStatus.style.cssText = "padding: 12px; background: var(--background-secondary); border-radius: 6px; margin-bottom: 12px; font-size: 13px;";
+    transcriptionStatus.innerHTML = '<span style="color: var(--text-muted);">Checking server transcription status...</span>';
+    (async () => {
+      try {
+        const response = await (0, import_obsidian3.requestUrl)({
+          url: `${this.plugin.settings.serverUrl}/api/plugin/config`,
+          method: "GET"
+        });
+        if (response.json?.capabilities?.serverTranscription) {
+          transcriptionStatus.innerHTML = '<span class="eudia-check-icon"></span> Server transcription is available. No local API key needed.';
+        } else {
+          transcriptionStatus.innerHTML = '<span class="eudia-warn-icon"></span> Server transcription unavailable. Add a local API key below.';
+        }
+      } catch {
+        transcriptionStatus.innerHTML = '<span style="color: #f59e0b;">\u26A0</span> Could not check server status. Local API key recommended as backup.';
+      }
+    })();
+    const advancedToggle = new import_obsidian3.Setting(containerEl).setName("Advanced Options").setDesc("Show fallback API key (usually not needed)").addToggle((toggle) => toggle.setValue(false).onChange((value) => {
+      advancedSection.style.display = value ? "block" : "none";
+    }));
+    advancedSection.style.display = "none";
+    new import_obsidian3.Setting(advancedSection).setName("OpenAI API Key (Fallback)").setDesc("Only needed if server transcription is unavailable").addText((text) => {
+      text.setPlaceholder("sk-...").setValue(this.plugin.settings.openaiApiKey).onChange(async (value) => {
+        this.plugin.settings.openaiApiKey = value;
+        await this.plugin.saveSettings();
+      });
+      text.inputEl.type = "password";
+    });
+    containerEl.createEl("h3", { text: "Transcription" });
+    new import_obsidian3.Setting(containerEl).setName("Save Audio Files").setDesc("Keep original audio recordings").addToggle((toggle) => toggle.setValue(this.plugin.settings.saveAudioFiles).onChange(async (value) => {
+      this.plugin.settings.saveAudioFiles = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian3.Setting(containerEl).setName("Append Full Transcript").setDesc("Include complete transcript in notes").addToggle((toggle) => toggle.setValue(this.plugin.settings.appendTranscript).onChange(async (value) => {
+      this.plugin.settings.appendTranscript = value;
+      await this.plugin.saveSettings();
+    }));
+    containerEl.createEl("h3", { text: "Sync" });
+    new import_obsidian3.Setting(containerEl).setName("Sync on Startup").setDesc("Automatically sync accounts when Obsidian opens").addToggle((toggle) => toggle.setValue(this.plugin.settings.syncOnStartup).onChange(async (value) => {
+      this.plugin.settings.syncOnStartup = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian3.Setting(containerEl).setName("Auto-Sync After Transcription").setDesc("Push notes to Salesforce after transcription").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoSyncAfterTranscription).onChange(async (value) => {
+      this.plugin.settings.autoSyncAfterTranscription = value;
+      await this.plugin.saveSettings();
+    }));
+    containerEl.createEl("h3", { text: "Folders" });
+    new import_obsidian3.Setting(containerEl).setName("Accounts Folder").setDesc("Where account folders are stored").addText((text) => text.setValue(this.plugin.settings.accountsFolder).onChange(async (value) => {
+      this.plugin.settings.accountsFolder = value || "Accounts";
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian3.Setting(containerEl).setName("Recordings Folder").setDesc("Where audio files are saved").addText((text) => text.setValue(this.plugin.settings.recordingsFolder).onChange(async (value) => {
+      this.plugin.settings.recordingsFolder = value || "Recordings";
+      await this.plugin.saveSettings();
+    }));
+    containerEl.createEl("h3", { text: "Actions" });
+    new import_obsidian3.Setting(containerEl).setName("Sync Accounts Now").setDesc(`${this.plugin.settings.cachedAccounts.length} accounts available for matching`).addButton((button) => button.setButtonText("Sync").setCta().onClick(async () => {
+      await this.plugin.syncAccounts();
+      this.display();
+    }));
+    new import_obsidian3.Setting(containerEl).setName("Refresh Account Folders").setDesc("Check for new account assignments and create folders for them").addButton((button) => button.setButtonText("Refresh Folders").onClick(async () => {
+      button.setButtonText("Checking...");
+      button.setDisabled(true);
+      try {
+        const newCount = await this.plugin.refreshAccountFolders();
+        if (newCount > 0) {
+          new import_obsidian3.Notice(`Created ${newCount} new account folder${newCount > 1 ? "s" : ""}`);
+        } else {
+          new import_obsidian3.Notice("All account folders are up to date");
+        }
+      } catch (error) {
+        new import_obsidian3.Notice("Failed to refresh folders: " + error.message);
+      }
+      button.setButtonText("Refresh Folders");
+      button.setDisabled(false);
+      this.display();
+    }));
+    if (this.plugin.settings.lastSyncTime) {
+      containerEl.createEl("p", {
+        text: `Last synced: ${new Date(this.plugin.settings.lastSyncTime).toLocaleString()}`,
+        cls: "setting-item-description"
+      });
+    }
+    containerEl.createEl("p", {
+      text: `Audio transcription: ${AudioRecorder.isSupported() ? "Supported" : "Not supported"}`,
+      cls: "setting-item-description"
+    });
+  }
+};

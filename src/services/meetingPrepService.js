@@ -242,7 +242,9 @@ async function getUpcomingMeetings(startDate, endDate) {
     const manualMeetings = await intelligenceStore.getUpcomingMeetingPreps(startDate, endDate);
     
     // Get calendar events from SQLite (FAST - instant read, no Graph API calls!)
-    // Background job handles fetching and storing calendar data
+    // PHASE 2 MIGRATION: Use in-memory cache (ephemeral) instead of SQLite
+    // Calendar data is fetched from Microsoft Graph and cached in memory only
+    // This ensures no customer meeting data is persisted to disk on Render
     let outlookEvents = [];
     let calendarSyncStatus = null;
     try {
@@ -251,19 +253,14 @@ async function getUpcomingMeetings(startDate, endDate) {
       const end = new Date(endDate);
       const daysAhead = Math.ceil((end - start) / (24 * 60 * 60 * 1000));
       
-      // Read from SQLite database (instant) instead of Graph API (slow)
-      const result = await calendarService.getCalendarEventsFromDatabase(daysAhead);
+      // Read from in-memory cache (ephemeral) - fetches from Graph API if cache miss
+      const result = await calendarService.getUpcomingMeetingsForAllBLs(daysAhead);
       outlookEvents = result.meetings || [];
       calendarSyncStatus = result.stats;
       
-      logger.info(`[MeetingPrep] Loaded ${outlookEvents.length} meetings from database (last sync: ${result.stats?.lastSync || 'never'})`);
-      
-      // If sync is needed, log it but don't block - background job handles it
-      if (result.needsSync) {
-        logger.info('[MeetingPrep] Calendar data needs sync - background job will handle');
-      }
+      logger.info(`[MeetingPrep] Loaded ${outlookEvents.length} meetings from memory cache`);
     } catch (outlookError) {
-      logger.error('[MeetingPrep] Failed to read calendar from database:', outlookError.message);
+      logger.error('[MeetingPrep] Failed to fetch calendar:', outlookError.message);
       // Continue with manual meetings only
     }
     

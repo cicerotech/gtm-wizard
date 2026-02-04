@@ -733,16 +733,24 @@ class CalendarService {
   }
 
   // ============================================================
-  // DATABASE-BACKED CALENDAR METHODS (Fast reads, background sync)
+  // DEPRECATED: DATABASE-BACKED CALENDAR METHODS
+  // ============================================================
+  // As of Phase 2 Data Residency Migration, calendar data uses
+  // ephemeral in-memory cache (CALENDAR_CACHE above) instead of SQLite.
+  // These methods are kept for backward compatibility but should not
+  // be called from new code paths. All customer meeting data now stays
+  // in memory and is fetched fresh from Microsoft Graph API.
   // ============================================================
 
   /**
+   * @deprecated Use getUpcomingMeetingsForAllBLs() instead - uses in-memory cache
    * Sync all BL calendars to SQLite database
-   * This is meant to run as a BACKGROUND JOB - not on page load
+   * This method is deprecated per Phase 2 Data Residency Migration
    * @param {number} daysAhead - How many days ahead to fetch (default 14)
    * @returns {Object} Sync results
    */
   async syncCalendarsToDatabase(daysAhead = 14) {
+    logger.warn('⚠️ [CalendarSync] syncCalendarsToDatabase is DEPRECATED - use in-memory cache instead');
     const intelligenceStore = require('./intelligenceStore');
     
     logger.info(`📅 [CalendarSync] Starting background sync for ${BL_EMAILS.length} BLs...`);
@@ -824,12 +832,14 @@ class CalendarService {
   }
 
   /**
-   * Get calendar events from SQLite (FAST - for page loads)
+   * @deprecated Use getUpcomingMeetingsForAllBLs() instead - uses in-memory cache
+   * Get calendar events from SQLite - DEPRECATED per Phase 2 Data Residency Migration
    * Falls back to empty if no data, triggers background sync
    * @param {number} daysAhead - How many days ahead (default 14)
    * @returns {Object} { meetings, stats, syncStatus }
    */
   async getCalendarEventsFromDatabase(daysAhead = 14) {
+    logger.warn('⚠️ getCalendarEventsFromDatabase is DEPRECATED - use getUpcomingMeetingsForAllBLs() for in-memory cache');
     const intelligenceStore = require('./intelligenceStore');
     
     const startDate = new Date();
@@ -903,10 +913,13 @@ class CalendarService {
   }
 
   /**
+   * @deprecated No longer needed - in-memory cache handles freshness automatically
    * Check if calendar data is stale (>6 hours old) or missing
+   * This method is deprecated per Phase 2 Data Residency Migration
    * @returns {boolean} True if sync is needed
    */
   async isCalendarSyncNeeded() {
+    logger.warn('⚠️ isCalendarSyncNeeded is DEPRECATED - in-memory cache handles freshness');
     const intelligenceStore = require('./intelligenceStore');
     
     try {

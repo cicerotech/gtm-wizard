@@ -16,6 +16,85 @@ const intelligenceStore = require('./intelligenceStore');
 const meetingContextService = require('./meetingContextService');
 const { cache } = require('../utils/cache');
 const logger = require('../utils/logger');
+const { getIntelForAccount } = require('./slackIntelCache');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// IN-MEMORY CACHE - Ephemeral, no customer data persisted to disk
+// Replaces SQLite storage for compliance - data fetched from Salesforce
+// ═══════════════════════════════════════════════════════════════════════════
+const accountContextCache = new Map();
+const MEMORY_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+function getMemoryCachedContext(accountId) {
+  const cached = accountContextCache.get(accountId);
+  if (cached && Date.now() - cached.timestamp < MEMORY_CACHE_TTL_MS) {
+    logger.debug(`[Intelligence] Memory cache HIT for ${accountId}`);
+    return cached.data;
+  }
+  if (cached) {
+    accountContextCache.delete(accountId); // Expired, remove
+  }
+  return null;
+}
+
+function setMemoryCachedContext(accountId, data) {
+  // Limit cache size to prevent memory leaks
+  if (accountContextCache.size > 200) {
+    const firstKey = accountContextCache.keys().next().value;
+    accountContextCache.delete(firstKey);
+  }
+  accountContextCache.set(accountId, {
+    data,
+    timestamp: Date.now()
+  });
+  logger.debug(`[Intelligence] Memory cache SET for ${accountId}`);
+}
+
+/**
+ * Parse Customer_Brain__c field into structured meeting notes
+ * This is the primary source of meeting history (from Salesforce, not SQLite)
+ */
+function parseCustomerBrainNotes(rawBrain) {
+  if (!rawBrain || typeof rawBrain !== 'string') return [];
+  
+  // Split by meeting delimiter
+  const entries = rawBrain.split(/---\s*Meeting:/i);
+  
+  return entries
+    .filter(e => e && e.trim().length > 10)
+    .slice(0, 10)  // Last 10 meetings for rich context
+    .map(entry => {
+      const lines = entry.trim().split('\n');
+      
+      // Parse date from first line
+      const dateMatch = lines[0]?.match(/^(.+?)\s*---/);
+      const date = dateMatch?.[1]?.trim() || 'Unknown date';
+      
+      // Parse metadata fields
+      const repMatch = entry.match(/Rep:\s*(.+)/i);
+      const durationMatch = entry.match(/Duration:\s*(.+)/i);
+      const participantsMatch = entry.match(/Participants:\s*(.+)/i);
+      
+      // Extract notes content
+      let summary = '';
+      const doubleNewline = entry.indexOf('\n\n');
+      if (doubleNewline > -1) {
+        const notesContent = entry.substring(doubleNewline + 2).trim();
+        summary = notesContent.substring(0, 500);
+        if (notesContent.length > 500) summary += '...';
+      }
+      
+      return {
+        date,
+        rep: repMatch?.[1]?.trim() || 'Unknown',
+        duration: durationMatch?.[1]?.trim() || null,
+        participants: participantsMatch?.[1]?.trim() || null,
+        summary: summary || 'No summary available',
+        source: 'salesforce'  // Explicitly mark source as Salesforce
+      };
+    })
+    .filter(note => note.summary && note.summary !== 'No summary available');
+}
 
 // Initialize Anthropic client
 let anthropic = null;
@@ -175,14 +254,12 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail 
     dataFreshness: 'live'
   };
 
-  // Check cache first for account context
-  const cacheKey = accountId ? `intel_context:${accountId}` : null;
-  if (cacheKey) {
-    const cached = await cache.get(cacheKey);
-    if (cached) {
-      logger.debug('[Intelligence] Using cached context');
-      context.dataFreshness = 'cached';
-      return { ...cached, dataFreshness: 'cached' };
+  // Check IN-MEMORY cache first (ephemeral, no disk persistence)
+  // This replaces Redis/SQLite cache for compliance
+  if (accountId) {
+    const memoryCached = getMemoryCachedContext(accountId);
+    if (memoryCached) {
+      return { ...memoryCached, dataFreshness: 'cached' };
     }
   }
 
@@ -224,21 +301,20 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail 
     return context;
   }
 
-  // Fetch all data in parallel for performance
+  // Fetch all data in parallel from SALESFORCE ONLY (no SQLite)
+  // This ensures customer data resides only in Salesforce per compliance requirements
   const [
     accountData,
     opportunities,
     contacts,
     tasks,
-    events,
-    meetingContext
+    events
   ] = await Promise.all([
     getAccountDetails(accountId),
     getOpportunities(accountId),
     getContacts(accountId),
     getRecentTasks(accountId),
-    getRecentEvents(accountId),
-    meetingContextService.generateMeetingContext(accountId).catch(() => null)
+    getRecentEvents(accountId)
   ]);
 
   // Populate context and log data availability
@@ -246,8 +322,14 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail 
     context.account = accountData;
     context.customerBrain = accountData.customerBrain;
     logger.info(`[Intelligence] Account data loaded: ${accountData.name}`);
+    
+    // PHASE 1 MIGRATION: Parse meeting notes directly from Customer_Brain__c (Salesforce)
+    // instead of using SQLite-based intelligenceStore
+    context.meetingNotes = parseCustomerBrainNotes(accountData.customerBrain);
+    logger.info(`[Intelligence] Parsed ${context.meetingNotes.length} meeting notes from Customer_Brain__c`);
   } else {
     logger.warn(`[Intelligence] No account data returned for ID: ${accountId}`);
+    context.meetingNotes = [];
   }
   
   context.opportunities = opportunities || [];
@@ -255,28 +337,29 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail 
   context.recentTasks = tasks || [];
   context.recentEvents = events || [];
   
+  // Note: obsidianNotes now come from Customer_Brain__c (Salesforce)
+  // slackIntel comes from file-based cache (data/slack-intel-cache.json)
+  context.obsidianNotes = context.meetingNotes; // Alias for backward compatibility
+  context.slackIntel = getIntelForAccount(accountId); // Load from file cache
+  
+  if (context.slackIntel.length > 0) {
+    logger.debug(`[Intelligence] Loaded ${context.slackIntel.length} Slack intel items for ${accountId}`);
+  }
+  
   // Log data summary for debugging
   logger.info(`[Intelligence] Context summary for ${context.account?.name || accountId}: ` +
     `${context.opportunities.length} opps, ${context.contacts.length} contacts, ` +
     `${context.recentTasks.length} tasks, ${context.recentEvents.length} events, ` +
-    `customerBrain: ${context.customerBrain ? 'yes' : 'no'}`);
-
-  // Get Obsidian notes and Slack intel from meeting context
-  if (meetingContext) {
-    context.obsidianNotes = meetingContext.obsidianNotes || [];
-    context.slackIntel = meetingContext.slackIntel || [];
-    context.meetingNotes = meetingContext.meetingNotes || [];
-  }
+    `${context.meetingNotes.length} meeting notes, customerBrain: ${context.customerBrain ? 'yes' : 'no'}`);
 
   // Get upcoming meeting if relevant
   if (intent === 'PRE_MEETING') {
     context.upcomingMeeting = await getUpcomingMeeting(accountId);
   }
 
-  // Cache the context
-  if (cacheKey) {
-    await cache.set(cacheKey, context, CACHE_TTL.ACCOUNT_CONTEXT);
-  }
+  // Cache in memory only (ephemeral, no disk persistence)
+  // This replaces Redis cache for compliance
+  setMemoryCachedContext(accountId, context);
 
   return context;
 }

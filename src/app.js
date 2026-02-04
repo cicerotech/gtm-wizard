@@ -445,13 +445,25 @@ tr:last-child td{border-bottom:none}
     <tr><th>Data</th><th>Location</th><th>Infrastructure</th><th>Region</th></tr>
     <tr><td>Full meeting transcripts</td><td><span class="badge-green">Local only</span></td><td>User's machine (Obsidian vault)</td><td>N/A</td></tr>
     <tr><td>Audio recordings</td><td><span class="badge-green">Local only</span></td><td>User's machine (optional save)</td><td>N/A</td></tr>
-    <tr><td>Meeting note summaries</td><td>Local + Salesforce</td><td>Obsidian vault, SF Customer_Brain__c</td><td>SF: per-tenant</td></tr>
+    <tr><td>Meeting note summaries</td><td><span class="badge-green">Salesforce only</span></td><td>SF Customer_Brain__c field</td><td>SF: per-tenant</td></tr>
     <tr><td>OAuth tokens (encrypted)</td><td>Server SQLite</td><td>Render.com persistent disk</td><td>US Oregon</td></tr>
-    <tr><td>Calendar event cache</td><td>Server SQLite</td><td>Render.com persistent disk</td><td>US Oregon</td></tr>
-    <tr><td>Slack intelligence cache</td><td>Server SQLite</td><td>Render.com persistent disk</td><td>US Oregon</td></tr>
-    <tr><td>Query result cache</td><td>Redis / Memory</td><td>Render.com Redis or in-process</td><td>US Oregon</td></tr>
+    <tr><td>Calendar event cache</td><td><span class="badge-purple">Ephemeral memory</span></td><td>In-process Map (10-min TTL)</td><td>N/A (no persistence)</td></tr>
+    <tr><td>Account context cache</td><td><span class="badge-purple">Ephemeral memory</span></td><td>In-process Map (15-min TTL)</td><td>N/A (no persistence)</td></tr>
+    <tr><td>Context summaries</td><td><span class="badge-purple">Ephemeral memory</span></td><td>In-process Map (2-hr TTL)</td><td>N/A (no persistence)</td></tr>
+    <tr><td>Query result cache</td><td><span class="badge-purple">Ephemeral memory</span></td><td>In-process Map</td><td>N/A (no persistence)</td></tr>
     <tr><td>Server application logs</td><td>Render.com</td><td>Render logging infrastructure</td><td>US</td></tr>
   </table>
+  
+  <div class="card" style="margin-top:16px;border-left:4px solid var(--success)">
+    <div class="card-title" style="color:var(--success)">Data Residency Philosophy</div>
+    <p class="card-text">As of the Phase 2/3 Data Residency Migration, <strong>no customer data is persisted to disk on Render</strong>. All customer-related data (meeting notes, calendar events, context summaries) is now:</p>
+    <ul style="margin-top:12px;color:var(--text-muted);font-size:0.875rem">
+      <li><strong>Stored in Salesforce</strong> (Customer_Brain__c) - our system of record</li>
+      <li><strong>Cached in ephemeral memory</strong> - auto-expires, lost on server restart</li>
+      <li><strong>Fetched on-demand</strong> from source APIs (Salesforce, Microsoft Graph)</li>
+    </ul>
+    <p class="card-text" style="margin-top:12px">Only OAuth tokens remain in encrypted SQLite for operational necessity.</p>
+  </div>
   
   <div class="card" style="margin-top:16px">
     <div class="card-title">Architecture Diagram</div>
@@ -461,25 +473,29 @@ USER'S LOCAL MACHINE                    GTM-BRAIN SERVER                      EX
 
 +---------------------+               +------------------------+             +------------------+
 |   Obsidian Vault    |               |   Node.js API Server   |             |   Salesforce     |
-|   (Markdown files)  | <-----------> |   - Express.js         | <---------> |   (Customer CRM) |
-|   - Full transcripts|               |   - Slack Bolt         |             +------------------+
-|   - Meeting notes   |               |   - Rate limiting      |
-|   - Audio (optional)|               +------------------------+             +------------------+
-+---------------------+                         |                            |   OpenAI         |
-                                                v                            |   Whisper API    |
+|   (Markdown files)  | <-----------> |   - Express.js         | <---------> |   (System of     |
+|   - Full transcripts|               |   - Slack Bolt         |             |    Record)       |
+|   - Meeting notes   |               |   - Rate limiting      |             |   - Customer data|
+|   - Audio (optional)|               +------------------------+             |   - Meeting notes|
++---------------------+                         |                            +------------------+
+                                                v
 +---------------------+               +------------------------+             +------------------+
-|   Eudia Plugin      |               |   SQLite Databases     |
-|   - Transcription   | ------------> |   - user_tokens (enc)  |             +------------------+
-|   - Summarization   |               |   - intelligence_store |             |   Anthropic      |
-|   - Calendar sync   |               |   - calendar_cache     |             |   Claude API     |
-+---------------------+               +------------------------+             +------------------+
-
+|   Eudia Plugin      |               |   EPHEMERAL MEMORY     |             |   OpenAI         |
+|   - Transcription   | ------------> |   - Calendar cache     |             |   Whisper API    |
+|   - Summarization   |               |   - Context cache      |             +------------------+
+|   - Calendar sync   |               |   - Query cache        |
++---------------------+               |   (No disk persistence)|             +------------------+
+                                      +------------------------+             |   Anthropic      |
+                                                |                            |   Claude API     |
+                                                v                            +------------------+
+                                      +------------------------+
+                                      |   SQLite (tokens only) |             +------------------+
+                                      |   - user_tokens (AES)  |             |   Microsoft 365  |
+                                      |   (No customer data)   |             |   Graph API      |
                                       +------------------------+             +------------------+
-                                      |   Redis Cache          |             |   Microsoft 365  |
-                                      |   (optional)           |             |   Graph API      |
-                                      +------------------------+             +------------------+
 
-KEY: Audio NEVER stored on server. Only summaries sync to Salesforce.
+KEY: Audio NEVER stored on server. Customer data lives in Salesforce only.
+     All caches are ephemeral (in-memory) - no customer data persisted to disk.
     </div>
   </div>
 </section>
@@ -494,27 +510,27 @@ KEY: Audio NEVER stored on server. Only summaries sync to Salesforce.
   </div>
   
   <div class="card">
-    <div class="card-title">SQLite Databases (Server-side)</div>
-    <p class="card-text" style="margin-bottom:12px">Primary persistent storage on Render.com. Multiple SQLite files for data isolation:</p>
+    <div class="card-title">SQLite Database (Server-side)</div>
+    <p class="card-text" style="margin-bottom:12px">Minimal persistent storage on Render.com - <strong>only OAuth tokens</strong>, no customer data:</p>
     <table>
       <tr><th>Database</th><th>Tables</th><th>Contents</th><th>Encryption</th></tr>
-      <tr><td>user_tokens.db</td><td>user_tokens</td><td>OAuth access/refresh tokens</td><td><span class="badge-green">AES-256-GCM</span></td></tr>
-      <tr><td>intelligence.db</td><td>obsidian_notes, meeting_prep, calendar_events, pending_intelligence</td><td>Note metadata, meeting context, Slack intel</td><td>None (non-credential)</td></tr>
-      <tr><td>call_intelligence.db</td><td>call_analysis</td><td>Sales call analysis results</td><td>None</td></tr>
+      <tr><td>user_tokens.db</td><td>user_tokens</td><td>OAuth access/refresh tokens only</td><td><span class="badge-green">AES-256-GCM</span></td></tr>
     </table>
+    <p class="card-text" style="margin-top:12px;font-style:italic">Note: As of the Data Residency Migration, customer data (meeting notes, calendar events, context summaries) is no longer stored in SQLite. All customer data resides in Salesforce or ephemeral memory caches.</p>
   </div>
   
   <div class="card">
-    <div class="card-title">Cache Layers</div>
+    <div class="card-title">Cache Layers (All Ephemeral)</div>
+    <p class="card-text" style="margin-bottom:12px">All caches are <strong>in-memory only</strong> - no customer data persisted to disk:</p>
     <table>
-      <tr><th>Cache Type</th><th>Technology</th><th>TTL</th><th>Purpose</th></tr>
-      <tr><td>Query cache</td><td>In-memory Map</td><td>60 seconds</td><td>Deduplicate identical Salesforce queries</td></tr>
-      <tr><td>Salesforce metadata</td><td>Redis or memory</td><td>24 hours</td><td>Field describe, picklist values</td></tr>
-      <tr><td>Query results</td><td>Redis or memory</td><td>5 minutes</td><td>SOQL query results</td></tr>
-      <tr><td>Calendar events</td><td>SQLite</td><td>15 minutes</td><td>Microsoft Graph calendar data</td></tr>
-      <tr><td>Intelligence context</td><td>Redis</td><td>15 minutes</td><td>Aggregated account context for queries</td></tr>
-      <tr><td>Context summaries</td><td>SQLite</td><td>24 hours</td><td>AI-generated meeting context</td></tr>
+      <tr><th>Cache Type</th><th>Technology</th><th>TTL</th><th>Purpose</th><th>Data on Restart</th></tr>
+      <tr><td>Query cache</td><td>In-memory Map</td><td>60 seconds</td><td>Deduplicate identical Salesforce queries</td><td><span class="badge-purple">Lost</span></td></tr>
+      <tr><td>Salesforce metadata</td><td>In-memory Map</td><td>24 hours</td><td>Field describe, picklist values</td><td><span class="badge-purple">Re-fetched</span></td></tr>
+      <tr><td>Calendar events</td><td>In-memory Map</td><td>10 minutes</td><td>Microsoft Graph calendar data</td><td><span class="badge-purple">Re-fetched</span></td></tr>
+      <tr><td>Account context</td><td>In-memory Map</td><td>15 minutes</td><td>Aggregated context from Salesforce</td><td><span class="badge-purple">Re-fetched</span></td></tr>
+      <tr><td>Context summaries</td><td>In-memory Map</td><td>2 hours</td><td>AI-generated meeting context</td><td><span class="badge-purple">Re-generated</span></td></tr>
     </table>
+    <p class="card-text" style="margin-top:12px;color:var(--success)">This architecture ensures no customer data survives server restarts - all data is fetched fresh from source systems (Salesforce, Microsoft Graph) as needed.</p>
   </div>
   
   <div class="card">
@@ -530,14 +546,16 @@ KEY: Audio NEVER stored on server. Only summaries sync to Salesforce.
   <div class="card">
     <div class="card-title">Data Retention Summary</div>
     <table>
-      <tr><th>Data</th><th>Retention</th><th>Cleanup</th></tr>
+      <tr><th>Data</th><th>Retention</th><th>Cleanup Mechanism</th></tr>
       <tr><td>OAuth tokens</td><td>Until revoked</td><td>Admin endpoint or user disconnect</td></tr>
-      <tr><td>Calendar cache</td><td>30 days</td><td>Automatic daily cleanup</td></tr>
-      <tr><td>Query cache</td><td>60 sec - 5 min</td><td>Automatic TTL expiration</td></tr>
-      <tr><td>Context summaries</td><td>24 hours</td><td>Automatic expiration check</td></tr>
-      <tr><td>Obsidian notes metadata</td><td>Indefinite</td><td>Manual deletion</td></tr>
+      <tr><td>Calendar cache</td><td>10 minutes max</td><td>In-memory TTL expiration, server restart</td></tr>
+      <tr><td>Account context cache</td><td>15 minutes max</td><td>In-memory TTL expiration, server restart</td></tr>
+      <tr><td>Context summaries</td><td>2 hours max</td><td>In-memory TTL expiration, server restart</td></tr>
+      <tr><td>Query cache</td><td>60 seconds</td><td>In-memory TTL expiration</td></tr>
+      <tr><td>Meeting notes</td><td>Salesforce retention</td><td>Stored in Customer_Brain__c, managed by SF admin</td></tr>
       <tr><td>Server logs</td><td>7 days</td><td>Render.com automatic rotation</td></tr>
     </table>
+    <p class="card-text" style="margin-top:12px;font-weight:500">Key Point: All customer data caches are automatically cleared on every server restart/deploy. Persistent customer data is managed exclusively by Salesforce.</p>
   </div>
 </section>
 
@@ -957,6 +975,18 @@ class GTMBrainApp {
       } catch (calendarError) {
         logger.warn('⚠️  Calendar sync service failed to initialize:', calendarError.message);
         // Don't throw - app can still run, just without calendar caching
+      }
+
+      // Initialize Slack Intel Cache (file-based cache for Slack intelligence)
+      try {
+        const { initializeIntelCache } = require('./jobs/refreshIntelCache');
+        const intelInit = await initializeIntelCache();
+        if (intelInit.initialized) {
+          logger.info(`✅ Slack intel cache initialized (${intelInit.cacheStatus?.totalIntelCount || 0} cached items)`);
+        }
+      } catch (intelError) {
+        logger.warn('⚠️  Slack intel cache failed to initialize:', intelError.message);
+        // Don't throw - app can still run, queries will just have empty slackIntel
       }
 
       // Initialize User Token Service (for SF OAuth per-user auth)
@@ -4277,21 +4307,23 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
       }
     });
     
-    // Get stored calendar events from database (fast - for debugging)
+    // Get calendar events from in-memory cache (ephemeral - for debugging)
+    // PHASE 2 MIGRATION: No longer reads from SQLite, uses ephemeral memory cache only
     this.expressApp.get('/api/calendar/stored', async (req, res) => {
       try {
         const { calendarService } = require('./services/calendarService');
-        const result = await calendarService.getCalendarEventsFromDatabase(14);
+        // Use in-memory cache (ephemeral) - fetches from Graph API if cache miss
+        const result = await calendarService.getUpcomingMeetingsForAllBLs(14);
         
         res.json({
           success: true,
           meetingCount: result.meetings.length,
           stats: result.stats,
-          needsSync: result.needsSync,
+          source: 'memory_cache',  // Indicate data source for debugging
           meetings: result.meetings.slice(0, 20) // First 20 for preview
         });
       } catch (error) {
-        logger.error('Error getting stored calendar events:', error);
+        logger.error('Error getting calendar events:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });

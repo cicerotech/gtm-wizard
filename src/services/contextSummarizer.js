@@ -11,7 +11,43 @@
 
 const crypto = require('crypto');
 const logger = require('../utils/logger');
-const intelligenceStore = require('./intelligenceStore');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 3 DATA RESIDENCY MIGRATION: In-Memory Cache (Ephemeral)
+// Replaces SQLite context_summaries table - no customer data persisted to disk
+// ═══════════════════════════════════════════════════════════════════════════
+const summaryCache = new Map();
+const SUMMARY_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours (shorter than SQLite's 24h)
+
+function getMemoryCachedSummary(accountId, contentHash) {
+  const cached = summaryCache.get(accountId);
+  if (cached && cached.sourceHash === contentHash) {
+    const age = Date.now() - cached.timestamp;
+    if (age < SUMMARY_CACHE_TTL_MS) {
+      logger.debug(`[ContextSummarizer] Memory cache HIT for ${accountId} (${Math.round(age / 60000)}m old)`);
+      return cached;
+    }
+    // Expired
+    summaryCache.delete(accountId);
+  }
+  return null;
+}
+
+function setMemoryCachedSummary(accountId, summary, contentHash, rawExcerpt) {
+  // Limit cache size to prevent memory leaks
+  if (summaryCache.size > 100) {
+    const firstKey = summaryCache.keys().next().value;
+    summaryCache.delete(firstKey);
+  }
+  summaryCache.set(accountId, {
+    summary,
+    sourceHash: contentHash,
+    rawExcerpt,
+    timestamp: Date.now(),
+    generatedAt: new Date().toISOString()
+  });
+  logger.debug(`[ContextSummarizer] Memory cache SET for ${accountId}`);
+}
 
 // Check for direct Anthropic API key (preferred over Socrates)
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -385,30 +421,19 @@ async function summarizeContext(accountId, accountName, sources, options = {}) {
   // Generate content hash for cache comparison
   const contentHash = generateContentHash(rawContent);
   
-  // Check cache (unless force refresh)
+  // PHASE 3: Check in-memory cache (instead of SQLite) unless force refresh
   if (!options.forceRefresh) {
-    try {
-      const cached = await intelligenceStore.getContextSummary(accountId);
-      
-      if (cached && cached.source_hash === contentHash) {
-        // Cache hit - content hasn't changed
-        const cacheAge = Date.now() - new Date(cached.generated_at).getTime();
-        const cacheAgeHours = cacheAge / (1000 * 60 * 60);
-        
-        if (cacheAgeHours < CONFIG.cacheTTLHours) {
-          logger.debug(`[ContextSummarizer] Cache hit for ${accountName} (${cacheAgeHours.toFixed(1)}h old)`);
-          return {
-            success: true,
-            cached: true,
-            summary: JSON.parse(cached.summary_json),
-            rawExcerpt: cached.raw_excerpt,
-            contentHash,
-            generatedAt: cached.generated_at
-          };
-        }
-      }
-    } catch (cacheError) {
-      logger.warn('[ContextSummarizer] Cache lookup error:', cacheError.message);
+    const cached = getMemoryCachedSummary(accountId, contentHash);
+    if (cached) {
+      logger.debug(`[ContextSummarizer] Memory cache hit for ${accountName}`);
+      return {
+        success: true,
+        cached: true,
+        summary: cached.summary,
+        rawExcerpt: cached.rawExcerpt,
+        contentHash,
+        generatedAt: cached.generatedAt
+      };
     }
   }
   
@@ -417,20 +442,18 @@ async function summarizeContext(accountId, accountName, sources, options = {}) {
   if (!rateCheck.allowed) {
     logger.warn(`[ContextSummarizer] Rate limited for ${accountName}: ${rateCheck.reason}`);
     
-    // Try to return stale cache
-    try {
-      const staleCache = await intelligenceStore.getContextSummary(accountId);
-      if (staleCache) {
-        return {
-          success: true,
-          cached: true,
-          stale: true,
-          summary: JSON.parse(staleCache.summary_json),
-          rawExcerpt: staleCache.raw_excerpt,
-          reason: rateCheck.reason
-        };
-      }
-    } catch (e) {}
+    // Try to return any cached summary (even with different hash)
+    const anyCache = summaryCache.get(accountId);
+    if (anyCache) {
+      return {
+        success: true,
+        cached: true,
+        stale: true,
+        summary: anyCache.summary,
+        rawExcerpt: anyCache.rawExcerpt,
+        reason: rateCheck.reason
+      };
+    }
     
     return {
       success: false,
@@ -465,26 +488,17 @@ async function summarizeContext(accountId, accountName, sources, options = {}) {
     };
   }
   
-  // Save to cache
-  try {
-    await intelligenceStore.saveContextSummary({
-      accountId,
-      sourceType: 'combined',
-      sourceHash: contentHash,
-      summaryJson: JSON.stringify(summary),
-      rawExcerpt: buildExcerpt(rawContent),
-      fullNotesUrl: null // Can be set if we have a direct link
-    });
-    logger.info(`[ContextSummarizer] Cached summary for ${accountName} (${duration}ms)`);
-  } catch (saveError) {
-    logger.error('[ContextSummarizer] Failed to cache summary:', saveError.message);
-  }
+  // PHASE 3: Save to in-memory cache (instead of SQLite)
+  // No disk persistence - ephemeral cache only
+  const rawExcerpt = buildExcerpt(rawContent);
+  setMemoryCachedSummary(accountId, summary, contentHash, rawExcerpt);
+  logger.info(`[ContextSummarizer] Cached summary in memory for ${accountName} (${duration}ms)`);
   
   return {
     success: true,
     cached: false,
     summary,
-    rawExcerpt: buildExcerpt(rawContent),
+    rawExcerpt,
     contentHash,
     generatedAt: new Date().toISOString(),
     duration
