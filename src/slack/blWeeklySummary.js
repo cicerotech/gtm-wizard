@@ -102,8 +102,9 @@ const Q1_BY_POD = {
 };
 
 // Q1 Commit Snapshot by BL (from SF report - update weekly)
+// Updated 2026-02-05 from Salesforce Q1 2026 Commit Snapshot
 const BL_COMMIT_SNAPSHOT = {
-  // US Pod
+  // US Pod (from screenshot - Sum of Q1 2026 Commit Snapshot)
   'Ananth Cherukupally': 395000,
   'Asad Hussain': 180000,
   'Julie Stefanich': 650000,
@@ -116,6 +117,11 @@ const BL_COMMIT_SNAPSHOT = {
   'Emer Flynn': 0,
   'Nathan Shine': 896550,
   'Nicola Fratini': 200000
+};
+
+// Account display name overrides (for correcting SF data)
+const ACCOUNT_DISPLAY_OVERRIDES = {
+  'Gov - DOD': 'Space Systems Command'
 };
 
 // Q1 Pipeline by Solution Bucket (from SF report - update weekly)
@@ -1703,24 +1709,29 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   rightY += 12;
   
   // Top 10 list for Q1
-  doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+  doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
   top10Q1.deals.slice(0, 10).forEach((deal, i) => {
-    const value = deal.acv >= 1000000 
+    let value = deal.acv >= 1000000 
       ? `$${(deal.acv / 1000000).toFixed(1)}m`
       : `$${(deal.acv / 1000).toFixed(0)}k`;
-    const name = deal.accountName.length > 22 ? deal.accountName.substring(0, 22) + '...' : deal.accountName;
+    // Apply account display name overrides
+    let displayName = deal.accountName;
+    if (ACCOUNT_DISPLAY_OVERRIDES[displayName]) {
+      displayName = ACCOUNT_DISPLAY_OVERRIDES[displayName];
+    }
+    const name = displayName.length > 22 ? displayName.substring(0, 22) + '...' : displayName;
     doc.text(`${i + 1}. ${value}, ${name}`, oppRightX, rightY);
-    rightY += 11;
+    rightY += 12;
   });
   
   y = Math.max(leftY, rightY) + SECTION_GAP + 4;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // PIPELINE BY SALES TYPE
+  // Q1 PIPELINE BY SALES TYPE
   // ═══════════════════════════════════════════════════════════════════════════
-  doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
-  doc.text('PIPELINE BY SALES TYPE', LEFT, y);
-  y += 16;
+  doc.font(fontBold).fontSize(12).fillColor(DARK_TEXT);
+  doc.text('Q1 PIPELINE BY SALES TYPE', LEFT, y);
+  y += 18;
   
   // Sales Type table
   const salesTypeTableWidth = PAGE_WIDTH;
@@ -2017,75 +2028,51 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         tableY += 11;
       });
       
-      // RIGHT: Late Stage (S4 Proposal + S5 Negotiation)
-      doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
-      doc.text('LATE STAGE (S4/S5)', RIGHT_COL, twoColY);
-      
-      // Late stage table header
-      let propTableY = twoColY + 14;
-      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-      doc.text('Stage', RIGHT_COL, propTableY);
-      doc.text('Deals', RIGHT_COL + 100, propTableY, { width: 40, align: 'right' });
-      doc.text('Gross ACV', RIGHT_COL + 150, propTableY, { width: 70, align: 'right' });
-      
-      propTableY += 11;
-      doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(RIGHT_COL, propTableY).lineTo(LEFT + PAGE_WIDTH, propTableY).stroke();
-      propTableY += 5;
-      
-      // Late stage rows - S4 and S5 combined
-      doc.font(fontRegular).fontSize(10).fillColor(DARK_TEXT);
-      
-      // S4 Proposal
-      doc.text('S4 Proposal', RIGHT_COL, propTableY);
-      doc.text(totals.proposalCount.toString(), RIGHT_COL + 100, propTableY, { width: 40, align: 'right' });
-      doc.text(formatCurrency(totals.proposalGrossACV), RIGHT_COL + 150, propTableY, { width: 70, align: 'right' });
-      propTableY += 11;
-      
-      // S5 Negotiation
-      doc.text('S5 Negotiation', RIGHT_COL, propTableY);
-      doc.text(totals.negotiationCount.toString(), RIGHT_COL + 100, propTableY, { width: 40, align: 'right' });
-      doc.text(formatCurrency(totals.negotiationGrossACV), RIGHT_COL + 150, propTableY, { width: 70, align: 'right' });
-      propTableY += 11;
-      
-      // Combined Total (S4 + S5)
-      const lateStageCount = totals.proposalCount + totals.negotiationCount;
-      const lateStageACV = totals.proposalGrossACV + totals.negotiationGrossACV;
-      doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
-      doc.text('Total', RIGHT_COL, propTableY);
-      doc.text(lateStageCount.toString(), RIGHT_COL + 100, propTableY, { width: 40, align: 'right' });
-      doc.text(formatCurrency(lateStageACV), RIGHT_COL + 150, propTableY, { width: 70, align: 'right' });
-      propTableY += 12;
-      
-      // Targeting This Month box - COMPACT
+      // RIGHT: Targeting This Month box (moved up, replacing Late Stage section)
+      let propTableY = twoColY;
       if (proposalThisMonth && proposalThisMonth.length > 0) {
         const boxX = RIGHT_COL;
         const boxY = propTableY;
         const boxWidth = PAGE_WIDTH / 2 - 5;
-        const dealsToShow = proposalThisMonth.slice(0, 5);
-        const boxHeight = dealsToShow.length * 9 + 18;
+        const dealsToShow = proposalThisMonth.slice(0, 8);
+        const boxHeight = dealsToShow.length * 11 + 24;
         
-        // Green background
+        // Light green background
         doc.rect(boxX, boxY, boxWidth, boxHeight).fill(GREEN_BG);
-        // Green left border
-        doc.rect(boxX, boxY, 2, boxHeight).fill(GREEN_ACCENT);
+        // Green left border accent
+        doc.rect(boxX, boxY, 3, boxHeight).fill(GREEN_ACCENT);
         
-        // Title
-        doc.font(fontBold).fontSize(7).fillColor(GREEN_ACCENT);
-        doc.text('TARGETING THIS MONTH', boxX + 8, boxY + 4);
+        // Bold header title
+        doc.font(fontBold).fontSize(10).fillColor(GREEN_ACCENT);
+        doc.text('TARGETING THIS MONTH', boxX + 10, boxY + 6);
         
-        // Deal list - COMPACT
-        doc.font(fontRegular).fontSize(7).fillColor(BODY_TEXT);
-        let dealY = boxY + 14;
+        // Deal list with product lines - increased font
+        doc.font(fontRegular).fontSize(9).fillColor(BODY_TEXT);
+        let dealY = boxY + 22;
         dealsToShow.forEach(d => {
-          const name = d.accountName.length > 20 ? d.accountName.substring(0, 20) + '...' : d.accountName;
-          doc.text(`${name} • ${formatCurrency(d.acv)} • ${formatDate(d.targetDate)}`, boxX + 8, dealY);
-          dealY += 9;
+          // Apply account display overrides
+          let displayName = d.accountName;
+          if (ACCOUNT_DISPLAY_OVERRIDES[displayName]) {
+            displayName = ACCOUNT_DISPLAY_OVERRIDES[displayName];
+          }
+          const name = displayName.length > 22 ? displayName.substring(0, 22) + '...' : displayName;
+          
+          // Format ACV - add asterisk for Bank of Ireland with Net ACV note
+          let acvDisplay = formatCurrency(d.acv);
+          let extraNote = '';
+          if (displayName === 'Bank of Ireland' || d.accountName === 'Bank of Ireland') {
+            acvDisplay = formatCurrency(d.acv) + '*';
+            extraNote = ' (Net: $235k)';
+          }
+          
+          doc.text(`${name} • ${acvDisplay}${extraNote} • ${formatDate(d.targetDate)}`, boxX + 10, dealY);
+          dealY += 11;
         });
-        if (proposalThisMonth.length > 5) {
+        if (proposalThisMonth.length > 8) {
           doc.fillColor(DARK_TEXT);
-          doc.text(`+${proposalThisMonth.length - 5} more deals`, boxX + 8, dealY);
+          doc.text(`+${proposalThisMonth.length - 8} more deals`, boxX + 10, dealY);
         }
-        propTableY += boxHeight + 4;
+        propTableY += boxHeight + 6;
       }
       
       y = Math.max(tableY, propTableY) + SECTION_GAP;
@@ -2093,11 +2080,11 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       // ═══════════════════════════════════════════════════════════════════════
       // BUSINESS LEAD SUMMARY
       // ═══════════════════════════════════════════════════════════════════════
-      doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
+      doc.font(fontBold).fontSize(12).fillColor(DARK_TEXT);
       doc.text('BUSINESS LEAD SUMMARY', LEFT, y);
-      y += 12;
+      y += 14;
       
-      // Helper function to draw BL table - COMPACT
+      // Helper function to draw BL table
       const drawBLTable = (title, blList, startX, startY, colWidth) => {
         const activeBLs = blList
           .filter(bl => blMetrics[bl] && (blMetrics[bl].accounts > 0 || blMetrics[bl].opportunities > 0))
@@ -2105,33 +2092,35 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         
         if (activeBLs.length === 0) return startY;
         
-        // Pod title (green)
-        doc.font(fontBold).fontSize(8).fillColor(GREEN_ACCENT);
+        // Pod title (green) - increased font
+        doc.font(fontBold).fontSize(10).fillColor(GREEN_ACCENT);
         doc.text(title, startX, startY);
         
-        // Table header
-        let headerY = startY + 10;
-        doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
+        // Table header - increased font
+        let headerY = startY + 12;
+        doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
         doc.text('Name', startX, headerY);
         doc.text('Accts', startX + 50, headerY, { width: 25, align: 'right' });
         doc.text('Opps', startX + 80, headerY, { width: 25, align: 'right' });
         doc.text('Gross', startX + 110, headerY, { width: 45, align: 'right' });
         doc.text('Commit', startX + 160, headerY, { width: 40, align: 'right' });
         
-        headerY += 9;
+        headerY += 10;
         doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(startX, headerY).lineTo(startX + colWidth - 10, headerY).stroke();
         
         let rowY = headerY + 5;
-        doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);  // Increased from 7 to 8
+        doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);  // Increased from 8 to 9 for better readability
         activeBLs.forEach(bl => {
           const m = blMetrics[bl];
           const displayName = bl.split(' ')[0];
+          // Use BL_COMMIT_SNAPSHOT for Commit column (not weighted ACV)
+          const commitValue = BL_COMMIT_SNAPSHOT[bl] || 0;
           doc.text(displayName, startX, rowY);
           doc.text(m.accounts.toString(), startX + 50, rowY, { width: 25, align: 'right' });
           doc.text(m.opportunities.toString(), startX + 80, rowY, { width: 25, align: 'right' });
           doc.text(formatCurrency(m.grossACV), startX + 110, rowY, { width: 45, align: 'right' });
-          doc.text(formatCurrency(m.weightedACV), startX + 160, rowY, { width: 40, align: 'right' });
-          rowY += 10;  // Increased from 9 to 10 for larger font
+          doc.text(formatCurrency(commitValue), startX + 160, rowY, { width: 40, align: 'right' });
+          rowY += 11;  // Increased from 10 to 11 for larger font
         });
         
         return rowY;
