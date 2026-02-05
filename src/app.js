@@ -296,7 +296,7 @@ td{padding:8px 10px;border-top:1px solid var(--border);color:var(--text-muted)}
 <p class="subtitle">For engineering review - data consumption, storage, and integrations</p>
 
 <div class="tldr">
-  <h2>TL;DR - Engineering Questions Answered</h2>
+  <h2>Overview</h2>
   <div class="tldr-grid">
     <div class="tldr-item"><strong>What data is consumed?</strong><span>Salesforce CRM data, calendar events, meeting transcripts (local), Slack messages</span></div>
     <div class="tldr-item"><strong>Where does data reside?</strong><span>Salesforce (system of record), local user machines, ephemeral server memory only</span></div>
