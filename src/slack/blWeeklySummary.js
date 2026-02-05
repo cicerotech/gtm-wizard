@@ -910,8 +910,9 @@ async function queryTop10TargetingJanuary() {
     logger.info(`Querying top 10 deals targeting ${monthName}...`);
     
     // Query top 10 deals by ACV - filter by active stages AND target date <= end of current month
+    // Include Net_ACV__c for display purposes
     const soql = `
-      SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Blended_Forecast_base__c, Target_LOI_Date__c, 
+      SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Net_ACV__c, Blended_Forecast_base__c, Target_LOI_Date__c, 
              StageName, Owner.Name, Sales_Type__c
       FROM Opportunity
       WHERE IsClosed = false
@@ -944,6 +945,7 @@ async function queryTop10TargetingJanuary() {
       name: opp.Name,
       accountName: getAccountDisplayName(opp),
       acv: opp.ACV__c || 0,
+      netACV: opp.Net_ACV__c || opp.ACV__c || 0,
       blendedForecast: opp.Blended_Forecast_base__c || 0,
       targetDate: opp.Target_LOI_Date__c,
       stage: opp.StageName,
@@ -955,7 +957,7 @@ async function queryTop10TargetingJanuary() {
     const totalBlended = deals.reduce((sum, d) => sum + d.blendedForecast, 0);
     const totalCount = countResult?.records?.[0]?.totalCount || deals.length;
     
-    logger.info(`Top 10 January: ${deals.length} deals (${totalCount} total), $${(totalACV/1000000).toFixed(2)}M ACV, $${(totalBlended/1000000).toFixed(2)}M blended`);
+    logger.info(`Top 10 February: ${deals.length} deals (${totalCount} total), $${(totalACV/1000000).toFixed(2)}M ACV, $${(totalBlended/1000000).toFixed(2)}M blended`);
     return { deals, totalACV, totalBlended, totalCount };
     
   } catch (error) {
@@ -1428,7 +1430,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   y += 2 + SECTION_GAP;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // FY25 CLOSED + Q1 FY26 FORECAST TABLE
+  // RUN RATE + Q1 FY26 FORECAST (Combined Table)
   // ═══════════════════════════════════════════════════════════════════════════
   const runRateY = y;
   const runRateWidth = 260;
@@ -1436,29 +1438,10 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   const col2Width = 55;      // Amount column
   const col3Width = runRateWidth - col1Width - col2Width; // Confidence column
   
-  // ─────────────────────────────────────────────────────────────────────────
-  // FY25 CLOSED SECTION
-  // ─────────────────────────────────────────────────────────────────────────
+  // Table header
   doc.rect(LEFT, y, runRateWidth, 22).fill('#1f2937');
   doc.font(fontBold).fontSize(10).fillColor('#ffffff');
-  doc.text('FY25 CLOSED RUN RATE', LEFT + 8, y + 6);
-  y += 22;
-  
-  // FY25 Run Rate row
-  doc.rect(LEFT, y, runRateWidth, 24).fill('#dcfce7');
-  doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
-  doc.text('Run Rate', LEFT + 8, y + 7);
-  doc.text(`$${FY25_FINAL_ARR.toFixed(1)}m`, LEFT + col1Width + 8, y + 7);
-  y += 24;
-  
-  y += 8; // Gap between sections
-  
-  // ─────────────────────────────────────────────────────────────────────────
-  // Q1 FY26 FORECAST SECTION
-  // ─────────────────────────────────────────────────────────────────────────
-  doc.rect(LEFT, y, runRateWidth, 22).fill('#1f2937');
-  doc.font(fontBold).fontSize(10).fillColor('#ffffff');
-  doc.text('Q1 FY26 FORECAST (Feb-Apr)', LEFT + 8, y + 6);
+  doc.text('RUN RATE + Q1 FY26 FORECAST', LEFT + 8, y + 6);
   y += 22;
   
   // Column headers
@@ -1471,20 +1454,29 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.text('Conf.', LEFT + col1Width + col2Width + 4, y + 4);
   y += 16;
   
+  // FY25 Close row (gray background, first data row)
+  doc.rect(LEFT, y, runRateWidth, 18).fill('#e5e7eb');
+  doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
+  doc.text('FY25 Close', LEFT + 8, y + 5);
+  doc.text(`$${FY25_FINAL_ARR.toFixed(1)}m`, LEFT + col1Width + 4, y + 5);
+  doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
+  doc.text('Actual', LEFT + col1Width + col2Width + 4, y + 5);
+  y += 18;
+  
   // Forecast range rows (3 key ranges)
   const forecastRows = [
     { label: 'Floor (Commit)', value: Q1_FY26_FORECAST.floor, conf: '90%+' },
     { label: 'Most Likely / Expected', value: Q1_FY26_FORECAST.mostLikely, conf: '70-80%' },
-    { label: 'Target', value: Q1_FY26_FORECAST.target, conf: '50-60%', highlight: true }
+    { label: 'Target', value: Q1_FY26_FORECAST.target, conf: '50-60%' }
   ];
   
   doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
   
   forecastRows.forEach((row, i) => {
-    const bg = row.highlight ? '#dcfce7' : (i % 2 === 0 ? '#f9fafb' : '#ffffff');
+    const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
     doc.rect(LEFT, y, runRateWidth, 16).fill(bg);
     doc.fillColor(DARK_TEXT);
-    doc.font(row.highlight ? fontBold : fontRegular).fontSize(8);
+    doc.font(fontRegular).fontSize(8);
     doc.text(row.label, LEFT + 8, y + 4);
     doc.text(`$${row.value.toFixed(2)}m`, LEFT + col1Width + 4, y + 4);
     doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
@@ -1493,12 +1485,13 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     y += 16;
   });
   
-  // Pipeline summary row - uses actual Q1 pipeline data
-  y += 2;
-  doc.rect(LEFT, y, runRateWidth, 18).fill('#f3f4f6');
-  doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
-  doc.text('Q1 Pipeline Opps | Target LOI in Q1 FY26', LEFT + 8, y + 5);
-  y += 18;
+  // Total row (FY25 + Q1 Target) with green highlight
+  const totalProjected = FY25_FINAL_ARR + Q1_FY26_FORECAST.target;
+  doc.rect(LEFT, y, runRateWidth, 20).fill('#dcfce7');
+  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
+  doc.text('Total (FY25 + Q1 Target)', LEFT + 8, y + 6);
+  doc.text(`$${totalProjected.toFixed(2)}m`, LEFT + col1Width + 4, y + 6);
+  y += 20;
   
   const runRateEndY = y + 4;
   
@@ -1564,7 +1557,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   }
   y += 32;
   
-  // Revenue type breakdown - improved spacing to prevent text overlap
+  // Revenue type breakdown - improved spacing with full account names and product sub-bullets
   y += 10;
   Object.entries(signedLastWeek.byRevenueType || {}).forEach(([type, data]) => {
     if (data.deals.length > 0) {
@@ -1573,24 +1566,27 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
       doc.text(`${type.toUpperCase()} (${data.deals.length})`, signedX, y);
       y += 14;
       
-      // Show top deals for this type (8pt regular, clean compact format)
+      // Show top deals for this type - full account name with product as sub-bullet
       data.deals.slice(0, 2).forEach(deal => {
         const dealValue = deal.acv >= 1000000 
           ? `$${(deal.acv / 1000000).toFixed(1)}m`
           : `$${(deal.acv / 1000).toFixed(0)}k`;
-        // Truncate account name to 10 chars for compact display (reduced to prevent overlap)
-        const name = deal.accountName.length > 10 ? deal.accountName.substring(0, 10) + '...' : deal.accountName;
-        // Format product line: replace underscores with dashes, truncate to 15 chars
-        let formattedProductLine = formatProductLine(deal.productLine);
-        if (formattedProductLine.length > 15) {
-          formattedProductLine = formattedProductLine.substring(0, 15) + '...';
-        }
-        // Compact format: remove salesType (redundant with RECURRING/PROJECT header)
+        // Show full account name (truncate only if very long)
+        const name = deal.accountName.length > 25 ? deal.accountName.substring(0, 25) + '...' : deal.accountName;
+        // Main line: deal value and account name
         doc.font(fontRegular).fontSize(8).fillColor(BODY_TEXT);
-        doc.text(`• ${dealValue}, ${name} | ${formattedProductLine}`, signedX + 4, y);
-        y += 14;
+        doc.text(`• ${dealValue}, ${name}`, signedX + 4, y);
+        y += 11;
+        // Sub-bullet: product line
+        let formattedProductLine = formatProductLine(deal.productLine);
+        if (formattedProductLine.length > 20) {
+          formattedProductLine = formattedProductLine.substring(0, 20) + '...';
+        }
+        doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
+        doc.text(`  ${formattedProductLine}`, signedX + 12, y);
+        y += 10;
       });
-      y += 10; // Increased from 6 for better section separation
+      y += 8;
     }
   });
   
@@ -1618,14 +1614,22 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.text('Q1 Deals targeting close this month', oppLeftX, leftY);
   leftY += 14;
   
-  // Top 10 list for January
+  // Top 10 list for February - show net ACV in parentheses when different from gross
   doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
   top10January.deals.slice(0, 10).forEach((deal, i) => {
     const value = deal.acv >= 1000000 
       ? `$${(deal.acv / 1000000).toFixed(1)}m`
       : `$${(deal.acv / 1000).toFixed(0)}k`;
-    const name = deal.accountName.length > 22 ? deal.accountName.substring(0, 22) + '...' : deal.accountName;
-    doc.text(`${i + 1}. ${value}, ${name}`, oppLeftX, leftY);
+    // Show net ACV in parentheses if different from gross ACV
+    let netSuffix = '';
+    if (deal.netACV && deal.netACV !== deal.acv) {
+      const netValue = deal.netACV >= 1000000 
+        ? `$${(deal.netACV / 1000000).toFixed(1)}m`
+        : `$${(deal.netACV / 1000).toFixed(0)}k`;
+      netSuffix = ` (${netValue} net)`;
+    }
+    const name = deal.accountName.length > 18 ? deal.accountName.substring(0, 18) + '...' : deal.accountName;
+    doc.text(`${i + 1}. ${value}${netSuffix}, ${name}`, oppLeftX, leftY);
     leftY += 11;
   });
   
