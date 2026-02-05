@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Event_Type__c</fullName>
+    <description>Type of usage event recorded</description>
+    <externalId>false</externalId>
+    <label>Event Type</label>
+    <required>true</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Login</fullName>
+                <default>false</default>
+                <label>Login</label>
+            </value>
+            <value>
+                <fullName>Page_View</fullName>
+                <default>false</default>
+                <label>Page View</label>
+            </value>
+            <value>
+                <fullName>Logout</fullName>
+                <default>false</default>
+                <label>Logout</label>
+            </value>
+            <value>
+                <fullName>Feature_Use</fullName>
+                <default>false</default>
+                <label>Feature Use</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

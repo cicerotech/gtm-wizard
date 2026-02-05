@@ -58,6 +58,9 @@ const intelligenceDigest = require('./slack/intelligenceDigest');
 // Telemetry Store for admin debugging
 const telemetryStore = require('./services/telemetryStore');
 
+// Usage Logger for GTM site analytics
+const usageLogger = require('./services/usageLogger');
+
 // ═══════════════════════════════════════════════════════════════════════════
 // USER GROUP CONFIGURATION
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1113,6 +1116,12 @@ class GTMBrainApp {
         });
         
         logger.info(`✅ Okta SSO login successful: ${userInfo.email}`);
+        
+        // Log login event to Salesforce (fire-and-forget)
+        usageLogger.logLogin(sessionData, req).catch(e => 
+          logger.debug(`[UsageLogger] Login log failed: ${e.message}`)
+        );
+        
         res.redirect('/gtm');
       } catch (error) {
         logger.error('Okta callback error:', error.message);
@@ -1236,6 +1245,9 @@ class GTMBrainApp {
       // Only allow access with valid Okta session
       if (oktaSession) {
         try {
+          // Log page view to Salesforce (fire-and-forget)
+          usageLogger.logPageView(oktaSession, '/account-dashboard', req).catch(() => {});
+          
           const userName = oktaSession.name || oktaSession.email;
           const { html, cached } = await getCachedDashboard();
           logAccess(userName, clientIP, cached);
@@ -1310,8 +1322,12 @@ class GTMBrainApp {
       
       if (oktaSession) {
         try {
+          // Log page view (fire-and-forget)
+          usageLogger.logPageView(oktaSession, '/gtm', req).catch(() => {});
+          
           const userName = oktaSession.name || oktaSession.email;
-          const html = generateUnifiedHub({ userName });
+          const isAdmin = ADMIN_EMAILS.includes(oktaSession.email?.toLowerCase());
+          const html = generateUnifiedHub({ userName, isAdmin });
           res.send(html);
         } catch (error) {
           res.status(500).send(`Error: ${error.message}`);
@@ -1327,6 +1343,9 @@ class GTMBrainApp {
       
       if (oktaSession) {
         try {
+          // Log page view (fire-and-forget)
+          usageLogger.logPageView(oktaSession, '/gtm/dashboard', req).catch(() => {});
+          
           const { html, cached } = await getCachedDashboard();
           res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline'");
           res.setHeader('Cache-Control', 'private, max-age=60');
@@ -1345,6 +1364,9 @@ class GTMBrainApp {
       
       if (oktaSession) {
         try {
+          // Log page view (fire-and-forget)
+          usageLogger.logPageView(oktaSession, '/gtm/meeting-prep', req).catch(() => {});
+          
           const { generateMeetingPrepHTML } = require('./views/meetingPrepView');
           // Pass filterUser query param if present
           const filterUserId = req.query.filterUser || null;
@@ -1382,10 +1404,49 @@ class GTMBrainApp {
     
     // GTM Hub logout
     this.expressApp.get('/gtm/logout', (req, res) => {
+      const oktaSession = validateOktaSession(req);
+      
+      // Log logout event (fire-and-forget)
+      if (oktaSession) {
+        usageLogger.logLogout(oktaSession, req).catch(() => {});
+      }
+      
       res.clearCookie(OKTA_SESSION_COOKIE);
       res.clearCookie('gtm_dash_auth');
       res.clearCookie('gtm_dash_user');
       res.redirect('/gtm');
+    });
+
+    // GTM Analytics view (admin only)
+    this.expressApp.get('/gtm/analytics', async (req, res) => {
+      const oktaSession = validateOktaSession(req);
+      
+      if (!oktaSession) {
+        return res.redirect('/login');
+      }
+      
+      // Check if user is admin
+      const isAdmin = ADMIN_EMAILS.includes(oktaSession.email?.toLowerCase());
+      if (!isAdmin) {
+        return res.status(403).send(`
+          <!DOCTYPE html>
+          <html><head><meta charset="UTF-8"><title>Access Denied</title>
+          <style>body{font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f5f7fe;margin:0}.error{background:#fff;padding:40px;border-radius:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.1)}h1{color:#dc2626;margin-bottom:8px}p{color:#6b7280}a{color:#8e99e1}</style>
+          </head><body><div class="error"><h1>Access Denied</h1><p>Analytics is restricted to administrators.</p><a href="/gtm">Return to GTM Hub</a></div></body></html>
+        `);
+      }
+      
+      try {
+        // Log page view (fire-and-forget)
+        usageLogger.logPageView(oktaSession, '/gtm/analytics', req).catch(() => {});
+        
+        const { generateAnalyticsHTML } = require('./views/analyticsView');
+        const html = await generateAnalyticsHTML();
+        res.send(html);
+      } catch (error) {
+        logger.error('Error generating analytics view:', error);
+        res.status(500).send(`Error: ${error.message}`);
+      }
     });
 
     // Email Builder interface

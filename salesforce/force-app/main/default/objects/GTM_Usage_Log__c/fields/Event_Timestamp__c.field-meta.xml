@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Event_Timestamp__c</fullName>
+    <description>Precise timestamp of when the event occurred</description>
+    <externalId>false</externalId>
+    <label>Event Timestamp</label>
+    <required>true</required>
+    <trackTrending>false</trackTrending>
+    <type>DateTime</type>
+</CustomField>

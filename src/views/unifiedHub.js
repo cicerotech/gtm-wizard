@@ -12,9 +12,11 @@ const path = require('path');
 /**
  * Generate the unified hub HTML with tabbed navigation
  * @param {object} options - Options including user info
+ * @param {string} options.userName - Display name of the user
+ * @param {boolean} options.isAdmin - Whether the user is an admin (shows Analytics tab)
  */
 function generateUnifiedHub(options = {}) {
-  const { userName = 'User' } = options;
+  const { userName = 'User', isAdmin = false } = options;
   const updateTime = new Date().toLocaleTimeString('en-US', { 
     timeZone: 'America/Los_Angeles', 
     hour: 'numeric', 
@@ -136,7 +138,8 @@ input[name="main-tab"] { display: none; }
 #tab-dashboard:checked ~ .tab-nav label[for="tab-dashboard"],
 #tab-architecture:checked ~ .tab-nav label[for="tab-architecture"],
 #tab-commands:checked ~ .tab-nav label[for="tab-commands"],
-#tab-meeting-prep:checked ~ .tab-nav label[for="tab-meeting-prep"] {
+#tab-meeting-prep:checked ~ .tab-nav label[for="tab-meeting-prep"],
+#tab-analytics:checked ~ .tab-nav label[for="tab-analytics"] {
   color: #8e99e1;
   border-bottom-color: #8e99e1;
 }
@@ -149,7 +152,8 @@ input[name="main-tab"] { display: none; }
 #tab-dashboard:checked ~ .content-area #content-dashboard,
 #tab-architecture:checked ~ .content-area #content-architecture,
 #tab-commands:checked ~ .content-area #content-commands,
-#tab-meeting-prep:checked ~ .content-area #content-meeting-prep {
+#tab-meeting-prep:checked ~ .content-area #content-meeting-prep,
+#tab-analytics:checked ~ .content-area #content-analytics {
   display: block;
 }
 
@@ -224,6 +228,7 @@ input[name="main-tab"] { display: none; }
 <input type="radio" name="main-tab" id="tab-architecture">
 <input type="radio" name="main-tab" id="tab-commands">
 <input type="radio" name="main-tab" id="tab-start">
+${isAdmin ? '<input type="radio" name="main-tab" id="tab-analytics">' : ''}
 
 <!-- Tab Navigation -->
 <nav class="tab-nav">
@@ -233,6 +238,7 @@ input[name="main-tab"] { display: none; }
   <label for="tab-architecture">Architecture</label>
   <label for="tab-commands">Commands</label>
   <label for="tab-start" style="color: #8e99e1; font-weight: 600;">Getting Started</label>
+  ${isAdmin ? '<label for="tab-analytics" style="margin-left: auto; color: #9ca3af;">Analytics</label>' : ''}
 </nav>
 
 <!-- Content Area -->
@@ -268,6 +274,12 @@ input[name="main-tab"] { display: none; }
     <iframe src="/getting-started" title="Getting Started"></iframe>
   </div>
   
+  ${isAdmin ? `
+  <!-- Analytics Tab - Admin only -->
+  <div id="content-analytics" class="tab-content">
+    <iframe src="/gtm/analytics" title="Analytics"></iframe>
+  </div>
+  ` : ''}
 </div>
 
 <script>
@@ -285,11 +297,12 @@ document.addEventListener('DOMContentLoaded', function() {
       'meeting-prep': 'tab-meeting-prep',
       'architecture': 'tab-architecture',
       'commands': 'tab-commands',
-      'start': 'tab-start'
+      'start': 'tab-start',
+      'analytics': 'tab-analytics'
     };
     
     var tabId = tabMap[tabParam];
-    if (tabId) {
+    if (tabId && document.getElementById(tabId)) {
       document.getElementById(tabId).checked = true;
     }
   }
