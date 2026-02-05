@@ -1847,12 +1847,12 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
       doc.text(`${totals.totalOpportunities} opps • ${totals.totalAccounts} accts`, colX, metricsY + 42);
       
-      // Column 2: Blended Forecast
+      // Column 2: BL Commit thru EOQ (using Q1 commit total from constants)
       colX = LEFT + colWidth;
       doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
-      doc.text('Blended Forecast', colX, metricsY + 12);
+      doc.text('BL Commit thru EOQ', colX, metricsY + 12);
       doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);
-      doc.text(formatCurrency(totals.weightedThisQuarter), colX, metricsY + 22);
+      doc.text(`$${Q1_FY26_FORECAST.floor.toFixed(1)}m`, colX, metricsY + 22);
       doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
       doc.text(fiscalQuarterLabel, colX, metricsY + 42);
       
@@ -2401,24 +2401,8 @@ function formatSlackMessage(pipelineData, previousSnapshot, dateStr, revOpsData 
   }
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // CLOSED THIS WEEK (if any deals closed)
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (revOpsData?.signedLastWeek?.deals?.length > 0) {
-    message += `*CLOSED THIS WEEK*\n`;
-    revOpsData.signedLastWeek.deals.slice(0, 4).forEach(deal => {
-      const acvStr = deal.acv >= 1000000 ? `$${(deal.acv/1000000).toFixed(1)}m` : `$${Math.round(deal.acv/1000)}k`;
-      const owner = deal.ownerName?.split(' ')[0] || '';
-      const acct = (deal.accountName || '').substring(0, 20);
-      message += `• ${acvStr} ${acct} — ${owner}\n`;
-    });
-    if (revOpsData.signedLastWeek.deals.length > 4) {
-      message += `_+${revOpsData.signedLastWeek.deals.length - 4} more in PDF_\n`;
-    }
-    message += '\n';
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════════
   // TOP BLs BY PIPELINE ACV - Condensed by Pod
+  // (CLOSED THIS WEEK details are in the PDF only)
   // ═══════════════════════════════════════════════════════════════════════════
   const usBLs = US_POD.filter(bl => blMetrics[bl]?.grossACV > 0)
     .sort((a, b) => blMetrics[b].grossACV - blMetrics[a].grossACV).slice(0, 3);
