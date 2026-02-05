@@ -2,14 +2,21 @@
  * User Token Service
  * Manages encrypted OAuth tokens for per-user Salesforce authentication
  * 
- * Security:
+ * ZERO RENDER STORAGE ARCHITECTURE:
+ * - By default, uses file-based storage (tokenFileStore.js)
  * - Tokens encrypted with AES-256-GCM before storage
- * - Encryption key from environment variable
- * - Tokens stored in SQLite with email as key
+ * - Encryption key from environment variable (never in repo)
+ * - File store keeps encrypted data in git, key on Render
+ * 
+ * ROLLBACK: Set USE_SQLITE_TOKENS=true to use legacy SQLite storage
  */
 
 const crypto = require('crypto');
 const logger = require('../utils/logger');
+const tokenFileStore = require('./tokenFileStore');
+
+// Feature flag for rollback - default to file store (Zero Render Storage)
+const USE_FILE_STORE = process.env.USE_SQLITE_TOKENS !== 'true';
 
 // Encryption configuration
 const ALGORITHM = 'aes-256-gcm';
@@ -129,10 +136,37 @@ function dbExec(sql) {
 }
 
 /**
- * Initialize the token service with database connection
- * @param {Database} database - SQLite database instance (sqlite3)
+ * Initialize the token service
+ * @param {Database} database - SQLite database instance (optional with file store)
  */
 async function init(database) {
+  if (USE_FILE_STORE) {
+    // Zero Render Storage: Use file-based token store
+    await tokenFileStore.init();
+    
+    // If SQLite database provided, migrate existing tokens
+    if (database) {
+      db = database;
+      try {
+        // Check if user_tokens table exists and has data
+        const rows = await dbAll('SELECT * FROM user_tokens');
+        if (rows && rows.length > 0) {
+          const migrated = await tokenFileStore.migrateFromSQLite(rows);
+          if (migrated > 0) {
+            logger.info(`✅ Migrated ${migrated} tokens from SQLite to file store`);
+          }
+        }
+      } catch (error) {
+        // Table might not exist, that's fine
+        logger.debug('[TokenService] No SQLite tokens to migrate');
+      }
+    }
+    
+    logger.info('✅ User token service initialized (Zero Render Storage - file store)');
+    return;
+  }
+  
+  // Legacy SQLite mode
   db = database;
   
   // Create user_tokens table if it doesn't exist
@@ -150,7 +184,7 @@ async function init(database) {
     )
   `);
   
-  logger.info('✅ User token service initialized');
+  logger.info('✅ User token service initialized (legacy SQLite mode)');
 }
 
 /**
@@ -163,6 +197,11 @@ async function init(database) {
  * @param {number} tokens.expires_in - Token lifetime in seconds
  */
 async function storeTokens(email, tokens) {
+  if (USE_FILE_STORE) {
+    return tokenFileStore.storeTokens(email, tokens);
+  }
+  
+  // Legacy SQLite mode
   if (!db) {
     throw new Error('Token service not initialized');
   }
@@ -204,6 +243,11 @@ async function storeTokens(email, tokens) {
  * @returns {Object|null} - Decrypted token data or null if not found
  */
 async function getTokens(email) {
+  if (USE_FILE_STORE) {
+    return tokenFileStore.getTokens(email);
+  }
+  
+  // Legacy SQLite mode
   if (!db) {
     throw new Error('Token service not initialized');
   }
@@ -288,6 +332,11 @@ async function checkAuthStatus(email) {
  * @param {number} expiresIn - Token lifetime in seconds
  */
 async function updateAccessToken(email, newAccessToken, expiresIn = 7200) {
+  if (USE_FILE_STORE) {
+    return tokenFileStore.updateAccessToken(email, newAccessToken, expiresIn);
+  }
+  
+  // Legacy SQLite mode
   if (!db) {
     throw new Error('Token service not initialized');
   }
@@ -312,6 +361,11 @@ async function updateAccessToken(email, newAccessToken, expiresIn = 7200) {
  * @param {string} email - User's email
  */
 async function revokeTokens(email) {
+  if (USE_FILE_STORE) {
+    return tokenFileStore.revokeTokens(email);
+  }
+  
+  // Legacy SQLite mode
   if (!db) {
     throw new Error('Token service not initialized');
   }
@@ -328,6 +382,11 @@ async function revokeTokens(email) {
  * @returns {Array} - List of authenticated user emails
  */
 async function listAuthenticatedUsers() {
+  if (USE_FILE_STORE) {
+    return tokenFileStore.listAuthenticatedUsers();
+  }
+  
+  // Legacy SQLite mode
   if (!db) {
     throw new Error('Token service not initialized');
   }
@@ -349,6 +408,34 @@ async function listAuthenticatedUsers() {
   }));
 }
 
+/**
+ * Get storage status (for diagnostics)
+ * @returns {Object} - Status info about storage backend
+ */
+async function getStoreStatus() {
+  if (USE_FILE_STORE) {
+    return tokenFileStore.getStoreStatus();
+  }
+  
+  // Legacy SQLite mode
+  const userCount = await dbGet('SELECT COUNT(*) as count FROM user_tokens');
+  return {
+    type: 'sqlite',
+    userCount: userCount?.count || 0,
+    message: 'Using legacy SQLite storage'
+  };
+}
+
+/**
+ * Force save pending changes (for graceful shutdown or git commit job)
+ */
+async function forceSave() {
+  if (USE_FILE_STORE) {
+    return tokenFileStore.forceSave();
+  }
+  // SQLite saves are synchronous, no-op
+}
+
 module.exports = {
   init,
   encrypt,
@@ -358,5 +445,8 @@ module.exports = {
   checkAuthStatus,
   updateAccessToken,
   revokeTokens,
-  listAuthenticatedUsers
+  listAuthenticatedUsers,
+  getStoreStatus,
+  forceSave,
+  USE_FILE_STORE
 };

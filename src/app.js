@@ -1009,6 +1009,19 @@ class GTMBrainApp {
         // Don't throw - app can still run, just without per-user OAuth
       }
 
+      // Initialize Git Commit Job (Zero Render Storage - periodic data commits)
+      try {
+        const { initializeGitCommit } = require('./jobs/gitCommitJob');
+        const gitInit = await initializeGitCommit();
+        if (gitInit.initialized) {
+          const pendingCount = gitInit.pendingChanges?.files?.length || 0;
+          logger.info(`✅ Git commit job initialized (${pendingCount} pending files, ${gitInit.intervalMinutes}min interval)`);
+        }
+      } catch (gitError) {
+        logger.warn('⚠️  Git commit job failed to initialize:', gitError.message);
+        // Don't throw - app can still run, just data won't auto-commit
+      }
+
     } catch (error) {
       logger.error('Failed to initialize external services:', error);
       throw error;
@@ -4303,6 +4316,73 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
         
       } catch (error) {
         logger.error('Error triggering calendar sync:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Get git commit job status (Zero Render Storage)
+    this.expressApp.get('/api/storage/git/status', async (req, res) => {
+      try {
+        const { getCommitStatus } = require('./jobs/gitCommitJob');
+        const status = getCommitStatus();
+        res.json({ success: true, ...status });
+      } catch (error) {
+        logger.error('Error getting git commit status:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Trigger manual git commit (admin only)
+    this.expressApp.post('/api/storage/git/commit', async (req, res) => {
+      try {
+        const { triggerManualCommit } = require('./jobs/gitCommitJob');
+        const result = await triggerManualCommit();
+        res.json({ success: true, ...result });
+      } catch (error) {
+        logger.error('Error triggering git commit:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    
+    // Get storage overview (all Zero Render Storage components)
+    this.expressApp.get('/api/storage/status', async (req, res) => {
+      try {
+        const { getCommitStatus } = require('./jobs/gitCommitJob');
+        const userTokenService = require('./services/userTokenService');
+        const meetingPrepFileStore = require('./services/meetingPrepFileStore');
+        const enrichmentFileStore = require('./services/enrichmentFileStore');
+        const { getCacheStatus } = require('./services/slackIntelCache');
+        
+        const gitStatus = getCommitStatus();
+        const tokenStatus = await userTokenService.getStoreStatus();
+        const meetingPrepStatus = meetingPrepFileStore.getStoreStatus();
+        const enrichmentStatus = enrichmentFileStore.getStoreStatus();
+        const intelStatus = getCacheStatus();
+        
+        res.json({
+          success: true,
+          architecture: 'Zero Render Storage',
+          description: 'Encrypted data in git, keys only on Render',
+          components: {
+            tokens: tokenStatus,
+            intel: intelStatus,
+            meetingPrep: meetingPrepStatus,
+            enrichment: enrichmentStatus,
+            git: {
+              pendingChanges: gitStatus.pendingChanges?.hasChanges || false,
+              pendingFiles: gitStatus.pendingChanges?.files || [],
+              lastCommit: gitStatus.lastCommitResult?.completedAt || null,
+              totalCommits: gitStatus.totalCommits
+            }
+          },
+          featureFlags: {
+            useFileTokens: userTokenService.USE_FILE_STORE,
+            useSqliteMeetingPrep: process.env.USE_SQLITE_MEETING_PREP === 'true',
+            useSqliteEnrichment: process.env.USE_SQLITE_ENRICHMENT === 'true'
+          }
+        });
+      } catch (error) {
+        logger.error('Error getting storage status:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });

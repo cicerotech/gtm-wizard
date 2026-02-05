@@ -760,18 +760,22 @@ class IntelligenceQueryModal extends Modal {
   private formatResponse(text: string): string {
     // Enhanced markdown formatting for sales-focused responses
     return text
-      // Headers (## Header)
-      .replace(/^## (.+)$/gm, '<h3 class="eudia-intel-header">$1</h3>')
+      // Remove any stray emojis (backup cleanup)
+      .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]/gu, '')
+      // Headers - handle ## and ### (convert both to h3 for consistency)
+      .replace(/^#{2,3}\s+(.+)$/gm, '<h3 class="eudia-intel-header">$1</h3>')
       // Bold (**text**)
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       // Bullet points (• or -)
       .replace(/^[•\-]\s+(.+)$/gm, '<li>$1</li>')
       // Checkboxes (- [ ] or - [x])
-      .replace(/^-\s+\[\s*\]\s+(.+)$/gm, '<li class="eudia-intel-todo">☐ $1</li>')
-      .replace(/^-\s+\[x\]\s+(.+)$/gm, '<li class="eudia-intel-done">☑ $1</li>')
+      .replace(/^-\s+\[\s*\]\s+(.+)$/gm, '<li class="eudia-intel-todo">$1</li>')
+      .replace(/^-\s+\[x\]\s+(.+)$/gm, '<li class="eudia-intel-done">$1</li>')
       // Wrap consecutive <li> in <ul>
       .replace(/(<li[^>]*>.*?<\/li>\s*)+/g, '<ul class="eudia-intel-list">$&</ul>')
-      // Line breaks
+      // Collapse multiple line breaks to single
+      .replace(/\n{2,}/g, '\n')
+      // Convert remaining newlines to <br>
       .replace(/\n/g, '<br>');
   }
 

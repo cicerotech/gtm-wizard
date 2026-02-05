@@ -1492,7 +1492,7 @@
 
 .eudia-intelligence-answer {
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.4;
   color: var(--text-normal);
 }
 
@@ -1544,11 +1544,11 @@
 
 /* Enhanced Intelligence Response Formatting */
 .eudia-intel-header {
-  margin: 16px 0 8px 0;
-  padding-bottom: 4px;
+  margin: 12px 0 4px 0;
+  padding-bottom: 2px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-normal);
+  color: var(--text-accent);
   border-bottom: 1px solid var(--background-modifier-border);
 }
 
@@ -1557,13 +1557,13 @@
 }
 
 .eudia-intel-list {
-  margin: 8px 0;
+  margin: 4px 0;
   padding-left: 0;
   list-style: none;
 }
 
 .eudia-intel-list li {
-  margin: 4px 0;
+  margin: 2px 0;
   padding-left: 16px;
   position: relative;
 }

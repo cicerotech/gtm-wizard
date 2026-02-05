@@ -140,6 +140,146 @@ function invalidateMemoryCache() {
   logger.debug('[SlackIntelCache] Memory cache invalidated');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ZERO RENDER STORAGE - Direct write capabilities
+// ═══════════════════════════════════════════════════════════════════════════
+
+const MAX_INTEL_PER_ACCOUNT = 20; // Keep last 20 intel items per account
+
+/**
+ * Add a single intel item to the file cache (Zero Render Storage)
+ * This is the primary write path for new intel
+ * @param {Object} intel - Intel item to add
+ * @returns {boolean} Success status
+ */
+function addIntelItem(intel) {
+  if (!intel || !intel.accountId) {
+    logger.warn('[SlackIntelCache] Cannot add intel without accountId');
+    return false;
+  }
+  
+  try {
+    const cache = loadIntelCache();
+    
+    // Initialize account array if needed
+    if (!cache.accounts) {
+      cache.accounts = {};
+    }
+    if (!cache.accounts[intel.accountId]) {
+      cache.accounts[intel.accountId] = [];
+    }
+    
+    // Check for duplicate (by messageTs)
+    const existing = cache.accounts[intel.accountId].find(
+      item => item.messageTs === intel.messageTs
+    );
+    if (existing) {
+      logger.debug(`[SlackIntelCache] Intel already exists: ${intel.messageTs}`);
+      return true; // Already exists, not an error
+    }
+    
+    // Add new intel item
+    const intelItem = {
+      id: intel.id || `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      category: intel.category || 'Intel',
+      summary: intel.summary || intel.messageText?.substring(0, 200) || '',
+      messageTs: intel.messageTs,
+      author: intel.messageAuthorName || intel.messageAuthor || 'Unknown',
+      capturedAt: intel.capturedAt || new Date().toISOString(),
+      status: intel.status || 'pending',
+      account_name: intel.accountName,
+      confidence: intel.confidence
+    };
+    
+    // Add to front (most recent first)
+    cache.accounts[intel.accountId].unshift(intelItem);
+    
+    // Trim to max per account
+    if (cache.accounts[intel.accountId].length > MAX_INTEL_PER_ACCOUNT) {
+      cache.accounts[intel.accountId] = cache.accounts[intel.accountId].slice(0, MAX_INTEL_PER_ACCOUNT);
+    }
+    
+    // Save immediately
+    return saveIntelCache(cache);
+    
+  } catch (error) {
+    logger.error('[SlackIntelCache] Failed to add intel item:', error.message);
+    return false;
+  }
+}
+
+/**
+ * Update intel item status
+ * @param {string} accountId - Account ID
+ * @param {string} messageTs - Message timestamp (unique identifier)
+ * @param {string} status - New status ('pending', 'approved', 'rejected')
+ * @returns {boolean} Success status
+ */
+function updateIntelStatus(accountId, messageTs, status) {
+  try {
+    const cache = loadIntelCache();
+    
+    if (!cache.accounts?.[accountId]) {
+      return false;
+    }
+    
+    const item = cache.accounts[accountId].find(i => i.messageTs === messageTs);
+    if (!item) {
+      return false;
+    }
+    
+    item.status = status;
+    if (status === 'approved') {
+      item.syncedAt = new Date().toISOString();
+    }
+    
+    return saveIntelCache(cache);
+    
+  } catch (error) {
+    logger.error('[SlackIntelCache] Failed to update intel status:', error.message);
+    return false;
+  }
+}
+
+/**
+ * Get all intel items (for migration/admin purposes)
+ * @returns {Array} All intel items across all accounts
+ */
+function getAllIntelItems() {
+  const cache = loadIntelCache();
+  const allItems = [];
+  
+  for (const [accountId, items] of Object.entries(cache.accounts || {})) {
+    for (const item of items) {
+      allItems.push({
+        ...item,
+        accountId
+      });
+    }
+  }
+  
+  return allItems;
+}
+
+/**
+ * Check if a message has already been processed (deduplication)
+ * @param {string} messageTs - Message timestamp
+ * @returns {boolean} True if already processed
+ */
+function isMessageProcessed(messageTs) {
+  if (!messageTs) return false;
+  
+  const cache = loadIntelCache();
+  
+  for (const items of Object.values(cache.accounts || {})) {
+    if (items.some(item => item.messageTs === messageTs)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 module.exports = {
   loadIntelCache,
   saveIntelCache,
@@ -147,5 +287,11 @@ module.exports = {
   getIntelByAccountName,
   getCacheStatus,
   invalidateMemoryCache,
-  INTEL_CACHE_FILE
+  // Zero Render Storage additions
+  addIntelItem,
+  updateIntelStatus,
+  getAllIntelItems,
+  isMessageProcessed,
+  INTEL_CACHE_FILE,
+  MAX_INTEL_PER_ACCOUNT
 };

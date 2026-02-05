@@ -1,11 +1,21 @@
 /**
  * Intelligence Store Service
  * SQLite-based storage for channel monitoring and intelligence extraction
+ * 
+ * ZERO RENDER STORAGE: Intelligence is now also written to file cache
+ * (data/slack-intel-cache.json) for persistence across Render deployments.
  */
 
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const logger = require('../utils/logger');
+const slackIntelCache = require('./slackIntelCache');
+const meetingPrepFileStore = require('./meetingPrepFileStore');
+const enrichmentFileStore = require('./enrichmentFileStore');
+
+// Feature flags for Zero Render Storage
+const USE_FILE_MEETING_PREP = process.env.USE_SQLITE_MEETING_PREP !== 'true';
+const USE_FILE_ENRICHMENT = process.env.USE_SQLITE_ENRICHMENT !== 'true';
 
 // Database path - store in project data directory
 const DB_PATH = process.env.INTEL_DB_PATH || path.join(__dirname, '../../data/intelligence.db');
@@ -303,6 +313,47 @@ async function initialize() {
         db.run(`CREATE INDEX IF NOT EXISTS idx_gaps_account ON contact_gaps(account_id)`);
         
         logger.info('✅ Intelligence database tables initialized');
+        
+        // ZERO RENDER STORAGE: Initialize meeting prep file store and migrate
+        if (USE_FILE_MEETING_PREP) {
+          try {
+            meetingPrepFileStore.init().then(() => {
+              // Migrate existing meeting preps from SQLite
+              db.all('SELECT * FROM meeting_prep', [], (err, rows) => {
+                if (!err && rows && rows.length > 0) {
+                  meetingPrepFileStore.migrateFromSQLite(rows).then((migrated) => {
+                    if (migrated > 0) {
+                      logger.info(`✅ Migrated ${migrated} meeting preps to file store`);
+                    }
+                  }).catch(e => logger.warn('[IntelStore] Meeting prep migration failed:', e.message));
+                }
+              });
+            }).catch(e => logger.warn('[IntelStore] Meeting prep file store init failed:', e.message));
+          } catch (e) {
+            logger.warn('[IntelStore] Meeting prep file store error:', e.message);
+          }
+        }
+        
+        // ZERO RENDER STORAGE: Initialize enrichment file store and migrate
+        if (USE_FILE_ENRICHMENT) {
+          try {
+            enrichmentFileStore.init().then(() => {
+              // Migrate existing enrichments from SQLite
+              db.all('SELECT * FROM attendee_enrichment', [], (err, rows) => {
+                if (!err && rows && rows.length > 0) {
+                  enrichmentFileStore.migrateFromSQLite(rows).then((migrated) => {
+                    if (migrated > 0) {
+                      logger.info(`✅ Migrated ${migrated} enrichments to file store`);
+                    }
+                  }).catch(e => logger.warn('[IntelStore] Enrichment migration failed:', e.message));
+                }
+              });
+            }).catch(e => logger.warn('[IntelStore] Enrichment file store init failed:', e.message));
+          } catch (e) {
+            logger.warn('[IntelStore] Enrichment file store error:', e.message);
+          }
+        }
+        
         resolve();
       });
     });
@@ -473,6 +524,7 @@ async function updateChannelLastPolled(channelId) {
 
 /**
  * Store extracted intelligence
+ * ZERO RENDER STORAGE: Also writes to file cache for persistence
  */
 async function storeIntelligence(intel) {
   return new Promise((resolve, reject) => {
@@ -508,6 +560,29 @@ async function storeIntelligence(intel) {
       } else {
         if (this.changes > 0) {
           logger.info(`🧠 Stored intelligence: [${category}] ${summary?.substring(0, 50)}...`);
+          
+          // ZERO RENDER STORAGE: Also write to file cache
+          // This ensures intel survives Render deployments
+          if (accountId) {
+            try {
+              slackIntelCache.addIntelItem({
+                id: this.lastID,
+                accountId,
+                accountName,
+                messageTs,
+                messageAuthor,
+                messageAuthorName,
+                messageText,
+                category,
+                summary,
+                confidence,
+                capturedAt: new Date().toISOString(),
+                status: 'pending'
+              });
+            } catch (cacheErr) {
+              logger.warn('[IntelStore] Failed to write to file cache (SQLite write succeeded):', cacheErr.message);
+            }
+          }
         }
         resolve({ id: this.lastID, inserted: this.changes > 0 });
       }
@@ -566,6 +641,7 @@ async function getPendingIntelligenceByAccount() {
 
 /**
  * Update intelligence status (approve/reject)
+ * ZERO RENDER STORAGE: Also updates file cache
  */
 async function updateIntelligenceStatus(id, status, reviewedBy = null) {
   return new Promise((resolve, reject) => {
@@ -576,18 +652,36 @@ async function updateIntelligenceStatus(id, status, reviewedBy = null) {
     
     const syncedAt = status === 'approved' ? 'CURRENT_TIMESTAMP' : 'NULL';
     
-    db.run(`
-      UPDATE pending_intelligence 
-      SET status = ?, reviewed_by = ?, synced_at = ${status === 'approved' ? 'CURRENT_TIMESTAMP' : 'NULL'}
-      WHERE id = ?
-    `, [status, reviewedBy, id], function(err) {
-      if (err) {
-        logger.error('Failed to update intelligence status:', err);
-        reject(err);
-      } else {
-        logger.info(`🧠 Intelligence ${id} marked as: ${status}`);
-        resolve({ id, status, updated: this.changes > 0 });
+    // First get the intel item to get accountId and messageTs for file cache update
+    db.get(`SELECT account_id, message_ts FROM pending_intelligence WHERE id = ?`, [id], (getErr, row) => {
+      if (getErr) {
+        logger.error('Failed to get intel for status update:', getErr);
+        // Continue with update anyway
       }
+      
+      db.run(`
+        UPDATE pending_intelligence 
+        SET status = ?, reviewed_by = ?, synced_at = ${status === 'approved' ? 'CURRENT_TIMESTAMP' : 'NULL'}
+        WHERE id = ?
+      `, [status, reviewedBy, id], function(err) {
+        if (err) {
+          logger.error('Failed to update intelligence status:', err);
+          reject(err);
+        } else {
+          logger.info(`🧠 Intelligence ${id} marked as: ${status}`);
+          
+          // ZERO RENDER STORAGE: Also update file cache
+          if (row?.account_id && row?.message_ts) {
+            try {
+              slackIntelCache.updateIntelStatus(row.account_id, row.message_ts, status);
+            } catch (cacheErr) {
+              logger.warn('[IntelStore] Failed to update file cache status:', cacheErr.message);
+            }
+          }
+          
+          resolve({ id, status, updated: this.changes > 0 });
+        }
+      });
     });
   });
 }
@@ -664,11 +758,18 @@ async function getIntelligenceStats() {
 
 /**
  * Check if message already processed (deduplication)
+ * ZERO RENDER STORAGE: Checks both SQLite and file cache
  */
 async function isMessageProcessed(messageTs) {
+  // First check file cache (faster, no async)
+  if (slackIntelCache.isMessageProcessed(messageTs)) {
+    return true;
+  }
+  
   return new Promise((resolve, reject) => {
     if (!db) {
-      reject(new Error('Database not initialized'));
+      // If no DB, rely on file cache result
+      resolve(false);
       return;
     }
     
@@ -761,8 +862,14 @@ async function recordBackfill(results) {
 
 /**
  * Save or update meeting prep (upsert by meeting_id)
+ * ZERO RENDER STORAGE: Uses file store by default
  */
 async function saveMeetingPrep(data) {
+  if (USE_FILE_MEETING_PREP) {
+    return meetingPrepFileStore.saveMeetingPrep(data);
+  }
+  
+  // Legacy SQLite mode
   return new Promise((resolve, reject) => {
     if (!db) {
       reject(new Error('Database not initialized'));
@@ -836,8 +943,14 @@ async function saveMeetingPrep(data) {
 
 /**
  * Get meeting prep by meeting ID
+ * ZERO RENDER STORAGE: Uses file store by default
  */
 async function getMeetingPrep(meetingId) {
+  if (USE_FILE_MEETING_PREP) {
+    return meetingPrepFileStore.getMeetingPrep(meetingId);
+  }
+  
+  // Legacy SQLite mode
   return new Promise((resolve, reject) => {
     if (!db) {
       reject(new Error('Database not initialized'));
@@ -869,8 +982,14 @@ async function getMeetingPrep(meetingId) {
 
 /**
  * Get all meeting preps for an account (historical context)
+ * ZERO RENDER STORAGE: Uses file store by default
  */
 async function getMeetingPrepsByAccount(accountId) {
+  if (USE_FILE_MEETING_PREP) {
+    return meetingPrepFileStore.getMeetingPrepsByAccount(accountId);
+  }
+  
+  // Legacy SQLite mode
   return new Promise((resolve, reject) => {
     if (!db) {
       reject(new Error('Database not initialized'));
@@ -904,8 +1023,14 @@ async function getMeetingPrepsByAccount(accountId) {
 
 /**
  * Get upcoming meetings within date range
+ * ZERO RENDER STORAGE: Uses file store by default
  */
 async function getUpcomingMeetingPreps(startDate, endDate) {
+  if (USE_FILE_MEETING_PREP) {
+    return meetingPrepFileStore.getUpcomingMeetingPreps(startDate, endDate);
+  }
+  
+  // Legacy SQLite mode
   return new Promise((resolve, reject) => {
     if (!db) {
       reject(new Error('Database not initialized'));
@@ -939,8 +1064,14 @@ async function getUpcomingMeetingPreps(startDate, endDate) {
 
 /**
  * Delete a meeting prep
+ * ZERO RENDER STORAGE: Uses file store by default
  */
 async function deleteMeetingPrep(meetingId) {
+  if (USE_FILE_MEETING_PREP) {
+    return meetingPrepFileStore.deleteMeetingPrep(meetingId);
+  }
+  
+  // Legacy SQLite mode
   return new Promise((resolve, reject) => {
     if (!db) {
       reject(new Error('Database not initialized'));
@@ -961,8 +1092,14 @@ async function deleteMeetingPrep(meetingId) {
 
 /**
  * Get all meeting preps (for admin/dashboard view)
+ * ZERO RENDER STORAGE: Uses file store by default
  */
 async function getAllMeetingPreps() {
+  if (USE_FILE_MEETING_PREP) {
+    return meetingPrepFileStore.getAllMeetingPreps();
+  }
+  
+  // Legacy SQLite mode
   return new Promise((resolve, reject) => {
     if (!db) {
       reject(new Error('Database not initialized'));
@@ -992,9 +1129,15 @@ async function getAllMeetingPreps() {
 
 /**
  * Save attendee enrichment data
+ * ZERO RENDER STORAGE: Uses file store by default
  * @param {Object} data - { email, name, title, linkedinUrl, company, summary, source }
  */
 async function saveAttendeeEnrichment(data) {
+  if (USE_FILE_ENRICHMENT) {
+    return enrichmentFileStore.saveAttendeeEnrichment(data);
+  }
+  
+  // Legacy SQLite mode
   return new Promise((resolve, reject) => {
     if (!db) {
       reject(new Error('Database not initialized'));
@@ -1028,9 +1171,15 @@ async function saveAttendeeEnrichment(data) {
 
 /**
  * Get attendee enrichment by email
+ * ZERO RENDER STORAGE: Uses file store by default
  * @param {string} email
  */
 async function getAttendeeEnrichment(email) {
+  if (USE_FILE_ENRICHMENT) {
+    return enrichmentFileStore.getAttendeeEnrichment(email);
+  }
+  
+  // Legacy SQLite mode
   return new Promise((resolve, reject) => {
     if (!db) {
       reject(new Error('Database not initialized'));
@@ -1062,9 +1211,15 @@ async function getAttendeeEnrichment(email) {
 
 /**
  * Get enrichment for multiple attendees
+ * ZERO RENDER STORAGE: Uses file store by default
  * @param {Array<string>} emails
  */
 async function getAttendeeEnrichments(emails) {
+  if (USE_FILE_ENRICHMENT) {
+    return enrichmentFileStore.getAttendeeEnrichments(emails);
+  }
+  
+  // Legacy SQLite mode
   return new Promise((resolve, reject) => {
     if (!db || !emails || emails.length === 0) {
       resolve({});
