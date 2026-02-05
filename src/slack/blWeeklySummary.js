@@ -97,8 +97,34 @@ const Q1_FY26_FORECAST = {
 
 // Q1 Pipeline by Pod (from SF report)
 const Q1_BY_POD = {
-  US: { opps: 75, netACV: 18.03, forecastNet: 4.47, commit: 1.94 },
-  EU: { opps: 33, netACV: 7.40, forecastNet: 3.48, commit: 2.24 }
+  US: { opps: 75, netACV: 18.03, forecastNet: 4.47, commit: 1.99 },
+  EU: { opps: 33, netACV: 7.40, forecastNet: 3.48, commit: 2.61 }
+};
+
+// Q1 Commit Snapshot by BL (from SF report - update weekly)
+const BL_COMMIT_SNAPSHOT = {
+  // US Pod
+  'Ananth Cherukupally': 395000,
+  'Asad Hussain': 180000,
+  'Julie Stefanich': 650000,
+  'Justin Hills': 120000,
+  'Mike Masiello': 350000,
+  'Olivia Jung': 295000,
+  // EU Pod
+  'Alex Fox': 235125,
+  'Conor Molloy': 1280000,
+  'Emer Flynn': 0,
+  'Nathan Shine': 896550,
+  'Nicola Fratini': 200000
+};
+
+// Q1 Pipeline by Solution Bucket (from SF report - update weekly)
+const Q1_BY_SOLUTION = {
+  'Pure Software': { acv: 16302960, count: 63, aiEnabled: 63 },
+  'AI-Enabled Services': { acv: 2543000, count: 15, aiEnabled: 15 },
+  'Legacy Services': { acv: 2390575, count: 1, aiEnabled: 1 },
+  'Mixed': { acv: 1705550, count: 9, aiEnabled: 9 },
+  'Undetermined': { acv: 2820000, count: 8, aiEnabled: 8 }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1743,6 +1769,69 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   y += 20;
   
   // ═══════════════════════════════════════════════════════════════════════════
+  // Q1 PIPELINE BY SOLUTION (fills whitespace at bottom of page 1)
+  // ═══════════════════════════════════════════════════════════════════════════
+  y += SECTION_GAP;
+  doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
+  doc.text('Q1 PIPELINE BY SOLUTION', LEFT, y);
+  y += 16;
+  
+  // Solution table - same width as sales type table
+  const solutionTableWidth = PAGE_WIDTH;
+  
+  // Header row
+  doc.rect(LEFT, y, solutionTableWidth, 20).fill('#1f2937');
+  doc.font(fontBold).fontSize(9).fillColor('#ffffff');
+  doc.text('Product Bucket', LEFT + 8, y + 6, { width: 180 });
+  doc.text('ACV', LEFT + 200, y + 6, { width: 100, align: 'center' });
+  doc.text('Deals', LEFT + 310, y + 6, { width: 60, align: 'center' });
+  doc.text('AI-Enabled', LEFT + 380, y + 6, { width: 80, align: 'center' });
+  y += 20;
+  
+  // Data rows - ordered by ACV descending
+  const solutionOrder = ['Pure Software', 'AI-Enabled Services', 'Mixed', 'Undetermined', 'Legacy Services'];
+  let solutionTotalACV = 0;
+  let solutionTotalCount = 0;
+  let solutionTotalAI = 0;
+  
+  doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
+  
+  solutionOrder.forEach((bucket, i) => {
+    const data = Q1_BY_SOLUTION[bucket] || { acv: 0, count: 0, aiEnabled: 0 };
+    solutionTotalACV += data.acv;
+    solutionTotalCount += data.count;
+    solutionTotalAI += data.aiEnabled;
+    
+    const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
+    doc.rect(LEFT, y, solutionTableWidth, 16).fill(bg);
+    doc.fillColor(DARK_TEXT);
+    doc.text(bucket, LEFT + 8, y + 4, { width: 180 });
+    
+    const acvStr = data.acv >= 1000000 
+      ? `$${(data.acv / 1000000).toFixed(1)}m`
+      : `$${(data.acv / 1000).toFixed(0)}k`;
+    
+    doc.text(acvStr, LEFT + 200, y + 4, { width: 100, align: 'center' });
+    doc.text(data.count.toString(), LEFT + 310, y + 4, { width: 60, align: 'center' });
+    doc.text(data.aiEnabled.toString(), LEFT + 380, y + 4, { width: 80, align: 'center' });
+    y += 16;
+  });
+  
+  // Total row
+  doc.rect(LEFT, y, solutionTableWidth, 18).fill('#e5e7eb');
+  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
+  doc.text('Total', LEFT + 8, y + 5, { width: 180 });
+  
+  const solutionTotalStr = solutionTotalACV >= 1000000 
+    ? `$${(solutionTotalACV / 1000000).toFixed(1)}m`
+    : `$${(solutionTotalACV / 1000).toFixed(0)}k`;
+  
+  doc.text(solutionTotalStr, LEFT + 200, y + 5, { width: 100, align: 'center' });
+  doc.text(solutionTotalCount.toString(), LEFT + 310, y + 5, { width: 60, align: 'center' });
+  doc.text(solutionTotalAI.toString(), LEFT + 380, y + 5, { width: 80, align: 'center' });
+  y += 18;
+  
+  // ═══════════════════════════════════════════════════════════════════════════
   // FOOTER
   // ═══════════════════════════════════════════════════════════════════════════
   y += 10;
@@ -2439,20 +2528,20 @@ function formatSlackMessage(pipelineData, previousSnapshot, dateStr, revOpsData 
   message += '\n';
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // COMMIT BY BL - Show BL commit values
+  // COMMIT BY BL - Show BL commit values from snapshot (not weighted ACV)
   // ═══════════════════════════════════════════════════════════════════════════
-  const usBLsCommit = US_POD.filter(bl => blMetrics[bl]?.weightedACV > 0)
-    .sort((a, b) => blMetrics[b].weightedACV - blMetrics[a].weightedACV).slice(0, 3);
-  const euBLsCommit = EU_POD.filter(bl => blMetrics[bl]?.weightedACV > 0)
-    .sort((a, b) => blMetrics[b].weightedACV - blMetrics[a].weightedACV).slice(0, 3);
+  const usBLsCommit = US_POD.filter(bl => (BL_COMMIT_SNAPSHOT[bl] || 0) > 0)
+    .sort((a, b) => (BL_COMMIT_SNAPSHOT[b] || 0) - (BL_COMMIT_SNAPSHOT[a] || 0)).slice(0, 3);
+  const euBLsCommit = EU_POD.filter(bl => (BL_COMMIT_SNAPSHOT[bl] || 0) > 0)
+    .sort((a, b) => (BL_COMMIT_SNAPSHOT[b] || 0) - (BL_COMMIT_SNAPSHOT[a] || 0)).slice(0, 3);
   
   message += `*COMMIT BY BL*\n`;
   if (usBLsCommit.length > 0) {
-    const usCommitLine = usBLsCommit.map(bl => `${bl.split(' ')[0]} ${formatCurrency(blMetrics[bl].weightedACV)}`).join(', ');
+    const usCommitLine = usBLsCommit.map(bl => `${bl.split(' ')[0]} ${formatCurrency(BL_COMMIT_SNAPSHOT[bl] || 0)}`).join(', ');
     message += `US: ${usCommitLine}\n`;
   }
   if (euBLsCommit.length > 0) {
-    const euCommitLine = euBLsCommit.map(bl => `${bl.split(' ')[0]} ${formatCurrency(blMetrics[bl].weightedACV)}`).join(', ');
+    const euCommitLine = euBLsCommit.map(bl => `${bl.split(' ')[0]} ${formatCurrency(BL_COMMIT_SNAPSHOT[bl] || 0)}`).join(', ');
     message += `EU: ${euCommitLine}\n`;
   }
   message += '\n';
