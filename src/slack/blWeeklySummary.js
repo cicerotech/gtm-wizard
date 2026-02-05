@@ -1452,6 +1452,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   // Fonts
   const fontRegular = 'Helvetica';
   const fontBold = 'Helvetica-Bold';
+  const fontItalic = 'Helvetica-Oblique';
   
   let y = 30;
   
@@ -1499,44 +1500,47 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   y += 2 + SECTION_GAP;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // Q1 FY26 FORECAST (AI-Enabled, Net-New)
+  // Q1 FY26 FORECAST (AI-Enabled, Net-New) - Clean, subtle styling
   // ═══════════════════════════════════════════════════════════════════════════
   const runRateY = y;
   const runRateWidth = 260;
   const col1Width = 155;     // Metric label column
-  const col2Width = 60;      // Amount column (larger font)
-  const col3Width = runRateWidth - col1Width - col2Width; // Padding
+  const col2Width = 55;      // Amount column
   
   // Table header
-  doc.rect(LEFT, y, runRateWidth, 22).fill('#1f2937');
+  doc.rect(LEFT, y, runRateWidth, 20).fill('#1f2937');
   doc.font(fontBold).fontSize(10).fillColor('#ffffff');
-  doc.text('Q1 FY26 FORECAST', LEFT + 8, y + 6);
-  y += 22;
+  doc.text('Q1 FY26 FORECAST', LEFT + 8, y + 5);
+  y += 20;
   
-  // Subheader row
+  // Subheader row - italicized
   doc.rect(LEFT, y, runRateWidth, 14).fill('#374151');
-  doc.font(fontRegular).fontSize(7).fillColor('#9ca3af');
+  doc.font(fontItalic).fontSize(7).fillColor('#d1d5db');
   doc.text('AI-Enabled, Net-New', LEFT + 8, y + 3);
   y += 14;
   
-  // Forecast rows - styled like original with larger amount font
+  // Forecast rows - quieter colors, smaller fonts, italicized where appropriate
   const forecastRows = [
-    { label: 'Q1 Target', value: Q1_FY26_FORECAST.target, labelBold: true, bg: '#dcfce7' },
-    { label: 'Commit (Net)', value: Q1_FY26_FORECAST.floor, labelBold: false, bg: '#f9fafb' },
-    { label: 'Weighted (Net)', value: Q1_FY26_FORECAST.expected, labelBold: false, bg: '#ffffff' },
-    { label: 'Midpoint (Net)', value: Q1_FY26_FORECAST.midpoint, labelBold: true, bg: '#dbeafe' }
+    { label: 'Q1 Target', value: Q1_FY26_FORECAST.target, labelBold: true, amountBold: true, bg: '#f0fdf4' },     // Very light green
+    { label: 'Commit (Net)', value: Q1_FY26_FORECAST.floor, labelBold: false, amountBold: false, bg: '#f9fafb', italic: true },
+    { label: 'Weighted (Net)', value: Q1_FY26_FORECAST.expected, labelBold: false, amountBold: false, bg: '#ffffff', italic: true },
+    { label: 'Midpoint (Net)', value: Q1_FY26_FORECAST.midpoint, labelBold: true, amountBold: true, bg: '#eff6ff' }  // Very light blue
   ];
   
-  forecastRows.forEach((row, i) => {
-    const rowHeight = (i === 0 || i === 3) ? 22 : 18;
+  forecastRows.forEach((row) => {
+    const rowHeight = 17;
     doc.rect(LEFT, y, runRateWidth, rowHeight).fill(row.bg);
     doc.fillColor(DARK_TEXT);
-    // Label column - regular size
-    doc.font(row.labelBold ? fontBold : fontRegular).fontSize(9);
-    doc.text(row.label, LEFT + 8, y + (rowHeight / 2) - 4);
-    // Amount column - larger, bold, right-aligned
-    doc.font(fontBold).fontSize(12);
-    doc.text(`$${row.value.toFixed(1)}m`, LEFT + col1Width, y + (rowHeight / 2) - 5, { width: col2Width, align: 'right' });
+    // Label column - italicized for non-bold rows
+    if (row.italic) {
+      doc.font(fontItalic).fontSize(8);
+    } else {
+      doc.font(row.labelBold ? fontBold : fontRegular).fontSize(8);
+    }
+    doc.text(row.label, LEFT + 8, y + 5);
+    // Amount column - modest sizing
+    doc.font(row.amountBold ? fontBold : fontRegular).fontSize(9);
+    doc.text(`$${row.value.toFixed(1)}m`, LEFT + col1Width, y + 4, { width: col2Width, align: 'right' });
     y += rowHeight;
   });
   
