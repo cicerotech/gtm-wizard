@@ -86,6 +86,26 @@ const SALES_LEADERS = {
   'riona.mchale@eudia.com': { name: 'Riona McHale', region: 'IRE_UK', role: 'Head of Sales' }
 };
 
+// Explicit direct reports for Sales Leaders (overrides region-based lookup)
+// This ensures managers see exactly their direct reports' accounts
+const SALES_LEADER_DIRECT_REPORTS = {
+  'mitchell.loquaci@eudia.com': [
+    'justin.hills@eudia.com',
+    'olivia@eudia.com'
+  ],
+  'stephen.mulholland@eudia.com': [
+    'tom.clancy@eudia.com',
+    'conor.molloy@eudia.com',
+    'nathan.shine@eudia.com',
+    'nicola.fratini@eudia.com'
+  ],
+  'riona.mchale@eudia.com': [
+    'conor.molloy@eudia.com',
+    'alex.fox@eudia.com',
+    'emer.flynn@eudia.com'
+  ]
+};
+
 // Customer Success team
 const CS_EMAILS = [
   'nikhita.godiwala@eudia.com',
@@ -136,6 +156,22 @@ function getSalesLeaderRegion(email) {
  */
 function getRegionBLEmails(region) {
   return BL_REGIONS[region] || [];
+}
+
+/**
+ * Get direct reports for a sales leader (explicit mapping takes precedence over region)
+ */
+function getSalesLeaderDirectReports(email) {
+  const normalized = (email || '').toLowerCase().trim();
+  
+  // First check explicit direct reports mapping
+  if (SALES_LEADER_DIRECT_REPORTS[normalized]) {
+    return SALES_LEADER_DIRECT_REPORTS[normalized];
+  }
+  
+  // Fall back to region-based lookup
+  const region = getSalesLeaderRegion(normalized);
+  return region ? getRegionBLEmails(region) : [];
 }
 
 /**
@@ -2791,12 +2827,12 @@ class GTMBrainApp {
             break;
             
           case 'sales_leader':
-            // All accounts owned by BLs in their region
+            // All accounts owned by direct reports (explicit mapping) or region BLs
             const region = getSalesLeaderRegion(normalizedEmail);
-            const regionBLs = getRegionBLEmails(region);
+            const directReports = getSalesLeaderDirectReports(normalizedEmail);
             
-            if (!regionBLs || regionBLs.length === 0) {
-              logger.warn(`[BL-Accounts][${correlationId}] No BLs found for region: ${region}`);
+            if (!directReports || directReports.length === 0) {
+              logger.warn(`[BL-Accounts][${correlationId}] No direct reports found for: ${normalizedEmail}`);
               return res.json({
                 success: true,
                 accounts: [],
@@ -2805,15 +2841,15 @@ class GTMBrainApp {
                   userGroup,
                   region,
                   total: 0,
-                  message: 'No Business Leads configured for this region',
+                  message: 'No direct reports configured for this sales leader',
                   correlationId
                 }
               });
             }
             
             // Format emails for IN clause
-            const blEmailList = regionBLs.map(e => `'${e.replace(/'/g, "\\'")}'`).join(',');
-            queryDescription = `${region} region accounts`;
+            const blEmailList = directReports.map(e => `'${e.replace(/'/g, "\\'")}'`).join(',');
+            queryDescription = `accounts for ${directReports.length} direct reports`;
             
             accountQuery = `
               SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
