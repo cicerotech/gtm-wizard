@@ -813,21 +813,43 @@ async function querySignedRevenueQTD() {
  */
 async function querySignedRevenueLastWeek() {
   try {
-    logger.info('Querying signed revenue last week (Recurring/Project/Pilot only)...');
+    logger.info('Querying signed revenue last week (Recurring/Project/Pilot only, within fiscal quarter)...');
     
     const now = new Date();
     const weekAgo = new Date(now);
     weekAgo.setDate(weekAgo.getDate() - 7);
     const weekAgoStr = weekAgo.toISOString().split('T')[0];
     
+    // Calculate fiscal quarter start (Q1 = Feb 1, Q2 = May 1, Q3 = Aug 1, Q4 = Nov 1)
+    const month = now.getMonth(); // 0-indexed
+    let fiscalQStart;
+    if (month >= 1 && month <= 3) {       // Feb-Apr = Q1
+      fiscalQStart = new Date(now.getFullYear(), 1, 1);     // Feb 1
+    } else if (month >= 4 && month <= 6) { // May-Jul = Q2
+      fiscalQStart = new Date(now.getFullYear(), 4, 1);     // May 1
+    } else if (month >= 7 && month <= 9) { // Aug-Oct = Q3
+      fiscalQStart = new Date(now.getFullYear(), 7, 1);     // Aug 1
+    } else {                               // Nov-Dec or Jan = Q4
+      fiscalQStart = month === 0 
+        ? new Date(now.getFullYear() - 1, 10, 1)  // Jan -> Nov 1 last year
+        : new Date(now.getFullYear(), 10, 1);     // Nov-Dec -> Nov 1 this year
+    }
+    const fiscalQStartStr = fiscalQStart.toISOString().split('T')[0];
+    
+    // Use the later of weekAgo or fiscalQStart to ensure deals are within current fiscal quarter
+    const effectiveStartStr = weekAgoStr > fiscalQStartStr ? weekAgoStr : fiscalQStartStr;
+    
+    logger.info(`Last week query: CloseDate >= ${effectiveStartStr} (fiscal Q start: ${fiscalQStartStr})`);
+    
     // Query individual deals (not aggregate) to get deal details
     // Filter by Revenue_Type__c to include only Recurring, Project, Pilot
+    // Also filter to ensure deals are within current fiscal quarter
     const soql = `
       SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Owner.Name, 
              Sales_Type__c, Revenue_Type__c, Product_Line__c, CloseDate
       FROM Opportunity
       WHERE StageName IN (${CLOSED_WON_IN_CLAUSE})
-        AND CloseDate >= ${weekAgoStr}
+        AND CloseDate >= ${effectiveStartStr}
         AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot')
       ORDER BY ACV__c DESC
     `;
@@ -1528,21 +1550,20 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   y += 22;
   
   // Total signed box - font sizes match header (10pt)
-  // Use signedLastWeek data for Q1 total when signedQTD is empty (early Q1 edge case)
-  const q1Data = signedQTD.totalDeals > 0 ? signedQTD : signedLastWeek;
+  // Only use signedQTD (deals closed within fiscal Q1) - no fallback to last week
   doc.rect(signedX, y, signedWidth, 36).fill('#f3f4f6');
   doc.strokeColor('#e5e7eb').lineWidth(1).rect(signedX, y, signedWidth, 36).stroke();
   doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
-  if (q1Data.totalDeals === 0) {
+  if (signedQTD.totalDeals === 0) {
     doc.text('TOTAL SIGNED', signedX + 10, y + 8);
     doc.font(fontBold).fontSize(12).fillColor('#6b7280');
     doc.text('—', signedX + 10, y + 21);
   } else {
-    doc.text(`TOTAL SIGNED (${q1Data.totalDeals} deals)`, signedX + 10, y + 8);
+    doc.text(`TOTAL SIGNED (${signedQTD.totalDeals} deals)`, signedX + 10, y + 8);
     doc.font(fontBold).fontSize(12).fillColor(DARK_TEXT);
-    const qtdValue = q1Data.totalACV >= 1000000 
-      ? `$${(q1Data.totalACV / 1000000).toFixed(1)}m`
-      : `$${(q1Data.totalACV / 1000).toFixed(0)}k`;
+    const qtdValue = signedQTD.totalACV >= 1000000 
+      ? `$${(signedQTD.totalACV / 1000000).toFixed(1)}m`
+      : `$${(signedQTD.totalACV / 1000).toFixed(0)}k`;
     doc.text(qtdValue, signedX + 10, y + 21);
   }
   y += 36;
@@ -1560,8 +1581,8 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   
   if (signedLastWeek.totalDeals === 0) {
     doc.text('TOTAL SIGNED', signedX + 10, y + 6);
-    doc.font(fontRegular).fontSize(9).fillColor('#6b7280');
-    doc.text('No deals closed this week', signedX + 10, y + 19);
+    doc.font(fontBold).fontSize(12).fillColor('#6b7280');
+    doc.text('—', signedX + 10, y + 19);
   } else {
     const weeklyValue = signedLastWeek.totalACV >= 1000000
       ? `$${(signedLastWeek.totalACV / 1000000).toFixed(1)}m`
@@ -1907,14 +1928,14 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         tableY += 11;
       });
       
-      // RIGHT: Proposal Stage (S4)
+      // RIGHT: Late Stage (S4 Proposal + S5 Negotiation)
       doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
-      doc.text('PROPOSAL STAGE (S4)', RIGHT_COL, twoColY);
+      doc.text('LATE STAGE (S4/S5)', RIGHT_COL, twoColY);
       
-      // Proposal table header
+      // Late stage table header
       let propTableY = twoColY + 14;
       doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-      doc.text('Metric', RIGHT_COL, propTableY);
+      doc.text('Stage', RIGHT_COL, propTableY);
       doc.text('Deals', RIGHT_COL + 100, propTableY, { width: 40, align: 'right' });
       doc.text('Gross ACV', RIGHT_COL + 150, propTableY, { width: 70, align: 'right' });
       
@@ -1922,25 +1943,28 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(RIGHT_COL, propTableY).lineTo(LEFT + PAGE_WIDTH, propTableY).stroke();
       propTableY += 5;
       
-      // Proposal rows - increased font for readability
+      // Late stage rows - S4 and S5 combined
       doc.font(fontRegular).fontSize(10).fillColor(DARK_TEXT);
       
-      // Total
-      doc.text('Total', RIGHT_COL, propTableY);
+      // S4 Proposal
+      doc.text('S4 Proposal', RIGHT_COL, propTableY);
       doc.text(totals.proposalCount.toString(), RIGHT_COL + 100, propTableY, { width: 40, align: 'right' });
       doc.text(formatCurrency(totals.proposalGrossACV), RIGHT_COL + 150, propTableY, { width: 70, align: 'right' });
       propTableY += 11;
       
-      // This Month
-      doc.text('This Month', RIGHT_COL, propTableY);
-      doc.text(totals.proposalThisMonthCount.toString(), RIGHT_COL + 100, propTableY, { width: 40, align: 'right' });
-      doc.text(formatCurrency(totals.proposalThisMonthACV), RIGHT_COL + 150, propTableY, { width: 70, align: 'right' });
+      // S5 Negotiation
+      doc.text('S5 Negotiation', RIGHT_COL, propTableY);
+      doc.text(totals.negotiationCount.toString(), RIGHT_COL + 100, propTableY, { width: 40, align: 'right' });
+      doc.text(formatCurrency(totals.negotiationGrossACV), RIGHT_COL + 150, propTableY, { width: 70, align: 'right' });
       propTableY += 11;
       
-      // This Quarter
-      doc.text('This Quarter', RIGHT_COL, propTableY);
-      doc.text(totals.proposalThisQuarterCount.toString(), RIGHT_COL + 100, propTableY, { width: 40, align: 'right' });
-      doc.text(formatCurrency(totals.proposalThisQuarterGrossACV), RIGHT_COL + 150, propTableY, { width: 70, align: 'right' });
+      // Combined Total (S4 + S5)
+      const lateStageCount = totals.proposalCount + totals.negotiationCount;
+      const lateStageACV = totals.proposalGrossACV + totals.negotiationGrossACV;
+      doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
+      doc.text('Total', RIGHT_COL, propTableY);
+      doc.text(lateStageCount.toString(), RIGHT_COL + 100, propTableY, { width: 40, align: 'right' });
+      doc.text(formatCurrency(lateStageACV), RIGHT_COL + 150, propTableY, { width: 70, align: 'right' });
       propTableY += 12;
       
       // Targeting This Month box - COMPACT
@@ -2365,12 +2389,6 @@ function formatSlackMessage(pipelineData, previousSnapshot, dateStr, revOpsData 
   let message = `*Eudia GTM Weekly Snapshot — ${dateStr}*\n\n`;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // THE WEEK - Dynamic Headline
-  // ═══════════════════════════════════════════════════════════════════════════
-  const headline = generateWeekHeadline(totals, prevTotals, revOpsData?.signedLastWeek, daysToEOQ, stageBreakdown);
-  message += `*THE WEEK:* ${headline}\n\n`;
-  
-  // ═══════════════════════════════════════════════════════════════════════════
   // PIPELINE Section
   // ═══════════════════════════════════════════════════════════════════════════
   const pipelineChange = totals.grossACV - (prevTotals?.grossACV || totals.grossACV);
@@ -2417,6 +2435,25 @@ function formatSlackMessage(pipelineData, previousSnapshot, dateStr, revOpsData 
   if (euBLs.length > 0) {
     const euLine = euBLs.map(bl => `${bl.split(' ')[0]} ${formatCurrency(blMetrics[bl].grossACV)}`).join(', ');
     message += `EU: ${euLine}\n`;
+  }
+  message += '\n';
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMMIT BY BL - Show BL commit values
+  // ═══════════════════════════════════════════════════════════════════════════
+  const usBLsCommit = US_POD.filter(bl => blMetrics[bl]?.weightedACV > 0)
+    .sort((a, b) => blMetrics[b].weightedACV - blMetrics[a].weightedACV).slice(0, 3);
+  const euBLsCommit = EU_POD.filter(bl => blMetrics[bl]?.weightedACV > 0)
+    .sort((a, b) => blMetrics[b].weightedACV - blMetrics[a].weightedACV).slice(0, 3);
+  
+  message += `*COMMIT BY BL*\n`;
+  if (usBLsCommit.length > 0) {
+    const usCommitLine = usBLsCommit.map(bl => `${bl.split(' ')[0]} ${formatCurrency(blMetrics[bl].weightedACV)}`).join(', ');
+    message += `US: ${usCommitLine}\n`;
+  }
+  if (euBLsCommit.length > 0) {
+    const euCommitLine = euBLsCommit.map(bl => `${bl.split(' ')[0]} ${formatCurrency(blMetrics[bl].weightedACV)}`).join(', ');
+    message += `EU: ${euCommitLine}\n`;
   }
   message += '\n';
   
