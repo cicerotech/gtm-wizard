@@ -910,9 +910,8 @@ async function queryTop10TargetingJanuary() {
     logger.info(`Querying top 10 deals targeting ${monthName}...`);
     
     // Query top 10 deals by ACV - filter by active stages AND target date <= end of current month
-    // Include Net_ACV__c for display purposes
     const soql = `
-      SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Net_ACV__c, Blended_Forecast_base__c, Target_LOI_Date__c, 
+      SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Blended_Forecast_base__c, Target_LOI_Date__c, 
              StageName, Owner.Name, Sales_Type__c
       FROM Opportunity
       WHERE IsClosed = false
@@ -945,7 +944,6 @@ async function queryTop10TargetingJanuary() {
       name: opp.Name,
       accountName: getAccountDisplayName(opp),
       acv: opp.ACV__c || 0,
-      netACV: opp.Net_ACV__c || opp.ACV__c || 0,
       blendedForecast: opp.Blended_Forecast_base__c || 0,
       targetDate: opp.Target_LOI_Date__c,
       stage: opp.StageName,
@@ -1155,6 +1153,7 @@ function processPipelineData(records) {
   // Initialize accumulators
   const blMetrics = {};
   const proposalDeals = [];
+  const negotiationDeals = []; // Stage 5 - Negotiation deals
   const allDeals = []; // All active pipeline deals for Top 5 section
   let totalGrossACV = 0;
   let totalWeightedACV = 0;
@@ -1242,6 +1241,17 @@ function processPipelineData(records) {
         ownerFirstName: ownerName.split(' ')[0]
       });
     }
+    
+    // Collect negotiation stage deals (Stage 5)
+    if (stageName === 'Stage 5 - Negotiation') {
+      negotiationDeals.push({
+        accountName,
+        acv,
+        targetDate,
+        ownerName,
+        ownerFirstName: ownerName.split(' ')[0]
+      });
+    }
   });
   
   // Convert BL Sets to counts
@@ -1271,17 +1281,21 @@ function processPipelineData(records) {
     return new Date(a.targetDate) - new Date(b.targetDate);
   });
   
-  // Calculate proposal stage totals
+  // Calculate proposal stage totals (S4)
   const proposalGrossACV = proposalDeals.reduce((sum, d) => sum + d.acv, 0);
+  
+  // Calculate negotiation stage totals (S5)
+  const negotiationGrossACV = negotiationDeals.reduce((sum, d) => sum + d.acv, 0);
+  const negotiationThisMonth = negotiationDeals.filter(d => isTargetingThisMonth(d.targetDate));
   
   // Calculate proposal targeting this month vs this quarter (Stage 4 only)
   // Uses isTargetingThisMonth which includes overdue deals (Target <= end of month)
   const proposalThisMonth = proposalDeals.filter(d => isTargetingThisMonth(d.targetDate));
   const proposalThisQuarter = proposalDeals.filter(d => isInCurrentFiscalQuarter(d.targetDate));
   
-  // Calculate ALL active deals targeting this month/quarter (Stages 0-4)
+  // Calculate ALL active deals targeting this month/quarter (Stages 0-5)
   // This is the correct count for "deals targeting close this month"
-  // Matches SF report: Target_LOI_Date__c <= Jan 31
+  // Matches SF report: Target_LOI_Date__c <= end of month
   const allDealsThisMonth = allDeals.filter(d => isTargetingThisMonth(d.targetDate));
   const allDealsThisQuarter = allDeals.filter(d => isInCurrentFiscalQuarter(d.targetDate));
   
@@ -1289,7 +1303,9 @@ function processPipelineData(records) {
   logger.info(`📊 Pipeline counts:`);
   logger.info(`   Total deals: ${allDeals.length}`);
   logger.info(`   Stage 4 (Proposal) deals: ${proposalDeals.length}`);
+  logger.info(`   Stage 5 (Negotiation) deals: ${negotiationDeals.length}`);
   logger.info(`   S4 targeting this month: ${proposalThisMonth.length}`);
+  logger.info(`   S5 targeting this month: ${negotiationThisMonth.length}`);
   logger.info(`   ALL stages targeting this month: ${allDealsThisMonth.length}`);
   logger.info(`   ALL stages targeting this quarter: ${allDealsThisQuarter.length}`);
   
@@ -1313,11 +1329,14 @@ function processPipelineData(records) {
       // This month targeting - Stage 4 only (for proposal-specific metrics)
       proposalThisMonthCount: proposalThisMonth.length,
       proposalThisMonthACV: proposalThisMonth.reduce((sum, d) => sum + d.acv, 0),
-      proposalThisMonthWeightedACV: proposalThisMonth.reduce((sum, d) => sum + d.weightedAcv, 0),
       // This quarter targeting - Stage 4 only
       proposalThisQuarterCount: proposalThisQuarter.length,
       proposalThisQuarterGrossACV: proposalThisQuarter.reduce((sum, d) => sum + d.acv, 0),
-      proposalThisQuarterWeightedACV: proposalThisQuarter.reduce((sum, d) => sum + d.weightedAcv, 0),
+      // Stage 5 - Negotiation
+      negotiationCount: negotiationDeals.length,
+      negotiationGrossACV,
+      negotiationThisMonthCount: negotiationThisMonth.length,
+      negotiationThisMonthACV: negotiationThisMonth.reduce((sum, d) => sum + d.acv, 0),
       // ALL STAGES targeting this month (for message headline)
       allDealsThisMonthCount: allDealsThisMonth.length,
       allDealsThisMonthACV: allDealsThisMonth.reduce((sum, d) => sum + d.acv, 0),
@@ -1509,20 +1528,21 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   y += 22;
   
   // Total signed box - font sizes match header (10pt)
-  // Show dash when no deals signed
+  // Use signedLastWeek data for Q1 total when signedQTD is empty (early Q1 edge case)
+  const q1Data = signedQTD.totalDeals > 0 ? signedQTD : signedLastWeek;
   doc.rect(signedX, y, signedWidth, 36).fill('#f3f4f6');
   doc.strokeColor('#e5e7eb').lineWidth(1).rect(signedX, y, signedWidth, 36).stroke();
   doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
-  if (signedQTD.totalDeals === 0) {
+  if (q1Data.totalDeals === 0) {
     doc.text('TOTAL SIGNED', signedX + 10, y + 8);
     doc.font(fontBold).fontSize(12).fillColor('#6b7280');
     doc.text('—', signedX + 10, y + 21);
   } else {
-    doc.text(`TOTAL SIGNED (${signedQTD.totalDeals} deals)`, signedX + 10, y + 8);
+    doc.text(`TOTAL SIGNED (${q1Data.totalDeals} deals)`, signedX + 10, y + 8);
     doc.font(fontBold).fontSize(12).fillColor(DARK_TEXT);
-    const qtdValue = signedQTD.totalACV >= 1000000 
-      ? `$${(signedQTD.totalACV / 1000000).toFixed(1)}m`
-      : `$${(signedQTD.totalACV / 1000).toFixed(0)}k`;
+    const qtdValue = q1Data.totalACV >= 1000000 
+      ? `$${(q1Data.totalACV / 1000000).toFixed(1)}m`
+      : `$${(q1Data.totalACV / 1000).toFixed(0)}k`;
     doc.text(qtdValue, signedX + 10, y + 21);
   }
   y += 36;
@@ -1614,22 +1634,14 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.text('Q1 Deals targeting close this month', oppLeftX, leftY);
   leftY += 14;
   
-  // Top 10 list for February - show net ACV in parentheses when different from gross
+  // Top 10 list for February
   doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
   top10January.deals.slice(0, 10).forEach((deal, i) => {
     const value = deal.acv >= 1000000 
       ? `$${(deal.acv / 1000000).toFixed(1)}m`
       : `$${(deal.acv / 1000).toFixed(0)}k`;
-    // Show net ACV in parentheses if different from gross ACV
-    let netSuffix = '';
-    if (deal.netACV && deal.netACV !== deal.acv) {
-      const netValue = deal.netACV >= 1000000 
-        ? `$${(deal.netACV / 1000000).toFixed(1)}m`
-        : `$${(deal.netACV / 1000).toFixed(0)}k`;
-      netSuffix = ` (${netValue} net)`;
-    }
-    const name = deal.accountName.length > 18 ? deal.accountName.substring(0, 18) + '...' : deal.accountName;
-    doc.text(`${i + 1}. ${value}${netSuffix}, ${name}`, oppLeftX, leftY);
+    const name = deal.accountName.length > 22 ? deal.accountName.substring(0, 22) + '...' : deal.accountName;
+    doc.text(`${i + 1}. ${value}, ${name}`, oppLeftX, leftY);
     leftY += 11;
   });
   
@@ -1669,10 +1681,9 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   // Header row
   doc.rect(LEFT, y, salesTypeTableWidth, 20).fill('#1f2937');
   doc.font(fontBold).fontSize(9).fillColor('#ffffff');
-  doc.text('Sales Type', LEFT + 8, y + 6, { width: 160 });
-  doc.text('ACV (%)', LEFT + 180, y + 6, { width: 100, align: 'center' });
-  doc.text('Wtd ACV (%)', LEFT + 300, y + 6, { width: 100, align: 'center' });
-  doc.text('Count', LEFT + 420, y + 6, { width: 80, align: 'center' });
+  doc.text('Sales Type', LEFT + 8, y + 6, { width: 200 });
+  doc.text('ACV (%)', LEFT + 220, y + 6, { width: 120, align: 'center' });
+  doc.text('Count', LEFT + 380, y + 6, { width: 80, align: 'center' });
   y += 20;
   
   // Data rows - ordered: New business, Expansion, Renewal
@@ -1682,40 +1693,32 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
   
   salesTypeOrder.forEach((type, i) => {
-    const data = bySalesType[type] || { acv: 0, weighted: 0, count: 0, acvPercent: 0, weightedPercent: 0 };
+    const data = bySalesType[type] || { acv: 0, count: 0, acvPercent: '0%' };
     const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
     doc.rect(LEFT, y, salesTypeTableWidth, 18).fill(bg);
     doc.fillColor(DARK_TEXT);
-    doc.text(type, LEFT + 8, y + 5, { width: 160 });
+    doc.text(type, LEFT + 8, y + 5, { width: 200 });
     
     const acvStr = data.acv >= 1000000 
       ? `${(data.acv / 1000000).toFixed(1)}m (${data.acvPercent})`
       : `${(data.acv / 1000).toFixed(0)}k (${data.acvPercent})`;
-    const wtdStr = data.weighted >= 1000000
-      ? `${(data.weighted / 1000000).toFixed(1)}m (${data.weightedPercent})`
-      : `${(data.weighted / 1000).toFixed(0)}k (${data.weightedPercent})`;
     
-    doc.text(acvStr, LEFT + 180, y + 5, { width: 100, align: 'center' });
-    doc.text(wtdStr, LEFT + 300, y + 5, { width: 100, align: 'center' });
-    doc.text(data.count.toString(), LEFT + 420, y + 5, { width: 80, align: 'center' });
+    doc.text(acvStr, LEFT + 220, y + 5, { width: 120, align: 'center' });
+    doc.text(data.count.toString(), LEFT + 380, y + 5, { width: 80, align: 'center' });
     y += 18;
   });
   
   // Total row
   doc.rect(LEFT, y, salesTypeTableWidth, 20).fill('#e5e7eb');
   doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text('Total', LEFT + 8, y + 6, { width: 160 });
+  doc.text('Total', LEFT + 8, y + 6, { width: 200 });
   
   const totalAcvStr = salesTypeTotalACV >= 1000000 
     ? `${(salesTypeTotalACV / 1000000).toFixed(1)}m`
     : `${(salesTypeTotalACV / 1000).toFixed(0)}k`;
-  const totalWtdStr = salesTypeTotalWeighted >= 1000000
-    ? `${(salesTypeTotalWeighted / 1000000).toFixed(1)}m*`
-    : `${(salesTypeTotalWeighted / 1000).toFixed(0)}k*`;
   
-  doc.text(totalAcvStr, LEFT + 180, y + 6, { width: 100, align: 'center' });
-  doc.text(totalWtdStr, LEFT + 300, y + 6, { width: 100, align: 'center' });
-  doc.text(salesTypeTotalCount.toString(), LEFT + 420, y + 6, { width: 80, align: 'center' });
+  doc.text(totalAcvStr, LEFT + 220, y + 6, { width: 120, align: 'center' });
+  doc.text(salesTypeTotalCount.toString(), LEFT + 380, y + 6, { width: 80, align: 'center' });
   y += 20;
   
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1844,10 +1847,10 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
       doc.text(`${totals.totalOpportunities} opps • ${totals.totalAccounts} accts`, colX, metricsY + 42);
       
-      // Column 2: Weighted Pipeline
+      // Column 2: Blended Forecast
       colX = LEFT + colWidth;
       doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
-      doc.text('Weighted Pipeline', colX, metricsY + 12);
+      doc.text('Blended Forecast', colX, metricsY + 12);
       doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);
       doc.text(formatCurrency(totals.weightedThisQuarter), colX, metricsY + 22);
       doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
@@ -1885,9 +1888,8 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       let tableY = twoColY + 14;
       doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('Stage', LEFT, tableY);
-      doc.text('Deals', LEFT + 100, tableY, { width: 30, align: 'right' });
-      doc.text('Gross ACV', LEFT + 135, tableY, { width: 50, align: 'right' });
-      doc.text('Weighted', LEFT + 190, tableY, { width: 45, align: 'right' });
+      doc.text('Deals', LEFT + 110, tableY, { width: 40, align: 'right' });
+      doc.text('Gross ACV', LEFT + 160, tableY, { width: 70, align: 'right' });
       
       tableY += 11;
       doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, tableY).lineTo(LEFT + halfWidth, tableY).stroke();
@@ -1897,12 +1899,11 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       const stageOrder = [...ACTIVE_STAGES].reverse();
       doc.font(fontRegular).fontSize(10).fillColor(DARK_TEXT);
       stageOrder.forEach(stage => {
-        const data = stageBreakdown[stage] || { count: 0, grossACV: 0, weightedACV: 0 };
+        const data = stageBreakdown[stage] || { count: 0, grossACV: 0 };
         const stageLabel = stage.replace('Stage ', 'S').replace(' - ', ' ');
         doc.text(stageLabel, LEFT, tableY);
-        doc.text(data.count.toString(), LEFT + 100, tableY, { width: 30, align: 'right' });
-        doc.text(formatCurrency(data.grossACV), LEFT + 135, tableY, { width: 50, align: 'right' });
-        doc.text(formatCurrency(data.weightedACV), LEFT + 190, tableY, { width: 45, align: 'right' });
+        doc.text(data.count.toString(), LEFT + 110, tableY, { width: 40, align: 'right' });
+        doc.text(formatCurrency(data.grossACV), LEFT + 160, tableY, { width: 70, align: 'right' });
         tableY += 11;
       });
       
@@ -1914,9 +1915,8 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       let propTableY = twoColY + 14;
       doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('Metric', RIGHT_COL, propTableY);
-      doc.text('Deals', RIGHT_COL + 80, propTableY, { width: 30, align: 'right' });
-      doc.text('Gross ACV', RIGHT_COL + 115, propTableY, { width: 50, align: 'right' });
-      doc.text('Wtd ACV', RIGHT_COL + 170, propTableY, { width: 45, align: 'right' });
+      doc.text('Deals', RIGHT_COL + 100, propTableY, { width: 40, align: 'right' });
+      doc.text('Gross ACV', RIGHT_COL + 150, propTableY, { width: 70, align: 'right' });
       
       propTableY += 11;
       doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(RIGHT_COL, propTableY).lineTo(LEFT + PAGE_WIDTH, propTableY).stroke();
@@ -1924,27 +1924,23 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       
       // Proposal rows - increased font for readability
       doc.font(fontRegular).fontSize(10).fillColor(DARK_TEXT);
-      const s4Data = stageBreakdown['Stage 4 - Proposal'] || { weightedACV: 0 };
       
       // Total
       doc.text('Total', RIGHT_COL, propTableY);
-      doc.text(totals.proposalCount.toString(), RIGHT_COL + 80, propTableY, { width: 30, align: 'right' });
-      doc.text(formatCurrency(totals.proposalGrossACV), RIGHT_COL + 115, propTableY, { width: 50, align: 'right' });
-      doc.text(formatCurrency(s4Data.weightedACV), RIGHT_COL + 170, propTableY, { width: 45, align: 'right' });
+      doc.text(totals.proposalCount.toString(), RIGHT_COL + 100, propTableY, { width: 40, align: 'right' });
+      doc.text(formatCurrency(totals.proposalGrossACV), RIGHT_COL + 150, propTableY, { width: 70, align: 'right' });
       propTableY += 11;
       
       // This Month
       doc.text('This Month', RIGHT_COL, propTableY);
-      doc.text(totals.proposalThisMonthCount.toString(), RIGHT_COL + 80, propTableY, { width: 30, align: 'right' });
-      doc.text(formatCurrency(totals.proposalThisMonthACV), RIGHT_COL + 115, propTableY, { width: 50, align: 'right' });
-      doc.text(formatCurrency(totals.proposalThisMonthWeightedACV || 0), RIGHT_COL + 170, propTableY, { width: 45, align: 'right' });
+      doc.text(totals.proposalThisMonthCount.toString(), RIGHT_COL + 100, propTableY, { width: 40, align: 'right' });
+      doc.text(formatCurrency(totals.proposalThisMonthACV), RIGHT_COL + 150, propTableY, { width: 70, align: 'right' });
       propTableY += 11;
       
       // This Quarter
       doc.text('This Quarter', RIGHT_COL, propTableY);
-      doc.text(totals.proposalThisQuarterCount.toString(), RIGHT_COL + 80, propTableY, { width: 30, align: 'right' });
-      doc.text(formatCurrency(totals.proposalThisQuarterGrossACV), RIGHT_COL + 115, propTableY, { width: 50, align: 'right' });
-      doc.text(formatCurrency(totals.proposalThisQuarterWeightedACV || 0), RIGHT_COL + 170, propTableY, { width: 45, align: 'right' });
+      doc.text(totals.proposalThisQuarterCount.toString(), RIGHT_COL + 100, propTableY, { width: 40, align: 'right' });
+      doc.text(formatCurrency(totals.proposalThisQuarterGrossACV), RIGHT_COL + 150, propTableY, { width: 70, align: 'right' });
       propTableY += 12;
       
       // Targeting This Month box - COMPACT
@@ -2387,7 +2383,8 @@ function formatSlackMessage(pipelineData, previousSnapshot, dateStr, revOpsData 
   
   message += `*PIPELINE*\n`;
   message += `${formatCurrency(totals.grossACV)} total${changeStr} • ${totals.totalOpportunities} opps • ${totals.totalAccounts} accounts\n`;
-  message += `S4 Proposal: ${totals.proposalCount} deals, ${formatCurrency(totals.proposalGrossACV)} gross • ${dealsTargetingThisMonth} targeting this month\n\n`;
+  message += `S4 Proposal: ${totals.proposalCount} deals, ${formatCurrency(totals.proposalGrossACV)} gross • ${totals.proposalThisMonthCount} targeting this month\n`;
+  message += `S5 Negotiation: ${totals.negotiationCount} deals, ${formatCurrency(totals.negotiationGrossACV)} gross • ${totals.negotiationThisMonthCount} targeting this month\n\n`;
   
   // ═══════════════════════════════════════════════════════════════════════════
   // EOQ STATUS (only within 45 days of quarter end)
