@@ -2375,6 +2375,11 @@ export default class EudiaSyncPlugin extends Plugin {
       }
     });
 
+    // GTM Brain - one-click access to intelligence queries
+    this.addRibbonIcon('message-circle', 'Ask GTM Brain', () => {
+      this.openIntelligenceQueryForCurrentNote();
+    });
+
     // Add commands
     this.addCommand({
       id: 'transcribe-meeting',

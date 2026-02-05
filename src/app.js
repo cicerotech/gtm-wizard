@@ -3084,17 +3084,19 @@ class GTMBrainApp {
           const appearanceJson = { baseFontSize: 16, theme: "obsidian" };
           archive.append(JSON.stringify(appearanceJson, null, 2), { name: `${vaultName}/.obsidian/appearance.json` });
           
-          // core-plugins.json - disable daily-notes to hide duplicate calendar icon
+          // core-plugins.json - minimal set for sales users
           const corePlugins = {
             "file-explorer": true,
-            "global-search": true,
-            "switcher": true,
-            "markdown-importer": true,
+            "global-search": false,
+            "switcher": false,
+            "markdown-importer": false,
             "word-count": true,
-            "open-with-default-app": true,
+            "open-with-default-app": false,
             "file-recovery": true,
             "daily-notes": false,
-            "templates": false
+            "templates": false,
+            "canvas": false,
+            "graph": true
           };
           archive.append(JSON.stringify(corePlugins, null, 2), { name: `${vaultName}/.obsidian/core-plugins.json` });
           
