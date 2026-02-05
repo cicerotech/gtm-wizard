@@ -3084,8 +3084,18 @@ class GTMBrainApp {
           const appearanceJson = { baseFontSize: 16, theme: "obsidian" };
           archive.append(JSON.stringify(appearanceJson, null, 2), { name: `${vaultName}/.obsidian/appearance.json` });
           
-          // core-plugins.json
-          const corePlugins = ["file-explorer", "global-search", "switcher", "graph", "backlink", "outgoing-link", "tag-pane", "page-preview", "daily-notes", "templates", "note-composer", "command-palette", "editor-status", "starred", "markdown-importer", "word-count", "file-recovery"];
+          // core-plugins.json - disable daily-notes to hide duplicate calendar icon
+          const corePlugins = {
+            "file-explorer": true,
+            "global-search": true,
+            "switcher": true,
+            "markdown-importer": true,
+            "word-count": true,
+            "open-with-default-app": true,
+            "file-recovery": true,
+            "daily-notes": false,
+            "templates": false
+          };
           archive.append(JSON.stringify(corePlugins, null, 2), { name: `${vaultName}/.obsidian/core-plugins.json` });
           
           // community-plugins.json - Enable eudia-transcription

@@ -43,43 +43,296 @@ if (!OPENAI_API_KEY) {
 function createQuickStart(destDir) {
   console.log('📝 Creating QuickStart guide...');
   
-  const quickStartContent = `# Welcome to Your Sales Vault
+  const quickStartContent = `# Business Lead Vault - Complete Guide
 
-## Getting Started
+Welcome to your personal sales intelligence workspace. This vault captures, organizes, and surfaces insights from every customer conversation to help you close more deals.
 
-When you opened this vault, a **Setup Wizard** should have appeared. If not, go to:
-\`Settings → Eudia Sync & Scribe → Setup\`
+---
 
-### Step 1: Connect Your Calendar
-Enter your @eudia.com email to sync your Microsoft 365 calendar.
+## What This Tool Does
+
+The Business Lead Vault is a connected system that:
+
+1. **Captures** meeting recordings and transcribes them with AI
+2. **Extracts** key insights: next steps, pain points, stakeholders, MEDDICC data
+3. **Organizes** everything by account in a searchable, linked structure
+4. **Syncs** notes and data to Salesforce automatically
+5. **Aggregates** insights across all your accounts for quick review
+6. **Feeds** the GTM Hub with context for meeting preparation
+
+---
+
+## The Complete Workflow
+
+\`\`\`
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          YOUR SALES WORKFLOW                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                  │
+│   │  1. RECORD   │───▶│ 2. TRANSCRIBE│───▶│  3. EXTRACT  │                  │
+│   │   Meeting    │    │   with AI    │    │   Insights   │                  │
+│   └──────────────┘    └──────────────┘    └──────────────┘                  │
+│          │                                        │                          │
+│          │         ┌──────────────────────────────┘                          │
+│          │         │                                                         │
+│          ▼         ▼                                                         │
+│   ┌──────────────────────────────────────┐                                   │
+│   │         4. AUTO-ORGANIZED            │                                   │
+│   │                                      │                                   │
+│   │  Account Folder ──▶ Meeting Notes    │                                   │
+│   │        │            │                │                                   │
+│   │        ├──▶ Contacts                 │                                   │
+│   │        ├──▶ Intelligence             │                                   │
+│   │        └──▶ Next Steps               │                                   │
+│   └──────────────────────────────────────┘                                   │
+│                      │                                                       │
+│                      ▼                                                       │
+│   ┌──────────────────────────────────────┐    ┌──────────────────────────┐  │
+│   │      5. AGGREGATED DASHBOARDS        │───▶│   6. GTM HUB SYNC        │  │
+│   │                                      │    │                          │  │
+│   │  All Next Steps                      │    │  Meeting Prep Tab        │  │
+│   │  At-Risk Accounts                    │    │  Recent Context          │  │
+│   │  Expansion Opportunities             │    │  Account Intelligence    │  │
+│   │  Feature Requests                    │    │                          │  │
+│   └──────────────────────────────────────┘    └──────────────────────────┘  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+\`\`\`
+
+---
+
+## Initial Setup (One-Time)
+
+When you first open this vault, a Setup Wizard appears. Complete these steps:
+
+### Step 1: Enter Your Email
+Type your \`@eudia.com\` email. This connects your Microsoft 365 calendar and determines which Salesforce accounts you own.
 
 ### Step 2: Connect to Salesforce
-Click "Connect to Salesforce" and complete the OAuth flow in the popup.
-Your account folders will be automatically imported based on your ownership.
+Click "Connect to Salesforce" and authorize in the popup window. Your owned accounts are automatically imported as folders.
 
-### Step 3: Start Transcribing
-- Click the **microphone icon** in the left sidebar during a call
-- Or press \`Cmd/Ctrl+P\` and search for "Transcribe Meeting"
+### Step 3: Verify Your Accounts
+Check the **Accounts** folder - you should see one subfolder per account you own. Each contains pre-built templates for organizing your notes.
+
+> **Tip:** If accounts are missing, sync again via \`Cmd/Ctrl+P\` → "Sync Accounts from Salesforce"
+
+---
+
+## Vault Structure Explained
+
+\`\`\`
+Business Lead Vault 2026/
+│
+├── QUICKSTART.md              ← You are here
+│
+├── Accounts/                  ← Your owned accounts from Salesforce
+│   ├── Acme Corp/
+│   │   ├── Contacts.md        ← Key stakeholders and contact info
+│   │   ├── Intelligence.md    ← MEDDICC data, pain points, competitive intel
+│   │   ├── Meeting Notes/     ← All transcribed meetings
+│   │   │   ├── 2026-02-03 - Discovery Call.md
+│   │   │   └── 2026-02-10 - Demo.md
+│   │   └── Next Steps.md      ← Action items from this account
+│   │
+│   ├── Best Buy/
+│   └── ... (more accounts)
+│
+├── Next Steps/                ← Aggregated view across all accounts
+│   └── All Next Steps.md      ← Dashboard of every next step
+│
+├── Recordings/                ← Audio files (optional, can be disabled)
+│
+├── _Analytics/                ← Manager dashboards (auto-populated)
+│   ├── Team Performance.md
+│   ├── Pain Point Tracker.md
+│   ├── Objection Playbook.md
+│   └── Coaching Insights.md
+│
+└── _Customer Health/          ← CS & expansion tracking
+    ├── At-Risk Accounts.md
+    ├── Expansion Opportunities.md
+    └── Feature Requests Tracker.md
+\`\`\`
+
+---
+
+## Recording and Transcribing Meetings
+
+### Before the Meeting
+
+1. Open **Calendar** (click the calendar icon in the left sidebar)
+2. Find your upcoming meeting
+3. Click the meeting to create a pre-populated note
+
+### During the Meeting
+
+1. When the call starts, click the **microphone icon** in the left sidebar
+2. Recording begins immediately - a red indicator confirms it's active
+3. Continue your conversation normally
+
+### After the Meeting
+
+1. Click the microphone icon again to stop recording
+2. AI transcription processes automatically (30-60 seconds)
+3. The following is extracted and added to your note:
+
+| Extracted Data | Where It Goes |
+|----------------|---------------|
+| Full transcript | Meeting note body |
+| Next steps | Account's Next Steps.md + All Next Steps dashboard |
+| Pain points | Intelligence.md + Pain Point Tracker |
+| Stakeholders | Contacts.md |
+| MEDDICC data | Intelligence.md |
+| Expansion signals | Expansion Opportunities dashboard |
+| Risk indicators | At-Risk Accounts dashboard |
+
+---
+
+## How Next Steps Aggregate
+
+After each meeting, AI extracts action items:
+
+\`\`\`
+MEETING TRANSCRIPTION
+        │
+        ▼
+┌───────────────────────────────────────────────┐
+│    AI extracts next steps with context:        │
+│                                                │
+│    "Send pricing proposal by Friday"           │
+│    "Schedule technical deep-dive with IT"      │
+│    "Follow up on security questionnaire"       │
+└───────────────────────────────────────────────┘
+        │
+        ├───────────────────────┐
+        ▼                       ▼
+┌───────────────────┐   ┌──────────────────────────┐
+│ Account Folder    │   │ All Next Steps Dashboard │
+│ Next Steps.md     │   │                          │
+│                   │   │ Shows ALL next steps     │
+│ - Send pricing... │   │ from EVERY account       │
+│ - Schedule tech.. │   │ in one consolidated view │
+│                   │   │                          │
+└───────────────────┘   └──────────────────────────┘
+\`\`\`
+
+**Use the All Next Steps dashboard** to:
+- See what's due across all accounts
+- Prioritize your day
+- Never miss a follow-up
+
+---
+
+## Customer Health Dashboards
+
+These dashboards aggregate signals from all your conversations:
+
+### At-Risk Accounts
+AI monitors for risk signals:
+- Negative sentiment trends
+- Competitor mentions
+- Project delays discussed
+- Stakeholder changes
+- Budget concerns
+
+When detected, accounts appear here with severity ratings.
+
+### Expansion Opportunities
+AI detects upsell/cross-sell signals:
+- Interest in additional products
+- New use cases mentioned
+- Requests for more seats/users
+- New department engagement
+
+Hot opportunities are prioritized for immediate action.
+
+### Feature Requests Tracker
+Aggregates customer feature requests:
+- Links each request to specific accounts
+- Tracks frequency (how many customers ask for it)
+- Useful for Product feedback sessions
+
+---
+
+## GTM Hub Integration
+
+Your vault syncs with the **GTM Hub** at \`gtm-wizard.onrender.com\`:
+
+\`\`\`
+YOUR VAULT                          GTM HUB
+───────────                         ────────
+                                    
+Meeting Notes  ────sync────▶  Meeting Prep Tab
+Intelligence   ────sync────▶  Account Context Cards
+Next Steps     ────sync────▶  Action Item Tracker
+                                    
+                                    Before your next call:
+                                    • See recent meeting summaries
+                                    • Review open next steps
+                                    • Understand pain points
+                                    • Know stakeholder map
+\`\`\`
+
+**Before important calls**, open the GTM Hub's **Meeting Prep** tab to review:
+- Last 3 meeting summaries
+- Outstanding next steps
+- Key pain points to address
+- Stakeholder dynamics
+- MEDDICC gaps to close
 
 ---
 
 ## Quick Reference
 
-| Action | How |
-|--------|-----|
-| View Calendar | Click calendar icon in sidebar |
-| New Meeting Note | Click any meeting in calendar |
-| Transcribe | Click microphone or Cmd+P → Transcribe |
-| Sync to Salesforce | Set \`sync_to_salesforce: true\` in note |
+| Task | How |
+|------|-----|
+| Open Calendar | Click calendar icon (left sidebar) |
+| Start Recording | Click microphone icon (left sidebar) |
+| Stop Recording | Click microphone icon again |
+| Manual Transcription | \`Cmd/Ctrl+P\` → "Transcribe Meeting" |
+| Sync to Salesforce | Set \`sync_to_salesforce: true\` in note frontmatter |
+| Refresh Accounts | \`Cmd/Ctrl+P\` → "Sync Accounts from Salesforce" |
+| Open Settings | Settings → Community Plugins → Eudia Sync & Scribe |
 
 ---
 
-## Need Help?
+## Keyboard Shortcuts
 
-- **Plugin Settings**: Settings → Eudia Sync & Scribe
-- **Keyboard Shortcuts**: Settings → Hotkeys → search "Eudia"
+| Shortcut | Action |
+|----------|--------|
+| \`Cmd/Ctrl + P\` | Open command palette |
+| \`Cmd/Ctrl + O\` | Quick open file |
+| \`Cmd/Ctrl + Shift + F\` | Search across all notes |
+| \`Cmd/Ctrl + E\` | Toggle edit/preview mode |
 
-Happy selling! 🎯
+---
+
+## Troubleshooting
+
+**Calendar not showing meetings?**
+→ Verify your email is correct in plugin settings
+
+**Accounts not importing?**
+→ Re-run Salesforce sync: \`Cmd/Ctrl+P\` → "Sync Accounts"
+
+**Transcription failing?**
+→ Check your internet connection; the AI processes on our servers
+
+**Notes not syncing to Salesforce?**
+→ Ensure \`sync_to_salesforce: true\` is in the note's frontmatter
+
+---
+
+## Getting Help
+
+- **GTM Hub**: [gtm-wizard.onrender.com](https://gtm-wizard.onrender.com)
+- **Plugin Settings**: Settings → Community Plugins → Eudia Sync & Scribe
+- **Contact**: Reach out in #gtm-tools Slack channel
+
+---
+
+*This vault is your single source of truth for customer intelligence. Use it consistently and it becomes your unfair advantage.*
 `;
 
   fs.writeFileSync(path.join(destDir, 'QUICKSTART.md'), quickStartContent);
@@ -203,7 +456,7 @@ function createObsidianConfig(destDir) {
   const communityPlugins = ["eudia-transcription"];
   fs.writeFileSync(path.join(obsidianDir, 'community-plugins.json'), JSON.stringify(communityPlugins, null, 2));
   
-  // Core plugins
+  // Core plugins - explicitly disable daily-notes to remove duplicate calendar icon
   const corePlugins = {
     "file-explorer": true,
     "global-search": true,
@@ -211,7 +464,9 @@ function createObsidianConfig(destDir) {
     "markdown-importer": true,
     "word-count": true,
     "open-with-default-app": true,
-    "file-recovery": true
+    "file-recovery": true,
+    "daily-notes": false,
+    "templates": false
   };
   fs.writeFileSync(path.join(obsidianDir, 'core-plugins.json'), JSON.stringify(corePlugins, null, 2));
 }
