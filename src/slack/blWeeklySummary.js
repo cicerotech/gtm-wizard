@@ -125,10 +125,11 @@ const ACCOUNT_DISPLAY_OVERRIDES = {
 };
 
 // Q1 Pipeline by Solution Bucket (from SF report - update weekly)
+// Updated 2026-02-05: count = Record Count (total deals), aiEnabled = AI-Enabled deals
 const Q1_BY_SOLUTION = {
   'Pure Software': { acv: 16302960, count: 63, aiEnabled: 63 },
   'AI-Enabled Services': { acv: 2543000, count: 15, aiEnabled: 15 },
-  'Legacy Services': { acv: 2390575, count: 1, aiEnabled: 1 },
+  'Legacy Services': { acv: 2390575, count: 7, aiEnabled: 1 },  // 7 total deals, 1 AI-enabled
   'Mixed': { acv: 1705550, count: 9, aiEnabled: 9 },
   'Undetermined': { acv: 2820000, count: 8, aiEnabled: 8 }
 };
@@ -1698,10 +1699,10 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     leftY += 11;
   });
   
-  // Right column: TARGETING Q1 FY2026
+  // Right column: TARGETING Q1 FY26
   let rightY = y;
   doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
-  doc.text('TARGETING Q1 FY2026 CLOSE', oppRightX, rightY);
+  doc.text('TARGETING Q1 FY26 CLOSE', oppRightX, rightY);
   rightY += 14;
   
   doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
@@ -1719,7 +1720,11 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     if (ACCOUNT_DISPLAY_OVERRIDES[displayName]) {
       displayName = ACCOUNT_DISPLAY_OVERRIDES[displayName];
     }
-    const name = displayName.length > 22 ? displayName.substring(0, 22) + '...' : displayName;
+    // Add Net ACV callout for Bank of Ireland
+    if (displayName === 'Bank of Ireland' || deal.accountName === 'Bank of Ireland') {
+      value = value + '* (Net: $235k)';
+    }
+    const name = displayName.length > 18 ? displayName.substring(0, 18) + '...' : displayName;
     doc.text(`${i + 1}. ${value}, ${name}`, oppRightX, rightY);
     rightY += 12;
   });
@@ -2034,28 +2039,31 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         const boxX = RIGHT_COL;
         const boxY = propTableY;
         const boxWidth = PAGE_WIDTH / 2 - 5;
-        const dealsToShow = proposalThisMonth.slice(0, 8);
-        const boxHeight = dealsToShow.length * 11 + 24;
+        const dealsToShow = proposalThisMonth.slice(0, 10);  // Show up to 10 deals
+        // Increased row height for better readability with Net callouts
+        const rowHeight = 13;
+        const headerHeight = 26;
+        const footerHeight = proposalThisMonth.length > 10 ? 14 : 6;
+        const boxHeight = dealsToShow.length * rowHeight + headerHeight + footerHeight;
         
         // Light green background
         doc.rect(boxX, boxY, boxWidth, boxHeight).fill(GREEN_BG);
-        // Green left border accent
-        doc.rect(boxX, boxY, 3, boxHeight).fill(GREEN_ACCENT);
+        // Green left border accent (slightly thicker)
+        doc.rect(boxX, boxY, 4, boxHeight).fill(GREEN_ACCENT);
         
         // Bold header title
-        doc.font(fontBold).fontSize(10).fillColor(GREEN_ACCENT);
-        doc.text('TARGETING THIS MONTH', boxX + 10, boxY + 6);
+        doc.font(fontBold).fontSize(11).fillColor(GREEN_ACCENT);
+        doc.text('TARGETING THIS MONTH', boxX + 12, boxY + 8);
         
-        // Deal list with product lines - increased font
+        // Deal list - improved formatting
         doc.font(fontRegular).fontSize(9).fillColor(BODY_TEXT);
-        let dealY = boxY + 22;
+        let dealY = boxY + headerHeight;
         dealsToShow.forEach(d => {
           // Apply account display overrides
           let displayName = d.accountName;
           if (ACCOUNT_DISPLAY_OVERRIDES[displayName]) {
             displayName = ACCOUNT_DISPLAY_OVERRIDES[displayName];
           }
-          const name = displayName.length > 22 ? displayName.substring(0, 22) + '...' : displayName;
           
           // Format ACV - add asterisk for Bank of Ireland with Net ACV note
           let acvDisplay = formatCurrency(d.acv);
@@ -2065,14 +2073,18 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
             extraNote = ' (Net: $235k)';
           }
           
-          doc.text(`${name} • ${acvDisplay}${extraNote} • ${formatDate(d.targetDate)}`, boxX + 10, dealY);
-          dealY += 11;
+          // Truncate name to fit with full ACV display
+          const maxNameLen = extraNote ? 18 : 22;
+          const name = displayName.length > maxNameLen ? displayName.substring(0, maxNameLen) + '...' : displayName;
+          
+          doc.text(`${name} • ${acvDisplay}${extraNote} • ${formatDate(d.targetDate)}`, boxX + 12, dealY);
+          dealY += rowHeight;
         });
-        if (proposalThisMonth.length > 8) {
+        if (proposalThisMonth.length > 10) {
           doc.fillColor(DARK_TEXT);
-          doc.text(`+${proposalThisMonth.length - 8} more deals`, boxX + 10, dealY);
+          doc.text(`+${proposalThisMonth.length - 10} more deals`, boxX + 12, dealY);
         }
-        propTableY += boxHeight + 6;
+        propTableY += boxHeight + 8;
       }
       
       y = Math.max(tableY, propTableY) + SECTION_GAP;
