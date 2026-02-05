@@ -91,7 +91,9 @@ const SALES_LEADERS = {
 const SALES_LEADER_DIRECT_REPORTS = {
   'mitchell.loquaci@eudia.com': [
     'justin.hills@eudia.com',
-    'olivia@eudia.com'
+    'olivia@eudia.com',
+    'sean.boyd@eudia.com',
+    'riley.stack@eudia.com'
   ],
   'stephen.mulholland@eudia.com': [
     'tom.clancy@eudia.com',
@@ -4168,6 +4170,96 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
       }
     });
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LIVE QUERY - Query accumulated transcript during a call
+    // Allows users to ask questions like "What did Tom say about pricing?"
+    // ═══════════════════════════════════════════════════════════════════════════
+    this.expressApp.post('/api/live-query', async (req, res) => {
+      try {
+        const { question, transcript, accountName, systemPrompt } = req.body;
+        
+        if (!question || !transcript) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'question and transcript are required' 
+          });
+        }
+
+        logger.info(`Live query: "${question.substring(0, 50)}..." for ${accountName || 'unknown'}`);
+
+        // Use Claude for fast, accurate query response
+        const Anthropic = require('@anthropic-ai/sdk');
+        const anthropic = new Anthropic.default();
+
+        const response = await anthropic.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 500,
+          system: systemPrompt || `You are an AI assistant helping during an active sales call. Answer questions about what was discussed based on the transcript provided. Be concise and quote directly when relevant.`,
+          messages: [
+            {
+              role: 'user',
+              content: `Here is the conversation transcript so far:\n\n${transcript}\n\n---\n\nQuestion: ${question}`
+            }
+          ]
+        });
+
+        const answer = response.content[0]?.text || 'No response generated';
+
+        res.json({
+          success: true,
+          answer
+        });
+
+      } catch (error) {
+        logger.error('Live query error:', error);
+        res.status(500).json({ 
+          success: false, 
+          error: error.message || 'Failed to process query'
+        });
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TRANSCRIBE CHUNK - Transcribe audio chunk without summarization
+    // For incremental live transcription during recording
+    // ═══════════════════════════════════════════════════════════════════════════
+    this.expressApp.post('/api/transcribe-chunk', async (req, res) => {
+      try {
+        const { audio, mimeType } = req.body;
+        
+        if (!audio) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'audio (base64) is required' 
+          });
+        }
+
+        const audioBuffer = Buffer.from(audio, 'base64');
+        
+        // Use transcription service for just the transcription part
+        const result = await transcriptionService.transcribe(audioBuffer, mimeType || 'audio/webm');
+
+        if (!result.success) {
+          return res.status(500).json({
+            success: false,
+            error: result.error || 'Chunk transcription failed'
+          });
+        }
+
+        res.json({
+          success: true,
+          text: result.text || ''
+        });
+
+      } catch (error) {
+        logger.error('Chunk transcription error:', error);
+        res.status(500).json({ 
+          success: false, 
+          error: error.message || 'Failed to transcribe chunk'
+        });
+      }
+    });
+
     // Get meeting context for pre-call injection
     this.expressApp.get('/api/meeting-context/:accountId', async (req, res) => {
       try {
@@ -4675,12 +4767,55 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
     // Used by Eudia Calendar plugin for native calendar view
     // ═══════════════════════════════════════════════════════════════════════
 
+    /**
+     * Get timezone-aware date boundaries
+     * Converts user's local day to UTC boundaries for database queries
+     * @param {string} timezone - IANA timezone (e.g., 'America/Los_Angeles')
+     * @param {number} daysOffset - Days from today (0 = today, 7 = week ahead)
+     * @returns {{ start: Date, end: Date }} - UTC boundaries
+     */
+    function getTimezoneAwareDateRange(timezone = 'America/New_York', daysOffset = 0, daysRange = 1) {
+      try {
+        // Get current time in user's timezone
+        const now = new Date();
+        const userLocalTime = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+        
+        // Calculate start of day in user's timezone
+        const startOfDayLocal = new Date(userLocalTime);
+        startOfDayLocal.setHours(0, 0, 0, 0);
+        startOfDayLocal.setDate(startOfDayLocal.getDate() + daysOffset);
+        
+        // Calculate end of range in user's timezone
+        const endOfDayLocal = new Date(startOfDayLocal);
+        endOfDayLocal.setDate(endOfDayLocal.getDate() + daysRange);
+        
+        // Calculate timezone offset to convert back to UTC
+        const offsetMs = now.getTime() - userLocalTime.getTime();
+        
+        // Convert local boundaries to UTC
+        const startUTC = new Date(startOfDayLocal.getTime() + offsetMs);
+        const endUTC = new Date(endOfDayLocal.getTime() + offsetMs);
+        
+        return { start: startUTC, end: endUTC };
+      } catch (error) {
+        // Fallback to server local time if timezone parsing fails
+        logger.warn(`Invalid timezone "${timezone}", falling back to server time`);
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() + daysOffset);
+        const end = new Date(start);
+        end.setDate(end.getDate() + daysRange);
+        return { start, end };
+      }
+    }
+
     // Get today's meetings for a specific user (Obsidian plugin)
     this.expressApp.get('/api/calendar/:email/today', async (req, res) => {
       try {
         const { calendarService, BL_EMAILS } = require('./services/calendarService');
         const intelligenceStore = require('./services/intelligenceStore');
         const email = req.params.email.toLowerCase();
+        const timezone = req.query.timezone || 'America/New_York';
         
         // Security: only serve calendars for registered BLs
         if (!BL_EMAILS.map(e => e.toLowerCase()).includes(email)) {
@@ -4692,11 +4827,10 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
           });
         }
         
-        // Get today's date range
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
+        // Get today's date range in user's timezone
+        const { start: today, end: tomorrow } = getTimezoneAwareDateRange(timezone, 0, 1);
+        
+        logger.debug(`📅 Today query for ${email} (tz: ${timezone}): ${today.toISOString()} to ${tomorrow.toISOString()}`);
         
         // Fetch from database (fast)
         const events = await intelligenceStore.getStoredCalendarEvents(today, tomorrow, {
@@ -4739,6 +4873,8 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
         const { calendarService, BL_EMAILS } = require('./services/calendarService');
         const intelligenceStore = require('./services/intelligenceStore');
         const email = req.params.email.toLowerCase();
+        const timezone = req.query.timezone || 'America/New_York';
+        const forceRefresh = req.query.forceRefresh === 'true';
         
         // Security: only serve calendars for registered BLs
         if (!BL_EMAILS.map(e => e.toLowerCase()).includes(email)) {
@@ -4750,11 +4886,24 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
           });
         }
         
-        // Get this week's date range (today + 7 days)
-        const startDate = new Date();
-        startDate.setHours(0, 0, 0, 0);
-        const endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 7);
+        // If force refresh requested, trigger full calendar sync
+        if (forceRefresh) {
+          logger.info(`🔄 Force refresh requested for ${email}, triggering calendar sync...`);
+          try {
+            // Force refresh bypasses in-memory cache and fetches fresh from Graph API
+            await calendarService.getUpcomingMeetingsForAllBLs(7, true);
+            // Sync to database for Obsidian plugin access
+            await calendarService.syncCalendarsToDatabase(7);
+          } catch (syncError) {
+            logger.warn(`Calendar sync failed for ${email}:`, syncError.message);
+            // Continue with cached data
+          }
+        }
+        
+        // Get this week's date range (today + 7 days) in user's timezone
+        const { start: startDate, end: endDate } = getTimezoneAwareDateRange(timezone, 0, 7);
+        
+        logger.debug(`📅 Week query for ${email} (tz: ${timezone}): ${startDate.toISOString()} to ${endDate.toISOString()}`);
         
         // Fetch from database (fast)
         const events = await intelligenceStore.getStoredCalendarEvents(startDate, endDate, {

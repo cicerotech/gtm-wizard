@@ -1681,9 +1681,11 @@ class EudiaCalendarView extends ItemView {
     const actions = titleRow.createDiv({ cls: 'eudia-calendar-actions' });
     
     const refreshBtn = actions.createEl('button', { cls: 'eudia-btn-icon', text: '↻' });
-    refreshBtn.title = 'Refresh';
+    refreshBtn.title = 'Refresh (fetches latest from calendar)';
     refreshBtn.onclick = async () => {
       refreshBtn.addClass('spinning');
+      // Set flag to force refresh from server (bypass cache)
+      (this as any)._forceRefresh = true;
       await this.render();
       refreshBtn.removeClass('spinning');
     };
@@ -1805,10 +1807,15 @@ class EudiaCalendarView extends ItemView {
     try {
       const calendarService = new CalendarService(
         this.plugin.settings.serverUrl,
-        this.plugin.settings.userEmail
+        this.plugin.settings.userEmail,
+        this.plugin.settings.timezone || 'America/New_York'
       );
       
-      const weekData = await calendarService.getWeekMeetings();
+      // Check if this is a force refresh (set by refresh button)
+      const forceRefresh = (this as any)._forceRefresh || false;
+      (this as any)._forceRefresh = false;
+      
+      const weekData = await calendarService.getWeekMeetings(forceRefresh);
       loadingEl.remove();
 
       if (!weekData.success) {
@@ -2038,21 +2045,56 @@ class EudiaCalendarView extends ItemView {
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
-   * Extract company name from attendee email domains
-   * Higher confidence than subject parsing since emails are definitive
-   * Returns the company name derived from the domain (e.g., chsinc.com -> Chsinc)
+   * Extract company name from a domain, handling subdomains intelligently
+   * Examples:
+   *   chsinc.com -> Chsinc
+   *   mail.medtronic.com -> Medtronic  
+   *   app.uber.com -> Uber
+   *   john.smith@company.co.uk -> Company
    */
-  private extractAccountFromAttendees(attendees: { name: string; email: string }[]): string | null {
-    if (!attendees || attendees.length === 0) return null;
+  private extractCompanyFromDomain(domain: string): string {
+    const parts = domain.toLowerCase().split('.');
+    
+    // Common subdomains/prefixes to skip
+    const skipPrefixes = [
+      'mail', 'email', 'app', 'portal', 'crm', 'www', 'smtp', 
+      'sales', 'support', 'login', 'sso', 'auth', 'api', 'my'
+    ];
+    
+    // Common TLDs and country codes
+    const tlds = ['com', 'org', 'net', 'io', 'co', 'ai', 'gov', 'edu', 'uk', 'us', 'de', 'fr', 'jp', 'au', 'ca'];
+    
+    // Filter out TLDs and find the company part
+    const nonTldParts = parts.filter(p => !tlds.includes(p) && p.length > 1);
+    
+    if (nonTldParts.length === 0) return parts[0] || '';
+    
+    // If first part is a common prefix, use the second part
+    if (nonTldParts.length > 1 && skipPrefixes.includes(nonTldParts[0])) {
+      return nonTldParts[1].charAt(0).toUpperCase() + nonTldParts[1].slice(1);
+    }
+    
+    // Use the last non-TLD part (usually the company name)
+    const companyPart = nonTldParts[nonTldParts.length - 1];
+    return companyPart.charAt(0).toUpperCase() + companyPart.slice(1);
+  }
+
+  /**
+   * Extract all external domains from attendees
+   * Returns unique domains with company names extracted
+   */
+  private getExternalDomainsFromAttendees(attendees: { name: string; email: string }[]): Array<{ domain: string; company: string }> {
+    if (!attendees || attendees.length === 0) return [];
     
     // Common email providers to ignore
     const commonProviders = [
       'gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com', 
-      'icloud.com', 'live.com', 'msn.com', 'aol.com', 'protonmail.com'
+      'icloud.com', 'live.com', 'msn.com', 'aol.com', 'protonmail.com',
+      'googlemail.com', 'mail.com', 'zoho.com', 'ymail.com'
     ];
     
-    // Extract external domains (not eudia.com and not common providers)
-    const externalDomains: string[] = [];
+    const seenDomains = new Set<string>();
+    const results: Array<{ domain: string; company: string }> = [];
     
     for (const attendee of attendees) {
       if (!attendee.email) continue;
@@ -2061,23 +2103,115 @@ class EudiaCalendarView extends ItemView {
       
       if (domainMatch) {
         const domain = domainMatch[1];
-        if (!domain.includes('eudia.com') && !commonProviders.includes(domain)) {
-          externalDomains.push(domain);
+        // Skip internal and common providers
+        if (domain.includes('eudia.com') || commonProviders.includes(domain)) continue;
+        // Skip already seen domains
+        if (seenDomains.has(domain)) continue;
+        
+        seenDomains.add(domain);
+        const company = this.extractCompanyFromDomain(domain);
+        if (company.length >= 2) {
+          results.push({ domain, company });
         }
       }
     }
     
-    if (externalDomains.length === 0) return null;
+    return results;
+  }
+
+  /**
+   * Find the best account match from multiple domain candidates
+   * Scores each domain against account folders and returns the best match
+   */
+  private findBestAccountMatch(
+    domains: Array<{ domain: string; company: string }>,
+    serverAccountName?: string,
+    subjectAccountName?: string
+  ): { folder: string; accountName: string; source: string } | null {
+    const accountsFolder = this.plugin.settings.accountsFolder || 'Accounts';
+    const folder = this.app.vault.getAbstractFileByPath(accountsFolder);
     
-    // Use the first external domain to get company name
-    const domain = externalDomains[0];
-    const companyPart = domain.split('.')[0]; // chsinc.com -> chsinc
+    if (!(folder instanceof TFolder)) return null;
     
-    // Capitalize first letter
-    const companyName = companyPart.charAt(0).toUpperCase() + companyPart.slice(1);
+    // Get all account subfolders
+    const subfolders: string[] = [];
+    for (const child of folder.children) {
+      if (child instanceof TFolder) {
+        subfolders.push(child.name);
+      }
+    }
     
-    console.log(`[Eudia Calendar] Extracted company "${companyName}" from attendee domain ${domain}`);
-    return companyName;
+    if (subfolders.length === 0) return null;
+    
+    // Score each domain against folders
+    const domainScores: Array<{ domain: string; company: string; folder: string | null; score: number }> = [];
+    
+    for (const { domain, company } of domains) {
+      const matchedFolder = this.findAccountFolder(company);
+      const score = matchedFolder ? 1.0 : 0;
+      domainScores.push({ domain, company, folder: matchedFolder, score });
+    }
+    
+    // Sort by score descending
+    domainScores.sort((a, b) => b.score - a.score);
+    
+    // Return best domain match if found
+    if (domainScores.length > 0 && domainScores[0].folder) {
+      const best = domainScores[0];
+      const folderName = best.folder.split('/').pop() || best.company;
+      console.log(`[Eudia Calendar] Best domain match: "${best.company}" from ${best.domain} -> ${best.folder}`);
+      return { folder: best.folder, accountName: folderName, source: 'domain' };
+    }
+    
+    // Fallback: try server-provided account name
+    if (serverAccountName) {
+      const matchedFolder = this.findAccountFolder(serverAccountName);
+      if (matchedFolder) {
+        const folderName = matchedFolder.split('/').pop() || serverAccountName;
+        console.log(`[Eudia Calendar] Server account match: "${serverAccountName}" -> ${matchedFolder}`);
+        return { folder: matchedFolder, accountName: folderName, source: 'server' };
+      }
+    }
+    
+    // Fallback: try subject-extracted name
+    if (subjectAccountName) {
+      const matchedFolder = this.findAccountFolder(subjectAccountName);
+      if (matchedFolder) {
+        const folderName = matchedFolder.split('/').pop() || subjectAccountName;
+        console.log(`[Eudia Calendar] Subject match: "${subjectAccountName}" -> ${matchedFolder}`);
+        return { folder: matchedFolder, accountName: folderName, source: 'subject' };
+      }
+    }
+    
+    // No match found - try to match any domain company name loosely
+    for (const { company } of domains) {
+      // Try partial matches in folder names
+      const partialMatch = subfolders.find(f => {
+        const fLower = f.toLowerCase();
+        const cLower = company.toLowerCase();
+        return fLower.includes(cLower) || cLower.includes(fLower);
+      });
+      if (partialMatch) {
+        const matchedFolder = `${accountsFolder}/${partialMatch}`;
+        console.log(`[Eudia Calendar] Partial domain match: "${company}" -> ${matchedFolder}`);
+        return { folder: matchedFolder, accountName: partialMatch, source: 'domain-partial' };
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Extract company name from attendee email domains (legacy method for compatibility)
+   * Returns the company name derived from the first external domain
+   */
+  private extractAccountFromAttendees(attendees: { name: string; email: string }[]): string | null {
+    const domains = this.getExternalDomainsFromAttendees(attendees);
+    if (domains.length === 0) return null;
+    
+    const bestDomain = domains[0];
+    console.log(`[Eudia Calendar] Extracted company "${bestDomain.company}" from attendee domain ${bestDomain.domain}`);
+    return bestDomain.company;
   }
 
   /**
@@ -2199,7 +2333,7 @@ class EudiaCalendarView extends ItemView {
     const fileName = `${dateStr} - ${safeName}.md`;
     
     // ─────────────────────────────────────────────────────────────────────────
-    // SMART ACCOUNT MATCHING - Find the correct account folder
+    // ENHANCED SMART ACCOUNT MATCHING - Domain-first with scoring
     // ─────────────────────────────────────────────────────────────────────────
     
     let targetFolder: string | null = null;
@@ -2209,36 +2343,25 @@ class EudiaCalendarView extends ItemView {
     console.log(`[Eudia Calendar] === Creating note for meeting: "${meeting.subject}" ===`);
     console.log(`[Eudia Calendar] Attendees: ${JSON.stringify(meeting.attendees?.map(a => a.email) || [])}`);
     
-    // PRIORITY 1: Try domain-based matching from attendee emails (highest confidence)
-    if (!targetFolder && meeting.attendees && meeting.attendees.length > 0) {
-      const domainName = this.extractAccountFromAttendees(meeting.attendees);
-      console.log(`[Eudia Calendar] Extracted domain company name: "${domainName || 'none'}"`);
-      if (domainName) {
-        targetFolder = this.findAccountFolder(domainName);
-        console.log(`[Eudia Calendar] Domain-based "${domainName}" -> folder: ${targetFolder || 'not found'}`);
-        if (targetFolder && !matchedAccountName) {
-          // Extract the actual folder name from path for proper account name
-          matchedAccountName = targetFolder.split('/').pop() || domainName;
-        }
-      }
-    }
+    // Extract all external domains from attendees
+    const externalDomains = this.getExternalDomainsFromAttendees(meeting.attendees || []);
+    console.log(`[Eudia Calendar] External domains found: ${JSON.stringify(externalDomains)}`);
     
-    // PRIORITY 2: Try server-provided accountName
-    if (!targetFolder && meeting.accountName) {
-      targetFolder = this.findAccountFolder(meeting.accountName);
-      console.log(`[Eudia Calendar] Server accountName "${meeting.accountName}" -> folder: ${targetFolder || 'not found'}`);
-    }
+    // Extract subject-based account name as fallback
+    const subjectAccountName = this.extractAccountFromSubject(meeting.subject);
+    console.log(`[Eudia Calendar] Subject-extracted name: "${subjectAccountName || 'none'}"`);
     
-    // PRIORITY 3: Try extracting from subject
-    if (!targetFolder) {
-      const extractedName = this.extractAccountFromSubject(meeting.subject);
-      if (extractedName) {
-        targetFolder = this.findAccountFolder(extractedName);
-        console.log(`[Eudia Calendar] Subject-based "${extractedName}" -> folder: ${targetFolder || 'not found'}`);
-        if (targetFolder && !matchedAccountName) {
-          matchedAccountName = targetFolder.split('/').pop() || extractedName;
-        }
-      }
+    // Use unified matching that scores all options
+    const bestMatch = this.findBestAccountMatch(
+      externalDomains,
+      meeting.accountName,
+      subjectAccountName || undefined
+    );
+    
+    if (bestMatch) {
+      targetFolder = bestMatch.folder;
+      matchedAccountName = bestMatch.accountName;
+      console.log(`[Eudia Calendar] Best match (${bestMatch.source}): "${matchedAccountName}" -> ${targetFolder}`);
     }
     
     // FALLBACK: Use Accounts folder root if no match found (DO NOT create new folders)
@@ -2336,6 +2459,12 @@ export default class EudiaSyncPlugin extends Plugin {
   private calendarService: CalendarService;
   private smartTagService: SmartTagService;
   private recordingStatusBar: RecordingStatusBar | null = null;
+  private micRibbonIcon: HTMLElement | null = null;
+  
+  // Live query support - accumulated transcript during recording
+  private liveTranscript: string = '';
+  private liveTranscriptChunkInterval: NodeJS.Timeout | null = null;
+  private isTranscribingChunk: boolean = false;
 
   async onload() {
     await this.loadSettings();
@@ -2347,7 +2476,8 @@ export default class EudiaSyncPlugin extends Plugin {
     
     this.calendarService = new CalendarService(
       this.settings.serverUrl,
-      this.settings.userEmail
+      this.settings.userEmail,
+      this.settings.timezone || 'America/New_York'
     );
     
     this.smartTagService = new SmartTagService();
@@ -2367,7 +2497,7 @@ export default class EudiaSyncPlugin extends Plugin {
     // Add ribbon icons
     this.addRibbonIcon('calendar', 'Open Calendar', () => this.activateCalendarView());
     
-    this.addRibbonIcon('microphone', 'Transcribe Meeting', async () => {
+    this.micRibbonIcon = this.addRibbonIcon('microphone', 'Transcribe Meeting', async () => {
       if (this.audioRecorder?.isRecording()) {
         await this.stopRecording();
       } else {
@@ -2433,6 +2563,22 @@ export default class EudiaSyncPlugin extends Plugin {
         } else {
           new Notice('No active file');
         }
+      }
+    });
+
+    this.addCommand({
+      id: 'live-query-transcript',
+      name: 'Query Current Transcript (Live)',
+      callback: async () => {
+        if (!this.audioRecorder?.isRecording()) {
+          new Notice('No active recording. Start recording first to use live query.');
+          return;
+        }
+        if (!this.liveTranscript || this.liveTranscript.length < 50) {
+          new Notice('Not enough transcript captured yet. Keep recording for a few more minutes.');
+          return;
+        }
+        this.openLiveQueryModal();
       }
     });
 
@@ -3426,6 +3572,9 @@ last_updated: ${dateStr}
     try {
       await this.audioRecorder.start();
       this.recordingStatusBar.show();
+      
+      // Add glow effect to ribbon icon
+      this.micRibbonIcon?.addClass('eudia-ribbon-recording');
 
       // Update status bar with audio levels
       const updateInterval = setInterval(() => {
@@ -3436,6 +3585,10 @@ last_updated: ${dateStr}
           clearInterval(updateInterval);
         }
       }, 100);
+
+      // Initialize live transcript and start periodic chunk transcription
+      this.liveTranscript = '';
+      this.startLiveTranscription();
 
       new Notice('Transcription started. Click stop when finished.');
 
@@ -3464,6 +3617,9 @@ last_updated: ${dateStr}
     } catch (error) {
       new Notice(`Transcription failed: ${error.message}`);
     } finally {
+      // Remove glow effect from ribbon icon
+      this.micRibbonIcon?.removeClass('eudia-ribbon-recording');
+      this.stopLiveTranscription();
       this.recordingStatusBar?.hide();
       this.recordingStatusBar = null;
       this.audioRecorder = null;
@@ -3474,10 +3630,200 @@ last_updated: ${dateStr}
     if (this.audioRecorder?.isRecording()) {
       this.audioRecorder.cancel();
     }
+    // Remove glow effect from ribbon icon
+    this.micRibbonIcon?.removeClass('eudia-ribbon-recording');
+    this.stopLiveTranscription();
     this.recordingStatusBar?.hide();
     this.recordingStatusBar = null;
     this.audioRecorder = null;
     new Notice('Transcription cancelled');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LIVE TRANSCRIPTION - Periodic chunk transcription for live query support
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Start periodic chunk transcription for live query support.
+   * Transcribes audio chunks every 2 minutes during recording.
+   */
+  private startLiveTranscription(): void {
+    // Clear any existing interval
+    this.stopLiveTranscription();
+    
+    // Transcribe chunks every 2 minutes (120000ms)
+    // This balances responsiveness with API cost/load
+    const CHUNK_INTERVAL_MS = 120000;
+    
+    this.liveTranscriptChunkInterval = setInterval(async () => {
+      await this.transcribeCurrentChunk();
+    }, CHUNK_INTERVAL_MS);
+    
+    // Also do an initial transcription after 30 seconds if recording is still going
+    setTimeout(async () => {
+      if (this.audioRecorder?.isRecording()) {
+        await this.transcribeCurrentChunk();
+      }
+    }, 30000);
+    
+    console.log('[Eudia] Live transcription started');
+  }
+
+  /**
+   * Stop periodic chunk transcription
+   */
+  private stopLiveTranscription(): void {
+    if (this.liveTranscriptChunkInterval) {
+      clearInterval(this.liveTranscriptChunkInterval);
+      this.liveTranscriptChunkInterval = null;
+    }
+    console.log('[Eudia] Live transcription stopped');
+  }
+
+  /**
+   * Transcribe the current audio chunk and append to live transcript
+   */
+  private async transcribeCurrentChunk(): Promise<void> {
+    if (!this.audioRecorder?.isRecording() || this.isTranscribingChunk) {
+      return;
+    }
+
+    const chunkBlob = this.audioRecorder.extractNewChunks();
+    if (!chunkBlob || chunkBlob.size < 5000) {
+      // Not enough new audio to transcribe
+      return;
+    }
+
+    this.isTranscribingChunk = true;
+    console.log(`[Eudia] Transcribing chunk: ${chunkBlob.size} bytes`);
+
+    try {
+      // Convert blob to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(chunkBlob);
+      });
+      
+      const base64 = await base64Promise;
+      const mimeType = this.audioRecorder.getMimeType();
+
+      const result = await this.transcriptionService.transcribeChunk(base64, mimeType);
+      
+      if (result.success && result.text) {
+        // Append to live transcript with a separator
+        this.liveTranscript += (this.liveTranscript ? '\n\n' : '') + result.text;
+        console.log(`[Eudia] Chunk transcribed, total transcript length: ${this.liveTranscript.length}`);
+      }
+    } catch (error) {
+      console.error('[Eudia] Chunk transcription error:', error);
+    } finally {
+      this.isTranscribingChunk = false;
+    }
+  }
+
+  /**
+   * Open the live query modal to query the accumulated transcript
+   */
+  private openLiveQueryModal(): void {
+    const modal = new Modal(this.app);
+    modal.titleEl.setText('Query Live Transcript');
+    
+    const contentEl = modal.contentEl;
+    contentEl.addClass('eudia-live-query-modal');
+    
+    // Instructions
+    const instructionsEl = contentEl.createDiv({ cls: 'eudia-live-query-instructions' });
+    instructionsEl.setText(`Ask a question about what has been discussed so far (${Math.round(this.liveTranscript.length / 4)} words captured):`);
+    
+    // Input
+    const inputEl = contentEl.createEl('textarea', { 
+      cls: 'eudia-live-query-input',
+      attr: { 
+        placeholder: 'e.g., "What did Tom say about pricing?" or "What were the main concerns raised?"',
+        rows: '3'
+      }
+    });
+    
+    // Response area
+    const responseEl = contentEl.createDiv({ cls: 'eudia-live-query-response' });
+    responseEl.style.display = 'none';
+    
+    // Button
+    const buttonEl = contentEl.createEl('button', { 
+      text: 'Ask',
+      cls: 'eudia-btn-primary'
+    });
+    
+    buttonEl.addEventListener('click', async () => {
+      const question = inputEl.value.trim();
+      if (!question) {
+        new Notice('Please enter a question');
+        return;
+      }
+      
+      buttonEl.disabled = true;
+      buttonEl.setText('Searching...');
+      responseEl.style.display = 'block';
+      responseEl.setText('Searching transcript...');
+      responseEl.addClass('eudia-loading');
+      
+      try {
+        const result = await this.transcriptionService.liveQueryTranscript(
+          question,
+          this.liveTranscript,
+          this.getAccountNameFromActiveFile()
+        );
+        
+        responseEl.removeClass('eudia-loading');
+        
+        if (result.success) {
+          responseEl.setText(result.answer);
+        } else {
+          responseEl.setText(result.error || 'Failed to query transcript');
+          responseEl.addClass('eudia-error');
+        }
+      } catch (error) {
+        responseEl.removeClass('eudia-loading');
+        responseEl.setText(`Error: ${error.message}`);
+        responseEl.addClass('eudia-error');
+      } finally {
+        buttonEl.disabled = false;
+        buttonEl.setText('Ask');
+      }
+    });
+    
+    // Handle enter key
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        buttonEl.click();
+      }
+    });
+    
+    modal.open();
+    inputEl.focus();
+  }
+
+  /**
+   * Get account name from the currently active file path
+   */
+  private getAccountNameFromActiveFile(): string | undefined {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile) return undefined;
+    
+    // Try to extract account from path (e.g., Accounts/Acme Corp/...)
+    const pathMatch = activeFile.path.match(/Accounts\/([^\/]+)\//i);
+    if (pathMatch) {
+      return pathMatch[1];
+    }
+    
+    return undefined;
   }
 
   private async processRecording(result: RecordingResult, file: TFile): Promise<void> {
@@ -4720,6 +5066,8 @@ class EudiaSyncSettingTab extends PluginSettingTab {
         dropdown.onChange(async (value) => {
           this.plugin.settings.timezone = value;
           await this.plugin.saveSettings();
+          // Update calendar service with new timezone
+          this.plugin.calendarService?.setTimezone(value);
           new Notice(`Timezone set to ${TIMEZONE_OPTIONS.find(t => t.value === value)?.label || value}`);
         });
       });

@@ -1080,6 +1080,132 @@ export class TranscriptionService {
   }
 
   /**
+   * Live query against accumulated transcript during a call.
+   * Allows users to ask "What did Tom say about pricing?" mid-meeting.
+   * 
+   * @param question - User's question about the transcript
+   * @param transcript - Accumulated transcript text so far
+   * @param accountName - Optional account context
+   * @returns Answer to the question
+   */
+  async liveQueryTranscript(
+    question: string,
+    transcript: string,
+    accountName?: string
+  ): Promise<{ success: boolean; answer: string; error?: string }> {
+    if (!transcript || transcript.trim().length < 50) {
+      return {
+        success: false,
+        answer: '',
+        error: 'Not enough transcript captured yet. Keep recording for a few more minutes.'
+      };
+    }
+
+    try {
+      const response = await requestUrl({
+        url: `${this.serverUrl}/api/live-query`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          question,
+          transcript,
+          accountName,
+          systemPrompt: this.buildLiveQueryPrompt()
+        })
+      });
+
+      if (!response.json.success) {
+        return {
+          success: false,
+          answer: '',
+          error: response.json.error || 'Query failed'
+        };
+      }
+
+      return {
+        success: true,
+        answer: response.json.answer || 'No relevant information found in the transcript.'
+      };
+
+    } catch (error: any) {
+      console.error('Live query error:', error);
+      return {
+        success: false,
+        answer: '',
+        error: error.message || 'Failed to query transcript'
+      };
+    }
+  }
+
+  /**
+   * Transcribe a chunk of audio without summarization (for incremental transcription).
+   * Returns just the raw transcript text.
+   */
+  async transcribeChunk(
+    audioBase64: string,
+    mimeType: string
+  ): Promise<{ success: boolean; text: string; error?: string }> {
+    try {
+      const response = await requestUrl({
+        url: `${this.serverUrl}/api/transcribe-chunk`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          audio: audioBase64,
+          mimeType
+        })
+      });
+
+      if (!response.json.success) {
+        return {
+          success: false,
+          text: '',
+          error: response.json.error || 'Chunk transcription failed'
+        };
+      }
+
+      return {
+        success: true,
+        text: response.json.text || ''
+      };
+
+    } catch (error: any) {
+      console.error('Chunk transcription error:', error);
+      return {
+        success: false,
+        text: '',
+        error: error.message || 'Failed to transcribe chunk'
+      };
+    }
+  }
+
+  /**
+   * Build prompt for live query against transcript
+   */
+  private buildLiveQueryPrompt(): string {
+    return `You are an AI assistant helping a salesperson during an active customer call. 
+The user will ask questions about what has been discussed so far in the meeting.
+
+Your job is to:
+1. Search the transcript for relevant information
+2. Answer the question concisely and accurately
+3. Quote directly from the transcript when possible
+4. If the information isn't in the transcript, say so clearly
+
+IMPORTANT RULES:
+- Only use information explicitly stated in the transcript
+- Be concise - the user is on a live call
+- If quoting someone, attribute the quote properly
+- If the question can't be answered from the transcript, say "I couldn't find that in the conversation so far."
+
+Format your response as a brief, actionable answer suitable for quick reference during a call.`;
+  }
+
+  /**
    * Format sections for note insertion
    * Optimized for busy salespeople: TL;DR first, evidence-based insights, actionable checklists
    * 

@@ -62,10 +62,12 @@ export interface CurrentMeeting {
 export class CalendarService {
   private serverUrl: string;
   private userEmail: string;
+  private timezone: string;
 
-  constructor(serverUrl: string, userEmail: string) {
+  constructor(serverUrl: string, userEmail: string, timezone: string = 'America/New_York') {
     this.serverUrl = serverUrl;
     this.userEmail = userEmail.toLowerCase();
+    this.timezone = timezone;
   }
 
   /**
@@ -80,6 +82,13 @@ export class CalendarService {
    */
   setServerUrl(url: string): void {
     this.serverUrl = url;
+  }
+
+  /**
+   * Update timezone
+   */
+  setTimezone(timezone: string): void {
+    this.timezone = timezone;
   }
 
   /**
@@ -98,8 +107,9 @@ export class CalendarService {
     }
 
     try {
+      const tz = encodeURIComponent(this.timezone);
       const response = await requestUrl({
-        url: `${this.serverUrl}/api/calendar/${this.userEmail}/today`,
+        url: `${this.serverUrl}/api/calendar/${this.userEmail}/today?timezone=${tz}`,
         method: 'GET',
         headers: { 'Accept': 'application/json' }
       });
@@ -120,8 +130,9 @@ export class CalendarService {
 
   /**
    * Fetch this week's meetings
+   * @param forceRefresh - If true, forces server to fetch fresh data from Microsoft Graph
    */
-  async getWeekMeetings(): Promise<WeekResponse> {
+  async getWeekMeetings(forceRefresh: boolean = false): Promise<WeekResponse> {
     if (!this.userEmail) {
       return {
         success: false,
@@ -135,8 +146,10 @@ export class CalendarService {
     }
 
     try {
+      const tz = encodeURIComponent(this.timezone);
+      const refreshParam = forceRefresh ? '&forceRefresh=true' : '';
       const response = await requestUrl({
-        url: `${this.serverUrl}/api/calendar/${this.userEmail}/week`,
+        url: `${this.serverUrl}/api/calendar/${this.userEmail}/week?timezone=${tz}${refreshParam}`,
         method: 'GET',
         headers: { 'Accept': 'application/json' }
       });

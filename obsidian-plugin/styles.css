@@ -973,6 +973,23 @@
   opacity: 0.9;
 }
 
+/* Purple glow animation for microphone icon during recording */
+.eudia-ribbon-recording {
+  animation: eudia-mic-glow 1.5s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+@keyframes eudia-mic-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px 2px rgba(142, 153, 225, 0.6),
+                0 0 16px 4px rgba(142, 153, 225, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 16px 4px rgba(142, 153, 225, 0.8),
+                0 0 24px 8px rgba(142, 153, 225, 0.5);
+  }
+}
+
 /* ───────────────────────────────────────────────────────────────────────────
    EUDIA SETUP VIEW - Full-Page Onboarding Experience
    Matches GTM Site (obsidian-setup.html) Design System
@@ -1653,4 +1670,231 @@
   font-size: 12px;
   font-weight: 700;
   color: white;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Live Query Modal - Query transcript during active recording
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.eudia-live-query-modal {
+  padding: 16px;
+  max-width: 500px;
+}
+
+.eudia-live-query-instructions {
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--eudia-text-muted);
+  line-height: 1.5;
+}
+
+.eudia-live-query-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--eudia-border);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--eudia-card);
+  color: var(--eudia-text);
+  resize: vertical;
+  font-family: inherit;
+  margin-bottom: 12px;
+}
+
+.eudia-live-query-input:focus {
+  outline: none;
+  border-color: var(--eudia-accent);
+  box-shadow: 0 0 0 3px var(--eudia-accent-subtle);
+}
+
+.eudia-live-query-input::placeholder {
+  color: var(--eudia-text-subtle);
+}
+
+.eudia-live-query-response {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--eudia-bg);
+  border-radius: 8px;
+  border: 1px solid var(--eudia-border);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--eudia-text);
+  white-space: pre-wrap;
+}
+
+.eudia-live-query-response.eudia-loading {
+  color: var(--eudia-text-muted);
+  font-style: italic;
+  animation: eudia-pulse-bg 1.5s ease-in-out infinite;
+}
+
+.eudia-live-query-response.eudia-error {
+  color: var(--eudia-error);
+  background: var(--eudia-error-subtle);
+  border-color: var(--eudia-error);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Mobile Responsive Styles
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Mobile viewport adjustments */
+@media screen and (max-width: 768px) {
+  /* Transcription bar - bottom sheet on mobile */
+  .eudia-transcription-bar {
+    left: 8px;
+    right: 8px;
+    transform: none;
+    width: auto;
+    border-radius: 16px 16px 8px 8px;
+    padding: 16px;
+    gap: 12px;
+  }
+  
+  /* Larger touch targets for controls */
+  .eudia-control-btn {
+    height: 44px;
+    min-width: 44px;
+    padding: 0 16px;
+    font-size: 14px;
+  }
+  
+  .eudia-control-btn.stop {
+    padding: 0 20px;
+  }
+  
+  /* Calendar view mobile layout */
+  .eudia-calendar-view {
+    padding: 12px;
+  }
+  
+  .eudia-calendar-meeting {
+    padding: 12px;
+    gap: 10px;
+  }
+  
+  .eudia-calendar-time {
+    font-size: 11px;
+    min-width: 55px;
+  }
+  
+  .eudia-calendar-subject {
+    font-size: 14px;
+  }
+  
+  /* Now card mobile */
+  .eudia-now-card {
+    padding: 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .eudia-now-action {
+    width: 100%;
+    text-align: center;
+    padding: 12px;
+  }
+  
+  /* Modal adjustments for mobile */
+  .eudia-intelligence-modal,
+  .eudia-live-query-modal {
+    padding: 12px;
+  }
+  
+  .eudia-intelligence-input,
+  .eudia-live-query-input {
+    font-size: 16px; /* Prevent iOS zoom on focus */
+    padding: 14px;
+  }
+  
+  /* Setup view mobile */
+  .eudia-setup-view {
+    padding: 16px;
+  }
+  
+  .eudia-setup-step-card {
+    padding: 16px;
+  }
+  
+  .eudia-setup-step-header {
+    gap: 12px;
+  }
+  
+  .eudia-setup-step-content {
+    margin-left: 0;
+    margin-top: 12px;
+  }
+  
+  /* Larger buttons for touch */
+  .eudia-setup-btn,
+  .eudia-btn-primary,
+  .eudia-btn-retry {
+    padding: 14px 20px;
+    font-size: 15px;
+    min-height: 48px;
+  }
+  
+  /* Input groups stack vertically on mobile */
+  .eudia-setup-input-group {
+    flex-direction: column;
+  }
+  
+  .eudia-setup-input-group .eudia-setup-btn {
+    width: 100%;
+  }
+}
+
+/* Very small screens (phones in portrait) */
+@media screen and (max-width: 480px) {
+  .eudia-calendar-view {
+    padding: 8px;
+  }
+  
+  .eudia-calendar-meeting {
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .eudia-calendar-time {
+    min-width: auto;
+    align-self: flex-start;
+  }
+  
+  .eudia-waveform {
+    display: none; /* Hide waveform on very small screens */
+  }
+  
+  .eudia-transcription-bar {
+    padding: 12px;
+    min-width: auto;
+  }
+}
+
+/* Touch-friendly hover states (no hover on touch) */
+@media (hover: none) {
+  .eudia-calendar-meeting:hover,
+  .eudia-control-btn:hover,
+  .eudia-btn-icon:hover,
+  .eudia-setup-btn:hover {
+    transform: none;
+    box-shadow: var(--eudia-shadow-sm);
+  }
+  
+  /* Add active state for touch feedback */
+  .eudia-calendar-meeting:active,
+  .eudia-control-btn:active,
+  .eudia-btn-icon:active,
+  .eudia-setup-btn:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+}
+
+/* Safe area insets for notched phones */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .eudia-transcription-bar {
+    bottom: calc(24px + env(safe-area-inset-bottom));
+  }
 }

@@ -718,7 +718,16 @@ STALE DEAL DEFINITIONS:
 - A deal is "stale" only if there has been NO activity for 30+ days
 - A deal is "stuck" only if it has been in the same stage for 60+ days
 - Do NOT flag deals as stale or stuck if they do not meet these thresholds
-- 2-14 days since last activity is NORMAL and should not be flagged as concerning`;
+- 2-14 days since last activity is NORMAL and should not be flagged as concerning
+
+ACTIVITY HEALTH & URGENCY FRAMING (CRITICAL):
+- NEVER describe a deal as "critical", "urgent", or "needs immediate action" if there was recent activity (within 7 days)
+- If a meeting occurred within the last 7 days, the deal is HEALTHY - frame positively
+- If a meeting occurred within the last 14 days, frame as "recently engaged" - not urgent
+- Only use urgent/critical language if: (a) deal has been stale 30+ days, OR (b) close date is within 14 days and there are clear blockers
+- When asked "what should I know going into a meeting", do NOT manufacture urgency - summarize factually
+- Avoid contradictory framing like "critical deal" immediately after mentioning a recent meeting
+- Frame objectively based on actual data, not dramatic language that doesn't match reality`;
 
   // Add intent-specific instructions
   switch (intent) {
@@ -810,7 +819,23 @@ function buildUserPrompt(intent, query, context) {
     prompt += `• Type: ${context.account.type || 'Unknown'}\n`;
     if (context.account.industry) prompt += `• Industry: ${context.account.industry}\n`;
     if (context.account.location) prompt += `• Location: ${context.account.location}\n`;
-    if (context.account.lastActivityDate) prompt += `• Last Activity: ${context.account.lastActivityDate}\n`;
+    if (context.account.lastActivityDate) {
+      prompt += `• Last Activity: ${context.account.lastActivityDate}\n`;
+      // Calculate activity health for AI context
+      const lastActivityDate = new Date(context.account.lastActivityDate);
+      const daysSinceActivity = Math.floor((Date.now() - lastActivityDate.getTime()) / (1000 * 60 * 60 * 24));
+      let activityHealth;
+      if (daysSinceActivity <= 7) {
+        activityHealth = 'HEALTHY - very recent engagement';
+      } else if (daysSinceActivity <= 14) {
+        activityHealth = 'HEALTHY - recently engaged';
+      } else if (daysSinceActivity <= 30) {
+        activityHealth = 'MODERATE - may need follow-up soon';
+      } else {
+        activityHealth = 'STALE - requires attention';
+      }
+      prompt += `• Activity Health: ${activityHealth} (${daysSinceActivity} days since last activity)\n`;
+    }
     prompt += '\n';
   }
 
@@ -874,11 +899,28 @@ function buildUserPrompt(intent, query, context) {
     }
   }
 
-  // Recent events/meetings
+  // Recent events/meetings with recency context
   if (context.recentEvents?.length > 0) {
     prompt += `RECENT MEETINGS (${context.recentEvents.length}):\n`;
+    const now = new Date();
     for (const event of context.recentEvents.slice(0, 5)) {
-      prompt += `• ${event.startTime?.split('T')[0]}: ${event.subject}\n`;
+      const eventDate = event.startTime?.split('T')[0];
+      prompt += `• ${eventDate}: ${event.subject}`;
+      
+      // Add days-ago context for AI to understand recency
+      if (event.startTime) {
+        const daysAgo = Math.floor((now.getTime() - new Date(event.startTime).getTime()) / (1000 * 60 * 60 * 24));
+        if (daysAgo === 0) {
+          prompt += ' [TODAY]';
+        } else if (daysAgo === 1) {
+          prompt += ' [YESTERDAY]';
+        } else if (daysAgo <= 7) {
+          prompt += ` [${daysAgo} days ago - RECENT]`;
+        } else if (daysAgo <= 14) {
+          prompt += ` [${daysAgo} days ago]`;
+        }
+      }
+      prompt += '\n';
     }
     prompt += '\n';
   }

@@ -42,6 +42,10 @@ export class AudioRecorder {
   private analyser: AnalyserNode | null = null;
   private levelInterval: NodeJS.Timeout | null = null;
   
+  // Live query support - track chunks already extracted
+  private lastExtractedChunkIndex: number = 0;
+  private mimeTypeCache: string = 'audio/webm';
+  
   private state: RecordingState = {
     isRecording: false,
     isPaused: false,
@@ -59,11 +63,32 @@ export class AudioRecorder {
   }
 
   /**
+   * Detect if running on iOS/Safari
+   */
+  private static isIOSOrSafari(): boolean {
+    const ua = navigator.userAgent;
+    const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+    return isIOS || isSafari;
+  }
+
+  /**
    * Get supported MIME type for recording
+   * iOS/Safari has limited MediaRecorder support - prioritize mp4/m4a formats
    */
   private getSupportedMimeType(): string {
-    const types = [
+    // iOS/Safari prefer mp4 format
+    const isIOSSafari = AudioRecorder.isIOSOrSafari();
+    
+    // Prioritize formats based on platform
+    const types = isIOSSafari ? [
+      'audio/mp4',           // iOS Safari primary
+      'audio/mp4;codecs=aac',
+      'audio/aac',
       'audio/webm;codecs=opus',
+      'audio/webm'
+    ] : [
+      'audio/webm;codecs=opus',  // Desktop/Chrome primary
       'audio/webm',
       'audio/mp4',
       'audio/ogg;codecs=opus',
@@ -72,11 +97,13 @@ export class AudioRecorder {
     
     for (const type of types) {
       if (MediaRecorder.isTypeSupported(type)) {
+        console.log(`[AudioRecorder] Using MIME type: ${type} (iOS/Safari: ${isIOSSafari})`);
         return type;
       }
     }
     
-    return 'audio/webm'; // Default fallback
+    // Default fallback based on platform
+    return isIOSSafari ? 'audio/mp4' : 'audio/webm';
   }
 
   /**
@@ -88,16 +115,28 @@ export class AudioRecorder {
     }
 
     try {
-      // Request microphone access with high quality settings for accurate transcription
+      // Check for mobile/iOS - use simpler constraints for better compatibility
+      const isIOSSafari = AudioRecorder.isIOSOrSafari();
+      
+      // iOS has stricter constraints - use simpler config for compatibility
+      const audioConstraints = isIOSSafari ? {
+        echoCancellation: true,
+        noiseSuppression: true
+        // iOS doesn't support sampleRate/channelCount constraints well
+      } : {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 48000,      // Higher sample rate for clarity
+        channelCount: 1         // Mono is optimal for speech
+      };
+      
+      // Request microphone access
       this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 48000,      // Higher sample rate for clarity
-          channelCount: 1         // Mono is optimal for speech
-        }
+        audio: audioConstraints
       });
+      
+      console.log(`[AudioRecorder] Microphone access granted (iOS/Safari: ${isIOSSafari})`);
 
       // Set up audio analysis for level metering
       this.setupAudioAnalysis();
@@ -105,12 +144,14 @@ export class AudioRecorder {
       // Create MediaRecorder with higher bitrate for better Whisper accuracy
       // 96kbps provides clearer speech while still allowing ~35 min per 25MB
       const mimeType = this.getSupportedMimeType();
+      this.mimeTypeCache = mimeType;
       this.mediaRecorder = new MediaRecorder(this.stream, {
         mimeType,
         audioBitsPerSecond: 96000
       });
 
       this.audioChunks = [];
+      this.lastExtractedChunkIndex = 0;
 
       // Handle data available
       this.mediaRecorder.ondataavailable = (event) => {
@@ -394,13 +435,33 @@ export class AudioRecorder {
 
   /**
    * Check if browser supports audio recording
+   * Includes mobile/iOS compatibility checks
    */
   static isSupported(): boolean {
-    return !!(
-      navigator.mediaDevices &&
-      navigator.mediaDevices.getUserMedia &&
-      window.MediaRecorder
-    );
+    // Basic API availability
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      return false;
+    }
+    
+    // Check if at least one audio format is supported
+    const formats = ['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/webm;codecs=opus'];
+    const hasSupport = formats.some(format => MediaRecorder.isTypeSupported(format));
+    
+    if (!hasSupport) {
+      console.warn('[AudioRecorder] No supported audio formats found');
+    }
+    
+    return hasSupport;
+  }
+
+  /**
+   * Get mobile-specific recording instructions
+   */
+  static getMobileInstructions(): string | null {
+    if (!this.isIOSOrSafari()) {
+      return null;
+    }
+    return 'For best results on iOS, ensure you have granted microphone permissions in Settings > Privacy > Microphone.';
   }
 
   /**
@@ -489,6 +550,55 @@ export class AudioRecorder {
    */
   isRecording(): boolean {
     return this.state.isRecording;
+  }
+
+  /**
+   * Extract new audio chunks since last extraction (for live transcription).
+   * Returns null if no new chunks available.
+   * Does NOT stop recording - continues capturing.
+   */
+  extractNewChunks(): Blob | null {
+    if (!this.state.isRecording || this.audioChunks.length === 0) {
+      return null;
+    }
+
+    // Get chunks we haven't extracted yet
+    const newChunks = this.audioChunks.slice(this.lastExtractedChunkIndex);
+    
+    if (newChunks.length === 0) {
+      return null;
+    }
+
+    // Update the extraction index
+    this.lastExtractedChunkIndex = this.audioChunks.length;
+
+    // Create a blob from just the new chunks
+    return new Blob(newChunks, { type: this.mimeTypeCache });
+  }
+
+  /**
+   * Get all audio captured so far (without stopping recording).
+   * Useful for full transcript query during recording.
+   */
+  getAllChunksAsBlob(): Blob | null {
+    if (this.audioChunks.length === 0) {
+      return null;
+    }
+    return new Blob(this.audioChunks, { type: this.mimeTypeCache });
+  }
+
+  /**
+   * Get current recording duration in seconds
+   */
+  getDuration(): number {
+    return this.state.duration;
+  }
+
+  /**
+   * Get the MIME type being used for recording
+   */
+  getMimeType(): string {
+    return this.mimeTypeCache;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
