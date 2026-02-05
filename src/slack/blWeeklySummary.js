@@ -68,19 +68,37 @@ function getAccountDisplayName(opp) {
 const PROPOSAL_STAGE = 'Stage 4 - Proposal';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// RUN RATE HISTORICAL DATA (Static - update manually as needed)
-// These are displayed in the RevOps Page 1 Run Rate section
-// Values are in MILLIONS (e.g., 17.5 = $17.5M)
+// FY25 CLOSED AND Q1 FY26 FORECAST DATA
+// FY25 ended Jan 31, 2026 - Q1 FY26 runs Feb 1 - Apr 30, 2026
+// Values are in MILLIONS (e.g., 21.2 = $21.2M)
 // ═══════════════════════════════════════════════════════════════════════════
-const RUN_RATE_HISTORICAL = {
-  // FY25 Historical Run Rate by Month (in millions USD)
-  // Update these values manually based on finance reporting
-  'August': 17.5,
-  'September': 18.2,
-  'October': 19.0,
-  'November': 19.5,
-  'December': 20.1,
-  // January is calculated dynamically from New Business weighted ACV query
+
+// FY25 Final ARR (Dec closing ARR + Jan closed won new business)
+const FY25_FINAL_ARR = 21.2; // As of Jan 31, 2026
+
+// Q1 FY26 Forecast Ranges (from finance/BL input - update weekly)
+// Based on AI-Enabled opportunities targeting Q1 close (103 opps, $26.1M pipeline)
+const Q1_FY26_FORECAST = {
+  // Floor (Commit): BL-committed deals with highest confidence
+  floor: 4.60,        // 90%+ confidence - $4,601,675
+  
+  // Most Likely: Between commit and weighted
+  mostLikely: 5.27,   // 70-80% confidence - $5,272,041
+  
+  // Expected (Weighted): Statistical probability-adjusted
+  expected: 5.94,     // 60-70% confidence - $5,942,408
+  
+  // Target (Blended): Combo of BL forecast + weighted
+  target: 6.75,       // 50-60% confidence - $6,745,828
+  
+  // Upside (Forecast): Full BL-submitted pipeline
+  upside: 8.62        // 40-50% confidence - $8,620,475
+};
+
+// Q1 Pipeline by Pod (from SF report)
+const Q1_BY_POD = {
+  US: { opps: 75, netACV: 18.03, forecastNet: 4.47, commit: 1.94 },
+  EU: { opps: 33, netACV: 7.40, forecastNet: 3.48, commit: 2.24 }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -659,38 +677,40 @@ async function queryJanuaryClosedWonNewBusiness() {
 }
 
 /**
- * Query Q4 weighted pipeline - deals with Target_LOI_Date__c within fiscal Q4 (Nov 1 - Jan 31)
- * Sum of Finance_Weighted_ACV__c for open opportunities targeting this fiscal quarter
+ * Query current quarter weighted pipeline (Q1 FY26: Feb 1 - Apr 30, 2026)
+ * Sum of Blended_Forecast_base__c for open opportunities targeting current fiscal quarter
+ * Note: Function name retained as queryQ4WeightedPipeline for backward compatibility
  */
 async function queryQ4WeightedPipeline() {
   try {
-    logger.info('Querying Q4 weighted pipeline (Target_LOI_Date within fiscal Q4)...');
+    // Now queries Q1 FY26 (Feb 1 - Apr 30)
+    logger.info('Querying Q1 FY26 weighted pipeline (Target_LOI_Date within fiscal Q1)...');
     
-    // Calculate fiscal Q4 date range (Nov 1 - Jan 31)
+    // Calculate fiscal Q1 date range (Feb 1 - Apr 30)
     const now = new Date();
-    const month = now.getMonth(); // 0-indexed (0 = Jan)
+    const year = now.getFullYear();
+    const month = now.getMonth(); // 0-indexed (1 = Feb)
     
-    let q4Start, q4End;
-    if (month === 0) { 
-      // January - Q4 ends this month (Nov 1 last year to Jan 31 this year)
-      q4Start = new Date(now.getFullYear() - 1, 10, 1); // Nov 1 last year
-      q4End = new Date(now.getFullYear(), 0, 31);       // Jan 31 this year
-    } else if (month >= 10) { 
-      // Nov-Dec - Q4 spans into next year
-      q4Start = new Date(now.getFullYear(), 10, 1);     // Nov 1 this year
-      q4End = new Date(now.getFullYear() + 1, 0, 31);   // Jan 31 next year
+    let q1Start, q1End;
+    if (month >= 1 && month <= 3) {
+      // Feb-Apr - we're in Q1
+      q1Start = new Date(year, 1, 1);   // Feb 1 this year
+      q1End = new Date(year, 3, 30);    // Apr 30 this year
+    } else if (month === 0) {
+      // January - Q1 starts next month
+      q1Start = new Date(year, 1, 1);   // Feb 1 this year
+      q1End = new Date(year, 3, 30);    // Apr 30 this year
     } else {
-      // Feb-Oct - use upcoming Q4 for reference
-      q4Start = new Date(now.getFullYear(), 10, 1);     // Nov 1 this year
-      q4End = new Date(now.getFullYear() + 1, 0, 31);   // Jan 31 next year
+      // May-Dec - use next year's Q1
+      q1Start = new Date(year + 1, 1, 1);  // Feb 1 next year
+      q1End = new Date(year + 1, 3, 30);   // Apr 30 next year
     }
     
-    const q4StartStr = q4Start.toISOString().split('T')[0];
-    const q4EndStr = q4End.toISOString().split('T')[0];
+    const q1EndStr = q1End.toISOString().split('T')[0];
     
-    logger.info(`Fiscal Q4 end date: ${q4EndStr}`);
+    logger.info(`Fiscal Q1 FY26 end date: ${q1EndStr}`);
     
-    // Filter by Target_LOI_Date__c <= Q4 end date (no lower bound to match SF report)
+    // Filter by Target_LOI_Date__c <= Q1 end date
     // Only include New Business and Expansion (exclude Renewal)
     // Use Blended_Forecast_base__c as the forecast metric
     const soql = `
@@ -698,7 +718,7 @@ async function queryQ4WeightedPipeline() {
       FROM Opportunity
       WHERE IsClosed = false
         AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
-        AND Target_LOI_Date__c <= ${q4EndStr}
+        AND Target_LOI_Date__c <= ${q1EndStr}
         AND Sales_Type__c IN ('New business', 'Expansion')
     `;
     
@@ -717,11 +737,11 @@ async function queryQ4WeightedPipeline() {
       dealCount: row.dealCount || 0
     };
     
-    logger.info(`Q4 Blended Pipeline: $${(data.blendedACV/1000000).toFixed(2)}M blended (${data.dealCount} deals targeting Q4)`);
+    logger.info(`Q1 FY26 Blended Pipeline: $${(data.blendedACV/1000000).toFixed(2)}M blended (${data.dealCount} deals targeting Q1)`);
     return data;
     
   } catch (error) {
-    logger.error('Failed to query Q4 weighted pipeline:', error);
+    logger.error('Failed to query Q1 weighted pipeline:', error);
     return { totalACV: 0, weightedACV: 0, dealCount: 0 };
   }
 }
@@ -729,7 +749,7 @@ async function queryQ4WeightedPipeline() {
 /**
  * Query signed revenue Quarter-to-Date (Closed Won this fiscal quarter)
  * Includes Recurring, Project, and Pilot deals with CloseDate in fiscal quarter
- * Fiscal Q4: Nov 1 - Jan 31
+ * Q1 FY26: Feb 1 - Apr 30, 2026
  */
 async function querySignedRevenueQTD() {
   try {
@@ -877,20 +897,26 @@ async function querySignedRevenueLastWeek() {
  */
 async function queryTop10TargetingJanuary() {
   try {
-    logger.info('Querying top 10 deals targeting January...');
-    
+    // Now queries for current month (February in Q1 FY26)
     const now = new Date();
     const year = now.getFullYear();
-    const janEnd = `${year}-01-31`;
+    const month = now.getMonth(); // 0-indexed (1 = Feb)
     
-    // Query top 10 deals by ACV - filter by active stages AND target date <= Jan 31
+    // Get end of current month
+    const monthEnd = new Date(year, month + 1, 0); // Last day of current month
+    const monthEndStr = monthEnd.toISOString().split('T')[0];
+    const monthName = monthEnd.toLocaleDateString('en-US', { month: 'long' });
+    
+    logger.info(`Querying top 10 deals targeting ${monthName}...`);
+    
+    // Query top 10 deals by ACV - filter by active stages AND target date <= end of current month
     const soql = `
       SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Blended_Forecast_base__c, Target_LOI_Date__c, 
              StageName, Owner.Name, Sales_Type__c
       FROM Opportunity
       WHERE IsClosed = false
         AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
-        AND Target_LOI_Date__c <= ${janEnd}
+        AND Target_LOI_Date__c <= ${monthEndStr}
       ORDER BY ACV__c DESC
       LIMIT 10
     `;
@@ -901,7 +927,7 @@ async function queryTop10TargetingJanuary() {
       FROM Opportunity
       WHERE IsClosed = false
         AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
-        AND Target_LOI_Date__c <= ${janEnd}
+        AND Target_LOI_Date__c <= ${monthEndStr}
     `;
     
     const [result, countResult] = await Promise.all([
@@ -1019,11 +1045,18 @@ async function queryPipelineBySalesType() {
   try {
     logger.info('Querying pipeline by Sales Type...');
     
+    // Use Blended_Forecast_base__c for weighted/forecast values (consistent with other queries)
+    // Filter to Q1 FY26 target dates (Feb 1 - Apr 30)
+    const now = new Date();
+    const year = now.getFullYear();
+    const q1End = `${year}-04-30`;
+    
     const soql = `
-      SELECT Sales_Type__c, SUM(ACV__c) totalACV, SUM(Finance_Weighted_ACV__c) weightedACV, COUNT(Id) dealCount
+      SELECT Sales_Type__c, SUM(ACV__c) totalACV, SUM(Blended_Forecast_base__c) weightedACV, COUNT(Id) dealCount
       FROM Opportunity
       WHERE IsClosed = false
         AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
+        AND Target_LOI_Date__c <= ${q1End}
       GROUP BY Sales_Type__c
       ORDER BY Sales_Type__c
     `;
@@ -1034,6 +1067,7 @@ async function queryPipelineBySalesType() {
     const emptyResult = { bySalesType: {}, totalACV: 0, totalWeighted: 0, totalCount: 0 };
     
     if (!result || !result.records) {
+      logger.warn('Pipeline by Sales Type: No records returned');
       return emptyResult;
     }
     
@@ -1044,12 +1078,20 @@ async function queryPipelineBySalesType() {
     const rawData = {};
     
     result.records.forEach(row => {
-      const salesType = row.Sales_Type__c || 'Unassigned';
+      // Map null Sales_Type__c to 'New business' as default
+      const salesType = row.Sales_Type__c || 'New business';
       const acv = row.totalACV || 0;
       const weighted = row.weightedACV || 0;
       const count = row.dealCount || 0;
       
-      rawData[salesType] = { acv, weighted, count };
+      // Merge into existing if key already exists (handles null case merging)
+      if (rawData[salesType]) {
+        rawData[salesType].acv += acv;
+        rawData[salesType].weighted += weighted;
+        rawData[salesType].count += count;
+      } else {
+        rawData[salesType] = { acv, weighted, count };
+      }
       totalACV += acv;
       totalWeighted += weighted;
       totalCount += count;
@@ -1067,7 +1109,7 @@ async function queryPipelineBySalesType() {
       };
     });
     
-    logger.info(`Pipeline by Sales Type: ${Object.keys(bySalesType).length} types, $${(totalWeighted/1000000).toFixed(2)}M weighted, ${totalCount} deals`);
+    logger.info(`Pipeline by Sales Type: ${Object.keys(bySalesType).length} types, $${(totalACV/1000000).toFixed(2)}M ACV, $${(totalWeighted/1000000).toFixed(2)}M weighted, ${totalCount} deals`);
     return { bySalesType, totalACV, totalWeighted, totalCount };
     
   } catch (error) {
@@ -1387,91 +1429,93 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   y += 2 + SECTION_GAP;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // RUN-RATE FORECAST TABLE
+  // FY25 CLOSED + Q1 FY26 FORECAST TABLE
   // ═══════════════════════════════════════════════════════════════════════════
   const runRateY = y;
-  const runRateWidth = 260;  // Increased from 220 for subtext
-  const col1Width = 175;     // First column (Month labels + subtext)
-  const col2Width = runRateWidth - col1Width;  // Second column (values)
+  const runRateWidth = 260;
+  const col1Width = 155;     // Range/label column
+  const col2Width = 55;      // Amount column
+  const col3Width = runRateWidth - col1Width - col2Width; // Confidence column
   
-  // Header
+  // ─────────────────────────────────────────────────────────────────────────
+  // FY25 CLOSED SECTION
+  // ─────────────────────────────────────────────────────────────────────────
   doc.rect(LEFT, y, runRateWidth, 22).fill('#1f2937');
   doc.font(fontBold).fontSize(10).fillColor('#ffffff');
-  doc.text('RUN-RATE FORECAST ($)', LEFT + 8, y + 6);
+  doc.text('FY25 CLOSED (Jan 31)', LEFT + 8, y + 6);
+  y += 22;
+  
+  // FY25 Final ARR row
+  doc.rect(LEFT, y, runRateWidth, 24).fill('#dcfce7');
+  doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
+  doc.text('Final ARR', LEFT + 8, y + 7);
+  doc.text(`$${FY25_FINAL_ARR.toFixed(1)}M`, LEFT + col1Width + 8, y + 7);
+  y += 24;
+  
+  y += 8; // Gap between sections
+  
+  // ─────────────────────────────────────────────────────────────────────────
+  // Q1 FY26 FORECAST SECTION
+  // ─────────────────────────────────────────────────────────────────────────
+  doc.rect(LEFT, y, runRateWidth, 22).fill('#1f2937');
+  doc.font(fontBold).fontSize(10).fillColor('#ffffff');
+  doc.text('Q1 FY26 FORECAST (Feb-Apr)', LEFT + 8, y + 6);
+  y += 22;
   
   // Column headers
-  y += 22;
-  doc.rect(LEFT, y, col1Width, 18).fill('#374151');
-  doc.rect(LEFT + col1Width, y, col2Width, 18).fill('#374151');
-  doc.font(fontBold).fontSize(9).fillColor('#ffffff');
-  doc.text('Month', LEFT + 8, y + 5);
-  doc.text('RR ($)', LEFT + col1Width + 8, y + 5);
-  y += 18;
+  doc.rect(LEFT, y, col1Width, 16).fill('#374151');
+  doc.rect(LEFT + col1Width, y, col2Width, 16).fill('#374151');
+  doc.rect(LEFT + col1Width + col2Width, y, col3Width, 16).fill('#374151');
+  doc.font(fontBold).fontSize(8).fillColor('#ffffff');
+  doc.text('Range', LEFT + 8, y + 4);
+  doc.text('Amount', LEFT + col1Width + 4, y + 4);
+  doc.text('Conf.', LEFT + col1Width + col2Width + 4, y + 4);
+  y += 16;
   
-  // Historical rows
-  const months = ['August', 'September', 'October', 'November', 'December'];
-  doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
+  // Forecast range rows
+  const forecastRows = [
+    { label: 'Floor (Commit)', value: Q1_FY26_FORECAST.floor, conf: '90%+' },
+    { label: 'Most Likely', value: Q1_FY26_FORECAST.mostLikely, conf: '70-80%' },
+    { label: 'Expected (Weighted)', value: Q1_FY26_FORECAST.expected, conf: '60-70%' },
+    { label: 'Target (Blended)', value: Q1_FY26_FORECAST.target, conf: '50-60%', highlight: true },
+    { label: 'Upside (Forecast)', value: Q1_FY26_FORECAST.upside, conf: '40-50%' }
+  ];
   
-  months.forEach((month, i) => {
-    const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
+  doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+  
+  forecastRows.forEach((row, i) => {
+    const bg = row.highlight ? '#dcfce7' : (i % 2 === 0 ? '#f9fafb' : '#ffffff');
     doc.rect(LEFT, y, runRateWidth, 16).fill(bg);
     doc.fillColor(DARK_TEXT);
-    doc.text(month, LEFT + 8, y + 4);
-    doc.text(`${runRateHistorical[month] || 0}m`, LEFT + col1Width + 8, y + 4);
+    doc.font(row.highlight ? fontBold : fontRegular).fontSize(8);
+    doc.text(row.label, LEFT + 8, y + 4);
+    doc.text(`$${row.value.toFixed(2)}M`, LEFT + col1Width + 4, y + 4);
+    doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
+    doc.text(row.conf, LEFT + col1Width + col2Width + 4, y + 4);
+    doc.fillColor(DARK_TEXT);
     y += 16;
   });
   
-  // January row - highlighted (green background) - increased height for subtext
-  // Shows Closed Won New Business deals this month
-  doc.rect(LEFT, y, runRateWidth, 28).fill('#dcfce7');
-  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text('January', LEFT + 8, y + 5);
+  // Pipeline summary row
+  y += 2;
+  doc.rect(LEFT, y, runRateWidth, 18).fill('#f3f4f6');
   doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
-  doc.text('New Business Closed Won only', LEFT + 8, y + 16);
-  const janValue = (januaryClosedWon?.totalACV || 0) / 1000000;
-  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text(`${janValue.toFixed(1)}m`, LEFT + col1Width + 8, y + 10);
-  y += 28;
+  doc.text('103 AI-Enabled Opps | $26.1M Pipeline | $8.6M Forecast Net', LEFT + 8, y + 5);
+  y += 18;
   
-  // + Q4 Weighted Pipeline row - highlighted - increased height for subtext
-  // Shows sum of all active pipeline weighted ACV
-  doc.rect(LEFT, y, runRateWidth, 28).fill('#dcfce7');
-  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text('+ Q4 Weighted Pipeline', LEFT + 8, y + 5);
-  doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
-  doc.text('New Business + Expansion wtd ACV', LEFT + 8, y + 16);
-  const q4Value = (q4WeightedPipeline?.weightedACV || 0) / 1000000;
-  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text(`${q4Value.toFixed(1)}m`, LEFT + col1Width + 8, y + 10);
-  y += 28;
-  
-  // FY2025E Total row - dark
-  // Formula: December (20.1m) + January Closed Won New Business + Q4 Blended Pipeline
-  doc.rect(LEFT, y, runRateWidth, 22).fill('#1f2937');
-  doc.font(fontBold).fontSize(10).fillColor('#ffffff');
-  doc.text('FY2025E Total', LEFT + 8, y + 6);
-  const fy2025Total = (runRateHistorical['December'] || 20.1) + janValue + q4Value;
-  doc.text(`${fy2025Total.toFixed(1)}m*`, LEFT + col1Width + 8, y + 6);
-  y += 22;
-  
-  // Footnote for FY2025E Total
-  y += 3;
-  doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
-  doc.text('*Includes MS; prior month churn not yet reconciled', LEFT, y);
-  
-  const runRateEndY = y + 12;
+  const runRateEndY = y + 4;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // SIGNED REVENUE QTD (Right column, same row as Run-Rate)
+  // SIGNED REVENUE Q1 (Right column, same row as Forecast)
   // ═══════════════════════════════════════════════════════════════════════════
   const signedX = LEFT + runRateWidth + 20;
   const signedWidth = PAGE_WIDTH - runRateWidth - 20;
   y = runRateY;
   
-  // Signed Revenue QTD header
+  // Signed Revenue Q1 header
   doc.rect(signedX, y, signedWidth, 22).fill('#1f2937');
   doc.font(fontBold).fontSize(10).fillColor('#ffffff');
-  doc.text('SIGNED REVENUE QTD', signedX + 8, y + 6);
+  doc.text('SIGNED REVENUE Q1', signedX + 8, y + 6);
   y += 22;
   
   // Total signed box - font sizes match header (10pt)
@@ -1544,24 +1588,24 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   y = Math.max(runRateEndY, signedEndY) + SECTION_GAP;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // OPPORTUNITIES WITH Q4 TARGET SIGN DATE
+  // Q1 FY26 PIPELINE OPPORTUNITIES
   // ═══════════════════════════════════════════════════════════════════════════
   doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
-  doc.text('Opportunities with Q4 Target Sign Date', LEFT, y);
+  doc.text('Q1 FY26 Pipeline Opportunities', LEFT, y);
   y += 16;
   
-  // Two columns: Targeting January (left) + Targeting Q1 (right)
+  // Two columns: Targeting This Month (left) + Targeting Q1 (right)
   const oppColWidth = (PAGE_WIDTH - 20) / 2;
   const oppLeftX = LEFT;
   const oppRightX = MID + 10;
   
-  // Left column: TARGETING JANUARY
+  // Left column: TARGETING THIS MONTH (February)
   let leftY = y;
   doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
-  doc.text(`TARGETING JANUARY (${top10January.totalCount})`, oppLeftX, leftY);
+  doc.text(`TARGETING FEBRUARY (${top10January.totalCount})`, oppLeftX, leftY);
   leftY += 12;
   doc.font(fontRegular).fontSize(8).fillColor('#6b7280');
-  doc.text('Q4 Deals & aggregate open ACV by Account', oppLeftX, leftY);
+  doc.text('Q1 Deals targeting close this month', oppLeftX, leftY);
   leftY += 14;
   
   // Top 10 list for January
