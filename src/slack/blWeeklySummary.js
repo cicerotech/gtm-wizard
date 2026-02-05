@@ -73,8 +73,8 @@ const PROPOSAL_STAGE = 'Stage 4 - Proposal';
 // Values are in MILLIONS (e.g., 21.2 = $21.2M)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// FY25 Final ARR (Dec closing ARR + Jan closed won new business)
-const FY25_FINAL_ARR = 21.2; // As of Jan 31, 2026
+// FY25 Closed Run Rate (Dec closing ARR + Jan closed won new business)
+const FY25_FINAL_ARR = 19.8; // FY25 closed run rate
 
 // Q1 FY26 Forecast Ranges (from finance/BL input - update weekly)
 // Based on AI-Enabled opportunities targeting Q1 close (103 opps, $26.1M pipeline)
@@ -1441,14 +1441,14 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   // ─────────────────────────────────────────────────────────────────────────
   doc.rect(LEFT, y, runRateWidth, 22).fill('#1f2937');
   doc.font(fontBold).fontSize(10).fillColor('#ffffff');
-  doc.text('FY25 CLOSED (Jan 31)', LEFT + 8, y + 6);
+  doc.text('FY25 CLOSED RUN RATE', LEFT + 8, y + 6);
   y += 22;
   
-  // FY25 Final ARR row
+  // FY25 Run Rate row
   doc.rect(LEFT, y, runRateWidth, 24).fill('#dcfce7');
   doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
-  doc.text('Final ARR', LEFT + 8, y + 7);
-  doc.text(`$${FY25_FINAL_ARR.toFixed(1)}M`, LEFT + col1Width + 8, y + 7);
+  doc.text('Run Rate', LEFT + 8, y + 7);
+  doc.text(`$${FY25_FINAL_ARR.toFixed(1)}m`, LEFT + col1Width + 8, y + 7);
   y += 24;
   
   y += 8; // Gap between sections
@@ -1471,13 +1471,11 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.text('Conf.', LEFT + col1Width + col2Width + 4, y + 4);
   y += 16;
   
-  // Forecast range rows
+  // Forecast range rows (3 key ranges)
   const forecastRows = [
     { label: 'Floor (Commit)', value: Q1_FY26_FORECAST.floor, conf: '90%+' },
-    { label: 'Most Likely', value: Q1_FY26_FORECAST.mostLikely, conf: '70-80%' },
-    { label: 'Expected (Weighted)', value: Q1_FY26_FORECAST.expected, conf: '60-70%' },
-    { label: 'Target (Blended)', value: Q1_FY26_FORECAST.target, conf: '50-60%', highlight: true },
-    { label: 'Upside (Forecast)', value: Q1_FY26_FORECAST.upside, conf: '40-50%' }
+    { label: 'Most Likely / Expected', value: Q1_FY26_FORECAST.mostLikely, conf: '70-80%' },
+    { label: 'Target', value: Q1_FY26_FORECAST.target, conf: '50-60%', highlight: true }
   ];
   
   doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
@@ -1488,18 +1486,18 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     doc.fillColor(DARK_TEXT);
     doc.font(row.highlight ? fontBold : fontRegular).fontSize(8);
     doc.text(row.label, LEFT + 8, y + 4);
-    doc.text(`$${row.value.toFixed(2)}M`, LEFT + col1Width + 4, y + 4);
+    doc.text(`$${row.value.toFixed(2)}m`, LEFT + col1Width + 4, y + 4);
     doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
     doc.text(row.conf, LEFT + col1Width + col2Width + 4, y + 4);
     doc.fillColor(DARK_TEXT);
     y += 16;
   });
   
-  // Pipeline summary row
+  // Pipeline summary row - uses actual Q1 pipeline data
   y += 2;
   doc.rect(LEFT, y, runRateWidth, 18).fill('#f3f4f6');
   doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
-  doc.text('103 AI-Enabled Opps | $26.1M Pipeline | $8.6M Forecast Net', LEFT + 8, y + 5);
+  doc.text('Q1 Pipeline Opps | Target LOI in Q1 FY26', LEFT + 8, y + 5);
   y += 18;
   
   const runRateEndY = y + 4;
@@ -1518,15 +1516,22 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   y += 22;
   
   // Total signed box - font sizes match header (10pt)
+  // Show dash when no deals signed
   doc.rect(signedX, y, signedWidth, 36).fill('#f3f4f6');
   doc.strokeColor('#e5e7eb').lineWidth(1).rect(signedX, y, signedWidth, 36).stroke();
   doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
-  doc.text(`TOTAL SIGNED (${signedQTD.totalDeals} deals)`, signedX + 10, y + 8);
-  doc.font(fontBold).fontSize(12).fillColor(DARK_TEXT);
-  const qtdValue = signedQTD.totalACV >= 1000000 
-    ? `$${(signedQTD.totalACV / 1000000).toFixed(1)}m`
-    : `$${(signedQTD.totalACV / 1000).toFixed(0)}k`;
-  doc.text(qtdValue, signedX + 10, y + 21);
+  if (signedQTD.totalDeals === 0) {
+    doc.text('TOTAL SIGNED', signedX + 10, y + 8);
+    doc.font(fontBold).fontSize(12).fillColor('#6b7280');
+    doc.text('—', signedX + 10, y + 21);
+  } else {
+    doc.text(`TOTAL SIGNED (${signedQTD.totalDeals} deals)`, signedX + 10, y + 8);
+    doc.font(fontBold).fontSize(12).fillColor(DARK_TEXT);
+    const qtdValue = signedQTD.totalACV >= 1000000 
+      ? `$${(signedQTD.totalACV / 1000000).toFixed(1)}m`
+      : `$${(signedQTD.totalACV / 1000).toFixed(0)}k`;
+    doc.text(qtdValue, signedX + 10, y + 21);
+  }
   y += 36;
   
   // Signed Revenue since last week
@@ -1535,21 +1540,27 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.text('Signed Revenue since last week', signedX, y);
   y += 14;
   
-  // Weekly signed box
-  const weeklyValue = signedLastWeek.totalACV >= 1000000
-    ? `$${(signedLastWeek.totalACV / 1000000).toFixed(1)}m`
-    : `$${(signedLastWeek.totalACV / 1000).toFixed(0)}k`;
-  
+  // Weekly signed box - show dash when no deals
   doc.rect(signedX, y, signedWidth, 32).fill('#f3f4f6');
   doc.strokeColor('#e5e7eb').lineWidth(1).rect(signedX, y, signedWidth, 32).stroke();
   doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
-  doc.text(`TOTAL SIGNED (${signedLastWeek.totalDeals} deals | ${weeklyValue})`, signedX + 10, y + 6);
   
-  // Kudos line (first 2 owners)
-  const owners = [...new Set(signedLastWeek.deals.map(d => d.ownerName?.split(' ')[0]).filter(Boolean))].slice(0, 2);
-  if (owners.length > 0) {
+  if (signedLastWeek.totalDeals === 0) {
+    doc.text('TOTAL SIGNED', signedX + 10, y + 6);
     doc.font(fontRegular).fontSize(9).fillColor('#6b7280');
-    doc.text(`#kudos @${owners.join(' + @')}`, signedX + 10, y + 19);
+    doc.text('No deals closed this week', signedX + 10, y + 19);
+  } else {
+    const weeklyValue = signedLastWeek.totalACV >= 1000000
+      ? `$${(signedLastWeek.totalACV / 1000000).toFixed(1)}m`
+      : `$${(signedLastWeek.totalACV / 1000).toFixed(0)}k`;
+    doc.text(`TOTAL SIGNED (${signedLastWeek.totalDeals} deals | ${weeklyValue})`, signedX + 10, y + 6);
+    
+    // Kudos line (first 2 owners)
+    const owners = [...new Set(signedLastWeek.deals.map(d => d.ownerName?.split(' ')[0]).filter(Boolean))].slice(0, 2);
+    if (owners.length > 0) {
+      doc.font(fontRegular).fontSize(9).fillColor('#6b7280');
+      doc.text(`#kudos @${owners.join(' + @')}`, signedX + 10, y + 19);
+    }
   }
   y += 32;
   
