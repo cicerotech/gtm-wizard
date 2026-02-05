@@ -1499,12 +1499,13 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   y += 2 + SECTION_GAP;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // Q1 FY26 FORECAST (AI-Enabled, Net-New, Recurring)
+  // Q1 FY26 FORECAST (AI-Enabled, Net-New)
   // ═══════════════════════════════════════════════════════════════════════════
   const runRateY = y;
   const runRateWidth = 260;
-  const col1Width = 175;     // Metric label column (wider for longer labels)
-  const col2Width = runRateWidth - col1Width; // Amount column
+  const col1Width = 155;     // Metric label column
+  const col2Width = 60;      // Amount column (larger font)
+  const col3Width = runRateWidth - col1Width - col2Width; // Padding
   
   // Table header
   doc.rect(LEFT, y, runRateWidth, 22).fill('#1f2937');
@@ -1515,29 +1516,28 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   // Subheader row
   doc.rect(LEFT, y, runRateWidth, 14).fill('#374151');
   doc.font(fontRegular).fontSize(7).fillColor('#9ca3af');
-  doc.text('AI-Enabled, Net-New, Recurring', LEFT + 8, y + 3);
+  doc.text('AI-Enabled, Net-New', LEFT + 8, y + 3);
   y += 14;
   
-  // Forecast rows (4 key metrics) with distinct styling
-  // Row 0: Q1 Target - green highlight (primary goal)
-  // Row 1: Commit - standard row
-  // Row 2: Weighted - alternating background
-  // Row 3: Midpoint - blue accent (key metric between commit and weighted)
+  // Forecast rows - styled like original with larger amount font
   const forecastRows = [
-    { label: 'Q1 Target', value: Q1_FY26_FORECAST.target, bold: true, bg: '#dcfce7', height: 20 },
-    { label: 'AI-Enabled Commit (Net)', value: Q1_FY26_FORECAST.floor, bold: false, bg: '#f9fafb', height: 18 },
-    { label: 'AI-Enabled Weighted (Net)', value: Q1_FY26_FORECAST.expected, bold: false, bg: '#ffffff', height: 18 },
-    { label: 'AI-Enabled Midpoint (Net)', value: Q1_FY26_FORECAST.midpoint, bold: true, bg: '#dbeafe', height: 20 }  // Blue highlight
+    { label: 'Q1 Target', value: Q1_FY26_FORECAST.target, labelBold: true, bg: '#dcfce7' },
+    { label: 'Commit (Net)', value: Q1_FY26_FORECAST.floor, labelBold: false, bg: '#f9fafb' },
+    { label: 'Weighted (Net)', value: Q1_FY26_FORECAST.expected, labelBold: false, bg: '#ffffff' },
+    { label: 'Midpoint (Net)', value: Q1_FY26_FORECAST.midpoint, labelBold: true, bg: '#dbeafe' }
   ];
   
-  forecastRows.forEach((row) => {
-    doc.rect(LEFT, y, runRateWidth, row.height).fill(row.bg);
+  forecastRows.forEach((row, i) => {
+    const rowHeight = (i === 0 || i === 3) ? 22 : 18;
+    doc.rect(LEFT, y, runRateWidth, rowHeight).fill(row.bg);
     doc.fillColor(DARK_TEXT);
-    doc.font(row.bold ? fontBold : fontRegular).fontSize(9);
-    doc.text(row.label, LEFT + 8, y + (row.height / 2) - 4);
-    doc.font(fontBold).fontSize(10);
-    doc.text(`$${row.value.toFixed(1)}m`, LEFT + col1Width + 4, y + (row.height / 2) - 4);
-    y += row.height;
+    // Label column - regular size
+    doc.font(row.labelBold ? fontBold : fontRegular).fontSize(9);
+    doc.text(row.label, LEFT + 8, y + (rowHeight / 2) - 4);
+    // Amount column - larger, bold, right-aligned
+    doc.font(fontBold).fontSize(12);
+    doc.text(`$${row.value.toFixed(1)}m`, LEFT + col1Width, y + (rowHeight / 2) - 5, { width: col2Width, align: 'right' });
+    y += rowHeight;
   });
   
   const runRateEndY = y + 4;
@@ -1955,14 +1955,12 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
       doc.text(`${totals.totalOpportunities} opps • ${totals.totalAccounts} accts`, colX, metricsY + 42);
       
-      // Column 2: BL Commit thru EOQ (using Q1 commit total from constants)
+      // Column 2: AI-Enabled Commit thru EOQ
       colX = LEFT + colWidth;
       doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
-      doc.text('BL Commit thru EOQ', colX, metricsY + 12);
+      doc.text('AI-Enabled Commit thru EOQ', colX, metricsY + 12);
       doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);
       doc.text(`$${Q1_FY26_FORECAST.floor.toFixed(1)}m`, colX, metricsY + 22);
-      doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
-      doc.text(fiscalQuarterLabel, colX, metricsY + 42);
       
       // Column 3: Avg Deal Size
       colX = LEFT + colWidth * 2;
@@ -2097,7 +2095,7 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         doc.text('Accts', startX + 50, headerY, { width: 25, align: 'right' });
         doc.text('Opps', startX + 80, headerY, { width: 25, align: 'right' });
         doc.text('Gross', startX + 110, headerY, { width: 45, align: 'right' });
-        doc.text('Commit', startX + 160, headerY, { width: 40, align: 'right' });
+        doc.text('Commit*', startX + 160, headerY, { width: 40, align: 'right' });
         
         headerY += 10;
         doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(startX, headerY).lineTo(startX + colWidth - 10, headerY).stroke();
@@ -2123,7 +2121,11 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       const usEndY = drawBLTable('US Pod', US_POD, LEFT, y, halfWidth + 15);
       const euEndY = drawBLTable('EU Pod', EU_POD, RIGHT_COL, y, halfWidth + 15);
       
-      y = Math.max(usEndY, euEndY) + SECTION_GAP;
+      // Footnote for Commit column
+      y = Math.max(usEndY, euEndY) + 4;
+      doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
+      doc.text('*Commit reflects AI-Enabled Net-New only', LEFT, y);
+      y += SECTION_GAP;
       
       // ═══════════════════════════════════════════════════════════════════════
       // TOP DEALS BY BUSINESS LEAD - COMPACT (4 BLs x 4 deals per column)
