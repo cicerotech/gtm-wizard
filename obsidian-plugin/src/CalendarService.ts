@@ -287,16 +287,28 @@ export class CalendarService {
 
   /**
    * Get day name from date string
+   * Handles YYYY-MM-DD format correctly by parsing as local time
    */
   static getDayName(dateString: string): string {
-    const date = new Date(dateString);
+    // Parse the date string as local time, not UTC
+    // new Date('2026-02-04') is interpreted as UTC midnight, which can be the wrong day locally
+    // new Date('2026-02-04T00:00:00') is interpreted as local midnight
+    let date: Date;
+    if (dateString.length === 10 && dateString.includes('-')) {
+      // YYYY-MM-DD format - parse as local time
+      date = new Date(dateString + 'T00:00:00');
+    } else {
+      // Full ISO string or other format
+      date = new Date(dateString);
+    }
+    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
     const meetingDate = new Date(date);
     meetingDate.setHours(0, 0, 0, 0);
     
-    const diff = (meetingDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+    const diff = Math.round((meetingDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     
     if (diff === 0) return 'Today';
     if (diff === 1) return 'Tomorrow';

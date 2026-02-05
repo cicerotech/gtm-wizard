@@ -80,6 +80,30 @@ export const BL_REGIONS: Record<string, string[]> = {
 };
 
 /**
+ * Explicit direct reports for Sales Leaders
+ * These are the BLs whose accounts a sales leader should see preloaded
+ */
+export const SALES_LEADER_DIRECT_REPORTS: Record<string, string[]> = {
+  'mitchell.loquaci@eudia.com': [
+    'justin.hills@eudia.com',
+    'olivia@eudia.com',
+    'sean.boyd@eudia.com',
+    'riley.stack@eudia.com'
+  ],
+  'stephen.mulholland@eudia.com': [
+    'tom.clancy@eudia.com',
+    'conor.molloy@eudia.com',
+    'nathan.shine@eudia.com',
+    'nicola.fratini@eudia.com'
+  ],
+  'riona.mchale@eudia.com': [
+    'conor.molloy@eudia.com',
+    'alex.fox@eudia.com',
+    'emer.flynn@eudia.com'
+  ]
+};
+
+/**
  * User group types
  */
 export type UserGroup = 'admin' | 'exec' | 'sales_leader' | 'cs' | 'bl';
@@ -109,6 +133,23 @@ export function getSalesLeaderRegion(email: string): string | null {
  */
 export function getRegionBLEmails(region: string): string[] {
   return BL_REGIONS[region] || [];
+}
+
+/**
+ * Get direct reports for a sales leader
+ * Returns explicit mapping if exists, falls back to region-based lookup
+ */
+export function getSalesLeaderDirectReports(email: string): string[] {
+  const normalized = email.toLowerCase().trim();
+  
+  // First check explicit direct reports mapping
+  if (SALES_LEADER_DIRECT_REPORTS[normalized]) {
+    return SALES_LEADER_DIRECT_REPORTS[normalized];
+  }
+  
+  // Fall back to region-based lookup
+  const region = getSalesLeaderRegion(normalized);
+  return region ? getRegionBLEmails(region) : [];
 }
 
 /**
@@ -579,8 +620,44 @@ export class AccountOwnershipService {
 
   /**
    * Get accounts from static mapping (offline fallback)
+   * For sales leaders, aggregates accounts from all direct reports
    */
   private getAccountsFromStatic(email: string): OwnedAccount[] {
+    const userGroup = getUserGroup(email);
+    
+    // For sales leaders, aggregate accounts from their direct reports
+    if (userGroup === 'sales_leader') {
+      const directReports = getSalesLeaderDirectReports(email);
+      
+      if (directReports.length === 0) {
+        console.log(`[AccountOwnership] No direct reports found for sales leader: ${email}`);
+        return [];
+      }
+      
+      // Collect all accounts from direct reports (deduplicated by ID)
+      const allAccounts: Map<string, OwnedAccount> = new Map();
+      
+      for (const reportEmail of directReports) {
+        const reportLead = OWNERSHIP_DATA.businessLeads[reportEmail];
+        if (reportLead) {
+          for (const acc of reportLead.accounts) {
+            if (!allAccounts.has(acc.id)) {
+              // Mark as view-only for sales leaders (they don't own these accounts)
+              allAccounts.set(acc.id, { ...acc, isOwned: false });
+            }
+          }
+        }
+      }
+      
+      const accounts = Array.from(allAccounts.values()).sort((a, b) => 
+        a.name.localeCompare(b.name)
+      );
+      
+      console.log(`[AccountOwnership] Found ${accounts.length} static accounts for sales leader ${email} (from ${directReports.length} direct reports)`);
+      return accounts;
+    }
+    
+    // For regular BLs and others, look up directly
     const lead = OWNERSHIP_DATA.businessLeads[email];
     if (!lead) {
       console.log(`[AccountOwnership] No static mapping found for: ${email}`);
