@@ -1362,7 +1362,6 @@ const GREEN_BG = '#f0fdf4';       // Targeting box background
  */
 function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   const {
-    runRateHistorical,
     januaryClosedWon,
     q4WeightedPipeline,
     signedQTD,
@@ -2487,7 +2486,6 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     
     // Assemble RevOps data for Page 1
     const revOpsData = {
-      runRateHistorical: RUN_RATE_HISTORICAL,
       januaryClosedWon,
       q4WeightedPipeline,
       signedQTD,
