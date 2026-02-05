@@ -68,31 +68,25 @@ function getAccountDisplayName(opp) {
 const PROPOSAL_STAGE = 'Stage 4 - Proposal';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FY25 CLOSED AND Q1 FY26 FORECAST DATA
-// FY25 ended Jan 31, 2026 - Q1 FY26 runs Feb 1 - Apr 30, 2026
-// Values are in MILLIONS (e.g., 21.2 = $21.2M)
+// Q1 FY26 FORECAST DATA (AI-Enabled, Net-New, Recurring)
+// Q1 FY26 runs Feb 1 - Apr 30, 2026
+// Values are in MILLIONS (e.g., 4.3 = $4.3M)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// FY25 Closed Run Rate (Dec closing ARR + Jan closed won new business)
-const FY25_FINAL_ARR = 19.8; // FY25 closed run rate
-
-// Q1 FY26 Forecast Ranges (from finance/BL input - update weekly)
-// Based on AI-Enabled opportunities targeting Q1 close (103 opps, $26.1M pipeline)
+// Q1 FY26 Forecast - AI-Enabled Net-New Revenue Only
+// Updated 2026-02-05 per finance feedback
 const Q1_FY26_FORECAST = {
-  // Floor (Commit): BL-committed deals with highest confidence
-  floor: 4.60,        // 90%+ confidence - $4,601,675
+  // Q1 Budget Target
+  target: 6.00,       // $6M Q1 target
   
-  // Most Likely: Between commit and weighted
-  mostLikely: 5.27,   // 70-80% confidence - $5,272,041
+  // AI-Enabled Commit (Net): BL-committed AI-enabled deals
+  floor: 4.30,        // $4.3M - AI-Enabled Commit (Net)
   
-  // Expected (Weighted): Statistical probability-adjusted
-  expected: 5.94,     // 60-70% confidence - $5,942,408
+  // AI-Enabled Weighted (Net): Stage-weighted probability
+  expected: 5.40,     // $5.4M - AI-Enabled Weighted (Net)
   
-  // Target (Blended): Combo of BL forecast + weighted
-  target: 6.75,       // 50-60% confidence - $6,745,828
-  
-  // Upside (Forecast): Full BL-submitted pipeline
-  upside: 8.62        // 40-50% confidence - $8,620,475
+  // AI-Enabled Midpoint (Net): Between commit and weighted
+  midpoint: 4.80      // $4.8M - AI-Enabled Midpoint (Net)
 };
 
 // Q1 Pipeline by Pod (from SF report)
@@ -101,22 +95,23 @@ const Q1_BY_POD = {
   EU: { opps: 33, netACV: 7.40, forecastNet: 3.48, commit: 2.61 }
 };
 
-// Q1 Commit Snapshot by BL (from SF report - update weekly)
-// Updated 2026-02-05 from Salesforce Q1 2026 Commit Snapshot
+// Q1 AI-Enabled Commit (Net) by BL - replaces old Commit Snapshot
+// Updated 2026-02-05: Sum of Quarterly Commit Net (AI-Enabled)
+// US Subtotal: $1,935,000 | EU Subtotal: $2,357,550 | Total: $4,292,550 (~$4.3M)
 const BL_COMMIT_SNAPSHOT = {
-  // US Pod (from screenshot - Sum of Q1 2026 Commit Snapshot)
+  // US Pod - AI-Enabled Commit (Net)
   'Ananth Cherukupally': 395000,
   'Asad Hussain': 180000,
   'Julie Stefanich': 650000,
   'Justin Hills': 120000,
   'Mike Masiello': 350000,
-  'Olivia Jung': 295000,
-  // EU Pod
-  'Alex Fox': 235125,
+  'Olivia Jung': 240000,      // Updated from 295000
+  // EU Pod - AI-Enabled Commit (Net)
+  'Alex Fox': 0,              // Updated from 235125
   'Conor Molloy': 1280000,
   'Emer Flynn': 0,
-  'Nathan Shine': 896550,
-  'Nicola Fratini': 200000
+  'Nathan Shine': 757550,     // Updated from 896550
+  'Nicola Fratini': 320000    // Updated from 200000
 };
 
 // Account display name overrides (for correcting SF data)
@@ -1504,68 +1499,46 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   y += 2 + SECTION_GAP;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // RUN RATE + Q1 FY26 FORECAST (Combined Table)
+  // Q1 FY26 FORECAST (AI-Enabled, Net-New, Recurring)
   // ═══════════════════════════════════════════════════════════════════════════
   const runRateY = y;
   const runRateWidth = 260;
-  const col1Width = 155;     // Range/label column
-  const col2Width = 55;      // Amount column
-  const col3Width = runRateWidth - col1Width - col2Width; // Confidence column
+  const col1Width = 175;     // Metric label column (wider for longer labels)
+  const col2Width = runRateWidth - col1Width; // Amount column
   
   // Table header
   doc.rect(LEFT, y, runRateWidth, 22).fill('#1f2937');
   doc.font(fontBold).fontSize(10).fillColor('#ffffff');
-  doc.text('RUN RATE + Q1 FY26 FORECAST', LEFT + 8, y + 6);
+  doc.text('Q1 FY26 FORECAST', LEFT + 8, y + 6);
   y += 22;
   
-  // Column headers
-  doc.rect(LEFT, y, col1Width, 16).fill('#374151');
-  doc.rect(LEFT + col1Width, y, col2Width, 16).fill('#374151');
-  doc.rect(LEFT + col1Width + col2Width, y, col3Width, 16).fill('#374151');
-  doc.font(fontBold).fontSize(8).fillColor('#ffffff');
-  doc.text('Range', LEFT + 8, y + 4);
-  doc.text('Amount', LEFT + col1Width + 4, y + 4);
-  doc.text('Conf.', LEFT + col1Width + col2Width + 4, y + 4);
-  y += 16;
+  // Subheader row
+  doc.rect(LEFT, y, runRateWidth, 14).fill('#374151');
+  doc.font(fontRegular).fontSize(7).fillColor('#9ca3af');
+  doc.text('AI-Enabled, Net-New, Recurring', LEFT + 8, y + 3);
+  y += 14;
   
-  // FY25 Close row (gray background, first data row)
-  doc.rect(LEFT, y, runRateWidth, 18).fill('#e5e7eb');
-  doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
-  doc.text('FY25 Close', LEFT + 8, y + 5);
-  doc.text(`$${FY25_FINAL_ARR.toFixed(1)}m`, LEFT + col1Width + 4, y + 5);
-  doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
-  doc.text('Actual', LEFT + col1Width + col2Width + 4, y + 5);
-  y += 18;
-  
-  // Forecast range rows (3 key ranges)
+  // Forecast rows (4 key metrics) with distinct styling
+  // Row 0: Q1 Target - green highlight (primary goal)
+  // Row 1: Commit - standard row
+  // Row 2: Weighted - alternating background
+  // Row 3: Midpoint - blue accent (key metric between commit and weighted)
   const forecastRows = [
-    { label: 'Floor (Commit)', value: Q1_FY26_FORECAST.floor, conf: '90%+' },
-    { label: 'Most Likely / Expected', value: Q1_FY26_FORECAST.mostLikely, conf: '70-80%' },
-    { label: 'Target', value: Q1_FY26_FORECAST.target, conf: '50-60%' }
+    { label: 'Q1 Target', value: Q1_FY26_FORECAST.target, bold: true, bg: '#dcfce7', height: 20 },
+    { label: 'AI-Enabled Commit (Net)', value: Q1_FY26_FORECAST.floor, bold: false, bg: '#f9fafb', height: 18 },
+    { label: 'AI-Enabled Weighted (Net)', value: Q1_FY26_FORECAST.expected, bold: false, bg: '#ffffff', height: 18 },
+    { label: 'AI-Enabled Midpoint (Net)', value: Q1_FY26_FORECAST.midpoint, bold: true, bg: '#dbeafe', height: 20 }  // Blue highlight
   ];
   
-  doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
-  
-  forecastRows.forEach((row, i) => {
-    const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
-    doc.rect(LEFT, y, runRateWidth, 16).fill(bg);
+  forecastRows.forEach((row) => {
+    doc.rect(LEFT, y, runRateWidth, row.height).fill(row.bg);
     doc.fillColor(DARK_TEXT);
-    doc.font(fontRegular).fontSize(8);
-    doc.text(row.label, LEFT + 8, y + 4);
-    doc.text(`$${row.value.toFixed(2)}m`, LEFT + col1Width + 4, y + 4);
-    doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
-    doc.text(row.conf, LEFT + col1Width + col2Width + 4, y + 4);
-    doc.fillColor(DARK_TEXT);
-    y += 16;
+    doc.font(row.bold ? fontBold : fontRegular).fontSize(9);
+    doc.text(row.label, LEFT + 8, y + (row.height / 2) - 4);
+    doc.font(fontBold).fontSize(10);
+    doc.text(`$${row.value.toFixed(1)}m`, LEFT + col1Width + 4, y + (row.height / 2) - 4);
+    y += row.height;
   });
-  
-  // Total row (FY25 + Q1 Target) with green highlight
-  const totalProjected = FY25_FINAL_ARR + Q1_FY26_FORECAST.target;
-  doc.rect(LEFT, y, runRateWidth, 20).fill('#dcfce7');
-  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text('Total (FY25 + Q1 Target)', LEFT + 8, y + 6);
-  doc.text(`$${totalProjected.toFixed(2)}m`, LEFT + col1Width + 4, y + 6);
-  y += 20;
   
   const runRateEndY = y + 4;
   
@@ -1795,17 +1768,21 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   // Solution table - same width as sales type table
   const solutionTableWidth = PAGE_WIDTH;
   
-  // Header row
+  // Pre-calculate total ACV for Mix % calculation
+  const solutionOrder = ['Pure Software', 'AI-Enabled Services', 'Mixed', 'Undetermined', 'Legacy Services'];
+  const preTotalACV = solutionOrder.reduce((sum, b) => sum + (Q1_BY_SOLUTION[b]?.acv || 0), 0);
+  
+  // Header row - with Mix % column
   doc.rect(LEFT, y, solutionTableWidth, 20).fill('#1f2937');
   doc.font(fontBold).fontSize(9).fillColor('#ffffff');
-  doc.text('Product Bucket', LEFT + 8, y + 6, { width: 180 });
-  doc.text('ACV', LEFT + 200, y + 6, { width: 100, align: 'center' });
-  doc.text('Deals', LEFT + 310, y + 6, { width: 60, align: 'center' });
-  doc.text('AI-Enabled', LEFT + 380, y + 6, { width: 80, align: 'center' });
+  doc.text('Product Bucket', LEFT + 8, y + 6, { width: 150 });
+  doc.text('ACV', LEFT + 165, y + 6, { width: 70, align: 'center' });
+  doc.text('Mix %', LEFT + 240, y + 6, { width: 50, align: 'center' });
+  doc.text('Deals', LEFT + 300, y + 6, { width: 55, align: 'center' });
+  doc.text('AI-Enabled', LEFT + 365, y + 6, { width: 80, align: 'center' });
   y += 20;
   
   // Data rows - ordered by ACV descending
-  const solutionOrder = ['Pure Software', 'AI-Enabled Services', 'Mixed', 'Undetermined', 'Legacy Services'];
   let solutionTotalACV = 0;
   let solutionTotalCount = 0;
   let solutionTotalAI = 0;
@@ -1821,30 +1798,35 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
     doc.rect(LEFT, y, solutionTableWidth, 16).fill(bg);
     doc.fillColor(DARK_TEXT);
-    doc.text(bucket, LEFT + 8, y + 4, { width: 180 });
+    doc.text(bucket, LEFT + 8, y + 4, { width: 150 });
     
     const acvStr = data.acv >= 1000000 
       ? `$${(data.acv / 1000000).toFixed(1)}m`
       : `$${(data.acv / 1000).toFixed(0)}k`;
     
-    doc.text(acvStr, LEFT + 200, y + 4, { width: 100, align: 'center' });
-    doc.text(data.count.toString(), LEFT + 310, y + 4, { width: 60, align: 'center' });
-    doc.text(data.aiEnabled.toString(), LEFT + 380, y + 4, { width: 80, align: 'center' });
+    // Calculate mix percentage
+    const mixPct = preTotalACV > 0 ? Math.round((data.acv / preTotalACV) * 100) : 0;
+    
+    doc.text(acvStr, LEFT + 165, y + 4, { width: 70, align: 'center' });
+    doc.text(`${mixPct}%`, LEFT + 240, y + 4, { width: 50, align: 'center' });
+    doc.text(data.count.toString(), LEFT + 300, y + 4, { width: 55, align: 'center' });
+    doc.text(data.aiEnabled.toString(), LEFT + 365, y + 4, { width: 80, align: 'center' });
     y += 16;
   });
   
   // Total row
   doc.rect(LEFT, y, solutionTableWidth, 18).fill('#e5e7eb');
   doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text('Total', LEFT + 8, y + 5, { width: 180 });
+  doc.text('Total', LEFT + 8, y + 5, { width: 150 });
   
   const solutionTotalStr = solutionTotalACV >= 1000000 
     ? `$${(solutionTotalACV / 1000000).toFixed(1)}m`
     : `$${(solutionTotalACV / 1000).toFixed(0)}k`;
   
-  doc.text(solutionTotalStr, LEFT + 200, y + 5, { width: 100, align: 'center' });
-  doc.text(solutionTotalCount.toString(), LEFT + 310, y + 5, { width: 60, align: 'center' });
-  doc.text(solutionTotalAI.toString(), LEFT + 380, y + 5, { width: 80, align: 'center' });
+  doc.text(solutionTotalStr, LEFT + 165, y + 5, { width: 70, align: 'center' });
+  doc.text('100%', LEFT + 240, y + 5, { width: 50, align: 'center' });
+  doc.text(solutionTotalCount.toString(), LEFT + 300, y + 5, { width: 55, align: 'center' });
+  doc.text(solutionTotalAI.toString(), LEFT + 365, y + 5, { width: 80, align: 'center' });
   y += 18;
   
   // ═══════════════════════════════════════════════════════════════════════════
