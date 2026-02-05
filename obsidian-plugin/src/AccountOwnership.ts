@@ -8,7 +8,7 @@
  */
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ADMIN CONFIGURATION
+// USER GROUP CONFIGURATION
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
@@ -18,15 +18,113 @@
 export const ADMIN_EMAILS = [
   'keigan.pesenti@eudia.com',
   'michael.ayers@eudia.com',
-  'zack@eudia.com'
+  'zach@eudia.com'
 ];
+
+/**
+ * Exec users - treated as admin for account visibility
+ */
+export const EXEC_EMAILS = [
+  'omar@eudia.com',
+  'david@eudia.com',
+  'ashish@eudia.com'
+];
+
+/**
+ * Sales Leaders with their regions for roll-up views
+ */
+export const SALES_LEADERS: Record<string, { name: string; region: string; role: string }> = {
+  'mitchell.loquaci@eudia.com': { name: 'Mitchell Loquaci', region: 'US', role: 'RVP Sales' },
+  'stephen.mulholland@eudia.com': { name: 'Stephen Mulholland', region: 'EMEA', role: 'VP Sales' },
+  'riona.mchale@eudia.com': { name: 'Riona McHale', region: 'IRE_UK', role: 'Head of Sales' }
+};
+
+/**
+ * Customer Success team - see only Existing customers
+ */
+export const CS_EMAILS = [
+  'nikhita.godiwala@eudia.com',
+  'jon.dedych@eudia.com',
+  'farah.haddad@eudia.com'
+];
+
+/**
+ * Business Lead region mapping (for Sales Leader roll-ups)
+ */
+export const BL_REGIONS: Record<string, string[]> = {
+  'US': [
+    'asad.hussain@eudia.com',
+    'nathan.shine@eudia.com',
+    'julie.stefanich@eudia.com',
+    'olivia@eudia.com',
+    'ananth@eudia.com',
+    'ananth.cherukupally@eudia.com',
+    'justin.hills@eudia.com',
+    'mike.masiello@eudia.com',
+    'mike@eudia.com',
+    'sean.boyd@eudia.com',
+    'riley.stack@eudia.com'
+  ],
+  'EMEA': [
+    'greg.machale@eudia.com',
+    'tom.clancy@eudia.com',
+    'nicola.fratini@eudia.com',
+    'stephen.mulholland@eudia.com'
+  ],
+  'IRE_UK': [
+    'conor.molloy@eudia.com',
+    'alex.fox@eudia.com',
+    'emer.flynn@eudia.com',
+    'riona.mchale@eudia.com'
+  ]
+};
+
+/**
+ * User group types
+ */
+export type UserGroup = 'admin' | 'exec' | 'sales_leader' | 'cs' | 'bl';
+
+/**
+ * Get the user group for an email
+ */
+export function getUserGroup(email: string): UserGroup {
+  const normalized = email.toLowerCase().trim();
+  if (ADMIN_EMAILS.includes(normalized)) return 'admin';
+  if (EXEC_EMAILS.includes(normalized)) return 'exec';
+  if (normalized in SALES_LEADERS) return 'sales_leader';
+  if (CS_EMAILS.includes(normalized)) return 'cs';
+  return 'bl';
+}
+
+/**
+ * Get the region for a sales leader
+ */
+export function getSalesLeaderRegion(email: string): string | null {
+  const normalized = email.toLowerCase().trim();
+  return SALES_LEADERS[normalized]?.region || null;
+}
+
+/**
+ * Get BL emails for a region
+ */
+export function getRegionBLEmails(region: string): string[] {
+  return BL_REGIONS[region] || [];
+}
 
 /**
  * Check if a user is an admin with elevated account visibility
  */
 export function isAdminUser(email: string): boolean {
   const normalizedEmail = email.toLowerCase().trim();
-  return ADMIN_EMAILS.includes(normalizedEmail);
+  return ADMIN_EMAILS.includes(normalizedEmail) || EXEC_EMAILS.includes(normalizedEmail);
+}
+
+/**
+ * Check if user should see all accounts (admin or exec)
+ */
+export function hasFullAccountAccess(email: string): boolean {
+  const group = getUserGroup(email);
+  return group === 'admin' || group === 'exec';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

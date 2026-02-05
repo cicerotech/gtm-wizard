@@ -2418,6 +2418,19 @@ export default class EudiaSyncPlugin extends Plugin {
       callback: () => this.openIntelligenceQueryForCurrentNote()
     });
 
+    this.addCommand({
+      id: 'refresh-analytics',
+      name: 'Refresh Analytics Dashboard',
+      callback: async () => {
+        const file = this.app.workspace.getActiveFile();
+        if (file) {
+          await this.refreshAnalyticsDashboard(file);
+        } else {
+          new Notice('No active file');
+        }
+      }
+    });
+
     // Add settings tab
     this.addSettingTab(new EudiaSyncSettingTab(this.app, this));
 
@@ -2530,6 +2543,34 @@ export default class EudiaSyncPlugin extends Plugin {
           }, 3000); // 3 second delay after other startup tasks
         }
       }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // AUTO-REFRESH ANALYTICS DASHBOARDS
+      // ═══════════════════════════════════════════════════════════════════════════
+      // Listen for file opens and auto-refresh analytics dashboard notes
+      this.app.workspace.on('file-open', async (file: TFile | null) => {
+        if (!file) return;
+        
+        // Check if this is an analytics dashboard note (by folder or frontmatter)
+        if (file.path.includes('_Analytics/') || file.path.includes('_Customer Health/')) {
+          try {
+            const content = await this.app.vault.read(file);
+            if (content.includes('type: analytics_dashboard')) {
+              // Check if we should refresh (once per hour max)
+              const lastUpdatedMatch = content.match(/last_updated:\s*(\d{4}-\d{2}-\d{2})/);
+              const lastUpdated = lastUpdatedMatch?.[1];
+              const today = new Date().toISOString().split('T')[0];
+              
+              if (lastUpdated !== today) {
+                console.log(`[Eudia] Auto-refreshing analytics: ${file.name}`);
+                await this.refreshAnalyticsDashboard(file);
+              }
+            }
+          } catch (e) {
+            // Ignore errors during auto-refresh
+          }
+        }
+      });
     });
   }
 
@@ -3922,11 +3963,12 @@ ${transcription.text}
 
   /**
    * Sync account folders with Salesforce using the BL Book of Business endpoint
+   * - Adapts folder creation based on user group (admin, exec, sales_leader, cs, bl)
    * - Adds new accounts as folders
    * - Optionally archives removed accounts
    * Returns sync result with counts
    */
-  async syncAccountFolders(): Promise<{ success: boolean; added: number; archived: number; error?: string }> {
+  async syncAccountFolders(): Promise<{ success: boolean; added: number; archived: number; userGroup?: string; error?: string }> {
     if (!this.settings.userEmail) {
       return { success: false, added: 0, archived: 0, error: 'No email configured' };
     }
@@ -3935,7 +3977,7 @@ ${transcription.text}
     console.log(`[Eudia] Syncing account folders for: ${email}`);
 
     try {
-      // Fetch from new /api/bl-accounts/:email endpoint
+      // Fetch from /api/bl-accounts/:email endpoint (now group-aware)
       const response = await fetch(`${this.settings.serverUrl}/api/bl-accounts/${encodeURIComponent(email)}`);
       
       if (!response.ok) {
@@ -3949,7 +3991,17 @@ ${transcription.text}
         throw new Error(data.error || 'Invalid response from server');
       }
 
-      const serverAccounts: { id: string; name: string; customerType?: string; hasOpenOpps?: boolean }[] = data.accounts;
+      // Extract user group and account info from response
+      const userGroup: string = data.meta?.userGroup || 'bl';
+      const queryDescription: string = data.meta?.queryDescription || 'accounts';
+      const region: string | null = data.meta?.region || null;
+      
+      console.log(`[Eudia] User group: ${userGroup}, accounts: ${data.accounts.length} (${queryDescription})`);
+      if (region) {
+        console.log(`[Eudia] Sales Leader region: ${region}`);
+      }
+
+      const serverAccounts: { id: string; name: string; customerType?: string; hasOpenOpps?: boolean; ownerName?: string }[] = data.accounts;
       
       // Get existing account folders
       const accountsFolder = this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);
@@ -3973,33 +4025,56 @@ ${transcription.text}
       });
 
       // Removed accounts = in local folders but not in server
+      // NOTE: For admin/exec/sales_leader/cs, we DON'T archive since they have view-only access
+      //       to accounts they don't own (removing from SF doesn't mean they lost access)
       const removedFolders: TFolder[] = [];
-      for (const [normalizedName, folder] of existingFolders.entries()) {
-        if (!serverAccountNames.has(normalizedName)) {
-          removedFolders.push(folder);
+      if (userGroup === 'bl') {
+        // Only BLs should have accounts archived - they own their accounts
+        for (const [normalizedName, folder] of existingFolders.entries()) {
+          if (!serverAccountNames.has(normalizedName)) {
+            removedFolders.push(folder);
+          }
         }
       }
 
       let addedCount = 0;
       let archivedCount = 0;
 
-      // Create new account folders
+      // Create new account folders using appropriate method for user group
       if (newAccounts.length > 0) {
-        console.log(`[Eudia] Creating ${newAccounts.length} new account folders`);
-        await this.createTailoredAccountFolders(newAccounts.map(a => ({
+        console.log(`[Eudia] Creating ${newAccounts.length} new account folders for ${userGroup}`);
+        
+        const accountsToCreate = newAccounts.map(a => ({
           id: a.id,
           name: a.name,
-          type: a.customerType as 'Customer' | 'Prospect' | 'Target' | undefined
-        })));
+          type: a.customerType as 'Customer' | 'Prospect' | 'Target' | undefined,
+          // For admin/exec/sales_leader, mark accounts as view-only (they don't "own" most)
+          isOwned: userGroup === 'bl',
+          ownerName: a.ownerName
+        }));
+        
+        // Use appropriate folder creation method based on group
+        if (userGroup === 'admin' || userGroup === 'exec') {
+          // Full admin structure with Pipeline folder
+          await this.createAdminAccountFolders(accountsToCreate);
+        } else {
+          // Standard tailored folder structure
+          await this.createTailoredAccountFolders(accountsToCreate);
+        }
+        
         addedCount = newAccounts.length;
         
-        // Report to telemetry
+        // Report to telemetry with group context
         if (this.telemetry) {
-          this.telemetry.reportInfo('Accounts synced - added', { count: addedCount });
+          this.telemetry.reportInfo('Accounts synced - added', { 
+            count: addedCount,
+            userGroup,
+            region: region || undefined
+          });
         }
       }
 
-      // Archive removed folders (if enabled)
+      // Archive removed folders (only for BLs with setting enabled)
       if (this.settings.archiveRemovedAccounts && removedFolders.length > 0) {
         console.log(`[Eudia] Archiving ${removedFolders.length} removed account folders`);
         archivedCount = await this.archiveAccountFolders(removedFolders);
@@ -4010,9 +4085,9 @@ ${transcription.text}
         }
       }
 
-      console.log(`[Eudia] Sync complete: ${addedCount} added, ${archivedCount} archived`);
+      console.log(`[Eudia] Sync complete: ${addedCount} added, ${archivedCount} archived (group: ${userGroup})`);
       
-      return { success: true, added: addedCount, archived: archivedCount };
+      return { success: true, added: addedCount, archived: archivedCount, userGroup };
 
     } catch (error: any) {
       console.error('[Eudia] Account sync error:', error);
@@ -4228,6 +4303,290 @@ Click the microphone icon or \`Cmd/Ctrl+P\` → "Transcribe Meeting"
   async fetchAndInsertContext(): Promise<void> {
     new Notice('Fetching pre-call context...');
     // Implementation for fetching context from server
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ANALYTICS DASHBOARD REFRESH
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Refresh analytics dashboard notes with data from the API
+   * Called when opening analytics notes or on demand
+   */
+  async refreshAnalyticsDashboard(file: TFile): Promise<void> {
+    if (!this.settings.userEmail) {
+      console.log('[Eudia] Cannot refresh analytics - no email configured');
+      return;
+    }
+
+    const content = await this.app.vault.read(file);
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!frontmatterMatch) return;
+
+    const frontmatter = frontmatterMatch[1];
+    if (!frontmatter.includes('type: analytics_dashboard')) return;
+
+    // Determine which analytics to fetch
+    const category = frontmatter.match(/category:\s*(\w+)/)?.[1] || 'team';
+    
+    console.log(`[Eudia] Refreshing analytics dashboard: ${file.name} (${category})`);
+
+    try {
+      let data: any = null;
+      const serverUrl = this.settings.serverUrl;
+      const email = encodeURIComponent(this.settings.userEmail);
+
+      switch (category) {
+        case 'pain_points':
+          const ppResponse = await requestUrl({
+            url: `${serverUrl}/api/analytics/pain-points?days=30`,
+            method: 'GET'
+          });
+          data = ppResponse.json;
+          if (data.success) {
+            await this.updatePainPointNote(file, data.painPoints);
+          }
+          break;
+
+        case 'objections':
+          const objResponse = await requestUrl({
+            url: `${serverUrl}/api/analytics/objection-playbook?days=90`,
+            method: 'GET'
+          });
+          data = objResponse.json;
+          if (data.success) {
+            await this.updateObjectionNote(file, data);
+          }
+          break;
+
+        case 'coaching':
+        case 'team':
+        default:
+          const teamResponse = await requestUrl({
+            url: `${serverUrl}/api/analytics/team-trends?managerId=${email}`,
+            method: 'GET'
+          });
+          data = teamResponse.json;
+          if (data.success) {
+            await this.updateTeamPerformanceNote(file, data.trends);
+          }
+          break;
+      }
+
+      if (data?.success) {
+        new Notice(`Analytics refreshed: ${file.name}`);
+      }
+
+    } catch (error: any) {
+      console.error('[Eudia] Analytics refresh error:', error);
+      // Don't show error notice for every refresh - might be normal during offline
+    }
+  }
+
+  /**
+   * Update pain point tracker note with API data
+   */
+  async updatePainPointNote(file: TFile, painPoints: any[]): Promise<void> {
+    if (!painPoints || painPoints.length === 0) return;
+
+    const dateStr = new Date().toISOString().split('T')[0];
+    
+    // Build table rows
+    const tableRows = painPoints.slice(0, 10).map(pp => 
+      `| ${pp.painPoint || '--'} | ${pp.count || 0} | ${pp.category || '--'} | ${pp.averageSeverity || 'medium'} |`
+    ).join('\n');
+
+    // Build by-category sections
+    const byCategory: Record<string, any[]> = {};
+    for (const pp of painPoints) {
+      const cat = pp.category || 'other';
+      if (!byCategory[cat]) byCategory[cat] = [];
+      byCategory[cat].push(pp);
+    }
+
+    let categoryContent = '';
+    for (const [cat, pps] of Object.entries(byCategory)) {
+      categoryContent += `\n### ${cat.charAt(0).toUpperCase() + cat.slice(1)}\n`;
+      for (const pp of pps.slice(0, 3)) {
+        categoryContent += `- ${pp.painPoint}\n`;
+      }
+    }
+
+    // Build quotes section
+    const quotesContent = painPoints
+      .filter(pp => pp.exampleQuotes && pp.exampleQuotes.length > 0)
+      .slice(0, 5)
+      .map(pp => `> "${pp.exampleQuotes[0]}" - on ${pp.painPoint}`)
+      .join('\n\n');
+
+    const newContent = `---
+type: analytics_dashboard
+auto_refresh: true
+category: pain_points
+last_updated: ${dateStr}
+---
+
+# Customer Pain Point Tracker
+
+*Aggregated pain points from customer conversations*
+
+---
+
+## Top Pain Points (Last 30 Days)
+
+| Pain Point | Frequency | Category | Severity |
+|------------|-----------|----------|----------|
+${tableRows}
+
+---
+
+## By Category
+${categoryContent}
+
+---
+
+## Example Quotes
+
+${quotesContent || '*No quotes available*'}
+
+---
+
+> **Tip:** Use these pain points to prepare for customer calls.
+`;
+
+    await this.app.vault.modify(file, newContent);
+  }
+
+  /**
+   * Update objection playbook note with API data
+   */
+  async updateObjectionNote(file: TFile, data: any): Promise<void> {
+    if (!data.objections || data.objections.length === 0) return;
+
+    const dateStr = new Date().toISOString().split('T')[0];
+    
+    // Build table rows
+    const tableRows = data.objections.slice(0, 10).map((obj: any) => {
+      const status = obj.handleRatePercent >= 75 ? '✅ Strong' : 
+                     obj.handleRatePercent >= 50 ? '⚠️ Moderate' : '❌ Needs Work';
+      return `| ${obj.objection?.substring(0, 40) || '--'}... | ${obj.count || 0} | ${obj.handleRatePercent || 0}% | ${status} |`;
+    }).join('\n');
+
+    // Build best practices section
+    let bestPracticesContent = '';
+    for (const obj of data.objections.slice(0, 5)) {
+      if (obj.bestResponses && obj.bestResponses.length > 0) {
+        bestPracticesContent += `\n### Objection: "${obj.objection?.substring(0, 50)}..."\n\n`;
+        bestPracticesContent += `**Frequency:** ${obj.count} times  \n`;
+        bestPracticesContent += `**Handle Rate:** ${obj.handleRatePercent}%\n\n`;
+        bestPracticesContent += `**Best Responses:**\n`;
+        for (const resp of obj.bestResponses.slice(0, 2)) {
+          bestPracticesContent += `1. *"${resp.response}"* - ${resp.rep || 'Team member'}\n`;
+        }
+        bestPracticesContent += '\n';
+      }
+    }
+
+    const newContent = `---
+type: analytics_dashboard
+auto_refresh: true
+category: objections
+last_updated: ${dateStr}
+---
+
+# Objection Playbook
+
+*Common objections with handling success rates and best responses*
+
+---
+
+## Top Objections (Last 90 Days)
+
+| Objection | Frequency | Handle Rate | Status |
+|-----------|-----------|-------------|--------|
+${tableRows}
+
+---
+
+## Best Practices
+${bestPracticesContent || '*No best practices available yet*'}
+
+---
+
+## Coaching Notes
+
+*Objections with <50% handle rate need training focus*
+
+Average handle rate: ${data.avgHandleRate || 0}%
+
+---
+
+> **Tip:** Review this playbook before important calls.
+`;
+
+    await this.app.vault.modify(file, newContent);
+  }
+
+  /**
+   * Update team performance note with API data
+   */
+  async updateTeamPerformanceNote(file: TFile, trends: any): Promise<void> {
+    if (!trends) return;
+
+    const dateStr = new Date().toISOString().split('T')[0];
+    
+    // Format trend arrows
+    const trendArrow = (val: number) => val > 0 ? `↑ ${Math.abs(val).toFixed(1)}%` : 
+                                         val < 0 ? `↓ ${Math.abs(val).toFixed(1)}%` : '--';
+
+    const newContent = `---
+type: analytics_dashboard
+auto_refresh: true
+refresh_interval: daily
+last_updated: ${dateStr}
+---
+
+# Team Performance Dashboard
+
+*Auto-updated from GTM Brain analytics*
+
+---
+
+## Team Overview
+
+| Metric | This Week | Trend |
+|--------|-----------|-------|
+| Calls Analyzed | ${trends.callCount || 0} | -- |
+| Avg Score | ${trends.avgScore?.toFixed(1) || '--'} | ${trendArrow(trends.scoreTrend)} |
+| Talk Ratio | ${trends.avgTalkRatio ? Math.round(trends.avgTalkRatio * 100) : '--'}% | ${trendArrow(trends.talkRatioTrend)} |
+| Value Score | ${trends.avgValueScore?.toFixed(1) || '--'} | ${trendArrow(trends.valueScoreTrend)} |
+| Next Step Rate | ${trends.nextStepRate ? Math.round(trends.nextStepRate * 100) : '--'}% | -- |
+
+---
+
+## Top Pain Points
+
+${trends.topPainPoints?.slice(0, 5).map((pp: any) => `- **${pp.painPoint}** (${pp.count} mentions)`).join('\n') || '*No pain points captured yet*'}
+
+---
+
+## Trending Topics
+
+${trends.trendingTopics?.slice(0, 8).map((t: any) => `- ${t.topic} (${t.count})`).join('\n') || '*No topics captured yet*'}
+
+---
+
+## Top Objections
+
+${trends.topObjections?.slice(0, 5).map((obj: any) => `- ${obj.objection} - ${obj.handleRatePercent}% handled`).join('\n') || '*No objections captured yet*'}
+
+---
+
+> **Note:** This dashboard refreshes automatically when you open it.
+> Data is aggregated from all analyzed calls in your region.
+`;
+
+    await this.app.vault.modify(file, newContent);
   }
 }
 

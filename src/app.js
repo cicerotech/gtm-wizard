@@ -58,17 +58,95 @@ const intelligenceDigest = require('./slack/intelligenceDigest');
 // Telemetry Store for admin debugging
 const telemetryStore = require('./services/telemetryStore');
 
+// ═══════════════════════════════════════════════════════════════════════════
+// USER GROUP CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════
+
 // Admin email list for protected endpoints
 const ADMIN_EMAILS = [
   'keigan.pesenti@eudia.com',
   'michael.ayers@eudia.com',
-  'zack@eudia.com'
+  'zach@eudia.com'
 ];
+
+// Exec users - treated as admin for account visibility
+const EXEC_EMAILS = [
+  'omar@eudia.com',
+  'david@eudia.com',
+  'ashish@eudia.com'
+];
+
+// Sales Leaders with their regions
+const SALES_LEADERS = {
+  'mitchell.loquaci@eudia.com': { name: 'Mitchell Loquaci', region: 'US', role: 'RVP Sales' },
+  'stephen.mulholland@eudia.com': { name: 'Stephen Mulholland', region: 'EMEA', role: 'VP Sales' },
+  'riona.mchale@eudia.com': { name: 'Riona McHale', region: 'IRE_UK', role: 'Head of Sales' }
+};
+
+// Customer Success team
+const CS_EMAILS = [
+  'nikhita.godiwala@eudia.com',
+  'jon.dedych@eudia.com',
+  'farah.haddad@eudia.com'
+];
+
+// Business Lead region mapping (for Sales Leader roll-ups)
+const BL_REGIONS = {
+  'US': [
+    'asad.hussain@eudia.com', 'nathan.shine@eudia.com', 'julie.stefanich@eudia.com',
+    'olivia@eudia.com', 'ananth@eudia.com', 'ananth.cherukupally@eudia.com',
+    'justin.hills@eudia.com', 'mike.masiello@eudia.com', 'mike@eudia.com',
+    'sean.boyd@eudia.com', 'riley.stack@eudia.com'
+  ],
+  'EMEA': [
+    'greg.machale@eudia.com', 'tom.clancy@eudia.com', 'nicola.fratini@eudia.com',
+    'stephen.mulholland@eudia.com'
+  ],
+  'IRE_UK': [
+    'conor.molloy@eudia.com', 'alex.fox@eudia.com', 'emer.flynn@eudia.com',
+    'riona.mchale@eudia.com'
+  ]
+};
+
+/**
+ * Get user group for an email
+ */
+function getUserGroup(email) {
+  const normalized = (email || '').toLowerCase().trim();
+  if (ADMIN_EMAILS.includes(normalized)) return 'admin';
+  if (EXEC_EMAILS.includes(normalized)) return 'exec';
+  if (normalized in SALES_LEADERS) return 'sales_leader';
+  if (CS_EMAILS.includes(normalized)) return 'cs';
+  return 'bl';
+}
+
+/**
+ * Get sales leader region
+ */
+function getSalesLeaderRegion(email) {
+  const normalized = (email || '').toLowerCase().trim();
+  return SALES_LEADERS[normalized]?.region || null;
+}
+
+/**
+ * Get BL emails for a region
+ */
+function getRegionBLEmails(region) {
+  return BL_REGIONS[region] || [];
+}
+
+/**
+ * Check if user has full account access (admin or exec)
+ */
+function hasFullAccountAccess(email) {
+  const group = getUserGroup(email);
+  return group === 'admin' || group === 'exec';
+}
 
 // Admin authentication middleware
 function requireAdmin(req, res, next) {
   const email = (req.query.adminEmail || req.headers['x-admin-email'] || '').toLowerCase().trim();
-  if (!ADMIN_EMAILS.includes(email)) {
+  if (!ADMIN_EMAILS.includes(email) && !EXEC_EMAILS.includes(email)) {
     return res.status(403).json({ 
       success: false, 
       error: 'Admin access required',
@@ -632,6 +710,17 @@ class GTMBrainApp {
     const cookieParser = require('cookie-parser');
     this.expressApp.use(cookieParser());
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ANALYTICS API ROUTES
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      const analyticsRoutes = require('./routes/analytics');
+      this.expressApp.use('/api/analytics', analyticsRoutes);
+      logger.info('Analytics routes mounted at /api/analytics');
+    } catch (error) {
+      logger.warn('Analytics routes not loaded:', error.message);
+    }
+
     // Health check endpoint with Salesforce status
     this.expressApp.get('/health', (req, res) => {
       const sfStatus = getAuthRateLimitStatus();
@@ -892,6 +981,40 @@ class GTMBrainApp {
         });
       } catch (error) {
         res.json({ success: true, updates: [], hasUpdates: false });
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // USER GROUP API
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Get user group and permissions for an email
+     * Used by plugin to determine folder structure and access level
+     */
+    this.expressApp.get('/api/users/group/:email', (req, res) => {
+      try {
+        const email = (req.params.email || '').toLowerCase().trim();
+        const group = getUserGroup(email);
+        const region = getSalesLeaderRegion(email);
+        
+        res.json({
+          success: true,
+          email,
+          group,
+          region,
+          isAdmin: group === 'admin' || group === 'exec',
+          salesLeaderInfo: group === 'sales_leader' ? SALES_LEADERS[email] : null,
+          permissions: {
+            viewAllAccounts: ['admin', 'exec'].includes(group),
+            viewRegionAccounts: group === 'sales_leader',
+            viewCustomersOnly: group === 'cs',
+            viewOwnedAccounts: group === 'bl'
+          }
+        });
+      } catch (error) {
+        logger.error('Error getting user group:', error);
+        res.status(500).json({ success: false, error: 'Failed to get user group' });
       }
     });
 
@@ -2535,12 +2658,14 @@ class GTMBrainApp {
     });
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // BUSINESS LEAD BOOK OF BUSINESS - Dynamic account sync for plugin folders
+    // BOOK OF BUSINESS - Dynamic account sync for plugin folders
     // ═══════════════════════════════════════════════════════════════════════════
-    // Returns accounts that should have folders in the vault:
-    // - Owned by the user
-    // - Customer_Type__c = 'Existing' OR has open opportunities
-    // Excludes Sample/Test accounts
+    // Returns accounts based on user group:
+    // - admin/exec: ALL accounts
+    // - sales_leader: All accounts owned by BLs in their region
+    // - cs: Only Existing customers
+    // - bl: Owned accounts with Customer_Type__c = 'Existing' OR open opportunities
+    // Excludes Sample/Test accounts for all groups
     this.expressApp.get('/api/bl-accounts/:email', async (req, res) => {
       const startTime = Date.now();
       const correlationId = `bl-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
@@ -2558,14 +2683,24 @@ class GTMBrainApp {
           });
         }
         
-        logger.info(`[BL-Accounts][${correlationId}] Fetching book of business for: ${normalizedEmail}`);
+        // Determine user group
+        const userGroup = getUserGroup(normalizedEmail);
+        logger.info(`[BL-Accounts][${correlationId}] Fetching accounts for: ${normalizedEmail} (group: ${userGroup})`);
         
         // Step 1: Find the User by email
         const userQuery = `SELECT Id, Name, Email FROM User WHERE Email = '${normalizedEmail.replace(/'/g, "\\'")}' AND IsActive = true LIMIT 1`;
         const userResult = await sfConnection.query(userQuery);
         
-        if (!userResult.records || userResult.records.length === 0) {
-          logger.warn(`[BL-Accounts][${correlationId}] No Salesforce user found for: ${normalizedEmail}`);
+        // For admin/exec/sales_leader, user doesn't need to exist in SF to see accounts
+        let userId = null;
+        let userName = normalizedEmail;
+        
+        if (userResult.records && userResult.records.length > 0) {
+          userId = userResult.records[0].Id;
+          userName = userResult.records[0].Name;
+        } else if (userGroup === 'bl') {
+          // For regular BLs, they must exist in Salesforce
+          logger.warn(`[BL-Accounts][${correlationId}] No Salesforce user found for BL: ${normalizedEmail}`);
           return res.status(404).json({
             success: false,
             error: 'User not found in Salesforce',
@@ -2574,29 +2709,104 @@ class GTMBrainApp {
           });
         }
         
-        const user = userResult.records[0];
-        const userId = user.Id;
-        const userName = user.Name;
+        // Step 2: Build query based on user group
+        let accountQuery;
+        let queryDescription;
         
-        // Step 2: Query accounts with the Business Lead criteria
-        // Includes accounts that are:
-        // - Owned by this user
-        // - Customer_Type__c = 'Existing' (active customers)
-        // - OR have at least one open opportunity
-        // Excludes Sample/Test accounts
-        const accountQuery = `
-          SELECT Id, Name, Type, Customer_Type__c, Website, Industry,
-                 (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
-          FROM Account 
-          WHERE OwnerId = '${userId}'
-            AND (
-              Customer_Type__c = 'Existing'
-              OR Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
-            )
-            AND (NOT Name LIKE '%Sample%')
-            AND (NOT Name LIKE '%Test%')
-          ORDER BY Name ASC
-        `;
+        switch (userGroup) {
+          case 'admin':
+          case 'exec':
+            // All accounts (excluding sample/test)
+            queryDescription = 'all accounts';
+            accountQuery = `
+              SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
+                     (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
+              FROM Account 
+              WHERE (NOT Name LIKE '%Sample%')
+                AND (NOT Name LIKE '%Test%')
+              ORDER BY Name ASC
+              LIMIT 2000
+            `;
+            break;
+            
+          case 'sales_leader':
+            // All accounts owned by BLs in their region
+            const region = getSalesLeaderRegion(normalizedEmail);
+            const regionBLs = getRegionBLEmails(region);
+            
+            if (!regionBLs || regionBLs.length === 0) {
+              logger.warn(`[BL-Accounts][${correlationId}] No BLs found for region: ${region}`);
+              return res.json({
+                success: true,
+                accounts: [],
+                meta: {
+                  email: normalizedEmail,
+                  userGroup,
+                  region,
+                  total: 0,
+                  message: 'No Business Leads configured for this region',
+                  correlationId
+                }
+              });
+            }
+            
+            // Format emails for IN clause
+            const blEmailList = regionBLs.map(e => `'${e.replace(/'/g, "\\'")}'`).join(',');
+            queryDescription = `${region} region accounts`;
+            
+            accountQuery = `
+              SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
+                     (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
+              FROM Account 
+              WHERE Owner.Email IN (${blEmailList})
+                AND (NOT Name LIKE '%Sample%')
+                AND (NOT Name LIKE '%Test%')
+              ORDER BY Owner.Name, Name ASC
+              LIMIT 1000
+            `;
+            break;
+            
+          case 'cs':
+            // Only Existing customers (all, not just owned)
+            queryDescription = 'existing customers';
+            accountQuery = `
+              SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
+                     (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
+              FROM Account 
+              WHERE Customer_Type__c = 'Existing'
+                AND (NOT Name LIKE '%Sample%')
+                AND (NOT Name LIKE '%Test%')
+              ORDER BY Name ASC
+              LIMIT 1000
+            `;
+            break;
+            
+          default: // 'bl'
+            // Standard BL query: owned accounts with existing customers OR open opportunities
+            if (!userId) {
+              return res.status(404).json({
+                success: false,
+                error: 'User not found in Salesforce',
+                correlationId
+              });
+            }
+            
+            queryDescription = 'owned accounts';
+            accountQuery = `
+              SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
+                     (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
+              FROM Account 
+              WHERE OwnerId = '${userId}'
+                AND (
+                  Customer_Type__c = 'Existing'
+                  OR Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
+                )
+                AND (NOT Name LIKE '%Sample%')
+                AND (NOT Name LIKE '%Test%')
+              ORDER BY Name ASC
+            `;
+            break;
+        }
         
         const accountResult = await sfConnection.query(accountQuery);
         const queryTime = Date.now() - startTime;
@@ -2611,6 +2821,8 @@ class GTMBrainApp {
             customerType: acc.Customer_Type__c || null,
             industry: acc.Industry || null,
             website: acc.Website || null,
+            ownerId: acc.OwnerId || null,
+            ownerName: acc.Owner?.Name || null,
             hasOpenOpps: openOpps.length > 0,
             oppCount: openOpps.length,
             // Include first few opp names for context
@@ -2621,7 +2833,7 @@ class GTMBrainApp {
           };
         });
         
-        logger.info(`[BL-Accounts][${correlationId}] Found ${accounts.length} accounts for ${userName} in ${queryTime}ms`);
+        logger.info(`[BL-Accounts][${correlationId}] Found ${accounts.length} ${queryDescription} for ${userName} (${userGroup}) in ${queryTime}ms`);
         
         res.json({
           success: true,
@@ -2630,7 +2842,10 @@ class GTMBrainApp {
             email: normalizedEmail,
             userId: userId,
             userName: userName,
+            userGroup,
+            region: userGroup === 'sales_leader' ? getSalesLeaderRegion(normalizedEmail) : null,
             total: accounts.length,
+            queryDescription,
             queryTime: queryTime,
             lastRefresh: new Date().toISOString(),
             correlationId
@@ -2661,21 +2876,24 @@ class GTMBrainApp {
       }
     });
 
-    // Get ALL accounts (for admin users in Obsidian plugin)
-    // Admin emails: keigan.pesenti@eudia.com, michael.ayers@eudia.com, zack@eudia.com
+    // Get ALL accounts (for admin/exec users in Obsidian plugin)
+    // Uses user group logic from helper functions
     this.expressApp.get('/api/accounts/all', async (req, res) => {
       try {
         const requestEmail = (req.query.email || '').toLowerCase().trim();
         
-        // Admin email verification (optional security layer)
-        const ADMIN_EMAILS = [
-          'keigan.pesenti@eudia.com',
-          'michael.ayers@eudia.com', 
-          'zack@eudia.com'
-        ];
+        // Verify user has full account access (admin or exec)
+        if (requestEmail && !hasFullAccountAccess(requestEmail)) {
+          logger.warn(`[AllAccounts] Access denied for non-admin: ${requestEmail}`);
+          return res.status(403).json({
+            success: false,
+            error: 'Admin or Executive access required',
+            userGroup: getUserGroup(requestEmail)
+          });
+        }
         
-        // Log the request (admin check is done client-side, server just returns data)
-        logger.info(`[AllAccounts] Request from: ${requestEmail || 'anonymous'}`);
+        // Log the request
+        logger.info(`[AllAccounts] Request from: ${requestEmail || 'anonymous'} (group: ${getUserGroup(requestEmail)})`);
         
         // Query ALL active accounts from Salesforce
         const accountQuery = `

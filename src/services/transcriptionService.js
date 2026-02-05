@@ -14,6 +14,15 @@ const os = require('os');
 const logger = require('../utils/logger') || console;
 const { socratesAdapter } = require('../ai/socratesAdapter');
 
+// Import call intelligence for speaker diarization and coaching metrics
+let callIntelligence = null;
+try {
+  callIntelligence = require('./callIntelligence');
+  logger.info('CallIntelligence service loaded for speaker diarization');
+} catch (error) {
+  logger.warn('CallIntelligence not available, diarization disabled:', error.message);
+}
+
 // Initialize Anthropic client for summarization
 let anthropic = null;
 if (process.env.ANTHROPIC_API_KEY) {
@@ -532,19 +541,42 @@ class TranscriptionService {
 
   /**
    * Combined transcription and summarization with evidence-based MEDDICC
+   * Supports optional speaker diarization via AssemblyAI for conversational analytics
+   * 
+   * @param {Buffer|string} audioData - Audio data (buffer or base64 string)
+   * @param {string} mimeType - MIME type of audio
+   * @param {Object} context - Context options
+   * @param {boolean} context.enableDiarization - Enable speaker diarization (requires AssemblyAI key)
+   * @param {string} context.repEmail - Rep's email for speaker attribution
+   * @param {string} context.repName - Rep's display name for speaker attribution
+   * @param {string} context.accountId - Salesforce Account ID
+   * @param {string} context.accountName - Account name
+   * @param {string[]} context.attendees - List of attendees for speaker hints
    */
   async transcribeAndSummarize(audioData, mimeType = 'audio/webm', context = {}) {
     try {
       // Convert base64 to buffer if needed
       let audioBuffer;
+      let audioBase64;
       if (typeof audioData === 'string') {
+        audioBase64 = audioData;
         audioBuffer = Buffer.from(audioData, 'base64');
       } else {
         audioBuffer = audioData;
+        audioBase64 = audioBuffer.toString('base64');
       }
 
       const fileSizeMB = (audioBuffer.length / 1024 / 1024).toFixed(1);
-      logger.info(`[TranscribeAndSummarize] Starting: ${fileSizeMB}MB`);
+      
+      // Enable diarization if requested AND either:
+      // - AssemblyAI key is available (audio-level diarization, ~95% accuracy)
+      // - OpenAI key is available (LLM-based dialogue parsing fallback, ~70-80% accuracy)
+      const hasAudioDiarization = !!process.env.ASSEMBLYAI_API_KEY;
+      const hasLlmFallback = !!process.env.OPENAI_API_KEY;
+      const enableDiarization = context.enableDiarization && callIntelligence && (hasAudioDiarization || hasLlmFallback);
+      
+      const diarizationMethod = hasAudioDiarization ? 'AssemblyAI' : (hasLlmFallback ? 'LLM-dialogue-parsing' : 'none');
+      logger.info(`[TranscribeAndSummarize] Starting: ${fileSizeMB}MB, diarization=${enableDiarization} (${diarizationMethod})`);
 
       // Validate file size (rough duration estimate)
       // At 48kbps, 25MB ≈ 70 min, so 100MB ≈ 280 min
@@ -562,11 +594,82 @@ class TranscriptionService {
         accountName: context.accountName || ''
       };
 
-      // Step 1: Transcribe with custom vocabulary prompt
-      const transcribeResult = await this.transcribe(audioBuffer, mimeType, transcriptionContext);
+      // ═══════════════════════════════════════════════════════════════════════════
+      // SPEAKER DIARIZATION PATH (if enabled and available)
+      // ═══════════════════════════════════════════════════════════════════════════
+      let diarizedTranscript = null;
+      let talkTimeMetrics = null;
+      let coachingMetrics = null;
+      let callAnalysisId = null;
+
+      if (enableDiarization) {
+        try {
+          logger.info(`[TranscribeAndSummarize] Using speaker diarization via ${diarizationMethod}`);
+          
+          // Build speaker attribution context
+          const attributionContext = {
+            repName: context.repName,
+            repEmail: context.repEmail,
+            attendees: context.attendees,
+            accountName: context.accountName
+          };
+          
+          // Get diarized transcript with speaker separation and attribution
+          diarizedTranscript = await callIntelligence.getDiarizedTranscript(audioBase64, attributionContext);
+          
+          if (diarizedTranscript && diarizedTranscript.segments) {
+            // Calculate talk time metrics
+            talkTimeMetrics = callIntelligence.calculateTalkTimeMetrics(diarizedTranscript);
+            
+            // Extract coaching metrics from diarized content
+            coachingMetrics = await callIntelligence.extractCoachingMetrics(diarizedTranscript);
+            
+            // Store the analysis for trend tracking
+            if (context.accountId || context.repEmail) {
+              const analysisResult = await callIntelligence.analyzeCall({
+                audioBase64,
+                accountId: context.accountId,
+                accountName: context.accountName,
+                repId: context.repEmail,
+                repName: context.repName || context.repEmail
+              });
+              
+              if (analysisResult.success) {
+                callAnalysisId = analysisResult.analysisId;
+                logger.info(`[TranscribeAndSummarize] Call analysis stored: ${callAnalysisId}`);
+              }
+            }
+            
+            logger.info(`[TranscribeAndSummarize] Diarization complete: ${diarizedTranscript.segments.length} segments, rep=${Math.round((talkTimeMetrics?.repRatio || 0) * 100)}%`);
+          }
+        } catch (diarizationError) {
+          logger.warn('[TranscribeAndSummarize] Diarization failed, falling back to Whisper:', diarizationError.message);
+          // Continue with standard Whisper transcription
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // STANDARD WHISPER TRANSCRIPTION
+      // ═══════════════════════════════════════════════════════════════════════════
       
-      if (!transcribeResult.success) {
-        return transcribeResult;
+      // Use diarized full text if available, otherwise do Whisper transcription
+      let transcribeResult;
+      if (diarizedTranscript && diarizedTranscript.fullText) {
+        // Use AssemblyAI transcript (no need to call Whisper again)
+        transcribeResult = {
+          success: true,
+          transcript: diarizedTranscript.fullText,
+          rawTranscript: diarizedTranscript.fullText,
+          duration: diarizedTranscript.duration || 0,
+          segments: diarizedTranscript.segments
+        };
+      } else {
+        // Standard Whisper transcription
+        transcribeResult = await this.transcribe(audioBuffer, mimeType, transcriptionContext);
+        
+        if (!transcribeResult.success) {
+          return transcribeResult;
+        }
       }
 
       logger.info(`[TranscribeAndSummarize] Transcription complete: ${transcribeResult.transcript?.length || 0} chars, ${transcribeResult.duration || 0}s`);
@@ -628,7 +731,53 @@ class TranscriptionService {
           items: nextStepsResult.next_steps || [],
           formatted: nextStepsResult.formatted,
           count: nextStepsResult.count || 0
-        } : null
+        } : null,
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // SPEAKER DIARIZATION DATA (when enabled)
+        // ═══════════════════════════════════════════════════════════════════════════
+        diarization: diarizedTranscript ? {
+          enabled: true,
+          segments: diarizedTranscript.segments,
+          segmentCount: diarizedTranscript.segments?.length || 0,
+          speakerMap: diarizedTranscript.speakerMap || null,
+          attributionMethod: diarizedTranscript.attributionMethod || 'unknown',
+          
+          // Formatted transcript with speaker names (for display in notes)
+          formattedTranscript: callIntelligence.formatDiarizedTranscript(
+            diarizedTranscript, 
+            context.repName
+          ),
+          
+          // Talk time analytics
+          talkTime: talkTimeMetrics ? {
+            repTime: talkTimeMetrics.repTime,
+            customerTime: talkTimeMetrics.customerTime,
+            repRatio: talkTimeMetrics.repRatio,
+            customerRatio: talkTimeMetrics.customerRatio,
+            isHealthyRatio: talkTimeMetrics.isHealthyRatio,
+            // Display-friendly percentages
+            repPercent: Math.round((talkTimeMetrics.repRatio || 0) * 100),
+            customerPercent: Math.round((talkTimeMetrics.customerRatio || 0) * 100)
+          } : null,
+          
+          // Coaching metrics from the call
+          coaching: coachingMetrics ? {
+            totalQuestions: coachingMetrics.totalQuestions,
+            openQuestions: coachingMetrics.openQuestions,
+            closedQuestions: coachingMetrics.closedQuestions,
+            objections: coachingMetrics.objections,
+            valueScore: coachingMetrics.valueScore,
+            nextStepClear: coachingMetrics.nextStepClear,
+            keyTopics: coachingMetrics.keyTopics,
+            competitorMentions: coachingMetrics.competitorMentions,
+            positiveSignals: coachingMetrics.positiveSignals,
+            concerns: coachingMetrics.concerns
+          } : null,
+          
+          // Reference to stored analysis for trend tracking
+          analysisId: callAnalysisId
+        } : { enabled: false }
       };
 
       // Add warnings if any extraction failed

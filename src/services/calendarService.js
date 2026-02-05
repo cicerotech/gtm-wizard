@@ -38,33 +38,47 @@ function getCalendarCache() {
   return CALENDAR_CACHE.data;
 }
 
-// Business Lead email list - US + EU Pods
+// Business Lead email list - US + EU Pods + All User Groups
 const BL_EMAILS_PILOT = [
-  // US Pod (ALL US BLs now included)
+  // US Pod Business Leads
   'asad.hussain@eudia.com',
   'nathan.shine@eudia.com',
   'julie.stefanich@eudia.com',
   'olivia.jung@eudia.com',
   'olivia@eudia.com',
   'ananth.cherukupally@eudia.com',
+  'ananth@eudia.com',
   'justin.hills@eudia.com',
   'mike.masiello@eudia.com',
-  'mitchell.loquaci@eudia.com',
-  // EU Pod
+  'mike@eudia.com',
+  'sean.boyd@eudia.com',
+  'riley.stack@eudia.com',
+  // EU Pod Business Leads
   'greg.machale@eudia.com',
-  'nathan.shine@eudia.com',
   'tom.clancy@eudia.com',
   'conor.molloy@eudia.com',
   'alex.fox@eudia.com',
   'emer.flynn@eudia.com',
   'nicola.fratini@eudia.com',
+  // Sales Leaders
+  'mitchell.loquaci@eudia.com',
+  'stephen.mulholland@eudia.com',
   'riona.mchale@eudia.com',
-  // Leadership/Admin
-  'zack@eudia.com',
+  // Exec
+  'omar@eudia.com',
+  'david@eudia.com',
+  'ashish@eudia.com',
+  // Customer Success
+  'nikhita.godiwala@eudia.com',
+  'jon.dedych@eudia.com',
+  'farah.haddad@eudia.com',
+  // Admin
+  'keigan.pesenti@eudia.com',
   'michael.ayers@eudia.com',
+  'zach@eudia.com',
+  // Other
   'michael.flynn@eudia.com',
   'daniel.kim@eudia.com',
-  'keigan.pesenti@eudia.com',
   'ben.brosnahan@eudia.com'
 ];
 

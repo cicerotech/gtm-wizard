@@ -324,7 +324,10 @@ sf apex run test --class-names GTMLoggerTest,PipelineSnapshotServiceTest,Contrac
 - Platform Event `Case_Created__e` needs Flow to publish it
 
 ### Call Intelligence
-- Without `ASSEMBLYAI_API_KEY`, diarization falls back to non-speaker-separated Whisper
+- **With `ASSEMBLYAI_API_KEY`**: Audio-level speaker diarization (~95% accuracy)
+- **Without `ASSEMBLYAI_API_KEY`**: LLM-based dialogue parsing fallback using OpenAI (~70-80% accuracy)
+  - Uses Whisper timestamps + pause detection to pre-segment
+  - GPT-4o-mini analyzes conversational patterns to infer speaker changes
 - SQLite database created at `$DATA_PATH/call_analysis.db`
 
 ### Obsidian Plugin

@@ -461,6 +461,48 @@ export interface ProcessedSections {
   competitiveIntel: string;
 }
 
+/**
+ * Diarization data with speaker attribution and analytics
+ */
+export interface DiarizationData {
+  enabled: boolean;
+  segments?: Array<{
+    speaker: 'rep' | 'customer' | 'unknown';
+    speakerName: string;
+    text: string;
+    startTime: number;
+    endTime: number;
+    confidence?: number;
+    attributionConfidence?: number;
+  }>;
+  segmentCount?: number;
+  speakerMap?: Record<string, { role: string; name: string; confidence: number }>;
+  attributionMethod?: string;
+  formattedTranscript?: string;
+  talkTime?: {
+    repTime: number;
+    customerTime: number;
+    repRatio: number;
+    customerRatio: number;
+    isHealthyRatio: boolean;
+    repPercent: number;
+    customerPercent: number;
+  };
+  coaching?: {
+    totalQuestions: number;
+    openQuestions: number;
+    closedQuestions: number;
+    objections: Array<{ objection: string; handled: boolean }>;
+    valueScore: number;
+    nextStepClear: boolean;
+    keyTopics: string[];
+    competitorMentions: string[];
+    positiveSignals: string[];
+    concerns: string[];
+  };
+  analysisId?: string;
+}
+
 export interface MeetingContext {
   success: boolean;
   account?: {
@@ -1040,8 +1082,16 @@ export class TranscriptionService {
   /**
    * Format sections for note insertion
    * Optimized for busy salespeople: TL;DR first, evidence-based insights, actionable checklists
+   * 
+   * @param sections - Extracted sections from transcription
+   * @param transcript - Raw transcript text
+   * @param diarization - Optional diarization data with speaker attribution
    */
-  static formatSectionsForNote(sections: ProcessedSections, transcript?: string): string {
+  static formatSectionsForNote(
+    sections: ProcessedSections, 
+    transcript?: string,
+    diarization?: DiarizationData
+  ): string {
     let content = '';
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1049,6 +1099,51 @@ export class TranscriptionService {
     // ═══════════════════════════════════════════════════════════════════════════
     if (sections.summary) {
       content += `## TL;DR\n\n${sections.summary}\n\n`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONVERSATIONAL ANALYTICS (when diarization is enabled)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (diarization?.enabled && diarization?.talkTime) {
+      content += `## Call Analytics\n\n`;
+      
+      // Talk time ratio with visual indicator
+      const repPct = diarization.talkTime.repPercent;
+      const custPct = diarization.talkTime.customerPercent;
+      const healthIcon = diarization.talkTime.isHealthyRatio ? '✅' : '⚠️';
+      
+      content += `**Talk Time:** Rep ${repPct}% / Customer ${custPct}% ${healthIcon}\n`;
+      
+      // Visual bar representation
+      const repBars = Math.round(repPct / 5);
+      const custBars = Math.round(custPct / 5);
+      content += `\`${'█'.repeat(repBars)}${'░'.repeat(20 - repBars)}\` Rep\n`;
+      content += `\`${'█'.repeat(custBars)}${'░'.repeat(20 - custBars)}\` Customer\n\n`;
+      
+      // Coaching insights if available
+      if (diarization.coaching) {
+        const coaching = diarization.coaching;
+        
+        if (coaching.totalQuestions > 0) {
+          const openPct = Math.round((coaching.openQuestions / coaching.totalQuestions) * 100);
+          content += `**Questions:** ${coaching.totalQuestions} total (${coaching.openQuestions} open, ${coaching.closedQuestions} closed - ${openPct}% open)\n`;
+        }
+        
+        if (coaching.objections && coaching.objections.length > 0) {
+          const handled = coaching.objections.filter(o => o.handled).length;
+          content += `**Objections:** ${coaching.objections.length} raised, ${handled} handled\n`;
+        }
+        
+        if (coaching.valueScore !== undefined) {
+          content += `**Value Articulation:** ${coaching.valueScore}/10\n`;
+        }
+        
+        if (coaching.nextStepClear !== undefined) {
+          content += `**Next Step Clarity:** ${coaching.nextStepClear ? '✅ Clear' : '⚠️ Unclear'}\n`;
+        }
+        
+        content += '\n';
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1118,10 +1213,15 @@ export class TranscriptionService {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // TRANSCRIPT: Collapsible for reference
+    // TRANSCRIPT: Use formatted diarized version if available
     // ═══════════════════════════════════════════════════════════════════════════
-    if (transcript) {
-      content += `---\n\n<details>\n<summary><strong>Full Transcript</strong></summary>\n\n${transcript}\n\n</details>\n`;
+    const transcriptToUse = diarization?.enabled && diarization?.formattedTranscript 
+      ? diarization.formattedTranscript 
+      : transcript;
+      
+    if (transcriptToUse) {
+      const transcriptTitle = diarization?.enabled ? 'Full Transcript (Speaker-Attributed)' : 'Full Transcript';
+      content += `---\n\n<details>\n<summary><strong>${transcriptTitle}</strong></summary>\n\n${transcriptToUse}\n\n</details>\n`;
     }
 
     return content;
@@ -1133,9 +1233,10 @@ export class TranscriptionService {
   static formatSectionsWithAudio(
     sections: ProcessedSections, 
     transcript: string | undefined, 
-    audioFilePath: string | undefined
+    audioFilePath: string | undefined,
+    diarization?: DiarizationData
   ): string {
-    let content = this.formatSectionsForNote(sections, transcript);
+    let content = this.formatSectionsForNote(sections, transcript, diarization);
     
     // Add audio file reference at the very end
     if (audioFilePath) {
