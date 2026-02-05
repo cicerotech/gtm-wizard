@@ -2003,7 +2003,7 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         doc.text('Accts', startX + 50, headerY, { width: 25, align: 'right' });
         doc.text('Opps', startX + 80, headerY, { width: 25, align: 'right' });
         doc.text('Gross', startX + 110, headerY, { width: 45, align: 'right' });
-        doc.text('Wtd', startX + 160, headerY, { width: 40, align: 'right' });
+        doc.text('Commit', startX + 160, headerY, { width: 40, align: 'right' });
         
         headerY += 9;
         doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(startX, headerY).lineTo(startX + colWidth - 10, headerY).stroke();
@@ -2333,7 +2333,7 @@ function generateWeekHeadline(totals, prevTotals, signedLastWeek, daysToEOQ, sta
     const topDeal = signedLastWeek.deals[0];
     const dealStr = topDeal.acv >= 1000000 ? `$${(topDeal.acv/1000000).toFixed(1)}m` : `$${Math.round(topDeal.acv/1000)}k`;
     const acctShort = (topDeal.accountName || '').substring(0, 18);
-    return `${acctShort} closed at ${dealStr}. ${totals.proposalCount} deals in S4 targeting close.`;
+    return `${acctShort} closed at ${dealStr}.`;
   }
   
   // SCENARIO 8: Moderate pipeline change
@@ -2348,7 +2348,7 @@ function generateWeekHeadline(totals, prevTotals, signedLastWeek, daysToEOQ, sta
   }
   
   // DEFAULT: Steady state summary
-  return `${totals.proposalCount} deals in S4 Proposal, ${dealsTargetingThisMonth} targeting close this month.`;
+  return `${dealsTargetingThisMonth} deals targeting close this month.`;
 }
 
 /**
