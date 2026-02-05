@@ -3051,13 +3051,10 @@ class GTMBrainApp {
           logger.warn('Pre-built vault not found, generating dynamically...');
           
           // Fallback: Generate dynamically if pre-built doesn't exist
+          // This mirrors build-tailored-vault.js - creates a clean vault with plugin pre-installed
           const archiver = require('archiver');
           
-          // Get all Salesforce accounts
-          const accounts = await meetingPrepService.getAccounts();
-          const validAccounts = accounts.filter(a => a && a.accountName);
-          
-          logger.info(`Generating Obsidian vault with ${validAccounts.length} account folders`);
+          logger.info('Generating Obsidian vault with eudia-transcription plugin (dynamic fallback)');
           
           res.setHeader('Content-Type', 'application/zip');
           res.setHeader('Content-Disposition', 'attachment; filename="Business-Lead-Vault-2026.zip"');
@@ -3065,61 +3062,142 @@ class GTMBrainApp {
           const archive = archiver('zip', { zlib: { level: 9 } });
           archive.pipe(res);
           
-          // Add template vault files from disk
-          const vaultTemplatePath = path.join(__dirname, '..', 'vault-template');
-          if (fs.existsSync(path.join(vaultTemplatePath, '.obsidian'))) {
-            archive.directory(path.join(vaultTemplatePath, '.obsidian'), 'BL Sales Vault/.obsidian');
+          const vaultName = 'Business Lead Vault 2026';
+          
+          // ═══════════════════════════════════════════════════════════════════
+          // Obsidian Configuration
+          // ═══════════════════════════════════════════════════════════════════
+          
+          // app.json - Editor settings
+          const appJson = {
+            alwaysUpdateLinks: true,
+            newFileLocation: "folder",
+            newFileFolderPath: "Accounts",
+            attachmentFolderPath: "Recordings",
+            showFrontmatter: true,
+            livePreview: true,
+            defaultViewMode: "preview"
+          };
+          archive.append(JSON.stringify(appJson, null, 2), { name: `${vaultName}/.obsidian/app.json` });
+          
+          // appearance.json
+          const appearanceJson = { baseFontSize: 16, theme: "obsidian" };
+          archive.append(JSON.stringify(appearanceJson, null, 2), { name: `${vaultName}/.obsidian/appearance.json` });
+          
+          // core-plugins.json
+          const corePlugins = ["file-explorer", "global-search", "switcher", "graph", "backlink", "outgoing-link", "tag-pane", "page-preview", "daily-notes", "templates", "note-composer", "command-palette", "editor-status", "starred", "markdown-importer", "word-count", "file-recovery"];
+          archive.append(JSON.stringify(corePlugins, null, 2), { name: `${vaultName}/.obsidian/core-plugins.json` });
+          
+          // community-plugins.json - Enable eudia-transcription
+          const communityPlugins = ["eudia-transcription"];
+          archive.append(JSON.stringify(communityPlugins, null, 2), { name: `${vaultName}/.obsidian/community-plugins.json` });
+          
+          // ═══════════════════════════════════════════════════════════════════
+          // Eudia Transcription Plugin
+          // ═══════════════════════════════════════════════════════════════════
+          
+          const pluginSourceDir = path.join(__dirname, '..', 'obsidian-plugin');
+          const pluginDestPath = `${vaultName}/.obsidian/plugins/eudia-transcription`;
+          
+          // Copy main.js
+          const mainJsPath = path.join(pluginSourceDir, 'main.js');
+          if (fs.existsSync(mainJsPath)) {
+            archive.file(mainJsPath, { name: `${pluginDestPath}/main.js` });
           }
           
-          // Create 00 - Setup folder
-          const welcomeMd = `# Welcome to BL Sales Vault
-
-This vault is pre-configured with:
-- **All accounts** from your pipeline, each with 5 note templates
-- **AI-powered transcription** for your customer meetings
-- **Automatic Salesforce sync** for meeting notes
-
-## Quick Start
-1. **Connect your calendar** by clicking the Calendar icon
-2. **Enter your @eudia.com email** when prompted
-3. **Start transcribing meetings** by clicking the microphone icon
-`;
-          archive.append(welcomeMd, { name: 'BL Sales Vault/00 - Setup/Welcome.md' });
-          
-          // Create account folders with 5 notes each
-          for (const account of validAccounts) {
-            const safeName = account.accountName.replace(/[<>:"/\\|?*]/g, '_').trim();
-            if (!safeName) continue;
-            
-            for (let i = 1; i <= 5; i++) {
-              const noteContent = `---
-title: Meeting Notes ${i}
-date: 
-account: "${account.accountName}"
-account_id: "${account.accountId || ''}"
-sync_to_salesforce: false
----
-
-# Meeting Notes - ${account.accountName}
-
-*Click the microphone icon to transcribe a meeting, or start typing notes.*
-`;
-              archive.append(noteContent, { name: `BL Sales Vault/Accounts/${safeName}/Note ${i}.md` });
-            }
+          // Copy styles.css
+          const stylesPath = path.join(pluginSourceDir, 'styles.css');
+          if (fs.existsSync(stylesPath)) {
+            archive.file(stylesPath, { name: `${pluginDestPath}/styles.css` });
           }
           
-          // Add Recordings folder
-          archive.append('', { name: 'BL Sales Vault/Recordings/.gitkeep' });
+          // Copy manifest.json
+          const manifestPath = path.join(pluginSourceDir, 'manifest.json');
+          if (fs.existsSync(manifestPath)) {
+            archive.file(manifestPath, { name: `${pluginDestPath}/manifest.json` });
+          }
+          
+          // Plugin settings with setupCompleted: false to trigger setup wizard
+          const pluginData = {
+            serverUrl: "https://gtm-wizard.onrender.com",
+            accountsFolder: "Accounts",
+            recordingsFolder: "Recordings",
+            syncOnStartup: true,
+            autoSyncAfterTranscription: true,
+            saveAudioFiles: true,
+            appendTranscript: true,
+            lastSyncTime: null,
+            cachedAccounts: [],
+            enableSmartTags: true,
+            showCalendarView: true,
+            userEmail: "",
+            setupCompleted: false,  // Triggers setup wizard on first open
+            calendarConfigured: false,
+            salesforceConnected: false,
+            accountsImported: false,
+            importedAccountCount: 0,
+            openaiApiKey: process.env.OPENAI_API_KEY || "",
+            timezone: "America/New_York",
+            lastAccountRefreshDate: null
+          };
+          archive.append(JSON.stringify(pluginData, null, 2), { name: `${pluginDestPath}/data.json` });
+          
+          // ═══════════════════════════════════════════════════════════════════
+          // Vault Folder Structure
+          // ═══════════════════════════════════════════════════════════════════
+          
+          // QuickStart guide
+          const quickstartMd = `# Business Lead Vault 2026
+
+Welcome to your personal sales vault! This tool helps you:
+- **Transcribe meetings** with AI-powered accuracy
+- **Sync notes to Salesforce** automatically
+- **Track customer conversations** in one place
+
+## Getting Started
+
+1. **Enable the plugin** - Click "Turn on community plugins" when prompted
+2. **Complete setup** - Enter your @eudia.com email to import your accounts
+3. **Start transcribing** - Use the microphone icon to record meetings
+
+## Need Help?
+
+Visit the GTM Hub at https://gtm-wizard.onrender.com for guides and support.
+`;
+          archive.append(quickstartMd, { name: `${vaultName}/QUICKSTART.md` });
+          
+          // Accounts folder placeholder
+          const setupMd = `# Setup Required
+
+Complete the setup wizard to import your accounts.
+
+1. Click the Eudia icon in the left sidebar
+2. Enter your @eudia.com email
+3. Your accounts will appear here automatically
+`;
+          archive.append(setupMd, { name: `${vaultName}/Accounts/_Setup Required.md` });
+          
+          // Next Steps folder
+          const nextStepsMd = `# All Next Steps
+
+This note aggregates next steps from all your account meetings.
+
+*Complete setup to begin tracking next steps.*
+`;
+          archive.append(nextStepsMd, { name: `${vaultName}/Next Steps/All Next Steps.md` });
+          
+          // Recordings folder
+          archive.append('', { name: `${vaultName}/Recordings/.gitkeep` });
           
           await archive.finalize();
-          logger.info('Dynamic vault generation completed');
+          logger.info('Dynamic vault generation completed with plugin included');
           return;
         }
         
         // Serve the pre-built vault
-        logger.info('Serving pre-built BL Sales Vault');
+        logger.info('Serving pre-built Business Lead Vault 2026');
         res.setHeader('Content-Type', 'application/zip');
-        res.setHeader('Content-Disposition', 'attachment; filename="BL-Sales-Vault.zip"');
+        res.setHeader('Content-Disposition', 'attachment; filename="Business-Lead-Vault-2026.zip"');
         
         const fileStream = fs.createReadStream(vaultZipPath);
         fileStream.pipe(res);
