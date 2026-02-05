@@ -55,6 +55,30 @@ const channelIntelligence = require('./services/channelIntelligence');
 const channelMonitor = require('./slack/channelMonitor');
 const intelligenceDigest = require('./slack/intelligenceDigest');
 
+// Telemetry Store for admin debugging
+const telemetryStore = require('./services/telemetryStore');
+
+// Admin email list for protected endpoints
+const ADMIN_EMAILS = [
+  'keigan.pesenti@eudia.com',
+  'michael.ayers@eudia.com',
+  'zack@eudia.com'
+];
+
+// Admin authentication middleware
+function requireAdmin(req, res, next) {
+  const email = (req.query.adminEmail || req.headers['x-admin-email'] || '').toLowerCase().trim();
+  if (!ADMIN_EMAILS.includes(email)) {
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Admin access required',
+      hint: 'Pass adminEmail query param or x-admin-email header'
+    });
+  }
+  req.adminEmail = email;
+  next();
+}
+
 /**
  * Generate GTM-Brain Command Cheat Sheet HTML
  */
@@ -714,15 +738,18 @@ class GTMBrainApp {
 
     // Plugin telemetry endpoint - for remote debugging (opt-in)
     // Receives error reports from the Obsidian plugin for debugging
+    // Now persists to telemetryStore for admin access
     this.expressApp.post('/api/plugin/telemetry', (req, res) => {
       try {
         const { 
-          event,           // 'error' | 'warning' | 'info'
+          event,           // 'error' | 'warning' | 'info' | 'heartbeat' | 'sync'
           message,         // Error message or description
           context,         // Additional context (account, action, etc.)
           userEmail,       // Optional user identifier
           pluginVersion,   // Plugin version
-          platform         // 'obsidian' | 'web'
+          platform,        // 'obsidian' | 'web'
+          accountCount,    // For heartbeats
+          connections      // For heartbeats
         } = req.body;
         
         // Log for debugging (these appear in Render logs)
@@ -733,16 +760,138 @@ class GTMBrainApp {
             pluginVersion,
             platform
           });
+          // Persist to store
+          telemetryStore.recordError(userEmail, message, { context, pluginVersion, platform });
         } else if (event === 'warning') {
           logger.warn(`[Plugin Telemetry] ${message}`, { context, pluginVersion });
+          telemetryStore.recordWarning(userEmail, message, { context, pluginVersion, platform });
+        } else if (event === 'heartbeat') {
+          // Heartbeat - update user presence
+          telemetryStore.recordHeartbeat(userEmail, { 
+            version: pluginVersion, 
+            accountCount, 
+            connections,
+            platform 
+          });
+        } else if (event === 'sync') {
+          // Sync result
+          telemetryStore.recordSync(userEmail, { ...context, version: pluginVersion });
         } else {
           logger.info(`[Plugin Telemetry] ${message}`, { context, pluginVersion });
+          telemetryStore.recordInfo(userEmail, message, { context, pluginVersion, platform });
         }
         
         res.json({ success: true, received: true });
       } catch (error) {
         // Don't fail on telemetry errors
         res.json({ success: true, received: false });
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ADMIN ENDPOINTS - Remote debugging and user management
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // List all plugin users with their status
+    this.expressApp.get('/api/admin/users', requireAdmin, (req, res) => {
+      try {
+        const users = telemetryStore.getAllUsers();
+        res.json({
+          success: true,
+          users,
+          count: users.length,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        logger.error('[Admin] Error fetching users:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get debug info for a specific user
+    this.expressApp.get('/api/admin/users/:email/debug', requireAdmin, (req, res) => {
+      try {
+        const { email } = req.params;
+        const debugInfo = telemetryStore.getUserDebugInfo(email);
+        
+        if (!debugInfo.stats) {
+          return res.status(404).json({ 
+            success: false, 
+            error: 'User not found in telemetry logs' 
+          });
+        }
+        
+        res.json({
+          success: true,
+          ...debugInfo,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        logger.error('[Admin] Error fetching user debug:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get recent errors across all users
+    this.expressApp.get('/api/admin/errors', requireAdmin, (req, res) => {
+      try {
+        const sinceHours = parseInt(req.query.since) || 24;
+        const errors = telemetryStore.getRecentErrors(sinceHours);
+        
+        res.json({
+          success: true,
+          errors,
+          count: errors.length,
+          sinceHours,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        logger.error('[Admin] Error fetching errors:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Push config update to a user
+    this.expressApp.post('/api/admin/users/:email/push-config', requireAdmin, (req, res) => {
+      try {
+        const { email } = req.params;
+        const { updates } = req.body;
+        
+        if (!updates || !Array.isArray(updates) || updates.length === 0) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'updates array is required with { key, value } objects' 
+          });
+        }
+        
+        telemetryStore.storePushedConfig(email, updates);
+        
+        logger.info(`[Admin] Config pushed to ${email} by ${req.adminEmail}:`, updates);
+        
+        res.json({
+          success: true,
+          message: `Config pushed to ${email}. Will be applied on next plugin startup.`,
+          updates
+        });
+      } catch (error) {
+        logger.error('[Admin] Error pushing config:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get pushed config for a user (called by plugin on startup)
+    this.expressApp.get('/api/admin/users/:email/config', (req, res) => {
+      try {
+        const { email } = req.params;
+        const updates = telemetryStore.getPushedConfig(email);
+        
+        res.json({
+          success: true,
+          updates: updates || [],
+          hasUpdates: updates && updates.length > 0
+        });
+      } catch (error) {
+        res.json({ success: true, updates: [], hasUpdates: false });
       }
     });
 
@@ -2385,6 +2534,133 @@ class GTMBrainApp {
       }
     });
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BUSINESS LEAD BOOK OF BUSINESS - Dynamic account sync for plugin folders
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Returns accounts that should have folders in the vault:
+    // - Owned by the user
+    // - Customer_Type__c = 'Existing' OR has open opportunities
+    // Excludes Sample/Test accounts
+    this.expressApp.get('/api/bl-accounts/:email', async (req, res) => {
+      const startTime = Date.now();
+      const correlationId = `bl-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+      
+      try {
+        const { email } = req.params;
+        const normalizedEmail = email?.toLowerCase().trim();
+        
+        // Validate email format
+        if (!normalizedEmail || !normalizedEmail.includes('@')) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Valid email address required',
+            correlationId
+          });
+        }
+        
+        logger.info(`[BL-Accounts][${correlationId}] Fetching book of business for: ${normalizedEmail}`);
+        
+        // Step 1: Find the User by email
+        const userQuery = `SELECT Id, Name, Email FROM User WHERE Email = '${normalizedEmail.replace(/'/g, "\\'")}' AND IsActive = true LIMIT 1`;
+        const userResult = await sfConnection.query(userQuery);
+        
+        if (!userResult.records || userResult.records.length === 0) {
+          logger.warn(`[BL-Accounts][${correlationId}] No Salesforce user found for: ${normalizedEmail}`);
+          return res.status(404).json({
+            success: false,
+            error: 'User not found in Salesforce',
+            suggestion: 'Verify email matches your Salesforce account. Contact admin if issue persists.',
+            correlationId
+          });
+        }
+        
+        const user = userResult.records[0];
+        const userId = user.Id;
+        const userName = user.Name;
+        
+        // Step 2: Query accounts with the Business Lead criteria
+        // Includes accounts that are:
+        // - Owned by this user
+        // - Customer_Type__c = 'Existing' (active customers)
+        // - OR have at least one open opportunity
+        // Excludes Sample/Test accounts
+        const accountQuery = `
+          SELECT Id, Name, Type, Customer_Type__c, Website, Industry,
+                 (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
+          FROM Account 
+          WHERE OwnerId = '${userId}'
+            AND (
+              Customer_Type__c = 'Existing'
+              OR Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
+            )
+            AND (NOT Name LIKE '%Sample%')
+            AND (NOT Name LIKE '%Test%')
+          ORDER BY Name ASC
+        `;
+        
+        const accountResult = await sfConnection.query(accountQuery);
+        const queryTime = Date.now() - startTime;
+        
+        // Transform results with open opp info
+        const accounts = (accountResult.records || []).map(acc => {
+          const openOpps = acc.Opportunities?.records || [];
+          return {
+            id: acc.Id,
+            name: acc.Name,
+            type: acc.Type || null,
+            customerType: acc.Customer_Type__c || null,
+            industry: acc.Industry || null,
+            website: acc.Website || null,
+            hasOpenOpps: openOpps.length > 0,
+            oppCount: openOpps.length,
+            // Include first few opp names for context
+            openOpps: openOpps.slice(0, 3).map(o => ({
+              name: o.Name,
+              stage: o.StageName
+            }))
+          };
+        });
+        
+        logger.info(`[BL-Accounts][${correlationId}] Found ${accounts.length} accounts for ${userName} in ${queryTime}ms`);
+        
+        res.json({
+          success: true,
+          accounts,
+          meta: {
+            email: normalizedEmail,
+            userId: userId,
+            userName: userName,
+            total: accounts.length,
+            queryTime: queryTime,
+            lastRefresh: new Date().toISOString(),
+            correlationId
+          }
+        });
+        
+      } catch (error) {
+        const queryTime = Date.now() - startTime;
+        logger.error(`[BL-Accounts][${correlationId}] Error:`, error);
+        
+        // Check for specific Salesforce errors
+        if (error.errorCode === 'INVALID_SESSION_ID') {
+          return res.status(503).json({
+            success: false,
+            error: 'Salesforce session expired. Reconnecting...',
+            retryAfter: 5,
+            correlationId
+          });
+        }
+        
+        res.status(500).json({ 
+          success: false, 
+          error: 'Failed to fetch book of business',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+          queryTime,
+          correlationId
+        });
+      }
+    });
+
     // Get ALL accounts (for admin users in Obsidian plugin)
     // Admin emails: keigan.pesenti@eudia.com, michael.ayers@eudia.com, zack@eudia.com
     this.expressApp.get('/api/accounts/all', async (req, res) => {
@@ -3435,6 +3711,55 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
       } catch (error) {
         logger.error('Summarization error:', error);
         res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Process transcript sections (server-side GPT call for plugin fallback)
+    // This endpoint allows the Obsidian plugin to extract sections without needing an API key
+    this.expressApp.post('/api/process-sections', async (req, res) => {
+      try {
+        const { transcript, accountName, context } = req.body;
+        
+        if (!transcript) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'transcript is required' 
+          });
+        }
+
+        logger.info(`Processing sections for: ${accountName || 'unknown account'}, transcript length: ${transcript.length}`);
+
+        // Use the transcriptionService.summarize method which extracts structured sections
+        const result = await transcriptionService.summarize(transcript, {
+          accountName,
+          ...context
+        });
+
+        if (!result.success) {
+          return res.status(500).json({
+            success: false,
+            error: result.error || 'Failed to process sections'
+          });
+        }
+
+        res.json({
+          success: true,
+          sections: result.sections || {
+            attendees: '',
+            summary: '',
+            keyPoints: '',
+            nextSteps: '',
+            meddiccSignals: '',
+            concerns: ''
+          }
+        });
+
+      } catch (error) {
+        logger.error('Process sections error:', error);
+        res.status(500).json({ 
+          success: false, 
+          error: error.message || 'Failed to process transcript sections'
+        });
       }
     });
 

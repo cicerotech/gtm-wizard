@@ -47,8 +47,6 @@ interface EudiaSyncSettings {
   // Account import tracking
   accountsImported: boolean;
   importedAccountCount: number;
-  // OpenAI configuration (fallback if server key unavailable)
-  openaiApiKey: string;
   // Smart tagging
   enableSmartTags: boolean;
   // Calendar
@@ -57,6 +55,9 @@ interface EudiaSyncSettings {
   timezone: string;
   // Daily account folder refresh tracking
   lastAccountRefreshDate: string | null;
+  // Dynamic sync settings
+  archiveRemovedAccounts: boolean;
+  syncAccountsOnStartup: boolean;
 }
 
 // Common timezone options for US/EU sales teams
@@ -90,9 +91,10 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   salesforceConnected: false,
   accountsImported: false,
   importedAccountCount: 0,
-  openaiApiKey: '',
   timezone: 'America/New_York',
-  lastAccountRefreshDate: null
+  lastAccountRefreshDate: null,
+  archiveRemovedAccounts: true,
+  syncAccountsOnStartup: true
 };
 
 interface SalesforceAccount {
@@ -108,6 +110,7 @@ class TelemetryService {
   private serverUrl: string;
   private userEmail: string;
   private enabled: boolean = true; // Can be disabled via settings in future
+  private pluginVersion: string = '4.1.0';
   
   constructor(serverUrl: string, userEmail: string = '') {
     this.serverUrl = serverUrl;
@@ -143,6 +146,77 @@ class TelemetryService {
     this.send('info', message, context);
   }
   
+  /**
+   * Send a heartbeat to update user presence and status
+   */
+  async sendHeartbeat(accountCount: number, connections: Record<string, string>): Promise<void> {
+    if (!this.enabled || !this.userEmail) return;
+    try {
+      requestUrl({
+        url: `${this.serverUrl}/api/plugin/telemetry`,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'heartbeat',
+          userEmail: this.userEmail,
+          pluginVersion: this.pluginVersion,
+          platform: 'obsidian',
+          accountCount,
+          connections
+        })
+      }).catch(() => {});
+    } catch {
+      // Never throw from telemetry
+    }
+  }
+  
+  /**
+   * Report sync results
+   */
+  async reportSync(result: { added: number; archived: number; success: boolean; error?: string }): Promise<void> {
+    if (!this.enabled) return;
+    try {
+      requestUrl({
+        url: `${this.serverUrl}/api/plugin/telemetry`,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'sync',
+          userEmail: this.userEmail || 'anonymous',
+          pluginVersion: this.pluginVersion,
+          platform: 'obsidian',
+          context: result
+        })
+      }).catch(() => {});
+    } catch {
+      // Never throw from telemetry
+    }
+  }
+  
+  /**
+   * Check for pushed config from admin
+   * Returns array of config updates if any
+   */
+  async checkForPushedConfig(): Promise<{ key: string; value: any }[]> {
+    if (!this.userEmail) return [];
+    try {
+      const response = await requestUrl({
+        url: `${this.serverUrl}/api/admin/users/${encodeURIComponent(this.userEmail)}/config`,
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.json?.hasUpdates && response.json?.updates) {
+        console.log('[Eudia] Received pushed config from admin:', response.json.updates);
+        return response.json.updates;
+      }
+      return [];
+    } catch {
+      // Silently ignore - config push is optional
+      return [];
+    }
+  }
+  
   private async send(event: string, message: string, context?: Record<string, any>): Promise<void> {
     try {
       // Fire and forget - don't await, don't block
@@ -155,7 +229,7 @@ class TelemetryService {
           message,
           context,
           userEmail: this.userEmail || 'anonymous',
-          pluginVersion: '4.0.0',
+          pluginVersion: this.pluginVersion,
           platform: 'obsidian'
         })
       }).catch(() => {}); // Silently ignore failures
@@ -2268,8 +2342,7 @@ export default class EudiaSyncPlugin extends Plugin {
 
     // Initialize services
     this.transcriptionService = new TranscriptionService(
-      this.settings.serverUrl,
-      this.settings.openaiApiKey
+      this.settings.serverUrl
     );
     
     this.calendarService = new CalendarService(
@@ -2373,29 +2446,88 @@ export default class EudiaSyncPlugin extends Plugin {
         // Scan local folders instead of syncing from server
         await this.scanLocalAccountFolders();
         
-        // Daily auto-refresh: Check for new account assignments from Salesforce
-        // Runs once per day on startup to detect newly assigned accounts
-        if (this.settings.userEmail) {
+        // Startup sync: Use new BL accounts endpoint for dynamic folder sync
+        // Runs on startup if enabled, and daily to check for changes
+        if (this.settings.userEmail && this.settings.syncAccountsOnStartup) {
           const today = new Date().toISOString().split('T')[0];
-          if (this.settings.lastAccountRefreshDate !== today) {
-            try {
-              console.log('[Eudia] Daily account folder refresh - checking for new assignments...');
-              const newCount = await this.refreshAccountFolders();
-              this.settings.lastAccountRefreshDate = today;
-              await this.saveSettings();
-              if (newCount > 0) {
-                new Notice(`${newCount} new account folder(s) synced from Salesforce`);
+          const shouldSync = this.settings.lastAccountRefreshDate !== today;
+          
+          if (shouldSync) {
+            // Non-blocking sync after initial load
+            setTimeout(async () => {
+              try {
+                console.log('[Eudia] Startup account sync - checking for changes...');
+                const result = await this.syncAccountFolders();
+                
+                if (result.success) {
+                  this.settings.lastAccountRefreshDate = today;
+                  await this.saveSettings();
+                  
+                  if (result.added > 0 || result.archived > 0) {
+                    const parts = [];
+                    if (result.added > 0) parts.push(`${result.added} added`);
+                    if (result.archived > 0) parts.push(`${result.archived} archived`);
+                    new Notice(`Account folders synced: ${parts.join(', ')}`);
+                  }
+                } else {
+                  console.log('[Eudia] Sync failed:', result.error);
+                }
+              } catch (e) {
+                // Silently skip if server is unreachable - will retry tomorrow
+                console.log('[Eudia] Startup sync skipped (server unreachable), will retry tomorrow');
               }
-            } catch (e) {
-              // Silently skip if server is unreachable - will retry tomorrow
-              console.log('[Eudia] Daily refresh skipped (server unreachable), will retry tomorrow');
-            }
+            }, 2000); // 2 second delay for non-blocking startup
           }
         }
         
         // Activate calendar view if configured
         if (this.settings.showCalendarView && this.settings.userEmail) {
           await this.activateCalendarView();
+        }
+        
+        // Send heartbeat and check for pushed config (non-blocking)
+        if (this.settings.userEmail && this.telemetry) {
+          setTimeout(async () => {
+            try {
+              // Count account folders
+              const accountsFolder = this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);
+              let accountCount = 0;
+              if (accountsFolder && accountsFolder instanceof TFolder) {
+                accountCount = accountsFolder.children.filter(
+                  c => c instanceof TFolder && !c.name.startsWith('_')
+                ).length;
+              }
+              
+              // Get connection status
+              const connections = {
+                salesforce: this.settings.salesforceConnected ? 'connected' : 'not_configured',
+                calendar: this.settings.calendarConfigured ? 'connected' : 'not_configured'
+              };
+              
+              // Send heartbeat
+              await this.telemetry.sendHeartbeat(accountCount, connections);
+              
+              // Check for pushed config from admin
+              const pushedUpdates = await this.telemetry.checkForPushedConfig();
+              if (pushedUpdates.length > 0) {
+                let settingsChanged = false;
+                for (const update of pushedUpdates) {
+                  if (update.key && this.settings.hasOwnProperty(update.key)) {
+                    (this.settings as any)[update.key] = update.value;
+                    settingsChanged = true;
+                    console.log(`[Eudia] Applied pushed config: ${update.key} = ${update.value}`);
+                  }
+                }
+                if (settingsChanged) {
+                  await this.saveSettings();
+                  new Notice('Settings updated by admin');
+                }
+              }
+            } catch (e) {
+              // Silently ignore - heartbeat is optional
+              console.log('[Eudia] Heartbeat/config check skipped');
+            }
+          }, 3000); // 3 second delay after other startup tasks
         }
       }
     });
@@ -3788,6 +3920,169 @@ ${transcription.text}
     return newAccounts.length;
   }
 
+  /**
+   * Sync account folders with Salesforce using the BL Book of Business endpoint
+   * - Adds new accounts as folders
+   * - Optionally archives removed accounts
+   * Returns sync result with counts
+   */
+  async syncAccountFolders(): Promise<{ success: boolean; added: number; archived: number; error?: string }> {
+    if (!this.settings.userEmail) {
+      return { success: false, added: 0, archived: 0, error: 'No email configured' };
+    }
+
+    const email = this.settings.userEmail.toLowerCase().trim();
+    console.log(`[Eudia] Syncing account folders for: ${email}`);
+
+    try {
+      // Fetch from new /api/bl-accounts/:email endpoint
+      const response = await fetch(`${this.settings.serverUrl}/api/bl-accounts/${encodeURIComponent(email)}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success || !data.accounts) {
+        throw new Error(data.error || 'Invalid response from server');
+      }
+
+      const serverAccounts: { id: string; name: string; customerType?: string; hasOpenOpps?: boolean }[] = data.accounts;
+      
+      // Get existing account folders
+      const accountsFolder = this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);
+      const existingFolders = new Map<string, TFolder>();
+      
+      if (accountsFolder && accountsFolder instanceof TFolder) {
+        for (const child of accountsFolder.children) {
+          if (child instanceof TFolder && !child.name.startsWith('_')) {
+            existingFolders.set(child.name.toLowerCase().trim(), child);
+          }
+        }
+      }
+
+      // Determine changes
+      const serverAccountNames = new Set(serverAccounts.map(a => a.name.toLowerCase().trim()));
+      
+      // New accounts = in server but not in local folders
+      const newAccounts = serverAccounts.filter(account => {
+        const normalizedName = account.name.toLowerCase().trim();
+        return !existingFolders.has(normalizedName);
+      });
+
+      // Removed accounts = in local folders but not in server
+      const removedFolders: TFolder[] = [];
+      for (const [normalizedName, folder] of existingFolders.entries()) {
+        if (!serverAccountNames.has(normalizedName)) {
+          removedFolders.push(folder);
+        }
+      }
+
+      let addedCount = 0;
+      let archivedCount = 0;
+
+      // Create new account folders
+      if (newAccounts.length > 0) {
+        console.log(`[Eudia] Creating ${newAccounts.length} new account folders`);
+        await this.createTailoredAccountFolders(newAccounts.map(a => ({
+          id: a.id,
+          name: a.name,
+          type: a.customerType as 'Customer' | 'Prospect' | 'Target' | undefined
+        })));
+        addedCount = newAccounts.length;
+        
+        // Report to telemetry
+        if (this.telemetry) {
+          this.telemetry.reportInfo('Accounts synced - added', { count: addedCount });
+        }
+      }
+
+      // Archive removed folders (if enabled)
+      if (this.settings.archiveRemovedAccounts && removedFolders.length > 0) {
+        console.log(`[Eudia] Archiving ${removedFolders.length} removed account folders`);
+        archivedCount = await this.archiveAccountFolders(removedFolders);
+        
+        // Report to telemetry
+        if (this.telemetry) {
+          this.telemetry.reportInfo('Accounts synced - archived', { count: archivedCount });
+        }
+      }
+
+      console.log(`[Eudia] Sync complete: ${addedCount} added, ${archivedCount} archived`);
+      
+      return { success: true, added: addedCount, archived: archivedCount };
+
+    } catch (error: any) {
+      console.error('[Eudia] Account sync error:', error);
+      
+      // Report error to telemetry
+      if (this.telemetry) {
+        this.telemetry.reportError('Account sync failed', { error: error.message });
+      }
+      
+      return { success: false, added: 0, archived: 0, error: error.message };
+    }
+  }
+
+  /**
+   * Archive account folders by moving them to _Archived directory
+   * Preserves all content, just moves the folder
+   */
+  async archiveAccountFolders(folders: TFolder[]): Promise<number> {
+    let archivedCount = 0;
+    
+    // Ensure _Archived folder exists
+    const archivePath = `${this.settings.accountsFolder}/_Archived`;
+    let archiveFolder = this.app.vault.getAbstractFileByPath(archivePath);
+    
+    if (!archiveFolder) {
+      await this.app.vault.createFolder(archivePath);
+    }
+    
+    for (const folder of folders) {
+      try {
+        const newPath = `${archivePath}/${folder.name}`;
+        
+        // Check if destination already exists
+        const existing = this.app.vault.getAbstractFileByPath(newPath);
+        if (existing) {
+          // Add timestamp to avoid collision
+          const timestamp = new Date().toISOString().split('T')[0];
+          await this.app.fileManager.renameFile(folder, `${archivePath}/${folder.name}_${timestamp}`);
+        } else {
+          await this.app.fileManager.renameFile(folder, newPath);
+        }
+        
+        // Create archive marker file
+        const markerPath = `${archivePath}/${folder.name}/_archived.md`;
+        const markerContent = `---
+archived_date: ${new Date().toISOString()}
+reason: Account no longer in book of business
+---
+
+This account folder was archived because it no longer appears in your Salesforce book of business.
+
+To restore, move this folder back to the Accounts directory.
+`;
+        try {
+          await this.app.vault.create(markerPath, markerContent);
+        } catch (e) {
+          // Marker creation is non-critical
+        }
+        
+        archivedCount++;
+        console.log(`[Eudia] Archived: ${folder.name}`);
+        
+      } catch (error) {
+        console.error(`[Eudia] Failed to archive ${folder.name}:`, error);
+      }
+    }
+    
+    return archivedCount;
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // SALESFORCE NOTE SYNC
   // ─────────────────────────────────────────────────────────────────────────
@@ -4167,19 +4462,6 @@ class EudiaSyncSettingTab extends PluginSettingTab {
         }));
     
     advancedSection.style.display = 'none';
-    new Setting(advancedSection)
-      .setName('OpenAI API Key (Fallback)')
-      .setDesc('Only needed if server transcription is unavailable')
-      .addText(text => {
-        text
-          .setPlaceholder('sk-...')
-          .setValue(this.plugin.settings.openaiApiKey)
-          .onChange(async (value) => {
-            this.plugin.settings.openaiApiKey = value;
-            await this.plugin.saveSettings();
-          });
-        text.inputEl.type = 'password';
-      });
 
     // ─────────────────────────────────────────────────────────────────────
     // TRANSCRIPTION

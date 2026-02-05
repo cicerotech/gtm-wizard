@@ -768,11 +768,9 @@ CRITICAL RULES:
 
 export class TranscriptionService {
   private serverUrl: string;
-  private openaiApiKey: string | null = null;
 
-  constructor(serverUrl: string, openaiApiKey?: string) {
+  constructor(serverUrl: string) {
     this.serverUrl = serverUrl;
-    this.openaiApiKey = openaiApiKey || null;
   }
 
   /**
@@ -780,13 +778,6 @@ export class TranscriptionService {
    */
   setServerUrl(url: string): void {
     this.serverUrl = url;
-  }
-
-  /**
-   * Update OpenAI API key
-   */
-  setOpenAIKey(key: string): void {
-    this.openaiApiKey = key;
   }
 
   /**
@@ -813,7 +804,6 @@ export class TranscriptionService {
           mimeType,
           accountName,
           accountId,
-          openaiApiKey: this.openaiApiKey,
           context: context ? {
             customerBrain: context.account?.customerBrain,
             opportunities: context.opportunities,
@@ -880,130 +870,6 @@ export class TranscriptionService {
         duration: 0,
         error: errorMessage
       };
-    }
-  }
-
-  /**
-   * Local fallback transcription using user's OpenAI key
-   */
-  async transcribeLocal(
-    audioBase64: string,
-    mimeType: string,
-    accountName?: string,
-    context?: MeetingContext
-  ): Promise<TranscriptionResult> {
-    if (!this.openaiApiKey) {
-      return {
-        success: false,
-        transcript: '',
-        sections: this.getEmptySections(),
-        duration: 0,
-        error: 'No OpenAI API key configured. Add it in plugin settings.'
-      };
-    }
-
-    try {
-      // Convert base64 to blob for FormData
-      const binaryString = atob(audioBase64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const audioBlob = new Blob([bytes], { type: mimeType });
-      
-      // Create FormData for Whisper API
-      const formData = new FormData();
-      const extension = mimeType.includes('webm') ? 'webm' : mimeType.includes('mp4') ? 'm4a' : 'ogg';
-      formData.append('file', audioBlob, `audio.${extension}`);
-      formData.append('model', 'whisper-1');
-      formData.append('response_format', 'verbose_json');
-      formData.append('language', 'en');
-
-      // Call Whisper API
-      const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.openaiApiKey}`
-        },
-        body: formData
-      });
-
-      if (!whisperResponse.ok) {
-        const errorText = await whisperResponse.text();
-        throw new Error(`Whisper API error: ${whisperResponse.status} - ${errorText}`);
-      }
-
-      const whisperResult = await whisperResponse.json();
-      const transcript = whisperResult.text || '';
-      const duration = whisperResult.duration || 0;
-
-      // Now summarize with GPT-4o using precision prompt
-      const sections = await this.summarizeLocal(transcript, accountName, context);
-
-      return {
-        success: true,
-        transcript,
-        sections,
-        duration
-      };
-
-    } catch (error) {
-      console.error('Local transcription error:', error);
-      return {
-        success: false,
-        transcript: '',
-        sections: this.getEmptySections(),
-        duration: 0,
-        error: error.message || 'Local transcription failed'
-      };
-    }
-  }
-
-  /**
-   * Summarize transcript locally using GPT-4o with precision prompt
-   */
-  async summarizeLocal(
-    transcript: string, 
-    accountName?: string,
-    context?: MeetingContext
-  ): Promise<ProcessedSections> {
-    if (!this.openaiApiKey) {
-      return this.getEmptySections();
-    }
-
-    try {
-      const systemPrompt = buildAnalysisPrompt(accountName, context);
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.openaiApiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Analyze this meeting transcript:\n\n${transcript.substring(0, 100000)}` }
-          ],
-          temperature: 0.2, // Lower temperature for more consistent output
-          max_tokens: 6000  // Increased for comprehensive analysis
-        })
-      });
-
-      if (!response.ok) {
-        console.warn('GPT summarization failed, returning empty sections');
-        return this.getEmptySections();
-      }
-
-      const result = await response.json();
-      const content = result.choices?.[0]?.message?.content || '';
-      
-      return this.parseSections(content);
-
-    } catch (error) {
-      console.error('Local summarization error:', error);
-      return this.getEmptySections();
     }
   }
 
@@ -1391,115 +1257,52 @@ export class TranscriptionService {
 
   /**
    * Wrapper method for main.ts - processes transcription into sections
-   * Called by main.ts line 1266
+   * Routes through server to avoid requiring user API key
    */
   async processTranscription(
     transcriptText: string,
     context?: { accountName?: string; accountId?: string }
   ): Promise<ProcessedSections> {
-    // If we already have the transcript, we need to re-summarize it
-    // This is a simplified version - in production, you might cache the sections
     if (!transcriptText || transcriptText.trim().length === 0) {
       return this.getEmptySections();
     }
 
     try {
-      // Use OpenAI to extract sections from the transcript
-      if (this.openaiApiKey) {
-        const prompt = `Analyze this meeting transcript and extract structured information:
+      // Call server endpoint for section extraction (uses server's OpenAI key)
+      const response = await requestUrl({
+        url: `${this.serverUrl}/api/process-sections`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          transcript: transcriptText,
+          accountName: context?.accountName,
+          context: context
+        })
+      });
 
-TRANSCRIPT:
-${transcriptText}
-
-Extract the following in JSON format:
-{
-  "summary": "2-3 sentence meeting summary",
-  "keyPoints": ["key point 1", "key point 2", ...],
-  "nextSteps": ["action item 1", "action item 2", ...],
-  "meddiccSignals": [{"category": "Metrics|Economic Buyer|Decision Criteria|Decision Process|Identify Pain|Champion|Competition", "signal": "the signal text", "confidence": 0.8}],
-  "attendees": ["name 1", "name 2", ...]
-}`;
-
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${this.openaiApiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              { role: 'system', content: 'You are a sales meeting analyst. Extract structured information from transcripts. Return valid JSON only.' },
-              { role: 'user', content: prompt }
-            ],
-            temperature: 0.3,
-            max_tokens: 2000
-          })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const content = data.choices?.[0]?.message?.content || '';
-          
-          // Parse JSON from response
-          const jsonMatch = content.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            
-            // Convert arrays to formatted strings to match ProcessedSections interface
-            const formatNextSteps = (steps: any) => {
-              if (Array.isArray(steps)) {
-                return steps.map(s => `- [ ] ${s}`).join('\n');
-              }
-              return steps || '';
-            };
-            
-            const formatKeyPoints = (points: any) => {
-              if (Array.isArray(points)) {
-                return points.map(p => `- ${p}`).join('\n');
-              }
-              return points || '';
-            };
-            
-            const formatMeddicc = (signals: any) => {
-              if (Array.isArray(signals)) {
-                return signals.map(s => {
-                  if (typeof s === 'object' && s.category) {
-                    return `**${s.category}**: ${s.signal || s.insight || ''}`;
-                  }
-                  return `- ${s}`;
-                }).join('\n');
-              }
-              return signals || '';
-            };
-            
-            const formatAttendees = (attendees: any) => {
-              if (Array.isArray(attendees)) {
-                return attendees.map(a => `- ${a}`).join('\n');
-              }
-              return attendees || '';
-            };
-            
-            return {
-              summary: parsed.summary || '',
-              painPoints: formatKeyPoints(parsed.keyPoints || parsed.painPoints),
-              productInterest: '',
-              meddiccSignals: formatMeddicc(parsed.meddiccSignals),
-              nextSteps: formatNextSteps(parsed.nextSteps),
-              actionItems: '',
-              keyDates: '',
-              buyingTriggers: '',
-              dealSignals: '',
-              risksObjections: '',
-              competitiveIntel: '',
-              attendees: formatAttendees(parsed.attendees),
-              transcript: transcriptText
-            };
-          }
-        }
+      if (response.json?.success && response.json?.sections) {
+        const sections = response.json.sections;
+        return {
+          summary: sections.summary || '',
+          painPoints: sections.painPoints || sections.keyPoints || '',
+          productInterest: sections.productInterest || '',
+          meddiccSignals: sections.meddiccSignals || '',
+          nextSteps: sections.nextSteps || '',
+          actionItems: sections.actionItems || '',
+          keyDates: sections.keyDates || '',
+          buyingTriggers: sections.buyingTriggers || '',
+          dealSignals: sections.dealSignals || '',
+          risksObjections: sections.risksObjections || sections.concerns || '',
+          competitiveIntel: sections.competitiveIntel || '',
+          attendees: sections.attendees || '',
+          transcript: transcriptText
+        };
       }
 
-      // Fallback: return basic sections (all strings)
+      // Server call failed - return basic sections
+      console.warn('Server process-sections returned no sections, using fallback');
       return {
         summary: 'Meeting transcript captured. Review for key details.',
         painPoints: '',
@@ -1517,9 +1320,10 @@ Extract the following in JSON format:
       };
 
     } catch (error) {
-      console.error('processTranscription error:', error);
+      console.error('processTranscription server error:', error);
+      // Return basic sections on error
       return {
-        summary: '',
+        summary: 'Meeting transcript captured. Review for key details.',
         painPoints: '',
         productInterest: '',
         meddiccSignals: '',
