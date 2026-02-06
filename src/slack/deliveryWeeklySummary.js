@@ -114,7 +114,7 @@ async function queryDeliveryData() {
     logger.info('📦 Querying delivery data from Salesforce...');
     
     // Query fields from the Delivery__c object
-    // ONLY using fields confirmed to exist from the Salesforce report
+    // Include Opportunity stage to determine Deal Status (Won vs Active)
     const soql = `
       SELECT 
         Id, 
@@ -124,6 +124,7 @@ async function queryDeliveryData() {
         Opportunity__c, 
         Opportunity__r.Name,
         Opportunity__r.CloseDate,
+        Opportunity__r.StageName,
         Contract_Value__c,
         Status__c,
         Product_Line__c,
@@ -177,6 +178,7 @@ function processDeliveryData(records) {
   const byProductLine = {};
   const byProjectSize = {};
   const byDeploymentModel = {};
+  const byDealStatus = {};  // Won vs Active based on Opportunity stage
   
   // Totals
   let totalContractValue = 0;
@@ -216,6 +218,32 @@ function processDeliveryData(records) {
     } else if (!statusLower.includes('cancelled') && !statusLower.includes('on hold')) {
       activeCount++;
     }
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // DEAL STATUS - Won vs Active based on Opportunity stage
+    // Won = Closed stages, Active = Open/Late stages
+    // ═══════════════════════════════════════════════════════════════════════
+    const oppStage = record.Opportunity__r?.StageName || '';
+    const dealStatus = oppStage.toLowerCase().includes('closed') || oppStage.includes('Won') ? 'Won' : 'Active';
+    
+    if (!byDealStatus[dealStatus]) {
+      byDealStatus[dealStatus] = {
+        count: 0,
+        contractValue: 0,
+        accounts: new Set(),
+        owners: {}
+      };
+    }
+    byDealStatus[dealStatus].count++;
+    byDealStatus[dealStatus].contractValue += contractValue;
+    if (record.Account__c) byDealStatus[dealStatus].accounts.add(record.Account__c);
+    
+    // Track owners within deal status
+    if (!byDealStatus[dealStatus].owners[ownerName]) {
+      byDealStatus[dealStatus].owners[ownerName] = { count: 0, contractValue: 0 };
+    }
+    byDealStatus[dealStatus].owners[ownerName].count++;
+    byDealStatus[dealStatus].owners[ownerName].contractValue += contractValue;
     
     // ═══════════════════════════════════════════════════════════════════════
     // GROUP BY STATUS (dynamic)
@@ -330,6 +358,7 @@ function processDeliveryData(records) {
   const result = {
     ownerMetrics,
     statusBreakdown,
+    dealStatusBreakdown: byDealStatus,  // Won vs Active segmentation
     productLineBreakdown: byProductLine,
     projectSizeBreakdown: byProjectSize,
     deploymentModelBreakdown: byDeploymentModel,
@@ -873,61 +902,57 @@ async function generateDeliveryExcel(deliveryData) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function formatSlackMessage(deliveryData, dateStr) {
-  const { ownerMetrics, statusBreakdown, productLineBreakdown, totals } = deliveryData;
+  const { dealStatusBreakdown, totals } = deliveryData;
   
   let message = `*Eudia Delivery Weekly Snapshot — ${dateStr}*\n\n`;
   
-  // ═══════════════════════════════════════════════════════════════════════
-  // DELIVERY OVERVIEW
-  // ═══════════════════════════════════════════════════════════════════════
-  message += '*DELIVERY OVERVIEW*\n';
-  message += `Total Deliveries: ${totals.totalRecords} across ${totals.totalAccounts} accounts\n`;
-  message += `Active: ${totals.activeCount} | Completed: ${totals.completedCount}\n\n`;
+  // Get Won (In Delivery) and Active (Late Stage) data
+  const wonData = dealStatusBreakdown['Won'] || { count: 0, contractValue: 0, owners: {} };
+  const activeData = dealStatusBreakdown['Active'] || { count: 0, contractValue: 0, owners: {} };
   
   // ═══════════════════════════════════════════════════════════════════════
-  // BY STATUS
+  // IN DELIVERY (Won deals)
   // ═══════════════════════════════════════════════════════════════════════
-  message += '*BY STATUS*\n';
-  const sortedStatuses = Object.entries(statusBreakdown)
-    .sort((a, b) => b[1].count - a[1].count);
+  message += `*IN DELIVERY*\n`;
+  message += `${wonData.count} deliveries, ${formatCurrency(wonData.contractValue)}\n`;
   
-  sortedStatuses.forEach(([status, data]) => {
-    const deliveryWord = data.count === 1 ? 'delivery' : 'deliveries';
-    message += `• ${status}: ${data.count} ${deliveryWord} (${formatCurrency(data.contractValue)})\n`;
-  });
+  // Top owners for Won
+  const wonOwners = Object.entries(wonData.owners || {})
+    .sort((a, b) => b[1].contractValue - a[1].contractValue)
+    .slice(0, 5);
+  
+  if (wonOwners.length > 0) {
+    wonOwners.forEach(([owner, data]) => {
+      const firstName = owner.split(' ')[0];
+      message += `• ${firstName}: ${data.count}, ${formatCurrency(data.contractValue)}\n`;
+    });
+  }
   message += '\n';
   
   // ═══════════════════════════════════════════════════════════════════════
-  // BY PRODUCT LINE
+  // LATE STAGE (Active deals with deliveries)
   // ═══════════════════════════════════════════════════════════════════════
-  message += '*BY PRODUCT LINE*\n';
-  const sortedProducts = Object.entries(productLineBreakdown)
-    .sort((a, b) => b[1].count - a[1].count);
+  message += `*LATE STAGE*\n`;
+  message += `${activeData.count} deliveries, ${formatCurrency(activeData.contractValue)}\n`;
   
-  sortedProducts.forEach(([product, data]) => {
-    message += `• ${product}: ${data.count} (${formatCurrency(data.contractValue)})\n`;
-  });
+  // Top owners for Active
+  const activeOwners = Object.entries(activeData.owners || {})
+    .sort((a, b) => b[1].contractValue - a[1].contractValue)
+    .slice(0, 5);
+  
+  if (activeOwners.length > 0) {
+    activeOwners.forEach(([owner, data]) => {
+      const firstName = owner.split(' ')[0];
+      message += `• ${firstName}: ${data.count}, ${formatCurrency(data.contractValue)}\n`;
+    });
+  }
   message += '\n';
   
   // ═══════════════════════════════════════════════════════════════════════
-  // BY DELIVERY OWNER
+  // TOTAL
   // ═══════════════════════════════════════════════════════════════════════
-  message += '*BY DELIVERY OWNER*\n';
+  message += `*TOTAL:* ${totals.totalRecords} deliveries, ${formatCurrency(totals.totalContractValue)}\n\n`;
   
-  const sortedOwners = Object.entries(ownerMetrics)
-    .filter(([_, m]) => m.deliveries > 0)
-    .sort((a, b) => b[1].contractValue - a[1].contractValue);
-  
-  sortedOwners.forEach(([owner, metrics]) => {
-    const firstName = owner.split(' ')[0];
-    const deliveryWord = metrics.deliveries === 1 ? 'delivery' : 'deliveries';
-    message += `• ${firstName} — ${metrics.deliveries} ${deliveryWord}, ${formatCurrency(metrics.contractValue)}\n`;
-  });
-  message += '\n';
-  
-  // ═══════════════════════════════════════════════════════════════════════
-  // FILE REFERENCE
-  // ═══════════════════════════════════════════════════════════════════════
   message += '_See attached PDF and Excel for full details._';
   
   return message;
