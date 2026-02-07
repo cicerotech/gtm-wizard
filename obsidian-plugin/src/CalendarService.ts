@@ -93,8 +93,9 @@ export class CalendarService {
 
   /**
    * Fetch today's meetings
+   * @param forceRefresh - If true, forces server to sync fresh data from Microsoft Graph
    */
-  async getTodaysMeetings(): Promise<TodayResponse> {
+  async getTodaysMeetings(forceRefresh: boolean = false): Promise<TodayResponse> {
     if (!this.userEmail) {
       return {
         success: false,
@@ -108,8 +109,9 @@ export class CalendarService {
 
     try {
       const tz = encodeURIComponent(this.timezone);
+      const refreshParam = forceRefresh ? '&forceRefresh=true' : '';
       const response = await requestUrl({
-        url: `${this.serverUrl}/api/calendar/${this.userEmail}/today?timezone=${tz}`,
+        url: `${this.serverUrl}/api/calendar/${this.userEmail}/today?timezone=${tz}${refreshParam}`,
         method: 'GET',
         headers: { 'Accept': 'application/json' }
       });

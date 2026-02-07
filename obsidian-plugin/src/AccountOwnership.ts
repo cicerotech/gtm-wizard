@@ -27,7 +27,8 @@ export const ADMIN_EMAILS = [
 export const EXEC_EMAILS = [
   'omar@eudia.com',
   'david@eudia.com',
-  'ashish@eudia.com'
+  'ashish@eudia.com',
+  'siddharth.saxena@eudia.com'  // Product Ops & Partnerships Lead
 ];
 
 /**

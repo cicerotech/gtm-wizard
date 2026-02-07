@@ -43,87 +43,83 @@ if (!OPENAI_API_KEY) {
 function createQuickStart(destDir) {
   console.log('📝 Creating QuickStart guide...');
   
-  const quickStartContent = `# Quick Reference
+  const quickStartContent = `# Quick Start
 
-Your sales vault: record meetings, transcribe with AI, sync to Salesforce.
-
----
-
-## What This Does
-
-- **Transcribes** your customer calls with speaker identification
-- **Extracts** next steps, pain points, and MEDDICC data automatically  
-- **Syncs** everything to Salesforce and the GTM Hub for meeting prep
+Your command center for account intelligence, meeting prep, and deal context.
 
 ---
 
-## Your Daily Workflow
+## Getting Started
 
-### Before a Call
-1. Click the **calendar icon** → find your meeting → click to create a note
-2. Review context in GTM Hub's Meeting Prep tab
-
-### During a Call  
-1. Click the **microphone icon** to start recording
-2. Take any manual notes as needed
-
-### After a Call
-1. Click microphone again to stop → AI transcribes in ~30 seconds
-2. Next steps auto-populate to your dashboards
-3. Note syncs to Salesforce (if enabled)
+1. **Enter your email** - Use your @eudia.com email address
+2. **Connect Salesforce** (optional) - Enables live account sync
+3. **Your accounts load** - Account folders appear in the left sidebar
 
 ---
 
-## Key Locations
+## Two Ways to Access Account Intel
 
-| Folder | What's There |
-|--------|--------------|
-| **Accounts/** | One folder per account with notes, contacts, intelligence |
-| **Next Steps/** | All action items across every account |
-| **_Analytics/** | Team performance, objections, coaching (managers) |
-| **_Customer Health/** | At-risk accounts, expansion signals, feature requests |
+### 📁 Account Folders (Left Sidebar)
+Click any account folder to see:
+- Meeting notes and transcripts
+- Key contacts and roles
+- Historical deal context
+
+**Best for:** Browsing account history, reviewing past meetings
+
+### 💬 GTM Brain (Chat Panel)
+Click the **message icon** in the ribbon, then ask questions like:
+- "What's the latest on [Account]?"
+- "Who are the key stakeholders?"
+- "What pain points have they mentioned?"
+
+**Best for:** Quick intel lookup, prep questions, deal strategy
+
+> **Tip:** GTM Brain pulls from Slack, calendar, Salesforce, and meeting notes. The more activity on an account, the richer the answers.
 
 ---
 
-## Sidebar Icons
+## The Ribbon Icons
 
-| Icon | Action |
+| Icon | What It Does |
+|------|--------------|
+| 📅 **Calendar** | Today's meetings. Click to refresh. Click a meeting to create notes. |
+| 🎤 **Microphone** | Record and transcribe calls with AI. |
+| 💬 **Message** | Ask GTM Brain about any account. |
+| ⚙️ **Settings** | Configure your email, Salesforce, and timezone. |
+
+---
+
+## Before Your Next Call
+
+1. Open the **Calendar** panel → Click your upcoming meeting
+2. Ask GTM Brain: "Prep me for [Account Name]"
+3. Review the account folder for recent notes
+
+---
+
+## Refreshing Data
+
+- **Calendar:** Click the ↻ button to fetch live data from Microsoft Graph
+- **Accounts:** Press \`Cmd+P\` → "Sync Salesforce Accounts"
+
+---
+
+## Quick Tips
+
+| Goal | Action |
 |------|--------|
-| Calendar | View meetings, create notes |
-| Microphone | Start/stop recording |
-| Message | Ask GTM Brain about current account |
+| Find an account | Use sidebar folders or ask GTM Brain |
+| Prep for a call | Calendar → click meeting → ask GTM Brain |
+| See deal history | Open account folder → browse notes |
+| Record a meeting | Click microphone → stop when done |
 
 ---
 
-## How Data Flows
+## Support
 
-**Meeting Note** → AI extracts insights → Saved to account folder
-
-↓
-
-**All Next Steps** dashboard aggregates action items across accounts
-
-↓
-
-**GTM Hub** displays context for your next meeting prep
-
----
-
-## Common Tasks
-
-| Task | How |
-|------|-----|
-| Ask about an account | Click message icon or \`Cmd+P\` → "Ask GTM Brain" |
-| Refresh accounts | \`Cmd+P\` → "Sync Salesforce Accounts" |
-| Sync note to SF | Add \`sync_to_salesforce: true\` to note header |
-
----
-
-## Need Help?
-
-**GTM Hub**: gtm-wizard.onrender.com  
-**Settings**: Settings → Community Plugins → Eudia Sync & Scribe  
-**Slack**: #gtm-tools
+**GTM Hub:** gtm-wizard.onrender.com
+**Slack:** #gtm-tools
 `;
 
   fs.writeFileSync(path.join(destDir, 'QUICKSTART.md'), quickStartContent);

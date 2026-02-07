@@ -2030,6 +2030,255 @@ class GTMBrainApp {
     const path = require('path');
     this.expressApp.use('/downloads', express.static(path.join(__dirname, '..', 'public', 'downloads')));
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MOBILE PWA ROUTES
+    // Progressive Web App for mobile access to Sales Vault
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Serve PWA manifest
+    this.expressApp.get('/manifest.json', (req, res) => {
+      const manifestPath = path.join(__dirname, '..', 'public', 'manifest.json');
+      res.setHeader('Content-Type', 'application/manifest+json');
+      res.sendFile(manifestPath);
+    });
+    
+    // Serve service worker (must be at root scope)
+    this.expressApp.get('/service-worker.js', (req, res) => {
+      const swPath = path.join(__dirname, '..', 'public', 'service-worker.js');
+      res.setHeader('Content-Type', 'application/javascript');
+      res.setHeader('Service-Worker-Allowed', '/');
+      res.sendFile(swPath);
+    });
+    
+    // Serve mobile recorder script
+    this.expressApp.get('/mobile-recorder.js', (req, res) => {
+      const recorderPath = path.join(__dirname, '..', 'public', 'mobile-recorder.js');
+      res.setHeader('Content-Type', 'application/javascript');
+      res.sendFile(recorderPath);
+    });
+    
+    // Serve offline storage script
+    this.expressApp.get('/offline-storage.js', (req, res) => {
+      const storagePath = path.join(__dirname, '..', 'public', 'offline-storage.js');
+      res.setHeader('Content-Type', 'application/javascript');
+      res.sendFile(storagePath);
+    });
+    
+    // Mobile vault - main PWA entry point
+    const { generateMobileVault } = require('./views/mobileVault');
+    
+    this.expressApp.get('/mobile', async (req, res) => {
+      try {
+        // Try Okta session first
+        const oktaSession = validateOktaSession(req);
+        
+        // Also check for Salesforce OAuth token via email param or cookie
+        const emailParam = req.query.email || req.cookies?.userEmail;
+        
+        let userEmail = '';
+        let userName = 'User';
+        let sfAuthenticated = false;
+        
+        if (oktaSession) {
+          userEmail = oktaSession.email;
+          userName = oktaSession.name || oktaSession.email;
+          
+          // Check if they also have Salesforce OAuth
+          try {
+            const userTokenService = require('./services/userTokenService');
+            const sfStatus = await userTokenService.checkAuthStatus(userEmail);
+            sfAuthenticated = sfStatus.authenticated;
+          } catch (e) {
+            // Ignore - they just need to auth
+          }
+        } else if (emailParam) {
+          // Mobile users might come with email param after SF OAuth
+          const normalizedEmail = emailParam.toLowerCase().trim();
+          
+          // Validate email is in BL_EMAILS list
+          const BL_EMAILS = [
+            ...Object.values(BL_REGIONS).flat(),
+            ...Object.keys(SALES_LEADERS),
+            ...ADMIN_EMAILS,
+            ...EXEC_EMAILS,
+            ...CS_EMAILS
+          ];
+          
+          if (BL_EMAILS.includes(normalizedEmail)) {
+            userEmail = normalizedEmail;
+            userName = normalizedEmail.split('@')[0].replace('.', ' ');
+            
+            // Check SF auth
+            try {
+              const userTokenService = require('./services/userTokenService');
+              const sfStatus = await userTokenService.checkAuthStatus(userEmail);
+              sfAuthenticated = sfStatus.authenticated;
+            } catch (e) {
+              // Ignore
+            }
+            
+            // Set cookie for future visits
+            res.cookie('userEmail', normalizedEmail, { 
+              httpOnly: true, 
+              secure: true, 
+              sameSite: 'lax',
+              maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+            });
+          }
+        }
+        
+        // If no auth at all, redirect to login
+        if (!userEmail) {
+          return res.redirect('/mobile/login');
+        }
+        
+        // Log mobile access
+        logger.info(`📱 Mobile vault accessed by ${userEmail}`);
+        
+        const html = generateMobileVault({
+          userEmail,
+          userName,
+          sfAuthenticated,
+          tab: req.query.tab || 'accounts',
+          action: req.query.action || null
+        });
+        
+        res.send(html);
+        
+      } catch (error) {
+        logger.error('Error serving mobile vault:', error);
+        res.status(500).send('Something went wrong. Please try again.');
+      }
+    });
+    
+    // Mobile login page
+    this.expressApp.get('/mobile/login', (req, res) => {
+      res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#7c3aed">
+  <title>Login - Sales Vault</title>
+  <link rel="manifest" href="/manifest.json">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .logo { margin-bottom: 24px; }
+    .logo img { height: 60px; border-radius: 8px; }
+    h1 { color: white; font-size: 1.8rem; margin-bottom: 8px; }
+    p { color: rgba(255,255,255,0.8); margin-bottom: 32px; }
+    .login-card {
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .login-card h2 { margin-bottom: 8px; color: #1f2937; }
+    .login-card .subtitle { color: #6b7280; margin-bottom: 24px; font-size: 0.9rem; }
+    .input-group { margin-bottom: 16px; }
+    .input-group label { display: block; color: #374151; font-weight: 500; margin-bottom: 6px; font-size: 0.9rem; }
+    .input-group input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input-group input:focus { border-color: #7c3aed; }
+    .login-btn {
+      width: 100%;
+      padding: 14px;
+      background: #7c3aed;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .login-btn:hover { background: #6d28d9; }
+    .divider { display: flex; align-items: center; margin: 24px 0; color: #9ca3af; font-size: 0.8rem; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
+    .divider span { padding: 0 12px; }
+    .okta-btn {
+      width: 100%;
+      padding: 14px;
+      background: #f3f4f6;
+      color: #374151;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .okta-btn:hover { background: #e5e7eb; }
+    .error { color: #ef4444; font-size: 0.85rem; margin-top: 8px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="logo"><img src="/logo" alt="Eudia"></div>
+  <h1>Sales Vault</h1>
+  <p>Mobile access to your accounts and meetings</p>
+  
+  <div class="login-card">
+    <h2>Sign In</h2>
+    <p class="subtitle">Use your Eudia email to continue</p>
+    
+    <form id="loginForm" action="/mobile" method="GET">
+      <div class="input-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" name="email" placeholder="you@eudia.com" required>
+      </div>
+      <div class="error" id="error">Invalid email. Please use your Eudia email.</div>
+      <button type="submit" class="login-btn">Continue</button>
+    </form>
+    
+    <div class="divider"><span>or</span></div>
+    
+    <a href="/login?redirect=/mobile" class="okta-btn">
+      <span>🔐</span>
+      Sign in with Okta SSO
+    </a>
+  </div>
+  
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+      const email = document.getElementById('email').value.toLowerCase();
+      if (!email.endsWith('@eudia.com')) {
+        e.preventDefault();
+        document.getElementById('error').style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>`);
+    });
+    
+    // Mobile logout
+    this.expressApp.get('/mobile/logout', (req, res) => {
+      res.clearCookie('userEmail');
+      res.redirect('/mobile/login');
+    });
+
     // Email Builder API routes
     const emailBuilderRoutes = require('./routes/emailBuilder');
     this.expressApp.get('/api/search-accounts', emailBuilderRoutes.searchAccounts);
@@ -3278,9 +3527,10 @@ This note aggregates next steps from all your account meetings.
     
     // Start OAuth flow - redirects user to Salesforce login
     // Implements PKCE (Proof Key for Code Exchange) for enhanced security
+    // Supports optional redirect parameter for mobile PWA flow
     this.expressApp.get('/api/sf/auth/start', async (req, res) => {
       try {
-        const { email } = req.query;
+        const { email, redirect } = req.query;
         const crypto = require('crypto');
         
         if (!email) {
@@ -3309,10 +3559,30 @@ This note aggregates next steps from all your account meetings.
           .update(codeVerifier)
           .digest('base64url');
         
-        // Generate state parameter to prevent CSRF and carry email + verifier
+        // Validate redirect URL if provided (must be same origin for security)
+        let finalRedirect = null;
+        if (redirect) {
+          // Only allow relative paths or same-origin URLs
+          if (redirect.startsWith('/')) {
+            finalRedirect = redirect;
+          } else {
+            try {
+              const redirectUrl = new URL(redirect);
+              const allowedHosts = ['gtm-wizard.onrender.com', 'localhost'];
+              if (allowedHosts.includes(redirectUrl.hostname)) {
+                finalRedirect = redirect;
+              }
+            } catch (e) {
+              // Invalid URL, ignore
+            }
+          }
+        }
+        
+        // Generate state parameter to prevent CSRF and carry email + verifier + redirect
         const state = Buffer.from(JSON.stringify({ 
           email: email.toLowerCase(),
           codeVerifier: codeVerifier,
+          redirect: finalRedirect,
           timestamp: Date.now()
         })).toString('base64url');
         
@@ -3432,7 +3702,7 @@ This note aggregates next steps from all your account meetings.
           return res.status(400).send('Invalid state parameter');
         }
         
-        const { email, codeVerifier } = stateData;
+        const { email, codeVerifier, redirect: mobileRedirect } = stateData;
         if (!email) {
           return res.status(400).send('Email not found in state');
         }
@@ -3557,7 +3827,21 @@ This note aggregates next steps from all your account meetings.
         
         logger.info(`✅ SF OAuth complete for ${email} - tokens stored`);
         
-        // Return Eudia-branded success page
+        // If mobile redirect is set, redirect there with email cookie
+        if (mobileRedirect) {
+          // Set email cookie for mobile session
+          res.cookie('userEmail', email.toLowerCase(), { 
+            httpOnly: true, 
+            secure: true, 
+            sameSite: 'lax',
+            maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+          });
+          
+          logger.info(`📱 Redirecting ${email} to mobile: ${mobileRedirect}`);
+          return res.redirect(mobileRedirect);
+        }
+        
+        // Return Eudia-branded success page (for desktop/Obsidian)
         res.send(`
           <!DOCTYPE html>
           <html>
@@ -4816,6 +5100,7 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
         const intelligenceStore = require('./services/intelligenceStore');
         const email = req.params.email.toLowerCase();
         const timezone = req.query.timezone || 'America/New_York';
+        const forceRefresh = req.query.forceRefresh === 'true';
         
         // Security: only serve calendars for registered BLs
         if (!BL_EMAILS.map(e => e.toLowerCase()).includes(email)) {
@@ -4827,12 +5112,26 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
           });
         }
         
+        // If force refresh requested, sync calendar from Microsoft Graph first
+        if (forceRefresh) {
+          logger.info(`🔄 Force refresh requested for ${email}, syncing calendar from Microsoft Graph...`);
+          try {
+            // Force refresh bypasses in-memory cache and fetches fresh from Graph API
+            await calendarService.getUpcomingMeetingsForAllBLs(7, true);
+            // Sync to database for persistence
+            await calendarService.syncCalendarsToDatabase(7);
+            logger.info(`✅ Calendar sync completed for ${email}`);
+          } catch (syncErr) {
+            logger.warn(`⚠️ Calendar sync failed for ${email}, using cached data:`, syncErr.message);
+          }
+        }
+        
         // Get today's date range in user's timezone
         const { start: today, end: tomorrow } = getTimezoneAwareDateRange(timezone, 0, 1);
         
         logger.debug(`📅 Today query for ${email} (tz: ${timezone}): ${today.toISOString()} to ${tomorrow.toISOString()}`);
         
-        // Fetch from database (fast)
+        // Fetch from database (includes freshly synced data if forceRefresh was used)
         const events = await intelligenceStore.getStoredCalendarEvents(today, tomorrow, {
           ownerEmail: email
         });
