@@ -3068,13 +3068,12 @@ sync_to_salesforce: false
         // Create the account folder
         await this.app.vault.createFolder(folderPath);
         
+        // Full folder structure for ALL accounts (owned or view-only)
+        // Execs get the same 7-note structure as BLs for full context
+        await this.createExecAccountSubnotes(folderPath, account, dateStr);
         if (account.isOwned) {
-          // Full folder structure for owned accounts (same as regular users)
-          await this.createFullAccountSubnotes(folderPath, account, dateStr);
           createdOwned++;
         } else {
-          // Minimal read-only structure for view-only accounts
-          await this.createViewOnlyAccountNote(folderPath, account, dateStr);
           createdViewOnly++;
         }
         
@@ -3099,39 +3098,217 @@ sync_to_salesforce: false
   }
 
   /**
-   * Create view-only account note for admins
+   * Create full account subnotes for exec/admin users (same structure as BLs)
+   * Gives execs Note 1-3, Meeting Notes, Contacts, Intelligence, Next Steps
    */
-  private async createViewOnlyAccountNote(folderPath: string, account: OwnedAccount, dateStr: string): Promise<void> {
+  private async createExecAccountSubnotes(folderPath: string, account: OwnedAccount, dateStr: string): Promise<void> {
     const ownerName = (account as any).ownerName || 'Unknown';
-    const content = `---
+    const subnotes = [
+      {
+        name: 'Note 1.md',
+        content: `---
 account: "${account.name}"
 account_id: "${account.id}"
-type: view_only
-owner: "${ownerName}"
-read_only: true
+type: meeting_note
+sync_to_salesforce: false
 created: ${dateStr}
 ---
 
-# ${account.name}
+# ${account.name} - Meeting Note
 
-> **View-Only Account** - Owned by ${ownerName}
-
-This account is owned by another team member. You can view notes here but primary updates should come from the account owner.
-
-## Account Owner
-**${ownerName}**
-
-## Quick Info
-- Account ID: \`${account.id}\`
-- Type: ${account.type || 'Prospect'}
+**Date:** 
+**Attendees:** 
 
 ---
 
-*To see recent activity, check Salesforce or reach out to ${ownerName}.*
-`;
-    
-    const notePath = `${folderPath}/_Account Info.md`;
-    await this.app.vault.create(notePath, content);
+## Discussion
+
+*Add meeting notes here...*
+
+---
+
+## Next Steps
+
+- [ ] 
+
+`
+      },
+      {
+        name: 'Note 2.md',
+        content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: meeting_note
+sync_to_salesforce: false
+created: ${dateStr}
+---
+
+# ${account.name} - Meeting Note
+
+**Date:** 
+**Attendees:** 
+
+---
+
+## Discussion
+
+*Add meeting notes here...*
+
+---
+
+## Next Steps
+
+- [ ] 
+
+`
+      },
+      {
+        name: 'Note 3.md',
+        content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: meeting_note
+sync_to_salesforce: false
+created: ${dateStr}
+---
+
+# ${account.name} - Meeting Note
+
+**Date:** 
+**Attendees:** 
+
+---
+
+## Discussion
+
+*Add meeting notes here...*
+
+---
+
+## Next Steps
+
+- [ ] 
+
+`
+      },
+      {
+        name: 'Meeting Notes.md',
+        content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: meetings_index
+owner: "${ownerName}"
+sync_to_salesforce: false
+---
+
+# ${account.name} - Meeting Notes
+
+**Account Owner:** ${ownerName}
+
+*Use Note 1, Note 2, Note 3 for your meeting notes. When full, create additional notes.*
+
+## Recent Meetings
+
+| Date | Note | Key Outcomes |
+|------|------|--------------|
+|      |      |              |
+
+## Quick Start
+
+1. Open **Note 1** for your next meeting
+2. Click the **microphone** to record and transcribe
+3. **Next Steps** are auto-extracted after transcription
+4. Set \`sync_to_salesforce: true\` to sync to Salesforce
+`
+      },
+      {
+        name: 'Contacts.md',
+        content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: contacts
+sync_to_salesforce: false
+---
+
+# ${account.name} - Key Contacts
+
+| Name | Title | Email | Phone | Notes |
+|------|-------|-------|-------|-------|
+|      |       |       |       |       |
+
+## Relationship Map
+
+*Add org chart, decision makers, champions, and blockers here.*
+
+## Contact History
+
+*Log key interactions and relationship developments.*
+`
+      },
+      {
+        name: 'Intelligence.md',
+        content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: intelligence
+sync_to_salesforce: false
+---
+
+# ${account.name} - Account Intelligence
+
+## Company Overview
+
+*Industry, size, headquarters, key facts.*
+
+## Strategic Priorities
+
+*What's top of mind for leadership? Digital transformation initiatives?*
+
+## Legal/Compliance Landscape
+
+*Regulatory environment, compliance challenges, legal team structure.*
+
+## Competitive Intelligence
+
+*Incumbent vendors, evaluation history, competitive positioning.*
+
+## News & Signals
+
+*Recent news, earnings mentions, leadership changes.*
+`
+      },
+      {
+        name: 'Next Steps.md',
+        content: `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: next_steps
+auto_updated: true
+last_updated: ${dateStr}
+sync_to_salesforce: false
+---
+
+# ${account.name} - Next Steps
+
+*This note is automatically updated after each meeting transcription.*
+
+## Current Next Steps
+
+*No next steps yet. Record a meeting to auto-populate.*
+
+---
+
+## History
+
+*Previous next steps will be archived here.*
+`
+      }
+    ];
+
+    for (const subnote of subnotes) {
+      const notePath = `${folderPath}/${subnote.name}`;
+      await this.app.vault.create(notePath, subnote.content);
+    }
   }
 
   /**

@@ -20,7 +20,11 @@ const summaryCache = new Map();
 const SUMMARY_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours (shorter than SQLite's 24h)
 
 function getMemoryCachedSummary(accountId, contentHash) {
-  const cached = summaryCache.get(accountId);
+  // Include today's date in cache key so summaries regenerate daily
+  // Prevents stale relative-date references ("yesterday" when it was days ago)
+  const todayStr = new Date().toISOString().split('T')[0];
+  const cacheKey = `${accountId}_${todayStr}`;
+  const cached = summaryCache.get(cacheKey);
   if (cached && cached.sourceHash === contentHash) {
     const age = Date.now() - cached.timestamp;
     if (age < SUMMARY_CACHE_TTL_MS) {
@@ -28,18 +32,20 @@ function getMemoryCachedSummary(accountId, contentHash) {
       return cached;
     }
     // Expired
-    summaryCache.delete(accountId);
+    summaryCache.delete(cacheKey);
   }
   return null;
 }
 
 function setMemoryCachedSummary(accountId, summary, contentHash, rawExcerpt) {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const cacheKey = `${accountId}_${todayStr}`;
   // Limit cache size to prevent memory leaks
   if (summaryCache.size > 100) {
     const firstKey = summaryCache.keys().next().value;
     summaryCache.delete(firstKey);
   }
-  summaryCache.set(accountId, {
+  summaryCache.set(cacheKey, {
     summary,
     sourceHash: contentHash,
     rawExcerpt,
@@ -80,6 +86,21 @@ const CONFIG = {
 // ============================================================
 // EUDIA SYSTEM PROMPT - Sales-focused context summarization
 // ============================================================
+// Dynamic - inject current date at prompt construction time
+function getContextPrompt() {
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  return `TODAY'S DATE: ${today}
+
+You are an AI assistant for Eudia, a legal operations platform that helps enterprise legal teams work more efficiently with AI-powered contract analysis, matter management, and legal intelligence.
+
+Your task is to summarize meeting notes and account context to help Eudia sales representatives prepare for upcoming customer meetings.
+
+IMPORTANT: Today is ${today}. When referencing meeting dates, use absolute dates (e.g., "Feb 25") and calculate time gaps accurately from today's date. Never say "yesterday" unless the event was literally the day before today.
+
+Focus on extracting:`;
+}
+
+// Keep static reference for backward compatibility (used in non-date-sensitive contexts)
 const EUDIA_CONTEXT_PROMPT = `You are an AI assistant for Eudia, a legal operations platform that helps enterprise legal teams work more efficiently with AI-powered contract analysis, matter management, and legal intelligence.
 
 Your task is to summarize meeting notes and account context to help Eudia sales representatives prepare for upcoming customer meetings.
@@ -317,7 +338,7 @@ async function callClaude(content, accountName) {
           model: 'claude-sonnet-4-20250514',
           max_tokens: CONFIG.maxTokens,
           temperature: CONFIG.temperature,
-          system: EUDIA_CONTEXT_PROMPT,
+          system: getContextPrompt(),
           messages: [{ role: 'user', content: userPrompt }]
         })
       });
@@ -337,7 +358,7 @@ async function callClaude(content, accountName) {
       
       const response = await socratesAdapter.makeRequest(
         [
-          { role: 'system', content: EUDIA_CONTEXT_PROMPT },
+          { role: 'system', content: getContextPrompt() },
           { role: 'user', content: userPrompt }
         ],
         {

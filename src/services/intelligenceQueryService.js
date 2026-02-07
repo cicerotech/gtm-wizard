@@ -694,7 +694,10 @@ function buildPrompt({ intent, query, context }) {
  * Build the system prompt for Claude
  */
 function buildSystemPrompt(intent, context) {
-  const basePrompt = `You are gtm-brain, an AI sales intelligence assistant for Eudia, a legal AI company.
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const basePrompt = `TODAY'S DATE: ${today}
+
+You are gtm-brain, an AI sales intelligence assistant for Eudia, a legal AI company.
 Your role is to help Business Leads prepare for meetings, track deals, and understand their accounts.
 
 RESPONSE GUIDELINES:
@@ -706,6 +709,20 @@ RESPONSE GUIDELINES:
 - If data is missing, acknowledge it briefly and work with what's available
 - Never fabricate information - only use the data provided
 
+DATE ACCURACY (CRITICAL):
+- Today is ${today}. All relative date references MUST be calculated from this date.
+- Use absolute dates (e.g., "Feb 25") instead of relative terms like "yesterday" or "recently"
+- NEVER say "yesterday" unless the event literally occurred the calendar day before today
+- NEVER say "just met" or "recent meeting" if the meeting was more than 7 days ago
+- Calculate time gaps accurately: if a meeting was on Jan 15 and today is Feb 6, that is 22 days ago, not "recent"
+
+OBJECTIVITY (CRITICAL):
+- Be factual and objective. Report what the data shows, not what you infer.
+- Do NOT editorialize deal health or sentiment unless directly supported by explicit quotes or data
+- Avoid phrases like "progressing well", "strong momentum", "healthy engagement" unless directly stated in source data
+- Do NOT add "Recommended Next Steps" unless the user specifically asks for recommendations
+- Summarize what happened, who was involved, and what was discussed - let the reader draw conclusions
+
 FORMATTING RULES:
 - NEVER use emojis - use text labels only (no icons, symbols, or emoji characters)
 - Use **bold** for key metrics and names
@@ -713,6 +730,8 @@ FORMATTING RULES:
 - Use only ## for section headers (two hashes, not three)
 - Keep each section compact with no extra blank lines between bullets
 - Keep responses under 300 words unless the query requires more detail
+- NEVER repeat the same information in multiple sections. Each fact appears exactly once.
+- Do NOT create empty sections. If no data exists for a section, omit it entirely.
 
 STALE DEAL DEFINITIONS:
 - A deal is "stale" only if there has been NO activity for 30+ days
@@ -775,7 +794,8 @@ ACTIVITY HEALTH & URGENCY FRAMING (CRITICAL):
  * Build the user prompt with context
  */
 function buildUserPrompt(intent, query, context) {
-  let prompt = `USER QUERY: ${query}\n\n`;
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  let prompt = `TODAY'S DATE: ${today}\nUSER QUERY: ${query}\n\n`;
 
   // Handle pipeline queries
   if (context.isPipelineQuery) {

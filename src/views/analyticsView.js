@@ -82,12 +82,16 @@ async function generateAnalyticsHTML() {
   // Build page popularity data
   const pageLabels = [];
   const pageCounts = [];
-  if (analyticsData?.pagePopularity) {
+  if (analyticsData?.pagePopularity && analyticsData.pagePopularity.length > 0) {
     for (const page of analyticsData.pagePopularity.slice(0, 6)) {
       const pageName = page.Page_Name__c || 'Unknown';
       pageLabels.push(pageName.replace('/gtm/', '').replace('/gtm', 'Hub') || 'Hub');
       pageCounts.push(page.views || 0);
     }
+  } else {
+    // Fallback - show placeholder if page data not available
+    pageLabels.push('Hub', 'Meeting Prep', 'Dashboard');
+    pageCounts.push(0, 0, 0);
   }
 
   return `<!DOCTYPE html>
@@ -394,7 +398,7 @@ ${analyticsData ? `
             <td class="user-email">${(event.User_Email__c || 'Unknown').split('@')[0]}</td>
             <td>
               <span class="activity-badge ${event.Event_Type__c === 'Login' ? 'badge-login' : event.Event_Type__c === 'Logout' ? 'badge-logout' : 'badge-page'}">
-                ${event.Event_Type__c === 'Page_View' ? (event.Page_Name__c || '').replace('/gtm/', '').replace('/gtm', 'Hub') || 'Page' : event.Event_Type__c}
+                ${event.Event_Type__c || 'Page_View'}
               </span>
             </td>
             <td>${timeAgo(event.Event_Timestamp__c)}</td>

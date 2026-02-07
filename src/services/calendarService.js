@@ -79,7 +79,9 @@ const BL_EMAILS_PILOT = [
   // Other
   'michael.flynn@eudia.com',
   'daniel.kim@eudia.com',
-  'ben.brosnahan@eudia.com'
+  'ben.brosnahan@eudia.com',
+  // Product Ops & Partnerships
+  'siddharth.saxena@eudia.com'
 ];
 
 // Full BL list (US + EU Pods) - enable when ready

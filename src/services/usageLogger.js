@@ -42,15 +42,13 @@ async function logUsageEvent({ email, name, eventType, pageName, sessionId, user
     const eventDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
     const eventTimestamp = now.toISOString();
 
+    // Build record with only core fields known to exist
+    // Additional fields are attempted but won't break if missing
     const record = {
       User_Email__c: email,
       Event_Type__c: eventType || 'Page_View',
-      Page_Name__c: pageName?.substring(0, 255) || null,
       Event_Date__c: eventDate,
-      Event_Timestamp__c: eventTimestamp,
-      Session_Id__c: sessionId?.substring(0, 50) || null,
-      User_Agent__c: userAgent?.substring(0, 255) || null,
-      IP_Address__c: ip?.replace('::ffff:', '')?.substring(0, 50) || null
+      Event_Timestamp__c: eventTimestamp
     };
 
     // Use the underlying jsforce connection
@@ -125,82 +123,92 @@ async function getUsageAnalytics() {
     return { success: false, reason: 'Salesforce not connected' };
   }
 
+  // Each query is independent - if a field doesn't exist in the org, 
+  // the other queries still work. Partial data is better than no data.
+  const data = {
+    dailyLogins: [],
+    users: [],
+    pagePopularity: [],
+    recentActivity: [],
+    todayStats: { totalEvents: 0, uniqueUsers: 0 }
+  };
+  const queryErrors = [];
+
   try {
     // Daily active users (last 30 days)
-    const dailyQuery = `
-      SELECT Event_Date__c, COUNT(Id) eventCount
-      FROM GTM_Usage_Log__c
-      WHERE Event_Type__c = 'Login' AND Event_Date__c = LAST_N_DAYS:30
-      GROUP BY Event_Date__c
-      ORDER BY Event_Date__c
-    `;
-    const dailyResult = await sfConnection.query(dailyQuery);
-
-    // User activity summary
-    const userQuery = `
-      SELECT User_Email__c, MAX(Event_Timestamp__c) lastActive, COUNT(Id) totalEvents
-      FROM GTM_Usage_Log__c
-      GROUP BY User_Email__c
-      ORDER BY MAX(Event_Timestamp__c) DESC
-      LIMIT 100
-    `;
-    const userResult = await sfConnection.query(userQuery);
-
-    // Page popularity
-    const pageQuery = `
-      SELECT Page_Name__c, COUNT(Id) views
-      FROM GTM_Usage_Log__c
-      WHERE Event_Type__c = 'Page_View' AND Page_Name__c != null
-      GROUP BY Page_Name__c
-      ORDER BY COUNT(Id) DESC
-    `;
-    const pageResult = await sfConnection.query(pageQuery);
-
-    // Recent activity (last 50 events)
-    const recentQuery = `
-      SELECT User_Email__c, Event_Type__c, Page_Name__c, Event_Timestamp__c
-      FROM GTM_Usage_Log__c
-      ORDER BY Event_Timestamp__c DESC
-      LIMIT 50
-    `;
-    const recentResult = await sfConnection.query(recentQuery);
-
-    // Today's stats
-    const todayQuery = `
-      SELECT COUNT(Id) totalEvents
-      FROM GTM_Usage_Log__c
-      WHERE Event_Date__c = TODAY
-    `;
-    const todayResult = await sfConnection.query(todayQuery);
-
-    // Unique users today
-    const uniqueTodayQuery = `
-      SELECT COUNT_DISTINCT(User_Email__c) uniqueUsers
-      FROM GTM_Usage_Log__c
-      WHERE Event_Date__c = TODAY
-    `;
-    let uniqueTodayCount = 0;
     try {
-      const uniqueTodayResult = await sfConnection.query(uniqueTodayQuery);
-      uniqueTodayCount = uniqueTodayResult.records[0]?.expr0 || 0;
-    } catch {
-      // COUNT_DISTINCT may not be supported in all orgs
-      logger.debug('[UsageLogger] COUNT_DISTINCT not supported, falling back');
+      const dailyResult = await sfConnection.query(`
+        SELECT Event_Date__c, COUNT(Id) eventCount
+        FROM GTM_Usage_Log__c
+        WHERE Event_Date__c = LAST_N_DAYS:30
+        GROUP BY Event_Date__c
+        ORDER BY Event_Date__c
+      `);
+      data.dailyLogins = dailyResult.records || [];
+    } catch (e) {
+      queryErrors.push(`dailyLogins: ${e.message}`);
+      logger.debug(`[UsageLogger] Daily query failed: ${e.message}`);
     }
 
-    return {
-      success: true,
-      data: {
-        dailyLogins: dailyResult.records || [],
-        users: userResult.records || [],
-        pagePopularity: pageResult.records || [],
-        recentActivity: recentResult.records || [],
-        todayStats: {
-          totalEvents: todayResult.records[0]?.totalEvents || 0,
-          uniqueUsers: uniqueTodayCount
-        }
-      }
-    };
+    // User activity summary (minimal fields - just email and counts)
+    try {
+      const userResult = await sfConnection.query(`
+        SELECT User_Email__c, MAX(Event_Timestamp__c) lastActive, COUNT(Id) totalEvents
+        FROM GTM_Usage_Log__c
+        GROUP BY User_Email__c
+        ORDER BY MAX(Event_Timestamp__c) DESC
+        LIMIT 100
+      `);
+      data.users = userResult.records || [];
+    } catch (e) {
+      queryErrors.push(`users: ${e.message}`);
+      logger.debug(`[UsageLogger] User query failed: ${e.message}`);
+    }
+
+    // Recent activity (minimal fields only)
+    try {
+      const recentResult = await sfConnection.query(`
+        SELECT User_Email__c, Event_Type__c, Event_Timestamp__c
+        FROM GTM_Usage_Log__c
+        ORDER BY Event_Timestamp__c DESC
+        LIMIT 50
+      `);
+      data.recentActivity = recentResult.records || [];
+    } catch (e) {
+      queryErrors.push(`recentActivity: ${e.message}`);
+      logger.debug(`[UsageLogger] Recent activity query failed: ${e.message}`);
+    }
+
+    // Today's stats
+    try {
+      const todayResult = await sfConnection.query(`
+        SELECT COUNT(Id) totalEvents
+        FROM GTM_Usage_Log__c
+        WHERE Event_Date__c = TODAY
+      `);
+      data.todayStats.totalEvents = todayResult.records[0]?.totalEvents || 0;
+    } catch (e) {
+      queryErrors.push(`todayStats: ${e.message}`);
+      logger.debug(`[UsageLogger] Today stats query failed: ${e.message}`);
+    }
+
+    // Unique users today
+    try {
+      const uniqueTodayResult = await sfConnection.query(`
+        SELECT COUNT_DISTINCT(User_Email__c) uniqueUsers
+        FROM GTM_Usage_Log__c
+        WHERE Event_Date__c = TODAY
+      `);
+      data.todayStats.uniqueUsers = uniqueTodayResult.records[0]?.expr0 || 0;
+    } catch (e) {
+      logger.debug(`[UsageLogger] Unique users query failed: ${e.message}`);
+    }
+
+    if (queryErrors.length > 0) {
+      logger.warn(`[UsageLogger] ${queryErrors.length} analytics queries had issues: ${queryErrors.join('; ')}`);
+    }
+
+    return { success: true, data, queryErrors: queryErrors.length > 0 ? queryErrors : undefined };
 
   } catch (error) {
     logger.error('[UsageLogger] Error fetching analytics:', error.message);

@@ -5097,10 +5097,8 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
     this.expressApp.get('/api/calendar/:email/today', async (req, res) => {
       try {
         const { calendarService, BL_EMAILS } = require('./services/calendarService');
-        const intelligenceStore = require('./services/intelligenceStore');
         const email = req.params.email.toLowerCase();
         const timezone = req.query.timezone || 'America/New_York';
-        const forceRefresh = req.query.forceRefresh === 'true';
         
         // Security: only serve calendars for registered BLs
         if (!BL_EMAILS.map(e => e.toLowerCase()).includes(email)) {
@@ -5112,53 +5110,50 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
           });
         }
         
-        // If force refresh requested, sync calendar from Microsoft Graph first
-        if (forceRefresh) {
-          logger.info(`🔄 Force refresh requested for ${email}, syncing calendar from Microsoft Graph...`);
-          try {
-            // Force refresh bypasses in-memory cache and fetches fresh from Graph API
-            await calendarService.getUpcomingMeetingsForAllBLs(7, true);
-            // Sync to database for persistence
-            await calendarService.syncCalendarsToDatabase(7);
-            logger.info(`✅ Calendar sync completed for ${email}`);
-          } catch (syncErr) {
-            logger.warn(`⚠️ Calendar sync failed for ${email}, using cached data:`, syncErr.message);
-          }
-        }
+        // ════════════════════════════════════════════════════════════════════
+        // ALWAYS fetch LIVE from Microsoft Graph API for this specific user
+        // This ensures accurate, real-time calendar data (no stale SQLite)
+        // Shows ALL meetings (not just customer meetings) for the user's day
+        // ════════════════════════════════════════════════════════════════════
         
         // Get today's date range in user's timezone
         const { start: today, end: tomorrow } = getTimezoneAwareDateRange(timezone, 0, 1);
         
-        logger.debug(`📅 Today query for ${email} (tz: ${timezone}): ${today.toISOString()} to ${tomorrow.toISOString()}`);
+        logger.info(`📅 Fetching LIVE calendar for ${email} (tz: ${timezone}): ${today.toISOString()} to ${tomorrow.toISOString()}`);
         
-        // Fetch from database (includes freshly synced data if forceRefresh was used)
-        const events = await intelligenceStore.getStoredCalendarEvents(today, tomorrow, {
-          ownerEmail: email
-        });
+        // Fetch directly from Graph API for this user - returns ALL events (internal + external)
+        const allEvents = await calendarService.getCalendarEvents(email, today, tomorrow);
         
-        // Format for Obsidian plugin
-        const meetings = events.map(event => ({
-          id: event.id || event.event_id,
+        // Format for Obsidian plugin - show ALL meetings, not just customer ones
+        const meetings = allEvents.map(event => ({
+          id: event.eventId,
           subject: event.subject,
-          start: event.start_datetime,
-          end: event.end_datetime,
+          start: event.startDateTime,
+          end: event.endDateTime,
           location: event.location,
-          attendees: event.externalAttendees || [],
+          attendees: (event.externalAttendees || []).map(a => ({
+            name: a.name,
+            email: a.email
+          })),
           isCustomerMeeting: event.isCustomerMeeting,
-          accountName: event.matched_account_name,
-          accountId: event.matched_account_id,
-          onlineMeetingUrl: event.online_meeting_url
+          accountName: null, // Account matching happens elsewhere
+          accountId: null,
+          onlineMeetingUrl: event.meetingUrl || ''
         }));
+        
+        // Sort by start time
+        meetings.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
         
         res.json({
           success: true,
           date: today.toISOString().split('T')[0],
           email: email,
           meetingCount: meetings.length,
-          meetings: meetings
+          meetings: meetings,
+          source: 'live' // Indicates this is live Graph API data
         });
         
-        logger.info(`📅 Today's calendar served for ${email}: ${meetings.length} meetings`);
+        logger.info(`📅 LIVE calendar served for ${email}: ${meetings.length} meetings for today`);
         
       } catch (error) {
         logger.error('Error getting today\'s calendar:', error);
@@ -5170,10 +5165,8 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
     this.expressApp.get('/api/calendar/:email/week', async (req, res) => {
       try {
         const { calendarService, BL_EMAILS } = require('./services/calendarService');
-        const intelligenceStore = require('./services/intelligenceStore');
         const email = req.params.email.toLowerCase();
         const timezone = req.query.timezone || 'America/New_York';
-        const forceRefresh = req.query.forceRefresh === 'true';
         
         // Security: only serve calendars for registered BLs
         if (!BL_EMAILS.map(e => e.toLowerCase()).includes(email)) {
@@ -5185,46 +5178,39 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
           });
         }
         
-        // If force refresh requested, trigger full calendar sync
-        if (forceRefresh) {
-          logger.info(`🔄 Force refresh requested for ${email}, triggering calendar sync...`);
-          try {
-            // Force refresh bypasses in-memory cache and fetches fresh from Graph API
-            await calendarService.getUpcomingMeetingsForAllBLs(7, true);
-            // Sync to database for Obsidian plugin access
-            await calendarService.syncCalendarsToDatabase(7);
-          } catch (syncError) {
-            logger.warn(`Calendar sync failed for ${email}:`, syncError.message);
-            // Continue with cached data
-          }
-        }
+        // ════════════════════════════════════════════════════════════════════
+        // ALWAYS fetch LIVE from Microsoft Graph API for this specific user
+        // Shows ALL meetings (internal + external) for accurate calendar view
+        // ════════════════════════════════════════════════════════════════════
         
         // Get this week's date range (today + 7 days) in user's timezone
         const { start: startDate, end: endDate } = getTimezoneAwareDateRange(timezone, 0, 7);
         
-        logger.debug(`📅 Week query for ${email} (tz: ${timezone}): ${startDate.toISOString()} to ${endDate.toISOString()}`);
+        logger.info(`📅 Fetching LIVE week calendar for ${email} (tz: ${timezone}): ${startDate.toISOString()} to ${endDate.toISOString()}`);
         
-        // Fetch from database (fast)
-        const events = await intelligenceStore.getStoredCalendarEvents(startDate, endDate, {
-          ownerEmail: email
-        });
+        // Fetch directly from Graph API for this specific user
+        const allEvents = await calendarService.getCalendarEvents(email, startDate, endDate);
         
         // Group by day for easier rendering
         const byDay = {};
-        events.forEach(event => {
-          const day = event.start_datetime.split('T')[0];
+        allEvents.forEach(event => {
+          const day = event.startDateTime?.split('T')[0];
+          if (!day) return;
           if (!byDay[day]) byDay[day] = [];
           byDay[day].push({
-            id: event.id || event.event_id,
+            id: event.eventId,
             subject: event.subject,
-            start: event.start_datetime,
-            end: event.end_datetime,
+            start: event.startDateTime,
+            end: event.endDateTime,
             location: event.location,
-            attendees: event.externalAttendees || [],
+            attendees: (event.externalAttendees || []).map(a => ({
+              name: a.name,
+              email: a.email
+            })),
             isCustomerMeeting: event.isCustomerMeeting,
-            accountName: event.matched_account_name,
-            accountId: event.matched_account_id,
-            onlineMeetingUrl: event.online_meeting_url
+            accountName: null,
+            accountId: null,
+            onlineMeetingUrl: event.meetingUrl || ''
           });
         });
         
@@ -5233,11 +5219,12 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
           startDate: startDate.toISOString().split('T')[0],
           endDate: endDate.toISOString().split('T')[0],
           email: email,
-          totalMeetings: events.length,
-          byDay: byDay
+          totalMeetings: allEvents.length,
+          byDay: byDay,
+          source: 'live'
         });
         
-        logger.info(`📅 Week calendar served for ${email}: ${events.length} meetings`);
+        logger.info(`📅 LIVE week calendar served for ${email}: ${allEvents.length} meetings`);
         
       } catch (error) {
         logger.error('Error getting week\'s calendar:', error);
