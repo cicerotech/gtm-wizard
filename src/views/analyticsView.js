@@ -368,7 +368,6 @@ ${analyticsData ? `
           <tr>
             <td>
               <div class="user-email">${user.User_Email__c || 'Unknown'}</div>
-              <div class="user-name">${user.User_Name__c || ''}</div>
             </td>
             <td>${timeAgo(user.lastActive)}</td>
             <td>${user.totalEvents || 0}</td>

@@ -44,7 +44,6 @@ async function logUsageEvent({ email, name, eventType, pageName, sessionId, user
 
     const record = {
       User_Email__c: email,
-      User_Name__c: name?.substring(0, 100) || null,
       Event_Type__c: eventType || 'Page_View',
       Page_Name__c: pageName?.substring(0, 255) || null,
       Event_Date__c: eventDate,
@@ -139,9 +138,9 @@ async function getUsageAnalytics() {
 
     // User activity summary
     const userQuery = `
-      SELECT User_Email__c, User_Name__c, MAX(Event_Timestamp__c) lastActive, COUNT(Id) totalEvents
+      SELECT User_Email__c, MAX(Event_Timestamp__c) lastActive, COUNT(Id) totalEvents
       FROM GTM_Usage_Log__c
-      GROUP BY User_Email__c, User_Name__c
+      GROUP BY User_Email__c
       ORDER BY MAX(Event_Timestamp__c) DESC
       LIMIT 100
     `;
@@ -159,7 +158,7 @@ async function getUsageAnalytics() {
 
     // Recent activity (last 50 events)
     const recentQuery = `
-      SELECT User_Email__c, User_Name__c, Event_Type__c, Page_Name__c, Event_Timestamp__c
+      SELECT User_Email__c, Event_Type__c, Page_Name__c, Event_Timestamp__c
       FROM GTM_Usage_Log__c
       ORDER BY Event_Timestamp__c DESC
       LIMIT 50
