@@ -1517,6 +1517,42 @@ class GTMBrainApp {
         res.status(401).send('Unauthorized');
       }
     });
+
+    // GTM Brain tab (full-page query UI; same backend as Obsidian plugin)
+    this.expressApp.get('/gtm/gtm-brain', async (req, res) => {
+      const oktaSession = validateOktaSession(req);
+      if (!oktaSession) {
+        return res.redirect('/login');
+      }
+      try {
+        usageLogger.logPageView(oktaSession, '/gtm/gtm-brain', req).catch(() => {});
+        const normalizedEmail = (oktaSession.email || '').toLowerCase().trim();
+        let accounts = [];
+        if (normalizedEmail && normalizedEmail.includes('@')) {
+          const userQuery = `SELECT Id, Name FROM User WHERE Email = '${normalizedEmail.replace(/'/g, "\\'")}' AND IsActive = true LIMIT 1`;
+          const userResult = await sfConnection.query(userQuery);
+          if (userResult.records && userResult.records.length > 0) {
+            const userId = userResult.records[0].Id;
+            const accountResult = await sfConnection.query(`
+              SELECT Id, Name, Type, Customer_Type__c FROM Account WHERE OwnerId = '${userId}' ORDER BY Name ASC
+            `);
+            accounts = (accountResult.records || []).map(acc => ({
+              id: acc.Id,
+              name: acc.Name,
+              type: acc.Customer_Type__c || acc.Type || 'Prospect'
+            }));
+          }
+        }
+        const { generate } = require('./views/gtmBrainView');
+        const userName = oktaSession.name || oktaSession.email || 'User';
+        const html = generate({ userName, userEmail: oktaSession.email || '', accounts });
+        res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline'");
+        res.send(html);
+      } catch (error) {
+        logger.error('Error generating GTM Brain view:', error);
+        res.status(500).send(`Error: ${error.message}`);
+      }
+    });
     
     // GTM Hub logout
     this.expressApp.get('/gtm/logout', (req, res) => {
@@ -3008,6 +3044,50 @@ class GTMBrainApp {
       }
     });
 
+    // Get accounts owned by the current Okta session user (for GTM Brain web tab refresh)
+    // Must be registered BEFORE the :email param route so Express matches "me" literally
+    this.expressApp.get('/api/accounts/ownership/me', async (req, res) => {
+      const oktaSession = validateOktaSession(req);
+      if (!oktaSession) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+      try {
+        const normalizedEmail = (oktaSession.email || '').toLowerCase().trim();
+        if (!normalizedEmail || !normalizedEmail.includes('@')) {
+          return res.status(400).json({ success: false, error: 'Valid email address required' });
+        }
+        const userQuery = `SELECT Id, Name, Email FROM User WHERE Email = '${normalizedEmail.replace(/'/g, "\\'")}' AND IsActive = true LIMIT 1`;
+        const userResult = await sfConnection.query(userQuery);
+        if (!userResult.records || userResult.records.length === 0) {
+          return res.json({
+            success: true, email: normalizedEmail, userId: null, userName: null,
+            accounts: [], count: 0,
+            message: 'User not found in Salesforce. Contact your admin if this is unexpected.'
+          });
+        }
+        const user = userResult.records[0];
+        const accountResult = await sfConnection.query(`
+          SELECT Id, Name, Type, Customer_Type__c FROM Account
+          WHERE OwnerId = '${user.Id}' ORDER BY Name ASC
+        `);
+        const accounts = (accountResult.records || []).map(acc => ({
+          id: acc.Id, name: acc.Name,
+          type: acc.Customer_Type__c || acc.Type || 'Prospect'
+        }));
+        logger.info(`[Ownership/me] Found ${accounts.length} accounts for ${user.Name} (${normalizedEmail})`);
+        res.json({
+          success: true, email: normalizedEmail, userId: user.Id, userName: user.Name,
+          accounts, count: accounts.length, lastUpdated: new Date().toISOString()
+        });
+      } catch (error) {
+        logger.error('Error fetching account ownership (me):', error);
+        res.status(500).json({
+          success: false, error: 'Failed to fetch account ownership from Salesforce',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+      }
+    });
+
     // Get accounts owned by a specific user (for Obsidian plugin dynamic folder creation)
     // This enables the plugin to fetch owned accounts and create folders for new assignments
     this.expressApp.get('/api/accounts/ownership/:email', async (req, res) => {
@@ -3369,7 +3449,8 @@ class GTMBrainApp {
           query,          // The user's natural language question
           accountId,      // Optional: Focus on a specific account
           accountName,    // Optional: Account name for context
-          userEmail       // User's email for context
+          userEmail,      // User's email for context
+          forceRefresh    // Optional: Skip in-memory cache for fresh data
         } = req.body;
         
         // Use the dedicated intelligence query service
@@ -3379,7 +3460,8 @@ class GTMBrainApp {
           query,
           accountId,
           accountName,
-          userEmail
+          userEmail,
+          forceRefresh: !!forceRefresh
         });
         
         if (result.success) {

@@ -139,6 +139,7 @@ input[name="main-tab"] { display: none; }
 #tab-architecture:checked ~ .tab-nav label[for="tab-architecture"],
 #tab-commands:checked ~ .tab-nav label[for="tab-commands"],
 #tab-meeting-prep:checked ~ .tab-nav label[for="tab-meeting-prep"],
+#tab-gtm-brain:checked ~ .tab-nav label[for="tab-gtm-brain"],
 #tab-analytics:checked ~ .tab-nav label[for="tab-analytics"] {
   color: #8e99e1;
   border-bottom-color: #8e99e1;
@@ -153,6 +154,7 @@ input[name="main-tab"] { display: none; }
 #tab-architecture:checked ~ .content-area #content-architecture,
 #tab-commands:checked ~ .content-area #content-commands,
 #tab-meeting-prep:checked ~ .content-area #content-meeting-prep,
+#tab-gtm-brain:checked ~ .content-area #content-gtm-brain,
 #tab-analytics:checked ~ .content-area #content-analytics {
   display: block;
 }
@@ -225,6 +227,7 @@ input[name="main-tab"] { display: none; }
 <input type="radio" name="main-tab" id="tab-sales" checked>
 <input type="radio" name="main-tab" id="tab-dashboard">
 <input type="radio" name="main-tab" id="tab-meeting-prep">
+<input type="radio" name="main-tab" id="tab-gtm-brain">
 <input type="radio" name="main-tab" id="tab-architecture">
 <input type="radio" name="main-tab" id="tab-commands">
 <input type="radio" name="main-tab" id="tab-start">
@@ -235,6 +238,7 @@ ${isAdmin ? '<input type="radio" name="main-tab" id="tab-analytics">' : ''}
   <label for="tab-sales">Sales Process</label>
   <label for="tab-dashboard">Dashboard</label>
   <label for="tab-meeting-prep">Meeting Prep</label>
+  <label for="tab-gtm-brain">GTM Brain</label>
   <label for="tab-architecture">Architecture</label>
   <label for="tab-commands">Commands</label>
   <label for="tab-start" style="color: #8e99e1; font-weight: 600;">Getting Started</label>
@@ -252,6 +256,11 @@ ${isAdmin ? '<input type="radio" name="main-tab" id="tab-analytics">' : ''}
   <!-- Meeting Prep Tab - Loads meeting prep view via iframe -->
   <div id="content-meeting-prep" class="tab-content">
     <iframe src="/gtm/meeting-prep" title="Meeting Prep"></iframe>
+  </div>
+  
+  <!-- GTM Brain Tab - Account intelligence query (same backend as Obsidian plugin) -->
+  <div id="content-gtm-brain" class="tab-content">
+    <iframe src="/gtm/gtm-brain" title="GTM Brain"></iframe>
   </div>
   
   <!-- Architecture Tab - Loads architecture page via iframe -->
@@ -295,6 +304,7 @@ document.addEventListener('DOMContentLoaded', function() {
       'sales': 'tab-sales',
       'dashboard': 'tab-dashboard',
       'meeting-prep': 'tab-meeting-prep',
+      'gtm-brain': 'tab-gtm-brain',
       'architecture': 'tab-architecture',
       'commands': 'tab-commands',
       'start': 'tab-start',

@@ -1413,7 +1413,7 @@ function generateMobileVault(options = {}) {
           'Content-Type': 'application/json',
           'X-User-Email': userEmail
         },
-        body: JSON.stringify({ query: question })
+        body: JSON.stringify({ query: question, userEmail: userEmail })
       })
       .then(res => res.json())
       .then(data => {

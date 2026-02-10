@@ -134,7 +134,7 @@ const QUERY_INTENTS = {
  * @param {string} params.userEmail - User making the query
  * @returns {Object} - Query response with answer and metadata
  */
-async function processQuery({ query, accountId, accountName, userEmail }) {
+async function processQuery({ query, accountId, accountName, userEmail, forceRefresh }) {
   const startTime = Date.now();
   
   if (!anthropic) {
@@ -156,7 +156,7 @@ async function processQuery({ query, accountId, accountName, userEmail }) {
   try {
     // Classify the query intent
     const intent = classifyQueryIntent(query);
-    logger.info(`[Intelligence] Query intent: ${intent}`, { query: query.substring(0, 50) });
+    logger.info(`[Intelligence] Query intent: ${intent}`, { query: query.substring(0, 50), forceRefresh: !!forceRefresh });
 
     // Gather context based on intent
     const context = await gatherContext({
@@ -164,7 +164,8 @@ async function processQuery({ query, accountId, accountName, userEmail }) {
       query,
       accountId,
       accountName,
-      userEmail
+      userEmail,
+      forceRefresh: !!forceRefresh
     });
 
     // Build the optimized prompt
@@ -240,7 +241,7 @@ function classifyQueryIntent(query) {
 /**
  * Gather context from all data sources based on query intent
  */
-async function gatherContext({ intent, query, accountId, accountName, userEmail }) {
+async function gatherContext({ intent, query, accountId, accountName, userEmail, forceRefresh }) {
   const context = {
     account: null,
     opportunities: [],
@@ -255,12 +256,16 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail 
   };
 
   // Check IN-MEMORY cache first (ephemeral, no disk persistence)
-  // This replaces Redis/SQLite cache for compliance
-  if (accountId) {
+  // Skip cache when forceRefresh is set — guarantees live Salesforce data
+  if (accountId && !forceRefresh) {
     const memoryCached = getMemoryCachedContext(accountId);
     if (memoryCached) {
       return { ...memoryCached, dataFreshness: 'cached' };
     }
+  } else if (accountId && forceRefresh) {
+    // Evict stale entry so the fresh data replaces it after gathering
+    accountContextCache.delete(accountId);
+    logger.info(`[Intelligence] forceRefresh — evicted in-memory cache for ${accountId}`);
   }
 
   // Handle pipeline/cross-account queries
@@ -996,8 +1001,10 @@ function buildUserPrompt(intent, query, context) {
  */
 async function invalidateCache(accountId) {
   if (accountId) {
+    // Clear both Redis and in-memory caches so the next query fetches live data
     await cache.del(`intel_context:${accountId}`);
-    logger.debug(`[Intelligence] Cache invalidated for account ${accountId}`);
+    accountContextCache.delete(accountId);
+    logger.debug(`[Intelligence] Cache invalidated (Redis + memory) for account ${accountId}`);
   }
 }
 
