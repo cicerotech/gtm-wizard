@@ -1020,6 +1020,7 @@ module.exports = {
   invalidateCache,
   isHealthy,
   classifyQueryIntent,
+  parseCustomerBrainNotes,
   // Expose for testing
   gatherContext,
   buildPrompt

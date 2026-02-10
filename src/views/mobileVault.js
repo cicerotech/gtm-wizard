@@ -356,6 +356,50 @@ function generateMobileVault(options = {}) {
     }
     
     /* Note Editor */
+    .note-refresh {
+      background: none; border: 1px solid var(--border); border-radius: 8px;
+      font-size: 1.1rem; padding: 4px 10px; color: var(--primary); cursor: pointer;
+    }
+    .note-refresh:active { background: var(--primary); color: #fff; }
+    .note-title-row { display: flex; align-items: center; gap: 8px; flex: 1; }
+    .note-title-row .note-title-input { flex: 1; }
+    .account-info-bar {
+      padding: 8px 16px; background: #f0ecff; font-size: 0.75rem; color: #5b21b6;
+      display: flex; gap: 12px; overflow-x: auto; white-space: nowrap;
+    }
+    .note-tabs {
+      display: flex; border-bottom: 1px solid var(--border); background: var(--card-bg);
+    }
+    .note-tab {
+      flex: 1; padding: 10px; border: none; background: none; font-size: 0.8125rem;
+      font-weight: 500; color: var(--secondary); cursor: pointer; text-align: center;
+      border-bottom: 2px solid transparent;
+    }
+    .note-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .notes-timeline { padding: 4px 0; }
+    .note-card {
+      background: var(--card-bg); border-radius: 10px; padding: 14px 16px;
+      margin: 8px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .note-card-date { font-size: 0.6875rem; color: var(--secondary); font-weight: 600; margin-bottom: 4px; }
+    .note-card-meta { font-size: 0.6875rem; color: var(--secondary); margin-bottom: 6px; }
+    .note-card-summary { font-size: 0.8125rem; line-height: 1.5; color: var(--text); }
+    .note-card-summary strong { font-weight: 600; }
+    .note-empty { text-align: center; padding: 40px 16px; color: var(--secondary); font-size: 0.875rem; }
+    .briefing-card {
+      background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: #fff;
+      border-radius: 12px; padding: 16px; margin-bottom: 12px;
+    }
+    .briefing-card-title { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8; margin-bottom: 6px; }
+    .briefing-card-meeting { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+    .briefing-card-detail { font-size: 0.8125rem; opacity: 0.9; margin-bottom: 4px; }
+    .briefing-card-action { margin-top: 10px; }
+    .briefing-card-action button {
+      background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3);
+      color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 0.8125rem; cursor: pointer;
+    }
+    .briefing-card-action button:active { background: rgba(255,255,255,0.35); }
+
     .note-editor {
       display: none;
       position: fixed;
@@ -758,14 +802,33 @@ function generateMobileVault(options = {}) {
     <div class="live-transcript" id="liveTranscript"></div>
   </div>
 
-  <!-- Note Editor -->
+  <!-- Note Editor / Account Detail -->
   <div class="note-editor" id="noteEditor">
     <div class="note-header">
       <button class="note-back" onclick="closeNoteEditor()">← Back</button>
-      <input type="text" class="note-title-input" id="noteTitleInput" placeholder="Note title">
+      <div class="note-title-row">
+        <input type="text" class="note-title-input" id="noteTitleInput" placeholder="Note title">
+        <button class="note-refresh" id="noteRefreshBtn" onclick="refreshNotes()" title="Refresh from Salesforce">↻</button>
+      </div>
       <button class="note-save" id="noteSaveBtn" onclick="saveNote()">Save</button>
     </div>
-    <div class="note-content">
+    <!-- Account info bar -->
+    <div class="account-info-bar" id="accountInfoBar" style="display:none;">
+      <span id="accountInfoText"></span>
+    </div>
+    <!-- Tab switcher: Timeline / Edit -->
+    <div class="note-tabs">
+      <button class="note-tab active" id="timelineTabBtn" onclick="switchNoteTab('timeline')">Meeting History</button>
+      <button class="note-tab" id="editTabBtn" onclick="switchNoteTab('edit')">New Note</button>
+    </div>
+    <!-- Timeline view (read-only, rich) -->
+    <div class="note-content" id="timelineView">
+      <div id="notesTimeline" class="notes-timeline">
+        <div class="loading"><div class="spinner"></div> Loading notes...</div>
+      </div>
+    </div>
+    <!-- Edit view (for new notes) -->
+    <div class="note-content" id="editView" style="display:none;">
       <textarea class="note-textarea" id="noteTextarea" placeholder="Start typing your notes..."></textarea>
     </div>
     <div class="note-sync-status" id="noteSyncStatus">
@@ -947,18 +1010,20 @@ function generateMobileVault(options = {}) {
           console.log('[MobileVault] Loaded ' + accounts.length + ' accounts from cache');
         }
         
-        // Then fetch fresh data if online
+        // Then fetch fresh data if online — use ownership endpoint for user-specific accounts
         if (navigator.onLine) {
-          const response = await fetch('/api/accounts/obsidian?email=' + encodeURIComponent(userEmail));
+          const response = await fetch('/api/accounts/ownership/' + encodeURIComponent(userEmail));
           const data = await response.json();
           
           if (data.success && data.accounts) {
-            accounts = data.accounts;
+            accounts = data.accounts.map(function(a) {
+              return { id: a.id, name: a.name, type: a.type, owner: data.userName, stage: a.type };
+            });
             renderAccounts(accounts);
             
             // Update cache
             await offlineStorage.cacheAccounts(accounts);
-            console.log('[MobileVault] Updated cache with ' + accounts.length + ' accounts');
+            console.log('[MobileVault] Updated cache with ' + accounts.length + ' owned accounts');
           }
         } else if (!cachedAccounts || cachedAccounts.length === 0) {
           showAccountsError('You are offline. No cached accounts available.');
@@ -1051,8 +1116,11 @@ function generateMobileVault(options = {}) {
       }
     }
     
+    var todayMeetings = []; // Store for briefing card
+    
     function renderMeetings(events) {
       const container = document.getElementById('todayMeetings');
+      todayMeetings = events || [];
       
       if (events.length === 0) {
         container.innerHTML = \`
@@ -1064,21 +1132,108 @@ function generateMobileVault(options = {}) {
         return;
       }
       
-      container.innerHTML = events.map(evt => \`
-        <div class="meeting-card" onclick="prepMeeting('\${evt.eventId}')">
-          <div class="meeting-time">\${formatTime(evt.startDateTime)} - \${formatTime(evt.endDateTime)}</div>
-          <div class="meeting-title">\${escapeHtml(evt.subject)}</div>
-          <div class="meeting-attendees">
-            \${(evt.externalAttendees || []).slice(0, 3).map(a => a.name || a.email).join(', ')}
-            \${evt.externalAttendees?.length > 3 ? ' +' + (evt.externalAttendees.length - 3) + ' more' : ''}
-          </div>
-        </div>
-      \`).join('');
+      // Find next upcoming meeting for briefing card
+      var now = new Date();
+      var nextMeeting = events.find(function(evt) {
+        return new Date(evt.startDateTime) > now;
+      });
+      
+      var briefingHtml = '';
+      if (nextMeeting) {
+        var startTime = new Date(nextMeeting.startDateTime);
+        var minsUntil = Math.round((startTime - now) / 60000);
+        var timeLabel = minsUntil <= 60 ? minsUntil + ' min' : Math.round(minsUntil / 60) + 'h ' + (minsUntil % 60) + 'min';
+        var attendeeNames = (nextMeeting.externalAttendees || []).slice(0, 3).map(function(a) { return a.name || a.email; }).join(', ');
+        // Try to find matching account
+        var meetingAccountId = nextMeeting.accountId || null;
+        var meetingAccountName = nextMeeting.accountName || '';
+        if (!meetingAccountId && accounts.length > 0) {
+          // Fuzzy match: check if meeting subject or attendees match an account name
+          var subj = (nextMeeting.subject || '').toLowerCase();
+          var matchedAcc = accounts.find(function(a) { return subj.indexOf(a.name.toLowerCase()) !== -1; });
+          if (matchedAcc) { meetingAccountId = matchedAcc.id; meetingAccountName = matchedAcc.name; }
+        }
+        
+        briefingHtml = '<div class="briefing-card">' +
+          '<div class="briefing-card-title">Up next · in ' + timeLabel + '</div>' +
+          '<div class="briefing-card-meeting">' + escapeHtml(nextMeeting.subject) + '</div>' +
+          (attendeeNames ? '<div class="briefing-card-detail">' + escapeHtml(attendeeNames) + '</div>' : '') +
+          (meetingAccountName ? '<div class="briefing-card-detail">Account: ' + escapeHtml(meetingAccountName) + '</div>' : '') +
+          '<div class="briefing-card-action">' +
+            (meetingAccountId ? '<button onclick="openAccount(\\'' + meetingAccountId + '\\')">View Account Notes</button> ' : '') +
+            '<button onclick="askMeetingPrep(\\'' + escapeHtml(nextMeeting.subject) + '\\'' + (meetingAccountId ? ',\\'' + meetingAccountId + '\\',\\'' + escapeHtml(meetingAccountName) + '\\'' : '') + ')">AI Briefing</button>' +
+          '</div>' +
+        '</div>';
+      }
+      
+      container.innerHTML = briefingHtml + events.map(function(evt) {
+        var evtAccountId = evt.accountId || '';
+        // Try to match account
+        if (!evtAccountId && accounts.length > 0) {
+          var s = (evt.subject || '').toLowerCase();
+          var match = accounts.find(function(a) { return s.indexOf(a.name.toLowerCase()) !== -1; });
+          if (match) evtAccountId = match.id;
+        }
+        return '<div class="meeting-card" onclick="prepMeeting(\\'' + evt.eventId + '\\',\\'' + evtAccountId + '\\')">' +
+          '<div class="meeting-time">' + formatTime(evt.startDateTime) + ' - ' + formatTime(evt.endDateTime) + '</div>' +
+          '<div class="meeting-title">' + escapeHtml(evt.subject) + '</div>' +
+          '<div class="meeting-attendees">' +
+            (evt.externalAttendees || []).slice(0, 3).map(function(a) { return a.name || a.email; }).join(', ') +
+            ((evt.externalAttendees || []).length > 3 ? ' +' + (evt.externalAttendees.length - 3) + ' more' : '') +
+          '</div>' +
+        '</div>';
+      }).join('');
     }
     
-    function prepMeeting(eventId) {
-      // Open meeting prep for this event
-      alert('Meeting prep coming soon!');
+    function prepMeeting(eventId, accountId) {
+      if (accountId) {
+        // Open account detail with notes
+        openAccount(accountId);
+      } else {
+        // No linked account — offer AI briefing
+        var evt = todayMeetings.find(function(e) { return e.eventId === eventId; });
+        if (evt) {
+          askMeetingPrep(evt.subject);
+        }
+      }
+    }
+    
+    function askMeetingPrep(meetingSubject, accountId, accountName) {
+      var payload = {
+        query: 'Prep me for my meeting: ' + meetingSubject + '. What should I know going in?',
+        userEmail: userEmail
+      };
+      if (accountId) { payload.accountId = accountId; payload.accountName = accountName; }
+      
+      // Show loading overlay
+      var loadingEl = document.createElement('div');
+      loadingEl.id = 'ai-loading';
+      loadingEl.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+      loadingEl.innerHTML = '<div style="background:#fff;border-radius:16px;padding:24px;max-width:90%;max-height:80vh;overflow-y:auto;"><div class="loading"><div class="spinner"></div> Preparing briefing...</div></div>';
+      document.body.appendChild(loadingEl);
+      
+      fetch('/api/intelligence/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload)
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        var el = document.getElementById('ai-loading');
+        if (!el) return;
+        var answer = data.answer || data.error || 'No briefing available';
+        var html = escapeHtml(answer)
+          .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
+          .replace(/^## (.+)$/gm, '<h3 style="margin:10px 0 4px;font-size:0.9375rem;">$1</h3>')
+          .replace(/\\n- /g, '<br>· ')
+          .replace(/\\n/g, '<br>');
+        el.querySelector('div > div').innerHTML = '<div style="font-weight:600;margin-bottom:8px;">Meeting Briefing</div><div style="font-size:0.875rem;line-height:1.6;">' + html + '</div><button onclick="document.getElementById(\'ai-loading\').remove()" style="margin-top:12px;width:100%;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:0.875rem;">Close</button>';
+      })
+      .catch(function(err) {
+        var el = document.getElementById('ai-loading');
+        if (el) el.querySelector('div > div').innerHTML = '<p style="color:#b91c1c;">Error: ' + escapeHtml(err.message) + '</p><button onclick="document.getElementById(\'ai-loading\').remove()" style="margin-top:12px;width:100%;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:8px;">Close</button>';
+      });
     }
     
     // ═══════════════════════════════════════════════════════════════════════
@@ -1273,14 +1428,143 @@ function generateMobileVault(options = {}) {
       if (!currentAccount) return;
       
       document.getElementById('noteTitleInput').value = currentAccount.name;
-      document.getElementById('noteTextarea').value = currentAccount.notes || '';
+      document.getElementById('noteTextarea').value = '';
+      switchNoteTab('timeline');
       document.getElementById('noteEditor').classList.add('active');
+      history.pushState({ view: 'account' }, '');
+      
+      // Show account info bar
+      var infoBar = document.getElementById('accountInfoBar');
+      var infoText = document.getElementById('accountInfoText');
+      infoBar.style.display = 'none';
+      
+      // Show loading in timeline
+      document.getElementById('notesTimeline').innerHTML = '<div class="loading"><div class="spinner"></div> Loading notes...</div>';
+      
+      // Fetch notes from Salesforce
+      fetchAccountNotes(accountId);
     }
     
-    function openNoteEditor(content = '') {
+    async function fetchAccountNotes(accountId, showRefreshMsg) {
+      try {
+        // Try cache first for instant display
+        var cached = null;
+        try { cached = await offlineStorage.getCachedNote(accountId); } catch(e) {}
+        if (cached && cached.content && !showRefreshMsg) {
+          renderNotesTimeline(cached.parsedNotes || [], cached.content);
+        }
+        
+        if (!navigator.onLine) {
+          if (!cached) {
+            document.getElementById('notesTimeline').innerHTML = '<div class="note-empty">Offline — no cached notes available for this account.</div>';
+          }
+          return;
+        }
+        
+        var response = await fetch('/api/accounts/' + encodeURIComponent(accountId) + '/notes');
+        var data = await response.json();
+        
+        if (data.success) {
+          // Update info bar
+          var infoBar = document.getElementById('accountInfoBar');
+          var infoText = document.getElementById('accountInfoText');
+          var parts = [];
+          if (data.owner) parts.push('Owner: ' + data.owner);
+          if (data.type) parts.push(data.type);
+          if (data.lastActivity) parts.push('Last activity: ' + formatDate(data.lastActivity));
+          if (data.noteCount > 0) parts.push(data.noteCount + ' meetings');
+          infoText.textContent = parts.join('  ·  ');
+          infoBar.style.display = parts.length ? 'flex' : 'none';
+          
+          // Render timeline
+          renderNotesTimeline(data.parsedNotes || [], data.notes || '');
+          
+          // Cache for offline
+          try {
+            await offlineStorage.cacheNote(accountId, data.accountName, data.notes, {
+              parsedNotes: data.parsedNotes,
+              owner: data.owner,
+              type: data.type
+            });
+          } catch(e) { console.warn('Cache error:', e); }
+          
+          if (showRefreshMsg) {
+            document.getElementById('noteSyncStatus').innerHTML = '<div class="sync-dot"></div><span>Refreshed from Salesforce</span>';
+            setTimeout(function() {
+              document.getElementById('noteSyncStatus').innerHTML = '<div class="sync-dot"></div><span>All changes saved</span>';
+            }, 2000);
+          }
+        } else {
+          if (!cached) {
+            document.getElementById('notesTimeline').innerHTML = '<div class="note-empty">No notes found for this account.</div>';
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching notes:', error);
+        if (!document.getElementById('notesTimeline').querySelector('.note-card')) {
+          document.getElementById('notesTimeline').innerHTML = '<div class="note-empty">Unable to load notes. Check your connection.</div>';
+        }
+      }
+    }
+    
+    function renderNotesTimeline(parsedNotes, rawNotes) {
+      var container = document.getElementById('notesTimeline');
+      
+      if (!parsedNotes || parsedNotes.length === 0) {
+        if (rawNotes && rawNotes.trim().length > 0) {
+          // Has raw content but couldn't parse into structured notes
+          container.innerHTML = '<div class="note-card"><div class="note-card-summary">' + escapeHtml(rawNotes.substring(0, 2000)) + '</div></div>';
+        } else {
+          container.innerHTML = '<div class="note-empty">No meeting notes yet. Use Record to capture your first meeting.</div>';
+        }
+        return;
+      }
+      
+      container.innerHTML = parsedNotes.map(function(note) {
+        var meta = [];
+        if (note.rep && note.rep !== 'Unknown') meta.push(note.rep);
+        if (note.duration) meta.push(note.duration);
+        if (note.participants) meta.push(note.participants);
+        
+        // Format summary: bold **text**, bullets, sections
+        var summaryHtml = escapeHtml(note.summary)
+          .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
+          .replace(/\\n- /g, '<br>· ')
+          .replace(/\\n/g, '<br>');
+        
+        return '<div class="note-card">' +
+          '<div class="note-card-date">' + escapeHtml(note.date) + '</div>' +
+          (meta.length ? '<div class="note-card-meta">' + escapeHtml(meta.join(' · ')) + '</div>' : '') +
+          '<div class="note-card-summary">' + summaryHtml + '</div>' +
+          '</div>';
+      }).join('');
+    }
+    
+    function refreshNotes() {
+      if (!currentAccount) return;
+      document.getElementById('notesTimeline').innerHTML = '<div class="loading"><div class="spinner"></div> Refreshing...</div>';
+      fetchAccountNotes(currentAccount.id, true);
+    }
+    
+    function switchNoteTab(tab) {
+      document.getElementById('timelineTabBtn').classList.toggle('active', tab === 'timeline');
+      document.getElementById('editTabBtn').classList.toggle('active', tab === 'edit');
+      document.getElementById('timelineView').style.display = tab === 'timeline' ? 'block' : 'none';
+      document.getElementById('editView').style.display = tab === 'edit' ? 'block' : 'none';
+      if (tab === 'edit') {
+        document.getElementById('noteTextarea').focus();
+      }
+    }
+    
+    function openNoteEditor(content) {
+      // Open editor in "new note" mode (after transcription)
+      currentAccount = null;
       document.getElementById('noteTitleInput').value = new Date().toLocaleDateString() + ' Meeting Notes';
-      document.getElementById('noteTextarea').value = content;
+      document.getElementById('noteTextarea').value = content || '';
+      document.getElementById('accountInfoBar').style.display = 'none';
+      switchNoteTab('edit');
       document.getElementById('noteEditor').classList.add('active');
+      history.pushState({ view: 'note' }, '');
     }
     
     function closeNoteEditor() {
@@ -1400,27 +1684,56 @@ function generateMobileVault(options = {}) {
     }
     
     // ═══════════════════════════════════════════════════════════════════════
-    // AI INTELLIGENCE
+    // AI INTELLIGENCE (account-aware)
     // ═══════════════════════════════════════════════════════════════════════
     function askIntelligence() {
-      const question = prompt('Ask about any account:');
+      var prefill = '';
+      if (currentAccount) {
+        prefill = 'About ' + currentAccount.name + ': ';
+      }
+      var question = prompt('Ask GTM Brain' + (currentAccount ? ' about ' + currentAccount.name : '') + ':', prefill);
       if (!question) return;
       
-      // Simple intelligence query
+      // Build payload with account context when available
+      var payload = { query: question, userEmail: userEmail };
+      if (currentAccount) {
+        payload.accountId = currentAccount.id;
+        payload.accountName = currentAccount.name;
+      }
+      
+      // Show a non-blocking loading state
+      var loadingEl = document.createElement('div');
+      loadingEl.id = 'ai-loading';
+      loadingEl.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+      loadingEl.innerHTML = '<div style="background:#fff;border-radius:16px;padding:24px;max-width:90%;max-height:80vh;overflow-y:auto;"><div class="loading"><div class="spinner"></div> Thinking...</div></div>';
+      document.body.appendChild(loadingEl);
+      
       fetch('/api/intelligence/query', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'X-User-Email': userEmail
-        },
-        body: JSON.stringify({ query: question, userEmail: userEmail })
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload)
       })
-      .then(res => res.json())
-      .then(data => {
-        alert(data.answer || data.error || 'No answer');
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        var el = document.getElementById('ai-loading');
+        if (!el) return;
+        var answer = data.answer || data.error || 'No answer';
+        // Simple formatting
+        var html = escapeHtml(answer)
+          .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
+          .replace(/^## (.+)$/gm, '<h3 style="margin:10px 0 4px;font-size:0.9375rem;">$1</h3>')
+          .replace(/\\n- /g, '<br>· ')
+          .replace(/\\n/g, '<br>');
+        var ctx = '';
+        if (data.context && data.context.accountName) ctx = '<div style="font-size:0.6875rem;color:#6b7280;margin-top:12px;border-top:1px solid #eee;padding-top:8px;">Based on: ' + escapeHtml(data.context.accountName) + (data.context.opportunityCount > 0 ? ' · ' + data.context.opportunityCount + ' opps' : '') + '</div>';
+        el.querySelector('div > div').innerHTML = '<div style="font-size:0.875rem;line-height:1.6;">' + html + '</div>' + ctx + '<button onclick="document.getElementById(\'ai-loading\').remove()" style="margin-top:12px;width:100%;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:0.875rem;">Close</button>';
       })
-      .catch(err => {
-        alert('Error: ' + err.message);
+      .catch(function(err) {
+        var el = document.getElementById('ai-loading');
+        if (el) {
+          el.querySelector('div > div').innerHTML = '<p style="color:#b91c1c;">Error: ' + escapeHtml(err.message) + '</p><button onclick="document.getElementById(\'ai-loading\').remove()" style="margin-top:12px;width:100%;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:8px;">Close</button>';
+        }
       });
     }
     

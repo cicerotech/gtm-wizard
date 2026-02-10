@@ -2962,6 +2962,54 @@ class GTMBrainApp {
       }
     });
 
+    // Get account notes (Customer_Brain__c) for mobile vault and web views
+    this.expressApp.get('/api/accounts/:accountId/notes', async (req, res) => {
+      try {
+        const { accountId } = req.params;
+        if (!accountId || accountId.length < 15) {
+          return res.status(400).json({ success: false, error: 'Valid accountId required' });
+        }
+
+        const result = await sfConnection.query(`
+          SELECT Id, Name, Customer_Brain__c, LastActivityDate, Owner.Name,
+                 Customer_Type__c, Industry
+          FROM Account
+          WHERE Id = '${accountId.replace(/'/g, "\\'")}'
+          LIMIT 1
+        `);
+
+        const acc = result?.records?.[0];
+        if (!acc) {
+          return res.status(404).json({ success: false, error: 'Account not found' });
+        }
+
+        const { parseCustomerBrainNotes } = require('./services/intelligenceQueryService');
+        const rawNotes = acc.Customer_Brain__c || '';
+        const parsedNotes = parseCustomerBrainNotes(rawNotes);
+
+        res.json({
+          success: true,
+          accountId: acc.Id,
+          accountName: acc.Name,
+          owner: acc.Owner?.Name || null,
+          type: acc.Customer_Type__c || null,
+          industry: acc.Industry || null,
+          lastActivity: acc.LastActivityDate || null,
+          notes: rawNotes,
+          parsedNotes,
+          noteCount: parsedNotes.length,
+          lastUpdated: new Date().toISOString()
+        });
+      } catch (error) {
+        logger.error('Error fetching account notes:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to fetch account notes from Salesforce',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+      }
+    });
+
     // Get contacts for account (attendee dropdown)
     this.expressApp.get('/api/accounts/contacts/:accountId', async (req, res) => {
       try {
