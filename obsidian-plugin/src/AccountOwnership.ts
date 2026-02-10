@@ -530,6 +530,24 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
       ]
     },
 
+    // RILEY STACK (1 accounts)
+    'riley.stack@eudia.com': {
+      email: 'riley.stack@eudia.com',
+      name: 'Riley Stack',
+      accounts: [
+        { id: '001Wj00000XiEDyIAN', name: 'Coinbase' },
+      ]
+    },
+
+    // SEAN BOYD (1 accounts)
+    'sean.boyd@eudia.com': {
+      email: 'sean.boyd@eudia.com',
+      name: 'Sean Boyd',
+      accounts: [
+        { id: '001Hp00003kIrE9IAK', name: 'IQVIA' },
+      ]
+    },
+
     // OLIVIA JUNG (30 accounts)
     'olivia@eudia.com': {
       email: 'olivia@eudia.com',
@@ -659,8 +677,34 @@ export class AccountOwnershipService {
       return accounts;
     }
     
-    // For regular BLs and others, look up directly
+    // For regular BLs, look up owned accounts + team accounts
     const lead = OWNERSHIP_DATA.businessLeads[email];
+    const ownedAccounts: OwnedAccount[] = lead ? lead.accounts.map(a => ({ ...a, isOwned: true })) : [];
+    
+    // Check if this BL is a direct report of a sales leader
+    // If so, include the entire team's accounts (same view as the leader)
+    const teamLeader = this.findTeamLeader(email);
+    if (teamLeader) {
+      const teamReports = getSalesLeaderDirectReports(teamLeader);
+      const ownedIds = new Set(ownedAccounts.map(a => a.id));
+      
+      for (const reportEmail of teamReports) {
+        const reportLead = OWNERSHIP_DATA.businessLeads[reportEmail];
+        if (reportLead) {
+          for (const acc of reportLead.accounts) {
+            if (!ownedIds.has(acc.id)) {
+              ownedAccounts.push({ ...acc, isOwned: false });
+              ownedIds.add(acc.id);
+            }
+          }
+        }
+      }
+      
+      const sorted = ownedAccounts.sort((a, b) => a.name.localeCompare(b.name));
+      console.log(`[AccountOwnership] Found ${sorted.length} static accounts for ${email} (${lead?.accounts.length || 0} owned + team from ${teamLeader})`);
+      return sorted;
+    }
+    
     if (!lead) {
       console.log(`[AccountOwnership] No static mapping found for: ${email}`);
       return [];
@@ -715,6 +759,19 @@ export class AccountOwnershipService {
         normalizedAccountName.startsWith(folder)
       );
     });
+  }
+
+  /**
+   * Find the sales leader a BL reports to (reverse-lookup of direct reports)
+   */
+  private findTeamLeader(email: string): string | null {
+    const normalized = email.toLowerCase().trim();
+    for (const [leaderEmail, reports] of Object.entries(SALES_LEADER_DIRECT_REPORTS)) {
+      if (reports.includes(normalized)) {
+        return leaderEmail;
+      }
+    }
+    return null;
   }
 
   /**

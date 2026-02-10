@@ -184,6 +184,20 @@ function hasFullAccountAccess(email) {
   return group === 'admin' || group === 'exec';
 }
 
+/**
+ * Find the sales leader a BL reports to (if any).
+ * Returns { leaderEmail, teamEmails } or null.
+ */
+function getTeamForBL(email) {
+  const normalized = (email || '').toLowerCase().trim();
+  for (const [leaderEmail, reports] of Object.entries(SALES_LEADER_DIRECT_REPORTS)) {
+    if (reports.includes(normalized)) {
+      return { leaderEmail, teamEmails: reports };
+    }
+  }
+  return null;
+}
+
 // Admin authentication middleware
 function requireAdmin(req, res, next) {
   const email = (req.query.adminEmail || req.headers['x-admin-email'] || '').toLowerCase().trim();
@@ -3158,29 +3172,65 @@ class GTMBrainApp {
         const userName = user.Name;
         
         // Query accounts owned by this user
-        const accountQuery = `
+        const ownedQuery = `
           SELECT Id, Name, Type, Customer_Type__c 
           FROM Account 
           WHERE OwnerId = '${userId}'
           ORDER BY Name ASC
         `;
-        const accountResult = await sfConnection.query(accountQuery);
+        const ownedResult = await sfConnection.query(ownedQuery);
         
-        const accounts = (accountResult.records || []).map(acc => ({
+        const ownedAccounts = (ownedResult.records || []).map(acc => ({
           id: acc.Id,
           name: acc.Name,
-          type: acc.Customer_Type__c || acc.Type || 'Prospect'
+          type: acc.Customer_Type__c || acc.Type || 'Prospect',
+          isOwned: true
         }));
         
-        logger.info(`[Ownership] Found ${accounts.length} accounts for ${userName} (${normalizedEmail})`);
+        // Check if this BL is part of a sales leader's team
+        // If so, include team accounts (same view as the sales leader)
+        const team = getTeamForBL(normalizedEmail);
+        let teamAccounts = [];
+        
+        if (team) {
+          const blEmailList = team.teamEmails.map(e => `'${e.replace(/'/g, "\\'")}'`).join(',');
+          const teamQuery = `
+            SELECT Id, Name, Type, Customer_Type__c 
+            FROM Account 
+            WHERE Owner.Email IN (${blEmailList})
+              AND (NOT Name LIKE '%Sample%')
+              AND (NOT Name LIKE '%Test%')
+            ORDER BY Name ASC
+            LIMIT 500
+          `;
+          const teamResult = await sfConnection.query(teamQuery);
+          const ownedIds = new Set(ownedAccounts.map(a => a.id));
+          
+          teamAccounts = (teamResult.records || [])
+            .filter(acc => !ownedIds.has(acc.Id))
+            .map(acc => ({
+              id: acc.Id,
+              name: acc.Name,
+              type: acc.Customer_Type__c || acc.Type || 'Prospect',
+              isOwned: false
+            }));
+          
+          logger.info(`[Ownership] Found ${teamAccounts.length} additional team accounts for ${normalizedEmail} (team lead: ${team.leaderEmail})`);
+        }
+        
+        const allAccounts = [...ownedAccounts, ...teamAccounts].sort((a, b) => a.name.localeCompare(b.name));
+        
+        logger.info(`[Ownership] Found ${allAccounts.length} total accounts for ${userName} (${normalizedEmail}): ${ownedAccounts.length} owned + ${teamAccounts.length} team`);
         
         res.json({
           success: true,
           email: normalizedEmail,
           userId: userId,
           userName: userName,
-          accounts: accounts,
-          count: accounts.length,
+          accounts: allAccounts,
+          count: allAccounts.length,
+          ownedCount: ownedAccounts.length,
+          teamCount: teamAccounts.length,
           lastUpdated: new Date().toISOString()
         });
         
