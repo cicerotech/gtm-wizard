@@ -610,8 +610,18 @@ ${attendeeList}
   }
 
   formatTime(isoString: string): string {
-    return new Date(isoString).toLocaleTimeString('en-US', { 
-      hour: 'numeric', minute: '2-digit', hour12: true 
+    // Treat naive datetime strings (no Z or offset) as UTC
+    let safe = isoString;
+    if (safe && !safe.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(safe)) {
+      safe = safe + 'Z';
+    }
+    const date = new Date(safe);
+    if (isNaN(date.getTime())) return isoString;
+    
+    const tz = (this as any).settings?.timezone || 'America/New_York';
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', minute: '2-digit', hour12: true,
+      timeZone: tz
     });
   }
 }

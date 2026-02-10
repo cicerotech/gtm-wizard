@@ -371,8 +371,11 @@ class CalendarService {
       logger.info(`📅 Fetching calendar for ${userEmail}: ${startISO} to ${endISO}`);
 
       // Query user's calendar events
+      // CRITICAL: Request UTC times so naive datetime strings can be correctly
+      // parsed on any client regardless of local timezone
       const response = await this.graphClient
         .api(`/users/${userEmail}/calendar/calendarView`)
+        .header('Prefer', 'outlook.timezone="UTC"')
         .query({
           startDateTime: startISO,
           endDateTime: endISO,
@@ -441,12 +444,18 @@ class CalendarService {
     // Context will be enriched later with sequence/stage data
     const classification = classifyMeeting(event.subject, {});
     
+    // Ensure datetime strings are proper ISO 8601 with Z suffix.
+    // Graph API returns naive strings (no offset) even when timezone is UTC.
+    // Without 'Z', JS Date() treats them as local time → wrong on every client.
+    const startDT = this._ensureUtcSuffix(event.start?.dateTime);
+    const endDT = this._ensureUtcSuffix(event.end?.dateTime);
+    
     return {
       eventId: event.id,
       subject: event.subject || 'No Subject',
-      startDateTime: event.start?.dateTime,
-      endDateTime: event.end?.dateTime,
-      timezone: event.start?.timeZone || 'UTC',
+      startDateTime: startDT,
+      endDateTime: endDT,
+      timezone: 'UTC',
       location: event.location?.displayName || '',
       body: event.body?.content || '',           // Full HTML body
       bodyPreview: event.bodyPreview || '',      // Short preview
@@ -469,6 +478,21 @@ class CalendarService {
       meetingTypeMethod: classification.method,
       source: 'outlook'
     };
+  }
+
+  /**
+   * Ensure a datetime string ends with 'Z' (UTC marker).
+   * Microsoft Graph returns naive strings like "2026-02-10T17:00:00.0000000"
+   * without any timezone indicator. Without 'Z', JavaScript Date() parses
+   * them as LOCAL time, causing wrong times on every client.
+   */
+  _ensureUtcSuffix(dateTimeStr) {
+    if (!dateTimeStr) return dateTimeStr;
+    // Already has Z or offset (+/-HH:MM) → leave it alone
+    if (dateTimeStr.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(dateTimeStr)) {
+      return dateTimeStr;
+    }
+    return dateTimeStr + 'Z';
   }
 
   /**

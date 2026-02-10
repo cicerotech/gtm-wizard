@@ -511,10 +511,18 @@ ${attendeeList}
     return date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
   }
   formatTime(isoString) {
-    return new Date(isoString).toLocaleTimeString("en-US", {
+    let safe = isoString;
+    if (safe && !safe.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(safe)) {
+      safe = safe + "Z";
+    }
+    const date = new Date(safe);
+    if (isNaN(date.getTime())) return isoString;
+    const tz = this.settings?.timezone || "America/New_York";
+    return date.toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",
-      hour12: true
+      hour12: true,
+      timeZone: tz
     });
   }
 };

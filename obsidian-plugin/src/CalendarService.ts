@@ -213,8 +213,8 @@ export class CalendarService {
     const now = new Date();
     
     for (const meeting of todayResponse.meetings) {
-      const start = new Date(meeting.start);
-      const end = new Date(meeting.end);
+      const start = CalendarService.safeParseDate(meeting.start);
+      const end = CalendarService.safeParseDate(meeting.end);
       
       // Meeting is happening now
       if (now >= start && now <= end) {
@@ -320,11 +320,22 @@ export class CalendarService {
 
   /**
    * Format time for display (e.g., "10:00 AM")
-   * @param isoString - ISO date string
+   * @param isoString - ISO date string (should be UTC with Z suffix from server)
    * @param timezone - Optional IANA timezone (e.g., 'America/New_York')
    */
   static formatTime(isoString: string, timezone?: string): string {
-    const date = new Date(isoString);
+    // Defensive: if the server returns a naive datetime string (no Z or offset),
+    // treat it as UTC to avoid local-time misinterpretation.
+    let safeString = isoString;
+    if (safeString && !safeString.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(safeString)) {
+      safeString = safeString + 'Z';
+    }
+    
+    const date = new Date(safeString);
+    if (isNaN(date.getTime())) {
+      return isoString; // Fallback: return raw string if unparseable
+    }
+    
     const options: Intl.DateTimeFormatOptions = { 
       hour: 'numeric', 
       minute: '2-digit',
@@ -337,11 +348,24 @@ export class CalendarService {
   }
 
   /**
+   * Safely parse a datetime string, treating naive strings (no Z or offset) as UTC.
+   * This prevents local-time misinterpretation of Graph API datetime values.
+   */
+  static safeParseDate(dateTimeStr: string): Date {
+    if (!dateTimeStr) return new Date(NaN);
+    let safe = dateTimeStr;
+    if (!safe.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(safe)) {
+      safe = safe + 'Z';
+    }
+    return new Date(safe);
+  }
+
+  /**
    * Calculate meeting duration in minutes
    */
   static getMeetingDuration(start: string, end: string): number {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
+    const startDate = CalendarService.safeParseDate(start);
+    const endDate = CalendarService.safeParseDate(end);
     return Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
   }
 }
