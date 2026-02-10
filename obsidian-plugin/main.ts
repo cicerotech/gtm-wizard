@@ -2820,7 +2820,8 @@ export default class EudiaSyncPlugin extends Plugin {
   }
 
   /**
-   * Check the server for a newer plugin version and show update notice if available.
+   * Check the server for a newer plugin version. If available, silently download
+   * and install the update, then prompt the user to reload.
    * Non-blocking — runs in background on startup.
    */
   private async checkForPluginUpdate(): Promise<void> {
@@ -2835,8 +2836,7 @@ export default class EudiaSyncPlugin extends Plugin {
       if (!resp.json?.success) return;
       
       const remoteVersion = resp.json.currentVersion;
-      const localManifest = this.manifest;
-      const localVersion = localManifest?.version || '0.0.0';
+      const localVersion = this.manifest?.version || '0.0.0';
       
       // Simple semver compare: split on dots, compare each part
       const remote = remoteVersion.split('.').map(Number);
@@ -2849,19 +2849,129 @@ export default class EudiaSyncPlugin extends Plugin {
       }
       
       if (needsUpdate) {
-        const downloadUrl = resp.json.downloadUrl || `${serverUrl}/api/plugin/main.js`;
         console.log(`[Eudia Update] New version available: ${remoteVersion} (current: ${localVersion})`);
-        new Notice(
-          `Eudia plugin update available: v${remoteVersion}\n` +
-          `Download the latest from the GTM Hub Getting Started page, or ask your admin for the updated main.js file.`,
-          15000
-        );
+        await this.performAutoUpdate(serverUrl, remoteVersion, localVersion);
       } else {
         console.log(`[Eudia Update] Plugin is up to date (v${localVersion})`);
       }
     } catch (e) {
       // Non-critical — silently ignore update check failures
-      console.log('[Eudia Update] Could not check for updates:', e.message || e);
+      console.log('[Eudia Update] Could not check for updates:', (e as Error).message || e);
+    }
+  }
+
+  /**
+   * Download latest plugin files from the server, write them to disk, and
+   * prompt the user to reload Obsidian. Never interrupts an active recording.
+   */
+  private async performAutoUpdate(serverUrl: string, remoteVersion: string, localVersion: string): Promise<void> {
+    try {
+      // Safety: never update while a recording is in progress
+      if (this.audioRecorder?.isRecording()) {
+        console.log('[Eudia Update] Skipping auto-update — recording in progress');
+        new Notice(
+          `Eudia update v${remoteVersion} available.\nFinish your recording, then restart Obsidian to update.`,
+          10000
+        );
+        return;
+      }
+
+      const pluginDir = this.manifest.dir;
+      if (!pluginDir) {
+        console.log('[Eudia Update] Cannot determine plugin directory — skipping');
+        return;
+      }
+
+      const adapter = this.app.vault.adapter;
+
+      // ── Step 1: Download all 3 files before writing anything ──────────
+      console.log('[Eudia Update] Downloading plugin files...');
+
+      const [mainJsResp, manifestResp, stylesResp] = await Promise.all([
+        requestUrl({ url: `${serverUrl}/api/plugin/main.js` }),
+        requestUrl({ url: `${serverUrl}/api/plugin/manifest.json` }),
+        requestUrl({ url: `${serverUrl}/api/plugin/styles.css` }),
+      ]);
+
+      const mainJsText = mainJsResp.text;
+      const manifestText = manifestResp.text;
+      const stylesText = stylesResp.text;
+
+      // ── Step 2: Validate downloads (> 1 KB, < 5 MB) ──────────────────
+      const MIN_SIZE = 1024;
+      const MAX_SIZE = 5 * 1024 * 1024;
+
+      for (const [name, content] of [
+        ['main.js', mainJsText],
+        ['manifest.json', manifestText],
+        ['styles.css', stylesText],
+      ] as const) {
+        if (!content || content.length < MIN_SIZE || content.length > MAX_SIZE) {
+          console.log(`[Eudia Update] Downloaded ${name} failed validation (${content?.length ?? 0} bytes) — aborting`);
+          return;
+        }
+      }
+
+      // ── Step 3: Backup current main.js ────────────────────────────────
+      try {
+        const currentMainJs = await adapter.read(`${pluginDir}/main.js`);
+        await adapter.write(`${pluginDir}/main.js.bak`, currentMainJs);
+        console.log('[Eudia Update] Backed up current main.js');
+      } catch {
+        // If backup fails (e.g. file doesn't exist), continue anyway
+        console.log('[Eudia Update] Could not back up main.js — continuing');
+      }
+
+      // ── Step 4: Write new files ───────────────────────────────────────
+      await adapter.write(`${pluginDir}/main.js`, mainJsText);
+      await adapter.write(`${pluginDir}/manifest.json`, manifestText);
+      await adapter.write(`${pluginDir}/styles.css`, stylesText);
+
+      console.log(`[Eudia Update] Files written — v${localVersion} → v${remoteVersion}`);
+
+      // ── Step 5: Report update to telemetry ────────────────────────────
+      try {
+        requestUrl({
+          url: `${serverUrl}/api/plugin/telemetry`,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'info',
+            message: `Auto-updated from v${localVersion} to v${remoteVersion}`,
+            userEmail: this.settings.userEmail || 'anonymous',
+            pluginVersion: remoteVersion,
+            platform: 'obsidian',
+            context: { fromVersion: localVersion, toVersion: remoteVersion }
+          })
+        }).catch(() => {});
+      } catch {
+        // Never fail on telemetry
+      }
+
+      // ── Step 6: Prompt user to reload ─────────────────────────────────
+      const fragment = document.createDocumentFragment();
+      const msgEl = document.createElement('div');
+      msgEl.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+      
+      const textEl = document.createElement('span');
+      textEl.textContent = `Eudia updated to v${remoteVersion}. Reload to apply.`;
+      msgEl.appendChild(textEl);
+      
+      const btn = document.createElement('button');
+      btn.textContent = 'Reload now';
+      btn.style.cssText = 'padding:4px 12px;border-radius:4px;border:1px solid var(--interactive-accent);background:var(--interactive-accent);color:var(--text-on-accent);cursor:pointer;font-size:12px;align-self:flex-start;';
+      btn.addEventListener('click', () => {
+        // Reload the Obsidian window to load the new plugin code
+        (this.app as any).commands.executeCommandById('app:reload');
+      });
+      msgEl.appendChild(btn);
+      
+      fragment.appendChild(msgEl);
+      new Notice(fragment, 0); // 0 = persistent until dismissed or clicked
+
+    } catch (e) {
+      // Any failure in auto-update is non-fatal — plugin continues running the current version
+      console.log('[Eudia Update] Auto-update failed:', (e as Error).message || e);
     }
   }
 
