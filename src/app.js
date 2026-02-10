@@ -603,6 +603,39 @@ class GTMBrainApp {
 
   async initializeServices() {
     try {
+      // Initialize PostgreSQL database (if DATABASE_URL is set)
+      try {
+        const db = require('./db/connection');
+        if (db.isAvailable()) {
+          logger.info('✅ PostgreSQL connection pool established');
+          // Run pending migrations automatically on startup
+          const { runMigrations } = require('./db/migrate');
+          await runMigrations();
+          logger.info('✅ Database migrations up to date');
+          
+          // Register agent handlers and start job queue worker
+          const jobQueue = require('./agents/jobQueue');
+          const pipelineReviewAgent = require('./agents/pipelineReviewAgent');
+          pipelineReviewAgent.register();
+          
+          // Deal health agent will be registered here too
+          try {
+            const dealHealthAgent = require('./agents/dealHealthAgent');
+            dealHealthAgent.register();
+          } catch (e) {
+            logger.debug('[Agents] Deal health agent not yet available');
+          }
+          
+          jobQueue.startWorker();
+          logger.info('✅ Agent job queue worker started');
+        } else {
+          logger.info('ℹ️  PostgreSQL not configured — using file-based storage');
+        }
+      } catch (dbError) {
+        logger.warn('⚠️  PostgreSQL initialization failed:', dbError.message);
+        logger.warn('   Falling back to file-based storage');
+      }
+
       // Initialize Redis for caching and conversation state (skip if not available)
       if (process.env.REDIS_URL && process.env.REDIS_URL.includes('redis://red-')) {
         await initializeRedis();
@@ -854,16 +887,55 @@ class GTMBrainApp {
       });
     });
 
-    // Plugin version endpoint - for update checking
+    // Plugin version endpoint - reads from manifest.json for accurate version
     this.expressApp.get('/api/plugin/version', (req, res) => {
-      res.json({
-        success: true,
-        currentVersion: '4.0.0',
-        minimumVersion: '3.0.0',
-        downloadUrl: 'https://gtm-wizard.onrender.com/downloads/Business-Lead-Vault-2026.zip',
-        releaseNotes: 'Timezone fix, improved transcription reliability',
-        timestamp: new Date().toISOString()
-      });
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const manifestPath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        res.json({
+          success: true,
+          currentVersion: manifest.version,
+          minimumVersion: '3.0.0',
+          downloadUrl: 'https://gtm-wizard.onrender.com/api/plugin/main.js',
+          vaultDownloadUrl: 'https://gtm-wizard.onrender.com/vault/download',
+          releaseNotes: 'Pipeline meeting template, calendar timezone fix, Render DB support',
+          timestamp: new Date().toISOString()
+        });
+      } catch (e) {
+        res.json({
+          success: true,
+          currentVersion: '4.0.0',
+          minimumVersion: '3.0.0',
+          downloadUrl: 'https://gtm-wizard.onrender.com/api/plugin/main.js',
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    // Serve latest plugin main.js directly (for auto-update)
+    this.expressApp.get('/api/plugin/main.js', (req, res) => {
+      const path = require('path');
+      const mainJsPath = path.join(__dirname, '..', 'obsidian-plugin', 'main.js');
+      res.setHeader('Content-Type', 'application/javascript');
+      res.sendFile(mainJsPath);
+    });
+
+    // Serve latest plugin manifest.json
+    this.expressApp.get('/api/plugin/manifest.json', (req, res) => {
+      const path = require('path');
+      const manifestPath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
+      res.setHeader('Content-Type', 'application/json');
+      res.sendFile(manifestPath);
+    });
+
+    // Serve latest plugin styles.css
+    this.expressApp.get('/api/plugin/styles.css', (req, res) => {
+      const path = require('path');
+      const stylesPath = path.join(__dirname, '..', 'obsidian-plugin', 'styles.css');
+      res.setHeader('Content-Type', 'text/css');
+      res.sendFile(stylesPath);
     });
 
     // Plugin telemetry endpoint - for remote debugging (opt-in)
@@ -883,6 +955,12 @@ class GTMBrainApp {
         } = req.body;
         
         // Log for debugging (these appear in Render logs)
+        // Persist to PostgreSQL (alongside existing file store for backward compat)
+        const { telemetryRepo, analyticsRepo } = require('./db/repositories');
+        telemetryRepo.recordEvent(event, userEmail, pluginVersion, { message, context, platform }, 
+          event === 'error' ? message : null, null).catch(() => {});
+        analyticsRepo.trackEvent(`plugin_${event}`, userEmail, { pluginVersion, platform }).catch(() => {});
+
         if (event === 'error') {
           logger.error(`[Plugin Telemetry] ${message}`, { 
             userEmail: userEmail || 'anonymous',
@@ -890,7 +968,7 @@ class GTMBrainApp {
             pluginVersion,
             platform
           });
-          // Persist to store
+          // Persist to file store (legacy)
           telemetryStore.recordError(userEmail, message, { context, pluginVersion, platform });
         } else if (event === 'warning') {
           logger.warn(`[Plugin Telemetry] ${message}`, { context, pluginVersion });
@@ -4419,6 +4497,43 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
 
         logger.info(`Transcription complete: ${result.transcript?.length || 0} chars, ${result.duration || 0}s`);
 
+        // Archive transcript to PostgreSQL and enqueue pipeline agent (non-blocking)
+        try {
+          const { transcriptRepo, analyticsRepo } = require('./db/repositories');
+          const transcriptId = await transcriptRepo.archiveTranscript({
+            meetingDate: new Date(),
+            meetingSubject: accountName || 'Unknown Meeting',
+            accountName: accountName,
+            accountId: accountId,
+            transcript: result.transcript,
+            summary: result.sections?.summary,
+            sections: result.sections,
+            durationSeconds: result.duration,
+            meetingType: meetingType || 'discovery',
+            source: 'plugin'
+          }).catch(err => { logger.debug('[TranscriptArchive] Archive skipped:', err.message); return null; });
+          
+          analyticsRepo.trackEvent('transcription_completed', null, { accountName, meetingType, durationSeconds: result.duration }).catch(() => {});
+          
+          // Auto-enqueue pipeline review agent for pipeline meetings
+          if (meetingType === 'pipeline_review' && transcriptId) {
+            try {
+              const agentJobQueue = require('./agents/jobQueue');
+              await agentJobQueue.enqueue('pipeline_review', {
+                transcriptId,
+                transcript: result.transcript,
+                summary: result.sections?.summary,
+                meetingDate: new Date().toISOString()
+              }, { priority: 5 });
+              logger.info(`[TranscriptionEndpoint] Enqueued pipeline review agent for transcript #${transcriptId}`);
+            } catch (jqErr) {
+              logger.debug('[TranscriptionEndpoint] Pipeline agent enqueue skipped:', jqErr.message);
+            }
+          }
+        } catch (archiveErr) {
+          // Non-critical — don't fail the response
+        }
+
         res.json({
           success: true,
           transcript: result.transcript,
@@ -5382,10 +5497,34 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
         
         const checks = {
           server: { status: 'ok', timestamp: new Date().toISOString() },
+          postgresql: { status: 'unknown' },
+          agentQueue: { status: 'unknown' },
           database: { status: 'unknown' },
           calendarSync: { status: 'unknown' },
           salesforce: { status: 'unknown' }
         };
+
+        // Check PostgreSQL
+        try {
+          const db = require('./db/connection');
+          if (db.isAvailable()) {
+            const pgResult = await db.query('SELECT COUNT(*) as count FROM _migrations');
+            checks.postgresql = { status: 'ok', migrations: parseInt(pgResult.rows[0]?.count || 0) };
+          } else {
+            checks.postgresql = { status: 'not_configured' };
+          }
+        } catch (e) {
+          checks.postgresql = { status: 'error', message: e.message };
+        }
+
+        // Check agent job queue
+        try {
+          const jobQueue = require('./agents/jobQueue');
+          const queueStatus = await jobQueue.getQueueStatus();
+          checks.agentQueue = queueStatus;
+        } catch (e) {
+          checks.agentQueue = { status: 'error', message: e.message };
+        }
 
         // Check SQLite database
         try {
@@ -7079,6 +7218,24 @@ ${sections.nextSteps ? `\nNext Steps:\n${sections.nextSteps}` : ''}
         if (this.expressServer) {
           this.expressServer.close();
           logger.info('✅ Express server stopped');
+        }
+
+        // Stop agent job queue worker
+        try {
+          const jobQueue = require('./agents/jobQueue');
+          jobQueue.stopWorker();
+          logger.info('✅ Agent job queue worker stopped');
+        } catch (jqErr) {
+          // May not be initialized
+        }
+
+        // Close PostgreSQL connection pool
+        try {
+          const db = require('./db/connection');
+          await db.shutdown();
+          logger.info('✅ PostgreSQL pool closed');
+        } catch (dbErr) {
+          // May not be initialized
         }
 
         logger.info('👋 GTM Brain shut down successfully');

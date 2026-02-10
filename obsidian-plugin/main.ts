@@ -2569,6 +2569,9 @@ export default class EudiaSyncPlugin extends Plugin {
     
     this.smartTagService = new SmartTagService();
 
+    // Check for plugin updates (non-blocking)
+    this.checkForPluginUpdate();
+
     // Register calendar view
     this.registerView(
       CALENDAR_VIEW_TYPE,
@@ -2814,6 +2817,52 @@ export default class EudiaSyncPlugin extends Plugin {
 
   async onunload() {
     this.app.workspace.detachLeavesOfType(CALENDAR_VIEW_TYPE);
+  }
+
+  /**
+   * Check the server for a newer plugin version and show update notice if available.
+   * Non-blocking — runs in background on startup.
+   */
+  private async checkForPluginUpdate(): Promise<void> {
+    try {
+      const serverUrl = this.settings.serverUrl || 'https://gtm-wizard.onrender.com';
+      const resp = await requestUrl({
+        url: `${serverUrl}/api/plugin/version`,
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!resp.json?.success) return;
+      
+      const remoteVersion = resp.json.currentVersion;
+      const localManifest = this.manifest;
+      const localVersion = localManifest?.version || '0.0.0';
+      
+      // Simple semver compare: split on dots, compare each part
+      const remote = remoteVersion.split('.').map(Number);
+      const local = localVersion.split('.').map(Number);
+      
+      let needsUpdate = false;
+      for (let i = 0; i < 3; i++) {
+        if ((remote[i] || 0) > (local[i] || 0)) { needsUpdate = true; break; }
+        if ((remote[i] || 0) < (local[i] || 0)) break;
+      }
+      
+      if (needsUpdate) {
+        const downloadUrl = resp.json.downloadUrl || `${serverUrl}/api/plugin/main.js`;
+        console.log(`[Eudia Update] New version available: ${remoteVersion} (current: ${localVersion})`);
+        new Notice(
+          `Eudia plugin update available: v${remoteVersion}\n` +
+          `Download the latest from the GTM Hub Getting Started page, or ask your admin for the updated main.js file.`,
+          15000
+        );
+      } else {
+        console.log(`[Eudia Update] Plugin is up to date (v${localVersion})`);
+      }
+    } catch (e) {
+      // Non-critical — silently ignore update check failures
+      console.log('[Eudia Update] Could not check for updates:', e.message || e);
+    }
   }
 
   async loadSettings() {

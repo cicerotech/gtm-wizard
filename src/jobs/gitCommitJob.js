@@ -234,6 +234,17 @@ function scheduleGitCommit() {
  * - Sets up graceful shutdown handler
  */
 async function initializeGitCommit() {
+  // Skip git commit job when PostgreSQL is available (data persists in DB)
+  try {
+    const db = require('../db/connection');
+    if (db.isAvailable()) {
+      logger.info('[GitCommit] PostgreSQL is available — git commit job DISABLED (data persists in DB)');
+      return { initialized: false, reason: 'postgresql_available' };
+    }
+  } catch (e) {
+    // DB module not loaded — continue with git commit job
+  }
+
   logger.info('[GitCommit] Initializing Zero Render Storage git commit job...');
   
   // Schedule regular commits
