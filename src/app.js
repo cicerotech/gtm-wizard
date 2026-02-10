@@ -4284,10 +4284,85 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
     
     const { transcriptionService } = require('./services/transcriptionService');
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // PIPELINE CONTEXT - Salesforce data for pipeline review meeting summaries
+    // ═══════════════════════════════════════════════════════════════════════
+    this.expressApp.get('/api/pipeline-context', async (req, res) => {
+      try {
+        const { query: sfQuery } = require('./salesforce/connection');
+        
+        // Active stages for pipeline
+        const activeStages = [
+          'Stage 0 - Qualifying',
+          'Stage 1 - Discovery', 
+          'Stage 2 - SQO',
+          'Stage 3 - Pilot / POC',
+          'Stage 4 - Proposal / Pricing',
+          'Stage 5 - Contracting / Negotiation'
+        ];
+        const stageFilter = activeStages.map(s => `'${s}'`).join(',');
+        
+        // Query 1: Per-BL summary (commit totals, deal counts)
+        const blSummaryQuery = `
+          SELECT Owner.Name ownerName, 
+                 COUNT(Id) dealCount, 
+                 SUM(ACV__c) totalACV,
+                 SUM(CASE WHEN BL_Forecast_Category__c = 'Commit' THEN ACV__c ELSE 0 END) commitACV,
+                 SUM(Weighted_ACV__c) weightedACV
+          FROM Opportunity 
+          WHERE StageName IN (${stageFilter})
+          GROUP BY Owner.Name
+          ORDER BY Owner.Name
+        `;
+        
+        // Query 2: Key deals (Stage 4-5 and Commit)
+        const keyDealsQuery = `
+          SELECT Name, Account.Name accountName, Owner.Name ownerName, StageName,
+                 ACV__c, BL_Forecast_Category__c, Target_LOI_Date__c, Product_Line__c
+          FROM Opportunity 
+          WHERE StageName IN (${stageFilter})
+            AND (StageName LIKE 'Stage 4%' OR StageName LIKE 'Stage 5%' OR BL_Forecast_Category__c = 'Commit')
+          ORDER BY Owner.Name, ACV__c DESC
+        `;
+        
+        const [blSummary, keyDeals] = await Promise.all([
+          sfQuery(blSummaryQuery, true).catch(() => ({ records: [] })),
+          sfQuery(keyDealsQuery, true).catch(() => ({ records: [] }))
+        ]);
+        
+        // Build structured context string
+        let context = '=== CURRENT PIPELINE SNAPSHOT ===\n\n';
+        
+        // BL summaries
+        context += '--- Business Lead Totals ---\n';
+        for (const bl of (blSummary.records || [])) {
+          const commit = bl.commitACV ? `$${Math.round(bl.commitACV / 1000)}k commit` : 'no commit';
+          context += `${bl.ownerName}: ${bl.dealCount} deals, $${Math.round((bl.totalACV || 0) / 1000)}k ACV, ${commit}\n`;
+        }
+        
+        // Key deals
+        context += '\n--- Key Deals (Late Stage & Commit) ---\n';
+        for (const deal of (keyDeals.records || [])) {
+          const acvStr = deal.ACV__c ? `$${Math.round(deal.ACV__c / 1000)}k` : '$0';
+          const dateStr = deal.Target_LOI_Date__c || 'No date';
+          context += `${deal.accountName} | ${deal.ownerName} | ${deal.StageName} | ${acvStr} | ${deal.BL_Forecast_Category__c || 'Pipeline'} | Target: ${dateStr} | ${deal.Product_Line__c || ''}\n`;
+        }
+        
+        return res.json({ success: true, context });
+        
+      } catch (error) {
+        console.error('[Pipeline Context] Error fetching pipeline data:', error);
+        return res.json({ 
+          success: true, 
+          context: '(Salesforce pipeline data unavailable - cross-reference manually)' 
+        });
+      }
+    });
+
     // Combined transcribe and summarize endpoint
     this.expressApp.post('/api/transcribe-and-summarize', async (req, res) => {
       try {
-        const { audio, mimeType, accountName, accountId, context, openaiApiKey } = req.body;
+        const { audio, mimeType, accountName, accountId, context, openaiApiKey, systemPrompt, meetingType } = req.body;
         
         if (!audio) {
           return res.status(400).json({ 
@@ -4302,14 +4377,20 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
           transcriptionService.initWithKey(openaiApiKey);
         }
 
-        logger.info(`Transcription request: account=${accountName || 'unknown'}, mimeType=${mimeType || 'audio/webm'}`);
+        logger.info(`Transcription request: account=${accountName || 'unknown'}, mimeType=${mimeType || 'audio/webm'}, meetingType=${meetingType || 'discovery'}`);
 
         // Build context for summarization
         const summaryContext = {
           accountName,
           accountId,
+          meetingType: meetingType || 'discovery',
           ...context
         };
+        
+        // Pass client-provided system prompt if available (e.g., pipeline review prompt)
+        if (systemPrompt) {
+          summaryContext.customSystemPrompt = systemPrompt;
+        }
 
         // If we have an accountId, fetch additional context from Salesforce
         if (accountId) {

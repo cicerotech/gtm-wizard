@@ -18,6 +18,7 @@
 export const ADMIN_EMAILS = [
   'keigan.pesenti@eudia.com',
   'michael.ayers@eudia.com',
+  'michael.flynn@eudia.com',
   'zach@eudia.com'
 ];
 

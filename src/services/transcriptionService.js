@@ -480,20 +480,26 @@ class TranscriptionService {
    */
   async summarize(transcript, context = {}) {
     try {
-      // Build context string
-      let contextStr = '';
-      if (context.accountName) {
-        contextStr += `Account: ${context.accountName}\n`;
+      // Use custom system prompt if provided (e.g., pipeline review meetings)
+      let systemPrompt;
+      if (context.customSystemPrompt) {
+        systemPrompt = context.customSystemPrompt;
+        logger.info(`[Summarization] Using custom system prompt (${systemPrompt.length} chars, meetingType=${context.meetingType || 'unknown'})`);
+      } else {
+        // Build context string for standard MEDDICC prompt
+        let contextStr = '';
+        if (context.accountName) {
+          contextStr += `Account: ${context.accountName}\n`;
+        }
+        if (context.opportunities && context.opportunities.length > 0) {
+          contextStr += `Open Opportunities: ${context.opportunities.map(o => `${o.name} (${o.stage})`).join(', ')}\n`;
+        }
+        if (context.customerBrain) {
+          const recentNotes = context.customerBrain.substring(0, 1000);
+          contextStr += `Recent Notes Summary: ${recentNotes}\n`;
+        }
+        systemPrompt = this.buildSystemPrompt(contextStr);
       }
-      if (context.opportunities && context.opportunities.length > 0) {
-        contextStr += `Open Opportunities: ${context.opportunities.map(o => `${o.name} (${o.stage})`).join(', ')}\n`;
-      }
-      if (context.customerBrain) {
-        const recentNotes = context.customerBrain.substring(0, 1000);
-        contextStr += `Recent Notes Summary: ${recentNotes}\n`;
-      }
-
-      const systemPrompt = this.buildSystemPrompt(contextStr);
       const userPrompt = this.buildUserPrompt(transcript);
 
       // Estimate tokens

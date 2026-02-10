@@ -505,6 +505,8 @@ export interface DiarizationData {
 
 export interface MeetingContext {
   success: boolean;
+  meetingType?: 'discovery' | 'pipeline_review' | string;
+  pipelineContext?: string; // Salesforce pipeline data for pipeline review meetings
   account?: {
     id: string;
     name: string;
@@ -720,88 +722,81 @@ FINAL CHECKS:
  * Build a specialized prompt for internal pipeline review meetings.
  * This extracts per-account updates from team discussions about deals.
  */
-export function buildPipelineReviewPrompt(): string {
-  return `You are analyzing an internal pipeline review meeting at Eudia, an AI-powered legal technology company. This is an internal team discussion about customer deals and opportunities.
+export function buildPipelineReviewPrompt(pipelineContext?: string): string {
+  const contextBlock = pipelineContext
+    ? `\n\nSALESFORCE PIPELINE DATA (current as of today):\n${pipelineContext}\n\nUse this data to cross-reference and validate what was discussed. Include ACV and stage info from Salesforce where relevant.\n`
+    : '';
 
+  return `You are a sales operations analyst producing the weekly pipeline review summary for Eudia, an AI-powered legal technology company. You are processing the transcript of an internal team pipeline review meeting.
+${contextBlock}
 ═══════════════════════════════════════════════════════════════════════════
-CONTEXT
-═══════════════════════════════════════════════════════════════════════════
-
-Eudia's sales team regularly holds pipeline review meetings to discuss:
-- Deal progress and stage movements
-- Blockers and risks on specific accounts
-- Next steps for advancing opportunities
-- Forecast updates
-
-Your job is to extract structured updates for EACH account/deal discussed.
-
-═══════════════════════════════════════════════════════════════════════════
-OUTPUT FORMAT - Use these exact headers:
+OUTPUT FORMAT — Produce the following sections in EXACTLY this order:
 ═══════════════════════════════════════════════════════════════════════════
 
-## Meeting Summary
-Brief 2-3 sentence overview of the pipeline review discussion.
+## Priority Actions
 
-## Attendees
-- **[Name]** - Role (if mentioned)
+List the most urgent, time-sensitive actions discussed. Group by the target month/date (e.g., "February Revenue"). Each line should follow this format:
 
-## Account Updates
+**[Account Name]:** [One-line action description] [@Owner Name]
 
-For EACH account or opportunity mentioned, create a subsection:
+Only include actions where urgency was explicitly discussed. Order by most urgent first.
 
-### [Account Name]
-**Owner:** [BL Name if mentioned]
-**Status:** [Current stage or status discussed]
+## Growth & Cross-Team Updates
 
-**Updates Discussed:**
-- [Key update or development]
-- [Another update]
+Capture any non-deal-specific updates discussed — outbound motions, mid-market initiatives, product stability issues, demo environment, hiring, enablement, or other cross-functional topics. Use bullet points with brief summaries and owner attribution where mentioned.
 
-**Blockers/Risks:**
-- [Any blockers mentioned, or "None discussed"]
+If none were discussed, omit this section entirely.
 
-**Next Steps:**
-- [ ] [Action item] - **Owner:** [Name] - **Due:** [Date if mentioned]
+## Business Lead Deal Context
 
-**Stage Movement:**
-- [e.g., "Moving from Stage 2 to Stage 3" or "No change discussed"]
+For EACH Business Lead (BL) who presented or was discussed, create a line:
 
----
+**[BL Full Name]** | Q1 Commit: $[amount if mentioned] | Gut: $[amount if mentioned]
 
-*(Repeat the above format for each account discussed)*
+If commit/gut amounts were not explicitly stated, write "Not discussed".
 
-## Pipeline Health Summary
+## Per-BL Account Details
 
-### Accounts Advancing
-Accounts showing positive momentum:
-- **[Account]**: [Why it's advancing]
+For EACH Business Lead, create a subsection with a markdown table. Group accounts under the BL who owns them.
 
-### Accounts At Risk
-Accounts with blockers or concerns:
-- **[Account]**: [Risk/concern]
+### [BL Full Name] [@tag]
 
-### New Opportunities
-Any new deals or accounts mentioned:
-- **[Account]**: [Brief context]
+| Account | Status | Next Action |
+|---------|--------|-------------|
+| [Account Name] | [1-2 sentence status from discussion] | [Specific next step with timeline if mentioned] |
 
-## Forecast Updates
-Any changes to forecast or expected close dates:
-- [Account]: [Forecast change]
+Include EVERY account discussed for this BL, even briefly mentioned ones. If an account was only briefly mentioned with no substance, write "Brief mention" in Status.
+
+After the table, if there are important details that don't fit the table format (e.g., long context about deal structure, stakeholder dynamics, or strategy), add them as bullet points beneath the table.
+
+## Forecast & Timeline Changes
+
+List any explicit changes to target close dates, forecast categories, or revenue timing:
+
+- **[Account]**: [What changed — e.g., "Pushed from Feb to Mar due to MSA redline delays"]
+
+If no forecast changes were discussed, omit this section.
 
 ## Team Action Items
-Cross-functional or team-wide follow-ups:
-- [ ] [Action] - **Owner:** [Name]
+
+Cross-functional or team-wide action items not tied to a specific account:
+
+- [ ] [Action] — **Owner:** [Name] — **Due:** [Date if mentioned]
 
 ═══════════════════════════════════════════════════════════════════════════
 CRITICAL RULES:
 ═══════════════════════════════════════════════════════════════════════════
 
-1. Extract EVERY account mentioned, even briefly
-2. Use exact names as spoken (accounts and people)
-3. If an account owner is unclear, mark as "[Owner unclear]"
-4. Include direct quotes for significant statements
-5. For accounts with no updates, note "Brief mention, no substantive updates"
-6. Capture ALL action items with clear ownership`;
+1. Extract EVERY account mentioned, even briefly. Do not skip any.
+2. Use exact names as spoken for both accounts and people.
+3. Attribute each account to the BL who owns it / presented on it.
+4. For the Priority Actions section, only include deals where time urgency was explicitly discussed (this month, this quarter, need to accelerate, etc.).
+5. Capture action items with CLEAR ownership — who specifically is responsible.
+6. Include direct quotes for significant commitments (e.g., "verbal commit in hand", "expects end of February").
+7. If a BL stated their commit or gut amount, capture it exactly.
+8. Keep table cells concise — status should be 1-2 sentences max, next action should be a single clear step.
+9. Distinguish between different product lines or deal types when mentioned (e.g., "Marketing Compliance pilot", "M&A expansion", "FTE engagement").
+10. If the meeting discussed general topics like demo stability, growth motion, enablement, or hiring — capture these in the Growth & Cross-Team section, not mixed into account tables.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -835,6 +830,12 @@ export class TranscriptionService {
   ): Promise<TranscriptionResult> {
     // Try server first
     try {
+      // Select prompt based on meeting type
+      const isPipelineReview = context?.meetingType === 'pipeline_review';
+      const systemPrompt = isPipelineReview
+        ? buildPipelineReviewPrompt(context?.pipelineContext)
+        : buildAnalysisPrompt(accountName, context);
+      
       const response = await requestUrl({
         url: `${this.serverUrl}/api/transcribe-and-summarize`,
         method: 'POST',
@@ -844,15 +845,15 @@ export class TranscriptionService {
         body: JSON.stringify({
           audio: audioBase64,
           mimeType,
-          accountName,
+          accountName: isPipelineReview ? 'Pipeline Review' : accountName,
           accountId,
+          meetingType: context?.meetingType || 'discovery',
           context: context ? {
             customerBrain: context.account?.customerBrain,
             opportunities: context.opportunities,
             contacts: context.contacts
           } : undefined,
-          // Send the enhanced prompt to server
-          systemPrompt: buildAnalysisPrompt(accountName, context)
+          systemPrompt
         })
       });
 
@@ -1452,17 +1453,23 @@ Format your response as a brief, actionable answer suitable for quick reference 
    */
   async transcribeAudio(
     audioBlob: Blob, 
-    context?: { accountName?: string; accountId?: string; speakerHints?: string[] }
+    context?: { accountName?: string; accountId?: string; speakerHints?: string[]; meetingType?: string; pipelineContext?: string }
   ): Promise<{ text: string; confidence: number; duration?: number; sections?: ProcessedSections }> {
     try {
       const base64 = await this.blobToBase64(audioBlob);
       const mimeType = audioBlob.type || 'audio/webm';
       
+      // Build MeetingContext if we have pipeline meeting type
+      const meetingContext: MeetingContext | undefined = context?.meetingType === 'pipeline_review'
+        ? { success: true, meetingType: 'pipeline_review', pipelineContext: context.pipelineContext }
+        : undefined;
+      
       const result = await this.transcribeAndSummarize(
         base64, 
         mimeType, 
         context?.accountName, 
-        context?.accountId
+        context?.accountId,
+        meetingContext
       );
       
       return {

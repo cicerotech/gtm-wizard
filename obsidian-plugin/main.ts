@@ -19,7 +19,7 @@ import {
 } from 'obsidian';
 
 import { AudioRecorder, RecordingState, RecordingResult, AudioDiagnostic } from './src/AudioRecorder';
-import { TranscriptionService, TranscriptionResult, MeetingContext, ProcessedSections, AccountDetector, accountDetector, AccountDetectionResult } from './src/TranscriptionService';
+import { TranscriptionService, TranscriptionResult, MeetingContext, ProcessedSections, AccountDetector, accountDetector, AccountDetectionResult, detectPipelineMeeting } from './src/TranscriptionService';
 import { CalendarService, CalendarMeeting, TodayResponse, WeekResponse } from './src/CalendarService';
 import { SmartTagService, SmartTags } from './src/SmartTagService';
 import { AccountOwnershipService, OwnedAccount, generateAccountOverviewNote, isAdminUser, ADMIN_EMAILS } from './src/AccountOwnership';
@@ -2329,12 +2329,25 @@ class EudiaCalendarView extends ItemView {
 
   async createNoteForMeeting(meeting: CalendarMeeting): Promise<void> {
     const dateStr = meeting.start.split('T')[0];
-    const safeName = meeting.subject.replace(/[<>:"/\\|?*]/g, '_').substring(0, 50);
-    const fileName = `${dateStr} - ${safeName}.md`;
     
     // ─────────────────────────────────────────────────────────────────────────
-    // ENHANCED SMART ACCOUNT MATCHING - Domain-first with scoring
+    // PIPELINE MEETING DETECTION - before account matching
     // ─────────────────────────────────────────────────────────────────────────
+    const userEmail = (this.plugin.settings as any).eudiaEmail || '';
+    const isPipelineAdmin = isAdminUser(userEmail);
+    const attendeeEmails = (meeting.attendees || []).map(a => a.email).filter(Boolean);
+    const pipelineDetection = detectPipelineMeeting(meeting.subject, attendeeEmails);
+    
+    if (isPipelineAdmin && pipelineDetection.isPipelineMeeting && pipelineDetection.confidence >= 60) {
+      await this._createPipelineNote(meeting, dateStr);
+      return;
+    }
+    
+    // ─────────────────────────────────────────────────────────────────────────
+    // STANDARD: ENHANCED SMART ACCOUNT MATCHING - Domain-first with scoring
+    // ─────────────────────────────────────────────────────────────────────────
+    const safeName = meeting.subject.replace(/[<>:"/\\|?*]/g, '_').substring(0, 50);
+    const fileName = `${dateStr} - ${safeName}.md`;
     
     let targetFolder: string | null = null;
     let matchedAccountName: string | null = meeting.accountName || null;
@@ -2444,6 +2457,80 @@ Click the **microphone icon** in the sidebar or use \`Cmd/Ctrl+P\` → **"Transc
     } catch (e) {
       console.error('[Eudia Calendar] Failed to create note:', e);
       new Notice(`Could not create note: ${e.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Create a pipeline meeting note with auto-naming in Pipeline Meetings folder
+   */
+  private async _createPipelineNote(meeting: CalendarMeeting, dateStr: string): Promise<void> {
+    // Format date as MM.DD.YY
+    const d = new Date(dateStr + 'T00:00:00');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yy = String(d.getFullYear()).slice(-2);
+    const formattedDate = `${mm}.${dd}.${yy}`;
+    
+    const fileName = `Team Pipeline Meeting - ${formattedDate}.md`;
+    const folderPath = 'Pipeline Meetings';
+    
+    // Ensure folder exists
+    const existingFolder = this.app.vault.getAbstractFileByPath(folderPath);
+    if (!existingFolder) {
+      await this.app.vault.createFolder(folderPath);
+    }
+    
+    const filePath = `${folderPath}/${fileName}`;
+    
+    // Check if file already exists
+    const existing = this.app.vault.getAbstractFileByPath(filePath);
+    if (existing instanceof TFile) {
+      await this.app.workspace.getLeaf().openFile(existing);
+      new Notice(`Opened existing: ${fileName}`);
+      return;
+    }
+    
+    const attendeeNames = (meeting.attendees || [])
+      .map(a => a.name || a.email?.split('@')[0] || 'Unknown');
+    
+    const template = `---
+title: "Team Pipeline Meeting - ${formattedDate}"
+date: ${dateStr}
+attendees: [${attendeeNames.slice(0, 10).join(', ')}]
+meeting_type: pipeline_review
+meeting_start: ${meeting.start}
+transcribed: false
+---
+
+# Weekly Pipeline Review | ${d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })}
+
+## Attendees
+${attendeeNames.map(a => `- ${a}`).join('\n')}
+
+---
+
+## Ready to Transcribe
+
+Click the **microphone icon** in the sidebar or use \`Cmd/Ctrl+P\` → **"Transcribe Meeting"**
+
+After transcription, this note will be automatically formatted with:
+- **Priority Actions** grouped by urgency
+- **BL Deal Context** with commit totals
+- **Per-BL Account Tables** (Account | Status | Next Action)
+- **Growth & Cross-Team Updates**
+
+---
+
+`;
+
+    try {
+      const file = await this.app.vault.create(filePath, template);
+      await this.app.workspace.getLeaf().openFile(file);
+      new Notice(`Created pipeline note: ${fileName}`);
+      console.log(`[Eudia Pipeline] Created pipeline meeting note: ${filePath}`);
+    } catch (e) {
+      console.error('[Eudia Pipeline] Failed to create pipeline note:', e);
+      new Notice(`Could not create pipeline note: ${e.message || 'Unknown error'}`);
     }
   }
 }
@@ -4058,12 +4145,50 @@ last_updated: ${dateStr}
   private async processTranscriptionAsync(result: RecordingResult, file: TFile): Promise<void> {
     try {
       // Detect account from file path
-      let accountContext: MeetingContext | undefined;
+      let accountContext: any = {};
       const pathParts = file.path.split('/');
       console.log(`[Eudia] Processing transcription for: ${file.path}`);
       console.log(`[Eudia] Path parts: ${JSON.stringify(pathParts)}, accountsFolder: ${this.settings.accountsFolder}`);
       
-      if (pathParts.length >= 2 && pathParts[0] === this.settings.accountsFolder) {
+      // ─── PIPELINE MEETING DETECTION ───────────────────────────────────
+      const isPipelineMeetingPath = pathParts[0] === 'Pipeline Meetings';
+      let isPipelineReview = false;
+      
+      // Check frontmatter for meeting_type
+      try {
+        const fileContent = await this.app.vault.read(file);
+        const fmMatch = fileContent.match(/^---\n([\s\S]*?)\n---/);
+        if (fmMatch) {
+          isPipelineReview = /meeting_type:\s*pipeline_review/.test(fmMatch[1]);
+        }
+      } catch { /* ignore read errors */ }
+      
+      // Path-based detection as fallback
+      if (!isPipelineReview && isPipelineMeetingPath) {
+        isPipelineReview = true;
+      }
+      
+      if (isPipelineReview) {
+        console.log(`[Eudia Pipeline] Detected pipeline review meeting, using pipeline prompt`);
+        
+        // Fetch pipeline context from server
+        let pipelineContext = '';
+        try {
+          const resp = await requestUrl({
+            url: `${this.settings.serverUrl || 'https://gtm-brain.onrender.com'}/api/pipeline-context`,
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          if (resp.json?.success && resp.json?.context) {
+            pipelineContext = resp.json.context;
+            console.log(`[Eudia Pipeline] Loaded Salesforce pipeline context (${pipelineContext.length} chars)`);
+          }
+        } catch (e) {
+          console.warn('[Eudia Pipeline] Could not fetch pipeline context:', e);
+        }
+        
+        accountContext = { meetingType: 'pipeline_review', pipelineContext };
+      } else if (pathParts.length >= 2 && pathParts[0] === this.settings.accountsFolder) {
         const accountName = pathParts[1];
         console.log(`[Eudia] Detected account folder: ${accountName}`);
         
@@ -4102,7 +4227,7 @@ last_updated: ${dateStr}
       // Transcribe audio
       const transcription = await this.transcriptionService.transcribeAudio(
         result.audioBlob, 
-        accountContext ? { ...accountContext, speakerHints } : { speakerHints }
+        { ...accountContext, speakerHints }
       );
 
       // Helper to check if sections have actual content
@@ -4131,7 +4256,14 @@ last_updated: ${dateStr}
       }
 
       // Build note content - this replaces entire note including processing indicator
-      const noteContent = this.buildNoteContent(sections, transcription);
+      let noteContent: string;
+      
+      if (isPipelineReview) {
+        // Pipeline meetings: use the LLM summary directly (it's already structured)
+        noteContent = this.buildPipelineNoteContent(sections, transcription, file.path);
+      } else {
+        noteContent = this.buildNoteContent(sections, transcription);
+      }
       
       // Update file with final content
       await this.app.vault.modify(file, noteContent);
@@ -4140,17 +4272,19 @@ last_updated: ${dateStr}
       const durationMin = Math.floor(result.duration / 60);
       new Notice(`Transcription complete (${durationMin} min recording)`);
 
-      // Extract and update Next Steps for the account
-      const nextStepsContent = sections.nextSteps || sections.actionItems;
-      console.log(`[Eudia] Next Steps extraction - accountContext: ${accountContext?.accountName || 'undefined'}`);
-      console.log(`[Eudia] Next Steps content found: ${nextStepsContent ? 'YES (' + nextStepsContent.length + ' chars)' : 'NO'}`);
-      console.log(`[Eudia] sections.nextSteps: ${sections.nextSteps ? 'YES' : 'NO'}, sections.actionItems: ${sections.actionItems ? 'YES' : 'NO'}`);
-      
-      if (nextStepsContent && accountContext?.accountName) {
-        console.log(`[Eudia] Calling updateAccountNextSteps for ${accountContext.accountName}`);
-        await this.updateAccountNextSteps(accountContext.accountName, nextStepsContent, file.path);
-      } else {
-        console.log(`[Eudia] Skipping Next Steps update - missing content or account context`);
+      // Extract and update Next Steps for the account (skip for pipeline meetings)
+      if (!isPipelineReview) {
+        const nextStepsContent = sections.nextSteps || sections.actionItems;
+        console.log(`[Eudia] Next Steps extraction - accountContext: ${accountContext?.accountName || 'undefined'}`);
+        console.log(`[Eudia] Next Steps content found: ${nextStepsContent ? 'YES (' + nextStepsContent.length + ' chars)' : 'NO'}`);
+        console.log(`[Eudia] sections.nextSteps: ${sections.nextSteps ? 'YES' : 'NO'}, sections.actionItems: ${sections.actionItems ? 'YES' : 'NO'}`);
+        
+        if (nextStepsContent && accountContext?.accountName) {
+          console.log(`[Eudia] Calling updateAccountNextSteps for ${accountContext.accountName}`);
+          await this.updateAccountNextSteps(accountContext.accountName, nextStepsContent, file.path);
+        } else {
+          console.log(`[Eudia] Skipping Next Steps update - missing content or account context`);
+        }
       }
 
       // Auto-sync if enabled
@@ -4169,6 +4303,80 @@ last_updated: ${dateStr}
       }
       throw error;
     }
+  }
+
+  /**
+   * Build formatted note content for pipeline review meetings.
+   * The LLM output from the pipeline prompt is already structured with
+   * markdown headers and tables, so we wrap it with frontmatter and the
+   * raw transcript.
+   */
+  private buildPipelineNoteContent(sections: ProcessedSections, transcription: any, filePath: string): string {
+    const today = new Date();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const yy = String(today.getFullYear()).slice(-2);
+    const dateStr = today.toISOString().split('T')[0];
+    const formattedDate = `${mm}.${dd}.${yy}`;
+    
+    // The summary from the LLM should already contain the structured pipeline output
+    const ensureString = (val: any): string => {
+      if (val === null || val === undefined) return '';
+      if (Array.isArray(val)) return val.map(String).join('\n');
+      if (typeof val === 'object') return JSON.stringify(val, null, 2);
+      return String(val);
+    };
+    
+    const summaryContent = ensureString(sections.summary);
+    const transcript = transcription.transcript || transcription.text || '';
+    
+    let content = `---
+title: "Team Pipeline Meeting - ${formattedDate}"
+date: ${dateStr}
+meeting_type: pipeline_review
+transcribed: true
+---
+
+# Weekly Pipeline Review | ${today.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })}
+
+`;
+
+    // The LLM summary should already be structured per our prompt
+    // (Priority Actions, BL Deal Context, Per-BL Account Details, etc.)
+    if (summaryContent) {
+      content += summaryContent;
+    } else {
+      // Fallback: try to use whatever sections are available
+      const allSectionContent = [
+        sections.painPoints,
+        sections.productInterest,
+        sections.nextSteps,
+        sections.actionItems
+      ].filter(Boolean).map(ensureString).join('\n\n');
+      
+      if (allSectionContent) {
+        content += allSectionContent;
+      } else {
+        content += '*Pipeline summary could not be generated. See transcript below.*';
+      }
+    }
+    
+    // Append raw transcript at the end (collapsed)
+    if (transcript) {
+      content += `
+
+---
+
+<details>
+<summary><strong>Full Transcript</strong> (${Math.ceil(transcript.length / 1000)}k chars)</summary>
+
+${transcript}
+
+</details>
+`;
+    }
+    
+    return content;
   }
 
   private buildNoteContent(sections: ProcessedSections, transcription: TranscriptionResult): string {
