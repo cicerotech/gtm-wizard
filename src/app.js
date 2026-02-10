@@ -1526,26 +1526,9 @@ class GTMBrainApp {
       }
       try {
         usageLogger.logPageView(oktaSession, '/gtm/gtm-brain', req).catch(() => {});
-        const normalizedEmail = (oktaSession.email || '').toLowerCase().trim();
-        let accounts = [];
-        if (normalizedEmail && normalizedEmail.includes('@')) {
-          const userQuery = `SELECT Id, Name FROM User WHERE Email = '${normalizedEmail.replace(/'/g, "\\'")}' AND IsActive = true LIMIT 1`;
-          const userResult = await sfConnection.query(userQuery);
-          if (userResult.records && userResult.records.length > 0) {
-            const userId = userResult.records[0].Id;
-            const accountResult = await sfConnection.query(`
-              SELECT Id, Name, Type, Customer_Type__c FROM Account WHERE OwnerId = '${userId}' ORDER BY Name ASC
-            `);
-            accounts = (accountResult.records || []).map(acc => ({
-              id: acc.Id,
-              name: acc.Name,
-              type: acc.Customer_Type__c || acc.Type || 'Prospect'
-            }));
-          }
-        }
         const { generate } = require('./views/gtmBrainView');
         const userName = oktaSession.name || oktaSession.email || 'User';
-        const html = generate({ userName, userEmail: oktaSession.email || '', accounts });
+        const html = generate({ userName, userEmail: oktaSession.email || '' });
         res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline'");
         res.send(html);
       } catch (error) {

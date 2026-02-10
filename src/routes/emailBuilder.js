@@ -22,7 +22,7 @@ async function searchAccounts(req, res) {
     
     // Query SF for matching accounts
     const soql = `
-      SELECT Id, Name, Owner.Name, Is_New_Logo__c, Customer_Type__c,
+      SELECT Id, Name, Owner.Name, Is_New_Logo__c, Customer_Type__c, Industry, LastActivityDate,
              (SELECT Id, StageName, ACV__c, Product_Line__c 
               FROM Opportunities 
               WHERE IsClosed = false 
@@ -30,7 +30,7 @@ async function searchAccounts(req, res) {
               LIMIT 1)
       FROM Account
       WHERE Name LIKE '%${escapedTerm}%'
-      ORDER BY Name
+      ORDER BY LastActivityDate DESC NULLS LAST
       LIMIT 10
     `;
     
@@ -43,6 +43,8 @@ async function searchAccounts(req, res) {
       owner: acc.Owner?.Name || 'Unassigned',
       isNewLogo: acc.Is_New_Logo__c,
       customerType: acc.Customer_Type__c,
+      industry: acc.Industry || null,
+      lastActivityDate: acc.LastActivityDate || null,
       recentOpp: acc.Opportunities?.records?.[0] ? {
         stage: acc.Opportunities.records[0].StageName,
         acv: acc.Opportunities.records[0].ACV__c,
@@ -50,7 +52,7 @@ async function searchAccounts(req, res) {
       } : null
     }));
 
-    res.json({ matches: matches.slice(0, 5) }); // Top 5 matches
+    res.json({ matches }); // Return all 10 results
     
   } catch (error) {
     console.error('[EmailBuilder] Account search error:', error);

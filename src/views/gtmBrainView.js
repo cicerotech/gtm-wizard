@@ -1,7 +1,7 @@
 /**
  * GTM Brain Web Tab View
  * Full-service query UI for account intelligence — same backend as Obsidian plugin.
- * Okta session provides userEmail; accounts are server-injected for the selector.
+ * Okta session provides userEmail; accounts are searched via typeahead (/api/search-accounts).
  */
 
 /**
@@ -26,11 +26,9 @@ function formatResponse(text) {
  * @param {object} options
  * @param {string} options.userName - Display name
  * @param {string} options.userEmail - User email (for API)
- * @param {Array<{id:string,name:string}>} options.accounts - Owned accounts for dropdown
  */
 function generate(options = {}) {
-  const { userName = 'User', userEmail = '', accounts = [] } = options;
-  const accountsJson = JSON.stringify(accounts);
+  const { userName = 'User', userEmail = '' } = options;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -47,9 +45,24 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .gtm-brain-onboarding { font-size: 0.8125rem; color: #6b7280; margin-bottom: 16px; padding: 10px 12px; background: #eef1fc; border-radius: 8px; }
 .gtm-brain-form { margin-bottom: 20px; }
 .gtm-brain-row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
-.gtm-brain-select-wrap { min-width: 200px; }
+.gtm-brain-select-wrap { min-width: 260px; position: relative; }
 .gtm-brain-select-wrap label { display: block; font-size: 0.75rem; font-weight: 500; color: #6b7280; margin-bottom: 4px; }
-.gtm-brain-select { width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 0.875rem; background: #fff; }
+.gtm-brain-search-input { width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 0.875rem; background: #fff; }
+.gtm-brain-search-input:focus { outline: none; border-color: #8e99e1; box-shadow: 0 0 0 3px rgba(142,153,225,0.15); }
+.gtm-brain-results { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 4px; max-height: 340px; overflow-y: auto; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none; }
+.gtm-brain-results.open { display: block; }
+.gtm-brain-result-card { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: background 0.1s; }
+.gtm-brain-result-card:last-child { border-bottom: none; }
+.gtm-brain-result-card:hover { background: #eef1fc; }
+.gtm-brain-result-name { font-size: 0.875rem; font-weight: 600; color: #1f2937; }
+.gtm-brain-result-meta { font-size: 0.75rem; color: #6b7280; margin-top: 2px; display: flex; flex-wrap: wrap; gap: 6px; }
+.gtm-brain-result-meta span { white-space: nowrap; }
+.gtm-brain-result-opp { font-size: 0.6875rem; color: #8e99e1; margin-top: 2px; font-weight: 500; }
+.gtm-brain-selected-chip { display: inline-flex; align-items: center; gap: 6px; background: #eef1fc; border: 1px solid #c7cdee; border-radius: 20px; padding: 6px 10px 6px 12px; font-size: 0.8125rem; color: #1f2937; margin-top: 6px; }
+.gtm-brain-selected-chip .chip-owner { color: #6b7280; font-weight: 400; }
+.gtm-brain-chip-x { background: none; border: none; font-size: 1rem; color: #9ca3af; cursor: pointer; padding: 0 2px; line-height: 1; }
+.gtm-brain-chip-x:hover { color: #ef4444; }
+.gtm-brain-no-results { padding: 12px; text-align: center; color: #9ca3af; font-size: 0.8125rem; }
 .gtm-brain-input-wrap { flex: 1; min-width: 240px; }
 .gtm-brain-input-wrap label { display: block; font-size: 0.75rem; font-weight: 500; color: #6b7280; margin-bottom: 4px; }
 .gtm-brain-input { width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 0.875rem; }
@@ -85,11 +98,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="gtm-brain-form">
     <div class="gtm-brain-row">
       <div class="gtm-brain-select-wrap">
-        <label for="account">Account (optional)</label>
-        <select id="account" class="gtm-brain-select" aria-label="Select account">
-          <option value="">All / no specific account</option>
-          ${accounts.map(a => `<option value="${a.id}" data-name="${(a.name || '').replace(/"/g, '&quot;')}">${escapeHtml(a.name || '')}</option>`).join('')}
-        </select>
+        <label for="account-search">Account (optional)</label>
+        <input type="text" id="account-search" class="gtm-brain-search-input" placeholder="Search for an account..." autocomplete="off" aria-label="Search accounts" />
+        <div id="search-results" class="gtm-brain-results"></div>
+        <div id="selected-account" style="display:none;"></div>
       </div>
       <div class="gtm-brain-input-wrap">
         <label for="query">Your question</label>
@@ -127,8 +139,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <script>
 (function() {
   var userEmail = ${JSON.stringify(userEmail)};
-  var accounts = ${accountsJson};
 
+  // ─── Helpers ─────────────────────────────────────────────────
   function escapeHtml(s) {
     if (!s) return '';
     var div = document.createElement('div');
@@ -150,18 +162,116 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       .replace(/\\n/g, '<br>');
   }
 
-  var queryEl = document.getElementById('query');
-  var accountEl = document.getElementById('account');
-  var submitBtn = document.getElementById('submit');
-  var responseBox = document.getElementById('response-box');
+  function formatAcv(v) {
+    if (!v) return '';
+    if (v >= 1000000) return '$' + (v / 1000000).toFixed(1) + 'M';
+    if (v >= 1000) return '$' + (v / 1000).toFixed(0) + 'K';
+    return '$' + v;
+  }
+
+  // ─── DOM refs ────────────────────────────────────────────────
+  var queryEl         = document.getElementById('query');
+  var searchInput     = document.getElementById('account-search');
+  var resultsBox      = document.getElementById('search-results');
+  var selectedChipBox = document.getElementById('selected-account');
+  var submitBtn       = document.getElementById('submit');
+  var responseBox     = document.getElementById('response-box');
   var responseContent = document.getElementById('response-content');
   var responseContext = document.getElementById('context-text');
-  var refreshBtn = document.getElementById('refresh-btn');
-  var loadingBox = document.getElementById('loading-box');
-  var loadingText = document.getElementById('loading-text');
-  var errorBox = document.getElementById('error-box');
-  var errorContent = document.getElementById('error-content');
+  var refreshBtn      = document.getElementById('refresh-btn');
+  var loadingBox      = document.getElementById('loading-box');
+  var loadingText     = document.getElementById('loading-text');
+  var errorBox        = document.getElementById('error-box');
+  var errorContent    = document.getElementById('error-content');
 
+  // ─── Account selection state ─────────────────────────────────
+  var selectedAccount = { id: '', name: '', owner: '' };
+  var searchDebounce = null;
+
+  function clearSelection() {
+    selectedAccount = { id: '', name: '', owner: '' };
+    selectedChipBox.style.display = 'none';
+    selectedChipBox.innerHTML = '';
+    searchInput.value = '';
+    searchInput.style.display = '';
+    resultsBox.classList.remove('open');
+  }
+
+  function selectAccount(acc) {
+    selectedAccount = { id: acc.id, name: acc.name, owner: acc.owner || '' };
+    searchInput.style.display = 'none';
+    resultsBox.classList.remove('open');
+    selectedChipBox.innerHTML =
+      '<span class="gtm-brain-selected-chip">' +
+        '<strong>' + escapeHtml(acc.name) + '</strong>' +
+        (acc.owner ? ' <span class="chip-owner">(' + escapeHtml(acc.owner) + ')</span>' : '') +
+        ' <button type="button" class="gtm-brain-chip-x" title="Clear selection">&times;</button>' +
+      '</span>';
+    selectedChipBox.style.display = 'block';
+    selectedChipBox.querySelector('.gtm-brain-chip-x').addEventListener('click', clearSelection);
+    queryEl.focus();
+  }
+
+  // ─── Typeahead search ────────────────────────────────────────
+  function doSearch(term) {
+    if (term.length < 2) { resultsBox.classList.remove('open'); return; }
+    fetch('/api/search-accounts?q=' + encodeURIComponent(term), { credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var matches = data.matches || [];
+        if (matches.length === 0) {
+          resultsBox.innerHTML = '<div class="gtm-brain-no-results">No accounts found</div>';
+          resultsBox.classList.add('open');
+          return;
+        }
+        var html = '';
+        matches.forEach(function(m) {
+          var meta = [];
+          if (m.owner) meta.push('<span>Owner: ' + escapeHtml(m.owner) + '</span>');
+          if (m.customerType) meta.push('<span>Type: ' + escapeHtml(m.customerType) + '</span>');
+          if (m.industry) meta.push('<span>' + escapeHtml(m.industry) + '</span>');
+          var oppLine = '';
+          if (m.recentOpp) {
+            var parts = [m.recentOpp.stage];
+            if (m.recentOpp.acv) parts.push(formatAcv(m.recentOpp.acv));
+            if (m.recentOpp.product) parts.push(m.recentOpp.product);
+            oppLine = '<div class="gtm-brain-result-opp">' + escapeHtml(parts.join(' • ')) + '</div>';
+          }
+          html += '<div class="gtm-brain-result-card" data-id="' + m.id + '" data-name="' + escapeHtml(m.name) + '" data-owner="' + escapeHtml(m.owner || '') + '">' +
+            '<div class="gtm-brain-result-name">' + escapeHtml(m.name) + '</div>' +
+            '<div class="gtm-brain-result-meta">' + meta.join('') + '</div>' +
+            oppLine +
+          '</div>';
+        });
+        resultsBox.innerHTML = html;
+        resultsBox.classList.add('open');
+        // Wire click handlers
+        resultsBox.querySelectorAll('.gtm-brain-result-card').forEach(function(card) {
+          card.addEventListener('click', function() {
+            selectAccount({ id: this.dataset.id, name: this.dataset.name, owner: this.dataset.owner });
+          });
+        });
+      })
+      .catch(function() {
+        resultsBox.innerHTML = '<div class="gtm-brain-no-results">Search error — try again</div>';
+        resultsBox.classList.add('open');
+      });
+  }
+
+  searchInput.addEventListener('input', function() {
+    clearTimeout(searchDebounce);
+    var val = this.value.trim();
+    searchDebounce = setTimeout(function() { doSearch(val); }, 300);
+  });
+
+  // Close results on outside click
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.gtm-brain-select-wrap')) {
+      resultsBox.classList.remove('open');
+    }
+  });
+
+  // ─── Suggested prompts ───────────────────────────────────────
   document.querySelectorAll('.gtm-brain-chip').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var q = this.getAttribute('data-query');
@@ -170,6 +280,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     });
   });
 
+  // ─── Loading / Response / Error ──────────────────────────────
   function showLoading(accountName) {
     responseBox.classList.remove('visible');
     errorBox.style.display = 'none';
@@ -182,13 +293,34 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     loadingBox.style.display = 'none';
     errorBox.style.display = 'none';
     responseContent.innerHTML = formatAnswer(answer);
+
+    // Build context line with owner and data freshness
     var parts = [];
-    if (context && context.accountName) parts.push(context.accountName);
-    if (context && context.opportunityCount > 0) parts.push(context.opportunityCount + ' opps');
-    if (context && context.hasNotes) parts.push('notes');
-    if (context && context.hasCustomerBrain) parts.push('history');
-    if (context && context.dataFreshness === 'cached') parts.push('(cached)');
-    responseContext.textContent = parts.length ? 'Based on: ' + parts.join(' • ') : '';
+    if (context) {
+      if (context.accountName) {
+        var acctLabel = context.accountName;
+        if (context.owner) acctLabel += ' (Owner: ' + context.owner + ')';
+        parts.push(acctLabel);
+      }
+      if (context.opportunityCount > 0) {
+        var oppText = context.opportunityCount + ' opp' + (context.opportunityCount > 1 ? 's' : '');
+        if (context.topOpportunity && context.topOpportunity.stage) {
+          oppText += ' — top: ' + context.topOpportunity.stage;
+          if (context.topOpportunity.acv) oppText += ' ' + formatAcv(context.topOpportunity.acv);
+        }
+        parts.push(oppText);
+      }
+      if (context.contactCount > 0) parts.push(context.contactCount + ' contacts');
+      if (context.hasNotes) parts.push('notes');
+      if (context.hasCustomerBrain) parts.push('history');
+      // Data freshness indicator
+      if (context.dataFreshness === 'cached') {
+        parts.push('cached data');
+      } else {
+        parts.push('live data');
+      }
+    }
+    responseContext.textContent = parts.length ? 'Based on: ' + parts.join(' \\u2022 ') : '';
     responseBox.classList.add('visible');
     responseBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     submitBtn.disabled = false;
@@ -202,13 +334,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     submitBtn.disabled = false;
   }
 
-  // Shared query function — forceRefresh bypasses server-side cache
+  // ─── Query execution ─────────────────────────────────────────
   function runQuery(forceRefresh) {
     var query = queryEl.value.trim();
     if (!query) { queryEl.focus(); return; }
-    var opt = accountEl.options[accountEl.selectedIndex];
-    var accountId = accountEl.value || '';
-    var accountName = opt && opt.getAttribute('data-name') ? opt.getAttribute('data-name') : '';
+
+    var accountId   = selectedAccount.id || '';
+    var accountName = selectedAccount.name || '';
 
     showLoading(accountName || null);
 
@@ -244,9 +376,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   }
 
   submitBtn.addEventListener('click', function() { runQuery(false); });
-
   refreshBtn.addEventListener('click', function() { runQuery(true); });
-
   queryEl.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') runQuery(false);
   });

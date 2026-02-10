@@ -23,7 +23,7 @@ const { getIntelForAccount } = require('./slackIntelCache');
 // Replaces SQLite storage for compliance - data fetched from Salesforce
 // ═══════════════════════════════════════════════════════════════════════════
 const accountContextCache = new Map();
-const MEMORY_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const MEMORY_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes — keep short for data accuracy
 
 function getMemoryCachedContext(accountId) {
   const cached = accountContextCache.get(accountId);
@@ -200,7 +200,15 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
       context: {
         accountName: context.account?.name,
         accountId: context.account?.id,
+        owner: context.account?.owner || null,
+        ownerEmail: context.account?.ownerEmail || null,
         opportunityCount: context.opportunities?.length || 0,
+        topOpportunity: context.opportunities?.[0] ? {
+          name: context.opportunities[0].name,
+          stage: context.opportunities[0].stage,
+          acv: context.opportunities[0].acv
+        } : null,
+        contactCount: context.contacts?.length || 0,
         hasCustomerBrain: !!context.customerBrain,
         hasNotes: (context.obsidianNotes?.length || 0) > 0,
         dataFreshness: context.dataFreshness
