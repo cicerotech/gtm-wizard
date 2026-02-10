@@ -1,30 +1,14 @@
 <template>
+    <!-- Full overlay spinner during creation -->
+    <template if:true={isCreating}>
+        <div class="creating-overlay">
+            <lightning-spinner alternative-text="Creating opportunity" size="medium"></lightning-spinner>
+            <p class="creating-message">Creating opportunity...</p>
+        </div>
+    </template>
+
     <div class="opp-creator-container">
-        <!-- Success State -->
-        <template if:true={showSuccess}>
-            <div class="success-container">
-                <div class="success-icon">
-                    <lightning-icon icon-name="utility:success" size="large" variant="inverse"></lightning-icon>
-                </div>
-                <h2 class="success-title">Opportunity Created!</h2>
-                <p class="success-message">{successMessage}</p>
-                <div class="success-actions">
-                    <lightning-button 
-                        label="View Opportunity" 
-                        variant="brand" 
-                        onclick={handleViewOpportunity}>
-                    </lightning-button>
-                    <lightning-button 
-                        label="Create Another" 
-                        variant="neutral" 
-                        onclick={handleCreateAnother}>
-                    </lightning-button>
-                </div>
-            </div>
-        </template>
-        
-        <!-- Form -->
-        <template if:false={showSuccess}>
+        <div class="form-wrapper">
             <div class="form-container">
                 <!-- Error Message -->
                 <template if:true={showError}>
@@ -138,7 +122,7 @@
                     </lightning-combobox>
                 </div>
                 
-                <!-- Target Sign Date -->
+                <!-- Target Sign Date with Assist Buttons -->
                 <div class="form-field">
                     <label class="field-label">Target Sign Date</label>
                     <input 
@@ -147,9 +131,14 @@
                         value={targetSignDate}
                         onchange={handleDateChange}
                     />
+                    <div class="assist-buttons">
+                        <button type="button" class="assist-btn" data-days="100" onclick={handleDateAssist}>100 days</button>
+                        <button type="button" class="assist-btn" data-days="150" onclick={handleDateAssist}>150 days</button>
+                        <button type="button" class="assist-btn" data-days="180" onclick={handleDateAssist}>180 days</button>
+                    </div>
                 </div>
                 
-                <!-- ACV -->
+                <!-- ACV with Assist Buttons -->
                 <div class="form-field">
                     <label class="field-label">ACV</label>
                     <div class="currency-input">
@@ -162,6 +151,11 @@
                             min="0"
                             step="1000"
                         />
+                    </div>
+                    <div class="assist-buttons">
+                        <button type="button" class="assist-btn" data-amount="50000" onclick={handleAcvAssist}>$50k</button>
+                        <button type="button" class="assist-btn" data-amount="100000" onclick={handleAcvAssist}>$100k</button>
+                        <button type="button" class="assist-btn" data-amount="200000" onclick={handleAcvAssist}>$200k</button>
                     </div>
                 </div>
                 
@@ -177,6 +171,17 @@
                     </lightning-combobox>
                 </div>
                 
+                <!-- Opportunity Source -->
+                <div class="form-field">
+                    <lightning-combobox
+                        name="opportunitySource"
+                        label="Opportunity Source"
+                        value={opportunitySource}
+                        options={opportunitySourceOptions}
+                        onchange={handleSourceChange}>
+                    </lightning-combobox>
+                </div>
+                
                 <!-- Actions -->
                 <div class="form-actions">
                     <lightning-button 
@@ -184,16 +189,13 @@
                         onclick={handleCancel}>
                     </lightning-button>
                     <lightning-button 
-                        label="Create Opportunity" 
+                        label={createButtonLabel}
                         variant="brand"
                         disabled={isCreating}
                         onclick={handleCreate}>
-                        <template if:true={isCreating}>
-                            <lightning-spinner alternative-text="Creating" size="small"></lightning-spinner>
-                        </template>
                     </lightning-button>
                 </div>
             </div>
-        </template>
+        </div>
     </div>
 </template>

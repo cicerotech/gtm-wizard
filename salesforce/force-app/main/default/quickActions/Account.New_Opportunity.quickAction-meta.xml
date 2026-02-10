@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<QuickAction xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fieldOverrides>
+        <field>Name</field>
+        <formula>Account.Name &amp; " - Discovery"</formula>
+    </fieldOverrides>
+    <fieldOverrides>
+        <field>CloseDate</field>
+        <formula>TODAY() + 100</formula>
+    </fieldOverrides>
+    <fieldOverrides>
+        <field>Opportunity_Source__c</field>
+        <formula>&quot;Inbound&quot;</formula>
+    </fieldOverrides>
+    <fieldOverrides>
+        <field>Probability</field>
+        <formula>10</formula>
+    </fieldOverrides>
+    <fieldOverrides>
+        <field>Product_Line__c</field>
+        <formula>&quot;Undetermined&quot;</formula>
+    </fieldOverrides>
+    <fieldOverrides>
+        <field>ACV__c</field>
+        <formula>100000</formula>
+    </fieldOverrides>
+    <fieldOverrides>
+        <field>Amount</field>
+        <formula>100000</formula>
+    </fieldOverrides>
+    <label>New Opportunity</label>
+    <optionsCreateFeedItem>false</optionsCreateFeedItem>
+    <quickActionLayout>
+        <layoutSectionStyle>TwoColumnsLeftToRight</layoutSectionStyle>
+        <quickActionLayoutColumns>
+            <quickActionLayoutItems>
+                <emptySpace>false</emptySpace>
+                <field>StageName</field>
+                <uiBehavior>Required</uiBehavior>
+            </quickActionLayoutItems>
+            <quickActionLayoutItems>
+                <emptySpace>false</emptySpace>
+                <field>Target_Sign_for_Edit_NEW__c</field>
+                <uiBehavior>Edit</uiBehavior>
+            </quickActionLayoutItems>
+            <quickActionLayoutItems>
+                <emptySpace>false</emptySpace>
+                <field>Term__c</field>
+                <uiBehavior>Edit</uiBehavior>
+            </quickActionLayoutItems>
+        </quickActionLayoutColumns>
+        <quickActionLayoutColumns>
+            <quickActionLayoutItems>
+                <emptySpace>false</emptySpace>
+                <field>Product_Line__c</field>
+                <uiBehavior>Edit</uiBehavior>
+            </quickActionLayoutItems>
+            <quickActionLayoutItems>
+                <emptySpace>false</emptySpace>
+                <field>ACV__c</field>
+                <uiBehavior>Edit</uiBehavior>
+            </quickActionLayoutItems>
+        </quickActionLayoutColumns>
+    </quickActionLayout>
+    <successMessage>Opportunity created successfully!</successMessage>
+    <targetObject>Opportunity</targetObject>
+    <targetParentField>Account</targetParentField>
+    <targetRecordType>Opportunity.Standard_Sales_RT</targetRecordType>
+    <type>Create</type>
+</QuickAction>

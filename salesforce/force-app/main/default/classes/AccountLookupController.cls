@@ -4,6 +4,22 @@
  */
 public with sharing class AccountLookupController {
     
+    // Product line → abbreviated display name for opp naming
+    private static final Map<String, String> PRODUCT_LINE_ABBREV = new Map<String, String>{
+        'AI Contracting - Technology'       => 'Contracting Tech',
+        'AI Contracting - Managed Services' => 'Contracting MS',
+        'Contracting - Secondee'            => 'Contracting Secondee',
+        'AI Compliance - Technology'        => 'Compliance Tech',
+        'AI M&A - Managed Services'         => 'M&A MS',
+        'AI Platform - Sigma'               => 'Platform Sigma',
+        'AI Platform - Insights'            => 'Platform Insights',
+        'AI Platform - Litigation'          => 'Platform Litigation',
+        'FDE - Custom AI Solution'          => 'FDE Custom AI',
+        'Other - Managed Service'           => 'Other MS',
+        'Other - Secondee'                  => 'Other Secondee',
+        'Multiple (BL Review)'              => 'Multiple'
+    };
+
     /**
      * Search accounts by name
      * @param searchTerm - The search string to match against Account Name
@@ -87,6 +103,21 @@ public with sharing class AccountLookupController {
         
         return String.join(parts, ' • ');
     }
+
+    /**
+     * Get abbreviated product line label for opportunity naming.
+     * e.g. "AI Contracting - Technology" → "Contracting Tech"
+     */
+    private static String abbreviateProductLine(String productLine) {
+        if (String.isBlank(productLine) || productLine == 'Undetermined') {
+            return null; // caller should fall back to stage
+        }
+        if (PRODUCT_LINE_ABBREV.containsKey(productLine)) {
+            return PRODUCT_LINE_ABBREV.get(productLine);
+        }
+        // Fallback: strip leading "AI " prefix if present
+        return productLine.replaceFirst('(?i)^AI\\s+', '');
+    }
     
     /**
      * Create a new Opportunity with all required defaults
@@ -96,11 +127,13 @@ public with sharing class AccountLookupController {
      * @param targetSignDate - The target sign date
      * @param acv - The ACV amount
      * @param productLine - The Product Line
+     * @param opportunitySource - The Opportunity Source
      * @return The created Opportunity ID
      */
     @AuraEnabled
     public static String createOpportunity(String accountId, String accountName, String stage, 
-                                           Date targetSignDate, Decimal acv, String productLine) {
+                                           Date targetSignDate, Decimal acv, String productLine,
+                                           String opportunitySource) {
         // Validate required fields
         if (String.isBlank(accountId)) {
             throw new AuraHandledException('Account is required.');
@@ -110,12 +143,17 @@ public with sharing class AccountLookupController {
         }
         
         // Set defaults
-        Date closeDate = targetSignDate != null ? targetSignDate : Date.today().addDays(90);
+        Date closeDate = targetSignDate != null ? targetSignDate : Date.today().addDays(100);
         Decimal oppAcv = acv != null ? acv : 100000;
         String oppProductLine = String.isNotBlank(productLine) ? productLine : 'Undetermined';
         
-        // Generate opportunity name
-        String oppName = accountName + ' - ' + closeDate.format();
+        // Generate opportunity name: "AccountName - AbbreviatedProductLine" or "AccountName - Stage"
+        String nameSuffix = abbreviateProductLine(oppProductLine);
+        if (nameSuffix == null) {
+            // No product line specified → use stage (e.g. "Discovery")
+            nameSuffix = stage.replaceFirst('(?i)^Stage\\s*\\d+\\s*-\\s*', '');
+        }
+        String oppName = accountName + ' - ' + nameSuffix;
         
         // Create the Opportunity
         Opportunity opp = new Opportunity();
@@ -127,7 +165,7 @@ public with sharing class AccountLookupController {
         opp.Amount = oppAcv;
         opp.Product_Line__c = oppProductLine;
         opp.Probability = 10;
-        opp.Opportunity_Source__c = 'Inbound';
+        opp.Opportunity_Source__c = String.isNotBlank(opportunitySource) ? opportunitySource : 'Inbound';
         opp.Target_Sign_for_Edit_NEW__c = closeDate;
         
         // Set Record Type ID (Business Opportunity)

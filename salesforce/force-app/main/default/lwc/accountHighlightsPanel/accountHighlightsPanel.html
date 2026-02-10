@@ -1,0 +1,48 @@
+<template>
+    <template if:true={isLoading}>
+        <div class="loading-container">
+            <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+        </div>
+    </template>
+    
+    <template if:false={isLoading}>
+        <div class="highlights-container">
+            <!-- Logo -->
+            <div class="logo-section">
+                <template if:true={hasLogo}>
+                    <img 
+                        src={logoUrl} 
+                        alt={accountName}
+                        class="company-logo"
+                        onerror={handleImageError}
+                    />
+                </template>
+                <template if:false={hasLogo}>
+                    <lightning-icon 
+                        icon-name="standard:account" 
+                        size="large">
+                    </lightning-icon>
+                </template>
+            </div>
+            
+            <!-- Account Name -->
+            <div class="name-section">
+                <h1 class="account-name">{accountName}</h1>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="actions-section">
+                <lightning-button-group>
+                    <lightning-button 
+                        label="New Opportunity" 
+                        onclick={handleNewOpportunity}>
+                    </lightning-button>
+                    <lightning-button 
+                        label="Edit" 
+                        onclick={handleEdit}>
+                    </lightning-button>
+                </lightning-button-group>
+            </div>
+        </div>
+    </template>
+</template>

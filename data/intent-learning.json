@@ -27,8 +27,8 @@
       "confidence": 0.9,
       "query": "move boeing, intel, microsoft to nurture",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.892Z",
-      "lastUsed": "2026-01-07T20:06:51.892Z"
+      "firstSeen": "2026-02-05T19:44:03.927Z",
+      "lastUsed": "2026-02-05T19:44:03.927Z"
     },
     "e77ffd06e4721168936ca082fde67e37": {
       "intent": "batch_move_to_nurture",
@@ -54,8 +54,8 @@
       "confidence": 0.9,
       "query": "move boeing to nurture",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.888Z",
-      "lastUsed": "2026-01-07T20:06:51.888Z"
+      "firstSeen": "2026-02-05T19:44:03.919Z",
+      "lastUsed": "2026-02-05T19:44:03.919Z"
     },
     "398187763246ef8857da5ebf762ab867": {
       "intent": "batch_reassign_accounts",
@@ -100,8 +100,8 @@
       "confidence": 0.9,
       "query": "reassign boeing to julie",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.879Z",
-      "lastUsed": "2026-01-07T20:06:51.879Z"
+      "firstSeen": "2026-02-05T19:44:04.246Z",
+      "lastUsed": "2026-02-05T19:44:04.246Z"
     },
     "9426e6ef3cb07d0a5aa2744e17d36ade": {
       "intent": "accounts_by_stage",
@@ -151,8 +151,8 @@
       "confidence": 0.9,
       "query": "who owns boeing",
       "uses": 1,
-      "firstSeen": "2025-12-15T16:11:24.589Z",
-      "lastUsed": "2025-12-15T16:11:24.591Z"
+      "firstSeen": "2026-02-05T19:44:04.195Z",
+      "lastUsed": "2026-02-05T19:44:04.195Z"
     },
     "7cf59789c9d5dc6cc133516e5d9e076f": {
       "intent": "account_lookup",
@@ -179,8 +179,8 @@
       "confidence": 0.9,
       "query": "who is the bl for intel",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.279Z",
-      "lastUsed": "2026-01-07T20:06:51.279Z"
+      "firstSeen": "2026-02-05T19:38:32.923Z",
+      "lastUsed": "2026-02-05T19:38:32.923Z"
     },
     "939c0071f22f8bf327452e4264afa1e8": {
       "intent": "account_lookup",
@@ -207,8 +207,8 @@
       "confidence": 0.9,
       "query": "bl for amazon",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.286Z",
-      "lastUsed": "2026-01-07T20:06:51.286Z"
+      "firstSeen": "2026-02-05T19:38:32.926Z",
+      "lastUsed": "2026-02-05T19:38:32.926Z"
     },
     "b7cabdd908dfcd1ed48f650e62b853c8": {
       "intent": "account_lookup",
@@ -276,8 +276,8 @@
       "confidence": 0.9,
       "query": "does boeing exist",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.459Z",
-      "lastUsed": "2026-01-07T20:06:51.459Z"
+      "firstSeen": "2026-02-05T19:44:03.476Z",
+      "lastUsed": "2026-02-05T19:44:03.476Z"
     },
     "65558c273c6ac415325c332dfe09fd2d": {
       "intent": "account_existence_check",
@@ -304,8 +304,8 @@
       "confidence": 0.9,
       "query": "what is the legal team size at boeing",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.475Z",
-      "lastUsed": "2026-01-07T20:06:51.475Z"
+      "firstSeen": "2026-02-05T19:44:03.537Z",
+      "lastUsed": "2026-02-05T19:44:03.537Z"
     },
     "1564f507b83017e34467e848664aa247": {
       "intent": "account_field_lookup",
@@ -319,8 +319,8 @@
       "confidence": 0.9,
       "query": "legal team size for intel",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.477Z",
-      "lastUsed": "2026-01-07T20:06:51.477Z"
+      "firstSeen": "2026-02-05T19:44:03.543Z",
+      "lastUsed": "2026-02-05T19:44:03.543Z"
     },
     "8f4457e81c55c0e5e6444e476c511a1e": {
       "intent": "account_field_lookup",
@@ -334,8 +334,8 @@
       "confidence": 0.7,
       "query": "who are the decision makers at microsoft",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.478Z",
-      "lastUsed": "2026-01-07T20:06:51.478Z"
+      "firstSeen": "2026-02-05T19:44:03.551Z",
+      "lastUsed": "2026-02-05T19:44:03.551Z"
     },
     "0974285e07a091792fc0bbfedc16f59a": {
       "intent": "account_field_lookup",
@@ -346,8 +346,8 @@
       "confidence": 0.7,
       "query": "decision makers for apple",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.482Z",
-      "lastUsed": "2026-01-07T20:06:51.482Z"
+      "firstSeen": "2026-02-05T19:44:03.563Z",
+      "lastUsed": "2026-02-05T19:44:03.563Z"
     },
     "2cba77a7e1fa32360ea4041a98936595": {
       "intent": "account_field_lookup",
@@ -361,8 +361,8 @@
       "confidence": 0.7,
       "query": "what use cases is boeing discussing",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.488Z",
-      "lastUsed": "2026-01-07T20:06:51.488Z"
+      "firstSeen": "2026-02-05T19:44:03.573Z",
+      "lastUsed": "2026-02-05T19:44:03.573Z"
     },
     "72d726662c82dd100e09c31348b5d0b7": {
       "intent": "account_field_lookup",
@@ -373,8 +373,8 @@
       "confidence": 0.7,
       "query": "use cases for amazon",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.494Z",
-      "lastUsed": "2026-01-07T20:06:51.494Z"
+      "firstSeen": "2026-02-05T19:44:03.578Z",
+      "lastUsed": "2026-02-05T19:44:03.578Z"
     },
     "d1fd1b087415595af41e710af8f6231f": {
       "intent": "account_field_lookup",
@@ -386,8 +386,8 @@
       "confidence": 0.7,
       "query": "competitive landscape for google",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.501Z",
-      "lastUsed": "2026-01-07T20:06:51.501Z"
+      "firstSeen": "2026-02-05T19:44:03.583Z",
+      "lastUsed": "2026-02-05T19:44:03.583Z"
     },
     "45f65bec7d31be10298b139d3e7e6013": {
       "intent": "accounts_by_stage",
@@ -397,8 +397,8 @@
       "confidence": 0.9,
       "query": "which accounts have ironclad",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.506Z",
-      "lastUsed": "2026-01-07T20:06:51.506Z"
+      "firstSeen": "2026-02-05T19:44:03.587Z",
+      "lastUsed": "2026-02-05T19:44:03.587Z"
     },
     "7923c1a2846d04539c69339633b8e044": {
       "intent": "account_field_lookup",
@@ -410,8 +410,8 @@
       "confidence": 0.7,
       "query": "who has harvey in competitive landscape",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.519Z",
-      "lastUsed": "2026-01-07T20:06:51.519Z"
+      "firstSeen": "2026-02-05T19:44:03.593Z",
+      "lastUsed": "2026-02-05T19:44:03.594Z"
     },
     "8c6dc530b3a1dec65e5bae64312a946f": {
       "intent": "accounts_by_owner",
@@ -541,8 +541,8 @@
       "confidence": 0.9,
       "query": "current customers",
       "uses": 1,
-      "firstSeen": "2025-12-08T21:31:00.435Z",
-      "lastUsed": "2025-12-08T21:31:00.435Z"
+      "firstSeen": "2026-02-05T19:44:04.165Z",
+      "lastUsed": "2026-02-05T19:44:04.165Z"
     },
     "21bb7a236f64bf2f2fe6e8509ff1f0a7": {
       "intent": "owner_pipeline",
@@ -1400,8 +1400,8 @@
       "confidence": 0.9,
       "query": "more",
       "uses": 1,
-      "firstSeen": "2025-12-10T17:46:46.177Z",
-      "lastUsed": "2025-12-10T17:46:46.177Z"
+      "firstSeen": "2026-02-05T19:44:03.851Z",
+      "lastUsed": "2026-02-05T19:44:03.851Z"
     },
     "d0cab90d8d20d57e2f2b9be52f7dd25d": {
       "intent": "pagination_next",
@@ -1412,8 +1412,8 @@
       "confidence": 0.9,
       "query": "next",
       "uses": 1,
-      "firstSeen": "2025-12-10T17:46:46.176Z",
-      "lastUsed": "2025-12-10T17:46:46.176Z"
+      "firstSeen": "2026-02-05T19:44:03.627Z",
+      "lastUsed": "2026-02-05T19:44:03.627Z"
     },
     "605ed279a2a89359ae4e4770ec76a584": {
       "intent": "owner_pipeline",
@@ -1817,8 +1817,8 @@
       "confidence": 0.9,
       "query": "send pipeline excel",
       "uses": 1,
-      "firstSeen": "2025-12-10T17:45:56.331Z",
-      "lastUsed": "2025-12-10T17:45:56.331Z"
+      "firstSeen": "2026-02-05T19:44:04.134Z",
+      "lastUsed": "2026-02-05T19:44:04.134Z"
     },
     "3567d53e238f376424cab61d8eabaa4c": {
       "intent": "owner_pipeline",
@@ -1859,8 +1859,8 @@
       "confidence": 0.9,
       "query": "create opportunity for eudia testing account",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.869Z",
-      "lastUsed": "2026-01-07T20:06:51.869Z"
+      "firstSeen": "2026-02-05T19:38:32.607Z",
+      "lastUsed": "2026-02-05T19:38:32.608Z"
     },
     "3d156693053b70efcb9e23fa44ef9368": {
       "intent": "create_opportunity",
@@ -1874,8 +1874,8 @@
       "confidence": 0.9,
       "query": "create opp for test account inc",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.241Z",
-      "lastUsed": "2026-01-07T20:06:51.241Z"
+      "firstSeen": "2026-02-05T19:38:32.643Z",
+      "lastUsed": "2026-02-05T19:38:32.643Z"
     },
     "b7900c30a327dbe57946cf3d90a07f5b": {
       "intent": "create_account",
@@ -1887,8 +1887,8 @@
       "confidence": 0.9,
       "query": "create account for boeing and assign to bl",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.242Z",
-      "lastUsed": "2026-01-07T20:06:51.242Z"
+      "firstSeen": "2026-02-05T19:38:32.655Z",
+      "lastUsed": "2026-02-05T19:38:32.655Z"
     },
     "6647cae45db34b565a13c80faf3a49d5": {
       "intent": "create_account",
@@ -1900,8 +1900,8 @@
       "confidence": 0.9,
       "query": "add account for intel and assign to bl",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.245Z",
-      "lastUsed": "2026-01-07T20:06:51.245Z"
+      "firstSeen": "2026-02-05T19:38:32.669Z",
+      "lastUsed": "2026-02-05T19:38:32.669Z"
     },
     "cf1dc79f6c8b165571ecb474b7ded9e5": {
       "intent": "create_opportunity",
@@ -1916,8 +1916,8 @@
       "confidence": 0.9,
       "query": "create a stage 1 opportunity for eudia testing account",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.871Z",
-      "lastUsed": "2026-01-07T20:06:51.871Z"
+      "firstSeen": "2026-02-05T19:38:32.784Z",
+      "lastUsed": "2026-02-05T19:38:32.784Z"
     },
     "2cf0726e163d0202505485102eb3690e": {
       "intent": "create_opportunity",
@@ -1932,8 +1932,8 @@
       "confidence": 0.9,
       "query": "create a stage 2 opp for account services llc",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.260Z",
-      "lastUsed": "2026-01-07T20:06:51.260Z"
+      "firstSeen": "2026-02-05T19:38:32.901Z",
+      "lastUsed": "2026-02-05T19:38:32.901Z"
     },
     "0edea2635d316e670520a06d32e90782": {
       "intent": "create_opportunity",
@@ -1948,8 +1948,8 @@
       "confidence": 0.9,
       "query": "create a stage 4 opportunity for accounting firm inc",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.261Z",
-      "lastUsed": "2026-01-07T20:06:51.261Z"
+      "firstSeen": "2026-02-05T19:38:32.907Z",
+      "lastUsed": "2026-02-05T19:38:32.907Z"
     },
     "5a6c73373e43dab2ca235f9474865ffd": {
       "intent": "account_lookup",
@@ -1962,8 +1962,8 @@
       "confidence": 0.9,
       "query": "who is the bl on toshiba",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.450Z",
-      "lastUsed": "2026-01-07T20:06:51.450Z"
+      "firstSeen": "2026-02-05T19:44:03.416Z",
+      "lastUsed": "2026-02-05T19:44:03.416Z"
     },
     "3cfbd363cac4ceb2989a1f8fb7854af4": {
       "intent": "account_lookup",
@@ -1976,8 +1976,8 @@
       "confidence": 0.9,
       "query": "who is the bl on best buy",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.264Z",
-      "lastUsed": "2026-01-07T20:06:51.264Z"
+      "firstSeen": "2026-02-05T19:38:32.918Z",
+      "lastUsed": "2026-02-05T19:38:32.918Z"
     },
     "3167b71c5574f0d917b24982c1b7365a": {
       "intent": "account_lookup",
@@ -1990,8 +1990,8 @@
       "confidence": 0.9,
       "query": "bl at cargill",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.290Z",
-      "lastUsed": "2026-01-07T20:06:51.290Z"
+      "firstSeen": "2026-02-05T19:38:32.990Z",
+      "lastUsed": "2026-02-05T19:38:32.990Z"
     },
     "9ff9b13db1c419f45b47d45df769597e": {
       "intent": "account_lookup",
@@ -2004,8 +2004,8 @@
       "confidence": 0.9,
       "query": "who owns cargill",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.432Z",
-      "lastUsed": "2026-01-07T20:06:51.432Z"
+      "firstSeen": "2026-02-05T19:44:03.407Z",
+      "lastUsed": "2026-02-05T19:44:03.407Z"
     },
     "a8b3200ef598f9ecba5369c88a6eaa9b": {
       "intent": "account_lookup",
@@ -2018,8 +2018,8 @@
       "confidence": 0.9,
       "query": "who owns chevron",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.324Z",
-      "lastUsed": "2026-01-07T20:06:51.324Z"
+      "firstSeen": "2026-02-05T19:44:03.283Z",
+      "lastUsed": "2026-02-05T19:44:03.283Z"
     },
     "a126dc6a6df26459e2d225b5533c5ff3": {
       "intent": "account_lookup",
@@ -2032,8 +2032,8 @@
       "confidence": 0.9,
       "query": "who is the bl for chevron",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.325Z",
-      "lastUsed": "2026-01-07T20:06:51.325Z"
+      "firstSeen": "2026-02-05T19:44:03.304Z",
+      "lastUsed": "2026-02-05T19:44:03.304Z"
     },
     "8e4f7a54eea9b450c726154838418714": {
       "intent": "account_lookup",
@@ -2046,8 +2046,8 @@
       "confidence": 0.9,
       "query": "who's the bl for best buy",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.341Z",
-      "lastUsed": "2026-01-07T20:06:51.341Z"
+      "firstSeen": "2026-02-05T19:44:03.325Z",
+      "lastUsed": "2026-02-05T19:44:03.325Z"
     },
     "a383a45cfa41eac08f6409e104101a1f": {
       "intent": "account_lookup",
@@ -2060,8 +2060,8 @@
       "confidence": 0.9,
       "query": "bl for dhl",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.342Z",
-      "lastUsed": "2026-01-07T20:06:51.342Z"
+      "firstSeen": "2026-02-05T19:44:03.329Z",
+      "lastUsed": "2026-02-05T19:44:03.329Z"
     },
     "e3f072f7ac4c0c630b88ee2c3e6a5c39": {
       "intent": "account_lookup",
@@ -2074,8 +2074,8 @@
       "confidence": 0.9,
       "query": "business lead for bayer",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.345Z",
-      "lastUsed": "2026-01-07T20:06:51.345Z"
+      "firstSeen": "2026-02-05T19:44:03.339Z",
+      "lastUsed": "2026-02-05T19:44:03.339Z"
     },
     "edbdada196800dd3baf469e7070279bf": {
       "intent": "account_lookup",
@@ -2088,8 +2088,8 @@
       "confidence": 0.9,
       "query": "owner of coherent",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.369Z",
-      "lastUsed": "2026-01-07T20:06:51.369Z"
+      "firstSeen": "2026-02-05T19:44:03.372Z",
+      "lastUsed": "2026-02-05T19:44:03.372Z"
     },
     "2a472e9d67cb2d1d8a511677cdd2ddd9": {
       "intent": "account_lookup",
@@ -2102,8 +2102,8 @@
       "confidence": 0.9,
       "query": "who owns the cargill account",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.413Z",
-      "lastUsed": "2026-01-07T20:06:51.413Z"
+      "firstSeen": "2026-02-05T19:44:03.388Z",
+      "lastUsed": "2026-02-05T19:44:03.388Z"
     },
     "adb5f6f5e56d8ba487203ef009bf5eb1": {
       "intent": "account_lookup",
@@ -2116,8 +2116,8 @@
       "confidence": 0.9,
       "query": "find owner of intuit",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.432Z",
-      "lastUsed": "2026-01-07T20:06:51.432Z"
+      "firstSeen": "2026-02-05T19:44:03.396Z",
+      "lastUsed": "2026-02-05T19:44:03.396Z"
     },
     "fda93f3fc91f765a90b989a8c13e4094": {
       "intent": "account_lookup",
@@ -2130,8 +2130,8 @@
       "confidence": 0.9,
       "query": "bl for chevron",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.452Z",
-      "lastUsed": "2026-01-07T20:06:51.452Z"
+      "firstSeen": "2026-02-05T19:44:03.421Z",
+      "lastUsed": "2026-02-05T19:44:03.421Z"
     },
     "70ead3f87b5afba13308eddfd69a38ce": {
       "intent": "account_lookup",
@@ -2144,8 +2144,8 @@
       "confidence": 0.9,
       "query": "who is the bl for best buy",
       "uses": 1,
-      "firstSeen": "2026-01-07T20:06:51.456Z",
-      "lastUsed": "2026-01-07T20:06:51.456Z"
+      "firstSeen": "2026-02-05T19:44:03.426Z",
+      "lastUsed": "2026-02-05T19:44:03.426Z"
     },
     "a58978965b2e657db7cdef6b1e90b389": {
       "intent": "create_opportunity",
@@ -2276,6 +2276,477 @@
       "uses": 1,
       "firstSeen": "2026-01-07T20:06:51.915Z",
       "lastUsed": "2026-01-07T20:06:51.915Z"
+    },
+    "c60a68f1fdab46b51e2651547e854a96": {
+      "intent": "save_customer_note",
+      "entities": {
+        "noteCapture": true
+      },
+      "confidence": 0.9,
+      "query": "add to customer history: white cap test",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:38:33.001Z",
+      "lastUsed": "2026-02-05T19:38:33.001Z"
+    },
+    "16308d97bc633f49436f25cd8d98ab1a": {
+      "intent": "save_customer_note",
+      "entities": {
+        "noteCapture": true
+      },
+      "confidence": 0.9,
+      "query": "add to custome history: test company",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:38:33.005Z",
+      "lastUsed": "2026-02-05T19:38:33.005Z"
+    },
+    "1a3b1e10689b6874fa4e571c8a3ecf8f": {
+      "intent": "save_customer_note",
+      "entities": {
+        "noteCapture": true
+      },
+      "confidence": 0.9,
+      "query": "add to customer history: another test",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:38:33.026Z",
+      "lastUsed": "2026-02-05T19:38:33.026Z"
+    },
+    "91aa32001f4d8611d1beac5758d0fc47": {
+      "intent": "save_customer_note",
+      "entities": {
+        "noteCapture": true
+      },
+      "confidence": 0.9,
+      "query": "customer brain: cargill discussed ai",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:38:33.089Z",
+      "lastUsed": "2026-02-05T19:38:33.089Z"
+    },
+    "0f360a8367c5e83b413e09afeba09b21": {
+      "intent": "save_customer_note",
+      "entities": {
+        "noteCapture": true
+      },
+      "confidence": 0.9,
+      "query": "add to customer history: boeing met with clo",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:38:33.094Z",
+      "lastUsed": "2026-02-05T19:38:33.094Z"
+    },
+    "be501cdd39a74b1657c854f4c48f7245": {
+      "intent": "create_opportunity",
+      "entities": {
+        "accounts": [
+          "stage coach inc"
+        ],
+        "simpleMode": true,
+        "createOpp": true
+      },
+      "confidence": 0.9,
+      "query": "create opp for stage coach inc",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:38:33.101Z",
+      "lastUsed": "2026-02-05T19:38:33.101Z"
+    },
+    "a33e5c74cb0510bb203b1b6af341c6b0": {
+      "intent": "account_lookup",
+      "entities": {
+        "includeAccount": true,
+        "accounts": [
+          "pipeline construction"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "who owns pipeline construction",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:38:33.103Z",
+      "lastUsed": "2026-02-05T19:38:33.103Z"
+    },
+    "d3a8006beeecca96646a7f41018a9c96": {
+      "intent": "create_opportunity",
+      "entities": {
+        "accounts": [
+          "best deals llc"
+        ],
+        "simpleMode": true,
+        "createOpp": true
+      },
+      "confidence": 0.9,
+      "query": "create opp for best deals llc",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:38:33.105Z",
+      "lastUsed": "2026-02-05T19:38:33.105Z"
+    },
+    "fe15b2a67921af9a35229ed470868fbc": {
+      "intent": "account_lookup",
+      "entities": {
+        "includeAccount": true,
+        "accounts": [
+          "nurture health"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "who owns nurture health",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:38:33.117Z",
+      "lastUsed": "2026-02-05T19:38:33.117Z"
+    },
+    "9a5e24791b4c987b8c8368dbeef6e71d": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "Julie Stefanich"
+        ],
+        "ownerName": "Julie Stefanich",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "julie's deals",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:38:33.128Z",
+      "lastUsed": "2026-02-05T19:38:33.128Z"
+    },
+    "ccdd0722ef36d7096a20a9886ecec09e": {
+      "intent": "account_status_dashboard",
+      "entities": {},
+      "confidence": 0.9,
+      "query": "gtm",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:03.613Z",
+      "lastUsed": "2026-02-05T19:44:03.613Z"
+    },
+    "dc7161be3dbf2250c8954e560cc35060": {
+      "intent": "account_status_dashboard",
+      "entities": {},
+      "confidence": 0.9,
+      "query": "dashboard",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:03.622Z",
+      "lastUsed": "2026-02-05T19:44:03.622Z"
+    },
+    "00b4e39e2df23c99e88d9025183c1433": {
+      "intent": "save_customer_note",
+      "entities": {
+        "noteCapture": true
+      },
+      "confidence": 0.9,
+      "query": "add to customer history: boeing\nmet with team",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:03.860Z",
+      "lastUsed": "2026-02-05T19:44:03.860Z"
+    },
+    "cdc8cb9c90e75b8785ea2441e785b080": {
+      "intent": "reassign_account",
+      "entities": {},
+      "confidence": 0.9,
+      "query": "create account testco and assign to julie",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:03.869Z",
+      "lastUsed": "2026-02-05T19:44:03.869Z"
+    },
+    "330a8185c51f90d5a2d67e114422b41b": {
+      "intent": "account_status_dashboard",
+      "entities": {},
+      "confidence": 0.9,
+      "query": "account status dashboard",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:03.936Z",
+      "lastUsed": "2026-02-05T19:44:03.936Z"
+    },
+    "86e947f6d5ff657d413bf6e2e12a43c2": {
+      "intent": "account_status_dashboard",
+      "entities": {},
+      "confidence": 0.9,
+      "query": "account dashboard",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:03.955Z",
+      "lastUsed": "2026-02-05T19:44:03.955Z"
+    },
+    "5d41402abc4b2a76b9719d911017c592": {
+      "intent": "greeting",
+      "entities": {},
+      "confidence": 0.9,
+      "query": "hello",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:03.974Z",
+      "lastUsed": "2026-02-05T19:44:03.974Z"
+    },
+    "49f68a5c8493ec2c0bf489821c21fc3b": {
+      "intent": "greeting",
+      "entities": {},
+      "confidence": 0.9,
+      "query": "hi",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:03.979Z",
+      "lastUsed": "2026-02-05T19:44:03.979Z"
+    },
+    "47bfa60625cc126b9c900698be196340": {
+      "intent": "save_customer_note",
+      "entities": {
+        "noteCapture": true
+      },
+      "confidence": 0.9,
+      "query": "add to customer history",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:03.985Z",
+      "lastUsed": "2026-02-05T19:44:03.985Z"
+    },
+    "17ca8097cfdd2e9b670586d568b97e00": {
+      "intent": "save_customer_note",
+      "entities": {
+        "noteCapture": true
+      },
+      "confidence": 0.9,
+      "query": "add to customer",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:03.988Z",
+      "lastUsed": "2026-02-05T19:44:03.988Z"
+    },
+    "90b416baa939a0b828454717fd161881": {
+      "intent": "batch_move_to_nurture",
+      "entities": {},
+      "confidence": 0.9,
+      "query": "batch nurture",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.004Z",
+      "lastUsed": "2026-02-05T19:44:04.004Z"
+    },
+    "9d98a2312444172d4a5c05e2547794f6": {
+      "intent": "batch_reassign_accounts",
+      "entities": {},
+      "confidence": 0.9,
+      "query": "batch reassign",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.008Z",
+      "lastUsed": "2026-02-05T19:44:04.008Z"
+    },
+    "8696b2bf4b617e0fba73c94c356d85f1": {
+      "intent": "account_lookup",
+      "entities": {
+        "includeAccount": true
+      },
+      "confidence": 0.9,
+      "query": "who owns",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.026Z",
+      "lastUsed": "2026-02-05T19:44:04.026Z"
+    },
+    "fb9e9b31893c98da3e9916ae6b3a00ff": {
+      "intent": "account_lookup",
+      "entities": {
+        "includeAccount": true
+      },
+      "confidence": 0.9,
+      "query": "who is the owner",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.038Z",
+      "lastUsed": "2026-02-05T19:44:04.038Z"
+    },
+    "19bd7a6c3eea078c7c7c42eafde13176": {
+      "intent": "close_account_lost",
+      "entities": {
+        "accounts": [
+          "lost"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "close lost",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.040Z",
+      "lastUsed": "2026-02-05T19:44:04.040Z"
+    },
+    "27bc4de567de0530d313adcca8cd600d": {
+      "intent": "close_account_lost",
+      "entities": {
+        "accounts": [
+          "as"
+        ]
+      },
+      "confidence": 0.9,
+      "query": "mark as lost",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.068Z",
+      "lastUsed": "2026-02-05T19:44:04.068Z"
+    },
+    "ecd6bd90d65429096e726a0e37b708db": {
+      "intent": "accounts_by_stage",
+      "entities": {
+        "returnType": "accounts"
+      },
+      "confidence": 0.9,
+      "query": "what accounts are in stage",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.088Z",
+      "lastUsed": "2026-02-05T19:44:04.089Z"
+    },
+    "75844a28ed3c9226f85aac92cbd29aff": {
+      "intent": "accounts_by_stage",
+      "entities": {
+        "returnType": "accounts"
+      },
+      "confidence": 0.9,
+      "query": "accounts in stage",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.102Z",
+      "lastUsed": "2026-02-05T19:44:04.102Z"
+    },
+    "5741c9a622ebdcd20f57a6f9db51c997": {
+      "intent": "deal_lookup",
+      "entities": {
+        "isClosed": true,
+        "isWon": true
+      },
+      "confidence": 0.7,
+      "query": "what closed",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.111Z",
+      "lastUsed": "2026-02-05T19:44:04.111Z"
+    },
+    "f698e67eb044afc58a36fa2265fb30c5": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "closed"
+        ],
+        "ownerName": "closed",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "closed deals",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.122Z",
+      "lastUsed": "2026-02-05T19:44:04.122Z"
+    },
+    "f19e2eb784d7156c0a636f772a857fca": {
+      "intent": "logo_rights_list",
+      "entities": {},
+      "confidence": 0.9,
+      "query": "logo rights",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.155Z",
+      "lastUsed": "2026-02-05T19:44:04.155Z"
+    },
+    "36da7460a6e1a8037e3d805d4701c84c": {
+      "intent": "customer_list",
+      "entities": {
+        "customerType": "all"
+      },
+      "confidence": 0.9,
+      "query": "our customers",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.167Z",
+      "lastUsed": "2026-02-05T19:44:04.167Z"
+    },
+    "70e3b4b4d4c8f1636fd96fc3caff6046": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "stale"
+        ],
+        "ownerName": "stale",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "stale deals",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.170Z",
+      "lastUsed": "2026-02-05T19:44:04.170Z"
+    },
+    "eb7db4f8f70d217dc8c57302f26003fb": {
+      "intent": "activity_check",
+      "entities": {
+        "staleDays": 30
+      },
+      "confidence": 0.7,
+      "query": "stale opportunities",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.174Z",
+      "lastUsed": "2026-02-05T19:44:04.174Z"
+    },
+    "5a8125121a4dcea51e7a0448524405f1": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "hot"
+        ],
+        "ownerName": "hot",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "hot deals",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.179Z",
+      "lastUsed": "2026-02-05T19:44:04.179Z"
+    },
+    "c0f83cbd1ddb608a404546f7a7d65dfd": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "urgent"
+        ],
+        "ownerName": "urgent",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "urgent deals",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.184Z",
+      "lastUsed": "2026-02-05T19:44:04.184Z"
+    },
+    "30c253803ac6adffb5cc20d51765767c": {
+      "intent": "owner_pipeline",
+      "entities": {
+        "owners": [
+          "stuck"
+        ],
+        "ownerName": "stuck",
+        "isClosed": false
+      },
+      "confidence": 0.9,
+      "query": "stuck deals",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.188Z",
+      "lastUsed": "2026-02-05T19:44:04.188Z"
+    },
+    "4149376b1389e8af2dd9703842dbdd19": {
+      "intent": "activity_check",
+      "entities": {
+        "staleDays": 30
+      },
+      "confidence": 0.7,
+      "query": "stuck opportunities",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.192Z",
+      "lastUsed": "2026-02-05T19:44:04.192Z"
+    },
+    "f7f3f6bbefa12be9fbcba934e8bc7204": {
+      "intent": "create_opportunity",
+      "entities": {
+        "accounts": [
+          "boeing"
+        ],
+        "simpleMode": true,
+        "createOpp": true
+      },
+      "confidence": 0.9,
+      "query": "create opportunity for boeing",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.233Z",
+      "lastUsed": "2026-02-05T19:44:04.233Z"
+    },
+    "9bb4a2cb34f1792d0caaf3caf8fe4b58": {
+      "intent": "create_opportunity",
+      "entities": {
+        "accounts": [
+          "testco"
+        ],
+        "simpleMode": true,
+        "createOpp": true
+      },
+      "confidence": 0.9,
+      "query": "add opp for testco",
+      "uses": 1,
+      "firstSeen": "2026-02-05T19:44:04.242Z",
+      "lastUsed": "2026-02-05T19:44:04.242Z"
     }
   },
   "corrections": [],
@@ -2283,7 +2754,9 @@
     "account_status_dashboard": [
       "gtm",
       "dashboard",
-      "show dashboard"
+      "show dashboard",
+      "account status dashboard",
+      "account dashboard"
     ],
     "pipeline_summary": [
       "show pipeline",
@@ -2328,7 +2801,11 @@
       "who owns the cargill account",
       "find owner of intuit",
       "bl for chevron",
-      "who is the bl for best buy"
+      "who is the bl for best buy",
+      "who owns pipeline construction",
+      "who owns nurture health",
+      "who owns",
+      "who is the owner"
     ],
     "deal_lookup": [
       "what closed this week",
@@ -2344,7 +2821,8 @@
       "recent lois",
       "show arr deals",
       "arr pipeline",
-      "recurring revenue deals"
+      "recurring revenue deals",
+      "what closed"
     ],
     "create_account": [
       "create boeing",
@@ -2359,7 +2837,8 @@
       "move acme and globalcorp to nurture",
       "batch nurture: boeing, intel, microsoft",
       "batch nurture: apple and amazon and google",
-      "move tesla, spacex to nurture"
+      "move tesla, spacex to nurture",
+      "batch nurture"
     ],
     "move_to_nurture": [
       "move boeing to nurture",
@@ -2373,7 +2852,8 @@
       "create boeing and assign to julie",
       "assign intel to himanshu",
       "reassign apple to mike",
-      "reassign google to asad"
+      "reassign google to asad",
+      "create account testco and assign to julie"
     ],
     "accounts_by_stage": [
       "what accounts does julie own",
@@ -2381,7 +2861,9 @@
       "which accounts have ironclad",
       "accounts in stage 3",
       "which accounts are in stage 4",
-      "what accounts are in sqo"
+      "what accounts are in sqo",
+      "what accounts are in stage",
+      "accounts in stage"
     ],
     "pagination_next": [
       "show next 10",
@@ -2396,7 +2878,8 @@
       "reassign acme, globalcorp, techstart to himanshu",
       "reassign boeing, intel to himanshu",
       "batch assign: apple, amazon, google to asad",
-      "reassign tesla, spacex, neuralink to mike"
+      "reassign tesla, spacex, neuralink to mike",
+      "batch reassign"
     ],
     "account_existence_check": [
       "does boeing exist",
@@ -2422,7 +2905,8 @@
       "who are our customers",
       "who are our current customers",
       "list our customers",
-      "current customers"
+      "current customers",
+      "our customers"
     ],
     "owner_pipeline": [
       "show me my pipeline",
@@ -2458,7 +2942,13 @@
       "arr pipeline",
       "recurring revenue deals",
       "how many deals",
-      "export active pipeline"
+      "export active pipeline",
+      "julie's deals",
+      "closed deals",
+      "stale deals",
+      "hot deals",
+      "urgent deals",
+      "stuck deals"
     ],
     "pipeline_added": [
       "what deals were added to pipeline this week",
@@ -2501,7 +2991,11 @@
       "create a stage 2 opp for bayer",
       "create opportunity for cargill with $500k acv",
       "create opp for test account company",
-      "create a stage 2 opp for my account llc"
+      "create a stage 2 opp for my account llc",
+      "create opp for stage coach inc",
+      "create opp for best deals llc",
+      "create opportunity for boeing",
+      "add opp for testco"
     ],
     "close_account_lost": [
       "close boeing as lost",
@@ -2510,12 +3004,22 @@
       "close lost apple",
       "close boeing lost",
       "mark intel as lost",
-      "close lost microsoft"
+      "close lost microsoft",
+      "close lost",
+      "mark as lost"
     ],
     "save_customer_note": [
       "add to customer history: boeing met with clo today",
       "add to customer history: cargill met with clo today",
-      "customer brain for chevron: discussed pricing"
+      "customer brain for chevron: discussed pricing",
+      "add to customer history: white cap test",
+      "add to custome history: test company",
+      "add to customer history: another test",
+      "customer brain: cargill discussed ai",
+      "add to customer history: boeing met with clo",
+      "add to customer history: boeing\nmet with team",
+      "add to customer history",
+      "add to customer"
     ],
     "send_excel_report": [
       "send me pipeline in excel",
@@ -2540,9 +3044,20 @@
     ],
     "arr_deals": [
       "arr pipeline"
+    ],
+    "greeting": [
+      "hello",
+      "hi"
+    ],
+    "logo_rights_list": [
+      "logo rights"
+    ],
+    "activity_check": [
+      "stale opportunities",
+      "stuck opportunities"
     ]
   },
   "version": 1,
   "created": "2025-12-08T00:00:00.000Z",
-  "lastSaved": "2026-01-07T20:06:51.915Z"
+  "lastSaved": "2026-02-05T19:44:04.246Z"
 }

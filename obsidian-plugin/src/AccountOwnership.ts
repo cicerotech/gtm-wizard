@@ -56,7 +56,6 @@ export const CS_EMAILS = [
 export const BL_REGIONS: Record<string, string[]> = {
   'US': [
     'asad.hussain@eudia.com',
-    'nathan.shine@eudia.com',
     'julie.stefanich@eudia.com',
     'olivia@eudia.com',
     'ananth@eudia.com',
@@ -65,12 +64,14 @@ export const BL_REGIONS: Record<string, string[]> = {
     'mike.masiello@eudia.com',
     'mike@eudia.com',
     'sean.boyd@eudia.com',
-    'riley.stack@eudia.com'
+    'riley.stack@eudia.com',
+    'rajeev.patel@eudia.com'
   ],
   'EMEA': [
     'greg.machale@eudia.com',
     'tom.clancy@eudia.com',
     'nicola.fratini@eudia.com',
+    'nathan.shine@eudia.com',
     'stephen.mulholland@eudia.com'
   ],
   'IRE_UK': [
@@ -87,12 +88,20 @@ export const BL_REGIONS: Record<string, string[]> = {
  */
 export const SALES_LEADER_DIRECT_REPORTS: Record<string, string[]> = {
   'mitchell.loquaci@eudia.com': [
-    'justin.hills@eudia.com',
+    'asad.hussain@eudia.com',
+    'julie.stefanich@eudia.com',
     'olivia@eudia.com',
+    'ananth@eudia.com',
+    'ananth.cherukupally@eudia.com',
+    'justin.hills@eudia.com',
+    'mike.masiello@eudia.com',
+    'mike@eudia.com',
     'sean.boyd@eudia.com',
-    'riley.stack@eudia.com'
+    'riley.stack@eudia.com',
+    'rajeev.patel@eudia.com'
   ],
   'stephen.mulholland@eudia.com': [
+    'greg.machale@eudia.com',
     'tom.clancy@eudia.com',
     'conor.molloy@eudia.com',
     'nathan.shine@eudia.com',
@@ -103,6 +112,15 @@ export const SALES_LEADER_DIRECT_REPORTS: Record<string, string[]> = {
     'alex.fox@eudia.com',
     'emer.flynn@eudia.com'
   ]
+};
+
+/**
+ * Pod-view users: specific BLs who get the full pod/region view (like sales leaders)
+ * Maps email -> region to determine which pod's accounts they see
+ */
+export const POD_VIEW_USERS: Record<string, string> = {
+  'sean.boyd@eudia.com': 'US',
+  'riley.stack@eudia.com': 'US'
 };
 
 /**
@@ -200,115 +218,98 @@ export interface AccountOwnershipData {
 
 /**
  * Static mapping of business leads to their owned accounts.
- * This data is derived from the "Business Lead 2026 Accounts" spreadsheet.
- * Auto-generated from Excel on 2026-02-03
+ * Source: "Business Lead Account Assignment latest version.xlsx"
+ * Filter: Customer Type = Existing OR Open Opps > 0 (matches BoB report)
+ * Auto-generated on 2026-02-10
  * 
- * Total: 14 business leads, 266 accounts
+ * Total: 18 business leads, 219 accounts
  */
 const OWNERSHIP_DATA: AccountOwnershipData = {
-  version: '2026-02',
-  lastUpdated: '2026-02-03',
+  version: '2026-02-10',
+  lastUpdated: '2026-02-10',
   businessLeads: {
-    // ALEX FOX (8 accounts)
+
+    // ALEX FOX (5 accounts)
     'alex.fox@eudia.com': {
       email: 'alex.fox@eudia.com',
       name: 'Alex Fox',
       accounts: [
-        { id: '001Wj00000mCFsTIAW', name: 'Arabic Computer Systems' },
-        { id: '001Wj00000fFuFMIA0', name: 'Bank of Ireland' },
-        { id: '001Wj00000mCFsuIAG', name: 'Corrigan & Corrigan Solicitors LLP' },
-        { id: '001Wj00000mCFscIAG', name: 'Department of Children, Disability and Equality' },
-        { id: '001Wj00000mCFsNIAW', name: 'Department of Climate, Energy and the Environment' },
-        { id: '001Wj00000mCFsUIAW', name: 'ESB NI/Electric Ireland' },
-        { id: '001Wj00000TV1WzIAL', name: 'OpenAi' },
-        { id: '001Wj00000mCFrMIAW', name: 'Sisk Group' },
+        { id: '001Wj00000mCFsT', name: 'Arabic Computer Systems' },
+        { id: '001Wj00000mCFsc', name: 'Department of Children, Disability and Equality' },
+        { id: '001Wj00000mCFsN', name: 'Department of Climate, Energy and the Environment' },
+        { id: '001Wj00000mCFsU', name: 'ESB NI/Electric Ireland' },
+        { id: '001Wj00000mCFrM', name: 'Sisk Group' },
       ]
     },
 
-    // ANANTH CHERUKUPALLY (13 accounts)
+    // ANANTH CHERUKUPALLY (10 accounts)
     'ananth@eudia.com': {
       email: 'ananth@eudia.com',
       name: 'Ananth Cherukupally',
       accounts: [
-        { id: '001Wj00000RjuhjIAB', name: 'Citadel' },
-        { id: '001Wj00000cejJzIAI', name: 'CVC' },
-        { id: '001Wj00000Y64qhIAB', name: 'Emigrant Bank' },
-        { id: '001Hp00003kIrIIIA0', name: 'GE Healthcare' },
-        { id: '001Hp00003kIrIJIA0', name: 'GE Vernova' },
-        { id: '001Wj00000Z6zhPIAR', name: 'Liberty Mutual Insurance' },
-        { id: '001Wj00000bWBlQIAW', name: 'Pegasystems' },
-        { id: '001Wj00000bzz9MIAQ', name: 'Peregrine Hospitality' },
-        { id: '001Hp00003ljCJ8IAM', name: 'Petco' },
-        { id: '001Hp00003kKXSIIA4', name: 'Pure Storage' },
-        { id: '001Wj00000lxbYRIAY', name: 'Spark Brighter Thinking' },
-        { id: '001Wj00000tOAoEIAW', name: 'TA Associates' },
-        { id: '001Wj00000bn8VSIAY', name: 'Vista Equity Partners' },
+        { id: '001Wj00000cejJz', name: 'CVC' },
+        { id: '001Wj00000Y64qh', name: 'Emigrant Bank' },
+        { id: '001Hp00003kIrIJ', name: 'GE Vernova' },
+        { id: '001Wj00000Z6zhP', name: 'Liberty Mutual Insurance' },
+        { id: '001Wj00000bWBlQ', name: 'Pegasystems' },
+        { id: '001Wj00000bzz9M', name: 'Peregrine Hospitality' },
+        { id: '001Hp00003ljCJ8', name: 'Petco' },
+        { id: '001Hp00003kKXSI', name: 'Pure Storage' },
+        { id: '001Wj00000lxbYR', name: 'Spark Brighter Thinking' },
+        { id: '001Wj00000bn8VS', name: 'Vista Equity Partners' },
       ]
     },
 
-    // ASAD HUSSAIN (35 accounts)
+    // ASAD HUSSAIN (24 accounts)
     'asad.hussain@eudia.com': {
       email: 'asad.hussain@eudia.com',
       name: 'Asad Hussain',
       accounts: [
-        { id: '001Hp00003kIrCyIAK', name: 'Airbnb' },
-        { id: '001Hp00003kIrEeIAK', name: 'Amazon' },
-        { id: '001Hp00003kIrCzIAK', name: 'American Express' },
-        { id: '001Wj00000TUdXwIAL', name: 'Anthropic' },
-        { id: '001Wj00000Y0g8ZIAR', name: 'Asana' },
-        { id: '001Wj00000c0wRAIAY', name: 'Away' },
-        { id: '001Wj00000WTMCRIA5', name: 'BNY Mellon' },
-        { id: '001Wj00000mosEXIAY', name: 'Carta' },
-        { id: '001Wj00000ah6dkIAA', name: 'Charlesbank Capital Partners' },
-        { id: '001Hp00003kIrE5IAK', name: 'Coherent' },
-        { id: '001Hp00003kIrGzIAK', name: 'Deloitte' },
-        { id: '001Hp00003kIrE6IAK', name: 'DHL' },
-        { id: '001Wj00000W8ZKlIAN', name: 'Docusign' },
-        { id: '001Hp00003kIrHNIA0', name: 'Ecolab' },
-        { id: '001Hp00003kIrI3IAK', name: 'Fluor' },
-        { id: '001Hp00003kIrIAIA0', name: 'Fox' },
-        { id: '001Hp00003kJ9oeIAC', name: 'Fresh Del Monte' },
-        { id: '001Hp00003kIrIKIA0', name: 'Geico' },
-        { id: '001Wj00000oqVXgIAM', name: 'Goosehead Insurance' },
-        { id: '001Wj00000tuXZbIAM', name: 'Gopuff' },
-        { id: '001Hp00003kIrItIAK', name: 'HSBC' },
-        { id: '001Hp00003kIrIyIAK', name: 'Huntsman' },
-        { id: '001Wj00000hdoLxIAI', name: 'Insight Enterprises Inc.' },
-        { id: '001Hp00003kIrKCIA0', name: 'Mass Mutual Life Insurance' },
-        { id: '001Hp00003kIrKOIA0', name: 'Microsoft' },
-        { id: '001Wj00000lyDQkIAM', name: 'MidOcean Partners' },
-        { id: '001Hp00003kIrKTIA0', name: 'Morgan Stanley' },
-        { id: '001Wj00000kNp2XIAS', name: 'Plusgrade' },
-        { id: '001Hp00003kIrMKIA0', name: 'ServiceNow' },
-        { id: '001Hp00003kIrECIA0', name: 'Southwest Airlines' },
-        { id: '001Wj00000tuRNoIAM', name: 'Virtusa' },
-        { id: '001Hp00003kIrNwIAK', name: 'W.W. Grainger' },
-        { id: '001Wj00000bzz9NIAQ', name: 'Wealth Partners Capital Group' },
-        { id: '001Wj00000tuolfIAA', name: 'Wynn Las Vegas' },
-        { id: '001Wj00000uzs1fIAA', name: 'Zero RFI' },
+        { id: '001Hp00003kIrCy', name: 'Airbnb' },
+        { id: '001Hp00003kIrEe', name: 'Amazon' },
+        { id: '001Wj00000Y0g8Z', name: 'Asana' },
+        { id: '001Wj00000c0wRA', name: 'Away' },
+        { id: '001Wj00000WTMCR', name: 'BNY Mellon' },
+        { id: '001Wj00000ah6dk', name: 'Charlesbank Capital Partners' },
+        { id: '001Hp00003kIrE5', name: 'Coherent' },
+        { id: '001Hp00003kIrE6', name: 'DHL' },
+        { id: '001Wj00000W8ZKl', name: 'Docusign' },
+        { id: '001Hp00003kIrHN', name: 'Ecolab' },
+        { id: '001Hp00003kIrI3', name: 'Fluor' },
+        { id: '001Hp00003kIrIA', name: 'Fox' },
+        { id: '001Hp00003kJ9oe', name: 'Fresh Del Monte' },
+        { id: '001Hp00003kIrIK', name: 'Geico' },
+        { id: '001Wj00000oqVXg', name: 'Goosehead Insurance' },
+        { id: '001Wj00000hdoLx', name: 'Insight Enterprises Inc.' },
+        { id: '001Hp00003kIrKC', name: 'Mass Mutual Life Insurance' },
+        { id: '001Wj00000kNp2X', name: 'Plusgrade' },
+        { id: '001Hp00003kIrD9', name: 'Salesforce' },
+        { id: '001Hp00003kIrMK', name: 'ServiceNow' },
+        { id: '001Hp00003kIrEC', name: 'Southwest Airlines' },
+        { id: '001Wj00000bzz9N', name: 'Wealth Partners Capital Group' },
+        { id: '001Wj00000tuolf', name: 'Wynn Las Vegas' },
+        { id: '001Wj00000uzs1f', name: 'Zero RFI' },
       ]
     },
 
-    // CONOR MOLLOY (15 accounts)
+    // CONOR MOLLOY (13 accounts)
     'conor.molloy@eudia.com': {
       email: 'conor.molloy@eudia.com',
       name: 'Conor Molloy',
       accounts: [
-        { id: '001Hp00003kIrQDIA0', name: 'Accenture' },
-        { id: '001Wj00000qLixnIAC', name: 'Al Dahra Group Llc' },
-        { id: '001Hp00003kIrEyIAK', name: 'Aramark Ireland' },
-        { id: '001Wj00000mCFrgIAG', name: 'Aryza' },
-        { id: '001Wj00000mCFrkIAG', name: 'Coillte' },
-        { id: '001Wj00000mCFsHIAW', name: 'Consensys' },
-        { id: '001Wj00000mCFr2IAG', name: 'ICON Clinical Research' },
-        { id: '001Wj00000Y64qdIAB', name: 'ION' },
-        { id: '001Wj00000mCFtMIAW', name: 'Kellanova' },
-        { id: '001Wj00000mCFrIIAW', name: 'Orsted' },
-        { id: '001Wj00000mI9NmIAK', name: 'Sequoia Climate Fund' },
-        { id: '001Wj00000mCFs0IAG', name: 'Taoglas Limited' },
-        { id: '001Wj00000mCFtPIAW', name: 'Teamwork.com' },
-        { id: '001Wj00000mIBpNIAW', name: 'Transworld Business Advisors' },
-        { id: '001Wj00000ZLVpTIAX', name: 'Wellspring Philanthropic Fund' },
+        { id: '001Hp00003kIrQD', name: 'Accenture' },
+        { id: '001Hp00003kIrEy', name: 'Aramark Ireland' },
+        { id: '001Wj00000mCFrg', name: 'Aryza' },
+        { id: '001Wj00000tsfWO', name: 'Baker Tilly' },
+        { id: '001Wj00000mCFrk', name: 'Coillte' },
+        { id: '001Wj00000mCFsH', name: 'Consensys' },
+        { id: '001Wj00000Y64qd', name: 'ION' },
+        { id: '001Wj00000mCFtM', name: 'Kellanova' },
+        { id: '001Wj00000mCFrI', name: 'Orsted' },
+        { id: '001Wj00000mI9Nm', name: 'Sequoia Climate Fund' },
+        { id: '001Wj00000mCFs0', name: 'Taoglas Limited' },
+        { id: '001Wj00000mCFtP', name: 'Teamwork.com' },
+        { id: '001Wj00000ZLVpT', name: 'Wellspring Philanthropic Fund' },
       ]
     },
 
@@ -317,127 +318,103 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
       email: 'emer.flynn@eudia.com',
       name: 'Emer Flynn',
       accounts: [
-        { id: '001Wj00000mCFr6IAG', name: 'NTMA' },
+        { id: '001Wj00000mCFr6', name: 'NTMA' },
       ]
     },
 
-    // GREG MACHALE (26 accounts)
+    // GREG MACHALE (23 accounts)
     'greg.machale@eudia.com': {
       email: 'greg.machale@eudia.com',
       name: 'Greg MacHale',
       accounts: [
-        { id: '001Hp00003kIrEFIA0', name: 'Abbott Laboratories' },
-        { id: '001Wj00000mCFqrIAG', name: 'Biomarin International Limited' },
-        { id: '001Wj00000Y6VMdIAN', name: 'BNP Paribas' },
-        { id: '001Hp00003kIrFdIAK', name: 'Booking Holdings' },
-        { id: '001Wj00000X4OqNIAV', name: 'BT Group' },
-        { id: '001Wj00000uZ5J7IAK', name: 'Canada Life' },
-        { id: '001Wj00000mCFt9IAG', name: 'Cerberus European Servicing' },
-        { id: '001Wj00000Y6VMkIAN', name: 'Computershare' },
-        { id: '001Wj00000uP5x8IAC', name: 'Cornmarket Financial Services' },
-        { id: '001Wj00000Y6VMMIA3', name: 'Diageo' },
-        { id: '001Wj00000prFOXIA2', name: 'Doosan Bobcat' },
-        { id: '001Wj00000mCFrmIAG', name: 'eShopWorld' },
-        { id: '001Wj00000fFuFYIA0', name: 'Grant Thornton' },
-        { id: '001Wj00000uZ4A9IAK', name: 'Great West Lifec co' },
-        { id: '001Wj00000uZtcTIAS', name: 'Ineos' },
-        { id: '001Wj00000tWwYpIAK', name: 'Mail Metrics' },
-        { id: '001Wj00000vwSUXIA2', name: 'Mercor' },
-        { id: '001Wj00000mCFtUIAW', name: 'Mercury Engineering' },
-        { id: '001Wj00000lPFP3IAO', name: 'Nomura' },
-        { id: '001Wj00000mCFr1IAG', name: 'Permanent TSB plc' },
-        { id: '001Wj00000Y6QfRIAV', name: 'Pernod Ricard' },
-        { id: '001Hp00003kIrLiIAK', name: 'Quest Diagnostics' },
-        { id: '001Wj00000mCFsFIAW', name: 'Regeneron' },
-        { id: '001Wj00000mCFsRIAW', name: 'Ryanair' },
-        { id: '001Hp00003kIrMjIAK', name: 'State Street' },
-        { id: '001Wj00000mCFsSIAW', name: 'Uniphar PLC' },
+        { id: '001Hp00003kIrEF', name: 'Abbott Laboratories' },
+        { id: '001Wj00000sgXdB', name: 'Allianz Insurance' },
+        { id: '001Wj00000Y6VMd', name: 'BNP Paribas' },
+        { id: '001Wj00000X4OqN', name: 'BT Group' },
+        { id: '001Wj00000uZ5J7', name: 'Canada Life' },
+        { id: '001Wj00000Y6VMk', name: 'Computershare' },
+        { id: '001Wj00000uP5x8', name: 'Cornmarket Financial Services' },
+        { id: '001Wj00000Y6VMM', name: 'Diageo' },
+        { id: '001Wj00000fFuFY', name: 'Grant Thornton' },
+        { id: '001Wj00000uZ4A9', name: 'Great West Lifec co' },
+        { id: '001Wj00000xW3SE', name: 'Hayfin' },
+        { id: '001Wj00000wvtPl', name: 'ICEYE' },
+        { id: '001Wj00000uZtcT', name: 'Ineos' },
+        { id: '001Wj00000vwSUX', name: 'Mercor' },
+        { id: '001Wj00000mCFtU', name: 'Mercury Engineering' },
+        { id: '001Wj00000lPFP3', name: 'Nomura' },
+        { id: '001Wj00000mCFr1', name: 'Permanent TSB plc' },
+        { id: '001Wj00000Y6QfR', name: 'Pernod Ricard' },
+        { id: '001Wj00000mCFsF', name: 'Regeneron' },
+        { id: '001Wj00000mCFsR', name: 'Ryanair' },
+        { id: '001Wj00000pAxKo', name: 'SSP Group' },
+        { id: '001Hp00003kIrMj', name: 'State Street' },
+        { id: '001Wj00000mCFrm', name: 'eShopWorld' },
       ]
     },
 
-    // JULIE STEFANICH (31 accounts)
+    // JULIE STEFANICH (26 accounts)
     'julie.stefanich@eudia.com': {
       email: 'julie.stefanich@eudia.com',
       name: 'Julie Stefanich',
       accounts: [
-        { id: '001Wj00000asSHBIA2', name: 'Airbus' },
-        { id: '001Hp00003kIrElIAK', name: 'Ameriprise Financial' },
-        { id: '001Hp00003kIrEvIAK', name: 'Apple' },
-        { id: '001Hp00003kJ9pXIAS', name: 'Bayer' },
-        { id: '001Hp00003kIrE3IAK', name: 'Cargill' },
-        { id: '001Hp00003kIrGDIA0', name: 'Charles Schwab' },
-        { id: '001Hp00003kIrE4IAK', name: 'Chevron' },
-        { id: '001Hp00003kIrGeIAK', name: 'Corebridge Financial' },
-        { id: '001Hp00003kIrE7IAK', name: 'ECMS' },
-        { id: '001Wj00000iRzqvIAC', name: 'Florida Crystals Corporation' },
-        { id: '001Hp00003kIrIPIA0', name: 'Genworth Financial' },
-        { id: '001Hp00003kIrIXIA0', name: 'Goldman Sachs' },
-        { id: '001Wj00000rceVpIAI', name: 'Hikma' },
-        { id: '001Hp00003kIrJVIA0', name: 'KLA' },
-        { id: '001Wj00000aLmheIAC', name: 'Macmillan' },
-        { id: '001Wj00000X6G8qIAF', name: 'Mainsail Partners' },
-        { id: '001Hp00003kIrKLIA0', name: 'MetLife' },
-        { id: '001Hp00003kIrDeIAK', name: 'National Grid' },
-        { id: '001Hp00003kIrKjIAK', name: 'Nordstrom' },
-        { id: '001Hp00003kIrDvIAK', name: 'Oracle' },
-        { id: '001Hp00003kIrLNIA0', name: 'Petsmart' },
-        { id: '001Hp00003kIrLZIA0', name: 'Procter & Gamble' },
-        { id: '001Hp00003lhsUYIAY', name: 'Rio Tinto Group' },
-        { id: '001Wj00000svQI3IAM', name: 'Safelite' },
-        { id: '001Wj00000fRtLmIAK', name: 'State Farm' },
-        { id: '001Wj00000bzz9TIAQ', name: 'Tailored Brands' },
-        { id: '001Hp00003kIrNBIA0', name: 'The Wonderful Company' },
-        { id: '001Hp00003kIrCrIAK', name: 'TIAA' },
-        { id: '001Hp00003kIrNHIA0', name: 'T-Mobile' },
-        { id: '001Hp00003kIrNVIA0', name: 'Uber' },
-        { id: '001Hp00003kIrOLIA0', name: 'World Wide Technology' },
+        { id: '001Hp00003kIrEv', name: 'Apple' },
+        { id: '001Hp00003kJ9pX', name: 'Bayer' },
+        { id: '001Hp00003kIrE3', name: 'Cargill' },
+        { id: '001Hp00003kIrGD', name: 'Charles Schwab' },
+        { id: '001Hp00003kIrE4', name: 'Chevron' },
+        { id: '001Hp00003kIrDh', name: 'Comcast' },
+        { id: '001Hp00003kIrGe', name: 'Corebridge Financial' },
+        { id: '001Hp00003kIrE7', name: 'ECMS' },
+        { id: '001Hp00003kIrIP', name: 'Genworth Financial' },
+        { id: '001Hp00003kIrIX', name: 'Goldman Sachs' },
+        { id: '001Wj00000rceVp', name: 'Hikma' },
+        { id: '001Hp00003kIrJV', name: 'KLA' },
+        { id: '001Wj00000aLmhe', name: 'Macmillan' },
+        { id: '001Wj00000X6G8q', name: 'Mainsail Partners' },
+        { id: '001Hp00003kIrKL', name: 'MetLife' },
+        { id: '001Hp00003kIrDe', name: 'National Grid' },
+        { id: '001Hp00003kIrLN', name: 'Petsmart' },
+        { id: '001Hp00003kIrLZ', name: 'Procter & Gamble' },
+        { id: '001Hp00003lhsUY', name: 'Rio Tinto Group' },
+        { id: '001Wj00000svQI3', name: 'Safelite' },
+        { id: '001Wj00000fRtLm', name: 'State Farm' },
+        { id: '001Hp00003kIrNH', name: 'T-Mobile' },
+        { id: '001Wj00000bzz9T', name: 'Tailored Brands' },
+        { id: '001Hp00003kIrNB', name: 'The Wonderful Company' },
+        { id: '001Hp00003kIrNV', name: 'Uber' },
+        { id: '001Hp00003kIrOL', name: 'World Wide Technology' },
       ]
     },
 
-    // JUSTIN HILLS (20 accounts)
+    // JUSTIN HILLS (12 accounts)
     'justin.hills@eudia.com': {
       email: 'justin.hills@eudia.com',
       name: 'Justin Hills',
       accounts: [
-        { id: '001Hp00003kIrEOIA0', name: 'AES' },
-        { id: '001Wj00000Y6VM4IAN', name: 'Ares Management Corporation' },
-        { id: '001Wj00000XiEDyIAN', name: 'Coinbase' },
-        { id: '001Hp00003kIrDhIAK', name: 'Comcast' },
-        { id: '001Wj00000c9oCvIAI', name: 'Cox Media Group' },
-        { id: '001Wj00000Y0jPmIAJ', name: 'Delinea' },
-        { id: '001Wj00000iwKGQIA2', name: 'Dominos' },
-        { id: '001Hp00003kIrDaIAK', name: 'Duracell' },
-        { id: '001Hp00003kIrCnIAK', name: 'Home Depot' },
-        { id: '001Hp00003kIrDVIA0', name: 'Intel' },
-        { id: '001Hp00003kIrE9IAK', name: 'IQVIA' },
-        { id: '001Hp00003kIrJJIA0', name: 'Johnson & Johnson' },
-        { id: '001Wj00000gnrugIAA', name: 'Kraken' },
-        { id: '001Wj00000op4EWIAY', name: 'McCormick & Co Inc' },
-        { id: '001Wj00000ix7c2IAA', name: 'Nouryon' },
-        { id: '001Wj00000cpxt0IAA', name: 'Novelis' },
-        { id: '001Wj00000WYyKIIA1', name: 'Ramp' },
-        { id: '001Wj00000o5G0vIAE', name: 'StockX' },
-        { id: '001Wj00000YEMa8IAH', name: 'Turing' },
-        { id: '001Wj00000oqRycIAE', name: 'Walgreens Boots Alliance' },
+        { id: '001Wj00000Y6VM4', name: 'Ares Management Corporation' },
+        { id: '001Wj00000c9oCv', name: 'Cox Media Group' },
+        { id: '001Wj00000Y0jPm', name: 'Delinea' },
+        { id: '001Wj00000iwKGQ', name: 'Dominos' },
+        { id: '001Hp00003kIrDa', name: 'Duracell' },
+        { id: '001Hp00003kIrDV', name: 'Intel' },
+        { id: '001Hp00003kIrJJ', name: 'Johnson & Johnson' },
+        { id: '001Wj00000gnrug', name: 'Kraken' },
+        { id: '001Wj00000WYyKI', name: 'Ramp' },
+        { id: '001Hp00003kIrMi', name: 'Starbucks' },
+        { id: '001Wj00000o5G0v', name: 'StockX' },
+        { id: '001Wj00000YEMa8', name: 'Turing' },
       ]
     },
 
-    // KEIGAN PESENTI (11 accounts)
+    // KEIGAN PESENTI (3 accounts)
     'keigan.pesenti@eudia.com': {
       email: 'keigan.pesenti@eudia.com',
       name: 'Keigan Pesenti',
       accounts: [
-        { id: '001Wj00000mCFt4IAG', name: 'BNRG Renewables Ltd' },
-        { id: '001Wj00000mCFtTIAW', name: 'Coleman Legal' },
-        { id: '001Wj00000pLPAyIAO', name: 'Creed McStay' },
-        { id: '001Hp00003lhyCxIAI', name: 'Eudia Testing Account' },
-        { id: '001Wj00000mCFsIIAW', name: 'Fannin Limited' },
-        { id: '001Wj00000mCFsJIAW', name: 'Gas Networks Ireland' },
-        { id: '001Wj00000mCFseIAG', name: 'Hayes Solicitors LLP' },
-        { id: '001Wj00000mCFtJIAW', name: 'LinkedIn' },
-        { id: '001Wj00000mCFspIAG', name: 'Moy Park' },
-        { id: '001Wj00000mCFt8IAG', name: 'State Claims Agency' },
-        { id: '001Wj00000mCFs3IAG', name: 'Wayflyer' },
+        { id: '001Wj00000mCFtT', name: 'Coleman Legal' },
+        { id: '001Wj00000pLPAy', name: 'Creed McStay' },
+        { id: '001Wj00000mCFse', name: 'Hayes Solicitors LLP' },
       ]
     },
 
@@ -446,87 +423,134 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
       email: 'mike.masiello@eudia.com',
       name: 'Mike Masiello',
       accounts: [
-        { id: '001Wj00000p1lCPIAY', name: 'Army Applications Lab' },
-        { id: '001Wj00000p1hYbIAI', name: 'Army Corps of Engineers' },
-        { id: '001Wj00000ZxEpDIAV', name: 'Army Futures Command' },
-        { id: '001Wj00000bWBlAIAW', name: 'Defense Innovation Unit (DIU)' },
-        { id: '001Hp00003kJuJ5IAK', name: 'Gov - DOD' },
-        { id: '001Hp00003lhcL9IAI', name: 'GSA (General Services Administration)' },
-        { id: '001Wj00000p1PVHIA2', name: 'IFC' },
-        { id: '001Wj00000VVJ31IAH', name: 'NATO' },
-        { id: '001Wj00000p1YbmIAE', name: 'SOCOM' },
-        { id: '001Wj00000p1jH3IAI', name: 'State of Alaska' },
-        { id: '001Wj00000hVa6VIAS', name: 'State of Arizona' },
-        { id: '001Wj00000p0PcEIAU', name: 'State of California' },
-        { id: '001Wj00000bWBkeIAG', name: 'U.S. Air Force' },
-        { id: '001Wj00000p1SRXIA2', name: 'U.S. Marine Corps' },
-        { id: '001Wj00000Rrm5OIAR', name: 'UK Government' },
-        { id: '001Hp00003lieJPIAY', name: 'USDA' },
-        { id: '001Wj00000p1SuZIAU', name: 'Vulcan Special Ops' },
+        { id: '001Wj00000p1lCP', name: 'Army Applications Lab' },
+        { id: '001Wj00000p1hYb', name: 'Army Corps of Engineers' },
+        { id: '001Wj00000ZxEpD', name: 'Army Futures Command' },
+        { id: '001Wj00000bWBlA', name: 'Defense Innovation Unit (DIU)' },
+        { id: '001Hp00003kJuJ5', name: 'Gov - DOD' },
+        { id: '001Wj00000p1PVH', name: 'IFC' },
+        { id: '001Wj00000VVJ31', name: 'NATO' },
+        { id: '001Wj00000p1Ybm', name: 'SOCOM' },
+        { id: '001Hp00003lhcL9', name: 'Social Security Administration' },
+        { id: '001Wj00000p1jH3', name: 'State of Alaska' },
+        { id: '001Wj00000hVa6V', name: 'State of Arizona' },
+        { id: '001Wj00000p0PcE', name: 'State of California' },
+        { id: '001Wj00000bWBke', name: 'U.S. Air Force' },
+        { id: '001Wj00000p1SRX', name: 'U.S. Marine Corps' },
+        { id: '001Wj00000Rrm5O', name: 'UK Government' },
+        { id: '001Hp00003lieJP', name: 'USDA' },
+        { id: '001Wj00000p1SuZ', name: 'Vulcan Special Ops' },
       ]
     },
 
-    // NATHAN SHINE (19 accounts)
+    // MITCH LOQUACI (1 accounts)
+    'mitchell.loquaci@eudia.com': {
+      email: 'mitchell.loquaci@eudia.com',
+      name: 'Mitch Loquaci',
+      accounts: [
+        { id: '001Wj00000cpxt0', name: 'Novelis' },
+      ]
+    },
+
+    // NATHAN SHINE (14 accounts)
     'nathan.shine@eudia.com': {
       email: 'nathan.shine@eudia.com',
       name: 'Nathan Shine',
       accounts: [
-        { id: '001Hp00003kIrEnIAK', name: 'Amphenol' },
-        { id: '001Wj00000mHDBoIAO', name: 'Coimisiun na Mean' },
-        { id: '001Wj00000mCFqtIAG', name: 'CommScope Technologies' },
-        { id: '001Hp00003kIrDMIA0', name: 'Dropbox' },
-        { id: '001Wj00000mCFquIAG', name: 'Fexco' },
-        { id: '001Wj00000mCFs5IAG', name: 'Indeed' },
-        { id: '001Hp00003kIrJOIA0', name: 'Keurig Dr Pepper' },
-        { id: '001Wj00000hkk0zIAA', name: 'Kingspan' },
-        { id: '001Wj00000mCFrsIAG', name: 'Kitman Labs' },
-        { id: '001Wj00000mCFsMIAW', name: 'McDermott Creed & Martyn' },
-        { id: '001Wj00000mCFsoIAG', name: 'Mediolanum' },
-        { id: '001Wj00000mCFrFIAW', name: 'OKG Payments Services Limited' },
-        { id: '001Wj00000ZDPUIIA5', name: 'Perrigo Pharma' },
-        { id: '001Wj00000mCFtSIAW', name: 'Poe Kiely Hogan Lanigan' },
-        { id: '001Wj00000mCFtHIAW', name: 'StepStone Group' },
-        { id: '001Wj00000c9oD6IAI', name: 'Stripe' },
-        { id: '001Wj00000SFiOvIAL', name: 'TikTok' },
-        { id: '001Wj00000ZDXTRIA5', name: 'Tinder LLC' },
-        { id: '001Wj00000bWBlEIAW', name: 'Udemy' },
+        { id: '001Hp00003kIrEn', name: 'Amphenol' },
+        { id: '001Wj00000mHDBo', name: 'Coimisiun na Mean' },
+        { id: '001Wj00000mCFqt', name: 'CommScope Technologies' },
+        { id: '001Hp00003kIrDM', name: 'Dropbox' },
+        { id: '001Wj00000mCFqu', name: 'Fexco' },
+        { id: '001Wj00000mCFs5', name: 'Indeed' },
+        { id: '001Wj00000hkk0z', name: 'Kingspan' },
+        { id: '001Wj00000mCFso', name: 'Mediolanum' },
+        { id: '001Wj00000mCFrF', name: 'OKG Payments Services Limited' },
+        { id: '001Wj00000ZDPUI', name: 'Perrigo Pharma' },
+        { id: '001Wj00000mCFtH', name: 'StepStone Group' },
+        { id: '001Wj00000SFiOv', name: 'TikTok' },
+        { id: '001Wj00000ZDXTR', name: 'Tinder LLC' },
+        { id: '001Wj00000bWBlE', name: 'Udemy' },
       ]
     },
 
-    // NICOLA FRATINI (29 accounts)
+    // NICOLA FRATINI (30 accounts)
     'nicola.fratini@eudia.com': {
       email: 'nicola.fratini@eudia.com',
       name: 'Nicola Fratini',
       accounts: [
-        { id: '001Wj00000mCFrGIAW', name: 'AerCap' },
-        { id: '001Wj00000thuKEIAY', name: 'Aer Lingus' },
-        { id: '001Wj00000sgXdBIAU', name: 'Allianz Insurance' },
-        { id: '001Wj00000mCFs7IAG', name: 'Allied Irish Banks plc' },
-        { id: '001Wj00000mCFrhIAG', name: 'Avant Money' },
-        { id: '001Wj00000mI7NaIAK', name: 'Aviva Insurance' },
-        { id: '001Wj00000uNUIBIA4', name: 'Bank of China' },
-        { id: '001Hp00003kJ9kNIAS', name: 'Barclays' },
-        { id: '001Wj00000ttPZBIA2', name: 'Barings' },
-        { id: '001Wj00000tWwXwIAK', name: 'Cairn Homes' },
-        { id: '001Wj00000Y6VLhIAN', name: 'Citi' },
-        { id: '001Wj00000tx2MQIAY', name: 'CyberArk' },
-        { id: '001Wj00000mCFsBIAW', name: 'Datalex' },
-        { id: '001Wj00000mCFrlIAG', name: 'Davy' },
-        { id: '001Wj00000w0uVVIAY', name: 'Doceree' },
-        { id: '001Wj00000uJwxoIAC', name: 'Eir' },
-        { id: '001Wj00000sg8GcIAI', name: 'FARFETCH' },
-        { id: '001Wj00000mIEAXIA4', name: 'FNZ Group' },
-        { id: '001Wj00000mCFt1IAG', name: 'Goodbody Stockbrokers' },
-        { id: '001Wj00000ZDXrdIAH', name: 'Intercom' },
-        { id: '001Wj00000ullPpIAI', name: 'Jet2 Plc' },
-        { id: '001Wj00000au3swIAA', name: 'Lenovo' },
-        { id: '001Hp00003kIrKmIAK', name: 'Northern Trust Management Services' },
-        { id: '001Wj00000u0eJpIAI', name: 'Re-Turn' },
-        { id: '001Wj00000sg2T0IAI', name: 'SHEIN' },
-        { id: '001Wj00000mCFs1IAG', name: 'Twitter' },
-        { id: '001Hp00003kIrDAIA0', name: 'Verizon' },
-        { id: '001Wj00000sgaj9IAA', name: 'Volkswagon Group Ireland' },
-        { id: '001Wj00000mIB6EIAW', name: 'Zendesk' },
+        { id: '001Wj00000thuKE', name: 'Aer Lingus' },
+        { id: '001Wj00000mCFrG', name: 'AerCap' },
+        { id: '001Wj00000mCFs7', name: 'Allied Irish Banks plc' },
+        { id: '001Wj00000wvc5a', name: 'AppliedAI' },
+        { id: '001Wj00000mCFrh', name: 'Avant Money' },
+        { id: '001Wj00000mI7Na', name: 'Aviva Insurance' },
+        { id: '001Wj00000uNUIB', name: 'Bank of China' },
+        { id: '001Hp00003kJ9kN', name: 'Barclays' },
+        { id: '001Wj00000ttPZB', name: 'Barings' },
+        { id: '001Wj00000tWwXW', name: 'Beauparc Group' },
+        { id: '001Wj00000tWwXw', name: 'Cairn Homes' },
+        { id: '001Wj00000Y6VLh', name: 'Citi' },
+        { id: '001Wj00000tx2MQ', name: 'CyberArk' },
+        { id: '001Wj00000mCFsB', name: 'Datalex' },
+        { id: '001Wj00000mCFrl', name: 'Davy' },
+        { id: '001Wj00000w0uVV', name: 'Doceree' },
+        { id: '001Wj00000uJwxo', name: 'Eir' },
+        { id: '001Wj00000sg8Gc', name: 'FARFETCH' },
+        { id: '001Wj00000mCFt1', name: 'Goodbody Stockbrokers' },
+        { id: '001Wj00000ullPp', name: 'Jet2 Plc' },
+        { id: '001Wj00000au3sw', name: 'Lenovo' },
+        { id: '001Hp00003kIrKm', name: 'Northern Trust Management Services' },
+        { id: '001Wj00000TV1Wz', name: 'OpenAi' },
+        { id: '001Wj00000sg2T0', name: 'SHEIN' },
+        { id: '001Wj00000c9oD6', name: 'Stripe' },
+        { id: '001Wj00000mIBpN', name: 'Transworld Business Advisors' },
+        { id: '001Wj00000xV8Vg', name: 'UNHCR, the UN Refugee Agency' },
+        { id: '001Hp00003kIrDA', name: 'Verizon' },
+        { id: '001Wj00000sgaj9', name: 'Volkswagon' },
+        { id: '001Wj00000mIB6E', name: 'Zendesk' },
+      ]
+    },
+
+    // OLIVIA JUNG (26 accounts)
+    'olivia@eudia.com': {
+      email: 'olivia@eudia.com',
+      name: 'Olivia Jung',
+      accounts: [
+        { id: '001Hp00003kIrEO', name: 'AES' },
+        { id: '001Wj00000mCFrd', name: 'Airship Group Inc' },
+        { id: '001Hp00003kIrFV', name: 'Best Buy' },
+        { id: '001Hp00003kIrFk', name: 'Bristol-Myers Squibb' },
+        { id: '001Hp00003kIrGK', name: 'CHS' },
+        { id: '001Hp00003kIrGZ', name: 'Consolidated Edison' },
+        { id: '001Wj00000jK5Hl', name: 'Crate & Barrel' },
+        { id: '001Hp00003kIrGo', name: 'Cummins' },
+        { id: '001Wj00000bzz9R', name: 'Datadog' },
+        { id: '001Wj00000aZvt9', name: 'Dolby' },
+        { id: '001Wj00000hkk0j', name: 'Etsy' },
+        { id: '001Hp00003kIrIS', name: 'Gilead Sciences' },
+        { id: '001Hp00003kIrE8', name: 'Graybar Electric' },
+        { id: '001Hp00003kIrJ9', name: 'Intuit' },
+        { id: '001Hp00003kIrD8', name: 'Medtronic' },
+        { id: '001Hp00003kIrKK', name: 'Merck' },
+        { id: '001Hp00003kJ9lG', name: 'Meta' },
+        { id: '001Hp00003kIrLO', name: 'Pfizer' },
+        { id: '001Wj00000iS9AJ', name: 'TE Connectivity' },
+        { id: '001Wj00000PjGDa', name: 'The Weir Group PLC' },
+        { id: '001Hp00003kIrDF', name: 'Thermo Fisher Scientific' },
+        { id: '001Hp00003kIrCw', name: 'Toshiba US' },
+        { id: '001Wj00000kD7MA', name: 'Wellspan Health' },
+        { id: '001Hp00003kIrOA', name: 'Western Digital' },
+        { id: '001Wj00000kD3s1', name: 'White Cap' },
+      ]
+    },
+
+    // RAJEEV PATEL (1 accounts)
+    'rajeev.patel@eudia.com': {
+      email: 'rajeev.patel@eudia.com',
+      name: 'Rajeev Patel',
+      accounts: [
+        { id: '001Wj00000fFW35', name: 'Alnylam Pharmaceuticals' },
       ]
     },
 
@@ -535,7 +559,7 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
       email: 'riley.stack@eudia.com',
       name: 'Riley Stack',
       accounts: [
-        { id: '001Wj00000XiEDyIAN', name: 'Coinbase' },
+        { id: '001Wj00000XiEDy', name: 'Coinbase' },
       ]
     },
 
@@ -544,45 +568,7 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
       email: 'sean.boyd@eudia.com',
       name: 'Sean Boyd',
       accounts: [
-        { id: '001Hp00003kIrE9IAK', name: 'IQVIA' },
-      ]
-    },
-
-    // OLIVIA JUNG (30 accounts)
-    'olivia@eudia.com': {
-      email: 'olivia@eudia.com',
-      name: 'Olivia Jung',
-      accounts: [
-        { id: '001Wj00000mCFrdIAG', name: 'Airship Group Inc' },
-        { id: '001Hp00003kIrFVIA0', name: 'Best Buy' },
-        { id: '001Hp00003kIrFkIAK', name: 'Bristol-Myers Squibb' },
-        { id: '001Hp00003kIrGKIA0', name: 'CHS' },
-        { id: '001Hp00003kIrDZIA0', name: 'Ciena' },
-        { id: '001Hp00003kIrGZIA0', name: 'Consolidated Edison' },
-        { id: '001Wj00000jK5HlIAK', name: 'Crate & Barrel' },
-        { id: '001Hp00003kJ9kwIAC', name: 'CSL' },
-        { id: '001Hp00003kIrGoIAK', name: 'Cummins' },
-        { id: '001Wj00000bzz9RIAQ', name: 'Datadog' },
-        { id: '001Wj00000aZvt9IAC', name: 'Dolby' },
-        { id: '001Wj00000hkk0jIAA', name: 'Etsy' },
-        { id: '001Hp00003kIrISIA0', name: 'Gilead Sciences' },
-        { id: '001Hp00003kIrE8IAK', name: 'Graybar Electric' },
-        { id: '001Wj00000dvgdbIAA', name: 'HealthEquity' },
-        { id: '001Hp00003kIrJ9IAK', name: 'Intuit' },
-        { id: '001Wj00000aLlyVIAS', name: 'J.Crew' },
-        { id: '001Hp00003kKKMcIAO', name: 'JPmorganchase' },
-        { id: '001Hp00003kIrDjIAK', name: 'Marsh McLennan' },
-        { id: '001Hp00003kIrD8IAK', name: 'Medtronic' },
-        { id: '001Hp00003kIrKKIA0', name: 'Merck' },
-        { id: '001Hp00003kJ9lGIAS', name: 'Meta' },
-        { id: '001Hp00003kIrKSIA0', name: 'Mondelez International' },
-        { id: '001Hp00003kIrLOIA0', name: 'Pfizer' },
-        { id: '001Wj00000iS9AJIA0', name: 'TE Connectivity' },
-        { id: '001Hp00003kIrDFIA0', name: 'Thermo Fisher Scientific' },
-        { id: '001Wj00000PjGDaIAN', name: 'The Weir Group PLC' },
-        { id: '001Hp00003kIrCwIAK', name: 'Toshiba US' },
-        { id: '001Wj00000kD7MAIA0', name: 'Wellspan Health' },
-        { id: '001Hp00003kIrOAIA0', name: 'Western Digital' },
+        { id: '001Hp00003kIrE9', name: 'IQVIA' },
       ]
     },
 
@@ -591,17 +577,17 @@ const OWNERSHIP_DATA: AccountOwnershipData = {
       email: 'tom.clancy@eudia.com',
       name: 'Tom Clancy',
       accounts: [
-        { id: '001Wj00000pB30VIAS', name: 'AIR (Advanced Inhalation Rituals)' },
-        { id: '001Wj00000qLRqWIAW', name: 'ASML' },
-        { id: '001Wj00000c9oCeIAI', name: 'BLDG Management Co., Inc.' },
-        { id: '001Wj00000mCFszIAG', name: 'Electricity Supply Board' },
-        { id: '001Wj00000mCFrcIAG', name: 'Glanbia' },
-        { id: '001Wj00000pA6d7IAC', name: 'Masdar Future Energy Company' },
-        { id: '001Hp00003kIrD9IAK', name: 'Salesforce' },
-        { id: '001Wj00000qL7AGIA0', name: 'Seismic' },
-        { id: '001Wj00000pAPW2IAO', name: 'Tarmac' },
-        { id: '001Wj00000mCFtOIAW', name: 'Uisce Eireann (Irish Water)' },
-        { id: '001Wj00000pBibTIAS', name: 'Version1' },
+        { id: '001Wj00000pB30V', name: 'AIR (Advanced Inhalation Rituals)' },
+        { id: '001Wj00000qLRqW', name: 'ASML' },
+        { id: '001Wj00000c9oCe', name: 'BLDG Management Co., Inc.' },
+        { id: '001Wj00000fFuFM', name: 'Bank of Ireland' },
+        { id: '001Wj00000mCFsz', name: 'Electricity Supply Board' },
+        { id: '001Wj00000mCFrc', name: 'Glanbia' },
+        { id: '001Wj00000pA6d7', name: 'Masdar Future Energy Company' },
+        { id: '001Wj00000qL7AG', name: 'Seismic' },
+        { id: '001Wj00000pAPW2', name: 'Tarmac' },
+        { id: '001Wj00000mCFtO', name: 'Uisce Eireann (Irish Water)' },
+        { id: '001Wj00000pBibT', name: 'Version1' },
       ]
     },
   }
@@ -677,21 +663,21 @@ export class AccountOwnershipService {
       return accounts;
     }
     
-    // For regular BLs, look up owned accounts + team accounts
+    // For regular BLs, look up ONLY their owned accounts
     const lead = OWNERSHIP_DATA.businessLeads[email];
     const ownedAccounts: OwnedAccount[] = lead ? lead.accounts.map(a => ({ ...a, isOwned: true })) : [];
     
-    // Check if this BL is a direct report of a sales leader
-    // If so, include the entire team's accounts (same view as the leader)
-    const teamLeader = this.findTeamLeader(email);
-    if (teamLeader) {
-      const teamReports = getSalesLeaderDirectReports(teamLeader);
+    // Check if this BL is a designated pod-view user (e.g. Riley, Sean)
+    // Only these specific users get the full region view — regular BLs see only their own accounts
+    const podRegion = POD_VIEW_USERS[email];
+    if (podRegion) {
+      const regionBLs = getRegionBLEmails(podRegion);
       const ownedIds = new Set(ownedAccounts.map(a => a.id));
       
-      for (const reportEmail of teamReports) {
-        const reportLead = OWNERSHIP_DATA.businessLeads[reportEmail];
-        if (reportLead) {
-          for (const acc of reportLead.accounts) {
+      for (const blEmail of regionBLs) {
+        const blLead = OWNERSHIP_DATA.businessLeads[blEmail];
+        if (blLead) {
+          for (const acc of blLead.accounts) {
             if (!ownedIds.has(acc.id)) {
               ownedAccounts.push({ ...acc, isOwned: false });
               ownedIds.add(acc.id);
@@ -701,7 +687,7 @@ export class AccountOwnershipService {
       }
       
       const sorted = ownedAccounts.sort((a, b) => a.name.localeCompare(b.name));
-      console.log(`[AccountOwnership] Found ${sorted.length} static accounts for ${email} (${lead?.accounts.length || 0} owned + team from ${teamLeader})`);
+      console.log(`[AccountOwnership] Pod-view user ${email} (${podRegion}): ${sorted.length} static accounts (${lead?.accounts.length || 0} owned + region)`);
       return sorted;
     }
     
@@ -709,7 +695,7 @@ export class AccountOwnershipService {
       console.log(`[AccountOwnership] No static mapping found for: ${email}`);
       return [];
     }
-    console.log(`[AccountOwnership] Found ${lead.accounts.length} static accounts for ${email}`);
+    console.log(`[AccountOwnership] Found ${lead.accounts.length} static accounts for ${email} (own accounts only)`);
     return lead.accounts;
   }
 

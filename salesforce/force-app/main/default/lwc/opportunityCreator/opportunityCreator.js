@@ -1,8 +1,11 @@
-import { LightningElement, track } from 'lwc';
+import { LightningElement, track, wire } from 'lwc';
+import { NavigationMixin, CurrentPageReference } from 'lightning/navigation';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import searchAccounts from '@salesforce/apex/AccountLookupController.searchAccounts';
+import getAccountById from '@salesforce/apex/AccountLookupController.getAccountById';
 import createOpportunity from '@salesforce/apex/AccountLookupController.createOpportunity';
 
-export default class OpportunityCreator extends LightningElement {
+export default class OpportunityCreator extends NavigationMixin(LightningElement) {
     // Account lookup state
     @track searchTerm = '';
     @track searchResults = [];
@@ -15,14 +18,44 @@ export default class OpportunityCreator extends LightningElement {
     @track targetSignDate = '';
     @track acv = 100000;
     @track productLine = '';
+    @track opportunitySource = 'Inbound';
     
     // UI state
     @track isCreating = false;
     @track errorMessage = '';
-    @track successMessage = '';
-    @track createdOppId = '';
     
     searchTimeout;
+    _pageRefApplied = false;
+
+    // Read URL parameters (e.g. from Account page "New Opportunity" button)
+    @wire(CurrentPageReference)
+    handlePageRef(pageRef) {
+        if (pageRef && pageRef.state && !this._pageRefApplied) {
+            const accountId = pageRef.state.c__accountId;
+            const accountName = pageRef.state.c__accountName;
+            if (accountId) {
+                this._pageRefApplied = true;
+                // Pre-populate from URL params, then enrich via Apex
+                if (accountName) {
+                    this.selectedAccount = { id: accountId, name: accountName, subtitle: '' };
+                }
+                this.loadAccountDetails(accountId);
+            }
+        }
+    }
+
+    // Fetch full account details from Apex for subtitle
+    async loadAccountDetails(accountId) {
+        try {
+            const result = await getAccountById({ accountId: accountId });
+            if (result) {
+                this.selectedAccount = result;
+            }
+        } catch (err) {
+            console.error('Error loading account:', err);
+            // Keep the basic info we already have from URL params
+        }
+    }
     
     // Stage options
     get stageOptions() {
@@ -35,18 +68,34 @@ export default class OpportunityCreator extends LightningElement {
         ];
     }
     
-    // Product Line options
+    // Product Line options (mirrors Product_Lines_Multi__c values in org)
     get productLineOptions() {
         return [
             { label: '-- Select Product Line --', value: '' },
+            { label: 'AI Contracting - Technology', value: 'AI Contracting - Technology' },
+            { label: 'AI Contracting - Managed Services', value: 'AI Contracting - Managed Services' },
+            { label: 'Contracting - Secondee', value: 'Contracting - Secondee' },
+            { label: 'AI Compliance - Technology', value: 'AI Compliance - Technology' },
+            { label: 'AI M&A - Managed Services', value: 'AI M&A - Managed Services' },
+            { label: 'AI Platform - Sigma', value: 'AI Platform - Sigma' },
+            { label: 'AI Platform - Insights', value: 'AI Platform - Insights' },
+            { label: 'AI Platform - Litigation', value: 'AI Platform - Litigation' },
+            { label: 'FDE - Custom AI Solution', value: 'FDE - Custom AI Solution' },
+            { label: 'Other - Managed Service', value: 'Other - Managed Service' },
+            { label: 'Other - Secondee', value: 'Other - Secondee' },
             { label: 'Undetermined', value: 'Undetermined' },
-            { label: 'CLM', value: 'CLM' },
-            { label: 'Drafting', value: 'Drafting' },
-            { label: 'Repository', value: 'Repository' },
-            { label: 'CLM + Drafting', value: 'CLM + Drafting' },
-            { label: 'CLM + Repository', value: 'CLM + Repository' },
-            { label: 'Drafting + Repository', value: 'Drafting + Repository' },
-            { label: 'Full Suite', value: 'Full Suite' }
+            { label: 'Multiple (BL Review)', value: 'Multiple (BL Review)' }
+        ];
+    }
+    
+    // Opportunity Source options (active values from org)
+    get opportunitySourceOptions() {
+        return [
+            { label: 'Inbound', value: 'Inbound' },
+            { label: 'Outbound', value: 'Outbound' },
+            { label: 'Events', value: 'Events' },
+            { label: 'Referral', value: 'Referral' },
+            { label: 'Existing Customer', value: 'Existing Customer' }
         ];
     }
     
@@ -58,19 +107,24 @@ export default class OpportunityCreator extends LightningElement {
         return this.selectedAccount && this.stage && this.productLine;
     }
     
-    get showSuccess() {
-        return this.successMessage !== '';
-    }
-    
     get showError() {
         return this.errorMessage !== '';
     }
+
+    get createButtonLabel() {
+        return this.isCreating ? 'Creating...' : 'Create Opportunity';
+    }
     
     connectedCallback() {
-        // Set default target sign date to 90 days from now
-        const defaultDate = new Date();
-        defaultDate.setDate(defaultDate.getDate() + 90);
-        this.targetSignDate = defaultDate.toISOString().split('T')[0];
+        // Set default target sign date to 100 days from now
+        this.setDateFromDays(100);
+    }
+
+    // Helper: set target sign date N days from now
+    setDateFromDays(days) {
+        const d = new Date();
+        d.setDate(d.getDate() + days);
+        this.targetSignDate = d.toISOString().split('T')[0];
     }
     
     // Account search handlers
@@ -82,6 +136,7 @@ export default class OpportunityCreator extends LightningElement {
             clearTimeout(this.searchTimeout);
         }
         
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
         this.searchTimeout = setTimeout(() => {
             this.performSearch();
         }, 300);
@@ -123,7 +178,12 @@ export default class OpportunityCreator extends LightningElement {
     handleClearAccount() {
         this.selectedAccount = null;
         this.searchTerm = '';
-        this.template.querySelector('.account-search-input')?.focus();
+        this._pageRefApplied = false;
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        setTimeout(() => {
+            const input = this.template.querySelector('.account-search-input');
+            if (input) input.focus();
+        }, 100);
     }
     
     handleSearchFocus() {
@@ -133,6 +193,7 @@ export default class OpportunityCreator extends LightningElement {
     }
     
     handleSearchBlur() {
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
         setTimeout(() => {
             this.showDropdown = false;
         }, 200);
@@ -146,16 +207,32 @@ export default class OpportunityCreator extends LightningElement {
     handleDateChange(event) {
         this.targetSignDate = event.target.value;
     }
+
+    // Date assist buttons
+    handleDateAssist(event) {
+        const days = parseInt(event.currentTarget.dataset.days, 10);
+        this.setDateFromDays(days);
+    }
     
     handleAcvChange(event) {
         this.acv = parseFloat(event.target.value) || 0;
+    }
+
+    // ACV assist buttons
+    handleAcvAssist(event) {
+        const amount = parseInt(event.currentTarget.dataset.amount, 10);
+        this.acv = amount;
     }
     
     handleProductLineChange(event) {
         this.productLine = event.detail.value;
     }
+
+    handleSourceChange(event) {
+        this.opportunitySource = event.detail.value;
+    }
     
-    // Create opportunity
+    // Create opportunity -- navigates straight to record on success
     async handleCreate() {
         if (!this.isFormValid) {
             this.errorMessage = 'Please fill in all required fields.';
@@ -164,52 +241,54 @@ export default class OpportunityCreator extends LightningElement {
         
         this.isCreating = true;
         this.errorMessage = '';
-        this.successMessage = '';
         
         try {
-            const result = await createOpportunity({
+            const oppId = await createOpportunity({
                 accountId: this.selectedAccount.id,
                 accountName: this.selectedAccount.name,
                 stage: this.stage,
                 targetSignDate: this.targetSignDate,
                 acv: this.acv,
-                productLine: this.productLine
+                productLine: this.productLine,
+                opportunitySource: this.opportunitySource
             });
             
-            this.createdOppId = result;
-            this.successMessage = 'Opportunity created successfully!';
-            
-            // Dispatch event for parent to handle (redirect)
-            this.dispatchEvent(new CustomEvent('opportunitycreated', {
-                detail: { opportunityId: result }
+            // Show quick toast and navigate immediately
+            this.dispatchEvent(new ShowToastEvent({
+                title: 'Success',
+                message: 'Opportunity created successfully',
+                variant: 'success'
             }));
+
+            // Navigate to the new Opp record using Lightning SPA navigation
+            // replace: true prevents Back button from returning to the creator form
+            this[NavigationMixin.Navigate]({
+                type: 'standard__recordPage',
+                attributes: {
+                    recordId: oppId,
+                    objectApiName: 'Opportunity',
+                    actionName: 'view'
+                }
+            }, true);
             
         } catch (error) {
             console.error('Create error:', error);
             this.errorMessage = error.body?.message || 'Error creating opportunity. Please try again.';
-        } finally {
             this.isCreating = false;
         }
     }
     
+    // Cancel -- navigate back to Opportunities list via SPA
     handleCancel() {
-        this.dispatchEvent(new CustomEvent('cancel'));
-    }
-    
-    handleViewOpportunity() {
-        window.location.href = `/lightning/r/Opportunity/${this.createdOppId}/view`;
-    }
-    
-    handleCreateAnother() {
-        this.selectedAccount = null;
-        this.stage = 'Stage 1 - Discovery';
-        this.acv = 100000;
-        this.productLine = '';
-        this.successMessage = '';
-        this.createdOppId = '';
-        
-        const defaultDate = new Date();
-        defaultDate.setDate(defaultDate.getDate() + 90);
-        this.targetSignDate = defaultDate.toISOString().split('T')[0];
+        this[NavigationMixin.Navigate]({
+            type: 'standard__objectPage',
+            attributes: {
+                objectApiName: 'Opportunity',
+                actionName: 'list'
+            },
+            state: {
+                filterName: 'Recent'
+            }
+        }, true);
     }
 }

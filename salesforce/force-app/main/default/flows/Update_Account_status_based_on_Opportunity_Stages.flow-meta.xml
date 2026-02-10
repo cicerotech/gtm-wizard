@@ -418,6 +418,7 @@
             <label>Check Override</label>
         </rules>
     </decisions>
+    <description>Updates Account Status based on the highest-priority Opportunity stage. Entry condition added to only fire when StageName or IsClosed changes.</description>
     <environments>Default</environments>
     <formulas>
         <name>TodayMinus90</name>
@@ -531,11 +532,26 @@
         <connector>
             <targetReference>Account_of_Opportunity</targetReference>
         </connector>
+        <filterLogic>or</filterLogic>
+        <filters>
+            <field>StageName</field>
+            <operator>IsChanged</operator>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </filters>
+        <filters>
+            <field>IsClosed</field>
+            <operator>IsChanged</operator>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </filters>
         <object>Opportunity</object>
         <recordTriggerType>CreateAndUpdate</recordTriggerType>
         <triggerType>RecordAfterSave</triggerType>
     </start>
-    <status>Draft</status>
+    <status>Active</status>
     <variables>
         <name>AccountIDToUpdate</name>
         <dataType>String</dataType>

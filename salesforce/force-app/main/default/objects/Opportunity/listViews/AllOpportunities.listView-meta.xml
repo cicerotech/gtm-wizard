@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AllOpportunities</fullName>
+    <columns>CORE.USERS.FULL_NAME</columns>
+    <columns>OPPORTUNITY.NAME</columns>
+    <columns>OPPORTUNITY.STAGE_NAME</columns>
+    <columns>Product_Lines_Multi__c</columns>
+    <columns>Target_LOI_Date__c</columns>
+    <columns>ACV__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>OPPORTUNITY.STAGE_NAME</field>
+        <operation>equals</operation>
+        <value>Stage 6. Closed(Won),Stage 0 - Prospecting,Stage 1 - Discovery,Stage 2 - SQO,Stage 3 - Pilot,Stage 4 - Proposal,Stage 5 - Negotiation</value>
+    </filters>
+    <label>All Opportunities</label>
+</ListView>

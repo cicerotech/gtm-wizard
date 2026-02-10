@@ -2777,6 +2777,9 @@ export default class EudiaSyncPlugin extends Plugin {
                   new Notice('Settings updated by admin');
                 }
               }
+              
+              // Check for sync flags (resync_accounts, etc.)
+              await this.checkAndConsumeSyncFlags();
             } catch (e) {
               // Silently ignore - heartbeat is optional
               console.log('[Eudia] Heartbeat/config check skipped');
@@ -4854,6 +4857,80 @@ ${transcription.text}
     await this.createTailoredAccountFolders(newAccounts);
     
     return newAccounts.length;
+  }
+
+  /**
+   * Check for server-side sync flags (e.g. resync_accounts from cron or admin push).
+   * If flags are found, trigger the appropriate action and consume the flags.
+   */
+  async checkAndConsumeSyncFlags(): Promise<void> {
+    if (!this.settings.userEmail) return;
+
+    const email = encodeURIComponent(this.settings.userEmail.toLowerCase().trim());
+    const serverUrl = this.settings.serverUrl || 'https://gtm-wizard.onrender.com';
+
+    try {
+      // Fetch pending sync flags
+      const flagsResponse = await requestUrl({
+        url: `${serverUrl}/api/admin/users/${email}/sync-flags`,
+        method: 'GET',
+      });
+
+      const flags = flagsResponse.json?.flags || [];
+      const pendingFlags = flags.filter((f: any) => !f.consumed_at);
+
+      if (pendingFlags.length === 0) return;
+
+      console.log(`[Eudia] Found ${pendingFlags.length} pending sync flag(s)`);
+
+      let needsResync = false;
+
+      for (const flag of pendingFlags) {
+        if (flag.flag === 'resync_accounts') {
+          needsResync = true;
+          const payload = flag.payload || {};
+          const added = payload.added?.length || 0;
+          const removed = payload.removed?.length || 0;
+          console.log(`[Eudia] Sync flag: resync_accounts (+${added} / -${removed})`);
+        } else if (flag.flag === 'update_plugin') {
+          new Notice('A plugin update is available. Please download the latest vault.');
+        } else if (flag.flag === 'reset_setup') {
+          console.log('[Eudia] Sync flag: reset_setup received');
+          this.settings.setupCompleted = false;
+          await this.saveSettings();
+          new Notice('Setup has been reset by admin. Please re-run the setup wizard.');
+        }
+      }
+
+      // Trigger account resync if needed
+      if (needsResync) {
+        console.log('[Eudia] Triggering account folder resync from sync flag...');
+        new Notice('Syncing account updates...');
+        const result = await this.syncAccountFolders();
+        if (result.success) {
+          new Notice(`Account sync complete: ${result.added} new, ${result.archived} archived`);
+        } else {
+          console.log(`[Eudia] Account resync error: ${result.error}`);
+        }
+      }
+
+      // Consume all flags after processing
+      try {
+        await requestUrl({
+          url: `${serverUrl}/api/admin/users/${email}/sync-flags/consume`,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ flagIds: pendingFlags.map((f: any) => f.id) }),
+        });
+        console.log(`[Eudia] Consumed ${pendingFlags.length} sync flag(s)`);
+      } catch (consumeErr) {
+        console.log('[Eudia] Failed to consume sync flags (will retry next startup)');
+      }
+
+    } catch (err) {
+      // Non-critical -- silently ignore if endpoint not available
+      console.log('[Eudia] Sync flag check skipped (endpoint not available)');
+    }
   }
 
   /**

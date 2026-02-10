@@ -15,6 +15,8 @@
         <members>Contact.Apollo_Sequence__c</members>
         <members>Contact.Apollo_Email_Count__c</members>
         <members>Contact.Apollo_Status__c</members>
+        <members>Contact.Apollo_Last_Sent__c</members>
+        <members>Contact.LinkedIn_InMail_Sent__c</members>
         <members>Contact.Outreach_Source__c</members>
         <members>Contact.First_Outreach_Date__c</members>
         <members>Contact.First_Outreach_By__c</members>
@@ -52,6 +54,10 @@
         <members>Contact-Contact Layout</members>
         <members>Opportunity-Opportunity Layout</members>
         <name>Layout</name>
+    </types>
+    <types>
+        <members>Apollo_LinkedIn_Outreach_Tracking</members>
+        <name>PermissionSet</name>
     </types>
     <version>63.0</version>
 </Package>

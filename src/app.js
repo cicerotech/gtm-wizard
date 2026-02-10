@@ -90,12 +90,20 @@ const SALES_LEADERS = {
 // This ensures managers see exactly their direct reports' accounts
 const SALES_LEADER_DIRECT_REPORTS = {
   'mitchell.loquaci@eudia.com': [
-    'justin.hills@eudia.com',
+    'asad.hussain@eudia.com',
+    'julie.stefanich@eudia.com',
     'olivia@eudia.com',
+    'ananth@eudia.com',
+    'ananth.cherukupally@eudia.com',
+    'justin.hills@eudia.com',
+    'mike.masiello@eudia.com',
+    'mike@eudia.com',
     'sean.boyd@eudia.com',
-    'riley.stack@eudia.com'
+    'riley.stack@eudia.com',
+    'rajeev.patel@eudia.com'
   ],
   'stephen.mulholland@eudia.com': [
+    'greg.machale@eudia.com',
     'tom.clancy@eudia.com',
     'conor.molloy@eudia.com',
     'nathan.shine@eudia.com',
@@ -108,6 +116,13 @@ const SALES_LEADER_DIRECT_REPORTS = {
   ]
 };
 
+// Pod-view users: specific BLs who get the full pod/region view (like sales leaders)
+// Maps email -> region to determine which pod's accounts they see
+const POD_VIEW_USERS = {
+  'sean.boyd@eudia.com': 'US',
+  'riley.stack@eudia.com': 'US'
+};
+
 // Customer Success team
 const CS_EMAILS = [
   'nikhita.godiwala@eudia.com',
@@ -118,14 +133,14 @@ const CS_EMAILS = [
 // Business Lead region mapping (for Sales Leader roll-ups)
 const BL_REGIONS = {
   'US': [
-    'asad.hussain@eudia.com', 'nathan.shine@eudia.com', 'julie.stefanich@eudia.com',
+    'asad.hussain@eudia.com', 'julie.stefanich@eudia.com',
     'olivia@eudia.com', 'ananth@eudia.com', 'ananth.cherukupally@eudia.com',
     'justin.hills@eudia.com', 'mike.masiello@eudia.com', 'mike@eudia.com',
-    'sean.boyd@eudia.com', 'riley.stack@eudia.com'
+    'sean.boyd@eudia.com', 'riley.stack@eudia.com', 'rajeev.patel@eudia.com'
   ],
   'EMEA': [
     'greg.machale@eudia.com', 'tom.clancy@eudia.com', 'nicola.fratini@eudia.com',
-    'stephen.mulholland@eudia.com'
+    'nathan.shine@eudia.com', 'stephen.mulholland@eudia.com'
   ],
   'IRE_UK': [
     'conor.molloy@eudia.com', 'alex.fox@eudia.com', 'emer.flynn@eudia.com',
@@ -744,6 +759,21 @@ class GTMBrainApp {
         // Don't throw - app can still run, just data won't auto-commit
       }
 
+      // Initialize Account Sync Cron Job (detects account changes and creates sync flags)
+      try {
+        const db = require('./db/connection');
+        if (db.isAvailable() && sfConnection.isConnected) {
+          const { startAccountSyncSchedule } = require('./jobs/accountSyncJob');
+          startAccountSyncSchedule();
+          logger.info('✅ Account sync cron job scheduled');
+        } else {
+          logger.info('ℹ️  Account sync cron skipped — requires PostgreSQL + Salesforce');
+        }
+      } catch (syncError) {
+        logger.warn('⚠️  Account sync cron failed to initialize:', syncError.message);
+        // Don't throw - app can still run, just won't auto-detect account changes
+      }
+
     } catch (error) {
       logger.error('Failed to initialize external services:', error);
       throw error;
@@ -1114,6 +1144,181 @@ class GTMBrainApp {
         });
       } catch (error) {
         res.json({ success: true, updates: [], hasUpdates: false });
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ADMIN ACCOUNT MANAGEMENT — Remote account add/remove for users
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Add or remove accounts for a user (persisted to PostgreSQL)
+    this.expressApp.post('/api/admin/users/:email/accounts', requireAdmin, async (req, res) => {
+      try {
+        const db = require('./db/connection');
+        if (!db.isAvailable()) {
+          return res.status(503).json({ success: false, error: 'Database not available. Account overrides require PostgreSQL.' });
+        }
+
+        const userEmail = req.params.email.toLowerCase().trim();
+        const { action, accounts } = req.body;
+
+        if (!action || !['add', 'remove', 'list'].includes(action)) {
+          return res.status(400).json({ success: false, error: 'action must be "add", "remove", or "list"' });
+        }
+
+        if (action === 'list') {
+          const result = await db.query(
+            'SELECT account_id, account_name, action, admin_email, notes, created_at FROM user_account_overrides WHERE user_email = $1 ORDER BY created_at DESC',
+            [userEmail]
+          );
+          return res.json({ success: true, email: userEmail, overrides: result.rows, count: result.rows.length });
+        }
+
+        if (!accounts || !Array.isArray(accounts) || accounts.length === 0) {
+          return res.status(400).json({ success: false, error: 'accounts array is required with { id, name } objects' });
+        }
+
+        const results = [];
+        for (const acc of accounts) {
+          if (!acc.id || !acc.name) {
+            results.push({ id: acc.id, status: 'skipped', reason: 'Missing id or name' });
+            continue;
+          }
+          try {
+            await db.query(
+              `INSERT INTO user_account_overrides (user_email, account_id, account_name, action, admin_email, notes)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               ON CONFLICT (user_email, account_id, action) 
+               DO UPDATE SET account_name = $3, admin_email = $5, notes = $6, created_at = NOW()`,
+              [userEmail, acc.id, acc.name, action, req.adminEmail, acc.notes || null]
+            );
+            results.push({ id: acc.id, name: acc.name, status: 'ok' });
+          } catch (dbErr) {
+            results.push({ id: acc.id, name: acc.name, status: 'error', reason: dbErr.message });
+          }
+        }
+
+        logger.info(`[Admin] Account ${action} for ${userEmail} by ${req.adminEmail}: ${results.filter(r => r.status === 'ok').length}/${accounts.length} succeeded`);
+
+        res.json({
+          success: true,
+          email: userEmail,
+          action,
+          results,
+          message: `${results.filter(r => r.status === 'ok').length} account(s) ${action === 'add' ? 'added' : 'removed'} for ${userEmail}. Changes apply on next plugin sync.`
+        });
+      } catch (error) {
+        logger.error('[Admin] Error managing user accounts:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Trigger a sync flag for a user (resync accounts, update plugin, etc.)
+    this.expressApp.post('/api/admin/users/:email/trigger-sync', requireAdmin, async (req, res) => {
+      try {
+        const db = require('./db/connection');
+        if (!db.isAvailable()) {
+          return res.status(503).json({ success: false, error: 'Database not available. Sync flags require PostgreSQL.' });
+        }
+
+        const userEmail = req.params.email.toLowerCase().trim();
+        const { flag, payload } = req.body;
+
+        const validFlags = ['resync_accounts', 'update_plugin', 'reset_setup', 'custom'];
+        if (!flag || !validFlags.includes(flag)) {
+          return res.status(400).json({ success: false, error: `flag must be one of: ${validFlags.join(', ')}` });
+        }
+
+        await db.query(
+          'INSERT INTO user_sync_flags (user_email, flag, payload, admin_email) VALUES ($1, $2, $3, $4)',
+          [userEmail, flag, JSON.stringify(payload || {}), req.adminEmail]
+        );
+
+        logger.info(`[Admin] Sync flag '${flag}' set for ${userEmail} by ${req.adminEmail}`);
+
+        res.json({
+          success: true,
+          email: userEmail,
+          flag,
+          message: `Sync flag '${flag}' set for ${userEmail}. Will be consumed on next plugin startup or sync.`
+        });
+      } catch (error) {
+        logger.error('[Admin] Error setting sync flag:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Get pending sync flags for a user (called by plugin on startup)
+    this.expressApp.get('/api/admin/users/:email/sync-flags', async (req, res) => {
+      try {
+        const db = require('./db/connection');
+        if (!db.isAvailable()) {
+          return res.json({ success: true, flags: [], hasFlags: false });
+        }
+
+        const userEmail = req.params.email.toLowerCase().trim();
+        const result = await db.query(
+          'SELECT id, flag, payload, created_at FROM user_sync_flags WHERE user_email = $1 AND consumed_at IS NULL ORDER BY created_at ASC',
+          [userEmail]
+        );
+
+        res.json({
+          success: true,
+          email: userEmail,
+          flags: result.rows,
+          hasFlags: result.rows.length > 0
+        });
+      } catch (error) {
+        res.json({ success: true, flags: [], hasFlags: false });
+      }
+    });
+
+    // Mark sync flags as consumed (called by plugin after processing)
+    this.expressApp.post('/api/admin/users/:email/sync-flags/consume', async (req, res) => {
+      try {
+        const db = require('./db/connection');
+        if (!db.isAvailable()) {
+          return res.json({ success: true });
+        }
+
+        const userEmail = req.params.email.toLowerCase().trim();
+        const { flagIds } = req.body;
+
+        if (!flagIds || !Array.isArray(flagIds) || flagIds.length === 0) {
+          return res.status(400).json({ success: false, error: 'flagIds array is required' });
+        }
+
+        await db.query(
+          'UPDATE user_sync_flags SET consumed_at = NOW() WHERE user_email = $1 AND id = ANY($2::int[])',
+          [userEmail, flagIds]
+        );
+
+        res.json({ success: true, consumed: flagIds.length });
+      } catch (error) {
+        res.json({ success: true });
+      }
+    });
+
+    // Admin endpoint: manually trigger the account sync cron
+    this.expressApp.post('/api/admin/account-sync/run', requireAdmin, async (req, res) => {
+      try {
+        const { runAccountSync } = require('./jobs/accountSyncJob');
+        const result = await runAccountSync();
+        res.json(result);
+      } catch (error) {
+        logger.error('[Admin] Error running account sync:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Admin endpoint: get last account sync result
+    this.expressApp.get('/api/admin/account-sync/status', requireAdmin, async (req, res) => {
+      try {
+        const { getLastSyncResult } = require('./jobs/accountSyncJob');
+        const result = getLastSyncResult();
+        res.json({ success: true, lastSync: result || null });
+      } catch (error) {
+        res.json({ success: true, lastSync: null });
       }
     });
 
@@ -3171,11 +3376,18 @@ class GTMBrainApp {
         const userId = user.Id;
         const userName = user.Name;
         
-        // Query accounts owned by this user
+        // Query accounts owned by this user (filtered to match BoB report:
+        // Customer Type = Existing OR has open opportunities)
         const ownedQuery = `
           SELECT Id, Name, Type, Customer_Type__c 
           FROM Account 
           WHERE OwnerId = '${userId}'
+            AND (
+              Customer_Type__c = 'Existing'
+              OR Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
+            )
+            AND (NOT Name LIKE '%Sample%')
+            AND (NOT Name LIKE '%Test%')
           ORDER BY Name ASC
         `;
         const ownedResult = await sfConnection.query(ownedQuery);
@@ -3187,40 +3399,122 @@ class GTMBrainApp {
           isOwned: true
         }));
         
-        // Check if this BL is part of a sales leader's team
-        // If so, include team accounts (same view as the sales leader)
-        const team = getTeamForBL(normalizedEmail);
+        // Determine if this user gets a pod-level (team) view:
+        //   - Sales leaders see all their direct reports' accounts
+        //   - POD_VIEW_USERS (e.g. Riley, Sean) see all accounts in their designated region
+        //   - Regular BLs see ONLY their own accounts (no team aggregation)
+        const userGroup = getUserGroup(normalizedEmail);
         let teamAccounts = [];
+        let viewType = 'own'; // default: own accounts only
         
-        if (team) {
-          const blEmailList = team.teamEmails.map(e => `'${e.replace(/'/g, "\\'")}'`).join(',');
-          const teamQuery = `
-            SELECT Id, Name, Type, Customer_Type__c 
-            FROM Account 
-            WHERE Owner.Email IN (${blEmailList})
-              AND (NOT Name LIKE '%Sample%')
-              AND (NOT Name LIKE '%Test%')
-            ORDER BY Name ASC
-            LIMIT 500
-          `;
-          const teamResult = await sfConnection.query(teamQuery);
-          const ownedIds = new Set(ownedAccounts.map(a => a.id));
-          
-          teamAccounts = (teamResult.records || [])
-            .filter(acc => !ownedIds.has(acc.Id))
-            .map(acc => ({
-              id: acc.Id,
-              name: acc.Name,
-              type: acc.Customer_Type__c || acc.Type || 'Prospect',
-              isOwned: false
-            }));
-          
-          logger.info(`[Ownership] Found ${teamAccounts.length} additional team accounts for ${normalizedEmail} (team lead: ${team.leaderEmail})`);
+        if (userGroup === 'sales_leader') {
+          // Sales leaders: aggregate from direct reports (BoB filtered)
+          viewType = 'sales_leader';
+          const directReports = getSalesLeaderDirectReports(normalizedEmail);
+          if (directReports.length > 0) {
+            const blEmailList = directReports.map(e => `'${e.replace(/'/g, "\\'")}'`).join(',');
+            const teamQuery = `
+              SELECT Id, Name, Type, Customer_Type__c 
+              FROM Account 
+              WHERE Owner.Email IN (${blEmailList})
+                AND (
+                  Customer_Type__c = 'Existing'
+                  OR Id IN (SELECT AccountId FROM Opportunity WHERE IsClosed = false)
+                )
+                AND (NOT Name LIKE '%Sample%')
+                AND (NOT Name LIKE '%Test%')
+              ORDER BY Name ASC
+              LIMIT 500
+            `;
+            const teamResult = await sfConnection.query(teamQuery);
+            const ownedIds = new Set(ownedAccounts.map(a => a.id));
+            
+            teamAccounts = (teamResult.records || [])
+              .filter(acc => !ownedIds.has(acc.Id))
+              .map(acc => ({
+                id: acc.Id,
+                name: acc.Name,
+                type: acc.Customer_Type__c || acc.Type || 'Prospect',
+                isOwned: false
+              }));
+            
+            logger.info(`[Ownership] Sales leader ${normalizedEmail}: ${teamAccounts.length} team accounts from ${directReports.length} direct reports`);
+          }
+        } else if (POD_VIEW_USERS[normalizedEmail]) {
+          // Designated pod-view users: see all accounts in their region (BoB filtered)
+          viewType = 'pod_view';
+          const region = POD_VIEW_USERS[normalizedEmail];
+          const regionBLs = getRegionBLEmails(region);
+          if (regionBLs.length > 0) {
+            const blEmailList = regionBLs.map(e => `'${e.replace(/'/g, "\\'")}'`).join(',');
+            const teamQuery = `
+              SELECT Id, Name, Type, Customer_Type__c 
+              FROM Account 
+              WHERE Owner.Email IN (${blEmailList})
+                AND (
+                  Customer_Type__c = 'Existing'
+                  OR Id IN (SELECT AccountId FROM Opportunity WHERE IsClosed = false)
+                )
+                AND (NOT Name LIKE '%Sample%')
+                AND (NOT Name LIKE '%Test%')
+              ORDER BY Name ASC
+              LIMIT 500
+            `;
+            const teamResult = await sfConnection.query(teamQuery);
+            const ownedIds = new Set(ownedAccounts.map(a => a.id));
+            
+            teamAccounts = (teamResult.records || [])
+              .filter(acc => !ownedIds.has(acc.Id))
+              .map(acc => ({
+                id: acc.Id,
+                name: acc.Name,
+                type: acc.Customer_Type__c || acc.Type || 'Prospect',
+                isOwned: false
+              }));
+            
+            logger.info(`[Ownership] Pod-view user ${normalizedEmail} (${region}): ${teamAccounts.length} team accounts from ${regionBLs.length} region BLs`);
+          }
+        }
+        // else: regular BL — no team aggregation, only their owned accounts
+        
+        let allAccounts = [...ownedAccounts, ...teamAccounts];
+        
+        // Merge admin-pushed account overrides (if PostgreSQL is available)
+        let overrideCount = 0;
+        try {
+          const db = require('./db/connection');
+          if (db.isAvailable()) {
+            const overrides = await db.query(
+              'SELECT account_id, account_name, action FROM user_account_overrides WHERE user_email = $1',
+              [normalizedEmail]
+            );
+            if (overrides.rows.length > 0) {
+              const existingIds = new Set(allAccounts.map(a => a.id));
+              const removeIds = new Set();
+              
+              for (const row of overrides.rows) {
+                if (row.action === 'add' && !existingIds.has(row.account_id)) {
+                  allAccounts.push({ id: row.account_id, name: row.account_name, type: 'Prospect', isOwned: false });
+                  existingIds.add(row.account_id);
+                  overrideCount++;
+                } else if (row.action === 'remove') {
+                  removeIds.add(row.account_id);
+                }
+              }
+              
+              if (removeIds.size > 0) {
+                allAccounts = allAccounts.filter(a => !removeIds.has(a.id));
+                overrideCount += removeIds.size;
+              }
+            }
+          }
+        } catch (dbErr) {
+          // Non-critical: overrides are optional, proceed without them
         }
         
-        const allAccounts = [...ownedAccounts, ...teamAccounts].sort((a, b) => a.name.localeCompare(b.name));
+        allAccounts.sort((a, b) => a.name.localeCompare(b.name));
         
-        logger.info(`[Ownership] Found ${allAccounts.length} total accounts for ${userName} (${normalizedEmail}): ${ownedAccounts.length} owned + ${teamAccounts.length} team`);
+        logger.info(`[Ownership] ${viewType} view for ${userName} (${normalizedEmail}): ${allAccounts.length} total (${ownedAccounts.length} owned + ${teamAccounts.length} team + ${overrideCount} overrides)`);
         
         res.json({
           success: true,
@@ -3231,6 +3525,8 @@ class GTMBrainApp {
           count: allAccounts.length,
           ownedCount: ownedAccounts.length,
           teamCount: teamAccounts.length,
+          overrideCount: overrideCount,
+          viewType: viewType,
           lastUpdated: new Date().toISOString()
         });
         

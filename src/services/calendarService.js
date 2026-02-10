@@ -42,7 +42,6 @@ function getCalendarCache() {
 const BL_EMAILS_PILOT = [
   // US Pod Business Leads
   'asad.hussain@eudia.com',
-  'nathan.shine@eudia.com',
   'julie.stefanich@eudia.com',
   'olivia.jung@eudia.com',
   'olivia@eudia.com',
@@ -53,6 +52,7 @@ const BL_EMAILS_PILOT = [
   'mike@eudia.com',
   'sean.boyd@eudia.com',
   'riley.stack@eudia.com',
+  'rajeev.patel@eudia.com',
   // EU Pod Business Leads
   'greg.machale@eudia.com',
   'tom.clancy@eudia.com',
@@ -60,6 +60,7 @@ const BL_EMAILS_PILOT = [
   'alex.fox@eudia.com',
   'emer.flynn@eudia.com',
   'nicola.fratini@eudia.com',
+  'nathan.shine@eudia.com',
   // Sales Leaders
   'mitchell.loquaci@eudia.com',
   'stephen.mulholland@eudia.com',
@@ -88,13 +89,15 @@ const BL_EMAILS_PILOT = [
 const BL_EMAILS_FULL = [
   // US Pod
   'asad.hussain@eudia.com',
-  'nathan.shine@eudia.com',
   'julie.stefanich@eudia.com',
   'olivia.jung@eudia.com',
   'olivia@eudia.com',
   'ananth.cherukupally@eudia.com',
   'justin.hills@eudia.com',
   'mike.masiello@eudia.com',
+  'sean.boyd@eudia.com',
+  'riley.stack@eudia.com',
+  'rajeev.patel@eudia.com',
   // EU Pod
   'greg.machale@eudia.com',
   'nathan.shine@eudia.com',

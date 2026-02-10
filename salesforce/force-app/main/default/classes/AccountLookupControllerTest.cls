@@ -70,7 +70,7 @@ private class AccountLookupControllerTest {
     }
     
     @isTest
-    static void testCreateOpportunity() {
+    static void testCreateOpportunityWithProductLine() {
         Account testAcc = [SELECT Id, Name FROM Account LIMIT 1];
         
         Test.startTest();
@@ -78,17 +78,22 @@ private class AccountLookupControllerTest {
             testAcc.Id,
             testAcc.Name,
             'Stage 1 - Discovery',
-            Date.today().addDays(90),
+            Date.today().addDays(100),
             150000,
-            'CLM'
+            'AI Contracting - Technology',
+            'Outbound'
         );
         Test.stopTest();
         
         System.assertNotEquals(null, oppId, 'Should return opportunity ID');
         
-        Opportunity opp = [SELECT Id, Name, StageName, ACV__c FROM Opportunity WHERE Id = :oppId];
+        Opportunity opp = [SELECT Id, Name, StageName, ACV__c, Opportunity_Source__c, Product_Line__c FROM Opportunity WHERE Id = :oppId];
         System.assertEquals('Stage 1 - Discovery', opp.StageName, 'Stage should match');
         System.assertEquals(150000, opp.ACV__c, 'ACV should match');
+        System.assertEquals('Outbound', opp.Opportunity_Source__c, 'Source should match');
+        System.assertEquals('AI Contracting - Technology', opp.Product_Line__c, 'Product line should match');
+        // Name may be modified by org automation (Opp_Update_Sync flow) -- verify it contains account name
+        System.assert(opp.Name.contains('Test Account'), 'Name should contain account name: ' + opp.Name);
     }
     
     @isTest
@@ -100,13 +105,19 @@ private class AccountLookupControllerTest {
             testAcc.Id,
             testAcc.Name,
             'Stage 1 - Discovery',
-            null,  // null date - should default
-            null,  // null ACV - should default
-            null   // null product line - should default
+            null,   // null date - should default
+            null,   // null ACV - should default
+            null,   // null product line - should default to Undetermined → use stage
+            null    // null source - should default to Inbound
         );
         Test.stopTest();
         
         System.assertNotEquals(null, oppId, 'Should return opportunity ID');
+        
+        Opportunity opp = [SELECT Name, Opportunity_Source__c FROM Opportunity WHERE Id = :oppId];
+        System.assertEquals('Inbound', opp.Opportunity_Source__c, 'Default source should be Inbound');
+        // Name may be modified by org automation -- verify it contains account name
+        System.assert(opp.Name.contains('Test Account'), 'Name should contain account name: ' + opp.Name);
     }
     
     @isTest
@@ -121,7 +132,8 @@ private class AccountLookupControllerTest {
                 'Stage 1 - Discovery',
                 Date.today(),
                 100000,
-                'CLM'
+                'AI Contracting - Technology',
+                'Inbound'
             );
         } catch (AuraHandledException e) {
             exceptionThrown = true;

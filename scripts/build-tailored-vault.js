@@ -43,76 +43,161 @@ if (!OPENAI_API_KEY) {
 function createQuickStart(destDir) {
   console.log('📝 Creating QuickStart guide...');
   
-  const quickStartContent = `# Quick Start
+  const quickStartContent = `# Eudia Sales Vault -- Quick Start & Workflow Guide
 
-Your command center for account intelligence, meeting prep, and deal context.
-
----
-
-## Getting Started
-
-1. **Enter your email** - Use your @eudia.com email address
-2. **Connect Salesforce** (optional) - Enables live account sync
-3. **Your accounts load** - Account folders appear in the left sidebar
+Your personal command center for meeting intelligence, account context, and deal tracking.
+This tool records your calls, transcribes them with AI, summarizes key details, and syncs everything to Salesforce -- so you spend less time on admin and more time selling.
 
 ---
 
-## Two Ways to Access Account Intel
+## What This Tool Does
 
-### 📁 Account Folders (Left Sidebar)
-Click any account folder to see:
-- Meeting notes and transcripts
-- Key contacts and roles
-- Historical deal context
-
-**Best for:** Browsing account history, reviewing past meetings
-
-### 💬 GTM Brain (Chat Panel)
-Click the **message icon** in the ribbon, then ask questions like:
-- "What's the latest on [Account]?"
-- "Who are the key stakeholders?"
-- "What pain points have they mentioned?"
-
-**Best for:** Quick intel lookup, prep questions, deal strategy
-
-> **Tip:** GTM Brain pulls from Slack, calendar, Salesforce, and meeting notes. The more activity on an account, the richer the answers.
+| Capability | How It Helps |
+|------------|--------------|
+| **Meeting Transcription** | Records your calls and produces AI-powered transcripts and structured summaries. |
+| **Account Intelligence** | Stores meeting notes, contacts, and deal context per account -- all in one place. |
+| **Calendar Integration** | Shows today's meetings, links them to accounts, and creates notes with one click. |
+| **GTM Brain** | Ask questions about any account and get answers drawn from past meetings and Salesforce data. |
+| **Salesforce Sync** | Push meeting summaries, next steps, and contacts directly to Salesforce with one toggle. |
 
 ---
 
-## The Ribbon Icons
+## The Sidebar Icons (Your Toolbar)
 
-| Icon | What It Does |
-|------|--------------|
-| 📅 **Calendar** | Today's meetings. Click to refresh. Click a meeting to create notes. |
-| 🎤 **Microphone** | Record and transcribe calls with AI. |
-| 💬 **Message** | Ask GTM Brain about any account. |
-| ⚙️ **Settings** | Configure your email, Salesforce, and timezone. |
+You will see four icons in the left ribbon. These are your main controls:
+
+| Icon | Name | What It Does |
+|------|------|--------------|
+| Calendar | **Calendar** | Shows today's meetings. Click any meeting to create a note linked to that account. |
+| Microphone | **Transcribe** | Records audio from your call. Click to start, click again to stop. |
+| Chat bubble | **GTM Brain** | Ask questions like "Prep me for [Account]" or "What are the key pain points?" |
+| Gear | **Settings** | Configure your email, Salesforce connection, and timezone. |
 
 ---
 
-## Before Your Next Call
+## Your Daily Workflow
 
-1. Open the **Calendar** panel → Click your upcoming meeting
-2. Ask GTM Brain: "Prep me for [Account Name]"
-3. Review the account folder for recent notes
+### Step 1: Before a Call -- Prepare
+
+1. Click the **Calendar** icon in the left ribbon to see today's meetings.
+2. Click on the upcoming meeting -- this creates a new note inside the correct account folder.
+3. Click the **GTM Brain** icon (chat bubble) and ask:
+   - "Prep me for [Account Name]"
+   - "What should I know before this meeting?"
+   - "What are the open opportunities?"
+4. Review the account folder in the left sidebar for any prior meeting notes, contacts, or intelligence.
+
+> **Note:** GTM Brain gets smarter over time. The more meetings you record and the more notes your team captures, the richer the context becomes for every account.
+
+### Step 2: During a Call -- Record
+
+1. Click the **Microphone** icon to begin recording. A timer will appear.
+2. Speak normally -- the tool captures audio from your microphone.
+3. There is nothing else you need to do during the call. Focus on the conversation.
+
+### Step 3: After a Call -- Stop and Wait
+
+1. Click the **Microphone** icon again (or the stop button) to end the recording.
+2. The system now processes your recording in the background:
+   - **Audio is sent to OpenAI Whisper** for transcription (speech-to-text).
+   - **The transcript is sent to Claude AI** for structured summarization.
+   - This takes **2-5 minutes** depending on the length of the meeting.
+3. If it was a longer meeting (30+ minutes), feel free to navigate away -- open other accounts, review notes, or prep for your next call. The summary will appear in the note when processing is complete.
+
+### Step 4: Review the Summary
+
+Once processing finishes, your meeting note will be populated with a structured summary. Here is what it includes:
+
+| Section | What It Contains |
+|---------|-----------------|
+| **Summary** | 5-7 bullet points capturing the key discussion points, with direct quotes. |
+| **Attendees** | Names, titles, and companies of everyone on the call. |
+| **Pain Points** | Specific challenges the prospect mentioned, with quotes. |
+| **Product Interest** | Which Eudia product lines were discussed, with evidence. |
+| **MEDDICC Signals** | Metrics, Economic Buyer, Decision Criteria, Decision Process, Identify Pain, Champion. |
+| **Next Steps** | Action items with owners and due dates. |
+| **Action Items (Internal)** | Internal follow-ups for you and your team. |
+| **Key Dates** | Important dates mentioned (renewals, evaluations, go-live targets). |
+| **Risks & Objections** | Concerns raised by the prospect and suggested response approaches. |
+| **Full Transcript** | The complete word-for-word transcript (collapsed by default). |
+
+### Step 5: Sync to Salesforce (Optional)
+
+1. At the top of any meeting note, you will see a line that says \`sync_to_salesforce: false\`.
+2. Change it to \`sync_to_salesforce: true\`.
+3. The note summary, next steps, and contacts will be pushed to the Account's Customer Brain field in Salesforce.
+
+### Step 6: Ad-Hoc Notes (No Meeting Required)
+
+If you want to add a note outside of a recorded meeting:
+1. In the left sidebar, find the account folder.
+2. Right-click on the account name and select **New note**.
+3. Write your notes. Set \`sync_to_salesforce: true\` if you want them in Salesforce.
+
+---
+
+## How Data Flows
+
+\`\`\`
+You record a call
+    |
+    v
+Audio --> OpenAI Whisper (transcription)
+    |
+    v
+Transcript --> Claude AI (structured summary)
+    |
+    v
+Summary appears in your meeting note
+    |
+    v
+You toggle sync_to_salesforce: true
+    |
+    v
+Summary + Next Steps + Contacts --> Salesforce Account
+\`\`\`
+
+---
+
+## Account Folders
+
+Your accounts are pre-loaded in the **Accounts** folder in the left sidebar. Each account contains:
+
+| File | Purpose |
+|------|---------|
+| **Note 1, Note 2, Note 3** | Pre-made meeting note templates. Use these for your first calls. |
+| **Meeting Notes** | An index of all meeting notes for the account. |
+| **Contacts** | Key contacts, titles, and relationship notes. |
+| **Intelligence** | Company overview, strategic priorities, competitive intel. |
+| **Next Steps** | Automatically updated after each transcription with current action items. |
+
+---
+
+## Next Steps Dashboard
+
+After each transcription, next steps are automatically extracted and saved to the account's **Next Steps.md** file. These roll up to give you a view of outstanding actions across all your accounts.
+
+---
+
+## Quick Reference
+
+| I want to... | Do this... |
+|--------------|------------|
+| See today's meetings | Click the **Calendar** icon |
+| Prep for a call | Click **GTM Brain** and ask "Prep me for [Account]" |
+| Record a meeting | Click the **Microphone** icon, click again to stop |
+| Review a past meeting | Open the account folder, browse meeting notes |
+| Add a note without recording | Right-click account folder, select "New note" |
+| Sync notes to Salesforce | Set \`sync_to_salesforce: true\` at the top of the note |
+| Refresh calendar data | Click the refresh button in the Calendar panel |
+| Find an account | Browse the sidebar, or ask GTM Brain |
 
 ---
 
 ## Refreshing Data
 
-- **Calendar:** Click the ↻ button to fetch live data from Microsoft Graph
-- **Accounts:** Press \`Cmd+P\` → "Sync Salesforce Accounts"
-
----
-
-## Quick Tips
-
-| Goal | Action |
-|------|--------|
-| Find an account | Use sidebar folders or ask GTM Brain |
-| Prep for a call | Calendar → click meeting → ask GTM Brain |
-| See deal history | Open account folder → browse notes |
-| Record a meeting | Click microphone → stop when done |
+- **Calendar:** Click the refresh button in the Calendar panel to pull the latest from Microsoft 365.
+- **Accounts:** Press \`Cmd+P\` (Mac) or \`Ctrl+P\` (Windows) and type "Sync Salesforce Accounts" to refresh.
 
 ---
 

@@ -3,7 +3,13 @@
 }
 
 .opp-creator-container {
-    padding: 16px;
+    padding: 24px 16px;
+}
+
+/* Centering wrapper */
+.form-wrapper {
+    display: flex;
+    justify-content: center;
 }
 
 /* Form Styles */
@@ -11,6 +17,8 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    width: 100%;
+    max-width: 640px;
 }
 
 .form-field {
@@ -22,7 +30,7 @@
 .field-label {
     font-size: 13px;
     font-weight: 500;
-    color: #3e3e3c;
+    color: #181818;
     margin-bottom: 4px;
 }
 
@@ -116,15 +124,15 @@
     font-style: italic;
 }
 
-/* Selected Account */
+/* Selected Account -- brand-tinted chip */
 .selected-account {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 10px 12px;
-    background: #f3f3f3;
-    border: 1px solid #dddbda;
-    border-radius: 4px;
+    background: #eef4ff;
+    border: 1px solid #b0c4de;
+    border-radius: 6px;
 }
 
 .selected-account-info {
@@ -168,6 +176,35 @@
     padding-left: 24px;
 }
 
+/* Assist Buttons (date & ACV quick-select) */
+.assist-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.assist-btn {
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #032d60;
+    background: #eef4ff;
+    border: 1px solid #b0c4de;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    line-height: 1.4;
+}
+
+.assist-btn:hover {
+    background: #d8e8ff;
+    border-color: #5b9bd5;
+}
+
+.assist-btn:active {
+    background: #c5dcf7;
+}
+
 /* Form Actions */
 .form-actions {
     display: flex;
@@ -175,7 +212,7 @@
     gap: 12px;
     margin-top: 16px;
     padding-top: 16px;
-    border-top: 1px solid #dddbda;
+    border-top: 1px solid #e5e5e5;
 }
 
 /* Error Banner */
@@ -190,41 +227,25 @@
     font-size: 13px;
 }
 
-/* Success State */
-.success-container {
+/* Creating Overlay */
+.creating-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.85);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 40px 20px;
-    text-align: center;
+    z-index: 10000;
 }
 
-.success-icon {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    background: #2e844a;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 20px;
-}
-
-.success-title {
-    font-size: 20px;
-    font-weight: 600;
-    color: #2e844a;
-    margin: 0 0 8px 0;
-}
-
-.success-message {
-    font-size: 14px;
-    color: #706e6b;
-    margin: 0 0 24px 0;
-}
-
-.success-actions {
-    display: flex;
-    gap: 12px;
+.creating-message {
+    margin-top: 16px;
+    font-size: 15px;
+    font-weight: 500;
+    color: #032d60;
+    letter-spacing: 0.3px;
 }

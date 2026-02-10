@@ -127,9 +127,24 @@ The Eudia GTM Brain system is designed to help sales teams capture meeting notes
 
 ## Frequently Asked Questions
 
-### Q: Are we using Obsidian Sync?
+### Q: Are all git files within the Cicero workspace?
 
-**No.** We use the free, open-source Obsidian application. Notes are stored locally on each user's machine. There is no cloud sync of the vault itself.
+**Yes.** All source code and configuration files for the GTM Brain project are stored in the Cicero repository workspace. No project code or data resides outside of Cicero.
+
+### Q: Do we have ZDR (Zero Data Retention) alignment with OpenAI & Claude?
+
+**This requires validation with Bala**, who manages the API keys used in this project. ZDR agreements depend on the specific enterprise contract terms for each LLM provider. The current implementation uses server-side API keys provided by Bala—confirm ZDR status directly with him.
+
+### Q: Does Obsidian keep any replica of user content on their cloud?
+
+**No.**
+
+1. **Obsidian is used as a local-only markdown editor** — the free, open-source version with no cloud component
+2. **Eudia plugins built in-house** — custom transcription and calendar plugins were developed internally, specifically to avoid any reliance on Obsidian's cloud features or third-party marketplace plugins
+3. **No Obsidian Sync** — the paid sync service is not used or installed
+4. **Vault data stays on the user's machine** — notes are only sent to Salesforce when the user explicitly clicks "Sync to Salesforce"
+
+Obsidian itself has no access to and does not transmit vault contents to any external servers.
 
 ### Q: Where are notes stored?
 
