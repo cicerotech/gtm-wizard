@@ -93,36 +93,30 @@ function getContextPrompt() {
 
 You are an AI assistant for Eudia, a legal operations platform that helps enterprise legal teams work more efficiently with AI-powered contract analysis, matter management, and legal intelligence.
 
-Your task is to summarize meeting notes and account context to help Eudia sales representatives prepare for upcoming customer meetings.
+Your task is to synthesize meeting notes, CRM data, Slack signals, and Obsidian notes into a concise intelligence brief that helps Eudia sales representatives prepare for upcoming customer meetings. This brief should be the single source of truth a rep reviews before walking into a call.
 
 IMPORTANT: Today is ${today}. When referencing meeting dates, use absolute dates (e.g., "Feb 25") and calculate time gaps accurately from today's date. Never say "yesterday" unless the event was literally the day before today.
 
-Focus on extracting:`;
-}
-
-// Keep static reference for backward compatibility (used in non-date-sensitive contexts)
-const EUDIA_CONTEXT_PROMPT = `You are an AI assistant for Eudia, a legal operations platform that helps enterprise legal teams work more efficiently with AI-powered contract analysis, matter management, and legal intelligence.
-
-Your task is to summarize meeting notes and account context to help Eudia sales representatives prepare for upcoming customer meetings.
-
 Focus on extracting:
-1. **Decision Makers**: Key stakeholders, their roles, and priorities
-2. **Pain Points**: Challenges with current legal operations (manual processes, lack of visibility, compliance risks)
-3. **Eudia Fit**: Which Eudia capabilities align with their needs:
-   - CLM (Contract Lifecycle Management)
-   - Contract Analysis & Review
-   - Legal Intel & Reporting
-   - Workflow Automation
-4. **Deal Progress**: Current stage, blockers, next steps discussed
-5. **Competitive Intel**: Mentions of competitors (Ironclad, Agiloft, Icertis, Evisort, DocuSign CLM)
-6. **Sentiment**: Are they engaged, skeptical, enthusiastic, or at-risk?
+1. **Last Interaction**: What happened in the most recent meeting/touchpoint? What was discussed, demonstrated, or agreed upon?
+2. **Open Commitments**: Any follow-ups WE promised (send materials, schedule calls, loop in resources) — the rep needs to know if anything is outstanding BEFORE the call
+3. **Deal Status & Recent Developments**: Current stage, momentum, timeline changes, ACV if known
+4. **Key Stakeholders**: Decision makers, champions, coaches — who matters and what they care about
+5. **Pain Points**: Challenges driving their evaluation (manual processes, lack of visibility, compliance risks)
+6. **Eudia Fit**: Which capabilities align (CLM, Contract Analysis, Legal Intel, Workflow Automation)
+7. **Competitive Intel**: Mentions of competitors (Ironclad, Agiloft, Icertis, Evisort, DocuSign CLM)
+8. **Risks & Concerns**: Outstanding blockers, objections raised, at-risk signals
+9. **Sentiment**: Engaged, skeptical, enthusiastic, or at-risk?
 
 Output ONLY valid JSON in this exact format:
 {
-  "executiveSummary": "2-3 sentence overview for quick scan before the meeting",
+  "executiveSummary": "2-3 sentence overview — where we stand with this account RIGHT NOW",
+  "lastMeetingRecap": "1 sentence: date + what happened + key outcome. e.g. 'Jan 15: Demoed CLM to Sarah Chen; she requested pricing by EOW.' Use null if no prior meetings.",
+  "openCommitments": ["follow-up we promised 1", "follow-up we promised 2"],
   "keyTakeaways": ["takeaway 1", "takeaway 2", "takeaway 3"],
   "dealIntel": {
     "stage": "Discovery/Demo/Pilot/Proposal/Negotiation/Unknown",
+    "acv": "dollar amount if mentioned, e.g. '$150k' or null",
     "blockers": ["blocker 1 if any"],
     "champions": ["internal advocates if mentioned"],
     "competitors": ["mentioned competitors if any"]
@@ -131,7 +125,43 @@ Output ONLY valid JSON in this exact format:
   "sentiment": "positive/neutral/cautious/at-risk"
 }
 
-Be concise. Prioritize actionable intelligence. If information is missing, use "Unknown" or empty arrays rather than guessing.`;
+Be concise. Prioritize actionable intelligence a rep can scan in 60 seconds before a call. If information is missing, use null or empty arrays rather than guessing.`;
+}
+
+// Keep static reference for backward compatibility (used in non-date-sensitive contexts)
+const EUDIA_CONTEXT_PROMPT = `You are an AI assistant for Eudia, a legal operations platform that helps enterprise legal teams work more efficiently with AI-powered contract analysis, matter management, and legal intelligence.
+
+Your task is to synthesize meeting notes, CRM data, Slack signals, and Obsidian notes into a concise intelligence brief that helps Eudia sales representatives prepare for upcoming customer meetings.
+
+Focus on extracting:
+1. **Last Interaction**: What happened in the most recent meeting/touchpoint? What was discussed, demonstrated, or agreed upon?
+2. **Open Commitments**: Any follow-ups WE promised (send materials, schedule calls, loop in resources)
+3. **Deal Status & Recent Developments**: Current stage, momentum, timeline changes, ACV if known
+4. **Key Stakeholders**: Decision makers, champions, coaches — who matters and what they care about
+5. **Pain Points**: Challenges driving their evaluation (manual processes, lack of visibility, compliance risks)
+6. **Eudia Fit**: Which capabilities align (CLM, Contract Analysis, Legal Intel, Workflow Automation)
+7. **Competitive Intel**: Mentions of competitors (Ironclad, Agiloft, Icertis, Evisort, DocuSign CLM)
+8. **Risks & Concerns**: Outstanding blockers, objections raised, at-risk signals
+9. **Sentiment**: Engaged, skeptical, enthusiastic, or at-risk?
+
+Output ONLY valid JSON in this exact format:
+{
+  "executiveSummary": "2-3 sentence overview — where we stand with this account RIGHT NOW",
+  "lastMeetingRecap": "1 sentence: date + what happened + key outcome. Use null if no prior meetings.",
+  "openCommitments": ["follow-up we promised 1", "follow-up we promised 2"],
+  "keyTakeaways": ["takeaway 1", "takeaway 2", "takeaway 3"],
+  "dealIntel": {
+    "stage": "Discovery/Demo/Pilot/Proposal/Negotiation/Unknown",
+    "acv": "dollar amount if mentioned, e.g. '$150k' or null",
+    "blockers": ["blocker 1 if any"],
+    "champions": ["internal advocates if mentioned"],
+    "competitors": ["mentioned competitors if any"]
+  },
+  "nextSteps": ["recommended action 1", "recommended action 2"],
+  "sentiment": "positive/neutral/cautious/at-risk"
+}
+
+Be concise. Prioritize actionable intelligence a rep can scan in 60 seconds before a call. If information is missing, use null or empty arrays rather than guessing.`;
 
 // ============================================================
 // RATE LIMITING - In-memory tracking
@@ -264,18 +294,19 @@ function buildExcerpt(content, maxLength = 500) {
 
 /**
  * Aggregate all context sources into a single string for summarization
- * @param {Object} sources - { customerBrain, obsidianNotes, slackIntel, priorMeetings }
+ * Aligned with intelligenceQueryService data sources for consistent intelligence
+ * @param {Object} sources - { customerBrain, obsidianNotes, slackIntel, priorMeetings, activities }
  * @returns {string} Combined content
  */
 function aggregateContextSources(sources) {
   const parts = [];
   
-  // Customer Brain notes (most important)
+  // Customer Brain notes (most important — primary CRM source)
   if (sources.customerBrain && sources.customerBrain.trim().length > 0) {
     parts.push('=== MEETING NOTES FROM CRM ===\n' + sources.customerBrain);
   }
   
-  // Obsidian notes
+  // Obsidian notes (synced from BL vaults)
   if (sources.obsidianNotes && Array.isArray(sources.obsidianNotes)) {
     const obsidianContent = sources.obsidianNotes
       .map(note => `[${note.date || 'Unknown date'}] ${note.title || 'Note'}\n${note.summary || note.fullSummary || ''}`)
@@ -286,7 +317,7 @@ function aggregateContextSources(sources) {
     }
   }
   
-  // Slack intel
+  // Slack intel (signals from team channels)
   if (sources.slackIntel && Array.isArray(sources.slackIntel)) {
     const slackContent = sources.slackIntel
       .map(intel => `[${intel.category || 'Intel'}] ${intel.summary}`)
@@ -297,7 +328,7 @@ function aggregateContextSources(sources) {
     }
   }
   
-  // Prior meeting preps
+  // Prior meeting preps (goals, agendas, notes from past preps)
   if (sources.priorMeetings && Array.isArray(sources.priorMeetings)) {
     const prepContent = sources.priorMeetings
       .map(prep => `[${prep.date || 'Unknown'}] ${prep.title || 'Meeting'}: ${prep.summary || prep.notes || ''}`)
@@ -305,6 +336,18 @@ function aggregateContextSources(sources) {
     
     if (prepContent.trim().length > 0) {
       parts.push('=== PRIOR MEETING PREPS ===\n' + prepContent);
+    }
+  }
+  
+  // Recent Activities — Tasks & Events from Salesforce (engagement signals)
+  if (sources.activities && Array.isArray(sources.activities) && sources.activities.length > 0) {
+    const activityContent = sources.activities
+      .slice(0, 10) // Cap to most recent 10
+      .map(a => `[${a.date || a.ActivityDate || 'Unknown'}] ${a.subject || a.Subject || 'Activity'}: ${a.description || a.Description || ''}`.trim())
+      .join('\n');
+    
+    if (activityContent.trim().length > 0) {
+      parts.push('=== RECENT ACTIVITIES ===\n' + activityContent);
     }
   }
   

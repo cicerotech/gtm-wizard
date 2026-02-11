@@ -539,15 +539,15 @@ async function processQuery(text, userId, channelId, client, threadTs = null) {
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
-    // HYPRNOTE SYNC COMMANDS
+    // OBSIDIAN / MEETING SYNC COMMANDS (formerly Hyprnote)
     // ═══════════════════════════════════════════════════════════════════════════
-    if (textLower.startsWith('sync hyprnote') || textLower === 'sync meetings' || 
-        textLower.includes('hyprnote sync')) {
+    if (textLower.startsWith('sync obsidian') || textLower.startsWith('sync hyprnote') || textLower === 'sync meetings' || 
+        textLower.includes('obsidian sync') || textLower.includes('hyprnote sync')) {
       await handleHyprnoteSync(client, channelId, userId, threadTs);
       return;
     }
     
-    if (textLower.startsWith('hyprnote status') || textLower === 'meeting sync status') {
+    if (textLower.startsWith('obsidian status') || textLower.startsWith('hyprnote status') || textLower === 'meeting sync status') {
       await handleHyprnoteSyncStatus(client, channelId, threadTs);
       return;
     }
@@ -6835,17 +6835,17 @@ async function handleOwnerAccountsList(entities, userId, channelId, client, thre
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// HYPRNOTE SYNC HANDLERS
+// OBSIDIAN SYNC HANDLERS (internal function names retained for stability)
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Handle Hyprnote sync command
+ * Handle Obsidian meeting sync command
  */
 async function handleHyprnoteSync(client, channelId, userId, threadTs) {
   try {
     await client.chat.postMessage({
       channel: channelId,
-      text: '🎙️ Checking for new Hyprnote meetings to sync...',
+      text: '🎙️ Checking for new Obsidian meetings to sync...',
       thread_ts: threadTs
     });
     
@@ -6856,7 +6856,7 @@ async function handleHyprnoteSync(client, channelId, userId, threadTs) {
     if (newSessions.length === 0) {
       await client.chat.postMessage({
         channel: channelId,
-        text: '✅ No new meetings to sync. All Hyprnote sessions are up to date with Salesforce.',
+        text: '✅ No new meetings to sync. All Obsidian sessions are up to date with Salesforce.',
         thread_ts: threadTs
       });
       return;
@@ -6877,7 +6877,7 @@ async function handleHyprnoteSync(client, channelId, userId, threadTs) {
     const successful = results.filter(r => r.result.success);
     const failed = results.filter(r => !r.result.success);
     
-    let response = `🎙️ *Hyprnote Sync Complete*\n\n`;
+    let response = `🎙️ *Obsidian Sync Complete*\n\n`;
     response += `✅ *Synced:* ${successful.length} meeting(s)\n`;
     
     if (successful.length > 0) {
@@ -6904,29 +6904,29 @@ async function handleHyprnoteSync(client, channelId, userId, threadTs) {
     console.error('[handleHyprnoteSync] Error:', error);
     await client.chat.postMessage({
       channel: channelId,
-      text: `❌ Error syncing Hyprnote meetings: ${error.message}\n\nMake sure Hyprnote is installed and has recorded meetings.`,
+      text: `❌ Error syncing Obsidian meetings: ${error.message}\n\nMake sure Obsidian is installed and has recorded meetings.`,
       thread_ts: threadTs
     });
   }
 }
 
 /**
- * Handle Hyprnote status command
+ * Handle Obsidian sync status command
  */
 async function handleHyprnoteSyncStatus(client, channelId, threadTs) {
   try {
     const { getRecentSessions, HYPRNOTE_DB_PATH } = require('../services/hyprnoteSyncService');
     const fs = require('fs');
     
-    let response = `🎙️ *Hyprnote Sync Status*\n\n`;
+    let response = `🎙️ *Obsidian Sync Status*\n\n`;
     
     // Check if database exists
     if (!fs.existsSync(HYPRNOTE_DB_PATH)) {
-      response += `❌ Hyprnote database not found\n`;
+      response += `❌ Obsidian meeting database not found\n`;
       response += `Expected path: \`${HYPRNOTE_DB_PATH}\`\n\n`;
-      response += `Make sure Hyprnote is installed and has been used at least once.`;
+      response += `Make sure Obsidian is installed and has been used at least once.`;
     } else {
-      response += `✅ Hyprnote database found\n\n`;
+      response += `✅ Obsidian meeting database found\n\n`;
       
       const sessions = await getRecentSessions(168); // Last 7 days
       response += `*Recent Sessions (last 7 days):* ${sessions.length}\n\n`;
@@ -6949,8 +6949,8 @@ async function handleHyprnoteSyncStatus(client, channelId, threadTs) {
       }
       
       response += `\n*Commands:*\n`;
-      response += `• \`sync hyprnote\` - Sync new meetings to Salesforce\n`;
-      response += `• \`hyprnote status\` - Show this status`;
+      response += `• \`sync obsidian\` - Sync new meetings to Salesforce\n`;
+      response += `• \`obsidian status\` - Show this status`;
     }
     
     await client.chat.postMessage({
@@ -6963,7 +6963,7 @@ async function handleHyprnoteSyncStatus(client, channelId, threadTs) {
     console.error('[handleHyprnoteSyncStatus] Error:', error);
     await client.chat.postMessage({
       channel: channelId,
-      text: `❌ Error checking Hyprnote status: ${error.message}`,
+      text: `❌ Error checking Obsidian sync status: ${error.message}`,
       thread_ts: threadTs
     });
   }

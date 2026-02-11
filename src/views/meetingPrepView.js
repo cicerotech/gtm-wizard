@@ -2837,7 +2837,7 @@ async function openMeetingPrep(meetingId) {
       contextHtml += '<div style="padding: 16px; background: rgba(251, 191, 36, 0.1); border-radius: 8px; border: 1px solid rgba(251, 191, 36, 0.3);">';
       contextHtml += '<div style="font-size: 0.85rem; color: #fbbf24; margin-bottom: 6px;">First Engagement</div>';
       contextHtml += '<div style="font-size: 0.75rem; color: #9ca3af; line-height: 1.5;">No prior meetings on record for ' + accountName + '. ';
-      contextHtml += 'Use Hyprnote to record this call and build account history.</div>';
+      contextHtml += 'Use Obsidian to record this call and build account history.</div>';
       contextHtml += '</div></div></div>';
     }
     
@@ -2904,194 +2904,29 @@ function generateStorySoFar(ctx, meetingData) {
          '</div>';
 }
 
-// Format context section HTML with priority-based display
-// Shows: Story So Far, Type, Owner, Recent Context (from various sources), Key Contacts
+// Format context section HTML — always-on AI Intelligence Brief
+// Primary view: AI Brief with Executive Summary, Key Takeaways, Deal Intel, Next Steps, Sentiment
+// Secondary: Collapsible "View Raw Sources" toggle for advanced users
 function formatContextSection(ctx, meetingData, aiSummary = null) {
-  let html = '<div class="context-section"><div class="context-header"><span class="context-title">Account Context</span></div><div class="context-content">';
+  let html = '<div class="context-section"><div class="context-header"><span class="context-title">Account Intelligence</span></div><div class="context-content">';
   
-  // === AI-GENERATED SUMMARY (if available) ===
+  // ── AI INTELLIGENCE BRIEF (always-on primary view) ──
   if (aiSummary && aiSummary.executiveSummary) {
-    html += '<div style="margin-bottom: 14px; padding: 12px; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 8px; border: 1px solid #86efac;">';
-    html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">';
-    html += '<div style="font-size: 0.7rem; color: #15803d; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">AI Brief</div>';
-    
-    // Sentiment badge
-    const sentimentColors = {
-      'positive': { bg: '#dcfce7', text: '#166534' },
-      'neutral': { bg: '#f3f4f6', text: '#374151' },
-      'cautious': { bg: '#fef3c7', text: '#92400e' },
-      'at-risk': { bg: '#fee2e2', text: '#991b1b' }
-    };
-    const sentColors = sentimentColors[aiSummary.sentiment] || sentimentColors.neutral;
-    if (aiSummary.sentiment) {
-      html += '<span style="font-size: 0.65rem; padding: 2px 6px; background: ' + sentColors.bg + '; color: ' + sentColors.text + '; border-radius: 4px; text-transform: capitalize;">' + aiSummary.sentiment + '</span>';
-    }
-    html += '</div>';
-    
-    // Executive summary
-    html += '<div style="font-size: 0.85rem; line-height: 1.5; color: #1f2937; margin-bottom: 10px;">' + aiSummary.executiveSummary + '</div>';
-    
-    // Key takeaways
-    if (aiSummary.keyTakeaways && aiSummary.keyTakeaways.length > 0) {
-      html += '<div style="margin-top: 8px;">';
-      aiSummary.keyTakeaways.slice(0, 3).forEach(function(takeaway) {
-        html += '<div style="font-size: 0.75rem; color: #374151; margin-bottom: 4px; padding-left: 12px; position: relative;">';
-        html += '<span style="position: absolute; left: 0; color: #22c55e;">•</span>' + takeaway;
-        html += '</div>';
-      });
-      html += '</div>';
-    }
-    
-    // Deal intel (stage & blockers)
-    if (aiSummary.dealIntel) {
-      const intel = aiSummary.dealIntel;
-      if (intel.stage && intel.stage !== 'Unknown') {
-        html += '<div style="margin-top: 10px; display: flex; gap: 12px; flex-wrap: wrap;">';
-        html += '<span style="font-size: 0.7rem; padding: 3px 8px; background: #dbeafe; color: #1e40af; border-radius: 4px;">Stage: ' + intel.stage + '</span>';
-        if (intel.champions && intel.champions.length > 0) {
-          html += '<span style="font-size: 0.7rem; padding: 3px 8px; background: #f3e8ff; color: #7c3aed; border-radius: 4px;">Champion: ' + intel.champions[0] + '</span>';
-        }
-        if (intel.competitors && intel.competitors.length > 0) {
-          html += '<span style="font-size: 0.7rem; padding: 3px 8px; background: #fef3c7; color: #92400e; border-radius: 4px;">vs ' + intel.competitors.join(', ') + '</span>';
-        }
-        html += '</div>';
-      }
-    }
-    
-    // Next steps
-    if (aiSummary.nextSteps && aiSummary.nextSteps.length > 0) {
-      html += '<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #bbf7d0;">';
-      html += '<div style="font-size: 0.65rem; color: #15803d; margin-bottom: 4px;">Recommended Next Steps:</div>';
-      aiSummary.nextSteps.slice(0, 2).forEach(function(step) {
-        html += '<div style="font-size: 0.75rem; color: #374151;">→ ' + step + '</div>';
-      });
-      html += '</div>';
-    }
-    
-    // Source attribution footer
-    const sourceCount = (ctx.meetingNotes?.length || 0) + (ctx.obsidianNotes?.length || 0) + (ctx.slackIntel?.length || 0);
-    if (sourceCount > 0) {
-      html += '<div style="margin-top: 8px; font-size: 0.65rem; color: #9ca3af; font-style: italic;">Based on ' + sourceCount + ' source' + (sourceCount > 1 ? 's' : '') + '</div>';
-    }
-    
-    html += '</div>';
+    html += renderAiBriefCard(aiSummary, ctx);
   } else {
-    // Fall back to static Story So Far if no AI summary
-    const storyHtml = generateStorySoFar(ctx, meetingData);
-    if (storyHtml) {
-      html += storyHtml;
-    }
+    // AI summary not available — show compact loading/fallback state
+    html += renderIntelFallback(ctx, meetingData);
   }
   
-  // Account basics: Type and Owner only (industry removed - not actionable)
+  // Account basics: Type and Owner
   if (ctx.salesforce) {
     const sf = ctx.salesforce;
     if (sf.customerType) html += '<div class="context-item"><span class="context-label">Type:</span> ' + sf.customerType + (sf.customerSubtype ? ' (' + sf.customerSubtype + ')' : '') + '</div>';
     if (sf.owner) html += '<div class="context-item"><span class="context-label">Owner:</span> ' + sf.owner + '</div>';
   }
   
-  // === SOURCE NOTES SECTION (Obsidian Links) ===
-  // When AI Brief exists, show just clickable links to source notes
-  // When no AI Brief, fall back to full Recent Context display
-  
-  if (aiSummary) {
-    // AI Brief exists - show clean source note links only (not raw content)
-    if (ctx.obsidianNotes?.length) {
-      html += '<div style="margin-top: 12px; border-top: 1px solid #e5e7eb; padding-top: 12px;">';
-      html += '<div style="margin-bottom: 8px; font-size: 0.7rem; color: #374151; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Source Notes</div>';
-      ctx.obsidianNotes.slice(0, 3).forEach(note => {
-        const dateStr = note.date ? new Date(note.date).toLocaleDateString() : '';
-        const sentimentColor = note.sentiment === 'Positive' ? '#10b981' : 
-                              note.sentiment === 'Negative' ? '#ef4444' : '#6b7280';
-        html += '<div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: #f9fafb; border-radius: 4px; margin-bottom: 4px; border-left: 3px solid #8b5cf6;">';
-        html += '<div style="display: flex; align-items: center; gap: 8px;">';
-        html += '<span style="font-size: 0.7rem; color: #7c3aed;">&#128221;</span>'; // Note icon
-        html += '<span style="font-size: 0.75rem; color: #374151;">' + (note.title || 'Meeting Note') + '</span>';
-        html += '<span style="font-size: 0.65rem; color: #9ca3af;">' + dateStr + '</span>';
-        html += '</div>';
-        if (note.sentiment) {
-          html += '<span style="font-size: 0.6rem; padding: 2px 6px; background: ' + sentimentColor + '15; color: ' + sentimentColor + '; border-radius: 4px;">' + note.sentiment + '</span>';
-        }
-        html += '</div>';
-      });
-      html += '</div>';
-    }
-  } else {
-    // No AI Brief - show full Recent Context as fallback
-    let hasRecentContext = false;
-    let recentContextHtml = '<div style="margin-top: 12px; border-top: 1px solid #e5e7eb; padding-top: 12px;">';
-    recentContextHtml += '<div style="margin-bottom: 10px; font-size: 0.7rem; color: #374151; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Recent Context</div>';
-    
-    // Source 1: Meeting Notes from Customer Brain
-    if (ctx.meetingNotes?.length) {
-      hasRecentContext = true;
-      ctx.meetingNotes.slice(0, 2).forEach(note => {
-        recentContextHtml += '<div style="margin-bottom: 10px; padding: 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #6b7280;">';
-        recentContextHtml += '<div style="font-size: 0.7rem; color: #374151; margin-bottom: 2px; font-weight: 500;">Meeting Notes</div>';
-        recentContextHtml += '<div style="font-size: 0.7rem; color: #6b7280; margin-bottom: 4px;">' + note.date + ' • ' + note.rep + '</div>';
-        recentContextHtml += '<div style="font-size: 0.8rem; line-height: 1.4; color: #1f2937;">' + note.summary + '</div>';
-        recentContextHtml += '</div>';
-      });
-    }
-    
-    // Source 2: Slack Intel
-    if (ctx.slackIntel?.length) {
-      hasRecentContext = true;
-      ctx.slackIntel.slice(0, 2).forEach(intel => {
-        recentContextHtml += '<div style="margin-bottom: 8px; padding: 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #6b7280;">';
-        recentContextHtml += '<div style="font-size: 0.7rem; color: #374151; margin-bottom: 2px; font-weight: 500;">Slack</div>';
-        recentContextHtml += '<div style="font-size: 0.75rem; color: #1f2937;"><span style="color: #6b7280;">[' + intel.category + ']</span> ' + intel.summary + '</div>';
-        recentContextHtml += '</div>';
-      });
-    }
-    
-    // Source 3: Prior Meeting Preps
-    if (ctx.priorMeetings?.length) {
-      hasRecentContext = true;
-      ctx.priorMeetings.slice(0, 2).forEach(m => {
-        const dateStr = m.date ? new Date(m.date).toLocaleDateString() : '';
-        recentContextHtml += '<div style="margin-bottom: 6px; padding: 6px 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #6b7280;">';
-        recentContextHtml += '<div style="font-size: 0.7rem; color: #374151; margin-bottom: 2px; font-weight: 500;">Prior Prep</div>';
-        recentContextHtml += '<div style="font-size: 0.75rem; color: #1f2937;">' + dateStr + ' - ' + (m.title || 'Meeting') + '</div>';
-        recentContextHtml += '</div>';
-      });
-    }
-    
-    // Source 4: Obsidian Notes (synced from BL vaults) - full display when no AI Brief
-    if (ctx.obsidianNotes?.length) {
-      hasRecentContext = true;
-      ctx.obsidianNotes.slice(0, 2).forEach(note => {
-        const dateStr = note.date ? new Date(note.date).toLocaleDateString() : '';
-        const sentimentColor = note.sentiment === 'Positive' ? '#10b981' : 
-                              note.sentiment === 'Negative' ? '#ef4444' : '#6b7280';
-        recentContextHtml += '<div style="margin-bottom: 10px; padding: 8px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #8b5cf6;">';
-        recentContextHtml += '<div style="display: flex; justify-content: space-between; align-items: center;">';
-        recentContextHtml += '<div style="font-size: 0.7rem; color: #7c3aed; margin-bottom: 2px; font-weight: 500;">Obsidian Notes</div>';
-        if (note.sentiment) {
-          recentContextHtml += '<span style="font-size: 0.65rem; padding: 2px 6px; background: ' + sentimentColor + '20; color: ' + sentimentColor + '; border-radius: 4px;">' + note.sentiment + '</span>';
-        }
-        recentContextHtml += '</div>';
-        recentContextHtml += '<div style="font-size: 0.7rem; color: #6b7280; margin-bottom: 4px;">' + dateStr + ' • ' + (note.title || 'Meeting Note') + '</div>';
-        if (note.summary) {
-          recentContextHtml += '<div style="font-size: 0.8rem; line-height: 1.4; color: #1f2937;">' + note.summary.substring(0, 200) + (note.summary.length > 200 ? '...' : '') + '</div>';
-        }
-        recentContextHtml += '</div>';
-      });
-    }
-    
-    recentContextHtml += '</div>';
-    
-    // Only add Recent Context section if we have content
-    if (hasRecentContext) {
-      html += recentContextHtml;
-    } else {
-      // Empty state - first meeting or no context yet
-      html += '<div style="margin-top: 12px; padding: 12px; background: rgba(251, 191, 36, 0.1); border-radius: 6px; border: 1px solid rgba(251, 191, 36, 0.3);">';
-      html += '<div style="font-size: 0.8rem; color: #fbbf24;">No recent context available</div>';
-      html += '<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px;">First meeting? Record with Obsidian + Wispr Flow to build account history.</div>';
-      html += '</div>';
-    }
-  }
+  // ── COLLAPSIBLE RAW SOURCES (always available for advanced users) ──
+  html += renderRawSourcesToggle(ctx);
   
   // Always show: Open Opportunities
   if (ctx.salesforce?.openOpportunities?.length) {
@@ -3121,6 +2956,242 @@ function formatContextSection(ctx, meetingData, aiSummary = null) {
   }
   
   html += '</div></div>';
+  return html;
+}
+
+// ── AI Brief Card: compact intelligence brief optimized for pre-call scanning ──
+// Layout priority: Executive Summary → Last Meeting → Open Commitments → Takeaways → Deal Intel → Next Steps
+function renderAiBriefCard(aiSummary, ctx) {
+  let html = '';
+  html += '<div style="margin-bottom: 14px; padding: 12px; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 8px; border: 1px solid #86efac;">';
+  html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">';
+  html += '<div style="font-size: 0.7rem; color: #15803d; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Intelligence Brief</div>';
+  
+  // Sentiment badge
+  const sentimentColors = {
+    positive: { bg: '#dcfce7', text: '#166534' },
+    neutral: { bg: '#f3f4f6', text: '#374151' },
+    cautious: { bg: '#fef3c7', text: '#92400e' },
+    'at-risk': { bg: '#fee2e2', text: '#991b1b' }
+  };
+  const sentColors = sentimentColors[aiSummary.sentiment] || sentimentColors.neutral;
+  if (aiSummary.sentiment) {
+    html += '<span style="font-size: 0.65rem; padding: 2px 6px; background: ' + sentColors.bg + '; color: ' + sentColors.text + '; border-radius: 4px; text-transform: capitalize;">' + aiSummary.sentiment + '</span>';
+  }
+  html += '</div>';
+  
+  // 1. Executive summary — the "elevator pitch" of account state
+  html += '<div style="font-size: 0.85rem; line-height: 1.5; color: #1f2937; margin-bottom: 10px;">' + aiSummary.executiveSummary + '</div>';
+  
+  // 2. Last Meeting Recap — highest-signal item for a rep before a call
+  if (aiSummary.lastMeetingRecap && aiSummary.lastMeetingRecap !== 'null') {
+    html += '<div style="margin-bottom: 10px; padding: 8px 10px; background: #f0f9ff; border-radius: 6px; border-left: 3px solid #3b82f6;">';
+    html += '<div style="font-size: 0.65rem; color: #1d4ed8; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600;">Last Meeting</div>';
+    html += '<div style="font-size: 0.8rem; line-height: 1.4; color: #1e3a5f;">' + aiSummary.lastMeetingRecap + '</div>';
+    html += '</div>';
+  }
+  
+  // 3. Open Commitments — what we promised and haven't delivered yet
+  if (aiSummary.openCommitments && aiSummary.openCommitments.length > 0) {
+    html += '<div style="margin-bottom: 10px; padding: 8px 10px; background: #fffbeb; border-radius: 6px; border-left: 3px solid #f59e0b;">';
+    html += '<div style="font-size: 0.65rem; color: #92400e; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600;">Open Commitments</div>';
+    aiSummary.openCommitments.forEach(function(item) {
+      html += '<div style="font-size: 0.75rem; color: #78350f; margin-bottom: 2px;">&#9744; ' + item + '</div>';
+    });
+    html += '</div>';
+  }
+  
+  // 4. Key takeaways
+  if (aiSummary.keyTakeaways && aiSummary.keyTakeaways.length > 0) {
+    html += '<div style="margin-top: 8px;">';
+    html += '<div style="font-size: 0.65rem; color: #15803d; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Key Takeaways</div>';
+    aiSummary.keyTakeaways.slice(0, 4).forEach(function(takeaway) {
+      html += '<div style="font-size: 0.75rem; color: #374151; margin-bottom: 4px; padding-left: 12px; position: relative;">';
+      html += '<span style="position: absolute; left: 0; color: #22c55e;">•</span>' + takeaway;
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  
+  // 5. Deal intel badges (stage, ACV, champion, competitors, blockers)
+  if (aiSummary.dealIntel) {
+    const intel = aiSummary.dealIntel;
+    const hasAnyIntel = (intel.stage && intel.stage !== 'Unknown') || intel.acv || 
+                        (intel.champions && intel.champions.length > 0) ||
+                        (intel.competitors && intel.competitors.length > 0) ||
+                        (intel.blockers && intel.blockers.length > 0);
+    if (hasAnyIntel) {
+      html += '<div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">';
+      if (intel.stage && intel.stage !== 'Unknown') {
+        html += '<span style="font-size: 0.7rem; padding: 3px 8px; background: #dbeafe; color: #1e40af; border-radius: 4px;">Stage: ' + intel.stage + '</span>';
+      }
+      if (intel.acv && intel.acv !== 'null') {
+        html += '<span style="font-size: 0.7rem; padding: 3px 8px; background: #d1fae5; color: #065f46; border-radius: 4px; font-weight: 600;">ACV: ' + intel.acv + '</span>';
+      }
+      if (intel.champions && intel.champions.length > 0) {
+        html += '<span style="font-size: 0.7rem; padding: 3px 8px; background: #f3e8ff; color: #7c3aed; border-radius: 4px;">Champion: ' + intel.champions[0] + '</span>';
+      }
+      if (intel.competitors && intel.competitors.length > 0) {
+        html += '<span style="font-size: 0.7rem; padding: 3px 8px; background: #fef3c7; color: #92400e; border-radius: 4px;">vs ' + intel.competitors.join(', ') + '</span>';
+      }
+      if (intel.blockers && intel.blockers.length > 0) {
+        html += '<span style="font-size: 0.7rem; padding: 3px 8px; background: #fee2e2; color: #991b1b; border-radius: 4px;">Blocker: ' + intel.blockers[0] + '</span>';
+      }
+      html += '</div>';
+    }
+  }
+  
+  // 6. Next steps
+  if (aiSummary.nextSteps && aiSummary.nextSteps.length > 0) {
+    html += '<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #bbf7d0;">';
+    html += '<div style="font-size: 0.65rem; color: #15803d; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Recommended Next Steps</div>';
+    aiSummary.nextSteps.slice(0, 3).forEach(function(step) {
+      html += '<div style="font-size: 0.75rem; color: #374151; margin-bottom: 2px;">→ ' + step + '</div>';
+    });
+    html += '</div>';
+  }
+  
+  // Source attribution
+  const sourceCount = (ctx.meetingNotes?.length || 0) + (ctx.obsidianNotes?.length || 0) + (ctx.slackIntel?.length || 0) + (ctx.priorMeetings?.length || 0);
+  if (sourceCount > 0) {
+    html += '<div style="margin-top: 8px; font-size: 0.6rem; color: #9ca3af; font-style: italic;">Synthesized from ' + sourceCount + ' source' + (sourceCount > 1 ? 's' : '') + ' • Updates as new data flows in</div>';
+  }
+  
+  html += '</div>';
+  return html;
+}
+
+// ── Intelligence Fallback: shown when AI Brief is unavailable ──
+// Compact structured view instead of verbose raw dump
+function renderIntelFallback(ctx, meetingData) {
+  let html = '';
+  const sourceCount = (ctx.meetingNotes?.length || 0) + (ctx.obsidianNotes?.length || 0) + (ctx.slackIntel?.length || 0) + (ctx.priorMeetings?.length || 0);
+  
+  if (sourceCount > 0) {
+    // Sources exist but AI summary failed or is loading — show compact fallback
+    html += '<div style="margin-bottom: 14px; padding: 12px; background: linear-gradient(135deg, #eff6ff 0%, #eef2ff 100%); border-radius: 8px; border: 1px solid #93c5fd;">';
+    html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">';
+    html += '<div style="font-size: 0.7rem; color: #1d4ed8; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Account Snapshot</div>';
+    html += '<span style="font-size: 0.6rem; padding: 2px 6px; background: #dbeafe; color: #1e40af; border-radius: 4px;">' + sourceCount + ' source' + (sourceCount > 1 ? 's' : '') + '</span>';
+    html += '</div>';
+    
+    // Story So Far — concise narrative from structured data
+    const storyHtml = generateStorySoFar(ctx, meetingData);
+    if (storyHtml) {
+      html += storyHtml;
+    }
+    
+    // Quick stats row
+    html += '<div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px;">';
+    if (ctx.meetingNotes?.length) {
+      html += '<span style="font-size: 0.7rem; padding: 3px 8px; background: #f3f4f6; color: #374151; border-radius: 4px;">' + ctx.meetingNotes.length + ' meeting note' + (ctx.meetingNotes.length > 1 ? 's' : '') + '</span>';
+    }
+    if (ctx.obsidianNotes?.length) {
+      html += '<span style="font-size: 0.7rem; padding: 3px 8px; background: #f5f3ff; color: #7c3aed; border-radius: 4px;">' + ctx.obsidianNotes.length + ' Obsidian note' + (ctx.obsidianNotes.length > 1 ? 's' : '') + '</span>';
+    }
+    if (ctx.slackIntel?.length) {
+      html += '<span style="font-size: 0.7rem; padding: 3px 8px; background: #fef3c7; color: #92400e; border-radius: 4px;">' + ctx.slackIntel.length + ' Slack signal' + (ctx.slackIntel.length > 1 ? 's' : '') + '</span>';
+    }
+    html += '</div>';
+    
+    html += '<div style="margin-top: 8px; font-size: 0.6rem; color: #6b7280; font-style: italic;">AI Brief will generate on next load</div>';
+    html += '</div>';
+  } else {
+    // No sources at all — show first-engagement prompt
+    const storyHtml = generateStorySoFar(ctx, meetingData);
+    if (storyHtml) {
+      html += storyHtml;
+    } else {
+      html += '<div style="margin-bottom: 12px; padding: 12px; background: rgba(251, 191, 36, 0.1); border-radius: 8px; border: 1px solid rgba(251, 191, 36, 0.3);">';
+      html += '<div style="font-size: 0.8rem; color: #fbbf24; margin-bottom: 4px;">No prior context</div>';
+      html += '<div style="font-size: 0.7rem; color: #9ca3af; line-height: 1.4;">Record this call with Obsidian + Wispr Flow to start building account intelligence.</div>';
+      html += '</div>';
+    }
+  }
+  
+  return html;
+}
+
+// ── Collapsible Raw Sources: always available as secondary view ──
+function renderRawSourcesToggle(ctx) {
+  let html = '';
+  const hasMeetingNotes = ctx.meetingNotes?.length > 0;
+  const hasSlackIntel = ctx.slackIntel?.length > 0;
+  const hasPriorMeetings = ctx.priorMeetings?.length > 0;
+  const hasObsidianNotes = ctx.obsidianNotes?.length > 0;
+  const hasAnySources = hasMeetingNotes || hasSlackIntel || hasPriorMeetings || hasObsidianNotes;
+  
+  if (!hasAnySources) return '';
+  
+  // Generate a unique ID for the toggle
+  const toggleId = 'rawSources_' + Date.now();
+  
+  html += '<div style="margin-top: 12px; border-top: 1px solid #e5e7eb; padding-top: 10px;">';
+  // Clickable toggle header
+  html += '<div onclick="(function(){ var el=document.getElementById(\\'' + toggleId + '\\'); var arrow=document.getElementById(\\'' + toggleId + '_arrow\\'); if(el.style.display===\\'none\\'){ el.style.display=\\'block\\'; arrow.textContent=\\'▾\\'; } else { el.style.display=\\'none\\'; arrow.textContent=\\'▸\\'; } })()" style="cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none;">';
+  html += '<span id="' + toggleId + '_arrow" style="font-size: 0.7rem; color: #6b7280; transition: transform 0.2s;">▸</span>';
+  html += '<span style="font-size: 0.7rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">View Raw Sources</span>';
+  html += '</div>';
+  
+  // Collapsible content (hidden by default)
+  html += '<div id="' + toggleId + '" style="display: none; margin-top: 8px;">';
+  
+  // Meeting Notes
+  if (hasMeetingNotes) {
+    ctx.meetingNotes.slice(0, 3).forEach(function(note) {
+      html += '<div style="margin-bottom: 8px; padding: 8px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #6b7280;">';
+      html += '<div style="font-size: 0.65rem; color: #374151; font-weight: 500;">Meeting Notes</div>';
+      html += '<div style="font-size: 0.65rem; color: #9ca3af; margin-bottom: 3px;">' + (note.date || '') + (note.rep ? ' • ' + note.rep : '') + '</div>';
+      html += '<div style="font-size: 0.75rem; line-height: 1.4; color: #1f2937;">' + (note.summary || '').substring(0, 300) + ((note.summary || '').length > 300 ? '...' : '') + '</div>';
+      html += '</div>';
+    });
+  }
+  
+  // Slack Intel
+  if (hasSlackIntel) {
+    ctx.slackIntel.slice(0, 3).forEach(function(intel) {
+      html += '<div style="margin-bottom: 6px; padding: 6px 8px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #f59e0b;">';
+      html += '<div style="font-size: 0.65rem; color: #374151; font-weight: 500;">Slack</div>';
+      html += '<div style="font-size: 0.75rem; color: #1f2937;"><span style="color: #9ca3af;">[' + (intel.category || 'Intel') + ']</span> ' + (intel.summary || '') + '</div>';
+      html += '</div>';
+    });
+  }
+  
+  // Prior Meeting Preps
+  if (hasPriorMeetings) {
+    ctx.priorMeetings.slice(0, 3).forEach(function(m) {
+      const dateStr = m.date ? new Date(m.date).toLocaleDateString() : '';
+      html += '<div style="margin-bottom: 6px; padding: 6px 8px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #6b7280;">';
+      html += '<div style="font-size: 0.65rem; color: #374151; font-weight: 500;">Prior Prep</div>';
+      html += '<div style="font-size: 0.75rem; color: #1f2937;">' + dateStr + ' – ' + (m.title || 'Meeting') + '</div>';
+      html += '</div>';
+    });
+  }
+  
+  // Obsidian Notes
+  if (hasObsidianNotes) {
+    ctx.obsidianNotes.slice(0, 3).forEach(function(note) {
+      const dateStr = note.date ? new Date(note.date).toLocaleDateString() : '';
+      const sentimentColor = note.sentiment === 'Positive' ? '#10b981' : 
+                            note.sentiment === 'Negative' ? '#ef4444' : '#6b7280';
+      html += '<div style="margin-bottom: 8px; padding: 8px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #8b5cf6;">';
+      html += '<div style="display: flex; justify-content: space-between; align-items: center;">';
+      html += '<div style="font-size: 0.65rem; color: #7c3aed; font-weight: 500;">Obsidian Note</div>';
+      if (note.sentiment) {
+        html += '<span style="font-size: 0.6rem; padding: 2px 5px; background: ' + sentimentColor + '15; color: ' + sentimentColor + '; border-radius: 3px;">' + note.sentiment + '</span>';
+      }
+      html += '</div>';
+      html += '<div style="font-size: 0.65rem; color: #9ca3af; margin-bottom: 3px;">' + dateStr + ' • ' + (note.title || 'Meeting Note') + '</div>';
+      if (note.summary) {
+        html += '<div style="font-size: 0.75rem; line-height: 1.4; color: #1f2937;">' + note.summary.substring(0, 250) + (note.summary.length > 250 ? '...' : '') + '</div>';
+      }
+      html += '</div>';
+    });
+  }
+  
+  html += '</div>'; // close collapsible content
+  html += '</div>'; // close wrapper
+  
   return html;
 }
 

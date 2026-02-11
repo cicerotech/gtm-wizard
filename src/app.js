@@ -3143,11 +3143,13 @@ class GTMBrainApp {
             const contextSummarizer = require('./services/contextSummarizer');
             
             // Transform context to the format expected by aggregateContextSources
+            // Aligned with intelligenceQueryService data sources for consistent intelligence
             const sources = {
               customerBrain: context.salesforce?.customerBrain || '',
               obsidianNotes: context.obsidianNotes || [],
               slackIntel: context.slackIntel || [],
-              priorMeetings: context.priorMeetings || []
+              priorMeetings: context.priorMeetings || [],
+              activities: context.activities || []
             };
             
             // Also include meeting notes if available
