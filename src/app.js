@@ -3755,11 +3755,11 @@ class GTMBrainApp {
         //   - Sales leaders see all their direct reports' accounts
         //   - POD_VIEW_USERS (e.g. Riley, Sean) see all accounts in their designated region
         //   - Regular BLs see ONLY their own accounts (no team aggregation)
-        const userGroup = getUserGroup(normalizedEmail);
+        const ownershipUserGroup = getUserGroup(normalizedEmail);
         let teamAccounts = [];
         let viewType = 'own'; // default: own accounts only
         
-        if (userGroup === 'sales_leader') {
+        if (ownershipUserGroup === 'sales_leader') {
           // Sales leaders: ALL accounts from direct reports (full BoB)
           viewType = 'sales_leader';
           const directReports = getSalesLeaderDirectReports(normalizedEmail);
