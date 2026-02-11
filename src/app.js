@@ -3588,7 +3588,7 @@ class GTMBrainApp {
         res.status(500).json({ 
           success: false, 
           error: 'Failed to fetch account ownership from Salesforce',
-          details: error.message
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
       }
     });
@@ -3835,7 +3835,7 @@ class GTMBrainApp {
         res.status(500).json({ 
           success: false, 
           error: 'Failed to fetch book of business',
-          details: error.message,
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined,
           queryTime,
           correlationId
         });
