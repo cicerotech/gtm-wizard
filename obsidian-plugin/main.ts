@@ -970,16 +970,11 @@ class SetupWizardModal extends Modal {
       }
       
       if (accounts.length > 0 || prospects.length > 0) {
-        // Fetch enrichment data for all accounts before creating folders
-        const allAccounts = [...accounts, ...prospects];
-        const enrichments = await this.plugin.fetchEnrichmentData(allAccounts);
-
-        // Use admin method for admin users, regular method for others
+        // FAST PATH: Create folder structures immediately (templates only)
         if (isAdminUser(userEmail)) {
           await this.plugin.createAdminAccountFolders(accounts);
         } else {
-          await this.plugin.createTailoredAccountFolders(accounts, enrichments);
-          // Create lightweight prospect files in _Prospects/ folder
+          await this.plugin.createTailoredAccountFolders(accounts, {}); // Empty = fast templates
           if (prospects.length > 0) {
             await this.plugin.createProspectAccountFiles(prospects);
           }
@@ -987,6 +982,16 @@ class SetupWizardModal extends Modal {
         this.plugin.settings.accountsImported = true;
         this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
         await this.plugin.saveSettings();
+
+        // BACKGROUND: Enrich from Salesforce (non-blocking)
+        const allAccounts = [...accounts, ...prospects];
+        setTimeout(async () => {
+          try {
+            await this.plugin.enrichAccountFolders(allAccounts);
+          } catch (e) {
+            console.log('[Eudia] Background enrichment skipped:', e);
+          }
+        }, 500);
       }
       this.updateStep('accounts', 'complete');
     } catch (e) {
@@ -1345,14 +1350,15 @@ class EudiaSetupView extends ItemView {
           }
           
           if (accounts.length > 0 || prospects.length > 0) {
-            // Fetch enrichment data before creating folders
-            const allImported = [...accounts, ...prospects];
-            const enrichments = await this.plugin.fetchEnrichmentData(allImported);
+            // FAST PATH: Create folder structures immediately (templates only, no enrichment blocking)
+            if (validationEl) {
+              validationEl.textContent = `Creating ${accounts.length} account folders...`;
+            }
 
             if (isAdminUser(email)) {
               await this.plugin.createAdminAccountFolders(accounts);
             } else {
-              await this.plugin.createTailoredAccountFolders(accounts, enrichments);
+              await this.plugin.createTailoredAccountFolders(accounts, {}); // Empty enrichments = fast templates
               if (prospects.length > 0) {
                 await this.plugin.createProspectAccountFiles(prospects);
               }
@@ -1361,6 +1367,20 @@ class EudiaSetupView extends ItemView {
             this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
             await this.plugin.saveSettings();
             new Notice(`Imported ${accounts.length} active accounts + ${prospects.length} prospects!`);
+
+            // BACKGROUND: Enrich account data from Salesforce (non-blocking)
+            const allImported = [...accounts, ...prospects];
+            setTimeout(async () => {
+              try {
+                if (validationEl) {
+                  validationEl.textContent = 'Loading Salesforce intelligence...';
+                  validationEl.className = 'eudia-setup-validation-message loading';
+                }
+                await this.plugin.enrichAccountFolders(allImported);
+              } catch (e) {
+                console.log('[Eudia] Background enrichment skipped:', e);
+              }
+            }, 500);
           }
         } catch (importError) {
           console.error('[Eudia] Account import failed:', importError);
@@ -1527,16 +1547,13 @@ class EudiaSetupView extends ItemView {
         return;
       }
       
-      // Fetch enrichment data for all accounts before folder creation
-      statusEl.textContent = 'Loading account intelligence from Salesforce...';
-      const allSetupAccounts = [...accounts, ...prospects];
-      const enrichments = await this.plugin.fetchEnrichmentData(allSetupAccounts);
+      // FAST PATH: Create folder structures immediately (templates only)
+      statusEl.textContent = `Creating ${accounts.length} account folders...`;
 
-      // Create account folders - use admin method for admin users
       if (isAdminUser(userEmail)) {
         await this.plugin.createAdminAccountFolders(accounts);
       } else {
-        await this.plugin.createTailoredAccountFolders(accounts, enrichments);
+        await this.plugin.createTailoredAccountFolders(accounts, {}); // Empty = fast templates
         if (prospects.length > 0) {
           await this.plugin.createProspectAccountFiles(prospects);
         }
@@ -1550,14 +1567,26 @@ class EudiaSetupView extends ItemView {
       
       const ownedCount = accounts.filter(a => a.isOwned !== false).length;
       const viewOnlyCount = accounts.filter(a => a.isOwned === false).length;
-      const enrichedCount = Object.keys(enrichments).length;
       
       if (isAdminUser(userEmail) && viewOnlyCount > 0) {
-        statusEl.textContent = `${ownedCount} owned + ${viewOnlyCount} view-only accounts imported!`;
+        statusEl.textContent = `${ownedCount} owned + ${viewOnlyCount} view-only accounts imported! Enriching...`;
       } else {
-        statusEl.textContent = `${accounts.length} active + ${prospects.length} prospect accounts imported (${enrichedCount} enriched)!`;
+        statusEl.textContent = `${accounts.length} active + ${prospects.length} prospect accounts imported! Enriching...`;
       }
       statusEl.className = 'eudia-setup-sf-status success';
+
+      // BACKGROUND: Enrich account data from Salesforce (non-blocking)
+      const allSetupAccounts = [...accounts, ...prospects];
+      setTimeout(async () => {
+        try {
+          await this.plugin.enrichAccountFolders(allSetupAccounts);
+          const enrichedCount = allSetupAccounts.filter(a => a.id && a.id.length >= 15).length;
+          statusEl.textContent = `${accounts.length + prospects.length} accounts imported, ${enrichedCount} enriched with Salesforce data`;
+        } catch (e) {
+          console.log('[Eudia] Background enrichment skipped:', e);
+          statusEl.textContent = `${accounts.length + prospects.length} accounts imported (enrichment will retry on next launch)`;
+        }
+      }, 500);
       
     } catch (error) {
       statusEl.textContent = 'Failed to import accounts. Please try again.';
@@ -3127,8 +3156,10 @@ export default class EudiaSyncPlugin extends Plugin {
     }
 
     let createdCount = 0;
-    
-    for (const account of accounts) {
+    const dateStr = new Date().toISOString().split('T')[0];
+
+    // Helper: create a single account folder with all subnotes
+    const createSingleAccount = async (account: OwnedAccount) => {
       const safeName = account.name.replace(/[<>:"/\\|?*]/g, '_').trim();
       const folderPath = `${accountsFolder}/${safeName}`;
       
@@ -3136,7 +3167,7 @@ export default class EudiaSyncPlugin extends Plugin {
       const existing = this.app.vault.getAbstractFileByPath(folderPath);
       if (existing instanceof TFolder) {
         console.log(`[Eudia] Account folder already exists: ${safeName}`);
-        continue;
+        return false;
       }
       
       try {
@@ -3146,9 +3177,6 @@ export default class EudiaSyncPlugin extends Plugin {
         // Lookup enrichment data for this account (if available)
         const enrich = enrichments?.[account.id];
         const hasEnrichment = !!enrich;
-        
-        // Create 7 subnotes for the account (new structure with Next Steps)
-        const dateStr = new Date().toISOString().split('T')[0];
 
         // ── Build Contacts.md content ──
         const contactsContent = this.buildContactsContent(account, enrich, dateStr);
@@ -3273,12 +3301,21 @@ created: ${dateStr}
           await this.app.vault.create(notePath, subnote.content);
         }
         
-        createdCount++;
         const enrichLabel = hasEnrichment ? ' (enriched)' : '';
         console.log(`[Eudia] Created account folder with subnotes${enrichLabel}: ${safeName}`);
+        return true;
       } catch (error) {
         console.error(`[Eudia] Failed to create folder for ${safeName}:`, error);
+        return false;
       }
+    };
+
+    // Parallel batch creation: 5 accounts at a time for speed
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < accounts.length; i += BATCH_SIZE) {
+      const batch = accounts.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(batch.map(a => createSingleAccount(a)));
+      createdCount += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
     }
 
     // Update cached accounts
@@ -3560,9 +3597,9 @@ ${enrich.nextSteps}
         // Continue with other batches — graceful degradation
       }
 
-      // Small delay between batches
+      // Minimal delay between batches
       if (i + batchSize < accountsWithIds.length) {
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 100));
       }
     }
 
@@ -3861,15 +3898,16 @@ sync_to_salesforce: false
     let createdOwned = 0;
     let createdViewOnly = 0;
     const dateStr = new Date().toISOString().split('T')[0];
-    
-    for (const account of accounts) {
+
+    // Helper: create a single admin account folder
+    const createSingleAdmin = async (account: OwnedAccount): Promise<boolean> => {
       const safeName = account.name.replace(/[<>:"/\\|?*]/g, '_').trim();
       const folderPath = `${accountsFolder}/${safeName}`;
       
       // Check if folder already exists
       const existing = this.app.vault.getAbstractFileByPath(folderPath);
       if (existing instanceof TFolder) {
-        continue;
+        return false;
       }
       
       try {
@@ -3886,9 +3924,18 @@ sync_to_salesforce: false
         }
         
         console.log(`[Eudia Admin] Created ${account.isOwned ? 'owned' : 'view-only'} folder: ${safeName}`);
+        return true;
       } catch (error) {
         console.error(`[Eudia Admin] Failed to create folder for ${safeName}:`, error);
+        return false;
       }
+    };
+
+    // Parallel batch creation: 5 accounts at a time for speed
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < accounts.length; i += BATCH_SIZE) {
+      const batch = accounts.slice(i, i + BATCH_SIZE);
+      await Promise.allSettled(batch.map(a => createSingleAdmin(a)));
     }
 
     // Update cached accounts
@@ -6020,15 +6067,15 @@ To restore, move this folder back to the Accounts directory.
       const processed = Math.min(i + batchSize, totalAccounts);
       new Notice(`Enriching account data: ${processed}/${totalAccounts}...`);
 
-      // Small delay between batches to avoid overwhelming the server
+      // Minimal delay between batches (server handles concurrency fine)
       if (i + batchSize < accountsWithIds.length) {
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 100));
       }
     }
 
     const summary = errorCount > 0
-      ? `Account enrichment complete: ${enrichedCount} enriched, ${errorCount} skipped`
-      : `Account enrichment complete: ${enrichedCount} accounts enriched with Salesforce data`;
+      ? `Enrichment complete: ${enrichedCount} enriched, ${errorCount} skipped`
+      : `Enrichment complete: ${enrichedCount} accounts enriched with Salesforce data`;
     console.log(`[Eudia Enrich] ${summary}`);
     new Notice(summary);
   }

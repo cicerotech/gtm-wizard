@@ -17,9 +17,12 @@
  */
 export const ADMIN_EMAILS = [
   'keigan.pesenti@eudia.com',
-  'michael.ayers@eudia.com',
-  'michael.flynn@eudia.com',
-  'zach@eudia.com'
+  'michael.ayres@eudia.com',
+  'michael.ayers@eudia.com',   // alternate spelling
+  'mike.flynn@eudia.com',
+  'michael.flynn@eudia.com',   // alternate spelling
+  'zack@eudia.com',
+  'zach@eudia.com'             // alternate spelling
 ];
 
 /**
