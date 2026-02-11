@@ -748,6 +748,10 @@ body {
   font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  color: #4b5563;
+  font-weight: 500;
 }
 
 .copy-link-btn:hover {
@@ -1650,7 +1654,7 @@ textarea.input-field {
       </div>
       <div class="modal-actions">
         <button class="copy-link-btn" onclick="copyMeetingLink()" title="Copy shareable link">
-          🔗 Copy Link
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>Copy Link
         </button>
         <button class="modal-close" onclick="closeModal()">&times;</button>
       </div>
@@ -2070,7 +2074,7 @@ function standardizeSummary(summary, displayName, title, company) {
   
   let cleanSummary = summary.trim();
   
-  // Build the header we'll use (this is the ONE place name/title should appear)
+  // Build the header (the ONE place name/title should appear)
   let header = displayName + ' –';
   if (title && company) {
     header = displayName + ' – ' + title + ' at ' + company + '.';
@@ -2081,71 +2085,93 @@ function standardizeSummary(summary, displayName, title, company) {
   }
   
   // ======================================================================
-  // STEP 1: Strip ALL "Name – Title at Company." intro patterns
+  // STEP 1: SENTENCE-LEVEL INTRO STRIPPING
+  // Split into sentences, classify each leading sentence as "intro" or
+  // "substantive", strip all consecutive intros from the front.
+  // This replaces the fragile regex approach — handles name variations,
+  // missing dashes, garbled names, and multi-intro patterns robustly.
   // ======================================================================
-  let uniqueContent = cleanSummary;
   
-  // STEP 1a: GENERIC strip — remove ALL leading "AnyName – Title at Company." sentences.
-  // This catches garbled names (e.g. "Kgur In – General Counsel at Wellspring.")
-  // AND real names (e.g. "Kristen Gurdin – General Counsel at Wellspring.") in one pass.
-  // The pattern matches any sequence of capitalized words followed by a dash and a sentence.
-  // Loop to handle multiple consecutive intro sentences (garbled + real).
-  let prevContent = '';
-  while (uniqueContent !== prevContent) {
-    prevContent = uniqueContent;
-    // Match ANY word(s) starting with a capital letter, followed by a dash, then content up to a period
-    // Handles: "Kgur In – GC at Wellspring.", "Kristen Gurdin – GC at Wellspring.", "Mmoersfel Er – ..."
-    uniqueContent = uniqueContent
-      .replace(/^[A-Z]\w*(?:\s+[A-Z]\w*)*\s*[–\-—]\s*[^.]+\.\s*/, '')
-      .trim();
+  // Extract name parts for fuzzy matching
+  const nameParts = displayName.split(/\s+/).filter(function(p) { return p.length >= 2; });
+  const firstName = (nameParts[0] || '').toLowerCase();
+  const lastName = (nameParts[nameParts.length - 1] || '').toLowerCase();
+  const companyLower = (company || '').toLowerCase();
+  const titleLower = (title || '').toLowerCase();
+  // First 15 chars of title for partial matching (avoids long title false negatives)
+  const titlePrefix = titleLower.substring(0, Math.min(titleLower.length, 15));
+  
+  // Split summary into sentences (keep punctuation attached)
+  var sentences = cleanSummary.match(/[^.!?]+[.!?]+/g);
+  if (!sentences || sentences.length === 0) {
+    sentences = [cleanSummary];
   }
   
-  // STEP 1b: Name-specific strip — catch remaining patterns deeper in the text
-  const firstName = displayName.split(' ')[0];
-  const namePatterns = [displayName, firstName];
-  
-  for (const name of namePatterns) {
-    const escapedName = escapeRegex(name);
+  // Classify a sentence as an "intro" (redundant name/title/company mention)
+  function isIntroSentence(sentence) {
+    var s = sentence.trim();
+    if (!s || s.length < 5) return true; // trivial/empty
     
-    // Pattern 1: "Name – Title at Company." (dash format)
-    const dashPattern = new RegExp(escapedName + '\\s*[–\\-—]\\s*[^.]+(?:\\s+(?:at|of|for)\\s+[^.]+)?[.]\\s*', 'gi');
-    uniqueContent = uniqueContent.replace(dashPattern, '').trim();
+    var sLower = s.toLowerCase();
     
-    // Pattern 2: "Name is a/an/the Title at Company." 
-    const isPattern = new RegExp(escapedName + '\\s+is\\s+(?:a|an|the\\s+)?[^.]+(?:\\s+(?:at|of|for)\\s+[^.]+)?[.]\\s*', 'gi');
-    uniqueContent = uniqueContent.replace(isPattern, '').trim();
+    // --- Feature detection ---
+    // Has first name?
+    var hasFirstName = firstName.length >= 2 && sLower.indexOf(firstName) !== -1;
+    // Has last name?
+    var hasLastName = lastName.length >= 2 && sLower.indexOf(lastName) !== -1;
+    // Has company name?
+    var hasCompany = companyLower.length >= 2 && sLower.indexOf(companyLower) !== -1;
+    // Has title (or prefix)?
+    var hasTitle = titlePrefix.length >= 3 && sLower.indexOf(titlePrefix) !== -1;
+    // Starts with capitalized words + dash?
+    var startsWithNameDash = /^[A-Z][a-zA-Z]*(?:\s+[A-Za-z][a-zA-Z]*)*\s*[–\u2013\-—]/.test(s);
+    // Has a dash anywhere?
+    var hasDash = /[–\u2013\-—]/.test(s);
+    // "Name   Title" pattern (no dash, multiple spaces)
+    var hasNameSpaceTitle = firstName.length >= 2 && /\s{2,}/.test(s) && hasFirstName;
+    // Starts with "He/She/They is/are"?
+    var startsWithPronoun = /^(?:They|He|She)\s+(?:is|are)\s/i.test(s);
     
-    // Pattern 3: "Name, Title at Company," or "Name, the Title"
-    const commaPattern = new RegExp(escapedName + ',\\s+(?:the\\s+)?[^,.]+(?:\\s+(?:at|of|for)\\s+[^,.]+)?[,.]\\s*', 'gi');
-    uniqueContent = uniqueContent.replace(commaPattern, '').trim();
+    // --- Decision rules (ordered by confidence) ---
+    
+    // Rule 1: "Name – Title at Company" (most common Clay intro pattern)
+    if (startsWithNameDash && (hasCompany || hasTitle)) return true;
+    
+    // Rule 2: Starts with name + dash but is short (< 120 chars = likely just an intro)
+    if (startsWithNameDash && s.length < 120) return true;
+    
+    // Rule 3: Has first name + company reference and is short
+    if (hasFirstName && hasCompany && s.length < 150) return true;
+    
+    // Rule 4: Has first name + title reference and is short
+    if (hasFirstName && hasTitle && s.length < 150) return true;
+    
+    // Rule 5: Has last name + dash + company (handles name variations like "Fieldhouse" vs "Fiel House")
+    if (hasLastName && hasDash && hasCompany && s.length < 150) return true;
+    
+    // Rule 6: "Name   Title" pattern (no dash, just multiple spaces)
+    if (hasNameSpaceTitle && (hasCompany || hasTitle)) return true;
+    
+    // Rule 7: "He/She/They is/are a Title at Company"
+    if (startsWithPronoun && (hasCompany || hasTitle) && s.length < 150) return true;
+    
+    return false;
   }
   
-  // Pattern 4: "He/She/They is/are a/the Title" at start
-  uniqueContent = uniqueContent.replace(/^(?:They|He|She)\s+(?:is|are)\s+(?:a|an|the\s+)?[^.]+(?:\s+(?:at|of|for)\s+[^.]+)?[.]\s*/gi, '').trim();
-  
-  // ======================================================================
-  // STEP 2: Check for contradictory info (different companies mentioned)
-  // ======================================================================
-  if (company && uniqueContent.length > 50) {
-    const sentences = uniqueContent.split(/[.!?]+/).filter(s => s.trim().length > 10);
-    const mentionedCompanies = [];
-    sentences.forEach(s => {
-      const atMatch = s.match(/(?:at|for|with)\s+([A-Z][a-zA-Z\s&]+?)(?:\s+(?:since|from|in|\.|,|$))/i);
-      if (atMatch) mentionedCompanies.push(atMatch[1].trim().toLowerCase());
-    });
-    
-    // If different companies mentioned, truncate to first valid sentence only
-    const uniqueCompanies = [...new Set(mentionedCompanies)].filter(c => c.length > 2);
-    if (uniqueCompanies.length > 1) {
-      console.log('[Summary Format] Contradictory companies detected:', uniqueCompanies);
-      // Keep only first sentence after our header
-      const firstSentence = sentences[0] || '';
-      uniqueContent = firstSentence.trim();
+  // Strip all consecutive intro sentences from the front
+  var firstNonIntroIdx = 0;
+  for (var i = 0; i < sentences.length; i++) {
+    if (isIntroSentence(sentences[i])) {
+      firstNonIntroIdx = i + 1;
+    } else {
+      break;
     }
   }
   
+  var uniqueContent = sentences.slice(firstNonIntroIdx).join('').trim();
+  
   // ======================================================================
-  // STEP 3: Build final summary with header + unique content
+  // STEP 2: Build final summary with header + unique content
   // ======================================================================
   if (uniqueContent && uniqueContent.length > 10) {
     // Capitalize first letter of unique content
@@ -2475,6 +2501,15 @@ function hydrateFromAPI() {
             banner.textContent = ss.databaseStats.customerMeetings + ' meetings loaded' + (ss.lastSync ? ' (' + new Date(ss.lastSync).toLocaleTimeString() + ')' : '');
           }
         }
+        
+        // DEEP-LINK: After hydration completes, check for autoOpen param
+        // This is the reliable path — data is guaranteed to be in MEETINGS_DATA now
+        const urlParams = new URLSearchParams(window.location.search);
+        const autoOpenId = urlParams.get('autoOpen');
+        if (autoOpenId && !document.getElementById('prepModal')?.classList.contains('active')) {
+          console.log('[Deep Link] Hydration complete, auto-opening meeting:', autoOpenId);
+          openMeetingPrep(autoOpenId);
+        }
       })
       .catch(err => {
         console.error('[Hydration] Fetch failed:', err);
@@ -2495,26 +2530,22 @@ document.addEventListener('DOMContentLoaded', () => {
   hydrateFromAPI();
   
   // Handle autoOpen deep-link parameter (from Copy Link feature)
+  // On WARM CACHE: MEETINGS_DATA is already populated from SSR, open immediately.
+  // On COLD CACHE: MEETINGS_DATA is empty; hydrateFromAPI() handles it after data loads.
   const urlParams = new URLSearchParams(window.location.search);
   const autoOpenId = urlParams.get('autoOpen');
-  if (autoOpenId) {
-    // Retry until meeting data is loaded (MEETINGS_DATA populated), up to 10 seconds
-    let attempts = 0;
-    const maxAttempts = 20;
-    const tryOpen = () => {
-      attempts++;
-      if (typeof MEETINGS_DATA !== 'undefined' && MEETINGS_DATA[autoOpenId]) {
-        console.log('[Deep Link] Auto-opening meeting (attempt ' + attempts + '):', autoOpenId);
-        openMeetingPrep(autoOpenId);
-      } else if (attempts >= maxAttempts) {
-        // Data may not be pre-loaded — try opening anyway (will fetch via API)
-        console.log('[Deep Link] Opening meeting without pre-loaded data:', autoOpenId);
+  if (autoOpenId && !NEEDS_HYDRATION) {
+    // Warm cache — data is available, open immediately
+    setTimeout(function() {
+      if (MEETINGS_DATA[autoOpenId]) {
+        console.log('[Deep Link] Warm cache, auto-opening meeting:', autoOpenId);
         openMeetingPrep(autoOpenId);
       } else {
-        setTimeout(tryOpen, 500);
+        // Meeting ID might not be in pre-loaded data (edge case) — try anyway
+        console.log('[Deep Link] Meeting not in pre-loaded data, trying anyway:', autoOpenId);
+        openMeetingPrep(autoOpenId);
       }
-    };
-    setTimeout(tryOpen, 300);
+    }, 300);
   }
 });
 
@@ -3526,12 +3557,12 @@ function copyMeetingLink() {
   
   navigator.clipboard.writeText(shareUrl).then(() => {
     const btn = document.querySelector('.copy-link-btn');
-    const originalText = btn.textContent;
-    btn.textContent = '✓ Copied!';
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>Copied!';
     btn.classList.add('copied');
     
     setTimeout(() => {
-      btn.textContent = originalText;
+      btn.innerHTML = originalHTML;
       btn.classList.remove('copied');
     }, 2000);
   }).catch(err => {
