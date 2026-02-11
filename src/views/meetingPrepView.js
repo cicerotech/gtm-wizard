@@ -1654,7 +1654,7 @@ textarea.input-field {
       </div>
       <div class="modal-actions">
         <button class="copy-link-btn" onclick="copyMeetingLink()" title="Copy shareable link">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>Copy Link
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>Copy Link
         </button>
         <button class="modal-close" onclick="closeModal()">&times;</button>
       </div>
@@ -1753,7 +1753,7 @@ function isExecutiveAssistant(attendee) {
   
   const email = (attendee.email || '').toLowerCase();
   const rawName = attendee.name || attendee.full_name || attendee.fullName || '';
-  const name = rawName.toLowerCase().replace(/[,.\-_@]/g, ' ').replace(/\s+/g, ' ').trim();
+  const name = rawName.toLowerCase().replace(/[,.\\-_@]/g, ' ').replace(/\\s+/g, ' ').trim();
   
   return EA_EXCLUSIONS.some(ea => {
     // Match by email (partial - handles variations)
@@ -1819,9 +1819,9 @@ function extractNameFromEmail(email) {
   
   // Handle patterns: first.last, first_last, first-last, firstlast1
   let name = localPart
-    .replace(/\d+$/g, '')           // Remove trailing numbers (e.g., jsmith1 → jsmith)
+    .replace(/\\d+$/g, '')           // Remove trailing numbers (e.g., jsmith1 → jsmith)
     .replace(/[._-]/g, ' ')         // Replace dots, underscores, hyphens with spaces
-    .replace(/(\d+)/g, ' ')         // Replace any remaining numbers with spaces
+    .replace(/(\\d+)/g, ' ')         // Replace any remaining numbers with spaces
     .trim();
   
   // If still no spaces (e.g., "jsmith"), try to split on camelCase or common patterns
@@ -1847,7 +1847,7 @@ function extractNameFromEmail(email) {
  */
 function isValidHumanName(name) {
   if (!name) return false;
-  const parts = name.trim().split(/\s+/);
+  const parts = name.trim().split(/\\s+/);
   // A valid full name has at least two parts
   if (parts.length < 2) return false;
   // Each part should be 3+ chars and contain at least one vowel
@@ -1866,7 +1866,7 @@ function extractNamesFromSummary(text) {
   if (!text || typeof text !== 'string') return [];
   const names = [];
   // Match "FirstName LastName –" or "FirstName LastName -" patterns anywhere
-  const pattern = /([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})+)\s*[–\-—]/g;
+  const pattern = /([A-Z][a-z]{2,}(?:\\s+[A-Z][a-z]{2,})+)\\s*[–\\-—]/g;
   let match;
   while ((match = pattern.exec(text)) !== null) {
     const candidate = match[1].trim();
@@ -1919,7 +1919,7 @@ function extractBestName(attendee, summary) {
     }
     
     // Fallback: original regex for edge cases
-    const dashMatch = summary.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*[–\-—]/);
+    const dashMatch = summary.match(/^([A-Z][a-z]+(?:\\s+[A-Z][a-z]+)+)\\s*[–\\-—]/);
     if (dashMatch && dashMatch[1] && isValidHumanName(dashMatch[1].trim())) {
       console.log('[Name Extract] Extracted from summary start:', dashMatch[1]);
       return dashMatch[1].trim();
@@ -2093,7 +2093,7 @@ function standardizeSummary(summary, displayName, title, company) {
   // ======================================================================
   
   // Extract name parts for fuzzy matching
-  const nameParts = displayName.split(/\s+/).filter(function(p) { return p.length >= 2; });
+  const nameParts = displayName.split(/\\s+/).filter(function(p) { return p.length >= 2; });
   const firstName = (nameParts[0] || '').toLowerCase();
   const lastName = (nameParts[nameParts.length - 1] || '').toLowerCase();
   const companyLower = (company || '').toLowerCase();
@@ -2124,13 +2124,13 @@ function standardizeSummary(summary, displayName, title, company) {
     // Has title (or prefix)?
     var hasTitle = titlePrefix.length >= 3 && sLower.indexOf(titlePrefix) !== -1;
     // Starts with capitalized words + dash?
-    var startsWithNameDash = /^[A-Z][a-zA-Z]*(?:\s+[A-Za-z][a-zA-Z]*)*\s*[–\u2013\-—]/.test(s);
+    var startsWithNameDash = /^[A-Z][a-zA-Z]*(?:\\s+[A-Za-z][a-zA-Z]*)*\\s*[–\\u2013\\-—]/.test(s);
     // Has a dash anywhere?
-    var hasDash = /[–\u2013\-—]/.test(s);
+    var hasDash = /[–\\u2013\\-—]/.test(s);
     // "Name   Title" pattern (no dash, multiple spaces)
-    var hasNameSpaceTitle = firstName.length >= 2 && /\s{2,}/.test(s) && hasFirstName;
+    var hasNameSpaceTitle = firstName.length >= 2 && /\\s{2,}/.test(s) && hasFirstName;
     // Starts with "He/She/They is/are"?
-    var startsWithPronoun = /^(?:They|He|She)\s+(?:is|are)\s/i.test(s);
+    var startsWithPronoun = /^(?:They|He|She)\\s+(?:is|are)\\s/i.test(s);
     
     // --- Decision rules (ordered by confidence) ---
     
@@ -2213,11 +2213,11 @@ function buildLinkedInSearchQuery(displayName, company) {
   let normalizedName = displayName
     .replace(/\./g, ' ')      // Periods to spaces
     .replace(/_/g, ' ')       // Underscores to spaces
-    .replace(/\s+/g, ' ')     // Multiple spaces to single
+    .replace(/\\s+/g, ' ')     // Multiple spaces to single
     .trim();
   
   // Split name into parts and filter out garbage
-  const nameParts = normalizedName.split(/\s+/).filter(function(part) {
+  const nameParts = normalizedName.split(/\\s+/).filter(function(part) {
     // Remove single letters
     if (part.length <= 1) return false;
     // Remove common suffixes that don't help search
@@ -2296,10 +2296,10 @@ const GHOST_ATTENDEE_CONFIG = {
   
   // Regex patterns for complex email matching
   emailRegexPatterns: [
-    /^[A-Z]{4,}[A-Z0-9]*\d{2,}[A-Z]?@/i,  // All-caps codes with numbers: CORPRMSS2320A@
-    /^\d{4,}@/,                             // Starts with 4+ digits
-    /^(room|conf|mtg|res)\d+@/i,           // room123@, conf456@, etc.
-    /^[a-z]{1,3}\d{5,}@/i                  // Short prefix + many digits: rm12345@
+    /^[A-Z]{4,}[A-Z0-9]*\\d{2,}[A-Z]?@/i,  // All-caps codes with numbers: CORPRMSS2320A@
+    /^\\d{4,}@/,                             // Starts with 4+ digits
+    /^(room|conf|mtg|res)\\d+@/i,           // room123@, conf456@, etc.
+    /^[a-z]{1,3}\\d{5,}@/i                  // Short prefix + many digits: rm12345@
   ]
 };
 
@@ -2327,7 +2327,7 @@ function isGhostAttendee(attendee) {
     if (localPart.startsWith(prefix) && localPart.length > prefix.length) {
       // Ensure it's not a real name like "confalonieri@..."
       const afterPrefix = localPart.slice(prefix.length);
-      if (/^\d/.test(afterPrefix) || afterPrefix.startsWith('-') || afterPrefix.startsWith('_')) {
+      if (/^\\d/.test(afterPrefix) || afterPrefix.startsWith('-') || afterPrefix.startsWith('_')) {
         return true;
       }
     }
@@ -2342,12 +2342,12 @@ function isGhostAttendee(attendee) {
   
   // Check if name looks like a room code (e.g., "State Street Salem 2320 (11)")
   // Pattern: Contains both a multi-digit number AND parenthetical number
-  if (/\(\d+\)/.test(name) && /\d{3,}/.test(name)) {
+  if (/\\(\\d+\\)/.test(name) && /\\d{3,}/.test(name)) {
     return true;
   }
   
   // Check for very short or numeric-only local parts
-  if (localPart.length <= 2 || /^\d+$/.test(localPart)) {
+  if (localPart.length <= 2 || /^\\d+$/.test(localPart)) {
     return true;
   }
   
