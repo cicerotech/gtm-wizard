@@ -3634,26 +3634,44 @@ class GTMBrainApp {
         }
         
         // CS users: redirect to CS-specific account logic (Existing + CS Staffing)
+        // NOTE: Salesforce does NOT allow semi-join subselects inside OR clauses,
+        // so we run two queries and merge results.
         const userGroup = getUserGroup(normalizedEmail);
         if (userGroup === 'cs') {
           logger.info(`[Ownership] CS user detected: ${normalizedEmail} — fetching CS-relevant accounts`);
-          const csQuery = `
+          
+          // Query 1: Existing customers
+          const existingQuery = `
             SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name
             FROM Account 
-            WHERE (
-              Customer_Type__c = 'Existing'
-              OR Id IN (
-                SELECT AccountId FROM Opportunity 
-                WHERE CS_Staffing_Flag__c = true AND IsClosed = false
-              )
-            )
+            WHERE Customer_Type__c = 'Existing'
               AND (NOT Name LIKE '%Sample%')
               AND (NOT Name LIKE '%Test%')
             ORDER BY Name ASC
             LIMIT 1000
           `;
-          const csResult = await sfConnection.query(csQuery);
-          const csAccounts = (csResult.records || []).map(acc => ({
+          // Query 2: Accounts with CS Staffing flagged opportunities
+          const csStaffingQuery = `
+            SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name
+            FROM Account 
+            WHERE Id IN (
+              SELECT AccountId FROM Opportunity 
+              WHERE CS_Staffing_Flag__c = true AND IsClosed = false
+            )
+              AND (NOT Name LIKE '%Sample%')
+              AND (NOT Name LIKE '%Test%')
+            ORDER BY Name ASC
+            LIMIT 500
+          `;
+          
+          const [existingResult, staffingResult] = await Promise.all([
+            sfConnection.query(existingQuery),
+            sfConnection.query(csStaffingQuery)
+          ]);
+          
+          // Merge and deduplicate by Account Id
+          const accountMap = new Map();
+          const mapAcc = (acc) => ({
             id: acc.Id,
             name: acc.Name,
             type: acc.Customer_Type__c || acc.Type || 'Customer',
@@ -3662,10 +3680,17 @@ class GTMBrainApp {
             website: acc.Website || null,
             industry: acc.Industry || null,
             ownerName: acc.Owner?.Name || null
-          }));
-          csAccounts.sort((a, b) => a.name.localeCompare(b.name));
+          });
+          for (const acc of (existingResult.records || [])) {
+            accountMap.set(acc.Id, mapAcc(acc));
+          }
+          for (const acc of (staffingResult.records || [])) {
+            if (!accountMap.has(acc.Id)) accountMap.set(acc.Id, mapAcc(acc));
+          }
           
-          logger.info(`[Ownership] CS user ${normalizedEmail}: ${csAccounts.length} CS-relevant accounts`);
+          const csAccounts = Array.from(accountMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+          
+          logger.info(`[Ownership] CS user ${normalizedEmail}: ${csAccounts.length} CS-relevant accounts (${existingResult.totalSize || 0} existing + ${staffingResult.totalSize || 0} staffing, deduped)`);
           return res.json({
             success: true,
             email: normalizedEmail,
@@ -4029,26 +4054,84 @@ class GTMBrainApp {
             `;
             break;
             
-          case 'cs':
-            // CS-relevant accounts: Existing customers + accounts with CS Staffing Flag opportunities
+          case 'cs': {
+            // CS-relevant accounts: Existing customers + CS Staffing flagged opportunities
+            // NOTE: Salesforce disallows semi-join subselects inside OR, so we run 2 queries and merge.
             queryDescription = 'existing customers + CS staffing accounts';
-            accountQuery = `
+            const csExistingQ = `
               SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
-                     (SELECT Id, Name, StageName, CS_Staffing_Flag__c FROM Opportunities WHERE IsClosed = false LIMIT 5)
+                     (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
               FROM Account 
-              WHERE (
-                Customer_Type__c = 'Existing'
-                OR Id IN (
-                  SELECT AccountId FROM Opportunity 
-                  WHERE CS_Staffing_Flag__c = true AND IsClosed = false
-                )
-              )
+              WHERE Customer_Type__c = 'Existing'
                 AND (NOT Name LIKE '%Sample%')
                 AND (NOT Name LIKE '%Test%')
               ORDER BY Name ASC
               LIMIT 1000
             `;
-            break;
+            const csStaffingQ = `
+              SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
+                     (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
+              FROM Account 
+              WHERE Id IN (
+                SELECT AccountId FROM Opportunity 
+                WHERE CS_Staffing_Flag__c = true AND IsClosed = false
+              )
+                AND (NOT Name LIKE '%Sample%')
+                AND (NOT Name LIKE '%Test%')
+              ORDER BY Name ASC
+              LIMIT 500
+            `;
+            const [csExRes, csStRes] = await Promise.all([
+              sfConnection.query(csExistingQ),
+              sfConnection.query(csStaffingQ)
+            ]);
+            // Merge and deduplicate
+            const csMap = new Map();
+            for (const r of [...(csExRes.records || []), ...(csStRes.records || [])]) {
+              if (!csMap.has(r.Id)) csMap.set(r.Id, r);
+            }
+            // Override accountResult for downstream processing
+            const mergedRecords = Array.from(csMap.values());
+            logger.info(`[BL-Accounts][${correlationId}] CS merge: ${csExRes.totalSize || 0} existing + ${csStRes.totalSize || 0} staffing = ${mergedRecords.length} unique`);
+            // Build response directly for CS (skip the generic accountResult path)
+            const csActiveAccounts = mergedRecords.map(acc => {
+              const openOpps = acc.Opportunities?.records || [];
+              return {
+                id: acc.Id,
+                name: acc.Name,
+                type: acc.Type || null,
+                customerType: acc.Customer_Type__c || null,
+                industry: acc.Industry || null,
+                website: acc.Website || null,
+                ownerId: acc.OwnerId || null,
+                ownerName: acc.Owner?.Name || null,
+                hasOpenOpps: openOpps.length > 0,
+                oppCount: openOpps.length,
+                hadOpportunity: true,
+                openOpps: openOpps.slice(0, 3).map(o => ({ name: o.Name, stage: o.StageName }))
+              };
+            }).sort((a, b) => a.name.localeCompare(b.name));
+            
+            const csQueryTime = Date.now() - startTime;
+            return res.json({
+              success: true,
+              accounts: csActiveAccounts,
+              prospectAccounts: [],
+              meta: {
+                email: normalizedEmail,
+                userId,
+                userName,
+                userGroup,
+                total: csActiveAccounts.length,
+                activeCount: csActiveAccounts.length,
+                prospectCount: 0,
+                queryDescription,
+                queryTime: csQueryTime,
+                lastRefresh: new Date().toISOString(),
+                correlationId
+              }
+            });
+          }
             
           default: // 'bl'
             // Standard BL query: ALL owned accounts (full Book of Business)
