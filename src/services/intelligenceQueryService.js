@@ -1031,5 +1031,11 @@ module.exports = {
   parseCustomerBrainNotes,
   // Expose for testing
   gatherContext,
-  buildPrompt
+  buildPrompt,
+  // Expose data-gathering functions for account enrichment
+  getAccountDetails,
+  getContacts,
+  getOpportunities,
+  getRecentTasks,
+  getRecentEvents
 };

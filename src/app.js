@@ -120,7 +120,8 @@ const SALES_LEADER_DIRECT_REPORTS = {
 // Maps email -> region to determine which pod's accounts they see
 const POD_VIEW_USERS = {
   'sean.boyd@eudia.com': 'US',
-  'riley.stack@eudia.com': 'US'
+  'riley.stack@eudia.com': 'US',
+  'rajeev.patel@eudia.com': 'US'
 };
 
 // Customer Success team
@@ -211,6 +212,152 @@ function getTeamForBL(email) {
     }
   }
   return null;
+}
+
+/**
+ * Format enrichment data into structured markdown for Obsidian subnotes.
+ * Reuses the same Salesforce data shapes returned by intelligenceQueryService functions.
+ */
+function formatEnrichmentMarkdown(details, contacts, opportunities, tasks, events) {
+  const result = {};
+
+  // ── Contacts.md content ──
+  if (contacts && contacts.length > 0) {
+    const rows = contacts
+      .filter(c => c.name)
+      .map(c => `| ${c.name || ''} | ${c.title || ''} | ${c.email || ''} | ${c.phone || ''} |`);
+    result.contacts = [
+      '| Name | Title | Email | Phone |',
+      '|------|-------|-------|-------|',
+      ...rows
+    ].join('\n');
+  } else {
+    result.contacts = '*No contacts found in Salesforce for this account.*';
+  }
+
+  // ── Intelligence.md content ──
+  const intel = [];
+  if (details) {
+    intel.push('## Company Overview');
+    if (details.industry) intel.push(`**Industry:** ${details.industry}`);
+    if (details.website) intel.push(`**Website:** ${details.website}`);
+    if (details.location) intel.push(`**Location:** ${details.location}`);
+    if (details.type) intel.push(`**Customer Type:** ${details.type}${details.subtype ? ` / ${details.subtype}` : ''}`);
+    if (details.legalDeptSize) intel.push(`**Legal Department Size:** ${details.legalDeptSize}`);
+    if (details.cloEngaged) intel.push(`**CLO Engaged:** ${details.cloEngaged}`);
+    if (details.description) intel.push(`\n> ${details.description.substring(0, 500)}`);
+    intel.push('');
+
+    if (details.painPoints) {
+      intel.push('## Pain Points');
+      intel.push(details.painPoints);
+      intel.push('');
+    }
+    if (details.competitiveLandscape) {
+      intel.push('## Competitive Intelligence');
+      intel.push(details.competitiveLandscape);
+      intel.push('');
+    }
+    if (details.keyDecisionMakers) {
+      intel.push('## Key Decision Makers');
+      intel.push(details.keyDecisionMakers);
+      intel.push('');
+    }
+    if (details.accountPlan) {
+      intel.push('## Account Plan');
+      intel.push(details.accountPlan);
+      intel.push('');
+    }
+  }
+  result.intelligence = intel.length > 1 ? intel.join('\n') : '*No intelligence data found in Salesforce for this account.*';
+
+  // ── Opportunities section ──
+  if (opportunities && opportunities.length > 0) {
+    const openOpps = opportunities.filter(o => !o.isClosed);
+    const closedWon = opportunities.filter(o => o.isClosed && o.isWon);
+    const lines = [];
+
+    if (openOpps.length > 0) {
+      lines.push('## Open Opportunities');
+      lines.push('| Opportunity | Stage | ACV | Close Date | Product | Next Step |');
+      lines.push('|------------|-------|-----|------------|---------|-----------|');
+      for (const o of openOpps) {
+        const acv = o.acv ? `$${Number(o.acv).toLocaleString()}` : '';
+        const close = o.closeDate ? o.closeDate.split('T')[0] : '';
+        lines.push(`| ${o.name || ''} | ${o.stage || ''} | ${acv} | ${close} | ${o.productLine || ''} | ${o.nextStep || ''} |`);
+      }
+      lines.push('');
+    }
+
+    if (closedWon.length > 0) {
+      lines.push('## Closed Won');
+      lines.push('| Opportunity | ACV | Close Date | Product |');
+      lines.push('|------------|-----|------------|---------|');
+      for (const o of closedWon) {
+        const acv = o.acv ? `$${Number(o.acv).toLocaleString()}` : '';
+        const close = o.closeDate ? o.closeDate.split('T')[0] : '';
+        lines.push(`| ${o.name || ''} | ${acv} | ${close} | ${o.productLine || ''} |`);
+      }
+      lines.push('');
+    }
+
+    result.opportunities = lines.join('\n');
+  } else {
+    result.opportunities = '*No opportunities found in Salesforce for this account.*';
+  }
+
+  // ── Next Steps / Tasks ──
+  if (tasks && tasks.length > 0) {
+    const openTasks = tasks.filter(t => t.status !== 'Completed');
+    const completedTasks = tasks.filter(t => t.status === 'Completed');
+    const lines = [];
+
+    if (openTasks.length > 0) {
+      lines.push('## Active Action Items');
+      for (const t of openTasks) {
+        const date = t.date ? ` (Due: ${t.date.split('T')[0]})` : '';
+        const owner = t.owner ? ` — ${t.owner}` : '';
+        lines.push(`- [ ] ${t.subject || 'Untitled task'}${date}${owner}`);
+      }
+      lines.push('');
+    }
+
+    if (completedTasks.length > 0) {
+      lines.push('## Completed (Last 90 Days)');
+      for (const t of completedTasks) {
+        const date = t.date ? ` (${t.date.split('T')[0]})` : '';
+        lines.push(`- [x] ${t.subject || 'Untitled task'}${date}`);
+      }
+      lines.push('');
+    }
+
+    result.nextSteps = lines.join('\n');
+  } else {
+    result.nextSteps = '*No recent tasks found in Salesforce for this account.*';
+  }
+
+  // ── Recent Activity / Events ──
+  if (events && events.length > 0) {
+    const lines = ['## Recent Meetings (Last 90 Days)'];
+    for (const e of events) {
+      const date = e.startTime ? e.startTime.split('T')[0] : '';
+      const owner = e.owner ? ` (${e.owner})` : '';
+      lines.push(`- **${date}**: ${e.subject || 'Meeting'}${owner}`);
+      if (e.description) {
+        lines.push(`  > ${e.description.replace(/\n/g, ' ').substring(0, 200)}`);
+      }
+    }
+    result.recentActivity = lines.join('\n');
+  } else {
+    result.recentActivity = '*No recent meetings found in Salesforce for this account.*';
+  }
+
+  // ── Customer Brain (historical notes) ──
+  if (details?.customerBrain) {
+    result.customerBrain = details.customerBrain.substring(0, 10000);
+  }
+
+  return result;
 }
 
 // Admin authentication middleware
@@ -3220,6 +3367,74 @@ class GTMBrainApp {
         res.json({ success: true, contacts });
       } catch (error) {
         logger.error('Error fetching contacts:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BATCH ACCOUNT ENRICHMENT
+    // Uses the same Salesforce data-gathering functions as the GTM Brain
+    // intelligence query pipeline to produce structured markdown for Obsidian notes
+    // ═══════════════════════════════════════════════════════════════════════════
+    this.expressApp.post('/api/accounts/enrich-batch', async (req, res) => {
+      try {
+        const { accountIds, userEmail } = req.body;
+
+        if (!accountIds || !Array.isArray(accountIds) || accountIds.length === 0) {
+          return res.status(400).json({ success: false, error: 'accountIds array is required' });
+        }
+
+        // Cap at 20 per request to respect SF API limits
+        const ids = accountIds.slice(0, 20);
+
+        const {
+          getAccountDetails,
+          getContacts,
+          getOpportunities,
+          getRecentTasks,
+          getRecentEvents
+        } = require('./services/intelligenceQueryService');
+
+        logger.info(`[Enrich] Batch enrichment for ${ids.length} accounts (requested by ${userEmail || 'unknown'})`);
+
+        const enrichments = {};
+
+        // Process accounts in parallel (limited concurrency)
+        const batchSize = 5;
+        for (let i = 0; i < ids.length; i += batchSize) {
+          const batch = ids.slice(i, i + batchSize);
+          const results = await Promise.allSettled(
+            batch.map(async (accountId) => {
+              const [details, contacts, opportunities, tasks, events] = await Promise.all([
+                getAccountDetails(accountId),
+                getContacts(accountId),
+                getOpportunities(accountId),
+                getRecentTasks(accountId),
+                getRecentEvents(accountId)
+              ]);
+
+              return { accountId, details, contacts, opportunities, tasks, events };
+            })
+          );
+
+          for (const result of results) {
+            if (result.status === 'fulfilled') {
+              const { accountId, details, contacts, opportunities, tasks, events } = result.value;
+              enrichments[accountId] = formatEnrichmentMarkdown(details, contacts, opportunities, tasks, events);
+            }
+          }
+        }
+
+        logger.info(`[Enrich] Completed enrichment for ${Object.keys(enrichments).length}/${ids.length} accounts`);
+
+        res.json({
+          success: true,
+          enrichments,
+          enrichedCount: Object.keys(enrichments).length,
+          requestedCount: ids.length
+        });
+      } catch (error) {
+        logger.error('[Enrich] Batch enrichment error:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });

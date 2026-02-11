@@ -120,7 +120,8 @@ export const SALES_LEADER_DIRECT_REPORTS: Record<string, string[]> = {
  */
 export const POD_VIEW_USERS: Record<string, string> = {
   'sean.boyd@eudia.com': 'US',
-  'riley.stack@eudia.com': 'US'
+  'riley.stack@eudia.com': 'US',
+  'rajeev.patel@eudia.com': 'US'
 };
 
 /**

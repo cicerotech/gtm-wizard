@@ -983,6 +983,10 @@ class SetupWizardModal extends Modal {
         this.plugin.settings.accountsImported = true;
         this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
         await this.plugin.saveSettings();
+
+        // Non-blocking enrichment: populate subnotes with Salesforce data
+        const allAccounts = [...accounts, ...prospects];
+        setTimeout(() => this.plugin.enrichAccountFolders(allAccounts), 2000);
       }
       this.updateStep('accounts', 'complete');
     } catch (e) {
@@ -1353,6 +1357,10 @@ class EudiaSetupView extends ItemView {
             this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
             await this.plugin.saveSettings();
             new Notice(`Imported ${accounts.length} active accounts + ${prospects.length} prospects!`);
+
+            // Non-blocking enrichment: populate subnotes with Salesforce data
+            const allImported = [...accounts, ...prospects];
+            setTimeout(() => this.plugin.enrichAccountFolders(allImported), 2000);
           }
         } catch (importError) {
           console.error('[Eudia] Account import failed:', importError);
@@ -1544,6 +1552,10 @@ class EudiaSetupView extends ItemView {
         statusEl.textContent = `${accounts.length} active + ${prospects.length} prospect accounts imported!`;
       }
       statusEl.className = 'eudia-setup-sf-status success';
+
+      // Non-blocking enrichment: populate subnotes with Salesforce data
+      const allSetupAccounts = [...accounts, ...prospects];
+      setTimeout(() => this.plugin.enrichAccountFolders(allSetupAccounts), 2000);
       
     } catch (error) {
       statusEl.textContent = 'Failed to import accounts. Please try again.';
@@ -2665,6 +2677,25 @@ export default class EudiaSyncPlugin extends Plugin {
       id: 'ask-gtm-brain',
       name: 'Ask gtm-brain',
       callback: () => this.openIntelligenceQueryForCurrentNote()
+    });
+
+    this.addCommand({
+      id: 'enrich-accounts',
+      name: 'Enrich Account Folders with Salesforce Data',
+      callback: async () => {
+        if (!this.settings.userEmail) {
+          new Notice('Please set up your email first.');
+          return;
+        }
+        const ownershipService = new AccountOwnershipService(this.settings.serverUrl);
+        const result = await ownershipService.getAccountsWithProspects(this.settings.userEmail);
+        const all = [...result.accounts, ...result.prospects];
+        if (all.length === 0) {
+          new Notice('No accounts found to enrich.');
+          return;
+        }
+        await this.enrichAccountFolders(all);
+      }
     });
 
     this.addCommand({
@@ -5637,6 +5668,198 @@ To restore, move this folder back to the Accounts directory.
       new Notice('Salesforce authentication required. Please reconnect.');
     } else {
       new Notice('Failed to sync: ' + (result.error || 'Unknown error'));
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ACCOUNT ENRICHMENT (Pre-populate subnotes with Salesforce data)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Enrich account folders with Salesforce data (contacts, intelligence, opportunities, etc.).
+   * Calls the batch enrichment endpoint in groups of 20, then writes formatted markdown
+   * into each account's subnotes. Non-blocking — runs after folder creation.
+   */
+  async enrichAccountFolders(accounts: OwnedAccount[]): Promise<void> {
+    if (!accounts || accounts.length === 0) return;
+
+    const serverUrl = this.settings.serverUrl || 'https://gtm-wizard.onrender.com';
+    const accountsFolder = this.settings.accountsFolder || 'Accounts';
+
+    // Collect account IDs (skip accounts without IDs)
+    const accountsWithIds = accounts.filter(a => a.id && a.id.length >= 15);
+    if (accountsWithIds.length === 0) return;
+
+    const totalAccounts = accountsWithIds.length;
+    let enrichedCount = 0;
+    let errorCount = 0;
+
+    console.log(`[Eudia Enrich] Starting enrichment for ${totalAccounts} accounts`);
+    new Notice(`Enriching account data: 0/${totalAccounts}...`);
+
+    // Batch into groups of 20
+    const batchSize = 20;
+    for (let i = 0; i < accountsWithIds.length; i += batchSize) {
+      const batch = accountsWithIds.slice(i, i + batchSize);
+      const batchIds = batch.map(a => a.id);
+
+      try {
+        const response = await requestUrl({
+          url: `${serverUrl}/api/accounts/enrich-batch`,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            accountIds: batchIds,
+            userEmail: this.settings.userEmail
+          })
+        });
+
+        if (response.json?.success && response.json?.enrichments) {
+          const enrichments = response.json.enrichments;
+
+          for (const account of batch) {
+            const data = enrichments[account.id];
+            if (!data) continue;
+
+            try {
+              await this.writeEnrichmentToAccount(account, data, accountsFolder);
+              enrichedCount++;
+            } catch (writeErr) {
+              errorCount++;
+              console.error(`[Eudia Enrich] Write failed for ${account.name}:`, writeErr);
+            }
+          }
+        }
+      } catch (fetchErr) {
+        errorCount += batch.length;
+        console.error(`[Eudia Enrich] Batch fetch failed:`, fetchErr);
+      }
+
+      // Progress notice every batch
+      const processed = Math.min(i + batchSize, totalAccounts);
+      new Notice(`Enriching account data: ${processed}/${totalAccounts}...`);
+
+      // Small delay between batches to avoid overwhelming the server
+      if (i + batchSize < accountsWithIds.length) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+
+    const summary = errorCount > 0
+      ? `Account enrichment complete: ${enrichedCount} enriched, ${errorCount} skipped`
+      : `Account enrichment complete: ${enrichedCount} accounts enriched with Salesforce data`;
+    console.log(`[Eudia Enrich] ${summary}`);
+    new Notice(summary);
+  }
+
+  /**
+   * Write enrichment data into an account's subnotes.
+   * Looks for the account folder (in Accounts/ or Accounts/_Prospects/),
+   * then updates Contacts.md, Intelligence.md, Next Steps.md, and Meeting Notes.md.
+   */
+  private async writeEnrichmentToAccount(
+    account: OwnedAccount,
+    data: { contacts?: string; intelligence?: string; opportunities?: string; nextSteps?: string; recentActivity?: string; customerBrain?: string },
+    accountsFolder: string
+  ): Promise<void> {
+    const safeName = account.name.replace(/[<>:"/\\|?*]/g, '_').trim();
+
+    // Try both regular and prospect paths
+    let folderPath = `${accountsFolder}/${safeName}`;
+    let folder = this.app.vault.getAbstractFileByPath(folderPath);
+    if (!(folder instanceof TFolder)) {
+      folderPath = `${accountsFolder}/_Prospects/${safeName}`;
+      folder = this.app.vault.getAbstractFileByPath(folderPath);
+    }
+    if (!(folder instanceof TFolder)) return;
+
+    const now = new Date().toISOString();
+
+    // Helper: update a subnote by replacing placeholder content after frontmatter
+    const updateSubnote = async (filename: string, newContent: string) => {
+      const filePath = `${folderPath}/${filename}`;
+      const file = this.app.vault.getAbstractFileByPath(filePath);
+      if (!(file instanceof TFile)) return;
+
+      const existing = await this.app.vault.read(file);
+
+      // Split frontmatter from body
+      let frontmatter = '';
+      let body = existing;
+      if (existing.startsWith('---')) {
+        const endIdx = existing.indexOf('---', 3);
+        if (endIdx !== -1) {
+          frontmatter = existing.substring(0, endIdx + 3);
+          body = existing.substring(endIdx + 3);
+
+          // Add enriched_at to frontmatter
+          if (frontmatter.includes('enriched_at:')) {
+            frontmatter = frontmatter.replace(/enriched_at:.*/, `enriched_at: "${now}"`);
+          } else {
+            frontmatter = frontmatter.substring(0, endIdx) + `enriched_at: "${now}"\n---`;
+          }
+        }
+      }
+
+      // Find the heading that matches the note type and preserve the heading
+      // For contacts: replace everything after "# AccountName - Key Contacts"
+      // For intelligence: replace everything after "# AccountName - Account Intelligence"
+      // For next steps: replace everything after "# AccountName - Next Steps"
+      // For meeting notes: append recent activity section
+
+      const headingMatch = body.match(/^(\s*#[^\n]+)/);
+      const heading = headingMatch ? headingMatch[1] : '';
+
+      const updatedBody = `${heading}\n\n${newContent}\n`;
+      await this.app.vault.modify(file, `${frontmatter}\n${updatedBody}`);
+    };
+
+    // Update each subnote with enrichment data
+    if (data.contacts) {
+      await updateSubnote('Contacts.md', `${data.contacts}\n\n## Relationship Map\n\n*Add org chart, decision makers, champions, and blockers here.*`);
+    }
+
+    if (data.intelligence) {
+      await updateSubnote('Intelligence.md', data.intelligence);
+    }
+
+    if (data.nextSteps) {
+      await updateSubnote('Next Steps.md', data.nextSteps);
+    }
+
+    // Meeting Notes: append opportunities + recent activity (don't replace the whole file)
+    if (data.opportunities || data.recentActivity) {
+      const meetingPath = `${folderPath}/Meeting Notes.md`;
+      const meetingFile = this.app.vault.getAbstractFileByPath(meetingPath);
+      if (meetingFile instanceof TFile) {
+        const existing = await this.app.vault.read(meetingFile);
+
+        // Split frontmatter
+        let frontmatter = '';
+        let body = existing;
+        if (existing.startsWith('---')) {
+          const endIdx = existing.indexOf('---', 3);
+          if (endIdx !== -1) {
+            frontmatter = existing.substring(0, endIdx + 3);
+            body = existing.substring(endIdx + 3);
+            if (frontmatter.includes('enriched_at:')) {
+              frontmatter = frontmatter.replace(/enriched_at:.*/, `enriched_at: "${now}"`);
+            } else {
+              frontmatter = frontmatter.substring(0, endIdx) + `enriched_at: "${now}"\n---`;
+            }
+          }
+        }
+
+        const headingMatch = body.match(/^(\s*#[^\n]+)/);
+        const heading = headingMatch ? headingMatch[1] : `\n# ${account.name} - Meeting Notes`;
+
+        const sections = [heading, ''];
+        if (data.opportunities) sections.push(data.opportunities, '');
+        if (data.recentActivity) sections.push(data.recentActivity, '');
+        sections.push('## Quick Start', '', '1. Open **Note 1** for your next meeting', '2. Click the **microphone** to record and transcribe', '3. **Next Steps** are auto-extracted after transcription', '4. Set `sync_to_salesforce: true` to sync to Salesforce');
+
+        await this.app.vault.modify(meetingFile, `${frontmatter}\n${sections.join('\n')}\n`);
+      }
     }
   }
 
