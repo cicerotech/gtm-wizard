@@ -58,6 +58,9 @@ interface EudiaSyncSettings {
   // Dynamic sync settings
   archiveRemovedAccounts: boolean;
   syncAccountsOnStartup: boolean;
+  // Salesforce auto-sync settings
+  sfAutoSyncEnabled: boolean;
+  sfAutoSyncIntervalMinutes: number;
 }
 
 // Common timezone options for US/EU sales teams
@@ -94,7 +97,9 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   timezone: 'America/New_York',
   lastAccountRefreshDate: null,
   archiveRemovedAccounts: true,
-  syncAccountsOnStartup: true
+  syncAccountsOnStartup: true,
+  sfAutoSyncEnabled: true,
+  sfAutoSyncIntervalMinutes: 15
 };
 
 interface SalesforceAccount {
@@ -2691,6 +2696,11 @@ export default class EudiaSyncPlugin extends Plugin {
       }
     });
 
+    // SF Sync status bar
+    this.sfSyncStatusBarEl = this.addStatusBarItem();
+    this.sfSyncStatusBarEl.setText('SF Sync: Idle');
+    this.sfSyncStatusBarEl.addClass('eudia-sf-sync-status');
+
     // Add settings tab
     this.addSettingTab(new EudiaSyncSettingTab(this.app, this));
 
@@ -2799,11 +2809,21 @@ export default class EudiaSyncPlugin extends Plugin {
               
               // Check for sync flags (resync_accounts, etc.)
               await this.checkAndConsumeSyncFlags();
+
+              // Start the Salesforce auto-sync scanner (periodic background sync)
+              this.startSalesforceSyncScanner();
             } catch (e) {
               // Silently ignore - heartbeat is optional
               console.log('[Eudia] Heartbeat/config check skipped');
+              // Still start the SF sync scanner even if heartbeat fails
+              this.startSalesforceSyncScanner();
             }
           }, 3000); // 3 second delay after other startup tasks
+        } else {
+          // No telemetry, but still start the SF sync scanner
+          if (this.settings.sfAutoSyncEnabled && this.settings.salesforceConnected) {
+            setTimeout(() => this.startSalesforceSyncScanner(), 5000);
+          }
         }
       }
 
@@ -5514,22 +5534,19 @@ To restore, move this folder back to the Accounts directory.
   // SALESFORCE NOTE SYNC
   // ─────────────────────────────────────────────────────────────────────────
 
-  async syncNoteToSalesforce(): Promise<void> {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (!activeFile) {
-      new Notice('No active file to sync');
-      return;
-    }
-
-    const content = await this.app.vault.read(activeFile);
-    const frontmatter = this.app.metadataCache.getFileCache(activeFile)?.frontmatter;
+  /**
+   * Core Salesforce sync logic for any given file.
+   * Returns success/error status for use by both the manual command and the auto-scanner.
+   */
+  async syncSpecificNoteToSalesforce(file: TFile): Promise<{ success: boolean; error?: string; authRequired?: boolean }> {
+    const content = await this.app.vault.read(file);
+    const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
 
     if (!frontmatter?.sync_to_salesforce) {
-      new Notice('Set sync_to_salesforce: true in frontmatter to enable sync');
-      return;
+      return { success: false, error: 'sync_to_salesforce not enabled' };
     }
 
-    // Find account
+    // Find account — check frontmatter first
     let accountId = frontmatter.account_id;
     let accountName = frontmatter.account;
 
@@ -5543,10 +5560,13 @@ To restore, move this folder back to the Accounts directory.
     }
 
     if (!accountId) {
-      // Try to detect from path
-      const pathParts = activeFile.path.split('/');
+      // Try to detect from path: Accounts/FolderName/... or Accounts/_Prospects/FolderName/...
+      const pathParts = file.path.split('/');
       if (pathParts.length >= 2 && pathParts[0] === this.settings.accountsFolder) {
-        const folderName = pathParts[1];
+        // Skip _Prospects segment if present
+        const folderName = pathParts[1] === '_Prospects' && pathParts.length >= 3
+          ? pathParts[2]
+          : pathParts[1];
         const account = this.settings.cachedAccounts.find(
           a => a.name.replace(/[<>:"/\\|?*]/g, '_').trim() === folderName
         );
@@ -5558,13 +5578,10 @@ To restore, move this folder back to the Accounts directory.
     }
 
     if (!accountId) {
-      new Notice('Could not determine account for this note');
-      return;
+      return { success: false, error: `Could not determine account for ${file.path}` };
     }
 
     try {
-      new Notice('Syncing to Salesforce...');
-
       const response = await requestUrl({
         url: `${this.settings.serverUrl}/api/notes/sync`,
         method: 'POST',
@@ -5572,8 +5589,8 @@ To restore, move this folder back to the Accounts directory.
         body: JSON.stringify({
           accountId,
           accountName,
-          noteTitle: activeFile.basename,
-          notePath: activeFile.path,
+          noteTitle: file.basename,
+          notePath: file.path,
           content,
           frontmatter,
           syncedAt: new Date().toISOString(),
@@ -5582,13 +5599,213 @@ To restore, move this folder back to the Accounts directory.
       });
 
       if (response.json?.success) {
-        new Notice('Synced to Salesforce');
+        return { success: true };
       } else {
-        new Notice('Failed to sync: ' + (response.json?.error || 'Unknown error'));
+        return {
+          success: false,
+          error: response.json?.error || 'Unknown error',
+          authRequired: response.json?.authRequired
+        };
+      }
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Command-palette wrapper: syncs the currently active note to Salesforce.
+   */
+  async syncNoteToSalesforce(): Promise<void> {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile) {
+      new Notice('No active file to sync');
+      return;
+    }
+
+    const frontmatter = this.app.metadataCache.getFileCache(activeFile)?.frontmatter;
+    if (!frontmatter?.sync_to_salesforce) {
+      new Notice('Set sync_to_salesforce: true in frontmatter to enable sync');
+      return;
+    }
+
+    new Notice('Syncing to Salesforce...');
+    const result = await this.syncSpecificNoteToSalesforce(activeFile);
+
+    if (result.success) {
+      new Notice('Synced to Salesforce');
+    } else if (result.authRequired) {
+      new Notice('Salesforce authentication required. Please reconnect.');
+    } else {
+      new Notice('Failed to sync: ' + (result.error || 'Unknown error'));
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SALESFORCE AUTO-SYNC SCANNER
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private sfSyncStatusBarEl: HTMLElement | null = null;
+  private sfSyncIntervalId: number | null = null;
+
+  /**
+   * Start the periodic Salesforce sync scanner.
+   * Every N minutes, scans all notes under Accounts/ (including _Prospects/) for
+   * sync_to_salesforce: true, and pushes any that have been modified since last sync.
+   */
+  startSalesforceSyncScanner(): void {
+    if (!this.settings.sfAutoSyncEnabled) {
+      console.log('[Eudia SF Sync] Auto-sync is disabled in settings');
+      this.updateSfSyncStatusBar('SF Sync: Off');
+      return;
+    }
+
+    const intervalMs = (this.settings.sfAutoSyncIntervalMinutes || 15) * 60 * 1000;
+    console.log(`[Eudia SF Sync] Starting scanner — interval: ${this.settings.sfAutoSyncIntervalMinutes}min`);
+    this.updateSfSyncStatusBar('SF Sync: Idle');
+
+    // Run once shortly after startup (30s delay), then on interval
+    const startupDelay = window.setTimeout(() => {
+      this.runSalesforceSyncScan();
+    }, 30000);
+    this.registerInterval(startupDelay as unknown as number);
+
+    this.sfSyncIntervalId = window.setInterval(() => {
+      this.runSalesforceSyncScan();
+    }, intervalMs);
+    this.registerInterval(this.sfSyncIntervalId);
+  }
+
+  /**
+   * Run a single scan cycle: find all flagged notes, sync those that changed.
+   */
+  private async runSalesforceSyncScan(): Promise<void> {
+    if (!this.settings.sfAutoSyncEnabled || !this.settings.userEmail) return;
+
+    console.log('[Eudia SF Sync] Running scan...');
+
+    try {
+      const accountsFolder = this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);
+      if (!(accountsFolder instanceof TFolder)) {
+        console.log('[Eudia SF Sync] Accounts folder not found');
+        return;
       }
 
-    } catch (error) {
-      new Notice(`Sync failed: ${error.message}`);
+      // Collect all markdown files recursively under Accounts/
+      const allFiles: TFile[] = [];
+      const collectFiles = (folder: TFolder) => {
+        for (const child of folder.children) {
+          if (child instanceof TFile && child.extension === 'md') {
+            allFiles.push(child);
+          } else if (child instanceof TFolder) {
+            collectFiles(child);
+          }
+        }
+      };
+      collectFiles(accountsFolder);
+
+      // Filter to notes with sync_to_salesforce: true that have changed since last sync
+      const notesToSync: TFile[] = [];
+      for (const file of allFiles) {
+        const cache = this.app.metadataCache.getFileCache(file);
+        const fm = cache?.frontmatter;
+        if (!fm?.sync_to_salesforce) continue;
+
+        const lastSfSync = fm.last_sf_sync ? new Date(fm.last_sf_sync).getTime() : 0;
+        const lastModified = file.stat.mtime;
+
+        if (lastModified > lastSfSync) {
+          notesToSync.push(file);
+        }
+      }
+
+      if (notesToSync.length === 0) {
+        console.log('[Eudia SF Sync] No flagged notes need syncing');
+        this.updateSfSyncStatusBar('SF Sync: Idle');
+        return;
+      }
+
+      console.log(`[Eudia SF Sync] ${notesToSync.length} note(s) queued for sync`);
+      this.updateSfSyncStatusBar(`SF Sync: Syncing ${notesToSync.length}...`);
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const file of notesToSync) {
+        const result = await this.syncSpecificNoteToSalesforce(file);
+
+        if (result.success) {
+          successCount++;
+          // Update frontmatter with last_sf_sync timestamp
+          await this.updateNoteSyncTimestamp(file);
+        } else {
+          errorCount++;
+          console.log(`[Eudia SF Sync] Failed to sync ${file.path}: ${result.error}`);
+          if (result.authRequired) {
+            // Auth failure — stop the scan, notify user
+            new Notice('Salesforce authentication expired. Please reconnect to resume auto-sync.');
+            this.updateSfSyncStatusBar('SF Sync: Auth required');
+            return;
+          }
+        }
+      }
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const statusMsg = errorCount > 0
+        ? `SF Sync: ${successCount} synced, ${errorCount} failed at ${timeStr}`
+        : `SF Sync: ${successCount} note${successCount !== 1 ? 's' : ''} synced at ${timeStr}`;
+
+      console.log(`[Eudia SF Sync] ${statusMsg}`);
+      this.updateSfSyncStatusBar(statusMsg);
+
+      if (successCount > 0) {
+        new Notice(statusMsg);
+      }
+
+    } catch (err) {
+      console.error('[Eudia SF Sync] Scan error:', err);
+      this.updateSfSyncStatusBar('SF Sync: Error');
+    }
+  }
+
+  /**
+   * Update a note's frontmatter to record when it was last synced to Salesforce.
+   */
+  private async updateNoteSyncTimestamp(file: TFile): Promise<void> {
+    try {
+      const content = await this.app.vault.read(file);
+      const now = new Date().toISOString();
+
+      if (content.startsWith('---')) {
+        // Has frontmatter — insert or update last_sf_sync
+        const endIndex = content.indexOf('---', 3);
+        if (endIndex !== -1) {
+          const fmBlock = content.substring(0, endIndex);
+          const rest = content.substring(endIndex);
+
+          if (fmBlock.includes('last_sf_sync:')) {
+            // Replace existing
+            const updated = fmBlock.replace(/last_sf_sync:.*/, `last_sf_sync: "${now}"`) + rest;
+            await this.app.vault.modify(file, updated);
+          } else {
+            // Add before closing ---
+            const updated = fmBlock + `last_sf_sync: "${now}"\n` + rest;
+            await this.app.vault.modify(file, updated);
+          }
+        }
+      }
+      // If no frontmatter, skip — the note shouldn't have sync_to_salesforce without frontmatter
+    } catch (err) {
+      console.error(`[Eudia SF Sync] Failed to update sync timestamp for ${file.path}:`, err);
+    }
+  }
+
+  /**
+   * Update the SF sync status bar text.
+   */
+  updateSfSyncStatusBar(text: string): void {
+    if (this.sfSyncStatusBarEl) {
+      this.sfSyncStatusBarEl.setText(text);
     }
   }
 
@@ -6227,6 +6444,36 @@ class EudiaSyncSettingTab extends PluginSettingTab {
           this.plugin.settings.autoSyncAfterTranscription = value;
           await this.plugin.saveSettings();
         }));
+
+    new Setting(containerEl)
+      .setName('Auto-Sync Flagged Notes')
+      .setDesc('Periodically push notes with sync_to_salesforce: true to Salesforce')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.sfAutoSyncEnabled)
+        .onChange(async (value) => {
+          this.plugin.settings.sfAutoSyncEnabled = value;
+          await this.plugin.saveSettings();
+          if (value) {
+            this.plugin.startSalesforceSyncScanner();
+          } else {
+            this.plugin.updateSfSyncStatusBar('SF Sync: Off');
+          }
+        }));
+
+    new Setting(containerEl)
+      .setName('Auto-Sync Interval')
+      .setDesc('How often to scan for flagged notes (in minutes)')
+      .addDropdown(dropdown => {
+        dropdown.addOption('5', 'Every 5 minutes');
+        dropdown.addOption('15', 'Every 15 minutes');
+        dropdown.addOption('30', 'Every 30 minutes');
+        dropdown.setValue(String(this.plugin.settings.sfAutoSyncIntervalMinutes));
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.sfAutoSyncIntervalMinutes = parseInt(value);
+          await this.plugin.saveSettings();
+          new Notice(`SF auto-sync interval set to ${value} minutes. Restart Obsidian for changes to take effect.`);
+        });
+      });
 
     // ─────────────────────────────────────────────────────────────────────
     // FOLDERS
