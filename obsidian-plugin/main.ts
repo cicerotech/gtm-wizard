@@ -970,6 +970,13 @@ class SetupWizardModal extends Modal {
       }
       
       if (accounts.length > 0 || prospects.length > 0) {
+        // Collapse left sidebar to hide folder-by-folder creation (smoother UX)
+        const quickLeftSplit = (this.plugin.app.workspace as any).leftSplit;
+        const quickWasCollapsed = quickLeftSplit?.collapsed;
+        if (quickLeftSplit && !quickWasCollapsed) {
+          quickLeftSplit.collapse();
+        }
+
         // FAST PATH: Create folder structures immediately (templates only)
         if (isAdminUser(userEmail)) {
           await this.plugin.createAdminAccountFolders(accounts);
@@ -982,6 +989,11 @@ class SetupWizardModal extends Modal {
         this.plugin.settings.accountsImported = true;
         this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
         await this.plugin.saveSettings();
+
+        // Expand left sidebar now that all folders exist (clean reveal, no flickering)
+        if (quickLeftSplit && !quickWasCollapsed) {
+          quickLeftSplit.expand();
+        }
 
         // BACKGROUND: Enrich from Salesforce (non-blocking)
         const allAccounts = [...accounts, ...prospects];
@@ -1355,6 +1367,13 @@ class EudiaSetupView extends ItemView {
               validationEl.textContent = `Creating ${accounts.length} account folders...`;
             }
 
+            // Collapse left sidebar to hide folder-by-folder creation (smoother UX)
+            const leftSplit = (this.plugin.app.workspace as any).leftSplit;
+            const wasCollapsed = leftSplit?.collapsed;
+            if (leftSplit && !wasCollapsed) {
+              leftSplit.collapse();
+            }
+
             if (isAdminUser(email)) {
               await this.plugin.createAdminAccountFolders(accounts);
             } else {
@@ -1366,6 +1385,12 @@ class EudiaSetupView extends ItemView {
             this.plugin.settings.accountsImported = true;
             this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
             await this.plugin.saveSettings();
+
+            // Expand left sidebar now that all folders exist (clean reveal, no flickering)
+            if (leftSplit && !wasCollapsed) {
+              leftSplit.expand();
+            }
+
             new Notice(`Imported ${accounts.length} active accounts + ${prospects.length} prospects!`);
 
             // BACKGROUND: Enrich account data from Salesforce (non-blocking)
@@ -1550,6 +1575,13 @@ class EudiaSetupView extends ItemView {
       // FAST PATH: Create folder structures immediately (templates only)
       statusEl.textContent = `Creating ${accounts.length} account folders...`;
 
+      // Collapse left sidebar to hide folder-by-folder creation (smoother UX)
+      const importLeftSplit = (this.plugin.app.workspace as any).leftSplit;
+      const importWasCollapsed = importLeftSplit?.collapsed;
+      if (importLeftSplit && !importWasCollapsed) {
+        importLeftSplit.collapse();
+      }
+
       if (isAdminUser(userEmail)) {
         await this.plugin.createAdminAccountFolders(accounts);
       } else {
@@ -1562,6 +1594,11 @@ class EudiaSetupView extends ItemView {
       this.plugin.settings.accountsImported = true;
       this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
       await this.plugin.saveSettings();
+
+      // Expand left sidebar now that all folders exist (clean reveal, no flickering)
+      if (importLeftSplit && !importWasCollapsed) {
+        importLeftSplit.expand();
+      }
       
       this.steps[2].status = 'complete';
       

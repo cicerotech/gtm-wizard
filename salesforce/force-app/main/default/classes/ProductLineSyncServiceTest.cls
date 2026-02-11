@@ -411,7 +411,7 @@ private class ProductLineSyncServiceTest {
         OpportunityLineItem oli = new OpportunityLineItem(
             OpportunityId = opp.Id,
             PricebookEntryId = pbeMap.get('AI Contracting Managed Service').Id,
-            Quantity = 1, UnitPrice = 450000
+            Quantity = 1, UnitPrice = 900000  // matches ACV so after-update validation passes
         );
         insert oli;
         ProductLineSyncService.isRunning = false;
@@ -451,26 +451,104 @@ private class ProductLineSyncServiceTest {
 
     @isTest
     static void testTrigger_UpdateProduct_AfterUpdate() {
-        // Exercises after update trigger path (breakdown update, delivery sync check)
+        // Exercises after update trigger path (ACV validation, breakdown update, delivery sync)
         Opportunity opp = createTestOppWithProducts();
 
         ProductLineSyncService.isRunning = true;
         OpportunityLineItem oli = new OpportunityLineItem(
             OpportunityId = opp.Id,
             PricebookEntryId = pbeMap.get('AI Contracting Technology').Id,
-            Quantity = 1, UnitPrice = 450000
+            Quantity = 1, UnitPrice = 900000  // matches ACV so validation passes
         );
         insert oli;
         ProductLineSyncService.isRunning = false;
 
-        // Update price — triggers after update chain
+        // Update start date — triggers both before update (auto end date) and after update chain
+        // Price remains at $900K matching ACV, so validation passes
         Test.startTest();
-        oli.UnitPrice = 500000;
+        oli.Product_Start_Date__c = Date.newInstance(2026, 6, 1);
+        oli.Product_Term_Months__c = 12;
         update oli;
         Test.stopTest();
 
         // Trigger chain completed without exception
         System.assert(true, 'Update trigger chain completed');
+    }
+
+    @isTest
+    static void testTrigger_AcvValidation_BlocksMismatch() {
+        // Verifies that editing product prices to a total that doesn't equal ACV is blocked
+        Opportunity opp = createTestOppWithProducts();  // ACV = $900K
+
+        // Insert 2 products summing to $900K
+        ProductLineSyncService.isRunning = true;
+        OpportunityLineItem oli1 = new OpportunityLineItem(
+            OpportunityId = opp.Id,
+            PricebookEntryId = pbeMap.get('AI Contracting Technology').Id,
+            Quantity = 1, UnitPrice = 500000
+        );
+        OpportunityLineItem oli2 = new OpportunityLineItem(
+            OpportunityId = opp.Id,
+            PricebookEntryId = pbeMap.get('AI Contracting Managed Service').Id,
+            Quantity = 1, UnitPrice = 400000
+        );
+        insert new List<OpportunityLineItem>{ oli1, oli2 };
+        ProductLineSyncService.isRunning = false;
+
+        // Try to update oli1 to $700K — total becomes $1.1M vs $900K ACV
+        oli1.UnitPrice = 700000;
+
+        Test.startTest();
+        Boolean errorCaught = false;
+        try {
+            update oli1;
+        } catch (DmlException e) {
+            errorCaught = true;
+            System.assert(e.getMessage().contains('Product prices total'), 
+                'Error message should reference price mismatch: ' + e.getMessage());
+        }
+        Test.stopTest();
+
+        System.assert(errorCaught, 'Should block save when product prices do not sum to Opportunity ACV');
+    }
+
+    @isTest
+    static void testTrigger_AcvValidation_AllowsMatch() {
+        // Verifies that editing product prices to a total that equals ACV does NOT block the save
+        Opportunity opp = createTestOppWithProducts();  // ACV = $900K
+
+        // Insert 2 products summing to $900K
+        ProductLineSyncService.isRunning = true;
+        OpportunityLineItem oli1 = new OpportunityLineItem(
+            OpportunityId = opp.Id,
+            PricebookEntryId = pbeMap.get('AI Contracting Technology').Id,
+            Quantity = 1, UnitPrice = 500000
+        );
+        OpportunityLineItem oli2 = new OpportunityLineItem(
+            OpportunityId = opp.Id,
+            PricebookEntryId = pbeMap.get('AI Contracting Managed Service').Id,
+            Quantity = 1, UnitPrice = 400000
+        );
+        insert new List<OpportunityLineItem>{ oli1, oli2 };
+        ProductLineSyncService.isRunning = false;
+
+        // Update oli1 to $600K, oli2 to $300K — still totals $900K
+        oli1.UnitPrice = 600000;
+        oli2.UnitPrice = 300000;
+
+        Test.startTest();
+        Boolean blocked = false;
+        try {
+            update new List<OpportunityLineItem>{ oli1, oli2 };
+        } catch (DmlException e) {
+            if (e.getMessage().contains('Product prices total')) {
+                blocked = true;
+            }
+        }
+        Test.stopTest();
+
+        // The ACV validation should NOT have blocked this save
+        System.assert(!blocked, 'Matching ACV total should not block save');
     }
 
     @isTest

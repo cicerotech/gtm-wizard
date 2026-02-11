@@ -17,7 +17,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track stage = 'Stage 1 - Discovery';
     @track targetSignDate = '';
     @track acv = 100000;
-    @track productLine = '';
+    @track selectedProductLines = [];
     @track opportunitySource = 'Inbound';
     
     // UI state
@@ -69,9 +69,9 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     
     // Product Line options (mirrors Product_Lines_Multi__c values in org)
+    // "Undetermined" and "Multiple (BL Review)" removed -- reps can now actually multi-select
     get productLineOptions() {
         return [
-            { label: '-- Select Product Line --', value: '' },
             { label: 'AI Contracting - Technology', value: 'AI Contracting - Technology' },
             { label: 'AI Contracting - Managed Services', value: 'AI Contracting - Managed Services' },
             { label: 'Contracting - Secondee', value: 'Contracting - Secondee' },
@@ -82,9 +82,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
             { label: 'AI Platform - Litigation', value: 'AI Platform - Litigation' },
             { label: 'FDE - Custom AI Solution', value: 'FDE - Custom AI Solution' },
             { label: 'Other - Managed Service', value: 'Other - Managed Service' },
-            { label: 'Other - Secondee', value: 'Other - Secondee' },
-            { label: 'Undetermined', value: 'Undetermined' },
-            { label: 'Multiple (BL Review)', value: 'Multiple (BL Review)' }
+            { label: 'Other - Secondee', value: 'Other - Secondee' }
         ];
     }
     
@@ -104,7 +102,19 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     
     get isFormValid() {
-        return this.selectedAccount && this.stage && this.productLine;
+        return this.selectedAccount && this.stage && this.selectedProductLines.length > 0;
+    }
+
+    get hasSelectedProductLines() {
+        return this.selectedProductLines.length > 0;
+    }
+
+    get selectedProductLinesSummary() {
+        const count = this.selectedProductLines.length;
+        if (count === 1) {
+            return this.selectedProductLines[0];
+        }
+        return count + ' product lines selected';
     }
     
     get showError() {
@@ -224,8 +234,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         this.acv = amount;
     }
     
-    handleProductLineChange(event) {
-        this.productLine = event.detail.value;
+    handleProductLinesChange(event) {
+        this.selectedProductLines = event.detail.value;
     }
 
     handleSourceChange(event) {
@@ -249,7 +259,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 stage: this.stage,
                 targetSignDate: this.targetSignDate,
                 acv: this.acv,
-                productLine: this.productLine,
+                productLines: this.selectedProductLines.join(';'),
                 opportunitySource: this.opportunitySource
             });
             

@@ -102,8 +102,6 @@
     <multilineLayoutFields>UnitPrice</multilineLayoutFields>
     <multilineLayoutFields>Product_Start_Date__c</multilineLayoutFields>
     <multilineLayoutFields>Product_Term_Months__c</multilineLayoutFields>
-    <multilineLayoutFields>Product_End_Date__c</multilineLayoutFields>
-    <multilineLayoutFields>Description</multilineLayoutFields>
     <multilineLayoutFields>OpportunityId</multilineLayoutFields>
     <showEmailCheckbox>false</showEmailCheckbox>
     <showRunAssignmentRulesCheckbox>false</showRunAssignmentRulesCheckbox>

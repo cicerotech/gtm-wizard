@@ -159,16 +159,23 @@
                     </div>
                 </div>
                 
-                <!-- Product Line -->
+                <!-- Product Lines (multi-select checkboxes) -->
                 <div class="form-field">
-                    <lightning-combobox
-                        name="productLine"
-                        label="Product Line"
-                        value={productLine}
-                        options={productLineOptions}
-                        required
-                        onchange={handleProductLineChange}>
-                    </lightning-combobox>
+                    <label class="field-label">
+                        <abbr class="slds-required" title="required">*</abbr>
+                        Product Lines
+                    </label>
+                    <div class="product-lines-picker">
+                        <lightning-checkbox-group
+                            name="productLines"
+                            options={productLineOptions}
+                            value={selectedProductLines}
+                            onchange={handleProductLinesChange}>
+                        </lightning-checkbox-group>
+                    </div>
+                    <template if:true={hasSelectedProductLines}>
+                        <div class="product-lines-summary">{selectedProductLinesSummary}</div>
+                    </template>
                 </div>
                 
                 <!-- Opportunity Source -->

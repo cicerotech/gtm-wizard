@@ -41,11 +41,11 @@ The bot includes a contact finder. Ask `@gtm-brain contact [name] at [company]` 
 
 ---
 
-**Hyprnote Meeting Sync**
+**Obsidian Meeting Sync**
 
-For those using Hyprnote (AI transcription that runs locally on your Mac), we have a sync tool that pushes meeting notes to Salesforce automatically. It creates Event records, links to Accounts, and updates the Customer Brain field with conversation insights.
+For those using Obsidian (the GTM vault with AI transcription that runs locally on your Mac), we have a sync tool that pushes meeting notes to Salesforce automatically. It creates Event records, links to Accounts, and updates the Customer Brain field with conversation insights.
 
-This is optional — only useful if you're already using Hyprnote for meetings.
+This is optional — useful if you're using Obsidian for meeting notes and account prep.
 
 ---
 
@@ -122,7 +122,7 @@ We used Cursor (AI pair programming) to build this, which significantly accelera
 | Contact enrichment | Find professional contact info via public sources |
 | Excel exports | Pipeline data formatted and uploaded to Slack |
 | Weekly snapshot | RevOps summary PDF with run rate, signed revenue, top deals |
-| Meeting sync | Hyprnote transcripts to Salesforce Events |
+| Meeting sync | Obsidian transcripts to Salesforce Events |
 
 ---
 

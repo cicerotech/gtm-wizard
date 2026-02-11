@@ -4,11 +4,12 @@
  * Handles all product changes on Opportunities:
  * - Before Update: Auto-calculate Product_End_Date__c from Start + Term
  * - After Insert: Sync Product_Lines_Multi__c, create deliveries
- * - After Update: Sync delivery values, update Products_Breakdown
+ * - After Update: Validate product prices sum to Opportunity ACV, sync deliveries, update breakdown
  * - After Delete: Sync Product_Lines_Multi__c, redistribute ACV (respecting overrides), update breakdown
  * 
  * Keeps Product_Lines_Multi__c, Products_Breakdown__c, Delivery_Links__c, and 
- * Delivery.Contract_Value__c in sync.
+ * Delivery.Contract_Value__c in sync. Prevents manual price edits that don't
+ * align with the Opportunity ACV.
  */
 trigger OpportunityLineItemTrigger on OpportunityLineItem (before update, after insert, after update, after delete) {
     
@@ -55,6 +56,46 @@ trigger OpportunityLineItemTrigger on OpportunityLineItem (before update, after 
     
     if (oppIds.isEmpty()) {
         return;
+    }
+    
+    // === ACV Alignment Validation (after update only) ===
+    // When a rep manually edits product prices (Edit All Products),
+    // verify the total across all products still equals the Opportunity ACV.
+    // Skips during automated sync (isRunning guard above) so it only
+    // catches manual user edits.
+    if (Trigger.isUpdate) {
+        Map<Id, Opportunity> opps = new Map<Id, Opportunity>([
+            SELECT Id, ACV__c FROM Opportunity WHERE Id IN :oppIds
+        ]);
+        
+        // Sum TotalPrice (= UnitPrice * Quantity) for all products on each Opportunity
+        Map<Id, Decimal> productTotals = new Map<Id, Decimal>();
+        for (AggregateResult ar : [
+            SELECT OpportunityId, SUM(TotalPrice) total
+            FROM OpportunityLineItem
+            WHERE OpportunityId IN :oppIds
+            GROUP BY OpportunityId
+        ]) {
+            productTotals.put((Id)ar.get('OpportunityId'), (Decimal)ar.get('total'));
+        }
+        
+        Boolean validationFailed = false;
+        for (OpportunityLineItem oli : Trigger.new) {
+            Decimal acv = opps.get(oli.OpportunityId)?.ACV__c;
+            Decimal total = productTotals.get(oli.OpportunityId);
+            // $1 tolerance for rounding; skip check if ACV or products are null
+            if (acv != null && total != null && Math.abs(total - acv) > 1.0) {
+                oli.addError(
+                    'Product prices total $' + total.setScale(0).format() +
+                    ' but the Opportunity ACV is $' + acv.setScale(0).format() +
+                    '. Please adjust so product prices sum to the Opportunity ACV.'
+                );
+                validationFailed = true;
+            }
+        }
+        if (validationFailed) {
+            return; // Skip downstream logic when validation blocks the save
+        }
     }
     
     // Update Products_Breakdown for all events

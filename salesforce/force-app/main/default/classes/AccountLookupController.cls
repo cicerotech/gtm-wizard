@@ -120,19 +120,24 @@ public with sharing class AccountLookupController {
     }
     
     /**
-     * Create a new Opportunity with all required defaults
+     * Create a new Opportunity with all required defaults.
+     * Accepts semicolon-separated productLines (multi-select) and sets
+     * Product_Lines_Multi__c directly so the Sync_MultiSelect_To_Products flow
+     * fires on create, which in turn calls ProductLineSyncService.syncProductLines()
+     * to create OpportunityLineItems with equal ACV distribution.
+     *
      * @param accountId - The Account ID
      * @param accountName - The Account Name (for generating Opp name)
      * @param stage - The Stage name
      * @param targetSignDate - The target sign date
      * @param acv - The ACV amount
-     * @param productLine - The Product Line
+     * @param productLines - Semicolon-separated product line values (e.g. "AI Contracting - Technology;AI M&A - Managed Services")
      * @param opportunitySource - The Opportunity Source
      * @return The created Opportunity ID
      */
     @AuraEnabled
     public static String createOpportunity(String accountId, String accountName, String stage, 
-                                           Date targetSignDate, Decimal acv, String productLine,
+                                           Date targetSignDate, Decimal acv, String productLines,
                                            String opportunitySource) {
         // Validate required fields
         if (String.isBlank(accountId)) {
@@ -145,10 +150,27 @@ public with sharing class AccountLookupController {
         // Set defaults
         Date closeDate = targetSignDate != null ? targetSignDate : Date.today().addDays(100);
         Decimal oppAcv = acv != null ? acv : 100000;
-        String oppProductLine = String.isNotBlank(productLine) ? productLine : 'Undetermined';
+
+        // Parse product lines -- support both semicolon-separated multi-select and single value
+        String multiSelectValue; // goes into Product_Lines_Multi__c
+        String singleValue;     // goes into Product_Line__c (backward compat for reports/formulas)
+
+        if (String.isNotBlank(productLines)) {
+            multiSelectValue = productLines;                       // e.g. "AI Contracting - Technology;AI M&A - Managed Services"
+            singleValue = productLines.split(';')[0];              // first value for Product_Line__c
+        } else {
+            multiSelectValue = 'Undetermined';
+            singleValue = 'Undetermined';
+        }
         
         // Generate opportunity name: "AccountName - AbbreviatedProductLine" or "AccountName - Stage"
-        String nameSuffix = abbreviateProductLine(oppProductLine);
+        String nameSuffix;
+        if (productLines != null && productLines.contains(';')) {
+            // Multiple products selected → use "Multiple" label
+            nameSuffix = 'Multiple';
+        } else {
+            nameSuffix = abbreviateProductLine(singleValue);
+        }
         if (nameSuffix == null) {
             // No product line specified → use stage (e.g. "Discovery")
             nameSuffix = stage.replaceFirst('(?i)^Stage\\s*\\d+\\s*-\\s*', '');
@@ -163,7 +185,8 @@ public with sharing class AccountLookupController {
         opp.CloseDate = closeDate;
         opp.ACV__c = oppAcv;
         opp.Amount = oppAcv;
-        opp.Product_Line__c = oppProductLine;
+        opp.Product_Line__c = singleValue;
+        opp.Product_Lines_Multi__c = multiSelectValue;  // Set directly → skips Sync_ProductLine_To_Multi_On_Create flow
         opp.Probability = 10;
         opp.Opportunity_Source__c = String.isNotBlank(opportunitySource) ? opportunitySource : 'Inbound';
         opp.Target_Sign_for_Edit_NEW__c = closeDate;
