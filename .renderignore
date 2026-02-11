@@ -1,0 +1,41 @@
+# ═══════════════════════════════════════════════════════════════
+# .renderignore — Skip files not needed by the Node.js server
+# Cuts ~33MB+ from every deploy upload, speeding up builds
+# ═══════════════════════════════════════════════════════════════
+
+# Legacy analysis scripts & zip archives (~28MB tracked)
+extras/
+
+# Salesforce metadata — Apex, flows, layouts, XML (~4.5MB tracked)
+# NOTE: src/salesforce/ (connection.js, queries.js) is NOT excluded
+salesforce/
+
+# Obsidian plugin dev source (only compiled main.js/manifest.json/styles.css needed)
+obsidian-plugin/node_modules/
+obsidian-plugin/src/
+obsidian-plugin/main.ts
+obsidian-plugin/tsconfig.json
+obsidian-plugin/package.json
+obsidian-plugin/package-lock.json
+obsidian-plugin/esbuild.config.mjs
+
+# Calendar plugin source (only used by local vault build scripts)
+eudia-calendar-plugin/
+
+# Documentation & non-runtime files
+docs/
+*.docx
+README.md
+
+# Cursor IDE / editor files
+.cursor/
+
+# Infrastructure & CI (Terraform, GitHub Actions)
+infrastructure/
+.github/
+
+# Data files not needed at runtime
+data/deck-analysis/
+
+# Build output (regenerated if needed)
+dist/
