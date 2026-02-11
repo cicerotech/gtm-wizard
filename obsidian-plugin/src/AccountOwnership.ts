@@ -45,13 +45,27 @@ export const SALES_LEADERS: Record<string, { name: string; region: string; role:
 };
 
 /**
- * Customer Success team - see only Existing customers
+ * Customer Success team - see only Existing customers + CS Staffing flagged accounts
  */
 export const CS_EMAILS = [
   'nikhita.godiwala@eudia.com',
   'jon.dedych@eudia.com',
   'farah.haddad@eudia.com'
 ];
+
+/**
+ * CS Manager mapping - managers see their direct reports' notes and a manager dashboard
+ */
+export const CS_MANAGER_EMAILS = [
+  'nikhita.godiwala@eudia.com'
+];
+
+export const CS_MANAGER_DIRECT_REPORTS: Record<string, string[]> = {
+  'nikhita.godiwala@eudia.com': [
+    'jon.dedych@eudia.com',
+    'farah.haddad@eudia.com'
+  ]
+};
 
 /**
  * Business Lead region mapping (for Sales Leader roll-ups)
@@ -182,6 +196,30 @@ export function getSalesLeaderDirectReports(email: string): string[] {
 export function isAdminUser(email: string): boolean {
   const normalizedEmail = email.toLowerCase().trim();
   return ADMIN_EMAILS.includes(normalizedEmail) || EXEC_EMAILS.includes(normalizedEmail);
+}
+
+/**
+ * Check if a user is a Customer Success team member
+ */
+export function isCSUser(email: string): boolean {
+  const normalizedEmail = email.toLowerCase().trim();
+  return CS_EMAILS.includes(normalizedEmail);
+}
+
+/**
+ * Check if a user is a CS Manager
+ */
+export function isCSManager(email: string): boolean {
+  const normalizedEmail = email.toLowerCase().trim();
+  return CS_MANAGER_EMAILS.includes(normalizedEmail);
+}
+
+/**
+ * Get CS Manager direct reports
+ */
+export function getCSManagerDirectReports(email: string): string[] {
+  const normalizedEmail = email.toLowerCase().trim();
+  return CS_MANAGER_DIRECT_REPORTS[normalizedEmail] || [];
 }
 
 /**
@@ -1817,6 +1855,60 @@ export class AccountOwnershipService {
     return Array.from(allAccounts.values()).sort((a, b) => 
       a.name.localeCompare(b.name)
     );
+  }
+
+  /**
+   * Get CS-relevant accounts for Customer Success users.
+   * Uses /api/bl-accounts/:email which has CS-specific query logic:
+   *   - Accounts where Customer_Type__c = 'Existing'
+   *   - Accounts attached to opportunities where CS_Staffing__c = true
+   */
+  async getCSAccounts(email: string): Promise<{ accounts: OwnedAccount[]; prospects: OwnedAccount[] }> {
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log(`[AccountOwnership] Fetching CS accounts for: ${normalizedEmail}`);
+    
+    try {
+      const { requestUrl } = await import('obsidian');
+      
+      const response = await requestUrl({
+        url: `${this.serverUrl}/api/bl-accounts/${encodeURIComponent(normalizedEmail)}`,
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      
+      if (response.json?.success) {
+        const activeAccounts: OwnedAccount[] = (response.json.accounts || []).map((acc: any) => ({
+          id: acc.id,
+          name: acc.name,
+          type: acc.customerType || acc.type || 'Customer',
+          isOwned: false, // CS users view accounts, don't own them
+          hadOpportunity: true,
+          website: acc.website || null,
+          industry: acc.industry || null,
+          ownerName: acc.ownerName || null
+        }));
+        
+        const prospectAccounts: OwnedAccount[] = (response.json.prospectAccounts || []).map((acc: any) => ({
+          id: acc.id,
+          name: acc.name,
+          type: acc.customerType || acc.type || 'Prospect',
+          isOwned: false,
+          hadOpportunity: false,
+          website: acc.website || null,
+          industry: acc.industry || null,
+          ownerName: acc.ownerName || null
+        }));
+        
+        console.log(`[AccountOwnership] CS accounts for ${normalizedEmail}: ${activeAccounts.length} active + ${prospectAccounts.length} prospects`);
+        return { accounts: activeAccounts, prospects: prospectAccounts };
+      }
+      
+      console.log(`[AccountOwnership] CS account fetch returned no data for ${normalizedEmail}`);
+      return { accounts: [], prospects: [] };
+    } catch (error) {
+      console.error(`[AccountOwnership] CS account fetch failed for ${normalizedEmail}:`, error);
+      return { accounts: [], prospects: [] };
+    }
   }
 
   /**

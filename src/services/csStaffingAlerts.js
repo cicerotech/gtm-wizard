@@ -5,7 +5,7 @@
  * and posts staffing notifications to the CS channel in Slack.
  * 
  * Triggered when an Opportunity reaches Stage 4 (Proposal) or Stage 5 (Negotiation).
- * Only fires once per Opportunity (guarded by CS_Staffing__c checkbox in Salesforce).
+ * Only fires once per Opportunity (guarded by CS_Staffing_Flag__c checkbox in Salesforce).
  */
 
 const logger = require('../utils/logger');

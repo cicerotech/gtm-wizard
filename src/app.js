@@ -3633,6 +3633,52 @@ class GTMBrainApp {
           });
         }
         
+        // CS users: redirect to CS-specific account logic (Existing + CS Staffing)
+        const userGroup = getUserGroup(normalizedEmail);
+        if (userGroup === 'cs') {
+          logger.info(`[Ownership] CS user detected: ${normalizedEmail} — fetching CS-relevant accounts`);
+          const csQuery = `
+            SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name
+            FROM Account 
+            WHERE (
+              Customer_Type__c = 'Existing'
+              OR Id IN (
+                SELECT AccountId FROM Opportunity 
+                WHERE CS_Staffing_Flag__c = true AND IsClosed = false
+              )
+            )
+              AND (NOT Name LIKE '%Sample%')
+              AND (NOT Name LIKE '%Test%')
+            ORDER BY Name ASC
+            LIMIT 1000
+          `;
+          const csResult = await sfConnection.query(csQuery);
+          const csAccounts = (csResult.records || []).map(acc => ({
+            id: acc.Id,
+            name: acc.Name,
+            type: acc.Customer_Type__c || acc.Type || 'Customer',
+            isOwned: false,
+            hadOpportunity: true,
+            website: acc.Website || null,
+            industry: acc.Industry || null,
+            ownerName: acc.Owner?.Name || null
+          }));
+          csAccounts.sort((a, b) => a.name.localeCompare(b.name));
+          
+          logger.info(`[Ownership] CS user ${normalizedEmail}: ${csAccounts.length} CS-relevant accounts`);
+          return res.json({
+            success: true,
+            email: normalizedEmail,
+            userId: null,
+            userName: normalizedEmail,
+            userGroup: 'cs',
+            accounts: csAccounts,
+            prospectAccounts: [],
+            count: csAccounts.length,
+            lastUpdated: new Date().toISOString()
+          });
+        }
+        
         // Query Salesforce for accounts owned by this user
         // First, find the User by email
         const userQuery = `SELECT Id, Name, Email FROM User WHERE Email = '${normalizedEmail.replace(/'/g, "\\'")}' AND IsActive = true LIMIT 1`;
@@ -3984,13 +4030,19 @@ class GTMBrainApp {
             break;
             
           case 'cs':
-            // Only Existing customers (all, not just owned)
-            queryDescription = 'existing customers';
+            // CS-relevant accounts: Existing customers + accounts with CS Staffing Flag opportunities
+            queryDescription = 'existing customers + CS staffing accounts';
             accountQuery = `
               SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
-                     (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
+                     (SELECT Id, Name, StageName, CS_Staffing_Flag__c FROM Opportunities WHERE IsClosed = false LIMIT 5)
               FROM Account 
-              WHERE Customer_Type__c = 'Existing'
+              WHERE (
+                Customer_Type__c = 'Existing'
+                OR Id IN (
+                  SELECT AccountId FROM Opportunity 
+                  WHERE CS_Staffing_Flag__c = true AND IsClosed = false
+                )
+              )
                 AND (NOT Name LIKE '%Sample%')
                 AND (NOT Name LIKE '%Test%')
               ORDER BY Name ASC

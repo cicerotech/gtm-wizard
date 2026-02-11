@@ -22,7 +22,7 @@ import { AudioRecorder, RecordingState, RecordingResult, AudioDiagnostic } from 
 import { TranscriptionService, TranscriptionResult, MeetingContext, ProcessedSections, AccountDetector, accountDetector, AccountDetectionResult, detectPipelineMeeting } from './src/TranscriptionService';
 import { CalendarService, CalendarMeeting, TodayResponse, WeekResponse } from './src/CalendarService';
 import { SmartTagService, SmartTags } from './src/SmartTagService';
-import { AccountOwnershipService, OwnedAccount, generateAccountOverviewNote, isAdminUser, ADMIN_EMAILS } from './src/AccountOwnership';
+import { AccountOwnershipService, OwnedAccount, generateAccountOverviewNote, isAdminUser, isCSUser, isCSManager, getCSManagerDirectReports, ADMIN_EMAILS, CS_EMAILS } from './src/AccountOwnership';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES & INTERFACES
@@ -957,12 +957,17 @@ class SetupWizardModal extends Modal {
       const ownershipService = new AccountOwnershipService(this.plugin.settings.serverUrl);
       const userEmail = this.plugin.settings.userEmail;
       
-      // Check if user is an admin - admins get all accounts
+      // Route to correct account fetch based on user type
       let accounts: OwnedAccount[];
       let prospects: OwnedAccount[] = [];
       if (isAdminUser(userEmail)) {
         console.log('[Eudia] Admin user detected - importing all accounts');
         accounts = await ownershipService.getAllAccountsForAdmin(userEmail);
+      } else if (isCSUser(userEmail)) {
+        console.log('[Eudia] CS user detected - importing CS-relevant accounts');
+        const result = await ownershipService.getCSAccounts(userEmail);
+        accounts = result.accounts;
+        prospects = result.prospects;
       } else {
         const result = await ownershipService.getAccountsWithProspects(userEmail);
         accounts = result.accounts;
@@ -985,6 +990,10 @@ class SetupWizardModal extends Modal {
           if (prospects.length > 0) {
             await this.plugin.createProspectAccountFiles(prospects);
           }
+        }
+        // CS Manager dashboard (Nikhita gets a manager overview)
+        if (isCSManager(userEmail)) {
+          await this.plugin.createCSManagerDashboard(userEmail, accounts);
         }
         this.plugin.settings.accountsImported = true;
         this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
@@ -1349,12 +1358,20 @@ class EudiaSetupView extends ItemView {
         }
         
         try {
-          // Check if user is an admin - admins get all accounts
+          // Route to correct account fetch based on user type
           let accounts: OwnedAccount[];
           let prospects: OwnedAccount[] = [];
           if (isAdminUser(email)) {
             console.log('[Eudia] Admin user detected - importing all accounts');
             accounts = await this.accountOwnershipService.getAllAccountsForAdmin(email);
+          } else if (isCSUser(email)) {
+            console.log('[Eudia] CS user detected - importing CS-relevant accounts');
+            if (validationEl) {
+              validationEl.textContent = 'Loading Customer Success accounts...';
+            }
+            const result = await this.accountOwnershipService.getCSAccounts(email);
+            accounts = result.accounts;
+            prospects = result.prospects;
           } else {
             const result = await this.accountOwnershipService.getAccountsWithProspects(email);
             accounts = result.accounts;
@@ -1381,6 +1398,10 @@ class EudiaSetupView extends ItemView {
               if (prospects.length > 0) {
                 await this.plugin.createProspectAccountFiles(prospects);
               }
+            }
+            // CS Manager dashboard
+            if (isCSManager(email)) {
+              await this.plugin.createCSManagerDashboard(email, accounts);
             }
             this.plugin.settings.accountsImported = true;
             this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
@@ -1553,13 +1574,19 @@ class EudiaSetupView extends ItemView {
     try {
       const userEmail = this.plugin.settings.userEmail;
       
-      // Check if user is an admin - admins get all accounts
+      // Route to correct account fetch based on user type
       let accounts: OwnedAccount[];
       let prospects: OwnedAccount[] = [];
       if (isAdminUser(userEmail)) {
         console.log('[Eudia] Admin user detected - importing all accounts');
         statusEl.textContent = 'Admin detected - importing all accounts...';
         accounts = await this.accountOwnershipService.getAllAccountsForAdmin(userEmail);
+      } else if (isCSUser(userEmail)) {
+        console.log('[Eudia] CS user detected - importing CS-relevant accounts');
+        statusEl.textContent = 'Loading Customer Success accounts...';
+        const result = await this.accountOwnershipService.getCSAccounts(userEmail);
+        accounts = result.accounts;
+        prospects = result.prospects;
       } else {
         const result = await this.accountOwnershipService.getAccountsWithProspects(userEmail);
         accounts = result.accounts;
@@ -1589,6 +1616,10 @@ class EudiaSetupView extends ItemView {
         if (prospects.length > 0) {
           await this.plugin.createProspectAccountFiles(prospects);
         }
+      }
+      // CS Manager dashboard
+      if (isCSManager(userEmail)) {
+        await this.plugin.createCSManagerDashboard(userEmail, accounts);
       }
       
       this.plugin.settings.accountsImported = true;
@@ -2756,7 +2787,12 @@ export default class EudiaSyncPlugin extends Plugin {
           return;
         }
         const ownershipService = new AccountOwnershipService(this.settings.serverUrl);
-        const result = await ownershipService.getAccountsWithProspects(this.settings.userEmail);
+        let result: { accounts: OwnedAccount[]; prospects: OwnedAccount[] };
+        if (isCSUser(this.settings.userEmail)) {
+          result = await ownershipService.getCSAccounts(this.settings.userEmail);
+        } else {
+          result = await ownershipService.getAccountsWithProspects(this.settings.userEmail);
+        }
         const all = [...result.accounts, ...result.prospects];
         if (all.length === 0) {
           new Notice('No accounts found to enrich.');
@@ -3914,6 +3950,137 @@ sync_to_salesforce: false
     }
     
     return createdCount;
+  }
+
+  /**
+   * Create CS Manager dashboard folder for managers like Nikhita.
+   * Shows a manager overview with rep-level context that auto-updates as
+   * new accounts hit Stage 4/5 or become 'Existing'.
+   */
+  async createCSManagerDashboard(managerEmail: string, accounts: OwnedAccount[]): Promise<void> {
+    const dashFolder = 'CS Manager';
+    const dateStr = new Date().toISOString().split('T')[0];
+    const directReports = getCSManagerDirectReports(managerEmail);
+    
+    // Ensure the CS Manager folder exists
+    if (!this.app.vault.getAbstractFileByPath(dashFolder)) {
+      try { await this.app.vault.createFolder(dashFolder); } catch { /* may exist */ }
+    }
+    
+    // Group accounts by owner for rep-level breakdowns
+    const byOwner: Record<string, OwnedAccount[]> = {};
+    for (const acc of accounts) {
+      const owner = (acc as any).ownerName || 'Unassigned';
+      if (!byOwner[owner]) byOwner[owner] = [];
+      byOwner[owner].push(acc);
+    }
+    
+    // 1. Manager Overview note
+    let overviewContent = `---
+role: cs_manager
+manager: "${managerEmail}"
+direct_reports: ${directReports.length}
+total_accounts: ${accounts.length}
+created: ${dateStr}
+auto_refresh: true
+---
+
+# CS Manager Overview
+
+**Manager:** ${managerEmail}
+**Direct Reports:** ${directReports.join(', ') || 'None configured'}
+**Total CS Accounts:** ${accounts.length}
+**Last Refreshed:** ${dateStr}
+
+---
+
+## Account Distribution by Sales Rep
+
+`;
+    
+    // Sort owners alphabetically
+    const sortedOwners = Object.keys(byOwner).sort();
+    for (const owner of sortedOwners) {
+      const ownerAccounts = byOwner[owner];
+      overviewContent += `### ${owner} (${ownerAccounts.length} accounts)\n`;
+      for (const acc of ownerAccounts.slice(0, 10)) {
+        overviewContent += `- **${acc.name}** — ${acc.type || 'Account'}\n`;
+      }
+      if (ownerAccounts.length > 10) {
+        overviewContent += `- _...and ${ownerAccounts.length - 10} more_\n`;
+      }
+      overviewContent += '\n';
+    }
+    
+    overviewContent += `---
+
+## CS Staffing Pipeline
+
+| Account | Type | Owner |
+|---------|------|-------|
+`;
+    for (const acc of accounts.slice(0, 50)) {
+      overviewContent += `| ${acc.name} | ${acc.type || ''} | ${(acc as any).ownerName || ''} |\n`;
+    }
+    
+    overviewContent += `\n---\n\n*This dashboard auto-updates when the vault syncs. New Stage 4/5 and Existing accounts will appear automatically.*\n`;
+    
+    const overviewPath = `${dashFolder}/CS Manager Overview.md`;
+    const existingOverview = this.app.vault.getAbstractFileByPath(overviewPath);
+    if (existingOverview instanceof TFile) {
+      await this.app.vault.modify(existingOverview, overviewContent);
+    } else {
+      await this.app.vault.create(overviewPath, overviewContent);
+    }
+
+    // 2. Per-rep notes (for each direct report)
+    for (const reportEmail of directReports) {
+      const repName = reportEmail.split('@')[0].replace('.', ' ').replace(/\b\w/g, c => c.toUpperCase());
+      const repAccounts = accounts.filter(a => {
+        const ownerNorm = ((a as any).ownerName || '').toLowerCase();
+        const emailPrefix = reportEmail.split('@')[0].replace('.', ' ').toLowerCase();
+        return ownerNorm.includes(emailPrefix.split(' ')[0]) || ownerNorm.includes(emailPrefix.split(' ').pop() || '');
+      });
+      
+      let repContent = `---
+rep: "${reportEmail}"
+rep_name: "${repName}"
+role: cs_rep_summary
+account_count: ${repAccounts.length}
+created: ${dateStr}
+---
+
+# ${repName} — CS Account Summary
+
+**Email:** ${reportEmail}
+**CS Accounts:** ${repAccounts.length}
+
+---
+
+## Assigned Accounts
+
+`;
+      if (repAccounts.length > 0) {
+        repContent += `| Account | Type |\n|---------|------|\n`;
+        for (const acc of repAccounts) {
+          repContent += `| ${acc.name} | ${acc.type || ''} |\n`;
+        }
+      } else {
+        repContent += `*No accounts currently matched to this rep. Accounts are matched by opportunity owner.*\n`;
+      }
+      
+      repContent += `\n---\n\n*Updates automatically as new CS-relevant accounts sync.*\n`;
+      
+      const repPath = `${dashFolder}/${repName}.md`;
+      const existingRep = this.app.vault.getAbstractFileByPath(repPath);
+      if (existingRep instanceof TFile) {
+        await this.app.vault.modify(existingRep, repContent);
+      } else {
+        await this.app.vault.create(repPath, repContent);
+      }
+    }
+    
+    console.log(`[Eudia] Created CS Manager dashboard for ${managerEmail} with ${accounts.length} accounts across ${sortedOwners.length} reps`);
   }
 
   /**
