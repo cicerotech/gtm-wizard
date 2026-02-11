@@ -250,19 +250,39 @@ function renderAttendeeChips(meeting) {
  * Generate the Meeting Prep HTML page
  */
 async function generateMeetingPrepHTML(filterUserId = null) {
-  const weekRange = meetingPrepService.getCurrentWeekRange();
-  let meetings = await meetingPrepService.getUpcomingMeetings(weekRange.start, weekRange.end);
-  
-  // Get calendar sync status for display
+  // Check calendar cache status FIRST — determines if we can render instantly or need async loading
   let syncStatus = null;
+  let cacheWarm = false;
   try {
-    const { getSyncStatus } = require('../jobs/calendarSyncJob');
-    syncStatus = await getSyncStatus();
+    const { getCalendarCacheStatus } = require('../services/calendarService');
+    syncStatus = getCalendarCacheStatus();
+    cacheWarm = syncStatus && syncStatus.cacheValid && syncStatus.databaseStats?.totalEvents > 0;
   } catch (e) {
-    logger.debug('Could not get calendar sync status:', e.message);
+    logger.debug('Could not get calendar cache status:', e.message);
+  }
+
+  // FAST PATH: If cache is warm, getUpcomingMeetings returns instantly from memory
+  // SLOW PATH: If cache is cold, still fetch but set a tight timeout to avoid blocking
+  let meetings = [];
+  const weekRange = meetingPrepService.getCurrentWeekRange();
+  
+  if (cacheWarm) {
+    // Cache hit — instant, no Graph API call
+    meetings = await meetingPrepService.getUpcomingMeetings(weekRange.start, weekRange.end);
+    logger.info('[MeetingPrep] FAST PATH: cache warm, rendered with ' + meetings.length + ' meetings');
+  } else {
+    // Cache cold — fire the fetch in the background (it'll populate the cache for the JSON API)
+    // Don't await — render the page shell immediately and let client hydrate via AJAX
+    meetingPrepService.getUpcomingMeetings(weekRange.start, weekRange.end).catch(e => {
+      logger.error('[MeetingPrep] Background calendar fetch failed:', e.message);
+    });
+    logger.info('[MeetingPrep] SLOW PATH: cache cold, rendering loading shell (client will hydrate via AJAX)');
   }
   
-  // Get BL users for filter dropdown
+  // needsClientHydration = true means the page will fetch meeting data via AJAX after render
+  const needsClientHydration = !cacheWarm;
+  
+  // Get BL users for filter dropdown (fast - doesn't depend on Graph API)
   let blUsers = [];
   try {
     blUsers = await meetingPrepService.getBLUsers();
@@ -271,7 +291,7 @@ async function generateMeetingPrepHTML(filterUserId = null) {
   }
   
   // Filter by user if specified (pass both userId and email for Outlook matching)
-  if (filterUserId) {
+  if (filterUserId && meetings.length > 0) {
     const selectedUser = blUsers.find(u => u.userId === filterUserId);
     const userEmail = selectedUser?.email || null;
     meetings = meetingPrepService.filterMeetingsByUser(meetings, filterUserId, userEmail);
@@ -654,6 +674,24 @@ body {
   padding: 20px;
   color: #9ca3af;
   font-size: 0.75rem;
+}
+
+/* Loading skeleton */
+.loading-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.skeleton-card {
+  height: 72px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 /* Modal */
@@ -1552,14 +1590,12 @@ textarea.input-field {
     <div>
       <h1 class="page-title">Meeting Prep</h1>
       <p class="page-subtitle">Week of ${weekDays[0].date} - ${weekDays[4].date}</p>
-      ${syncStatus ? `
-        <div class="sync-status ${syncStatus.syncInProgress ? 'syncing' : syncStatus.databaseStats?.totalEvents > 0 ? 'synced' : 'no-data'}">
-          ${syncStatus.syncInProgress ? 'Syncing calendars...' : 
-            syncStatus.databaseStats?.totalEvents > 0 ? 
-              `${syncStatus.databaseStats.customerMeetings} meetings cached (${formatSyncTime(syncStatus.syncStatus?.lastSync)})` :
-              'Calendar sync pending...'}
-        </div>
-      ` : ''}
+      <div id="syncBanner" class="sync-status ${needsClientHydration ? 'syncing' : (syncStatus?.databaseStats?.totalEvents > 0 ? 'synced' : 'no-data')}">
+        ${needsClientHydration ? 'Loading calendar data...' : 
+          (syncStatus?.databaseStats?.totalEvents > 0 ? 
+            `${syncStatus.databaseStats.customerMeetings} meetings loaded${syncStatus?.lastSync ? ' (' + formatSyncTime(syncStatus.lastSync) + ')' : ''}` :
+            'Loading calendar data...')}
+      </div>
     </div>
     <div class="header-actions">
       <select class="filter-dropdown" id="userFilter" onchange="filterByUser(this.value)">
@@ -1580,7 +1616,12 @@ textarea.input-field {
           <div class="day-date">${day.date}</div>
         </div>
         <div class="day-meetings" id="meetings-${day.fullDate}">
-          ${(grouped[day.fullDate] || []).length === 0 ? `
+          ${needsClientHydration ? `
+            <div class="loading-skeleton">
+              <div class="skeleton-card"></div>
+              <div class="skeleton-card"></div>
+            </div>
+          ` : (grouped[day.fullDate] || []).length === 0 ? `
             <div class="empty-day">No meetings</div>
           ` : (grouped[day.fullDate] || []).map(meeting => `
             <div class="meeting-card ${meeting.agenda?.some(a => a?.trim()) ? 'has-prep' : ''}" 
@@ -1666,7 +1707,7 @@ textarea.input-field {
 
 <script>
 const DEMO_PRODUCTS = ${JSON.stringify(demoProducts)};
-const MEETINGS_DATA = ${JSON.stringify(
+let MEETINGS_DATA = ${JSON.stringify(
   meetings.reduce((acc, m) => {
     const id = m.meeting_id || m.meetingId;
     acc[id] = {
@@ -1690,6 +1731,7 @@ const MEETINGS_DATA = ${JSON.stringify(
     return acc;
   }, {})
 )};
+const NEEDS_HYDRATION = ${needsClientHydration};
 let currentMeetingId = null;
 let currentMeetingData = null;
 let accountsList = [];
@@ -1795,47 +1837,116 @@ function extractNameFromEmail(email) {
 }
 
 /**
- * Extract the best available full name for an attendee
- * Priority: full_name from enrichment > name extracted from summary > raw name > email extraction
+ * Check if a name looks like a valid human name (not garbled email fragments).
+ * Rejects names like "Kgur In", "Mmoersfel Er", "Vtunnell" that come from
+ * naive email-local-part splitting.
+ * @param {string} name - Name to validate
+ * @returns {boolean} True if the name looks like a real human name
+ */
+function isValidHumanName(name) {
+  if (!name) return false;
+  const parts = name.trim().split(/\s+/);
+  // A valid full name has at least two parts
+  if (parts.length < 2) return false;
+  // Each part should be 3+ chars and contain at least one vowel
+  // This catches "Kgur", "Er", "Mmoersfel" (no standard vowel pattern)
+  return parts.every(p => p.length >= 3 && /[aeiouy]/i.test(p));
+}
+
+/**
+ * Extract all "FirstName LastName" patterns from a summary string.
+ * Returns them in order of appearance. Matches names followed by
+ * a dash or "is a/an" pattern indicating a title.
+ * @param {string} text - Summary text to scan
+ * @returns {Array<string>} Array of name candidates
+ */
+function extractNamesFromSummary(text) {
+  if (!text || typeof text !== 'string') return [];
+  const names = [];
+  // Match "FirstName LastName –" or "FirstName LastName -" patterns anywhere
+  const pattern = /([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})+)\s*[–\-—]/g;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    const candidate = match[1].trim();
+    if (isValidHumanName(candidate) && !names.includes(candidate)) {
+      names.push(candidate);
+    }
+  }
+  return names;
+}
+
+/**
+ * Extract the best available full name for an attendee.
+ * Validates Clay enrichment names to catch garbled email-derived fragments
+ * like "Kgur In" and falls back to extracting the real name from the summary.
+ *
+ * Priority:
+ *   1. Clay full_name (if passes validation)
+ *   2. Real name extracted from summary text
+ *   3. Raw attendee.name (if passes validation)
+ *   4. Email-derived name
+ *
  * @param {Object} attendee - Attendee object with name/email/enrichment data
- * @param {string} summary - Parsed summary text (may contain full name at start)
+ * @param {string} summary - Parsed summary text (may contain full name)
  * @returns {string} Best available full name
  */
 function extractBestName(attendee, summary) {
-  // Priority 1: full_name from Clay enrichment
+  // Priority 1: full_name from Clay enrichment — but validate it's a real name
   if (attendee.full_name && attendee.full_name.trim().length > 2 && !attendee.full_name.includes('@')) {
     const fullName = normalizeName(attendee.full_name);
-    if (fullName.includes(' ') || fullName.length > 5) {
-      console.log('[Name Extract] Using full_name:', fullName);
+    if (isValidHumanName(fullName)) {
+      console.log('[Name Extract] Using validated full_name:', fullName);
       return fullName;
     }
+    console.log('[Name Extract] Rejected garbled full_name:', fullName);
   }
   
-  // Priority 2: Extract name from summary (format: "FirstName LastName – Title...")
+  // Priority 2: Extract real name from summary text
+  // Scans for ALL "FirstName LastName – Title" patterns and picks the best one
   if (summary && typeof summary === 'string') {
+    const summaryNames = extractNamesFromSummary(summary);
+    if (summaryNames.length > 0) {
+      // Prefer the first valid name found (usually the real name appears after the garbled one)
+      // If the first match looks garbled, try subsequent matches
+      for (const candidate of summaryNames) {
+        if (isValidHumanName(candidate)) {
+          console.log('[Name Extract] Extracted real name from summary:', candidate);
+          return candidate;
+        }
+      }
+    }
+    
+    // Fallback: original regex for edge cases
     const dashMatch = summary.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*[–\-—]/);
-    if (dashMatch && dashMatch[1]) {
-      console.log('[Name Extract] Extracted from summary:', dashMatch[1]);
+    if (dashMatch && dashMatch[1] && isValidHumanName(dashMatch[1].trim())) {
+      console.log('[Name Extract] Extracted from summary start:', dashMatch[1]);
       return dashMatch[1].trim();
     }
   }
   
-  // Priority 3: Raw name field (normalize it)
+  // Priority 3: Raw name field — validate it too
   if (attendee.name && attendee.name.trim().length > 2 && !attendee.name.includes('@')) {
     const normalizedName = normalizeName(attendee.name);
     
-    // If it's a single word, try to expand from email
-    if (!normalizedName.includes(' ') && attendee.email) {
+    if (isValidHumanName(normalizedName)) {
+      console.log('[Name Extract] Using validated raw name:', normalizedName);
+      return normalizedName;
+    }
+    
+    // If raw name is single word or garbled, try to expand from email
+    if (attendee.email) {
       const emailName = extractNameFromEmail(attendee.email);
-      // If email gives us a two-part name, use it but keep the original as last name
       if (emailName.includes(' ')) {
-        console.log('[Name Extract] Expanded single name via email:', emailName);
+        console.log('[Name Extract] Expanded garbled name via email:', emailName);
         return emailName;
       }
     }
     
-    console.log('[Name Extract] Using normalized name:', normalizedName);
-    return normalizedName;
+    // Still use normalized name if it's all we have (even if single word)
+    if (normalizedName.length > 5) {
+      console.log('[Name Extract] Using normalized name (unvalidated):', normalizedName);
+      return normalizedName;
+    }
   }
   
   // Priority 4: Extract from email
@@ -1972,15 +2083,29 @@ function standardizeSummary(summary, displayName, title, company) {
   }
   
   // ======================================================================
-  // STEP 1: Strip ALL variations of "Name – Title" and "Name is a Title"
+  // STEP 1: Strip ALL "Name – Title at Company." intro patterns
   // ======================================================================
   let uniqueContent = cleanSummary;
   
-  // Get name parts for matching (handle "First Last" and "First" alone)
+  // STEP 1a: GENERIC strip — remove ALL leading "AnyName – Title at Company." sentences.
+  // This catches garbled names (e.g. "Kgur In – General Counsel at Wellspring.")
+  // AND real names (e.g. "Kristen Gurdin – General Counsel at Wellspring.") in one pass.
+  // The pattern matches any sequence of capitalized words followed by a dash and a sentence.
+  // Loop to handle multiple consecutive intro sentences (garbled + real).
+  let prevContent = '';
+  while (uniqueContent !== prevContent) {
+    prevContent = uniqueContent;
+    // Match ANY word(s) starting with a capital letter, followed by a dash, then content up to a period
+    // Handles: "Kgur In – GC at Wellspring.", "Kristen Gurdin – GC at Wellspring.", "Mmoersfel Er – ..."
+    uniqueContent = uniqueContent
+      .replace(/^[A-Z]\w*(?:\s+[A-Z]\w*)*\s*[–\-—]\s*[^.]+\.\s*/, '')
+      .trim();
+  }
+  
+  // STEP 1b: Name-specific strip — catch remaining patterns deeper in the text
   const firstName = displayName.split(' ')[0];
   const namePatterns = [displayName, firstName];
   
-  // Remove ALL occurrences of these patterns (not just first):
   for (const name of namePatterns) {
     const escapedName = escapeRegex(name);
     
@@ -2205,9 +2330,171 @@ function isGhostAttendee(attendee) {
   return false;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// ASYNC HYDRATION — when server rendered a loading shell (cold cache)
+// ═══════════════════════════════════════════════════════════════════
+function hydrateFromAPI() {
+  if (!NEEDS_HYDRATION) return;
+  
+  console.log('[Hydration] Cache was cold — fetching meetings via AJAX...');
+  const filterUser = document.getElementById('userFilter')?.value || '';
+  const apiUrl = '/api/meeting-prep/meetings' + (filterUser ? '?filterUser=' + encodeURIComponent(filterUser) : '');
+  
+  let retries = 0;
+  const maxRetries = 8;
+  
+  function attemptFetch() {
+    retries++;
+    fetch(apiUrl, { credentials: 'same-origin' })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.meetings || data.meetings.length === 0) {
+          if (retries < maxRetries) {
+            // Calendar is still being fetched in the background — retry with backoff
+            const delay = Math.min(2000 * retries, 10000);
+            console.log('[Hydration] No meetings yet, retry ' + retries + '/' + maxRetries + ' in ' + delay + 'ms');
+            setTimeout(attemptFetch, delay);
+            return;
+          }
+          console.log('[Hydration] No meetings after max retries, showing empty state');
+        }
+        
+        console.log('[Hydration] Got ' + (data.meetings?.length || 0) + ' meetings, rendering cards...');
+        
+        // Update MEETINGS_DATA for modal usage
+        const newData = {};
+        (data.meetings || []).forEach(m => {
+          const id = m.meeting_id || m.meetingId;
+          newData[id] = {
+            meetingId: id,
+            accountName: m.account_name || m.accountName || 'Unknown',
+            meetingTitle: m.meeting_title || m.meetingTitle || 'Untitled',
+            meetingDate: m.meeting_date || m.meetingDate,
+            accountId: m.account_id || m.accountId || null,
+            source: m.source || 'unknown',
+            externalAttendees: (m.externalAttendees || []).map(a => ({
+              name: a.name || '', email: a.email || '', isExternal: true
+            })),
+            internalAttendees: (m.internalAttendees || []).map(a => ({
+              name: a.name || '', email: a.email || '', isExternal: false
+            }))
+          };
+        });
+        MEETINGS_DATA = newData;
+        
+        // Group by date and render into day columns
+        const grouped = {};
+        document.querySelectorAll('.day-meetings').forEach(el => {
+          const dateKey = el.id.replace('meetings-', '');
+          grouped[dateKey] = [];
+        });
+        
+        (data.meetings || []).forEach(meeting => {
+          const dateStr = meeting.meetingDate || meeting.meeting_date;
+          if (!dateStr) return;
+          // Filter ghosts/EAs
+          const ext = (meeting.externalAttendees || []).filter(a => {
+            const email = (a.email || '').toLowerCase();
+            const name = (a.name || '').toLowerCase();
+            if (email.includes('zoom') || email.includes('teams') || email.includes('webex')) return false;
+            if (email.includes('conference') || email.includes('room') || email.includes('bridge')) return false;
+            if (name.includes('conference') || name.includes('meeting room') || name.includes('dial-in')) return false;
+            if (email.includes('alyssa.gradstein') || email.includes('cassie.farber')) return false;
+            return true;
+          });
+          if (ext.length === 0) return;
+          
+          const fullDate = new Date(dateStr).toISOString().split('T')[0];
+          if (grouped[fullDate]) grouped[fullDate].push(meeting);
+        });
+        
+        // Render cards into each day column
+        Object.keys(grouped).forEach(dateKey => {
+          const container = document.getElementById('meetings-' + dateKey);
+          if (!container) return;
+          
+          if (grouped[dateKey].length === 0) {
+            container.innerHTML = '<div class="empty-day">No meetings</div>';
+          } else {
+            container.innerHTML = grouped[dateKey].map(meeting => {
+              const id = meeting.meeting_id || meeting.meetingId;
+              const account = meeting.account_name || meeting.accountName || 'Unknown';
+              const title = meeting.meeting_title || meeting.meetingTitle || 'Untitled';
+              const date = meeting.meeting_date || meeting.meetingDate || '';
+              const source = meeting.source || 'unknown';
+              const hasPrep = meeting.agenda?.some(a => a?.trim());
+              const ext = (meeting.externalAttendees || []).filter(a => !isGhostAttendee(a));
+              
+              let attendeeChips = '';
+              if (ext.length > 0) {
+                const shown = ext.slice(0, 3);
+                attendeeChips = '<div class="attendee-chips">' +
+                  shown.map(a => '<span class="attendee-chip">' + escapeHtml(a.name || a.email || '?') + '</span>').join('') +
+                  (ext.length > 3 ? '<span class="attendee-chip more">+' + (ext.length - 3) + '</span>' : '') +
+                  '</div>';
+              }
+              
+              return '<div class="meeting-card' + (hasPrep ? ' has-prep' : '') + '" ' +
+                'onclick="openMeetingPrep(\\'' + id + '\\')" data-meeting-id="' + id + '">' +
+                '<div class="meeting-account">' + escapeHtml(account) + '</div>' +
+                '<div class="meeting-title">' + escapeHtml(title) + '</div>' +
+                '<div class="meeting-time">' + formatTime(date) + ' <span class="meeting-source ' + source + '">' + source + '</span></div>' +
+                attendeeChips +
+                '</div>';
+            }).join('');
+          }
+        });
+        
+        // Update sync banner
+        const banner = document.getElementById('syncBanner');
+        if (banner && data.syncStatus) {
+          const ss = data.syncStatus;
+          if (ss.databaseStats?.totalEvents > 0) {
+            banner.className = 'sync-status synced';
+            banner.textContent = ss.databaseStats.customerMeetings + ' meetings loaded' + (ss.lastSync ? ' (' + new Date(ss.lastSync).toLocaleTimeString() + ')' : '');
+          }
+        }
+      })
+      .catch(err => {
+        console.error('[Hydration] Fetch failed:', err);
+        if (retries < maxRetries) {
+          setTimeout(attemptFetch, 3000);
+        }
+      });
+  }
+  
+  attemptFetch();
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   loadAccounts();
+  
+  // If page was rendered with loading skeletons, hydrate via AJAX
+  hydrateFromAPI();
+  
+  // Handle autoOpen deep-link parameter (from Copy Link feature)
+  const urlParams = new URLSearchParams(window.location.search);
+  const autoOpenId = urlParams.get('autoOpen');
+  if (autoOpenId) {
+    // Retry until meeting data is loaded (MEETINGS_DATA populated), up to 10 seconds
+    let attempts = 0;
+    const maxAttempts = 20;
+    const tryOpen = () => {
+      attempts++;
+      if (typeof MEETINGS_DATA !== 'undefined' && MEETINGS_DATA[autoOpenId]) {
+        console.log('[Deep Link] Auto-opening meeting (attempt ' + attempts + '):', autoOpenId);
+        openMeetingPrep(autoOpenId);
+      } else if (attempts >= maxAttempts) {
+        // Data may not be pre-loaded — try opening anyway (will fetch via API)
+        console.log('[Deep Link] Opening meeting without pre-loaded data:', autoOpenId);
+        openMeetingPrep(autoOpenId);
+      } else {
+        setTimeout(tryOpen, 500);
+      }
+    };
+    setTimeout(tryOpen, 300);
+  }
 });
 
 // Load accounts for dropdown

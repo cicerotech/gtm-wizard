@@ -16,7 +16,7 @@ const path = require('path');
  * @param {boolean} options.isAdmin - Whether the user is an admin (shows Analytics tab)
  */
 function generateUnifiedHub(options = {}) {
-  const { userName = 'User', isAdmin = false } = options;
+  const { userName = 'User', isAdmin = false, meetingId = null } = options;
   const updateTime = new Date().toLocaleTimeString('en-US', { 
     timeZone: 'America/Los_Angeles', 
     hour: 'numeric', 
@@ -255,7 +255,7 @@ ${isAdmin ? '<input type="radio" name="main-tab" id="tab-analytics">' : ''}
   
   <!-- Meeting Prep Tab - Loads meeting prep view via iframe -->
   <div id="content-meeting-prep" class="tab-content">
-    <iframe src="/gtm/meeting-prep" title="Meeting Prep"></iframe>
+    <iframe src="/gtm/meeting-prep${meetingId ? '?autoOpen=' + encodeURIComponent(meetingId) : ''}" title="Meeting Prep"></iframe>
   </div>
   
   <!-- GTM Brain Tab - Account intelligence query (same backend as Obsidian plugin) -->
@@ -292,11 +292,16 @@ ${isAdmin ? '<input type="radio" name="main-tab" id="tab-analytics">' : ''}
 </div>
 
 <script>
-// Handle deep linking via query params (for Copy Link feature)
+// Handle deep linking via query params (for Copy Link feature and tab switching)
 document.addEventListener('DOMContentLoaded', function() {
   var urlParams = new URLSearchParams(window.location.search);
   var tabParam = urlParams.get('tab');
   var meetingParam = urlParams.get('meeting');
+  
+  // Auto-switch to meeting-prep tab when a meeting link is opened
+  if (meetingParam && !tabParam) {
+    tabParam = 'meeting-prep';
+  }
   
   // Switch to specified tab
   if (tabParam) {
@@ -317,25 +322,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   
-  // If meeting ID specified, tell the meeting-prep iframe to open that meeting
-  if (meetingParam && tabParam === 'meeting-prep') {
-    var iframe = document.querySelector('#content-meeting-prep iframe');
-    
-    var sendMessage = function() {
-      iframe.contentWindow.postMessage({ 
-        action: 'openMeeting', 
-        meetingId: meetingParam 
-      }, '*');
-    };
-    
-    if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
-      setTimeout(sendMessage, 500);
-    } else {
-      iframe.addEventListener('load', function() {
-        setTimeout(sendMessage, 500);
-      });
-    }
-  }
+  // Meeting deep-linking is now handled via the iframe src ?autoOpen= parameter
+  // (set server-side in generateUnifiedHub), so no postMessage needed.
 });
 </script>
 </body>

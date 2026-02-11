@@ -15,7 +15,7 @@ const logger = require('../utils/logger');
 const CALENDAR_CACHE = {
   data: null,
   timestamp: 0,
-  TTL_MS: 10 * 60 * 1000,  // 10 minutes cache - prevents excessive Graph API calls
+  TTL_MS: 60 * 60 * 1000,  // 60 minutes cache - meeting data changes infrequently (1-2x/week)
   inProgress: false,       // Prevents concurrent fetches
   lastFetchTime: 0         // Track when last fetch started
 };
@@ -982,12 +982,35 @@ class CalendarService {
   }
 }
 
+/**
+ * Get live calendar cache status for UI display
+ * Replaces deprecated calendarSyncJob.getSyncStatus()
+ */
+function getCalendarCacheStatus() {
+  const hasData = CALENDAR_CACHE.data && CALENDAR_CACHE.data.meetings;
+  const meetingCount = hasData ? CALENDAR_CACHE.data.meetings.length : 0;
+  const cacheAge = CALENDAR_CACHE.timestamp ? Math.round((Date.now() - CALENDAR_CACHE.timestamp) / 1000) : null;
+  const isValid = isCalendarCacheValid();
+
+  return {
+    syncInProgress: CALENDAR_CACHE.inProgress,
+    databaseStats: {
+      totalEvents: meetingCount,
+      customerMeetings: meetingCount
+    },
+    lastSync: CALENDAR_CACHE.timestamp ? new Date(CALENDAR_CACHE.timestamp).toISOString() : null,
+    cacheAgeSeconds: cacheAge,
+    cacheValid: isValid
+  };
+}
+
 // Singleton instance
 const calendarService = new CalendarService();
 
 module.exports = {
   calendarService,
   initializeCalendar: () => calendarService.initialize(),
+  getCalendarCacheStatus,
   BL_EMAILS,
   // Meeting classification exports
   classifyMeeting,
