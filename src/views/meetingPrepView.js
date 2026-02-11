@@ -271,11 +271,9 @@ async function generateMeetingPrepHTML(filterUserId = null) {
     meetings = await meetingPrepService.getUpcomingMeetings(weekRange.start, weekRange.end);
     logger.info('[MeetingPrep] FAST PATH: cache warm, rendered with ' + meetings.length + ' meetings');
   } else {
-    // Cache cold — fire the fetch in the background (it'll populate the cache for the JSON API)
-    // Don't await — render the page shell immediately and let client hydrate via AJAX
-    meetingPrepService.getUpcomingMeetings(weekRange.start, weekRange.end).catch(e => {
-      logger.error('[MeetingPrep] Background calendar fetch failed:', e.message);
-    });
+    // Cache cold — render shell immediately, client will hydrate via AJAX
+    // DO NOT fire a background fetch here — it would compete with the AJAX request
+    // and cause both to block on the inProgress lock for 15s per attempt
     logger.info('[MeetingPrep] SLOW PATH: cache cold, rendering loading shell (client will hydrate via AJAX)');
   }
   
@@ -2340,23 +2338,46 @@ function hydrateFromAPI() {
   const filterUser = document.getElementById('userFilter')?.value || '';
   const apiUrl = '/api/meeting-prep/meetings' + (filterUser ? '?filterUser=' + encodeURIComponent(filterUser) : '');
   
-  let retries = 0;
-  const maxRetries = 8;
+  let polls = 0;
+  const maxPolls = 30;  // Up to 30 polls (60s total at 2s intervals)
+  const startTime = Date.now();
+  
+  // Update the banner to show progress
+  function updateBanner(msg) {
+    const banner = document.getElementById('syncBanner');
+    if (banner) {
+      banner.className = 'sync-status syncing';
+      banner.textContent = msg;
+    }
+  }
   
   function attemptFetch() {
-    retries++;
+    polls++;
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    updateBanner('Loading calendar data... (' + elapsed + 's)');
+    
     fetch(apiUrl, { credentials: 'same-origin' })
       .then(r => r.json())
       .then(data => {
-        if (!data.meetings || data.meetings.length === 0) {
-          if (retries < maxRetries) {
-            // Calendar is still being fetched in the background — retry with backoff
-            const delay = Math.min(2000 * retries, 10000);
-            console.log('[Hydration] No meetings yet, retry ' + retries + '/' + maxRetries + ' in ' + delay + 'ms');
-            setTimeout(attemptFetch, delay);
+        // Server says calendar is still being fetched — poll again quickly
+        if (data.loading) {
+          if (polls < maxPolls) {
+            console.log('[Hydration] Server still loading, poll ' + polls + '/' + maxPolls);
+            setTimeout(attemptFetch, 2000);
             return;
           }
-          console.log('[Hydration] No meetings after max retries, showing empty state');
+          console.log('[Hydration] Server still loading after max polls, showing empty state');
+        }
+        
+        // Server returned meetings (even if empty after fetch completed)
+        if (!data.loading && (!data.meetings || data.meetings.length === 0)) {
+          if (polls < 5) {
+            // First few polls with empty result — might be timing, retry
+            console.log('[Hydration] Empty result, quick retry ' + polls);
+            setTimeout(attemptFetch, 2000);
+            return;
+          }
+          console.log('[Hydration] No meetings found (calendar fetch completed with 0 results)');
         }
         
         console.log('[Hydration] Got ' + (data.meetings?.length || 0) + ' meetings, rendering cards...');
@@ -2457,7 +2478,7 @@ function hydrateFromAPI() {
       })
       .catch(err => {
         console.error('[Hydration] Fetch failed:', err);
-        if (retries < maxRetries) {
+        if (polls < maxPolls) {
           setTimeout(attemptFetch, 3000);
         }
       });

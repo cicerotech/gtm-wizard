@@ -1809,7 +1809,8 @@ class GTMBrainApp {
           
           const userName = oktaSession.name || oktaSession.email;
           const isAdmin = ADMIN_EMAILS.includes(oktaSession.email?.toLowerCase());
-          const html = generateUnifiedHub({ userName, isAdmin });
+          const meetingId = req.query.meeting || null;
+          const html = generateUnifiedHub({ userName, isAdmin, meetingId });
           res.send(html);
         } catch (error) {
           res.status(500).send(`Error: ${error.message}`);
@@ -1881,6 +1882,69 @@ class GTMBrainApp {
         }
       } else {
         res.status(401).send('Unauthorized');
+      }
+    });
+
+    // Meeting Prep JSON API — returns meeting data for client-side hydration
+    // Used by the async-loading shell to avoid blocking the initial page render
+    // IMPORTANT: If the calendar cache is cold and a fetch is already in progress,
+    // this returns { loading: true } IMMEDIATELY instead of blocking for 15s.
+    // The client polls with short intervals until data is ready.
+    this.expressApp.get('/api/meeting-prep/meetings', async (req, res) => {
+      const oktaSession = validateOktaSession(req);
+      if (!oktaSession) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      try {
+        const meetingPrepService = require('./services/meetingPrepService');
+        const { getCalendarCacheStatus, calendarService } = require('./services/calendarService');
+        const syncStatus = getCalendarCacheStatus();
+        
+        // FAST: If cache is warm, return data immediately
+        if (syncStatus.cacheValid && syncStatus.databaseStats?.totalEvents > 0) {
+          const weekRange = meetingPrepService.getCurrentWeekRange();
+          const filterUserId = req.query.filterUser || null;
+          let meetings = await meetingPrepService.getUpcomingMeetings(weekRange.start, weekRange.end);
+          
+          let blUsers = [];
+          try { blUsers = await meetingPrepService.getBLUsers(); } catch (e) { /* continue */ }
+          
+          if (filterUserId) {
+            const selectedUser = blUsers.find(u => u.userId === filterUserId);
+            const userEmail = selectedUser?.email || null;
+            meetings = meetingPrepService.filterMeetingsByUser(meetings, filterUserId, userEmail);
+          }
+          
+          return res.json({ meetings, syncStatus, blUsers });
+        }
+        
+        // SLOW: Cache is cold — check if a fetch is already in progress
+        if (syncStatus.syncInProgress) {
+          // Don't block — return immediately and let client poll
+          logger.info('[MeetingPrep API] Calendar fetch in progress, returning loading state');
+          return res.json({ meetings: [], loading: true, syncStatus });
+        }
+        
+        // NO FETCH IN PROGRESS: Trigger the fetch and await it (this is the first call)
+        logger.info('[MeetingPrep API] Cold cache, triggering calendar fetch...');
+        const weekRange = meetingPrepService.getCurrentWeekRange();
+        const filterUserId = req.query.filterUser || null;
+        let meetings = await meetingPrepService.getUpcomingMeetings(weekRange.start, weekRange.end);
+        
+        let blUsers = [];
+        try { blUsers = await meetingPrepService.getBLUsers(); } catch (e) { /* continue */ }
+        
+        if (filterUserId) {
+          const selectedUser = blUsers.find(u => u.userId === filterUserId);
+          const userEmail = selectedUser?.email || null;
+          meetings = meetingPrepService.filterMeetingsByUser(meetings, filterUserId, userEmail);
+        }
+        
+        const updatedStatus = getCalendarCacheStatus();
+        res.json({ meetings, syncStatus: updatedStatus, blUsers });
+      } catch (error) {
+        logger.error('Error fetching meeting prep data:', error);
+        res.status(500).json({ error: error.message });
       }
     });
 
