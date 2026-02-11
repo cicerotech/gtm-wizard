@@ -376,41 +376,129 @@ function createObsidianConfig(outputDir) {
 }
 
 /**
- * Create account folders with notes
+ * Fetch enrichment data from the GTM Brain server for a batch of account IDs.
+ * Returns a map of accountId -> enrichment data. Gracefully returns {} on failure.
  */
-function createAccountFolders(accounts, outputDir) {
+async function fetchEnrichmentData(accounts) {
+  const SERVER_URL = process.env.GTM_SERVER_URL || 'https://gtm-wizard.onrender.com';
+  const accountsWithIds = accounts.filter(a => a.id && a.id.length >= 15);
+  if (accountsWithIds.length === 0) return {};
+
+  const allEnrichments = {};
+  const batchSize = 20;
+
+  console.log(`🔍 Fetching enrichment data for ${accountsWithIds.length} accounts from ${SERVER_URL}...`);
+
+  for (let i = 0; i < accountsWithIds.length; i += batchSize) {
+    const batch = accountsWithIds.slice(i, i + batchSize);
+    const batchIds = batch.map(a => a.id);
+
+    try {
+      const response = await fetch(`${SERVER_URL}/api/accounts/enrich-batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountIds: batchIds, userEmail: 'build-script@eudia.com' })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.enrichments) {
+          Object.assign(allEnrichments, data.enrichments);
+        }
+      }
+    } catch (err) {
+      console.warn(`   ⚠ Batch ${Math.floor(i / batchSize) + 1} fetch failed: ${err.message}`);
+    }
+
+    // Small delay between batches
+    if (i + batchSize < accountsWithIds.length) {
+      await new Promise(r => setTimeout(r, 300));
+    }
+  }
+
+  console.log(`   Enriched ${Object.keys(allEnrichments).length}/${accountsWithIds.length} accounts`);
+  return allEnrichments;
+}
+
+/**
+ * Create account folders with notes + enriched Contacts.md, Intelligence.md, etc.
+ */
+function createAccountFolders(accounts, outputDir, enrichments = {}) {
   const accountsDir = path.join(outputDir, 'Accounts');
   fs.mkdirSync(accountsDir, { recursive: true });
   
   console.log(`📁 Creating ${accounts.length} account folders...`);
   
+  const dateStr = new Date().toISOString().split('T')[0];
   let created = 0;
+  let enrichedCount = 0;
+
   for (const account of accounts) {
     const safeName = sanitizeFolderName(account.name);
     const accountDir = path.join(accountsDir, safeName);
     
     try {
       fs.mkdirSync(accountDir, { recursive: true });
-      
-      // Create 5 blank notes
-      for (let i = 1; i <= 5; i++) {
-        const noteContent = createNoteTemplate(
-          account.name,
-          account.id,
-          account.owner,
-          i
-        );
-        const notePath = path.join(accountDir, `Note ${i}.md`);
-        fs.writeFileSync(notePath, noteContent);
+      const enrich = enrichments[account.id];
+      const hasEnrichment = !!enrich;
+
+      // Create 3 meeting note templates
+      for (let i = 1; i <= 3; i++) {
+        const noteContent = createNoteTemplate(account.name, account.id, account.owner, i);
+        fs.writeFileSync(path.join(accountDir, `Note ${i}.md`), noteContent);
       }
-      
+
+      // ── Contacts.md ──
+      const enrichedAtContacts = hasEnrichment ? `\nenriched_at: "${new Date().toISOString()}"` : '';
+      let contactsBody;
+      if (enrich?.contacts) {
+        contactsBody = `${enrich.contacts}\n\n## Relationship Map\n\n*Add org chart, decision makers, champions, and blockers here.*\n\n## Contact History\n\n*Log key interactions and relationship developments.*`;
+      } else {
+        contactsBody = `| Name | Title | Email | Phone | Notes |\n|------|-------|-------|-------|-------|\n| *No contacts on record yet* | | | | |\n\n## Relationship Map\n\n*Add org chart, decision makers, champions, and blockers here.*\n\n## Contact History\n\n*Log key interactions and relationship developments.*`;
+      }
+      fs.writeFileSync(path.join(accountDir, 'Contacts.md'), `---\naccount: "${account.name}"\naccount_id: "${account.id}"\ntype: contacts\nsync_to_salesforce: false${enrichedAtContacts}\n---\n\n# ${account.name} - Key Contacts\n\n${contactsBody}\n`);
+
+      // ── Intelligence.md ──
+      const enrichedAtIntel = hasEnrichment ? `\nenriched_at: "${new Date().toISOString()}"` : '';
+      let intelBody;
+      if (enrich?.intelligence) {
+        intelBody = `${enrich.intelligence}\n\n## News & Signals\n\n*Recent news, earnings mentions, leadership changes.*`;
+      } else {
+        intelBody = `## Company Overview\n\n*Industry, size, headquarters, key facts.*\n\n## Strategic Priorities\n\n*What's top of mind for leadership? Digital transformation initiatives?*\n\n## Legal/Compliance Landscape\n\n*Regulatory environment, compliance challenges, legal team structure.*\n\n## Competitive Intelligence\n\n*Incumbent vendors, evaluation history, competitive positioning.*\n\n## News & Signals\n\n*Recent news, earnings mentions, leadership changes.*`;
+      }
+      fs.writeFileSync(path.join(accountDir, 'Intelligence.md'), `---\naccount: "${account.name}"\naccount_id: "${account.id}"\ntype: intelligence\nsync_to_salesforce: false${enrichedAtIntel}\n---\n\n# ${account.name} - Account Intelligence\n\n${intelBody}\n`);
+
+      // ── Meeting Notes.md ──
+      const enrichedAtMeetings = hasEnrichment ? `\nenriched_at: "${new Date().toISOString()}"` : '';
+      let meetingsBody;
+      if (enrich?.opportunities || enrich?.recentActivity) {
+        const sections = [];
+        if (enrich.opportunities) sections.push(enrich.opportunities);
+        if (enrich.recentActivity) sections.push(enrich.recentActivity);
+        meetingsBody = sections.join('\n\n');
+      } else {
+        meetingsBody = `*Use Note 1, Note 2, Note 3 for your meeting notes. When full, create additional notes.*\n\n## Recent Meetings\n\n| Date | Note | Key Outcomes |\n|------|------|--------------|\n|      |      |              |`;
+      }
+      fs.writeFileSync(path.join(accountDir, 'Meeting Notes.md'), `---\naccount: "${account.name}"\naccount_id: "${account.id}"\ntype: meetings_index\nsync_to_salesforce: false${enrichedAtMeetings}\n---\n\n# ${account.name} - Meeting Notes\n\n${meetingsBody}\n\n## Quick Start\n\n1. Open **Note 1** for your next meeting\n2. Click the **microphone** to record and transcribe\n3. **Next Steps** are auto-extracted after transcription\n4. Set \`sync_to_salesforce: true\` to sync to Salesforce\n`);
+
+      // ── Next Steps.md ──
+      const enrichedAtNext = hasEnrichment ? `\nenriched_at: "${new Date().toISOString()}"` : '';
+      let nextBody;
+      if (enrich?.nextSteps) {
+        nextBody = enrich.nextSteps;
+      } else {
+        nextBody = `*This note is automatically updated after each meeting transcription.*\n\n## Current Next Steps\n\n*No next steps yet. Record a meeting to auto-populate.*`;
+      }
+      fs.writeFileSync(path.join(accountDir, 'Next Steps.md'), `---\naccount: "${account.name}"\naccount_id: "${account.id}"\ntype: next_steps\nauto_updated: true\nlast_updated: ${dateStr}\nsync_to_salesforce: false${enrichedAtNext}\n---\n\n# ${account.name} - Next Steps\n\n${nextBody}\n\n---\n\n## History\n\n*Previous next steps will be archived here.*\n`);
+
       created++;
+      if (hasEnrichment) enrichedCount++;
     } catch (err) {
       console.warn(`   Warning: Could not create folder for ${account.name}: ${err.message}`);
     }
   }
   
-  console.log(`   Created ${created} account folders with 5 notes each`);
+  console.log(`   Created ${created} account folders (${enrichedCount} enriched with Salesforce data)`);
 }
 
 /**
@@ -495,9 +583,12 @@ async function buildVault() {
   // Step 1: Read accounts
   const accounts = readAccounts(accountsFile);
   
+  // Step 1.5: Fetch enrichment data from the server (contacts, intelligence, etc.)
+  const enrichments = await fetchEnrichmentData(accounts);
+  
   // Step 2: Create folder structure
   createSetupFiles(OUTPUT_DIR);
-  createAccountFolders(accounts, OUTPUT_DIR);
+  createAccountFolders(accounts, OUTPUT_DIR, enrichments);
   createRecordingsFolder(OUTPUT_DIR);
   
   // Step 3: Configure Obsidian

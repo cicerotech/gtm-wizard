@@ -970,11 +970,15 @@ class SetupWizardModal extends Modal {
       }
       
       if (accounts.length > 0 || prospects.length > 0) {
+        // Fetch enrichment data for all accounts before creating folders
+        const allAccounts = [...accounts, ...prospects];
+        const enrichments = await this.plugin.fetchEnrichmentData(allAccounts);
+
         // Use admin method for admin users, regular method for others
         if (isAdminUser(userEmail)) {
           await this.plugin.createAdminAccountFolders(accounts);
         } else {
-          await this.plugin.createTailoredAccountFolders(accounts);
+          await this.plugin.createTailoredAccountFolders(accounts, enrichments);
           // Create lightweight prospect files in _Prospects/ folder
           if (prospects.length > 0) {
             await this.plugin.createProspectAccountFiles(prospects);
@@ -983,10 +987,6 @@ class SetupWizardModal extends Modal {
         this.plugin.settings.accountsImported = true;
         this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
         await this.plugin.saveSettings();
-
-        // Non-blocking enrichment: populate subnotes with Salesforce data
-        const allAccounts = [...accounts, ...prospects];
-        setTimeout(() => this.plugin.enrichAccountFolders(allAccounts), 2000);
       }
       this.updateStep('accounts', 'complete');
     } catch (e) {
@@ -1345,10 +1345,14 @@ class EudiaSetupView extends ItemView {
           }
           
           if (accounts.length > 0 || prospects.length > 0) {
+            // Fetch enrichment data before creating folders
+            const allImported = [...accounts, ...prospects];
+            const enrichments = await this.plugin.fetchEnrichmentData(allImported);
+
             if (isAdminUser(email)) {
               await this.plugin.createAdminAccountFolders(accounts);
             } else {
-              await this.plugin.createTailoredAccountFolders(accounts);
+              await this.plugin.createTailoredAccountFolders(accounts, enrichments);
               if (prospects.length > 0) {
                 await this.plugin.createProspectAccountFiles(prospects);
               }
@@ -1357,10 +1361,6 @@ class EudiaSetupView extends ItemView {
             this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
             await this.plugin.saveSettings();
             new Notice(`Imported ${accounts.length} active accounts + ${prospects.length} prospects!`);
-
-            // Non-blocking enrichment: populate subnotes with Salesforce data
-            const allImported = [...accounts, ...prospects];
-            setTimeout(() => this.plugin.enrichAccountFolders(allImported), 2000);
           }
         } catch (importError) {
           console.error('[Eudia] Account import failed:', importError);
@@ -1527,11 +1527,16 @@ class EudiaSetupView extends ItemView {
         return;
       }
       
+      // Fetch enrichment data for all accounts before folder creation
+      statusEl.textContent = 'Loading account intelligence from Salesforce...';
+      const allSetupAccounts = [...accounts, ...prospects];
+      const enrichments = await this.plugin.fetchEnrichmentData(allSetupAccounts);
+
       // Create account folders - use admin method for admin users
       if (isAdminUser(userEmail)) {
         await this.plugin.createAdminAccountFolders(accounts);
       } else {
-        await this.plugin.createTailoredAccountFolders(accounts);
+        await this.plugin.createTailoredAccountFolders(accounts, enrichments);
         if (prospects.length > 0) {
           await this.plugin.createProspectAccountFiles(prospects);
         }
@@ -1545,17 +1550,14 @@ class EudiaSetupView extends ItemView {
       
       const ownedCount = accounts.filter(a => a.isOwned !== false).length;
       const viewOnlyCount = accounts.filter(a => a.isOwned === false).length;
+      const enrichedCount = Object.keys(enrichments).length;
       
       if (isAdminUser(userEmail) && viewOnlyCount > 0) {
         statusEl.textContent = `${ownedCount} owned + ${viewOnlyCount} view-only accounts imported!`;
       } else {
-        statusEl.textContent = `${accounts.length} active + ${prospects.length} prospect accounts imported!`;
+        statusEl.textContent = `${accounts.length} active + ${prospects.length} prospect accounts imported (${enrichedCount} enriched)!`;
       }
       statusEl.className = 'eudia-setup-sf-status success';
-
-      // Non-blocking enrichment: populate subnotes with Salesforce data
-      const allSetupAccounts = [...accounts, ...prospects];
-      setTimeout(() => this.plugin.enrichAccountFolders(allSetupAccounts), 2000);
       
     } catch (error) {
       statusEl.textContent = 'Failed to import accounts. Please try again.';
@@ -3098,8 +3100,13 @@ export default class EudiaSyncPlugin extends Plugin {
   /**
    * Create account folders for the user's owned accounts only.
    * This provides a tailored vault experience based on account ownership.
+   * @param accounts List of accounts to create folders for
+   * @param enrichments Optional map of account ID -> enrichment data from /api/accounts/enrich-batch
    */
-  async createTailoredAccountFolders(accounts: OwnedAccount[]): Promise<void> {
+  async createTailoredAccountFolders(
+    accounts: OwnedAccount[],
+    enrichments?: Record<string, { contacts?: string; intelligence?: string; opportunities?: string; nextSteps?: string; recentActivity?: string; customerBrain?: string }>
+  ): Promise<void> {
     const accountsFolder = this.settings.accountsFolder || 'Accounts';
     
     // Ensure the main Accounts folder exists
@@ -3125,8 +3132,25 @@ export default class EudiaSyncPlugin extends Plugin {
         // Create the account folder
         await this.app.vault.createFolder(folderPath);
         
+        // Lookup enrichment data for this account (if available)
+        const enrich = enrichments?.[account.id];
+        const hasEnrichment = !!enrich;
+        
         // Create 7 subnotes for the account (new structure with Next Steps)
         const dateStr = new Date().toISOString().split('T')[0];
+
+        // ── Build Contacts.md content ──
+        const contactsContent = this.buildContactsContent(account, enrich, dateStr);
+
+        // ── Build Intelligence.md content ──
+        const intelligenceContent = this.buildIntelligenceContent(account, enrich, dateStr);
+
+        // ── Build Meeting Notes.md content (with opportunities + recent activity if available) ──
+        const meetingNotesContent = this.buildMeetingNotesContent(account, enrich);
+
+        // ── Build Next Steps.md content ──
+        const nextStepsContent = this.buildNextStepsContent(account, enrich, dateStr);
+
         const subnotes = [
           {
             name: 'Note 1.md',
@@ -3217,45 +3241,75 @@ created: ${dateStr}
           },
           {
             name: 'Meeting Notes.md',
-            content: `---
-account: "${account.name}"
-account_id: "${account.id}"
-type: meetings_index
-sync_to_salesforce: false
----
-
-# ${account.name} - Meeting Notes
-
-*Use Note 1, Note 2, Note 3 for your meeting notes. When full, create additional notes.*
-
-## Recent Meetings
-
-| Date | Note | Key Outcomes |
-|------|------|--------------|
-|      |      |              |
-
-## Quick Start
-
-1. Open **Note 1** for your next meeting
-2. Click the **microphone** to record and transcribe
-3. **Next Steps** are auto-extracted after transcription
-4. Set \`sync_to_salesforce: true\` to sync to Salesforce
-`
+            content: meetingNotesContent
           },
           {
             name: 'Contacts.md',
-            content: `---
+            content: contactsContent
+          },
+          {
+            name: 'Intelligence.md',
+            content: intelligenceContent
+          },
+          {
+            name: 'Next Steps.md',
+            content: nextStepsContent
+          }
+        ];
+        
+        for (const subnote of subnotes) {
+          const notePath = `${folderPath}/${subnote.name}`;
+          await this.app.vault.create(notePath, subnote.content);
+        }
+        
+        createdCount++;
+        const enrichLabel = hasEnrichment ? ' (enriched)' : '';
+        console.log(`[Eudia] Created account folder with subnotes${enrichLabel}: ${safeName}`);
+      } catch (error) {
+        console.error(`[Eudia] Failed to create folder for ${safeName}:`, error);
+      }
+    }
+
+    // Update cached accounts
+    this.settings.cachedAccounts = accounts.map(a => ({
+      id: a.id,
+      name: a.name
+    }));
+    await this.saveSettings();
+
+    if (createdCount > 0) {
+      new Notice(`Created ${createdCount} account folders`);
+    }
+    
+    // Also create the Next Steps aggregation folder if it doesn't exist
+    await this.ensureNextStepsFolderExists();
+  }
+
+  // ── Enrichment-aware template builders ──
+
+  /**
+   * Build Contacts.md content, pre-filled with Salesforce data when available.
+   */
+  private buildContactsContent(
+    account: OwnedAccount,
+    enrich?: { contacts?: string; intelligence?: string; opportunities?: string; nextSteps?: string; recentActivity?: string; customerBrain?: string },
+    dateStr?: string
+  ): string {
+    const enrichedAt = enrich ? `\nenriched_at: "${new Date().toISOString()}"` : '';
+    const frontmatter = `---
 account: "${account.name}"
 account_id: "${account.id}"
 type: contacts
-sync_to_salesforce: false
----
+sync_to_salesforce: false${enrichedAt}
+---`;
+
+    // If we have enrichment data for contacts, use it
+    if (enrich?.contacts) {
+      return `${frontmatter}
 
 # ${account.name} - Key Contacts
 
-| Name | Title | Email | Phone | Notes |
-|------|-------|-------|-------|-------|
-|      |       |       |       |       |
+${enrich.contacts}
 
 ## Relationship Map
 
@@ -3264,16 +3318,60 @@ sync_to_salesforce: false
 ## Contact History
 
 *Log key interactions and relationship developments.*
-`
-          },
-          {
-            name: 'Intelligence.md',
-            content: `---
+`;
+    }
+
+    // Fallback: blank template
+    return `${frontmatter}
+
+# ${account.name} - Key Contacts
+
+| Name | Title | Email | Phone | Notes |
+|------|-------|-------|-------|-------|
+| *No contacts on record yet* | | | | |
+
+## Relationship Map
+
+*Add org chart, decision makers, champions, and blockers here.*
+
+## Contact History
+
+*Log key interactions and relationship developments.*
+`;
+  }
+
+  /**
+   * Build Intelligence.md content, pre-filled with Salesforce data when available.
+   */
+  private buildIntelligenceContent(
+    account: OwnedAccount,
+    enrich?: { contacts?: string; intelligence?: string; opportunities?: string; nextSteps?: string; recentActivity?: string; customerBrain?: string },
+    dateStr?: string
+  ): string {
+    const enrichedAt = enrich ? `\nenriched_at: "${new Date().toISOString()}"` : '';
+    const frontmatter = `---
 account: "${account.name}"
 account_id: "${account.id}"
 type: intelligence
-sync_to_salesforce: false
----
+sync_to_salesforce: false${enrichedAt}
+---`;
+
+    // If we have enrichment data for intelligence, use it
+    if (enrich?.intelligence) {
+      return `${frontmatter}
+
+# ${account.name} - Account Intelligence
+
+${enrich.intelligence}
+
+## News & Signals
+
+*Recent news, earnings mentions, leadership changes.*
+`;
+    }
+
+    // Fallback: blank template with placeholders
+    return `${frontmatter}
 
 # ${account.name} - Account Intelligence
 
@@ -3296,18 +3394,107 @@ sync_to_salesforce: false
 ## News & Signals
 
 *Recent news, earnings mentions, leadership changes.*
-`
-          },
-          {
-            name: 'Next Steps.md',
-            content: `---
+`;
+  }
+
+  /**
+   * Build Meeting Notes.md content, with opportunity and activity data when available.
+   */
+  private buildMeetingNotesContent(
+    account: OwnedAccount,
+    enrich?: { contacts?: string; intelligence?: string; opportunities?: string; nextSteps?: string; recentActivity?: string; customerBrain?: string }
+  ): string {
+    const enrichedAt = enrich ? `\nenriched_at: "${new Date().toISOString()}"` : '';
+    const frontmatter = `---
+account: "${account.name}"
+account_id: "${account.id}"
+type: meetings_index
+sync_to_salesforce: false${enrichedAt}
+---`;
+
+    // Build sections from enrichment data
+    const sections: string[] = [];
+    if (enrich?.opportunities) {
+      sections.push(enrich.opportunities);
+    }
+    if (enrich?.recentActivity) {
+      sections.push(enrich.recentActivity);
+    }
+
+    if (sections.length > 0) {
+      return `${frontmatter}
+
+# ${account.name} - Meeting Notes
+
+${sections.join('\n\n')}
+
+## Quick Start
+
+1. Open **Note 1** for your next meeting
+2. Click the **microphone** to record and transcribe
+3. **Next Steps** are auto-extracted after transcription
+4. Set \`sync_to_salesforce: true\` to sync to Salesforce
+`;
+    }
+
+    // Fallback: blank template
+    return `${frontmatter}
+
+# ${account.name} - Meeting Notes
+
+*Use Note 1, Note 2, Note 3 for your meeting notes. When full, create additional notes.*
+
+## Recent Meetings
+
+| Date | Note | Key Outcomes |
+|------|------|--------------|
+|      |      |              |
+
+## Quick Start
+
+1. Open **Note 1** for your next meeting
+2. Click the **microphone** to record and transcribe
+3. **Next Steps** are auto-extracted after transcription
+4. Set \`sync_to_salesforce: true\` to sync to Salesforce
+`;
+  }
+
+  /**
+   * Build Next Steps.md content, pre-filled with active tasks when available.
+   */
+  private buildNextStepsContent(
+    account: OwnedAccount,
+    enrich?: { contacts?: string; intelligence?: string; opportunities?: string; nextSteps?: string; recentActivity?: string; customerBrain?: string },
+    dateStr?: string
+  ): string {
+    const date = dateStr || new Date().toISOString().split('T')[0];
+    const enrichedAt = enrich ? `\nenriched_at: "${new Date().toISOString()}"` : '';
+    const frontmatter = `---
 account: "${account.name}"
 account_id: "${account.id}"
 type: next_steps
 auto_updated: true
-last_updated: ${dateStr}
-sync_to_salesforce: false
+last_updated: ${date}
+sync_to_salesforce: false${enrichedAt}
+---`;
+
+    if (enrich?.nextSteps) {
+      return `${frontmatter}
+
+# ${account.name} - Next Steps
+
+${enrich.nextSteps}
+
 ---
+
+## History
+
+*Previous next steps will be archived here.*
+`;
+    }
+
+    // Fallback: blank template
+    return `${frontmatter}
 
 # ${account.name} - Next Steps
 
@@ -3322,35 +3509,54 @@ sync_to_salesforce: false
 ## History
 
 *Previous next steps will be archived here.*
-`
-          }
-        ];
-        
-        for (const subnote of subnotes) {
-          const notePath = `${folderPath}/${subnote.name}`;
-          await this.app.vault.create(notePath, subnote.content);
+`;
+  }
+
+  /**
+   * Fetch enrichment data from the server for a batch of accounts.
+   * Returns a map of accountId -> enrichment data, or empty object on failure.
+   */
+  async fetchEnrichmentData(accounts: OwnedAccount[]): Promise<Record<string, any>> {
+    const serverUrl = this.settings.serverUrl || 'https://gtm-wizard.onrender.com';
+    const accountsWithIds = accounts.filter(a => a.id && a.id.length >= 15);
+    if (accountsWithIds.length === 0) return {};
+
+    const allEnrichments: Record<string, any> = {};
+    const batchSize = 20;
+
+    console.log(`[Eudia Enrich] Fetching enrichment data for ${accountsWithIds.length} accounts`);
+
+    for (let i = 0; i < accountsWithIds.length; i += batchSize) {
+      const batch = accountsWithIds.slice(i, i + batchSize);
+      const batchIds = batch.map(a => a.id);
+
+      try {
+        const response = await requestUrl({
+          url: `${serverUrl}/api/accounts/enrich-batch`,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            accountIds: batchIds,
+            userEmail: this.settings.userEmail
+          })
+        });
+
+        if (response.json?.success && response.json?.enrichments) {
+          Object.assign(allEnrichments, response.json.enrichments);
         }
-        
-        createdCount++;
-        console.log(`[Eudia] Created account folder with subnotes: ${safeName}`);
-      } catch (error) {
-        console.error(`[Eudia] Failed to create folder for ${safeName}:`, error);
+      } catch (err) {
+        console.error(`[Eudia Enrich] Batch fetch failed (batch ${i / batchSize + 1}):`, err);
+        // Continue with other batches — graceful degradation
+      }
+
+      // Small delay between batches
+      if (i + batchSize < accountsWithIds.length) {
+        await new Promise(r => setTimeout(r, 300));
       }
     }
 
-    // Update cached accounts
-    this.settings.cachedAccounts = accounts.map(a => ({
-      id: a.id,
-      name: a.name
-    }));
-    await this.saveSettings();
-
-    if (createdCount > 0) {
-      new Notice(`Created ${createdCount} account folders`);
-    }
-    
-    // Also create the Next Steps aggregation folder if it doesn't exist
-    await this.ensureNextStepsFolderExists();
+    console.log(`[Eudia Enrich] Got enrichment data for ${Object.keys(allEnrichments).length}/${accountsWithIds.length} accounts`);
+    return allEnrichments;
   }
 
   /**
@@ -5195,8 +5401,9 @@ ${transcription.text}
 
     console.log(`[Eudia] Creating ${newAccounts.length} new account folders`);
     
-    // Create folders for new accounts (reuses existing method)
-    await this.createTailoredAccountFolders(newAccounts);
+    // Fetch enrichment data then create folders with pre-populated content
+    const enrichments = await this.fetchEnrichmentData(newAccounts);
+    await this.createTailoredAccountFolders(newAccounts, enrichments);
     
     return newAccounts.length;
   }
@@ -5413,13 +5620,15 @@ ${transcription.text}
             } else if (prospectFile) {
               // Old single-file format: delete and create full folder
               await this.app.vault.delete(prospectFile);
-              await this.createTailoredAccountFolders([{
+              const singleAccount = [{
                 id: account.id,
                 name: account.name,
                 type: account.customerType as 'Customer' | 'Prospect' | 'Target' | undefined,
                 isOwned: true,
                 hadOpportunity: true
-              }]);
+              }];
+              const singleEnrich = await this.fetchEnrichmentData(singleAccount);
+              await this.createTailoredAccountFolders(singleAccount, singleEnrich);
               promotedCount++;
               new Notice(`${account.name} promoted to active -- full account folder created`);
             }
@@ -5450,7 +5659,8 @@ ${transcription.text}
           if (userGroup === 'admin' || userGroup === 'exec') {
             await this.createAdminAccountFolders(accountsToCreate);
           } else {
-            await this.createTailoredAccountFolders(accountsToCreate);
+            const newEnrichments = await this.fetchEnrichmentData(accountsToCreate);
+            await this.createTailoredAccountFolders(accountsToCreate, newEnrichments);
           }
           
           addedCount = nonPromotedNew.length;
