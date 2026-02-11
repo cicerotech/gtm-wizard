@@ -142,6 +142,7 @@ async function saveMeetingPrep(data) {
     demoRequired,
     demoSelections,
     contextSnapshot,
+    contextOverride,
     isFirstMeeting,
     authorId,
     source

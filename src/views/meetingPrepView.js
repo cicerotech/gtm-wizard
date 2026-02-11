@@ -2688,6 +2688,10 @@ async function openMeetingPrep(meetingId) {
       currentMeetingData.demoSelections = saved.demoSelections || currentMeetingData.demoSelections;
       currentMeetingData.context = saved.context || '';
       currentMeetingData.additionalNotes = saved.additionalNotes || ['', '', ''];
+      // Restore context override if the rep previously edited the intelligence brief
+      if (saved.contextOverride) {
+        currentMeetingData._contextOverride = saved.contextOverride;
+      }
       // Merge attendees - prefer saved if they have more data, otherwise use Outlook
       if (saved.externalAttendees?.length > 0) {
         currentMeetingData.externalAttendees = saved.externalAttendees;
@@ -2840,7 +2844,10 @@ async function openMeetingPrep(meetingId) {
         const ctx = (ctxData.success && ctxData.context) ? ctxData.context : null;
         
         let gtmBrief = '';
-        if (queryRes) {
+        // If the rep previously edited/overrode the context, use their version
+        if (currentMeetingData._contextOverride) {
+          gtmBrief = currentMeetingData._contextOverride;
+        } else if (queryRes) {
           try {
             const queryData = await queryRes.json();
             if (queryData.success && queryData.answer) {
@@ -2965,18 +2972,8 @@ function formatContextSection(ctx, meetingData, gtmBrief) {
     html += '</div>';
   }
   
-  // Key Contacts — quiet inline display
-  if (ctx && ctx.salesforce?.keyContacts?.length) {
-    html += '<div style="margin-top: 8px; border-top: 1px solid #f0f0f0; padding-top: 8px;">';
-    html += '<div style="font-size: 0.65rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; margin-bottom: 4px;">Key Contacts</div>';
-    ctx.salesforce.keyContacts.slice(0, 4).forEach(function(c) {
-      html += '<div style="font-size: 0.75rem; color: #374151; margin-bottom: 3px;">';
-      html += c.name;
-      if (c.title) html += ' <span style="color: #9ca3af;">– ' + c.title + '</span>';
-      html += '</div>';
-    });
-    html += '</div>';
-  }
+  // Key Contacts removed — GTM Brain brief already surfaces contacts with richer context
+  // Keeping them here would create conflicting lists from different data sources
   
   html += '</div></div>';
   return html;
@@ -2985,30 +2982,74 @@ function formatContextSection(ctx, meetingData, gtmBrief) {
 // ── GTM Brain Brief Card ──
 // Renders the markdown response from intelligenceQueryService in a quiet, exec-ready card.
 // Same output the rep sees in the GTM Brain tab and Obsidian plugin.
+// Includes edit toggle so reps can override with their own context.
 function renderGtmBriefCard(markdownText) {
   let html = '';
-  // Quiet card: light grey, no colorful borders
-  html += '<div style="margin-bottom: 10px; padding: 14px 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e5e7eb;">';
+  html += '<div style="margin-bottom: 10px;">';
   
-  // Render the markdown as formatted HTML
-  // Convert markdown bold, bullets, headers into clean HTML
+  // Header row with edit toggle
+  html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">';
+  html += '<span style="font-size: 0.65rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.4px;">Pre-Meeting Context</span>';
+  html += '<button onclick="toggleContextEdit()" id="contextEditBtn" style="background: none; border: 1px solid #e5e7eb; border-radius: 4px; padding: 2px 8px; font-size: 0.65rem; color: #6b7280; cursor: pointer;">Edit</button>';
+  html += '</div>';
+  
+  // Read-only rendered view (visible by default)
   var rendered = markdownText
-    // Escape HTML entities first
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    // Headers: ## Section → styled div
     .replace(/^## (.+)$/gm, '<div style="font-size: 0.7rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; margin-top: 12px; margin-bottom: 4px;">$1</div>')
-    // Bold: **text** → strong
     .replace(/\\*\\*(.+?)\\*\\*/g, '<strong style="color: #1f2937;">$1</strong>')
-    // Bullet points: - item or • item → compact list items
     .replace(/^[\\-•]\\s+(.+)$/gm, '<div style="font-size: 0.78rem; color: #374151; padding-left: 12px; position: relative; margin-bottom: 2px; line-height: 1.45;"><span style="position: absolute; left: 0; color: #9ca3af;">•</span>$1</div>')
-    // Paragraphs: double newlines
     .replace(/\\n\\n/g, '<div style="margin-top: 8px;"></div>')
-    // Single newlines within a block
     .replace(/\\n/g, '<br>');
   
+  html += '<div id="contextReadView" style="padding: 14px 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e5e7eb;">';
   html += '<div style="font-size: 0.82rem; line-height: 1.55; color: #374151;">' + rendered + '</div>';
   html += '</div>';
+  
+  // Editable textarea (hidden by default) — stores raw markdown for editing
+  html += '<textarea id="contextEditArea" style="display: none; width: 100%; min-height: 200px; padding: 14px 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #3b82f6; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 0.82rem; line-height: 1.55; color: #374151; resize: vertical; outline: none;">' + markdownText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</textarea>';
+  
+  html += '</div>';
   return html;
+}
+
+// Toggle between read view and edit view for the context section
+function toggleContextEdit() {
+  var readView = document.getElementById('contextReadView');
+  var editArea = document.getElementById('contextEditArea');
+  var btn = document.getElementById('contextEditBtn');
+  
+  if (editArea.style.display === 'none') {
+    // Switch to edit mode
+    readView.style.display = 'none';
+    editArea.style.display = 'block';
+    editArea.focus();
+    btn.textContent = 'Done';
+    btn.style.color = '#3b82f6';
+    btn.style.borderColor = '#3b82f6';
+    // Store that we are editing
+    currentMeetingData._contextEdited = true;
+  } else {
+    // Switch back to read mode — re-render the edited text
+    var editedText = editArea.value;
+    currentMeetingData._contextOverride = editedText;
+    
+    // Re-render the markdown
+    var newRendered = editedText
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/^## (.+)$/gm, '<div style="font-size: 0.7rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; margin-top: 12px; margin-bottom: 4px;">$1</div>')
+      .replace(/\\*\\*(.+?)\\*\\*/g, '<strong style="color: #1f2937;">$1</strong>')
+      .replace(/^[\\-•]\\s+(.+)$/gm, '<div style="font-size: 0.78rem; color: #374151; padding-left: 12px; position: relative; margin-bottom: 2px; line-height: 1.45;"><span style="position: absolute; left: 0; color: #9ca3af;">•</span>$1</div>')
+      .replace(/\\n\\n/g, '<div style="margin-top: 8px;"></div>')
+      .replace(/\\n/g, '<br>');
+    
+    readView.innerHTML = '<div style="font-size: 0.82rem; line-height: 1.55; color: #374151;">' + newRendered + '</div>';
+    readView.style.display = 'block';
+    editArea.style.display = 'none';
+    btn.textContent = 'Edit';
+    btn.style.color = '#6b7280';
+    btn.style.borderColor = '#e5e7eb';
+  }
 }
 
 // ── Fallback: shown when GTM Brain query is unavailable ──
@@ -3506,6 +3547,9 @@ async function saveMeetingPrep() {
   
   const demoRequired = demoSelections.some(d => d.product);
   
+  // Include context override if the rep edited it
+  var contextOverride = currentMeetingData._contextOverride || null;
+  
   const payload = {
     meetingId: currentMeetingId,
     accountId: currentMeetingData.accountId,
@@ -3519,6 +3563,7 @@ async function saveMeetingPrep() {
     demoRequired,
     demoSelections,
     additionalNotes,
+    contextOverride,
     savedAt: new Date().toISOString()
   };
   
