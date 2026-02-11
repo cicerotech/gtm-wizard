@@ -1177,9 +1177,66 @@ class EudiaSetupView extends ItemView {
         // Salesforce not connected
       }
       
-      // Check if accounts are imported
+      // Check if accounts are imported — if email is set but accounts haven't loaded, auto-retry
       if (this.plugin.settings.accountsImported) {
         this.steps[2].status = 'complete';
+      } else {
+        // Email connected but accounts never imported (server may have been down). Auto-retry.
+        console.log('[Eudia Setup] Email set but accounts not imported — auto-retrying import...');
+        try {
+          const email = this.plugin.settings.userEmail;
+          let accounts: OwnedAccount[] = [];
+          let prospects: OwnedAccount[] = [];
+          
+          if (isAdminUser(email)) {
+            accounts = await this.accountOwnershipService.getAllAccountsForAdmin(email);
+          } else if (isCSUser(email)) {
+            const result = await this.accountOwnershipService.getCSAccounts(email);
+            accounts = result.accounts;
+            prospects = result.prospects;
+          } else {
+            const result = await this.accountOwnershipService.getAccountsWithProspects(email);
+            accounts = result.accounts;
+            prospects = result.prospects;
+          }
+          
+          if (accounts.length > 0 || prospects.length > 0) {
+            // Collapse sidebar during folder creation
+            const leftSplit = (this.plugin.app.workspace as any).leftSplit;
+            const wasCollapsed = leftSplit?.collapsed;
+            if (leftSplit && !wasCollapsed) leftSplit.collapse();
+            
+            if (isAdminUser(email)) {
+              await this.plugin.createAdminAccountFolders(accounts);
+            } else {
+              await this.plugin.createTailoredAccountFolders(accounts, {});
+              if (prospects.length > 0) {
+                await this.plugin.createProspectAccountFiles(prospects);
+              }
+            }
+            if (isCSManager(email)) {
+              await this.plugin.createCSManagerDashboard(email, accounts);
+            }
+            
+            this.plugin.settings.accountsImported = true;
+            this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
+            await this.plugin.saveSettings();
+            this.steps[2].status = 'complete';
+            
+            if (leftSplit && !wasCollapsed) leftSplit.expand();
+            
+            new Notice(`Imported ${accounts.length} accounts!`);
+            console.log(`[Eudia Setup] Auto-retry imported ${accounts.length} accounts for ${email}`);
+            
+            // Background enrichment
+            const allAccounts = [...accounts, ...prospects];
+            setTimeout(async () => {
+              try { await this.plugin.enrichAccountFolders(allAccounts); } catch { /* ok */ }
+            }, 500);
+          }
+        } catch (retryErr) {
+          console.log('[Eudia Setup] Auto-retry account import failed:', retryErr);
+        }
       }
     }
   }
