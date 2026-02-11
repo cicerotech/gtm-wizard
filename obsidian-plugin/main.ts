@@ -2801,6 +2801,17 @@ export default class EudiaSyncPlugin extends Plugin {
           await this.activateCalendarView();
         }
         
+        // Auto-enrich unenriched account folders (non-blocking, background)
+        if (this.settings.userEmail && this.settings.cachedAccounts.length > 0) {
+          setTimeout(async () => {
+            try {
+              await this.checkAndAutoEnrich();
+            } catch (e) {
+              console.log('[Eudia] Auto-enrich skipped (server unreachable)');
+            }
+          }, 5000); // 5 second delay to avoid startup congestion
+        }
+        
         // Send heartbeat and check for pushed config (non-blocking)
         if (this.settings.userEmail && this.telemetry) {
           setTimeout(async () => {
@@ -5884,6 +5895,66 @@ To restore, move this folder back to the Accounts directory.
   // ─────────────────────────────────────────────────────────────────────────
   // ACCOUNT ENRICHMENT (Pre-populate subnotes with Salesforce data)
   // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Auto-enrich check: scans account folders for unenriched Contacts.md files
+   * (missing enriched_at in frontmatter) and triggers enrichment for those accounts.
+   * Runs silently in background on startup — no UI blocking.
+   */
+  async checkAndAutoEnrich(): Promise<void> {
+    const accountsFolder = this.settings.accountsFolder || 'Accounts';
+    const folder = this.app.vault.getAbstractFileByPath(accountsFolder);
+    if (!folder || !(folder instanceof TFolder)) return;
+
+    const unenrichedAccounts: OwnedAccount[] = [];
+
+    for (const child of folder.children) {
+      if (!(child instanceof TFolder)) continue;
+      // Skip _Prospects and _Archive folders
+      if (child.name.startsWith('_')) continue;
+
+      const contactsPath = `${child.path}/Contacts.md`;
+      const contactsFile = this.app.vault.getAbstractFileByPath(contactsPath);
+
+      if (!contactsFile || !(contactsFile instanceof TFile)) {
+        // No Contacts.md at all — needs enrichment
+      } else {
+        // Check frontmatter for enriched_at
+        const cache = this.app.metadataCache.getFileCache(contactsFile);
+        if (cache?.frontmatter?.enriched_at) {
+          // Already enriched, skip
+          continue;
+        }
+      }
+
+      // Find account in cached accounts by folder name
+      const safeFolderName = child.name;
+      const matched = this.settings.cachedAccounts.find(
+        a => a.name.replace(/[<>:"/\\|?*]/g, '_').trim() === safeFolderName
+      );
+
+      if (matched && matched.id) {
+        unenrichedAccounts.push({
+          id: matched.id,
+          name: matched.name,
+          owner: '',
+          ownerEmail: ''
+        });
+      }
+    }
+
+    if (unenrichedAccounts.length === 0) {
+      console.log('[Eudia] Auto-enrich: all account folders already enriched');
+      return;
+    }
+
+    console.log(`[Eudia] Auto-enrich: ${unenrichedAccounts.length} accounts need enrichment`);
+    try {
+      await this.enrichAccountFolders(unenrichedAccounts);
+    } catch (err) {
+      console.error('[Eudia] Auto-enrich failed:', err);
+    }
+  }
 
   /**
    * Enrich account folders with Salesforce data (contacts, intelligence, opportunities, etc.).

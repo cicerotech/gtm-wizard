@@ -205,6 +205,37 @@
     background: #c5dcf7;
 }
 
+/* Product Lines multi-select picker */
+.product-lines-picker {
+    border: 1px solid #dddbda;
+    border-radius: 6px;
+    padding: 10px 14px;
+    max-height: 240px;
+    overflow-y: auto;
+    background: #fff;
+}
+
+.product-lines-picker:hover {
+    border-color: #b0c4de;
+}
+
+/* Prevent product line checkbox labels from truncating */
+.product-lines-picker label,
+.product-lines-picker .slds-form-element__label {
+    white-space: normal;
+    word-wrap: break-word;
+    overflow: visible;
+    max-width: 100%;
+}
+
+.product-lines-summary {
+    font-size: 12px;
+    font-weight: 500;
+    color: #0070d2;
+    margin-top: 6px;
+    padding: 4px 0;
+}
+
 /* Form Actions */
 .form-actions {
     display: flex;

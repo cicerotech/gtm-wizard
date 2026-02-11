@@ -1,0 +1,52 @@
+<template>
+    <lightning-card title="Product Lines" icon-name="standard:product_item">
+        <lightning-button-icon
+            if:false={isEditing}
+            slot="actions"
+            icon-name="utility:edit"
+            alternative-text="Edit product lines"
+            onclick={handleEdit}
+            variant="bare"
+            size="small">
+        </lightning-button-icon>
+        <div class="slds-p-horizontal_medium slds-p-bottom_medium">
+            <template if:true={isEditing}>
+                <lightning-checkbox-group
+                    name="productLines"
+                    label=""
+                    options={options}
+                    value={selectedValues}
+                    onchange={handleChange}
+                    class="product-checkboxes">
+                </lightning-checkbox-group>
+                <div class="slds-m-top_small button-row">
+                    <lightning-button 
+                        label="Save" 
+                        onclick={handleSave} 
+                        variant="brand" 
+                        class="slds-m-right_x-small"
+                        disabled={isSaving}>
+                    </lightning-button>
+                    <lightning-button 
+                        label="Cancel" 
+                        onclick={handleCancel} 
+                        variant="neutral"
+                        disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </template>
+            <template if:false={isEditing}>
+                <template if:true={hasSelections}>
+                    <div class="selected-display">
+                        <template for:each={selectedLabels} for:item="label">
+                            <span key={label} class="product-pill">{label}</span>
+                        </template>
+                    </div>
+                </template>
+                <template if:false={hasSelections}>
+                    <p class="slds-text-body_small slds-text-color_weak slds-p-vertical_x-small">No product lines selected</p>
+                </template>
+            </template>
+        </div>
+    </lightning-card>
+</template>

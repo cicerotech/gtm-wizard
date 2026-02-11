@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GTM Brain Demo | Sales Process Walkthrough</title>
+  <title>GTM Brain | Product Walkthrough</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
@@ -35,6 +35,12 @@
       font-weight: 400;
     }
     
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
     .nav-links {
       display: flex;
       gap: 6px;
@@ -53,6 +59,33 @@
       color: #1f2937;
       background: #f3f4f6;
     }
+
+    /* Presenter Notes Toggle */
+    .notes-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.7rem;
+      color: #6b7280;
+      cursor: pointer;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      user-select: none;
+      transition: all 0.2s;
+    }
+
+    .notes-toggle:hover {
+      border-color: #8e99e1;
+      color: #8e99e1;
+    }
+
+    .notes-toggle.active {
+      background: #8e99e1;
+      color: white;
+      border-color: #8e99e1;
+    }
     
     /* Main Container */
     .container {
@@ -70,15 +103,13 @@
       padding: 12px 16px;
       border-radius: 12px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-      overflow-x: auto;
     }
     
     .demo-nav-item {
       flex: 1;
-      min-width: 100px;
-      padding: 10px 8px;
+      padding: 12px 8px;
       text-align: center;
-      font-size: 0.7rem;
+      font-size: 0.75rem;
       font-weight: 500;
       color: #6b7280;
       border-radius: 8px;
@@ -103,9 +134,16 @@
     
     .demo-nav-item .nav-num {
       display: block;
-      font-size: 1rem;
+      font-size: 1.1rem;
       font-weight: 700;
       margin-bottom: 2px;
+    }
+
+    .demo-nav-item .nav-time {
+      display: block;
+      font-size: 0.6rem;
+      opacity: 0.7;
+      margin-top: 2px;
     }
     
     /* Sections */
@@ -145,6 +183,18 @@
       margin-bottom: 24px;
       line-height: 1.5;
     }
+
+    .section-card h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 6px;
+      margin-top: 28px;
+    }
+
+    .section-card h3:first-of-type {
+      margin-top: 0;
+    }
     
     /* Key Point Boxes */
     .key-points {
@@ -179,192 +229,291 @@
       color: #6b7280;
       line-height: 1.4;
     }
-    
-    /* Flow Diagram */
-    .flow-diagram {
-      background: #fafbfc;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      padding: 24px;
-      margin: 24px 0;
+
+    /* Beat Cards (for Section 2 workflow) */
+    .beat-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+      padding: 28px 32px;
+      margin-bottom: 20px;
+      border-left: 4px solid #e5e7eb;
     }
-    
-    .flow-row {
+
+    .beat-card.beat-1 { border-left-color: #8e99e1; }
+    .beat-card.beat-2 { border-left-color: #34d399; }
+    .beat-card.beat-3 { border-left-color: #a78bfa; }
+    .beat-card.beat-4 { border-left-color: #fbbf24; }
+
+    .beat-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .beat-number {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 16px;
-      flex-wrap: wrap;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
     }
-    
-    .flow-box {
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
-      padding: 14px 18px;
+
+    .beat-1 .beat-number { background: #8e99e1; }
+    .beat-2 .beat-number { background: #34d399; }
+    .beat-3 .beat-number { background: #a78bfa; }
+    .beat-4 .beat-number { background: #fbbf24; }
+
+    .beat-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .beat-subtitle {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+
+    .beat-script {
+      font-size: 0.88rem;
+      color: #374151;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .beat-script strong {
+      color: #1f2937;
+    }
+
+    .beat-bullets {
+      list-style: none;
+      padding: 0;
+      margin: 12px 0;
+    }
+
+    .beat-bullets li {
+      font-size: 0.84rem;
+      color: #4b5563;
+      line-height: 1.5;
+      padding: 4px 0 4px 18px;
+      position: relative;
+    }
+
+    .beat-bullets li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 10px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #d1d5db;
+    }
+
+    .beat-1 .beat-bullets li::before { background: #8e99e1; }
+    .beat-2 .beat-bullets li::before { background: #34d399; }
+    .beat-3 .beat-bullets li::before { background: #a78bfa; }
+    .beat-4 .beat-bullets li::before { background: #fbbf24; }
+
+    /* Screenshot Placeholder */
+    .screenshot-slot {
+      background: #f8f9fc;
+      border: 2px dashed #d1d5db;
+      border-radius: 12px;
+      padding: 32px 24px;
       text-align: center;
-      min-width: 120px;
+      margin: 20px 0;
+      transition: all 0.2s;
     }
-    
-    .flow-box.highlight {
+
+    .screenshot-slot:hover {
       border-color: #8e99e1;
       background: #f0f1fa;
     }
-    
-    .flow-box.sf {
-      border-color: #34d399;
-      background: #f0fdf4;
+
+    .screenshot-slot .ss-icon {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      opacity: 0.4;
     }
-    
-    .flow-box.output {
-      border-color: #fbbf24;
-      background: #fefce8;
-    }
-    
-    .flow-box .label {
+
+    .screenshot-slot .ss-label {
       font-size: 0.8rem;
       font-weight: 600;
-      color: #1f2937;
-    }
-    
-    .flow-box .sub {
-      font-size: 0.65rem;
       color: #6b7280;
-      margin-top: 4px;
-    }
-    
-    .flow-arrow {
-      font-size: 1.2rem;
-      color: #9ca3af;
-    }
-    
-    /* Demo Box */
-    .demo-box {
-      background: linear-gradient(135deg, #8e99e1 0%, #7c8bd4 100%);
-      border-radius: 12px;
-      padding: 24px;
-      color: white;
-      margin: 24px 0;
-    }
-    
-    .demo-box h4 {
-      font-size: 0.9rem;
-      font-weight: 600;
-      margin-bottom: 12px;
-      opacity: 0.9;
-    }
-    
-    .demo-box .command {
-      background: rgba(0,0,0,0.2);
-      border-radius: 8px;
-      padding: 12px 16px;
-      font-family: 'SF Mono', Monaco, monospace;
-      font-size: 0.85rem;
-      margin: 8px 0;
-    }
-    
-    .demo-box .response {
-      background: rgba(255,255,255,0.15);
-      border-radius: 8px;
-      padding: 12px 16px;
-      font-size: 0.8rem;
-      margin: 8px 0;
-      line-height: 1.5;
-    }
-    
-    /* Metric Grid */
-    .metric-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin: 24px 0;
-    }
-    
-    .metric {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
-      padding: 16px;
-      text-align: center;
-    }
-    
-    .metric .value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #8e99e1;
-    }
-    
-    .metric .label {
-      font-size: 0.7rem;
-      color: #6b7280;
-      margin-top: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    /* Timeline */
-    .timeline {
-      position: relative;
-      padding-left: 24px;
-      margin: 24px 0;
-    }
-    
-    .timeline::before {
-      content: '';
-      position: absolute;
-      left: 6px;
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background: #e5e7eb;
-    }
-    
-    .timeline-item {
-      position: relative;
-      padding-bottom: 20px;
-    }
-    
-    .timeline-item::before {
-      content: '';
-      position: absolute;
-      left: -20px;
-      top: 4px;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #8e99e1;
-    }
-    
-    .timeline-item.auto::before {
-      background: #34d399;
-    }
-    
-    .timeline-item h5 {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: #1f2937;
       margin-bottom: 4px;
     }
-    
-    .timeline-item p {
-      font-size: 0.8rem;
-      color: #6b7280;
+
+    .screenshot-slot .ss-purpose {
+      font-size: 0.72rem;
+      color: #9ca3af;
       line-height: 1.4;
+      max-width: 500px;
+      margin: 0 auto;
     }
-    
-    .timeline-item .tag {
+
+    .screenshot-slot .ss-action {
       display: inline-block;
+      margin-top: 8px;
       font-size: 0.65rem;
-      padding: 2px 8px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 3px 10px;
       border-radius: 4px;
       background: #f3f4f6;
       color: #6b7280;
-      margin-top: 6px;
+    }
+
+    .screenshot-slot .ss-action.pause {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .screenshot-slot .ss-action.narrate {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    /* Presenter Notes */
+    .presenter-note {
+      display: none;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin: 12px 0;
+      font-size: 0.78rem;
+      line-height: 1.5;
+    }
+
+    .presenter-note .pn-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #92400e;
+      margin-bottom: 4px;
+    }
+
+    .presenter-note p {
+      color: #78350f;
+      margin: 2px 0;
+    }
+
+    .presenter-note.danger {
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+
+    .presenter-note.danger .pn-label {
+      color: #991b1b;
+    }
+
+    .presenter-note.danger p {
+      color: #7f1d1d;
+    }
+
+    .presenter-note.transition {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+
+    .presenter-note.transition .pn-label {
+      color: #166534;
+    }
+
+    .presenter-note.transition p {
+      color: #14532d;
+    }
+
+    body.show-notes .presenter-note {
+      display: block;
+    }
+
+    /* Callout */
+    .callout {
+      background: #fefce8;
+      border: 1px solid #fde047;
+      border-radius: 10px;
+      padding: 16px;
+      margin: 20px 0;
     }
     
-    .timeline-item .tag.auto {
-      background: #dcfce7;
-      color: #166534;
+    .callout.insight {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+    
+    .callout .callout-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #854d0e;
+      margin-bottom: 6px;
+    }
+    
+    .callout.insight .callout-title {
+      color: #1e40af;
+    }
+    
+    .callout p {
+      font-size: 0.8rem;
+      color: #6b7280;
+      line-height: 1.5;
+    }
+
+    /* Summary / Edge Card */
+    .edge-card {
+      background: linear-gradient(135deg, #8e99e1 0%, #7c8bd4 100%);
+      border-radius: 14px;
+      padding: 32px;
+      color: white;
+      margin-top: 24px;
+    }
+
+    .edge-card h2 {
+      color: white;
+      margin-bottom: 8px;
+    }
+
+    .edge-card .subtitle {
+      color: rgba(255,255,255,0.85);
+      margin-bottom: 24px;
+    }
+
+    .edge-card .key-point {
+      background: rgba(255,255,255,0.15);
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    .edge-card .key-point h4 {
+      color: white;
+    }
+
+    .edge-card .key-point p {
+      color: rgba(255,255,255,0.8);
+    }
+
+    .edge-card .key-point:hover {
+      border-color: rgba(255,255,255,0.5);
+      background: rgba(255,255,255,0.2);
+    }
+
+    .close-line {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255,255,255,0.2);
+      font-size: 0.95rem;
+      color: rgba(255,255,255,0.9);
+      font-weight: 500;
     }
     
     /* Navigation Buttons */
@@ -409,37 +558,6 @@
       cursor: not-allowed;
     }
     
-    /* Callout */
-    .callout {
-      background: #fefce8;
-      border: 1px solid #fde047;
-      border-radius: 10px;
-      padding: 16px;
-      margin: 20px 0;
-    }
-    
-    .callout.insight {
-      background: #eff6ff;
-      border-color: #bfdbfe;
-    }
-    
-    .callout .callout-title {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #854d0e;
-      margin-bottom: 6px;
-    }
-    
-    .callout.insight .callout-title {
-      color: #1e40af;
-    }
-    
-    .callout p {
-      font-size: 0.8rem;
-      color: #6b7280;
-      line-height: 1.5;
-    }
-    
     /* Footer */
     footer {
       text-align: center;
@@ -460,20 +578,24 @@
     /* Mobile */
     @media (max-width: 768px) {
       .container { padding: 16px; }
-      .section-card { padding: 20px; }
-      .metric-grid { grid-template-columns: repeat(2, 1fr); }
-      .flow-row { flex-direction: column; }
-      .flow-arrow { transform: rotate(90deg); }
+      .section-card, .beat-card { padding: 20px; }
+      .key-points { grid-template-columns: 1fr; }
+      .demo-nav-item .nav-time { display: none; }
     }
   </style>
 </head>
 <body>
   <header class="header">
-    <h1>gtm-brain <span>/ Demo Walkthrough</span></h1>
-    <div class="nav-links">
-      <a href="/account-dashboard">Dashboard</a>
-      <a href="/cheat-sheet">Commands</a>
-      <a href="/architecture">Architecture</a>
+    <h1>GTM Brain <span>/ Product Walkthrough</span></h1>
+    <div class="header-right">
+      <button class="notes-toggle" id="notesToggle" title="Toggle presenter notes">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        Notes
+      </button>
+      <div class="nav-links">
+        <a href="/gtm">GTM Hub</a>
+        <a href="/cheat-sheet">Commands</a>
+      </div>
     </div>
   </header>
   
@@ -482,496 +604,355 @@
     <nav class="demo-nav">
       <button class="demo-nav-item active" data-section="0">
         <span class="nav-num">1</span>
-        The Challenge
+        The Problem
+        <span class="nav-time">1.5 min</span>
       </button>
       <button class="demo-nav-item" data-section="1">
         <span class="nav-num">2</span>
-        How It Works
+        The Workflow
+        <span class="nav-time">6 min</span>
       </button>
       <button class="demo-nav-item" data-section="2">
         <span class="nav-num">3</span>
-        Meeting Capture
-      </button>
-      <button class="demo-nav-item" data-section="3">
-        <span class="nav-num">4</span>
-        Instant Access
-      </button>
-      <button class="demo-nav-item" data-section="4">
-        <span class="nav-num">5</span>
-        Automated Intel
-      </button>
-      <button class="demo-nav-item" data-section="5">
-        <span class="nav-num">6</span>
-        Sales Velocity
-      </button>
-      <button class="demo-nav-item" data-section="6">
-        <span class="nav-num">7</span>
-        Clean Handoff
+        The Edge
+        <span class="nav-time">1.5 min</span>
       </button>
     </nav>
     
-    <!-- Section 1: The Challenge -->
+    <!-- ============================================ -->
+    <!-- SECTION 1: THE PROBLEM (1.5 min)             -->
+    <!-- ============================================ -->
     <section class="demo-section active" id="section-0">
       <div class="section-card">
-        <h2>The Challenge</h2>
-        <p class="subtitle">Customer intelligence is scattered. By the time it reaches CRM, it's incomplete or delayed.</p>
+        <h2>The Problem</h2>
+        <p class="subtitle">Every sales org has this problem. Reps spend hours on admin that doesn't close deals. Notes live in random docs. CRM is stale. When leadership asks "what's happening with this account," the answer takes 10 minutes of digging.</p>
+
+        <div class="presenter-note">
+          <div class="pn-label">Pacing</div>
+          <p>Set the stakes quickly. This is shared context -- the audience already feels this pain. Don't dwell. 90 seconds max, then move to the product.</p>
+        </div>
         
         <div class="key-points">
           <div class="key-point">
             <h4>Admin Overhead</h4>
-            <p>BLs spend hours weekly on manual CRM updates, note logging, and data entry.</p>
+            <p>Reps lose hours weekly on CRM updates, note organization, and meeting prep. That's time not spent with clients.</p>
           </div>
           <div class="key-point">
-            <h4>Lost Context</h4>
-            <p>Meeting notes live in scattered docs. Critical details never make it to the account record.</p>
+            <h4>Scattered Context</h4>
+            <p>Intelligence lives in Slack threads, email, personal notes, and Salesforce -- none of it connected. Context is lost between meetings.</p>
           </div>
           <div class="key-point">
-            <h4>Data Gaps</h4>
-            <p>Leadership lacks real-time visibility. Weekly reviews reveal stale or missing information.</p>
-          </div>
-          <div class="key-point">
-            <h4>Handoff Friction</h4>
-            <p>Downstream teams (finance, delivery) inherit incomplete data. Manual cleanup required.</p>
+            <h4>Stale Visibility</h4>
+            <p>Leadership reviews reveal outdated information. Forecasts rely on what reps remembered to log, not what actually happened.</p>
           </div>
         </div>
-        
-        <div class="callout">
-          <div class="callout-title">What This Costs</div>
-          <p>Inconsistent forecasting, missed follow-ups, longer ramp time for new hires, and friction in deal-to-delivery handoffs.</p>
+
+        <div class="presenter-note danger">
+          <div class="pn-label">Danger Zone</div>
+          <p>Do NOT get into "how" yet. If someone asks, use: "I'll show you exactly how in 60 seconds."</p>
         </div>
+      </div>
+
+      <div class="section-card">
+        <p class="subtitle" style="margin-bottom: 0; font-weight: 500; color: #374151;">We built something that fixes this. Not a new tool reps have to learn -- an intelligence layer that works behind the scenes, connecting what already exists.</p>
+      </div>
+
+      <div class="presenter-note transition">
+        <div class="pn-label">Transition</div>
+        <p>"Let me show you what this looks like in practice."</p>
       </div>
       
       <div class="nav-buttons">
         <button class="nav-btn prev" disabled>Previous</button>
-        <button class="nav-btn next" data-goto="1">How It Works</button>
+        <button class="nav-btn next" data-goto="1">The Workflow</button>
       </div>
     </section>
     
-    <!-- Section 2: How It Works -->
+    <!-- ============================================ -->
+    <!-- SECTION 2: THE WORKFLOW (6 min, 4 beats)     -->
+    <!-- ============================================ -->
     <section class="demo-section" id="section-1">
-      <div class="section-card">
-        <h2>How It Works</h2>
-        <p class="subtitle">gtm-brain sits between your conversations and Salesforce—capturing, processing, and syncing automatically.</p>
-        
-        <div class="flow-diagram">
-          <div class="flow-row">
-            <div class="flow-box">
-              <div class="label">Slack</div>
-              <div class="sub">Questions + deal context</div>
-            </div>
-            <div class="flow-box">
-              <div class="label">Obsidian</div>
-              <div class="sub">Meeting notes</div>
-            </div>
-            <div class="flow-box">
-              <div class="label">Outlook</div>
-              <div class="sub">Calendar events</div>
-            </div>
-          </div>
-          
-          <div class="flow-row" style="margin: 16px 0;">
-            <span class="flow-arrow">↓</span>
-          </div>
-          
-          <div class="flow-row">
-            <div class="flow-box highlight" style="min-width: 200px;">
-              <div class="label">gtm-brain</div>
-              <div class="sub">Process + Sync + Hygiene</div>
-            </div>
-          </div>
-          
-          <div class="flow-row" style="margin: 16px 0;">
-            <span class="flow-arrow">↓</span>
-          </div>
-          
-          <div class="flow-row">
-            <div class="flow-box sf" style="min-width: 200px;">
-              <div class="label">Salesforce</div>
-              <div class="sub">Accounts • Opps • Contacts • Events</div>
-            </div>
+
+      <div class="presenter-note">
+        <div class="pn-label">Pacing</div>
+        <p>This is the core -- 6 minutes across 4 beats. Each beat is ~90 seconds. Lead with the screenshot, narrate what it shows, then state the value. Don't explain the technology.</p>
+      </div>
+
+      <!-- BEAT 1: Meeting Prep -->
+      <div class="beat-card beat-1">
+        <div class="beat-header">
+          <div class="beat-number">1</div>
+          <div>
+            <div class="beat-title">Meeting Prep</div>
+            <div class="beat-subtitle">AI-generated executive briefings before every meeting</div>
           </div>
         </div>
-        
-        <div class="key-points">
-          <div class="key-point">
-            <h4>AI-Powered</h4>
-            <p>Claude LLM understands natural language. Ask questions like you'd ask a colleague.</p>
-          </div>
-          <div class="key-point">
-            <h4>Real-Time</h4>
-            <p>No batch processing. Intelligence flows continuously throughout the day.</p>
-          </div>
-          <div class="key-point">
-            <h4>Bi-Directional</h4>
-            <p>Pull data out. Push updates in. Always in sync with Salesforce.</p>
+
+        <div class="beat-script">
+          "Here's my week. Every meeting with an external attendee is already here -- pulled automatically from Outlook. No manual entry."
+        </div>
+
+        <div class="screenshot-slot">
+          <div class="ss-icon">&#128247;</div>
+          <div class="ss-label">Screenshot 1: Meeting Prep Tab -- Week View</div>
+          <div class="ss-purpose">Show 3-5 real meeting cards with account names, times, and attendee counts. Proves the system is live with real data, not a mockup.</div>
+          <div class="ss-action pause">Pause -- let them read the meeting names</div>
+        </div>
+
+        <div class="beat-script">
+          "Click into any meeting. The system pulls context from Salesforce, calendar history, Slack signals, and vault notes -- and synthesizes it into one brief."
+        </div>
+
+        <div class="screenshot-slot">
+          <div class="ss-icon">&#128247;</div>
+          <div class="ss-label">Screenshot 2: Meeting Prep Modal -- AI Briefing</div>
+          <div class="ss-purpose">Show the expanded meeting with the GTM Brain intelligence brief, attendee list, and editable goals/agenda. Proves intelligence depth is real and useful for exec prep.</div>
+          <div class="ss-action pause">Pause -- read 2-3 lines of the brief aloud</div>
+        </div>
+
+        <ul class="beat-bullets">
+          <li>Zero input from the rep. The brief is generated automatically.</li>
+          <li>Editable -- reps add their own goals and agenda before the call.</li>
+          <li>Shareable -- "Copy Link" sends a deep-link to this specific meeting brief. Team sees exactly what you see.</li>
+        </ul>
+
+        <div class="presenter-note danger">
+          <div class="pn-label">Danger Zone</div>
+          <p>Don't explain HOW calendar sync works. One-liner if asked: "Calendar events sync automatically from Outlook. No manual input."</p>
+        </div>
+      </div>
+
+      <!-- BEAT 2: GTM Brain Query -->
+      <div class="beat-card beat-2">
+        <div class="beat-header">
+          <div class="beat-number">2</div>
+          <div>
+            <div class="beat-title">GTM Brain</div>
+            <div class="beat-subtitle">Natural language account intelligence -- ask anything</div>
           </div>
         </div>
+
+        <div class="beat-script">
+          "Need something specific? Ask in plain language. 'What's the latest on this account?' 'Key contacts?' 'Prep me for my meeting.' -- it synthesizes everything we know."
+        </div>
+
+        <div class="screenshot-slot">
+          <div class="ss-icon">&#128247;</div>
+          <div class="ss-label">Screenshot 3: GTM Brain Tab -- Query + Response</div>
+          <div class="ss-purpose">Show the search bar with a typed query and the structured response below. Proves natural language works and responses are grounded in real Salesforce data.</div>
+          <div class="ss-action narrate">Narrate -- walk through 2-3 sections of the response</div>
+        </div>
+
+        <ul class="beat-bullets">
+          <li>Grounded in Salesforce data, calendar events, meeting notes, and Slack intelligence -- not generic summaries.</li>
+          <li>Available in three places: the GTM site, Obsidian desktop app, and Slack. Same intelligence, same quality, wherever the rep is working.</li>
+          <li>Responses update in real-time as new data enters the system.</li>
+        </ul>
+
+        <div class="presenter-note danger">
+          <div class="pn-label">Danger Zone</div>
+          <p>Don't explain Claude, intent classification, or prompt engineering. One-liner: "It uses AI to synthesize data from all our connected systems into one answer."</p>
+        </div>
+
+        <div class="presenter-note transition">
+          <div class="pn-label">Transition</div>
+          <p>"That's the on-demand side. Let me show you where reps actually work day to day."</p>
+        </div>
+      </div>
+
+      <!-- BEAT 3: Obsidian Vault -->
+      <div class="beat-card beat-3">
+        <div class="beat-header">
+          <div class="beat-number">3</div>
+          <div>
+            <div class="beat-title">Personal Workspace</div>
+            <div class="beat-subtitle">Obsidian vault -- pre-loaded with account intelligence</div>
+          </div>
+        </div>
+
+        <div class="beat-script">
+          "Every rep gets a personal workspace on their desktop. Account folders come pre-loaded with contacts, meeting intelligence, and deal context -- populated from Salesforce."
+        </div>
+
+        <div class="screenshot-slot">
+          <div class="ss-icon">&#128247;</div>
+          <div class="ss-label">Screenshot 4: Obsidian Sidebar -- Account Folders</div>
+          <div class="ss-purpose">Show expanded account folder with 7 sub-notes (Notes 1-3, Meeting Notes, Contacts, Intelligence, Next Steps). One note open showing pre-populated data. Proves reps get real content, not empty templates.</div>
+          <div class="ss-action pause">Pause -- let them see the folder structure</div>
+        </div>
+
+        <ul class="beat-bullets">
+          <li>Reps take notes here during calls. Those notes feed back into the intelligence layer -- the more they use it, the smarter it gets.</li>
+          <li>Same GTM Brain query available right inside the workspace. No context-switching.</li>
+          <li>Audio recording with live transcription for calls. Notes auto-structured and synced to Salesforce.</li>
+        </ul>
+
+        <div class="screenshot-slot">
+          <div class="ss-icon">&#128247;</div>
+          <div class="ss-label">Screenshot 5: GTM Brain Chat in Obsidian</div>
+          <div class="ss-purpose">Show the chat modal inside Obsidian with a query and response. Proves same intelligence is available everywhere, not just the web.</div>
+          <div class="ss-action narrate">Narrate -- brief, just show parity with web</div>
+        </div>
+
+        <div class="presenter-note danger">
+          <div class="pn-label">Danger Zone</div>
+          <p>Don't explain the plugin build, TypeScript, or account ownership logic. One-liner: "Reps download the vault, enter their email, and it populates from Salesforce."</p>
+        </div>
+
+        <div class="presenter-note transition">
+          <div class="pn-label">Transition</div>
+          <p>"That's what reps see. Here's what leadership gets without having to ask."</p>
+        </div>
+      </div>
+
+      <!-- BEAT 4: Automated Intelligence -->
+      <div class="beat-card beat-4">
+        <div class="beat-header">
+          <div class="beat-number">4</div>
+          <div>
+            <div class="beat-title">Automated Pipeline Intelligence</div>
+            <div class="beat-subtitle">Reports and visibility delivered -- not requested</div>
+          </div>
+        </div>
+
+        <div class="beat-script">
+          "Leadership doesn't have to ask for updates. Pipeline summaries, finance audit numbers, and delivery reports are generated and delivered automatically to Slack."
+        </div>
+
+        <div class="screenshot-slot">
+          <div class="ss-icon">&#128247;</div>
+          <div class="ss-label">Screenshot 6: Slack Bot -- Pipeline Query or Weekly Report</div>
+          <div class="ss-purpose">Show a real Slack bot response (pipeline query or auto-delivered weekly PDF). Proves automation is live and works where teams already communicate.</div>
+          <div class="ss-action narrate">Narrate -- 15 seconds max, don't list all report types</div>
+        </div>
+
+        <ul class="beat-bullets">
+          <li>On-demand: any team member can query pipeline, account status, or deal details directly in Slack.</li>
+          <li>Scheduled: weekly reports auto-delivered -- pipeline for sales, audit-ready numbers for finance, implementation pipeline for delivery.</li>
+          <li>Contact gap analysis identifies missing contacts from calendar data and creates them in Salesforce automatically.</li>
+        </ul>
+
+        <div class="screenshot-slot">
+          <div class="ss-icon">&#128247;</div>
+          <div class="ss-label">Screenshot 7: Dashboard -- Pipeline View</div>
+          <div class="ss-purpose">Show the account dashboard with stage indicators, ACV, and owner data. Proves leadership gets real-time visibility without asking.</div>
+          <div class="ss-action pause">Pause briefly -- let the data density register</div>
+        </div>
+
+        <div class="presenter-note danger">
+          <div class="pn-label">Danger Zone</div>
+          <p>Don't list all 6 report types or explain cron schedules. One-liner: "Reports are generated weekly and delivered to Slack. On-demand queries work any time."</p>
+        </div>
+      </div>
+
+      <div class="presenter-note transition">
+        <div class="pn-label">Transition</div>
+        <p>"So -- that's the workflow. Meeting prep, on-demand intelligence, personal workspace, automated reporting. Here's why it matters."</p>
       </div>
       
       <div class="nav-buttons">
         <button class="nav-btn prev" data-goto="0">Previous</button>
-        <button class="nav-btn next" data-goto="2">Meeting Capture</button>
+        <button class="nav-btn next" data-goto="2">The Edge</button>
       </div>
     </section>
     
-    <!-- Section 3: Meeting Capture -->
+    <!-- ============================================ -->
+    <!-- SECTION 3: THE EDGE (1.5 min)                -->
+    <!-- ============================================ -->
     <section class="demo-section" id="section-2">
       <div class="section-card">
-        <h2>Meeting Capture</h2>
-        <p class="subtitle">Every external meeting automatically flows into Salesforce—contacts created, events logged, notes attached.</p>
-        
-        <div class="timeline">
-          <div class="timeline-item">
-            <h5>Meeting occurs</h5>
-            <p>BL meets with client. Uses Wispr voice-to-text in Obsidian to capture notes.</p>
-            <span class="tag">Natural workflow</span>
+        <h2>Why This Matters</h2>
+        <p class="subtitle">Most sales orgs treat CRM as a reporting tool -- reps update it because they have to, not because it helps them. We flipped that. CRM updates itself. Intelligence flows to the rep, not the other way around.</p>
+
+        <div class="presenter-note">
+          <div class="pn-label">Pacing</div>
+          <p>Land the three takeaways, then close with the live offer. This should feel like a natural conclusion, not a sales pitch. 90 seconds.</p>
+        </div>
+      </div>
+
+      <div class="edge-card">
+        <h2>The Result</h2>
+        <p class="subtitle">Three things this changes for the team:</p>
+
+        <div class="key-points" style="margin-bottom: 0;">
+          <div class="key-point">
+            <h4>More Time on High-Value Work</h4>
+            <p>Reps spend time in meetings, at events, on creative account strategy -- not on data entry or meeting prep admin. The system handles the overhead.</p>
           </div>
-          <div class="timeline-item auto">
-            <h5>Calendar sync runs</h5>
-            <p>gtm-brain detects external attendees from Outlook calendar.</p>
-            <span class="tag auto">Automatic</span>
+          <div class="key-point">
+            <h4>Always-Current Intelligence</h4>
+            <p>Every account brief reflects the latest Salesforce data, calendar events, and team notes. No stale context. No "let me pull that up."</p>
           </div>
-          <div class="timeline-item auto">
-            <h5>Contacts created</h5>
-            <p>New attendees added to Salesforce with Clay enrichment (title, company, LinkedIn).</p>
-            <span class="tag auto">Automatic</span>
-          </div>
-          <div class="timeline-item auto">
-            <h5>Event logged</h5>
-            <p>Meeting recorded as Salesforce Event, linked to Account and Contacts.</p>
-            <span class="tag auto">Automatic</span>
-          </div>
-          <div class="timeline-item">
-            <h5>Notes synced</h5>
-            <p>BL clicks sync script. Notes processed by Claude, structured summary added to Account.</p>
-            <span class="tag">One click</span>
+          <div class="key-point">
+            <h4>Operational Edge</h4>
+            <p>This is how a modern sales org operates. Most teams don't have this. It compounds -- the more reps use it, the better the intelligence gets.</p>
           </div>
         </div>
-        
-        <div class="callout insight">
-          <div class="callout-title">Zero CRM Entry Required</div>
-          <p>BLs focus on the meeting. The system handles contact creation, event logging, and note organization. Einstein Activity Capture supplements with email context.</p>
+
+        <div class="close-line">
+          "This is live today. Every business lead has access. Happy to show you your accounts."
         </div>
+      </div>
+
+      <div class="presenter-note">
+        <div class="pn-label">Close</div>
+        <p>Offer to show them their own accounts. This is the strongest close -- it makes it real and personal. If you have the GTM Hub open in another tab, switch to it.</p>
       </div>
       
       <div class="nav-buttons">
         <button class="nav-btn prev" data-goto="1">Previous</button>
-        <button class="nav-btn next" data-goto="3">Instant Access</button>
-      </div>
-    </section>
-    
-    <!-- Section 4: Instant Access -->
-    <section class="demo-section" id="section-3">
-      <div class="section-card">
-        <h2>Instant Access</h2>
-        <p class="subtitle">Ask @gtm-brain anything in Slack. Get formatted answers instantly—no Salesforce login required.</p>
-        
-        <div class="demo-box">
-          <h4>Try These in Slack</h4>
-          <div class="command">@gtm-brain what do we know about Acme Corp?</div>
-          <div class="response">
-            <strong>Acme Corp</strong> — Stage 3: Proposal<br>
-            ACV: $180K • Close: Feb 15 • Owner: Julie S.<br>
-            Last meeting: Jan 18 (demo) • Next: TBD<br>
-            Notes: Technical evaluation positive. CFO sign-off needed.
-          </div>
-        </div>
-        
-        <div class="demo-box">
-          <div class="command">@gtm-brain who owns accounts with no activity in 30 days?</div>
-          <div class="response">
-            Found 4 accounts with no recent activity:<br>
-            • TechStart (Ananth) — last touch: Dec 12<br>
-            • GlobalFin (Asad) — last touch: Dec 18<br>
-            • CloudCo (Alex) — last touch: Dec 20<br>
-            • DataSys (Conor) — last touch: Dec 22
-          </div>
-        </div>
-        
-        <div class="key-points">
-          <div class="key-point">
-            <h4>Account Briefs</h4>
-            <p>"What do we know about [Company]?" — full context before any call.</p>
-          </div>
-          <div class="key-point">
-            <h4>Pipeline Queries</h4>
-            <p>"Show Stage 3+ opps closing this month" — instant filtered view.</p>
-          </div>
-          <div class="key-point">
-            <h4>Ownership Clarity</h4>
-            <p>"Who owns [Account]?" — no hunting through Salesforce.</p>
-          </div>
-          <div class="key-point">
-            <h4>Meeting Prep</h4>
-            <p>"Prep me for my 2pm call" — talking points ready.</p>
-          </div>
-        </div>
-      </div>
-      
-      <div class="nav-buttons">
-        <button class="nav-btn prev" data-goto="2">Previous</button>
-        <button class="nav-btn next" data-goto="4">Automated Intel</button>
-      </div>
-    </section>
-    
-    <!-- Section 5: Automated Intelligence -->
-    <section class="demo-section" id="section-4">
-      <div class="section-card">
-        <h2>Automated Intelligence</h2>
-        <p class="subtitle">Weekly reports delivered to Slack. Hygiene checks run automatically. Leadership stays informed without asking.</p>
-        
-        <div class="metric-grid">
-          <div class="metric">
-            <div class="value">Mon</div>
-            <div class="label">BL Summaries</div>
-          </div>
-          <div class="metric">
-            <div class="value">Wed</div>
-            <div class="label">Finance Audit</div>
-          </div>
-          <div class="metric">
-            <div class="value">Thu</div>
-            <div class="label">Delivery Report</div>
-          </div>
-          <div class="metric">
-            <div class="value">Daily</div>
-            <div class="label">Hygiene Checks</div>
-          </div>
-        </div>
-        
-        <div class="key-points">
-          <div class="key-point">
-            <h4>BL Weekly Summary</h4>
-            <p>Pipeline movement, wins/losses, forecast accuracy per rep. Delivered Monday AM.</p>
-          </div>
-          <div class="key-point">
-            <h4>Finance Forecast</h4>
-            <p>ACV totals, weighted forecast, Target Sign Date opps. Audit-ready numbers.</p>
-          </div>
-          <div class="key-point">
-            <h4>Delivery Pipeline</h4>
-            <p>Stage 4+ deals, delivery assignments, implementation readiness.</p>
-          </div>
-          <div class="key-point">
-            <h4>Hygiene Automation</h4>
-            <p>Stale opportunities flagged, missing close dates surfaced, data gaps identified.</p>
-          </div>
-        </div>
-        
-        <div class="callout">
-          <div class="callout-title">On-Demand Reports</div>
-          <p>"Send pipeline report" or "send finance report" in Slack—Excel export delivered in seconds.</p>
-        </div>
-      </div>
-      
-      <div class="nav-buttons">
-        <button class="nav-btn prev" data-goto="3">Previous</button>
-        <button class="nav-btn next" data-goto="5">Sales Velocity</button>
-      </div>
-    </section>
-    
-    <!-- Section 6: Sales Velocity -->
-    <section class="demo-section" id="section-5">
-      <div class="section-card">
-        <h2>Sales Velocity Tracking</h2>
-        <p class="subtitle">Understand exactly how long deals take to progress—from first meeting to close.</p>
-        
-        <div class="flow-diagram">
-          <div class="flow-row">
-            <div class="flow-box">
-              <div class="label">Discovery</div>
-              <div class="sub">Avg: 12 days</div>
-            </div>
-            <span class="flow-arrow">→</span>
-            <div class="flow-box">
-              <div class="label">Demo</div>
-              <div class="sub">Avg: 8 days</div>
-            </div>
-            <span class="flow-arrow">→</span>
-            <div class="flow-box">
-              <div class="label">Technical</div>
-              <div class="sub">Avg: 15 days</div>
-            </div>
-            <span class="flow-arrow">→</span>
-            <div class="flow-box">
-              <div class="label">Proposal</div>
-              <div class="sub">Avg: 21 days</div>
-            </div>
-            <span class="flow-arrow">→</span>
-            <div class="flow-box sf">
-              <div class="label">Close</div>
-              <div class="sub">Win/Loss</div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="key-points">
-          <div class="key-point">
-            <h4>Meeting Classification</h4>
-            <p>AI identifies meeting type from subject/attendees. Discovery, demo, technical review—automatically tagged.</p>
-          </div>
-          <div class="key-point">
-            <h4>Stage Benchmarks</h4>
-            <p>Know average days per stage. Identify deals moving slower than expected.</p>
-          </div>
-          <div class="key-point">
-            <h4>BL Performance</h4>
-            <p>Track ramp time, productivity trends, and quota attainment by rep.</p>
-          </div>
-          <div class="key-point">
-            <h4>Deal Insights</h4>
-            <p>"Show slow deals" surfaces opportunities that need attention.</p>
-          </div>
-        </div>
-        
-        <div class="callout insight">
-          <div class="callout-title">The Insight</div>
-          <p>When you know Discovery → Demo takes 12 days on average, you can spot an 18-day deal and intervene early. Forecasting becomes predictable.</p>
-        </div>
-      </div>
-      
-      <div class="nav-buttons">
-        <button class="nav-btn prev" data-goto="4">Previous</button>
-        <button class="nav-btn next" data-goto="6">Clean Handoff</button>
-      </div>
-    </section>
-    
-    <!-- Section 7: Clean Handoff -->
-    <section class="demo-section" id="section-6">
-      <div class="section-card">
-        <h2>Clean Downstream Handoff</h2>
-        <p class="subtitle">When data enters Salesforce correctly, downstream systems inherit it automatically.</p>
-        
-        <div class="timeline">
-          <div class="timeline-item">
-            <h5>Stage 4: Proposal</h5>
-            <p>Salesforce Flow auto-creates Delivery object, linked to opportunity.</p>
-            <span class="tag auto">Flow-triggered</span>
-          </div>
-          <div class="timeline-item auto">
-            <h5>Delivery → Rocket Lane</h5>
-            <p>Project created automatically. Implementation team has full context.</p>
-            <span class="tag auto">Synced</span>
-          </div>
-          <div class="timeline-item">
-            <h5>Close Won</h5>
-            <p>Contract object created with ACV, term, product line pulled from opp.</p>
-            <span class="tag auto">Flow-triggered</span>
-          </div>
-          <div class="timeline-item auto">
-            <h5>Contract → Campfire</h5>
-            <p>Finance has accurate contract data. No manual entry. Clean audit trail.</p>
-            <span class="tag auto">Synced</span>
-          </div>
-        </div>
-        
-        <div class="flow-diagram">
-          <div class="flow-row">
-            <div class="flow-box sf">
-              <div class="label">Salesforce</div>
-              <div class="sub">Clean opportunity data</div>
-            </div>
-            <span class="flow-arrow">→</span>
-            <div class="flow-box output">
-              <div class="label">Campfire</div>
-              <div class="sub">Finance + ERP</div>
-            </div>
-          </div>
-          <div class="flow-row" style="margin-top: 12px;">
-            <div class="flow-box sf">
-              <div class="label">Salesforce</div>
-              <div class="sub">Delivery object</div>
-            </div>
-            <span class="flow-arrow">→</span>
-            <div class="flow-box output">
-              <div class="label">Rocket Lane</div>
-              <div class="sub">Implementation</div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="callout">
-          <div class="callout-title">The Key Dependency</div>
-          <p>Correct initial input at opportunity creation. If validated, downstream systems inherit clean data automatically—no BL follow-up needed.</p>
-        </div>
-        
-        <div class="section-card" style="background: linear-gradient(135deg, #8e99e1 0%, #7c8bd4 100%); color: white; margin-top: 24px;">
-          <h2 style="color: white;">Summary</h2>
-          <p style="color: rgba(255,255,255,0.9); margin-bottom: 20px;">gtm-brain removes admin friction while ensuring clean data flows from first meeting to contract close.</p>
-          
-          <div class="key-points" style="margin: 0;">
-            <div class="key-point" style="background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2);">
-              <h4 style="color: white;">For BLs</h4>
-              <p style="color: rgba(255,255,255,0.8);">Less time on admin. More time selling. Meeting notes flow automatically.</p>
-            </div>
-            <div class="key-point" style="background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2);">
-              <h4 style="color: white;">For Leadership</h4>
-              <p style="color: rgba(255,255,255,0.8);">Real-time visibility. Automated reports. Forecast accuracy.</p>
-            </div>
-            <div class="key-point" style="background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2);">
-              <h4 style="color: white;">For Org</h4>
-              <p style="color: rgba(255,255,255,0.8);">Clean data to finance + delivery. Scalable as team grows.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <div class="nav-buttons">
-        <button class="nav-btn prev" data-goto="5">Previous</button>
-        <a href="/account-dashboard" class="nav-btn next" style="text-decoration: none;">View Dashboard →</a>
+        <a href="/gtm" class="nav-btn next" style="text-decoration: none;">Open GTM Hub</a>
       </div>
     </section>
   </div>
   
   <footer>
-    gtm-brain by Eudia RevOps &bull; <a href="/cheat-sheet">View Commands</a> &bull; <a href="/architecture">Architecture</a>
+    GTM Brain by Eudia RevOps &bull; <a href="/gtm">GTM Hub</a> &bull; <a href="/cheat-sheet">Commands</a>
   </footer>
   
   <script>
     let currentSection = 0;
-    const totalSections = 7;
+    const totalSections = 3;
     
     function goToSection(index) {
-      // Update sections
-      document.querySelectorAll('.demo-section').forEach((section, i) => {
+      document.querySelectorAll('.demo-section').forEach(function(section, i) {
         section.classList.toggle('active', i === index);
       });
       
-      // Update nav
-      document.querySelectorAll('.demo-nav-item').forEach((btn, i) => {
+      document.querySelectorAll('.demo-nav-item').forEach(function(btn, i) {
         btn.classList.remove('active');
         if (i < index) btn.classList.add('visited');
         if (i === index) btn.classList.add('active');
       });
       
       currentSection = index;
-      
-      // Scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     
-    // Initialize event listeners when DOM is ready
     document.addEventListener('DOMContentLoaded', function() {
-      // Nav buttons in the top progress bar
+      // Nav buttons in progress bar
       document.querySelectorAll('.demo-nav-item').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
           e.preventDefault();
-          const sectionIndex = parseInt(this.getAttribute('data-section'));
-          if (!isNaN(sectionIndex)) {
-            goToSection(sectionIndex);
-          }
+          var idx = parseInt(this.getAttribute('data-section'));
+          if (!isNaN(idx)) goToSection(idx);
         });
       });
       
-      // Previous/Next buttons at bottom of sections
+      // Previous/Next buttons
       document.querySelectorAll('.nav-btn[data-goto]').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
           e.preventDefault();
-          const targetSection = parseInt(this.getAttribute('data-goto'));
-          if (!isNaN(targetSection)) {
-            goToSection(targetSection);
-          }
+          var target = parseInt(this.getAttribute('data-goto'));
+          if (!isNaN(target)) goToSection(target);
         });
+      });
+
+      // Presenter notes toggle
+      var toggle = document.getElementById('notesToggle');
+      toggle.addEventListener('click', function() {
+        document.body.classList.toggle('show-notes');
+        this.classList.toggle('active');
       });
     });
     
@@ -982,8 +963,12 @@
       } else if (e.key === 'ArrowLeft' && currentSection > 0) {
         goToSection(currentSection - 1);
       }
+      // Toggle notes with 'N' key
+      if (e.key === 'n' || e.key === 'N') {
+        document.body.classList.toggle('show-notes');
+        document.getElementById('notesToggle').classList.toggle('active');
+      }
     });
   </script>
 </body>
 </html>
-

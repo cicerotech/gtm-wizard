@@ -1,0 +1,34 @@
+:host {
+    display: block;
+}
+
+.selected-display {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.product-pill {
+    display: inline-block;
+    background: #f3f3f3;
+    border: 1px solid #dddbda;
+    border-radius: 15px;
+    padding: 4px 12px;
+    font-size: 13px;
+    color: #080707;
+    line-height: 1.5;
+}
+
+.button-row {
+    display: flex;
+    gap: 8px;
+}
+
+/* Full text visibility for checkbox labels */
+.product-checkboxes label,
+.product-checkboxes .slds-form-element__label {
+    white-space: normal;
+    word-wrap: break-word;
+    overflow: visible;
+    max-width: 100%;
+}
