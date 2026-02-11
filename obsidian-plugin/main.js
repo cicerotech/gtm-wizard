@@ -2608,26 +2608,26 @@ var OWNERSHIP_DATA = {
   version: "2026-02-09",
   lastUpdated: "2026-02-09",
   businessLeads: {
-    // ALEX FOX (4 active + 8 prospect = 12 total)
+    // ALEX FOX (9 active + 3 prospect = 12 total)
     "alex.fox@eudia.com": {
       email: "alex.fox@eudia.com",
       name: "Alex Fox",
       accounts: [
-        { id: "001Wj00000mCFsT", name: "Arabic Computer Systems", hadOpportunity: false },
+        { id: "001Wj00000mCFsT", name: "Arabic Computer Systems", hadOpportunity: true },
         { id: "001Wj00000mCFsO", name: "Brown Thomas", hadOpportunity: true },
         { id: "001Wj00000mCFt2", name: "Byrne Wallace Shields", hadOpportunity: true },
         { id: "001Wj00000mCFsu", name: "Corrigan & Corrigan Solicitors LLP", hadOpportunity: true },
         { id: "001Wj00000pzTPY", name: "Defence Forces Tribunal", hadOpportunity: false },
-        { id: "001Wj00000mCFsc", name: "Department of Children, Disability and Equality", hadOpportunity: false },
-        { id: "001Wj00000mCFsN", name: "Department of Climate, Energy and the Environment", hadOpportunity: false },
+        { id: "001Wj00000mCFsc", name: "Department of Children, Disability and Equality", hadOpportunity: true },
+        { id: "001Wj00000mCFsN", name: "Department of Climate, Energy and the Environment", hadOpportunity: true },
         { id: "001Wj00000mCFrZ", name: "Department of Housing", hadOpportunity: true },
-        { id: "001Wj00000mCFsU", name: "ESB NI/Electric Ireland", hadOpportunity: false },
+        { id: "001Wj00000mCFsU", name: "ESB NI/Electric Ireland", hadOpportunity: true },
         { id: "001Wj00000pzTPV", name: "MW Keller", hadOpportunity: false },
         { id: "001Wj00000pzTPX", name: "Murphy's Ice Cream", hadOpportunity: false },
-        { id: "001Wj00000mCFrM", name: "Sisk Group", hadOpportunity: false }
+        { id: "001Wj00000mCFrM", name: "Sisk Group", hadOpportunity: true }
       ]
     },
-    // ANANTH CHERUKUPALLY (49 active + 131 prospect = 180 total)
+    // ANANTH CHERUKUPALLY (58 active + 122 prospect = 180 total)
     "ananth.cherukupally@eudia.com": {
       email: "ananth.cherukupally@eudia.com",
       name: "Ananth Cherukupally",
@@ -2644,7 +2644,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000QTbLP", name: "Alvarez AI Advisors", hadOpportunity: false },
         { id: "001Wj00000ahFCJ", name: "American Pacific Group", hadOpportunity: false },
         { id: "001Wj00000ah6dg", name: "Angeles Equity Partners", hadOpportunity: false },
-        { id: "001Hp00003kIrEu", name: "Apollo Global Management", hadOpportunity: false },
+        { id: "001Hp00003kIrEu", name: "Apollo Global Management", hadOpportunity: true },
         { id: "001Wj00000cl5pq", name: "Arizona MBDA Business Center", hadOpportunity: false },
         { id: "001Wj00000nlRev", name: "Attack Capital", hadOpportunity: true },
         { id: "001Wj00000ahFBx", name: "Audax Group", hadOpportunity: false },
@@ -2655,7 +2655,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000lzDWj", name: "BlueEarth Capital", hadOpportunity: true },
         { id: "001Wj00000ah6dZ", name: "Brentwood Associates", hadOpportunity: false },
         { id: "001Wj00000ah6dL", name: "Brown & Brown", hadOpportunity: false },
-        { id: "001Hp00003kIrCh", name: "CBRE Group", hadOpportunity: false },
+        { id: "001Hp00003kIrCh", name: "CBRE Group", hadOpportunity: true },
         { id: "001Wj00000cejJz", name: "CVC", hadOpportunity: true },
         { id: "001Wj00000ahFCV", name: "Caltius Equity Partners", hadOpportunity: false },
         { id: "001Wj00000ahFBz", name: "Capstone Partners", hadOpportunity: false },
@@ -2665,7 +2665,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000PbIZ8", name: "Cascadia Capital", hadOpportunity: false },
         { id: "001Wj00000ah6dW", name: "Catterton", hadOpportunity: false },
         { id: "001Wj00000ahFC7", name: "Century Park Capital Partners", hadOpportunity: false },
-        { id: "001Wj00000Rjuhj", name: "Citadel", hadOpportunity: false },
+        { id: "001Wj00000Rjuhj", name: "Citadel", hadOpportunity: true },
         { id: "001Wj00000ah6dn", name: "Clearlake Capital Group", hadOpportunity: false },
         { id: "001Wj00000ah6dY", name: "Cognex Corporation", hadOpportunity: false },
         { id: "001Wj00000ah6do", name: "Comvest Partners", hadOpportunity: false },
@@ -2695,7 +2695,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000bwVuN", name: "Fremont Partners", hadOpportunity: false },
         { id: "001Wj00000ahFCO", name: "Frontenac Company", hadOpportunity: false },
         { id: "001Hp00003kIrII", name: "GE Healthcare", hadOpportunity: true },
-        { id: "001Hp00003kIrIJ", name: "GE Vernova", hadOpportunity: false },
+        { id: "001Hp00003kIrIJ", name: "GE Vernova", hadOpportunity: true },
         { id: "001Wj00000lz2Jb", name: "GTIS Partners", hadOpportunity: true },
         { id: "001Wj00000ah6dh", name: "Gallant Capital Partners", hadOpportunity: false },
         { id: "001Hp00003kJ9oP", name: "General Catalyst", hadOpportunity: true },
@@ -2714,7 +2714,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000ah48X", name: "Harvest Partners", hadOpportunity: false },
         { id: "001Wj00000ahFCS", name: "HealthpointCapital", hadOpportunity: false },
         { id: "001Wj00000lzDtJ", name: "Heidrick & Struggles", hadOpportunity: true },
-        { id: "001Hp00003kIrIl", name: "Hellman & Friedman", hadOpportunity: false },
+        { id: "001Hp00003kIrIl", name: "Hellman & Friedman", hadOpportunity: true },
         { id: "001Wj00000ahFCW", name: "Highview Capital", hadOpportunity: false },
         { id: "001Wj00000Pg7rW", name: "Houlihan Lokey", hadOpportunity: false },
         { id: "001Wj00000ahFCH", name: "Housatonic Partners", hadOpportunity: false },
@@ -2758,14 +2758,14 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000W3R2u", name: "Paradigm", hadOpportunity: false },
         { id: "001Wj00000bWBlQ", name: "Pegasystems", hadOpportunity: true },
         { id: "001Wj00000YcPTM", name: "Percheron Capital", hadOpportunity: true },
-        { id: "001Wj00000bzz9M", name: "Peregrine Hospitality", hadOpportunity: false },
+        { id: "001Wj00000bzz9M", name: "Peregrine Hospitality", hadOpportunity: true },
         { id: "001Wj00000VZkJ3", name: "PerformLaw", hadOpportunity: false },
         { id: "001Hp00003ljCJ8", name: "Petco", hadOpportunity: true },
         { id: "001Wj00000ahFBy", name: "Pharos Capital Group", hadOpportunity: false },
         { id: "001Wj00000bwVuF", name: "Pool Corporation", hadOpportunity: false },
         { id: "001Wj00000ah48Y", name: "Pritzker Private Capital", hadOpportunity: false },
         { id: "001Wj00000mRFNX", name: "Publicis Group", hadOpportunity: true },
-        { id: "001Hp00003kKXSI", name: "Pure Storage", hadOpportunity: false },
+        { id: "001Hp00003kKXSI", name: "Pure Storage", hadOpportunity: true },
         { id: "001Wj00000ah6dS", name: "Quad-C Management", hadOpportunity: false },
         { id: "001Hp00003kIrLo", name: "Raymond James Financial", hadOpportunity: false },
         { id: "001Wj00000ah6ds", name: "Resilience Capital Partners", hadOpportunity: false },
@@ -2779,7 +2779,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000nldrK", name: "Scout Motors", hadOpportunity: true },
         { id: "001Wj00000ah48Z", name: "Searchlight Capital", hadOpportunity: false },
         { id: "001Wj00000ahBZq", name: "Serent Capital", hadOpportunity: false },
-        { id: "001Hp00003kIrEB", name: "Silver Lake", hadOpportunity: false },
+        { id: "001Hp00003kIrEB", name: "Silver Lake", hadOpportunity: true },
         { id: "001Wj00000ahBZo", name: "Siris Capital Group", hadOpportunity: false },
         { id: "001Wj00000ah6db", name: "Solace Capital Partners", hadOpportunity: false },
         { id: "001Wj00000ahFCF", name: "Solis Capital Partners", hadOpportunity: false },
@@ -2790,7 +2790,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000ah6dj", name: "Spectrum Equity", hadOpportunity: true },
         { id: "001Wj00000lusqi", name: "Symphony Technology Partners", hadOpportunity: true },
         { id: "001Wj00000tOAoE", name: "TA Associates", hadOpportunity: true },
-        { id: "001Hp00003kKrU1", name: "TPG", hadOpportunity: false },
+        { id: "001Hp00003kKrU1", name: "TPG", hadOpportunity: true },
         { id: "001Wj00000dNhDy", name: "TSS Europe", hadOpportunity: true },
         { id: "001Wj00000QTbzh", name: "Taytrom", hadOpportunity: false },
         { id: "001Wj00000ahFCY", name: "The Courtney Group", hadOpportunity: false },
@@ -2814,24 +2814,24 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000ahBZy", name: "Zebra Technologies", hadOpportunity: false }
       ]
     },
-    // ASAD HUSSAIN (55 active + 43 prospect = 98 total)
+    // ASAD HUSSAIN (80 active + 18 prospect = 98 total)
     "asad.hussain@eudia.com": {
       email: "asad.hussain@eudia.com",
       name: "Asad Hussain",
       accounts: [
-        { id: "001Hp00003kIrFC", name: "AT&T", hadOpportunity: false },
-        { id: "001Hp00003kIrCy", name: "Airbnb", hadOpportunity: false },
-        { id: "001Hp00003kIrEe", name: "Amazon", hadOpportunity: false },
+        { id: "001Hp00003kIrFC", name: "AT&T", hadOpportunity: true },
+        { id: "001Hp00003kIrCy", name: "Airbnb", hadOpportunity: true },
+        { id: "001Hp00003kIrEe", name: "Amazon", hadOpportunity: true },
         { id: "001Wj00000WElj9", name: "American Arbitration Association", hadOpportunity: true },
         { id: "001Hp00003kIrCz", name: "American Express", hadOpportunity: true },
         { id: "001Wj00000hewsX", name: "Amkor", hadOpportunity: true },
         { id: "001Wj00000WZ05x", name: "Applied Intuition", hadOpportunity: true },
         { id: "001Hp00003kIrEx", name: "Applied Materials", hadOpportunity: false },
         { id: "001Hp00003kIrEz", name: "Archer Daniels Midland", hadOpportunity: true },
-        { id: "001Wj00000Y0g8Z", name: "Asana", hadOpportunity: false },
-        { id: "001Wj00000gGYAQ", name: "Autodesk", hadOpportunity: false },
-        { id: "001Wj00000c0wRA", name: "Away", hadOpportunity: false },
-        { id: "001Wj00000WTMCR", name: "BNY Mellon", hadOpportunity: false },
+        { id: "001Wj00000Y0g8Z", name: "Asana", hadOpportunity: true },
+        { id: "001Wj00000gGYAQ", name: "Autodesk", hadOpportunity: true },
+        { id: "001Wj00000c0wRA", name: "Away", hadOpportunity: true },
+        { id: "001Wj00000WTMCR", name: "BNY Mellon", hadOpportunity: true },
         { id: "001Wj00000c6DHy", name: "BetterUp", hadOpportunity: true },
         { id: "001Hp00003kIrFY", name: "BlackRock", hadOpportunity: false },
         { id: "001Hp00003kIrFe", name: "Booz Allen Hamilton", hadOpportunity: false },
@@ -2841,23 +2841,23 @@ var OWNERSHIP_DATA = {
         { id: "001Hp00003kIrG0", name: "Carrier Global", hadOpportunity: false },
         { id: "001Wj00000mosEX", name: "Carta", hadOpportunity: true },
         { id: "001Wj00000ah6dk", name: "Charlesbank Capital Partners", hadOpportunity: true },
-        { id: "001Wj00000XiXjd", name: "Circle", hadOpportunity: false },
-        { id: "001Hp00003kIrE5", name: "Coherent", hadOpportunity: false },
+        { id: "001Wj00000XiXjd", name: "Circle", hadOpportunity: true },
+        { id: "001Hp00003kIrE5", name: "Coherent", hadOpportunity: true },
         { id: "001Hp00003kIrGf", name: "Corning", hadOpportunity: true },
         { id: "001Wj00000fgfGu", name: "Cyware", hadOpportunity: true },
-        { id: "001Hp00003kIrE6", name: "DHL", hadOpportunity: false },
+        { id: "001Hp00003kIrE6", name: "DHL", hadOpportunity: true },
         { id: "001Wj00000duIWr", name: "Deepmind", hadOpportunity: true },
         { id: "001Hp00003kIrGy", name: "Dell Technologies", hadOpportunity: false },
-        { id: "001Hp00003kIrGz", name: "Deloitte", hadOpportunity: false },
+        { id: "001Hp00003kIrGz", name: "Deloitte", hadOpportunity: true },
         { id: "001Wj00000W8ZKl", name: "Docusign", hadOpportunity: true },
-        { id: "001Hp00003kIrHN", name: "Ecolab", hadOpportunity: false },
+        { id: "001Hp00003kIrHN", name: "Ecolab", hadOpportunity: true },
         { id: "001Wj00000dheQN", name: "Emory", hadOpportunity: true },
         { id: "001Wj00000bWIxP", name: "Ericsson", hadOpportunity: true },
         { id: "001Hp00003kIrHs", name: "FedEx", hadOpportunity: false },
         { id: "001Wj00000lMcwT", name: "Flo Health", hadOpportunity: true },
         { id: "001Hp00003kIrI3", name: "Fluor", hadOpportunity: true },
         { id: "001Hp00003kIrIA", name: "Fox", hadOpportunity: true },
-        { id: "001Hp00003kJ9oe", name: "Fresh Del Monte", hadOpportunity: false },
+        { id: "001Hp00003kJ9oe", name: "Fresh Del Monte", hadOpportunity: true },
         { id: "001Wj00000Y6HEY", name: "G-III Apparel Group", hadOpportunity: true },
         { id: "001Wj00000kNTF0", name: "GLG", hadOpportunity: true },
         { id: "001Hp00003kIrIK", name: "Geico", hadOpportunity: true },
@@ -2868,21 +2868,21 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000tuXZb", name: "Gopuff", hadOpportunity: true },
         { id: "001Hp00003kIrDP", name: "HP", hadOpportunity: true },
         { id: "001Hp00003kIrIt", name: "HSBC", hadOpportunity: true },
-        { id: "001Hp00003kL3Mo", name: "Honeywell", hadOpportunity: false },
+        { id: "001Hp00003kL3Mo", name: "Honeywell", hadOpportunity: true },
         { id: "001Hp00003kIrIy", name: "Huntsman", hadOpportunity: true },
         { id: "001Wj00000d7IL8", name: "IAC", hadOpportunity: true },
-        { id: "001Hp00003kIrJ0", name: "IBM", hadOpportunity: false },
+        { id: "001Hp00003kIrJ0", name: "IBM", hadOpportunity: true },
         { id: "001Wj00000hdoLx", name: "Insight Enterprises Inc.", hadOpportunity: true },
         { id: "001Wj00000gH7ua", name: "JFrog", hadOpportunity: true },
         { id: "001Wj00000tNwur", name: "Janus Henderson", hadOpportunity: false },
         { id: "001Wj00000iC14X", name: "Klarna", hadOpportunity: true },
         { id: "001Wj00000wSLUl", name: "LexisNexis", hadOpportunity: false },
-        { id: "001Wj00000mCFtJ", name: "LinkedIn", hadOpportunity: false },
+        { id: "001Wj00000mCFtJ", name: "LinkedIn", hadOpportunity: true },
         { id: "001Hp00003kIrJu", name: "Lockheed Martin", hadOpportunity: true },
         { id: "001Hp00003kIrKC", name: "Mass Mutual Life Insurance", hadOpportunity: true },
         { id: "001Hp00003kIrKO", name: "Microsoft", hadOpportunity: true },
         { id: "001Wj00000lyDQk", name: "MidOcean Partners", hadOpportunity: true },
-        { id: "001Hp00003kIrKT", name: "Morgan Stanley", hadOpportunity: false },
+        { id: "001Hp00003kIrKT", name: "Morgan Stanley", hadOpportunity: true },
         { id: "001Wj00000bWIxq", name: "Motiva", hadOpportunity: true },
         { id: "001Hp00003kIrKr", name: "NVIDIA", hadOpportunity: false },
         { id: "001Hp00003kIrCx", name: "Novartis", hadOpportunity: true },
@@ -2890,21 +2890,21 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000Y6VVW", name: "Oscar Health", hadOpportunity: true },
         { id: "001Wj00000eLHLO", name: "Palo Alto Networks", hadOpportunity: false },
         { id: "001Wj00000kNp2X", name: "Plusgrade", hadOpportunity: true },
-        { id: "001Wj00000YoLqW", name: "Procore Technologies", hadOpportunity: false },
+        { id: "001Wj00000YoLqW", name: "Procore Technologies", hadOpportunity: true },
         { id: "001Wj00000lXD0F", name: "RBI (Burger King)", hadOpportunity: false },
         { id: "001Hp00003kIrLx", name: "Republic Services", hadOpportunity: false },
         { id: "001Wj00000bWJ0J", name: "SAP", hadOpportunity: false },
-        { id: "001Hp00003kIrD9", name: "Salesforce", hadOpportunity: false },
-        { id: "001Wj00000fPr6N", name: "Santander", hadOpportunity: false },
-        { id: "001Hp00003kIrMK", name: "ServiceNow", hadOpportunity: false },
+        { id: "001Hp00003kIrD9", name: "Salesforce", hadOpportunity: true },
+        { id: "001Wj00000fPr6N", name: "Santander", hadOpportunity: true },
+        { id: "001Hp00003kIrMK", name: "ServiceNow", hadOpportunity: true },
         { id: "001Wj00000eL760", name: "Shell", hadOpportunity: false },
         { id: "001Wj00000kNmsg", name: "Skims", hadOpportunity: true },
         { id: "001Wj00000aCGR3", name: "Solventum", hadOpportunity: true },
-        { id: "001Hp00003kIrEC", name: "Southwest Airlines", hadOpportunity: false },
+        { id: "001Hp00003kIrEC", name: "Southwest Airlines", hadOpportunity: true },
         { id: "001Hp00003kIrMc", name: "SpaceX", hadOpportunity: false },
         { id: "001Wj00000SdYHq", name: "Spotify", hadOpportunity: true },
-        { id: "001Hp00003kIrDl", name: "StoneX Group", hadOpportunity: false },
-        { id: "001Wj00000WYtsU", name: "Tenable", hadOpportunity: false },
+        { id: "001Hp00003kIrDl", name: "StoneX Group", hadOpportunity: true },
+        { id: "001Wj00000WYtsU", name: "Tenable", hadOpportunity: true },
         { id: "001Hp00003kIrN5", name: "Tesla", hadOpportunity: false },
         { id: "001Wj00000c0wRK", name: "The Initial Group", hadOpportunity: true },
         { id: "001Wj00000bWBlX", name: "Thomson Reuters Ventures", hadOpportunity: false },
@@ -2913,23 +2913,23 @@ var OWNERSHIP_DATA = {
         { id: "001Hp00003kIrNw", name: "W.W. Grainger", hadOpportunity: true },
         { id: "001Hp00003kIrNy", name: "Walmart", hadOpportunity: true },
         { id: "001Wj00000Y64qk", name: "Warburg Pincus LLC", hadOpportunity: false },
-        { id: "001Wj00000bzz9N", name: "Wealth Partners Capital Group", hadOpportunity: false },
+        { id: "001Wj00000bzz9N", name: "Wealth Partners Capital Group", hadOpportunity: true },
         { id: "001Wj00000tuolf", name: "Wynn Las Vegas", hadOpportunity: true },
         { id: "001Wj00000bzz9Q", name: "Youtube", hadOpportunity: true },
         { id: "001Wj00000uzs1f", name: "Zero RFI", hadOpportunity: true }
       ]
     },
-    // CONOR MOLLOY (9 active + 87 prospect = 96 total)
+    // CONOR MOLLOY (19 active + 77 prospect = 96 total)
     "conor.molloy@eudia.com": {
       email: "conor.molloy@eudia.com",
       name: "Conor Molloy",
       accounts: [
         { id: "001Wj00000mCFrf", name: "APEX Group", hadOpportunity: false },
         { id: "001Wj00000xxtg6", name: "ASR Nederland", hadOpportunity: false },
-        { id: "001Hp00003kIrQD", name: "Accenture", hadOpportunity: false },
+        { id: "001Hp00003kIrQD", name: "Accenture", hadOpportunity: true },
         { id: "001Wj00000qLixn", name: "Al Dahra Group Llc", hadOpportunity: true },
         { id: "001Wj00000syNyn", name: "Alliance Healthcare", hadOpportunity: false },
-        { id: "001Hp00003kIrEy", name: "Aramark Ireland", hadOpportunity: false },
+        { id: "001Hp00003kIrEy", name: "Aramark Ireland", hadOpportunity: true },
         { id: "001Wj00000tWwXk", name: "Aramex", hadOpportunity: false },
         { id: "001Wj00000xyXlY", name: "Arkema", hadOpportunity: false },
         { id: "001Wj00000mCFrg", name: "Aryza", hadOpportunity: true },
@@ -2945,8 +2945,8 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000xz3Td", name: "British Broadcasting Corporation", hadOpportunity: false },
         { id: "001Wj00000xyc3f", name: "Carrefour", hadOpportunity: false },
         { id: "001Wj00000tWwXy", name: "Citco", hadOpportunity: false },
-        { id: "001Wj00000mCFrk", name: "Coillte", hadOpportunity: false },
-        { id: "001Wj00000mCFsH", name: "Consensys", hadOpportunity: false },
+        { id: "001Wj00000mCFrk", name: "Coillte", hadOpportunity: true },
+        { id: "001Wj00000mCFsH", name: "Consensys", hadOpportunity: true },
         { id: "001Wj00000xxS3B", name: "Currys", hadOpportunity: false },
         { id: "001Wj00000Y6Vgo", name: "Cushman & Wakefield", hadOpportunity: false },
         { id: "001Wj00000tWwY2", name: "DB Schenker", hadOpportunity: false },
@@ -2970,12 +2970,12 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000xxuVh", name: "Hermes International", hadOpportunity: false },
         { id: "001Wj00000xz32D", name: "Hornbach Group", hadOpportunity: false },
         { id: "001Wj00000hkk0u", name: "ICON", hadOpportunity: false },
-        { id: "001Wj00000mCFr2", name: "ICON Clinical Research", hadOpportunity: false },
+        { id: "001Wj00000mCFr2", name: "ICON Clinical Research", hadOpportunity: true },
         { id: "001Wj00000Y64qd", name: "ION", hadOpportunity: true },
         { id: "001Wj00000xz3AH", name: "Ingka Group", hadOpportunity: false },
         { id: "001Wj00000tWwXa", name: "Jacobs Engineering Group", hadOpportunity: false },
         { id: "001Wj00000xz30c", name: "Johnson Matthey", hadOpportunity: false },
-        { id: "001Wj00000mCFtM", name: "Kellanova", hadOpportunity: false },
+        { id: "001Wj00000mCFtM", name: "Kellanova", hadOpportunity: true },
         { id: "001Wj00000xz3S1", name: "Klockner", hadOpportunity: false },
         { id: "001Wj00000tWwYC", name: "Kuehne & Nagel", hadOpportunity: false },
         { id: "001Wj00000bWIym", name: "LSEG", hadOpportunity: false },
@@ -2993,7 +2993,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000tWwYi", name: "Penneys", hadOpportunity: false },
         { id: "001Wj00000tWwYL", name: "Philips Electronics", hadOpportunity: false },
         { id: "001Wj00000tWwYP", name: "Reddit", hadOpportunity: false },
-        { id: "001Wj00000mCFrU", name: "Riot Games", hadOpportunity: false },
+        { id: "001Wj00000mCFrU", name: "Riot Games", hadOpportunity: true },
         { id: "001Wj00000xyD0Q", name: "Rolls-Royce", hadOpportunity: false },
         { id: "001Wj00000xxIqC", name: "Royal Ahold Delhaize", hadOpportunity: false },
         { id: "001Wj00000xz3Gj", name: "Rubis", hadOpportunity: false },
@@ -3004,8 +3004,8 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000tWwYR", name: "Smurfit Kappa", hadOpportunity: false },
         { id: "001Wj00000tWwYS", name: "Stewart", hadOpportunity: false },
         { id: "001Wj00000syavy", name: "Symrise AG", hadOpportunity: false },
-        { id: "001Wj00000mCFs0", name: "Taoglas Limited", hadOpportunity: false },
-        { id: "001Wj00000mCFtP", name: "Teamwork.com", hadOpportunity: false },
+        { id: "001Wj00000mCFs0", name: "Taoglas Limited", hadOpportunity: true },
+        { id: "001Wj00000mCFtP", name: "Teamwork.com", hadOpportunity: true },
         { id: "001Wj00000sxsOq", name: "TechnipFMC", hadOpportunity: false },
         { id: "001Wj00000tWwXe", name: "Teneo", hadOpportunity: false },
         { id: "001Wj00000Y64qc", name: "Thales", hadOpportunity: false },
@@ -3015,7 +3015,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000mCFs2", name: "Vantage Towers", hadOpportunity: true },
         { id: "001Hp00003kIrNs", name: "Vistra", hadOpportunity: true },
         { id: "001Wj00000Y6VZD", name: "WPP", hadOpportunity: true },
-        { id: "001Wj00000ZLVpT", name: "Wellspring Philanthropic Fund", hadOpportunity: false },
+        { id: "001Wj00000ZLVpT", name: "Wellspring Philanthropic Fund", hadOpportunity: true },
         { id: "001Wj00000mCFsY", name: "World Rugby", hadOpportunity: false },
         { id: "001Wj00000xyygs", name: "Wurth", hadOpportunity: false },
         { id: "001Wj00000aLlzL", name: "Xerox", hadOpportunity: false },
@@ -3031,7 +3031,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000dw9pN", name: "Ardian", hadOpportunity: true }
       ]
     },
-    // EMER FLYNN (0 active + 10 prospect = 10 total)
+    // EMER FLYNN (1 active + 9 prospect = 10 total)
     "emer.flynn@eudia.com": {
       email: "emer.flynn@eudia.com",
       name: "Emer Flynn",
@@ -3041,14 +3041,14 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000syAoe", name: "Gerresheimer", hadOpportunity: false },
         { id: "001Wj00000syBb5", name: "Harbour Energy", hadOpportunity: false },
         { id: "001Wj00000soqIv", name: "Lundbeck", hadOpportunity: false },
-        { id: "001Wj00000mCFr6", name: "NTMA", hadOpportunity: false },
+        { id: "001Wj00000mCFr6", name: "NTMA", hadOpportunity: true },
         { id: "001Wj00000sxy9J", name: "Orion Pharma", hadOpportunity: false },
         { id: "001Wj00000soqNk", name: "Sobi", hadOpportunity: false },
         { id: "001Wj00000sy54F", name: "SubSea7", hadOpportunity: false },
         { id: "001Wj00000sxvzJ", name: "Virbac", hadOpportunity: false }
       ]
     },
-    // GREG MACHALE (28 active + 126 prospect = 154 total)
+    // GREG MACHALE (38 active + 116 prospect = 154 total)
     "greg.machale@eudia.com": {
       email: "greg.machale@eudia.com",
       name: "Greg MacHale",
@@ -3075,14 +3075,14 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000tWwXV", name: "BCM Group", hadOpportunity: false },
         { id: "001Wj00000tWwXU", name: "BCMGlobal ASI Ltd", hadOpportunity: false },
         { id: "001Wj00000Y6VMd", name: "BNP Paribas", hadOpportunity: true },
-        { id: "001Wj00000X4OqN", name: "BT Group", hadOpportunity: false },
+        { id: "001Wj00000X4OqN", name: "BT Group", hadOpportunity: true },
         { id: "001Wj00000vRJ13", name: "BWG Group", hadOpportunity: false },
         { id: "001Wj00000bWBsw", name: "Bausch + Lomb", hadOpportunity: false },
         { id: "001Hp00003kIrFO", name: "Baxter International", hadOpportunity: false },
         { id: "001Wj00000wLIjh", name: "Baywa", hadOpportunity: false },
         { id: "001Wj00000tWwXs", name: "Bidvest Noonan", hadOpportunity: false },
-        { id: "001Wj00000mCFqr", name: "Biomarin International Limited", hadOpportunity: false },
-        { id: "001Hp00003kIrFd", name: "Booking Holdings", hadOpportunity: false },
+        { id: "001Wj00000mCFqr", name: "Biomarin International Limited", hadOpportunity: true },
+        { id: "001Hp00003kIrFd", name: "Booking Holdings", hadOpportunity: true },
         { id: "001Wj00000T5gdt", name: "Bosch", hadOpportunity: false },
         { id: "001Hp00003kIrFg", name: "Boston Scientific", hadOpportunity: false },
         { id: "001Wj00000xyNsd", name: "Brenntag", hadOpportunity: false },
@@ -3093,7 +3093,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000uZ5J7", name: "Canada Life", hadOpportunity: true },
         { id: "001Hp00003kIrFu", name: "Capgemini", hadOpportunity: false },
         { id: "001Wj00000tWwYe", name: "Capita", hadOpportunity: false },
-        { id: "001Wj00000mCFt9", name: "Cerberus European Servicing", hadOpportunity: false },
+        { id: "001Wj00000mCFt9", name: "Cerberus European Servicing", hadOpportunity: true },
         { id: "001Wj00000tWwXz", name: "CluneTech", hadOpportunity: false },
         { id: "001Wj00000wKnrE", name: "Co-operative Group ( Co-op )", hadOpportunity: false },
         { id: "001Wj00000Y6HEM", name: "Commerzbank AG", hadOpportunity: false },
@@ -3156,7 +3156,7 @@ var OWNERSHIP_DATA = {
         { id: "001Hp00003kIrKJ", name: "Mercedes-Benz Group", hadOpportunity: true },
         { id: "001Wj00000YEMaI", name: "Mercer", hadOpportunity: false },
         { id: "001Wj00000vwSUX", name: "Mercor", hadOpportunity: true },
-        { id: "001Wj00000mCFtU", name: "Mercury Engineering", hadOpportunity: false },
+        { id: "001Wj00000mCFtU", name: "Mercury Engineering", hadOpportunity: true },
         { id: "001Wj00000yGZth", name: "Monzo", hadOpportunity: false },
         { id: "001Wj00000tWwYg", name: "Musgrave", hadOpportunity: false },
         { id: "001Wj00000lPFP3", name: "Nomura", hadOpportunity: true },
@@ -3164,8 +3164,8 @@ var OWNERSHIP_DATA = {
         { id: "001Hp00003kIrKn", name: "Northrop Grumman", hadOpportunity: false },
         { id: "001Wj00000xxcH4", name: "Orange", hadOpportunity: false },
         { id: "001Wj00000tWwYI", name: "P.J. Carroll (BAT Ireland)", hadOpportunity: false },
-        { id: "001Wj00000mCFsf", name: "Pepper Finance Corporation", hadOpportunity: false },
-        { id: "001Wj00000mCFrO", name: "Peptalk", hadOpportunity: false },
+        { id: "001Wj00000mCFsf", name: "Pepper Finance Corporation", hadOpportunity: true },
+        { id: "001Wj00000mCFrO", name: "Peptalk", hadOpportunity: true },
         { id: "001Wj00000mCFr1", name: "Permanent TSB plc", hadOpportunity: true },
         { id: "001Wj00000Y6QfR", name: "Pernod Ricard", hadOpportunity: true },
         { id: "001Wj00000vVxFy", name: "Phoenix Group", hadOpportunity: false },
@@ -3181,7 +3181,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000xy1P5", name: "Rheinmetall", hadOpportunity: false },
         { id: "001Wj00000tWwYQ", name: "Roche", hadOpportunity: false },
         { id: "001Wj00000wKi8O", name: "Royal London", hadOpportunity: false },
-        { id: "001Wj00000mCFsR", name: "Ryanair", hadOpportunity: false },
+        { id: "001Wj00000mCFsR", name: "Ryanair", hadOpportunity: true },
         { id: "001Wj00000xyJqd", name: "SCOR", hadOpportunity: false },
         { id: "001Wj00000pAxKo", name: "SSP Group", hadOpportunity: true },
         { id: "001Wj00000bWIzx", name: "Saint-Gobain", hadOpportunity: false },
@@ -3198,24 +3198,24 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000wKD4c", name: "Talanx", hadOpportunity: false },
         { id: "001Wj00000mCFr9", name: "Tesco", hadOpportunity: true },
         { id: "001Wj00000tWwYX", name: "Tullow Oil", hadOpportunity: false },
-        { id: "001Wj00000mCFsS", name: "Uniphar PLC", hadOpportunity: false },
+        { id: "001Wj00000mCFsS", name: "Uniphar PLC", hadOpportunity: true },
         { id: "001Hp00003kIrNg", name: "UnitedHealth Group", hadOpportunity: false },
         { id: "001Wj00000mCFsx", name: "Vodafone Ireland", hadOpportunity: false },
         { id: "001Wj00000xybh4", name: "Wendel", hadOpportunity: false },
         { id: "001Wj00000sCb3D", name: "Willis Towers Watson", hadOpportunity: false },
         { id: "001Wj00000tWwYY", name: "Winthrop", hadOpportunity: false },
         { id: "001Wj00000pzTPW", name: "WizzAir", hadOpportunity: false },
-        { id: "001Wj00000mCFrm", name: "eShopWorld", hadOpportunity: false },
+        { id: "001Wj00000mCFrm", name: "eShopWorld", hadOpportunity: true },
         { id: "001Hp00003kJ9Ck", name: "wnco.com", hadOpportunity: false }
       ]
     },
-    // HIMANSHU AGARWAL (15 active + 12 prospect = 27 total)
+    // HIMANSHU AGARWAL (20 active + 7 prospect = 27 total)
     "himanshu.agarwal@eudia.com": {
       email: "himanshu.agarwal@eudia.com",
       name: "Himanshu Agarwal",
       accounts: [
         { id: "001Hp00003kIrEs", name: "AON", hadOpportunity: true },
-        { id: "001Wj00000RwUpO", name: "Acrisure", hadOpportunity: false },
+        { id: "001Wj00000RwUpO", name: "Acrisure", hadOpportunity: true },
         { id: "001Hp00003kIrCd", name: "Adobe", hadOpportunity: false },
         { id: "001Hp00003kIrEU", name: "Albertsons", hadOpportunity: true },
         { id: "001Wj00000T6Hrw", name: "Atlassian", hadOpportunity: true },
@@ -3225,22 +3225,22 @@ var OWNERSHIP_DATA = {
         { id: "001Hp00003kIrGh", name: "Costco Wholesale", hadOpportunity: false },
         { id: "001Hp00003kIrCu", name: "Disney", hadOpportunity: false },
         { id: "001Hp00003kIrIF", name: "Gap", hadOpportunity: true },
-        { id: "001Hp00003kIrDN", name: "Genpact", hadOpportunity: false },
+        { id: "001Hp00003kIrDN", name: "Genpact", hadOpportunity: true },
         { id: "001Wj00000Zcmad", name: "Geodis", hadOpportunity: true },
         { id: "001Wj00000Q2yaX", name: "Innovative Driven", hadOpportunity: false },
         { id: "001Hp00003lhshd", name: "Instacart", hadOpportunity: true },
         { id: "001Hp00003kIrJx", name: "Lowe's", hadOpportunity: false },
-        { id: "001Hp00003kIrDk", name: "Moderna", hadOpportunity: false },
+        { id: "001Hp00003kIrDk", name: "Moderna", hadOpportunity: true },
         { id: "001Wj00000hDvCc", name: "Nykaa", hadOpportunity: true },
         { id: "001Wj00000h9r1F", name: "Piramal Finance", hadOpportunity: true },
-        { id: "001Hp00003kIrDc", name: "Progressive", hadOpportunity: false },
+        { id: "001Hp00003kIrDc", name: "Progressive", hadOpportunity: true },
         { id: "001Wj00000cyDxS", name: "Pyxus", hadOpportunity: true },
         { id: "001Wj00000XXvnk", name: "Relativity", hadOpportunity: true },
         { id: "001Wj00000kIFDh", name: "Reliance", hadOpportunity: true },
         { id: "001Wj00000eKsGZ", name: "Snowflake", hadOpportunity: false },
         { id: "001Hp00003kIrNr", name: "Visa", hadOpportunity: true },
         { id: "001Hp00003kIrO0", name: "Warner Bros Discovery", hadOpportunity: false },
-        { id: "001Hp00003kIrDT", name: "xAI", hadOpportunity: false }
+        { id: "001Hp00003kIrDT", name: "xAI", hadOpportunity: true }
       ]
     },
     // JON COBB (2 active + 0 prospect = 2 total)
@@ -3252,7 +3252,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000c0Cxn", name: "U.S. Aircraft Insurance Group", hadOpportunity: true }
       ]
     },
-    // JULIE STEFANICH (28 active + 24 prospect = 52 total)
+    // JULIE STEFANICH (47 active + 5 prospect = 52 total)
     "julie.stefanich@eudia.com": {
       email: "julie.stefanich@eudia.com",
       name: "Julie Stefanich",
@@ -3262,56 +3262,56 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000X6IDs", name: "Andersen", hadOpportunity: true },
         { id: "001Hp00003kIrEv", name: "Apple", hadOpportunity: true },
         { id: "001Wj00000soLVH", name: "Base Power", hadOpportunity: true },
-        { id: "001Hp00003kJ9pX", name: "Bayer", hadOpportunity: false },
+        { id: "001Hp00003kJ9pX", name: "Bayer", hadOpportunity: true },
         { id: "001Hp00003kIrFP", name: "Bechtel", hadOpportunity: true },
         { id: "001Hp00003kIrFZ", name: "Block", hadOpportunity: true },
-        { id: "001Hp00003kIrE3", name: "Cargill", hadOpportunity: false },
+        { id: "001Hp00003kIrE3", name: "Cargill", hadOpportunity: true },
         { id: "001Hp00003kIrGD", name: "Charles Schwab", hadOpportunity: true },
-        { id: "001Hp00003kIrE4", name: "Chevron", hadOpportunity: false },
-        { id: "001Hp00003kIrDh", name: "Comcast", hadOpportunity: false },
+        { id: "001Hp00003kIrE4", name: "Chevron", hadOpportunity: true },
+        { id: "001Hp00003kIrDh", name: "Comcast", hadOpportunity: true },
         { id: "001Hp00003kIrGe", name: "Corebridge Financial", hadOpportunity: true },
         { id: "001Wj00000eLJAK", name: "CrowdStrike", hadOpportunity: false },
         { id: "001Hp00003liBe9", name: "DoorDash", hadOpportunity: false },
-        { id: "001Hp00003kIrE7", name: "ECMS", hadOpportunity: false },
+        { id: "001Hp00003kIrE7", name: "ECMS", hadOpportunity: true },
         { id: "001Hp00003kIrHP", name: "Edward Jones", hadOpportunity: true },
         { id: "001Wj00000iRzqv", name: "Florida Crystals Corporation", hadOpportunity: true },
         { id: "001Wj00000XS3MX", name: "Flutter", hadOpportunity: true },
         { id: "001Hp00003kIrIP", name: "Genworth Financial", hadOpportunity: true },
-        { id: "001Hp00003kIrIX", name: "Goldman Sachs", hadOpportunity: false },
+        { id: "001Hp00003kIrIX", name: "Goldman Sachs", hadOpportunity: true },
         { id: "001Wj00000rceVp", name: "Hikma", hadOpportunity: true },
         { id: "001Hp00003kIrJV", name: "KLA", hadOpportunity: true },
-        { id: "001Wj00000XkT43", name: "Kaiser Permanente", hadOpportunity: false },
+        { id: "001Wj00000XkT43", name: "Kaiser Permanente", hadOpportunity: true },
         { id: "001Wj00000aLmhe", name: "Macmillan", hadOpportunity: true },
-        { id: "001Wj00000X6G8q", name: "Mainsail Partners", hadOpportunity: false },
-        { id: "001Hp00003kIrDb", name: "McKinsey & Company", hadOpportunity: false },
+        { id: "001Wj00000X6G8q", name: "Mainsail Partners", hadOpportunity: true },
+        { id: "001Hp00003kIrDb", name: "McKinsey & Company", hadOpportunity: true },
         { id: "001Hp00003kIrKL", name: "MetLife", hadOpportunity: true },
-        { id: "001Hp00003kIrCp", name: "Mosaic", hadOpportunity: false },
+        { id: "001Hp00003kIrCp", name: "Mosaic", hadOpportunity: true },
         { id: "001Hp00003kIrDe", name: "National Grid", hadOpportunity: true },
         { id: "001Hp00003kIrKY", name: "Netflix", hadOpportunity: true },
-        { id: "001Hp00003kIrKj", name: "Nordstrom", hadOpportunity: false },
+        { id: "001Hp00003kIrKj", name: "Nordstrom", hadOpportunity: true },
         { id: "001Hp00003kIrL2", name: "O'Reilly Automotive", hadOpportunity: true },
-        { id: "001Hp00003kIrDv", name: "Oracle", hadOpportunity: false },
+        { id: "001Hp00003kIrDv", name: "Oracle", hadOpportunity: true },
         { id: "001Hp00003kIrLP", name: "PG&E", hadOpportunity: false },
         { id: "001Hp00003kIrLH", name: "PayPal inc.", hadOpportunity: false },
-        { id: "001Hp00003kIrLN", name: "Petsmart", hadOpportunity: false },
-        { id: "001Hp00003kIrLZ", name: "Procter & Gamble", hadOpportunity: false },
+        { id: "001Hp00003kIrLN", name: "Petsmart", hadOpportunity: true },
+        { id: "001Hp00003kIrLZ", name: "Procter & Gamble", hadOpportunity: true },
         { id: "001Wj00000XcHEb", name: "Resmed", hadOpportunity: true },
-        { id: "001Hp00003lhsUY", name: "Rio Tinto Group", hadOpportunity: false },
+        { id: "001Hp00003lhsUY", name: "Rio Tinto Group", hadOpportunity: true },
         { id: "001Wj00000svQI3", name: "Safelite", hadOpportunity: true },
-        { id: "001Wj00000Yfysf", name: "Samsara", hadOpportunity: false },
+        { id: "001Wj00000Yfysf", name: "Samsara", hadOpportunity: true },
         { id: "001Wj00000fRtLm", name: "State Farm", hadOpportunity: true },
         { id: "001Hp00003kIrNH", name: "T-Mobile", hadOpportunity: true },
-        { id: "001Hp00003kIrCr", name: "TIAA", hadOpportunity: false },
+        { id: "001Hp00003kIrCr", name: "TIAA", hadOpportunity: true },
         { id: "001Wj00000bIVo1", name: "TSMC", hadOpportunity: true },
         { id: "001Wj00000bzz9T", name: "Tailored Brands", hadOpportunity: true },
-        { id: "001Hp00003kIrNB", name: "The Wonderful Company", hadOpportunity: false },
+        { id: "001Hp00003kIrNB", name: "The Wonderful Company", hadOpportunity: true },
         { id: "001Hp00003kIrNV", name: "Uber", hadOpportunity: true },
         { id: "001Wj00000Y6VYk", name: "Verifone", hadOpportunity: true },
-        { id: "001Hp00003kIrOL", name: "World Wide Technology", hadOpportunity: false },
+        { id: "001Hp00003kIrOL", name: "World Wide Technology", hadOpportunity: true },
         { id: "001Wj00000bWIza", name: "eBay", hadOpportunity: false }
       ]
     },
-    // JUSTIN HILLS (13 active + 12 prospect = 25 total)
+    // JUSTIN HILLS (18 active + 7 prospect = 25 total)
     "justin.hills@eudia.com": {
       email: "justin.hills@eudia.com",
       name: "Justin Hills",
@@ -3319,16 +3319,16 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000vCx6j", name: "1800 Flowers", hadOpportunity: false },
         { id: "001Wj00000Y6VM4", name: "Ares Management Corporation", hadOpportunity: true },
         { id: "001Hp00003kIrG8", name: "Centene", hadOpportunity: true },
-        { id: "001Wj00000c9oCv", name: "Cox Media Group", hadOpportunity: false },
+        { id: "001Wj00000c9oCv", name: "Cox Media Group", hadOpportunity: true },
         { id: "001Wj00000vCPMs", name: "Crusoe", hadOpportunity: false },
         { id: "001Wj00000vCiAw", name: "Deel", hadOpportunity: false },
-        { id: "001Wj00000Y0jPm", name: "Delinea", hadOpportunity: false },
+        { id: "001Wj00000Y0jPm", name: "Delinea", hadOpportunity: true },
         { id: "001Wj00000iwKGQ", name: "Dominos", hadOpportunity: true },
-        { id: "001Hp00003kIrDa", name: "Duracell", hadOpportunity: false },
+        { id: "001Hp00003kIrDa", name: "Duracell", hadOpportunity: true },
         { id: "001Wj00000Y6Vde", name: "EPIC Insurance Brokers & Consultants", hadOpportunity: false },
         { id: "001Hp00003kIrIC", name: "Freddie Mac", hadOpportunity: false },
         { id: "001Hp00003kJ9gW", name: "Genentech", hadOpportunity: true },
-        { id: "001Hp00003kIrDV", name: "Intel", hadOpportunity: false },
+        { id: "001Hp00003kIrDV", name: "Intel", hadOpportunity: true },
         { id: "001Hp00003kIrJJ", name: "Johnson & Johnson", hadOpportunity: true },
         { id: "001Wj00000gnrug", name: "Kraken", hadOpportunity: true },
         { id: "001Wj00000op4EW", name: "McCormick & Co Inc", hadOpportunity: true },
@@ -3337,7 +3337,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000ix7c2", name: "Nouryon", hadOpportunity: true },
         { id: "001Wj00000WYyKI", name: "Ramp", hadOpportunity: true },
         { id: "001Wj00000hzxnD", name: "Ro Healthcare", hadOpportunity: false },
-        { id: "001Hp00003kIrMi", name: "Starbucks", hadOpportunity: false },
+        { id: "001Hp00003kIrMi", name: "Starbucks", hadOpportunity: true },
         { id: "001Wj00000o5G0v", name: "StockX", hadOpportunity: true },
         { id: "001Wj00000f3bWU", name: "TransUnion", hadOpportunity: true },
         { id: "001Wj00000oqRyc", name: "Walgreens Boots Alliance", hadOpportunity: true }
@@ -3351,14 +3351,14 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000synYD", name: "Barry Callebaut Group", hadOpportunity: false }
       ]
     },
-    // MIKE MASIELLO (17 active + 9 prospect = 26 total)
+    // MIKE MASIELLO (20 active + 6 prospect = 26 total)
     "mike@eudia.com": {
       email: "mike@eudia.com",
       name: "Mike Masiello",
       accounts: [
         { id: "001Wj00000celOy", name: "Arizona Gov Office", hadOpportunity: false },
         { id: "001Wj00000p1lCP", name: "Army Applications Lab", hadOpportunity: true },
-        { id: "001Wj00000p1hYb", name: "Army Corps of Engineers", hadOpportunity: false },
+        { id: "001Wj00000p1hYb", name: "Army Corps of Engineers", hadOpportunity: true },
         { id: "001Wj00000ZxEpD", name: "Army Futures Command", hadOpportunity: true },
         { id: "001Hp00003lhZrR", name: "DARPA", hadOpportunity: true },
         { id: "001Wj00000bWBlA", name: "Defense Innovation Unit (DIU)", hadOpportunity: true },
@@ -3374,8 +3374,8 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000p1jH3", name: "State of Alaska", hadOpportunity: true },
         { id: "001Wj00000hVa6V", name: "State of Arizona", hadOpportunity: true },
         { id: "001Wj00000p0PcE", name: "State of California", hadOpportunity: true },
-        { id: "001Wj00000bWBke", name: "U.S. Air Force", hadOpportunity: false },
-        { id: "001Wj00000bWIzN", name: "U.S. Army", hadOpportunity: false },
+        { id: "001Wj00000bWBke", name: "U.S. Air Force", hadOpportunity: true },
+        { id: "001Wj00000bWIzN", name: "U.S. Army", hadOpportunity: true },
         { id: "001Hp00003kIrDU", name: "U.S. Government", hadOpportunity: false },
         { id: "001Wj00000p1SRX", name: "U.S. Marine Corps", hadOpportunity: true },
         { id: "001Wj00000hfaDc", name: "U.S. Navy", hadOpportunity: true },
@@ -3384,17 +3384,17 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000p1SuZ", name: "Vulcan Special Ops", hadOpportunity: true }
       ]
     },
-    // MITCH LOQUACI (1 active + 2 prospect = 3 total)
+    // MITCH LOQUACI (2 active + 1 prospect = 3 total)
     "mitch.loquaci@eudia.com": {
       email: "mitch.loquaci@eudia.com",
       name: "Mitch Loquaci",
       accounts: [
         { id: "001Hp00003kIrCn", name: "Home Depot", hadOpportunity: true },
         { id: "001Wj00000wlTbU", name: "Mimecast", hadOpportunity: false },
-        { id: "001Wj00000cpxt0", name: "Novelis", hadOpportunity: false }
+        { id: "001Wj00000cpxt0", name: "Novelis", hadOpportunity: true }
       ]
     },
-    // NATHAN SHINE (12 active + 88 prospect = 100 total)
+    // NATHAN SHINE (30 active + 70 prospect = 100 total)
     "nathan.shine@eudia.com": {
       email: "nathan.shine@eudia.com",
       name: "Nathan Shine",
@@ -3407,14 +3407,14 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000xxHhF", name: "Ashtead Group", hadOpportunity: false },
         { id: "001Wj00000mCFr5", name: "Boomi", hadOpportunity: false },
         { id: "001Wj00000mCFrQ", name: "CaliberAI", hadOpportunity: false },
-        { id: "001Wj00000WiFP8", name: "Cantor Fitzgerald", hadOpportunity: false },
+        { id: "001Wj00000WiFP8", name: "Cantor Fitzgerald", hadOpportunity: true },
         { id: "001Wj00000mCFrj", name: "CarTrawler", hadOpportunity: true },
         { id: "001Wj00000xz2UM", name: "Carnival", hadOpportunity: false },
         { id: "001Wj00000pzTPd", name: "Circle K", hadOpportunity: false },
         { id: "001Wj00000xyP82", name: "Claas Group", hadOpportunity: false },
         { id: "001Wj00000bW3KA", name: "Cloud Software Group", hadOpportunity: false },
-        { id: "001Wj00000mHDBo", name: "Coimisiun na Mean", hadOpportunity: false },
-        { id: "001Wj00000mCFqt", name: "CommScope Technologies", hadOpportunity: false },
+        { id: "001Wj00000mHDBo", name: "Coimisiun na Mean", hadOpportunity: true },
+        { id: "001Wj00000mCFqt", name: "CommScope Technologies", hadOpportunity: true },
         { id: "001Wj00000xz2ZC", name: "Continental", hadOpportunity: false },
         { id: "001Wj00000Y6wFZ", name: "Coursera", hadOpportunity: false },
         { id: "001Wj00000xz3DV", name: "Credit Mutuel Group", hadOpportunity: false },
@@ -3422,11 +3422,11 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000pzTPZ", name: "CubeMatch", hadOpportunity: false },
         { id: "001Wj00000pzTPb", name: "Dawn Meats", hadOpportunity: false },
         { id: "001Wj00000xxtwB", name: "Deutsche Telekom", hadOpportunity: false },
-        { id: "001Hp00003kIrDM", name: "Dropbox", hadOpportunity: false },
-        { id: "001Wj00000mCFra", name: "Dunnes Stores", hadOpportunity: false },
+        { id: "001Hp00003kIrDM", name: "Dropbox", hadOpportunity: true },
+        { id: "001Wj00000mCFra", name: "Dunnes Stores", hadOpportunity: true },
         { id: "001Wj00000xxq75", name: "ELO Group", hadOpportunity: false },
         { id: "001Wj00000xyEnj", name: "Engie", hadOpportunity: false },
-        { id: "001Wj00000mCFqu", name: "Fexco", hadOpportunity: false },
+        { id: "001Wj00000mCFqu", name: "Fexco", hadOpportunity: true },
         { id: "001Wj00000mCFsA", name: "First Derivatives", hadOpportunity: false },
         { id: "001Wj00000mCFtD", name: "Flynn O'Driscoll, Business Lawyers", hadOpportunity: false },
         { id: "001Wj00000xyMmu", name: "Forvia", hadOpportunity: false },
@@ -3439,21 +3439,21 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000mCFrq", name: "ID-Pal", hadOpportunity: false },
         { id: "001Wj00000xz3IL", name: "ING Group", hadOpportunity: false },
         { id: "001Wj00000xz2xN", name: "Inchcape", hadOpportunity: false },
-        { id: "001Wj00000mCFs5", name: "Indeed", hadOpportunity: false },
+        { id: "001Wj00000mCFs5", name: "Indeed", hadOpportunity: true },
         { id: "001Wj00000sooaT", name: "Ipsen", hadOpportunity: false },
         { id: "001Wj00000mCFss", name: "Irish League of Credit Unions", hadOpportunity: true },
-        { id: "001Wj00000mCFrS", name: "Irish Life", hadOpportunity: false },
+        { id: "001Wj00000mCFrS", name: "Irish Life", hadOpportunity: true },
         { id: "001Wj00000mCFsV", name: "Irish Residential Properties REIT Plc", hadOpportunity: false },
         { id: "001Hp00003kIrJO", name: "Keurig Dr Pepper", hadOpportunity: true },
         { id: "001Wj00000hkk0z", name: "Kingspan", hadOpportunity: true },
-        { id: "001Wj00000mCFrs", name: "Kitman Labs", hadOpportunity: false },
+        { id: "001Wj00000mCFrs", name: "Kitman Labs", hadOpportunity: true },
         { id: "001Wj00000xy1VZ", name: "LDC Group", hadOpportunity: false },
         { id: "001Wj00000mCFtF", name: "Let's Get Checked", hadOpportunity: false },
         { id: "001Hp00003kIrJo", name: "Liberty Insurance", hadOpportunity: false },
         { id: "001Wj00000xz2yz", name: "Marks and Spencer Group", hadOpportunity: false },
-        { id: "001Wj00000mCFsM", name: "McDermott Creed & Martyn", hadOpportunity: false },
+        { id: "001Wj00000mCFsM", name: "McDermott Creed & Martyn", hadOpportunity: true },
         { id: "001Hp00003kIrKF", name: "McKesson", hadOpportunity: false },
-        { id: "001Wj00000mCFso", name: "Mediolanum", hadOpportunity: false },
+        { id: "001Wj00000mCFso", name: "Mediolanum", hadOpportunity: true },
         { id: "001Wj00000xyP9g", name: "Munich Re Group", hadOpportunity: false },
         { id: "001Wj00000xxIyF", name: "Nationwide Building Society", hadOpportunity: false },
         { id: "001Wj00000xxgZB", name: "Nebius Group", hadOpportunity: false },
@@ -3461,12 +3461,12 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000xyYPq", name: "Nexans", hadOpportunity: false },
         { id: "001Wj00000xybvb", name: "Next", hadOpportunity: false },
         { id: "001Wj00000syczN", name: "Nomad Foods", hadOpportunity: false },
-        { id: "001Wj00000mCFrF", name: "OKG Payments Services Limited", hadOpportunity: false },
+        { id: "001Wj00000mCFrF", name: "OKG Payments Services Limited", hadOpportunity: true },
         { id: "001Wj00000mCFqy", name: "Oneview Healthcare", hadOpportunity: false },
         { id: "001Wj00000aCGRB", name: "Optum", hadOpportunity: false },
         { id: "001Wj00000sylmX", name: "Orlen", hadOpportunity: false },
         { id: "001Wj00000mCFrL", name: "PROS", hadOpportunity: false },
-        { id: "001Wj00000ZDPUI", name: "Perrigo Pharma", hadOpportunity: false },
+        { id: "001Wj00000ZDPUI", name: "Perrigo Pharma", hadOpportunity: true },
         { id: "001Wj00000xz33p", name: "Phoenix Pharma", hadOpportunity: false },
         { id: "001Wj00000mCFqz", name: "Phoenix Tower International", hadOpportunity: true },
         { id: "001Wj00000pzTPf", name: "Pipedrive", hadOpportunity: false },
@@ -3481,16 +3481,16 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000mCFrX", name: "South East Financial Services Cluster", hadOpportunity: false },
         { id: "001Wj00000mCFry", name: "Spectrum Wellness Holdings Limited", hadOpportunity: true },
         { id: "001Wj00000mCFsq", name: "Speed Fibre Group(enet)", hadOpportunity: true },
-        { id: "001Wj00000mCFtH", name: "StepStone Group", hadOpportunity: false },
+        { id: "001Wj00000mCFtH", name: "StepStone Group", hadOpportunity: true },
         { id: "001Hp00003kIrMp", name: "Stryker", hadOpportunity: false },
         { id: "001Wj00000pzTPa", name: "SuperNode Ltd", hadOpportunity: false },
         { id: "001Wj00000mCFtI", name: "Swish Fibre", hadOpportunity: false },
-        { id: "001Wj00000SFiOv", name: "TikTok", hadOpportunity: false },
-        { id: "001Wj00000ZDXTR", name: "Tinder LLC", hadOpportunity: false },
-        { id: "001Wj00000mCFrC", name: "Tines Security Services Limited", hadOpportunity: false },
+        { id: "001Wj00000SFiOv", name: "TikTok", hadOpportunity: true },
+        { id: "001Wj00000ZDXTR", name: "Tinder LLC", hadOpportunity: true },
+        { id: "001Wj00000mCFrC", name: "Tines Security Services Limited", hadOpportunity: true },
         { id: "001Wj00000xxQsc", name: "UDG Healthcare", hadOpportunity: false },
         { id: "001Wj00000pzTPe", name: "Udaras na Gaeltachta", hadOpportunity: false },
-        { id: "001Wj00000bWBlE", name: "Udemy", hadOpportunity: false },
+        { id: "001Wj00000bWBlE", name: "Udemy", hadOpportunity: true },
         { id: "001Wj00000Y6VMX", name: "Unilever", hadOpportunity: false },
         { id: "001Wj00000pzTPc", name: "Urban Volt", hadOpportunity: false },
         { id: "001Wj00000xwB2o", name: "Vitesco Technologies Group", hadOpportunity: false },
@@ -3501,28 +3501,28 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000mCFsZ", name: "Zurich Irish Life plc", hadOpportunity: true }
       ]
     },
-    // NICOLA FRATINI (28 active + 110 prospect = 138 total)
+    // NICOLA FRATINI (47 active + 91 prospect = 138 total)
     "nicola.fratini@eudia.com": {
       email: "nicola.fratini@eudia.com",
       name: "Nicola Fratini",
       accounts: [
-        { id: "001Wj00000mCFqs", name: "AIB", hadOpportunity: false },
+        { id: "001Wj00000mCFqs", name: "AIB", hadOpportunity: true },
         { id: "001Wj00000tWwXp", name: "AXIS Capital", hadOpportunity: false },
         { id: "001Wj00000tWwXh", name: "Actavo Group Ltd", hadOpportunity: false },
         { id: "001Wj00000thuKE", name: "Aer Lingus", hadOpportunity: true },
         { id: "001Wj00000tWwXi", name: "Aer Rianta", hadOpportunity: false },
         { id: "001Wj00000mCFrG", name: "AerCap", hadOpportunity: true },
         { id: "001Wj00000YEMaB", name: "Aligned Incentives, a Bureau Veritas company", hadOpportunity: false },
-        { id: "001Wj00000mCFs7", name: "Allied Irish Banks plc", hadOpportunity: false },
-        { id: "001Wj00000mCFsb", name: "Amundi Ireland Limited", hadOpportunity: false },
+        { id: "001Wj00000mCFs7", name: "Allied Irish Banks plc", hadOpportunity: true },
+        { id: "001Wj00000mCFsb", name: "Amundi Ireland Limited", hadOpportunity: true },
         { id: "001Wj00000uZ7w2", name: "Anna Charles", hadOpportunity: false },
-        { id: "001Wj00000TUdXw", name: "Anthropic", hadOpportunity: false },
+        { id: "001Wj00000TUdXw", name: "Anthropic", hadOpportunity: true },
         { id: "001Wj00000mCFrD", name: "Applegreen", hadOpportunity: false },
         { id: "001Wj00000wvc5a", name: "AppliedAI", hadOpportunity: true },
         { id: "001Wj00000socke", name: "Archer The Well Company", hadOpportunity: false },
         { id: "001Wj00000tWwXl", name: "Ardagh Glass Sales", hadOpportunity: false },
         { id: "001Wj00000sgB1h", name: "Autorek", hadOpportunity: false },
-        { id: "001Wj00000mCFrh", name: "Avant Money", hadOpportunity: false },
+        { id: "001Wj00000mCFrh", name: "Avant Money", hadOpportunity: true },
         { id: "001Wj00000tWwXT", name: "Avantcard", hadOpportunity: false },
         { id: "001Wj00000mI7Na", name: "Aviva Insurance", hadOpportunity: true },
         { id: "001Wj00000tWwXo", name: "Avolon", hadOpportunity: false },
@@ -3542,10 +3542,10 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000uZ2hp", name: "Centrica", hadOpportunity: false },
         { id: "001Wj00000uYYWv", name: "Checkout.com", hadOpportunity: false },
         { id: "001Wj00000Y64qg", name: "Christian Dior Couture", hadOpportunity: false },
-        { id: "001Wj00000Y6VLh", name: "Citi", hadOpportunity: false },
+        { id: "001Wj00000Y6VLh", name: "Citi", hadOpportunity: true },
         { id: "001Wj00000mCFrE", name: "Clanwilliam Group", hadOpportunity: true },
         { id: "001Wj00000tWwYl", name: "Clevercards", hadOpportunity: false },
-        { id: "001Wj00000mCFsm", name: "Coca-Cola HBC Ireland Limited", hadOpportunity: false },
+        { id: "001Wj00000mCFsm", name: "Coca-Cola HBC Ireland Limited", hadOpportunity: true },
         { id: "001Wj00000xz30b", name: "Compagnie de l'Odet", hadOpportunity: false },
         { id: "001Wj00000xxtOM", name: "Credit Industriel & Commercial", hadOpportunity: false },
         { id: "001Wj00000uZ7RN", name: "Cuvva", hadOpportunity: false },
@@ -3554,8 +3554,8 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000xyNnm", name: "DS Smith", hadOpportunity: false },
         { id: "001Wj00000hkk0s", name: "DSM", hadOpportunity: false },
         { id: "001Wj00000hfWMt", name: "Dassault Syst?mes", hadOpportunity: false },
-        { id: "001Wj00000mCFsB", name: "Datalex", hadOpportunity: false },
-        { id: "001Wj00000mCFrl", name: "Davy", hadOpportunity: false },
+        { id: "001Wj00000mCFsB", name: "Datalex", hadOpportunity: true },
+        { id: "001Wj00000mCFrl", name: "Davy", hadOpportunity: true },
         { id: "001Wj00000tWwYm", name: "Deliveroo", hadOpportunity: false },
         { id: "001Wj00000w0uVV", name: "Doceree", hadOpportunity: true },
         { id: "001Wj00000vbvuX", name: "Dole plc", hadOpportunity: false },
@@ -3573,7 +3573,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000soigL", name: "Fresenius Kabi", hadOpportunity: false },
         { id: "001Wj00000xyXyQ", name: "FrieslandCampina", hadOpportunity: false },
         { id: "001Wj00000xyAP9", name: "GasTerra", hadOpportunity: false },
-        { id: "001Wj00000mCFt1", name: "Goodbody Stockbrokers", hadOpportunity: false },
+        { id: "001Wj00000mCFt1", name: "Goodbody Stockbrokers", hadOpportunity: true },
         { id: "001Wj00000soN5f", name: "Greencore", hadOpportunity: false },
         { id: "001Wj00000xyyli", name: "Groupe BPCE", hadOpportunity: false },
         { id: "001Wj00000xz9xF", name: "Haleon", hadOpportunity: false },
@@ -3584,7 +3584,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000sg9MN", name: "INNIO Group", hadOpportunity: false },
         { id: "001Wj00000bzz9O", name: "IPG Mediabrands", hadOpportunity: true },
         { id: "001Wj00000tWwYA", name: "IPL Plastics", hadOpportunity: false },
-        { id: "001Wj00000ZDXrd", name: "Intercom", hadOpportunity: false },
+        { id: "001Wj00000ZDXrd", name: "Intercom", hadOpportunity: true },
         { id: "001Wj00000tWwYB", name: "Ires Reit", hadOpportunity: false },
         { id: "001Wj00000xy2WS", name: "J. Sainsbury", hadOpportunity: false },
         { id: "001Wj00000xyG3B", name: "JD Sports Fashion", hadOpportunity: false },
@@ -3601,9 +3601,9 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000xz3i9", name: "Mondi Group", hadOpportunity: false },
         { id: "001Wj00000xxaf3", name: "NatWest Group", hadOpportunity: false },
         { id: "001Wj00000xzFJV", name: "Norddeutsche Landesbank", hadOpportunity: false },
-        { id: "001Hp00003kIrKm", name: "Northern Trust Management Services", hadOpportunity: false },
+        { id: "001Hp00003kIrKm", name: "Northern Trust Management Services", hadOpportunity: true },
         { id: "001Wj00000bWIxi", name: "Novo Nordisk", hadOpportunity: false },
-        { id: "001Wj00000TV1Wz", name: "OpenAi", hadOpportunity: false },
+        { id: "001Wj00000TV1Wz", name: "OpenAi", hadOpportunity: true },
         { id: "001Wj00000tWwYh", name: "Origin Enterprises", hadOpportunity: false },
         { id: "001Wj00000xz3dJ", name: "Otto", hadOpportunity: false },
         { id: "001Wj00000tWwYs", name: "Panda Waste", hadOpportunity: false },
@@ -3617,7 +3617,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000sonmQ", name: "Sandoz", hadOpportunity: false },
         { id: "001Wj00000xz9ik", name: "Savencia", hadOpportunity: false },
         { id: "001Wj00000xyGKs", name: "Sodexo", hadOpportunity: false },
-        { id: "001Wj00000c9oD6", name: "Stripe", hadOpportunity: false },
+        { id: "001Wj00000c9oD6", name: "Stripe", hadOpportunity: true },
         { id: "001Hp00003kKrS0", name: "Sword Health", hadOpportunity: true },
         { id: "001Wj00000soZus", name: "Tate & Lyle", hadOpportunity: false },
         { id: "001Wj00000mEEkG", name: "Team Car Care dba Jiffy Lube", hadOpportunity: true },
@@ -3631,37 +3631,37 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000xyBgC", name: "ThyssenKrupp", hadOpportunity: false },
         { id: "001Wj00000tWwYW", name: "Total Produce plc", hadOpportunity: false },
         { id: "001Wj00000xxxLU", name: "TotalEnergies", hadOpportunity: false },
-        { id: "001Wj00000mIBpN", name: "Transworld Business Advisors", hadOpportunity: false },
-        { id: "001Wj00000mCFs1", name: "Twitter", hadOpportunity: false },
+        { id: "001Wj00000mIBpN", name: "Transworld Business Advisors", hadOpportunity: true },
+        { id: "001Wj00000mCFs1", name: "Twitter", hadOpportunity: true },
         { id: "001Wj00000xV8Vg", name: "UNHCR, the UN Refugee Agency", hadOpportunity: true },
         { id: "001Wj00000xxo5I", name: "United Internet", hadOpportunity: false },
         { id: "001Wj00000bWIzw", name: "Veolia | Water Tech", hadOpportunity: false },
-        { id: "001Hp00003kIrDA", name: "Verizon", hadOpportunity: false },
+        { id: "001Hp00003kIrDA", name: "Verizon", hadOpportunity: true },
         { id: "001Wj00000tWwXd", name: "Virgin Media Ireland Limited", hadOpportunity: false },
         { id: "001Wj00000sgaj9", name: "Volkswagon", hadOpportunity: true },
-        { id: "001Wj00000ZDTG9", name: "Waystone", hadOpportunity: false },
+        { id: "001Wj00000ZDTG9", name: "Waystone", hadOpportunity: true },
         { id: "001Wj00000pB5DX", name: "White Swan Data", hadOpportunity: true },
         { id: "001Wj00000xwL2A", name: "Wm. Morrison Supermarkets", hadOpportunity: false },
         { id: "001Wj00000mIB6E", name: "Zendesk", hadOpportunity: true },
-        { id: "001Wj00000S4r49", name: "Zoom", hadOpportunity: false }
+        { id: "001Wj00000S4r49", name: "Zoom", hadOpportunity: true }
       ]
     },
-    // OLIVIA JUNG (20 active + 71 prospect = 91 total)
+    // OLIVIA JUNG (47 active + 44 prospect = 91 total)
     "olivia.jung@eudia.com": {
       email: "olivia.jung@eudia.com",
       name: "Olivia Jung",
       accounts: [
         { id: "001Hp00003kIrED", name: "3M", hadOpportunity: false },
         { id: "001Hp00003kIrEK", name: "ADP", hadOpportunity: false },
-        { id: "001Hp00003kIrEO", name: "AES", hadOpportunity: false },
+        { id: "001Hp00003kIrEO", name: "AES", hadOpportunity: true },
         { id: "001Hp00003kIrEG", name: "AbbVie", hadOpportunity: false },
-        { id: "001Wj00000mCFrd", name: "Airship Group Inc", hadOpportunity: false },
+        { id: "001Wj00000mCFrd", name: "Airship Group Inc", hadOpportunity: true },
         { id: "001Hp00003kIrET", name: "Albemarle", hadOpportunity: false },
         { id: "001Hp00003kIrEZ", name: "Ally Financial", hadOpportunity: false },
         { id: "001Hp00003kIrEc", name: "Altria Group", hadOpportunity: false },
         { id: "001Hp00003kIrEf", name: "Ameren", hadOpportunity: false },
         { id: "001Hp00003kIrEi", name: "American Family Insurance Group", hadOpportunity: false },
-        { id: "001Wj00000YIOI1", name: "Aptiv", hadOpportunity: false },
+        { id: "001Wj00000YIOI1", name: "Aptiv", hadOpportunity: true },
         { id: "001Hp00003kIrFA", name: "Astellas", hadOpportunity: true },
         { id: "001Hp00003kIrFD", name: "Autoliv", hadOpportunity: false },
         { id: "001Hp00003kIrDJ", name: "Avery Dennison", hadOpportunity: false },
@@ -3669,21 +3669,21 @@ var OWNERSHIP_DATA = {
         { id: "001Hp00003kIrFL", name: "Bank of America", hadOpportunity: true },
         { id: "001Hp00003kIrFN", name: "Bath & Body Works", hadOpportunity: false },
         { id: "001Hp00003kIrFQ", name: "Becton Dickinson", hadOpportunity: false },
-        { id: "001Hp00003kIrFV", name: "Best Buy", hadOpportunity: false },
-        { id: "001Hp00003kIrDY", name: "Blackstone", hadOpportunity: false },
-        { id: "001Hp00003kIrFb", name: "Boeing", hadOpportunity: false },
+        { id: "001Hp00003kIrFV", name: "Best Buy", hadOpportunity: true },
+        { id: "001Hp00003kIrDY", name: "Blackstone", hadOpportunity: true },
+        { id: "001Hp00003kIrFb", name: "Boeing", hadOpportunity: true },
         { id: "001Hp00003kIrFf", name: "BorgWarner", hadOpportunity: false },
         { id: "001Hp00003kIrFk", name: "Bristol-Myers Squibb", hadOpportunity: true },
         { id: "001Hp00003kIrFo", name: "Burlington Stores", hadOpportunity: false },
         { id: "001Wj00000Y6VLn", name: "CHANEL", hadOpportunity: false },
-        { id: "001Hp00003kIrGK", name: "CHS", hadOpportunity: false },
+        { id: "001Hp00003kIrGK", name: "CHS", hadOpportunity: true },
         { id: "001Hp00003kJ9kw", name: "CSL", hadOpportunity: true },
         { id: "001Hp00003kIrGq", name: "CVS Health", hadOpportunity: false },
         { id: "001Hp00003kIrG7", name: "Cencora (formerly AmerisourceBergen)", hadOpportunity: false },
         { id: "001Hp00003kIrGE", name: "Charter Communications", hadOpportunity: true },
-        { id: "001Hp00003kIrDZ", name: "Ciena", hadOpportunity: false },
+        { id: "001Hp00003kIrDZ", name: "Ciena", hadOpportunity: true },
         { id: "001Hp00003kIrGL", name: "Cintas", hadOpportunity: false },
-        { id: "001Wj00000c6df9", name: "Clear", hadOpportunity: false },
+        { id: "001Wj00000c6df9", name: "Clear", hadOpportunity: true },
         { id: "001Wj00000eLOI4", name: "Cleveland Clinic", hadOpportunity: false },
         { id: "001Hp00003kIrGO", name: "Cleveland-Cliffs", hadOpportunity: false },
         { id: "001Hp00003kIrGQ", name: "Coca-Cola", hadOpportunity: false },
@@ -3693,54 +3693,54 @@ var OWNERSHIP_DATA = {
         { id: "001Hp00003kIrGo", name: "Cummins", hadOpportunity: true },
         { id: "001Hp00003kIrGu", name: "Danaher", hadOpportunity: false },
         { id: "001Wj00000bzz9R", name: "Datadog", hadOpportunity: true },
-        { id: "001Wj00000aZvt9", name: "Dolby", hadOpportunity: false },
+        { id: "001Wj00000aZvt9", name: "Dolby", hadOpportunity: true },
         { id: "001Hp00003kIrHB", name: "Dominion Energy", hadOpportunity: false },
         { id: "001Hp00003kIrHE", name: "Dow", hadOpportunity: false },
         { id: "001Hp00003kIrHH", name: "Duke Energy", hadOpportunity: false },
-        { id: "001Wj00000hkk0j", name: "Etsy", hadOpportunity: false },
+        { id: "001Wj00000hkk0j", name: "Etsy", hadOpportunity: true },
         { id: "001Hp00003kIrI7", name: "Ford", hadOpportunity: false },
         { id: "001Hp00003kIrIL", name: "General Dynamics", hadOpportunity: false },
         { id: "001Wj00000ScUQ3", name: "General Electric", hadOpportunity: false },
         { id: "001Hp00003kIrIN", name: "General Motors", hadOpportunity: false },
-        { id: "001Hp00003kIrIS", name: "Gilead Sciences", hadOpportunity: false },
-        { id: "001Hp00003kIrE8", name: "Graybar Electric", hadOpportunity: false },
-        { id: "001Hp00003kIrDO", name: "Guardian Life Ins", hadOpportunity: false },
+        { id: "001Hp00003kIrIS", name: "Gilead Sciences", hadOpportunity: true },
+        { id: "001Hp00003kIrE8", name: "Graybar Electric", hadOpportunity: true },
+        { id: "001Hp00003kIrDO", name: "Guardian Life Ins", hadOpportunity: true },
         { id: "001Wj00000dvgdb", name: "HealthEquity", hadOpportunity: true },
-        { id: "001Hp00003kIrJ9", name: "Intuit", hadOpportunity: false },
+        { id: "001Hp00003kIrJ9", name: "Intuit", hadOpportunity: true },
         { id: "001Wj00000aLlyV", name: "J.Crew", hadOpportunity: true },
-        { id: "001Hp00003kKKMc", name: "JPmorganchase", hadOpportunity: false },
+        { id: "001Hp00003kKKMc", name: "JPmorganchase", hadOpportunity: true },
         { id: "001Hp00003kIrJI", name: "John Deere", hadOpportunity: false },
         { id: "001Hp00003kIrDQ", name: "Jones Lang LaSalle", hadOpportunity: true },
         { id: "001Wj00000hfaE1", name: "Lowe", hadOpportunity: false },
         { id: "001Hp00003kIrDj", name: "Marsh McLennan", hadOpportunity: true },
-        { id: "001Hp00003kIrEA", name: "Mastercard", hadOpportunity: false },
+        { id: "001Hp00003kIrEA", name: "Mastercard", hadOpportunity: true },
         { id: "001Wj00000QBapC", name: "Mayo Clinic", hadOpportunity: false },
         { id: "001Hp00003kIrD7", name: "McDonald's", hadOpportunity: false },
-        { id: "001Hp00003kIrD8", name: "Medtronic", hadOpportunity: false },
+        { id: "001Hp00003kIrD8", name: "Medtronic", hadOpportunity: true },
         { id: "001Hp00003kIrKK", name: "Merck", hadOpportunity: true },
-        { id: "001Hp00003kJ9lG", name: "Meta", hadOpportunity: false },
+        { id: "001Hp00003kJ9lG", name: "Meta", hadOpportunity: true },
         { id: "001Hp00003kIrKS", name: "Mondelez International", hadOpportunity: true },
-        { id: "001Hp00003kIrKU", name: "Motorola Solutions", hadOpportunity: false },
+        { id: "001Hp00003kIrKU", name: "Motorola Solutions", hadOpportunity: true },
         { id: "001Wj00000Y6VYj", name: "NBCUniversal", hadOpportunity: false },
         { id: "001Wj00000j3QN2", name: "Nasdaq Private Market", hadOpportunity: false },
         { id: "001Hp00003kIrCq", name: "Nationwide Insurance", hadOpportunity: false },
         { id: "001Wj00000Y6VML", name: "Nestle", hadOpportunity: false },
         { id: "001Hp00003kIrLF", name: "Paramount", hadOpportunity: false },
-        { id: "001Hp00003kIrLO", name: "Pfizer", hadOpportunity: false },
+        { id: "001Hp00003kIrLO", name: "Pfizer", hadOpportunity: true },
         { id: "001Wj00000wzgaP", name: "Philip Morris International", hadOpportunity: false },
         { id: "001Hp00003kIrLa", name: "Prudential", hadOpportunity: false },
         { id: "001Hp00003kIrLp", name: "Raytheon Technologies", hadOpportunity: false },
         { id: "001Hp00003kIrDz", name: "Shopify", hadOpportunity: true },
         { id: "001Wj00000eLWPF", name: "Stellantis", hadOpportunity: false },
-        { id: "001Wj00000iS9AJ", name: "TE Connectivity", hadOpportunity: false },
+        { id: "001Wj00000iS9AJ", name: "TE Connectivity", hadOpportunity: true },
         { id: "001Hp00003kIrMx", name: "Target", hadOpportunity: false },
-        { id: "001Wj00000PjGDa", name: "The Weir Group PLC", hadOpportunity: false },
-        { id: "001Hp00003kIrDF", name: "Thermo Fisher Scientific", hadOpportunity: false },
+        { id: "001Wj00000PjGDa", name: "The Weir Group PLC", hadOpportunity: true },
+        { id: "001Hp00003kIrDF", name: "Thermo Fisher Scientific", hadOpportunity: true },
         { id: "001Hp00003kIrCw", name: "Toshiba US", hadOpportunity: true },
-        { id: "001Hp00003kIrNb", name: "Unisys", hadOpportunity: false },
-        { id: "001Hp00003kIrO7", name: "Wells Fargo", hadOpportunity: false },
+        { id: "001Hp00003kIrNb", name: "Unisys", hadOpportunity: true },
+        { id: "001Hp00003kIrO7", name: "Wells Fargo", hadOpportunity: true },
         { id: "001Wj00000kD7MA", name: "Wellspan Health", hadOpportunity: true },
-        { id: "001Hp00003kIrOA", name: "Western Digital", hadOpportunity: false },
+        { id: "001Hp00003kIrOA", name: "Western Digital", hadOpportunity: true },
         { id: "001Wj00000kD3s1", name: "White Cap", hadOpportunity: true }
       ]
     },
@@ -3758,24 +3758,24 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000vv2vX", name: "Nextdoor", hadOpportunity: false }
       ]
     },
-    // RILEY STACK (1 active + 1 prospect = 2 total)
+    // RILEY STACK (2 active + 0 prospect = 2 total)
     "riley.stack@eudia.com": {
       email: "riley.stack@eudia.com",
       name: "Riley Stack",
       accounts: [
         { id: "001Wj00000XiEDy", name: "Coinbase", hadOpportunity: true },
-        { id: "001Wj00000YEMa8", name: "Turing", hadOpportunity: false }
+        { id: "001Wj00000YEMa8", name: "Turing", hadOpportunity: true }
       ]
     },
-    // SEAN BOYD (0 active + 1 prospect = 1 total)
+    // SEAN BOYD (1 active + 0 prospect = 1 total)
     "sean.boyd@eudia.com": {
       email: "sean.boyd@eudia.com",
       name: "Sean Boyd",
       accounts: [
-        { id: "001Hp00003kIrE9", name: "IQVIA", hadOpportunity: false }
+        { id: "001Hp00003kIrE9", name: "IQVIA", hadOpportunity: true }
       ]
     },
-    // TOM CLANCY (8 active + 74 prospect = 82 total)
+    // TOM CLANCY (13 active + 69 prospect = 82 total)
     "tom.clancy@eudia.com": {
       email: "tom.clancy@eudia.com",
       name: "Tom Clancy",
@@ -3792,7 +3792,7 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000tWwXq", name: "BAM Ireland", hadOpportunity: false },
         { id: "001Wj00000c9oCe", name: "BLDG Management Co., Inc.", hadOpportunity: true },
         { id: "001Wj00000hfWN1", name: "Balfour Beatty US", hadOpportunity: false },
-        { id: "001Wj00000fFuFM", name: "Bank of Ireland", hadOpportunity: false },
+        { id: "001Wj00000fFuFM", name: "Bank of Ireland", hadOpportunity: true },
         { id: "001Wj00000xy23Q", name: "Bayerische Landesbank", hadOpportunity: false },
         { id: "001Wj00000tWwXt", name: "Boots", hadOpportunity: false },
         { id: "001Wj00000xyIOL", name: "Ceconomy", hadOpportunity: false },
@@ -3803,13 +3803,13 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000Y6Vk0", name: "Credit Agricole CIB", hadOpportunity: false },
         { id: "001Wj00000xwf7G", name: "Daimler Truck Holding", hadOpportunity: false },
         { id: "001Wj00000xyaWU", name: "Delivery Hero", hadOpportunity: false },
-        { id: "001Wj00000mCFsz", name: "Electricity Supply Board", hadOpportunity: false },
+        { id: "001Wj00000mCFsz", name: "Electricity Supply Board", hadOpportunity: true },
         { id: "001Wj00000sp0Bl", name: "Ensco PLC", hadOpportunity: false },
         { id: "001Wj00000xz374", name: "EssilorLuxottica", hadOpportunity: false },
         { id: "001Wj00000hfaDT", name: "Experian", hadOpportunity: false },
         { id: "001Wj00000tWwY6", name: "Fineos", hadOpportunity: false },
         { id: "001Wj00000mCFsd", name: "Fujitsu", hadOpportunity: false },
-        { id: "001Wj00000mCFrc", name: "Glanbia", hadOpportunity: false },
+        { id: "001Wj00000mCFrc", name: "Glanbia", hadOpportunity: true },
         { id: "001Wj00000mHuzr", name: "IHRB", hadOpportunity: false },
         { id: "001Wj00000xy9Ho", name: "Imperial Brands", hadOpportunity: false },
         { id: "001Wj00000sp1nl", name: "Ina Groupa", hadOpportunity: false },
@@ -3853,10 +3853,10 @@ var OWNERSHIP_DATA = {
         { id: "001Wj00000tWwYk", name: "Three", hadOpportunity: false },
         { id: "001Wj00000xy5HP", name: "Trane Technologies", hadOpportunity: false },
         { id: "001Wj00000sohCP", name: "Trans Ocean", hadOpportunity: false },
-        { id: "001Wj00000mCFtO", name: "Uisce Eireann (Irish Water)", hadOpportunity: false },
+        { id: "001Wj00000mCFtO", name: "Uisce Eireann (Irish Water)", hadOpportunity: true },
         { id: "001Wj00000xyQ5k", name: "Uniper", hadOpportunity: false },
         { id: "001Wj00000xz1GY", name: "Valeo", hadOpportunity: false },
-        { id: "001Wj00000pBibT", name: "Version1", hadOpportunity: false },
+        { id: "001Wj00000pBibT", name: "Version1", hadOpportunity: true },
         { id: "001Wj00000xy2BT", name: "Vivendi", hadOpportunity: false },
         { id: "001Wj00000xyulK", name: "Wacker Chemie", hadOpportunity: false },
         { id: "001Wj00000tWwYZ", name: "Wyeth Nutritionals Ireland", hadOpportunity: false },
@@ -6297,8 +6297,9 @@ sync_to_salesforce: false
     await this.ensureNextStepsFolderExists();
   }
   /**
-   * Create lightweight .md files for prospect accounts (no opportunity history).
-   * These go into Accounts/_Prospects/ as single files, keeping the workspace clean.
+   * Create full 7-file folder structures for prospect accounts (no opportunity history).
+   * These go into Accounts/_Prospects/ with the same structure as active accounts,
+   * keeping them organized separately while giving users the full working template.
    */
   async createProspectAccountFiles(prospects) {
     if (!prospects || prospects.length === 0)
@@ -6315,48 +6316,241 @@ sync_to_salesforce: false
     let createdCount = 0;
     for (const prospect of prospects) {
       const safeName = prospect.name.replace(/[<>:"/\\|?*]/g, "_").trim();
-      const filePath = `${prospectsFolder}/${safeName}.md`;
-      const existing = this.app.vault.getAbstractFileByPath(filePath);
-      if (existing)
+      const folderPath = `${prospectsFolder}/${safeName}`;
+      const existing = this.app.vault.getAbstractFileByPath(folderPath);
+      if (existing instanceof import_obsidian3.TFolder)
         continue;
-      const fullFolderPath = `${accountsFolder}/${safeName}`;
-      const fullFolder = this.app.vault.getAbstractFileByPath(fullFolderPath);
-      if (fullFolder)
+      const activeFolderPath = `${accountsFolder}/${safeName}`;
+      const activeFolder = this.app.vault.getAbstractFileByPath(activeFolderPath);
+      if (activeFolder instanceof import_obsidian3.TFolder)
         continue;
+      const oldFilePath = `${prospectsFolder}/${safeName}.md`;
+      const oldFile = this.app.vault.getAbstractFileByPath(oldFilePath);
+      if (oldFile instanceof import_obsidian3.TFile) {
+        try {
+          await this.app.vault.delete(oldFile);
+        } catch (e) {
+        }
+      }
       try {
-        const website = prospect.website || "";
-        const industry = prospect.industry || "";
-        const websiteDisplay = website ? website.replace(/^https?:\/\//, "") : "";
-        const websiteUrl = website && !website.startsWith("http") ? `https://${website}` : website;
-        const content = `---
-account_id: "${prospect.id}"
+        await this.app.vault.createFolder(folderPath);
+        const dateStr = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+        const subnotes = [
+          {
+            name: "Note 1.md",
+            content: `---
 account: "${prospect.name}"
-industry: "${industry}"
-website: "${websiteDisplay}"
-status: prospect
+account_id: "${prospect.id}"
+type: meeting_note
 tier: prospect
+sync_to_salesforce: false
+created: ${dateStr}
 ---
 
-# ${prospect.name}
+# ${prospect.name} - Meeting Note
 
-${industry ? `**Industry:** ${industry}` : ""}${industry && websiteDisplay ? " | " : ""}${websiteDisplay ? `**Website:** [${websiteDisplay}](${websiteUrl})` : ""}
+**Date:** 
+**Attendees:** 
 
-## Notes
-<!-- Add notes when you start engaging this account -->
+---
 
-## Key Contacts
-| Name | Title | Email | Notes |
-|------|-------|-------|-------|
-|      |       |       |       |
-`;
-        await this.app.vault.create(filePath, content);
+## Discussion
+
+*Add meeting notes here...*
+
+---
+
+## Next Steps
+
+- [ ] 
+
+`
+          },
+          {
+            name: "Note 2.md",
+            content: `---
+account: "${prospect.name}"
+account_id: "${prospect.id}"
+type: meeting_note
+tier: prospect
+sync_to_salesforce: false
+created: ${dateStr}
+---
+
+# ${prospect.name} - Meeting Note
+
+**Date:** 
+**Attendees:** 
+
+---
+
+## Discussion
+
+*Add meeting notes here...*
+
+---
+
+## Next Steps
+
+- [ ] 
+
+`
+          },
+          {
+            name: "Note 3.md",
+            content: `---
+account: "${prospect.name}"
+account_id: "${prospect.id}"
+type: meeting_note
+tier: prospect
+sync_to_salesforce: false
+created: ${dateStr}
+---
+
+# ${prospect.name} - Meeting Note
+
+**Date:** 
+**Attendees:** 
+
+---
+
+## Discussion
+
+*Add meeting notes here...*
+
+---
+
+## Next Steps
+
+- [ ] 
+
+`
+          },
+          {
+            name: "Meeting Notes.md",
+            content: `---
+account: "${prospect.name}"
+account_id: "${prospect.id}"
+type: meetings_index
+tier: prospect
+sync_to_salesforce: false
+---
+
+# ${prospect.name} - Meeting Notes
+
+*Use Note 1, Note 2, Note 3 for your meeting notes. When full, create additional notes.*
+
+## Recent Meetings
+
+| Date | Note | Key Outcomes |
+|------|------|--------------|
+|      |      |              |
+
+## Quick Start
+
+1. Open **Note 1** for your next meeting
+2. Click the **microphone** to record and transcribe
+3. **Next Steps** are auto-extracted after transcription
+4. Set \`sync_to_salesforce: true\` to sync to Salesforce
+`
+          },
+          {
+            name: "Contacts.md",
+            content: `---
+account: "${prospect.name}"
+account_id: "${prospect.id}"
+type: contacts
+tier: prospect
+sync_to_salesforce: false
+---
+
+# ${prospect.name} - Key Contacts
+
+| Name | Title | Email | Phone | Notes |
+|------|-------|-------|-------|-------|
+|      |       |       |       |       |
+
+## Relationship Map
+
+*Add org chart, decision makers, champions, and blockers here.*
+
+## Contact History
+
+*Log key interactions and relationship developments.*
+`
+          },
+          {
+            name: "Intelligence.md",
+            content: `---
+account: "${prospect.name}"
+account_id: "${prospect.id}"
+type: intelligence
+tier: prospect
+sync_to_salesforce: false
+---
+
+# ${prospect.name} - Account Intelligence
+
+## Company Overview
+
+*Industry, size, headquarters, key facts.*
+
+## Strategic Priorities
+
+*What's top of mind for leadership? Digital transformation initiatives?*
+
+## Legal/Compliance Landscape
+
+*Regulatory environment, compliance challenges, legal team structure.*
+
+## Competitive Intelligence
+
+*Incumbent vendors, evaluation history, competitive positioning.*
+
+## News & Signals
+
+*Recent news, earnings mentions, leadership changes.*
+`
+          },
+          {
+            name: "Next Steps.md",
+            content: `---
+account: "${prospect.name}"
+account_id: "${prospect.id}"
+type: next_steps
+tier: prospect
+auto_updated: true
+last_updated: ${dateStr}
+sync_to_salesforce: false
+---
+
+# ${prospect.name} - Next Steps
+
+*This note is automatically updated after each meeting transcription.*
+
+## Current Next Steps
+
+*No next steps yet. Record a meeting to auto-populate.*
+
+---
+
+## History
+
+*Previous next steps will be archived here.*
+`
+          }
+        ];
+        for (const subnote of subnotes) {
+          const notePath = `${folderPath}/${subnote.name}`;
+          await this.app.vault.create(notePath, subnote.content);
+        }
         createdCount++;
       } catch (err) {
-        console.log(`[Eudia] Failed to create prospect file for ${prospect.name}:`, err);
+        console.log(`[Eudia] Failed to create prospect folder for ${prospect.name}:`, err);
       }
     }
     if (createdCount > 0) {
-      console.log(`[Eudia] Created ${createdCount} prospect account files in _Prospects/`);
+      console.log(`[Eudia] Created ${createdCount} prospect account folders in _Prospects/`);
     }
     return createdCount;
   }
@@ -7763,6 +7957,7 @@ ${transcription.text}
       const existingFolders = /* @__PURE__ */ new Map();
       const prospectsPath = `${this.settings.accountsFolder}/_Prospects`;
       const prospectsFolderObj = this.app.vault.getAbstractFileByPath(prospectsPath);
+      const existingProspectFolders = /* @__PURE__ */ new Map();
       const existingProspectFiles = /* @__PURE__ */ new Map();
       if (accountsFolderObj && accountsFolderObj instanceof import_obsidian3.TFolder) {
         for (const child of accountsFolderObj.children) {
@@ -7773,9 +7968,10 @@ ${transcription.text}
       }
       if (prospectsFolderObj && prospectsFolderObj instanceof import_obsidian3.TFolder) {
         for (const child of prospectsFolderObj.children) {
-          if (child instanceof import_obsidian3.TFile && child.extension === "md") {
-            const baseName = child.basename.toLowerCase().trim();
-            existingProspectFiles.set(baseName, child);
+          if (child instanceof import_obsidian3.TFolder) {
+            existingProspectFolders.set(child.name.toLowerCase().trim(), child);
+          } else if (child instanceof import_obsidian3.TFile && child.extension === "md") {
+            existingProspectFiles.set(child.basename.toLowerCase().trim(), child);
           }
         }
       }
@@ -7786,12 +7982,13 @@ ${transcription.text}
       });
       const newProspects = serverProspects.filter((prospect) => {
         const safeName = prospect.name.replace(/[<>:"/\\|?*]/g, "_").trim().toLowerCase();
-        return !existingProspectFiles.has(safeName) && !existingFolders.has(prospect.name.toLowerCase().trim());
+        return !existingProspectFolders.has(safeName) && !existingProspectFiles.has(safeName) && !existingFolders.has(prospect.name.toLowerCase().trim());
       });
       const promotedAccounts = [];
       for (const account of serverAccounts) {
         const safeName = account.name.replace(/[<>:"/\\|?*]/g, "_").trim().toLowerCase();
-        if (existingProspectFiles.has(safeName) && !existingFolders.has(account.name.toLowerCase().trim())) {
+        const inProspects = existingProspectFolders.has(safeName) || existingProspectFiles.has(safeName);
+        if (inProspects && !existingFolders.has(account.name.toLowerCase().trim())) {
           promotedAccounts.push(account);
         }
       }
@@ -7815,9 +8012,15 @@ ${transcription.text}
         console.log(`[Eudia] Promoting ${promotedAccounts.length} accounts from prospect to active`);
         for (const account of promotedAccounts) {
           const safeName = account.name.replace(/[<>:"/\\|?*]/g, "_").trim();
+          const prospectFolder = existingProspectFolders.get(safeName.toLowerCase());
           const prospectFile = existingProspectFiles.get(safeName.toLowerCase());
-          if (prospectFile) {
-            try {
+          try {
+            if (prospectFolder) {
+              const newPath = `${this.settings.accountsFolder}/${safeName}`;
+              await this.app.vault.rename(prospectFolder, newPath);
+              promotedCount++;
+              new import_obsidian3.Notice(`${account.name} promoted to active`);
+            } else if (prospectFile) {
               await this.app.vault.delete(prospectFile);
               await this.createTailoredAccountFolders([{
                 id: account.id,
@@ -7828,9 +8031,9 @@ ${transcription.text}
               }]);
               promotedCount++;
               new import_obsidian3.Notice(`${account.name} promoted to active -- full account folder created`);
-            } catch (err) {
-              console.error(`[Eudia] Failed to promote ${account.name}:`, err);
             }
+          } catch (err) {
+            console.error(`[Eudia] Failed to promote ${account.name}:`, err);
           }
         }
       }

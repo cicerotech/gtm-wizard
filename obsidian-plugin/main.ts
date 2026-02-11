@@ -3303,8 +3303,9 @@ sync_to_salesforce: false
   }
 
   /**
-   * Create lightweight .md files for prospect accounts (no opportunity history).
-   * These go into Accounts/_Prospects/ as single files, keeping the workspace clean.
+   * Create full 7-file folder structures for prospect accounts (no opportunity history).
+   * These go into Accounts/_Prospects/ with the same structure as active accounts,
+   * keeping them organized separately while giving users the full working template.
    */
   async createProspectAccountFiles(prospects: OwnedAccount[]): Promise<number> {
     if (!prospects || prospects.length === 0) return 0;
@@ -3326,53 +3327,248 @@ sync_to_salesforce: false
     
     for (const prospect of prospects) {
       const safeName = prospect.name.replace(/[<>:"/\\|?*]/g, '_').trim();
-      const filePath = `${prospectsFolder}/${safeName}.md`;
+      const folderPath = `${prospectsFolder}/${safeName}`;
       
-      // Skip if file already exists
-      const existing = this.app.vault.getAbstractFileByPath(filePath);
-      if (existing) continue;
+      // Skip if folder already exists in _Prospects
+      const existing = this.app.vault.getAbstractFileByPath(folderPath);
+      if (existing instanceof TFolder) continue;
       
-      // Also skip if this account already has a full folder in Accounts/
-      const fullFolderPath = `${accountsFolder}/${safeName}`;
-      const fullFolder = this.app.vault.getAbstractFileByPath(fullFolderPath);
-      if (fullFolder) continue;
+      // Also skip if this account already has a full folder in Accounts/ (active)
+      const activeFolderPath = `${accountsFolder}/${safeName}`;
+      const activeFolder = this.app.vault.getAbstractFileByPath(activeFolderPath);
+      if (activeFolder instanceof TFolder) continue;
+      
+      // Clean up any old single-file prospect .md that may exist from prior version
+      const oldFilePath = `${prospectsFolder}/${safeName}.md`;
+      const oldFile = this.app.vault.getAbstractFileByPath(oldFilePath);
+      if (oldFile instanceof TFile) {
+        try { await this.app.vault.delete(oldFile); } catch (e) { /* ok */ }
+      }
       
       try {
-        const website = prospect.website || '';
-        const industry = prospect.industry || '';
-        const websiteDisplay = website ? website.replace(/^https?:\/\//, '') : '';
-        const websiteUrl = website && !website.startsWith('http') ? `https://${website}` : website;
+        // Create the prospect account folder with full 7-file structure
+        await this.app.vault.createFolder(folderPath);
         
-        const content = `---
-account_id: "${prospect.id}"
+        const dateStr = new Date().toISOString().split('T')[0];
+        const subnotes = [
+          {
+            name: 'Note 1.md',
+            content: `---
 account: "${prospect.name}"
-industry: "${industry}"
-website: "${websiteDisplay}"
-status: prospect
+account_id: "${prospect.id}"
+type: meeting_note
 tier: prospect
+sync_to_salesforce: false
+created: ${dateStr}
 ---
 
-# ${prospect.name}
+# ${prospect.name} - Meeting Note
 
-${industry ? `**Industry:** ${industry}` : ''}${industry && websiteDisplay ? ' | ' : ''}${websiteDisplay ? `**Website:** [${websiteDisplay}](${websiteUrl})` : ''}
+**Date:** 
+**Attendees:** 
 
-## Notes
-<!-- Add notes when you start engaging this account -->
+---
 
-## Key Contacts
-| Name | Title | Email | Notes |
-|------|-------|-------|-------|
-|      |       |       |       |
-`;
-        await this.app.vault.create(filePath, content);
+## Discussion
+
+*Add meeting notes here...*
+
+---
+
+## Next Steps
+
+- [ ] 
+
+`
+          },
+          {
+            name: 'Note 2.md',
+            content: `---
+account: "${prospect.name}"
+account_id: "${prospect.id}"
+type: meeting_note
+tier: prospect
+sync_to_salesforce: false
+created: ${dateStr}
+---
+
+# ${prospect.name} - Meeting Note
+
+**Date:** 
+**Attendees:** 
+
+---
+
+## Discussion
+
+*Add meeting notes here...*
+
+---
+
+## Next Steps
+
+- [ ] 
+
+`
+          },
+          {
+            name: 'Note 3.md',
+            content: `---
+account: "${prospect.name}"
+account_id: "${prospect.id}"
+type: meeting_note
+tier: prospect
+sync_to_salesforce: false
+created: ${dateStr}
+---
+
+# ${prospect.name} - Meeting Note
+
+**Date:** 
+**Attendees:** 
+
+---
+
+## Discussion
+
+*Add meeting notes here...*
+
+---
+
+## Next Steps
+
+- [ ] 
+
+`
+          },
+          {
+            name: 'Meeting Notes.md',
+            content: `---
+account: "${prospect.name}"
+account_id: "${prospect.id}"
+type: meetings_index
+tier: prospect
+sync_to_salesforce: false
+---
+
+# ${prospect.name} - Meeting Notes
+
+*Use Note 1, Note 2, Note 3 for your meeting notes. When full, create additional notes.*
+
+## Recent Meetings
+
+| Date | Note | Key Outcomes |
+|------|------|--------------|
+|      |      |              |
+
+## Quick Start
+
+1. Open **Note 1** for your next meeting
+2. Click the **microphone** to record and transcribe
+3. **Next Steps** are auto-extracted after transcription
+4. Set \`sync_to_salesforce: true\` to sync to Salesforce
+`
+          },
+          {
+            name: 'Contacts.md',
+            content: `---
+account: "${prospect.name}"
+account_id: "${prospect.id}"
+type: contacts
+tier: prospect
+sync_to_salesforce: false
+---
+
+# ${prospect.name} - Key Contacts
+
+| Name | Title | Email | Phone | Notes |
+|------|-------|-------|-------|-------|
+|      |       |       |       |       |
+
+## Relationship Map
+
+*Add org chart, decision makers, champions, and blockers here.*
+
+## Contact History
+
+*Log key interactions and relationship developments.*
+`
+          },
+          {
+            name: 'Intelligence.md',
+            content: `---
+account: "${prospect.name}"
+account_id: "${prospect.id}"
+type: intelligence
+tier: prospect
+sync_to_salesforce: false
+---
+
+# ${prospect.name} - Account Intelligence
+
+## Company Overview
+
+*Industry, size, headquarters, key facts.*
+
+## Strategic Priorities
+
+*What's top of mind for leadership? Digital transformation initiatives?*
+
+## Legal/Compliance Landscape
+
+*Regulatory environment, compliance challenges, legal team structure.*
+
+## Competitive Intelligence
+
+*Incumbent vendors, evaluation history, competitive positioning.*
+
+## News & Signals
+
+*Recent news, earnings mentions, leadership changes.*
+`
+          },
+          {
+            name: 'Next Steps.md',
+            content: `---
+account: "${prospect.name}"
+account_id: "${prospect.id}"
+type: next_steps
+tier: prospect
+auto_updated: true
+last_updated: ${dateStr}
+sync_to_salesforce: false
+---
+
+# ${prospect.name} - Next Steps
+
+*This note is automatically updated after each meeting transcription.*
+
+## Current Next Steps
+
+*No next steps yet. Record a meeting to auto-populate.*
+
+---
+
+## History
+
+*Previous next steps will be archived here.*
+`
+          }
+        ];
+        
+        for (const subnote of subnotes) {
+          const notePath = `${folderPath}/${subnote.name}`;
+          await this.app.vault.create(notePath, subnote.content);
+        }
+        
         createdCount++;
       } catch (err) {
-        console.log(`[Eudia] Failed to create prospect file for ${prospect.name}:`, err);
+        console.log(`[Eudia] Failed to create prospect folder for ${prospect.name}:`, err);
       }
     }
     
     if (createdCount > 0) {
-      console.log(`[Eudia] Created ${createdCount} prospect account files in _Prospects/`);
+      console.log(`[Eudia] Created ${createdCount} prospect account folders in _Prospects/`);
     }
     
     return createdCount;
@@ -5080,6 +5276,8 @@ ${transcription.text}
       const existingFolders = new Map<string, TFolder>();
       const prospectsPath = `${this.settings.accountsFolder}/_Prospects`;
       const prospectsFolderObj = this.app.vault.getAbstractFileByPath(prospectsPath);
+      // Track both folder-based and file-based prospect entries (handles migration from old single-file format)
+      const existingProspectFolders = new Map<string, TFolder>();
       const existingProspectFiles = new Map<string, TFile>();
       
       if (accountsFolderObj && accountsFolderObj instanceof TFolder) {
@@ -5092,9 +5290,11 @@ ${transcription.text}
       
       if (prospectsFolderObj && prospectsFolderObj instanceof TFolder) {
         for (const child of prospectsFolderObj.children) {
-          if (child instanceof TFile && child.extension === 'md') {
-            const baseName = child.basename.toLowerCase().trim();
-            existingProspectFiles.set(baseName, child);
+          if (child instanceof TFolder) {
+            existingProspectFolders.set(child.name.toLowerCase().trim(), child);
+          } else if (child instanceof TFile && child.extension === 'md') {
+            // Old single-file format -- track for migration
+            existingProspectFiles.set(child.basename.toLowerCase().trim(), child);
           }
         }
       }
@@ -5102,23 +5302,24 @@ ${transcription.text}
       // Determine changes for active accounts
       const serverAccountNames = new Set(serverAccounts.map(a => a.name.toLowerCase().trim()));
       
-      // New active accounts = in server but not in local folders (AND not already a prospect file being promoted)
+      // New active accounts = in server but not in local folders
       const newAccounts = serverAccounts.filter(account => {
         const normalizedName = account.name.toLowerCase().trim();
         return !existingFolders.has(normalizedName);
       });
       
-      // New prospect accounts = in server but not in local prospect files (and not already a full folder)
+      // New prospect accounts = not in prospect folders/files and not already an active folder
       const newProspects = serverProspects.filter(prospect => {
         const safeName = prospect.name.replace(/[<>:"/\\|?*]/g, '_').trim().toLowerCase();
-        return !existingProspectFiles.has(safeName) && !existingFolders.has(prospect.name.toLowerCase().trim());
+        return !existingProspectFolders.has(safeName) && !existingProspectFiles.has(safeName) && !existingFolders.has(prospect.name.toLowerCase().trim());
       });
       
-      // Promotion detection: accounts that are now active but still have a prospect file
+      // Promotion detection: accounts that are now active but still in _Prospects (folder or file)
       const promotedAccounts: typeof serverAccounts = [];
       for (const account of serverAccounts) {
         const safeName = account.name.replace(/[<>:"/\\|?*]/g, '_').trim().toLowerCase();
-        if (existingProspectFiles.has(safeName) && !existingFolders.has(account.name.toLowerCase().trim())) {
+        const inProspects = existingProspectFolders.has(safeName) || existingProspectFiles.has(safeName);
+        if (inProspects && !existingFolders.has(account.name.toLowerCase().trim())) {
           promotedAccounts.push(account);
         }
       }
@@ -5142,18 +5343,25 @@ ${transcription.text}
       let promotedCount = 0;
       let prospectAddedCount = 0;
 
-      // Handle promotions first: prospect -> active
+      // Handle promotions first: prospect -> active (move from _Prospects/ to Accounts/)
       if (promotedAccounts.length > 0) {
         console.log(`[Eudia] Promoting ${promotedAccounts.length} accounts from prospect to active`);
         for (const account of promotedAccounts) {
           const safeName = account.name.replace(/[<>:"/\\|?*]/g, '_').trim();
+          const prospectFolder = existingProspectFolders.get(safeName.toLowerCase());
           const prospectFile = existingProspectFiles.get(safeName.toLowerCase());
           
-          if (prospectFile) {
-            try {
-              // Delete the prospect file
+          try {
+            // Remove the prospect entry (folder or file)
+            if (prospectFolder) {
+              // Move folder from _Prospects/ to Accounts/ (rename path)
+              const newPath = `${this.settings.accountsFolder}/${safeName}`;
+              await this.app.vault.rename(prospectFolder, newPath);
+              promotedCount++;
+              new Notice(`${account.name} promoted to active`);
+            } else if (prospectFile) {
+              // Old single-file format: delete and create full folder
               await this.app.vault.delete(prospectFile);
-              // Create full folder structure
               await this.createTailoredAccountFolders([{
                 id: account.id,
                 name: account.name,
@@ -5163,9 +5371,9 @@ ${transcription.text}
               }]);
               promotedCount++;
               new Notice(`${account.name} promoted to active -- full account folder created`);
-            } catch (err) {
-              console.error(`[Eudia] Failed to promote ${account.name}:`, err);
             }
+          } catch (err) {
+            console.error(`[Eudia] Failed to promote ${account.name}:`, err);
           }
         }
       }
