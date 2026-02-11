@@ -5,8 +5,10 @@
  * When users select products in the multi-select, this creates the corresponding
  * line items. When they deselect, it removes them.
  * 
- * Price Logic: ACV is divided equally among all selected products.
- * Example: $120K ACV with 2 products = $60K each
+ * Price Logic: ACV is divided equally among all selected products as a default.
+ * Example: $120K ACV with 2 products = $60K each.
+ * Reps can override individual product prices via "Edit Products" -- the flow
+ * will NOT overwrite manually adjusted prices on subsequent multi-select changes.
  * 
  * This provides a simple dropdown UX while maintaining the Products related list.
  * 
@@ -20,6 +22,10 @@ public class ProductLineSyncService {
     
     // Default ACV if opportunity has no ACV set
     private static final Decimal DEFAULT_ACV = 120000.00;
+    
+    // Test-visible pricebook ID override — allows unit tests to bypass the
+    // Standard Pricebook SOQL query which can be unreliable in test context.
+    @TestVisible private static Id testPricebookId;
     
     /**
      * Request wrapper for invocable method
@@ -39,8 +45,8 @@ public class ProductLineSyncService {
      * Logic:
      * 1. Get the Opportunity's ACV
      * 2. Divide ACV by number of selected products
-     * 3. Set each product's price to that amount
-     * 4. Update existing products to have equal distribution
+     * 3. Set each NEW product's price to that amount (equal distribution default)
+     * 4. PRESERVE existing products' prices (allow rep overrides)
      */
     @InvocableMethod(label='Sync Product Lines to Line Items' description='Creates/removes OpportunityLineItems based on multi-select product line field')
     public static void syncProductLines(List<SyncRequest> requests) {
@@ -57,11 +63,16 @@ public class ProductLineSyncService {
         
         // Get Standard Pricebook
         Pricebook2 standardPB;
-        try {
-            standardPB = [SELECT Id FROM Pricebook2 WHERE IsStandard = true LIMIT 1];
-        } catch (Exception e) {
-            System.debug('No Standard Pricebook found: ' + e.getMessage());
-            return;
+        if (testPricebookId != null) {
+            // Use injected pricebook ID (test context)
+            standardPB = new Pricebook2(Id = testPricebookId);
+        } else {
+            try {
+                standardPB = [SELECT Id FROM Pricebook2 WHERE IsStandard = true LIMIT 1];
+            } catch (Exception e) {
+                System.debug('No Standard Pricebook found: ' + e.getMessage());
+                return;
+            }
         }
         
         // Get all Products with their PricebookEntries
@@ -152,13 +163,11 @@ public class ProductLineSyncService {
                         System.debug('Product not found in Pricebook: ' + productName);
                     }
                 } else {
-                    // Product exists - update price if different
-                    OpportunityLineItem existingOli = existingProducts.get(productName);
-                    if (existingOli.UnitPrice != pricePerProduct) {
-                        existingOli.UnitPrice = pricePerProduct;
-                        toUpdate.add(existingOli);
-                        System.debug('Updating product: ' + productName + ' to $' + pricePerProduct);
-                    }
+                    // Product exists - DO NOT overwrite user-customized prices.
+                    // Only auto-set prices on brand new products (inserts above).
+                    // Existing products retain their current UnitPrice so reps
+                    // can override ACV distribution per product line.
+                    System.debug('Product exists, keeping current price: ' + productName + ' at $' + existingProducts.get(productName).UnitPrice);
                 }
             }
             
@@ -231,10 +240,21 @@ public class ProductLineSyncService {
     }
     
     /**
-     * Redistribute ACV equally among all products on an opportunity
-     * Called when products are added/removed directly (not via multi-select)
+     * Redistribute ACV among non-overridden products on an opportunity.
+     * Called when products are deleted directly (not via multi-select).
+     * 
+     * Override detection: Products whose UnitPrice matches the equal distribution
+     * that was in effect BEFORE the delete (ACV / originalCount) are considered
+     * "default" (system-set) and eligible for redistribution. Products with a
+     * different price were manually customized by the rep and are left untouched.
+     * 
+     * If ALL remaining products are overridden, skip redistribution entirely --
+     * the ACV_Products_Mismatch__c formula will flag the discrepancy.
+     * 
+     * @param opportunityIds       Set of affected Opportunity IDs
+     * @param deletedCountPerOpp   Map of Opp ID → number of items just deleted
      */
-    public static void redistributeACV(Set<Id> opportunityIds) {
+    public static void redistributeACV(Set<Id> opportunityIds, Map<Id, Integer> deletedCountPerOpp) {
         if (opportunityIds == null || opportunityIds.isEmpty()) return;
         
         List<OpportunityLineItem> toUpdate = new List<OpportunityLineItem>();
@@ -244,30 +264,76 @@ public class ProductLineSyncService {
             Opportunity opp = [SELECT Id, ACV__c FROM Opportunity WHERE Id = :oppId LIMIT 1];
             Decimal acv = (opp.ACV__c != null && opp.ACV__c > 0) ? opp.ACV__c : DEFAULT_ACV;
             
-            // Get all line items
-            List<OpportunityLineItem> lineItems = [
+            // Get remaining line items
+            List<OpportunityLineItem> remaining = [
                 SELECT Id, UnitPrice 
                 FROM OpportunityLineItem 
                 WHERE OpportunityId = :oppId
             ];
             
-            if (lineItems.isEmpty()) continue;
+            if (remaining.isEmpty()) continue;
             
-            // Calculate equal distribution
-            Decimal pricePerProduct = (acv / lineItems.size()).setScale(2, RoundingMode.HALF_UP);
+            // Calculate what the equal share was BEFORE the delete
+            Integer deletedCount = (deletedCountPerOpp != null && deletedCountPerOpp.containsKey(oppId)) 
+                ? deletedCountPerOpp.get(oppId) : 0;
+            Integer originalCount = remaining.size() + deletedCount;
+            Decimal preDeleteEqualShare = (acv / originalCount).setScale(2, RoundingMode.HALF_UP);
             
-            // Update each line item
-            for (OpportunityLineItem oli : lineItems) {
-                if (oli.UnitPrice != pricePerProduct) {
-                    oli.UnitPrice = pricePerProduct;
+            // Separate overridden vs default products
+            // A product is "default" if its price matches the pre-delete equal share (within $0.01 tolerance)
+            List<OpportunityLineItem> defaultItems = new List<OpportunityLineItem>();
+            Decimal overriddenTotal = 0;
+            
+            for (OpportunityLineItem oli : remaining) {
+                if (Math.abs(oli.UnitPrice - preDeleteEqualShare) < 0.01) {
+                    // This product still has the system-set default price
+                    defaultItems.add(oli);
+                } else {
+                    // This product was manually customized by the rep
+                    overriddenTotal += oli.UnitPrice;
+                }
+            }
+            
+            // If all products are overridden, skip redistribution
+            // The ACV_Products_Mismatch__c formula will flag the discrepancy
+            if (defaultItems.isEmpty()) {
+                System.debug('redistributeACV: All remaining products have custom prices for Opp ' + oppId + '. Skipping redistribution.');
+                continue;
+            }
+            
+            // Redistribute remaining ACV among default (non-overridden) products
+            Decimal remainingACV = acv - overriddenTotal;
+            Decimal newPrice = (remainingACV / defaultItems.size()).setScale(2, RoundingMode.HALF_UP);
+            
+            // SAFEGUARD: Don't set negative or zero prices
+            if (newPrice <= 0) {
+                System.debug('WARNING: Calculated redistribution price is $0 or negative for Opp ' + oppId + '. Skipping.');
+                continue;
+            }
+            
+            for (OpportunityLineItem oli : defaultItems) {
+                if (Math.abs(oli.UnitPrice - newPrice) >= 0.01) {
+                    oli.UnitPrice = newPrice;
                     toUpdate.add(oli);
                 }
             }
+            
+            System.debug('redistributeACV: Opp ' + oppId + ' - ' + defaultItems.size() + 
+                ' default products updated to $' + newPrice + ' each. ' + 
+                (remaining.size() - defaultItems.size()) + ' overridden products kept.');
         }
         
         if (!toUpdate.isEmpty()) {
             update toUpdate;
         }
+    }
+    
+    /**
+     * Legacy overload for backward compatibility.
+     * Calls the override-aware version with an empty deleted count map.
+     */
+    public static void redistributeACV(Set<Id> opportunityIds) {
+        redistributeACV(opportunityIds, new Map<Id, Integer>());
     }
 }
 

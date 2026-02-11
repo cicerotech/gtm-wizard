@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Product_Term_Months__c</fullName>
+    <label>Product Term (Months)</label>
+    <description>Optional: Per-product deal term in months. When set along with Product Start Date, the Product End Date is auto-calculated. If blank, uses the opportunity-level deal term.</description>
+    <type>Number</type>
+    <precision>4</precision>
+    <scale>0</scale>
+    <required>false</required>
+</CustomField>
