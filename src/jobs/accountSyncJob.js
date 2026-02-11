@@ -74,24 +74,40 @@ async function queryFilteredAccountsForUser(email) {
   const userId = userResult.records[0].Id;
 
   // Step 2: Query accounts with the BoB report filter
-  const accountQuery = `
+  // SOQL doesn't allow semi-join sub-selects in nested WHERE, so two queries + merge
+  const existingQuery = `
     SELECT Id, Name
     FROM Account
     WHERE OwnerId = '${userId}'
-      AND (
-        Customer_Type__c = 'Existing'
-        OR Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
-      )
+      AND Customer_Type__c = 'Existing'
       AND (NOT Name LIKE '%Sample%')
       AND (NOT Name LIKE '%Test%')
     ORDER BY Name ASC
   `;
-  const accountResult = await sfConnection.query(accountQuery);
+  const openOppQuery = `
+    SELECT Id, Name
+    FROM Account
+    WHERE OwnerId = '${userId}'
+      AND Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
+      AND (NOT Name LIKE '%Sample%')
+      AND (NOT Name LIKE '%Test%')
+    ORDER BY Name ASC
+  `;
+  const [existingResult, openOppResult] = await Promise.all([
+    sfConnection.query(existingQuery),
+    sfConnection.query(openOppQuery)
+  ]);
 
-  const accounts = (accountResult.records || []).map(acc => ({
-    id: acc.Id,
-    name: acc.Name,
-  }));
+  // Merge and deduplicate
+  const seenIds = new Set();
+  const accounts = [];
+  for (const acc of [...(existingResult.records || []), ...(openOppResult.records || [])]) {
+    if (!seenIds.has(acc.Id)) {
+      seenIds.add(acc.Id);
+      accounts.push({ id: acc.Id, name: acc.Name });
+    }
+  }
+  accounts.sort((a, b) => a.name.localeCompare(b.name));
 
   return { userId, accounts };
 }

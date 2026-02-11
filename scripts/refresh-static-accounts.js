@@ -77,23 +77,39 @@ async function main() {
     const userId = userResult.records[0].Id;
 
     // Query filtered accounts (BoB report filter)
-    const accResult = await conn.query(`
+    // SOQL doesn't allow semi-join sub-selects in nested WHERE, so two queries + merge
+    const existingResult = await conn.query(`
       SELECT Id, Name
       FROM Account
       WHERE OwnerId = '${userId}'
-        AND (
-          Customer_Type__c = 'Existing'
-          OR Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
-        )
+        AND Customer_Type__c = 'Existing'
+        AND (NOT Name LIKE '%Sample%')
+        AND (NOT Name LIKE '%Test%')
+      ORDER BY Name ASC
+    `);
+    const oppResult = await conn.query(`
+      SELECT Id, Name
+      FROM Account
+      WHERE OwnerId = '${userId}'
+        AND Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
         AND (NOT Name LIKE '%Sample%')
         AND (NOT Name LIKE '%Test%')
       ORDER BY Name ASC
     `);
 
-    const accounts = (accResult.records || []).map(a => ({
-      id: a.Id.substring(0, 15),  // 15-char ID for consistency
-      name: a.Name,
-    }));
+    // Merge and deduplicate
+    const seenIds = new Set();
+    const accounts = [];
+    for (const a of [...(existingResult.records || []), ...(oppResult.records || [])]) {
+      if (!seenIds.has(a.Id)) {
+        seenIds.add(a.Id);
+        accounts.push({
+          id: a.Id.substring(0, 15),  // 15-char ID for consistency
+          name: a.Name,
+        });
+      }
+    }
+    accounts.sort((a, b) => a.name.localeCompare(b.name));
 
     totalAccounts += accounts.length;
     allBLData.push({ ...bl, accounts });

@@ -3378,26 +3378,45 @@ class GTMBrainApp {
         
         // Query accounts owned by this user (filtered to match BoB report:
         // Customer Type = Existing OR has open opportunities)
-        const ownedQuery = `
+        // SOQL doesn't allow semi-join sub-selects inside nested WHERE, so we run two queries and merge
+        const existingQuery = `
           SELECT Id, Name, Type, Customer_Type__c 
           FROM Account 
           WHERE OwnerId = '${userId}'
-            AND (
-              Customer_Type__c = 'Existing'
-              OR Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
-            )
+            AND Customer_Type__c = 'Existing'
             AND (NOT Name LIKE '%Sample%')
             AND (NOT Name LIKE '%Test%')
           ORDER BY Name ASC
         `;
-        const ownedResult = await sfConnection.query(ownedQuery);
+        const openOppQuery = `
+          SELECT Id, Name, Type, Customer_Type__c 
+          FROM Account 
+          WHERE OwnerId = '${userId}'
+            AND Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
+            AND (NOT Name LIKE '%Sample%')
+            AND (NOT Name LIKE '%Test%')
+          ORDER BY Name ASC
+        `;
+        const [existingResult, openOppResult] = await Promise.all([
+          sfConnection.query(existingQuery),
+          sfConnection.query(openOppQuery)
+        ]);
         
-        const ownedAccounts = (ownedResult.records || []).map(acc => ({
-          id: acc.Id,
-          name: acc.Name,
-          type: acc.Customer_Type__c || acc.Type || 'Prospect',
-          isOwned: true
-        }));
+        // Merge and deduplicate
+        const seenIds = new Set();
+        const ownedAccounts = [];
+        for (const acc of [...(existingResult.records || []), ...(openOppResult.records || [])]) {
+          if (!seenIds.has(acc.Id)) {
+            seenIds.add(acc.Id);
+            ownedAccounts.push({
+              id: acc.Id,
+              name: acc.Name,
+              type: acc.Customer_Type__c || acc.Type || 'Prospect',
+              isOwned: true
+            });
+          }
+        }
+        ownedAccounts.sort((a, b) => a.name.localeCompare(b.name));
         
         // Determine if this user gets a pod-level (team) view:
         //   - Sales leaders see all their direct reports' accounts
@@ -3409,68 +3428,102 @@ class GTMBrainApp {
         
         if (userGroup === 'sales_leader') {
           // Sales leaders: aggregate from direct reports (BoB filtered)
+          // Two queries needed because SOQL doesn't allow semi-join sub-selects in nested WHERE
           viewType = 'sales_leader';
           const directReports = getSalesLeaderDirectReports(normalizedEmail);
           if (directReports.length > 0) {
             const blEmailList = directReports.map(e => `'${e.replace(/'/g, "\\'")}'`).join(',');
-            const teamQuery = `
+            const teamExistingQuery = `
               SELECT Id, Name, Type, Customer_Type__c 
               FROM Account 
               WHERE Owner.Email IN (${blEmailList})
-                AND (
-                  Customer_Type__c = 'Existing'
-                  OR Id IN (SELECT AccountId FROM Opportunity WHERE IsClosed = false)
-                )
+                AND Customer_Type__c = 'Existing'
                 AND (NOT Name LIKE '%Sample%')
                 AND (NOT Name LIKE '%Test%')
               ORDER BY Name ASC
               LIMIT 500
             `;
-            const teamResult = await sfConnection.query(teamQuery);
-            const ownedIds = new Set(ownedAccounts.map(a => a.id));
+            const teamOppQuery = `
+              SELECT Id, Name, Type, Customer_Type__c 
+              FROM Account 
+              WHERE Owner.Email IN (${blEmailList})
+                AND Id IN (SELECT AccountId FROM Opportunity WHERE IsClosed = false)
+                AND (NOT Name LIKE '%Sample%')
+                AND (NOT Name LIKE '%Test%')
+              ORDER BY Name ASC
+              LIMIT 500
+            `;
+            const [teamExistingResult, teamOppResult] = await Promise.all([
+              sfConnection.query(teamExistingQuery),
+              sfConnection.query(teamOppQuery)
+            ]);
             
-            teamAccounts = (teamResult.records || [])
-              .filter(acc => !ownedIds.has(acc.Id))
-              .map(acc => ({
-                id: acc.Id,
-                name: acc.Name,
-                type: acc.Customer_Type__c || acc.Type || 'Prospect',
-                isOwned: false
-              }));
+            const ownedIds = new Set(ownedAccounts.map(a => a.id));
+            const teamSeen = new Set();
+            teamAccounts = [];
+            
+            for (const acc of [...(teamExistingResult.records || []), ...(teamOppResult.records || [])]) {
+              if (!ownedIds.has(acc.Id) && !teamSeen.has(acc.Id)) {
+                teamSeen.add(acc.Id);
+                teamAccounts.push({
+                  id: acc.Id,
+                  name: acc.Name,
+                  type: acc.Customer_Type__c || acc.Type || 'Prospect',
+                  isOwned: false
+                });
+              }
+            }
             
             logger.info(`[Ownership] Sales leader ${normalizedEmail}: ${teamAccounts.length} team accounts from ${directReports.length} direct reports`);
           }
         } else if (POD_VIEW_USERS[normalizedEmail]) {
           // Designated pod-view users: see all accounts in their region (BoB filtered)
+          // Two queries needed because SOQL doesn't allow semi-join sub-selects in nested WHERE
           viewType = 'pod_view';
           const region = POD_VIEW_USERS[normalizedEmail];
           const regionBLs = getRegionBLEmails(region);
           if (regionBLs.length > 0) {
             const blEmailList = regionBLs.map(e => `'${e.replace(/'/g, "\\'")}'`).join(',');
-            const teamQuery = `
+            const teamExistingQuery = `
               SELECT Id, Name, Type, Customer_Type__c 
               FROM Account 
               WHERE Owner.Email IN (${blEmailList})
-                AND (
-                  Customer_Type__c = 'Existing'
-                  OR Id IN (SELECT AccountId FROM Opportunity WHERE IsClosed = false)
-                )
+                AND Customer_Type__c = 'Existing'
                 AND (NOT Name LIKE '%Sample%')
                 AND (NOT Name LIKE '%Test%')
               ORDER BY Name ASC
               LIMIT 500
             `;
-            const teamResult = await sfConnection.query(teamQuery);
-            const ownedIds = new Set(ownedAccounts.map(a => a.id));
+            const teamOppQuery = `
+              SELECT Id, Name, Type, Customer_Type__c 
+              FROM Account 
+              WHERE Owner.Email IN (${blEmailList})
+                AND Id IN (SELECT AccountId FROM Opportunity WHERE IsClosed = false)
+                AND (NOT Name LIKE '%Sample%')
+                AND (NOT Name LIKE '%Test%')
+              ORDER BY Name ASC
+              LIMIT 500
+            `;
+            const [teamExistingResult, teamOppResult] = await Promise.all([
+              sfConnection.query(teamExistingQuery),
+              sfConnection.query(teamOppQuery)
+            ]);
             
-            teamAccounts = (teamResult.records || [])
-              .filter(acc => !ownedIds.has(acc.Id))
-              .map(acc => ({
-                id: acc.Id,
-                name: acc.Name,
-                type: acc.Customer_Type__c || acc.Type || 'Prospect',
-                isOwned: false
-              }));
+            const ownedIds = new Set(ownedAccounts.map(a => a.id));
+            const teamSeen = new Set();
+            teamAccounts = [];
+            
+            for (const acc of [...(teamExistingResult.records || []), ...(teamOppResult.records || [])]) {
+              if (!ownedIds.has(acc.Id) && !teamSeen.has(acc.Id)) {
+                teamSeen.add(acc.Id);
+                teamAccounts.push({
+                  id: acc.Id,
+                  name: acc.Name,
+                  type: acc.Customer_Type__c || acc.Type || 'Prospect',
+                  isOwned: false
+                });
+              }
+            }
             
             logger.info(`[Ownership] Pod-view user ${normalizedEmail} (${region}): ${teamAccounts.length} team accounts from ${regionBLs.length} region BLs`);
           }
@@ -3595,6 +3648,7 @@ class GTMBrainApp {
         // Step 2: Build query based on user group
         let accountQuery;
         let queryDescription;
+        let blMergedRecords = null; // Used for BL case (two-query merge)
         
         switch (userGroup) {
           case 'admin':
@@ -3674,24 +3728,53 @@ class GTMBrainApp {
               });
             }
             
-            queryDescription = 'owned accounts';
-            accountQuery = `
+            queryDescription = 'owned accounts (BoB filtered)';
+            // SOQL doesn't allow semi-join sub-selects in nested WHERE, so for BL we run two queries
+            const blExistingQuery = `
               SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
                      (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
               FROM Account 
               WHERE OwnerId = '${userId}'
-                AND (
-                  Customer_Type__c = 'Existing'
-                  OR Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
-                )
+                AND Customer_Type__c = 'Existing'
                 AND (NOT Name LIKE '%Sample%')
                 AND (NOT Name LIKE '%Test%')
               ORDER BY Name ASC
             `;
+            const blOppQuery = `
+              SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
+                     (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
+              FROM Account 
+              WHERE OwnerId = '${userId}'
+                AND Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
+                AND (NOT Name LIKE '%Sample%')
+                AND (NOT Name LIKE '%Test%')
+              ORDER BY Name ASC
+            `;
+            const [blExistingResult, blOppResult] = await Promise.all([
+              sfConnection.query(blExistingQuery),
+              sfConnection.query(blOppQuery)
+            ]);
+            // Merge and deduplicate
+            const blSeenIds = new Set();
+            blMergedRecords = [];
+            for (const rec of [...(blExistingResult.records || []), ...(blOppResult.records || [])]) {
+              if (!blSeenIds.has(rec.Id)) {
+                blSeenIds.add(rec.Id);
+                blMergedRecords.push(rec);
+              }
+            }
+            accountQuery = null; // Signal that we already have results
             break;
         }
         
-        const accountResult = await sfConnection.query(accountQuery);
+        // For BL case, blMergedRecords is set above; for other cases, run the single query
+        let accountResult;
+        if (accountQuery) {
+          accountResult = await sfConnection.query(accountQuery);
+        } else {
+          // BL case: already ran two queries and merged
+          accountResult = { records: blMergedRecords || [] };
+        }
         const queryTime = Date.now() - startTime;
         
         // Transform results with open opp info
