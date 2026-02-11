@@ -953,21 +953,26 @@ class SetupWizardModal extends Modal {
 
     // Step 2: Import tailored accounts based on user email
     this.updateStep('accounts', 'running');
+    const quickLeftSplit = (this.plugin.app.workspace as any).leftSplit;
+    const quickWasCollapsed = quickLeftSplit?.collapsed;
     try {
       const ownershipService = new AccountOwnershipService(this.plugin.settings.serverUrl);
       const userEmail = this.plugin.settings.userEmail;
+      const userGroup = isAdminUser(userEmail) ? 'admin' : isCSUser(userEmail) ? 'cs' : 'bl';
+      console.log(`[Eudia Quick Setup] Importing accounts for ${userEmail} (group: ${userGroup})`);
       
       // Route to correct account fetch based on user type
       let accounts: OwnedAccount[];
       let prospects: OwnedAccount[] = [];
-      if (isAdminUser(userEmail)) {
+      if (userGroup === 'admin') {
         console.log('[Eudia] Admin user detected - importing all accounts');
         accounts = await ownershipService.getAllAccountsForAdmin(userEmail);
-      } else if (isCSUser(userEmail)) {
+      } else if (userGroup === 'cs') {
         console.log('[Eudia] CS user detected - importing CS-relevant accounts');
         const result = await ownershipService.getCSAccounts(userEmail);
         accounts = result.accounts;
         prospects = result.prospects;
+        console.log(`[Eudia] CS result: ${accounts.length} accounts, ${prospects.length} prospects`);
       } else {
         const result = await ownershipService.getAccountsWithProspects(userEmail);
         accounts = result.accounts;
@@ -976,14 +981,12 @@ class SetupWizardModal extends Modal {
       
       if (accounts.length > 0 || prospects.length > 0) {
         // Collapse left sidebar to hide folder-by-folder creation (smoother UX)
-        const quickLeftSplit = (this.plugin.app.workspace as any).leftSplit;
-        const quickWasCollapsed = quickLeftSplit?.collapsed;
         if (quickLeftSplit && !quickWasCollapsed) {
           quickLeftSplit.collapse();
         }
 
         // FAST PATH: Create folder structures immediately (templates only)
-        if (isAdminUser(userEmail)) {
+        if (userGroup === 'admin') {
           await this.plugin.createAdminAccountFolders(accounts);
         } else {
           await this.plugin.createTailoredAccountFolders(accounts, {}); // Empty = fast templates
@@ -991,13 +994,19 @@ class SetupWizardModal extends Modal {
             await this.plugin.createProspectAccountFiles(prospects);
           }
         }
-        // CS Manager dashboard (Nikhita gets a manager overview)
+        // CS Manager dashboard (non-blocking)
         if (isCSManager(userEmail)) {
-          await this.plugin.createCSManagerDashboard(userEmail, accounts);
+          try { await this.plugin.createCSManagerDashboard(userEmail, accounts); } catch { /* non-blocking */ }
         }
         this.plugin.settings.accountsImported = true;
         this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
         await this.plugin.saveSettings();
+
+        // Remove placeholder
+        try {
+          const setupFile = this.plugin.app.vault.getAbstractFileByPath('Accounts/_Setup Required.md');
+          if (setupFile) await this.plugin.app.vault.delete(setupFile);
+        } catch { /* ok */ }
 
         // Expand left sidebar now that all folders exist (clean reveal, no flickering)
         if (quickLeftSplit && !quickWasCollapsed) {
@@ -1013,11 +1022,15 @@ class SetupWizardModal extends Modal {
             console.log('[Eudia] Background enrichment skipped:', e);
           }
         }, 500);
+      } else {
+        console.warn(`[Eudia Quick Setup] No accounts returned for ${userEmail}. Server may be cold.`);
       }
       this.updateStep('accounts', 'complete');
     } catch (e) {
       console.error('[Eudia] Account import failed:', e);
       this.updateStep('accounts', 'error');
+      // Re-expand sidebar on error
+      if (quickLeftSplit && !quickWasCollapsed) quickLeftSplit.expand();
     }
 
     // Step 3: Calendar
@@ -1180,20 +1193,32 @@ class EudiaSetupView extends ItemView {
       // Check if accounts are imported — if email is set but accounts haven't loaded, auto-retry
       if (this.plugin.settings.accountsImported) {
         this.steps[2].status = 'complete';
+        // Clean up placeholder if still present
+        try {
+          const setupFile = this.plugin.app.vault.getAbstractFileByPath('Accounts/_Setup Required.md');
+          if (setupFile) await this.plugin.app.vault.delete(setupFile);
+        } catch { /* ok */ }
       } else {
         // Email connected but accounts never imported (server may have been down). Auto-retry.
         console.log('[Eudia Setup] Email set but accounts not imported — auto-retrying import...');
+        const leftSplit = (this.plugin.app.workspace as any).leftSplit;
+        const wasCollapsed = leftSplit?.collapsed;
+        
         try {
           const email = this.plugin.settings.userEmail;
+          const userGroup = isAdminUser(email) ? 'admin' : isCSUser(email) ? 'cs' : 'bl';
           let accounts: OwnedAccount[] = [];
           let prospects: OwnedAccount[] = [];
           
-          if (isAdminUser(email)) {
+          console.log(`[Eudia Setup] Auto-retry for ${email} (group: ${userGroup})`);
+          
+          if (userGroup === 'admin') {
             accounts = await this.accountOwnershipService.getAllAccountsForAdmin(email);
-          } else if (isCSUser(email)) {
+          } else if (userGroup === 'cs') {
             const result = await this.accountOwnershipService.getCSAccounts(email);
             accounts = result.accounts;
             prospects = result.prospects;
+            console.log(`[Eudia Setup] Auto-retry CS result: ${accounts.length} accounts, ${prospects.length} prospects`);
           } else {
             const result = await this.accountOwnershipService.getAccountsWithProspects(email);
             accounts = result.accounts;
@@ -1202,11 +1227,9 @@ class EudiaSetupView extends ItemView {
           
           if (accounts.length > 0 || prospects.length > 0) {
             // Collapse sidebar during folder creation
-            const leftSplit = (this.plugin.app.workspace as any).leftSplit;
-            const wasCollapsed = leftSplit?.collapsed;
             if (leftSplit && !wasCollapsed) leftSplit.collapse();
             
-            if (isAdminUser(email)) {
+            if (userGroup === 'admin') {
               await this.plugin.createAdminAccountFolders(accounts);
             } else {
               await this.plugin.createTailoredAccountFolders(accounts, {});
@@ -1214,14 +1237,21 @@ class EudiaSetupView extends ItemView {
                 await this.plugin.createProspectAccountFiles(prospects);
               }
             }
+            // CS Manager dashboard (non-blocking)
             if (isCSManager(email)) {
-              await this.plugin.createCSManagerDashboard(email, accounts);
+              try { await this.plugin.createCSManagerDashboard(email, accounts); } catch { /* non-blocking */ }
             }
             
             this.plugin.settings.accountsImported = true;
             this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
             await this.plugin.saveSettings();
             this.steps[2].status = 'complete';
+            
+            // Remove placeholder
+            try {
+              const setupFile = this.plugin.app.vault.getAbstractFileByPath('Accounts/_Setup Required.md');
+              if (setupFile) await this.plugin.app.vault.delete(setupFile);
+            } catch { /* ok */ }
             
             if (leftSplit && !wasCollapsed) leftSplit.expand();
             
@@ -1233,9 +1263,15 @@ class EudiaSetupView extends ItemView {
             setTimeout(async () => {
               try { await this.plugin.enrichAccountFolders(allAccounts); } catch { /* ok */ }
             }, 500);
+          } else {
+            console.warn(`[Eudia Setup] Auto-retry returned 0 accounts for ${email}. Server may still be starting.`);
+            // Re-expand sidebar since we collapsed it
+            if (leftSplit && !wasCollapsed) leftSplit.expand();
           }
         } catch (retryErr) {
-          console.log('[Eudia Setup] Auto-retry account import failed:', retryErr);
+          console.error('[Eudia Setup] Auto-retry account import failed:', retryErr);
+          // Re-expand sidebar on error
+          if (leftSplit && !wasCollapsed) leftSplit.expand();
         }
       }
     }
@@ -1414,14 +1450,24 @@ class EudiaSetupView extends ItemView {
           validationEl.className = 'eudia-setup-validation-message loading';
         }
         
+        // Collapse left sidebar early to hide folder-by-folder creation (smoother UX)
+        const leftSplit = (this.plugin.app.workspace as any).leftSplit;
+        const wasCollapsed = leftSplit?.collapsed;
+        if (leftSplit && !wasCollapsed) {
+          leftSplit.collapse();
+        }
+
         try {
           // Route to correct account fetch based on user type
           let accounts: OwnedAccount[];
           let prospects: OwnedAccount[] = [];
-          if (isAdminUser(email)) {
+          const userGroup = isAdminUser(email) ? 'admin' : isCSUser(email) ? 'cs' : 'bl';
+          console.log(`[Eudia] User group detected: ${userGroup} for ${email}`);
+          
+          if (userGroup === 'admin') {
             console.log('[Eudia] Admin user detected - importing all accounts');
             accounts = await this.accountOwnershipService.getAllAccountsForAdmin(email);
-          } else if (isCSUser(email)) {
+          } else if (userGroup === 'cs') {
             console.log('[Eudia] CS user detected - importing CS-relevant accounts');
             if (validationEl) {
               validationEl.textContent = 'Loading Customer Success accounts...';
@@ -1429,6 +1475,7 @@ class EudiaSetupView extends ItemView {
             const result = await this.accountOwnershipService.getCSAccounts(email);
             accounts = result.accounts;
             prospects = result.prospects;
+            console.log(`[Eudia] CS accounts received: ${accounts.length} active, ${prospects.length} prospects`);
           } else {
             const result = await this.accountOwnershipService.getAccountsWithProspects(email);
             accounts = result.accounts;
@@ -1441,14 +1488,7 @@ class EudiaSetupView extends ItemView {
               validationEl.textContent = `Creating ${accounts.length} account folders...`;
             }
 
-            // Collapse left sidebar to hide folder-by-folder creation (smoother UX)
-            const leftSplit = (this.plugin.app.workspace as any).leftSplit;
-            const wasCollapsed = leftSplit?.collapsed;
-            if (leftSplit && !wasCollapsed) {
-              leftSplit.collapse();
-            }
-
-            if (isAdminUser(email)) {
+            if (userGroup === 'admin') {
               await this.plugin.createAdminAccountFolders(accounts);
             } else {
               await this.plugin.createTailoredAccountFolders(accounts, {}); // Empty enrichments = fast templates
@@ -1456,18 +1496,27 @@ class EudiaSetupView extends ItemView {
                 await this.plugin.createProspectAccountFiles(prospects);
               }
             }
-            // CS Manager dashboard
+            
+            // CS Manager dashboard (wrap in its own try-catch so it never blocks account import)
             if (isCSManager(email)) {
-              await this.plugin.createCSManagerDashboard(email, accounts);
+              try {
+                await this.plugin.createCSManagerDashboard(email, accounts);
+              } catch (dashErr) {
+                console.error('[Eudia] CS Manager dashboard creation failed (non-blocking):', dashErr);
+              }
             }
+            
             this.plugin.settings.accountsImported = true;
             this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
             await this.plugin.saveSettings();
 
-            // Expand left sidebar now that all folders exist (clean reveal, no flickering)
-            if (leftSplit && !wasCollapsed) {
-              leftSplit.expand();
-            }
+            // Remove _Setup Required.md placeholder since accounts are now imported
+            try {
+              const setupFile = this.plugin.app.vault.getAbstractFileByPath('Accounts/_Setup Required.md');
+              if (setupFile) {
+                await this.plugin.app.vault.delete(setupFile);
+              }
+            } catch { /* ok if already gone */ }
 
             new Notice(`Imported ${accounts.length} active accounts + ${prospects.length} prospects!`);
 
@@ -1484,9 +1533,27 @@ class EudiaSetupView extends ItemView {
                 console.log('[Eudia] Background enrichment skipped:', e);
               }
             }, 500);
+          } else {
+            // No accounts found -- show actionable message
+            console.warn(`[Eudia] No accounts returned for ${email} (userGroup: ${userGroup})`);
+            if (validationEl) {
+              validationEl.textContent = `No accounts found for ${email}. The server may still be starting — try again in 30 seconds.`;
+              validationEl.className = 'eudia-setup-validation-message warning';
+            }
+            new Notice('No accounts found. Server may be cold-starting — please try again shortly.');
           }
         } catch (importError) {
           console.error('[Eudia] Account import failed:', importError);
+          if (validationEl) {
+            validationEl.textContent = 'Account import failed. Please try again.';
+            validationEl.className = 'eudia-setup-validation-message error';
+          }
+          new Notice('Account import failed — please try again.');
+        } finally {
+          // ALWAYS re-expand left sidebar (even on error)
+          if (leftSplit && !wasCollapsed) {
+            leftSplit.expand();
+          }
         }
         
         await this.render();
@@ -1630,20 +1697,23 @@ class EudiaSetupView extends ItemView {
     
     try {
       const userEmail = this.plugin.settings.userEmail;
+      const userGroup = isAdminUser(userEmail) ? 'admin' : isCSUser(userEmail) ? 'cs' : 'bl';
+      console.log(`[Eudia SF Import] Importing for ${userEmail} (group: ${userGroup})`);
       
       // Route to correct account fetch based on user type
       let accounts: OwnedAccount[];
       let prospects: OwnedAccount[] = [];
-      if (isAdminUser(userEmail)) {
+      if (userGroup === 'admin') {
         console.log('[Eudia] Admin user detected - importing all accounts');
         statusEl.textContent = 'Admin detected - importing all accounts...';
         accounts = await this.accountOwnershipService.getAllAccountsForAdmin(userEmail);
-      } else if (isCSUser(userEmail)) {
+      } else if (userGroup === 'cs') {
         console.log('[Eudia] CS user detected - importing CS-relevant accounts');
         statusEl.textContent = 'Loading Customer Success accounts...';
         const result = await this.accountOwnershipService.getCSAccounts(userEmail);
         accounts = result.accounts;
         prospects = result.prospects;
+        console.log(`[Eudia SF Import] CS result: ${accounts.length} accounts, ${prospects.length} prospects`);
       } else {
         const result = await this.accountOwnershipService.getAccountsWithProspects(userEmail);
         accounts = result.accounts;
@@ -1674,14 +1744,20 @@ class EudiaSetupView extends ItemView {
           await this.plugin.createProspectAccountFiles(prospects);
         }
       }
-      // CS Manager dashboard
+      // CS Manager dashboard (non-blocking)
       if (isCSManager(userEmail)) {
-        await this.plugin.createCSManagerDashboard(userEmail, accounts);
+        try { await this.plugin.createCSManagerDashboard(userEmail, accounts); } catch { /* non-blocking */ }
       }
       
       this.plugin.settings.accountsImported = true;
       this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
       await this.plugin.saveSettings();
+
+      // Remove placeholder
+      try {
+        const setupFile = this.plugin.app.vault.getAbstractFileByPath('Accounts/_Setup Required.md');
+        if (setupFile) await this.plugin.app.vault.delete(setupFile);
+      } catch { /* ok */ }
 
       // Expand left sidebar now that all folders exist (clean reveal, no flickering)
       if (importLeftSplit && !importWasCollapsed) {
@@ -1693,7 +1769,7 @@ class EudiaSetupView extends ItemView {
       const ownedCount = accounts.filter(a => a.isOwned !== false).length;
       const viewOnlyCount = accounts.filter(a => a.isOwned === false).length;
       
-      if (isAdminUser(userEmail) && viewOnlyCount > 0) {
+      if (userGroup === 'admin' && viewOnlyCount > 0) {
         statusEl.textContent = `${ownedCount} owned + ${viewOnlyCount} view-only accounts imported! Enriching...`;
       } else {
         statusEl.textContent = `${accounts.length} active + ${prospects.length} prospect accounts imported! Enriching...`;
@@ -1716,6 +1792,8 @@ class EudiaSetupView extends ItemView {
     } catch (error) {
       statusEl.textContent = 'Failed to import accounts. Please try again.';
       statusEl.className = 'eudia-setup-sf-status error';
+      // Re-expand sidebar on error
+      if (importLeftSplit && !importWasCollapsed) importLeftSplit.expand();
     }
   }
 

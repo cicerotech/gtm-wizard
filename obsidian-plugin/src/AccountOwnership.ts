@@ -1861,54 +1861,79 @@ export class AccountOwnershipService {
    * Get CS-relevant accounts for Customer Success users.
    * Uses /api/bl-accounts/:email which has CS-specific query logic:
    *   - Accounts where Customer_Type__c = 'Existing'
-   *   - Accounts attached to opportunities where CS_Staffing__c = true
+   *   - Accounts attached to opportunities where CS_Staffing_Flag__c = true
+   * 
+   * Includes retry logic for Render cold-start resilience.
    */
   async getCSAccounts(email: string): Promise<{ accounts: OwnedAccount[]; prospects: OwnedAccount[] }> {
     const normalizedEmail = email.toLowerCase().trim();
     console.log(`[AccountOwnership] Fetching CS accounts for: ${normalizedEmail}`);
     
-    try {
-      const { requestUrl } = await import('obsidian');
-      
-      const response = await requestUrl({
-        url: `${this.serverUrl}/api/bl-accounts/${encodeURIComponent(normalizedEmail)}`,
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-      });
-      
-      if (response.json?.success) {
-        const activeAccounts: OwnedAccount[] = (response.json.accounts || []).map((acc: any) => ({
-          id: acc.id,
-          name: acc.name,
-          type: acc.customerType || acc.type || 'Customer',
-          isOwned: false, // CS users view accounts, don't own them
-          hadOpportunity: true,
-          website: acc.website || null,
-          industry: acc.industry || null,
-          ownerName: acc.ownerName || null
-        }));
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 2000; // 2 seconds between retries (Render cold start)
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const { requestUrl, Notice } = await import('obsidian');
         
-        const prospectAccounts: OwnedAccount[] = (response.json.prospectAccounts || []).map((acc: any) => ({
-          id: acc.id,
-          name: acc.name,
-          type: acc.customerType || acc.type || 'Prospect',
-          isOwned: false,
-          hadOpportunity: false,
-          website: acc.website || null,
-          industry: acc.industry || null,
-          ownerName: acc.ownerName || null
-        }));
+        console.log(`[AccountOwnership] CS fetch attempt ${attempt}/${MAX_RETRIES} for ${normalizedEmail}`);
         
-        console.log(`[AccountOwnership] CS accounts for ${normalizedEmail}: ${activeAccounts.length} active + ${prospectAccounts.length} prospects`);
-        return { accounts: activeAccounts, prospects: prospectAccounts };
+        const response = await requestUrl({
+          url: `${this.serverUrl}/api/bl-accounts/${encodeURIComponent(normalizedEmail)}`,
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          throw: false // Don't throw on non-200 status codes
+        });
+        
+        console.log(`[AccountOwnership] CS fetch response status: ${response.status}`);
+        
+        if (response.status === 200 && response.json?.success) {
+          const activeAccounts: OwnedAccount[] = (response.json.accounts || []).map((acc: any) => ({
+            id: acc.id,
+            name: acc.name,
+            type: acc.customerType || acc.type || 'Customer',
+            isOwned: false, // CS users view accounts, don't own them
+            hadOpportunity: true,
+            website: acc.website || null,
+            industry: acc.industry || null,
+            ownerName: acc.ownerName || null
+          }));
+          
+          const prospectAccounts: OwnedAccount[] = (response.json.prospectAccounts || []).map((acc: any) => ({
+            id: acc.id,
+            name: acc.name,
+            type: acc.customerType || acc.type || 'Prospect',
+            isOwned: false,
+            hadOpportunity: false,
+            website: acc.website || null,
+            industry: acc.industry || null,
+            ownerName: acc.ownerName || null
+          }));
+          
+          console.log(`[AccountOwnership] CS accounts for ${normalizedEmail}: ${activeAccounts.length} active + ${prospectAccounts.length} prospects`);
+          if (activeAccounts.length > 0) {
+            new Notice(`Found ${activeAccounts.length} CS accounts`);
+          }
+          return { accounts: activeAccounts, prospects: prospectAccounts };
+        }
+        
+        // Non-200 or no success flag — retry if attempts remain
+        console.warn(`[AccountOwnership] CS fetch attempt ${attempt} returned status ${response.status} for ${normalizedEmail}`);
+        if (attempt < MAX_RETRIES) {
+          console.log(`[AccountOwnership] Retrying in ${RETRY_DELAY}ms...`);
+          await new Promise(r => setTimeout(r, RETRY_DELAY));
+        }
+      } catch (error) {
+        console.error(`[AccountOwnership] CS account fetch attempt ${attempt} failed for ${normalizedEmail}:`, error);
+        if (attempt < MAX_RETRIES) {
+          console.log(`[AccountOwnership] Retrying in ${RETRY_DELAY}ms after error...`);
+          await new Promise(r => setTimeout(r, RETRY_DELAY));
+        }
       }
-      
-      console.log(`[AccountOwnership] CS account fetch returned no data for ${normalizedEmail}`);
-      return { accounts: [], prospects: [] };
-    } catch (error) {
-      console.error(`[AccountOwnership] CS account fetch failed for ${normalizedEmail}:`, error);
-      return { accounts: [], prospects: [] };
     }
+    
+    console.error(`[AccountOwnership] All ${MAX_RETRIES} CS fetch attempts failed for ${normalizedEmail}`);
+    return { accounts: [], prospects: [] };
   }
 
   /**

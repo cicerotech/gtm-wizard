@@ -4377,6 +4377,9 @@ class GTMBrainApp {
           
           res.setHeader('Content-Type', 'application/zip');
           res.setHeader('Content-Disposition', 'attachment; filename="Business-Lead-Vault-2026.zip"');
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
           
           const archive = archiver('zip', { zlib: { level: 9 } });
           archive.pipe(res);
@@ -4525,10 +4528,13 @@ This note aggregates next steps from all your account meetings.
           return;
         }
         
-        // Serve the pre-built vault
+        // Serve the pre-built vault (no-cache to ensure users always get latest)
         logger.info('Serving pre-built Business Lead Vault 2026');
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', 'attachment; filename="Business-Lead-Vault-2026.zip"');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
         
         const fileStream = fs.createReadStream(vaultZipPath);
         fileStream.pipe(res);
