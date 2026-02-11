@@ -3,9 +3,9 @@
 /**
  * Refresh Static Accounts in AccountOwnership.ts
  * 
- * Queries Salesforce with the BoB report filter (Customer Type = Existing OR open opps)
- * for all 18 business leads and regenerates the OWNERSHIP_DATA.businessLeads block
- * in obsidian-plugin/src/AccountOwnership.ts.
+ * Queries Salesforce for ALL owned accounts (full BoB) for all business leads,
+ * determines hadOpportunity flag for each, and regenerates the 
+ * OWNERSHIP_DATA.businessLeads block in obsidian-plugin/src/AccountOwnership.ts.
  * 
  * Usage:
  *   node scripts/refresh-static-accounts.js           # Dry-run: prints output
@@ -23,22 +23,25 @@ const path = require('path');
 const TARGET_FILE = path.join(__dirname, '..', 'obsidian-plugin', 'src', 'AccountOwnership.ts');
 const WRITE_MODE = process.argv.includes('--write');
 
-// All BL emails to query
+// All BL emails to query (21 owners from full BoB Excel)
 const BL_EMAILS = [
   { email: 'alex.fox@eudia.com', name: 'Alex Fox' },
-  { email: 'ananth@eudia.com', name: 'Ananth Cherukupally' },
+  { email: 'ananth.cherukupally@eudia.com', name: 'Ananth Cherukupally' },
   { email: 'asad.hussain@eudia.com', name: 'Asad Hussain' },
   { email: 'conor.molloy@eudia.com', name: 'Conor Molloy' },
+  { email: 'david.vanreyk@eudia.com', name: 'David Van Reyk' },
   { email: 'emer.flynn@eudia.com', name: 'Emer Flynn' },
   { email: 'greg.machale@eudia.com', name: 'Greg MacHale' },
+  { email: 'himanshu.agarwal@eudia.com', name: 'Himanshu Agarwal' },
+  { email: 'jon.cobb@eudia.com', name: 'Jon Cobb' },
   { email: 'julie.stefanich@eudia.com', name: 'Julie Stefanich' },
   { email: 'justin.hills@eudia.com', name: 'Justin Hills' },
-  { email: 'keigan.pesenti@eudia.com', name: 'Keigan Pesenti' },
-  { email: 'mike.masiello@eudia.com', name: 'Mike Masiello' },
-  { email: 'mitchell.loquaci@eudia.com', name: 'Mitch Loquaci' },
+  { email: 'mike.ayres@eudia.com', name: 'Mike Ayres' },
+  { email: 'mike@eudia.com', name: 'Mike Masiello' },
+  { email: 'mitch.loquaci@eudia.com', name: 'Mitch Loquaci' },
   { email: 'nathan.shine@eudia.com', name: 'Nathan Shine' },
   { email: 'nicola.fratini@eudia.com', name: 'Nicola Fratini' },
-  { email: 'olivia@eudia.com', name: 'Olivia Jung' },
+  { email: 'olivia.jung@eudia.com', name: 'Olivia Jung' },
   { email: 'rajeev.patel@eudia.com', name: 'Rajeev Patel' },
   { email: 'riley.stack@eudia.com', name: 'Riley Stack' },
   { email: 'sean.boyd@eudia.com', name: 'Sean Boyd' },
@@ -60,6 +63,8 @@ async function main() {
   console.log('✅ Connected to Salesforce');
 
   let totalAccounts = 0;
+  let totalActive = 0;
+  let totalProspect = 0;
   const allBLData = [];
 
   for (const bl of BL_EMAILS) {
@@ -76,51 +81,52 @@ async function main() {
 
     const userId = userResult.records[0].Id;
 
-    // Query filtered accounts (BoB report filter)
-    // SOQL doesn't allow semi-join sub-selects in nested WHERE, so two queries + merge
-    const existingResult = await conn.query(`
+    // Query ALL accounts owned by this user (full BoB, no filter)
+    const allResult = await conn.query(`
       SELECT Id, Name
       FROM Account
       WHERE OwnerId = '${userId}'
-        AND Customer_Type__c = 'Existing'
-        AND (NOT Name LIKE '%Sample%')
-        AND (NOT Name LIKE '%Test%')
-      ORDER BY Name ASC
-    `);
-    const oppResult = await conn.query(`
-      SELECT Id, Name
-      FROM Account
-      WHERE OwnerId = '${userId}'
-        AND Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
         AND (NOT Name LIKE '%Sample%')
         AND (NOT Name LIKE '%Test%')
       ORDER BY Name ASC
     `);
 
-    // Merge and deduplicate
-    const seenIds = new Set();
-    const accounts = [];
-    for (const a of [...(existingResult.records || []), ...(oppResult.records || [])]) {
-      if (!seenIds.has(a.Id)) {
-        seenIds.add(a.Id);
-        accounts.push({
-          id: a.Id.substring(0, 15),  // 15-char ID for consistency
-          name: a.Name,
-        });
+    // Determine which accounts have ever had an opportunity
+    const accountIds = (allResult.records || []).map(a => a.Id);
+    const oppAccountIds = new Set();
+
+    if (accountIds.length > 0) {
+      for (let i = 0; i < accountIds.length; i += 200) {
+        const batch = accountIds.slice(i, i + 200);
+        const idList = batch.map(id => `'${id}'`).join(',');
+        const oppQuery = `SELECT AccountId FROM Opportunity WHERE AccountId IN (${idList}) GROUP BY AccountId`;
+        const oppResult = await conn.query(oppQuery);
+        (oppResult.records || []).forEach(r => oppAccountIds.add(r.AccountId));
       }
     }
+
+    const accounts = (allResult.records || []).map(a => ({
+      id: a.Id,
+      name: a.Name,
+      hadOpportunity: oppAccountIds.has(a.Id),
+    }));
     accounts.sort((a, b) => a.name.localeCompare(b.name));
 
+    const activeCount = accounts.filter(a => a.hadOpportunity).length;
+    const prospectCount = accounts.filter(a => !a.hadOpportunity).length;
+
     totalAccounts += accounts.length;
+    totalActive += activeCount;
+    totalProspect += prospectCount;
     allBLData.push({ ...bl, accounts });
 
-    console.log(`  ${bl.name} (${bl.email}): ${accounts.length} accounts`);
+    console.log(`  ${bl.name} (${bl.email}): ${accounts.length} accounts (${activeCount} active + ${prospectCount} prospect)`);
 
     // Small delay to respect rate limits
     await new Promise(r => setTimeout(r, 300));
   }
 
-  console.log(`\n📊 Total: ${BL_EMAILS.length} BLs, ${totalAccounts} accounts`);
+  console.log(`\n📊 Total: ${BL_EMAILS.length} BLs, ${totalAccounts} accounts (${totalActive} active + ${totalProspect} prospect)`);
 
   // Generate TypeScript block
   const today = new Date().toISOString().split('T')[0];
@@ -128,10 +134,10 @@ async function main() {
   
   lines.push(`/**`);
   lines.push(` * Static mapping of business leads to their owned accounts.`);
-  lines.push(` * Source: Salesforce BoB report filter (Customer Type = Existing OR Open Opps > 0)`);
+  lines.push(` * Source: Salesforce full BoB (ALL owned accounts, each with hadOpportunity flag)`);
   lines.push(` * Auto-generated by scripts/refresh-static-accounts.js on ${today}`);
   lines.push(` * `);
-  lines.push(` * Total: ${BL_EMAILS.length} business leads, ${totalAccounts} accounts`);
+  lines.push(` * Total: ${BL_EMAILS.length} business leads, ${totalAccounts} accounts (${totalActive} active + ${totalProspect} prospect)`);
   lines.push(` */`);
   lines.push(`const OWNERSHIP_DATA: AccountOwnershipData = {`);
   lines.push(`  version: '${today}',`);
@@ -139,15 +145,17 @@ async function main() {
   lines.push(`  businessLeads: {`);
 
   for (const bl of allBLData) {
+    const activeCount = bl.accounts.filter(a => a.hadOpportunity).length;
+    const prospectCount = bl.accounts.filter(a => !a.hadOpportunity).length;
     lines.push(``);
-    lines.push(`    // ${bl.name.toUpperCase()} (${bl.accounts.length} accounts)`);
+    lines.push(`    // ${bl.name.toUpperCase()} (${activeCount} active + ${prospectCount} prospect = ${bl.accounts.length} total)`);
     lines.push(`    '${bl.email}': {`);
     lines.push(`      email: '${bl.email}',`);
     lines.push(`      name: '${bl.name}',`);
     lines.push(`      accounts: [`);
     for (const a of bl.accounts) {
-      const nameEscaped = a.name.replace(/'/g, "\\'");
-      lines.push(`        { id: '${a.id}', name: '${nameEscaped}' },`);
+      const nameEscaped = a.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      lines.push(`        { id: '${a.id}', name: '${nameEscaped}', hadOpportunity: ${a.hadOpportunity} },`);
     }
     lines.push(`      ]`);
     lines.push(`    },`);

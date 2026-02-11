@@ -1162,8 +1162,8 @@ class GTMBrainApp {
         const userEmail = req.params.email.toLowerCase().trim();
         const { action, accounts } = req.body;
 
-        if (!action || !['add', 'remove', 'list'].includes(action)) {
-          return res.status(400).json({ success: false, error: 'action must be "add", "remove", or "list"' });
+        if (!action || !['add', 'remove', 'promote', 'demote', 'list'].includes(action)) {
+          return res.status(400).json({ success: false, error: 'action must be "add", "remove", "promote", "demote", or "list"' });
         }
 
         if (action === 'list') {
@@ -1205,7 +1205,7 @@ class GTMBrainApp {
           email: userEmail,
           action,
           results,
-          message: `${results.filter(r => r.status === 'ok').length} account(s) ${action === 'add' ? 'added' : 'removed'} for ${userEmail}. Changes apply on next plugin sync.`
+          message: `${results.filter(r => r.status === 'ok').length} account(s) ${action} for ${userEmail}. Changes apply on next plugin sync.`
         });
       } catch (error) {
         logger.error('[Admin] Error managing user accounts:', error);
@@ -3376,47 +3376,53 @@ class GTMBrainApp {
         const userId = user.Id;
         const userName = user.Name;
         
-        // Query accounts owned by this user (filtered to match BoB report:
-        // Customer Type = Existing OR has open opportunities)
-        // SOQL doesn't allow semi-join sub-selects inside nested WHERE, so we run two queries and merge
-        const existingQuery = `
-          SELECT Id, Name, Type, Customer_Type__c 
+        // Query ALL accounts owned by this user (full Book of Business)
+        const allAccountsQuery = `
+          SELECT Id, Name, Type, Customer_Type__c, Website, Industry
           FROM Account 
           WHERE OwnerId = '${userId}'
-            AND Customer_Type__c = 'Existing'
             AND (NOT Name LIKE '%Sample%')
             AND (NOT Name LIKE '%Test%')
           ORDER BY Name ASC
         `;
-        const openOppQuery = `
-          SELECT Id, Name, Type, Customer_Type__c 
-          FROM Account 
-          WHERE OwnerId = '${userId}'
-            AND Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
-            AND (NOT Name LIKE '%Sample%')
-            AND (NOT Name LIKE '%Test%')
-          ORDER BY Name ASC
-        `;
-        const [existingResult, openOppResult] = await Promise.all([
-          sfConnection.query(existingQuery),
-          sfConnection.query(openOppQuery)
-        ]);
+        const allAccountsResult = await sfConnection.query(allAccountsQuery);
         
-        // Merge and deduplicate
-        const seenIds = new Set();
+        // Determine which accounts have ever had an opportunity
+        const accountIds = (allAccountsResult.records || []).map(a => a.Id);
+        const oppAccountIds = new Set();
+        if (accountIds.length > 0) {
+          // Query in batches of 200 to avoid SOQL length limits
+          for (let i = 0; i < accountIds.length; i += 200) {
+            const batch = accountIds.slice(i, i + 200);
+            const idList = batch.map(id => `'${id}'`).join(',');
+            const oppQuery = `SELECT AccountId FROM Opportunity WHERE AccountId IN (${idList}) GROUP BY AccountId`;
+            const oppResult = await sfConnection.query(oppQuery);
+            (oppResult.records || []).forEach(r => oppAccountIds.add(r.AccountId));
+          }
+        }
+        
+        // Split into active (had opp) and prospect (no opp) arrays
         const ownedAccounts = [];
-        for (const acc of [...(existingResult.records || []), ...(openOppResult.records || [])]) {
-          if (!seenIds.has(acc.Id)) {
-            seenIds.add(acc.Id);
-            ownedAccounts.push({
-              id: acc.Id,
-              name: acc.Name,
-              type: acc.Customer_Type__c || acc.Type || 'Prospect',
-              isOwned: true
-            });
+        const ownedProspects = [];
+        for (const acc of (allAccountsResult.records || [])) {
+          const hadOpp = oppAccountIds.has(acc.Id);
+          const account = {
+            id: acc.Id,
+            name: acc.Name,
+            type: acc.Customer_Type__c || acc.Type || 'Prospect',
+            isOwned: true,
+            hadOpportunity: hadOpp,
+            website: acc.Website || null,
+            industry: acc.Industry || null
+          };
+          if (hadOpp) {
+            ownedAccounts.push(account);
+          } else {
+            ownedProspects.push(account);
           }
         }
         ownedAccounts.sort((a, b) => a.name.localeCompare(b.name));
+        ownedProspects.sort((a, b) => a.name.localeCompare(b.name));
         
         // Determine if this user gets a pod-level (team) view:
         //   - Sales leaders see all their direct reports' accounts
@@ -3427,110 +3433,73 @@ class GTMBrainApp {
         let viewType = 'own'; // default: own accounts only
         
         if (userGroup === 'sales_leader') {
-          // Sales leaders: aggregate from direct reports (BoB filtered)
-          // Two queries needed because SOQL doesn't allow semi-join sub-selects in nested WHERE
+          // Sales leaders: ALL accounts from direct reports (full BoB)
           viewType = 'sales_leader';
           const directReports = getSalesLeaderDirectReports(normalizedEmail);
           if (directReports.length > 0) {
             const blEmailList = directReports.map(e => `'${e.replace(/'/g, "\\'")}'`).join(',');
-            const teamExistingQuery = `
+            const teamQuery = `
               SELECT Id, Name, Type, Customer_Type__c 
               FROM Account 
               WHERE Owner.Email IN (${blEmailList})
-                AND Customer_Type__c = 'Existing'
                 AND (NOT Name LIKE '%Sample%')
                 AND (NOT Name LIKE '%Test%')
               ORDER BY Name ASC
-              LIMIT 500
+              LIMIT 2000
             `;
-            const teamOppQuery = `
-              SELECT Id, Name, Type, Customer_Type__c 
-              FROM Account 
-              WHERE Owner.Email IN (${blEmailList})
-                AND Id IN (SELECT AccountId FROM Opportunity WHERE IsClosed = false)
-                AND (NOT Name LIKE '%Sample%')
-                AND (NOT Name LIKE '%Test%')
-              ORDER BY Name ASC
-              LIMIT 500
-            `;
-            const [teamExistingResult, teamOppResult] = await Promise.all([
-              sfConnection.query(teamExistingQuery),
-              sfConnection.query(teamOppQuery)
-            ]);
+            const teamResult = await sfConnection.query(teamQuery);
+            const ownedIds = new Set([...ownedAccounts.map(a => a.id), ...ownedProspects.map(a => a.id)]);
             
-            const ownedIds = new Set(ownedAccounts.map(a => a.id));
-            const teamSeen = new Set();
-            teamAccounts = [];
-            
-            for (const acc of [...(teamExistingResult.records || []), ...(teamOppResult.records || [])]) {
-              if (!ownedIds.has(acc.Id) && !teamSeen.has(acc.Id)) {
-                teamSeen.add(acc.Id);
-                teamAccounts.push({
-                  id: acc.Id,
-                  name: acc.Name,
-                  type: acc.Customer_Type__c || acc.Type || 'Prospect',
-                  isOwned: false
-                });
-              }
-            }
+            teamAccounts = (teamResult.records || [])
+              .filter(acc => !ownedIds.has(acc.Id))
+              .map(acc => ({
+                id: acc.Id,
+                name: acc.Name,
+                type: acc.Customer_Type__c || acc.Type || 'Prospect',
+                isOwned: false,
+                hadOpportunity: true // team accounts shown as active for leaders
+              }));
             
             logger.info(`[Ownership] Sales leader ${normalizedEmail}: ${teamAccounts.length} team accounts from ${directReports.length} direct reports`);
           }
         } else if (POD_VIEW_USERS[normalizedEmail]) {
-          // Designated pod-view users: see all accounts in their region (BoB filtered)
-          // Two queries needed because SOQL doesn't allow semi-join sub-selects in nested WHERE
+          // Designated pod-view users: ALL accounts in their region
           viewType = 'pod_view';
           const region = POD_VIEW_USERS[normalizedEmail];
           const regionBLs = getRegionBLEmails(region);
           if (regionBLs.length > 0) {
             const blEmailList = regionBLs.map(e => `'${e.replace(/'/g, "\\'")}'`).join(',');
-            const teamExistingQuery = `
+            const teamQuery = `
               SELECT Id, Name, Type, Customer_Type__c 
               FROM Account 
               WHERE Owner.Email IN (${blEmailList})
-                AND Customer_Type__c = 'Existing'
                 AND (NOT Name LIKE '%Sample%')
                 AND (NOT Name LIKE '%Test%')
               ORDER BY Name ASC
-              LIMIT 500
+              LIMIT 2000
             `;
-            const teamOppQuery = `
-              SELECT Id, Name, Type, Customer_Type__c 
-              FROM Account 
-              WHERE Owner.Email IN (${blEmailList})
-                AND Id IN (SELECT AccountId FROM Opportunity WHERE IsClosed = false)
-                AND (NOT Name LIKE '%Sample%')
-                AND (NOT Name LIKE '%Test%')
-              ORDER BY Name ASC
-              LIMIT 500
-            `;
-            const [teamExistingResult, teamOppResult] = await Promise.all([
-              sfConnection.query(teamExistingQuery),
-              sfConnection.query(teamOppQuery)
-            ]);
+            const teamResult = await sfConnection.query(teamQuery);
+            const ownedIds = new Set([...ownedAccounts.map(a => a.id), ...ownedProspects.map(a => a.id)]);
             
-            const ownedIds = new Set(ownedAccounts.map(a => a.id));
-            const teamSeen = new Set();
-            teamAccounts = [];
-            
-            for (const acc of [...(teamExistingResult.records || []), ...(teamOppResult.records || [])]) {
-              if (!ownedIds.has(acc.Id) && !teamSeen.has(acc.Id)) {
-                teamSeen.add(acc.Id);
-                teamAccounts.push({
-                  id: acc.Id,
-                  name: acc.Name,
-                  type: acc.Customer_Type__c || acc.Type || 'Prospect',
-                  isOwned: false
-                });
-              }
-            }
+            teamAccounts = (teamResult.records || [])
+              .filter(acc => !ownedIds.has(acc.Id))
+              .map(acc => ({
+                id: acc.Id,
+                name: acc.Name,
+                type: acc.Customer_Type__c || acc.Type || 'Prospect',
+                isOwned: false,
+                hadOpportunity: true // team accounts shown as active for pod viewers
+              }));
             
             logger.info(`[Ownership] Pod-view user ${normalizedEmail} (${region}): ${teamAccounts.length} team accounts from ${regionBLs.length} region BLs`);
           }
         }
         // else: regular BL — no team aggregation, only their owned accounts
         
-        let allAccounts = [...ownedAccounts, ...teamAccounts];
+        // Active accounts = owned active + team accounts
+        let activeAccounts = [...ownedAccounts, ...teamAccounts];
+        // Prospect accounts = owned with no opportunity history
+        let prospectAccounts = [...ownedProspects];
         
         // Merge admin-pushed account overrides (if PostgreSQL is available)
         let overrideCount = 0;
@@ -3542,21 +3511,47 @@ class GTMBrainApp {
               [normalizedEmail]
             );
             if (overrides.rows.length > 0) {
-              const existingIds = new Set(allAccounts.map(a => a.id));
+              const existingIds = new Set([...activeAccounts.map(a => a.id), ...prospectAccounts.map(a => a.id)]);
               const removeIds = new Set();
+              const promoteIds = new Set();
+              const demoteIds = new Set();
               
               for (const row of overrides.rows) {
                 if (row.action === 'add' && !existingIds.has(row.account_id)) {
-                  allAccounts.push({ id: row.account_id, name: row.account_name, type: 'Prospect', isOwned: false });
+                  activeAccounts.push({ id: row.account_id, name: row.account_name, type: 'Prospect', isOwned: false, hadOpportunity: true });
                   existingIds.add(row.account_id);
                   overrideCount++;
                 } else if (row.action === 'remove') {
                   removeIds.add(row.account_id);
+                } else if (row.action === 'promote') {
+                  promoteIds.add(row.account_id);
+                } else if (row.action === 'demote') {
+                  demoteIds.add(row.account_id);
                 }
               }
               
+              // Handle promotions: move from prospect to active
+              if (promoteIds.size > 0) {
+                const promoted = prospectAccounts.filter(a => promoteIds.has(a.id));
+                prospectAccounts = prospectAccounts.filter(a => !promoteIds.has(a.id));
+                promoted.forEach(a => { a.hadOpportunity = true; });
+                activeAccounts.push(...promoted);
+                overrideCount += promoted.length;
+              }
+              
+              // Handle demotions: move from active to prospect
+              if (demoteIds.size > 0) {
+                const demoted = activeAccounts.filter(a => demoteIds.has(a.id));
+                activeAccounts = activeAccounts.filter(a => !demoteIds.has(a.id));
+                demoted.forEach(a => { a.hadOpportunity = false; });
+                prospectAccounts.push(...demoted);
+                overrideCount += demoted.length;
+              }
+              
+              // Handle removals
               if (removeIds.size > 0) {
-                allAccounts = allAccounts.filter(a => !removeIds.has(a.id));
+                activeAccounts = activeAccounts.filter(a => !removeIds.has(a.id));
+                prospectAccounts = prospectAccounts.filter(a => !removeIds.has(a.id));
                 overrideCount += removeIds.size;
               }
             }
@@ -3565,17 +3560,22 @@ class GTMBrainApp {
           // Non-critical: overrides are optional, proceed without them
         }
         
-        allAccounts.sort((a, b) => a.name.localeCompare(b.name));
+        activeAccounts.sort((a, b) => a.name.localeCompare(b.name));
+        prospectAccounts.sort((a, b) => a.name.localeCompare(b.name));
         
-        logger.info(`[Ownership] ${viewType} view for ${userName} (${normalizedEmail}): ${allAccounts.length} total (${ownedAccounts.length} owned + ${teamAccounts.length} team + ${overrideCount} overrides)`);
+        const totalCount = activeAccounts.length + prospectAccounts.length;
+        logger.info(`[Ownership] ${viewType} view for ${userName} (${normalizedEmail}): ${totalCount} total (${activeAccounts.length} active + ${prospectAccounts.length} prospects + ${teamAccounts.length} team + ${overrideCount} overrides)`);
         
         res.json({
           success: true,
           email: normalizedEmail,
           userId: userId,
           userName: userName,
-          accounts: allAccounts,
-          count: allAccounts.length,
+          accounts: activeAccounts,
+          prospectAccounts: prospectAccounts,
+          count: totalCount,
+          activeCount: activeAccounts.length,
+          prospectCount: prospectAccounts.length,
           ownedCount: ownedAccounts.length,
           teamCount: teamAccounts.length,
           overrideCount: overrideCount,
@@ -3648,7 +3648,6 @@ class GTMBrainApp {
         // Step 2: Build query based on user group
         let accountQuery;
         let queryDescription;
-        let blMergedRecords = null; // Used for BL case (two-query merge)
         
         switch (userGroup) {
           case 'admin':
@@ -3719,7 +3718,7 @@ class GTMBrainApp {
             break;
             
           default: // 'bl'
-            // Standard BL query: owned accounts with existing customers OR open opportunities
+            // Standard BL query: ALL owned accounts (full Book of Business)
             if (!userId) {
               return res.status(404).json({
                 success: false,
@@ -3728,59 +3727,46 @@ class GTMBrainApp {
               });
             }
             
-            queryDescription = 'owned accounts (BoB filtered)';
-            // SOQL doesn't allow semi-join sub-selects in nested WHERE, so for BL we run two queries
-            const blExistingQuery = `
+            queryDescription = 'all owned accounts (full BoB)';
+            accountQuery = `
               SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
                      (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
               FROM Account 
               WHERE OwnerId = '${userId}'
-                AND Customer_Type__c = 'Existing'
                 AND (NOT Name LIKE '%Sample%')
                 AND (NOT Name LIKE '%Test%')
               ORDER BY Name ASC
             `;
-            const blOppQuery = `
-              SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
-                     (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
-              FROM Account 
-              WHERE OwnerId = '${userId}'
-                AND Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
-                AND (NOT Name LIKE '%Sample%')
-                AND (NOT Name LIKE '%Test%')
-              ORDER BY Name ASC
-            `;
-            const [blExistingResult, blOppResult] = await Promise.all([
-              sfConnection.query(blExistingQuery),
-              sfConnection.query(blOppQuery)
-            ]);
-            // Merge and deduplicate
-            const blSeenIds = new Set();
-            blMergedRecords = [];
-            for (const rec of [...(blExistingResult.records || []), ...(blOppResult.records || [])]) {
-              if (!blSeenIds.has(rec.Id)) {
-                blSeenIds.add(rec.Id);
-                blMergedRecords.push(rec);
-              }
-            }
-            accountQuery = null; // Signal that we already have results
             break;
         }
         
-        // For BL case, blMergedRecords is set above; for other cases, run the single query
-        let accountResult;
-        if (accountQuery) {
-          accountResult = await sfConnection.query(accountQuery);
-        } else {
-          // BL case: already ran two queries and merged
-          accountResult = { records: blMergedRecords || [] };
-        }
+        const accountResult = await sfConnection.query(accountQuery);
         const queryTime = Date.now() - startTime;
         
-        // Transform results with open opp info
-        const accounts = (accountResult.records || []).map(acc => {
+        // For BL users, determine which accounts have ever had any opportunity
+        let oppAccountIds = new Set();
+        if (userGroup === 'bl') {
+          const blAccountIds = (accountResult.records || []).map(a => a.Id);
+          if (blAccountIds.length > 0) {
+            for (let i = 0; i < blAccountIds.length; i += 200) {
+              const batch = blAccountIds.slice(i, i + 200);
+              const idList = batch.map(id => `'${id}'`).join(',');
+              const oppQuery = `SELECT AccountId FROM Opportunity WHERE AccountId IN (${idList}) GROUP BY AccountId`;
+              const oppResult = await sfConnection.query(oppQuery);
+              (oppResult.records || []).forEach(r => oppAccountIds.add(r.AccountId));
+            }
+          }
+        }
+        
+        // Transform results with open opp info and hadOpportunity tier flag
+        const activeAccounts = [];
+        const prospectAccounts = [];
+        
+        for (const acc of (accountResult.records || [])) {
           const openOpps = acc.Opportunities?.records || [];
-          return {
+          const hadOpp = userGroup === 'bl' ? oppAccountIds.has(acc.Id) : true;
+          
+          const account = {
             id: acc.Id,
             name: acc.Name,
             type: acc.Type || null,
@@ -3791,26 +3777,36 @@ class GTMBrainApp {
             ownerName: acc.Owner?.Name || null,
             hasOpenOpps: openOpps.length > 0,
             oppCount: openOpps.length,
-            // Include first few opp names for context
+            hadOpportunity: hadOpp,
             openOpps: openOpps.slice(0, 3).map(o => ({
               name: o.Name,
               stage: o.StageName
             }))
           };
-        });
+          
+          if (hadOpp) {
+            activeAccounts.push(account);
+          } else {
+            prospectAccounts.push(account);
+          }
+        }
         
-        logger.info(`[BL-Accounts][${correlationId}] Found ${accounts.length} ${queryDescription} for ${userName} (${userGroup}) in ${queryTime}ms`);
+        const totalCount = activeAccounts.length + prospectAccounts.length;
+        logger.info(`[BL-Accounts][${correlationId}] Found ${totalCount} ${queryDescription} for ${userName} (${userGroup}) in ${queryTime}ms: ${activeAccounts.length} active + ${prospectAccounts.length} prospects`);
         
         res.json({
           success: true,
-          accounts,
+          accounts: activeAccounts,
+          prospectAccounts: prospectAccounts,
           meta: {
             email: normalizedEmail,
             userId: userId,
             userName: userName,
             userGroup,
             region: userGroup === 'sales_leader' ? getSalesLeaderRegion(normalizedEmail) : null,
-            total: accounts.length,
+            total: totalCount,
+            activeCount: activeAccounts.length,
+            prospectCount: prospectAccounts.length,
             queryDescription,
             queryTime: queryTime,
             lastRefresh: new Date().toISOString(),

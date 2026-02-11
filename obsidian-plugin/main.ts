@@ -954,22 +954,29 @@ class SetupWizardModal extends Modal {
       
       // Check if user is an admin - admins get all accounts
       let accounts: OwnedAccount[];
+      let prospects: OwnedAccount[] = [];
       if (isAdminUser(userEmail)) {
         console.log('[Eudia] Admin user detected - importing all accounts');
         accounts = await ownershipService.getAllAccountsForAdmin(userEmail);
       } else {
-        accounts = await ownershipService.getAccountsForUser(userEmail);
+        const result = await ownershipService.getAccountsWithProspects(userEmail);
+        accounts = result.accounts;
+        prospects = result.prospects;
       }
       
-      if (accounts.length > 0) {
+      if (accounts.length > 0 || prospects.length > 0) {
         // Use admin method for admin users, regular method for others
         if (isAdminUser(userEmail)) {
           await this.plugin.createAdminAccountFolders(accounts);
         } else {
           await this.plugin.createTailoredAccountFolders(accounts);
+          // Create lightweight prospect files in _Prospects/ folder
+          if (prospects.length > 0) {
+            await this.plugin.createProspectAccountFiles(prospects);
+          }
         }
         this.plugin.settings.accountsImported = true;
-        this.plugin.settings.importedAccountCount = accounts.length;
+        this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
         await this.plugin.saveSettings();
       }
       this.updateStep('accounts', 'complete');
@@ -1318,23 +1325,29 @@ class EudiaSetupView extends ItemView {
         try {
           // Check if user is an admin - admins get all accounts
           let accounts: OwnedAccount[];
+          let prospects: OwnedAccount[] = [];
           if (isAdminUser(email)) {
             console.log('[Eudia] Admin user detected - importing all accounts');
             accounts = await this.accountOwnershipService.getAllAccountsForAdmin(email);
           } else {
-            accounts = await this.accountOwnershipService.getAccountsForUser(email);
+            const result = await this.accountOwnershipService.getAccountsWithProspects(email);
+            accounts = result.accounts;
+            prospects = result.prospects;
           }
           
-          if (accounts.length > 0) {
+          if (accounts.length > 0 || prospects.length > 0) {
             if (isAdminUser(email)) {
               await this.plugin.createAdminAccountFolders(accounts);
             } else {
               await this.plugin.createTailoredAccountFolders(accounts);
+              if (prospects.length > 0) {
+                await this.plugin.createProspectAccountFiles(prospects);
+              }
             }
             this.plugin.settings.accountsImported = true;
-            this.plugin.settings.importedAccountCount = accounts.length;
+            this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
             await this.plugin.saveSettings();
-            new Notice(`Imported ${accounts.length} account folders!`);
+            new Notice(`Imported ${accounts.length} active accounts + ${prospects.length} prospects!`);
           }
         } catch (importError) {
           console.error('[Eudia] Account import failed:', importError);
@@ -1484,15 +1497,18 @@ class EudiaSetupView extends ItemView {
       
       // Check if user is an admin - admins get all accounts
       let accounts: OwnedAccount[];
+      let prospects: OwnedAccount[] = [];
       if (isAdminUser(userEmail)) {
         console.log('[Eudia] Admin user detected - importing all accounts');
         statusEl.textContent = 'Admin detected - importing all accounts...';
         accounts = await this.accountOwnershipService.getAllAccountsForAdmin(userEmail);
       } else {
-        accounts = await this.accountOwnershipService.getAccountsForUser(userEmail);
+        const result = await this.accountOwnershipService.getAccountsWithProspects(userEmail);
+        accounts = result.accounts;
+        prospects = result.prospects;
       }
       
-      if (accounts.length === 0) {
+      if (accounts.length === 0 && prospects.length === 0) {
         statusEl.textContent = 'No accounts found for your email. Contact your admin.';
         statusEl.className = 'eudia-setup-sf-status warning';
         return;
@@ -1503,10 +1519,13 @@ class EudiaSetupView extends ItemView {
         await this.plugin.createAdminAccountFolders(accounts);
       } else {
         await this.plugin.createTailoredAccountFolders(accounts);
+        if (prospects.length > 0) {
+          await this.plugin.createProspectAccountFiles(prospects);
+        }
       }
       
       this.plugin.settings.accountsImported = true;
-      this.plugin.settings.importedAccountCount = accounts.length;
+      this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
       await this.plugin.saveSettings();
       
       this.steps[2].status = 'complete';
@@ -1517,7 +1536,7 @@ class EudiaSetupView extends ItemView {
       if (isAdminUser(userEmail) && viewOnlyCount > 0) {
         statusEl.textContent = `${ownedCount} owned + ${viewOnlyCount} view-only accounts imported!`;
       } else {
-        statusEl.textContent = `${accounts.length} accounts imported successfully!`;
+        statusEl.textContent = `${accounts.length} active + ${prospects.length} prospect accounts imported!`;
       }
       statusEl.className = 'eudia-setup-sf-status success';
       
@@ -3284,6 +3303,82 @@ sync_to_salesforce: false
   }
 
   /**
+   * Create lightweight .md files for prospect accounts (no opportunity history).
+   * These go into Accounts/_Prospects/ as single files, keeping the workspace clean.
+   */
+  async createProspectAccountFiles(prospects: OwnedAccount[]): Promise<number> {
+    if (!prospects || prospects.length === 0) return 0;
+    
+    const accountsFolder = this.settings.accountsFolder || 'Accounts';
+    const prospectsFolder = `${accountsFolder}/_Prospects`;
+    
+    // Ensure _Prospects folder exists
+    const existingFolder = this.app.vault.getAbstractFileByPath(prospectsFolder);
+    if (!existingFolder) {
+      try {
+        await this.app.vault.createFolder(prospectsFolder);
+      } catch (e) {
+        // May already exist from parallel creation
+      }
+    }
+    
+    let createdCount = 0;
+    
+    for (const prospect of prospects) {
+      const safeName = prospect.name.replace(/[<>:"/\\|?*]/g, '_').trim();
+      const filePath = `${prospectsFolder}/${safeName}.md`;
+      
+      // Skip if file already exists
+      const existing = this.app.vault.getAbstractFileByPath(filePath);
+      if (existing) continue;
+      
+      // Also skip if this account already has a full folder in Accounts/
+      const fullFolderPath = `${accountsFolder}/${safeName}`;
+      const fullFolder = this.app.vault.getAbstractFileByPath(fullFolderPath);
+      if (fullFolder) continue;
+      
+      try {
+        const website = prospect.website || '';
+        const industry = prospect.industry || '';
+        const websiteDisplay = website ? website.replace(/^https?:\/\//, '') : '';
+        const websiteUrl = website && !website.startsWith('http') ? `https://${website}` : website;
+        
+        const content = `---
+account_id: "${prospect.id}"
+account: "${prospect.name}"
+industry: "${industry}"
+website: "${websiteDisplay}"
+status: prospect
+tier: prospect
+---
+
+# ${prospect.name}
+
+${industry ? `**Industry:** ${industry}` : ''}${industry && websiteDisplay ? ' | ' : ''}${websiteDisplay ? `**Website:** [${websiteDisplay}](${websiteUrl})` : ''}
+
+## Notes
+<!-- Add notes when you start engaging this account -->
+
+## Key Contacts
+| Name | Title | Email | Notes |
+|------|-------|-------|-------|
+|      |       |       |       |
+`;
+        await this.app.vault.create(filePath, content);
+        createdCount++;
+      } catch (err) {
+        console.log(`[Eudia] Failed to create prospect file for ${prospect.name}:`, err);
+      }
+    }
+    
+    if (createdCount > 0) {
+      console.log(`[Eudia] Created ${createdCount} prospect account files in _Prospects/`);
+    }
+    
+    return createdCount;
+  }
+
+  /**
    * Create account folders for admin users with ALL accounts.
    * Owned accounts get full folder structure, view-only get minimal read-only structure.
    */
@@ -4973,37 +5068,70 @@ ${transcription.text}
         console.log(`[Eudia] Sales Leader region: ${region}`);
       }
 
-      const serverAccounts: { id: string; name: string; customerType?: string; hasOpenOpps?: boolean; ownerName?: string }[] = data.accounts;
+      // Two-tier accounts: active (had opp) and prospect (no opp)
+      const serverAccounts: { id: string; name: string; customerType?: string; hasOpenOpps?: boolean; ownerName?: string; hadOpportunity?: boolean; website?: string; industry?: string }[] = data.accounts || [];
+      const serverProspects: { id: string; name: string; customerType?: string; hadOpportunity?: boolean; website?: string; industry?: string }[] = data.prospectAccounts || [];
       
-      // Get existing account folders
-      const accountsFolder = this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);
+      const totalServerAccounts = serverAccounts.length + serverProspects.length;
+      console.log(`[Eudia] Server returned: ${serverAccounts.length} active + ${serverProspects.length} prospects = ${totalServerAccounts} total`);
+      
+      // Get existing account folders and prospect files
+      const accountsFolderObj = this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);
       const existingFolders = new Map<string, TFolder>();
+      const prospectsPath = `${this.settings.accountsFolder}/_Prospects`;
+      const prospectsFolderObj = this.app.vault.getAbstractFileByPath(prospectsPath);
+      const existingProspectFiles = new Map<string, TFile>();
       
-      if (accountsFolder && accountsFolder instanceof TFolder) {
-        for (const child of accountsFolder.children) {
+      if (accountsFolderObj && accountsFolderObj instanceof TFolder) {
+        for (const child of accountsFolderObj.children) {
           if (child instanceof TFolder && !child.name.startsWith('_')) {
             existingFolders.set(child.name.toLowerCase().trim(), child);
           }
         }
       }
+      
+      if (prospectsFolderObj && prospectsFolderObj instanceof TFolder) {
+        for (const child of prospectsFolderObj.children) {
+          if (child instanceof TFile && child.extension === 'md') {
+            const baseName = child.basename.toLowerCase().trim();
+            existingProspectFiles.set(baseName, child);
+          }
+        }
+      }
 
-      // Determine changes
+      // Determine changes for active accounts
       const serverAccountNames = new Set(serverAccounts.map(a => a.name.toLowerCase().trim()));
       
-      // New accounts = in server but not in local folders
+      // New active accounts = in server but not in local folders (AND not already a prospect file being promoted)
       const newAccounts = serverAccounts.filter(account => {
         const normalizedName = account.name.toLowerCase().trim();
         return !existingFolders.has(normalizedName);
       });
+      
+      // New prospect accounts = in server but not in local prospect files (and not already a full folder)
+      const newProspects = serverProspects.filter(prospect => {
+        const safeName = prospect.name.replace(/[<>:"/\\|?*]/g, '_').trim().toLowerCase();
+        return !existingProspectFiles.has(safeName) && !existingFolders.has(prospect.name.toLowerCase().trim());
+      });
+      
+      // Promotion detection: accounts that are now active but still have a prospect file
+      const promotedAccounts: typeof serverAccounts = [];
+      for (const account of serverAccounts) {
+        const safeName = account.name.replace(/[<>:"/\\|?*]/g, '_').trim().toLowerCase();
+        if (existingProspectFiles.has(safeName) && !existingFolders.has(account.name.toLowerCase().trim())) {
+          promotedAccounts.push(account);
+        }
+      }
 
-      // Removed accounts = in local folders but not in server
-      // NOTE: For admin/exec/sales_leader/cs, we DON'T archive since they have view-only access
-      //       to accounts they don't own (removing from SF doesn't mean they lost access)
+      // Removed accounts = in local folders but not in server (BLs only)
+      const allServerNames = new Set([
+        ...serverAccounts.map(a => a.name.toLowerCase().trim()),
+        ...serverProspects.map(a => a.name.toLowerCase().trim())
+      ]);
       const removedFolders: TFolder[] = [];
       if (userGroup === 'bl') {
-        // Only BLs should have accounts archived - they own their accounts
         for (const [normalizedName, folder] of existingFolders.entries()) {
-          if (!serverAccountNames.has(normalizedName)) {
+          if (!allServerNames.has(normalizedName)) {
             removedFolders.push(folder);
           }
         }
@@ -5011,32 +5139,64 @@ ${transcription.text}
 
       let addedCount = 0;
       let archivedCount = 0;
+      let promotedCount = 0;
+      let prospectAddedCount = 0;
 
-      // Create new account folders using appropriate method for user group
+      // Handle promotions first: prospect -> active
+      if (promotedAccounts.length > 0) {
+        console.log(`[Eudia] Promoting ${promotedAccounts.length} accounts from prospect to active`);
+        for (const account of promotedAccounts) {
+          const safeName = account.name.replace(/[<>:"/\\|?*]/g, '_').trim();
+          const prospectFile = existingProspectFiles.get(safeName.toLowerCase());
+          
+          if (prospectFile) {
+            try {
+              // Delete the prospect file
+              await this.app.vault.delete(prospectFile);
+              // Create full folder structure
+              await this.createTailoredAccountFolders([{
+                id: account.id,
+                name: account.name,
+                type: account.customerType as 'Customer' | 'Prospect' | 'Target' | undefined,
+                isOwned: true,
+                hadOpportunity: true
+              }]);
+              promotedCount++;
+              new Notice(`${account.name} promoted to active -- full account folder created`);
+            } catch (err) {
+              console.error(`[Eudia] Failed to promote ${account.name}:`, err);
+            }
+          }
+        }
+      }
+
+      // Create new active account folders
       if (newAccounts.length > 0) {
-        console.log(`[Eudia] Creating ${newAccounts.length} new account folders for ${userGroup}`);
+        console.log(`[Eudia] Creating ${newAccounts.length} new active account folders for ${userGroup}`);
         
-        const accountsToCreate = newAccounts.map(a => ({
-          id: a.id,
-          name: a.name,
-          type: a.customerType as 'Customer' | 'Prospect' | 'Target' | undefined,
-          // For admin/exec/sales_leader, mark accounts as view-only (they don't "own" most)
-          isOwned: userGroup === 'bl',
-          ownerName: a.ownerName
-        }));
+        // Filter out already-promoted accounts
+        const promotedNames = new Set(promotedAccounts.map(a => a.name.toLowerCase().trim()));
+        const nonPromotedNew = newAccounts.filter(a => !promotedNames.has(a.name.toLowerCase().trim()));
         
-        // Use appropriate folder creation method based on group
-        if (userGroup === 'admin' || userGroup === 'exec') {
-          // Full admin structure with Pipeline folder
-          await this.createAdminAccountFolders(accountsToCreate);
-        } else {
-          // Standard tailored folder structure
-          await this.createTailoredAccountFolders(accountsToCreate);
+        if (nonPromotedNew.length > 0) {
+          const accountsToCreate = nonPromotedNew.map(a => ({
+            id: a.id,
+            name: a.name,
+            type: a.customerType as 'Customer' | 'Prospect' | 'Target' | undefined,
+            isOwned: userGroup === 'bl',
+            ownerName: a.ownerName,
+            hadOpportunity: true
+          }));
+          
+          if (userGroup === 'admin' || userGroup === 'exec') {
+            await this.createAdminAccountFolders(accountsToCreate);
+          } else {
+            await this.createTailoredAccountFolders(accountsToCreate);
+          }
+          
+          addedCount = nonPromotedNew.length;
         }
         
-        addedCount = newAccounts.length;
-        
-        // Report to telemetry with group context
         if (this.telemetry) {
           this.telemetry.reportInfo('Accounts synced - added', { 
             count: addedCount,
@@ -5045,21 +5205,33 @@ ${transcription.text}
           });
         }
       }
+      
+      // Create new prospect files
+      if (newProspects.length > 0 && userGroup === 'bl') {
+        console.log(`[Eudia] Creating ${newProspects.length} new prospect files`);
+        prospectAddedCount = await this.createProspectAccountFiles(newProspects.map(p => ({
+          id: p.id,
+          name: p.name,
+          type: 'Prospect' as const,
+          hadOpportunity: false,
+          website: p.website,
+          industry: p.industry
+        })));
+      }
 
       // Archive removed folders (only for BLs with setting enabled)
       if (this.settings.archiveRemovedAccounts && removedFolders.length > 0) {
         console.log(`[Eudia] Archiving ${removedFolders.length} removed account folders`);
         archivedCount = await this.archiveAccountFolders(removedFolders);
         
-        // Report to telemetry
         if (this.telemetry) {
           this.telemetry.reportInfo('Accounts synced - archived', { count: archivedCount });
         }
       }
 
-      console.log(`[Eudia] Sync complete: ${addedCount} added, ${archivedCount} archived (group: ${userGroup})`);
+      console.log(`[Eudia] Sync complete: ${addedCount} active added, ${prospectAddedCount} prospects added, ${promotedCount} promoted, ${archivedCount} archived (group: ${userGroup})`);
       
-      return { success: true, added: addedCount, archived: archivedCount, userGroup };
+      return { success: true, added: addedCount + prospectAddedCount + promotedCount, archived: archivedCount, userGroup };
 
     } catch (error: any) {
       console.error('[Eudia] Account sync error:', error);

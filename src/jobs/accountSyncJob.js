@@ -2,13 +2,18 @@
  * Account Sync Cron Job
  * 
  * Runs every N hours (default 6, configurable via ACCOUNT_SYNC_INTERVAL_HOURS).
- * For each business lead, queries Salesforce with the BoB report filter
- * (Customer Type = Existing OR open opps), compares against the stored
- * snapshot in PostgreSQL, and creates a resync_accounts flag when changes
- * are detected. The Obsidian plugin picks up these flags on next startup.
+ * For each business lead, queries Salesforce for ALL owned accounts (full BoB),
+ * determines hadOpportunity flag, compares against the stored snapshot in
+ * PostgreSQL, and creates resync_accounts flags when changes are detected.
+ * The Obsidian plugin picks up these flags on next startup.
+ * 
+ * Detects:
+ *   - Account additions/removals (ownership changes)
+ *   - Tier changes: prospect -> active (gained first opp)
  * 
  * Architecture:
- *   SF Query -> Diff against user_account_snapshots -> 
+ *   SF Query (all accounts) -> Opp check for tier -> 
+ *   Diff against user_account_snapshots -> 
  *   Create user_sync_flags if delta -> Update snapshot
  */
 
@@ -23,22 +28,25 @@ const { sfConnection } = require('../salesforce/connection');
 
 const SYNC_INTERVAL_HOURS = parseInt(process.env.ACCOUNT_SYNC_INTERVAL_HOURS || '6', 10);
 
-// All BL emails to track (must match the 18 owners from the Excel BoB report)
+// All BL emails to track (21 owners from the full BoB Excel)
 const ALL_BL_EMAILS = [
   'alex.fox@eudia.com',
-  'ananth@eudia.com',
+  'ananth.cherukupally@eudia.com',
   'asad.hussain@eudia.com',
   'conor.molloy@eudia.com',
+  'david.vanreyk@eudia.com',
   'emer.flynn@eudia.com',
   'greg.machale@eudia.com',
+  'himanshu.agarwal@eudia.com',
+  'jon.cobb@eudia.com',
   'julie.stefanich@eudia.com',
   'justin.hills@eudia.com',
-  'keigan.pesenti@eudia.com',
-  'mike.masiello@eudia.com',
-  'mitchell.loquaci@eudia.com',
+  'mike.ayres@eudia.com',
+  'mike@eudia.com',
+  'mitch.loquaci@eudia.com',
   'nathan.shine@eudia.com',
   'nicola.fratini@eudia.com',
-  'olivia@eudia.com',
+  'olivia.jung@eudia.com',
   'rajeev.patel@eudia.com',
   'riley.stack@eudia.com',
   'sean.boyd@eudia.com',
@@ -54,10 +62,10 @@ let lastSyncResult = null;
 let scheduledTask = null;
 
 /**
- * Query Salesforce for the filtered accounts owned by a given email.
- * Uses the same BoB report filter as /api/accounts/ownership/:email.
+ * Query Salesforce for ALL accounts owned by a given email.
+ * Returns each account with a hadOpportunity flag.
  */
-async function queryFilteredAccountsForUser(email) {
+async function queryAllAccountsForUser(email) {
   if (!sfConnection || !sfConnection.isConnected) {
     throw new Error('Salesforce not connected');
   }
@@ -73,40 +81,37 @@ async function queryFilteredAccountsForUser(email) {
 
   const userId = userResult.records[0].Id;
 
-  // Step 2: Query accounts with the BoB report filter
-  // SOQL doesn't allow semi-join sub-selects in nested WHERE, so two queries + merge
-  const existingQuery = `
+  // Step 2: Query ALL accounts owned by this user (no BoB filter)
+  const allAccountsQuery = `
     SELECT Id, Name
     FROM Account
     WHERE OwnerId = '${userId}'
-      AND Customer_Type__c = 'Existing'
       AND (NOT Name LIKE '%Sample%')
       AND (NOT Name LIKE '%Test%')
     ORDER BY Name ASC
   `;
-  const openOppQuery = `
-    SELECT Id, Name
-    FROM Account
-    WHERE OwnerId = '${userId}'
-      AND Id IN (SELECT AccountId FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false)
-      AND (NOT Name LIKE '%Sample%')
-      AND (NOT Name LIKE '%Test%')
-    ORDER BY Name ASC
-  `;
-  const [existingResult, openOppResult] = await Promise.all([
-    sfConnection.query(existingQuery),
-    sfConnection.query(openOppQuery)
-  ]);
+  const allResult = await sfConnection.query(allAccountsQuery);
 
-  // Merge and deduplicate
-  const seenIds = new Set();
-  const accounts = [];
-  for (const acc of [...(existingResult.records || []), ...(openOppResult.records || [])]) {
-    if (!seenIds.has(acc.Id)) {
-      seenIds.add(acc.Id);
-      accounts.push({ id: acc.Id, name: acc.Name });
+  // Step 3: Determine which accounts have ever had an opportunity
+  const accountIds = (allResult.records || []).map(a => a.Id);
+  const oppAccountIds = new Set();
+  
+  if (accountIds.length > 0) {
+    for (let i = 0; i < accountIds.length; i += 200) {
+      const batch = accountIds.slice(i, i + 200);
+      const idList = batch.map(id => `'${id}'`).join(',');
+      const oppQuery = `SELECT AccountId FROM Opportunity WHERE AccountId IN (${idList}) GROUP BY AccountId`;
+      const oppResult = await sfConnection.query(oppQuery);
+      (oppResult.records || []).forEach(r => oppAccountIds.add(r.AccountId));
     }
   }
+
+  // Build accounts array with tier info
+  const accounts = (allResult.records || []).map(acc => ({
+    id: acc.Id,
+    name: acc.Name,
+    hadOpportunity: oppAccountIds.has(acc.Id)
+  }));
   accounts.sort((a, b) => a.name.localeCompare(b.name));
 
   return { userId, accounts };
@@ -137,13 +142,16 @@ async function loadSnapshot(email) {
 
 /**
  * Save or update the account snapshot for a user.
+ * Now includes hadOpportunity tier info in the names object.
  */
 async function saveSnapshot(email, accounts) {
   if (!db.isAvailable()) return;
 
   const accountIds = accounts.map(a => a.id).sort();
   const accountNames = {};
-  accounts.forEach(a => { accountNames[a.id] = a.name; });
+  accounts.forEach(a => { 
+    accountNames[a.id] = { name: a.name, hadOpp: a.hadOpportunity }; 
+  });
 
   await db.query(`
     INSERT INTO user_account_snapshots (user_email, account_ids, account_names, account_count, snapshot_at, updated_at)
@@ -172,16 +180,47 @@ async function createResyncFlag(email, changes) {
 }
 
 /**
- * Diff two sets of account IDs. Returns { added, removed } arrays.
+ * Diff two sets of accounts. Returns { added, removed, promoted } arrays.
+ * - added/removed: accounts gained/lost
+ * - promoted: accounts that changed from prospect (no opp) to active (has opp)
  */
-function diffAccountIds(previousIds, currentIds) {
-  const prevSet = new Set(previousIds);
-  const currSet = new Set(currentIds);
+function diffAccounts(previousSnapshot, currentAccounts) {
+  const prevIds = new Set(previousSnapshot.accountIds || []);
+  const prevNames = previousSnapshot.accountNames || {};
+  
+  const currentMap = new Map();
+  currentAccounts.forEach(a => currentMap.set(a.id, a));
+  const currentIds = new Set(currentAccounts.map(a => a.id));
 
-  const added = currentIds.filter(id => !prevSet.has(id));
-  const removed = previousIds.filter(id => !currSet.has(id));
+  const added = [];
+  const removed = [];
+  const promoted = [];
 
-  return { added, removed };
+  // Find added and promoted accounts
+  for (const acc of currentAccounts) {
+    if (!prevIds.has(acc.id)) {
+      added.push({ id: acc.id, name: acc.name, hadOpportunity: acc.hadOpportunity });
+    } else if (acc.hadOpportunity) {
+      // Check if it was previously a prospect (no opp)
+      const prevInfo = prevNames[acc.id];
+      // Handle both old format (string name) and new format ({ name, hadOpp })
+      const prevHadOpp = typeof prevInfo === 'object' ? prevInfo.hadOpp : true;
+      if (!prevHadOpp) {
+        promoted.push({ id: acc.id, name: acc.name });
+      }
+    }
+  }
+
+  // Find removed accounts
+  for (const prevId of previousSnapshot.accountIds || []) {
+    if (!currentIds.has(prevId)) {
+      const prevInfo = prevNames[prevId];
+      const name = typeof prevInfo === 'object' ? prevInfo.name : (prevInfo || 'Unknown');
+      removed.push({ id: prevId, name });
+    }
+  }
+
+  return { added, removed, promoted };
 }
 
 /**
@@ -189,15 +228,14 @@ function diffAccountIds(previousIds, currentIds) {
  */
 async function syncUserAccounts(email) {
   try {
-    const { userId, accounts } = await queryFilteredAccountsForUser(email);
+    const { userId, accounts } = await queryAllAccountsForUser(email);
 
     if (!userId) {
       return { email, status: 'skipped', reason: 'user_not_found' };
     }
 
-    const currentIds = accounts.map(a => a.id).sort();
-    const currentNames = {};
-    accounts.forEach(a => { currentNames[a.id] = a.name; });
+    const activeCount = accounts.filter(a => a.hadOpportunity).length;
+    const prospectCount = accounts.filter(a => !a.hadOpportunity).length;
 
     const snapshot = await loadSnapshot(email);
 
@@ -208,36 +246,48 @@ async function syncUserAccounts(email) {
         email,
         status: 'initialized',
         accountCount: accounts.length,
+        activeCount,
+        prospectCount,
       };
     }
 
-    // Diff
-    const { added, removed } = diffAccountIds(snapshot.accountIds, currentIds);
+    // Diff (including tier changes)
+    const { added, removed, promoted } = diffAccounts(snapshot, accounts);
 
-    if (added.length === 0 && removed.length === 0) {
+    if (added.length === 0 && removed.length === 0 && promoted.length === 0) {
+      // Even if no changes, update the snapshot to keep tier info fresh
+      await saveSnapshot(email, accounts);
       return {
         email,
         status: 'no_changes',
         accountCount: accounts.length,
+        activeCount,
+        prospectCount,
       };
     }
 
     // Changes detected!
     const changes = {
-      added: added.map(id => ({ id, name: currentNames[id] || 'Unknown' })),
-      removed: removed.map(id => ({ id, name: snapshot.accountNames[id] || 'Unknown' })),
+      added: added,
+      removed: removed,
+      promoted: promoted,
       previousCount: snapshot.accountCount,
       currentCount: accounts.length,
+      activeCount,
+      prospectCount,
       detectedAt: new Date().toISOString(),
     };
 
-    logger.info(`[AccountSync] Changes for ${email}: +${added.length} added, -${removed.length} removed (${snapshot.accountCount} -> ${accounts.length})`);
+    logger.info(`[AccountSync] Changes for ${email}: +${added.length} added, -${removed.length} removed, ${promoted.length} promoted (${snapshot.accountCount} -> ${accounts.length}, ${activeCount} active + ${prospectCount} prospects)`);
     
     if (added.length > 0) {
       logger.info(`[AccountSync]   Added: ${changes.added.map(a => a.name).join(', ')}`);
     }
     if (removed.length > 0) {
       logger.info(`[AccountSync]   Removed: ${changes.removed.map(a => a.name).join(', ')}`);
+    }
+    if (promoted.length > 0) {
+      logger.info(`[AccountSync]   Promoted (prospect->active): ${changes.promoted.map(a => a.name).join(', ')}`);
     }
 
     // Save new snapshot and create resync flag
@@ -249,7 +299,10 @@ async function syncUserAccounts(email) {
       status: 'changes_detected',
       added: changes.added,
       removed: changes.removed,
+      promoted: changes.promoted,
       accountCount: accounts.length,
+      activeCount,
+      prospectCount,
     };
 
   } catch (err) {
@@ -284,7 +337,7 @@ async function runAccountSync() {
   syncInProgress = true;
   const startTime = Date.now();
 
-  logger.info(`[AccountSync] Starting account sync for ${ALL_BL_EMAILS.length} business leads...`);
+  logger.info(`[AccountSync] Starting full BoB account sync for ${ALL_BL_EMAILS.length} business leads...`);
 
   const results = [];
 
@@ -301,11 +354,17 @@ async function runAccountSync() {
   const errors = results.filter(r => r.status === 'error');
   const initialized = results.filter(r => r.status === 'initialized');
 
+  const totalActive = results.reduce((sum, r) => sum + (r.activeCount || 0), 0);
+  const totalProspect = results.reduce((sum, r) => sum + (r.prospectCount || 0), 0);
+
   const summary = {
     success: true,
     timestamp: new Date().toISOString(),
     durationMs: duration,
     totalUsers: ALL_BL_EMAILS.length,
+    totalAccounts: totalActive + totalProspect,
+    totalActive,
+    totalProspect,
     changesDetected: changesDetected.length,
     errors: errors.length,
     initialized: initialized.length,
@@ -314,12 +373,16 @@ async function runAccountSync() {
   };
 
   if (changesDetected.length > 0) {
-    logger.info(`[AccountSync] Completed in ${duration}ms: ${changesDetected.length} user(s) with changes, ${errors.length} errors`);
+    logger.info(`[AccountSync] Completed in ${duration}ms: ${changesDetected.length} user(s) with changes, ${errors.length} errors (${totalActive} active + ${totalProspect} prospect accounts total)`);
     changesDetected.forEach(r => {
-      logger.info(`[AccountSync]   ${r.email}: +${r.added.length} / -${r.removed.length}`);
+      const parts = [];
+      if (r.added && r.added.length > 0) parts.push(`+${r.added.length}`);
+      if (r.removed && r.removed.length > 0) parts.push(`-${r.removed.length}`);
+      if (r.promoted && r.promoted.length > 0) parts.push(`${r.promoted.length} promoted`);
+      logger.info(`[AccountSync]   ${r.email}: ${parts.join(' / ')}`);
     });
   } else {
-    logger.info(`[AccountSync] Completed in ${duration}ms: No changes detected for any user`);
+    logger.info(`[AccountSync] Completed in ${duration}ms: No changes detected (${totalActive} active + ${totalProspect} prospect accounts total)`);
   }
 
   if (errors.length > 0) {
@@ -344,7 +407,7 @@ async function runAccountSync() {
 function startAccountSyncSchedule() {
   const cronExpr = `0 */${SYNC_INTERVAL_HOURS} * * *`;
 
-  logger.info(`[AccountSync] Scheduling account sync every ${SYNC_INTERVAL_HOURS} hours (cron: ${cronExpr})`);
+  logger.info(`[AccountSync] Scheduling full BoB account sync every ${SYNC_INTERVAL_HOURS} hours (cron: ${cronExpr})`);
 
   scheduledTask = cron.schedule(cronExpr, async () => {
     logger.info('[AccountSync] Cron trigger: starting scheduled account sync...');
@@ -382,5 +445,5 @@ module.exports = {
   stopAccountSyncSchedule,
   getLastSyncResult,
   syncUserAccounts,
-  queryFilteredAccountsForUser,
+  queryAllAccountsForUser,
 };
