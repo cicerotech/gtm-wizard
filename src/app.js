@@ -4059,7 +4059,7 @@ class GTMBrainApp {
             // NOTE: Salesforce disallows semi-join subselects inside OR, so we run 2 queries and merge.
             queryDescription = 'existing customers + CS staffing accounts';
             const csExistingQ = `
-              SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name, CSMa__c,
+              SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
                      (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
               FROM Account 
               WHERE Customer_Type__c = 'Existing'
@@ -4069,7 +4069,7 @@ class GTMBrainApp {
               LIMIT 1000
             `;
             const csStaffingQ = `
-              SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name, CSMa__c,
+              SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
                      (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
               FROM Account 
               WHERE Id IN (
