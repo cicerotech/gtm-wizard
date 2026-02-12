@@ -1209,57 +1209,39 @@ class EudiaSetupView extends ItemView {
           if (setupFile) await this.plugin.app.vault.delete(setupFile);
         } catch { /* ok */ }
 
-        // CS users: check if accounts still need enrichment (static IDs not yet upgraded)
+        // CS/BL users: check if accounts need enrichment on vault reopen
+        // Look for any account folder where Contacts.md has no enriched_at timestamp
         const email = this.plugin.settings.userEmail;
-        if (email && isCSUser(email)) {
-          const hasStaticIds = (this.plugin.settings.cachedAccounts || []).some(
-            (a: any) => a.id && String(a.id).startsWith('cs-static-')
-          );
-          if (hasStaticIds) {
-            console.log('[Eudia Setup] CS accounts still have static IDs — triggering background enrichment...');
-            const csEmail = email;
-            const retryDelays = [3000, 15000, 45000, 90000];
-            const acctFolder = this.plugin.settings.accountsFolder || 'Accounts';
-            const attemptEnrich = async (attempt: number): Promise<void> => {
-              const delay = retryDelays[attempt];
-              if (delay === undefined) { console.log('[Eudia] Vault-reopen enrichment: all retries exhausted'); return; }
-              await new Promise(r => setTimeout(r, delay));
-              try {
-                console.log(`[Eudia] Vault-reopen enrichment attempt ${attempt + 1}/${retryDelays.length}...`);
-                const serverResult = await this.accountOwnershipService.getCSAccounts(csEmail);
-                const realAccounts = serverResult.accounts.filter((a: any) => a.id && a.id.startsWith('001'));
-                if (realAccounts.length === 0) { return attemptEnrich(attempt + 1); }
-                console.log(`[Eudia] Vault-reopen: ${realAccounts.length} accounts with real SF IDs — updating metadata & enriching...`);
-                // Update folder frontmatter with real SF IDs
-                for (const acc of realAccounts) {
-                  const safeName = acc.name.replace(/[<>:"/\\|?*]/g, '_').trim();
-                  const folderPath = `${acctFolder}/${safeName}`;
-                  if (!this.plugin.app.vault.getAbstractFileByPath(folderPath)) continue;
-                  for (const sub of ['Contacts.md', 'Intelligence.md', 'Meeting Notes.md', 'Next Steps.md']) {
-                    const file = this.plugin.app.vault.getAbstractFileByPath(`${folderPath}/${sub}`);
-                    if (file && file instanceof TFile) {
-                      try {
-                        const content = await this.plugin.app.vault.read(file);
-                        if (content.includes('cs-static-')) {
-                          const updated = content.replace(/account_id:\s*cs-static-[^\n]+/, `account_id: ${acc.id}`);
-                          if (updated !== content) await this.plugin.app.vault.modify(file, updated);
-                        }
-                      } catch { /* skip */ }
-                    }
-                  }
-                }
-                // Update cachedAccounts with real SF IDs
-                this.plugin.settings.cachedAccounts = realAccounts.map((a: any) => ({ id: a.id, name: a.name }));
-                await this.plugin.saveSettings();
-                // Enrich with Salesforce data (contacts, intelligence, etc.)
-                await this.plugin.enrichAccountFolders(realAccounts);
-                console.log(`[Eudia] Vault-reopen enrichment complete: ${realAccounts.length} accounts enriched`);
-              } catch (e) {
-                console.log(`[Eudia] Vault-reopen enrichment attempt ${attempt + 1} failed:`, e);
-                return attemptEnrich(attempt + 1);
+        const cachedAccts = this.plugin.settings.cachedAccounts || [];
+        const realIdAccts = cachedAccts.filter((a: any) => a.id && String(a.id).startsWith('001'));
+        if (email && realIdAccts.length > 0) {
+          // Check if at least one account is unenriched
+          const acctFolder = this.plugin.settings.accountsFolder || 'Accounts';
+          let needsEnrichment = false;
+          for (const acc of realIdAccts.slice(0, 5)) { // Sample first 5
+            const safeName = (acc.name || '').replace(/[<>:"/\\|?*]/g, '_').trim();
+            const contactsPath = `${acctFolder}/${safeName}/Contacts.md`;
+            const file = this.plugin.app.vault.getAbstractFileByPath(contactsPath);
+            if (file instanceof TFile) {
+              const cache = this.plugin.app.metadataCache.getFileCache(file);
+              if (!cache?.frontmatter?.enriched_at) {
+                needsEnrichment = true;
+                break;
               }
-            };
-            attemptEnrich(0);
+            }
+          }
+          if (needsEnrichment) {
+            console.log(`[Eudia Setup] Accounts need enrichment — triggering on vault reopen...`);
+            // Non-blocking enrichment on vault reopen (3s delay to let vault fully load)
+            setTimeout(async () => {
+              try {
+                const accts = realIdAccts.map((a: any) => ({ id: a.id, name: a.name, type: '', isOwned: false, hadOpportunity: true, website: null, industry: null }));
+                await this.plugin.enrichAccountFolders(accts);
+                console.log(`[Eudia] Vault-reopen enrichment complete: ${accts.length} accounts enriched`);
+              } catch (e) {
+                console.log(`[Eudia] Vault-reopen enrichment failed (will retry next open):`, e);
+              }
+            }, 3000);
           }
         }
       } else {
@@ -1318,57 +1300,18 @@ class EudiaSetupView extends ItemView {
             
             if (leftSplit && !wasCollapsed) leftSplit.expand();
             
-            new Notice(`Imported ${accounts.length} accounts!`);
             console.log(`[Eudia Setup] Auto-retry imported ${accounts.length} accounts for ${email}`);
             
-            // Background: retry-based enrichment for CS — fetch live SF IDs, update folder metadata, enrich
-            if (userGroup === 'cs') {
-              const csEmail = email;
-              const retryDelays = [3000, 15000, 45000, 90000];
-              const acctFolder = this.plugin.settings.accountsFolder || 'Accounts';
-              const attemptEnrich = async (attempt: number): Promise<void> => {
-                const delay = retryDelays[attempt];
-                if (delay === undefined) { console.log('[Eudia] Auto-retry enrichment: all retries exhausted'); return; }
-                await new Promise(r => setTimeout(r, delay));
-                try {
-                  console.log(`[Eudia] Auto-retry enrichment attempt ${attempt + 1}/${retryDelays.length}...`);
-                  const serverResult = await this.accountOwnershipService.getCSAccounts(csEmail);
-                  const realAccounts = serverResult.accounts.filter((a: any) => a.id && a.id.startsWith('001'));
-                  if (realAccounts.length === 0) { return attemptEnrich(attempt + 1); }
-                  // Update folder frontmatter with real SF IDs
-                  for (const acc of realAccounts) {
-                    const safeName = acc.name.replace(/[<>:"/\\|?*]/g, '_').trim();
-                    const folderPath = `${acctFolder}/${safeName}`;
-                    if (!this.plugin.app.vault.getAbstractFileByPath(folderPath)) continue;
-                    for (const sub of ['Contacts.md', 'Intelligence.md', 'Meeting Notes.md', 'Next Steps.md']) {
-                      const file = this.plugin.app.vault.getAbstractFileByPath(`${folderPath}/${sub}`);
-                      if (file && file instanceof TFile) {
-                        try {
-                          const content = await this.plugin.app.vault.read(file);
-                          if (content.includes('cs-static-')) {
-                            const updated = content.replace(/account_id:\s*cs-static-[^\n]+/, `account_id: ${acc.id}`);
-                            if (updated !== content) await this.plugin.app.vault.modify(file, updated);
-                          }
-                        } catch { /* skip */ }
-                      }
-                    }
-                  }
-                  // Update cachedAccounts with real SF IDs so meeting notes get correct IDs
-                  this.plugin.settings.cachedAccounts = realAccounts.map((a: any) => ({ id: a.id, name: a.name }));
-                  await this.plugin.saveSettings();
-                  await this.plugin.enrichAccountFolders(realAccounts);
-                  console.log(`[Eudia] Auto-retry enrichment complete: ${realAccounts.length} accounts enriched`);
-                } catch (e) {
-                  console.log(`[Eudia] Auto-retry enrichment attempt ${attempt + 1} failed:`, e);
-                  return attemptEnrich(attempt + 1);
-                }
-              };
-              attemptEnrich(0);
-            } else {
-              const allAccounts = [...accounts, ...prospects];
-              setTimeout(async () => {
-                try { await this.plugin.enrichAccountFolders(allAccounts); } catch { /* ok */ }
-              }, 500);
+            // Synchronous enrichment — populate contacts immediately
+            new Notice(`Enriching ${accounts.length} accounts with Salesforce contacts...`);
+            try {
+              const allAccounts = userGroup === 'cs' ? accounts : [...accounts, ...prospects];
+              await this.plugin.enrichAccountFolders(allAccounts);
+              new Notice(`${accounts.length} accounts loaded and enriched!`);
+              console.log(`[Eudia Setup] Auto-retry enrichment complete`);
+            } catch (e) {
+              console.log(`[Eudia Setup] Auto-retry enrichment failed:`, e);
+              new Notice(`${accounts.length} accounts imported! Contacts will populate on next open.`);
             }
           } else {
             console.warn(`[Eudia Setup] Auto-retry returned 0 accounts for ${email}. Server may still be starting.`);
@@ -1605,66 +1548,42 @@ class EudiaSetupView extends ItemView {
               }
             } catch { /* ok if already gone */ }
 
-            new Notice(`Loaded ${accounts.length} CS accounts successfully!`);
             console.log(`[Eudia] CS accounts created: ${accounts.length} folders from static data`);
 
-            // BACKGROUND: Retry-based enrichment — fetch live SF IDs, update folder metadata, enrich contacts
-            const csEmail = email;
-            const retryDelays = [3000, 15000, 45000, 90000]; // 3s, 15s, 45s, 90s
-            const accountsFolder = this.plugin.settings.accountsFolder || 'Accounts';
-            const attemptEnrichment = async (attempt: number): Promise<void> => {
-              const delay = retryDelays[attempt];
-              if (delay === undefined) {
-                console.log('[Eudia] Background enrichment: all retries exhausted');
-                return;
+            // SYNCHRONOUS enrichment — populate contacts, intelligence, etc. immediately
+            // Accounts already have real SF IDs (001*) so enrichAccountFolders will process them
+            if (validationEl) {
+              validationEl.textContent = `Enriching ${accounts.length} accounts with Salesforce contacts...`;
+            }
+            new Notice(`Enriching ${accounts.length} accounts with contacts from Salesforce...`);
+            console.log(`[Eudia] Starting synchronous enrichment for ${accounts.length} CS accounts...`);
+            
+            try {
+              await this.plugin.enrichAccountFolders(accounts);
+              console.log(`[Eudia] Synchronous enrichment complete`);
+              new Notice(`${accounts.length} accounts loaded with contacts from Salesforce!`);
+              if (validationEl) {
+                validationEl.textContent = `${accounts.length} accounts loaded and enriched with Salesforce contacts!`;
               }
-              await new Promise(r => setTimeout(r, delay));
-              try {
-                console.log(`[Eudia] Background enrichment attempt ${attempt + 1}/${retryDelays.length}...`);
-                const serverResult = await this.accountOwnershipService.getCSAccounts(csEmail);
-                const realAccounts = serverResult.accounts.filter((a: any) => a.id && a.id.startsWith('001'));
-                if (realAccounts.length === 0) {
-                  console.log('[Eudia] Background: server returned 0 accounts with real SF IDs, retrying...');
-                  return attemptEnrichment(attempt + 1);
+            } catch (enrichErr) {
+              console.log(`[Eudia] Synchronous enrichment failed, will retry in background:`, enrichErr);
+              new Notice(`${accounts.length} accounts loaded! Contacts will populate shortly...`);
+              // Fallback: retry enrichment in background if synchronous call failed
+              const csEmail = email;
+              const retryDelays = [5000, 20000, 60000];
+              const bgEnrich = async (attempt: number): Promise<void> => {
+                const delay = retryDelays[attempt];
+                if (delay === undefined) return;
+                await new Promise(r => setTimeout(r, delay));
+                try {
+                  await this.plugin.enrichAccountFolders(accounts);
+                  console.log(`[Eudia] Background enrichment retry ${attempt + 1} succeeded`);
+                } catch {
+                  return bgEnrich(attempt + 1);
                 }
-                console.log(`[Eudia] Background: ${realAccounts.length} accounts with real SF IDs — updating folder metadata & enriching...`);
-
-                // Update folder frontmatter: replace cs-static-* IDs with real SF IDs
-                for (const acc of realAccounts) {
-                  const safeName = acc.name.replace(/[<>:"/\\|?*]/g, '_').trim();
-                  const folderPath = `${accountsFolder}/${safeName}`;
-                  const folder = this.plugin.app.vault.getAbstractFileByPath(folderPath);
-                  if (!folder) continue;
-                  // Update account_id in each sub-note's frontmatter
-                  for (const subNote of ['Contacts.md', 'Intelligence.md', 'Meeting Notes.md', 'Next Steps.md']) {
-                    const filePath = `${folderPath}/${subNote}`;
-                    const file = this.plugin.app.vault.getAbstractFileByPath(filePath);
-                    if (file && file instanceof TFile) {
-                      try {
-                        const content = await this.plugin.app.vault.read(file);
-                        if (content.includes('cs-static-')) {
-                          const updated = content.replace(/account_id:\s*cs-static-[^\n]+/, `account_id: ${acc.id}`);
-                          if (updated !== content) {
-                            await this.plugin.app.vault.modify(file, updated);
-                          }
-                        }
-                      } catch { /* skip if file can't be read */ }
-                    }
-                  }
-                }
-
-                // Update cachedAccounts with real SF IDs so meeting notes get correct IDs
-                this.plugin.settings.cachedAccounts = realAccounts.map((a: any) => ({ id: a.id, name: a.name }));
-                await this.plugin.saveSettings();
-                // Now enrich with real Salesforce data (contacts, intelligence, etc.)
-                await this.plugin.enrichAccountFolders(realAccounts);
-                console.log(`[Eudia] Background enrichment complete: ${realAccounts.length} accounts enriched`);
-              } catch (e) {
-                console.log(`[Eudia] Background enrichment attempt ${attempt + 1} failed:`, e);
-                return attemptEnrichment(attempt + 1);
-              }
-            };
-            attemptEnrichment(0);
+              };
+              bgEnrich(0);
+            }
             
           } else if (userGroup === 'admin') {
             console.log('[Eudia] Admin user detected - importing all accounts');
