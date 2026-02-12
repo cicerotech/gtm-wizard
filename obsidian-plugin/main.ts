@@ -1208,6 +1208,60 @@ class EudiaSetupView extends ItemView {
           const setupFile = this.plugin.app.vault.getAbstractFileByPath('Accounts/_Setup Required.md');
           if (setupFile) await this.plugin.app.vault.delete(setupFile);
         } catch { /* ok */ }
+
+        // CS users: check if accounts still need enrichment (static IDs not yet upgraded)
+        const email = this.plugin.settings.userEmail;
+        if (email && isCSUser(email)) {
+          const hasStaticIds = (this.plugin.settings.cachedAccounts || []).some(
+            (a: any) => a.id && String(a.id).startsWith('cs-static-')
+          );
+          if (hasStaticIds) {
+            console.log('[Eudia Setup] CS accounts still have static IDs — triggering background enrichment...');
+            const csEmail = email;
+            const retryDelays = [3000, 15000, 45000, 90000];
+            const acctFolder = this.plugin.settings.accountsFolder || 'Accounts';
+            const attemptEnrich = async (attempt: number): Promise<void> => {
+              const delay = retryDelays[attempt];
+              if (delay === undefined) { console.log('[Eudia] Vault-reopen enrichment: all retries exhausted'); return; }
+              await new Promise(r => setTimeout(r, delay));
+              try {
+                console.log(`[Eudia] Vault-reopen enrichment attempt ${attempt + 1}/${retryDelays.length}...`);
+                const serverResult = await this.accountOwnershipService.getCSAccounts(csEmail);
+                const realAccounts = serverResult.accounts.filter((a: any) => a.id && a.id.startsWith('001'));
+                if (realAccounts.length === 0) { return attemptEnrich(attempt + 1); }
+                console.log(`[Eudia] Vault-reopen: ${realAccounts.length} accounts with real SF IDs — updating metadata & enriching...`);
+                // Update folder frontmatter with real SF IDs
+                for (const acc of realAccounts) {
+                  const safeName = acc.name.replace(/[<>:"/\\|?*]/g, '_').trim();
+                  const folderPath = `${acctFolder}/${safeName}`;
+                  if (!this.plugin.app.vault.getAbstractFileByPath(folderPath)) continue;
+                  for (const sub of ['Contacts.md', 'Intelligence.md', 'Meeting Notes.md', 'Next Steps.md']) {
+                    const file = this.plugin.app.vault.getAbstractFileByPath(`${folderPath}/${sub}`);
+                    if (file && file instanceof TFile) {
+                      try {
+                        const content = await this.plugin.app.vault.read(file);
+                        if (content.includes('cs-static-')) {
+                          const updated = content.replace(/account_id:\s*cs-static-[^\n]+/, `account_id: ${acc.id}`);
+                          if (updated !== content) await this.plugin.app.vault.modify(file, updated);
+                        }
+                      } catch { /* skip */ }
+                    }
+                  }
+                }
+                // Update cachedAccounts with real SF IDs
+                this.plugin.settings.cachedAccounts = realAccounts.map((a: any) => ({ id: a.id, name: a.name }));
+                await this.plugin.saveSettings();
+                // Enrich with Salesforce data (contacts, intelligence, etc.)
+                await this.plugin.enrichAccountFolders(realAccounts);
+                console.log(`[Eudia] Vault-reopen enrichment complete: ${realAccounts.length} accounts enriched`);
+              } catch (e) {
+                console.log(`[Eudia] Vault-reopen enrichment attempt ${attempt + 1} failed:`, e);
+                return attemptEnrich(attempt + 1);
+              }
+            };
+            attemptEnrich(0);
+          }
+        }
       } else {
         // Email connected but accounts never imported (server may have been down). Auto-retry.
         console.log('[Eudia Setup] Email set but accounts not imported — auto-retrying import...');
@@ -1299,6 +1353,9 @@ class EudiaSetupView extends ItemView {
                       }
                     }
                   }
+                  // Update cachedAccounts with real SF IDs so meeting notes get correct IDs
+                  this.plugin.settings.cachedAccounts = realAccounts.map((a: any) => ({ id: a.id, name: a.name }));
+                  await this.plugin.saveSettings();
                   await this.plugin.enrichAccountFolders(realAccounts);
                   console.log(`[Eudia] Auto-retry enrichment complete: ${realAccounts.length} accounts enriched`);
                 } catch (e) {
@@ -1596,6 +1653,9 @@ class EudiaSetupView extends ItemView {
                   }
                 }
 
+                // Update cachedAccounts with real SF IDs so meeting notes get correct IDs
+                this.plugin.settings.cachedAccounts = realAccounts.map((a: any) => ({ id: a.id, name: a.name }));
+                await this.plugin.saveSettings();
                 // Now enrich with real Salesforce data (contacts, intelligence, etc.)
                 await this.plugin.enrichAccountFolders(realAccounts);
                 console.log(`[Eudia] Background enrichment complete: ${realAccounts.length} accounts enriched`);
@@ -2841,6 +2901,11 @@ class EudiaCalendarView extends ItemView {
     const existing = this.app.vault.getAbstractFileByPath(filePath);
     if (existing instanceof TFile) {
       await this.app.workspace.getLeaf().openFile(existing);
+      // Reveal in file explorer so user sees it under the matched account folder
+      try {
+        const fileExplorer = (this.app as any).internalPlugins?.getPluginById?.('file-explorer')?.instance;
+        if (fileExplorer?.revealInFolder) fileExplorer.revealInFolder(existing);
+      } catch { /* file explorer API may vary */ }
       new Notice(`Opened existing note: ${fileName}`);
       return;
     }
@@ -2888,6 +2953,11 @@ Click the **microphone icon** in the sidebar or use \`Cmd/Ctrl+P\` → **"Transc
     try {
       const file = await this.app.vault.create(filePath, template);
       await this.app.workspace.getLeaf().openFile(file);
+      // Reveal in file explorer — auto-scroll and expand the matched account folder
+      try {
+        const fileExplorer = (this.app as any).internalPlugins?.getPluginById?.('file-explorer')?.instance;
+        if (fileExplorer?.revealInFolder) fileExplorer.revealInFolder(file);
+      } catch { /* file explorer API may vary */ }
       new Notice(`Created: ${filePath}`);
     } catch (e) {
       console.error('[Eudia Calendar] Failed to create note:', e);
@@ -2921,6 +2991,10 @@ Click the **microphone icon** in the sidebar or use \`Cmd/Ctrl+P\` → **"Transc
     const existing = this.app.vault.getAbstractFileByPath(filePath);
     if (existing instanceof TFile) {
       await this.app.workspace.getLeaf().openFile(existing);
+      try {
+        const fileExplorer = (this.app as any).internalPlugins?.getPluginById?.('file-explorer')?.instance;
+        if (fileExplorer?.revealInFolder) fileExplorer.revealInFolder(existing);
+      } catch { /* file explorer API may vary */ }
       new Notice(`Opened existing: ${fileName}`);
       return;
     }
@@ -2961,6 +3035,10 @@ After transcription, this note will be automatically formatted with:
     try {
       const file = await this.app.vault.create(filePath, template);
       await this.app.workspace.getLeaf().openFile(file);
+      try {
+        const fileExplorer = (this.app as any).internalPlugins?.getPluginById?.('file-explorer')?.instance;
+        if (fileExplorer?.revealInFolder) fileExplorer.revealInFolder(file);
+      } catch { /* file explorer API may vary */ }
       new Notice(`Created pipeline note: ${fileName}`);
       console.log(`[Eudia Pipeline] Created pipeline meeting note: ${filePath}`);
     } catch (e) {
@@ -4323,7 +4401,20 @@ auto_refresh: true
       overviewContent += `| ${acc.name} | ${acc.type || ''} | ${(acc as any).ownerName || ''} | ${(acc as any).csmName || ''} |\n`;
     }
     
-    overviewContent += `\n---\n\n*This dashboard auto-updates when the vault syncs. New Stage 4/5 and Existing accounts will appear automatically.*\n`;
+    overviewContent += `\n---\n
+## How Meeting Notes Sync
+
+Meeting notes created by your direct reports flow through Salesforce:
+1. **Rep records a meeting** in their vault and clicks "Sync to Salesforce"
+2. **Notes sync to Salesforce** \`Customer_Brain__c\` field on the Account
+3. **Your vault refreshes** — account Intelligence and Meeting Notes sub-notes pull the latest activity from Salesforce each time the vault opens or you click "Connect to Salesforce" in Setup
+
+> To see the latest notes from Jon and Farah, ensure they are syncing their meeting notes to Salesforce. Your vault will automatically pull their activity on the next enrichment cycle.
+
+---
+
+*This dashboard auto-updates when the vault syncs. New Stage 4/5 and Existing accounts will appear automatically.*
+`;
     
     const overviewPath = `${dashFolder}/CS Manager Overview.md`;
     const existingOverview = this.app.vault.getAbstractFileByPath(overviewPath);
@@ -4372,15 +4463,27 @@ created: ${dateStr}
 
 `;
       if (repAccounts.length > 0) {
-        repContent += `| Account | Type | Owner |\n|---------|------|-------|\n`;
+        repContent += `| Account | Type | Owner | Folder |\n|---------|------|-------|--------|\n`;
         for (const acc of repAccounts) {
-          repContent += `| ${acc.name} | ${acc.type || ''} | ${(acc as any).ownerName || ''} |\n`;
+          const safeName = acc.name.replace(/[<>:"/\\|?*]/g, '_').trim();
+          repContent += `| ${acc.name} | ${acc.type || ''} | ${(acc as any).ownerName || ''} | [[Accounts/${safeName}/Contacts\\|View]] |\n`;
         }
       } else {
         repContent += `*No accounts currently matched to this rep. Accounts will populate after connecting to Salesforce (Step 2).*\n`;
       }
       
-      repContent += `\n---\n\n*Updates automatically as new CS-relevant accounts sync.*\n`;
+      repContent += `\n---\n
+## Recent Activity
+
+Meeting notes and activity for ${repName}'s accounts sync through Salesforce:
+- Notes appear in each account's **Meeting Notes** and **Intelligence** sub-notes
+- Activity updates when the vault enriches (on open or Salesforce connect)
+- Ensure ${repName} is syncing their meeting notes to Salesforce for latest data
+
+---
+
+*Updates automatically as new CS-relevant accounts sync.*
+`;
       
       const repPath = `${dashFolder}/${repName}.md`;
       const existingRep = this.app.vault.getAbstractFileByPath(repPath);
