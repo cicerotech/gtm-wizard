@@ -68,6 +68,50 @@ export const CS_MANAGER_DIRECT_REPORTS: Record<string, string[]> = {
 };
 
 /**
+ * Static CS account fallback data (from CS Staffing 2.11.xlsx)
+ * Used when server is unavailable (Render cold start, Salesforce not ready).
+ * 36 accounts: Stage 4/5 + Existing customers with CS_Staffing_Flag__c = true
+ */
+export const CS_STATIC_ACCOUNTS: OwnedAccount[] = [
+  { id: 'cs-static-accenture', name: 'Accenture', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Conor Molloy' },
+  { id: 'cs-static-air-force-sttr', name: 'Air Force STTR w/ Univ. of Michigan', type: 'Existing', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Mike Masiello' },
+  { id: 'cs-static-airbnb', name: 'Airbnb Consultant extensions', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Nathan Shine' },
+  { id: 'cs-static-amazon', name: 'Amazon', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Asad Hussain' },
+  { id: 'cs-static-appliedai', name: 'AppliedAI', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Nicola Fratini' },
+  { id: 'cs-static-army-corps', name: 'Army Corps of Engineers / Legal', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Mike Masiello' },
+  { id: 'cs-static-asana', name: 'Asana', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Asad Hussain' },
+  { id: 'cs-static-aviva', name: 'Aviva Insurance', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Nicola Fratini' },
+  { id: 'cs-static-boi', name: 'BOI FSPO Tracker renewal 2026/2028', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Alex Fox' },
+  { id: 'cs-static-coillte', name: 'Coillte AIE Support', type: 'Existing', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Emer Flynn' },
+  { id: 'cs-static-commscope', name: 'Commscope Sigma/Extension Opp', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Nathan Shine' },
+  { id: 'cs-static-corebridge', name: 'Corebridge Financial', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Julie Stefanich' },
+  { id: 'cs-static-datalex', name: 'Datalex', type: 'Existing', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Nicola Fratini' },
+  { id: 'cs-static-davy', name: 'Davy', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Nicola Fratini' },
+  { id: 'cs-static-etsy', name: 'Etsy Privacy Support', type: 'Existing', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Olivia Jung' },
+  { id: 'cs-static-goodbody', name: 'Goodbody', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Nicola Fratini' },
+  { id: 'cs-static-graybar', name: 'Graybar Canada', type: 'Existing', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Olivia Jung' },
+  { id: 'cs-static-home-depot', name: 'Home Depot', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Mitch Loquaci' },
+  { id: 'cs-static-iqvia', name: 'IQVIA', type: 'Existing', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Sean Boyd' },
+  { id: 'cs-static-keurig', name: 'Keurig Dr Pepper Tech Enabled Consultant', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Nathan Shine' },
+  { id: 'cs-static-medtronic', name: 'Medtronic', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Olivia Jung' },
+  { id: 'cs-static-nato', name: 'NATO', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Mike Masiello' },
+  { id: 'cs-static-national-grid', name: 'National Grid', type: 'Existing', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Julie Stefanich' },
+  { id: 'cs-static-northern-trust', name: 'Northern Trust', type: 'Existing', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Nicola Fratini' },
+  { id: 'cs-static-novelis', name: 'Novelis', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Mitch Loquaci' },
+  { id: 'cs-static-pure-storage', name: 'Pure Storage', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Ananth Cherukupally' },
+  { id: 'cs-static-re-turn', name: 'Re-Turn', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Nicola Fratini' },
+  { id: 'cs-static-stripe', name: 'Stripe', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Nicola Fratini' },
+  { id: 'cs-static-te-connectivity', name: 'TE Connectivity', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Olivia Jung' },
+  { id: 'cs-static-weir-group', name: 'The Weir Group PLC', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Olivia Jung' },
+  { id: 'cs-static-usaf-sbir', name: 'USAF SBIR Phase 1', type: 'Existing', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Mike Masiello' },
+  { id: 'cs-static-udemy', name: 'Udemy Contracting Solution Secondments', type: 'Existing', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Nathan Shine' },
+  { id: 'cs-static-vista', name: 'Vista Equity Partners', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Ananth Cherukupally' },
+  { id: 'cs-static-vulcan', name: 'Vulcan Special Ops', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Mike Masiello' },
+  { id: 'cs-static-wellspring', name: 'Wellspring Philanthropic Fund', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Conor Molloy' },
+  { id: 'cs-static-western-digital', name: 'Western Digital', type: 'New', isOwned: false, hadOpportunity: true, website: null, industry: null, ownerName: 'Olivia Jung' },
+];
+
+/**
  * Business Lead region mapping (for Sales Leader roll-ups)
  */
 export const BL_REGIONS: Record<string, string[]> = {
@@ -237,11 +281,12 @@ export function hasFullAccountAccess(email: string): boolean {
 export interface OwnedAccount {
   id: string;
   name: string;
-  type?: 'Customer' | 'Prospect' | 'Target';
+  type?: string; // Customer, Prospect, Target, New, Existing, etc.
   isOwned?: boolean;  // For admins: true if they own it, false if view-only
   hadOpportunity?: boolean; // true = active (has opp history), false = prospect
-  website?: string;
-  industry?: string;
+  website?: string | null;
+  industry?: string | null;
+  ownerName?: string | null; // Salesforce account owner name
 }
 
 export interface BusinessLead {
@@ -1870,7 +1915,7 @@ export class AccountOwnershipService {
     console.log(`[AccountOwnership] Fetching CS accounts for: ${normalizedEmail}`);
     
     const MAX_RETRIES = 3;
-    const RETRY_DELAY = 2000; // 2 seconds between retries (Render cold start)
+    const RETRY_DELAY = 3000; // 3 seconds between retries (Render cold start)
     
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
@@ -1882,7 +1927,7 @@ export class AccountOwnershipService {
           url: `${this.serverUrl}/api/bl-accounts/${encodeURIComponent(normalizedEmail)}`,
           method: 'GET',
           headers: { 'Accept': 'application/json' },
-          throw: false // Don't throw on non-200 status codes
+          throw: false
         });
         
         console.log(`[AccountOwnership] CS fetch response status: ${response.status}`);
@@ -1892,7 +1937,7 @@ export class AccountOwnershipService {
             id: acc.id,
             name: acc.name,
             type: acc.customerType || acc.type || 'Customer',
-            isOwned: false, // CS users view accounts, don't own them
+            isOwned: false,
             hadOpportunity: true,
             website: acc.website || null,
             industry: acc.industry || null,
@@ -1910,18 +1955,30 @@ export class AccountOwnershipService {
             ownerName: acc.ownerName || null
           }));
           
-          console.log(`[AccountOwnership] CS accounts for ${normalizedEmail}: ${activeAccounts.length} active + ${prospectAccounts.length} prospects`);
+          // KEY FIX: Server may return success:true but 0 accounts when Salesforce
+          // connection is still initializing after Render cold start. In that case,
+          // fall through to static fallback instead of returning empty.
           if (activeAccounts.length > 0) {
+            console.log(`[AccountOwnership] CS accounts for ${normalizedEmail}: ${activeAccounts.length} active + ${prospectAccounts.length} prospects`);
             new Notice(`Found ${activeAccounts.length} CS accounts`);
+            return { accounts: activeAccounts, prospects: prospectAccounts };
           }
-          return { accounts: activeAccounts, prospects: prospectAccounts };
-        }
-        
-        // Non-200 or no success flag — retry if attempts remain
-        console.warn(`[AccountOwnership] CS fetch attempt ${attempt} returned status ${response.status} for ${normalizedEmail}`);
-        if (attempt < MAX_RETRIES) {
-          console.log(`[AccountOwnership] Retrying in ${RETRY_DELAY}ms...`);
-          await new Promise(r => setTimeout(r, RETRY_DELAY));
+          
+          // Server returned success but 0 accounts — Salesforce likely not ready
+          console.warn(`[AccountOwnership] CS fetch attempt ${attempt}: server returned success but 0 accounts (Salesforce not ready)`);
+          if (attempt < MAX_RETRIES) {
+            console.log(`[AccountOwnership] Retrying in ${RETRY_DELAY}ms...`);
+            await new Promise(r => setTimeout(r, RETRY_DELAY));
+            continue;
+          }
+          // Last attempt still 0 — fall through to static fallback below
+        } else {
+          // Non-200 or no success flag — retry
+          console.warn(`[AccountOwnership] CS fetch attempt ${attempt} returned status ${response.status} for ${normalizedEmail}`);
+          if (attempt < MAX_RETRIES) {
+            console.log(`[AccountOwnership] Retrying in ${RETRY_DELAY}ms...`);
+            await new Promise(r => setTimeout(r, RETRY_DELAY));
+          }
         }
       } catch (error) {
         console.error(`[AccountOwnership] CS account fetch attempt ${attempt} failed for ${normalizedEmail}:`, error);
@@ -1932,8 +1989,11 @@ export class AccountOwnershipService {
       }
     }
     
-    console.error(`[AccountOwnership] All ${MAX_RETRIES} CS fetch attempts failed for ${normalizedEmail}`);
-    return { accounts: [], prospects: [] };
+    // All server attempts failed or returned 0 accounts — use static fallback
+    console.warn(`[AccountOwnership] Server returned no CS accounts after ${MAX_RETRIES} attempts. Using static fallback (${CS_STATIC_ACCOUNTS.length} accounts).`);
+    const { Notice } = await import('obsidian');
+    new Notice(`Loading ${CS_STATIC_ACCOUNTS.length} CS accounts (server warming up)`);
+    return { accounts: [...CS_STATIC_ACCOUNTS], prospects: [] };
   }
 
   /**

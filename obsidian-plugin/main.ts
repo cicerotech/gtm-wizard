@@ -1307,7 +1307,7 @@ class EudiaSetupView extends ItemView {
     const titleSection = header.createDiv({ cls: 'eudia-setup-title-section' });
     titleSection.createEl('h1', { text: 'Welcome to Eudia Sales Vault', cls: 'eudia-setup-main-title' });
     titleSection.createEl('p', { 
-      text: 'Complete these steps to unlock your sales superpowers',
+      text: 'Complete these steps to transcribe and summarize meetings -- capturing objections, next steps, and pain points to drive better client outcomes and smarter selling.',
       cls: 'eudia-setup-subtitle'
     });
     
