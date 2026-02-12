@@ -1764,25 +1764,25 @@ class EudiaSetupView extends ItemView {
       let accounts: OwnedAccount[];
       let prospects: OwnedAccount[] = [];
       if (userGroup === 'cs') {
-        // CS users: If accounts already loaded from static data, try server sync for updates/new accounts
-        if (this.plugin.settings.accountsImported) {
-          console.log('[Eudia SF Import] CS accounts already loaded — syncing with Salesforce for updates...');
-          statusEl.textContent = 'Syncing with Salesforce for latest accounts...';
-          try {
-            const serverResult = await this.accountOwnershipService.getCSAccounts(userEmail);
-            accounts = serverResult.accounts;
-            prospects = serverResult.prospects;
-            console.log(`[Eudia SF Import] CS server sync: ${accounts.length} accounts from SF`);
-          } catch {
-            // Server unavailable — keep existing static accounts
-            statusEl.textContent = 'Salesforce connected! Accounts already loaded.';
+        // CS users: SF Connect = sync with live Salesforce data (real IDs, CSM assignments, enrichment)
+        console.log('[Eudia SF Import] CS user SF Connect — fetching live data from Salesforce...');
+        statusEl.textContent = 'Syncing with Salesforce for latest account data...';
+        try {
+          const serverResult = await this.accountOwnershipService.getCSAccounts(userEmail);
+          accounts = serverResult.accounts;
+          prospects = serverResult.prospects;
+          console.log(`[Eudia SF Import] CS server sync: ${accounts.length} accounts (with real SF IDs + CSM data)`);
+        } catch {
+          if (this.plugin.settings.accountsImported) {
+            // Server unavailable but accounts already loaded from static data
+            statusEl.textContent = 'Salesforce connected! Account folders already loaded. Enrichment will retry later.';
             statusEl.className = 'eudia-setup-sf-status success';
+            this.steps[1].status = 'complete';
             return;
           }
-        } else {
-          // First time — use static data immediately
+          // First time, no static loaded either — use static fallback
           accounts = [...CS_STATIC_ACCOUNTS];
-          console.log(`[Eudia SF Import] CS first load — using ${accounts.length} static accounts`);
+          console.log(`[Eudia SF Import] CS server unavailable — using ${accounts.length} static accounts`);
         }
       } else if (userGroup === 'admin') {
         console.log('[Eudia] Admin user detected - importing all accounts');
@@ -1850,13 +1850,32 @@ class EudiaSetupView extends ItemView {
       }
       statusEl.className = 'eudia-setup-sf-status success';
 
-      // BACKGROUND: Enrich account data from Salesforce (non-blocking)
+      // BACKGROUND: Enrich account data from Salesforce + regenerate CS Manager dashboard (non-blocking)
       const allSetupAccounts = [...accounts, ...prospects];
+      const sfUserEmail = userEmail;
+      const sfUserGroup = userGroup;
       setTimeout(async () => {
         try {
-          await this.plugin.enrichAccountFolders(allSetupAccounts);
-          const enrichedCount = allSetupAccounts.filter(a => a.id && a.id.length >= 15).length;
-          statusEl.textContent = `${accounts.length + prospects.length} accounts imported, ${enrichedCount} enriched with Salesforce data`;
+          // Enrich folders with Salesforce data (contacts, intelligence, opportunities, next steps)
+          const enrichableAccounts = allSetupAccounts.filter(a => a.id && a.id.length >= 15);
+          if (enrichableAccounts.length > 0) {
+            statusEl.textContent = `Enriching ${enrichableAccounts.length} accounts with Salesforce data...`;
+            await this.plugin.enrichAccountFolders(enrichableAccounts);
+            statusEl.textContent = `${accounts.length} accounts imported, ${enrichableAccounts.length} enriched with Salesforce data`;
+          } else {
+            statusEl.textContent = `${accounts.length} accounts imported (enrichment requires Salesforce IDs)`;
+          }
+          
+          // CS Manager: regenerate dashboard with real CSM assignments from Salesforce
+          if (sfUserGroup === 'cs' && isCSManager(sfUserEmail)) {
+            try {
+              console.log('[Eudia SF Import] Regenerating CS Manager dashboard with live CSM data...');
+              await this.plugin.createCSManagerDashboard(sfUserEmail, accounts);
+              console.log('[Eudia SF Import] CS Manager dashboard updated with CSM assignments');
+            } catch (dashErr) {
+              console.error('[Eudia SF Import] Dashboard regeneration failed (non-blocking):', dashErr);
+            }
+          }
         } catch (e) {
           console.log('[Eudia] Background enrichment skipped:', e);
           statusEl.textContent = `${accounts.length + prospects.length} accounts imported (enrichment will retry on next launch)`;
@@ -1867,7 +1886,10 @@ class EudiaSetupView extends ItemView {
       statusEl.textContent = 'Failed to import accounts. Please try again.';
       statusEl.className = 'eudia-setup-sf-status error';
       // Re-expand sidebar on error
-      if (importLeftSplit && !importWasCollapsed) importLeftSplit.expand();
+      const importLeftSplit2 = (this.plugin.app.workspace as any).leftSplit;
+      if (importLeftSplit2?.collapsed === false) {
+        try { importLeftSplit2.expand(); } catch { /* ok */ }
+      }
     }
   }
 
@@ -4225,11 +4247,11 @@ auto_refresh: true
 
 ## CS Staffing Pipeline
 
-| Account | Type | Owner |
-|---------|------|-------|
+| Account | Type | Owner | CSM |
+|---------|------|-------|-----|
 `;
     for (const acc of accounts.slice(0, 50)) {
-      overviewContent += `| ${acc.name} | ${acc.type || ''} | ${(acc as any).ownerName || ''} |\n`;
+      overviewContent += `| ${acc.name} | ${acc.type || ''} | ${(acc as any).ownerName || ''} | ${(acc as any).csmName || ''} |\n`;
     }
     
     overviewContent += `\n---\n\n*This dashboard auto-updates when the vault syncs. New Stage 4/5 and Existing accounts will appear automatically.*\n`;
@@ -4245,10 +4267,21 @@ auto_refresh: true
     // 2. Per-rep notes (for each direct report)
     for (const reportEmail of directReports) {
       const repName = reportEmail.split('@')[0].replace('.', ' ').replace(/\b\w/g, c => c.toUpperCase());
+      
+      // Match accounts to rep: check CSM name first (primary), then owner name (fallback)
+      const emailPrefix = reportEmail.split('@')[0].replace('.', ' ').toLowerCase();
+      const firstName = emailPrefix.split(' ')[0];
+      const lastName = emailPrefix.split(' ').pop() || '';
+      
       const repAccounts = accounts.filter(a => {
+        // Primary: match on CSM assignment (Account.CSM__c in Salesforce)
+        const csmNorm = ((a as any).csmName || '').toLowerCase();
+        if (csmNorm && (csmNorm.includes(firstName) || csmNorm.includes(lastName))) {
+          return true;
+        }
+        // Fallback: match on account owner (Business Lead)
         const ownerNorm = ((a as any).ownerName || '').toLowerCase();
-        const emailPrefix = reportEmail.split('@')[0].replace('.', ' ').toLowerCase();
-        return ownerNorm.includes(emailPrefix.split(' ')[0]) || ownerNorm.includes(emailPrefix.split(' ').pop() || '');
+        return ownerNorm.includes(firstName) || ownerNorm.includes(lastName);
       });
       
       let repContent = `---
@@ -4270,12 +4303,12 @@ created: ${dateStr}
 
 `;
       if (repAccounts.length > 0) {
-        repContent += `| Account | Type |\n|---------|------|\n`;
+        repContent += `| Account | Type | Owner |\n|---------|------|-------|\n`;
         for (const acc of repAccounts) {
-          repContent += `| ${acc.name} | ${acc.type || ''} |\n`;
+          repContent += `| ${acc.name} | ${acc.type || ''} | ${(acc as any).ownerName || ''} |\n`;
         }
       } else {
-        repContent += `*No accounts currently matched to this rep. Accounts are matched by opportunity owner.*\n`;
+        repContent += `*No accounts currently matched to this rep. Accounts will populate after connecting to Salesforce (Step 2).*\n`;
       }
       
       repContent += `\n---\n\n*Updates automatically as new CS-relevant accounts sync.*\n`;
