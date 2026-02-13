@@ -1011,21 +1011,24 @@ class GTMBrainApp {
     // ─────────────────────────────────────────────────────────────────────────
 
     // Plugin version check — returns current version for auto-update comparison
-    const pluginDir = path.resolve(__dirname, '..', 'obsidian-plugin');
-
+    // Format matches what the plugin expects: { success: true, currentVersion: "4.1.0" }
     this.expressApp.get('/api/plugin/version', (req, res) => {
       try {
-        const manifestPath = path.join(pluginDir, 'manifest.json');
-        if (!fs.existsSync(manifestPath)) {
-          return res.json({ success: true, currentVersion: '4.2.0', version: '4.2.0' });
-        }
+        const manifestPath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+        const mainJsPath = path.join(__dirname, '..', 'obsidian-plugin', 'main.js');
+        const mainJsStat = fs.statSync(mainJsPath);
         res.json({
           success: true,
           currentVersion: manifest.version,
           version: manifest.version,
+          buildHash: mainJsStat.mtimeMs.toString(36),
+          updatedAt: mainJsStat.mtime.toISOString(),
+          name: manifest.name,
         });
       } catch (err) {
+        // Fallback: always return success with hardcoded version so auto-update works
+        // even if manifest.json can't be read from disk (e.g., Render deploy)
         res.json({ success: true, currentVersion: '4.2.0', version: '4.2.0' });
       }
     });
@@ -1033,34 +1036,39 @@ class GTMBrainApp {
     // Plugin file downloads — serves latest compiled plugin files
     // Routes match what the plugin's performAutoUpdate() expects
     this.expressApp.get('/api/plugin/main.js', (req, res) => {
+      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'main.js');
       res.setHeader('Content-Type', 'application/javascript');
       res.setHeader('Cache-Control', 'no-cache');
-      res.sendFile(path.join(pluginDir, 'main.js'));
+      res.sendFile(filePath);
     });
 
     this.expressApp.get('/api/plugin/manifest.json', (req, res) => {
+      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Cache-Control', 'no-cache');
-      res.sendFile(path.join(pluginDir, 'manifest.json'));
+      res.sendFile(filePath);
     });
 
     this.expressApp.get('/api/plugin/styles.css', (req, res) => {
+      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'styles.css');
       res.setHeader('Content-Type', 'text/css');
       res.setHeader('Cache-Control', 'no-cache');
-      res.sendFile(path.join(pluginDir, 'styles.css'));
+      res.sendFile(filePath);
     });
 
-    // Aliases
+    // Also serve at /api/plugin/bundle and /api/plugin/manifest as aliases
     this.expressApp.get('/api/plugin/bundle', (req, res) => {
+      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'main.js');
       res.setHeader('Content-Type', 'application/javascript');
       res.setHeader('Cache-Control', 'no-cache');
-      res.sendFile(path.join(pluginDir, 'main.js'));
+      res.sendFile(filePath);
     });
 
     this.expressApp.get('/api/plugin/manifest', (req, res) => {
+      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Cache-Control', 'no-cache');
-      res.sendFile(path.join(pluginDir, 'manifest.json'));
+      res.sendFile(filePath);
     });
 
     // Plugin telemetry — receives health data from plugin instances
@@ -1145,7 +1153,7 @@ class GTMBrainApp {
           userGroup,
           expectedAccounts,
           setupShouldBeComplete: true,
-          serverVersion: (() => { try { return JSON.parse(fs.readFileSync(path.join(pluginDir, 'manifest.json'), 'utf-8')).version; } catch { return '4.2.0'; } })(),
+          serverVersion: require(path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json')).version,
           timestamp: new Date().toISOString(),
         });
       } catch (err) {
@@ -1227,7 +1235,32 @@ class GTMBrainApp {
       });
     });
 
-    // NOTE: Plugin version endpoint is defined above (line ~1016) — duplicate removed
+    // Plugin version endpoint - reads from manifest.json for accurate version
+    this.expressApp.get('/api/plugin/version', (req, res) => {
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const manifestPath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        res.json({
+          success: true,
+          currentVersion: manifest.version,
+          minimumVersion: '3.0.0',
+          downloadUrl: 'https://gtm-wizard.onrender.com/api/plugin/main.js',
+          vaultDownloadUrl: 'https://gtm-wizard.onrender.com/vault/download',
+          releaseNotes: 'Pipeline meeting template, calendar timezone fix, Render DB support',
+          timestamp: new Date().toISOString()
+        });
+      } catch (e) {
+        res.json({
+          success: true,
+          currentVersion: '4.0.0',
+          minimumVersion: '3.0.0',
+          downloadUrl: 'https://gtm-wizard.onrender.com/api/plugin/main.js',
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
 
     // Serve latest plugin main.js directly (for auto-update)
     this.expressApp.get('/api/plugin/main.js', (req, res) => {
