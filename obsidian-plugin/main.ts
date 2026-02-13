@@ -115,7 +115,7 @@ class TelemetryService {
   private serverUrl: string;
   private userEmail: string;
   private enabled: boolean = true; // Can be disabled via settings in future
-  private pluginVersion: string = '4.1.0';
+  private pluginVersion: string = '4.2.0';
   
   constructor(serverUrl: string, userEmail: string = '') {
     this.serverUrl = serverUrl;

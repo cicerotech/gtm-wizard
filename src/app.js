@@ -1006,6 +1006,161 @@ class GTMBrainApp {
       });
     });
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // PLUGIN AUTO-UPDATE ENDPOINTS
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Plugin version check — returns current version for auto-update comparison
+    // Format matches what the plugin expects: { success: true, currentVersion: "4.1.0" }
+    this.expressApp.get('/api/plugin/version', (req, res) => {
+      try {
+        const manifestPath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+        const mainJsPath = path.join(__dirname, '..', 'obsidian-plugin', 'main.js');
+        const mainJsStat = fs.statSync(mainJsPath);
+        res.json({
+          success: true,
+          currentVersion: manifest.version,
+          version: manifest.version,
+          buildHash: mainJsStat.mtimeMs.toString(36),
+          updatedAt: mainJsStat.mtime.toISOString(),
+          name: manifest.name,
+        });
+      } catch (err) {
+        logger.error('[Plugin] Version check failed:', err.message);
+        res.status(500).json({ success: false, error: 'Version check failed' });
+      }
+    });
+
+    // Plugin file downloads — serves latest compiled plugin files
+    // Routes match what the plugin's performAutoUpdate() expects
+    this.expressApp.get('/api/plugin/main.js', (req, res) => {
+      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'main.js');
+      res.setHeader('Content-Type', 'application/javascript');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.sendFile(filePath);
+    });
+
+    this.expressApp.get('/api/plugin/manifest.json', (req, res) => {
+      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.sendFile(filePath);
+    });
+
+    this.expressApp.get('/api/plugin/styles.css', (req, res) => {
+      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'styles.css');
+      res.setHeader('Content-Type', 'text/css');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.sendFile(filePath);
+    });
+
+    // Also serve at /api/plugin/bundle and /api/plugin/manifest as aliases
+    this.expressApp.get('/api/plugin/bundle', (req, res) => {
+      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'main.js');
+      res.setHeader('Content-Type', 'application/javascript');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.sendFile(filePath);
+    });
+
+    this.expressApp.get('/api/plugin/manifest', (req, res) => {
+      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.sendFile(filePath);
+    });
+
+    // Plugin telemetry — receives health data from plugin instances
+    this.expressApp.post('/api/plugin/telemetry', express.json(), (req, res) => {
+      try {
+        const data = req.body;
+        logger.info(`[Plugin Telemetry] ${data.email || 'unknown'} v${data.pluginVersion || '?'} | accounts:${data.accountFolderCount || 0} | setup:${data.setupCompleted} | platform:${data.platform}`);
+        
+        // Store telemetry in file-based cache (append)
+        const telemetryPath = path.join(__dirname, '..', 'data', 'plugin-telemetry.json');
+        let telemetryData = [];
+        try {
+          telemetryData = JSON.parse(fs.readFileSync(telemetryPath, 'utf-8'));
+        } catch { /* file may not exist */ }
+        
+        // Keep last entry per user (overwrite, don't accumulate)
+        const existing = telemetryData.findIndex(t => t.email === data.email);
+        if (existing >= 0) {
+          telemetryData[existing] = { ...data, receivedAt: new Date().toISOString() };
+        } else {
+          telemetryData.push({ ...data, receivedAt: new Date().toISOString() });
+        }
+        fs.writeFileSync(telemetryPath, JSON.stringify(telemetryData, null, 2));
+
+        // Check if there's a remote command queued for this user
+        const commandsPath = path.join(__dirname, '..', 'data', 'plugin-commands.json');
+        let commands = {};
+        try {
+          commands = JSON.parse(fs.readFileSync(commandsPath, 'utf-8'));
+        } catch { /* file may not exist */ }
+
+        const userCommand = commands[data.email];
+        if (userCommand) {
+          // Clear the command after delivery
+          delete commands[data.email];
+          fs.writeFileSync(commandsPath, JSON.stringify(commands, null, 2));
+          return res.json({ success: true, command: userCommand });
+        }
+
+        res.json({ success: true });
+      } catch (err) {
+        logger.error('[Plugin Telemetry] Failed:', err.message);
+        res.json({ success: false });
+      }
+    });
+
+    // Plugin state check — server-side state authority for a user
+    this.expressApp.get('/api/plugin/state/:email', async (req, res) => {
+      try {
+        const email = (req.params.email || '').toLowerCase().trim();
+        if (!email) return res.status(400).json({ error: 'Email required' });
+
+        const userGroup = getUserGroup(email);
+        
+        // Query account count from Salesforce
+        let expectedAccounts = 0;
+        try {
+          if (sfConnection.isConnected) {
+            let countQuery;
+            if (userGroup === 'admin' || userGroup === 'exec') {
+              countQuery = `SELECT COUNT(Id) total FROM Account WHERE Id IN (SELECT AccountId FROM Opportunity) AND (NOT Name LIKE '%Sample%')`;
+            } else if (userGroup === 'cs') {
+              countQuery = `SELECT COUNT(Id) total FROM Account WHERE Customer_Type__c LIKE '%Existing%'`;
+            } else {
+              const userResult = await sfConnection.query(`SELECT Id FROM User WHERE Email = '${email}' LIMIT 1`);
+              if (userResult.records.length > 0) {
+                const userId = userResult.records[0].Id;
+                countQuery = `SELECT COUNT(Id) total FROM Account WHERE OwnerId = '${userId}'`;
+              }
+            }
+            if (countQuery) {
+              const result = await sfConnection.query(countQuery);
+              expectedAccounts = result.records[0]?.total || 0;
+            }
+          }
+        } catch (sfErr) {
+          logger.warn(`[Plugin State] SF query failed for ${email}:`, sfErr.message);
+        }
+
+        res.json({
+          email,
+          userGroup,
+          expectedAccounts,
+          setupShouldBeComplete: true,
+          serverVersion: require(path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json')).version,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err) {
+        logger.error('[Plugin State] Failed:', err.message);
+        res.status(500).json({ error: 'State check failed' });
+      }
+    });
+
     // Salesforce status endpoint
     this.expressApp.get('/sf-status', async (req, res) => {
       const sfStatus = getAuthRateLimitStatus();
