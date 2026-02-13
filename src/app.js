@@ -4004,25 +4004,106 @@ class GTMBrainApp {
         
         switch (userGroup) {
           case 'admin':
-          case 'exec':
-            // Active accounts only: has open opportunities OR is existing customer OR had any opportunity
-            // Hides cold prospects with no pipeline activity
+          case 'exec': {
+            // Active accounts only: has opportunity history OR is existing customer
+            // Split into two queries (SF SOQL doesn't allow OR with subselects)
             queryDescription = 'active pipeline + existing customers (prospects hidden)';
-            accountQuery = `
+            
+            const oppAccountsQuery = `
               SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
                      (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
               FROM Account 
-              WHERE (NOT Name LIKE '%Sample%')
+              WHERE Id IN (SELECT AccountId FROM Opportunity)
+                AND (NOT Name LIKE '%Sample%')
                 AND (NOT Name LIKE '%Test%')
-                AND (
-                  Id IN (SELECT AccountId FROM Opportunity)
-                  OR Customer_Type__c LIKE '%Existing%'
-                  OR Customer_Type__c LIKE '%Active%'
-                )
               ORDER BY Name ASC
               LIMIT 2000
             `;
+            
+            const existingCustomersQuery = `
+              SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
+                     (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
+              FROM Account 
+              WHERE (Customer_Type__c LIKE '%Existing%' OR Customer_Type__c LIKE '%Active%')
+                AND (NOT Name LIKE '%Sample%')
+                AND (NOT Name LIKE '%Test%')
+              ORDER BY Name ASC
+              LIMIT 500
+            `;
+            
+            try {
+              const [oppResult, existingResult] = await Promise.all([
+                sfConn.query(oppAccountsQuery),
+                sfConn.query(existingCustomersQuery)
+              ]);
+              
+              // Merge and deduplicate
+              const accountMap = new Map();
+              for (const acc of (oppResult.records || [])) {
+                accountMap.set(acc.Id, acc);
+              }
+              for (const acc of (existingResult.records || [])) {
+                if (!accountMap.has(acc.Id)) {
+                  accountMap.set(acc.Id, acc);
+                }
+              }
+              
+              const mergedAccounts = Array.from(accountMap.values());
+              mergedAccounts.sort((a, b) => (a.Name || '').localeCompare(b.Name || ''));
+              
+              // Format response (same as below)
+              const formattedAccounts = mergedAccounts.map(acc => {
+                const opps = acc.Opportunities ? acc.Opportunities.records || [] : [];
+                return {
+                  id: acc.Id,
+                  name: acc.Name,
+                  type: acc.Type || acc.Customer_Type__c || '',
+                  customerType: acc.Customer_Type__c || 'New',
+                  industry: acc.Industry || null,
+                  website: acc.Website || null,
+                  ownerId: acc.OwnerId || null,
+                  ownerName: acc.Owner ? acc.Owner.Name : null,
+                  hasOpenOpps: opps.length > 0,
+                  oppCount: opps.length,
+                  hadOpportunity: true,
+                  openOpps: opps.map(o => ({ name: o.Name, stage: o.StageName }))
+                };
+              });
+              
+              logger.info(`[BL-Accounts][${correlationId}] Admin/exec query returned ${formattedAccounts.length} active accounts`);
+              
+              return res.json({
+                success: true,
+                accounts: formattedAccounts,
+                meta: {
+                  email: normalizedEmail,
+                  userId: userId,
+                  userName: userName,
+                  userGroup,
+                  total: formattedAccounts.length,
+                  activeCount: formattedAccounts.filter(a => a.hasOpenOpps).length,
+                  prospectCount: 0,
+                  queryDescription,
+                  queryTime: Date.now() - queryStart,
+                  lastRefresh: new Date().toISOString(),
+                  correlationId
+                }
+              });
+            } catch (adminQueryErr) {
+              logger.error(`[BL-Accounts][${correlationId}] Admin/exec dual query failed:`, adminQueryErr.message);
+              // Fallback: return all accounts without filter
+              accountQuery = `
+                SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
+                       (SELECT Id, Name, StageName FROM Opportunities WHERE IsClosed = false LIMIT 5)
+                FROM Account 
+                WHERE (NOT Name LIKE '%Sample%')
+                  AND (NOT Name LIKE '%Test%')
+                ORDER BY Name ASC
+                LIMIT 2000
+              `;
+            }
             break;
+          }
             
           case 'sales_leader':
             // All accounts owned by direct reports (explicit mapping) or region BLs
