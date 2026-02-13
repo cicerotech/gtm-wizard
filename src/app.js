@@ -1071,7 +1071,49 @@ class GTMBrainApp {
       res.sendFile(filePath);
     });
 
-    // NOTE: Plugin telemetry handler defined below (line ~1240) — duplicate removed
+    // Plugin telemetry — receives health data from plugin instances
+    this.expressApp.post('/api/plugin/telemetry', express.json(), (req, res) => {
+      try {
+        const data = req.body;
+        logger.info(`[Plugin Telemetry] ${data.email || 'unknown'} v${data.pluginVersion || '?'} | accounts:${data.accountFolderCount || 0} | setup:${data.setupCompleted} | platform:${data.platform}`);
+        
+        // Store telemetry in file-based cache (append)
+        const telemetryPath = path.join(__dirname, '..', 'data', 'plugin-telemetry.json');
+        let telemetryData = [];
+        try {
+          telemetryData = JSON.parse(fs.readFileSync(telemetryPath, 'utf-8'));
+        } catch { /* file may not exist */ }
+        
+        // Keep last entry per user (overwrite, don't accumulate)
+        const existing = telemetryData.findIndex(t => t.email === data.email);
+        if (existing >= 0) {
+          telemetryData[existing] = { ...data, receivedAt: new Date().toISOString() };
+        } else {
+          telemetryData.push({ ...data, receivedAt: new Date().toISOString() });
+        }
+        fs.writeFileSync(telemetryPath, JSON.stringify(telemetryData, null, 2));
+
+        // Check if there's a remote command queued for this user
+        const commandsPath = path.join(__dirname, '..', 'data', 'plugin-commands.json');
+        let commands = {};
+        try {
+          commands = JSON.parse(fs.readFileSync(commandsPath, 'utf-8'));
+        } catch { /* file may not exist */ }
+
+        const userCommand = commands[data.email];
+        if (userCommand) {
+          // Clear the command after delivery
+          delete commands[data.email];
+          fs.writeFileSync(commandsPath, JSON.stringify(commands, null, 2));
+          return res.json({ success: true, command: userCommand });
+        }
+
+        res.json({ success: true });
+      } catch (err) {
+        logger.error('[Plugin Telemetry] Failed:', err.message);
+        res.json({ success: false });
+      }
+    });
 
     // Plugin state check — server-side state authority for a user
     this.expressApp.get('/api/plugin/state/:email', async (req, res) => {
@@ -1193,8 +1235,56 @@ class GTMBrainApp {
       });
     });
 
-    // NOTE: Plugin version + file download endpoints defined above (lines ~1013-1072)
-    // Duplicate block removed to prevent route conflicts
+    // Plugin version endpoint - reads from manifest.json for accurate version
+    this.expressApp.get('/api/plugin/version', (req, res) => {
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const manifestPath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        res.json({
+          success: true,
+          currentVersion: manifest.version,
+          minimumVersion: '3.0.0',
+          downloadUrl: 'https://gtm-wizard.onrender.com/api/plugin/main.js',
+          vaultDownloadUrl: 'https://gtm-wizard.onrender.com/vault/download',
+          releaseNotes: 'Pipeline meeting template, calendar timezone fix, Render DB support',
+          timestamp: new Date().toISOString()
+        });
+      } catch (e) {
+        res.json({
+          success: true,
+          currentVersion: '4.0.0',
+          minimumVersion: '3.0.0',
+          downloadUrl: 'https://gtm-wizard.onrender.com/api/plugin/main.js',
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    // Serve latest plugin main.js directly (for auto-update)
+    this.expressApp.get('/api/plugin/main.js', (req, res) => {
+      const path = require('path');
+      const mainJsPath = path.join(__dirname, '..', 'obsidian-plugin', 'main.js');
+      res.setHeader('Content-Type', 'application/javascript');
+      res.sendFile(mainJsPath);
+    });
+
+    // Serve latest plugin manifest.json
+    this.expressApp.get('/api/plugin/manifest.json', (req, res) => {
+      const path = require('path');
+      const manifestPath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
+      res.setHeader('Content-Type', 'application/json');
+      res.sendFile(manifestPath);
+    });
+
+    // Serve latest plugin styles.css
+    this.expressApp.get('/api/plugin/styles.css', (req, res) => {
+      const path = require('path');
+      const stylesPath = path.join(__dirname, '..', 'obsidian-plugin', 'styles.css');
+      res.setHeader('Content-Type', 'text/css');
+      res.sendFile(stylesPath);
+    });
 
     // Plugin telemetry endpoint - for remote debugging (opt-in)
     // Receives error reports from the Obsidian plugin for debugging
