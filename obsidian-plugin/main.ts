@@ -1202,7 +1202,22 @@ class EudiaSetupView extends ItemView {
       
       // Check if accounts are imported — if email is set but accounts haven't loaded, auto-retry
       if (this.plugin.settings.accountsImported) {
-        this.steps[2].status = 'complete';
+        // VERIFY: Check that account folders actually exist in the filesystem
+        const verifyFolder = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.accountsFolder || 'Accounts');
+        const verifyChildren = (verifyFolder as any)?.children?.filter((c: any) => c.children !== undefined) || [];
+        
+        if (verifyChildren.length > 0) {
+          this.steps[2].status = 'complete';
+          console.log(`[Eudia] Vault reopen: ${verifyChildren.length} account folders verified`);
+        } else {
+          // Flag says imported but no folders exist — reset for re-import
+          console.warn(`[Eudia] accountsImported=true but 0 account folders found — resetting for re-import`);
+          this.plugin.settings.accountsImported = false;
+          this.plugin.settings.importedAccountCount = 0;
+          await this.plugin.saveSettings();
+          // Fall through to the auto-retry block below (line ~1247)
+        }
+
         // Clean up placeholder if still present
         try {
           const setupFile = this.plugin.app.vault.getAbstractFileByPath('Accounts/_Setup Required.md');
@@ -1536,8 +1551,17 @@ class EudiaSetupView extends ItemView {
               }
             }
             
-            this.plugin.settings.accountsImported = true;
-            this.plugin.settings.importedAccountCount = accounts.length;
+            // Verify folders were actually created before setting flag
+            const csAccountsFolder = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.accountsFolder || 'Accounts');
+            const csFolderChildren = (csAccountsFolder as any)?.children?.filter((c: any) => c.children !== undefined) || [];
+            if (csFolderChildren.length > 0) {
+              this.plugin.settings.accountsImported = true;
+              this.plugin.settings.importedAccountCount = accounts.length;
+              console.log(`[Eudia] CS accounts verified: ${csFolderChildren.length} folders created`);
+            } else {
+              console.warn(`[Eudia] CS folder creation may have failed — ${csFolderChildren.length} folders found. Keeping accountsImported=false for retry.`);
+              this.plugin.settings.accountsImported = false;
+            }
             await this.plugin.saveSettings();
 
             // Remove _Setup Required.md placeholder
@@ -1595,8 +1619,17 @@ class EudiaSetupView extends ItemView {
               }
               await this.plugin.createAdminAccountFolders(accounts);
               
-              this.plugin.settings.accountsImported = true;
-              this.plugin.settings.importedAccountCount = accounts.length;
+              // Verify folders were actually created before setting flag
+              const adminAcctFolder = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.accountsFolder || 'Accounts');
+              const adminFolderChildren = (adminAcctFolder as any)?.children?.filter((c: any) => c.children !== undefined) || [];
+              if (adminFolderChildren.length > 0) {
+                this.plugin.settings.accountsImported = true;
+                this.plugin.settings.importedAccountCount = accounts.length;
+                console.log(`[Eudia] Admin accounts verified: ${adminFolderChildren.length} folders created`);
+              } else {
+                console.warn(`[Eudia] Admin folder creation may have failed — keeping accountsImported=false for retry`);
+                this.plugin.settings.accountsImported = false;
+              }
               await this.plugin.saveSettings();
 
               try {
@@ -1654,8 +1687,17 @@ class EudiaSetupView extends ItemView {
                 await this.plugin.createProspectAccountFiles(prospects);
               }
               
-              this.plugin.settings.accountsImported = true;
-              this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
+              // Verify folders were actually created before setting flag
+              const blAcctFolder = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.accountsFolder || 'Accounts');
+              const blFolderChildren = (blAcctFolder as any)?.children?.filter((c: any) => c.children !== undefined) || [];
+              if (blFolderChildren.length > 0) {
+                this.plugin.settings.accountsImported = true;
+                this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
+                console.log(`[Eudia] BL accounts verified: ${blFolderChildren.length} folders created`);
+              } else {
+                console.warn(`[Eudia] BL folder creation may have failed — keeping accountsImported=false for retry`);
+                this.plugin.settings.accountsImported = false;
+              }
               await this.plugin.saveSettings();
 
               try {
@@ -3721,15 +3763,16 @@ created: ${dateStr}
       createdCount += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
     }
 
-    // Update cached accounts
-    this.settings.cachedAccounts = accounts.map(a => ({
-      id: a.id,
-      name: a.name
-    }));
-    await this.saveSettings();
-
+    // Only update cached accounts if folders were actually created
     if (createdCount > 0) {
+      this.settings.cachedAccounts = accounts.map(a => ({
+        id: a.id,
+        name: a.name
+      }));
+      await this.saveSettings();
       new Notice(`Created ${createdCount} account folders`);
+    } else {
+      console.warn(`[Eudia] createTailoredAccountFolders: 0 folders created out of ${accounts.length} accounts — not updating cachedAccounts`);
     }
     
     // Also create the Next Steps aggregation folder if it doesn't exist
@@ -5178,11 +5221,44 @@ last_updated: ${dateStr}
       // Add glow effect to ribbon icon
       this.micRibbonIcon?.addClass('eudia-ribbon-recording');
 
-      // Update status bar with audio levels
+      // Update status bar with audio levels + recording time limit checks
+      let recordingPromptShown = false;
       const updateInterval = setInterval(() => {
         if (this.audioRecorder?.isRecording()) {
           const state = this.audioRecorder.getState();
           this.recordingStatusBar?.updateState(state);
+
+          // 45-minute prompt: "Still in this meeting?"
+          if (state.duration >= 2700 && !recordingPromptShown) {
+            recordingPromptShown = true;
+            const modal = new (class extends Modal {
+              result: boolean = true;
+              onOpen() {
+                const { contentEl } = this;
+                contentEl.createEl('h2', { text: 'Still recording?' });
+                contentEl.createEl('p', { text: 'You have been recording for 45 minutes. Are you still in this meeting?' });
+                contentEl.createEl('p', { text: 'Recording will auto-stop at 90 minutes.', cls: 'mod-warning' });
+                const btnContainer = contentEl.createDiv({ cls: 'modal-button-container' });
+                btnContainer.createEl('button', { text: 'Keep Recording', cls: 'mod-cta' }).onclick = () => { this.close(); };
+                btnContainer.createEl('button', { text: 'Stop Recording' }).onclick = () => { this.result = false; this.close(); };
+              }
+              onClose() {
+                if (!this.result) {
+                  // User chose to stop
+                  plugin.stopRecording();
+                }
+              }
+            })(this.app);
+            const plugin = this;
+            modal.open();
+          }
+
+          // 90-minute hard stop (safety net — AudioRecorder also enforces this)
+          if (state.duration >= 5400) {
+            new Notice('Recording stopped — maximum 90 minutes reached.');
+            this.stopRecording();
+            clearInterval(updateInterval);
+          }
         } else {
           clearInterval(updateInterval);
         }

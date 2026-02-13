@@ -213,6 +213,12 @@ export class AudioRecorder {
         const elapsed = Date.now() - this.startTime - this.pausedDuration;
         this.state.duration = Math.floor(elapsed / 1000);
         this.notifyStateChange();
+
+        // Hard stop at 90 minutes — prevent excessively long recordings
+        if (this.state.duration >= 5400) {
+          console.log('[Eudia] Maximum recording duration reached (90 minutes) — auto-stopping');
+          this.stop();
+        }
       }
     }, 100);
   }
