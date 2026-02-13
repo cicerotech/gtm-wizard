@@ -1011,39 +1011,22 @@ class GTMBrainApp {
     // ─────────────────────────────────────────────────────────────────────────
 
     // Plugin version check — returns current version for auto-update comparison
-    // Format matches what the plugin expects: { success: true, currentVersion: "4.2.0" }
     const pluginDir = path.resolve(__dirname, '..', 'obsidian-plugin');
-    logger.info(`[Plugin] Plugin directory resolved to: ${pluginDir}`);
-    logger.info(`[Plugin] Plugin files exist: main.js=${fs.existsSync(path.join(pluginDir, 'main.js'))}, manifest.json=${fs.existsSync(path.join(pluginDir, 'manifest.json'))}`);
 
     this.expressApp.get('/api/plugin/version', (req, res) => {
       try {
         const manifestPath = path.join(pluginDir, 'manifest.json');
         if (!fs.existsSync(manifestPath)) {
-          logger.error(`[Plugin] manifest.json not found at: ${manifestPath}`);
-          return res.json({ success: true, currentVersion: '4.2.0', version: '4.2.0', note: 'Hardcoded fallback — manifest not found on disk' });
+          return res.json({ success: true, currentVersion: '4.2.0', version: '4.2.0' });
         }
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-        const mainJsPath = path.join(pluginDir, 'main.js');
-        let buildHash = 'unknown';
-        let updatedAt = new Date().toISOString();
-        try {
-          const stat = fs.statSync(mainJsPath);
-          buildHash = stat.mtimeMs.toString(36);
-          updatedAt = stat.mtime.toISOString();
-        } catch { /* ok */ }
         res.json({
           success: true,
           currentVersion: manifest.version,
           version: manifest.version,
-          buildHash,
-          updatedAt,
-          name: manifest.name || 'Eudia Transcription Plugin',
         });
       } catch (err) {
-        logger.error('[Plugin] Version check failed:', err.message);
-        // Hardcoded fallback so auto-update still works even if disk read fails
-        res.json({ success: true, currentVersion: '4.2.0', version: '4.2.0', note: 'Fallback' });
+        res.json({ success: true, currentVersion: '4.2.0', version: '4.2.0' });
       }
     });
 
@@ -1162,7 +1145,7 @@ class GTMBrainApp {
           userGroup,
           expectedAccounts,
           setupShouldBeComplete: true,
-          serverVersion: require(path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json')).version,
+          serverVersion: (() => { try { return JSON.parse(fs.readFileSync(path.join(pluginDir, 'manifest.json'), 'utf-8')).version; } catch { return '4.2.0'; } })(),
           timestamp: new Date().toISOString(),
         });
       } catch (err) {
