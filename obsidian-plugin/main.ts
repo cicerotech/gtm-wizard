@@ -1604,7 +1604,40 @@ class EudiaSetupView extends ItemView {
                 if (setupFile) await this.plugin.app.vault.delete(setupFile);
               } catch { /* ok if already gone */ }
 
-              new Notice(`Imported ${accounts.length} accounts!`);
+              new Notice(`Imported ${accounts.length} accounts! Enriching with Salesforce data...`);
+
+              // SYNCHRONOUS enrichment for admin/exec — populate contacts, intelligence, meeting notes
+              const enrichableAdminAccounts = accounts.filter(a => a.id && a.id.startsWith('001'));
+              if (enrichableAdminAccounts.length > 0) {
+                if (validationEl) {
+                  validationEl.textContent = `Enriching ${enrichableAdminAccounts.length} accounts with Salesforce contacts...`;
+                }
+                try {
+                  await this.plugin.enrichAccountFolders(enrichableAdminAccounts);
+                  new Notice(`${accounts.length} accounts loaded and enriched with Salesforce data!`);
+                  console.log(`[Eudia] Admin/exec synchronous enrichment complete: ${enrichableAdminAccounts.length} accounts`);
+                  if (validationEl) {
+                    validationEl.textContent = `${accounts.length} accounts loaded and enriched!`;
+                  }
+                } catch (enrichErr) {
+                  console.log('[Eudia] Admin/exec synchronous enrichment failed, will retry on next open:', enrichErr);
+                  new Notice(`${accounts.length} accounts imported! Contacts will populate on next vault open.`);
+                  // Background retry with delays
+                  const retryDelays = [5000, 20000, 60000];
+                  const bgEnrich = async (attempt: number): Promise<void> => {
+                    const delay = retryDelays[attempt];
+                    if (delay === undefined) return;
+                    await new Promise(r => setTimeout(r, delay));
+                    try {
+                      await this.plugin.enrichAccountFolders(enrichableAdminAccounts);
+                      console.log(`[Eudia] Admin/exec background enrichment retry ${attempt + 1} succeeded`);
+                    } catch {
+                      return bgEnrich(attempt + 1);
+                    }
+                  };
+                  bgEnrich(0);
+                }
+              }
             }
           } else {
             // Business Lead path — server-dependent
