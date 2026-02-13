@@ -1011,63 +1011,73 @@ class GTMBrainApp {
     // ─────────────────────────────────────────────────────────────────────────
 
     // Plugin version check — returns current version for auto-update comparison
-    // Format matches what the plugin expects: { success: true, currentVersion: "4.1.0" }
+    // Format matches what the plugin expects: { success: true, currentVersion: "4.2.0" }
+    const pluginDir = path.resolve(__dirname, '..', 'obsidian-plugin');
+    logger.info(`[Plugin] Plugin directory resolved to: ${pluginDir}`);
+    logger.info(`[Plugin] Plugin files exist: main.js=${fs.existsSync(path.join(pluginDir, 'main.js'))}, manifest.json=${fs.existsSync(path.join(pluginDir, 'manifest.json'))}`);
+
     this.expressApp.get('/api/plugin/version', (req, res) => {
       try {
-        const manifestPath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
+        const manifestPath = path.join(pluginDir, 'manifest.json');
+        if (!fs.existsSync(manifestPath)) {
+          logger.error(`[Plugin] manifest.json not found at: ${manifestPath}`);
+          return res.json({ success: true, currentVersion: '4.2.0', version: '4.2.0', note: 'Hardcoded fallback — manifest not found on disk' });
+        }
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-        const mainJsPath = path.join(__dirname, '..', 'obsidian-plugin', 'main.js');
-        const mainJsStat = fs.statSync(mainJsPath);
+        const mainJsPath = path.join(pluginDir, 'main.js');
+        let buildHash = 'unknown';
+        let updatedAt = new Date().toISOString();
+        try {
+          const stat = fs.statSync(mainJsPath);
+          buildHash = stat.mtimeMs.toString(36);
+          updatedAt = stat.mtime.toISOString();
+        } catch { /* ok */ }
         res.json({
           success: true,
           currentVersion: manifest.version,
           version: manifest.version,
-          buildHash: mainJsStat.mtimeMs.toString(36),
-          updatedAt: mainJsStat.mtime.toISOString(),
-          name: manifest.name,
+          buildHash,
+          updatedAt,
+          name: manifest.name || 'Eudia Transcription Plugin',
         });
       } catch (err) {
         logger.error('[Plugin] Version check failed:', err.message);
-        res.status(500).json({ success: false, error: 'Version check failed' });
+        // Hardcoded fallback so auto-update still works even if disk read fails
+        res.json({ success: true, currentVersion: '4.2.0', version: '4.2.0', note: 'Fallback' });
       }
     });
 
     // Plugin file downloads — serves latest compiled plugin files
     // Routes match what the plugin's performAutoUpdate() expects
     this.expressApp.get('/api/plugin/main.js', (req, res) => {
-      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'main.js');
       res.setHeader('Content-Type', 'application/javascript');
       res.setHeader('Cache-Control', 'no-cache');
-      res.sendFile(filePath);
+      res.sendFile(path.join(pluginDir, 'main.js'));
     });
 
     this.expressApp.get('/api/plugin/manifest.json', (req, res) => {
-      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Cache-Control', 'no-cache');
-      res.sendFile(filePath);
+      res.sendFile(path.join(pluginDir, 'manifest.json'));
     });
 
     this.expressApp.get('/api/plugin/styles.css', (req, res) => {
-      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'styles.css');
       res.setHeader('Content-Type', 'text/css');
       res.setHeader('Cache-Control', 'no-cache');
-      res.sendFile(filePath);
+      res.sendFile(path.join(pluginDir, 'styles.css'));
     });
 
-    // Also serve at /api/plugin/bundle and /api/plugin/manifest as aliases
+    // Aliases
     this.expressApp.get('/api/plugin/bundle', (req, res) => {
-      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'main.js');
       res.setHeader('Content-Type', 'application/javascript');
       res.setHeader('Cache-Control', 'no-cache');
-      res.sendFile(filePath);
+      res.sendFile(path.join(pluginDir, 'main.js'));
     });
 
     this.expressApp.get('/api/plugin/manifest', (req, res) => {
-      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Cache-Control', 'no-cache');
-      res.sendFile(filePath);
+      res.sendFile(path.join(pluginDir, 'manifest.json'));
     });
 
     // Plugin telemetry — receives health data from plugin instances
