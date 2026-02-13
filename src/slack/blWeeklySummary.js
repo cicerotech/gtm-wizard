@@ -74,19 +74,10 @@ const PROPOSAL_STAGE = 'Stage 4 - Proposal';
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Q1 FY26 Forecast - AI-Enabled Net-New Revenue Only
-// Updated 2026-02-05 per finance feedback
+// Target is fixed; commit/weighted/midpoint are now queried LIVE from Salesforce
 const Q1_FY26_FORECAST = {
-  // Q1 Budget Target
-  target: 6.00,       // $6M Q1 target
-  
-  // AI-Enabled Commit (Net): BL-committed AI-enabled deals
-  floor: 4.30,        // $4.3M - AI-Enabled Commit (Net)
-  
-  // AI-Enabled Weighted (Net): Stage-weighted probability
-  expected: 5.40,     // $5.4M - AI-Enabled Weighted (Net)
-  
-  // AI-Enabled Midpoint (Net): Between commit and weighted
-  midpoint: 4.80      // $4.8M - AI-Enabled Midpoint (Net)
+  target: 6.00       // $6M Q1 target (fixed)
+  // floor, expected, midpoint are populated dynamically by queryAIEnabledForecast()
 };
 
 // Q1 Pipeline by Pod (from SF report)
@@ -1169,6 +1160,154 @@ async function queryPipelineBySalesType() {
 }
 
 /**
+ * Query LIVE AI-Enabled forecast data from Salesforce
+ * Returns commit, weighted, and midpoint for AI-enabled net-new deals
+ * This replaces the hardcoded Q1_FY26_FORECAST values
+ */
+async function queryAIEnabledForecast() {
+  try {
+    logger.info('Querying LIVE AI-Enabled forecast data...');
+    
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    
+    // Q1 FY26: Feb 1 - Apr 30
+    let q1EndStr;
+    if (month >= 1 && month <= 3) {
+      q1EndStr = `${year}-04-30`;
+    } else if (month === 0) {
+      q1EndStr = `${year}-04-30`;
+    } else {
+      q1EndStr = `${year + 1}-04-30`;
+    }
+    
+    // Query AI-Enabled deals: use AI_Enabled__c = true
+    // Get commit (BL_Forecast_Category__c = 'Commit'), weighted (Blended_Forecast_base__c), and gross ACV
+    // For Net ACV: use Renewal_Net_Change__c where available, otherwise ACV__c
+    const soql = `
+      SELECT Id, ACV__c, Renewal_Net_Change__c, Blended_Forecast_base__c,
+             BL_Forecast_Category__c, Sales_Type__c, Owner.Name
+      FROM Opportunity
+      WHERE IsClosed = false
+        AND AI_Enabled__c = true
+        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
+        AND Target_LOI_Date__c <= ${q1EndStr}
+        AND Sales_Type__c IN ('New business', 'Expansion')
+    `;
+    
+    const result = await query(soql, true);
+    
+    if (!result || !result.records) {
+      logger.warn('AI-Enabled forecast: No records returned, using target only');
+      return { commitNet: 0, weightedNet: 0, midpointNet: 0, dealCount: 0, totalNetACV: 0 };
+    }
+    
+    let commitNet = 0;
+    let weightedNet = 0;
+    let totalNetACV = 0;
+    let dealCount = result.records.length;
+    const blCommits = {};
+    
+    result.records.forEach(opp => {
+      const grossACV = opp.ACV__c || 0;
+      // Net ACV: use Renewal_Net_Change__c if set (for expansions), else use full ACV (new business)
+      const netACV = (opp.Renewal_Net_Change__c !== null && opp.Renewal_Net_Change__c !== undefined)
+        ? opp.Renewal_Net_Change__c
+        : grossACV;
+      
+      const blended = opp.Blended_Forecast_base__c || 0;
+      const isCommit = opp.BL_Forecast_Category__c === 'Commit';
+      const ownerName = opp.Owner?.Name || 'Unknown';
+      
+      totalNetACV += netACV;
+      weightedNet += blended;
+      
+      if (isCommit) {
+        commitNet += netACV;
+        blCommits[ownerName] = (blCommits[ownerName] || 0) + netACV;
+      }
+    });
+    
+    const midpointNet = (commitNet + weightedNet) / 2;
+    
+    logger.info(`AI-Enabled Forecast (LIVE): Commit=$${(commitNet/1000000).toFixed(2)}M, Weighted=$${(weightedNet/1000000).toFixed(2)}M, Midpoint=$${(midpointNet/1000000).toFixed(2)}M (${dealCount} deals)`);
+    logger.info(`AI-Enabled BL Commits: ${JSON.stringify(Object.fromEntries(Object.entries(blCommits).map(([k,v]) => [k, `$${(v/1000).toFixed(0)}k`])))}`);
+    
+    return { commitNet, weightedNet, midpointNet, dealCount, totalNetACV, blCommits };
+    
+  } catch (error) {
+    logger.error('Failed to query AI-Enabled forecast:', error);
+    // Fallback: return zeros (the PDF will show $0 which signals an issue)
+    return { commitNet: 0, weightedNet: 0, midpointNet: 0, dealCount: 0, totalNetACV: 0, blCommits: {} };
+  }
+}
+
+/**
+ * Query pipeline by solution bucket (LIVE from Salesforce)
+ * Replaces hardcoded Q1_BY_SOLUTION constant
+ * Uses individual record query to properly count AI-enabled deals
+ */
+async function queryPipelineBySolution() {
+  try {
+    logger.info('Querying pipeline by Solution bucket (LIVE)...');
+    
+    const now = new Date();
+    const year = now.getFullYear();
+    const q1End = `${year}-04-30`;
+    
+    // Query individual records — SAME base filter as queryPipelineBySalesType
+    // so deal counts align between Sales Type and Solution tables
+    const soql = `
+      SELECT Product_Line__c, ACV__c, AI_Enabled__c
+      FROM Opportunity
+      WHERE IsClosed = false
+        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
+        AND Target_LOI_Date__c <= ${q1End}
+    `;
+    
+    const result = await query(soql, true);
+    
+    if (!result || !result.records) {
+      logger.warn('Pipeline by Solution: No records returned');
+      return Q1_BY_SOLUTION; // Fallback to hardcoded
+    }
+    
+    // Map Product_Line__c values to solution buckets
+    const buckets = {};
+    result.records.forEach(opp => {
+      const productLine = opp.Product_Line__c || 'Undetermined';
+      let bucket;
+      if (productLine.includes('Software') || productLine === 'Pure Software') {
+        bucket = 'Pure Software';
+      } else if (productLine.includes('AI') && productLine.includes('Service')) {
+        bucket = 'AI-Enabled Services';
+      } else if (productLine === 'Mixed' || productLine.includes('Mixed')) {
+        bucket = 'Mixed';
+      } else if (productLine.includes('Legacy') || (productLine.includes('Service') && !productLine.includes('AI'))) {
+        bucket = 'Legacy Services';
+      } else {
+        bucket = 'Undetermined';
+      }
+      
+      if (!buckets[bucket]) buckets[bucket] = { acv: 0, count: 0, aiEnabled: 0 };
+      buckets[bucket].acv += (opp.ACV__c || 0);
+      buckets[bucket].count += 1;
+      if (opp.AI_Enabled__c) buckets[bucket].aiEnabled += 1;
+    });
+    
+    const totalDeals = result.records.length;
+    const totalACV = result.records.reduce((sum, o) => sum + (o.ACV__c || 0), 0);
+    logger.info(`Pipeline by Solution (LIVE): ${Object.keys(buckets).length} buckets, ${totalDeals} deals, $${(totalACV/1000000).toFixed(1)}M ACV`);
+    return buckets;
+    
+  } catch (error) {
+    logger.error('Failed to query pipeline by Solution:', error);
+    return Q1_BY_SOLUTION; // Fallback to hardcoded
+  }
+}
+
+/**
  * Check if date is targeting close this month
  * Matches SF report filter: Target_LOI_Date__c <= end of current month
  * This includes overdue deals that haven't been rescheduled
@@ -1439,8 +1578,14 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     signedLastWeek,
     top10January,
     top10Q1,
-    pipelineBySalesType
+    pipelineBySalesType,
+    aiEnabledForecast
   } = revOpsData;
+  
+  // Use LIVE AI-enabled data for forecast table (fallback to hardcoded target only)
+  const liveCommit = aiEnabledForecast ? aiEnabledForecast.commitNet / 1000000 : 0;
+  const liveWeighted = aiEnabledForecast ? aiEnabledForecast.weightedNet / 1000000 : 0;
+  const liveMidpoint = aiEnabledForecast ? aiEnabledForecast.midpointNet / 1000000 : 0;
   
   // Page dimensions
   const LEFT = 40;
@@ -1519,12 +1664,12 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.text('AI-Enabled, Net-New', LEFT + 8, y + 3);
   y += 14;
   
-  // Forecast rows - quieter colors, smaller fonts, italicized where appropriate
+  // Forecast rows - LIVE data from Salesforce (AI-Enabled, Net-New)
   const forecastRows = [
     { label: 'Q1 Target', value: Q1_FY26_FORECAST.target, labelBold: true, amountBold: true, bg: '#f0fdf4' },     // Very light green
-    { label: 'Commit (Net)', value: Q1_FY26_FORECAST.floor, labelBold: false, amountBold: false, bg: '#f9fafb', italic: true },
-    { label: 'Weighted (Net)', value: Q1_FY26_FORECAST.expected, labelBold: false, amountBold: false, bg: '#ffffff', italic: true },
-    { label: 'Midpoint (Net)', value: Q1_FY26_FORECAST.midpoint, labelBold: true, amountBold: true, bg: '#eff6ff' }  // Very light blue
+    { label: 'Commit (Net)', value: liveCommit, labelBold: false, amountBold: false, bg: '#f9fafb', italic: true },
+    { label: 'Weighted (Net)', value: liveWeighted, labelBold: false, amountBold: false, bg: '#ffffff', italic: true },
+    { label: 'Midpoint (Net)', value: liveMidpoint, labelBold: true, amountBold: true, bg: '#eff6ff' }  // Very light blue
   ];
   
   forecastRows.forEach((row) => {
@@ -1772,9 +1917,10 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   // Solution table - same width as sales type table
   const solutionTableWidth = PAGE_WIDTH;
   
-  // Pre-calculate total ACV for Mix % calculation
+  // Use LIVE solution data if available, fallback to hardcoded
+  const solutionData = revOpsData.liveSolutionData || Q1_BY_SOLUTION;
   const solutionOrder = ['Pure Software', 'AI-Enabled Services', 'Mixed', 'Undetermined', 'Legacy Services'];
-  const preTotalACV = solutionOrder.reduce((sum, b) => sum + (Q1_BY_SOLUTION[b]?.acv || 0), 0);
+  const preTotalACV = solutionOrder.reduce((sum, b) => sum + (solutionData[b]?.acv || 0), 0);
   
   // Header row - with Mix % column
   doc.rect(LEFT, y, solutionTableWidth, 20).fill('#1f2937');
@@ -1794,7 +1940,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
   
   solutionOrder.forEach((bucket, i) => {
-    const data = Q1_BY_SOLUTION[bucket] || { acv: 0, count: 0, aiEnabled: 0 };
+    const data = solutionData[bucket] || { acv: 0, count: 0, aiEnabled: 0 };
     solutionTotalACV += data.acv;
     solutionTotalCount += data.count;
     solutionTotalAI += data.aiEnabled;
@@ -1834,13 +1980,13 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   y += 18;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // FOOTER
+  // FOOTER — cap y to prevent overflow onto an extra page
   // ═══════════════════════════════════════════════════════════════════════════
-  y += 10;
+  y = Math.min(y + 10, 760);
   doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, y).lineTo(RIGHT, y).stroke();
   
   doc.font(fontRegular).fontSize(7).fillColor(LIGHT_TEXT);
-  doc.text('Generated by Eudia GTM Brain • www.eudia.com • Internal use only', LEFT, y + 4, { width: PAGE_WIDTH, align: 'center' });
+  doc.text('Generated by Eudia GTM Brain • www.eudia.com • Internal use only', LEFT, y + 4, { width: PAGE_WIDTH, align: 'center', lineBreak: false });
   
   return y + 20;
 }
@@ -1875,7 +2021,7 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       // ═══════════════════════════════════════════════════════════════════════
       if (revOpsData) {
         generatePage1RevOpsSummary(doc, revOpsData, dateStr);
-        doc.addPage(); // Add page break before GTM Snapshot
+        doc.addPage();
       }
       
       // ═══════════════════════════════════════════════════════════════════════
@@ -2109,8 +2255,9 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         activeBLs.forEach(bl => {
           const m = blMetrics[bl];
           const displayName = bl.split(' ')[0];
-          // Use BL_COMMIT_SNAPSHOT for Commit column (not weighted ACV)
-          const commitValue = BL_COMMIT_SNAPSHOT[bl] || 0;
+          // Use LIVE AI-enabled commit data, fallback to hardcoded snapshot
+          const liveBLCommits = revOpsData?.aiEnabledForecast?.blCommits || {};
+          const commitValue = liveBLCommits[bl] || BL_COMMIT_SNAPSHOT[bl] || 0;
           doc.text(displayName, startX, rowY);
           doc.text(m.accounts.toString(), startX + 50, rowY, { width: 25, align: 'right' });
           doc.text(m.opportunities.toString(), startX + 80, rowY, { width: 25, align: 'right' });
@@ -2205,12 +2352,13 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       
       // ═══════════════════════════════════════════════════════════════════════
       // FOOTER - Compact, simple gray border-top with centered text
+      // Guard: only render if within page bounds (prevents blank overflow page)
       // ═══════════════════════════════════════════════════════════════════════
-      const footerY = y + 6;
+      const footerY = Math.min(y + 6, 760); // Cap at 760pt to stay within Letter page
       doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, footerY).lineTo(LEFT + PAGE_WIDTH, footerY).stroke();
       
       doc.font(fontRegular).fontSize(7).fillColor(LIGHT_TEXT);
-      doc.text('Generated by Eudia GTM Brain • www.eudia.com • Internal use only', LEFT, footerY + 4, { width: PAGE_WIDTH, align: 'center' });
+      doc.text('Generated by Eudia GTM Brain • www.eudia.com • Internal use only', LEFT, footerY + 4, { width: PAGE_WIDTH, align: 'center', lineBreak: false });
       
       doc.end();
       
@@ -2517,20 +2665,23 @@ function formatSlackMessage(pipelineData, previousSnapshot, dateStr, revOpsData 
   message += '\n';
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // COMMIT BY BL - Show BL commit values from snapshot (not weighted ACV)
+  // COMMIT BY BL - Use LIVE AI-enabled commit data when available
   // ═══════════════════════════════════════════════════════════════════════════
-  const usBLsCommit = US_POD.filter(bl => (BL_COMMIT_SNAPSHOT[bl] || 0) > 0)
-    .sort((a, b) => (BL_COMMIT_SNAPSHOT[b] || 0) - (BL_COMMIT_SNAPSHOT[a] || 0)).slice(0, 3);
-  const euBLsCommit = EU_POD.filter(bl => (BL_COMMIT_SNAPSHOT[bl] || 0) > 0)
-    .sort((a, b) => (BL_COMMIT_SNAPSHOT[b] || 0) - (BL_COMMIT_SNAPSHOT[a] || 0)).slice(0, 3);
+  const liveBlCommits = revOpsData?.aiEnabledForecast?.blCommits || {};
+  const commitSource = Object.keys(liveBlCommits).length > 0 ? liveBlCommits : BL_COMMIT_SNAPSHOT;
+  
+  const usBLsCommit = US_POD.filter(bl => (commitSource[bl] || 0) > 0)
+    .sort((a, b) => (commitSource[b] || 0) - (commitSource[a] || 0)).slice(0, 3);
+  const euBLsCommit = EU_POD.filter(bl => (commitSource[bl] || 0) > 0)
+    .sort((a, b) => (commitSource[b] || 0) - (commitSource[a] || 0)).slice(0, 3);
   
   message += `*COMMIT BY BL*\n`;
   if (usBLsCommit.length > 0) {
-    const usCommitLine = usBLsCommit.map(bl => `${bl.split(' ')[0]} ${formatCurrency(BL_COMMIT_SNAPSHOT[bl] || 0)}`).join(', ');
+    const usCommitLine = usBLsCommit.map(bl => `${bl.split(' ')[0]} ${formatCurrency(commitSource[bl] || 0)}`).join(', ');
     message += `US: ${usCommitLine}\n`;
   }
   if (euBLsCommit.length > 0) {
-    const euCommitLine = euBLsCommit.map(bl => `${bl.split(' ')[0]} ${formatCurrency(BL_COMMIT_SNAPSHOT[bl] || 0)}`).join(', ');
+    const euCommitLine = euBLsCommit.map(bl => `${bl.split(' ')[0]} ${formatCurrency(commitSource[bl] || 0)}`).join(', ');
     message += `EU: ${euCommitLine}\n`;
   }
   message += '\n';
@@ -2584,7 +2735,9 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
       signedLastWeek,
       top10January,
       top10Q1,
-      pipelineBySalesType
+      pipelineBySalesType,
+      aiEnabledForecast,
+      liveSolutionData
     ] = await Promise.all([
       queryJanuaryClosedWonNewBusiness(),
       queryQ4WeightedPipeline(),
@@ -2592,7 +2745,9 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
       querySignedRevenueLastWeek(),
       queryTop10TargetingJanuary(),
       queryTop10TargetingQ1(),
-      queryPipelineBySalesType()
+      queryPipelineBySalesType(),
+      queryAIEnabledForecast(),
+      queryPipelineBySolution()
     ]);
     
     // Assemble RevOps data for Page 1
@@ -2603,7 +2758,9 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
       signedLastWeek,
       top10January,
       top10Q1,
-      pipelineBySalesType
+      pipelineBySalesType,
+      aiEnabledForecast,
+      liveSolutionData
     };
     
     logger.info('Page 1 RevOps data queried successfully');
