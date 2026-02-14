@@ -1185,56 +1185,60 @@ async function queryAIEnabledForecast() {
       q1EndStr = `${year + 1}-04-30`;
     }
     
-    // Query individual AI-enabled records to compute:
-    // - Commit = 100% of ACV for BL_Forecast_Category__c = 'Commit' (matches Pipeline Review $4.2M)
-    // - Weighted = SUM of Weighted_ACV__c for AI-enabled deals (matches Pipeline Review $6.4M)
-    // - Midpoint = (Commit + Weighted) / 2
-    const soql = `
-      SELECT ACV__c, Weighted_ACV__c, BL_Forecast_Category__c, Owner.Name, Eudia_Tech__c
+    // Use Salesforce formula fields that compute NET ACV for AI-enabled:
+    // - Quarterly_Commit__c = 100% Net ACV for Commit category, AI-enabled (~$3.9M)
+    // - Weighted_ACV_AI_Enabled__c = stage-prob × Net ACV, AI-enabled (~$5.8M)
+    // - Midpoint = (Commit + Weighted) / 2 (~$4.8M)
+    // These fields use Renewal_Net_Change for existing customers, ACV for new business
+    const aggSoql = `
+      SELECT SUM(Quarterly_Commit__c) totalCommit,
+             SUM(Weighted_ACV_AI_Enabled__c) totalWeighted,
+             COUNT(Id) dealCount
       FROM Opportunity
       WHERE IsClosed = false
-        AND Eudia_Tech__c = true
         AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
         AND Target_LOI_Date__c <= ${q1EndStr}
     `;
     
-    const result = await query(soql, true);
+    // BL-level commit breakdown
+    const blSoql = `
+      SELECT Owner.Name, SUM(Quarterly_Commit__c) blCommit
+      FROM Opportunity
+      WHERE IsClosed = false
+        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
+        AND Target_LOI_Date__c <= ${q1EndStr}
+        AND Quarterly_Commit__c > 0
+      GROUP BY Owner.Name
+    `;
     
-    if (!result || !result.records) {
-      logger.warn('AI-Enabled forecast: No records returned');
-      return { commitGross: 0, weightedGross: 0, midpoint: 0, dealCount: 0, blCommits: {} };
+    const [aggResult, blResult] = await Promise.all([
+      query(aggSoql, true),
+      query(blSoql, true).catch(err => { logger.warn('BL commit query failed:', err.message); return null; })
+    ]);
+    
+    const agg = aggResult?.records?.[0] || {};
+    const commitNet = agg.totalCommit || 0;      // ~$3.9M (100% Net ACV, Commit only)
+    const weightedNet = agg.totalWeighted || 0;   // ~$5.8M (stage-prob × Net ACV)
+    const midpoint = (commitNet + weightedNet) / 2; // ~$4.8M
+    const dealCount = agg.dealCount || 0;
+    
+    // BL commit breakdown
+    const blCommits = {};
+    if (blResult?.records) {
+      blResult.records.forEach(row => {
+        blCommits[row.Owner?.Name || 'Unknown'] = row.blCommit || 0;
+      });
     }
     
-    let commitGross = 0;      // 100% ACV for Commit deals
-    let weightedGross = 0;    // Weighted_ACV__c for all AI-enabled
-    let dealCount = result.records.length;
-    const blCommits = {};
-    
-    result.records.forEach(opp => {
-      const acv = opp.ACV__c || 0;
-      const weighted = opp.Weighted_ACV__c || 0;
-      const isCommit = opp.BL_Forecast_Category__c === 'Commit';
-      const ownerName = opp.Owner?.Name || 'Unknown';
-      
-      weightedGross += weighted;
-      
-      if (isCommit) {
-        commitGross += acv;  // 100% of deal value, not 95%
-        blCommits[ownerName] = (blCommits[ownerName] || 0) + acv;
-      }
-    });
-    
-    const midpoint = (commitGross + weightedGross) / 2;
-    
-    logger.info(`AI-Enabled Forecast (LIVE — matches Pipeline Review):`);
-    logger.info(`  Commit:   $${(commitGross/1000000).toFixed(2)}M — 100% ACV, Commit category, AI-enabled (~$4.2M)`);
-    logger.info(`  Weighted: $${(weightedGross/1000000).toFixed(2)}M — Weighted_ACV__c, AI-enabled (~$6.4M)`);
-    logger.info(`  Midpoint: $${(midpoint/1000000).toFixed(2)}M — average of Commit + Weighted`);
-    logger.info(`  AI-Enabled deals: ${dealCount}`);
+    logger.info(`AI-Enabled Forecast (LIVE — Net ACV):`);
+    logger.info(`  Commit (Net):   $${(commitNet/1000000).toFixed(2)}M — Quarterly_Commit__c (100% Net, Commit category)`);
+    logger.info(`  Weighted (Net): $${(weightedNet/1000000).toFixed(2)}M — Weighted_ACV_AI_Enabled__c (stage-prob × Net)`);
+    logger.info(`  Midpoint:       $${(midpoint/1000000).toFixed(2)}M — (Commit + Weighted) / 2`);
+    logger.info(`  Deals: ${dealCount}`);
     
     return { 
-      commitGross: commitGross || 0, 
-      weightedGross: weightedGross || 0,
+      commitNet: commitNet || 0, 
+      weightedNet: weightedNet || 0,
       midpoint: midpoint || 0,
       dealCount: dealCount || 0, 
       blCommits: blCommits || {} 
@@ -1242,7 +1246,7 @@ async function queryAIEnabledForecast() {
     
   } catch (error) {
     logger.error('Failed to query AI-Enabled forecast:', error);
-    return { commitGross: 0, weightedGross: 0, midpoint: 0, dealCount: 0, blCommits: {} };
+    return { commitNet: 0, weightedNet: 0, midpoint: 0, dealCount: 0, blCommits: {} };
   }
 }
 
@@ -1579,13 +1583,13 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     aiEnabledForecast
   } = revOpsData;
   
-  // Use LIVE AI-enabled data for forecast table (matches Pipeline Review)
-  // commitGross = 100% ACV for Commit-category AI-enabled deals (~$4.2M)
-  // weightedGross = Weighted_ACV__c for AI-enabled deals (~$6.4M)
-  // midpoint = (commit + weighted) / 2 (~$5.3M)
+  // Use LIVE AI-enabled NET ACV data from Salesforce formula fields
+  // commitNet = Quarterly_Commit__c (100% Net ACV, Commit category) = ~$3.9M
+  // weightedNet = Weighted_ACV_AI_Enabled__c (stage-prob × Net ACV) = ~$5.8M
+  // midpoint = (commit + weighted) / 2 = ~$4.8M
   const af = aiEnabledForecast || {};
-  const liveCommit = (typeof af.commitGross === 'number') ? af.commitGross / 1000000 : Q1_FY26_FORECAST.floor;
-  const liveWeighted = (typeof af.weightedGross === 'number') ? af.weightedGross / 1000000 : Q1_FY26_FORECAST.expected;
+  const liveCommit = (typeof af.commitNet === 'number') ? af.commitNet / 1000000 : Q1_FY26_FORECAST.floor;
+  const liveWeighted = (typeof af.weightedNet === 'number') ? af.weightedNet / 1000000 : Q1_FY26_FORECAST.expected;
   const liveMidpoint = (typeof af.midpoint === 'number') ? af.midpoint / 1000000 : Q1_FY26_FORECAST.midpoint;
   
   // Page dimensions
@@ -1694,7 +1698,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   // Footnote beneath forecast table — clear methodology
   y += 2;
   doc.font(fontItalic).fontSize(5.5).fillColor('#9ca3af');
-  doc.text('Commit = 100% ACV, BL Forecast "Commit" category. Weighted = stage-probability ACV. Midpoint = avg of Commit + Weighted. All values AI-Enabled only.', LEFT + 4, y, { width: runRateWidth - 8 });
+  doc.text('Commit = 100% Net ACV, "Commit" category. Weighted = stage-probability × Net ACV. Midpoint = (Commit + Weighted) / 2. AI-Enabled deals only, target sign ≤ Q1 end.', LEFT + 4, y, { width: runRateWidth - 8 });
   
   const runRateEndY = y + 16;
   
