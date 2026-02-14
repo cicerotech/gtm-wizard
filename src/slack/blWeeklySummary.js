@@ -115,12 +115,15 @@ const ACCOUNT_DISPLAY_OVERRIDES = {
 
 // Q1 Pipeline by Solution Bucket (from SF report - update weekly)
 // Updated 2026-02-05: count = Record Count (total deals), aiEnabled = AI-Enabled deals
+// Q1 Pipeline by Solution Bucket — updated 2026-02-13 from SF "Q1 Forecast by Solution Bucket" report
+// Product_Line__c is a multi-select picklist; live query mapping is unreliable, so hardcode actuals
+// UPDATE WEEKLY: sf report "Q1 Forecast by Solution Bucket" → copy values here
 const Q1_BY_SOLUTION = {
-  'Pure Software': { acv: 16302960, count: 63, aiEnabled: 63 },
-  'AI-Enabled Services': { acv: 2543000, count: 15, aiEnabled: 15 },
-  'Legacy Services': { acv: 2390575, count: 7, aiEnabled: 1 },  // 7 total deals, 1 AI-enabled
-  'Mixed': { acv: 1705550, count: 9, aiEnabled: 9 },
-  'Undetermined': { acv: 2820000, count: 8, aiEnabled: 8 }
+  'Pure Software': { acv: 15609560, count: 60, aiEnabled: 60 },
+  'AI-Enabled Services': { acv: 2263000, count: 14, aiEnabled: 14 },
+  'Mixed': { acv: 2682000, count: 8, aiEnabled: 8 },
+  'Legacy Services': { acv: 2390575, count: 7, aiEnabled: 0 },
+  'Undetermined': { acv: 2820000, count: 8, aiEnabled: 0 }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1928,8 +1931,9 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   // Solution table - same width as sales type table
   const solutionTableWidth = PAGE_WIDTH;
   
-  // Use LIVE solution data if available, fallback to hardcoded
-  const solutionData = revOpsData.liveSolutionData || Q1_BY_SOLUTION;
+  // Use hardcoded solution data (Product_Line__c is multi-select picklist — live query unreliable)
+  // Update Q1_BY_SOLUTION constant weekly from SF "Q1 Forecast by Solution Bucket" report
+  const solutionData = Q1_BY_SOLUTION;
   const solutionOrder = ['Pure Software', 'AI-Enabled Services', 'Mixed', 'Undetermined', 'Legacy Services'];
   const preTotalACV = solutionOrder.reduce((sum, b) => sum + (solutionData[b]?.acv || 0), 0);
   
