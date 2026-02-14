@@ -1185,68 +1185,64 @@ async function queryAIEnabledForecast() {
       q1EndStr = `${year + 1}-04-30`;
     }
     
-    // TWO queries in parallel for reliability:
-    // 1. Aggregate SUM for the forecast table (simple, fast, no individual records to iterate)
-    // 2. Per-BL commit breakdown for the BL table
-    const aggSoql = `
-      SELECT SUM(Quarterly_Commit__c) totalCommit,
-             SUM(Blended_Forecast_AI_Enabled__c) totalBlended,
-             SUM(Weighted_ACV_AI_Enabled__c) totalWeighted,
-             COUNT(Id) dealCount
+    // Query individual AI-enabled records to compute:
+    // - Commit = 100% of ACV for BL_Forecast_Category__c = 'Commit' (matches Pipeline Review $4.2M)
+    // - Weighted = SUM of Weighted_ACV__c for AI-enabled deals (matches Pipeline Review $6.4M)
+    // - Midpoint = (Commit + Weighted) / 2
+    const soql = `
+      SELECT ACV__c, Weighted_ACV__c, BL_Forecast_Category__c, Owner.Name, Eudia_Tech__c
       FROM Opportunity
       WHERE IsClosed = false
+        AND Eudia_Tech__c = true
         AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
         AND Target_LOI_Date__c <= ${q1EndStr}
     `;
     
-    const blSoql = `
-      SELECT Owner.Name, SUM(Quarterly_Commit__c) blCommit
-      FROM Opportunity
-      WHERE IsClosed = false
-        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
-        AND Target_LOI_Date__c <= ${q1EndStr}
-        AND Quarterly_Commit__c > 0
-      GROUP BY Owner.Name
-    `;
+    const result = await query(soql, true);
     
-    const [aggResult, blResult] = await Promise.all([
-      query(aggSoql, true),
-      query(blSoql, true).catch(err => { logger.warn('BL commit query failed:', err.message); return null; })
-    ]);
-    
-    // Parse aggregate results
-    const agg = aggResult?.records?.[0] || {};
-    const commitNet = agg.totalCommit || 0;           // Quarterly_Commit__c: Commit-only, AI-enabled, Net ACV
-    const weightedNet = agg.totalWeighted || 0;        // Weighted_ACV_AI_Enabled: stage-probability weighted
-    const blendedNet = agg.totalBlended || 0;          // Blended_Forecast_AI_Enabled: Commit@95% + Gut@prob (THE midpoint)
-    const dealCount = agg.dealCount || 0;
-    
-    // Parse BL commit breakdown
-    const blCommits = {};
-    if (blResult?.records) {
-      blResult.records.forEach(row => {
-        const ownerName = row.Owner?.Name || 'Unknown';
-        blCommits[ownerName] = row.blCommit || 0;
-      });
+    if (!result || !result.records) {
+      logger.warn('AI-Enabled forecast: No records returned');
+      return { commitGross: 0, weightedGross: 0, midpoint: 0, dealCount: 0, blCommits: {} };
     }
     
-    logger.info(`AI-Enabled Forecast (LIVE):`);
-    logger.info(`  Commit (Net):   $${(commitNet/1000000).toFixed(2)}M — Quarterly_Commit__c (Commit category only)`);
-    logger.info(`  Blended (Net):  $${(blendedNet/1000000).toFixed(2)}M — Blended_Forecast_AI_Enabled (Commit@95% + Gut@prob)`);
-    logger.info(`  Weighted (Net): $${(weightedNet/1000000).toFixed(2)}M — Weighted_ACV_AI_Enabled (all at stage prob)`);
-    logger.info(`  Deals: ${dealCount}`);
+    let commitGross = 0;      // 100% ACV for Commit deals
+    let weightedGross = 0;    // Weighted_ACV__c for all AI-enabled
+    let dealCount = result.records.length;
+    const blCommits = {};
+    
+    result.records.forEach(opp => {
+      const acv = opp.ACV__c || 0;
+      const weighted = opp.Weighted_ACV__c || 0;
+      const isCommit = opp.BL_Forecast_Category__c === 'Commit';
+      const ownerName = opp.Owner?.Name || 'Unknown';
+      
+      weightedGross += weighted;
+      
+      if (isCommit) {
+        commitGross += acv;  // 100% of deal value, not 95%
+        blCommits[ownerName] = (blCommits[ownerName] || 0) + acv;
+      }
+    });
+    
+    const midpoint = (commitGross + weightedGross) / 2;
+    
+    logger.info(`AI-Enabled Forecast (LIVE — matches Pipeline Review):`);
+    logger.info(`  Commit:   $${(commitGross/1000000).toFixed(2)}M — 100% ACV, Commit category, AI-enabled (~$4.2M)`);
+    logger.info(`  Weighted: $${(weightedGross/1000000).toFixed(2)}M — Weighted_ACV__c, AI-enabled (~$6.4M)`);
+    logger.info(`  Midpoint: $${(midpoint/1000000).toFixed(2)}M — average of Commit + Weighted`);
+    logger.info(`  AI-Enabled deals: ${dealCount}`);
     
     return { 
-      commitNet: commitNet || 0, 
-      blendedNet: blendedNet || 0,     // THE midpoint figure ($5.8M)
-      weightedNet: weightedNet || 0, 
+      commitGross: commitGross || 0, 
+      weightedGross: weightedGross || 0,
+      midpoint: midpoint || 0,
       dealCount: dealCount || 0, 
       blCommits: blCommits || {} 
     };
     
   } catch (error) {
     logger.error('Failed to query AI-Enabled forecast:', error);
-    return { commitNet: 0, blendedNet: 0, weightedNet: 0, dealCount: 0, blCommits: {} };
+    return { commitGross: 0, weightedGross: 0, midpoint: 0, dealCount: 0, blCommits: {} };
   }
 }
 
@@ -1281,22 +1277,15 @@ async function queryPipelineBySolution() {
       return Q1_BY_SOLUTION; // Fallback to hardcoded
     }
     
-    // Map Product_Line__c values to solution buckets
+    // Map Product_Line__c to solution buckets using EXACT picklist values
+    // SF picklist values: "Pure Software", "AI-Enabled Services", "Mixed", "Legacy Services"
+    // Null/blank → "Undetermined"
+    const VALID_BUCKETS = ['Pure Software', 'AI-Enabled Services', 'Mixed', 'Legacy Services'];
     const buckets = {};
     result.records.forEach(opp => {
-      const productLine = opp.Product_Line__c || 'Undetermined';
-      let bucket;
-      if (productLine.includes('Software') || productLine === 'Pure Software') {
-        bucket = 'Pure Software';
-      } else if (productLine.includes('AI') && productLine.includes('Service')) {
-        bucket = 'AI-Enabled Services';
-      } else if (productLine === 'Mixed' || productLine.includes('Mixed')) {
-        bucket = 'Mixed';
-      } else if (productLine.includes('Legacy') || (productLine.includes('Service') && !productLine.includes('AI'))) {
-        bucket = 'Legacy Services';
-      } else {
-        bucket = 'Undetermined';
-      }
+      const productLine = (opp.Product_Line__c || '').trim();
+      // Use exact match — these are picklist values, not free text
+      const bucket = VALID_BUCKETS.includes(productLine) ? productLine : 'Undetermined';
       
       if (!buckets[bucket]) buckets[bucket] = { acv: 0, count: 0, aiEnabled: 0 };
       buckets[bucket].acv += (opp.ACV__c || 0);
@@ -1590,13 +1579,14 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     aiEnabledForecast
   } = revOpsData;
   
-  // Use LIVE AI-enabled data for forecast table
-  // commitNet = Quarterly_Commit__c (Commit category only, AI-enabled, Net ACV) = ~$3.9M
-  // blendedNet = Blended_Forecast_AI_Enabled__c (Commit@95% + Gut@stage prob) = ~$5.8M (THE midpoint)
-  const liveCommit = (aiEnabledForecast && typeof aiEnabledForecast.commitNet === 'number') 
-    ? aiEnabledForecast.commitNet / 1000000 : Q1_FY26_FORECAST.floor;
-  const liveBlended = (aiEnabledForecast && typeof aiEnabledForecast.blendedNet === 'number') 
-    ? aiEnabledForecast.blendedNet / 1000000 : Q1_FY26_FORECAST.midpoint;
+  // Use LIVE AI-enabled data for forecast table (matches Pipeline Review)
+  // commitGross = 100% ACV for Commit-category AI-enabled deals (~$4.2M)
+  // weightedGross = Weighted_ACV__c for AI-enabled deals (~$6.4M)
+  // midpoint = (commit + weighted) / 2 (~$5.3M)
+  const af = aiEnabledForecast || {};
+  const liveCommit = (typeof af.commitGross === 'number') ? af.commitGross / 1000000 : Q1_FY26_FORECAST.floor;
+  const liveWeighted = (typeof af.weightedGross === 'number') ? af.weightedGross / 1000000 : Q1_FY26_FORECAST.expected;
+  const liveMidpoint = (typeof af.midpoint === 'number') ? af.midpoint / 1000000 : Q1_FY26_FORECAST.midpoint;
   
   // Page dimensions
   const LEFT = 40;
@@ -1675,13 +1665,12 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.text('AI-Enabled, Net-New  •  Target Sign Date ≤ Q1', LEFT + 8, y + 3);
   y += 14;
   
-  // Forecast rows - LIVE data from Salesforce
-  // Commit = Quarterly_Commit__c (Commit category, AI-enabled, Net ACV)
-  // Midpoint = Blended_Forecast_AI_Enabled__c (Commit@95% + Gut@stage probability)
+  // Forecast rows - LIVE from Salesforce, aligned with Pipeline Review
   const forecastRows = [
     { label: 'Q1 Target', value: Q1_FY26_FORECAST.target, labelBold: true, amountBold: true, bg: '#f0fdf4' },
-    { label: 'Commit (Net)', value: liveCommit, labelBold: false, amountBold: false, bg: '#f9fafb', italic: true },
-    { label: 'Midpoint (Net)', value: liveBlended, labelBold: true, amountBold: true, bg: '#eff6ff' }
+    { label: 'Commit', value: liveCommit, labelBold: false, amountBold: false, bg: '#f9fafb', italic: true },
+    { label: 'Weighted', value: liveWeighted, labelBold: false, amountBold: false, bg: '#ffffff', italic: true },
+    { label: 'Midpoint', value: liveMidpoint, labelBold: true, amountBold: true, bg: '#eff6ff' }
   ];
   
   forecastRows.forEach((row) => {
@@ -1702,10 +1691,10 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     y += rowHeight;
   });
   
-  // Footnote beneath forecast table
+  // Footnote beneath forecast table — clear methodology
   y += 2;
-  doc.font(fontItalic).fontSize(6).fillColor('#9ca3af');
-  doc.text('Commit = BL Forecast Category "Commit" only. Midpoint = Commit @ 95% + Gut @ stage probability (Blended Forecast AI-Enabled Net ACV).', LEFT + 4, y, { width: runRateWidth - 8 });
+  doc.font(fontItalic).fontSize(5.5).fillColor('#9ca3af');
+  doc.text('Commit = 100% ACV, BL Forecast "Commit" category. Weighted = stage-probability ACV. Midpoint = avg of Commit + Weighted. All values AI-Enabled only.', LEFT + 4, y, { width: runRateWidth - 8 });
   
   const runRateEndY = y + 16;
   
@@ -2123,13 +2112,13 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
       doc.text(`${totals.totalOpportunities} opps • ${totals.totalAccounts} accts`, colX, metricsY + 42);
       
-      // Column 2: AI-Enabled Blended Forecast (Midpoint) thru EOQ
+      // Column 2: AI-Enabled Midpoint (avg of Commit + Weighted)
       colX = LEFT + colWidth;
       doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
-      doc.text('AI-Enabled Forecast (Net)', colX, metricsY + 12);
+      doc.text('AI-Enabled Midpoint', colX, metricsY + 12);
       doc.font(fontBold).fontSize(18).fillColor(DARK_TEXT);
-      const aiBlendedValue = (revOpsData?.aiEnabledForecast?.blendedNet || 0) / 1000000 || Q1_FY26_FORECAST.midpoint;
-      doc.text(`$${aiBlendedValue.toFixed(1)}m`, colX, metricsY + 22);
+      const aiMidpointValue = (revOpsData?.aiEnabledForecast?.midpoint || 0) / 1000000 || Q1_FY26_FORECAST.midpoint;
+      doc.text(`$${aiMidpointValue.toFixed(1)}m`, colX, metricsY + 22);
       
       // Column 3: Avg Deal Size
       colX = LEFT + colWidth * 2;
