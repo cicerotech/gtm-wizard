@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketing AI Workspace | Eudia</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fe; color: #1f2937; line-height: 1.6; min-height: 100vh; padding: 40px 20px; }
+        .container { max-width: 720px; margin: 0 auto; }
+
+        .header { text-align: center; margin-bottom: 36px; }
+        .header h1 { font-size: 28px; font-weight: 700; color: #1f2937; margin-bottom: 8px; }
+        .header p { color: #6b7280; font-size: 15px; }
+        .time-badge { display: inline-flex; align-items: center; gap: 6px; background: #fff; border: 1px solid #e5e7eb; padding: 6px 14px; border-radius: 20px; font-size: 12px; color: #6b7280; margin-top: 16px; }
+
+        .features { margin-bottom: 32px; }
+        .features h3 { font-size: 14px; font-weight: 600; margin-bottom: 16px; color: #1f2937; }
+        .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        @media (max-width: 600px) { .features-grid { grid-template-columns: 1fr; } }
+        .feature-item { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }
+        .feature-icon { font-size: 22px; margin-bottom: 8px; }
+        .feature-item h4 { font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #1f2937; }
+        .feature-item p { font-size: 12px; color: #6b7280; }
+
+        .steps { display: flex; flex-direction: column; gap: 20px; }
+        .step { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; position: relative; }
+        .step-number { position: absolute; top: -10px; left: 24px; background: #8e99e1; color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
+        .step h2 { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: #1f2937; }
+        .step p { font-size: 14px; color: #6b7280; margin-bottom: 12px; }
+        .code-block { background: #1f2937; border-radius: 6px; padding: 12px 16px; font-size: 13px; color: #e5e7eb; font-family: 'SF Mono', Monaco, Consolas, monospace; margin-bottom: 8px; }
+        .step-note { font-size: 12px; color: #9ca3af; font-style: italic; }
+
+        .section { margin-top: 32px; }
+        .section h2 { font-size: 20px; font-weight: 700; margin-bottom: 16px; color: #1f2937; }
+        .section h3 { font-size: 15px; font-weight: 600; margin: 20px 0 8px; color: #374151; }
+
+        .workflow-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px; margin-bottom: 14px; }
+        .workflow-card h4 { font-size: 14px; font-weight: 600; color: #1f2937; margin-bottom: 6px; }
+        .workflow-card .when { font-size: 12px; color: #8e99e1; font-weight: 500; margin-bottom: 8px; }
+        .workflow-card .prompt { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px 14px; font-size: 13px; font-family: 'SF Mono', Monaco, Consolas, monospace; color: #374151; margin-bottom: 8px; cursor: pointer; position: relative; }
+        .workflow-card .prompt:hover { background: #eef1fc; border-color: #8e99e1; }
+        .workflow-card .prompt::after { content: 'click to copy'; position: absolute; right: 10px; top: 10px; font-size: 10px; color: #9ca3af; font-family: -apple-system, sans-serif; }
+        .workflow-card .result { font-size: 12px; color: #6b7280; }
+
+        .tip-box { background: #eef1fc; border: 1px solid #c7cdee; border-radius: 8px; padding: 14px 18px; margin: 16px 0; font-size: 13px; color: #374151; }
+        .tip-box strong { color: #1f2937; }
+
+        .trouble-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 10px; }
+        .trouble-card h4 { font-size: 13px; font-weight: 600; color: #1f2937; margin-bottom: 4px; }
+        .trouble-card p { font-size: 12px; color: #6b7280; }
+
+        .handoff { background: #fff; border: 2px solid #8e99e1; border-radius: 12px; padding: 24px; margin-top: 28px; text-align: center; }
+        .handoff h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #1f2937; }
+        .handoff p { font-size: 13px; color: #6b7280; max-width: 500px; margin: 0 auto; }
+
+        .help { text-align: center; margin-top: 32px; font-size: 12px; color: #9ca3af; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Header -->
+    <div class="header">
+        <h1>Marketing AI Workspace</h1>
+        <p>Plan campaigns, research competitors, write content, and track pipeline impact -- all from one window.</p>
+        <div class="time-badge">Setup: ~2 minutes</div>
+    </div>
+
+    <!-- What You Get -->
+    <div class="features">
+        <h3>What You Get</h3>
+        <div class="features-grid">
+            <div class="feature-item">
+                <div class="feature-icon">&#9776;</div>
+                <h4>Campaign Planning</h4>
+                <p>Plan full campaigns with targeting, messaging, channels, and timeline in one prompt.</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">&#9733;</div>
+                <h4>Pipeline Intelligence</h4>
+                <p>See what's in pipeline, what signed, where accounts are based, and what campaigns influenced deals.</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">&#9998;</div>
+                <h4>Content Creation</h4>
+                <p>Write LinkedIn posts, email sequences, case studies, and event copy -- pre-loaded with Eudia's voice.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Setup Steps -->
+    <div class="steps">
+        <div class="step">
+            <div class="step-number">1</div>
+            <h2>Download and Unzip</h2>
+            <p>Download the workspace zip that was shared with you on Slack. Double-click the .zip file to unzip it. You'll see a folder called <strong>marketing-caroline</strong>.</p>
+        </div>
+
+        <div class="step">
+            <div class="step-number">2</div>
+            <h2>Open in Cursor</h2>
+            <p>Open Cursor (download from <a href="https://cursor.com" style="color: #8e99e1;">cursor.com</a> if you haven't). Then:</p>
+            <div class="code-block">File &rarr; Open Folder &rarr; select the marketing-caroline folder</div>
+            <p class="step-note">This loads the AI with everything it needs to know about Eudia, your role, and our marketing strategy.</p>
+        </div>
+
+        <div class="step">
+            <div class="step-number">3</div>
+            <h2>Start Chatting</h2>
+            <p>Open a chat in Cursor and type your first prompt. The AI already knows Eudia's products, ICP, competitive landscape, and your role -- you don't need to explain anything.</p>
+            <div class="code-block">What should I focus on this week for marketing?</div>
+        </div>
+    </div>
+
+    <!-- Daily Workflows -->
+    <div class="section">
+        <h2>Your Daily Workflows</h2>
+        <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">These are the things you can do every day. Each one has an exact prompt you can copy and paste.</p>
+
+        <div class="workflow-card">
+            <h4>Morning Check-In</h4>
+            <div class="when">Every morning -- 2 minutes</div>
+            <div class="prompt">What's happening in our pipeline this week? Any new deals signed, late-stage accounts to be aware of, or events coming up?</div>
+            <div class="result">The AI will pull pipeline context and give you a marketing-relevant briefing.</div>
+        </div>
+
+        <div class="workflow-card">
+            <h4>Campaign Planning</h4>
+            <div class="when">When you need a new campaign</div>
+            <div class="prompt">Plan a demand gen campaign targeting CLOs at insurance companies. Include theme, messaging, channels, timeline, expected MQLs, and how to measure pipeline impact.</div>
+            <div class="result">You'll get a full campaign brief you can refine and execute.</div>
+        </div>
+
+        <div class="workflow-card">
+            <h4>Pipeline Intelligence</h4>
+            <div class="when">Before a meeting or weekly review</div>
+            <div class="prompt">What companies are in our late-stage pipeline? Where are they headquartered? What deals have signed this month?</div>
+            <div class="result">The AI gives you deal-level detail so you can align marketing to what's happening in sales.</div>
+        </div>
+
+        <div class="workflow-card">
+            <h4>Content Creation</h4>
+            <div class="when">When you need to write something</div>
+            <div class="prompt">Write a LinkedIn thought leadership post about how AI is transforming compliance for enterprise legal teams. Professional but engaging, under 200 words.</div>
+            <div class="result">You'll get a ready-to-post draft that uses Eudia's messaging pillars and tone.</div>
+        </div>
+
+        <div class="workflow-card">
+            <h4>Email Sequences</h4>
+            <div class="when">For nurture or event follow-up</div>
+            <div class="prompt">Create a 3-email nurture sequence for leads who attended our compliance webinar. Theme: regulatory compliance automation. Include subject lines and body copy.</div>
+            <div class="result">Three emails with subject lines, body copy, and spacing recommendations.</div>
+        </div>
+
+        <div class="workflow-card">
+            <h4>Competitive Research</h4>
+            <div class="when">When you need to understand a competitor</div>
+            <div class="prompt">Research what Harvey AI has been doing in the last 3 months. Product launches, funding, partnerships, marketing. How should we position against them?</div>
+            <div class="result">The AI searches the web and gives you a competitive briefing with positioning recommendations.</div>
+        </div>
+
+        <div class="workflow-card">
+            <h4>Event Planning</h4>
+            <div class="when">When setting up an event</div>
+            <div class="prompt">Plan a CLO roundtable dinner in Dublin for March. Build the invite criteria, email invitation, agenda, follow-up sequence, and Salesforce campaign setup.</div>
+            <div class="result">Full event plan from invite to post-event follow-up.</div>
+        </div>
+
+        <div class="workflow-card">
+            <h4>ABM Account Research</h4>
+            <div class="when">When targeting a specific company</div>
+            <div class="prompt">Research Deutsche Bank for an ABM campaign. Their legal team leadership, recent regulatory news, and a personalized marketing angle for Eudia.</div>
+            <div class="result">Account-specific intelligence you can use for personalized outreach.</div>
+        </div>
+    </div>
+
+    <!-- Tips -->
+    <div class="section">
+        <h2>Tips for Best Results</h2>
+
+        <div class="tip-box">
+            <strong>Be specific.</strong> "Write a LinkedIn post about compliance for insurance CLOs" works better than "write a post."
+        </div>
+        <div class="tip-box">
+            <strong>Ask follow-ups.</strong> After any response, you can ask "make it shorter" or "now draft an email version" or "what industry data can I add?"
+        </div>
+        <div class="tip-box">
+            <strong>Reference our products by name.</strong> Say "AI Contracting" or "AI Compliance" -- the AI knows exactly what these are and how to position them.
+        </div>
+        <div class="tip-box">
+            <strong>Chain tasks together.</strong> "Plan the campaign, then write the first email, then draft the LinkedIn post" -- the AI keeps context across the conversation.
+        </div>
+    </div>
+
+    <!-- Troubleshooting -->
+    <div class="section">
+        <h2>Troubleshooting</h2>
+
+        <div class="trouble-card">
+            <h4>The AI doesn't seem to know about Eudia</h4>
+            <p>Make sure you opened the <strong>marketing-caroline</strong> folder (not a file inside it). Go to File &rarr; Open Folder and select the folder itself. The AI context loads from the .cursor/rules/ folder inside it.</p>
+        </div>
+        <div class="trouble-card">
+            <h4>Responses are generic or too long</h4>
+            <p>Add specifics: target persona, industry, product, or campaign type. The more specific your prompt, the more targeted the output.</p>
+        </div>
+        <div class="trouble-card">
+            <h4>I want to create a Salesforce campaign from Cursor</h4>
+            <p>This requires connecting Salesforce MCP (coming soon). For now, you can ask the AI to draft the campaign details and you create it manually in Salesforce -- the "New Campaign" button is on your Campaigns tab.</p>
+        </div>
+        <div class="trouble-card">
+            <h4>The AI gave me wrong information about a competitor</h4>
+            <p>Always verify specific claims (funding amounts, product features) before using them externally. The AI searches the web but can occasionally get details wrong.</p>
+        </div>
+    </div>
+
+    <!-- Handoff -->
+    <div class="handoff">
+        <h3>You're all set</h3>
+        <p>Open Cursor, open the folder, and start chatting. The AI already knows everything about Eudia's marketing strategy, products, and competitive landscape. Just ask for what you need.</p>
+    </div>
+
+    <!-- Help -->
+    <div class="help">
+        Questions or feedback? Ping <strong>@keigan</strong> in Slack.
+    </div>
+
+</div>
+
+<script>
+document.querySelectorAll('.prompt').forEach(function(el) {
+    el.addEventListener('click', function() {
+        var text = el.textContent.replace('click to copy', '').trim();
+        navigator.clipboard.writeText(text).then(function() {
+            var orig = el.style.borderColor;
+            el.style.borderColor = '#10b981';
+            el.querySelector('::after') || (el.dataset.copied = 'true');
+            setTimeout(function() { el.style.borderColor = orig; }, 1000);
+        });
+    });
+});
+</script>
+</body>
+</html>

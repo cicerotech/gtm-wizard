@@ -2206,6 +2206,13 @@ class GTMBrainApp {
     this.expressApp.get('/onboarding', (req, res) => res.redirect('/getting-started'));
     this.expressApp.get('/setup', (req, res) => res.redirect('/getting-started'));
 
+    // Marketing Cursor Guide
+    this.expressApp.get('/marketing-guide', (req, res) => {
+      const path = require('path');
+      const guidePath = path.join(__dirname, '..', 'docs', 'marketing-guide.html');
+      res.sendFile(guidePath);
+    });
+
     // Outbound Playbook (Private - Keigan only)
     this.expressApp.get('/outbound-playbook', (req, res) => {
       const path = require('path');
