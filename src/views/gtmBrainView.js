@@ -477,11 +477,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   var origSelectAccount = selectAccount;
   selectAccount = function(a) {
     origSelectAccount(a);
+    // Reset session when account changes - prevents stale context from prior account
+    currentSessionId = null;
     updateTileState();
   };
   var origClearSelection = clearSelection;
   clearSelection = function() {
     origClearSelection();
+    currentSessionId = null;
     updateTileState();
   };
 

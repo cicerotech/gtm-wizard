@@ -1,0 +1,176 @@
+<template>
+    <lightning-card>
+        <lightning-tabset variant="scoped" active-tab-value={activeTab} onactive={handleTabChange}>
+
+            <!-- ═══ TAB 1: ACCOUNT DISTRIBUTION ═══ -->
+            <lightning-tab label="Q1 FY26 Account Distribution" value="distribution">
+                <div class="slds-p-around_medium">
+                    <div class="slds-grid slds-grid_align-spread slds-m-bottom_small">
+                        <div>
+                            <h2 class="slds-text-heading_medium">Q1 FY26 — Account Distribution</h2>
+                            <p class="slds-text-body_small slds-text-color_weak">Click a rep to expand their Q1 book. Front Book = Active Pipeline + Existing Customers. Back Book = Targeting / Cold outreach. Select Drop or Transfer in the expanded view to action changes to a rep's book.</p>
+                        </div>
+                        <lightning-button label="Export CSV" icon-name="utility:download" onclick={handleExport} variant="neutral"></lightning-button>
+                    </div>
+                    <template if:true={distLoading}><lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner></template>
+                    <template if:false={distLoading}>
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_col-bordered compact-table">
+                            <thead><tr class="header-row">
+                                <th>Business Lead</th><th class="num-col">Pod</th><th class="num-col">Q1 Book</th><th class="num-col">Front Book</th><th class="num-col">Back Book</th>
+                            </tr></thead>
+                            <tbody>
+                                <tr class="pod-sep"><td colspan="5"><strong>US POD</strong></td></tr>
+                                <template for:each={usBLs} for:item="bl">
+                                    <tr key={bl.ownerName} class="bl-row clickable" data-bl={bl.ownerName} onclick={handleBLClick}>
+                                        <td><strong>{bl.ownerName}</strong></td>
+                                        <td class="num-col">US</td>
+                                        <td class="num-col"><strong>{bl.totalAccounts}</strong></td>
+                                        <td class="num-col active-cell">{bl.activePipeline}</td>
+                                        <td class="num-col">{bl.inactive}</td>
+                                    </tr>
+                                </template>
+                                <tr class="pod-sep"><td colspan="5"><strong>EU POD</strong></td></tr>
+                                <template for:each={euBLs} for:item="bl">
+                                    <tr key={bl.ownerName} class="bl-row clickable" data-bl={bl.ownerName} onclick={handleBLClick}>
+                                        <td><strong>{bl.ownerName}</strong></td>
+                                        <td class="num-col">EU</td>
+                                        <td class="num-col"><strong>{bl.totalAccounts}</strong></td>
+                                        <td class="num-col active-cell">{bl.activePipeline}</td>
+                                        <td class="num-col">{bl.inactive}</td>
+                                    </tr>
+                                </template>
+                                <tr class="total-row">
+                                    <td colspan="2"><strong>TOTAL</strong></td>
+                                    <td class="num-col"><strong>{distTotal.total}</strong></td>
+                                    <td class="num-col"><strong>{distTotal.active}</strong></td>
+                                    <td class="num-col"><strong>{distTotal.inactive}</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <template if:true={showBLAccounts}>
+                            <div class="slds-m-top_medium expanded-section">
+                                <h3 class="slds-text-heading_small slds-m-bottom_x-small">{expandedBLName} — {expandedBLCount} accounts</h3>
+                                <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped compact-table">
+                                    <thead><tr class="header-row">
+                                        <th>Account</th><th>HQ</th><th>Region</th><th>Industry</th><th>Rev</th><th>Positioning</th><th>Status</th><th>Book</th><th class="act-col">Actions</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        <template for:each={blAccounts} for:item="acct">
+                                            <tr key={acct.id}>
+                                                <td><a href={acct.url} target="_blank">{acct.name}</a></td>
+                                                <td class="small-col">{acct.hqState}</td>
+                                                <td class="small-col">{acct.region}</td>
+                                                <td>{acct.industry}</td>
+                                                <td class="small-col">{acct.revenue}</td>
+                                                <td class="context-col"><div class="slds-text-body_small" title={acct.poolContext}>{acct.poolContext}</div></td>
+                                                <td><span class="ctx-badge">{acct.context}</span></td>
+                                                <td><span class="book-badge">{acct.book}</span></td>
+                                                <td class="act-col">
+                                                    <lightning-button-group>
+                                                        <lightning-button label="Drop" data-id={acct.id} data-name={acct.name} onclick={handleDrop} variant="neutral" size="small"></lightning-button>
+                                                        <lightning-button label="Transfer" data-id={acct.id} data-name={acct.name} onclick={handleTransferOpen} variant="neutral" size="small"></lightning-button>
+                                                    </lightning-button-group>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </template>
+                        <template if:true={blLoading}><div class="slds-m-top_medium"><lightning-spinner alternative-text="Loading" size="small"></lightning-spinner></div></template>
+                    </template>
+                </div>
+            </lightning-tab>
+
+            <!-- ═══ TAB 2: TARGET POOL ═══ -->
+            <lightning-tab label="Target Pool" value="pool">
+                <div class="slds-p-around_medium">
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                        Next-tranche target accounts for when reps work through their initial Q1 book. Reps can Claim accounts matching their pod (US reps claim US Pod, EU reps claim EU Pod). Admins can use Assign to transfer to any BL. Accounts with open pipeline are excluded. Filter by Pod, Industry, or Tier below.
+                    </p>
+                    <div class="scorecard-row slds-m-bottom_medium">
+                        <template for:each={scorecardItems} for:item="item">
+                            <div key={item.label} class={item.cls}>
+                                <div class="score-value">{item.value}</div>
+                                <div class="score-label">{item.label}</div>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="slds-grid slds-gutters slds-m-bottom_small">
+                        <div class="slds-col slds-size_1-of-6">
+                            <lightning-combobox label="Tier" value={selectedTier} options={tierOptions} onchange={handleTierChange} variant="label-hidden"></lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-6">
+                            <lightning-combobox label="Pod" value={selectedPod} options={podOptions} onchange={handlePodChange} variant="label-hidden"></lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-6">
+                            <lightning-combobox label="Industry" value={selectedIndustry} options={industryOptions} onchange={handleIndustryChange} variant="label-hidden"></lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-4">
+                            <lightning-input type="search" placeholder="Search..." onchange={handleSearch} variant="label-hidden"></lightning-input>
+                        </div>
+                        <div class="slds-col slds-text-align_right">
+                            <lightning-button label="Refresh" icon-name="utility:refresh" onclick={handleRefresh} variant="neutral"></lightning-button>
+                        </div>
+                    </div>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small">Showing {poolCount} accounts</p>
+                    <template if:true={poolLoading}><lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner></template>
+                    <template if:false={poolLoading}>
+                        <div class="pool-table">
+                            <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped compact-table">
+                                <thead><tr class="header-row">
+                                    <th>Account</th><th>Industry</th><th>Rev</th><th>Positioning</th><th class="num-col">Pod</th><th class="num-col">Tier</th><th class="act-col">Action</th>
+                                </tr></thead>
+                                <tbody>
+                                    <template for:each={filteredPool} for:item="acct">
+                                        <tr key={acct.id}>
+                                            <td><a href={acct.url} target="_blank"><div class="slds-truncate" title={acct.name}>{acct.name}</div></a></td>
+                                            <td><div class="slds-truncate">{acct.industry}</div></td>
+                                            <td class="small-col">{acct.revenueFormatted}</td>
+                                            <td class="context-col"><div class="slds-text-body_small" title={acct.poolContext}>{acct.poolContext}</div></td>
+                                            <td class="num-col">{acct.pod}</td>
+                                            <td class="num-col">{acct.tier}</td>
+                                            <td class="act-col">
+                                                <lightning-button-group>
+                                                    <lightning-button label="Claim" data-id={acct.id} data-name={acct.name} data-tier={acct.tier} data-rev={acct.revenueFormatted} onclick={handleClaim} variant="brand" size="small"></lightning-button>
+                                                    <lightning-button label="Assign" data-id={acct.id} data-name={acct.name} onclick={handlePoolTransfer} variant="neutral" size="small"></lightning-button>
+                                                </lightning-button-group>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+                </div>
+            </lightning-tab>
+        </lightning-tabset>
+
+        <!-- Confirmation Modal -->
+        <template if:true={showConfirm}>
+            <section class="slds-modal slds-fade-in-open" aria-modal="true">
+                <div class="slds-modal__container">
+                    <header class="slds-modal__header"><h2 class="slds-modal__title">{confirmTitle}</h2></header>
+                    <div class="slds-modal__content slds-p-around_medium">
+                        <p>{confirmMessage}</p>
+                        <template if:true={showDropReason}>
+                            <div class="slds-m-top_small">
+                                <lightning-textarea label="Reason for dropping (required)" value={dropReason} onchange={handleDropReasonChange} placeholder="e.g., Not a fit - too small, Already using competitor, No legal department identified..." required></lightning-textarea>
+                            </div>
+                        </template>
+                        <template if:true={showTransferPicker}>
+                            <div class="slds-m-top_small">
+                                <lightning-combobox label="Assign to" value={transferTarget} options={blOptions} onchange={handleTransferTargetChange}></lightning-combobox>
+                            </div>
+                        </template>
+                    </div>
+                    <footer class="slds-modal__footer">
+                        <lightning-button label="Cancel" onclick={handleConfirmCancel} variant="neutral"></lightning-button>
+                        <lightning-button label="Confirm" onclick={handleConfirmOk} variant="brand" class="slds-m-left_x-small"></lightning-button>
+                    </footer>
+                </div>
+            </section>
+            <div class="slds-backdrop slds-backdrop_open"></div>
+        </template>
+    </lightning-card>
+</template>

@@ -1029,14 +1029,13 @@ DATA LIMITATIONS:
 - When data is sparse, work with what exists and note limitations briefly — do not fill gaps with speculation
 
 FOLLOW-UP SUGGESTIONS:
-- At the very end of every response, after a "---" separator, include exactly 3 brief follow-up questions
-- Format as: "---\\nYou might also ask:\\n1. [question]\\n2. [question]\\n3. [question]"
-- CRITICAL: Only suggest questions you can ACTUALLY answer with the data provided in this context. Do NOT suggest questions about data you don't have (specific contract terms, billing, internal wikis, future plans not in CRM)
-- Base suggestions on data categories present in the context: contacts, opportunities, tasks, events, meeting notes, pain points, competitive landscape
-- Good: "Who are the key decision makers?" (if contacts exist), "What's the deal timeline?" (if opps exist), "What happened in recent meetings?" (if meeting notes exist)
-- Bad: "What's their budget for next year?" (not in data), "What did they say in the last call?" (if no meeting notes), "What specific solutions are they evaluating?" (if not captured in CRM)
-- Keep each suggestion under 10 words
-- Suggestions should help the user drill deeper into data we HAVE, not data we wish we had`;
+- At the very end of every response, after a "---" separator, include exactly 2 brief follow-up questions
+- Format as: "---\\nYou might also ask:\\n1. [question]\\n2. [question]"
+- ONLY suggest questions that drill deeper into data you just referenced in your answer. If you mentioned contacts, suggest asking about a specific contact. If you mentioned a deal, suggest asking about that deal's next steps.
+- Do NOT suggest questions about data categories you did not include in this response
+- Do NOT suggest generic questions like "What's their budget?" or "What solutions are they evaluating?" unless you actually have that data
+- If there is genuinely nothing useful to suggest, do NOT include the follow-up section at all -- just end the response
+- Keep each suggestion under 8 words`;
 
   // Add intent-specific instructions
   switch (intent) {

@@ -1,0 +1,36 @@
+.scorecard-row { display: flex; gap: 0.5rem; }
+.score-card { flex: 1; padding: 0.6rem 0.8rem; border-radius: 0.4rem; text-align: center; border: 1px solid #e2e8f0; }
+.score-value { font-size: 1.4rem; font-weight: 700; line-height: 1.2; }
+.score-label { font-size: 0.6rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+.score-card.total { background: #f8fafc; } .score-card.total .score-value { color: #1e293b; }
+.score-card.t1 { background: #fef2f2; border-color: #fecaca; } .score-card.t1 .score-value { color: #991b1b; }
+.score-card.t2 { background: #eff6ff; border-color: #bfdbfe; } .score-card.t2 .score-value { color: #1e40af; }
+.score-card.t3 { background: #f8fafc; } .score-card.t3 .score-value { color: #64748b; }
+
+.compact-table th, .compact-table td { padding: 4px 8px; font-size: 0.85rem; }
+.header-row th { background: #1e293b !important; color: white !important; font-size: 0.75rem; }
+.total-row td { background: #f1f5f9; border-top: 2px solid #94a3b8; }
+.active-cell { color: #1e40af; font-weight: 600; }
+.num-col { text-align: center; width: 80px; }
+.act-col { width: 160px; text-align: center; }
+.pool-table { max-height: 550px; overflow-y: auto; }
+.pod-sep td { background: #0f172a; color: white; font-weight: 700; padding: 4px 8px; font-size: 0.7rem; letter-spacing: 0.08em; }
+.clickable { cursor: pointer; } .clickable:hover td { background: #eff6ff !important; }
+.expanded-section { background: #fafbfc; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 0.75rem; }
+/* Consistent badge styling */
+.ctx-badge, .book-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.4;
+}
+.ctx-badge { background: #f1f5f9; color: #475569; }
+.book-badge { background: #f1f5f9; color: #475569; }
+.context-col { max-width: 300px; min-width: 180px; font-size: 0.6875rem; color: #4b5563; line-height: 1.35; }
+.context-col .slds-text-body_small { white-space: normal; -webkit-line-clamp: 3; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+.small-col { font-size: 0.75rem; white-space: nowrap; color: #6b7280; }
+
+.slds-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9000; }
+.slds-modal { z-index: 9001; }
