@@ -90,11 +90,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .gtm-brain-submit:disabled { opacity: 0.6; cursor: not-allowed; }
 .gtm-brain-hint { font-size: 0.75rem; color: #9ca3af; margin-top: 6px; }
 /* Hero button */
-.gtm-brain-hero { margin-top: 14px; }
-.gtm-brain-hero-btn { width: 100%; padding: 14px 20px; font-size: 0.9375rem; font-weight: 600; background: #8e99e1; color: #fff; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s, transform 0.15s; }
-.gtm-brain-hero-btn:hover { background: #7b86d0; transform: translateY(-1px); }
-.gtm-brain-hero-btn span { display: block; font-size: 0.6875rem; font-weight: 400; opacity: 0.85; margin-top: 2px; }
-.gtm-brain-hero-btn.needs-account { opacity: 0.5; cursor: not-allowed; }
+.gtm-brain-hero { margin-top: 12px; }
+.gtm-brain-hero-btn { width: 100%; padding: 10px 16px; font-size: 0.8125rem; font-weight: 600; background: #8e99e1; color: #fff; border: none; border-radius: 8px; cursor: pointer; transition: background 0.15s; }
+.gtm-brain-hero-btn:hover { background: #7b86d0; }
+.gtm-brain-hero-btn span { font-size: 0.6875rem; font-weight: 400; opacity: 0.8; margin-left: 6px; }
+.gtm-brain-hero-btn.needs-account { opacity: 0.4; cursor: not-allowed; }
 /* Tile grid */
 .gtm-brain-tiles { margin-top: 16px; transition: max-height 0.3s, opacity 0.3s; overflow: hidden; }
 .gtm-brain-tiles.collapsed { max-height: 0; opacity: 0; margin: 0; }
@@ -117,12 +117,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .gtm-brain-msg-user { background: #eef1fc; color: #1f2937; align-self: flex-end; border-bottom-right-radius: 3px; }
 .gtm-brain-msg-ai { background: #fff; border: 1px solid #e5e7eb; color: #374151; align-self: flex-start; border-bottom-left-radius: 3px; }
-.gtm-brain-msg-ai .gtm-brain-header { font-size: 1rem; margin: 10px 0 4px; color: #1f2937; }
+.gtm-brain-msg-ai .gtm-brain-header { font-size: 0.9375rem; font-weight: 600; margin: 12px 0 0; color: #1f2937; }
 .gtm-brain-msg-ai .gtm-brain-header:first-child { margin-top: 0; }
 .gtm-brain-msg-ai .gtm-brain-list { margin: 2px 0 2px 16px; padding: 0; }
 .gtm-brain-msg-ai .gtm-brain-list li { margin: 0; padding: 0; line-height: 1.45; }
-.gtm-brain-msg-ai p + .gtm-brain-list, .gtm-brain-msg-ai .gtm-brain-list + p { margin-top: 2px; }
-.gtm-brain-msg-ai .gtm-brain-header + .gtm-brain-list { margin-top: 2px; }
+.gtm-brain-msg-ai .gtm-brain-header + br { display: none; }
+.gtm-brain-msg-ai .gtm-brain-header + br + .gtm-brain-list { margin-top: 1px; }
+.gtm-brain-msg-ai .gtm-brain-header + .gtm-brain-list { margin-top: 1px; }
+.gtm-brain-msg-ai p + .gtm-brain-list { margin-top: 1px; }
+.gtm-brain-msg-ai .gtm-brain-list + p { margin-top: 4px; }
 .gtm-brain-msg-ai .gtm-brain-todo { list-style: none; margin-left: -16px; }
 .gtm-brain-msg-ai .gtm-brain-done { list-style: none; margin-left: -16px; text-decoration: line-through; color: #6b7280; }
 .gtm-brain-msg-ai p { margin: 6px 0; }
@@ -170,7 +173,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
     <!-- Hero: Full Account Download -->
     <div class="gtm-brain-hero">
-      <button type="button" id="hero-btn" class="gtm-brain-hero-btn needs-account" data-query="Give me a full account download: overview, deal status, key contacts, recent activity, pain points, competitive landscape, and recommended next steps.">Full Account Download<span>Overview, deals, contacts, activity, competitive intel -- all in one</span></button>
+      <button type="button" id="hero-btn" class="gtm-brain-hero-btn needs-account" data-query="Give me a full account overview: deal status and stage, key contacts with titles, recent activity and meetings, identified pain points, and competitive landscape.">Account Overview<span>-- deals, contacts, activity, intel</span></button>
     </div>
 
     <!-- Organized Tile Grid -->
@@ -279,11 +282,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     html = html.replace(/\\n{3,}/g, '\\n\\n');
     html = html.replace(/\\n\\n/g, '</p><p>');
     html = html.replace(/\\n/g, '<br>');
-    // Strip p-tags that wrap ul/h3 elements (prevents extra margins around lists)
+    // Strip p-tags that wrap ul/h3 elements
     html = html.replace(/<p>\\s*(<ul)/g, '$1');
     html = html.replace(/<\\/ul>\\s*<\\/p>/g, '</ul>');
     html = html.replace(/<p>\\s*(<h3)/g, '$1');
     html = html.replace(/<\\/h3>\\s*<\\/p>/g, '</h3>');
+    // Remove br tags between headers and lists (kills the gap)
+    html = html.replace(/<\\/h3>\\s*(<br>\\s*)+\\s*<ul/g, '</h3><ul');
+    html = html.replace(/<\\/h3>\\s*(<br>\\s*)+/g, '</h3>');
     // Clean up empty paragraphs and stray breaks
     html = html.replace(/<p>\\s*<\\/p>/g, '');
     html = html.replace(/(<br>\\s*){2,}/g, '<br>');

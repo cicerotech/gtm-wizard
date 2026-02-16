@@ -1029,12 +1029,14 @@ DATA LIMITATIONS:
 - When data is sparse, work with what exists and note limitations briefly — do not fill gaps with speculation
 
 FOLLOW-UP SUGGESTIONS:
-- At the very end of every response, after a "---" separator, include exactly 3 brief follow-up questions the user might want to ask next
+- At the very end of every response, after a "---" separator, include exactly 3 brief follow-up questions
 - Format as: "---\\nYou might also ask:\\n1. [question]\\n2. [question]\\n3. [question]"
-- Make suggestions specific to the account and the current discussion — not generic
-- Example: If discussing deal status, suggest stakeholder questions, competitive context, or next steps
-- Example: If discussing contacts, suggest engagement history, pain points, or upcoming meetings
-- Keep each suggestion under 10 words`;
+- CRITICAL: Only suggest questions you can ACTUALLY answer with the data provided in this context. Do NOT suggest questions about data you don't have (specific contract terms, billing, internal wikis, future plans not in CRM)
+- Base suggestions on data categories present in the context: contacts, opportunities, tasks, events, meeting notes, pain points, competitive landscape
+- Good: "Who are the key decision makers?" (if contacts exist), "What's the deal timeline?" (if opps exist), "What happened in recent meetings?" (if meeting notes exist)
+- Bad: "What's their budget for next year?" (not in data), "What did they say in the last call?" (if no meeting notes), "What specific solutions are they evaluating?" (if not captured in CRM)
+- Keep each suggestion under 10 words
+- Suggestions should help the user drill deeper into data we HAVE, not data we wish we had`;
 
   // Add intent-specific instructions
   switch (intent) {
