@@ -85,13 +85,32 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .gtm-brain-input-wrap { flex: 1; min-width: 240px; }
 .gtm-brain-input-wrap label { display: block; font-size: 0.75rem; font-weight: 500; color: #6b7280; margin-bottom: 4px; }
 .gtm-brain-input { width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 0.875rem; }
-.gtm-brain-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.gtm-brain-chip { padding: 6px 12px; font-size: 0.8125rem; border: 1px solid #e5e7eb; border-radius: 20px; background: #fff; cursor: pointer; color: #4b5563; }
-.gtm-brain-chip:hover { background: #eef1fc; border-color: #8e99e1; color: #1f2937; }
 .gtm-brain-submit { margin-top: 12px; padding: 10px 20px; font-size: 0.875rem; font-weight: 500; background: #8e99e1; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
 .gtm-brain-submit:hover { background: #7b86d0; }
 .gtm-brain-submit:disabled { opacity: 0.6; cursor: not-allowed; }
 .gtm-brain-hint { font-size: 0.75rem; color: #9ca3af; margin-top: 6px; }
+/* Hero button */
+.gtm-brain-hero { margin-top: 14px; }
+.gtm-brain-hero-btn { width: 100%; padding: 14px 20px; font-size: 0.9375rem; font-weight: 600; background: #8e99e1; color: #fff; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s, transform 0.15s; }
+.gtm-brain-hero-btn:hover { background: #7b86d0; transform: translateY(-1px); }
+.gtm-brain-hero-btn span { display: block; font-size: 0.6875rem; font-weight: 400; opacity: 0.85; margin-top: 2px; }
+.gtm-brain-hero-btn.needs-account { opacity: 0.5; cursor: not-allowed; }
+/* Tile grid */
+.gtm-brain-tiles { margin-top: 16px; transition: max-height 0.3s, opacity 0.3s; overflow: hidden; }
+.gtm-brain-tiles.collapsed { max-height: 0; opacity: 0; margin: 0; }
+.gtm-brain-tiles-toggle { font-size: 0.6875rem; color: #8e99e1; background: none; border: none; cursor: pointer; margin-top: 8px; }
+.gtm-brain-tiles-toggle:hover { text-decoration: underline; }
+.gtm-brain-tile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+@media (max-width: 640px) { .gtm-brain-tile-grid { grid-template-columns: 1fr; } }
+.gtm-brain-tile-cat { }
+.gtm-brain-tile-cat-header { font-size: 0.6875rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px; user-select: none; }
+.gtm-brain-tile-cat-header .chevron { font-size: 0.5rem; transition: transform 0.2s; }
+.gtm-brain-tile-cat-header.open .chevron { transform: rotate(90deg); }
+.gtm-brain-tile-cat-items { display: flex; flex-direction: column; gap: 4px; }
+.gtm-brain-tile-cat-items.hidden { display: none; }
+.gtm-brain-tile { padding: 7px 10px; font-size: 0.75rem; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff; cursor: pointer; color: #4b5563; text-align: left; transition: all 0.12s; width: 100%; }
+.gtm-brain-tile:hover { background: #eef1fc; border-color: #8e99e1; color: #1f2937; }
+.gtm-brain-tile.disabled { opacity: 0.4; cursor: not-allowed; }
 .gtm-brain-thread { margin-top: 16px; max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 0; }
 .gtm-brain-thread:empty { display: none; }
 .gtm-brain-msg { padding: 12px 16px; border-radius: 10px; font-size: 0.9375rem; line-height: 1.6; max-width: 100%; animation: fadeIn 0.2s ease; }
@@ -149,12 +168,69 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <input type="text" id="query" class="gtm-brain-input" placeholder="e.g. What's the latest on this account? Who are the stakeholders? Prep me for my next call." aria-label="Your question" />
       </div>
     </div>
-    <div class="gtm-brain-chips">
-      <button type="button" class="gtm-brain-chip" data-query="What's the latest on this account?">What's the latest?</button>
-      <button type="button" class="gtm-brain-chip" data-query="Who are the key contacts and stakeholders?">Key contacts</button>
-      <button type="button" class="gtm-brain-chip" data-query="What are the next steps and action items?">Next steps</button>
-      <button type="button" class="gtm-brain-chip" data-query="Prep me for my next meeting with this account.">Prep me for my meeting</button>
-      <button type="button" class="gtm-brain-chip" data-query="What's the deal status and stage?">Deal status</button>
+    <!-- Hero: Full Account Download -->
+    <div class="gtm-brain-hero">
+      <button type="button" id="hero-btn" class="gtm-brain-hero-btn needs-account" data-query="Give me a full account download: overview, deal status, key contacts, recent activity, pain points, competitive landscape, and recommended next steps.">Full Account Download<span>Overview, deals, contacts, activity, competitive intel -- all in one</span></button>
+    </div>
+
+    <!-- Organized Tile Grid -->
+    <div id="tiles-container" class="gtm-brain-tiles">
+      <div class="gtm-brain-tile-grid">
+        <!-- Account Intel -->
+        <div class="gtm-brain-tile-cat">
+          <div class="gtm-brain-tile-cat-header open" data-cat="acct"><span class="chevron">&#9654;</span> Account Intel</div>
+          <div class="gtm-brain-tile-cat-items" data-items="acct">
+            <button class="gtm-brain-tile acct-tile" data-query="What's the latest update on this account?">Latest update</button>
+            <button class="gtm-brain-tile acct-tile" data-query="What are the identified pain points for this account?">Pain points</button>
+            <button class="gtm-brain-tile acct-tile" data-query="What's the competitive landscape for this account? Who else are they evaluating?">Competitive intel</button>
+          </div>
+        </div>
+        <!-- Pipeline & Deals -->
+        <div class="gtm-brain-tile-cat">
+          <div class="gtm-brain-tile-cat-header open" data-cat="deals"><span class="chevron">&#9654;</span> Pipeline &amp; Deals</div>
+          <div class="gtm-brain-tile-cat-items" data-items="deals">
+            <button class="gtm-brain-tile acct-tile" data-query="What's the deal status and current stage for this account?">Deal status</button>
+            <button class="gtm-brain-tile acct-tile" data-query="What's the total pipeline value across all open opportunities?">Pipeline value</button>
+            <button class="gtm-brain-tile" data-query="What's the forecast for this quarter? Show commit, gut, and pipeline breakdown.">Quarterly forecast</button>
+          </div>
+        </div>
+        <!-- People & Relationships -->
+        <div class="gtm-brain-tile-cat">
+          <div class="gtm-brain-tile-cat-header open" data-cat="people"><span class="chevron">&#9654;</span> People &amp; Relationships</div>
+          <div class="gtm-brain-tile-cat-items" data-items="people">
+            <button class="gtm-brain-tile acct-tile" data-query="Who are the key contacts and stakeholders at this account?">Key contacts</button>
+            <button class="gtm-brain-tile acct-tile" data-query="Who are the decision makers and economic buyer for this account?">Decision makers</button>
+            <button class="gtm-brain-tile acct-tile" data-query="Do we have a champion at this account? What's their status and influence?">Champion status</button>
+          </div>
+        </div>
+        <!-- Marketing & Events -->
+        <div class="gtm-brain-tile-cat">
+          <div class="gtm-brain-tile-cat-header" data-cat="mktg"><span class="chevron">&#9654;</span> Marketing &amp; Events</div>
+          <div class="gtm-brain-tile-cat-items hidden" data-items="mktg">
+            <button class="gtm-brain-tile acct-tile" data-query="Which marketing campaigns have touched this account?">Campaign influence</button>
+            <button class="gtm-brain-tile" data-query="What's the event ROI by region this quarter?">Event ROI</button>
+            <button class="gtm-brain-tile" data-query="What lead sources are driving the most pipeline?">Lead sources</button>
+          </div>
+        </div>
+        <!-- Meeting Prep -->
+        <div class="gtm-brain-tile-cat">
+          <div class="gtm-brain-tile-cat-header" data-cat="prep"><span class="chevron">&#9654;</span> Meeting Prep</div>
+          <div class="gtm-brain-tile-cat-items hidden" data-items="prep">
+            <button class="gtm-brain-tile acct-tile" data-query="Full meeting prep for this account -- deal context, key contacts, recent activity, talking points, and MEDDICC gaps.">Full meeting prep</button>
+            <button class="gtm-brain-tile acct-tile" data-query="What talk tracks should I use for this account based on their pain points and our product fit?">Talk tracks</button>
+            <button class="gtm-brain-tile acct-tile" data-query="What discovery questions should I ask this account to fill MEDDICC gaps?">Questions to ask</button>
+          </div>
+        </div>
+        <!-- History & Activity -->
+        <div class="gtm-brain-tile-cat">
+          <div class="gtm-brain-tile-cat-header" data-cat="hist"><span class="chevron">&#9654;</span> History &amp; Activity</div>
+          <div class="gtm-brain-tile-cat-items hidden" data-items="hist">
+            <button class="gtm-brain-tile acct-tile" data-query="What's the full engagement history with this account?">Engagement history</button>
+            <button class="gtm-brain-tile acct-tile" data-query="What happened in the most recent meetings with this account?">Recent meetings</button>
+            <button class="gtm-brain-tile acct-tile" data-query="What are the open action items and next steps for this account?">Open action items</button>
+          </div>
+        </div>
+      </div>
     </div>
     <button type="button" id="submit" class="gtm-brain-submit">Ask</button>
     <p class="gtm-brain-hint">Typically 2–5 seconds.</p>
@@ -323,13 +399,85 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   });
 
   // ─── Suggested prompts ───────────────────────────────────────
-  document.querySelectorAll('.gtm-brain-chip').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var q = this.getAttribute('data-query');
-      queryEl.value = q;
-      queryEl.focus();
+  // ─── Tile behavior ──────────────────────────────────────────
+  var tilesContainer = document.getElementById('tiles-container');
+  var heroBtn = document.getElementById('hero-btn');
+  var tilesVisible = true;
+
+  // Category expand/collapse
+  document.querySelectorAll('.gtm-brain-tile-cat-header').forEach(function(hdr) {
+    hdr.addEventListener('click', function() {
+      var cat = this.getAttribute('data-cat');
+      var items = document.querySelector('[data-items="' + cat + '"]');
+      if (items.classList.contains('hidden')) {
+        items.classList.remove('hidden');
+        this.classList.add('open');
+      } else {
+        items.classList.add('hidden');
+        this.classList.remove('open');
+      }
     });
   });
+
+  // Tile click -> populate and submit
+  document.querySelectorAll('.gtm-brain-tile').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (this.classList.contains('disabled')) return;
+      queryEl.value = this.getAttribute('data-query');
+      runQuery(false);
+    });
+  });
+
+  // Hero button click
+  heroBtn.addEventListener('click', function() {
+    if (this.classList.contains('needs-account')) return;
+    queryEl.value = this.getAttribute('data-query');
+    runQuery(false);
+  });
+
+  // Account-awareness: enable/disable account-specific tiles
+  function updateTileState() {
+    var hasAccount = !!(selectedAccount.id || selectedAccount.name);
+    heroBtn.classList.toggle('needs-account', !hasAccount);
+    document.querySelectorAll('.gtm-brain-tile.acct-tile').forEach(function(t) {
+      t.classList.toggle('disabled', !hasAccount);
+      t.title = hasAccount ? '' : 'Select an account first';
+    });
+  }
+  updateTileState();
+
+  // Auto-collapse tiles after first query, show toggle to bring back
+  function collapseTiles() {
+    if (tilesVisible && tilesContainer) {
+      tilesContainer.classList.add('collapsed');
+      tilesVisible = false;
+      // Add toggle button if not already there
+      if (!document.getElementById('tiles-toggle')) {
+        var toggle = document.createElement('button');
+        toggle.id = 'tiles-toggle';
+        toggle.className = 'gtm-brain-tiles-toggle';
+        toggle.textContent = 'Show question suggestions';
+        toggle.onclick = function() {
+          tilesContainer.classList.toggle('collapsed');
+          tilesVisible = !tilesVisible;
+          this.textContent = tilesVisible ? 'Hide suggestions' : 'Show question suggestions';
+        };
+        tilesContainer.parentNode.insertBefore(toggle, tilesContainer.nextSibling);
+      }
+    }
+  }
+
+  // Hook into account selection to update tile state
+  var origSelectAccount = selectAccount;
+  selectAccount = function(a) {
+    origSelectAccount(a);
+    updateTileState();
+  };
+  var origClearSelection = clearSelection;
+  clearSelection = function() {
+    origClearSelection();
+    updateTileState();
+  };
 
   // ─── Thread helpers ──────────────────────────────────────────
   function addUserMessage(text) {
@@ -499,6 +647,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     queryEl.value = '';
     errorBox.style.display = 'none';
     submitBtn.disabled = true;
+    collapseTiles();
 
     var payload = {
       query: query,
