@@ -9,16 +9,35 @@
  */
 function formatResponse(text) {
   if (!text || typeof text !== 'string') return '';
-  return text
-    .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]/gu, '')
-    .replace(/^#{2,3}\s+(.+)$/gm, '<h3 class="gtm-brain-header">$1</h3>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/^[•\-]\s+(.+)$/gm, '<li>$1</li>')
-    .replace(/^-\s+\[\s*\]\s+(.+)$/gm, '<li class="gtm-brain-todo">$1</li>')
-    .replace(/^-\s+\[x\]\s+(.+)$/gm, '<li class="gtm-brain-done">$1</li>')
-    .replace(/(<li[^>]*>.*?<\/li>\s*)+/g, '<ul class="gtm-brain-list">$&</ul>')
-    .replace(/\n{2,}/g, '\n')
-    .replace(/\n/g, '<br>');
+  // Strip emojis
+  let html = text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]/gu, '');
+  // Remove empty sections (header followed by only whitespace before next header or end)
+  html = html.replace(/^#{1,3}\s+.+\n+(?=#{1,3}\s|\s*$)/gm, '');
+  // Headers
+  html = html.replace(/^#{2,3}\s+(.+)$/gm, '<h3 class="gtm-brain-header">$1</h3>');
+  // Bold
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Checkboxes
+  html = html.replace(/^-\s+\[\s*\]\s+(.+)$/gm, '<li class="gtm-brain-todo">$1</li>');
+  html = html.replace(/^-\s+\[x\]\s+(.+)$/gm, '<li class="gtm-brain-done">$1</li>');
+  // Bullet points
+  html = html.replace(/^[•\-]\s+(.+)$/gm, '<li>$1</li>');
+  // Wrap consecutive <li> into <ul>
+  html = html.replace(/(<li[^>]*>.*?<\/li>\s*)+/g, '<ul class="gtm-brain-list">$&</ul>');
+  // Paragraphs: double newlines become paragraph breaks, single newlines become <br>
+  html = html.replace(/\n{3,}/g, '\n\n');
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = html.replace(/\n/g, '<br>');
+  // Strip p-tags that wrap ul elements (prevents extra margins around lists)
+  html = html.replace(/<p>\s*(<ul)/g, '$1');
+  html = html.replace(/<\/ul>\s*<\/p>/g, '</ul>');
+  html = html.replace(/<p>\s*(<h3)/g, '$1');
+  html = html.replace(/<\/h3>\s*<\/p>/g, '</h3>');
+  // Clean up empty paragraphs and stray breaks
+  html = html.replace(/<p>\s*<\/p>/g, '');
+  html = html.replace(/(<br>\s*){2,}/g, '<br>');
+  html = html.replace(/^(<br>)+|(<br>)+$/g, '');
+  return '<p>' + html + '</p>';
 }
 
 /**
@@ -73,19 +92,41 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .gtm-brain-submit:hover { background: #7b86d0; }
 .gtm-brain-submit:disabled { opacity: 0.6; cursor: not-allowed; }
 .gtm-brain-hint { font-size: 0.75rem; color: #9ca3af; margin-top: 6px; }
+.gtm-brain-thread { margin-top: 16px; max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 0; }
+.gtm-brain-thread:empty { display: none; }
+.gtm-brain-msg { padding: 12px 16px; border-radius: 10px; font-size: 0.9375rem; line-height: 1.6; max-width: 100%; animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.gtm-brain-msg-user { background: #eef1fc; color: #1f2937; align-self: flex-end; border-bottom-right-radius: 3px; }
+.gtm-brain-msg-ai { background: #fff; border: 1px solid #e5e7eb; color: #374151; align-self: flex-start; border-bottom-left-radius: 3px; }
+.gtm-brain-msg-ai .gtm-brain-header { font-size: 1rem; margin: 10px 0 4px; color: #1f2937; }
+.gtm-brain-msg-ai .gtm-brain-header:first-child { margin-top: 0; }
+.gtm-brain-msg-ai .gtm-brain-list { margin: 2px 0 2px 16px; padding: 0; }
+.gtm-brain-msg-ai .gtm-brain-list li { margin: 0; padding: 0; line-height: 1.45; }
+.gtm-brain-msg-ai p + .gtm-brain-list, .gtm-brain-msg-ai .gtm-brain-list + p { margin-top: 2px; }
+.gtm-brain-msg-ai .gtm-brain-header + .gtm-brain-list { margin-top: 2px; }
+.gtm-brain-msg-ai .gtm-brain-todo { list-style: none; margin-left: -16px; }
+.gtm-brain-msg-ai .gtm-brain-done { list-style: none; margin-left: -16px; text-decoration: line-through; color: #6b7280; }
+.gtm-brain-msg-ai p { margin: 6px 0; }
+.gtm-brain-msg-ai p:first-child { margin-top: 0; }
+.gtm-brain-msg-ai p:last-child { margin-bottom: 0; }
+.gtm-brain-msg-context { font-size: 0.7rem; color: #9ca3af; margin-top: 6px; }
+.gtm-brain-msg-loading { background: #fff; border: 1px solid #e5e7eb; color: #6b7280; text-align: center; padding: 16px; }
+.gtm-brain-suggestions-inline { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f3f4f6; }
+.gtm-brain-suggestion-chip { font-size: 0.75rem; padding: 4px 10px; border: 1px solid #e5e7eb; border-radius: 16px; background: #f9fafb; color: #4b5563; cursor: pointer; transition: all 0.15s; }
+.gtm-brain-suggestion-chip:hover { background: #eef1fc; border-color: #8e99e1; color: #1f2937; }
+.gtm-brain-feedback { display: flex; gap: 8px; margin-top: 6px; }
+.gtm-brain-feedback-btn { font-size: 0.6875rem; padding: 2px 8px; border: none; border-radius: 4px; background: transparent; color: #9ca3af; cursor: pointer; transition: all 0.15s; }
+.gtm-brain-feedback-btn:hover { color: #4b5563; background: #f3f4f6; }
+.gtm-brain-feedback-btn:disabled { cursor: default; }
+.gtm-brain-new-chat { font-size: 0.75rem; color: #8e99e1; background: none; border: 1px solid #d1d5db; cursor: pointer; padding: 4px 10px; border-radius: 6px; margin-top: 8px; }
+.gtm-brain-new-chat:hover { background: #eef1fc; border-color: #8e99e1; }
 .gtm-brain-response { margin-top: 24px; padding: 20px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; display: none; }
 .gtm-brain-response.visible { display: block; }
 .gtm-brain-answer { font-size: 0.9375rem; line-height: 1.6; color: #374151; }
-.gtm-brain-answer .gtm-brain-header { font-size: 1rem; margin: 14px 0 6px; color: #1f2937; }
-.gtm-brain-answer .gtm-brain-header:first-child { margin-top: 0; }
-.gtm-brain-answer .gtm-brain-list { margin: 8px 0 8px 16px; }
-.gtm-brain-answer .gtm-brain-todo { list-style: none; margin-left: -16px; }
-.gtm-brain-answer .gtm-brain-done { list-style: none; margin-left: -16px; text-decoration: line-through; color: #6b7280; }
-.gtm-brain-context { font-size: 0.75rem; color: #6b7280; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between; }
 .gtm-brain-refresh { font-size: 0.75rem; color: #8e99e1; background: none; border: none; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
 .gtm-brain-refresh:hover { background: #eef1fc; color: #6b73c4; }
 .gtm-brain-loading { padding: 24px; text-align: center; color: #6b7280; }
-.gtm-brain-error { padding: 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #b91c1c; font-size: 0.875rem; }
+.gtm-brain-error { padding: 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #b91c1c; font-size: 0.875rem; margin-top: 12px; }
 .gtm-brain-footer { font-size: 0.6875rem; color: #9ca3af; margin-top: 24px; }
 </style>
 </head>
@@ -119,20 +160,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <p class="gtm-brain-hint">Typically 2–5 seconds.</p>
   </div>
 
-  <div id="response-box" class="gtm-brain-response">
-    <div id="response-content" class="gtm-brain-answer"></div>
-    <div id="response-context" class="gtm-brain-context">
-      <span id="context-text"></span>
-      <button type="button" id="refresh-btn" class="gtm-brain-refresh" title="Re-query with live Salesforce data">Refresh data</button>
-    </div>
+  <div id="thread-container" class="gtm-brain-thread"></div>
+  <div id="error-box" class="gtm-brain-error" style="display:none;"><span id="error-content"></span></div>
+  <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:4px;">
+    <button type="button" id="refresh-btn" class="gtm-brain-new-chat" title="Re-query with live Salesforce data">Refresh data</button>
+    <button type="button" id="new-chat-btn" class="gtm-brain-new-chat" title="Start a new conversation">New conversation</button>
   </div>
-  <div id="loading-box" class="gtm-brain-response" style="display:none;">
-    <div class="gtm-brain-loading" id="loading-text">Gathering intelligence...</div>
-  </div>
-  <div id="error-box" class="gtm-brain-response" style="display:none;">
-    <div id="error-content" class="gtm-brain-error"></div>
-  </div>
-
   <p class="gtm-brain-footer">Live from Salesforce • Powered by Claude</p>
 </div>
 
@@ -150,16 +183,36 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
   function formatAnswer(text) {
     if (!text) return '';
-    return text
-      .replace(/[\\u{1F300}-\\u{1F9FF}]|[\\u{2600}-\\u{26FF}]|[\\u{2700}-\\u{27BF}]|[\\u{1F600}-\\u{1F64F}]|[\\u{1F680}-\\u{1F6FF}]/gu, '')
-      .replace(/^#{2,3}\\s+(.+)$/gm, '<h3 class="gtm-brain-header">$1</h3>')
-      .replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>')
-      .replace(/^[•\\-]\\s+(.+)$/gm, '<li>$1</li>')
-      .replace(/^-\\s+\\[\\s*\\]\\s+(.+)$/gm, '<li class="gtm-brain-todo">$1</li>')
-      .replace(/^-\\s+\\[x\\]\\s+(.+)$/gm, '<li class="gtm-brain-done">$1</li>')
-      .replace(/(<li[^>]*>.*?<\\/li>\\s*)+/g, '<ul class="gtm-brain-list">$&</ul>')
-      .replace(/\\n{2,}/g, '\\n')
-      .replace(/\\n/g, '<br>');
+    var html = text;
+    // Strip emojis
+    html = html.replace(/[\\u{1F300}-\\u{1F9FF}]|[\\u{2600}-\\u{26FF}]|[\\u{2700}-\\u{27BF}]|[\\u{1F600}-\\u{1F64F}]|[\\u{1F680}-\\u{1F6FF}]/gu, '');
+    // Remove empty sections (header followed by only whitespace before next header or end)
+    html = html.replace(/^#{1,3}\\s+.+\\n+(?=#{1,3}\\s|\\s*$)/gm, '');
+    // Headers
+    html = html.replace(/^#{2,3}\\s+(.+)$/gm, '<h3 class="gtm-brain-header">$1</h3>');
+    // Bold
+    html = html.replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>');
+    // Checkboxes
+    html = html.replace(/^-\\s+\\[\\s*\\]\\s+(.+)$/gm, '<li class="gtm-brain-todo">$1</li>');
+    html = html.replace(/^-\\s+\\[x\\]\\s+(.+)$/gm, '<li class="gtm-brain-done">$1</li>');
+    // Bullet points
+    html = html.replace(/^[•\\-]\\s+(.+)$/gm, '<li>$1</li>');
+    // Wrap consecutive li into ul
+    html = html.replace(/(<li[^>]*>.*?<\\/li>\\s*)+/g, '<ul class="gtm-brain-list">$&</ul>');
+    // Paragraphs: double newlines become paragraph breaks, single become br
+    html = html.replace(/\\n{3,}/g, '\\n\\n');
+    html = html.replace(/\\n\\n/g, '</p><p>');
+    html = html.replace(/\\n/g, '<br>');
+    // Strip p-tags that wrap ul/h3 elements (prevents extra margins around lists)
+    html = html.replace(/<p>\\s*(<ul)/g, '$1');
+    html = html.replace(/<\\/ul>\\s*<\\/p>/g, '</ul>');
+    html = html.replace(/<p>\\s*(<h3)/g, '$1');
+    html = html.replace(/<\\/h3>\\s*<\\/p>/g, '</h3>');
+    // Clean up empty paragraphs and stray breaks
+    html = html.replace(/<p>\\s*<\\/p>/g, '');
+    html = html.replace(/(<br>\\s*){2,}/g, '<br>');
+    html = html.replace(/^(<br>)+|(<br>)+$/g, '');
+    return '<p>' + html + '</p>';
   }
 
   function formatAcv(v) {
@@ -175,18 +228,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   var resultsBox      = document.getElementById('search-results');
   var selectedChipBox = document.getElementById('selected-account');
   var submitBtn       = document.getElementById('submit');
-  var responseBox     = document.getElementById('response-box');
-  var responseContent = document.getElementById('response-content');
-  var responseContext = document.getElementById('context-text');
+  var threadContainer = document.getElementById('thread-container');
   var refreshBtn      = document.getElementById('refresh-btn');
-  var loadingBox      = document.getElementById('loading-box');
-  var loadingText     = document.getElementById('loading-text');
+  var newChatBtn      = document.getElementById('new-chat-btn');
   var errorBox        = document.getElementById('error-box');
   var errorContent    = document.getElementById('error-content');
 
-  // ─── Account selection state ─────────────────────────────────
+  // ─── Conversation state ─────────────────────────────────────
   var selectedAccount = { id: '', name: '', owner: '' };
   var searchDebounce = null;
+  var currentSessionId = null;
 
   function clearSelection() {
     selectedAccount = { id: '', name: '', owner: '' };
@@ -280,32 +331,50 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     });
   });
 
-  // ─── Loading / Response / Error ──────────────────────────────
-  function showLoading(accountName) {
-    responseBox.classList.remove('visible');
-    errorBox.style.display = 'none';
-    loadingBox.style.display = 'block';
-    loadingText.textContent = accountName ? 'Gathering intelligence about ' + accountName + '...' : 'Gathering intelligence...';
-    submitBtn.disabled = true;
+  // ─── Thread helpers ──────────────────────────────────────────
+  function addUserMessage(text) {
+    var msg = document.createElement('div');
+    msg.className = 'gtm-brain-msg gtm-brain-msg-user';
+    msg.textContent = text;
+    threadContainer.appendChild(msg);
+    scrollThread();
   }
 
-  function showResponse(answer, context) {
-    loadingBox.style.display = 'none';
-    errorBox.style.display = 'none';
-    responseContent.innerHTML = formatAnswer(answer);
+  function addAIMessage(answer, context) {
+    // Remove loading indicator if present
+    var loading = threadContainer.querySelector('.gtm-brain-msg-loading');
+    if (loading) loading.remove();
 
-    // Build context line with owner and data freshness
-    var parts = [];
+    // Extract follow-up suggestions from end of response
+    var mainAnswer = answer;
+    var suggestions = [];
+    var suggestMatch = answer.match(/---\\s*\\n\\s*You might also ask:\\s*\\n((?:\\d+\\.\\s*.+\\n?)+)/i);
+    if (!suggestMatch) suggestMatch = answer.match(/---\\s*\\nYou might also ask:\\s*\\n((?:[\\s\\S]*?)$)/i);
+    if (suggestMatch) {
+      mainAnswer = answer.substring(0, answer.indexOf(suggestMatch[0])).trim();
+      var lines = suggestMatch[1].trim().split('\\n');
+      for (var i = 0; i < lines.length; i++) {
+        var cleaned = lines[i].replace(/^\\d+\\.\\s*/, '').trim();
+        if (cleaned.length > 5) suggestions.push(cleaned);
+      }
+    }
+
+    var msg = document.createElement('div');
+    msg.className = 'gtm-brain-msg gtm-brain-msg-ai';
+    msg.innerHTML = formatAnswer(mainAnswer);
+
+    // Add context line
     if (context) {
+      var parts = [];
       if (context.accountName) {
         var acctLabel = context.accountName;
-        if (context.owner) acctLabel += ' (Owner: ' + context.owner + ')';
+        if (context.owner) acctLabel += ' (' + context.owner + ')';
         parts.push(acctLabel);
       }
       if (context.opportunityCount > 0) {
         var oppText = context.opportunityCount + ' opp' + (context.opportunityCount > 1 ? 's' : '');
         if (context.topOpportunity && context.topOpportunity.stage) {
-          oppText += ' — top: ' + context.topOpportunity.stage;
+          oppText += ' \\u2014 ' + context.topOpportunity.stage;
           if (context.topOpportunity.acv) oppText += ' ' + formatAcv(context.topOpportunity.acv);
         }
         parts.push(oppText);
@@ -313,25 +382,107 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       if (context.contactCount > 0) parts.push(context.contactCount + ' contacts');
       if (context.hasNotes) parts.push('notes');
       if (context.hasCustomerBrain) parts.push('history');
-      // Data freshness indicator
-      if (context.dataFreshness === 'cached') {
-        parts.push('cached data');
-      } else {
-        parts.push('live data');
+      var freshness = context.dataFreshness === 'cached' || context.dataFreshness === 'session-cached' ? 'cached' : 'live';
+      parts.push(freshness + ' data');
+      if (parts.length) {
+        var ctxDiv = document.createElement('div');
+        ctxDiv.className = 'gtm-brain-msg-context';
+        ctxDiv.textContent = parts.join(' \\u2022 ');
+        msg.appendChild(ctxDiv);
       }
     }
-    responseContext.textContent = parts.length ? 'Based on: ' + parts.join(' \\u2022 ') : '';
-    responseBox.classList.add('visible');
-    responseBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    submitBtn.disabled = false;
+
+    // Render follow-up suggestions as clickable chips
+    if (suggestions.length > 0) {
+      var suggestDiv = document.createElement('div');
+      suggestDiv.className = 'gtm-brain-suggestions-inline';
+      for (var s = 0; s < Math.min(suggestions.length, 3); s++) {
+        (function(text) {
+          var chip = document.createElement('button');
+          chip.className = 'gtm-brain-suggestion-chip';
+          chip.textContent = text;
+          chip.onclick = function() {
+            queryEl.value = text;
+            runQuery(false);
+          };
+          suggestDiv.appendChild(chip);
+        })(suggestions[s]);
+      }
+      msg.appendChild(suggestDiv);
+    }
+
+    // Feedback buttons (thumbs up / thumbs down)
+    var feedbackDiv = document.createElement('div');
+    feedbackDiv.className = 'gtm-brain-feedback';
+    var thumbsUp = document.createElement('button');
+    thumbsUp.className = 'gtm-brain-feedback-btn';
+    thumbsUp.innerHTML = '\\u2191 Helpful';
+    thumbsUp.title = 'This was helpful';
+    var thumbsDown = document.createElement('button');
+    thumbsDown.className = 'gtm-brain-feedback-btn';
+    thumbsDown.innerHTML = '\\u2193 Not helpful';
+    thumbsDown.title = 'This was not helpful';
+
+    function sendFeedback(rating, btn) {
+      var payload = {
+        query: answer.substring(0, 100),
+        answerSnippet: mainAnswer.substring(0, 300),
+        accountName: (context && context.accountName) || selectedAccount.name || '',
+        accountId: (context && context.accountId) || selectedAccount.id || '',
+        userEmail: userEmail,
+        sessionId: currentSessionId || '',
+        rating: rating
+      };
+      btn.disabled = true;
+      btn.style.opacity = '1';
+      btn.style.fontWeight = '600';
+      if (rating === 'helpful') { btn.style.color = '#059669'; }
+      else { btn.style.color = '#dc2626'; }
+
+      fetch('/api/intelligence/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload)
+      }).catch(function() {});
+    }
+
+    thumbsUp.onclick = function() { sendFeedback('helpful', thumbsUp); thumbsDown.style.display = 'none'; };
+    thumbsDown.onclick = function() { sendFeedback('not_helpful', thumbsDown); thumbsUp.style.display = 'none'; };
+    feedbackDiv.appendChild(thumbsUp);
+    feedbackDiv.appendChild(thumbsDown);
+    msg.appendChild(feedbackDiv);
+
+    threadContainer.appendChild(msg);
+    scrollThread();
+  }
+
+  function addLoadingMessage(accountName) {
+    var msg = document.createElement('div');
+    msg.className = 'gtm-brain-msg gtm-brain-msg-loading';
+    msg.textContent = accountName ? 'Gathering intelligence about ' + accountName + '...' : 'Thinking...';
+    threadContainer.appendChild(msg);
+    scrollThread();
+  }
+
+  function scrollThread() {
+    threadContainer.scrollTop = threadContainer.scrollHeight;
   }
 
   function showError(msg) {
-    loadingBox.style.display = 'none';
-    responseBox.classList.remove('visible');
+    var loading = threadContainer.querySelector('.gtm-brain-msg-loading');
+    if (loading) loading.remove();
     errorContent.textContent = msg;
     errorBox.style.display = 'block';
     submitBtn.disabled = false;
+  }
+
+  function startNewChat() {
+    threadContainer.innerHTML = '';
+    currentSessionId = null;
+    errorBox.style.display = 'none';
+    queryEl.value = '';
+    queryEl.focus();
   }
 
   // ─── Query execution ─────────────────────────────────────────
@@ -342,7 +493,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     var accountId   = selectedAccount.id || '';
     var accountName = selectedAccount.name || '';
 
-    showLoading(accountName || null);
+    // Show user message in thread
+    addUserMessage(query);
+    addLoadingMessage(accountName || null);
+    queryEl.value = '';
+    errorBox.style.display = 'none';
+    submitBtn.disabled = true;
 
     var payload = {
       query: query,
@@ -351,6 +507,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       userEmail: userEmail
     };
     if (forceRefresh) payload.forceRefresh = true;
+    if (currentSessionId) payload.sessionId = currentSessionId;
 
     fetch('/api/intelligence/query', {
       method: 'POST',
@@ -361,10 +518,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, json: j }; }); })
     .then(function(result) {
       if (result.ok && result.json.success) {
-        showResponse(result.json.answer, result.json.context);
+        // Track session for follow-ups
+        if (result.json.sessionId) currentSessionId = result.json.sessionId;
+        addAIMessage(result.json.answer, result.json.context);
       } else {
+        var loading = threadContainer.querySelector('.gtm-brain-msg-loading');
+        if (loading) loading.remove();
         showError(result.json.error || result.json.message || 'Could not get an answer. Try rephrasing.');
       }
+      submitBtn.disabled = false;
     })
     .catch(function(err) {
       var msg = 'Unable to connect. Check your connection and try again.';
@@ -377,6 +539,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
   submitBtn.addEventListener('click', function() { runQuery(false); });
   refreshBtn.addEventListener('click', function() { runQuery(true); });
+  newChatBtn.addEventListener('click', startNewChat);
   queryEl.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') runQuery(false);
   });

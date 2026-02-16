@@ -1501,6 +1501,133 @@
   border: 1px solid var(--background-modifier-border);
 }
 
+/* Multi-turn conversation thread */
+.eudia-intelligence-thread {
+  margin-top: 12px;
+  max-height: 50vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.eudia-thread-msg {
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 95%;
+  animation: eudia-fade-in 0.2s ease;
+}
+
+@keyframes eudia-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.eudia-thread-msg-user {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  align-self: flex-end;
+  border-bottom-right-radius: 3px;
+}
+
+.eudia-thread-msg-ai {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  align-self: flex-start;
+  border-bottom-left-radius: 3px;
+}
+
+.eudia-thread-msg-loading {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-style: italic;
+  align-self: flex-start;
+  animation: eudia-pulse-bg 1.5s ease-in-out infinite;
+}
+
+.eudia-thread-msg-error {
+  background: var(--background-modifier-error);
+  color: var(--text-error);
+  align-self: flex-start;
+  font-size: 13px;
+}
+
+.eudia-intelligence-thread-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.eudia-btn-secondary {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.eudia-btn-secondary:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* Inline follow-up suggestion chips */
+.eudia-suggestions-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.eudia-suggestion-chip-inline {
+  font-size: 12px;
+  padding: 3px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 14px;
+  background: var(--background-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.eudia-suggestion-chip-inline:hover {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+/* Feedback buttons */
+.eudia-feedback-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.eudia-feedback-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.eudia-feedback-btn:hover {
+  color: var(--text-muted);
+  background: var(--background-modifier-hover);
+}
+
 .eudia-intelligence-loading {
   color: var(--text-muted);
   font-style: italic;

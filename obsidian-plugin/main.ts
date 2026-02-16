@@ -659,7 +659,9 @@ class IntelligenceQueryModal extends Modal {
   plugin: EudiaSyncPlugin;
   private queryInput: HTMLTextAreaElement;
   private responseContainer: HTMLElement;
+  private threadContainer: HTMLElement;
   private accountContext: { id: string; name: string } | null = null;
+  private sessionId: string | null = null;
 
   constructor(app: App, plugin: EudiaSyncPlugin, accountContext?: { id: string; name: string }) {
     super(app);
@@ -715,9 +717,22 @@ class IntelligenceQueryModal extends Modal {
       }
     };
     
-    // Response container
+    // Thread container for multi-turn conversation
+    this.threadContainer = contentEl.createDiv({ cls: 'eudia-intelligence-thread' });
+    
+    // Response container (kept for backward compat — not visible in thread mode)
     this.responseContainer = contentEl.createDiv({ cls: 'eudia-intelligence-response' });
     this.responseContainer.style.display = 'none';
+
+    // New chat button
+    const threadActions = contentEl.createDiv({ cls: 'eudia-intelligence-thread-actions' });
+    const newChatBtn = threadActions.createEl('button', { text: 'New conversation', cls: 'eudia-btn-secondary' });
+    newChatBtn.onclick = () => {
+      this.threadContainer.empty();
+      this.sessionId = null;
+      this.queryInput.value = '';
+      this.queryInput.focus();
+    };
     
     // Suggested questions - dynamic based on context
     const suggestions = contentEl.createDiv({ cls: 'eudia-intelligence-suggestions' });
@@ -767,95 +782,176 @@ class IntelligenceQueryModal extends Modal {
     const query = this.queryInput.value.trim();
     if (!query) return;
     
-    // Show loading state with context-aware message
-    this.responseContainer.style.display = 'block';
+    // Add user message to thread
+    const userMsg = this.threadContainer.createDiv({ cls: 'eudia-thread-msg eudia-thread-msg-user' });
+    userMsg.setText(query);
+    this.queryInput.value = '';
+    
+    // Add loading indicator
+    const loadingMsg = this.threadContainer.createDiv({ cls: 'eudia-thread-msg eudia-thread-msg-loading' });
     const accountMsg = this.accountContext?.name ? ` about ${this.accountContext.name}` : '';
-    this.responseContainer.innerHTML = `<div class="eudia-intelligence-loading">Gathering intelligence${accountMsg}...</div>`;
+    loadingMsg.setText(`Thinking${accountMsg}...`);
+    this.scrollThread();
     
     try {
+      const payload: any = {
+        query: query,
+        accountId: this.accountContext?.id,
+        accountName: this.accountContext?.name,
+        userEmail: this.plugin.settings.userEmail
+      };
+      if (this.sessionId) payload.sessionId = this.sessionId;
+
       const response = await requestUrl({
         url: `${this.plugin.settings.serverUrl}/api/intelligence/query`,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: query,
-          accountId: this.accountContext?.id,
-          accountName: this.accountContext?.name,
-          userEmail: this.plugin.settings.userEmail
-        }),
-        throw: false,  // Don't throw on HTTP errors - handle them gracefully
+        body: JSON.stringify(payload),
+        throw: false,
         contentType: 'application/json'
       });
       
-      // Check HTTP status first (since throw: false)
+      // Remove loading indicator
+      loadingMsg.remove();
+      
       if (response.status >= 400) {
         const errorMsg = response.json?.error || `Server error (${response.status}). Please try again.`;
-        this.responseContainer.innerHTML = `<div class="eudia-intelligence-error">${errorMsg}</div>`;
+        const errDiv = this.threadContainer.createDiv({ cls: 'eudia-thread-msg eudia-thread-msg-error' });
+        errDiv.setText(errorMsg);
+        this.scrollThread();
         return;
       }
       
       if (response.json?.success) {
-        this.responseContainer.innerHTML = '';
-        const answer = this.responseContainer.createDiv({ cls: 'eudia-intelligence-answer' });
-        answer.innerHTML = this.formatResponse(response.json.answer);
+        // Track session for follow-ups
+        if (response.json.sessionId) this.sessionId = response.json.sessionId;
         
-        // Show rich context info
+        // Extract follow-up suggestions from end of response
+        let mainAnswer = response.json.answer || '';
+        const suggestions: string[] = [];
+        const suggestMatch = mainAnswer.match(/---\s*\n\s*You might also ask:\s*\n((?:\d+\.\s*.+\n?)+)/i);
+        if (suggestMatch) {
+          mainAnswer = mainAnswer.substring(0, mainAnswer.indexOf(suggestMatch[0])).trim();
+          const lines = suggestMatch[1].trim().split('\n');
+          for (const line of lines) {
+            const cleaned = line.replace(/^\d+\.\s*/, '').trim();
+            if (cleaned.length > 5) suggestions.push(cleaned);
+          }
+        }
+
+        // Add AI response to thread
+        const aiMsg = this.threadContainer.createDiv({ cls: 'eudia-thread-msg eudia-thread-msg-ai' });
+        const answerDiv = aiMsg.createDiv({ cls: 'eudia-intelligence-answer' });
+        answerDiv.innerHTML = this.formatResponse(mainAnswer);
+        
+        // Context info
         if (response.json.context) {
           const ctx = response.json.context;
-          const contextInfo = this.responseContainer.createDiv({ cls: 'eudia-intelligence-context-info' });
-          
           const parts: string[] = [];
           if (ctx.accountName) parts.push(ctx.accountName);
           if (ctx.opportunityCount > 0) parts.push(`${ctx.opportunityCount} opps`);
           if (ctx.hasNotes) parts.push('notes');
           if (ctx.hasCustomerBrain) parts.push('history');
-          
-          const freshness = ctx.dataFreshness === 'cached' ? ' (cached)' : '';
-          contextInfo.setText(`Based on: ${parts.join(' • ')}${freshness}`);
+          const freshness = (ctx.dataFreshness === 'cached' || ctx.dataFreshness === 'session-cached') ? ' (cached)' : '';
+          if (parts.length) {
+            const contextInfo = aiMsg.createDiv({ cls: 'eudia-intelligence-context-info' });
+            contextInfo.setText(`${parts.join(' \u2022 ')}${freshness}`);
+          }
         }
+
+        // Render follow-up suggestions as clickable chips
+        if (suggestions.length > 0) {
+          const suggestDiv = aiMsg.createDiv({ cls: 'eudia-suggestions-inline' });
+          for (const suggestion of suggestions.slice(0, 3)) {
+            const chip = suggestDiv.createEl('button', { text: suggestion, cls: 'eudia-suggestion-chip-inline' });
+            chip.onclick = () => {
+              this.queryInput.value = suggestion;
+              this.submitQuery();
+            };
+          }
+        }
+
+        // Feedback buttons
+        const feedbackDiv = aiMsg.createDiv({ cls: 'eudia-feedback-row' });
+        const thumbsUp = feedbackDiv.createEl('button', { text: '\u2191 Helpful', cls: 'eudia-feedback-btn' });
+        const thumbsDown = feedbackDiv.createEl('button', { text: '\u2193 Not helpful', cls: 'eudia-feedback-btn' });
         
-        // Show performance info in debug mode
-        if (response.json.performance && process.env.NODE_ENV === 'development') {
-          const perfInfo = this.responseContainer.createDiv({ cls: 'eudia-intelligence-perf' });
-          perfInfo.setText(`${response.json.performance.durationMs}ms • ${response.json.performance.tokensUsed} tokens`);
-        }
+        const sendFeedback = async (rating: string, btn: HTMLButtonElement, otherBtn: HTMLButtonElement) => {
+          btn.disabled = true;
+          btn.style.fontWeight = '600';
+          btn.style.color = rating === 'helpful' ? 'var(--text-success)' : 'var(--text-error)';
+          otherBtn.style.display = 'none';
+          try {
+            await requestUrl({
+              url: `${this.plugin.settings.serverUrl}/api/intelligence/feedback`,
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                query: query,
+                answerSnippet: mainAnswer.substring(0, 300),
+                accountName: this.accountContext?.name || '',
+                accountId: this.accountContext?.id || '',
+                userEmail: this.plugin.settings.userEmail,
+                sessionId: this.sessionId || '',
+                rating
+              }),
+              throw: false
+            });
+          } catch (e) { /* silent */ }
+        };
+        thumbsUp.onclick = () => sendFeedback('helpful', thumbsUp as HTMLButtonElement, thumbsDown as HTMLButtonElement);
+        thumbsDown.onclick = () => sendFeedback('not_helpful', thumbsDown as HTMLButtonElement, thumbsUp as HTMLButtonElement);
       } else {
         const errorMsg = response.json?.error || 'Could not get an answer. Try rephrasing your question.';
-        this.responseContainer.innerHTML = `<div class="eudia-intelligence-error">${errorMsg}</div>`;
+        const errDiv = this.threadContainer.createDiv({ cls: 'eudia-thread-msg eudia-thread-msg-error' });
+        errDiv.setText(errorMsg);
       }
+      this.scrollThread();
     } catch (error: any) {
+      loadingMsg.remove();
       console.error('[GTM Brain] Intelligence query error:', error);
-      // Provide more specific error messages
       let errorMsg = 'Unable to connect. Please check your internet connection and try again.';
       if (error?.message?.includes('timeout')) {
         errorMsg = 'Request timed out. The server may be busy - please try again.';
       } else if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
         errorMsg = 'Network error. Please check your connection and try again.';
       }
-      this.responseContainer.innerHTML = `<div class="eudia-intelligence-error">${errorMsg}</div>`;
+      const errDiv = this.threadContainer.createDiv({ cls: 'eudia-thread-msg eudia-thread-msg-error' });
+      errDiv.setText(errorMsg);
+      this.scrollThread();
     }
+  }
+
+  private scrollThread(): void {
+    this.threadContainer.scrollTop = this.threadContainer.scrollHeight;
   }
   
   private formatResponse(text: string): string {
-    // Enhanced markdown formatting for sales-focused responses
-    return text
-      // Remove any stray emojis (backup cleanup)
-      .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]/gu, '')
-      // Headers - handle ## and ### (convert both to h3 for consistency)
-      .replace(/^#{2,3}\s+(.+)$/gm, '<h3 class="eudia-intel-header">$1</h3>')
-      // Bold (**text**)
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      // Bullet points (• or -)
-      .replace(/^[•\-]\s+(.+)$/gm, '<li>$1</li>')
-      // Checkboxes (- [ ] or - [x])
-      .replace(/^-\s+\[\s*\]\s+(.+)$/gm, '<li class="eudia-intel-todo">$1</li>')
-      .replace(/^-\s+\[x\]\s+(.+)$/gm, '<li class="eudia-intel-done">$1</li>')
-      // Wrap consecutive <li> in <ul>
-      .replace(/(<li[^>]*>.*?<\/li>\s*)+/g, '<ul class="eudia-intel-list">$&</ul>')
-      // Collapse multiple line breaks to single
-      .replace(/\n{2,}/g, '\n')
-      // Convert remaining newlines to <br>
-      .replace(/\n/g, '<br>');
+    let html = text;
+    // Strip emojis
+    html = html.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]/gu, '');
+    // Remove empty sections (header followed by only whitespace before next header or end)
+    html = html.replace(/^#{1,3}\s+.+\n+(?=#{1,3}\s|\s*$)/gm, '');
+    // Headers
+    html = html.replace(/^#{2,3}\s+(.+)$/gm, '<h3 class="eudia-intel-header">$1</h3>');
+    // Bold
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // Checkboxes
+    html = html.replace(/^-\s+\[\s*\]\s+(.+)$/gm, '<li class="eudia-intel-todo">$1</li>');
+    html = html.replace(/^-\s+\[x\]\s+(.+)$/gm, '<li class="eudia-intel-done">$1</li>');
+    // Bullet points
+    html = html.replace(/^[•\-]\s+(.+)$/gm, '<li>$1</li>');
+    // Wrap consecutive li into ul
+    html = html.replace(/(<li[^>]*>.*?<\/li>\s*)+/g, '<ul class="eudia-intel-list">$&</ul>');
+    // Paragraphs: double newlines become paragraph breaks, single become br
+    html = html.replace(/\n{3,}/g, '\n\n');
+    html = html.replace(/\n\n/g, '</p><p>');
+    html = html.replace(/\n/g, '<br>');
+    // Clean up empty paragraphs and stray breaks
+    html = html.replace(/<p>\s*<\/p>/g, '');
+    html = html.replace(/(<br>\s*){2,}/g, '<br>');
+    html = html.replace(/^(<br>)+|(<br>)+$/g, '');
+    return '<p>' + html + '</p>';
   }
 
   onClose() {

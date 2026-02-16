@@ -4567,7 +4567,8 @@ class GTMBrainApp {
           accountId,      // Optional: Focus on a specific account
           accountName,    // Optional: Account name for context
           userEmail,      // User's email for context
-          forceRefresh    // Optional: Skip in-memory cache for fresh data
+          forceRefresh,   // Optional: Skip in-memory cache for fresh data
+          sessionId       // Optional: Conversation session ID for multi-turn
         } = req.body;
         
         // Use the dedicated intelligence query service
@@ -4578,7 +4579,8 @@ class GTMBrainApp {
           accountId,
           accountName,
           userEmail,
-          forceRefresh: !!forceRefresh
+          forceRefresh: !!forceRefresh,
+          sessionId: sessionId || undefined
         });
         
         if (result.success) {
@@ -4594,6 +4596,65 @@ class GTMBrainApp {
           error: 'Failed to process intelligence query',
           details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // VECTOR SEARCH ENDPOINT
+    // Semantic search across meeting notes, account context, and intelligence
+    // Requires ENABLE_VECTOR_SEARCH=true
+    // ═══════════════════════════════════════════════════════════════════════════
+    this.expressApp.post('/api/intelligence/vector-search', async (req, res) => {
+      try {
+        const vectorSearchService = require('./services/vectorSearchService');
+        if (!vectorSearchService.isHealthy()) {
+          return res.status(503).json({ success: false, error: 'Vector search not enabled or not healthy' });
+        }
+        const { query, accountId, limit, sourceType } = req.body;
+        if (!query) return res.status(400).json({ success: false, error: 'Query is required' });
+        
+        const results = await vectorSearchService.search(query, { accountId, limit: limit || 5, sourceType });
+        res.json({ success: true, results, count: results.length });
+      } catch (error) {
+        logger.error('Vector search error:', error);
+        res.status(500).json({ success: false, error: 'Vector search failed' });
+      }
+    });
+
+    this.expressApp.get('/api/intelligence/vector-stats', async (req, res) => {
+      try {
+        const vectorSearchService = require('./services/vectorSearchService');
+        res.json({ success: true, stats: vectorSearchService.getStats() });
+      } catch (error) {
+        res.status(500).json({ success: false, error: 'Stats not available' });
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // USER FEEDBACK
+    // Collect thumbs up/down ratings on intelligence responses
+    // ═══════════════════════════════════════════════════════════════════════════
+    this.expressApp.post('/api/intelligence/feedback', async (req, res) => {
+      try {
+        const feedbackService = require('./services/feedbackService');
+        const { query, answerSnippet, accountName, accountId, userEmail, sessionId, rating, comment } = req.body;
+        if (!rating || !['helpful', 'not_helpful'].includes(rating)) {
+          return res.status(400).json({ success: false, error: 'Rating must be "helpful" or "not_helpful"' });
+        }
+        const id = feedbackService.submitFeedback({ query, answerSnippet, accountName, accountId, userEmail, sessionId, rating, comment });
+        res.json({ success: true, feedbackId: id });
+      } catch (error) {
+        logger.error('Feedback submission error:', error);
+        res.status(500).json({ success: false, error: 'Failed to submit feedback' });
+      }
+    });
+
+    this.expressApp.get('/api/intelligence/feedback/summary', async (req, res) => {
+      try {
+        const feedbackService = require('./services/feedbackService');
+        res.json({ success: true, summary: feedbackService.getSummary() });
+      } catch (error) {
+        res.status(500).json({ success: false, error: 'Failed to get feedback summary' });
       }
     });
 

@@ -18,12 +18,85 @@ const { cache } = require('../utils/cache');
 const logger = require('../utils/logger');
 const { getIntelForAccount } = require('./slackIntelCache');
 
+// Vector search for semantic context retrieval
+// Feature flag: ENABLE_VECTOR_SEARCH (default false until validated)
+let vectorSearch = null;
+if (process.env.ENABLE_VECTOR_SEARCH === 'true') {
+  try {
+    vectorSearch = require('./vectorSearchService');
+    logger.info('[Intelligence] Vector search integration loaded');
+  } catch (err) {
+    logger.warn('[Intelligence] Vector search not available:', err.message);
+  }
+}
+
+// Advanced intent parser (same ML cascade used by Slack bot)
+// Feature flag: USE_ADVANCED_INTENTS (default true — falls back to simple on error)
+const USE_ADVANCED_INTENTS = process.env.USE_ADVANCED_INTENTS !== 'false';
+let advancedIntentParser = null;
+if (USE_ADVANCED_INTENTS) {
+  try {
+    advancedIntentParser = require('../ai/intentParser');
+    logger.info('[Intelligence] Advanced intent parser loaded (50+ intents, ML cascade)');
+  } catch (err) {
+    logger.warn('[Intelligence] Advanced intent parser not available, using simple keywords:', err.message);
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // IN-MEMORY CACHE - Ephemeral, no customer data persisted to disk
 // Replaces SQLite storage for compliance - data fetched from Salesforce
 // ═══════════════════════════════════════════════════════════════════════════
 const accountContextCache = new Map();
 const MEMORY_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes — keep short for data accuracy
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONVERSATION SESSION STORE - Multi-turn conversation support
+// Feature flag: ENABLE_MULTI_TURN (default true)
+// Sessions expire after 30 minutes of inactivity
+// ═══════════════════════════════════════════════════════════════════════════
+const ENABLE_MULTI_TURN = process.env.ENABLE_MULTI_TURN !== 'false';
+const conversationSessions = new Map();
+const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const MAX_CONVERSATION_TURNS = 10; // Keep last 10 turns to stay within token limits
+const MAX_SESSIONS = 200; // Prevent unbounded memory growth
+
+function getSession(sessionId) {
+  if (!sessionId || !conversationSessions.has(sessionId)) return null;
+  const session = conversationSessions.get(sessionId);
+  if (Date.now() - session.lastActivity > SESSION_TTL_MS) {
+    conversationSessions.delete(sessionId);
+    return null;
+  }
+  session.lastActivity = Date.now();
+  return session;
+}
+
+function createSession(sessionId) {
+  // Evict oldest sessions if at capacity
+  if (conversationSessions.size >= MAX_SESSIONS) {
+    let oldestKey = null, oldestTime = Infinity;
+    for (const [key, sess] of conversationSessions) {
+      if (sess.lastActivity < oldestTime) { oldestTime = sess.lastActivity; oldestKey = key; }
+    }
+    if (oldestKey) conversationSessions.delete(oldestKey);
+  }
+  const session = {
+    id: sessionId,
+    turns: [],        // Array of { role: 'user'|'assistant', content: string }
+    accountId: null,
+    accountName: null,
+    gatheredContext: null, // Reuse context across turns
+    lastActivity: Date.now(),
+    createdAt: Date.now()
+  };
+  conversationSessions.set(sessionId, session);
+  return session;
+}
+
+function generateSessionId() {
+  return 'sess_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 8);
+}
 
 function getMemoryCachedContext(accountId) {
   const cached = accountContextCache.get(accountId);
@@ -134,7 +207,7 @@ const QUERY_INTENTS = {
  * @param {string} params.userEmail - User making the query
  * @returns {Object} - Query response with answer and metadata
  */
-async function processQuery({ query, accountId, accountName, userEmail, forceRefresh }) {
+async function processQuery({ query, accountId, accountName, userEmail, forceRefresh, sessionId }) {
   const startTime = Date.now();
   
   if (!anthropic) {
@@ -154,19 +227,78 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
   }
 
   try {
-    // Classify the query intent
-    const intent = classifyQueryIntent(query);
-    logger.info(`[Intelligence] Query intent: ${intent}`, { query: query.substring(0, 50), forceRefresh: !!forceRefresh });
+    // ── Multi-turn session management ──
+    let session = null;
+    let currentSessionId = sessionId || null;
+    let turnNumber = 1;
 
-    // Gather context based on intent
-    const context = await gatherContext({
-      intent,
-      query,
-      accountId,
-      accountName,
-      userEmail,
-      forceRefresh: !!forceRefresh
+    if (ENABLE_MULTI_TURN) {
+      if (currentSessionId) {
+        session = getSession(currentSessionId);
+      }
+      if (!session) {
+        currentSessionId = currentSessionId || generateSessionId();
+        session = createSession(currentSessionId);
+      }
+      turnNumber = Math.floor(session.turns.length / 2) + 1;
+
+      // If account changed mid-conversation, refresh context
+      if (accountId && session.accountId && session.accountId !== accountId) {
+        session.gatheredContext = null;
+        logger.info(`[Intelligence] Account changed in session, refreshing context`);
+      }
+      if (accountId) session.accountId = accountId;
+      if (accountName) session.accountName = accountName;
+    }
+
+    // Query expansion: detect keywords that require additional data sources
+    const lowerQuery = query.toLowerCase();
+    const queryHints = {
+      needsContracts: /contract|agreement|renewal|renew|term\b|expir/i.test(query),
+      needsProducts: /product|purchased|buying|bought|subscri|license|line item/i.test(query),
+      needsCommercial: /pricing|price|cost|commerci|terms|payment|invoice|billing/i.test(query),
+    };
+
+    // Classify the query intent (async — uses ML cascade when available)
+    const intent = await classifyQueryIntent(query);
+    logger.info(`[Intelligence] Query intent: ${intent}`, { 
+      query: query.substring(0, 50), 
+      forceRefresh: !!forceRefresh,
+      sessionId: currentSessionId,
+      turn: turnNumber,
+      queryHints: Object.keys(queryHints).filter(k => queryHints[k])
     });
+
+    // Gather context — reuse from session if available and not forcing refresh
+    let context;
+    if (ENABLE_MULTI_TURN && session && session.gatheredContext && !forceRefresh && turnNumber > 1) {
+      context = session.gatheredContext;
+      context.dataFreshness = 'session-cached';
+      logger.info(`[Intelligence] Reusing session context (turn ${turnNumber})`);
+    } else {
+      context = await gatherContext({
+        intent,
+        query,
+        accountId: accountId || (session?.accountId),
+        accountName: accountName || (session?.accountName),
+        userEmail,
+        forceRefresh: !!forceRefresh
+      });
+      if (ENABLE_MULTI_TURN && session) {
+        session.gatheredContext = context;
+      }
+    }
+
+    // Context quality scoring — let Claude know when data is sparse
+    const contextQuality = [];
+    if (!context.account) contextQuality.push('no account record found');
+    if ((context.opportunities?.length || 0) === 0) contextQuality.push('no opportunities');
+    if ((context.contacts?.length || 0) === 0) contextQuality.push('no contacts');
+    if (!context.customerBrain) contextQuality.push('no meeting history');
+    if ((context.contracts?.length || 0) === 0 && queryHints.needsContracts) contextQuality.push('no contract records accessible');
+    if (contextQuality.length >= 3) {
+      context.qualityNote = `LIMITED DATA: Only ${4 - contextQuality.length} of 4 core data sources available. Missing: ${contextQuality.join(', ')}.`;
+    }
 
     // Build the optimized prompt
     const { systemPrompt, userPrompt } = buildPrompt({
@@ -175,21 +307,47 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
       context
     });
 
+    // ── Build messages array (multi-turn or single-turn) ──
+    let messages;
+    if (ENABLE_MULTI_TURN && session && session.turns.length > 0) {
+      // Multi-turn: include conversation history + new query
+      // First turn included the full context in userPrompt; follow-ups are plain queries
+      messages = [
+        ...session.turns.slice(-MAX_CONVERSATION_TURNS * 2), // Keep recent turns within token limit
+        { role: 'user', content: turnNumber === 1 ? userPrompt : `Follow-up question (same account context as above):\n${query}` }
+      ];
+    } else {
+      // Single-turn or first turn
+      messages = [{ role: 'user', content: userPrompt }];
+    }
+
     // Call Claude
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1500,
       system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }]
+      messages
     });
 
     const answer = response.content[0]?.text || 'Unable to generate response.';
     const duration = Date.now() - startTime;
 
+    // ── Store turn in session ──
+    if (ENABLE_MULTI_TURN && session) {
+      // For first turn, store the full context prompt; for follow-ups, store the plain query
+      session.turns.push({ role: 'user', content: turnNumber === 1 ? userPrompt : query });
+      session.turns.push({ role: 'assistant', content: answer });
+      // Trim if too many turns
+      if (session.turns.length > MAX_CONVERSATION_TURNS * 2) {
+        session.turns = session.turns.slice(-MAX_CONVERSATION_TURNS * 2);
+      }
+    }
+
     logger.info(`[Intelligence] Query completed in ${duration}ms`, {
       intent,
       accountName: context.account?.name,
-      tokensUsed: response.usage?.output_tokens
+      tokensUsed: response.usage?.output_tokens,
+      turn: turnNumber
     });
 
     return {
@@ -197,6 +355,8 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
       query,
       answer,
       intent,
+      sessionId: currentSessionId || undefined,
+      turnNumber,
       context: {
         accountName: context.account?.name,
         accountId: context.account?.id,
@@ -232,11 +392,47 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
 }
 
 /**
- * Classify the query intent to determine what data to fetch
+ * Classify the query intent to determine what data to fetch.
+ * Uses advanced ML cascade (50+ intents) when available, falls back to simple keywords.
  */
-function classifyQueryIntent(query) {
+async function classifyQueryIntent(query, conversationContext) {
+  // Try advanced intent parser first (same system as Slack bot)
+  if (advancedIntentParser) {
+    try {
+      const parsed = await advancedIntentParser.parseIntent(query, conversationContext || null, null);
+      if (parsed && parsed.intent) {
+        // Map advanced intent names to our context-gathering categories
+        const intentMap = {
+          'pipeline_summary': 'PIPELINE_OVERVIEW',
+          'deal_lookup': 'DEAL_STATUS',
+          'account_lookup': 'ACCOUNT_LOOKUP',
+          'forecasting': 'PIPELINE_OVERVIEW',
+          'stage_change': 'DEAL_STATUS',
+          'post_call_summary': 'HISTORY',
+          'query_account_plan': 'PRE_MEETING',
+          'save_customer_note': 'GENERAL',
+          'stakeholder_query': 'STAKEHOLDERS',
+          'competitive_intel': 'COMPETITIVE',
+          'pain_points': 'PAIN_POINTS',
+          'next_steps': 'NEXT_STEPS',
+          'meeting_prep': 'PRE_MEETING',
+          'history': 'HISTORY',
+        };
+        const mappedIntent = intentMap[parsed.intent] || null;
+        if (mappedIntent) {
+          logger.info(`[Intelligence] Advanced intent: ${parsed.intent} -> ${mappedIntent} (confidence: ${parsed.confidence || 'n/a'})`);
+          return mappedIntent;
+        }
+        // If no mapping, still log and fall through to simple classifier
+        logger.info(`[Intelligence] Advanced intent unmapped: ${parsed.intent}, falling back to simple`);
+      }
+    } catch (err) {
+      logger.warn('[Intelligence] Advanced intent parser error, falling back to simple:', err.message);
+    }
+  }
+
+  // Fallback: simple keyword matching
   const lowerQuery = query.toLowerCase();
-  
   for (const [intent, keywords] of Object.entries(QUERY_INTENTS)) {
     if (keywords.some(kw => lowerQuery.includes(kw))) {
       return intent;
@@ -254,11 +450,13 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
     account: null,
     opportunities: [],
     contacts: [],
+    contracts: [],
     recentTasks: [],
     recentEvents: [],
     customerBrain: null,
     obsidianNotes: [],
     slackIntel: [],
+    vectorResults: [],
     upcomingMeeting: null,
     dataFreshness: 'live'
   };
@@ -321,13 +519,15 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
     opportunities,
     contacts,
     tasks,
-    events
+    events,
+    contracts
   ] = await Promise.all([
     getAccountDetails(accountId),
     getOpportunities(accountId),
     getContacts(accountId),
     getRecentTasks(accountId),
-    getRecentEvents(accountId)
+    getRecentEvents(accountId),
+    getContracts(accountId)
   ]);
 
   // Populate context and log data availability
@@ -346,6 +546,7 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
   }
   
   context.opportunities = opportunities || [];
+  context.contracts = contracts || [];
   context.contacts = contacts || [];
   context.recentTasks = tasks || [];
   context.recentEvents = events || [];
@@ -358,12 +559,27 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
   if (context.slackIntel.length > 0) {
     logger.debug(`[Intelligence] Loaded ${context.slackIntel.length} Slack intel items for ${accountId}`);
   }
+
+  // Vector search: find semantically relevant context for the query
+  context.vectorResults = [];
+  if (vectorSearch && vectorSearch.isHealthy() && query) {
+    try {
+      const vResults = await vectorSearch.search(query, { accountId, limit: 5 });
+      context.vectorResults = vResults;
+      if (vResults.length > 0) {
+        logger.info(`[Intelligence] Vector search returned ${vResults.length} results for "${query.substring(0, 40)}"`);
+      }
+    } catch (err) {
+      logger.warn('[Intelligence] Vector search error:', err.message);
+    }
+  }
   
   // Log data summary for debugging
   logger.info(`[Intelligence] Context summary for ${context.account?.name || accountId}: ` +
     `${context.opportunities.length} opps, ${context.contacts.length} contacts, ` +
     `${context.recentTasks.length} tasks, ${context.recentEvents.length} events, ` +
-    `${context.meetingNotes.length} meeting notes, customerBrain: ${context.customerBrain ? 'yes' : 'no'}`);
+    `${context.meetingNotes.length} meeting notes, customerBrain: ${context.customerBrain ? 'yes' : 'no'}` +
+    `${context.vectorResults.length > 0 ? `, ${context.vectorResults.length} vector matches` : ''}`);
 
   // Get upcoming meeting if relevant
   if (intent === 'PRE_MEETING') {
@@ -432,8 +648,13 @@ async function getOpportunities(accountId) {
   try {
     const result = await sfQuery(`
       SELECT Id, Name, StageName, ACV__c, Weighted_ACV__c, CloseDate, Target_LOI_Date__c,
-             Product_Line__c, Owner.Name, NextStep, Probability, Days_in_Stage__c,
-             Revenue_Type__c, Type, IsClosed, IsWon, LastActivityDate
+             Product_Line__c, Product_Lines_Multi__c, Products_Breakdown__c,
+             Owner.Name, NextStep, Probability, Days_in_Stage__c,
+             Revenue_Type__c, Type, IsClosed, IsWon, LastActivityDate,
+             TCV__c, TCV_Calculated__c, Term__c,
+             CS_Products_Purchased__c, CS_Commercial_Terms__c, CS_Commercial_Notes__c,
+             CS_Customer_Goals__c, CS_Key_Stakeholders__c, CS_Auto_Renew__c,
+             CS_Contract_Term__c
       FROM Opportunity
       WHERE AccountId = '${accountId}'
       ORDER BY IsClosed ASC, CloseDate ASC
@@ -449,6 +670,8 @@ async function getOpportunities(accountId) {
       closeDate: opp.CloseDate,
       targetLOIDate: opp.Target_LOI_Date__c,
       productLine: opp.Product_Line__c,
+      productLinesMulti: opp.Product_Lines_Multi__c,
+      productsBreakdown: opp.Products_Breakdown__c,
       owner: opp.Owner?.Name,
       nextStep: opp.NextStep,
       probability: opp.Probability,
@@ -457,7 +680,17 @@ async function getOpportunities(accountId) {
       type: opp.Type,
       isClosed: opp.IsClosed,
       isWon: opp.IsWon,
-      lastActivity: opp.LastActivityDate
+      lastActivity: opp.LastActivityDate,
+      tcv: opp.TCV__c,
+      tcvCalculated: opp.TCV_Calculated__c,
+      term: opp.Term__c,
+      productsPurchased: opp.CS_Products_Purchased__c,
+      commercialTerms: opp.CS_Commercial_Terms__c,
+      commercialNotes: opp.CS_Commercial_Notes__c,
+      customerGoals: opp.CS_Customer_Goals__c,
+      keyStakeholders: opp.CS_Key_Stakeholders__c,
+      autoRenew: opp.CS_Auto_Renew__c,
+      contractTerm: opp.CS_Contract_Term__c
     }));
   } catch (error) {
     logger.error('[Intelligence] Opportunities query error:', error.message);
@@ -576,6 +809,36 @@ async function getUpcomingMeeting(accountId) {
   } catch (error) {
     logger.error('[Intelligence] Upcoming meeting query error:', error.message);
     return null;
+  }
+}
+
+/**
+ * Get contracts for an account
+ */
+async function getContracts(accountId) {
+  try {
+    const result = await sfQuery(`
+      SELECT Id, ContractNumber, Status, StartDate, EndDate,
+             Description, Owner.Name
+      FROM Contract
+      WHERE AccountId = '${accountId}'
+      ORDER BY StartDate DESC
+      LIMIT 10
+    `, true);
+
+    return (result?.records || []).map(c => ({
+      id: c.Id,
+      contractNumber: c.ContractNumber,
+      status: c.Status,
+      startDate: c.StartDate,
+      endDate: c.EndDate,
+      description: c.Description?.substring(0, 300),
+      owner: c.Owner?.Name
+    }));
+  } catch (error) {
+    // Contract object may not be accessible in all orgs — fail gracefully
+    logger.warn('[Intelligence] Contracts query error (may not exist):', error.message);
+    return [];
   }
 }
 
@@ -714,13 +977,15 @@ You are gtm-brain, an AI sales intelligence assistant for Eudia, a legal AI comp
 Your role is to help Business Leads prepare for meetings, track deals, and understand their accounts.
 
 RESPONSE GUIDELINES:
-- Be concise and actionable - sales reps are busy
-- Lead with the most important insight
-- Use bullet points for scanability
+- Be concise and actionable — sales reps are busy, every sentence must earn its place
+- Lead with a 2-sentence executive summary before any details
+- Use bullet points for all factual information — no long paragraphs
 - Include specific names, dates, and dollar amounts when available
-- End with a clear recommended next step when applicable
-- If data is missing, acknowledge it briefly and work with what's available
-- Never fabricate information - only use the data provided
+- If data is missing for a topic, OMIT that topic entirely — do not create a section saying "No data available" or "Not enough information"
+- Never fabricate information — only use the data provided
+- End with a specific, time-bound next step when applicable (not generic advice)
+- Do NOT repeat information across sections — each fact appears exactly once
+- Keep total response under 250 words unless the query explicitly asks for comprehensive detail
 
 DATE HANDLING:
 - Today is ${today}. Use absolute dates (e.g., "Feb 25") instead of relative terms like "yesterday" or "recently"
@@ -737,14 +1002,16 @@ OBJECTIVITY:
 - Summarize what happened, who was involved, and what was discussed — let the reader draw conclusions
 
 FORMATTING RULES:
-- NEVER use emojis - use text labels only (no icons, symbols, or emoji characters)
-- Use **bold** for key metrics and names
-- Use single bullet points for lists (no double-spacing between items)
-- Use only ## for section headers (two hashes, not three)
-- Keep each section compact with no extra blank lines between bullets
-- Keep responses under 300 words unless the query requires more detail
-- NEVER repeat the same information in multiple sections. Each fact appears exactly once.
-- Do NOT create empty sections. If no data exists for a section, omit it entirely.
+- NEVER use emojis — use text labels only (no icons, symbols, or emoji characters)
+- Use **bold** for key metrics, names, and dollar amounts
+- Use single bullet points for lists with NO blank lines between items
+- Use ## for section headers — but ONLY create a section if you have substantive content for it
+- NEVER create a section header followed by "No data", "Not available", "None found", or similar — just skip that section entirely
+- NO blank lines between consecutive bullet points
+- NO blank lines after section headers before the first bullet
+- Keep the response tight — no padding, no filler sentences, no "Let me summarize" preamble
+- NEVER repeat the same information in multiple sections
+- When listing opportunities, contacts, or activities, use a compact format: "**Name** — detail, detail" on one line
 
 ACTIVITY GAPS & ENGAGEMENT FRAMING:
 - If there is a gap in activity, simply note the gap factually (e.g., "Last recorded activity was Dec 2") without alarm
@@ -753,7 +1020,21 @@ ACTIVITY GAPS & ENGAGEMENT FRAMING:
 - Frame gaps neutrally: "No recorded activity since [date]" is sufficient
 - 2-14 days since last activity is normal and should not be mentioned at all
 - Do NOT manufacture urgency — summarize factually and let the reader draw conclusions
-- Frame objectively based on actual data, not dramatic language`;
+- Frame objectively based on actual data, not dramatic language
+
+DATA LIMITATIONS:
+- If the user asks about data you don't have (billing details, internal wikis, email threads), acknowledge what data you DO have access to and suggest where they might find what they need
+- Never fabricate details about contracts, pricing, or terms. If the data isn't in the context provided, say so directly: "I don't have [X] in the account data. Check [specific place]."
+- If a question is ambiguous, interpret it in the most useful way rather than asking for clarification. If "products" could mean product lines or specific SKUs, answer with what you have (product lines) and note if more detail is available elsewhere
+- When data is sparse, work with what exists and note limitations briefly — do not fill gaps with speculation
+
+FOLLOW-UP SUGGESTIONS:
+- At the very end of every response, after a "---" separator, include exactly 3 brief follow-up questions the user might want to ask next
+- Format as: "---\\nYou might also ask:\\n1. [question]\\n2. [question]\\n3. [question]"
+- Make suggestions specific to the account and the current discussion — not generic
+- Example: If discussing deal status, suggest stakeholder questions, competitive context, or next steps
+- Example: If discussing contacts, suggest engagement history, pain points, or upcoming meetings
+- Keep each suggestion under 10 words`;
 
   // Add intent-specific instructions
   switch (intent) {
@@ -803,6 +1084,11 @@ ACTIVITY GAPS & ENGAGEMENT FRAMING:
 function buildUserPrompt(intent, query, context) {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   let prompt = `TODAY'S DATE: ${today}\nUSER QUERY: ${query}\n\n`;
+
+  // Context quality note (when data is sparse)
+  if (context.qualityNote) {
+    prompt += `${context.qualityNote}\n\n`;
+  }
 
   // Handle pipeline queries
   if (context.isPipelineQuery) {
@@ -883,6 +1169,65 @@ function buildUserPrompt(intent, query, context) {
       }
       prompt += '\n';
     }
+  }
+
+  // Products & Commercial Terms (from Opportunity fields)
+  const allOpps = context.opportunities || [];
+  const productsData = [];
+  const commercialData = [];
+  for (const opp of allOpps) {
+    if (opp.productsBreakdown) productsData.push(`${opp.name}: ${opp.productsBreakdown}`);
+    if (opp.productsPurchased) productsData.push(`${opp.name} purchased: ${opp.productsPurchased}`);
+    if (opp.productLinesMulti) productsData.push(`${opp.name} product lines: ${opp.productLinesMulti}`);
+    if (opp.commercialTerms) commercialData.push(`${opp.name}: ${opp.commercialTerms}`);
+    if (opp.commercialNotes) commercialData.push(`${opp.name} notes: ${opp.commercialNotes}`);
+  }
+  if (productsData.length > 0) {
+    prompt += `PRODUCTS & PRODUCT LINES:\n`;
+    for (const pd of productsData) {
+      prompt += `• ${pd}\n`;
+    }
+    // Add TCV/term info for won or active opps
+    for (const opp of allOpps.filter(o => o.tcv || o.tcvCalculated || o.term)) {
+      const tcvVal = opp.tcv || opp.tcvCalculated;
+      const parts = [opp.name];
+      if (tcvVal) parts.push(`TCV: $${tcvVal.toLocaleString()}`);
+      if (opp.term) parts.push(`Term: ${opp.term} months`);
+      if (opp.autoRenew) parts.push('Auto-Renew: Yes');
+      if (opp.contractTerm) parts.push(`Contract Term: ${opp.contractTerm}`);
+      prompt += `• ${parts.join(' | ')}\n`;
+    }
+    prompt += '\n';
+  }
+  if (commercialData.length > 0) {
+    prompt += `COMMERCIAL TERMS:\n`;
+    for (const cd of commercialData) {
+      prompt += `• ${cd}\n`;
+    }
+    prompt += '\n';
+  }
+
+  // Customer goals (from CS handover fields)
+  const customerGoals = allOpps.filter(o => o.customerGoals).map(o => `${o.name}: ${o.customerGoals}`);
+  if (customerGoals.length > 0) {
+    prompt += `CUSTOMER GOALS:\n`;
+    for (const cg of customerGoals) {
+      prompt += `• ${cg}\n`;
+    }
+    prompt += '\n';
+  }
+
+  // Contracts
+  if (context.contracts?.length > 0) {
+    prompt += `CONTRACTS (${context.contracts.length}):\n`;
+    for (const contract of context.contracts) {
+      prompt += `• ${contract.contractNumber || 'Contract'} — Status: ${contract.status || 'Unknown'}`;
+      if (contract.startDate) prompt += ` | Start: ${contract.startDate}`;
+      if (contract.endDate) prompt += ` | End: ${contract.endDate}`;
+      if (contract.description) prompt += `\n  ${contract.description}`;
+      prompt += '\n';
+    }
+    prompt += '\n';
   }
 
   // Contacts
@@ -979,6 +1324,16 @@ function buildUserPrompt(intent, query, context) {
     prompt += '\n';
   }
 
+  // Semantic search results (if vector search enabled)
+  if (context.vectorResults?.length > 0) {
+    prompt += `RELATED CONTEXT (semantic match):\n`;
+    for (const result of context.vectorResults.slice(0, 3)) {
+      const source = result.metadata?.sourceType || 'note';
+      prompt += `• [${source}] ${result.text.substring(0, 300)}\n`;
+    }
+    prompt += '\n';
+  }
+
   // Upcoming meeting context
   if (context.upcomingMeeting) {
     prompt += `UPCOMING MEETING:\n`;
@@ -1029,6 +1384,7 @@ module.exports = {
   // Expose data-gathering functions for account enrichment
   getAccountDetails,
   getContacts,
+  getContracts,
   getOpportunities,
   getRecentTasks,
   getRecentEvents
