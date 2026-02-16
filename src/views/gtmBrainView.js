@@ -193,8 +193,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           <div class="gtm-brain-tile-cat-header open" data-cat="deals"><span class="chevron">&#9654;</span> Pipeline &amp; Deals</div>
           <div class="gtm-brain-tile-cat-items" data-items="deals">
             <button class="gtm-brain-tile acct-tile" data-query="What's the deal status and current stage for this account?">Deal status</button>
-            <button class="gtm-brain-tile acct-tile" data-query="What's the total pipeline value across all open opportunities?">Pipeline value</button>
-            <button class="gtm-brain-tile" data-query="What's the forecast for this quarter? Show commit, gut, and pipeline breakdown.">Quarterly forecast</button>
+            <button class="gtm-brain-tile acct-tile" data-query="What products have been discussed or sold to this account?">Products discussed</button>
+            <button class="gtm-brain-tile acct-tile" data-query="What are the next steps and target dates for deals with this account?">Next steps and dates</button>
           </div>
         </div>
         <!-- People & Relationships -->
@@ -208,20 +208,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         </div>
         <!-- Marketing & Events -->
         <div class="gtm-brain-tile-cat">
-          <div class="gtm-brain-tile-cat-header" data-cat="mktg"><span class="chevron">&#9654;</span> Marketing &amp; Events</div>
+          <div class="gtm-brain-tile-cat-header" data-cat="mktg"><span class="chevron">&#9654;</span> Strategy &amp; Context</div>
           <div class="gtm-brain-tile-cat-items hidden" data-items="mktg">
             <button class="gtm-brain-tile acct-tile" data-query="Which marketing campaigns have touched this account?">Campaign influence</button>
-            <button class="gtm-brain-tile" data-query="What's the event ROI by region this quarter?">Event ROI</button>
-            <button class="gtm-brain-tile" data-query="What lead sources are driving the most pipeline?">Lead sources</button>
+            <button class="gtm-brain-tile acct-tile" data-query="What's the account plan and strategic context for this account?">Account plan</button>
+            <button class="gtm-brain-tile acct-tile" data-query="What contracts or commercial terms exist for this account?">Contracts and terms</button>
           </div>
         </div>
         <!-- Meeting Prep -->
         <div class="gtm-brain-tile-cat">
           <div class="gtm-brain-tile-cat-header" data-cat="prep"><span class="chevron">&#9654;</span> Meeting Prep</div>
           <div class="gtm-brain-tile-cat-items hidden" data-items="prep">
-            <button class="gtm-brain-tile acct-tile" data-query="Full meeting prep for this account -- deal context, key contacts, recent activity, talking points, and MEDDICC gaps.">Full meeting prep</button>
-            <button class="gtm-brain-tile acct-tile" data-query="What talk tracks should I use for this account based on their pain points and our product fit?">Talk tracks</button>
-            <button class="gtm-brain-tile acct-tile" data-query="What discovery questions should I ask this account to fill MEDDICC gaps?">Questions to ask</button>
+            <button class="gtm-brain-tile acct-tile" data-query="Full meeting prep for this account -- deal context, key contacts, recent activity, and outstanding action items.">Full meeting prep</button>
+            <button class="gtm-brain-tile acct-tile" data-query="Summarize all meeting notes and customer brain history for this account.">Meeting history summary</button>
+            <button class="gtm-brain-tile acct-tile" data-query="Who owns this account and what's their engagement level based on recent activity?">Owner and engagement</button>
           </div>
         </div>
         <!-- History & Activity -->

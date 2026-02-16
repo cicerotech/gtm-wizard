@@ -137,7 +137,6 @@ input[name="main-tab"] { display: none; }
 #tab-sales:checked ~ .tab-nav label[for="tab-sales"],
 #tab-dashboard:checked ~ .tab-nav label[for="tab-dashboard"],
 #tab-architecture:checked ~ .tab-nav label[for="tab-architecture"],
-#tab-commands:checked ~ .tab-nav label[for="tab-commands"],
 #tab-meeting-prep:checked ~ .tab-nav label[for="tab-meeting-prep"],
 #tab-gtm-brain:checked ~ .tab-nav label[for="tab-gtm-brain"],
 #tab-analytics:checked ~ .tab-nav label[for="tab-analytics"] {
@@ -152,7 +151,6 @@ input[name="main-tab"] { display: none; }
 #tab-sales:checked ~ .content-area #content-sales,
 #tab-dashboard:checked ~ .content-area #content-dashboard,
 #tab-architecture:checked ~ .content-area #content-architecture,
-#tab-commands:checked ~ .content-area #content-commands,
 #tab-meeting-prep:checked ~ .content-area #content-meeting-prep,
 #tab-gtm-brain:checked ~ .content-area #content-gtm-brain,
 #tab-analytics:checked ~ .content-area #content-analytics {
@@ -229,7 +227,6 @@ input[name="main-tab"] { display: none; }
 <input type="radio" name="main-tab" id="tab-meeting-prep">
 <input type="radio" name="main-tab" id="tab-gtm-brain">
 <input type="radio" name="main-tab" id="tab-architecture">
-<input type="radio" name="main-tab" id="tab-commands">
 <input type="radio" name="main-tab" id="tab-start">
 ${isAdmin ? '<input type="radio" name="main-tab" id="tab-analytics">' : ''}
 
@@ -240,7 +237,6 @@ ${isAdmin ? '<input type="radio" name="main-tab" id="tab-analytics">' : ''}
   <label for="tab-meeting-prep">Meeting Prep</label>
   <label for="tab-gtm-brain">GTM Brain</label>
   <label for="tab-architecture">Architecture</label>
-  <label for="tab-commands">Commands</label>
   <label for="tab-start" style="color: #8e99e1; font-weight: 600;">Getting Started</label>
   ${isAdmin ? '<label for="tab-analytics" style="margin-left: auto; color: #9ca3af;">Analytics</label>' : ''}
 </nav>
@@ -273,10 +269,7 @@ ${isAdmin ? '<input type="radio" name="main-tab" id="tab-analytics">' : ''}
     <iframe src="/sales-process" title="Sales Process"></iframe>
   </div>
   
-  <!-- Commands Tab - Loads cheat sheet via iframe -->
-  <div id="content-commands" class="tab-content">
-    <iframe src="/cheat-sheet" title="Commands"></iframe>
-  </div>
+  <!-- Commands tab removed -->
   
   <!-- Getting Started Tab - Onboarding guide -->
   <div id="content-start" class="tab-content">
@@ -311,7 +304,6 @@ document.addEventListener('DOMContentLoaded', function() {
       'meeting-prep': 'tab-meeting-prep',
       'gtm-brain': 'tab-gtm-brain',
       'architecture': 'tab-architecture',
-      'commands': 'tab-commands',
       'start': 'tab-start',
       'analytics': 'tab-analytics'
     };
