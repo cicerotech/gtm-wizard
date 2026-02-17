@@ -2724,6 +2724,7 @@ class GTMBrainApp {
     // Serve downloadable files (Sync-Notes.command, etc.)
     const path = require('path');
     this.expressApp.use('/downloads', express.static(path.join(__dirname, '..', 'public', 'downloads')));
+    this.expressApp.use('/assets', express.static(path.join(__dirname, '..', 'public', 'assets')));
 
     // ═══════════════════════════════════════════════════════════════════════════
     // MOBILE PWA ROUTES

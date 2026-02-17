@@ -3,313 +3,232 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Eudia Salesforce | Quick Reference Guide</title>
+  <title>Eudia Salesforce | How It All Connects</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fe; color: #1f2937; min-height: 100vh; }
-    .header { background: #fff; padding: 16px 32px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; }
-    .header h1 { font-size: 1.125rem; font-weight: 600; } .header h1 span { color: #6b7280; font-weight: 400; }
-    .nav-links { display: flex; gap: 6px; }
-    .nav-links a { color: #6b7280; text-decoration: none; font-size: 0.75rem; padding: 4px 10px; border-radius: 6px; border: 1px solid #e5e7eb; transition: all 0.15s; }
-    .nav-links a:hover, .nav-links a.active { background: #8e99e1; color: #fff; border-color: #8e99e1; }
-    .container { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
-    .hero { text-align: center; padding: 48px 0 32px; }
-    .hero h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
-    .hero .subtitle { font-size: 1rem; color: #6b7280; max-width: 600px; margin: 0 auto; line-height: 1.6; }
-    .section { margin-bottom: 48px; scroll-margin-top: 80px; }
-    .section h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 4px; color: #1f2937; }
-    .section .section-sub { font-size: 0.85rem; color: #6b7280; margin-bottom: 20px; }
-    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; margin-bottom: 16px; }
-    .card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; color: #1f2937; }
-    .card p, .card li { font-size: 0.85rem; color: #4b5563; line-height: 1.6; }
-    .card ul { margin: 8px 0 8px 20px; }
-    .card li { margin: 4px 0; }
-    .field-table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-    .field-table th { text-align: left; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; padding: 6px 12px; border-bottom: 2px solid #e5e7eb; }
-    .field-table td { font-size: 0.8rem; padding: 8px 12px; border-bottom: 1px solid #f3f4f6; }
-    .field-table td:first-child { font-weight: 600; color: #1f2937; white-space: nowrap; }
-    .field-table td:last-child { color: #6b7280; }
-    .badge { display: inline-block; font-size: 0.65rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; }
-    .badge-blue { background: #eff6ff; color: #1e40af; }
-    .badge-green { background: #f0fdf4; color: #166534; }
-    .badge-amber { background: #fffbeb; color: #92400e; }
-    .badge-gray { background: #f3f4f6; color: #6b7280; }
-    .badge-new { background: #fef3c7; color: #92400e; }
-    .screenshot-placeholder { background: #f8fafc; border: 2px dashed #d1d5db; border-radius: 10px; padding: 40px 20px; text-align: center; color: #9ca3af; font-size: 0.8rem; margin: 16px 0; }
-    .callout { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 16px; margin: 16px 0; }
-    .callout .callout-title { font-size: 0.75rem; font-weight: 700; color: #1e40af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .callout p { font-size: 0.8rem; color: #374151; line-height: 1.5; }
-    .callout.tip { background: #f0fdf4; border-color: #bbf7d0; } .callout.tip .callout-title { color: #166534; }
-    .callout.warning { background: #fffbeb; border-color: #fde68a; } .callout.warning .callout-title { color: #92400e; }
-    .step { display: flex; gap: 16px; margin: 12px 0; align-items: flex-start; }
-    .step-num { background: #8e99e1; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; flex-shrink: 0; }
-    .step-content { flex: 1; } .step-content h4 { font-size: 0.85rem; font-weight: 600; margin-bottom: 2px; } .step-content p { font-size: 0.8rem; color: #6b7280; }
-    .stage-flow { display: flex; gap: 4px; flex-wrap: wrap; margin: 12px 0; align-items: center; }
-    .stage-pill { padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; border: 1px solid #e5e7eb; background: #fff; }
-    .stage-arrow { color: #d1d5db; font-size: 0.8rem; }
-    .stage-pill.active { background: #8e99e1; color: #fff; border-color: #8e99e1; }
-    .stage-pill.won { background: #166534; color: #fff; border-color: #166534; }
-    .summary-card { background: linear-gradient(135deg, #8e99e1 0%, #7c8bd4 100%); border-radius: 14px; padding: 32px; color: white; margin-top: 32px; }
-    .summary-card h2 { color: white; margin-bottom: 8px; }
-    .summary-card p { color: rgba(255,255,255,0.85); font-size: 0.85rem; line-height: 1.6; }
-    .summary-card .kp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
-    .summary-card .kp { background: rgba(255,255,255,0.15); border-radius: 8px; padding: 12px; }
-    .summary-card .kp h4 { font-size: 0.8rem; font-weight: 600; color: white; margin-bottom: 4px; }
-    .summary-card .kp p { font-size: 0.75rem; color: rgba(255,255,255,0.8); }
-    .footer { text-align: center; padding: 32px; font-size: 0.75rem; color: #9ca3af; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fafbfe; color: #1f2937; }
+    html { scroll-behavior: smooth; }
+
+    .nav { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border-bottom: 1px solid #e5e7eb; padding: 10px 24px; display: flex; justify-content: space-between; align-items: center; }
+    .nav-brand { font-size: 0.9rem; font-weight: 600; color: #1f2937; }
+    .nav-brand span { color: #8e99e1; }
+    .nav-links { display: flex; gap: 4px; flex-wrap: wrap; }
+    .nav-links a { font-size: 0.7rem; color: #6b7280; text-decoration: none; padding: 4px 10px; border-radius: 20px; border: 1px solid transparent; transition: all 0.15s; }
+    .nav-links a:hover { border-color: #8e99e1; color: #8e99e1; }
+
+    .hero { text-align: center; padding: 64px 24px 48px; max-width: 700px; margin: 0 auto; }
+    .hero h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 12px; }
+    .hero h1 span { color: #8e99e1; }
+    .hero p { font-size: 1rem; color: #6b7280; line-height: 1.7; }
+
+    .flow-steps { display: flex; justify-content: center; gap: 8px; margin-top: 24px; flex-wrap: wrap; }
+    .flow-step { font-size: 0.7rem; font-weight: 600; padding: 5px 14px; border-radius: 20px; background: #f3f4f6; color: #6b7280; }
+    .flow-step.active { background: #8e99e1; color: white; }
+    .flow-arrow { color: #d1d5db; font-size: 0.8rem; display: flex; align-items: center; }
+
+    .section { max-width: 1000px; margin: 0 auto 64px; padding: 0 24px; scroll-margin-top: 60px; }
+    .section-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #8e99e1; margin-bottom: 6px; }
+    .section-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
+    .section-sub { font-size: 0.9rem; color: #6b7280; line-height: 1.6; margin-bottom: 20px; max-width: 700px; }
+
+    .screenshot { width: 100%; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 4px 24px rgba(0,0,0,0.06); margin-bottom: 16px; }
+
+    .caption-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px 20px; margin-bottom: 12px; }
+    .caption-card h4 { font-size: 0.8rem; font-weight: 700; color: #1f2937; margin-bottom: 4px; }
+    .caption-card p { font-size: 0.8rem; color: #6b7280; line-height: 1.6; }
+    .caption-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 640px) { .caption-grid { grid-template-columns: 1fr; } }
+
+    .callout { background: #eff6ff; border-left: 3px solid #8e99e1; border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 16px 0; }
+    .callout p { font-size: 0.8rem; color: #374151; line-height: 1.6; }
+    .callout strong { color: #1f2937; }
+
+    .divider { border: none; border-top: 1px solid #e5e7eb; margin: 48px auto; max-width: 200px; }
+
+    .summary { background: linear-gradient(135deg, #8e99e1, #7c8bd4); border-radius: 16px; padding: 40px; color: white; max-width: 1000px; margin: 32px auto 48px; }
+    .summary h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 16px; }
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    @media (max-width: 640px) { .summary-grid { grid-template-columns: 1fr; } }
+    .summary-item { background: rgba(255,255,255,0.15); border-radius: 10px; padding: 14px; }
+    .summary-item h4 { font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; }
+    .summary-item p { font-size: 0.75rem; opacity: 0.85; line-height: 1.5; }
+
+    .footer { text-align: center; padding: 32px; font-size: 0.7rem; color: #9ca3af; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>Eudia <span>Salesforce Guide</span></h1>
-    <div class="nav-links">
-      <a href="#accounts">Accounts</a>
-      <a href="#opportunities">Opportunities</a>
-      <a href="#pipeline">Pipeline Review</a>
-      <a href="#targeting">Accounts & Targets</a>
-      <a href="#workflows">Workflows</a>
-    </div>
+
+<div class="nav">
+  <div class="nav-brand"><span>Eudia</span> Salesforce</div>
+  <div class="nav-links">
+    <a href="#account">Account</a>
+    <a href="#new-opp">New Opp</a>
+    <a href="#deal">Deal</a>
+    <a href="#meddicc">MEDDICC</a>
+    <a href="#delivery">Delivery</a>
+    <a href="#contract">Contract</a>
+    <a href="#pipeline">Pipeline</a>
+    <a href="#targets">Targets</a>
   </div>
+</div>
 
-  <div class="container">
-    <div class="hero">
-      <h1>Salesforce Quick Reference</h1>
-      <p class="subtitle">Everything you need to know about Accounts, Opportunities, Pipeline Review, and the Accounts & Targets dashboard. Bookmark this page for fast reference.</p>
-    </div>
-
-    <!-- ═══ ACCOUNTS ═══ -->
-    <div class="section" id="accounts">
-      <h2>Accounts</h2>
-      <p class="section-sub">Every company we engage with has an Account record. Here's what the key fields mean.</p>
-
-      <div class="card">
-        <h3>Key Account Fields</h3>
-        <table class="field-table">
-          <thead><tr><th>Field</th><th>What It Means</th></tr></thead>
-          <tbody>
-            <tr><td>Customer Type</td><td>New, Existing, or Prospect. Determines how we approach the account.</td></tr>
-            <tr><td>Industry</td><td>Company's primary industry (e.g., Financial Services, Healthcare & Pharma).</td></tr>
-            <tr><td>Owner</td><td>The Business Lead responsible for this account.</td></tr>
-            <tr><td>Company Revenue</td><td>External revenue data (e.g., $67.7B). Used for prioritization and tier assignment.</td></tr>
-            <tr><td>Outreach Tier <span class="badge badge-new">NEW</span></td><td><strong>T1 Exec</strong> = Top 10-15 accounts where leadership initiates outreach. <strong>T2</strong> = BL-driven prospecting.</td></tr>
-            <tr><td>Q1 Target Book</td><td>Checked if this account is in your active Q1 focus list.</td></tr>
-            <tr><td>In Target Pool</td><td>Checked if this account is available for claiming from the Target Pool.</td></tr>
-            <tr><td>Target Pod</td><td>US Pod or EU Pod assignment.</td></tr>
-            <tr><td>Eudia Positioning Context</td><td>AI-researched brief on why this company is relevant — legal/compliance activity, M&A, regulatory exposure.</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="callout tip">
-        <div class="callout-title">Finding Your Accounts</div>
-        <p>Navigate to <strong>Accounts & Targets</strong> in the top nav bar. Click your name in the Account Distribution tab to see your full Q1 book with tier assignments, geographic spread, and industry breakdown.</p>
-      </div>
-    </div>
-
-    <!-- ═══ OPPORTUNITIES ═══ -->
-    <div class="section" id="opportunities">
-      <h2>Opportunities</h2>
-      <p class="section-sub">Opportunities track active deals from prospecting through close. Every deal gets a stage, ACV, and target sign date.</p>
-
-      <div class="card">
-        <h3>Key Opportunity Fields</h3>
-        <table class="field-table">
-          <thead><tr><th>Field</th><th>What It Means</th></tr></thead>
-          <tbody>
-            <tr><td>ACV</td><td>Annual Contract Value — the dollar amount of the deal.</td></tr>
-            <tr><td>Stage</td><td>Current deal stage (S0 through S6). See progression below.</td></tr>
-            <tr><td>Target LOI Date</td><td>When we expect the deal to close (Letter of Intent / signature target).</td></tr>
-            <tr><td>Product Line</td><td>Which Eudia products are in scope: AI Contracting, AI Compliance, Sigma, Insights, Litigation, M&A, FDE, Secondee.</td></tr>
-            <tr><td>Forecast Category</td><td><strong>Pipeline</strong> = early/working. <strong>Gut</strong> = BL has confidence. <strong>Commit</strong> = expected to close this quarter.</td></tr>
-            <tr><td>Next Steps</td><td>The immediate next action for this deal.</td></tr>
-            <tr><td>Opportunity Source</td><td>How the deal originated: Inbound, Outbound, Events, Referral, Existing Customer. <em>Required field.</em></td></tr>
-            <tr><td>BOI Deal Code <span class="badge badge-new">NEW</span></td><td>Auto-generated unique ID on close (e.g., BOI-417). Used by Finance/Campfire for revenue mapping. Renewals inherit parent code (BOI-417-01).</td></tr>
-            <tr><td>Renewal Opp</td><td>Links a renewal opportunity to its parent deal. Campfire uses this for renewal chain tracking.</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="card">
-        <h3>Stage Progression</h3>
-        <p>Deals move left to right. Each stage has specific criteria for advancement.</p>
-        <div class="stage-flow">
-          <span class="stage-pill">S0 Prospecting</span>
-          <span class="stage-arrow">→</span>
-          <span class="stage-pill">S1 Discovery</span>
-          <span class="stage-arrow">→</span>
-          <span class="stage-pill active">S2 SQO</span>
-          <span class="stage-arrow">→</span>
-          <span class="stage-pill">S3 Pilot</span>
-          <span class="stage-arrow">→</span>
-          <span class="stage-pill">S4 Proposal</span>
-          <span class="stage-arrow">→</span>
-          <span class="stage-pill">S5 Negotiation</span>
-          <span class="stage-arrow">→</span>
-          <span class="stage-pill won">S6 Closed Won</span>
-        </div>
-        <div class="callout">
-          <div class="callout-title">BOI Code Auto-Generated on Close</div>
-          <p>When a deal moves to <strong>Stage 6 Closed Won</strong>, a unique BOI Deal Code is automatically assigned (BOI-001, BOI-002, etc.). No manual input needed. Renewals get the parent code + suffix (BOI-001-01).</p>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Creating a New Opportunity</h3>
-        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Navigate to the Account</h4><p>Go to the Account record page for the company.</p></div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Click "New Opportunity"</h4><p>In the top nav bar, or from the Opportunities related list on the Account page.</p></div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Fill Required Fields</h4><p><strong>Name</strong> (format: "Company - Product"), <strong>Stage</strong>, <strong>Close Date</strong>, <strong>ACV</strong>, <strong>Opportunity Source</strong> (Inbound/Outbound/Events/Referral/Existing Customer).</p></div></div>
-        <div class="step"><div class="step-num">4</div><div class="step-content"><h4>Set Product Line</h4><p>Select the product(s) in scope. Multi-select if multiple products.</p></div></div>
-        <div class="step"><div class="step-num">5</div><div class="step-content"><h4>Save</h4><p>The opp appears in your Pipeline Review immediately.</p></div></div>
-      </div>
-    </div>
-
-    <!-- ═══ PIPELINE REVIEW ═══ -->
-    <div class="section" id="pipeline">
-      <h2>Pipeline Review</h2>
-      <p class="section-sub">The Pipeline Review tab shows all active deals across the team with week-over-week change tracking. Updated live from Salesforce.</p>
-
-      <div class="card">
-        <h3>What You See</h3>
-        <ul>
-          <li><strong>Highlights bar</strong> — Stage advances, ACV changes, target slips, new deals this week</li>
-          <li><strong>Stats bar</strong> — Total deals, pipeline value, weighted ACV, commit totals, AI-enabled metrics</li>
-          <li><strong>Owner sections</strong> — Each rep's deals grouped together. Click the header to collapse/expand.</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <h3>Columns</h3>
-        <table class="field-table">
-          <thead><tr><th>Column</th><th>Details</th></tr></thead>
-          <tbody>
-            <tr><td>Account</td><td>Company name + AI badge + customer type badge. Links to the opportunity record.</td></tr>
-            <tr><td>ACV</td><td>Annual Contract Value. <strong>Click to edit.</strong></td></tr>
-            <tr><td>Δ ACV</td><td>Week-over-week ACV change. Green = increased. Red = decreased.</td></tr>
-            <tr><td>Target</td><td>Target sign date. <strong>Click to edit.</strong></td></tr>
-            <tr><td>Δ Days</td><td>Target date slip/pull. Red = slipped. Green = pulled in.</td></tr>
-            <tr><td>Stage</td><td>Current stage (S0-S5). Arrow badge shows if advanced/regressed this week. <strong>Click to edit.</strong></td></tr>
-            <tr><td>Products</td><td>Product line(s). Shows "2 products" for multi-select with hover tooltip. <strong>Click to edit.</strong></td></tr>
-            <tr><td>FC</td><td>Forecast Category: Pipeline / Gut / Commit. <strong>Click to edit.</strong></td></tr>
-            <tr><td>Next Steps</td><td>Current next action for the deal. Truncated in view, full text on hover. <strong>Click to edit.</strong></td></tr>
-            <tr><td>WoW</td><td>Week-over-week indicator: NEW, S2↑ (SQO'd), ★ (moved to Commit), ⚠ (risk), ✓ (positive change).</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="card">
-        <h3>Filters</h3>
-        <ul>
-          <li><strong>Pod</strong> — All, US, EU</li>
-          <li><strong>Stage</strong> — All Stages, S1+, S2+, S3+, S4+</li>
-          <li><strong>Products</strong> — Filter by specific product line</li>
-          <li><strong>Target Sign</strong> — All Dates, This Quarter, Next Quarter, This FY</li>
-          <li><strong>Changes Only</strong> — Show only deals with WoW changes</li>
-        </ul>
-      </div>
-
-      <div class="callout tip">
-        <div class="callout-title">Inline Editing</div>
-        <p>Click any ACV, Target Date, Stage, FC, Products, or Next Steps cell to edit it directly. A small modal opens — make your change and hit Save. The value updates in Salesforce immediately.</p>
-      </div>
-    </div>
-
-    <!-- ═══ ACCOUNTS & TARGETS ═══ -->
-    <div class="section" id="targeting">
-      <h2>Accounts & Targets</h2>
-      <p class="section-sub">The Accounts & Targets tab has three views for managing your Q1 account book.</p>
-
-      <div class="card">
-        <h3>Tab 1: Q1 FY26 Account Distribution</h3>
-        <p>Shows every BL's Q1 book size, organized by US Pod and EU Pod.</p>
-        <ul>
-          <li><strong>Q1 Book</strong> — Total accounts assigned for this quarter</li>
-          <li><strong>Front Book</strong> — Accounts with active pipeline or existing customer status</li>
-          <li><strong>Back Book</strong> — Targeting / cold outreach accounts</li>
-          <li><strong>T1 Exec</strong> — Top 10-15 accounts where leadership initiates outreach</li>
-          <li><strong>T2 BL</strong> — BL-driven prospecting accounts</li>
-        </ul>
-        <p style="margin-top: 12px;"><strong>Click your name</strong> to expand and see your full account list with:</p>
-        <ul>
-          <li>HQ state, Industry, Revenue, Eudia Positioning Context</li>
-          <li>Status (Active Pipeline, Existing Customer, Prior Engagement, Cold)</li>
-          <li>T1/T2 toggle (click to reclassify, T1 capped at 15)</li>
-          <li><strong>Drop</strong> button — Release an account to the Target Pool</li>
-          <li><strong>Transfer</strong> button — Reassign to another BL</li>
-        </ul>
-
-        <div class="callout warning">
-          <div class="callout-title">Dropping Accounts</div>
-          <p>When you drop an account with a negative reason (nurture, not a fit, no legal dept, etc.), it's <strong>excluded from the Target Pool</strong> entirely — not available for reassignment. Neutral drops (capacity, swapping) go to the pool.</p>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Tab 2: Target Pool</h3>
-        <p>Next-tranche accounts available for claiming when you work through your initial Q1 book.</p>
-        <ul>
-          <li><strong>Filters</strong> — Tier (T1/T2/T3), Pod, Industry (17 clean groupings), State, Search</li>
-          <li><strong>Pool Tiers</strong> — Revenue-based: T1 = $10B+, T2 = $3-10B, T3 = under $3B</li>
-          <li><strong>Claim</strong> — Add to your book (pod-restricted: US reps claim US Pod, EU reps claim EU Pod)</li>
-          <li><strong>Assign</strong> — Admins can transfer to any BL</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <h3>Tab 3: Weekly Focus</h3>
-        <p>Recommended weekly targeting focus per rep. Accounts are clustered by geography or industry on alternating weeks.</p>
-        <ul>
-          <li>All BLs preloaded — click to expand and see focus accounts</li>
-          <li><strong>Swap</strong> — Replace a focus account with one from your back book</li>
-          <li>Shows the week date (e.g., "Week of February 17, 2026")</li>
-        </ul>
-      </div>
-    </div>
-
-    <!-- ═══ WORKFLOWS ═══ -->
-    <div class="section" id="workflows">
-      <h2>Key Workflows</h2>
-      <p class="section-sub">Quick reference for the most common actions.</p>
-
-      <div class="card">
-        <h3>Creating a New Opportunity</h3>
-        <p>Account page → <strong>New Opportunity</strong> → Fill Name, Stage, Close Date, ACV, Opportunity Source, Product Line → Save.</p>
-      </div>
-
-      <div class="card">
-        <h3>Moving a Deal Through Stages</h3>
-        <p>Pipeline Review → Click the <strong>Stage</strong> cell → Select new stage → Save. Or edit directly on the Opportunity record page.</p>
-      </div>
-
-      <div class="card">
-        <h3>Dropping an Account</h3>
-        <p>Accounts & Targets → Click your name → Find the account → Click <strong>Drop</strong> → Enter reason → Confirm. Negative reasons (nurture, not a fit) exclude from pool. Neutral reasons send to pool for others.</p>
-      </div>
-
-      <div class="card">
-        <h3>Claiming from Target Pool</h3>
-        <p>Accounts & Targets → Target Pool tab → Filter by Tier/Industry/State → Click <strong>Claim</strong>. Auto-assigns T1 or T2 tier based on your current count. Pod-restricted (US reps can only claim US Pod accounts).</p>
-      </div>
-
-      <div class="card">
-        <h3>Recording a Meeting</h3>
-        <p>Open <strong>Obsidian</strong> → Navigate to the account folder → Click the mic icon → Record your call → Stop when done → Review AI summary → Click "Sync to Salesforce" to push to the account record.</p>
-        <p style="margin-top: 8px; font-size: 0.8rem; color: #8e99e1;"><a href="/demo" style="color: #8e99e1;">See the full Obsidian walkthrough →</a></p>
-      </div>
-    </div>
-
-    <!-- ═══ SUMMARY ═══ -->
-    <div class="summary-card">
-      <h2>Quick Links</h2>
-      <p>Bookmark these for daily use.</p>
-      <div class="kp-grid">
-        <div class="kp"><h4>Pipeline Review</h4><p>Pipeline Review tab in Salesforce nav. See all deals, edit inline, track WoW changes.</p></div>
-        <div class="kp"><h4>Accounts & Targets</h4><p>Accounts & Targets tab. View your Q1 book, drop/claim accounts, set outreach tiers.</p></div>
-        <div class="kp"><h4>Obsidian Vault</h4><p>Open Obsidian app. Record meetings, capture notes, sync to Salesforce automatically.</p></div>
-        <div class="kp"><h4>GTM Brain</h4><p>Ask GTM Brain tab in the web app. Natural language queries about any account or pipeline.</p></div>
-      </div>
-    </div>
+<div class="hero">
+  <h1>How It All <span>Connects</span></h1>
+  <p>From prospect to closed deal to delivery. Here's the full lifecycle of a deal in our Salesforce.</p>
+  <div class="flow-steps">
+    <span class="flow-step active">Account</span>
+    <span class="flow-arrow">&rarr;</span>
+    <span class="flow-step">Opportunity</span>
+    <span class="flow-arrow">&rarr;</span>
+    <span class="flow-step">Work the Deal</span>
+    <span class="flow-arrow">&rarr;</span>
+    <span class="flow-step">Delivery (S4)</span>
+    <span class="flow-arrow">&rarr;</span>
+    <span class="flow-step">Contract (Won)</span>
+    <span class="flow-arrow">&rarr;</span>
+    <span class="flow-step">Revenue</span>
   </div>
+</div>
 
-  <div class="footer">Eudia GTM Engineering — February 2026</div>
+<!-- ═══ 1. ACCOUNT ═══ -->
+<div class="section" id="account">
+  <div class="section-label">Step 1</div>
+  <div class="section-title">The Account</div>
+  <div class="section-sub">Every company is an Account. Contacts, opportunities, CSM notes, and account health -- all on one page.</div>
+  <img class="screenshot" src="/assets/sf-walkthrough/account-coherent.png" alt="Account Record - Coherent">
+  <div class="caption-grid">
+    <div class="caption-card"><h4>Contacts</h4><p>Key stakeholders with titles, emails, and roles. Add Contact Roles on Opportunities to track who's involved in each deal.</p></div>
+    <div class="caption-card"><h4>Opportunities</h4><p>All active and closed deals for this company. Click any to see deal details.</p></div>
+    <div class="caption-card"><h4>CSM Section</h4><p>Account health, health history, and customer overview managed by Customer Success.</p></div>
+    <div class="caption-card"><h4>Eudia Overview</h4><p>Open ACV, total revenue, CLO engagement, marquee/velocity flags, first deal date.</p></div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ═══ 2. NEW OPPORTUNITY ═══ -->
+<div class="section" id="new-opp">
+  <div class="section-label">Step 2</div>
+  <div class="section-title">Creating an Opportunity</div>
+  <div class="section-sub">Click "New Opportunity" from the nav bar or any Account page. Fill in the required fields and hit Create.</div>
+  <img class="screenshot" src="/assets/sf-walkthrough/new-opp-form.png" alt="New Opportunity Form">
+  <div class="caption-grid">
+    <div class="caption-card"><h4>Account *</h4><p>Search and select the company. Links the deal to the Account record.</p></div>
+    <div class="caption-card"><h4>Stage *</h4><p>Start at S1 Discovery for new deals. Moves through S2 SQO, S3 Pilot, S4 Proposal, S5 Negotiation.</p></div>
+    <div class="caption-card"><h4>Product Lines *</h4><p>Check all products in scope: AI Contracting, Compliance, Sigma, Insights, Litigation, M&A, FDE, Secondee.</p></div>
+    <div class="caption-card"><h4>ACV + Target Date + Source</h4><p>Annual value, when you expect to close, and how the deal originated (Inbound/Outbound/Events/Referral).</p></div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ═══ 3. WORKING THE DEAL ═══ -->
+<div class="section" id="deal">
+  <div class="section-label">Step 3</div>
+  <div class="section-title">Working the Deal</div>
+  <div class="section-sub">Your deal workspace. Stage progression bar at the top, key fields, product lines, and contact roles below.</div>
+  <img class="screenshot" src="/assets/sf-walkthrough/opp-appliedai.png" alt="Opportunity Record - AppliedAI">
+  <div class="caption-grid">
+    <div class="caption-card"><h4>Stage Bar</h4><p>Visual progression from S1 to Closed Won. Click "Mark Stage as Complete" to advance. Current stage is highlighted.</p></div>
+    <div class="caption-card"><h4>Key Fields</h4><p>ACV, Target Sign Date, Forecast Category (Pipeline/Gut/Commit), Next Steps, Days in Stage, BL Forecast.</p></div>
+    <div class="caption-card"><h4>Product Lines</h4><p>Multi-select with individual products shown as cards. Each product creates a separate Delivery at S4.</p></div>
+    <div class="caption-card"><h4>Contact Roles</h4><p>Add contacts from the Account who are involved in this deal. Track champions, economic buyers, and decision makers.</p></div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ═══ 4. MEDDICC ═══ -->
+<div class="section" id="meddicc">
+  <div class="section-label">Step 4</div>
+  <div class="section-title">MEDDICC + Next Steps</div>
+  <div class="section-sub">Track deal qualification and maintain a running log of customer history and next actions. Every update here feeds into Pipeline Review and GTM Brain.</div>
+  <img class="screenshot" src="/assets/sf-walkthrough/opp-meddicc.png" alt="MEDDICC and Next Steps">
+  <div class="callout">
+    <p><strong>Customer History + Next Steps</strong> is your running deal log. Add dated entries each time you engage. Format: "2026-02-10: NF - Demo scheduled for Tuesday 10th Feb." This content syncs to Pipeline Review's Next Steps column and is queryable by GTM Brain.</p>
+  </div>
+  <div class="callout">
+    <p><strong>Contract Details (Won)</strong> section shows Products Breakdown with per-product ACV, Delivery links (DEL-0231, DEL-0232...), and total ACV. This auto-populates when the deal moves to Closed Won.</p>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ═══ 5. DELIVERY ═══ -->
+<div class="section" id="delivery">
+  <div class="section-label">Step 5</div>
+  <div class="section-title">Delivery (Auto-Created at S4)</div>
+  <div class="section-sub">When a deal reaches Stage 4 (Proposal), Deliveries auto-create -- one per product line. Multiple products = multiple Deliveries, each tracked separately.</div>
+  <img class="screenshot" src="/assets/sf-walkthrough/delivery-del0231.png" alt="Delivery Record - DEL-0231">
+  <div class="caption-grid">
+    <div class="caption-card"><h4>One Delivery per Product</h4><p>AppliedAI has 4 products, so 4 Deliveries were created: DEL-0231 (Sigma), DEL-0232 (Insights), DEL-0233 (Contracting), DEL-0234 (Compliance).</p></div>
+    <div class="caption-card"><h4>Delivery Details</h4><p>Product Line, Delivery Model (AI-First 95%/5% Human), Phase (Month 1 - Setup), Status (Planning), Kickoff Date, Account link, Opportunity link.</p></div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ═══ 6. CONTRACT ═══ -->
+<div class="section" id="contract">
+  <div class="section-label">Step 6</div>
+  <div class="section-title">Contract (Closed Won)</div>
+  <div class="section-sub">When a deal closes, a Contract is created with line items, total value, term, and start/end dates. Links back to the Opportunity and Deliveries.</div>
+  <img class="screenshot" src="/assets/sf-walkthrough/contract-related.png" alt="Contract - Related Lists">
+  <img class="screenshot" src="/assets/sf-walkthrough/contract-details.png" alt="Contract - Details">
+  <div class="caption-grid">
+    <div class="caption-card"><h4>Contract Line Items</h4><p>One per product: AI Contracting - Technology, AI Compliance - Technology, AI M&A - Managed Services. Each tracks quantity and value.</p></div>
+    <div class="caption-card"><h4>Term + Value</h4><p>Contract Term (36 months), Total Contract Value ($600K), Start/End dates, Currency (USD), Contract Type (Recurring).</p></div>
+    <div class="caption-card"><h4>BOI Deal Code</h4><p>Every Closed Won deal gets a unique BOI code (BOI-001, BOI-002...). Renewals inherit the parent code + suffix (BOI-001-01). Finance uses this for Campfire revenue mapping.</p></div>
+    <div class="caption-card"><h4>Renewal Tracking</h4><p>The Renewal Opp field links renewal opportunities back to the original deal. BOI codes chain together for full revenue lineage.</p></div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ═══ 7. PIPELINE REVIEW ═══ -->
+<div class="section" id="pipeline">
+  <div class="section-label">Daily View</div>
+  <div class="section-title">Pipeline Review</div>
+  <div class="section-sub">All active deals across the team with week-over-week change tracking. Filter by pod, stage, product, or target date. Click any cell to edit directly.</div>
+  <img class="screenshot" src="/assets/sf-walkthrough/pipeline-review.png" alt="Pipeline Review">
+  <div class="callout">
+    <p><strong>Inline editing:</strong> Click ACV, Target Date, Stage, FC, Products, or Next Steps to edit directly in the report. Changes save to Salesforce immediately. Collapse/expand rep sections by clicking the header bar.</p>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ═══ 8. ACCOUNTS & TARGETS ═══ -->
+<div class="section" id="targets">
+  <div class="section-label">Q1 Targeting</div>
+  <div class="section-title">Accounts & Targets</div>
+  <div class="section-sub">Your Q1 account book. See assignments, outreach tiers (T1 Exec vs T2), geographic spread, and Eudia positioning context. Drop accounts to the pool or claim new ones.</div>
+  <img class="screenshot" src="/assets/sf-walkthrough/accounts-targets.png" alt="Accounts & Targets">
+  <div class="caption-grid">
+    <div class="caption-card"><h4>Account Distribution</h4><p>Every BL's Q1 book size by US/EU Pod. Front Book (pipeline + existing) vs Back Book (targeting). T1 Exec (leadership outreach) vs T2 (BL-driven).</p></div>
+    <div class="caption-card"><h4>Expanded View</h4><p>Click your name to see every account with HQ, Industry, Revenue, Eudia Positioning Context, Status, Book, and Tier. Drop or Transfer from here.</p></div>
+    <div class="caption-card"><h4>Target Pool</h4><p>700+ accounts available for claiming. Filter by Tier, Pod, Industry, State. Claim to add to your book (pod-restricted).</p></div>
+    <div class="caption-card"><h4>Weekly Focus</h4><p>Recommended weekly targeting per rep. Accounts clustered by geography or industry. Swap accounts in/out of your weekly focus.</p></div>
+  </div>
+</div>
+
+<!-- ═══ SUMMARY ═══ -->
+<div class="summary">
+  <h2>The Full Lifecycle</h2>
+  <div class="summary-grid">
+    <div class="summary-item"><h4>Account</h4><p>Company record with contacts, history, and CSM health.</p></div>
+    <div class="summary-item"><h4>Opportunity</h4><p>Deal tracked from S1 Discovery through S6 Closed Won.</p></div>
+    <div class="summary-item"><h4>Products</h4><p>Multi-select product lines. Each creates a Delivery at S4.</p></div>
+    <div class="summary-item"><h4>Delivery</h4><p>Auto-created at S4. One per product. Tracks phases + model.</p></div>
+    <div class="summary-item"><h4>Contract</h4><p>Created on close. Line items, term, value, BOI code.</p></div>
+    <div class="summary-item"><h4>Revenue</h4><p>BOI code maps to Campfire. Renewals chain via code suffix.</p></div>
+  </div>
+</div>
+
+<div class="footer">
+  <a href="/demo" style="color: #8e99e1; text-decoration: none; font-size: 0.8rem;">Obsidian Walkthrough</a> &nbsp;&bull;&nbsp;
+  Eudia GTM Engineering &mdash; February 2026
+</div>
+
 </body>
 </html>
