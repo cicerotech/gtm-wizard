@@ -5776,8 +5776,11 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
         };
         
         // Pass client-provided system prompt if available (e.g., pipeline review prompt)
-        if (systemPrompt) {
+        // BUT: CS users always use server-side CS template (override client prompt)
+        if (systemPrompt && userGroup !== 'cs') {
           summaryContext.customSystemPrompt = systemPrompt;
+        } else if (userGroup === 'cs') {
+          logger.info(`[Transcription] CS user detected (${normalizedEmail}) — using server-side CS summarization template`);
         }
 
         // If we have an accountId, fetch additional context from Salesforce
