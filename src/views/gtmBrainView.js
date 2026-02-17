@@ -405,15 +405,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         '<div class="gtm-tile-cat">' +
           '<div class="gtm-tile-cat-header open" data-cat="acct"><span class="chevron">&#9654;</span> Account Intel</div>' +
           '<div class="gtm-tile-cat-items" data-items="acct">' +
-            '<button class="gtm-tile acct-tile" data-query="What\'s the latest update on this account?">Latest update</button>' +
+            '<button class="gtm-tile acct-tile" data-query="What\\x27s the latest update on this account?">Latest update</button>' +
             '<button class="gtm-tile acct-tile" data-query="What are the identified pain points for this account?">Pain points</button>' +
-            '<button class="gtm-tile acct-tile" data-query="What\'s the competitive landscape for this account? Who else are they evaluating?">Competitive intel</button>' +
+            '<button class="gtm-tile acct-tile" data-query="What\\x27s the competitive landscape for this account? Who else are they evaluating?">Competitive intel</button>' +
           '</div>' +
         '</div>' +
         '<div class="gtm-tile-cat">' +
           '<div class="gtm-tile-cat-header open" data-cat="deals"><span class="chevron">&#9654;</span> Pipeline &amp; Deals</div>' +
           '<div class="gtm-tile-cat-items" data-items="deals">' +
-            '<button class="gtm-tile acct-tile" data-query="What\'s the deal status and current stage for this account?">Deal status</button>' +
+            '<button class="gtm-tile acct-tile" data-query="What\\x27s the deal status and current stage for this account?">Deal status</button>' +
             '<button class="gtm-tile acct-tile" data-query="What products have been discussed or sold to this account?">Products discussed</button>' +
             '<button class="gtm-tile acct-tile" data-query="What are the next steps and target dates for deals with this account?">Next steps</button>' +
           '</div>' +
@@ -423,14 +423,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           '<div class="gtm-tile-cat-items" data-items="people">' +
             '<button class="gtm-tile acct-tile" data-query="Who are the key contacts and stakeholders at this account?">Key contacts</button>' +
             '<button class="gtm-tile acct-tile" data-query="Who are the decision makers and economic buyer for this account?">Decision makers</button>' +
-            '<button class="gtm-tile acct-tile" data-query="Do we have a champion at this account? What\'s their status and influence?">Champion status</button>' +
+            '<button class="gtm-tile acct-tile" data-query="Do we have a champion at this account? What\\x27s their status and influence?">Champion status</button>' +
           '</div>' +
         '</div>' +
         '<div class="gtm-tile-cat">' +
           '<div class="gtm-tile-cat-header" data-cat="strat"><span class="chevron">&#9654;</span> Strategy &amp; Context</div>' +
           '<div class="gtm-tile-cat-items hidden" data-items="strat">' +
             '<button class="gtm-tile acct-tile" data-query="Which marketing campaigns have touched this account?">Campaign influence</button>' +
-            '<button class="gtm-tile acct-tile" data-query="What\'s the account plan and strategic context for this account?">Account plan</button>' +
+            '<button class="gtm-tile acct-tile" data-query="What\\x27s the account plan and strategic context for this account?">Account plan</button>' +
             '<button class="gtm-tile acct-tile" data-query="What contracts or commercial terms exist for this account?">Contracts and terms</button>' +
           '</div>' +
         '</div>' +
@@ -439,13 +439,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           '<div class="gtm-tile-cat-items hidden" data-items="prep">' +
             '<button class="gtm-tile acct-tile" data-query="Full meeting prep for this account -- deal context, key contacts, recent activity, and outstanding action items.">Full meeting prep</button>' +
             '<button class="gtm-tile acct-tile" data-query="Summarize all meeting notes and customer brain history for this account.">Meeting history</button>' +
-            '<button class="gtm-tile acct-tile" data-query="Who owns this account and what\'s their engagement level based on recent activity?">Owner &amp; engagement</button>' +
+            '<button class="gtm-tile acct-tile" data-query="Who owns this account and what\\x27s their engagement level based on recent activity?">Owner &amp; engagement</button>' +
           '</div>' +
         '</div>' +
         '<div class="gtm-tile-cat">' +
           '<div class="gtm-tile-cat-header" data-cat="hist"><span class="chevron">&#9654;</span> History &amp; Activity</div>' +
           '<div class="gtm-tile-cat-items hidden" data-items="hist">' +
-            '<button class="gtm-tile acct-tile" data-query="What\'s the full engagement history with this account?">Engagement history</button>' +
+            '<button class="gtm-tile acct-tile" data-query="What\\x27s the full engagement history with this account?">Engagement history</button>' +
             '<button class="gtm-tile acct-tile" data-query="What happened in the most recent meetings with this account?">Recent meetings</button>' +
             '<button class="gtm-tile acct-tile" data-query="What are the open action items and next steps for this account?">Open action items</button>' +
           '</div>' +
