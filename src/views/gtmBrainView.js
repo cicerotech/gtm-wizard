@@ -76,14 +76,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 /* ── Header ────────────────────────────────────────────────── */
 .gtm-header {
   flex-shrink: 0; display: flex; align-items: center; gap: 12px;
-  padding: 10px 20px; background: #fff;
-  border-bottom: 1px solid #edf0f5; z-index: 10;
+  padding: 12px 20px; background: #fff;
+  border-bottom: 1px solid #edf0f5; border-radius: 0 0 14px 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03); z-index: 10;
 }
 .gtm-header-title { font-size: 1rem; font-weight: 600; color: #1f2937; flex: 1; }
 .gtm-header-btn {
   font-size: 0.75rem; color: #6b7280; background: none;
-  border: 1px solid #e8eaef; border-radius: 6px;
-  padding: 5px 12px; cursor: pointer; white-space: nowrap; transition: all 0.15s;
+  border: 1px solid #e8eaef; border-radius: 20px;
+  padding: 5px 14px; cursor: pointer; white-space: nowrap; transition: all 0.15s;
 }
 .gtm-header-btn:hover { background: #f0f2ff; border-color: #8e99e1; color: #1f2937; }
 
@@ -182,13 +183,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   background: #fafbfc; color: #4b5563; cursor: pointer; transition: all 0.15s;
 }
 .gtm-suggestion-chip:hover { background: #f0f2ff; border-color: #8e99e1; color: #1f2937; }
-.gtm-feedback { display: flex; gap: 8px; margin-top: 6px; }
+.gtm-feedback { display: flex; gap: 8px; margin-top: 6px; align-items: center; flex-wrap: wrap; }
 .gtm-feedback-btn {
   font-size: 0.6875rem; padding: 2px 8px; border: none; border-radius: 4px;
   background: transparent; color: #b0b5c3; cursor: pointer; transition: all 0.15s;
 }
 .gtm-feedback-btn:hover { color: #4b5563; background: #f3f4f6; }
 .gtm-feedback-btn:disabled { cursor: default; }
+.gtm-feedback-cats {
+  display: flex; gap: 4px; flex-wrap: wrap; animation: fadeIn 0.2s ease;
+}
+.gtm-feedback-cat {
+  font-size: 0.625rem; padding: 2px 8px; border: 1px solid #e8eaef; border-radius: 12px;
+  background: #fafbfc; color: #6b7280; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.gtm-feedback-cat:hover { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
 .gtm-error { padding: 12px 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; color: #b91c1c; font-size: 0.875rem; }
 
 /* ── Footer ────────────────────────────────────────────────── */
@@ -505,6 +514,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     acctChipArea.innerHTML = '';
     acctChipArea.style.display = 'none';
     searchInput.style.display = '';
+    document.querySelector('.gtm-acct-search-icon').style.display = '';
     searchInput.value = '';
     searchInput.focus();
     resultsBox.classList.remove('open');
@@ -517,6 +527,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     resultsBox.classList.remove('open');
     searchInput.value = '';
     searchInput.style.display = 'none';
+    document.querySelector('.gtm-acct-search-icon').style.display = 'none';
     acctChipArea.style.display = '';
     acctChipArea.innerHTML =
       '<span class="gtm-acct-chip">' +
@@ -732,21 +743,47 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     thumbsDown.className = 'gtm-feedback-btn';
     thumbsDown.innerHTML = '\\u2193 Not helpful';
 
-    function sendFeedback(rating, btn) {
+    function sendFeedback(rating, btn, category) {
       btn.disabled = true; btn.style.opacity = '1'; btn.style.fontWeight = '600';
       btn.style.color = rating === 'helpful' ? '#059669' : '#dc2626';
+      var payload = {
+        query: answer.substring(0, 100), answerSnippet: mainAnswer.substring(0, 300),
+        accountName: (context && context.accountName) || selectedAccount.name || '',
+        accountId: (context && context.accountId) || selectedAccount.id || '',
+        userEmail: userEmail, sessionId: currentSessionId || '', rating: rating
+      };
+      if (category) payload.category = category;
+      if (context && context.accountType) payload.accountType = context.accountType;
       fetch('/api/intelligence/feedback', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({
-          query: answer.substring(0, 100), answerSnippet: mainAnswer.substring(0, 300),
-          accountName: (context && context.accountName) || selectedAccount.name || '',
-          accountId: (context && context.accountId) || selectedAccount.id || '',
-          userEmail: userEmail, sessionId: currentSessionId || '', rating: rating
-        })
+        body: JSON.stringify(payload)
       }).catch(function() {});
     }
     thumbsUp.onclick = function() { sendFeedback('helpful', thumbsUp); thumbsDown.style.display = 'none'; };
-    thumbsDown.onclick = function() { sendFeedback('not_helpful', thumbsDown); thumbsUp.style.display = 'none'; };
+    thumbsDown.onclick = function() {
+      thumbsUp.style.display = 'none';
+      thumbsDown.disabled = true; thumbsDown.style.opacity = '1'; thumbsDown.style.fontWeight = '600'; thumbsDown.style.color = '#dc2626';
+      // Show category pills inline
+      var catsDiv = document.createElement('div');
+      catsDiv.className = 'gtm-feedback-cats';
+      var cats = [
+        { id: 'inaccurate', label: 'Inaccurate data' },
+        { id: 'missing', label: 'Missing info' },
+        { id: 'format', label: 'Wrong format' },
+        { id: 'irrelevant', label: 'Not relevant' }
+      ];
+      cats.forEach(function(cat) {
+        var pill = document.createElement('button');
+        pill.className = 'gtm-feedback-cat';
+        pill.textContent = cat.label;
+        pill.onclick = function() {
+          sendFeedback('not_helpful', thumbsDown, cat.id);
+          catsDiv.innerHTML = '<span style="font-size:0.625rem;color:#9ca3af;">Thanks for the feedback</span>';
+        };
+        catsDiv.appendChild(pill);
+      });
+      feedbackDiv.appendChild(catsDiv);
+    };
     feedbackDiv.appendChild(thumbsUp);
     feedbackDiv.appendChild(thumbsDown);
     msg.appendChild(feedbackDiv);

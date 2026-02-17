@@ -1065,7 +1065,7 @@ function buildPrompt({ intent, query, context }) {
  */
 function buildSystemPrompt(intent, context, accountType) {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const basePrompt = `TODAY'S DATE: ${today}
+  let basePrompt = `TODAY'S DATE: ${today}
 
 You are gtm-brain, an AI sales intelligence assistant for Eudia, a legal AI company.
 Your role is to help Business Leads prepare for meetings, track deals, and understand their accounts.
