@@ -39,7 +39,7 @@ const EUDIA_GLOSSARY = {
   // ═══════════════════════════════════════════════════════════════════════════
   
   corrections: {
-    // Company name variations
+    // Company name variations (Whisper frequently mishears "Eudia")
     'you dia': 'Eudia',
     'udia': 'Eudia',
     'eudea': 'Eudia',
@@ -48,6 +48,15 @@ const EUDIA_GLOSSARY = {
     'yudia': 'Eudia',
     'edia': 'Eudia',
     'oodia': 'Eudia',
+    'uds': 'Eudia',
+    'uda': 'Eudia',
+    'udea': 'Eudia',
+    'yudea': 'Eudia',
+    'u.d.s': 'Eudia',
+    'u.d.a': 'Eudia',
+    'u d s': 'Eudia',
+    'u d a': 'Eudia',
+    'eudia\'s': 'Eudia\'s',
     
     // Product names
     'sigma platform': 'Sigma Platform',

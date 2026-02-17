@@ -5850,12 +5850,10 @@ last_updated: ${dateStr}
         );
         
         if (account) {
-          accountContext = { accountName: account.name, accountId: account.id };
+          accountContext = { accountName: account.name, accountId: account.id, userEmail: this.settings.userEmail };
           console.log(`[Eudia] Found cached account: ${account.name} (${account.id})`);
         } else {
-          // FALLBACK: Use folder name as account name even if not in cache
-          // This ensures Next Steps still works for accounts not yet synced
-          accountContext = { accountName: accountName, accountId: '' };
+          accountContext = { accountName: accountName, accountId: '', userEmail: this.settings.userEmail };
           console.log(`[Eudia] Account not in cache, using folder name: ${accountName}`);
         }
       } else {

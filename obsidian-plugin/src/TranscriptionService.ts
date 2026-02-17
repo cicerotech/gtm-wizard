@@ -848,10 +848,12 @@ export class TranscriptionService {
           accountName: isPipelineReview ? 'Pipeline Review' : accountName,
           accountId,
           meetingType: context?.meetingType || 'discovery',
+          userEmail: context?.userEmail || '',
           context: context ? {
             customerBrain: context.account?.customerBrain,
             opportunities: context.opportunities,
-            contacts: context.contacts
+            contacts: context.contacts,
+            userEmail: context.userEmail
           } : undefined,
           systemPrompt
         })

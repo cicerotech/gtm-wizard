@@ -136,12 +136,18 @@ function deduplicateTranscript(text) {
  */
 function buildWhisperPrompt(context = {}) {
   // Base vocabulary for Eudia meetings
-  const basePrompt = `Eudia AI legal technology company meeting.
+  let basePrompt = `Eudia AI legal technology company meeting. Multi-speaker conversation.
 Products: Sigma, AI Contracting, AI Compliance, AI M&A, Insights, Litigation.
 Roles: CLO, General Counsel, VP Legal, Legal Ops Director, Deputy GC, Chief Legal Officer.
-Sales terms: MEDDICC, ACV, ARR, MQL, SQL, BDR, SDR, POC, RFP, SOW, pipeline, quota.
 Legal terms: MSA, NDA, DPA, SLA, due diligence, contract lifecycle, compliance.
 Company: Eudia, eudia.ai, Cicero Technology.`;
+
+  // CS-specific vocabulary
+  if (context.userGroup === 'cs') {
+    basePrompt += `\nCS terms: NPS, CSAT, adoption rate, time-to-value, health score, QBR, EBR, renewal, churn, expansion, upsell, feature request, rollout, onboarding, go-live, deployment, Rocketlane.`;
+  } else {
+    basePrompt += `\nSales terms: MEDDICC, ACV, ARR, MQL, SQL, BDR, SDR, POC, RFP, SOW, pipeline, quota.`;
+  }
 
   // Add attendees if available (helps with name transcription)
   let attendeePrompt = '';
@@ -159,7 +165,6 @@ Company: Eudia, eudia.ai, Cicero Technology.`;
   // Combine but stay under ~200 tokens (Whisper limit is 224)
   const fullPrompt = basePrompt + attendeePrompt + accountPrompt;
   
-  // Truncate if too long (rough estimate: 1 token ≈ 4 chars)
   const maxChars = 800;
   if (fullPrompt.length > maxChars) {
     return fullPrompt.substring(0, maxChars);
@@ -577,7 +582,7 @@ class TranscriptionService {
           const recentNotes = context.customerBrain.substring(0, 1000);
           contextStr += `Recent Notes Summary: ${recentNotes}\n`;
         }
-        systemPrompt = this.buildSystemPrompt(contextStr);
+        systemPrompt = this.buildSystemPrompt(contextStr, context.userGroup);
       }
       const userPrompt = this.buildUserPrompt(transcript);
 
@@ -929,9 +934,12 @@ class TranscriptionService {
   }
 
   /**
-   * Build system prompt for GPT-4o
+   * Build system prompt — routes to CS or Sales template based on userGroup
    */
-  buildSystemPrompt(contextStr) {
+  buildSystemPrompt(contextStr, userGroup) {
+    if (userGroup === 'cs') {
+      return this.buildCSSystemPrompt(contextStr);
+    }
     return `You are a sales intelligence analyst processing meeting transcripts for Eudia, a legal AI company. Your job is to extract structured insights optimized for:
 1. Salesforce data entry (Account, Opportunity, Contact)
 2. Deal progression signals (MEDDICC methodology)
@@ -951,6 +959,69 @@ IMPORTANT:
 - Quote relevant parts of the transcript when helpful
 - If a section has no relevant content, say so explicitly
 - Format action items and next steps as checkboxes: - [ ] Item`;
+  }
+
+  /**
+   * CS-specific summarization prompt — focused on adoption, metrics, health, and quotable moments
+   */
+  buildCSSystemPrompt(contextStr) {
+    return `You are a Customer Success analyst processing meeting transcripts for Eudia, a legal AI company. Your job is to extract actionable CS intelligence — not sales intelligence. Focus on customer health, adoption, quantitative feedback, and quotable moments.
+
+The user is a Customer Success Manager who needs to:
+1. Track adoption metrics and quantitative feedback (time saved, team size, usage rates)
+2. Identify risks, expansion opportunities, and feature requests
+3. Extract direct quotes for case studies, slides, and executive reporting
+4. Capture action items and follow-ups
+
+Be extremely precise with numbers and quotes. ALWAYS use direct quotes with attribution when the customer shares metrics or feedback. Never paraphrase quantitative statements.
+
+${contextStr ? `CONTEXT:\n${contextStr}\n` : ''}
+
+You will analyze the transcript and provide output in EXACTLY the following format:
+
+## Summary
+2-3 sentence executive overview of the call. Lead with the most important customer insight or metric.
+
+## Customer Feedback
+### Quantitative Metrics
+Extract ALL numbers, percentages, time savings, team sizes, and usage stats mentioned. Each must include the EXACT quote and speaker.
+Format: - **[Metric Type]**: "[exact quote from transcript]" — Speaker Name
+Categories to capture: time reduction, cost savings, team size, user count, adoption rate, processing volume, error reduction, efficiency gain.
+If no quantitative metrics were mentioned, write "No quantitative metrics discussed."
+
+### What's Working
+Specific features, workflows, or aspects the customer praised. Include brief quotes where available.
+
+### Issues & Friction
+Bugs, feature gaps, workflow problems, or adoption blockers. Note severity:
+- **Blocking**: Prevents core workflow
+- **Friction**: Workaround exists but painful
+- **Minor**: Nice-to-have improvement
+
+## Feature Requests
+What the customer asked for and the business justification. Format:
+- **[Feature]**: [Why they need it] — [Priority/urgency if mentioned]
+
+## Risk Signals
+Early warning signs: frustration, competitor mentions, renewal concerns, executive sponsor changes, usage decline, budget pressure.
+
+## Expansion Signals
+New use cases, additional teams/departments, new products of interest, budget availability, positive ROI discussions.
+
+## Action Items
+- [ ] [Owner]: [Specific action] by [date if mentioned]
+Include both internal follow-ups and commitments made to the customer.
+
+## Quotable Moments
+Direct quotes suitable for slides, case studies, QBRs, or executive reporting. These should be impactful, specific statements about value, outcomes, or experience.
+Format: > "[exact quote]" — **Speaker Name**, Title/Role
+
+IMPORTANT:
+- DIRECT QUOTES are mandatory for Quantitative Metrics and Quotable Moments
+- Never fabricate or paraphrase — if uncertain, note the uncertainty
+- Attribute every quote to the correct speaker
+- If a section has no relevant content, write "Not discussed" — do not omit the section
+- Format action items as checkboxes: - [ ] Item`;
   }
 
   /**

@@ -5744,7 +5744,7 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
     // Combined transcribe and summarize endpoint
     this.expressApp.post('/api/transcribe-and-summarize', async (req, res) => {
       try {
-        const { audio, mimeType, accountName, accountId, context, openaiApiKey, systemPrompt, meetingType } = req.body;
+        const { audio, mimeType, accountName, accountId, context, openaiApiKey, systemPrompt, meetingType, userEmail } = req.body;
         
         if (!audio) {
           return res.status(400).json({ 
@@ -5759,13 +5759,19 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
           transcriptionService.initWithKey(openaiApiKey);
         }
 
-        logger.info(`Transcription request: account=${accountName || 'unknown'}, mimeType=${mimeType || 'audio/webm'}, meetingType=${meetingType || 'discovery'}`);
+        // Detect CS user for CS-specific summarization
+        const CS_EMAILS = ['nikhita.godiwala@eudia.com', 'jon.dedych@eudia.com', 'farah.haddad@eudia.com'];
+        const normalizedEmail = (userEmail || context?.userEmail || '').toLowerCase().trim();
+        const userGroup = CS_EMAILS.includes(normalizedEmail) ? 'cs' : 'bl';
+
+        logger.info(`Transcription request: account=${accountName || 'unknown'}, mimeType=${mimeType || 'audio/webm'}, meetingType=${meetingType || 'discovery'}, userGroup=${userGroup}`);
 
         // Build context for summarization
         const summaryContext = {
           accountName,
           accountId,
           meetingType: meetingType || 'discovery',
+          userGroup,
           ...context
         };
         
