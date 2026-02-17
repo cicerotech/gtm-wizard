@@ -362,6 +362,7 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
         accountId: context.account?.id,
         owner: context.account?.owner || null,
         ownerEmail: context.account?.ownerEmail || null,
+        accountType: context._accountType || 'unknown',
         opportunityCount: context.opportunities?.length || 0,
         topOpportunity: context.opportunities?.[0] ? {
           name: context.opportunities[0].name,
@@ -1014,10 +1015,46 @@ async function gatherAccountLookupContext(query) {
 }
 
 /**
+ * Classify the account engagement type to tailor response framing and follow-up suggestions.
+ * Returns: 'existing_customer' | 'active_pipeline' | 'historical' | 'cold' | 'unknown'
+ */
+function classifyAccountType(context) {
+  if (!context || !context.account) return 'unknown';
+
+  const type = (context.account.type || '').toLowerCase();
+  const opps = context.opportunities || [];
+  const openOpps = opps.filter(o => !o.isClosed);
+  const wonOpps = opps.filter(o => o.isWon);
+  const lostOpps = opps.filter(o => o.isClosed && !o.isWon);
+  const contracts = context.contracts || [];
+  const activeContracts = contracts.filter(c => (c.status || '').toLowerCase() === 'activated' || (c.status || '').toLowerCase() === 'active');
+
+  // Existing customer: has won deals or active contracts or type explicitly says so
+  if (wonOpps.length > 0 || activeContracts.length > 0 ||
+      type.includes('existing') || type.includes('customer') || type.includes('client')) {
+    return 'existing_customer';
+  }
+
+  // Active pipeline: has open (non-closed) opportunities
+  if (openOpps.length > 0) {
+    return 'active_pipeline';
+  }
+
+  // Historical: has closed/lost opportunities but nothing active
+  if (lostOpps.length > 0 || opps.length > 0) {
+    return 'historical';
+  }
+
+  return 'cold';
+}
+
+/**
  * Build optimized prompts based on query intent and context
  */
 function buildPrompt({ intent, query, context }) {
-  const systemPrompt = buildSystemPrompt(intent, context);
+  const accountType = classifyAccountType(context);
+  context._accountType = accountType; // Expose to response builder
+  const systemPrompt = buildSystemPrompt(intent, context, accountType);
   const userPrompt = buildUserPrompt(intent, query, context);
   
   return { systemPrompt, userPrompt };
@@ -1026,7 +1063,7 @@ function buildPrompt({ intent, query, context }) {
 /**
  * Build the system prompt for Claude
  */
-function buildSystemPrompt(intent, context) {
+function buildSystemPrompt(intent, context, accountType) {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const basePrompt = `TODAY'S DATE: ${today}
 
@@ -1107,6 +1144,48 @@ FOLLOW-UP SUGGESTIONS:
 - Do NOT suggest generic questions like "What's their budget?" or "What solutions are they evaluating?" unless you actually have that data
 - If there is genuinely nothing useful to suggest, do NOT include the follow-up section at all -- just end the response
 - Keep each suggestion under 8 words`;
+
+  // ── Account-type-specific framing ──
+  if (accountType === 'existing_customer') {
+    basePrompt += `
+
+ACCOUNT TYPE: EXISTING CUSTOMER
+This is an active paying customer. Your response framing must reflect this relationship:
+- Lead with the existing relationship context: products in use, contract status, renewal timeline
+- Emphasize customer health, satisfaction signals, and expansion potential
+- Frame around retention and growth, NOT acquisition
+- Highlight any CS handover notes, customer goals, or auto-renewal status
+- When suggesting follow-ups, focus on: renewal risk, expansion opportunities, product adoption, NPS/satisfaction, stakeholder changes
+- NEVER frame an existing customer as a "prospect" or suggest "discovery" activities`;
+  } else if (accountType === 'active_pipeline') {
+    basePrompt += `
+
+ACCOUNT TYPE: ACTIVE PIPELINE
+This account has open opportunities being actively worked. Your response framing must reflect deal progression:
+- Lead with deal mechanics: current stage, ACV, timeline, probability
+- Highlight next steps, blockers, and MEDDICC gaps
+- Frame around deal velocity and close probability
+- Surface any competitive threats or stakeholder concerns
+- When suggesting follow-ups, focus on: next steps, stakeholder mapping, competitive positioning, deal risks, timeline to close`;
+  } else if (accountType === 'historical') {
+    basePrompt += `
+
+ACCOUNT TYPE: HISTORICAL ENGAGEMENT
+This account has prior opportunity history but nothing currently active. Your response framing must reflect re-engagement:
+- Lead with what happened previously: last opportunity, why it closed (won/lost), when
+- Note the time gap since last engagement
+- Frame around re-engagement potential and what has changed since last interaction
+- When suggesting follow-ups, focus on: why it was lost, who the contacts were, what has changed at the company, re-engagement strategy`;
+  } else if (accountType === 'cold') {
+    basePrompt += `
+
+ACCOUNT TYPE: COLD / NET NEW
+This account has no opportunity history. Your response framing must reflect prospecting:
+- Lead with what is known: industry, company size, any available context
+- Be transparent about limited data — do not speculate beyond what exists
+- Frame around initial outreach and positioning
+- When suggesting follow-ups, focus on: identifying decision makers, understanding pain points, determining ICP fit, crafting outreach messaging`;
+  }
 
   // Add intent-specific instructions
   switch (intent) {

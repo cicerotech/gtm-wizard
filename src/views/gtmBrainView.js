@@ -17,7 +17,7 @@ function formatResponse(text) {
   let html = text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]/gu, '');
   html = html.replace(/\n{3,}/g, '\n\n');
   html = html.replace(/^([•\-]\s+.+)\n\n(?=[•\-]\s+)/gm, '$1\n');
-  html = html.replace(/^(#{2,3}\s+.+)\n\n/gm, '$1\n');
+  html = html.replace(/^(#{1,3}\s+.+)\n\n/gm, '$1\n');
   html = html.replace(/^#{1,3}\s+.+\n+(?=#{1,3}\s|\s*$)/gm, '');
   html = html.replace(/^#{2,3}\s+(.+)$/gm, '</p><h3 class="gtm-brain-header">$1</h3><p>');
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -27,19 +27,30 @@ function formatResponse(text) {
   html = html.replace(/(<li[^>]*>.*?<\/li>\s*)+/g, '<ul class="gtm-brain-list">$&</ul>');
   html = html.replace(/\n\n/g, '</p><p>');
   html = html.replace(/\n/g, '<br>');
+  // Clean <p> tags and <br> inside <ul> blocks
+  html = html.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/g, function(m) {
+    return m.replace(/<br\s*\/?>/g, '').replace(/<\/?p>/g, '');
+  });
+  // Strip <p> wrappers around block elements
   html = html.replace(/<p>\s*(<ul)/g, '$1');
   html = html.replace(/<\/ul>\s*<\/p>/g, '</ul>');
   html = html.replace(/<p>\s*(<h3)/g, '$1');
   html = html.replace(/<\/h3>\s*<\/p>/g, '</h3>');
-  html = html.replace(/<\/li>\s*<br>\s*<li/g, '</li><li');
-  html = html.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/g, function(m) { return m.replace(/<br\s*\/?>/g, ''); });
+  // Remove all spacing artifacts between block elements (order matters)
+  // Step 1: Remove <p> and <br> artifacts between </h3> and <ul>/<h3>
+  html = html.replace(/<\/h3>\s*(<\/?p>|<br\s*\/?>|\s)*\s*<(ul|h3)/g, '</h3><$2');
+  // Step 2: Remove <p> and <br> artifacts between </ul> and <h3>/<ul>
+  html = html.replace(/<\/ul>\s*(<\/?p>|<br\s*\/?>|\s)*\s*<(h3|ul)/g, '</ul><$2');
+  // Step 3: Clean trailing <br> after </h3> and </ul>
+  html = html.replace(/<\/h3>\s*(<br>\s*)+/g, '</h3>');
+  html = html.replace(/<\/ul>\s*(<br>\s*)+/g, '</ul>');
+  // Step 4: Clean leading <br> before <h3> and <ul>
+  html = html.replace(/(<br>\s*)+<h3/g, '<h3');
+  html = html.replace(/(<br>\s*)+<ul/g, '<ul');
+  // Clean empty paragraphs
   html = html.replace(/<p>\s*<\/p>/g, '');
   html = html.replace(/<p>\s*<br>\s*<\/p>/g, '');
   html = html.replace(/(<br>\s*){2,}/g, '');
-  html = html.replace(/<\/h3>\s*<br>/g, '</h3>');
-  html = html.replace(/<br>\s*<h3/g, '<h3');
-  html = html.replace(/<br>\s*<ul/g, '<ul');
-  html = html.replace(/<\/ul>\s*<br>/g, '</ul>');
   html = html.replace(/^(<br>)+|(<br>)+$/g, '');
   html = '<p>' + html + '</p>';
   html = html.replace(/<p><\/p>/g, '');
@@ -94,6 +105,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .gtm-tile:hover { background: #f0f2ff; border-color: #8e99e1; color: #1f2937; }
 .gtm-tile.disabled { opacity: 0.35; cursor: not-allowed; }
 
+/* ── Persistent Inline Tiles (after first query) ───────────── */
+.gtm-inline-tiles {
+  padding: 6px 0; text-align: center; animation: fadeIn 0.25s ease;
+}
+.gtm-inline-tiles-header {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; padding: 4px 0; color: #9ca3af; font-size: 0.6875rem;
+  transition: color 0.15s;
+}
+.gtm-inline-tiles-header:hover { color: #6b7280; }
+.gtm-inline-tiles-header svg { width: 10px; height: 10px; transition: transform 0.2s; }
+.gtm-inline-tiles-header.collapsed svg { transform: rotate(-90deg); }
+.gtm-inline-tiles-body { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 6px 0 2px; }
+.gtm-inline-tiles-body.hidden { display: none; }
+
 /* ── Messages ──────────────────────────────────────────────── */
 .gtm-msg { padding: 14px 18px; border-radius: 14px; font-size: 0.9375rem; line-height: 1.65; max-width: 100%; animation: fadeIn 0.25s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
@@ -107,19 +133,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .gtm-msg-ai .gtm-brain-header {
-  font-size: 0.875rem; font-weight: 700; margin: 16px 0 4px; padding-top: 12px;
-  border-top: 1px solid #f3f4f6; color: #1f2937; letter-spacing: -0.01em;
+  font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  margin: 18px 0 2px; padding-top: 14px;
+  border-top: 1px solid #f0f1f3; color: #374151;
 }
 .gtm-msg-ai .gtm-brain-header:first-child { margin-top: 0; padding-top: 0; border-top: none; }
-.gtm-msg-ai .gtm-brain-list { margin: 2px 0 6px 16px; padding: 0; list-style: disc; }
-.gtm-msg-ai .gtm-brain-list li { margin: 0; padding: 2px 0; line-height: 1.5; }
+.gtm-msg-ai .gtm-brain-list { margin: 2px 0 4px 16px; padding: 0; list-style: disc; }
+.gtm-msg-ai .gtm-brain-list li { margin: 0; padding: 1px 0; line-height: 1.5; font-size: 0.9rem; }
 .gtm-msg-ai .gtm-brain-list li strong { color: #111827; }
 .gtm-msg-ai .gtm-brain-header + .gtm-brain-list { margin-top: 2px; }
+.gtm-msg-ai .gtm-brain-header + p { margin-top: 2px; }
 .gtm-msg-ai p + .gtm-brain-list { margin-top: 2px; }
-.gtm-msg-ai .gtm-brain-list + p { margin-top: 6px; }
+.gtm-msg-ai .gtm-brain-list + p { margin-top: 8px; }
+.gtm-msg-ai .gtm-brain-list + .gtm-brain-header { margin-top: 18px; }
 .gtm-msg-ai .gtm-brain-todo { list-style: none; margin-left: -16px; }
 .gtm-msg-ai .gtm-brain-done { list-style: none; margin-left: -16px; text-decoration: line-through; color: #6b7280; }
-.gtm-msg-ai p { margin: 4px 0; }
+.gtm-msg-ai p { margin: 4px 0; font-size: 0.9rem; line-height: 1.6; }
 .gtm-msg-ai p:first-child { margin-top: 0; }
 .gtm-msg-ai p:last-child { margin-bottom: 0; }
 .gtm-msg-context { font-size: 0.7rem; color: #9ca3af; margin-top: 8px; }
@@ -179,8 +208,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .gtm-acct-search:focus { border-color: #8e99e1; background: #fff; box-shadow: 0 0 0 2px rgba(142,153,225,0.12); }
 .gtm-acct-search-icon {
   position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
-  font-size: 0.75rem; color: #9ca3af; pointer-events: none;
+  width: 14px; height: 14px; color: #9ca3af; pointer-events: none;
 }
+.gtm-acct-search-icon svg { width: 100%; height: 100%; }
 .gtm-acct-chip {
   display: inline-flex; align-items: center; gap: 6px;
   background: #eef1fc; border: 1px solid #c7cdee; border-radius: 20px;
@@ -256,7 +286,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <footer class="gtm-footer">
     <div class="gtm-footer-inner">
       <div class="gtm-acct-bar" id="acct-bar">
-        <span class="gtm-acct-search-icon">&#128269;</span>
+        <span class="gtm-acct-search-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="m21 21-4.35-4.35"/></svg></span>
         <input type="text" id="account-search" class="gtm-acct-search" placeholder="Search for an account (optional)" autocomplete="off" />
         <div id="acct-chip-area"></div>
         <div id="search-results" class="gtm-acct-results"></div>
@@ -270,7 +300,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
     <div class="gtm-footer-actions">
       <button type="button" id="hero-btn" class="gtm-hero-btn needs-account" data-query="Give me a full account overview: deal status and stage, key contacts with titles, recent activity and meetings, identified pain points, and competitive landscape.">Account Overview<span>- full intel</span></button>
-      <button type="button" id="tiles-toggle" class="gtm-quick-toggle" style="display:none;">Show suggestions</button>
+      <button type="button" id="tiles-toggle" class="gtm-quick-toggle" style="display:none;">Suggestions</button>
       <span class="gtm-footer-meta">Powered by Claude</span>
     </div>
   </footer>
@@ -291,36 +321,59 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   function formatAnswer(text) {
     if (!text) return '';
     var html = text;
+    // Strip emojis
     html = html.replace(/[\\u{1F300}-\\u{1F9FF}]|[\\u{2600}-\\u{26FF}]|[\\u{2700}-\\u{27BF}]|[\\u{1F600}-\\u{1F64F}]|[\\u{1F680}-\\u{1F6FF}]/gu, '');
+    // Normalize whitespace: collapse 3+ newlines to 2
     html = html.replace(/\\n{3,}/g, '\\n\\n');
+    // Remove blank lines between consecutive bullets
     html = html.replace(/^([\\u2022\\-]\\s+.+)\\n\\n(?=[\\u2022\\-]\\s+)/gm, '$1\\n');
-    html = html.replace(/^(#{2,3}\\s+.+)\\n\\n/gm, '$1\\n');
+    // Remove blank line after headers (header should sit directly above its content)
+    html = html.replace(/^(#{1,3}\\s+.+)\\n\\n/gm, '$1\\n');
+    // Remove empty headers (header followed by another header or nothing)
     html = html.replace(/^#{1,3}\\s+.+\\n+(?=#{1,3}\\s|\\s*$)/gm, '');
-    html = html.replace(/^#{2,3}\\s+(.+)$/gm, '<h3 class="gtm-brain-header">$1</h3>');
+    // Convert headers to HTML
+    html = html.replace(/^#{2,3}\\s+(.+)$/gm, '</p><h3 class="gtm-brain-header">$1</h3><p>');
+    // Bold
     html = html.replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>');
+    // Checkboxes
     html = html.replace(/^-\\s+\\[\\s*\\]\\s+(.+)$/gm, '<li class="gtm-brain-todo">$1</li>');
     html = html.replace(/^-\\s+\\[x\\]\\s+(.+)$/gm, '<li class="gtm-brain-done">$1</li>');
+    // Bullets
     html = html.replace(/^[\\u2022\\-]\\s+(.+)$/gm, '<li>$1</li>');
+    // Wrap consecutive <li> in <ul>
     html = html.replace(/(<li[^>]*>.*?<\\/li>\\s*)+/g, '<ul class="gtm-brain-list">$&</ul>');
+    // Paragraphs
     html = html.replace(/\\n\\n/g, '</p><p>');
     html = html.replace(/\\n/g, '<br>');
+    // Strip <p> wrappers around block elements
     html = html.replace(/<p>\\s*(<ul)/g, '$1');
     html = html.replace(/<\\/ul>\\s*<\\/p>/g, '</ul>');
     html = html.replace(/<p>\\s*(<h3)/g, '$1');
     html = html.replace(/<\\/h3>\\s*<\\/p>/g, '</h3>');
+    // Clean <p> tags and <br> inside <ul> blocks
     html = html.replace(/<ul[^>]*>[\\s\\S]*?<\\/ul>/g, function(match) {
-      return match.replace(/<br\\s*\\/?>/g, '');
+      return match.replace(/<br\\s*\\/?>/g, '').replace(/<\\/?p>/g, '');
     });
-    html = html.replace(/<\\/h3>\\s*(<br>\\s*)+\\s*<ul/g, '</h3><ul');
+    // Strip <p> wrappers around block elements
+    html = html.replace(/<p>\\s*(<ul)/g, '$1');
+    html = html.replace(/<\\/ul>\\s*<\\/p>/g, '</ul>');
+    html = html.replace(/<p>\\s*(<h3)/g, '$1');
+    html = html.replace(/<\\/h3>\\s*<\\/p>/g, '</h3>');
+    // Remove all spacing artifacts between block elements (order matters)
+    html = html.replace(/<\\/h3>\\s*(<\\/?p>|<br\\s*\\/?>|\\s)*\\s*<(ul|h3)/g, '</h3><$2');
+    html = html.replace(/<\\/ul>\\s*(<\\/?p>|<br\\s*\\/?>|\\s)*\\s*<(h3|ul)/g, '</ul><$2');
     html = html.replace(/<\\/h3>\\s*(<br>\\s*)+/g, '</h3>');
+    html = html.replace(/<\\/ul>\\s*(<br>\\s*)+/g, '</ul>');
+    html = html.replace(/(<br>\\s*)+<h3/g, '<h3');
+    html = html.replace(/(<br>\\s*)+<ul/g, '<ul');
+    // Clean empty paragraphs
     html = html.replace(/<p>\\s*<\\/p>/g, '');
     html = html.replace(/<p>\\s*<br>\\s*<\\/p>/g, '');
     html = html.replace(/(<br>\\s*){2,}/g, '');
-    html = html.replace(/<br>\\s*<h3/g, '<h3');
-    html = html.replace(/<br>\\s*<ul/g, '<ul');
-    html = html.replace(/<\\/ul>\\s*<br>/g, '</ul>');
     html = html.replace(/^(<br>)+|(<br>)+$/g, '');
-    return '<p>' + html + '</p>';
+    html = '<p>' + html + '</p>';
+    html = html.replace(/<p><\\/p>/g, '');
+    return html;
   }
 
   function formatAcv(v) {
@@ -403,8 +456,47 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     threadContainer.classList.add('has-messages');
     if (!hasAsked) {
       hasAsked = true;
-      tilesToggle.style.display = '';
+      // Insert persistent inline tiles above the thread instead of removing them
+      ensureInlineTiles();
     }
+  }
+
+  function ensureInlineTiles() {
+    if (document.getElementById('inline-tiles')) return;
+    var panel = document.createElement('div');
+    panel.id = 'inline-tiles';
+    panel.className = 'gtm-inline-tiles';
+    var tiles = [
+      { label: 'Latest update', q: 'What\\x27s the latest update on this account?' },
+      { label: 'Deal status', q: 'What\\x27s the deal status and current stage?' },
+      { label: 'Key contacts', q: 'Who are the key contacts and stakeholders?' },
+      { label: 'Pain points', q: 'What are the identified pain points?' },
+      { label: 'Competitive intel', q: 'What\\x27s the competitive landscape?' },
+      { label: 'Next steps', q: 'What are the next steps and target dates?' },
+      { label: 'Meeting prep', q: 'Full meeting prep for this account.' },
+      { label: 'Engagement history', q: 'What\\x27s the full engagement history?' }
+    ];
+    var headerHtml = '<div class="gtm-inline-tiles-header" id="inline-tiles-header">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>' +
+      'Quick questions</div>';
+    var bodyHtml = '<div class="gtm-inline-tiles-body" id="inline-tiles-body">';
+    for (var i = 0; i < tiles.length; i++) {
+      bodyHtml += '<button class="gtm-tile acct-tile" data-query="' + tiles[i].q + '">' + tiles[i].label + '</button>';
+    }
+    bodyHtml += '</div>';
+    panel.innerHTML = headerHtml + bodyHtml;
+    threadContainer.insertBefore(panel, threadContainer.firstChild);
+
+    // Toggle collapse
+    document.getElementById('inline-tiles-header').addEventListener('click', function() {
+      var body = document.getElementById('inline-tiles-body');
+      var hdr = this;
+      body.classList.toggle('hidden');
+      hdr.classList.toggle('collapsed');
+    });
+
+    wireUpTiles();
+    updateTileState();
   }
 
   // ─── Account Selection (inline, always visible) ────────────
@@ -584,6 +676,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         var acctLabel = context.accountName;
         if (context.owner) acctLabel += ' (' + context.owner + ')';
         parts.push(acctLabel);
+      }
+      // Account type label
+      var typeLabels = {
+        'existing_customer': 'Existing Customer',
+        'active_pipeline': 'Active Pipeline',
+        'historical': 'Historical',
+        'cold': 'Net New'
+      };
+      if (context.accountType && typeLabels[context.accountType]) {
+        parts.push(typeLabels[context.accountType]);
       }
       if (context.opportunityCount > 0) {
         var oppText = context.opportunityCount + ' opp' + (context.opportunityCount > 1 ? 's' : '');
