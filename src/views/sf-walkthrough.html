@@ -31,7 +31,9 @@
     .section-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
     .section-sub { font-size: 0.9rem; color: #6b7280; line-height: 1.6; margin-bottom: 20px; max-width: 700px; }
 
-    .screenshot { width: 100%; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 4px 24px rgba(0,0,0,0.06); margin-bottom: 16px; }
+    .screenshot { width: 100%; max-width: 900px; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 4px 24px rgba(0,0,0,0.06); margin-bottom: 16px; }
+    .screenshot.narrow { max-width: 500px; }
+    .screenshot.medium { max-width: 700px; }
 
     .caption-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px 20px; margin-bottom: 12px; }
     .caption-card h4 { font-size: 0.8rem; font-weight: 700; color: #1f2937; margin-bottom: 4px; }
@@ -94,14 +96,19 @@
 <div class="section" id="account">
   <div class="section-label">Step 1</div>
   <div class="section-title">The Account</div>
-  <div class="section-sub">Every company is an Account. Contacts, opportunities, CSM notes, and account health -- all on one page.</div>
+  <div class="section-sub">Every company is an Account. Contacts, open opportunities, CSM notes, and account health -- all on one page.</div>
   <img class="screenshot" src="/assets/sf-walkthrough/account-coherent.png" alt="Account Record - Coherent">
   <div class="caption-grid">
-    <div class="caption-card"><h4>Contacts</h4><p>Key stakeholders with titles, emails, and roles. Add Contact Roles on Opportunities to track who's involved in each deal.</p></div>
-    <div class="caption-card"><h4>Opportunities</h4><p>All active and closed deals for this company. Click any to see deal details.</p></div>
-    <div class="caption-card"><h4>CSM Section</h4><p>Account health, health history, and customer overview managed by Customer Success.</p></div>
-    <div class="caption-card"><h4>Eudia Overview</h4><p>Open ACV, total revenue, CLO engagement, marquee/velocity flags, first deal date.</p></div>
+    <div class="caption-card"><h4>Contacts</h4><p>Key stakeholders with titles, emails, and roles. These feed into GTM Brain and meeting prep.</p></div>
+    <div class="caption-card"><h4>Opportunities</h4><p>All active and closed deals. ACV, stage, and target dates visible at a glance.</p></div>
+    <div class="caption-card"><h4>CSM Section</h4><p>Account health, history, and customer overview. Managed by Customer Success.</p></div>
+    <div class="caption-card"><h4>Eudia Overview</h4><p>Open ACV, total revenue, CLO engagement, marquee/velocity flags.</p></div>
   </div>
+  <div class="callout">
+    <p><strong>New Opportunity button</strong> sits at the top of every Account page. Click it to start a new deal for this company. You can also use the "New Opportunity" tab in the nav bar.</p>
+  </div>
+  <img class="screenshot narrow" src="/assets/sf-walkthrough/account-intuit-contacts.png" alt="Account - Intuit with New Opportunity button and Contacts">
+  <div class="caption-card"><h4>Contact Roles Matter</h4><p>Add contacts from the Account to your Opportunities as Contact Roles (Champion, Economic Buyer, Decision Maker). This tracks who's involved in each deal and feeds into MEDDICC qualification.</p></div>
 </div>
 
 <hr class="divider">
@@ -110,13 +117,13 @@
 <div class="section" id="new-opp">
   <div class="section-label">Step 2</div>
   <div class="section-title">Creating an Opportunity</div>
-  <div class="section-sub">Click "New Opportunity" from the nav bar or any Account page. Fill in the required fields and hit Create.</div>
-  <img class="screenshot" src="/assets/sf-walkthrough/new-opp-form.png" alt="New Opportunity Form">
+  <div class="section-sub">When you click "New Opportunity" from the Account page or the nav bar, you'll see this form. Fill in the required fields and hit Create.</div>
+  <img class="screenshot medium" src="/assets/sf-walkthrough/new-opp-form.png" alt="New Opportunity Form">
   <div class="caption-grid">
-    <div class="caption-card"><h4>Account *</h4><p>Search and select the company. Links the deal to the Account record.</p></div>
-    <div class="caption-card"><h4>Stage *</h4><p>Start at S1 Discovery for new deals. Moves through S2 SQO, S3 Pilot, S4 Proposal, S5 Negotiation.</p></div>
-    <div class="caption-card"><h4>Product Lines *</h4><p>Check all products in scope: AI Contracting, Compliance, Sigma, Insights, Litigation, M&A, FDE, Secondee.</p></div>
-    <div class="caption-card"><h4>ACV + Target Date + Source</h4><p>Annual value, when you expect to close, and how the deal originated (Inbound/Outbound/Events/Referral).</p></div>
+    <div class="caption-card"><h4>Account *</h4><p>Auto-filled if you came from an Account page. Otherwise, search and select.</p></div>
+    <div class="caption-card"><h4>Stage *</h4><p>Start at <strong>S1 Discovery</strong>. Don't skip stages -- each has specific qualification criteria.</p></div>
+    <div class="caption-card"><h4>Product Lines *</h4><p>Check all products in scope. Multi-select. Each product creates a separate Delivery at S4.</p></div>
+    <div class="caption-card"><h4>ACV + Source</h4><p>Annual value in USD. Opportunity Source is <strong>required</strong> -- Inbound, Outbound, Events, Referral, or Existing Customer.</p></div>
   </div>
 </div>
 
@@ -126,13 +133,17 @@
 <div class="section" id="deal">
   <div class="section-label">Step 3</div>
   <div class="section-title">Working the Deal</div>
-  <div class="section-sub">Your deal workspace. Stage progression bar at the top, key fields, product lines, and contact roles below.</div>
-  <img class="screenshot" src="/assets/sf-walkthrough/opp-appliedai.png" alt="Opportunity Record - AppliedAI">
+  <div class="section-sub">Your deal workspace. Stage bar at the top, key fields on the right, Contact Roles on the left, Product Lines below.</div>
+  <img class="screenshot" src="/assets/sf-walkthrough/opp-iqvia.png" alt="Opportunity Record - IQVIA">
   <div class="caption-grid">
-    <div class="caption-card"><h4>Stage Bar</h4><p>Visual progression from S1 to Closed Won. Click "Mark Stage as Complete" to advance. Current stage is highlighted.</p></div>
-    <div class="caption-card"><h4>Key Fields</h4><p>ACV, Target Sign Date, Forecast Category (Pipeline/Gut/Commit), Next Steps, Days in Stage, BL Forecast.</p></div>
-    <div class="caption-card"><h4>Product Lines</h4><p>Multi-select with individual products shown as cards. Each product creates a separate Delivery at S4.</p></div>
-    <div class="caption-card"><h4>Contact Roles</h4><p>Add contacts from the Account who are involved in this deal. Track champions, economic buyers, and decision makers.</p></div>
+    <div class="caption-card"><h4>Stage Bar</h4><p>Visual S1 → S6. Click "Mark Stage as Complete" to advance. Current stage is highlighted blue.</p></div>
+    <div class="caption-card"><h4>Contact Roles</h4><p>Matt Gilmartin (Champion, SVP Deputy GC), Lynn Lugo (VP Assoc GC), Melissa Woodard (Dir Legal Ops). Always add roles -- this drives MEDDICC.</p></div>
+    <div class="caption-card"><h4>Key Fields</h4><p><strong>ACV</strong> ($120K), <strong>Target Sign</strong> (5/29), <strong>FC</strong> (Pipeline), <strong>Term</strong> (36 mo), <strong>Next Steps</strong>, <strong>Days in Stage</strong> (91). TCV auto-calculates.</p></div>
+    <div class="caption-card"><h4>Product Lines</h4><p>AI Platform - Insights + Sigma selected. Each creates a separate Delivery record at S4 and a Product line item below.</p></div>
+  </div>
+
+  <div class="callout" style="background: #fefce8; border-color: #fde047;">
+    <p><strong>Stage Milestones:</strong> <strong>S2 (SQO)</strong> = Qualified opportunity with identified pain. <strong>S4 (Proposal)</strong> = CS Staffing gate -- Customer Success reviews the deal and Deliveries auto-create (one per product). <strong>S5 (Negotiation)</strong> = Terms under review. <strong>S6 (Won)</strong> = Contract + Deal Code auto-generated.</p>
   </div>
 </div>
 
@@ -142,13 +153,16 @@
 <div class="section" id="meddicc">
   <div class="section-label">Step 4</div>
   <div class="section-title">MEDDICC + Next Steps</div>
-  <div class="section-sub">Track deal qualification and maintain a running log of customer history and next actions. Every update here feeds into Pipeline Review and GTM Brain.</div>
-  <img class="screenshot" src="/assets/sf-walkthrough/opp-meddicc.png" alt="MEDDICC and Next Steps">
-  <div class="callout">
-    <p><strong>Customer History + Next Steps</strong> is your running deal log. Add dated entries each time you engage. Format: "2026-02-10: NF - Demo scheduled for Tuesday 10th Feb." This content syncs to Pipeline Review's Next Steps column and is queryable by GTM Brain.</p>
+  <div class="section-sub">Track deal qualification rigorously. Every MEDDICC field, customer history entry, and blocker feeds into Pipeline Review and GTM Brain intelligence.</div>
+  <img class="screenshot" src="/assets/sf-walkthrough/opp-iqvia-meddicc.png" alt="IQVIA MEDDICC Qualification">
+  <div class="caption-grid">
+    <div class="caption-card"><h4>Metrics (M)</h4><p>Quantified pain: "contracting process is fragmented and inefficient, lacking centralized storage, visibility, and tools."</p></div>
+    <div class="caption-card"><h4>Decision Criteria (D)</h4><p>What they need: centralized repository, metadata extraction, AI deduplication, contract analytics, version control.</p></div>
+    <div class="caption-card"><h4>Identify Pain (I)</h4><p>Specific problems: no central contract location, dispersed data, rising QC costs, auditing difficulties. Direct from the customer.</p></div>
+    <div class="caption-card"><h4>Champion (C)</h4><p>"Matt Gilmartin (SVP, Deputy General Counsel)" -- identified with title and role in the deal.</p></div>
   </div>
   <div class="callout">
-    <p><strong>Contract Details (Won)</strong> section shows Products Breakdown with per-product ACV, Delivery links (DEL-0231, DEL-0232...), and total ACV. This auto-populates when the deal moves to Closed Won.</p>
+    <p><strong>Customer History + Next Steps:</strong> Your running deal log. Add dated entries each time you engage. Format: <em>"2026-02-06: 2/1 JH: Pushed opp into May as not getting feedback on RFP status."</em> This syncs to Pipeline Review and is queryable by GTM Brain.</p>
   </div>
 </div>
 
