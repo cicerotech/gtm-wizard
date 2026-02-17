@@ -132,11 +132,40 @@ export class AudioRecorder {
       };
       
       // Request microphone access
-      this.stream = await navigator.mediaDevices.getUserMedia({
+      const micStream = await navigator.mediaDevices.getUserMedia({
         audio: audioConstraints
       });
       
       console.log(`[AudioRecorder] Microphone access granted (iOS/Safari: ${isIOSSafari})`);
+
+      // Try to capture system audio (for headphone users — captures the other person)
+      let finalStream = micStream;
+      try {
+        if (!isIOSSafari && navigator.mediaDevices.getDisplayMedia) {
+          const displayStream = await navigator.mediaDevices.getDisplayMedia({
+            audio: true,
+            video: false
+          } as any);
+          
+          // Mix mic + system audio
+          this.audioContext = new AudioContext();
+          const micSource = this.audioContext.createMediaStreamSource(micStream);
+          const displaySource = this.audioContext.createMediaStreamSource(displayStream);
+          const destination = this.audioContext.createMediaStreamDestination();
+          micSource.connect(destination);
+          displaySource.connect(destination);
+          finalStream = destination.stream;
+          
+          // Store display stream for cleanup
+          (this as any)._displayStream = displayStream;
+          console.log('[AudioRecorder] System audio capture enabled (mic + speakers mixed)');
+        }
+      } catch (displayErr: any) {
+        // User denied screen share or API not available — fall back to mic only
+        console.log(`[AudioRecorder] System audio not available (${displayErr.message || 'denied'}), using mic only. For best results, use laptop speakers instead of headphones.`);
+      }
+      
+      this.stream = finalStream;
 
       // Set up audio analysis for level metering
       this.setupAudioAnalysis();
@@ -415,6 +444,12 @@ export class AudioRecorder {
     if (this.stream) {
       this.stream.getTracks().forEach(track => track.stop());
       this.stream = null;
+    }
+
+    // Stop display stream (system audio capture) if active
+    if ((this as any)._displayStream) {
+      (this as any)._displayStream.getTracks().forEach((track: any) => track.stop());
+      (this as any)._displayStream = null;
     }
 
     // Reset recorder

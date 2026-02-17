@@ -5456,6 +5456,30 @@ last_updated: ${dateStr}
       // Add glow effect to ribbon icon
       this.micRibbonIcon?.addClass('eudia-ribbon-recording');
 
+      // Auto-detect meeting duration from calendar and set auto-stop
+      let meetingAutoStopTimeout: NodeJS.Timeout | null = null;
+      try {
+        const currentMeeting = await this.calendarService.getCurrentMeeting();
+        if (currentMeeting.meeting?.end) {
+          const endTime = new Date(currentMeeting.meeting.end);
+          const now = new Date();
+          const remainingMs = endTime.getTime() - now.getTime();
+          if (remainingMs > 60000 && remainingMs < 5400000) { // between 1 min and 90 min
+            const remainingMin = Math.round(remainingMs / 60000);
+            new Notice(`Recording will auto-stop in ${remainingMin} min (meeting ends at ${endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })})`);
+            meetingAutoStopTimeout = setTimeout(async () => {
+              if (this.audioRecorder?.isRecording()) {
+                new Notice('Meeting time reached — stopping recording and generating summary.');
+                await this.stopRecording();
+              }
+            }, remainingMs);
+            console.log(`[Eudia] Auto-stop set for ${remainingMin} min (meeting: ${currentMeeting.meeting.subject})`);
+          }
+        }
+      } catch (e) {
+        console.log('[Eudia] Could not detect meeting duration for auto-stop:', e);
+      }
+
       // Update status bar with audio levels + recording time limit checks
       let recordingPromptShown = false;
       const updateInterval = setInterval(() => {

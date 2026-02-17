@@ -1427,9 +1427,9 @@ async function handleCustomerBrainNote(message, userId, channelId, client, threa
     // Score matches to find best one (handles typos like "Thorton" → "Thornton")
     const businessLeads = [
       // US Pod
-      'Asad Hussain', 'Nathan Shine', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
+      'Olivia Jung', 'Julie Stefanich', 'Asad Hussain', 'Mike Masiello', 'Ananth Cherukupally', 'Sean Boyd', 'Riley Stack', 'Rajeev Patel',
       // EU Pod
-      'Greg MacHale', 'Nathan Shine', 'Tom Clancy', 'Conor Molloy', 'Alex Fox', 'Nicola Fratini', 'Emer Flynn', 'Riona McHale'
+      'Greg MacHale', 'Nicola Fratini', 'Conor Molloy', 'Nathan Shine'
     ];
     
     // Score each result for best match
@@ -1903,9 +1903,9 @@ async function formatAccountLookup(queryResult, parsedIntent) {
   const records = queryResult.records;
   const businessLeads = [
     // US Pod
-    'Asad Hussain', 'Nathan Shine', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
+    'Olivia Jung', 'Julie Stefanich', 'Asad Hussain', 'Mike Masiello', 'Ananth Cherukupally', 'Sean Boyd', 'Riley Stack', 'Rajeev Patel',
     // EU Pod
-    'Greg MacHale', 'Nathan Shine', 'Tom Clancy', 'Conor Molloy', 'Alex Fox', 'Nicola Fratini', 'Emer Flynn', 'Riona McHale'
+    'Greg MacHale', 'Nicola Fratini', 'Conor Molloy', 'Nathan Shine'
   ];
   const unassignedHolders = ['Keigan Pesenti', 'Emmit Hood', 'Emmitt Hood', 'Mark Runyon', 'Derreck Chu', 'Sarah Rakhine'];
   
@@ -2562,9 +2562,9 @@ function formatAccountFieldResults(queryResult, parsedIntent) {
       const nonBLHolders = ['Keigan Pesenti', 'Emmit Hood', 'Emmitt Hood', 'Mark Runyon', 'Derreck Chu', 'Sarah Rakhine'];
       const validBLs = [
         // US Pod
-        'Asad Hussain', 'Nathan Shine', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
+        'Olivia Jung', 'Julie Stefanich', 'Asad Hussain', 'Mike Masiello', 'Ananth Cherukupally', 'Sean Boyd', 'Riley Stack', 'Rajeev Patel',
         // EU Pod
-        'Greg MacHale', 'Nathan Shine', 'Tom Clancy', 'Conor Molloy', 'Alex Fox', 'Nicola Fratini', 'Emer Flynn', 'Riona McHale'
+        'Greg MacHale', 'Nicola Fratini', 'Conor Molloy', 'Nathan Shine'
       ];
       
       if (records.length === 0) {
@@ -3865,9 +3865,9 @@ async function handleBatchReassignAccounts(entities, userId, channelId, client, 
     // Validate target BL - US and EU Pods
     const businessLeads = [
       // US Pod
-      'Asad Hussain', 'Nathan Shine', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
+      'Olivia Jung', 'Julie Stefanich', 'Asad Hussain', 'Mike Masiello', 'Ananth Cherukupally', 'Sean Boyd', 'Riley Stack', 'Rajeev Patel',
       // EU Pod
-      'Greg MacHale', 'Nathan Shine', 'Tom Clancy', 'Conor Molloy', 'Alex Fox', 'Nicola Fratini', 'Emer Flynn', 'Riona McHale'
+      'Greg MacHale', 'Nicola Fratini', 'Conor Molloy', 'Nathan Shine'
     ];
     const blNameMap = {
       // US Pod
@@ -3876,15 +3876,18 @@ async function handleBatchReassignAccounts(entities, userId, channelId, client, 
       'asad': 'Asad Hussain',
       'ananth': 'Ananth Cherukupally',
       'olivia': 'Olivia Jung',
-      'justin': 'Justin Hills',
+      'riley': 'Riley Stack',
+      'sean': 'Sean Boyd',
+      'mike': 'Mike Masiello',
+      'rajeev': 'Rajeev Patel',
       // EU Pod
       'greg': 'Greg MacHale',
       'nathan': 'Nathan Shine',
-      'tom': 'Tom Clancy',
+      
       'conor': 'Conor Molloy',
-      'alex': 'Alex Fox',
+      
       'nicola': 'Nicola Fratini',
-      'emer': 'Emer Flynn',
+      
       'riona': 'Riona McHale'
     };
     
@@ -4025,7 +4028,10 @@ async function handleMultiBatchReassign(entities, userId, channelId, client, thr
   const VALID_BLS = {
     // US Pod
     'asad': 'Asad Hussain',
-    'justin': 'Justin Hills',
+    'riley': 'Riley Stack',
+    'sean': 'Sean Boyd',
+    'mike': 'Mike Masiello',
+    'rajeev': 'Rajeev Patel',
     'olivia': 'Olivia Jung',
     'ananth': 'Ananth Cherukupally',
     'nathan': 'Nathan Shine',
@@ -4033,11 +4039,11 @@ async function handleMultiBatchReassign(entities, userId, channelId, client, thr
     // EU Pod
     'greg': 'Greg MacHale',
     'nathan': 'Nathan Shine',
-    'tom': 'Tom Clancy',
+    
     'conor': 'Conor Molloy',
-    'alex': 'Alex Fox',
+    
     'nicola': 'Nicola Fratini',
-    'emer': 'Emer Flynn',
+    
     'riona': 'Riona McHale',
     // Other
     'zoila': 'Zoila Mena Harpin'
@@ -4798,9 +4804,9 @@ async function handleAccountExistenceCheck(entities, userId, channelId, client, 
     // Account EXISTS
     const businessLeads = [
       // US Pod
-      'Asad Hussain', 'Nathan Shine', 'Julie Stefanich', 'Olivia Jung', 'Ananth Cherukupally', 'Justin Hills',
+      'Olivia Jung', 'Julie Stefanich', 'Asad Hussain', 'Mike Masiello', 'Ananth Cherukupally', 'Sean Boyd', 'Riley Stack', 'Rajeev Patel',
       // EU Pod
-      'Greg MacHale', 'Nathan Shine', 'Tom Clancy', 'Conor Molloy', 'Alex Fox', 'Nicola Fratini', 'Emer Flynn', 'Riona McHale'
+      'Greg MacHale', 'Nicola Fratini', 'Conor Molloy', 'Nathan Shine'
     ];
     const account = result.records[0];
     const isBL = businessLeads.includes(account.Owner?.Name);
@@ -6531,7 +6537,10 @@ async function getOwnerNameFromSlackUser(slackUserId, client) {
       'keigan pesenti': 'Keigan Pesenti',
       // US Pod
       'julie stefanich': 'Julie Stefanich',
-      'justin hills': 'Justin Hills',
+      'riley stack': 'Riley Stack',
+      'sean boyd': 'Sean Boyd',
+      'mike masiello': 'Mike Masiello',
+      'rajeev patel': 'Rajeev Patel',
       'asad hussain': 'Asad Hussain',
       'mitchell carpenter': 'Nathan Shine',
       'ananth cherukupally': 'Ananth Cherukupally',
@@ -6539,11 +6548,11 @@ async function getOwnerNameFromSlackUser(slackUserId, client) {
       // EU Pod
       'greg machale': 'Greg MacHale',
       'nathan shine': 'Nathan Shine',
-      'tom clancy': 'Tom Clancy',
+      
       'conor molloy': 'Conor Molloy',
-      'alex fox': 'Alex Fox',
+      
       'nicola fratini': 'Nicola Fratini',
-      'emer flynn': 'Emer Flynn',
+      
       'riona mchale': 'Riona McHale',
       // Other
       'jon cobb': 'Jon Cobb',
@@ -6754,15 +6763,18 @@ async function handleOwnerAccountsList(entities, userId, channelId, client, thre
       'asad': 'Asad Hussain',
       'ananth': 'Ananth Cherukupally',
       'olivia': 'Olivia Jung',
-      'justin': 'Justin Hills',
+      'riley': 'Riley Stack',
+      'sean': 'Sean Boyd',
+      'mike': 'Mike Masiello',
+      'rajeev': 'Rajeev Patel',
       // EU Pod
       'greg': 'Greg MacHale',
       'nathan': 'Nathan Shine',
-      'tom': 'Tom Clancy',
+      
       'conor': 'Conor Molloy',
-      'alex': 'Alex Fox',
+      
       'nicola': 'Nicola Fratini',
-      'emer': 'Emer Flynn',
+      
       'riona': 'Riona McHale',
       // Other
       'david': 'David Van Ryk',

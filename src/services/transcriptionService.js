@@ -71,31 +71,52 @@ const CONFIG = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function detectHallucination(text) {
-  if (!text || text.length < 100) return { isHallucinated: false, text };
+  if (!text || text.length < 100) return { isHallucinated: false, text, reason: null };
   
-  // Split into sentences
+  const words = text.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(w => w.length > 1);
+  if (words.length < 10) return { isHallucinated: false, text, reason: null };
+  
+  // Check 1: Vocabulary diversity — hallucinated text reuses the same small set of words
+  const uniqueWords = new Set(words);
+  const vocabRatio = uniqueWords.size / words.length;
+  if (vocabRatio < 0.15) {
+    logger.warn(`[Transcription] HALLUCINATION: Vocabulary ratio ${(vocabRatio * 100).toFixed(1)}% (${uniqueWords.size} unique / ${words.length} total)`);
+    return { isHallucinated: true, maxRepeats: 0, vocabRatio, text, reason: 'low_vocabulary' };
+  }
+  
+  // Check 2: 3-word n-gram frequency — catches near-duplicate phrases
+  const ngrams = {};
+  for (let i = 0; i < words.length - 2; i++) {
+    const gram = words[i] + ' ' + words[i+1] + ' ' + words[i+2];
+    ngrams[gram] = (ngrams[gram] || 0) + 1;
+  }
+  const maxNgramRepeats = Object.keys(ngrams).length > 0 ? Math.max(...Object.values(ngrams)) : 0;
+  if (maxNgramRepeats >= 5) {
+    const topNgrams = Object.entries(ngrams).filter(([,c]) => c >= 5).map(([g,c]) => `"${g}" (${c}x)`).slice(0, 3);
+    logger.warn(`[Transcription] HALLUCINATION: Repeated n-grams: ${topNgrams.join(', ')}`);
+    return { isHallucinated: true, maxRepeats: maxNgramRepeats, vocabRatio, text, reason: 'repeated_ngrams' };
+  }
+  
+  // Check 3: Exact sentence repetition (original check)
   const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 10);
-  if (sentences.length < 5) return { isHallucinated: false, text };
-  
-  // Count sentence frequency
-  const freq = {};
+  const sentFreq = {};
   for (const s of sentences) {
     const key = s.toLowerCase().replace(/\s+/g, ' ');
-    freq[key] = (freq[key] || 0) + 1;
+    sentFreq[key] = (sentFreq[key] || 0) + 1;
+  }
+  const maxSentRepeats = sentences.length > 0 ? Math.max(...Object.values(sentFreq)) : 0;
+  if (maxSentRepeats >= CONFIG.HALLUCINATION_REPEAT_THRESHOLD) {
+    logger.warn(`[Transcription] HALLUCINATION: Sentence repeated ${maxSentRepeats}x`);
+    return { isHallucinated: true, maxRepeats: maxSentRepeats, vocabRatio, text, reason: 'repeated_sentences' };
   }
   
-  // Check for any sentence repeated beyond threshold
-  const maxRepeats = Math.max(...Object.values(freq));
-  const isHallucinated = maxRepeats >= CONFIG.HALLUCINATION_REPEAT_THRESHOLD;
-  
-  if (isHallucinated) {
-    const topRepeated = Object.entries(freq)
-      .filter(([, count]) => count >= CONFIG.HALLUCINATION_REPEAT_THRESHOLD)
-      .map(([phrase, count]) => `"${phrase.substring(0, 50)}..." (${count}x)`);
-    logger.warn(`[Transcription] HALLUCINATION DETECTED: ${topRepeated.join(', ')}`);
+  // Check 4: Too few unique words overall (near-silence → garbage)
+  if (uniqueWords.size < 30 && words.length > 50) {
+    logger.warn(`[Transcription] HALLUCINATION: Only ${uniqueWords.size} unique words in ${words.length} total`);
+    return { isHallucinated: true, maxRepeats: 0, vocabRatio, text, reason: 'too_few_unique_words' };
   }
   
-  return { isHallucinated, maxRepeats, text };
+  return { isHallucinated: false, maxRepeats: Math.max(maxNgramRepeats, maxSentRepeats), vocabRatio, text, reason: null };
 }
 
 function deduplicateTranscript(text) {
@@ -427,9 +448,18 @@ class TranscriptionService {
       // Hallucination check: detect and clean repeated phrases
       const halCheck = detectHallucination(finalTranscript);
       if (halCheck.isHallucinated) {
+        // If vocabulary is extremely low, audio quality was too poor — don't even try to summarize
+        if (halCheck.reason === 'low_vocabulary' || halCheck.reason === 'too_few_unique_words') {
+          logger.error(`[Transcription] Audio quality too low — returning error (reason: ${halCheck.reason}, vocabRatio: ${halCheck.vocabRatio})`);
+          return {
+            success: false,
+            error: 'Audio quality too low for accurate transcription. Ensure your microphone can capture both sides of the conversation. If using headphones, switch to laptop speakers so the mic picks up the other person.',
+            audioQualityIssue: true
+          };
+        }
         finalTranscript = deduplicateTranscript(finalTranscript);
         confidence = Math.min(confidence, 0.3);
-        logger.warn(`[Transcription] Cleaned hallucinated output (max repeats: ${halCheck.maxRepeats})`);
+        logger.warn(`[Transcription] Cleaned hallucinated output (reason: ${halCheck.reason}, repeats: ${halCheck.maxRepeats})`);
       }
 
       return {
@@ -603,7 +633,64 @@ class TranscriptionService {
         });
 
         const content = response.content[0]?.text || '';
-        const sections = this.parseSections(content);
+        
+        // Generate follow-up email draft (second Claude call, non-blocking)
+        let emailDraft = '';
+        try {
+          const isCS = context.userGroup === 'cs';
+          const emailPrompt = isCS
+            ? `Based on this customer success meeting summary, draft a follow-up email from the Eudia CSM to the customer.
+
+Rules:
+- Subject line: concise, references the meeting topic
+- Opening: thank them for their time, reference specific discussion points
+- Body: summarize key feedback captured, acknowledge any issues raised, confirm next steps
+- Include: any feature requests or escalations discussed with expected timeline
+- Reference adoption metrics if discussed (shows you were listening)
+- Tone: supportive, proactive, professional
+- Length: 150-250 words
+- Do NOT include internal-only observations (risk signals, health scores)
+
+Format:
+**Subject:** [subject line]
+
+[email body]`
+            : `Based on this sales meeting summary, draft a follow-up email from the Eudia rep to the customer.
+
+Rules:
+- Subject line: concise, references the meeting topic
+- Opening: thank them for their time, reference the date and specific topics discussed
+- Body: 2-3 key discussion points grounded in what was actually said (not generic)
+- Action items: clearly list agreed next steps with owners and dates
+- Closing: professional, forward-looking, with clear next touchpoint
+- Tone: warm but professional, not salesy or pushy
+- Length: 150-250 words
+- Do NOT include internal-only information (MEDDICC, deal signals, competitive intel)
+- DO reference specific names, products, dates, and pain points from the conversation
+
+Format:
+**Subject:** [subject line]
+
+[email body]`;
+
+          const emailResponse = await anthropic.messages.create({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 1000,
+            system: emailPrompt,
+            messages: [{ role: 'user', content: `Meeting summary:\n\n${content}\n\nAccount: ${context.accountName || 'Unknown'}` }]
+          });
+          emailDraft = emailResponse.content[0]?.text || '';
+          logger.info(`[Summarization] Email draft generated (${emailDraft.length} chars)`);
+        } catch (emailErr) {
+          logger.warn(`[Summarization] Email draft generation failed (non-blocking): ${emailErr.message}`);
+        }
+        
+        // Append email draft to content if generated
+        const fullContent = emailDraft 
+          ? content + '\n\n## Draft Follow-Up Email\n\n' + emailDraft + '\n\n> *Edit this draft to match your voice, then send. To improve future drafts, your edits help the system learn your style.*'
+          : content;
+        
+        const sections = this.parseSections(fullContent);
 
         return { success: true, sections };
       }
