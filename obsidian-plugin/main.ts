@@ -5929,14 +5929,71 @@ last_updated: ${dateStr}
         return;
       }
 
-      // Build note content - this replaces entire note including processing indicator
+      // Preserve any user-typed notes before overwriting
+      const existingContent = await this.app.vault.read(file);
+      let userNotes = '';
+      
+      // Extract user-typed content: anything between the frontmatter and the processing marker
+      const processingMarkerIdx = existingContent.indexOf('---\n**Transcription in progress');
+      if (processingMarkerIdx > 0) {
+        // Find end of frontmatter (second --- occurrence)
+        const firstDash = existingContent.indexOf('---');
+        const secondDash = firstDash >= 0 ? existingContent.indexOf('---', firstDash + 3) : -1;
+        if (secondDash > 0 && secondDash + 3 < processingMarkerIdx) {
+          userNotes = existingContent.substring(secondDash + 3, processingMarkerIdx).trim();
+        }
+      } else {
+        // No processing marker -- extract body content after frontmatter 
+        // (user may have typed notes before starting recording)
+        const firstDash = existingContent.indexOf('---');
+        const secondDash = firstDash >= 0 ? existingContent.indexOf('---', firstDash + 3) : -1;
+        if (secondDash > 0) {
+          const bodyContent = existingContent.substring(secondDash + 3).trim();
+          // Only preserve if it has real content beyond the template placeholders
+          const stripped = bodyContent
+            .replace(/^#.*$/gm, '')
+            .replace(/Date:\s*\nAttendees:\s*/g, '')
+            .replace(/Add meeting notes here\.\.\./g, '')
+            .replace(/---/g, '')
+            .trim();
+          if (stripped.length > 10) {
+            userNotes = bodyContent;
+          }
+        }
+      }
+
+      // Backup existing content before overwriting
+      try {
+        const backupFolder = '_backups';
+        if (!this.app.vault.getAbstractFileByPath(backupFolder)) {
+          await this.app.vault.createFolder(backupFolder);
+        }
+        const ts = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+        const backupPath = `${backupFolder}/${file.name}_${ts}.md`;
+        await this.app.vault.create(backupPath, existingContent);
+        console.log(`[Eudia] Backed up note to ${backupPath}`);
+      } catch (backupErr) {
+        console.warn('[Eudia] Backup failed (non-critical):', (backupErr as Error).message);
+      }
+
+      // Build note content
       let noteContent: string;
       
       if (isPipelineReview) {
-        // Pipeline meetings: use the LLM summary directly (it's already structured)
         noteContent = this.buildPipelineNoteContent(sections, transcription, file.path);
       } else {
         noteContent = this.buildNoteContent(sections, transcription);
+      }
+
+      // Prepend user-typed notes if any were captured
+      if (userNotes && userNotes.length > 5) {
+        // Insert after frontmatter, before the AI-generated content
+        const fmEndIdx = noteContent.indexOf('---', noteContent.indexOf('---') + 3);
+        if (fmEndIdx > 0) {
+          const beforeBody = noteContent.substring(0, fmEndIdx + 3);
+          const afterFm = noteContent.substring(fmEndIdx + 3);
+          noteContent = beforeBody + '\n\n## My Notes (captured during call)\n\n' + userNotes + '\n\n---\n' + afterFm;
+        }
       }
       
       // Update file with final content
