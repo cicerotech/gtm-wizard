@@ -141,13 +141,13 @@ export class AudioRecorder {
       // Set up audio analysis for level metering
       this.setupAudioAnalysis();
 
-      // Create MediaRecorder with higher bitrate for better Whisper accuracy
-      // 96kbps provides clearer speech while still allowing ~35 min per 25MB
+      // 128kbps for better Whisper accuracy — reduces hallucination on long recordings
+      // At 128kbps with 10MB chunks, each chunk ≈ 10 min of audio
       const mimeType = this.getSupportedMimeType();
       this.mimeTypeCache = mimeType;
       this.mediaRecorder = new MediaRecorder(this.stream, {
         mimeType,
-        audioBitsPerSecond: 96000
+        audioBitsPerSecond: 128000
       });
 
       this.audioChunks = [];

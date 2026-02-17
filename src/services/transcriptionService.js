@@ -43,8 +43,9 @@ try {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const CONFIG = {
-  // Whisper API limit is 25MB, use 20MB for safety margin
-  MAX_CHUNK_SIZE: 20 * 1024 * 1024,
+  // Reduced from 20MB to 10MB for better Whisper accuracy on long recordings
+  // At 128kbps, 10MB ≈ 10 min per chunk — sweet spot for accuracy
+  MAX_CHUNK_SIZE: 10 * 1024 * 1024,
   
   // Maximum concurrent transcriptions to prevent server overload
   MAX_CONCURRENT: 3,
@@ -57,8 +58,69 @@ const CONFIG = {
   CHUNK_TIMEOUT_MS: 5 * 60 * 1000,
   
   // Maximum recording duration (2 hours = safety limit)
-  MAX_DURATION_SECONDS: 2 * 60 * 60
+  MAX_DURATION_SECONDS: 2 * 60 * 60,
+  
+  // Hallucination detection: if a phrase repeats this many times, flag it
+  HALLUCINATION_REPEAT_THRESHOLD: 4
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HALLUCINATION DETECTION & DEDUPLICATION
+// Whisper sometimes produces repeated phrases on low-quality or long audio.
+// This detects and cleans hallucinated output before it reaches summarization.
+// ═══════════════════════════════════════════════════════════════════════════
+
+function detectHallucination(text) {
+  if (!text || text.length < 100) return { isHallucinated: false, text };
+  
+  // Split into sentences
+  const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 10);
+  if (sentences.length < 5) return { isHallucinated: false, text };
+  
+  // Count sentence frequency
+  const freq = {};
+  for (const s of sentences) {
+    const key = s.toLowerCase().replace(/\s+/g, ' ');
+    freq[key] = (freq[key] || 0) + 1;
+  }
+  
+  // Check for any sentence repeated beyond threshold
+  const maxRepeats = Math.max(...Object.values(freq));
+  const isHallucinated = maxRepeats >= CONFIG.HALLUCINATION_REPEAT_THRESHOLD;
+  
+  if (isHallucinated) {
+    const topRepeated = Object.entries(freq)
+      .filter(([, count]) => count >= CONFIG.HALLUCINATION_REPEAT_THRESHOLD)
+      .map(([phrase, count]) => `"${phrase.substring(0, 50)}..." (${count}x)`);
+    logger.warn(`[Transcription] HALLUCINATION DETECTED: ${topRepeated.join(', ')}`);
+  }
+  
+  return { isHallucinated, maxRepeats, text };
+}
+
+function deduplicateTranscript(text) {
+  if (!text) return text;
+  
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const seen = new Set();
+  const deduped = [];
+  
+  for (const s of sentences) {
+    const key = s.toLowerCase().replace(/\s+/g, ' ').trim();
+    if (key.length < 10) { deduped.push(s); continue; }
+    if (!seen.has(key)) {
+      seen.add(key);
+      deduped.push(s);
+    }
+  }
+  
+  const result = deduped.join(' ');
+  const removed = sentences.length - deduped.length;
+  if (removed > 0) {
+    logger.info(`[Transcription] Deduplication: removed ${removed} repeated sentences (${sentences.length} → ${deduped.length})`);
+  }
+  return result;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // WHISPER PROMPT FOR DOMAIN-SPECIFIC ACCURACY
@@ -357,14 +419,23 @@ class TranscriptionService {
         }
       }
 
+      // Hallucination check: detect and clean repeated phrases
+      const halCheck = detectHallucination(finalTranscript);
+      if (halCheck.isHallucinated) {
+        finalTranscript = deduplicateTranscript(finalTranscript);
+        confidence = Math.min(confidence, 0.3);
+        logger.warn(`[Transcription] Cleaned hallucinated output (max repeats: ${halCheck.maxRepeats})`);
+      }
+
       return {
         success: true,
         transcript: finalTranscript,
-        rawTranscript: transcription.text, // Keep original for debugging
+        rawTranscript: transcription.text,
         duration: transcription.duration || 0,
         corrections,
         confidence,
-        segments: transcription.segments // Include Whisper segments for confidence analysis
+        hallucinated: halCheck.isHallucinated,
+        segments: transcription.segments
       };
 
     } catch (error) {
@@ -423,7 +494,14 @@ class TranscriptionService {
     }
 
     // Combine transcripts with intelligent joining
-    const combinedTranscript = this.joinTranscripts(transcripts);
+    let combinedTranscript = this.joinTranscripts(transcripts);
+
+    // Final hallucination check + dedup on the combined output
+    const halCheck = detectHallucination(combinedTranscript);
+    if (halCheck.isHallucinated) {
+      combinedTranscript = deduplicateTranscript(combinedTranscript);
+      logger.warn(`[Transcription] Combined transcript hallucination cleaned (max repeats: ${halCheck.maxRepeats})`);
+    }
 
     logger.info(`[Transcription] Complete: ${chunks.length - failedChunks}/${chunks.length} chunks, ${totalDuration.toFixed(0)}s`);
 
@@ -432,7 +510,8 @@ class TranscriptionService {
       transcript: combinedTranscript,
       duration: totalDuration,
       chunksProcessed: chunks.length - failedChunks,
-      chunksTotal: chunks.length
+      chunksTotal: chunks.length,
+      hallucinated: halCheck.isHallucinated
     };
   }
 

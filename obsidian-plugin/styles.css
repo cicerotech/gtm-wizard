@@ -1688,8 +1688,10 @@
 
 /* Enhanced Intelligence Response Formatting */
 .eudia-intel-header {
-  margin: 12px 0 4px 0;
+  margin: 14px 0 4px 0;
+  padding-top: 10px;
   padding-bottom: 2px;
+  border-top: 1px solid rgba(0,0,0,0.06);
   font-size: 14px;
   font-weight: 600;
   color: var(--text-accent);

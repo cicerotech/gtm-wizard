@@ -486,7 +486,6 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
 
   // For account-specific queries, we need an account
   if (!accountId && accountName) {
-    // Try to find account by name
     logger.info(`[Intelligence] Looking up account by name: "${accountName}"`);
     const account = await findAccountByName(accountName);
     if (account) {
@@ -507,13 +506,21 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
   }
 
   if (!accountId) {
-    // No account context - return minimal context
     logger.warn(`[Intelligence] No accountId available - returning minimal context for query`);
     return context;
   }
 
-  // Fetch all data in parallel from SALESFORCE ONLY (no SQLite)
-  // This ensures customer data resides only in Salesforce per compliance requirements
+  // Verify SF connection is alive before parallel data fetch
+  const { isSalesforceAvailable } = require('../salesforce/connection');
+  if (!isSalesforceAvailable()) {
+    logger.error(`[Intelligence] Salesforce connection unavailable — resetting circuit breaker and retrying`);
+    const { resetCircuitBreaker, initializeSalesforce } = require('../salesforce/connection');
+    resetCircuitBreaker();
+    try { await initializeSalesforce(); } catch (e) { logger.error(`[Intelligence] SF re-init failed: ${e.message}`); }
+  }
+
+  // Fetch all data in parallel from SALESFORCE ONLY
+  logger.info(`[Intelligence] Fetching SF data for accountId: ${accountId}`);
   const [
     accountData,
     opportunities,
@@ -522,12 +529,12 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
     events,
     contracts
   ] = await Promise.all([
-    getAccountDetails(accountId),
-    getOpportunities(accountId),
-    getContacts(accountId),
-    getRecentTasks(accountId),
-    getRecentEvents(accountId),
-    getContracts(accountId)
+    getAccountDetails(accountId).catch(e => { logger.error(`[Intelligence] getAccountDetails failed: ${e.message}`); return null; }),
+    getOpportunities(accountId).catch(e => { logger.error(`[Intelligence] getOpportunities failed: ${e.message}`); return []; }),
+    getContacts(accountId).catch(e => { logger.error(`[Intelligence] getContacts failed: ${e.message}`); return []; }),
+    getRecentTasks(accountId).catch(e => { logger.error(`[Intelligence] getRecentTasks failed: ${e.message}`); return []; }),
+    getRecentEvents(accountId).catch(e => { logger.error(`[Intelligence] getRecentEvents failed: ${e.message}`); return []; }),
+    getContracts(accountId).catch(e => { logger.error(`[Intelligence] getContracts failed: ${e.message}`); return []; })
   ]);
 
   // Populate context and log data availability
@@ -846,17 +853,67 @@ async function getContracts(accountId) {
  * Find account by name (for account lookup queries)
  */
 async function findAccountByName(accountName) {
+  if (!accountName || accountName.trim().length === 0) return null;
+  
   try {
-    const safeName = accountName.replace(/'/g, "\\'");
-    const result = await sfQuery(`
+    const cleanName = accountName.trim();
+    const safeName = cleanName.replace(/'/g, "\\'");
+    
+    // Strategy 1: Exact match
+    let result = await sfQuery(`
       SELECT Id, Name, Owner.Name, Owner.Email, Customer_Type__c, Industry
-      FROM Account
-      WHERE Name LIKE '%${safeName}%'
-      ORDER BY LastActivityDate DESC
-      LIMIT 1
+      FROM Account WHERE Name = '${safeName}' LIMIT 1
     `, true);
-
-    return result?.records?.[0] || null;
+    if (result?.records?.[0]) {
+      logger.info(`[Intelligence] Account found (exact): ${result.records[0].Name}`);
+      return result.records[0];
+    }
+    
+    // Strategy 2: LIKE match (contains)
+    result = await sfQuery(`
+      SELECT Id, Name, Owner.Name, Owner.Email, Customer_Type__c, Industry
+      FROM Account WHERE Name LIKE '%${safeName}%'
+      ORDER BY LastActivityDate DESC NULLS LAST LIMIT 1
+    `, true);
+    if (result?.records?.[0]) {
+      logger.info(`[Intelligence] Account found (LIKE): ${result.records[0].Name}`);
+      return result.records[0];
+    }
+    
+    // Strategy 3: Try without common suffixes/prefixes
+    const stripped = cleanName
+      .replace(/\b(Inc\.?|LLC|Ltd\.?|Corp\.?|Corporation|Group|Holdings|PLC|S\.A\.?|AG|GmbH|Co\.?)\b/gi, '')
+      .replace(/\s+/g, ' ').trim();
+    if (stripped !== cleanName && stripped.length > 2) {
+      const safeStripped = stripped.replace(/'/g, "\\'");
+      result = await sfQuery(`
+        SELECT Id, Name, Owner.Name, Owner.Email, Customer_Type__c, Industry
+        FROM Account WHERE Name LIKE '%${safeStripped}%'
+        ORDER BY LastActivityDate DESC NULLS LAST LIMIT 1
+      `, true);
+      if (result?.records?.[0]) {
+        logger.info(`[Intelligence] Account found (stripped suffix): ${result.records[0].Name} (searched: "${stripped}")`);
+        return result.records[0];
+      }
+    }
+    
+    // Strategy 4: First word only (for cases like "T-mobile" → "T-Mobile US")
+    const firstWord = cleanName.split(/[\s\-\/]/)[0];
+    if (firstWord.length >= 3 && firstWord !== cleanName) {
+      const safeFirst = firstWord.replace(/'/g, "\\'");
+      result = await sfQuery(`
+        SELECT Id, Name, Owner.Name, Owner.Email, Customer_Type__c, Industry
+        FROM Account WHERE Name LIKE '${safeFirst}%'
+        ORDER BY LastActivityDate DESC NULLS LAST LIMIT 1
+      `, true);
+      if (result?.records?.[0]) {
+        logger.info(`[Intelligence] Account found (first-word): ${result.records[0].Name} (searched: "${firstWord}")`);
+        return result.records[0];
+      }
+    }
+    
+    logger.warn(`[Intelligence] No account found after 4 strategies for: "${accountName}"`);
+    return null;
   } catch (error) {
     logger.error('[Intelligence] Account lookup error:', error.message);
     return null;
@@ -1001,17 +1058,27 @@ OBJECTIVITY:
 - Do NOT add "Recommended Next Steps" unless the user specifically asks for recommendations
 - Summarize what happened, who was involved, and what was discussed — let the reader draw conclusions
 
-FORMATTING RULES:
+FORMATTING RULES (STRICT — follow exactly):
 - NEVER use emojis — use text labels only (no icons, symbols, or emoji characters)
 - Use **bold** for key metrics, names, and dollar amounts
-- Use single bullet points for lists with NO blank lines between items
+- Use single bullet points (- ) for lists. CRITICAL: No blank lines between consecutive bullets — they must be on adjacent lines
 - Use ## for section headers — but ONLY create a section if you have substantive content for it
 - NEVER create a section header followed by "No data", "Not available", "None found", or similar — just skip that section entirely
-- NO blank lines between consecutive bullet points
-- NO blank lines after section headers before the first bullet
+- Section headers: place on their own line with the very first bullet IMMEDIATELY on the next line — no blank line gap after a header
+- Between sections: exactly ONE blank line before each ## header (not two, not zero)
+- NO blank lines between consecutive bullet points — ever
+- NO blank lines after section headers before the first bullet — ever
 - Keep the response tight — no padding, no filler sentences, no "Let me summarize" preamble
 - NEVER repeat the same information in multiple sections
-- When listing opportunities, contacts, or activities, use a compact format: "**Name** — detail, detail" on one line
+- When listing opportunities, contacts, or activities, use a compact inline format: "**Name** — detail, detail" on one line
+- Format examples of correct structure:
+  ## Active Contracts
+  - **Contract 00133** — Active through Jan 30, 2029
+  - **Contract 00108** — CAB participation, expires Sep 28, 2026
+
+  ## Key Stakeholders
+  - **Jeremy Jessen (GC)** — Primary champion, views Eudia as business-critical
+  - **Mariel Gesualdo (Sr. Asst GC)** — Litigation lead, promotional review
 
 ACTIVITY GAPS & ENGAGEMENT FRAMING:
 - If there is a gap in activity, simply note the gap factually (e.g., "Last recorded activity was Dec 2") without alarm

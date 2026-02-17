@@ -2821,30 +2821,44 @@ async function openMeetingPrep(meetingId) {
       }
     }
     
-    if (accountId) {
+    // Always attempt to load context — use accountId if available, or fall back to name search
+    const accountName = currentMeetingData.accountName || currentMeetingData.account_name || '';
+    
+    if (accountId || accountName) {
       try {
-        const accountName = currentMeetingData.accountName || '';
+        // Build the GTM Brain query — it handles both accountId and accountName-based lookup
+        const queryPayload = {
+          query: 'prep me for my upcoming meeting with ' + accountName,
+          accountName: accountName
+        };
+        if (accountId) queryPayload.accountId = accountId;
         
-        // Fire both calls in parallel — Salesforce context + GTM Brain query
-        // GTM Brain uses the same pipeline as the GTM Brain tab and Obsidian plugin
-        const [ctxRes, queryRes] = await Promise.all([
-          fetch('/api/meeting-context/' + accountId),
+        const promises = [
           fetch('/api/intelligence/query', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              query: 'prep me for my upcoming meeting with ' + accountName,
-              accountId: accountId,
-              accountName: accountName
-            })
+            body: JSON.stringify(queryPayload)
           }).catch(function(e) { console.warn('[Context] GTM Brain query failed:', e.message); return null; })
-        ]);
+        ];
         
-        const ctxData = await ctxRes.json();
-        const ctx = (ctxData.success && ctxData.context) ? ctxData.context : null;
+        // Only fetch meeting-context if we have an accountId
+        if (accountId) {
+          promises.unshift(fetch('/api/meeting-context/' + accountId));
+        } else {
+          promises.unshift(Promise.resolve(null));
+        }
+        
+        const [ctxRes, queryRes] = await Promise.all(promises);
+        
+        let ctx = null;
+        if (ctxRes) {
+          try {
+            const ctxData = await ctxRes.json();
+            ctx = (ctxData.success && ctxData.context) ? ctxData.context : null;
+          } catch (ce) { console.warn('[Context] Meeting context parse error:', ce.message); }
+        }
         
         let gtmBrief = '';
-        // If the rep previously edited/overrode the context, use their version
         if (currentMeetingData._contextOverride) {
           gtmBrief = currentMeetingData._contextOverride;
         } else if (queryRes) {
@@ -2852,6 +2866,11 @@ async function openMeetingPrep(meetingId) {
             const queryData = await queryRes.json();
             if (queryData.success && queryData.answer) {
               gtmBrief = queryData.answer;
+              // If GTM Brain found the account, capture the accountId for future use
+              if (queryData.context?.accountId && !accountId) {
+                accountId = queryData.context.accountId;
+                console.log('[Context] GTM Brain resolved account:', queryData.context.accountName, accountId);
+              }
             }
           } catch (qe) { console.warn('[Context] GTM Brain parse error:', qe.message); }
         }

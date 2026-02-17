@@ -11,10 +11,15 @@ function formatResponse(text) {
   if (!text || typeof text !== 'string') return '';
   // Strip emojis
   let html = text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]/gu, '');
+  // Normalize line breaks: collapse 3+ newlines to 2, remove blank lines between bullets
+  html = html.replace(/\n{3,}/g, '\n\n');
+  html = html.replace(/^([•\-]\s+.+)\n\n(?=[•\-]\s+)/gm, '$1\n');
+  // Remove blank lines immediately after section headers
+  html = html.replace(/^(#{2,3}\s+.+)\n\n/gm, '$1\n');
   // Remove empty sections (header followed by only whitespace before next header or end)
   html = html.replace(/^#{1,3}\s+.+\n+(?=#{1,3}\s|\s*$)/gm, '');
-  // Headers
-  html = html.replace(/^#{2,3}\s+(.+)$/gm, '<h3 class="gtm-brain-header">$1</h3>');
+  // Headers — wrapped in own div for consistent spacing
+  html = html.replace(/^#{2,3}\s+(.+)$/gm, '</p><h3 class="gtm-brain-header">$1</h3><p>');
   // Bold
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   // Checkboxes
@@ -25,19 +30,28 @@ function formatResponse(text) {
   // Wrap consecutive <li> into <ul>
   html = html.replace(/(<li[^>]*>.*?<\/li>\s*)+/g, '<ul class="gtm-brain-list">$&</ul>');
   // Paragraphs: double newlines become paragraph breaks, single newlines become <br>
-  html = html.replace(/\n{3,}/g, '\n\n');
   html = html.replace(/\n\n/g, '</p><p>');
   html = html.replace(/\n/g, '<br>');
-  // Strip p-tags that wrap ul elements (prevents extra margins around lists)
+  // Strip p-tags that wrap block elements
   html = html.replace(/<p>\s*(<ul)/g, '$1');
   html = html.replace(/<\/ul>\s*<\/p>/g, '</ul>');
   html = html.replace(/<p>\s*(<h3)/g, '$1');
   html = html.replace(/<\/h3>\s*<\/p>/g, '</h3>');
-  // Clean up empty paragraphs and stray breaks
+  // Clean up: remove <br> inside lists (between li elements)
+  html = html.replace(/<\/li>\s*<br>\s*<li/g, '</li><li');
+  // Clean up empty paragraphs, stray breaks, and double breaks
   html = html.replace(/<p>\s*<\/p>/g, '');
-  html = html.replace(/(<br>\s*){2,}/g, '<br>');
+  html = html.replace(/<p>\s*<br>\s*<\/p>/g, '');
+  html = html.replace(/(<br>\s*){2,}/g, '');
+  html = html.replace(/<\/h3>\s*<br>/g, '</h3>');
+  html = html.replace(/<br>\s*<h3/g, '<h3');
+  html = html.replace(/<br>\s*<ul/g, '<ul');
+  html = html.replace(/<\/ul>\s*<br>/g, '</ul>');
   html = html.replace(/^(<br>)+|(<br>)+$/g, '');
-  return '<p>' + html + '</p>';
+  // Final wrap
+  html = '<p>' + html + '</p>';
+  html = html.replace(/<p><\/p>/g, '');
+  return html;
 }
 
 /**
@@ -117,18 +131,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .gtm-brain-msg-user { background: #eef1fc; color: #1f2937; align-self: flex-end; border-bottom-right-radius: 3px; }
 .gtm-brain-msg-ai { background: #fff; border: 1px solid #e5e7eb; color: #374151; align-self: flex-start; border-bottom-left-radius: 3px; }
-.gtm-brain-msg-ai .gtm-brain-header { font-size: 0.9375rem; font-weight: 600; margin: 12px 0 0; color: #1f2937; }
-.gtm-brain-msg-ai .gtm-brain-header:first-child { margin-top: 0; }
-.gtm-brain-msg-ai .gtm-brain-list { margin: 2px 0 2px 16px; padding: 0; }
-.gtm-brain-msg-ai .gtm-brain-list li { margin: 0; padding: 0; line-height: 1.45; }
-.gtm-brain-msg-ai .gtm-brain-header + br { display: none; }
-.gtm-brain-msg-ai .gtm-brain-header + br + .gtm-brain-list { margin-top: 1px; }
-.gtm-brain-msg-ai .gtm-brain-header + .gtm-brain-list { margin-top: 1px; }
-.gtm-brain-msg-ai p + .gtm-brain-list { margin-top: 1px; }
-.gtm-brain-msg-ai .gtm-brain-list + p { margin-top: 4px; }
+.gtm-brain-msg-ai .gtm-brain-header { font-size: 0.875rem; font-weight: 700; margin: 14px 0 4px; padding-top: 10px; border-top: 1px solid #f0f0f0; color: #1f2937; letter-spacing: -0.01em; }
+.gtm-brain-msg-ai .gtm-brain-header:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.gtm-brain-msg-ai .gtm-brain-list { margin: 2px 0 6px 16px; padding: 0; }
+.gtm-brain-msg-ai .gtm-brain-list li { margin: 0; padding: 1px 0; line-height: 1.5; }
+.gtm-brain-msg-ai .gtm-brain-list li strong { color: #111827; }
+.gtm-brain-msg-ai .gtm-brain-header + .gtm-brain-list { margin-top: 2px; }
+.gtm-brain-msg-ai p + .gtm-brain-list { margin-top: 2px; }
+.gtm-brain-msg-ai .gtm-brain-list + p { margin-top: 6px; }
 .gtm-brain-msg-ai .gtm-brain-todo { list-style: none; margin-left: -16px; }
 .gtm-brain-msg-ai .gtm-brain-done { list-style: none; margin-left: -16px; text-decoration: line-through; color: #6b7280; }
-.gtm-brain-msg-ai p { margin: 6px 0; }
+.gtm-brain-msg-ai p { margin: 4px 0; }
 .gtm-brain-msg-ai p:first-child { margin-top: 0; }
 .gtm-brain-msg-ai p:last-child { margin-bottom: 0; }
 .gtm-brain-msg-context { font-size: 0.7rem; color: #9ca3af; margin-top: 6px; }

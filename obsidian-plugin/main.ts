@@ -558,9 +558,8 @@ class ProcessingModal extends Modal {
       return { el: stepEl, completed: false };
     });
     
-    // Subtle note
     contentEl.createEl('div', { 
-      text: 'This may take a moment for longer recordings.', 
+      text: 'Usually completes in under 2 minutes.', 
       cls: 'eudia-processing-note' 
     });
   }
@@ -930,10 +929,14 @@ class IntelligenceQueryModal extends Modal {
     let html = text;
     // Strip emojis
     html = html.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]/gu, '');
-    // Remove empty sections (header followed by only whitespace before next header or end)
+    // Normalize: collapse 3+ newlines, remove blank lines between bullets and after headers
+    html = html.replace(/\n{3,}/g, '\n\n');
+    html = html.replace(/^([•\-]\s+.+)\n\n(?=[•\-]\s+)/gm, '$1\n');
+    html = html.replace(/^(#{2,3}\s+.+)\n\n/gm, '$1\n');
+    // Remove empty sections
     html = html.replace(/^#{1,3}\s+.+\n+(?=#{1,3}\s|\s*$)/gm, '');
     // Headers
-    html = html.replace(/^#{2,3}\s+(.+)$/gm, '<h3 class="eudia-intel-header">$1</h3>');
+    html = html.replace(/^#{2,3}\s+(.+)$/gm, '</p><h3 class="eudia-intel-header">$1</h3><p>');
     // Bold
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     // Checkboxes
@@ -943,15 +946,27 @@ class IntelligenceQueryModal extends Modal {
     html = html.replace(/^[•\-]\s+(.+)$/gm, '<li>$1</li>');
     // Wrap consecutive li into ul
     html = html.replace(/(<li[^>]*>.*?<\/li>\s*)+/g, '<ul class="eudia-intel-list">$&</ul>');
-    // Paragraphs: double newlines become paragraph breaks, single become br
-    html = html.replace(/\n{3,}/g, '\n\n');
+    // Paragraphs
     html = html.replace(/\n\n/g, '</p><p>');
     html = html.replace(/\n/g, '<br>');
-    // Clean up empty paragraphs and stray breaks
+    // Strip p-tags wrapping block elements
+    html = html.replace(/<p>\s*(<ul)/g, '$1');
+    html = html.replace(/<\/ul>\s*<\/p>/g, '</ul>');
+    html = html.replace(/<p>\s*(<h3)/g, '$1');
+    html = html.replace(/<\/h3>\s*<\/p>/g, '</h3>');
+    // Clean up: remove <br> inside lists
+    html = html.replace(/<\/li>\s*<br>\s*<li/g, '</li><li');
     html = html.replace(/<p>\s*<\/p>/g, '');
-    html = html.replace(/(<br>\s*){2,}/g, '<br>');
+    html = html.replace(/<p>\s*<br>\s*<\/p>/g, '');
+    html = html.replace(/(<br>\s*){2,}/g, '');
+    html = html.replace(/<\/h3>\s*<br>/g, '</h3>');
+    html = html.replace(/<br>\s*<h3/g, '<h3');
+    html = html.replace(/<br>\s*<ul/g, '<ul');
+    html = html.replace(/<\/ul>\s*<br>/g, '</ul>');
     html = html.replace(/^(<br>)+|(<br>)+$/g, '');
-    return '<p>' + html + '</p>';
+    html = '<p>' + html + '</p>';
+    html = html.replace(/<p><\/p>/g, '');
+    return html;
   }
 
   onClose() {
@@ -5633,16 +5648,19 @@ last_updated: ${dateStr}
       console.warn('[Eudia] Audio diagnostic failed, continuing anyway:', diagError);
     }
 
-    // Estimate processing time based on duration
-    const durationMin = Math.ceil(result.duration / 60);
-    const estimatedTime = Math.max(1, Math.ceil(durationMin / 5)); // ~1 min per 5 min of audio
+    // Estimate processing time: ~30s per 10MB chunk + 30s for summarization
+    // At 128kbps, 10MB ≈ 10 min of audio. So chunks = ceil(duration / 600)
+    const durationSec = result.duration || 0;
+    const estChunks = Math.max(1, Math.ceil(durationSec / 600));
+    const estSeconds = (estChunks * 30) + 30;
+    const estLabel = estSeconds < 60 ? `~${estSeconds} seconds` : `~${Math.ceil(estSeconds / 60)} minute${Math.ceil(estSeconds / 60) > 1 ? 's' : ''}`;
     
     // Show non-blocking notice and add processing status to note
-    new Notice(`Transcription started. Estimated ${estimatedTime}-${estimatedTime + 1} minutes.`);
+    new Notice(`Processing ${Math.ceil(durationSec / 60)} min recording. Should take ${estLabel}.`);
     
     // Add processing indicator to the note immediately
     const currentContent = await this.app.vault.read(file);
-    const processingIndicator = `\n\n---\n**Transcription in progress...**\nStarted: ${new Date().toLocaleTimeString()}\nEstimated completion: ${estimatedTime}-${estimatedTime + 1} minutes\n\n*You can navigate away. Check back shortly.*\n---\n`;
+    const processingIndicator = `\n\n---\n**Processing your recording...**\nStarted: ${new Date().toLocaleTimeString()}\nEstimated: ${estLabel}\n\n*You can navigate away — the summary will appear here when ready.*\n---\n`;
     await this.app.vault.modify(file, currentContent + processingIndicator);
 
     // Process in background - user can navigate away
