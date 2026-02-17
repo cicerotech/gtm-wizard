@@ -1812,37 +1812,69 @@ export class AccountOwnershipService {
 
   /**
    * Fetch both active and prospect accounts from server
+   * Tries Obsidian requestUrl first, falls back to native fetch
    */
   private async fetchFromServerWithProspects(email: string): Promise<{ accounts: OwnedAccount[]; prospects: OwnedAccount[] } | null> {
+    const url = `${this.serverUrl}/api/accounts/ownership/${encodeURIComponent(email)}`;
+    console.log(`[AccountOwnership] Fetching accounts from: ${url}`);
+    
+    const mapAccount = (acc: any): OwnedAccount => ({
+      id: acc.id,
+      name: acc.name,
+      type: acc.type || 'Prospect',
+      hadOpportunity: acc.hadOpportunity ?? true,
+      website: acc.website || undefined,
+      industry: acc.industry || undefined
+    });
+    
+    // Strategy 1: Obsidian requestUrl
     try {
       const { requestUrl } = await import('obsidian');
-      
       const response = await requestUrl({
-        url: `${this.serverUrl}/api/accounts/ownership/${encodeURIComponent(email)}`,
+        url,
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        throw: false
+      });
+      
+      console.log(`[AccountOwnership] requestUrl status: ${response.status}`);
+      
+      if (response.status === 200 && response.json?.success) {
+        const accounts = (response.json.accounts || []).map(mapAccount);
+        const prospects = (response.json.prospectAccounts || []).map(mapAccount);
+        console.log(`[AccountOwnership] requestUrl success: ${accounts.length} accounts, ${prospects.length} prospects`);
+        return { accounts, prospects };
+      }
+      console.log(`[AccountOwnership] requestUrl returned non-success:`, response.status, response.json?.message || '');
+    } catch (error: any) {
+      console.error(`[AccountOwnership] requestUrl failed:`, error?.message || error);
+    }
+    
+    // Strategy 2: Native fetch (bypasses Obsidian's request handling)
+    try {
+      console.log(`[AccountOwnership] Trying native fetch fallback...`);
+      const response = await fetch(url, {
         method: 'GET',
         headers: { 'Accept': 'application/json' }
       });
       
-      if (response.json?.success) {
-        const mapAccount = (acc: any): OwnedAccount => ({
-          id: acc.id,
-          name: acc.name,
-          type: acc.type || 'Prospect',
-          hadOpportunity: acc.hadOpportunity ?? true,
-          website: acc.website || undefined,
-          industry: acc.industry || undefined
-        });
-        
-        const accounts = (response.json.accounts || []).map(mapAccount);
-        const prospects = (response.json.prospectAccounts || []).map(mapAccount);
-        
-        return { accounts, prospects };
+      console.log(`[AccountOwnership] fetch status: ${response.status}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.success) {
+          const accounts = (data.accounts || []).map(mapAccount);
+          const prospects = (data.prospectAccounts || []).map(mapAccount);
+          console.log(`[AccountOwnership] fetch success: ${accounts.length} accounts, ${prospects.length} prospects`);
+          return { accounts, prospects };
+        }
       }
-      return null;
-    } catch (error) {
-      console.log('[AccountOwnership] Server fetch failed, will use static data:', error);
-      return null;
+    } catch (error: any) {
+      console.error(`[AccountOwnership] Native fetch also failed:`, error?.message || error);
     }
+    
+    console.warn(`[AccountOwnership] Both requestUrl and fetch failed for ${email}`);
+    return null;
   }
 
   /**
