@@ -1828,12 +1828,49 @@ class EudiaSetupView extends ItemView {
                 }
               }, 500);
             } else {
-              console.warn(`[Eudia] No accounts returned for ${email} (userGroup: ${userGroup})`);
-              if (validationEl) {
-                validationEl.textContent = `No accounts found for ${email}. The server may still be starting — try again in 30 seconds.`;
-                validationEl.className = 'eudia-setup-validation-message warning';
+              // Auto-retry: server may be cold-starting after deploy
+              console.warn(`[Eudia] No accounts returned for ${email} — auto-retrying...`);
+              let retrySuccess = false;
+              for (let retry = 1; retry <= 3; retry++) {
+                if (validationEl) {
+                  validationEl.textContent = `Server warming up... retrying in 10s (attempt ${retry}/3)`;
+                  validationEl.className = 'eudia-setup-validation-message warning';
+                }
+                await new Promise(r => setTimeout(r, 10000));
+                try {
+                  const retryResult = await this.plugin.accountOwnershipService.getAccountsWithProspects(email);
+                  if (retryResult.accounts.length > 0 || retryResult.prospects.length > 0) {
+                    accounts = retryResult.accounts;
+                    prospects = retryResult.prospects;
+                    if (validationEl) {
+                      validationEl.textContent = `Creating ${accounts.length} account folders...`;
+                    }
+                    await this.plugin.createTailoredAccountFolders(accounts, {});
+                    if (prospects.length > 0) {
+                      await this.plugin.createProspectAccountFiles(prospects);
+                    }
+                    const blAcctFolder = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.accountsFolder || 'Accounts');
+                    const blFolderChildren = (blAcctFolder as any)?.children?.filter((c: any) => c.children !== undefined) || [];
+                    if (blFolderChildren.length > 0) {
+                      this.plugin.settings.accountsImported = true;
+                      this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
+                    }
+                    await this.plugin.saveSettings();
+                    new Notice(`Imported ${accounts.length} accounts + ${prospects.length} prospects!`);
+                    retrySuccess = true;
+                    break;
+                  }
+                } catch (retryErr) {
+                  console.warn(`[Eudia] Retry ${retry} failed:`, retryErr);
+                }
               }
-              new Notice('No accounts found. Server may be cold-starting — please try again shortly.');
+              if (!retrySuccess) {
+                if (validationEl) {
+                  validationEl.textContent = `Could not load accounts after 3 attempts. Close this window, wait 1 minute, then re-open Obsidian and try again.`;
+                  validationEl.className = 'eudia-setup-validation-message error';
+                }
+                new Notice('Account import failed after retries. Wait 1 minute and try again.');
+              }
             }
           }
         } catch (importError) {
