@@ -5934,7 +5934,10 @@ last_updated: ${dateStr}
       let userNotes = '';
       
       // Extract user-typed content: anything between the frontmatter and the processing marker
-      const processingMarkerIdx = existingContent.indexOf('---\n**Transcription in progress');
+      const processingMarkerIdx = Math.max(
+        existingContent.indexOf('---\n**Processing your recording'),
+        existingContent.indexOf('---\n**Transcription in progress')
+      );
       if (processingMarkerIdx > 0) {
         // Find end of frontmatter (second --- occurrence)
         const firstDash = existingContent.indexOf('---');
@@ -6227,6 +6230,20 @@ ${risksObjections}
       content += `## Attendees
 
 ${attendees}
+
+`;
+    }
+
+    // Draft follow-up email
+    const emailDraft = ensureString((sections as any).emailDraft);
+    if (emailDraft) {
+      content += `---
+
+## Draft Follow-Up Email
+
+${emailDraft}
+
+> *Edit this draft to match your voice, then send.*
 
 `;
     }

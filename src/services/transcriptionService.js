@@ -1140,7 +1140,10 @@ IMPORTANT:
       nextSteps: '',
       actionItems: '',
       dealSignals: '',
-      risksObjections: ''
+      risksObjections: '',
+      emailDraft: '',
+      attendees: '',
+      painPoints: ''
     };
 
     const headerMap = {
@@ -1153,7 +1156,13 @@ IMPORTANT:
       'action items': 'actionItems',
       'deal signals': 'dealSignals',
       'risks & objections': 'risksObjections',
-      'risks and objections': 'risksObjections'
+      'risks and objections': 'risksObjections',
+      'draft follow-up email': 'emailDraft',
+      'follow-up email': 'emailDraft',
+      'attendees': 'attendees',
+      'pain points': 'painPoints',
+      'customer feedback': 'painPoints',
+      'quotable moments': 'dealSignals'
     };
 
     const sectionRegex = /## ([^\n]+)\n([\s\S]*?)(?=## |$)/g;
