@@ -5760,7 +5760,7 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
         }
 
         // Detect CS user for CS-specific summarization
-        const CS_EMAILS = ['nikhita.godiwala@eudia.com', 'jon.dedych@eudia.com', 'farah.haddad@eudia.com'];
+        const CS_EMAILS = ['nikhita.godiwala@eudia.com', 'jon.dedych@eudia.com', 'farah.haddad@eudia.com', 'keigan.pesenti@eudia.com'];
         const normalizedEmail = (userEmail || context?.userEmail || '').toLowerCase().trim();
         const userGroup = CS_EMAILS.includes(normalizedEmail) ? 'cs' : 'bl';
 
