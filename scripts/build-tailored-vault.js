@@ -419,7 +419,7 @@ async function createZipArchive(sourceDir, outputPath) {
     
     archive.on('error', reject);
     archive.pipe(output);
-    archive.directory(sourceDir, VAULT_NAME);
+    archive.directory(sourceDir, false);
     archive.finalize();
   });
 }
