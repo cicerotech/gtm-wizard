@@ -2710,11 +2710,15 @@ class GTMBrainApp {
     });
     this.expressApp.get('/obsidian-setup', (req, res) => res.redirect('/setup/obsidian'));
     
-    // Demo walkthrough page
+    // Demo walkthrough pages
     this.expressApp.get('/demo', (req, res) => {
       const path = require('path');
-      const demoPath = path.join(__dirname, 'views', 'demo-walkthrough.html');
-      res.sendFile(demoPath);
+      res.sendFile(path.join(__dirname, 'views', 'demo-walkthrough.html'));
+    });
+    
+    this.expressApp.get('/sf-walkthrough', (req, res) => {
+      const path = require('path');
+      res.sendFile(path.join(__dirname, 'views', 'sf-walkthrough.html'));
     });
     
     // Serve downloadable files (Sync-Notes.command, etc.)
