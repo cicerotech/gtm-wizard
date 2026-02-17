@@ -774,42 +774,55 @@
           "Every rep gets a personal workspace on their desktop. Account folders come pre-loaded with contacts, meeting intelligence, and deal context -- populated from Salesforce."
         </div>
 
-        <div class="screenshot-slot">
-          <div class="ss-icon">&#128247;</div>
-          <div class="ss-label">Screenshot 4: Obsidian Sidebar -- Account Folders</div>
-          <div class="ss-purpose">Show expanded account folder with 7 sub-notes (Notes 1-3, Meeting Notes, Contacts, Intelligence, Next Steps). One note open showing pre-populated data. Proves reps get real content, not empty templates.</div>
-          <div class="ss-action pause">Pause -- let them see the folder structure</div>
-        </div>
+        <!-- VISUAL WALKTHROUGH: The Vault -->
+        <div style="margin: 24px 0;">
+          <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 16px; color: #1f2937;">Inside the Vault</h3>
 
-        <ul class="beat-bullets">
-          <li>Reps take notes here during calls. Those notes feed back into the intelligence layer -- the more they use it, the smarter it gets.</li>
-          <li>Same GTM Brain query available right inside the workspace. No context-switching.</li>
-          <li>Audio recording with live transcription for calls. Notes auto-structured and synced to Salesforce.</li>
-        </ul>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+            <div>
+              <img src="/assets/obsidian-demo/setup-wizard.png" alt="Setup Wizard" style="width: 100%; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
+              <p style="font-size: 0.75rem; color: #6b7280; margin-top: 6px;"><strong>Setup:</strong> Enter your email, connect Salesforce, and your accounts auto-populate from SF.</p>
+            </div>
+            <div>
+              <img src="/assets/obsidian-demo/sidebar-folders.png" alt="Sidebar Folders" style="width: 100%; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
+              <p style="font-size: 0.75rem; color: #6b7280; margin-top: 6px;"><strong>Your accounts:</strong> Folders organized by company. Each has Contacts, Intelligence, Meeting Notes, Next Steps, and Notes 1-3.</p>
+            </div>
+          </div>
 
-        <div class="screenshot-slot">
-          <div class="ss-icon">&#128247;</div>
-          <div class="ss-label">Screenshot 5: GTM Brain Chat in Obsidian</div>
-          <div class="ss-purpose">Show the chat modal inside Obsidian with a query and response. Proves same intelligence is available everywhere, not just the web.</div>
-          <div class="ss-action narrate">Narrate -- brief, just show parity with web</div>
-        </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+            <div>
+              <img src="/assets/obsidian-demo/account-contacts.png" alt="Account Contacts" style="width: 100%; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
+              <p style="font-size: 0.75rem; color: #6b7280; margin-top: 6px;"><strong>Contacts:</strong> Auto-enriched from Salesforce with names, titles, and emails. Always current.</p>
+            </div>
+            <div>
+              <img src="/assets/obsidian-demo/account-nextsteps.png" alt="Account Next Steps" style="width: 100%; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
+              <p style="font-size: 0.75rem; color: #6b7280; margin-top: 6px;"><strong>Next Steps:</strong> Auto-pulls completed tasks and open actions from Salesforce. Updated on each sync.</p>
+            </div>
+          </div>
 
-        <div class="presenter-note danger">
-          <div class="pn-label">Danger Zone</div>
-          <p>Don't explain the plugin build, TypeScript, or account ownership logic. One-liner: "Reps download the vault, enter their email, and it populates from Salesforce."</p>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+            <div>
+              <img src="/assets/obsidian-demo/note-template-mic.png" alt="Note Template with Mic" style="width: 100%; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
+              <p style="font-size: 0.75rem; color: #6b7280; margin-top: 6px;"><strong>Meeting Notes:</strong> Click the mic icon to record. Notes auto-template with account_id for SF sync. Discussion + Next Steps sections ready to fill.</p>
+            </div>
+            <div>
+              <img src="/assets/obsidian-demo/settings-panel.png" alt="Settings Panel" style="width: 100%; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
+              <p style="font-size: 0.75rem; color: #6b7280; margin-top: 6px;"><strong>Settings:</strong> Email, timezone, SF connection, and server URL. One-time setup -- runs automatically after first connect.</p>
+            </div>
+          </div>
         </div>
 
         <div class="callout insight" style="margin: 20px 0;">
           <div class="callout-title">How a Rep Uses This on a Call</div>
-          <p><strong>Before the call:</strong> Open the account folder in Obsidian. Review the Intelligence note and recent Meeting Notes for context. GTM Brain pre-populates key stakeholders, deal status, and talking points.</p>
-          <p style="margin-top: 8px;"><strong>During the call:</strong> Click the microphone icon to start recording. Take quick notes in a new Note file (auto-named "Note 4 - Feb 17" with full template). The recording captures everything.</p>
-          <p style="margin-top: 8px;"><strong>After the call:</strong> Click Stop. Within ~2 minutes, the AI generates a structured summary with Discussion points, Key Takeaways, and Next Steps. Review and edit if needed, then click "Sync to Salesforce" — the summary lands on the Account's Customer Brain field, visible to managers and GTM Brain.</p>
-          <p style="margin-top: 8px;"><strong>What flows back:</strong> Next time anyone queries GTM Brain about this account, the meeting notes are included. Manager vaults refresh with the latest context. Pipeline Review shows updated Next Steps. Everything stays connected.</p>
+          <p><strong>Before:</strong> Open the account folder. Review Contacts and Intelligence for context.</p>
+          <p style="margin-top: 6px;"><strong>During:</strong> Click the mic icon to record. Take quick notes in a Note file (auto-named "Note 4 - Feb 17").</p>
+          <p style="margin-top: 6px;"><strong>After:</strong> Stop recording. AI summary generates in ~2 min. Review, then toggle "sync_to_salesforce" to push to the Account's Customer Brain field.</p>
+          <p style="margin-top: 6px;"><strong>What flows back:</strong> GTM Brain includes the notes in future queries. Manager vaults refresh. Pipeline Review shows updated Next Steps.</p>
         </div>
 
         <div class="callout" style="background: #f8fafc; border-color: #e2e8f0; margin: 12px 0;">
           <div class="callout-title" style="color: #4b5563;">Related: Salesforce Guide</div>
-          <p>For details on Accounts, Opportunities, Pipeline Review, and the Accounts & Targets dashboard, see the <a href="/sf-walkthrough" style="color: #8e99e1; font-weight: 600;">Salesforce Quick Reference Guide →</a></p>
+          <p>For Accounts, Opportunities, Pipeline Review, and the Accounts & Targets dashboard: <a href="/sf-walkthrough" style="color: #8e99e1; font-weight: 600;">Salesforce Quick Reference →</a></p>
         </div>
 
         <div class="presenter-note transition">
