@@ -3,998 +3,263 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GTM Brain | Product Walkthrough</title>
+  <title>Eudia Sales Vault | Product Guide</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #f5f7fe;
-      color: #1f2937;
-      min-height: 100vh;
-    }
-    
-    /* Header */
-    .header {
-      background: #fff;
-      padding: 16px 32px;
-      border-bottom: 1px solid #e5e7eb;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    
-    .header h1 {
-      font-size: 1.125rem;
-      font-weight: 600;
-      color: #1f2937;
-    }
-    
-    .header h1 span {
-      color: #6b7280;
-      font-weight: 400;
-    }
-    
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    
-    .nav-links {
-      display: flex;
-      gap: 6px;
-    }
-    
-    .nav-links a {
-      color: #6b7280;
-      text-decoration: none;
-      font-size: 0.75rem;
-      padding: 6px 12px;
-      border-radius: 6px;
-      transition: all 0.2s;
-    }
-    
-    .nav-links a:hover {
-      color: #1f2937;
-      background: #f3f4f6;
-    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fafbfe; color: #1f2937; }
+    html { scroll-behavior: smooth; }
 
-    /* Presenter Notes Toggle */
-    .notes-toggle {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.7rem;
-      color: #6b7280;
-      cursor: pointer;
-      padding: 5px 10px;
-      border-radius: 6px;
-      border: 1px solid #e5e7eb;
-      background: #fff;
-      user-select: none;
-      transition: all 0.2s;
-    }
+    .nav { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border-bottom: 1px solid #e5e7eb; padding: 10px 24px; display: flex; justify-content: space-between; align-items: center; }
+    .nav-brand { font-size: 0.9rem; font-weight: 600; color: #1f2937; }
+    .nav-brand span { color: #8e99e1; }
+    .nav-links { display: flex; gap: 4px; flex-wrap: wrap; }
+    .nav-links a { font-size: 0.7rem; color: #6b7280; text-decoration: none; padding: 4px 10px; border-radius: 20px; border: 1px solid transparent; transition: all 0.15s; }
+    .nav-links a:hover { border-color: #8e99e1; color: #8e99e1; }
 
-    .notes-toggle:hover {
-      border-color: #8e99e1;
-      color: #8e99e1;
-    }
+    .hero { text-align: center; padding: 56px 24px 40px; max-width: 700px; margin: 0 auto; }
+    .hero h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 12px; }
+    .hero h1 span { color: #8e99e1; }
+    .hero p { font-size: 1rem; color: #6b7280; line-height: 1.7; }
+    .hero-link { display: inline-block; margin-top: 16px; font-size: 0.8rem; color: #8e99e1; text-decoration: none; border: 1px solid #8e99e1; padding: 6px 16px; border-radius: 20px; transition: all 0.15s; }
+    .hero-link:hover { background: #8e99e1; color: white; }
 
-    .notes-toggle.active {
-      background: #8e99e1;
-      color: white;
-      border-color: #8e99e1;
-    }
-    
-    /* Main Container */
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 32px 24px;
-    }
-    
-    /* Progress Navigation */
-    .demo-nav {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 32px;
-      background: #fff;
-      padding: 12px 16px;
-      border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-    
-    .demo-nav-item {
-      flex: 1;
-      padding: 12px 8px;
-      text-align: center;
-      font-size: 0.75rem;
-      font-weight: 500;
-      color: #6b7280;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-      border: none;
-      background: transparent;
-    }
-    
-    .demo-nav-item:hover {
-      background: #f3f4f6;
-    }
-    
-    .demo-nav-item.active {
-      background: #8e99e1;
-      color: white;
-    }
-    
-    .demo-nav-item.visited {
-      color: #8e99e1;
-    }
-    
-    .demo-nav-item .nav-num {
-      display: block;
-      font-size: 1.1rem;
-      font-weight: 700;
-      margin-bottom: 2px;
-    }
+    .section { max-width: 1000px; margin: 0 auto 56px; padding: 0 24px; scroll-margin-top: 60px; }
+    .section-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #8e99e1; margin-bottom: 6px; }
+    .section-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
+    .section-sub { font-size: 0.9rem; color: #6b7280; line-height: 1.6; margin-bottom: 20px; max-width: 700px; }
 
-    .demo-nav-item .nav-time {
-      display: block;
-      font-size: 0.6rem;
-      opacity: 0.7;
-      margin-top: 2px;
-    }
-    
-    /* Sections */
-    .demo-section {
-      display: none;
-      animation: fadeIn 0.4s ease;
-    }
-    
-    .demo-section.active {
-      display: block;
-    }
-    
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    
-    /* Section Cards */
-    .section-card {
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
-      padding: 32px;
-      margin-bottom: 20px;
-    }
-    
-    .section-card h2 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #1f2937;
-      margin-bottom: 8px;
-    }
-    
-    .section-card .subtitle {
-      color: #6b7280;
-      font-size: 0.95rem;
-      margin-bottom: 24px;
-      line-height: 1.5;
-    }
+    .screenshot { width: 100%; max-width: 800px; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 4px 24px rgba(0,0,0,0.06); margin-bottom: 12px; }
+    .screenshot.small { max-width: 500px; }
 
-    .section-card h3 {
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: #1f2937;
-      margin-bottom: 6px;
-      margin-top: 28px;
-    }
+    .caption-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px 20px; margin-bottom: 12px; }
+    .caption-card h4 { font-size: 0.8rem; font-weight: 700; color: #1f2937; margin-bottom: 4px; }
+    .caption-card p { font-size: 0.8rem; color: #6b7280; line-height: 1.6; }
+    .caption-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 640px) { .caption-grid { grid-template-columns: 1fr; } }
 
-    .section-card h3:first-of-type {
-      margin-top: 0;
-    }
-    
-    /* Key Point Boxes */
-    .key-points {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin: 24px 0;
-    }
-    
-    .key-point {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
-      padding: 18px;
-      transition: all 0.2s;
-    }
-    
-    .key-point:hover {
-      border-color: #8e99e1;
-      transform: translateY(-2px);
-    }
-    
-    .key-point h4 {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: #1f2937;
-      margin-bottom: 6px;
-    }
-    
-    .key-point p {
-      font-size: 0.8rem;
-      color: #6b7280;
-      line-height: 1.4;
-    }
+    .screenshot-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .screenshot-pair img { width: 100%; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+    .screenshot-pair .pair-caption { font-size: 0.75rem; color: #6b7280; margin-top: 6px; }
+    .screenshot-pair .pair-caption strong { color: #1f2937; }
+    @media (max-width: 640px) { .screenshot-pair { grid-template-columns: 1fr; } }
 
-    /* Beat Cards (for Section 2 workflow) */
-    .beat-card {
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
-      padding: 28px 32px;
-      margin-bottom: 20px;
-      border-left: 4px solid #e5e7eb;
-    }
+    .callout { background: #eff6ff; border-left: 3px solid #8e99e1; border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 16px 0; }
+    .callout p { font-size: 0.8rem; color: #374151; line-height: 1.6; }
+    .callout strong { color: #1f2937; }
+    .callout.tip { background: #f0fdf4; border-color: #22c55e; }
 
-    .beat-card.beat-1 { border-left-color: #8e99e1; }
-    .beat-card.beat-2 { border-left-color: #34d399; }
-    .beat-card.beat-3 { border-left-color: #a78bfa; }
-    .beat-card.beat-4 { border-left-color: #fbbf24; }
+    .divider { border: none; border-top: 1px solid #e5e7eb; margin: 48px auto; max-width: 200px; }
 
-    .beat-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
+    .steps { display: flex; justify-content: center; gap: 8px; margin: 20px 0; flex-wrap: wrap; align-items: center; }
+    .step-pill { padding: 8px 18px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; background: #fff; border: 1px solid #e5e7eb; color: #6b7280; }
+    .step-pill.done { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+    .step-arrow { color: #d1d5db; }
 
-    .beat-number {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: white;
-      flex-shrink: 0;
-    }
+    .cta-section { text-align: center; max-width: 600px; margin: 48px auto; padding: 40px 24px; background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; }
+    .cta-section h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
+    .cta-section p { font-size: 0.85rem; color: #6b7280; margin-bottom: 20px; line-height: 1.6; }
+    .cta-btn { display: inline-block; padding: 12px 32px; background: #8e99e1; color: white; text-decoration: none; border-radius: 10px; font-size: 0.9rem; font-weight: 600; transition: background 0.15s; }
+    .cta-btn:hover { background: #7c8bd4; }
+    .cta-steps { font-size: 0.75rem; color: #9ca3af; margin-top: 12px; }
 
-    .beat-1 .beat-number { background: #8e99e1; }
-    .beat-2 .beat-number { background: #34d399; }
-    .beat-3 .beat-number { background: #a78bfa; }
-    .beat-4 .beat-number { background: #fbbf24; }
+    .why-section { max-width: 800px; margin: 32px auto 48px; padding: 0 24px; }
+    .why-section h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: 16px; text-align: center; }
+    .why-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    @media (max-width: 640px) { .why-grid { grid-template-columns: 1fr; } }
+    .why-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px; }
+    .why-card h4 { font-size: 0.85rem; font-weight: 700; color: #1f2937; margin-bottom: 6px; }
+    .why-card p { font-size: 0.78rem; color: #6b7280; line-height: 1.6; }
 
-    .beat-title {
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: #1f2937;
-    }
-
-    .beat-subtitle {
-      font-size: 0.8rem;
-      color: #6b7280;
-      margin-top: 2px;
-    }
-
-    .beat-script {
-      font-size: 0.88rem;
-      color: #374151;
-      line-height: 1.6;
-      margin-bottom: 16px;
-    }
-
-    .beat-script strong {
-      color: #1f2937;
-    }
-
-    .beat-bullets {
-      list-style: none;
-      padding: 0;
-      margin: 12px 0;
-    }
-
-    .beat-bullets li {
-      font-size: 0.84rem;
-      color: #4b5563;
-      line-height: 1.5;
-      padding: 4px 0 4px 18px;
-      position: relative;
-    }
-
-    .beat-bullets li::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 10px;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #d1d5db;
-    }
-
-    .beat-1 .beat-bullets li::before { background: #8e99e1; }
-    .beat-2 .beat-bullets li::before { background: #34d399; }
-    .beat-3 .beat-bullets li::before { background: #a78bfa; }
-    .beat-4 .beat-bullets li::before { background: #fbbf24; }
-
-    /* Screenshot Placeholder */
-    .screenshot-slot {
-      background: #f8f9fc;
-      border: 2px dashed #d1d5db;
-      border-radius: 12px;
-      padding: 32px 24px;
-      text-align: center;
-      margin: 20px 0;
-      transition: all 0.2s;
-    }
-
-    .screenshot-slot:hover {
-      border-color: #8e99e1;
-      background: #f0f1fa;
-    }
-
-    .screenshot-slot .ss-icon {
-      font-size: 2rem;
-      margin-bottom: 8px;
-      opacity: 0.4;
-    }
-
-    .screenshot-slot .ss-label {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #6b7280;
-      margin-bottom: 4px;
-    }
-
-    .screenshot-slot .ss-purpose {
-      font-size: 0.72rem;
-      color: #9ca3af;
-      line-height: 1.4;
-      max-width: 500px;
-      margin: 0 auto;
-    }
-
-    .screenshot-slot .ss-action {
-      display: inline-block;
-      margin-top: 8px;
-      font-size: 0.65rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      padding: 3px 10px;
-      border-radius: 4px;
-      background: #f3f4f6;
-      color: #6b7280;
-    }
-
-    .screenshot-slot .ss-action.pause {
-      background: #fef3c7;
-      color: #92400e;
-    }
-
-    .screenshot-slot .ss-action.narrate {
-      background: #dbeafe;
-      color: #1e40af;
-    }
-
-    /* Presenter Notes */
-    .presenter-note {
-      display: none;
-      background: #fffbeb;
-      border: 1px solid #fde68a;
-      border-radius: 8px;
-      padding: 12px 16px;
-      margin: 12px 0;
-      font-size: 0.78rem;
-      line-height: 1.5;
-    }
-
-    .presenter-note .pn-label {
-      font-size: 0.65rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #92400e;
-      margin-bottom: 4px;
-    }
-
-    .presenter-note p {
-      color: #78350f;
-      margin: 2px 0;
-    }
-
-    .presenter-note.danger {
-      background: #fef2f2;
-      border-color: #fecaca;
-    }
-
-    .presenter-note.danger .pn-label {
-      color: #991b1b;
-    }
-
-    .presenter-note.danger p {
-      color: #7f1d1d;
-    }
-
-    .presenter-note.transition {
-      background: #f0fdf4;
-      border-color: #bbf7d0;
-    }
-
-    .presenter-note.transition .pn-label {
-      color: #166534;
-    }
-
-    .presenter-note.transition p {
-      color: #14532d;
-    }
-
-    body.show-notes .presenter-note {
-      display: block;
-    }
-
-    /* Callout */
-    .callout {
-      background: #fefce8;
-      border: 1px solid #fde047;
-      border-radius: 10px;
-      padding: 16px;
-      margin: 20px 0;
-    }
-    
-    .callout.insight {
-      background: #eff6ff;
-      border-color: #bfdbfe;
-    }
-    
-    .callout .callout-title {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #854d0e;
-      margin-bottom: 6px;
-    }
-    
-    .callout.insight .callout-title {
-      color: #1e40af;
-    }
-    
-    .callout p {
-      font-size: 0.8rem;
-      color: #6b7280;
-      line-height: 1.5;
-    }
-
-    /* Summary / Edge Card */
-    .edge-card {
-      background: linear-gradient(135deg, #8e99e1 0%, #7c8bd4 100%);
-      border-radius: 14px;
-      padding: 32px;
-      color: white;
-      margin-top: 24px;
-    }
-
-    .edge-card h2 {
-      color: white;
-      margin-bottom: 8px;
-    }
-
-    .edge-card .subtitle {
-      color: rgba(255,255,255,0.85);
-      margin-bottom: 24px;
-    }
-
-    .edge-card .key-point {
-      background: rgba(255,255,255,0.15);
-      border-color: rgba(255,255,255,0.2);
-    }
-
-    .edge-card .key-point h4 {
-      color: white;
-    }
-
-    .edge-card .key-point p {
-      color: rgba(255,255,255,0.8);
-    }
-
-    .edge-card .key-point:hover {
-      border-color: rgba(255,255,255,0.5);
-      background: rgba(255,255,255,0.2);
-    }
-
-    .close-line {
-      margin-top: 24px;
-      padding-top: 20px;
-      border-top: 1px solid rgba(255,255,255,0.2);
-      font-size: 0.95rem;
-      color: rgba(255,255,255,0.9);
-      font-weight: 500;
-    }
-    
-    /* Navigation Buttons */
-    .nav-buttons {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 32px;
-      padding-top: 24px;
-      border-top: 1px solid #e5e7eb;
-    }
-    
-    .nav-btn {
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      border: none;
-    }
-    
-    .nav-btn.prev {
-      background: #f3f4f6;
-      color: #6b7280;
-    }
-    
-    .nav-btn.prev:hover {
-      background: #e5e7eb;
-    }
-    
-    .nav-btn.next {
-      background: #8e99e1;
-      color: white;
-    }
-    
-    .nav-btn.next:hover {
-      background: #7c8bd4;
-    }
-    
-    .nav-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    
-    /* Footer */
-    footer {
-      text-align: center;
-      padding: 24px;
-      color: #6b7280;
-      font-size: 0.75rem;
-    }
-    
-    footer a {
-      color: #8e99e1;
-      text-decoration: none;
-    }
-    
-    footer a:hover {
-      text-decoration: underline;
-    }
-    
-    /* Mobile */
-    @media (max-width: 768px) {
-      .container { padding: 16px; }
-      .section-card, .beat-card { padding: 20px; }
-      .key-points { grid-template-columns: 1fr; }
-      .demo-nav-item .nav-time { display: none; }
-    }
+    .footer { text-align: center; padding: 32px; font-size: 0.7rem; color: #9ca3af; }
+    .footer a { color: #8e99e1; text-decoration: none; }
   </style>
 </head>
 <body>
-  <header class="header">
-    <h1>GTM Brain <span>/ Product Walkthrough</span></h1>
-    <div class="header-right">
-      <button class="notes-toggle" id="notesToggle" title="Toggle presenter notes">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-        Notes
-      </button>
-      <div class="nav-links">
-        <a href="/gtm">GTM Hub</a>
-        <a href="/cheat-sheet">Commands</a>
-      </div>
-    </div>
-  </header>
-  
-  <div class="container">
-    <!-- Progress Navigation -->
-    <nav class="demo-nav">
-      <button class="demo-nav-item active" data-section="0">
-        <span class="nav-num">1</span>
-        The Problem
-        <span class="nav-time">1.5 min</span>
-      </button>
-      <button class="demo-nav-item" data-section="1">
-        <span class="nav-num">2</span>
-        The Workflow
-        <span class="nav-time">6 min</span>
-      </button>
-      <button class="demo-nav-item" data-section="2">
-        <span class="nav-num">3</span>
-        The Edge
-        <span class="nav-time">1.5 min</span>
-      </button>
-    </nav>
-    
-    <!-- ============================================ -->
-    <!-- SECTION 1: THE PROBLEM (1.5 min)             -->
-    <!-- ============================================ -->
-    <section class="demo-section active" id="section-0">
-      <div class="section-card">
-        <h2>The Problem</h2>
-        <p class="subtitle">Every sales org has this problem. Reps spend hours on admin that doesn't close deals. Notes live in random docs. CRM is stale. When leadership asks "what's happening with this account," the answer takes 10 minutes of digging.</p>
 
-        <div class="presenter-note">
-          <div class="pn-label">Pacing</div>
-          <p>Set the stakes quickly. This is shared context -- the audience already feels this pain. Don't dwell. 90 seconds max, then move to the product.</p>
-        </div>
-        
-        <div class="key-points">
-          <div class="key-point">
-            <h4>Admin Overhead</h4>
-            <p>Reps lose hours weekly on CRM updates, note organization, and meeting prep. That's time not spent with clients.</p>
-          </div>
-          <div class="key-point">
-            <h4>Scattered Context</h4>
-            <p>Intelligence lives in Slack threads, email, personal notes, and Salesforce -- none of it connected. Context is lost between meetings.</p>
-          </div>
-          <div class="key-point">
-            <h4>Stale Visibility</h4>
-            <p>Leadership reviews reveal outdated information. Forecasts rely on what reps remembered to log, not what actually happened.</p>
-          </div>
-        </div>
-
-        <div class="presenter-note danger">
-          <div class="pn-label">Danger Zone</div>
-          <p>Do NOT get into "how" yet. If someone asks, use: "I'll show you exactly how in 60 seconds."</p>
-        </div>
-      </div>
-
-      <div class="section-card">
-        <p class="subtitle" style="margin-bottom: 0; font-weight: 500; color: #374151;">We built something that fixes this. Not a new tool reps have to learn -- an intelligence layer that works behind the scenes, connecting what already exists.</p>
-      </div>
-
-      <div class="presenter-note transition">
-        <div class="pn-label">Transition</div>
-        <p>"Let me show you what this looks like in practice."</p>
-      </div>
-      
-      <div class="nav-buttons">
-        <button class="nav-btn prev" disabled>Previous</button>
-        <button class="nav-btn next" data-goto="1">The Workflow</button>
-      </div>
-    </section>
-    
-    <!-- ============================================ -->
-    <!-- SECTION 2: THE WORKFLOW (6 min, 4 beats)     -->
-    <!-- ============================================ -->
-    <section class="demo-section" id="section-1">
-
-      <div class="presenter-note">
-        <div class="pn-label">Pacing</div>
-        <p>This is the core -- 6 minutes across 4 beats. Each beat is ~90 seconds. Lead with the screenshot, narrate what it shows, then state the value. Don't explain the technology.</p>
-      </div>
-
-      <!-- BEAT 1: Meeting Prep -->
-      <div class="beat-card beat-1">
-        <div class="beat-header">
-          <div class="beat-number">1</div>
-          <div>
-            <div class="beat-title">Meeting Prep</div>
-            <div class="beat-subtitle">AI-generated executive briefings before every meeting</div>
-          </div>
-        </div>
-
-        <div class="beat-script">
-          "Here's my week. Every meeting with an external attendee is already here -- pulled automatically from Outlook. No manual entry."
-        </div>
-
-        <div class="screenshot-slot">
-          <div class="ss-icon">&#128247;</div>
-          <div class="ss-label">Screenshot 1: Meeting Prep Tab -- Week View</div>
-          <div class="ss-purpose">Show 3-5 real meeting cards with account names, times, and attendee counts. Proves the system is live with real data, not a mockup.</div>
-          <div class="ss-action pause">Pause -- let them read the meeting names</div>
-        </div>
-
-        <div class="beat-script">
-          "Click into any meeting. The system pulls context from Salesforce, calendar history, Slack signals, and vault notes -- and synthesizes it into one brief."
-        </div>
-
-        <div class="screenshot-slot">
-          <div class="ss-icon">&#128247;</div>
-          <div class="ss-label">Screenshot 2: Meeting Prep Modal -- AI Briefing</div>
-          <div class="ss-purpose">Show the expanded meeting with the GTM Brain intelligence brief, attendee list, and editable goals/agenda. Proves intelligence depth is real and useful for exec prep.</div>
-          <div class="ss-action pause">Pause -- read 2-3 lines of the brief aloud</div>
-        </div>
-
-        <ul class="beat-bullets">
-          <li>Zero input from the rep. The brief is generated automatically.</li>
-          <li>Editable -- reps add their own goals and agenda before the call.</li>
-          <li>Shareable -- "Copy Link" sends a deep-link to this specific meeting brief. Team sees exactly what you see.</li>
-        </ul>
-
-        <div class="presenter-note danger">
-          <div class="pn-label">Danger Zone</div>
-          <p>Don't explain HOW calendar sync works. One-liner if asked: "Calendar events sync automatically from Outlook. No manual input."</p>
-        </div>
-      </div>
-
-      <!-- BEAT 2: GTM Brain Query -->
-      <div class="beat-card beat-2">
-        <div class="beat-header">
-          <div class="beat-number">2</div>
-          <div>
-            <div class="beat-title">GTM Brain</div>
-            <div class="beat-subtitle">Natural language account intelligence -- ask anything</div>
-          </div>
-        </div>
-
-        <div class="beat-script">
-          "Need something specific? Ask in plain language. 'What's the latest on this account?' 'Key contacts?' 'Prep me for my meeting.' -- it synthesizes everything we know."
-        </div>
-
-        <div class="screenshot-slot">
-          <div class="ss-icon">&#128247;</div>
-          <div class="ss-label">Screenshot 3: GTM Brain Tab -- Query + Response</div>
-          <div class="ss-purpose">Show the search bar with a typed query and the structured response below. Proves natural language works and responses are grounded in real Salesforce data.</div>
-          <div class="ss-action narrate">Narrate -- walk through 2-3 sections of the response</div>
-        </div>
-
-        <ul class="beat-bullets">
-          <li>Grounded in Salesforce data, calendar events, meeting notes, and Slack intelligence -- not generic summaries.</li>
-          <li>Available in three places: the GTM site, Obsidian desktop app, and Slack. Same intelligence, same quality, wherever the rep is working.</li>
-          <li>Responses update in real-time as new data enters the system.</li>
-        </ul>
-
-        <div class="presenter-note danger">
-          <div class="pn-label">Danger Zone</div>
-          <p>Don't explain Claude, intent classification, or prompt engineering. One-liner: "It uses AI to synthesize data from all our connected systems into one answer."</p>
-        </div>
-
-        <div class="presenter-note transition">
-          <div class="pn-label">Transition</div>
-          <p>"That's the on-demand side. Let me show you where reps actually work day to day."</p>
-        </div>
-      </div>
-
-      <!-- BEAT 3: Obsidian Vault -->
-      <div class="beat-card beat-3">
-        <div class="beat-header">
-          <div class="beat-number">3</div>
-          <div>
-            <div class="beat-title">Personal Workspace</div>
-            <div class="beat-subtitle">Obsidian vault -- pre-loaded with account intelligence</div>
-          </div>
-        </div>
-
-        <div class="beat-script">
-          "Every rep gets a personal workspace on their desktop. Account folders come pre-loaded with contacts, meeting intelligence, and deal context -- populated from Salesforce."
-        </div>
-
-        <!-- VISUAL WALKTHROUGH: The Vault -->
-        <div style="margin: 24px 0;">
-          <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 16px; color: #1f2937;">Inside the Vault</h3>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-            <div>
-              <img src="/assets/obsidian-demo/setup-wizard.png" alt="Setup Wizard" style="width: 100%; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
-              <p style="font-size: 0.75rem; color: #6b7280; margin-top: 6px;"><strong>Setup:</strong> Enter your email, connect Salesforce, and your accounts auto-populate from SF.</p>
-            </div>
-            <div>
-              <img src="/assets/obsidian-demo/sidebar-folders.png" alt="Sidebar Folders" style="width: 100%; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
-              <p style="font-size: 0.75rem; color: #6b7280; margin-top: 6px;"><strong>Your accounts:</strong> Folders organized by company. Each has Contacts, Intelligence, Meeting Notes, Next Steps, and Notes 1-3.</p>
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-            <div>
-              <img src="/assets/obsidian-demo/account-contacts.png" alt="Account Contacts" style="width: 100%; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
-              <p style="font-size: 0.75rem; color: #6b7280; margin-top: 6px;"><strong>Contacts:</strong> Auto-enriched from Salesforce with names, titles, and emails. Always current.</p>
-            </div>
-            <div>
-              <img src="/assets/obsidian-demo/account-nextsteps.png" alt="Account Next Steps" style="width: 100%; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
-              <p style="font-size: 0.75rem; color: #6b7280; margin-top: 6px;"><strong>Next Steps:</strong> Auto-pulls completed tasks and open actions from Salesforce. Updated on each sync.</p>
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-            <div>
-              <img src="/assets/obsidian-demo/note-template-mic.png" alt="Note Template with Mic" style="width: 100%; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
-              <p style="font-size: 0.75rem; color: #6b7280; margin-top: 6px;"><strong>Meeting Notes:</strong> Click the mic icon to record. Notes auto-template with account_id for SF sync. Discussion + Next Steps sections ready to fill.</p>
-            </div>
-            <div>
-              <img src="/assets/obsidian-demo/settings-panel.png" alt="Settings Panel" style="width: 100%; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
-              <p style="font-size: 0.75rem; color: #6b7280; margin-top: 6px;"><strong>Settings:</strong> Email, timezone, SF connection, and server URL. One-time setup -- runs automatically after first connect.</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="callout insight" style="margin: 20px 0;">
-          <div class="callout-title">How a Rep Uses This on a Call</div>
-          <p><strong>Before:</strong> Open the account folder. Review Contacts and Intelligence for context.</p>
-          <p style="margin-top: 6px;"><strong>During:</strong> Click the mic icon to record. Take quick notes in a Note file (auto-named "Note 4 - Feb 17").</p>
-          <p style="margin-top: 6px;"><strong>After:</strong> Stop recording. AI summary generates in ~2 min. Review, then toggle "sync_to_salesforce" to push to the Account's Customer Brain field.</p>
-          <p style="margin-top: 6px;"><strong>What flows back:</strong> GTM Brain includes the notes in future queries. Manager vaults refresh. Pipeline Review shows updated Next Steps.</p>
-        </div>
-
-        <div class="callout" style="background: #f8fafc; border-color: #e2e8f0; margin: 12px 0;">
-          <div class="callout-title" style="color: #4b5563;">Related: Salesforce Guide</div>
-          <p>For Accounts, Opportunities, Pipeline Review, and the Accounts & Targets dashboard: <a href="/sf-walkthrough" style="color: #8e99e1; font-weight: 600;">Salesforce Quick Reference →</a></p>
-        </div>
-
-        <div class="presenter-note transition">
-          <div class="pn-label">Transition</div>
-          <p>"That's what reps see. Here's what leadership gets without having to ask."</p>
-        </div>
-      </div>
-
-      <!-- BEAT 4: Automated Intelligence -->
-      <div class="beat-card beat-4">
-        <div class="beat-header">
-          <div class="beat-number">4</div>
-          <div>
-            <div class="beat-title">Automated Pipeline Intelligence</div>
-            <div class="beat-subtitle">Reports and visibility delivered -- not requested</div>
-          </div>
-        </div>
-
-        <div class="beat-script">
-          "Leadership doesn't have to ask for updates. Pipeline summaries, finance audit numbers, and delivery reports are generated and delivered automatically to Slack."
-        </div>
-
-        <div class="screenshot-slot">
-          <div class="ss-icon">&#128247;</div>
-          <div class="ss-label">Screenshot 6: Slack Bot -- Pipeline Query or Weekly Report</div>
-          <div class="ss-purpose">Show a real Slack bot response (pipeline query or auto-delivered weekly PDF). Proves automation is live and works where teams already communicate.</div>
-          <div class="ss-action narrate">Narrate -- 15 seconds max, don't list all report types</div>
-        </div>
-
-        <ul class="beat-bullets">
-          <li>On-demand: any team member can query pipeline, account status, or deal details directly in Slack.</li>
-          <li>Scheduled: weekly reports auto-delivered -- pipeline for sales, audit-ready numbers for finance, implementation pipeline for delivery.</li>
-          <li>Contact gap analysis identifies missing contacts from calendar data and creates them in Salesforce automatically.</li>
-        </ul>
-
-        <div class="screenshot-slot">
-          <div class="ss-icon">&#128247;</div>
-          <div class="ss-label">Screenshot 7: Dashboard -- Pipeline View</div>
-          <div class="ss-purpose">Show the account dashboard with stage indicators, ACV, and owner data. Proves leadership gets real-time visibility without asking.</div>
-          <div class="ss-action pause">Pause briefly -- let the data density register</div>
-        </div>
-
-        <div class="presenter-note danger">
-          <div class="pn-label">Danger Zone</div>
-          <p>Don't list all 6 report types or explain cron schedules. One-liner: "Reports are generated weekly and delivered to Slack. On-demand queries work any time."</p>
-        </div>
-      </div>
-
-      <div class="presenter-note transition">
-        <div class="pn-label">Transition</div>
-        <p>"So -- that's the workflow. Meeting prep, on-demand intelligence, personal workspace, automated reporting. Here's why it matters."</p>
-      </div>
-      
-      <div class="nav-buttons">
-        <button class="nav-btn prev" data-goto="0">Previous</button>
-        <button class="nav-btn next" data-goto="2">The Edge</button>
-      </div>
-    </section>
-    
-    <!-- ============================================ -->
-    <!-- SECTION 3: THE EDGE (1.5 min)                -->
-    <!-- ============================================ -->
-    <section class="demo-section" id="section-2">
-      <div class="section-card">
-        <h2>Why This Matters</h2>
-        <p class="subtitle">Most sales orgs treat CRM as a reporting tool -- reps update it because they have to, not because it helps them. We flipped that. CRM updates itself. Intelligence flows to the rep, not the other way around.</p>
-
-        <div class="presenter-note">
-          <div class="pn-label">Pacing</div>
-          <p>Land the three takeaways, then close with the live offer. This should feel like a natural conclusion, not a sales pitch. 90 seconds.</p>
-        </div>
-      </div>
-
-      <div class="edge-card">
-        <h2>The Result</h2>
-        <p class="subtitle">Three things this changes for the team:</p>
-
-        <div class="key-points" style="margin-bottom: 0;">
-          <div class="key-point">
-            <h4>More Time on High-Value Work</h4>
-            <p>Reps spend time in meetings, at events, on creative account strategy -- not on data entry or meeting prep admin. The system handles the overhead.</p>
-          </div>
-          <div class="key-point">
-            <h4>Always-Current Intelligence</h4>
-            <p>Every account brief reflects the latest Salesforce data, calendar events, and team notes. No stale context. No "let me pull that up."</p>
-          </div>
-          <div class="key-point">
-            <h4>Operational Edge</h4>
-            <p>This is how a modern sales org operates. Most teams don't have this. It compounds -- the more reps use it, the better the intelligence gets.</p>
-          </div>
-        </div>
-
-        <div class="close-line">
-          "This is live today. Every business lead has access. Happy to show you your accounts."
-        </div>
-      </div>
-
-      <div class="presenter-note">
-        <div class="pn-label">Close</div>
-        <p>Offer to show them their own accounts. This is the strongest close -- it makes it real and personal. If you have the GTM Hub open in another tab, switch to it.</p>
-      </div>
-      
-      <div class="nav-buttons">
-        <button class="nav-btn prev" data-goto="1">Previous</button>
-        <a href="/gtm" class="nav-btn next" style="text-decoration: none;">Open GTM Hub</a>
-      </div>
-    </section>
+<div class="nav">
+  <div class="nav-brand"><span>Eudia</span> Sales Vault</div>
+  <div class="nav-links">
+    <a href="#setup">Setup</a>
+    <a href="#accounts">Accounts</a>
+    <a href="#notes">Notes</a>
+    <a href="#recording">Recording</a>
+    <a href="#sync">SF Sync</a>
+    <a href="#download">Download</a>
+    <a href="/sf-walkthrough">Salesforce Guide</a>
   </div>
-  
-  <footer>
-    GTM Brain by Eudia RevOps &bull; <a href="/gtm">GTM Hub</a> &bull; <a href="/cheat-sheet">Commands</a>
-  </footer>
-  
-  <script>
-    let currentSection = 0;
-    const totalSections = 3;
-    
-    function goToSection(index) {
-      document.querySelectorAll('.demo-section').forEach(function(section, i) {
-        section.classList.toggle('active', i === index);
-      });
-      
-      document.querySelectorAll('.demo-nav-item').forEach(function(btn, i) {
-        btn.classList.remove('active');
-        if (i < index) btn.classList.add('visited');
-        if (i === index) btn.classList.add('active');
-      });
-      
-      currentSection = index;
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-    
-    document.addEventListener('DOMContentLoaded', function() {
-      // Nav buttons in progress bar
-      document.querySelectorAll('.demo-nav-item').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-          e.preventDefault();
-          var idx = parseInt(this.getAttribute('data-section'));
-          if (!isNaN(idx)) goToSection(idx);
-        });
-      });
-      
-      // Previous/Next buttons
-      document.querySelectorAll('.nav-btn[data-goto]').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-          e.preventDefault();
-          var target = parseInt(this.getAttribute('data-goto'));
-          if (!isNaN(target)) goToSection(target);
-        });
-      });
+</div>
 
-      // Presenter notes toggle
-      var toggle = document.getElementById('notesToggle');
-      toggle.addEventListener('click', function() {
-        document.body.classList.toggle('show-notes');
-        this.classList.toggle('active');
-      });
-    });
-    
-    // Keyboard navigation
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'ArrowRight' && currentSection < totalSections - 1) {
-        goToSection(currentSection + 1);
-      } else if (e.key === 'ArrowLeft' && currentSection > 0) {
-        goToSection(currentSection - 1);
-      }
-      // Toggle notes with 'N' key
-      if (e.key === 'n' || e.key === 'N') {
-        document.body.classList.toggle('show-notes');
-        document.getElementById('notesToggle').classList.toggle('active');
-      }
-    });
-  </script>
+<div class="hero">
+  <h1>Your Personal <span>Account Workspace</span></h1>
+  <p>Record meetings, capture intelligence, and sync everything to Salesforce. One app on your desktop -- every account, every note, always connected.</p>
+  <a href="/sf-walkthrough" class="hero-link">Coming from Salesforce? See the Salesforce Guide</a>
+</div>
+
+<!-- ═══ SETUP ═══ -->
+<div class="section" id="setup">
+  <div class="section-label">Getting Started</div>
+  <div class="section-title">Setup in 3 Steps</div>
+  <div class="section-sub">Download the vault, enter your email, connect Salesforce. Your accounts load automatically from SF -- no manual entry.</div>
+
+  <div class="steps">
+    <span class="step-pill done">1. Enter Email</span>
+    <span class="step-arrow">&rarr;</span>
+    <span class="step-pill done">2. Connect Salesforce</span>
+    <span class="step-arrow">&rarr;</span>
+    <span class="step-pill done">3. Ready to Record</span>
+  </div>
+
+  <img class="screenshot" src="/assets/obsidian-demo/setup-wizard.png" alt="Setup Wizard">
+  <div class="caption-card">
+    <h4>One-Time Setup</h4>
+    <p>Enter your @eudia.com email and click Connect. The vault validates your calendar access, connects to Salesforce, and imports every account you own. Setup takes about 30 seconds.</p>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ═══ YOUR ACCOUNTS ═══ -->
+<div class="section" id="accounts">
+  <div class="section-label">Your Workspace</div>
+  <div class="section-title">Account Folders</div>
+  <div class="section-sub">Every account you own in Salesforce gets a folder. Inside: Contacts, Intelligence, Meeting Notes, Next Steps, and Notes 1-3 -- all pre-populated from Salesforce.</div>
+
+  <div class="screenshot-pair">
+    <div>
+      <img src="/assets/obsidian-demo/sidebar-folders.png" alt="Sidebar Folders">
+      <p class="pair-caption"><strong>Your sidebar.</strong> Accounts listed alphabetically. Click any to expand and see sub-notes. Pipeline and Recordings folders at the bottom.</p>
+    </div>
+    <div>
+      <img src="/assets/obsidian-demo/account-contacts.png" alt="Account Contacts">
+      <p class="pair-caption"><strong>Contacts.</strong> Auto-enriched from Salesforce -- names, titles, emails, phone numbers. Updated on each sync.</p>
+    </div>
+  </div>
+
+  <div class="screenshot-pair">
+    <div>
+      <img src="/assets/obsidian-demo/account-nextsteps.png" alt="Next Steps">
+      <p class="pair-caption"><strong>Next Steps.</strong> Completed tasks and open actions pulled from Salesforce automatically. Shows last 90 days of activity.</p>
+    </div>
+    <div>
+      <img src="/assets/obsidian-demo/note-template-mic.png" alt="Note Template">
+      <p class="pair-caption"><strong>Meeting Notes.</strong> Pre-templated with account_id for SF sync. Date, Attendees, Discussion, and Next Steps sections ready to fill.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <p><strong>What's inside each account folder:</strong> Contacts (from SF), Intelligence (deal context + positioning), Meeting Notes (synced history), Next Steps (auto-pulled tasks), and Notes 1-3 (your working notes). New notes auto-name as "Note 4 - Feb 17" when you create them.</p>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ═══ TAKING NOTES ═══ -->
+<div class="section" id="notes">
+  <div class="section-label">On Calls</div>
+  <div class="section-title">Taking Meeting Notes</div>
+  <div class="section-sub">Open any Note file during a call. The template has your account linked and sections ready. New notes auto-name with the date.</div>
+
+  <div class="caption-grid">
+    <div class="caption-card">
+      <h4>Before the Call</h4>
+      <p>Open the account folder. Review the <strong>Contacts</strong> note for stakeholder names and titles. Check <strong>Intelligence</strong> for deal context and positioning.</p>
+    </div>
+    <div class="caption-card">
+      <h4>During the Call</h4>
+      <p>Type notes in the Discussion section. Or click the <strong>mic icon</strong> in the left sidebar to record the call -- AI handles the rest.</p>
+    </div>
+    <div class="caption-card">
+      <h4>After the Call</h4>
+      <p>If you recorded, the AI summary generates in ~2 minutes. Add action items to <strong>Next Steps</strong>. Toggle <strong>sync_to_salesforce</strong> to push to the Account record.</p>
+    </div>
+    <div class="caption-card">
+      <h4>What Syncs Back</h4>
+      <p>Your notes land on the Account's Customer Brain field in Salesforce. Managers see them. GTM Brain includes them in future queries. Pipeline Review shows updated Next Steps.</p>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ═══ RECORDING ═══ -->
+<div class="section" id="recording">
+  <div class="section-label">AI Transcription</div>
+  <div class="section-title">Recording a Meeting</div>
+  <div class="section-sub">Click the microphone icon in the left sidebar during a call. When you stop, AI transcribes and summarizes automatically.</div>
+
+  <div class="caption-grid">
+    <div class="caption-card">
+      <h4>How It Works</h4>
+      <p>Click mic → recording starts (red indicator). Take notes normally. When the call ends, click Stop. The AI processes the audio and generates a structured summary.</p>
+    </div>
+    <div class="caption-card">
+      <h4>What You Get</h4>
+      <p>Structured summary with: Discussion Points, Key Takeaways, Next Steps, and Action Items. All properly formatted and ready to share or sync.</p>
+    </div>
+    <div class="caption-card">
+      <h4>How Long It Takes</h4>
+      <p>A 30-min call processes in about 2 minutes. A 60-min call takes about 4 minutes. You can navigate away -- the summary appears in the note when ready.</p>
+    </div>
+    <div class="caption-card">
+      <h4>Safety</h4>
+      <p>45-minute prompt asks if you're still recording. 90-minute auto-stop. Audio is processed server-side and not stored after transcription.</p>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ═══ SF SYNC ═══ -->
+<div class="section" id="sync">
+  <div class="section-label">Connected</div>
+  <div class="section-title">Salesforce Sync</div>
+  <div class="section-sub">Every note has a sync_to_salesforce toggle in its frontmatter. When enabled, the note content pushes to the Account's Customer Brain field in Salesforce.</div>
+
+  <div class="callout tip">
+    <p><strong>What happens when you sync:</strong> Your meeting summary is prepended to the Account's Customer_Brain__c field. It's timestamped and attributed to you. Managers with vaults see it on their next refresh. GTM Brain includes it when anyone asks about this account. Pipeline Review picks up updated Next Steps.</p>
+  </div>
+
+  <img class="screenshot small" src="/assets/obsidian-demo/settings-panel.png" alt="Settings">
+  <div class="caption-card">
+    <h4>Settings</h4>
+    <p>Your email, timezone, Salesforce connection status, and server URL. One-time setup -- everything runs automatically after the initial connect. Click Reconnect if your SF session expires.</p>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ═══ WHY THIS MATTERS ═══ -->
+<div class="why-section">
+  <h2>Why This Matters</h2>
+  <div class="why-grid">
+    <div class="why-card">
+      <h4>Less Admin, More Selling</h4>
+      <p>Notes auto-structure. Contacts auto-populate. Next steps auto-pull. You spend time in meetings and on strategy -- not on data entry.</p>
+    </div>
+    <div class="why-card">
+      <h4>Always-Current Intelligence</h4>
+      <p>Every account brief reflects the latest Salesforce data, calendar events, and team notes. No stale context. No "let me pull that up."</p>
+    </div>
+    <div class="why-card">
+      <h4>Everything Compounds</h4>
+      <p>The more you use it, the smarter the system gets. Every note, every meeting, every sync makes GTM Brain more useful for the whole team.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DOWNLOAD ═══ -->
+<div class="cta-section" id="download">
+  <h2>Get Your Vault</h2>
+  <p>Download the Eudia Sales Vault, unzip it, and open in Obsidian. Enter your email and your accounts load from Salesforce automatically.</p>
+  <a href="/vault/download" class="cta-btn">Download Eudia Sales Vault</a>
+  <div class="cta-steps">Unzip to Documents &rarr; Open in Obsidian &rarr; Enter your @eudia.com email &rarr; Done</div>
+</div>
+
+<div class="footer">
+  <a href="/sf-walkthrough">Salesforce Guide</a> &nbsp;&bull;&nbsp;
+  <a href="/vault/download">Download Vault</a> &nbsp;&bull;&nbsp;
+  Eudia GTM Engineering &mdash; February 2026
+</div>
+
 </body>
 </html>
