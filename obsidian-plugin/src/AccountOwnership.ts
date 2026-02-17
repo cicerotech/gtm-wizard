@@ -22,7 +22,8 @@ export const ADMIN_EMAILS = [
   'mike.flynn@eudia.com',
   'michael.flynn@eudia.com',   // alternate spelling
   'zack@eudia.com',
-  'zach@eudia.com'             // alternate spelling
+  'zach@eudia.com',            // alternate spelling
+  'ben.brosnahan@eudia.com'
 ];
 
 /**
