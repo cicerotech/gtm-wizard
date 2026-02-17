@@ -3255,6 +3255,93 @@ export default class EudiaSyncPlugin extends Plugin {
       this.openIntelligenceQueryForCurrentNote();
     });
 
+    // Auto-template: when user creates a new note inside an account folder,
+    // auto-name it "Note N - Feb 17" and populate frontmatter with account_id
+    this.registerEvent(
+      this.app.vault.on('create', async (file) => {
+        if (!(file instanceof TFile) || file.extension !== 'md') return;
+        
+        const accountsFolder = this.settings.accountsFolder || 'Accounts';
+        if (!file.path.startsWith(accountsFolder + '/')) return;
+        
+        // Only intercept files named "Untitled" (Obsidian default)
+        if (!file.basename.startsWith('Untitled')) return;
+        
+        // Extract account info from path: Accounts/CompanyName/Untitled.md
+        const pathParts = file.path.split('/');
+        if (pathParts.length < 3) return;
+        const accountName = pathParts[1];
+        const accountFolder = pathParts.slice(0, 2).join('/');
+        
+        // Find account_id from sibling files (Contacts.md or Note 1.md have it in frontmatter)
+        let accountId = '';
+        const siblingPaths = ['Contacts.md', 'Note 1.md', 'Intelligence.md'];
+        for (const sib of siblingPaths) {
+          const sibFile = this.app.vault.getAbstractFileByPath(`${accountFolder}/${sib}`);
+          if (sibFile instanceof TFile) {
+            try {
+              const content = await this.app.vault.read(sibFile);
+              const idMatch = content.match(/account_id:\s*"?([^"\n]+)"?/);
+              if (idMatch) { accountId = idMatch[1].trim(); break; }
+            } catch { /* skip */ }
+          }
+        }
+        
+        // Count existing Note N files to determine next number
+        const folder = this.app.vault.getAbstractFileByPath(accountFolder);
+        let maxNote = 0;
+        if (folder && (folder as any).children) {
+          for (const child of (folder as any).children) {
+            const match = child.name?.match(/^Note\s+(\d+)/i);
+            if (match) maxNote = Math.max(maxNote, parseInt(match[1]));
+          }
+        }
+        const nextNum = maxNote + 1;
+        const today = new Date();
+        const dateLabel = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const dateStr = today.toISOString().split('T')[0];
+        const newName = `Note ${nextNum} - ${dateLabel}.md`;
+        
+        // Build template content
+        const template = `---
+account: "${accountName}"
+account_id: "${accountId}"
+type: meeting_note
+sync_to_salesforce: false
+created: ${dateStr}
+---
+
+# ${accountName} - Meeting Note
+
+**Date:** ${dateLabel}
+**Attendees:** 
+
+---
+
+## Discussion
+
+*Add meeting notes here...*
+
+---
+
+## Next Steps
+
+- [ ] 
+
+`;
+        
+        // Rename and populate
+        try {
+          const newPath = `${accountFolder}/${newName}`;
+          await this.app.vault.modify(file, template);
+          await this.app.fileManager.renameFile(file, newPath);
+          console.log(`[Eudia] Auto-templated: ${newPath} (account_id: ${accountId})`);
+        } catch (e) {
+          console.warn('[Eudia] Auto-template failed:', e);
+        }
+      })
+    );
+
     // Add commands
     this.addCommand({
       id: 'transcribe-meeting',
