@@ -3869,13 +3869,39 @@ class GTMBrainApp {
         }
         
         // Query Salesforce for accounts owned by this user
-        // First, find the User by email
-        const userQuery = `SELECT Id, Name, Email FROM User WHERE Email = '${normalizedEmail.replace(/'/g, "\\'")}' AND IsActive = true LIMIT 1`;
-        const userResult = await sfConnection.query(userQuery);
+        // Try exact email match first, then fallback to name-based search
+        const safeEmail = normalizedEmail.replace(/'/g, "\\'");
+        let userResult = await sfConnection.query(
+          `SELECT Id, Name, Email FROM User WHERE Email = '${safeEmail}' AND IsActive = true LIMIT 1`
+        );
+        
+        // Fallback: try matching by name derived from email (e.g., olivia.jung@ → "Olivia Jung")
+        if (!userResult.records || userResult.records.length === 0) {
+          const localPart = normalizedEmail.split('@')[0];
+          const nameParts = localPart.split(/[._-]/).map(p => p.charAt(0).toUpperCase() + p.slice(1));
+          if (nameParts.length >= 2) {
+            const firstName = nameParts[0];
+            const lastName = nameParts[nameParts.length - 1];
+            logger.info(`[Ownership] Exact email miss — trying name match: ${firstName} ${lastName}`);
+            userResult = await sfConnection.query(
+              `SELECT Id, Name, Email FROM User WHERE FirstName = '${firstName}' AND LastName = '${lastName}' AND IsActive = true LIMIT 1`
+            );
+          }
+        }
+        
+        // Fallback 2: try domain-only search (find any user at same domain)
+        if (!userResult.records || userResult.records.length === 0) {
+          const domain = normalizedEmail.split('@')[1];
+          if (domain) {
+            logger.info(`[Ownership] Name match miss — trying domain LIKE: %@${domain}`);
+            const localPart = normalizedEmail.split('@')[0].split(/[._-]/)[0];
+            userResult = await sfConnection.query(
+              `SELECT Id, Name, Email FROM User WHERE Email LIKE '${localPart}%@${domain}' AND IsActive = true LIMIT 1`
+            );
+          }
+        }
         
         if (!userResult.records || userResult.records.length === 0) {
-          // User not found in Salesforce - return empty but success
-          // (They may be a valid user but with no accounts yet)
           logger.info(`[Ownership] No Salesforce user found for email: ${normalizedEmail}`);
           return res.json({
             success: true,
