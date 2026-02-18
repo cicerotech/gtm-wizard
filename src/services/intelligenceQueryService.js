@@ -194,7 +194,7 @@ const QUERY_INTENTS = {
   NEXT_STEPS: ['next step', 'action item', 'todo', 'follow up', 'outstanding'],
   PAIN_POINTS: ['pain point', 'challenge', 'problem', 'issue', 'struggle'],
   COMPETITIVE: ['competitor', 'competitive', 'alternative', 'vs', 'compared to'],
-  PIPELINE_OVERVIEW: ['my pipeline', 'my deals', 'my accounts', 'late stage', 'forecast'],
+  PIPELINE_OVERVIEW: ['my pipeline', 'my deals', 'my accounts', 'late stage', 'forecast', 'how many customer', 'how many deal', 'how many account', 'total pipeline', 'closing this', 'in our pipeline', 'pipeline summary', 'deals closing', 'new logo', 'won this'],
   ACCOUNT_LOOKUP: ['who owns', 'owner of', 'assigned to']
 };
 
@@ -475,9 +475,9 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
     logger.info(`[Intelligence] forceRefresh — evicted in-memory cache for ${accountId}`);
   }
 
-  // Handle pipeline/cross-account queries
-  if (intent === 'PIPELINE_OVERVIEW' && userEmail) {
-    return await gatherPipelineContext(userEmail);
+  // Handle pipeline/cross-account queries (works with or without userEmail)
+  if (intent === 'PIPELINE_OVERVIEW') {
+    return await gatherPipelineContext(userEmail || null);
   }
 
   // Handle account lookup queries
@@ -951,14 +951,17 @@ async function findAccountByName(accountName) {
  */
 async function gatherPipelineContext(userEmail) {
   try {
-    // Get user's opportunities
+    // Fetch org-wide pipeline (not just user's deals) for broader visibility
+    const ownerFilter = userEmail 
+      ? `Owner.Email = '${userEmail}'` 
+      : `IsClosed = false`;
     const result = await sfQuery(`
       SELECT Id, Name, AccountId, Account.Name, StageName, ACV__c, 
-             CloseDate, Target_LOI_Date__c, Product_Line__c, NextStep
+             CloseDate, Target_LOI_Date__c, Product_Line__c, NextStep, Owner.Name
       FROM Opportunity
-      WHERE Owner.Email = '${userEmail}'
-        AND IsClosed = false
+      WHERE IsClosed = false
       ORDER BY CloseDate ASC
+      LIMIT 200
     `, true);
 
     const opportunities = result?.records || [];
@@ -967,6 +970,7 @@ async function gatherPipelineContext(userEmail) {
     const byStage = {};
     let totalAcv = 0;
     
+    const byOwner = {};
     for (const opp of opportunities) {
       const stage = opp.StageName || 'Unknown';
       if (!byStage[stage]) {
@@ -979,9 +983,26 @@ async function gatherPipelineContext(userEmail) {
         account: opp.Account?.Name,
         acv: opp.ACV__c,
         closeDate: opp.CloseDate,
-        nextStep: opp.NextStep
+        nextStep: opp.NextStep,
+        owner: opp.Owner?.Name
       });
       totalAcv += opp.ACV__c || 0;
+      
+      const owner = opp.Owner?.Name || 'Unknown';
+      if (!byOwner[owner]) byOwner[owner] = { count: 0, totalAcv: 0 };
+      byOwner[owner].count++;
+      byOwner[owner].totalAcv += opp.ACV__c || 0;
+    }
+
+    // Also count existing customers for "how many customers" queries
+    let customerCount = 0;
+    try {
+      const custResult = await sfQuery(`
+        SELECT COUNT() FROM Account WHERE Customer_Type__c IN ('Existing', 'Existing Customer', 'Existing / LOI', 'MSA')
+      `, true);
+      customerCount = custResult?.totalSize || 0;
+    } catch (e) {
+      logger.warn('[Intelligence] Customer count query failed:', e.message);
     }
 
     return {
@@ -990,6 +1011,8 @@ async function gatherPipelineContext(userEmail) {
       totalOpportunities: opportunities.length,
       totalAcv,
       byStage,
+      byOwner,
+      customerCount,
       dataFreshness: 'live'
     };
   } catch (error) {
@@ -1164,11 +1187,11 @@ DATA LIMITATIONS:
 FOLLOW-UP SUGGESTIONS:
 - At the very end of every response, after a "---" separator, include exactly 2 brief follow-up questions
 - Format as: "---\\nYou might also ask:\\n1. [question]\\n2. [question]"
-- ONLY suggest questions that drill deeper into data you just referenced in your answer. If you mentioned contacts, suggest asking about a specific contact. If you mentioned a deal, suggest asking about that deal's next steps.
-- Do NOT suggest questions about data categories you did not include in this response
-- Do NOT suggest generic questions like "What's their budget?" or "What solutions are they evaluating?" unless you actually have that data
-- If there is genuinely nothing useful to suggest, do NOT include the follow-up section at all -- just end the response
-- Keep each suggestion under 8 words`;
+- CRITICAL: Use REAL names, accounts, and specifics from your answer -- NEVER use brackets or placeholders like [account name] or [specific opportunity]. If you mentioned Jeremy Jessen, suggest "What's Jeremy Jessen's engagement history?" not "Who is the [champion]?"
+- ONLY suggest questions that drill deeper into data you just referenced
+- Do NOT suggest questions about data you don't have
+- If there is genuinely nothing useful to suggest, omit the follow-up section entirely
+- Keep each suggestion under 10 words`;
 
   // ── Account-type-specific framing ──
   if (accountType === 'existing_customer') {
@@ -1268,19 +1291,32 @@ function buildUserPrompt(intent, query, context) {
 
   // Handle pipeline queries
   if (context.isPipelineQuery) {
-    prompt += `PIPELINE DATA:\n`;
+    prompt += `PIPELINE DATA (ORG-WIDE):\n`;
     prompt += `• Total Open Opportunities: ${context.totalOpportunities}\n`;
-    prompt += `• Total Pipeline ACV: $${(context.totalAcv || 0).toLocaleString()}\n\n`;
+    prompt += `• Total Pipeline ACV: $${(context.totalAcv || 0).toLocaleString()}\n`;
+    if (context.customerCount) {
+      prompt += `• Existing Customers (active accounts): ${context.customerCount}\n`;
+    }
+    prompt += '\n';
     
     if (context.byStage) {
       prompt += `BY STAGE:\n`;
       for (const [stage, data] of Object.entries(context.byStage)) {
         prompt += `\n${stage} (${data.count} opps, $${data.totalAcv.toLocaleString()}):\n`;
-        for (const opp of data.opps.slice(0, 5)) {
-          prompt += `  • ${opp.name} (${opp.account}) - $${(opp.acv || 0).toLocaleString()}`;
+        for (const opp of data.opps.slice(0, 8)) {
+          prompt += `  • ${opp.name} (${opp.account})`;
+          if (opp.owner) prompt += ` [${opp.owner}]`;
+          prompt += ` - $${(opp.acv || 0).toLocaleString()}`;
           if (opp.closeDate) prompt += ` - Close: ${opp.closeDate}`;
           prompt += '\n';
         }
+      }
+    }
+    
+    if (context.byOwner && Object.keys(context.byOwner).length > 0) {
+      prompt += `\nBY OWNER:\n`;
+      for (const [owner, data] of Object.entries(context.byOwner)) {
+        prompt += `  • ${owner}: ${data.count} deals, $${data.totalAcv.toLocaleString()} ACV\n`;
       }
     }
     return prompt;
