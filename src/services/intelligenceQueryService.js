@@ -1628,114 +1628,89 @@ async function gatherContactSearchContext(query) {
  * Gather context using weekly snapshot bridge functions for specialized pipeline queries.
  * Each intent maps to a specific, battle-tested function from blWeeklySummary.js.
  */
+/**
+ * Direct SOQL for all cross-account queries. No bridge functions, no cache.
+ * Every query uses useCache=false for live data.
+ */
 async function gatherSnapshotContext(intent, query) {
-  if (!weeklySnapshotBridge) {
-    return { isSnapshotQuery: true, intent, error: 'Weekly snapshot data bridge not available', dataFreshness: 'error' };
-  }
   try {
-    let data = {};
+    const STAGES = "'Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation'";
+    let records = [];
     let label = intent;
+    let metadata = {};
 
     switch (intent) {
       case 'FORECAST': {
-        const forecast = await weeklySnapshotBridge.queryAIEnabledForecast();
-        data = { ...forecast, type: 'forecast' };
+        const r = await sfQuery(`SELECT SUM(Quarterly_Commit__c) totalCommit, SUM(Weighted_ACV_AI_Enabled__c) totalWeighted, COUNT(Id) dealCount FROM Opportunity WHERE IsClosed = false AND StageName IN (${STAGES})`, false);
+        const agg = r?.records?.[0] || {};
+        metadata = { commitNet: agg.totalCommit || 0, weightedNet: agg.totalWeighted || 0, midpoint: ((agg.totalCommit || 0) + (agg.totalWeighted || 0)) / 2, dealCount: agg.dealCount || 0 };
+        const blR = await sfQuery(`SELECT Owner.Name, SUM(Quarterly_Commit__c) blCommit FROM Opportunity WHERE IsClosed = false AND StageName IN (${STAGES}) AND Quarterly_Commit__c > 0 GROUP BY Owner.Name`, false).catch(() => ({ records: [] }));
+        metadata.blCommits = (blR?.records || []).map(r => ({ name: r.Owner?.Name, commit: r.blCommit }));
         label = 'Q1 FY26 Forecast';
         break;
       }
       case 'WEIGHTED_PIPELINE': {
-        const records = await weeklySnapshotBridge.queryPipelineData();
-        const byStage = {};
-        let totalGross = 0, totalWeighted = 0;
-        for (const opp of records) {
-          const stage = opp.StageName || 'Unknown';
-          if (!byStage[stage]) byStage[stage] = { count: 0, grossAcv: 0, weightedAcv: 0 };
-          byStage[stage].count++;
-          byStage[stage].grossAcv += opp.ACV__c || 0;
-          byStage[stage].weightedAcv += opp.Weighted_ACV__c || 0;
-          totalGross += opp.ACV__c || 0;
-          totalWeighted += opp.Weighted_ACV__c || 0;
-        }
-        data = { byStage, totalGross, totalWeighted, dealCount: records.length, type: 'weighted_pipeline' };
-        label = 'Weighted Pipeline';
+        const r = await sfQuery(`SELECT StageName, SUM(ACV__c) grossAcv, SUM(Weighted_ACV__c) weightedAcv, COUNT(Id) cnt FROM Opportunity WHERE IsClosed = false AND StageName IN (${STAGES}) GROUP BY StageName ORDER BY SUM(ACV__c) DESC`, false);
+        records = r?.records || [];
+        label = 'Weighted Pipeline by Stage';
         break;
       }
       case 'DEALS_SIGNED': {
-        const signed = await weeklySnapshotBridge.querySignedRevenueQTD();
-        const lastWeek = await weeklySnapshotBridge.querySignedRevenueLastWeek().catch(() => null);
-        data = { signedQTD: signed, lastWeek, type: 'deals_signed' };
-        label = 'Signed Revenue';
+        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, CloseDate, Revenue_Type__c, Owner.Name FROM Opportunity WHERE IsWon = true AND CloseDate = THIS_FISCAL_QUARTER ORDER BY CloseDate DESC LIMIT 30`, false);
+        records = r?.records || [];
+        label = 'Signed Deals This Quarter';
         break;
       }
       case 'DEALS_TARGETING': {
         const lower = query.toLowerCase();
-        const targeting = lower.includes('this month') || lower.includes('february')
-          ? await weeklySnapshotBridge.queryTop10TargetingJanuary()
-          : await weeklySnapshotBridge.queryTop10TargetingQ1();
-        data = { targeting, type: 'deals_targeting', period: lower.includes('this month') ? 'This Month' : 'This Quarter' };
-        label = 'Targeting Deals';
+        const dateFilter = (lower.includes('this month') || lower.includes('february')) ? 'Target_LOI_Date__c = THIS_MONTH' : 'Target_LOI_Date__c = THIS_FISCAL_QUARTER';
+        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Target_LOI_Date__c, StageName, Owner.Name FROM Opportunity WHERE IsClosed = false AND StageName IN (${STAGES}) AND ${dateFilter} ORDER BY ACV__c DESC LIMIT 20`, false);
+        records = r?.records || [];
+        label = (lower.includes('this month') || lower.includes('february')) ? 'Targeting This Month' : 'Targeting This Quarter';
         break;
       }
       case 'PIPELINE_BY_PRODUCT': {
-        const bySolution = await weeklySnapshotBridge.queryPipelineBySolution();
-        data = { bySolution, type: 'pipeline_by_product' };
-        label = 'Pipeline by Product/Solution';
+        const r = await sfQuery(`SELECT Product_Line__c, SUM(ACV__c) totalAcv, COUNT(Id) cnt FROM Opportunity WHERE IsClosed = false AND StageName IN (${STAGES}) GROUP BY Product_Line__c ORDER BY SUM(ACV__c) DESC`, false);
+        records = r?.records || [];
+        label = 'Pipeline by Product Line';
         break;
       }
       case 'PIPELINE_BY_SALES_TYPE': {
-        const bySalesType = await weeklySnapshotBridge.queryPipelineBySalesType();
-        data = { bySalesType, type: 'pipeline_by_sales_type' };
+        const r = await sfQuery(`SELECT Sales_Type__c, SUM(ACV__c) totalAcv, COUNT(Id) cnt FROM Opportunity WHERE IsClosed = false AND StageName IN (${STAGES}) GROUP BY Sales_Type__c ORDER BY SUM(ACV__c) DESC`, false);
+        records = r?.records || [];
         label = 'Pipeline by Sales Type';
         break;
       }
       case 'LOI_DEALS': {
-        const result = await sfQuery(`
-          SELECT Id, Name, Account.Name, ACV__c, CloseDate, Owner.Name
-          FROM Opportunity WHERE IsClosed = true AND IsWon = true AND Revenue_Type__c = 'Commitment'
-          ORDER BY CloseDate DESC LIMIT 50
-        `, false);
-        data = { deals: result?.records || [], type: 'loi_deals' };
-        label = 'LOI Deals';
+        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, CloseDate, Owner.Name FROM Opportunity WHERE IsClosed = true AND IsWon = true AND Revenue_Type__c = 'Commitment' ORDER BY CloseDate DESC LIMIT 30`, false);
+        records = r?.records || [];
+        label = 'LOI Deals Signed';
         break;
       }
       case 'ARR_DEALS': {
-        const result = await sfQuery(`
-          SELECT Id, Name, Account.Name, ACV__c, CloseDate, Owner.Name
-          FROM Opportunity WHERE IsClosed = true AND IsWon = true AND Revenue_Type__c = 'Recurring'
-          ORDER BY CloseDate DESC LIMIT 50
-        `, false);
-        data = { deals: result?.records || [], type: 'arr_deals' };
-        label = 'ARR Deals';
+        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, CloseDate, Owner.Name FROM Opportunity WHERE IsClosed = true AND IsWon = true AND Revenue_Type__c = 'Recurring' ORDER BY CloseDate DESC LIMIT 30`, false);
+        records = r?.records || [];
+        label = 'ARR Deals Signed';
         break;
       }
       case 'SLOW_DEALS': {
-        const result = await sfQuery(`
-          SELECT Id, Name, Account.Name, StageName, ACV__c, Days_in_Stage__c, Owner.Name, Target_LOI_Date__c
-          FROM Opportunity WHERE IsClosed = false AND Days_in_Stage__c > 30
-          ORDER BY Days_in_Stage__c DESC LIMIT 30
-        `, false);
-        data = { deals: result?.records || [], type: 'slow_deals', threshold: 30 };
-        label = 'Slow/Stuck Deals';
+        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, StageName, ACV__c, Days_in_Stage__c, Owner.Name FROM Opportunity WHERE IsClosed = false AND Days_in_Stage__c > 30 ORDER BY Days_in_Stage__c DESC LIMIT 20`, false);
+        records = r?.records || [];
+        label = 'Deals Stuck >30 Days';
         break;
       }
       case 'PIPELINE_ADDED': {
-        const now = new Date();
-        const weekNum = Math.ceil(((now - new Date(now.getFullYear(), 0, 1)) / 86400000 + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7);
-        const result = await sfQuery(`
-          SELECT Id, Name, Account.Name, StageName, ACV__c, CreatedDate, Owner.Name, Product_Line__c
-          FROM Opportunity WHERE IsClosed = false AND CreatedDate = THIS_WEEK
-          ORDER BY CreatedDate DESC LIMIT 30
-        `, false);
-        data = { deals: result?.records || [], type: 'pipeline_added', week: weekNum };
-        label = 'Pipeline Added This Week';
+        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, StageName, ACV__c, CreatedDate, Owner.Name, Product_Line__c FROM Opportunity WHERE IsClosed = false AND CreatedDate = THIS_WEEK ORDER BY CreatedDate DESC LIMIT 20`, false);
+        records = r?.records || [];
+        label = 'New Pipeline This Week';
         break;
       }
       default:
-        return { isSnapshotQuery: true, intent, error: `Unknown snapshot intent: ${intent}`, dataFreshness: 'error' };
+        return { isSnapshotQuery: true, intent, error: `Unknown intent: ${intent}`, dataFreshness: 'error' };
     }
 
-    logger.info(`[Intelligence] Snapshot context gathered for ${intent}: ${JSON.stringify(data).substring(0, 200)}`);
-    return { isSnapshotQuery: true, intent, label, data, dataFreshness: 'live' };
+    logger.info(`[Intelligence] Snapshot SOQL for ${intent}: ${records.length} records, metadata: ${JSON.stringify(metadata).substring(0, 100)}`);
+    return { isSnapshotQuery: true, intent, label, records, metadata, dataFreshness: 'live' };
   } catch (error) {
     logger.error(`[Intelligence] Snapshot context error (${intent}):`, error.message);
     return { isSnapshotQuery: true, intent, error: error.message, dataFreshness: 'error' };
@@ -2173,82 +2148,59 @@ function buildUserPrompt(intent, query, context) {
     return prompt;
   }
 
-  // Handle snapshot-based cross-account queries (forecast, weighted pipeline, signed deals, etc.)
+  // Handle cross-account snapshot queries — unified prompt from direct SOQL results
   if (context.isSnapshotQuery) {
     if (context.error) {
-      prompt += `Error: ${context.error}\n`;
+      prompt += `Error fetching data: ${context.error}\nThe Salesforce connection may be temporarily unavailable. Try again in a moment.\n`;
       return prompt;
     }
-    prompt += `${context.label?.toUpperCase() || context.intent}:\n\n`;
-    const d = context.data || {};
+    prompt += `${(context.label || context.intent).toUpperCase()} (${context.records?.length || 0} records):\n\n`;
+    const recs = context.records || [];
+    const meta = context.metadata || {};
 
-    if (d.type === 'forecast') {
-      prompt += `• Commit (Net): $${((d.commitNet || 0) / 1000000).toFixed(1)}M\n`;
-      prompt += `• Weighted (Net): $${((d.weightedNet || 0) / 1000000).toFixed(1)}M\n`;
-      prompt += `• Midpoint: $${((d.midpoint || 0) / 1000000).toFixed(1)}M\n`;
-      prompt += `• Deal Count: ${d.dealCount || 0}\n`;
-      if (d.blCommits && Object.keys(d.blCommits).length > 0) {
+    if (context.intent === 'FORECAST') {
+      prompt += `• Commit (Net): $${((meta.commitNet || 0) / 1000000).toFixed(2)}M\n`;
+      prompt += `• Weighted (Net): $${((meta.weightedNet || 0) / 1000000).toFixed(2)}M\n`;
+      prompt += `• Midpoint: $${((meta.midpoint || 0) / 1000000).toFixed(2)}M\n`;
+      prompt += `• Deal Count: ${meta.dealCount || 0}\n`;
+      if (meta.blCommits?.length > 0) {
         prompt += `\nBY BUSINESS LEAD (Commit):\n`;
-        for (const [bl, val] of Object.entries(d.blCommits).sort((a, b) => b[1] - a[1])) {
-          prompt += `  • ${maskOwnerIfUnassigned(bl)}: $${(val / 1000).toFixed(0)}k\n`;
+        for (const bl of meta.blCommits.sort((a, b) => (b.commit || 0) - (a.commit || 0))) {
+          prompt += `  • ${maskOwnerIfUnassigned(bl.name)}: $${((bl.commit || 0) / 1000).toFixed(0)}k\n`;
         }
       }
-    } else if (d.type === 'weighted_pipeline') {
-      prompt += `• Total Gross ACV: $${((d.totalGross || 0) / 1000000).toFixed(1)}M\n`;
-      prompt += `• Total Weighted: $${((d.totalWeighted || 0) / 1000000).toFixed(1)}M\n`;
-      prompt += `• Deals: ${d.dealCount || 0}\n\n`;
-      if (d.byStage) {
-        prompt += `BY STAGE:\n`;
-        for (const [stage, info] of Object.entries(d.byStage).sort((a, b) => b[1].weightedAcv - a[1].weightedAcv)) {
-          prompt += `  • ${stage}: ${info.count} deals | Gross $${(info.grossAcv / 1000).toFixed(0)}k | Weighted $${(info.weightedAcv / 1000).toFixed(0)}k\n`;
-        }
+    } else if (context.intent === 'WEIGHTED_PIPELINE') {
+      let totalGross = 0, totalWeighted = 0, totalDeals = 0;
+      for (const row of recs) {
+        totalGross += row.grossAcv || 0;
+        totalWeighted += row.weightedAcv || 0;
+        totalDeals += row.cnt || 0;
+        prompt += `  • ${row.StageName}: ${row.cnt} deals | Gross $${((row.grossAcv || 0) / 1000).toFixed(0)}k | Weighted $${((row.weightedAcv || 0) / 1000).toFixed(0)}k\n`;
       }
-    } else if (d.type === 'deals_signed') {
-      if (d.signedQTD) prompt += `Signed Revenue QTD: $${((d.signedQTD.totalACV || d.signedQTD) / 1000).toFixed(0)}k\n`;
-      if (d.lastWeek?.records) {
-        prompt += `\nSigned Last Week:\n`;
-        for (const deal of d.lastWeek.records.slice(0, 10)) {
-          prompt += `  • ${deal.Account?.Account_Display_Name__c || deal.Account?.Name || deal.Name} — $${((deal.ACV__c || 0) / 1000).toFixed(0)}k | ${deal.Revenue_Type__c || ''} | ${deal.CloseDate || ''}\n`;
-        }
+      prompt += `\nTOTAL: ${totalDeals} deals | Gross $${(totalGross / 1000000).toFixed(1)}M | Weighted $${(totalWeighted / 1000000).toFixed(1)}M\n`;
+    } else if (context.intent === 'PIPELINE_BY_PRODUCT') {
+      for (const row of recs) {
+        prompt += `  • ${row.Product_Line__c || 'Undetermined'}: $${((row.totalAcv || 0) / 1000).toFixed(0)}k | ${row.cnt || 0} deals\n`;
       }
-    } else if (d.type === 'deals_targeting') {
-      prompt += `Targeting ${d.period || 'This Quarter'}:\n`;
-      if (d.targeting?.records || d.targeting) {
-        const records = d.targeting?.records || (Array.isArray(d.targeting) ? d.targeting : []);
-        for (const opp of records.slice(0, 15)) {
-          prompt += `  • ${opp.Account?.Account_Display_Name__c || opp.Account?.Name || opp.Name} — $${((opp.ACV__c || 0) / 1000).toFixed(0)}k | ${opp.StageName || ''} | Target: ${opp.Target_LOI_Date__c || 'TBD'}\n`;
-        }
-      }
-    } else if (d.type === 'pipeline_by_product' && d.bySolution) {
-      for (const [bucket, info] of Object.entries(d.bySolution)) {
-        prompt += `  • ${bucket}: $${((info.acv || 0) / 1000000).toFixed(1)}M | ${info.count || 0} deals | ${info.aiEnabled || 0} AI-enabled\n`;
-      }
-    } else if (d.type === 'pipeline_by_sales_type' && d.bySalesType) {
-      if (d.bySalesType.records) {
-        for (const row of d.bySalesType.records) {
-          prompt += `  • ${row.Sales_Type__c || 'Unknown'}: $${((row.expr0 || 0) / 1000000).toFixed(1)}M | ${row.expr1 || 0} deals\n`;
-        }
-      }
-    } else if (d.type === 'loi_deals' || d.type === 'arr_deals') {
-      const deals = d.deals || [];
-      prompt += `${deals.length} deals:\n`;
-      for (const deal of deals.slice(0, 20)) {
-        prompt += `  • ${deal.Account?.Account_Display_Name__c || deal.Account?.Name || deal.Name} — $${((deal.ACV__c || 0) / 1000).toFixed(0)}k | ${maskOwnerIfUnassigned(deal.Owner?.Name)} | ${deal.CloseDate || ''}\n`;
-      }
-    } else if (d.type === 'slow_deals') {
-      const deals = d.deals || [];
-      prompt += `${deals.length} deals stuck >30 days in current stage:\n`;
-      for (const deal of deals.slice(0, 15)) {
-        prompt += `  • ${deal.Account?.Account_Display_Name__c || deal.Account?.Name || deal.Name} — ${deal.StageName} | ${deal.Days_in_Stage__c} days | $${((deal.ACV__c || 0) / 1000).toFixed(0)}k | ${maskOwnerIfUnassigned(deal.Owner?.Name)}\n`;
-      }
-    } else if (d.type === 'pipeline_added') {
-      const deals = d.deals || [];
-      prompt += `${deals.length} deals added this week:\n`;
-      for (const deal of deals.slice(0, 15)) {
-        prompt += `  • ${deal.Account?.Account_Display_Name__c || deal.Account?.Name || deal.Name} — $${((deal.ACV__c || 0) / 1000).toFixed(0)}k | ${deal.StageName} | ${maskOwnerIfUnassigned(deal.Owner?.Name)} | ${deal.Product_Line__c || ''}\n`;
+    } else if (context.intent === 'PIPELINE_BY_SALES_TYPE') {
+      for (const row of recs) {
+        prompt += `  • ${row.Sales_Type__c || 'Unknown'}: $${((row.totalAcv || 0) / 1000).toFixed(0)}k | ${row.cnt || 0} deals\n`;
       }
     } else {
-      prompt += JSON.stringify(d).substring(0, 2000) + '\n';
+      // Generic deal list format (DEALS_SIGNED, DEALS_TARGETING, LOI_DEALS, ARR_DEALS, SLOW_DEALS, PIPELINE_ADDED)
+      for (const r of recs.slice(0, 20)) {
+        const acctName = r.Account?.Account_Display_Name__c || r.Account?.Name || r.Name || 'Unknown';
+        const acv = r.ACV__c ? `$${((r.ACV__c || 0) / 1000).toFixed(0)}k` : '';
+        const stage = r.StageName || '';
+        const owner = maskOwnerIfUnassigned(r.Owner?.Name);
+        const date = r.Target_LOI_Date__c || r.CloseDate || r.CreatedDate?.split('T')[0] || '';
+        const days = r.Days_in_Stage__c ? `${r.Days_in_Stage__c}d in stage` : '';
+        const product = r.Product_Line__c || '';
+        const revenue = r.Revenue_Type__c || '';
+        const parts = [acctName, acv, stage, owner, date, days, product, revenue].filter(Boolean);
+        prompt += `  • ${parts.join(' | ')}\n`;
+      }
+      if (recs.length > 20) prompt += `  ... and ${recs.length - 20} more\n`;
     }
     return prompt;
   }
