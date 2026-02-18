@@ -1,7 +1,8 @@
 # GTM Engineering Planning 2026
 
-**Last Updated:** February 18, 2026
-**Latest Commit:** `37191a7` (GTM Brain pipeline intelligence + critical data fix)
+**Last Updated:** February 18, 2026, 2:00 AM PST
+**Latest Commit:** `1114f4f` (Critical fix: Replace broken bridge functions with direct SOQL)
+**Session Name:** Q1FY2026 GTM ENG FEB
 **Production:** Live on Render.com at https://gtm-wizard.onrender.com (auto-deploys from `main`)
 **Salesforce:** eudia.my.salesforce.com (Production Org)
 **GitHub:** github.com/cicerotech/gtm-wizard (private)
@@ -654,30 +655,88 @@ git add . && git commit -m "description" && git push origin main
 
 ## RECENT WORK (FEB 2026 — COMPLETE LOG)
 
-### Commits (Feb 17-18, 2026 — GTM Brain Intelligence Overhaul)
+### Commits (Feb 17-18, 2026 — GTM Brain Intelligence Overhaul + Transformation)
 
 | Commit | Date | Description |
 |--------|------|-------------|
-| `37191a7` | Feb 18 | **Critical fix: Pipeline queries return real data** — Fix disambiguation guard blocking CUSTOMER_COUNT/CONTACT_SEARCH, bypass SOQL cache for cross-account queries, add ML intent priority overrides, bridge weekly snapshot data functions into pipeline context |
-| `52e8b41` | Feb 17 | **Pipeline intelligence expansion** — Stage 5 Negotiation everywhere, product line filtering (12 entries), cross-account signal detection (15 regex patterns), CUSTOMER_COUNT/CONTACT_SEARCH intents, owner accounts with BL name map, weekly snapshot bridge, env-configurable model |
-| `108bfdc` | Feb 17 | **Intelligence overhaul: 30+ surgical fixes** — Past/upcoming event split, unassigned owner masking, free-text account extraction, disambiguation fallback, AbortController timeout, queryGeneration guard, fuzzy search (SOSL), contact title ranking, session TTL, context re-injection |
+| `1114f4f` | Feb 18 | **Critical fix: Direct SOQL for all cross-account queries** — Replaced broken bridge functions with direct SOQL (useCache=false). Bridge functions returned inconsistent data shapes causing all pipeline queries to show $0. Each intent now has its own clean SOQL. |
+| `06e057f` | Feb 18 | **UX cleanup + Meeting Prep privacy + Counsel sensitization** — Simplified welcome screen to 5 balanced tiles, auto-filter Meeting Prep to logged-in user, use Account_Display_Name__c for Counsel accounts |
+| `30e9644` | Feb 18 | **GTM Brain transformation: 7-phase overhaul** — Session bug fixes, 12 new query types (forecast, weighted pipeline, deals signed, targeting, by product, by sales type, LOI/ARR, slow deals, pipeline added), query autocomplete palette (33 questions), live dashboard cards, copy/timestamp/retry UX, mobile CSS, dynamic loading |
+| `d9cf609` | Feb 18 | **Export missing functions from blWeeklySummary** — queryAIEnabledForecast and ACTIVE_STAGES were imported but not exported, causing silent undefined |
+| `37191a7` | Feb 18 | **Critical fix: Pipeline queries return real data** — Fix disambiguation guard, bypass SOQL cache, add ML intent priority overrides, weekly snapshot data bridge |
+| `52e8b41` | Feb 17 | **Pipeline intelligence expansion** — Stage 5 Negotiation, product line filtering, cross-account signal detection, CUSTOMER_COUNT/CONTACT_SEARCH intents, BL ownership queries |
+| `108bfdc` | Feb 17 | **Intelligence overhaul: 30+ surgical fixes** — Past/upcoming event split, unassigned owner masking, free-text account extraction, disambiguation fallback, AbortController timeout, fuzzy search (SOSL), contact title ranking, session TTL |
 
-**GTM Brain Capabilities Added (Feb 17-18):**
+---
 
-1. **Pipeline Queries** — "What deals are late stage?", "Deals in negotiation?", "Late stage contracting?" now return real data from Salesforce via weekly snapshot bridge
-2. **Stage 5 Negotiation** — Added to all stage definitions (late stage = S3 + S4 + S5)
-3. **Product Line Filtering** — "Late stage contracting deals", "Compliance deals" filter by Product_Line__c
-4. **Cross-Account Detection** — 15 regex patterns detect pipeline questions even when an account is selected, preventing account-lock
-5. **Customer/Logo Counts** — "How many customers do we have?" queries Account.Customer_Type__c and groups by type
-6. **BL Ownership** — "What accounts does Riley own?" resolves BL name to SF User ID, queries their accounts and pipeline
-7. **Contact Search** — "CLOs based in Los Angeles?" cross-account contact queries by title + 9 metro areas
-8. **Meeting Activity** — "What accounts did we meet with this week?" queries Events
-9. **Unassigned Owner Masking** — Keigan/Emmit/etc. show as "Unassigned" (ported from Slack bot)
-10. **Date Handling** — Past events (< TODAY) vs upcoming (>= TODAY) cleanly separated, no more "future is error"
-11. **Fuzzy Account Search** — SOSL fallback, abbreviation map (27 entries), SOQL wildcard escaping
-12. **Frontend Hardening** — 30s fetch timeout, stale response guard, search AbortController, account-bound suggestion chips
-13. **Session Intelligence** — Context TTL enforcement, condensed context re-injection on long conversations
-14. **Weekly Snapshot Bridge** — Pipeline queries use `queryPipelineData()` from blWeeklySummary.js (same proven SOQL as weekly PDF)
+### GTM Brain Web Interface — Current State (Feb 18, 2026)
+
+**What Works:**
+- Account Overview (hero button) — full account intelligence with contacts, opps, events, history
+- Account search with fuzzy matching (SOSL fallback, abbreviation expansion)
+- Query autocomplete palette with 33 predefined questions across 5 categories
+- Copy button, timestamps, retry button on responses
+- Intent classification display ("Interpreted as: Pipeline")
+- Dynamic loading sequences per query type (20+ variations)
+- Mobile responsive CSS
+- Unassigned owner masking (Keigan/Emmit/etc. show as "Unassigned")
+- Counsel account sensitization (Account_Display_Name__c used for code names)
+- Meeting Prep auto-filtered to logged-in user
+
+**Cross-Account Queries — Architecture:**
+- 21 cross-account intent types defined (PIPELINE_OVERVIEW, FORECAST, WEIGHTED_PIPELINE, DEALS_SIGNED, DEALS_TARGETING, PIPELINE_BY_PRODUCT, PIPELINE_BY_SALES_TYPE, LOI_DEALS, ARR_DEALS, SLOW_DEALS, PIPELINE_ADDED, CUSTOMER_COUNT, CONTACT_SEARCH, OWNER_ACCOUNTS, MEETING_ACTIVITY, ACCOUNT_LOOKUP, plus 5 more)
+- Cross-account signal detection (15 regex patterns) clears account context for pipeline questions
+- Intent classification: priority regex overrides (14 patterns) → ML cascade (29 mapped intents) → simple keyword fallback
+- Session management: cross-account detection runs BEFORE session, intent changes force context re-gather
+- All cross-account SOQL uses `useCache=false` for live data
+- Direct SOQL per intent (no bridge functions — they had inconsistent return shapes)
+
+**Known Issues (to be addressed next session):**
+1. **Cross-account pipeline queries may return empty results** if Salesforce connection is in degraded state. The SOQL is correct (same queries as weekly snapshot PDF), but the connection health affects results. When SF is healthy, these queries work. When degraded, they return $0.
+2. **"Meetings this week" tile** returns empty because Event SOQL uses `THIS_WEEK` which may not match any events depending on calendar data.
+3. **Session context bleeding was fixed** but needs live validation — cross-account detection now clears session state, intent changes force re-gather.
+4. **Salesforce rate limiting** — do NOT run local `node -e` scripts that call `initializeSalesforce()`, as this competes with Render's service account and can trigger login lockouts.
+
+### NEXT SESSION PRIORITY: Virtual Audio Device for Obsidian Recording
+
+**Problem:** The Obsidian plugin's audio recording only captures the user's microphone. External meeting attendees' voices are NOT captured. The `getDisplayMedia` system audio capture silently fails in Obsidian's Electron shell. Echo cancellation actively suppresses the other person's voice from speakers.
+
+**Current audio pipeline:**
+```
+User clicks record → AudioRecorder.ts
+  → getUserMedia({echoCancellation: true}) — captures mic only
+  → getDisplayMedia({audio: true}) — FAILS silently in Electron
+  → Falls back to mic-only recording
+  → Every 2 min: chunk → /api/transcribe-chunk (Whisper)
+  → On stop: full blob → /api/transcribe-and-summarize (Whisper + Claude)
+```
+
+**Recommended approach: Option C — Virtual Audio Device**
+- Ship a virtual audio driver (BlackHole for Mac, VB-Cable for Windows)
+- Creates a loopback from system audio output to a virtual microphone input
+- Plugin captures from the virtual mic, getting both sides of the call
+- This is what professional recording tools (Otter.ai, Zoom) use
+- Requires users to install the driver — add to onboarding flow
+- The plugin should detect the virtual device and auto-select it
+- Fallback: if no virtual device, use mic-only with echo cancellation disabled + speaker mode guidance
+
+**Files involved:**
+- `obsidian-plugin/src/AudioRecorder.ts` — audio capture logic
+- `obsidian-plugin/main.ts` — recording flow, UI, onboarding
+- `src/services/transcriptionService.js` — Whisper transcription
+- `src/services/callIntelligence.js` — speaker diarization (AssemblyAI)
+
+**Speaker diarization already exists** in `callIntelligence.js` — AssemblyAI with `speaker_labels: true, speakers_expected: 2`. Requires `ASSEMBLYAI_API_KEY` env var. Once both voices are captured, diarization can separate rep vs. customer.
+
+### Files Modified in This Session
+
+| File | Changes |
+|------|---------|
+| `src/services/intelligenceQueryService.js` | Session restructure, 21 intent types, cross-account signal detection, direct SOQL gatherers, priority regex overrides, ML intent map (29 entries), prompt construction for all context types, owner masking, counsel sensitization, model env var |
+| `src/views/gtmBrainView.js` | Query autocomplete palette (33 questions), dashboard cards (removed per user feedback), copy/timestamp/retry UX, mobile CSS, dynamic loading (20+ variations), welcome screen cleanup |
+| `src/routes/emailBuilder.js` | Fuzzy search (SOSL), abbreviation map (27 entries), SOQL wildcard escaping, null guards, normalizeSearchTerm |
+| `src/app.js` | `/api/pipeline-health` endpoint, Meeting Prep auto-filter by logged-in user |
+| `src/slack/blWeeklySummary.js` | Exported 7 additional functions for bridge (queryPipelineBySalesType, queryPipelineBySolution, querySignedRevenueQTD, querySignedRevenueLastWeek, queryTop10TargetingJanuary, queryTop10TargetingQ1, queryLogosByType, ACTIVE_STAGES) |
 
 ### Commits (Feb 13, 2026 — Weekly Snapshot, Pipeline, Account Targeting)
 
