@@ -53,7 +53,7 @@ function formatAccountResult(acc) {
   if (!acc) return null;
   return {
     id: acc.Id,
-    name: acc.Name,
+    name: acc.Account_Display_Name__c || acc.Name,
     owner: acc.Owner?.Name || 'Unassigned',
     isNewLogo: acc.Is_New_Logo__c,
     customerType: acc.Customer_Type__c,
@@ -75,9 +75,8 @@ async function searchAccounts(req, res) {
     const searchTerm = normalizeSearchTerm(rawTerm);
     const escapedTerm = searchTerm.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/%/g, '\\%').replace(/_/g, '\\_');
 
-    // Strategy 1: SOQL LIKE match (fast, exact substring)
     const soql = `
-      SELECT Id, Name, Owner.Name, Is_New_Logo__c, Customer_Type__c, Industry, LastActivityDate,
+      SELECT Id, Name, Account_Display_Name__c, Owner.Name, Is_New_Logo__c, Customer_Type__c, Industry, LastActivityDate,
              (SELECT Id, StageName, ACV__c, Product_Line__c 
               FROM Opportunities WHERE IsClosed = false ORDER BY CreatedDate DESC LIMIT 1)
       FROM Account
@@ -99,7 +98,7 @@ async function searchAccounts(req, res) {
         if (matches.length > 0) break;
         const safeV = variant.replace(/'/g, "\\'");
         const vResult = await query(`
-          SELECT Id, Name, Owner.Name, Is_New_Logo__c, Customer_Type__c, Industry, LastActivityDate,
+          SELECT Id, Name, Account_Display_Name__c, Owner.Name, Is_New_Logo__c, Customer_Type__c, Industry, LastActivityDate,
                  (SELECT Id, StageName, ACV__c, Product_Line__c 
                   FROM Opportunities WHERE IsClosed = false ORDER BY CreatedDate DESC LIMIT 1)
           FROM Account WHERE Name LIKE '%${safeV}%'

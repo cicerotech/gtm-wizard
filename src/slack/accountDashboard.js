@@ -1213,7 +1213,7 @@ async function generateAccountDashboard() {
   // Includes ALL active contracts, not just Recurring
   // ═══════════════════════════════════════════════════════════════════════
   const contractsQuery = `
-    SELECT Account.Name, Contract_Type__c, Contract_Value__c, Annualized_Revenue__c,
+    SELECT Account.Name, Account.Account_Display_Name__c, Contract_Type__c, Contract_Value__c, Annualized_Revenue__c,
            Amount__c, StartDate, EndDate, Status, Product_Line__c, Parent_Product__c,
            ContractNumber
     FROM Contract
@@ -1326,7 +1326,7 @@ async function generateAccountDashboard() {
   // - IsWon = true (Stage 6. Closed(Won))
   // ═══════════════════════════════════════════════════════════════════════
   const signedDealsQuery = `
-    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
+    SELECT Account.Name, Account.Account_Display_Name__c, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
            StageName, Sales_Type__c, Owner.Name,
            Renewal_Net_Change__c, Booking_ACV__c
     FROM Opportunity
@@ -1349,7 +1349,7 @@ async function generateAccountDashboard() {
   // Now includes Owner.Name and Sales_Type__c for dashboard display
   // Last 60 days Closed Won - for Top Co section (Recurring, Project, Pilot only)
   const novDecDealsQuery = `
-    SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
+    SELECT Account.Name, Account.Account_Display_Name__c, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
            StageName, Eudia_Tech__c, Owner.Name, Sales_Type__c
     FROM Opportunity
     WHERE IsClosed = true
@@ -1522,7 +1522,7 @@ async function generateAccountDashboard() {
       console.log(`[Dashboard] ⚠️ No Closed Won records returned - checking alternative query...`);
       // Try a simpler fallback query without Revenue_Type filter but with FQ dates
       const fallbackQuery = `
-        SELECT Account.Name, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
+        SELECT Account.Name, Account.Account_Display_Name__c, Name, ACV__c, CloseDate, Product_Line__c, Revenue_Type__c, 
                StageName, Sales_Type__c, Owner.Name, Renewal_Net_Change__c, Booking_ACV__c
         FROM Opportunity
         WHERE StageName LIKE '%Closed%Won%'
@@ -1677,7 +1677,7 @@ async function generateAccountDashboard() {
   // Check for closed Commitment/LOI deals on each Revenue account
   // ═══════════════════════════════════════════════════════════════════════
   const loiHistoryQuery = `
-    SELECT Account.Name, Revenue_Type__c
+    SELECT Account.Name, Account.Account_Display_Name__c, Revenue_Type__c
     FROM Opportunity
     WHERE Revenue_Type__c = 'Commitment' AND IsClosed = true AND IsWon = true
   `;
@@ -1702,7 +1702,7 @@ async function generateAccountDashboard() {
   // Fetches Closed_Lost_Reason__c and Closed_Lost_Detail__c for display
   // ═══════════════════════════════════════════════════════════════════════
   const closedLostQuery = `
-    SELECT Account.Name, Name, StageName, ACV__c, Closed_Lost_Detail__c, Closed_Lost_Reason__c,
+    SELECT Account.Name, Account.Account_Display_Name__c, Name, StageName, ACV__c, Closed_Lost_Detail__c, Closed_Lost_Reason__c,
            LastModifiedDate, Owner.Name, Description
     FROM Opportunity
     WHERE (StageName = 'Closed Lost' OR StageName = 'Stage 7. Closed Lost' OR StageName = 'Stage 7 - Closed Lost')
@@ -1762,7 +1762,7 @@ async function generateAccountDashboard() {
   // Filters: Revenue_Type__c = Recurring, Project, or Commitment
   // ═══════════════════════════════════════════════════════════════════════
   const closedWonThisWeekQuery = `
-    SELECT Account.Name, Name, ACV__c, Amount, CloseDate, Product_Line__c, 
+    SELECT Account.Name, Account.Account_Display_Name__c, Name, ACV__c, Amount, CloseDate, Product_Line__c, 
            TCV__c, Revenue_Type__c, Owner.Name, LastModifiedDate, Sales_Type__c
     FROM Opportunity
     WHERE IsClosed = true
@@ -1774,7 +1774,7 @@ async function generateAccountDashboard() {
   
   // Fallback query without Revenue_Type__c filter (catches all closed won this week)
   const closedWonFallbackQuery = `
-    SELECT Account.Name, Name, ACV__c, Amount, CloseDate, Product_Line__c, 
+    SELECT Account.Name, Account.Account_Display_Name__c, Name, ACV__c, Amount, CloseDate, Product_Line__c, 
            TCV__c, Revenue_Type__c, Owner.Name, LastModifiedDate, Sales_Type__c
     FROM Opportunity
     WHERE IsClosed = true
@@ -1866,7 +1866,7 @@ async function generateAccountDashboard() {
   
   // Fallback: Get unique accounts from Closed Won opportunities
   const closedWonAccountsQuery = `
-    SELECT Account.Name
+    SELECT Account.Name, Account.Account_Display_Name__c
     FROM Opportunity
     WHERE IsClosed = true
       AND IsWon = true
@@ -1913,7 +1913,7 @@ async function generateAccountDashboard() {
   // OPPORTUNITIES CREATED THIS WEEK - CreatedDate in last 7 days
   // ═══════════════════════════════════════════════════════════════════════
   const newOppsQuery = `
-    SELECT Account.Name, Name, StageName, ACV__c, CreatedDate, Owner.Name, Product_Line__c, Johnson_Hana_Owner__c
+    SELECT Account.Name, Account.Account_Display_Name__c, Name, StageName, ACV__c, CreatedDate, Owner.Name, Product_Line__c, Johnson_Hana_Owner__c
     FROM Opportunity
     WHERE CreatedDate >= LAST_N_DAYS:7
       AND IsClosed = false
@@ -1950,7 +1950,7 @@ async function generateAccountDashboard() {
   // Top 10 opportunities per stage with longest duration in stage
   // ═══════════════════════════════════════════════════════════════════════
   const daysInStageQuery = `
-    SELECT Account.Name, Name, StageName, ACV__c, Days_in_Stage1__c
+    SELECT Account.Name, Account.Account_Display_Name__c, Name, StageName, ACV__c, Days_in_Stage1__c
     FROM Opportunity
     WHERE IsClosed = false
       AND StageName IN ('Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
@@ -2139,7 +2139,7 @@ async function generateAccountDashboard() {
   // FIXED: Use Owner.Name (Opportunity Owner) not Account.Owner.Name (Account Owner)
   // ADDED: Target_LOI_Date__c for target sign date display
   // ADDED: Johnson_Hana_Owner__c for JH opportunities (use this instead of Owner.Name when present)
-  const accountQuery = `SELECT Account.Id, Account.Name, Owner.Name, Account.Is_New_Logo__c,
+  const accountQuery = `SELECT Account.Id, Account.Name, Account.Account_Display_Name__c, Owner.Name, Account.Is_New_Logo__c,
                                Account.Account_Plan_s__c, Account.Customer_Type__c,
                                Name, StageName, ACV__c, Weighted_ACV__c, Product_Line__c,
                                Target_LOI_Date__c, Johnson_Hana_Owner__c, Eudia_Tech__c, Sales_Type__c
@@ -2247,10 +2247,8 @@ async function generateAccountDashboard() {
   let newLogoCount = 0;
   
   accountData.records.forEach(opp => {
-    const accountName = opp.Account?.Name;
+    const accountName = opp.Account?.Account_Display_Name__c || opp.Account?.Name;
     
-    // For Johnson Hana opportunities, use the custom JH owner field instead of "Keigan Pesenti"
-    // This field contains the original JH owner name (e.g., "Nathan Shine", "Alex Fox")
     const effectiveOwner = opp.Johnson_Hana_Owner__c || opp.Owner?.Name;
     
     if (!accountMap.has(accountName)) {

@@ -859,8 +859,20 @@ class GTMBrainApp {
         }
       } catch (calendarError) {
         logger.warn('⚠️  Calendar sync service failed to initialize:', calendarError.message);
-        // Don't throw - app can still run, just without calendar caching
       }
+
+      // Pre-warm the calendar cache for Meeting Prep (non-blocking)
+      // Fetches all BL calendars in background so the first Meeting Prep load is instant
+      setTimeout(async () => {
+        try {
+          const { calendarService } = require('./services/calendarService');
+          await calendarService.initialize();
+          const result = await calendarService.getUpcomingMeetingsForAllBLs(7, false);
+          logger.info(`✅ Calendar cache pre-warmed: ${result?.meetings?.length || 0} meetings cached`);
+        } catch (e) {
+          logger.warn('⚠️  Calendar pre-warm failed (non-blocking):', e.message);
+        }
+      }, 10000);
 
       // Initialize Slack Intel Cache (file-based cache for Slack intelligence)
       try {
@@ -1986,9 +1998,12 @@ class GTMBrainApp {
           usageLogger.logPageView(oktaSession, '/gtm/meeting-prep', req).catch(() => {});
           
           const { generateMeetingPrepHTML } = require('./views/meetingPrepView');
-          // Auto-filter to logged-in user's meetings (unless explicitly overridden via query param)
+          // Auto-filter to logged-in user's meetings
+          // Admins see all by default; BLs auto-filter to their own meetings
           let filterUserId = req.query.filterUser || null;
-          if (!filterUserId && oktaSession.email) {
+          const userGroup = getUserGroup(oktaSession.email);
+          const isAdmin = userGroup === 'admin' || userGroup === 'exec';
+          if (!filterUserId && !isAdmin && oktaSession.email) {
             try {
               const meetingPrepService = require('./services/meetingPrepService');
               const blUsers = await meetingPrepService.getBLUsers();

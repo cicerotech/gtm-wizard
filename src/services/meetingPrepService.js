@@ -302,9 +302,28 @@ async function getUpcomingMeetings(startDate, endDate) {
     for (const event of outlookEvents) {
       const extractedAccountName = extractAccountFromAttendees(event.externalAttendees);
       
-      // Try to match to SF account for context enrichment
+      // Try multiple matching strategies in priority order
       const accountNameLower = extractedAccountName.toLowerCase().trim();
-      const sfMatch = findBestAccountMatch(accountNameLower, sfAccountLookup);
+      let sfMatch = findBestAccountMatch(accountNameLower, sfAccountLookup);
+
+      // Fallback: try matching from the meeting subject line
+      if (!sfMatch && event.subject) {
+        const subjectAccount = extractAccountFromSubject(event.subject);
+        if (subjectAccount) {
+          sfMatch = findBestAccountMatch(subjectAccount.toLowerCase().trim(), sfAccountLookup);
+          if (sfMatch) {
+            logger.debug(`[MeetingPrep] Subject-line match: "${event.subject}" → ${sfMatch.accountName}`);
+          }
+        }
+      }
+
+      // Fallback: try matching the raw email domain against the lookup
+      if (!sfMatch && event.externalAttendees?.length > 0) {
+        const domain = (event.externalAttendees[0]?.email || '').split('@')[1]?.split('.')[0];
+        if (domain && domain.length >= 3) {
+          sfMatch = findBestAccountMatch(domain.toLowerCase(), sfAccountLookup);
+        }
+      }
       
       // Normalize Outlook event with SF account ID if matched
       const normalizedEvent = {
@@ -365,52 +384,64 @@ async function buildSfAccountLookup() {
   const lookup = new Map();
   
   try {
-    // Query accounts that have active opportunities or are customers
     const accountQuery = `
-      SELECT Id, Name, Website
+      SELECT Id, Name, Account_Display_Name__c, Website
       FROM Account
       WHERE (
-        Customer_Type__c IN ('Revenue', 'Pilot', 'LOI, with $ attached', 'LOI, no $ attached')
+        Customer_Type__c IN ('Revenue', 'Pilot', 'LOI, with $ attached', 'LOI, no $ attached',
+                             'Existing Customer', 'Existing Customer - JH Owned')
         OR Id IN (SELECT AccountId FROM Opportunity WHERE IsClosed = false)
       )
       AND Name != null
       ORDER BY Name ASC
-      LIMIT 500
+      LIMIT 1000
     `;
     
     const result = await query(accountQuery, true);
     
     if (result?.records) {
       for (const account of result.records) {
+        const displayName = account.Account_Display_Name__c || account.Name;
+        const entry = {
+          accountId: account.Id,
+          accountName: displayName,
+          website: account.Website
+        };
+        
+        // Index by lowercase account name
         const nameKey = (account.Name || '').toLowerCase().trim();
-        if (nameKey) {
-          lookup.set(nameKey, {
-            accountId: account.Id,
-            accountName: account.Name,
-            website: account.Website
-          });
-          
-          // Also add domain-based keys from website
-          if (account.Website) {
-            try {
-              const url = new URL(account.Website.startsWith('http') ? account.Website : 'https://' + account.Website);
-              const domain = url.hostname.replace('www.', '').split('.')[0];
-              if (domain && domain.length > 2) {
-                lookup.set(domain.toLowerCase(), {
-                  accountId: account.Id,
-                  accountName: account.Name,
-                  website: account.Website
-                });
-              }
-            } catch (e) {
-              // Ignore invalid URLs
+        if (nameKey) lookup.set(nameKey, entry);
+        
+        // Index by display name (codename) if different
+        const displayKey = (displayName || '').toLowerCase().trim();
+        if (displayKey && displayKey !== nameKey) lookup.set(displayKey, entry);
+
+        // Index by name without common suffixes (inc, llc, etc.)
+        const stripped = nameKey.replace(/\s*(inc\.?|llc\.?|ltd\.?|corp\.?|corporation|company|co\.?|group)$/i, '').trim();
+        if (stripped && stripped !== nameKey) lookup.set(stripped, entry);
+        
+        // Index by website domain (primary domain only)
+        if (account.Website) {
+          try {
+            const url = new URL(account.Website.startsWith('http') ? account.Website : 'https://' + account.Website);
+            const hostname = url.hostname.replace('www.', '');
+            const domain = hostname.split('.')[0];
+            if (domain && domain.length > 2) {
+              lookup.set(domain.toLowerCase(), entry);
             }
+            // Also index by full hostname minus TLD for multi-word domains
+            const fullDomain = hostname.split('.').slice(0, -1).join('');
+            if (fullDomain && fullDomain !== domain && fullDomain.length > 3) {
+              lookup.set(fullDomain.toLowerCase(), entry);
+            }
+          } catch (e) {
+            // Ignore invalid URLs
           }
         }
       }
     }
     
-    logger.debug(`[MeetingPrep] Built SF account lookup with ${lookup.size} entries`);
+    logger.info(`[MeetingPrep] Built SF account lookup with ${lookup.size} entries from ${result?.records?.length || 0} accounts`);
   } catch (error) {
     logger.warn('[MeetingPrep] Failed to build SF account lookup:', error.message);
   }
@@ -423,27 +454,64 @@ async function buildSfAccountLookup() {
  * Supports exact match, partial match, and fuzzy matching
  */
 function findBestAccountMatch(accountNameLower, sfAccountLookup) {
+  if (!accountNameLower || accountNameLower.length < 2) return null;
+  
   // Exact match
   if (sfAccountLookup.has(accountNameLower)) {
     return sfAccountLookup.get(accountNameLower);
   }
   
-  // Try without common suffixes
+  // Strip common suffixes
   const cleanedName = accountNameLower
-    .replace(/\s*(inc\.?|llc\.?|ltd\.?|corp\.?|corporation|company|co\.?)$/i, '')
+    .replace(/\s*(inc\.?|llc\.?|ltd\.?|corp\.?|corporation|company|co\.?|group|holdings?)$/i, '')
     .trim();
   
-  if (sfAccountLookup.has(cleanedName)) {
+  if (cleanedName && sfAccountLookup.has(cleanedName)) {
     return sfAccountLookup.get(cleanedName);
   }
+
+  // Try concatenated form (e.g., "chsinc" -> lookup "chs")
+  const concatenated = cleanedName.replace(/\s+/g, '');
+  if (concatenated !== cleanedName && sfAccountLookup.has(concatenated)) {
+    return sfAccountLookup.get(concatenated);
+  }
   
-  // Try partial match (account name contains or is contained by)
-  for (const [key, value] of sfAccountLookup.entries()) {
-    if (key.includes(cleanedName) || cleanedName.includes(key)) {
-      return value;
+  // Partial match: check if either contains the other (min 3 chars to avoid false positives)
+  if (cleanedName.length >= 3) {
+    for (const [key, value] of sfAccountLookup.entries()) {
+      if (key.length < 3) continue;
+      if (key.includes(cleanedName) || cleanedName.includes(key)) {
+        return value;
+      }
     }
   }
   
+  return null;
+}
+
+/**
+ * Extract potential account name from meeting subject line.
+ * Common patterns: "Eudia/CHS - Topic", "CHS x Eudia", "CHS <> Eudia", "Meeting with CHS"
+ */
+function extractAccountFromSubject(subject) {
+  if (!subject) return null;
+  
+  const eudiaPatterns = [
+    /^(?:eudia|cicero)\s*[\/\-<>x]\s*(.+?)(?:\s*[-–—:]\s*.+)?$/i,
+    /^(.+?)\s*[\/\-<>x]\s*(?:eudia|cicero)(?:\s*[-–—:]\s*.+)?$/i,
+    /^(?:meeting|call|sync|discussion|review|demo|intro)\s+(?:with\s+)?(.+?)(?:\s*[-–—:]\s*.+)?$/i,
+    /^(.+?)\s*[-–—:]\s*(?:meeting|call|sync|discussion|review|demo|intro|follow.?up)/i,
+  ];
+
+  for (const pattern of eudiaPatterns) {
+    const match = subject.match(pattern);
+    if (match?.[1]) {
+      const candidate = match[1].trim().replace(/\s*[-–—:]\s*$/, '').trim();
+      if (candidate.length >= 2 && candidate.length <= 60) {
+        return candidate;
+      }
+    }
+  }
   return null;
 }
 
