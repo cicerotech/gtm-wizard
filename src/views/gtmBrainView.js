@@ -538,16 +538,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       '</span>';
     acctChipArea.querySelector('.gtm-acct-chip-x').addEventListener('click', clearSelection);
 
-    // Reset session when account changes so queries use fresh context
-    if (prevName && prevName !== acc.name) {
-      currentSessionId = null;
-      if (threadContainer.querySelector('.gtm-msg')) {
-        var divider = document.createElement('div');
-        divider.className = 'gtm-switch-divider';
-        divider.textContent = 'Switched to ' + acc.name;
-        threadContainer.appendChild(divider);
-        scrollToElement(divider, 'end');
-      }
+    // Always reset session when selecting an account to ensure fresh context
+    currentSessionId = null;
+    if (prevName && prevName !== acc.name && threadContainer.querySelector('.gtm-msg')) {
+      var divider = document.createElement('div');
+      divider.className = 'gtm-switch-divider';
+      divider.textContent = 'Switched to ' + acc.name;
+      threadContainer.appendChild(divider);
+      scrollToElement(divider, 'end');
     }
 
     updateTileState();
