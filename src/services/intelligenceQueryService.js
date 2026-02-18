@@ -759,8 +759,11 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
   }
 
   // Handle cross-account queries — these don't need a specific account
+  // PIPELINE_OVERVIEW now routes through gatherSnapshotContext (same proven SOQL path
+  // as DEALS_TARGETING, WEIGHTED_PIPELINE, etc.) instead of gatherPipelineContext
+  // which has a persistent failure mode despite identical SOQL.
   if (intent === 'PIPELINE_OVERVIEW') {
-    return await gatherPipelineContext(userEmail || null, query);
+    return await gatherSnapshotContext('PIPELINE_OVERVIEW', query);
   }
   if (intent === 'OWNER_ACCOUNTS') {
     return await gatherOwnerAccountsContext(query);
@@ -1716,6 +1719,44 @@ async function gatherSnapshotContext(intent, query) {
     let metadata = {};
 
     switch (intent) {
+      case 'PIPELINE_OVERVIEW': {
+        const lower = (query || '').toLowerCase();
+        let stageFilter = STAGES;
+        let labelSuffix = '';
+        if (lower.includes('late stage')) { stageFilter = "'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation'"; labelSuffix = ' (Late Stage)'; }
+        else if (lower.includes('negotiation') || lower.includes('stage 5')) { stageFilter = "'Stage 5 - Negotiation'"; labelSuffix = ' (Negotiation)'; }
+        else if (lower.includes('proposal') || lower.includes('stage 4')) { stageFilter = "'Stage 4 - Proposal'"; labelSuffix = ' (Proposal)'; }
+        else if (lower.includes('pilot') || lower.includes('stage 3')) { stageFilter = "'Stage 3 - Pilot'"; labelSuffix = ' (Pilot)'; }
+        else if (lower.includes('early stage') || lower.includes('prospecting')) { stageFilter = "'Stage 0 - Prospecting', 'Stage 1 - Discovery'"; labelSuffix = ' (Early Stage)'; }
+
+        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, StageName, ACV__c, Target_LOI_Date__c, Product_Line__c, Owner.Name FROM Opportunity WHERE IsClosed = false AND StageName IN (${stageFilter}) ORDER BY ACV__c DESC NULLS LAST LIMIT 50`, false);
+        records = r?.records || [];
+
+        // Apply product line filter if mentioned
+        for (const [kw, pl] of Object.entries(PRODUCT_LINE_MAP)) {
+          if (lower.includes(kw)) {
+            records = records.filter(o => {
+              const pv = (o.Product_Line__c || '').toLowerCase();
+              return pl.partial ? pv.includes(kw) || pv.startsWith(pl.value.split('_')[0].toLowerCase()) : pv === pl.value.toLowerCase();
+            });
+            labelSuffix += ` — ${kw}`;
+            break;
+          }
+        }
+
+        // Build summary metadata
+        let totalAcv = 0;
+        const byStage = {};
+        for (const o of records) {
+          totalAcv += o.ACV__c || 0;
+          const s = o.StageName || 'Unknown';
+          if (!byStage[s]) byStage[s] = 0;
+          byStage[s]++;
+        }
+        metadata = { totalDeals: records.length, totalAcv, byStage };
+        label = `Active Pipeline${labelSuffix}`;
+        break;
+      }
       case 'FORECAST': {
         const r = await sfQuery(`SELECT SUM(Quarterly_Commit__c) totalCommit, SUM(Weighted_ACV_AI_Enabled__c) totalWeighted, COUNT(Id) dealCount FROM Opportunity WHERE IsClosed = false AND StageName IN (${STAGES})`, false);
         const agg = r?.records?.[0] || {};
@@ -2268,6 +2309,22 @@ function buildUserPrompt(intent, query, context) {
       for (const row of recs) {
         prompt += `  • ${row.Sales_Type__c || 'Unknown'}: $${((row.totalAcv || 0) / 1000).toFixed(0)}k | ${row.cnt || 0} deals\n`;
       }
+    } else if (context.intent === 'PIPELINE_OVERVIEW') {
+      // Pipeline overview with stage breakdown
+      prompt += `• Total: ${meta.totalDeals || recs.length} deals | $${((meta.totalAcv || 0) / 1000).toFixed(0)}k total ACV\n`;
+      if (meta.byStage) {
+        prompt += '\nBY STAGE:\n';
+        for (const [stage, cnt] of Object.entries(meta.byStage)) { prompt += `  • ${stage}: ${cnt} deals\n`; }
+      }
+      prompt += '\nDEAL LIST:\n';
+      for (const r of recs.slice(0, 30)) {
+        const acctName = r.Account?.Account_Display_Name__c || r.Account?.Name || 'Unknown';
+        const acv = r.ACV__c ? `$${((r.ACV__c || 0) / 1000).toFixed(0)}k` : '';
+        const owner = maskOwnerIfUnassigned(r.Owner?.Name);
+        const product = r.Product_Line__c ? ` | ${r.Product_Line__c}` : '';
+        prompt += `  • ${acctName} — ${acv} | ${r.StageName || ''} | ${owner} | Target: ${r.Target_LOI_Date__c || 'N/A'}${product}\n`;
+      }
+      if (recs.length > 30) prompt += `  ... and ${recs.length - 30} more\n`;
     } else {
       // Generic deal list format (DEALS_SIGNED, DEALS_TARGETING, LOI_DEALS, ARR_DEALS, SLOW_DEALS, PIPELINE_ADDED)
       for (const r of recs.slice(0, 20)) {
