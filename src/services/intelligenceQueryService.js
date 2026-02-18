@@ -283,7 +283,7 @@ const QUERY_INTENTS = {
   CONTACT_SEARCH: ['chief legal officer', 'general counsel', 'clo based in', 'gc based in', 'contacts based in', 'contacts in', 'decision makers in', 'find contacts', 'clos owned by'],
   PIPELINE_OVERVIEW: ['my pipeline', 'my deals', 'late stage', 'early stage', 'mid stage', 'how many deal', 'how many account', 'total pipeline', 'closing this month', 'closing this quarter', 'in our pipeline', 'pipeline summary', 'deals closing', 'new logo', 'won this month', 'won this quarter', 'what deals are', 'what opportunities are', 'which deals', 'which opportunities', 'deals in negotiation', 'deals in proposal', 'deals in pilot', 'negotiation', 'proposal stage', 'late stage contracting', 'late stage compliance', 'late stage m&a', 'contracting deals', 'compliance deals', 'pipeline by stage', 'open opportunities', 'open deals', 'active pipeline', 'prospecting', 'being prospected', 'accounts prospected', 'pipeline across all stages', 'total pipeline across'],
   OWNER_ACCOUNTS: ['what accounts does', "'s accounts", "'s book", "'s pipeline", "'s deals", 'accounts does', 'book for'],
-  MEETING_ACTIVITY: ['met with this week', 'meeting with this week', 'meetings this week', 'met with today', 'meeting with today', 'calls this week', 'meetings scheduled'],
+  MEETING_ACTIVITY: ['met with this week', 'meeting with this week', 'meetings this week', 'met with today', 'meeting with today', 'calls this week', 'meetings scheduled', 'accounts did we meet', 'accounts meeting with', 'who are we meeting', 'what meetings do we have'],
   ACCOUNT_LOOKUP: ['who owns', 'owner of', 'assigned to'],
   // Account-specific intents (checked after cross-account)
   PRE_MEETING: ['before my', 'next meeting', 'should i know', 'meeting prep', 'prepare for'],
@@ -336,6 +336,8 @@ const UNASSIGNED_HOLDERS = ['Keigan Pesenti', 'Emmit Hood', 'Emmitt Hood', 'Mark
 function extractAccountFromQuery(query) {
   const patterns = [
     /\btell me about\s+(.+?)(?:\?|$)/i,
+    /\bshow me\s+(.+?)(?:'s|'s)\s+(?:deal|opportunity|opp|pipeline|status|details)/i,
+    /\b(.+?)(?:'s|'s)\s+(?:deal|opportunity|opp)\s+(?:details|status|closing|targeting)/i,
     /\bwhat(?:'s| is)(?: the)?(?: .*?)?\s+(?:at|for|with|on)\s+(.+?)(?:\?|$)/i,
     /\b(?:overview|status|update|info|details|contacts?|pipeline)\s+(?:for|at|on|of)\s+(.+?)(?:\?|$)/i,
     /\b(?:for|at|about|on)\s+(.+?)(?:\?|\.|\s*$)/i,
@@ -1267,37 +1269,28 @@ async function gatherPipelineContext(userEmail, queryText) {
       else conditions.push('CloseDate = THIS_FISCAL_QUARTER');
 
       const result = await sfQuery(`
-        SELECT Id, Name, AccountId, Account.Name, StageName, ACV__c, 
-               CloseDate, Target_LOI_Date__c, Product_Line__c, NextStep, Owner.Name,
-               IsClosed, IsWon, Probability
+        SELECT Id, Name, AccountId, Account.Name, Account.Account_Display_Name__c,
+               StageName, ACV__c, CloseDate, Target_LOI_Date__c, Product_Line__c,
+               Product_Lines_Multi__c, NextStep, Owner.Name, IsClosed, IsWon, Probability
         FROM Opportunity WHERE ${conditions.join(' AND ')}
         ORDER BY ACV__c DESC NULLS LAST LIMIT 200
       `, false);
       allRecords = result?.records || [];
     } else {
-      // Active pipeline: use weekly snapshot bridge (proven reliable), fall back to direct SOQL
-      if (weeklySnapshotBridge) {
-        try {
-          allRecords = await weeklySnapshotBridge.queryPipelineData();
-          logger.info(`[Intelligence] Pipeline bridge returned ${allRecords.length} records`);
-        } catch (bridgeErr) {
-          logger.warn(`[Intelligence] Pipeline bridge failed, falling back to direct SOQL: ${bridgeErr.message}`);
-        }
-      }
-
-      if (allRecords.length === 0) {
-        const result = await sfQuery(`
-          SELECT Id, Name, AccountId, Account.Name, StageName, ACV__c, 
-                 CloseDate, Target_LOI_Date__c, Product_Line__c, NextStep, Owner.Name,
-                 IsClosed, IsWon, Probability
-          FROM Opportunity
-          WHERE IsClosed = false
-            AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
-          ORDER BY ACV__c DESC NULLS LAST
-          LIMIT 200
-        `, false);
-        allRecords = result?.records || [];
-      }
+      // Direct SOQL for active pipeline — bypasses weeklySnapshotBridge which can
+      // hold stale SF connection references and silently return empty results.
+      const result = await sfQuery(`
+        SELECT Id, Name, AccountId, Account.Name, Account.Account_Display_Name__c,
+               StageName, ACV__c, CloseDate, Target_LOI_Date__c, Product_Line__c,
+               Product_Lines_Multi__c, NextStep, Owner.Name, IsClosed, IsWon, Probability
+        FROM Opportunity
+        WHERE IsClosed = false
+          AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
+        ORDER BY ACV__c DESC NULLS LAST
+        LIMIT 200
+      `, false);
+      allRecords = result?.records || [];
+      logger.info(`[Intelligence] Pipeline direct SOQL returned ${allRecords.length} records`);
     }
 
     // Apply in-memory filters based on query content
@@ -1405,7 +1398,7 @@ async function gatherPipelineContext(userEmail, queryText) {
     return {
       isPipelineQuery: true,
       userEmail,
-      totalOpportunities: opportunities.length,
+      totalOpportunities: filtered.length,
       totalAcv,
       byStage,
       byOwner,
@@ -1506,24 +1499,59 @@ async function gatherOwnerAccountsContext(query) {
 async function gatherMeetingActivityContext(query) {
   try {
     const lower = query.toLowerCase();
-    const isUpcoming = lower.includes('meeting with') || lower.includes('scheduled') || lower.includes('are we meeting');
-    const dateFilter = isUpcoming
-      ? 'StartDateTime >= TODAY AND StartDateTime <= NEXT_WEEK'
-      : 'StartDateTime >= THIS_WEEK AND StartDateTime <= TODAY';
-    const label = isUpcoming ? 'Upcoming meetings' : 'Meetings held this week';
+    const isUpcoming = lower.includes('upcoming') || lower.includes('scheduled') || lower.includes('are we meeting');
+    const label = isUpcoming ? 'Upcoming meetings this week' : 'Meetings this week';
 
-    const result = await sfQuery(`
-      SELECT Account.Name, Subject, StartDateTime, Owner.Name
-      FROM Event
-      WHERE ${dateFilter} AND AccountId != null
-      ORDER BY StartDateTime ${isUpcoming ? 'ASC' : 'DESC'}
-      LIMIT 30
-    `, false);
+    let meetings = [];
 
-    const meetings = (result?.records || []).map(e => ({
-      account: e.Account?.Name, subject: e.Subject,
-      date: e.StartDateTime, owner: e.Owner?.Name
-    }));
+    // Strategy 1: Use Outlook calendar data (in-memory cache) — more complete than SF Events
+    try {
+      const { calendarService } = require('../services/calendarService');
+      const calResult = await calendarService.getUpcomingMeetingsForAllBLs(7, false);
+      if (calResult?.meetings?.length > 0) {
+        const now = new Date();
+        const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+        const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
+
+        meetings = calResult.meetings
+          .filter(m => {
+            const d = new Date(m.startDateTime);
+            return d >= weekStart && d <= weekEnd;
+          })
+          .filter(m => m.externalAttendees?.length > 0)
+          .map(m => ({
+            account: m.accountName || m.externalAttendees?.[0]?.email?.split('@')[1]?.split('.')[0] || 'Unknown',
+            subject: m.subject,
+            date: m.startDateTime,
+            owner: m.ownerEmail?.split('@')[0] || 'Unknown',
+            externalCount: m.externalAttendees?.length || 0
+          }));
+        logger.info(`[Intelligence] Calendar meetings this week: ${meetings.length}`);
+      }
+    } catch (calErr) {
+      logger.warn('[Intelligence] Calendar fallback failed, trying SF Events:', calErr.message);
+    }
+
+    // Strategy 2: Fallback to SF Events if calendar data is empty
+    if (meetings.length === 0) {
+      await ensureSalesforceConnection();
+      const dateFilter = 'StartDateTime >= THIS_WEEK AND StartDateTime <= NEXT_WEEK';
+      const result = await sfQuery(`
+        SELECT Account.Name, Account.Account_Display_Name__c, Subject, StartDateTime, Owner.Name
+        FROM Event
+        WHERE ${dateFilter} AND AccountId != null
+        ORDER BY StartDateTime ASC
+        LIMIT 50
+      `, false);
+
+      meetings = (result?.records || []).map(e => ({
+        account: e.Account?.Account_Display_Name__c || e.Account?.Name,
+        subject: e.Subject,
+        date: e.StartDateTime,
+        owner: e.Owner?.Name
+      }));
+    }
 
     const uniqueAccounts = [...new Set(meetings.map(m => m.account).filter(Boolean))];
 
