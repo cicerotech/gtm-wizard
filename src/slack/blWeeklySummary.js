@@ -2975,9 +2975,11 @@ module.exports = {
   formatSlackMessage,
   queryPipelineData,
   processPipelineData,
+  queryAIEnabledForecast,
   getFiscalQuarterEnd,
   getFiscalQuarterLabel,
   isInCurrentFiscalQuarter,
+  ACTIVE_STAGES,
   US_POD,
   EU_POD,
   CAPACITY_ALERT_THRESHOLD
