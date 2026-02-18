@@ -309,7 +309,7 @@ const QUERY_INTENTS = {
   PIPELINE_ADDED: ['added to pipeline', 'pipeline added', 'new pipeline this', 'deals added', 'new deals this week'],
   CUSTOMER_COUNT: ['how many customers', 'how many logos', 'customer count', 'number of customers', 'total customers', 'how many clients', 'customer list', 'logo count'],
   CONTACT_SEARCH: ['chief legal officer', 'general counsel', 'clo based in', 'gc based in', 'contacts based in', 'contacts in', 'decision makers in', 'find contacts', 'clos owned by'],
-  PIPELINE_OVERVIEW: ['my pipeline', 'my deals', 'late stage', 'early stage', 'mid stage', 'how many deal', 'how many account', 'total pipeline', 'closing this month', 'closing this quarter', 'in our pipeline', 'pipeline summary', 'deals closing', 'new logo', 'won this month', 'won this quarter', 'what deals are', 'what opportunities are', 'which deals', 'which opportunities', 'deals in negotiation', 'deals in proposal', 'deals in pilot', 'negotiation', 'proposal stage', 'late stage contracting', 'late stage compliance', 'late stage m&a', 'contracting deals', 'compliance deals', 'pipeline by stage', 'open opportunities', 'open deals', 'active pipeline', 'prospecting', 'being prospected', 'accounts prospected', 'pipeline across all stages', 'total pipeline across'],
+  PIPELINE_OVERVIEW: ['my pipeline', 'my deals', 'late stage', 'early stage', 'mid stage', 'how many deal', 'how many account', 'total pipeline', 'closing this month', 'closing this quarter', 'in our pipeline', 'pipeline summary', 'deals closing', 'new logo', 'won this month', 'won this quarter', 'what deals are', 'what opportunities are', 'which deals', 'which opportunities', 'deals in negotiation', 'deals in proposal', 'deals in pilot', 'negotiation', 'proposal stage', 'late stage contracting', 'late stage compliance', 'late stage m&a', 'contracting deals', 'compliance deals', 'pipeline by stage', 'open opportunities', 'open deals', 'active pipeline', 'prospecting', 'being prospected', 'accounts prospected', 'pipeline across all stages', 'total pipeline across', 'accounts with multiple', 'multiple opportunities', 'multiple deals', 'new business vs', 'new vs existing', 'new business split'],
   OWNER_ACCOUNTS: ['what accounts does', "'s accounts", "'s book", "'s pipeline", "'s deals", 'accounts does', 'book for'],
   MEETING_ACTIVITY: ['met with this week', 'meeting with this week', 'meetings this week', 'met with today', 'meeting with today', 'calls this week', 'meetings scheduled', 'accounts did we meet', 'accounts meeting with', 'who are we meeting', 'what meetings do we have'],
   ACCOUNT_LOOKUP: ['who owns', 'owner of', 'assigned to'],
@@ -317,7 +317,7 @@ const QUERY_INTENTS = {
   PRE_MEETING: ['before my', 'next meeting', 'should i know', 'meeting prep', 'prepare for'],
   DEAL_STATUS: ['deal status', 'current status', 'where are we', 'how is the deal', 'where are they', 'where is the deal', 'deal stage'],
   STAKEHOLDERS: ['decision maker', 'stakeholder', 'champion', 'who is', 'who are', 'key contacts'],
-  HISTORY: ['last meeting', 'when did we', 'history', 'previous', 'last time'],
+  HISTORY: ['last meeting', 'when did we', 'history', 'previous', 'last time', 'latest activity', 'recent activity', 'latest on', 'what happened with'],
   NEXT_STEPS: ['next step', 'action item', 'todo', 'follow up', 'outstanding'],
   PAIN_POINTS: ['pain point', 'challenge', 'problem', 'issue', 'struggle'],
   COMPETITIVE: ['competitor', 'competitive', 'alternative', 'vs', 'compared to'],
@@ -383,7 +383,10 @@ function extractAccountFromQuery(query) {
     if (match) {
       let candidate = match[1].trim()
         .replace(/^(the|this|my|our)\s+/i, '')
+        .replace(/\$[\d,.]+[km]?\s*/gi, '')
+        .replace(/\b(deal|opportunity|opp|negotiation|contract)\b\s*/gi, '')
         .replace(/[?.!]+$/, '')
+        .replace(/'s\s*$/i, '')
         .trim();
       if (candidate.length >= 3 && candidate.length <= 60 && !/^(pipeline|deal|account|meeting|contact|team|stage|product|quarter|month|year|week|today|tomorrow|upcoming|recent|next|steps|strategy|status|update|latest|history|overview|summary|report|forecast|owner|revenue|customer|prospect|lead)s?$/i.test(candidate)) {
         return candidate;
@@ -738,8 +741,10 @@ async function classifyQueryIntent(query, conversationContext) {
   if (/arr (deals|signed|contracts)|arr this|recurring revenue deals|what deals have closed|deals (have |that )?(closed|been closed)|closed deals|what (have we|did we) (close|sign|win)|deals won/i.test(query)) return 'ARR_DEALS';
   if (/stuck deals|slow deals|stale deals|deals stuck|stalled|no movement/i.test(query)) return 'SLOW_DEALS';
   if (/added to pipeline|pipeline added|new pipeline this|deals added this/i.test(query)) return 'PIPELINE_ADDED';
+  if (/which accounts have (multiple|many|several|more than one) .*(opportunit|deal|opp)/i.test(query)) return 'PIPELINE_OVERVIEW';
   if (/what deals are (late|in |at )|which (deals|opportunities) are|deals in (negotiation|proposal|pilot)|late stage (contracting|compliance|m&a)|open (deals|opportunities)|active pipeline|total pipeline/i.test(query)) return 'PIPELINE_OVERVIEW';
   if (/when does .+ (close|expire|end|renew)|what stage is .+ (deal|opp|in\b)/i.test(query)) return 'DEAL_STATUS';
+  if (/latest (activity|update|on)|recent activity|what happened (with|at|on)/i.test(query)) return 'HISTORY';
   if (/how should (eudia|we) (position|approach)|position(ing)? for\b|approach to .+ given|how (should|would|could) (we|eudia) .*(pitch|sell|engage|target)/i.test(query)) return 'POSITIONING';
 
   // Try advanced intent parser (same system as Slack bot)
@@ -2001,7 +2006,7 @@ async function gatherSnapshotContext(intent, query) {
       case 'SLOW_DEALS': {
         const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, StageName, ACV__c, Days_in_Stage__c, Owner.Name FROM Opportunity WHERE IsClosed = false AND Days_in_Stage__c > 30 ORDER BY Days_in_Stage__c DESC LIMIT 20`, false);
         records = r?.records || [];
-        label = 'Deals Stuck >30 Days';
+        label = 'Deals Pending Movement (30+ days in stage)';
         break;
       }
       case 'PIPELINE_ADDED': {
@@ -2157,6 +2162,8 @@ ACTIVITY GAPS & ENGAGEMENT FRAMING:
 - 2-14 days since last activity is normal and should not be mentioned at all
 - Do NOT manufacture urgency — summarize factually and let the reader draw conclusions
 - Frame objectively based on actual data, not dramatic language
+- When discussing deal velocity or stage duration, use neutral factual language like "X days in current stage" — NEVER use "stuck", "stale", "stalled", or "concerning" to describe deal progress
+- This is an objective tool — avoid language that could feel judgmental or emotional about a rep's performance
 
 DATA LIMITATIONS:
 - If the user asks about data you don't have (billing details, internal wikis, email threads), acknowledge what data you DO have access to and suggest where they might find what they need
@@ -2172,12 +2179,31 @@ FOLLOW-UP SUGGESTIONS:
   b) NEVER suggest questions about strategy, intent, plans, motivations, or thinking — you have no access to a person's strategy or internal plans.
   c) NEVER suggest questions about data you don't have: email threads, call recordings, Slack DMs, pricing negotiations, internal wikis, feedback, or NPS scores.
   d) NEVER use brackets like [account name] or [specific opportunity]. Use ACTUAL names, companies, and specifics from your answer.
-  e) Good examples: "What are Tom Burton's most recent interactions?" / "When does the Coherent contract expire?" / "What stage is the Intuit opportunity in?"
-  f) Bad examples: "What's Riley's prospecting strategy?" / "What are the key negotiation points?" / "What feedback has [contact name] given?" / "What is the competitive positioning?"
-  g) Vary your suggestions — don't always suggest the same follow-up patterns. If you discussed contacts, suggest a deal or timeline question. If you discussed deals, suggest a stakeholder or activity question.
+  e) Good examples (use ACTUAL names from your answer, not placeholders):
+     - "When does the Coherent contract expire?"
+     - "What stage is the Intuit opportunity in?"
+     - "Which deals close this month?"
+     - "What's the pipeline breakdown by product?"
+     - "When did we last meet with [actual account from your answer]?"
+     - "How should Eudia approach [actual account name]?"
+     Every follow-up MUST be directly answerable from Salesforce opportunity, account, contact, event, or task data.
+  f) Bad examples (NEVER suggest these patterns):
+     - "What's Riley's prospecting strategy?" (strategy = unanswerable)
+     - "What are the key negotiation points?" (internal plans = unanswerable)
+     - "What feedback has [contact name] given?" (no feedback data)
+     - "What is the competitive positioning?" (no competitive intel data)
+     - "Who owns the most accounts?" (cross-rep aggregation = unanswerable from single query)
+     - "How many customers does each rep manage?" (cross-rep comparison = unanswerable)
+     - "Which rep has the largest pipeline?" (cross-rep comparison = unanswerable)
+     - "How is [name]'s pipeline performing?" (subjective/judgmental framing)
+     - "How is your late stage performing?" (subjective/judgmental)
+     - "Which [name] contacts have the most LinkedIn activity?" (no LinkedIn data)
+  g) Vary your suggestions — if you discussed contacts, suggest a deal or timeline question. If you discussed deals, suggest a stakeholder or activity question.
   h) If there is genuinely nothing useful to drill into, omit the follow-up section entirely.
-  i) Keep each suggestion under 10 words
-  j) NEVER add department or team names like "legal innovation team", "compliance group", etc. — just use the company name. Keep follow-ups clean and short.`;
+  i) Keep each suggestion under 10 words.
+  j) NEVER add department or team names — just use the company name.
+  k) NEVER suggest cross-rep comparison or org-wide aggregation questions. These require data across all users which is not in your context.
+  l) Prefer deal-specific or account-specific follow-ups over broad questions. Use real account names, deal names, and dollar amounts from your answer.`;
 
   // ── Account-type-specific framing ──
   if (accountType === 'existing_customer') {
@@ -2373,10 +2399,11 @@ Include total count and total ACV.`;
 Include total count and total ACV.`;
 
     case 'SLOW_DEALS':
-      return basePrompt + `\n\nFOCUS: Stale/stuck deals. Present as:
-1. Count of deals stuck >30 days
-2. Ranked by days in stage: "1. **Account** — Stage | XX days | $ACV | Owner"
-Highlight the most critical (longest stuck + highest ACV).`;
+      return basePrompt + `\n\nFOCUS: Deals with extended stage duration. Present as:
+1. Count of deals in current stage for 30+ days
+2. Ranked by days in stage: "1. **Account** — Stage | XX days in stage | $ACV | Owner"
+Note the highest-ACV deals with the longest stage duration first.
+LANGUAGE: Use "X days in current stage" — NEVER use "stuck", "stale", "stalled", or "concerning". Keep the tone neutral and factual.`;
 
     case 'PIPELINE_ADDED':
       return basePrompt + `\n\nFOCUS: New pipeline this week. Present as:
