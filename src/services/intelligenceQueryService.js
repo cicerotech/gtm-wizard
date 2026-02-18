@@ -1288,7 +1288,6 @@ async function gatherPipelineContext(userEmail, queryText) {
     const isClosedQuery = lower.includes('won') || lower.includes('signed') || lower.includes('closed') || lower.includes('lost') || lower.includes('logos');
 
     if (isClosedQuery) {
-      // Closed-deal queries need specific SOQL (the weekly snapshot only covers active pipeline)
       const conditions = [];
       if (lower.includes('lost')) {
         conditions.push('IsClosed = true', 'IsWon = false');
@@ -1301,29 +1300,17 @@ async function gatherPipelineContext(userEmail, queryText) {
       else if (lower.includes('last month')) conditions.push('CloseDate = LAST_MONTH');
       else conditions.push('CloseDate = THIS_FISCAL_QUARTER');
 
-      const result = await sfQuery(`
-        SELECT Id, Name, AccountId, Account.Name, Account.Account_Display_Name__c,
-               StageName, ACV__c, CloseDate, Target_LOI_Date__c, Product_Line__c,
-               Product_Lines_Multi__c, NextStep, Owner.Name, IsClosed, IsWon, Probability
-        FROM Opportunity WHERE ${conditions.join(' AND ')}
-        ORDER BY ACV__c DESC NULLS LAST LIMIT 200
-      `, false);
+      const soql = `SELECT Id, Name, AccountId, Account.Name, Account.Account_Display_Name__c, StageName, ACV__c, CloseDate, Target_LOI_Date__c, Product_Line__c, NextStep, Owner.Name, IsClosed, IsWon, Probability FROM Opportunity WHERE ${conditions.join(' AND ')} ORDER BY ACV__c DESC NULLS LAST LIMIT 200`;
+      logger.info(`[Pipeline] Closed-deal SOQL: ${soql.substring(0, 120)}...`);
+      const result = await sfQuery(soql, false);
       allRecords = result?.records || [];
+      logger.info(`[Pipeline] Closed-deal query returned ${allRecords.length} records`);
     } else {
-      // Direct SOQL for active pipeline — bypasses weeklySnapshotBridge which can
-      // hold stale SF connection references and silently return empty results.
-      const result = await sfQuery(`
-        SELECT Id, Name, AccountId, Account.Name, Account.Account_Display_Name__c,
-               StageName, ACV__c, CloseDate, Target_LOI_Date__c, Product_Line__c,
-               Product_Lines_Multi__c, NextStep, Owner.Name, IsClosed, IsWon, Probability
-        FROM Opportunity
-        WHERE IsClosed = false
-          AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
-        ORDER BY ACV__c DESC NULLS LAST
-        LIMIT 200
-      `, false);
+      const soql = `SELECT Id, Name, AccountId, Account.Name, Account.Account_Display_Name__c, StageName, ACV__c, CloseDate, Target_LOI_Date__c, Product_Line__c, NextStep, Owner.Name, IsClosed, IsWon, Probability FROM Opportunity WHERE IsClosed = false AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation') ORDER BY ACV__c DESC NULLS LAST LIMIT 200`;
+      logger.info(`[Pipeline] Active pipeline SOQL executing...`);
+      const result = await sfQuery(soql, false);
       allRecords = result?.records || [];
-      logger.info(`[Intelligence] Pipeline direct SOQL returned ${allRecords.length} records`);
+      logger.info(`[Pipeline] Active pipeline returned ${allRecords.length} records`);
     }
 
     // Apply in-memory filters based on query content
@@ -1439,8 +1426,8 @@ async function gatherPipelineContext(userEmail, queryText) {
       dataFreshness: 'live'
     };
   } catch (error) {
-    logger.error('[Intelligence] Pipeline context error:', error.message);
-    return { isPipelineQuery: true, error: error.message };
+    logger.error(`[Pipeline] CRITICAL: gatherPipelineContext FAILED: ${error.message}`, { stack: error.stack?.split('\n').slice(0, 3).join(' | ') });
+    return { isPipelineQuery: true, error: `Pipeline query failed: ${error.message}` };
   }
 }
 
