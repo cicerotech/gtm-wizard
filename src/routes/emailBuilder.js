@@ -3,8 +3,19 @@
  * Smart email template builder with SF integration and context enrichment
  */
 
-const { query, sfConnection } = require('../salesforce/connection');
+const { query, sfConnection, isSalesforceAvailable, resetCircuitBreaker, initializeSalesforce } = require('../salesforce/connection');
 const enrichmentService = require('../services/companyEnrichment');
+
+async function ensureSfConnection() {
+  if (!isSalesforceAvailable()) {
+    console.warn('[EmailBuilder] SF unavailable — resetting circuit breaker');
+    resetCircuitBreaker();
+    await Promise.race([
+      initializeSalesforce(),
+      new Promise((_, r) => setTimeout(() => r(new Error('SF init timeout')), 8000))
+    ]).catch(e => console.error(`[EmailBuilder] SF re-init failed: ${e.message}`));
+  }
+}
 
 const ABBREVIATION_MAP = {
   'wwt': 'World Wide Technology',
@@ -72,6 +83,7 @@ async function searchAccounts(req, res) {
     const rawTerm = req.query.q || '';
     if (rawTerm.length < 2) return res.json({ matches: [] });
 
+    await ensureSfConnection();
     const searchTerm = normalizeSearchTerm(rawTerm);
     const escapedTerm = searchTerm.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/%/g, '\\%').replace(/_/g, '\\_');
 
@@ -80,7 +92,7 @@ async function searchAccounts(req, res) {
              (SELECT Id, StageName, ACV__c, Product_Line__c 
               FROM Opportunities WHERE IsClosed = false ORDER BY CreatedDate DESC LIMIT 1)
       FROM Account
-      WHERE Name LIKE '%${escapedTerm}%'
+      WHERE Name LIKE '%${escapedTerm}%' OR Account_Display_Name__c LIKE '%${escapedTerm}%'
       ORDER BY LastActivityDate DESC NULLS LAST
       LIMIT 10
     `;
@@ -101,7 +113,7 @@ async function searchAccounts(req, res) {
           SELECT Id, Name, Account_Display_Name__c, Owner.Name, Is_New_Logo__c, Customer_Type__c, Industry, LastActivityDate,
                  (SELECT Id, StageName, ACV__c, Product_Line__c 
                   FROM Opportunities WHERE IsClosed = false ORDER BY CreatedDate DESC LIMIT 1)
-          FROM Account WHERE Name LIKE '%${safeV}%'
+          FROM Account WHERE Name LIKE '%${safeV}%' OR Account_Display_Name__c LIKE '%${safeV}%'
           ORDER BY LastActivityDate DESC NULLS LAST LIMIT 10
         `, true);
         matches = (vResult?.records || []).map(formatAccountResult).filter(Boolean);

@@ -2857,7 +2857,7 @@ async function openMeetingPrep(meetingId) {
             const typeMap = { 'existing_customer': 'Existing Customer', 'active_pipeline': 'Active Pipeline', 'historical': 'Historical', 'cold': 'Net New' };
             parts.push('<strong>Type:</strong> ' + (typeMap[queryContext.accountType] || queryContext.accountType));
           }
-          if (queryContext.accountName) parts.push('<strong>Owner:</strong> ' + (queryContext.owner || 'Unassigned'));
+          if (queryContext.owner) parts.push('<strong>Owner:</strong> ' + queryContext.owner);
           if (queryContext.opportunityCount > 0) parts.push('<strong>Pipeline:</strong> ' + queryContext.opportunityCount + ' open opp' + (queryContext.opportunityCount > 1 ? 's' : ''));
           if (parts.length > 0) {
             metaHtml = '<div style="display:flex;gap:16px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #f0f0f0;margin-top:8px;">';
@@ -2871,7 +2871,7 @@ async function openMeetingPrep(meetingId) {
           contextHtml += '<div class="context-header"><span class="context-label">Account Intelligence</span><span class="context-badge">PRE-MEETING CONTEXT</span>';
           contextHtml += '<button class="edit-btn" onclick="toggleEditContext()">Edit</button></div>';
           contextHtml += '<div class="context-content"><div class="intelligence-brief" id="contextBrief">';
-          contextHtml += marked ? marked.parse(gtmBrief) : gtmBrief.replace(/\\n/g, '<br>');
+          contextHtml += marked ? marked.parse(gtmBrief) : gtmBrief.replace(/\n/g, '<br>');
           contextHtml += '</div></div>';
           contextHtml += metaHtml;
           contextHtml += '</div>';

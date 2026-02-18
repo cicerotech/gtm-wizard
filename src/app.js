@@ -3368,7 +3368,15 @@ class GTMBrainApp {
           return res.status(400).json({ success: false, error: 'domain required' });
         }
         
-        // Search Salesforce for accounts with matching website or contact emails
+        const { query: sfQuery, isSalesforceAvailable, resetCircuitBreaker, initializeSalesforce } = require('./salesforce/connection');
+        if (!isSalesforceAvailable()) {
+          resetCircuitBreaker();
+          await Promise.race([
+            initializeSalesforce(),
+            new Promise((_, r) => setTimeout(() => r(new Error('SF init timeout')), 8000))
+          ]).catch(e => logger.error(`[DomainLookup] SF re-init failed: ${e.message}`));
+        }
+        
         const accountQuery = `
           SELECT Id, Name, Account_Display_Name__c, Website
           FROM Account 
@@ -3377,7 +3385,6 @@ class GTMBrainApp {
           LIMIT 1
         `;
         
-        const { query: sfQuery } = require('./salesforce/connection');
         const result = await sfQuery(accountQuery, true);
         
         if (result?.records?.length > 0) {
