@@ -439,6 +439,28 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
 
     // Classify intent BEFORE session (prevents session from overriding routing)
     const intent = await classifyQueryIntent(query);
+
+    if (intent === 'JOKE') {
+      const JOKES = [
+        "Why did the General Counsel bring a ladder to the board meeting? Because the stakes were too high.",
+        "What's a CLO's favorite type of music? Contract-ual obligations in A minor.",
+        "Our pipeline has more stages than a Broadway musical — and about the same drama.",
+        "How many lawyers does it take to close a deal at a Fortune 500? Just one, but they'll need 47 stakeholders to approve the timeline first.",
+        "What did the AI say to the legal team? 'I've reviewed 10,000 contracts and I still can't find the fun clause.'",
+        "Why do sales reps make great poker players? They're used to dealing with bad hands and still forecasting a win.",
+        "What's the difference between a late-stage deal and a mirage? The mirage doesn't require a new SOW.",
+        "I asked our CRM for a joke. It returned 'Stage 5 - Negotiation, Expected Close: Last Quarter.'",
+      ];
+      return {
+        success: true, query,
+        answer: JOKES[Math.floor(Math.random() * JOKES.length)],
+        intent: 'JOKE',
+        context: { intent: 'JOKE', dataFreshness: 'n/a' },
+        performance: { durationMs: Date.now() - startTime },
+        timestamp: new Date().toISOString()
+      };
+    }
+
     const isCrossAccountIntent = ['PIPELINE_OVERVIEW', 'OWNER_ACCOUNTS', 'MEETING_ACTIVITY', 'CUSTOMER_COUNT', 'CONTACT_SEARCH', 'WEIGHTED_PIPELINE', 'PIPELINE_BY_STAGE', 'PIPELINE_BY_PRODUCT', 'PIPELINE_BY_SALES_TYPE', 'DEALS_SIGNED', 'DEALS_TARGETING', 'LOI_DEALS', 'ARR_DEALS', 'SLOW_DEALS', 'PIPELINE_ADDED', 'FORECAST', 'DELIVERY_STATUS'].includes(intent);
 
     // ── Step 2: Session management (after cross-account/intent decisions are final) ──
@@ -555,7 +577,8 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
 
     // ── Build messages array (multi-turn or single-turn) ──
     let messages;
-    if (ENABLE_MULTI_TURN && session && session.turns.length > 0) {
+    const needsFreshContext = isCrossAccountIntent || intentChanged;
+    if (ENABLE_MULTI_TURN && session && session.turns.length > 0 && !needsFreshContext) {
       const contextTrimmed = session.turns.length >= MAX_CONVERSATION_TURNS * 2;
       let followUpContent;
       if (contextTrimmed && context.account) {
@@ -566,7 +589,7 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
       }
       messages = [
         ...session.turns.slice(-MAX_CONVERSATION_TURNS * 2),
-        { role: 'user', content: turnNumber === 1 ? userPrompt : followUpContent }
+        { role: 'user', content: followUpContent }
       ];
     } else {
       messages = [{ role: 'user', content: userPrompt }];
@@ -667,6 +690,7 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
  */
 async function classifyQueryIntent(query, conversationContext) {
   // Priority overrides — unambiguous patterns that must bypass ML to prevent misclassification
+  if (/tell me a joke|make me laugh|something funny|got a joke/i.test(query)) return 'JOKE';
   if (/what accounts does|'s accounts|'s book|accounts does .+ own|accounts .+ owns/i.test(query)) return 'OWNER_ACCOUNTS';
   if (/how many (customers|logos|clients)|customer count|number of customers|total customers|customer list|logo count/i.test(query)) return 'CUSTOMER_COUNT';
   if (/chief legal.+based|general counsel.+based|clo.+based|gc.+based|contacts.+based in|find.+contacts|clos owned/i.test(query)) return 'CONTACT_SEARCH';
@@ -684,7 +708,7 @@ async function classifyQueryIntent(query, conversationContext) {
   if (/pipeline by (product|solution)|product (breakdown|line breakdown)|solution breakdown/i.test(query)) return 'PIPELINE_BY_PRODUCT';
   if (/pipeline by sales type|new business pipeline|expansion pipeline|renewal pipeline/i.test(query)) return 'PIPELINE_BY_SALES_TYPE';
   if (/loi (deals|signed|this)|lois signed|what lois/i.test(query)) return 'LOI_DEALS';
-  if (/arr (deals|signed|contracts)|arr this|recurring revenue deals/i.test(query)) return 'ARR_DEALS';
+  if (/arr (deals|signed|contracts)|arr this|recurring revenue deals|what deals have closed|deals (have |that )?(closed|been closed)|closed deals|what (have we|did we) (close|sign|win)|deals won/i.test(query)) return 'ARR_DEALS';
   if (/stuck deals|slow deals|stale deals|deals stuck|stalled|no movement/i.test(query)) return 'SLOW_DEALS';
   if (/added to pipeline|pipeline added|new pipeline this|deals added this/i.test(query)) return 'PIPELINE_ADDED';
   if (/what deals are (late|in |at )|which (deals|opportunities) are|deals in (negotiation|proposal|pilot)|late stage (contracting|compliance|m&a)|open (deals|opportunities)|active pipeline|total pipeline/i.test(query)) return 'PIPELINE_OVERVIEW';
@@ -1516,6 +1540,7 @@ async function gatherOwnerAccountsContext(query) {
   }
 
   try {
+    await ensureSalesforceConnection();
     const userResult = await sfQuery(`SELECT Id, Name FROM User WHERE Email = '${bl.email}' LIMIT 1`, false);
     const userId = userResult?.records?.[0]?.Id;
     if (!userId) {
@@ -1574,13 +1599,29 @@ async function gatherMeetingActivityContext(query) {
             return d >= weekStart && d <= weekEnd;
           })
           .filter(m => m.externalAttendees?.length > 0)
-          .map(m => ({
-            account: m.accountName || m.externalAttendees?.[0]?.email?.split('@')[1]?.split('.')[0] || 'Unknown',
-            subject: m.subject,
-            date: m.startDateTime,
-            owner: m.ownerEmail?.split('@')[0] || 'Unknown',
-            externalCount: m.externalAttendees?.length || 0
-          }));
+          .filter(m => {
+            const ownerLower = (m.ownerEmail || m.ownerName || '').toLowerCase();
+            const subjectLower = (m.subject || '').toLowerCase();
+            if (ownerLower.includes('daniel.kim') || ownerLower.includes('daniel kim')) return false;
+            if (subjectLower.includes('campfire')) return false;
+            return true;
+          })
+          .map(m => {
+            const emailToName = (email) => {
+              if (!email) return 'Unknown';
+              const bl = BL_NAME_MAP[email.split('@')[0]?.split('.')[0]?.toLowerCase()];
+              if (bl) return bl.name.split(' ')[0];
+              const parts = email.split('@')[0].split('.');
+              return parts[0] ? parts[0].charAt(0).toUpperCase() + parts[0].slice(1) : 'Unknown';
+            };
+            return {
+              account: m.accountName || m.externalAttendees?.[0]?.email?.split('@')[1]?.split('.')[0] || 'Unknown',
+              subject: m.subject,
+              date: m.startDateTime,
+              owner: m.ownerName || emailToName(m.ownerEmail),
+              externalCount: m.externalAttendees?.length || 0
+            };
+          });
         logger.info(`[Intelligence] Calendar meetings this week: ${meetings.length}`);
       }
     } catch (calErr) {
@@ -1864,9 +1905,25 @@ async function gatherSnapshotContext(intent, query) {
         break;
       }
       case 'ARR_DEALS': {
-        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, CloseDate, Owner.Name FROM Opportunity WHERE IsClosed = true AND IsWon = true AND Revenue_Type__c = 'Recurring' ORDER BY CloseDate DESC LIMIT 30`, false);
+        const lower = query.toLowerCase();
+        let closedDateFilter = 'CloseDate = THIS_FISCAL_QUARTER';
+        let closedLabel = 'Closed Deals — Q1 FY26';
+        if (lower.includes('last 30') || lower.includes('past 30') || lower.includes('this month')) {
+          closedDateFilter = 'CloseDate = LAST_N_DAYS:30';
+          closedLabel = 'Closed Deals — Last 30 Days';
+        } else if (lower.includes('last month')) {
+          closedDateFilter = 'CloseDate = LAST_MONTH';
+          closedLabel = 'Closed Deals — Last Month';
+        }
+        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Weighted_ACV_AI_Enabled__c, CloseDate, Revenue_Type__c, Product_Line__c, Owner.Name FROM Opportunity WHERE IsWon = true AND ${closedDateFilter} ORDER BY CloseDate DESC LIMIT 30`, false);
         records = r?.records || [];
-        label = 'ARR Deals Signed';
+        let totalNetAcv = 0, totalAiEnabled = 0;
+        for (const o of records) {
+          totalNetAcv += o.ACV__c || 0;
+          totalAiEnabled += o.Weighted_ACV_AI_Enabled__c || 0;
+        }
+        metadata = { totalNetAcv, totalAiEnabled, dealCount: records.length };
+        label = closedLabel;
         break;
       }
       case 'SLOW_DEALS': {
@@ -2384,8 +2441,24 @@ function buildUserPrompt(intent, query, context) {
         prompt += `  • ${acctName} — ${acv} | ${r.StageName || ''} | ${owner} | Target: ${r.Target_LOI_Date__c || 'N/A'}${product}\n`;
       }
       if (recs.length > 30) prompt += `  ... and ${recs.length - 30} more\n`;
+    } else if (context.intent === 'ARR_DEALS') {
+      prompt += `• Total Closed: ${meta.dealCount || recs.length} deals\n`;
+      prompt += `• Net ACV: $${((meta.totalNetAcv || 0) / 1000).toFixed(0)}k\n`;
+      if (meta.totalAiEnabled > 0) prompt += `• AI-Enabled Weighted: $${((meta.totalAiEnabled || 0) / 1000).toFixed(0)}k\n`;
+      prompt += '\nDEAL LIST:\n';
+      for (const r of recs.slice(0, 20)) {
+        const acctName = r.Account?.Account_Display_Name__c || r.Account?.Name || r.Name || 'Unknown';
+        const acv = r.ACV__c ? `$${((r.ACV__c || 0) / 1000).toFixed(0)}k` : '';
+        const owner = maskOwnerIfUnassigned(r.Owner?.Name);
+        const date = r.CloseDate || '';
+        const product = cleanProductLine(r.Product_Line__c);
+        const revenue = r.Revenue_Type__c || '';
+        const parts = [acctName, acv, owner, date, product, revenue].filter(Boolean);
+        prompt += `  • ${parts.join(' | ')}\n`;
+      }
+      if (recs.length > 20) prompt += `  ... and ${recs.length - 20} more\n`;
     } else {
-      // Generic deal list format (DEALS_SIGNED, DEALS_TARGETING, LOI_DEALS, ARR_DEALS, SLOW_DEALS, PIPELINE_ADDED)
+      // Generic deal list format (DEALS_SIGNED, DEALS_TARGETING, LOI_DEALS, SLOW_DEALS, PIPELINE_ADDED)
       for (const r of recs.slice(0, 20)) {
         const acctName = r.Account?.Account_Display_Name__c || r.Account?.Name || r.Name || 'Unknown';
         const acv = r.ACV__c ? `$${((r.ACV__c || 0) / 1000).toFixed(0)}k` : '';
