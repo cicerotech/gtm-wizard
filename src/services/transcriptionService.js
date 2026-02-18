@@ -655,18 +655,22 @@ Format:
 **Subject:** [subject line]
 
 [email body]`
-            : `Based on this sales meeting summary, draft a follow-up email from the Eudia rep to the customer.
+            : `Based on this sales meeting summary, draft a follow-up email from the Eudia representative to the senior legal executive they met with.
+
+Context: Eudia sells AI-powered legal technology to General Counsels, CLOs, and heads of litigation at large enterprises. The buyers are sophisticated, time-constrained executives. The email should reflect executive-level communication.
 
 Rules:
-- Subject line: concise, references the meeting topic
-- Opening: thank them for their time, reference the date and specific topics discussed
-- Body: 2-3 key discussion points grounded in what was actually said (not generic)
-- Action items: clearly list agreed next steps with owners and dates
-- Closing: professional, forward-looking, with clear next touchpoint
-- Tone: warm but professional, not salesy or pushy
-- Length: 150-250 words
-- Do NOT include internal-only information (MEDDICC, deal signals, competitive intel)
-- DO reference specific names, products, dates, and pain points from the conversation
+- Subject line: 5-8 words, references the specific topic discussed (not generic)
+- Opening: 1 sentence, brief acknowledgment of the conversation. No "thank you so much for your valuable time" -- keep it direct
+- Body: Reference 2-3 specific points from the discussion. Use the exact topics, pain points, or use cases they raised. This is a recap of what was discussed, not a pitch
+- Next steps: List the agreed actions with who owns each and when
+- Closing: 1 sentence, clear on what happens next. No filler
+- Tone: peer-to-peer, direct, respectful of their seniority. Write as a trusted advisor, not a salesperson
+- Length: 100-200 words maximum. Executives don't read long emails
+- NEVER use: "excited", "thrilled", "amazing", "incredible", "game-changing", "synergy", "circle back", "touch base"
+- NEVER include internal-only context (MEDDICC, deal signals, pipeline stage, competitive analysis)
+- DO use their name, their company name, the specific products or use cases discussed
+- If a demo or follow-up meeting was discussed, propose a specific date/time
 
 Format:
 **Subject:** [subject line]

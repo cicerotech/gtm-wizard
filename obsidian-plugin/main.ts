@@ -5457,19 +5457,21 @@ last_updated: ${dateStr}
       this.micRibbonIcon?.addClass('eudia-ribbon-recording');
 
       // Auto-detect meeting duration from calendar and set auto-stop
+      // ONLY auto-stop if a meeting is actively happening right now (isNow: true)
+      // Do NOT auto-stop for upcoming meetings or when no calendar event exists
       let meetingAutoStopTimeout: NodeJS.Timeout | null = null;
       try {
         const currentMeeting = await this.calendarService.getCurrentMeeting();
-        if (currentMeeting.meeting?.end) {
+        if (currentMeeting.isNow && currentMeeting.meeting?.end) {
           const endTime = new Date(currentMeeting.meeting.end);
           const now = new Date();
           const remainingMs = endTime.getTime() - now.getTime();
-          if (remainingMs > 60000 && remainingMs < 5400000) { // between 1 min and 90 min
+          if (remainingMs > 60000 && remainingMs < 5400000) {
             const remainingMin = Math.round(remainingMs / 60000);
-            new Notice(`Recording will auto-stop in ${remainingMin} min (meeting ends at ${endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })})`);
+            new Notice(`Recording aligned to meeting — auto-stops in ${remainingMin} min`);
             meetingAutoStopTimeout = setTimeout(async () => {
               if (this.audioRecorder?.isRecording()) {
-                new Notice('Meeting time reached — stopping recording and generating summary.');
+                new Notice('Meeting ended — generating summary.');
                 await this.stopRecording();
               }
             }, remainingMs);
