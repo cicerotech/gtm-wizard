@@ -70,34 +70,39 @@ const CONFIG = {
 // This detects and cleans hallucinated output before it reaches summarization.
 // ═══════════════════════════════════════════════════════════════════════════
 
-function detectHallucination(text) {
+function detectHallucination(text, options = {}) {
   if (!text || text.length < 100) return { isHallucinated: false, text, reason: null };
   
   const words = text.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(w => w.length > 1);
   if (words.length < 10) return { isHallucinated: false, text, reason: null };
+
+  // Dual-voice recordings (full_call or virtual device) naturally have lower
+  // vocabulary diversity because two people discuss the same topics. Relax
+  // thresholds to avoid false-positives on legitimate conversational audio.
+  const isDualVoice = options.captureMode === 'full_call' || options.hasVirtualDevice;
+  const vocabThreshold = isDualVoice ? 0.10 : 0.15;
+  const ngramThreshold = isDualVoice ? 8 : 5;
+  const uniqueWordMin = isDualVoice ? 20 : 30;
   
-  // Check 1: Vocabulary diversity — hallucinated text reuses the same small set of words
   const uniqueWords = new Set(words);
   const vocabRatio = uniqueWords.size / words.length;
-  if (vocabRatio < 0.15) {
-    logger.warn(`[Transcription] HALLUCINATION: Vocabulary ratio ${(vocabRatio * 100).toFixed(1)}% (${uniqueWords.size} unique / ${words.length} total)`);
+  if (vocabRatio < vocabThreshold) {
+    logger.warn(`[Transcription] HALLUCINATION: Vocabulary ratio ${(vocabRatio * 100).toFixed(1)}% (${uniqueWords.size} unique / ${words.length} total, dualVoice=${isDualVoice})`);
     return { isHallucinated: true, maxRepeats: 0, vocabRatio, text, reason: 'low_vocabulary' };
   }
   
-  // Check 2: 3-word n-gram frequency — catches near-duplicate phrases
   const ngrams = {};
   for (let i = 0; i < words.length - 2; i++) {
     const gram = words[i] + ' ' + words[i+1] + ' ' + words[i+2];
     ngrams[gram] = (ngrams[gram] || 0) + 1;
   }
   const maxNgramRepeats = Object.keys(ngrams).length > 0 ? Math.max(...Object.values(ngrams)) : 0;
-  if (maxNgramRepeats >= 5) {
-    const topNgrams = Object.entries(ngrams).filter(([,c]) => c >= 5).map(([g,c]) => `"${g}" (${c}x)`).slice(0, 3);
+  if (maxNgramRepeats >= ngramThreshold) {
+    const topNgrams = Object.entries(ngrams).filter(([,c]) => c >= ngramThreshold).map(([g,c]) => `"${g}" (${c}x)`).slice(0, 3);
     logger.warn(`[Transcription] HALLUCINATION: Repeated n-grams: ${topNgrams.join(', ')}`);
     return { isHallucinated: true, maxRepeats: maxNgramRepeats, vocabRatio, text, reason: 'repeated_ngrams' };
   }
   
-  // Check 3: Exact sentence repetition (original check)
   const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 10);
   const sentFreq = {};
   for (const s of sentences) {
@@ -110,8 +115,7 @@ function detectHallucination(text) {
     return { isHallucinated: true, maxRepeats: maxSentRepeats, vocabRatio, text, reason: 'repeated_sentences' };
   }
   
-  // Check 4: Too few unique words overall (near-silence → garbage)
-  if (uniqueWords.size < 30 && words.length > 50) {
+  if (uniqueWords.size < uniqueWordMin && words.length > 50) {
     logger.warn(`[Transcription] HALLUCINATION: Only ${uniqueWords.size} unique words in ${words.length} total`);
     return { isHallucinated: true, maxRepeats: 0, vocabRatio, text, reason: 'too_few_unique_words' };
   }
@@ -446,9 +450,9 @@ class TranscriptionService {
       }
 
       // Hallucination check: detect and clean repeated phrases
-      const halCheck = detectHallucination(finalTranscript);
+      // Pass capture context so thresholds are relaxed for dual-voice recordings.
+      const halCheck = detectHallucination(finalTranscript, context);
       if (halCheck.isHallucinated) {
-        // If vocabulary is extremely low, audio quality was too poor — don't even try to summarize
         if (halCheck.reason === 'low_vocabulary' || halCheck.reason === 'too_few_unique_words') {
           logger.error(`[Transcription] Audio quality too low — returning error (reason: ${halCheck.reason}, vocabRatio: ${halCheck.vocabRatio})`);
           return {
@@ -531,8 +535,7 @@ class TranscriptionService {
     // Combine transcripts with intelligent joining
     let combinedTranscript = this.joinTranscripts(transcripts);
 
-    // Final hallucination check + dedup on the combined output
-    const halCheck = detectHallucination(combinedTranscript);
+    const halCheck = detectHallucination(combinedTranscript, context);
     if (halCheck.isHallucinated) {
       combinedTranscript = deduplicateTranscript(combinedTranscript);
       logger.warn(`[Transcription] Combined transcript hallucination cleaned (max repeats: ${halCheck.maxRepeats})`);
@@ -749,12 +752,14 @@ Format:
 
       const fileSizeMB = (audioBuffer.length / 1024 / 1024).toFixed(1);
       
-      // Enable diarization if requested AND either:
-      // - AssemblyAI key is available (audio-level diarization, ~95% accuracy)
-      // - OpenAI key is available (LLM-based dialogue parsing fallback, ~70-80% accuracy)
+      // Enable diarization when:
+      // - Explicitly requested via context.enableDiarization, OR
+      // - Plugin is in full_call mode (speaker mode or virtual device capture)
+      // AND either AssemblyAI or OpenAI is available for processing.
       const hasAudioDiarization = !!process.env.ASSEMBLYAI_API_KEY;
       const hasLlmFallback = !!process.env.OPENAI_API_KEY;
-      const enableDiarization = context.enableDiarization && callIntelligence && (hasAudioDiarization || hasLlmFallback);
+      const fullCallCapture = context.captureMode === 'full_call' || context.hasVirtualDevice;
+      const enableDiarization = (context.enableDiarization || fullCallCapture) && callIntelligence && (hasAudioDiarization || hasLlmFallback);
       
       const diarizationMethod = hasAudioDiarization ? 'AssemblyAI' : (hasLlmFallback ? 'LLM-dialogue-parsing' : 'none');
       logger.info(`[TranscribeAndSummarize] Starting: ${fileSizeMB}MB, diarization=${enableDiarization} (${diarizationMethod})`);

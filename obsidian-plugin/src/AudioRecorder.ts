@@ -1,7 +1,23 @@
 /**
  * AudioRecorder - Handles audio recording using the MediaRecorder API
  * Designed for Obsidian plugin environment
+ *
+ * Supports three capture strategies:
+ *   1. full_call (speakerphone) -- disables echo cancellation so the mic
+ *      naturally picks up the other person's voice from laptop speakers.
+ *   2. virtual_device -- captures from a virtual audio loopback device
+ *      (BlackHole / VB-Cable) for clean system-audio capture, mixed with
+ *      the physical mic via Web Audio API.
+ *   3. mic_only -- traditional single-mic recording with echo cancellation.
  */
+
+export type AudioCaptureMode = 'full_call' | 'mic_only';
+
+export interface AudioRecordingOptions {
+  captureMode: AudioCaptureMode;
+  micDeviceId?: string;
+  systemAudioDeviceId?: string;
+}
 
 export interface RecordingState {
   isRecording: boolean;
@@ -15,11 +31,10 @@ export interface RecordingResult {
   duration: number;
   mimeType: string;
   filename: string;
+  captureMode: AudioCaptureMode;
+  hasVirtualDevice: boolean;
 }
 
-/**
- * Audio quality diagnostic result
- */
 export interface AudioDiagnostic {
   hasAudio: boolean;
   averageLevel: number;
@@ -28,12 +43,25 @@ export interface AudioDiagnostic {
   warning: string | null;
 }
 
+export interface AudioDeviceInfo {
+  deviceId: string;
+  label: string;
+  isVirtual: boolean;
+}
+
 export type RecordingStateCallback = (state: RecordingState) => void;
+
+const VIRTUAL_DEVICE_PATTERNS = [
+  /blackhole/i, /vb-cable/i, /vb cable/i,
+  /loopback/i, /soundflower/i, /virtual audio/i,
+  /screen ?capture/i
+];
 
 export class AudioRecorder {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private stream: MediaStream | null = null;
+  private secondaryStream: MediaStream | null = null;
   private startTime: number = 0;
   private pausedDuration: number = 0;
   private pauseStartTime: number = 0;
@@ -42,9 +70,11 @@ export class AudioRecorder {
   private analyser: AnalyserNode | null = null;
   private levelInterval: NodeJS.Timeout | null = null;
   
-  // Live query support - track chunks already extracted
   private lastExtractedChunkIndex: number = 0;
   private mimeTypeCache: string = 'audio/webm';
+
+  private activeCaptureMode: AudioCaptureMode = 'full_call';
+  private activeHasVirtualDevice: boolean = false;
   
   private state: RecordingState = {
     isRecording: false,
@@ -107,71 +137,88 @@ export class AudioRecorder {
   }
 
   /**
-   * Request microphone access and start recording
+   * Request microphone access and start recording.
+   * @param options - capture mode and optional explicit device IDs
    */
-  async startRecording(): Promise<void> {
+  async startRecording(options?: AudioRecordingOptions): Promise<void> {
     if (this.state.isRecording) {
       throw new Error('Already recording');
     }
 
-    try {
-      // Check for mobile/iOS - use simpler constraints for better compatibility
-      const isIOSSafari = AudioRecorder.isIOSOrSafari();
-      
-      // iOS has stricter constraints - use simpler config for compatibility
-      const audioConstraints = isIOSSafari ? {
-        echoCancellation: true,
-        noiseSuppression: true
-        // iOS doesn't support sampleRate/channelCount constraints well
-      } : {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        sampleRate: 48000,      // Higher sample rate for clarity
-        channelCount: 1         // Mono is optimal for speech
-      };
-      
-      // Request microphone access
-      const micStream = await navigator.mediaDevices.getUserMedia({
-        audio: audioConstraints
-      });
-      
-      console.log(`[AudioRecorder] Microphone access granted (iOS/Safari: ${isIOSSafari})`);
+    const captureMode = options?.captureMode ?? 'full_call';
+    this.activeCaptureMode = captureMode;
+    this.activeHasVirtualDevice = false;
 
-      // Try to capture system audio (for headphone users — captures the other person)
+    try {
+      const isIOSSafari = AudioRecorder.isIOSOrSafari();
+
+      // --- Build mic constraints based on capture mode ---
+      let audioConstraints: MediaTrackConstraints;
+
+      if (isIOSSafari) {
+        audioConstraints = { echoCancellation: true, noiseSuppression: true };
+      } else if (captureMode === 'full_call') {
+        audioConstraints = {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: true,
+          sampleRate: 48000,
+          channelCount: 1
+        };
+      } else {
+        audioConstraints = {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48000,
+          channelCount: 1
+        };
+      }
+
+      if (options?.micDeviceId) {
+        audioConstraints.deviceId = { exact: options.micDeviceId };
+      }
+
+      const micStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+      console.log(`[AudioRecorder] Mic granted | mode=${captureMode} | echoCancellation=${captureMode !== 'full_call'}`);
+
+      // --- Virtual audio device: dual-stream mixing ---
       let finalStream = micStream;
-      try {
-        if (!isIOSSafari && navigator.mediaDevices.getDisplayMedia) {
-          const displayStream = await navigator.mediaDevices.getDisplayMedia({
-            audio: true,
-            video: false
-          } as any);
-          
-          // Mix mic + system audio
+
+      const systemDeviceId = options?.systemAudioDeviceId
+        || (await AudioRecorder.detectVirtualAudioDevice())?.deviceId;
+
+      if (systemDeviceId && !isIOSSafari) {
+        try {
+          const systemStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              deviceId: { exact: systemDeviceId },
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false
+            }
+          });
+
           this.audioContext = new AudioContext();
           const micSource = this.audioContext.createMediaStreamSource(micStream);
-          const displaySource = this.audioContext.createMediaStreamSource(displayStream);
+          const sysSource = this.audioContext.createMediaStreamSource(systemStream);
           const destination = this.audioContext.createMediaStreamDestination();
           micSource.connect(destination);
-          displaySource.connect(destination);
+          sysSource.connect(destination);
           finalStream = destination.stream;
-          
-          // Store display stream for cleanup
-          (this as any)._displayStream = displayStream;
-          console.log('[AudioRecorder] System audio capture enabled (mic + speakers mixed)');
+
+          this.secondaryStream = systemStream;
+          this.activeHasVirtualDevice = true;
+          console.log('[AudioRecorder] Virtual device detected — dual-stream capture active');
+        } catch (vdErr: any) {
+          console.log(`[AudioRecorder] Virtual device open failed (${vdErr.message}), continuing with mic only`);
         }
-      } catch (displayErr: any) {
-        // User denied screen share or API not available — fall back to mic only
-        console.log(`[AudioRecorder] System audio not available (${displayErr.message || 'denied'}), using mic only. For best results, use laptop speakers instead of headphones.`);
       }
-      
+
       this.stream = finalStream;
 
-      // Set up audio analysis for level metering
       this.setupAudioAnalysis();
 
-      // 128kbps for better Whisper accuracy — reduces hallucination on long recordings
-      // At 128kbps with 10MB chunks, each chunk ≈ 10 min of audio
       const mimeType = this.getSupportedMimeType();
       this.mimeTypeCache = mimeType;
       this.mediaRecorder = new MediaRecorder(this.stream, {
@@ -182,37 +229,74 @@ export class AudioRecorder {
       this.audioChunks = [];
       this.lastExtractedChunkIndex = 0;
 
-      // Handle data available
       this.mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           this.audioChunks.push(event.data);
         }
       };
 
-      // Start recording with timeslice for periodic data
-      this.mediaRecorder.start(1000); // Get data every second
+      this.mediaRecorder.start(1000);
 
-      // Track timing
       this.startTime = Date.now();
       this.pausedDuration = 0;
-      
-      // Update state
+
       this.state = {
         isRecording: true,
         isPaused: false,
         duration: 0,
         audioLevel: 0
       };
-      
-      // Start duration tracking
+
       this.startDurationTracking();
       this.startLevelTracking();
-      
       this.notifyStateChange();
 
     } catch (error) {
       this.cleanup();
       throw new Error(`Failed to start recording: ${error.message}`);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DEVICE DETECTION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Scan audio inputs for a known virtual audio loopback device.
+   * Returns the first match or null.
+   */
+  static async detectVirtualAudioDevice(): Promise<AudioDeviceInfo | null> {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      for (const d of devices) {
+        if (d.kind !== 'audioinput') continue;
+        for (const pattern of VIRTUAL_DEVICE_PATTERNS) {
+          if (pattern.test(d.label)) {
+            return { deviceId: d.deviceId, label: d.label, isVirtual: true };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[AudioRecorder] enumerateDevices failed:', e);
+    }
+    return null;
+  }
+
+  /**
+   * List all audio input devices, annotating known virtual devices.
+   */
+  static async getAvailableDevices(): Promise<AudioDeviceInfo[]> {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      return devices
+        .filter(d => d.kind === 'audioinput')
+        .map(d => {
+          const isVirtual = VIRTUAL_DEVICE_PATTERNS.some(p => p.test(d.label));
+          return { deviceId: d.deviceId, label: d.label || 'Unknown Microphone', isVirtual };
+        });
+    } catch (e) {
+      console.warn('[AudioRecorder] enumerateDevices failed:', e);
+      return [];
     }
   }
 
@@ -317,34 +401,35 @@ export class AudioRecorder {
 
       const mimeType = this.mediaRecorder.mimeType;
       const duration = this.state.duration;
+      const captureMode = this.activeCaptureMode;
+      const hasVirtualDevice = this.activeHasVirtualDevice;
       let resolved = false;
 
-      // Safety timeout - if onstop doesn't fire within 10 seconds, force completion
+      const buildResult = (audioBlob: Blob): RecordingResult => {
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0];
+        const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+        const extension = mimeType.includes('webm') ? 'webm' :
+                         mimeType.includes('mp4') ? 'm4a' :
+                         mimeType.includes('ogg') ? 'ogg' : 'webm';
+        return {
+          audioBlob,
+          duration,
+          mimeType,
+          filename: `recording-${dateStr}-${timeStr}.${extension}`,
+          captureMode,
+          hasVirtualDevice
+        };
+      };
+
       const safetyTimeout = setTimeout(() => {
         if (!resolved) {
           resolved = true;
           console.warn('AudioRecorder: onstop timeout, forcing completion');
-          
           try {
-            // Create blob from whatever chunks we have
             const audioBlob = new Blob(this.audioChunks, { type: mimeType });
-            
-            const now = new Date();
-            const dateStr = now.toISOString().split('T')[0];
-            const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-            const extension = mimeType.includes('webm') ? 'webm' : 
-                             mimeType.includes('mp4') ? 'm4a' : 
-                             mimeType.includes('ogg') ? 'ogg' : 'webm';
-            const filename = `recording-${dateStr}-${timeStr}.${extension}`;
-
             this.cleanup();
-
-            resolve({
-              audioBlob,
-              duration,
-              mimeType,
-              filename
-            });
+            resolve(buildResult(audioBlob));
           } catch (error) {
             this.cleanup();
             reject(new Error('Failed to process recording after timeout'));
@@ -353,35 +438,15 @@ export class AudioRecorder {
       }, 10000);
 
       this.mediaRecorder.onstop = () => {
-        if (resolved) return; // Already resolved by timeout
+        if (resolved) return;
         resolved = true;
         clearTimeout(safetyTimeout);
-        
         try {
-          // Log chunk count for debugging
           console.log(`[AudioRecorder] Chunks collected: ${this.audioChunks.length}`);
-          
-          // Create blob from chunks
           const audioBlob = new Blob(this.audioChunks, { type: mimeType });
           console.log(`[AudioRecorder] Blob size: ${audioBlob.size} bytes`);
-          
-          // Generate filename
-          const now = new Date();
-          const dateStr = now.toISOString().split('T')[0];
-          const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-          const extension = mimeType.includes('webm') ? 'webm' : 
-                           mimeType.includes('mp4') ? 'm4a' : 
-                           mimeType.includes('ogg') ? 'ogg' : 'webm';
-          const filename = `recording-${dateStr}-${timeStr}.${extension}`;
-
           this.cleanup();
-
-          resolve({
-            audioBlob,
-            duration,
-            mimeType,
-            filename
-          });
+          resolve(buildResult(audioBlob));
         } catch (error) {
           this.cleanup();
           reject(error);
@@ -446,10 +511,10 @@ export class AudioRecorder {
       this.stream = null;
     }
 
-    // Stop display stream (system audio capture) if active
-    if ((this as any)._displayStream) {
-      (this as any)._displayStream.getTracks().forEach((track: any) => track.stop());
-      (this as any)._displayStream = null;
+    // Stop secondary stream (virtual audio device) if active
+    if (this.secondaryStream) {
+      this.secondaryStream.getTracks().forEach(track => track.stop());
+      this.secondaryStream = null;
     }
 
     // Reset recorder
@@ -554,8 +619,8 @@ export class AudioRecorder {
   /**
    * Alias for startRecording()
    */
-  async start(): Promise<void> {
-    return this.startRecording();
+  async start(options?: AudioRecordingOptions): Promise<void> {
+    return this.startRecording(options);
   }
 
   /**

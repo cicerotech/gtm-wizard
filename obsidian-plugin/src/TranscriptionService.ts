@@ -437,6 +437,7 @@ export interface TranscriptionResult {
   sections: ProcessedSections;
   duration: number;
   error?: string;
+  diarizedTranscript?: string;
 }
 
 export interface ProcessedSections {
@@ -826,7 +827,8 @@ export class TranscriptionService {
     mimeType: string,
     accountName?: string,
     accountId?: string,
-    context?: MeetingContext
+    context?: MeetingContext,
+    audioMeta?: { captureMode?: string; hasVirtualDevice?: boolean }
   ): Promise<TranscriptionResult> {
     // Try server first
     try {
@@ -849,6 +851,8 @@ export class TranscriptionService {
           accountId,
           meetingType: context?.meetingType || 'discovery',
           userEmail: context?.userEmail || '',
+          captureMode: audioMeta?.captureMode || 'mic_only',
+          hasVirtualDevice: audioMeta?.hasVirtualDevice || false,
           context: context ? {
             customerBrain: context.account?.customerBrain,
             opportunities: context.opportunities,
@@ -873,7 +877,8 @@ export class TranscriptionService {
         success: true,
         transcript: response.json.transcript || '',
         sections: this.normalizeSections(response.json.sections),
-        duration: response.json.duration || 0
+        duration: response.json.duration || 0,
+        diarizedTranscript: response.json.diarization?.formattedTranscript || undefined
       };
 
     } catch (error: any) {
@@ -1455,7 +1460,7 @@ Format your response as a brief, actionable answer suitable for quick reference 
    */
   async transcribeAudio(
     audioBlob: Blob, 
-    context?: { accountName?: string; accountId?: string; speakerHints?: string[]; meetingType?: string; pipelineContext?: string }
+    context?: { accountName?: string; accountId?: string; speakerHints?: string[]; meetingType?: string; pipelineContext?: string; captureMode?: string; hasVirtualDevice?: boolean }
   ): Promise<{ text: string; confidence: number; duration?: number; sections?: ProcessedSections }> {
     try {
       const base64 = await this.blobToBase64(audioBlob);
@@ -1471,14 +1476,16 @@ Format your response as a brief, actionable answer suitable for quick reference 
         mimeType, 
         context?.accountName, 
         context?.accountId,
-        meetingContext
+        meetingContext,
+        { captureMode: context?.captureMode, hasVirtualDevice: context?.hasVirtualDevice }
       );
       
       return {
         text: result.transcript,
         confidence: result.success ? 0.95 : 0,
         duration: result.duration,
-        sections: result.sections  // Include server-generated sections!
+        sections: result.sections,
+        diarizedTranscript: result.diarizedTranscript
       };
     } catch (error) {
       console.error('transcribeAudio error:', error);

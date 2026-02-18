@@ -5777,7 +5777,7 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
     // Combined transcribe and summarize endpoint
     this.expressApp.post('/api/transcribe-and-summarize', async (req, res) => {
       try {
-        const { audio, mimeType, accountName, accountId, context, openaiApiKey, systemPrompt, meetingType, userEmail } = req.body;
+        const { audio, mimeType, accountName, accountId, context, openaiApiKey, systemPrompt, meetingType, userEmail, captureMode, hasVirtualDevice } = req.body;
         
         if (!audio) {
           return res.status(400).json({ 
@@ -5797,7 +5797,7 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
         const normalizedEmail = (userEmail || context?.userEmail || '').toLowerCase().trim();
         const userGroup = CS_EMAILS.includes(normalizedEmail) ? 'cs' : 'bl';
 
-        logger.info(`Transcription request: account=${accountName || 'unknown'}, mimeType=${mimeType || 'audio/webm'}, meetingType=${meetingType || 'discovery'}, userGroup=${userGroup}`);
+        logger.info(`Transcription request: account=${accountName || 'unknown'}, mimeType=${mimeType || 'audio/webm'}, meetingType=${meetingType || 'discovery'}, userGroup=${userGroup}, captureMode=${captureMode || 'unknown'}, virtualDevice=${!!hasVirtualDevice}`);
 
         // Build context for summarization
         const summaryContext = {
@@ -5805,6 +5805,8 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
           accountId,
           meetingType: meetingType || 'discovery',
           userGroup,
+          captureMode: captureMode || 'mic_only',
+          hasVirtualDevice: !!hasVirtualDevice,
           ...context
         };
         

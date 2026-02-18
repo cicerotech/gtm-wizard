@@ -18,7 +18,7 @@ import {
   WorkspaceLeaf
 } from 'obsidian';
 
-import { AudioRecorder, RecordingState, RecordingResult, AudioDiagnostic } from './src/AudioRecorder';
+import { AudioRecorder, RecordingState, RecordingResult, AudioDiagnostic, AudioCaptureMode, AudioRecordingOptions, AudioDeviceInfo } from './src/AudioRecorder';
 import { TranscriptionService, TranscriptionResult, MeetingContext, ProcessedSections, AccountDetector, accountDetector, AccountDetectionResult, detectPipelineMeeting } from './src/TranscriptionService';
 import { CalendarService, CalendarMeeting, TodayResponse, WeekResponse } from './src/CalendarService';
 import { SmartTagService, SmartTags } from './src/SmartTagService';
@@ -61,6 +61,11 @@ interface EudiaSyncSettings {
   // Salesforce auto-sync settings
   sfAutoSyncEnabled: boolean;
   sfAutoSyncIntervalMinutes: number;
+  // Audio capture settings
+  audioCaptureMode: 'full_call' | 'mic_only';
+  audioMicDeviceId: string;
+  audioSystemDeviceId: string;
+  audioSetupDismissed: boolean;
 }
 
 // Common timezone options for US/EU sales teams
@@ -99,7 +104,11 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   archiveRemovedAccounts: true,
   syncAccountsOnStartup: true,
   sfAutoSyncEnabled: true,
-  sfAutoSyncIntervalMinutes: 15
+  sfAutoSyncIntervalMinutes: 15,
+  audioCaptureMode: 'full_call',
+  audioMicDeviceId: '',
+  audioSystemDeviceId: '',
+  audioSetupDismissed: false
 };
 
 interface SalesforceAccount {
@@ -5437,6 +5446,22 @@ last_updated: ${dateStr}
       return;
     }
 
+    // On first recording, check for virtual audio device and offer setup wizard
+    if (!this.settings.audioSetupDismissed && !this.settings.audioSystemDeviceId) {
+      const vd = await AudioRecorder.detectVirtualAudioDevice();
+      if (!vd) {
+        const wizard = new AudioSetupWizardModal(this.app, this, () => {
+          this.startRecording();
+        });
+        wizard.open();
+        return;
+      } else {
+        this.settings.audioSystemDeviceId = vd.deviceId;
+        this.settings.audioSetupDismissed = true;
+        await this.saveSettings();
+      }
+    }
+
     // Ensure we have an active file
     let activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
@@ -5460,7 +5485,22 @@ last_updated: ${dateStr}
     );
 
     try {
-      await this.audioRecorder.start();
+      const captureMode = this.settings.audioCaptureMode || 'full_call';
+      const recordingOptions: AudioRecordingOptions = {
+        captureMode,
+        micDeviceId: this.settings.audioMicDeviceId || undefined,
+        systemAudioDeviceId: this.settings.audioSystemDeviceId || undefined
+      };
+
+      await this.audioRecorder.start(recordingOptions);
+
+      if (captureMode === 'full_call' && !this.audioRecorder.getState().isRecording) {
+        // Should not reach here, but guard anyway
+      } else if (captureMode === 'full_call') {
+        new Notice('Recording (Full Call mode) — use laptop speakers so the mic captures both sides of the call.', 8000);
+      } else {
+        new Notice('Recording (Mic Only mode)', 3000);
+      }
       this.recordingStatusBar.show();
       
       // Add glow effect to ribbon icon
@@ -5562,11 +5602,24 @@ last_updated: ${dateStr}
 
     try {
       const result = await this.audioRecorder.stop();
+
+      // Pre-transcription audio quality gate
+      try {
+        const diag = await AudioRecorder.analyzeAudioBlob(result.audioBlob);
+        if (!diag.hasAudio) {
+          const modeHint = result.captureMode === 'full_call'
+            ? 'Make sure your call audio is playing through laptop speakers (not headphones).'
+            : 'Check that your microphone is working and has permission.';
+          new Notice(`Recording appears silent. ${modeHint} Open Settings > Audio Capture to test your setup.`, 12000);
+        }
+      } catch (diagErr) {
+        console.warn('[Eudia] Pre-transcription audio check failed:', diagErr);
+      }
+
       await this.processRecording(result, activeFile);
     } catch (error) {
       new Notice(`Transcription failed: ${error.message}`);
     } finally {
-      // Remove glow effect from ribbon icon
       this.micRibbonIcon?.removeClass('eudia-ribbon-recording');
       this.stopLiveTranscription();
       this.recordingStatusBar?.hide();
@@ -5910,10 +5963,15 @@ last_updated: ${dateStr}
         // Calendar service may not be configured
       }
 
-      // Transcribe audio
+      // Transcribe audio (pass capture metadata so server can enable diarization)
       const transcription = await this.transcriptionService.transcribeAudio(
         result.audioBlob, 
-        { ...accountContext, speakerHints }
+        {
+          ...accountContext,
+          speakerHints,
+          captureMode: result.captureMode,
+          hasVirtualDevice: result.hasVirtualDevice
+        }
       );
 
       // Helper to check if sections have actual content
@@ -6260,13 +6318,15 @@ ${emailDraft}
 `;
     }
 
-    // Full transcript
-    if (this.settings.appendTranscript && transcription.text) {
+    // Full transcript — prefer speaker-labeled diarized version when available
+    if (this.settings.appendTranscript && (transcription.diarizedTranscript || transcription.text)) {
+      const transcriptBody = transcription.diarizedTranscript || transcription.text;
+      const label = transcription.diarizedTranscript ? 'Full Transcript (Speaker-Labeled)' : 'Full Transcript';
       content += `---
 
-## Full Transcript
+## ${label}
 
-${transcription.text}
+${transcriptBody}
 `;
     }
 
@@ -7703,6 +7763,140 @@ ${trends.topObjections?.slice(0, 5).map((obj: any) => `- ${obj.objection} - ${ob
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// AUDIO SETUP WIZARD
+// ═══════════════════════════════════════════════════════════════════════════
+
+class AudioSetupWizardModal extends Modal {
+  plugin: EudiaSyncPlugin;
+  private onComplete: () => void;
+
+  constructor(app: App, plugin: EudiaSyncPlugin, onComplete: () => void = () => {}) {
+    super(app);
+    this.plugin = plugin;
+    this.onComplete = onComplete;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.style.cssText = 'max-width: 540px; padding: 24px;';
+
+    contentEl.createEl('h2', { text: 'Audio Setup for Full-Call Recording' });
+
+    const intro = contentEl.createDiv();
+    intro.style.cssText = 'margin-bottom: 20px; line-height: 1.6; color: var(--text-muted);';
+    intro.setText(
+      'To capture both sides of a call with the best quality, install a virtual audio device. ' +
+      'This creates a software loopback that lets the plugin record system audio (the other person) ' +
+      'alongside your microphone.'
+    );
+
+    const isMac = navigator.platform?.toLowerCase().includes('mac') || navigator.userAgent?.includes('Mac');
+
+    // Step 1: Install driver
+    const step1 = contentEl.createDiv();
+    step1.style.cssText = 'padding: 16px; background: var(--background-secondary); border-radius: 8px; margin-bottom: 12px;';
+    step1.createEl('h4', { text: 'Step 1: Install Virtual Audio Driver' });
+
+    if (isMac) {
+      const macInfo = step1.createDiv();
+      macInfo.style.cssText = 'line-height: 1.6;';
+      macInfo.innerHTML = `
+        <p>Install <strong>BlackHole 2ch</strong> (free, open-source):</p>
+        <ol style="padding-left: 20px; margin: 8px 0;">
+          <li>Download from <a href="https://existential.audio/blackhole/" style="color:var(--text-accent);">existential.audio/blackhole</a></li>
+          <li>Run the installer (requires admin password)</li>
+          <li>Restart Obsidian after installation</li>
+        </ol>
+      `;
+    } else {
+      const winInfo = step1.createDiv();
+      winInfo.style.cssText = 'line-height: 1.6;';
+      winInfo.innerHTML = `
+        <p>Install <strong>VB-Cable</strong> (free):</p>
+        <ol style="padding-left: 20px; margin: 8px 0;">
+          <li>Download from <a href="https://vb-audio.com/Cable/" style="color:var(--text-accent);">vb-audio.com/Cable</a></li>
+          <li>Run the installer as Administrator</li>
+          <li>Restart Obsidian after installation</li>
+        </ol>
+      `;
+    }
+
+    // Step 2: Multi-Output Device (Mac only)
+    if (isMac) {
+      const step2 = contentEl.createDiv();
+      step2.style.cssText = 'padding: 16px; background: var(--background-secondary); border-radius: 8px; margin-bottom: 12px;';
+      step2.createEl('h4', { text: 'Step 2: Create Multi-Output Device (macOS)' });
+      const macStep2 = step2.createDiv();
+      macStep2.style.cssText = 'line-height: 1.6;';
+      macStep2.innerHTML = `
+        <p>This routes audio to your speakers AND BlackHole simultaneously:</p>
+        <ol style="padding-left: 20px; margin: 8px 0;">
+          <li>Open <strong>Audio MIDI Setup</strong> (search in Spotlight)</li>
+          <li>Click the <strong>+</strong> button at bottom-left, select "Create Multi-Output Device"</li>
+          <li>Check both <strong>Built-in Output</strong> (or your speakers) and <strong>BlackHole 2ch</strong></li>
+          <li>Right-click the Multi-Output Device and select "Use This Device For Sound Output"</li>
+        </ol>
+        <p style="color: var(--text-muted); font-size: 12px;">
+          You can switch back to normal speakers when not recording. The plugin auto-detects BlackHole.
+        </p>
+      `;
+    }
+
+    // Verify button
+    const verifyContainer = contentEl.createDiv();
+    verifyContainer.style.cssText = 'padding: 16px; background: var(--background-secondary); border-radius: 8px; margin-bottom: 16px;';
+    verifyContainer.createEl('h4', { text: isMac ? 'Step 3: Verify Setup' : 'Step 2: Verify Setup' });
+
+    const verifyResult = verifyContainer.createDiv();
+    verifyResult.style.cssText = 'margin-bottom: 12px; font-size: 13px;';
+
+    const verifyBtn = verifyContainer.createEl('button', { text: 'Scan for Virtual Audio Device' });
+    verifyBtn.style.cssText = 'padding: 8px 16px; cursor: pointer; border-radius: 6px; margin-right: 8px;';
+    verifyBtn.onclick = async () => {
+      verifyResult.setText('Scanning...');
+      try {
+        try { const s = await navigator.mediaDevices.getUserMedia({ audio: true }); s.getTracks().forEach(t => t.stop()); } catch {}
+        const device = await AudioRecorder.detectVirtualAudioDevice();
+        if (device) {
+          verifyResult.innerHTML = `<span style="color:#22c55e;">&#10003;</span> Found: <strong>${device.label}</strong>. You're all set!`;
+          this.plugin.settings.audioSystemDeviceId = device.deviceId;
+          await this.plugin.saveSettings();
+        } else {
+          verifyResult.innerHTML = '<span style="color:#f59e0b;">&#9888;</span> No virtual audio device found. Make sure the driver is installed and Obsidian was restarted.';
+        }
+      } catch (e: any) {
+        verifyResult.innerHTML = `<span style="color:#ef4444;">Scan failed: ${e.message}</span>`;
+      }
+    };
+
+    // Action buttons
+    const actions = contentEl.createDiv();
+    actions.style.cssText = 'display: flex; justify-content: space-between; margin-top: 20px;';
+
+    const skipBtn = actions.createEl('button', { text: 'Skip — I\'ll use Speaker Mode' });
+    skipBtn.style.cssText = 'padding: 10px 20px; cursor: pointer; border-radius: 6px; opacity: 0.7;';
+    skipBtn.onclick = async () => {
+      this.plugin.settings.audioSetupDismissed = true;
+      await this.plugin.saveSettings();
+      this.close();
+      this.onComplete();
+    };
+
+    const doneBtn = actions.createEl('button', { text: 'Done' });
+    doneBtn.style.cssText = 'padding: 10px 20px; cursor: pointer; border-radius: 6px; font-weight: 600;';
+    doneBtn.onclick = () => {
+      this.close();
+      this.onComplete();
+    };
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SETTINGS TAB
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -7935,6 +8129,128 @@ class EudiaSyncSettingTab extends PluginSettingTab {
         }));
     
     advancedSection.style.display = 'none';
+
+    // ─────────────────────────────────────────────────────────────────────
+    // AUDIO CAPTURE
+    // ─────────────────────────────────────────────────────────────────────
+
+    containerEl.createEl('h3', { text: 'Audio Capture' });
+
+    const audioCaptureDesc = containerEl.createDiv();
+    audioCaptureDesc.style.cssText = 'font-size: 12px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;';
+    audioCaptureDesc.setText(
+      'Full Call mode disables echo cancellation so your mic captures both you AND the other person\'s voice from your speakers. ' +
+      'For best quality, install a virtual audio device (BlackHole on Mac, VB-Cable on Windows) — it will be auto-detected.'
+    );
+
+    new Setting(containerEl)
+      .setName('Capture Mode')
+      .setDesc('Full Call captures both sides via speakers; Mic Only captures your voice only.')
+      .addDropdown(dropdown => {
+        dropdown.addOption('full_call', 'Full Call (Speaker Mode)');
+        dropdown.addOption('mic_only', 'Mic Only');
+        dropdown.setValue(this.plugin.settings.audioCaptureMode || 'full_call');
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.audioCaptureMode = value as 'full_call' | 'mic_only';
+          await this.plugin.saveSettings();
+        });
+      });
+
+    // Virtual device status indicator
+    const vdStatusEl = containerEl.createDiv();
+    vdStatusEl.style.cssText = 'padding: 10px 14px; background: var(--background-secondary); border-radius: 6px; margin-bottom: 12px; font-size: 13px;';
+    vdStatusEl.setText('Scanning audio devices...');
+
+    // Device selector dropdowns (populated async)
+    const micSetting = new Setting(containerEl)
+      .setName('Microphone')
+      .setDesc('Select your physical microphone');
+
+    const sysSetting = new Setting(containerEl)
+      .setName('System Audio Device')
+      .setDesc('Virtual audio device for capturing the other person (optional)');
+
+    // Test audio button
+    const testAudioContainer = containerEl.createDiv();
+    testAudioContainer.style.cssText = 'margin-bottom: 16px;';
+    const testBtn = testAudioContainer.createEl('button', { text: 'Test Audio (3 seconds)' });
+    testBtn.style.cssText = 'padding: 8px 16px; cursor: pointer; border-radius: 6px;';
+    const testResult = testAudioContainer.createDiv();
+    testResult.style.cssText = 'font-size: 12px; margin-top: 6px; color: var(--text-muted);';
+
+    // Populate device lists asynchronously
+    (async () => {
+      try {
+        // Request mic permission first so labels are populated
+        try { const s = await navigator.mediaDevices.getUserMedia({ audio: true }); s.getTracks().forEach(t => t.stop()); } catch {}
+
+        const devices = await AudioRecorder.getAvailableDevices();
+        const virtualDevice = devices.find(d => d.isVirtual);
+
+        if (virtualDevice) {
+          vdStatusEl.innerHTML = `<span style="color:#22c55e;">&#10003;</span> Virtual audio device detected: <strong>${virtualDevice.label}</strong>`;
+          if (!this.plugin.settings.audioSystemDeviceId) {
+            this.plugin.settings.audioSystemDeviceId = virtualDevice.deviceId;
+            await this.plugin.saveSettings();
+          }
+        } else {
+          vdStatusEl.innerHTML = '<span style="color:#f59e0b;">&#9888;</span> No virtual audio device found. Using speaker mode. For best quality, install <a href="https://existential.audio/blackhole/" style="color:var(--text-accent);">BlackHole</a> (Mac) or <a href="https://vb-audio.com/Cable/" style="color:var(--text-accent);">VB-Cable</a> (Windows).';
+        }
+
+        const mics = devices.filter(d => !d.isVirtual);
+
+        micSetting.addDropdown(dropdown => {
+          dropdown.addOption('', 'Default Microphone');
+          mics.forEach(d => dropdown.addOption(d.deviceId, d.label));
+          dropdown.setValue(this.plugin.settings.audioMicDeviceId || '');
+          dropdown.onChange(async (value) => {
+            this.plugin.settings.audioMicDeviceId = value;
+            await this.plugin.saveSettings();
+          });
+        });
+
+        sysSetting.addDropdown(dropdown => {
+          dropdown.addOption('', 'Auto-detect / None');
+          devices.filter(d => d.isVirtual).forEach(d => dropdown.addOption(d.deviceId, d.label));
+          // Also allow selecting any device as system audio
+          devices.filter(d => !d.isVirtual).forEach(d => dropdown.addOption(d.deviceId, `(mic) ${d.label}`));
+          dropdown.setValue(this.plugin.settings.audioSystemDeviceId || '');
+          dropdown.onChange(async (value) => {
+            this.plugin.settings.audioSystemDeviceId = value;
+            await this.plugin.saveSettings();
+          });
+        });
+      } catch (e) {
+        vdStatusEl.setText('Could not enumerate audio devices.');
+        console.warn('[Eudia Settings] Device enumeration failed:', e);
+      }
+    })();
+
+    // Test recording handler
+    testBtn.onclick = async () => {
+      testBtn.disabled = true;
+      testBtn.setText('Recording...');
+      testResult.setText('');
+      try {
+        const testRecorder = new AudioRecorder();
+        await testRecorder.start({
+          captureMode: this.plugin.settings.audioCaptureMode as AudioCaptureMode || 'full_call',
+          micDeviceId: this.plugin.settings.audioMicDeviceId || undefined,
+          systemAudioDeviceId: this.plugin.settings.audioSystemDeviceId || undefined
+        });
+        await new Promise(r => setTimeout(r, 3000));
+        const result = await testRecorder.stop();
+        const diag = await AudioRecorder.analyzeAudioBlob(result.audioBlob);
+        const mode = result.hasVirtualDevice ? 'Virtual Device + Mic' : (result.captureMode === 'full_call' ? 'Speaker Mode' : 'Mic Only');
+        testResult.innerHTML = `<strong>${mode}</strong> | Peak: ${diag.peakLevel}% | Avg: ${diag.averageLevel}% | Silent: ${diag.silentPercent}%` +
+          (diag.warning ? `<br><span style="color:#ef4444;">${diag.warning}</span>` : '<br><span style="color:#22c55e;">Audio detected — recording should work.</span>');
+      } catch (e: any) {
+        testResult.innerHTML = `<span style="color:#ef4444;">Test failed: ${e.message}</span>`;
+      } finally {
+        testBtn.disabled = false;
+        testBtn.setText('Test Audio (3 seconds)');
+      }
+    };
 
     // ─────────────────────────────────────────────────────────────────────
     // TRANSCRIPTION
