@@ -9,4 +9,5 @@ module.exports = {
   telemetryRepo: require('./telemetryRepository'),
   transcriptRepo: require('./transcriptRepository'),
   analyticsRepo: require('./analyticsRepository'),
+  queryLogRepo: require('./queryLogRepository'),
 };

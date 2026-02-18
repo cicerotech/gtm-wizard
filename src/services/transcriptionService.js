@@ -713,12 +713,12 @@ Format:
           emailDraft = emailResponse.content[0]?.text || '';
           logger.info(`[Summarization] Email draft generated (${emailDraft.length} chars)`);
         } catch (emailErr) {
-          logger.warn(`[Summarization] Email draft generation failed (non-blocking): ${emailErr.message}`);
+          logger.warn(`[Summarization] Email draft generation failed: ${emailErr.message}`);
+          emailDraft = '*Email draft could not be generated for this recording. This usually happens with very short recordings or when the AI service is temporarily unavailable. Try recording a longer conversation for better results.*';
         }
         
-        // Append email draft to content if generated
         const fullContent = emailDraft 
-          ? content + '\n\n## Draft Follow-Up Email\n\n' + emailDraft + '\n\n> *Edit this draft to match your voice, then send. To improve future drafts, your edits help the system learn your style.*'
+          ? content + '\n\n## Draft Follow-Up Email\n\n' + emailDraft + '\n\n> *Edit this draft to match your voice, then send.*'
           : content;
         
         const sections = this.parseSections(fullContent);

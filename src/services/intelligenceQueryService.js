@@ -87,6 +87,11 @@ const MAX_SESSIONS = 200; // Prevent unbounded memory growth
 // Ensures the SF connection is alive before any SOQL execution.
 // Resets the circuit breaker and attempts re-initialization if degraded.
 // ═══════════════════════════════════════════════════════════════════════════
+function isValidSalesforceId(id) {
+  if (!id || typeof id !== 'string') return false;
+  return /^[a-zA-Z0-9]{15}$|^[a-zA-Z0-9]{18}$/.test(id);
+}
+
 async function ensureSalesforceConnection() {
   const { isSalesforceAvailable, resetCircuitBreaker, initializeSalesforce } = require('../salesforce/connection');
   if (!isSalesforceAvailable()) {
@@ -573,6 +578,23 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
       turn: turnNumber
     });
 
+    // Log query to PostgreSQL (non-blocking)
+    try {
+      const { queryLogRepo } = require('../db/repositories');
+      queryLogRepo.logQuery({
+        query, intent,
+        accountId: context.account?.id,
+        accountName: context.account?.name || context.ownerName,
+        userEmail, sessionId: currentSessionId,
+        responseSnippet: answer?.substring(0, 500),
+        responseLength: answer?.length || 0,
+        contextType: context.isPipelineQuery ? 'pipeline' : context.isSnapshotQuery ? 'snapshot' : context.isMeetingQuery ? 'meeting' : context.isOwnerQuery ? 'owner' : 'account',
+        dataFreshness: context.dataFreshness || 'unknown',
+        responseTimeMs: duration,
+        sfStatus: 'connected'
+      }).catch(e => logger.debug('[Intelligence] Query log write failed:', e.message));
+    } catch (e) { /* non-critical */ }
+
     return {
       success: true,
       query,
@@ -763,7 +785,8 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
   // For account-specific queries, we need an account
   if (!accountId && accountName) {
     logger.info(`[Intelligence] Looking up account by name: "${accountName}"`);
-    const account = await findAccountByName(accountName);
+    const lookupResult = await findAccountByName(accountName);
+    const account = lookupResult?.account || (lookupResult?.Id ? lookupResult : null);
     if (account) {
       accountId = account.Id;
       logger.info(`[Intelligence] Found account: ${account.Name} (${account.Id})`);
@@ -777,7 +800,13 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
         website: account.Website
       };
     } else {
-      logger.warn(`[Intelligence] No account found matching: "${accountName}"`);
+      const status = lookupResult?.status || 'unknown';
+      logger.warn(`[Intelligence] Account lookup result: ${status} for "${accountName}"`);
+      if (status === 'lookup_error') {
+        context.lookupError = `Salesforce lookup failed for "${accountName}": ${lookupResult.error}`;
+      } else if (status === 'not_found') {
+        context.lookupNotFound = accountName;
+      }
     }
   }
 
@@ -830,20 +859,19 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
   
   // Note: obsidianNotes now come from Customer_Brain__c (Salesforce)
   // slackIntel comes from file-based cache (data/slack-intel-cache.json)
-  context.obsidianNotes = context.meetingNotes; // Alias for backward compatibility
-  context.slackIntel = getIntelForAccount(accountId); // Load from file cache
+  context.obsidianNotes = context.meetingNotes || [];
+  context.slackIntel = getIntelForAccount(accountId) || [];
   
-  if (context.slackIntel.length > 0) {
+  if (context.slackIntel?.length > 0) {
     logger.debug(`[Intelligence] Loaded ${context.slackIntel.length} Slack intel items for ${accountId}`);
   }
 
-  // Vector search: find semantically relevant context for the query
   context.vectorResults = [];
   if (vectorSearch && vectorSearch.isHealthy() && query) {
     try {
       const vResults = await vectorSearch.search(query, { accountId, limit: 5 });
-      context.vectorResults = vResults;
-      if (vResults.length > 0) {
+      context.vectorResults = vResults || [];
+      if (vResults?.length > 0) {
         logger.info(`[Intelligence] Vector search returned ${vResults.length} results for "${query.substring(0, 40)}"`);
       }
     } catch (err) {
@@ -851,15 +879,13 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
     }
   }
   
-  // Log data summary for debugging
   logger.info(`[Intelligence] Context summary for ${context.account?.name || accountId}: ` +
-    `${context.opportunities.length} opps, ${context.contacts.length} contacts, ` +
-    `${context.recentTasks.length} tasks, ${context.recentEvents.length} past events, ${context.upcomingEvents.length} upcoming, ` +
-    `${context.meetingNotes.length} meeting notes, customerBrain: ${context.customerBrain ? 'yes' : 'no'}` +
-    `${context.vectorResults.length > 0 ? `, ${context.vectorResults.length} vector matches` : ''}`);
+    `${context.opportunities?.length || 0} opps, ${context.contacts?.length || 0} contacts, ` +
+    `${context.recentTasks?.length || 0} tasks, ${context.recentEvents?.length || 0} past events, ${context.upcomingEvents?.length || 0} upcoming, ` +
+    `${context.meetingNotes?.length || 0} meeting notes, customerBrain: ${context.customerBrain ? 'yes' : 'no'}` +
+    `${context.vectorResults?.length > 0 ? `, ${context.vectorResults.length} vector matches` : ''}`);
 
-  // Set upcoming meeting from already-fetched upcoming events (no separate query needed)
-  if (intent === 'PRE_MEETING' && context.upcomingEvents.length > 0) {
+  if (intent === 'PRE_MEETING' && context.upcomingEvents?.length > 0) {
     context.upcomingMeeting = context.upcomingEvents[0];
   }
 
@@ -874,6 +900,7 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
  * Get detailed account information including enriched fields
  */
 async function getAccountDetails(accountId) {
+  if (!isValidSalesforceId(accountId)) { logger.warn(`[Intelligence] Invalid accountId for getAccountDetails: "${accountId}"`); return null; }
   try {
     const result = await sfQuery(`
       SELECT Id, Name, Account_Display_Name__c, Owner.Name, Owner.Email, Customer_Type__c, Customer_Subtype__c,
@@ -922,6 +949,7 @@ async function getAccountDetails(accountId) {
  * Get opportunities for an account
  */
 async function getOpportunities(accountId) {
+  if (!isValidSalesforceId(accountId)) { logger.warn(`[Intelligence] Invalid accountId for getOpportunities: "${accountId}"`); return []; }
   try {
     const result = await sfQuery(`
       SELECT Id, Name, StageName, ACV__c, Weighted_ACV__c, CloseDate, Target_LOI_Date__c,
@@ -991,6 +1019,7 @@ function rankContactTitle(title) {
 }
 
 async function getContacts(accountId) {
+  if (!isValidSalesforceId(accountId)) { logger.warn(`[Intelligence] Invalid accountId for getContacts: "${accountId}"`); return []; }
   try {
     const result = await sfQuery(`
       SELECT Id, Name, Title, Email, Phone, MobilePhone, 
@@ -1024,6 +1053,7 @@ async function getContacts(accountId) {
  * Get recent tasks for an account
  */
 async function getRecentTasks(accountId) {
+  if (!isValidSalesforceId(accountId)) return [];
   try {
     const result = await sfQuery(`
       SELECT Id, Subject, Status, ActivityDate, Description, Owner.Name, Priority
@@ -1054,6 +1084,7 @@ async function getRecentTasks(accountId) {
  * Returns { past: [...], upcoming: [...] } to enforce clean temporal separation.
  */
 async function getRecentEvents(accountId) {
+  if (!isValidSalesforceId(accountId)) return { past: [], upcoming: [] };
   try {
     const [pastResult, upcomingResult] = await Promise.all([
       sfQuery(`
@@ -1097,6 +1128,7 @@ async function getRecentEvents(accountId) {
  * Get contracts for an account
  */
 async function getContracts(accountId) {
+  if (!isValidSalesforceId(accountId)) return [];
   try {
     const result = await sfQuery(`
       SELECT Id, ContractNumber, Status, StartDate, EndDate,
@@ -1127,9 +1159,10 @@ async function getContracts(accountId) {
  * Find account by name (for account lookup queries)
  */
 async function findAccountByName(accountName) {
-  if (!accountName || accountName.trim().length === 0) return null;
+  if (!accountName || accountName.trim().length === 0) return { account: null, status: 'empty_input' };
   
   try {
+    await ensureSalesforceConnection();
     let cleanName = accountName.trim();
     
     // Pre-process: split concatenated names (Chsinc -> Chs inc, Libertymutual -> Liberty mutual)
@@ -1231,10 +1264,10 @@ async function findAccountByName(accountName) {
     }
 
     logger.warn(`[Intelligence] No account found after 6 strategies for: "${accountName}"`);
-    return null;
+    return { account: null, status: 'not_found', searchedName: accountName };
   } catch (error) {
     logger.error('[Intelligence] Account lookup error:', error.message);
-    return null;
+    return { account: null, status: 'lookup_error', error: error.message, searchedName: accountName };
   }
 }
 
@@ -1435,11 +1468,13 @@ async function gatherAccountLookupContext(query) {
     return { isLookupQuery: true, error: 'Could not extract account name from query' };
   }
 
-  const account = await findAccountByName(accountName);
+  const lookupResult = await findAccountByName(accountName);
+  const account = lookupResult?.account || (lookupResult?.Id ? lookupResult : null);
   
   return {
     isLookupQuery: true,
     searchedName: accountName,
+    lookupStatus: lookupResult?.status || (account ? 'found' : 'not_found'),
     account: account ? {
       id: account.Id,
       name: account.Name,

@@ -4646,16 +4646,36 @@ class GTMBrainApp {
       }
     });
 
+    // Rate limiter: 30 queries per minute per user (in-memory, resets on deploy)
+    const _queryRateLimits = new Map();
+    const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+    const RATE_LIMIT_MAX = 30;
+
     this.expressApp.post('/api/intelligence/query', async (req, res) => {
       try {
         const { 
-          query,          // The user's natural language question
-          accountId,      // Optional: Focus on a specific account
-          accountName,    // Optional: Account name for context
-          userEmail,      // User's email for context
-          forceRefresh,   // Optional: Skip in-memory cache for fresh data
-          sessionId       // Optional: Conversation session ID for multi-turn
+          query,
+          accountId,
+          accountName,
+          userEmail,
+          forceRefresh,
+          sessionId
         } = req.body;
+
+        // Per-user rate limiting
+        const rateLimitKey = userEmail || req.ip || 'anonymous';
+        const now = Date.now();
+        const userWindow = _queryRateLimits.get(rateLimitKey) || [];
+        const recentRequests = userWindow.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+        if (recentRequests.length >= RATE_LIMIT_MAX) {
+          return res.status(429).json({ success: false, error: 'Too many queries. Please wait a moment before trying again.' });
+        }
+        recentRequests.push(now);
+        _queryRateLimits.set(rateLimitKey, recentRequests);
+        if (_queryRateLimits.size > 500) {
+          const oldest = [..._queryRateLimits.entries()].sort((a, b) => a[1][0] - b[1][0]);
+          for (let i = 0; i < 100; i++) _queryRateLimits.delete(oldest[i][0]);
+        }
         
         // Use the dedicated intelligence query service
         const intelligenceQueryService = require('./services/intelligenceQueryService');
@@ -4722,13 +4742,25 @@ class GTMBrainApp {
     // ═══════════════════════════════════════════════════════════════════════════
     this.expressApp.post('/api/intelligence/feedback', async (req, res) => {
       try {
-        const feedbackService = require('./services/feedbackService');
-        const { query, answerSnippet, accountName, accountId, userEmail, sessionId, rating, comment } = req.body;
+        const { query, answerSnippet, accountName, accountId, userEmail, sessionId, rating, comment, category } = req.body;
         if (!rating || !['helpful', 'not_helpful'].includes(rating)) {
           return res.status(400).json({ success: false, error: 'Rating must be "helpful" or "not_helpful"' });
         }
-        const id = feedbackService.submitFeedback({ query, answerSnippet, accountName, accountId, userEmail, sessionId, rating, comment });
-        res.json({ success: true, feedbackId: id });
+
+        // Write to PostgreSQL (primary) and JSON file (legacy fallback)
+        const { queryLogRepo } = require('./db/repositories');
+        const saved = await queryLogRepo.saveFeedback({
+          queryText: query, answerSnippet, accountName, accountId,
+          userEmail, sessionId, rating, category, comment
+        });
+
+        // Legacy JSON file fallback
+        try {
+          const feedbackService = require('./services/feedbackService');
+          feedbackService.submitFeedback({ query, answerSnippet, accountName, accountId, userEmail, sessionId, rating, comment });
+        } catch (e) { /* legacy fallback non-critical */ }
+
+        res.json({ success: true, savedToDb: saved });
       } catch (error) {
         logger.error('Feedback submission error:', error);
         res.status(500).json({ success: false, error: 'Failed to submit feedback' });
@@ -4737,10 +4769,32 @@ class GTMBrainApp {
 
     this.expressApp.get('/api/intelligence/feedback/summary', async (req, res) => {
       try {
+        const { queryLogRepo } = require('./db/repositories');
+        const analytics = await queryLogRepo.getFeedbackAnalytics(30);
+        if (analytics) {
+          return res.json({ success: true, summary: analytics, source: 'postgresql' });
+        }
+        // Fallback to legacy JSON-based summary
         const feedbackService = require('./services/feedbackService');
-        res.json({ success: true, summary: feedbackService.getSummary() });
+        res.json({ success: true, summary: feedbackService.getSummary(), source: 'json_legacy' });
       } catch (error) {
         res.status(500).json({ success: false, error: 'Failed to get feedback summary' });
+      }
+    });
+
+    // Feedback analytics for admins — quality monitoring dashboard
+    this.expressApp.get('/api/admin/feedback-analytics', requireAdmin, async (req, res) => {
+      try {
+        const { queryLogRepo } = require('./db/repositories');
+        const days = parseInt(req.query.days) || 30;
+        const analytics = await queryLogRepo.getFeedbackAnalytics(days);
+        if (!analytics) {
+          return res.json({ success: false, error: 'Database not available for analytics' });
+        }
+        res.json({ success: true, analytics });
+      } catch (error) {
+        logger.error('Feedback analytics error:', error);
+        res.status(500).json({ success: false, error: 'Analytics query failed' });
       }
     });
 
@@ -6933,7 +6987,31 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
           checks.salesforce = { status: 'error', message: e.message };
         }
 
-        const overallStatus = Object.values(checks).every(c => c.status === 'ok') ? 'healthy' :
+        // Check Anthropic Claude API
+        checks.anthropic = { status: process.env.ANTHROPIC_API_KEY ? 'configured' : 'not_configured' };
+
+        // Check calendar cache (in-memory, for Meeting Prep speed)
+        try {
+          const { getCalendarCacheStatus } = require('./services/calendarService');
+          const cacheStatus = getCalendarCacheStatus();
+          checks.calendarCache = {
+            status: cacheStatus?.cacheValid ? 'warm' : 'cold',
+            meetingCount: cacheStatus?.databaseStats?.customerMeetings || 0,
+            lastSync: cacheStatus?.lastSync || null
+          };
+        } catch (e) {
+          checks.calendarCache = { status: 'error', message: e.message };
+        }
+
+        // Memory usage
+        const mem = process.memoryUsage();
+        checks.memory = {
+          heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
+          heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+          rssMB: Math.round(mem.rss / 1024 / 1024)
+        };
+
+        const overallStatus = Object.values(checks).every(c => c.status === 'ok' || c.status === 'configured' || c.status === 'warm') ? 'healthy' :
                               Object.values(checks).some(c => c.status === 'error') ? 'unhealthy' : 'degraded';
 
         res.json({
