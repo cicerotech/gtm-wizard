@@ -194,9 +194,76 @@ const QUERY_INTENTS = {
   NEXT_STEPS: ['next step', 'action item', 'todo', 'follow up', 'outstanding'],
   PAIN_POINTS: ['pain point', 'challenge', 'problem', 'issue', 'struggle'],
   COMPETITIVE: ['competitor', 'competitive', 'alternative', 'vs', 'compared to'],
-  PIPELINE_OVERVIEW: ['my pipeline', 'my deals', 'my accounts', 'late stage', 'forecast', 'how many customer', 'how many deal', 'how many account', 'total pipeline', 'closing this', 'in our pipeline', 'pipeline summary', 'deals closing', 'new logo', 'won this'],
+  PIPELINE_OVERVIEW: ['my pipeline', 'my deals', 'late stage', 'forecast', 'how many customer', 'how many deal', 'how many account', 'total pipeline', 'closing this month', 'closing this quarter', 'in our pipeline', 'pipeline summary', 'deals closing', 'new logo', 'won this month', 'won this quarter', 'signed this month', 'signed this quarter', 'lost this', 'what deals are', 'how many logos'],
+  OWNER_ACCOUNTS: ['what accounts does', "'s accounts", "'s book", "'s pipeline", "'s deals", 'accounts does', 'book for'],
+  MEETING_ACTIVITY: ['met with this week', 'meeting with this week', 'meetings this week', 'met with today', 'meeting with today', 'calls this week', 'meetings scheduled'],
   ACCOUNT_LOOKUP: ['who owns', 'owner of', 'assigned to']
 };
+
+const BL_NAME_MAP = {
+  'riley': { name: 'Riley Stack', email: 'riley.stack@eudia.com' },
+  'olivia': { name: 'Olivia Jung', email: 'olivia.jung@eudia.com' },
+  'julie': { name: 'Julie Stefanich', email: 'julie.stefanich@eudia.com' },
+  'asad': { name: 'Asad Hussain', email: 'asad.hussain@eudia.com' },
+  'ananth': { name: 'Ananth Cherukupally', email: 'ananth.cherukupally@eudia.com' },
+  'nathan': { name: 'Nathan Shine', email: 'nathan.shine@eudia.com' },
+  'justin': { name: 'Justin Hills', email: 'justin.hills@eudia.com' },
+  'sean': { name: 'Sean Boyd', email: 'sean.boyd@eudia.com' },
+  'mike': { name: 'Mike Masiello', email: 'mike.masiello@eudia.com' },
+  'greg': { name: 'Greg MacHale', email: 'greg.machale@eudia.com' },
+  'tom': { name: 'Tom Clancy', email: 'tom.clancy@eudia.com' },
+  'nicola': { name: 'Nicola Fratini', email: 'nicola.fratini@eudia.com' },
+  'conor': { name: 'Conor Molloy', email: 'conor.molloy@eudia.com' },
+  'alex': { name: 'Alex Fox', email: 'alex.fox@eudia.com' },
+  'emer': { name: 'Emer Flynn', email: 'emer.flynn@eudia.com' },
+  'riona': { name: 'Riona McHale', email: 'riona.mchale@eudia.com' },
+  'himanshu': { name: 'Himanshu Agarwal', email: 'himanshu.agarwal@eudia.com' },
+  'david': { name: 'David Van Ryk', email: 'david.vanryk@eudia.com' },
+  'stephen': { name: 'Stephen Mulholland', email: 'stephen.mulholland@eudia.com' },
+  'mitchell': { name: 'Mitchell Loquaci', email: 'mitchell.loquaci@eudia.com' },
+};
+
+function extractBLName(query) {
+  const lower = query.toLowerCase();
+  for (const [key, bl] of Object.entries(BL_NAME_MAP)) {
+    const keyPattern = new RegExp('\\b' + key + '\\b', 'i');
+    if (keyPattern.test(lower) || lower.includes(bl.name.toLowerCase())) return bl;
+  }
+  return null;
+}
+
+const UNASSIGNED_HOLDERS = ['Keigan Pesenti', 'Emmit Hood', 'Emmitt Hood', 'Mark Runyon', 'Derreck Chu', 'Sarah Rakhine'];
+
+/**
+ * Extract a potential account name from free-text queries.
+ * Handles patterns like "tell me about Coherent", "deal status at Intuit", "what about CHS?"
+ */
+function extractAccountFromQuery(query) {
+  const patterns = [
+    /\btell me about\s+(.+?)(?:\?|$)/i,
+    /\bwhat(?:'s| is)(?: the)?(?: .*?)?\s+(?:at|for|with|on)\s+(.+?)(?:\?|$)/i,
+    /\b(?:overview|status|update|info|details|contacts?|pipeline)\s+(?:for|at|on|of)\s+(.+?)(?:\?|$)/i,
+    /\b(?:for|at|about|on)\s+(.+?)(?:\?|\.|\s*$)/i,
+  ];
+  for (const pattern of patterns) {
+    const match = query.match(pattern);
+    if (match) {
+      let candidate = match[1].trim()
+        .replace(/^(the|this|my|our)\s+/i, '')
+        .replace(/[?.!]+$/, '')
+        .trim();
+      if (candidate.length >= 3 && candidate.length <= 60 && !/^(pipeline|deal|account|meeting|contact|team|stage|product|quarter|month|year|week|today|tomorrow|upcoming|recent|next|steps|strategy|status|update|latest|history|overview|summary|report|forecast|owner|revenue|customer|prospect|lead)s?$/i.test(candidate)) {
+        return candidate;
+      }
+    }
+  }
+  return null;
+}
+
+function maskOwnerIfUnassigned(ownerName) {
+  if (!ownerName) return 'Unassigned';
+  return UNASSIGNED_HOLDERS.includes(ownerName) ? 'Unassigned' : ownerName;
+}
 
 /**
  * Main entry point for intelligence queries
@@ -269,12 +336,23 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
       queryHints: Object.keys(queryHints).filter(k => queryHints[k])
     });
 
-    // Gather context — reuse from session if available and not forcing refresh
+    // Free-text account extraction: if no account selected, try to extract from query
+    if (!accountId && !accountName && intent !== 'PIPELINE_OVERVIEW' && intent !== 'OWNER_ACCOUNTS' && intent !== 'MEETING_ACTIVITY') {
+      const extracted = extractAccountFromQuery(query);
+      if (extracted) {
+        accountName = extracted;
+        logger.info(`[Intelligence] Extracted account name from query: "${extracted}"`);
+      }
+    }
+
+    // Gather context — reuse from session if fresh enough and not forcing refresh
     let context;
-    if (ENABLE_MULTI_TURN && session && session.gatheredContext && !forceRefresh && turnNumber > 1) {
+    const sessionContextAge = session?.gatheredContext?._gatheredAt ? Date.now() - session.gatheredContext._gatheredAt : Infinity;
+    const isSessionContextFresh = sessionContextAge < (CACHE_TTL.ACCOUNT_CONTEXT * 1000);
+    if (ENABLE_MULTI_TURN && session && session.gatheredContext && !forceRefresh && turnNumber > 1 && isSessionContextFresh) {
       context = session.gatheredContext;
       context.dataFreshness = 'session-cached';
-      logger.info(`[Intelligence] Reusing session context (turn ${turnNumber})`);
+      logger.info(`[Intelligence] Reusing session context (turn ${turnNumber}, age ${Math.round(sessionContextAge/1000)}s)`);
     } else {
       context = await gatherContext({
         intent,
@@ -284,9 +362,33 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
         userEmail,
         forceRefresh: !!forceRefresh
       });
+      context._gatheredAt = Date.now();
       if (ENABLE_MULTI_TURN && session) {
         session.gatheredContext = context;
       }
+    }
+
+    // Gracious disambiguation: if no account context and not a cross-account query, guide the user
+    if (!context.account && !context.isPipelineQuery && !context.isOwnerQuery && !context.isMeetingQuery && !context.isLookupQuery) {
+      const duration = Date.now() - startTime;
+      return {
+        success: true,
+        query,
+        answer: "I'd like to help, but I need a bit more context to give you an accurate answer.\n\n" +
+          "## Try one of these\n" +
+          "- **Select an account** from the search bar above for account-specific questions\n" +
+          "- **Ask about the pipeline** — \"What deals are late stage?\" or \"What's the total pipeline?\"\n" +
+          "- **Ask about a BL's book** — \"What accounts does Riley own?\"\n" +
+          "- **Ask about meetings** — \"What accounts did we meet with this week?\"\n" +
+          "- **Mention a company name** — \"Tell me about Coherent\" or \"Deal status at Intuit\"\n\n" +
+          "Selecting an account first gives you the most detailed answers.",
+        intent: 'DISAMBIGUATION',
+        sessionId: currentSessionId || undefined,
+        turnNumber,
+        context: { intent: 'DISAMBIGUATION', dataFreshness: 'n/a' },
+        performance: { durationMs: duration },
+        timestamp: new Date().toISOString()
+      };
     }
 
     // Context quality scoring — let Claude know when data is sparse
@@ -297,7 +399,7 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
     if (!context.customerBrain) contextQuality.push('no meeting history');
     if ((context.contracts?.length || 0) === 0 && queryHints.needsContracts) contextQuality.push('no contract records accessible');
     if (contextQuality.length >= 3) {
-      context.qualityNote = `LIMITED DATA: Only ${4 - contextQuality.length} of 4 core data sources available. Missing: ${contextQuality.join(', ')}.`;
+      context.qualityNote = `LIMITED DATA: Missing ${contextQuality.length} data sources: ${contextQuality.join(', ')}.`;
     }
 
     // Build the optimized prompt
@@ -310,14 +412,19 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
     // ── Build messages array (multi-turn or single-turn) ──
     let messages;
     if (ENABLE_MULTI_TURN && session && session.turns.length > 0) {
-      // Multi-turn: include conversation history + new query
-      // First turn included the full context in userPrompt; follow-ups are plain queries
+      const contextTrimmed = session.turns.length >= MAX_CONVERSATION_TURNS * 2;
+      let followUpContent;
+      if (contextTrimmed && context.account) {
+        followUpContent = `Context refresh (account: ${context.account.name}, owner: ${context.account.owner || 'Unknown'}, type: ${context.account.type || 'Unknown'}, ` +
+          `opps: ${(context.opportunities || []).length}, contacts: ${(context.contacts || []).length}):\n\nFollow-up: ${query}`;
+      } else {
+        followUpContent = `Follow-up question (same account context as above):\n${query}`;
+      }
       messages = [
-        ...session.turns.slice(-MAX_CONVERSATION_TURNS * 2), // Keep recent turns within token limit
-        { role: 'user', content: turnNumber === 1 ? userPrompt : `Follow-up question (same account context as above):\n${query}` }
+        ...session.turns.slice(-MAX_CONVERSATION_TURNS * 2),
+        { role: 'user', content: turnNumber === 1 ? userPrompt : followUpContent }
       ];
     } else {
-      // Single-turn or first turn
       messages = [{ role: 'user', content: userPrompt }];
     }
 
@@ -358,12 +465,13 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
       sessionId: currentSessionId || undefined,
       turnNumber,
       context: {
-        accountName: context.account?.name,
-        accountId: context.account?.id,
-        owner: context.account?.owner || null,
-        ownerEmail: context.account?.ownerEmail || null,
+        accountName: context.account?.name || context.ownerName || null,
+        accountId: context.account?.id || null,
+        owner: maskOwnerIfUnassigned(context.account?.owner) || null,
+        ownerEmail: (context.account?.owner && !UNASSIGNED_HOLDERS.includes(context.account.owner)) ? context.account.ownerEmail : null,
         accountType: context._accountType || 'unknown',
-        opportunityCount: context.opportunities?.length || 0,
+        intent,
+        opportunityCount: context.opportunities?.length || context.oppCount || 0,
         topOpportunity: context.opportunities?.[0] ? {
           name: context.opportunities[0].name,
           stage: context.opportunities[0].stage,
@@ -454,6 +562,7 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
     contracts: [],
     recentTasks: [],
     recentEvents: [],
+    upcomingEvents: [],
     customerBrain: null,
     obsidianNotes: [],
     slackIntel: [],
@@ -477,7 +586,17 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
 
   // Handle pipeline/cross-account queries (works with or without userEmail)
   if (intent === 'PIPELINE_OVERVIEW') {
-    return await gatherPipelineContext(userEmail || null);
+    return await gatherPipelineContext(userEmail || null, query);
+  }
+
+  // Handle owner-specific account queries ("what accounts does Riley own?")
+  if (intent === 'OWNER_ACCOUNTS') {
+    return await gatherOwnerAccountsContext(query);
+  }
+
+  // Handle meeting activity queries ("what accounts did we meet with this week?")
+  if (intent === 'MEETING_ACTIVITY') {
+    return await gatherMeetingActivityContext(query);
   }
 
   // Handle account lookup queries
@@ -557,7 +676,8 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
   context.contracts = contracts || [];
   context.contacts = contacts || [];
   context.recentTasks = tasks || [];
-  context.recentEvents = events || [];
+  context.recentEvents = events?.past || events || [];
+  context.upcomingEvents = events?.upcoming || [];
   
   // Note: obsidianNotes now come from Customer_Brain__c (Salesforce)
   // slackIntel comes from file-based cache (data/slack-intel-cache.json)
@@ -585,13 +705,13 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
   // Log data summary for debugging
   logger.info(`[Intelligence] Context summary for ${context.account?.name || accountId}: ` +
     `${context.opportunities.length} opps, ${context.contacts.length} contacts, ` +
-    `${context.recentTasks.length} tasks, ${context.recentEvents.length} events, ` +
+    `${context.recentTasks.length} tasks, ${context.recentEvents.length} past events, ${context.upcomingEvents.length} upcoming, ` +
     `${context.meetingNotes.length} meeting notes, customerBrain: ${context.customerBrain ? 'yes' : 'no'}` +
     `${context.vectorResults.length > 0 ? `, ${context.vectorResults.length} vector matches` : ''}`);
 
-  // Get upcoming meeting if relevant
-  if (intent === 'PRE_MEETING') {
-    context.upcomingMeeting = await getUpcomingMeeting(accountId);
+  // Set upcoming meeting from already-fetched upcoming events (no separate query needed)
+  if (intent === 'PRE_MEETING' && context.upcomingEvents.length > 0) {
+    context.upcomingMeeting = context.upcomingEvents[0];
   }
 
   // Cache in memory only (ephemeral, no disk persistence)
@@ -709,6 +829,18 @@ async function getOpportunities(accountId) {
 /**
  * Get contacts for an account
  */
+function rankContactTitle(title) {
+  if (!title) return 99;
+  const t = title.toLowerCase();
+  if (/\b(chief legal|clo|general counsel)\b/.test(t)) return 1;
+  if (/\b(deputy gc|deputy general counsel|associate gc|associate general counsel|agc)\b/.test(t)) return 2;
+  if (/\b(svp|evp|senior vice president|executive vice president)\b/.test(t)) return 3;
+  if (/\b(vp|vice president|head of)\b/.test(t)) return 4;
+  if (/\b(director)\b/.test(t)) return 5;
+  if (/\b(senior counsel|senior manager|manager|counsel)\b/.test(t)) return 6;
+  return 10;
+}
+
 async function getContacts(accountId) {
   try {
     const result = await sfQuery(`
@@ -717,17 +849,22 @@ async function getContacts(accountId) {
       FROM Contact
       WHERE AccountId = '${accountId}'
       ORDER BY LastModifiedDate DESC
-      LIMIT 10
+      LIMIT 20
     `, true);
 
-    return (result?.records || []).map(c => ({
+    const contacts = (result?.records || []).map(c => ({
       id: c.Id,
       name: c.Name,
       title: c.Title,
       email: c.Email,
       phone: c.Phone || c.MobilePhone,
-      lastModified: c.LastModifiedDate
+      lastModified: c.LastModifiedDate,
+      titleRank: rankContactTitle(c.Title),
+      isDecisionMaker: rankContactTitle(c.Title) <= 4
     }));
+
+    contacts.sort((a, b) => a.titleRank - b.titleRank || new Date(b.lastModified || 0) - new Date(a.lastModified || 0));
+    return contacts.slice(0, 15);
   } catch (error) {
     logger.error('[Intelligence] Contacts query error:', error.message);
     return [];
@@ -764,59 +901,46 @@ async function getRecentTasks(accountId) {
 }
 
 /**
- * Get recent events/meetings for an account
+ * Get recent (past) and upcoming (future) events/meetings for an account.
+ * Returns { past: [...], upcoming: [...] } to enforce clean temporal separation.
  */
 async function getRecentEvents(accountId) {
   try {
-    const result = await sfQuery(`
-      SELECT Id, Subject, StartDateTime, EndDateTime, Description, Owner.Name
-      FROM Event
-      WHERE AccountId = '${accountId}'
-        AND StartDateTime >= LAST_N_DAYS:90
-      ORDER BY StartDateTime DESC
-      LIMIT 10
-    `, true);
+    const [pastResult, upcomingResult] = await Promise.all([
+      sfQuery(`
+        SELECT Id, Subject, StartDateTime, EndDateTime, Description, Owner.Name
+        FROM Event
+        WHERE AccountId = '${accountId}'
+          AND StartDateTime >= LAST_N_DAYS:90 AND StartDateTime < TODAY
+        ORDER BY StartDateTime DESC
+        LIMIT 10
+      `, true),
+      sfQuery(`
+        SELECT Id, Subject, StartDateTime, EndDateTime, Description, Owner.Name
+        FROM Event
+        WHERE AccountId = '${accountId}'
+          AND StartDateTime >= TODAY AND StartDateTime <= NEXT_N_DAYS:30
+        ORDER BY StartDateTime ASC
+        LIMIT 5
+      `, true)
+    ]);
 
-    return (result?.records || []).map(e => ({
+    const mapEvent = e => ({
       id: e.Id,
       subject: e.Subject,
       startTime: e.StartDateTime,
       endTime: e.EndDateTime,
       description: e.Description?.substring(0, 200),
       owner: e.Owner?.Name
-    }));
-  } catch (error) {
-    logger.error('[Intelligence] Events query error:', error.message);
-    return [];
-  }
-}
-
-/**
- * Get upcoming meeting for an account
- */
-async function getUpcomingMeeting(accountId) {
-  try {
-    const result = await sfQuery(`
-      SELECT Id, Subject, StartDateTime, Description, Owner.Name
-      FROM Event
-      WHERE AccountId = '${accountId}'
-        AND StartDateTime >= TODAY
-      ORDER BY StartDateTime ASC
-      LIMIT 1
-    `, true);
-
-    const event = result?.records?.[0];
-    if (!event) return null;
+    });
 
     return {
-      subject: event.Subject,
-      startTime: event.StartDateTime,
-      description: event.Description,
-      owner: event.Owner?.Name
+      past: (pastResult?.records || []).map(mapEvent),
+      upcoming: (upcomingResult?.records || []).map(mapEvent)
     };
   } catch (error) {
-    logger.error('[Intelligence] Upcoming meeting query error:', error.message);
-    return null;
+    logger.error('[Intelligence] Events query error:', error.message);
+    return { past: [], upcoming: [] };
   }
 }
 
@@ -938,7 +1062,26 @@ async function findAccountByName(accountName) {
       }
     }
     
-    logger.warn(`[Intelligence] No account found after 5 strategies for: "${accountName}"`);
+    // Strategy 6: SOSL fuzzy search (handles typos and phonetic matching)
+    try {
+      const soslTerm = cleanName.replace(/['"\\{}()\[\]]/g, '');
+      if (soslTerm.length >= 3) {
+        const { sfConnection: sfConn } = require('../salesforce/connection');
+        const conn = sfConn.getConnection ? sfConn.getConnection() : null;
+        if (conn && conn.search) {
+          const soslQuery = `FIND {${soslTerm}} IN NAME FIELDS RETURNING Account(Id, Name, Owner.Name, Owner.Email, Customer_Type__c, Industry ORDER BY LastActivityDate DESC NULLS LAST LIMIT 1)`;
+          const soslResult = await conn.search(soslQuery);
+          if (soslResult?.searchRecords?.[0]) {
+            logger.info(`[Intelligence] Account found (SOSL fuzzy): ${soslResult.searchRecords[0].Name} (searched: "${soslTerm}")`);
+            return soslResult.searchRecords[0];
+          }
+        }
+      }
+    } catch (soslErr) {
+      logger.warn('[Intelligence] SOSL strategy failed:', soslErr.message);
+    }
+
+    logger.warn(`[Intelligence] No account found after 6 strategies for: "${accountName}"`);
     return null;
   } catch (error) {
     logger.error('[Intelligence] Account lookup error:', error.message);
@@ -949,17 +1092,50 @@ async function findAccountByName(accountName) {
 /**
  * Gather context for pipeline overview queries
  */
-async function gatherPipelineContext(userEmail) {
+async function gatherPipelineContext(userEmail, queryText) {
   try {
-    // Fetch org-wide pipeline (not just user's deals) for broader visibility
-    const ownerFilter = userEmail 
-      ? `Owner.Email = '${userEmail}'` 
-      : `IsClosed = false`;
+    const lower = (queryText || '').toLowerCase();
+
+    // Build dynamic WHERE clause based on query content
+    const conditions = [];
+    if (lower.includes('won') || lower.includes('signed') || lower.includes('closed') || lower.includes('logos')) {
+      conditions.push('IsWon = true');
+      if (lower.includes('this month')) conditions.push('CloseDate = THIS_MONTH');
+      else if (lower.includes('this quarter')) conditions.push('CloseDate = THIS_FISCAL_QUARTER');
+      else if (lower.includes('this week')) conditions.push('CloseDate = THIS_WEEK');
+      else if (lower.includes('last month')) conditions.push('CloseDate = LAST_MONTH');
+      else conditions.push('CloseDate = THIS_FISCAL_QUARTER');
+    } else if (lower.includes('lost')) {
+      conditions.push('IsClosed = true AND IsWon = false');
+      if (lower.includes('this month')) conditions.push('CloseDate = THIS_MONTH');
+      else if (lower.includes('this quarter')) conditions.push('CloseDate = THIS_FISCAL_QUARTER');
+      else conditions.push('CloseDate = THIS_FISCAL_QUARTER');
+    } else {
+      conditions.push('IsClosed = false');
+      if (lower.includes('late stage')) {
+        conditions.push("(StageName = 'Stage 3 - Pilot' OR StageName = 'Stage 4 - Proposal')");
+      }
+      if (lower.includes('this month') || lower.includes('closing this month')) {
+        conditions.push('CloseDate = THIS_MONTH');
+      } else if (lower.includes('this quarter')) {
+        conditions.push('CloseDate = THIS_FISCAL_QUARTER');
+      }
+    }
+
+    // Check if query references a specific owner
+    const bl = extractBLName(queryText || '');
+    if (bl) {
+      const safeEmail = bl.email.replace(/'/g, "\\'");
+      conditions.push(`Owner.Email = '${safeEmail}'`);
+    }
+
+    const whereClause = conditions.join(' AND ');
     const result = await sfQuery(`
       SELECT Id, Name, AccountId, Account.Name, StageName, ACV__c, 
-             CloseDate, Target_LOI_Date__c, Product_Line__c, NextStep, Owner.Name
+             CloseDate, Target_LOI_Date__c, Product_Line__c, NextStep, Owner.Name,
+             IsClosed, IsWon
       FROM Opportunity
-      WHERE IsClosed = false
+      WHERE ${whereClause}
       ORDER BY CloseDate ASC
       LIMIT 200
     `, true);
@@ -1063,6 +1239,86 @@ async function gatherAccountLookupContext(query) {
 }
 
 /**
+ * Gather context for owner-specific queries ("what accounts does Riley own?")
+ */
+async function gatherOwnerAccountsContext(query) {
+  const bl = extractBLName(query);
+  if (!bl) {
+    return { isOwnerQuery: true, error: 'Could not identify a Business Lead name in the query. Try using their first name (e.g., "Riley", "Olivia", "Julie").', dataFreshness: 'live' };
+  }
+
+  try {
+    const userResult = await sfQuery(`SELECT Id, Name FROM User WHERE Email = '${bl.email}' LIMIT 1`, true);
+    const userId = userResult?.records?.[0]?.Id;
+    if (!userId) {
+      return { isOwnerQuery: true, ownerName: bl.name, error: `No Salesforce user found for ${bl.name}`, dataFreshness: 'live' };
+    }
+
+    const [acctResult, oppResult] = await Promise.all([
+      sfQuery(`SELECT Id, Name, Customer_Type__c, Industry, LastActivityDate FROM Account WHERE OwnerId = '${userId}' ORDER BY LastActivityDate DESC NULLS LAST LIMIT 50`, true),
+      sfQuery(`SELECT Id, Name, Account.Name, StageName, ACV__c, CloseDate FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false ORDER BY CloseDate ASC LIMIT 20`, true)
+    ]);
+
+    const accounts = (acctResult?.records || []).map(a => ({
+      name: a.Name, type: a.Customer_Type__c, industry: a.Industry, lastActivity: a.LastActivityDate
+    }));
+    const opps = (oppResult?.records || []).map(o => ({
+      name: o.Name, account: o.Account?.Name, stage: o.StageName, acv: o.ACV__c, closeDate: o.CloseDate
+    }));
+
+    return {
+      isOwnerQuery: true, ownerName: bl.name, ownerEmail: bl.email,
+      accounts, accountCount: accounts.length,
+      opportunities: opps, oppCount: opps.length,
+      totalAcv: opps.reduce((sum, o) => sum + (o.acv || 0), 0),
+      dataFreshness: 'live'
+    };
+  } catch (error) {
+    logger.error('[Intelligence] Owner accounts context error:', error.message);
+    return { isOwnerQuery: true, ownerName: bl.name, error: error.message, dataFreshness: 'live' };
+  }
+}
+
+/**
+ * Gather context for meeting activity queries ("what accounts did we meet with this week?")
+ */
+async function gatherMeetingActivityContext(query) {
+  try {
+    const lower = query.toLowerCase();
+    const isUpcoming = lower.includes('meeting with') || lower.includes('scheduled') || lower.includes('are we meeting');
+    const dateFilter = isUpcoming
+      ? 'StartDateTime >= TODAY AND StartDateTime <= NEXT_WEEK'
+      : 'StartDateTime >= THIS_WEEK AND StartDateTime <= TODAY';
+    const label = isUpcoming ? 'Upcoming meetings' : 'Meetings held this week';
+
+    const result = await sfQuery(`
+      SELECT Account.Name, Subject, StartDateTime, Owner.Name
+      FROM Event
+      WHERE ${dateFilter} AND AccountId != null
+      ORDER BY StartDateTime ${isUpcoming ? 'ASC' : 'DESC'}
+      LIMIT 30
+    `, true);
+
+    const meetings = (result?.records || []).map(e => ({
+      account: e.Account?.Name, subject: e.Subject,
+      date: e.StartDateTime, owner: e.Owner?.Name
+    }));
+
+    const uniqueAccounts = [...new Set(meetings.map(m => m.account).filter(Boolean))];
+
+    return {
+      isMeetingQuery: true, label, isUpcoming,
+      meetings, meetingCount: meetings.length,
+      uniqueAccounts, accountCount: uniqueAccounts.length,
+      dataFreshness: 'live'
+    };
+  } catch (error) {
+    logger.error('[Intelligence] Meeting activity context error:', error.message);
+    return { isMeetingQuery: true, error: error.message, dataFreshness: 'live' };
+  }
+}
+
+/**
  * Classify the account engagement type to tailor response framing and follow-up suggestions.
  * Returns: 'existing_customer' | 'active_pipeline' | 'historical' | 'cold' | 'unknown'
  */
@@ -1131,14 +1387,22 @@ RESPONSE GUIDELINES:
 
 DATE HANDLING (CRITICAL — follow exactly):
 - Today is ${today}. This is the ONLY source of truth for "now."
-- Any date AFTER today is a data error — do NOT include it in the response. Silently skip any event, meeting, or activity with a future date.
-- When listing engagement history, recent activity, or meetings, ONLY include dates that are ON or BEFORE today's date.
-- Use absolute dates with relative context: e.g., "Feb 3 (~2 weeks ago)" — always frame as past tense for past events.
-- NEVER describe past events as "upcoming", "planned", or "scheduled" if their date is before today. Past events already happened — use past tense.
-- NEVER describe future-dated events at all — they are data errors.
-- If CRM dates appear inconsistent, simply IGNORE them and work with the other available data.
+- RECENT ACTIVITY: Data labeled "PAST MEETINGS" contains events that already happened. Frame in past tense: "Met with [person] on Feb 3 (~2 weeks ago)." These are look-back data.
+- UPCOMING ACTIVITY: Data labeled "SCHEDULED MEETINGS" contains events in the future. Frame as planned: "Meeting scheduled for Feb 25 (in 1 week)." These are forward-looking.
+- NEVER confuse past and future: past events happened (past tense), future events are planned (future tense).
+- NEVER list upcoming meetings under "Recent Activity" or vice versa.
+- Use absolute dates with relative context: "Feb 3 (~2 weeks ago)" for past, "Feb 25 (in 1 week)" for upcoming.
+- If CRM dates appear inconsistent, simply work with the available data without surfacing warnings.
 - NEVER surface data quality warnings, date discrepancies, or "CRITICAL DATA ISSUE" messages to the user.
 - NEVER tell the user to "verify" CRM data — just present what is available.
+
+UNASSIGNED ACCOUNTS:
+- If the owner is listed as "Unassigned", state that the account is currently unassigned. Do NOT reference any holder's actual name — simply say "Unassigned" or "Currently unassigned."
+
+PRONOUN HANDLING:
+- If the query uses "they", "their", "this account", "them", or "it" and account context is provided above, assume it refers to the current account.
+- If NO account context is provided and the query uses pronouns, respond: "Which account are you asking about? Select one from the search bar or mention the company name."
+- In multi-turn conversations, pronouns always refer to the current account context. If the account changed, a new context block will be provided.
 
 OBJECTIVITY:
 - Be factual and objective. Report what the data shows, not what you infer.
@@ -1185,13 +1449,18 @@ DATA LIMITATIONS:
 - When data is sparse, work with what exists and note limitations briefly — do not fill gaps with speculation
 
 FOLLOW-UP SUGGESTIONS:
-- At the very end of every response, after a "---" separator, include exactly 2 brief follow-up questions
-- Format as: "---\\nYou might also ask:\\n1. [question]\\n2. [question]"
-- CRITICAL: Use REAL names, accounts, and specifics from your answer -- NEVER use brackets or placeholders like [account name] or [specific opportunity]. If you mentioned Jeremy Jessen, suggest "What's Jeremy Jessen's engagement history?" not "Who is the [champion]?"
-- ONLY suggest questions that drill deeper into data you just referenced
-- Do NOT suggest questions about data you don't have
-- If there is genuinely nothing useful to suggest, omit the follow-up section entirely
-- Keep each suggestion under 10 words`;
+- After a "---" separator, include up to 2 brief follow-up questions
+- Format: "---\\nYou might also ask:\\n1. [question]\\n2. [question]"
+- RULES:
+  a) Each suggestion MUST be answerable using ONLY the data provided to you (Salesforce account data, opportunities, contacts, events, tasks, Customer Brain meeting notes). If you cannot answer it with the data above, do not suggest it.
+  b) NEVER suggest questions about strategy, intent, plans, motivations, or thinking — you have no access to a person's strategy or internal plans.
+  c) NEVER suggest questions about data you don't have: email threads, call recordings, Slack DMs, pricing negotiations, internal wikis, feedback, or NPS scores.
+  d) NEVER use brackets like [account name] or [specific opportunity]. Use ACTUAL names, companies, and specifics from your answer.
+  e) Good examples: "What are Tom Burton's most recent interactions?" / "When does the Coherent contract expire?" / "What stage is the Intuit opportunity in?"
+  f) Bad examples: "What's Riley's prospecting strategy?" / "What are the key negotiation points?" / "What feedback has [contact name] given?" / "What is the competitive positioning?"
+  g) Vary your suggestions — don't always suggest the same follow-up patterns. If you discussed contacts, suggest a deal or timeline question. If you discussed deals, suggest a stakeholder or activity question.
+  h) If there is genuinely nothing useful to drill into, omit the follow-up section entirely.
+  i) Keep each suggestion under 10 words`;
 
   // ── Account-type-specific framing ──
   if (accountType === 'existing_customer') {
@@ -1203,8 +1472,12 @@ This is an active paying customer. Your response framing must reflect this relat
 - Emphasize customer health, satisfaction signals, and expansion potential
 - Frame around retention and growth, NOT acquisition
 - Highlight any CS handover notes, customer goals, or auto-renewal status
-- When suggesting follow-ups, focus on: renewal risk, expansion opportunities, product adoption, NPS/satisfaction, stakeholder changes
-- NEVER frame an existing customer as a "prospect" or suggest "discovery" activities`;
+- When suggesting follow-ups, focus on: renewal risk, expansion opportunities, product adoption, stakeholder changes
+- NEVER frame an existing customer as a "prospect" or suggest "discovery" activities
+- When asked "when were they signed?", reference the Customer Since date, First Deal Closed field, or earliest won opportunity CloseDate
+- When asked about "products", use CS_Products_Purchased and Products_Breakdown data — do NOT speculate about products not listed
+- When asked "what's the latest?", lead with the most recent past event/task/meeting note, then deal status. Include upcoming meetings separately if scheduled.
+- When asked about contracts, reference the ACTIVE CONTRACTS data provided. Include start/end dates and status.`;
   } else if (accountType === 'active_pipeline') {
     basePrompt += `
 
@@ -1230,9 +1503,10 @@ This account has prior opportunity history but nothing currently active. Your re
 ACCOUNT TYPE: COLD / NET NEW
 This account has no opportunity history. Your response framing must reflect prospecting:
 - Lead with what is known: industry, company size, any available context
-- Be transparent about limited data — do not speculate beyond what exists
+- Be transparent about limited data — do not speculate beyond what exists. Clearly state what data IS available and what is NOT.
 - Frame around initial outreach and positioning
-- When suggesting follow-ups, focus on: identifying decision makers, understanding pain points, determining ICP fit, crafting outreach messaging`;
+- When suggesting follow-ups, focus on: identifying decision makers, understanding pain points, determining ICP fit
+- If the user asks "what's the latest?" and there is no activity, say "No recorded activity for this account." Do not fabricate engagement history.`;
   }
 
   // Add intent-specific instructions
@@ -1270,7 +1544,22 @@ This account has no opportunity history. Your response framing must reflect pros
 1. Total pipeline value by stage
 2. Late-stage opportunities
 3. Deals needing attention
-4. Upcoming close dates`;
+4. Upcoming close dates
+Present a compact summary table first, then details.`;
+
+    case 'OWNER_ACCOUNTS':
+      return basePrompt + `\n\nFOCUS: Business Lead account ownership. Prioritize:
+1. Total number of accounts and their types (existing customer, active pipeline, prospect)
+2. Open opportunities with stage and ACV
+3. Key accounts by pipeline value
+Present as a clean list, not long paragraphs.`;
+
+    case 'MEETING_ACTIVITY':
+      return basePrompt + `\n\nFOCUS: Meeting activity summary. Prioritize:
+1. Which accounts had meetings (or are scheduled)
+2. Meeting subjects and attendees
+3. Total count of unique accounts
+Present as a compact timeline-style list.`;
 
     default:
       return basePrompt;
@@ -1322,13 +1611,68 @@ function buildUserPrompt(intent, query, context) {
     return prompt;
   }
 
+  // Handle owner accounts queries
+  if (context.isOwnerQuery) {
+    if (context.error) {
+      prompt += `${context.error}\n`;
+      return prompt;
+    }
+    prompt += `ACCOUNTS OWNED BY ${(context.ownerName || 'Unknown').toUpperCase()}:\n`;
+    prompt += `• Total Accounts: ${context.accountCount}\n`;
+    prompt += `• Open Opportunities: ${context.oppCount} ($${(context.totalAcv || 0).toLocaleString()} ACV)\n\n`;
+
+    if (context.accounts?.length > 0) {
+      prompt += `ACCOUNT LIST:\n`;
+      for (const acct of context.accounts.slice(0, 30)) {
+        prompt += `• ${acct.name}`;
+        if (acct.type) prompt += ` [${acct.type}]`;
+        if (acct.industry) prompt += ` - ${acct.industry}`;
+        prompt += '\n';
+      }
+      if (context.accountCount > 30) prompt += `  ... and ${context.accountCount - 30} more\n`;
+      prompt += '\n';
+    }
+
+    if (context.opportunities?.length > 0) {
+      prompt += `OPEN PIPELINE:\n`;
+      for (const opp of context.opportunities) {
+        prompt += `• ${opp.name} (${opp.account}) - ${opp.stage} - $${(opp.acv || 0).toLocaleString()}`;
+        if (opp.closeDate) prompt += ` - Close: ${opp.closeDate}`;
+        prompt += '\n';
+      }
+    }
+    return prompt;
+  }
+
+  // Handle meeting activity queries
+  if (context.isMeetingQuery) {
+    if (context.error) {
+      prompt += `${context.error}\n`;
+      return prompt;
+    }
+    prompt += `${context.label?.toUpperCase() || 'MEETING ACTIVITY'}:\n`;
+    prompt += `• Total Meetings: ${context.meetingCount}\n`;
+    prompt += `• Unique Accounts: ${context.accountCount}\n\n`;
+
+    if (context.meetings?.length > 0) {
+      prompt += `MEETINGS:\n`;
+      for (const m of context.meetings) {
+        const dateStr = m.date ? new Date(m.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+        prompt += `• ${dateStr}: ${m.subject || 'Meeting'} — ${m.account || 'Unknown account'}`;
+        if (m.owner) prompt += ` [${m.owner}]`;
+        prompt += '\n';
+      }
+    }
+    return prompt;
+  }
+
   // Handle account lookup queries
   if (context.isLookupQuery) {
     if (context.account) {
       prompt += `ACCOUNT FOUND:\n`;
       prompt += `• Name: ${context.account.name}\n`;
-      prompt += `• Owner: ${context.account.owner}\n`;
-      if (context.account.ownerEmail) prompt += `• Owner Email: ${context.account.ownerEmail}\n`;
+      prompt += `• Owner: ${maskOwnerIfUnassigned(context.account.owner)}\n`;
+      if (context.account.ownerEmail && !UNASSIGNED_HOLDERS.includes(context.account.owner)) prompt += `• Owner Email: ${context.account.ownerEmail}\n`;
       if (context.account.type) prompt += `• Type: ${context.account.type}\n`;
       if (context.account.industry) prompt += `• Industry: ${context.account.industry}\n`;
     } else {
@@ -1338,30 +1682,68 @@ function buildUserPrompt(intent, query, context) {
   }
 
   // Account-specific context
+  const acctType = context._accountType || 'unknown';
   if (context.account) {
     prompt += `ACCOUNT: ${context.account.name}\n`;
-    prompt += `• Owner: ${context.account.owner || 'Unknown'}\n`;
+    prompt += `• Owner: ${maskOwnerIfUnassigned(context.account.owner)}\n`;
     prompt += `• Type: ${context.account.type || 'Unknown'}\n`;
     if (context.account.industry) prompt += `• Industry: ${context.account.industry}\n`;
     if (context.account.location) prompt += `• Location: ${context.account.location}\n`;
     if (context.account.lastActivityDate) {
       prompt += `• Last Activity: ${context.account.lastActivityDate}\n`;
-      // Calculate activity health for AI context
       const lastActivityDate = new Date(context.account.lastActivityDate);
       const daysSinceActivity = Math.floor((Date.now() - lastActivityDate.getTime()) / (1000 * 60 * 60 * 24));
-      let activityHealth;
-      if (daysSinceActivity <= 7) {
-        activityHealth = 'HEALTHY - very recent engagement';
-      } else if (daysSinceActivity <= 14) {
-        activityHealth = 'HEALTHY - recently engaged';
-      } else if (daysSinceActivity <= 30) {
-        activityHealth = 'MODERATE - may need follow-up soon';
-      } else {
-        activityHealth = 'STALE - requires attention';
+      prompt += `• Days Since Last Activity: ${daysSinceActivity}\n`;
+    }
+
+    // Account-type-specific header data (prominent, placed early)
+    if (acctType === 'existing_customer') {
+      prompt += `• ACCOUNT PROFILE: EXISTING CUSTOMER\n`;
+      if (context.account.firstDealClosed) prompt += `• Customer Since: ${context.account.firstDealClosed}\n`;
+      const wonOpps = (context.opportunities || []).filter(o => o.isWon);
+      if (wonOpps.length > 0) {
+        const earliest = wonOpps.reduce((a, b) => (a.closeDate < b.closeDate ? a : b));
+        prompt += `• First Won Deal: ${earliest.name} (${earliest.closeDate})\n`;
       }
-      prompt += `• Activity Health: ${activityHealth} (${daysSinceActivity} days since last activity)\n`;
+    } else if (acctType === 'active_pipeline') {
+      prompt += `• ACCOUNT PROFILE: ACTIVE PIPELINE\n`;
+    } else if (acctType === 'historical') {
+      prompt += `• ACCOUNT PROFILE: HISTORICAL (no active pipeline)\n`;
+      const closedOpps = (context.opportunities || []).filter(o => o.isClosed);
+      if (closedOpps.length > 0) {
+        const latest = closedOpps[0];
+        prompt += `• Last Opportunity: ${latest.name} — ${latest.isWon ? 'Won' : 'Lost'} (${latest.closeDate || 'unknown date'})\n`;
+      }
+    } else if (acctType === 'cold') {
+      prompt += `• ACCOUNT PROFILE: COLD / NET NEW — Limited data available\n`;
     }
     prompt += '\n';
+  }
+
+  // For existing customers, surface CS/contract data early (most relevant to this profile)
+  if (acctType === 'existing_customer') {
+    const csOpps = (context.opportunities || []).filter(o => o.customerGoals || o.productsPurchased || o.autoRenew);
+    if (csOpps.length > 0) {
+      prompt += `CUSTOMER RELATIONSHIP SUMMARY:\n`;
+      for (const opp of csOpps) {
+        if (opp.productsPurchased) prompt += `• Products: ${opp.productsPurchased}\n`;
+        if (opp.customerGoals) prompt += `• Customer Goals: ${opp.customerGoals}\n`;
+        if (opp.autoRenew) prompt += `• Auto-Renew: Yes\n`;
+        if (opp.contractTerm) prompt += `• Contract Term: ${opp.contractTerm}\n`;
+        if (opp.commercialTerms) prompt += `• Commercial Terms: ${opp.commercialTerms}\n`;
+      }
+      prompt += '\n';
+    }
+    if (context.contracts?.length > 0) {
+      prompt += `ACTIVE CONTRACTS (${context.contracts.length}):\n`;
+      for (const c of context.contracts.slice(0, 5)) {
+        prompt += `• ${c.contractNumber || 'Contract'} — ${c.status || 'Unknown'}`;
+        if (c.startDate) prompt += ` | Start: ${c.startDate}`;
+        if (c.endDate) prompt += ` | End: ${c.endDate}`;
+        prompt += '\n';
+      }
+      prompt += '\n';
+    }
   }
 
   // Opportunities
@@ -1375,6 +1757,7 @@ function buildUserPrompt(intent, query, context) {
         prompt += `• ${opp.name}\n`;
         prompt += `  Stage: ${opp.stage} | ACV: $${(opp.acv || 0).toLocaleString()}`;
         if (opp.daysInStage) prompt += ` | ${opp.daysInStage} days in stage`;
+        if (opp.probability) prompt += ` | Prob: ${opp.probability}%`;
         prompt += '\n';
         if (opp.nextStep) prompt += `  Next Step: ${opp.nextStep}\n`;
         if (opp.targetLOIDate) prompt += `  Target LOI: ${opp.targetLOIDate}\n`;
@@ -1419,18 +1802,20 @@ function buildUserPrompt(intent, query, context) {
     prompt += '\n';
   }
 
-  // Customer goals (from CS handover fields)
-  const customerGoals = allOpps.filter(o => o.customerGoals).map(o => `${o.name}: ${o.customerGoals}`);
-  if (customerGoals.length > 0) {
-    prompt += `CUSTOMER GOALS:\n`;
-    for (const cg of customerGoals) {
-      prompt += `• ${cg}\n`;
+  // Customer goals (skip for existing_customer — already in CS summary above)
+  if (acctType !== 'existing_customer') {
+    const customerGoals = allOpps.filter(o => o.customerGoals).map(o => `${o.name}: ${o.customerGoals}`);
+    if (customerGoals.length > 0) {
+      prompt += `CUSTOMER GOALS:\n`;
+      for (const cg of customerGoals) {
+        prompt += `• ${cg}\n`;
+      }
+      prompt += '\n';
     }
-    prompt += '\n';
   }
 
-  // Contracts
-  if (context.contracts?.length > 0) {
+  // Contracts (skip for existing_customer — already in ACTIVE CONTRACTS above)
+  if (acctType !== 'existing_customer' && context.contracts?.length > 0) {
     prompt += `CONTRACTS (${context.contracts.length}):\n`;
     for (const contract of context.contracts) {
       prompt += `• ${contract.contractNumber || 'Contract'} — Status: ${contract.status || 'Unknown'}`;
@@ -1442,21 +1827,43 @@ function buildUserPrompt(intent, query, context) {
     prompt += '\n';
   }
 
-  // Contacts
-  if (context.contacts?.length > 0) {
-    prompt += `KEY CONTACTS (${context.contacts.length}):\n`;
-    for (const contact of context.contacts.slice(0, 5)) {
+  // Contacts + Decision Makers (unified, deduplicated)
+  if (context.contacts?.length > 0 || context.account?.keyDecisionMakers) {
+    prompt += `KEY CONTACTS & DECISION MAKERS:\n`;
+    const listedNames = new Set();
+
+    // Decision-maker contacts first (ranked by title seniority)
+    const dmContacts = (context.contacts || []).filter(c => c.isDecisionMaker);
+    for (const contact of dmContacts) {
+      const tag = ' [DECISION MAKER]';
+      prompt += `• ${contact.name}`;
+      if (contact.title) prompt += ` - ${contact.title}`;
+      prompt += tag;
+      if (contact.email) prompt += ` (${contact.email})`;
+      prompt += '\n';
+      listedNames.add(contact.name?.toLowerCase());
+    }
+
+    // Remaining contacts
+    for (const contact of (context.contacts || []).filter(c => !c.isDecisionMaker)) {
+      if (listedNames.has(contact.name?.toLowerCase())) continue;
       prompt += `• ${contact.name}`;
       if (contact.title) prompt += ` - ${contact.title}`;
       if (contact.email) prompt += ` (${contact.email})`;
       prompt += '\n';
+      listedNames.add(contact.name?.toLowerCase());
+      if (listedNames.size >= 10) break;
+    }
+
+    // Supplement from Key_Decision_Makers__c account field (may have names not in Contacts)
+    if (context.account?.keyDecisionMakers) {
+      const kdmText = context.account.keyDecisionMakers;
+      const overlapCount = Array.from(listedNames).filter(n => kdmText.toLowerCase().includes(n)).length;
+      if (overlapCount < listedNames.size / 2 || listedNames.size < 3) {
+        prompt += `\nAdditional decision maker notes (from Account record):\n${kdmText}\n`;
+      }
     }
     prompt += '\n';
-  }
-
-  // Key decision makers (from Account field)
-  if (context.account?.keyDecisionMakers) {
-    prompt += `KEY DECISION MAKERS:\n${context.account.keyDecisionMakers}\n\n`;
   }
 
   // Pain points
@@ -1483,27 +1890,40 @@ function buildUserPrompt(intent, query, context) {
     }
   }
 
-  // Recent events/meetings with recency context
+  // Recent (past) events/meetings with recency context
+  const now = new Date();
   if (context.recentEvents?.length > 0) {
-    prompt += `RECENT MEETINGS (${context.recentEvents.length}):\n`;
-    const now = new Date();
+    prompt += `RECENT ACTIVITY — PAST MEETINGS (${context.recentEvents.length}):\n`;
     for (const event of context.recentEvents.slice(0, 5)) {
       const eventDate = event.startTime?.split('T')[0];
       prompt += `• ${eventDate}: ${event.subject}`;
-      
-      // Add days-ago context for AI to understand recency
       if (event.startTime) {
         const daysAgo = Math.floor((now.getTime() - new Date(event.startTime).getTime()) / (1000 * 60 * 60 * 24));
-        if (daysAgo === 0) {
-          prompt += ' [TODAY]';
-        } else if (daysAgo === 1) {
-          prompt += ' [YESTERDAY]';
-        } else if (daysAgo <= 7) {
-          prompt += ` [${daysAgo} days ago - RECENT]`;
-        } else if (daysAgo <= 14) {
-          prompt += ` [${daysAgo} days ago]`;
-        }
+        if (daysAgo === 0) prompt += ' [TODAY]';
+        else if (daysAgo === 1) prompt += ' [YESTERDAY]';
+        else if (daysAgo <= 7) prompt += ` [${daysAgo} days ago - RECENT]`;
+        else if (daysAgo <= 30) prompt += ` [${daysAgo} days ago]`;
+        else prompt += ` [${daysAgo} days ago - older]`;
       }
+      if (event.owner) prompt += ` [${event.owner}]`;
+      prompt += '\n';
+    }
+    prompt += '\n';
+  }
+
+  // Upcoming (future) events/meetings
+  if (context.upcomingEvents?.length > 0) {
+    prompt += `UPCOMING — SCHEDULED MEETINGS (${context.upcomingEvents.length}):\n`;
+    for (const event of context.upcomingEvents.slice(0, 5)) {
+      const eventDate = event.startTime?.split('T')[0];
+      prompt += `• ${eventDate}: ${event.subject}`;
+      if (event.startTime) {
+        const daysUntil = Math.floor((new Date(event.startTime).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysUntil === 0) prompt += ' [TODAY]';
+        else if (daysUntil === 1) prompt += ' [TOMORROW]';
+        else prompt += ` [in ${daysUntil} days]`;
+      }
+      if (event.owner) prompt += ` [${event.owner}]`;
       prompt += '\n';
     }
     prompt += '\n';
@@ -1515,16 +1935,6 @@ function buildUserPrompt(intent, query, context) {
       ? context.customerBrain.substring(0, 3000) + '... [truncated]'
       : context.customerBrain;
     prompt += `MEETING HISTORY (Customer Brain):\n${brainContent}\n\n`;
-  }
-
-  // Obsidian notes
-  if (context.obsidianNotes?.length > 0) {
-    prompt += `RECENT NOTES FROM VAULT (${context.obsidianNotes.length}):\n`;
-    for (const note of context.obsidianNotes.slice(0, 3)) {
-      prompt += `• ${note.title || 'Untitled'} (${note.date || 'Unknown date'})\n`;
-      if (note.summary) prompt += `  Summary: ${note.summary.substring(0, 200)}\n`;
-    }
-    prompt += '\n';
   }
 
   // Slack intelligence
@@ -1542,17 +1952,6 @@ function buildUserPrompt(intent, query, context) {
     for (const result of context.vectorResults.slice(0, 3)) {
       const source = result.metadata?.sourceType || 'note';
       prompt += `• [${source}] ${result.text.substring(0, 300)}\n`;
-    }
-    prompt += '\n';
-  }
-
-  // Upcoming meeting context
-  if (context.upcomingMeeting) {
-    prompt += `UPCOMING MEETING:\n`;
-    prompt += `• ${context.upcomingMeeting.subject}\n`;
-    prompt += `• Time: ${context.upcomingMeeting.startTime}\n`;
-    if (context.upcomingMeeting.description) {
-      prompt += `• Agenda: ${context.upcomingMeeting.description.substring(0, 200)}\n`;
     }
     prompt += '\n';
   }

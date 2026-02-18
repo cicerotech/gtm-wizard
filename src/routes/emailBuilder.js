@@ -3,57 +3,136 @@
  * Smart email template builder with SF integration and context enrichment
  */
 
-const { query } = require('../salesforce/connection');
+const { query, sfConnection } = require('../salesforce/connection');
 const enrichmentService = require('../services/companyEnrichment');
 
-/**
- * Search Salesforce accounts with typeahead
- */
+const ABBREVIATION_MAP = {
+  'wwt': 'World Wide Technology',
+  'chs': 'CHS Inc',
+  'dhl': 'DHL Supply Chain',
+  'ge': 'General Electric',
+  'jnj': 'Johnson & Johnson',
+  'jpmc': 'JPMorgan Chase',
+  'jpm': 'JPMorgan Chase',
+  'bofa': 'Bank of America',
+  'nat grid': 'National Grid',
+  'nationalgrid': 'National Grid',
+  'tmobile': 'T-Mobile',
+  't mobile': 'T-Mobile',
+  'oreilly': "O'Reilly",
+  'basf': 'BASF',
+  'ibm': 'IBM',
+  'hp': 'Hewlett Packard',
+  'hpe': 'Hewlett Packard Enterprise',
+  'att': 'AT&T',
+  'at&t': 'AT&T',
+  'msft': 'Microsoft',
+  'gm': 'General Motors',
+  'pg': 'Procter & Gamble',
+  'p&g': 'Procter & Gamble',
+  'gs': 'Goldman Sachs',
+  'ubs': 'UBS',
+  'sfdc': 'Salesforce',
+  'sap': 'SAP',
+};
+
+function normalizeSearchTerm(term) {
+  if (!term || typeof term !== 'string') return '';
+  let clean = term.trim();
+  clean = clean.replace(/[\u200B-\u200D\uFEFF]/g, '');
+  const lower = clean.toLowerCase();
+  if (ABBREVIATION_MAP[lower]) return ABBREVIATION_MAP[lower];
+  clean = clean.replace(/[\u2018\u2019'']/g, "'");
+  clean = clean.replace(/[\u201C\u201D""]/g, '"');
+  clean = clean.replace(/[-\u2013\u2014]/g, ' ');
+  clean = clean.replace(/\s+/g, ' ').trim();
+  return clean;
+}
+
+function formatAccountResult(acc) {
+  if (!acc) return null;
+  return {
+    id: acc.Id,
+    name: acc.Name,
+    owner: acc.Owner?.Name || 'Unassigned',
+    isNewLogo: acc.Is_New_Logo__c,
+    customerType: acc.Customer_Type__c,
+    industry: acc.Industry || null,
+    lastActivityDate: acc.LastActivityDate || null,
+    recentOpp: acc.Opportunities?.records?.[0] ? {
+      stage: acc.Opportunities.records[0].StageName,
+      acv: acc.Opportunities.records[0].ACV__c,
+      product: acc.Opportunities.records[0].Product_Line__c
+    } : null
+  };
+}
+
 async function searchAccounts(req, res) {
   try {
-    const searchTerm = req.query.q || '';
-    
-    if (searchTerm.length < 2) {
-      return res.json({ matches: [] });
-    }
+    const rawTerm = req.query.q || '';
+    if (rawTerm.length < 2) return res.json({ matches: [] });
 
-    // Escape quotes for SOQL
-    const escapedTerm = searchTerm.replace(/'/g, "\\'");
-    
-    // Query SF for matching accounts
+    const searchTerm = normalizeSearchTerm(rawTerm);
+    const escapedTerm = searchTerm.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/%/g, '\\%').replace(/_/g, '\\_');
+
+    // Strategy 1: SOQL LIKE match (fast, exact substring)
     const soql = `
       SELECT Id, Name, Owner.Name, Is_New_Logo__c, Customer_Type__c, Industry, LastActivityDate,
              (SELECT Id, StageName, ACV__c, Product_Line__c 
-              FROM Opportunities 
-              WHERE IsClosed = false 
-              ORDER BY CreatedDate DESC 
-              LIMIT 1)
+              FROM Opportunities WHERE IsClosed = false ORDER BY CreatedDate DESC LIMIT 1)
       FROM Account
       WHERE Name LIKE '%${escapedTerm}%'
       ORDER BY LastActivityDate DESC NULLS LAST
       LIMIT 10
     `;
-    
     const result = await query(soql, true);
-    
-    // Format results for frontend
-    const matches = result.records.map(acc => ({
-      id: acc.Id,
-      name: acc.Name,
-      owner: acc.Owner?.Name || 'Unassigned',
-      isNewLogo: acc.Is_New_Logo__c,
-      customerType: acc.Customer_Type__c,
-      industry: acc.Industry || null,
-      lastActivityDate: acc.LastActivityDate || null,
-      recentOpp: acc.Opportunities?.records?.[0] ? {
-        stage: acc.Opportunities.records[0].StageName,
-        acv: acc.Opportunities.records[0].ACV__c,
-        product: acc.Opportunities.records[0].Product_Line__c
-      } : null
-    }));
+    let matches = (result?.records || []).map(formatAccountResult).filter(Boolean);
 
-    res.json({ matches }); // Return all 10 results
-    
+    // Strategy 2: If no LIKE results, try with hyphen/space variants
+    if (matches.length === 0) {
+      const variants = [
+        searchTerm.replace(/\s+/g, '-'),
+        searchTerm.replace(/\s+/g, ''),
+        searchTerm.replace(/-/g, ' '),
+      ].filter((v, i, arr) => v !== searchTerm && arr.indexOf(v) === i);
+      for (const variant of variants) {
+        if (matches.length > 0) break;
+        const safeV = variant.replace(/'/g, "\\'");
+        const vResult = await query(`
+          SELECT Id, Name, Owner.Name, Is_New_Logo__c, Customer_Type__c, Industry, LastActivityDate,
+                 (SELECT Id, StageName, ACV__c, Product_Line__c 
+                  FROM Opportunities WHERE IsClosed = false ORDER BY CreatedDate DESC LIMIT 1)
+          FROM Account WHERE Name LIKE '%${safeV}%'
+          ORDER BY LastActivityDate DESC NULLS LAST LIMIT 10
+        `, true);
+        matches = (vResult?.records || []).map(formatAccountResult).filter(Boolean);
+      }
+    }
+
+    // Strategy 3: SOSL fuzzy search (handles typos, phonetic matching)
+    if (matches.length === 0 && searchTerm.length >= 3) {
+      try {
+        const soslTerm = searchTerm.replace(/['"\\{}()\[\]]/g, '');
+        const conn = sfConnection.getConnection ? sfConnection.getConnection() : null;
+        if (conn && conn.search) {
+          const soslQuery = `FIND {${soslTerm}} IN NAME FIELDS RETURNING Account(Id, Name, Owner.Name, Customer_Type__c, Industry, LastActivityDate ORDER BY LastActivityDate DESC NULLS LAST LIMIT 10)`;
+          const soslResult = await conn.search(soslQuery);
+          matches = (soslResult?.searchRecords || []).map(acc => ({
+            id: acc.Id,
+            name: acc.Name,
+            owner: acc.Owner?.Name || 'Unassigned',
+            customerType: acc.Customer_Type__c,
+            industry: acc.Industry || null,
+            lastActivityDate: acc.LastActivityDate || null,
+            fuzzyMatch: true
+          }));
+        }
+      } catch (soslErr) {
+        console.warn('[Search] SOSL fallback failed:', soslErr.message);
+      }
+    }
+
+    res.json({ matches });
   } catch (error) {
     console.error('[EmailBuilder] Account search error:', error);
     res.status(500).json({ error: 'Search failed' });

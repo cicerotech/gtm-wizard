@@ -409,11 +409,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   // ─── State ──────────────────────────────────────────────────
   var selectedAccount  = { id: '', name: '', owner: '' };
   var searchDebounce   = null;
+  var searchController = null;
   var currentSessionId = null;
   var isQuerying       = false;
   var hasAsked         = false;
   var lastQueryTime    = 0;
   var loadingInterval  = null;
+  var queryGeneration  = 0;
 
   // ─── Welcome ───────────────────────────────────────────────
   function renderWelcome() {
@@ -435,6 +437,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         '<button class="gtm-tile acct-tile" data-query="Who are the decision makers?">Decision makers</button>' +
         '<button class="gtm-tile acct-tile" data-query="Full meeting prep for this account.">Meeting prep</button>' +
         '<button class="gtm-tile acct-tile" data-query="What\\x27s the full engagement history?">Engagement history</button>' +
+      '</div>' +
+      '<div style="margin-top:16px;font-size:0.6875rem;color:#9ca3af;text-transform:uppercase;letter-spacing:0.4px;">Or ask without selecting an account</div>' +
+      '<div class="gtm-tile-grid" style="margin-top:6px;">' +
+        '<button class="gtm-tile" data-query="What deals are late stage in the pipeline?">Late stage pipeline</button>' +
+        '<button class="gtm-tile" data-query="What\\x27s the total pipeline this quarter?">Pipeline summary</button>' +
+        '<button class="gtm-tile" data-query="What accounts did we meet with this week?">Meetings this week</button>' +
+        '<button class="gtm-tile" data-query="How many deals have we signed this month?">Deals signed</button>' +
       '</div>';
     threadContainer.appendChild(welcome);
     wireUpTiles();
@@ -511,6 +520,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
   // ─── Account Selection (inline, always visible) ────────────
   function clearSelection() {
+    clearSuggestionChips();
     selectedAccount = { id: '', name: '', owner: '' };
     acctChipArea.innerHTML = '';
     acctChipArea.style.display = 'none';
@@ -520,6 +530,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     searchInput.focus();
     resultsBox.classList.remove('open');
     updateTileState();
+  }
+
+  function clearSuggestionChips() {
+    var chips = threadContainer.querySelectorAll('.gtm-suggestions-inline');
+    for (var i = 0; i < chips.length; i++) chips[i].remove();
   }
 
   function selectAccount(acc) {
@@ -538,9 +553,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       '</span>';
     acctChipArea.querySelector('.gtm-acct-chip-x').addEventListener('click', clearSelection);
 
-    // Always reset session when selecting an account to ensure fresh context
     currentSessionId = null;
     if (prevName && prevName !== acc.name && threadContainer.querySelector('.gtm-msg')) {
+      clearSuggestionChips();
       var divider = document.createElement('div');
       divider.className = 'gtm-switch-divider';
       divider.textContent = 'Switched to ' + acc.name;
@@ -555,7 +570,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   // ─── Account Search (typeahead) ────────────────────────────
   function doSearch(term) {
     if (term.length < 2) { resultsBox.classList.remove('open'); resultsBox.innerHTML = ''; return; }
-    fetch('/api/search-accounts?q=' + encodeURIComponent(term), { credentials: 'same-origin' })
+    if (searchController) searchController.abort();
+    searchController = new AbortController();
+    fetch('/api/search-accounts?q=' + encodeURIComponent(term), { credentials: 'same-origin', signal: searchController.signal })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         var matches = data.matches || [];
@@ -570,8 +587,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           if (m.owner) meta.push('Owner: ' + escapeHtml(m.owner));
           if (m.customerType) meta.push(escapeHtml(m.customerType));
           if (m.industry) meta.push(escapeHtml(m.industry));
+          var fuzzyTag = m.fuzzyMatch ? '<span style="font-size:0.6rem;color:#8e99e1;margin-left:6px;">fuzzy match</span>' : '';
           html += '<div class="gtm-acct-result" data-id="' + m.id + '" data-name="' + escapeHtml(m.name) + '" data-owner="' + escapeHtml(m.owner || '') + '">' +
-            '<div class="gtm-acct-result-name">' + escapeHtml(m.name) + '</div>' +
+            '<div class="gtm-acct-result-name">' + escapeHtml(m.name) + fuzzyTag + '</div>' +
             (meta.length ? '<div class="gtm-acct-result-meta">' + meta.join(' &bull; ') + '</div>' : '') +
           '</div>';
         });
@@ -583,7 +601,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           });
         });
       })
-      .catch(function() {
+      .catch(function(err) {
+        if (err && err.name === 'AbortError') return;
         resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:#9ca3af;font-size:0.8rem;">Search error</div>';
         resultsBox.classList.add('open');
       });
@@ -619,22 +638,39 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     scrollToElement(msg, 'start');
   }
 
-  function addLoadingMessage(accountName) {
+  function addLoadingMessage(accountName, queryText) {
     var msg = document.createElement('div');
     msg.className = 'gtm-msg gtm-msg-loading';
-    var phases = accountName
-      ? [
-          'Searching Salesforce for ' + accountName + '...',
-          'Loading contacts, deals, and activity...',
-          'Reading meeting notes and history...',
-          'Synthesizing insights...'
-        ]
-      : [
-          'Processing your question...',
-          'Searching across data sources...',
-          'Analyzing results...',
-          'Synthesizing insights...'
-        ];
+    var q = (queryText || '').toLowerCase();
+    var phases;
+
+    if (q.includes('overview') || q.includes('full account') || q.includes('engagement') || q.includes('history')) {
+      phases = accountName
+        ? ['Loading full profile for ' + accountName + '...', 'Gathering deals, contacts, and activity...', 'Reading meeting history...', 'Building comprehensive overview...']
+        : ['Building account overview...', 'Aggregating all data sources...', 'Synthesizing...'];
+    } else if (q.includes('pain point') || q.includes('challenge') || q.includes('problem')) {
+      phases = ['Scanning account intelligence...', 'Loading pain points data...', 'Synthesizing findings...'];
+    } else if (q.includes('competitive') || q.includes('competitor') || q.includes('landscape')) {
+      phases = ['Checking competitive intelligence...', 'Loading market context...', 'Building competitive picture...'];
+    } else if (q.includes('next step') || q.includes('action') || q.includes('follow up') || q.includes('target date')) {
+      phases = ['Loading open tasks...', 'Checking opportunity next steps...', 'Building action list...'];
+    } else if (q.includes('pipeline') || q.includes('deals') || q.includes('late stage') || q.includes('closing')) {
+      phases = ['Scanning open opportunities...', 'Checking close dates and stages...', 'Aggregating pipeline data...', 'Building summary...'];
+    } else if (q.includes('contact') || q.includes('decision maker') || q.includes('stakeholder') || q.includes('who are')) {
+      phases = accountName
+        ? ['Loading contacts for ' + accountName + '...', 'Identifying decision makers...', 'Checking meeting attendees...', 'Compiling stakeholder map...']
+        : ['Searching contact records...', 'Identifying decision makers...', 'Synthesizing results...'];
+    } else if (q.includes('meeting') || q.includes('met with') || q.includes('prep')) {
+      phases = accountName
+        ? ['Loading calendar for ' + accountName + '...', 'Reading Customer Brain notes...', 'Pulling recent activity...', 'Synthesizing prep brief...']
+        : ['Scanning meeting activity...', 'Matching accounts to events...', 'Building activity summary...'];
+    } else if (q.includes('accounts does') || q.includes('book') || q.includes('own')) {
+      phases = ['Looking up account ownership...', 'Loading open opportunities...', 'Aggregating book data...', 'Synthesizing results...'];
+    } else if (accountName) {
+      phases = ['Searching Salesforce for ' + accountName + '...', 'Loading contacts, deals, and activity...', 'Reading meeting notes and history...', 'Synthesizing insights...'];
+    } else {
+      phases = ['Processing your question...', 'Searching across data sources...', 'Analyzing results...', 'Synthesizing insights...'];
+    }
     var currentPhase = 0;
     var completedHtml = '';
 
@@ -661,7 +697,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     if (loadingInterval) { clearInterval(loadingInterval); loadingInterval = null; }
   }
 
-  function addAIMessage(answer, context) {
+  function addAIMessage(answer, context, queryAccount) {
     clearLoadingInterval();
     var loading = threadContainer.querySelector('.gtm-msg-loading');
     if (loading) loading.remove();
@@ -690,7 +726,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         if (context.owner) acctLabel += ' (' + context.owner + ')';
         parts.push(acctLabel);
       }
-      // Account type label
       var typeLabels = {
         'existing_customer': 'Existing Customer',
         'active_pipeline': 'Active Pipeline',
@@ -721,19 +756,40 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       }
     }
 
+    // Show intent classification (from backend response)
+    if (context && context.intent) {
+      var intentLabels = {
+        'PRE_MEETING': 'Meeting Prep', 'DEAL_STATUS': 'Deal Status', 'STAKEHOLDERS': 'Stakeholders',
+        'HISTORY': 'History', 'NEXT_STEPS': 'Next Steps', 'PAIN_POINTS': 'Pain Points',
+        'COMPETITIVE': 'Competitive Intel', 'PIPELINE_OVERVIEW': 'Pipeline', 'OWNER_ACCOUNTS': 'Account Ownership',
+        'MEETING_ACTIVITY': 'Meeting Activity', 'ACCOUNT_LOOKUP': 'Account Lookup', 'GENERAL': 'General'
+      };
+      var intentDiv = document.createElement('div');
+      intentDiv.style.cssText = 'font-size:0.6rem;color:#b0b5c3;margin-top:2px;';
+      intentDiv.textContent = 'Interpreted as: ' + (intentLabels[context.intent] || context.intent);
+      msg.appendChild(intentDiv);
+    }
+
     if (suggestions.length > 0) {
       var suggestDiv = document.createElement('div');
       suggestDiv.className = 'gtm-suggestions-inline';
+      var boundAcct = queryAccount || { id: selectedAccount.id, name: selectedAccount.name, owner: selectedAccount.owner };
       for (var s = 0; s < Math.min(suggestions.length, 3); s++) {
-        (function(text) {
+        (function(text, acct) {
+          if (/\\[.*?\\]/.test(text)) return;
           var chip = document.createElement('button');
           chip.className = 'gtm-suggestion-chip';
           chip.textContent = text;
-          chip.onclick = function() { queryEl.value = text; queryEl.focus(); runQuery(false); };
+          chip.onclick = function() {
+            if (acct.name && selectedAccount.name !== acct.name) {
+              selectAccount(acct);
+            }
+            queryEl.value = text; queryEl.focus(); runQuery(false);
+          };
           suggestDiv.appendChild(chip);
-        })(suggestions[s]);
+        })(suggestions[s], boundAcct);
       }
-      msg.appendChild(suggestDiv);
+      if (suggestDiv.children.length > 0) msg.appendChild(suggestDiv);
     }
 
     var feedbackDiv = document.createElement('div');
@@ -816,6 +872,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
   function startNewChat() {
     clearLoadingInterval();
+    queryGeneration++;
     threadContainer.innerHTML = '';
     currentSessionId = null;
     hasAsked = false;
@@ -838,9 +895,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
     var accountId   = selectedAccount.id || '';
     var accountName = selectedAccount.name || '';
+    var queryAccount = { id: accountId, name: accountName, owner: selectedAccount.owner };
+
+    queryGeneration++;
+    var myGeneration = queryGeneration;
 
     addUserMessage(query);
-    addLoadingMessage(accountName || null);
+    addLoadingMessage(accountName || null, query);
     queryEl.value = '';
     submitBtn.disabled = true;
 
@@ -848,27 +909,37 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     if (forceRefresh) payload.forceRefresh = true;
     if (currentSessionId) payload.sessionId = currentSessionId;
 
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
+
     fetch('/api/intelligence/query', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin', signal: controller.signal,
       body: JSON.stringify(payload)
     })
     .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, json: j }; }); })
     .then(function(result) {
+      if (myGeneration !== queryGeneration) return;
       isQuerying = false;
       if (result.ok && result.json.success) {
         if (result.json.sessionId) currentSessionId = result.json.sessionId;
-        addAIMessage(result.json.answer, result.json.context);
+        addAIMessage(result.json.answer, result.json.context, queryAccount);
       } else {
         showError(result.json.error || result.json.message || 'Could not get an answer. Try rephrasing.');
       }
       submitBtn.disabled = false;
     })
     .catch(function(err) {
+      if (myGeneration !== queryGeneration) return;
       isQuerying = false;
-      showError(err.message && err.message.indexOf('timeout') !== -1
-        ? 'Request timed out. Please try again.'
-        : 'Unable to connect. Check your connection and try again.');
-    });
+      submitBtn.disabled = false;
+      if (err.name === 'AbortError') {
+        showError('Request timed out after 30 seconds. Try a simpler question or select a specific account.');
+      } else {
+        showError('Unable to connect. Check your connection and try again.');
+      }
+    })
+    .finally(function() { clearTimeout(timeoutId); });
   }
 
   // ─── Event wiring ──────────────────────────────────────────
