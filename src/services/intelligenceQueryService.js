@@ -270,6 +270,29 @@ const PRODUCT_LINE_MAP = {
   'fde': { value: 'FDE - Custom AI Solution', partial: false },
 };
 
+// Eudia fiscal year: Q1 = Feb 1 - Apr 30, Q2 = May 1 - Jul 31, etc.
+const FISCAL_Q1_START = '2026-02-01';
+const FISCAL_Q1_END = '2026-04-30';
+
+const PRODUCT_DISPLAY_MAP = {
+  'AI-Augmented Contracting_Managed Services': 'AI Contracting (Managed)',
+  'AI-Augmented Contracting_In-House Technology': 'AI Contracting (In-House)',
+  'AI-Augmented Contracting': 'AI Contracting',
+  'AI-Augmented M&A_Managed Service': 'AI M&A',
+  'AI-Augmented Compliance_In-House Technology': 'AI Compliance',
+  'AI Platform - Sigma': 'Sigma',
+  'AI Platform - Insights': 'Insights',
+  'AI Platform - Litigation': 'Litigation',
+  'FDE - Custom AI Solution': 'Custom AI (FDE)',
+};
+
+function cleanProductLine(raw) {
+  if (!raw) return '';
+  return PRODUCT_DISPLAY_MAP[raw] || raw.replace('AI-Augmented ', 'AI ').replace(/_/g, ' — ');
+}
+
+const MONTH_PATTERNS = /january|february|march|april|may|june|july|august|september|october|november|december/i;
+
 // Intent keywords ordered by specificity (cross-account intents FIRST to prevent
 // generic words like 'stage' or 'pipeline' from hijacking account-specific intents)
 const QUERY_INTENTS = {
@@ -651,6 +674,13 @@ async function classifyQueryIntent(query, conversationContext) {
   if (/weighted pipeline|weighted acv|pipeline weighted/i.test(query)) return 'WEIGHTED_PIPELINE';
   if (/signed this (quarter|month|week)|what have we signed|revenue signed|closed won this/i.test(query)) return 'DEALS_SIGNED';
   if (/targeting this (month|quarter)|targeting q1|targeting february|deals targeting/i.test(query)) return 'DEALS_TARGETING';
+  // Close/closing/sign + month name → date-filtered targeting query (must be BEFORE PIPELINE_OVERVIEW)
+  if (/(close|closing|sign|signing).*(january|february|march|april|may|june|july|august|september|october|november|december|this month|this quarter|q1|q2)/i.test(query)) return 'DEALS_TARGETING';
+  if (/(january|february|march|april|may|june|july|august|september|october|november|december).*(close|closing|sign|target)/i.test(query)) return 'DEALS_TARGETING';
+  if (/deals.*(this month|this quarter|in february|in march|in april)/i.test(query) && !/late|stage|negotiation|proposal|pilot/i.test(query)) return 'DEALS_TARGETING';
+  // Meetings must be detected BEFORE pipeline (both can match "accounts")
+  if (/meet|met |meeting/i.test(query) && /this week|today|tomorrow|scheduled|upcoming/i.test(query)) return 'MEETING_ACTIVITY';
+  if (/accounts.*(meet|met|meeting)|meeting.*(account|with)/i.test(query)) return 'MEETING_ACTIVITY';
   if (/pipeline by (product|solution)|product (breakdown|line breakdown)|solution breakdown/i.test(query)) return 'PIPELINE_BY_PRODUCT';
   if (/pipeline by sales type|new business pipeline|expansion pipeline|renewal pipeline/i.test(query)) return 'PIPELINE_BY_SALES_TYPE';
   if (/loi (deals|signed|this)|lois signed|what lois/i.test(query)) return 'LOI_DEALS';
@@ -658,7 +688,6 @@ async function classifyQueryIntent(query, conversationContext) {
   if (/stuck deals|slow deals|stale deals|deals stuck|stalled|no movement/i.test(query)) return 'SLOW_DEALS';
   if (/added to pipeline|pipeline added|new pipeline this|deals added this/i.test(query)) return 'PIPELINE_ADDED';
   if (/what deals are (late|in |at )|which (deals|opportunities) are|deals in (negotiation|proposal|pilot)|late stage (contracting|compliance|m&a)|open (deals|opportunities)|active pipeline|total pipeline/i.test(query)) return 'PIPELINE_OVERVIEW';
-  if (/met with this week|meeting with this week|meetings this week|accounts.+met.+this week|accounts.+meeting.+this week/i.test(query)) return 'MEETING_ACTIVITY';
 
   // Try advanced intent parser (same system as Slack bot)
   if (advancedIntentParser) {
@@ -1723,13 +1752,31 @@ async function gatherSnapshotContext(intent, query) {
         const lower = (query || '').toLowerCase();
         let stageFilter = STAGES;
         let labelSuffix = '';
+        let dateFilter = '';
+
+        // Stage filtering
         if (lower.includes('late stage')) { stageFilter = "'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation'"; labelSuffix = ' (Late Stage)'; }
         else if (lower.includes('negotiation') || lower.includes('stage 5')) { stageFilter = "'Stage 5 - Negotiation'"; labelSuffix = ' (Negotiation)'; }
         else if (lower.includes('proposal') || lower.includes('stage 4')) { stageFilter = "'Stage 4 - Proposal'"; labelSuffix = ' (Proposal)'; }
         else if (lower.includes('pilot') || lower.includes('stage 3')) { stageFilter = "'Stage 3 - Pilot'"; labelSuffix = ' (Pilot)'; }
         else if (lower.includes('early stage') || lower.includes('prospecting')) { stageFilter = "'Stage 0 - Prospecting', 'Stage 1 - Discovery'"; labelSuffix = ' (Early Stage)'; }
 
-        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, StageName, ACV__c, Target_LOI_Date__c, Product_Line__c, Owner.Name FROM Opportunity WHERE IsClosed = false AND StageName IN (${stageFilter}) ORDER BY ACV__c DESC NULLS LAST LIMIT 50`, false);
+        // Date filtering — applies when month/quarter is mentioned
+        if (lower.includes('this month') || lower.includes('february')) {
+          dateFilter = 'AND Target_LOI_Date__c = THIS_MONTH';
+          if (!labelSuffix) labelSuffix = ' (February)';
+        } else if (lower.includes('march')) {
+          dateFilter = 'AND Target_LOI_Date__c >= 2026-03-01 AND Target_LOI_Date__c <= 2026-03-31';
+          if (!labelSuffix) labelSuffix = ' (March)';
+        } else if (lower.includes('april')) {
+          dateFilter = 'AND Target_LOI_Date__c >= 2026-04-01 AND Target_LOI_Date__c <= 2026-04-30';
+          if (!labelSuffix) labelSuffix = ' (April)';
+        } else if (lower.includes('this quarter') || lower.includes('q1')) {
+          dateFilter = `AND Target_LOI_Date__c >= ${FISCAL_Q1_START} AND Target_LOI_Date__c <= ${FISCAL_Q1_END}`;
+          if (!labelSuffix) labelSuffix = ' (Q1 FY26)';
+        }
+
+        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, StageName, ACV__c, Target_LOI_Date__c, Product_Line__c, Owner.Name FROM Opportunity WHERE IsClosed = false AND StageName IN (${stageFilter}) ${dateFilter} ORDER BY ACV__c DESC NULLS LAST LIMIT 50`, false);
         records = r?.records || [];
 
         // Apply product line filter if mentioned
@@ -1780,8 +1827,20 @@ async function gatherSnapshotContext(intent, query) {
       }
       case 'DEALS_TARGETING': {
         const lower = query.toLowerCase();
-        const dateFilter = (lower.includes('this month') || lower.includes('february')) ? 'Target_LOI_Date__c = THIS_MONTH' : 'Target_LOI_Date__c = THIS_FISCAL_QUARTER';
-        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Target_LOI_Date__c, StageName, Owner.Name FROM Opportunity WHERE IsClosed = false AND StageName IN (${STAGES}) AND ${dateFilter} ORDER BY ACV__c DESC LIMIT 20`, false);
+        // Detect specific month or quarter references
+        let dateFilter;
+        if (lower.includes('this month') || lower.includes('february')) {
+          dateFilter = 'Target_LOI_Date__c = THIS_MONTH';
+        } else if (lower.includes('march')) {
+          dateFilter = `Target_LOI_Date__c >= 2026-03-01 AND Target_LOI_Date__c <= 2026-03-31`;
+        } else if (lower.includes('april')) {
+          dateFilter = `Target_LOI_Date__c >= 2026-04-01 AND Target_LOI_Date__c <= 2026-04-30`;
+        } else if (lower.includes('this quarter') || lower.includes('q1')) {
+          dateFilter = `Target_LOI_Date__c >= ${FISCAL_Q1_START} AND Target_LOI_Date__c <= ${FISCAL_Q1_END}`;
+        } else {
+          dateFilter = `Target_LOI_Date__c >= ${FISCAL_Q1_START} AND Target_LOI_Date__c <= ${FISCAL_Q1_END}`;
+        }
+        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Target_LOI_Date__c, StageName, Product_Line__c, Owner.Name FROM Opportunity WHERE IsClosed = false AND StageName IN (${STAGES}) AND ${dateFilter} ORDER BY ACV__c DESC LIMIT 30`, false);
         records = r?.records || [];
         label = (lower.includes('this month') || lower.includes('february')) ? 'Targeting This Month' : 'Targeting This Quarter';
         break;
@@ -2199,7 +2258,7 @@ function buildUserPrompt(intent, query, context) {
           prompt += `  • ${opp.account || opp.name} — $${(opp.acv || 0).toLocaleString()}`;
           if (opp.owner) prompt += ` | ${opp.owner}`;
           if (opp.targetDate) prompt += ` | Target: ${opp.targetDate}`;
-          if (opp.productLine) prompt += ` | ${opp.productLine}`;
+          if (opp.productLine) prompt += ` | ${cleanProductLine(opp.productLine)}`;
           prompt += '\n';
         }
         if (data.opps.length > 15) prompt += `  ... and ${data.opps.length - 15} more\n`;
@@ -2303,7 +2362,7 @@ function buildUserPrompt(intent, query, context) {
       prompt += `\nTOTAL: ${totalDeals} deals | Gross $${(totalGross / 1000000).toFixed(1)}M | Weighted $${(totalWeighted / 1000000).toFixed(1)}M\n`;
     } else if (context.intent === 'PIPELINE_BY_PRODUCT') {
       for (const row of recs) {
-        prompt += `  • ${row.Product_Line__c || 'Undetermined'}: $${((row.totalAcv || 0) / 1000).toFixed(0)}k | ${row.cnt || 0} deals\n`;
+        prompt += `  • ${cleanProductLine(row.Product_Line__c) || 'Undetermined'}: $${((row.totalAcv || 0) / 1000).toFixed(0)}k | ${row.cnt || 0} deals\n`;
       }
     } else if (context.intent === 'PIPELINE_BY_SALES_TYPE') {
       for (const row of recs) {
@@ -2321,7 +2380,7 @@ function buildUserPrompt(intent, query, context) {
         const acctName = r.Account?.Account_Display_Name__c || r.Account?.Name || 'Unknown';
         const acv = r.ACV__c ? `$${((r.ACV__c || 0) / 1000).toFixed(0)}k` : '';
         const owner = maskOwnerIfUnassigned(r.Owner?.Name);
-        const product = r.Product_Line__c ? ` | ${r.Product_Line__c}` : '';
+        const product = r.Product_Line__c ? ` | ${cleanProductLine(r.Product_Line__c)}` : '';
         prompt += `  • ${acctName} — ${acv} | ${r.StageName || ''} | ${owner} | Target: ${r.Target_LOI_Date__c || 'N/A'}${product}\n`;
       }
       if (recs.length > 30) prompt += `  ... and ${recs.length - 30} more\n`;
@@ -2334,7 +2393,7 @@ function buildUserPrompt(intent, query, context) {
         const owner = maskOwnerIfUnassigned(r.Owner?.Name);
         const date = r.Target_LOI_Date__c || r.CloseDate || r.CreatedDate?.split('T')[0] || '';
         const days = r.Days_in_Stage__c ? `${r.Days_in_Stage__c}d in stage` : '';
-        const product = r.Product_Line__c || '';
+        const product = cleanProductLine(r.Product_Line__c);
         const revenue = r.Revenue_Type__c || '';
         const parts = [acctName, acv, stage, owner, date, days, product, revenue].filter(Boolean);
         prompt += `  • ${parts.join(' | ')}\n`;
