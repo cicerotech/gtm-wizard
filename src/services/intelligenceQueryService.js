@@ -82,6 +82,28 @@ const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const MAX_CONVERSATION_TURNS = 10; // Keep last 10 turns to stay within token limits
 const MAX_SESSIONS = 200; // Prevent unbounded memory growth
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SALESFORCE CONNECTION HEALTH CHECK
+// Ensures the SF connection is alive before any SOQL execution.
+// Resets the circuit breaker and attempts re-initialization if degraded.
+// ═══════════════════════════════════════════════════════════════════════════
+async function ensureSalesforceConnection() {
+  const { isSalesforceAvailable, resetCircuitBreaker, initializeSalesforce } = require('../salesforce/connection');
+  if (!isSalesforceAvailable()) {
+    logger.warn('[Intelligence] SF connection unavailable — resetting circuit breaker and re-initializing');
+    resetCircuitBreaker();
+    try {
+      await Promise.race([
+        initializeSalesforce(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('SF init timeout after 8s')), 8000))
+      ]);
+      logger.info('[Intelligence] SF re-initialization succeeded');
+    } catch (e) {
+      logger.error(`[Intelligence] SF re-init failed: ${e.message}`);
+    }
+  }
+}
+
 function getSession(sessionId) {
   if (!sessionId || !conversationSessions.has(sessionId)) return null;
   const session = conversationSessions.get(sessionId);
@@ -219,8 +241,13 @@ const CROSS_ACCOUNT_SIGNALS = [
   /pipeline (summary|overview|status)/i,
   /deals (in|at) (negotiation|proposal|pilot|late stage|stage)/i,
   /opportunities (in|at) (negotiation|proposal|pilot|late stage|stage)/i,
-  /what deals are (late|in|at|closing)/i,
+  /what deals are (late|in|at|closing|early|prospecting)/i,
   /how many (customers|logos|clients) do we/i,
+  /accounts.*(being )?prospect/i,
+  /currently (being )?prospect/i,
+  /early stage (deals|opportunities|accounts)/i,
+  /what('s| is) the total pipeline/i,
+  /pipeline across all/i,
 ];
 
 const PRODUCT_LINE_MAP = {
@@ -254,7 +281,7 @@ const QUERY_INTENTS = {
   PIPELINE_ADDED: ['added to pipeline', 'pipeline added', 'new pipeline this', 'deals added', 'new deals this week'],
   CUSTOMER_COUNT: ['how many customers', 'how many logos', 'customer count', 'number of customers', 'total customers', 'how many clients', 'customer list', 'logo count'],
   CONTACT_SEARCH: ['chief legal officer', 'general counsel', 'clo based in', 'gc based in', 'contacts based in', 'contacts in', 'decision makers in', 'find contacts', 'clos owned by'],
-  PIPELINE_OVERVIEW: ['my pipeline', 'my deals', 'late stage', 'how many deal', 'how many account', 'total pipeline', 'closing this month', 'closing this quarter', 'in our pipeline', 'pipeline summary', 'deals closing', 'new logo', 'won this month', 'won this quarter', 'what deals are', 'what opportunities are', 'which deals', 'which opportunities', 'deals in negotiation', 'deals in proposal', 'deals in pilot', 'negotiation', 'proposal stage', 'late stage contracting', 'late stage compliance', 'late stage m&a', 'contracting deals', 'compliance deals', 'pipeline by stage', 'open opportunities', 'open deals', 'active pipeline'],
+  PIPELINE_OVERVIEW: ['my pipeline', 'my deals', 'late stage', 'early stage', 'mid stage', 'how many deal', 'how many account', 'total pipeline', 'closing this month', 'closing this quarter', 'in our pipeline', 'pipeline summary', 'deals closing', 'new logo', 'won this month', 'won this quarter', 'what deals are', 'what opportunities are', 'which deals', 'which opportunities', 'deals in negotiation', 'deals in proposal', 'deals in pilot', 'negotiation', 'proposal stage', 'late stage contracting', 'late stage compliance', 'late stage m&a', 'contracting deals', 'compliance deals', 'pipeline by stage', 'open opportunities', 'open deals', 'active pipeline', 'prospecting', 'being prospected', 'accounts prospected', 'pipeline across all stages', 'total pipeline across'],
   OWNER_ACCOUNTS: ['what accounts does', "'s accounts", "'s book", "'s pipeline", "'s deals", 'accounts does', 'book for'],
   MEETING_ACTIVITY: ['met with this week', 'meeting with this week', 'meetings this week', 'met with today', 'meeting with today', 'calls this week', 'meetings scheduled'],
   ACCOUNT_LOOKUP: ['who owns', 'owner of', 'assigned to'],
@@ -757,19 +784,7 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
     return context;
   }
 
-  // Verify SF connection is alive before parallel data fetch (with timeout guard)
-  const { isSalesforceAvailable } = require('../salesforce/connection');
-  if (!isSalesforceAvailable()) {
-    logger.error(`[Intelligence] Salesforce connection unavailable — resetting circuit breaker and retrying`);
-    const { resetCircuitBreaker, initializeSalesforce } = require('../salesforce/connection');
-    resetCircuitBreaker();
-    try {
-      await Promise.race([
-        initializeSalesforce(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('SF init timeout after 5s')), 5000))
-      ]);
-    } catch (e) { logger.error(`[Intelligence] SF re-init failed: ${e.message}`); }
-  }
+  await ensureSalesforceConnection();
 
   // Fetch all data in parallel from SALESFORCE ONLY
   logger.info(`[Intelligence] Fetching SF data for accountId: ${accountId}`);
@@ -1229,6 +1244,8 @@ async function findAccountByName(accountName) {
  */
 async function gatherPipelineContext(userEmail, queryText) {
   try {
+    await ensureSalesforceConnection();
+
     const lower = (queryText || '').toLowerCase();
     let allRecords = [];
 
@@ -1287,31 +1304,38 @@ async function gatherPipelineContext(userEmail, queryText) {
     let filtered = allRecords;
 
     if (!isClosedQuery) {
-      // Stage filter
+      // Stage filter — semantic mapping from natural language to Salesforce stage names
       if (lower.includes('late stage')) {
         filtered = filtered.filter(o => ['Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation'].includes(o.StageName));
       } else if (lower.includes('negotiation') || lower.includes('stage 5')) {
         filtered = filtered.filter(o => o.StageName === 'Stage 5 - Negotiation');
       } else if (lower.includes('proposal') || lower.includes('stage 4')) {
         filtered = filtered.filter(o => o.StageName === 'Stage 4 - Proposal');
-      } else if (lower.includes('pilot') || lower.includes('stage 3')) {
+      } else if (lower.includes('pilot') || lower.includes('poc') || lower.includes('stage 3')) {
         filtered = filtered.filter(o => o.StageName === 'Stage 3 - Pilot');
-      } else if (lower.includes('sqo') || lower.includes('stage 2')) {
+      } else if (lower.includes('sqo') || lower.includes('qualified') || lower.includes('stage 2')) {
         filtered = filtered.filter(o => o.StageName === 'Stage 2 - SQO');
       } else if (lower.includes('discovery') || lower.includes('stage 1')) {
         filtered = filtered.filter(o => o.StageName === 'Stage 1 - Discovery');
+      } else if (lower.includes('prospecting') || lower.includes('being prospected') || lower.includes('stage 0')) {
+        filtered = filtered.filter(o => o.StageName === 'Stage 0 - Prospecting');
       } else if (lower.includes('early stage')) {
         filtered = filtered.filter(o => ['Stage 0 - Prospecting', 'Stage 1 - Discovery'].includes(o.StageName));
       } else if (lower.includes('mid stage')) {
-        filtered = filtered.filter(o => o.StageName === 'Stage 2 - SQO');
+        filtered = filtered.filter(o => ['Stage 2 - SQO', 'Stage 3 - Pilot'].includes(o.StageName));
       }
 
-      // Product line filter
+      // Product line filter — match keywords to Salesforce Product_Line__c values
       for (const [keyword, pl] of Object.entries(PRODUCT_LINE_MAP)) {
         if (lower.includes(keyword)) {
-          filtered = filtered.filter(o => pl.partial
-            ? (o.Product_Line__c || '').startsWith(pl.value)
-            : o.Product_Line__c === pl.value);
+          filtered = filtered.filter(o => {
+            const plValue = (o.Product_Line__c || '');
+            if (pl.partial) {
+              const prefix = pl.value.split('_')[0];
+              return plValue.startsWith(prefix) || plValue.toLowerCase().includes(keyword);
+            }
+            return plValue === pl.value;
+          });
           break;
         }
       }
@@ -1634,6 +1658,8 @@ async function gatherContactSearchContext(query) {
  */
 async function gatherSnapshotContext(intent, query) {
   try {
+    await ensureSalesforceConnection();
+
     const STAGES = "'Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation'";
     let records = [];
     let label = intent;
@@ -2061,6 +2087,11 @@ function buildUserPrompt(intent, query, context) {
 
   // Handle pipeline queries
   if (context.isPipelineQuery) {
+    if (context.error) {
+      prompt += `SALESFORCE DATA UNAVAILABLE: ${context.error}\n`;
+      prompt += `The Salesforce connection may be temporarily unavailable. Inform the user that pipeline data could not be loaded and suggest they try again in a moment.\n`;
+      return prompt;
+    }
     prompt += `PIPELINE DATA (ORG-WIDE):\n`;
     prompt += `• Total Open Opportunities: ${context.totalOpportunities}\n`;
     prompt += `• Total Pipeline ACV: $${(context.totalAcv || 0).toLocaleString()}\n`;
@@ -2151,7 +2182,8 @@ function buildUserPrompt(intent, query, context) {
   // Handle cross-account snapshot queries — unified prompt from direct SOQL results
   if (context.isSnapshotQuery) {
     if (context.error) {
-      prompt += `Error fetching data: ${context.error}\nThe Salesforce connection may be temporarily unavailable. Try again in a moment.\n`;
+      prompt += `SALESFORCE DATA UNAVAILABLE: ${context.error}\n`;
+      prompt += `The Salesforce connection could not be established. Inform the user that this data could not be loaded right now and suggest they try again in a moment. Do NOT report "$0" or "0 deals" — instead say the data is temporarily unavailable.\n`;
       return prompt;
     }
     prompt += `${(context.label || context.intent).toUpperCase()} (${context.records?.length || 0} records):\n\n`;
