@@ -485,7 +485,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     var panel = document.createElement('div');
     panel.id = 'inline-tiles';
     panel.className = 'gtm-inline-tiles';
-    var tiles = [
+    var acctTiles = [
       { label: 'Latest update', q: 'What\\x27s the latest update on this account?' },
       { label: 'Deal status', q: 'What\\x27s the deal status and current stage?' },
       { label: 'Key contacts', q: 'Who are the key contacts and stakeholders?' },
@@ -495,12 +495,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       { label: 'Meeting prep', q: 'Full meeting prep for this account.' },
       { label: 'Engagement history', q: 'What\\x27s the full engagement history?' }
     ];
+    var crossTiles = [
+      { label: 'Late stage deals', q: 'What deals are late stage in the pipeline?' },
+      { label: 'Deals in negotiation', q: 'What deals are in negotiation?' },
+      { label: 'Customer count', q: 'How many customers do we have?' },
+      { label: 'Meetings this week', q: 'What accounts did we meet with this week?' }
+    ];
     var headerHtml = '<div class="gtm-inline-tiles-header" id="inline-tiles-header">' +
       '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>' +
       'Quick questions</div>';
     var bodyHtml = '<div class="gtm-inline-tiles-body" id="inline-tiles-body">';
-    for (var i = 0; i < tiles.length; i++) {
-      bodyHtml += '<button class="gtm-tile acct-tile" data-query="' + tiles[i].q + '">' + tiles[i].label + '</button>';
+    for (var i = 0; i < acctTiles.length; i++) {
+      bodyHtml += '<button class="gtm-tile acct-tile" data-query="' + acctTiles[i].q + '">' + acctTiles[i].label + '</button>';
+    }
+    for (var j = 0; j < crossTiles.length; j++) {
+      bodyHtml += '<button class="gtm-tile" data-query="' + crossTiles[j].q + '">' + crossTiles[j].label + '</button>';
     }
     bodyHtml += '</div>';
     panel.innerHTML = headerHtml + bodyHtml;

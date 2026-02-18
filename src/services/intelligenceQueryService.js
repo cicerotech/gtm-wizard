@@ -186,18 +186,53 @@ const CACHE_TTL = {
 };
 
 // Query intent classification
+// Cross-account signals: queries that should ALWAYS route to pipeline context
+// regardless of whether an account is selected
+const CROSS_ACCOUNT_SIGNALS = [
+  /how many (accounts|deals|opportunities|logos|customers|clients)/i,
+  /what (accounts|deals|opportunities) are/i,
+  /which (accounts|deals|opportunities|contacts) /i,
+  /across (the|our|all) /i,
+  /in (the|our) pipeline/i,
+  /total pipeline/i,
+  /pipeline (summary|overview|status)/i,
+  /deals (in|at) (negotiation|proposal|pilot|late stage|stage)/i,
+  /opportunities (in|at) (negotiation|proposal|pilot|late stage|stage)/i,
+  /what deals are (late|in|at|closing)/i,
+  /how many (customers|logos|clients) do we/i,
+];
+
+const PRODUCT_LINE_MAP = {
+  'contracting': { value: 'AI-Augmented Contracting', partial: true },
+  'managed contracting': { value: 'AI-Augmented Contracting_Managed Services', partial: false },
+  'in-house contracting': { value: 'AI-Augmented Contracting_In-House Technology', partial: false },
+  'm&a': { value: 'AI-Augmented M&A_Managed Service', partial: false },
+  'mna': { value: 'AI-Augmented M&A_Managed Service', partial: false },
+  'm and a': { value: 'AI-Augmented M&A_Managed Service', partial: false },
+  'compliance': { value: 'AI-Augmented Compliance_In-House Technology', partial: false },
+  'sigma': { value: 'AI Platform - Sigma', partial: false },
+  'insights': { value: 'AI Platform - Insights', partial: false },
+  'litigation': { value: 'AI Platform - Litigation', partial: false },
+  'custom agents': { value: 'FDE - Custom AI Solution', partial: false },
+  'fde': { value: 'FDE - Custom AI Solution', partial: false },
+};
+
+// Intent keywords ordered by specificity (cross-account intents FIRST to prevent
+// generic words like 'stage' or 'pipeline' from hijacking account-specific intents)
 const QUERY_INTENTS = {
+  CUSTOMER_COUNT: ['how many customers', 'how many logos', 'customer count', 'number of customers', 'total customers', 'how many clients', 'customer list', 'logo count', 'how many customer', 'how many logos'],
+  CONTACT_SEARCH: ['chief legal officer', 'general counsel', 'clo based in', 'gc based in', 'contacts based in', 'contacts in', 'decision makers in', 'find contacts', 'clos owned by'],
+  PIPELINE_OVERVIEW: ['my pipeline', 'my deals', 'late stage', 'forecast', 'how many deal', 'how many account', 'total pipeline', 'closing this month', 'closing this quarter', 'in our pipeline', 'pipeline summary', 'deals closing', 'new logo', 'won this month', 'won this quarter', 'signed this month', 'signed this quarter', 'lost this', 'what deals are', 'what opportunities are', 'which deals', 'which opportunities', 'deals in negotiation', 'deals in proposal', 'deals in pilot', 'negotiation', 'proposal stage', 'late stage contracting', 'late stage compliance', 'late stage m&a', 'contracting deals', 'compliance deals', 'pipeline by'],
+  OWNER_ACCOUNTS: ['what accounts does', "'s accounts", "'s book", "'s pipeline", "'s deals", 'accounts does', 'book for'],
+  MEETING_ACTIVITY: ['met with this week', 'meeting with this week', 'meetings this week', 'met with today', 'meeting with today', 'calls this week', 'meetings scheduled'],
+  ACCOUNT_LOOKUP: ['who owns', 'owner of', 'assigned to'],
   PRE_MEETING: ['before my', 'next meeting', 'should i know', 'meeting prep', 'prepare for'],
-  DEAL_STATUS: ['deal status', 'current status', 'stage', 'pipeline', 'where are we', 'how is the deal'],
-  STAKEHOLDERS: ['decision maker', 'stakeholder', 'champion', 'contact', 'who is', 'who are'],
+  DEAL_STATUS: ['deal status', 'current status', 'where are we', 'how is the deal', 'where are they', 'where is the deal', 'deal stage'],
+  STAKEHOLDERS: ['decision maker', 'stakeholder', 'champion', 'who is', 'who are', 'key contacts'],
   HISTORY: ['last meeting', 'when did we', 'history', 'previous', 'last time'],
   NEXT_STEPS: ['next step', 'action item', 'todo', 'follow up', 'outstanding'],
   PAIN_POINTS: ['pain point', 'challenge', 'problem', 'issue', 'struggle'],
   COMPETITIVE: ['competitor', 'competitive', 'alternative', 'vs', 'compared to'],
-  PIPELINE_OVERVIEW: ['my pipeline', 'my deals', 'late stage', 'forecast', 'how many customer', 'how many deal', 'how many account', 'total pipeline', 'closing this month', 'closing this quarter', 'in our pipeline', 'pipeline summary', 'deals closing', 'new logo', 'won this month', 'won this quarter', 'signed this month', 'signed this quarter', 'lost this', 'what deals are', 'how many logos'],
-  OWNER_ACCOUNTS: ['what accounts does', "'s accounts", "'s book", "'s pipeline", "'s deals", 'accounts does', 'book for'],
-  MEETING_ACTIVITY: ['met with this week', 'meeting with this week', 'meetings this week', 'met with today', 'meeting with today', 'calls this week', 'meetings scheduled'],
-  ACCOUNT_LOOKUP: ['who owns', 'owner of', 'assigned to']
 };
 
 const BL_NAME_MAP = {
@@ -326,6 +361,16 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
       needsCommercial: /pricing|price|cost|commerci|terms|payment|invoice|billing/i.test(query),
     };
 
+    // Cross-account signal detection: if the query is clearly about the whole pipeline,
+    // override any selected account so it routes to pipeline context
+    if (CROSS_ACCOUNT_SIGNALS.some(p => p.test(query))) {
+      if (accountId || accountName) {
+        logger.info(`[Intelligence] Cross-account signal detected, clearing account context for pipeline query`);
+      }
+      accountId = '';
+      accountName = '';
+    }
+
     // Classify the query intent (async — uses ML cascade when available)
     const intent = await classifyQueryIntent(query);
     logger.info(`[Intelligence] Query intent: ${intent}`, { 
@@ -337,7 +382,7 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
     });
 
     // Free-text account extraction: if no account selected, try to extract from query
-    if (!accountId && !accountName && intent !== 'PIPELINE_OVERVIEW' && intent !== 'OWNER_ACCOUNTS' && intent !== 'MEETING_ACTIVITY') {
+    if (!accountId && !accountName && !['PIPELINE_OVERVIEW', 'OWNER_ACCOUNTS', 'MEETING_ACTIVITY', 'CUSTOMER_COUNT', 'CONTACT_SEARCH'].includes(intent)) {
       const extracted = extractAccountFromQuery(query);
       if (extracted) {
         accountName = extracted;
@@ -430,7 +475,7 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
 
     // Call Claude
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: process.env.INTELLIGENCE_MODEL || 'claude-sonnet-4-20250514',
       max_tokens: 1500,
       system: systemPrompt,
       messages
@@ -526,6 +571,21 @@ async function classifyQueryIntent(query, conversationContext) {
           'next_steps': 'NEXT_STEPS',
           'meeting_prep': 'PRE_MEETING',
           'history': 'HISTORY',
+          'owner_pipeline': 'OWNER_ACCOUNTS',
+          'accounts_by_owner': 'OWNER_ACCOUNTS',
+          'accounts_by_stage': 'PIPELINE_OVERVIEW',
+          'owner_accounts_list': 'OWNER_ACCOUNTS',
+          'customer_list': 'CUSTOMER_COUNT',
+          'count_query': 'CUSTOMER_COUNT',
+          'loi_deals': 'PIPELINE_OVERVIEW',
+          'arr_deals': 'PIPELINE_OVERVIEW',
+          'weighted_summary': 'PIPELINE_OVERVIEW',
+          'weighted_pipeline': 'PIPELINE_OVERVIEW',
+          'late_stage_pipeline': 'PIPELINE_OVERVIEW',
+          'product_pipeline': 'PIPELINE_OVERVIEW',
+          'generate_late_stage_report': 'PIPELINE_OVERVIEW',
+          'pipeline_added': 'PIPELINE_OVERVIEW',
+          'activity_check': 'HISTORY',
         };
         const mappedIntent = intentMap[parsed.intent] || null;
         if (mappedIntent) {
@@ -584,24 +644,24 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
     logger.info(`[Intelligence] forceRefresh — evicted in-memory cache for ${accountId}`);
   }
 
-  // Handle pipeline/cross-account queries (works with or without userEmail)
+  // Handle cross-account queries — these don't need a specific account
   if (intent === 'PIPELINE_OVERVIEW') {
     return await gatherPipelineContext(userEmail || null, query);
   }
-
-  // Handle owner-specific account queries ("what accounts does Riley own?")
   if (intent === 'OWNER_ACCOUNTS') {
     return await gatherOwnerAccountsContext(query);
   }
-
-  // Handle meeting activity queries ("what accounts did we meet with this week?")
   if (intent === 'MEETING_ACTIVITY') {
     return await gatherMeetingActivityContext(query);
   }
-
-  // Handle account lookup queries
   if (intent === 'ACCOUNT_LOOKUP') {
     return await gatherAccountLookupContext(query);
+  }
+  if (intent === 'CUSTOMER_COUNT') {
+    return await gatherCustomerCountContext(query);
+  }
+  if (intent === 'CONTACT_SEARCH') {
+    return await gatherContactSearchContext(query);
   }
 
   // For account-specific queries, we need an account
@@ -630,13 +690,18 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
     return context;
   }
 
-  // Verify SF connection is alive before parallel data fetch
+  // Verify SF connection is alive before parallel data fetch (with timeout guard)
   const { isSalesforceAvailable } = require('../salesforce/connection');
   if (!isSalesforceAvailable()) {
     logger.error(`[Intelligence] Salesforce connection unavailable — resetting circuit breaker and retrying`);
     const { resetCircuitBreaker, initializeSalesforce } = require('../salesforce/connection');
     resetCircuitBreaker();
-    try { await initializeSalesforce(); } catch (e) { logger.error(`[Intelligence] SF re-init failed: ${e.message}`); }
+    try {
+      await Promise.race([
+        initializeSalesforce(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('SF init timeout after 5s')), 5000))
+      ]);
+    } catch (e) { logger.error(`[Intelligence] SF re-init failed: ${e.message}`); }
   }
 
   // Fetch all data in parallel from SALESFORCE ONLY
@@ -1112,17 +1177,45 @@ async function gatherPipelineContext(userEmail, queryText) {
       else conditions.push('CloseDate = THIS_FISCAL_QUARTER');
     } else {
       conditions.push('IsClosed = false');
+
+      // Stage filtering — includes Stage 5 Negotiation
       if (lower.includes('late stage')) {
-        conditions.push("(StageName = 'Stage 3 - Pilot' OR StageName = 'Stage 4 - Proposal')");
+        conditions.push("(StageName = 'Stage 3 - Pilot' OR StageName = 'Stage 4 - Proposal' OR StageName = 'Stage 5 - Negotiation')");
+      } else if (lower.includes('negotiation') || lower.includes('stage 5')) {
+        conditions.push("StageName = 'Stage 5 - Negotiation'");
+      } else if (lower.includes('proposal') || lower.includes('stage 4')) {
+        conditions.push("StageName = 'Stage 4 - Proposal'");
+      } else if (lower.includes('pilot') || lower.includes('stage 3')) {
+        conditions.push("StageName = 'Stage 3 - Pilot'");
+      } else if (lower.includes('sqo') || lower.includes('stage 2')) {
+        conditions.push("StageName = 'Stage 2 - SQO'");
+      } else if (lower.includes('discovery') || lower.includes('stage 1')) {
+        conditions.push("StageName = 'Stage 1 - Discovery'");
+      } else if (lower.includes('prospecting') || lower.includes('stage 0') || lower.includes('qualifying')) {
+        conditions.push("StageName = 'Stage 0 - Prospecting'");
+      } else if (lower.includes('early stage')) {
+        conditions.push("(StageName = 'Stage 0 - Prospecting' OR StageName = 'Stage 1 - Discovery')");
+      } else if (lower.includes('mid stage')) {
+        conditions.push("StageName = 'Stage 2 - SQO'");
       }
-      if (lower.includes('this month') || lower.includes('closing this month')) {
-        conditions.push('CloseDate = THIS_MONTH');
-      } else if (lower.includes('this quarter')) {
-        conditions.push('CloseDate = THIS_FISCAL_QUARTER');
+
+      // Product line filtering
+      for (const [keyword, pl] of Object.entries(PRODUCT_LINE_MAP)) {
+        if (lower.includes(keyword)) {
+          conditions.push(pl.partial ? `Product_Line__c LIKE '${pl.value}%'` : `Product_Line__c = '${pl.value}'`);
+          break;
+        }
+      }
+
+      // Time filtering — use Target_LOI_Date__c for active pipeline (aligns with weekly snapshot)
+      if (lower.includes('this month') || lower.includes('closing this month') || lower.includes('targeting this month')) {
+        conditions.push('Target_LOI_Date__c = THIS_MONTH');
+      } else if (lower.includes('this quarter') || lower.includes('targeting this quarter') || lower.includes('targeting q1')) {
+        conditions.push('Target_LOI_Date__c = THIS_FISCAL_QUARTER');
       }
     }
 
-    // Check if query references a specific owner
+    // Owner filtering
     const bl = extractBLName(queryText || '');
     if (bl) {
       const safeEmail = bl.email.replace(/'/g, "\\'");
@@ -1133,10 +1226,10 @@ async function gatherPipelineContext(userEmail, queryText) {
     const result = await sfQuery(`
       SELECT Id, Name, AccountId, Account.Name, StageName, ACV__c, 
              CloseDate, Target_LOI_Date__c, Product_Line__c, NextStep, Owner.Name,
-             IsClosed, IsWon
+             IsClosed, IsWon, Probability
       FROM Opportunity
       WHERE ${whereClause}
-      ORDER BY CloseDate ASC
+      ORDER BY ACV__c DESC NULLS LAST
       LIMIT 200
     `, true);
 
@@ -1159,8 +1252,11 @@ async function gatherPipelineContext(userEmail, queryText) {
         account: opp.Account?.Name,
         acv: opp.ACV__c,
         closeDate: opp.CloseDate,
+        targetDate: opp.Target_LOI_Date__c,
         nextStep: opp.NextStep,
-        owner: opp.Owner?.Name
+        owner: maskOwnerIfUnassigned(opp.Owner?.Name),
+        productLine: opp.Product_Line__c,
+        probability: opp.Probability
       });
       totalAcv += opp.ACV__c || 0;
       
@@ -1319,6 +1415,115 @@ async function gatherMeetingActivityContext(query) {
 }
 
 /**
+ * Gather context for customer/logo count queries
+ */
+async function gatherCustomerCountContext(query) {
+  try {
+    const lower = query.toLowerCase();
+    let soql, label;
+
+    if (lower.includes('arr') || lower.includes('revenue')) {
+      soql = `SELECT Name, Owner.Name, Customer_Type__c FROM Account WHERE Customer_Type__c = 'Revenue' ORDER BY Name LIMIT 100`;
+      label = 'ARR Customers';
+    } else if (lower.includes('loi')) {
+      soql = `SELECT Name, Owner.Name, Customer_Type__c FROM Account WHERE Customer_Type__c = 'LOI, with $ attached' ORDER BY Name LIMIT 100`;
+      label = 'LOI Customers';
+    } else if (lower.includes('pilot')) {
+      soql = `SELECT Name, Owner.Name, Customer_Type__c FROM Account WHERE Customer_Type__c LIKE '%Pilot%' ORDER BY Name LIMIT 100`;
+      label = 'Pilot Customers';
+    } else {
+      soql = `SELECT Name, Owner.Name, Customer_Type__c FROM Account WHERE Customer_Type__c IN ('Revenue', 'LOI, with $ attached', 'Pilot', 'Existing Customer', 'Existing', 'Existing / LOI', 'MSA') ORDER BY Customer_Type__c, Name LIMIT 200`;
+      label = 'All Customers';
+    }
+
+    const result = await sfQuery(soql, true);
+    const accounts = result?.records || [];
+    const byType = {};
+    accounts.forEach(a => {
+      const t = a.Customer_Type__c || 'Other';
+      if (!byType[t]) byType[t] = [];
+      byType[t].push({ name: a.Name, owner: maskOwnerIfUnassigned(a.Owner?.Name) });
+    });
+
+    return { isCustomerCountQuery: true, label, totalCount: accounts.length, byType, dataFreshness: 'live' };
+  } catch (error) {
+    logger.error('[Intelligence] Customer count context error:', error.message);
+    return { isCustomerCountQuery: true, error: error.message, dataFreshness: 'live' };
+  }
+}
+
+/**
+ * Gather context for cross-account contact search (marketing use case)
+ */
+async function gatherContactSearchContext(query) {
+  try {
+    const lower = query.toLowerCase();
+    const titleConditions = [];
+    if (lower.includes('clo') || lower.includes('chief legal')) titleConditions.push("Title LIKE '%Chief Legal%'");
+    if (lower.includes('general counsel') || lower.includes(' gc')) titleConditions.push("Title LIKE '%General Counsel%'");
+    if (lower.includes('vp legal') || lower.includes('vice president legal')) titleConditions.push("Title LIKE '%VP%Legal%'");
+    if (lower.includes('head of legal')) titleConditions.push("Title LIKE '%Head of Legal%'");
+    if (titleConditions.length === 0) {
+      titleConditions.push("(Title LIKE '%Chief Legal%' OR Title LIKE '%General Counsel%' OR Title LIKE '%CLO%')");
+    }
+
+    const locationConditions = [];
+    const cities = [
+      { keywords: ['los angeles', 'la'], filter: "MailingCity LIKE '%Los Angeles%'" },
+      { keywords: ['new york', 'nyc'], filter: "MailingState LIKE '%New York%'" },
+      { keywords: ['san francisco', 'sf', 'bay area'], filter: "(MailingCity LIKE '%San Francisco%' OR MailingCity LIKE '%Palo Alto%' OR MailingCity LIKE '%San Jose%')" },
+      { keywords: ['chicago'], filter: "MailingCity LIKE '%Chicago%'" },
+      { keywords: ['london'], filter: "MailingCity LIKE '%London%'" },
+      { keywords: ['dublin'], filter: "MailingCity LIKE '%Dublin%'" },
+      { keywords: ['boston'], filter: "MailingCity LIKE '%Boston%'" },
+      { keywords: ['seattle'], filter: "MailingCity LIKE '%Seattle%'" },
+      { keywords: ['dallas', 'houston', 'texas'], filter: "MailingState LIKE '%Texas%'" },
+    ];
+    for (const city of cities) {
+      if (city.keywords.some(k => lower.includes(k))) {
+        locationConditions.push(city.filter);
+        break;
+      }
+    }
+
+    let whereClause = `(${titleConditions.join(' OR ')})`;
+    if (locationConditions.length > 0) whereClause += ` AND ${locationConditions.join(' AND ')}`;
+    whereClause += ` AND Account.Owner.Name != null`;
+
+    const soql = `
+      SELECT Name, Title, Email, Account.Name, Account.Owner.Name, MailingCity, MailingState, MailingCountry
+      FROM Contact
+      WHERE ${whereClause}
+      ORDER BY Account.Name
+      LIMIT 50
+    `;
+
+    const result = await sfQuery(soql, true);
+    const contacts = (result?.records || []).map(c => ({
+      name: c.Name,
+      title: c.Title,
+      email: c.Email,
+      account: c.Account?.Name,
+      accountOwner: maskOwnerIfUnassigned(c.Account?.Owner?.Name),
+      city: c.MailingCity,
+      state: c.MailingState,
+      country: c.MailingCountry
+    }));
+
+    return {
+      isContactSearchQuery: true,
+      contacts,
+      contactCount: contacts.length,
+      searchCriteria: { titles: titleConditions, locations: locationConditions },
+      dataFreshness: 'live'
+    };
+  } catch (error) {
+    logger.error('[Intelligence] Contact search context error:', error.message);
+    return { isContactSearchQuery: true, error: error.message, dataFreshness: 'live' };
+  }
+}
+
+/**
  * Classify the account engagement type to tailor response framing and follow-up suggestions.
  * Returns: 'existing_customer' | 'active_pipeline' | 'historical' | 'cold' | 'unknown'
  */
@@ -1395,6 +1600,18 @@ DATE HANDLING (CRITICAL — follow exactly):
 - If CRM dates appear inconsistent, simply work with the available data without surfacing warnings.
 - NEVER surface data quality warnings, date discrepancies, or "CRITICAL DATA ISSUE" messages to the user.
 - NEVER tell the user to "verify" CRM data — just present what is available.
+
+STAGE DEFINITIONS (use these exact mappings):
+- Stage 0 - Prospecting (early stage)
+- Stage 1 - Discovery (early stage)
+- Stage 2 - SQO (mid stage)
+- Stage 3 - Pilot (late stage)
+- Stage 4 - Proposal (late stage)
+- Stage 5 - Negotiation (late stage)
+- "Late stage" = Stage 3 + Stage 4 + Stage 5
+- Stage 6. Closed(Won) and Stage 7. Closed(Lost) are closed stages
+
+PRODUCT LINES: AI-Augmented Contracting, AI-Augmented M&A, AI-Augmented Compliance, AI Platform - Sigma, AI Platform - Insights, AI Platform - Litigation, FDE - Custom AI Solution
 
 UNASSIGNED ACCOUNTS:
 - If the owner is listed as "Unassigned", state that the account is currently unassigned. Do NOT reference any holder's actual name — simply say "Unassigned" or "Currently unassigned."
@@ -1540,26 +1757,39 @@ This account has no opportunity history. Your response framing must reflect pros
 4. Overdue items`;
 
     case 'PIPELINE_OVERVIEW':
-      return basePrompt + `\n\nFOCUS: Pipeline summary. Prioritize:
-1. Total pipeline value by stage
-2. Late-stage opportunities
-3. Deals needing attention
-4. Upcoming close dates
-Present a compact summary table first, then details.`;
+      return basePrompt + `\n\nFOCUS: Pipeline data. Present as:
+1. Summary line: "[X] deals | $[Y] total ACV | [Z] late stage"
+2. Ranked list sorted by ACV descending: "1. **Account** — $ACV | Stage | Owner | Target: Date"
+3. Stage breakdown at the bottom
+Do NOT write paragraphs. Use the compact ranked list format. Include product line if available.
+STAGE DEFINITIONS: Late stage = Stage 3 (Pilot) + Stage 4 (Proposal) + Stage 5 (Negotiation). Mid = Stage 2 (SQO). Early = Stage 0 (Prospecting) + Stage 1 (Discovery).`;
 
     case 'OWNER_ACCOUNTS':
-      return basePrompt + `\n\nFOCUS: Business Lead account ownership. Prioritize:
-1. Total number of accounts and their types (existing customer, active pipeline, prospect)
-2. Open opportunities with stage and ACV
-3. Key accounts by pipeline value
-Present as a clean list, not long paragraphs.`;
+      return basePrompt + `\n\nFOCUS: Business Lead account ownership. Present as:
+1. Summary: "[Name] owns [X] accounts ([Y] with active pipeline)"
+2. Active pipeline deals listed by ACV: "1. **Account** — $ACV | Stage"
+3. Account list grouped by type (customer, pipeline, prospect)
+Use a clean list format.`;
 
     case 'MEETING_ACTIVITY':
-      return basePrompt + `\n\nFOCUS: Meeting activity summary. Prioritize:
-1. Which accounts had meetings (or are scheduled)
-2. Meeting subjects and attendees
-3. Total count of unique accounts
-Present as a compact timeline-style list.`;
+      return basePrompt + `\n\nFOCUS: Meeting activity. Present as a compact timeline:
+1. Summary: "[X] meetings with [Y] accounts this week"
+2. Timeline list: "- **Mon Feb 17** — Account Name: Meeting Subject [Owner]"
+Group by day.`;
+
+    case 'CUSTOMER_COUNT':
+      return basePrompt + `\n\nFOCUS: Customer/logo count. Present as:
+1. Total count prominently: "**[X] total customers**"
+2. Breakdown by type (Revenue/ARR, LOI, Pilot, etc.) with count per category
+3. If listing accounts, use compact format: "- Account Name (Owner)"
+Be precise with the count.`;
+
+    case 'CONTACT_SEARCH':
+      return basePrompt + `\n\nFOCUS: Contact search results. Present as:
+1. Summary: "[X] contacts matching criteria"
+2. Compact list: "- **Name** — Title | Account (Owner) | City, State"
+3. Group by city/region if location was part of the search
+Include email when available.`;
 
     default:
       return basePrompt;
@@ -1592,13 +1822,14 @@ function buildUserPrompt(intent, query, context) {
       prompt += `BY STAGE:\n`;
       for (const [stage, data] of Object.entries(context.byStage)) {
         prompt += `\n${stage} (${data.count} opps, $${data.totalAcv.toLocaleString()}):\n`;
-        for (const opp of data.opps.slice(0, 8)) {
-          prompt += `  • ${opp.name} (${opp.account})`;
-          if (opp.owner) prompt += ` [${opp.owner}]`;
-          prompt += ` - $${(opp.acv || 0).toLocaleString()}`;
-          if (opp.closeDate) prompt += ` - Close: ${opp.closeDate}`;
+        for (const opp of data.opps.slice(0, 15)) {
+          prompt += `  • ${opp.account || opp.name} — $${(opp.acv || 0).toLocaleString()}`;
+          if (opp.owner) prompt += ` | ${opp.owner}`;
+          if (opp.targetDate) prompt += ` | Target: ${opp.targetDate}`;
+          if (opp.productLine) prompt += ` | ${opp.productLine}`;
           prompt += '\n';
         }
+        if (data.opps.length > 15) prompt += `  ... and ${data.opps.length - 15} more\n`;
       }
     }
     
@@ -1662,6 +1893,49 @@ function buildUserPrompt(intent, query, context) {
         if (m.owner) prompt += ` [${m.owner}]`;
         prompt += '\n';
       }
+    }
+    return prompt;
+  }
+
+  // Handle customer count queries
+  if (context.isCustomerCountQuery) {
+    if (context.error) {
+      prompt += `${context.error}\n`;
+      return prompt;
+    }
+    prompt += `${context.label?.toUpperCase() || 'CUSTOMER COUNT'}:\n`;
+    prompt += `• Total: ${context.totalCount}\n\n`;
+
+    if (context.byType && Object.keys(context.byType).length > 0) {
+      prompt += `BY TYPE:\n`;
+      for (const [type, accounts] of Object.entries(context.byType)) {
+        prompt += `\n${type} (${accounts.length}):\n`;
+        for (const a of accounts.slice(0, 15)) {
+          prompt += `  • ${a.name} — ${a.owner}\n`;
+        }
+        if (accounts.length > 15) prompt += `  ... and ${accounts.length - 15} more\n`;
+      }
+    }
+    return prompt;
+  }
+
+  // Handle cross-account contact search queries
+  if (context.isContactSearchQuery) {
+    if (context.error) {
+      prompt += `${context.error}\n`;
+      return prompt;
+    }
+    prompt += `CONTACT SEARCH RESULTS (${context.contactCount} found):\n\n`;
+    if (context.contacts?.length > 0) {
+      for (const c of context.contacts) {
+        prompt += `• ${c.name} — ${c.title || 'No title'}`;
+        prompt += ` | ${c.account} (${c.accountOwner})`;
+        if (c.city || c.state) prompt += ` | ${[c.city, c.state].filter(Boolean).join(', ')}`;
+        if (c.email) prompt += ` | ${c.email}`;
+        prompt += '\n';
+      }
+    } else {
+      prompt += `No contacts found matching the search criteria.\n`;
     }
     return prompt;
   }
