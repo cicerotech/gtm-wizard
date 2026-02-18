@@ -18,6 +18,16 @@ const { cache } = require('../utils/cache');
 const logger = require('../utils/logger');
 const { getIntelForAccount } = require('./slackIntelCache');
 
+// Weekly snapshot data bridge — reuses the proven SOQL from the weekly PDF
+let weeklySnapshotBridge = null;
+try {
+  const { queryPipelineData, queryAIEnabledForecast, ACTIVE_STAGES } = require('../slack/blWeeklySummary');
+  weeklySnapshotBridge = { queryPipelineData, queryAIEnabledForecast, ACTIVE_STAGES };
+  logger.info('[Intelligence] Weekly snapshot data bridge loaded');
+} catch (err) {
+  logger.warn('[Intelligence] Weekly snapshot bridge not available:', err.message);
+}
+
 // Vector search for semantic context retrieval
 // Feature flag: ENABLE_VECTOR_SEARCH (default false until validated)
 let vectorSearch = null;
@@ -414,7 +424,7 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
     }
 
     // Gracious disambiguation: if no account context and not a cross-account query, guide the user
-    if (!context.account && !context.isPipelineQuery && !context.isOwnerQuery && !context.isMeetingQuery && !context.isLookupQuery) {
+    if (!context.account && !context.isPipelineQuery && !context.isOwnerQuery && !context.isMeetingQuery && !context.isLookupQuery && !context.isCustomerCountQuery && !context.isContactSearchQuery) {
       const duration = Date.now() - startTime;
       return {
         success: true,
@@ -550,7 +560,14 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
  * Uses advanced ML cascade (50+ intents) when available, falls back to simple keywords.
  */
 async function classifyQueryIntent(query, conversationContext) {
-  // Try advanced intent parser first (same system as Slack bot)
+  // Priority overrides — unambiguous patterns that must bypass ML to prevent misclassification
+  if (/what accounts does|'s accounts|'s book|accounts does .+ own|accounts .+ owns/i.test(query)) return 'OWNER_ACCOUNTS';
+  if (/how many (customers|logos|clients)|customer count|number of customers|total customers|customer list|logo count/i.test(query)) return 'CUSTOMER_COUNT';
+  if (/chief legal.+based|general counsel.+based|clo.+based|gc.+based|contacts.+based in|find.+contacts|clos owned/i.test(query)) return 'CONTACT_SEARCH';
+  if (/what deals are (late|in |at )|which (deals|opportunities) are|deals in (negotiation|proposal|pilot)|late stage (contracting|compliance|m&a)/i.test(query)) return 'PIPELINE_OVERVIEW';
+  if (/met with this week|meeting with this week|meetings this week|accounts.+met.+this week|accounts.+meeting.+this week/i.test(query)) return 'MEETING_ACTIVITY';
+
+  // Try advanced intent parser (same system as Slack bot)
   if (advancedIntentParser) {
     try {
       const parsed = await advancedIntentParser.parseIntent(query, conversationContext || null, null);
@@ -1155,101 +1172,135 @@ async function findAccountByName(accountName) {
 }
 
 /**
- * Gather context for pipeline overview queries
+ * Gather context for pipeline overview queries.
+ * Strategy: Use the weekly snapshot's battle-tested queryPipelineData() first (same SOQL that
+ * produces the weekly PDF), then apply in-memory filters for stage/product/owner/time.
+ * Falls back to direct SOQL if the bridge is unavailable.
  */
 async function gatherPipelineContext(userEmail, queryText) {
   try {
     const lower = (queryText || '').toLowerCase();
+    let allRecords = [];
 
-    // Build dynamic WHERE clause based on query content
-    const conditions = [];
-    if (lower.includes('won') || lower.includes('signed') || lower.includes('closed') || lower.includes('logos')) {
-      conditions.push('IsWon = true');
+    // Determine if this is a closed-deal query (won/lost) vs active pipeline
+    const isClosedQuery = lower.includes('won') || lower.includes('signed') || lower.includes('closed') || lower.includes('lost') || lower.includes('logos');
+
+    if (isClosedQuery) {
+      // Closed-deal queries need specific SOQL (the weekly snapshot only covers active pipeline)
+      const conditions = [];
+      if (lower.includes('lost')) {
+        conditions.push('IsClosed = true', 'IsWon = false');
+      } else {
+        conditions.push('IsWon = true');
+      }
       if (lower.includes('this month')) conditions.push('CloseDate = THIS_MONTH');
       else if (lower.includes('this quarter')) conditions.push('CloseDate = THIS_FISCAL_QUARTER');
       else if (lower.includes('this week')) conditions.push('CloseDate = THIS_WEEK');
       else if (lower.includes('last month')) conditions.push('CloseDate = LAST_MONTH');
       else conditions.push('CloseDate = THIS_FISCAL_QUARTER');
-    } else if (lower.includes('lost')) {
-      conditions.push('IsClosed = true AND IsWon = false');
-      if (lower.includes('this month')) conditions.push('CloseDate = THIS_MONTH');
-      else if (lower.includes('this quarter')) conditions.push('CloseDate = THIS_FISCAL_QUARTER');
-      else conditions.push('CloseDate = THIS_FISCAL_QUARTER');
-    } else {
-      conditions.push('IsClosed = false');
 
-      // Stage filtering — includes Stage 5 Negotiation
-      if (lower.includes('late stage')) {
-        conditions.push("(StageName = 'Stage 3 - Pilot' OR StageName = 'Stage 4 - Proposal' OR StageName = 'Stage 5 - Negotiation')");
-      } else if (lower.includes('negotiation') || lower.includes('stage 5')) {
-        conditions.push("StageName = 'Stage 5 - Negotiation'");
-      } else if (lower.includes('proposal') || lower.includes('stage 4')) {
-        conditions.push("StageName = 'Stage 4 - Proposal'");
-      } else if (lower.includes('pilot') || lower.includes('stage 3')) {
-        conditions.push("StageName = 'Stage 3 - Pilot'");
-      } else if (lower.includes('sqo') || lower.includes('stage 2')) {
-        conditions.push("StageName = 'Stage 2 - SQO'");
-      } else if (lower.includes('discovery') || lower.includes('stage 1')) {
-        conditions.push("StageName = 'Stage 1 - Discovery'");
-      } else if (lower.includes('prospecting') || lower.includes('stage 0') || lower.includes('qualifying')) {
-        conditions.push("StageName = 'Stage 0 - Prospecting'");
-      } else if (lower.includes('early stage')) {
-        conditions.push("(StageName = 'Stage 0 - Prospecting' OR StageName = 'Stage 1 - Discovery')");
-      } else if (lower.includes('mid stage')) {
-        conditions.push("StageName = 'Stage 2 - SQO'");
+      const result = await sfQuery(`
+        SELECT Id, Name, AccountId, Account.Name, StageName, ACV__c, 
+               CloseDate, Target_LOI_Date__c, Product_Line__c, NextStep, Owner.Name,
+               IsClosed, IsWon, Probability
+        FROM Opportunity WHERE ${conditions.join(' AND ')}
+        ORDER BY ACV__c DESC NULLS LAST LIMIT 200
+      `, false);
+      allRecords = result?.records || [];
+    } else {
+      // Active pipeline: use weekly snapshot bridge (proven reliable), fall back to direct SOQL
+      if (weeklySnapshotBridge) {
+        try {
+          allRecords = await weeklySnapshotBridge.queryPipelineData();
+          logger.info(`[Intelligence] Pipeline bridge returned ${allRecords.length} records`);
+        } catch (bridgeErr) {
+          logger.warn(`[Intelligence] Pipeline bridge failed, falling back to direct SOQL: ${bridgeErr.message}`);
+        }
       }
 
-      // Product line filtering
+      if (allRecords.length === 0) {
+        const result = await sfQuery(`
+          SELECT Id, Name, AccountId, Account.Name, StageName, ACV__c, 
+                 CloseDate, Target_LOI_Date__c, Product_Line__c, NextStep, Owner.Name,
+                 IsClosed, IsWon, Probability
+          FROM Opportunity
+          WHERE IsClosed = false
+            AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
+          ORDER BY ACV__c DESC NULLS LAST
+          LIMIT 200
+        `, false);
+        allRecords = result?.records || [];
+      }
+    }
+
+    // Apply in-memory filters based on query content
+    let filtered = allRecords;
+
+    if (!isClosedQuery) {
+      // Stage filter
+      if (lower.includes('late stage')) {
+        filtered = filtered.filter(o => ['Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation'].includes(o.StageName));
+      } else if (lower.includes('negotiation') || lower.includes('stage 5')) {
+        filtered = filtered.filter(o => o.StageName === 'Stage 5 - Negotiation');
+      } else if (lower.includes('proposal') || lower.includes('stage 4')) {
+        filtered = filtered.filter(o => o.StageName === 'Stage 4 - Proposal');
+      } else if (lower.includes('pilot') || lower.includes('stage 3')) {
+        filtered = filtered.filter(o => o.StageName === 'Stage 3 - Pilot');
+      } else if (lower.includes('sqo') || lower.includes('stage 2')) {
+        filtered = filtered.filter(o => o.StageName === 'Stage 2 - SQO');
+      } else if (lower.includes('discovery') || lower.includes('stage 1')) {
+        filtered = filtered.filter(o => o.StageName === 'Stage 1 - Discovery');
+      } else if (lower.includes('early stage')) {
+        filtered = filtered.filter(o => ['Stage 0 - Prospecting', 'Stage 1 - Discovery'].includes(o.StageName));
+      } else if (lower.includes('mid stage')) {
+        filtered = filtered.filter(o => o.StageName === 'Stage 2 - SQO');
+      }
+
+      // Product line filter
       for (const [keyword, pl] of Object.entries(PRODUCT_LINE_MAP)) {
         if (lower.includes(keyword)) {
-          conditions.push(pl.partial ? `Product_Line__c LIKE '${pl.value}%'` : `Product_Line__c = '${pl.value}'`);
+          filtered = filtered.filter(o => pl.partial
+            ? (o.Product_Line__c || '').startsWith(pl.value)
+            : o.Product_Line__c === pl.value);
           break;
         }
       }
 
-      // Time filtering — use Target_LOI_Date__c for active pipeline (aligns with weekly snapshot)
-      if (lower.includes('this month') || lower.includes('closing this month') || lower.includes('targeting this month')) {
-        conditions.push('Target_LOI_Date__c = THIS_MONTH');
-      } else if (lower.includes('this quarter') || lower.includes('targeting this quarter') || lower.includes('targeting q1')) {
-        conditions.push('Target_LOI_Date__c = THIS_FISCAL_QUARTER');
+      // Time filter on Target_LOI_Date__c
+      if (lower.includes('this month') || lower.includes('targeting this month')) {
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+        filtered = filtered.filter(o => o.Target_LOI_Date__c >= monthStart && o.Target_LOI_Date__c <= monthEnd);
+      } else if (lower.includes('this quarter') || lower.includes('targeting q1')) {
+        const now = new Date();
+        const qStart = `${now.getFullYear()}-02-01`;
+        const qEnd = `${now.getFullYear()}-04-30`;
+        filtered = filtered.filter(o => o.Target_LOI_Date__c >= qStart && o.Target_LOI_Date__c <= qEnd);
       }
     }
 
-    // Owner filtering
+    // Owner filter
     const bl = extractBLName(queryText || '');
     if (bl) {
-      const safeEmail = bl.email.replace(/'/g, "\\'");
-      conditions.push(`Owner.Email = '${safeEmail}'`);
+      filtered = filtered.filter(o => (o.Owner?.Name || '').toLowerCase().includes(bl.name.split(' ')[0].toLowerCase()));
     }
 
-    const whereClause = conditions.join(' AND ');
-    const result = await sfQuery(`
-      SELECT Id, Name, AccountId, Account.Name, StageName, ACV__c, 
-             CloseDate, Target_LOI_Date__c, Product_Line__c, NextStep, Owner.Name,
-             IsClosed, IsWon, Probability
-      FROM Opportunity
-      WHERE ${whereClause}
-      ORDER BY ACV__c DESC NULLS LAST
-      LIMIT 200
-    `, true);
+    // Sort by ACV descending
+    filtered.sort((a, b) => (b.ACV__c || 0) - (a.ACV__c || 0));
 
-    const opportunities = result?.records || [];
-    
     // Group by stage
     const byStage = {};
     let totalAcv = 0;
-    
     const byOwner = {};
-    for (const opp of opportunities) {
+    for (const opp of filtered) {
       const stage = opp.StageName || 'Unknown';
-      if (!byStage[stage]) {
-        byStage[stage] = { count: 0, totalAcv: 0, opps: [] };
-      }
+      if (!byStage[stage]) byStage[stage] = { count: 0, totalAcv: 0, opps: [] };
       byStage[stage].count++;
       byStage[stage].totalAcv += opp.ACV__c || 0;
       byStage[stage].opps.push({
         name: opp.Name,
-        account: opp.Account?.Name,
+        account: opp.Account?.Name || opp.Account?.Account_Display_Name__c,
         acv: opp.ACV__c,
         closeDate: opp.CloseDate,
         targetDate: opp.Target_LOI_Date__c,
@@ -1259,19 +1310,19 @@ async function gatherPipelineContext(userEmail, queryText) {
         probability: opp.Probability
       });
       totalAcv += opp.ACV__c || 0;
-      
-      const owner = opp.Owner?.Name || 'Unknown';
+
+      const owner = maskOwnerIfUnassigned(opp.Owner?.Name);
       if (!byOwner[owner]) byOwner[owner] = { count: 0, totalAcv: 0 };
       byOwner[owner].count++;
       byOwner[owner].totalAcv += opp.ACV__c || 0;
     }
 
-    // Also count existing customers for "how many customers" queries
+    // Customer count
     let customerCount = 0;
     try {
       const custResult = await sfQuery(`
         SELECT COUNT() FROM Account WHERE Customer_Type__c IN ('Existing', 'Existing Customer', 'Existing / LOI', 'MSA')
-      `, true);
+      `, false);
       customerCount = custResult?.totalSize || 0;
     } catch (e) {
       logger.warn('[Intelligence] Customer count query failed:', e.message);
@@ -1344,15 +1395,15 @@ async function gatherOwnerAccountsContext(query) {
   }
 
   try {
-    const userResult = await sfQuery(`SELECT Id, Name FROM User WHERE Email = '${bl.email}' LIMIT 1`, true);
+    const userResult = await sfQuery(`SELECT Id, Name FROM User WHERE Email = '${bl.email}' LIMIT 1`, false);
     const userId = userResult?.records?.[0]?.Id;
     if (!userId) {
       return { isOwnerQuery: true, ownerName: bl.name, error: `No Salesforce user found for ${bl.name}`, dataFreshness: 'live' };
     }
 
     const [acctResult, oppResult] = await Promise.all([
-      sfQuery(`SELECT Id, Name, Customer_Type__c, Industry, LastActivityDate FROM Account WHERE OwnerId = '${userId}' ORDER BY LastActivityDate DESC NULLS LAST LIMIT 50`, true),
-      sfQuery(`SELECT Id, Name, Account.Name, StageName, ACV__c, CloseDate FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false ORDER BY CloseDate ASC LIMIT 20`, true)
+      sfQuery(`SELECT Id, Name, Customer_Type__c, Industry, LastActivityDate FROM Account WHERE OwnerId = '${userId}' ORDER BY LastActivityDate DESC NULLS LAST LIMIT 50`, false),
+      sfQuery(`SELECT Id, Name, Account.Name, StageName, ACV__c, CloseDate FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false ORDER BY CloseDate ASC LIMIT 20`, false)
     ]);
 
     const accounts = (acctResult?.records || []).map(a => ({
@@ -1393,7 +1444,7 @@ async function gatherMeetingActivityContext(query) {
       WHERE ${dateFilter} AND AccountId != null
       ORDER BY StartDateTime ${isUpcoming ? 'ASC' : 'DESC'}
       LIMIT 30
-    `, true);
+    `, false);
 
     const meetings = (result?.records || []).map(e => ({
       account: e.Account?.Name, subject: e.Subject,
@@ -1436,7 +1487,7 @@ async function gatherCustomerCountContext(query) {
       label = 'All Customers';
     }
 
-    const result = await sfQuery(soql, true);
+    const result = await sfQuery(soql, false);
     const accounts = result?.records || [];
     const byType = {};
     accounts.forEach(a => {
@@ -1498,7 +1549,7 @@ async function gatherContactSearchContext(query) {
       LIMIT 50
     `;
 
-    const result = await sfQuery(soql, true);
+    const result = await sfQuery(soql, false);
     const contacts = (result?.records || []).map(c => ({
       name: c.Name,
       title: c.Title,
