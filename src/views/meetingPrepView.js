@@ -2774,12 +2774,17 @@ async function openMeetingPrep(meetingId) {
       })();
     }
     
-    // Continue to load context immediately (no longer blocked by enrichment)
-    // Load context - try accountId first, then lookup by external attendee domain
+    // ═══════════════════════════════════════════════════════════════
+    // ACCOUNT INTELLIGENCE — Sequential resolution + single query path
+    // Step 1: Resolve accountId (from card data, domain lookup, or search)
+    // Step 2: Fire GTM Brain intelligence query WITH the resolved accountId
+    // Step 3: Render from the single, unified intelligence response
+    // ═══════════════════════════════════════════════════════════════
     let contextHtml = '';
     let accountId = currentMeetingData.account_id || currentMeetingData.accountId;
-    
-    // If no accountId, try to find account by external attendee domain
+    const accountName = currentMeetingData.accountName || currentMeetingData.account_name || '';
+
+    // Step 1a: Domain lookup if no accountId yet
     if (!accountId && currentMeetingData.externalAttendees?.length > 0) {
       try {
         const firstExternal = currentMeetingData.externalAttendees[0];
@@ -2789,82 +2794,113 @@ async function openMeetingPrep(meetingId) {
           const lookupData = await lookupRes.json();
           if (lookupData.success && lookupData.accountId) {
             accountId = lookupData.accountId;
-            console.log('[Context] Found account by domain:', domain, '→', lookupData.accountName);
+            console.log('[Context] Domain lookup resolved:', domain, '->', lookupData.accountName, accountId);
           }
         }
-      } catch (e) {
-        console.log('[Context] Domain lookup failed:', e.message);
-      }
+      } catch (e) { console.log('[Context] Domain lookup failed:', e.message); }
     }
-    
-    // Always attempt to load context — use accountId if available, or fall back to name search
-    const accountName = currentMeetingData.accountName || currentMeetingData.account_name || '';
-    
+
+    // Step 1b: Account search if still no accountId but we have a name
+    if (!accountId && accountName && accountName !== 'Unknown') {
+      try {
+        const searchRes = await fetch('/api/search-accounts?q=' + encodeURIComponent(accountName));
+        const searchData = await searchRes.json();
+        if (searchData.matches?.length > 0) {
+          accountId = searchData.matches[0].id;
+          console.log('[Context] Account search resolved:', accountName, '->', searchData.matches[0].name, accountId);
+        }
+      } catch (e) { console.log('[Context] Account search failed:', e.message); }
+    }
+
+    // Step 2: Fire GTM Brain intelligence query with the best available context
     if (accountId || accountName) {
       try {
-        // Build the GTM Brain query — it handles both accountId and accountName-based lookup
         const queryPayload = {
           query: 'prep me for my upcoming meeting with ' + accountName,
           accountName: accountName,
           userEmail: document.cookie.replace(/(?:(?:^|.*;\s*)userEmail\s*=\s*([^;]*).*$)|^.*$/, '$1') || ''
         };
         if (accountId) queryPayload.accountId = accountId;
-        
-        const promises = [
-          fetch('/api/intelligence/query', {
+
+        let gtmBrief = '';
+        let queryContext = null;
+
+        if (currentMeetingData._contextOverride) {
+          gtmBrief = currentMeetingData._contextOverride;
+        } else {
+          const queryRes = await fetch('/api/intelligence/query', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(queryPayload)
-          }).catch(function(e) { console.warn('[Context] GTM Brain query failed:', e.message); return null; })
-        ];
-        
-        // Only fetch meeting-context if we have an accountId
-        if (accountId) {
-          promises.unshift(fetch('/api/meeting-context/' + accountId));
-        } else {
-          promises.unshift(Promise.resolve(null));
-        }
-        
-        const [ctxRes, queryRes] = await Promise.all(promises);
-        
-        let ctx = null;
-        if (ctxRes) {
-          try {
-            const ctxData = await ctxRes.json();
-            ctx = (ctxData.success && ctxData.context) ? ctxData.context : null;
-          } catch (ce) { console.warn('[Context] Meeting context parse error:', ce.message); }
-        }
-        
-        let gtmBrief = '';
-        if (currentMeetingData._contextOverride) {
-          gtmBrief = currentMeetingData._contextOverride;
-        } else if (queryRes) {
-          try {
-            const queryData = await queryRes.json();
-            if (queryData.success && queryData.answer) {
-              gtmBrief = queryData.answer;
-              // If GTM Brain found the account, capture the accountId for future use
-              if (queryData.context?.accountId && !accountId) {
-                accountId = queryData.context.accountId;
-                console.log('[Context] GTM Brain resolved account:', queryData.context.accountName, accountId);
+          }).catch(function(e) { console.warn('[Context] GTM Brain query failed:', e.message); return null; });
+
+          if (queryRes) {
+            try {
+              const queryData = await queryRes.json();
+              if (queryData.success && queryData.answer) {
+                gtmBrief = queryData.answer;
+                queryContext = queryData.context || null;
+                if (queryData.context?.accountId && !accountId) {
+                  accountId = queryData.context.accountId;
+                }
               }
-            }
-          } catch (qe) { console.warn('[Context] GTM Brain parse error:', qe.message); }
+            } catch (qe) { console.warn('[Context] GTM Brain parse error:', qe.message); }
+          }
         }
-        
-        contextHtml = formatContextSection(ctx, currentMeetingData, gtmBrief);
+
+        // Step 3: Build context HTML from the unified intelligence response
+        // Extract metadata from the intelligence query's context field
+        let metaHtml = '';
+        if (queryContext) {
+          const parts = [];
+          if (queryContext.accountType && queryContext.accountType !== 'unknown') {
+            const typeMap = { 'existing_customer': 'Existing Customer', 'active_pipeline': 'Active Pipeline', 'historical': 'Historical', 'cold': 'Net New' };
+            parts.push('<strong>Type:</strong> ' + (typeMap[queryContext.accountType] || queryContext.accountType));
+          }
+          if (queryContext.accountName) parts.push('<strong>Owner:</strong> ' + (queryContext.owner || 'Unassigned'));
+          if (queryContext.opportunityCount > 0) parts.push('<strong>Pipeline:</strong> ' + queryContext.opportunityCount + ' open opp' + (queryContext.opportunityCount > 1 ? 's' : ''));
+          if (parts.length > 0) {
+            metaHtml = '<div style="display:flex;gap:16px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #f0f0f0;margin-top:8px;">';
+            parts.forEach(function(p) { metaHtml += '<span style="font-size:0.7rem;color:#6b7280;">' + p + '</span>'; });
+            metaHtml += '</div>';
+          }
+        }
+
+        if (gtmBrief && gtmBrief.length > 30) {
+          contextHtml = '<div class="context-section">';
+          contextHtml += '<div class="context-header"><span class="context-label">Account Intelligence</span><span class="context-badge">PRE-MEETING CONTEXT</span>';
+          contextHtml += '<button class="edit-btn" onclick="toggleEditContext()">Edit</button></div>';
+          contextHtml += '<div class="context-content"><div class="intelligence-brief" id="contextBrief">';
+          contextHtml += marked ? marked.parse(gtmBrief) : gtmBrief.replace(/\\n/g, '<br>');
+          contextHtml += '</div></div>';
+          contextHtml += metaHtml;
+          contextHtml += '</div>';
+        } else {
+          // No intelligence available — show meeting context with actionable guidance
+          contextHtml = '<div class="context-section">';
+          contextHtml += '<div class="context-header"><span class="context-label">Account Intelligence</span><span class="context-badge">PRE-MEETING CONTEXT</span></div>';
+          contextHtml += '<div class="context-content"><div style="padding:12px;background:#f8f9fa;border-radius:6px;border:1px solid #e5e7eb;">';
+          if (accountName && accountName !== 'Unknown') {
+            contextHtml += '<div style="font-size:0.8rem;color:#374151;font-weight:500;">Meeting with ' + accountName + '</div>';
+            contextHtml += '<div style="font-size:0.75rem;color:#6b7280;margin-top:6px;">Account intelligence is loading or temporarily unavailable.</div>';
+            contextHtml += '<div style="font-size:0.7rem;color:#9ca3af;margin-top:4px;">Try refreshing, or check the GTM Brain tab for "Tell me about ' + accountName + '"</div>';
+          } else {
+            contextHtml += '<div style="font-size:0.75rem;color:#6b7280;">No account matched for this meeting.</div>';
+            contextHtml += '<div style="font-size:0.65rem;color:#9ca3af;margin-top:4px;">Check that the calendar invite has external attendees with corporate email addresses.</div>';
+          }
+          contextHtml += '</div></div>';
+          contextHtml += metaHtml;
+          contextHtml += '</div>';
+        }
       } catch (e) {
         console.error('Failed to load context:', e);
       }
     }
-    
-    // Show empty state if no context loaded
+
     if (!contextHtml) {
-      const accountName = currentMeetingData.accountName || 'this account';
       contextHtml = '<div class="context-section"><div class="context-content">';
-      contextHtml += '<div style="padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e5e7eb;">';
-      contextHtml += '<div style="font-size: 0.75rem; color: #6b7280;">No prior context on record for ' + accountName + '.</div>';
-      contextHtml += '<div style="font-size: 0.65rem; color: #9ca3af; margin-top: 4px;">Use Obsidian to capture this call and start building account intelligence.</div>';
+      contextHtml += '<div style="padding:12px;background:#f8f9fa;border-radius:6px;border:1px solid #e5e7eb;">';
+      contextHtml += '<div style="font-size:0.75rem;color:#6b7280;">No account context available.</div>';
       contextHtml += '</div></div></div>';
     }
     
