@@ -368,6 +368,9 @@ const UNASSIGNED_HOLDERS = ['Keigan Pesenti', 'Emmit Hood', 'Emmitt Hood', 'Mark
  */
 function extractAccountFromQuery(query) {
   const patterns = [
+    /\bwhen does (?:the )?(.+?)\s+(?:negotiation|deal|opportunity|contract|opp)\s+(?:close|expire|end|renew)/i,
+    /\bwhen does (?:the )?(.+?)\s+close/i,
+    /\bwhat stage is (?:the )?(.+?)\s+(?:deal|opp|opportunity|in)/i,
     /\btell me about\s+(.+?)(?:\?|$)/i,
     /\bshow me\s+(.+?)(?:'s|'s)\s+(?:deal|opportunity|opp|pipeline|status|details)/i,
     /\b(.+?)(?:'s|'s)\s+(?:deal|opportunity|opp)\s+(?:details|status|closing|targeting)/i,
@@ -393,6 +396,13 @@ function extractAccountFromQuery(query) {
 function maskOwnerIfUnassigned(ownerName) {
   if (!ownerName) return 'Unassigned';
   return UNASSIGNED_HOLDERS.includes(ownerName) ? 'Unassigned' : ownerName;
+}
+
+function formatAcv(value) {
+  if (!value || value === 0) return '$0';
+  if (value >= 1000000) return '$' + (value / 1000000).toFixed(1) + 'm';
+  if (value >= 1000) return '$' + (value / 1000).toFixed(0) + 'k';
+  return '$' + Math.round(value);
 }
 
 /**
@@ -729,6 +739,7 @@ async function classifyQueryIntent(query, conversationContext) {
   if (/stuck deals|slow deals|stale deals|deals stuck|stalled|no movement/i.test(query)) return 'SLOW_DEALS';
   if (/added to pipeline|pipeline added|new pipeline this|deals added this/i.test(query)) return 'PIPELINE_ADDED';
   if (/what deals are (late|in |at )|which (deals|opportunities) are|deals in (negotiation|proposal|pilot)|late stage (contracting|compliance|m&a)|open (deals|opportunities)|active pipeline|total pipeline/i.test(query)) return 'PIPELINE_OVERVIEW';
+  if (/when does .+ (close|expire|end|renew)|what stage is .+ (deal|opp|in\b)/i.test(query)) return 'DEAL_STATUS';
   if (/how should (eudia|we) (position|approach)|position(ing)? for\b|approach to .+ given|how (should|would|could) (we|eudia) .*(pitch|sell|engage|target)/i.test(query)) return 'POSITIONING';
 
   // Try advanced intent parser (same system as Slack bot)
@@ -1565,23 +1576,52 @@ async function gatherOwnerAccountsContext(query) {
       return { isOwnerQuery: true, ownerName: bl.name, error: `No Salesforce user found for ${bl.name}`, dataFreshness: 'live' };
     }
 
-    const [acctResult, oppResult] = await Promise.all([
+    const [acctResult, oppResult, aggResult] = await Promise.all([
       sfQuery(`SELECT Id, Name, Customer_Type__c, Industry, LastActivityDate FROM Account WHERE OwnerId = '${userId}' ORDER BY LastActivityDate DESC NULLS LAST LIMIT 200`, false),
-      sfQuery(`SELECT Id, Name, Account.Name, StageName, ACV__c, CloseDate FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false ORDER BY CloseDate ASC LIMIT 20`, false)
+      sfQuery(`SELECT Id, Name, Account.Name, StageName, ACV__c, Product_Line__c, CloseDate FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false ORDER BY ACV__c DESC NULLS LAST LIMIT 50`, false),
+      sfQuery(`SELECT SUM(ACV__c) totalAcv, COUNT(Id) cnt FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false`, false).catch(() => null)
     ]);
 
     const accounts = (acctResult?.records || []).map(a => ({
       name: a.Name, type: a.Customer_Type__c, industry: a.Industry, lastActivity: a.LastActivityDate
     }));
     const opps = (oppResult?.records || []).map(o => ({
-      name: o.Name, account: o.Account?.Name, stage: o.StageName, acv: o.ACV__c, closeDate: o.CloseDate
+      name: o.Name, account: o.Account?.Name, stage: o.StageName, acv: o.ACV__c, product: o.Product_Line__c, closeDate: o.CloseDate
     }));
+    const aggTotalAcv = aggResult?.records?.[0]?.totalAcv || opps.reduce((sum, o) => sum + (o.acv || 0), 0);
+    const aggOppCount = aggResult?.records?.[0]?.cnt || opps.length;
+
+    const lower = (query || '').toLowerCase();
+    const wantsActivity = /recent activity|recently active|engaging|engaged|active this week|been active/i.test(lower);
+    let recentActivity = null;
+    if (wantsActivity) {
+      try {
+        const { calendarService } = require('../services/calendarService');
+        const calResult = await calendarService.getUpcomingMeetingsForAllBLs(7, false);
+        if (calResult?.meetings?.length > 0) {
+          const now = new Date();
+          const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0,0,0,0);
+          const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
+          const blMeetings = calResult.meetings
+            .filter(m => (m.ownerEmail || '').toLowerCase() === bl.email.toLowerCase())
+            .filter(m => { const d = new Date(m.startDateTime); return d >= weekStart && d <= weekEnd; })
+            .filter(m => m.externalAttendees?.length > 0)
+            .map(m => ({
+              account: m.accountName || m.externalAttendees?.[0]?.email?.split('@')[1]?.split('.')[0] || 'Unknown',
+              subject: m.subject,
+              date: m.startDateTime
+            }));
+          if (blMeetings.length > 0) recentActivity = blMeetings;
+        }
+      } catch (e) { logger.debug('[Intelligence] Activity enrichment failed:', e.message); }
+    }
 
     return {
       isOwnerQuery: true, ownerName: bl.name, ownerEmail: bl.email,
       accounts, accountCount: accounts.length,
-      opportunities: opps, oppCount: opps.length,
-      totalAcv: opps.reduce((sum, o) => sum + (o.acv || 0), 0),
+      opportunities: opps, oppCount: aggOppCount,
+      totalAcv: aggTotalAcv,
+      recentActivity,
       dataFreshness: 'live'
     };
   } catch (error) {
@@ -2136,7 +2176,8 @@ FOLLOW-UP SUGGESTIONS:
   f) Bad examples: "What's Riley's prospecting strategy?" / "What are the key negotiation points?" / "What feedback has [contact name] given?" / "What is the competitive positioning?"
   g) Vary your suggestions — don't always suggest the same follow-up patterns. If you discussed contacts, suggest a deal or timeline question. If you discussed deals, suggest a stakeholder or activity question.
   h) If there is genuinely nothing useful to drill into, omit the follow-up section entirely.
-  i) Keep each suggestion under 10 words`;
+  i) Keep each suggestion under 10 words
+  j) NEVER add department or team names like "legal innovation team", "compliance group", etc. — just use the company name. Keep follow-ups clean and short.`;
 
   // ── Account-type-specific framing ──
   if (accountType === 'existing_customer') {
@@ -2186,9 +2227,11 @@ This account has no opportunity history. Your response framing must reflect pros
 FOLLOW-UP SUGGESTIONS FOR COLD ACCOUNTS (STRICT):
 - NEVER suggest "[BL name]'s prospecting strategy for [Account]" — you have no access to anyone's strategy.
 - NEVER suggest LinkedIn activity questions — you have no LinkedIn data.
+- NEVER add department or team names (e.g., "legal innovation team") — just use the company name.
+- Keep each suggestion to 8 words max.
 - Good cold-account follow-ups (use actual account/contact names):
-  "How should Eudia position for [Account]?"
-  "Who are the key legal contacts at [Account]?"
+  "How should Eudia approach [Account]?"
+  "Who are the key contacts at [Account]?"
   "What industry peers of [Account] are Eudia customers?"
 - These are answerable from the data you have (contacts, industry, Eudia product context).`;
   }
@@ -2281,7 +2324,8 @@ POSITIONING RULES:
 3. If contacts are available, identify the most likely champion persona (GC, CLO, VP Legal, Legal Ops Director)
 4. Mention similar industry customers if you know them from the data
 5. Keep total response under 150 words — this is a quick positioning brief, not a full proposal
-6. Do NOT fabricate account-specific details — only use what's in the data provided`;
+6. Do NOT fabricate account-specific details — only use what's in the data provided
+7. Do NOT reference specific team or department names (e.g., "legal innovation team") unless explicitly present in the Salesforce contact data. Use just the company name.`;
 
     case 'FORECAST':
       return basePrompt + `\n\nFOCUS: Forecast summary. Present as:
@@ -2421,9 +2465,18 @@ function buildUserPrompt(intent, query, context) {
     if (context.opportunities?.length > 0) {
       prompt += `OPEN PIPELINE:\n`;
       for (const opp of context.opportunities) {
-        prompt += `• ${opp.name} (${opp.account}) - ${opp.stage} - $${(opp.acv || 0).toLocaleString()}`;
+        prompt += `• ${opp.name} (${opp.account}) - ${opp.stage} - ${formatAcv(opp.acv)}`;
+        if (opp.product) prompt += ` | ${cleanProductLine(opp.product)}`;
         if (opp.closeDate) prompt += ` - Close: ${opp.closeDate}`;
         prompt += '\n';
+      }
+    }
+
+    if (context.recentActivity?.length > 0) {
+      prompt += `\nTHIS WEEK'S ENGAGEMENT (${context.recentActivity.length} meetings):\n`;
+      for (const m of context.recentActivity) {
+        const dateStr = m.date ? new Date(m.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+        prompt += `• ${dateStr}: ${m.subject || 'Meeting'} — ${m.account}\n`;
       }
     }
     return prompt;
@@ -2463,14 +2516,14 @@ function buildUserPrompt(intent, query, context) {
     const meta = context.metadata || {};
 
     if (context.intent === 'FORECAST') {
-      prompt += `• Commit (Net): $${((meta.commitNet || 0) / 1000000).toFixed(2)}M\n`;
-      prompt += `• Weighted (Net): $${((meta.weightedNet || 0) / 1000000).toFixed(2)}M\n`;
-      prompt += `• Midpoint: $${((meta.midpoint || 0) / 1000000).toFixed(2)}M\n`;
+      prompt += `• Commit (Net): ${formatAcv(meta.commitNet)}\n`;
+      prompt += `• Weighted (Net): ${formatAcv(meta.weightedNet)}\n`;
+      prompt += `• Midpoint: ${formatAcv(meta.midpoint)}\n`;
       prompt += `• Deal Count: ${meta.dealCount || 0}\n`;
       if (meta.blCommits?.length > 0) {
         prompt += `\nBY BUSINESS LEAD (Commit):\n`;
         for (const bl of meta.blCommits.sort((a, b) => (b.commit || 0) - (a.commit || 0))) {
-          prompt += `  • ${maskOwnerIfUnassigned(bl.name)}: $${((bl.commit || 0) / 1000).toFixed(0)}k\n`;
+          prompt += `  • ${maskOwnerIfUnassigned(bl.name)}: ${formatAcv(bl.commit)}\n`;
         }
       }
     } else if (context.intent === 'WEIGHTED_PIPELINE') {
@@ -2479,25 +2532,25 @@ function buildUserPrompt(intent, query, context) {
         totalGross += row.grossAcv || 0;
         totalWeighted += row.weightedAcv || 0;
         totalDeals += row.cnt || 0;
-        prompt += `  • ${row.StageName}: ${row.cnt} deals | Gross $${((row.grossAcv || 0) / 1000).toFixed(0)}k | Weighted $${((row.weightedAcv || 0) / 1000).toFixed(0)}k\n`;
+        prompt += `  • ${row.StageName}: ${row.cnt} deals | Gross ${formatAcv(row.grossAcv)} | Weighted ${formatAcv(row.weightedAcv)}\n`;
       }
-      prompt += `\nTOTAL: ${totalDeals} deals | Gross $${(totalGross / 1000000).toFixed(1)}M | Weighted $${(totalWeighted / 1000000).toFixed(1)}M\n`;
+      prompt += `\nTOTAL: ${totalDeals} deals | Gross ${formatAcv(totalGross)} | Weighted ${formatAcv(totalWeighted)}\n`;
     } else if (context.intent === 'PIPELINE_BY_PRODUCT') {
       for (const row of recs) {
-        prompt += `  • ${cleanProductLine(row.Product_Line__c) || 'Undetermined'}: $${((row.totalAcv || 0) / 1000).toFixed(0)}k | ${row.cnt || 0} deals\n`;
+        prompt += `  • ${cleanProductLine(row.Product_Line__c) || 'Undetermined'}: ${formatAcv(row.totalAcv)} | ${row.cnt || 0} deals\n`;
       }
     } else if (context.intent === 'PIPELINE_BY_SALES_TYPE') {
       for (const row of recs) {
-        prompt += `  • ${row.Sales_Type__c || 'Unknown'}: $${((row.totalAcv || 0) / 1000).toFixed(0)}k | ${row.cnt || 0} deals\n`;
+        prompt += `  • ${row.Sales_Type__c || 'Unknown'}: ${formatAcv(row.totalAcv)} | ${row.cnt || 0} deals\n`;
       }
     } else if (context.intent === 'PIPELINE_OVERVIEW' && meta.isAverageQuery) {
       prompt += `AVERAGE DEAL SIZE BY STAGE:\n`;
-      prompt += `• Overall: ${meta.grandCount} deals | $${((meta.grandTotal || 0) / 1000).toFixed(0)}k total | $${((meta.grandAvg || 0) / 1000).toFixed(0)}k avg\n\n`;
+      prompt += `• Overall: ${meta.grandCount} deals | ${formatAcv(meta.grandTotal)} total | ${formatAcv(meta.grandAvg)} avg\n\n`;
       for (const s of (meta.avgByStage || [])) {
-        prompt += `  • ${s.stage}: ${s.count} deals | $${((s.totalAcv || 0) / 1000).toFixed(0)}k total | $${((s.avgAcv || 0) / 1000).toFixed(0)}k avg\n`;
+        prompt += `  • ${s.stage}: ${s.count} deals | ${formatAcv(s.totalAcv)} total | ${formatAcv(s.avgAcv)} avg\n`;
       }
     } else if (context.intent === 'PIPELINE_OVERVIEW') {
-      prompt += `• Total: ${meta.totalDeals || recs.length} deals | $${((meta.totalAcv || 0) / 1000).toFixed(0)}k total ACV\n`;
+      prompt += `• Total: ${meta.totalDeals || recs.length} deals | ${formatAcv(meta.totalAcv)} total ACV\n`;
       if (meta.byStage) {
         prompt += '\nBY STAGE:\n';
         for (const [stage, cnt] of Object.entries(meta.byStage)) { prompt += `  • ${stage}: ${cnt} deals\n`; }
@@ -2505,7 +2558,7 @@ function buildUserPrompt(intent, query, context) {
       prompt += '\nDEAL LIST:\n';
       for (const r of recs.slice(0, 30)) {
         const acctName = r.Account?.Account_Display_Name__c || r.Account?.Name || 'Unknown';
-        const acv = r.ACV__c ? `$${((r.ACV__c || 0) / 1000).toFixed(0)}k` : '';
+        const acv = r.ACV__c ? formatAcv(r.ACV__c) : '';
         const owner = maskOwnerIfUnassigned(r.Owner?.Name);
         const product = r.Product_Line__c ? ` | ${cleanProductLine(r.Product_Line__c)}` : '';
         prompt += `  • ${acctName} — ${acv} | ${r.StageName || ''} | ${owner} | Target: ${r.Target_LOI_Date__c || 'N/A'}${product}\n`;
@@ -2513,12 +2566,12 @@ function buildUserPrompt(intent, query, context) {
       if (recs.length > 30) prompt += `  ... and ${recs.length - 30} more\n`;
     } else if (context.intent === 'ARR_DEALS') {
       prompt += `• Total Closed: ${meta.dealCount || recs.length} deals\n`;
-      prompt += `• Net ACV: $${((meta.totalNetAcv || 0) / 1000).toFixed(0)}k\n`;
-      if (meta.totalAiEnabled > 0) prompt += `• AI-Enabled Weighted: $${((meta.totalAiEnabled || 0) / 1000).toFixed(0)}k\n`;
+      prompt += `• Net ACV: ${formatAcv(meta.totalNetAcv)}\n`;
+      if (meta.totalAiEnabled > 0) prompt += `• AI-Enabled Weighted: ${formatAcv(meta.totalAiEnabled)}\n`;
       prompt += '\nDEAL LIST:\n';
       for (const r of recs.slice(0, 20)) {
         const acctName = r.Account?.Account_Display_Name__c || r.Account?.Name || r.Name || 'Unknown';
-        const acv = r.ACV__c ? `$${((r.ACV__c || 0) / 1000).toFixed(0)}k` : '';
+        const acv = r.ACV__c ? formatAcv(r.ACV__c) : '';
         const owner = maskOwnerIfUnassigned(r.Owner?.Name);
         const date = r.CloseDate || '';
         const product = cleanProductLine(r.Product_Line__c);
@@ -2531,7 +2584,7 @@ function buildUserPrompt(intent, query, context) {
       // Generic deal list format (DEALS_SIGNED, DEALS_TARGETING, LOI_DEALS, SLOW_DEALS, PIPELINE_ADDED)
       for (const r of recs.slice(0, 20)) {
         const acctName = r.Account?.Account_Display_Name__c || r.Account?.Name || r.Name || 'Unknown';
-        const acv = r.ACV__c ? `$${((r.ACV__c || 0) / 1000).toFixed(0)}k` : '';
+        const acv = r.ACV__c ? formatAcv(r.ACV__c) : '';
         const stage = r.StageName || '';
         const owner = maskOwnerIfUnassigned(r.Owner?.Name);
         const date = r.Target_LOI_Date__c || r.CloseDate || r.CreatedDate?.split('T')[0] || '';
