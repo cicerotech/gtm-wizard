@@ -3224,8 +3224,14 @@ export default class EudiaSyncPlugin extends Plugin {
     
     this.smartTagService = new SmartTagService();
 
-    // Check for plugin updates (non-blocking)
+    // Check for plugin updates on startup (non-blocking)
     this.checkForPluginUpdate();
+    
+    // Periodic update check every 2 hours — ensures users get fixes
+    // even if they leave Obsidian open for days
+    this.registerInterval(
+      window.setInterval(() => this.checkForPluginUpdate(), 2 * 60 * 60 * 1000)
+    );
 
     // Register calendar view
     this.registerView(
@@ -3743,26 +3749,30 @@ created: ${dateStr}
         // Never fail on telemetry
       }
 
-      // ── Step 6: Prompt user to reload ─────────────────────────────────
-      const fragment = document.createDocumentFragment();
-      const msgEl = document.createElement('div');
-      msgEl.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
-      
-      const textEl = document.createElement('span');
-      textEl.textContent = `Eudia updated to v${remoteVersion}. Reload to apply.`;
-      msgEl.appendChild(textEl);
-      
-      const btn = document.createElement('button');
-      btn.textContent = 'Reload now';
-      btn.style.cssText = 'padding:4px 12px;border-radius:4px;border:1px solid var(--interactive-accent);background:var(--interactive-accent);color:var(--text-on-accent);cursor:pointer;font-size:12px;align-self:flex-start;';
-      btn.addEventListener('click', () => {
-        // Reload the Obsidian window to load the new plugin code
-        (this.app as any).commands.executeCommandById('app:reload');
-      });
-      msgEl.appendChild(btn);
-      
-      fragment.appendChild(msgEl);
-      new Notice(fragment, 0); // 0 = persistent until dismissed or clicked
+      // ── Step 6: Auto-reload plugin (no user action required) ──────────
+      // If no recording is active, hot-reload the plugin by disabling and re-enabling
+      // This reloads main.js from disk without restarting Obsidian
+      if (!this.audioRecorder?.isRecording()) {
+        new Notice(`Eudia updated to v${remoteVersion}. Applying now...`, 3000);
+        
+        // Short delay to let the notice render before reload
+        setTimeout(async () => {
+          try {
+            const plugins = (this.app as any).plugins;
+            const pluginId = this.manifest.id;
+            await plugins.disablePlugin(pluginId);
+            await plugins.enablePlugin(pluginId);
+            console.log(`[Eudia Update] Hot-reloaded: v${localVersion} → v${remoteVersion}`);
+            new Notice(`Eudia v${remoteVersion} is now active.`, 5000);
+          } catch (reloadErr) {
+            console.log('[Eudia Update] Hot-reload failed, will apply on next restart:', reloadErr);
+            new Notice(`Eudia updated to v${remoteVersion}. Restart Obsidian to apply.`, 10000);
+          }
+        }, 1500);
+      } else {
+        // Recording in progress — don't reload, just notify
+        new Notice(`Eudia v${remoteVersion} downloaded. Will apply after recording.`, 10000);
+      }
 
     } catch (e) {
       // Any failure in auto-update is non-fatal — plugin continues running the current version
