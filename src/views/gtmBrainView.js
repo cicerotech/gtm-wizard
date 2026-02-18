@@ -506,32 +506,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     welcome.id = 'welcome-panel';
     welcome.className = 'gtm-welcome';
     welcome.innerHTML =
-      '<div class="gtm-welcome-title">GTM Brain</div>' +
-      '<div class="gtm-welcome-sub">Your sales intelligence terminal. Ask about pipeline, accounts, deals, or contacts.</div>' +
-      '<div id="dashboard-cards" class="gtm-dashboard-cards"><div class="gtm-dash-loading">Loading pipeline data...</div></div>' +
-      '<div style="margin-top:12px;font-size:0.6875rem;color:#9ca3af;text-transform:uppercase;letter-spacing:0.4px;">Quick queries</div>' +
-      '<div class="gtm-tile-grid" style="margin-top:6px;">' +
+      '<div class="gtm-welcome-title">What would you like to know?</div>' +
+      '<div class="gtm-welcome-sub">Search for an account above, or ask a question about pipeline, deals, or contacts below.</div>' +
+      '<div class="gtm-tile-grid" id="tile-grid">' +
         '<button class="gtm-tile" data-query="What deals are late stage?">Late stage deals</button>' +
-        '<button class="gtm-tile" data-query="What\\x27s our forecast?">Forecast</button>' +
-        '<button class="gtm-tile" data-query="What\\x27s the weighted pipeline?">Weighted pipeline</button>' +
         '<button class="gtm-tile" data-query="What\\x27s targeting this month?">Targeting this month</button>' +
-        '<button class="gtm-tile" data-query="What\\x27s the pipeline by product line?">By product line</button>' +
         '<button class="gtm-tile" data-query="How many customers do we have?">Customer count</button>' +
         '<button class="gtm-tile" data-query="What have we signed this quarter?">Signed this quarter</button>' +
-        '<button class="gtm-tile" data-query="Which deals are stuck?">Stuck deals</button>' +
-      '</div>' +
-      '<div style="margin-top:12px;font-size:0.6875rem;color:#9ca3af;text-transform:uppercase;letter-spacing:0.4px;">Account-specific (select an account first)</div>' +
-      '<div class="gtm-tile-grid" style="margin-top:6px;">' +
-        '<button class="gtm-tile acct-tile" data-query="What\\x27s the deal status and current stage?">Deal status</button>' +
-        '<button class="gtm-tile acct-tile" data-query="Who are the key contacts and stakeholders?">Key contacts</button>' +
-        '<button class="gtm-tile acct-tile" data-query="What\\x27s the latest activity?">Latest activity</button>' +
-        '<button class="gtm-tile acct-tile" data-query="Full meeting prep for this account.">Meeting prep</button>' +
-        '<button class="gtm-tile acct-tile" data-query="What are the pain points?">Pain points</button>' +
-        '<button class="gtm-tile acct-tile" data-query="What\\x27s the competitive landscape?">Competitive intel</button>' +
+        '<button class="gtm-tile" data-query="What accounts did we meet with this week?">Meetings this week</button>' +
       '</div>';
     threadContainer.appendChild(welcome);
     wireUpTiles();
-    loadDashboardCards();
     updateTileState();
   }
 

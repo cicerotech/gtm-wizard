@@ -859,7 +859,7 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
 async function getAccountDetails(accountId) {
   try {
     const result = await sfQuery(`
-      SELECT Id, Name, Owner.Name, Owner.Email, Customer_Type__c, Customer_Subtype__c,
+      SELECT Id, Name, Account_Display_Name__c, Owner.Name, Owner.Email, Customer_Type__c, Customer_Subtype__c,
              Industry, Website, Description, BillingCity, BillingState, BillingCountry,
              Customer_Brain__c, Pain_Points_Identified__c, Competitive_Landscape__c,
              Key_Decision_Makers__c, Account_Plan_s__c, Target_LOI_Sign_Date__c,
@@ -875,7 +875,7 @@ async function getAccountDetails(accountId) {
 
     return {
       id: acc.Id,
-      name: acc.Name,
+      name: acc.Account_Display_Name__c || acc.Name,
       owner: acc.Owner?.Name,
       ownerEmail: acc.Owner?.Email,
       type: acc.Customer_Type__c,
@@ -1350,7 +1350,7 @@ async function gatherPipelineContext(userEmail, queryText) {
       byStage[stage].totalAcv += opp.ACV__c || 0;
       byStage[stage].opps.push({
         name: opp.Name,
-        account: opp.Account?.Name || opp.Account?.Account_Display_Name__c,
+        account: opp.Account?.Account_Display_Name__c || opp.Account?.Name,
         acv: opp.ACV__c,
         closeDate: opp.CloseDate,
         targetDate: opp.Target_LOI_Date__c,
@@ -2208,7 +2208,7 @@ function buildUserPrompt(intent, query, context) {
       if (d.lastWeek?.records) {
         prompt += `\nSigned Last Week:\n`;
         for (const deal of d.lastWeek.records.slice(0, 10)) {
-          prompt += `  • ${deal.Account?.Name || deal.Name} — $${((deal.ACV__c || 0) / 1000).toFixed(0)}k | ${deal.Revenue_Type__c || ''} | ${deal.CloseDate || ''}\n`;
+          prompt += `  • ${deal.Account?.Account_Display_Name__c || deal.Account?.Name || deal.Name} — $${((deal.ACV__c || 0) / 1000).toFixed(0)}k | ${deal.Revenue_Type__c || ''} | ${deal.CloseDate || ''}\n`;
         }
       }
     } else if (d.type === 'deals_targeting') {
@@ -2216,7 +2216,7 @@ function buildUserPrompt(intent, query, context) {
       if (d.targeting?.records || d.targeting) {
         const records = d.targeting?.records || (Array.isArray(d.targeting) ? d.targeting : []);
         for (const opp of records.slice(0, 15)) {
-          prompt += `  • ${opp.Account?.Name || opp.Name} — $${((opp.ACV__c || 0) / 1000).toFixed(0)}k | ${opp.StageName || ''} | Target: ${opp.Target_LOI_Date__c || 'TBD'}\n`;
+          prompt += `  • ${opp.Account?.Account_Display_Name__c || opp.Account?.Name || opp.Name} — $${((opp.ACV__c || 0) / 1000).toFixed(0)}k | ${opp.StageName || ''} | Target: ${opp.Target_LOI_Date__c || 'TBD'}\n`;
         }
       }
     } else if (d.type === 'pipeline_by_product' && d.bySolution) {
@@ -2233,19 +2233,19 @@ function buildUserPrompt(intent, query, context) {
       const deals = d.deals || [];
       prompt += `${deals.length} deals:\n`;
       for (const deal of deals.slice(0, 20)) {
-        prompt += `  • ${deal.Account?.Name || deal.Name} — $${((deal.ACV__c || 0) / 1000).toFixed(0)}k | ${maskOwnerIfUnassigned(deal.Owner?.Name)} | ${deal.CloseDate || ''}\n`;
+        prompt += `  • ${deal.Account?.Account_Display_Name__c || deal.Account?.Name || deal.Name} — $${((deal.ACV__c || 0) / 1000).toFixed(0)}k | ${maskOwnerIfUnassigned(deal.Owner?.Name)} | ${deal.CloseDate || ''}\n`;
       }
     } else if (d.type === 'slow_deals') {
       const deals = d.deals || [];
       prompt += `${deals.length} deals stuck >30 days in current stage:\n`;
       for (const deal of deals.slice(0, 15)) {
-        prompt += `  • ${deal.Account?.Name || deal.Name} — ${deal.StageName} | ${deal.Days_in_Stage__c} days | $${((deal.ACV__c || 0) / 1000).toFixed(0)}k | ${maskOwnerIfUnassigned(deal.Owner?.Name)}\n`;
+        prompt += `  • ${deal.Account?.Account_Display_Name__c || deal.Account?.Name || deal.Name} — ${deal.StageName} | ${deal.Days_in_Stage__c} days | $${((deal.ACV__c || 0) / 1000).toFixed(0)}k | ${maskOwnerIfUnassigned(deal.Owner?.Name)}\n`;
       }
     } else if (d.type === 'pipeline_added') {
       const deals = d.deals || [];
       prompt += `${deals.length} deals added this week:\n`;
       for (const deal of deals.slice(0, 15)) {
-        prompt += `  • ${deal.Account?.Name || deal.Name} — $${((deal.ACV__c || 0) / 1000).toFixed(0)}k | ${deal.StageName} | ${maskOwnerIfUnassigned(deal.Owner?.Name)} | ${deal.Product_Line__c || ''}\n`;
+        prompt += `  • ${deal.Account?.Account_Display_Name__c || deal.Account?.Name || deal.Name} — $${((deal.ACV__c || 0) / 1000).toFixed(0)}k | ${deal.StageName} | ${maskOwnerIfUnassigned(deal.Owner?.Name)} | ${deal.Product_Line__c || ''}\n`;
       }
     } else {
       prompt += JSON.stringify(d).substring(0, 2000) + '\n';

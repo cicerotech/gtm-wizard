@@ -1986,8 +1986,16 @@ class GTMBrainApp {
           usageLogger.logPageView(oktaSession, '/gtm/meeting-prep', req).catch(() => {});
           
           const { generateMeetingPrepHTML } = require('./views/meetingPrepView');
-          // Pass filterUser query param if present
-          const filterUserId = req.query.filterUser || null;
+          // Auto-filter to logged-in user's meetings (unless explicitly overridden via query param)
+          let filterUserId = req.query.filterUser || null;
+          if (!filterUserId && oktaSession.email) {
+            try {
+              const meetingPrepService = require('./services/meetingPrepService');
+              const blUsers = await meetingPrepService.getBLUsers();
+              const matchedUser = blUsers.find(u => u.email === oktaSession.email);
+              if (matchedUser) filterUserId = matchedUser.userId;
+            } catch (e) { /* fallback: show all */ }
+          }
           const html = await generateMeetingPrepHTML(filterUserId);
           res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline'");
           res.send(html);
