@@ -94,9 +94,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 #thread-container.has-messages { justify-content: flex-start; }
 
 /* ── Welcome ───────────────────────────────────────────────── */
-.gtm-welcome { padding: 40px 0 16px; text-align: center; }
+.gtm-welcome { padding: 24px 0 12px; text-align: center; }
 .gtm-welcome-title { font-size: 1.25rem; font-weight: 500; color: #374151; margin-bottom: 4px; }
-.gtm-welcome-sub { font-size: 0.8125rem; color: #9ca3af; margin-bottom: 24px; }
+.gtm-welcome-sub { font-size: 0.8125rem; color: #9ca3af; margin-bottom: 16px; }
+.gtm-dashboard-cards {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  max-width: 500px; margin: 0 auto 16px; text-align: left;
+}
+.gtm-dash-card {
+  padding: 12px 14px; background: #fff; border: 1px solid #e8eaef;
+  border-radius: 10px; cursor: pointer; transition: all 0.15s;
+}
+.gtm-dash-card:hover { border-color: #8e99e1; box-shadow: 0 2px 8px rgba(142,153,225,0.12); }
+.gtm-dash-card-value { font-size: 1.25rem; font-weight: 700; color: #1f2937; }
+.gtm-dash-card-label { font-size: 0.6875rem; color: #9ca3af; margin-top: 2px; }
+.gtm-dash-card-sub { font-size: 0.6rem; color: #b0b5c3; margin-top: 2px; }
+.gtm-dash-loading { font-size: 0.7rem; color: #b0b5c3; text-align: center; padding: 20px 0; }
 .gtm-tile-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 600px; margin: 0 auto; }
 .gtm-tile {
   padding: 6px 14px; font-size: 0.75rem;
@@ -154,6 +167,53 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .gtm-msg-ai p:first-child { margin-top: 0; }
 .gtm-msg-ai p:last-child { margin-bottom: 0; }
 .gtm-msg-context { font-size: 0.7rem; color: #9ca3af; margin-top: 8px; }
+.gtm-msg-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.gtm-msg-time { font-size: 0.6rem; color: #c5c5c5; }
+.gtm-copy-btn {
+  background: none; border: 1px solid #e8eaef; border-radius: 4px;
+  padding: 2px 6px; font-size: 0.6rem; color: #9ca3af;
+  cursor: pointer; transition: all 0.15s;
+}
+.gtm-copy-btn:hover { background: #f0f2ff; color: #6b7280; border-color: #8e99e1; }
+.gtm-toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  background: #1f2937; color: #fff; padding: 8px 20px; border-radius: 8px;
+  font-size: 0.8rem; z-index: 100; animation: fadeIn 0.2s ease;
+  pointer-events: none;
+}
+.gtm-retry-btn {
+  display: inline-block; margin-top: 8px; padding: 6px 16px;
+  font-size: 0.8rem; font-weight: 600; color: #8e99e1;
+  background: none; border: 1px solid #8e99e1; border-radius: 8px;
+  cursor: pointer; transition: all 0.15s;
+}
+.gtm-retry-btn:hover { background: #f0f2ff; }
+.gtm-filters-bar { font-size: 0.6rem; color: #b0b5c3; margin-top: 2px; }
+
+/* Query autocomplete palette */
+.gtm-autocomplete {
+  position: absolute; bottom: 100%; left: 0; right: 60px;
+  background: #fff; border: 1px solid #e0e3ea; border-radius: 10px;
+  margin-bottom: 4px; max-height: 260px; overflow-y: auto;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.08); display: none; z-index: 60;
+}
+.gtm-autocomplete.open { display: block; }
+.gtm-ac-item {
+  padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6;
+  display: flex; align-items: center; gap: 8px; transition: background 0.1s;
+}
+.gtm-ac-item:last-child { border-bottom: none; }
+.gtm-ac-item:hover, .gtm-ac-item.active { background: #f0f2ff; }
+.gtm-ac-text { font-size: 0.8125rem; color: #1f2937; flex: 1; }
+.gtm-ac-tag {
+  font-size: 0.6rem; padding: 2px 6px; border-radius: 4px;
+  font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; flex-shrink: 0;
+}
+.gtm-ac-tag-pipeline { background: #eef1fc; color: #6366f1; }
+.gtm-ac-tag-customer { background: #ecfdf5; color: #059669; }
+.gtm-ac-tag-bl { background: #fef3c7; color: #d97706; }
+.gtm-ac-tag-account { background: #f3f4f6; color: #6b7280; }
+.gtm-ac-tag-forecast { background: #fce7f3; color: #db2777; }
 
 /* Loading (progressive) */
 .gtm-msg-loading {
@@ -280,6 +340,26 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 }
 .gtm-quick-toggle:hover { text-decoration: underline; }
 .gtm-footer-meta { font-size: 0.6rem; color: #c5c5c5; margin-left: auto; }
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .gtm-shell { max-width: 100%; padding: 0; }
+  .gtm-header { padding: 10px 14px; border-radius: 0; }
+  .gtm-chat-area { padding: 14px 12px 6px; }
+  .gtm-tile { padding: 10px 16px; font-size: 0.8125rem; min-height: 44px; display: flex; align-items: center; }
+  .gtm-msg { padding: 12px 14px; font-size: 0.9rem; }
+  .gtm-msg-user { max-width: 90%; }
+  .gtm-acct-search { font-size: 0.9rem; padding: 10px 10px 10px 32px; }
+  .gtm-query-input { font-size: 0.9rem; padding: 12px 60px 12px 12px; }
+  .gtm-footer { padding: 0 10px 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .gtm-footer-inner { padding: 8px 10px; }
+  .gtm-welcome-title { font-size: 1.1rem; }
+  .gtm-welcome { padding: 24px 0 12px; }
+  .gtm-acct-results { max-height: 200px; }
+  .gtm-autocomplete { max-height: 200px; }
+  .gtm-suggestion-chip { padding: 8px 14px; font-size: 0.8rem; min-height: 36px; }
+  .gtm-hero-btn { padding: 8px 14px; font-size: 0.75rem; }
+}
 </style>
 </head>
 <body>
@@ -303,7 +383,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </div>
       <div class="gtm-query-row">
         <div class="gtm-query-wrap">
-          <input type="text" id="query" class="gtm-query-input" placeholder="Ask anything about an account, deal, or pipeline..." />
+          <input type="text" id="query" class="gtm-query-input" placeholder="Ask anything about an account, deal, or pipeline..." autocomplete="off" />
+          <div id="query-autocomplete" class="gtm-autocomplete"></div>
           <button type="button" id="submit" class="gtm-ask-btn">Ask</button>
         </div>
       </div>
@@ -425,28 +506,32 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     welcome.id = 'welcome-panel';
     welcome.className = 'gtm-welcome';
     welcome.innerHTML =
-      '<div class="gtm-welcome-title">What would you like to know?</div>' +
-      '<div class="gtm-welcome-sub">Ask about any account, deal, or pipeline. Select an account below for focused results.</div>' +
-      '<div class="gtm-tile-grid" id="tile-grid">' +
-        '<button class="gtm-tile acct-tile" data-query="What\\x27s the latest update on this account?">Latest update</button>' +
+      '<div class="gtm-welcome-title">GTM Brain</div>' +
+      '<div class="gtm-welcome-sub">Your sales intelligence terminal. Ask about pipeline, accounts, deals, or contacts.</div>' +
+      '<div id="dashboard-cards" class="gtm-dashboard-cards"><div class="gtm-dash-loading">Loading pipeline data...</div></div>' +
+      '<div style="margin-top:12px;font-size:0.6875rem;color:#9ca3af;text-transform:uppercase;letter-spacing:0.4px;">Quick queries</div>' +
+      '<div class="gtm-tile-grid" style="margin-top:6px;">' +
+        '<button class="gtm-tile" data-query="What deals are late stage?">Late stage deals</button>' +
+        '<button class="gtm-tile" data-query="What\\x27s our forecast?">Forecast</button>' +
+        '<button class="gtm-tile" data-query="What\\x27s the weighted pipeline?">Weighted pipeline</button>' +
+        '<button class="gtm-tile" data-query="What\\x27s targeting this month?">Targeting this month</button>' +
+        '<button class="gtm-tile" data-query="What\\x27s the pipeline by product line?">By product line</button>' +
+        '<button class="gtm-tile" data-query="How many customers do we have?">Customer count</button>' +
+        '<button class="gtm-tile" data-query="What have we signed this quarter?">Signed this quarter</button>' +
+        '<button class="gtm-tile" data-query="Which deals are stuck?">Stuck deals</button>' +
+      '</div>' +
+      '<div style="margin-top:12px;font-size:0.6875rem;color:#9ca3af;text-transform:uppercase;letter-spacing:0.4px;">Account-specific (select an account first)</div>' +
+      '<div class="gtm-tile-grid" style="margin-top:6px;">' +
         '<button class="gtm-tile acct-tile" data-query="What\\x27s the deal status and current stage?">Deal status</button>' +
         '<button class="gtm-tile acct-tile" data-query="Who are the key contacts and stakeholders?">Key contacts</button>' +
-        '<button class="gtm-tile acct-tile" data-query="What are the identified pain points?">Pain points</button>' +
-        '<button class="gtm-tile acct-tile" data-query="What\\x27s the competitive landscape?">Competitive intel</button>' +
-        '<button class="gtm-tile acct-tile" data-query="What are the next steps and target dates?">Next steps</button>' +
-        '<button class="gtm-tile acct-tile" data-query="Who are the decision makers?">Decision makers</button>' +
+        '<button class="gtm-tile acct-tile" data-query="What\\x27s the latest activity?">Latest activity</button>' +
         '<button class="gtm-tile acct-tile" data-query="Full meeting prep for this account.">Meeting prep</button>' +
-        '<button class="gtm-tile acct-tile" data-query="What\\x27s the full engagement history?">Engagement history</button>' +
-      '</div>' +
-      '<div style="margin-top:16px;font-size:0.6875rem;color:#9ca3af;text-transform:uppercase;letter-spacing:0.4px;">Or ask without selecting an account</div>' +
-      '<div class="gtm-tile-grid" style="margin-top:6px;">' +
-        '<button class="gtm-tile" data-query="What deals are late stage in the pipeline?">Late stage pipeline</button>' +
-        '<button class="gtm-tile" data-query="What\\x27s the total pipeline this quarter?">Pipeline summary</button>' +
-        '<button class="gtm-tile" data-query="What accounts did we meet with this week?">Meetings this week</button>' +
-        '<button class="gtm-tile" data-query="How many deals have we signed this month?">Deals signed</button>' +
+        '<button class="gtm-tile acct-tile" data-query="What are the pain points?">Pain points</button>' +
+        '<button class="gtm-tile acct-tile" data-query="What\\x27s the competitive landscape?">Competitive intel</button>' +
       '</div>';
     threadContainer.appendChild(welcome);
     wireUpTiles();
+    loadDashboardCards();
     updateTileState();
   }
 
@@ -652,31 +737,47 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     msg.className = 'gtm-msg gtm-msg-loading';
     var q = (queryText || '').toLowerCase();
     var phases;
+    var an = accountName || '';
 
-    if (q.includes('overview') || q.includes('full account') || q.includes('engagement') || q.includes('history')) {
-      phases = accountName
-        ? ['Loading full profile for ' + accountName + '...', 'Gathering deals, contacts, and activity...', 'Reading meeting history...', 'Building comprehensive overview...']
-        : ['Building account overview...', 'Aggregating all data sources...', 'Synthesizing...'];
-    } else if (q.includes('pain point') || q.includes('challenge') || q.includes('problem')) {
+    // Intent-specific loading sequences — each query type gets unique phases
+    if (/forecast|commit|midpoint|weighted pipeline|weighted acv/i.test(q)) {
+      phases = ['Querying AI-enabled forecast data...', 'Calculating commit and weighted metrics...', 'Breaking down by Business Lead...', 'Building forecast summary...'];
+    } else if (/signed this|what have we signed|revenue signed|closed won/i.test(q)) {
+      phases = ['Scanning closed-won deals...', 'Calculating signed revenue...', 'Checking recent closings...', 'Building revenue summary...'];
+    } else if (/targeting this|targeting q1|deals targeting/i.test(q)) {
+      phases = ['Querying deals targeting close...', 'Ranking by ACV...', 'Checking target dates...', 'Building target list...'];
+    } else if (/pipeline by (product|solution)|product breakdown|solution breakdown/i.test(q)) {
+      phases = ['Scanning pipeline by product line...', 'Aggregating solution buckets...', 'Calculating mix percentages...', 'Building product breakdown...'];
+    } else if (/pipeline by sales type|new business|expansion|renewal/i.test(q)) {
+      phases = ['Scanning pipeline by sales type...', 'Grouping New Business, Expansion, Renewal...', 'Building sales type breakdown...'];
+    } else if (/loi|commitment deals/i.test(q)) {
+      phases = ['Querying LOI deals...', 'Loading commitment data...', 'Ranking by close date...', 'Building LOI summary...'];
+    } else if (/arr|recurring revenue/i.test(q)) {
+      phases = ['Querying ARR contracts...', 'Loading recurring revenue data...', 'Building ARR summary...'];
+    } else if (/stuck|slow|stale|stalled/i.test(q)) {
+      phases = ['Scanning deals by days in stage...', 'Identifying stuck opportunities...', 'Ranking by staleness...', 'Building stuck deals report...'];
+    } else if (/added to pipeline|new pipeline|deals added/i.test(q)) {
+      phases = ['Scanning recently created opportunities...', 'Filtering this week...', 'Building new pipeline list...'];
+    } else if (/overview|full account|engagement|history/i.test(q)) {
+      phases = an ? ['Loading full profile for ' + an + '...', 'Gathering deals, contacts, and activity...', 'Reading meeting history...', 'Building overview...'] : ['Building account overview...', 'Aggregating data...', 'Synthesizing...'];
+    } else if (/pain point|challenge|problem/i.test(q)) {
       phases = ['Scanning account intelligence...', 'Loading pain points data...', 'Synthesizing findings...'];
-    } else if (q.includes('competitive') || q.includes('competitor') || q.includes('landscape')) {
-      phases = ['Checking competitive intelligence...', 'Loading market context...', 'Building competitive picture...'];
-    } else if (q.includes('next step') || q.includes('action') || q.includes('follow up') || q.includes('target date')) {
+    } else if (/competitive|competitor|landscape/i.test(q)) {
+      phases = ['Checking competitive intelligence...', 'Loading market context...', 'Building picture...'];
+    } else if (/next step|action|follow up|target date/i.test(q)) {
       phases = ['Loading open tasks...', 'Checking opportunity next steps...', 'Building action list...'];
-    } else if (q.includes('pipeline') || q.includes('deals') || q.includes('late stage') || q.includes('closing')) {
-      phases = ['Scanning open opportunities...', 'Checking close dates and stages...', 'Aggregating pipeline data...', 'Building summary...'];
-    } else if (q.includes('contact') || q.includes('decision maker') || q.includes('stakeholder') || q.includes('who are')) {
-      phases = accountName
-        ? ['Loading contacts for ' + accountName + '...', 'Identifying decision makers...', 'Checking meeting attendees...', 'Compiling stakeholder map...']
-        : ['Searching contact records...', 'Identifying decision makers...', 'Synthesizing results...'];
-    } else if (q.includes('meeting') || q.includes('met with') || q.includes('prep')) {
-      phases = accountName
-        ? ['Loading calendar for ' + accountName + '...', 'Reading Customer Brain notes...', 'Pulling recent activity...', 'Synthesizing prep brief...']
-        : ['Scanning meeting activity...', 'Matching accounts to events...', 'Building activity summary...'];
-    } else if (q.includes('accounts does') || q.includes('book') || q.includes('own')) {
-      phases = ['Looking up account ownership...', 'Loading open opportunities...', 'Aggregating book data...', 'Synthesizing results...'];
-    } else if (accountName) {
-      phases = ['Searching Salesforce for ' + accountName + '...', 'Loading contacts, deals, and activity...', 'Reading meeting notes and history...', 'Synthesizing insights...'];
+    } else if (/late stage|pipeline|deals|closing|negotiation|proposal|pilot|open (deals|opportunities)|active pipeline|total pipeline/i.test(q)) {
+      phases = ['Querying active pipeline (' + (q.includes('late') ? 'S3+S4+S5' : 'all stages') + ')...', 'Filtering and ranking by ACV...', 'Grouping by stage...', 'Building pipeline summary...'];
+    } else if (/customer|logo|how many/i.test(q)) {
+      phases = ['Counting customer accounts...', 'Grouping by type (MSA, LOI, Pilot)...', 'Building breakdown...'];
+    } else if (/contact|decision maker|stakeholder|who are|clo|general counsel/i.test(q)) {
+      phases = an ? ['Loading contacts for ' + an + '...', 'Ranking by title seniority...', 'Identifying decision makers...'] : ['Searching contacts across accounts...', 'Filtering by title...', 'Building list...'];
+    } else if (/meeting|met with|prep/i.test(q)) {
+      phases = an ? ['Loading calendar for ' + an + '...', 'Reading meeting history...', 'Pulling recent activity...'] : ['Scanning meeting activity...', 'Matching to accounts...', 'Building timeline...'];
+    } else if (/accounts does|book|own/i.test(q)) {
+      phases = ['Looking up BL account assignments...', 'Loading portfolio and pipeline...', 'Compiling results...'];
+    } else if (an) {
+      phases = ['Searching Salesforce for ' + an + '...', 'Loading contacts, deals, activity...', 'Reading meeting notes...', 'Synthesizing insights...'];
     } else {
       phases = ['Processing your question...', 'Searching across data sources...', 'Analyzing results...', 'Synthesizing insights...'];
     }
@@ -726,7 +827,27 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
     var msg = document.createElement('div');
     msg.className = 'gtm-msg gtm-msg-ai';
-    msg.innerHTML = formatAnswer(mainAnswer);
+
+    // Header: timestamp + copy button
+    var headerDiv = document.createElement('div');
+    headerDiv.className = 'gtm-msg-header';
+    var timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    headerDiv.innerHTML = '<span class="gtm-msg-time">' + timeStr + '</span>';
+    var copyBtn = document.createElement('button');
+    copyBtn.className = 'gtm-copy-btn';
+    copyBtn.textContent = 'Copy';
+    copyBtn.onclick = function() {
+      navigator.clipboard.writeText(mainAnswer).then(function() {
+        copyBtn.textContent = 'Copied';
+        setTimeout(function() { copyBtn.textContent = 'Copy'; }, 1500);
+      });
+    };
+    headerDiv.appendChild(copyBtn);
+    msg.appendChild(headerDiv);
+
+    var contentDiv = document.createElement('div');
+    contentDiv.innerHTML = formatAnswer(mainAnswer);
+    msg.appendChild(contentDiv);
 
     if (context) {
       var parts = [];
@@ -866,13 +987,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     queryEl.focus();
   }
 
+  var lastQueryText = '';
   function showError(text) {
     clearLoadingInterval();
     var loading = threadContainer.querySelector('.gtm-msg-loading');
     if (loading) loading.remove();
     var errMsg = document.createElement('div');
     errMsg.className = 'gtm-error';
-    errMsg.textContent = text;
+    errMsg.innerHTML = escapeHtml(text);
+    var retryBtn = document.createElement('button');
+    retryBtn.className = 'gtm-retry-btn';
+    retryBtn.textContent = 'Retry';
+    retryBtn.onclick = function() {
+      errMsg.remove();
+      if (lastQueryText) { queryEl.value = lastQueryText; runQuery(true); }
+    };
+    errMsg.appendChild(retryBtn);
     threadContainer.appendChild(errMsg);
     scrollToElement(errMsg, 'end');
     isQuerying = false;
@@ -900,6 +1030,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     var now = Date.now();
     if (now - lastQueryTime < 500) return;
     lastQueryTime = now;
+    lastQueryText = query;
     isQuerying = true;
 
     var accountId   = selectedAccount.id || '';
@@ -980,7 +1111,150 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   });
   submitBtn.addEventListener('click', function() { runQuery(false); });
   newChatBtn.addEventListener('click', startNewChat);
-  queryEl.addEventListener('keydown', function(e) { if (e.key === 'Enter') runQuery(false); });
+
+  // ─── Dashboard Cards ───────────────────────────────────────
+  function loadDashboardCards() {
+    fetch('/api/pipeline-health', { credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(h) {
+        var el = document.getElementById('dashboard-cards');
+        if (!el) return;
+        var fmtM = function(v) { return '$' + ((v || 0) / 1000000).toFixed(1) + 'M'; };
+        var stageHtml = '';
+        if (h.byStage) {
+          var stages = Object.entries(h.byStage).sort(function(a, b) { return b[1].acv - a[1].acv; });
+          stageHtml = stages.map(function(s) { return '<span style="font-size:0.6rem;color:#6b7280;">' + s[0].replace('Stage ', 'S').split(' - ')[0] + ': ' + s[1].count + '</span>'; }).join(' · ');
+        }
+        el.innerHTML =
+          '<div class="gtm-dash-card" data-query="What\\x27s the total pipeline?">' +
+            '<div class="gtm-dash-card-value">' + fmtM(h.totalAcv) + '</div>' +
+            '<div class="gtm-dash-card-label">' + (h.totalOpps || 0) + ' Active Opportunities</div>' +
+            (stageHtml ? '<div class="gtm-dash-card-sub">' + stageHtml + '</div>' : '') +
+          '</div>' +
+          '<div class="gtm-dash-card" data-query="What deals are late stage?">' +
+            '<div class="gtm-dash-card-value">' + (h.lateStageCount || 0) + ' Late Stage</div>' +
+            '<div class="gtm-dash-card-label">' + fmtM(h.lateStageAcv) + ' ACV (S3+S4+S5)</div>' +
+          '</div>' +
+          '<div class="gtm-dash-card" data-query="How many customers do we have?">' +
+            '<div class="gtm-dash-card-value">' + (h.customerCount || 0) + ' Customers</div>' +
+            '<div class="gtm-dash-card-label">Active logos</div>' +
+          '</div>' +
+          '<div class="gtm-dash-card" data-query="What\\x27s our forecast?">' +
+            '<div class="gtm-dash-card-value">' + fmtM(h.forecast?.midpoint) + '</div>' +
+            '<div class="gtm-dash-card-label">AI-Enabled Midpoint</div>' +
+            '<div class="gtm-dash-card-sub">Commit ' + fmtM(h.forecast?.commitNet) + ' · Weighted ' + fmtM(h.forecast?.weightedNet) + '</div>' +
+          '</div>';
+        el.querySelectorAll('.gtm-dash-card').forEach(function(card) {
+          card.addEventListener('click', function() {
+            queryEl.value = this.dataset.query;
+            runQuery(false);
+          });
+        });
+      })
+      .catch(function() {
+        var el = document.getElementById('dashboard-cards');
+        if (el) el.innerHTML = '';
+      });
+  }
+
+  // ─── Query Autocomplete Palette ────────────────────────────
+  var queryCatalog = [
+    { text: 'What deals are late stage?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
+    { text: 'What deals are in negotiation?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
+    { text: 'What deals are in proposal?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
+    { text: 'What\\'s the total pipeline?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
+    { text: 'What\\'s the weighted pipeline?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
+    { text: 'What\\'s targeting this month?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
+    { text: 'What\\'s targeting this quarter?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
+    { text: 'What\\'s the pipeline by product line?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
+    { text: 'What\\'s the pipeline by sales type?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
+    { text: 'What was added to pipeline this week?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
+    { text: 'Which deals are stuck?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
+    { text: 'Late stage contracting deals', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
+    { text: 'What\\'s our forecast?', tag: 'Forecast', tagClass: 'gtm-ac-tag-forecast' },
+    { text: 'What have we signed this quarter?', tag: 'Forecast', tagClass: 'gtm-ac-tag-forecast' },
+    { text: 'What LOIs have we signed?', tag: 'Forecast', tagClass: 'gtm-ac-tag-forecast' },
+    { text: 'What ARR deals have closed?', tag: 'Forecast', tagClass: 'gtm-ac-tag-forecast' },
+    { text: 'How many customers do we have?', tag: 'Customers', tagClass: 'gtm-ac-tag-customer' },
+    { text: 'How many logos do we have?', tag: 'Customers', tagClass: 'gtm-ac-tag-customer' },
+    { text: 'What accounts did we meet with this week?', tag: 'Meetings', tagClass: 'gtm-ac-tag-customer' },
+    { text: 'What accounts does Riley own?', tag: 'BL Book', tagClass: 'gtm-ac-tag-bl' },
+    { text: 'What accounts does Julie own?', tag: 'BL Book', tagClass: 'gtm-ac-tag-bl' },
+    { text: 'What accounts does Asad own?', tag: 'BL Book', tagClass: 'gtm-ac-tag-bl' },
+    { text: 'What accounts does Olivia own?', tag: 'BL Book', tagClass: 'gtm-ac-tag-bl' },
+    { text: 'What accounts does Nathan own?', tag: 'BL Book', tagClass: 'gtm-ac-tag-bl' },
+    { text: 'What accounts does Conor own?', tag: 'BL Book', tagClass: 'gtm-ac-tag-bl' },
+    { text: 'What\\'s the deal status?', tag: 'Account', tagClass: 'gtm-ac-tag-account', needsAccount: true },
+    { text: 'Who are the key contacts?', tag: 'Account', tagClass: 'gtm-ac-tag-account', needsAccount: true },
+    { text: 'What\\'s the latest activity?', tag: 'Account', tagClass: 'gtm-ac-tag-account', needsAccount: true },
+    { text: 'When were they signed?', tag: 'Account', tagClass: 'gtm-ac-tag-account', needsAccount: true },
+    { text: 'What products do they use?', tag: 'Account', tagClass: 'gtm-ac-tag-account', needsAccount: true },
+    { text: 'What are the pain points?', tag: 'Account', tagClass: 'gtm-ac-tag-account', needsAccount: true },
+    { text: 'What\\'s the competitive landscape?', tag: 'Account', tagClass: 'gtm-ac-tag-account', needsAccount: true },
+    { text: 'Full meeting prep', tag: 'Account', tagClass: 'gtm-ac-tag-account', needsAccount: true },
+  ];
+
+  var acDropdown = document.getElementById('query-autocomplete');
+  var acActiveIdx = -1;
+
+  function updateAutocomplete() {
+    var val = queryEl.value.trim().toLowerCase();
+    if (val.length < 2) { acDropdown.classList.remove('open'); return; }
+    var hasAccount = !!(selectedAccount.id || selectedAccount.name);
+    var matches = queryCatalog.filter(function(item) {
+      if (item.needsAccount && !hasAccount) return false;
+      return item.text.toLowerCase().includes(val);
+    }).slice(0, 6);
+    if (matches.length === 0) { acDropdown.classList.remove('open'); return; }
+    acActiveIdx = -1;
+    acDropdown.innerHTML = matches.map(function(item, i) {
+      return '<div class="gtm-ac-item" data-idx="' + i + '" data-query="' + escapeHtml(item.text) + '">' +
+        '<span class="gtm-ac-text">' + escapeHtml(item.text) + '</span>' +
+        '<span class="gtm-ac-tag ' + item.tagClass + '">' + item.tag + '</span>' +
+      '</div>';
+    }).join('');
+    acDropdown.classList.add('open');
+    acDropdown.querySelectorAll('.gtm-ac-item').forEach(function(el) {
+      el.addEventListener('click', function() {
+        queryEl.value = this.dataset.query;
+        acDropdown.classList.remove('open');
+        runQuery(false);
+      });
+    });
+  }
+
+  queryEl.addEventListener('input', function() { updateAutocomplete(); });
+  queryEl.addEventListener('keydown', function(e) {
+    if (!acDropdown.classList.contains('open')) {
+      if (e.key === 'Enter') runQuery(false);
+      return;
+    }
+    var items = acDropdown.querySelectorAll('.gtm-ac-item');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      acActiveIdx = Math.min(acActiveIdx + 1, items.length - 1);
+      items.forEach(function(el, i) { el.classList.toggle('active', i === acActiveIdx); });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      acActiveIdx = Math.max(acActiveIdx - 1, 0);
+      items.forEach(function(el, i) { el.classList.toggle('active', i === acActiveIdx); });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (acActiveIdx >= 0 && items[acActiveIdx]) {
+        queryEl.value = items[acActiveIdx].dataset.query;
+        acDropdown.classList.remove('open');
+        runQuery(false);
+      } else {
+        acDropdown.classList.remove('open');
+        runQuery(false);
+      }
+    } else if (e.key === 'Escape') {
+      acDropdown.classList.remove('open');
+    }
+  });
+  queryEl.addEventListener('blur', function() {
+    setTimeout(function() { acDropdown.classList.remove('open'); }, 200);
+  });
 
   // ─── Init ──────────────────────────────────────────────────
   acctChipArea.style.display = 'none';

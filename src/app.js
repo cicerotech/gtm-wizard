@@ -4576,6 +4576,53 @@ class GTMBrainApp {
     // Enables natural language questions about accounts and deals
     // Uses dedicated intelligenceQueryService with Anthropic Claude
     // ═══════════════════════════════════════════════════════════════════════════
+    // Pipeline health endpoint — lightweight pre-computed metrics for GTM Brain welcome dashboard
+    let pipelineHealthCache = { data: null, timestamp: 0 };
+    this.expressApp.get('/api/pipeline-health', async (req, res) => {
+      try {
+        const now = Date.now();
+        if (pipelineHealthCache.data && (now - pipelineHealthCache.timestamp) < 300000) {
+          return res.json(pipelineHealthCache.data);
+        }
+
+        let health = { totalOpps: 0, totalAcv: 0, lateStageCount: 0, lateStageAcv: 0, byStage: {}, customerCount: 0, timestamp: new Date().toISOString() };
+        try {
+          const { queryPipelineData, queryAIEnabledForecast, queryLogosByType } = require('./slack/blWeeklySummary');
+          const [records, forecast] = await Promise.all([
+            queryPipelineData().catch(() => []),
+            queryAIEnabledForecast().catch(() => ({}))
+          ]);
+
+          const lateStages = ['Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation'];
+          for (const opp of records) {
+            const stage = opp.StageName || 'Unknown';
+            health.totalOpps++;
+            health.totalAcv += opp.ACV__c || 0;
+            if (!health.byStage[stage]) health.byStage[stage] = { count: 0, acv: 0 };
+            health.byStage[stage].count++;
+            health.byStage[stage].acv += opp.ACV__c || 0;
+            if (lateStages.includes(stage)) {
+              health.lateStageCount++;
+              health.lateStageAcv += opp.ACV__c || 0;
+            }
+          }
+          health.forecast = { commitNet: forecast.commitNet || 0, weightedNet: forecast.weightedNet || 0, midpoint: forecast.midpoint || 0 };
+
+          const { query: sfQuery } = require('./salesforce/connection');
+          const custResult = await sfQuery(`SELECT COUNT() FROM Account WHERE Customer_Type__c IN ('Existing', 'Existing Customer', 'Revenue', 'LOI, with \\'\\' attached', 'Pilot', 'MSA')`, false).catch(() => ({ totalSize: 0 }));
+          health.customerCount = custResult?.totalSize || 0;
+        } catch (e) {
+          logger.warn('[PipelineHealth] Error building health data:', e.message);
+        }
+
+        pipelineHealthCache = { data: health, timestamp: now };
+        res.json(health);
+      } catch (error) {
+        logger.error('[PipelineHealth] Endpoint error:', error);
+        res.status(500).json({ error: 'Failed to load pipeline health' });
+      }
+    });
+
     this.expressApp.post('/api/intelligence/query', async (req, res) => {
       try {
         const { 
