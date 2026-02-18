@@ -1027,9 +1027,10 @@ class GTMBrainApp {
           name: manifest.name,
         });
       } catch (err) {
-        // Fallback: always return success with hardcoded version so auto-update works
-        // even if manifest.json can't be read from disk (e.g., Render deploy)
-        res.json({ success: true, currentVersion: '4.2.0', version: '4.2.0' });
+        // Fallback: always return success with current version so auto-update works
+        // IMPORTANT: Keep this in sync with obsidian-plugin/manifest.json version
+        logger.warn('[Plugin Version] Could not read manifest.json from disk:', err.message);
+        res.json({ success: true, currentVersion: '4.3.1', version: '4.3.1' });
       }
     });
 
@@ -1235,32 +1236,9 @@ class GTMBrainApp {
       });
     });
 
-    // Plugin version endpoint - reads from manifest.json for accurate version
-    this.expressApp.get('/api/plugin/version', (req, res) => {
-      try {
-        const fs = require('fs');
-        const path = require('path');
-        const manifestPath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        res.json({
-          success: true,
-          currentVersion: manifest.version,
-          minimumVersion: '3.0.0',
-          downloadUrl: 'https://gtm-wizard.onrender.com/api/plugin/main.js',
-          vaultDownloadUrl: 'https://gtm-wizard.onrender.com/vault/download',
-          releaseNotes: 'Pipeline meeting template, calendar timezone fix, Render DB support',
-          timestamp: new Date().toISOString()
-        });
-      } catch (e) {
-        res.json({
-          success: true,
-          currentVersion: '4.0.0',
-          minimumVersion: '3.0.0',
-          downloadUrl: 'https://gtm-wizard.onrender.com/api/plugin/main.js',
-          timestamp: new Date().toISOString()
-        });
-      }
-    });
+    // Plugin version endpoint (duplicate removed — primary is at line ~1015)
+    // This was a duplicate registration that was overriding the primary endpoint
+    // with a stale hardcoded fallback version. Removed to prevent version mismatch.
 
     // Serve latest plugin main.js directly (for auto-update)
     this.expressApp.get('/api/plugin/main.js', (req, res) => {
