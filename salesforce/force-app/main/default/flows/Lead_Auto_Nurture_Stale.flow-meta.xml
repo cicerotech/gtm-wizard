@@ -24,7 +24,7 @@
         </schedule>
         <triggerType>Scheduled</triggerType>
     </start>
-    <status>Active</status>
+    <status>Draft</status>
 
     <recordLookups>
         <name>Get_Stale_Working_Leads</name>
