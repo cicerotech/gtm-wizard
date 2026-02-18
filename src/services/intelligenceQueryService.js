@@ -321,11 +321,12 @@ const QUERY_INTENTS = {
   NEXT_STEPS: ['next step', 'action item', 'todo', 'follow up', 'outstanding'],
   PAIN_POINTS: ['pain point', 'challenge', 'problem', 'issue', 'struggle'],
   COMPETITIVE: ['competitor', 'competitive', 'alternative', 'vs', 'compared to'],
+  POSITIONING: ['how should eudia', 'how should we position', 'how should we approach', 'positioning for', 'how to pitch', 'how to sell to', 'how to engage'],
 };
 
 const BL_NAME_MAP = {
   'riley': { name: 'Riley Stack', email: 'riley.stack@eudia.com' },
-  'olivia': { name: 'Olivia Jung', email: 'olivia.jung@eudia.com' },
+  'olivia': { name: 'Olivia Jung', email: 'olivia@eudia.com' },
   'julie': { name: 'Julie Stefanich', email: 'julie.stefanich@eudia.com' },
   'asad': { name: 'Asad Hussain', email: 'asad.hussain@eudia.com' },
   'ananth': { name: 'Ananth Cherukupally', email: 'ananth.cherukupally@eudia.com' },
@@ -354,6 +355,10 @@ function extractBLName(query) {
   }
   return null;
 }
+
+const BL_OWNERSHIP_REGEX = new RegExp(
+  '\\b(' + Object.keys(BL_NAME_MAP).join('|') + ')(?:\'s?|s?)\\s+.*\\b(deals|pipeline|accounts|book|portfolio|opportunities|opps)\\b', 'i'
+);
 
 const UNASSIGNED_HOLDERS = ['Keigan Pesenti', 'Emmit Hood', 'Emmitt Hood', 'Mark Runyon', 'Derreck Chu', 'Sarah Rakhine'];
 
@@ -442,18 +447,28 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
 
     if (intent === 'JOKE') {
       const JOKES = [
-        "Why did the General Counsel bring a ladder to the board meeting? Because the stakes were too high.",
-        "What's a CLO's favorite type of music? Contract-ual obligations in A minor.",
         "Our pipeline has more stages than a Broadway musical — and about the same drama.",
         "How many lawyers does it take to close a deal at a Fortune 500? Just one, but they'll need 47 stakeholders to approve the timeline first.",
         "What did the AI say to the legal team? 'I've reviewed 10,000 contracts and I still can't find the fun clause.'",
         "Why do sales reps make great poker players? They're used to dealing with bad hands and still forecasting a win.",
         "What's the difference between a late-stage deal and a mirage? The mirage doesn't require a new SOW.",
         "I asked our CRM for a joke. It returned 'Stage 5 - Negotiation, Expected Close: Last Quarter.'",
+        "A General Counsel walks into a bar. Orders a water. Reviews the menu for liability. Leaves.",
+        "My forecast is so accurate, even the weatherman asked for tips. Just kidding — I moved the close date again.",
+        "Enterprise sales is just sending calendar invites to people who send you to voicemail.",
+        "The fastest way to kill a deal? Tell procurement it's 'a quick signature.'",
+        "If your pipeline were a stock portfolio, your CFO would have called HR by now.",
+        "Legal tech sales: where 'Let me loop in my team' means you won't hear back for six weeks.",
+        "They say patience is a virtue. Clearly they've never waited on a Fortune 500 procurement cycle.",
+        "I don't always move deals to Stage 5, but when I do, they stay there for three months.",
+        "Our AI reviewed your contract in 30 seconds. Your legal team reviewed the AI's review in 30 days.",
       ];
+      const shuffled = JOKES.sort(() => Math.random() - 0.5);
+      const selected = shuffled.slice(0, 5);
+      const answer = selected.map((j, i) => `${i + 1}. ${j}`).join('\n');
       return {
         success: true, query,
-        answer: JOKES[Math.floor(Math.random() * JOKES.length)],
+        answer,
         intent: 'JOKE',
         context: { intent: 'JOKE', dataFreshness: 'n/a' },
         performance: { durationMs: Date.now() - startTime },
@@ -692,10 +707,12 @@ async function classifyQueryIntent(query, conversationContext) {
   // Priority overrides — unambiguous patterns that must bypass ML to prevent misclassification
   if (/tell me a joke|make me laugh|something funny|got a joke/i.test(query)) return 'JOKE';
   if (/what accounts does|'s accounts|'s book|accounts does .+ own|accounts .+ owns/i.test(query)) return 'OWNER_ACCOUNTS';
+  if (BL_OWNERSHIP_REGEX.test(query)) return 'OWNER_ACCOUNTS';
   if (/how many (customers|logos|clients)|customer count|number of customers|total customers|customer list|logo count/i.test(query)) return 'CUSTOMER_COUNT';
   if (/chief legal.+based|general counsel.+based|clo.+based|gc.+based|contacts.+based in|find.+contacts|clos owned/i.test(query)) return 'CONTACT_SEARCH';
   if (/forecast|commit.*weighted|midpoint|q1 forecast/i.test(query)) return 'FORECAST';
   if (/weighted pipeline|weighted acv|pipeline weighted/i.test(query)) return 'WEIGHTED_PIPELINE';
+  if (/average (deal|acv|deal size)|deal size by stage|avg (acv|deal)|mean (deal|acv)|breakdown by stage/i.test(query)) return 'PIPELINE_OVERVIEW';
   if (/signed this (quarter|month|week)|what have we signed|revenue signed|closed won this/i.test(query)) return 'DEALS_SIGNED';
   if (/targeting this (month|quarter)|targeting q1|targeting february|deals targeting/i.test(query)) return 'DEALS_TARGETING';
   // Close/closing/sign + month name → date-filtered targeting query (must be BEFORE PIPELINE_OVERVIEW)
@@ -712,6 +729,7 @@ async function classifyQueryIntent(query, conversationContext) {
   if (/stuck deals|slow deals|stale deals|deals stuck|stalled|no movement/i.test(query)) return 'SLOW_DEALS';
   if (/added to pipeline|pipeline added|new pipeline this|deals added this/i.test(query)) return 'PIPELINE_ADDED';
   if (/what deals are (late|in |at )|which (deals|opportunities) are|deals in (negotiation|proposal|pilot)|late stage (contracting|compliance|m&a)|open (deals|opportunities)|active pipeline|total pipeline/i.test(query)) return 'PIPELINE_OVERVIEW';
+  if (/how should (eudia|we) (position|approach)|position(ing)? for\b|approach to .+ given|how (should|would|could) (we|eudia) .*(pitch|sell|engage|target)/i.test(query)) return 'POSITIONING';
 
   // Try advanced intent parser (same system as Slack bot)
   if (advancedIntentParser) {
@@ -1548,7 +1566,7 @@ async function gatherOwnerAccountsContext(query) {
     }
 
     const [acctResult, oppResult] = await Promise.all([
-      sfQuery(`SELECT Id, Name, Customer_Type__c, Industry, LastActivityDate FROM Account WHERE OwnerId = '${userId}' ORDER BY LastActivityDate DESC NULLS LAST LIMIT 50`, false),
+      sfQuery(`SELECT Id, Name, Customer_Type__c, Industry, LastActivityDate FROM Account WHERE OwnerId = '${userId}' ORDER BY LastActivityDate DESC NULLS LAST LIMIT 200`, false),
       sfQuery(`SELECT Id, Name, Account.Name, StageName, ACV__c, CloseDate FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false ORDER BY CloseDate ASC LIMIT 20`, false)
     ]);
 
@@ -1830,6 +1848,20 @@ async function gatherSnapshotContext(intent, query) {
             labelSuffix += ` — ${kw}`;
             break;
           }
+        }
+
+        // Average deal size by stage — separate aggregate SOQL when "average" is in the query
+        const isAverageQuery = /average|avg |mean |deal size/i.test(lower);
+        if (isAverageQuery) {
+          const avgR = await sfQuery(`SELECT StageName, COUNT(Id) cnt, SUM(ACV__c) totalAcv, AVG(ACV__c) avgAcv FROM Opportunity WHERE IsClosed = false AND StageName IN (${stageFilter}) ${dateFilter} GROUP BY StageName ORDER BY AVG(ACV__c) DESC`, false);
+          const avgByStage = (avgR?.records || []).map(r => ({
+            stage: r.StageName, count: r.cnt || 0, totalAcv: r.totalAcv || 0, avgAcv: r.avgAcv || 0
+          }));
+          let grandTotal = 0, grandCount = 0;
+          for (const s of avgByStage) { grandTotal += s.totalAcv; grandCount += s.count; }
+          metadata = { isAverageQuery: true, avgByStage, grandTotal, grandCount, grandAvg: grandCount > 0 ? grandTotal / grandCount : 0 };
+          label = `Average Deal Size by Stage${labelSuffix}`;
+          break;
         }
 
         // Build summary metadata
@@ -2149,8 +2181,16 @@ This account has no opportunity history. Your response framing must reflect pros
 - Lead with what is known: industry, company size, any available context
 - Be transparent about limited data — do not speculate beyond what exists. Clearly state what data IS available and what is NOT.
 - Frame around initial outreach and positioning
-- When suggesting follow-ups, focus on: identifying decision makers, understanding pain points, determining ICP fit
-- If the user asks "what's the latest?" and there is no activity, say "No recorded activity for this account." Do not fabricate engagement history.`;
+- If the user asks "what's the latest?" and there is no activity, say "No recorded activity for this account." Do not fabricate engagement history.
+
+FOLLOW-UP SUGGESTIONS FOR COLD ACCOUNTS (STRICT):
+- NEVER suggest "[BL name]'s prospecting strategy for [Account]" — you have no access to anyone's strategy.
+- NEVER suggest LinkedIn activity questions — you have no LinkedIn data.
+- Good cold-account follow-ups (use actual account/contact names):
+  "How should Eudia position for [Account]?"
+  "Who are the key legal contacts at [Account]?"
+  "What industry peers of [Account] are Eudia customers?"
+- These are answerable from the data you have (contacts, industry, Eudia product context).`;
   }
 
   // Add intent-specific instructions
@@ -2217,6 +2257,31 @@ Be precise with the count.`;
 2. Compact list: "- **Name** — Title | Account (Owner) | City, State"
 3. Group by city/region if location was part of the search
 Include email when available.`;
+
+    case 'POSITIONING':
+      return basePrompt + `\n\nFOCUS: Eudia positioning and approach recommendation for this account.
+
+EUDIA PRODUCT SUITE (use this for recommendations):
+- **AI-Augmented Contracting** (Managed Services or In-House Technology): High-volume contract review, clause extraction, risk analysis. Best for legal teams drowning in contract volume. Flagship product.
+- **AI-Augmented M&A** (Managed Services): Due diligence acceleration, deal room analysis. Best for companies with active M&A programs.
+- **AI-Augmented Compliance** (In-House Technology): Regulatory compliance monitoring, policy analysis. Best for heavily regulated industries (financial services, insurance, pharma).
+- **AI Platform - Sigma**: Enterprise AI platform for legal workflows. Custom AI model training on company data.
+- **AI Platform - Insights**: Analytics and reporting across legal operations. Best for legal ops leaders who need visibility.
+- **AI Platform - Litigation**: Litigation support and case analysis. Best for companies with significant litigation exposure.
+- **FDE - Custom AI Solution**: Bespoke AI engineering for unique legal workflows.
+
+INDUSTRY FIT (Tier 1 = highest fit):
+- Tier 1: Financial Services, Insurance, Pharma/Life Sciences
+- Tier 2: Technology, Healthcare, Energy, Industrial/Manufacturing
+- Tier 3: Food & Beverage, Automotive, Retail, Media/Entertainment
+
+POSITIONING RULES:
+1. Based on the account's industry, size, and any known contacts, recommend 1-2 Eudia products that best fit
+2. Explain WHY in 1-2 sentences referencing the account's likely pain points
+3. If contacts are available, identify the most likely champion persona (GC, CLO, VP Legal, Legal Ops Director)
+4. Mention similar industry customers if you know them from the data
+5. Keep total response under 150 words — this is a quick positioning brief, not a full proposal
+6. Do NOT fabricate account-specific details — only use what's in the data provided`;
 
     case 'FORECAST':
       return basePrompt + `\n\nFOCUS: Forecast summary. Present as:
@@ -2425,8 +2490,13 @@ function buildUserPrompt(intent, query, context) {
       for (const row of recs) {
         prompt += `  • ${row.Sales_Type__c || 'Unknown'}: $${((row.totalAcv || 0) / 1000).toFixed(0)}k | ${row.cnt || 0} deals\n`;
       }
+    } else if (context.intent === 'PIPELINE_OVERVIEW' && meta.isAverageQuery) {
+      prompt += `AVERAGE DEAL SIZE BY STAGE:\n`;
+      prompt += `• Overall: ${meta.grandCount} deals | $${((meta.grandTotal || 0) / 1000).toFixed(0)}k total | $${((meta.grandAvg || 0) / 1000).toFixed(0)}k avg\n\n`;
+      for (const s of (meta.avgByStage || [])) {
+        prompt += `  • ${s.stage}: ${s.count} deals | $${((s.totalAcv || 0) / 1000).toFixed(0)}k total | $${((s.avgAcv || 0) / 1000).toFixed(0)}k avg\n`;
+      }
     } else if (context.intent === 'PIPELINE_OVERVIEW') {
-      // Pipeline overview with stage breakdown
       prompt += `• Total: ${meta.totalDeals || recs.length} deals | $${((meta.totalAcv || 0) / 1000).toFixed(0)}k total ACV\n`;
       if (meta.byStage) {
         prompt += '\nBY STAGE:\n';
