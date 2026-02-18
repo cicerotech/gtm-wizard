@@ -2829,7 +2829,8 @@ async function openMeetingPrep(meetingId) {
         // Build the GTM Brain query — it handles both accountId and accountName-based lookup
         const queryPayload = {
           query: 'prep me for my upcoming meeting with ' + accountName,
-          accountName: accountName
+          accountName: accountName,
+          userEmail: document.cookie.replace(/(?:(?:^|.*;\s*)userEmail\s*=\s*([^;]*).*$)|^.*$/, '$1') || ''
         };
         if (accountId) queryPayload.accountId = accountId;
         

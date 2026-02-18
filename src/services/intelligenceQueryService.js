@@ -857,7 +857,18 @@ async function findAccountByName(accountName) {
   if (!accountName || accountName.trim().length === 0) return null;
   
   try {
-    const cleanName = accountName.trim();
+    let cleanName = accountName.trim();
+    
+    // Pre-process: split concatenated names (Chsinc -> Chs inc, Libertymutual -> Liberty mutual)
+    // Detect camelCase or concatenated words and insert spaces
+    const splitName = cleanName
+      .replace(/([a-z])([A-Z])/g, '$1 $2')           // camelCase: "LibertyMutual" -> "Liberty Mutual"
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');    // "CHSInc" -> "CHS Inc"
+    if (splitName !== cleanName && splitName.includes(' ')) {
+      logger.info(`[Intelligence] Pre-processed name: "${cleanName}" -> "${splitName}"`);
+      cleanName = splitName;
+    }
+    
     const safeName = cleanName.replace(/'/g, "\\'");
     
     // Strategy 1: Exact match
@@ -913,7 +924,21 @@ async function findAccountByName(accountName) {
       }
     }
     
-    logger.warn(`[Intelligence] No account found after 4 strategies for: "${accountName}"`);
+    // Strategy 5: Try original (pre-split) name if splitting changed it
+    if (splitName !== accountName.trim()) {
+      const safeOriginal = accountName.trim().replace(/'/g, "\\'");
+      result = await sfQuery(`
+        SELECT Id, Name, Owner.Name, Owner.Email, Customer_Type__c, Industry
+        FROM Account WHERE Name LIKE '%${safeOriginal}%'
+        ORDER BY LastActivityDate DESC NULLS LAST LIMIT 1
+      `, true);
+      if (result?.records?.[0]) {
+        logger.info(`[Intelligence] Account found (original unsplit): ${result.records[0].Name}`);
+        return result.records[0];
+      }
+    }
+    
+    logger.warn(`[Intelligence] No account found after 5 strategies for: "${accountName}"`);
     return null;
   } catch (error) {
     logger.error('[Intelligence] Account lookup error:', error.message);

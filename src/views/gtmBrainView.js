@@ -135,21 +135,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 }
 .gtm-msg-ai .gtm-brain-header {
   font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
-  margin: 18px 0 2px; padding-top: 14px;
-  border-top: 1px solid #f0f1f3; color: #374151;
+  margin: 20px 0 4px; padding-top: 14px;
+  border-top: 1px solid #eef0f4; color: #374151;
 }
 .gtm-msg-ai .gtm-brain-header:first-child { margin-top: 0; padding-top: 0; border-top: none; }
-.gtm-msg-ai .gtm-brain-list { margin: 2px 0 4px 16px; padding: 0; list-style: disc; }
-.gtm-msg-ai .gtm-brain-list li { margin: 0; padding: 1px 0; line-height: 1.5; font-size: 0.9rem; }
+.gtm-msg-ai .gtm-brain-list { margin: 3px 0 6px 18px; padding: 0; list-style: disc; }
+.gtm-msg-ai .gtm-brain-list li { margin: 0; padding: 2px 0; line-height: 1.55; font-size: 0.875rem; }
 .gtm-msg-ai .gtm-brain-list li strong { color: #111827; }
-.gtm-msg-ai .gtm-brain-header + .gtm-brain-list { margin-top: 2px; }
-.gtm-msg-ai .gtm-brain-header + p { margin-top: 2px; }
-.gtm-msg-ai p + .gtm-brain-list { margin-top: 2px; }
-.gtm-msg-ai .gtm-brain-list + p { margin-top: 8px; }
-.gtm-msg-ai .gtm-brain-list + .gtm-brain-header { margin-top: 18px; }
-.gtm-msg-ai .gtm-brain-todo { list-style: none; margin-left: -16px; }
-.gtm-msg-ai .gtm-brain-done { list-style: none; margin-left: -16px; text-decoration: line-through; color: #6b7280; }
-.gtm-msg-ai p { margin: 4px 0; font-size: 0.9rem; line-height: 1.6; }
+.gtm-msg-ai .gtm-brain-header + .gtm-brain-list { margin-top: 3px; }
+.gtm-msg-ai .gtm-brain-header + p { margin-top: 3px; }
+.gtm-msg-ai p + .gtm-brain-header { margin-top: 20px; }
+.gtm-msg-ai p + .gtm-brain-list { margin-top: 3px; }
+.gtm-msg-ai .gtm-brain-list + p { margin-top: 10px; }
+.gtm-msg-ai .gtm-brain-list + .gtm-brain-header { margin-top: 20px; }
+.gtm-msg-ai .gtm-brain-todo { list-style: none; margin-left: -18px; }
+.gtm-msg-ai .gtm-brain-done { list-style: none; margin-left: -18px; text-decoration: line-through; color: #6b7280; }
+.gtm-msg-ai p { margin: 4px 0; font-size: 0.875rem; line-height: 1.6; }
 .gtm-msg-ai p:first-child { margin-top: 0; }
 .gtm-msg-ai p:last-child { margin-bottom: 0; }
 .gtm-msg-context { font-size: 0.7rem; color: #9ca3af; margin-top: 8px; }
