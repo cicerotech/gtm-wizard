@@ -444,6 +444,8 @@ export interface ProcessedSections {
   // Core sections
   summary: string;
   attendees: string;
+  discussionContext: string;
+  keyQuotes: string;
   
   // Sales intelligence
   meddiccSignals: string;
@@ -460,6 +462,9 @@ export interface ProcessedSections {
   dealSignals: string;
   risksObjections: string;
   competitiveIntel: string;
+
+  // Follow-up
+  emailDraft: string;
 }
 
 /**
@@ -933,9 +938,14 @@ export class TranscriptionService {
     const headerMap: Record<string, keyof ProcessedSections> = {
       'summary': 'summary',
       'attendees': 'attendees',
+      'key stakeholders': 'attendees',
+      'discussion context': 'discussionContext',
+      'key quotes': 'keyQuotes',
+      'quotable moments': 'keyQuotes',
       'meddicc signals': 'meddiccSignals',
       'product interest': 'productInterest',
       'pain points': 'painPoints',
+      'customer feedback': 'painPoints',
       'buying triggers': 'buyingTriggers',
       'key dates': 'keyDates',
       'next steps': 'nextSteps',
@@ -944,7 +954,9 @@ export class TranscriptionService {
       'deal signals': 'dealSignals',
       'risks & objections': 'risksObjections',
       'risks and objections': 'risksObjections',
-      'competitive intelligence': 'competitiveIntel'
+      'competitive intelligence': 'competitiveIntel',
+      'draft follow-up email': 'emailDraft',
+      'follow-up email': 'emailDraft'
     };
 
     const sectionRegex = /## ([^\n]+)\n([\s\S]*?)(?=## |$)/g;
@@ -1074,6 +1086,8 @@ export class TranscriptionService {
     return {
       summary: '',
       attendees: '',
+      discussionContext: '',
+      keyQuotes: '',
       meddiccSignals: '',
       productInterest: '',
       painPoints: '',
@@ -1083,7 +1097,8 @@ export class TranscriptionService {
       actionItems: '',
       dealSignals: '',
       risksObjections: '',
-      competitiveIntel: ''
+      competitiveIntel: '',
+      emailDraft: ''
     };
   }
 

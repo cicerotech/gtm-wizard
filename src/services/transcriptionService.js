@@ -198,11 +198,32 @@ Company: Eudia, eudia.ai, Cicero Technology.`;
   return fullPrompt;
 }
 
-// Template sections configuration (matching Scribe template)
 const TEMPLATE_SECTIONS = [
   {
     header: 'Summary',
     instructions: `Generate 3-5 bullet points summarizing the meeting. Focus on: customer needs/pain points, timeline or urgency, key decisions made, and overall sentiment. Be specific but concise.`
+  },
+  {
+    header: 'Discussion Context',
+    instructions: `Capture the broader conversation context that doesn't fit into structured sales sections. Include:
+- Background the prospect shared about their organization, team, or industry
+- Their current legal tech stack or workflow (tools, processes, team structure)
+- Any business events mentioned (M&A activity, leadership changes, org restructuring, growth plans)
+- Relationship context (how they heard about Eudia, who referred them, prior interactions)
+- General topics discussed that provide useful account context
+This section is a catch-all — anything substantive that was discussed but doesn't belong in MEDDICC, Product Interest, or other structured sections goes here. Never discard information because it doesn't fit a template.`
+  },
+  {
+    header: 'Key Quotes',
+    instructions: `Extract direct, verbatim quotes from the prospect/customer that are useful for deal execution, internal alignment, or relationship building. Focus on:
+- Statements about their pain points or frustrations (e.g., "We're spending 40 hours a week on contract review")
+- Reactions to our product or demo (e.g., "This is exactly what our GC has been asking for")
+- Evaluation criteria or decision factors (e.g., "Security and SOC 2 are non-negotiable for us")
+- Timeline or urgency signals (e.g., "We need something in place before the Q3 board meeting")
+- Budget or authority signals (e.g., "I'll need to run this by our CFO")
+- Competitive references (e.g., "We looked at Ironclad but it didn't handle M&A")
+Format each as: > "[exact quote]" — **Speaker Name**
+If no notable quotes, write 'No significant quotes captured'.`
   },
   {
     header: 'Key Stakeholders',
@@ -658,22 +679,25 @@ Format:
 **Subject:** [subject line]
 
 [email body]`
-            : `Based on this sales meeting summary, draft a follow-up email from the Eudia representative to the senior legal executive they met with.
+            : `Based on this sales meeting summary, draft a follow-up email from the Eudia Business Lead to the person(s) they met with.
 
-Context: Eudia sells AI-powered legal technology to General Counsels, CLOs, and heads of litigation at large enterprises. The buyers are sophisticated, time-constrained executives. The email should reflect executive-level communication.
+Context: Eudia sells AI-powered legal technology (AI Contracting, AI Compliance, AI M&A, Sigma) to legal teams at large enterprises. The Eudia Business Lead is a consultative sales professional who builds trusted relationships with legal leaders — GCs, CLOs, VP Legal, Legal Ops Directors, and their teams.
+
+The email recipient may be any level: a C-suite executive, a VP, a director, a senior counsel, or a legal operations manager. Match the tone to the seniority and context of the conversation. If the meeting was with a GC, be direct and concise. If it was with Legal Ops, be more detail-oriented.
 
 Rules:
-- Subject line: 5-8 words, references the specific topic discussed (not generic)
-- Opening: 1 sentence, brief acknowledgment of the conversation. No "thank you so much for your valuable time" -- keep it direct
-- Body: Reference 2-3 specific points from the discussion. Use the exact topics, pain points, or use cases they raised. This is a recap of what was discussed, not a pitch
-- Next steps: List the agreed actions with who owns each and when
-- Closing: 1 sentence, clear on what happens next. No filler
-- Tone: peer-to-peer, direct, respectful of their seniority. Write as a trusted advisor, not a salesperson
-- Length: 100-200 words maximum. Executives don't read long emails
-- NEVER use: "excited", "thrilled", "amazing", "incredible", "game-changing", "synergy", "circle back", "touch base"
-- NEVER include internal-only context (MEDDICC, deal signals, pipeline stage, competitive analysis)
+- Subject line: 5-8 words, references the specific topic discussed (not generic like "Great catching up")
+- Opening: 1-2 sentences acknowledging the conversation. Reference what was specifically discussed, not a generic thanks
+- Body: Reference 2-3 specific discussion points using their exact words, pain points, or use cases. This recaps what was said, not a pitch
+- Next steps: List agreed actions with owners and dates. Be specific — "I'll send the security questionnaire by Thursday" not "We'll follow up soon"
+- Closing: 1 sentence, forward-looking, with a clear next touchpoint
+- Tone: consultative peer. You're a trusted advisor who understands their world, not a transactional salesperson
+- Length: 100-200 words. Respect their time
+- NEVER use: "excited", "thrilled", "amazing", "incredible", "game-changing", "synergy", "circle back", "touch base", "hope this email finds you well"
+- NEVER include internal-only context (MEDDICC signals, deal stage, competitive analysis, forecast data)
 - DO use their name, their company name, the specific products or use cases discussed
-- If a demo or follow-up meeting was discussed, propose a specific date/time
+- If a demo, POC, or follow-up meeting was discussed, propose a specific date/time
+- If there were multiple attendees, address the primary contact by name and acknowledge the others
 
 Format:
 **Subject:** [subject line]
@@ -1036,12 +1060,11 @@ Format:
     if (userGroup === 'cs') {
       return this.buildCSSystemPrompt(contextStr);
     }
-    return `You are a sales intelligence analyst processing meeting transcripts for Eudia, a legal AI company. Your job is to extract structured insights optimized for:
-1. Salesforce data entry (Account, Opportunity, Contact)
-2. Deal progression signals (MEDDICC methodology)
-3. Action item tracking
+    return `You are a sales intelligence analyst processing meeting transcripts for Eudia, a legal AI company. Your job is to extract comprehensive, structured insights from sales conversations.
 
-The user is a Business Lead whose time is valuable. Be specific, not generic. When uncertain, say so—never fabricate details.
+The user is a Business Lead (BL) whose time is valuable. Be specific, not generic. When uncertain, say so — never fabricate details.
+
+Eudia sells AI-powered legal technology (AI Contracting, AI Compliance, AI M&A, Sigma, Insights, Litigation) to General Counsels, CLOs, VP Legal, and Legal Ops leaders at large enterprises.
 
 ${contextStr ? `CONTEXT:\n${contextStr}\n` : ''}
 
@@ -1049,11 +1072,13 @@ You will analyze the transcript and provide output in EXACTLY the following form
 
 ${TEMPLATE_SECTIONS.map(s => `## ${s.header}\n${s.instructions}`).join('\n\n')}
 
-IMPORTANT:
+CRITICAL RULES:
 - Use the exact section headers shown above
-- Be concise but specific
-- Quote relevant parts of the transcript when helpful
-- If a section has no relevant content, say so explicitly
+- Be specific — use names, dates, numbers, and product names from the conversation
+- Use direct quotes with attribution whenever the prospect says something notable
+- The Discussion Context section is a catch-all: if the conversation covers topics that do not fit into MEDDICC, Product Interest, or other structured sections, capture them there. NEVER discard information simply because it doesn't match a template section
+- Key Quotes are essential — capture verbatim statements that reveal pain, intent, criteria, or sentiment
+- If a section has no relevant content from the conversation, write a brief note like "Not discussed" — do not omit the section entirely
 - Format action items and next steps as checkboxes: - [ ] Item`;
   }
 
@@ -1143,6 +1168,8 @@ IMPORTANT:
     const sections = {
       summary: '',
       keyStakeholders: '',
+      discussionContext: '',
+      keyQuotes: '',
       meddiccSignals: '',
       productInterest: '',
       keyDates: '',
@@ -1158,6 +1185,9 @@ IMPORTANT:
     const headerMap = {
       'summary': 'summary',
       'key stakeholders': 'keyStakeholders',
+      'discussion context': 'discussionContext',
+      'key quotes': 'keyQuotes',
+      'quotable moments': 'keyQuotes',
       'meddicc signals': 'meddiccSignals',
       'product interest': 'productInterest',
       'key dates': 'keyDates',
@@ -1170,8 +1200,7 @@ IMPORTANT:
       'follow-up email': 'emailDraft',
       'attendees': 'attendees',
       'pain points': 'painPoints',
-      'customer feedback': 'painPoints',
-      'quotable moments': 'dealSignals'
+      'customer feedback': 'painPoints'
     };
 
     const sectionRegex = /## ([^\n]+)\n([\s\S]*?)(?=## |$)/g;

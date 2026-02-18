@@ -5494,12 +5494,21 @@ last_updated: ${dateStr}
 
       await this.audioRecorder.start(recordingOptions);
 
-      if (captureMode === 'full_call' && !this.audioRecorder.getState().isRecording) {
-        // Should not reach here, but guard anyway
-      } else if (captureMode === 'full_call') {
-        new Notice('Recording (Full Call mode) — use laptop speakers so the mic captures both sides of the call.', 8000);
-      } else {
-        new Notice('Recording (Mic Only mode)', 3000);
+      if (captureMode === 'full_call' && this.audioRecorder.getState().isRecording) {
+        const hasVD = !!this.settings.audioSystemDeviceId;
+        if (hasVD) {
+          new Notice('Recording (Full Call + Virtual Device) — both sides captured via audio loopback.', 5000);
+        } else {
+          new Notice(
+            'Recording (Full Call mode)\n\n' +
+            'IMPORTANT: Use laptop speakers, NOT headphones.\n' +
+            'Headphones prevent the mic from hearing the other person.\n\n' +
+            'For headphone support, install BlackHole (Settings > Audio Capture).',
+            12000
+          );
+        }
+      } else if (captureMode === 'mic_only') {
+        new Notice('Recording (Mic Only — your voice only)', 3000);
       }
       this.recordingStatusBar.show();
       
@@ -6203,16 +6212,20 @@ ${transcript}
     };
 
     // Normalize all sections to strings
-    const title = ensureString(sections.title) || 'Meeting Notes';
+    const title = ensureString((sections as any).title) || 'Meeting Notes';
     const summary = ensureString(sections.summary);
+    const discussionContext = ensureString(sections.discussionContext);
+    const keyQuotes = ensureString(sections.keyQuotes);
     const painPoints = ensureString(sections.painPoints);
     const productInterest = ensureString(sections.productInterest);
     const meddiccSignals = ensureString(sections.meddiccSignals);
     const nextSteps = ensureString(sections.nextSteps);
     const actionItems = ensureString(sections.actionItems);
     const keyDates = ensureString(sections.keyDates);
+    const dealSignals = ensureString(sections.dealSignals);
     const risksObjections = ensureString(sections.risksObjections);
-    const attendees = ensureString(sections.attendees);
+    const attendees = ensureString(sections.attendees || (sections as any).keyStakeholders);
+    const emailDraft = ensureString(sections.emailDraft);
 
     let content = `---
 title: "${title}"
@@ -6232,8 +6245,25 @@ ${summary || '*AI summary will appear here*'}
 
 `;
 
-    // Key points / pain points section
-    if (painPoints && !painPoints.includes('None explicitly')) {
+    // Discussion Context — broader conversation topics, background, relationship context
+    if (discussionContext && !discussionContext.includes('Not discussed')) {
+      content += `## Discussion Context
+
+${discussionContext}
+
+`;
+    }
+
+    // Key Quotes — verbatim prospect statements
+    if (keyQuotes && !keyQuotes.includes('No significant quotes') && !keyQuotes.includes('Not discussed')) {
+      content += `## Key Quotes
+
+${keyQuotes}
+
+`;
+    }
+
+    if (painPoints && !painPoints.includes('None explicitly') && !painPoints.includes('Not discussed')) {
       content += `## Pain Points
 
 ${painPoints}
@@ -6241,8 +6271,7 @@ ${painPoints}
 `;
     }
 
-    // Product interest
-    if (productInterest && !productInterest.includes('None identified')) {
+    if (productInterest && !productInterest.includes('None identified') && !productInterest.includes('No specific products')) {
       content += `## Product Interest
 
 ${productInterest}
@@ -6250,7 +6279,6 @@ ${productInterest}
 `;
     }
 
-    // MEDDICC signals (string format)
     if (meddiccSignals) {
       content += `## MEDDICC Signals
 
@@ -6259,7 +6287,6 @@ ${meddiccSignals}
 `;
     }
 
-    // Next steps (string format, already has checkboxes from AI)
     if (nextSteps) {
       content += `## Next Steps
 
@@ -6268,7 +6295,6 @@ ${nextSteps}
 `;
     }
 
-    // Action items
     if (actionItems) {
       content += `## Action Items
 
@@ -6277,8 +6303,7 @@ ${actionItems}
 `;
     }
 
-    // Key dates
-    if (keyDates && !keyDates.includes('No specific dates')) {
+    if (keyDates && !keyDates.includes('No specific dates') && !keyDates.includes('Not discussed')) {
       content += `## Key Dates
 
 ${keyDates}
@@ -6286,8 +6311,15 @@ ${keyDates}
 `;
     }
 
-    // Risks and objections
-    if (risksObjections && !risksObjections.includes('None raised')) {
+    if (dealSignals && !dealSignals.includes('No significant deal signals') && !dealSignals.includes('Not discussed')) {
+      content += `## Deal Signals
+
+${dealSignals}
+
+`;
+    }
+
+    if (risksObjections && !risksObjections.includes('None raised') && !risksObjections.includes('No objections') && !risksObjections.includes('Not discussed')) {
       content += `## Risks and Objections
 
 ${risksObjections}
@@ -6295,7 +6327,6 @@ ${risksObjections}
 `;
     }
 
-    // Attendees
     if (attendees) {
       content += `## Attendees
 
@@ -6304,8 +6335,6 @@ ${attendees}
 `;
     }
 
-    // Draft follow-up email
-    const emailDraft = ensureString((sections as any).emailDraft);
     if (emailDraft) {
       content += `---
 
@@ -6318,10 +6347,12 @@ ${emailDraft}
 `;
     }
 
-    // Full transcript — prefer speaker-labeled diarized version when available
-    if (this.settings.appendTranscript && (transcription.diarizedTranscript || transcription.text)) {
-      const transcriptBody = transcription.diarizedTranscript || transcription.text;
-      const label = transcription.diarizedTranscript ? 'Full Transcript (Speaker-Labeled)' : 'Full Transcript';
+    // Full transcript — defensive: check both .text and .transcript field names
+    const rawTranscript = (transcription as any).text || (transcription as any).transcript || '';
+    const diarized = (transcription as any).diarizedTranscript || '';
+    if (this.settings.appendTranscript && (diarized || rawTranscript)) {
+      const transcriptBody = diarized || rawTranscript;
+      const label = diarized ? 'Full Transcript (Speaker-Labeled)' : 'Full Transcript';
       content += `---
 
 ## ${label}
