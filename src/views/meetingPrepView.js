@@ -1638,7 +1638,6 @@ textarea.input-field {
             <div class="empty-day">No meetings</div>
           ` : (grouped[day.fullDate] || []).map(meeting => `
             <div class="meeting-card ${meeting.agenda?.some(a => a?.trim()) ? 'has-prep' : ''}" 
-                 onclick="openMeetingPrep('${String(meeting.meeting_id || meeting.meetingId).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')"
                  data-meeting-id="${escapeAttr(meeting.meeting_id || meeting.meetingId)}">
               <div class="meeting-account">${escapeAttr(meeting.account_name || meeting.accountName || 'Unknown')}</div>
               <div class="meeting-title">${escapeAttr(meeting.meeting_title || meeting.meetingTitle || 'Untitled')}</div>
@@ -1962,7 +1961,7 @@ function hydrateFromAPI() {
               }
               
               return '<div class="meeting-card' + (hasPrep ? ' has-prep' : '') + '" ' +
-                'onclick="openMeetingPrep(\\'' + String(id).replace(/\\/g, '\\\\').replace(/'/g, "\\\\'") + '\\')" data-meeting-id="' + escapeHtml(id) + '">' +
+                'data-meeting-id="' + escapeHtml(id) + '">' +
                 '<div class="meeting-account">' + escapeHtml(account) + '</div>' +
                 '<div class="meeting-title">' + escapeHtml(title) + '</div>' +
                 '<div class="meeting-time">' + formatTime(date) + ' <span class="meeting-source ' + source + '">' + source + '</span></div>' +
