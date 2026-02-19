@@ -53,3 +53,14 @@
 :host {
     display: block;
 }
+
+/* Info Request Modal */
+.info-request-modal {
+    max-width: 480px;
+}
+
+.info-label {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    color: #181818;
+}

@@ -3118,6 +3118,10 @@ class GTMBrainApp {
         csStaffingAlerts: {
           enabled: process.env.CS_STAFFING_ALERTS_ENABLED === 'true',
           channel: process.env.CS_STAFFING_ALERT_CHANNEL || 'NOT SET'
+        },
+        infoRequestAlerts: {
+          enabled: true,
+          admin: process.env.INFO_REQUEST_ADMIN || 'U094AQE9V7D'
         }
       });
     });
@@ -8423,6 +8427,15 @@ SENTIMENT: [Positive/Neutral/Negative]`
         const { subscribeToCSStaffingEvents } = require('./services/csStaffingAlerts');
         await subscribeToCSStaffingEvents(this.app);
         logger.info('👥 CS Staffing alerts subscription started');
+      }
+
+      // Subscribe to Info Request Platform Events (Account page info button)
+      try {
+        const { subscribeToInfoRequestEvents } = require('./services/infoRequestAlerts');
+        await subscribeToInfoRequestEvents(this.app);
+        logger.info('Info Request alerts subscription started');
+      } catch (infoReqErr) {
+        logger.warn('Info Request subscription failed (non-critical):', infoReqErr.message);
       }
 
       // Initialize Channel Intelligence Scraper

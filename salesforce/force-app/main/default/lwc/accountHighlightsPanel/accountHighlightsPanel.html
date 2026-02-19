@@ -41,8 +41,53 @@
                         label="Edit" 
                         onclick={handleEdit}>
                     </lightning-button>
+                    <lightning-button-icon
+                        icon-name="utility:info"
+                        alternative-text="Request Info"
+                        title="Request Info"
+                        onclick={handleInfoRequest}>
+                    </lightning-button-icon>
                 </lightning-button-group>
             </div>
         </div>
+    </template>
+
+    <!-- Info Request Modal -->
+    <template if:true={showInfoRequestModal}>
+        <section class="slds-modal slds-fade-in-open" aria-modal="true" role="dialog" aria-label="Request Account Information">
+            <div class="slds-modal__container info-request-modal">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" title="Close" onclick={handleInfoRequestCancel}>
+                        <lightning-icon icon-name="utility:close" alternative-text="Close" size="small"></lightning-icon>
+                    </button>
+                    <h2 class="slds-modal__title">Request Account Information</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <div class="slds-form-element slds-m-bottom_medium">
+                        <label class="slds-form-element__label info-label">What do you need?</label>
+                        <lightning-checkbox-group
+                            name="requestTypes"
+                            options={requestTypeOptions}
+                            value={infoRequestTypes}
+                            onchange={handleRequestTypeChange}>
+                        </lightning-checkbox-group>
+                    </div>
+                    <div class="slds-form-element">
+                        <lightning-textarea
+                            label="Additional Detail (optional)"
+                            value={infoRequestDetail}
+                            onchange={handleRequestDetailChange}
+                            placeholder="e.g., Need updated CLO info, recent org changes..."
+                            max-length="1000">
+                        </lightning-textarea>
+                    </div>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleInfoRequestCancel} class="slds-m-right_x-small"></lightning-button>
+                    <lightning-button label="Submit Request" variant="brand" onclick={handleInfoRequestSubmit} disabled={submitDisabled}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
     </template>
 </template>
