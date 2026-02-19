@@ -70,26 +70,41 @@ class CacheManager {
   }
 
   async get(key) {
-    // Use in-memory cache if Redis not connected
+    // L1: In-memory cache (fastest)
     if (!this.isConnected) {
       const cached = this.memoryCache.get(key);
       if (cached) {
-        // Check if TTL has expired (use stored TTL, not hardcoded)
         const elapsed = Date.now() - cached.timestamp;
         const ttlMs = (cached.ttlSeconds || 60) * 1000;
         
         if (elapsed < ttlMs) {
           this.memoryCacheStats.hits++;
-          logger.info(`📦 Memory cache HIT: ${key} (expires in ${Math.round((ttlMs - elapsed) / 1000)}s)`);
           return cached.value;
         } else {
-          // Expired - delete it
           this.memoryCache.delete(key);
-          logger.info(`📦 Memory cache EXPIRED: ${key}`);
         }
       }
+
+      // L2: PostgreSQL cache (survives restarts)
+      try {
+        const db = require('../db/connection');
+        if (db.isAvailable()) {
+          const pgResult = await db.query(
+            'SELECT cache_value FROM cache_entries WHERE cache_key = $1 AND expires_at > NOW() LIMIT 1',
+            [key]
+          );
+          if (pgResult.rows.length > 0) {
+            const pgValue = pgResult.rows[0].cache_value;
+            this.memoryCache.set(key, { value: pgValue, timestamp: Date.now(), ttlSeconds: 300 });
+            this.memoryCacheStats.hits++;
+            return pgValue;
+          }
+        }
+      } catch (pgErr) {
+        // Non-blocking — fall through to miss
+      }
+
       this.memoryCacheStats.misses++;
-      logger.info(`📦 Memory cache MISS: ${key}`);
       return null;
     }
 
@@ -104,19 +119,38 @@ class CacheManager {
   }
 
   async set(key, value, ttlSeconds = 3600) {
-    // Use in-memory cache if Redis not connected
+    // L1: In-memory cache
     if (!this.isConnected) {
       this.memoryCache.set(key, {
         value,
         timestamp: Date.now(),
-        ttlSeconds: ttlSeconds  // Store TTL so get() can check expiry correctly
+        ttlSeconds: ttlSeconds
       });
-      logger.info(`📦 Memory cache SET: ${key} (TTL: ${ttlSeconds}s)`);
-      // Limit memory cache size to prevent memory leaks
       if (this.memoryCache.size > 100) {
         const firstKey = this.memoryCache.keys().next().value;
         this.memoryCache.delete(firstKey);
       }
+
+      // L2: Persist to PostgreSQL (non-blocking)
+      try {
+        const db = require('../db/connection');
+        if (db.isAvailable()) {
+          const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
+          db.query(
+            `INSERT INTO cache_entries (cache_key, cache_value, expires_at) VALUES ($1, $2, $3)
+             ON CONFLICT (cache_key) DO UPDATE SET cache_value = $2, expires_at = $3, created_at = NOW()`,
+            [key, JSON.stringify(value), expiresAt]
+          ).then(() => {
+            // Periodic cleanup: remove expired entries (1 in 20 chance per set)
+            if (Math.random() < 0.05) {
+              db.query('DELETE FROM cache_entries WHERE expires_at < NOW()').catch(() => {});
+            }
+          }).catch(() => {});
+        }
+      } catch (pgErr) {
+        // Non-blocking
+      }
+
       return true;
     }
 

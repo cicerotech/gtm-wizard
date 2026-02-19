@@ -8,6 +8,7 @@ const { Client } = require('@microsoft/microsoft-graph-client');
 const { ClientSecretCredential } = require('@azure/identity');
 require('isomorphic-fetch');
 const logger = require('../utils/logger');
+const calendarRepo = require('../db/repositories/calendarRepository');
 
 // ============================================================
 // CALENDAR CACHE - Prevents repeated API calls on page loads
@@ -504,11 +505,33 @@ class CalendarService {
    * @returns {Array} All meetings across all BLs
    */
   async getUpcomingMeetingsForAllBLs(daysAhead = 7, forceRefresh = false) {
-    // CHECK CACHE FIRST - prevents repeated Graph API calls on every page load
+    // L1: CHECK MEMORY CACHE - prevents repeated Graph API calls on every page load
     if (!forceRefresh && isCalendarCacheValid()) {
       const cached = getCalendarCache();
-      logger.info(`📦 Returning cached calendar data (${cached.meetings.length} meetings)`);
+      logger.info(`[Calendar] L1 memory cache HIT (${cached.meetings.length} meetings)`);
       return cached;
+    }
+
+    // L2: CHECK POSTGRES CACHE - survives Render restarts, eliminates cold-start problem
+    if (!forceRefresh) {
+      try {
+        const db = require('../db/connection');
+        if (db.isAvailable()) {
+          const pgResult = await db.query(
+            `SELECT cache_value FROM cache_entries WHERE cache_key = 'calendar_all_bls' AND expires_at > NOW() LIMIT 1`
+          );
+          if (pgResult.rows.length > 0) {
+            const pgData = pgResult.rows[0].cache_value;
+            if (pgData?.meetings?.length > 0) {
+              setCalendarCache(pgData);
+              logger.info(`[Calendar] L2 Postgres cache HIT (${pgData.meetings.length} meetings) — cold start eliminated`);
+              return pgData;
+            }
+          }
+        }
+      } catch (pgErr) {
+        logger.debug('[Calendar] L2 Postgres cache check failed (non-blocking):', pgErr.message);
+      }
     }
 
     // Prevent concurrent fetches (multiple page loads at once)
@@ -601,8 +624,23 @@ class CalendarService {
         }
       };
 
-      // Cache the result (even if some calendars failed - we have partial data)
+      // L1: Cache in memory
       setCalendarCache(result);
+
+      // L2: Persist to Postgres (fire-and-forget, non-blocking)
+      try {
+        const db = require('../db/connection');
+        if (db.isAvailable() && result.meetings.length > 0) {
+          const expiresAt = new Date(Date.now() + CALENDAR_CACHE.TTL_MS).toISOString();
+          db.query(
+            `INSERT INTO cache_entries (cache_key, cache_value, expires_at) VALUES ($1, $2, $3)
+             ON CONFLICT (cache_key) DO UPDATE SET cache_value = $2, expires_at = $3, created_at = NOW()`,
+            ['calendar_all_bls', JSON.stringify(result), expiresAt]
+          ).catch(e => logger.debug('[Calendar] L2 Postgres write failed (non-blocking):', e.message));
+        }
+      } catch (pgErr) {
+        logger.debug('[Calendar] L2 Postgres write error (non-blocking):', pgErr.message);
+      }
 
       return result;
       

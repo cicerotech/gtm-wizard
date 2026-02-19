@@ -12,6 +12,7 @@ const logger = require('../utils/logger');
 const slackIntelCache = require('./slackIntelCache');
 const meetingPrepFileStore = require('./meetingPrepFileStore');
 const enrichmentFileStore = require('./enrichmentFileStore');
+const meetingPrepRepo = require('../db/repositories/meetingPrepRepository');
 
 // Feature flags for Zero Render Storage
 const USE_FILE_MEETING_PREP = process.env.USE_SQLITE_MEETING_PREP !== 'true';
@@ -862,9 +863,12 @@ async function recordBackfill(results) {
 
 /**
  * Save or update meeting prep (upsert by meeting_id)
- * ZERO RENDER STORAGE: Uses file store by default
+ * Primary: PostgreSQL. Fallback: file store.
  */
 async function saveMeetingPrep(data) {
+  // Write to Postgres (non-blocking, fire-and-forget alongside file store)
+  meetingPrepRepo.save(data).catch(e => logger.debug('[MeetingPrep] Postgres save failed (fallback to file):', e.message));
+
   if (USE_FILE_MEETING_PREP) {
     return meetingPrepFileStore.saveMeetingPrep(data);
   }
@@ -943,9 +947,15 @@ async function saveMeetingPrep(data) {
 
 /**
  * Get meeting prep by meeting ID
- * ZERO RENDER STORAGE: Uses file store by default
+ * Primary: PostgreSQL. Fallback: file store.
  */
 async function getMeetingPrep(meetingId) {
+  // Try Postgres first
+  try {
+    const pgResult = await meetingPrepRepo.getByMeetingId(meetingId);
+    if (pgResult) return pgResult;
+  } catch (e) { /* fall through to file store */ }
+
   if (USE_FILE_MEETING_PREP) {
     return meetingPrepFileStore.getMeetingPrep(meetingId);
   }
@@ -982,9 +992,15 @@ async function getMeetingPrep(meetingId) {
 
 /**
  * Get all meeting preps for an account (historical context)
- * ZERO RENDER STORAGE: Uses file store by default
+ * Primary: PostgreSQL. Fallback: file store.
  */
 async function getMeetingPrepsByAccount(accountId) {
+  // Try Postgres first
+  try {
+    const pgResults = await meetingPrepRepo.getByAccountId(accountId);
+    if (pgResults && pgResults.length > 0) return pgResults;
+  } catch (e) { /* fall through to file store */ }
+
   if (USE_FILE_MEETING_PREP) {
     return meetingPrepFileStore.getMeetingPrepsByAccount(accountId);
   }

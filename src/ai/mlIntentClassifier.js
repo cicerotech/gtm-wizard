@@ -43,8 +43,8 @@ const path = require('path');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 const { cache } = require('../utils/cache');
+const intentRepo = require('../db/repositories/intentRepository');
 
-// Learning data file path
 const LEARNING_DATA_PATH = path.join(__dirname, '../../data/intent-learning.json');
 const EMBEDDINGS_CACHE_PATH = path.join(__dirname, '../../data/query-embeddings.json');
 
@@ -211,6 +211,16 @@ class MLIntentClassifier {
       this.stats.lastSaved = new Date().toISOString();
     } catch (error) {
       logger.error('Failed to save learning data:', error.message);
+    }
+
+    // Persist to Postgres (non-blocking, fire-and-forget)
+    const queries = this.learningData.queries || {};
+    const recentKeys = Object.keys(queries).slice(-5);
+    for (const hash of recentKeys) {
+      const q = queries[hash];
+      if (q?.intent) {
+        intentRepo.recordQuery(hash, q.query || '', q.intent, q.confidence || 0, q.corrected ? 'feedback' : 'classification').catch(() => {});
+      }
     }
   }
 

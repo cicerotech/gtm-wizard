@@ -10,4 +10,5 @@ module.exports = {
   transcriptRepo: require('./transcriptRepository'),
   analyticsRepo: require('./analyticsRepository'),
   queryLogRepo: require('./queryLogRepository'),
+  meetingPrepRepo: require('./meetingPrepRepository'),
 };
