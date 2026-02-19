@@ -804,19 +804,19 @@ body {
   padding: 24px;
 }
 
-/* Context Section */
+/* Context Section — Account Intelligence */
 .context-section {
   background: #f9fafb;
   border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 24px;
+  padding: 14px 16px 12px;
+  margin-bottom: 20px;
 }
 
 .context-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .context-title {
@@ -835,13 +835,13 @@ body {
 }
 
 .context-content {
-  font-size: 0.75rem;
+  font-size: 0.76rem;
   color: #4b5563;
-  line-height: 1.6;
+  line-height: 1.4;
 }
 
 .context-item {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   padding-left: 12px;
   border-left: 2px solid #e5e7eb;
 }
@@ -849,6 +849,27 @@ body {
 .context-label {
   font-weight: 600;
   color: #374151;
+}
+
+.intel-edit-btn {
+  background: #8e99e1;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 0.68rem;
+  font-weight: 500;
+  cursor: pointer;
+  letter-spacing: 0.2px;
+}
+.intel-edit-btn:hover {
+  background: #7c88d4;
+}
+.intel-edit-btn.editing {
+  background: #10b981;
+}
+.intel-edit-btn.editing:hover {
+  background: #059669;
 }
 
 /* Form Sections */
@@ -2262,8 +2283,8 @@ async function openMeetingPrep(meetingId) {
     
     // Render form IMMEDIATELY with intelligence loading state
     var intelLoadingHtml = '<div class="context-section" id="accountIntelSection">';
-    intelLoadingHtml += '<div class="context-header"><span class="context-label">Account Intelligence</span><span class="context-badge">PRE-MEETING CONTEXT</span></div>';
-    intelLoadingHtml += '<div class="context-content"><div style="padding:16px;background:#f8f9fa;border-radius:6px;border:1px solid #e5e7eb;">';
+    intelLoadingHtml += '<div class="context-header"><span class="context-label">Account Intelligence</span></div>';
+    intelLoadingHtml += '<div class="context-content"><div style="padding:12px;background:#f8f9fa;border-radius:6px;border:1px solid #e5e7eb;">';
     intelLoadingHtml += '<div style="display:flex;align-items:center;gap:8px;">';
     intelLoadingHtml += '<div class="spinner" style="width:16px;height:16px;border-width:2px;"></div>';
     intelLoadingHtml += '<div style="font-size:0.8rem;color:#374151;">Loading account intelligence for ' + escapeHtml(accountName || 'this meeting') + '...</div>';
@@ -2422,58 +2443,55 @@ async function openMeetingPrep(meetingId) {
             }
           }
 
-          // Step 3: Build context HTML — wrapped in try-catch for safety
+          // Step 3: Build context HTML — structured briefing with editable summary
           try {
-            var metaHtml = '';
-            if (queryContext) {
-              var parts = [];
-              if (queryContext.accountType && queryContext.accountType !== 'unknown') {
-                var typeMap = { 'existing_customer': 'Existing Customer', 'active_pipeline': 'Active Pipeline', 'historical': 'Historical', 'cold': 'Net New' };
-                parts.push('<strong>' + (typeMap[queryContext.accountType] || queryContext.accountType) + '</strong>');
-              }
-              if (queryContext.owner && queryContext.owner !== 'Unassigned') {
-                parts.push(queryContext.owner);
-              }
-              if (queryContext.opportunityCount > 0) {
-                parts.push(queryContext.opportunityCount + ' open opp' + (queryContext.opportunityCount > 1 ? 's' : ''));
-              }
-              if (queryContext.contactCount > 0) {
-                parts.push(queryContext.contactCount + ' contacts');
-              }
-              if (parts.length > 0) {
-                metaHtml = '<div style="display:flex;gap:12px;flex-wrap:wrap;padding:6px 0;border-top:1px solid #f0f0f0;margin-top:8px;font-size:0.7rem;color:#6b7280;">';
-                metaHtml += parts.join(' &bull; ');
-                metaHtml += '</div>';
-              }
-            }
-
             if (gtmBrief && typeof gtmBrief === 'string') {
               try { gtmBrief = stripFollowUpSuggestions(gtmBrief); } catch (sfErr) { /* keep original */ }
             }
 
             if (gtmBrief && gtmBrief.length > 30) {
+              // Split the brief into editable summary (text before first ## header) and read-only structured sections
+              var summaryPart = gtmBrief;
+              var structuredPart = '';
+              var firstHeaderIdx = gtmBrief.indexOf('## ');
+              if (firstHeaderIdx > 0) {
+                summaryPart = gtmBrief.substring(0, firstHeaderIdx).trim();
+                structuredPart = gtmBrief.substring(firstHeaderIdx);
+              } else if (firstHeaderIdx === 0) {
+                summaryPart = '';
+                structuredPart = gtmBrief;
+              }
+
               contextHtml = '<div class="context-section">';
-              contextHtml += '<div class="context-header"><span class="context-label">Account Intelligence</span><span class="context-badge">PRE-MEETING CONTEXT</span>';
-              contextHtml += '<button class="edit-btn" onclick="toggleEditContext()">Edit</button></div>';
-              contextHtml += '<div class="context-content"><div class="intelligence-brief" id="contextBrief">';
-              try { contextHtml += renderMarkdownToHtml(gtmBrief); } catch (mdErr) { contextHtml += escapeHtml(gtmBrief); }
-              contextHtml += '</div></div>';
-              contextHtml += metaHtml;
+              contextHtml += '<div class="context-header"><span class="context-label">Account Intelligence</span>';
+              contextHtml += '<button class="intel-edit-btn" id="intelEditBtn" onclick="toggleIntelSummaryEdit()">Edit</button></div>';
+
+              // Editable executive summary
+              contextHtml += '<div id="intelSummaryRead" style="font-size:0.8rem;color:#374151;line-height:1.5;margin-bottom:8px;">';
+              if (summaryPart) {
+                try { contextHtml += renderMarkdownToHtml(summaryPart); } catch (mdErr) { contextHtml += escapeHtml(summaryPart); }
+              }
+              contextHtml += '</div>';
+              contextHtml += '<textarea id="intelSummaryEdit" style="display:none;width:100%;min-height:60px;padding:8px 10px;border:1px solid #8e99e1;border-radius:6px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:0.8rem;line-height:1.5;color:#374151;resize:vertical;outline:none;margin-bottom:8px;">' + (summaryPart || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</textarea>';
+
+              // Read-only structured sections
+              if (structuredPart) {
+                contextHtml += '<div class="context-content" style="border-top:1px solid #e5e7eb;padding-top:6px;">';
+                try { contextHtml += renderMarkdownToHtml(structuredPart); } catch (mdErr) { contextHtml += escapeHtml(structuredPart); }
+                contextHtml += '</div>';
+              }
               contextHtml += '</div>';
             } else {
               contextHtml = '<div class="context-section">';
-              contextHtml += '<div class="context-header"><span class="context-label">Account Intelligence</span><span class="context-badge">PRE-MEETING CONTEXT</span></div>';
-              contextHtml += '<div class="context-content"><div style="padding:12px;background:#f8f9fa;border-radius:6px;border:1px solid #e5e7eb;">';
+              contextHtml += '<div class="context-header"><span class="context-label">Account Intelligence</span></div>';
+              contextHtml += '<div class="context-content"><div style="padding:10px;background:#f8f9fa;border-radius:6px;border:1px solid #e5e7eb;">';
               if (accountName && accountName !== 'Unknown') {
-                contextHtml += '<div style="font-size:0.8rem;color:#374151;font-weight:500;">Meeting with ' + escapeHtml(accountName) + '</div>';
-                contextHtml += '<div style="font-size:0.75rem;color:#6b7280;margin-top:6px;">Account intelligence temporarily unavailable.</div>';
-                contextHtml += '<div style="font-size:0.7rem;color:#9ca3af;margin-top:4px;">Try the GTM Brain tab: "Tell me about ' + escapeHtml(accountName) + '"</div>';
+                contextHtml += '<div style="font-size:0.78rem;color:#374151;">No account intelligence available for <strong>' + escapeHtml(accountName) + '</strong>.</div>';
+                contextHtml += '<div style="font-size:0.7rem;color:#9ca3af;margin-top:4px;">Try the GTM Brain tab for details.</div>';
               } else {
                 contextHtml += '<div style="font-size:0.75rem;color:#6b7280;">No account matched for this meeting.</div>';
               }
-              contextHtml += '</div></div>';
-              contextHtml += metaHtml;
-              contextHtml += '</div>';
+              contextHtml += '</div></div></div>';
             }
           } catch (buildErr) {
             console.error('[MeetingPrep] Context HTML build error:', buildErr.message);
@@ -2633,6 +2651,32 @@ function renderGtmBriefCard(markdownText) {
   
   html += '</div>';
   return html;
+}
+
+// Toggle edit mode for the executive summary in Account Intelligence
+function toggleIntelSummaryEdit() {
+  var readView = document.getElementById('intelSummaryRead');
+  var editArea = document.getElementById('intelSummaryEdit');
+  var btn = document.getElementById('intelEditBtn');
+  if (!readView || !editArea || !btn) return;
+
+  if (editArea.style.display === 'none') {
+    readView.style.display = 'none';
+    editArea.style.display = 'block';
+    editArea.focus();
+    btn.textContent = 'Done';
+    btn.className = 'intel-edit-btn editing';
+  } else {
+    var editedText = editArea.value;
+    currentMeetingData._contextOverride = editedText;
+    var newRendered = '';
+    try { newRendered = renderMarkdownToHtml(editedText); } catch(e) { newRendered = escapeHtml(editedText); }
+    readView.innerHTML = newRendered;
+    readView.style.display = 'block';
+    editArea.style.display = 'none';
+    btn.textContent = 'Edit';
+    btn.className = 'intel-edit-btn';
+  }
 }
 
 // Toggle between read view and edit view for the context section

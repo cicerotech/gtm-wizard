@@ -334,11 +334,11 @@ function isGhostAttendee(attendee) {
 function renderMarkdownToHtml(markdownText) {
   return markdownText
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/^## (.+)$/gm, '<div style="font-size: 0.7rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; margin-top: 12px; margin-bottom: 4px;">$1</div>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong style="color: #1f2937;">$1</strong>')
-    .replace(/^[\-\u2022]\s+(.+)$/gm, '<div style="font-size: 0.78rem; color: #374151; padding-left: 12px; position: relative; margin-bottom: 2px; line-height: 1.45;"><span style="position: absolute; left: 0; color: #9ca3af;">\u2022</span>$1</div>')
-    .replace(/\n\n/g, '<div style="margin-top: 8px;"></div>')
-    .replace(/\n/g, '<br>');
+    .replace(/^## (.+)$/gm, '<div style="font-size:0.65rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-top:10px;margin-bottom:2px;">$1</div>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#1f2937;">$1</strong>')
+    .replace(/^[\-\u2022]\s+(.+)$/gm, '<div style="font-size:0.76rem;color:#374151;padding-left:14px;position:relative;margin-bottom:1px;line-height:1.35;"><span style="position:absolute;left:2px;color:#9ca3af;">\u2022</span>$1</div>')
+    .replace(/\n\n/g, '<div style="margin-top:6px;"></div>')
+    .replace(/\n/g, '');
 }
 
 // ════════════════════════════════════════════════════════════

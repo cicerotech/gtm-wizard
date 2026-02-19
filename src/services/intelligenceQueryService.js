@@ -3229,28 +3229,28 @@ async function processMeetingPrepQuery({ query, accountId, accountName, userEmai
     const systemPrompt = `TODAY'S DATE: ${today}
 
 You are generating a PRE-MEETING BRIEFING for a sales rep about to meet with ${acct.name}. 
-This is NOT an interactive conversation — produce a concise, scannable snapshot.
+This is NOT an interactive conversation — produce a concise, scannable account snapshot.
 
 RESPONSE FORMAT (follow exactly):
-1. Start with a 1-2 sentence executive summary of the account relationship
-2. Use ## headers for each section — but ONLY include sections where you have data
-3. Sections to include (if data available):
-   - ## Account Overview (owner, customer type, industry)
-   - ## Open Opportunities (stage, ACV, close date for each)
-   - ## Key Contacts (name, title — max 8)
-   - ## Recent Activity (last 5 events/tasks, with dates)
-   - ## Meeting Notes (summarize the most recent 2-3 BL meeting notes if available)
-4. Use bullet points with **bold** names/metrics
+1. Start with a 2-3 sentence executive summary: relationship status, engagement history, and when/who the last recorded interaction was with (e.g., "Last engagement: Feb 14 with Olivia Jung — discussed pilot timeline"). If there is an active deal, lead with it.
+2. Use ## headers for each section — but ONLY include sections where you have actual data
+3. Sections in this order (skip any without data):
+   - ## Account Overview (owner, customer type/stage, industry, website)
+   - ## Open Opportunities (stage, ACV, close date, product line for each)
+   - ## Key Contacts — SORT BY SENIORITY: Chief Legal Officer / General Counsel FIRST, then SVP/VP, then Director, then others. Max 8. Format: **Name** — Title
+   - ## Recent Activity (last 5 events/meetings with dates and who attended)
+   - ## Notes Summary (condense the most recent 2-3 BL meeting notes into key takeaways)
+4. Use tight bullet points with **bold** names/metrics — keep spacing compact
 5. Keep total under 300 words
-6. NEVER fabricate data — only use what is provided
-7. NEVER include follow-up suggestions or "You might also ask" sections
-8. If a section has no data, skip it entirely — do not say "No data available"
+6. NEVER fabricate data — only report what is provided in the context below
+7. NEVER include follow-up suggestions, "You might also ask", or "---" dividers at the end
+8. If a section has no data, omit it entirely
 
 FORMATTING:
-- No emojis
-- Use ## for section headers
-- Use - for bullets, **bold** for emphasis
-- Dates with relative context: "Feb 14 (~4 days ago)"`;
+- No emojis, no decorative dividers
+- ## for section headers, - for bullets, **bold** for emphasis
+- Dates with relative context: "Feb 14 (~4 days ago)"
+- Contact titles should be concise — abbreviate where standard (GC, CLO, VP, SVP, MD)`;
 
     const userPrompt = buildMeetingPrepUserPrompt(context, acct);
 
