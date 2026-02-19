@@ -4674,8 +4674,13 @@ class GTMBrainApp {
           accountName,
           userEmail,
           forceRefresh,
-          sessionId
+          sessionId,
+          source
         } = req.body;
+
+        if (source === 'meeting_prep') {
+          logger.info(`[MeetingPrep:Route] Intelligence request for "${accountName}" (${accountId || 'no-id'})`);
+        }
 
         // Per-user rate limiting
         const rateLimitKey = userEmail || req.ip || 'anonymous';
@@ -4701,7 +4706,8 @@ class GTMBrainApp {
           accountName,
           userEmail,
           forceRefresh: !!forceRefresh,
-          sessionId: sessionId || undefined
+          sessionId: sessionId || undefined,
+          source: source || undefined
         });
         
         if (result.success) {

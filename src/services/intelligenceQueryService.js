@@ -427,7 +427,7 @@ function formatAcv(value) {
  * @param {string} params.userEmail - User making the query
  * @returns {Object} - Query response with answer and metadata
  */
-async function processQuery({ query, accountId, accountName, userEmail, forceRefresh, sessionId }) {
+async function processQuery({ query, accountId, accountName, userEmail, forceRefresh, sessionId, source }) {
   const startTime = Date.now();
   
   if (!anthropic) {
@@ -444,6 +444,14 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
       error: 'Query is required',
       query
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // MEETING PREP FAST PATH — bypasses intent classification, sessions, cross-account routing
+  // Purpose: structured pre-meeting account briefing from Salesforce context
+  // ═══════════════════════════════════════════════════════════════
+  if (source === 'meeting_prep') {
+    return await processMeetingPrepQuery({ query, accountId, accountName, userEmail, forceRefresh, startTime });
   }
 
   try {
@@ -3154,6 +3162,278 @@ function buildUserPrompt(intent, query, context) {
     prompt += `NOTE: No specific account context available. Provide a general response based on the query.\n`;
   }
 
+  return prompt;
+}
+
+/**
+ * MEETING PREP — Dedicated fast path for pre-meeting account briefings.
+ * Bypasses: intent classification, session management, cross-account routing.
+ * Directly gathers per-account context from Salesforce and generates a structured briefing.
+ */
+async function processMeetingPrepQuery({ query, accountId, accountName, userEmail, forceRefresh, startTime }) {
+  logger.info(`[MeetingPrep:Server] Starting meeting prep intelligence`, {
+    accountId: accountId || 'none',
+    accountName: accountName || 'none',
+    forceRefresh: !!forceRefresh
+  });
+
+  try {
+    // Step 1: Gather per-account context directly (no intent classification)
+    const context = await gatherContext({
+      intent: 'PRE_MEETING',
+      query,
+      accountId: accountId || '',
+      accountName: accountName || '',
+      userEmail,
+      forceRefresh: !!forceRefresh
+    });
+
+    logger.info(`[MeetingPrep:Server] Context gathered`, {
+      hasAccount: !!context.account,
+      accountResolved: context.account?.name || 'none',
+      accountIdResolved: context.account?.id || 'none',
+      opps: context.opportunities?.length || 0,
+      contacts: context.contacts?.length || 0,
+      events: (context.recentEvents?.length || 0) + (context.upcomingEvents?.length || 0),
+      meetingNotes: context.meetingNotes?.length || 0,
+      customerBrain: !!context.customerBrain,
+      slackIntel: context.slackIntel?.length || 0,
+      dataFreshness: context.dataFreshness
+    });
+
+    if (!context.account) {
+      logger.warn(`[MeetingPrep:Server] No account found for "${accountName}" (id: ${accountId})`);
+      const duration = Date.now() - startTime;
+      return {
+        success: true,
+        query,
+        answer: accountName && accountName !== 'Unknown'
+          ? `No Salesforce account record found for **${accountName}**. This may be a new prospect not yet in the CRM.`
+          : 'No account could be identified for this meeting.',
+        intent: 'MEETING_PREP',
+        context: {
+          accountName: accountName || null,
+          accountId: null,
+          intent: 'MEETING_PREP',
+          dataFreshness: context.dataFreshness
+        },
+        performance: { durationMs: duration },
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    // Step 2: Build a meeting-prep-specific prompt
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const acct = context.account;
+
+    const systemPrompt = `TODAY'S DATE: ${today}
+
+You are generating a PRE-MEETING BRIEFING for a sales rep about to meet with ${acct.name}. 
+This is NOT an interactive conversation — produce a concise, scannable snapshot.
+
+RESPONSE FORMAT (follow exactly):
+1. Start with a 1-2 sentence executive summary of the account relationship
+2. Use ## headers for each section — but ONLY include sections where you have data
+3. Sections to include (if data available):
+   - ## Account Overview (owner, customer type, industry)
+   - ## Open Opportunities (stage, ACV, close date for each)
+   - ## Key Contacts (name, title — max 8)
+   - ## Recent Activity (last 5 events/tasks, with dates)
+   - ## Meeting Notes (summarize the most recent 2-3 BL meeting notes if available)
+4. Use bullet points with **bold** names/metrics
+5. Keep total under 300 words
+6. NEVER fabricate data — only use what is provided
+7. NEVER include follow-up suggestions or "You might also ask" sections
+8. If a section has no data, skip it entirely — do not say "No data available"
+
+FORMATTING:
+- No emojis
+- Use ## for section headers
+- Use - for bullets, **bold** for emphasis
+- Dates with relative context: "Feb 14 (~4 days ago)"`;
+
+    const userPrompt = buildMeetingPrepUserPrompt(context, acct);
+
+    logger.info(`[MeetingPrep:Server] Calling Claude for ${acct.name}`, {
+      promptLength: userPrompt.length,
+      model: process.env.INTELLIGENCE_MODEL || 'claude-sonnet-4-20250514'
+    });
+
+    const response = await anthropic.messages.create({
+      model: process.env.INTELLIGENCE_MODEL || 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }]
+    });
+
+    const answer = response.content[0]?.text || 'Unable to generate briefing.';
+    const duration = Date.now() - startTime;
+
+    logger.info(`[MeetingPrep:Server] Briefing generated for ${acct.name} in ${duration}ms`, {
+      answerLength: answer.length,
+      tokensUsed: response.usage?.output_tokens
+    });
+
+    // Log to PostgreSQL (non-blocking)
+    try {
+      const { queryLogRepo } = require('../db/repositories');
+      queryLogRepo.logQuery({
+        query, intent: 'MEETING_PREP',
+        accountId: acct.id,
+        accountName: acct.name,
+        userEmail,
+        responseSnippet: answer?.substring(0, 500),
+        responseLength: answer?.length || 0,
+        contextType: 'meeting_prep',
+        dataFreshness: context.dataFreshness || 'unknown',
+        responseTimeMs: duration,
+        sfStatus: 'connected'
+      }).catch(e => logger.debug('[MeetingPrep:Server] Query log write failed:', e.message));
+    } catch (e) { /* non-critical */ }
+
+    return {
+      success: true,
+      query,
+      answer,
+      intent: 'MEETING_PREP',
+      context: {
+        accountName: acct.name,
+        accountId: acct.id,
+        owner: maskOwnerIfUnassigned(acct.owner) || null,
+        ownerEmail: (acct.owner && !UNASSIGNED_HOLDERS.includes(acct.owner)) ? acct.ownerEmail : null,
+        accountType: acct.type || 'unknown',
+        intent: 'MEETING_PREP',
+        opportunityCount: context.opportunities?.length || 0,
+        topOpportunity: context.opportunities?.[0] ? {
+          name: context.opportunities[0].name,
+          stage: context.opportunities[0].stage,
+          acv: context.opportunities[0].acv
+        } : null,
+        contactCount: context.contacts?.length || 0,
+        hasCustomerBrain: !!context.customerBrain,
+        hasNotes: (context.meetingNotes?.length || 0) > 0,
+        dataFreshness: context.dataFreshness
+      },
+      performance: { durationMs: duration, tokensUsed: response.usage?.output_tokens },
+      timestamp: new Date().toISOString()
+    };
+
+  } catch (error) {
+    logger.error(`[MeetingPrep:Server] Error generating briefing for "${accountName}":`, error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to generate meeting prep briefing',
+      query,
+      timestamp: new Date().toISOString()
+    };
+  }
+}
+
+/**
+ * Build the user prompt for meeting prep — structured data dump for Claude
+ */
+function buildMeetingPrepUserPrompt(context, acct) {
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  let prompt = `TODAY: ${today}\nACCOUNT: ${acct.name}\n`;
+  prompt += `OWNER: ${acct.owner || 'Unassigned'}\n`;
+  prompt += `TYPE: ${acct.type || 'Unknown'}\n`;
+  if (acct.industry) prompt += `INDUSTRY: ${acct.industry}\n`;
+  if (acct.website) prompt += `WEBSITE: ${acct.website}\n`;
+  prompt += '\n';
+
+  // Opportunities
+  if (context.opportunities?.length > 0) {
+    prompt += `OPEN OPPORTUNITIES (${context.opportunities.length}):\n`;
+    for (const opp of context.opportunities.slice(0, 10)) {
+      prompt += `  - ${opp.name} | ${opp.stage || 'Unknown Stage'}`;
+      if (opp.acv) prompt += ` | $${Number(opp.acv).toLocaleString()} ACV`;
+      if (opp.closeDate) prompt += ` | Close: ${opp.closeDate}`;
+      if (opp.productLine) prompt += ` | ${opp.productLine}`;
+      prompt += '\n';
+    }
+    prompt += '\n';
+  }
+
+  // Contacts
+  if (context.contacts?.length > 0) {
+    prompt += `KEY CONTACTS (${context.contacts.length}):\n`;
+    for (const c of context.contacts.slice(0, 10)) {
+      prompt += `  - ${c.name}`;
+      if (c.title) prompt += ` — ${c.title}`;
+      if (c.email) prompt += ` (${c.email})`;
+      prompt += '\n';
+    }
+    prompt += '\n';
+  }
+
+  // Contracts
+  if (context.contracts?.length > 0) {
+    prompt += `CONTRACTS (${context.contracts.length}):\n`;
+    for (const ct of context.contracts.slice(0, 5)) {
+      prompt += `  - ${ct.name || ct.contractNumber || 'Contract'}`;
+      if (ct.status) prompt += ` | ${ct.status}`;
+      if (ct.startDate) prompt += ` | Start: ${ct.startDate}`;
+      if (ct.endDate) prompt += ` | End: ${ct.endDate}`;
+      prompt += '\n';
+    }
+    prompt += '\n';
+  }
+
+  // Recent events
+  if (context.recentEvents?.length > 0) {
+    prompt += `PAST MEETINGS (${context.recentEvents.length}):\n`;
+    for (const ev of context.recentEvents.slice(0, 8)) {
+      const dateStr = ev.date || ev.startDateTime || '';
+      prompt += `  - ${dateStr}: ${ev.subject || 'Meeting'}`;
+      if (ev.owner) prompt += ` [${ev.owner}]`;
+      prompt += '\n';
+    }
+    prompt += '\n';
+  }
+
+  // Upcoming events
+  if (context.upcomingEvents?.length > 0) {
+    prompt += `SCHEDULED MEETINGS (${context.upcomingEvents.length}):\n`;
+    for (const ev of context.upcomingEvents.slice(0, 5)) {
+      const dateStr = ev.date || ev.startDateTime || '';
+      prompt += `  - ${dateStr}: ${ev.subject || 'Meeting'}`;
+      if (ev.owner) prompt += ` [${ev.owner}]`;
+      prompt += '\n';
+    }
+    prompt += '\n';
+  }
+
+  // Meeting notes from Customer_Brain__c
+  if (context.meetingNotes?.length > 0) {
+    prompt += `BL MEETING NOTES (${context.meetingNotes.length} entries, most recent first):\n`;
+    for (const note of context.meetingNotes.slice(0, 3)) {
+      prompt += `  --- ${note.date || 'Unknown date'} | Rep: ${note.rep || 'Unknown'} ---\n`;
+      prompt += `  ${(note.summary || 'No summary').substring(0, 400)}\n\n`;
+    }
+  }
+
+  // Slack intel
+  if (context.slackIntel?.length > 0) {
+    prompt += `SLACK INTELLIGENCE (${context.slackIntel.length} items):\n`;
+    for (const intel of context.slackIntel.slice(0, 3)) {
+      prompt += `  - ${intel.summary || intel.text || ''}\n`;
+    }
+    prompt += '\n';
+  }
+
+  // Tasks
+  if (context.recentTasks?.length > 0) {
+    prompt += `RECENT TASKS (${context.recentTasks.length}):\n`;
+    for (const t of context.recentTasks.slice(0, 5)) {
+      prompt += `  - ${t.subject || 'Task'}`;
+      if (t.status) prompt += ` [${t.status}]`;
+      if (t.dueDate) prompt += ` Due: ${t.dueDate}`;
+      prompt += '\n';
+    }
+    prompt += '\n';
+  }
+
+  prompt += '\nGenerate a concise pre-meeting briefing from the data above.';
   return prompt;
 }
 

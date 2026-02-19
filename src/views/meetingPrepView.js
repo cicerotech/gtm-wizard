@@ -1824,6 +1824,7 @@ var NEEDS_HYDRATION = ${needsClientHydration};
 var currentMeetingId = null;
 var currentMeetingData = null;
 var accountsList = [];
+var _intelGeneration = 0;
 
 // All helper functions (normalizeName, extractNameFromEmail, isValidHumanName,
 // extractNamesFromSummary, extractBestName, hasValidEnrichment, parseAttendeeSummary,
@@ -2119,6 +2120,8 @@ function renderModalContent(data, options = {}) {
 // Open meeting prep modal
 async function openMeetingPrep(meetingId) {
   // STEP 1: Clear previous state IMMEDIATELY (prevents stale data flash)
+  _intelGeneration++;
+  var _myIntelGen = _intelGeneration;
   currentMeetingId = meetingId;
   currentMeetingData = null;
   
@@ -2271,21 +2274,28 @@ async function openMeetingPrep(meetingId) {
     // Fire intelligence loading in background (non-blocking)
     (async function loadAccountIntelligence() {
       try {
-        let accountId = currentMeetingData.account_id || currentMeetingData.accountId;
+        if (!currentMeetingData) { console.warn('[MeetingPrep:Intel] No meeting data, aborting intelligence load'); return; }
+        var accountId = currentMeetingData.account_id || currentMeetingData.accountId || null;
+        console.log('[MeetingPrep:Intel] Starting intelligence load for "' + accountName + '"', 'preloaded accountId:', accountId || 'none', 'attendees:', (currentMeetingData.externalAttendees || []).length);
 
         // Step 1a: Domain lookup — try ALL external attendees' domains
-        if (!accountId && currentMeetingData.externalAttendees?.length > 0) {
+        if (!accountId && currentMeetingData && currentMeetingData.externalAttendees && currentMeetingData.externalAttendees.length > 0) {
           var uniqueDomains = [];
-          currentMeetingData.externalAttendees.forEach(function(att) {
-            var company = extractDomainCompany(att.email);
-            if (company) {
-              var d = (att.email || '').split('@')[1];
-              if (d && uniqueDomains.indexOf(d) === -1) uniqueDomains.push(d);
-            }
-          });
+          try {
+            currentMeetingData.externalAttendees.forEach(function(att) {
+              var company = extractDomainCompany(att.email);
+              if (company) {
+                var d = (att.email || '').split('@')[1];
+                if (d && uniqueDomains.indexOf(d) === -1) uniqueDomains.push(d);
+              }
+            });
+          } catch (domErr) { console.warn('[Context] Domain extraction error:', domErr.message); }
+
           for (var di = 0; di < uniqueDomains.length && !accountId; di++) {
+            if (_intelGeneration !== _myIntelGen) return;
             try {
               var lookupRes = await fetch('/api/account/lookup-by-domain?domain=' + encodeURIComponent(uniqueDomains[di]));
+              if (_intelGeneration !== _myIntelGen) return;
               var lookupData = await lookupRes.json();
               if (lookupData.success && lookupData.accountId) {
                 accountId = lookupData.accountId;
@@ -2296,10 +2306,12 @@ async function openMeetingPrep(meetingId) {
           if (!accountId && uniqueDomains.length > 0) {
             var domainCompany = uniqueDomains[0].split('.')[0];
             if (domainCompany.length >= 3) {
+              if (_intelGeneration !== _myIntelGen) return;
               try {
                 var domSearchRes = await fetch('/api/search-accounts?q=' + encodeURIComponent(domainCompany));
+                if (_intelGeneration !== _myIntelGen) return;
                 var domSearchData = await domSearchRes.json();
-                if (domSearchData.matches?.length > 0) {
+                if (domSearchData.matches && domSearchData.matches.length > 0) {
                   accountId = domSearchData.matches[0].id;
                   console.log('[Context] Domain company search resolved:', domainCompany, '->', domSearchData.matches[0].name, accountId);
                 }
@@ -2310,20 +2322,22 @@ async function openMeetingPrep(meetingId) {
 
         // Step 1b: Account search if still no accountId but we have a name
         if (!accountId && accountName && accountName !== 'Unknown') {
-          // Normalize garbled calendar names (regex-safe function in static helpers file)
-          var searchName = normalizeCalendarAccountName(accountName);
+          var searchName = accountName;
+          try { searchName = normalizeCalendarAccountName(accountName); } catch (normErr) { /* use original */ }
 
+          if (_intelGeneration !== _myIntelGen) return;
           try {
             var searchRes = await fetch('/api/search-accounts?q=' + encodeURIComponent(searchName));
+            if (_intelGeneration !== _myIntelGen) return;
             var searchData = await searchRes.json();
-            if (searchData.matches?.length > 0) {
+            if (searchData.matches && searchData.matches.length > 0) {
               accountId = searchData.matches[0].id;
               console.log('[Context] Account search resolved:', searchName, '->', searchData.matches[0].name, accountId);
             } else if (searchName !== accountName) {
-              // Try original name as fallback
               searchRes = await fetch('/api/search-accounts?q=' + encodeURIComponent(accountName));
+              if (_intelGeneration !== _myIntelGen) return;
               searchData = await searchRes.json();
-              if (searchData.matches?.length > 0) {
+              if (searchData.matches && searchData.matches.length > 0) {
                 accountId = searchData.matches[0].id;
                 console.log('[Context] Account search (original) resolved:', accountName, '->', searchData.matches[0].name, accountId);
               }
@@ -2331,109 +2345,138 @@ async function openMeetingPrep(meetingId) {
           } catch (e) { console.log('[Context] Account search failed:', e.message); }
         }
 
-        // Step 2: Fire GTM Brain intelligence query
-        console.log('[MeetingPrep] Account resolution result:', JSON.stringify({accountId: accountId, accountName: accountName, method: accountId ? 'resolved' : 'name-only'}));
+        if (_intelGeneration !== _myIntelGen) return;
+
+        // Step 2: Request structured meeting prep briefing (dedicated server path)
+        console.log('[MeetingPrep:Intel] Account resolution complete:', JSON.stringify({accountId: accountId, accountName: accountName, method: accountId ? 'resolved' : 'name-only'}));
         var contextHtml = '';
         if (accountId || accountName) {
-          var prepQuery = accountId
-            ? 'Give me a full account overview for my upcoming meeting: deal status and stage, key contacts with titles, recent activity and meetings, and competitive landscape.'
-            : 'prep me for my upcoming meeting with ' + accountName;
-          const queryPayload = {
+          var prepQuery = 'Generate a pre-meeting account briefing for ' + (accountName || 'this account');
+          var userEmail = '';
+          try { userEmail = getCookieValue('userEmail') || ''; } catch (cookieErr) { /* proceed without */ }
+          var queryPayload = {
             query: prepQuery,
             accountName: accountName,
-            userEmail: getCookieValue('userEmail') || '',
-            forceRefresh: true
+            userEmail: userEmail,
+            source: 'meeting_prep',
+            forceRefresh: false
           };
           if (accountId) queryPayload.accountId = accountId;
 
-          let gtmBrief = '';
-          let queryContext = null;
+          var gtmBrief = '';
+          var queryContext = null;
 
-          if (currentMeetingData._contextOverride) {
-            gtmBrief = currentMeetingData._contextOverride;
+          var ctxOverride = currentMeetingData ? currentMeetingData._contextOverride : null;
+          if (ctxOverride) {
+            console.log('[MeetingPrep:Intel] Using saved context override (' + ctxOverride.length + ' chars)');
+            gtmBrief = ctxOverride;
           } else {
-            console.log('[MeetingPrep] Querying intelligence:', JSON.stringify({query: queryPayload.query.substring(0, 60), accountId: queryPayload.accountId, accountName: queryPayload.accountName}));
+            console.log('[MeetingPrep:Intel] Requesting briefing from server:', JSON.stringify({accountId: queryPayload.accountId || 'none', accountName: queryPayload.accountName, source: 'meeting_prep'}));
             var queryRes = null;
+            var intelController = new AbortController();
+            var intelTimeout = setTimeout(function() { intelController.abort(); }, 45000);
             try {
               queryRes = await fetch('/api/intelligence/query', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                signal: intelController.signal,
                 body: JSON.stringify(queryPayload)
               });
-              console.log('[MeetingPrep] Response status:', queryRes.status);
+              console.log('[MeetingPrep:Intel] Response status:', queryRes.status);
             } catch(fetchErr) {
-              console.error('[MeetingPrep] Fetch failed:', fetchErr.message);
+              console.error('[MeetingPrep:Intel] Fetch failed:', fetchErr.message, '(timeout after 45s or network error)');
+            } finally {
+              clearTimeout(intelTimeout);
             }
+
+            if (_intelGeneration !== _myIntelGen) { console.log('[MeetingPrep:Intel] Stale request, aborting'); return; }
 
             if (queryRes && queryRes.ok) {
               try {
                 var queryData = await queryRes.json();
-                console.log('[MeetingPrep] Response:', JSON.stringify({success: queryData.success, hasAnswer: !!queryData.answer, answerLen: (queryData.answer || '').length, error: queryData.error}));
+                if (_intelGeneration !== _myIntelGen) { console.log('[MeetingPrep:Intel] Stale request after parse, aborting'); return; }
+                console.log('[MeetingPrep:Intel] Server response:', JSON.stringify({
+                  success: queryData.success,
+                  intent: queryData.intent,
+                  hasAnswer: !!queryData.answer,
+                  answerLen: (queryData.answer || '').length,
+                  accountResolved: queryData.context?.accountName || 'none',
+                  opps: queryData.context?.opportunityCount || 0,
+                  contacts: queryData.context?.contactCount || 0,
+                  durationMs: queryData.performance?.durationMs,
+                  error: queryData.error || null
+                }));
                 if (queryData.success && queryData.answer) {
                   gtmBrief = queryData.answer;
                   queryContext = queryData.context || null;
                 } else if (queryData.error) {
-                  console.error('[MeetingPrep] API error:', queryData.error);
+                  console.error('[MeetingPrep:Intel] Server error:', queryData.error);
                 }
-              } catch (qe) { console.error('[MeetingPrep] JSON parse error:', qe.message); }
+              } catch (qe) { console.error('[MeetingPrep:Intel] JSON parse error:', qe.message); }
             } else if (queryRes) {
-              console.error('[MeetingPrep] HTTP error:', queryRes.status, queryRes.statusText);
-              try { var errBody = await queryRes.text(); console.error('[MeetingPrep] Error body:', errBody.substring(0, 200)); } catch(e) {}
-            }
-          }
-
-          // Step 3: Build context HTML — clean metadata (hide Unassigned, hide intent)
-          let metaHtml = '';
-          if (queryContext) {
-            const parts = [];
-            if (queryContext.accountType && queryContext.accountType !== 'unknown') {
-              const typeMap = { 'existing_customer': 'Existing Customer', 'active_pipeline': 'Active Pipeline', 'historical': 'Historical', 'cold': 'Net New' };
-              parts.push('<strong>' + (typeMap[queryContext.accountType] || queryContext.accountType) + '</strong>');
-            }
-            if (queryContext.owner && queryContext.owner !== 'Unassigned') {
-              parts.push(queryContext.owner);
-            }
-            if (queryContext.opportunityCount > 0) {
-              parts.push(queryContext.opportunityCount + ' open opp' + (queryContext.opportunityCount > 1 ? 's' : ''));
-            }
-            if (queryContext.contactCount > 0) {
-              parts.push(queryContext.contactCount + ' contacts');
-            }
-            if (parts.length > 0) {
-              metaHtml = '<div style="display:flex;gap:12px;flex-wrap:wrap;padding:6px 0;border-top:1px solid #f0f0f0;margin-top:8px;font-size:0.7rem;color:#6b7280;">';
-              metaHtml += parts.join(' &bull; ');
-              metaHtml += '</div>';
-            }
-          }
-
-          // Strip follow-up suggestions (regex in static helpers file to avoid template escaping)
-          if (gtmBrief) {
-            gtmBrief = stripFollowUpSuggestions(gtmBrief);
-          }
-
-          if (gtmBrief && gtmBrief.length > 30) {
-            contextHtml = '<div class="context-section">';
-            contextHtml += '<div class="context-header"><span class="context-label">Account Intelligence</span><span class="context-badge">PRE-MEETING CONTEXT</span>';
-            contextHtml += '<button class="edit-btn" onclick="toggleEditContext()">Edit</button></div>';
-            contextHtml += '<div class="context-content"><div class="intelligence-brief" id="contextBrief">';
-            contextHtml += renderMarkdownToHtml(gtmBrief);
-            contextHtml += '</div></div>';
-            contextHtml += metaHtml;
-            contextHtml += '</div>';
-          } else {
-            contextHtml = '<div class="context-section">';
-            contextHtml += '<div class="context-header"><span class="context-label">Account Intelligence</span><span class="context-badge">PRE-MEETING CONTEXT</span></div>';
-            contextHtml += '<div class="context-content"><div style="padding:12px;background:#f8f9fa;border-radius:6px;border:1px solid #e5e7eb;">';
-            if (accountName && accountName !== 'Unknown') {
-              contextHtml += '<div style="font-size:0.8rem;color:#374151;font-weight:500;">Meeting with ' + escapeHtml(accountName) + '</div>';
-              contextHtml += '<div style="font-size:0.75rem;color:#6b7280;margin-top:6px;">Account intelligence temporarily unavailable.</div>';
-              contextHtml += '<div style="font-size:0.7rem;color:#9ca3af;margin-top:4px;">Try the GTM Brain tab: "Tell me about ' + escapeHtml(accountName) + '"</div>';
+              console.error('[MeetingPrep:Intel] HTTP error:', queryRes.status, queryRes.statusText);
+              try { var errBody = await queryRes.text(); console.error('[MeetingPrep:Intel] Error body:', errBody.substring(0, 300)); } catch(e) {}
             } else {
-              contextHtml += '<div style="font-size:0.75rem;color:#6b7280;">No account matched for this meeting.</div>';
+              console.error('[MeetingPrep:Intel] No response received (fetch likely failed or timed out)');
             }
-            contextHtml += '</div></div>';
-            contextHtml += metaHtml;
-            contextHtml += '</div>';
+          }
+
+          // Step 3: Build context HTML — wrapped in try-catch for safety
+          try {
+            var metaHtml = '';
+            if (queryContext) {
+              var parts = [];
+              if (queryContext.accountType && queryContext.accountType !== 'unknown') {
+                var typeMap = { 'existing_customer': 'Existing Customer', 'active_pipeline': 'Active Pipeline', 'historical': 'Historical', 'cold': 'Net New' };
+                parts.push('<strong>' + (typeMap[queryContext.accountType] || queryContext.accountType) + '</strong>');
+              }
+              if (queryContext.owner && queryContext.owner !== 'Unassigned') {
+                parts.push(queryContext.owner);
+              }
+              if (queryContext.opportunityCount > 0) {
+                parts.push(queryContext.opportunityCount + ' open opp' + (queryContext.opportunityCount > 1 ? 's' : ''));
+              }
+              if (queryContext.contactCount > 0) {
+                parts.push(queryContext.contactCount + ' contacts');
+              }
+              if (parts.length > 0) {
+                metaHtml = '<div style="display:flex;gap:12px;flex-wrap:wrap;padding:6px 0;border-top:1px solid #f0f0f0;margin-top:8px;font-size:0.7rem;color:#6b7280;">';
+                metaHtml += parts.join(' &bull; ');
+                metaHtml += '</div>';
+              }
+            }
+
+            if (gtmBrief && typeof gtmBrief === 'string') {
+              try { gtmBrief = stripFollowUpSuggestions(gtmBrief); } catch (sfErr) { /* keep original */ }
+            }
+
+            if (gtmBrief && gtmBrief.length > 30) {
+              contextHtml = '<div class="context-section">';
+              contextHtml += '<div class="context-header"><span class="context-label">Account Intelligence</span><span class="context-badge">PRE-MEETING CONTEXT</span>';
+              contextHtml += '<button class="edit-btn" onclick="toggleEditContext()">Edit</button></div>';
+              contextHtml += '<div class="context-content"><div class="intelligence-brief" id="contextBrief">';
+              try { contextHtml += renderMarkdownToHtml(gtmBrief); } catch (mdErr) { contextHtml += escapeHtml(gtmBrief); }
+              contextHtml += '</div></div>';
+              contextHtml += metaHtml;
+              contextHtml += '</div>';
+            } else {
+              contextHtml = '<div class="context-section">';
+              contextHtml += '<div class="context-header"><span class="context-label">Account Intelligence</span><span class="context-badge">PRE-MEETING CONTEXT</span></div>';
+              contextHtml += '<div class="context-content"><div style="padding:12px;background:#f8f9fa;border-radius:6px;border:1px solid #e5e7eb;">';
+              if (accountName && accountName !== 'Unknown') {
+                contextHtml += '<div style="font-size:0.8rem;color:#374151;font-weight:500;">Meeting with ' + escapeHtml(accountName) + '</div>';
+                contextHtml += '<div style="font-size:0.75rem;color:#6b7280;margin-top:6px;">Account intelligence temporarily unavailable.</div>';
+                contextHtml += '<div style="font-size:0.7rem;color:#9ca3af;margin-top:4px;">Try the GTM Brain tab: "Tell me about ' + escapeHtml(accountName) + '"</div>';
+              } else {
+                contextHtml += '<div style="font-size:0.75rem;color:#6b7280;">No account matched for this meeting.</div>';
+              }
+              contextHtml += '</div></div>';
+              contextHtml += metaHtml;
+              contextHtml += '</div>';
+            }
+          } catch (buildErr) {
+            console.error('[MeetingPrep] Context HTML build error:', buildErr.message);
           }
         }
 
@@ -2443,6 +2486,8 @@ async function openMeetingPrep(meetingId) {
           contextHtml += '<div style="font-size:0.75rem;color:#6b7280;">No account context available.</div>';
           contextHtml += '</div></div></div>';
         }
+
+        if (_intelGeneration !== _myIntelGen) return;
 
         // Update the intel section in the already-rendered modal
         var intelSection = document.getElementById('accountIntelSection');
