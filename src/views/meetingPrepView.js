@@ -2544,6 +2544,23 @@ function hydrateFromAPI() {
 document.addEventListener('DOMContentLoaded', () => {
   loadAccounts();
   
+  // DELEGATED CLICK HANDLER — catches clicks on ANY .meeting-card element
+  // This is the PRIMARY click handler. It works for both SSR and hydrated cards.
+  // Immune to inline onclick escaping issues since it reads data-meeting-id attribute.
+  document.addEventListener('click', function(e) {
+    var card = e.target.closest('.meeting-card');
+    if (card) {
+      var meetingId = card.getAttribute('data-meeting-id');
+      if (meetingId && typeof openMeetingPrep === 'function') {
+        e.preventDefault();
+        e.stopPropagation();
+        openMeetingPrep(meetingId);
+      } else if (meetingId) {
+        console.error('[MeetingPrep] openMeetingPrep not defined! meetingId:', meetingId);
+      }
+    }
+  });
+  
   // If page was rendered with loading skeletons, hydrate via AJAX
   hydrateFromAPI();
   
