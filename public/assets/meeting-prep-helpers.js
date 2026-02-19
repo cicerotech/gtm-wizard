@@ -341,4 +341,46 @@ function renderMarkdownToHtml(markdownText) {
     .replace(/\n/g, '<br>');
 }
 
+// ════════════════════════════════════════════════════════════
+// Meeting prep-specific helpers
+// ════════════════════════════════════════════════════════════
+
+function stripFollowUpSuggestions(text) {
+  if (!text) return text;
+  text = text.replace(/---\s*\n\s*You might also ask:[\s\S]*$/m, '').trim();
+  text = text.replace(/\n\s*You might also ask:\s*\n[\s\S]*$/m, '').trim();
+  return text;
+}
+
+function normalizeCalendarAccountName(name) {
+  if (!name) return name;
+  var result = name;
+  // Uppercase short names (2-4 chars): "Cvc" -> "CVC"
+  if (result.length <= 4 && result.length >= 2) result = result.toUpperCase();
+  // Split concatenated names: "Chsinc" -> "Chs Inc"
+  result = result.replace(/([a-z])([A-Z])/g, '$1 $2');
+  // Common concatenation fixes
+  var fixes = {
+    'chsinc':'CHS','servicenow':'ServiceNow','blackstone':'Blackstone',
+    'goldmansachs':'Goldman Sachs','petsmart':'Pluto','wellsfargo':'Wells Fargo'
+  };
+  var key = name.toLowerCase().replace(/\s+/g, '').replace(/[._-]/g, '');
+  if (fixes[key]) result = fixes[key];
+  return result;
+}
+
+function getCookieValue(name) {
+  var match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '\\s*=\\s*([^;]*)'));
+  return match ? match[1] : '';
+}
+
+function extractDomainCompany(email) {
+  if (!email || !email.includes('@')) return null;
+  var domain = email.split('@')[1];
+  if (!domain) return null;
+  var personalDomains = ['gmail.com','yahoo.com','hotmail.com','outlook.com','live.com','aol.com','icloud.com','me.com','protonmail.com','mail.com'];
+  if (personalDomains.indexOf(domain.toLowerCase()) !== -1) return null;
+  return domain.split('.')[0];
+}
+
 console.log('[MeetingPrep] Static helpers loaded successfully (' + Object.keys(GHOST_ATTENDEE_CONFIG).length + ' ghost config keys)');

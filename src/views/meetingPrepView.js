@@ -2274,13 +2274,13 @@ async function openMeetingPrep(meetingId) {
         let accountId = currentMeetingData.account_id || currentMeetingData.accountId;
 
         // Step 1a: Domain lookup — try ALL external attendees' domains
-        var personalDomains = ['gmail.com','yahoo.com','hotmail.com','outlook.com','live.com','aol.com','icloud.com','me.com','protonmail.com','mail.com'];
         if (!accountId && currentMeetingData.externalAttendees?.length > 0) {
           var uniqueDomains = [];
           currentMeetingData.externalAttendees.forEach(function(att) {
-            var d = (att.email || '').split('@')[1];
-            if (d && !personalDomains.includes(d.toLowerCase()) && uniqueDomains.indexOf(d) === -1) {
-              uniqueDomains.push(d);
+            var company = extractDomainCompany(att.email);
+            if (company) {
+              var d = (att.email || '').split('@')[1];
+              if (d && uniqueDomains.indexOf(d) === -1) uniqueDomains.push(d);
             }
           });
           for (var di = 0; di < uniqueDomains.length && !accountId; di++) {
@@ -2293,7 +2293,6 @@ async function openMeetingPrep(meetingId) {
               }
             } catch (e) { /* try next domain */ }
           }
-          // If domain lookup failed, try using domain company name as search term
           if (!accountId && uniqueDomains.length > 0) {
             var domainCompany = uniqueDomains[0].split('.')[0];
             if (domainCompany.length >= 3) {
@@ -2311,16 +2310,8 @@ async function openMeetingPrep(meetingId) {
 
         // Step 1b: Account search if still no accountId but we have a name
         if (!accountId && accountName && accountName !== 'Unknown') {
-          // Normalize garbled calendar names before searching
-          var searchName = accountName;
-          // Uppercase short names (2-4 chars): "Cvc" -> "CVC", "Chs" -> "CHS"
-          if (searchName.length <= 4 && searchName.length >= 2) searchName = searchName.toUpperCase();
-          // Split concatenated names: "Chsinc" -> "Chs Inc", "Servicenow" -> "Service Now"
-          searchName = searchName.replace(/([a-z])([A-Z])/g, '$1 $2');
-          // Common concatenation fixes
-          var concatFixes = {'chsinc':'CHS','servicenow':'ServiceNow','blackstone':'Blackstone','goldmansachs':'Goldman Sachs'};
-          var concatKey = accountName.toLowerCase().replace(/\s+/g, '').replace(/[._-]/g, '');
-          if (concatFixes[concatKey]) searchName = concatFixes[concatKey];
+          // Normalize garbled calendar names (regex-safe function in static helpers file)
+          var searchName = normalizeCalendarAccountName(accountName);
 
           try {
             var searchRes = await fetch('/api/search-accounts?q=' + encodeURIComponent(searchName));
@@ -2349,7 +2340,7 @@ async function openMeetingPrep(meetingId) {
           const queryPayload = {
             query: prepQuery,
             accountName: accountName,
-            userEmail: document.cookie.replace(/(?:(?:^|.*;\s*)userEmail\s*=\s*([^;]*).*$)|^.*$/, '$1') || '',
+            userEmail: getCookieValue('userEmail') || '',
             forceRefresh: true
           };
           if (accountId) queryPayload.accountId = accountId;
@@ -2401,10 +2392,9 @@ async function openMeetingPrep(meetingId) {
             }
           }
 
-          // Strip follow-up suggestions (not useful in meeting prep context)
+          // Strip follow-up suggestions (regex in static helpers file to avoid template escaping)
           if (gtmBrief) {
-            gtmBrief = gtmBrief.replace(/---\s*\n\s*You might also ask:[\s\S]*$/m, '').trim();
-            gtmBrief = gtmBrief.replace(/\n\s*You might also ask:\s*\n[\s\S]*$/m, '').trim();
+            gtmBrief = stripFollowUpSuggestions(gtmBrief);
           }
 
           if (gtmBrief && gtmBrief.length > 30) {
