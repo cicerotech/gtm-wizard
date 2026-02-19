@@ -279,15 +279,25 @@ const PRODUCT_DISPLAY_MAP = {
   'AI-Augmented Contracting_In-House Technology': 'AI Contracting (In-House)',
   'AI-Augmented Contracting': 'AI Contracting',
   'AI-Augmented M&A_Managed Service': 'AI M&A',
+  'AI-Augmented M&A_In-House Technology': 'AI M&A (In-House)',
   'AI-Augmented Compliance_In-House Technology': 'AI Compliance',
+  'AI-Augmented Compliance_Managed Services': 'AI Compliance (Managed)',
   'AI Platform - Sigma': 'Sigma',
   'AI Platform - Insights': 'Insights',
   'AI Platform - Litigation': 'Litigation',
   'FDE - Custom AI Solution': 'Custom AI (FDE)',
+  'Pure Software': 'Pure Software',
+  'AI-Enabled Services': 'AI-Enabled Services',
+  'Legacy Services': 'Legacy Services',
+  'Multiple': 'Multiple Products',
+  'Undetermined': 'Undetermined',
 };
 
 function cleanProductLine(raw) {
   if (!raw) return '';
+  if (raw.includes(';')) {
+    return raw.split(';').map(p => p.trim()).filter(Boolean).map(p => PRODUCT_DISPLAY_MAP[p] || p.replace('AI-Augmented ', 'AI ').replace(/_/g, ' — ')).join(', ');
+  }
   return PRODUCT_DISPLAY_MAP[raw] || raw.replace('AI-Augmented ', 'AI ').replace(/_/g, ' — ');
 }
 
@@ -880,10 +890,11 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
     const account = lookupResult?.account || (lookupResult?.Id ? lookupResult : null);
     if (account) {
       accountId = account.Id;
-      logger.info(`[Intelligence] Found account: ${account.Name} (${account.Id})`);
+      const displayName = account.Account_Display_Name__c || account.Name;
+      logger.info(`[Intelligence] Found account: ${displayName} (${account.Id})`);
       context.account = {
         id: account.Id,
-        name: account.Name,
+        name: displayName,
         owner: account.Owner?.Name,
         ownerEmail: account.Owner?.Email,
         type: account.Customer_Type__c,
@@ -1268,24 +1279,24 @@ async function findAccountByName(accountName) {
     
     const safeName = cleanName.replace(/'/g, "\\'");
     
-    // Strategy 1: Exact match
+    // Strategy 1: Exact match (Name or Display Name for Counsel accounts)
     let result = await sfQuery(`
-      SELECT Id, Name, Owner.Name, Owner.Email, Customer_Type__c, Industry
-      FROM Account WHERE Name = '${safeName}' LIMIT 1
+      SELECT Id, Name, Account_Display_Name__c, Owner.Name, Owner.Email, Customer_Type__c, Industry
+      FROM Account WHERE Name = '${safeName}' OR Account_Display_Name__c = '${safeName}' LIMIT 1
     `, true);
     if (result?.records?.[0]) {
-      logger.info(`[Intelligence] Account found (exact): ${result.records[0].Name}`);
+      logger.info(`[Intelligence] Account found (exact): ${result.records[0].Account_Display_Name__c || result.records[0].Name}`);
       return result.records[0];
     }
     
-    // Strategy 2: LIKE match (contains)
+    // Strategy 2: LIKE match (contains — searches both Name and Display Name)
     result = await sfQuery(`
-      SELECT Id, Name, Owner.Name, Owner.Email, Customer_Type__c, Industry
-      FROM Account WHERE Name LIKE '%${safeName}%'
+      SELECT Id, Name, Account_Display_Name__c, Owner.Name, Owner.Email, Customer_Type__c, Industry
+      FROM Account WHERE Name LIKE '%${safeName}%' OR Account_Display_Name__c LIKE '%${safeName}%'
       ORDER BY LastActivityDate DESC NULLS LAST LIMIT 1
     `, true);
     if (result?.records?.[0]) {
-      logger.info(`[Intelligence] Account found (LIKE): ${result.records[0].Name}`);
+      logger.info(`[Intelligence] Account found (LIKE): ${result.records[0].Account_Display_Name__c || result.records[0].Name}`);
       return result.records[0];
     }
     
@@ -1296,12 +1307,12 @@ async function findAccountByName(accountName) {
     if (stripped !== cleanName && stripped.length > 2) {
       const safeStripped = stripped.replace(/'/g, "\\'");
       result = await sfQuery(`
-        SELECT Id, Name, Owner.Name, Owner.Email, Customer_Type__c, Industry
-        FROM Account WHERE Name LIKE '%${safeStripped}%'
+        SELECT Id, Name, Account_Display_Name__c, Owner.Name, Owner.Email, Customer_Type__c, Industry
+        FROM Account WHERE Name LIKE '%${safeStripped}%' OR Account_Display_Name__c LIKE '%${safeStripped}%'
         ORDER BY LastActivityDate DESC NULLS LAST LIMIT 1
       `, true);
       if (result?.records?.[0]) {
-        logger.info(`[Intelligence] Account found (stripped suffix): ${result.records[0].Name} (searched: "${stripped}")`);
+        logger.info(`[Intelligence] Account found (stripped suffix): ${result.records[0].Account_Display_Name__c || result.records[0].Name} (searched: "${stripped}")`);
         return result.records[0];
       }
     }
@@ -1311,12 +1322,12 @@ async function findAccountByName(accountName) {
     if (firstWord.length >= 3 && firstWord !== cleanName) {
       const safeFirst = firstWord.replace(/'/g, "\\'");
       result = await sfQuery(`
-        SELECT Id, Name, Owner.Name, Owner.Email, Customer_Type__c, Industry
-        FROM Account WHERE Name LIKE '${safeFirst}%'
+        SELECT Id, Name, Account_Display_Name__c, Owner.Name, Owner.Email, Customer_Type__c, Industry
+        FROM Account WHERE Name LIKE '${safeFirst}%' OR Account_Display_Name__c LIKE '${safeFirst}%'
         ORDER BY LastActivityDate DESC NULLS LAST LIMIT 1
       `, true);
       if (result?.records?.[0]) {
-        logger.info(`[Intelligence] Account found (first-word): ${result.records[0].Name} (searched: "${firstWord}")`);
+        logger.info(`[Intelligence] Account found (first-word): ${result.records[0].Account_Display_Name__c || result.records[0].Name} (searched: "${firstWord}")`);
         return result.records[0];
       }
     }
@@ -1325,12 +1336,12 @@ async function findAccountByName(accountName) {
     if (splitName !== accountName.trim()) {
       const safeOriginal = accountName.trim().replace(/'/g, "\\'");
       result = await sfQuery(`
-        SELECT Id, Name, Owner.Name, Owner.Email, Customer_Type__c, Industry
+        SELECT Id, Name, Account_Display_Name__c, Owner.Name, Owner.Email, Customer_Type__c, Industry
         FROM Account WHERE Name LIKE '%${safeOriginal}%'
         ORDER BY LastActivityDate DESC NULLS LAST LIMIT 1
       `, true);
       if (result?.records?.[0]) {
-        logger.info(`[Intelligence] Account found (original unsplit): ${result.records[0].Name}`);
+        logger.info(`[Intelligence] Account found (original unsplit): ${result.records[0].Account_Display_Name__c || result.records[0].Name}`);
         return result.records[0];
       }
     }
@@ -1342,10 +1353,10 @@ async function findAccountByName(accountName) {
         const { sfConnection: sfConn } = require('../salesforce/connection');
         const conn = sfConn.getConnection ? sfConn.getConnection() : null;
         if (conn && conn.search) {
-          const soslQuery = `FIND {${soslTerm}} IN NAME FIELDS RETURNING Account(Id, Name, Owner.Name, Owner.Email, Customer_Type__c, Industry ORDER BY LastActivityDate DESC NULLS LAST LIMIT 1)`;
+          const soslQuery = `FIND {${soslTerm}} IN NAME FIELDS RETURNING Account(Id, Name, Account_Display_Name__c, Owner.Name, Owner.Email, Customer_Type__c, Industry ORDER BY LastActivityDate DESC NULLS LAST LIMIT 1)`;
           const soslResult = await conn.search(soslQuery);
           if (soslResult?.searchRecords?.[0]) {
-            logger.info(`[Intelligence] Account found (SOSL fuzzy): ${soslResult.searchRecords[0].Name} (searched: "${soslTerm}")`);
+            logger.info(`[Intelligence] Account found (SOSL fuzzy): ${soslResult.searchRecords[0].Account_Display_Name__c || soslResult.searchRecords[0].Name} (searched: "${soslTerm}")`);
             return soslResult.searchRecords[0];
           }
         }
@@ -1582,20 +1593,23 @@ async function gatherOwnerAccountsContext(query) {
       return { isOwnerQuery: true, ownerName: bl.name, error: `No Salesforce user found for ${bl.name}`, dataFreshness: 'live' };
     }
 
-    const [acctResult, oppResult, aggResult] = await Promise.all([
-      sfQuery(`SELECT Id, Name, Customer_Type__c, Industry, LastActivityDate FROM Account WHERE OwnerId = '${userId}' ORDER BY LastActivityDate DESC NULLS LAST LIMIT 200`, false),
-      sfQuery(`SELECT Id, Name, Account.Name, StageName, ACV__c, Product_Line__c, CloseDate FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false ORDER BY ACV__c DESC NULLS LAST LIMIT 50`, false),
-      sfQuery(`SELECT SUM(ACV__c) totalAcv, COUNT(Id) cnt FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false`, false).catch(() => null)
+    const [acctResult, oppResult, aggResult, commitResult] = await Promise.all([
+      sfQuery(`SELECT Id, Name, Account_Display_Name__c, Customer_Type__c, Industry, LastActivityDate FROM Account WHERE OwnerId = '${userId}' ORDER BY LastActivityDate DESC NULLS LAST LIMIT 200`, false),
+      sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, StageName, ACV__c, Quarterly_Commit__c, Weighted_ACV_AI_Enabled__c, Product_Line__c, CloseDate, Target_LOI_Date__c FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false ORDER BY ACV__c DESC NULLS LAST LIMIT 100`, false),
+      sfQuery(`SELECT SUM(ACV__c) totalAcv, COUNT(Id) cnt FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false`, false).catch(() => null),
+      sfQuery(`SELECT SUM(Quarterly_Commit__c) totalCommit, SUM(Weighted_ACV_AI_Enabled__c) totalWeighted FROM Opportunity WHERE OwnerId = '${userId}' AND IsClosed = false AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation') AND Target_LOI_Date__c <= ${FISCAL_Q1_END}`, false).catch(() => null)
     ]);
 
     const accounts = (acctResult?.records || []).map(a => ({
-      name: a.Name, type: a.Customer_Type__c, industry: a.Industry, lastActivity: a.LastActivityDate
+      name: a.Account_Display_Name__c || a.Name, type: a.Customer_Type__c, industry: a.Industry, lastActivity: a.LastActivityDate
     }));
     const opps = (oppResult?.records || []).map(o => ({
-      name: o.Name, account: o.Account?.Name, stage: o.StageName, acv: o.ACV__c, product: o.Product_Line__c, closeDate: o.CloseDate
+      name: o.Name, account: o.Account?.Account_Display_Name__c || o.Account?.Name, stage: o.StageName, acv: o.ACV__c, commitNet: o.Quarterly_Commit__c || 0, weightedAI: o.Weighted_ACV_AI_Enabled__c || 0, product: cleanProductLine(o.Product_Line__c), closeDate: o.CloseDate, targetDate: o.Target_LOI_Date__c
     }));
     const aggTotalAcv = aggResult?.records?.[0]?.totalAcv || opps.reduce((sum, o) => sum + (o.acv || 0), 0);
     const aggOppCount = aggResult?.records?.[0]?.cnt || opps.length;
+    const totalCommitNet = commitResult?.records?.[0]?.totalCommit || opps.reduce((sum, o) => sum + (o.commitNet || 0), 0);
+    const totalWeightedAI = commitResult?.records?.[0]?.totalWeighted || opps.reduce((sum, o) => sum + (o.weightedAI || 0), 0);
 
     const lower = (query || '').toLowerCase();
     const wantsActivity = /recent activity|recently active|engaging|engaged|active this week|been active/i.test(lower);
@@ -1622,11 +1636,15 @@ async function gatherOwnerAccountsContext(query) {
       } catch (e) { logger.debug('[Intelligence] Activity enrichment failed:', e.message); }
     }
 
+    const topByCommit = opps.filter(o => o.commitNet > 0).sort((a, b) => b.commitNet - a.commitNet).slice(0, 5);
+
     return {
       isOwnerQuery: true, ownerName: bl.name, ownerEmail: bl.email,
       accounts, accountCount: accounts.length,
       opportunities: opps, oppCount: aggOppCount,
       totalAcv: aggTotalAcv,
+      totalCommitNet, totalWeightedAI,
+      topByCommit,
       recentActivity,
       dataFreshness: 'live'
     };
@@ -1674,8 +1692,11 @@ async function gatherMeetingActivityContext(query) {
             const emailToName = (email) => {
               if (!email) return 'Unknown';
               const bl = BL_NAME_MAP[email.split('@')[0]?.split('.')[0]?.toLowerCase()];
-              if (bl) return bl.name.split(' ')[0];
+              if (bl) return bl.name;
               const parts = email.split('@')[0].split('.');
+              if (parts.length >= 2) {
+                return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+              }
               return parts[0] ? parts[0].charAt(0).toUpperCase() + parts[0].slice(1) : 'Unknown';
             };
             return {
@@ -2343,11 +2364,13 @@ Do NOT write paragraphs. Use the compact ranked list format. Include product lin
 STAGE DEFINITIONS: Late stage = Stage 3 (Pilot) + Stage 4 (Proposal) + Stage 5 (Negotiation). Mid = Stage 2 (SQO). Early = Stage 0 (Prospecting) + Stage 1 (Discovery).`;
 
     case 'OWNER_ACCOUNTS':
-      return basePrompt + `\n\nFOCUS: Business Lead account ownership. Present as:
+      return basePrompt + `\n\nFOCUS: Business Lead account ownership and AI-Enabled pipeline. Present as:
 1. Summary: "[Name] owns [X] accounts ([Y] with active pipeline)"
-2. Active pipeline deals listed by ACV: "1. **Account** — $ACV | Stage"
-3. Account list grouped by type (customer, pipeline, prospect)
-Use a clean list format.`;
+2. AI-Enabled Commit & Weighted totals (if provided): "**AI-Enabled Net ACV — Commit: $X.Xm | Weighted: $X.Xm**"
+3. Top deals by commit (if provided): ranked list showing the top deals contributing to commit — "1. **Account** — $ACV commit | Stage | Product"
+4. Full active pipeline deals listed by ACV: "1. **Account** — $ACV | Stage | Product"
+5. Account list grouped by type (customer, pipeline, prospect)
+Always show product line for each deal when available. Use a clean list format.`;
 
     case 'MEETING_ACTIVITY':
       return basePrompt + `\n\nFOCUS: Meeting activity. Present as a compact timeline:
@@ -2409,12 +2432,16 @@ POSITIONING RULES:
 7. Do NOT reference specific team or department names (e.g., "legal innovation team") unless explicitly present in the Salesforce contact data. Use just the company name.`;
 
     case 'FORECAST':
-      return basePrompt + `\n\nFOCUS: Q1 FY26 Forecast summary. Present as:
-1. Key metrics on one line: "**Commit: $X.Xm** | **Weighted: $X.Xm** | **Midpoint: $X.Xm**"
-2. Deal count and targeting window
-3. BY BUSINESS LEAD: For each BL, show their commit amount and their top 2-3 deals (account name, ACV, stage). Use actual BL names — never show "Unassigned" for real business leads.
-4. Format: "**BL Name** — $Xm commit | Top: Account ($ACV, Stage), Account ($ACV, Stage)"
-This is AI-Enabled forecast data (Target_LOI_Date within Q1). Commit = 100% Net ACV for committed deals. Weighted = stage-probability-adjusted Net ACV.
+      return basePrompt + `\n\nFOCUS: Q1 FY26 AI-Enabled Forecast. IMPORTANT: These numbers reflect AI-Enabled pipeline only (Eudia_Tech__c = true), Net ACV, with Target Sign Date within Q1.
+
+Start your response with: "**Q1 FY26 AI-Enabled Forecast**" as the header.
+
+Present as:
+1. Key metrics on one line: "**Commit (Net): $X.Xm** | **Weighted (Net): $X.Xm** | **Midpoint: $X.Xm**"
+2. Below metrics, note: "_AI-Enabled deals only. Net ACV (new business at full ACV, renewals at net change). Target sign date <= Q1 end._"
+3. Deal count and targeting window
+4. BY BUSINESS LEAD: For each BL, show their commit amount and their top 2-3 deals (account name, ACV, stage). Use actual BL names — never show "Unassigned" for real business leads.
+5. Format: "**BL Name** — $Xm commit | Top: Account ($ACV, Stage), Account ($ACV, Stage)"
 
 FOLLOW-UP RULES FOR FORECAST:
 - Suggest "Which deals are targeting to close this quarter?" (not "closing this quarter")
@@ -2425,52 +2452,85 @@ FOLLOW-UP RULES FOR FORECAST:
       return basePrompt + `\n\nFOCUS: Weighted pipeline analysis. Present as:
 1. Summary: "**$X.XM gross** | **$X.XM weighted** across X deals"
 2. Table by stage: Stage | Deals | Gross ACV | Weighted ACV
-3. Highlight the concentration (which stages have the most value)`;
+3. Highlight the concentration (which stages have the most value)
+
+FOLLOW-UP RULES:
+- Suggest "What deals are targeting to close this quarter?" or "What's the forecast?"
+- Suggest a stage-specific question like "What deals are in Stage 5?" using actual stages from the data.`;
 
     case 'DEALS_SIGNED':
       return basePrompt + `\n\nFOCUS: Signed/closed-won deals. Present as:
 1. Total signed revenue QTD prominently
 2. List of recent deals: "1. **Account** — $ACV | Type | Close Date"
-3. If last week data available, call it out separately`;
+3. If last week data available, call it out separately
+
+FOLLOW-UP RULES:
+- Suggest "What deals are targeting to close this quarter?" or "What's the latest with [account from list]?"
+- Use actual account names from the signed deals list.`;
 
     case 'DEALS_TARGETING':
       return basePrompt + `\n\nFOCUS: Deals targeting close. Present as:
 1. Count and total ACV prominently
-2. Ranked list: "1. **Account** — $ACV | Stage | Target Date"
-3. Sorted by ACV descending`;
+2. Ranked list: "1. **Account** — $ACV | Stage | Target Date | Product"
+3. Sorted by ACV descending
+
+FOLLOW-UP RULES:
+- Suggest "What's the latest with [top account from list]?" using a real account name
+- Or "What's the stage breakdown for Q1 pipeline?"`;
 
     case 'PIPELINE_BY_PRODUCT':
       return basePrompt + `\n\nFOCUS: Pipeline by product/solution. Present as a table:
 Product | ACV | Deals | AI-Enabled
-Include Mix % if available. Total row at bottom.`;
+Include Mix % if available. Total row at bottom.
+
+FOLLOW-UP RULES:
+- Suggest "What deals are targeting [specific product from table]?" using actual product names.
+- Or "What's the forecast?"`;
 
     case 'PIPELINE_BY_SALES_TYPE':
       return basePrompt + `\n\nFOCUS: Pipeline by sales type. Present as a table:
 Sales Type | ACV | Count
-Categories: New Business, Expansion, Renewal.`;
+Categories: New Business, Expansion, Renewal.
+
+FOLLOW-UP RULES:
+- Suggest "What deals are targeting to close this quarter?" or "What's the pipeline by product?"`;
 
     case 'LOI_DEALS':
       return basePrompt + `\n\nFOCUS: LOI (Commitment) deals. Present as ranked list:
 "1. **Account** — $ACV | Owner | Close Date"
-Include total count and total ACV.`;
+Include total count and total ACV.
+
+FOLLOW-UP RULES:
+- Suggest "What's the latest with [account from LOI list]?" using a real account name.`;
 
     case 'DEALS_CLOSED':
       return basePrompt + `\n\nFOCUS: Closed deals. Present as ranked list:
 "1. **Account** — $ACV | Owner | Close Date | Product"
-Include total count, total net ACV. If Revenue_Type__c is available, show the split between recurring and commitment/project deals.`;
+Include total count, total net ACV. If Revenue_Type__c is available, show the split between recurring and commitment/project deals.
+
+FOLLOW-UP RULES:
+- Suggest "What deals are targeting to close this quarter?" or "What's the latest with [account from list]?"`;
 
     case 'SLOW_DEALS':
       return basePrompt + `\n\nFOCUS: Deals with extended stage duration. Present as:
 1. Count of deals in current stage for 30+ days
 2. Ranked by days in stage: "1. **Account** — Stage | XX days in stage | $ACV | Owner"
 Note the highest-ACV deals with the longest stage duration first.
-LANGUAGE: Use "X days in current stage" — NEVER use "stuck", "stale", "stalled", or "concerning". Keep the tone neutral and factual.`;
+LANGUAGE: Use "X days in current stage" — NEVER use "stuck", "stale", "stalled", or "concerning". Keep the tone neutral and factual.
+
+FOLLOW-UP RULES:
+- Suggest "What's the latest with [highest-ACV account from the list]?" using a real account name.
+- Or "What deals are targeting to close this quarter?"`;
 
     case 'PIPELINE_ADDED':
       return basePrompt + `\n\nFOCUS: New pipeline this week. Present as:
 1. Count and total ACV
 2. List: "1. **Account** — $ACV | Stage | Owner | Product"
-3. Group by day if dates vary`;
+3. Group by day if dates vary
+
+FOLLOW-UP RULES:
+- Suggest "What's the latest with [account from new pipeline]?" using a real account name.
+- Or "What's the total active pipeline?"`;
 
     default:
       return basePrompt;
@@ -2536,7 +2596,21 @@ function buildUserPrompt(intent, query, context) {
     }
     prompt += `ACCOUNTS OWNED BY ${(context.ownerName || 'Unknown').toUpperCase()}:\n`;
     prompt += `• Total Accounts: ${context.accountCount}\n`;
-    prompt += `• Open Opportunities: ${context.oppCount} ($${(context.totalAcv || 0).toLocaleString()} ACV)\n\n`;
+    prompt += `• Open Opportunities: ${context.oppCount} (${formatAcv(context.totalAcv)} ACV)\n`;
+    if (context.totalCommitNet > 0 || context.totalWeightedAI > 0) {
+      prompt += `• AI-Enabled Net ACV — Commit: ${formatAcv(context.totalCommitNet)} | Weighted: ${formatAcv(context.totalWeightedAI)}\n`;
+    }
+    prompt += '\n';
+
+    if (context.topByCommit?.length > 0) {
+      prompt += `TOP DEALS BY COMMIT (AI-Enabled, Net ACV within Q1):\n`;
+      for (const opp of context.topByCommit) {
+        prompt += `• ${opp.account || opp.name} — ${formatAcv(opp.commitNet)} commit | ${opp.stage}`;
+        if (opp.product) prompt += ` | ${opp.product}`;
+        prompt += '\n';
+      }
+      prompt += '\n';
+    }
 
     if (context.accounts?.length > 0) {
       prompt += `ACCOUNT LIST:\n`;
@@ -2554,7 +2628,7 @@ function buildUserPrompt(intent, query, context) {
       prompt += `OPEN PIPELINE:\n`;
       for (const opp of context.opportunities) {
         prompt += `• ${opp.name} (${opp.account}) - ${opp.stage} - ${formatAcv(opp.acv)}`;
-        if (opp.product) prompt += ` | ${cleanProductLine(opp.product)}`;
+        if (opp.product) prompt += ` | ${opp.product}`;
         if (opp.closeDate) prompt += ` - Close: ${opp.closeDate}`;
         prompt += '\n';
       }

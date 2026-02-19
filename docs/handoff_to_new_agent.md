@@ -1,594 +1,285 @@
-# GTM-Brain Project Handoff - Copy This Entire Prompt
+# GTM-Brain Project Handoff — Updated Feb 18, 2026
 
 **DO NOT MODIFY THIS PROJECT WITHOUT EXPLICIT REQUEST.**  
-**APPROACH: Surgical improvements only. Production system serving 41 users.**
+**APPROACH: Surgical improvements only. Production system serving 41+ users.**
 
 ---
 
 ## Project Context
 
-You are continuing work on **GTM-Brain** (also called GTM-Wizard), a Slack-based AI agent that provides conversational access to Salesforce data for a legal AI startup (Eudia, Series A).
+You are continuing work on **GTM-Brain** (also called GTM-Wizard), a multi-surface AI agent for Eudia (legal AI startup, Series A). Three interfaces: **Obsidian Plugin** (desktop), **GTM Hub** (web), **Slack Bot**.
 
-**What it is:** Node.js/Express application deployed on Render that translates natural language queries in Slack into Salesforce API calls, returning formatted results. Think of it as "Salesforce for people who don't want to use Salesforce."
+**What it is:** Node.js/Express application deployed on Render that connects Salesforce, Microsoft Outlook calendars, Slack, and Obsidian into a unified sales intelligence platform.
 
-**Current state:** Production system with 50+ working capabilities, ~11,500 lines of production code, proven $576K/year ROI, serving 41 team members.
+**Current state:** Production system with 50+ working capabilities, ~20,000+ lines of production code, serving 41+ team members across Business Leads, CS, Execs, and Sales Leaders.
 
-**Your role:** Continue development with same surgical, production-focused approach used in prior session.
+**Latest commit:** `8a02ec4` — "GTM Brain comprehensive fix: forecast, pipeline limits, ARR removal, velocity" (Feb 18, 2026 4:03 PM PST)
 
 ---
 
 ## Critical Files to Read FIRST
 
-**Before making ANY changes, read these files to understand what's been built:**
-
-1. **`FINAL_SESSION_STATUS.md`** - Complete session summary, what works, what doesn't
-2. **`DASHBOARD_FINAL_FIX_NEEDED.md`** - EXACT TASK you need to complete (Account Plans tab)
-3. **`GTM_BRAIN_ENHANCEMENT_ASSESSMENT.html`** - 23 findings, strategic improvements
-4. **`COMPLETE_PROJECT_HANDOFF.md`** - Original project documentation
-5. **`EINSTEIN_ACTIVITY_DATA_GAP_ASSESSMENT.html`** - Meeting data strategy
+1. **`docs/GTM_ENG_PLANNING_2026.md`** — Complete system documentation, architecture, all features, recent work log
+2. **This file** (`docs/handoff_to_new_agent.md`) — Current state + immediate tasks
+3. **`src/services/intelligenceQueryService.js`** (~3,091 lines) — The GTM Brain query engine. 21 intent types, cross-account detection, SOQL, prompt construction
+4. **`src/views/gtmBrainView.js`** (~1,263 lines) — GTM Brain web chat UI. Follow-up suggestions, tiles, autocomplete
+5. **`src/views/meetingPrepView.js`** (~3,749 lines) — Meeting Prep tab UI + matching logic
 
 **Architecture files:**
-- `src/app.js` - Main Express application
-- `src/ai/intentParser.js` - Query pattern matching (deterministic, not LLM-driven)
-- `src/slack/events.js` - Message handlers and business logic
-- `src/slack/accountDashboard.js` - **CURRENT TASK** - Account Plans tab to fix
-- `src/salesforce/queries.js` - SOQL query builder
-- `src/salesforce/connection.js` - SF OAuth connection
+- `src/app.js` (~7,100 lines) — Express server, ALL route definitions
+- `src/ai/intentParser.js` — ML-enhanced intent classification (hybrid: pattern → exact → semantic → LLM fallback)
+- `src/slack/events.js` (~7,800+ lines) — Slack message handlers and business logic
+- `src/slack/blWeeklySummary.js` — Weekly snapshot PDF + forecast SOQL (exports used by query engine)
+- `src/salesforce/connection.js` — SF OAuth connection
+- `obsidian-plugin/main.ts` (~7,645 lines) — Obsidian desktop plugin
 
 ---
 
-## What's Working (DO NOT BREAK THESE)
+## Three Interfaces
 
-### Core Capabilities (47+)
-- Account ownership queries ("who owns Intel?")
-- Pipeline queries by stage/product ("late stage contracting")
-- LOI/ARR tracking
-- Contract queries with PDF downloads
-- Weighted pipeline summaries
+### 1. Obsidian Plugin (Desktop)
+- **Build:** `cd obsidian-plugin && npm run build`
+- 7 sub-notes per account (Note 1-3, Meeting Notes, Contacts, Intelligence, Next Steps)
+- Audio recording + transcription (OpenAI Whisper + GPT-4o summarization)
+- GTM Brain chat via `IntelligenceQueryModal`
+- Calendar view (live Microsoft Graph API)
+- Per-user Salesforce OAuth (PKCE)
+- Distributed as `.zip` vault via `/downloads/Business-Lead-Vault-2026.zip`
+
+### 2. GTM Hub (Web)
+- **URL:** https://gtm-wizard.onrender.com
+- **Auth:** Okta SSO
+- **Tabs:** Sales Process | Dashboard | Meeting Prep | Architecture | Commands | Getting Started | Analytics (admin-only)
+- **GTM Brain chat** embedded in Meeting Prep tab + standalone
+- **Meeting Prep** shows week's calendar with AI-powered account context
+
+### 3. Slack Bot
+- **Framework:** Slack Bolt (`@slack/bolt`)
+- Natural language queries → intent classification → SOQL → formatted response
+- 50+ intents, weekly report PDFs, Excel exports
+- Write operations restricted to Keigan (User ID: `U094AQE9V7D`)
+
+---
+
+## What's Working (DO NOT BREAK)
+
+### Core Capabilities
+- Account ownership queries, pipeline by stage/product/owner
+- Cross-account pipeline queries (21 intent types) with direct SOQL
+- Forecast queries via `queryAIEnabledForecast()` (live Salesforce data)
+- Weighted pipeline, deals signed/targeting, pipeline velocity
+- Account search with fuzzy matching (SOSL fallback, abbreviation expansion)
+- Query autocomplete palette with 33 predefined questions
+- LOI tracking, contract queries with PDF downloads
 - Account creation with auto-assignment (geography + workload)
 - Opportunity creation (smart defaults + custom values)
-- Account plans (save/query structured templates)
-- Customer Brain notes (meeting summaries)
-- Post-call AI summaries (Socrates structuring)
-- Account reassignment
-- Excel report generation (sorted Stage 4 first)
-- **Account Status Dashboard** (web endpoint at `/dashboard`)
+- Account plans, Customer Brain notes, post-call summaries
+- Excel report generation, weekly snapshot PDFs
+- Meeting Prep with AI context summaries
+- Obsidian plugin with recording, transcription, enrichment
+- Counsel account sensitization (Account_Display_Name__c / Code_Name__c)
+- Owner masking (Keigan/Emmit → "Unassigned")
 
 ### Critical Business Logic (NEVER CHANGE)
-- Field names: `Target_LOI_Date__c`, `Finance_Weighted_ACV__c`, `ACV__c`, `Revenue_Type__c`
-- Revenue Type values: `ARR` (not "Recurring"), `Booking`, `Project`
-- Business Leads list: Julie Stefanich, Himanshu Agarwal, Asad Hussain, Ananth Cherukupally, David Van Ryk, John Cobb, Jon Cobb, Olivia Jung
-- Stage names: "Stage 0 - Qualifying" through "Stage 4 - Proposal"
-- Product lines: AI-Augmented Contracting, Augmented-M&A, Compliance, sigma, Cortex, Multiple
-
-### Recent Improvements
-- ✅ Fallback behavior fixed (unknown queries don't return random pipeline)
-- ✅ In-memory caching (2x faster responses, 50% less SF API load)
-- ✅ Account name proper casing (`toProperCompanyCase` function)
-- ✅ Einstein Activity integration (meeting dates from calendar sync)
-- ✅ Customer Type badges on accounts
-- ✅ Legal contacts extracted from Event attendees
+- `Target_LOI_Date__c`, `Finance_Weighted_ACV__c`, `ACV__c`, `Revenue_Type__c`
+- Revenue Type values: `ARR`, `Booking`, `Project`
+- `Eudia_Tech__c` = AI-enabled flag on Opportunity (NOT `AI_Enabled__c`)
+- Net ACV: `IF(Prior_Opp_ACV__c > 0, Renewal_Net_Change__c, ACV__c)`
+- `Quarterly_Commit__c`, `Weighted_ACV_AI_Enabled__c` — formula fields for forecast
+- `Account_Display_Name__c` = `IF(Eudia_Council_Account__c, Code_Name__c, Name)`
+- Stage names: "Stage 0 - Prospecting" through "Stage 5 - Negotiation", "Stage 6. Closed(Won)", "Stage 7. Closed (Lost)"
+- Fiscal Q1 2026: Feb 1 – Apr 30
 
 ---
 
-## IMMEDIATE TASK: Fix Account Plans Tab
+## IMMEDIATE TASKS — Outstanding Improvements (In Priority Order)
 
-**Location:** `src/slack/accountDashboard.js` starting around line 377
+These were the last improvements requested before the previous chat session crashed. None were completed.
 
-**Current state:** Account Plans tab has complex expandable `<details>` elements, yellow background fills, and doesn't match the clean structure of Summary tab.
+### 1. FORECAST: Label as AI-Enabled
+**File:** `src/services/intelligenceQueryService.js` (~line 2411)
+**Issue:** Forecast response doesn't clearly state these are AI-enabled specific numbers.
+**Fix:** Update the FORECAST prompt to explicitly label all metrics as "AI-Enabled" in the response header. The prompt partially does this already ("This is AI-Enabled forecast data") but the user wants the response itself to lead with "AI-Enabled" framing.
 
-**What you need to do:**
+### 2. BUSINESS LEAD NOTE: Deals + Net ACV AI-Enabled + Top 5 by Commit
+**File:** `src/services/intelligenceQueryService.js`
+**Issue:** When user queries "by business lead" or an individual BL's pipeline, the response should show: the deal list AND total net ACV AI-enabled for that BL, with the top 5 deals attributed to the commit number.
+**Fix:** Enhance the OWNER_ACCOUNTS handler to include `Quarterly_Commit__c` and `Weighted_ACV_AI_Enabled__c` in the SOQL, then aggregate and display in the prompt.
 
-### Step 1: Look at Summary Tab Structure (lines 304-339)
-```html
-<div class="stage-section">
-  <div class="stage-title">Late Stage (12)</div>
-  <div class="account-list">
-    <div class="account-item">
-      <div class="account-name">CHS</div>
-      <div class="account-owner">Olivia Jung • 1 opp</div>
-    </div>
-    [repeat for top 5]
-    <div>+7 more...</div>
-  </div>
-</div>
+### 3. PRODUCT MAPPING: Correct Names + Multi-Select Handling
+**File:** `src/services/intelligenceQueryService.js` (PRODUCT_LINE_MAP, PRODUCT_DISPLAY_MAP, cleanProductLine)
+**Issue:** Products like "Undetermined" show for deals that actually have products. Multi-select values like "Pure Software;AI-Enabled Services" need clean presentation. Gov/DOD may legitimately be undetermined.
+**Fix:** Ensure `cleanProductLine()` properly splits multi-select values (`;` delimiter), maps each through `PRODUCT_DISPLAY_MAP`, and presents them cleanly. If a product exists in SF, it should never show as "Undetermined".
+
+### 4. ACCOUNT/OPPORTUNITY SEARCH: e.g. "What stage is the Cargill opportunity in?"
+**File:** `src/services/intelligenceQueryService.js`
+**Issue:** Searching for a company by name (e.g., "Cargill") and asking about its opportunities doesn't yield results. Should search for the account, find active opportunities, and return a clean summary.
+**Fix:** Ensure account name extraction (`extractAccountName`) catches this pattern, then route to ACCOUNT_LOOKUP or DEAL_STATUS with proper account matching.
+
+### 5. MEETING PREP TAB: Not Clickable
+**File:** `src/views/meetingPrepView.js`
+**Issue:** Meeting Prep tab on the web is not clickable/functional for the admin user. The tab rendering or click handlers may be broken after recent changes.
+**Fix:** Debug the tab rendering — check if the Meeting Prep tab content is being generated, check for JS errors that prevent clicks, and verify the tab switching mechanism works.
+
+### 6. CODE NAMES: Always Use Counsel Code Names
+**Files:** `src/services/intelligenceQueryService.js`, any response formatters
+**Issue:** Accounts like PetSmart should always show as "Pluto" (their Counsel code name). Some responses leak the real name instead of using `Account_Display_Name__c`.
+**Fix:** Audit all places where `Account.Name` is used and ensure `Account.Account_Display_Name__c || Account.Name` is used consistently.
+
+### 7. FOLLOW-UP SUGGESTIONS: Context-Aware, Safe, Accurate
+**File:** `src/services/intelligenceQueryService.js` (prompt rules per intent)
+**Issue:** Follow-up suggestions sometimes suggest questions the system can't answer (e.g., "What is the agenda?" for meetings — we don't have agenda data). After "How many customers do we have?" the follow-up shouldn't be "Which customers had the largest contract values?" (too sensitive). Follow-ups should index towards accounts we have detail for, like "What's the latest with [account]?" or "What's [BL name]'s pipeline?"
+**Fix:** Already partially addressed in latest commit — intent-specific follow-up rules exist for MEETING_ACTIVITY, CUSTOMER_COUNT, FORECAST. Expand rules for remaining intents and ensure all suggestions lead to queries we can confidently answer.
+
+### 8. OWNER NAMES: Full Names Not Emails
+**Issue:** Some responses show owner emails instead of full names. Owner.Name is queried correctly in most SOQL but may not display properly in all response paths.
+**Fix:** Verify all response paths use `Owner.Name` display, not email.
+
+### 9. PIPELINE BY OWNER: Remove LIMIT 50 Cap
+**File:** `src/services/intelligenceQueryService.js`
+**Issue:** "What's the total pipeline by owner?" was returning only 50 deals due to LIMIT 50. Already partially fixed in latest commit (LIMIT 50 → 200 + aggregate SOQL for accurate totals). Verify this is working correctly.
+
+### 10. PRODUCT KNOWLEDGE BASE
+**Issue:** User plans to provide deep product intelligence about Eudia's product suite. When provided, this should be embedded as a knowledge base so GTM Brain can accurately answer product-related questions. NOT YET PROVIDED — awaiting user input.
+
+---
+
+## Architecture Deep Dive
+
+### Query Flow (GTM Brain Web + Slack)
+
+```
+User Query
+  → Cross-account signal detection (15 regex patterns)
+  → Intent classification cascade:
+      1. Priority regex overrides (14 patterns)
+      2. ML cascade (29 mapped intents) via mlIntentClassifier
+      3. Simple keyword fallback
+  → If cross-account: clear account context
+  → Session management (30-min TTL, max 10 turns)
+  → Data gathering:
+      - Account-specific: gatherAccountContext() → Salesforce account + opps + contacts + events + Customer_Brain
+      - Cross-account: gatherSnapshotContext() → Direct SOQL per intent
+  → Prompt construction: system prompt + intent-specific rules + context data
+  → Claude API (Anthropic) → response
+  → Follow-up suggestion extraction (regex: "You might also ask:" pattern)
+  → Display with copy/timestamp/retry UX
 ```
 
-### Step 2: Replace Account Plans Tab (lines 377+) to Match EXACTLY
+### Key SOQL Patterns (all use `useCache=false` for live data)
 
-**Remove:**
-- All `<details>` and `<summary>` tags
-- Yellow background fills (`background: #fef3c7`)
-- Red background fills (`background: #fef2f2`)  
-- Green/blue detail boxes
-- Complex nested divs
-- Search box (already removed)
+```sql
+-- Forecast
+SELECT SUM(Quarterly_Commit__c), SUM(Weighted_ACV_AI_Enabled__c), COUNT(Id)
+FROM Opportunity WHERE IsClosed = false AND StageName IN (stages) AND Target_LOI_Date__c <= Q1_END
 
-**Replace with:**
-```html
-<!-- TAB 3: ACCOUNT PLANS -->
-<div id="account-plans" class="tab-content">
-  <div class="stage-section">
-    <div class="stage-title">Account Plans & Pipeline</div>
-    <div class="stage-subtitle">2 have plans • 116 need plans (recently initiated)</div>
-  </div>
-  
-  <div class="stage-section">
-    <div class="stage-title">Top 10 Accounts (by ACV)</div>
-    <div class="account-list">
-      ${Array.from(accountMap.values())
-        .sort((a, b) => b.totalACV - a.totalACV)
-        .slice(0, 10)
-        .map(acc => {
-          const planIcon = acc.hasAccountPlan ? '📋 ' : '';
-          const lastDate = meetingData.get(acc.accountId)?.lastMeeting 
-            ? new Date(meetingData.get(acc.accountId).lastMeeting).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) 
-            : null;
-          const customerType = !acc.isNewLogo && acc.customerType ? \`[\${acc.customerType}]\` : '';
-          
-          return \`
-          <div class="account-item">
-            <div class="account-name">\${planIcon}\${acc.name} \${acc.isNewLogo ? '<span class="badge badge-new">New</span>' : customerType}</div>
-            <div class="account-owner">\${acc.owner} • Stage \${acc.highestStage} • \${acc.opportunities.length} opp\${acc.opportunities.length > 1 ? 's' : ''}\${lastDate ? ' • Last: ' + lastDate : ''}</div>
-          </div>
-          \`;
-        }).join('')}
-      <div class="account-item" style="color: #6b7280; font-style: italic;">+${accountMap.size - 10} more accounts</div>
-    </div>
-  </div>
-</div>
+-- Pipeline with accurate totals
+SELECT ... FROM Opportunity WHERE IsClosed = false AND StageName IN (stages) ORDER BY ACV__c DESC LIMIT 200
++ SELECT SUM(ACV__c), COUNT(Id) FROM Opportunity WHERE ... (aggregate for true totals)
+
+-- All queries include Account.Account_Display_Name__c for Counsel account sensitization
 ```
 
-### Step 3: Remove Unused JavaScript
+### File Architecture Summary
 
-Delete the search script at bottom (lines 481+ with `filterAccountList` function) since we removed the search box.
-
-### Step 4: Test Immediately
-
-Deploy and verify Account Plans tab looks EXACTLY like Summary tab - clean compact list, no yellow, no complexity.
+| File | Lines | Purpose |
+|------|-------|---------|
+| `src/app.js` | ~7,100 | Express server, ALL routes |
+| `src/services/intelligenceQueryService.js` | ~3,091 | GTM Brain query engine — 21 intents, SOQL, prompts |
+| `src/views/gtmBrainView.js` | ~1,263 | GTM Brain web chat UI |
+| `src/views/meetingPrepView.js` | ~3,749 | Meeting Prep tab UI |
+| `src/slack/events.js` | ~7,800 | Slack event handlers |
+| `src/ai/intentParser.js` | — | ML-enhanced intent classification |
+| `src/slack/blWeeklySummary.js` | — | Weekly PDF + forecast queries (exported for bridge) |
+| `obsidian-plugin/main.ts` | ~7,645 | Obsidian desktop plugin |
 
 ---
 
 ## Approach & Philosophy
 
-**Production-First:**
-- System serves 41 real users
-- Stability > Features always
-- Test before deploying
-- Never break existing functionality
+**Production-First:** System serves 41+ real users. Stability > Features always.
 
-**Surgical Improvements:**
-- Only change what's explicitly requested
-- Preserve all working logic
-- Reference existing patterns in codebase
-- Use same field names, query structures
-
-**Fast Iteration:**
-- User works quickly, expects updates in hours not weeks
-- Make changes, deploy, test immediately
-- No over-engineering or premature optimization
+**Surgical Improvements:** Only change what's explicitly requested. Preserve all working logic.
 
 **Key Principles:**
-1. **Deterministic over AI** - System uses hardcoded pattern matching (intentParser.js), not LLM routing. This is intentional for reliability.
-2. **Accuracy over flexibility** - For sales ops, 100% correct > 98% flexible
-3. **Reference existing logic** - When adding features, find similar functionality and copy patterns
-4. **Field names matter** - Salesforce field names are exact, case-sensitive, and critical
-
----
-
-## Current System Architecture
-
-**Flow:** Slack message → Intent parser (pattern matching) → Query builder → Salesforce API → Response formatter → Slack
-
-**NOT:** Slack → LLM → Tool selection → Execution  
-**IS:** Slack → Hardcoded patterns → Direct SF queries
-
-**Why:** Legal AI context requires reliability. Can't have AI hallucinating account assignments or revenue numbers.
-
----
-
-## Known Issues & Outstanding Work
-
-### Critical (Fix First)
-1. **Account Plans tab** - Needs to match Summary tab structure (YOUR IMMEDIATE TASK)
-2. **Clay enrichment** - API endpoint `/v1/companies/enrich` deprecated, need correct endpoint
-3. **Einstein Activity data gaps** - Many accounts show "No meetings" because Events not linked to AccountId (backfill needed, see EINSTEIN_ACTIVITY_DATA_GAP_ASSESSMENT.html)
-
-### High Priority (Do Soon)
-4. Semantic query matching (unlock rigidity) - 20h effort, high impact
-5. Queryable audit log (SOC 2 requirement) - 30h effort
-6. Field history tracking (who/when updated ACV, Target_LOI_Date__c) - 1h effort
-
-### Medium Priority
-7. Cache invalidation on writes - 30min
-8. Cross-object queries - 1.5h
-9. Batch operations - 35h
-
----
-
-## Testing Protocol
-
-**After ANY code change:**
-1. Commit and push to GitHub (triggers Render auto-deploy)
-2. Wait 2-3 minutes for deployment
-3. Test in Slack: `@gtm-brain [query]`
-4. Check Render logs if issues
-5. Verify no existing features broken
-
-**For dashboard changes:**
-1. Test: `@gtm-brain gtm` in Slack
-2. Click dashboard link
-3. Test all 3 tabs (Summary, By Stage, Account Plans)
-4. Check on mobile (phone simulator or actual device)
-5. Verify matches design requirements
-
----
-
-## Critical Field Mappings (DO NOT CHANGE)
-
-**Opportunity fields:**
-- `Target_LOI_Date__c` - Target sign date (NOT Target_Sign_Date__c)
-- `ACV__c` - Annual contract value
-- `Finance_Weighted_ACV__c` - Weighted ACV
-- `Revenue_Type__c` - Values: ARR, Booking, Project (NOT "Recurring")
-- `Product_Line__c` - Exact values required
-- `StageName` - "Stage 1 - Discovery" format
-
-**Account fields:**
-- `Account_Plan_s__c` - Account plans
-- `Customer_Brain__c` - Meeting notes
-- `Linked_in_URL__c` - LinkedIn URL (exact spelling)
-- `Rev_MN__c` - Revenue in millions
-- `State__c` - State code or country name
-- `Region__c` - West/Northeast/Midwest/Southwest/Southeast/International
-
-**Event fields (Einstein Activity):**
-- `AccountId` - Links events to accounts
-- `ActivityDate` - Date of meeting
-- `Subject` - Meeting title
-- `Who.Title` - Contact job title (filter for CLO, GC, AGC, VP Legal, etc.)
-
----
-
-## User Communication Style
-
-**User expectations:**
-- Wants updates in hours, not days/weeks
-- Expects surgical precision
-- Values production stability
-- Appreciates honest assessments
-- Works iteratively (build, test, refine)
-
-**When user says "fix this":**
-1. Acknowledge what's wrong
-2. Explain root cause briefly
-3. Implement fix immediately
-4. Deploy and ask for testing
-5. Don't over-explain, just fix it
-
-**When stuck:**
-- Be honest about what's not working
-- Provide 2-3 solution options
-- Ask which approach to take
-- Don't guess or make assumptions
+1. **Deterministic + AI hybrid** — Pattern matching for reliability, Claude for response generation
+2. **Accuracy over flexibility** — 100% correct > 98% flexible
+3. **`Account_Display_Name__c` everywhere** — Counsel accounts must always show code names
+4. **Direct SOQL per intent** — No bridge functions (they had inconsistent return shapes)
+5. **Field names matter** — Salesforce field names are exact, case-sensitive
 
 ---
 
 ## Deployment Process
 
-**Local → Production:**
-1. Make changes in VSCode/Cursor
-2. `git add -A`
-3. `git commit -m "[TYPE] description"`
-4. `git push origin main`
-5. Render auto-deploys in 2-3 minutes
-6. Check https://dashboard.render.com/ for logs if issues
-
-**Environment variables in Render:**
-- All Slack tokens
-- Salesforce OAuth credentials
-- `CLAY_API_KEY=994eefbafaf68d2b47b4` (set but endpoint deprecated)
-- Socrates/OpenAI key for AI summaries
-
----
-
-## Key Learnings from Prior Session
-
-1. **Content Security Policy** - Render blocks inline scripts. For dashboard, added CSP header to allow scripts: `res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline'");`
-
-2. **Einstein Activity** - Events link via `AccountId` (not WhatId). Many accounts have no meetings showing because Events were created before Accounts (order of operations issue).
-
-3. **Weighted Pipeline** - Uses `SUM(Finance_Weighted_ACV__c)` NOT `SUM(ACV__c)`. Query must GROUP BY StageName.
-
-4. **Dashboard Tabs** - Pure CSS tabs using hidden radio buttons + `:checked` selector (no JavaScript needed for tab switching).
-
-5. **Account Name Casing** - Created `toProperCompanyCase()` function to handle "levi strauss" → "Levi Strauss", "ikea" → "IKEA", etc.
-
-6. **No Mock Data** - Don't use hardcoded enrichment unless explicitly for testing. Be honest about what's real data vs mock.
-
----
-
-## Immediate Next Steps (In Order)
-
-### Task 1: Complete Account Plans Tab Fix (30 min)
-
-**File:** `src/slack/accountDashboard.js` line 377+
-
-**What to do:**
-- Replace complex `<details>` structure with simple `.account-item` divs
-- Match Summary tab EXACTLY (copy structure from lines 304-339)
-- NO yellow fills, NO expandable details
-- Show top 10 accounts with plan emoji (📋) inline
-- Format: Name, Owner, Stage, Opps, Last meeting date
-
-**Reference:** `DASHBOARD_FINAL_FIX_NEEDED.md` has exact structure
-
-### Task 2: Test Dashboard End-to-End (15 min)
-
-**Command:** `@gtm-brain gtm` in Slack
-
-**Verify:**
-- Summary tab: Shows metrics + top 5 per stage
-- By Stage tab: Shows breakdowns by stage/BL/product
-- Account Plans tab: Clean list matching Summary structure
-- All tabs work on mobile
-- No JavaScript errors in console
-
-### Task 3: Address User Feedback (Ongoing)
-
-**If user reports issues:**
-- Check Render logs immediately
-- Identify root cause
-- Fix surgically
-- Deploy and test
-
----
-
-## Code Patterns to Follow
-
-### When Adding New Queries
-
-**1. Add intent detection** (`src/ai/intentParser.js`):
-```javascript
-if (message.includes('your pattern')) {
-  intent = 'your_intent_name';
-  entities.yourField = extractedValue;
-  return { intent, entities, ... };
-}
+```bash
+git add -A && git commit -m "description" && git push origin main
+# Render auto-deploys in 2-3 minutes
 ```
 
-**2. Add handler** (`src/slack/events.js`):
-```javascript
-} else if (parsedIntent.intent === 'your_intent_name') {
-  await handleYourFeature(params);
-  return;
-}
-```
+**Plugin updates require:** `cd obsidian-plugin && npm run build && cd .. && node scripts/build-tailored-vault.js`
 
-**3. Build query** (use existing patterns from `src/salesforce/queries.js`)
+---
 
-**4. Format response** (clean, concise, mobile-friendly)
+## Known Technical Debt
 
-### When Querying Salesforce
+1. **Cross-account pipeline queries may return empty** if SF connection is degraded
+2. **"Meetings this week" tile** can return empty depending on Event data
+3. **Product_Line__c is multi-select** — live SOQL for solution table unreliable, must hardcode weekly
+4. **No auto-update for Obsidian plugin** — users must re-download vault ZIP
+5. **Test suite failures** — pre-existing, tests need updating for recent changes
+6. **Scheduled jobs disabled** — `src/slack/scheduled.js` cron jobs commented out
 
-**Always:**
-- Use exact field API names
-- Escape quotes: `const escapeQuotes = (str) => str.replace(/'/g, "\\'");`
-- Use SOQL date literals: `TODAY`, `THIS_MONTH`, `THIS_FISCAL_QUARTER`
-- Check cache first if useCache=true
-- Log queries for debugging
+---
 
-**Never:**
-- Guess field names
-- Use JavaScript dates in SOQL (use SOQL literals)
-- Query without LIMIT clause
-- Modify data without user confirmation (Keigan-only for writes)
+## Recent Session Log (Feb 17-18, 2026)
+
+| Commit | Description |
+|--------|-------------|
+| `8a02ec4` | Comprehensive fix: forecast via bridge, LIMIT 50→200, ARR→DEALS_CLOSED rename, pipeline velocity |
+| `f0a6b6a` | Final polish: deal follow-ups, neutral framing, suggestion quality |
+| `1d7fc41` | Polish: ACV formatting, owner totals, activity, deal lookup, positioning |
+| `0fd4b88` | Query refinements: 7 surgical fixes |
+| `6f7a95d` | Critical fix: multi-turn session bug causing pipeline/ownership queries to fail |
+| `eee53b0` | Fix account search, domain lookup, meeting prep rendering |
+| `8ce3599` | Meeting Prep intelligence overhaul: unified single-path, sequential resolution |
+| `44504b4` | Query refinements: date filtering, fiscal Q1, meetings, product names |
+| `54be947` | Route PIPELINE_OVERVIEW through proven working path |
+| `cc3b34b` | Fix pipeline SOQL: remove nonexistent field, add logging |
+
+---
+
+## What the User Was Saying When Chat Broke
+
+The user's last message (verbatim summary):
+1. "We're in a pretty good state."
+2. Forecast should mention AI-enabled component and that numbers are AI-enabled specific.
+3. By business lead note should show deals + total net ACV AI-enabled, top 5 by commit.
+4. Product mapping: Coherent and Gov DOD show "Undetermined" — need proper mapping. Multi-select should list each product cleanly.
+5. "What stage is the Cargill opportunity in?" doesn't work — should search for Cargill account and show active opportunities.
+6. Product knowledge base deep dive coming (not yet provided).
+7. Meeting Prep tab doesn't work — can't click as admin.
+
+**The previous chat also noted:** The app crashed with "Cannot access models" error. Changes weren't committed/deployed. The chat session broke before any of these fixes were implemented.
 
 ---
 
 ## Security & Permissions
 
-**Write Operations (Keigan-only):**
-- Account creation
-- Opportunity creation
-- Account reassignment
-- Customer Brain notes
-- Move to nurture, close lost
+**Write Operations (Keigan-only):** Account creation, opportunity creation, account reassignment, Customer Brain notes, move to nurture, close lost.
 
 **Keigan's User ID:** `U094AQE9V7D`
 
-**Check before writes:**
-```javascript
-const KEIGAN_USER_ID = 'U094AQE9V7D';
-if (userId !== KEIGAN_USER_ID) {
-  return error message;
-}
-```
-
-**Read Operations:** All users can query data
-
----
-
-## Common Pitfalls & How to Avoid
-
-**1. Hardcoding instead of using existing logic**
-- ❌ Don't: Create new weighted pipeline calculation
-- ✅ Do: Find existing weighted pipeline query and reuse
-
-**2. Breaking existing patterns**
-- ❌ Don't: Change field names or query structures
-- ✅ Do: Add new patterns, preserve existing
-
-**3. Over-engineering**
-- ❌ Don't: Add MCP server, full AI routing, complex architecture
-- ✅ Do: Surgical improvements to what exists
-
-**4. Ignoring CSP**
-- ❌ Don't: Use inline onclick handlers
-- ✅ Do: Use event listeners or pure CSS solutions
-
-**5. Mock data without disclosure**
-- ❌ Don't: Return hardcoded data and claim it's from Salesforce
-- ✅ Do: Be explicit when using mock/test data
-
----
-
-## User's Working Style
-
-**Pace:** Fast. Expects updates in hours, not days.  
-**Communication:** Direct. "Fix this" means fix it now, not discuss approaches.  
-**Quality:** High standards. Dashboard should match professional design (see v0 App.html reference).  
-**Iteration:** Build → Test → Refine rapidly.  
-**Decision-making:** Trusts your technical judgment but wants transparency about trade-offs.
-
-**When user shares screenshots:**
-- They're showing you EXACT issues
-- Fix what's visible in the screenshot
-- Don't assume you understand without seeing it
-- Test your fix matches their view
-
----
-
-## Key Context You Need to Know
-
-### Recent Intensive Session (~12 hours)
-- Built account creation system (geography + workload assignment)
-- Implemented opportunity creation (defaults + custom values)
-- Created Account Status Dashboard (3 tabs)
-- Integrated Einstein Activity Capture (meeting dates)
-- Fixed dozens of field mapping issues (Revenue Type, IsClosed, etc.)
-- Created comprehensive assessments and strategic plans
-
-### What We Struggled With
-- Clay API endpoint deprecated (still unresolved)
-- Dashboard search not working (CSP blocking JavaScript)
-- Account Plans tab too complex (YOUR TASK to fix)
-- Einstein Activity data gaps (Events not linked to Accounts)
-
-### What Worked Well
-- Deterministic approach (vs AI-driven)
-- In-memory caching for performance
-- Pure CSS tabs (no JavaScript needed)
-- Proper company name casing function
-- toProperCompanyCase utility
-
----
-
-## Testing Checklist Before Considering Task Complete
-
-**For Account Plans tab fix:**
-- [ ] Looks like Summary tab (same structure, same spacing)
-- [ ] Shows top 10 accounts only
-- [ ] NO yellow background fills anywhere
-- [ ] NO red background fills
-- [ ] Simple plan indicator (📋 emoji only)
-- [ ] Customer Type shown inline [ARR], [Pilot], etc.
-- [ ] Last meeting date shown if available
-- [ ] Clean, scannable, mobile-friendly
-- [ ] No console errors when opening dashboard
-- [ ] Tabs switch correctly (Summary, By Stage, Account Plans)
-
----
-
-## If You Get Stuck
-
-**1. Check Render Logs**
-- https://dashboard.render.com/
-- Look for errors, warnings
-- Share relevant log lines with user
-
-**2. Reference Working Examples**
-- Summary tab works perfectly - copy its structure
-- Weighted pipeline query works - reuse its logic
-- Account lookup works - use same fuzzy matching
-
-**3. Ask User**
-- Be specific about what's unclear
-- Provide 2-3 options
-- Get direction before proceeding
-
----
-
-## Success Criteria
-
-**Account Plans tab is DONE when:**
-- User says "this looks good" or "this works"
-- Matches Summary tab structure visually
-- No yellow fills, clean and compact
-- Top 10 accounts with "+X more" note
-- Mobile-friendly
-- No errors in console
-
-**Then move to next task** (likely Einstein backfill or semantic matching)
-
----
-
-## Files You Might Need to Modify
-
-**For dashboard fix:**
-- `src/slack/accountDashboard.js` - Main file
-
-**For other improvements:**
-- `src/ai/intentParser.js` - Intent detection
-- `src/slack/events.js` - Handlers
-- `src/salesforce/queries.js` - Query building
-- `src/utils/cache.js` - Caching (has in-memory fallback now)
-
-**Do NOT modify:**
-- `src/salesforce/connection.js` - OAuth works, don't touch
-- `data/*.json` - Business logic, field mappings
-- `package.json` - Dependencies stable
-
----
-
-## Important Constraints
-
-**Render Deployment:**
-- Free tier limitations (no Redis by default)
-- Auto-deploys on git push to main
-- Uses in-memory cache as fallback
-- CSP headers strict (configure per endpoint if needed)
-
-**Salesforce:**
-- Target instance: https://eudia.my.salesforce.com
-- OAuth connection established
-- API limits exist (5K calls/day typically)
-- Field permissions vary by user
-
-**Slack:**
-- Workspace: Eudia
-- Socket Mode enabled
-- Bot user: gtm-brain
-- 41 team members have access
+**Meeting Prep auto-filtered** to logged-in user (other users can only see their own meetings).
 
 ---
 
 ## What NOT to Do
 
-❌ Add MCP server integration (assessed, not needed yet)  
-❌ Rewrite deterministic intent matching with full AI (would reduce reliability)  
-❌ Change existing field names or query patterns  
-❌ Add features not explicitly requested  
-❌ Over-complicate the dashboard  
-❌ Use mock/test data without being explicit about it  
-❌ Ignore CSP security policies  
-❌ Break existing working functionality  
-
----
-
-## Summary
-
-You're picking up a production system that works well. The ONLY task right now is to fix the Account Plans tab to be clean and compact like the Summary tab. This is a visual/UX fix, not a functional change.
-
-**Read:** DASHBOARD_FINAL_FIX_NEEDED.md and FINAL_SESSION_STATUS.md first.
-
-**Then:** Fix Account Plans tab in accountDashboard.js to match Summary tab structure.
-
-**Deploy, test, done.**
-
-After that, ask user what's next. Likely: Einstein Activity backfill script or semantic query matching.
-
----
-
-**You have all the context. The codebase is well-structured. The documentation is comprehensive. Make the surgical fix to Account Plans tab and you're golden.** 🚀
+- Do NOT break existing working functionality
+- Do NOT change Salesforce field names or query patterns
+- Do NOT add features not explicitly requested
+- Do NOT use mock/test data without disclosure
+- Do NOT run local `node -e` scripts that call `initializeSalesforce()` (competes with Render's service account)
+- Do NOT over-engineer — surgical improvements only
 

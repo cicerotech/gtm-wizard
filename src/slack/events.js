@@ -2683,7 +2683,7 @@ function formatContractResults(queryResult, parsedIntent) {
     'Pure Storage', 'Bayer', 'Dolby', 'Best Buy', 'The Weir Group',
     'The Wonderful Company', 'AES', 'Cox Media', 'CHS', 'Western Digital',
     'Fresh Del Monte', 'GE Vernova', 'Novelis', 'Asana', 'Tailored Brands',
-    'PetSmart', 'Ecolab', 'Wealth Partners Capital Group', 'Delinea', 'BNY', 'Udemy'
+    'Pluto', 'Ecolab', 'Wealth Partners Capital Group', 'Delinea', 'BNY', 'Udemy'
   ];
 
   if (!queryResult || !queryResult.records || queryResult.totalSize === 0) {
@@ -6413,7 +6413,7 @@ async function handleLogoRightsQuery(userId, channelId, client, threadTs) {
     'Pure Storage', 'Bayer', 'Dolby', 'Best Buy', 'The Weir Group',
     'The Wonderful Company', 'AES', 'Cox Media', 'CHS', 'Western Digital',
     'Fresh Del Monte', 'GE Vernova', 'Novelis', 'Asana', 'Tailored Brands',
-    'PetSmart', 'Ecolab', 'Wealth Partners Capital Group', 'Delinea', 'BNY', 'Udemy'
+    'Pluto', 'Ecolab', 'Wealth Partners Capital Group', 'Delinea', 'BNY', 'Udemy'
   ];
   
   let response = `*Companies with Logo Rights*\n`;
