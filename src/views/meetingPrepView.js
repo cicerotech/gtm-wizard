@@ -2319,7 +2319,7 @@ async function openMeetingPrep(meetingId) {
           searchName = searchName.replace(/([a-z])([A-Z])/g, '$1 $2');
           // Common concatenation fixes
           var concatFixes = {'chsinc':'CHS','servicenow':'ServiceNow','blackstone':'Blackstone','goldmansachs':'Goldman Sachs'};
-          var concatKey = accountName.toLowerCase().replace(/[\s\-_.]+/g, '');
+          var concatKey = accountName.toLowerCase().replace(/\s+/g, '').replace(/[._-]/g, '');
           if (concatFixes[concatKey]) searchName = concatFixes[concatKey];
 
           try {
