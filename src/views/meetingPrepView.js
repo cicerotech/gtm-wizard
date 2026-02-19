@@ -2332,6 +2332,7 @@ async function openMeetingPrep(meetingId) {
         }
 
         // Step 2: Fire GTM Brain intelligence query
+        console.log('[MeetingPrep] Account resolution result:', JSON.stringify({accountId: accountId, accountName: accountName, method: accountId ? 'resolved' : 'name-only'}));
         var contextHtml = '';
         if (accountId || accountName) {
           var prepQuery = accountId
@@ -2351,20 +2352,33 @@ async function openMeetingPrep(meetingId) {
           if (currentMeetingData._contextOverride) {
             gtmBrief = currentMeetingData._contextOverride;
           } else {
-            const queryRes = await fetch('/api/intelligence/query', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(queryPayload)
-            }).catch(function(e) { console.warn('[Context] GTM Brain query failed:', e.message); return null; });
+            console.log('[MeetingPrep] Querying intelligence:', JSON.stringify({query: queryPayload.query.substring(0, 60), accountId: queryPayload.accountId, accountName: queryPayload.accountName}));
+            var queryRes = null;
+            try {
+              queryRes = await fetch('/api/intelligence/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(queryPayload)
+              });
+              console.log('[MeetingPrep] Response status:', queryRes.status);
+            } catch(fetchErr) {
+              console.error('[MeetingPrep] Fetch failed:', fetchErr.message);
+            }
 
-            if (queryRes) {
+            if (queryRes && queryRes.ok) {
               try {
-                const queryData = await queryRes.json();
+                var queryData = await queryRes.json();
+                console.log('[MeetingPrep] Response:', JSON.stringify({success: queryData.success, hasAnswer: !!queryData.answer, answerLen: (queryData.answer || '').length, error: queryData.error}));
                 if (queryData.success && queryData.answer) {
                   gtmBrief = queryData.answer;
                   queryContext = queryData.context || null;
+                } else if (queryData.error) {
+                  console.error('[MeetingPrep] API error:', queryData.error);
                 }
-              } catch (qe) { console.warn('[Context] GTM Brain parse error:', qe.message); }
+              } catch (qe) { console.error('[MeetingPrep] JSON parse error:', qe.message); }
+            } else if (queryRes) {
+              console.error('[MeetingPrep] HTTP error:', queryRes.status, queryRes.statusText);
+              try { var errBody = await queryRes.text(); console.error('[MeetingPrep] Error body:', errBody.substring(0, 200)); } catch(e) {}
             }
           }
 
