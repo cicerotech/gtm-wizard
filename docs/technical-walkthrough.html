@@ -3,85 +3,73 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GTM Brain — Technical Architecture & Security Walkthrough</title>
+<title>GTM Brain — Technical Architecture</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2332;--border:#2d3748;--accent:#818cf8;--accent2:#6366f1;--green:#34d399;--yellow:#fbbf24;--red:#f87171;--text:#f1f5f9;--muted:#94a3b8;--dim:#64748b}
-body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+:root{--bg:#f8f9fc;--surface:#ffffff;--surface2:#f0f2f5;--border:#e8eaef;--accent:#8e99e1;--accent2:#7c88d4;--green:#10b981;--yellow:#d97706;--red:#ef4444;--text:#1f2937;--muted:#6b7280;--dim:#9ca3af}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
 a{color:var(--accent);text-decoration:none}
-a:hover{text-decoration:underline}
+a:hover{color:var(--accent2)}
 
-.hero{background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 50%,#0f172a 100%);padding:80px 40px 60px;text-align:center;position:relative;overflow:hidden}
-.hero::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 50% 0%,rgba(99,102,241,0.15),transparent 70%)}
-.hero h1{font-size:2.5rem;font-weight:700;letter-spacing:-0.02em;margin-bottom:12px;position:relative}
+.hero{background:linear-gradient(135deg,#f0f2ff 0%,#f8f9fc 100%);padding:64px 40px 48px;text-align:center;border-bottom:1px solid var(--border)}
+.hero h1{font-size:2.2rem;font-weight:700;letter-spacing:-0.02em;margin-bottom:10px}
 .hero h1 span{color:var(--accent)}
-.hero p{font-size:1.1rem;color:var(--muted);max-width:700px;margin:0 auto 32px}
-.hero-stats{display:flex;justify-content:center;gap:48px;flex-wrap:wrap}
+.hero p{font-size:1rem;color:var(--muted);max-width:640px;margin:0 auto 28px}
+.hero-stats{display:flex;justify-content:center;gap:40px;flex-wrap:wrap}
 .hero-stat{text-align:center}
-.hero-stat .num{font-size:2rem;font-weight:700;color:var(--accent)}
-.hero-stat .label{font-size:0.75rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em}
+.hero-stat .num{font-size:1.75rem;font-weight:700;color:var(--accent)}
+.hero-stat .label{font-size:0.7rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.08em}
 
-nav.toc{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 40px;position:sticky;top:0;z-index:100;display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch}
-nav.toc a{padding:8px 16px;border-radius:8px;font-size:0.8rem;font-weight:500;color:var(--muted);white-space:nowrap;transition:all 0.2s}
-nav.toc a:hover,nav.toc a.active{background:var(--surface2);color:var(--accent);text-decoration:none}
+nav.toc{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 40px;position:sticky;top:0;z-index:100;display:flex;gap:2px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+nav.toc a{padding:7px 14px;border-radius:6px;font-size:0.78rem;font-weight:500;color:var(--muted);white-space:nowrap;transition:all 0.2s}
+nav.toc a:hover,nav.toc a.active{background:rgba(142,153,225,0.1);color:var(--accent)}
 
-.container{max-width:1100px;margin:0 auto;padding:40px 24px}
-section{margin-bottom:64px}
-section h2{font-size:1.5rem;font-weight:700;margin-bottom:8px;color:var(--text);display:flex;align-items:center;gap:12px}
-section h2 .icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
-section .subtitle{color:var(--muted);font-size:0.9rem;margin-bottom:24px}
-h3{font-size:1.1rem;font-weight:600;margin:24px 0 12px;color:var(--text)}
+.container{max-width:1060px;margin:0 auto;padding:36px 24px}
+section{margin-bottom:52px}
+section h2{font-size:1.35rem;font-weight:700;margin-bottom:6px;color:var(--text);display:flex;align-items:center;gap:10px}
+section h2 .icon{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(142,153,225,0.12)}
+section h2 .icon svg{width:18px;height:18px;stroke:var(--accent);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+section .subtitle{color:var(--muted);font-size:0.85rem;margin-bottom:20px}
+h3{font-size:1rem;font-weight:600;margin:20px 0 10px;color:var(--text)}
 
-.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px;transition:border-color 0.2s}
-.card:hover{border-color:var(--accent)}
-.card-title{font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px}
-.card-title .badge{font-size:0.65rem;padding:2px 8px;border-radius:99px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em}
-.badge-green{background:rgba(52,211,153,0.15);color:var(--green)}
-.badge-yellow{background:rgba(251,191,36,0.15);color:var(--yellow)}
-.badge-accent{background:rgba(129,140,248,0.15);color:var(--accent)}
-.badge-red{background:rgba(248,113,113,0.15);color:var(--red)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,0.03)}
+.card-title{font-weight:600;font-size:0.88rem;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.card-title .badge{font-size:0.6rem;padding:2px 7px;border-radius:99px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+.badge-green{background:rgba(16,185,129,0.1);color:var(--green)}
+.badge-yellow{background:rgba(217,119,6,0.1);color:var(--yellow)}
+.badge-accent{background:rgba(142,153,225,0.12);color:var(--accent)}
+.badge-red{background:rgba(239,68,68,0.1);color:var(--red)}
 
-.flow{display:flex;align-items:stretch;gap:0;margin:24px 0;overflow-x:auto;padding-bottom:8px}
-.flow-step{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;min-width:160px;text-align:center;position:relative;flex-shrink:0}
-.flow-step .step-num{font-size:0.65rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px}
-.flow-step .step-title{font-weight:600;font-size:0.85rem;margin-bottom:4px}
-.flow-step .step-detail{font-size:0.75rem;color:var(--muted)}
-.flow-arrow{display:flex;align-items:center;color:var(--dim);font-size:1.2rem;padding:0 4px;flex-shrink:0}
+.flow{display:flex;align-items:stretch;gap:0;margin:20px 0;overflow-x:auto;padding-bottom:6px}
+.flow-step{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;min-width:140px;text-align:center;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,0.03)}
+.flow-step .step-num{font-size:0.6rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px}
+.flow-step .step-title{font-weight:600;font-size:0.8rem;margin-bottom:2px}
+.flow-step .step-detail{font-size:0.7rem;color:var(--muted)}
+.flow-arrow{display:flex;align-items:center;color:var(--dim);font-size:1rem;padding:0 3px;flex-shrink:0}
 
-table{width:100%;border-collapse:collapse;margin:16px 0;font-size:0.85rem}
-th{text-align:left;padding:10px 12px;background:var(--surface2);color:var(--muted);font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border)}
-td{padding:10px 12px;border-bottom:1px solid var(--border)}
-tr:hover td{background:rgba(129,140,248,0.03)}
-code{background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:0.8rem;font-family:'SF Mono','Fira Code',monospace}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:0.82rem}
+th{text-align:left;padding:8px 10px;background:var(--surface2);color:var(--muted);font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border)}
+td{padding:8px 10px;border-bottom:1px solid var(--border)}
+tr:hover td{background:rgba(142,153,225,0.03)}
+code{background:var(--surface2);padding:1px 5px;border-radius:3px;font-size:0.78rem;font-family:'SF Mono','Fira Code',monospace}
 
-.grid{display:grid;gap:16px}
+.grid{display:grid;gap:12px}
 .grid-2{grid-template-columns:1fr 1fr}
 .grid-3{grid-template-columns:1fr 1fr 1fr}
-@media(max-width:768px){.grid-2,.grid-3{grid-template-columns:1fr}.hero h1{font-size:1.8rem}.hero-stats{gap:24px}nav.toc{padding:8px 16px}}
+@media(max-width:768px){.grid-2,.grid-3{grid-template-columns:1fr}.hero h1{font-size:1.6rem}.hero-stats{gap:20px}nav.toc{padding:8px 16px}}
 
-.security-shield{display:inline-flex;align-items:center;gap:6px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.2);padding:4px 12px;border-radius:6px;font-size:0.8rem;color:var(--green);font-weight:500}
+.shield{display:inline-flex;align-items:center;gap:5px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.15);padding:3px 10px;border-radius:5px;font-size:0.75rem;color:var(--green);font-weight:500}
 
-.collapsible{cursor:pointer;user-select:none}
-.collapsible::after{content:'';display:inline-block;width:6px;height:6px;border-right:2px solid var(--dim);border-bottom:2px solid var(--dim);transform:rotate(45deg);margin-left:8px;transition:transform 0.2s}
-.collapsible.open::after{transform:rotate(-135deg)}
-.collapsible-content{display:none;margin-top:12px}
-.collapsible.open + .collapsible-content{display:block}
+.data-flow-diagram{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:28px;margin:20px 0;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
 
-.data-flow-diagram{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;margin:24px 0;position:relative;overflow:hidden}
-.data-flow-diagram::before{content:'';position:absolute;top:0;right:0;width:200px;height:200px;background:radial-gradient(circle,rgba(99,102,241,0.08),transparent 70%)}
-
-.layer{margin:16px 0;padding:16px;border-left:3px solid var(--accent);background:rgba(129,140,248,0.03);border-radius:0 8px 8px 0}
-.layer-title{font-weight:600;font-size:0.9rem;margin-bottom:4px}
-.layer-desc{font-size:0.8rem;color:var(--muted)}
-
-.footer{text-align:center;padding:40px;color:var(--dim);font-size:0.75rem;border-top:1px solid var(--border)}
+.footer{text-align:center;padding:32px;color:var(--dim);font-size:0.72rem;border-top:1px solid var(--border)}
 </style>
 </head>
 <body>
 
 <div class="hero">
 <h1>GTM <span>Brain</span> — Technical Architecture</h1>
-<p>A multi-surface AI intelligence platform connecting Salesforce, Microsoft Graph, Slack, and Obsidian into a unified sales operations system. Built for accuracy, security, and scale.</p>
+<p>Multi-surface AI platform connecting Salesforce, Microsoft Graph, Slack, and Obsidian into a unified sales operations system.</p>
 <div class="hero-stats">
 <div class="hero-stat"><div class="num">3</div><div class="label">Interfaces</div></div>
 <div class="hero-stat"><div class="num">21</div><div class="label">Query Intents</div></div>
@@ -92,474 +80,252 @@ code{background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:0.8r
 
 <nav class="toc" id="toc">
 <a href="#overview">Overview</a>
-<a href="#query-pipeline">Query Pipeline</a>
-<a href="#data-architecture">Data Architecture</a>
-<a href="#ai-ml">AI / ML Layer</a>
-<a href="#calendar">Calendar Integration</a>
-<a href="#obsidian">Obsidian Plugin</a>
-<a href="#transcription">Transcription</a>
-<a href="#security">Security & Privacy</a>
-<a href="#salesforce">Salesforce Integration</a>
+<a href="#query-ai">Query & AI Pipeline</a>
+<a href="#data-security">Data & Security</a>
+<a href="#salesforce">Salesforce</a>
+<a href="#calendar-desktop">Calendar & Desktop</a>
 <a href="#orchestration">Orchestration</a>
 <a href="#infrastructure">Infrastructure</a>
 </nav>
 
 <div class="container">
 
-<!-- ═══════════ OVERVIEW ═══════════ -->
+<!-- ═══════════ 1. SYSTEM OVERVIEW ═══════════ -->
 <section id="overview">
-<h2><span class="icon" style="background:rgba(129,140,248,0.15)">🏗</span> System Overview</h2>
+<h2><span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span> System Overview</h2>
 <p class="subtitle">Three interfaces, one intelligence layer, zero customer data persisted to application disk.</p>
 
 <div class="data-flow-diagram">
 <div class="grid grid-3">
 <div style="text-align:center">
-<div style="font-size:1.5rem;margin-bottom:8px">🖥</div>
-<div style="font-weight:600;font-size:0.9rem">Obsidian Plugin</div>
-<div style="font-size:0.75rem;color:var(--muted)">Desktop App • TypeScript<br>7,645 lines • esbuild</div>
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:6px"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+<div style="font-weight:600;font-size:0.85rem">Obsidian Plugin</div>
+<div style="font-size:0.72rem;color:var(--muted)">Desktop / TypeScript / 7,645 lines</div>
 </div>
 <div style="text-align:center">
-<div style="font-size:1.5rem;margin-bottom:8px">🌐</div>
-<div style="font-weight:600;font-size:0.9rem">GTM Hub (Web)</div>
-<div style="font-size:0.75rem;color:var(--muted)">Browser • Okta SSO<br>Meeting Prep, GTM Brain Chat</div>
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:6px"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+<div style="font-weight:600;font-size:0.85rem">GTM Hub (Web)</div>
+<div style="font-size:0.72rem;color:var(--muted)">Okta SSO / Meeting Prep / GTM Brain Chat</div>
 </div>
 <div style="text-align:center">
-<div style="font-size:1.5rem;margin-bottom:8px">💬</div>
-<div style="font-weight:600;font-size:0.9rem">Slack Bot</div>
-<div style="font-size:0.75rem;color:var(--muted)">Bolt Framework • Socket Mode<br>50+ intents, weekly PDFs</div>
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:6px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+<div style="font-weight:600;font-size:0.85rem">Slack Bot</div>
+<div style="font-size:0.72rem;color:var(--muted)">Bolt Framework / 50+ intents / Weekly PDFs</div>
 </div>
 </div>
 
-<div style="text-align:center;margin:24px 0 16px;color:var(--dim);font-size:1.5rem">↓ &nbsp; ↓ &nbsp; ↓</div>
+<div style="text-align:center;margin:20px 0 14px;color:var(--dim);font-size:1.2rem">&#8595; &nbsp; &#8595; &nbsp; &#8595;</div>
 
-<div style="text-align:center;padding:20px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:10px;margin-bottom:16px">
-<div style="font-weight:700;font-size:1rem;margin-bottom:4px">Node.js / Express — Intelligence Layer</div>
-<div style="font-size:0.8rem;color:var(--muted)">Render.com • Auto-deploy from GitHub • API routes, query engine, calendar service, transcription, enrichment, report generation</div>
+<div style="text-align:center;padding:16px;background:rgba(142,153,225,0.06);border:1px solid rgba(142,153,225,0.15);border-radius:8px;margin-bottom:14px">
+<div style="font-weight:700;font-size:0.95rem;margin-bottom:3px">Node.js / Express — Intelligence Layer</div>
+<div style="font-size:0.76rem;color:var(--muted)">Render.com &bull; Auto-deploy from GitHub &bull; Query engine, calendar, transcription, enrichment, reports</div>
 </div>
 
-<div style="text-align:center;margin:12px 0;color:var(--dim);font-size:1.5rem">↓ &nbsp; ↓ &nbsp; ↓ &nbsp; ↓ &nbsp; ↓</div>
+<div style="text-align:center;margin:10px 0;color:var(--dim);font-size:1.2rem">&#8595; &nbsp; &#8595; &nbsp; &#8595; &nbsp; &#8595; &nbsp; &#8595;</div>
 
-<div class="grid" style="grid-template-columns:repeat(5,1fr);gap:8px">
-<div style="text-align:center;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
-<div style="font-size:0.75rem;font-weight:600">Salesforce</div>
-<div style="font-size:0.65rem;color:var(--muted)">jsforce v2</div>
-</div>
-<div style="text-align:center;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
-<div style="font-size:0.75rem;font-weight:600">MS Graph</div>
-<div style="font-size:0.65rem;color:var(--muted)">Calendar API</div>
-</div>
-<div style="text-align:center;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
-<div style="font-size:0.75rem;font-weight:600">Claude</div>
-<div style="font-size:0.65rem;color:var(--muted)">Anthropic API</div>
-</div>
-<div style="text-align:center;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
-<div style="font-size:0.75rem;font-weight:600">Whisper</div>
-<div style="font-size:0.65rem;color:var(--muted)">OpenAI</div>
-</div>
-<div style="text-align:center;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
-<div style="font-size:0.75rem;font-weight:600">SQLite</div>
-<div style="font-size:0.65rem;color:var(--muted)">Local DB</div>
-</div>
+<div class="grid" style="grid-template-columns:repeat(5,1fr);gap:6px">
+<div style="text-align:center;padding:10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)"><div style="font-size:0.72rem;font-weight:600">Salesforce</div><div style="font-size:0.62rem;color:var(--muted)">jsforce v2</div></div>
+<div style="text-align:center;padding:10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)"><div style="font-size:0.72rem;font-weight:600">MS Graph</div><div style="font-size:0.62rem;color:var(--muted)">Calendar API</div></div>
+<div style="text-align:center;padding:10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)"><div style="font-size:0.72rem;font-weight:600">Claude</div><div style="font-size:0.62rem;color:var(--muted)">Anthropic API</div></div>
+<div style="text-align:center;padding:10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)"><div style="font-size:0.72rem;font-weight:600">Whisper</div><div style="font-size:0.62rem;color:var(--muted)">OpenAI</div></div>
+<div style="text-align:center;padding:10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)"><div style="font-size:0.72rem;font-weight:600">PostgreSQL</div><div style="font-size:0.62rem;color:var(--muted)">L2 Cache</div></div>
 </div>
 </div>
 </section>
 
-<!-- ═══════════ QUERY PIPELINE ═══════════ -->
-<section id="query-pipeline">
-<h2><span class="icon" style="background:rgba(52,211,153,0.15)">⚡</span> Query Pipeline</h2>
-<p class="subtitle">How a natural language question becomes a Salesforce answer — in under 3 seconds.</p>
+<!-- ═══════════ 2. QUERY & AI PIPELINE ═══════════ -->
+<section id="query-ai">
+<h2><span class="icon"><svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span> Query & AI Pipeline</h2>
+<p class="subtitle">Natural language question to Salesforce answer in under 3 seconds. Deterministic routing, LLM response only.</p>
 
 <div class="flow">
 <div class="flow-step"><div class="step-num">Step 1</div><div class="step-title">User Query</div><div class="step-detail">Slack, Web, or Obsidian</div></div>
-<div class="flow-arrow">→</div>
+<div class="flow-arrow">&#8594;</div>
 <div class="flow-step"><div class="step-num">Step 2</div><div class="step-title">Cross-Account Detection</div><div class="step-detail">15 regex signals</div></div>
-<div class="flow-arrow">→</div>
+<div class="flow-arrow">&#8594;</div>
 <div class="flow-step"><div class="step-num">Step 3</div><div class="step-title">Intent Classification</div><div class="step-detail">4-layer cascade</div></div>
-<div class="flow-arrow">→</div>
+<div class="flow-arrow">&#8594;</div>
 <div class="flow-step"><div class="step-num">Step 4</div><div class="step-title">Data Gathering</div><div class="step-detail">Parallel SOQL</div></div>
-<div class="flow-arrow">→</div>
-<div class="flow-step"><div class="step-num">Step 5</div><div class="step-title">Prompt Construction</div><div class="step-detail">Intent-specific rules</div></div>
-<div class="flow-arrow">→</div>
-<div class="flow-step"><div class="step-num">Step 6</div><div class="step-title">Claude Response</div><div class="step-detail">Formatted answer</div></div>
+<div class="flow-arrow">&#8594;</div>
+<div class="flow-step"><div class="step-num">Step 5</div><div class="step-title">Claude Response</div><div class="step-detail">Formatted answer</div></div>
 </div>
 
-<h3>Intent Classification — 4-Layer Cascade</h3>
-<p style="font-size:0.85rem;color:var(--muted);margin-bottom:16px">The system uses a deterministic-first approach for reliability. LLM is only used for response generation, never for routing decisions.</p>
-
+<h3>4-Layer Intent Cascade</h3>
 <div class="grid grid-2">
-<div class="card">
-<div class="card-title">Layer 1: Priority Regex <span class="badge badge-green">Fastest</span></div>
-<p style="font-size:0.8rem;color:var(--muted)">14 unambiguous patterns that must bypass ML to prevent misclassification. E.g., <code>/forecast|commit.*weighted/i</code> → FORECAST. Executes in &lt;1ms.</p>
-</div>
-<div class="card">
-<div class="card-title">Layer 2: ML Classifier <span class="badge badge-accent">Learned</span></div>
-<p style="font-size:0.8rem;color:var(--muted)">29 mapped intents via persistent learning model. Stores learned patterns in <code>data/intent-learning.json</code>. Trained on real user queries with feedback loop.</p>
-</div>
-<div class="card">
-<div class="card-title">Layer 3: Semantic Similarity <span class="badge badge-yellow">Embeddings</span></div>
-<p style="font-size:0.8rem;color:var(--muted)">Vector similarity matching against known query patterns. Handles paraphrased questions that don't match exact keywords.</p>
-</div>
-<div class="card">
-<div class="card-title">Layer 4: LLM Fallback <span class="badge badge-red">Last Resort</span></div>
-<p style="font-size:0.8rem;color:var(--muted)">If all deterministic layers fail, routes through advanced intent parser for classification. Never used for execution — only classification.</p>
-</div>
+<div class="card"><div class="card-title">Layer 1: Priority Regex <span class="badge badge-green">Fastest</span></div><p style="font-size:0.78rem;color:var(--muted)">14 unambiguous patterns bypass ML entirely. E.g., <code>/forecast|commit.*weighted/i</code> &#8594; FORECAST. Under 1ms.</p></div>
+<div class="card"><div class="card-title">Layer 2: ML Classifier <span class="badge badge-accent">Learned</span></div><p style="font-size:0.78rem;color:var(--muted)">29 mapped intents via persistent learning model. Trained on real user queries with feedback loop from reactions.</p></div>
+<div class="card"><div class="card-title">Layer 3: Semantic Similarity <span class="badge badge-yellow">Embeddings</span></div><p style="font-size:0.78rem;color:var(--muted)">Vector similarity matching against known query patterns. Handles paraphrased questions that don't match exact keywords.</p></div>
+<div class="card"><div class="card-title">Layer 4: LLM Fallback <span class="badge badge-red">Last Resort</span></div><p style="font-size:0.78rem;color:var(--muted)">Advanced intent parser for classification only. The LLM never decides what data to fetch or what to write.</p></div>
 </div>
 
-<h3>21 Cross-Account Intent Types</h3>
+<h3>21 Intent Types</h3>
 <table>
-<tr><th>Intent</th><th>Example Query</th><th>Data Source</th></tr>
-<tr><td><code>FORECAST</code></td><td>"What's our forecast?"</td><td>SUM(Quarterly_Commit__c), SUM(Weighted_ACV_AI_Enabled__c)</td></tr>
-<tr><td><code>PIPELINE_OVERVIEW</code></td><td>"Late stage deals"</td><td>Active pipeline with aggregate SOQL for accurate totals</td></tr>
-<tr><td><code>OWNER_ACCOUNTS</code></td><td>"Olivia's pipeline"</td><td>User → AccountId → Opportunities + commit data</td></tr>
-<tr><td><code>MEETING_ACTIVITY</code></td><td>"Who did we meet this week?"</td><td>MS Graph calendar (primary) + SF Events (fallback)</td></tr>
+<tr><th>Intent</th><th>Example</th><th>Data Source</th></tr>
+<tr><td><code>FORECAST</code></td><td>"What's our forecast?"</td><td>Quarterly_Commit__c, Weighted_ACV</td></tr>
+<tr><td><code>PIPELINE_OVERVIEW</code></td><td>"Late stage deals"</td><td>Aggregate SOQL on active pipeline</td></tr>
+<tr><td><code>OWNER_ACCOUNTS</code></td><td>"Olivia's pipeline"</td><td>User &#8594; Account &#8594; Opportunities</td></tr>
+<tr><td><code>MEETING_ACTIVITY</code></td><td>"Who did we meet this week?"</td><td>MS Graph calendar + SF Events</td></tr>
 <tr><td><code>DEALS_SIGNED</code></td><td>"What have we signed?"</td><td>IsWon = true, THIS_FISCAL_QUARTER</td></tr>
-<tr><td><code>DEALS_TARGETING</code></td><td>"Targeting February"</td><td>Target_LOI_Date__c within range</td></tr>
-<tr><td><code>SLOW_DEALS</code></td><td>"Pipeline velocity"</td><td>Days_in_Stage__c distribution</td></tr>
 <tr><td><code>PRE_MEETING</code></td><td>"Prep me for Airbnb"</td><td>Account + Opps + Contacts + Events + Customer_Brain__c</td></tr>
 </table>
-</section>
 
-<!-- ═══════════ DATA ARCHITECTURE ═══════════ -->
-<section id="data-architecture">
-<h2><span class="icon" style="background:rgba(251,191,36,0.15)">🗄</span> Data Architecture</h2>
-<p class="subtitle">Zero Render Storage pattern — customer data never persists to application disk.</p>
-
-<div class="card" style="border-color:var(--green)">
-<div class="card-title"><span class="security-shield">🔒 Zero Disk Persistence</span></div>
-<p style="font-size:0.85rem;color:var(--muted)">All customer account, opportunity, contact, and contract data lives exclusively in Salesforce. The application server holds only ephemeral in-memory caches with short TTLs. No customer data is written to Render's filesystem.</p>
+<h3>AI Design Philosophy</h3>
+<div class="card">
+<p style="font-size:0.82rem;color:var(--muted)"><strong>Deterministic routing + LLM response.</strong> The LLM never decides what data to fetch. Regex/ML classification &#8594; exact SOQL &#8594; real data &#8594; Claude formats the response. Prompts inject TODAY'S DATE, enforce factual-only output, and prohibit fabrication.</p>
 </div>
 
 <table>
-<tr><th>Data Type</th><th>Storage</th><th>Persistence</th><th>TTL</th></tr>
-<tr><td>Account / Opportunity / Contact</td><td>Salesforce</td><td>Permanent (source of truth)</td><td>—</td></tr>
-<tr><td>Meeting notes</td><td>Salesforce <code>Customer_Brain__c</code></td><td>Permanent</td><td>—</td></tr>
-<tr><td>Calendar events</td><td>In-memory cache</td><td>Ephemeral (lost on restart)</td><td>10-15 min</td></tr>
-<tr><td>AI summaries</td><td>In-memory cache</td><td>Ephemeral (date-aware keys)</td><td>2 hours</td></tr>
-<tr><td>Account context</td><td>In-memory cache</td><td>Ephemeral</td><td>15 min (3 min for cross-account)</td></tr>
-<tr><td>OAuth tokens (per-user)</td><td>Encrypted file (AES-256-GCM)</td><td>Git-versioned</td><td>—</td></tr>
-<tr><td>Slack intelligence</td><td>File cache (JSON)</td><td>Survives deploys</td><td>—</td></tr>
-<tr><td>Intelligence DB</td><td>SQLite</td><td>Render disk</td><td>—</td></tr>
+<tr><th>Component</th><th>Model</th><th>Purpose</th></tr>
+<tr><td>Query responses</td><td>Claude (Anthropic)</td><td>Format Salesforce data into natural language</td></tr>
+<tr><td>Meeting context</td><td>Claude</td><td>Synthesize account context for meeting prep</td></tr>
+<tr><td>Transcription</td><td>OpenAI Whisper</td><td>Audio to text for meeting recordings</td></tr>
+<tr><td>Summarization</td><td>GPT-4o</td><td>Meeting transcript to structured summary</td></tr>
+<tr><td>Speaker diarization</td><td>AssemblyAI</td><td>Separate rep vs. customer voices</td></tr>
 </table>
-
-<h3>Why This Architecture?</h3>
-<div class="grid grid-2">
-<div class="card">
-<div class="card-title">Salesforce as Source of Truth</div>
-<p style="font-size:0.8rem;color:var(--muted)">All business data lives in Salesforce's SOC 2 Type II certified infrastructure. Avoids data duplication, eliminates sync drift, and ensures the CRM is always authoritative.</p>
-</div>
-<div class="card">
-<div class="card-title">Ephemeral Cache Layer</div>
-<p style="font-size:0.8rem;color:var(--muted)">In-memory caching reduces Salesforce API calls by ~50% while ensuring data freshness. Cache is evicted on server restart — no stale data risk. Cross-account queries always bypass cache.</p>
-</div>
-</div>
 </section>
 
-<!-- ═══════════ AI / ML LAYER ═══════════ -->
-<section id="ai-ml">
-<h2><span class="icon" style="background:rgba(248,113,113,0.15)">🧠</span> AI / ML Layer</h2>
-<p class="subtitle">Intent-classified retrieval, not an autonomous agent. Every query is stateless — context assembled fresh from retrieval.</p>
+<!-- ═══════════ 3. DATA & SECURITY ═══════════ -->
+<section id="data-security">
+<h2><span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span> Data & Security</h2>
+<p class="subtitle">Zero Render Storage pattern. Enterprise-grade security with defense-in-depth.</p>
 
-<div class="card">
-<div class="card-title">Design Philosophy: Deterministic Routing + LLM Response</div>
-<p style="font-size:0.85rem;color:var(--muted);margin-bottom:12px">The system intentionally separates <strong>routing</strong> (deterministic pattern matching) from <strong>response generation</strong> (Claude LLM). This prevents hallucinated actions — the LLM never decides what data to fetch or what to write. It only formats the data that deterministic SOQL already retrieved.</p>
-<div style="font-size:0.8rem;color:var(--dim)">
-<strong>NOT:</strong> User → LLM → "I think you want pipeline data" → Maybe correct query<br>
-<strong>IS:</strong> User → Regex/ML classification → Exact SOQL → Real data → LLM formats response
-</div>
+<div class="card" style="border-color:var(--green)">
+<div class="card-title"><span class="shield">Zero Disk Persistence</span></div>
+<p style="font-size:0.82rem;color:var(--muted)">All customer account, opportunity, contact, and contract data lives exclusively in Salesforce. The application holds only ephemeral in-memory caches with short TTLs. No customer data is written to Render's filesystem.</p>
 </div>
 
-<h3>LLM Usage</h3>
 <table>
-<tr><th>Component</th><th>Model</th><th>Purpose</th><th>Cost</th></tr>
-<tr><td>Query responses</td><td>Claude (Anthropic)</td><td>Format Salesforce data into natural language</td><td>~$0.01/query</td></tr>
-<tr><td>Meeting context summaries</td><td>Claude</td><td>Synthesize account context for meeting prep</td><td>~$0.02/summary</td></tr>
-<tr><td>Transcription</td><td>OpenAI Whisper</td><td>Audio → text for meeting recordings</td><td>$0.006/min</td></tr>
-<tr><td>Transcript summarization</td><td>GPT-4o</td><td>Meeting transcript → structured summary</td><td>~$0.03/summary</td></tr>
-<tr><td>Speaker diarization</td><td>AssemblyAI</td><td>Identify rep vs. customer in recordings</td><td>Per-minute pricing</td></tr>
+<tr><th>Data Type</th><th>Storage</th><th>TTL</th></tr>
+<tr><td>Account / Opportunity / Contact</td><td>Salesforce (source of truth)</td><td>Permanent</td></tr>
+<tr><td>Meeting notes</td><td>Salesforce <code>Customer_Brain__c</code></td><td>Permanent</td></tr>
+<tr><td>Calendar events</td><td>In-memory cache</td><td>10-15 min</td></tr>
+<tr><td>AI summaries</td><td>In-memory cache</td><td>2 hours</td></tr>
+<tr><td>Account context</td><td>In-memory cache</td><td>3-15 min</td></tr>
+<tr><td>OAuth tokens</td><td>Encrypted file (AES-256-GCM)</td><td>Persistent</td></tr>
 </table>
 
-<h3>Prompt Engineering</h3>
+<h3>Security Controls</h3>
 <div class="grid grid-2">
 <div class="card">
-<div class="card-title">System Prompt Rules</div>
-<ul style="font-size:0.8rem;color:var(--muted);padding-left:16px">
-<li>TODAY'S DATE injected into every prompt</li>
-<li>Absolute dates required (no "yesterday" unless literal)</li>
-<li>No editorializing — factual and objective only</li>
-<li>No unsolicited recommendations</li>
-<li>No fabricated details — only use provided data</li>
-<li>Account-type-specific framing (customer vs. prospect)</li>
+<div class="card-title">Authentication</div>
+<ul style="font-size:0.78rem;color:var(--muted);padding-left:16px;line-height:1.5">
+<li><strong>GTM Hub:</strong> Okta SSO (OIDC)</li>
+<li><strong>Salesforce:</strong> Service account + per-user OAuth (PKCE)</li>
+<li><strong>Calendar:</strong> Azure AD delegated permissions</li>
+<li><strong>Slack:</strong> Bot token + signing secret verification</li>
 </ul>
 </div>
 <div class="card">
-<div class="card-title">Follow-Up Quality Control</div>
-<ul style="font-size:0.8rem;color:var(--muted);padding-left:16px">
-<li>Each suggestion must be answerable from Salesforce data</li>
-<li>Never suggest questions about strategy/intent/plans</li>
-<li>Never suggest data you don't have (emails, Slack DMs, NPS)</li>
-<li>Intent-specific rules per query type</li>
-<li>Use real account names from the response</li>
+<div class="card-title">Data Protection</div>
+<ul style="font-size:0.78rem;color:var(--muted);padding-left:16px;line-height:1.5">
+<li>Write operations restricted to admin only</li>
+<li>AES-256-GCM token encryption</li>
+<li>No PII in logs (Winston structured logging)</li>
+<li>CSP headers on all web endpoints</li>
 </ul>
 </div>
 </div>
 
-<h3>ML Intent Classifier</h3>
 <div class="card">
-<div class="card-title">Persistent Learning <span class="badge badge-accent">Self-improving</span></div>
-<p style="font-size:0.85rem;color:var(--muted)">The ML classifier (<code>src/ai/mlIntentClassifier.js</code>) stores learned patterns in <code>data/intent-learning.json</code>. When users react to responses with 👍/👎, the feedback loop stores the query-intent pair, improving future classification. Multi-layer: pattern match → exact match → semantic similarity → LLM fallback.</p>
+<div class="card-title">Vendor Compliance</div>
+<p style="font-size:0.78rem;color:var(--muted)"><strong>Render.com:</strong> SOC 2 Type II, ISO 27001 &bull; <strong>Salesforce:</strong> SOC 2, FedRAMP &bull; <strong>Anthropic:</strong> SOC 2 Type II, no training on API data &bull; <strong>OpenAI:</strong> SOC 2, no API training &bull; <strong>Microsoft:</strong> Azure AD enterprise platform</p>
 </div>
 </section>
 
-<!-- ═══════════ CALENDAR ═══════════ -->
-<section id="calendar">
-<h2><span class="icon" style="background:rgba(59,130,246,0.15)">📅</span> Calendar Integration</h2>
-<p class="subtitle">Live Microsoft Graph API integration — no stale database reads.</p>
-
-<div class="flow">
-<div class="flow-step"><div class="step-num">Source</div><div class="step-title">Microsoft Graph API</div><div class="step-detail">Azure AD OAuth</div></div>
-<div class="flow-arrow">→</div>
-<div class="flow-step"><div class="step-num">Fetch</div><div class="step-title">Per-User Calendar</div><div class="step-detail">Live on every request</div></div>
-<div class="flow-arrow">→</div>
-<div class="flow-step"><div class="step-num">Filter</div><div class="step-title">External Meetings</div><div class="step-detail">Exclude internal/1:1s</div></div>
-<div class="flow-arrow">→</div>
-<div class="flow-step"><div class="step-num">Match</div><div class="step-title">Account Resolution</div><div class="step-detail">Domain → SF Account</div></div>
-<div class="flow-arrow">→</div>
-<div class="flow-step"><div class="step-num">Cache</div><div class="step-title">In-Memory</div><div class="step-detail">10-min TTL</div></div>
-</div>
-
-<div class="grid grid-2">
-<div class="card">
-<div class="card-title">Obsidian Plugin (Per-User, Live)</div>
-<p style="font-size:0.8rem;color:var(--muted)"><code>/api/calendar/:email/today</code> and <code>/week</code> fetch directly from Microsoft Graph for each user on every request. Returns ALL meetings (internal + external). No stale SQLite dependency.</p>
-</div>
-<div class="card">
-<div class="card-title">GTM Hub / Meeting Prep (Batch, Cached)</div>
-<p style="font-size:0.8rem;color:var(--muted)"><code>getUpcomingMeetingsForAllBLs()</code> fetches calendars for all BLs in parallel (batches of 3). Filters to customer meetings only. In-memory cache with 10-minute TTL.</p>
-</div>
-</div>
-</section>
-
-<!-- ═══════════ OBSIDIAN ═══════════ -->
-<section id="obsidian">
-<h2><span class="icon" style="background:rgba(168,85,247,0.15)">📓</span> Obsidian Plugin</h2>
-<p class="subtitle">Desktop-first experience: account folders, contacts, intelligence, recording, and chat — all synced to Salesforce.</p>
-
-<h3>Account Enrichment Pipeline</h3>
-<div class="flow">
-<div class="flow-step"><div class="step-num">Trigger</div><div class="step-title">Setup / Vault Reopen</div><div class="step-detail">Email entry</div></div>
-<div class="flow-arrow">→</div>
-<div class="flow-step"><div class="step-num">Filter</div><div class="step-title">Real SF IDs</div><div class="step-detail">001* prefix check</div></div>
-<div class="flow-arrow">→</div>
-<div class="flow-step"><div class="step-num">Batch</div><div class="step-title">POST /enrich-batch</div><div class="step-detail">Batches of 20</div></div>
-<div class="flow-arrow">→</div>
-<div class="flow-step"><div class="step-num">Gather</div><div class="step-title">Parallel SF Queries</div><div class="step-detail">5 queries per account</div></div>
-<div class="flow-arrow">→</div>
-<div class="flow-step"><div class="step-num">Write</div><div class="step-title">Sub-Notes</div><div class="step-detail">Contacts, Intel, Notes</div></div>
-</div>
-
-<div class="card">
-<div class="card-title">7 Sub-Notes Per Account</div>
-<p style="font-size:0.8rem;color:var(--muted)">Each account folder contains: Note 1-3 (user notes), Meeting Notes (<code>Customer_Brain__c</code>), Contacts (from SF Contact object), Intelligence (company context, pain points, competitive landscape), Next Steps (open tasks + upcoming events). All populated <strong>synchronously</strong> during setup — user sees progress notices.</p>
-</div>
-
-<h3>Meeting Notes → Salesforce Sync</h3>
-<div class="card">
-<p style="font-size:0.85rem;color:var(--muted)">
-<strong>Q: "How do meeting notes get added to Salesforce?"</strong><br><br>
-When a user records notes against an account in Obsidian, the plugin syncs them to the <code>Customer_Brain__c</code> rich text field on the Account object via per-user OAuth (PKCE flow). This is a direct Salesforce API write using the user's own credentials — no shared service account for writes.<br><br>
-<strong>Flow:</strong> User types notes in Obsidian → Plugin calls <code>/api/sf/auth/start</code> (PKCE) → Authenticates as the user → Updates <code>Customer_Brain__c</code> via jsforce → Salesforce records the change with the user's identity in the audit trail.
-</p>
-</div>
-</section>
-
-<!-- ═══════════ TRANSCRIPTION ═══════════ -->
-<section id="transcription">
-<h2><span class="icon" style="background:rgba(236,72,153,0.15)">🎙</span> Transcription Pipeline</h2>
-<p class="subtitle">Real-time audio capture → Whisper transcription → GPT-4o summarization → Salesforce sync.</p>
-
-<div class="flow">
-<div class="flow-step"><div class="step-num">1</div><div class="step-title">Audio Capture</div><div class="step-detail">MediaRecorder API<br>Obsidian Electron shell</div></div>
-<div class="flow-arrow">→</div>
-<div class="flow-step"><div class="step-num">2</div><div class="step-title">Chunk Upload</div><div class="step-detail">Every 2 minutes<br>/api/transcribe-chunk</div></div>
-<div class="flow-arrow">→</div>
-<div class="flow-step"><div class="step-num">3</div><div class="step-title">Whisper STT</div><div class="step-detail">OpenAI Whisper API<br>Real-time transcription</div></div>
-<div class="flow-arrow">→</div>
-<div class="flow-step"><div class="step-num">4</div><div class="step-title">Full Summary</div><div class="step-detail">GPT-4o summarization<br>On recording stop</div></div>
-<div class="flow-arrow">→</div>
-<div class="flow-step"><div class="step-num">5</div><div class="step-title">SF Sync</div><div class="step-detail">Customer_Brain__c<br>Per-user OAuth</div></div>
-</div>
-
-<div class="grid grid-2">
-<div class="card">
-<div class="card-title">Safety Limits</div>
-<ul style="font-size:0.8rem;color:var(--muted);padding-left:16px">
-<li>45-minute popup prompt ("Still recording?")</li>
-<li>90-minute hard stop in AudioRecorder</li>
-<li>Safety net in main.ts update interval</li>
-</ul>
-</div>
-<div class="card">
-<div class="card-title">Speaker Diarization</div>
-<p style="font-size:0.8rem;color:var(--muted)">AssemblyAI with <code>speaker_labels: true, speakers_expected: 2</code>. Separates rep vs. customer voices when both sides of the call are captured. Requires <code>ASSEMBLYAI_API_KEY</code>.</p>
-</div>
-</div>
-</section>
-
-<!-- ═══════════ SECURITY ═══════════ -->
-<section id="security">
-<h2><span class="icon" style="background:rgba(52,211,153,0.15)">🔐</span> Security & Data Privacy</h2>
-<p class="subtitle">Enterprise-grade security posture with defense-in-depth across every layer.</p>
-
-<div class="grid grid-2">
-<div class="card" style="border-color:var(--green)">
-<div class="card-title"><span class="security-shield">🔒 Authentication</span></div>
-<ul style="font-size:0.8rem;color:var(--muted);padding-left:16px">
-<li><strong>GTM Hub:</strong> Okta SSO (OIDC) — corporate identity provider</li>
-<li><strong>Salesforce:</strong> Service account + per-user OAuth (PKCE flow)</li>
-<li><strong>Calendar:</strong> Azure AD app with delegated calendar read permissions</li>
-<li><strong>Slack:</strong> Bot token + signing secret verification on every request</li>
-<li><strong>Obsidian:</strong> Per-user Salesforce OAuth — no shared credentials</li>
-</ul>
-</div>
-<div class="card" style="border-color:var(--green)">
-<div class="card-title"><span class="security-shield">🔒 Authorization</span></div>
-<ul style="font-size:0.8rem;color:var(--muted);padding-left:16px">
-<li><strong>Write operations:</strong> Restricted to admin user only (Keigan)</li>
-<li><strong>Role-based access:</strong> Admin, Exec, Sales Leader, BL, CS, CS Manager</li>
-<li><strong>Calendar gating:</strong> <code>BL_EMAILS_PILOT</code> whitelist</li>
-<li><strong>Meeting Prep:</strong> Auto-filtered to logged-in user's meetings</li>
-<li><strong>Counsel accounts:</strong> <code>Account_Display_Name__c</code> shows code names</li>
-</ul>
-</div>
-</div>
-
-<div class="grid grid-2">
-<div class="card" style="border-color:var(--green)">
-<div class="card-title"><span class="security-shield">🔒 Data Protection</span></div>
-<ul style="font-size:0.8rem;color:var(--muted);padding-left:16px">
-<li><strong>Zero disk persistence:</strong> Customer data never written to Render filesystem</li>
-<li><strong>Token encryption:</strong> AES-256-GCM for stored OAuth tokens</li>
-<li><strong>Ephemeral caches:</strong> All in-memory caches lost on restart</li>
-<li><strong>No PII in logs:</strong> Structured logging via Winston without sensitive fields</li>
-<li><strong>CSP headers:</strong> Content-Security-Policy on all web endpoints</li>
-</ul>
-</div>
-<div class="card" style="border-color:var(--green)">
-<div class="card-title"><span class="security-shield">🔒 Infrastructure</span></div>
-<ul style="font-size:0.8rem;color:var(--muted);padding-left:16px">
-<li><strong>Render.com:</strong> SOC 2 Type II, ISO 27001 certified</li>
-<li><strong>Salesforce:</strong> SOC 2, ISO 27001, FedRAMP certified</li>
-<li><strong>Anthropic:</strong> SOC 2 Type II certified, no training on API data</li>
-<li><strong>OpenAI:</strong> SOC 2, data not used for training via API</li>
-<li><strong>Microsoft:</strong> Azure AD — enterprise-grade identity platform</li>
-</ul>
-</div>
-</div>
-
-<h3>Data Flow Security</h3>
-<div class="card">
-<p style="font-size:0.85rem;color:var(--muted)">
-<strong>Q: "When users query GTM Brain, is that making a bunch of API calls?"</strong><br><br>
-Yes, but with intelligent caching. Each query triggers 1-5 Salesforce SOQL calls depending on the intent type. Cross-account queries (pipeline, forecast) hit Salesforce directly with <code>useCache=false</code> for live data. Account-specific queries check a 15-minute in-memory cache first — cache hit means zero API calls.<br><br>
-<strong>Rate limiting:</strong> Salesforce allows ~5,000 API calls/day on our plan. Current usage is well under this (estimated 500-800 calls/day). Context summarization is rate-limited to 3 per account per hour, 50 per day.<br><br>
-<strong>No data stored externally:</strong> Claude, Whisper, and GPT-4o receive the minimum context needed for their task. No customer data is retained by these providers via their API terms. Audio data is transient — uploaded, transcribed, and discarded.
-</p>
-</div>
-</section>
-
-<!-- ═══════════ SALESFORCE ═══════════ -->
+<!-- ═══════════ 4. SALESFORCE ═══════════ -->
 <section id="salesforce">
-<h2><span class="icon" style="background:rgba(59,130,246,0.15)">☁️</span> Salesforce Integration</h2>
-<p class="subtitle">jsforce v2 beta — service account + per-user OAuth for write operations.</p>
+<h2><span class="icon"><svg viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg></span> Salesforce Integration</h2>
+<p class="subtitle">jsforce v2 beta. Service account for reads, per-user OAuth for writes.</p>
 
-<h3>Connection Architecture</h3>
 <div class="grid grid-2">
-<div class="card">
-<div class="card-title">Service Account (Reads)</div>
-<p style="font-size:0.8rem;color:var(--muted)">Shared service account for all read operations. SOQL queries, SOSL searches, metadata reads. Managed in <code>src/salesforce/connection.js</code>. Auto-reconnects on session expiry.</p>
-</div>
-<div class="card">
-<div class="card-title">Per-User OAuth (Writes)</div>
-<p style="font-size:0.8rem;color:var(--muted)">Write operations use the user's own Salesforce credentials via PKCE flow. Tokens encrypted with AES-256-GCM and stored in Git-versioned files. Ensures audit trail shows the real user.</p>
-</div>
+<div class="card"><div class="card-title">Service Account (Reads)</div><p style="font-size:0.78rem;color:var(--muted)">Shared service account for SOQL, SOSL, and metadata reads. Auto-reconnects on session expiry. Circuit breaker with 15-min cooldown.</p></div>
+<div class="card"><div class="card-title">Per-User OAuth (Writes)</div><p style="font-size:0.78rem;color:var(--muted)">PKCE flow for meeting notes sync. Tokens encrypted with AES-256-GCM. Audit trail shows the real user identity.</p></div>
 </div>
 
-<h3>Key Objects & Custom Fields</h3>
 <table>
 <tr><th>Object</th><th>Key Custom Fields</th><th>Purpose</th></tr>
 <tr><td>Account</td><td><code>Customer_Brain__c</code>, <code>Account_Display_Name__c</code>, <code>Code_Name__c</code></td><td>Meeting notes, counsel sensitization</td></tr>
 <tr><td>Opportunity</td><td><code>ACV__c</code>, <code>Quarterly_Commit__c</code>, <code>Weighted_ACV_AI_Enabled__c</code></td><td>Deal value, AI-enabled forecast</td></tr>
 <tr><td>Pipeline_Snapshot__c</td><td>Weekly snapshots</td><td>Pipeline trending</td></tr>
-<tr><td>Delivery__c</td><td>Status, Health Score</td><td>Delivery tracking</td></tr>
 <tr><td>GTM_Usage_Log__c</td><td>Event_Type__c, User_Email__c</td><td>Usage analytics</td></tr>
 </table>
 
-<h3>165+ Salesforce Flows</h3>
-<p style="font-size:0.85rem;color:var(--muted)">Automated business logic including: opportunity stage progression, probability calculation, product line sync, CS staffing alerts, campaign influence, outreach tracking, and account health scoring.</p>
+<p style="font-size:0.82rem;color:var(--muted);margin-top:8px"><strong>165+ Salesforce Flows</strong> automate stage progression, probability calculation, product sync, CS staffing alerts, campaign influence, and account health scoring.</p>
 </section>
 
-<!-- ═══════════ ORCHESTRATION ═══════════ -->
+<!-- ═══════════ 5. CALENDAR & DESKTOP ═══════════ -->
+<section id="calendar-desktop">
+<h2><span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span> Calendar & Desktop</h2>
+<p class="subtitle">Live Microsoft Graph integration, Obsidian plugin, and real-time transcription.</p>
+
+<div class="flow">
+<div class="flow-step"><div class="step-num">Source</div><div class="step-title">MS Graph API</div><div class="step-detail">Azure AD OAuth</div></div>
+<div class="flow-arrow">&#8594;</div>
+<div class="flow-step"><div class="step-num">Fetch</div><div class="step-title">Per-User Calendar</div><div class="step-detail">Live on request</div></div>
+<div class="flow-arrow">&#8594;</div>
+<div class="flow-step"><div class="step-num">Filter</div><div class="step-title">External Meetings</div><div class="step-detail">Exclude internal</div></div>
+<div class="flow-arrow">&#8594;</div>
+<div class="flow-step"><div class="step-num">Match</div><div class="step-title">Account Resolution</div><div class="step-detail">Domain &#8594; SF Account</div></div>
+<div class="flow-arrow">&#8594;</div>
+<div class="flow-step"><div class="step-num">Cache</div><div class="step-title">In-Memory</div><div class="step-detail">10-min TTL</div></div>
+</div>
+
+<div class="grid grid-3">
+<div class="card">
+<div class="card-title">GTM Hub / Meeting Prep</div>
+<p style="font-size:0.78rem;color:var(--muted)">Batch fetch for all BLs in parallel. Filters to customer meetings. Pre-meeting intelligence briefings with account-specific Salesforce data.</p>
+</div>
+<div class="card">
+<div class="card-title">Obsidian Plugin</div>
+<p style="font-size:0.78rem;color:var(--muted)">7 sub-notes per account: user notes, meeting notes, contacts, intelligence, next steps. Meeting notes sync to <code>Customer_Brain__c</code> via PKCE.</p>
+</div>
+<div class="card">
+<div class="card-title">Transcription Pipeline</div>
+<p style="font-size:0.78rem;color:var(--muted)">Audio capture &#8594; 2-min Whisper chunks &#8594; GPT-4o summary &#8594; SF sync. Speaker diarization via AssemblyAI. 45-min prompt, 90-min hard stop.</p>
+</div>
+</div>
+</section>
+
+<!-- ═══════════ 6. ORCHESTRATION ═══════════ -->
 <section id="orchestration">
-<h2><span class="icon" style="background:rgba(245,158,11,0.15)">⚙️</span> Orchestration & Scheduling</h2>
+<h2><span class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Orchestration</h2>
 <p class="subtitle">Automated reports, scheduled refreshes, and event-driven workflows.</p>
 
-<h3>Scheduled Jobs</h3>
 <table>
 <tr><th>Job</th><th>Schedule</th><th>Output</th></tr>
-<tr><td>GTM Weekly Snapshot PDF</td><td>Thursday 9 AM EST</td><td>2-page PDF → Slack #gtm-weekly</td></tr>
-<tr><td>Delivery Weekly Summary</td><td>Friday</td><td>PDF + Excel → Slack</td></tr>
+<tr><td>GTM Weekly Snapshot PDF</td><td>Thursday 9 AM EST</td><td>2-page PDF &#8594; Slack #gtm-weekly</td></tr>
+<tr><td>Delivery Weekly Summary</td><td>Friday</td><td>PDF + Excel &#8594; Slack</td></tr>
 <tr><td>Full Pipeline Report</td><td>Friday</td><td>Excel (Active + Closed Won tabs)</td></tr>
-<tr><td>CSM Account Health</td><td>Friday</td><td>Excel → CS channel</td></tr>
-<tr><td>Finance Audit Report</td><td>Friday</td><td>Excel from SF report</td></tr>
+<tr><td>CSM Account Health</td><td>Friday</td><td>Excel &#8594; CS channel</td></tr>
 <tr><td>Intelligence Cache Refresh</td><td>Every 6 hours</td><td>Slack channel intelligence extraction</td></tr>
 </table>
 
-<h3>Event-Driven Platform Events</h3>
+<h3>Platform Events</h3>
 <div class="grid grid-3">
-<div class="card">
-<div class="card-title">Closed Won Alert</div>
-<p style="font-size:0.8rem;color:var(--muted)"><code>Closed_Won_Alert__e</code> — Fires when opportunity reaches Stage 6. Posts celebration to Slack.</p>
-</div>
-<div class="card">
-<div class="card-title">CS Staffing Alert</div>
-<p style="font-size:0.8rem;color:var(--muted)"><code>CS_Staffing_Alert__e</code> — Fires when CS_Staffing_Flag__c changes. Notifies CS team.</p>
-</div>
-<div class="card">
-<div class="card-title">Case Created</div>
-<p style="font-size:0.8rem;color:var(--muted)"><code>Case_Created__e</code> — Fires on new case. Routes to appropriate support channel.</p>
-</div>
-</div>
-
-<h3>Channel Intelligence Extraction</h3>
-<div class="card">
-<p style="font-size:0.85rem;color:var(--muted)">
-<code>channelIntelligence.js</code> monitors designated Slack channels, extracts deal signals using Claude, stores in <code>intelligenceStore</code> (SQLite + file cache). Approved items sync to Salesforce <code>Customer_Brain__c</code>. This turns ambient Slack conversation into structured CRM intelligence.
-</p>
+<div class="card"><div class="card-title">Closed Won Alert</div><p style="font-size:0.78rem;color:var(--muted)"><code>Closed_Won_Alert__e</code> fires at Stage 6. Posts celebration to Slack.</p></div>
+<div class="card"><div class="card-title">CS Staffing Alert</div><p style="font-size:0.78rem;color:var(--muted)"><code>CS_Staffing_Alert__e</code> fires on staffing flag change. Notifies CS team.</p></div>
+<div class="card"><div class="card-title">Channel Intelligence</div><p style="font-size:0.78rem;color:var(--muted)">Monitors Slack channels, extracts deal signals via Claude, syncs to <code>Customer_Brain__c</code>.</p></div>
 </div>
 </section>
 
-<!-- ═══════════ INFRASTRUCTURE ═══════════ -->
+<!-- ═══════════ 7. INFRASTRUCTURE ═══════════ -->
 <section id="infrastructure">
-<h2><span class="icon" style="background:rgba(99,102,241,0.15)">🚀</span> Infrastructure & Deployment</h2>
-<p class="subtitle">Git push → auto-deploy in 2-3 minutes. No manual steps.</p>
+<h2><span class="icon"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></span> Infrastructure</h2>
+<p class="subtitle">Git push to auto-deploy in 2-3 minutes. No manual steps.</p>
 
 <div class="grid grid-2">
-<div class="card">
-<div class="card-title">Current: Render.com</div>
-<ul style="font-size:0.8rem;color:var(--muted);padding-left:16px">
-<li>Web Service (Node.js)</li>
-<li>Auto-deploy on <code>git push origin main</code></li>
-<li>Health check: <code>/health</code></li>
-<li>Zero Render Storage pattern (no persistent disk for customer data)</li>
-<li><code>.renderignore</code> cuts ~33MB from deploy uploads</li>
+<div class="card"><div class="card-title">Current: Render.com</div>
+<ul style="font-size:0.78rem;color:var(--muted);padding-left:16px;line-height:1.5">
+<li>Node.js Web Service, auto-deploy on <code>git push origin main</code></li>
+<li>Health check at <code>/health</code></li>
+<li>Zero Render Storage (no persistent disk for customer data)</li>
+<li><code>.renderignore</code> cuts ~33MB from deploy</li>
 </ul>
 </div>
-<div class="card">
-<div class="card-title">Future: AWS (Prepared)</div>
-<ul style="font-size:0.8rem;color:var(--muted);padding-left:16px">
+<div class="card"><div class="card-title">Future: AWS (Prepared)</div>
+<ul style="font-size:0.78rem;color:var(--muted);padding-left:16px;line-height:1.5">
 <li>Terraform configs in <code>infrastructure/</code></li>
-<li>ECS Fargate cluster + ALB</li>
-<li>EFS for persistent storage</li>
+<li>ECS Fargate + ALB + EFS</li>
 <li>Secrets Manager for credentials</li>
 <li>VPC with public/private subnets</li>
 </ul>
@@ -570,46 +336,30 @@ Yes, but with intelligent caching. Each query triggers 1-5 Salesforce SOQL calls
 <table>
 <tr><th>Component</th><th>Technology</th></tr>
 <tr><td>Backend</td><td>Node.js + Express.js</td></tr>
-<tr><td>Database</td><td>SQLite (intelligence, notes) • Salesforce (CRM data)</td></tr>
-<tr><td>AI — LLM</td><td>Anthropic Claude (direct API + Socrates internal gateway)</td></tr>
-<tr><td>AI — STT</td><td>OpenAI Whisper + GPT-4o summarization</td></tr>
+<tr><td>Database</td><td>PostgreSQL (L2 cache) + Salesforce (CRM data)</td></tr>
+<tr><td>AI</td><td>Claude (responses) + Whisper (STT) + GPT-4o (summaries)</td></tr>
 <tr><td>Calendar</td><td>Microsoft Graph API (Azure AD)</td></tr>
 <tr><td>Chat</td><td>Slack (Bolt framework, Socket Mode)</td></tr>
 <tr><td>Desktop</td><td>Obsidian Plugin (TypeScript, esbuild)</td></tr>
-<tr><td>Auth</td><td>Okta (SSO), Salesforce OAuth (PKCE), Azure AD</td></tr>
-<tr><td>Reports</td><td>PDFKit (PDF generation), ExcelJS (Excel generation)</td></tr>
-<tr><td>Logging</td><td>Winston (structured, correlation IDs)</td></tr>
+<tr><td>Auth</td><td>Okta SSO + Salesforce OAuth PKCE + Azure AD</td></tr>
+<tr><td>Reports</td><td>PDFKit + ExcelJS</td></tr>
 </table>
 
-<h3>Codebase Scale</h3>
-<div class="grid grid-3">
-<div class="card" style="text-align:center">
-<div style="font-size:1.5rem;font-weight:700;color:var(--accent)">~30K</div>
-<div style="font-size:0.75rem;color:var(--muted)">Lines of Production Code</div>
-</div>
-<div class="card" style="text-align:center">
-<div style="font-size:1.5rem;font-weight:700;color:var(--accent)">45+</div>
-<div style="font-size:0.75rem;color:var(--muted)">Service Modules</div>
-</div>
-<div class="card" style="text-align:center">
-<div style="font-size:1.5rem;font-weight:700;color:var(--accent)">165+</div>
-<div style="font-size:0.75rem;color:var(--muted)">Salesforce Flows</div>
-</div>
+<div class="grid grid-3" style="margin-top:12px">
+<div class="card" style="text-align:center"><div style="font-size:1.4rem;font-weight:700;color:var(--accent)">~30K</div><div style="font-size:0.72rem;color:var(--muted)">Lines of Production Code</div></div>
+<div class="card" style="text-align:center"><div style="font-size:1.4rem;font-weight:700;color:var(--accent)">45+</div><div style="font-size:0.72rem;color:var(--muted)">Service Modules</div></div>
+<div class="card" style="text-align:center"><div style="font-size:1.4rem;font-weight:700;color:var(--accent)">165+</div><div style="font-size:0.72rem;color:var(--muted)">Salesforce Flows</div></div>
 </div>
 </section>
 
 </div>
 
 <div class="footer">
-GTM Brain — Technical Architecture Walkthrough &bull; Eudia &bull; February 2026<br>
-<span style="color:var(--dim)">Confidential — Internal Use Only</span>
+GTM Brain &mdash; Technical Architecture &bull; Eudia &bull; February 2026<br>
+<span style="color:var(--dim)">Confidential &mdash; Internal Use Only</span>
 </div>
 
 <script>
-document.querySelectorAll('.collapsible').forEach(el => {
-  el.addEventListener('click', () => el.classList.toggle('open'));
-});
-
 const toc = document.getElementById('toc');
 const sections = document.querySelectorAll('section[id]');
 const tocLinks = toc.querySelectorAll('a');
