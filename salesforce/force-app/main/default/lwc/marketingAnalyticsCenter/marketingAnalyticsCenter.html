@@ -1,0 +1,334 @@
+<template>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Marketing Analytics Center</h1>
+            <p class="subtitle">Campaign performance, event ROI, pipeline attribution, and lead flow.</p>
+            <lightning-button variant="neutral" label="Refresh" icon-name="utility:refresh" onclick={handleRefresh} class="refresh-btn"></lightning-button>
+        </div>
+
+        <!-- Insight Cards -->
+        <template if:true={hasInsights}>
+            <div class="insights-row">
+                <template for:each={insightCards} for:item="ins">
+                    <div key={ins.title} class={ins.cardClass}>
+                        <strong>{ins.title}</strong>
+                        <p>{ins.detail}</p>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class={overviewTabClass} data-tab="overview" onclick={handleTabClick}>Campaign Overview</button>
+            <button class={eventsTabClass} data-tab="events" onclick={handleTabClick}>Event ROI</button>
+            <button class={attributionTabClass} data-tab="attribution" onclick={handleTabClick}>Pipeline Attribution</button>
+            <button class={leadFlowTabClass} data-tab="leadflow" onclick={handleTabClick}>Lead Flow</button>
+            <button class={editorTabClass} data-tab="editor" onclick={handleTabClick}>Data Editor</button>
+        </div>
+
+        <!-- Loading -->
+        <template if:true={loading}>
+            <div class="loading"><lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner></div>
+        </template>
+
+        <!-- Error -->
+        <template if:true={error}>
+            <div class="error-box">{error}</div>
+        </template>
+
+        <!-- ═══ TAB 1: CAMPAIGN OVERVIEW ═══ -->
+        <template if:true={isOverview}>
+            <template if:true={overview}>
+                <div class="scorecard-row">
+                    <div class="scorecard"><div class="sc-value">{overview.activeCampaigns}</div><div class="sc-label">Active Campaigns</div></div>
+                    <div class="scorecard"><div class="sc-value">{fmtTotalSpend}</div><div class="sc-label">Total Spend</div></div>
+                    <div class="scorecard"><div class="sc-value">{overview.totalLeads}</div><div class="sc-label">Leads Generated</div></div>
+                    <div class="scorecard"><div class="sc-value">{fmtTotalPipeline}</div><div class="sc-label">Pipeline Influenced</div></div>
+                    <div class="scorecard"><div class="sc-value">{fmtAvgRoi}</div><div class="sc-label">Avg ROI</div></div>
+                    <div class="scorecard"><div class="sc-value">{fmtAvgCpl}</div><div class="sc-label">Avg Cost/Lead</div></div>
+                </div>
+
+                <!-- By Type -->
+                <h3>Performance by Campaign Type</h3>
+                <table class="data-table">
+                    <thead><tr><th>Type</th><th>Campaigns</th><th>Spend</th><th>Leads</th><th>Pipeline</th><th>Avg ROI</th><th>CPL</th></tr></thead>
+                    <tbody>
+                        <template for:each={formattedByType} for:item="row">
+                            <tr key={row.label}><td class="bold">{row.label}</td><td>{row.count}</td><td>{row.fmtSpend}</td><td>{row.leads}</td><td>{row.fmtPipeline}</td><td>{row.fmtAvgRoi}</td><td>{row.fmtCpl}</td></tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <!-- By Funnel -->
+                <h3>Performance by Funnel Stage</h3>
+                <table class="data-table">
+                    <thead><tr><th>Funnel Stage</th><th>Campaigns</th><th>Spend</th><th>Leads</th><th>Pipeline</th><th>Avg ROI</th></tr></thead>
+                    <tbody>
+                        <template for:each={formattedByFunnel} for:item="row">
+                            <tr key={row.label}><td class="bold">{row.label}</td><td>{row.count}</td><td>{row.fmtSpend}</td><td>{row.leads}</td><td>{row.fmtPipeline}</td><td>{row.fmtAvgRoi}</td></tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <!-- Campaign List -->
+                <h3>All Campaigns ({overview.totalCampaigns})</h3>
+                <table class="data-table">
+                    <thead><tr><th>Campaign</th><th>Type</th><th>Funnel</th><th>Status</th><th>Spend</th><th>Leads</th><th>Pipeline</th><th>ROI</th></tr></thead>
+                    <tbody>
+                        <template for:each={formattedCampaigns} for:item="c">
+                            <tr key={c.id}>
+                                <td><a href={c.url} class="link">{c.name}</a></td>
+                                <td>{c.campaignType}</td><td>{c.funnelStage}</td><td>{c.status}</td>
+                                <td>{c.fmtSpend}</td><td>{c.leads}</td><td>{c.fmtPipeline}</td><td>{c.fmtRoi}</td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </template>
+        </template>
+
+        <!-- ═══ TAB 2: EVENT ROI ═══ -->
+        <template if:true={isEvents}>
+            <template if:true={eventData}>
+                <div class="scorecard-row">
+                    <div class="scorecard"><div class="sc-value">{eventData.totalEvents}</div><div class="sc-label">Total Events</div></div>
+                    <div class="scorecard"><div class="sc-value">{fmtEventSpend}</div><div class="sc-label">Event Spend</div></div>
+                    <div class="scorecard"><div class="sc-value">{eventData.totalAttendees}</div><div class="sc-label">Total Attendees</div></div>
+                    <div class="scorecard"><div class="sc-value">{fmtCostPerAttendee}</div><div class="sc-label">Cost/Attendee</div></div>
+                    <div class="scorecard"><div class="sc-value">{fmtEventPipeline}</div><div class="sc-label">Pipeline Influenced</div></div>
+                    <div class="scorecard"><div class="sc-value">{fmtPipelinePerEvent}</div><div class="sc-label">Pipeline/Event</div></div>
+                </div>
+
+                <!-- By City -->
+                <h3>Events by City</h3>
+                <table class="data-table">
+                    <thead><tr><th>City</th><th>Events</th><th>Spend</th><th>Attendees</th><th>Pipeline</th><th>Cost/Attendee</th><th>Pipeline/Event</th></tr></thead>
+                    <tbody>
+                        <template for:each={formattedByCity} for:item="row">
+                            <tr key={row.label}><td class="bold">{row.label}</td><td>{row.count}</td><td>{row.fmtSpend}</td><td>{row.attendees}</td><td>{row.fmtPipeline}</td><td>{row.fmtCpa}</td><td>{row.fmtPpe}</td></tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <!-- Event List -->
+                <h3>All Events ({eventData.totalEvents})</h3>
+                <table class="data-table">
+                    <thead><tr><th>Event</th><th>Type</th><th>City</th><th>Date</th><th>Spend</th><th>Attendees</th><th>Pipeline</th><th>ROI</th></tr></thead>
+                    <tbody>
+                        <template for:each={formattedEvents} for:item="e">
+                            <tr key={e.id}>
+                                <td><a href={e.url} class="link">{e.name}</a></td>
+                                <td>{e.campaignType}</td><td>{e.eventCity}</td><td>{e.startDate}</td>
+                                <td>{e.fmtSpend}</td><td>{e.attendees}</td><td>{e.fmtPipeline}</td><td>{e.fmtRoi}</td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </template>
+        </template>
+
+        <!-- ═══ TAB 3: PIPELINE ATTRIBUTION ═══ -->
+        <template if:true={isAttribution}>
+            <template if:true={attribution}>
+                <div class="scorecard-row">
+                    <div class="scorecard"><div class="sc-value">{attribution.campaignsWithAttribution}</div><div class="sc-label">Campaigns w/ Attribution</div></div>
+                    <div class="scorecard"><div class="sc-value">{fmtAttrPipeline}</div><div class="sc-label">Attributed Pipeline</div></div>
+                    <div class="scorecard"><div class="sc-value">{fmtAttrWon}</div><div class="sc-label">Attributed Won Revenue</div></div>
+                    <div class="scorecard"><div class="sc-value">{fmtCoverage}</div><div class="sc-label">Attribution Coverage</div></div>
+                    <div class="scorecard"><div class="sc-value">{attribution.attributedOpps} / {attribution.totalOpenOpps}</div><div class="sc-label">Opps Attributed / Total</div></div>
+                </div>
+
+                <template if:true={attribution.error}>
+                    <div class="error-box">{attribution.error}</div>
+                </template>
+
+                <h3>Top Campaigns by Influenced Pipeline</h3>
+                <table class="data-table">
+                    <thead><tr><th>Campaign</th><th>Type</th><th>Opps Influenced</th><th>Pipeline Value</th></tr></thead>
+                    <tbody>
+                        <template for:each={formattedTopCampaigns} for:item="r">
+                            <tr key={r.campaignId}>
+                                <td><a href={r.url} class="link">{r.campaignName}</a></td>
+                                <td>{r.campaignType}</td><td>{r.oppsInfluenced}</td><td>{r.fmtPipeline}</td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </template>
+        </template>
+
+        <!-- ═══ TAB 4: LEAD FLOW ═══ -->
+        <template if:true={isLeadFlow}>
+            <template if:true={leadFlow}>
+                <div class="scorecard-row">
+                    <div class="scorecard"><div class="sc-value">{leadFlow.totalLeadsThisQuarter}</div><div class="sc-label">Leads This Quarter</div></div>
+                    <div class="scorecard"><div class="sc-value">{leadFlow.convertedLeads}</div><div class="sc-label">Converted</div></div>
+                    <div class="scorecard"><div class="sc-value">{fmtConvRate}</div><div class="sc-label">Conversion Rate</div></div>
+                </div>
+
+                <h3>Leads by Source</h3>
+                <table class="data-table">
+                    <thead><tr><th>Source</th><th>Leads</th></tr></thead>
+                    <tbody>
+                        <template for:each={leadFlow.bySource} for:item="s">
+                            <tr key={s.label}><td class="bold">{s.label}</td><td>{s.count}</td></tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <h3>Leads by Campaign</h3>
+                <table class="data-table">
+                    <thead><tr><th>Campaign</th><th>Leads</th></tr></thead>
+                    <tbody>
+                        <template for:each={leadFlow.byCampaign} for:item="c">
+                            <tr key={c.label}><td class="bold">{c.label}</td><td>{c.count}</td></tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <h3>Recent Leads</h3>
+                <table class="data-table">
+                    <thead><tr><th>Name</th><th>Company</th><th>Source</th><th>Status</th><th>Industry</th></tr></thead>
+                    <tbody>
+                        <template for:each={formattedRecentLeads} for:item="l">
+                            <tr key={l.id}>
+                                <td><a href={l.url} class="link">{l.name}</a></td>
+                                <td>{l.company}</td><td>{l.source}</td><td>{l.status}</td><td>{l.industry}</td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </template>
+        </template>
+
+        <!-- ═══ TAB 5: DATA EDITOR ═══ -->
+        <template if:true={isEditor}>
+            <div class="sub-tabs">
+                <button class={editorCampaignsSubClass} data-subtab="campaigns" onclick={handleEditorSubTab}>Campaigns</button>
+                <button class={editorMembersSubClass} data-subtab="members" onclick={handleEditorSubTab}>Campaign Members</button>
+            </div>
+
+            <!-- Campaign Editor -->
+            <template if:true={isEditorCampaigns}>
+                <div class="editor-info">
+                    <p class="editor-hint">Edit Spend and Attendees inline. For picklist fields (Status, Type, City, etc.), click the row action menu and select "Edit Details" to get dropdown options.</p>
+                    <p class="editor-hint"><strong>Pipeline Influenced</strong> is pulled from Salesforce CampaignInfluence records -- it shows the total ACV of Opportunities that have CampaignMembers linked to this campaign. To increase attribution, add Campaign Members (contacts/leads) who are also Contacts on Opportunities.</p>
+                    <p class="editor-hint"><strong>ROI</strong> = (Won Revenue - Spend) / Spend. Shows "-" when no won deals are attributed. To correct: update ActualCost here, and ensure CampaignMembers are linked to won Opportunities.</p>
+                </div>
+                <lightning-datatable
+                    key-field="id"
+                    data={editorCampaigns}
+                    columns={editorColumns}
+                    draft-values={editorDraftValues}
+                    onsave={handleEditorSave}
+                    onrowaction={handleRowAction}
+                    hide-checkbox-column
+                    show-row-number-column>
+                </lightning-datatable>
+                <template if:true={editorSaving}>
+                    <div class="loading"><lightning-spinner alternative-text="Saving" size="small"></lightning-spinner> Saving...</div>
+                </template>
+            </template>
+
+            <!-- Edit Modal -->
+            <template if:true={editModalOpen}>
+                <section class="slds-modal slds-fade-in-open">
+                    <div class="slds-modal__container">
+                        <header class="slds-modal__header">
+                            <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" onclick={handleEditCancel}>
+                                <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                            </button>
+                            <h2 class="slds-text-heading_medium">Edit Campaign</h2>
+                        </header>
+                        <div class="slds-modal__content slds-p-around_medium">
+                            <p class="slds-m-bottom_small"><strong>{editRow.name}</strong></p>
+                            <div class="slds-grid slds-wrap slds-gutters_small">
+                                <div class="slds-col slds-size_1-of-2 slds-m-bottom_small">
+                                    <lightning-combobox label="Status" value={editRow.status} options={statusOptions} data-field="status" onchange={handleEditField}></lightning-combobox>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2 slds-m-bottom_small">
+                                    <lightning-combobox label="Campaign Type" value={editRow.campaignType} options={typeOptions} data-field="campaignType" onchange={handleEditField}></lightning-combobox>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2 slds-m-bottom_small">
+                                    <lightning-combobox label="Funnel Stage" value={editRow.funnelStage} options={funnelOptions} data-field="funnelStage" onchange={handleEditField}></lightning-combobox>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2 slds-m-bottom_small">
+                                    <lightning-combobox label="Content Type" value={editRow.contentType} options={contentOptions} data-field="contentType" onchange={handleEditField}></lightning-combobox>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2 slds-m-bottom_small">
+                                    <lightning-combobox label="Event City" value={editRow.eventCity} options={cityOptions} data-field="eventCity" onchange={handleEditField}></lightning-combobox>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2 slds-m-bottom_small">
+                                    <lightning-combobox label="Event Region" value={editRow.eventRegion} options={regionOptions} data-field="eventRegion" onchange={handleEditField}></lightning-combobox>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2 slds-m-bottom_small">
+                                    <lightning-combobox label="Seniority Level" value={editRow.seniorityLevel} options={seniorityOptions} data-field="seniorityLevel" onchange={handleEditField}></lightning-combobox>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2 slds-m-bottom_small">
+                                    <lightning-input label="Actual Spend" type="number" formatter="currency" step="0.01" value={editRow.spend} onchange={handleEditSpend}></lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2 slds-m-bottom_small">
+                                    <lightning-input label="Attendees" type="number" value={editRow.attendees} onchange={handleEditAttendees}></lightning-input>
+                                </div>
+                            </div>
+                        </div>
+                        <footer class="slds-modal__footer">
+                            <button class="slds-button slds-button_neutral" onclick={handleEditCancel}>Cancel</button>
+                            <button class="slds-button slds-button_brand" onclick={handleEditSave}>Save</button>
+                        </footer>
+                    </div>
+                </section>
+                <div class="slds-backdrop slds-backdrop_open"></div>
+            </template>
+
+            <!-- Campaign Members -->
+            <template if:true={isEditorMembers}>
+                <div class="member-controls">
+                    <lightning-combobox
+                        label="Select Campaign"
+                        placeholder="Choose a campaign..."
+                        options={campaignOptions}
+                        value={selectedEditorCampaign}
+                        onchange={handleCampaignSelect}>
+                    </lightning-combobox>
+                </div>
+
+                <template if:true={selectedEditorCampaign}>
+                    <div class="member-add">
+                        <lightning-input
+                            label="Add member (search contacts/leads)"
+                            placeholder="Type a name..."
+                            value={memberSearchTerm}
+                            onchange={handleMemberSearch}>
+                        </lightning-input>
+                        <template if:true={memberSearchResults.length}>
+                            <div class="search-results-list">
+                                <template for:each={memberSearchResults} for:item="sr">
+                                    <div key={sr.recordId} class="search-result-item" data-id={sr.recordId} onclick={handleAddMember}>
+                                        <strong>{sr.name}</strong> -- {sr.company} ({sr.recordType})
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+
+                    <template if:true={membersLoading}>
+                        <div class="loading"><lightning-spinner alternative-text="Loading" size="small"></lightning-spinner></div>
+                    </template>
+
+                    <template if:false={membersLoading}>
+                        <h3>Members ({campaignMembers.length})</h3>
+                        <lightning-datatable
+                            key-field="id"
+                            data={campaignMembers}
+                            columns={memberColumns}
+                            hide-checkbox-column>
+                        </lightning-datatable>
+                    </template>
+                </template>
+            </template>
+        </template>
+    </div>
+</template>

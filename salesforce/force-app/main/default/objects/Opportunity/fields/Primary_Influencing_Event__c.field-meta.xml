@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Primary_Influencing_Event__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>The event campaign that activated or influenced this opportunity. Supports event activation attribution where the original source may be Referral but the event is what converted the referral into pipeline.</description>
+    <externalId>false</externalId>
+    <label>Primary Influencing Event</label>
+    <referenceTo>Campaign</referenceTo>
+    <relationshipLabel>Influenced Opportunities</relationshipLabel>
+    <relationshipName>Influenced_Opportunities</relationshipName>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>Lookup</type>
+</CustomField>

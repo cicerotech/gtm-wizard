@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Fiscal_Year__c</fullName>
+    <description>Fiscal year attribution for budget vs actual spend reporting. Enables year-over-year event ROI comparison.</description>
+    <externalId>false</externalId>
+    <label>Fiscal Year</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>false</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>FY2024</fullName>
+                <default>false</default>
+                <label>FY2024</label>
+            </value>
+            <value>
+                <fullName>FY2025</fullName>
+                <default>false</default>
+                <label>FY2025</label>
+            </value>
+            <value>
+                <fullName>FY2026</fullName>
+                <default>true</default>
+                <label>FY2026</label>
+            </value>
+            <value>
+                <fullName>FY2027</fullName>
+                <default>false</default>
+                <label>FY2027</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
