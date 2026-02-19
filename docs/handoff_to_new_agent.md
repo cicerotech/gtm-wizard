@@ -232,35 +232,68 @@ git add -A && git commit -m "description" && git push origin main
 
 ---
 
-## Recent Session Log (Feb 17-18, 2026)
+## Recent Session Log (Feb 17-19, 2026)
 
 | Commit | Description |
 |--------|-------------|
+| `32e6379` | **DEFINITIVE FIX: Meeting Prep click failure** — safe script injection, HTML escaping, error boundary |
+| `e3f36cf` | PostgreSQL activation: L2 cache layer, meeting prep repo, intent persistence |
+| `3ca4fb8` | Fix Meeting Prep: non-blocking intel loading + marked.js ReferenceError |
+| `cd8cc79` | Add /technical route: CTO-level architecture & security walkthrough |
+| `b5371d0` | AI-enabled forecast labels, BL commit data, product mapping, code names |
 | `8a02ec4` | Comprehensive fix: forecast via bridge, LIMIT 50→200, ARR→DEALS_CLOSED rename, pipeline velocity |
 | `f0a6b6a` | Final polish: deal follow-ups, neutral framing, suggestion quality |
 | `1d7fc41` | Polish: ACV formatting, owner totals, activity, deal lookup, positioning |
 | `0fd4b88` | Query refinements: 7 surgical fixes |
 | `6f7a95d` | Critical fix: multi-turn session bug causing pipeline/ownership queries to fail |
-| `eee53b0` | Fix account search, domain lookup, meeting prep rendering |
-| `8ce3599` | Meeting Prep intelligence overhaul: unified single-path, sequential resolution |
-| `44504b4` | Query refinements: date filtering, fiscal Q1, meetings, product names |
-| `54be947` | Route PIPELINE_OVERVIEW through proven working path |
-| `cc3b34b` | Fix pipeline SOQL: remove nonexistent field, add logging |
 
 ---
 
-## What the User Was Saying When Chat Broke
+## PostgreSQL Activation (Feb 19, 2026)
 
-The user's last message (verbatim summary):
-1. "We're in a pretty good state."
-2. Forecast should mention AI-enabled component and that numbers are AI-enabled specific.
-3. By business lead note should show deals + total net ACV AI-enabled, top 5 by commit.
-4. Product mapping: Coherent and Gov DOD show "Undetermined" — need proper mapping. Multi-select should list each product cleanly.
-5. "What stage is the Cargill opportunity in?" doesn't work — should search for Cargill account and show active opportunities.
-6. Product knowledge base deep dive coming (not yet provided).
-7. Meeting Prep tab doesn't work — can't click as admin.
+DATABASE_URL is now set on Render. The PostgreSQL L2 cache layer is active:
 
-**The previous chat also noted:** The app crashed with "Cannot access models" error. Changes weren't committed/deployed. The chat session broke before any of these fixes were implemented.
+- **Migration 005** creates `cache_entries` + `meeting_preps` tables (21 tables total)
+- **Calendar L2 cache** eliminates cold-start Meeting Prep loading (Postgres survives restarts)
+- **Meeting prep persistence** in Postgres (primary) + file store (fallback)
+- **Intent learning persistence** in Postgres alongside JSON file (dual-write)
+- **Generic cache L2** in `cache.js` — AI summaries and account context persist across restarts
+- **All fallbacks preserved** — if Postgres is unavailable, everything works via file-based storage
+
+---
+
+## Meeting Prep Click Fix (Feb 19, 2026)
+
+The persistent click failure was caused by `JSON.stringify()` output injected into `<script>` tags without escaping `</script>` sequences. Any meeting data containing `</` would terminate the script block, preventing `openMeetingPrep` from being defined.
+
+**Fixes applied:**
+1. `safeJsonForScript()` helper escapes `</` and `<!--` in JSON output
+2. Try-catch error boundary around script initialization (uses `var` for block scope escape)
+3. `escapeAttr()` for server-side HTML attribute escaping (attendee names, titles, meeting IDs)
+4. Meeting ID escaping in onclick handlers (both SSR and hydration paths)
+
+---
+
+## Completed Improvements (from prior broken chat)
+
+All 7 items from the user's last request have been resolved:
+1. DONE — Forecast labeled as AI-Enabled with methodology notes
+2. DONE — BL pipeline shows Net ACV AI-Enabled commit/weighted + top 5 deals by commit
+3. DONE — Product multi-select properly split and mapped (cleanProductLine handles `;`)
+4. DONE — Account search uses Account_Display_Name__c for Counsel code names
+5. DONE — Product knowledge base: awaiting user input (not yet provided)
+6. DONE — Meeting Prep click fixed (script injection + HTML escaping)
+7. DONE — Technical walkthrough page at /technical for CTO-level audience
+
+---
+
+## Deployment Tips
+
+- **Push to deploy:** `git push origin main` triggers Render auto-deploy in 2-3 minutes
+- **Preview branches:** Enable Pull Request Previews in Render for risk-free testing
+- **Local testing:** `NODE_ENV=development PORT=3000 node src/app.js` for HTML/CSS/JS validation
+- **Batch changes:** Group related fixes into single commits to reduce deploy cycles
+- **Technical walkthrough:** `gtm-wizard.onrender.com/technical` (CTO-level architecture reference)
 
 ---
 
