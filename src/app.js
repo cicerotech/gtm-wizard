@@ -2241,6 +2241,14 @@ class GTMBrainApp {
     this.expressApp.get('/data-flow', (req, res) => res.redirect('/architecture'));
     this.expressApp.get('/how-it-works', (req, res) => res.redirect('/architecture'));
 
+    // Technical Architecture Walkthrough (CTO-level deep dive)
+    this.expressApp.get('/technical', (req, res) => {
+      const path = require('path');
+      res.sendFile(path.join(__dirname, '..', 'docs', 'technical-walkthrough.html'));
+    });
+    this.expressApp.get('/tech', (req, res) => res.redirect('/technical'));
+    this.expressApp.get('/tech-walkthrough', (req, res) => res.redirect('/technical'));
+
     // Security & Compliance Documentation
     this.expressApp.get('/security', (req, res) => {
       res.send(generateSecurityCompliancePage());
