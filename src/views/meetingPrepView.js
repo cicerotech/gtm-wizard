@@ -6,6 +6,17 @@
 const meetingPrepService = require('../services/meetingPrepService');
 const logger = require('../utils/logger');
 
+function safeJsonForScript(obj) {
+  return JSON.stringify(obj)
+    .replace(/<\//g, '<\\/')
+    .replace(/<!--/g, '<\\!--');
+}
+
+function escapeAttr(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 /**
  * Server-side helper: Format time from ISO string
  */
@@ -211,7 +222,7 @@ function renderAttendeeChips(meeting) {
       ? `${displayName} <span class="chip-title">(${titleAbbr})</span>`
       : displayName;
     
-    return `<span class="attendee-chip external" title="${fullName}${att.title ? ' - ' + att.title : ''}">${chipContent}</span>`;
+    return `<span class="attendee-chip external" title="${escapeAttr(fullName)}${att.title ? ' - ' + escapeAttr(att.title) : ''}">${chipContent}</span>`;
   }).join('');
   
   const moreCount = external.length > 3 ? external.length - 3 : 0;
@@ -224,7 +235,7 @@ function renderAttendeeChips(meeting) {
     const firstName = nameParts[0] || 'Unknown';
     const lastInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1][0] + '.' : '';
     const displayName = nameParts.length > 1 ? `${firstName} ${lastInitial}` : firstName;
-    return `<span class="attendee-chip internal" title="${fullName}">${displayName}</span>`;
+    return `<span class="attendee-chip internal" title="${escapeAttr(fullName)}">${escapeAttr(displayName)}</span>`;
   }).join('');
   
   const internalMoreCount = internal.length > 2 ? internal.length - 2 : 0;
@@ -1627,10 +1638,10 @@ textarea.input-field {
             <div class="empty-day">No meetings</div>
           ` : (grouped[day.fullDate] || []).map(meeting => `
             <div class="meeting-card ${meeting.agenda?.some(a => a?.trim()) ? 'has-prep' : ''}" 
-                 onclick="openMeetingPrep('${meeting.meeting_id || meeting.meetingId}')"
-                 data-meeting-id="${meeting.meeting_id || meeting.meetingId}">
-              <div class="meeting-account">${meeting.account_name || meeting.accountName || 'Unknown'}</div>
-              <div class="meeting-title">${meeting.meeting_title || meeting.meetingTitle || 'Untitled'}</div>
+                 onclick="openMeetingPrep('${String(meeting.meeting_id || meeting.meetingId).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')"
+                 data-meeting-id="${escapeAttr(meeting.meeting_id || meeting.meetingId)}">
+              <div class="meeting-account">${escapeAttr(meeting.account_name || meeting.accountName || 'Unknown')}</div>
+              <div class="meeting-title">${escapeAttr(meeting.meeting_title || meeting.meetingTitle || 'Untitled')}</div>
               <div class="meeting-time">
                 ${formatTimeServer(meeting.meeting_date || meeting.meetingDate)}
                 <span class="meeting-source ${meeting.source}">${meeting.source}</span>
@@ -1708,35 +1719,42 @@ textarea.input-field {
 </div>
 
 <script>
-const DEMO_PRODUCTS = ${JSON.stringify(demoProducts)};
-let MEETINGS_DATA = ${JSON.stringify(
-  meetings.reduce((acc, m) => {
-    const id = m.meeting_id || m.meetingId;
-    acc[id] = {
-      meetingId: id,
-      accountName: m.account_name || m.accountName || 'Unknown',
-      meetingTitle: m.meeting_title || m.meetingTitle || 'Untitled',
-      meetingDate: m.meeting_date || m.meetingDate,
-      accountId: m.account_id || m.accountId || null,
-      source: m.source || 'unknown',
-      externalAttendees: (m.externalAttendees || []).map(a => ({
-        name: a.name || '',
-        email: a.email || '',
-        isExternal: true
-      })),
-      internalAttendees: (m.internalAttendees || []).map(a => ({
-        name: a.name || '',
-        email: a.email || '',
-        isExternal: false
-      }))
-    };
-    return acc;
-  }, {})
-)};
-const NEEDS_HYDRATION = ${needsClientHydration};
-let currentMeetingId = null;
-let currentMeetingData = null;
-let accountsList = [];
+var DEMO_PRODUCTS, MEETINGS_DATA;
+try {
+  DEMO_PRODUCTS = ${safeJsonForScript(demoProducts)};
+  MEETINGS_DATA = ${safeJsonForScript(
+    meetings.reduce((acc, m) => {
+      const id = m.meeting_id || m.meetingId;
+      acc[id] = {
+        meetingId: id,
+        accountName: m.account_name || m.accountName || 'Unknown',
+        meetingTitle: m.meeting_title || m.meetingTitle || 'Untitled',
+        meetingDate: m.meeting_date || m.meetingDate,
+        accountId: m.account_id || m.accountId || null,
+        source: m.source || 'unknown',
+        externalAttendees: (m.externalAttendees || []).map(a => ({
+          name: a.name || '',
+          email: a.email || '',
+          isExternal: true
+        })),
+        internalAttendees: (m.internalAttendees || []).map(a => ({
+          name: a.name || '',
+          email: a.email || '',
+          isExternal: false
+        }))
+      };
+      return acc;
+    }, {})
+  )};
+} catch(e) {
+  console.error('[MeetingPrep] Data initialization error:', e);
+  DEMO_PRODUCTS = DEMO_PRODUCTS || [];
+  MEETINGS_DATA = MEETINGS_DATA || {};
+}
+var NEEDS_HYDRATION = ${needsClientHydration};
+var currentMeetingId = null;
+var currentMeetingData = null;
+var accountsList = [];
 
 // EA exclusion list - Executive Assistants to filter from internal attendees
 // Use partial names/emails for robust matching (handles truncated display names)
@@ -2482,7 +2500,7 @@ function hydrateFromAPI() {
               }
               
               return '<div class="meeting-card' + (hasPrep ? ' has-prep' : '') + '" ' +
-                'onclick="openMeetingPrep(\\'' + id + '\\')" data-meeting-id="' + id + '">' +
+                'onclick="openMeetingPrep(\\'' + String(id).replace(/\\/g, '\\\\').replace(/'/g, "\\\\'") + '\\')" data-meeting-id="' + escapeHtml(id) + '">' +
                 '<div class="meeting-account">' + escapeHtml(account) + '</div>' +
                 '<div class="meeting-title">' + escapeHtml(title) + '</div>' +
                 '<div class="meeting-time">' + formatTime(date) + ' <span class="meeting-source ' + source + '">' + source + '</span></div>' +
