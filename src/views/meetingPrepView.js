@@ -1719,6 +1719,74 @@ textarea.input-field {
 </div>
 
 <script>
+// ISOLATED CLICK + ERROR HANDLER — Completely independent from main script.
+// If the main script block fails, this still works and shows why.
+window._mpErrors = [];
+window.onerror = function(msg, url, line, col, err) {
+  window._mpErrors.push(msg + ' at line ' + line);
+  console.error('[MeetingPrep JS ERROR]', msg, 'line:', line, 'col:', col);
+};
+
+document.addEventListener('click', function(e) {
+  var card = e.target.closest ? e.target.closest('.meeting-card') : null;
+  if (!card) return;
+  var mid = card.getAttribute('data-meeting-id');
+  if (!mid) return;
+  
+  // Try the full openMeetingPrep if available
+  if (typeof window.openMeetingPrep === 'function') {
+    try {
+      window.openMeetingPrep(mid);
+    } catch(err) {
+      console.error('[MeetingPrep] openMeetingPrep threw:', err);
+      alert('Meeting Prep error: ' + err.message);
+    }
+    return;
+  }
+  
+  // FALLBACK: Main script failed. Show modal with diagnostic info.
+  var modal = document.getElementById('prepModal');
+  var titleEl = document.getElementById('modalTitle');
+  var subtitleEl = document.getElementById('modalSubtitle');
+  var bodyEl = document.getElementById('modalBody');
+  
+  if (modal && titleEl) {
+    var acctDiv = card.querySelector('.meeting-account');
+    var mtgDiv = card.querySelector('.meeting-title');
+    titleEl.textContent = acctDiv ? acctDiv.textContent : 'Meeting Prep';
+    if (subtitleEl) subtitleEl.textContent = mtgDiv ? mtgDiv.textContent : '';
+    if (bodyEl) {
+      var errInfo = window._mpErrors.length > 0
+        ? '<div style="margin-top:16px;padding:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:0.75rem;color:#991b1b;text-align:left;"><strong>JavaScript errors detected:</strong><br>' + window._mpErrors.join('<br>') + '</div>'
+        : '<div style="margin-top:12px;font-size:0.7rem;color:#9ca3af;">No JS errors captured. The main script may not have loaded.</div>';
+      bodyEl.innerHTML = '<div style="padding:20px;">' +
+        '<div style="font-size:1rem;font-weight:600;margin-bottom:8px;">' + (acctDiv ? acctDiv.textContent : 'Meeting') + '</div>' +
+        '<div style="font-size:0.85rem;color:#6b7280;margin-bottom:16px;">' + (mtgDiv ? mtgDiv.textContent : '') + '</div>' +
+        '<div style="font-size:0.8rem;color:#ef4444;font-weight:500;">Meeting prep modal is running in fallback mode.</div>' +
+        '<div style="font-size:0.75rem;color:#6b7280;margin-top:8px;">The full meeting prep interface could not load. This diagnostic view shows what went wrong.</div>' +
+        errInfo +
+        '<div style="margin-top:12px;font-size:0.7rem;color:#9ca3af;">Meeting ID: ' + mid + '</div>' +
+        '</div>';
+    }
+    modal.classList.add('active');
+  }
+});
+
+// Close modal on overlay click or close button
+document.addEventListener('click', function(e) {
+  if (e.target.classList && e.target.classList.contains('modal-overlay') && e.target.classList.contains('active')) {
+    e.target.classList.remove('active');
+  }
+  if (e.target.classList && e.target.classList.contains('modal-close')) {
+    var overlay = e.target.closest('.modal-overlay');
+    if (overlay) overlay.classList.remove('active');
+  }
+});
+
+console.log('[MeetingPrep] Isolated click + error handler registered');
+</script>
+
+<script>
 var DEMO_PRODUCTS, MEETINGS_DATA;
 try {
   DEMO_PRODUCTS = ${safeJsonForScript(demoProducts)};
@@ -2544,22 +2612,7 @@ function hydrateFromAPI() {
 document.addEventListener('DOMContentLoaded', () => {
   loadAccounts();
   
-  // DELEGATED CLICK HANDLER — catches clicks on ANY .meeting-card element
-  // This is the PRIMARY click handler. It works for both SSR and hydrated cards.
-  // Immune to inline onclick escaping issues since it reads data-meeting-id attribute.
-  document.addEventListener('click', function(e) {
-    var card = e.target.closest('.meeting-card');
-    if (card) {
-      var meetingId = card.getAttribute('data-meeting-id');
-      if (meetingId && typeof openMeetingPrep === 'function') {
-        e.preventDefault();
-        e.stopPropagation();
-        openMeetingPrep(meetingId);
-      } else if (meetingId) {
-        console.error('[MeetingPrep] openMeetingPrep not defined! meetingId:', meetingId);
-      }
-    }
-  });
+  // Click handling is in the isolated <script> block above (immune to parse errors).
   
   // If page was rendered with loading skeletons, hydrate via AJAX
   hydrateFromAPI();
