@@ -737,10 +737,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       phases = ['Scanning pipeline by sales type...', 'Grouping New Business, Expansion, Renewal...', 'Building sales type breakdown...'];
     } else if (/loi|commitment deals/i.test(q)) {
       phases = ['Querying LOI deals...', 'Loading commitment data...', 'Ranking by close date...', 'Building LOI summary...'];
-    } else if (/arr|recurring revenue/i.test(q)) {
-      phases = ['Querying ARR contracts...', 'Loading recurring revenue data...', 'Building ARR summary...'];
-    } else if (/stuck|slow|stale|stalled/i.test(q)) {
-      phases = ['Scanning deals by days in stage...', 'Identifying stuck opportunities...', 'Ranking by staleness...', 'Building stuck deals report...'];
+    } else if (/deals (have |that )?closed|closed deals|what (have we|did we) (close|sign|win)/i.test(q)) {
+      phases = ['Querying closed deals...', 'Loading deal closure data...', 'Building summary...'];
+    } else if (/stuck|slow|stale|stalled|velocity|days in stage/i.test(q)) {
+      phases = ['Scanning pipeline velocity...', 'Calculating days in stage...', 'Building velocity distribution...', 'Ranking by stage duration...'];
     } else if (/added to pipeline|new pipeline|deals added/i.test(q)) {
       phases = ['Scanning recently created opportunities...', 'Filtering this week...', 'Building new pipeline list...'];
     } else if (/overview|full account|engagement|history/i.test(q)) {
@@ -1154,12 +1154,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     { text: 'What\\'s the pipeline by product line?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
     { text: 'What\\'s the pipeline by sales type?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
     { text: 'What was added to pipeline this week?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
-    { text: 'Which deals are stuck?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
+    { text: 'What\\'s the pipeline velocity?', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
     { text: 'Late stage contracting deals', tag: 'Pipeline', tagClass: 'gtm-ac-tag-pipeline' },
     { text: 'What\\'s our forecast?', tag: 'Forecast', tagClass: 'gtm-ac-tag-forecast' },
     { text: 'What have we signed this quarter?', tag: 'Forecast', tagClass: 'gtm-ac-tag-forecast' },
     { text: 'What LOIs have we signed?', tag: 'Forecast', tagClass: 'gtm-ac-tag-forecast' },
-    { text: 'What ARR deals have closed?', tag: 'Forecast', tagClass: 'gtm-ac-tag-forecast' },
+    { text: 'What deals have closed?', tag: 'Forecast', tagClass: 'gtm-ac-tag-forecast' },
     { text: 'How many customers do we have?', tag: 'Customers', tagClass: 'gtm-ac-tag-customer' },
     { text: 'How many logos do we have?', tag: 'Customers', tagClass: 'gtm-ac-tag-customer' },
     { text: 'What accounts did we meet with this week?', tag: 'Meetings', tagClass: 'gtm-ac-tag-customer' },

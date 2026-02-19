@@ -304,12 +304,12 @@ const QUERY_INTENTS = {
   PIPELINE_BY_PRODUCT: ['pipeline by product', 'pipeline by solution', 'product breakdown', 'product line breakdown', 'solution breakdown', 'pipeline by solution'],
   PIPELINE_BY_SALES_TYPE: ['pipeline by sales type', 'new business pipeline', 'expansion pipeline', 'renewal pipeline', 'sales type breakdown'],
   LOI_DEALS: ['loi deals', 'loi signed', 'lois signed', 'loi this', 'commitment deals', 'what lois'],
-  ARR_DEALS: ['arr deals', 'arr signed', 'arr contracts', 'recurring revenue', 'arr this'],
+  DEALS_CLOSED: ['deals closed', 'deals have closed', 'what have we closed', 'closed deals', 'deals won', 'what did we close', 'what did we sign', 'what have we signed'],
   SLOW_DEALS: ['stuck deals', 'slow deals', 'stale deals', 'deals stuck', 'stalled deals', 'no movement'],
   PIPELINE_ADDED: ['added to pipeline', 'pipeline added', 'new pipeline this', 'deals added', 'new deals this week'],
   CUSTOMER_COUNT: ['how many customers', 'how many logos', 'customer count', 'number of customers', 'total customers', 'how many clients', 'customer list', 'logo count'],
   CONTACT_SEARCH: ['chief legal officer', 'general counsel', 'clo based in', 'gc based in', 'contacts based in', 'contacts in', 'decision makers in', 'find contacts', 'clos owned by'],
-  PIPELINE_OVERVIEW: ['my pipeline', 'my deals', 'late stage', 'early stage', 'mid stage', 'how many deal', 'how many account', 'total pipeline', 'closing this month', 'closing this quarter', 'in our pipeline', 'pipeline summary', 'deals closing', 'new logo', 'won this month', 'won this quarter', 'what deals are', 'what opportunities are', 'which deals', 'which opportunities', 'deals in negotiation', 'deals in proposal', 'deals in pilot', 'negotiation', 'proposal stage', 'late stage contracting', 'late stage compliance', 'late stage m&a', 'contracting deals', 'compliance deals', 'pipeline by stage', 'open opportunities', 'open deals', 'active pipeline', 'prospecting', 'being prospected', 'accounts prospected', 'pipeline across all stages', 'total pipeline across', 'accounts with multiple', 'multiple opportunities', 'multiple deals', 'new business vs', 'new vs existing', 'new business split'],
+  PIPELINE_OVERVIEW: ['my pipeline', 'my deals', 'late stage', 'early stage', 'mid stage', 'how many deal', 'how many account', 'total pipeline', 'closing this month', 'closing this quarter', 'in our pipeline', 'pipeline summary', 'deals closing', 'new logo', 'won this month', 'won this quarter', 'what deals are', 'what opportunities are', 'which deals', 'which opportunities', 'deals in negotiation', 'deals in proposal', 'deals in pilot', 'negotiation', 'proposal stage', 'late stage contracting', 'late stage compliance', 'late stage m&a', 'contracting deals', 'compliance deals', 'pipeline by stage', 'open opportunities', 'open deals', 'active pipeline', 'prospecting', 'being prospected', 'accounts prospected', 'pipeline across all stages', 'total pipeline across', 'accounts with multiple', 'multiple opportunities', 'multiple deals', 'new business vs', 'new vs existing', 'new business split', 'stage breakdown', 'stage distribution', 'pipeline breakdown', 'q1 pipeline'],
   OWNER_ACCOUNTS: ['what accounts does', "'s accounts", "'s book", "'s pipeline", "'s deals", 'accounts does', 'book for'],
   MEETING_ACTIVITY: ['met with this week', 'meeting with this week', 'meetings this week', 'met with today', 'meeting with today', 'calls this week', 'meetings scheduled', 'accounts did we meet', 'accounts meeting with', 'who are we meeting', 'what meetings do we have'],
   ACCOUNT_LOOKUP: ['who owns', 'owner of', 'assigned to'],
@@ -489,7 +489,7 @@ async function processQuery({ query, accountId, accountName, userEmail, forceRef
       };
     }
 
-    const isCrossAccountIntent = ['PIPELINE_OVERVIEW', 'OWNER_ACCOUNTS', 'MEETING_ACTIVITY', 'CUSTOMER_COUNT', 'CONTACT_SEARCH', 'WEIGHTED_PIPELINE', 'PIPELINE_BY_STAGE', 'PIPELINE_BY_PRODUCT', 'PIPELINE_BY_SALES_TYPE', 'DEALS_SIGNED', 'DEALS_TARGETING', 'LOI_DEALS', 'ARR_DEALS', 'SLOW_DEALS', 'PIPELINE_ADDED', 'FORECAST', 'DELIVERY_STATUS'].includes(intent);
+    const isCrossAccountIntent = ['PIPELINE_OVERVIEW', 'OWNER_ACCOUNTS', 'MEETING_ACTIVITY', 'CUSTOMER_COUNT', 'CONTACT_SEARCH', 'WEIGHTED_PIPELINE', 'PIPELINE_BY_STAGE', 'PIPELINE_BY_PRODUCT', 'PIPELINE_BY_SALES_TYPE', 'DEALS_SIGNED', 'DEALS_TARGETING', 'LOI_DEALS', 'DEALS_CLOSED', 'SLOW_DEALS', 'PIPELINE_ADDED', 'FORECAST', 'DELIVERY_STATUS'].includes(intent);
 
     // ── Step 2: Session management (after cross-account/intent decisions are final) ──
     let session = null;
@@ -726,6 +726,7 @@ async function classifyQueryIntent(query, conversationContext) {
   if (/forecast|commit.*weighted|midpoint|q1 forecast/i.test(query)) return 'FORECAST';
   if (/weighted pipeline|weighted acv|pipeline weighted/i.test(query)) return 'WEIGHTED_PIPELINE';
   if (/average (deal|acv|deal size)|deal size by stage|avg (acv|deal)|mean (deal|acv)|breakdown by stage/i.test(query)) return 'PIPELINE_OVERVIEW';
+  if (/stage (breakdown|distribution|split)|pipeline (breakdown|distribution|split)|q1 pipeline/i.test(query)) return 'PIPELINE_OVERVIEW';
   if (/signed this (quarter|month|week)|what have we signed|revenue signed|closed won this/i.test(query)) return 'DEALS_SIGNED';
   if (/targeting this (month|quarter)|targeting q1|targeting february|deals targeting/i.test(query)) return 'DEALS_TARGETING';
   // Close/closing/sign + month name → date-filtered targeting query (must be BEFORE PIPELINE_OVERVIEW)
@@ -738,7 +739,7 @@ async function classifyQueryIntent(query, conversationContext) {
   if (/pipeline by (product|solution)|product (breakdown|line breakdown)|solution breakdown/i.test(query)) return 'PIPELINE_BY_PRODUCT';
   if (/pipeline by sales type|new business pipeline|expansion pipeline|renewal pipeline/i.test(query)) return 'PIPELINE_BY_SALES_TYPE';
   if (/loi (deals|signed|this)|lois signed|what lois/i.test(query)) return 'LOI_DEALS';
-  if (/arr (deals|signed|contracts)|arr this|recurring revenue deals|what deals have closed|deals (have |that )?(closed|been closed)|closed deals|what (have we|did we) (close|sign|win)|deals won/i.test(query)) return 'ARR_DEALS';
+  if (/what deals have closed|deals (have |that )?(closed|been closed)|closed deals|what (have we|did we) (close|sign|win)|deals won|what have we closed/i.test(query)) return 'DEALS_CLOSED';
   if (/stuck deals|slow deals|stale deals|deals stuck|stalled|no movement/i.test(query)) return 'SLOW_DEALS';
   if (/added to pipeline|pipeline added|new pipeline this|deals added this/i.test(query)) return 'PIPELINE_ADDED';
   if (/which accounts have (multiple|many|several|more than one) .*(opportunit|deal|opp)/i.test(query)) return 'PIPELINE_OVERVIEW';
@@ -777,8 +778,8 @@ async function classifyQueryIntent(query, conversationContext) {
           'loi_deals': 'LOI_DEALS',
           'loi_accounts': 'LOI_DEALS',
           'loi_count': 'LOI_DEALS',
-          'arr_deals': 'ARR_DEALS',
-          'arr_contracts': 'ARR_DEALS',
+          'arr_deals': 'DEALS_CLOSED',
+          'arr_contracts': 'DEALS_CLOSED',
           'weighted_summary': 'WEIGHTED_PIPELINE',
           'weighted_pipeline': 'WEIGHTED_PIPELINE',
           'late_stage_pipeline': 'PIPELINE_OVERVIEW',
@@ -868,7 +869,7 @@ async function gatherContext({ intent, query, accountId, accountName, userEmail,
     return await gatherContactSearchContext(query);
   }
   // New cross-account intents powered by weekly snapshot bridge
-  if (['FORECAST', 'WEIGHTED_PIPELINE', 'DEALS_SIGNED', 'DEALS_TARGETING', 'PIPELINE_BY_PRODUCT', 'PIPELINE_BY_SALES_TYPE', 'LOI_DEALS', 'ARR_DEALS', 'SLOW_DEALS', 'PIPELINE_ADDED'].includes(intent)) {
+  if (['FORECAST', 'WEIGHTED_PIPELINE', 'DEALS_SIGNED', 'DEALS_TARGETING', 'PIPELINE_BY_PRODUCT', 'PIPELINE_BY_SALES_TYPE', 'LOI_DEALS', 'DEALS_CLOSED', 'SLOW_DEALS', 'PIPELINE_ADDED'].includes(intent)) {
     return await gatherSnapshotContext(intent, query);
   }
 
@@ -1735,7 +1736,7 @@ async function gatherCustomerCountContext(query) {
 
     if (lower.includes('arr') || lower.includes('revenue')) {
       soql = `SELECT Name, Owner.Name, Customer_Type__c FROM Account WHERE Customer_Type__c = 'Revenue' ORDER BY Name LIMIT 100`;
-      label = 'ARR Customers';
+      label = 'Revenue Customers';
     } else if (lower.includes('loi')) {
       soql = `SELECT Name, Owner.Name, Customer_Type__c FROM Account WHERE Customer_Type__c = 'LOI, with $ attached' ORDER BY Name LIMIT 100`;
       label = 'LOI Customers';
@@ -1880,8 +1881,12 @@ async function gatherSnapshotContext(intent, query) {
           if (!labelSuffix) labelSuffix = ' (Q1 FY26)';
         }
 
-        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, StageName, ACV__c, Target_LOI_Date__c, Product_Line__c, Owner.Name FROM Opportunity WHERE IsClosed = false AND StageName IN (${stageFilter}) ${dateFilter} ORDER BY ACV__c DESC NULLS LAST LIMIT 50`, false);
+        const [r, aggR] = await Promise.all([
+          sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, StageName, ACV__c, Target_LOI_Date__c, Product_Line__c, Owner.Name FROM Opportunity WHERE IsClosed = false AND StageName IN (${stageFilter}) ${dateFilter} ORDER BY ACV__c DESC NULLS LAST LIMIT 200`, false),
+          sfQuery(`SELECT SUM(ACV__c) totalAcv, COUNT(Id) cnt FROM Opportunity WHERE IsClosed = false AND StageName IN (${stageFilter}) ${dateFilter}`, false).catch(() => null)
+        ]);
         records = r?.records || [];
+        const aggTotals = aggR?.records?.[0] || {};
 
         // Apply product line filter if mentioned
         for (const [kw, pl] of Object.entries(PRODUCT_LINE_MAP)) {
@@ -1909,25 +1914,45 @@ async function gatherSnapshotContext(intent, query) {
           break;
         }
 
-        // Build summary metadata
-        let totalAcv = 0;
+        // Build summary metadata — use aggregate for accurate totals
+        const totalAcv = aggTotals.totalAcv || records.reduce((sum, o) => sum + (o.ACV__c || 0), 0);
+        const totalDeals = aggTotals.cnt || records.length;
         const byStage = {};
         for (const o of records) {
-          totalAcv += o.ACV__c || 0;
           const s = o.StageName || 'Unknown';
           if (!byStage[s]) byStage[s] = 0;
           byStage[s]++;
         }
-        metadata = { totalDeals: records.length, totalAcv, byStage };
+        metadata = { totalDeals, totalAcv, byStage };
         label = `Active Pipeline${labelSuffix}`;
         break;
       }
       case 'FORECAST': {
-        const r = await sfQuery(`SELECT SUM(Quarterly_Commit__c) totalCommit, SUM(Weighted_ACV_AI_Enabled__c) totalWeighted, COUNT(Id) dealCount FROM Opportunity WHERE IsClosed = false AND StageName IN (${STAGES})`, false);
-        const agg = r?.records?.[0] || {};
-        metadata = { commitNet: agg.totalCommit || 0, weightedNet: agg.totalWeighted || 0, midpoint: ((agg.totalCommit || 0) + (agg.totalWeighted || 0)) / 2, dealCount: agg.dealCount || 0 };
-        const blR = await sfQuery(`SELECT Owner.Name, SUM(Quarterly_Commit__c) blCommit FROM Opportunity WHERE IsClosed = false AND StageName IN (${STAGES}) AND Quarterly_Commit__c > 0 GROUP BY Owner.Name`, false).catch(() => ({ records: [] }));
-        metadata.blCommits = (blR?.records || []).map(r => ({ name: r.Owner?.Name, commit: r.blCommit }));
+        let forecastData = null;
+        if (weeklySnapshotBridge?.queryAIEnabledForecast) {
+          try { forecastData = await weeklySnapshotBridge.queryAIEnabledForecast(); } catch (e) { logger.warn('[Forecast] Bridge failed, using inline SOQL:', e.message); }
+        }
+        if (forecastData) {
+          metadata = { commitNet: forecastData.commitNet || 0, weightedNet: forecastData.weightedNet || 0, midpoint: forecastData.midpoint || 0, dealCount: forecastData.dealCount || 0 };
+          const blCommitsObj = forecastData.blCommits || {};
+          metadata.blCommits = Object.entries(blCommitsObj).map(([name, commit]) => ({ name, commit })).filter(bl => bl.commit > 0).sort((a, b) => b.commit - a.commit);
+        } else {
+          const r = await sfQuery(`SELECT SUM(Quarterly_Commit__c) totalCommit, SUM(Weighted_ACV_AI_Enabled__c) totalWeighted, COUNT(Id) dealCount FROM Opportunity WHERE IsClosed = false AND StageName IN (${STAGES}) AND Target_LOI_Date__c <= ${FISCAL_Q1_END}`, false);
+          const agg = r?.records?.[0] || {};
+          metadata = { commitNet: agg.totalCommit || 0, weightedNet: agg.totalWeighted || 0, midpoint: ((agg.totalCommit || 0) + (agg.totalWeighted || 0)) / 2, dealCount: agg.dealCount || 0 };
+          const blR = await sfQuery(`SELECT Owner.Name, SUM(Quarterly_Commit__c) blCommit FROM Opportunity WHERE IsClosed = false AND StageName IN (${STAGES}) AND Target_LOI_Date__c <= ${FISCAL_Q1_END} AND Quarterly_Commit__c > 0 GROUP BY Owner.Name`, false).catch(() => ({ records: [] }));
+          metadata.blCommits = (blR?.records || []).map(r => ({ name: r.Owner?.Name, commit: r.blCommit })).filter(bl => bl.name && bl.commit > 0).sort((a, b) => b.commit - a.commit);
+        }
+        const topOppsR = await sfQuery(`SELECT Owner.Name, Account.Name, Account.Account_Display_Name__c, ACV__c, StageName FROM Opportunity WHERE IsClosed = false AND StageName IN (${STAGES}) AND Target_LOI_Date__c <= ${FISCAL_Q1_END} ORDER BY ACV__c DESC NULLS LAST LIMIT 100`, false).catch(() => ({ records: [] }));
+        const blTopOpps = {};
+        for (const o of (topOppsR?.records || [])) {
+          const owner = o.Owner?.Name || 'Unknown';
+          if (!blTopOpps[owner]) blTopOpps[owner] = [];
+          if (blTopOpps[owner].length < 3) {
+            blTopOpps[owner].push({ account: o.Account?.Account_Display_Name__c || o.Account?.Name, acv: o.ACV__c, stage: o.StageName });
+          }
+        }
+        metadata.blTopOpps = blTopOpps;
         label = 'Q1 FY26 Forecast';
         break;
       }
@@ -1981,7 +2006,7 @@ async function gatherSnapshotContext(intent, query) {
         label = 'LOI Deals Signed';
         break;
       }
-      case 'ARR_DEALS': {
+      case 'DEALS_CLOSED': {
         const lower = query.toLowerCase();
         let closedDateFilter = 'CloseDate = THIS_FISCAL_QUARTER';
         let closedLabel = 'Closed Deals — Q1 FY26';
@@ -2004,9 +2029,26 @@ async function gatherSnapshotContext(intent, query) {
         break;
       }
       case 'SLOW_DEALS': {
-        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, StageName, ACV__c, Days_in_Stage__c, Owner.Name FROM Opportunity WHERE IsClosed = false AND Days_in_Stage__c > 30 ORDER BY Days_in_Stage__c DESC LIMIT 20`, false);
+        const r = await sfQuery(`SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, StageName, ACV__c, Days_in_Stage__c, LastModifiedDate, Owner.Name FROM Opportunity WHERE IsClosed = false AND StageName IN (${STAGES}) ORDER BY Days_in_Stage__c DESC NULLS LAST LIMIT 100`, false);
         records = r?.records || [];
-        label = 'Deals Pending Movement (30+ days in stage)';
+        for (const o of records) {
+          if (!o.Days_in_Stage__c && o.LastModifiedDate) {
+            o.Days_in_Stage__c = Math.floor((Date.now() - new Date(o.LastModifiedDate).getTime()) / (1000 * 60 * 60 * 24));
+          }
+        }
+        records.sort((a, b) => (b.Days_in_Stage__c || 0) - (a.Days_in_Stage__c || 0));
+        const buckets = { '0-14 days': 0, '15-30 days': 0, '31-60 days': 0, '60+ days': 0 };
+        for (const o of records) {
+          const d = o.Days_in_Stage__c || 0;
+          if (d > 60) buckets['60+ days']++;
+          else if (d > 30) buckets['31-60 days']++;
+          else if (d > 14) buckets['15-30 days']++;
+          else buckets['0-14 days']++;
+        }
+        const avgDays = records.length > 0 ? Math.round(records.reduce((s, o) => s + (o.Days_in_Stage__c || 0), 0) / records.length) : 0;
+        metadata = { buckets, avgDays, totalDeals: records.length };
+        records = records.filter(o => (o.Days_in_Stage__c || 0) > 30);
+        label = 'Pipeline Velocity — Days in Current Stage';
         break;
       }
       case 'PIPELINE_ADDED': {
@@ -2311,14 +2353,27 @@ Use a clean list format.`;
       return basePrompt + `\n\nFOCUS: Meeting activity. Present as a compact timeline:
 1. Summary: "[X] meetings with [Y] accounts this week"
 2. Timeline list: "- **Mon Feb 17** — Account Name: Meeting Subject [Owner]"
-Group by day.`;
+Group by day.
+
+FOLLOW-UP RULES FOR MEETING QUERIES:
+- NEVER suggest "What is the agenda for [meeting]?" — you have no access to meeting agendas.
+- NEVER suggest "What time is [meeting]?" — you have no access to exact meeting times.
+- Good follow-ups: "What's the latest with [Account from meeting list]?" or "What stage is [Account]'s deal in?"
+- Suggest follow-ups about specific accounts from the meeting list, not about the meetings themselves.`;
 
     case 'CUSTOMER_COUNT':
       return basePrompt + `\n\nFOCUS: Customer/logo count. Present as:
 1. Total count prominently: "**[X] total customers**"
-2. Breakdown by type (Revenue/ARR, LOI, Pilot, etc.) with count per category
+2. Breakdown by type (Revenue, LOI, Pilot, etc.) with count per category
 3. If listing accounts, use compact format: "- Account Name (Owner)"
-Be precise with the count.`;
+Be precise with the count.
+
+FOLLOW-UP RULES FOR CUSTOMER QUERIES:
+- NEVER suggest "Which customers have the largest contract values?" — you don't have contract value data in this context.
+- NEVER suggest "How many customers does each rep manage?" — cross-rep comparison is unanswerable.
+- NEVER suggest "Who owns the most accounts?" — cross-rep aggregation is unanswerable.
+- Good follow-ups: "What accounts does [BL name] own?" or "Which of these customers have active pipeline?" or "Which customers are in [industry]?"
+- Use actual BL names and account names from the data provided.`;
 
     case 'CONTACT_SEARCH':
       return basePrompt + `\n\nFOCUS: Contact search results. Present as:
@@ -2354,11 +2409,17 @@ POSITIONING RULES:
 7. Do NOT reference specific team or department names (e.g., "legal innovation team") unless explicitly present in the Salesforce contact data. Use just the company name.`;
 
     case 'FORECAST':
-      return basePrompt + `\n\nFOCUS: Forecast summary. Present as:
-1. Key metrics: "**Commit: $X.XM** | **Weighted: $X.XM** | **Midpoint: $X.XM**"
-2. Deal count
-3. BL-level commit breakdown sorted by value (highest first)
-This is AI-Enabled, Net-New forecast data with target sign date within Q1.`;
+      return basePrompt + `\n\nFOCUS: Q1 FY26 Forecast summary. Present as:
+1. Key metrics on one line: "**Commit: $X.Xm** | **Weighted: $X.Xm** | **Midpoint: $X.Xm**"
+2. Deal count and targeting window
+3. BY BUSINESS LEAD: For each BL, show their commit amount and their top 2-3 deals (account name, ACV, stage). Use actual BL names — never show "Unassigned" for real business leads.
+4. Format: "**BL Name** — $Xm commit | Top: Account ($ACV, Stage), Account ($ACV, Stage)"
+This is AI-Enabled forecast data (Target_LOI_Date within Q1). Commit = 100% Net ACV for committed deals. Weighted = stage-probability-adjusted Net ACV.
+
+FOLLOW-UP RULES FOR FORECAST:
+- Suggest "Which deals are targeting to close this quarter?" (not "closing this quarter")
+- Suggest "What's the stage breakdown for Q1 pipeline?" or "What's [BL name]'s pipeline?"
+- NEVER suggest "Which deals close this quarter?" — use "targeting" language instead.`;
 
     case 'WEIGHTED_PIPELINE':
       return basePrompt + `\n\nFOCUS: Weighted pipeline analysis. Present as:
@@ -2393,10 +2454,10 @@ Categories: New Business, Expansion, Renewal.`;
 "1. **Account** — $ACV | Owner | Close Date"
 Include total count and total ACV.`;
 
-    case 'ARR_DEALS':
-      return basePrompt + `\n\nFOCUS: ARR (Recurring Revenue) deals. Present as ranked list:
-"1. **Account** — $ACV | Owner | Close Date"
-Include total count and total ACV.`;
+    case 'DEALS_CLOSED':
+      return basePrompt + `\n\nFOCUS: Closed deals. Present as ranked list:
+"1. **Account** — $ACV | Owner | Close Date | Product"
+Include total count, total net ACV. If Revenue_Type__c is available, show the split between recurring and commitment/project deals.`;
 
     case 'SLOW_DEALS':
       return basePrompt + `\n\nFOCUS: Deals with extended stage duration. Present as:
@@ -2548,9 +2609,16 @@ function buildUserPrompt(intent, query, context) {
       prompt += `• Midpoint: ${formatAcv(meta.midpoint)}\n`;
       prompt += `• Deal Count: ${meta.dealCount || 0}\n`;
       if (meta.blCommits?.length > 0) {
-        prompt += `\nBY BUSINESS LEAD (Commit):\n`;
-        for (const bl of meta.blCommits.sort((a, b) => (b.commit || 0) - (a.commit || 0))) {
-          prompt += `  • ${maskOwnerIfUnassigned(bl.name)}: ${formatAcv(bl.commit)}\n`;
+        prompt += `\nBY BUSINESS LEAD:\n`;
+        for (const bl of meta.blCommits) {
+          const displayName = maskOwnerIfUnassigned(bl.name);
+          prompt += `  • ${displayName}: ${formatAcv(bl.commit)} commit`;
+          const topOpps = meta.blTopOpps?.[bl.name];
+          if (topOpps?.length > 0) {
+            const oppStr = topOpps.map(o => `${o.account} (${formatAcv(o.acv)}, ${(o.stage || '').replace('Stage ', 'S')})`).join(', ');
+            prompt += ` | Top: ${oppStr}`;
+          }
+          prompt += '\n';
         }
       }
     } else if (context.intent === 'WEIGHTED_PIPELINE') {
@@ -2591,7 +2659,7 @@ function buildUserPrompt(intent, query, context) {
         prompt += `  • ${acctName} — ${acv} | ${r.StageName || ''} | ${owner} | Target: ${r.Target_LOI_Date__c || 'N/A'}${product}\n`;
       }
       if (recs.length > 30) prompt += `  ... and ${recs.length - 30} more\n`;
-    } else if (context.intent === 'ARR_DEALS') {
+    } else if (context.intent === 'DEALS_CLOSED') {
       prompt += `• Total Closed: ${meta.dealCount || recs.length} deals\n`;
       prompt += `• Net ACV: ${formatAcv(meta.totalNetAcv)}\n`;
       if (meta.totalAiEnabled > 0) prompt += `• AI-Enabled Weighted: ${formatAcv(meta.totalAiEnabled)}\n`;
@@ -2607,8 +2675,26 @@ function buildUserPrompt(intent, query, context) {
         prompt += `  • ${parts.join(' | ')}\n`;
       }
       if (recs.length > 20) prompt += `  ... and ${recs.length - 20} more\n`;
+    } else if (context.intent === 'SLOW_DEALS') {
+      prompt += `PIPELINE VELOCITY SUMMARY:\n`;
+      prompt += `• Total active deals: ${meta.totalDeals}\n`;
+      prompt += `• Average days in current stage: ${meta.avgDays}\n\n`;
+      prompt += `DISTRIBUTION:\n`;
+      for (const [bucket, count] of Object.entries(meta.buckets || {})) {
+        prompt += `  • ${bucket}: ${count} deals\n`;
+      }
+      if (recs.length > 0) {
+        prompt += `\nDEALS WITH EXTENDED STAGE DURATION (30+ days):\n`;
+        for (const r of recs.slice(0, 20)) {
+          const acctName = r.Account?.Account_Display_Name__c || r.Account?.Name || 'Unknown';
+          const acv = r.ACV__c ? formatAcv(r.ACV__c) : '';
+          const owner = maskOwnerIfUnassigned(r.Owner?.Name);
+          const days = r.Days_in_Stage__c || 0;
+          prompt += `  • ${acctName} — ${acv} | ${r.StageName} | ${days} days in stage | ${owner}\n`;
+        }
+      }
     } else {
-      // Generic deal list format (DEALS_SIGNED, DEALS_TARGETING, LOI_DEALS, SLOW_DEALS, PIPELINE_ADDED)
+      // Generic deal list format (DEALS_SIGNED, DEALS_TARGETING, LOI_DEALS, PIPELINE_ADDED)
       for (const r of recs.slice(0, 20)) {
         const acctName = r.Account?.Account_Display_Name__c || r.Account?.Name || r.Name || 'Unknown';
         const acv = r.ACV__c ? formatAcv(r.ACV__c) : '';
