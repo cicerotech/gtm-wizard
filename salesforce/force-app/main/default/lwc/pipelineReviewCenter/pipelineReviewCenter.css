@@ -244,7 +244,7 @@
 .col-stage { flex: 0.8; text-align: center; font-weight: 500; }
 .col-products { flex: 1; font-size: 0.6875rem; color: var(--c-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .col-fc { flex: 0.7; text-align: center; color: var(--c-text-secondary); }
-.col-nextsteps { flex: 2.5; font-size: 0.6875rem; color: var(--c-text-secondary); line-height: 1.35; word-break: break-word; padding-top: 1px; }
+.col-nextsteps { flex: 2.5; min-width: 0; font-size: 0.6875rem; color: var(--c-text-secondary); line-height: 1.35; white-space: normal; word-break: break-word; overflow-wrap: break-word; padding-top: 1px; }
 .col-wow { flex: 0.5; text-align: center; font-size: 0.75rem; color: var(--c-text-tertiary); }
 
 /* Editable cell hover hint */
