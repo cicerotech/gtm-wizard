@@ -1718,6 +1718,8 @@ textarea.input-field {
   </div>
 </div>
 
+<script src="/assets/meeting-prep-helpers.js"></script>
+
 <script>
 // ISOLATED CLICK + ERROR HANDLER — Completely independent from main script.
 // If the main script block fails, this still works and shows why.
@@ -1824,49 +1826,12 @@ var currentMeetingId = null;
 var currentMeetingData = null;
 var accountsList = [];
 
-// EA exclusion list - Executive Assistants to filter from internal attendees
-// Use partial names/emails for robust matching (handles truncated display names)
-// EA exclusion list - Executive Assistants to completely exclude from all views
-// Uses multiple matching strategies for robust filtering
-const EA_EXCLUSIONS = [
-  { name: 'alyssa gradstein', email: 'alyssa.gradstein', aliases: ['alyssa', 'gradstein', 'gradstei'] },
-  { name: 'cassie farber', email: 'cassie.farber', aliases: ['cassie', 'farber'] }
-];
+// All helper functions below are ALSO defined in /assets/meeting-prep-helpers.js
+// The static file loads first and has correct regex. These template-literal versions
+// are kept as dead code (overwritten by the static file) but will be removed in a future cleanup.
+// CRITICAL: The escapeRegex function was removed because its regex pattern
+// /[-\/\\^$*+?.()|[\]{}]/g breaks when processed through template literals.
 
-// Check if attendee is an EA (should be excluded from ALL views)
-function isExecutiveAssistant(attendee) {
-  if (!attendee) return false;
-  
-  const email = (attendee.email || '').toLowerCase();
-  const rawName = attendee.name || attendee.full_name || attendee.fullName || '';
-  const name = rawName.toLowerCase().replace(/[,.\\-_@]/g, ' ').replace(/\\s+/g, ' ').trim();
-  
-  return EA_EXCLUSIONS.some(ea => {
-    // Match by email (partial - handles variations)
-    if (email && email.includes(ea.email)) return true;
-    
-    // Match by any alias (catches truncated names like "Alyssa Gradstei")
-    for (const alias of (ea.aliases || [])) {
-      if (name.includes(alias) || email.includes(alias)) return true;
-    }
-    
-    // Match by full name parts
-    const eaParts = ea.name.split(' ');
-    const firstName = eaParts[0] || '';
-    const lastName = eaParts[1] || '';
-    
-    // Match if name contains both first name AND any portion of last name (at least 4 chars)
-    if (firstName && lastName) {
-      const hasFirst = name.includes(firstName);
-      const hasLastPartial = name.includes(lastName.substring(0, Math.min(4, lastName.length)));
-      if (hasFirst && hasLastPartial) return true;
-    }
-    
-    return false;
-  });
-}
-
-// Normalize name display (handles "Last, First" format)
 function normalizeName(rawName) {
   if (!rawName) return 'Unknown';
   
@@ -2271,17 +2236,7 @@ function standardizeSummary(summary, displayName, title, company) {
   return header;
 }
 
-// Helper: Escape special regex characters
-function escapeRegex(str) {
-  // Escape special regex characters: . * + ? ^ $ { } ( ) | [ ] \
-  return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-}
-
-// Helper: Capitalize first letter
-function capitalizeFirst(str) {
-  if (!str) return str;
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
+// escapeRegex and capitalizeFirst: defined in /assets/meeting-prep-helpers.js
 
 /**
  * Build a LinkedIn search query that actually finds the person
@@ -3129,13 +3084,7 @@ function renderGtmBriefCard(markdownText) {
   html += '</div>';
   
   // Read-only rendered view (visible by default)
-  var rendered = markdownText
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/^## (.+)$/gm, '<div style="font-size: 0.7rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; margin-top: 12px; margin-bottom: 4px;">$1</div>')
-    .replace(/\\*\\*(.+?)\\*\\*/g, '<strong style="color: #1f2937;">$1</strong>')
-    .replace(/^[\\-•]\\s+(.+)$/gm, '<div style="font-size: 0.78rem; color: #374151; padding-left: 12px; position: relative; margin-bottom: 2px; line-height: 1.45;"><span style="position: absolute; left: 0; color: #9ca3af;">•</span>$1</div>')
-    .replace(/\\n\\n/g, '<div style="margin-top: 8px;"></div>')
-    .replace(/\\n/g, '<br>');
+  var rendered = renderMarkdownToHtml(markdownText);
   
   html += '<div id="contextReadView" style="padding: 14px 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e5e7eb;">';
   html += '<div style="font-size: 0.82rem; line-height: 1.55; color: #374151;">' + rendered + '</div>';
@@ -3170,13 +3119,7 @@ function toggleContextEdit() {
     currentMeetingData._contextOverride = editedText;
     
     // Re-render the markdown
-    var newRendered = editedText
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/^## (.+)$/gm, '<div style="font-size: 0.7rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; margin-top: 12px; margin-bottom: 4px;">$1</div>')
-      .replace(/\\*\\*(.+?)\\*\\*/g, '<strong style="color: #1f2937;">$1</strong>')
-      .replace(/^[\\-•]\\s+(.+)$/gm, '<div style="font-size: 0.78rem; color: #374151; padding-left: 12px; position: relative; margin-bottom: 2px; line-height: 1.45;"><span style="position: absolute; left: 0; color: #9ca3af;">•</span>$1</div>')
-      .replace(/\\n\\n/g, '<div style="margin-top: 8px;"></div>')
-      .replace(/\\n/g, '<br>');
+    var newRendered = renderMarkdownToHtml(editedText);
     
     readView.innerHTML = '<div style="font-size: 0.82rem; line-height: 1.55; color: #374151;">' + newRendered + '</div>';
     readView.style.display = 'block';
@@ -3798,32 +3741,7 @@ async function createMeeting() {
   }
 }
 
-// Escape HTML for safe insertion
-function escapeHtml(str) {
-  if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-// Get initials from name
-function getInitials(name) {
-  if (!name) return '?';
-  const parts = name.trim().split(' ');
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
-  return parts[0][0].toUpperCase();
-}
-
-// Get CSS class for seniority badge
-function getSeniorityClass(seniority) {
-  if (!seniority) return 'other';
-  const s = seniority.toLowerCase();
-  if (s.includes('clo') || s.includes('chief')) return 'clo';
-  if (s.includes('gc') || s.includes('general counsel')) return 'gc';
-  if (s.includes('director') || s.includes('vp')) return 'director';
-  if (s.includes('manager')) return 'manager';
-  return 'other';
-}
+// escapeHtml, getInitials, getSeniorityClass: defined in /assets/meeting-prep-helpers.js
 
 // Listen for messages from parent window (for deep linking via Copy Link)
 window.addEventListener('message', function(event) {
