@@ -1,0 +1,230 @@
+<template>
+    <div class="review-container">
+        <!-- Title bar -->
+        <div class="title-bar">
+            <div class="title-left">
+                <h1 class="title">Pipeline Review</h1>
+                <span class="subtitle">Week of {weekLabel}</span>
+            </div>
+            <div class="title-right">
+                <lightning-combobox
+                    label="Pod"
+                    value={selectedPod}
+                    options={podOptions}
+                    onchange={handlePodChange}
+                    variant="label-hidden"
+                    class="filter-combo">
+                </lightning-combobox>
+                <lightning-combobox
+                    label="Stage"
+                    value={selectedStage}
+                    options={stageOptions}
+                    onchange={handleStageChange}
+                    variant="label-hidden"
+                    class="filter-combo">
+                </lightning-combobox>
+                <lightning-combobox
+                    label="Product"
+                    value={selectedProductLine}
+                    options={productLineOptions}
+                    onchange={handleProductLineChange}
+                    variant="label-hidden"
+                    class="filter-combo">
+                </lightning-combobox>
+                <lightning-combobox
+                    label="Target Sign"
+                    value={selectedTargetSign}
+                    options={targetSignOptions}
+                    onchange={handleTargetSignChange}
+                    variant="label-hidden"
+                    class="filter-combo">
+                </lightning-combobox>
+                <label class="changes-toggle">
+                    <input type="checkbox" checked={changesOnly} onchange={handleChangesToggle} />
+                    Changes only
+                </label>
+                <lightning-button-icon
+                    icon-name="utility:refresh"
+                    alternative-text="Refresh"
+                    onclick={handleRefresh}
+                    class="refresh-btn">
+                </lightning-button-icon>
+                <lightning-button
+                    label="Export"
+                    icon-name="utility:copy"
+                    onclick={handleExport}
+                    variant="neutral"
+                    class="export-btn">
+                </lightning-button>
+            </div>
+        </div>
+
+        <!-- Loading / Error -->
+        <template if:true={isLoading}>
+            <div class="loading-state">
+                <lightning-spinner alternative-text="Loading pipeline data" size="medium"></lightning-spinner>
+            </div>
+        </template>
+
+        <template if:true={error}>
+            <div class="error-state">
+                <lightning-icon icon-name="utility:error" variant="error" size="small"></lightning-icon>
+                <span>{error}</span>
+            </div>
+        </template>
+
+        <template if:false={isLoading}>
+            <!-- Highlights card -->
+            <template if:true={hasHighlights}>
+                <div class="highlights-card">
+                    <div class="highlights-title">This Week's Highlights</div>
+                    <div class="highlights-grid">
+                        <template for:each={highlightItems} for:item="h">
+                            <div key={h.key} class="highlight-item">
+                                <span class="h-icon">{h.icon}</span>
+                                <span class="h-text">{h.text}</span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Pipeline stats bar -->
+            <div class="stats-bar">
+                <span class="stat">{totalDeals} deals</span>
+                <span class="stat-sep">·</span>
+                <span class="stat">{totalAcvFormatted} pipeline</span>
+                <span class="stat-sep">·</span>
+                <span class="stat">{weightedAcvFormatted} weighted</span>
+                <template if:true={hasCommitSummary}>
+                    <span class="stat-sep">·</span>
+                    <span class="stat">{commitTotalFormatted} commit</span>
+                    <span class="stat-sep">·</span>
+                    <span class="stat stat-emphasis">{commitInQtrFormatted} in-qtr commit</span>
+                </template>
+            </div>
+            <template if:true={hasAISummary}>
+                <div class="stats-bar stats-bar-ai">
+                    <span class="ai-label">AI-Enabled</span>
+                    <span class="stat">{totalAIDeals} deals</span>
+                    <span class="stat-sep">·</span>
+                    <span class="stat">{totalAIAcvFormatted} ACV</span>
+                    <span class="stat-sep">·</span>
+                    <span class="stat">{weightedAIAcvFormatted} wtd</span>
+                    <span class="stat-sep">·</span>
+                    <span class="stat">{commitAITotalFormatted} commit</span>
+                    <span class="stat-sep">·</span>
+                    <span class="stat stat-emphasis">{commitAIInQtrFormatted} in-qtr</span>
+                </div>
+            </template>
+
+            <!-- Owner groups -->
+            <template for:each={ownerGroups} for:item="group">
+                <div key={group.key} class="owner-group">
+                    <div class="owner-header" data-owner={group.name} onclick={handleOwnerToggle}>
+                        <span class="owner-chevron">{group.chevron}</span>
+                        <span class="owner-name">{group.name}</span>
+                        <span class="owner-pod">{group.pod}</span>
+                        <span class="owner-pipeline">Pipeline: {group.totalAcvFormatted}</span>
+                        <span class="owner-weighted">Wtd: {group.weightedAcvFormatted}</span>
+                        <template if:true={group.acvDeltaFormatted}>
+                            <span class="owner-delta" data-sentiment={group.acvDeltaSentiment}>
+                                WoW: {group.acvDeltaFormatted}
+                            </span>
+                        </template>
+                        <template if:true={group.hasCommit}>
+                            <span class="owner-commit">Commit: {group.commitTotalFormatted}</span>
+                        </template>
+                        <template if:true={group.hasBlForecast}>
+                            <span class="owner-forecast">BL Forecast: {group.blForecastFormatted}</span>
+                        </template>
+                        <template if:true={group.hasCommitInQtr}>
+                            <span class="owner-commit-inqtr">In-Qtr: {group.commitInQtrFormatted}</span>
+                        </template>
+                        <template if:true={group.hasAiEnabled}>
+                            <span class="owner-ai">AI: {group.aiEnabledAcvFormatted}</span>
+                        </template>
+                        <span class="owner-count">{group.dealCount} deals</span>
+                    </div>
+
+                    <template if:true={group.isExpanded}>
+                        <template if:true={group.hasDeals}>
+                            <div class="table-wrapper">
+                                <div class="table-header">
+                                    <span class="col-account sort-header" data-owner={group.name} data-field="accountName" onclick={handleOwnerSort}>Account</span>
+                                    <span class="col-acv sort-header" data-owner={group.name} data-field="acv" onclick={handleOwnerSort}>ACV</span>
+                                    <span class="col-delta">Δ ACV</span>
+                                    <span class="col-target sort-header" data-owner={group.name} data-field="targetSign" onclick={handleOwnerSort}>Target</span>
+                                    <span class="col-tdelta">Δ Days</span>
+                                    <span class="col-stage sort-header" data-owner={group.name} data-field="stageShort" onclick={handleOwnerSort}>Stage</span>
+                                    <span class="col-products">Products</span>
+                                    <span class="col-fc sort-header" data-owner={group.name} data-field="forecastCategory" onclick={handleOwnerSort}>FC</span>
+                                    <span class="col-nextsteps">Next Steps</span>
+                                    <span class="col-wow">WoW</span>
+                                </div>
+
+                                <template for:each={group.deals} for:item="deal">
+                                    <div key={deal.key} class={deal.rowClass}>
+                                        <span class="col-account">
+                                            <a href={deal.oppUrl} class="opp-link">{deal.accountName}</a>
+                                            <template if:true={deal.hasAiFlag}>
+                                                <span class="ai-badge">{deal.aiFlag}</span>
+                                            </template>
+                                            <template if:true={deal.customerLabel}>
+                                                <span class="customer-badge">{deal.customerLabel}</span>
+                                            </template>
+                                        </span>
+                                        <span class="col-acv editable-cell" data-opp={deal.id} data-field="ACV__c" data-value={deal.acv} onclick={handleEditClick}>{deal.acvFormatted}</span>
+                                        <span class="col-delta" data-sentiment={deal.acvSentiment}>{deal.acvDeltaDisplay}</span>
+                                        <span class="col-target editable-cell" data-opp={deal.id} data-field="Target_LOI_Date__c" data-value={deal.targetRaw} onclick={handleEditClick}>{deal.targetDate}</span>
+                                        <span class="col-tdelta" data-sentiment={deal.targetSentiment}>{deal.targetDeltaDisplay}</span>
+                                        <span class="col-stage editable-cell" data-opp={deal.id} data-field="StageName" data-value={deal.stage} data-sentiment={deal.stageSentiment} onclick={handleEditClick}>
+                                            {deal.stageDisplay}
+                                            <template if:true={deal.stageBadge}>
+                                                <span class="stage-badge">{deal.stageBadge}</span>
+                                            </template>
+                                        </span>
+                                        <span class="col-products editable-cell" data-opp={deal.id} data-field="Product_Line__c" data-value={deal.productLine} title={deal.productsTooltip} onclick={handleEditClick}>{deal.productsDisplay}</span>
+                                        <span class="col-fc editable-cell" data-opp={deal.id} data-field="BL_Forecast_Category__c" data-value={deal.forecastCategory} onclick={handleEditClick}>{deal.fcShort}</span>
+                                        <span class="col-nextsteps editable-cell" data-opp={deal.id} data-field="Next_Steps__c" data-value={deal.nextSteps} title={deal.nextSteps} onclick={handleEditClick}>{deal.nextStepsShort}</span>
+                                        <span class="col-wow">{deal.wowIcon}</span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </template>
+                </div>
+            </template>
+        </template>
+    </div>
+
+    <!-- Inline Edit Overlay (outside .review-container for proper z-index) -->
+    <template if:true={isEditing}>
+        <section class="edit-overlay" aria-modal="true">
+            <div class="edit-modal-box">
+                <header class="edit-modal-header">
+                    <h2>Edit: {editFieldLabel}</h2>
+                </header>
+                <div class="edit-modal-body">
+                    <template if:true={editIsText}>
+                        <lightning-input label={editFieldLabel} value={editValue} onchange={handleEditValueChange} variant="label-hidden"></lightning-input>
+                    </template>
+                    <template if:true={editIsDate}>
+                        <lightning-input type="date" label={editFieldLabel} value={editValue} onchange={handleEditValueChange} variant="label-hidden"></lightning-input>
+                    </template>
+                    <template if:true={editIsPicklist}>
+                        <lightning-combobox label={editFieldLabel} value={editValue} options={editPicklistOptions} onchange={handleEditValueChange} variant="label-hidden"></lightning-combobox>
+                    </template>
+                    <template if:true={editIsTextarea}>
+                        <lightning-textarea label={editFieldLabel} value={editValue} onchange={handleEditValueChange} variant="label-hidden" max-length="255"></lightning-textarea>
+                    </template>
+                </div>
+                <footer class="edit-modal-footer">
+                    <lightning-button label="Cancel" onclick={handleEditCancel} variant="neutral"></lightning-button>
+                    <lightning-button label="Save" onclick={handleEditSave} variant="brand" class="slds-m-left_x-small"></lightning-button>
+                </footer>
+            </div>
+            <div class="edit-backdrop" onclick={handleEditCancel}></div>
+        </section>
+    </template>
+</template>
