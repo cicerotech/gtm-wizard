@@ -1267,20 +1267,50 @@ async function findAccountByName(accountName) {
     await ensureSalesforceConnection();
     let cleanName = accountName.trim();
     
+    // Abbreviation expansion for short account names
+    const ACCOUNT_ABBREVIATIONS = {
+      'cvc': 'CVC', 'chs': 'CHS', 'aes': 'AES', 'boi': 'BOI', 'esb': 'ESB',
+      'dhl': 'DHL', 'wwt': 'World Wide Technology', 'bny': 'BNY',
+      'ge': 'GE Vernova', 'ibm': 'IBM', 'sap': 'SAP', 'ubs': 'UBS',
+      'cms': 'CMS Energy', 'cvs': 'CVS', 'hpe': 'HPE',
+      'chsinc': 'CHS', 'servicenow': 'ServiceNow',
+    };
+    const lowerName = cleanName.toLowerCase().replace(/[\s\-_.]+/g, '');
+    if (ACCOUNT_ABBREVIATIONS[lowerName]) {
+      logger.info(`[Intelligence] Abbreviation expanded: "${cleanName}" -> "${ACCOUNT_ABBREVIATIONS[lowerName]}"`);
+      cleanName = ACCOUNT_ABBREVIATIONS[lowerName];
+    }
+    
     // Pre-process: split concatenated names (Chsinc -> Chs inc, Libertymutual -> Liberty mutual)
-    // Detect camelCase or concatenated words and insert spaces
     const splitName = cleanName
-      .replace(/([a-z])([A-Z])/g, '$1 $2')           // camelCase: "LibertyMutual" -> "Liberty Mutual"
-      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');    // "CHSInc" -> "CHS Inc"
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
     if (splitName !== cleanName && splitName.includes(' ')) {
       logger.info(`[Intelligence] Pre-processed name: "${cleanName}" -> "${splitName}"`);
       cleanName = splitName;
     }
     
+    // Normalize short names (2-4 chars) to uppercase: "Cvc" -> "CVC", "Chs" -> "CHS"
+    if (cleanName.length <= 4 && cleanName.length >= 2) {
+      cleanName = cleanName.toUpperCase();
+    }
+    
     const safeName = cleanName.replace(/'/g, "\\'");
     
-    // Strategy 1: Exact match (Name or Display Name for Counsel accounts)
+    // Strategy 0: Case-insensitive exact match (critical for short names like CVC, CHS)
     let result = await sfQuery(`
+      SELECT Id, Name, Account_Display_Name__c, Owner.Name, Owner.Email, Customer_Type__c, Industry
+      FROM Account WHERE Name = '${safeName}' OR Account_Display_Name__c = '${safeName}'
+        OR Name = '${safeName.toUpperCase()}' OR Name = '${safeName.toLowerCase()}'
+      LIMIT 1
+    `, true);
+    if (result?.records?.[0]) {
+      logger.info(`[Intelligence] Account found (case-insensitive exact): ${result.records[0].Account_Display_Name__c || result.records[0].Name}`);
+      return result.records[0];
+    }
+    
+    // Strategy 1: Exact match (Name or Display Name for Counsel accounts)
+    result = await sfQuery(`
       SELECT Id, Name, Account_Display_Name__c, Owner.Name, Owner.Email, Customer_Type__c, Industry
       FROM Account WHERE Name = '${safeName}' OR Account_Display_Name__c = '${safeName}' LIMIT 1
     `, true);

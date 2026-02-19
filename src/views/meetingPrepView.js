@@ -2273,30 +2273,69 @@ async function openMeetingPrep(meetingId) {
       try {
         let accountId = currentMeetingData.account_id || currentMeetingData.accountId;
 
-        // Step 1a: Domain lookup if no accountId yet
+        // Step 1a: Domain lookup — try ALL external attendees' domains
+        var personalDomains = ['gmail.com','yahoo.com','hotmail.com','outlook.com','live.com','aol.com','icloud.com','me.com','protonmail.com','mail.com'];
         if (!accountId && currentMeetingData.externalAttendees?.length > 0) {
-          try {
-            const firstExternal = currentMeetingData.externalAttendees[0];
-            const domain = (firstExternal.email || '').split('@')[1];
-            if (domain && !['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com'].includes(domain.toLowerCase())) {
-              const lookupRes = await fetch('/api/account/lookup-by-domain?domain=' + encodeURIComponent(domain));
-              const lookupData = await lookupRes.json();
+          var uniqueDomains = [];
+          currentMeetingData.externalAttendees.forEach(function(att) {
+            var d = (att.email || '').split('@')[1];
+            if (d && !personalDomains.includes(d.toLowerCase()) && uniqueDomains.indexOf(d) === -1) {
+              uniqueDomains.push(d);
+            }
+          });
+          for (var di = 0; di < uniqueDomains.length && !accountId; di++) {
+            try {
+              var lookupRes = await fetch('/api/account/lookup-by-domain?domain=' + encodeURIComponent(uniqueDomains[di]));
+              var lookupData = await lookupRes.json();
               if (lookupData.success && lookupData.accountId) {
                 accountId = lookupData.accountId;
-                console.log('[Context] Domain lookup resolved:', domain, '->', lookupData.accountName, accountId);
+                console.log('[Context] Domain lookup resolved:', uniqueDomains[di], '->', lookupData.accountName, accountId);
               }
+            } catch (e) { /* try next domain */ }
+          }
+          // If domain lookup failed, try using domain company name as search term
+          if (!accountId && uniqueDomains.length > 0) {
+            var domainCompany = uniqueDomains[0].split('.')[0];
+            if (domainCompany.length >= 3) {
+              try {
+                var domSearchRes = await fetch('/api/search-accounts?q=' + encodeURIComponent(domainCompany));
+                var domSearchData = await domSearchRes.json();
+                if (domSearchData.matches?.length > 0) {
+                  accountId = domSearchData.matches[0].id;
+                  console.log('[Context] Domain company search resolved:', domainCompany, '->', domSearchData.matches[0].name, accountId);
+                }
+              } catch (e) { /* continue to name search */ }
             }
-          } catch (e) { console.log('[Context] Domain lookup failed:', e.message); }
+          }
         }
 
         // Step 1b: Account search if still no accountId but we have a name
         if (!accountId && accountName && accountName !== 'Unknown') {
+          // Normalize garbled calendar names before searching
+          var searchName = accountName;
+          // Uppercase short names (2-4 chars): "Cvc" -> "CVC", "Chs" -> "CHS"
+          if (searchName.length <= 4 && searchName.length >= 2) searchName = searchName.toUpperCase();
+          // Split concatenated names: "Chsinc" -> "Chs Inc", "Servicenow" -> "Service Now"
+          searchName = searchName.replace(/([a-z])([A-Z])/g, '$1 $2');
+          // Common concatenation fixes
+          var concatFixes = {'chsinc':'CHS','servicenow':'ServiceNow','blackstone':'Blackstone','goldmansachs':'Goldman Sachs'};
+          var concatKey = accountName.toLowerCase().replace(/[\s\-_.]+/g, '');
+          if (concatFixes[concatKey]) searchName = concatFixes[concatKey];
+
           try {
-            const searchRes = await fetch('/api/search-accounts?q=' + encodeURIComponent(accountName));
-            const searchData = await searchRes.json();
+            var searchRes = await fetch('/api/search-accounts?q=' + encodeURIComponent(searchName));
+            var searchData = await searchRes.json();
             if (searchData.matches?.length > 0) {
               accountId = searchData.matches[0].id;
-              console.log('[Context] Account search resolved:', accountName, '->', searchData.matches[0].name, accountId);
+              console.log('[Context] Account search resolved:', searchName, '->', searchData.matches[0].name, accountId);
+            } else if (searchName !== accountName) {
+              // Try original name as fallback
+              searchRes = await fetch('/api/search-accounts?q=' + encodeURIComponent(accountName));
+              searchData = await searchRes.json();
+              if (searchData.matches?.length > 0) {
+                accountId = searchData.matches[0].id;
+                console.log('[Context] Account search (original) resolved:', accountName, '->', searchData.matches[0].name, accountId);
+              }
             }
           } catch (e) { console.log('[Context] Account search failed:', e.message); }
         }
@@ -2304,10 +2343,14 @@ async function openMeetingPrep(meetingId) {
         // Step 2: Fire GTM Brain intelligence query
         var contextHtml = '';
         if (accountId || accountName) {
+          var prepQuery = accountId
+            ? 'Give me a full account overview for my upcoming meeting: deal status and stage, key contacts with titles, recent activity and meetings, and competitive landscape.'
+            : 'prep me for my upcoming meeting with ' + accountName;
           const queryPayload = {
-            query: 'prep me for my upcoming meeting with ' + accountName,
+            query: prepQuery,
             accountName: accountName,
-            userEmail: document.cookie.replace(/(?:(?:^|.*;\s*)userEmail\s*=\s*([^;]*).*$)|^.*$/, '$1') || ''
+            userEmail: document.cookie.replace(/(?:(?:^|.*;\s*)userEmail\s*=\s*([^;]*).*$)|^.*$/, '$1') || '',
+            forceRefresh: true
           };
           if (accountId) queryPayload.accountId = accountId;
 
@@ -2334,21 +2377,34 @@ async function openMeetingPrep(meetingId) {
             }
           }
 
-          // Step 3: Build context HTML
+          // Step 3: Build context HTML — clean metadata (hide Unassigned, hide intent)
           let metaHtml = '';
           if (queryContext) {
             const parts = [];
             if (queryContext.accountType && queryContext.accountType !== 'unknown') {
               const typeMap = { 'existing_customer': 'Existing Customer', 'active_pipeline': 'Active Pipeline', 'historical': 'Historical', 'cold': 'Net New' };
-              parts.push('<strong>Type:</strong> ' + (typeMap[queryContext.accountType] || queryContext.accountType));
+              parts.push('<strong>' + (typeMap[queryContext.accountType] || queryContext.accountType) + '</strong>');
             }
-            if (queryContext.owner) parts.push('<strong>Owner:</strong> ' + queryContext.owner);
-            if (queryContext.opportunityCount > 0) parts.push('<strong>Pipeline:</strong> ' + queryContext.opportunityCount + ' open opp' + (queryContext.opportunityCount > 1 ? 's' : ''));
+            if (queryContext.owner && queryContext.owner !== 'Unassigned') {
+              parts.push(queryContext.owner);
+            }
+            if (queryContext.opportunityCount > 0) {
+              parts.push(queryContext.opportunityCount + ' open opp' + (queryContext.opportunityCount > 1 ? 's' : ''));
+            }
+            if (queryContext.contactCount > 0) {
+              parts.push(queryContext.contactCount + ' contacts');
+            }
             if (parts.length > 0) {
-              metaHtml = '<div style="display:flex;gap:16px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #f0f0f0;margin-top:8px;">';
-              parts.forEach(function(p) { metaHtml += '<span style="font-size:0.7rem;color:#6b7280;">' + p + '</span>'; });
+              metaHtml = '<div style="display:flex;gap:12px;flex-wrap:wrap;padding:6px 0;border-top:1px solid #f0f0f0;margin-top:8px;font-size:0.7rem;color:#6b7280;">';
+              metaHtml += parts.join(' &bull; ');
               metaHtml += '</div>';
             }
+          }
+
+          // Strip follow-up suggestions (not useful in meeting prep context)
+          if (gtmBrief) {
+            gtmBrief = gtmBrief.replace(/---\s*\n\s*You might also ask:[\s\S]*$/m, '').trim();
+            gtmBrief = gtmBrief.replace(/\n\s*You might also ask:\s*\n[\s\S]*$/m, '').trim();
           }
 
           if (gtmBrief && gtmBrief.length > 30) {
