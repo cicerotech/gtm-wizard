@@ -2278,6 +2278,8 @@ class EudiaCalendarView extends ItemView {
   plugin: EudiaSyncPlugin;
   private refreshInterval: number | null = null;
   private lastError: string | null = null;
+  private showExternalOnly: boolean = true;
+  private weeksBack: number = 2;
 
   constructor(leaf: WorkspaceLeaf, plugin: EudiaSyncPlugin) {
     super(leaf);
@@ -2323,6 +2325,33 @@ class EudiaCalendarView extends ItemView {
     await this.renderCalendarContent(container);
   }
 
+  private static readonly INTERNAL_SUBJECT_PATTERNS = [
+    /^block\b/i, /\bblock\s+for\b/i, /\bcommute\b/i, /\bpersonal\b/i,
+    /\blunch\b/i, /\bOOO\b/i, /\bout of office\b/i, /\bfocus time\b/i,
+    /\bno meetings?\b/i, /\bmeeting free\b/i, /\btravel\b/i, /\beye appt\b/i,
+    /\bdoctor\b/i, /\bdentist\b/i, /\bgym\b/i, /\bworkout\b/i
+  ];
+
+  private isExternalMeeting(meeting: CalendarMeeting): boolean {
+    if (meeting.isCustomerMeeting) return true;
+    if (!meeting.attendees || meeting.attendees.length === 0) return false;
+
+    const userDomain = this.plugin.settings.userEmail?.split('@')[1] || 'eudia.com';
+    const hasExternal = meeting.attendees.some(a => {
+      if (a.isExternal === true) return true;
+      if (a.isExternal === false) return false;
+      if (!a.email) return false;
+      const domain = a.email.split('@')[1]?.toLowerCase();
+      return domain && domain !== userDomain.toLowerCase();
+    });
+    if (hasExternal) return true;
+
+    for (const pattern of EudiaCalendarView.INTERNAL_SUBJECT_PATTERNS) {
+      if (pattern.test(meeting.subject)) return false;
+    }
+    return false;
+  }
+
   private renderHeader(container: HTMLElement): void {
     const header = container.createDiv({ cls: 'eudia-calendar-header' });
     
@@ -2332,10 +2361,9 @@ class EudiaCalendarView extends ItemView {
     const actions = titleRow.createDiv({ cls: 'eudia-calendar-actions' });
     
     const refreshBtn = actions.createEl('button', { cls: 'eudia-btn-icon', text: '↻' });
-    refreshBtn.title = 'Refresh (fetches latest from calendar)';
+    refreshBtn.title = 'Refresh';
     refreshBtn.onclick = async () => {
       refreshBtn.addClass('spinning');
-      // Set flag to force refresh from server (bypass cache)
       (this as any)._forceRefresh = true;
       await this.render();
       refreshBtn.removeClass('spinning');
@@ -2351,6 +2379,21 @@ class EudiaCalendarView extends ItemView {
     // Connection status bar
     const statusBar = header.createDiv({ cls: 'eudia-status-bar' });
     this.renderConnectionStatus(statusBar);
+
+    // Filter toggle row
+    const filterRow = header.createDiv({ cls: 'eudia-calendar-filter-row' });
+    filterRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;padding:4px 0;';
+
+    const filterToggle = filterRow.createEl('button', {
+      text: this.showExternalOnly ? 'External Only' : 'All Meetings',
+      cls: 'eudia-filter-toggle'
+    });
+    filterToggle.style.cssText = `font-size:11px;padding:3px 10px;border-radius:12px;cursor:pointer;border:1px solid var(--background-modifier-border);background:${this.showExternalOnly ? 'var(--interactive-accent)' : 'var(--background-secondary)'};color:${this.showExternalOnly ? 'var(--text-on-accent)' : 'var(--text-muted)'};`;
+    filterToggle.title = this.showExternalOnly ? 'Showing customer/external meetings only — click to show all' : 'Showing all meetings — click to filter to external only';
+    filterToggle.onclick = async () => {
+      this.showExternalOnly = !this.showExternalOnly;
+      await this.render();
+    };
   }
 
   private async renderConnectionStatus(container: HTMLElement): Promise<void> {
@@ -2451,7 +2494,6 @@ class EudiaCalendarView extends ItemView {
   private async renderCalendarContent(container: HTMLElement): Promise<void> {
     const contentArea = container.createDiv({ cls: 'eudia-calendar-content' });
     
-    // Loading state
     const loadingEl = contentArea.createDiv({ cls: 'eudia-calendar-loading' });
     loadingEl.innerHTML = '<div class="eudia-spinner"></div><span>Loading meetings...</span>';
 
@@ -2462,33 +2504,92 @@ class EudiaCalendarView extends ItemView {
         this.plugin.settings.timezone || 'America/New_York'
       );
       
-      // Check if this is a force refresh (set by refresh button)
       const forceRefresh = (this as any)._forceRefresh || false;
       (this as any)._forceRefresh = false;
-      
-      const weekData = await calendarService.getWeekMeetings(forceRefresh);
-      loadingEl.remove();
 
+      // Fetch current week
+      const weekData = await calendarService.getWeekMeetings(forceRefresh);
       if (!weekData.success) {
+        loadingEl.remove();
         this.renderError(contentArea, weekData.error || 'Failed to load calendar');
         return;
       }
 
-      const days = Object.keys(weekData.byDay || {}).sort();
+      // Fetch past meetings (2 weeks back by default)
+      const now = new Date();
+      const pastStart = new Date(now);
+      pastStart.setDate(pastStart.getDate() - (this.weeksBack * 7));
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      let pastMeetings: CalendarMeeting[] = [];
+      try {
+        pastMeetings = await calendarService.getMeetingsInRange(pastStart, yesterday);
+      } catch {
+        console.log('[Calendar] Could not fetch past meetings');
+      }
+
+      loadingEl.remove();
+
+      // Build complete day map: past meetings + current week
+      const allByDay: Record<string, CalendarMeeting[]> = {};
+
+      for (const meeting of pastMeetings) {
+        const day = meeting.start.split('T')[0];
+        if (!allByDay[day]) allByDay[day] = [];
+        allByDay[day].push(meeting);
+      }
+
+      for (const [day, meetings] of Object.entries(weekData.byDay || {})) {
+        if (!allByDay[day]) allByDay[day] = [];
+        const existingIds = new Set(allByDay[day].map(m => m.id));
+        for (const m of meetings) {
+          if (!existingIds.has(m.id)) allByDay[day].push(m);
+        }
+      }
+
+      // Apply external-only filter
+      const filteredByDay: Record<string, CalendarMeeting[]> = {};
+      for (const [day, meetings] of Object.entries(allByDay)) {
+        const filtered = this.showExternalOnly
+          ? meetings.filter(m => this.isExternalMeeting(m))
+          : meetings;
+        if (filtered.length > 0) filteredByDay[day] = filtered;
+      }
+
+      const days = Object.keys(filteredByDay).sort();
       
       if (days.length === 0) {
         this.renderEmptyState(contentArea);
         return;
       }
 
-      // Render "Now" indicator if there's a current meeting
+      // Render "Now" indicator
       await this.renderCurrentMeeting(contentArea, calendarService);
+
+      // "Load earlier" button
+      const loadEarlierBtn = contentArea.createEl('button', { text: `← Load earlier meetings`, cls: 'eudia-load-earlier' });
+      loadEarlierBtn.style.cssText = 'width:100%;padding:8px;margin-bottom:8px;font-size:12px;cursor:pointer;border-radius:6px;border:1px solid var(--background-modifier-border);background:var(--background-secondary);color:var(--text-muted);';
+      loadEarlierBtn.onclick = async () => {
+        this.weeksBack += 2;
+        await this.render();
+      };
+
+      // Find today's date key for visual anchor
+      const todayKey = now.toISOString().split('T')[0];
+      let todayAnchor: HTMLElement | null = null;
 
       // Render meetings by day
       for (const day of days) {
-        const meetings = weekData.byDay[day];
+        const meetings = filteredByDay[day];
         if (!meetings || meetings.length === 0) continue;
-        this.renderDaySection(contentArea, day, meetings);
+        const section = this.renderDaySection(contentArea, day, meetings);
+        if (day === todayKey) todayAnchor = section;
+      }
+
+      // Auto-scroll to today so past meetings are visible above
+      if (todayAnchor) {
+        setTimeout(() => todayAnchor!.scrollIntoView({ block: 'start', behavior: 'auto' }), 100);
       }
 
     } catch (error) {
@@ -2525,26 +2626,35 @@ class EudiaCalendarView extends ItemView {
     }
   }
 
-  private renderDaySection(container: HTMLElement, day: string, meetings: CalendarMeeting[]): void {
+  private renderDaySection(container: HTMLElement, day: string, meetings: CalendarMeeting[]): HTMLElement {
     const section = container.createDiv({ cls: 'eudia-calendar-day' });
-    
-    section.createEl('div', { 
-      cls: 'eudia-calendar-day-header',
-      text: CalendarService.getDayName(day)
+
+    const today = new Date().toISOString().split('T')[0];
+    const isToday = day === today;
+    const isPast = day < today;
+
+    const headerText = isToday ? 'TODAY' : CalendarService.getDayName(day);
+    const headerEl = section.createEl('div', { 
+      cls: `eudia-calendar-day-header ${isToday ? 'today' : ''} ${isPast ? 'past' : ''}`,
+      text: headerText
     });
+    if (isToday) {
+      headerEl.style.cssText = 'font-weight:700;color:var(--interactive-accent);';
+    } else if (isPast) {
+      headerEl.style.cssText = 'opacity:0.7;';
+    }
 
     for (const meeting of meetings) {
       const meetingEl = section.createDiv({ 
-        cls: `eudia-calendar-meeting ${meeting.isCustomerMeeting ? 'customer' : 'internal'}`
+        cls: `eudia-calendar-meeting ${meeting.isCustomerMeeting ? 'customer' : 'internal'} ${isPast ? 'past' : ''}`
       });
+      if (isPast) meetingEl.style.cssText = 'opacity:0.85;';
 
-      // Time
       meetingEl.createEl('div', {
         cls: 'eudia-calendar-time',
         text: CalendarService.formatTime(meeting.start, this.plugin.settings.timezone)
       });
 
-      // Details
       const details = meetingEl.createDiv({ cls: 'eudia-calendar-details' });
       details.createEl('div', { cls: 'eudia-calendar-subject', text: meeting.subject });
       
@@ -2552,16 +2662,19 @@ class EudiaCalendarView extends ItemView {
         details.createEl('div', { cls: 'eudia-calendar-account', text: meeting.accountName });
       } else if (meeting.attendees && meeting.attendees.length > 0) {
         const attendeeNames = meeting.attendees
+          .filter(a => a.isExternal !== false)
           .slice(0, 2)
           .map(a => a.name || a.email?.split('@')[0] || 'Unknown')
           .join(', ');
-        details.createEl('div', { cls: 'eudia-calendar-attendees', text: attendeeNames });
+        if (attendeeNames) {
+          details.createEl('div', { cls: 'eudia-calendar-attendees', text: attendeeNames });
+        }
       }
 
-      // Click handler
       meetingEl.onclick = () => this.createNoteForMeeting(meeting);
       meetingEl.title = 'Click to create meeting note';
     }
+    return section;
   }
 
   private renderEmptyState(container: HTMLElement): void {
