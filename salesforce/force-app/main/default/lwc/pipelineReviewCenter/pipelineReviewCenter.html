@@ -96,12 +96,6 @@
                 <span class="stat">{totalAcvFormatted} pipeline</span>
                 <span class="stat-sep">·</span>
                 <span class="stat">{weightedAcvFormatted} weighted</span>
-                <template if:true={hasCommitSummary}>
-                    <span class="stat-sep">·</span>
-                    <span class="stat">{commitTotalFormatted} commit</span>
-                    <span class="stat-sep">·</span>
-                    <span class="stat stat-emphasis">{commitInQtrFormatted} in-qtr commit</span>
-                </template>
             </div>
             <template if:true={hasAISummary}>
                 <div class="stats-bar stats-bar-ai">

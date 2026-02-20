@@ -192,7 +192,6 @@ export default class PipelineReviewCenter extends LightningElement {
             s.totalDeals++;
             const netAcv = row.netAcv || row.acv || 0;
             const wtd = row.weightedAcv || 0;
-            const qtrCommit = row.commitNet || 0;
             s.totalACV += netAcv;
             s.weightedACV += wtd;
 
