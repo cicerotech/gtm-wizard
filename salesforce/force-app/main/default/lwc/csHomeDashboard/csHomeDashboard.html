@@ -1,0 +1,385 @@
+<template>
+    <div class="cs-container">
+        <!-- Header -->
+        <div class="cs-header">
+            <div class="header-left">
+                <h1 class="title">Customer Success</h1>
+                <span class="subtitle">Week of {weekLabel}</span>
+            </div>
+            <div class="header-right">
+                <lightning-button-icon
+                    icon-name="utility:refresh"
+                    alternative-text="Refresh"
+                    onclick={handleRefresh}
+                    class="refresh-btn">
+                </lightning-button-icon>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <template if:true={isLoading}>
+            <div class="loading-state">
+                <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+            </div>
+        </template>
+
+        <template if:true={error}>
+            <div class="error-state">
+                <lightning-icon icon-name="utility:error" variant="error" size="small"></lightning-icon>
+                <span>{error}</span>
+            </div>
+        </template>
+
+        <template if:false={isLoading}>
+            <!-- Summary strip -->
+            <div class="summary-strip">
+                <div class="summary-card">
+                    <div class="sc-value">{totalHealthAccounts}</div>
+                    <div class="sc-label">Existing Accounts</div>
+                    <div class="sc-sub-label">with Health Status</div>
+                    <div class="sc-detail">
+                        <span class="dot dot-green"></span>{greenCount}
+                        <span class="dot dot-yellow"></span>{yellowCount}
+                        <span class="dot dot-red"></span>{redCount}
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="sc-value">{csDealsCount}</div>
+                    <div class="sc-label">CS Pipeline Deals</div>
+                    <div class="sc-detail">{csAcvFormatted} total</div>
+                </div>
+                <div class="summary-card">
+                    <div class="sc-value">{stage5Count}</div>
+                    <div class="sc-label">Stage 5 (Negotiation)</div>
+                    <div class="sc-detail">{stage5AcvFormatted}</div>
+                </div>
+                <div class="summary-card">
+                    <div class="sc-value">{stage4Count}</div>
+                    <div class="sc-label">Stage 4 (Proposal)</div>
+                    <div class="sc-detail">{stage4AcvFormatted}</div>
+                </div>
+            </div>
+
+            <!-- Tab navigation -->
+            <div class="tab-bar">
+                <button class={healthTabClass} data-tab="health" onclick={handleTabClick}>
+                    Account Health
+                </button>
+                <button class={pipelineTabClass} data-tab="pipeline" onclick={handleTabClick}>
+                    CS Late-Stage Pipeline
+                </button>
+                <button class={expansionTabClass} data-tab="expansion" onclick={handleTabClick}>
+                    Expansion Pipeline
+                </button>
+                <button class={contractsTabClass} data-tab="contracts" onclick={handleTabClick}>
+                    Upcoming Renewals
+                </button>
+                <button class={outcomesTabClass} data-tab="outcomes" onclick={handleTabClick}>
+                    Outcomes
+                </button>
+            </div>
+
+            <!-- Account Health Tab -->
+            <template if:true={isHealthTab}>
+                <div class="tab-content">
+                    <template for:each={healthAccounts} for:item="a">
+                        <div key={a.key} class="health-row">
+                            <div class="health-left">
+                                <span class={a.healthClass}>{a.health}</span>
+                                <a href={a.accountUrl} class="account-link">{a.name}</a>
+                                <template if:true={a.csmName}>
+                                    <span class="csm-label">CSM: {a.csmName}</span>
+                                </template>
+                                <template if:true={a.ownerName}>
+                                    <span class="owner-label">Owner: {a.ownerName}</span>
+                                </template>
+                            </div>
+                            <div class="health-right">
+                                <span class="overview-text">{a.overviewSnippet}</span>
+                                <lightning-button-icon icon-name="utility:edit" alternative-text="Edit" size="small" data-id={a.key} onclick={handleEditHealth} class="edit-health-btn"></lightning-button-icon>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- CS Late-Stage Pipeline Tab -->
+            <template if:true={isPipelineTab}>
+                <div class="tab-content">
+                    <template if:true={hasCSDeals}>
+                        <div class="table-wrapper">
+                            <div class="table-header">
+                                <span class="col-account">Account</span>
+                                <span class="col-acv">ACV</span>
+                                <span class="col-wow-sm">Δ</span>
+                                <span class="col-stage">Stage</span>
+                                <span class="col-target">Target Sign</span>
+                                <span class="col-owner">Owner</span>
+                                <span class="col-pod">Pod</span>
+                                <span class="col-product">Product</span>
+                            </div>
+                            <template for:each={csDeals} for:item="d">
+                                <div key={d.key} class={d.rowClass}>
+                                    <span class="col-account">
+                                        <a href={d.oppUrl} class="opp-link">{d.accountName}</a>
+                                        <template if:true={d.existingBadge}>
+                                            <span class="existing-badge">{d.existingBadge}</span>
+                                        </template>
+                                    </span>
+                                    <span class="col-acv">{d.acvFormatted}</span>
+                                    <span class="col-wow-sm" data-sentiment={d.acvSentiment}>{d.acvDisplay}</span>
+                                    <span class="col-stage">
+                                        {d.stageShort}
+                                        <template if:true={d.stageBadge}>
+                                            <span class="stage-arrow" data-sentiment={d.rowSentiment}>{d.stageBadge}</span>
+                                        </template>
+                                    </span>
+                                    <span class="col-target" data-sentiment={d.targetSentiment}>{d.targetDate}</span>
+                                    <span class="col-owner">{d.ownerName}</span>
+                                    <span class="col-pod">{d.pod}</span>
+                                    <span class="col-product">{d.productShort}</span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template if:false={hasCSDeals}>
+                        <div class="empty-state">No CS-flagged deals in pipeline</div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Expansion Pipeline Tab -->
+            <template if:true={isExpansionTab}>
+                <div class="tab-content">
+                    <template if:true={hasExpansionDeals}>
+                        <div class="table-wrapper">
+                            <div class="table-header">
+                                <span class="col-account">Account</span>
+                                <span class="col-acv">ACV</span>
+                                <span class="col-wow-sm">Δ</span>
+                                <span class="col-stage">Stage</span>
+                                <span class="col-target">Target Sign</span>
+                                <span class="col-owner">Owner</span>
+                                <span class="col-product">Product</span>
+                            </div>
+                            <template for:each={expansionDeals} for:item="d">
+                                <div key={d.key} class={d.rowClass}>
+                                    <span class="col-account">
+                                        <a href={d.oppUrl} class="opp-link">{d.accountName}</a>
+                                    </span>
+                                    <span class="col-acv">{d.acvFormatted}</span>
+                                    <span class="col-wow-sm" data-sentiment={d.acvSentiment}>{d.acvDisplay}</span>
+                                    <span class="col-stage">{d.stageShort}</span>
+                                    <span class="col-target" data-sentiment={d.targetSentiment}>{d.targetDate}</span>
+                                    <span class="col-owner">{d.ownerName}</span>
+                                    <span class="col-product">{d.productShort}</span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template if:false={hasExpansionDeals}>
+                        <div class="empty-state">No expansion pipeline for existing customers</div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Contract Renewals Tab -->
+            <template if:true={isContractsTab}>
+                <div class="tab-content">
+                    <template if:true={hasContracts}>
+                        <div class="table-wrapper">
+                            <div class="table-header">
+                                <span class="col-account">Account</span>
+                                <span class="col-health">Health</span>
+                                <span class="col-csm">CSM</span>
+                                <span class="col-end">End Date</span>
+                                <span class="col-status">Status</span>
+                                <span class="col-days">Days</span>
+                            </div>
+                            <template for:each={contracts} for:item="c">
+                                <div key={c.key} class="table-row">
+                                    <span class="col-account">
+                                        <a href={c.accountUrl} class="opp-link">{c.accountName}</a>
+                                    </span>
+                                    <span class="col-health">
+                                        <template if:true={c.health}>
+                                            <span class={c.healthClass}></span>
+                                            {c.health}
+                                        </template>
+                                    </span>
+                                    <span class="col-csm">{c.csmName}</span>
+                                    <span class="col-end">{c.endDateFormatted}</span>
+                                    <span class="col-status">
+                                        <span class={c.statusClass}>{c.status}</span>
+                                    </span>
+                                    <span class="col-days">
+                                        <span class={c.daysClass}>{c.daysLabel}</span>
+                                    </span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template if:false={hasContracts}>
+                        <div class="empty-state">No upcoming contract renewals this quarter</div>
+                    </template>
+                </div>
+            </template>
+            <!-- Outcomes Tab -->
+            <template if:true={isOutcomesTab}>
+                <div class="tab-content">
+                    <!-- Delivered Outcomes -->
+                    <div class="outcome-section">
+                        <div class="outcome-section-header">
+                            <span class="outcome-section-title">Delivered Outcomes ({deliveredCount})</span>
+                        </div>
+                        <template if:true={hasDelivered}>
+                            <div class="table-wrapper">
+                                <div class="table-header">
+                                    <span class="col-num">#</span>
+                                    <span class="col-account">Customer</span>
+                                    <span class="col-product">Product Line</span>
+                                    <span class="col-outcome">Outcome</span>
+                                </div>
+                                <template for:each={outcomesByStatus.delivered} for:item="o">
+                                    <div key={o.key} class="table-row">
+                                        <span class="col-num">{o.key}</span>
+                                        <span class="col-account"><a href={o.accountUrl} class="opp-link">{o.accountName}</a></span>
+                                        <span class="col-product">{o.product}</span>
+                                        <span class="col-outcome">{o.outcome}</span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- In Delivery -->
+                    <div class="outcome-section">
+                        <div class="outcome-section-header">
+                            <span class="outcome-section-title">In Delivery ({inDeliveryCount})</span>
+                        </div>
+                        <template if:true={hasInDelivery}>
+                            <div class="table-wrapper">
+                                <div class="table-header">
+                                    <span class="col-num">#</span>
+                                    <span class="col-account">Customer</span>
+                                    <span class="col-product">Product Line</span>
+                                    <span class="col-outcome">Outcome</span>
+                                </div>
+                                <template for:each={outcomesByStatus.inDelivery} for:item="o">
+                                    <div key={o.key} class="table-row">
+                                        <span class="col-num">{o.key}</span>
+                                        <span class="col-account"><a href={o.accountUrl} class="opp-link">{o.accountName}</a></span>
+                                        <span class="col-product">{o.product}</span>
+                                        <span class="col-outcome">{o.outcome}</span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Near-Term Pipeline -->
+                    <div class="outcome-section">
+                        <div class="outcome-section-header">
+                            <span class="outcome-section-title">Near-Term Pipeline ({nearTermCount})</span>
+                            <span class="outcome-section-sub">Kick-off 30-60 days</span>
+                        </div>
+                        <template if:true={hasNearTerm}>
+                            <div class="table-wrapper">
+                                <div class="table-header">
+                                    <span class="col-num">#</span>
+                                    <span class="col-account">Customer</span>
+                                    <span class="col-product">Product Line</span>
+                                    <span class="col-outcome">Outcome</span>
+                                </div>
+                                <template for:each={outcomesByStatus.nearTerm} for:item="o">
+                                    <div key={o.key} class="table-row">
+                                        <span class="col-num">{o.key}</span>
+                                        <span class="col-account"><a href={o.accountUrl} class="opp-link">{o.accountName}</a></span>
+                                        <span class="col-product">{o.product}</span>
+                                        <span class="col-outcome">{o.outcome}</span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Add Outcome button -->
+                    <div class="outcome-add-bar">
+                        <lightning-button label="Add Outcome" icon-name="utility:add" onclick={handleAddOutcomeOpen} variant="neutral" data-status="Delivered"></lightning-button>
+                    </div>
+                </div>
+            </template>
+        </template>
+
+        <!-- Health Edit Modal -->
+        <template if:true={editModalOpen}>
+            <section class="slds-modal slds-fade-in-open" aria-modal="true">
+                <div class="slds-modal__container">
+                    <header class="slds-modal__header">
+                        <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" onclick={handleEditCancel}>
+                            <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                        </button>
+                        <h2 class="slds-text-heading_medium">Edit Account Health — {editAccount.name}</h2>
+                    </header>
+                    <div class="slds-modal__content slds-p-around_medium">
+                        <lightning-combobox label="Health Status" value={editAccount.health} options={healthOptions} onchange={handleHealthChange} class="slds-m-bottom_small"></lightning-combobox>
+                        <lightning-textarea label="Health Overview" value={editAccount.overview} onchange={handleOverviewChange} max-length="5000"></lightning-textarea>
+                    </div>
+                    <footer class="slds-modal__footer">
+                        <lightning-button label="Cancel" onclick={handleEditCancel} variant="neutral"></lightning-button>
+                        <lightning-button label="Save" onclick={handleEditSave} variant="brand" class="slds-m-left_x-small"></lightning-button>
+                    </footer>
+                </div>
+            </section>
+            <div class="slds-backdrop slds-backdrop_open"></div>
+        </template>
+
+        <!-- Outcome Edit Modal (legacy per-account) -->
+        <template if:true={editOutcomeOpen}>
+            <section class="slds-modal slds-fade-in-open" aria-modal="true">
+                <div class="slds-modal__container">
+                    <header class="slds-modal__header">
+                        <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" onclick={handleOutcomeCancel}>
+                            <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                        </button>
+                        <h2 class="slds-text-heading_medium">Edit Outcome — {editOutcomeAccount.name}</h2>
+                    </header>
+                    <div class="slds-modal__content slds-p-around_medium">
+                        <p class="slds-m-bottom_small"><strong>Products:</strong> {editOutcomeAccount.products}</p>
+                        <lightning-textarea label="Promised Outcome" value={editOutcomeAccount.outcome} onchange={handleOutcomeTextChange} max-length="10000" placeholder="Describe the promised outcome for this customer."></lightning-textarea>
+                    </div>
+                    <footer class="slds-modal__footer">
+                        <lightning-button label="Cancel" onclick={handleOutcomeCancel} variant="neutral"></lightning-button>
+                        <lightning-button label="Save" onclick={handleOutcomeSave} variant="brand" class="slds-m-left_x-small"></lightning-button>
+                    </footer>
+                </div>
+            </section>
+            <div class="slds-backdrop slds-backdrop_open"></div>
+        </template>
+
+        <!-- Add Outcome Modal -->
+        <template if:true={addOutcomeOpen}>
+            <section class="slds-modal slds-fade-in-open" aria-modal="true">
+                <div class="slds-modal__container">
+                    <header class="slds-modal__header">
+                        <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" onclick={handleAddOutcomeClose}>
+                            <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                        </button>
+                        <h2 class="slds-text-heading_medium">Add Outcome</h2>
+                    </header>
+                    <div class="slds-modal__content slds-p-around_medium">
+                        <lightning-combobox label="Account" value={newOutcome.accountId} options={accountPicklistOptions} onchange={handleNewOutcomeAccount} class="slds-m-bottom_small" placeholder="Select account"></lightning-combobox>
+                        <lightning-combobox label="Status" value={newOutcome.status} options={statusOptions} onchange={handleNewOutcomeStatus} class="slds-m-bottom_small"></lightning-combobox>
+                        <lightning-input label="Product Line" value={newOutcome.product} onchange={handleNewOutcomeProduct} class="slds-m-bottom_small" placeholder="e.g. Contracting, Sigma, Insights"></lightning-input>
+                        <lightning-textarea label="Outcome" value={newOutcome.outcome} onchange={handleNewOutcomeText} max-length="2000" placeholder="Describe the outcome"></lightning-textarea>
+                    </div>
+                    <footer class="slds-modal__footer">
+                        <lightning-button label="Cancel" onclick={handleAddOutcomeClose} variant="neutral"></lightning-button>
+                        <lightning-button label="Save" onclick={handleAddOutcomeSave} variant="brand" class="slds-m-left_x-small"></lightning-button>
+                    </footer>
+                </div>
+            </section>
+            <div class="slds-backdrop slds-backdrop_open"></div>
+        </template>
+    </div>
+</template>
