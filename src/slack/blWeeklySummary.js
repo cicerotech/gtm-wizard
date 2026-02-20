@@ -2815,6 +2815,32 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     
     logger.info('Page 1 RevOps data queried successfully');
     
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MANUAL DEAL OVERRIDES — temporary additions not yet in Salesforce
+    // TODO: Remove once these deals are recorded as Closed Won in SF
+    // Added 2026-02-20: Donald $45k Contracting MS (Project)
+    // ═══════════════════════════════════════════════════════════════════════════
+    const manualDeals = [
+      { accountName: 'Donald', acv: 45000, revenueType: 'Project', productLine: 'AI Contracting - Managed Services', ownerName: 'Asad Hussain', salesType: 'New business' }
+    ];
+    for (const deal of manualDeals) {
+      signedQTD.totalACV += deal.acv;
+      signedQTD.totalDeals += 1;
+      
+      const dealObj = { ...deal, id: 'manual_' + deal.accountName, name: deal.accountName + ' - Manual', closeDate: dateStr };
+      signedLastWeek.totalACV += deal.acv;
+      signedLastWeek.totalDeals += 1;
+      signedLastWeek.deals.push(dealObj);
+      
+      const type = deal.revenueType || 'Other';
+      if (!signedLastWeek.byRevenueType[type]) {
+        signedLastWeek.byRevenueType[type] = { deals: [], totalACV: 0 };
+      }
+      signedLastWeek.byRevenueType[type].deals.unshift(dealObj);
+      signedLastWeek.byRevenueType[type].totalACV += deal.acv;
+      logger.info(`[Manual Override] Added ${deal.accountName} $${deal.acv/1000}k to signed revenue`);
+    }
+    
     // Process into metrics
     const pipelineData = processPipelineData(records);
     
