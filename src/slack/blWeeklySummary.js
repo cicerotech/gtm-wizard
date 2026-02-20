@@ -1783,24 +1783,24 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.text('SIGNED REVENUE Q1', signedX + 8, y + 6);
   y += 22;
   
-  // Total signed box - font sizes match header (10pt)
-  // Only use signedQTD (deals closed within fiscal Q1) - no fallback to last week
-  doc.rect(signedX, y, signedWidth, 36).fill('#f3f4f6');
-  doc.strokeColor('#e5e7eb').lineWidth(1).rect(signedX, y, signedWidth, 36).stroke();
-  doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
+  // Total signed box
+  doc.rect(signedX, y, signedWidth, 32).fill('#f3f4f6');
+  doc.strokeColor('#e5e7eb').lineWidth(0.5).rect(signedX, y, signedWidth, 32).stroke();
   if (signedQTD.totalDeals === 0) {
-    doc.text('TOTAL SIGNED', signedX + 10, y + 8);
-    doc.font(fontBold).fontSize(12).fillColor('#6b7280');
-    doc.text('—', signedX + 10, y + 21);
+    doc.font(fontBold).fontSize(8).fillColor('#6b7280');
+    doc.text('TOTAL SIGNED', signedX + 10, y + 7, { lineBreak: false });
+    doc.font(fontBold).fontSize(10).fillColor('#6b7280');
+    doc.text('—', signedX + 10, y + 19, { lineBreak: false });
   } else {
-    doc.text(`TOTAL SIGNED (${signedQTD.totalDeals} deals)`, signedX + 10, y + 8);
-    doc.font(fontBold).fontSize(12).fillColor(DARK_TEXT);
+    doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
+    doc.text(`TOTAL SIGNED (${signedQTD.totalDeals} deals)`, signedX + 10, y + 7, { lineBreak: false });
     const qtdValue = signedQTD.totalACV >= 1000000 
       ? `$${(signedQTD.totalACV / 1000000).toFixed(1)}m`
       : `$${(signedQTD.totalACV / 1000).toFixed(0)}k`;
-    doc.text(qtdValue, signedX + 10, y + 21);
+    doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
+    doc.text(qtdValue, signedX + 10, y + 18, { lineBreak: false });
   }
-  y += 36;
+  y += 32;
   
   // Signed Revenue since last week
   y += 8;
@@ -1808,29 +1808,29 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.text('Signed Revenue since last week', signedX, y);
   y += 14;
   
-  // Weekly signed box - show dash when no deals
-  doc.rect(signedX, y, signedWidth, 32).fill('#f3f4f6');
-  doc.strokeColor('#e5e7eb').lineWidth(1).rect(signedX, y, signedWidth, 32).stroke();
-  doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
+  // Weekly signed box
+  doc.rect(signedX, y, signedWidth, 28).fill('#f3f4f6');
+  doc.strokeColor('#e5e7eb').lineWidth(0.5).rect(signedX, y, signedWidth, 28).stroke();
   
   if (signedLastWeek.totalDeals === 0) {
-    doc.text('TOTAL SIGNED', signedX + 10, y + 6);
-    doc.font(fontBold).fontSize(12).fillColor('#6b7280');
-    doc.text('—', signedX + 10, y + 19);
+    doc.font(fontBold).fontSize(8).fillColor('#6b7280');
+    doc.text('TOTAL SIGNED', signedX + 10, y + 5, { lineBreak: false });
+    doc.font(fontBold).fontSize(10).fillColor('#6b7280');
+    doc.text('—', signedX + 10, y + 16, { lineBreak: false });
   } else {
     const weeklyValue = signedLastWeek.totalACV >= 1000000
       ? `$${(signedLastWeek.totalACV / 1000000).toFixed(1)}m`
       : `$${(signedLastWeek.totalACV / 1000).toFixed(0)}k`;
-    doc.text(`TOTAL SIGNED (${signedLastWeek.totalDeals} deals | ${weeklyValue})`, signedX + 10, y + 6);
+    doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
+    doc.text(`TOTAL SIGNED (${signedLastWeek.totalDeals} deals | ${weeklyValue})`, signedX + 10, y + 5, { lineBreak: false });
     
-    // Kudos line (first 2 owners)
     const owners = [...new Set(signedLastWeek.deals.map(d => d.ownerName?.split(' ')[0]).filter(Boolean))].slice(0, 2);
     if (owners.length > 0) {
-      doc.font(fontRegular).fontSize(9).fillColor('#6b7280');
-      doc.text(`#kudos @${owners.join(' + @')}`, signedX + 10, y + 19);
+      doc.font(fontRegular).fontSize(8).fillColor('#6b7280');
+      doc.text(`#kudos @${owners.join(' + @')}`, signedX + 10, y + 16, { lineBreak: false });
     }
   }
-  y += 32;
+  y += 28;
   
   // Revenue type breakdown - improved spacing with full account names and product sub-bullets
   y += 10;
@@ -1869,68 +1869,60 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   y = Math.max(runRateEndY, signedEndY) + SECTION_GAP;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // Q1 FY26 PIPELINE OPPORTUNITIES
+  // Q1 FY26 PIPELINE OPPORTUNITIES (two-column compact tables)
   // ═══════════════════════════════════════════════════════════════════════════
   doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
-  doc.text('Q1 FY26 Pipeline Opportunities', LEFT, y);
-  y += 16;
+  doc.text('Q1 FY26 Pipeline Opportunities', LEFT, y, { lineBreak: false });
+  y += 15;
   
-  // Two columns: Targeting This Month (left) + Targeting Q1 (right)
-  const oppColWidth = (PAGE_WIDTH - 20) / 2;
+  const oppColWidth = (PAGE_WIDTH - 14) / 2;
   const oppLeftX = LEFT;
-  const oppRightX = MID + 10;
+  const oppRightX = LEFT + oppColWidth + 14;
+  const oppRowH = 11;
   
-  // Left column: TARGETING THIS MONTH (February)
-  let leftY = y;
-  doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
-  doc.text(`TARGETING FEBRUARY (${top10January.totalCount})`, oppLeftX, leftY);
-  leftY += 12;
-  doc.font(fontRegular).fontSize(8).fillColor('#6b7280');
-  doc.text('Q1 Deals targeting close this month', oppLeftX, leftY);
-  leftY += 14;
-  
-  // Top 10 list for February
-  doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
-  top10January.deals.slice(0, 10).forEach((deal, i) => {
-    const value = deal.acv >= 1000000 
-      ? `$${(deal.acv / 1000000).toFixed(1)}m`
-      : `$${(deal.acv / 1000).toFixed(0)}k`;
-    const name = deal.accountName.length > 22 ? deal.accountName.substring(0, 22) + '...' : deal.accountName;
-    doc.text(`${i + 1}. ${value}, ${name}`, oppLeftX, leftY);
-    leftY += 11;
-  });
-  
-  // Right column: TARGETING Q1 FY26
-  let rightY = y;
-  doc.font(fontBold).fontSize(10).fillColor(DARK_TEXT);
-  doc.text('TARGETING Q1 FY26 CLOSE', oppRightX, rightY);
-  rightY += 14;
-  
-  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text('TOP 10 OPPORTUNITIES (ACV)', oppRightX, rightY);
-  rightY += 12;
-  
-  // Top 10 list for Q1
-  doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
-  top10Q1.deals.slice(0, 10).forEach((deal, i) => {
-    let value = deal.acv >= 1000000 
-      ? `$${(deal.acv / 1000000).toFixed(1)}m`
-      : `$${(deal.acv / 1000).toFixed(0)}k`;
-    // Apply account display name overrides
-    let displayName = deal.accountName;
-    if (ACCOUNT_DISPLAY_OVERRIDES[displayName]) {
-      displayName = ACCOUNT_DISPLAY_OVERRIDES[displayName];
+  // Helper to render a compact top-10 table
+  const renderOppColumn = (x, colW, title, subtitle, deals, startY) => {
+    let cy = startY;
+    // Column header
+    doc.rect(x, cy, colW, 16).fill('#f3f4f6');
+    doc.strokeColor('#e5e7eb').lineWidth(0.5).rect(x, cy, colW, 16).stroke();
+    doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
+    doc.text(title, x + 6, cy + 4, { width: colW - 12, lineBreak: false });
+    cy += 16;
+    if (subtitle) {
+      doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
+      doc.text(subtitle, x + 6, cy + 1, { width: colW - 12, lineBreak: false });
+      cy += 10;
     }
-    // Add Net ACV callout for Bank of Ireland
-    if (displayName === 'Bank of Ireland' || deal.accountName === 'Bank of Ireland') {
-      value = value + '* (Net: $235k)';
-    }
-    const name = displayName.length > 18 ? displayName.substring(0, 18) + '...' : displayName;
-    doc.text(`${i + 1}. ${value}, ${name}`, oppRightX, rightY);
-    rightY += 12;
-  });
+    
+    deals.slice(0, 10).forEach((deal, i) => {
+      let value = deal.acv >= 1000000 ? `$${(deal.acv / 1000000).toFixed(1)}m` : `$${(deal.acv / 1000).toFixed(0)}k`;
+      let displayName = deal.accountName;
+      if (ACCOUNT_DISPLAY_OVERRIDES[displayName]) displayName = ACCOUNT_DISPLAY_OVERRIDES[displayName];
+      if (displayName === 'Bank of Ireland') value += '*';
+      const name = displayName.length > 20 ? displayName.substring(0, 18) + '...' : displayName;
+      const bg = i % 2 === 0 ? '#ffffff' : '#fafafa';
+      doc.rect(x, cy, colW, oppRowH).fill(bg);
+      doc.font(fontRegular).fontSize(7.5).fillColor(DARK_TEXT);
+      doc.text(`${i + 1}.`, x + 4, cy + 2, { width: 14, lineBreak: false });
+      doc.text(value, x + 16, cy + 2, { width: 50, lineBreak: false });
+      doc.text(name, x + 68, cy + 2, { width: colW - 74, lineBreak: false });
+      cy += oppRowH;
+    });
+    return cy;
+  };
   
-  y = Math.max(leftY, rightY) + SECTION_GAP;
+  const leftEndY = renderOppColumn(oppLeftX, oppColWidth,
+    `TARGETING FEBRUARY (${top10January.totalCount})`,
+    'Deals targeting close this month',
+    top10January.deals, y);
+  
+  const rightEndY = renderOppColumn(oppRightX, oppColWidth,
+    'TARGETING Q1 FY26 — TOP 10 (ACV)',
+    null,
+    top10Q1.deals, y);
+  
+  y = Math.max(leftEndY, rightEndY) + SECTION_GAP;
   
   // ═══════════════════════════════════════════════════════════════════════════
   // Q1 PIPELINE BY SALES TYPE
@@ -1985,7 +1977,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   y += 17;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // Q1 PIPELINE BY PRODUCT LINE (live SOQL — replaces hardcoded Solution table)
+  // Q1 PIPELINE BY PRODUCT LINE (live SOQL)
   // ═══════════════════════════════════════════════════════════════════════════
   y += SECTION_GAP;
   doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
@@ -1995,65 +1987,39 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   const plTableWidth = PAGE_WIDTH;
   const ROW_H = 13;
   const HDR_H = 16;
-  const TOT_H = 15;
   const FOOTER_RESERVE = 22;
-  const spaceLeft = 760 - y - HDR_H - TOT_H - FOOTER_RESERVE;
+  const spaceLeft = 760 - y - HDR_H - FOOTER_RESERVE;
   const maxRows = Math.max(3, Math.min(8, Math.floor(spaceLeft / ROW_H)));
   
   const plAllRows = (productLineData && productLineData.length > 0) ? productLineData : [];
   const plRows = plAllRows.slice(0, maxRows);
-  const plTotalACV = plAllRows.reduce((s, r) => s + r.acv, 0);
   
-  // Header row
+  // Header row — 3 columns: Product Line, Pipeline, Late Stage
   doc.rect(LEFT, y, plTableWidth, HDR_H).fill('#1f2937');
   doc.font(fontBold).fontSize(8).fillColor('#ffffff');
-  doc.text('Product Line', LEFT + 6, y + 4, { width: 175, lineBreak: false });
-  doc.text('Pipeline', LEFT + 185, y + 4, { width: 75, align: 'center', lineBreak: false });
-  doc.text('Weighted', LEFT + 265, y + 4, { width: 75, align: 'center', lineBreak: false });
-  doc.text('Deals', LEFT + 345, y + 4, { width: 45, align: 'center', lineBreak: false });
-  doc.text('Late Stage', LEFT + 395, y + 4, { width: 65, align: 'center', lineBreak: false });
+  doc.text('Product Line', LEFT + 6, y + 4, { width: 230, lineBreak: false });
+  doc.text('Pipeline', LEFT + 240, y + 4, { width: 100, align: 'center', lineBreak: false });
+  doc.text('Weighted', LEFT + 345, y + 4, { width: 90, align: 'center', lineBreak: false });
+  doc.text('Late Stage', LEFT + 440, y + 4, { width: 70, align: 'center', lineBreak: false });
   y += HDR_H;
   
   doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
-  
   const fmtAcv = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : `$${Math.round(v / 1000)}k`;
-  let plDealTotal = 0, plWeightedTotal = 0, plLateTotal = 0;
   
   plRows.forEach((row, i) => {
     if (y + ROW_H > 745) return;
     const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
     doc.rect(LEFT, y, plTableWidth, ROW_H).fill(bg);
     doc.fillColor(DARK_TEXT);
-    const label = row.name.length > 28 ? row.name.substring(0, 26) + '...' : row.name;
-    doc.text(label, LEFT + 6, y + 3, { width: 175, lineBreak: false });
-    doc.text(fmtAcv(row.acv), LEFT + 185, y + 3, { width: 75, align: 'center', lineBreak: false });
-    doc.text(fmtAcv(row.weighted), LEFT + 265, y + 3, { width: 75, align: 'center', lineBreak: false });
-    doc.text(row.count.toString(), LEFT + 345, y + 3, { width: 45, align: 'center', lineBreak: false });
+    const label = row.name.length > 35 ? row.name.substring(0, 33) + '...' : row.name;
+    doc.text(label, LEFT + 6, y + 3, { width: 230, lineBreak: false });
+    doc.text(fmtAcv(row.acv), LEFT + 240, y + 3, { width: 100, align: 'center', lineBreak: false });
+    doc.text(fmtAcv(row.weighted), LEFT + 345, y + 3, { width: 90, align: 'center', lineBreak: false });
     doc.font(fontBold).fillColor(DARK_TEXT);
-    doc.text(row.lateStage.toString(), LEFT + 395, y + 3, { width: 65, align: 'center', lineBreak: false });
+    doc.text(row.lateStage.toString(), LEFT + 440, y + 3, { width: 70, align: 'center', lineBreak: false });
     doc.font(fontRegular).fillColor(DARK_TEXT);
-    plDealTotal += row.count;
-    plWeightedTotal += row.weighted;
-    plLateTotal += row.lateStage;
     y += ROW_H;
   });
-  
-  // Aggregate remaining rows not shown into totals
-  plAllRows.slice(maxRows).forEach(row => {
-    plDealTotal += row.count;
-    plWeightedTotal += row.weighted;
-    plLateTotal += row.lateStage;
-  });
-  
-  // Total row
-  doc.rect(LEFT, y, plTableWidth, TOT_H).fill('#e5e7eb');
-  doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
-  doc.text('Total', LEFT + 6, y + 3, { width: 175, lineBreak: false });
-  doc.text(fmtAcv(plTotalACV), LEFT + 185, y + 3, { width: 75, align: 'center', lineBreak: false });
-  doc.text(fmtAcv(plWeightedTotal), LEFT + 265, y + 3, { width: 75, align: 'center', lineBreak: false });
-  doc.text(plDealTotal.toString(), LEFT + 345, y + 3, { width: 45, align: 'center', lineBreak: false });
-  doc.text(plLateTotal.toString(), LEFT + 395, y + 3, { width: 65, align: 'center', lineBreak: false });
-  y += TOT_H;
   
   // ═══════════════════════════════════════════════════════════════════════════
   // FOOTER — always render on page 1, cap y to stay within page bounds
