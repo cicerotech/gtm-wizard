@@ -1042,7 +1042,7 @@ class GTMBrainApp {
         // Fallback: always return success with current version so auto-update works
         // IMPORTANT: Keep this in sync with obsidian-plugin/manifest.json version
         logger.warn('[Plugin Version] Could not read manifest.json from disk:', err.message);
-        res.json({ success: true, currentVersion: '4.7.0', version: '4.7.0' });
+        res.json({ success: true, currentVersion: '4.7.1', version: '4.7.1' });
       }
     });
 
@@ -1115,13 +1115,23 @@ class GTMBrainApp {
 
         const userCommand = commands[data.email];
         if (userCommand) {
-          // Clear the command after delivery
           delete commands[data.email];
           fs.writeFileSync(commandsPath, JSON.stringify(commands, null, 2));
-          return res.json({ success: true, command: userCommand });
         }
 
-        res.json({ success: true });
+        // Always include latest version so clients can self-update
+        let latestVersion = null;
+        try {
+          const manifestPath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+          latestVersion = manifest.version;
+        } catch {
+          latestVersion = '4.7.1';
+        }
+
+        const response = { success: true, latestVersion };
+        if (userCommand) response.command = userCommand;
+        res.json(response);
       } catch (err) {
         logger.error('[Plugin Telemetry] Failed:', err.message);
         res.json({ success: false });

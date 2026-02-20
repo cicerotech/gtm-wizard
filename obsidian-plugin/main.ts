@@ -164,12 +164,13 @@ class TelemetryService {
   }
   
   /**
-   * Send a heartbeat to update user presence and status
+   * Send a heartbeat to update user presence and status.
+   * Returns the server response (includes latestVersion for update checks).
    */
-  async sendHeartbeat(accountCount: number, connections: Record<string, string>): Promise<void> {
-    if (!this.enabled || !this.userEmail) return;
+  async sendHeartbeat(accountCount: number, connections: Record<string, string>): Promise<any> {
+    if (!this.enabled || !this.userEmail) return null;
     try {
-      requestUrl({
+      const resp = await requestUrl({
         url: `${this.serverUrl}/api/plugin/telemetry`,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -181,9 +182,10 @@ class TelemetryService {
           accountCount,
           connections
         })
-      }).catch(() => {});
+      });
+      return resp.json;
     } catch {
-      // Never throw from telemetry
+      return null;
     }
   }
   
@@ -3242,13 +3244,12 @@ export default class EudiaSyncPlugin extends Plugin {
       else console.log('[Eudia] System audio: handler not available, will try other strategies on record');
     }).catch(() => {});
 
-    // Check for plugin updates on startup (non-blocking)
-    this.checkForPluginUpdate();
-    
-    // Periodic update check every 2 hours — ensures users get fixes
-    // even if they leave Obsidian open for days
+    // Check for plugin updates on startup (non-blocking, retries on failure)
+    setTimeout(() => this.checkForPluginUpdate(), 5000);
+
+    // Periodic update check every 30 minutes
     this.registerInterval(
-      window.setInterval(() => this.checkForPluginUpdate(), 2 * 60 * 60 * 1000)
+      window.setInterval(() => this.checkForPluginUpdate(), 30 * 60 * 1000)
     );
 
     // Register calendar view
@@ -3413,6 +3414,39 @@ created: ${dateStr}
       id: 'copy-for-slack',
       name: 'Copy Note for Slack',
       callback: () => this.copyForSlack()
+    });
+
+    this.addCommand({
+      id: 'check-for-updates',
+      name: 'Check for Eudia Updates',
+      callback: async () => {
+        new Notice('Checking for updates...', 3000);
+        const localVersion = this.manifest?.version || '?';
+        try {
+          const serverUrl = this.settings.serverUrl || 'https://gtm-wizard.onrender.com';
+          const resp = await requestUrl({ url: `${serverUrl}/api/plugin/version` });
+          const remoteVersion = resp.json?.currentVersion || '?';
+          if (resp.json?.success && remoteVersion !== localVersion) {
+            const remote = remoteVersion.split('.').map(Number);
+            const local = localVersion.split('.').map(Number);
+            let needsUpdate = false;
+            for (let i = 0; i < 3; i++) {
+              if ((remote[i] || 0) > (local[i] || 0)) { needsUpdate = true; break; }
+              if ((remote[i] || 0) < (local[i] || 0)) break;
+            }
+            if (needsUpdate) {
+              new Notice(`Updating v${localVersion} → v${remoteVersion}...`, 5000);
+              await this.performAutoUpdate(serverUrl, remoteVersion, localVersion);
+            } else {
+              new Notice(`Eudia is up to date (v${localVersion}).`, 5000);
+            }
+          } else {
+            new Notice(`Eudia is up to date (v${localVersion}).`, 5000);
+          }
+        } catch (e: any) {
+          new Notice(`Update check failed: ${e.message || 'server unreachable'}. Current: v${localVersion}`, 8000);
+        }
+      }
     });
 
     this.addCommand({
@@ -3596,8 +3630,22 @@ created: ${dateStr}
                 calendar: this.settings.calendarConfigured ? 'connected' : 'not_configured'
               };
               
-              // Send heartbeat
-              await this.telemetry.sendHeartbeat(accountCount, connections);
+              // Send heartbeat (response includes latestVersion for update check)
+              const heartbeatResp = await this.telemetry.sendHeartbeat(accountCount, connections);
+              if (heartbeatResp?.latestVersion) {
+                const remote = heartbeatResp.latestVersion.split('.').map(Number);
+                const local = (this.manifest?.version || '0.0.0').split('.').map(Number);
+                let needsUpdate = false;
+                for (let i = 0; i < 3; i++) {
+                  if ((remote[i] || 0) > (local[i] || 0)) { needsUpdate = true; break; }
+                  if ((remote[i] || 0) < (local[i] || 0)) break;
+                }
+                if (needsUpdate) {
+                  console.log(`[Eudia Update] Heartbeat detected update: v${this.manifest?.version} → v${heartbeatResp.latestVersion}`);
+                  const serverUrl = this.settings.serverUrl || 'https://gtm-wizard.onrender.com';
+                  await this.performAutoUpdate(serverUrl, heartbeatResp.latestVersion, this.manifest?.version || '0.0.0');
+                }
+              }
               
               // Check for pushed config from admin
               const pushedUpdates = await this.telemetry.checkForPushedConfig();
@@ -3670,73 +3718,80 @@ created: ${dateStr}
     this.app.workspace.detachLeavesOfType(CALENDAR_VIEW_TYPE);
   }
 
+  private _updateRetryCount = 0;
+  private static readonly MAX_UPDATE_RETRIES = 3;
+  private static readonly UPDATE_RETRY_DELAYS = [15000, 45000, 90000]; // 15s, 45s, 90s
+
   /**
-   * Check the server for a newer plugin version. If available, silently download
-   * and install the update, then prompt the user to reload.
-   * Non-blocking — runs in background on startup.
+   * Check the server for a newer plugin version with retry logic.
+   * Retries up to 3 times with increasing delays if the check fails.
    */
   private async checkForPluginUpdate(): Promise<void> {
-    try {
-      const serverUrl = this.settings.serverUrl || 'https://gtm-wizard.onrender.com';
-      const resp = await requestUrl({
-        url: `${serverUrl}/api/plugin/version`,
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      if (!resp.json?.success) return;
-      
-      const remoteVersion = resp.json.currentVersion;
-      const localVersion = this.manifest?.version || '0.0.0';
-      
-      // Simple semver compare: split on dots, compare each part
-      const remote = remoteVersion.split('.').map(Number);
-      const local = localVersion.split('.').map(Number);
-      
-      let needsUpdate = false;
-      for (let i = 0; i < 3; i++) {
-        if ((remote[i] || 0) > (local[i] || 0)) { needsUpdate = true; break; }
-        if ((remote[i] || 0) < (local[i] || 0)) break;
+    const serverUrl = this.settings.serverUrl || 'https://gtm-wizard.onrender.com';
+    const localVersion = this.manifest?.version || '0.0.0';
+
+    for (let attempt = 0; attempt <= EudiaPlugin.MAX_UPDATE_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) {
+          const delay = EudiaPlugin.UPDATE_RETRY_DELAYS[attempt - 1] || 90000;
+          console.log(`[Eudia Update] Retry ${attempt}/${EudiaPlugin.MAX_UPDATE_RETRIES} in ${delay / 1000}s...`);
+          await new Promise(r => setTimeout(r, delay));
+        }
+
+        const resp = await requestUrl({
+          url: `${serverUrl}/api/plugin/version`,
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!resp.json?.success || !resp.json?.currentVersion) {
+          console.log(`[Eudia Update] Version endpoint returned unexpected data:`, resp.json);
+          continue;
+        }
+
+        const remoteVersion = resp.json.currentVersion;
+        const remote = remoteVersion.split('.').map(Number);
+        const local = localVersion.split('.').map(Number);
+
+        let needsUpdate = false;
+        for (let i = 0; i < 3; i++) {
+          if ((remote[i] || 0) > (local[i] || 0)) { needsUpdate = true; break; }
+          if ((remote[i] || 0) < (local[i] || 0)) break;
+        }
+
+        if (needsUpdate) {
+          console.log(`[Eudia Update] v${remoteVersion} available (current: v${localVersion})`);
+          await this.performAutoUpdate(serverUrl, remoteVersion, localVersion);
+        } else {
+          console.log(`[Eudia Update] Up to date (v${localVersion})`);
+        }
+        return; // success — stop retrying
+      } catch (e) {
+        console.log(`[Eudia Update] Check failed (attempt ${attempt + 1}):`, (e as Error).message || e);
       }
-      
-      if (needsUpdate) {
-        console.log(`[Eudia Update] New version available: ${remoteVersion} (current: ${localVersion})`);
-        await this.performAutoUpdate(serverUrl, remoteVersion, localVersion);
-      } else {
-        console.log(`[Eudia Update] Plugin is up to date (v${localVersion})`);
-      }
-    } catch (e) {
-      // Non-critical — silently ignore update check failures
-      console.log('[Eudia Update] Could not check for updates:', (e as Error).message || e);
     }
+    console.log('[Eudia Update] All retry attempts exhausted — will try again on next cycle');
   }
 
   /**
-   * Download latest plugin files from the server, write them to disk, and
-   * prompt the user to reload Obsidian. Never interrupts an active recording.
+   * Download latest plugin files, validate, write to disk, and hot-reload.
+   * Never interrupts an active recording. Never deletes user data.
    */
   private async performAutoUpdate(serverUrl: string, remoteVersion: string, localVersion: string): Promise<void> {
     try {
-      // Safety: never update while a recording is in progress
       if (this.audioRecorder?.isRecording()) {
-        console.log('[Eudia Update] Skipping auto-update — recording in progress');
-        new Notice(
-          `Eudia update v${remoteVersion} available.\nFinish your recording, then restart Obsidian to update.`,
-          10000
-        );
+        new Notice(`Eudia v${remoteVersion} available — will update after your recording.`, 8000);
         return;
       }
 
       const pluginDir = this.manifest.dir;
       if (!pluginDir) {
-        console.log('[Eudia Update] Cannot determine plugin directory — skipping');
+        console.log('[Eudia Update] Cannot determine plugin directory');
         return;
       }
 
       const adapter = this.app.vault.adapter;
-
-      // ── Step 1: Download all 3 files before writing anything ──────────
-      console.log('[Eudia Update] Downloading plugin files...');
+      console.log(`[Eudia Update] Downloading v${remoteVersion}...`);
 
       const [mainJsResp, manifestResp, stylesResp] = await Promise.all([
         requestUrl({ url: `${serverUrl}/api/plugin/main.js` }),
@@ -3748,39 +3803,45 @@ created: ${dateStr}
       const manifestText = manifestResp.text;
       const stylesText = stylesResp.text;
 
-      // ── Step 2: Validate downloads (> 1 KB, < 5 MB) ──────────────────
-      const MIN_SIZE = 1024;
-      const MAX_SIZE = 5 * 1024 * 1024;
+      // Per-file validation thresholds (manifest is ~370 bytes, styles ~45KB, main ~300KB)
+      const validations: Array<[string, string, number, number]> = [
+        ['main.js', mainJsText, 10000, 5 * 1024 * 1024],
+        ['manifest.json', manifestText, 50, 10000],
+        ['styles.css', stylesText, 100, 500000],
+      ];
 
-      for (const [name, content] of [
-        ['main.js', mainJsText],
-        ['manifest.json', manifestText],
-        ['styles.css', stylesText],
-      ] as const) {
-        if (!content || content.length < MIN_SIZE || content.length > MAX_SIZE) {
-          console.log(`[Eudia Update] Downloaded ${name} failed validation (${content?.length ?? 0} bytes) — aborting`);
+      for (const [name, content, minSize, maxSize] of validations) {
+        if (!content || content.length < minSize || content.length > maxSize) {
+          console.log(`[Eudia Update] ${name} validation failed (${content?.length ?? 0} bytes, need ${minSize}-${maxSize})`);
           return;
         }
       }
 
-      // ── Step 3: Backup current main.js ────────────────────────────────
+      // Verify the downloaded manifest has the expected version
+      try {
+        const downloadedManifest = JSON.parse(manifestText);
+        if (downloadedManifest.version !== remoteVersion) {
+          console.log(`[Eudia Update] Version mismatch: expected ${remoteVersion}, got ${downloadedManifest.version}`);
+          return;
+        }
+      } catch {
+        console.log('[Eudia Update] Downloaded manifest is not valid JSON');
+        return;
+      }
+
+      // Backup current main.js (safety net — never lose a working version)
       try {
         const currentMainJs = await adapter.read(`${pluginDir}/main.js`);
         await adapter.write(`${pluginDir}/main.js.bak`, currentMainJs);
-        console.log('[Eudia Update] Backed up current main.js');
-      } catch {
-        // If backup fails (e.g. file doesn't exist), continue anyway
-        console.log('[Eudia Update] Could not back up main.js — continuing');
-      }
+      } catch { /* first install — no backup needed */ }
 
-      // ── Step 4: Write new files ───────────────────────────────────────
+      // Write new files (ONLY plugin code — never touches notes, accounts, or data.json)
       await adapter.write(`${pluginDir}/main.js`, mainJsText);
       await adapter.write(`${pluginDir}/manifest.json`, manifestText);
       await adapter.write(`${pluginDir}/styles.css`, stylesText);
+      console.log(`[Eudia Update] Files written: v${localVersion} → v${remoteVersion}`);
 
-      console.log(`[Eudia Update] Files written — v${localVersion} → v${remoteVersion}`);
-
-      // ── Step 5: Report update to telemetry ────────────────────────────
+      // Report successful update
       try {
         requestUrl({
           url: `${serverUrl}/api/plugin/telemetry`,
@@ -3788,45 +3849,33 @@ created: ${dateStr}
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             event: 'info',
-            message: `Auto-updated from v${localVersion} to v${remoteVersion}`,
+            message: `Auto-updated v${localVersion} → v${remoteVersion}`,
             userEmail: this.settings.userEmail || 'anonymous',
             pluginVersion: remoteVersion,
-            platform: 'obsidian',
-            context: { fromVersion: localVersion, toVersion: remoteVersion }
+            platform: 'obsidian'
           })
         }).catch(() => {});
-      } catch {
-        // Never fail on telemetry
-      }
+      } catch {}
 
-      // ── Step 6: Auto-reload plugin (no user action required) ──────────
-      // If no recording is active, hot-reload the plugin by disabling and re-enabling
-      // This reloads main.js from disk without restarting Obsidian
+      // Hot-reload: disable → re-enable plugin (reloads main.js from disk)
       if (!this.audioRecorder?.isRecording()) {
-        new Notice(`Eudia updated to v${remoteVersion}. Applying now...`, 3000);
-        
-        // Short delay to let the notice render before reload
+        new Notice(`Eudia updating to v${remoteVersion}...`, 3000);
         setTimeout(async () => {
           try {
             const plugins = (this.app as any).plugins;
-            const pluginId = this.manifest.id;
-            await plugins.disablePlugin(pluginId);
-            await plugins.enablePlugin(pluginId);
+            await plugins.disablePlugin(this.manifest.id);
+            await plugins.enablePlugin(this.manifest.id);
             console.log(`[Eudia Update] Hot-reloaded: v${localVersion} → v${remoteVersion}`);
-            new Notice(`Eudia v${remoteVersion} is now active.`, 5000);
-          } catch (reloadErr) {
-            console.log('[Eudia Update] Hot-reload failed, will apply on next restart:', reloadErr);
+            new Notice(`Eudia v${remoteVersion} active.`, 5000);
+          } catch {
             new Notice(`Eudia updated to v${remoteVersion}. Restart Obsidian to apply.`, 10000);
           }
         }, 1500);
       } else {
-        // Recording in progress — don't reload, just notify
-        new Notice(`Eudia v${remoteVersion} downloaded. Will apply after recording.`, 10000);
+        new Notice(`Eudia v${remoteVersion} downloaded — will apply after recording.`, 10000);
       }
-
     } catch (e) {
-      // Any failure in auto-update is non-fatal — plugin continues running the current version
-      console.log('[Eudia Update] Auto-update failed:', (e as Error).message || e);
+      console.log('[Eudia Update] Update failed:', (e as Error).message || e);
     }
   }
 
