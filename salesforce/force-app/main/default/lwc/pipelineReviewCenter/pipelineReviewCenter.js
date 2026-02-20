@@ -185,14 +185,14 @@ export default class PipelineReviewCenter extends LightningElement {
             commitAITotal: 0, commitAIInQtr: 0,
             stageAdvances: 0, stageRegressions: 0,
             acvIncreases: 0, acvDecreases: 0, netACVChange: 0,
-            targetSlips: 0, movedToCommit: 0, newDeals: 0, changedDeals: 0
+            targetSlips: 0, movedToCommit: 0, movedFromCommit: 0, newDeals: 0, changedDeals: 0
         };
 
         for (const row of this.filteredData) {
             s.totalDeals++;
             const netAcv = row.netAcv || row.acv || 0;
-            const dealAcv = row.acv || 0;
             const wtd = row.weightedAcv || 0;
+            const qtrCommit = row.commitNet || 0;
             s.totalACV += netAcv;
             s.weightedACV += wtd;
 
@@ -203,18 +203,18 @@ export default class PipelineReviewCenter extends LightningElement {
                 isInQtr = d >= this._qtrStart && d <= this._qtrEnd;
             }
 
-            if (isCommit) {
-                s.commitTotal += dealAcv;
-                if (isInQtr) s.commitInQtr += dealAcv;
+            if (isCommit && qtrCommit > 0) {
+                s.commitTotal += qtrCommit;
+                if (isInQtr) s.commitInQtr += qtrCommit;
             }
 
             if (row.aiEnabled) {
                 s.totalAIDeals++;
                 s.totalAIACV += netAcv;
                 s.weightedAIACV += (row.weightedNetAI || wtd);
-                if (isCommit) {
-                    s.commitAITotal += dealAcv;
-                    if (isInQtr) s.commitAIInQtr += dealAcv;
+                if (isCommit && qtrCommit > 0) {
+                    s.commitAITotal += qtrCommit;
+                    if (isInQtr) s.commitAIInQtr += qtrCommit;
                 }
             }
 
@@ -228,6 +228,7 @@ export default class PipelineReviewCenter extends LightningElement {
                 if (row.stageChanged && row.stageDir < 0) s.stageRegressions++;
                 if (row.targetDeltaDays > 7) s.targetSlips++;
                 if (row.fcChanged && row.forecastCategory === 'Commit') s.movedToCommit++;
+                if (row.fcChanged && row.priorForecastCat === 'Commit' && row.forecastCategory !== 'Commit') s.movedFromCommit++;
             }
         }
 
@@ -263,17 +264,15 @@ export default class PipelineReviewCenter extends LightningElement {
             // Weighted = ACV × Probability
             groups[owner].weightedAcv += (row.weightedAcv || 0);
 
-            // Forecast = ACV sum of all deals with BL Forecast Category of Commit or Gut
-            const dealAcv = row.acv || 0;
-            if (row.forecastCategory === 'Commit' || row.forecastCategory === 'Gut') {
-                groups[owner].forecast += dealAcv;
-            }
+            // BL Forecast = sum of Blended_Forecast_base__c (SF formula: 100% Commit / 60% Gut)
+            groups[owner].forecast += (row.blendedForecast || 0);
 
-            // Commit = ACV sum of Commit-tagged deals only
-            if (row.forecastCategory === 'Commit') {
-                groups[owner].commitNet += dealAcv;
+            // Commit = Quarterly_Commit__c (SF formula: Net ACV, AI-Enabled, Commit only)
+            const qtrCommit = row.commitNet || 0;
+            if (row.forecastCategory === 'Commit' && qtrCommit > 0) {
+                groups[owner].commitNet += qtrCommit;
                 if (enriched.isInQuarter) {
-                    groups[owner].commitInQtr += dealAcv;
+                    groups[owner].commitInQtr += qtrCommit;
                 }
             }
 
@@ -380,6 +379,7 @@ export default class PipelineReviewCenter extends LightningElement {
 
         let wowIcon = '—';
         if (row.isNew) wowIcon = 'NEW';
+        else if (row.fcChanged && row.priorForecastCat === 'Commit' && row.forecastCategory !== 'Commit') wowIcon = '▼FC';
         else if (row.stageChanged && row.stageDir > 0 && (row.stageShort === 'S2' || row.stage === 'Stage 2 - SQO')) wowIcon = 'S2↑';
         else if (row.forecastCategory === 'Commit' && row.fcChanged) wowIcon = '★';
         else if (row.changeScore < -2) wowIcon = '⚠';
@@ -476,6 +476,7 @@ export default class PipelineReviewCenter extends LightningElement {
         if (s.acvIncreases > 0) items.push({ key: 'ai', icon: '↑', text: `${s.acvIncreases} ACV increase${s.acvIncreases > 1 ? 's' : ''} (${this._fmtCurrencyDelta(s.netACVChange)} net)` });
         if (s.targetSlips > 0) items.push({ key: 'ts', icon: '⚠', text: `${s.targetSlips} target date slip${s.targetSlips > 1 ? 's' : ''}` });
         if (s.movedToCommit > 0) items.push({ key: 'mc', icon: '★', text: `${s.movedToCommit} moved to Commit` });
+        if (s.movedFromCommit > 0) items.push({ key: 'mfc', icon: '▼', text: `${s.movedFromCommit} moved from Commit` });
         if (s.newDeals > 0) items.push({ key: 'nd', icon: '●', text: `${s.newDeals} new deal${s.newDeals > 1 ? 's' : ''}` });
         return items;
     }
