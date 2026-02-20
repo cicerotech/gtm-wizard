@@ -34,12 +34,6 @@ trigger OpportunityLineItemTrigger on OpportunityLineItem (before update, after 
     
     // === AFTER TRIGGERS (Insert, Update, Delete) ===
     
-    // Recursion control - prevent infinite loop between this trigger and Flow
-    if (ProductLineSyncService.isRunning) {
-        System.debug('OpportunityLineItemTrigger: Skipping - ProductLineSyncService is running');
-        return;
-    }
-    
     Set<Id> oppIds = new Set<Id>();
     
     // Collect affected Opportunity IDs
@@ -58,17 +52,12 @@ trigger OpportunityLineItemTrigger on OpportunityLineItem (before update, after 
         return;
     }
     
-    // === ACV Alignment Validation (after update only) ===
-    // When a rep manually edits product prices (Edit All Products),
-    // verify the total across all products still equals the Opportunity ACV.
-    // Skips during automated sync (isRunning guard above) so it only
-    // catches manual user edits.
-    if (Trigger.isUpdate) {
+    // === ACV Alignment Validation (after update only, manual edits only) ===
+    if (Trigger.isUpdate && !ProductLineSyncService.isRunning) {
         Map<Id, Opportunity> opps = new Map<Id, Opportunity>([
             SELECT Id, ACV__c FROM Opportunity WHERE Id IN :oppIds
         ]);
         
-        // Sum TotalPrice (= UnitPrice * Quantity) for all products on each Opportunity
         Map<Id, Decimal> productTotals = new Map<Id, Decimal>();
         for (AggregateResult ar : [
             SELECT OpportunityId, SUM(TotalPrice) total
@@ -83,7 +72,6 @@ trigger OpportunityLineItemTrigger on OpportunityLineItem (before update, after 
         for (OpportunityLineItem oli : Trigger.new) {
             Decimal acv = opps.get(oli.OpportunityId)?.ACV__c;
             Decimal total = productTotals.get(oli.OpportunityId);
-            // $1 tolerance for rounding; skip check if ACV or products are null
             if (acv != null && total != null && Math.abs(total - acv) > 1.0) {
                 oli.addError(
                     'Product prices total $' + total.setScale(0).format() +
@@ -94,11 +82,11 @@ trigger OpportunityLineItemTrigger on OpportunityLineItem (before update, after 
             }
         }
         if (validationFailed) {
-            return; // Skip downstream logic when validation blocks the save
+            return;
         }
     }
     
-    // Update Products_Breakdown for all events
+    // Always update Products Breakdown + TCV (safe — only writes to Opportunity, no recursion)
     List<ProductsBreakdownService.BreakdownRequest> breakdownRequests = new List<ProductsBreakdownService.BreakdownRequest>();
     for (Id oppId : oppIds) {
         ProductsBreakdownService.BreakdownRequest req = new ProductsBreakdownService.BreakdownRequest();
@@ -106,6 +94,11 @@ trigger OpportunityLineItemTrigger on OpportunityLineItem (before update, after 
         breakdownRequests.add(req);
     }
     ProductsBreakdownService.updateProductsBreakdown(breakdownRequests);
+    
+    // Recursion control — skip sync/delivery logic when ProductLineSyncService is running
+    if (ProductLineSyncService.isRunning) {
+        return;
+    }
     
     // Reverse sync: Update Product_Lines_Multi__c from current products
     if (Trigger.isInsert || Trigger.isDelete) {
