@@ -234,6 +234,7 @@
 .oc-health { width: 70px; flex-shrink: 0; text-align: center; }
 .oc-product { width: 130px; flex-shrink: 0; color: #555; font-size: 12px; }
 .oc-outcome { flex: 1; min-width: 0; color: #333; font-size: 12.5px; line-height: 1.5; word-break: break-word; }
+.oc-actions { width: 36px; flex-shrink: 0; text-align: center; }
 
 .slds-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9000; }
 .slds-modal { z-index: 9001; }

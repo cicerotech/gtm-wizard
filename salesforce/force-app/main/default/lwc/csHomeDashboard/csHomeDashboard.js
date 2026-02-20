@@ -42,9 +42,11 @@ export default class CsHomeDashboard extends LightningElement {
     get inDeliveryCount() { return this.outcomesByStatus.inDelivery.length; }
     get nearTermCount() { return this.outcomesByStatus.nearTerm.length; }
 
-    // Add outcome state
+    // Add/Edit outcome state
     @track addOutcomeOpen = false;
     @track newOutcome = { accountId: '', accountName: '', status: 'Delivered', product: '', outcome: '' };
+    @track editOutcomeRowOpen = false;
+    @track editingOutcome = { accountId: '', status: '', product: '', outcome: '', itemIndex: -1 };
     get statusOptions() { return [{label:'Delivered',value:'Delivered'},{label:'In Delivery',value:'In Delivery'},{label:'Near-Term',value:'Near-Term'}]; }
 
     connectedCallback() {
@@ -293,7 +295,8 @@ export default class CsHomeDashboard extends LightningElement {
                 }
             }
 
-            for (const item of parsed) {
+            for (let itemIdx = 0; itemIdx < parsed.length; itemIdx++) {
+                const item = parsed[itemIdx];
                 const row = {
                     key: `${acct.id}_${idx++}`,
                     accountId: acct.id,
@@ -303,7 +306,8 @@ export default class CsHomeDashboard extends LightningElement {
                     healthClass: acct.health ? `health-badge health-${acct.health.toLowerCase()}` : '',
                     product: item.product || '—',
                     outcome: item.outcome || '',
-                    status: item.status || 'Delivered'
+                    status: item.status || 'Delivered',
+                    itemIndex: itemIdx
                 };
 
                 if (row.status === 'Delivered') delivered.push(row);
@@ -357,6 +361,62 @@ export default class CsHomeDashboard extends LightningElement {
         try {
             await saveCSOutcome({ accountId: this.newOutcome.accountId, outcome: JSON.stringify(existing) });
             this.dispatchEvent(new ShowToastEvent({ title: 'Saved', message: 'Outcome added', variant: 'success' }));
+            this._loadAll();
+        } catch (e) {
+            this.dispatchEvent(new ShowToastEvent({ title: 'Error', message: e.body?.message || e.message, variant: 'error' }));
+        }
+    }
+
+    // ── Edit/Delete Outcome Row ──
+
+    handleEditOutcomeRow(event) {
+        const accountId = event.currentTarget.dataset.accountId;
+        const itemIndex = parseInt(event.currentTarget.dataset.itemIndex, 10);
+        const acct = this.outcomes.find(o => o.id === accountId);
+        if (!acct) return;
+        let parsed = [];
+        try { parsed = JSON.parse(acct.outcome || '[]'); } catch { return; }
+        const item = parsed[itemIndex];
+        if (!item) return;
+        this.editingOutcome = { accountId, accountName: acct.name, status: item.status || 'Delivered', product: item.product || '', outcome: item.outcome || '', itemIndex };
+        this.editOutcomeRowOpen = true;
+    }
+    handleEditingStatus(e) { this.editingOutcome = { ...this.editingOutcome, status: e.detail.value }; }
+    handleEditingProduct(e) { this.editingOutcome = { ...this.editingOutcome, product: e.detail.value }; }
+    handleEditingText(e) { this.editingOutcome = { ...this.editingOutcome, outcome: e.detail.value }; }
+    handleEditOutcomeRowCancel() { this.editOutcomeRowOpen = false; this.editingOutcome = {}; }
+
+    async handleEditOutcomeRowSave() {
+        this.editOutcomeRowOpen = false;
+        const acct = this.outcomes.find(o => o.id === this.editingOutcome.accountId);
+        if (!acct) return;
+        let parsed = [];
+        try { parsed = JSON.parse(acct.outcome || '[]'); } catch { parsed = []; }
+        parsed[this.editingOutcome.itemIndex] = {
+            status: this.editingOutcome.status,
+            product: this.editingOutcome.product,
+            outcome: this.editingOutcome.outcome
+        };
+        try {
+            await saveCSOutcome({ accountId: this.editingOutcome.accountId, outcome: JSON.stringify(parsed) });
+            this.dispatchEvent(new ShowToastEvent({ title: 'Saved', message: 'Outcome updated', variant: 'success' }));
+            this._loadAll();
+        } catch (e) {
+            this.dispatchEvent(new ShowToastEvent({ title: 'Error', message: e.body?.message || e.message, variant: 'error' }));
+        }
+    }
+
+    async handleDeleteOutcomeRow(event) {
+        const accountId = event.currentTarget.dataset.accountId;
+        const itemIndex = parseInt(event.currentTarget.dataset.itemIndex, 10);
+        const acct = this.outcomes.find(o => o.id === accountId);
+        if (!acct) return;
+        let parsed = [];
+        try { parsed = JSON.parse(acct.outcome || '[]'); } catch { return; }
+        parsed.splice(itemIndex, 1);
+        try {
+            await saveCSOutcome({ accountId, outcome: JSON.stringify(parsed) });
+            this.dispatchEvent(new ShowToastEvent({ title: 'Deleted', message: 'Outcome removed', variant: 'success' }));
             this._loadAll();
         } catch (e) {
             this.dispatchEvent(new ShowToastEvent({ title: 'Error', message: e.body?.message || e.message, variant: 'error' }));

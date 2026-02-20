@@ -1,0 +1,88 @@
+<template>
+    <template if:true={showModal}>
+        <section class="slds-modal slds-fade-in-open" aria-modal="true" role="dialog">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <h2 class="slds-text-heading_medium">CS Staffing Request</h2>
+                    <p class="slds-text-body_small slds-m-top_xx-small">Complete the following before requesting a CSM assignment.</p>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <lightning-textarea
+                        label="Key Stakeholders / Decision Makers"
+                        value={formData.stakeholders}
+                        onchange={handleStakeholders}
+                        placeholder="Names, titles, and roles (e.g. Jane Smith - GC, John Doe - CLO)"
+                        max-length="1000"
+                        class="slds-m-bottom_small"
+                        required>
+                    </lightning-textarea>
+
+                    <lightning-dual-listbox
+                        label="Products Purchased"
+                        source-label="Available"
+                        selected-label="Selected"
+                        options={productOptions}
+                        value={formData.products}
+                        onchange={handleProducts}
+                        class="slds-m-bottom_small"
+                        required>
+                    </lightning-dual-listbox>
+
+                    <lightning-combobox
+                        label="Commercial Terms"
+                        value={formData.commercialTerms}
+                        options={commercialTermsOptions}
+                        onchange={handleCommercialTerms}
+                        placeholder="Select terms type"
+                        class="slds-m-bottom_small"
+                        required>
+                    </lightning-combobox>
+
+                    <lightning-combobox
+                        label="Contract Term"
+                        value={formData.contractTerm}
+                        options={contractTermOptions}
+                        onchange={handleContractTerm}
+                        placeholder="Select contract duration"
+                        class="slds-m-bottom_small"
+                        required>
+                    </lightning-combobox>
+
+                    <div class="slds-m-bottom_small">
+                        <lightning-input
+                            type="toggle"
+                            label="Auto-Renew"
+                            checked={formData.autoRenew}
+                            onchange={handleAutoRenew}
+                            message-toggle-active="Yes"
+                            message-toggle-inactive="No">
+                        </lightning-input>
+                    </div>
+
+                    <lightning-textarea
+                        label="Key Customer Goals"
+                        value={formData.customerGoals}
+                        onchange={handleCustomerGoals}
+                        placeholder="What does the customer want to achieve? Include measurable success criteria."
+                        max-length="2000"
+                        class="slds-m-bottom_small"
+                        required>
+                    </lightning-textarea>
+
+                    <lightning-textarea
+                        label="Commercial Notes (optional)"
+                        value={formData.commercialNotes}
+                        onchange={handleCommercialNotes}
+                        placeholder="Additional commercial context, pricing notes, special terms"
+                        max-length="1000">
+                    </lightning-textarea>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={handleCancel} variant="neutral"></lightning-button>
+                    <lightning-button label="Submit CS Request" onclick={handleSave} variant="brand" class="slds-m-left_x-small"></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+</template>

@@ -53,7 +53,7 @@ public with sharing class CSHomeController {
                 Account.Customer_Type__c
             FROM Opportunity
             WHERE IsClosed = false
-            AND CS_Staffing__c = true
+            AND CS_Staffing_Flag__c = true
             ORDER BY Pod__c, Owner.Name, ACV__c DESC
         ];
 

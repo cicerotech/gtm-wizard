@@ -28,7 +28,7 @@ private class CSHomeControllerTest {
             Target_LOI_Date__c = Date.today().addDays(30),
             BL_Forecast_Category__c = 'Pipeline',
             Pod__c = 'US',
-            CS_Staffing__c = true,
+            CS_Staffing_Flag__c = true,
             Opportunity_Source__c = 'Inbound'
         );
 
@@ -42,7 +42,7 @@ private class CSHomeControllerTest {
             Target_LOI_Date__c = Date.today().addDays(14),
             BL_Forecast_Category__c = 'Commit',
             Pod__c = 'EU',
-            CS_Staffing__c = true,
+            CS_Staffing_Flag__c = true,
             Opportunity_Source__c = 'Inbound'
         );
 
@@ -56,7 +56,7 @@ private class CSHomeControllerTest {
             Target_LOI_Date__c = Date.today().addDays(45),
             BL_Forecast_Category__c = 'Pipeline',
             Pod__c = 'US',
-            CS_Staffing__c = false,
+            CS_Staffing_Flag__c = false,
             Opportunity_Source__c = 'Inbound'
         );
 
@@ -112,7 +112,7 @@ private class CSHomeControllerTest {
 
     @isTest
     static void testCSPipelineRowWoW() {
-        Opportunity opp = [SELECT Id, ACV__c FROM Opportunity WHERE CS_Staffing__c = true AND StageName LIKE 'Stage 4%' LIMIT 1];
+        Opportunity opp = [SELECT Id, ACV__c FROM Opportunity WHERE CS_Staffing_Flag__c = true AND StageName LIKE 'Stage 4%' LIMIT 1];
         opp.ACV__c = 200000;
         update opp;
 
@@ -187,7 +187,7 @@ private class CSHomeControllerTest {
                 Target_LOI_Date__c, Owner.Name, Pod__c, Product_Line__c,
                 BL_Forecast_Category__c, Probability, CreatedDate,
                 Account.Customer_Type__c
-            FROM Opportunity WHERE CS_Staffing__c = true AND StageName LIKE 'Stage 4%' LIMIT 1
+            FROM Opportunity WHERE CS_Staffing_Flag__c = true AND StageName LIKE 'Stage 4%' LIMIT 1
         ];
 
         // Simulate ACV increase + stage advance + target slip
@@ -221,7 +221,7 @@ private class CSHomeControllerTest {
                 Target_LOI_Date__c, Owner.Name, Pod__c, Product_Line__c,
                 BL_Forecast_Category__c, Probability, CreatedDate,
                 Account.Customer_Type__c
-            FROM Opportunity WHERE CS_Staffing__c = true AND StageName LIKE 'Stage 5%' LIMIT 1
+            FROM Opportunity WHERE CS_Staffing_Flag__c = true AND StageName LIKE 'Stage 5%' LIMIT 1
         ];
 
         // ACV decrease + target pull-in
@@ -250,7 +250,7 @@ private class CSHomeControllerTest {
                 Target_LOI_Date__c, Owner.Name, Pod__c, Product_Line__c,
                 BL_Forecast_Category__c, Probability, CreatedDate,
                 Account.Customer_Type__c
-            FROM Opportunity WHERE CS_Staffing__c = true LIMIT 1
+            FROM Opportunity WHERE CS_Staffing_Flag__c = true LIMIT 1
         ];
 
         Map<String, PipelineReviewController.FieldChange> changes = new Map<String, PipelineReviewController.FieldChange>();
@@ -272,7 +272,7 @@ private class CSHomeControllerTest {
                 Target_LOI_Date__c, Owner.Name, Pod__c, Product_Line__c,
                 BL_Forecast_Category__c, Probability, CreatedDate,
                 Account.Customer_Type__c
-            FROM Opportunity WHERE CS_Staffing__c = true LIMIT 1
+            FROM Opportunity WHERE CS_Staffing_Flag__c = true LIMIT 1
         ];
 
         CSHomeController.CSPipelineRow row = new CSHomeController.CSPipelineRow(
@@ -293,7 +293,7 @@ private class CSHomeControllerTest {
 
     @isTest
     static void testMultipleUpdatesWoW() {
-        Opportunity opp = [SELECT Id, ACV__c, StageName, Target_LOI_Date__c FROM Opportunity WHERE CS_Staffing__c = true AND StageName LIKE 'Stage 5%' LIMIT 1];
+        Opportunity opp = [SELECT Id, ACV__c, StageName, Target_LOI_Date__c FROM Opportunity WHERE CS_Staffing_Flag__c = true AND StageName LIKE 'Stage 5%' LIMIT 1];
 
         opp.ACV__c = 180000;
         opp.Target_LOI_Date__c = Date.today().addDays(60);
@@ -338,7 +338,7 @@ private class CSHomeControllerTest {
 
     @isTest
     static void testValidateCSMRequest() {
-        Opportunity opp = [SELECT Id FROM Opportunity WHERE CS_Staffing__c = true LIMIT 1];
+        Opportunity opp = [SELECT Id FROM Opportunity WHERE CS_Staffing_Flag__c = true LIMIT 1];
         Test.startTest();
         String result = CSHomeController.validateCSMRequest(opp.Id);
         Test.stopTest();
