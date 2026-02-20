@@ -19,6 +19,10 @@ export default class PipelineReviewCenter extends LightningElement {
     editValue = '';
     editFieldLabel = '';
 
+    // Track recent local edits so _loadData doesn't overwrite them
+    _recentEdits = new Map();
+    _editVersion = 0;
+
     // Collapse/expand + sort per owner
     @track collapsedOwners = new Set();
     @track ownerSortField = {};
@@ -122,7 +126,20 @@ export default class PipelineReviewCenter extends LightningElement {
                 productLine: this.selectedProductLine
             });
 
-            this.pipelineData = data || [];
+            let rows = data || [];
+
+            // Preserve any recent local edits that the server hasn't caught up to yet
+            if (this._recentEdits.size > 0) {
+                rows = rows.map(row => {
+                    const edits = this._recentEdits.get(row.id);
+                    if (edits) {
+                        return { ...row, ...edits };
+                    }
+                    return row;
+                });
+            }
+
+            this.pipelineData = rows;
             this._applyTargetSignFilter();
             this.error = undefined;
         } catch (err) {
@@ -173,9 +190,10 @@ export default class PipelineReviewCenter extends LightningElement {
 
         for (const row of this.filteredData) {
             s.totalDeals++;
-            const acv = row.acv || 0;
+            const netAcv = row.netAcv || row.acv || 0;
+            const dealAcv = row.acv || 0;
             const wtd = row.weightedAcv || 0;
-            s.totalACV += acv;
+            s.totalACV += netAcv;
             s.weightedACV += wtd;
 
             const isCommit = row.forecastCategory === 'Commit';
@@ -186,18 +204,17 @@ export default class PipelineReviewCenter extends LightningElement {
             }
 
             if (isCommit) {
-                s.commitTotal += acv;
-                if (isInQtr) s.commitInQtr += acv;
+                s.commitTotal += dealAcv;
+                if (isInQtr) s.commitInQtr += dealAcv;
             }
 
             if (row.aiEnabled) {
                 s.totalAIDeals++;
-                // Use Net ACV formula fields for AI-enabled metrics
-                s.totalAIACV += (row.netAcv || acv);
+                s.totalAIACV += netAcv;
                 s.weightedAIACV += (row.weightedNetAI || wtd);
                 if (isCommit) {
-                    s.commitAITotal += (row.commitNet || 0);
-                    if (isInQtr) s.commitAIInQtr += (row.commitNet || 0);
+                    s.commitAITotal += dealAcv;
+                    if (isInQtr) s.commitAIInQtr += dealAcv;
                 }
             }
 
@@ -225,35 +242,60 @@ export default class PipelineReviewCenter extends LightningElement {
             if (!groups[owner]) {
                 groups[owner] = {
                     key: owner, name: owner, pod: row.pod || '',
-                    deals: [], totalAcv: 0, acvDelta: 0, weightedAcv: 0,
-                    commitTotal: 0, commitInQtr: 0,
-                    blForecast: 0, aiEnabledAcv: 0, aiEnabledCount: 0
+                    deals: [],
+                    netAcv: 0,           // Pipeline: Sum of Net ACV
+                    acvDelta: 0,         // WoW change
+                    weightedAcv: 0,      // Wtd: ACV × Probability
+                    forecast: 0,         // Forecast: Quarterly Forecast Net (Commit+Gut)
+                    commitNet: 0,        // Commit: Quarterly Commit (Net New)
+                    commitInQtr: 0,      // In-Qtr: Commit closing this quarter
+                    aiWeightedAcv: 0,    // AI: Weighted ACV (AI-Enabled)
+                    aiCount: 0
                 };
             }
             const enriched = this._enrichRow(row);
             groups[owner].deals.push(enriched);
-            groups[owner].totalAcv += (row.acv || 0);
+
+            // Pipeline = Net ACV (renewal net change for existing, ACV for new)
+            groups[owner].netAcv += (row.netAcv || row.acv || 0);
             groups[owner].acvDelta += (row.acvDelta || 0);
+
+            // Weighted = ACV × Probability
             groups[owner].weightedAcv += (row.weightedAcv || 0);
-            // BL Forecast = Commit + Gut (Pipeline with BL confidence)
+
+            // Forecast = ACV sum of all deals with BL Forecast Category of Commit or Gut
+            const dealAcv = row.acv || 0;
             if (row.forecastCategory === 'Commit' || row.forecastCategory === 'Gut') {
-                groups[owner].blForecast += (row.acv || 0);
+                groups[owner].forecast += dealAcv;
             }
+
+            // Commit = ACV sum of Commit-tagged deals only
             if (row.forecastCategory === 'Commit') {
-                groups[owner].commitTotal += (row.acv || 0);
+                groups[owner].commitNet += dealAcv;
                 if (enriched.isInQuarter) {
-                    groups[owner].commitInQtr += (row.acv || 0);
+                    groups[owner].commitInQtr += dealAcv;
                 }
             }
-            // AI-Enabled tracking (Net ACV)
+
+            // AI = Weighted ACV (AI-Enabled) from SF formula field
             if (row.aiEnabled) {
-                groups[owner].aiEnabledAcv += (row.netAcv || row.acv || 0);
-                groups[owner].aiEnabledCount++;
+                groups[owner].aiWeightedAcv += (row.weightedNetAI || row.weightedAcv || 0);
+                groups[owner].aiCount++;
             }
         }
 
+        const BL_ORDER = [
+            'Olivia Jung', 'Julie Stefanich', 'Asad Hussain', 'Ananth Cherukupally',
+            'Mitch Loquaci', 'Mike Masiello', 'Riley Stack', 'Rajeev Patel', 'Sean Boyd',
+            'Nathan Shine', 'Conor Molloy', 'Nicola Fratini', 'Greg MacHale',
+        ];
+        const orderIndex = (name) => {
+            const idx = BL_ORDER.indexOf(name);
+            return idx >= 0 ? idx : 100;
+        };
+
         this.ownerGroups = Object.values(groups)
-            .sort((a, b) => b.totalAcv - a.totalAcv)
+            .sort((a, b) => orderIndex(a.name) - orderIndex(b.name) || b.totalAcv - a.totalAcv)
             .map(g => {
                 const isCollapsed = this.collapsedOwners.has(g.name);
                 const sortField = this.ownerSortField[g.name] || 'acv';
@@ -275,21 +317,21 @@ export default class PipelineReviewCenter extends LightningElement {
                     isCollapsed,
                     isExpanded: !isCollapsed,
                     chevron: isCollapsed ? '▸' : '▾',
-                    totalAcvFormatted: this._fmtCurrency(g.totalAcv),
+                    totalAcvFormatted: this._fmtCurrency(g.netAcv),
                     acvDeltaFormatted: g.acvDelta !== 0 ? this._fmtCurrencyDelta(g.acvDelta) : '',
                     acvDeltaSentiment: g.acvDelta > 0 ? 'positive' : g.acvDelta < 0 ? 'negative' : 'neutral',
                     dealCount: g.deals.length,
                     hasDeals: g.deals.length > 0,
                     weightedAcvFormatted: this._fmtCurrency(g.weightedAcv),
-                    commitTotalFormatted: this._fmtCurrency(g.commitTotal),
+                    forecastFormatted: this._fmtCurrency(g.forecast),
+                    hasForecast: g.forecast > 0,
+                    commitNetFormatted: this._fmtCurrency(g.commitNet),
+                    hasCommitNet: g.commitNet > 0,
                     commitInQtrFormatted: this._fmtCurrency(g.commitInQtr),
-                    hasCommit: g.commitTotal > 0,
                     hasCommitInQtr: g.commitInQtr > 0,
-                    blForecastFormatted: this._fmtCurrency(g.blForecast),
-                    hasBlForecast: g.blForecast > 0,
-                    aiEnabledAcvFormatted: this._fmtCurrency(g.aiEnabledAcv),
-                    aiEnabledCount: g.aiEnabledCount,
-                    hasAiEnabled: g.aiEnabledCount > 0
+                    aiWeightedFormatted: this._fmtCurrency(g.aiWeightedAcv),
+                    aiCount: g.aiCount,
+                    hasAi: g.aiCount > 0
                 };
             });
     }
@@ -343,26 +385,23 @@ export default class PipelineReviewCenter extends LightningElement {
         else if (row.changeScore < -2) wowIcon = '⚠';
         else if (row.changeScore > 0) wowIcon = '✓';
 
-        // Product lines: compact display
+        // Product lines: show all abbreviated, joined by " / "
         let productsDisplay = '—';
         let productsTooltip = '';
         if (row.productLine) {
             const prods = row.productLine.split(';').map(p => p.trim()).filter(p => p);
-            productsTooltip = prods.map(p => this._shortProduct(p)).join(', ');
-            if (prods.length === 1) {
-                productsDisplay = this._shortProduct(prods[0]);
-            } else {
-                productsDisplay = prods.length + ' products';
-            }
+            const shortProds = prods.map(p => this._shortProduct(p));
+            productsTooltip = shortProds.join(', ');
+            productsDisplay = shortProds.join(' / ');
         }
 
         // Next Steps: show more context
         const nextSteps = row.nextSteps || '';
-        const nextStepsShort = nextSteps.length > 140 ? nextSteps.substring(0, 138) + '…' : (nextSteps || '—');
+        const nextStepsShort = nextSteps || '—';
 
         return {
             ...row,
-            key: row.id,
+            key: row.id + '_v' + this._editVersion,
             acvFormatted: this._fmtCurrency(row.acv || 0),
             acvDeltaDisplay,
             acvSentiment,
@@ -512,8 +551,8 @@ export default class PipelineReviewCenter extends LightningElement {
         if (lower.includes('sigma')) return 'Sigma';
         if (lower.includes('secondee')) return 'Secondee';
         if (lower.includes('litigation')) return 'Litigation';
-        if (lower.includes('compliance')) return 'Compliance';
-        if (lower.includes('contract')) return 'Contract';
+        if (lower.includes('compliance')) return 'AI Compliance';
+        if (lower.includes('contract')) return 'AI Contracting';
         // Truncate long names
         return name.length > 15 ? name.substring(0, 13) + '…' : name;
     }
@@ -552,7 +591,7 @@ export default class PipelineReviewCenter extends LightningElement {
         'Target_LOI_Date__c': 'Target Sign Date',
         'StageName': 'Stage',
         'BL_Forecast_Category__c': 'Forecast Category',
-        'Product_Line__c': 'Products',
+        'Product_Lines_Multi__c': 'Products',
         'Next_Steps__c': 'Next Steps',
     };
 
@@ -563,12 +602,30 @@ export default class PipelineReviewCenter extends LightningElement {
         { label: 'S3 - Pilot', value: 'Stage 3 - Pilot' },
         { label: 'S4 - Proposal', value: 'Stage 4 - Proposal' },
         { label: 'S5 - Negotiation', value: 'Stage 5 - Negotiation' },
+        { label: 'Nurture', value: 'Nurture' },
+        { label: 'Disqualified', value: 'Disqualified' },
+        { label: 'Lost', value: 'Lost' },
     ];
 
     static FC_OPTIONS = [
         { label: 'Pipeline', value: 'Pipeline' },
         { label: 'Gut', value: 'Gut' },
         { label: 'Commit', value: 'Commit' },
+    ];
+
+    static PRODUCT_OPTIONS = [
+        { label: 'AI Compliance - Technology', value: 'AI Compliance - Technology' },
+        { label: 'AI Contracting - Technology', value: 'AI Contracting - Technology' },
+        { label: 'AI Contracting - Managed Services', value: 'AI Contracting - Managed Services' },
+        { label: 'AI M&A - Managed Services', value: 'AI M&A - Managed Services' },
+        { label: 'AI Platform - Sigma', value: 'AI Platform - Sigma' },
+        { label: 'AI Platform - Insights', value: 'AI Platform - Insights' },
+        { label: 'AI Platform - Litigation', value: 'AI Platform - Litigation' },
+        { label: 'FDE - Custom AI Solution', value: 'FDE - Custom AI Solution' },
+        { label: 'Other - Managed Service', value: 'Other - Managed Service' },
+        { label: 'Other - Secondee', value: 'Other - Secondee' },
+        { label: 'Contracting - Secondee', value: 'Contracting - Secondee' },
+        { label: 'Undetermined', value: 'Undetermined' },
     ];
 
     handleEditClick(e) {
@@ -586,7 +643,8 @@ export default class PipelineReviewCenter extends LightningElement {
     get editIsText() { return this.editField === 'ACV__c'; }
     get editIsDate() { return this.editField === 'Target_LOI_Date__c'; }
     get editIsPicklist() { return this.editField === 'StageName' || this.editField === 'BL_Forecast_Category__c'; }
-    get editIsTextarea() { return this.editField === 'Next_Steps__c' || this.editField === 'Product_Line__c'; }
+    get editIsTextarea() { return this.editField === 'Next_Steps__c'; }
+    get editIsMultiSelect() { return this.editField === 'Product_Lines_Multi__c'; }
 
     get editPicklistOptions() {
         if (this.editField === 'StageName') return PipelineReviewCenter.STAGE_OPTIONS;
@@ -594,8 +652,21 @@ export default class PipelineReviewCenter extends LightningElement {
         return [];
     }
 
+    get editMultiSelectOptions() {
+        return PipelineReviewCenter.PRODUCT_OPTIONS;
+    }
+
+    get editMultiSelectValue() {
+        if (!this.editValue) return [];
+        return this.editValue.split(';').map(v => v.trim()).filter(v => v);
+    }
+
     handleEditValueChange(e) {
-        this.editValue = e.detail ? e.detail.value : e.target.value;
+        if (this.editIsMultiSelect) {
+            this.editValue = e.detail.value.join(';');
+        } else {
+            this.editValue = e.detail ? e.detail.value : e.target.value;
+        }
     }
 
     handleEditCancel() {
@@ -605,24 +676,80 @@ export default class PipelineReviewCenter extends LightningElement {
 
     async handleEditSave() {
         if (!this.editOppId || !this.editField) return;
+
+        const savedOppId = this.editOppId;
+        const savedField = this.editField;
+        const savedValue = this.editValue;
+        const savedLabel = this.editFieldLabel;
+
         this.isEditing = false;
+        this.editOppId = null;
+
         try {
             const result = await updateOpportunityField({
-                oppId: this.editOppId,
-                fieldName: this.editField,
-                fieldValue: this.editValue
+                oppId: savedOppId,
+                fieldName: savedField,
+                fieldValue: savedValue
             });
             if (result === 'OK') {
-                this._showToast('Saved', `${this.editFieldLabel} updated`, 'success');
-                await new Promise(r => setTimeout(r, 500));
-                this._loadData();
+                this._applyLocalUpdate(savedOppId, savedField, savedValue);
+                this._forceRerender();
+                this._showToast('Saved', `${savedLabel} updated`, 'success');
             } else {
                 this._showToast('Error', result, 'error');
             }
         } catch (err) {
             this._showToast('Error', 'Failed to save: ' + (err.body?.message || err.message || ''), 'error');
         }
-        this.editOppId = null;
+    }
+
+    _forceRerender() {
+        const saved = this.ownerGroups;
+        this.ownerGroups = [];
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        Promise.resolve().then(() => {
+            this.ownerGroups = saved;
+        });
+    }
+
+    _applyLocalUpdate(oppId, fieldName, newValue) {
+        const fieldMap = {
+            'ACV__c': 'acv',
+            'Target_LOI_Date__c': 'targetSign',
+            'StageName': 'stage',
+            'BL_Forecast_Category__c': 'forecastCategory',
+            'Product_Lines_Multi__c': 'productLine',
+            'Next_Steps__c': 'nextSteps',
+        };
+        const localKey = fieldMap[fieldName];
+        if (!localKey) return;
+
+        this._editVersion++;
+
+        this.pipelineData = this.pipelineData.map(row => {
+            if (row.id === oppId) {
+                const updated = { ...row, [localKey]: newValue };
+                if (localKey === 'acv') {
+                    updated.acv = parseFloat(newValue) || 0;
+                    updated.weightedAcv = updated.acv * (updated.probability || 10) / 100;
+                }
+                if (localKey === 'productLine') {
+                    updated.aiEnabled = this._hasAiProduct(newValue);
+                }
+                if (localKey === 'stage') {
+                    updated.stageShort = newValue.replace(/Stage\s*/, 'S').split(' -')[0];
+                }
+                return updated;
+            }
+            return row;
+        });
+        this._applyTargetSignFilter();
+    }
+
+    _hasAiProduct(productLine) {
+        if (!productLine) return false;
+        const aiProducts = ['AI Contracting', 'AI Compliance', 'AI M&A', 'AI Platform'];
+        return aiProducts.some(p => productLine.includes(p));
     }
 
     _showToast(title, message, variant) {

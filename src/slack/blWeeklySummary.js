@@ -1312,6 +1312,69 @@ async function queryPipelineBySolution() {
 }
 
 /**
+ * Query pipeline data grouped by Product_Lines_Multi__c (multi-select picklist).
+ * Returns top product lines by ACV with weighted pipeline and late-stage count.
+ * Used for the "Pipeline by Product Line" table on Page 1.
+ */
+async function queryPipelineByProductLine() {
+  try {
+    logger.info('Querying pipeline by Product Line (LIVE)...');
+    
+    const now = new Date();
+    const year = now.getFullYear();
+    const q1End = `${year}-04-30`;
+    
+    const soql = `
+      SELECT Product_Lines_Multi__c, ACV__c, Probability, StageName
+      FROM Opportunity
+      WHERE IsClosed = false
+        AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
+        AND Target_LOI_Date__c <= ${q1End}
+    `;
+    
+    const result = await query(soql, true);
+    
+    if (!result || !result.records) {
+      logger.warn('Pipeline by Product Line: No records returned');
+      return [];
+    }
+    
+    const LATE_STAGES = new Set(['Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation']);
+    const lines = {};
+    
+    result.records.forEach(opp => {
+      const multiSelect = opp.Product_Lines_Multi__c || '';
+      const products = multiSelect.split(';').map(s => s.trim()).filter(Boolean);
+      if (products.length === 0) products.push('Undetermined');
+      
+      const acv = opp.ACV__c || 0;
+      const prob = opp.Probability || 0;
+      const weighted = acv * prob / 100;
+      const isLateStage = LATE_STAGES.has(opp.StageName);
+      
+      for (const product of products) {
+        if (!lines[product]) lines[product] = { acv: 0, weighted: 0, count: 0, lateStage: 0 };
+        lines[product].acv += acv;
+        lines[product].weighted += weighted;
+        lines[product].count += 1;
+        if (isLateStage) lines[product].lateStage += 1;
+      }
+    });
+    
+    const sorted = Object.entries(lines)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.acv - a.acv);
+    
+    logger.info(`Pipeline by Product Line (LIVE): ${sorted.length} lines, ${result.records.length} deals`);
+    return sorted;
+    
+  } catch (error) {
+    logger.error('Failed to query pipeline by Product Line:', error);
+    return [];
+  }
+}
+
+/**
  * Check if date is targeting close this month
  * Matches SF report filter: Target_LOI_Date__c <= end of current month
  * This includes overdue deals that haven't been rescheduled
@@ -1583,7 +1646,9 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     top10January,
     top10Q1,
     pipelineBySalesType,
-    aiEnabledForecast
+    aiEnabledForecast,
+    liveSolutionData,
+    productLineData
   } = revOpsData;
   
   // Use LIVE AI-enabled NET ACV data from Salesforce formula fields
@@ -1921,89 +1986,70 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   y += 20;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // Q1 PIPELINE BY SOLUTION (fills whitespace at bottom of page 1)
+  // Q1 PIPELINE BY PRODUCT LINE (live SOQL — replaces hardcoded Solution table)
   // ═══════════════════════════════════════════════════════════════════════════
   y += SECTION_GAP;
   doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
-  doc.text('Q1 PIPELINE BY SOLUTION', LEFT, y);
+  doc.text('Q1 PIPELINE BY PRODUCT LINE', LEFT, y);
   y += 16;
   
-  // Solution table - same width as sales type table
-  const solutionTableWidth = PAGE_WIDTH;
+  const plTableWidth = PAGE_WIDTH;
+  const plRows = (productLineData && productLineData.length > 0) ? productLineData.slice(0, 10) : [];
+  const plTotalACV = plRows.reduce((s, r) => s + r.acv, 0);
   
-  // Use hardcoded solution data (Product_Line__c is multi-select picklist — live query unreliable)
-  // Update Q1_BY_SOLUTION constant weekly from SF "Q1 Forecast by Solution Bucket" report
-  const solutionData = Q1_BY_SOLUTION;
-  const solutionOrder = ['Pure Software', 'AI-Enabled Services', 'Mixed', 'Undetermined', 'Legacy Services'];
-  const preTotalACV = solutionOrder.reduce((sum, b) => sum + (solutionData[b]?.acv || 0), 0);
+  // Header row
+  doc.rect(LEFT, y, plTableWidth, 18).fill('#1f2937');
+  doc.font(fontBold).fontSize(8.5).fillColor('#ffffff');
+  doc.text('Product Line', LEFT + 6, y + 5, { width: 175 });
+  doc.text('Pipeline', LEFT + 185, y + 5, { width: 75, align: 'center' });
+  doc.text('Weighted', LEFT + 265, y + 5, { width: 75, align: 'center' });
+  doc.text('Deals', LEFT + 345, y + 5, { width: 45, align: 'center' });
+  doc.text('Late Stage', LEFT + 395, y + 5, { width: 65, align: 'center' });
+  y += 18;
   
-  // Header row - with Mix % column
-  doc.rect(LEFT, y, solutionTableWidth, 20).fill('#1f2937');
-  doc.font(fontBold).fontSize(9).fillColor('#ffffff');
-  doc.text('Product Bucket', LEFT + 8, y + 6, { width: 150 });
-  doc.text('ACV', LEFT + 165, y + 6, { width: 70, align: 'center' });
-  doc.text('Mix %', LEFT + 240, y + 6, { width: 50, align: 'center' });
-  doc.text('Deals', LEFT + 300, y + 6, { width: 55, align: 'center' });
-  doc.text('AI-Enabled', LEFT + 365, y + 6, { width: 80, align: 'center' });
-  y += 20;
+  doc.font(fontRegular).fontSize(8.5).fillColor(DARK_TEXT);
   
-  // Data rows - ordered by ACV descending
-  let solutionTotalACV = 0;
-  let solutionTotalCount = 0;
-  let solutionTotalAI = 0;
+  const fmtAcv = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : `$${Math.round(v / 1000)}k`;
+  let plDealTotal = 0, plWeightedTotal = 0, plLateTotal = 0;
   
-  doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
-  
-  solutionOrder.forEach((bucket, i) => {
-    const data = solutionData[bucket] || { acv: 0, count: 0, aiEnabled: 0 };
-    solutionTotalACV += data.acv;
-    solutionTotalCount += data.count;
-    solutionTotalAI += data.aiEnabled;
-    
+  plRows.forEach((row, i) => {
     const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
-    doc.rect(LEFT, y, solutionTableWidth, 16).fill(bg);
+    doc.rect(LEFT, y, plTableWidth, 14).fill(bg);
     doc.fillColor(DARK_TEXT);
-    doc.text(bucket, LEFT + 8, y + 4, { width: 150 });
-    
-    const acvStr = data.acv >= 1000000 
-      ? `$${(data.acv / 1000000).toFixed(1)}m`
-      : `$${(data.acv / 1000).toFixed(0)}k`;
-    
-    // Calculate mix percentage
-    const mixPct = preTotalACV > 0 ? Math.round((data.acv / preTotalACV) * 100) : 0;
-    
-    doc.text(acvStr, LEFT + 165, y + 4, { width: 70, align: 'center' });
-    doc.text(`${mixPct}%`, LEFT + 240, y + 4, { width: 50, align: 'center' });
-    doc.text(data.count.toString(), LEFT + 300, y + 4, { width: 55, align: 'center' });
-    doc.text(data.aiEnabled.toString(), LEFT + 365, y + 4, { width: 80, align: 'center' });
-    y += 16;
+    const label = row.name.length > 30 ? row.name.substring(0, 28) + '...' : row.name;
+    doc.text(label, LEFT + 6, y + 3, { width: 175 });
+    doc.text(fmtAcv(row.acv), LEFT + 185, y + 3, { width: 75, align: 'center' });
+    doc.text(fmtAcv(row.weighted), LEFT + 265, y + 3, { width: 75, align: 'center' });
+    doc.text(row.count.toString(), LEFT + 345, y + 3, { width: 45, align: 'center' });
+    doc.font(fontBold).fillColor(row.lateStage > 0 ? '#1d4ed8' : DARK_TEXT);
+    doc.text(row.lateStage.toString(), LEFT + 395, y + 3, { width: 65, align: 'center' });
+    doc.font(fontRegular).fillColor(DARK_TEXT);
+    plDealTotal += row.count;
+    plWeightedTotal += row.weighted;
+    plLateTotal += row.lateStage;
+    y += 14;
   });
   
   // Total row
-  doc.rect(LEFT, y, solutionTableWidth, 18).fill('#e5e7eb');
-  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text('Total', LEFT + 8, y + 5, { width: 150 });
-  
-  const solutionTotalStr = solutionTotalACV >= 1000000 
-    ? `$${(solutionTotalACV / 1000000).toFixed(1)}m`
-    : `$${(solutionTotalACV / 1000).toFixed(0)}k`;
-  
-  doc.text(solutionTotalStr, LEFT + 165, y + 5, { width: 70, align: 'center' });
-  doc.text('100%', LEFT + 240, y + 5, { width: 50, align: 'center' });
-  doc.text(solutionTotalCount.toString(), LEFT + 300, y + 5, { width: 55, align: 'center' });
-  doc.text(solutionTotalAI.toString(), LEFT + 365, y + 5, { width: 80, align: 'center' });
-  y += 18;
+  doc.rect(LEFT, y, plTableWidth, 16).fill('#e5e7eb');
+  doc.font(fontBold).fontSize(8.5).fillColor(DARK_TEXT);
+  doc.text('Total', LEFT + 6, y + 4, { width: 175 });
+  doc.text(fmtAcv(plTotalACV), LEFT + 185, y + 4, { width: 75, align: 'center' });
+  doc.text(fmtAcv(plWeightedTotal), LEFT + 265, y + 4, { width: 75, align: 'center' });
+  doc.text(plDealTotal.toString(), LEFT + 345, y + 4, { width: 45, align: 'center' });
+  doc.text(plLateTotal.toString(), LEFT + 395, y + 4, { width: 65, align: 'center' });
+  y += 16;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // FOOTER — cap y to prevent overflow onto an extra page
+  // FOOTER — always render on page 1, cap y to stay within page bounds
   // ═══════════════════════════════════════════════════════════════════════════
-  y = Math.min(y + 10, 760);
-  doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, y).lineTo(RIGHT, y).stroke();
+  const footerY = Math.min(y + 6, 758);
+  doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, footerY).lineTo(RIGHT, footerY).stroke();
   
   doc.font(fontRegular).fontSize(7).fillColor(LIGHT_TEXT);
-  doc.text('Generated by Eudia GTM Brain • www.eudia.com • Internal use only', LEFT, y + 4, { width: PAGE_WIDTH, align: 'center', lineBreak: false });
+  doc.text('Generated by Eudia GTM Brain • www.eudia.com • Internal use only', LEFT, footerY + 4, { width: PAGE_WIDTH, align: 'center', lineBreak: false });
   
-  return y + 20;
+  return footerY + 20;
 }
 
 /**
@@ -2035,8 +2081,12 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       // PAGE 1: RevOps Summary (if data provided)
       // ═══════════════════════════════════════════════════════════════════════
       if (revOpsData) {
+        const pagesBefore = doc.bufferedPageRange().count;
         generatePage1RevOpsSummary(doc, revOpsData, dateStr);
-        doc.addPage();
+        const pagesAfter = doc.bufferedPageRange().count;
+        if (pagesAfter <= pagesBefore) {
+          doc.addPage();
+        }
       }
       
       // ═══════════════════════════════════════════════════════════════════════
@@ -2753,7 +2803,8 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
       top10Q1,
       pipelineBySalesType,
       aiEnabledForecast,
-      liveSolutionData
+      liveSolutionData,
+      productLineData
     ] = await Promise.all([
       queryJanuaryClosedWonNewBusiness(),
       queryQ4WeightedPipeline(),
@@ -2763,7 +2814,8 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
       queryTop10TargetingQ1(),
       queryPipelineBySalesType(),
       queryAIEnabledForecast(),
-      queryPipelineBySolution()
+      queryPipelineBySolution(),
+      queryPipelineByProductLine()
     ]);
     
     // Assemble RevOps data for Page 1
@@ -2776,7 +2828,8 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
       top10Q1,
       pipelineBySalesType,
       aiEnabledForecast,
-      liveSolutionData
+      liveSolutionData,
+      productLineData
     };
     
     logger.info('Page 1 RevOps data queried successfully');
