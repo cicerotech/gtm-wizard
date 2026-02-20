@@ -1625,7 +1625,7 @@ class GTMBrainApp {
         }
         const since = req.query.since || new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
         const search = req.query.search || null;
-        let query = `
+        let sql = `
           SELECT id, meeting_date, meeting_subject, account_name, 
                  LEFT(transcript, 300) as transcript_preview,
                  LEFT(summary, 300) as summary_preview,
@@ -1635,15 +1635,16 @@ class GTMBrainApp {
         `;
         const params = [since];
         if (search) {
-          query += ` AND (account_name ILIKE $2 OR meeting_subject ILIKE $2 OR transcript ILIKE $2)`;
+          sql += ` AND (account_name ILIKE $2 OR meeting_subject ILIKE $2 OR transcript ILIKE $2)`;
           params.push(`%${search}%`);
         }
-        query += ` ORDER BY meeting_date DESC LIMIT 50`;
-        const result = await db.query(query, params);
+        sql += ` ORDER BY meeting_date DESC LIMIT 50`;
+        const result = await db.query(sql, params);
         res.json({ success: true, count: result.rows.length, transcripts: result.rows });
-      } catch (error) {
-        logger.error('[Admin] Transcript search failed:', error.message);
-        res.status(500).json({ success: false, error: error.message });
+      } catch (err) {
+        const msg = (err && err.message) ? err.message : String(err);
+        logger.error('[Admin] Transcript search failed:', msg);
+        res.status(500).json({ success: false, error: msg });
       }
     });
 
@@ -1661,9 +1662,10 @@ class GTMBrainApp {
           return res.status(404).json({ success: false, error: 'Transcript not found' });
         }
         res.json({ success: true, transcript: result.rows[0] });
-      } catch (error) {
-        logger.error('[Admin] Transcript fetch failed:', error.message);
-        res.status(500).json({ success: false, error: error.message });
+      } catch (err) {
+        const msg = (err && err.message) ? err.message : String(err);
+        logger.error('[Admin] Transcript fetch failed:', msg);
+        res.status(500).json({ success: false, error: msg });
       }
     });
 
