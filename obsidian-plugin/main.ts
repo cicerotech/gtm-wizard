@@ -5870,6 +5870,27 @@ last_updated: ${dateStr}
       console.warn('[Eudia] Audio diagnostic failed, continuing anyway:', diagError);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // SAFETY NET: Save audio to vault BEFORE sending to server
+    // Ensures audio is recoverable even if transcription fails or times out
+    // ═══════════════════════════════════════════════════════════════════════
+    try {
+      const recordingsFolder = this.settings.recordingsFolder || 'Recordings';
+      if (!this.app.vault.getAbstractFileByPath(recordingsFolder)) {
+        await this.app.vault.createFolder(recordingsFolder);
+      }
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const ext = result.audioBlob.type?.includes('mp4') ? 'mp4' : 'webm';
+      const audioFileName = `${recordingsFolder}/recording-${timestamp}.${ext}`;
+      const arrayBuffer = await result.audioBlob.arrayBuffer();
+      await this.app.vault.createBinary(audioFileName, arrayBuffer);
+      console.log(`[Eudia] Audio saved locally: ${audioFileName} (${(blobSize / 1024 / 1024).toFixed(1)}MB)`);
+      new Notice(`Audio saved to ${audioFileName}`);
+      (result as any)._savedAudioPath = audioFileName;
+    } catch (saveError: any) {
+      console.error('[Eudia] Failed to save audio locally:', saveError.message);
+    }
+
     // Estimate processing time: ~30s per 10MB chunk + 30s for summarization
     // At 128kbps, 10MB ≈ 10 min of audio. So chunks = ceil(duration / 600)
     const durationSec = result.duration || 0;
