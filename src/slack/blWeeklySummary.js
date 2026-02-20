@@ -1930,115 +1930,130 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     rightY += 12;
   });
   
-  y = Math.max(leftY, rightY) + SECTION_GAP + 4;
+  y = Math.max(leftY, rightY) + SECTION_GAP;
   
   // ═══════════════════════════════════════════════════════════════════════════
   // Q1 PIPELINE BY SALES TYPE
   // ═══════════════════════════════════════════════════════════════════════════
-  doc.font(fontBold).fontSize(12).fillColor(DARK_TEXT);
+  doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
   doc.text('Q1 PIPELINE BY SALES TYPE', LEFT, y);
-  y += 18;
+  y += 16;
   
   // Sales Type table
   const salesTypeTableWidth = PAGE_WIDTH;
   
   // Header row
-  doc.rect(LEFT, y, salesTypeTableWidth, 20).fill('#1f2937');
-  doc.font(fontBold).fontSize(9).fillColor('#ffffff');
-  doc.text('Sales Type', LEFT + 8, y + 6, { width: 200 });
-  doc.text('ACV (%)', LEFT + 220, y + 6, { width: 120, align: 'center' });
-  doc.text('Count', LEFT + 380, y + 6, { width: 80, align: 'center' });
-  y += 20;
+  doc.rect(LEFT, y, salesTypeTableWidth, 17).fill('#1f2937');
+  doc.font(fontBold).fontSize(8.5).fillColor('#ffffff');
+  doc.text('Sales Type', LEFT + 8, y + 4, { width: 200, lineBreak: false });
+  doc.text('ACV (%)', LEFT + 220, y + 4, { width: 120, align: 'center', lineBreak: false });
+  doc.text('Count', LEFT + 380, y + 4, { width: 80, align: 'center', lineBreak: false });
+  y += 17;
   
-  // Data rows - ordered: New business, Expansion, Renewal
   const salesTypeOrder = ['New business', 'Expansion', 'Renewal'];
   const { bySalesType, totalACV: salesTypeTotalACV, totalWeighted: salesTypeTotalWeighted, totalCount: salesTypeTotalCount } = pipelineBySalesType;
   
-  doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);
+  doc.font(fontRegular).fontSize(8.5).fillColor(DARK_TEXT);
   
   salesTypeOrder.forEach((type, i) => {
     const data = bySalesType[type] || { acv: 0, count: 0, acvPercent: '0%' };
     const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
-    doc.rect(LEFT, y, salesTypeTableWidth, 18).fill(bg);
+    doc.rect(LEFT, y, salesTypeTableWidth, 15).fill(bg);
     doc.fillColor(DARK_TEXT);
-    doc.text(type, LEFT + 8, y + 5, { width: 200 });
+    doc.text(type, LEFT + 8, y + 3, { width: 200, lineBreak: false });
     
     const acvStr = data.acv >= 1000000 
       ? `${(data.acv / 1000000).toFixed(1)}m (${data.acvPercent})`
       : `${(data.acv / 1000).toFixed(0)}k (${data.acvPercent})`;
     
-    doc.text(acvStr, LEFT + 220, y + 5, { width: 120, align: 'center' });
-    doc.text(data.count.toString(), LEFT + 380, y + 5, { width: 80, align: 'center' });
-    y += 18;
+    doc.text(acvStr, LEFT + 220, y + 3, { width: 120, align: 'center', lineBreak: false });
+    doc.text(data.count.toString(), LEFT + 380, y + 3, { width: 80, align: 'center', lineBreak: false });
+    y += 15;
   });
   
   // Total row
-  doc.rect(LEFT, y, salesTypeTableWidth, 20).fill('#e5e7eb');
-  doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-  doc.text('Total', LEFT + 8, y + 6, { width: 200 });
+  doc.rect(LEFT, y, salesTypeTableWidth, 17).fill('#e5e7eb');
+  doc.font(fontBold).fontSize(8.5).fillColor(DARK_TEXT);
+  doc.text('Total', LEFT + 8, y + 4, { width: 200, lineBreak: false });
   
   const totalAcvStr = salesTypeTotalACV >= 1000000 
     ? `${(salesTypeTotalACV / 1000000).toFixed(1)}m`
     : `${(salesTypeTotalACV / 1000).toFixed(0)}k`;
   
-  doc.text(totalAcvStr, LEFT + 220, y + 6, { width: 120, align: 'center' });
-  doc.text(salesTypeTotalCount.toString(), LEFT + 380, y + 6, { width: 80, align: 'center' });
-  y += 20;
+  doc.text(totalAcvStr, LEFT + 220, y + 4, { width: 120, align: 'center', lineBreak: false });
+  doc.text(salesTypeTotalCount.toString(), LEFT + 380, y + 4, { width: 80, align: 'center', lineBreak: false });
+  y += 17;
   
   // ═══════════════════════════════════════════════════════════════════════════
   // Q1 PIPELINE BY PRODUCT LINE (live SOQL — replaces hardcoded Solution table)
   // ═══════════════════════════════════════════════════════════════════════════
   y += SECTION_GAP;
   doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
-  doc.text('Q1 PIPELINE BY PRODUCT LINE', LEFT, y);
-  y += 16;
+  doc.text('Q1 PIPELINE BY PRODUCT LINE', LEFT, y, { lineBreak: false });
+  y += 15;
   
   const plTableWidth = PAGE_WIDTH;
-  const plRows = (productLineData && productLineData.length > 0) ? productLineData.slice(0, 10) : [];
-  const plTotalACV = plRows.reduce((s, r) => s + r.acv, 0);
+  const ROW_H = 13;
+  const HDR_H = 16;
+  const TOT_H = 15;
+  const FOOTER_RESERVE = 22;
+  const spaceLeft = 760 - y - HDR_H - TOT_H - FOOTER_RESERVE;
+  const maxRows = Math.max(3, Math.min(8, Math.floor(spaceLeft / ROW_H)));
+  
+  const plAllRows = (productLineData && productLineData.length > 0) ? productLineData : [];
+  const plRows = plAllRows.slice(0, maxRows);
+  const plTotalACV = plAllRows.reduce((s, r) => s + r.acv, 0);
   
   // Header row
-  doc.rect(LEFT, y, plTableWidth, 18).fill('#1f2937');
-  doc.font(fontBold).fontSize(8.5).fillColor('#ffffff');
-  doc.text('Product Line', LEFT + 6, y + 5, { width: 175 });
-  doc.text('Pipeline', LEFT + 185, y + 5, { width: 75, align: 'center' });
-  doc.text('Weighted', LEFT + 265, y + 5, { width: 75, align: 'center' });
-  doc.text('Deals', LEFT + 345, y + 5, { width: 45, align: 'center' });
-  doc.text('Late Stage', LEFT + 395, y + 5, { width: 65, align: 'center' });
-  y += 18;
+  doc.rect(LEFT, y, plTableWidth, HDR_H).fill('#1f2937');
+  doc.font(fontBold).fontSize(8).fillColor('#ffffff');
+  doc.text('Product Line', LEFT + 6, y + 4, { width: 175, lineBreak: false });
+  doc.text('Pipeline', LEFT + 185, y + 4, { width: 75, align: 'center', lineBreak: false });
+  doc.text('Weighted', LEFT + 265, y + 4, { width: 75, align: 'center', lineBreak: false });
+  doc.text('Deals', LEFT + 345, y + 4, { width: 45, align: 'center', lineBreak: false });
+  doc.text('Late Stage', LEFT + 395, y + 4, { width: 65, align: 'center', lineBreak: false });
+  y += HDR_H;
   
-  doc.font(fontRegular).fontSize(8.5).fillColor(DARK_TEXT);
+  doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
   
   const fmtAcv = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : `$${Math.round(v / 1000)}k`;
   let plDealTotal = 0, plWeightedTotal = 0, plLateTotal = 0;
   
   plRows.forEach((row, i) => {
+    if (y + ROW_H > 745) return;
     const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
-    doc.rect(LEFT, y, plTableWidth, 14).fill(bg);
+    doc.rect(LEFT, y, plTableWidth, ROW_H).fill(bg);
     doc.fillColor(DARK_TEXT);
-    const label = row.name.length > 30 ? row.name.substring(0, 28) + '...' : row.name;
-    doc.text(label, LEFT + 6, y + 3, { width: 175 });
-    doc.text(fmtAcv(row.acv), LEFT + 185, y + 3, { width: 75, align: 'center' });
-    doc.text(fmtAcv(row.weighted), LEFT + 265, y + 3, { width: 75, align: 'center' });
-    doc.text(row.count.toString(), LEFT + 345, y + 3, { width: 45, align: 'center' });
-    doc.font(fontBold).fillColor(row.lateStage > 0 ? '#1d4ed8' : DARK_TEXT);
-    doc.text(row.lateStage.toString(), LEFT + 395, y + 3, { width: 65, align: 'center' });
+    const label = row.name.length > 28 ? row.name.substring(0, 26) + '...' : row.name;
+    doc.text(label, LEFT + 6, y + 3, { width: 175, lineBreak: false });
+    doc.text(fmtAcv(row.acv), LEFT + 185, y + 3, { width: 75, align: 'center', lineBreak: false });
+    doc.text(fmtAcv(row.weighted), LEFT + 265, y + 3, { width: 75, align: 'center', lineBreak: false });
+    doc.text(row.count.toString(), LEFT + 345, y + 3, { width: 45, align: 'center', lineBreak: false });
+    doc.font(fontBold).fillColor(DARK_TEXT);
+    doc.text(row.lateStage.toString(), LEFT + 395, y + 3, { width: 65, align: 'center', lineBreak: false });
     doc.font(fontRegular).fillColor(DARK_TEXT);
     plDealTotal += row.count;
     plWeightedTotal += row.weighted;
     plLateTotal += row.lateStage;
-    y += 14;
+    y += ROW_H;
+  });
+  
+  // Aggregate remaining rows not shown into totals
+  plAllRows.slice(maxRows).forEach(row => {
+    plDealTotal += row.count;
+    plWeightedTotal += row.weighted;
+    plLateTotal += row.lateStage;
   });
   
   // Total row
-  doc.rect(LEFT, y, plTableWidth, 16).fill('#e5e7eb');
-  doc.font(fontBold).fontSize(8.5).fillColor(DARK_TEXT);
-  doc.text('Total', LEFT + 6, y + 4, { width: 175 });
-  doc.text(fmtAcv(plTotalACV), LEFT + 185, y + 4, { width: 75, align: 'center' });
-  doc.text(fmtAcv(plWeightedTotal), LEFT + 265, y + 4, { width: 75, align: 'center' });
-  doc.text(plDealTotal.toString(), LEFT + 345, y + 4, { width: 45, align: 'center' });
-  doc.text(plLateTotal.toString(), LEFT + 395, y + 4, { width: 65, align: 'center' });
-  y += 16;
+  doc.rect(LEFT, y, plTableWidth, TOT_H).fill('#e5e7eb');
+  doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
+  doc.text('Total', LEFT + 6, y + 3, { width: 175, lineBreak: false });
+  doc.text(fmtAcv(plTotalACV), LEFT + 185, y + 3, { width: 75, align: 'center', lineBreak: false });
+  doc.text(fmtAcv(plWeightedTotal), LEFT + 265, y + 3, { width: 75, align: 'center', lineBreak: false });
+  doc.text(plDealTotal.toString(), LEFT + 345, y + 3, { width: 45, align: 'center', lineBreak: false });
+  doc.text(plLateTotal.toString(), LEFT + 395, y + 3, { width: 65, align: 'center', lineBreak: false });
+  y += TOT_H;
   
   // ═══════════════════════════════════════════════════════════════════════════
   // FOOTER — always render on page 1, cap y to stay within page bounds
