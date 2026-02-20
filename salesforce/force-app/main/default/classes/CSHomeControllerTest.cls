@@ -324,8 +324,8 @@ private class CSHomeControllerTest {
         Test.startTest();
         CSHomeController.saveCSOutcome(a.Id, 'Reduce contract review time by 60%');
         Test.stopTest();
-        Account updated = [SELECT CS_Outcomes__c FROM Account WHERE Id = :a.Id];
-        System.assertEquals('Reduce contract review time by 60%', updated.CS_Outcomes__c);
+        Account updated = [SELECT CS_Outcome_Data__c FROM Account WHERE Id = :a.Id];
+        System.assertEquals('Reduce contract review time by 60%', updated.CS_Outcome_Data__c);
     }
 
     @isTest

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CS_Outcome_Data__c</fullName>
+    <description>Structured JSON outcomes by status category (Delivered / In Delivery / Near-Term)</description>
+    <externalId>false</externalId>
+    <label>CS Outcome Data</label>
+    <length>10000</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>LongTextArea</type>
+    <visibleLines>8</visibleLines>
+</CustomField>

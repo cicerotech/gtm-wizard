@@ -305,7 +305,7 @@ public with sharing class CSHomeController {
     @AuraEnabled
     public static void saveCSOutcome(Id accountId, String outcome) {
         Account acct = new Account(Id = accountId);
-        acct.CS_Outcomes__c = outcome;
+        acct.CS_Outcome_Data__c = outcome;
         update acct;
     }
 
@@ -339,7 +339,7 @@ public with sharing class CSHomeController {
     public static List<OutcomeRow> getCSOutcomes() {
         List<OutcomeRow> rows = new List<OutcomeRow>();
         for (Account a : [
-            SELECT Id, Name, CS_Outcomes__c, Health__c,
+            SELECT Id, Name, CS_Outcome_Data__c, Health__c,
                 (SELECT Product_Line__c, ACV__c FROM Opportunities WHERE IsWon = true ORDER BY CloseDate DESC LIMIT 5)
             FROM Account WHERE Customer_Type__c = 'Existing' AND Health__c != null
             ORDER BY Name LIMIT 100
@@ -348,7 +348,7 @@ public with sharing class CSHomeController {
             row.id = a.Id;
             row.name = a.Name;
             row.health = a.Health__c;
-            row.outcome = a.CS_Outcomes__c;
+            row.outcome = a.CS_Outcome_Data__c;
             row.url = '/' + a.Id;
             row.products = '';
             if (a.Opportunities != null) {
