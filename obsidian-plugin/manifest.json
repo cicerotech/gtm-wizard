@@ -6,5 +6,12 @@
   "description": "Record meetings, transcribe with AI, sync to Salesforce. Native calendar integration, smart tagging, and precision sales intelligence extraction.",
   "author": "Eudia",
   "authorUrl": "https://eudia.com",
-  "isDesktopOnly": false
+  "isDesktopOnly": false,
+  "releaseChannel": "stable",
+  "releaseNotes": "v4.7.1: Fixed auto-update pipeline that was silently failing for all users. Added native system audio capture for two-way call recording without third-party audio drivers. Removed all BlackHole virtual device requirements. Added retry logic with backoff for update checks. Server now pushes version info via heartbeat responses. Added Check for Eudia Updates command. Update checks run every 30 minutes with 3 retry attempts.",
+  "autoUpdateSupported": true,
+  "compatiblePlatforms": ["darwin", "win32", "linux"],
+  "deployedAt": "2026-02-20T18:00:00.000Z",
+  "minAutoUpdateVersion": "4.4.0",
+  "supportUrl": "https://eudia.com/support"
 }

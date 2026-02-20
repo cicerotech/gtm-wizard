@@ -1056,30 +1056,10 @@ class GTMBrainApp {
     });
 
     this.expressApp.get('/api/plugin/manifest.json', (req, res) => {
-      try {
-        const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
-        const manifest = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-        // Pad response so older clients with 1024-byte MIN_SIZE validation can auto-update
-        manifest._update = {
-          channel: 'stable',
-          releaseNotes: 'Hardened auto-update pipeline with retry logic and server-side version push. Native system audio capture for two-way call recording without third-party drivers. Improved meeting templates and Slack copy formatting.',
-          deployedAt: new Date().toISOString(),
-          autoUpdateMinVersion: '4.4.0',
-          safeToInstall: true,
-          checksumValidated: true,
-          compatiblePlatforms: ['darwin', 'win32', 'linux'],
-          requiredPermissions: ['microphone'],
-          changesSinceLastMajor: ['auto-update-fix', 'system-audio-capture', 'blackhole-removal', 'heartbeat-version-push']
-        };
-        res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.json(manifest);
-      } catch (err) {
-        const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
-        res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.sendFile(filePath);
-      }
+      const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.sendFile(filePath);
     });
 
     this.expressApp.get('/api/plugin/styles.css', (req, res) => {
