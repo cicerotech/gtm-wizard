@@ -197,24 +197,25 @@ export default class PipelineReviewCenter extends LightningElement {
             s.weightedACV += wtd;
 
             const isCommit = row.forecastCategory === 'Commit';
+            const dealAcv = row.acv || 0;
             let isInQtr = false;
             if (row.targetSign) {
                 const d = new Date(row.targetSign);
                 isInQtr = d >= this._qtrStart && d <= this._qtrEnd;
             }
 
-            if (isCommit && qtrCommit > 0) {
-                s.commitTotal += qtrCommit;
-                if (isInQtr) s.commitInQtr += qtrCommit;
+            if (isCommit) {
+                s.commitTotal += dealAcv;
+                if (isInQtr) s.commitInQtr += dealAcv;
             }
 
             if (row.aiEnabled) {
                 s.totalAIDeals++;
                 s.totalAIACV += netAcv;
                 s.weightedAIACV += (row.weightedNetAI || wtd);
-                if (isCommit && qtrCommit > 0) {
-                    s.commitAITotal += qtrCommit;
-                    if (isInQtr) s.commitAIInQtr += qtrCommit;
+                if (isCommit) {
+                    s.commitAITotal += (row.commitNet || 0);
+                    if (isInQtr) s.commitAIInQtr += (row.commitNet || 0);
                 }
             }
 
@@ -267,12 +268,12 @@ export default class PipelineReviewCenter extends LightningElement {
             // BL Forecast = sum of Blended_Forecast_base__c (SF formula: 100% Commit / 60% Gut)
             groups[owner].forecast += (row.blendedForecast || 0);
 
-            // Commit = Quarterly_Commit__c (SF formula: Net ACV, AI-Enabled, Commit only)
-            const qtrCommit = row.commitNet || 0;
-            if (row.forecastCategory === 'Commit' && qtrCommit > 0) {
-                groups[owner].commitNet += qtrCommit;
+            // Commit = sum of ACV for all Commit-tagged deals
+            const dealAcv = row.acv || 0;
+            if (row.forecastCategory === 'Commit') {
+                groups[owner].commitNet += dealAcv;
                 if (enriched.isInQuarter) {
-                    groups[owner].commitInQtr += qtrCommit;
+                    groups[owner].commitInQtr += dealAcv;
                 }
             }
 
