@@ -233,19 +233,21 @@
                             <span class="outcome-section-title">Delivered Outcomes ({deliveredCount})</span>
                         </div>
                         <template if:true={hasDelivered}>
-                            <div class="table-wrapper">
-                                <div class="table-header">
-                                    <span class="col-num">#</span>
-                                    <span class="col-account">Customer</span>
-                                    <span class="col-product">Product Line</span>
-                                    <span class="col-outcome">Outcome</span>
+                            <div class="outcome-table">
+                                <div class="outcome-thead">
+                                    <span class="oc-num">#</span>
+                                    <span class="oc-customer">Customer</span>
+                                    <span class="oc-health">Health</span>
+                                    <span class="oc-product">Product Line</span>
+                                    <span class="oc-outcome">Outcome</span>
                                 </div>
                                 <template for:each={outcomesByStatus.delivered} for:item="o">
-                                    <div key={o.key} class="table-row">
-                                        <span class="col-num">{o.key}</span>
-                                        <span class="col-account"><a href={o.accountUrl} class="opp-link">{o.accountName}</a></span>
-                                        <span class="col-product">{o.product}</span>
-                                        <span class="col-outcome">{o.outcome}</span>
+                                    <div key={o.key} class="outcome-row">
+                                        <span class="oc-num">{o.rowNum}</span>
+                                        <span class="oc-customer"><a href={o.accountUrl} class="opp-link">{o.accountName}</a></span>
+                                        <span class="oc-health"><span class={o.healthClass}>{o.health}</span></span>
+                                        <span class="oc-product">{o.product}</span>
+                                        <span class="oc-outcome">{o.outcome}</span>
                                     </div>
                                 </template>
                             </div>
@@ -258,19 +260,21 @@
                             <span class="outcome-section-title">In Delivery ({inDeliveryCount})</span>
                         </div>
                         <template if:true={hasInDelivery}>
-                            <div class="table-wrapper">
-                                <div class="table-header">
-                                    <span class="col-num">#</span>
-                                    <span class="col-account">Customer</span>
-                                    <span class="col-product">Product Line</span>
-                                    <span class="col-outcome">Outcome</span>
+                            <div class="outcome-table">
+                                <div class="outcome-thead">
+                                    <span class="oc-num">#</span>
+                                    <span class="oc-customer">Customer</span>
+                                    <span class="oc-health">Health</span>
+                                    <span class="oc-product">Product Line</span>
+                                    <span class="oc-outcome">Outcome</span>
                                 </div>
                                 <template for:each={outcomesByStatus.inDelivery} for:item="o">
-                                    <div key={o.key} class="table-row">
-                                        <span class="col-num">{o.key}</span>
-                                        <span class="col-account"><a href={o.accountUrl} class="opp-link">{o.accountName}</a></span>
-                                        <span class="col-product">{o.product}</span>
-                                        <span class="col-outcome">{o.outcome}</span>
+                                    <div key={o.key} class="outcome-row">
+                                        <span class="oc-num">{o.rowNum}</span>
+                                        <span class="oc-customer"><a href={o.accountUrl} class="opp-link">{o.accountName}</a></span>
+                                        <span class="oc-health"><span class={o.healthClass}>{o.health}</span></span>
+                                        <span class="oc-product">{o.product}</span>
+                                        <span class="oc-outcome">{o.outcome}</span>
                                     </div>
                                 </template>
                             </div>
@@ -284,19 +288,21 @@
                             <span class="outcome-section-sub">Kick-off 30-60 days</span>
                         </div>
                         <template if:true={hasNearTerm}>
-                            <div class="table-wrapper">
-                                <div class="table-header">
-                                    <span class="col-num">#</span>
-                                    <span class="col-account">Customer</span>
-                                    <span class="col-product">Product Line</span>
-                                    <span class="col-outcome">Outcome</span>
+                            <div class="outcome-table">
+                                <div class="outcome-thead">
+                                    <span class="oc-num">#</span>
+                                    <span class="oc-customer">Customer</span>
+                                    <span class="oc-health">Health</span>
+                                    <span class="oc-product">Product Line</span>
+                                    <span class="oc-outcome">Outcome</span>
                                 </div>
                                 <template for:each={outcomesByStatus.nearTerm} for:item="o">
-                                    <div key={o.key} class="table-row">
-                                        <span class="col-num">{o.key}</span>
-                                        <span class="col-account"><a href={o.accountUrl} class="opp-link">{o.accountName}</a></span>
-                                        <span class="col-product">{o.product}</span>
-                                        <span class="col-outcome">{o.outcome}</span>
+                                    <div key={o.key} class="outcome-row">
+                                        <span class="oc-num">{o.rowNum}</span>
+                                        <span class="oc-customer"><a href={o.accountUrl} class="opp-link">{o.accountName}</a></span>
+                                        <span class="oc-health"><span class={o.healthClass}>{o.health}</span></span>
+                                        <span class="oc-product">{o.product}</span>
+                                        <span class="oc-outcome">{o.outcome}</span>
                                     </div>
                                 </template>
                             </div>

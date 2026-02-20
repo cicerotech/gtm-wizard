@@ -288,7 +288,6 @@ export default class CsHomeDashboard extends LightningElement {
                 parsed = JSON.parse(acct.outcome);
                 if (!Array.isArray(parsed)) parsed = [];
             } catch {
-                // Legacy plain text — treat as single delivered outcome
                 if (acct.outcome.trim()) {
                     parsed = [{ status: 'Delivered', product: acct.products || '—', outcome: acct.outcome }];
                 }
@@ -301,7 +300,7 @@ export default class CsHomeDashboard extends LightningElement {
                     accountName: acct.name,
                     accountUrl: '/' + acct.id,
                     health: acct.health,
-                    healthClass: acct.health ? `health-dot health-${acct.health.toLowerCase()}` : '',
+                    healthClass: acct.health ? `health-badge health-${acct.health.toLowerCase()}` : '',
                     product: item.product || '—',
                     outcome: item.outcome || '',
                     status: item.status || 'Delivered'
@@ -313,6 +312,12 @@ export default class CsHomeDashboard extends LightningElement {
                 else delivered.push(row);
             }
         }
+
+        // Assign sequential row numbers per category
+        delivered.forEach((r, i) => { r.rowNum = i + 1; });
+        inDelivery.forEach((r, i) => { r.rowNum = i + 1; });
+        nearTerm.forEach((r, i) => { r.rowNum = i + 1; });
+
         this.outcomesByStatus = { delivered, inDelivery, nearTerm };
     }
 
