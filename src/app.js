@@ -1619,53 +1619,57 @@ class GTMBrainApp {
     // Admin endpoint: search transcript archive (recovery / debugging)
     this.expressApp.get('/api/admin/transcripts', requireAdmin, async (req, res) => {
       try {
-        const db = require('./db/connection');
-        if (!db.isAvailable()) {
-          return res.status(503).json({ success: false, error: 'Database not available' });
-        }
-        const since = req.query.since || new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-        const search = req.query.search || null;
-        let sql = `
-          SELECT id, meeting_date, meeting_subject, account_name, 
-                 LEFT(transcript, 300) as transcript_preview,
-                 LEFT(summary, 300) as summary_preview,
-                 duration_seconds, source, attendees
-          FROM transcript_archive 
-          WHERE meeting_date >= $1
-        `;
-        const params = [since];
+        const { transcriptRepo } = require('./db/repositories');
+        const search = req.query.search;
         if (search) {
-          sql += ` AND (account_name ILIKE $2 OR meeting_subject ILIKE $2 OR transcript ILIKE $2)`;
-          params.push(`%${search}%`);
+          const results = await transcriptRepo.searchTranscripts(search, 50);
+          return res.json({ success: true, count: results.length, transcripts: results });
         }
-        sql += ` ORDER BY meeting_date DESC LIMIT 50`;
-        const result = await db.query(sql, params);
-        res.json({ success: true, count: result.rows.length, transcripts: result.rows });
+        const reviews = await transcriptRepo.getPipelineReviews(50);
+        res.json({ success: true, count: reviews.length, transcripts: reviews });
       } catch (err) {
-        const msg = (err && err.message) ? err.message : String(err);
-        logger.error('[Admin] Transcript search failed:', msg);
-        res.status(500).json({ success: false, error: msg });
+        res.status(500).json({ success: false, error: String(err) });
       }
     });
 
     // Admin endpoint: get full transcript by ID (for recovery)
     this.expressApp.get('/api/admin/transcripts/:id', requireAdmin, async (req, res) => {
       try {
-        const db = require('./db/connection');
-        if (!db.isAvailable()) {
+        const { query, isAvailable } = require('./db/connection');
+        if (!isAvailable()) {
           return res.status(503).json({ success: false, error: 'Database not available' });
         }
-        const result = await db.query(
-          `SELECT * FROM transcript_archive WHERE id = $1`, [req.params.id]
+        const result = await query(
+          'SELECT * FROM transcript_archive WHERE id = $1', [req.params.id]
         );
         if (result.rows.length === 0) {
           return res.status(404).json({ success: false, error: 'Transcript not found' });
         }
         res.json({ success: true, transcript: result.rows[0] });
       } catch (err) {
-        const msg = (err && err.message) ? err.message : String(err);
-        logger.error('[Admin] Transcript fetch failed:', msg);
-        res.status(500).json({ success: false, error: msg });
+        res.status(500).json({ success: false, error: String(err) });
+      }
+    });
+
+    // Admin endpoint: list recent transcripts by date (recovery)
+    this.expressApp.get('/api/admin/transcripts-recent', requireAdmin, async (req, res) => {
+      try {
+        const { query, isAvailable } = require('./db/connection');
+        if (!isAvailable()) {
+          return res.status(503).json({ success: false, error: 'Database not available' });
+        }
+        const since = req.query.since || new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+        const result = await query(
+          `SELECT id, meeting_date, meeting_subject, account_name,
+                  LEFT(transcript, 300) as transcript_preview,
+                  LEFT(summary, 300) as summary_preview,
+                  duration_seconds, source
+           FROM transcript_archive WHERE meeting_date >= $1
+           ORDER BY meeting_date DESC LIMIT 50`, [since]
+        );
+        res.json({ success: true, count: result.rows.length, transcripts: result.rows });
+      } catch (err) {
+        res.status(500).json({ success: false, error: String(err) });
       }
     });
 
