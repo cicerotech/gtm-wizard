@@ -4,7 +4,7 @@
         <div class="title-bar">
             <div class="title-left">
                 <h1 class="title">Pipeline Review</h1>
-                <span class="subtitle">Week of {weekLabel}</span>
+                <span class="subtitle">Week of {weekLabel} · v2.1</span>
             </div>
             <div class="title-right">
                 <lightning-combobox
@@ -118,9 +118,18 @@
                 </div>
             </template>
 
+            <!-- BL Quick Nav -->
+            <template if:true={ownerGroups}>
+                <div class="bl-nav">
+                    <template for:each={ownerGroups} for:item="nav">
+                        <span key={nav.key} class="bl-nav-item" data-owner={nav.name} onclick={handleNavClick}>{nav.name}</span>
+                    </template>
+                </div>
+            </template>
+
             <!-- Owner groups -->
             <template for:each={ownerGroups} for:item="group">
-                <div key={group.key} class="owner-group">
+                <div key={group.key} class="owner-group" data-owner-section={group.name}>
                     <div class="owner-header" data-owner={group.name} onclick={handleOwnerToggle}>
                         <span class="owner-chevron">{group.chevron}</span>
                         <span class="owner-name">{group.name}</span>
@@ -132,17 +141,17 @@
                                 WoW: {group.acvDeltaFormatted}
                             </span>
                         </template>
-                        <template if:true={group.hasCommit}>
-                            <span class="owner-commit">Commit: {group.commitTotalFormatted}</span>
+                        <template if:true={group.hasCommitNet}>
+                            <span class="owner-commit">Commit: {group.commitNetFormatted}</span>
                         </template>
-                        <template if:true={group.hasBlForecast}>
-                            <span class="owner-forecast">BL Forecast: {group.blForecastFormatted}</span>
+                        <template if:true={group.hasForecast}>
+                            <span class="owner-forecast">BL Forecast: {group.forecastFormatted}</span>
                         </template>
                         <template if:true={group.hasCommitInQtr}>
                             <span class="owner-commit-inqtr">In-Qtr: {group.commitInQtrFormatted}</span>
                         </template>
-                        <template if:true={group.hasAiEnabled}>
-                            <span class="owner-ai">AI: {group.aiEnabledAcvFormatted}</span>
+                        <template if:true={group.hasAi}>
+                            <span class="owner-ai">AI: {group.aiWeightedFormatted}</span>
                         </template>
                         <span class="owner-count">{group.dealCount} deals</span>
                     </div>
@@ -159,7 +168,7 @@
                                     <span class="col-stage sort-header" data-owner={group.name} data-field="stageShort" onclick={handleOwnerSort}>Stage</span>
                                     <span class="col-products">Products</span>
                                     <span class="col-fc sort-header" data-owner={group.name} data-field="forecastCategory" onclick={handleOwnerSort}>FC</span>
-                                    <span class="col-nextsteps">Next Steps</span>
+                                    <span class="col-nextsteps" style="min-width:0;">Next Steps</span>
                                     <span class="col-wow">WoW</span>
                                 </div>
 
@@ -184,9 +193,9 @@
                                                 <span class="stage-badge">{deal.stageBadge}</span>
                                             </template>
                                         </span>
-                                        <span class="col-products editable-cell" data-opp={deal.id} data-field="Product_Line__c" data-value={deal.productLine} title={deal.productsTooltip} onclick={handleEditClick}>{deal.productsDisplay}</span>
+                                        <span class="col-products editable-cell" data-opp={deal.id} data-field="Product_Lines_Multi__c" data-value={deal.productLine} title={deal.productsTooltip} onclick={handleEditClick}>{deal.productsDisplay}</span>
                                         <span class="col-fc editable-cell" data-opp={deal.id} data-field="BL_Forecast_Category__c" data-value={deal.forecastCategory} onclick={handleEditClick}>{deal.fcShort}</span>
-                                        <span class="col-nextsteps editable-cell" data-opp={deal.id} data-field="Next_Steps__c" data-value={deal.nextSteps} title={deal.nextSteps} onclick={handleEditClick}>{deal.nextStepsShort}</span>
+                                        <span class="col-nextsteps editable-cell" style="white-space:normal;word-break:break-word;overflow-wrap:break-word;min-width:0;" data-opp={deal.id} data-field="Next_Steps__c" data-value={deal.nextSteps} title={deal.nextSteps} onclick={handleEditClick}>{deal.nextStepsShort}</span>
                                         <span class="col-wow">{deal.wowIcon}</span>
                                     </div>
                                 </template>
@@ -216,7 +225,16 @@
                         <lightning-combobox label={editFieldLabel} value={editValue} options={editPicklistOptions} onchange={handleEditValueChange} variant="label-hidden"></lightning-combobox>
                     </template>
                     <template if:true={editIsTextarea}>
-                        <lightning-textarea label={editFieldLabel} value={editValue} onchange={handleEditValueChange} variant="label-hidden" max-length="255"></lightning-textarea>
+                        <lightning-textarea label={editFieldLabel} value={editValue} onchange={handleEditValueChange} variant="label-hidden" max-length="1000"></lightning-textarea>
+                    </template>
+                    <template if:true={editIsMultiSelect}>
+                        <lightning-checkbox-group
+                            label={editFieldLabel}
+                            options={editMultiSelectOptions}
+                            value={editMultiSelectValue}
+                            onchange={handleEditValueChange}
+                            variant="label-hidden">
+                        </lightning-checkbox-group>
                     </template>
                 </div>
                 <footer class="edit-modal-footer">

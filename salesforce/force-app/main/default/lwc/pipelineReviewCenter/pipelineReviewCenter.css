@@ -63,6 +63,35 @@
     white-space: nowrap;
 }
 
+/* BL Quick Nav */
+.bl-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.5rem 0;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--c-border);
+    position: sticky;
+    top: 0;
+    background: var(--c-bg);
+    z-index: 10;
+}
+.bl-nav-item {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 3px;
+    background: var(--c-bg-alt);
+    border: 1px solid var(--c-border);
+    cursor: pointer;
+    color: var(--c-text-secondary);
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+.bl-nav-item:hover {
+    background: #e8e8e8;
+    color: var(--c-text);
+}
+
 /* Highlights card — all neutral text, no color */
 .highlights-card {
     background: var(--c-bg-alt);
@@ -326,11 +355,26 @@
 /* Edit overlay (outside review-container for proper stacking) */
 .edit-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9001; display: flex; align-items: center; justify-content: center; }
 .edit-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9000; background: rgba(0,0,0,0.35); }
-.edit-modal-box { position: relative; z-index: 9002; background: #fff; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); max-width: 420px; width: 90%; }
+.edit-modal-box { position: relative; z-index: 9002; background: #fff; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); max-width: 560px; width: 90%; }
 .edit-modal-header { padding: 12px 16px; border-bottom: 1px solid #e5e7eb; }
 .edit-modal-header h2 { font-size: 0.875rem; font-weight: 600; color: #1f2937; margin: 0; }
 .edit-modal-body { padding: 12px 16px; }
 .edit-modal-footer { padding: 10px 16px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Edit modal: taller textarea for Next Steps */
+.edit-modal-body lightning-textarea textarea,
+.edit-modal-body lightning-textarea .slds-textarea {
+    min-height: 160px;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+/* Edit modal: scrollable checkbox group for Products */
+.edit-modal-body lightning-checkbox-group {
+    max-height: 320px;
+    overflow-y: auto;
+    display: block;
+}
 
 /* Responsive */
 @media (max-width: 1200px) {

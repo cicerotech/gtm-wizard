@@ -572,6 +572,24 @@ export default class PipelineReviewCenter extends LightningElement {
         this._buildOwnerGroups();
     }
 
+    handleNavClick(e) {
+        const owner = e.currentTarget.dataset.owner;
+        if (!owner) return;
+        // Expand the section if collapsed
+        const newSet = new Set(this.collapsedOwners);
+        if (newSet.has(owner)) {
+            newSet.delete(owner);
+            this.collapsedOwners = newSet;
+            this._buildOwnerGroups();
+        }
+        // Scroll to the section after a brief render delay
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        setTimeout(() => {
+            const section = this.template.querySelector(`[data-owner-section="${owner}"]`);
+            if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 50);
+    }
+
     handleOwnerSort(e) {
         const owner = e.currentTarget.dataset.owner;
         const field = e.currentTarget.dataset.field;
