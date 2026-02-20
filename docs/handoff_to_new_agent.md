@@ -1,13 +1,135 @@
-# GTM-Brain Project Handoff — Updated Feb 19, 2026 (Evening)
+# GTM-Brain Project Handoff — Updated Feb 20, 2026 (Morning)
 
 **DO NOT MODIFY THIS PROJECT WITHOUT EXPLICIT REQUEST.**  
 **APPROACH: Surgical improvements only. Production system serving 41+ users.**
 
 ---
 
-## CRITICAL IMMEDIATE TASK: Meeting Prep Account Intelligence
+## CRITICAL ACTIVE TASK: Obsidian Plugin Two-Way Audio Capture WITHOUT BlackHole
 
-The Meeting Prep tab's **Account Intelligence** section shows "Intelligence temporarily unavailable" for ALL meeting cards. The modal opens correctly, attendees render, but the intelligence query to `/api/intelligence/query` is failing silently. This is the #1 priority.
+### Problem Statement
+The Obsidian transcription plugin cannot capture the other person's audio on sales calls when the user has headphones plugged in. The current `full_call` mode disables echo cancellation on the mic so it can pick up speaker audio, but with headphones, the call audio routes to headphones — the mic hears nothing.
+
+The existing "solution" requires installing BlackHole (a third-party virtual audio driver) and creating a Multi-Output Device in macOS Audio MIDI Setup. **This is unacceptable** — it's too complex for sales reps, introduces a confusing setup wizard popup that blocks recording, and adds a third-party dependency.
+
+### What's Needed
+Build a NATIVE two-way audio capture solution that works with headphones, without requiring BlackHole or any third-party virtual audio driver. This is the #1 priority.
+
+### Technical Context
+- **Plugin location**: `obsidian-plugin/main.ts` (8,400+ lines) and `obsidian-plugin/src/AudioRecorder.ts`
+- **Current architecture**: Uses `navigator.mediaDevices.getUserMedia()` with `echoCancellation: false` for mic capture. If a virtual device (BlackHole) is detected, it creates a second stream from the virtual device and mixes them via Web Audio API.
+- **Obsidian runs on Electron** (Chromium-based). Electron has access to `desktopCapturer` API which can capture system audio without a virtual device. This may be the path forward.
+- **Current plugin version**: v4.6.0 (deployed to Render, serves via `/api/plugin/main.js`)
+- **Auto-update**: Plugin checks `/api/plugin/version` on startup, downloads new files if version is higher
+
+### Approaches to Investigate
+1. **Electron `desktopCapturer`**: Can capture system audio natively. The challenge is Obsidian may sandbox plugins from accessing Electron APIs directly. Test: `require('electron').desktopCapturer.getSources({ types: ['audio'] })`
+2. **`getDisplayMedia()` with `audio: true`**: Chrome/Electron supports tab audio capture. The user shares a tab or screen and the audio is captured. Downside: requires user to click "Share" each time.
+3. **Obsidian's audio API**: Check if Obsidian exposes any native audio capture that bypasses the web sandbox.
+4. **WebRTC loopback**: Create a local WebRTC connection that captures system audio — possible in some Electron configurations.
+
+### Files to Edit
+- `obsidian-plugin/src/AudioRecorder.ts` — Core audio capture class. Add a new capture mode (e.g., `system_audio`) that uses Electron APIs.
+- `obsidian-plugin/main.ts` — `startRecording()` at line ~5443. Remove the wizard gate (already done in v4.5.3+). Add the new capture mode selection.
+
+### What Was Already Done (Feb 19-20, 2026 session)
+1. **Removed the blocking AudioSetupWizardModal** from `startRecording()` — recording now starts immediately (v4.5.3)
+2. **Added 3 meeting note templates** — Sales Discovery (MEDDIC), Demo/Presentation, General Check-In (v4.6.0)
+3. **Added Slack Copy command** — Cmd+P > "Copy Note for Slack" (v4.6.0)
+4. **Added audio safety net** — Saves recording to vault `Recordings/` folder before sending to server (v4.5.2)
+5. **Fixed version endpoint** — Server fallback was returning stale version, preventing auto-updates (v4.5.2)
+6. **Non-blocking headphone warning** — Shows notice about mic-only mode when no virtual device detected
+
+### What's NOT Working
+- Two-way audio capture with headphones (without BlackHole)
+- The non-blocking notice still appears when recording starts, confusing users
+
+### Deployment
+- `cd obsidian-plugin && npm run build` (uses esbuild, takes <1s)
+- Bump version in `obsidian-plugin/manifest.json` AND `src/app.js` version endpoint fallback
+- `git push origin main` deploys to Render (auto-builds, ~3 min)
+- Users get the update on next Obsidian restart (auto-update checks on `onload()`)
+- Manual update: terminal command downloads 3 files directly from server
+
+---
+
+## RECENT COMPLETED TASKS (Feb 19-20, 2026)
+
+### Salesforce: Account Highlights Panel Cleanup (Deployed)
+- Restructured from horizontal flex (causing vertical letter stacking) to vertical column layout
+- Logo (40px) → Account Name (18px bold) → Icon-only action buttons row
+- Edit button replaced with dropdown menu: "Edit Account" + "Delete Account" (with confirmation)
+- Request Info changed to icon-only button
+- Multiple CSS iterations to find proportionate sizing for the narrow sidebar
+- Files: `accountHighlightsPanel.html`, `.css`, `.js`
+
+### Salesforce: Pipeline Review Inline Edit Fix (Deployed)
+- Edits (Next Steps, Products, Stage, ACV, etc.) now persist visually on the page immediately
+- Root cause: LWC CDN was serving cached old JS with `setTimeout(() => _loadData(), 3000)` that overwrote local updates
+- Fix: Removed all server re-fetch after save. Local `_applyLocalUpdate()` updates `pipelineData` → `_buildOwnerGroups()` rebuilds view. `_forceRerender()` empties and re-sets `ownerGroups` to force DOM rebuild. Key versioning (`_editVersion`) ensures LWC treats edited rows as new.
+- Products → AI-Enabled: When Products change, `aiEnabled` flag recalculates locally, updating owner group AI totals
+- API version bumped (65.0 → 63.0) to force CDN cache invalidation
+
+### Salesforce: Pod Auto-Assignment on Opportunity Creation (Deployed)
+- `AccountLookupController.cls`: Added `getDefaultPod()` — checks running user email against EU team set, defaults to US
+- `createOpportunity()` now accepts `pod` parameter, sets `Pod__c` on the Opportunity
+- LWC `opportunityCreator`: Pod radio toggle (US/EU) auto-detected from current user, always overridable
+- No restrictions — new users default to US; opp always creates successfully
+
+### Salesforce: Pipeline Review Stage Options (Deployed)
+- Added Nurture, Disqualified, Lost to stage dropdown in inline edit
+- "Lost" maps to "Lost" (not "Closed Lost") matching actual org stage path
+
+### F500 Excel Prioritization (v9.2 — Formula-Driven)
+- Complete rebuild with formula-driven scores tied to adjustable assumption tables
+- Distribution table: Industry Group | F500 | Customer | Active | Dormant (formula: Total-Customer-Active)
+- 3 visible sub-score columns: Legal Spend Score | CLO Score | AI/Industry Score
+- VLOOKUP formulas reference `$E$6:$G$10` for industry factors
+- 500 companies with AI signals researched, 292 CLOs identified, 47 AI-Forward
+- Read Me tab with AI scoring rubric (what makes a 7 vs 10)
+- Files: `scripts/f500_excel_v9.py`, `data/F500_Raw_Data.xlsx`, `data/f500_ai_signals_cache.json`
+
+---
+
+## CURRENT STATE: F500 Prioritization Exercise
+
+### Completed — F500 Prioritization
+All 500 Fortune 500 companies scored across 7 dimensions for Eudia fit. Output:
+- **`data/f500_prioritization.csv`** — Full ranked list with composite scores, tier assignments, estimated legal spend, recommended Eudia products, and SF overlap flags
+- **`scripts/f500_prioritization.py`** — Rerunnable scoring model
+- **`data/f500_legal_spend_multipliers.csv`** — 65 F500 industry categories mapped to legal spend % of revenue
+- **`docs/clay_f500_workflow.md`** — Copy-paste Clay column guide (if user wants to add web-sourced enrichment later)
+- **`data/f500_test_sample.csv`** — 10-company test sample for Clay workflow validation
+
+Results: 137 Tier 1 (48 new to SF), 81 Tier 2 (35 new), 98 Tier 3, 129 Tier 4, 55 Tier 5. 254 of 500 already in Salesforce.
+
+### Completed — Pipeline Review Product Filter Fix (Deployed to Prod)
+- **Root cause**: `Product_Line__c` multi-select picklist stores different API names for the same product. Also, 38 deals tagged as `"Multiple"` were excluded from all product filters.
+- **Fix**: Added `normalizeProductCategory()` and `categoryToLikePattern()` to Apex controller. Product filter now uses keyword LIKE (`%Compliance%`) plus OR clause for `Product_Line__c = 'Multiple'` deals matched by Opp Name.
+- **Result**: Compliance filter now returns 42 deals / $10M (was 9 deals / $1.1M). Verified via SOQL against prod data.
+- **Test class**: `PipelineReviewControllerTest.cls` — 19 tests, all passing, deployed to prod.
+- **Debug cleanup**: Removed `background:#f0f2ff` from Next Steps inline style.
+
+### Completed — Next Steps Text Wrapping (Deployed to Prod)
+- Inline `white-space:normal; word-break:break-word` bypasses CDN CSS caching.
+- JS truncation removed — full text wraps across multiple lines.
+
+### Completed — Pipeline Review UI Refinements (Deployed to Prod)
+- **Owner ordering**: BL sections now display in fixed order (US: Olivia, Julie, Asad, Ananth, Mitch, Mike, Riley, Rajeev, Sean; EU: Nathan, Conor, Nicola, Greg) instead of sorted by pipeline ACV.
+- **Products column**: Multi-product deals now show abbreviated list ("Compliance / Sigma / Contracting") instead of "3 products".
+- **Products edit**: Clicking the Products cell opens a multi-select checkbox group (all 12 product options) instead of a raw text field. Selection saved as semicolon-separated values to `Product_Lines_Multi__c`. Flows through to the Opportunity record.
+- **Next Steps edit modal**: Widened from 420px to 560px max-width. Textarea has 160px min-height for readability. Max-length increased from 255 to 1000.
+- **F500 Positioning Enrichment**: Web-researched 92 priority-industry companies. Positioning in `data/f500_positioning_cache.json`. Final output: `data/F500_Raw_Data.xlsx` with full-length tailored positioning per company.
+
+### Files Deployed to Salesforce Prod
+- `PipelineReviewController.cls` + `PipelineReviewControllerTest.cls`
+- `pipelineReviewCenter/` LWC bundle (html, js, css, meta.xml)
+
+---
+
+## PRIOR CRITICAL TASK: Meeting Prep Account Intelligence
+
+The Meeting Prep tab's **Account Intelligence** section had "Intelligence temporarily unavailable" for ALL meeting cards. This was addressed in commits `50a3e2d` (dedicated pipeline) and `a1dd9e9` (compact styling). The root cause was intent misclassification — query text containing "meeting" + "upcoming" triggered `MEETING_ACTIVITY` cross-account intent.
 
 **Read the FULL "Meeting Prep Intelligence Debugging History" section below before attempting ANY fix.** Multiple approaches have been tried and failed due to a specific class of bugs (regex in template literals). Understanding the full history prevents repeating the same mistakes.
 
@@ -88,6 +210,18 @@ When a user clicks a meeting card in the Meeting Prep tab:
 | 10 | `246db0a` | Move ALL remaining regex to static helpers | Fixed regex errors — modal opens clean now |
 | 11 | `4928471` | Account matching improvements (abbreviation expansion, domain resolution) | Logic correct but intelligence API still returns empty |
 | 12 | `d92c5ec` | Add verbose client-side logging | Deployed, awaiting console output from user |
+| 13 | (pending) | **ROOT CAUSE FOUND**: Fix intent misclassification + add timeout | Query text contained "meeting" + "upcoming" → triggered `MEETING_ACTIVITY` cross-account intent → accountId discarded → wrong/empty response |
+
+### Root Cause (Fix #13) — Intent Misclassification
+
+The Meeting Prep intelligence queries contained the words "meeting" + "upcoming" which triggered line 747 of `intelligenceQueryService.js`:
+```
+if (/meet|met |meeting/i.test(query) && /this week|today|tomorrow|scheduled|upcoming/i.test(query)) return 'MEETING_ACTIVITY';
+```
+
+`MEETING_ACTIVITY` is a cross-account intent (line 502), so the accountId was discarded at line 563 (`isCrossAccountIntent ? '' : accountId`). The query was routed to `gatherMeetingActivityContext()` which fetches weekly meeting data for ALL BLs — not account-specific intelligence.
+
+**Fix:** Changed query text from "...for my upcoming meeting..." to "Give me a full account briefing..." (no "meeting"/"upcoming" keywords). Also added 30s AbortController timeout and `credentials: 'same-origin'` to match the GTM Brain tab's fetch pattern.
 
 ### The Fundamental Rule Discovered
 
@@ -109,20 +243,13 @@ The click handler is in a separate isolated `<script>` block that:
 
 ### What the Next Agent Should Do
 
-1. **Check browser console** — The verbose logging (commit `d92c5ec`) should show exactly where the intelligence query fails. Open the Meeting Prep tab, click a meeting card, open DevTools Console (Cmd+Option+I), and look for `[MeetingPrep]` log lines.
+1. **Deploy and verify** — Push the fix (query text change + timeout + credentials) and verify intelligence renders for at least 3 different meetings. Check browser console for `[MeetingPrep]` log lines showing `Response status: 200` and `hasAnswer: true`.
 
-2. **Check Render logs** — Look for errors from `intelligenceQueryService.processQuery()` when the meeting prep calls `/api/intelligence/query`. The most likely issues:
-   - Salesforce connection degraded or cold (SF auth expired)
-   - The `forceRefresh: true` parameter bypasses cache and hits SF directly, which may fail if connection is unhealthy
-   - The account matching (abbreviation map, domain lookup) resolves to wrong accountId
+2. **If intelligence still fails after deploy** — Check Render server logs for `[Intelligence] Query intent:` to confirm the intent is now classified as `HISTORY` or `GENERAL` (NOT `MEETING_ACTIVITY`). If it's still `MEETING_ACTIVITY`, the query text change didn't deploy properly.
 
-3. **Test the API directly** — Use the GTM Brain tab on the site to query "Tell me about CVC" or "Tell me about Airbnb". If this works but Meeting Prep doesn't, the issue is in how Meeting Prep calls the same API.
+3. **If timeout errors appear** — The 30s AbortController may be too short if Salesforce connection is cold. Consider increasing to 45s, or removing `forceRefresh: true` so the query can use cached data (faster response).
 
-4. **Consider removing `forceRefresh: true`** — This was added to get fresh data but may be causing failures when SF connection is cold. Try removing it so the intelligence query can use cached data.
-
-5. **Check the `/api/account/lookup-by-domain` endpoint** — If domain lookup fails silently, the accountId is null, and the intelligence query runs without context (producing "I can't find account data").
-
-6. **Check the `/api/search-accounts` endpoint** — Test with short names like "CVC", "CHS", "AES" directly in the browser: `https://gtm-wizard.onrender.com/api/search-accounts?q=CVC`
+4. **If wrong content appears** — The query may be classifying as `HISTORY` instead of `PRE_MEETING`. This is fine — HISTORY with a resolved accountId fetches the same data. But if the response focus is too narrow, adjust the query text to better guide Claude (e.g., include "deal status, contacts, competitive landscape" in the prompt).
 
 ---
 
@@ -155,17 +282,20 @@ The click handler is in a separate isolated `<script>` block that:
 
 | Commit | Description |
 |--------|-------------|
+| `bdf5d5e` | Pipeline Review: fix text wrapping with explicit white-space:normal and min-width:0 |
+| `d81d39e` | Pipeline Review: expand Next Steps visibility, allow text wrapping |
+| `9ad0803` | Marketing campaign tracking: event taxonomy, budget, attribution schema |
+| `40299d5` | Account Info Request: button on highlights panel + Slack notification |
+| `bad914d` | Technical walkthrough: light theme, 7 sections, SVG icons |
+| `a1dd9e9` | Meeting Prep intelligence: compact styling, CLO-first contacts, editable summary |
+| `50a3e2d` | Meeting Prep intelligence: dedicated pipeline bypassing GTM Brain chat path |
+| `288704d` | Comprehensive handoff update: Meeting Prep debugging history + current state |
 | `d92c5ec` | Verbose client-side logging for intelligence debugging |
 | `246db0a` | Move ALL remaining regex to static helpers — zero backslash in template |
-| `4110d09` | Fix regex error in concatKey normalization |
-| `4928471` | Meeting Prep intelligence overhaul: matching, query quality, UX cleanup |
-| `14d621a` | **ROOT CAUSE**: Remove onclick handlers with `/\\/g` regex |
-| `7c47f6e` | Delete 564 duplicate helper functions from template |
-| `2d4604f` | Extract client-side helpers to static JS file |
-| `dbe2cf6` | Isolated script block with error capture + fallback modal |
 | `e3f36cf` | PostgreSQL activation: L2 cache, meeting prep repo, intent persistence |
 | `b5371d0` | AI-enabled forecast labels, BL commit data, product mapping, code names |
 | `8a02ec4` | Comprehensive fix: forecast, pipeline limits, velocity |
+| (pending) | **Product filter normalization** — category-based matching for Product_Line__c variants |
 
 ---
 
