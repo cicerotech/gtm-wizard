@@ -66,6 +66,8 @@ interface EudiaSyncSettings {
   audioMicDeviceId: string;
   audioSystemDeviceId: string;
   audioSetupDismissed: boolean;
+  // Meeting template
+  meetingTemplate: 'meddic' | 'demo' | 'general';
 }
 
 // Common timezone options for US/EU sales teams
@@ -108,7 +110,8 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   audioCaptureMode: 'full_call',
   audioMicDeviceId: '',
   audioSystemDeviceId: '',
-  audioSetupDismissed: false
+  audioSetupDismissed: false,
+  meetingTemplate: 'meddic'
 };
 
 interface SalesforceAccount {
@@ -3401,6 +3404,12 @@ created: ${dateStr}
     });
 
     this.addCommand({
+      id: 'copy-for-slack',
+      name: 'Copy Note for Slack',
+      callback: () => this.copyForSlack()
+    });
+
+    this.addCommand({
       id: 'enrich-accounts',
       name: 'Enrich Account Folders with Salesforce Data',
       callback: async () => {
@@ -5458,6 +5467,11 @@ last_updated: ${dateStr}
       } catch { /* proceed without virtual device */ }
     }
 
+    // Show template picker before recording
+    const template = await this.showTemplatePicker();
+    if (!template) return; // user cancelled
+    this.settings.meetingTemplate = template;
+
     // Ensure we have an active file
     let activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
@@ -5493,13 +5507,12 @@ last_updated: ${dateStr}
       if (captureMode === 'full_call' && this.audioRecorder.getState().isRecording) {
         const hasVD = !!this.settings.audioSystemDeviceId;
         if (hasVD) {
-          new Notice('Recording (Full Call + Virtual Device) — both sides captured via audio loopback.', 5000);
+          new Notice('Recording (Full Call + Virtual Device) — both sides captured.', 5000);
         } else {
           new Notice(
-            'Recording (Full Call mode)\n\n' +
-            'IMPORTANT: Use laptop speakers, NOT headphones.\n' +
-            'Headphones prevent the mic from hearing the other person.\n\n' +
-            'For headphone support, install BlackHole (Settings > Audio Capture).',
+            'Recording (Mic mode) — capturing your mic audio.\n\n' +
+            'For both sides of the call: use laptop speakers (not headphones),\n' +
+            'or install BlackHole for headphone support (Settings > Audio Capture).',
             12000
           );
         }
@@ -5631,6 +5644,39 @@ last_updated: ${dateStr}
       this.recordingStatusBar = null;
       this.audioRecorder = null;
     }
+  }
+
+  private showTemplatePicker(): Promise<'meddic' | 'demo' | 'general' | null> {
+    return new Promise((resolve) => {
+      const modal = new (class extends Modal {
+        result: 'meddic' | 'demo' | 'general' | null = null;
+        onOpen() {
+          const { contentEl } = this;
+          contentEl.empty();
+          contentEl.createEl('h3', { text: 'Meeting Type' });
+          contentEl.createEl('p', { text: 'Select the template for this recording:', cls: 'setting-item-description' });
+
+          const btnContainer = contentEl.createDiv();
+          btnContainer.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:12px;';
+
+          const templates: Array<{key: 'meddic'|'demo'|'general', label: string, desc: string}> = [
+            { key: 'meddic', label: 'Sales Discovery (MEDDIC)', desc: 'Pain points, decision process, metrics, champions, budget signals' },
+            { key: 'demo', label: 'Demo / Presentation', desc: 'Feature reactions, questions, objections, interest signals' },
+            { key: 'general', label: 'General Check-In', desc: 'Relationship updates, action items, sentiment' },
+          ];
+
+          for (const t of templates) {
+            const btn = btnContainer.createEl('button', { text: t.label });
+            btn.style.cssText = 'padding:10px 16px;text-align:left;cursor:pointer;border-radius:6px;border:1px solid var(--background-modifier-border);';
+            const desc = btnContainer.createEl('div', { text: t.desc });
+            desc.style.cssText = 'font-size:11px;color:var(--text-muted);margin-top:-4px;margin-bottom:4px;padding-left:4px;';
+            btn.onclick = () => { this.result = t.key; this.close(); };
+          }
+        }
+        onClose() { resolve(this.result); }
+      })(this.app);
+      modal.open();
+    });
   }
 
   async cancelRecording(): Promise<void> {
@@ -5989,14 +6035,15 @@ last_updated: ${dateStr}
         // Calendar service may not be configured
       }
 
-      // Transcribe audio (pass capture metadata so server can enable diarization)
+      // Transcribe audio (pass capture metadata + template so server uses correct prompt)
       const transcription = await this.transcriptionService.transcribeAudio(
         result.audioBlob, 
         {
           ...accountContext,
           speakerHints,
           captureMode: result.captureMode,
-          hasVirtualDevice: result.hasVirtualDevice
+          hasVirtualDevice: result.hasVirtualDevice,
+          meetingTemplate: this.settings.meetingTemplate || 'meddic'
         }
       );
 
@@ -7014,6 +7061,66 @@ To restore, move this folder back to the Accounts directory.
   /**
    * Command-palette wrapper: syncs the currently active note to Salesforce.
    */
+  async copyForSlack(): Promise<void> {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile) {
+      new Notice('No note open to copy');
+      return;
+    }
+
+    try {
+      const content = await this.app.vault.read(activeFile);
+
+      // Extract frontmatter account name
+      const accountMatch = content.match(/^account:\s*"?([^"\n]+)"?/m);
+      const account = accountMatch?.[1] || activeFile.parent?.name || 'Meeting';
+
+      // Extract date
+      const dateMatch = content.match(/^last_updated:\s*(\S+)/m);
+      const date = dateMatch?.[1] || new Date().toISOString().split('T')[0];
+
+      // Extract Summary section
+      let summary = '';
+      const summaryMatch = content.match(/## Summary\n([\s\S]*?)(?=\n## |\n---|\Z)/);
+      if (summaryMatch) {
+        const bullets = summaryMatch[1].trim().split('\n')
+          .filter(l => l.startsWith('-') || l.startsWith('•'))
+          .slice(0, 3)
+          .map(l => l.replace(/^[-•]\s*/, '').trim());
+        summary = bullets.join('\n');
+      }
+
+      // Extract Next Steps
+      let nextSteps = '';
+      const nsMatch = content.match(/## Next Steps\n([\s\S]*?)(?=\n## |\n---|\Z)/);
+      if (nsMatch) {
+        const items = nsMatch[1].trim().split('\n')
+          .filter(l => l.startsWith('-') || l.startsWith('•'))
+          .slice(0, 3)
+          .map(l => l.replace(/^[-•\s[\]x]*/, '').trim());
+        nextSteps = items.join('\n• ');
+      }
+
+      // Extract a key quote
+      let quote = '';
+      const quoteMatch = content.match(/"([^"]{20,120})"/);
+      if (quoteMatch) {
+        quote = quoteMatch[1];
+      }
+
+      // Build Slack-friendly format
+      let slackText = `*${account} — ${date}*\n`;
+      if (summary) slackText += `${summary}\n`;
+      if (nextSteps) slackText += `\n*Next Steps:*\n• ${nextSteps}\n`;
+      if (quote) slackText += `\n> _"${quote}"_\n`;
+
+      await navigator.clipboard.writeText(slackText);
+      new Notice('Copied for Slack ✓', 3000);
+    } catch (err: any) {
+      new Notice('Failed to copy: ' + (err.message || ''));
+    }
+  }
+
   async syncNoteToSalesforce(): Promise<void> {
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {

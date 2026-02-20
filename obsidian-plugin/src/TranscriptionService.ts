@@ -728,6 +728,102 @@ FINAL CHECKS:
  * Build a specialized prompt for internal pipeline review meetings.
  * This extracts per-account updates from team discussions about deals.
  */
+function buildDemoPrompt(accountName?: string, context?: MeetingContext): string {
+  let contextSection = '';
+  if (context?.account) {
+    contextSection = `\nACCOUNT CONTEXT:\n- Account: ${context.account.name}\n${context.account.owner ? `- Owner: ${context.account.owner}` : ''}\n`;
+  }
+
+  return `You are a sales intelligence analyst for Eudia, an AI-powered legal technology company. You are analyzing a DEMO or PRESENTATION call.
+
+ABOUT EUDIA:
+Eudia provides AI solutions for legal teams at enterprise companies — contracting, compliance, and M&A due diligence.
+
+${accountName ? `CURRENT ACCOUNT: ${accountName}` : ''}
+${contextSection}
+
+CRITICAL RULES:
+1. Only include information explicitly stated in the transcript.
+2. Include direct quotes where impactful.
+3. Focus on the prospect's REACTIONS to what was shown — not describing what Eudia showed.
+
+OUTPUT FORMAT:
+
+## Summary
+3-5 bullet points: What was demonstrated, overall reception, and key takeaways.
+
+## Attendees
+- **[Name]** - [Title/Role] ([Company])
+
+## Demo Highlights
+What resonated most? What got the strongest positive reaction?
+- **[Feature/Capability]**: "[Prospect reaction quote]"
+
+## Questions Asked
+Questions the prospect asked during or after the demo:
+- **[Question]**: [Answer given or "Follow-up needed"]
+
+## Feature Interest
+Which Eudia capabilities generated the most interest:
+- [Feature]: [Evidence of interest — quote or reaction]
+
+## Objections & Concerns
+Any pushback, hesitations, or concerns raised:
+- **[Concern]**: "[Quote]" — [How it was addressed or "Unresolved"]
+
+## Next Steps
+- [ ] [Action] - **Owner:** [Name] - **Due:** [Date if mentioned]
+
+## Action Items (Internal)
+- [ ] [Follow-up for Eudia team]
+`;
+}
+
+function buildGeneralPrompt(accountName?: string, context?: MeetingContext): string {
+  let contextSection = '';
+  if (context?.account) {
+    contextSection = `\nACCOUNT CONTEXT:\n- Account: ${context.account.name}\n${context.account.owner ? `- Owner: ${context.account.owner}` : ''}\n`;
+  }
+
+  return `You are a business meeting analyst. You are analyzing a GENERAL CHECK-IN or relationship meeting — not a sales discovery or demo.
+
+${accountName ? `ACCOUNT: ${accountName}` : ''}
+${contextSection}
+
+CRITICAL RULES:
+1. Only include information explicitly stated in the transcript.
+2. Keep the tone professional but conversational — this is a relationship meeting, not a formal sales call.
+3. Focus on updates, sentiment, and action items.
+
+OUTPUT FORMAT:
+
+## Summary
+3-5 bullet points covering: purpose of the meeting, key topics discussed, overall sentiment and relationship health.
+
+## Attendees
+- **[Name]** - [Title/Role] ([Company])
+
+## Key Updates
+Important information shared by either side:
+- **[Topic]**: [What was shared]
+
+## Discussion Points
+Main topics covered in the conversation:
+- [Topic]: [Key points and any decisions made]
+
+## Sentiment & Relationship
+Overall tone of the meeting — are they engaged, distracted, enthusiastic, frustrated?
+- [Assessment with evidence]
+
+## Action Items
+- [ ] [Action] - **Owner:** [Name] - **Due:** [Date if mentioned]
+
+## Follow-Ups
+Items to track or revisit:
+- [Item]: [Context and timeline]
+`;
+}
+
 export function buildPipelineReviewPrompt(pipelineContext?: string): string {
   const contextBlock = pipelineContext
     ? `\n\nSALESFORCE PIPELINE DATA (current as of today):\n${pipelineContext}\n\nUse this data to cross-reference and validate what was discussed. Include ACV and stage info from Salesforce where relevant.\n`
@@ -833,15 +929,23 @@ export class TranscriptionService {
     accountName?: string,
     accountId?: string,
     context?: MeetingContext,
-    audioMeta?: { captureMode?: string; hasVirtualDevice?: boolean }
+    audioMeta?: { captureMode?: string; hasVirtualDevice?: boolean },
+    meetingTemplate?: string
   ): Promise<TranscriptionResult> {
     // Try server first
     try {
-      // Select prompt based on meeting type
+      // Select prompt based on meeting type and template
       const isPipelineReview = context?.meetingType === 'pipeline_review';
-      const systemPrompt = isPipelineReview
-        ? buildPipelineReviewPrompt(context?.pipelineContext)
-        : buildAnalysisPrompt(accountName, context);
+      let systemPrompt: string;
+      if (isPipelineReview) {
+        systemPrompt = buildPipelineReviewPrompt(context?.pipelineContext);
+      } else if (meetingTemplate === 'demo') {
+        systemPrompt = buildDemoPrompt(accountName, context);
+      } else if (meetingTemplate === 'general') {
+        systemPrompt = buildGeneralPrompt(accountName, context);
+      } else {
+        systemPrompt = buildAnalysisPrompt(accountName, context);
+      }
       
       const response = await requestUrl({
         url: `${this.serverUrl}/api/transcribe-and-summarize`,
@@ -1475,7 +1579,7 @@ Format your response as a brief, actionable answer suitable for quick reference 
    */
   async transcribeAudio(
     audioBlob: Blob, 
-    context?: { accountName?: string; accountId?: string; speakerHints?: string[]; meetingType?: string; pipelineContext?: string; captureMode?: string; hasVirtualDevice?: boolean }
+    context?: { accountName?: string; accountId?: string; speakerHints?: string[]; meetingType?: string; pipelineContext?: string; captureMode?: string; hasVirtualDevice?: boolean; meetingTemplate?: string }
   ): Promise<{ text: string; confidence: number; duration?: number; sections?: ProcessedSections }> {
     try {
       const base64 = await this.blobToBase64(audioBlob);
@@ -1492,7 +1596,8 @@ Format your response as a brief, actionable answer suitable for quick reference 
         context?.accountName, 
         context?.accountId,
         meetingContext,
-        { captureMode: context?.captureMode, hasVirtualDevice: context?.hasVirtualDevice }
+        { captureMode: context?.captureMode, hasVirtualDevice: context?.hasVirtualDevice },
+        context?.meetingTemplate
       );
       
       return {
