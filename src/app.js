@@ -1042,7 +1042,7 @@ class GTMBrainApp {
         // Fallback: always return success with current version so auto-update works
         // IMPORTANT: Keep this in sync with obsidian-plugin/manifest.json version
         logger.warn('[Plugin Version] Could not read manifest.json from disk:', err.message);
-        res.json({ success: true, currentVersion: '4.5.2', version: '4.5.2' });
+        res.json({ success: true, currentVersion: '4.5.3', version: '4.5.3' });
       }
     });
 

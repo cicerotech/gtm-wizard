@@ -5446,20 +5446,16 @@ last_updated: ${dateStr}
       return;
     }
 
-    // On first recording, check for virtual audio device and offer setup wizard
-    if (!this.settings.audioSetupDismissed && !this.settings.audioSystemDeviceId) {
-      const vd = await AudioRecorder.detectVirtualAudioDevice();
-      if (!vd) {
-        const wizard = new AudioSetupWizardModal(this.app, this, () => {
-          this.startRecording();
-        });
-        wizard.open();
-        return;
-      } else {
-        this.settings.audioSystemDeviceId = vd.deviceId;
-        this.settings.audioSetupDismissed = true;
-        await this.saveSettings();
-      }
+    // Auto-detect virtual audio device if available (non-blocking)
+    if (!this.settings.audioSystemDeviceId) {
+      try {
+        const vd = await AudioRecorder.detectVirtualAudioDevice();
+        if (vd) {
+          this.settings.audioSystemDeviceId = vd.deviceId;
+          await this.saveSettings();
+          console.log(`[Eudia] Virtual audio device found: ${vd.label}`);
+        }
+      } catch { /* proceed without virtual device */ }
     }
 
     // Ensure we have an active file
