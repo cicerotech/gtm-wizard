@@ -18,7 +18,7 @@ import {
   WorkspaceLeaf
 } from 'obsidian';
 
-import { AudioRecorder, RecordingState, RecordingResult, AudioDiagnostic, AudioCaptureMode, AudioRecordingOptions, AudioDeviceInfo } from './src/AudioRecorder';
+import { AudioRecorder, RecordingState, RecordingResult, AudioDiagnostic, AudioCaptureMode, AudioRecordingOptions, AudioDeviceInfo, SystemAudioMethod, SystemAudioProbeResult } from './src/AudioRecorder';
 import { TranscriptionService, TranscriptionResult, MeetingContext, ProcessedSections, AccountDetector, accountDetector, AccountDetectionResult, detectPipelineMeeting } from './src/TranscriptionService';
 import { CalendarService, CalendarMeeting, TodayResponse, WeekResponse } from './src/CalendarService';
 import { SmartTagService, SmartTags } from './src/SmartTagService';
@@ -3236,6 +3236,12 @@ export default class EudiaSyncPlugin extends Plugin {
     
     this.smartTagService = new SmartTagService();
 
+    // Pre-configure system audio capture (non-blocking, runs once)
+    AudioRecorder.setupDisplayMediaHandler().then(ok => {
+      if (ok) console.log('[Eudia] System audio: loopback handler ready');
+      else console.log('[Eudia] System audio: handler not available, will try other strategies on record');
+    }).catch(() => {});
+
     // Check for plugin updates on startup (non-blocking)
     this.checkForPluginUpdate();
     
@@ -3407,6 +3413,32 @@ created: ${dateStr}
       id: 'copy-for-slack',
       name: 'Copy Note for Slack',
       callback: () => this.copyForSlack()
+    });
+
+    this.addCommand({
+      id: 'test-system-audio',
+      name: 'Test System Audio Capture',
+      callback: async () => {
+        new Notice('Probing system audio capabilities...', 3000);
+        try {
+          const probe = await AudioRecorder.probeSystemAudioCapabilities();
+          const lines = [
+            `Platform: ${probe.platform}`,
+            `Electron: ${probe.electronVersion || 'N/A'} | Chromium: ${probe.chromiumVersion || 'N/A'}`,
+            `desktopCapturer: ${probe.desktopCapturerAvailable ? `YES (${probe.desktopCapturerSources} sources)` : 'no'}`,
+            `@electron/remote: ${probe.remoteAvailable ? 'YES' : 'no'} | session: ${probe.remoteSessionAvailable ? 'YES' : 'no'}`,
+            `ipcRenderer: ${probe.ipcRendererAvailable ? 'YES' : 'no'}`,
+            `getDisplayMedia: ${probe.getDisplayMediaAvailable ? 'YES' : 'no'}`,
+            `Handler setup: ${probe.handlerSetupResult}`,
+            '',
+            `Best path: ${probe.bestPath}`,
+          ];
+          new Notice(lines.join('\n'), 20000);
+          console.log('[Eudia] System audio probe:', JSON.stringify(probe, null, 2));
+        } catch (err: any) {
+          new Notice(`Probe failed: ${err.message}`, 5000);
+        }
+      }
     });
 
     this.addCommand({
@@ -5505,15 +5537,16 @@ last_updated: ${dateStr}
       await this.audioRecorder.start(recordingOptions);
 
       if (captureMode === 'full_call' && this.audioRecorder.getState().isRecording) {
-        const hasVD = !!this.settings.audioSystemDeviceId;
-        if (hasVD) {
+        const sysMethod = this.audioRecorder.getSystemAudioMethod();
+        if (sysMethod === 'electron' || sysMethod === 'display_media') {
+          new Notice('Recording — capturing both sides of the call.', 5000);
+        } else if (sysMethod === 'virtual_device') {
           new Notice('Recording (Full Call + Virtual Device) — both sides captured.', 5000);
         } else {
           new Notice(
-            'Recording (Mic mode) — capturing your mic audio.\n\n' +
-            'For both sides of the call: use laptop speakers (not headphones),\n' +
-            'or install BlackHole for headphone support (Settings > Audio Capture).',
-            12000
+            'Recording (Mic only) — headphones block call audio capture.\n\n' +
+            'Use laptop speakers, or try Settings > Audio Capture > Test System Audio.',
+            10000
           );
         }
       } else if (captureMode === 'mic_only') {
@@ -5625,9 +5658,14 @@ last_updated: ${dateStr}
       try {
         const diag = await AudioRecorder.analyzeAudioBlob(result.audioBlob);
         if (!diag.hasAudio) {
-          const modeHint = result.captureMode === 'full_call'
-            ? 'Make sure your call audio is playing through laptop speakers (not headphones).'
-            : 'Check that your microphone is working and has permission.';
+          let modeHint: string;
+          if (result.systemAudioMethod === 'electron' || result.systemAudioMethod === 'display_media') {
+            modeHint = 'System audio capture was active but no sound was detected. Check that the call app is playing audio.';
+          } else if (result.captureMode === 'full_call') {
+            modeHint = 'Make sure your call audio is playing through laptop speakers (not headphones).';
+          } else {
+            modeHint = 'Check that your microphone is working and has permission.';
+          }
           new Notice(`Recording appears silent. ${modeHint} Open Settings > Audio Capture to test your setup.`, 12000);
         }
       } catch (diagErr) {
@@ -8294,15 +8332,16 @@ class EudiaSyncSettingTab extends PluginSettingTab {
     const audioCaptureDesc = containerEl.createDiv();
     audioCaptureDesc.style.cssText = 'font-size: 12px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;';
     audioCaptureDesc.setText(
-      'Full Call mode disables echo cancellation so your mic captures both you AND the other person\'s voice from your speakers. ' +
-      'For best quality, install a virtual audio device (BlackHole on Mac, VB-Cable on Windows) — it will be auto-detected.'
+      'Full Call mode automatically captures both sides of the call (your mic + the other person\'s audio). ' +
+      'No extra software needed — the plugin uses native system audio capture. ' +
+      'Run "Test System Audio Capture" from the command palette (Cmd+P) to verify your setup.'
     );
 
     new Setting(containerEl)
       .setName('Capture Mode')
-      .setDesc('Full Call captures both sides via speakers; Mic Only captures your voice only.')
+      .setDesc('Full Call captures both sides; Mic Only captures your voice only.')
       .addDropdown(dropdown => {
-        dropdown.addOption('full_call', 'Full Call (Speaker Mode)');
+        dropdown.addOption('full_call', 'Full Call (Both Sides)');
         dropdown.addOption('mic_only', 'Mic Only');
         dropdown.setValue(this.plugin.settings.audioCaptureMode || 'full_call');
         dropdown.onChange(async (value) => {
@@ -8311,10 +8350,10 @@ class EudiaSyncSettingTab extends PluginSettingTab {
         });
       });
 
-    // Virtual device status indicator
+    // System audio status indicator
     const vdStatusEl = containerEl.createDiv();
     vdStatusEl.style.cssText = 'padding: 10px 14px; background: var(--background-secondary); border-radius: 6px; margin-bottom: 12px; font-size: 13px;';
-    vdStatusEl.setText('Scanning audio devices...');
+    vdStatusEl.setText('Checking system audio capabilities...');
 
     // Device selector dropdowns (populated async)
     const micSetting = new Setting(containerEl)
@@ -8323,7 +8362,7 @@ class EudiaSyncSettingTab extends PluginSettingTab {
 
     const sysSetting = new Setting(containerEl)
       .setName('System Audio Device')
-      .setDesc('Virtual audio device for capturing the other person (optional)');
+      .setDesc('Override for system audio source (auto-detected — most users should leave this on Auto)');
 
     // Test audio button
     const testAudioContainer = containerEl.createDiv();
@@ -8343,13 +8382,20 @@ class EudiaSyncSettingTab extends PluginSettingTab {
         const virtualDevice = devices.find(d => d.isVirtual);
 
         if (virtualDevice) {
-          vdStatusEl.innerHTML = `<span style="color:#22c55e;">&#10003;</span> Virtual audio device detected: <strong>${virtualDevice.label}</strong>`;
+          vdStatusEl.innerHTML = `<span style="color:#22c55e;">&#10003;</span> System audio device detected: <strong>${virtualDevice.label}</strong>`;
           if (!this.plugin.settings.audioSystemDeviceId) {
             this.plugin.settings.audioSystemDeviceId = virtualDevice.deviceId;
             await this.plugin.saveSettings();
           }
         } else {
-          vdStatusEl.innerHTML = '<span style="color:#f59e0b;">&#9888;</span> No virtual audio device found. Using speaker mode. For best quality, install <a href="https://existential.audio/blackhole/" style="color:var(--text-accent);">BlackHole</a> (Mac) or <a href="https://vb-audio.com/Cable/" style="color:var(--text-accent);">VB-Cable</a> (Windows).';
+          const probe = await AudioRecorder.probeSystemAudioCapabilities();
+          if (probe.desktopCapturerAvailable || AudioRecorder.isHandlerReady()) {
+            vdStatusEl.innerHTML = '<span style="color:#22c55e;">&#10003;</span> Native system audio capture available. Both sides of calls will be recorded automatically.';
+          } else if (probe.getDisplayMediaAvailable) {
+            vdStatusEl.innerHTML = '<span style="color:#3b82f6;">&#8505;</span> System audio capture ready. On first recording, macOS may ask for Screen Recording permission — this is how the plugin captures the other person\'s audio.';
+          } else {
+            vdStatusEl.innerHTML = `<span style="color:#f59e0b;">&#9888;</span> System audio not available (Electron ${probe.electronVersion || '?'}). Run "Test System Audio Capture" from Cmd+P for details.`;
+          }
         }
 
         const mics = devices.filter(d => !d.isVirtual);
@@ -8396,7 +8442,8 @@ class EudiaSyncSettingTab extends PluginSettingTab {
         await new Promise(r => setTimeout(r, 3000));
         const result = await testRecorder.stop();
         const diag = await AudioRecorder.analyzeAudioBlob(result.audioBlob);
-        const mode = result.hasVirtualDevice ? 'Virtual Device + Mic' : (result.captureMode === 'full_call' ? 'Speaker Mode' : 'Mic Only');
+        const methodLabels: Record<string, string> = { electron: 'System Audio (Electron)', display_media: 'System Audio (Screen Share)', virtual_device: 'Virtual Device + Mic' };
+        const mode = result.systemAudioMethod ? (methodLabels[result.systemAudioMethod] || 'System Audio') : (result.captureMode === 'full_call' ? 'Speaker Mode' : 'Mic Only');
         testResult.innerHTML = `<strong>${mode}</strong> | Peak: ${diag.peakLevel}% | Avg: ${diag.averageLevel}% | Silent: ${diag.silentPercent}%` +
           (diag.warning ? `<br><span style="color:#ef4444;">${diag.warning}</span>` : '<br><span style="color:#22c55e;">Audio detected — recording should work.</span>');
       } catch (e: any) {

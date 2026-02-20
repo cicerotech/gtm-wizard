@@ -12,6 +12,7 @@
  */
 
 export type AudioCaptureMode = 'full_call' | 'mic_only';
+export type SystemAudioMethod = 'virtual_device' | 'electron' | 'display_media' | null;
 
 export interface AudioRecordingOptions {
   captureMode: AudioCaptureMode;
@@ -33,6 +34,7 @@ export interface RecordingResult {
   filename: string;
   captureMode: AudioCaptureMode;
   hasVirtualDevice: boolean;
+  systemAudioMethod: SystemAudioMethod;
 }
 
 export interface AudioDiagnostic {
@@ -47,6 +49,21 @@ export interface AudioDeviceInfo {
   deviceId: string;
   label: string;
   isVirtual: boolean;
+}
+
+export interface SystemAudioProbeResult {
+  electronAvailable: boolean;
+  desktopCapturerAvailable: boolean;
+  desktopCapturerSources: number;
+  remoteAvailable: boolean;
+  remoteSessionAvailable: boolean;
+  ipcRendererAvailable: boolean;
+  getDisplayMediaAvailable: boolean;
+  electronVersion: string | null;
+  chromiumVersion: string | null;
+  platform: string;
+  handlerSetupResult: string;
+  bestPath: string;
 }
 
 export type RecordingStateCallback = (state: RecordingState) => void;
@@ -75,6 +92,7 @@ export class AudioRecorder {
 
   private activeCaptureMode: AudioCaptureMode = 'full_call';
   private activeHasVirtualDevice: boolean = false;
+  private activeSystemAudioMethod: SystemAudioMethod = null;
   
   private state: RecordingState = {
     isRecording: false,
@@ -148,6 +166,7 @@ export class AudioRecorder {
     const captureMode = options?.captureMode ?? 'full_call';
     this.activeCaptureMode = captureMode;
     this.activeHasVirtualDevice = false;
+    this.activeSystemAudioMethod = null;
 
     try {
       const isIOSSafari = AudioRecorder.isIOSOrSafari();
@@ -209,9 +228,34 @@ export class AudioRecorder {
 
           this.secondaryStream = systemStream;
           this.activeHasVirtualDevice = true;
+          this.activeSystemAudioMethod = 'virtual_device';
           console.log('[AudioRecorder] Virtual device detected — dual-stream capture active');
         } catch (vdErr: any) {
           console.log(`[AudioRecorder] Virtual device open failed (${vdErr.message}), continuing with mic only`);
+        }
+      }
+
+      // --- Native system audio: try Electron/getDisplayMedia when no virtual device ---
+      if (!this.activeHasVirtualDevice && captureMode === 'full_call' && !isIOSSafari) {
+        try {
+          console.log('[AudioRecorder] No virtual device — attempting native system audio capture');
+          const systemResult = await AudioRecorder.captureSystemAudio();
+          if (systemResult) {
+            this.audioContext = this.audioContext || new AudioContext();
+            const micSrc = this.audioContext.createMediaStreamSource(micStream);
+            const sysSrc = this.audioContext.createMediaStreamSource(systemResult.stream);
+            const dest = this.audioContext.createMediaStreamDestination();
+            micSrc.connect(dest);
+            sysSrc.connect(dest);
+            finalStream = dest.stream;
+
+            this.secondaryStream = systemResult.stream;
+            this.activeHasVirtualDevice = true;
+            this.activeSystemAudioMethod = systemResult.method;
+            console.log(`[AudioRecorder] Native system audio via ${systemResult.method} — dual-stream active`);
+          }
+        } catch (sysErr: any) {
+          console.log(`[AudioRecorder] Native system audio failed (${sysErr.message}), continuing with mic only`);
         }
       }
 
@@ -298,6 +342,323 @@ export class AudioRecorder {
       console.warn('[AudioRecorder] enumerateDevices failed:', e);
       return [];
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // NATIVE SYSTEM AUDIO CAPTURE — 6-strategy exhaustive approach
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private static _displayMediaHandlerReady = false;
+
+  /**
+   * One-time setup: try to install a display media handler via @electron/remote
+   * that auto-grants getDisplayMedia with loopback audio (zero user interaction).
+   * Call once on plugin load. Subsequent getDisplayMedia calls will auto-grant.
+   */
+  static async setupDisplayMediaHandler(): Promise<boolean> {
+    if (AudioRecorder._displayMediaHandlerReady) return true;
+
+    const electronRequire = (window as any).require;
+    if (!electronRequire) return false;
+
+    // Strategy A: @electron/remote (Electron 14+)
+    try {
+      const remote = electronRequire('@electron/remote');
+      if (remote?.session?.defaultSession?.setDisplayMediaRequestHandler && remote?.desktopCapturer?.getSources) {
+        remote.session.defaultSession.setDisplayMediaRequestHandler(
+          async (request: any, callback: any) => {
+            try {
+              const sources = await remote.desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } });
+              callback(sources?.length ? { video: sources[0], audio: 'loopback' } : null);
+            } catch { callback(null); }
+          }
+        );
+        AudioRecorder._displayMediaHandlerReady = true;
+        console.log('[AudioRecorder] Display media handler installed via @electron/remote — loopback audio enabled');
+        return true;
+      }
+    } catch (e: any) {
+      console.log(`[AudioRecorder] @electron/remote handler setup failed: ${e.message}`);
+    }
+
+    // Strategy B: electron.remote (Electron <14, deprecated)
+    try {
+      const electron = electronRequire('electron');
+      const remote = electron?.remote;
+      if (remote?.session?.defaultSession?.setDisplayMediaRequestHandler && remote?.desktopCapturer?.getSources) {
+        remote.session.defaultSession.setDisplayMediaRequestHandler(
+          async (request: any, callback: any) => {
+            try {
+              const sources = await remote.desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } });
+              callback(sources?.length ? { video: sources[0], audio: 'loopback' } : null);
+            } catch { callback(null); }
+          }
+        );
+        AudioRecorder._displayMediaHandlerReady = true;
+        console.log('[AudioRecorder] Display media handler installed via electron.remote — loopback audio enabled');
+        return true;
+      }
+    } catch (e: any) {
+      console.log(`[AudioRecorder] electron.remote handler setup failed: ${e.message}`);
+    }
+
+    console.log('[AudioRecorder] Could not set up display media handler — remote module not accessible');
+    return false;
+  }
+
+  /**
+   * Strategy 1: desktopCapturer.getSources() + getUserMedia with chromeMediaSource.
+   * Zero user interaction. Works if Obsidian's Electron exposes desktopCapturer to the renderer.
+   */
+  private static async tryDesktopCapturerWithSource(): Promise<MediaStream | null> {
+    const electronRequire = (window as any).require;
+    if (!electronRequire) return null;
+
+    let sources: any[] | null = null;
+
+    // Sub-strategy 1a: direct require('electron').desktopCapturer
+    try {
+      const dc = electronRequire('electron')?.desktopCapturer;
+      if (dc?.getSources) {
+        sources = await dc.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } });
+        if (sources?.length) console.log(`[AudioRecorder] desktopCapturer.getSources: ${sources.length} screen(s)`);
+      }
+    } catch (e: any) {
+      console.log(`[AudioRecorder] direct desktopCapturer failed: ${e.message}`);
+    }
+
+    // Sub-strategy 1b: @electron/remote desktopCapturer
+    if (!sources?.length) {
+      try {
+        const dc = electronRequire('@electron/remote')?.desktopCapturer;
+        if (dc?.getSources) {
+          sources = await dc.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } });
+          if (sources?.length) console.log(`[AudioRecorder] @electron/remote desktopCapturer: ${sources.length} screen(s)`);
+        }
+      } catch {}
+    }
+
+    // Sub-strategy 1c: electron.remote.desktopCapturer
+    if (!sources?.length) {
+      try {
+        const dc = electronRequire('electron')?.remote?.desktopCapturer;
+        if (dc?.getSources) {
+          sources = await dc.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } });
+          if (sources?.length) console.log(`[AudioRecorder] electron.remote desktopCapturer: ${sources.length} screen(s)`);
+        }
+      } catch {}
+    }
+
+    // Sub-strategy 1d: IPC invoke (Electron 17+ recommended path)
+    if (!sources?.length) {
+      try {
+        const ipc = electronRequire('electron')?.ipcRenderer;
+        if (ipc?.invoke) {
+          sources = await ipc.invoke('DESKTOP_CAPTURER_GET_SOURCES', { types: ['screen'] });
+          if (sources?.length) console.log(`[AudioRecorder] IPC desktopCapturer: ${sources.length} screen(s)`);
+        }
+      } catch {}
+    }
+
+    if (!sources?.length) {
+      console.log('[AudioRecorder] No desktopCapturer path yielded sources');
+      return null;
+    }
+
+    // Now use the source ID to get system audio via getUserMedia + chromeMediaSource
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: sources[0].id } } as any,
+        video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: sources[0].id, maxWidth: 1, maxHeight: 1, maxFrameRate: 1 } } as any
+      });
+      stream.getVideoTracks().forEach(t => t.stop());
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length > 0) {
+        console.log('[AudioRecorder] desktopCapturer + getUserMedia audio capture active');
+        return new MediaStream(audioTracks);
+      }
+    } catch (e: any) {
+      console.log(`[AudioRecorder] getUserMedia with chromeMediaSource failed: ${e.message}`);
+    }
+
+    return null;
+  }
+
+  /**
+   * Strategy 2: getUserMedia with chromeMediaSource:'desktop' without a specific source ID.
+   * Some Electron versions auto-select the primary screen.
+   */
+  private static async tryDesktopCapturerNoSourceId(): Promise<MediaStream | null> {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { mandatory: { chromeMediaSource: 'desktop' } } as any,
+        video: { mandatory: { chromeMediaSource: 'desktop', maxWidth: 1, maxHeight: 1, maxFrameRate: 1 } } as any
+      });
+      stream.getVideoTracks().forEach(t => t.stop());
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length > 0) {
+        console.log('[AudioRecorder] getUserMedia chromeMediaSource:desktop (no source ID) audio active');
+        return new MediaStream(audioTracks);
+      }
+    } catch (e: any) {
+      console.log(`[AudioRecorder] chromeMediaSource:desktop (no source) failed: ${e.message}`);
+    }
+    return null;
+  }
+
+  /**
+   * Strategy 3: getDisplayMedia — if handler was set up, this auto-grants with loopback audio.
+   * If no handler, Electron may show the system picker (macOS 13+) or fail.
+   */
+  private static async tryGetDisplayMedia(): Promise<MediaStream | null> {
+    if (!navigator.mediaDevices?.getDisplayMedia) return null;
+
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        audio: { suppressLocalAudioPlayback: false },
+        video: { width: { ideal: 1 }, height: { ideal: 1 }, frameRate: { ideal: 1 } },
+        // @ts-ignore — systemAudio not in TS lib types yet
+        systemAudio: 'include'
+      } as any);
+
+      stream.getVideoTracks().forEach(t => t.stop());
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length > 0) {
+        console.log(`[AudioRecorder] getDisplayMedia audio capture active (handler=${AudioRecorder._displayMediaHandlerReady})`);
+        return new MediaStream(audioTracks);
+      }
+      console.log('[AudioRecorder] getDisplayMedia returned no audio tracks');
+    } catch (e: any) {
+      if (e.name === 'NotAllowedError') {
+        console.log('[AudioRecorder] getDisplayMedia: not allowed (no handler set or user denied)');
+      } else {
+        console.log(`[AudioRecorder] getDisplayMedia failed: ${e.name}: ${e.message}`);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Master orchestrator: tries every system audio strategy in priority order.
+   * Strategies 1-2 are zero-click. Strategy 3 is zero-click IF handler was set up.
+   */
+  static async captureSystemAudio(): Promise<{ stream: MediaStream; method: 'electron' | 'display_media' } | null> {
+    // Strategy 1: desktopCapturer with source ID
+    const s1 = await AudioRecorder.tryDesktopCapturerWithSource();
+    if (s1) return { stream: s1, method: 'electron' };
+
+    // Strategy 2: chromeMediaSource without source ID
+    const s2 = await AudioRecorder.tryDesktopCapturerNoSourceId();
+    if (s2) return { stream: s2, method: 'electron' };
+
+    // Strategy 3: getDisplayMedia (auto-grants if handler was set up)
+    const s3 = await AudioRecorder.tryGetDisplayMedia();
+    if (s3) return { stream: s3, method: 'display_media' };
+
+    console.log('[AudioRecorder] All system audio strategies exhausted — mic only');
+    return null;
+  }
+
+  /**
+   * Comprehensive diagnostic — tests every Electron access path and reports what's available.
+   * Safe to call from settings or commands (no audio capture started).
+   */
+  static async probeSystemAudioCapabilities(): Promise<SystemAudioProbeResult> {
+    const result: SystemAudioProbeResult = {
+      electronAvailable: false,
+      desktopCapturerAvailable: false,
+      desktopCapturerSources: 0,
+      remoteAvailable: false,
+      remoteSessionAvailable: false,
+      ipcRendererAvailable: false,
+      getDisplayMediaAvailable: false,
+      electronVersion: null,
+      chromiumVersion: null,
+      platform: (window as any).process?.platform || navigator.platform || 'unknown',
+      handlerSetupResult: 'not attempted',
+      bestPath: 'mic_only'
+    };
+
+    const electronRequire = (window as any).require;
+    if (!electronRequire) {
+      result.bestPath = 'mic_only (require not available)';
+      return result;
+    }
+
+    // Electron module
+    try {
+      const electron = electronRequire('electron');
+      result.electronAvailable = !!electron;
+      result.ipcRendererAvailable = !!electron?.ipcRenderer?.invoke;
+
+      if (electron?.desktopCapturer?.getSources) {
+        result.desktopCapturerAvailable = true;
+        try {
+          const sources = await electron.desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } });
+          result.desktopCapturerSources = sources?.length || 0;
+        } catch {}
+      }
+    } catch {}
+
+    // @electron/remote
+    try {
+      const remote = electronRequire('@electron/remote');
+      result.remoteAvailable = !!remote;
+      result.remoteSessionAvailable = !!remote?.session?.defaultSession?.setDisplayMediaRequestHandler;
+    } catch {}
+
+    // electron.remote (legacy)
+    if (!result.remoteAvailable) {
+      try {
+        const remote = electronRequire('electron')?.remote;
+        result.remoteAvailable = !!remote;
+        result.remoteSessionAvailable = !!remote?.session?.defaultSession?.setDisplayMediaRequestHandler;
+      } catch {}
+    }
+
+    // Versions
+    try {
+      const versions = (window as any).process?.versions;
+      result.electronVersion = versions?.electron || null;
+      result.chromiumVersion = versions?.chrome || null;
+    } catch {}
+
+    result.getDisplayMediaAvailable = !!navigator.mediaDevices?.getDisplayMedia;
+
+    // Try to set up the handler
+    if (result.remoteSessionAvailable) {
+      const ok = await AudioRecorder.setupDisplayMediaHandler();
+      result.handlerSetupResult = ok ? 'SUCCESS' : 'failed';
+    } else {
+      result.handlerSetupResult = 'remote not available';
+    }
+
+    // Determine best path
+    if (result.desktopCapturerAvailable && result.desktopCapturerSources > 0) {
+      result.bestPath = 'electron_desktopCapturer (zero-click)';
+    } else if (AudioRecorder._displayMediaHandlerReady) {
+      result.bestPath = 'getDisplayMedia + loopback handler (zero-click)';
+    } else if (result.getDisplayMediaAvailable) {
+      result.bestPath = 'getDisplayMedia (may show system picker)';
+    } else {
+      result.bestPath = 'mic_only';
+    }
+
+    return result;
+  }
+
+  /**
+   * Get the method used for system audio in the current recording session.
+   */
+  getSystemAudioMethod(): SystemAudioMethod {
+    return this.activeSystemAudioMethod;
+  }
+
+  /**
+   * Check if the display media handler was successfully installed.
+   */
+  static isHandlerReady(): boolean {
+    return AudioRecorder._displayMediaHandlerReady;
   }
 
   /**
@@ -403,6 +764,7 @@ export class AudioRecorder {
       const duration = this.state.duration;
       const captureMode = this.activeCaptureMode;
       const hasVirtualDevice = this.activeHasVirtualDevice;
+      const systemAudioMethod = this.activeSystemAudioMethod;
       let resolved = false;
 
       const buildResult = (audioBlob: Blob): RecordingResult => {
@@ -418,7 +780,8 @@ export class AudioRecorder {
           mimeType,
           filename: `recording-${dateStr}-${timeStr}.${extension}`,
           captureMode,
-          hasVirtualDevice
+          hasVirtualDevice,
+          systemAudioMethod
         };
       };
 
