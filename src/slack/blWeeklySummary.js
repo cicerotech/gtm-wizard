@@ -2800,11 +2800,14 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     logger.info('Generating weekly BL summary with PDF...');
     
     const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
-    const displayDate = now.toLocaleDateString('en-US', { 
+    const pstOffset = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+    const localNow = new Date(pstOffset);
+    const dateStr = `${localNow.getFullYear()}-${String(localNow.getMonth() + 1).padStart(2, '0')}-${String(localNow.getDate()).padStart(2, '0')}`;
+    const displayDate = localNow.toLocaleDateString('en-US', { 
       month: 'long', 
       day: 'numeric', 
-      year: 'numeric' 
+      year: 'numeric',
+      timeZone: 'America/Los_Angeles'
     });
     
     // Query pipeline data from Salesforce
