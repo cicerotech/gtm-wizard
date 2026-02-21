@@ -225,6 +225,28 @@ class SalesforceConnection {
     logger.info(`   Token: ${token ? token.length + ' chars' : 'MISSING'}`);
     logger.info(`   Token value: ${token ? token.substring(0, 4) + '...' + token.substring(token.length - 4) : 'N/A'}`);
     
+    // Try SF CLI access token first (avoids username/password login entirely)
+    try {
+      const { execSync } = require('child_process');
+      const cliOutput = execSync('sf org display --target-org eudia-prod --json 2>/dev/null', { timeout: 15000 }).toString();
+      const cliData = JSON.parse(cliOutput);
+      if (cliData.result?.accessToken && cliData.result?.instanceUrl) {
+        logger.info('🔐 Using SF CLI access token (bypassing username/password login)');
+        this.conn.accessToken = cliData.result.accessToken;
+        this.conn.instanceUrl = cliData.result.instanceUrl;
+        recordAuthAttempt(true);
+        logger.info('✅ SF CLI token applied successfully');
+        await cache.set('sf_access_token', {
+          token: cliData.result.accessToken,
+          instanceUrl: cliData.result.instanceUrl,
+          expires: Date.now() + (2 * 60 * 60 * 1000)
+        }, 7200);
+        return;
+      }
+    } catch (cliErr) {
+      logger.info('🔐 SF CLI token not available, falling back to username/password login');
+    }
+
     if (!username || !password || !token) {
       const errMsg = `Missing credentials - Username: ${!!username}, Password: ${!!password}, Token: ${!!token}`;
       recordAuthAttempt(false, errMsg);

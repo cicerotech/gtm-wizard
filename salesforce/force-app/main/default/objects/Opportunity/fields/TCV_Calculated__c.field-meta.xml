@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>TCV_Calculated__c</fullName>
-    <description>Total Contract Value. When products have individual terms set, TCV is calculated per-product by the trigger (stored in TCV__c). Otherwise falls back to ACV × Term / 12.</description>
+    <description>Total Contract Value. When products have individual terms set, TCV is calculated per-product by the trigger (stored in TCV__c). Otherwise falls back to ACV × MAX(1, Term / 12) so sub-annual deals have TCV = ACV.</description>
     <externalId>false</externalId>
     <formula>IF(
   TCV__c &gt; 0,
@@ -9,11 +9,11 @@
   IF(
     OR(ISBLANK(Term__c), ISBLANK(ACV__c)),
     NULL,
-    ACV__c * (Term__c / 12)
+    ACV__c * MAX(1, Term__c / 12)
   )
 )</formula>
     <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
-    <inlineHelpText>Total Contract Value. When products have individual terms, TCV is calculated per-product (each product ACV × its own term in months / 12). When no per-product terms are set, falls back to ACV × Term / 12.</inlineHelpText>
+    <inlineHelpText>Total Contract Value. For sub-annual deals (term &lt; 12 months), TCV = ACV. For multi-year deals, TCV = ACV × (Term / 12). When products have individual terms, each is calculated independently.</inlineHelpText>
     <label>TCV (Calculated)</label>
     <precision>18</precision>
     <required>false</required>

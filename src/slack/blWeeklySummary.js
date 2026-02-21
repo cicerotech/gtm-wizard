@@ -211,17 +211,22 @@ function writeSnapshots(data) {
   }
 }
 
-function getLastSnapshotDate(snapshots) {
+function getLastSnapshotDate(snapshots, excludeDate = null) {
   const dates = Object.keys(snapshots.snapshots || {}).sort();
+  if (excludeDate) {
+    const prior = dates.filter(d => d < excludeDate);
+    return prior.length > 0 ? prior[prior.length - 1] : null;
+  }
   return dates.length > 0 ? dates[dates.length - 1] : null;
 }
 
-function saveSnapshot(date, blData, totals = null) {
+function saveSnapshot(date, blData, totals = null, stageBreakdown = null, forecast = null) {
   const data = readSnapshots();
-  // Store both BL data and totals for WoW comparison
   data.snapshots[date] = {
     blMetrics: blData,
-    totals: totals || null
+    totals: totals || null,
+    stageBreakdown: stageBreakdown || null,
+    forecast: forecast || null
   };
   
   // Keep only last 12 weeks of snapshots
@@ -248,7 +253,7 @@ async function queryPipelineData() {
     const soql = `
       SELECT Owner.Name, AccountId, Account.Name, Account.Account_Display_Name__c,
              ACV__c, Weighted_ACV__c, StageName,
-             Target_LOI_Date__c, Product_Line__c
+             Target_LOI_Date__c, Product_Line__c, Product_Lines_Multi__c
       FROM Opportunity
       WHERE IsClosed = false
         AND StageName IN (${stageFilter})
@@ -871,7 +876,7 @@ async function querySignedRevenueLastWeek() {
     // Also filter to ensure deals are within current fiscal quarter
     const soql = `
       SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Owner.Name, 
-             Sales_Type__c, Revenue_Type__c, Product_Line__c, CloseDate
+             Sales_Type__c, Revenue_Type__c, Product_Line__c, Product_Lines_Multi__c, CloseDate
       FROM Opportunity
       WHERE StageName IN (${CLOSED_WON_IN_CLAUSE})
         AND CloseDate >= ${effectiveStartStr}
@@ -902,7 +907,7 @@ async function querySignedRevenueLastWeek() {
       ownerName: opp.Owner?.Name || 'Unknown',
       salesType: opp.Sales_Type__c || 'N/A',
       revenueType: opp.Revenue_Type__c || 'Other',
-      productLine: opp.Product_Line__c || 'N/A',
+      productLine: resolveProductLine(opp) || 'N/A',
       closeDate: opp.CloseDate
     }));
     
@@ -959,7 +964,7 @@ async function queryTop10TargetingJanuary() {
     // Query top 10 deals by ACV - filter by active stages AND target date <= end of current month
     const soql = `
       SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Blended_Forecast_base__c, Target_LOI_Date__c, 
-             StageName, Owner.Name, Sales_Type__c
+             StageName, Owner.Name, Sales_Type__c, Product_Line__c, Product_Lines_Multi__c
       FROM Opportunity
       WHERE IsClosed = false
         AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
@@ -968,7 +973,6 @@ async function queryTop10TargetingJanuary() {
       LIMIT 10
     `;
     
-    // Also query total count of all matching opportunities with same filters
     const countSoql = `
       SELECT COUNT(Id) totalCount
       FROM Opportunity
@@ -995,7 +999,8 @@ async function queryTop10TargetingJanuary() {
       targetDate: opp.Target_LOI_Date__c,
       stage: opp.StageName,
       owner: opp.Owner?.Name,
-      salesType: opp.Sales_Type__c
+      salesType: opp.Sales_Type__c,
+      productLine: resolveProductLine(opp)
     }));
     
     const totalACV = deals.reduce((sum, d) => sum + d.acv, 0);
@@ -1029,7 +1034,7 @@ async function queryTop10TargetingQ1() {
     // Query top 10 deals by ACV - filter by active stages
     const soql = `
       SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Blended_Forecast_base__c, Target_LOI_Date__c, 
-             StageName, Owner.Name, Sales_Type__c
+             StageName, Owner.Name, Sales_Type__c, Product_Line__c, Product_Lines_Multi__c
       FROM Opportunity
       WHERE IsClosed = false
         AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
@@ -1039,7 +1044,6 @@ async function queryTop10TargetingQ1() {
       LIMIT 10
     `;
     
-    // Also query total count of all matching opportunities
     const countSoql = `
       SELECT COUNT(Id) totalCount
       FROM Opportunity
@@ -1067,7 +1071,8 @@ async function queryTop10TargetingQ1() {
       targetDate: opp.Target_LOI_Date__c,
       stage: opp.StageName,
       owner: opp.Owner?.Name,
-      salesType: opp.Sales_Type__c
+      salesType: opp.Sales_Type__c,
+      productLine: resolveProductLine(opp)
     }));
     
     const totalACV = deals.reduce((sum, d) => sum + d.acv, 0);
@@ -1434,7 +1439,7 @@ function processPipelineData(records) {
     const weightedAcv = opp.Weighted_ACV__c || 0;
     const stageName = opp.StageName;
     const targetDate = opp.Target_LOI_Date__c;
-    const productLine = opp.Product_Line__c || '';
+    const productLine = resolveProductLine(opp);
     
     if (!ownerName) return;
     
@@ -1612,6 +1617,16 @@ function processPipelineData(records) {
  * Format product line name for display
  * Replaces underscores with dashes (e.g., "Contracting_Managed" → "Contracting-Managed")
  */
+function resolveProductLine(opp) {
+  const multi = opp.Product_Lines_Multi__c;
+  if (multi) {
+    return multi.replace(/;/g, ', ').replace(/_/g, '-');
+  }
+  const single = opp.Product_Line__c || '';
+  if (single === 'Multiple' || !single) return '';
+  return single;
+}
+
 function formatProductLine(productLine) {
   if (!productLine) return 'N/A';
   return productLine.replace(/_/g, '-');
@@ -1637,7 +1652,7 @@ const GREEN_BG = '#f0fdf4';       // Targeting box background
  * @param {string} dateStr - Display date string
  * @returns {number} Final y position after rendering
  */
-function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
+function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot = null) {
   const {
     januaryClosedWon,
     q4WeightedPipeline,
@@ -1651,21 +1666,22 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     productLineData
   } = revOpsData;
   
-  // Use LIVE AI-enabled NET ACV data from Salesforce formula fields
-  // commitNet = Quarterly_Commit__c (100% Net ACV, Commit category) = ~$3.9M
-  // weightedNet = Weighted_ACV_AI_Enabled__c (stage-prob × Net ACV) = ~$5.8M
-  // midpoint = (commit + weighted) / 2 = ~$4.8M
   const af = aiEnabledForecast || {};
   const liveCommit = (typeof af.commitNet === 'number') ? af.commitNet / 1000000 : Q1_FY26_FORECAST.floor;
   const liveWeighted = (typeof af.weightedNet === 'number') ? af.weightedNet / 1000000 : Q1_FY26_FORECAST.expected;
   const liveMidpoint = (typeof af.midpoint === 'number') ? af.midpoint / 1000000 : Q1_FY26_FORECAST.midpoint;
+  
+  // Previous forecast for WoW (fallback: user-provided last week values $3.9m commit, $5.8m weighted)
+  const prevForecast = previousSnapshot?.forecast || null;
+  const prevCommitM = prevForecast ? (prevForecast.commitNet || 0) / 1000000 : 3.9;
+  const prevWeightedM = prevForecast ? (prevForecast.weightedNet || 0) / 1000000 : 5.8;
   
   // Page dimensions
   const LEFT = 40;
   const PAGE_WIDTH = 532;
   const RIGHT = LEFT + PAGE_WIDTH;
   const MID = LEFT + PAGE_WIDTH / 2;
-  const SECTION_GAP = 14;
+  const SECTION_GAP = 8;
   
   // Fonts
   const fontRegular = 'Helvetica';
@@ -1737,11 +1753,10 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   doc.text('AI-Enabled, Net-New  •  Target Sign Date ≤ Q1', LEFT + 8, y + 3);
   y += 14;
   
-  // Forecast rows - LIVE from Salesforce, aligned with Pipeline Review
   const forecastRows = [
     { label: 'Q1 Target', value: Q1_FY26_FORECAST.target, labelBold: true, amountBold: true, bg: '#f0fdf4' },
-    { label: 'Commit', value: liveCommit, labelBold: false, amountBold: false, bg: '#f9fafb', italic: true },
-    { label: 'Weighted', value: liveWeighted, labelBold: false, amountBold: false, bg: '#ffffff', italic: true },
+    { label: 'Commit', value: liveCommit, prev: prevCommitM, labelBold: false, amountBold: false, bg: '#f9fafb', italic: true },
+    { label: 'Weighted', value: liveWeighted, prev: prevWeightedM, labelBold: false, amountBold: false, bg: '#ffffff', italic: true },
     { label: 'Midpoint', value: liveMidpoint, labelBold: true, amountBold: true, bg: '#eff6ff' }
   ];
   
@@ -1749,17 +1764,22 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     const rowHeight = 17;
     doc.rect(LEFT, y, runRateWidth, rowHeight).fill(row.bg);
     doc.fillColor(DARK_TEXT);
-    // Label column - italicized for non-bold rows
     if (row.italic) {
       doc.font(fontItalic).fontSize(8);
     } else {
       doc.font(row.labelBold ? fontBold : fontRegular).fontSize(8);
     }
     doc.text(row.label, LEFT + 8, y + 5);
-    // Amount column - modest sizing
     doc.font(row.amountBold ? fontBold : fontRegular).fontSize(9);
     const safeValue = (typeof row.value === 'number' && !isNaN(row.value)) ? row.value : 0;
     doc.text(`$${safeValue.toFixed(1)}m`, LEFT + col1Width, y + 4, { width: col2Width, align: 'right' });
+    if (row.prev != null && row.prev > 0) {
+      const pctChange = Math.round(((safeValue - row.prev) / row.prev) * 100);
+      const sign = pctChange > 0 ? '+' : '';
+      doc.font(fontItalic).fontSize(7).fillColor('#9ca3af');
+      doc.text(`${sign}${pctChange}%`, LEFT + col1Width + col2Width + 4, y + 5);
+      doc.fillColor(DARK_TEXT);
+    }
     y += rowHeight;
   });
   
@@ -1852,11 +1872,8 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
         doc.font(fontRegular).fontSize(8).fillColor(BODY_TEXT);
         doc.text(`• ${dealValue}, ${name}`, signedX + 4, y);
         y += 11;
-        // Sub-bullet: product line
-        let formattedProductLine = formatProductLine(deal.productLine);
-        if (formattedProductLine.length > 20) {
-          formattedProductLine = formattedProductLine.substring(0, 20) + '...';
-        }
+        // Sub-bullet: full product line name
+        const formattedProductLine = formatProductLine(deal.productLine);
         doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
         doc.text(`  ${formattedProductLine}`, signedX + 12, y);
         y += 10;
@@ -1878,12 +1895,11 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   const oppColWidth = (PAGE_WIDTH - 14) / 2;
   const oppLeftX = LEFT;
   const oppRightX = LEFT + oppColWidth + 14;
-  const oppRowH = 11;
+  const oppRowH = 18;
   
-  // Helper to render a compact top-10 table
+  // Two-line layout: line 1 = company + ACV, line 2 = product line
   const renderOppColumn = (x, colW, title, subtitle, deals, startY) => {
     let cy = startY;
-    // Column header
     doc.rect(x, cy, colW, 16).fill('#f3f4f6');
     doc.strokeColor('#e5e7eb').lineWidth(0.5).rect(x, cy, colW, 16).stroke();
     doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
@@ -1900,13 +1916,18 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
       let displayName = deal.accountName;
       if (ACCOUNT_DISPLAY_OVERRIDES[displayName]) displayName = ACCOUNT_DISPLAY_OVERRIDES[displayName];
       if (displayName === 'Bank of Ireland') value += '*';
-      const name = displayName.length > 20 ? displayName.substring(0, 18) + '...' : displayName;
       const bg = i % 2 === 0 ? '#ffffff' : '#fafafa';
       doc.rect(x, cy, colW, oppRowH).fill(bg);
       doc.font(fontRegular).fontSize(7.5).fillColor(DARK_TEXT);
-      doc.text(`${i + 1}.`, x + 4, cy + 2, { width: 14, lineBreak: false });
-      doc.text(value, x + 16, cy + 2, { width: 50, lineBreak: false });
-      doc.text(name, x + 68, cy + 2, { width: colW - 74, lineBreak: false });
+      doc.text(`${i + 1}.`, x + 3, cy + 2, { width: 12, lineBreak: false });
+      doc.text(displayName, x + 15, cy + 2, { width: colW - 80, lineBreak: false });
+      doc.text(value, x + colW - 60, cy + 2, { width: 54, align: 'right', lineBreak: false });
+      const pl = formatProductLine(deal.productLine || '');
+      if (pl && pl !== 'N/A') {
+        doc.font(fontRegular).fontSize(6).fillColor('#6b7280');
+        doc.text(pl, x + 15, cy + 10.5, { width: colW - 20, lineBreak: false });
+      }
+      doc.fillColor(DARK_TEXT);
       cy += oppRowH;
     });
     return cy;
@@ -1994,13 +2015,13 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   const plAllRows = (productLineData && productLineData.length > 0) ? productLineData : [];
   const plRows = plAllRows.slice(0, maxRows);
   
-  // Header row — 3 columns: Product Line, Pipeline, Late Stage
+  // Header row — 3 columns: Product Line, Pipeline (%), Late Stage
+  const plTotalACV = plAllRows.reduce((sum, r) => sum + (r.acv || 0), 0);
   doc.rect(LEFT, y, plTableWidth, HDR_H).fill('#1f2937');
   doc.font(fontBold).fontSize(8).fillColor('#ffffff');
   doc.text('Product Line', LEFT + 6, y + 4, { width: 230, lineBreak: false });
-  doc.text('Pipeline', LEFT + 240, y + 4, { width: 100, align: 'center', lineBreak: false });
-  doc.text('Weighted', LEFT + 345, y + 4, { width: 90, align: 'center', lineBreak: false });
-  doc.text('Late Stage', LEFT + 440, y + 4, { width: 70, align: 'center', lineBreak: false });
+  doc.text('Pipeline (%)', LEFT + 240, y + 4, { width: 160, align: 'center', lineBreak: false });
+  doc.text('Late Stage', LEFT + 420, y + 4, { width: 70, align: 'center', lineBreak: false });
   y += HDR_H;
   
   doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
@@ -2013,10 +2034,10 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
     doc.fillColor(DARK_TEXT);
     const label = row.name.length > 35 ? row.name.substring(0, 33) + '...' : row.name;
     doc.text(label, LEFT + 6, y + 3, { width: 230, lineBreak: false });
-    doc.text(fmtAcv(row.acv), LEFT + 240, y + 3, { width: 100, align: 'center', lineBreak: false });
-    doc.text(fmtAcv(row.weighted), LEFT + 345, y + 3, { width: 90, align: 'center', lineBreak: false });
+    const pct = plTotalACV > 0 ? Math.round((row.acv / plTotalACV) * 100) : 0;
+    doc.text(`${fmtAcv(row.acv)} (${pct}%)`, LEFT + 240, y + 3, { width: 160, align: 'center', lineBreak: false });
     doc.font(fontBold).fillColor(DARK_TEXT);
-    doc.text(row.lateStage.toString(), LEFT + 440, y + 3, { width: 70, align: 'center', lineBreak: false });
+    doc.text(row.lateStage.toString(), LEFT + 420, y + 3, { width: 70, align: 'center', lineBreak: false });
     doc.font(fontRegular).fillColor(DARK_TEXT);
     y += ROW_H;
   });
@@ -2027,8 +2048,8 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
   const footerY = Math.min(y + 6, 758);
   doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, footerY).lineTo(RIGHT, footerY).stroke();
   
-  doc.font(fontRegular).fontSize(7).fillColor(LIGHT_TEXT);
-  doc.text('Generated by Eudia GTM Brain • www.eudia.com • Internal use only', LEFT, footerY + 4, { width: PAGE_WIDTH, align: 'center', lineBreak: false });
+  doc.font(fontRegular).fontSize(6.5).fillColor(LIGHT_TEXT);
+  doc.text('Generated by Eudia GTM Brain  •  Internal use only  •  * Net ACV shown where applicable', LEFT, footerY + 4, { width: PAGE_WIDTH, align: 'center', lineBreak: false });
   
   return footerY + 20;
 }
@@ -2040,7 +2061,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr) {
  * @param {Object} activeRevenue - Active revenue data from queryActiveRevenue()
  *   Contains recurringACV and projectACV for contracts still in term
  */
-function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByType = {}, revOpsData = null) {
+function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByType = {}, revOpsData = null, previousSnapshot = null) {
   return new Promise((resolve, reject) => {
     try {
       const { blMetrics, stageBreakdown, totals, fiscalQuarterLabel, proposalThisMonth, allDeals } = pipelineData;
@@ -2063,7 +2084,7 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       // ═══════════════════════════════════════════════════════════════════════
       if (revOpsData) {
         const pagesBefore = doc.bufferedPageRange().count;
-        generatePage1RevOpsSummary(doc, revOpsData, dateStr);
+        generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot);
         const pagesAfter = doc.bufferedPageRange().count;
         if (pagesAfter <= pagesBefore) {
           doc.addPage();
@@ -2082,11 +2103,11 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       const RIGHT_COL = MID + 10;
       const SECTION_GAP = 10;  // Reduced from 30 to 10
       
-      // Fonts
       const fontRegular = 'Helvetica';
       const fontBold = 'Helvetica-Bold';
+      const fontItalic = 'Helvetica-Oblique';
       
-      let y = 30;  // Start position
+      let y = 30;
       
       // ═══════════════════════════════════════════════════════════════════════
       // HEADER - Logo + title + date + gradient line
@@ -2175,8 +2196,7 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       doc.font(fontRegular).fontSize(7).fillColor(DARK_TEXT);
       doc.text(`MSA: ${msaCount} • Pilot: ${pilotCount} • LOI: ${loiCount}`, colX, metricsY + 32, { width: colWidth, align: 'center' });
       
-      // Add extra spacing after header section (quarter inch = ~18 points)
-      y = metricsY + 48 + SECTION_GAP + 18;
+      y = metricsY + 48 + SECTION_GAP;
       
       // ═══════════════════════════════════════════════════════════════════════
       // TWO COLUMN SECTION: Stage Distribution (left) + Proposal Stage (right)
@@ -2184,29 +2204,46 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       const twoColY = y;
       
       // LEFT: Stage Distribution
+      const prevStageBreakdown = previousSnapshot?.stageBreakdown || {
+        'Stage 5 - Negotiation': { grossACV: 2400000 },
+        'Stage 4 - Proposal': { grossACV: 5100000 },
+        'Stage 3 - Pilot': { grossACV: 2000000 },
+        'Stage 2 - SQO': { grossACV: 17600000 },
+        'Stage 1 - Discovery': { grossACV: 12200000 },
+        'Stage 0 - Prospecting': { grossACV: 3600000 }
+      };
       doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
       doc.text('STAGE DISTRIBUTION', LEFT, twoColY);
       
-      // Table header
       let tableY = twoColY + 14;
       doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
       doc.text('Stage', LEFT, tableY);
       doc.text('Deals', LEFT + 110, tableY, { width: 40, align: 'right' });
-      doc.text('Gross ACV', LEFT + 160, tableY, { width: 70, align: 'right' });
+      doc.text('Gross ACV', LEFT + 155, tableY, { width: 60, align: 'right' });
+      doc.font(fontItalic).fontSize(8).fillColor('#9ca3af');
+      doc.text('WoW', LEFT + 218, tableY, { width: 40, align: 'center' });
       
       tableY += 11;
       doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, tableY).lineTo(LEFT + halfWidth, tableY).stroke();
       tableY += 5;
       
-      // Table rows - increased font for readability
       const stageOrder = [...ACTIVE_STAGES].reverse();
-      doc.font(fontRegular).fontSize(10).fillColor(DARK_TEXT);
       stageOrder.forEach(stage => {
         const data = stageBreakdown[stage] || { count: 0, grossACV: 0 };
         const stageLabel = stage.replace('Stage ', 'S').replace(' - ', ' ');
+        doc.font(fontRegular).fontSize(10).fillColor(DARK_TEXT);
         doc.text(stageLabel, LEFT, tableY);
         doc.text(data.count.toString(), LEFT + 110, tableY, { width: 40, align: 'right' });
-        doc.text(formatCurrency(data.grossACV), LEFT + 160, tableY, { width: 70, align: 'right' });
+        doc.text(formatCurrency(data.grossACV), LEFT + 155, tableY, { width: 60, align: 'right' });
+        
+        const prevData = prevStageBreakdown[stage] || { grossACV: 0 };
+        const prevACV = prevData.grossACV || 0;
+        if (prevACV > 0) {
+          const pctChange = Math.round(((data.grossACV - prevACV) / prevACV) * 100);
+          const sign = pctChange > 0 ? '+' : '';
+          doc.font(fontItalic).fontSize(7.5).fillColor('#9ca3af');
+          doc.text(`${sign}${pctChange}%`, LEFT + 218, tableY + 1, { width: 40, align: 'center' });
+        }
         tableY += 11;
       });
       
@@ -2216,9 +2253,8 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         const boxX = RIGHT_COL;
         const boxY = propTableY;
         const boxWidth = PAGE_WIDTH / 2 - 5;
-        const dealsToShow = proposalThisMonth.slice(0, 10);  // Show up to 10 deals
-        // Increased row height for better readability with Net callouts
-        const rowHeight = 13;
+        const dealsToShow = proposalThisMonth.slice(0, 10);
+        const rowHeight = 17;
         const headerHeight = 26;
         const footerHeight = proposalThisMonth.length > 10 ? 14 : 6;
         const boxHeight = dealsToShow.length * rowHeight + headerHeight + footerHeight;
@@ -2232,17 +2268,14 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         doc.font(fontBold).fontSize(11).fillColor(GREEN_ACCENT);
         doc.text('TARGETING THIS MONTH', boxX + 12, boxY + 8);
         
-        // Deal list - improved formatting
-        doc.font(fontRegular).fontSize(9).fillColor(BODY_TEXT);
+        // Deal list — two lines per deal: name/ACV/date + product line
         let dealY = boxY + headerHeight;
         dealsToShow.forEach(d => {
-          // Apply account display overrides
           let displayName = d.accountName;
           if (ACCOUNT_DISPLAY_OVERRIDES[displayName]) {
             displayName = ACCOUNT_DISPLAY_OVERRIDES[displayName];
           }
           
-          // Format ACV - add asterisk for Bank of Ireland with Net ACV note
           let acvDisplay = formatCurrency(d.acv);
           let extraNote = '';
           if (displayName === 'Bank of Ireland' || d.accountName === 'Bank of Ireland') {
@@ -2250,11 +2283,16 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
             extraNote = ' (Net: $235k)';
           }
           
-          // Truncate name to fit with full ACV display
           const maxNameLen = extraNote ? 18 : 22;
           const name = displayName.length > maxNameLen ? displayName.substring(0, maxNameLen) + '...' : displayName;
           
+          doc.font(fontRegular).fontSize(8.5).fillColor(BODY_TEXT);
           doc.text(`${name} • ${acvDisplay}${extraNote} • ${formatDate(d.targetDate)}`, boxX + 12, dealY);
+          const pl = formatProductLine(d.productLine || '');
+          if (pl && pl !== 'N/A') {
+            doc.font(fontRegular).fontSize(5.5).fillColor('#6b7280');
+            doc.text(pl, boxX + 18, dealY + 9);
+          }
           dealY += rowHeight;
         });
         if (proposalThisMonth.length > 10) {
@@ -2404,8 +2442,8 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       const footerY = Math.min(y + 6, 760); // Cap at 760pt to stay within Letter page
       doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, footerY).lineTo(LEFT + PAGE_WIDTH, footerY).stroke();
       
-      doc.font(fontRegular).fontSize(7).fillColor(LIGHT_TEXT);
-      doc.text('Generated by Eudia GTM Brain • www.eudia.com • Internal use only', LEFT, footerY + 4, { width: PAGE_WIDTH, align: 'center', lineBreak: false });
+      doc.font(fontRegular).fontSize(6.5).fillColor(LIGHT_TEXT);
+      doc.text('Generated by Eudia GTM Brain  •  Internal use only', LEFT, footerY + 4, { width: PAGE_WIDTH, align: 'center', lineBreak: false });
       
       doc.end();
       
@@ -2712,31 +2750,43 @@ function formatSlackMessage(pipelineData, previousSnapshot, dateStr, revOpsData 
   message += '\n';
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // COMMIT BY BL - Use LIVE AI-enabled commit data when available
+  // WoW CHANGE SUMMARY (pipeline + stage movements only, no forecast)
   // ═══════════════════════════════════════════════════════════════════════════
-  const liveBlCommits = revOpsData?.aiEnabledForecast?.blCommits || {};
-  const commitSource = Object.keys(liveBlCommits).length > 0 ? liveBlCommits : BL_COMMIT_SNAPSHOT;
+  const prevTotalsObj = previousSnapshot?.totals || null;
+  const prevStageBD = previousSnapshot?.stageBreakdown || null;
   
-  const usBLsCommit = US_POD.filter(bl => (commitSource[bl] || 0) > 0)
-    .sort((a, b) => (commitSource[b] || 0) - (commitSource[a] || 0)).slice(0, 3);
-  const euBLsCommit = EU_POD.filter(bl => (commitSource[bl] || 0) > 0)
-    .sort((a, b) => (commitSource[b] || 0) - (commitSource[a] || 0)).slice(0, 3);
+  const wowLines = [];
   
-  message += `*COMMIT BY BL*\n`;
-  if (usBLsCommit.length > 0) {
-    const usCommitLine = usBLsCommit.map(bl => `${bl.split(' ')[0]} ${formatCurrency(commitSource[bl] || 0)}`).join(', ');
-    message += `US: ${usCommitLine}\n`;
+  const prevGross = prevTotalsObj?.grossACV || totals.grossACV;
+  const grossDelta = totals.grossACV - prevGross;
+  if (Math.abs(grossDelta) >= 50000) {
+    wowLines.push(`Pipeline ${grossDelta >= 0 ? '+' : ''}${formatCurrency(grossDelta)} WoW (${formatCurrency(totals.grossACV)} total)`);
   }
-  if (euBLsCommit.length > 0) {
-    const euCommitLine = euBLsCommit.map(bl => `${bl.split(' ')[0]} ${formatCurrency(commitSource[bl] || 0)}`).join(', ');
-    message += `EU: ${euCommitLine}\n`;
+  
+  const prevOpps = prevTotalsObj?.totalOpportunities || totals.totalOpportunities;
+  const oppsDelta = totals.totalOpportunities - prevOpps;
+  if (oppsDelta !== 0) {
+    wowLines.push(`${oppsDelta >= 0 ? '+' : ''}${oppsDelta} opps (${totals.totalOpportunities} total)`);
   }
+  
+  if (prevStageBD) {
+    const s5Prev = prevStageBD['Stage 5 - Negotiation']?.count || 0;
+    const s5Now = stageBreakdown['Stage 5 - Negotiation']?.count || 0;
+    const s4Prev = prevStageBD['Stage 4 - Proposal']?.count || 0;
+    const s4Now = stageBreakdown['Stage 4 - Proposal']?.count || 0;
+    if (s5Now > s5Prev) wowLines.push(`+${s5Now - s5Prev} moved to S5 Negotiation`);
+    if (s4Now > s4Prev) wowLines.push(`+${s4Now - s4Prev} moved to S4 Proposal`);
+    if (s5Now < s5Prev) wowLines.push(`${s5Now - s5Prev} exited S5 Negotiation`);
+    if (s4Now < s4Prev) wowLines.push(`${s4Now - s4Prev} exited S4 Proposal`);
+  }
+  
+  if (wowLines.length > 0) {
+    message += `*WoW CHANGES*\n`;
+    wowLines.forEach(l => { message += `${l}\n`; });
+  }
+  
   message += '\n';
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // PDF REFERENCE
-  // ═══════════════════════════════════════════════════════════════════════════
-  message += `_Full BL breakdown and deal details in PDF._`;
+  message += `_Full BL breakdown, product lines, and deal details in PDF._`;
   
   return message;
 }
@@ -2818,10 +2868,10 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     // ═══════════════════════════════════════════════════════════════════════════
     // MANUAL DEAL OVERRIDES — temporary additions not yet in Salesforce
     // TODO: Remove once these deals are recorded as Closed Won in SF
-    // Added 2026-02-20: Donald $45k Contracting MS (Project)
+    // Added 2026-02-20: Donald $25k Contracting MS (Project) — owner: Olivia Jung
     // ═══════════════════════════════════════════════════════════════════════════
     const manualDeals = [
-      { accountName: 'Donald', acv: 45000, revenueType: 'Project', productLine: 'AI Contracting - Managed Services', ownerName: 'Asad Hussain', salesType: 'New business' }
+      { accountName: 'Donald', acv: 25000, revenueType: 'Project', productLine: 'AI Contracting - Managed Services', ownerName: 'Olivia Jung', salesType: 'New business' }
     ];
     for (const deal of manualDeals) {
       signedQTD.totalACV += deal.acv;
@@ -2844,9 +2894,9 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     // Process into metrics
     const pipelineData = processPipelineData(records);
     
-    // Get previous week's snapshot
+    // Get previous week's snapshot (exclude today so we compare against a prior date)
     const snapshotData = readSnapshots();
-    const lastSnapshotDate = getLastSnapshotDate(snapshotData);
+    const lastSnapshotDate = getLastSnapshotDate(snapshotData, dateStr);
     const previousMetrics = lastSnapshotDate ? snapshotData.snapshots[lastSnapshotDate] : null;
     
     logger.info(`Previous snapshot date: ${lastSnapshotDate || 'none'}`);
@@ -2856,11 +2906,16 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     
     // Generate PDF snapshot with Page 1 RevOps + Page 2 GTM Snapshot
     logger.info('Generating 2-page PDF snapshot...');
-    const pdfBuffer = await generatePDFSnapshot(pipelineData, displayDate, activeRevenue, logosByType, revOpsData);
+    const pdfBuffer = await generatePDFSnapshot(pipelineData, displayDate, activeRevenue, logosByType, revOpsData, previousMetrics);
     const pdfFilename = `Eudia_GTM_Weekly_Snapshot_${dateStr}.pdf`;
     
-    // Save current snapshot (BL metrics + totals for WoW comparison)
-    saveSnapshot(dateStr, pipelineData.blMetrics, pipelineData.totals);
+    // Save current snapshot (BL metrics + totals + stageBreakdown + forecast for WoW comparison)
+    const forecastSnapshot = {
+      commitNet: aiEnabledForecast?.commitNet || 0,
+      weightedNet: aiEnabledForecast?.weightedNet || 0,
+      midpoint: aiEnabledForecast?.midpoint || 0
+    };
+    saveSnapshot(dateStr, pipelineData.blMetrics, pipelineData.totals, pipelineData.stageBreakdown, forecastSnapshot);
     
     // ═══════════════════════════════════════════════════════════════════════════
     // CHANNEL SELECTION - CRITICAL FOR RESPONDING IN CORRECT LOCATION

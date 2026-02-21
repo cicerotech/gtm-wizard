@@ -93,10 +93,10 @@ public class ProductsBreakdownService {
      */
     private static Decimal calculateTCV(List<OpportunityLineItem> lineItems, Decimal oppAcv, Decimal oppTerm) {
         if (lineItems == null || lineItems.isEmpty()) {
-            // No products — fall back to ACV × Term
             Decimal acv = oppAcv != null ? oppAcv : 0;
             Decimal termMonths = oppTerm != null ? oppTerm : 12;
-            return acv * (termMonths / 12);
+            Decimal multiplier = Math.max(1, termMonths / 12);
+            return acv * multiplier;
         }
         
         Decimal totalTcv = 0;
@@ -104,12 +104,12 @@ public class ProductsBreakdownService {
         
         for (OpportunityLineItem oli : lineItems) {
             Decimal productAcv = oli.TotalPrice != null ? oli.TotalPrice : 0;
-            // Use product-level term if set, otherwise fall back to opp-level term
             Decimal productTermMonths = (oli.Product_Term_Months__c != null && oli.Product_Term_Months__c > 0)
                 ? oli.Product_Term_Months__c 
                 : defaultTermMonths;
             
-            totalTcv += productAcv * (productTermMonths / 12);
+            Decimal multiplier = Math.max(1, productTermMonths / 12);
+            totalTcv += productAcv * multiplier;
         }
         
         return totalTcv.setScale(2);
@@ -156,13 +156,13 @@ public class ProductsBreakdownService {
             
             String line = '• ' + productName + ': ' + formatCurrency(price);
             
-            // Add term if set
             if (oli.Product_Term_Months__c != null && oli.Product_Term_Months__c > 0) {
                 Integer termMonths = oli.Product_Term_Months__c.intValue();
                 line += ' (' + termMonths + ' mo)';
-                totalTcv += price * (oli.Product_Term_Months__c / 12);
+                Decimal multiplier = Math.max(1, oli.Product_Term_Months__c / 12);
+                totalTcv += price * multiplier;
             } else {
-                totalTcv += price; // Default 12-month term = TCV equals ACV
+                totalTcv += price;
             }
             
             lines.add(line);
