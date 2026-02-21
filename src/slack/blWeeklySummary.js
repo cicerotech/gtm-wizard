@@ -1785,8 +1785,8 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
   
   // Footnote beneath forecast table — clear methodology
   y += 2;
-  doc.font(fontItalic).fontSize(5.5).fillColor('#9ca3af');
-  doc.text('Commit = 100% Net ACV, "Commit" category. Weighted = stage-probability × Net ACV. Midpoint = (Commit + Weighted) / 2. AI-Enabled deals only, target sign ≤ Q1 end.', LEFT + 4, y, { width: runRateWidth - 8 });
+  doc.font(fontItalic).fontSize(6).fillColor('#9ca3af');
+  doc.text('Commit = 100% Net ACV, "Commit" category. Weighted = stage-prob × Net ACV. Midpoint = (Commit + Weighted) / 2. AI-Enabled, target sign ≤ Q1.', LEFT + 4, y, { width: runRateWidth - 8 });
   
   const runRateEndY = y + 16;
   
@@ -1924,7 +1924,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
       doc.text(value, x + colW - 60, cy + 2, { width: 54, align: 'right', lineBreak: false });
       const pl = formatProductLine(deal.productLine || '');
       if (pl && pl !== 'N/A') {
-        doc.font(fontRegular).fontSize(6).fillColor('#6b7280');
+        doc.font(fontRegular).fontSize(6.5).fillColor('#6b7280');
         doc.text(pl, x + 15, cy + 10.5, { width: colW - 20, lineBreak: false });
       }
       doc.fillColor(DARK_TEXT);
@@ -2206,11 +2206,11 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       // LEFT: Stage Distribution
       const prevStageBreakdown = previousSnapshot?.stageBreakdown || {
         'Stage 5 - Negotiation': { grossACV: 2400000 },
-        'Stage 4 - Proposal': { grossACV: 5100000 },
-        'Stage 3 - Pilot': { grossACV: 2000000 },
-        'Stage 2 - SQO': { grossACV: 17600000 },
-        'Stage 1 - Discovery': { grossACV: 12200000 },
-        'Stage 0 - Prospecting': { grossACV: 3600000 }
+        'Stage 4 - Proposal': { grossACV: 5600000 },
+        'Stage 3 - Pilot': { grossACV: 1200000 },
+        'Stage 2 - SQO': { grossACV: 17700000 },
+        'Stage 1 - Discovery': { grossACV: 11900000 },
+        'Stage 0 - Prospecting': { grossACV: 4100000 }
       };
       doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
       doc.text('STAGE DISTRIBUTION', LEFT, twoColY);
@@ -2290,7 +2290,7 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
           doc.text(`${name} • ${acvDisplay}${extraNote} • ${formatDate(d.targetDate)}`, boxX + 12, dealY);
           const pl = formatProductLine(d.productLine || '');
           if (pl && pl !== 'N/A') {
-            doc.font(fontRegular).fontSize(5.5).fillColor('#6b7280');
+            doc.font(fontRegular).fontSize(6.5).fillColor('#6b7280');
             doc.text(pl, boxX + 18, dealY + 9);
           }
           dealY += rowHeight;
