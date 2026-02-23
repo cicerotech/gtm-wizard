@@ -3067,10 +3067,12 @@ class EudiaCalendarView extends ItemView {
     }
     
     // Strategy 4: Search term contains folder name (e.g., "ubertechnologies" contains "uber")
+    // Word boundary check prevents "applied intuition" matching folder "Intuit"
     const searchContains = subfolders.find(f => {
       const folderLower = f.toLowerCase();
-      // Only match if folder name is at least 3 chars to avoid false positives
-      return folderLower.length >= 3 && normalizedSearch.includes(folderLower);
+      if (folderLower.length < 3 || !normalizedSearch.includes(folderLower)) return false;
+      const regex = new RegExp(`\\b${folderLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+      return regex.test(normalizedSearch);
     });
     if (searchContains) {
       console.log(`[Eudia Calendar] Search contains folder match: ${searchContains}`);
@@ -3078,9 +3080,12 @@ class EudiaCalendarView extends ItemView {
     }
     
     // Strategy 5: Folder name contains search term
+    // Word boundary check prevents "Applied Intuition" matching search "intuit"
     const folderContains = subfolders.find(f => {
       const folderLower = f.toLowerCase();
-      return normalizedSearch.length >= 3 && folderLower.includes(normalizedSearch);
+      if (normalizedSearch.length < 3 || !folderLower.includes(normalizedSearch)) return false;
+      const regex = new RegExp(`\\b${normalizedSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+      return regex.test(folderLower);
     });
     if (folderContains) {
       console.log(`[Eudia Calendar] Folder contains search match: ${folderContains}`);
