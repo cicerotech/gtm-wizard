@@ -1667,10 +1667,12 @@ Format your response as a brief, actionable answer suitable for quick reference 
           body: JSON.stringify({ audio: chunkBase64, mimeType })
         });
 
-        if (response.json?.success && response.json?.text) {
-          transcripts.push(response.json.text);
+        // Handle both old server (returns .transcript) and new server (returns .text)
+        const chunkText = response.json?.text || response.json?.transcript || '';
+        if (response.json?.success && chunkText) {
+          transcripts.push(chunkText);
           totalDuration += response.json.duration || 0;
-          console.log(`[Eudia] Chunk ${i + 1}/${chunkCount} OK: ${response.json.text.length} chars`);
+          console.log(`[Eudia] Chunk ${i + 1}/${chunkCount} OK: ${chunkText.length} chars`);
         } else {
           failedChunks++;
           console.warn(`[Eudia] Chunk ${i + 1}/${chunkCount} returned no text: ${response.json?.error || 'unknown'}`);
