@@ -55,6 +55,11 @@ const channelIntelligence = require('./services/channelIntelligence');
 const channelMonitor = require('./slack/channelMonitor');
 const intelligenceDigest = require('./slack/intelligenceDigest');
 
+// Product Feedback Tracker
+const feedbackExtractor = require('./services/feedbackExtractor');
+const feedbackStore = require('./services/feedbackStore');
+const feedbackDigest = require('./slack/feedbackDigest');
+
 // Telemetry Store for admin debugging
 const telemetryStore = require('./services/telemetryStore');
 
@@ -1037,12 +1042,11 @@ class GTMBrainApp {
           buildHash: mainJsStat.mtimeMs.toString(36),
           updatedAt: mainJsStat.mtime.toISOString(),
           name: manifest.name,
+          forceUpdate: manifest.forceUpdate || false,
         });
       } catch (err) {
-        // Fallback: always return success with current version so auto-update works
-        // IMPORTANT: Keep this in sync with obsidian-plugin/manifest.json version
         logger.warn('[Plugin Version] Could not read manifest.json from disk:', err.message);
-        res.json({ success: true, currentVersion: '4.7.2', version: '4.7.2' });
+        res.json({ success: true, currentVersion: '4.7.3', version: '4.7.3', forceUpdate: true });
       }
     });
 
@@ -1126,7 +1130,7 @@ class GTMBrainApp {
           const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
           latestVersion = manifest.version;
         } catch {
-          latestVersion = '4.7.1';
+          latestVersion = '4.7.3';
         }
 
         const response = { success: true, latestVersion };
@@ -3252,6 +3256,88 @@ class GTMBrainApp {
           success: false, 
           error: error.message
         });
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════
+    // Product Feedback API
+    // ═══════════════════════════════════════════════════════════
+
+    this.expressApp.get('/api/feedback', async (req, res) => {
+      try {
+        const filters = {
+          status: req.query.status,
+          feedback_type: req.query.type,
+          product_area: req.query.area,
+          account_name: req.query.account,
+          days_back: req.query.days ? parseInt(req.query.days) : 30,
+          limit: req.query.limit ? parseInt(req.query.limit) : 100
+        };
+        const items = await feedbackStore.getAllFeedback(filters);
+        res.json({ success: true, count: items.length, items });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    this.expressApp.get('/api/feedback/stats', async (req, res) => {
+      try {
+        const days = req.query.days ? parseInt(req.query.days) : 30;
+        const stats = await feedbackStore.getFeedbackStats(days);
+        res.json({ success: true, ...stats });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    this.expressApp.get('/api/feedback/poll', async (req, res) => {
+      try {
+        const result = await feedbackExtractor.pollChannel();
+        res.json({ success: true, ...result });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    this.expressApp.get('/api/feedback/backfill', async (req, res) => {
+      try {
+        const days = req.query.days ? parseInt(req.query.days) : 30;
+        res.json({ success: true, message: `Backfill started for ${days} days. Check logs for progress.` });
+        feedbackExtractor.backfill(days).then(result => {
+          logger.info(`[Feedback] Backfill complete: ${result.total} messages → ${result.feedback} feedback items`);
+        });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    this.expressApp.get('/api/feedback/sync-sfdc', async (req, res) => {
+      try {
+        const result = await feedbackStore.syncAllUnsyncedToSalesforce();
+        res.json({ success: true, ...result });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    this.expressApp.get('/api/feedback/digest', async (req, res) => {
+      try {
+        const days = req.query.days ? parseInt(req.query.days) : 7;
+        const channel = req.query.channel || 'U094AQE9V7D';
+        await feedbackDigest.sendDigest(channel, days);
+        res.json({ success: true, message: `Digest sent for last ${days} days` });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    this.expressApp.get('/api/feedback/status', async (req, res) => {
+      try {
+        const extractorStatus = feedbackExtractor.getStatus();
+        const stats = await feedbackStore.getFeedbackStats(30);
+        res.json({ success: true, extractor: extractorStatus, stats });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
       }
     });
 
@@ -6237,7 +6323,8 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
 
         res.json({
           success: true,
-          text: result.text || ''
+          text: result.transcript || result.text || '',
+          duration: result.duration || 0
         });
 
       } catch (error) {
@@ -8513,6 +8600,18 @@ SENTIMENT: [Positive/Neutral/Negative]`
         intelligenceDigest.registerDigestHandlers(this.app);
         registerIntelActionHandlers(this.app);
         logger.info('🧠 Channel Intelligence Scraper initialized');
+      }
+
+      // Initialize Product Feedback Tracker
+      try {
+        await feedbackStore.initialize();
+        feedbackExtractor.initialize(this.app.client);
+        feedbackExtractor.startPolling();
+        feedbackDigest.initialize(this.app.client);
+        feedbackDigest.scheduleWeeklyDigest();
+        logger.info('📋 Product Feedback Tracker initialized');
+      } catch (fbErr) {
+        logger.warn('Product Feedback Tracker init failed (non-critical):', fbErr.message);
       }
 
       // Setup graceful shutdown

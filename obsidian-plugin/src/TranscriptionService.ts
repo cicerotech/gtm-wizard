@@ -1580,12 +1580,20 @@ Format your response as a brief, actionable answer suitable for quick reference 
   async transcribeAudio(
     audioBlob: Blob, 
     context?: { accountName?: string; accountId?: string; speakerHints?: string[]; meetingType?: string; pipelineContext?: string; captureMode?: string; hasVirtualDevice?: boolean; meetingTemplate?: string }
-  ): Promise<{ text: string; confidence: number; duration?: number; sections?: ProcessedSections }> {
+  ): Promise<{ text: string; confidence: number; duration?: number; sections?: ProcessedSections; error?: string }> {
+    const blobSizeMB = audioBlob.size / 1024 / 1024;
+    const mimeType = audioBlob.type || 'audio/webm';
+
+    // Large recordings (>15MB, roughly >20 min) use chunked transcription
+    // to avoid request timeouts and payload size limits
+    if (blobSizeMB > 15) {
+      console.log(`[Eudia] Large recording (${blobSizeMB.toFixed(1)}MB) — using chunked transcription`);
+      return this.transcribeAudioChunked(audioBlob, mimeType, context);
+    }
+
     try {
       const base64 = await this.blobToBase64(audioBlob);
-      const mimeType = audioBlob.type || 'audio/webm';
       
-      // Build MeetingContext if we have pipeline meeting type
       const meetingContext: MeetingContext | undefined = context?.meetingType === 'pipeline_review'
         ? { success: true, meetingType: 'pipeline_review', pipelineContext: context.pipelineContext }
         : undefined;
@@ -1605,15 +1613,112 @@ Format your response as a brief, actionable answer suitable for quick reference 
         confidence: result.success ? 0.95 : 0,
         duration: result.duration,
         sections: result.sections,
-        diarizedTranscript: result.diarizedTranscript
+        diarizedTranscript: result.diarizedTranscript,
+        error: result.error
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('transcribeAudio error:', error);
       return {
         text: '',
         confidence: 0,
         duration: 0,
-        sections: this.getEmptySections()
+        sections: this.getEmptySections(),
+        error: error.message || 'Transcription request failed'
+      };
+    }
+  }
+
+  /**
+   * Chunked transcription for large recordings (>15MB).
+   * Splits audio into ~8MB chunks, transcribes each via /api/transcribe-chunk,
+   * then summarizes the combined transcript via /api/process-sections.
+   * This avoids request timeouts that kill monolithic uploads of long recordings.
+   */
+  private async transcribeAudioChunked(
+    audioBlob: Blob,
+    mimeType: string,
+    context?: { accountName?: string; accountId?: string; speakerHints?: string[]; meetingType?: string; pipelineContext?: string; captureMode?: string; hasVirtualDevice?: boolean; meetingTemplate?: string }
+  ): Promise<{ text: string; confidence: number; duration?: number; sections?: ProcessedSections; error?: string }> {
+    const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB raw → ~10.7MB base64, well within limits
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const totalBytes = arrayBuffer.byteLength;
+    const chunkCount = Math.ceil(totalBytes / CHUNK_SIZE);
+
+    console.log(`[Eudia] Chunked transcription: ${(totalBytes / 1024 / 1024).toFixed(1)}MB → ${chunkCount} chunks`);
+
+    const transcripts: string[] = [];
+    let totalDuration = 0;
+    let failedChunks = 0;
+
+    for (let i = 0; i < chunkCount; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, totalBytes);
+      const chunkBuffer = arrayBuffer.slice(start, end);
+      const chunkBlob = new Blob([chunkBuffer], { type: mimeType });
+      
+      console.log(`[Eudia] Transcribing chunk ${i + 1}/${chunkCount} (${((end - start) / 1024 / 1024).toFixed(1)}MB)`);
+
+      try {
+        const chunkBase64 = await this.blobToBase64(chunkBlob);
+        const response = await requestUrl({
+          url: `${this.serverUrl}/api/transcribe-chunk`,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audio: chunkBase64, mimeType })
+        });
+
+        if (response.json?.success && response.json?.text) {
+          transcripts.push(response.json.text);
+          totalDuration += response.json.duration || 0;
+          console.log(`[Eudia] Chunk ${i + 1}/${chunkCount} OK: ${response.json.text.length} chars`);
+        } else {
+          failedChunks++;
+          console.warn(`[Eudia] Chunk ${i + 1}/${chunkCount} returned no text: ${response.json?.error || 'unknown'}`);
+        }
+      } catch (chunkError: any) {
+        failedChunks++;
+        console.error(`[Eudia] Chunk ${i + 1}/${chunkCount} failed:`, chunkError.message);
+      }
+    }
+
+    if (transcripts.length === 0) {
+      return {
+        text: '',
+        confidence: 0,
+        duration: 0,
+        sections: this.getEmptySections(),
+        error: `All ${chunkCount} chunks failed to transcribe. Server may be unavailable.`
+      };
+    }
+
+    if (failedChunks > 0) {
+      console.warn(`[Eudia] ${failedChunks}/${chunkCount} chunks failed — partial transcript`);
+    }
+
+    const combinedTranscript = transcripts.join('\n\n');
+    console.log(`[Eudia] Combined transcript: ${combinedTranscript.length} chars from ${transcripts.length} chunks`);
+
+    // Now summarize the combined transcript
+    try {
+      const sections = await this.processTranscription(combinedTranscript, {
+        accountName: context?.accountName,
+        accountId: context?.accountId
+      });
+
+      return {
+        text: combinedTranscript,
+        confidence: failedChunks === 0 ? 0.90 : 0.70,
+        duration: totalDuration,
+        sections
+      };
+    } catch (sumError: any) {
+      console.error('[Eudia] Summarization failed after chunked transcription:', sumError.message);
+      return {
+        text: combinedTranscript,
+        confidence: 0.50,
+        duration: totalDuration,
+        sections: this.getEmptySections(),
+        error: `Transcription succeeded but summarization failed: ${sumError.message}`
       };
     }
   }

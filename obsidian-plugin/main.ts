@@ -3370,6 +3370,10 @@ export default class EudiaSyncPlugin extends Plugin {
       window.setInterval(() => this.checkForPluginUpdate(), 30 * 60 * 1000)
     );
 
+    // Auto-heal: scan for notes with failed transcriptions and re-process them
+    // Runs 30s after startup to avoid blocking initial load
+    setTimeout(() => this.healFailedTranscriptions(), 30000);
+
     // Register calendar view
     this.registerView(
       CALENDAR_VIEW_TYPE,
@@ -3877,6 +3881,12 @@ created: ${dateStr}
           if ((remote[i] || 0) < (local[i] || 0)) break;
         }
 
+        // Server can flag forceUpdate for critical fixes — treat as needing update
+        if (!needsUpdate && resp.json.forceUpdate && remoteVersion !== localVersion) {
+          needsUpdate = true;
+          console.log(`[Eudia Update] Server flagged forceUpdate for v${remoteVersion}`);
+        }
+
         if (needsUpdate) {
           console.log(`[Eudia Update] v${remoteVersion} available (current: v${localVersion})`);
           await this.performAutoUpdate(serverUrl, remoteVersion, localVersion);
@@ -3994,6 +4004,180 @@ created: ${dateStr}
       }
     } catch (e) {
       console.log('[Eudia Update] Update failed:', (e as Error).message || e);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTO-HEAL: Detect notes with failed transcriptions, match to saved
+  // recordings, re-transcribe with chunked pipeline, and update the notes.
+  // Runs silently on startup — zero user action required.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private async healFailedTranscriptions(): Promise<void> {
+    if (this.audioRecorder?.isRecording()) return;
+
+    try {
+      const allFiles = this.app.vault.getMarkdownFiles();
+      const failedNotes: Array<{ file: TFile; content: string }> = [];
+
+      for (const file of allFiles) {
+        try {
+          const content = await this.app.vault.read(file);
+          if (content.includes('**Transcription failed:**')) {
+            failedNotes.push({ file, content });
+          }
+        } catch { /* skip unreadable files */ }
+      }
+
+      if (failedNotes.length === 0) return;
+      console.log(`[Eudia AutoHeal] Found ${failedNotes.length} note(s) with failed transcriptions`);
+
+      // Collect available recordings
+      const recordingsFolder = this.settings.recordingsFolder || 'Recordings';
+      const recFolder = this.app.vault.getAbstractFileByPath(recordingsFolder);
+      if (!recFolder || !(recFolder instanceof TFolder)) {
+        console.log('[Eudia AutoHeal] No Recordings folder found — cannot recover');
+        return;
+      }
+
+      const recordings = recFolder.children
+        .filter(f => f instanceof TFile && /\.(webm|mp4|m4a|ogg)$/i.test(f.name))
+        .map(f => {
+          const match = f.name.match(/recording-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})/);
+          const ts = match
+            ? new Date(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}`)
+            : null;
+          return { file: f as TFile, timestamp: ts };
+        })
+        .filter(r => r.timestamp !== null)
+        .sort((a, b) => (b.timestamp!.getTime()) - (a.timestamp!.getTime()));
+
+      if (recordings.length === 0) {
+        console.log('[Eudia AutoHeal] No recordings found to match against');
+        return;
+      }
+
+      let healed = 0;
+
+      for (const { file, content } of failedNotes) {
+        try {
+          // Skip if already being processed or if it has actual transcript content
+          if (content.includes('## Summary') || content.includes('## Next Steps\n-')) continue;
+
+          // Try to extract the "Started:" time from the processing indicator
+          const startMatch = content.match(/Started:\s*(\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM)?)/i);
+          // Also extract frontmatter date if available
+          const fmDateMatch = content.match(/^---[\s\S]*?date:\s*(\d{4}-\d{2}-\d{2})[\s\S]*?---/);
+
+          // Get the note's modification time as fallback
+          const noteMtime = file.stat?.mtime || 0;
+
+          // Find the best matching recording
+          let bestRecording: TFile | null = null;
+
+          // Strategy 1: explicit path reference in the error text
+          const pathMatch = content.match(/saved to \*\*([^*]+)\*\*/);
+          if (pathMatch) {
+            const refFile = this.app.vault.getAbstractFileByPath(pathMatch[1]);
+            if (refFile && refFile instanceof TFile) {
+              bestRecording = refFile;
+            }
+          }
+
+          // Strategy 2: match by timestamp proximity
+          if (!bestRecording) {
+            let bestDiff = Infinity;
+            for (const rec of recordings) {
+              if (!rec.timestamp) continue;
+              const diff = Math.abs(noteMtime - rec.timestamp.getTime());
+              // Match within 30 minutes window
+              if (diff < 30 * 60 * 1000 && diff < bestDiff) {
+                bestDiff = diff;
+                bestRecording = rec.file;
+              }
+            }
+          }
+
+          if (!bestRecording) {
+            console.log(`[Eudia AutoHeal] No matching recording for "${file.path}"`);
+            continue;
+          }
+
+          console.log(`[Eudia AutoHeal] Healing "${file.path}" with recording "${bestRecording.path}"`);
+
+          // Read the audio file and re-transcribe
+          const audioBuffer = await this.app.vault.readBinary(bestRecording);
+          const audioBlob = new Blob([audioBuffer], { type: bestRecording.extension === 'mp4' || bestRecording.extension === 'm4a' ? 'audio/mp4' : 'audio/webm' });
+
+          // Detect account context from note path
+          let accountContext: any = {};
+          const pathParts = file.path.split('/');
+          const accountsFolderName = this.settings.accountsFolder || 'Accounts';
+          if (pathParts[0] === accountsFolderName && pathParts.length >= 2) {
+            accountContext.accountName = pathParts[1];
+          }
+          const isPipelineReview = pathParts[0] === 'Pipeline Meetings' || /meeting_type:\s*pipeline_review/.test(content);
+
+          // Transcribe using the chunked-aware method
+          const transcription = await this.transcriptionService.transcribeAudio(audioBlob, {
+            ...accountContext,
+            captureMode: 'full_call',
+            meetingTemplate: this.settings.meetingTemplate || 'meddic',
+            meetingType: isPipelineReview ? 'pipeline_review' : undefined
+          });
+
+          const hasContent = (s: any): boolean => {
+            if (!s) return false;
+            return Boolean(s.summary?.trim() || s.nextSteps?.trim());
+          };
+
+          let sections = transcription.sections;
+          if (!hasContent(sections) && transcription.text?.trim()) {
+            sections = await this.transcriptionService.processTranscription(transcription.text, accountContext);
+          }
+
+          if (!hasContent(sections) && !transcription.text?.trim()) {
+            console.log(`[Eudia AutoHeal] Re-transcription returned no content for "${file.path}" — skipping`);
+            continue;
+          }
+
+          // Build the healed note content
+          // Strip the failed transcription marker and processing indicator
+          let cleanedContent = content
+            .replace(/\n\n---\n\*\*Processing your recording\.\.\.\*\*[\s\S]*?\*You can navigate away[^*]*\*\n---\n/g, '')
+            .replace(/\n\n---\n\*\*Transcription in progress\.\.\.\*\*[\s\S]*?\*You can navigate away[^*]*\*\n---\n/g, '')
+            .replace(/\n\n\*\*Transcription failed:\*\*[^\n]*(\nYour recording was saved to[^\n]*)?\n/g, '')
+            .trim();
+
+          let noteContent: string;
+          if (isPipelineReview) {
+            noteContent = this.buildPipelineNoteContent(sections, transcription, file.path);
+          } else {
+            noteContent = this.buildNoteContent(sections, transcription);
+          }
+
+          // Preserve frontmatter from original note
+          const fmEnd = cleanedContent.indexOf('---', cleanedContent.indexOf('---') + 3);
+          if (fmEnd > 0) {
+            const frontmatter = cleanedContent.substring(0, fmEnd + 3);
+            await this.app.vault.modify(file, frontmatter + '\n\n' + noteContent);
+          } else {
+            await this.app.vault.modify(file, noteContent);
+          }
+
+          healed++;
+          console.log(`[Eudia AutoHeal] Successfully healed "${file.path}"`);
+        } catch (healError) {
+          console.error(`[Eudia AutoHeal] Failed to heal "${file.path}":`, (healError as Error).message);
+        }
+      }
+
+      if (healed > 0) {
+        console.log(`[Eudia AutoHeal] Healed ${healed}/${failedNotes.length} failed transcription(s)`);
+        new Notice(`Recovered ${healed} previously failed transcription${healed > 1 ? 's' : ''}.`, 8000);
+      }
+    } catch (e) {
+      console.error('[Eudia AutoHeal] Error:', (e as Error).message);
     }
   }
 
@@ -6269,11 +6453,23 @@ last_updated: ${dateStr}
       
       // Check if we got anything
       if (!hasContent(sections) && !transcription.text?.trim()) {
-        // Remove processing indicator and show error
         const currentContent = await this.app.vault.read(file);
-        const cleanedContent = currentContent.replace(/\n\n---\n\*\*Transcription in progress\.\.\.\*\*[\s\S]*?\*You can navigate away\. Check back shortly\.\*\n---\n/g, '');
-        await this.app.vault.modify(file, cleanedContent + '\n\n**Transcription failed:** No audio detected.\n');
-        new Notice('Transcription failed: No audio detected.');
+        // Match both legacy and current processing indicator formats
+        const cleanedContent = currentContent
+          .replace(/\n\n---\n\*\*Processing your recording\.\.\.\*\*[\s\S]*?\*You can navigate away[^*]*\*\n---\n/g, '')
+          .replace(/\n\n---\n\*\*Transcription in progress\.\.\.\*\*[\s\S]*?\*You can navigate away[^*]*\*\n---\n/g, '');
+        
+        // Surface the real error from the transcription service instead of always blaming audio
+        const serverError = (transcription as any).error;
+        const isActualAudioIssue = !serverError || serverError.includes('audio') || serverError.includes('microphone');
+        const errorMsg = isActualAudioIssue
+          ? 'No audio detected. Check your microphone settings.'
+          : serverError;
+        const savedPath = (result as any)._savedAudioPath;
+        const recoveryHint = savedPath ? `\nYour recording was saved to **${savedPath}** — you can retry transcription from there.` : '';
+        
+        await this.app.vault.modify(file, cleanedContent + `\n\n**Transcription failed:** ${errorMsg}${recoveryHint}\n`);
+        new Notice(`Transcription failed: ${errorMsg}`, 10000);
         return;
       }
 
@@ -6374,12 +6570,16 @@ last_updated: ${dateStr}
         await this.syncNoteToSalesforce();
       }
 
-    } catch (error) {
-      // Try to update note with error status
+    } catch (error: any) {
       try {
         const currentContent = await this.app.vault.read(file);
-        const cleanedContent = currentContent.replace(/\n\n---\n\*\*Transcription in progress\.\.\.\*\*[\s\S]*?\*You can navigate away\. Check back shortly\.\*\n---\n/g, '');
-        await this.app.vault.modify(file, cleanedContent + `\n\n**Transcription failed:** ${error.message}\n`);
+        // Match both legacy and current processing indicator formats
+        const cleanedContent = currentContent
+          .replace(/\n\n---\n\*\*Processing your recording\.\.\.\*\*[\s\S]*?\*You can navigate away[^*]*\*\n---\n/g, '')
+          .replace(/\n\n---\n\*\*Transcription in progress\.\.\.\*\*[\s\S]*?\*You can navigate away[^*]*\*\n---\n/g, '');
+        const savedPath = (result as any)?._savedAudioPath;
+        const recoveryHint = savedPath ? `\nYour recording was saved to **${savedPath}** — you can retry transcription from there.` : '';
+        await this.app.vault.modify(file, cleanedContent + `\n\n**Transcription failed:** ${error.message}${recoveryHint}\n`);
       } catch (e) {
         // File may have been moved/deleted
       }
