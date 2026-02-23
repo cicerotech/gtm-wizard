@@ -4045,7 +4045,7 @@ created: ${dateStr}
         .map(f => {
           const match = f.name.match(/recording-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})/);
           const ts = match
-            ? new Date(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}`)
+            ? new Date(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}Z`)
             : null;
           return { file: f as TFile, timestamp: ts };
         })
