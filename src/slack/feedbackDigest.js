@@ -8,7 +8,7 @@ const cron = require('node-cron');
 const logger = require('../utils/logger');
 const feedbackStore = require('../services/feedbackStore');
 
-const DIGEST_CHANNEL = process.env.FEEDBACK_DIGEST_CHANNEL || 'C09F9MUVA3F';
+const DIGEST_CHANNEL = process.env.FEEDBACK_DIGEST_CHANNEL || 'U094AQE9V7D';
 
 let slackClient = null;
 

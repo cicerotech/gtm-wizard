@@ -9,11 +9,11 @@ const intelligenceStore = require('./intelligenceStore');
 const { socratesAdapter } = require('../ai/socratesAdapter');
 
 // Configuration
-const POLL_INTERVAL_HOURS = parseInt(process.env.INTEL_POLL_INTERVAL_HOURS) || 1;
 const CONFIDENCE_THRESHOLD = parseFloat(process.env.INTEL_CONFIDENCE_THRESHOLD) || 0.7;
-const MIN_MESSAGE_LENGTH = 10;  // Lowered to catch short but important messages like "🎉 CLOSED!"
-const MAX_MESSAGES_PER_CHANNEL = 100;  // Rate limit per poll
-const MAX_INTEL_PER_CHANNEL_PER_DAY = 20;  // Prevent digest overload from high-volume channels
+const MIN_MESSAGE_LENGTH = 10;
+const MAX_MESSAGES_PER_CHANNEL = 50;
+const MAX_INTEL_PER_CHANNEL_PER_DAY = 20;
+const INTEL_CRON_SCHEDULE = process.env.INTEL_CRON || '30 5 * * 2,4,6';
 
 // Track daily intel counts per channel (resets on poll)
 const dailyIntelCounts = new Map();
@@ -289,7 +289,7 @@ async function initialize(client) {
   // Set up hourly polling schedule
   if (process.env.INTEL_SCRAPER_ENABLED === 'true') {
     startPolling();
-    logger.info(`✅ Channel Intelligence Service initialized (polling every ${POLL_INTERVAL_HOURS}h)`);
+    logger.info(`[ChannelIntel] Initialized (schedule: ${INTEL_CRON_SCHEDULE} ET, cap: ${MAX_MESSAGES_PER_CHANNEL}/channel)`);
   } else {
     logger.info('⚠️ Channel Intelligence Service disabled (INTEL_SCRAPER_ENABLED != true)');
   }
@@ -299,11 +299,8 @@ async function initialize(client) {
  * Start the polling schedule
  */
 function startPolling() {
-  // Run every hour at minute 0
-  const cronExpression = `0 */${POLL_INTERVAL_HOURS} * * *`;
-  
-  pollerSchedule = cron.schedule(cronExpression, async () => {
-    logger.info('🔄 Starting scheduled channel intelligence poll...');
+  pollerSchedule = cron.schedule(INTEL_CRON_SCHEDULE, async () => {
+    logger.info('[ChannelIntel] Scheduled poll triggered');
     await pollAllChannels();
   }, {
     timezone: 'America/New_York'

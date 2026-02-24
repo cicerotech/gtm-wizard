@@ -12,13 +12,15 @@ const { socratesAdapter } = require('../ai/socratesAdapter');
 
 const FEEDBACK_CHANNEL_ID = process.env.FEEDBACK_CHANNEL_ID || 'C09F9MUVA3F';
 const FEEDBACK_CHANNEL_NAME = 'eudia_product_channel';
-const POLL_INTERVAL_HOURS = parseInt(process.env.FEEDBACK_POLL_HOURS) || 1;
 const MIN_MESSAGE_LENGTH = 20;
-const MAX_MESSAGES_PER_POLL = 100;
+const MAX_MESSAGES_PER_CYCLE = 50;
+const DRY_RUN = process.env.FEEDBACK_DRY_RUN === 'true';
+const CRON_SCHEDULE = process.env.FEEDBACK_CRON || '0 5 * * 2,4,6';
 
 let slackClient = null;
 let isPolling = false;
 let lastPollTime = null;
+let cycleStats = { classified: 0, stored: 0, skipped: 0 };
 
 const FEEDBACK_CLASSIFICATION_PROMPT = `You are analyzing a Slack message from #eudia_product_channel — Eudia's internal product feedback channel. Eudia is a legal AI company with products: Contracting, Compliance, M&A, Sigma (platform), Insights, Litigation, and custom FDE solutions.
 
@@ -82,13 +84,12 @@ function startPolling() {
     return;
   }
 
-  const cronExpr = `15 */${POLL_INTERVAL_HOURS} * * *`;
-  cron.schedule(cronExpr, async () => {
+  cron.schedule(CRON_SCHEDULE, async () => {
     logger.info('[FeedbackExtractor] Scheduled poll triggered');
     await pollChannel();
-  });
+  }, { timezone: 'America/New_York' });
 
-  logger.info(`[FeedbackExtractor] Polling scheduled: every ${POLL_INTERVAL_HOURS}h (${cronExpr})`);
+  logger.info(`[FeedbackExtractor] Polling scheduled: ${CRON_SCHEDULE} (ET)${DRY_RUN ? ' [DRY RUN]' : ''}`);
 }
 
 async function pollChannel() {
@@ -104,16 +105,17 @@ async function pollChannel() {
 
   isPolling = true;
   const startTime = Date.now();
+  cycleStats = { classified: 0, stored: 0, skipped: 0 };
 
   try {
     const oldest = lastPollTime
       ? (lastPollTime / 1000).toString()
-      : ((Date.now() - 2 * 60 * 60 * 1000) / 1000).toString();
+      : ((Date.now() - 72 * 60 * 60 * 1000) / 1000).toString();
 
     const response = await slackClient.conversations.history({
       channel: FEEDBACK_CHANNEL_ID,
       oldest,
-      limit: MAX_MESSAGES_PER_POLL
+      limit: MAX_MESSAGES_PER_CYCLE
     });
 
     if (!response.ok || !response.messages) {
@@ -122,11 +124,17 @@ async function pollChannel() {
     }
 
     const messages = response.messages || [];
-    logger.info(`[FeedbackExtractor] Fetched ${messages.length} messages`);
+    logger.info(`[FeedbackExtractor] Fetched ${messages.length} messages (cap: ${MAX_MESSAGES_PER_CYCLE})`);
 
     let feedbackFound = 0;
+    let classifiedCount = 0;
 
     for (const message of messages) {
+      if (classifiedCount >= MAX_MESSAGES_PER_CYCLE) {
+        logger.info(`[FeedbackExtractor] Hit cycle cap (${MAX_MESSAGES_PER_CYCLE}), stopping`);
+        break;
+      }
+
       if (message.bot_id || message.subtype === 'bot_message') continue;
       if (!message.text || message.text.length < MIN_MESSAGE_LENGTH) continue;
       if (SYSTEM_PATTERNS.some(p => p.test(message.text))) continue;
@@ -162,7 +170,12 @@ async function pollChannel() {
       }
 
       const classification = await classifyFeedback(messageText, authorName);
-      if (!classification || !classification.is_feedback || classification.confidence < 0.6) continue;
+      classifiedCount++;
+
+      if (!classification || !classification.is_feedback || classification.confidence < 0.6) {
+        cycleStats.skipped++;
+        continue;
+      }
 
       const slackLink = `https://eudia.slack.com/archives/${FEEDBACK_CHANNEL_ID}/p${message.ts.replace('.', '')}`;
 
@@ -182,16 +195,23 @@ async function pollChannel() {
         slack_message_link: slackLink
       };
 
-      await feedbackStore.storeFeedback(feedbackItem);
+      if (DRY_RUN) {
+        logger.info(`[FeedbackExtractor] [DRY RUN] Would store: [${classification.feedback_type}] ${classification.summary?.substring(0, 100)}`);
+      } else {
+        await feedbackStore.storeFeedback(feedbackItem);
+      }
       feedbackFound++;
-      logger.info(`[FeedbackExtractor] Captured feedback: [${classification.feedback_type}] ${classification.summary?.substring(0, 80)}`);
+      cycleStats.stored++;
+      logger.info(`[FeedbackExtractor] Captured: [${classification.feedback_type}] ${classification.summary?.substring(0, 80)}`);
     }
 
     lastPollTime = Date.now();
+    cycleStats.classified = classifiedCount;
     const elapsed = Date.now() - startTime;
-    logger.info(`[FeedbackExtractor] Poll complete: ${messages.length} messages → ${feedbackFound} feedback items (${elapsed}ms)`);
+    const estTokens = classifiedCount * 500;
+    logger.info(`[FeedbackExtractor] Cycle complete: ${messages.length} fetched, ${classifiedCount} classified, ${feedbackFound} feedback items, ${cycleStats.skipped} skipped (${elapsed}ms, est. ~${Math.round(estTokens / 1000)}K tokens)${DRY_RUN ? ' [DRY RUN]' : ''}`);
 
-    return { messagesProcessed: messages.length, feedbackFound };
+    return { messagesProcessed: messages.length, feedbackFound, classified: classifiedCount, tokensEstimate: estTokens };
 
   } catch (error) {
     logger.error('[FeedbackExtractor] Poll error:', error.message);
@@ -307,8 +327,11 @@ function getStatus() {
     channelId: FEEDBACK_CHANNEL_ID,
     channelName: FEEDBACK_CHANNEL_NAME,
     isPolling,
+    dryRun: DRY_RUN,
+    schedule: CRON_SCHEDULE,
+    maxPerCycle: MAX_MESSAGES_PER_CYCLE,
     lastPollTime: lastPollTime ? new Date(lastPollTime).toISOString() : null,
-    pollIntervalHours: POLL_INTERVAL_HOURS
+    lastCycleStats: cycleStats
   };
 }
 
