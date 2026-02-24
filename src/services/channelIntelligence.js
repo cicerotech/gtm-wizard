@@ -673,7 +673,8 @@ function getStatus() {
   return {
     enabled: process.env.INTEL_SCRAPER_ENABLED === 'true',
     pollingActive: !!pollerSchedule,
-    pollIntervalHours: POLL_INTERVAL_HOURS,
+    schedule: INTEL_CRON_SCHEDULE,
+    maxPerChannel: MAX_MESSAGES_PER_CHANNEL,
     confidenceThreshold: CONFIDENCE_THRESHOLD,
     slackClientReady: !!slackClient
   };
