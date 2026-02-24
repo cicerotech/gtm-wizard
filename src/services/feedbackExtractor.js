@@ -15,7 +15,7 @@ const FEEDBACK_CHANNEL_NAME = 'eudia_product_channel';
 const MIN_MESSAGE_LENGTH = 20;
 const MAX_MESSAGES_PER_CYCLE = 50;
 const DRY_RUN = process.env.FEEDBACK_DRY_RUN === 'true';
-const CRON_SCHEDULE = process.env.FEEDBACK_CRON || '0 5 * * 2,4,6';
+const CRON_SCHEDULE = process.env.FEEDBACK_CRON || '0 10 * * 2,4,6';
 
 let slackClient = null;
 let isPolling = false;
@@ -87,7 +87,7 @@ function startPolling() {
   cron.schedule(CRON_SCHEDULE, async () => {
     logger.info('[FeedbackExtractor] Scheduled poll triggered');
     await pollChannel();
-  }, { timezone: 'America/New_York' });
+  });
 
   logger.info(`[FeedbackExtractor] Polling scheduled: ${CRON_SCHEDULE} (ET)${DRY_RUN ? ' [DRY RUN]' : ''}`);
 }

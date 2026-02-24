@@ -13,7 +13,7 @@ const CONFIDENCE_THRESHOLD = parseFloat(process.env.INTEL_CONFIDENCE_THRESHOLD) 
 const MIN_MESSAGE_LENGTH = 10;
 const MAX_MESSAGES_PER_CHANNEL = 50;
 const MAX_INTEL_PER_CHANNEL_PER_DAY = 20;
-const INTEL_CRON_SCHEDULE = process.env.INTEL_CRON || '30 5 * * 2,4,6';
+const INTEL_CRON_SCHEDULE = process.env.INTEL_CRON || '30 10 * * 2,4,6';
 
 // Track daily intel counts per channel (resets on poll)
 const dailyIntelCounts = new Map();
@@ -302,11 +302,9 @@ function startPolling() {
   pollerSchedule = cron.schedule(INTEL_CRON_SCHEDULE, async () => {
     logger.info('[ChannelIntel] Scheduled poll triggered');
     await pollAllChannels();
-  }, {
-    timezone: 'America/New_York'
   });
   
-  logger.info(`📡 Channel polling scheduled: ${cronExpression}`);
+  logger.info(`[ChannelIntel] Polling scheduled: ${INTEL_CRON_SCHEDULE} (UTC)`);
 }
 
 /**
