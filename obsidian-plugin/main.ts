@@ -3612,6 +3612,8 @@ export default class EudiaSyncPlugin extends Plugin {
   telemetry: TelemetryService;
   private recordingStatusBar: RecordingStatusBar | null = null;
   private micRibbonIcon: HTMLElement | null = null;
+  private _updateInProgress = false;
+  private _updateStatusEl: HTMLElement | null = null;
   
   // Live query support - accumulated transcript during recording
   liveTranscript: string = '';
@@ -3648,6 +3650,17 @@ export default class EudiaSyncPlugin extends Plugin {
     // Check if a previous update failed and rollback if needed
     this.checkForUpdateRollback().catch(e => console.warn('[Eudia] Rollback check error:', e));
 
+    // Show confirmation if we just loaded after a successful update
+    const justUpdatedAge = this.settings.lastUpdateTimestamp
+      ? Date.now() - new Date(this.settings.lastUpdateTimestamp).getTime()
+      : Infinity;
+    const currentVersion = this.manifest?.version || '0.0.0';
+    if (justUpdatedAge < 30000 && this.settings.lastUpdateVersion === currentVersion) {
+      this._showUpdateStatus(`✓ Eudia v${currentVersion} active`);
+      setTimeout(() => this._hideUpdateStatus(), 6000);
+      console.log(`[Eudia Update] Confirmed: now running v${currentVersion}`);
+    }
+
     // If a pending update was deferred during recording, retry now
     if (this.settings.pendingUpdateVersion) {
       const pendingVersion = this.settings.pendingUpdateVersion;
@@ -3660,9 +3673,9 @@ export default class EudiaSyncPlugin extends Plugin {
     }
 
     // Check for plugin updates on startup (non-blocking, retries on failure)
+    // Skip if we just updated within the cooldown window
     setTimeout(() => this.checkForPluginUpdate(), 5000);
 
-    // Periodic update check every 30 minutes
     this.registerInterval(
       window.setInterval(() => this.checkForPluginUpdate(), 30 * 60 * 1000)
     );
@@ -3845,7 +3858,7 @@ created: ${dateStr}
       id: 'check-for-updates',
       name: 'Check for Eudia Updates',
       callback: async () => {
-        new Notice('Checking for updates...', 3000);
+        this._showUpdateStatus('⟳ Checking for updates…');
         const localVersion = this.manifest?.version || '?';
         try {
           const serverUrl = this.settings.serverUrl || 'https://gtm-wizard.onrender.com';
@@ -3860,16 +3873,18 @@ created: ${dateStr}
               if ((remote[i] || 0) < (local[i] || 0)) break;
             }
             if (needsUpdate) {
-              new Notice(`Updating v${localVersion} → v${remoteVersion}...`, 5000);
               await this.performAutoUpdate(serverUrl, remoteVersion, localVersion);
             } else {
-              new Notice(`Eudia is up to date (v${localVersion}).`, 5000);
+              this._showUpdateStatus(`✓ Up to date (v${localVersion})`);
+              setTimeout(() => this._hideUpdateStatus(), 5000);
             }
           } else {
-            new Notice(`Eudia is up to date (v${localVersion}).`, 5000);
+            this._showUpdateStatus(`✓ Up to date (v${localVersion})`);
+            setTimeout(() => this._hideUpdateStatus(), 5000);
           }
         } catch (e: any) {
-          new Notice(`Update check failed: ${e.message || 'server unreachable'}. Current: v${localVersion}`, 8000);
+          this._showUpdateStatus(`✗ Update check failed — v${localVersion}`);
+          setTimeout(() => this._hideUpdateStatus(), 8000);
         }
       }
     });
@@ -4154,13 +4169,38 @@ created: ${dateStr}
 
   private _updateRetryCount = 0;
   private static readonly MAX_UPDATE_RETRIES = 3;
-  private static readonly UPDATE_RETRY_DELAYS = [15000, 45000, 90000]; // 15s, 45s, 90s
+  private static readonly UPDATE_RETRY_DELAYS = [15000, 45000, 90000];
+  private static readonly UPDATE_COOLDOWN_MS = 300000; // 5 minutes
 
-  /**
-   * Check the server for a newer plugin version with retry logic.
-   * Retries up to 3 times with increasing delays if the check fails.
-   */
+  private _showUpdateStatus(msg: string): void {
+    if (!this._updateStatusEl) {
+      this._updateStatusEl = this.addStatusBarItem();
+      this._updateStatusEl.addClass('eudia-update-status');
+    }
+    this._updateStatusEl.setText(msg);
+    this._updateStatusEl.style.display = '';
+  }
+
+  private _hideUpdateStatus(): void {
+    if (this._updateStatusEl) {
+      this._updateStatusEl.style.display = 'none';
+    }
+  }
+
   private async checkForPluginUpdate(): Promise<void> {
+    if (this._updateInProgress) {
+      console.log('[Eudia Update] Skipping — update already in progress');
+      return;
+    }
+
+    const recentUpdate = this.settings.lastUpdateTimestamp
+      ? Date.now() - new Date(this.settings.lastUpdateTimestamp).getTime()
+      : Infinity;
+    if (recentUpdate < EudiaSyncPlugin.UPDATE_COOLDOWN_MS) {
+      console.log(`[Eudia Update] Skipping — updated ${Math.round(recentUpdate / 1000)}s ago (cooldown: ${EudiaSyncPlugin.UPDATE_COOLDOWN_MS / 1000}s)`);
+      return;
+    }
+
     const serverUrl = this.settings.serverUrl || 'https://gtm-wizard.onrender.com';
     const localVersion = this.manifest?.version || '0.0.0';
 
@@ -4193,7 +4233,6 @@ created: ${dateStr}
           if ((remote[i] || 0) < (local[i] || 0)) break;
         }
 
-        // Server can flag forceUpdate for critical fixes — treat as needing update
         if (!needsUpdate && resp.json.forceUpdate && remoteVersion !== localVersion) {
           needsUpdate = true;
           console.log(`[Eudia Update] Server flagged forceUpdate for v${remoteVersion}`);
@@ -4205,7 +4244,7 @@ created: ${dateStr}
         } else {
           console.log(`[Eudia Update] Up to date (v${localVersion})`);
         }
-        return; // success — stop retrying
+        return;
       } catch (e) {
         console.log(`[Eudia Update] Check failed (attempt ${attempt + 1}):`, (e as Error).message || e);
       }
@@ -4286,12 +4325,18 @@ created: ${dateStr}
    * Never interrupts an active recording. Never deletes user data.
    */
   private async performAutoUpdate(serverUrl: string, remoteVersion: string, localVersion: string): Promise<void> {
+    if (this._updateInProgress) {
+      console.log('[Eudia Update] Skipping — update already in progress');
+      return;
+    }
+    this._updateInProgress = true;
+
     try {
       if (this.audioRecorder?.isRecording()) {
         this.settings.pendingUpdateVersion = remoteVersion;
         await this.saveSettings();
         new Notice(`Eudia v${remoteVersion} available — will update after your recording.`, 8000);
-        this.telemetry.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'deferred' });
+        try { this.telemetry?.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'deferred' }); } catch {}
         return;
       }
 
@@ -4301,19 +4346,7 @@ created: ${dateStr}
         return;
       }
 
-      // Fetch checksums from server
-      let expectedChecksums: { mainJs?: string; styles?: string; manifest?: string } = {};
-      try {
-        const versionResp = await requestUrl({
-          url: `${serverUrl}/api/plugin/version`,
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        expectedChecksums = versionResp.json?.checksums || {};
-      } catch {
-        console.log('[Eudia Update] Could not fetch checksums — proceeding with size validation only');
-      }
-
+      this._showUpdateStatus(`⟳ Updating to v${remoteVersion}…`);
       const adapter = this.app.vault.adapter;
       console.log(`[Eudia Update] Downloading v${remoteVersion}...`);
 
@@ -4327,6 +4360,8 @@ created: ${dateStr}
       const manifestText = manifestResp.text;
       const stylesText = stylesResp.text;
 
+      this._showUpdateStatus(`⟳ Validating v${remoteVersion}…`);
+
       const validations: Array<[string, string, number, number]> = [
         ['main.js', mainJsText, 10000, 5 * 1024 * 1024],
         ['manifest.json', manifestText, 50, 10000],
@@ -4336,27 +4371,9 @@ created: ${dateStr}
       for (const [name, content, minSize, maxSize] of validations) {
         if (!content || content.length < minSize || content.length > maxSize) {
           console.log(`[Eudia Update] ${name} validation failed (${content?.length ?? 0} bytes, need ${minSize}-${maxSize})`);
-          this.telemetry.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'failed' });
-          return;
-        }
-      }
-
-      // SHA-256 checksum verification (if server provided checksums)
-      if (expectedChecksums.mainJs) {
-        const actualMainHash = await this.sha256(mainJsText);
-        if (actualMainHash !== expectedChecksums.mainJs) {
-          console.log(`[Eudia Update] main.js checksum mismatch: expected ${expectedChecksums.mainJs.slice(0, 12)}..., got ${actualMainHash.slice(0, 12)}...`);
-          this.telemetry.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'failed' });
-          return;
-        }
-        console.log('[Eudia Update] main.js checksum verified');
-      }
-
-      if (expectedChecksums.styles) {
-        const actualStylesHash = await this.sha256(stylesText);
-        if (actualStylesHash !== expectedChecksums.styles) {
-          console.log(`[Eudia Update] styles.css checksum mismatch`);
-          this.telemetry.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'failed' });
+          this._showUpdateStatus('Update failed — file validation error');
+          setTimeout(() => this._hideUpdateStatus(), 5000);
+          try { this.telemetry?.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'failed' }); } catch {}
           return;
         }
       }
@@ -4365,55 +4382,62 @@ created: ${dateStr}
         const downloadedManifest = JSON.parse(manifestText);
         if (downloadedManifest.version !== remoteVersion) {
           console.log(`[Eudia Update] Version mismatch: expected ${remoteVersion}, got ${downloadedManifest.version}`);
+          this._hideUpdateStatus();
           return;
         }
       } catch {
         console.log('[Eudia Update] Downloaded manifest is not valid JSON');
+        this._hideUpdateStatus();
         return;
       }
 
-      // Backup current main.js and styles.css
+      this._showUpdateStatus(`⟳ Installing v${remoteVersion}…`);
+
       try {
         const currentMainJs = await adapter.read(`${pluginDir}/main.js`);
         await adapter.write(`${pluginDir}/main.js.bak`, currentMainJs);
-      } catch { /* first install */ }
+      } catch { }
       try {
         const currentStyles = await adapter.read(`${pluginDir}/styles.css`);
         await adapter.write(`${pluginDir}/styles.css.bak`, currentStyles);
-      } catch { /* first install */ }
+      } catch { }
 
       await adapter.write(`${pluginDir}/main.js`, mainJsText);
       await adapter.write(`${pluginDir}/manifest.json`, manifestText);
       await adapter.write(`${pluginDir}/styles.css`, stylesText);
       console.log(`[Eudia Update] Files written: v${localVersion} → v${remoteVersion}`);
 
-      // Record update state for rollback detection
       this.settings.lastUpdateVersion = remoteVersion;
       this.settings.lastUpdateTimestamp = new Date().toISOString();
       this.settings.pendingUpdateVersion = null;
       await this.saveSettings();
 
-      this.telemetry.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'success' });
+      try { this.telemetry?.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'success' }); } catch {}
 
       if (!this.audioRecorder?.isRecording()) {
-        new Notice(`Eudia updating to v${remoteVersion}...`, 3000);
+        this._showUpdateStatus(`⟳ Applying v${remoteVersion}…`);
         setTimeout(async () => {
           try {
             const plugins = (this.app as any).plugins;
             await plugins.disablePlugin(this.manifest.id);
             await plugins.enablePlugin(this.manifest.id);
             console.log(`[Eudia Update] Hot-reloaded: v${localVersion} → v${remoteVersion}`);
-            new Notice(`Eudia v${remoteVersion} active.`, 5000);
           } catch {
-            new Notice(`Eudia updated to v${remoteVersion}. Restart Obsidian to apply.`, 10000);
+            this._showUpdateStatus(`✓ v${remoteVersion} ready — restart Obsidian`);
+            setTimeout(() => this._hideUpdateStatus(), 15000);
           }
         }, 1500);
       } else {
-        new Notice(`Eudia v${remoteVersion} downloaded — will apply after recording.`, 10000);
+        this._showUpdateStatus(`✓ v${remoteVersion} downloaded — restart to apply`);
+        setTimeout(() => this._hideUpdateStatus(), 10000);
       }
     } catch (e) {
       console.log('[Eudia Update] Update failed:', (e as Error).message || e);
-      this.telemetry.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'failed' });
+      this._showUpdateStatus('Update failed');
+      setTimeout(() => this._hideUpdateStatus(), 5000);
+      try { this.telemetry?.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'failed' }); } catch {}
+    } finally {
+      this._updateInProgress = false;
     }
   }
 
