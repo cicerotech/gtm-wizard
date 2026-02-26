@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>BOI_Deal_Code__c</fullName>
+    <description>Auto-generated unique identifier for ERP/Campfire revenue and commission mapping. Format: [CLIENT_PREFIX]-[SEQ] for new deals (e.g., COH-001), [CLIENT_PREFIX]-[SEQ]-[RENEWAL] for renewals (e.g., COH-001-01). Generated automatically on Closed Won.</description>
+    <externalId>true</externalId>
+    <label>Deal Code</label>
+    <length>20</length>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>Text</type>
+    <unique>true</unique>
+</CustomField>

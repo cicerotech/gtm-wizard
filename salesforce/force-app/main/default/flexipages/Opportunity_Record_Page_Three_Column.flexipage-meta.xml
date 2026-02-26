@@ -333,7 +333,7 @@
         </itemInstances>
         <itemInstances>
             <componentInstance>
-                <componentName>c:productLineSelector</componentName>
+                <componentName>productLineSelector</componentName>
                 <identifier>c_productLineSelector</identifier>
             </componentInstance>
         </itemInstances>
@@ -505,6 +505,16 @@
                 </fieldInstanceProperties>
                 <fieldItem>Record.ContractId</fieldItem>
                 <identifier>RecordContractIdField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.BOI_Deal_Code__c</fieldItem>
+                <identifier>RecordBOI_Deal_Code_cField</identifier>
             </fieldInstance>
         </itemInstances>
         <itemInstances>
@@ -1199,6 +1209,12 @@
                 </componentInstanceProperties>
                 <componentName>runtime_sales_pathassistant:pathAssistant</componentName>
                 <identifier>runtime_sales_pathassistant_pathAssistant</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentName>csStaffingModal</componentName>
+                <identifier>csStaffingModal_main</identifier>
             </componentInstance>
         </itemInstances>
         <itemInstances>
