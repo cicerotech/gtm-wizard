@@ -1603,7 +1603,7 @@ class EudiaSetupView extends ItemView {
       {
         icon: 'calendar',
         name: 'Calendar',
-        desc: 'View your external meetings. Click any event to create a meeting note under the matched account. Adjust your timezone in the Eudia Transcription Plugin settings.'
+        desc: 'View your external meetings. Click any event to create a meeting note under the matched account. Adjust your timezone in the Eudia Lite settings.'
       },
       {
         icon: 'microphone',

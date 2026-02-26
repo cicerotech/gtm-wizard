@@ -19,7 +19,7 @@ clear
 echo ""
 echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${CYAN}║${NC}                                                                   ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}        ${BOLD}EUDIA PLUGIN UPDATER${NC}                                       ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}        ${BOLD}EUDIA LITE UPDATER${NC}                                         ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}        Download & install the latest version                       ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}                                                                   ${CYAN}║${NC}"
 echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════════╝${NC}"
@@ -200,14 +200,21 @@ fi
 
 NEW_VERSION=$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/manifest.json'))['version'])" 2>/dev/null || echo "latest")
 
+# Auto-close Obsidian
+if pgrep -x "Obsidian" > /dev/null 2>&1; then
+    echo -e "${BLUE}[5/5]${NC} Closing Obsidian..."
+    osascript -e 'tell application "Obsidian" to quit' 2>/dev/null || pkill -x "Obsidian" 2>/dev/null
+    sleep 1
+fi
+
 echo ""
 echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║${NC}                                                                   ${GREEN}║${NC}"
-echo -e "${GREEN}║${NC}     ${BOLD}✓ UPDATE COMPLETE${NC}                                              ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}     ${BOLD}✓ EUDIA LITE UPDATED${NC}                                            ${GREEN}║${NC}"
 echo -e "${GREEN}║${NC}                                                                   ${GREEN}║${NC}"
 echo -e "${GREEN}║${NC}     v${CURRENT_VERSION} → v${NEW_VERSION}                                               ${GREEN}║${NC}"
 echo -e "${GREEN}║${NC}                                                                   ${GREEN}║${NC}"
-echo -e "${GREEN}║${NC}     ${BOLD}Please close Obsidian (Cmd+Q) and reopen it.${NC}                   ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}     ${BOLD}Reopen Obsidian to use the updated plugin.${NC}                      ${GREEN}║${NC}"
 echo -e "${GREEN}║${NC}     Future updates will happen automatically.                      ${GREEN}║${NC}"
 echo -e "${GREEN}║${NC}                                                                   ${GREEN}║${NC}"
 echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════════╝${NC}"

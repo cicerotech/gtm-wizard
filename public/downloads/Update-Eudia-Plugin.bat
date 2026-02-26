@@ -1,11 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
-title Eudia Plugin Updater
+title Eudia Lite Updater
 color 0B
 
 echo.
 echo  ========================================
-echo    EUDIA PLUGIN UPDATER
+echo    EUDIA LITE UPDATER
 echo    Download ^& install the latest version
 echo  ========================================
 echo.
@@ -145,14 +145,22 @@ for /f "tokens=2 delims=:," %%V in ('findstr /c:"\"version\"" "%PLUGIN_DIR%\mani
 )
 if not defined NEW_VERSION set "NEW_VERSION=latest"
 
+:: Auto-close Obsidian
+tasklist /FI "IMAGENAME eq Obsidian.exe" 2>nul | findstr /i "Obsidian.exe" >nul
+if %errorlevel%==0 (
+    echo  Closing Obsidian...
+    taskkill /IM "Obsidian.exe" /F >nul 2>&1
+    timeout /t 2 /nobreak >nul
+)
+
 echo.
 echo  ========================================
 echo.
-echo    UPDATE COMPLETE
+echo    EUDIA LITE UPDATED
 echo.
 echo    v%CURRENT_VERSION% -- v%NEW_VERSION%
 echo.
-echo    Close Obsidian completely and reopen.
+echo    Reopen Obsidian to use the updated plugin.
 echo    Future updates will happen automatically.
 echo.
 echo  ========================================

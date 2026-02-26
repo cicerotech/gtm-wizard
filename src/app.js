@@ -1102,11 +1102,11 @@ class GTMBrainApp {
       } catch {
         // Embedded fallback — minimal update script
         content = `#!/bin/bash
-# Eudia Plugin Updater — auto-finds vault and installs latest plugin
+# Eudia Lite Updater — auto-finds vault and installs latest plugin
 SERVER="https://gtm-wizard.onrender.com"
 PF=".obsidian/plugins/eudia-transcription"
 clear
-echo ""; echo "  Eudia Plugin Updater"; echo "  ==================="; echo ""
+echo ""; echo "  Eudia Lite Updater"; echo "  =================="; echo ""
 VD=""
 SD="$(cd "$(dirname "$0")" && pwd)"
 [ -d "$SD/$PF" ] && VD="$SD"
@@ -1167,7 +1167,7 @@ read -p "  Press Enter to close..."
       try {
         content = fs.readFileSync(path.resolve(__dirname, '..', 'public', 'downloads', 'Update-Eudia-Plugin.bat'), 'utf-8');
       } catch {
-        content = '@echo off\r\necho Eudia Plugin Updater\r\necho Download failed - please try the ZIP option at gtm-wizard.onrender.com/update-plugin\r\npause\r\n';
+        content = '@echo off\r\necho Eudia Lite Updater\r\necho Download failed - please try the ZIP option at gtm-wizard.onrender.com/update-plugin\r\npause\r\n';
       }
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader('Content-Disposition', 'attachment; filename="Update-Eudia-Plugin.bat"');
@@ -1184,7 +1184,7 @@ read -p "  Press Enter to close..."
       res.send(`#!/bin/bash
 SERVER="https://gtm-wizard.onrender.com"
 PF=".obsidian/plugins/eudia-transcription"
-echo ""; echo "  Eudia Plugin Updater"; echo "  ==================="; echo ""
+echo ""; echo "  Eudia Lite Updater"; echo "  =================="; echo ""
 VD=""
 for d in "$HOME/Documents" "$HOME/Desktop" "$HOME" "$HOME/Library/Mobile Documents" "$HOME/Downloads"; do
   [ ! -d "$d" ] && continue
@@ -1215,7 +1215,18 @@ d['theme']='moonstone'; d['accentColor']='#8e99e1'; d['cssTheme']=''
 json.dump(d,open('$AF','w'),indent=2)
 " 2>/dev/null
 NV=$(python3 -c "import json; print(json.load(open('$PD/manifest.json'))['version'])" 2>/dev/null || echo "latest")
-echo ""; echo "  DONE — updated to v$NV"; echo "  Close Obsidian (Cmd+Q) and reopen."; echo ""
+echo ""
+echo "  DONE — Eudia Lite updated to v$NV"
+# Auto-close Obsidian so user just reopens
+if pgrep -x "Obsidian" > /dev/null 2>&1; then
+  echo "  Closing Obsidian..."
+  osascript -e 'tell application "Obsidian" to quit' 2>/dev/null || pkill -x "Obsidian" 2>/dev/null
+  sleep 1
+  echo "  Obsidian closed. Reopen it to use the updated plugin."
+else
+  echo "  Reopen Obsidian to use the updated plugin."
+fi
+echo ""
 `);
     });
 
@@ -1224,8 +1235,8 @@ echo ""; echo "  DONE — updated to v$NV"; echo "  Close Obsidian (Cmd+Q) and r
       res.setHeader('Cache-Control', 'no-cache');
       res.send(`
 Write-Host ""
-Write-Host "  Eudia Plugin Updater" -ForegroundColor Cyan
-Write-Host "  ===================" -ForegroundColor Cyan
+Write-Host "  Eudia Lite Updater" -ForegroundColor Cyan
+Write-Host "  ==================" -ForegroundColor Cyan
 Write-Host ""
 $server = "https://gtm-wizard.onrender.com"
 $pf = ".obsidian\\plugins\\eudia-transcription"
@@ -1270,9 +1281,17 @@ foreach ($f in $files) {
 $appearance = Join-Path $vaultDir ".obsidian\\appearance.json"
 '{"accentColor":"#8e99e1","theme":"moonstone","cssTheme":""}' | Set-Content $appearance
 $ver = (Get-Content (Join-Path $pluginDir "manifest.json") | ConvertFrom-Json).version
+# Auto-close Obsidian
+$obsProcess = Get-Process -Name "Obsidian" -ErrorAction SilentlyContinue
+if ($obsProcess) {
+  Write-Host "  Closing Obsidian..." -ForegroundColor Yellow
+  $obsProcess | Stop-Process -Force -ErrorAction SilentlyContinue
+  Start-Sleep 2
+}
 Write-Host ""
-Write-Host "  DONE - updated to v$ver" -ForegroundColor Green
-Write-Host "  Close Obsidian completely and reopen." -ForegroundColor Green
+Write-Host "  DONE - Eudia Lite updated to v$ver" -ForegroundColor Green
+Write-Host "  Reopen Obsidian to use the updated plugin." -ForegroundColor Green
+Write-Host "  Future updates will happen automatically." -ForegroundColor Green
 Write-Host ""
 `);
     });
@@ -1463,79 +1482,86 @@ Write-Host ""
     .tab-content.active { display: block; }
 
     .cmd-box {
-      background: #1e293b; color: #e2e8f0; border-radius: 8px; padding: 16px 18px;
-      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 0.8rem;
-      line-height: 1.5; cursor: pointer; position: relative; margin: 16px 0;
+      background: #1e293b; color: #e2e8f0; border-radius: 8px;
+      padding: 16px 18px 16px 18px;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 0.75rem;
+      line-height: 1.6; cursor: pointer; position: relative; margin: 16px 0;
       word-break: break-all; transition: all 0.15s;
+      overflow: hidden;
     }
     .cmd-box:hover { background: #334155; }
+    .cmd-box code { display: block; padding-right: 80px; }
     .copy-hint {
-      position: absolute; top: 8px; right: 12px; font-size: 0.7rem;
-      color: #8e99e1; font-family: -apple-system, sans-serif;
+      position: absolute; top: 50%; right: 14px; transform: translateY(-50%);
+      font-size: 0.7rem; color: #8e99e1; font-family: -apple-system, sans-serif;
+      background: #1e293b; padding: 4px 8px; border-radius: 4px;
     }
+    .cmd-box:hover .copy-hint { background: #334155; }
   </style>
 </head>
 <body>
 <script>
-function showTab(os, el) {
-  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
-  document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
-  document.getElementById('tab-' + os).classList.add('active');
-  if (el) el.classList.add('active');
-  else document.querySelector('.tab[onclick*="' + os + '"]').classList.add('active');
+function switchTab(os) {
+  var tabs = document.querySelectorAll('.tab');
+  var contents = document.querySelectorAll('.tab-content');
+  for (var i = 0; i < tabs.length; i++) tabs[i].className = 'tab';
+  for (var i = 0; i < contents.length; i++) contents[i].className = 'tab-content';
+  document.getElementById('tab-' + os).className = 'tab-content active';
+  document.getElementById('btn-' + os).className = 'tab active';
 }
 function copyCmd(os) {
-  var cmd = document.getElementById('cmd-' + os).textContent;
+  var cmd = document.getElementById('cmd-' + os).textContent.trim();
   navigator.clipboard.writeText(cmd).then(function() {
-    var hint = document.getElementById('copy-hint-' + os);
+    var hint = document.getElementById('hint-' + os);
     hint.textContent = 'Copied!';
     hint.style.color = '#10b981';
     setTimeout(function() { hint.textContent = 'Click to copy'; hint.style.color = '#8e99e1'; }, 2000);
   });
 }
-window.onload = function() {
-  var isWindows = navigator.userAgent.indexOf('Win') !== -1;
-  if (isWindows) showTab('win', null);
-};
+document.addEventListener('DOMContentLoaded', function() {
+  if (navigator.userAgent.indexOf('Win') !== -1) switchTab('win');
+});
 </script>
   <div class="container">
     <div class="header">
       <img src="/logo" alt="Eudia" onerror="this.style.display='none'">
-      <h1>Update Eudia Plugin</h1>
+      <h1>Update Eudia Lite</h1>
       <p class="subtitle">Get the latest features and improvements for your vault</p>
       <span class="version-badge">v${version}</span>
     </div>
 
     <div class="card">
       <h2>Update Your Plugin</h2>
-      <p class="card-desc">Copy the command below, paste it into Terminal (Mac) or PowerShell (Windows), and press Enter. That's it.</p>
+      <p class="card-desc">Copy one command, paste it, press Enter. The update runs automatically and closes Obsidian for you.</p>
 
       <div class="tab-bar">
-        <button class="tab active" onclick="showTab('mac',this)">Mac</button>
-        <button class="tab" onclick="showTab('win',this)">Windows</button>
+        <button id="btn-mac" class="tab active" onclick="switchTab('mac')">Mac</button>
+        <button id="btn-win" class="tab" onclick="switchTab('win')">Windows</button>
       </div>
 
       <div id="tab-mac" class="tab-content active">
         <div class="steps">
           <div class="step"><div class="step-num">1</div><div class="step-text">Open <strong>Terminal</strong> (press Cmd+Space, type "Terminal", press Enter)</div></div>
-          <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Copy</strong> the command below and <strong>paste</strong> it into Terminal, then press Enter</div></div>
-          <div class="step"><div class="step-num">3</div><div class="step-text">When it says "DONE", close Obsidian (Cmd+Q) and reopen</div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Click the dark box</strong> below to copy the command</div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-text"><strong>Paste</strong> into Terminal (Cmd+V) and press <strong>Enter</strong></div></div>
+          <div class="step"><div class="step-num">4</div><div class="step-text">When it says "DONE", <strong>reopen Obsidian</strong> &mdash; it will close automatically</div></div>
         </div>
         <div class="cmd-box" onclick="copyCmd('mac')">
           <code id="cmd-mac">curl -sL https://gtm-wizard.onrender.com/api/plugin/install.sh | bash</code>
-          <span class="copy-hint" id="copy-hint-mac">Click to copy</span>
+          <span class="copy-hint" id="hint-mac">Click to copy</span>
         </div>
       </div>
 
       <div id="tab-win" class="tab-content">
         <div class="steps">
-          <div class="step"><div class="step-num">1</div><div class="step-text">Click the <strong>Start menu</strong> (Windows key), type <strong>PowerShell</strong>, click to open it</div></div>
-          <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Click the dark box below</strong> to copy the command, then <strong>right-click</strong> inside PowerShell to paste it, and press <strong>Enter</strong></div></div>
-          <div class="step"><div class="step-num">3</div><div class="step-text">Wait for it to say <strong>"DONE"</strong> (may take 30-60 seconds), then close Obsidian and reopen it</div></div>
+          <div class="step"><div class="step-num">1</div><div class="step-text">Press the <strong>Windows key</strong>, type <strong>PowerShell</strong>, click to open it</div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Click the dark box</strong> below to copy the command</div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-text"><strong>Right-click</strong> inside PowerShell to paste, then press <strong>Enter</strong></div></div>
+          <div class="step"><div class="step-num">4</div><div class="step-text">Wait for "DONE" (may take 30-60s), then <strong>reopen Obsidian</strong> &mdash; it will close automatically</div></div>
         </div>
         <div class="cmd-box" onclick="copyCmd('win')">
           <code id="cmd-win">powershell -ExecutionPolicy Bypass -Command "iex (irm 'https://gtm-wizard.onrender.com/api/plugin/install.ps1')"</code>
-          <span class="copy-hint" id="copy-hint-win">Click to copy</span>
+          <span class="copy-hint" id="hint-win">Click to copy</span>
         </div>
       </div>
 
