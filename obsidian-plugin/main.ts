@@ -87,7 +87,7 @@ interface EudiaSyncSettings {
   prospectsMigrated: boolean;
   pendingReloadVersion: string | null;
   // User role for account loading
-  userRole: 'sales' | 'cs' | 'exec' | 'product' | 'admin' | '';
+  userRole: 'sales' | 'cs' | 'exec' | 'product' | 'admin' | 'other' | '';
 }
 
 // Common timezone options for US/EU sales teams
@@ -1233,7 +1233,10 @@ class SetupWizardModal extends Modal {
       
       let accounts: OwnedAccount[];
       let prospects: OwnedAccount[] = [];
-      if (role === 'cs') {
+      if (role === 'other') {
+        accounts = [];
+        console.log('[Eudia] Other role — no account sync, general notetaker');
+      } else if (role === 'cs') {
         accounts = [...CS_STATIC_ACCOUNTS];
         console.log(`[Eudia] CS role — using ${accounts.length} static accounts`);
       } else if (role === 'admin') {
@@ -1310,6 +1313,13 @@ class SetupWizardModal extends Modal {
     this.plugin.settings.calendarConfigured = true;
     await this.plugin.saveSettings();
     this.updateStep('calendar', 'complete');
+
+    // Ensure essential folders exist for all roles
+    for (const folder of ['Recordings', '_backups', 'Next Steps', '_Analytics', '_Customer Health']) {
+      if (!this.plugin.app.vault.getAbstractFileByPath(folder)) {
+        try { await this.plugin.app.vault.createFolder(folder); } catch { /* may exist */ }
+      }
+    }
 
     this.plugin.settings.setupCompleted = true;
     await this.plugin.saveSettings();
@@ -1535,7 +1545,9 @@ class EudiaSetupView extends ItemView {
 
           console.log(`[Eudia Setup] Auto-retry for ${email} (role: ${userGroup})`);
 
-          if (userGroup === 'exec' || userGroup === 'product') {
+          if (userGroup === 'other') {
+            accounts = [];
+          } else if (userGroup === 'exec' || userGroup === 'product') {
             accounts = await this.accountOwnershipService.getExecProductAccounts(email);
           } else if (userGroup === 'cs') {
             accounts = [...CS_STATIC_ACCOUNTS];
@@ -1720,21 +1732,22 @@ class EudiaSetupView extends ItemView {
     const stepContent = stepEl.createDiv({ cls: 'eudia-setup-step-content' });
     
     if (hasRole) {
-      const labels: Record<string, string> = { sales: 'Sales', cs: 'Customer Success', exec: 'Executive', product: 'Product', admin: 'Ops / Admin' };
+      const labels: Record<string, string> = { sales: 'Sales', cs: 'CS', exec: 'Executive', product: 'Product', admin: 'Ops / Admin', other: 'Other' };
       stepContent.createDiv({ cls: 'eudia-setup-complete-message', text: labels[this.plugin.settings.userRole] || this.plugin.settings.userRole });
     } else {
       const roleOptions = [
         { value: 'sales', label: 'Sales' },
-        { value: 'cs', label: 'Customer Success' },
+        { value: 'cs', label: 'CS' },
         { value: 'exec', label: 'Executive' },
         { value: 'product', label: 'Product' },
-        { value: 'admin', label: 'Ops / Admin' }
+        { value: 'admin', label: 'Ops / Admin' },
+        { value: 'other', label: 'Other' }
       ];
       const roleGroup = stepContent.createDiv();
-      roleGroup.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;';
+      roleGroup.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;';
       for (const opt of roleOptions) {
         const btn = roleGroup.createEl('button', { text: opt.label, cls: 'eudia-setup-btn' });
-        btn.style.cssText = 'flex:1;min-width:100px;text-align:center;font-size:13px;padding:8px 12px;';
+        btn.style.cssText = 'text-align:center;font-size:12px;padding:6px 10px;';
         btn.onclick = async () => {
           this.plugin.settings.userRole = opt.value as any;
           await this.plugin.saveSettings();
@@ -1875,7 +1888,13 @@ class EudiaSetupView extends ItemView {
           const userGroup = this.plugin.settings.userRole || (isAdminUser(email) ? 'admin' : isCSUser(email) ? 'cs' : 'sales');
           console.log(`[Eudia] User role: ${userGroup} for ${email}`);
           
-          if (userGroup === 'exec' || userGroup === 'product') {
+          if (userGroup === 'other') {
+            accounts = [];
+            console.log('[Eudia] Other role — no account sync');
+            this.plugin.settings.accountsImported = true;
+            this.plugin.settings.importedAccountCount = 0;
+            await this.plugin.saveSettings();
+          } else if (userGroup === 'exec' || userGroup === 'product') {
             console.log(`[Eudia] ${userGroup} role — loading Existing + active pipeline accounts`);
             accounts = await this.accountOwnershipService.getExecProductAccounts(email);
             if (validationEl) {
@@ -3680,10 +3699,12 @@ Click the **microphone icon** in the sidebar or use \`Cmd/Ctrl+P\` → **"Transc
     try {
       const file = await this.app.vault.create(filePath, template);
       await this.app.workspace.getLeaf().openFile(file);
-      // Expand left sidebar, switch to file explorer, reveal and scroll to the new note
+      // Expand left sidebar, activate file explorer tab, reveal and scroll to the new note
       try {
         const leftSplit = (this.app.workspace as any).leftSplit;
         if (leftSplit?.collapsed) leftSplit.expand();
+        const fileExplorerLeaf = this.app.workspace.getLeavesOfType('file-explorer')[0];
+        if (fileExplorerLeaf) this.app.workspace.revealLeaf(fileExplorerLeaf);
         const fileExplorer = (this.app as any).internalPlugins?.getPluginById?.('file-explorer')?.instance;
         if (fileExplorer?.revealInFolder) {
           fileExplorer.revealInFolder(file);

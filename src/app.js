@@ -4958,10 +4958,18 @@ document.addEventListener('DOMContentLoaded', function() {
             AND (NOT Name LIKE '%Sample%') AND (NOT Name LIKE '%Test%')
           ORDER BY Name ASC LIMIT 100
         `;
-        const [pipelineResult, targetBookResult, existingResult] = await Promise.all([
+        const blAllOwnedQ = `
+          SELECT Id, Name, Type, Customer_Type__c, Website, Industry
+          FROM Account
+          WHERE OwnerId = '${userId}'
+            AND (NOT Name LIKE '%Sample%') AND (NOT Name LIKE '%Test%')
+          ORDER BY Name ASC LIMIT 150
+        `;
+        const [pipelineResult, targetBookResult, existingResult, allOwnedResult] = await Promise.all([
           sfConnection.query(blPipelineQ),
           sfConnection.query(blTargetBookQ).catch(() => ({ records: [] })),
-          sfConnection.query(blExistingQ)
+          sfConnection.query(blExistingQ),
+          sfConnection.query(blAllOwnedQ)
         ]);
 
         const seen = new Set();
@@ -4985,9 +4993,13 @@ document.addEventListener('DOMContentLoaded', function() {
           if (seen.has(acc.Id)) continue; seen.add(acc.Id);
           ownedProspects.push(mapAccount(acc, false));
         }
+        for (const acc of (allOwnedResult.records || [])) {
+          if (seen.has(acc.Id)) continue; seen.add(acc.Id);
+          ownedProspects.push(mapAccount(acc, false));
+        }
         ownedAccounts.sort((a, b) => a.name.localeCompare(b.name));
         ownedProspects.sort((a, b) => a.name.localeCompare(b.name));
-        logger.info(`[Ownership] BL ${userName}: ${ownedAccounts.length} pipeline + ${ownedProspects.length} target/existing = ${ownedAccounts.length + ownedProspects.length} total (of ${pipelineResult.totalSize || 0} pipeline, ${targetBookResult.totalSize || 0} target, ${existingResult.totalSize || 0} existing)`);
+        logger.info(`[Ownership] BL ${userName}: ${ownedAccounts.length} pipeline + ${ownedProspects.length} target/existing/owned = ${ownedAccounts.length + ownedProspects.length} total`);
         
         // Determine if this user gets a pod-level (team) view:
         //   - Sales leaders see all their direct reports' accounts
