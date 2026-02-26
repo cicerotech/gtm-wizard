@@ -1105,6 +1105,59 @@ VAULT=$(find ~/Documents -name ".obsidian" -type d -maxdepth 6 2>/dev/null | hea
 
 ---
 
+## Session Work (Feb 26, 2026 — Afternoon/Evening)
+
+### Obsidian Plugin v4.9.8 → v4.10.2 (Major Overhaul)
+
+**v4.9.8:** Fixed transcription chunking (4MB chunks, 90s timeout, 8MB threshold). Hidden utility folders via CSS.
+
+**v4.9.9:** Flattened prospect accounts into Accounts/. Calendar matching includes _Prospects/. Mic permission validation with getUserMedia. SF sync confirmation modal. Multi-vault install script. Auto-update banner on hot-reload failure.
+
+**v4.10.0:** Fixed auto-update spazzing loop (3 interacting bugs: hot-reload race condition, cooldown cleared by rollback check, migration moving 600+ folders). Added team role selector (Sales/CS/Executive/Product/Ops Admin). Exec/product account endpoint (Existing + active pipeline stages 1-5). Renamed all "vault" references to "Eudia Notetaker". Added sales leaders to EXEC_EMAILS.
+
+**v4.10.1:** Calendar validation accepts any @eudia.com email (was BL_EMAILS whitelist). Fixed undefined variable `userGroup`→`role` in runSetup(). Added 120s timeout to non-chunked transcription. Fixed dynamic vault fallback name. Created `/fresh-install` page and `/api/plugin/fresh-install.sh` for clean installs. Pruned cachedAccounts after migration.
+
+**v4.10.2:** Added catch-all Account Owner query to BL endpoint (Yahoo was missing). Added "Other" role for general notetaking. Essential folders (Recordings, _backups, _Analytics, _Customer Health, Next Steps) created for all roles. Smart scroll activates file explorer tab before revealInFolder.
+
+### Key Architecture Changes
+
+- **BL account query** now uses 4 SOQL queries: pipeline (user's open opps), target book (Q1_Target_Book__c), existing customers, catch-all owned. Pod-view aggregation removed from ownership endpoint (reserved for SF LWC).
+- **Setup flow:** Role selector → Email → Account loading → Enrichment (with progress bar) → Folders created → SF connect (optional) → Quickstart
+- **Fresh install script:** `/api/plugin/fresh-install.sh` — nukes old vaults, clears Obsidian registry, downloads fresh ZIP, registers vault, opens Obsidian. Served at `/fresh-install`.
+- **Enrichment:** Progress bar replaces notice spam. Per-account updates. Batch size 10.
+- **Calendar validation:** Any @eudia.com email accepted (no whitelist).
+
+### Known Issues / Next Steps
+
+1. **Internal debrief detection:** Transcripts that include post-call internal discussion (e.g., Riley/Mitch coaching session) should be auto-separated. Need to add heuristic to summarization prompt.
+2. **Meeting note → wrong account:** Yahoo meeting logged under Warner Bros because Yahoo wasn't in Riley's account set. Fixed in v4.10.2 with catch-all query. Verify after deploy.
+3. **Quickstart guide:** Needs embedded screenshots and more visual walkthrough. Current version is text-only. User wants actual UI screenshots integrated.
+4. **Auto-update reliability:** Hot-reload via disablePlugin/enablePlugin is inherently fragile. Banner fallback exists but users still sometimes need Cmd+Q restart.
+5. **Email-to-role mapping:** Hardcoded in ADMIN_EMAILS, EXEC_EMAILS, CS_EMAILS in TWO places (plugin + server). Should be moved to a server-side config endpoint.
+6. **No authentication on ownership endpoint:** Anyone can query account data. Needs API key or Okta token.
+
+### Active Users (Updated)
+
+| User | Email | Version | Status |
+|------|-------|---------|--------|
+| Keigan | keigan.pesenti@eudia.com | v4.10.2 | Testing |
+| Riley Stack | riley.stack@eudia.com | Needs fresh install | Send /fresh-install link |
+| Sean Boyd | sean.boyd@eudia.com | v4.9.7 → auto-update | Send /fresh-install link |
+| Zack | zack@eudia.com | Old version | Send /fresh-install link |
+| Mike Ayres | michael.ayres@eudia.com | Needs setup | Admin role, 1856 accounts |
+| Omar | omar@eudia.com | Not set up | Exec role, 204 accounts |
+| Greg MacHale | greg.machale@eudia.com | v4.1.0 | Needs PowerShell update |
+
+### Fresh Install Command (for any Mac user)
+
+```bash
+curl -sL https://gtm-wizard.onrender.com/api/plugin/fresh-install.sh | bash
+```
+
+Or send: https://gtm-wizard.onrender.com/fresh-install
+
+---
+
 ## Security & Permissions
 
 - Write operations restricted to Keigan (User ID: `U094AQE9V7D`)
