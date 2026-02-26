@@ -1477,11 +1477,11 @@ Write-Host ""
 </head>
 <body>
 <script>
-function showTab(os) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.querySelector('.tab-content#tab-' + os).classList.add('active');
-  event.target.classList.add('active');
+function showTab(os, el) {
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
+  document.getElementById('tab-' + os).classList.add('active');
+  el.classList.add('active');
 }
 function copyCmd(os) {
   var cmd = document.getElementById('cmd-' + os).textContent;
@@ -1506,8 +1506,8 @@ function copyCmd(os) {
       <p class="card-desc">Copy the command below, paste it into Terminal (Mac) or PowerShell (Windows), and press Enter. That's it.</p>
 
       <div class="tab-bar">
-        <button class="tab active" onclick="showTab('mac')">Mac</button>
-        <button class="tab" onclick="showTab('win')">Windows</button>
+        <button class="tab active" onclick="showTab('mac',this)">Mac</button>
+        <button class="tab" onclick="showTab('win',this)">Windows</button>
       </div>
 
       <div id="tab-mac" class="tab-content active">
