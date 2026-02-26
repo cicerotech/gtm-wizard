@@ -1175,6 +1175,108 @@ read -p "  Press Enter to close..."
       res.send(content);
     });
 
+    // Pipe-able install scripts — no file download needed, bypasses Gatekeeper/SmartScreen
+    // Usage (Mac):     curl -sL https://gtm-wizard.onrender.com/api/plugin/install.sh | bash
+    // Usage (Windows): powershell -ExecutionPolicy Bypass -Command "iex (irm 'https://gtm-wizard.onrender.com/api/plugin/install.ps1')"
+    this.expressApp.get('/api/plugin/install.sh', (req, res) => {
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.send(`#!/bin/bash
+SERVER="https://gtm-wizard.onrender.com"
+PF=".obsidian/plugins/eudia-transcription"
+echo ""; echo "  Eudia Plugin Updater"; echo "  ==================="; echo ""
+VD=""
+for d in "$HOME/Documents" "$HOME/Desktop" "$HOME" "$HOME/Library/Mobile Documents" "$HOME/Downloads"; do
+  [ ! -d "$d" ] && continue
+  F=$(find "$d" -maxdepth 4 -type d -name "eudia-transcription" -path "*/.obsidian/plugins/*" 2>/dev/null | head -1)
+  [ -n "$F" ] && VD=$(echo "$F" | sed "s|/.obsidian/plugins/eudia-transcription||") && break
+done
+if [ -z "$VD" ]; then echo "  Could not find vault."; echo "  Paste the full path to your vault folder:"; read -p "  Path: " VD; VD=$(echo "$VD" | xargs); fi
+PD="$VD/$PF"
+if [ ! -d "$PD" ]; then echo "  Plugin folder not found at $PD"; exit 1; fi
+echo "  Found: \${VD##*/}"
+echo "  Downloading latest plugin..."
+for a in 1 2 3; do
+  HC=$(curl -sS -w "%{http_code}" --connect-timeout 60 --max-time 120 -o "$PD/main.js.new" "$SERVER/api/plugin/main.js" 2>/dev/null)
+  [ "$HC" = "200" ] && [ -s "$PD/main.js.new" ] && break
+  [ "$a" -lt 3 ] && echo "  Retrying..." && sleep 5
+done
+curl -sS --connect-timeout 30 -o "$PD/manifest.json.new" "$SERVER/api/plugin/manifest.json" 2>/dev/null
+curl -sS --connect-timeout 30 -o "$PD/styles.css.new" "$SERVER/api/plugin/styles.css" 2>/dev/null
+MS=$(wc -c < "$PD/main.js.new" 2>/dev/null | tr -d ' ')
+if [ "\${MS:-0}" -lt 10000 ]; then echo "  Download failed. Try again in a minute."; rm -f "$PD"/*.new; exit 1; fi
+mv "$PD/main.js.new" "$PD/main.js"; mv "$PD/manifest.json.new" "$PD/manifest.json"; mv "$PD/styles.css.new" "$PD/styles.css"
+AF="$VD/.obsidian/appearance.json"
+python3 -c "
+import json
+try: d=json.load(open('$AF'))
+except: d={}
+d['theme']='moonstone'; d['accentColor']='#8e99e1'; d['cssTheme']=''
+json.dump(d,open('$AF','w'),indent=2)
+" 2>/dev/null
+NV=$(python3 -c "import json; print(json.load(open('$PD/manifest.json'))['version'])" 2>/dev/null || echo "latest")
+echo ""; echo "  DONE — updated to v$NV"; echo "  Close Obsidian (Cmd+Q) and reopen."; echo ""
+`);
+    });
+
+    this.expressApp.get('/api/plugin/install.ps1', (req, res) => {
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.send(`
+Write-Host ""
+Write-Host "  Eudia Plugin Updater" -ForegroundColor Cyan
+Write-Host "  ===================" -ForegroundColor Cyan
+Write-Host ""
+$server = "https://gtm-wizard.onrender.com"
+$pf = ".obsidian\\plugins\\eudia-transcription"
+$vaultDir = $null
+$searchDirs = @("$env:USERPROFILE\\Documents", "$env:USERPROFILE\\Desktop", "$env:USERPROFILE\\OneDrive\\Documents", "$env:USERPROFILE")
+foreach ($sd in $searchDirs) {
+  if (Test-Path $sd) {
+    $found = Get-ChildItem -Path $sd -Recurse -Directory -Depth 4 -Filter "eudia-transcription" -ErrorAction SilentlyContinue |
+      Where-Object { $_.FullName -like "*\\.obsidian\\plugins\\eudia-transcription" } | Select-Object -First 1
+    if ($found) {
+      $vaultDir = $found.FullName -replace "\\\\.obsidian\\\\plugins\\\\eudia-transcription$", ""
+      break
+    }
+  }
+}
+if (-not $vaultDir) {
+  Write-Host "  Could not find vault. Paste the full path:" -ForegroundColor Yellow
+  $vaultDir = Read-Host "  Path"
+  $vaultDir = $vaultDir.Trim('"').Trim()
+}
+$pluginDir = Join-Path $vaultDir $pf
+if (-not (Test-Path (Join-Path $pluginDir "main.js"))) {
+  Write-Host "  Plugin not found at $pluginDir" -ForegroundColor Red; exit 1
+}
+Write-Host "  Found: $(Split-Path $vaultDir -Leaf)" -ForegroundColor Green
+Write-Host "  Downloading latest plugin..."
+Write-Host "  (server may take ~30s to wake up)" -ForegroundColor Yellow
+$files = @("main.js", "manifest.json", "styles.css")
+foreach ($f in $files) {
+  $attempts = 0; $ok = $false
+  while ($attempts -lt 3 -and -not $ok) {
+    try {
+      Invoke-WebRequest -Uri "$server/api/plugin/$f" -OutFile (Join-Path $pluginDir "$f.new") -TimeoutSec 120
+      if ((Get-Item (Join-Path $pluginDir "$f.new")).Length -gt 100) { $ok = $true }
+    } catch { $attempts++; Start-Sleep 5 }
+  }
+  if (-not $ok) { Write-Host "  Failed to download $f" -ForegroundColor Red; exit 1 }
+}
+foreach ($f in $files) {
+  Move-Item -Force (Join-Path $pluginDir "$f.new") (Join-Path $pluginDir $f)
+}
+$appearance = Join-Path $vaultDir ".obsidian\\appearance.json"
+'{"accentColor":"#8e99e1","theme":"moonstone","cssTheme":""}' | Set-Content $appearance
+$ver = (Get-Content (Join-Path $pluginDir "manifest.json") | ConvertFrom-Json).version
+Write-Host ""
+Write-Host "  DONE - updated to v$ver" -ForegroundColor Green
+Write-Host "  Close Obsidian completely and reopen." -ForegroundColor Green
+Write-Host ""
+`);
+    });
+
     // Plugin bundle ZIP — all 3 plugin files in a single ZIP download
     this.expressApp.get('/api/plugin/bundle.zip', async (req, res) => {
       try {
@@ -1348,9 +1450,49 @@ read -p "  Press Enter to close..."
     }
     .footer a { color: #8e99e1; text-decoration: none; }
     .footer a:hover { text-decoration: underline; }
+
+    .tab-bar { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+    .tab {
+      padding: 10px 24px; border: none; background: none; font-size: 0.875rem;
+      font-weight: 600; color: #9ca3af; cursor: pointer; border-bottom: 2px solid transparent;
+      margin-bottom: -2px; transition: all 0.15s;
+    }
+    .tab.active { color: #8e99e1; border-bottom-color: #8e99e1; }
+    .tab:hover { color: #6b7280; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .cmd-box {
+      background: #1e293b; color: #e2e8f0; border-radius: 8px; padding: 16px 18px;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 0.8rem;
+      line-height: 1.5; cursor: pointer; position: relative; margin: 16px 0;
+      word-break: break-all; transition: all 0.15s;
+    }
+    .cmd-box:hover { background: #334155; }
+    .copy-hint {
+      position: absolute; top: 8px; right: 12px; font-size: 0.7rem;
+      color: #8e99e1; font-family: -apple-system, sans-serif;
+    }
   </style>
 </head>
 <body>
+<script>
+function showTab(os) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector('.tab-content#tab-' + os).classList.add('active');
+  event.target.classList.add('active');
+}
+function copyCmd(os) {
+  var cmd = document.getElementById('cmd-' + os).textContent;
+  navigator.clipboard.writeText(cmd).then(function() {
+    var hint = document.getElementById('copy-hint-' + os);
+    hint.textContent = 'Copied!';
+    hint.style.color = '#10b981';
+    setTimeout(function() { hint.textContent = 'Click to copy'; hint.style.color = '#8e99e1'; }, 2000);
+  });
+}
+</script>
   <div class="container">
     <div class="header">
       <img src="/logo" alt="Eudia" onerror="this.style.display='none'">
@@ -1360,50 +1502,51 @@ read -p "  Press Enter to close..."
     </div>
 
     <div class="card">
-      <h2>One-Click Update</h2>
-      <p class="card-desc">Download and run the update script. It auto-finds your vault and installs the latest plugin.</p>
+      <h2>Update Your Plugin</h2>
+      <p class="card-desc">Copy the command below, paste it into Terminal (Mac) or PowerShell (Windows), and press Enter. That's it.</p>
 
-      <div class="steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <div class="step-text"><strong>Download</strong> the update script below</div>
+      <div class="tab-bar">
+        <button class="tab active" onclick="showTab('mac')">Mac</button>
+        <button class="tab" onclick="showTab('win')">Windows</button>
+      </div>
+
+      <div id="tab-mac" class="tab-content active">
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-text">Open <strong>Terminal</strong> (press Cmd+Space, type "Terminal", press Enter)</div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Copy</strong> the command below and <strong>paste</strong> it into Terminal, then press Enter</div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-text">When it says "DONE", close Obsidian (Cmd+Q) and reopen</div></div>
         </div>
-        <div class="step">
-          <div class="step-num">2</div>
-          <div class="step-text"><strong>Double-click</strong> the downloaded file to run it</div>
-        </div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <div class="step-text"><strong>Reopen Obsidian</strong> (Cmd+Q, then reopen) &mdash; future updates are automatic</div>
+        <div class="cmd-box" onclick="copyCmd('mac')">
+          <code id="cmd-mac">curl -sL https://gtm-wizard.onrender.com/api/plugin/install.sh | bash</code>
+          <span class="copy-hint" id="copy-hint-mac">Click to copy</span>
         </div>
       </div>
 
-      <div style="display:flex;gap:10px;margin-bottom:12px;">
-        <a href="/api/plugin/update-script" class="btn btn-primary" style="flex:1" download="Update-Eudia-Plugin.command">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Mac
-        </a>
-        <a href="/api/plugin/update-script-win" class="btn btn-primary" style="flex:1" download="Update-Eudia-Plugin.bat">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Windows
-        </a>
+      <div id="tab-win" class="tab-content">
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-text">Open <strong>PowerShell</strong> (press Windows key, type "PowerShell", press Enter)</div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Copy</strong> the command below and <strong>paste</strong> it into PowerShell, then press Enter</div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-text">When it says "DONE", close Obsidian completely and reopen</div></div>
+        </div>
+        <div class="cmd-box" onclick="copyCmd('win')">
+          <code id="cmd-win">powershell -ExecutionPolicy Bypass -Command "iex (irm 'https://gtm-wizard.onrender.com/api/plugin/install.ps1')"</code>
+          <span class="copy-hint" id="copy-hint-win">Click to copy</span>
+        </div>
       </div>
 
       <div class="note">
-        <strong>Mac:</strong> Double-click the .command file. If macOS blocks it, right-click &gt; Open.<br>
-        <strong>Windows:</strong> Double-click the .bat file. If Windows shows a warning, click "Run anyway".
+        Future updates happen automatically inside Obsidian &mdash; you will never need to do this again.
       </div>
     </div>
 
     <div class="alt-card">
-      <h2>Alternative: Manual Update</h2>
-      <a href="/api/plugin/bundle.zip" class="btn btn-secondary" download="eudia-plugin-update.zip">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download Plugin Files (ZIP)
+      <h2>Alternative: Fresh Vault Download</h2>
+      <a href="/vault/download" class="btn btn-secondary">
+        Download Latest Vault (ZIP)
       </a>
       <p class="help-text">
-        Extract the ZIP, then copy <strong>main.js</strong>, <strong>manifest.json</strong>, and <strong>styles.css</strong>
-        into your vault's <code>.obsidian/plugins/eudia-transcription/</code> folder. Restart Obsidian.
+        If you'd prefer to start fresh, download a new vault with the latest plugin pre-installed.
+        Open it in Obsidian and enter your email to import your accounts.
       </p>
     </div>
 
