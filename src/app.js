@@ -1033,6 +1033,12 @@ class GTMBrainApp {
       try {
         const pluginDir = path.join(__dirname, '..', 'obsidian-plugin');
         const manifestPath = path.join(pluginDir, 'manifest.json');
+
+        // Diagnostic: log the resolved path and whether the file exists
+        const manifestExists = fs.existsSync(manifestPath);
+        const dirContents = manifestExists ? 'exists' : fs.existsSync(pluginDir) ? `dir exists but no manifest (contents: ${fs.readdirSync(pluginDir).join(', ')})` : `dir missing (cwd: ${process.cwd()}, __dirname: ${__dirname})`;
+        logger.info(`[Plugin Version] manifestPath=${manifestPath}, exists=${manifestExists}, detail=${dirContents}`);
+
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
 
         const response = {
