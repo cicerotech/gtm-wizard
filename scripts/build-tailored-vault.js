@@ -207,7 +207,82 @@ After each transcription, next steps are automatically extracted and saved to th
 **Slack:** #gtm-tools
 `;
 
-  fs.writeFileSync(path.join(destDir, 'QUICKSTART.md'), quickStartContent);
+  // Overwrite with simplified quickstart
+  const simplifiedQuickStart = `# Eudia Notetaker -- Quick Start
+
+Smart meeting summaries and structured follow-up notes for every call.
+
+---
+
+## How It Works -- 3 Steps
+
+### 1. Open Your Calendar and Select a Meeting
+
+Click the **calendar icon** in the left sidebar. You will see your upcoming external meetings. Click any meeting to create a note -- it automatically files under the correct account based on attendee domains.
+
+### 2. Record the Call
+
+With your meeting note open, click the **microphone icon** to start recording. Select the meeting template (Discovery, Demo, Customer Success, etc.) and speak normally. The tool captures your microphone audio hands-free.
+
+### 3. Stop and Review
+
+Click stop when the call ends. Processing takes **2-5 minutes**. You can navigate away -- the summary appears in the note automatically. It includes:
+
+| Section | What You Get |
+|---------|-------------|
+| **Summary** | Key discussion points with direct quotes |
+| **Pain Points** | Challenges the customer raised |
+| **Next Steps** | Action items with owners |
+| **MEDDICC Signals** | Champion, decision process, metrics |
+| **Full Transcript** | Complete word-for-word record |
+
+---
+
+## Your Sidebar Tools
+
+You have four icons in the left ribbon:
+
+| Icon | What It Does |
+|------|-------------|
+| **Calendar** | Today's meetings. Click any to create a note under the matched account. |
+| **Microphone** | Start/stop recording. Select a template for the call type. |
+| **Chat (GTM Brain)** | Ask questions: "Prep me for Accenture" or "What deals are in Stage 4?" |
+| **Settings** | Email, timezone, and Salesforce connection. |
+
+---
+
+## Account Folders
+
+Each account in your sidebar has these sub-notes:
+
+- **Note 1, Note 2, Note 3** -- Meeting notes (new ones auto-create)
+- **Contacts** -- Key people, titles, and contact details
+- **Intelligence** -- Company context, competitive landscape
+- **Next Steps** -- Auto-updated after each transcription
+
+---
+
+## Syncing to Salesforce
+
+Notes are **private by default**. To push a note to Salesforce, use Cmd+P > "Sync Note to Salesforce" and confirm. Only notes you explicitly sync are shared. Your recordings stay local.
+
+---
+
+## Quick Reference
+
+| I want to... | Do this |
+|-------------|---------|
+| See my meetings | Click the **Calendar** icon |
+| Record a call | Click the **Microphone** icon |
+| Get account intel | Click **GTM Brain** > "Prep me for [Account]" |
+| Review past notes | Open the account folder in the sidebar |
+| Sync to Salesforce | Cmd+P > "Sync Note to Salesforce" |
+
+---
+
+**Support:** gtm-wizard.onrender.com | Slack: #gtm-tools
+`;
+  fs.writeFileSync(path.join(destDir, 'QUICKSTART.md'), simplifiedQuickStart);
 }
 
 /**

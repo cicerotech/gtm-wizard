@@ -1690,6 +1690,9 @@ class EudiaSetupView extends ItemView {
   private renderSteps(container: HTMLElement): void {
     const stepsContainer = container.createDiv({ cls: 'eudia-setup-steps-container' });
     
+    // Step 0: Role selector (always first)
+    this.renderRoleStep(stepsContainer);
+    
     // Step 1: Calendar / Email
     this.renderCalendarStep(stepsContainer);
     
@@ -1700,22 +1703,68 @@ class EudiaSetupView extends ItemView {
     this.renderTranscribeStep(stepsContainer);
   }
 
-  private renderCalendarStep(container: HTMLElement): void {
-    const step = this.steps[0];
-    const stepEl = container.createDiv({ cls: `eudia-setup-step-card ${step.status}` });
+  private renderRoleStep(container: HTMLElement): void {
+    const hasRole = !!this.plugin.settings.userRole;
+    const stepEl = container.createDiv({ cls: `eudia-setup-step-card ${hasRole ? 'complete' : 'in_progress'}` });
     
-    // Step header
     const stepHeader = stepEl.createDiv({ cls: 'eudia-setup-step-header' });
     const stepNumber = stepHeader.createDiv({ cls: 'eudia-setup-step-number' });
-    stepNumber.setText(step.status === 'complete' ? '' : '1');
+    stepNumber.setText(hasRole ? '' : '');
+    if (hasRole) stepNumber.addClass('eudia-step-complete');
+    else stepNumber.setText('1');
+    
+    const stepInfo = stepHeader.createDiv({ cls: 'eudia-setup-step-info' });
+    stepInfo.createEl('h3', { text: 'Select Your Team' });
+    stepInfo.createEl('p', { text: 'This determines which accounts and features are loaded' });
+    
+    const stepContent = stepEl.createDiv({ cls: 'eudia-setup-step-content' });
+    
+    if (hasRole) {
+      const labels: Record<string, string> = { sales: 'Sales / Business Development', cs: 'Customer Success', exec: 'Executive Leadership', product: 'Product', admin: 'Operations / Admin' };
+      stepContent.createDiv({ cls: 'eudia-setup-complete-message', text: labels[this.plugin.settings.userRole] || this.plugin.settings.userRole });
+    } else {
+      const roleOptions = [
+        { value: 'sales', label: 'Sales / Business Development' },
+        { value: 'cs', label: 'Customer Success' },
+        { value: 'exec', label: 'Executive Leadership' },
+        { value: 'product', label: 'Product' },
+        { value: 'admin', label: 'Operations / Admin' }
+      ];
+      const roleGroup = stepContent.createDiv();
+      roleGroup.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;';
+      for (const opt of roleOptions) {
+        const btn = roleGroup.createEl('button', { text: opt.label, cls: 'eudia-setup-btn' });
+        btn.style.cssText = 'flex:1;min-width:140px;text-align:center;';
+        btn.onclick = async () => {
+          this.plugin.settings.userRole = opt.value as any;
+          await this.plugin.saveSettings();
+          await this.render();
+        };
+      }
+    }
+  }
+
+  private renderCalendarStep(container: HTMLElement): void {
+    const step = this.steps[0];
+    const hasRole = !!this.plugin.settings.userRole;
+    const stepEl = container.createDiv({ cls: `eudia-setup-step-card ${step.status}${!hasRole ? ' pending' : ''}` });
+    
+    const stepHeader = stepEl.createDiv({ cls: 'eudia-setup-step-header' });
+    const stepNumber = stepHeader.createDiv({ cls: 'eudia-setup-step-number' });
+    stepNumber.setText(step.status === 'complete' ? '' : '2');
     if (step.status === 'complete') stepNumber.addClass('eudia-step-complete');
+    if (!hasRole) stepNumber.addClass('pending');
     
     const stepInfo = stepHeader.createDiv({ cls: 'eudia-setup-step-info' });
     stepInfo.createEl('h3', { text: step.title });
     stepInfo.createEl('p', { text: step.description });
     
-    // Step content
     const stepContent = stepEl.createDiv({ cls: 'eudia-setup-step-content' });
+    
+    if (!hasRole) {
+      stepContent.createDiv({ cls: 'eudia-setup-disabled-message', text: 'Select your team first' });
+      return;
+    }
     
     if (step.status === 'complete') {
       stepContent.createDiv({ 
@@ -8895,7 +8944,6 @@ To restore, move this folder back to the Accounts directory.
     const serverUrl = this.settings.serverUrl || 'https://gtm-wizard.onrender.com';
     const accountsFolder = this.settings.accountsFolder || 'Accounts';
 
-    // Collect accounts with real Salesforce IDs (18-char, start with '001') — reject static placeholder IDs
     const accountsWithIds = accounts.filter(a => a.id && a.id.startsWith('001'));
     if (accountsWithIds.length === 0) return;
 
@@ -8904,61 +8952,71 @@ To restore, move this folder back to the Accounts directory.
     let errorCount = 0;
 
     console.log(`[Eudia Enrich] Starting enrichment for ${totalAccounts} accounts`);
-    new Notice(`Enriching account data: 0/${totalAccounts}...`);
 
-    // Batch into groups of 20
+    // Create persistent progress bar instead of notice spam
+    const progressEl = document.createElement('div');
+    progressEl.className = 'eudia-enrich-progress';
+    progressEl.innerHTML = `
+      <div style="font-size:13px;font-weight:500;margin-bottom:6px;color:var(--text-normal);">Loading account data...</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;" class="enrich-detail">Syncing contacts, opportunities, and intelligence from Salesforce</div>
+      <div style="height:6px;background:var(--background-modifier-border);border-radius:3px;overflow:hidden;">
+        <div class="enrich-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#8e99e1,#818cf8);border-radius:3px;transition:width 0.3s ease;"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text-faint);margin-top:4px;" class="enrich-count">0 / ${totalAccounts}</div>
+    `;
+    progressEl.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:var(--background-primary);border:1px solid var(--background-modifier-border);border-radius:10px;padding:14px 20px;min-width:300px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:1000;';
+    document.body.appendChild(progressEl);
+
+    const bar = progressEl.querySelector('.enrich-bar') as HTMLElement;
+    const countEl = progressEl.querySelector('.enrich-count') as HTMLElement;
+    const detailEl = progressEl.querySelector('.enrich-detail') as HTMLElement;
+
     const batchSize = 20;
     for (let i = 0; i < accountsWithIds.length; i += batchSize) {
       const batch = accountsWithIds.slice(i, i + batchSize);
       const batchIds = batch.map(a => a.id);
+
+      if (detailEl && batch[0]) {
+        detailEl.textContent = `Loading ${batch.map(a => a.name).slice(0, 3).join(', ')}${batch.length > 3 ? '...' : ''}`;
+      }
 
       try {
         const response = await requestUrl({
           url: `${serverUrl}/api/accounts/enrich-batch`,
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            accountIds: batchIds,
-            userEmail: this.settings.userEmail
-          })
+          body: JSON.stringify({ accountIds: batchIds, userEmail: this.settings.userEmail })
         });
 
         if (response.json?.success && response.json?.enrichments) {
-          const enrichments = response.json.enrichments;
-
           for (const account of batch) {
-            const data = enrichments[account.id];
+            const data = response.json.enrichments[account.id];
             if (!data) continue;
-
             try {
               await this.writeEnrichmentToAccount(account, data, accountsFolder);
               enrichedCount++;
-            } catch (writeErr) {
-              errorCount++;
-              console.error(`[Eudia Enrich] Write failed for ${account.name}:`, writeErr);
-            }
+            } catch { errorCount++; }
           }
         }
-      } catch (fetchErr) {
-        errorCount += batch.length;
-        console.error(`[Eudia Enrich] Batch fetch failed:`, fetchErr);
-      }
+      } catch { errorCount += batch.length; }
 
-      // Progress notice every batch
       const processed = Math.min(i + batchSize, totalAccounts);
-      new Notice(`Enriching account data: ${processed}/${totalAccounts}...`);
+      const pct = Math.round((processed / totalAccounts) * 100);
+      if (bar) bar.style.width = `${pct}%`;
+      if (countEl) countEl.textContent = `${processed} / ${totalAccounts} accounts`;
 
-      // Minimal delay between batches (server handles concurrency fine)
       if (i + batchSize < accountsWithIds.length) {
         await new Promise(r => setTimeout(r, 100));
       }
     }
 
-    const summary = errorCount > 0
-      ? `Enrichment complete: ${enrichedCount} enriched, ${errorCount} skipped`
-      : `Enrichment complete: ${enrichedCount} accounts enriched with Salesforce data`;
-    console.log(`[Eudia Enrich] ${summary}`);
-    new Notice(summary);
+    // Show completion then remove
+    if (detailEl) detailEl.textContent = `${enrichedCount} accounts loaded with contacts and intelligence`;
+    if (bar) bar.style.width = '100%';
+    if (countEl) countEl.textContent = 'Complete';
+    setTimeout(() => progressEl.remove(), 3000);
+
+    console.log(`[Eudia Enrich] Done: ${enrichedCount} enriched, ${errorCount} skipped`);
   }
 
   /**
