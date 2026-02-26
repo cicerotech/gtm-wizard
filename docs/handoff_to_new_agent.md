@@ -1,6 +1,6 @@
 # GTM Engineering Q1 FY26 — Project Handoff
 
-**Updated: February 25, 2026**
+**Updated: February 26, 2026**
 **DO NOT MODIFY THIS PROJECT WITHOUT EXPLICIT REQUEST.**
 **APPROACH: Surgical improvements only. Production system serving 41+ users.**
 
@@ -24,7 +24,7 @@ GTM-Brain (GTM-Wizard) is a multi-surface GTM Engineering platform for Eudia (le
 
 ## Current Systems & State
 
-### 1. Obsidian Sales Workspace (v4.7.3)
+### 1. Obsidian Sales Workspace — "Eudia Lite" (v4.9.7)
 
 Desktop tool for all Business Leads. Electron-based Obsidian plugin.
 
@@ -33,23 +33,58 @@ Desktop tool for all Business Leads. Electron-based Obsidian plugin.
 - Pre-meeting intelligence briefs pulled live from Salesforce (contacts, deal history, account context)
 - Account-specific AI context within each meeting note
 - CS-specific transcription format with quotable moments
-- Meeting note templates (Sales Discovery/MEDDIC, Demo/Presentation, General Check-In)
+- Meeting note templates (Sales Discovery/MEDDIC, Demo/Presentation, Customer Success, General Check-In, Internal Call)
 - Slack Copy command (Cmd+P > "Copy Note for Slack")
-- Audio safety net (saves recording to vault before server upload)
-- Silent auto-update (zero user action required)
+- Audio safety net (saves recording to vault before server upload, double-write with retry)
+- Silent auto-update (zero user action required for v4.4.0+)
 - Calendar view with external-only filter and past meeting scrollback
+- Auto-correct dark theme to light on startup (ensureLightTheme)
+- Auto-correct read-only mode to editable Live Preview (ensureEditableMode)
+- Prospect account folders with Salesforce contact enrichment
 
 **Architecture:**
-- Plugin source: `obsidian-plugin/main.ts` (~8,400 lines) + `obsidian-plugin/src/AudioRecorder.ts`
+- Plugin source: `obsidian-plugin/main.ts` (~9,800 lines) + `obsidian-plugin/src/AudioRecorder.ts`
 - Build: `cd obsidian-plugin && npm run build` (esbuild, <1s)
 - Served via `/api/plugin/main.js`, version check at `/api/plugin/version`
-- Vault structure: 1,109 accounts (prospect/active split), 7 sub-notes per account
+- Vault structure: accounts (prospect/active split), 7 sub-notes per account
 - Per-user Salesforce OAuth (PKCE) for plugin writes
-- Auto-update checks on `onload()`, downloads new files if version is higher
+- Auto-update checks on `onload()` (5s + 3min + every 10min), downloads new files if version is higher
+- Plugin update page at `/update-plugin` (Mac Terminal + Windows PowerShell copy-paste commands)
+- Install scripts: `/api/plugin/install.sh` (Mac), `/api/plugin/install.ps1` (Windows)
 
-**Known Issue:**
-- Two-way audio capture works but is not 100% reliable across all hardware configs
-- Non-blocking notice appears when no virtual device detected
+**Changes made Feb 26, 2026 (this session):**
+- Renamed plugin from "Eudia Transcription Plugin" to "Eudia Lite"
+- Fixed dark theme bug: dynamic vault generator was setting theme "obsidian" (dark) instead of "moonstone" (light)
+- Fixed prospect contacts: enrichment was async/background and failing silently; now synchronous
+- Fixed auto-enrich scanner to include _Prospects/ folder (was skipping it)
+- Fixed prospect accounts not added to cachedAccounts (auto-enrich couldn't match them)
+- Fixed headphone/AirPods audio: removed preemptive mic_only switch; now attempts system audio capture first
+- Fixed note editing: added defaultViewMode: source + livePreview: true to app.json
+- Fixed false "Transcription failed" banner: post-processing errors (SF sync, Next Steps) no longer trigger error banner when transcription content was already written successfully
+- Added plugin auto-update bootstrap for v4.0.x-4.3.x users (install.sh/install.ps1 commands, /update-plugin page)
+- Removed all python3 dependencies from install scripts (was triggering Xcode install on fresh Macs)
+- All install scripts auto-close Obsidian after update
+- Hardened auto-update: 5 retries, 10-min periodic check, secondary 3-min startup check
+- Removed duplicate Express route registrations for plugin files and telemetry
+- Merged PostgreSQL persistence into primary telemetry route
+
+**CRITICAL KNOWN ISSUES (must fix next session):**
+1. **Audio chunking failures on 29-min calls**: Chunked transcription (>15MB) fails chunks 2-4 of 4. Server timeout or Render request limit issue. Must investigate `/api/transcribe-chunk` endpoint and chunk size/timeout.
+2. **Account overload for BLs**: Riley and Sean see ALL 699 accounts. Their owned/prospect accounts (~50-80) are buried in _Prospects subfolder. Need to restructure: show ONLY their accounts at the top level, remove unrelated accounts.
+3. **Calendar-to-account matching broken for prospects**: Meeting notes created from calendar don't smart-log under the correct prospect account folder. Yahoo meeting → note doesn't go under Yahoo. Matching logic needs to check _Prospects/ subfolders, not just top-level Accounts/.
+4. **macOS permission flow broken**: Plugin's "Open System Settings" redirects to Siri settings instead of Microphone/Screen Recording. Users think they granted permission but didn't. Need explicit step-by-step permission guide with validation.
+5. **Multi-vault install script**: `install.sh` picks the first vault found; users with multiple vaults (old downloads, test vaults) get the wrong one updated. Need selection prompt when count > 1.
+6. **Deal Code field label**: Renamed from "BOI Deal Code" to "Deal Code" in metadata but SFDX deploy showed "Unchanged" — may not have propagated to org. Need to verify via API.
+7. **Build script doesn't auto-build plugin**: `scripts/build-tailored-vault.js` copies main.js but doesn't run `npm run build` first. Risk of shipping stale compiled code.
+
+**Users currently set up on v4.9.7:**
+- Sean Boyd (sean.boyd@eudia.com) — tested, working
+- Riley Stack (riley.stack@eudia.com) — vault at `/Users/rileystack/Downloads/Business-Lead-Vault-2026`, has old `Eudia-Sales-Vault` in Documents (should be deleted)
+- Rajeev Patel — setup attempted, hit python3/Xcode issue (now fixed)
+- Greg MacHale (greg.machale@eudia.com) — PC user, v4.1.0, needs PowerShell update via /update-plugin
+
+**Users NOT yet updated (still on old versions, no auto-update):**
+- Any user on v4.0.x - v4.3.x must use Terminal/PowerShell command from `/update-plugin`
 
 ### 2. GTM Brain Conversational AI
 
