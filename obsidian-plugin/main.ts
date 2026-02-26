@@ -23,7 +23,7 @@ import { AudioRecorder, RecordingState, RecordingResult, RecordingLifecycleEvent
 import { TranscriptionService, TranscriptionResult, MeetingContext, ProcessedSections, AccountDetector, accountDetector, AccountDetectionResult, detectPipelineMeeting } from './src/TranscriptionService';
 import { CalendarService, CalendarMeeting, TodayResponse, WeekResponse } from './src/CalendarService';
 import { SmartTagService, SmartTags } from './src/SmartTagService';
-import { AccountOwnershipService, OwnedAccount, generateAccountOverviewNote, isAdminUser, isCSUser, isCSManager, getCSManagerDirectReports, ADMIN_EMAILS, CS_EMAILS, CS_STATIC_ACCOUNTS } from './src/AccountOwnership';
+import { AccountOwnershipService, OwnedAccount, generateAccountOverviewNote, isAdminUser, isCSUser, isCSManager, getCSManagerDirectReports, getUserGroup, ADMIN_EMAILS, CS_EMAILS, CS_STATIC_ACCOUNTS } from './src/AccountOwnership';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES & INTERFACES
@@ -86,6 +86,8 @@ interface EudiaSyncSettings {
   // One-time migration flags
   prospectsMigrated: boolean;
   pendingReloadVersion: string | null;
+  // User role for account loading
+  userRole: 'sales' | 'cs' | 'exec' | 'product' | 'admin' | '';
 }
 
 // Common timezone options for US/EU sales teams
@@ -137,7 +139,8 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   editModeFixApplied: false,
   healQueue: [],
   prospectsMigrated: false,
-  pendingReloadVersion: null
+  pendingReloadVersion: null,
+  userRole: ''
 };
 
 interface SalesforceAccount {
@@ -1154,6 +1157,33 @@ class SetupWizardModal extends Modal {
       emailInput.value = this.plugin.settings.userEmail;
     }
 
+    // Team role selector
+    const roleSection = section.createDiv();
+    roleSection.style.cssText = 'margin-top:16px;';
+    roleSection.createEl('h3', { text: 'Your Team' });
+    const roleSelect = roleSection.createEl('select') as HTMLSelectElement;
+    roleSelect.style.cssText = 'width:100%;padding:10px 14px;font-size:14px;border:1px solid var(--background-modifier-border);border-radius:8px;background:var(--background-primary);color:var(--text-normal);';
+    const roleOptions: Array<{ value: string; label: string }> = [
+      { value: 'sales', label: 'Sales / Business Development' },
+      { value: 'cs', label: 'Customer Success' },
+      { value: 'exec', label: 'Executive Leadership' },
+      { value: 'product', label: 'Product' },
+      { value: 'admin', label: 'Operations / Admin' }
+    ];
+    for (const opt of roleOptions) {
+      const el = roleSelect.createEl('option', { text: opt.label, value: opt.value });
+      el.value = opt.value;
+    }
+
+    // Pre-select based on email when user types
+    const suggestRole = (email: string) => {
+      const group = getUserGroup(email);
+      const map: Record<string, string> = { admin: 'admin', exec: 'exec', sales_leader: 'sales', cs: 'cs', bl: 'sales' };
+      roleSelect.value = map[group] || 'sales';
+    };
+    emailInput.addEventListener('input', () => suggestRole(emailInput.value.trim().toLowerCase()));
+    if (this.plugin.settings.userEmail) suggestRole(this.plugin.settings.userEmail);
+
     const buttons = contentEl.createDiv({ cls: 'eudia-setup-buttons' });
     
     const skipBtn = buttons.createEl('button', { text: 'Skip for now' });
@@ -1168,6 +1198,7 @@ class SetupWizardModal extends Modal {
         return;
       }
       this.plugin.settings.userEmail = email;
+      this.plugin.settings.userRole = roleSelect.value as any;
       await this.plugin.saveSettings();
       await this.runSetup();
     };
@@ -1197,19 +1228,20 @@ class SetupWizardModal extends Modal {
     try {
       const ownershipService = new AccountOwnershipService(this.plugin.settings.serverUrl);
       const userEmail = this.plugin.settings.userEmail;
-      const userGroup = isAdminUser(userEmail) ? 'admin' : isCSUser(userEmail) ? 'cs' : 'bl';
-      console.log(`[Eudia Quick Setup] Importing accounts for ${userEmail} (group: ${userGroup})`);
+      const role = this.plugin.settings.userRole || (isAdminUser(userEmail) ? 'admin' : isCSUser(userEmail) ? 'cs' : 'sales');
+      console.log(`[Eudia Quick Setup] Importing accounts for ${userEmail} (role: ${role})`);
       
-      // Route to correct account fetch based on user type
       let accounts: OwnedAccount[];
       let prospects: OwnedAccount[] = [];
-      if (userGroup === 'cs') {
-        // CS FAST PATH: Use static accounts (no server dependency)
+      if (role === 'cs') {
         accounts = [...CS_STATIC_ACCOUNTS];
-        console.log(`[Eudia] CS user detected — using ${accounts.length} static accounts`);
-      } else if (userGroup === 'admin') {
-        console.log('[Eudia] Admin user detected - importing all accounts');
+        console.log(`[Eudia] CS role — using ${accounts.length} static accounts`);
+      } else if (role === 'admin') {
+        console.log('[Eudia] Admin role — importing all accounts');
         accounts = await ownershipService.getAllAccountsForAdmin(userEmail);
+      } else if (role === 'exec' || role === 'product') {
+        console.log(`[Eudia] ${role} role — importing Existing + active pipeline accounts`);
+        accounts = await ownershipService.getExecProductAccounts(userEmail);
       } else {
         const result = await ownershipService.getAccountsWithProspects(userEmail);
         accounts = result.accounts;
@@ -1217,13 +1249,11 @@ class SetupWizardModal extends Modal {
       }
       
       if (accounts.length > 0 || prospects.length > 0) {
-        // Collapse left sidebar to hide folder-by-folder creation (smoother UX)
         if (quickLeftSplit && !quickWasCollapsed) {
           quickLeftSplit.collapse();
         }
 
-        // Create folder structures
-        if (userGroup === 'admin') {
+        if (role === 'admin') {
           await this.plugin.createAdminAccountFolders(accounts);
         } else {
           await this.plugin.createTailoredAccountFolders(accounts, {});
@@ -1499,14 +1529,15 @@ class EudiaSetupView extends ItemView {
         
         try {
           const email = this.plugin.settings.userEmail;
-          const userGroup = isAdminUser(email) ? 'admin' : isCSUser(email) ? 'cs' : 'bl';
+          const userGroup = this.plugin.settings.userRole || (isAdminUser(email) ? 'admin' : isCSUser(email) ? 'cs' : 'sales');
           let accounts: OwnedAccount[] = [];
           let prospects: OwnedAccount[] = [];
-          
-          console.log(`[Eudia Setup] Auto-retry for ${email} (group: ${userGroup})`);
-          
-          if (userGroup === 'cs') {
-            // CS FAST PATH: Use static accounts (no server dependency)
+
+          console.log(`[Eudia Setup] Auto-retry for ${email} (role: ${userGroup})`);
+
+          if (userGroup === 'exec' || userGroup === 'product') {
+            accounts = await this.accountOwnershipService.getExecProductAccounts(email);
+          } else if (userGroup === 'cs') {
             accounts = [...CS_STATIC_ACCOUNTS];
             console.log(`[Eudia Setup] Auto-retry CS: using ${accounts.length} static accounts`);
           } else if (userGroup === 'admin') {
@@ -1637,7 +1668,7 @@ class EudiaSetupView extends ItemView {
     
     // Logo and title
     const titleSection = header.createDiv({ cls: 'eudia-setup-title-section' });
-    titleSection.createEl('h1', { text: 'Welcome to Eudia Sales Vault', cls: 'eudia-setup-main-title' });
+    titleSection.createEl('h1', { text: 'Welcome to Eudia Notetaker', cls: 'eudia-setup-main-title' });
     titleSection.createEl('p', { 
       text: 'Complete these steps to transcribe and summarize meetings -- capturing objections, next steps, and pain points to drive better client outcomes and smarter selling.',
       cls: 'eudia-setup-subtitle'
@@ -1790,13 +1821,33 @@ class EudiaSetupView extends ItemView {
         }
 
         try {
-          // Route to correct account fetch based on user type
           let accounts: OwnedAccount[];
           let prospects: OwnedAccount[] = [];
-          const userGroup = isAdminUser(email) ? 'admin' : isCSUser(email) ? 'cs' : 'bl';
-          console.log(`[Eudia] User group detected: ${userGroup} for ${email}`);
+          const userGroup = this.plugin.settings.userRole || (isAdminUser(email) ? 'admin' : isCSUser(email) ? 'cs' : 'sales');
+          console.log(`[Eudia] User role: ${userGroup} for ${email}`);
           
-          if (userGroup === 'cs') {
+          if (userGroup === 'exec' || userGroup === 'product') {
+            console.log(`[Eudia] ${userGroup} role — loading Existing + active pipeline accounts`);
+            accounts = await this.accountOwnershipService.getExecProductAccounts(email);
+            if (validationEl) {
+              validationEl.textContent = `Loading ${accounts.length} accounts...`;
+            }
+            await this.plugin.createTailoredAccountFolders(accounts, {});
+            const folder = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.accountsFolder || 'Accounts');
+            const children = (folder as any)?.children?.filter((c: any) => c.children !== undefined) || [];
+            if (children.length > 0) {
+              this.plugin.settings.accountsImported = true;
+              this.plugin.settings.importedAccountCount = accounts.length;
+            }
+            await this.plugin.saveSettings();
+            try { const sf = this.plugin.app.vault.getAbstractFileByPath('Accounts/_Setup Required.md'); if (sf) await this.plugin.app.vault.delete(sf); } catch {}
+            new Notice(`Imported ${accounts.length} accounts!`);
+            const enrichable = accounts.filter(a => a.id && a.id.startsWith('001'));
+            if (enrichable.length > 0) {
+              if (validationEl) validationEl.textContent = `Enriching ${enrichable.length} accounts...`;
+              try { await this.plugin.enrichAccountFolders(enrichable); } catch {}
+            }
+          } else if (userGroup === 'cs') {
             // ─── CS FAST PATH: Use static accounts IMMEDIATELY (no server dependency) ───
             console.log(`[Eudia] CS user detected — loading ${CS_STATIC_ACCOUNTS.length} accounts from static data (instant, no server needed)`);
             accounts = [...CS_STATIC_ACCOUNTS]; // Copy to avoid mutation
@@ -1921,7 +1972,7 @@ class EudiaSetupView extends ItemView {
                   }
                 } catch (enrichErr) {
                   console.log('[Eudia] Admin/exec synchronous enrichment failed, will retry on next open:', enrichErr);
-                  new Notice(`${accounts.length} accounts imported! Contacts will populate on next vault open.`);
+                  new Notice(`${accounts.length} accounts imported! Contacts will populate on next open.`);
                   // Background retry with delays
                   const retryDelays = [5000, 20000, 60000];
                   const bgEnrich = async (attempt: number): Promise<void> => {
@@ -2385,7 +2436,7 @@ class EudiaSetupView extends ItemView {
       const checkEl = completionTitle.createSpan({ cls: 'eudia-setup-completion-icon' });
       setIcon(checkEl, 'check-circle');
       completionTitle.createSpan({ text: ' You\'re all set!' });
-      completionMessage.createEl('p', { text: 'Your sales vault is ready. Click below to start using Eudia.' });
+      completionMessage.createEl('p', { text: 'Your Eudia Notetaker is ready. Click below to start using Eudia.' });
       
       const finishBtn = footer.createEl('button', {
         text: 'Open Calendar →',
@@ -3685,6 +3736,8 @@ export default class EudiaSyncPlugin extends Plugin {
   private recordingStatusBar: RecordingStatusBar | null = null;
   private micRibbonIcon: HTMLElement | null = null;
   private _updateInProgress = false;
+  private _hotReloadPending = false;
+  private _migrationInProgress = false;
   private _updateStatusEl: HTMLElement | null = null;
   
   // Live query support - accumulated transcript during recording
@@ -4494,17 +4547,11 @@ created: ${dateStr}
     const updateAge = Date.now() - new Date(this.settings.lastUpdateTimestamp).getTime();
     const currentVersion = this.manifest?.version || '0.0.0';
 
-    // If we successfully loaded with the new version, the update worked — clear the state
+    // If we successfully loaded with the new version, the update worked
+    // Keep lastUpdateTimestamp so the 5-minute cooldown still applies
     if (currentVersion === this.settings.lastUpdateVersion) {
-      this.settings.lastUpdateTimestamp = null;
       this.settings.pendingUpdateVersion = null;
       await this.saveSettings();
-      this.telemetry.reportUpdateCheck({
-        localVersion: currentVersion,
-        remoteVersion: this.settings.lastUpdateVersion,
-        updateNeeded: false,
-        updateResult: 'success'
-      });
       console.log(`[Eudia Update] Update to v${currentVersion} confirmed successful`);
       return;
     }
@@ -4636,6 +4683,7 @@ created: ${dateStr}
 
       if (!this.audioRecorder?.isRecording()) {
         this._showUpdateStatus(`✓ v${remoteVersion} installed — restarting…`);
+        this._hotReloadPending = true;
         setTimeout(async () => {
           try {
             const plugins = (this.app as any).plugins;
@@ -4643,15 +4691,15 @@ created: ${dateStr}
             await plugins.enablePlugin(this.manifest.id);
             console.log(`[Eudia Update] Hot-reloaded: v${localVersion} → v${remoteVersion}`);
           } catch {
+            this._hotReloadPending = false;
             this._updateInProgress = false;
             this._hideUpdateStatus();
-            // Hot-reload failed — show persistent banner so user sees it
             this.settings.pendingReloadVersion = remoteVersion;
             await this.saveSettings();
             this._showUpdateBanner(remoteVersion);
           }
         }, 2000);
-        return; // finally still runs (sets _updateInProgress = false) but cooldown prevents re-check
+        return;
       } else {
         this._showUpdateStatus(`✓ v${remoteVersion} downloaded — restart to apply`);
         this.settings.pendingReloadVersion = remoteVersion;
@@ -4664,7 +4712,9 @@ created: ${dateStr}
       setTimeout(() => this._hideUpdateStatus(), 5000);
       try { this.telemetry?.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'failed' }); } catch {}
     } finally {
-      this._updateInProgress = false;
+      if (!this._hotReloadPending) {
+        this._updateInProgress = false;
+      }
     }
   }
 
@@ -5812,6 +5862,15 @@ sync_to_salesforce: false
    * then archive non-owned accounts to _Other_Accounts/ for BL users.
    */
   private async migrateAccountStructure(): Promise<void> {
+    if (this._migrationInProgress) return;
+    this._migrationInProgress = true;
+
+    const leftSplit = (this.app.workspace as any).leftSplit;
+    const wasCollapsed = leftSplit?.collapsed;
+    if (leftSplit && !wasCollapsed) leftSplit.collapse();
+    new Notice('Organizing your account folders…', 8000);
+
+    try {
     const accountsFolder = this.settings.accountsFolder || 'Accounts';
     const prospectsPath = `${accountsFolder}/_Prospects`;
     const prospectsDir = this.app.vault.getAbstractFileByPath(prospectsPath);
@@ -5898,6 +5957,10 @@ sync_to_salesforce: false
     this.settings.prospectsMigrated = true;
     await this.saveSettings();
     console.log('[Eudia Migration] Account structure migration complete');
+    } finally {
+      if (leftSplit && !wasCollapsed) leftSplit.expand();
+      this._migrationInProgress = false;
+    }
   }
 
   /**
@@ -5975,15 +6038,15 @@ auto_refresh: true
 ## How Meeting Notes Sync
 
 Meeting notes created by your direct reports flow through Salesforce:
-1. **Rep records a meeting** in their vault and clicks "Sync to Salesforce"
+1. **Rep records a meeting** in Eudia Notetaker and clicks "Sync to Salesforce"
 2. **Notes sync to Salesforce** \`Customer_Brain__c\` field on the Account
-3. **Your vault refreshes** — account Intelligence and Meeting Notes sub-notes pull the latest activity from Salesforce each time the vault opens or you click "Connect to Salesforce" in Setup
+3. **Your Notetaker refreshes** — account Intelligence and Meeting Notes sub-notes pull the latest activity from Salesforce each time Eudia opens or you click "Connect to Salesforce" in Setup
 
-> To see the latest notes from Jon and Farah, ensure they are syncing their meeting notes to Salesforce. Your vault will automatically pull their activity on the next enrichment cycle.
+> To see the latest notes from Jon and Farah, ensure they are syncing their meeting notes to Salesforce. Eudia Notetaker will automatically pull their activity on the next enrichment cycle.
 
 ---
 
-*This dashboard auto-updates when the vault syncs. New Stage 4/5 and Existing accounts will appear automatically.*
+*This dashboard auto-updates when Eudia syncs. New Stage 4/5 and Existing accounts will appear automatically.*
 `;
     
     const overviewPath = `${dashFolder}/CS Manager Overview.md`;
@@ -6047,7 +6110,7 @@ created: ${dateStr}
 
 Meeting notes and activity for ${repName}'s accounts sync through Salesforce:
 - Notes appear in each account's **Meeting Notes** and **Intelligence** sub-notes
-- Activity updates when the vault enriches (on open or Salesforce connect)
+- Activity updates when Eudia enriches (on open or Salesforce connect)
 - Ensure ${repName} is syncing their meeting notes to Salesforce for latest data
 
 ---

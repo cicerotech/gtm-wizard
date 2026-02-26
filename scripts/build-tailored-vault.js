@@ -19,9 +19,9 @@ const archiver = require('archiver');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 // Configuration
-const VAULT_NAME = 'Business Lead Vault 2026';
+const VAULT_NAME = 'Eudia Notetaker';
 const OUTPUT_DIR = path.join(__dirname, '..', 'dist', 'vault-tailored');
-const ZIP_OUTPUT = path.join(__dirname, '..', 'public', 'downloads', 'Business-Lead-Vault-2026.zip');
+const ZIP_OUTPUT = path.join(__dirname, '..', 'public', 'downloads', 'Eudia-Notetaker.zip');
 const PLUGIN_DIR = path.join(__dirname, '..', 'obsidian-plugin');
 const CALENDAR_PLUGIN_DIR = path.join(__dirname, '..', 'eudia-calendar-plugin');
 
@@ -43,7 +43,7 @@ if (!OPENAI_API_KEY) {
 function createQuickStart(destDir) {
   console.log('📝 Creating QuickStart guide...');
   
-  const quickStartContent = `# Eudia Sales Vault -- Quick Start & Workflow Guide
+  const quickStartContent = `# Eudia Notetaker -- Quick Start & Workflow Guide
 
 Your personal command center for meeting intelligence, account context, and deal tracking.
 This tool records your calls, transcribes them with AI, summarizes key details, and syncs everything to Salesforce -- so you spend less time on admin and more time selling.

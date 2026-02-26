@@ -4630,6 +4630,50 @@ document.addEventListener('DOMContentLoaded', function() {
             lastUpdated: new Date().toISOString()
           });
         }
+
+        // Exec/product role: Existing customers + accounts with active pipeline (stages 1-5)
+        if (req.query.role === 'exec') {
+          logger.info(`[Ownership] Exec/product role for ${normalizedEmail} — fetching Existing + active pipeline`);
+          const execQuery = `
+            SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name
+            FROM Account
+            WHERE (
+              Customer_Type__c = 'Existing'
+              OR Id IN (
+                SELECT AccountId FROM Opportunity
+                WHERE (StageName LIKE 'Stage 1%' OR StageName LIKE 'Stage 2%'
+                       OR StageName LIKE 'Stage 3%' OR StageName LIKE 'Stage 4%'
+                       OR StageName LIKE 'Stage 5%')
+                  AND IsClosed = false
+              )
+            )
+            AND (NOT Name LIKE '%Sample%')
+            AND (NOT Name LIKE '%Test%')
+            ORDER BY Name ASC
+            LIMIT 500
+          `;
+          const execResult = await sfConnection.query(execQuery);
+          const execAccounts = (execResult.records || []).map(r => ({
+            id: r.Id,
+            name: r.Name,
+            type: r.Type || 'Prospect',
+            customerType: r.Customer_Type__c,
+            website: r.Website || null,
+            industry: r.Industry || null,
+            hadOpportunity: true,
+            ownerName: r.Owner?.Name || null
+          }));
+          logger.info(`[Ownership] Exec/product: ${execAccounts.length} accounts (Existing + active pipeline)`);
+          return res.json({
+            success: true,
+            email: normalizedEmail,
+            userGroup: 'exec',
+            accounts: execAccounts,
+            prospectAccounts: [],
+            count: execAccounts.length,
+            lastUpdated: new Date().toISOString()
+          });
+        }
         
         // Query Salesforce for accounts owned by this user
         // Try exact email match first, then fallback to name-based search
@@ -5572,7 +5616,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const fs = require('fs');
         
         // Serve the pre-built vault ZIP from public/downloads
-        const vaultZipPath = path.join(__dirname, '..', 'public', 'downloads', 'Business-Lead-Vault-2026.zip');
+        const vaultZipPath = path.join(__dirname, '..', 'public', 'downloads', 'Eudia-Notetaker.zip');
         
         // Check if pre-built vault exists
         if (!fs.existsSync(vaultZipPath)) {
@@ -5585,7 +5629,7 @@ document.addEventListener('DOMContentLoaded', function() {
           logger.info('Generating Obsidian vault with eudia-transcription plugin (dynamic fallback)');
           
           res.setHeader('Content-Type', 'application/zip');
-          res.setHeader('Content-Disposition', 'attachment; filename="Business-Lead-Vault-2026.zip"');
+          res.setHeader('Content-Disposition', 'attachment; filename="Eudia-Notetaker.zip"');
           res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
           res.setHeader('Pragma', 'no-cache');
           res.setHeader('Expires', '0');
@@ -5750,9 +5794,9 @@ This note aggregates next steps from all your account meetings.
         }
         
         // Serve the pre-built vault (no-cache to ensure users always get latest)
-        logger.info('Serving pre-built Business Lead Vault 2026');
+        logger.info('Serving Eudia Notetaker download');
         res.setHeader('Content-Type', 'application/zip');
-        res.setHeader('Content-Disposition', 'attachment; filename="Business-Lead-Vault-2026.zip"');
+        res.setHeader('Content-Disposition', 'attachment; filename="Eudia-Notetaker.zip"');
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');

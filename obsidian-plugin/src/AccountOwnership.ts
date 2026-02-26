@@ -1972,6 +1972,42 @@ export class AccountOwnershipService {
   }
 
   /**
+   * Get accounts for exec/product users: Existing customers + active pipeline (stages 1-5).
+   * Uses a dedicated server query mode (?role=exec) that returns a deduplicated set.
+   */
+  async getExecProductAccounts(email: string): Promise<OwnedAccount[]> {
+    const normalizedEmail = email.toLowerCase().trim();
+    const url = `${this.serverUrl}/api/accounts/ownership/${encodeURIComponent(normalizedEmail)}?role=exec`;
+    console.log(`[AccountOwnership] Fetching exec/product accounts from: ${url}`);
+
+    const mapAccount = (acc: any): OwnedAccount => ({
+      id: acc.id,
+      name: acc.name,
+      type: acc.type || 'Prospect',
+      hadOpportunity: acc.hadOpportunity ?? true,
+      website: acc.website || undefined,
+      industry: acc.industry || undefined
+    });
+
+    try {
+      const { requestUrl } = await import('obsidian');
+      const response = await requestUrl({ url, method: 'GET', headers: { 'Accept': 'application/json' }, throw: false });
+
+      if (response.status === 200 && response.json?.success) {
+        const accounts = (response.json.accounts || []).map(mapAccount);
+        console.log(`[AccountOwnership] Exec/product accounts: ${accounts.length}`);
+        return accounts;
+      }
+    } catch (e) {
+      console.warn('[AccountOwnership] Exec/product fetch failed:', e);
+    }
+
+    // Fallback: use static CS accounts (existing customers) as best-effort
+    console.log('[AccountOwnership] Exec/product fallback: using static CS accounts');
+    return [...CS_STATIC_ACCOUNTS];
+  }
+
+  /**
    * Get all accounts from static mapping for admins
    */
   private getAllAccountsFromStatic(adminEmail: string): OwnedAccount[] {
