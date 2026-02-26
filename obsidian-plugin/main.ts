@@ -6695,12 +6695,8 @@ last_updated: ${dateStr}
         }
       }, 100);
 
-      // ── Step 13: Live transcription ──
+      // Live transcription and query sidebar disabled pending chunk pipeline fix
       this.liveTranscript = '';
-      this.startLiveTranscription();
-
-      // ── Step 14: Open Live Query sidebar ──
-      this.openLiveQuerySidebar();
 
     } catch (error: any) {
       // Guaranteed cleanup on ANY failure after recorder initialization

@@ -2121,7 +2121,13 @@
 .side-dock-ribbon-action[aria-label="Create new note"],
 .side-dock-ribbon-action[aria-label="Create new canvas"],
 .side-dock-ribbon-action[aria-label="New canvas"],
-.side-dock-ribbon-action[aria-label="Open graph view"] {
+.side-dock-ribbon-action[aria-label="Open graph view"],
+.side-dock-ribbon-action[aria-label*="canvas"],
+.side-dock-ribbon-action[aria-label*="Canvas"],
+.side-dock-ribbon-action[aria-label*="graph"],
+.side-dock-ribbon-action[aria-label*="Graph"],
+.side-dock-ribbon-action[aria-label*="base"],
+.side-dock-ribbon-action[aria-label*="Base"] {
   display: none !important;
 }
 
