@@ -1,18 +1,18 @@
 {
   "id": "eudia-transcription",
   "name": "Eudia Transcription Plugin",
-  "version": "4.9.0",
+  "version": "4.9.1",
   "minAppVersion": "1.0.0",
   "description": "Record meetings, transcribe with AI, sync to Salesforce. Native calendar integration, smart tagging, and precision sales intelligence extraction.",
   "author": "Eudia",
   "authorUrl": "https://eudia.com",
   "isDesktopOnly": false,
   "releaseChannel": "stable",
-  "releaseNotes": "v4.9.0: CS template, live query sidebar, AirPods auto-handling, Eudia name correction, speaker diarization, chunked transcription retry with gap markers, one-click retry command, recording telemetry, SHA-256 update verification, double-write audio safety net.",
+  "releaseNotes": "v4.9.1: Fixed auto-update loop and Notice spam. Updates now show clean status bar progress instead of flashing popups. Added cooldown guard to prevent re-triggering after hot-reload.",
   "autoUpdateSupported": true,
   "forceUpdate": true,
   "compatiblePlatforms": ["darwin", "win32", "linux"],
-  "deployedAt": "2026-02-23T22:00:00.000Z",
+  "deployedAt": "2026-02-26T08:30:00.000Z",
   "minAutoUpdateVersion": "4.4.0",
   "supportUrl": "https://eudia.com/support"
 }
