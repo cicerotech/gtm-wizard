@@ -1,116 +1,109 @@
-# Agent Handoff Prompt — Critical Fixes for Eudia Lite (Feb 26, 2026)
+# Eudia Lite — Critical Fix Session
 
-Copy everything below into a new agent chat.
+Paste this entire block into a new agent chat.
 
 ---
 
-You are picking up a critical, time-sensitive engineering session for the Eudia Lite Obsidian plugin and GTM Brain platform. Read `docs/handoff_to_new_agent.md` FIRST — it has the full project context, architecture, and file locations.
+Read `docs/handoff_to_new_agent.md` first. It has the full project architecture, file locations, and current state. Do not start work until you have read it.
 
-There are users actively testing RIGHT NOW. A demo to the broader sales team is tomorrow. Every fix must be surgical, tested, and pushed to production (Render auto-deploys on git push to main).
+You are a senior full-stack engineer executing critical fixes on a live production system. Users are actively testing. A demo to the sales org is tomorrow. You do not guess. You read code, trace execution paths, validate assumptions, and ship fixes that work the first time.
 
-## YOUR RULES
-- Read code before editing. Always.
-- Build the plugin (`cd obsidian-plugin && npm run build`) after every change to main.ts
-- Copy to vault template (`npm run copy-to-vault`) and rebuild vault ZIP (`node scripts/build-tailored-vault.js`) before pushing
-- Push to main only when changes are complete and tested
-- DO NOT break anything that is currently working. Users are live.
+## RULES
 
-## CRITICAL ISSUES TO FIX (in priority order)
+1. Read the actual code before editing any file. No assumptions.
+2. After every change to `obsidian-plugin/main.ts` or any `.ts` file: run `cd obsidian-plugin && npm run build`
+3. Before pushing: `npm run copy-to-vault && cd .. && node scripts/build-tailored-vault.js`
+4. One commit per logical fix. Push to main. Render auto-deploys in 3-5 min.
+5. Verify each deploy: `curl -s https://gtm-wizard.onrender.com/api/plugin/version`
+6. Do not break what works. Users on v4.9.7 are live right now.
 
-### 1. HIGHEST: Audio Chunking Failures on Calls >15 Minutes
+## FIX THESE IN ORDER
 
-**Symptom**: A 29-minute call was recorded. Chunks 2/4, 3/4, and 4/4 all failed transcription after 4 retry attempts each. Only chunk 1 transcribed successfully. The user sees "[~8:32 – 17:04 — audio not transcribed (chunk 2/4 failed after 4 attempts)]" in their note.
+### FIX 1 — Transcription fails on calls longer than ~8 minutes
 
-**Root cause to investigate**: The chunked transcription path in `obsidian-plugin/src/TranscriptionService.ts` (method `transcribeAudioChunked`) splits audio >15MB into chunks and sends each to `/api/transcribe-chunk` on the server (`src/app.js`). The server then calls OpenAI Whisper. Likely causes:
-- Render request timeout (30s free tier, varies on paid) killing long transcription requests
-- Chunk size too large for the endpoint
-- Base64 encoding inflating payload beyond Express's 100MB limit
-- OpenAI Whisper API timeout on large chunks
+A 29-minute recording produced 4 chunks. Only chunk 1 transcribed. Chunks 2, 3, 4 all failed after 4 retry attempts each. The user sees placeholder text like `[~8:32 – 17:04 — audio not transcribed (chunk 2/4 failed after 4 attempts)]`.
 
-**What to check**: 
-- `src/app.js` — find `/api/transcribe-chunk` endpoint, check timeout and payload handling
-- `src/services/transcriptionService.js` — check chunk size, retry logic, Whisper API call
-- `obsidian-plugin/src/TranscriptionService.ts` — check `transcribeAudioChunked`, chunk splitting logic, retry delays
+**Investigate these files in this order:**
+- `obsidian-plugin/src/TranscriptionService.ts` — find `transcribeAudioChunked`. How large are the chunks? How is audio split? What is the retry logic?
+- `src/app.js` — find `/api/transcribe-chunk` endpoint. What is the request size limit? Is there a timeout?
+- `src/services/transcriptionService.js` — find the Whisper API call. What is the file size sent to OpenAI? Is there a timeout?
 
-**Fix direction**: Reduce chunk size (currently likely too large), add explicit timeouts, improve retry with exponential backoff. Consider streaming the audio file upload instead of base64 encoding.
+**Likely root cause:** Chunks are too large for the Render request timeout. Base64 encoding inflates size by 33%. A 29-min WebM file is ~20-30MB; split into 4 chunks that's ~5-7MB each, base64-encoded to ~7-10MB per request. Render may be timing out.
 
-### 2. HIGH: Account Overload — Show Only User's Accounts
+**Fix:** Reduce chunk size threshold (currently 15MB, try 8MB). Add explicit request timeout. Ensure retry delays are sufficient. Test by checking if chunk 1 succeeds consistently (it does — which means the issue is payload size or cumulative server load, not auth or endpoint).
 
-**Symptom**: Riley and Sean see ALL ~699 accounts in their vault sidebar. Their actual owned accounts (~50-80) are buried in `Accounts/_Prospects/`. The sidebar is overwhelming and unusable.
+### FIX 2 — Show only the user's accounts, not all 699
 
-**What needs to happen**:
-- For BL users (Riley, Sean), the vault should show ONLY their owned accounts at the top level of `Accounts/`
-- Prospect accounts should NOT be in a `_Prospects` subfolder — they should be alongside active accounts since BLs primarily cover prospects
-- Accounts they don't own should not be in their vault at all
-- This is controlled by the `/api/accounts/ownership/:email` endpoint in `src/app.js` and the folder creation logic in `obsidian-plugin/main.ts` (`createTailoredAccountFolders`, `createProspectAccountFiles`)
+Riley and Sean see every account in Salesforce in their vault sidebar. Their actual book of business (~50-80 accounts) is buried in `Accounts/_Prospects/`. The rest is noise.
 
-**Remote trigger needed**: When the plugin pushes this update, existing vaults for Riley and Sean need to be restructured. Use the `syncAccountFolders()` mechanism or create a one-time migration in `onload()` that moves `_Prospects/` contents up to `Accounts/` and removes unowned account folders.
+**What to change:**
+- `obsidian-plugin/main.ts` — find `createProspectAccountFiles`. Currently puts prospects in `Accounts/_Prospects/[name]/`. Change this: for BL users, put ALL their accounts (active + prospect) at the top level of `Accounts/`. No `_Prospects` subfolder.
+- `obsidian-plugin/main.ts` — find `createTailoredAccountFolders`. This creates active account folders. Combine with prospects so they're all siblings in `Accounts/`.
+- Add a one-time migration in `onload()`: if `_Prospects/` exists, move its children up to `Accounts/` and delete the empty `_Prospects` folder. Gate this with a settings flag (`prospectsMigrated`) so it runs once.
+- The vault should NOT contain accounts the user doesn't own. The `/api/accounts/ownership/:email` endpoint already returns only owned accounts — verify the setup wizard isn't loading extras.
 
-### 3. HIGH: Calendar-to-Account Matching for Prospect Accounts
+### FIX 3 — Calendar meeting notes don't file under prospect accounts
 
-**Symptom**: Riley clicks a Yahoo meeting in the calendar sidebar. The meeting note is NOT created under the `Yahoo` account folder. Instead it goes to a generic location or wrong account.
+When Riley clicks a Yahoo meeting in the calendar, the note should be created inside `Accounts/Yahoo/Note 1.md`. Instead it goes to a generic location.
 
-**Root cause**: The calendar matching logic in `main.ts` (search for `createMeetingNote`, `matchAccountFromEvent`, or similar) likely only searches top-level `Accounts/` children, not `_Prospects/` subfolders. When an account is in `_Prospects/Yahoo/`, the matching doesn't find it.
+**Investigate:** Search `main.ts` for the calendar-to-account matching logic. Look for how meeting attendee email domains are matched to account folder names. The matching likely only searches direct children of `Accounts/`, missing `_Prospects/` subfolders.
 
-**Fix**: After fixing issue #2 (moving prospects to top level), this may resolve itself. But also verify the matching logic searches all account folders regardless of nesting. Check how the plugin matches calendar event attendee domains to account folders.
+**Fix:** After FIX 2 moves prospects to top level, this should resolve. But verify the matching logic handles the case where the account folder name doesn't exactly match the meeting subject or attendee domain (fuzzy match, cachedAccounts lookup by ID).
 
-### 4. HIGH: macOS Permission Flow — Siri Redirect
+### FIX 4 — macOS microphone permission redirects to Siri
 
-**Symptom**: When the plugin tells the user to "Open System Settings" for microphone permission, macOS redirects to Siri settings instead. User thinks they granted permission but didn't. Recording starts with mic-only (their voice only, not the other person).
+When the plugin prompts "Open System Settings" for mic permission, macOS opens Siri settings instead. User thinks they allowed it but didn't.
 
-**What needs to happen**:
-- Replace the generic "Open System Settings" with specific deep-links:
-  - Microphone: `x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone`
-  - Screen Recording: `x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture`
-- Add a permission validation step: after the user says they've granted permission, test `getUserMedia` and `getDisplayMedia` to confirm they actually work before starting a recording
-- Show clear inline guidance: "Go to System Settings → Privacy & Security → Microphone → toggle Obsidian ON. Then do the same for Screen & System Audio Recording."
-- Search for `showPermissionGuide` in `main.ts` to find the current implementation
+**Find:** Search `main.ts` for `showPermissionGuide`. Replace the generic system settings open with macOS deep-links:
+- Microphone: `x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone`
+- Screen Recording: `x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture`
 
-### 5. MEDIUM: Privacy/Trust UX for Salesforce Sync
+Add a validation check after permission is supposedly granted: call `navigator.mediaDevices.getUserMedia({audio: true})` and if it fails, show "Microphone permission not detected. Go to System Settings > Privacy & Security > Microphone > toggle Obsidian ON."
 
-**User feedback (Riley)**: "Notes should default to 'for my eyes only'. I need to explicitly choose to sync to Salesforce, and there should be a confirmation step."
+### FIX 5 — Hide sidebar clutter for demo
 
-**Current state**: Notes have `sync_to_salesforce: false` in frontmatter by default. The user must manually change it to `true` and then use Cmd+P > "Sync Note to Salesforce". This is actually already private-by-default, but the UI doesn't communicate this clearly.
+Riley flagged: too many folders visible. _Analytics, _Customer Health, _Backups, Next Steps, Recordings are distracting.
 
-**What needs to happen**:
-- Add a visible "Private" badge or indicator on notes that haven't been synced
-- When user clicks sync, show a confirmation dialog: "This will push your meeting notes to Salesforce under [Account Name]. Confirm?"
-- Consider adding a "Sync to Salesforce" button in the note itself (not just Cmd+P)
+**Quick fix for demo:** In `styles.css`, add CSS rules to hide folders starting with `_` and utility folders from the file explorer. Use Obsidian's `.nav-folder-title[data-path]` selectors. Alternatively, in the build script and plugin startup, rename these folders to start with `.` (dot prefix hides them in Obsidian's file explorer).
 
-### 6. MEDIUM: Vault Sidebar Simplification
+### FIX 6 — Multi-vault install script picks wrong vault
 
-**User feedback (Riley)**: Left sidebar is overloaded. Folders like _Analytics, _Customer Health, _Backups, Next Steps, Recordings create cognitive load.
+`/api/plugin/install.sh` uses `find | head -1` which picks the first vault found. Users with multiple vaults get the wrong one updated.
 
-**What to consider**:
-- Hide utility folders by default (prefix with `.` or move to a hidden location)
-- The `_` prefix already sorts them to the bottom, but they're still visible
-- For the demo: can these be collapsed or filtered in Obsidian's file explorer?
+**Fix in `src/app.js`:** In the install.sh script content, when `find` returns multiple results, list them numbered and prompt the user to pick. Only auto-select when exactly one vault is found.
 
-### 7. LOW: Multi-Vault Install Script Fix
+### FIX 7 — Salesforce sync confirmation dialog
 
-**Issue**: `install.sh` finds the first vault on disk, which may not be the active one. Riley had two vaults — script updated the wrong one.
+Notes default to `sync_to_salesforce: false` (private). But there's no visual indicator that notes are private, and no confirmation when syncing.
 
-**Fix**: When `find` returns multiple results, list them with numbers and ask the user to pick. Only auto-select if exactly one vault is found.
+**Add:** When `syncNoteToSalesforce()` is called, show an Obsidian Modal: "Push this note to Salesforce under [Account Name]? Only notes you explicitly sync are shared." with Confirm/Cancel buttons. Search `main.ts` for `syncNoteToSalesforce` and wrap the call in a modal.
 
-## CONTEXT ON WHAT'S WORKING
+## WHAT IS WORKING — DO NOT BREAK
 
-- Auto-update engine (v4.4.0+ users get updates silently on Obsidian restart)
-- Light theme auto-correction (ensureLightTheme on startup)
-- Editable mode auto-correction (ensureEditableMode on startup)
-- Headphone/AirPods audio capture (no longer preemptively blocks system audio)
-- False transcription error suppression (post-processing errors don't show banner)
-- Plugin update page at /update-plugin (Mac + Windows, auto-detects OS)
-- Deal Code field on Opportunity (auto-generates on Closed Won)
+- Plugin auto-update (v4.4.0+ checks server every 10 min, downloads + hot-reloads)
+- Light theme auto-correction on startup
+- Editable mode (Live Preview) auto-correction on startup
+- Headphone/AirPods audio capture (attempts system audio before falling back to mic-only)
+- Post-transcription error suppression (doesn't show error banner when content exists)
+- Deal Code auto-generation on Closed Won opportunities
+- Calendar view with external-only filter
+- Meeting note templates (MEDDIC, Demo, CS, General, Internal)
 
-## BUILD & DEPLOY CHECKLIST
+## VERIFY AFTER EACH PUSH
 
 ```bash
-cd obsidian-plugin && npm run build          # Compile main.ts → main.js
-npm run copy-to-vault                        # Copy to vault-template
-cd .. && node scripts/build-tailored-vault.js  # Rebuild vault ZIP
-git add [changed files] && git commit -m "..." && git push origin main  # Deploy
+curl -s https://gtm-wizard.onrender.com/api/plugin/version
+# Should show new version number and "name":"Eudia Lite"
+
+curl -s https://gtm-wizard.onrender.com/health
+# Should show "healthy" and "salesforce.connected: true"
 ```
 
-Render auto-deploys in 3-5 minutes after push. Verify at:
-- https://gtm-wizard.onrender.com/api/plugin/version (should show latest version)
-- https://gtm-wizard.onrender.com/health (should show healthy + SF connected)
+## ACTIVE USERS
+
+| User | Email | Version | Platform | Vault Path |
+|------|-------|---------|----------|------------|
+| Sean Boyd | sean.boyd@eudia.com | v4.9.7 | Mac | Latest download |
+| Riley Stack | riley.stack@eudia.com | v4.9.7 | Mac | `/Users/rileystack/Downloads/Business-Lead-Vault-2026` |
+| Rajeev Patel | — | v4.9.7 | Mac | Setup completed |
+| Greg MacHale | greg.machale@eudia.com | v4.1.0 | Windows PC | Needs PowerShell update from /update-plugin |
