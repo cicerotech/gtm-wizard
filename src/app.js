@@ -4741,52 +4741,64 @@ document.addEventListener('DOMContentLoaded', function() {
         const userId = user.Id;
         const userName = user.Name;
         
-        // Query ALL accounts owned by this user (full Book of Business)
-        const allAccountsQuery = `
+        // BL accounts: two targeted queries instead of all 700+ Account Owner assignments
+        // Query 1: Accounts where this user has open pipeline (their active deals)
+        const pipelineQuery = `
           SELECT Id, Name, Type, Customer_Type__c, Website, Industry
-          FROM Account 
+          FROM Account
+          WHERE Id IN (
+            SELECT AccountId FROM Opportunity
+            WHERE OwnerId = '${userId}' AND IsClosed = false
+          )
+          AND (NOT Name LIKE '%Sample%')
+          AND (NOT Name LIKE '%Test%')
+          ORDER BY Name ASC
+          LIMIT 200
+        `;
+        // Query 2: Existing customers owned by this user (managed accounts)
+        const existingQuery = `
+          SELECT Id, Name, Type, Customer_Type__c, Website, Industry
+          FROM Account
           WHERE OwnerId = '${userId}'
+            AND Customer_Type__c = 'Existing'
             AND (NOT Name LIKE '%Sample%')
             AND (NOT Name LIKE '%Test%')
           ORDER BY Name ASC
+          LIMIT 100
         `;
-        const allAccountsResult = await sfConnection.query(allAccountsQuery);
-        
-        // Determine which accounts have OPEN opportunities owned by THIS user (their active pipeline)
-        const accountIds = (allAccountsResult.records || []).map(a => a.Id);
-        const oppAccountIds = new Set();
-        if (accountIds.length > 0) {
-          for (let i = 0; i < accountIds.length; i += 200) {
-            const batch = accountIds.slice(i, i + 200);
-            const idList = batch.map(id => `'${id}'`).join(',');
-            const oppQuery = `SELECT AccountId FROM Opportunity WHERE AccountId IN (${idList}) AND IsClosed = false AND OwnerId = '${userId}' GROUP BY AccountId`;
-            const oppResult = await sfConnection.query(oppQuery);
-            (oppResult.records || []).forEach(r => oppAccountIds.add(r.AccountId));
-          }
-        }
-        
-        // Split into active (had opp) and prospect (no opp) arrays
+        const [pipelineResult, existingResult] = await Promise.all([
+          sfConnection.query(pipelineQuery),
+          sfConnection.query(existingQuery)
+        ]);
+
+        const seen = new Set();
         const ownedAccounts = [];
         const ownedProspects = [];
-        for (const acc of (allAccountsResult.records || [])) {
-          const hadOpp = oppAccountIds.has(acc.Id);
-          const account = {
-            id: acc.Id,
-            name: acc.Name,
+        // Pipeline accounts = active
+        for (const acc of (pipelineResult.records || [])) {
+          if (seen.has(acc.Id)) continue;
+          seen.add(acc.Id);
+          ownedAccounts.push({
+            id: acc.Id, name: acc.Name,
             type: acc.Customer_Type__c || acc.Type || 'Prospect',
-            isOwned: true,
-            hadOpportunity: hadOpp,
-            website: acc.Website || null,
-            industry: acc.Industry || null
-          };
-          if (hadOpp) {
-            ownedAccounts.push(account);
-          } else {
-            ownedProspects.push(account);
-          }
+            isOwned: true, hadOpportunity: true,
+            website: acc.Website || null, industry: acc.Industry || null
+          });
+        }
+        // Existing customers not already in pipeline = prospects section
+        for (const acc of (existingResult.records || [])) {
+          if (seen.has(acc.Id)) continue;
+          seen.add(acc.Id);
+          ownedProspects.push({
+            id: acc.Id, name: acc.Name,
+            type: acc.Customer_Type__c || acc.Type || 'Existing',
+            isOwned: true, hadOpportunity: false,
+            website: acc.Website || null, industry: acc.Industry || null
+          });
         }
         ownedAccounts.sort((a, b) => a.name.localeCompare(b.name));
         ownedProspects.sort((a, b) => a.name.localeCompare(b.name));
+        logger.info(`[Ownership] BL ${userName}: ${ownedAccounts.length} pipeline + ${ownedProspects.length} existing = ${ownedAccounts.length + ownedProspects.length} total`);
         
         // Determine if this user gets a pod-level (team) view:
         //   - Sales leaders see all their direct reports' accounts
