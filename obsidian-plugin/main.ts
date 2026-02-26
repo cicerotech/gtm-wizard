@@ -73,6 +73,7 @@ interface EudiaSyncSettings {
   lastUpdateVersion: string | null;
   lastUpdateTimestamp: string | null;
   pendingUpdateVersion: string | null;
+  themeFixApplied: boolean;
   // Persistent heal queue for failed transcriptions
   healQueue: Array<{
     notePath: string;
@@ -128,6 +129,7 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   lastUpdateVersion: null,
   lastUpdateTimestamp: null,
   pendingUpdateVersion: null,
+  themeFixApplied: false,
   healQueue: []
 };
 
@@ -3697,6 +3699,10 @@ export default class EudiaSyncPlugin extends Plugin {
     // Check if a previous update failed and rollback if needed
     this.checkForUpdateRollback().catch(e => console.warn('[Eudia] Rollback check error:', e));
 
+    // Auto-correct vault theme: ensure light theme (moonstone) with Eudia branding
+    // Fixes vaults that were created with the wrong "obsidian" (dark) theme
+    this.ensureLightTheme().catch(() => {});
+
     // Show confirmation if we just loaded after a successful update
     const justUpdatedAge = this.settings.lastUpdateTimestamp
       ? Date.now() - new Date(this.settings.lastUpdateTimestamp).getTime()
@@ -4321,6 +4327,37 @@ created: ${dateStr}
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  /**
+   * Ensure the vault uses light theme (moonstone) with Eudia accent color.
+   * Fixes vaults created before the dark-theme bug was caught.
+   * Only runs once — sets a flag in plugin settings to avoid repeated writes.
+   */
+  private async ensureLightTheme(): Promise<void> {
+    if (this.settings.themeFixApplied) return;
+    try {
+      const adapter = this.app.vault.adapter;
+      const appearancePath = '.obsidian/appearance.json';
+      let appearance: any = {};
+      try {
+        const raw = await adapter.read(appearancePath);
+        appearance = JSON.parse(raw);
+      } catch { }
+
+      if (appearance.theme === 'obsidian' || !appearance.theme) {
+        appearance.theme = 'moonstone';
+        appearance.accentColor = '#8e99e1';
+        appearance.cssTheme = '';
+        await adapter.write(appearancePath, JSON.stringify(appearance, null, 2));
+        console.log('[Eudia] Fixed vault theme: obsidian (dark) → moonstone (light)');
+      }
+
+      this.settings.themeFixApplied = true;
+      await this.saveSettings();
+    } catch (e) {
+      console.warn('[Eudia] Theme fix failed:', (e as Error).message);
+    }
   }
 
   /**

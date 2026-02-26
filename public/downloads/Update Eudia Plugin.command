@@ -179,6 +179,25 @@ mv "$PLUGIN_DIR/styles.css.new" "$PLUGIN_DIR/styles.css"
 # Clean up backups
 rm -f "$PLUGIN_DIR/main.js.bak" "$PLUGIN_DIR/styles.css.bak"
 
+# Fix vault appearance — ensure light theme with Eudia branding
+APPEARANCE_FILE="$VAULT_DIR/.obsidian/appearance.json"
+if [ -f "$APPEARANCE_FILE" ]; then
+    python3 -c "
+import json
+with open('$APPEARANCE_FILE', 'r') as f:
+    data = json.load(f)
+data['theme'] = 'moonstone'
+data['accentColor'] = '#8e99e1'
+data['cssTheme'] = ''
+with open('$APPEARANCE_FILE', 'w') as f:
+    json.dump(data, f, indent=2)
+print('   Fixed: light theme applied')
+" 2>/dev/null || echo "   (appearance fix skipped)"
+else
+    echo '{"accentColor":"#8e99e1","theme":"moonstone","cssTheme":""}' > "$APPEARANCE_FILE"
+    echo "   Created appearance.json (light theme)"
+fi
+
 NEW_VERSION=$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/manifest.json'))['version'])" 2>/dev/null || echo "latest")
 
 echo ""

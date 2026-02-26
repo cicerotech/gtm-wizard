@@ -1093,18 +1093,72 @@ class GTMBrainApp {
     });
 
     // Plugin update script download — serves the .command file for macOS users
+    // Script is embedded inline to avoid file-path issues on Render (spaces in filename)
     this.expressApp.get('/api/plugin/update-script', (req, res) => {
-      const scriptPath = path.resolve(__dirname, '..', 'public', 'downloads', 'Update Eudia Plugin.command');
+      // Try reading from file first; fall back to embedded version
+      let content;
       try {
-        const content = fs.readFileSync(scriptPath, 'utf-8');
-        res.setHeader('Content-Type', 'application/octet-stream');
-        res.setHeader('Content-Disposition', 'attachment; filename="Update-Eudia-Plugin.command"');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.send(content);
-      } catch (err) {
-        logger.error('[Plugin Update Script] File read failed:', err.message);
-        res.status(404).send('Update script not found');
+        content = fs.readFileSync(path.resolve(__dirname, '..', 'public', 'downloads', 'Update Eudia Plugin.command'), 'utf-8');
+      } catch {
+        // Embedded fallback — minimal update script
+        content = `#!/bin/bash
+# Eudia Plugin Updater — auto-finds vault and installs latest plugin
+SERVER="https://gtm-wizard.onrender.com"
+PF=".obsidian/plugins/eudia-transcription"
+clear
+echo ""; echo "  Eudia Plugin Updater"; echo "  ==================="; echo ""
+VD=""
+SD="$(cd "$(dirname "$0")" && pwd)"
+[ -d "$SD/$PF" ] && VD="$SD"
+if [ -z "$VD" ]; then
+  for d in "$HOME/Documents" "$HOME/Desktop" "$HOME" "$HOME/Downloads"; do
+    [ ! -d "$d" ] && continue
+    F=$(find "$d" -maxdepth 4 -type d -name "eudia-transcription" -path "*/.obsidian/plugins/*" 2>/dev/null | head -1)
+    [ -n "$F" ] && VD=$(echo "$F" | sed "s|/$PF||") && break
+  done
+fi
+if [ -z "$VD" ]; then echo "  Could not find vault. Drag vault folder here:"; read -p "  Path: " VD; VD=$(echo "$VD" | xargs); fi
+PD="$VD/$PF"
+if [ ! -d "$PD" ]; then echo "  Plugin folder not found at $PD"; read -p "  Press Enter to exit..."; exit 1; fi
+echo "  Found vault: \${VD##*/}"
+echo "  Downloading latest plugin..."
+echo "  (server may take ~30s to wake up)"
+for a in 1 2 3; do
+  HC=$(curl -sS -w "%{http_code}" --connect-timeout 60 --max-time 120 -o "$PD/main.js.new" "$SERVER/api/plugin/main.js" 2>/dev/null)
+  [ "$HC" = "200" ] && [ -s "$PD/main.js.new" ] && break
+  [ "$a" -lt 3 ] && echo "  Retrying..." && sleep 5
+done
+curl -sS --connect-timeout 30 -o "$PD/manifest.json.new" "$SERVER/api/plugin/manifest.json" 2>/dev/null
+curl -sS --connect-timeout 30 -o "$PD/styles.css.new" "$SERVER/api/plugin/styles.css" 2>/dev/null
+MS=$(wc -c < "$PD/main.js.new" 2>/dev/null | tr -d ' ')
+if [ "\${MS:-0}" -lt 10000 ]; then echo "  Download failed. Try again in a minute."; rm -f "$PD"/*.new; read -p "  Press Enter..."; exit 1; fi
+cp "$PD/main.js" "$PD/main.js.bak" 2>/dev/null
+mv "$PD/main.js.new" "$PD/main.js"
+mv "$PD/manifest.json.new" "$PD/manifest.json"
+mv "$PD/styles.css.new" "$PD/styles.css"
+rm -f "$PD/main.js.bak"
+AF="$VD/.obsidian/appearance.json"
+python3 -c "
+import json
+try:
+  d=json.load(open('$AF'))
+except: d={}
+d['theme']='moonstone'; d['accentColor']='#8e99e1'; d['cssTheme']=''
+json.dump(d,open('$AF','w'),indent=2)
+" 2>/dev/null
+NV=$(python3 -c "import json; print(json.load(open('$PD/manifest.json'))['version'])" 2>/dev/null || echo "latest")
+echo ""
+echo "  UPDATE COMPLETE (v$NV)"
+echo "  Close Obsidian (Cmd+Q) and reopen it."
+echo "  Future updates will happen automatically."
+echo ""
+read -p "  Press Enter to close..."
+`;
       }
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Update-Eudia-Plugin.command"');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.send(content);
     });
 
     // Plugin bundle ZIP — all 3 plugin files in a single ZIP download
