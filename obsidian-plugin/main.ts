@@ -83,6 +83,9 @@ interface EudiaSyncSettings {
     lastAttempt: string;
     error?: string;
   }>;
+  // One-time migration flags
+  prospectsMigrated: boolean;
+  pendingReloadVersion: string | null;
 }
 
 // Common timezone options for US/EU sales teams
@@ -132,7 +135,9 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   pendingUpdateVersion: null,
   themeFixApplied: false,
   editModeFixApplied: false,
-  healQueue: []
+  healQueue: [],
+  prospectsMigrated: false,
+  pendingReloadVersion: null
 };
 
 interface SalesforceAccount {
@@ -3225,11 +3230,17 @@ class EudiaCalendarView extends ItemView {
     
     if (!(folder instanceof TFolder)) return null;
     
-    // Get all account subfolders
+    // Get all account subfolders (including _Prospects/ children)
     const subfolders: string[] = [];
     for (const child of folder.children) {
       if (child instanceof TFolder) {
-        subfolders.push(child.name);
+        if (child.name === '_Prospects') {
+          for (const prospect of child.children) {
+            if (prospect instanceof TFolder) subfolders.push(prospect.name);
+          }
+        } else {
+          subfolders.push(child.name);
+        }
       }
     }
     
@@ -3362,40 +3373,51 @@ class EudiaCalendarView extends ItemView {
     
     const normalizedSearch = accountName.toLowerCase().trim();
     
-    // Get all subfolders in Accounts
+    // Get all subfolders in Accounts (including _Prospects/ children as fallback)
     const subfolders: string[] = [];
+    const prospectNames: Set<string> = new Set();
     for (const child of folder.children) {
       if (child instanceof TFolder) {
-        subfolders.push(child.name);
+        if (child.name === '_Prospects') {
+          for (const prospect of child.children) {
+            if (prospect instanceof TFolder) {
+              subfolders.push(prospect.name);
+              prospectNames.add(prospect.name);
+            }
+          }
+        } else {
+          subfolders.push(child.name);
+        }
       }
     }
     
     console.log(`[Eudia Calendar] Searching for "${normalizedSearch}" in ${subfolders.length} folders`);
+
+    const resolvePath = (name: string) =>
+      prospectNames.has(name) ? `${accountsFolder}/_Prospects/${name}` : `${accountsFolder}/${name}`;
     
     // Strategy 1: Exact match
     const exactMatch = subfolders.find(f => f.toLowerCase() === normalizedSearch);
     if (exactMatch) {
       console.log(`[Eudia Calendar] Exact match found: ${exactMatch}`);
-      return `${accountsFolder}/${exactMatch}`;
+      return resolvePath(exactMatch);
     }
     
     // Strategy 2: Folder starts with search term (e.g., "uber" matches "Uber Technologies")
     const folderStartsWith = subfolders.find(f => f.toLowerCase().startsWith(normalizedSearch));
     if (folderStartsWith) {
       console.log(`[Eudia Calendar] Folder starts with match: ${folderStartsWith}`);
-      return `${accountsFolder}/${folderStartsWith}`;
+      return resolvePath(folderStartsWith);
     }
     
     // Strategy 3: Search term starts with folder name (e.g., "chsinc" starts with "chs")
-    // This handles domain names like chsinc.com matching folder CHS
     const searchStartsWith = subfolders.find(f => normalizedSearch.startsWith(f.toLowerCase()));
     if (searchStartsWith) {
       console.log(`[Eudia Calendar] Search starts with folder match: ${searchStartsWith}`);
-      return `${accountsFolder}/${searchStartsWith}`;
+      return resolvePath(searchStartsWith);
     }
     
     // Strategy 4: Search term contains folder name (e.g., "ubertechnologies" contains "uber")
-    // Word boundary check prevents "applied intuition" matching folder "Intuit"
     const searchContains = subfolders.find(f => {
       const folderLower = f.toLowerCase();
       if (folderLower.length < 3 || !normalizedSearch.includes(folderLower)) return false;
@@ -3404,11 +3426,10 @@ class EudiaCalendarView extends ItemView {
     });
     if (searchContains) {
       console.log(`[Eudia Calendar] Search contains folder match: ${searchContains}`);
-      return `${accountsFolder}/${searchContains}`;
+      return resolvePath(searchContains);
     }
     
     // Strategy 5: Folder name contains search term
-    // Word boundary check prevents "Applied Intuition" matching search "intuit"
     const folderContains = subfolders.find(f => {
       const folderLower = f.toLowerCase();
       if (normalizedSearch.length < 3 || !folderLower.includes(normalizedSearch)) return false;
@@ -3417,7 +3438,7 @@ class EudiaCalendarView extends ItemView {
     });
     if (folderContains) {
       console.log(`[Eudia Calendar] Folder contains search match: ${folderContains}`);
-      return `${accountsFolder}/${folderContains}`;
+      return resolvePath(folderContains);
     }
     
     console.log(`[Eudia Calendar] No folder match found for "${normalizedSearch}"`);
@@ -3718,6 +3739,19 @@ export default class EudiaSyncPlugin extends Plugin {
       this._showUpdateStatus(`✓ Eudia v${currentVersion} active`);
       setTimeout(() => this._hideUpdateStatus(), 6000);
       console.log(`[Eudia Update] Confirmed: now running v${currentVersion}`);
+    }
+
+    // If a previous hot-reload failed, check whether we're now running the new version
+    if (this.settings.pendingReloadVersion) {
+      if (this.settings.pendingReloadVersion === currentVersion) {
+        // Reload succeeded (user restarted Obsidian manually)
+        this.settings.pendingReloadVersion = null;
+        this.saveSettings();
+        console.log(`[Eudia Update] Pending reload resolved — now running v${currentVersion}`);
+      } else {
+        // Still on old version — show persistent banner
+        setTimeout(() => this._showUpdateBanner(this.settings.pendingReloadVersion!), 3000);
+      }
     }
 
     // If a pending update was deferred during recording, retry now
@@ -4080,6 +4114,13 @@ created: ${dateStr}
       } else if (this.settings.syncOnStartup) {
         // Scan local folders instead of syncing from server
         await this.scanLocalAccountFolders();
+
+        // One-time migration: flatten _Prospects/ and archive non-owned accounts
+        if (!this.settings.prospectsMigrated && this.settings.userEmail && this.settings.accountsImported) {
+          setTimeout(() => this.migrateAccountStructure().catch(e => 
+            console.warn('[Eudia] Account migration error (non-fatal):', e)
+          ), 3000);
+        }
         
         // Startup sync: Use new BL accounts endpoint for dynamic folder sync
         // Runs on startup if enabled, and daily to check for changes
@@ -4257,6 +4298,45 @@ created: ${dateStr}
     if (this._updateStatusEl) {
       this._updateStatusEl.style.display = 'none';
     }
+  }
+
+  private _updateBannerEl: HTMLElement | null = null;
+
+  private _showUpdateBanner(version: string): void {
+    if (this._updateBannerEl) return;
+    const banner = document.createElement('div');
+    banner.className = 'eudia-update-banner';
+    banner.innerHTML = `<span>Eudia v${version} downloaded — restart to apply</span>`;
+
+    const restartBtn = document.createElement('button');
+    restartBtn.textContent = 'Restart Plugin';
+    restartBtn.onclick = async () => {
+      restartBtn.textContent = 'Restarting…';
+      restartBtn.disabled = true;
+      try {
+        const plugins = (this.app as any).plugins;
+        await plugins.disablePlugin(this.manifest.id);
+        await plugins.enablePlugin(this.manifest.id);
+      } catch {
+        restartBtn.textContent = 'Restart Plugin';
+        restartBtn.disabled = false;
+        new Notice('Auto-restart failed. Please quit and reopen Obsidian (Cmd+Q).', 10000);
+      }
+    };
+    banner.appendChild(restartBtn);
+
+    const dismiss = document.createElement('button');
+    dismiss.className = 'eudia-banner-dismiss';
+    dismiss.textContent = '×';
+    dismiss.onclick = () => { banner.remove(); this._updateBannerEl = null; };
+    banner.appendChild(dismiss);
+
+    document.body.appendChild(banner);
+    this._updateBannerEl = banner;
+  }
+
+  private _removeUpdateBanner(): void {
+    if (this._updateBannerEl) { this._updateBannerEl.remove(); this._updateBannerEl = null; }
   }
 
   private async checkForPluginUpdate(): Promise<void> {
@@ -4556,7 +4636,6 @@ created: ${dateStr}
 
       if (!this.audioRecorder?.isRecording()) {
         this._showUpdateStatus(`✓ v${remoteVersion} installed — restarting…`);
-        // Keep _updateInProgress true to prevent double-click race
         setTimeout(async () => {
           try {
             const plugins = (this.app as any).plugins;
@@ -4565,13 +4644,18 @@ created: ${dateStr}
             console.log(`[Eudia Update] Hot-reloaded: v${localVersion} → v${remoteVersion}`);
           } catch {
             this._updateInProgress = false;
-            this._showUpdateStatus(`✓ v${remoteVersion} ready — restart Obsidian`);
-            setTimeout(() => this._hideUpdateStatus(), 15000);
+            this._hideUpdateStatus();
+            // Hot-reload failed — show persistent banner so user sees it
+            this.settings.pendingReloadVersion = remoteVersion;
+            await this.saveSettings();
+            this._showUpdateBanner(remoteVersion);
           }
         }, 2000);
-        return; // Don't hit finally — keep _updateInProgress locked
+        return; // finally still runs (sets _updateInProgress = false) but cooldown prevents re-check
       } else {
         this._showUpdateStatus(`✓ v${remoteVersion} downloaded — restart to apply`);
+        this.settings.pendingReloadVersion = remoteVersion;
+        await this.saveSettings();
         setTimeout(() => this._hideUpdateStatus(), 10000);
       }
     } catch (e) {
@@ -5451,20 +5535,18 @@ ${enrich.nextSteps}
 
   /**
    * Create full 7-file folder structures for prospect accounts (no opportunity history).
-   * These go into Accounts/_Prospects/ with the same structure as active accounts,
-   * keeping them organized separately while giving users the full working template.
+   * Prospect folders are placed directly in Accounts/ alongside active accounts.
    */
   async createProspectAccountFiles(prospects: OwnedAccount[]): Promise<number> {
     if (!prospects || prospects.length === 0) return 0;
     
     const accountsFolder = this.settings.accountsFolder || 'Accounts';
-    const prospectsFolder = `${accountsFolder}/_Prospects`;
     
-    // Ensure _Prospects folder exists
-    const existingFolder = this.app.vault.getAbstractFileByPath(prospectsFolder);
+    // Ensure Accounts folder exists
+    const existingFolder = this.app.vault.getAbstractFileByPath(accountsFolder);
     if (!existingFolder) {
       try {
-        await this.app.vault.createFolder(prospectsFolder);
+        await this.app.vault.createFolder(accountsFolder);
       } catch (e) {
         // May already exist from parallel creation
       }
@@ -5474,19 +5556,14 @@ ${enrich.nextSteps}
     
     for (const prospect of prospects) {
       const safeName = prospect.name.replace(/[<>:"/\\|?*]/g, '_').trim();
-      const folderPath = `${prospectsFolder}/${safeName}`;
+      const folderPath = `${accountsFolder}/${safeName}`;
       
-      // Skip if folder already exists in _Prospects
+      // Skip if folder already exists
       const existing = this.app.vault.getAbstractFileByPath(folderPath);
       if (existing instanceof TFolder) continue;
       
-      // Also skip if this account already has a full folder in Accounts/ (active)
-      const activeFolderPath = `${accountsFolder}/${safeName}`;
-      const activeFolder = this.app.vault.getAbstractFileByPath(activeFolderPath);
-      if (activeFolder instanceof TFolder) continue;
-      
       // Clean up any old single-file prospect .md that may exist from prior version
-      const oldFilePath = `${prospectsFolder}/${safeName}.md`;
+      const oldFilePath = `${accountsFolder}/_Prospects/${safeName}.md`;
       const oldFile = this.app.vault.getAbstractFileByPath(oldFilePath);
       if (oldFile instanceof TFile) {
         try { await this.app.vault.delete(oldFile); } catch (e) { /* ok */ }
@@ -5715,7 +5792,7 @@ sync_to_salesforce: false
     }
     
     if (createdCount > 0) {
-      console.log(`[Eudia] Created ${createdCount} prospect account folders in _Prospects/`);
+      console.log(`[Eudia] Created ${createdCount} prospect account folders in Accounts/`);
       
       // Append prospects to cachedAccounts so auto-enrich and autocomplete can find them
       const existingIds = new Set((this.settings.cachedAccounts || []).map(a => a.id));
@@ -5728,6 +5805,99 @@ sync_to_salesforce: false
     }
     
     return createdCount;
+  }
+
+  /**
+   * One-time migration: move _Prospects/ children to Accounts/ top level,
+   * then archive non-owned accounts to _Other_Accounts/ for BL users.
+   */
+  private async migrateAccountStructure(): Promise<void> {
+    const accountsFolder = this.settings.accountsFolder || 'Accounts';
+    const prospectsPath = `${accountsFolder}/_Prospects`;
+    const prospectsDir = this.app.vault.getAbstractFileByPath(prospectsPath);
+
+    // Phase 1: Flatten _Prospects/ into Accounts/
+    if (prospectsDir instanceof TFolder) {
+      const children = [...prospectsDir.children];
+      let moved = 0;
+      for (const child of children) {
+        if (!(child instanceof TFolder)) continue;
+        const targetPath = `${accountsFolder}/${child.name}`;
+        const existing = this.app.vault.getAbstractFileByPath(targetPath);
+        if (existing instanceof TFolder) {
+          // Merge: move individual files into existing folder
+          const files = [...(child as TFolder).children];
+          for (const file of files) {
+            const destPath = `${targetPath}/${file.name}`;
+            if (!this.app.vault.getAbstractFileByPath(destPath)) {
+              try { await this.app.fileManager.renameFile(file, destPath); } catch { /* skip */ }
+            }
+          }
+          // Delete now-empty prospect subfolder
+          try { await this.app.vault.delete(child, true); } catch { /* skip */ }
+        } else {
+          try {
+            await this.app.fileManager.renameFile(child, targetPath);
+            moved++;
+          } catch (e) { console.warn(`[Eudia Migration] Failed to move ${child.name}:`, e); }
+        }
+      }
+      // Remove empty _Prospects folder
+      const refreshed = this.app.vault.getAbstractFileByPath(prospectsPath);
+      if (refreshed instanceof TFolder && refreshed.children.length === 0) {
+        try { await this.app.vault.delete(refreshed, true); } catch { /* ok */ }
+      }
+      if (moved > 0) console.log(`[Eudia Migration] Moved ${moved} prospect folders to Accounts/`);
+    }
+
+    // Phase 2: Archive non-owned accounts for BL users
+    const email = this.settings.userEmail;
+    if (email && !isAdminUser(email) && !isCSUser(email)) {
+      try {
+        const ownershipService = new AccountOwnershipService(this.settings.serverUrl);
+        const result = await ownershipService.getAccountsWithProspects(email);
+        const ownedNames = new Set(
+          [...result.accounts, ...result.prospects].map(a =>
+            a.name.replace(/[<>:"/\\|?*]/g, '_').trim().toLowerCase()
+          )
+        );
+
+        const accountsDir = this.app.vault.getAbstractFileByPath(accountsFolder);
+        if (accountsDir instanceof TFolder) {
+          const archivePath = `${accountsFolder}/_Other_Accounts`;
+          let archived = 0;
+          for (const child of [...accountsDir.children]) {
+            if (!(child instanceof TFolder)) continue;
+            if (child.name.startsWith('_') || child.name.startsWith('.')) continue;
+            if (ownedNames.has(child.name.toLowerCase())) continue;
+
+            // Not owned — move to _Other_Accounts
+            if (!this.app.vault.getAbstractFileByPath(archivePath)) {
+              try { await this.app.vault.createFolder(archivePath); } catch { /* exists */ }
+            }
+            const dest = `${archivePath}/${child.name}`;
+            if (!this.app.vault.getAbstractFileByPath(dest)) {
+              try {
+                await this.app.fileManager.renameFile(child, dest);
+                archived++;
+              } catch { /* skip */ }
+            }
+          }
+          if (archived > 0) console.log(`[Eudia Migration] Archived ${archived} non-owned accounts to _Other_Accounts/`);
+        }
+
+        // Update cachedAccounts to only include owned
+        this.settings.cachedAccounts = [...result.accounts, ...result.prospects].map(a => ({
+          id: a.id, name: a.name
+        }));
+      } catch (e) {
+        console.warn('[Eudia Migration] Could not fetch ownership — skipping archive step:', e);
+      }
+    }
+
+    this.settings.prospectsMigrated = true;
+    await this.saveSettings();
+    console.log('[Eudia Migration] Account structure migration complete');
   }
 
   /**
@@ -6801,11 +6971,24 @@ last_updated: ${dateStr}
   }
 
   /**
-   * Show a guided modal for microphone permission setup on macOS
+   * Show a guided modal for microphone permission setup on macOS.
+   * Includes deep-links, post-grant validation, and fallback instructions.
    */
   private showPermissionGuide(error: any): void {
+    const openDeepLink = (privacySection: string) => {
+      const url = `x-apple.systempreferences:com.apple.preference.security?${privacySection}`;
+      try {
+        const electron = (window as any).require?.('electron');
+        if (electron?.shell?.openExternal) { electron.shell.openExternal(url); }
+        else { window.open(url); }
+      } catch { window.open(url); }
+    };
+
     const modal = new (class extends Modal {
       onOpen() {
+        this.renderInitial();
+      }
+      renderInitial() {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.createEl('h2', { text: 'Microphone Access Required' });
@@ -6813,28 +6996,54 @@ last_updated: ${dateStr}
 
         const steps = contentEl.createDiv();
         steps.style.cssText = 'margin:16px 0;padding:12px;background:var(--background-secondary);border-radius:8px;';
-        steps.createEl('p', { text: '1. Open System Settings → Privacy & Security → Microphone' });
+        steps.createEl('p', { text: '1. Click "Open Microphone Settings" below' });
         steps.createEl('p', { text: '2. Find Obsidian in the list and toggle it ON' });
-        steps.createEl('p', { text: '3. You may need to restart Obsidian after granting access' });
+        steps.createEl('p', { text: '3. Click "Verify Permission" to confirm' });
 
         const btnContainer = contentEl.createDiv({ cls: 'modal-button-container' });
-        btnContainer.style.cssText = 'display:flex;gap:8px;margin-top:16px;';
+        btnContainer.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;';
 
-        const openSettings = btnContainer.createEl('button', { text: 'Open System Settings', cls: 'mod-cta' });
-        openSettings.onclick = () => {
-          // macOS deep link to Privacy & Security > Microphone via Electron shell
+        const openMic = btnContainer.createEl('button', { text: 'Open Microphone Settings', cls: 'mod-cta' });
+        openMic.onclick = () => openDeepLink('Privacy_Microphone');
+
+        const openScreen = btnContainer.createEl('button', { text: 'Screen Recording Settings' });
+        openScreen.style.cssText = 'font-size:12px;';
+        openScreen.onclick = () => openDeepLink('Privacy_ScreenCapture');
+
+        const verify = btnContainer.createEl('button', { text: 'Verify Permission' });
+        verify.onclick = async () => {
           try {
-            const electron = (window as any).require?.('electron');
-            if (electron?.shell?.openExternal) {
-              electron.shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone');
-            } else {
-              window.open('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone');
-            }
-          } catch { window.open('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'); }
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(t => t.stop());
+            new Notice('Microphone access confirmed!');
+            this.close();
+          } catch {
+            this.renderFailed();
+          }
         };
 
         btnContainer.createEl('button', { text: 'Close' }).onclick = () => this.close();
       }
+      renderFailed() {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl('h2', { text: 'Microphone Permission Not Detected' });
+
+        const steps = contentEl.createDiv();
+        steps.style.cssText = 'margin:16px 0;padding:16px;background:var(--background-secondary);border-radius:8px;line-height:1.8;';
+        steps.createEl('p', { text: 'Follow these exact steps:' }).style.fontWeight = '600';
+        steps.createEl('p', { text: '1. Click the Apple menu () → System Settings' });
+        steps.createEl('p', { text: '2. Click "Privacy & Security" in the left sidebar' });
+        steps.createEl('p', { text: '3. Scroll down and click "Microphone"' });
+        steps.createEl('p', { text: '4. Find "Obsidian" and toggle the switch ON' });
+        steps.createEl('p', { text: '5. Quit and reopen Obsidian (Cmd+Q, then relaunch)' });
+
+        const btnContainer = contentEl.createDiv({ cls: 'modal-button-container' });
+        btnContainer.style.cssText = 'display:flex;gap:8px;margin-top:16px;';
+        btnContainer.createEl('button', { text: 'Try Again', cls: 'mod-cta' }).onclick = () => this.renderInitial();
+        btnContainer.createEl('button', { text: 'Close' }).onclick = () => this.close();
+      }
+      onClose() { this.contentEl.empty(); }
     })(this.app);
     modal.open();
   }
@@ -7492,10 +7701,10 @@ last_updated: ${dateStr}
         console.warn('[Eudia] Next Steps extraction failed (non-critical):', (postErr as Error).message);
       }
 
-      // Post-processing: Auto-sync to Salesforce (non-critical, don't fail transcription)
+      // Post-processing: Auto-sync to Salesforce (no confirmation modal for auto-sync)
       try {
-        if (this.settings.autoSyncAfterTranscription) {
-          await this.syncNoteToSalesforce();
+        if (this.settings.autoSyncAfterTranscription && file) {
+          await this._executeSyncToSalesforce(file);
         }
       } catch (syncErr) {
         console.warn('[Eudia] Auto-sync failed (non-critical):', (syncErr as Error).message);
@@ -8486,8 +8695,34 @@ To restore, move this folder back to the Accounts directory.
       return;
     }
 
+    const accountName = frontmatter?.account || '';
+
+    // Show confirmation modal before syncing
+    const modal = new (class extends Modal {
+      private confirmed = false;
+      constructor(app: App, private acctName: string, private onConfirm: () => void) { super(app); }
+      onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl('h3', { text: 'Sync to Salesforce?' });
+        const label = this.acctName ? `Push this note to Salesforce under ${this.acctName}?` : 'Push this note to Salesforce?';
+        contentEl.createEl('p', { text: label });
+        const hint = contentEl.createEl('p', { text: 'Only notes you explicitly sync are shared.' });
+        hint.style.cssText = 'font-size:12px;color:var(--text-muted);';
+        const btns = contentEl.createDiv({ cls: 'modal-button-container' });
+        btns.style.cssText = 'display:flex;gap:8px;margin-top:16px;justify-content:flex-end;';
+        btns.createEl('button', { text: 'Cancel' }).onclick = () => this.close();
+        const confirmBtn = btns.createEl('button', { text: 'Sync to Salesforce', cls: 'mod-cta' });
+        confirmBtn.onclick = () => { this.confirmed = true; this.close(); };
+      }
+      onClose() { if (this.confirmed) this.onConfirm(); }
+    })(this.app, accountName, () => this._executeSyncToSalesforce(activeFile));
+    modal.open();
+  }
+
+  private async _executeSyncToSalesforce(file: TFile): Promise<void> {
     new Notice('Syncing to Salesforce...');
-    const result = await this.syncSpecificNoteToSalesforce(activeFile);
+    const result = await this.syncSpecificNoteToSalesforce(file);
 
     if (result.success) {
       new Notice('Synced to Salesforce');

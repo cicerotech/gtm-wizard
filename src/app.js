@@ -1182,13 +1182,27 @@ read -p "  Press Enter to close..."
 SERVER="https://gtm-wizard.onrender.com"
 PF=".obsidian/plugins/eudia-transcription"
 echo ""; echo "  Eudia Lite Updater"; echo "  =================="; echo ""
-VD=""
+VAULTS=()
 for d in "$HOME/Documents" "$HOME/Desktop" "$HOME" "$HOME/Library/Mobile Documents" "$HOME/Downloads"; do
   [ ! -d "$d" ] && continue
-  F=$(find "$d" -maxdepth 4 -type d -name "eudia-transcription" -path "*/.obsidian/plugins/*" 2>/dev/null | head -1)
-  [ -n "$F" ] && VD=$(echo "$F" | sed "s|/.obsidian/plugins/eudia-transcription||") && break
+  while IFS= read -r F; do
+    V=$(echo "$F" | sed "s|/.obsidian/plugins/eudia-transcription||")
+    VAULTS+=("$V")
+  done < <(find "$d" -maxdepth 4 -type d -name "eudia-transcription" -path "*/.obsidian/plugins/*" 2>/dev/null)
 done
-if [ -z "$VD" ]; then echo "  Could not find vault."; echo "  Paste the full path to your vault folder:"; read -p "  Path: " VD; VD=$(echo "$VD" | xargs); fi
+VD=""
+if [ \${#VAULTS[@]} -eq 0 ]; then
+  echo "  Could not find vault."; echo "  Paste the full path to your vault folder:"; read -p "  Path: " VD; VD=$(echo "$VD" | xargs)
+elif [ \${#VAULTS[@]} -eq 1 ]; then
+  VD="\${VAULTS[0]}"
+else
+  echo "  Multiple vaults found:"; echo ""
+  for i in "\${!VAULTS[@]}"; do
+    echo "  $((i+1)). \${VAULTS[$i]##*/}  (\${VAULTS[$i]})"
+  done
+  echo ""; read -p "  Enter number (1-\${#VAULTS[@]}): " PICK
+  VD="\${VAULTS[$((PICK-1))]}"
+fi
 PD="$VD/$PF"
 if [ ! -d "$PD" ]; then echo "  Plugin folder not found at $PD"; exit 1; fi
 echo "  Found: \${VD##*/}"
@@ -1231,22 +1245,32 @@ Write-Host "  ==================" -ForegroundColor Cyan
 Write-Host ""
 $server = "https://gtm-wizard.onrender.com"
 $pf = ".obsidian\\plugins\\eudia-transcription"
-$vaultDir = $null
+$vaults = @()
 $searchDirs = @("$env:USERPROFILE\\Documents", "$env:USERPROFILE\\Desktop", "$env:USERPROFILE\\OneDrive\\Documents", "$env:USERPROFILE")
 foreach ($sd in $searchDirs) {
   if (Test-Path $sd) {
     $found = Get-ChildItem -Path $sd -Recurse -Directory -Depth 4 -Filter "eudia-transcription" -ErrorAction SilentlyContinue |
-      Where-Object { $_.FullName -like "*\\.obsidian\\plugins\\eudia-transcription" } | Select-Object -First 1
-    if ($found) {
-      $vaultDir = $found.FullName -replace "\\\\.obsidian\\\\plugins\\\\eudia-transcription$", ""
-      break
+      Where-Object { $_.FullName -like "*\\.obsidian\\plugins\\eudia-transcription" }
+    foreach ($f in $found) {
+      $v = $f.FullName -replace "\\\\.obsidian\\\\plugins\\\\eudia-transcription$", ""
+      if ($vaults -notcontains $v) { $vaults += $v }
     }
   }
 }
-if (-not $vaultDir) {
+$vaultDir = $null
+if ($vaults.Count -eq 0) {
   Write-Host "  Could not find vault. Paste the full path:" -ForegroundColor Yellow
   $vaultDir = Read-Host "  Path"
   $vaultDir = $vaultDir.Trim('"').Trim()
+} elseif ($vaults.Count -eq 1) {
+  $vaultDir = $vaults[0]
+} else {
+  Write-Host "  Multiple vaults found:" -ForegroundColor Yellow; Write-Host ""
+  for ($i = 0; $i -lt $vaults.Count; $i++) {
+    Write-Host "  $($i+1). $(Split-Path $vaults[$i] -Leaf)  ($($vaults[$i]))"
+  }
+  Write-Host ""; $pick = Read-Host "  Enter number (1-$($vaults.Count))"
+  $vaultDir = $vaults[[int]$pick - 1]
 }
 $pluginDir = Join-Path $vaultDir $pf
 if (-not (Test-Path (Join-Path $pluginDir "main.js"))) {
