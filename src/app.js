@@ -73,8 +73,13 @@ const usageLogger = require('./services/usageLogger');
 // Admin email list for protected endpoints
 const ADMIN_EMAILS = [
   'keigan.pesenti@eudia.com',
+  'michael.ayres@eudia.com',
   'michael.ayers@eudia.com',
-  'zach@eudia.com'
+  'mike.flynn@eudia.com',
+  'michael.flynn@eudia.com',
+  'zack@eudia.com',
+  'zach@eudia.com',
+  'ben.brosnahan@eudia.com'
 ];
 
 // Exec users - treated as admin for account visibility
@@ -82,7 +87,10 @@ const EXEC_EMAILS = [
   'omar@eudia.com',
   'david@eudia.com',
   'ashish@eudia.com',
-  'siddharth.saxena@eudia.com'
+  'siddharth.saxena@eudia.com',
+  'mitchell.loquaci@eudia.com',
+  'stephen.mulholland@eudia.com',
+  'riona.mchale@eudia.com'
 ];
 
 // Sales Leaders with their regions
