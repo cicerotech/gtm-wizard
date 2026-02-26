@@ -2119,6 +2119,8 @@
    ─────────────────────────────────────────────────────────────────────────── */
 
 .side-dock-ribbon-action[aria-label="Create new note"],
+.side-dock-ribbon-action[aria-label="Create new canvas"],
+.side-dock-ribbon-action[aria-label="New canvas"],
 .side-dock-ribbon-action[aria-label="Open graph view"] {
   display: none !important;
 }

@@ -4038,8 +4038,13 @@ created: ${dateStr}
 
     // On layout ready
     this.app.workspace.onLayoutReady(async () => {
-      // Show setup view for new users (full-page onboarding)
-      // This runs after plugin trust, so we always check and redirect
+      // Auto-detect completed setup for users who already have everything configured
+      if (!this.settings.setupCompleted && this.settings.userEmail && this.settings.salesforceConnected && this.settings.accountsImported) {
+        this.settings.setupCompleted = true;
+        await this.saveSettings();
+        console.log('[Eudia] Auto-detected completed setup — skipping onboarding');
+      }
+
       if (!this.settings.setupCompleted) {
         // Small delay to ensure any settings dialogs have opened
         await new Promise(r => setTimeout(r, 100));
