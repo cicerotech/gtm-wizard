@@ -1241,26 +1241,19 @@ class SetupWizardModal extends Modal {
           quickLeftSplit.expand();
         }
 
-        // BACKGROUND: Enrich from Salesforce (non-blocking)
-        if (userGroup === 'cs') {
-          const csEmail = userEmail;
-          setTimeout(async () => {
-            try {
-              const serverResult = await ownershipService.getCSAccounts(csEmail);
-              if (serverResult.accounts.length > 0) {
-                await this.plugin.enrichAccountFolders(serverResult.accounts);
-              }
-            } catch { /* server may be warming up */ }
-          }, 2000);
-        } else {
-          const allAccounts = [...accounts, ...prospects];
-          setTimeout(async () => {
-            try {
-              await this.plugin.enrichAccountFolders(allAccounts);
-            } catch (e) {
-              console.log('[Eudia] Background enrichment skipped:', e);
+        // Synchronous enrichment — populate contacts, intelligence immediately
+        try {
+          if (userGroup === 'cs') {
+            const serverResult = await ownershipService.getCSAccounts(userEmail);
+            if (serverResult.accounts.length > 0) {
+              await this.plugin.enrichAccountFolders(serverResult.accounts);
             }
-          }, 500);
+          } else {
+            const allAccounts = [...accounts, ...prospects];
+            await this.plugin.enrichAccountFolders(allAccounts);
+          }
+        } catch (e) {
+          console.log('[Eudia] Quick setup enrichment failed, will retry on next launch:', e);
         }
       } else {
         console.warn(`[Eudia Quick Setup] No accounts returned for ${userEmail}. Server may be cold.`);
@@ -1970,17 +1963,20 @@ class EudiaSetupView extends ItemView {
                 if (setupFile) await this.plugin.app.vault.delete(setupFile);
               } catch { /* ok if already gone */ }
 
-              new Notice(`Imported ${accounts.length} active accounts + ${prospects.length} prospects!`);
+              new Notice(`Imported ${accounts.length} active accounts + ${prospects.length} prospects! Enriching with Salesforce contacts...`);
 
-              // BACKGROUND: Enrich from Salesforce (non-blocking)
+              // Synchronous enrichment — populate contacts, intelligence immediately
               const allImported = [...accounts, ...prospects];
-              setTimeout(async () => {
-                try {
-                  await this.plugin.enrichAccountFolders(allImported);
-                } catch (e) {
-                  console.log('[Eudia] Background enrichment skipped:', e);
+              try {
+                if (validationEl) {
+                  validationEl.textContent = `Enriching ${allImported.length} accounts with Salesforce contacts...`;
                 }
-              }, 500);
+                await this.plugin.enrichAccountFolders(allImported);
+                new Notice(`${allImported.length} accounts enriched with Salesforce data!`);
+                console.log(`[Eudia] BL enrichment complete: ${allImported.length} accounts`);
+              } catch (e) {
+                console.log('[Eudia] BL enrichment failed, will retry on next launch:', e);
+              }
             } else {
               // Auto-retry: server may be cold-starting after deploy
               console.warn(`[Eudia] No accounts returned for ${email} — auto-retrying...`);
@@ -2010,7 +2006,20 @@ class EudiaSetupView extends ItemView {
                       this.plugin.settings.importedAccountCount = accounts.length + prospects.length;
                     }
                     await this.plugin.saveSettings();
-                    new Notice(`Imported ${accounts.length} accounts + ${prospects.length} prospects!`);
+                    new Notice(`Imported ${accounts.length} accounts + ${prospects.length} prospects! Enriching...`);
+                    
+                    // Synchronous enrichment for retry path
+                    try {
+                      const retryAll = [...accounts, ...prospects];
+                      if (validationEl) {
+                        validationEl.textContent = `Enriching ${retryAll.length} accounts with Salesforce contacts...`;
+                      }
+                      await this.plugin.enrichAccountFolders(retryAll);
+                      new Notice(`${retryAll.length} accounts enriched with Salesforce data!`);
+                    } catch (enrichErr) {
+                      console.log('[Eudia] Retry enrichment failed, will retry on next launch:', enrichErr);
+                    }
+                    
                     retrySuccess = true;
                     break;
                   }
@@ -2275,37 +2284,32 @@ class EudiaSetupView extends ItemView {
       }
       statusEl.className = 'eudia-setup-sf-status success';
 
-      // BACKGROUND: Enrich account data from Salesforce + regenerate CS Manager dashboard (non-blocking)
+      // Synchronous enrichment — populate contacts, intelligence immediately
       const allSetupAccounts = [...accounts, ...prospects];
-      const sfUserEmail = userEmail;
-      const sfUserGroup = userGroup;
-      setTimeout(async () => {
-        try {
-          // Enrich folders with Salesforce data (contacts, intelligence, opportunities, next steps)
-          const enrichableAccounts = allSetupAccounts.filter(a => a.id && a.id.startsWith('001'));
-          if (enrichableAccounts.length > 0) {
-            statusEl.textContent = `Enriching ${enrichableAccounts.length} accounts with Salesforce data...`;
-            await this.plugin.enrichAccountFolders(enrichableAccounts);
-            statusEl.textContent = `${accounts.length} accounts imported, ${enrichableAccounts.length} enriched with Salesforce data`;
-          } else {
-            statusEl.textContent = `${accounts.length} accounts imported (enrichment requires Salesforce IDs)`;
-          }
-          
-          // CS Manager: regenerate dashboard with real CSM assignments from Salesforce
-          if (sfUserGroup === 'cs' && isCSManager(sfUserEmail)) {
-            try {
-              console.log('[Eudia SF Import] Regenerating CS Manager dashboard with live CSM data...');
-              await this.plugin.createCSManagerDashboard(sfUserEmail, accounts);
-              console.log('[Eudia SF Import] CS Manager dashboard updated with CSM assignments');
-            } catch (dashErr) {
-              console.error('[Eudia SF Import] Dashboard regeneration failed (non-blocking):', dashErr);
-            }
-          }
-        } catch (e) {
-          console.log('[Eudia] Background enrichment skipped:', e);
-          statusEl.textContent = `${accounts.length + prospects.length} accounts imported (enrichment will retry on next launch)`;
+      try {
+        const enrichableAccounts = allSetupAccounts.filter(a => a.id && a.id.startsWith('001'));
+        if (enrichableAccounts.length > 0) {
+          statusEl.textContent = `Enriching ${enrichableAccounts.length} accounts with Salesforce contacts...`;
+          await this.plugin.enrichAccountFolders(enrichableAccounts);
+          statusEl.textContent = `${accounts.length} accounts imported, ${enrichableAccounts.length} enriched with Salesforce data`;
+        } else {
+          statusEl.textContent = `${accounts.length} accounts imported (enrichment requires Salesforce IDs)`;
         }
-      }, 500);
+        
+        // CS Manager: regenerate dashboard with real CSM assignments from Salesforce
+        if (userGroup === 'cs' && isCSManager(userEmail)) {
+          try {
+            console.log('[Eudia SF Import] Regenerating CS Manager dashboard with live CSM data...');
+            await this.plugin.createCSManagerDashboard(userEmail, accounts);
+            console.log('[Eudia SF Import] CS Manager dashboard updated with CSM assignments');
+          } catch (dashErr) {
+            console.error('[Eudia SF Import] Dashboard regeneration failed (non-blocking):', dashErr);
+          }
+        }
+      } catch (e) {
+        console.log('[Eudia] SF Connect enrichment failed, will retry on next launch:', e);
+        statusEl.textContent = `${accounts.length + prospects.length} accounts imported (enrichment will retry on next launch)`;
+      }
       
     } catch (error) {
       statusEl.textContent = 'Failed to import accounts. Please try again.';
@@ -3716,11 +3720,13 @@ export default class EudiaSyncPlugin extends Plugin {
     }
 
     // Check for plugin updates on startup (non-blocking, retries on failure)
-    // Skip if we just updated within the cooldown window
     setTimeout(() => this.checkForPluginUpdate(), 5000);
+    // Secondary check 3 min after startup to catch Render cold-start timeouts
+    setTimeout(() => this.checkForPluginUpdate(), 180000);
 
+    // Re-check every 10 minutes (reduced from 30 for faster update propagation)
     this.registerInterval(
-      window.setInterval(() => this.checkForPluginUpdate(), 30 * 60 * 1000)
+      window.setInterval(() => this.checkForPluginUpdate(), 10 * 60 * 1000)
     );
 
     // Auto-heal: scan for notes with failed transcriptions and re-process them
@@ -4222,9 +4228,9 @@ created: ${dateStr}
   }
 
   private _updateRetryCount = 0;
-  private static readonly MAX_UPDATE_RETRIES = 3;
-  private static readonly UPDATE_RETRY_DELAYS = [15000, 45000, 90000];
-  private static readonly UPDATE_COOLDOWN_MS = 300000; // 5 minutes
+  private static readonly MAX_UPDATE_RETRIES = 5;
+  private static readonly UPDATE_RETRY_DELAYS = [10000, 20000, 40000, 60000, 90000];
+  private static readonly UPDATE_COOLDOWN_MS = 300000; // 5 minutes (only applied after SUCCESS)
 
   private _showUpdateStatus(msg: string): void {
     if (!this._updateStatusEl) {
@@ -5630,6 +5636,15 @@ sync_to_salesforce: false
     
     if (createdCount > 0) {
       console.log(`[Eudia] Created ${createdCount} prospect account folders in _Prospects/`);
+      
+      // Append prospects to cachedAccounts so auto-enrich and autocomplete can find them
+      const existingIds = new Set((this.settings.cachedAccounts || []).map(a => a.id));
+      for (const prospect of prospects) {
+        if (prospect.id && !existingIds.has(prospect.id)) {
+          this.settings.cachedAccounts.push({ id: prospect.id, name: prospect.name });
+        }
+      }
+      await this.saveSettings();
     }
     
     return createdCount;
@@ -7793,14 +7808,24 @@ ${transcriptBody}
 
       const accounts: { id: string; name: string }[] = [];
       
-      // Scan all subfolders in the Accounts folder
+      // Scan all subfolders in the Accounts folder (including _Prospects/)
       for (const child of accountsFolder.children) {
         if (child instanceof TFolder) {
-          // Use folder name as account name
-          accounts.push({
-            id: `local-${child.name.replace(/\s+/g, '-').toLowerCase()}`,
-            name: child.name
-          });
+          if (child.name === '_Prospects') {
+            for (const prospectChild of child.children) {
+              if (prospectChild instanceof TFolder) {
+                accounts.push({
+                  id: `local-${prospectChild.name.replace(/\s+/g, '-').toLowerCase()}`,
+                  name: prospectChild.name
+                });
+              }
+            }
+          } else if (!child.name.startsWith('_')) {
+            accounts.push({
+              id: `local-${child.name.replace(/\s+/g, '-').toLowerCase()}`,
+              name: child.name
+            });
+          }
         }
       }
 
@@ -8415,47 +8440,53 @@ To restore, move this folder back to the Accounts directory.
 
     const unenrichedAccounts: OwnedAccount[] = [];
 
-    for (const child of folder.children) {
-      if (!(child instanceof TFolder)) continue;
-      // Skip _Prospects and _Archive folders
-      if (child.name.startsWith('_')) continue;
-
-      const contactsPath = `${child.path}/Contacts.md`;
-      const contactsFile = this.app.vault.getAbstractFileByPath(contactsPath);
-
-      if (!contactsFile || !(contactsFile instanceof TFile)) {
-        // No Contacts.md at all — needs enrichment
-      } else {
-        // Check frontmatter for enriched_at
-        const cache = this.app.metadataCache.getFileCache(contactsFile);
-        if (cache?.frontmatter?.enriched_at) {
-          // Already enriched, skip
+    // Helper: scan a folder's children for unenriched account subfolders
+    const scanFolder = (parentFolder: TFolder) => {
+      for (const child of parentFolder.children) {
+        if (!(child instanceof TFolder)) continue;
+        // Skip _Archive but recurse into _Prospects
+        if (child.name === '_Archive') continue;
+        if (child.name === '_Prospects') {
+          scanFolder(child);
           continue;
         }
-      }
 
-      // Find account in cached accounts by folder name
-      const safeFolderName = child.name;
-      const matched = this.settings.cachedAccounts.find(
-        a => a.name.replace(/[<>:"/\\|?*]/g, '_').trim() === safeFolderName
-      );
+        const contactsPath = `${child.path}/Contacts.md`;
+        const contactsFile = this.app.vault.getAbstractFileByPath(contactsPath);
 
-      if (matched && matched.id) {
-        unenrichedAccounts.push({
-          id: matched.id,
-          name: matched.name,
-          owner: '',
-          ownerEmail: ''
-        });
+        if (!contactsFile || !(contactsFile instanceof TFile)) {
+          // No Contacts.md at all — needs enrichment
+        } else {
+          const cache = this.app.metadataCache.getFileCache(contactsFile);
+          if (cache?.frontmatter?.enriched_at) {
+            continue;
+          }
+        }
+
+        const safeFolderName = child.name;
+        const matched = this.settings.cachedAccounts.find(
+          a => a.name.replace(/[<>:"/\\|?*]/g, '_').trim() === safeFolderName
+        );
+
+        if (matched && matched.id) {
+          unenrichedAccounts.push({
+            id: matched.id,
+            name: matched.name,
+            owner: '',
+            ownerEmail: ''
+          });
+        }
       }
-    }
+    };
+
+    scanFolder(folder);
 
     if (unenrichedAccounts.length === 0) {
       console.log('[Eudia] Auto-enrich: all account folders already enriched');
       return;
     }
 
-    console.log(`[Eudia] Auto-enrich: ${unenrichedAccounts.length} accounts need enrichment`);
+    console.log(`[Eudia] Auto-enrich: ${unenrichedAccounts.length} accounts need enrichment (including prospects)`);
     try {
       await this.enrichAccountFolders(unenrichedAccounts);
     } catch (err) {

@@ -798,7 +798,14 @@ async function buildVault() {
   // Step 4: Copy plugin files
   copyPluginFiles(PLUGIN_DIR, OUTPUT_DIR);
   
-  // Step 5: Create ZIP archive (directly to public/downloads)
+  // Step 5: Include update script for users on old plugin versions
+  const updateScriptSrc = path.join(__dirname, '..', 'public', 'downloads', 'Update Eudia Plugin.command');
+  if (fs.existsSync(updateScriptSrc)) {
+    fs.copyFileSync(updateScriptSrc, path.join(OUTPUT_DIR, 'Update Eudia Plugin.command'));
+    console.log('🔄 Included plugin update script');
+  }
+  
+  // Step 6: Create ZIP archive (directly to public/downloads)
   await createZipArchive(OUTPUT_DIR, ZIP_OUTPUT);
   
   console.log('\n' + '='.repeat(50));

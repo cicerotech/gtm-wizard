@@ -1092,6 +1092,122 @@ class GTMBrainApp {
       res.sendFile(filePath);
     });
 
+    // Plugin update script download — serves the .command file for macOS users
+    this.expressApp.get('/api/plugin/update-script', (req, res) => {
+      const scriptPath = path.join(__dirname, '..', 'public', 'downloads', 'Update Eudia Plugin.command');
+      if (fs.existsSync(scriptPath)) {
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Disposition', 'attachment; filename="Update Eudia Plugin.command"');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.sendFile(scriptPath);
+      } else {
+        res.status(404).json({ error: 'Update script not found' });
+      }
+    });
+
+    // Plugin bundle ZIP — all 3 plugin files in a single ZIP download
+    this.expressApp.get('/api/plugin/bundle.zip', async (req, res) => {
+      try {
+        const archiver = require('archiver');
+        const pluginDir = path.join(__dirname, '..', 'obsidian-plugin');
+
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', 'attachment; filename="eudia-plugin-update.zip"');
+        res.setHeader('Cache-Control', 'no-cache');
+
+        const archive = archiver('zip', { zlib: { level: 9 } });
+        archive.pipe(res);
+
+        for (const file of ['main.js', 'manifest.json', 'styles.css']) {
+          const filePath = path.join(pluginDir, file);
+          if (fs.existsSync(filePath)) {
+            archive.file(filePath, { name: file });
+          }
+        }
+
+        await archive.finalize();
+      } catch (err) {
+        logger.error('[Plugin Bundle] ZIP generation failed:', err.message);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Failed to generate plugin bundle' });
+        }
+      }
+    });
+
+    // Plugin update page — user-facing web page with download options
+    this.expressApp.get('/update-plugin', (req, res) => {
+      const version = _pluginManifestCache?.version || 'latest';
+      res.setHeader('Content-Type', 'text/html');
+      res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Update Eudia Plugin</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fe; color: #1f2937; line-height: 1.6; padding: 40px 20px; }
+    .container { max-width: 600px; margin: 0 auto; }
+    .card { background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 24px; }
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .subtitle { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+    .version-badge { display: inline-block; background: #8e99e1; color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .btn { display: block; width: 100%; padding: 16px; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; margin-bottom: 12px; transition: all 0.15s ease; }
+    .btn-primary { background: #8e99e1; color: #fff; }
+    .btn-primary:hover { background: #7a86d4; }
+    .btn-secondary { background: #fff; color: #1f2937; border: 1px solid #e5e7eb; }
+    .btn-secondary:hover { border-color: #8e99e1; color: #8e99e1; }
+    .steps { margin-top: 20px; }
+    .step { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
+    .step:last-child { border-bottom: none; }
+    .step-num { width: 28px; height: 28px; border-radius: 50%; background: #8e99e1; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+    .step-text { font-size: 14px; padding-top: 3px; }
+    .step-text code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+    .note { background: #f0fdf4; border-radius: 8px; padding: 16px; font-size: 13px; color: #166534; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Update Eudia Plugin</h1>
+      <p class="subtitle">Get the latest features, bug fixes, and improvements</p>
+      <span class="version-badge">v${version}</span>
+
+      <div style="margin-top: 24px;">
+        <a href="/api/plugin/update-script" class="btn btn-primary" download>Download Update Script (macOS)</a>
+        <a href="/api/plugin/bundle.zip" class="btn btn-secondary" download>Download Plugin Files (ZIP)</a>
+      </div>
+
+      <div class="note">
+        After updating, <strong>close Obsidian completely</strong> (Cmd+Q) and reopen it. Future updates will happen automatically.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size: 16px; margin-bottom: 16px;">How to Use</h2>
+
+      <h3 style="font-size: 14px; font-weight: 600; color: #6b7280; margin-bottom: 8px;">Option 1: Update Script (Easiest)</h3>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-text">Download the update script above</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text">Double-click <code>Update Eudia Plugin.command</code></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text">It will auto-find your vault and install the update</div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-text">Close Obsidian (Cmd+Q) and reopen</div></div>
+      </div>
+
+      <h3 style="font-size: 14px; font-weight: 600; color: #6b7280; margin: 20px 0 8px;">Option 2: Manual Install</h3>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-text">Download the ZIP above and extract it</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text">Open your vault folder in Finder</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text">Navigate to <code>.obsidian/plugins/eudia-transcription/</code></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-text">Replace <code>main.js</code>, <code>manifest.json</code>, and <code>styles.css</code></div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-text">Close Obsidian (Cmd+Q) and reopen</div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`);
+    });
+
     // Also serve at /api/plugin/bundle and /api/plugin/manifest as aliases
     this.expressApp.get('/api/plugin/bundle', (req, res) => {
       const filePath = path.join(__dirname, '..', 'obsidian-plugin', 'main.js');
@@ -1108,12 +1224,14 @@ class GTMBrainApp {
     });
 
     // Plugin telemetry — receives health data from plugin instances
-    // File operations are wrapped individually so latestVersion always reaches the client
+    // Returns latestVersion for auto-update, persists to file + PostgreSQL
     this.expressApp.post('/api/plugin/telemetry', express.json(), (req, res) => {
       const data = req.body || {};
       const userKey = data.email || data.userEmail || 'unknown';
-      logger.info(`[Plugin Telemetry] ${userKey} v${data.pluginVersion || '?'} | event:${data.event || 'health'} | platform:${data.platform}`);
+      const event = data.event || 'health';
+      logger.info(`[Plugin Telemetry] ${userKey} v${data.pluginVersion || '?'} | event:${event} | platform:${data.platform}`);
 
+      // File-based telemetry (legacy, non-blocking)
       try {
         const telemetryPath = path.join(__dirname, '..', 'data', 'plugin-telemetry.json');
         let telemetryData = [];
@@ -1129,6 +1247,24 @@ class GTMBrainApp {
         logger.warn('[Plugin Telemetry] File store failed (non-blocking):', e.message);
       }
 
+      // PostgreSQL + telemetryStore persistence (non-blocking)
+      try {
+        const { telemetryRepo, analyticsRepo } = require('./db/repositories');
+        telemetryRepo.recordEvent(event, userKey, data.pluginVersion, { message: data.message, context: data.context, platform: data.platform },
+          event === 'error' ? data.message : null, null).catch(() => {});
+        analyticsRepo.trackEvent(`plugin_${event}`, userKey, { pluginVersion: data.pluginVersion, platform: data.platform }).catch(() => {});
+      } catch { }
+      try {
+        if (event === 'error') {
+          telemetryStore.recordError(userKey, data.message, { context: data.context, pluginVersion: data.pluginVersion, platform: data.platform });
+        } else if (event === 'heartbeat') {
+          telemetryStore.recordHeartbeat(userKey, { version: data.pluginVersion, accountCount: data.accountCount, connections: data.connections, platform: data.platform });
+        } else if (event === 'sync') {
+          telemetryStore.recordSync(userKey, { ...data.context, version: data.pluginVersion });
+        }
+      } catch { }
+
+      // Check for admin-pushed commands
       let userCommand = null;
       try {
         const commandsPath = path.join(__dirname, '..', 'data', 'plugin-commands.json');
@@ -1267,91 +1403,7 @@ class GTMBrainApp {
       });
     });
 
-    // Plugin version endpoint (duplicate removed — primary is at line ~1015)
-    // This was a duplicate registration that was overriding the primary endpoint
-    // with a stale hardcoded fallback version. Removed to prevent version mismatch.
-
-    // Serve latest plugin main.js directly (for auto-update)
-    this.expressApp.get('/api/plugin/main.js', (req, res) => {
-      const path = require('path');
-      const mainJsPath = path.join(__dirname, '..', 'obsidian-plugin', 'main.js');
-      res.setHeader('Content-Type', 'application/javascript');
-      res.sendFile(mainJsPath);
-    });
-
-    // Serve latest plugin manifest.json
-    this.expressApp.get('/api/plugin/manifest.json', (req, res) => {
-      const path = require('path');
-      const manifestPath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
-      res.setHeader('Content-Type', 'application/json');
-      res.sendFile(manifestPath);
-    });
-
-    // Serve latest plugin styles.css
-    this.expressApp.get('/api/plugin/styles.css', (req, res) => {
-      const path = require('path');
-      const stylesPath = path.join(__dirname, '..', 'obsidian-plugin', 'styles.css');
-      res.setHeader('Content-Type', 'text/css');
-      res.sendFile(stylesPath);
-    });
-
-    // Plugin telemetry endpoint - for remote debugging (opt-in)
-    // Receives error reports from the Obsidian plugin for debugging
-    // Now persists to telemetryStore for admin access
-    this.expressApp.post('/api/plugin/telemetry', (req, res) => {
-      try {
-        const { 
-          event,           // 'error' | 'warning' | 'info' | 'heartbeat' | 'sync'
-          message,         // Error message or description
-          context,         // Additional context (account, action, etc.)
-          userEmail,       // Optional user identifier
-          pluginVersion,   // Plugin version
-          platform,        // 'obsidian' | 'web'
-          accountCount,    // For heartbeats
-          connections      // For heartbeats
-        } = req.body;
-        
-        // Log for debugging (these appear in Render logs)
-        // Persist to PostgreSQL (alongside existing file store for backward compat)
-        const { telemetryRepo, analyticsRepo } = require('./db/repositories');
-        telemetryRepo.recordEvent(event, userEmail, pluginVersion, { message, context, platform }, 
-          event === 'error' ? message : null, null).catch(() => {});
-        analyticsRepo.trackEvent(`plugin_${event}`, userEmail, { pluginVersion, platform }).catch(() => {});
-
-        if (event === 'error') {
-          logger.error(`[Plugin Telemetry] ${message}`, { 
-            userEmail: userEmail || 'anonymous',
-            context,
-            pluginVersion,
-            platform
-          });
-          // Persist to file store (legacy)
-          telemetryStore.recordError(userEmail, message, { context, pluginVersion, platform });
-        } else if (event === 'warning') {
-          logger.warn(`[Plugin Telemetry] ${message}`, { context, pluginVersion });
-          telemetryStore.recordWarning(userEmail, message, { context, pluginVersion, platform });
-        } else if (event === 'heartbeat') {
-          // Heartbeat - update user presence
-          telemetryStore.recordHeartbeat(userEmail, { 
-            version: pluginVersion, 
-            accountCount, 
-            connections,
-            platform 
-          });
-        } else if (event === 'sync') {
-          // Sync result
-          telemetryStore.recordSync(userEmail, { ...context, version: pluginVersion });
-        } else {
-          logger.info(`[Plugin Telemetry] ${message}`, { context, pluginVersion });
-          telemetryStore.recordInfo(userEmail, message, { context, pluginVersion, platform });
-        }
-        
-        res.json({ success: true, received: true });
-      } catch (error) {
-        // Don't fail on telemetry errors
-        res.json({ success: true, received: false });
-      }
-    });
+    // (Duplicate plugin file routes and telemetry route removed — primaries are above)
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ADMIN ENDPOINTS - Remote debugging and user management
@@ -5019,20 +5071,24 @@ class GTMBrainApp {
           // Obsidian Configuration
           // ═══════════════════════════════════════════════════════════════════
           
-          // app.json - Editor settings
+          // app.json - Editor settings (match build-tailored-vault.js)
           const appJson = {
             alwaysUpdateLinks: true,
             newFileLocation: "folder",
             newFileFolderPath: "Accounts",
             attachmentFolderPath: "Recordings",
-            showFrontmatter: true,
-            livePreview: true,
-            defaultViewMode: "preview"
+            showViewHeader: true,
+            readableLineLength: true,
+            strictLineBreaks: false,
+            showFrontmatter: false,
+            foldHeading: true,
+            foldIndent: true,
+            showReleaseNotes: false
           };
           archive.append(JSON.stringify(appJson, null, 2), { name: `${vaultName}/.obsidian/app.json` });
           
-          // appearance.json
-          const appearanceJson = { baseFontSize: 16, theme: "obsidian" };
+          // appearance.json - Light theme to match GTM site branding
+          const appearanceJson = { accentColor: "#8e99e1", theme: "moonstone", cssTheme: "" };
           archive.append(JSON.stringify(appearanceJson, null, 2), { name: `${vaultName}/.obsidian/appearance.json` });
           
           // core-plugins.json - minimal set for sales users
@@ -5151,6 +5207,12 @@ This note aggregates next steps from all your account meetings.
           
           // Recordings folder
           archive.append('', { name: `${vaultName}/Recordings/.gitkeep` });
+          
+          // Update script for users on old plugin versions (macOS)
+          const updateScriptPath = path.join(__dirname, '..', 'public', 'downloads', 'Update Eudia Plugin.command');
+          if (fs.existsSync(updateScriptPath)) {
+            archive.file(updateScriptPath, { name: `${vaultName}/Update Eudia Plugin.command` });
+          }
           
           await archive.finalize();
           logger.info('Dynamic vault generation completed with plugin included');

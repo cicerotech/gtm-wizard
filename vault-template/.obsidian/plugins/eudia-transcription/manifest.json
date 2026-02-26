@@ -1,10 +1,18 @@
 {
   "id": "eudia-transcription",
   "name": "Eudia Transcription Plugin",
-  "version": "4.1.0",
+  "version": "4.9.6",
   "minAppVersion": "1.0.0",
   "description": "Record meetings, transcribe with AI, sync to Salesforce. Native calendar integration, smart tagging, and precision sales intelligence extraction.",
   "author": "Eudia",
   "authorUrl": "https://eudia.com",
-  "isDesktopOnly": false
+  "isDesktopOnly": false,
+  "releaseChannel": "stable",
+  "releaseNotes": "v4.9.2: Setup page icons, Getting Started guide, ribbon icon styling (blue/purple/green tints), hidden unused ribbon icons, file explorer note highlighting (purple), mic click responsiveness.",
+  "autoUpdateSupported": true,
+  "forceUpdate": true,
+  "compatiblePlatforms": ["darwin", "win32", "linux"],
+  "deployedAt": "2026-02-26T08:30:00.000Z",
+  "minAutoUpdateVersion": "4.4.0",
+  "supportUrl": "https://eudia.com/support"
 }

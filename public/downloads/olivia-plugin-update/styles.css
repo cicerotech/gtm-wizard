@@ -973,6 +973,23 @@
   opacity: 0.9;
 }
 
+/* Purple glow animation for microphone icon during recording */
+.eudia-ribbon-recording {
+  animation: eudia-mic-glow 1.5s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+@keyframes eudia-mic-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px 2px rgba(142, 153, 225, 0.6),
+                0 0 16px 4px rgba(142, 153, 225, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 16px 4px rgba(142, 153, 225, 0.8),
+                0 0 24px 8px rgba(142, 153, 225, 0.5);
+  }
+}
+
 /* ───────────────────────────────────────────────────────────────────────────
    EUDIA SETUP VIEW - Full-Page Onboarding Experience
    Matches GTM Site (obsidian-setup.html) Design System
@@ -1356,9 +1373,18 @@
 }
 
 .eudia-setup-instruction-icon {
-  font-size: 16px;
-  width: 24px;
-  text-align: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--eudia-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.eudia-setup-instruction-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Footer */
@@ -1484,6 +1510,133 @@
   border: 1px solid var(--background-modifier-border);
 }
 
+/* Multi-turn conversation thread */
+.eudia-intelligence-thread {
+  margin-top: 12px;
+  max-height: 50vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.eudia-thread-msg {
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 95%;
+  animation: eudia-fade-in 0.2s ease;
+}
+
+@keyframes eudia-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.eudia-thread-msg-user {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  align-self: flex-end;
+  border-bottom-right-radius: 3px;
+}
+
+.eudia-thread-msg-ai {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  align-self: flex-start;
+  border-bottom-left-radius: 3px;
+}
+
+.eudia-thread-msg-loading {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-style: italic;
+  align-self: flex-start;
+  animation: eudia-pulse-bg 1.5s ease-in-out infinite;
+}
+
+.eudia-thread-msg-error {
+  background: var(--background-modifier-error);
+  color: var(--text-error);
+  align-self: flex-start;
+  font-size: 13px;
+}
+
+.eudia-intelligence-thread-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.eudia-btn-secondary {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.eudia-btn-secondary:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* Inline follow-up suggestion chips */
+.eudia-suggestions-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.eudia-suggestion-chip-inline {
+  font-size: 12px;
+  padding: 3px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 14px;
+  background: var(--background-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.eudia-suggestion-chip-inline:hover {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+/* Feedback buttons */
+.eudia-feedback-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.eudia-feedback-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.eudia-feedback-btn:hover {
+  color: var(--text-muted);
+  background: var(--background-modifier-hover);
+}
+
 .eudia-intelligence-loading {
   color: var(--text-muted);
   font-style: italic;
@@ -1492,7 +1645,7 @@
 
 .eudia-intelligence-answer {
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.4;
   color: var(--text-normal);
 }
 
@@ -1540,4 +1693,477 @@
 .eudia-suggestion-btn:hover {
   background: var(--background-secondary);
   border-color: var(--interactive-accent);
+}
+
+/* Enhanced Intelligence Response Formatting */
+.eudia-intel-header {
+  margin: 14px 0 4px 0;
+  padding-top: 10px;
+  padding-bottom: 2px;
+  border-top: 1px solid rgba(0,0,0,0.06);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-accent);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.eudia-intel-header:first-child {
+  margin-top: 0;
+}
+
+.eudia-intel-list {
+  margin: 4px 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.eudia-intel-list li {
+  margin: 2px 0;
+  padding-left: 16px;
+  position: relative;
+}
+
+.eudia-intel-list li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--text-muted);
+}
+
+.eudia-intel-todo,
+.eudia-intel-done {
+  padding-left: 0 !important;
+}
+
+.eudia-intel-todo::before,
+.eudia-intel-done::before {
+  content: none !important;
+}
+
+.eudia-intel-done {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.eudia-intelligence-perf {
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--text-faint);
+  font-family: var(--font-monospace);
+}
+
+.eudia-intelligence-answer strong {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+/* Icon classes - replacing emojis */
+.eudia-step-complete {
+  background: var(--eudia-success) !important;
+  color: white !important;
+}
+
+.eudia-step-complete::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+.eudia-check-icon,
+.eudia-warn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.eudia-check-icon {
+  background: #22c55e;
+}
+
+.eudia-check-icon::before {
+  content: '';
+  display: block;
+  width: 10px;
+  height: 10px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+.eudia-warn-icon {
+  background: #f59e0b;
+}
+
+.eudia-warn-icon::before {
+  content: '!';
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Live Query Modal - Query transcript during active recording
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.eudia-live-query-modal {
+  padding: 16px;
+  max-width: 500px;
+}
+
+.eudia-live-query-instructions {
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--eudia-text-muted);
+  line-height: 1.5;
+}
+
+.eudia-live-query-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--eudia-border);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--eudia-card);
+  color: var(--eudia-text);
+  resize: vertical;
+  font-family: inherit;
+  margin-bottom: 12px;
+}
+
+.eudia-live-query-input:focus {
+  outline: none;
+  border-color: var(--eudia-accent);
+  box-shadow: 0 0 0 3px var(--eudia-accent-subtle);
+}
+
+.eudia-live-query-input::placeholder {
+  color: var(--eudia-text-subtle);
+}
+
+.eudia-live-query-response {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--eudia-bg);
+  border-radius: 8px;
+  border: 1px solid var(--eudia-border);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--eudia-text);
+  white-space: pre-wrap;
+}
+
+.eudia-live-query-response.eudia-loading {
+  color: var(--eudia-text-muted);
+  font-style: italic;
+  animation: eudia-pulse-bg 1.5s ease-in-out infinite;
+}
+
+.eudia-live-query-response.eudia-error {
+  color: var(--eudia-error);
+  background: var(--eudia-error-subtle);
+  border-color: var(--eudia-error);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Mobile Responsive Styles
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Mobile viewport adjustments */
+@media screen and (max-width: 768px) {
+  /* Transcription bar - bottom sheet on mobile */
+  .eudia-transcription-bar {
+    left: 8px;
+    right: 8px;
+    transform: none;
+    width: auto;
+    border-radius: 16px 16px 8px 8px;
+    padding: 16px;
+    gap: 12px;
+  }
+  
+  /* Larger touch targets for controls */
+  .eudia-control-btn {
+    height: 44px;
+    min-width: 44px;
+    padding: 0 16px;
+    font-size: 14px;
+  }
+  
+  .eudia-control-btn.stop {
+    padding: 0 20px;
+  }
+  
+  /* Calendar view mobile layout */
+  .eudia-calendar-view {
+    padding: 12px;
+  }
+  
+  .eudia-calendar-meeting {
+    padding: 12px;
+    gap: 10px;
+  }
+  
+  .eudia-calendar-time {
+    font-size: 11px;
+    min-width: 55px;
+  }
+  
+  .eudia-calendar-subject {
+    font-size: 14px;
+  }
+  
+  /* Now card mobile */
+  .eudia-now-card {
+    padding: 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .eudia-now-action {
+    width: 100%;
+    text-align: center;
+    padding: 12px;
+  }
+  
+  /* Modal adjustments for mobile */
+  .eudia-intelligence-modal,
+  .eudia-live-query-modal {
+    padding: 12px;
+  }
+  
+  .eudia-intelligence-input,
+  .eudia-live-query-input {
+    font-size: 16px; /* Prevent iOS zoom on focus */
+    padding: 14px;
+  }
+  
+  /* Setup view mobile */
+  .eudia-setup-view {
+    padding: 16px;
+  }
+  
+  .eudia-setup-step-card {
+    padding: 16px;
+  }
+  
+  .eudia-setup-step-header {
+    gap: 12px;
+  }
+  
+  .eudia-setup-step-content {
+    margin-left: 0;
+    margin-top: 12px;
+  }
+  
+  /* Larger buttons for touch */
+  .eudia-setup-btn,
+  .eudia-btn-primary,
+  .eudia-btn-retry {
+    padding: 14px 20px;
+    font-size: 15px;
+    min-height: 48px;
+  }
+  
+  /* Input groups stack vertically on mobile */
+  .eudia-setup-input-group {
+    flex-direction: column;
+  }
+  
+  .eudia-setup-input-group .eudia-setup-btn {
+    width: 100%;
+  }
+}
+
+/* Very small screens (phones in portrait) */
+@media screen and (max-width: 480px) {
+  .eudia-calendar-view {
+    padding: 8px;
+  }
+  
+  .eudia-calendar-meeting {
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .eudia-calendar-time {
+    min-width: auto;
+    align-self: flex-start;
+  }
+  
+  .eudia-waveform {
+    display: none; /* Hide waveform on very small screens */
+  }
+  
+  .eudia-transcription-bar {
+    padding: 12px;
+    min-width: auto;
+  }
+}
+
+/* Touch-friendly hover states (no hover on touch) */
+@media (hover: none) {
+  .eudia-calendar-meeting:hover,
+  .eudia-control-btn:hover,
+  .eudia-btn-icon:hover,
+  .eudia-setup-btn:hover {
+    transform: none;
+    box-shadow: var(--eudia-shadow-sm);
+  }
+  
+  /* Add active state for touch feedback */
+  .eudia-calendar-meeting:active,
+  .eudia-control-btn:active,
+  .eudia-btn-icon:active,
+  .eudia-setup-btn:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+}
+
+/* Safe area insets for notched phones */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .eudia-transcription-bar {
+    bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Setup Page — Completion Icon + Getting Started Guide
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.eudia-setup-completion-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eudia-setup-completion-icon {
+  color: var(--eudia-success);
+  display: inline-flex;
+  align-items: center;
+}
+
+.eudia-setup-completion-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.eudia-getting-started {
+  background: var(--eudia-card);
+  border: 1px solid var(--eudia-border);
+  border-radius: 10px;
+  padding: 20px 24px;
+  margin-top: 20px;
+}
+
+.eudia-getting-started-title {
+  margin: 0 0 16px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--eudia-text);
+}
+
+.eudia-getting-started-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--eudia-border-subtle);
+}
+
+.eudia-getting-started-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.eudia-getting-started-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--eudia-accent-subtle);
+  color: var(--eudia-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.eudia-getting-started-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.eudia-getting-started-text {
+  font-size: 13px;
+  color: var(--eudia-text-muted);
+  line-height: 1.5;
+}
+
+.eudia-getting-started-text strong {
+  color: var(--eudia-text);
+  font-weight: 600;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Ribbon — Hide Unused Core Icons + Color Eudia Icons
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.side-dock-ribbon-action[aria-label="Create new note"],
+.side-dock-ribbon-action[aria-label="Create new canvas"],
+.side-dock-ribbon-action[aria-label="New canvas"],
+.side-dock-ribbon-action[aria-label="Open graph view"],
+.side-dock-ribbon-action[aria-label*="canvas"],
+.side-dock-ribbon-action[aria-label*="Canvas"],
+.side-dock-ribbon-action[aria-label*="graph"],
+.side-dock-ribbon-action[aria-label*="Graph"],
+.side-dock-ribbon-action[aria-label*="base"],
+.side-dock-ribbon-action[aria-label*="Base"] {
+  display: none !important;
+}
+
+.side-dock-ribbon-action[aria-label="Open Calendar"] {
+  background: rgba(96, 165, 250, 0.12);
+  border-radius: 6px;
+}
+.side-dock-ribbon-action[aria-label="Open Calendar"]:hover {
+  background: rgba(96, 165, 250, 0.22);
+}
+
+.side-dock-ribbon-action[aria-label="Transcribe Meeting"] {
+  background: rgba(142, 153, 225, 0.12);
+  border-radius: 6px;
+}
+.side-dock-ribbon-action[aria-label="Transcribe Meeting"]:hover {
+  background: rgba(142, 153, 225, 0.22);
+}
+
+.side-dock-ribbon-action[aria-label="Ask GTM Brain"] {
+  background: rgba(142, 153, 225, 0.08);
+  border-radius: 6px;
+}
+.side-dock-ribbon-action[aria-label="Ask GTM Brain"]:hover {
+  background: rgba(142, 153, 225, 0.18);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   File Explorer — Note Highlighting
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.nav-file.is-flashing .nav-file-title {
+  background-color: var(--eudia-accent-subtle) !important;
+}
+
+.nav-file-title.is-active {
+  background-color: rgba(142, 153, 225, 0.08) !important;
+  border-radius: 4px;
 }
