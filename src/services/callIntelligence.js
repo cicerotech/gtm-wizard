@@ -525,7 +525,7 @@ async function assemblyAiDiarization(audioBase64, apiKey) {
     body: JSON.stringify({
       audio_url: upload_url,
       speaker_labels: true,
-      speakers_expected: 2
+      speakers_expected: 4
     })
   });
   

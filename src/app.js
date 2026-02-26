@@ -1031,10 +1031,17 @@ class GTMBrainApp {
     // Format matches what the plugin expects: { success: true, currentVersion: "4.1.0" }
     this.expressApp.get('/api/plugin/version', (req, res) => {
       try {
+        const crypto = require('crypto');
         const manifestPath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
         const mainJsPath = path.join(__dirname, '..', 'obsidian-plugin', 'main.js');
+        const stylesPath = path.join(__dirname, '..', 'obsidian-plugin', 'styles.css');
         const mainJsStat = fs.statSync(mainJsPath);
+
+        const mainJsContent = fs.readFileSync(mainJsPath);
+        const stylesContent = fs.readFileSync(stylesPath);
+        const manifestContent = fs.readFileSync(manifestPath);
+
         res.json({
           success: true,
           currentVersion: manifest.version,
@@ -1043,10 +1050,15 @@ class GTMBrainApp {
           updatedAt: mainJsStat.mtime.toISOString(),
           name: manifest.name,
           forceUpdate: manifest.forceUpdate || false,
+          checksums: {
+            mainJs: crypto.createHash('sha256').update(mainJsContent).digest('hex'),
+            styles: crypto.createHash('sha256').update(stylesContent).digest('hex'),
+            manifest: crypto.createHash('sha256').update(manifestContent).digest('hex'),
+          },
         });
       } catch (err) {
-        logger.warn('[Plugin Version] Could not read manifest.json from disk:', err.message);
-        res.json({ success: true, currentVersion: '4.7.3', version: '4.7.3', forceUpdate: true });
+        logger.warn('[Plugin Version] Could not read plugin files from disk:', err.message);
+        res.json({ success: false, error: 'Plugin files not available on server' });
       }
     });
 

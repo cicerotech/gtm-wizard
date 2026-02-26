@@ -161,7 +161,7 @@ function deduplicateTranscript(text) {
  */
 function buildWhisperPrompt(context = {}) {
   // Base vocabulary for Eudia meetings
-  let basePrompt = `Eudia AI legal technology company meeting. Multi-speaker conversation.
+  let basePrompt = `This is a meeting involving Eudia (pronounced "you-dee-ah"), an AI legal technology company. The company name is spelled E-U-D-I-A. Eudia, Eudia, Eudia.
 Products: Sigma, AI Contracting, AI Compliance, AI M&A, Insights, Litigation.
 Roles: CLO, General Counsel, VP Legal, Legal Ops Director, Deputy GC, Chief Legal Officer.
 Legal terms: MSA, NDA, DPA, SLA, due diligence, contract lifecycle, compliance.
@@ -449,7 +449,6 @@ class TranscriptionService {
 
       if (transcriptCorrector) {
         try {
-          // Initialize corrector with OpenAI client for potential GPT correction
           transcriptCorrector.setOpenAI(this.openai);
           
           const correctionResult = await transcriptCorrector.correctTranscript(
@@ -462,12 +461,19 @@ class TranscriptionService {
           confidence = correctionResult.confidence;
           
           if (corrections.length > 0) {
-            logger.info(`[Transcription] Post-processing: ${corrections.length} corrections, confidence=${confidence}`);
+            logger.info(`[Transcription] Post-processing: ${corrections.length} corrections applied (confidence=${confidence})`);
+            const eudiaFixes = corrections.filter(c => c.to === 'Eudia' || c.to === "Eudia's");
+            if (eudiaFixes.length > 0) {
+              logger.info(`[Transcription] Eudia name corrections: ${eudiaFixes.length} (from: ${eudiaFixes.map(c => c.from).join(', ')})`);
+            }
+          } else {
+            logger.info('[Transcription] Post-processing ran — no corrections needed');
           }
         } catch (correctionError) {
           logger.warn(`[Transcription] Post-processing failed, using raw transcript: ${correctionError.message}`);
-          // Continue with raw transcript if correction fails
         }
+      } else {
+        logger.warn('[Transcription] TranscriptCorrector not loaded — skipping post-processing');
       }
 
       // Hallucination check: detect and clean repeated phrases

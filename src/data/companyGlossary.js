@@ -56,6 +56,14 @@ const EUDIA_GLOSSARY = {
     'u.d.a': 'Eudia',
     'u d s': 'Eudia',
     'u d a': 'Eudia',
+    'udf': 'Eudia',
+    'u d f': 'Eudia',
+    'u.d.f': 'Eudia',
+    'u.d.f.': 'Eudia',
+    'udif': 'Eudia',
+    'you d f': 'Eudia',
+    'you df': 'Eudia',
+    'udfia': 'Eudia',
     'eudia\'s': 'Eudia\'s',
     
     // Product names

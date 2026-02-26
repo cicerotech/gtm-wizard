@@ -824,6 +824,79 @@ Items to track or revisit:
 `;
 }
 
+function buildCSPrompt(accountName?: string, context?: MeetingContext): string {
+  let contextSection = '';
+  if (context?.account) {
+    contextSection = `\nACCOUNT CONTEXT:\n- Account: ${context.account.name}\n${context.account.owner ? `- Owner: ${context.account.owner}` : ''}\n`;
+  }
+
+  return `You are a Customer Success analyst for Eudia, an AI-powered legal technology company. You are analyzing a CUSTOMER SUCCESS call — not a sales discovery or demo.
+
+Focus on the customer's experience, adoption, satisfaction, feature needs, and relationship health. This is NOT a sales qualification call.
+
+${accountName ? `ACCOUNT: ${accountName}` : ''}
+${contextSection}
+
+CRITICAL RULES:
+1. Only include information explicitly stated in the transcript.
+2. Focus on the CUSTOMER'S perspective — what they need, what's working, what isn't.
+3. Capture exact quotes for feature requests and pain points.
+4. Note who spoke more — if the CSM dominated the conversation, flag it.
+
+OUTPUT FORMAT:
+
+## Summary
+3-5 bullet points: Account health assessment, key topics, customer sentiment, overall takeaway.
+
+## Attendees
+- **[Name]** - [Title/Role] ([Company])
+
+## Customer Health Signals
+Rate the overall health of this account based on the conversation:
+- **Engagement Level**: [High/Medium/Low] — [Evidence]
+- **Satisfaction**: [Positive/Neutral/Concerned] — [Evidence]
+- **Adoption**: [Expanding/Stable/Declining] — [Evidence]
+- **Renewal Risk**: [Low/Medium/High] — [Evidence]
+
+## Feature Requests & Pain Points
+For each feature request or pain point raised by the customer:
+- **[Request/Pain]**: "[Direct quote]" — **Priority:** [Critical/High/Medium/Low] — **Product Area:** [Contracting/Compliance/M&A/Sigma/Platform]
+
+If none raised, write: "No feature requests or pain points surfaced."
+
+## Adoption & Usage
+What the customer shared about how they're using the product:
+- **Current Usage**: [How they're using it, which teams, volume]
+- **Wins**: [Successes they mentioned]
+- **Gaps**: [Where they expected more or aren't using it]
+- **Expansion Opportunities**: [Teams, use cases, or products not yet adopted]
+
+## Talk Time Balance
+Estimate who drove the conversation:
+- CSM/Eudia: ~[X]%
+- Customer: ~[X]%
+- **Assessment**: [Was the customer given enough space to share? Or did we dominate?]
+
+## Action Items
+- [ ] [Action] - **Owner:** [Name] - **Due:** [Date if mentioned]
+
+## Renewal & Expansion Signals
+- **Contract Status**: [Any mention of renewal timeline, terms, or expansion]
+- **Budget Signals**: [Any mention of budget, headcount, or procurement]
+- **Champion Health**: [Is our internal champion still engaged and empowered?]
+
+## Escalations
+Issues requiring immediate attention:
+- **[Issue]**: [Severity] — [Who raised it, what's needed]
+
+If none, write: "No escalations identified."
+
+## Follow-Ups
+Items to track or revisit:
+- [Item]: [Context and timeline]
+`;
+}
+
 function buildInternalCallPrompt(): string {
   return `You are a business meeting analyst. You are analyzing an INTERNAL team call — not a customer-facing meeting.
 
@@ -834,6 +907,11 @@ OUTPUT FORMAT:
 ## Summary
 3-5 bullet points: Key topics discussed, decisions made, and overall takeaways.
 
+## Action Items
+| Owner | Action | Due/Timeline |
+|-------|--------|-------------|
+| [Name] | [What they committed to] | [When] |
+
 ## Attendees
 - **[Name]** - [Role/Team]
 
@@ -841,10 +919,11 @@ OUTPUT FORMAT:
 Decisions made during this meeting:
 - **[Decision]**: [Context and rationale]
 
-## Action Items
-| Owner | Action | Due/Timeline |
-|-------|--------|-------------|
-| [Name] | [What they committed to] | [When] |
+## Key Numbers & Metrics
+Any specific numbers, targets, revenue figures, pipeline data, or KPIs mentioned:
+- **[Metric]**: [Value] — [Context]
+
+If no specific numbers were discussed, write: "No specific metrics discussed."
 
 ## Discussion Topics
 For each major topic discussed:
@@ -853,11 +932,25 @@ For each major topic discussed:
 - Key points raised
 - Any concerns or blockers
 
+## Strategic Takeaways
+What does this discussion mean for the broader business? Consider:
+- GTM motion implications (new market segments, competitive positioning, pricing changes)
+- Product or roadmap signals (feature priorities, stability concerns, customer feedback patterns)
+- Team or process changes (hiring, enablement, workflow adjustments)
+
+If the meeting was purely tactical with no strategic implications, write: "Tactical meeting — no strategic implications identified."
+
 ## Blockers & Escalations
 Issues that need attention or were escalated:
 - **[Issue]**: [Who raised it, what's needed]
 
 If none were raised, write: "No blockers or escalations identified."
+
+## Parking Lot
+Topics that were raised but deferred or need further discussion:
+- **[Topic]**: [Why it was deferred, who should follow up]
+
+If everything was resolved, write: "All topics addressed."
 
 ## Follow-ups
 Items to revisit or track:
@@ -868,7 +961,8 @@ ANALYSIS RULES:
 2. Capture action items with clear ownership and timelines.
 3. Note any disagreements or unresolved points.
 4. Keep the tone neutral and factual.
-5. If specific accounts, deals, or numbers are mentioned, capture them accurately.`;
+5. If specific accounts, deals, or numbers are mentioned, capture them accurately.
+6. For strategic takeaways, only include implications that were actually discussed or clearly implied — do not speculate.`;
 }
 
 export function buildPipelineReviewPrompt(pipelineContext?: string): string {
@@ -992,6 +1086,8 @@ export class TranscriptionService {
         systemPrompt = buildGeneralPrompt(accountName, context);
       } else if (meetingTemplate === 'internal') {
         systemPrompt = buildInternalCallPrompt();
+      } else if (meetingTemplate === 'cs') {
+        systemPrompt = buildCSPrompt(accountName, context);
       } else {
         systemPrompt = buildAnalysisPrompt(accountName, context);
       }
@@ -1677,25 +1773,74 @@ Format your response as a brief, actionable answer suitable for quick reference 
     }
   }
 
+  private static readonly CHUNK_MAX_RETRIES = 3;
+  private static readonly CHUNK_RETRY_DELAYS = [5000, 15000, 30000]; // 5s, 15s, 30s
+
+  /**
+   * Attempt a single chunk transcription with retry logic.
+   * Returns the transcript text on success, or null after all retries exhausted.
+   */
+  private async transcribeChunkWithRetry(
+    chunkBase64: string,
+    mimeType: string,
+    chunkIndex: number,
+    chunkCount: number
+  ): Promise<{ text: string; duration: number } | null> {
+    for (let attempt = 0; attempt <= TranscriptionService.CHUNK_MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        const delay = TranscriptionService.CHUNK_RETRY_DELAYS[attempt - 1] || 30000;
+        console.log(`[Eudia] Chunk ${chunkIndex + 1}/${chunkCount} retry ${attempt}/${TranscriptionService.CHUNK_MAX_RETRIES} in ${delay / 1000}s...`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+
+      try {
+        const response = await requestUrl({
+          url: `${this.serverUrl}/api/transcribe-chunk`,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audio: chunkBase64, mimeType })
+        });
+
+        const chunkText = response.json?.text || response.json?.transcript || '';
+        if (response.json?.success && chunkText) {
+          if (attempt > 0) {
+            console.log(`[Eudia] Chunk ${chunkIndex + 1}/${chunkCount} succeeded on retry ${attempt}`);
+          }
+          return { text: chunkText, duration: response.json.duration || 0 };
+        }
+
+        console.warn(`[Eudia] Chunk ${chunkIndex + 1}/${chunkCount} attempt ${attempt + 1} returned no text: ${response.json?.error || 'unknown'}`);
+      } catch (err: any) {
+        console.warn(`[Eudia] Chunk ${chunkIndex + 1}/${chunkCount} attempt ${attempt + 1} failed: ${err.message}`);
+      }
+    }
+    return null;
+  }
+
   /**
    * Chunked transcription for large recordings (>15MB).
-   * Splits audio into ~8MB chunks, transcribes each via /api/transcribe-chunk,
-   * then summarizes the combined transcript via /api/process-sections.
-   * This avoids request timeouts that kill monolithic uploads of long recordings.
+   * Splits audio into ~8MB chunks, transcribes each via /api/transcribe-chunk
+   * with per-chunk retry (3 attempts, exponential backoff), inserts gap markers
+   * for unrecoverable chunks, then summarizes the combined transcript.
    */
   private async transcribeAudioChunked(
     audioBlob: Blob,
     mimeType: string,
     context?: { accountName?: string; accountId?: string; speakerHints?: string[]; meetingType?: string; pipelineContext?: string; captureMode?: string; hasVirtualDevice?: boolean; meetingTemplate?: string }
   ): Promise<{ text: string; confidence: number; duration?: number; sections?: ProcessedSections; error?: string }> {
-    const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB raw → ~10.7MB base64, well within limits
+    const CHUNK_SIZE = 8 * 1024 * 1024;
     const arrayBuffer = await audioBlob.arrayBuffer();
     const totalBytes = arrayBuffer.byteLength;
     const chunkCount = Math.ceil(totalBytes / CHUNK_SIZE);
 
     console.log(`[Eudia] Chunked transcription: ${(totalBytes / 1024 / 1024).toFixed(1)}MB → ${chunkCount} chunks`);
 
-    const transcripts: string[] = [];
+    // Estimate duration per chunk for gap markers (128kbps = 16KB/s)
+    const estBytesPerSecond = 16 * 1024;
+    const estTotalDurationSec = totalBytes / estBytesPerSecond;
+
+    // Ordered results: text for success, gap marker for failure
+    const orderedSegments: string[] = [];
     let totalDuration = 0;
     let failedChunks = 0;
 
@@ -1704,52 +1849,46 @@ Format your response as a brief, actionable answer suitable for quick reference 
       const end = Math.min(start + CHUNK_SIZE, totalBytes);
       const chunkBuffer = arrayBuffer.slice(start, end);
       const chunkBlob = new Blob([chunkBuffer], { type: mimeType });
-      
+
       console.log(`[Eudia] Transcribing chunk ${i + 1}/${chunkCount} (${((end - start) / 1024 / 1024).toFixed(1)}MB)`);
 
-      try {
-        const chunkBase64 = await this.blobToBase64(chunkBlob);
-        const response = await requestUrl({
-          url: `${this.serverUrl}/api/transcribe-chunk`,
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ audio: chunkBase64, mimeType })
-        });
+      const chunkBase64 = await this.blobToBase64(chunkBlob);
+      const result = await this.transcribeChunkWithRetry(chunkBase64, mimeType, i, chunkCount);
 
-        // Handle both old server (returns .transcript) and new server (returns .text)
-        const chunkText = response.json?.text || response.json?.transcript || '';
-        if (response.json?.success && chunkText) {
-          transcripts.push(chunkText);
-          totalDuration += response.json.duration || 0;
-          console.log(`[Eudia] Chunk ${i + 1}/${chunkCount} OK: ${chunkText.length} chars`);
-        } else {
-          failedChunks++;
-          console.warn(`[Eudia] Chunk ${i + 1}/${chunkCount} returned no text: ${response.json?.error || 'unknown'}`);
-        }
-      } catch (chunkError: any) {
+      if (result) {
+        orderedSegments.push(result.text);
+        totalDuration += result.duration;
+        console.log(`[Eudia] Chunk ${i + 1}/${chunkCount} OK: ${result.text.length} chars`);
+      } else {
         failedChunks++;
-        console.error(`[Eudia] Chunk ${i + 1}/${chunkCount} failed:`, chunkError.message);
+        const gapStartSec = Math.round((start / totalBytes) * estTotalDurationSec);
+        const gapEndSec = Math.round((end / totalBytes) * estTotalDurationSec);
+        const fmtStart = `${Math.floor(gapStartSec / 60)}:${(gapStartSec % 60).toString().padStart(2, '0')}`;
+        const fmtEnd = `${Math.floor(gapEndSec / 60)}:${(gapEndSec % 60).toString().padStart(2, '0')}`;
+        const gapMarker = `\n\n[~${fmtStart} – ${fmtEnd} — audio not transcribed (chunk ${i + 1}/${chunkCount} failed after ${TranscriptionService.CHUNK_MAX_RETRIES + 1} attempts)]\n\n`;
+        orderedSegments.push(gapMarker);
+        console.error(`[Eudia] Chunk ${i + 1}/${chunkCount} permanently failed — gap marker inserted`);
       }
     }
 
-    if (transcripts.length === 0) {
+    const successfulSegments = orderedSegments.filter(s => !s.includes('— audio not transcribed'));
+    if (successfulSegments.length === 0) {
       return {
         text: '',
         confidence: 0,
         duration: 0,
         sections: this.getEmptySections(),
-        error: `All ${chunkCount} chunks failed to transcribe. Server may be unavailable.`
+        error: `All ${chunkCount} chunks failed to transcribe after retries. Server may be unavailable.`
       };
     }
 
     if (failedChunks > 0) {
-      console.warn(`[Eudia] ${failedChunks}/${chunkCount} chunks failed — partial transcript`);
+      console.warn(`[Eudia] ${failedChunks}/${chunkCount} chunks failed after retries — partial transcript with gap markers`);
     }
 
-    const combinedTranscript = transcripts.join('\n\n');
-    console.log(`[Eudia] Combined transcript: ${combinedTranscript.length} chars from ${transcripts.length} chunks`);
+    const combinedTranscript = orderedSegments.join('\n\n');
+    console.log(`[Eudia] Combined transcript: ${combinedTranscript.length} chars from ${chunkCount} chunks (${failedChunks} gaps)`);
 
-    // Now summarize the combined transcript
     try {
       const sections = await this.processTranscription(combinedTranscript, {
         accountName: context?.accountName,
@@ -1758,9 +1897,10 @@ Format your response as a brief, actionable answer suitable for quick reference 
 
       return {
         text: combinedTranscript,
-        confidence: failedChunks === 0 ? 0.90 : 0.70,
+        confidence: failedChunks === 0 ? 0.90 : Math.max(0.30, 0.90 - (failedChunks / chunkCount) * 0.60),
         duration: totalDuration,
-        sections
+        sections,
+        ...(failedChunks > 0 ? { error: `${failedChunks} of ${chunkCount} audio chunks could not be transcribed. Look for [audio not transcribed] markers in the transcript.` } : {})
       };
     } catch (sumError: any) {
       console.error('[Eudia] Summarization failed after chunked transcription:', sumError.message);

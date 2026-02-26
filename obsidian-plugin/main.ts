@@ -67,7 +67,19 @@ interface EudiaSyncSettings {
   audioSystemDeviceId: string;
   audioSetupDismissed: boolean;
   // Meeting template
-  meetingTemplate: 'meddic' | 'demo' | 'general' | 'internal';
+  meetingTemplate: 'meddic' | 'demo' | 'general' | 'internal' | 'cs';
+  // Auto-update tracking for rollback
+  lastUpdateVersion: string | null;
+  lastUpdateTimestamp: string | null;
+  pendingUpdateVersion: string | null;
+  // Persistent heal queue for failed transcriptions
+  healQueue: Array<{
+    notePath: string;
+    recordingPath: string;
+    attemptCount: number;
+    lastAttempt: string;
+    error?: string;
+  }>;
 }
 
 // Common timezone options for US/EU sales teams
@@ -111,7 +123,11 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   audioMicDeviceId: '',
   audioSystemDeviceId: '',
   audioSetupDismissed: false,
-  meetingTemplate: 'meddic'
+  meetingTemplate: 'meddic',
+  lastUpdateVersion: null,
+  lastUpdateTimestamp: null,
+  pendingUpdateVersion: null,
+  healQueue: []
 };
 
 interface SalesforceAccount {
@@ -127,7 +143,7 @@ class TelemetryService {
   private serverUrl: string;
   private userEmail: string;
   private enabled: boolean = true; // Can be disabled via settings in future
-  private pluginVersion: string = '4.2.0';
+  private pluginVersion: string = '4.9.0';
   
   constructor(serverUrl: string, userEmail: string = '') {
     this.serverUrl = serverUrl;
@@ -236,9 +252,96 @@ class TelemetryService {
     }
   }
   
+  /**
+   * Report recording start with capture configuration
+   */
+  async reportRecordingStart(data: {
+    captureMode: string;
+    systemAudioMethod: string | null;
+    hasMicPermission: boolean;
+  }): Promise<void> {
+    if (!this.enabled) return;
+    this.send('recording_start', 'Recording started', data);
+  }
+
+  /**
+   * Report recording stop with audio diagnostic data
+   */
+  async reportRecordingStop(data: {
+    durationSec: number;
+    blobSizeMB: number;
+    avgAudioLevel: number;
+    silentPercent: number;
+    hasAudio: boolean;
+    captureMode: string;
+    systemAudioMethod: string | null;
+  }): Promise<void> {
+    if (!this.enabled) return;
+    this.send('recording_stop', `Recording stopped (${data.durationSec}s)`, data);
+  }
+
+  /**
+   * Report transcription result (success or failure, chunked or monolithic)
+   */
+  async reportTranscriptionResult(data: {
+    success: boolean;
+    isChunked: boolean;
+    chunkCount?: number;
+    failedChunks?: number;
+    totalSizeMB: number;
+    transcriptLength: number;
+    processingTimeSec: number;
+    error?: string;
+  }): Promise<void> {
+    if (!this.enabled) return;
+    const msg = data.success
+      ? `Transcription complete (${data.transcriptLength} chars)`
+      : `Transcription failed: ${data.error || 'unknown'}`;
+    this.send('transcription_result', msg, data);
+  }
+
+  /**
+   * Report auto-heal scan results
+   */
+  async reportAutoHealScan(data: {
+    totalNotes: number;
+    failedNotes: number;
+    recordings: number;
+    healed: number;
+    failed: number;
+    queueSize: number;
+  }): Promise<void> {
+    if (!this.enabled) return;
+    this.send('autoheal_scan', `AutoHeal: ${data.healed} healed, ${data.failed} failed`, data);
+  }
+
+  /**
+   * Report update check result
+   */
+  async reportUpdateCheck(data: {
+    localVersion: string;
+    remoteVersion: string;
+    updateNeeded: boolean;
+    updateResult: 'success' | 'failed' | 'skipped' | 'deferred';
+  }): Promise<void> {
+    if (!this.enabled) return;
+    this.send('update_check', `Update check: ${data.updateResult}`, data);
+  }
+
+  /**
+   * Report safety net save failure
+   */
+  async reportSafetyNetFailure(data: {
+    blobSizeMB: number;
+    error: string;
+    retryAttempt: number;
+  }): Promise<void> {
+    if (!this.enabled) return;
+    this.send('safety_net_failure', `Safety net save failed: ${data.error}`, data);
+  }
+
   private async send(event: string, message: string, context?: Record<string, any>): Promise<void> {
     try {
-      // Fire and forget - don't await, don't block
       requestUrl({
         url: `${this.serverUrl}/api/plugin/telemetry`,
         method: 'POST',
@@ -251,7 +354,7 @@ class TelemetryService {
           pluginVersion: this.pluginVersion,
           platform: 'obsidian'
         })
-      }).catch(() => {}); // Silently ignore failures
+      }).catch(() => {});
     } catch {
       // Never throw from telemetry
     }
@@ -279,6 +382,7 @@ interface ConnectionStatus {
 
 const CALENDAR_VIEW_TYPE = 'eudia-calendar-view';
 const SETUP_VIEW_TYPE = 'eudia-setup-view';
+const LIVE_QUERY_VIEW_TYPE = 'eudia-live-query-view';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ACCOUNT SUGGESTER
@@ -2274,6 +2378,179 @@ class EudiaSetupView extends ItemView {
 // EUDIA CALENDAR VIEW - Beautiful Native Calendar Panel
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════
+// LIVE QUERY SIDEBAR — Chat-style panel for querying transcript during recording
+// ═══════════════════════════════════════════════════════════════════════════
+
+class EudiaLiveQueryView extends ItemView {
+  plugin: EudiaSyncPlugin;
+  private updateInterval: number | null = null;
+  private chatHistory: Array<{ role: 'user' | 'assistant'; text: string }> = [];
+
+  constructor(leaf: WorkspaceLeaf, plugin: EudiaSyncPlugin) {
+    super(leaf);
+    this.plugin = plugin;
+  }
+
+  getViewType(): string { return LIVE_QUERY_VIEW_TYPE; }
+  getDisplayText(): string { return 'Live Query'; }
+  getIcon(): string { return 'message-circle'; }
+
+  async onOpen(): Promise<void> {
+    await this.render();
+    this.updateInterval = window.setInterval(() => this.updateStatus(), 5000);
+  }
+
+  async onClose(): Promise<void> {
+    if (this.updateInterval) window.clearInterval(this.updateInterval);
+  }
+
+  private updateStatus(): void {
+    const statusEl = this.containerEl.querySelector('.eudia-lq-status') as HTMLElement;
+    if (!statusEl) return;
+
+    if (this.plugin.audioRecorder?.isRecording()) {
+      const words = Math.round((this.plugin.liveTranscript?.length || 0) / 5);
+      const duration = this.plugin.audioRecorder.getState().duration;
+      const mins = Math.floor(duration / 60);
+      const secs = duration % 60;
+      statusEl.setText(`Recording ${mins}:${secs.toString().padStart(2, '0')} — ${words} words captured`);
+      statusEl.style.color = 'var(--text-success)';
+    } else {
+      statusEl.setText('Not recording. Start a recording to use Live Query.');
+      statusEl.style.color = 'var(--text-muted)';
+    }
+  }
+
+  async render(): Promise<void> {
+    const container = this.containerEl.children[1] as HTMLElement;
+    container.empty();
+    container.addClass('eudia-live-query-view');
+    container.style.cssText = 'display:flex;flex-direction:column;height:100%;padding:12px;';
+
+    // Status bar
+    const statusEl = container.createDiv({ cls: 'eudia-lq-status' });
+    statusEl.style.cssText = 'font-size:12px;padding:8px 0;border-bottom:1px solid var(--background-modifier-border);margin-bottom:8px;';
+    this.updateStatus();
+
+    // Quick action buttons
+    const quickActions = container.createDiv({ cls: 'eudia-lq-quick-actions' });
+    quickActions.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;';
+
+    const quickButtons = [
+      { label: 'Summarize so far', query: 'Give me a concise summary of everything discussed so far.' },
+      { label: 'Action items', query: 'What action items or next steps have been discussed so far?' },
+      { label: 'Key concerns', query: 'What concerns, objections, or risks have been raised?' },
+    ];
+
+    for (const qb of quickButtons) {
+      const btn = quickActions.createEl('button', { text: qb.label });
+      btn.style.cssText = 'font-size:11px;padding:4px 10px;border-radius:12px;border:1px solid var(--background-modifier-border);cursor:pointer;background:var(--background-secondary);';
+      btn.onclick = () => this.submitQuery(qb.query, chatContainer, inputEl);
+    }
+
+    // Chat history container (scrollable)
+    const chatContainer = container.createDiv({ cls: 'eudia-lq-chat' });
+    chatContainer.style.cssText = 'flex:1;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:8px;';
+
+    // Render existing chat history
+    for (const msg of this.chatHistory) {
+      this.renderMessage(chatContainer, msg.role, msg.text);
+    }
+
+    if (this.chatHistory.length === 0) {
+      const emptyState = chatContainer.createDiv();
+      emptyState.style.cssText = 'color:var(--text-muted);font-size:12px;text-align:center;padding:20px 0;';
+      emptyState.setText('Ask a question about the conversation while recording.');
+    }
+
+    // Input area (fixed at bottom)
+    const inputArea = container.createDiv({ cls: 'eudia-lq-input-area' });
+    inputArea.style.cssText = 'display:flex;gap:8px;border-top:1px solid var(--background-modifier-border);padding-top:8px;';
+
+    const inputEl = inputArea.createEl('textarea', {
+      attr: { placeholder: 'Ask about the conversation...', rows: '2' }
+    });
+    inputEl.style.cssText = 'flex:1;resize:none;border-radius:8px;padding:8px;font-size:13px;border:1px solid var(--background-modifier-border);background:var(--background-primary);';
+
+    const sendBtn = inputArea.createEl('button', { text: 'Ask' });
+    sendBtn.style.cssText = 'padding:8px 16px;border-radius:8px;cursor:pointer;align-self:flex-end;font-weight:600;';
+    sendBtn.addClass('mod-cta');
+
+    sendBtn.onclick = () => this.submitQuery(inputEl.value.trim(), chatContainer, inputEl);
+    inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendBtn.click();
+      }
+    });
+  }
+
+  private renderMessage(container: HTMLElement, role: 'user' | 'assistant', text: string): void {
+    // Remove empty state if present
+    const emptyState = container.querySelector('.eudia-lq-chat > div:only-child');
+    if (emptyState && emptyState.textContent?.includes('Ask a question')) {
+      emptyState.remove();
+    }
+
+    const msgEl = container.createDiv();
+    const isUser = role === 'user';
+    msgEl.style.cssText = `padding:8px 12px;border-radius:10px;font-size:13px;line-height:1.5;max-width:90%;${
+      isUser
+        ? 'align-self:flex-end;background:var(--interactive-accent);color:var(--text-on-accent);'
+        : 'align-self:flex-start;background:var(--background-secondary);'
+    }`;
+    msgEl.setText(text);
+  }
+
+  private async submitQuery(query: string, chatContainer: HTMLElement, inputEl: HTMLTextAreaElement): Promise<void> {
+    if (!query) return;
+
+    if (!this.plugin.audioRecorder?.isRecording()) {
+      new Notice('Start a recording first to use Live Query.');
+      return;
+    }
+
+    const transcript = this.plugin.liveTranscript || '';
+    if (transcript.length < 50) {
+      new Notice('Not enough transcript captured yet. Keep recording for a few more minutes.');
+      return;
+    }
+
+    // Add user message
+    this.chatHistory.push({ role: 'user', text: query });
+    this.renderMessage(chatContainer, 'user', query);
+    inputEl.value = '';
+
+    // Add loading indicator
+    const loadingEl = chatContainer.createDiv();
+    loadingEl.style.cssText = 'align-self:flex-start;padding:8px 12px;border-radius:10px;font-size:13px;background:var(--background-secondary);color:var(--text-muted);';
+    loadingEl.setText('Thinking...');
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+
+    try {
+      const result = await this.plugin.transcriptionService.liveQueryTranscript(
+        query,
+        transcript,
+        this.plugin.getAccountNameFromActiveFile()
+      );
+
+      loadingEl.remove();
+
+      const answer = result.success ? result.answer : (result.error || 'Query failed');
+      this.chatHistory.push({ role: 'assistant', text: answer });
+      this.renderMessage(chatContainer, 'assistant', answer);
+    } catch (err: any) {
+      loadingEl.remove();
+      const errMsg = `Error: ${err.message}`;
+      this.chatHistory.push({ role: 'assistant', text: errMsg });
+      this.renderMessage(chatContainer, 'assistant', errMsg);
+    }
+
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
+}
+
 class EudiaCalendarView extends ItemView {
   plugin: EudiaSyncPlugin;
   private refreshInterval: number | null = null;
@@ -3329,14 +3606,15 @@ After transcription, this note will be automatically formatted with:
 export default class EudiaSyncPlugin extends Plugin {
   settings: EudiaSyncSettings;
   private audioRecorder: AudioRecorder | null = null;
-  private transcriptionService: TranscriptionService;
+  transcriptionService: TranscriptionService;
   private calendarService: CalendarService;
   private smartTagService: SmartTagService;
+  telemetry: TelemetryService;
   private recordingStatusBar: RecordingStatusBar | null = null;
   private micRibbonIcon: HTMLElement | null = null;
   
   // Live query support - accumulated transcript during recording
-  private liveTranscript: string = '';
+  liveTranscript: string = '';
   private liveTranscriptChunkInterval: NodeJS.Timeout | null = null;
   private isTranscribingChunk: boolean = false;
 
@@ -3356,11 +3634,30 @@ export default class EudiaSyncPlugin extends Plugin {
     
     this.smartTagService = new SmartTagService();
 
+    this.telemetry = new TelemetryService(
+      this.settings.serverUrl,
+      this.settings.userEmail
+    );
+
     // Pre-configure system audio capture (non-blocking, runs once)
     AudioRecorder.setupDisplayMediaHandler().then(ok => {
       if (ok) console.log('[Eudia] System audio: loopback handler ready');
       else console.log('[Eudia] System audio: handler not available, will try other strategies on record');
     }).catch(() => {});
+
+    // Check if a previous update failed and rollback if needed
+    this.checkForUpdateRollback().catch(e => console.warn('[Eudia] Rollback check error:', e));
+
+    // If a pending update was deferred during recording, retry now
+    if (this.settings.pendingUpdateVersion) {
+      const pendingVersion = this.settings.pendingUpdateVersion;
+      this.settings.pendingUpdateVersion = null;
+      this.saveSettings();
+      setTimeout(() => {
+        console.log(`[Eudia Update] Resuming deferred update to v${pendingVersion}`);
+        this.performAutoUpdate(this.settings.serverUrl || 'https://gtm-wizard.onrender.com', pendingVersion, this.manifest?.version || '0.0.0');
+      }, 8000);
+    }
 
     // Check for plugin updates on startup (non-blocking, retries on failure)
     setTimeout(() => this.checkForPluginUpdate(), 5000);
@@ -3384,6 +3681,12 @@ export default class EudiaSyncPlugin extends Plugin {
     this.registerView(
       SETUP_VIEW_TYPE,
       (leaf) => new EudiaSetupView(leaf, this)
+    );
+
+    // Register live query sidebar
+    this.registerView(
+      LIVE_QUERY_VIEW_TYPE,
+      (leaf) => new EudiaLiveQueryView(leaf, this)
     );
 
     // Add ribbon icons
@@ -3650,6 +3953,14 @@ created: ${dateStr}
       }
     });
 
+    this.addCommand({
+      id: 'retry-transcription',
+      name: 'Retry Transcription',
+      callback: async () => {
+        await this.retryTranscriptionForCurrentNote();
+      }
+    });
+
     // SF Sync status bar
     this.sfSyncStatusBarEl = this.addStatusBarItem();
     this.sfSyncStatusBarEl.setText('SF Sync: Idle');
@@ -3838,6 +4149,7 @@ created: ${dateStr}
 
   async onunload() {
     this.app.workspace.detachLeavesOfType(CALENDAR_VIEW_TYPE);
+    this.app.workspace.detachLeavesOfType(LIVE_QUERY_VIEW_TYPE);
   }
 
   private _updateRetryCount = 0;
@@ -3902,13 +4214,84 @@ created: ${dateStr}
   }
 
   /**
-   * Download latest plugin files, validate, write to disk, and hot-reload.
+   * Simple SHA-256 hash of a string using Web Crypto API (available in Electron).
+   */
+  private async sha256(text: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  /**
+   * Check if a previous update may have caused a crash, and rollback if so.
+   * Called during onload() — if the plugin was updated less than 60 seconds ago
+   * (measured via settings timestamp), and the .bak file exists, restore it.
+   */
+  private async checkForUpdateRollback(): Promise<void> {
+    if (!this.settings.lastUpdateTimestamp || !this.settings.lastUpdateVersion) return;
+
+    const updateAge = Date.now() - new Date(this.settings.lastUpdateTimestamp).getTime();
+    const currentVersion = this.manifest?.version || '0.0.0';
+
+    // If we successfully loaded with the new version, the update worked — clear the state
+    if (currentVersion === this.settings.lastUpdateVersion) {
+      this.settings.lastUpdateTimestamp = null;
+      this.settings.pendingUpdateVersion = null;
+      await this.saveSettings();
+      this.telemetry.reportUpdateCheck({
+        localVersion: currentVersion,
+        remoteVersion: this.settings.lastUpdateVersion,
+        updateNeeded: false,
+        updateResult: 'success'
+      });
+      console.log(`[Eudia Update] Update to v${currentVersion} confirmed successful`);
+      return;
+    }
+
+    // If the update was applied but we're still running the old version after a reload,
+    // the new version may have crashed during hot-reload. Rollback if within 2 minutes.
+    if (updateAge < 120000) {
+      const pluginDir = this.manifest.dir;
+      if (!pluginDir) return;
+
+      const adapter = this.app.vault.adapter;
+      try {
+        const bakExists = await adapter.exists(`${pluginDir}/main.js.bak`);
+        if (bakExists) {
+          const bakContent = await adapter.read(`${pluginDir}/main.js.bak`);
+          await adapter.write(`${pluginDir}/main.js`, bakContent);
+          console.log(`[Eudia Update] Rolled back to previous version (v${this.settings.lastUpdateVersion} may have failed)`);
+          this.telemetry.reportUpdateCheck({
+            localVersion: currentVersion,
+            remoteVersion: this.settings.lastUpdateVersion || 'unknown',
+            updateNeeded: false,
+            updateResult: 'failed'
+          });
+        }
+      } catch (rollbackErr) {
+        console.warn('[Eudia Update] Rollback check failed:', (rollbackErr as Error).message);
+      }
+
+      this.settings.lastUpdateTimestamp = null;
+      this.settings.lastUpdateVersion = null;
+      this.settings.pendingUpdateVersion = null;
+      await this.saveSettings();
+    }
+  }
+
+  /**
+   * Download latest plugin files, validate with SHA-256 checksums, write to disk, and hot-reload.
    * Never interrupts an active recording. Never deletes user data.
    */
   private async performAutoUpdate(serverUrl: string, remoteVersion: string, localVersion: string): Promise<void> {
     try {
       if (this.audioRecorder?.isRecording()) {
+        this.settings.pendingUpdateVersion = remoteVersion;
+        await this.saveSettings();
         new Notice(`Eudia v${remoteVersion} available — will update after your recording.`, 8000);
+        this.telemetry.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'deferred' });
         return;
       }
 
@@ -3916,6 +4299,19 @@ created: ${dateStr}
       if (!pluginDir) {
         console.log('[Eudia Update] Cannot determine plugin directory');
         return;
+      }
+
+      // Fetch checksums from server
+      let expectedChecksums: { mainJs?: string; styles?: string; manifest?: string } = {};
+      try {
+        const versionResp = await requestUrl({
+          url: `${serverUrl}/api/plugin/version`,
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        expectedChecksums = versionResp.json?.checksums || {};
+      } catch {
+        console.log('[Eudia Update] Could not fetch checksums — proceeding with size validation only');
       }
 
       const adapter = this.app.vault.adapter;
@@ -3931,7 +4327,6 @@ created: ${dateStr}
       const manifestText = manifestResp.text;
       const stylesText = stylesResp.text;
 
-      // Per-file validation thresholds (manifest is ~370 bytes, styles ~45KB, main ~300KB)
       const validations: Array<[string, string, number, number]> = [
         ['main.js', mainJsText, 10000, 5 * 1024 * 1024],
         ['manifest.json', manifestText, 50, 10000],
@@ -3941,11 +4336,31 @@ created: ${dateStr}
       for (const [name, content, minSize, maxSize] of validations) {
         if (!content || content.length < minSize || content.length > maxSize) {
           console.log(`[Eudia Update] ${name} validation failed (${content?.length ?? 0} bytes, need ${minSize}-${maxSize})`);
+          this.telemetry.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'failed' });
           return;
         }
       }
 
-      // Verify the downloaded manifest has the expected version
+      // SHA-256 checksum verification (if server provided checksums)
+      if (expectedChecksums.mainJs) {
+        const actualMainHash = await this.sha256(mainJsText);
+        if (actualMainHash !== expectedChecksums.mainJs) {
+          console.log(`[Eudia Update] main.js checksum mismatch: expected ${expectedChecksums.mainJs.slice(0, 12)}..., got ${actualMainHash.slice(0, 12)}...`);
+          this.telemetry.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'failed' });
+          return;
+        }
+        console.log('[Eudia Update] main.js checksum verified');
+      }
+
+      if (expectedChecksums.styles) {
+        const actualStylesHash = await this.sha256(stylesText);
+        if (actualStylesHash !== expectedChecksums.styles) {
+          console.log(`[Eudia Update] styles.css checksum mismatch`);
+          this.telemetry.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'failed' });
+          return;
+        }
+      }
+
       try {
         const downloadedManifest = JSON.parse(manifestText);
         if (downloadedManifest.version !== remoteVersion) {
@@ -3957,35 +4372,29 @@ created: ${dateStr}
         return;
       }
 
-      // Backup current main.js (safety net — never lose a working version)
+      // Backup current main.js and styles.css
       try {
         const currentMainJs = await adapter.read(`${pluginDir}/main.js`);
         await adapter.write(`${pluginDir}/main.js.bak`, currentMainJs);
-      } catch { /* first install — no backup needed */ }
+      } catch { /* first install */ }
+      try {
+        const currentStyles = await adapter.read(`${pluginDir}/styles.css`);
+        await adapter.write(`${pluginDir}/styles.css.bak`, currentStyles);
+      } catch { /* first install */ }
 
-      // Write new files (ONLY plugin code — never touches notes, accounts, or data.json)
       await adapter.write(`${pluginDir}/main.js`, mainJsText);
       await adapter.write(`${pluginDir}/manifest.json`, manifestText);
       await adapter.write(`${pluginDir}/styles.css`, stylesText);
       console.log(`[Eudia Update] Files written: v${localVersion} → v${remoteVersion}`);
 
-      // Report successful update
-      try {
-        requestUrl({
-          url: `${serverUrl}/api/plugin/telemetry`,
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            event: 'info',
-            message: `Auto-updated v${localVersion} → v${remoteVersion}`,
-            userEmail: this.settings.userEmail || 'anonymous',
-            pluginVersion: remoteVersion,
-            platform: 'obsidian'
-          })
-        }).catch(() => {});
-      } catch {}
+      // Record update state for rollback detection
+      this.settings.lastUpdateVersion = remoteVersion;
+      this.settings.lastUpdateTimestamp = new Date().toISOString();
+      this.settings.pendingUpdateVersion = null;
+      await this.saveSettings();
 
-      // Hot-reload: disable → re-enable plugin (reloads main.js from disk)
+      this.telemetry.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'success' });
+
       if (!this.audioRecorder?.isRecording()) {
         new Notice(`Eudia updating to v${remoteVersion}...`, 3000);
         setTimeout(async () => {
@@ -4004,6 +4413,7 @@ created: ${dateStr}
       }
     } catch (e) {
       console.log('[Eudia Update] Update failed:', (e as Error).message || e);
+      this.telemetry.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'failed' });
     }
   }
 
@@ -4013,10 +4423,134 @@ created: ${dateStr}
   // Runs silently on startup — zero user action required.
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /**
+   * Resolve the recording file for a failed note using three strategies:
+   *  1. Frontmatter recording_path field (most reliable)
+   *  2. Explicit path in the error text ("saved to **path**")
+   *  3. Timestamp proximity (30-min window against note mtime)
+   */
+  private resolveRecordingForNote(file: TFile, content: string, recordings: Array<{ file: TFile; timestamp: Date | null }>): TFile | null {
+    // Strategy 1: frontmatter recording_path
+    const fmRecPath = content.match(/recording_path:\s*"?([^"\n]+)"?/);
+    if (fmRecPath) {
+      const refFile = this.app.vault.getAbstractFileByPath(fmRecPath[1].trim());
+      if (refFile && refFile instanceof TFile) return refFile;
+    }
+
+    // Strategy 2: explicit path in error text
+    const pathMatch = content.match(/saved to \*\*([^*]+)\*\*/);
+    if (pathMatch) {
+      const refFile = this.app.vault.getAbstractFileByPath(pathMatch[1]);
+      if (refFile && refFile instanceof TFile) return refFile;
+    }
+
+    // Strategy 3: timestamp proximity
+    const noteMtime = file.stat?.mtime || 0;
+    let bestRecording: TFile | null = null;
+    let bestDiff = Infinity;
+    for (const rec of recordings) {
+      if (!rec.timestamp) continue;
+      const diff = Math.abs(noteMtime - rec.timestamp.getTime());
+      if (diff < 30 * 60 * 1000 && diff < bestDiff) {
+        bestDiff = diff;
+        bestRecording = rec.file;
+      }
+    }
+    return bestRecording;
+  }
+
+  /**
+   * Attempt to re-transcribe a single note from its linked recording.
+   * Used by both auto-heal and the manual Retry Transcription command.
+   */
+  private async healSingleNote(file: TFile, content: string, recordingFile: TFile): Promise<boolean> {
+    const audioBuffer = await this.app.vault.readBinary(recordingFile);
+    const mimeType = recordingFile.extension === 'mp4' || recordingFile.extension === 'm4a' ? 'audio/mp4' : 'audio/webm';
+    const audioBlob = new Blob([audioBuffer], { type: mimeType });
+
+    let accountContext: any = {};
+    const pathParts = file.path.split('/');
+    const accountsFolderName = this.settings.accountsFolder || 'Accounts';
+    if (pathParts[0] === accountsFolderName && pathParts.length >= 2) {
+      accountContext.accountName = pathParts[1];
+    }
+    const isPipelineReview = pathParts[0] === 'Pipeline Meetings' || /meeting_type:\s*pipeline_review/.test(content);
+
+    const transcription = await this.transcriptionService.transcribeAudio(audioBlob, {
+      ...accountContext,
+      captureMode: 'full_call',
+      meetingTemplate: this.settings.meetingTemplate || 'meddic',
+      meetingType: isPipelineReview ? 'pipeline_review' : undefined
+    });
+
+    const hasContent = (s: any): boolean => {
+      if (!s) return false;
+      return Boolean(s.summary?.trim() || s.nextSteps?.trim());
+    };
+
+    let sections = transcription.sections;
+    if (!hasContent(sections) && transcription.text?.trim()) {
+      sections = await this.transcriptionService.processTranscription(transcription.text, accountContext);
+    }
+
+    if (!hasContent(sections) && !transcription.text?.trim()) {
+      return false;
+    }
+
+    let cleanedContent = content
+      .replace(/\n\n---\n\*\*Processing your recording\.\.\.\*\*[\s\S]*?\*You can navigate away[^*]*\*\n---\n/g, '')
+      .replace(/\n\n---\n\*\*Transcription in progress\.\.\.\*\*[\s\S]*?\*You can navigate away[^*]*\*\n---\n/g, '')
+      .replace(/\n\n\*\*Transcription failed:\*\*[^\n]*(\nYour recording was saved to[^\n]*)?\n/g, '')
+      .trim();
+
+    let noteContent: string;
+    if (isPipelineReview) {
+      noteContent = this.buildPipelineNoteContent(sections, transcription, file.path);
+    } else {
+      noteContent = this.buildNoteContent(sections, transcription);
+    }
+
+    const fmEnd = cleanedContent.indexOf('---', cleanedContent.indexOf('---') + 3);
+    if (fmEnd > 0) {
+      const frontmatter = cleanedContent.substring(0, fmEnd + 3);
+      await this.app.vault.modify(file, frontmatter + '\n\n' + noteContent);
+    } else {
+      await this.app.vault.modify(file, noteContent);
+    }
+
+    return true;
+  }
+
+  private collectRecordingFiles(): Array<{ file: TFile; timestamp: Date | null }> {
+    const extractRecordings = (folder: TFolder) => {
+      return folder.children
+        .filter(f => f instanceof TFile && /\.(webm|mp4|m4a|ogg)$/i.test(f.name))
+        .map(f => {
+          const match = f.name.match(/recording-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})/);
+          const ts = match
+            ? new Date(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}Z`)
+            : null;
+          return { file: f as TFile, timestamp: ts };
+        })
+        .filter(r => r.timestamp !== null);
+    };
+
+    const recordings: Array<{ file: TFile; timestamp: Date | null }> = [];
+    const recFolder = this.app.vault.getAbstractFileByPath(this.settings.recordingsFolder || 'Recordings');
+    if (recFolder && recFolder instanceof TFolder) recordings.push(...extractRecordings(recFolder));
+    const backupsFolder = this.app.vault.getAbstractFileByPath('_backups');
+    if (backupsFolder && backupsFolder instanceof TFolder) recordings.push(...extractRecordings(backupsFolder));
+    recordings.sort((a, b) => (b.timestamp!.getTime()) - (a.timestamp!.getTime()));
+    return recordings;
+  }
+
   private async healFailedTranscriptions(): Promise<void> {
     if (this.audioRecorder?.isRecording()) return;
 
     try {
+      // Process persistent heal queue first (retries from prior failures)
+      await this.processHealQueue();
+
       const allFiles = this.app.vault.getMarkdownFiles();
       const failedNotes: Array<{ file: TFile; content: string }> = [];
 
@@ -4032,35 +4566,7 @@ created: ${dateStr}
       if (failedNotes.length === 0) return;
       console.log(`[Eudia AutoHeal] Found ${failedNotes.length} note(s) with failed transcriptions`);
 
-      // Collect available recordings from Recordings folder AND _backups
-      const extractRecordings = (folder: TFolder) => {
-        return folder.children
-          .filter(f => f instanceof TFile && /\.(webm|mp4|m4a|ogg)$/i.test(f.name))
-          .map(f => {
-            const match = f.name.match(/recording-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})/);
-            const ts = match
-              ? new Date(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}Z`)
-              : null;
-            return { file: f as TFile, timestamp: ts };
-          })
-          .filter(r => r.timestamp !== null);
-      };
-
-      const recordings: Array<{ file: TFile; timestamp: Date | null }> = [];
-
-      const recordingsFolder = this.settings.recordingsFolder || 'Recordings';
-      const recFolder = this.app.vault.getAbstractFileByPath(recordingsFolder);
-      if (recFolder && recFolder instanceof TFolder) {
-        recordings.push(...extractRecordings(recFolder));
-      }
-
-      const backupsFolder = this.app.vault.getAbstractFileByPath('_backups');
-      if (backupsFolder && backupsFolder instanceof TFolder) {
-        recordings.push(...extractRecordings(backupsFolder));
-      }
-
-      recordings.sort((a, b) => (b.timestamp!.getTime()) - (a.timestamp!.getTime()));
-
+      const recordings = this.collectRecordingFiles();
       if (recordings.length === 0) {
         console.log('[Eudia AutoHeal] No recordings found in Recordings or _backups');
         return;
@@ -4070,44 +4576,10 @@ created: ${dateStr}
 
       for (const { file, content } of failedNotes) {
         try {
-          // Skip notes that already have complete transcripts — UNLESS the user
-          // explicitly added the failed marker to force re-processing
           const hasExplicitFailMarker = content.includes('**Transcription failed:**');
           if (!hasExplicitFailMarker && (content.includes('## Summary') || content.includes('## Next Steps\n-'))) continue;
 
-          // Try to extract the "Started:" time from the processing indicator
-          const startMatch = content.match(/Started:\s*(\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM)?)/i);
-          // Also extract frontmatter date if available
-          const fmDateMatch = content.match(/^---[\s\S]*?date:\s*(\d{4}-\d{2}-\d{2})[\s\S]*?---/);
-
-          // Get the note's modification time as fallback
-          const noteMtime = file.stat?.mtime || 0;
-
-          // Find the best matching recording
-          let bestRecording: TFile | null = null;
-
-          // Strategy 1: explicit path reference in the error text
-          const pathMatch = content.match(/saved to \*\*([^*]+)\*\*/);
-          if (pathMatch) {
-            const refFile = this.app.vault.getAbstractFileByPath(pathMatch[1]);
-            if (refFile && refFile instanceof TFile) {
-              bestRecording = refFile;
-            }
-          }
-
-          // Strategy 2: match by timestamp proximity
-          if (!bestRecording) {
-            let bestDiff = Infinity;
-            for (const rec of recordings) {
-              if (!rec.timestamp) continue;
-              const diff = Math.abs(noteMtime - rec.timestamp.getTime());
-              // Match within 30 minutes window
-              if (diff < 30 * 60 * 1000 && diff < bestDiff) {
-                bestDiff = diff;
-                bestRecording = rec.file;
-              }
-            }
-          }
+          const bestRecording = this.resolveRecordingForNote(file, content, recordings);
 
           if (!bestRecording) {
             console.log(`[Eudia AutoHeal] No matching recording for "${file.path}"`);
@@ -4116,72 +4588,33 @@ created: ${dateStr}
 
           console.log(`[Eudia AutoHeal] Healing "${file.path}" with recording "${bestRecording.path}"`);
 
-          // Read the audio file and re-transcribe
-          const audioBuffer = await this.app.vault.readBinary(bestRecording);
-          const audioBlob = new Blob([audioBuffer], { type: bestRecording.extension === 'mp4' || bestRecording.extension === 'm4a' ? 'audio/mp4' : 'audio/webm' });
+          const success = await this.healSingleNote(file, content, bestRecording);
 
-          // Detect account context from note path
-          let accountContext: any = {};
-          const pathParts = file.path.split('/');
-          const accountsFolderName = this.settings.accountsFolder || 'Accounts';
-          if (pathParts[0] === accountsFolderName && pathParts.length >= 2) {
-            accountContext.accountName = pathParts[1];
-          }
-          const isPipelineReview = pathParts[0] === 'Pipeline Meetings' || /meeting_type:\s*pipeline_review/.test(content);
-
-          // Transcribe using the chunked-aware method
-          const transcription = await this.transcriptionService.transcribeAudio(audioBlob, {
-            ...accountContext,
-            captureMode: 'full_call',
-            meetingTemplate: this.settings.meetingTemplate || 'meddic',
-            meetingType: isPipelineReview ? 'pipeline_review' : undefined
-          });
-
-          const hasContent = (s: any): boolean => {
-            if (!s) return false;
-            return Boolean(s.summary?.trim() || s.nextSteps?.trim());
-          };
-
-          let sections = transcription.sections;
-          if (!hasContent(sections) && transcription.text?.trim()) {
-            sections = await this.transcriptionService.processTranscription(transcription.text, accountContext);
-          }
-
-          if (!hasContent(sections) && !transcription.text?.trim()) {
-            console.log(`[Eudia AutoHeal] Re-transcription returned no content for "${file.path}" — skipping`);
+          if (!success) {
+            console.log(`[Eudia AutoHeal] Re-transcription returned no content for "${file.path}" — adding to heal queue`);
+            this.addToHealQueue(file.path, bestRecording.path, 'Re-transcription returned no content');
             continue;
           }
 
-          // Build the healed note content
-          // Strip the failed transcription marker and processing indicator
-          let cleanedContent = content
-            .replace(/\n\n---\n\*\*Processing your recording\.\.\.\*\*[\s\S]*?\*You can navigate away[^*]*\*\n---\n/g, '')
-            .replace(/\n\n---\n\*\*Transcription in progress\.\.\.\*\*[\s\S]*?\*You can navigate away[^*]*\*\n---\n/g, '')
-            .replace(/\n\n\*\*Transcription failed:\*\*[^\n]*(\nYour recording was saved to[^\n]*)?\n/g, '')
-            .trim();
-
-          let noteContent: string;
-          if (isPipelineReview) {
-            noteContent = this.buildPipelineNoteContent(sections, transcription, file.path);
-          } else {
-            noteContent = this.buildNoteContent(sections, transcription);
-          }
-
-          // Preserve frontmatter from original note
-          const fmEnd = cleanedContent.indexOf('---', cleanedContent.indexOf('---') + 3);
-          if (fmEnd > 0) {
-            const frontmatter = cleanedContent.substring(0, fmEnd + 3);
-            await this.app.vault.modify(file, frontmatter + '\n\n' + noteContent);
-          } else {
-            await this.app.vault.modify(file, noteContent);
-          }
-
+          this.removeFromHealQueue(file.path);
           healed++;
           console.log(`[Eudia AutoHeal] Successfully healed "${file.path}"`);
         } catch (healError) {
-          console.error(`[Eudia AutoHeal] Failed to heal "${file.path}":`, (healError as Error).message);
+          const errorMsg = (healError as Error).message;
+          console.error(`[Eudia AutoHeal] Failed to heal "${file.path}":`, errorMsg);
+          const rec = this.resolveRecordingForNote(file, content, recordings);
+          if (rec) this.addToHealQueue(file.path, rec.path, errorMsg);
         }
       }
+
+      this.telemetry.reportAutoHealScan({
+        totalNotes: allFiles.length,
+        failedNotes: failedNotes.length,
+        recordings: recordings.length,
+        healed,
+        failed: failedNotes.length - healed,
+        queueSize: this.settings.healQueue.length
+      });
 
       if (healed > 0) {
         console.log(`[Eudia AutoHeal] Healed ${healed}/${failedNotes.length} failed transcription(s)`);
@@ -4189,6 +4622,121 @@ created: ${dateStr}
       }
     } catch (e) {
       console.error('[Eudia AutoHeal] Error:', (e as Error).message);
+    }
+  }
+
+  // Heal queue backoff schedule: 1min, 5min, 30min, 2hr, 8hr
+  private static readonly HEAL_BACKOFF_MS: readonly number[] = [60000, 300000, 1800000, 7200000, 28800000];
+
+  private addToHealQueue(notePath: string, recordingPath: string, error?: string): void {
+    const existing = this.settings.healQueue.find(q => q.notePath === notePath);
+    if (existing) {
+      existing.attemptCount++;
+      existing.lastAttempt = new Date().toISOString();
+      existing.error = error;
+    } else {
+      this.settings.healQueue.push({
+        notePath,
+        recordingPath,
+        attemptCount: 1,
+        lastAttempt: new Date().toISOString(),
+        error
+      });
+    }
+    this.saveSettings();
+  }
+
+  private removeFromHealQueue(notePath: string): void {
+    this.settings.healQueue = this.settings.healQueue.filter(q => q.notePath !== notePath);
+    this.saveSettings();
+  }
+
+  private async processHealQueue(): Promise<void> {
+    if (this.settings.healQueue.length === 0) return;
+
+    const now = Date.now();
+    let processed = 0;
+
+    for (const item of [...this.settings.healQueue]) {
+      const backoffIdx = Math.min(item.attemptCount - 1, EudiaPlugin.HEAL_BACKOFF_MS.length - 1);
+      const backoffMs = EudiaPlugin.HEAL_BACKOFF_MS[backoffIdx];
+      const lastAttemptMs = new Date(item.lastAttempt).getTime();
+
+      if (now - lastAttemptMs < backoffMs) continue;
+
+      const file = this.app.vault.getAbstractFileByPath(item.notePath);
+      const rec = this.app.vault.getAbstractFileByPath(item.recordingPath);
+
+      if (!file || !(file instanceof TFile)) {
+        this.removeFromHealQueue(item.notePath);
+        continue;
+      }
+      if (!rec || !(rec instanceof TFile)) {
+        console.log(`[Eudia AutoHeal Queue] Recording "${item.recordingPath}" no longer exists — removing from queue`);
+        this.removeFromHealQueue(item.notePath);
+        continue;
+      }
+
+      console.log(`[Eudia AutoHeal Queue] Retry #${item.attemptCount + 1} for "${item.notePath}"`);
+
+      try {
+        const content = await this.app.vault.read(file);
+        const success = await this.healSingleNote(file, content, rec);
+
+        if (success) {
+          this.removeFromHealQueue(item.notePath);
+          processed++;
+          console.log(`[Eudia AutoHeal Queue] Successfully healed "${item.notePath}" on retry #${item.attemptCount + 1}`);
+        } else {
+          this.addToHealQueue(item.notePath, item.recordingPath, 'Re-transcription returned no content');
+        }
+      } catch (err) {
+        this.addToHealQueue(item.notePath, item.recordingPath, (err as Error).message);
+        console.error(`[Eudia AutoHeal Queue] Retry failed for "${item.notePath}":`, (err as Error).message);
+      }
+    }
+
+    if (processed > 0) {
+      new Notice(`Recovered ${processed} previously failed transcription${processed > 1 ? 's' : ''} from retry queue.`, 8000);
+    }
+  }
+
+  /**
+   * Manual retry: re-transcribe the current note using its linked recording.
+   * Accessible via Cmd+P > "Retry Transcription".
+   */
+  private async retryTranscriptionForCurrentNote(): Promise<void> {
+    const file = this.app.workspace.getActiveFile();
+    if (!file) {
+      new Notice('No active note. Open the note you want to retry.');
+      return;
+    }
+
+    const content = await this.app.vault.read(file);
+
+    // Find the recording via frontmatter, error text, or timestamp
+    const recordings = this.collectRecordingFiles();
+    const recording = this.resolveRecordingForNote(file, content, recordings);
+
+    if (!recording) {
+      new Notice('No matching recording found for this note. Check Recordings or _backups folder.');
+      return;
+    }
+
+    new Notice(`Retrying transcription using ${recording.name}...`, 5000);
+
+    try {
+      const success = await this.healSingleNote(file, content, recording);
+      if (success) {
+        this.removeFromHealQueue(file.path);
+        new Notice('Transcription recovered successfully.', 8000);
+      } else {
+        new Notice('Retry produced no content. The recording may be silent or corrupted.', 10000);
+      }
+    } catch (err) {
+      const msg = (err as Error).message;
+      new Notice(`Retry failed: ${msg}`, 10000);
+      this.addToHealQueue(file.path, recording.path, msg);
     }
   }
 
@@ -4213,6 +4761,30 @@ created: ${dateStr}
         workspace.revealLeaf(rightLeaf);
       }
     }
+  }
+
+  private async openLiveQuerySidebar(): Promise<void> {
+    try {
+      const workspace = this.app.workspace;
+      const existing = workspace.getLeavesOfType(LIVE_QUERY_VIEW_TYPE);
+      if (existing.length > 0) {
+        workspace.revealLeaf(existing[0]);
+        return;
+      }
+      const rightLeaf = workspace.getRightLeaf(false);
+      if (rightLeaf) {
+        await rightLeaf.setViewState({ type: LIVE_QUERY_VIEW_TYPE, active: true });
+        workspace.revealLeaf(rightLeaf);
+      }
+    } catch (e) {
+      console.log('[Eudia] Could not open live query sidebar:', e);
+    }
+  }
+
+  private closeLiveQuerySidebar(): void {
+    try {
+      this.app.workspace.detachLeavesOfType(LIVE_QUERY_VIEW_TYPE);
+    } catch { /* non-critical */ }
   }
 
   /**
@@ -5859,6 +6431,22 @@ last_updated: ${dateStr}
       return;
     }
 
+    // ── Step 2b: Auto-detect headphones and adjust capture mode for this session ──
+    let effectiveCaptureMode: 'full_call' | 'mic_only' = this.settings.audioCaptureMode || 'full_call';
+    try {
+      const devices = await AudioRecorder.getAvailableDevices();
+      const activeHeadphone = devices.find(d => AudioRecorder.isHeadphoneDevice(d.label));
+      if (activeHeadphone && effectiveCaptureMode === 'full_call') {
+        effectiveCaptureMode = 'mic_only';
+        console.log(`[Eudia] Headphones detected (${activeHeadphone.label}) — using mic_only for this recording`);
+        new Notice(
+          `${activeHeadphone.label} detected — recording your voice only.\n` +
+          'For both sides of the call, switch to laptop speakers.',
+          8000
+        );
+      }
+    } catch { /* proceed with current settings */ }
+
     // ── Step 3: Auto-detect virtual audio device ──
     if (!this.settings.audioSystemDeviceId) {
       try {
@@ -5937,7 +6525,7 @@ last_updated: ${dateStr}
       });
 
       // ── Step 8: Start recording ──
-      const captureMode = this.settings.audioCaptureMode || 'full_call';
+      const captureMode = effectiveCaptureMode;
       const recordingOptions: AudioRecordingOptions = {
         captureMode,
         micDeviceId: this.settings.audioMicDeviceId || undefined,
@@ -5946,6 +6534,11 @@ last_updated: ${dateStr}
 
       await this.audioRecorder.start(recordingOptions);
       console.log(`[Eudia Telemetry] recording_start`, { captureMode, systemAudio: this.audioRecorder.getSystemAudioMethod() });
+      this.telemetry.reportRecordingStart({
+        captureMode,
+        systemAudioMethod: this.audioRecorder.getSystemAudioMethod(),
+        hasMicPermission: true
+      });
 
       // ── Step 9: Status notifications based on capture method ──
       if (captureMode === 'full_call' && this.audioRecorder.getState().isRecording) {
@@ -6031,6 +6624,9 @@ last_updated: ${dateStr}
       this.liveTranscript = '';
       this.startLiveTranscription();
 
+      // ── Step 14: Open Live Query sidebar ──
+      this.openLiveQuerySidebar();
+
     } catch (error: any) {
       // Guaranteed cleanup on ANY failure after recorder initialization
       this.micRibbonIcon?.removeClass('eudia-ribbon-recording');
@@ -6103,8 +6699,10 @@ last_updated: ${dateStr}
       const result = await this.audioRecorder.stop();
 
       // Pre-transcription audio quality gate
+      let diagResult: { hasAudio: boolean; averageLevel: number; silentPercent: number } = { hasAudio: true, averageLevel: 0, silentPercent: 0 };
       try {
         const diag = await AudioRecorder.analyzeAudioBlob(result.audioBlob);
+        diagResult = diag;
         if (!diag.hasAudio) {
           let modeHint: string;
           if (result.systemAudioMethod === 'electron' || result.systemAudioMethod === 'display_media') {
@@ -6120,22 +6718,33 @@ last_updated: ${dateStr}
         console.warn('[Eudia] Pre-transcription audio check failed:', diagErr);
       }
 
+      this.telemetry.reportRecordingStop({
+        durationSec: result.duration,
+        blobSizeMB: Math.round((result.audioBlob.size / 1024 / 1024) * 100) / 100,
+        avgAudioLevel: diagResult.averageLevel,
+        silentPercent: diagResult.silentPercent,
+        hasAudio: diagResult.hasAudio,
+        captureMode: result.captureMode,
+        systemAudioMethod: result.systemAudioMethod
+      });
+
       await this.processRecording(result, activeFile);
     } catch (error) {
       new Notice(`Transcription failed: ${error.message}`);
     } finally {
       this.micRibbonIcon?.removeClass('eudia-ribbon-recording');
       this.stopLiveTranscription();
+      this.closeLiveQuerySidebar();
       this.recordingStatusBar?.hide();
       this.recordingStatusBar = null;
       this.audioRecorder = null;
     }
   }
 
-  private showTemplatePicker(): Promise<'meddic' | 'demo' | 'general' | 'internal' | null> {
+  private showTemplatePicker(): Promise<'meddic' | 'demo' | 'general' | 'internal' | 'cs' | null> {
     return new Promise((resolve) => {
       const modal = new (class extends Modal {
-        result: 'meddic' | 'demo' | 'general' | 'internal' | null = null;
+        result: 'meddic' | 'demo' | 'general' | 'internal' | 'cs' | null = null;
         onOpen() {
           const { contentEl } = this;
           contentEl.empty();
@@ -6145,9 +6754,10 @@ last_updated: ${dateStr}
           const btnContainer = contentEl.createDiv();
           btnContainer.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:12px;';
 
-          const templates: Array<{key: 'meddic'|'demo'|'general'|'internal', label: string, desc: string}> = [
+          const templates: Array<{key: 'meddic'|'demo'|'general'|'internal'|'cs', label: string, desc: string}> = [
             { key: 'meddic', label: 'Sales Discovery (MEDDIC)', desc: 'Pain points, decision process, metrics, champions, budget signals' },
             { key: 'demo', label: 'Demo / Presentation', desc: 'Feature reactions, questions, objections, interest signals' },
+            { key: 'cs', label: 'Customer Success', desc: 'Health signals, feature requests, adoption, renewal/expansion' },
             { key: 'general', label: 'General Check-In', desc: 'Relationship updates, action items, sentiment' },
             { key: 'internal', label: 'Internal Call', desc: 'Team sync, pipeline review, strategy discussion' },
           ];
@@ -6170,9 +6780,9 @@ last_updated: ${dateStr}
     if (this.audioRecorder?.isRecording()) {
       this.audioRecorder.cancel();
     }
-    // Remove glow effect from ribbon icon
     this.micRibbonIcon?.removeClass('eudia-ribbon-recording');
     this.stopLiveTranscription();
+    this.closeLiveQuerySidebar();
     this.recordingStatusBar?.hide();
     this.recordingStatusBar = null;
     this.audioRecorder = null;
@@ -6353,7 +6963,7 @@ last_updated: ${dateStr}
   /**
    * Get account name from the currently active file path
    */
-  private getAccountNameFromActiveFile(): string | undefined {
+  getAccountNameFromActiveFile(): string | undefined {
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) return undefined;
     
@@ -6401,23 +7011,77 @@ last_updated: ${dateStr}
 
     // ═══════════════════════════════════════════════════════════════════════
     // SAFETY NET: Save audio to vault BEFORE sending to server
-    // Ensures audio is recoverable even if transcription fails or times out
+    // Double-write strategy with retry. Audio must persist even if everything else fails.
     // ═══════════════════════════════════════════════════════════════════════
-    try {
-      const recordingsFolder = this.settings.recordingsFolder || 'Recordings';
-      if (!this.app.vault.getAbstractFileByPath(recordingsFolder)) {
-        await this.app.vault.createFolder(recordingsFolder);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const ext = result.audioBlob.type?.includes('mp4') ? 'mp4' : 'webm';
+    const arrayBuffer = await result.audioBlob.arrayBuffer();
+    const blobMB = blobSize / 1024 / 1024;
+
+    const recordingsFolder = this.settings.recordingsFolder || 'Recordings';
+    const backupsFolder = '_backups';
+    const primaryPath = `${recordingsFolder}/recording-${timestamp}.${ext}`;
+    const backupPath = `${backupsFolder}/recording-${timestamp}.${ext}`;
+
+    let savedPrimary = false;
+    let savedBackup = false;
+
+    // Ensure both folders exist
+    for (const folder of [recordingsFolder, backupsFolder]) {
+      if (!this.app.vault.getAbstractFileByPath(folder)) {
+        try { await this.app.vault.createFolder(folder); } catch { /* may already exist */ }
       }
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const ext = result.audioBlob.type?.includes('mp4') ? 'mp4' : 'webm';
-      const audioFileName = `${recordingsFolder}/recording-${timestamp}.${ext}`;
-      const arrayBuffer = await result.audioBlob.arrayBuffer();
-      await this.app.vault.createBinary(audioFileName, arrayBuffer);
-      console.log(`[Eudia] Audio saved locally: ${audioFileName} (${(blobSize / 1024 / 1024).toFixed(1)}MB)`);
-      new Notice(`Audio saved to ${audioFileName}`);
-      (result as any)._savedAudioPath = audioFileName;
-    } catch (saveError: any) {
-      console.error('[Eudia] Failed to save audio locally:', saveError.message);
+    }
+
+    // Attempt primary save with retry (3 attempts, 5s apart)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await this.app.vault.createBinary(primaryPath, arrayBuffer);
+        savedPrimary = true;
+        console.log(`[Eudia] Audio saved: ${primaryPath} (${blobMB.toFixed(1)}MB)`);
+        break;
+      } catch (err: any) {
+        console.warn(`[Eudia] Primary save attempt ${attempt + 1}/3 failed: ${err.message}`);
+        if (attempt < 2) await new Promise(r => setTimeout(r, 5000));
+      }
+    }
+
+    // Attempt backup save (single attempt — if primary succeeded, this is redundant safety)
+    try {
+      await this.app.vault.createBinary(backupPath, arrayBuffer);
+      savedBackup = true;
+      console.log(`[Eudia] Backup audio saved: ${backupPath}`);
+    } catch (backupErr: any) {
+      console.warn(`[Eudia] Backup save failed: ${backupErr.message}`);
+    }
+
+    if (savedPrimary || savedBackup) {
+      const savedPath = savedPrimary ? primaryPath : backupPath;
+      (result as any)._savedAudioPath = savedPath;
+      new Notice(`Audio saved to ${savedPath}`);
+
+      // Link recording to note via frontmatter for reliable recovery
+      try {
+        const noteContent = await this.app.vault.read(file);
+        const fmEnd = noteContent.indexOf('---', noteContent.indexOf('---') + 3);
+        if (fmEnd > 0) {
+          const frontmatter = noteContent.substring(0, fmEnd);
+          if (!frontmatter.includes('recording_path:')) {
+            const updatedFm = frontmatter + `recording_path: "${savedPath}"\n`;
+            await this.app.vault.modify(file, updatedFm + noteContent.substring(fmEnd));
+          }
+        }
+      } catch (fmErr) {
+        console.warn('[Eudia] Failed to write recording_path to frontmatter:', (fmErr as Error).message);
+      }
+    } else {
+      console.error('[Eudia] CRITICAL: All audio save attempts failed — recording may be lost');
+      new Notice('WARNING: Could not save recording to disk. Audio exists only in memory for this transcription attempt.', 15000);
+      this.telemetry.reportSafetyNetFailure({
+        blobSizeMB: Math.round(blobMB * 100) / 100,
+        error: 'Both primary and backup save failed',
+        retryAttempt: 3
+      });
     }
 
     // Estimate processing time: ~30s per 10MB chunk + 30s for summarization
@@ -6523,6 +7187,7 @@ last_updated: ${dateStr}
       }
 
       // Transcribe audio (pass capture metadata + template so server uses correct prompt)
+      const transcriptionStartMs = Date.now();
       const transcription = await this.transcriptionService.transcribeAudio(
         result.audioBlob, 
         {
@@ -6533,6 +7198,17 @@ last_updated: ${dateStr}
           meetingTemplate: this.settings.meetingTemplate || 'meddic'
         }
       );
+
+      const blobSizeMB = Math.round((result.audioBlob.size / 1024 / 1024) * 100) / 100;
+      const isChunked = blobSizeMB > 15;
+      this.telemetry.reportTranscriptionResult({
+        success: !!(transcription.text?.trim()),
+        isChunked,
+        totalSizeMB: blobSizeMB,
+        transcriptLength: transcription.text?.length || 0,
+        processingTimeSec: Math.round((Date.now() - transcriptionStartMs) / 1000),
+        error: (transcription as any).error
+      });
 
       // Helper to check if sections have actual content
       const hasContent = (s: any): boolean => {

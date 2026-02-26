@@ -5,6 +5,7 @@
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
+    "build": "cd obsidian-plugin && npm install --production=false && npm run build && cd ..",
     "dev": "nodemon src/app.js",
     "db:migrate": "node src/db/migrate.js",
     "db:rollback": "node src/db/migrate.js --down",
