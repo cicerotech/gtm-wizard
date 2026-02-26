@@ -18,7 +18,7 @@ import {
   WorkspaceLeaf
 } from 'obsidian';
 
-import { AudioRecorder, RecordingState, RecordingResult, AudioDiagnostic, AudioCaptureMode, AudioRecordingOptions, AudioDeviceInfo, SystemAudioMethod, SystemAudioProbeResult } from './src/AudioRecorder';
+import { AudioRecorder, RecordingState, RecordingResult, RecordingLifecycleEvent, AudioDiagnostic, AudioCaptureMode, AudioRecordingOptions, AudioDeviceInfo, SystemAudioMethod, SystemAudioProbeResult } from './src/AudioRecorder';
 import { TranscriptionService, TranscriptionResult, MeetingContext, ProcessedSections, AccountDetector, accountDetector, AccountDetectionResult, detectPipelineMeeting } from './src/TranscriptionService';
 import { CalendarService, CalendarMeeting, TodayResponse, WeekResponse } from './src/CalendarService';
 import { SmartTagService, SmartTags } from './src/SmartTagService';
@@ -67,7 +67,7 @@ interface EudiaSyncSettings {
   audioSystemDeviceId: string;
   audioSetupDismissed: boolean;
   // Meeting template
-  meetingTemplate: 'meddic' | 'demo' | 'general';
+  meetingTemplate: 'meddic' | 'demo' | 'general' | 'internal';
 }
 
 // Common timezone options for US/EU sales teams
@@ -5833,12 +5833,22 @@ last_updated: ${dateStr}
   // ─────────────────────────────────────────────────────────────────────────
 
   async startRecording(): Promise<void> {
+    // ── Step 1: Check browser support ──
     if (!AudioRecorder.isSupported()) {
-      new Notice('Audio transcription is not supported in this browser');
+      new Notice('Audio transcription is not supported in this environment.');
       return;
     }
 
-    // Auto-detect virtual audio device if available (non-blocking)
+    // ── Step 2: Permission-first — check mic access before anything else ──
+    try {
+      const testStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      testStream.getTracks().forEach(t => t.stop());
+    } catch (permErr: any) {
+      this.showPermissionGuide(permErr);
+      return;
+    }
+
+    // ── Step 3: Auto-detect virtual audio device ──
     if (!this.settings.audioSystemDeviceId) {
       try {
         const vd = await AudioRecorder.detectVirtualAudioDevice();
@@ -5850,26 +5860,24 @@ last_updated: ${dateStr}
       } catch { /* proceed without virtual device */ }
     }
 
-    // Show template picker before recording
+    // ── Step 4: Show template picker ──
     const template = await this.showTemplatePicker();
-    if (!template) return; // user cancelled
+    if (!template) return;
     this.settings.meetingTemplate = template;
 
-    // Ensure we have an active file
+    // ── Step 5: Ensure active file ──
     let activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
       await this.createMeetingNote();
       activeFile = this.app.workspace.getActiveFile();
     }
-
     if (!activeFile) {
       new Notice('Please open or create a note first');
       return;
     }
 
-    // Initialize recorder
+    // ── Step 6: Initialize recorder + status bar ──
     this.audioRecorder = new AudioRecorder();
-    
     this.recordingStatusBar = new RecordingStatusBar(
       () => this.audioRecorder?.pause(),
       () => this.audioRecorder?.resume(),
@@ -5878,6 +5886,46 @@ last_updated: ${dateStr}
     );
 
     try {
+      // ── Step 7: Wire lifecycle events for device changes + silence ──
+      this.audioRecorder.onEvent((event: RecordingLifecycleEvent) => {
+        switch (event.type) {
+          case 'deviceChanged':
+            if (event.activeDeviceLost) {
+              new Notice('Recording device disconnected. Recording continues on available mic.', 8000);
+            } else {
+              new Notice('Audio device changed. Recording continues.', 4000);
+            }
+            console.log(`[Eudia Telemetry] device_change`, event);
+            break;
+          case 'headphoneDetected':
+            if ((this.settings.audioCaptureMode || 'full_call') === 'full_call') {
+              new Notice(
+                `Headphones detected (${event.deviceLabel}). ` +
+                'Call audio cannot be captured through headphones — recording your voice only. ' +
+                'For both sides, switch to laptop speakers.',
+                12000
+              );
+            }
+            console.log(`[Eudia Telemetry] headphone_detected`, event.deviceLabel);
+            break;
+          case 'silenceDetected': {
+            const captureMode = this.settings.audioCaptureMode || 'full_call';
+            let hint = 'Check that your microphone is working.';
+            if (captureMode === 'full_call') {
+              hint = 'Ensure your call audio is playing through speakers, not headphones.';
+            }
+            new Notice(`No audio detected for ${event.durationSeconds}s. ${hint}`, 10000);
+            console.log(`[Eudia Telemetry] silence_detected`, event.durationSeconds);
+            break;
+          }
+          case 'audioRestored':
+            new Notice('Audio signal restored.', 3000);
+            console.log(`[Eudia Telemetry] audio_restored`);
+            break;
+        }
+      });
+
+      // ── Step 8: Start recording ──
       const captureMode = this.settings.audioCaptureMode || 'full_call';
       const recordingOptions: AudioRecordingOptions = {
         captureMode,
@@ -5886,7 +5934,9 @@ last_updated: ${dateStr}
       };
 
       await this.audioRecorder.start(recordingOptions);
+      console.log(`[Eudia Telemetry] recording_start`, { captureMode, systemAudio: this.audioRecorder.getSystemAudioMethod() });
 
+      // ── Step 9: Status notifications based on capture method ──
       if (captureMode === 'full_call' && this.audioRecorder.getState().isRecording) {
         const sysMethod = this.audioRecorder.getSystemAudioMethod();
         if (sysMethod === 'electron' || sysMethod === 'display_media') {
@@ -5903,15 +5953,12 @@ last_updated: ${dateStr}
       } else if (captureMode === 'mic_only') {
         new Notice('Recording (Mic Only — your voice only)', 3000);
       }
+
+      // ── Step 10: Show UI indicators ──
       this.recordingStatusBar.show();
-      
-      // Add glow effect to ribbon icon
       this.micRibbonIcon?.addClass('eudia-ribbon-recording');
 
-      // Auto-detect meeting duration from calendar and set auto-stop
-      // ONLY auto-stop if a meeting is actively happening right now (isNow: true)
-      // Do NOT auto-stop for upcoming meetings or when no calendar event exists
-      let meetingAutoStopTimeout: NodeJS.Timeout | null = null;
+      // ── Step 11: Calendar auto-stop ──
       try {
         const currentMeeting = await this.calendarService.getCurrentMeeting();
         if (currentMeeting.isNow && currentMeeting.meeting?.end) {
@@ -5921,27 +5968,25 @@ last_updated: ${dateStr}
           if (remainingMs > 60000 && remainingMs < 5400000) {
             const remainingMin = Math.round(remainingMs / 60000);
             new Notice(`Recording aligned to meeting — auto-stops in ${remainingMin} min`);
-            meetingAutoStopTimeout = setTimeout(async () => {
+            setTimeout(async () => {
               if (this.audioRecorder?.isRecording()) {
                 new Notice('Meeting ended — generating summary.');
                 await this.stopRecording();
               }
             }, remainingMs);
-            console.log(`[Eudia] Auto-stop set for ${remainingMin} min (meeting: ${currentMeeting.meeting.subject})`);
           }
         }
       } catch (e) {
         console.log('[Eudia] Could not detect meeting duration for auto-stop:', e);
       }
 
-      // Update status bar with audio levels + recording time limit checks
+      // ── Step 12: Status bar update interval + time limit checks ──
       let recordingPromptShown = false;
       const updateInterval = setInterval(() => {
         if (this.audioRecorder?.isRecording()) {
           const state = this.audioRecorder.getState();
           this.recordingStatusBar?.updateState(state);
 
-          // 45-minute prompt: "Still in this meeting?"
           if (state.duration >= 2700 && !recordingPromptShown) {
             recordingPromptShown = true;
             const modal = new (class extends Modal {
@@ -5955,18 +6000,12 @@ last_updated: ${dateStr}
                 btnContainer.createEl('button', { text: 'Keep Recording', cls: 'mod-cta' }).onclick = () => { this.close(); };
                 btnContainer.createEl('button', { text: 'Stop Recording' }).onclick = () => { this.result = false; this.close(); };
               }
-              onClose() {
-                if (!this.result) {
-                  // User chose to stop
-                  plugin.stopRecording();
-                }
-              }
+              onClose() { if (!this.result) plugin.stopRecording(); }
             })(this.app);
             const plugin = this;
             modal.open();
           }
 
-          // 90-minute hard stop (safety net — AudioRecorder also enforces this)
           if (state.duration >= 5400) {
             new Notice('Recording stopped — maximum 90 minutes reached.');
             this.stopRecording();
@@ -5977,17 +6016,64 @@ last_updated: ${dateStr}
         }
       }, 100);
 
-      // Initialize live transcript and start periodic chunk transcription
+      // ── Step 13: Live transcription ──
       this.liveTranscript = '';
       this.startLiveTranscription();
 
-      new Notice('Transcription started. Click stop when finished.');
-
-    } catch (error) {
-      new Notice(`Failed to start transcription: ${error.message}`);
+    } catch (error: any) {
+      // Guaranteed cleanup on ANY failure after recorder initialization
+      this.micRibbonIcon?.removeClass('eudia-ribbon-recording');
       this.recordingStatusBar?.hide();
       this.recordingStatusBar = null;
+      this.audioRecorder = null;
+
+      const msg = error.message || 'Failed to start recording';
+      console.error(`[Eudia Telemetry] recording_start_error`, msg);
+      if (msg.includes('Permission') || msg.includes('NotAllowed') || msg.includes('permission')) {
+        this.showPermissionGuide(error);
+      } else {
+        new Notice(`Recording failed: ${msg}`, 10000);
+      }
     }
+  }
+
+  /**
+   * Show a guided modal for microphone permission setup on macOS
+   */
+  private showPermissionGuide(error: any): void {
+    const modal = new (class extends Modal {
+      onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl('h2', { text: 'Microphone Access Required' });
+        contentEl.createEl('p', { text: 'Obsidian needs microphone permission to transcribe meetings.' });
+
+        const steps = contentEl.createDiv();
+        steps.style.cssText = 'margin:16px 0;padding:12px;background:var(--background-secondary);border-radius:8px;';
+        steps.createEl('p', { text: '1. Open System Settings → Privacy & Security → Microphone' });
+        steps.createEl('p', { text: '2. Find Obsidian in the list and toggle it ON' });
+        steps.createEl('p', { text: '3. You may need to restart Obsidian after granting access' });
+
+        const btnContainer = contentEl.createDiv({ cls: 'modal-button-container' });
+        btnContainer.style.cssText = 'display:flex;gap:8px;margin-top:16px;';
+
+        const openSettings = btnContainer.createEl('button', { text: 'Open System Settings', cls: 'mod-cta' });
+        openSettings.onclick = () => {
+          // macOS deep link to Privacy & Security > Microphone via Electron shell
+          try {
+            const electron = (window as any).require?.('electron');
+            if (electron?.shell?.openExternal) {
+              electron.shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone');
+            } else {
+              window.open('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone');
+            }
+          } catch { window.open('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'); }
+        };
+
+        btnContainer.createEl('button', { text: 'Close' }).onclick = () => this.close();
+      }
+    })(this.app);
+    modal.open();
   }
 
   async stopRecording(): Promise<void> {
@@ -6035,10 +6121,10 @@ last_updated: ${dateStr}
     }
   }
 
-  private showTemplatePicker(): Promise<'meddic' | 'demo' | 'general' | null> {
+  private showTemplatePicker(): Promise<'meddic' | 'demo' | 'general' | 'internal' | null> {
     return new Promise((resolve) => {
       const modal = new (class extends Modal {
-        result: 'meddic' | 'demo' | 'general' | null = null;
+        result: 'meddic' | 'demo' | 'general' | 'internal' | null = null;
         onOpen() {
           const { contentEl } = this;
           contentEl.empty();
@@ -6048,10 +6134,11 @@ last_updated: ${dateStr}
           const btnContainer = contentEl.createDiv();
           btnContainer.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:12px;';
 
-          const templates: Array<{key: 'meddic'|'demo'|'general', label: string, desc: string}> = [
+          const templates: Array<{key: 'meddic'|'demo'|'general'|'internal', label: string, desc: string}> = [
             { key: 'meddic', label: 'Sales Discovery (MEDDIC)', desc: 'Pain points, decision process, metrics, champions, budget signals' },
             { key: 'demo', label: 'Demo / Presentation', desc: 'Feature reactions, questions, objections, interest signals' },
             { key: 'general', label: 'General Check-In', desc: 'Relationship updates, action items, sentiment' },
+            { key: 'internal', label: 'Internal Call', desc: 'Team sync, pipeline review, strategy discussion' },
           ];
 
           for (const t of templates) {

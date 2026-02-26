@@ -66,7 +66,15 @@ export interface SystemAudioProbeResult {
   bestPath: string;
 }
 
+export type RecordingLifecycleEvent =
+  | { type: 'deviceChanged'; newDevices: AudioDeviceInfo[]; activeDeviceLost: boolean }
+  | { type: 'headphoneDetected'; deviceLabel: string }
+  | { type: 'silenceDetected'; durationSeconds: number }
+  | { type: 'audioRestored' }
+  | { type: 'permissionError'; error: string };
+
 export type RecordingStateCallback = (state: RecordingState) => void;
+export type RecordingEventCallback = (event: RecordingLifecycleEvent) => void;
 
 const VIRTUAL_DEVICE_PATTERNS = [
   /blackhole/i, /vb-cable/i, /vb cable/i,
@@ -102,12 +110,51 @@ export class AudioRecorder {
   };
   
   private stateCallback: RecordingStateCallback | null = null;
+  private eventCallback: RecordingEventCallback | null = null;
+
+  // Device monitoring
+  private deviceChangeHandler: (() => void) | null = null;
+  private activeDeviceLabel: string = '';
+
+  // Silence watchdog
+  private silenceCheckInterval: NodeJS.Timeout | null = null;
+  private consecutiveSilentChecks: number = 0;
+  private silenceAlerted: boolean = false;
+  private static readonly SILENCE_THRESHOLD = 5;
+  private static readonly SILENCE_ALERT_AFTER = 6; // 6 checks * 5s = 30 seconds
+
+  // Headphone detection
+  private static readonly HEADPHONE_PATTERNS = [
+    /airpods/i, /beats/i, /headphone/i, /headset/i, /earbuds/i,
+    /bluetooth/i, /bose/i, /sony wh/i, /jabra/i, /galaxy buds/i
+  ];
 
   /**
    * Set callback for state updates (duration, audio levels, etc.)
    */
   onStateChange(callback: RecordingStateCallback): void {
     this.stateCallback = callback;
+  }
+
+  /**
+   * Set callback for lifecycle events (device changes, silence, errors)
+   */
+  onEvent(callback: RecordingEventCallback): void {
+    this.eventCallback = callback;
+  }
+
+  private emitEvent(event: RecordingLifecycleEvent): void {
+    if (this.eventCallback) {
+      try { this.eventCallback(event); } catch (e) { console.error('[AudioRecorder] Event handler error:', e); }
+    }
+  }
+
+  /**
+   * Check if a device label indicates headphones/earbuds
+   */
+  static isHeadphoneDevice(label: string): boolean {
+    if (!label) return false;
+    return AudioRecorder.HEADPHONE_PATTERNS.some(p => p.test(label));
   }
 
   /**
@@ -293,6 +340,10 @@ export class AudioRecorder {
 
       this.startDurationTracking();
       this.startLevelTracking();
+      this.startLevelHistoryTracking();
+      this.captureActiveDeviceLabel(finalStream);
+      this.startDeviceMonitoring();
+      this.startSilenceWatchdog();
       this.notifyStateChange();
 
     } catch (error) {
@@ -721,6 +772,84 @@ export class AudioRecorder {
     }, 50);
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DEVICE MONITORING — detect connects/disconnects during recording
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private startDeviceMonitoring(): void {
+    this.deviceChangeHandler = async () => {
+      if (!this.state.isRecording) return;
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const mics = devices.filter(d => d.kind === 'audioinput');
+        const micLabels = mics.map(d => d.label);
+        const activeDeviceLost = this.activeDeviceLabel && !micLabels.some(l => l === this.activeDeviceLabel);
+        this.emitEvent({
+          type: 'deviceChanged',
+          newDevices: mics.map(d => ({ deviceId: d.deviceId, label: d.label, isVirtual: VIRTUAL_DEVICE_PATTERNS.some(p => p.test(d.label)) })),
+          activeDeviceLost: !!activeDeviceLost
+        });
+        const newHeadphone = mics.find(d => AudioRecorder.isHeadphoneDevice(d.label) && d.label !== this.activeDeviceLabel);
+        if (newHeadphone) {
+          this.emitEvent({ type: 'headphoneDetected', deviceLabel: newHeadphone.label });
+        }
+      } catch (e) {
+        console.warn('[AudioRecorder] Device change detection failed:', e);
+      }
+    };
+    navigator.mediaDevices.addEventListener('devicechange', this.deviceChangeHandler);
+  }
+
+  private stopDeviceMonitoring(): void {
+    if (this.deviceChangeHandler) {
+      navigator.mediaDevices.removeEventListener('devicechange', this.deviceChangeHandler);
+      this.deviceChangeHandler = null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SILENCE WATCHDOG — alert user if no audio detected for 30+ seconds
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private startSilenceWatchdog(): void {
+    this.consecutiveSilentChecks = 0;
+    this.silenceAlerted = false;
+    this.silenceCheckInterval = setInterval(() => {
+      if (!this.state.isRecording || this.state.isPaused) return;
+      if (this.state.audioLevel < AudioRecorder.SILENCE_THRESHOLD) {
+        this.consecutiveSilentChecks++;
+        if (this.consecutiveSilentChecks >= AudioRecorder.SILENCE_ALERT_AFTER && !this.silenceAlerted) {
+          this.silenceAlerted = true;
+          this.emitEvent({ type: 'silenceDetected', durationSeconds: this.consecutiveSilentChecks * 5 });
+        }
+      } else {
+        if (this.silenceAlerted) {
+          this.emitEvent({ type: 'audioRestored' });
+        }
+        this.consecutiveSilentChecks = 0;
+        this.silenceAlerted = false;
+      }
+    }, 5000);
+  }
+
+  private stopSilenceWatchdog(): void {
+    if (this.silenceCheckInterval) {
+      clearInterval(this.silenceCheckInterval);
+      this.silenceCheckInterval = null;
+    }
+  }
+
+  /**
+   * Capture the active mic device label after getUserMedia succeeds
+   */
+  private captureActiveDeviceLabel(stream: MediaStream): void {
+    const track = stream.getAudioTracks()[0];
+    this.activeDeviceLabel = track?.label || '';
+    if (AudioRecorder.isHeadphoneDevice(this.activeDeviceLabel)) {
+      this.emitEvent({ type: 'headphoneDetected', deviceLabel: this.activeDeviceLabel });
+    }
+  }
+
   /**
    * Pause recording
    */
@@ -861,6 +990,9 @@ export class AudioRecorder {
       this.levelInterval = null;
     }
 
+    this.stopDeviceMonitoring();
+    this.stopSilenceWatchdog();
+
     // Close audio context
     if (this.audioContext) {
       this.audioContext.close().catch(() => {});
@@ -883,6 +1015,7 @@ export class AudioRecorder {
     // Reset recorder
     this.mediaRecorder = null;
     this.audioChunks = [];
+    this.activeDeviceLabel = '';
 
     // Reset state
     this.state = {

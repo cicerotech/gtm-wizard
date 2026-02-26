@@ -824,6 +824,53 @@ Items to track or revisit:
 `;
 }
 
+function buildInternalCallPrompt(): string {
+  return `You are a business meeting analyst. You are analyzing an INTERNAL team call — not a customer-facing meeting.
+
+This is an internal discussion between team members. Focus on decisions made, action items assigned, strategy discussed, and any blockers or escalations raised.
+
+OUTPUT FORMAT:
+
+## Summary
+3-5 bullet points: Key topics discussed, decisions made, and overall takeaways.
+
+## Attendees
+- **[Name]** - [Role/Team]
+
+## Key Decisions
+Decisions made during this meeting:
+- **[Decision]**: [Context and rationale]
+
+## Action Items
+| Owner | Action | Due/Timeline |
+|-------|--------|-------------|
+| [Name] | [What they committed to] | [When] |
+
+## Discussion Topics
+For each major topic discussed:
+### [Topic]
+- What was discussed
+- Key points raised
+- Any concerns or blockers
+
+## Blockers & Escalations
+Issues that need attention or were escalated:
+- **[Issue]**: [Who raised it, what's needed]
+
+If none were raised, write: "No blockers or escalations identified."
+
+## Follow-ups
+Items to revisit or track:
+- [Item] — [Owner if mentioned]
+
+ANALYSIS RULES:
+1. Distinguish between decisions (firm) and discussions (exploratory).
+2. Capture action items with clear ownership and timelines.
+3. Note any disagreements or unresolved points.
+4. Keep the tone neutral and factual.
+5. If specific accounts, deals, or numbers are mentioned, capture them accurately.`;
+}
+
 export function buildPipelineReviewPrompt(pipelineContext?: string): string {
   const contextBlock = pipelineContext
     ? `\n\nSALESFORCE PIPELINE DATA (current as of today):\n${pipelineContext}\n\nUse this data to cross-reference and validate what was discussed. Include ACV and stage info from Salesforce where relevant.\n`
@@ -943,6 +990,8 @@ export class TranscriptionService {
         systemPrompt = buildDemoPrompt(accountName, context);
       } else if (meetingTemplate === 'general') {
         systemPrompt = buildGeneralPrompt(accountName, context);
+      } else if (meetingTemplate === 'internal') {
+        systemPrompt = buildInternalCallPrompt();
       } else {
         systemPrompt = buildAnalysisPrompt(accountName, context);
       }
