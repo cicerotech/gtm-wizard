@@ -4838,38 +4838,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             logger.info(`[Ownership] Sales leader ${normalizedEmail}: ${teamAccounts.length} team accounts from ${directReports.length} direct reports`);
           }
-        } else if (POD_VIEW_USERS[normalizedEmail]) {
-          // Designated pod-view users: ALL accounts in their region
-          viewType = 'pod_view';
-          const region = POD_VIEW_USERS[normalizedEmail];
-          const regionBLs = getRegionBLEmails(region);
-          if (regionBLs.length > 0) {
-            const blEmailList = regionBLs.map(e => `'${e.replace(/'/g, "\\'")}'`).join(',');
-            const teamQuery = `
-              SELECT Id, Name, Type, Customer_Type__c 
-              FROM Account 
-              WHERE Owner.Email IN (${blEmailList})
-                AND (NOT Name LIKE '%Sample%')
-                AND (NOT Name LIKE '%Test%')
-              ORDER BY Name ASC
-              LIMIT 2000
-            `;
-            const teamResult = await sfConnection.query(teamQuery);
-            const ownedIds = new Set([...ownedAccounts.map(a => a.id), ...ownedProspects.map(a => a.id)]);
-            
-            teamAccounts = (teamResult.records || [])
-              .filter(acc => !ownedIds.has(acc.Id))
-              .map(acc => ({
-                id: acc.Id,
-                name: acc.Name,
-                type: acc.Customer_Type__c || acc.Type || 'Prospect',
-                isOwned: false,
-                hadOpportunity: true // team accounts shown as active for pod viewers
-              }));
-            
-            logger.info(`[Ownership] Pod-view user ${normalizedEmail} (${region}): ${teamAccounts.length} team accounts from ${regionBLs.length} region BLs`);
-          }
         }
+        // Pod-view users (Sean, Riley) see only their own pipeline in the Notetaker.
+        // Pod-level team aggregation is reserved for Salesforce LWC dashboards.
         // else: regular BL — no team aggregation, only their owned accounts
         
         // Active accounts = owned active + team accounts
