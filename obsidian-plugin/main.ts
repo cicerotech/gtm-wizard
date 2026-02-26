@@ -4469,7 +4469,8 @@ created: ${dateStr}
       try { this.telemetry?.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'success' }); } catch {}
 
       if (!this.audioRecorder?.isRecording()) {
-        this._showUpdateStatus(`⟳ Applying v${remoteVersion}…`);
+        this._showUpdateStatus(`✓ v${remoteVersion} installed — restarting…`);
+        // Keep _updateInProgress true to prevent double-click race
         setTimeout(async () => {
           try {
             const plugins = (this.app as any).plugins;
@@ -4477,10 +4478,12 @@ created: ${dateStr}
             await plugins.enablePlugin(this.manifest.id);
             console.log(`[Eudia Update] Hot-reloaded: v${localVersion} → v${remoteVersion}`);
           } catch {
+            this._updateInProgress = false;
             this._showUpdateStatus(`✓ v${remoteVersion} ready — restart Obsidian`);
             setTimeout(() => this._hideUpdateStatus(), 15000);
           }
-        }, 1500);
+        }, 2000);
+        return; // Don't hit finally — keep _updateInProgress locked
       } else {
         this._showUpdateStatus(`✓ v${remoteVersion} downloaded — restart to apply`);
         setTimeout(() => this._hideUpdateStatus(), 10000);
