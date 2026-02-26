@@ -3898,6 +3898,12 @@ created: ${dateStr}
     });
 
     this.addCommand({
+      id: 'open-setup-guide',
+      name: 'Open Getting Started Guide',
+      callback: () => this.activateSetupView()
+    });
+
+    this.addCommand({
       id: 'check-for-updates',
       name: 'Check for Eudia Updates',
       callback: async () => {
@@ -6483,13 +6489,17 @@ last_updated: ${dateStr}
   // ─────────────────────────────────────────────────────────────────────────
 
   async startRecording(): Promise<void> {
-    // ── Step 1: Check browser support ──
     if (!AudioRecorder.isSupported()) {
       new Notice('Audio transcription is not supported in this environment.');
       return;
     }
 
-    // ── Step 2: Permission-first — check mic access before anything else ──
+    // Show template picker immediately on click — no delay
+    const template = await this.showTemplatePicker();
+    if (!template) return;
+    this.settings.meetingTemplate = template;
+
+    // Permission + device detection runs after template selection
     try {
       const testStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       testStream.getTracks().forEach(t => t.stop());
@@ -6498,7 +6508,6 @@ last_updated: ${dateStr}
       return;
     }
 
-    // ── Step 2b: Auto-detect headphones and adjust capture mode for this session ──
     let effectiveCaptureMode: 'full_call' | 'mic_only' = this.settings.audioCaptureMode || 'full_call';
     try {
       const devices = await AudioRecorder.getAvailableDevices();
@@ -6512,9 +6521,8 @@ last_updated: ${dateStr}
           8000
         );
       }
-    } catch { /* proceed with current settings */ }
+    } catch { }
 
-    // ── Step 3: Auto-detect virtual audio device ──
     if (!this.settings.audioSystemDeviceId) {
       try {
         const vd = await AudioRecorder.detectVirtualAudioDevice();
@@ -6523,13 +6531,8 @@ last_updated: ${dateStr}
           await this.saveSettings();
           console.log(`[Eudia] Virtual audio device found: ${vd.label}`);
         }
-      } catch { /* proceed without virtual device */ }
+      } catch { }
     }
-
-    // ── Step 4: Show template picker ──
-    const template = await this.showTemplatePicker();
-    if (!template) return;
-    this.settings.meetingTemplate = template;
 
     // ── Step 5: Ensure active file ──
     let activeFile = this.app.workspace.getActiveFile();
