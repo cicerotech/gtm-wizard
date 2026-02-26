@@ -4632,38 +4632,54 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Exec/product role: Existing customers + accounts with active pipeline (stages 1-5)
+        // Salesforce disallows semi-join inside OR, so run two queries and merge
         if (req.query.role === 'exec') {
           logger.info(`[Ownership] Exec/product role for ${normalizedEmail} — fetching Existing + active pipeline`);
-          const execQuery = `
+          const existingQ = `
             SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name
             FROM Account
-            WHERE (
-              Customer_Type__c = 'Existing'
-              OR Id IN (
-                SELECT AccountId FROM Opportunity
-                WHERE (StageName LIKE 'Stage 1%' OR StageName LIKE 'Stage 2%'
-                       OR StageName LIKE 'Stage 3%' OR StageName LIKE 'Stage 4%'
-                       OR StageName LIKE 'Stage 5%')
-                  AND IsClosed = false
-              )
+            WHERE Customer_Type__c = 'Existing'
+              AND (NOT Name LIKE '%Sample%')
+              AND (NOT Name LIKE '%Test%')
+            ORDER BY Name ASC
+            LIMIT 500
+          `;
+          const pipelineQ = `
+            SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name
+            FROM Account
+            WHERE Id IN (
+              SELECT AccountId FROM Opportunity
+              WHERE (StageName LIKE 'Stage 1%' OR StageName LIKE 'Stage 2%'
+                     OR StageName LIKE 'Stage 3%' OR StageName LIKE 'Stage 4%'
+                     OR StageName LIKE 'Stage 5%')
+                AND IsClosed = false
             )
             AND (NOT Name LIKE '%Sample%')
             AND (NOT Name LIKE '%Test%')
             ORDER BY Name ASC
             LIMIT 500
           `;
-          const execResult = await sfConnection.query(execQuery);
-          const execAccounts = (execResult.records || []).map(r => ({
-            id: r.Id,
-            name: r.Name,
-            type: r.Type || 'Prospect',
-            customerType: r.Customer_Type__c,
-            website: r.Website || null,
-            industry: r.Industry || null,
-            hadOpportunity: true,
-            ownerName: r.Owner?.Name || null
-          }));
-          logger.info(`[Ownership] Exec/product: ${execAccounts.length} accounts (Existing + active pipeline)`);
+          const [existingResult, pipelineResult] = await Promise.all([
+            sfConnection.query(existingQ),
+            sfConnection.query(pipelineQ)
+          ]);
+          const seen = new Set();
+          const execAccounts = [];
+          for (const r of [...(existingResult.records || []), ...(pipelineResult.records || [])]) {
+            if (seen.has(r.Id)) continue;
+            seen.add(r.Id);
+            execAccounts.push({
+              id: r.Id,
+              name: r.Name,
+              type: r.Type || 'Prospect',
+              customerType: r.Customer_Type__c,
+              website: r.Website || null,
+              industry: r.Industry || null,
+              hadOpportunity: true,
+              ownerName: r.Owner?.Name || null
+            });
+          }
+          logger.info(`[Ownership] Exec/product: ${execAccounts.length} accounts (${existingResult.totalSize || 0} existing + ${pipelineResult.totalSize || 0} pipeline, deduped)`);
           return res.json({
             success: true,
             email: normalizedEmail,
@@ -4736,15 +4752,14 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         const allAccountsResult = await sfConnection.query(allAccountsQuery);
         
-        // Determine which accounts have ever had an opportunity
+        // Determine which accounts have OPEN opportunities (active pipeline)
         const accountIds = (allAccountsResult.records || []).map(a => a.Id);
         const oppAccountIds = new Set();
         if (accountIds.length > 0) {
-          // Query in batches of 200 to avoid SOQL length limits
           for (let i = 0; i < accountIds.length; i += 200) {
             const batch = accountIds.slice(i, i + 200);
             const idList = batch.map(id => `'${id}'`).join(',');
-            const oppQuery = `SELECT AccountId FROM Opportunity WHERE AccountId IN (${idList}) GROUP BY AccountId`;
+            const oppQuery = `SELECT AccountId FROM Opportunity WHERE AccountId IN (${idList}) AND IsClosed = false GROUP BY AccountId`;
             const oppResult = await sfConnection.query(oppQuery);
             (oppResult.records || []).forEach(r => oppAccountIds.add(r.AccountId));
           }
