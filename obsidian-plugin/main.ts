@@ -74,6 +74,7 @@ interface EudiaSyncSettings {
   lastUpdateTimestamp: string | null;
   pendingUpdateVersion: string | null;
   themeFixApplied: boolean;
+  editModeFixApplied: boolean;
   // Persistent heal queue for failed transcriptions
   healQueue: Array<{
     notePath: string;
@@ -130,6 +131,7 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   lastUpdateTimestamp: null,
   pendingUpdateVersion: null,
   themeFixApplied: false,
+  editModeFixApplied: false,
   healQueue: []
 };
 
@@ -3703,6 +3705,10 @@ export default class EudiaSyncPlugin extends Plugin {
     // Fixes vaults that were created with the wrong "obsidian" (dark) theme
     this.ensureLightTheme().catch(() => {});
 
+    // Auto-correct vault editing mode: ensure notes open in editable Live Preview
+    // Fixes vaults where defaultViewMode wasn't set (Obsidian defaults to read-only)
+    this.ensureEditableMode().catch(() => {});
+
     // Show confirmation if we just loaded after a successful update
     const justUpdatedAge = this.settings.lastUpdateTimestamp
       ? Date.now() - new Date(this.settings.lastUpdateTimestamp).getTime()
@@ -4357,6 +4363,43 @@ created: ${dateStr}
       await this.saveSettings();
     } catch (e) {
       console.warn('[Eudia] Theme fix failed:', (e as Error).message);
+    }
+  }
+
+  /**
+   * Ensure notes open in Live Preview (editable) mode instead of Reading View.
+   * Fixes vaults where defaultViewMode wasn't set (Obsidian defaults to read-only).
+   * Only runs once — sets a flag in plugin settings to avoid repeated writes.
+   */
+  private async ensureEditableMode(): Promise<void> {
+    if (this.settings.editModeFixApplied) return;
+    try {
+      const adapter = this.app.vault.adapter;
+      const appPath = '.obsidian/app.json';
+      let appConfig: any = {};
+      try {
+        const raw = await adapter.read(appPath);
+        appConfig = JSON.parse(raw);
+      } catch { }
+
+      let changed = false;
+      if (!appConfig.defaultViewMode || appConfig.defaultViewMode === 'preview') {
+        appConfig.defaultViewMode = 'source';
+        changed = true;
+      }
+      if (appConfig.livePreview !== true) {
+        appConfig.livePreview = true;
+        changed = true;
+      }
+      if (changed) {
+        await adapter.write(appPath, JSON.stringify(appConfig, null, 2));
+        console.log('[Eudia] Fixed vault editing mode: enabled Live Preview (editable)');
+      }
+
+      this.settings.editModeFixApplied = true;
+      await this.saveSettings();
+    } catch (e) {
+      console.warn('[Eudia] Edit mode fix failed:', (e as Error).message);
     }
   }
 
@@ -6569,17 +6612,14 @@ last_updated: ${dateStr}
     }
 
     let effectiveCaptureMode: 'full_call' | 'mic_only' = this.settings.audioCaptureMode || 'full_call';
+    let detectedHeadphone: string | null = null;
     try {
       const devices = await AudioRecorder.getAvailableDevices();
       const activeHeadphone = devices.find(d => AudioRecorder.isHeadphoneDevice(d.label));
-      if (activeHeadphone && effectiveCaptureMode === 'full_call') {
-        effectiveCaptureMode = 'mic_only';
-        console.log(`[Eudia] Headphones detected (${activeHeadphone.label}) — using mic_only for this recording`);
-        new Notice(
-          `${activeHeadphone.label} detected — recording your voice only.\n` +
-          'For both sides of the call, switch to laptop speakers.',
-          8000
-        );
+      if (activeHeadphone) {
+        detectedHeadphone = activeHeadphone.label;
+        console.log(`[Eudia] Headphones detected (${detectedHeadphone}) — will still attempt system audio capture`);
+        new Notice(`${detectedHeadphone} detected — attempting full call capture...`, 4000);
       }
     } catch { }
 
@@ -6627,14 +6667,6 @@ last_updated: ${dateStr}
             console.log(`[Eudia Telemetry] device_change`, event);
             break;
           case 'headphoneDetected':
-            if ((this.settings.audioCaptureMode || 'full_call') === 'full_call') {
-              new Notice(
-                `Headphones detected (${event.deviceLabel}). ` +
-                'Call audio cannot be captured through headphones — recording your voice only. ' +
-                'For both sides, switch to laptop speakers.',
-                12000
-              );
-            }
             console.log(`[Eudia Telemetry] headphone_detected`, event.deviceLabel);
             break;
           case 'silenceDetected': {
@@ -6673,16 +6705,14 @@ last_updated: ${dateStr}
       // ── Step 9: Status notifications based on capture method ──
       if (captureMode === 'full_call' && this.audioRecorder.getState().isRecording) {
         const sysMethod = this.audioRecorder.getSystemAudioMethod();
-        if (sysMethod === 'electron' || sysMethod === 'display_media') {
-          new Notice('Recording — capturing both sides of the call.', 5000);
-        } else if (sysMethod === 'virtual_device') {
-          new Notice('Recording (Full Call + Virtual Device) — both sides captured.', 5000);
+        if (sysMethod === 'electron' || sysMethod === 'display_media' || sysMethod === 'virtual_device') {
+          const methodLabel = sysMethod === 'virtual_device' ? ' (Virtual Device)' : '';
+          new Notice(`Recording — capturing both sides of the call${methodLabel}.`, 5000);
         } else {
-          new Notice(
-            'Recording (Mic only) — headphones block call audio capture.\n\n' +
-            'Use laptop speakers, or try Settings > Audio Capture > Test System Audio.',
-            10000
-          );
+          const headphoneHint = detectedHeadphone
+            ? `System audio capture unavailable with ${detectedHeadphone}.\nRecording your voice only. Switch to laptop speakers for both sides.`
+            : 'Recording (Mic only) — system audio capture unavailable.\nUse laptop speakers, or try Settings > Audio Capture > Test System Audio.';
+          new Notice(headphoneHint, 10000);
         }
       } else if (captureMode === 'mic_only') {
         new Notice('Recording (Mic Only — your voice only)', 3000);

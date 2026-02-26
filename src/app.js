@@ -5433,7 +5433,9 @@ function copyCmd(os) {
             showFrontmatter: false,
             foldHeading: true,
             foldIndent: true,
-            showReleaseNotes: false
+            showReleaseNotes: false,
+            defaultViewMode: "source",
+            livePreview: true
           };
           archive.append(JSON.stringify(appJson, null, 2), { name: `${vaultName}/.obsidian/app.json` });
           

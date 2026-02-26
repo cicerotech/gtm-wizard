@@ -313,7 +313,9 @@ function createObsidianConfig(destDir) {
     "showFrontmatter": false,
     "foldHeading": true,
     "foldIndent": true,
-    "showReleaseNotes": false
+    "showReleaseNotes": false,
+    "defaultViewMode": "source",
+    "livePreview": true
   };
   fs.writeFileSync(path.join(obsidianDir, 'app.json'), JSON.stringify(appConfig, null, 2));
   
