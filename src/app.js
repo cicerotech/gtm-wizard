@@ -1029,56 +1029,44 @@ class GTMBrainApp {
 
     // Plugin version check — returns current version for auto-update comparison
     // Format matches what the plugin expects: { success: true, currentVersion: "4.1.0" }
+    // Cache the manifest at startup since sendFile can find it but readFileSync path resolution differs on Render
+    let _pluginManifestCache = null;
+    try {
+      _pluginManifestCache = require('../obsidian-plugin/manifest.json');
+      logger.info(`[Plugin Version] Manifest loaded at startup: v${_pluginManifestCache.version}`);
+    } catch (e) {
+      logger.warn('[Plugin Version] Could not load manifest via require:', e.message);
+    }
+
     this.expressApp.get('/api/plugin/version', (req, res) => {
-      // Try multiple path strategies to find the manifest
-      const candidates = [
-        path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json'),
-        path.join(process.cwd(), 'obsidian-plugin', 'manifest.json'),
-        path.resolve('obsidian-plugin', 'manifest.json'),
-      ];
+      const manifest = _pluginManifestCache;
 
-      let manifest = null;
-      let resolvedPath = null;
-
-      for (const candidate of candidates) {
+      if (!manifest || !manifest.version) {
+        // Fallback: try to re-read at request time
         try {
-          if (fs.existsSync(candidate)) {
-            manifest = JSON.parse(fs.readFileSync(candidate, 'utf-8'));
-            resolvedPath = candidate;
-            break;
-          }
-        } catch { /* try next */ }
+          const freshManifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json'), 'utf-8'));
+          _pluginManifestCache = freshManifest;
+          res.json({
+            success: true,
+            currentVersion: freshManifest.version,
+            version: freshManifest.version,
+            name: freshManifest.name,
+            forceUpdate: freshManifest.forceUpdate || false,
+          });
+          return;
+        } catch {
+          res.json({ success: false, error: 'Plugin manifest not available' });
+          return;
+        }
       }
 
-      if (!manifest) {
-        logger.warn(`[Plugin Version] manifest.json not found at any path. __dirname=${__dirname}, cwd=${process.cwd()}, candidates=${candidates.join(', ')}`);
-        res.json({ success: false, error: 'Plugin manifest not found', debug: { __dirname, cwd: process.cwd() } });
-        return;
-      }
-
-      const response = {
+      res.json({
         success: true,
         currentVersion: manifest.version,
         version: manifest.version,
         name: manifest.name,
         forceUpdate: manifest.forceUpdate || false,
-      };
-
-      // Checksums are optional
-      try {
-        const crypto = require('crypto');
-        const pluginDir = path.dirname(resolvedPath);
-        const mainJsContent = fs.readFileSync(path.join(pluginDir, 'main.js'));
-        const stylesContent = fs.readFileSync(path.join(pluginDir, 'styles.css'));
-        response.checksums = {
-          mainJs: crypto.createHash('sha256').update(mainJsContent).digest('hex'),
-          styles: crypto.createHash('sha256').update(stylesContent).digest('hex'),
-        };
-      } catch (checksumErr) {
-        logger.warn('[Plugin Version] Checksums unavailable:', checksumErr.message);
-      }
-
-      res.json(response);
+      });
     });
 
     // Plugin file downloads — serves latest compiled plugin files
