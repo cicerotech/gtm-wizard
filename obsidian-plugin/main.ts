@@ -7480,40 +7480,47 @@ last_updated: ${dateStr}
       const durationMin = Math.floor(result.duration / 60);
       new Notice(`Transcription complete (${durationMin} min recording)`);
 
-      // Extract and update Next Steps for the account (skip for pipeline meetings)
-      if (!isPipelineReview) {
-        const nextStepsContent = sections.nextSteps || sections.actionItems;
-        console.log(`[Eudia] Next Steps extraction - accountContext: ${accountContext?.accountName || 'undefined'}`);
-        console.log(`[Eudia] Next Steps content found: ${nextStepsContent ? 'YES (' + nextStepsContent.length + ' chars)' : 'NO'}`);
-        console.log(`[Eudia] sections.nextSteps: ${sections.nextSteps ? 'YES' : 'NO'}, sections.actionItems: ${sections.actionItems ? 'YES' : 'NO'}`);
-        
-        if (nextStepsContent && accountContext?.accountName) {
-          console.log(`[Eudia] Calling updateAccountNextSteps for ${accountContext.accountName}`);
-          await this.updateAccountNextSteps(accountContext.accountName, nextStepsContent, file.path);
-        } else {
-          console.log(`[Eudia] Skipping Next Steps update - missing content or account context`);
+      // Post-processing: Next Steps extraction (non-critical, don't fail transcription)
+      try {
+        if (!isPipelineReview) {
+          const nextStepsContent = sections.nextSteps || sections.actionItems;
+          if (nextStepsContent && accountContext?.accountName) {
+            await this.updateAccountNextSteps(accountContext.accountName, nextStepsContent, file.path);
+          }
         }
+      } catch (postErr) {
+        console.warn('[Eudia] Next Steps extraction failed (non-critical):', (postErr as Error).message);
       }
 
-      // Auto-sync if enabled
-      if (this.settings.autoSyncAfterTranscription) {
-        await this.syncNoteToSalesforce();
+      // Post-processing: Auto-sync to Salesforce (non-critical, don't fail transcription)
+      try {
+        if (this.settings.autoSyncAfterTranscription) {
+          await this.syncNoteToSalesforce();
+        }
+      } catch (syncErr) {
+        console.warn('[Eudia] Auto-sync failed (non-critical):', (syncErr as Error).message);
       }
 
     } catch (error: any) {
+      // Only show "Transcription failed" if the note doesn't already have successful content
       try {
         const currentContent = await this.app.vault.read(file);
-        // Match both legacy and current processing indicator formats
-        const cleanedContent = currentContent
-          .replace(/\n\n---\n\*\*Processing your recording\.\.\.\*\*[\s\S]*?\*You can navigate away[^*]*\*\n---\n/g, '')
-          .replace(/\n\n---\n\*\*Transcription in progress\.\.\.\*\*[\s\S]*?\*You can navigate away[^*]*\*\n---\n/g, '');
-        const savedPath = (result as any)?._savedAudioPath;
-        const recoveryHint = savedPath ? `\nYour recording was saved to **${savedPath}** — you can retry transcription from there.` : '';
-        await this.app.vault.modify(file, cleanedContent + `\n\n**Transcription failed:** ${error.message}${recoveryHint}\n`);
+        const hasSuccessfulContent = currentContent.includes('## Summary') || currentContent.includes('## Next Steps\n-') || currentContent.includes('## Key Discussion Points');
+
+        if (hasSuccessfulContent) {
+          console.warn('[Eudia] Post-transcription step failed but content is intact:', error.message);
+        } else {
+          const cleanedContent = currentContent
+            .replace(/\n\n---\n\*\*Processing your recording\.\.\.\*\*[\s\S]*?\*You can navigate away[^*]*\*\n---\n/g, '')
+            .replace(/\n\n---\n\*\*Transcription in progress\.\.\.\*\*[\s\S]*?\*You can navigate away[^*]*\*\n---\n/g, '');
+          const savedPath = (result as any)?._savedAudioPath;
+          const recoveryHint = savedPath ? `\nYour recording was saved to **${savedPath}** — you can retry transcription from there.` : '';
+          await this.app.vault.modify(file, cleanedContent + `\n\n**Transcription failed:** ${error.message}${recoveryHint}\n`);
+          new Notice(`Transcription failed: ${error.message}`, 10000);
+        }
       } catch (e) {
         // File may have been moved/deleted
       }
-      throw error;
     }
   }
 

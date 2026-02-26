@@ -1481,7 +1481,8 @@ function showTab(os, el) {
   document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
   document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
   document.getElementById('tab-' + os).classList.add('active');
-  el.classList.add('active');
+  if (el) el.classList.add('active');
+  else document.querySelector('.tab[onclick*="' + os + '"]').classList.add('active');
 }
 function copyCmd(os) {
   var cmd = document.getElementById('cmd-' + os).textContent;
@@ -1492,6 +1493,10 @@ function copyCmd(os) {
     setTimeout(function() { hint.textContent = 'Click to copy'; hint.style.color = '#8e99e1'; }, 2000);
   });
 }
+window.onload = function() {
+  var isWindows = navigator.userAgent.indexOf('Win') !== -1;
+  if (isWindows) showTab('win', null);
+};
 </script>
   <div class="container">
     <div class="header">
@@ -1524,9 +1529,9 @@ function copyCmd(os) {
 
       <div id="tab-win" class="tab-content">
         <div class="steps">
-          <div class="step"><div class="step-num">1</div><div class="step-text">Open <strong>PowerShell</strong> (press Windows key, type "PowerShell", press Enter)</div></div>
-          <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Copy</strong> the command below and <strong>paste</strong> it into PowerShell, then press Enter</div></div>
-          <div class="step"><div class="step-num">3</div><div class="step-text">When it says "DONE", close Obsidian completely and reopen</div></div>
+          <div class="step"><div class="step-num">1</div><div class="step-text">Click the <strong>Start menu</strong> (Windows key), type <strong>PowerShell</strong>, click to open it</div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Click the dark box below</strong> to copy the command, then <strong>right-click</strong> inside PowerShell to paste it, and press <strong>Enter</strong></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-text">Wait for it to say <strong>"DONE"</strong> (may take 30-60 seconds), then close Obsidian and reopen it</div></div>
         </div>
         <div class="cmd-box" onclick="copyCmd('win')">
           <code id="cmd-win">powershell -ExecutionPolicy Bypass -Command "iex (irm 'https://gtm-wizard.onrender.com/api/plugin/install.ps1')"</code>
