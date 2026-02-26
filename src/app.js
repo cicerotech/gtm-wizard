@@ -1031,34 +1031,37 @@ class GTMBrainApp {
     // Format matches what the plugin expects: { success: true, currentVersion: "4.1.0" }
     this.expressApp.get('/api/plugin/version', (req, res) => {
       try {
-        const crypto = require('crypto');
-        const manifestPath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
+        const pluginDir = path.join(__dirname, '..', 'obsidian-plugin');
+        const manifestPath = path.join(pluginDir, 'manifest.json');
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-        const mainJsPath = path.join(__dirname, '..', 'obsidian-plugin', 'main.js');
-        const stylesPath = path.join(__dirname, '..', 'obsidian-plugin', 'styles.css');
-        const mainJsStat = fs.statSync(mainJsPath);
 
-        const mainJsContent = fs.readFileSync(mainJsPath);
-        const stylesContent = fs.readFileSync(stylesPath);
-        const manifestContent = fs.readFileSync(manifestPath);
-
-        res.json({
+        const response = {
           success: true,
           currentVersion: manifest.version,
           version: manifest.version,
-          buildHash: mainJsStat.mtimeMs.toString(36),
-          updatedAt: mainJsStat.mtime.toISOString(),
           name: manifest.name,
           forceUpdate: manifest.forceUpdate || false,
-          checksums: {
+        };
+
+        // Checksums are optional — version info is what matters for auto-update
+        try {
+          const crypto = require('crypto');
+          const mainJsContent = fs.readFileSync(path.join(pluginDir, 'main.js'));
+          const stylesContent = fs.readFileSync(path.join(pluginDir, 'styles.css'));
+          response.checksums = {
             mainJs: crypto.createHash('sha256').update(mainJsContent).digest('hex'),
             styles: crypto.createHash('sha256').update(stylesContent).digest('hex'),
-            manifest: crypto.createHash('sha256').update(manifestContent).digest('hex'),
-          },
-        });
+            manifest: crypto.createHash('sha256').update(fs.readFileSync(manifestPath)).digest('hex'),
+          };
+          response.buildHash = fs.statSync(path.join(pluginDir, 'main.js')).mtimeMs.toString(36);
+        } catch (checksumErr) {
+          logger.warn('[Plugin Version] Checksums unavailable:', checksumErr.message);
+        }
+
+        res.json(response);
       } catch (err) {
-        logger.warn('[Plugin Version] Could not read plugin files from disk:', err.message);
-        res.json({ success: false, error: 'Plugin files not available on server' });
+        logger.warn('[Plugin Version] Could not read manifest.json:', err.message);
+        res.json({ success: false, error: 'Plugin manifest not available on server' });
       }
     });
 
