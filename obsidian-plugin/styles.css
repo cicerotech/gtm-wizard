@@ -1373,9 +1373,18 @@
 }
 
 .eudia-setup-instruction-icon {
-  font-size: 16px;
-  width: 24px;
-  text-align: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--eudia-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.eudia-setup-instruction-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Footer */
@@ -2026,4 +2035,127 @@
   .eudia-transcription-bar {
     bottom: calc(24px + env(safe-area-inset-bottom));
   }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Setup Page — Completion Icon + Getting Started Guide
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.eudia-setup-completion-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eudia-setup-completion-icon {
+  color: var(--eudia-success);
+  display: inline-flex;
+  align-items: center;
+}
+
+.eudia-setup-completion-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.eudia-getting-started {
+  background: var(--eudia-card);
+  border: 1px solid var(--eudia-border);
+  border-radius: 10px;
+  padding: 20px 24px;
+  margin-top: 20px;
+}
+
+.eudia-getting-started-title {
+  margin: 0 0 16px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--eudia-text);
+}
+
+.eudia-getting-started-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--eudia-border-subtle);
+}
+
+.eudia-getting-started-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.eudia-getting-started-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--eudia-accent-subtle);
+  color: var(--eudia-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.eudia-getting-started-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.eudia-getting-started-text {
+  font-size: 13px;
+  color: var(--eudia-text-muted);
+  line-height: 1.5;
+}
+
+.eudia-getting-started-text strong {
+  color: var(--eudia-text);
+  font-weight: 600;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Ribbon — Hide Unused Core Icons + Color Eudia Icons
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.side-dock-ribbon-action[aria-label="Create new note"],
+.side-dock-ribbon-action[aria-label="Open graph view"] {
+  display: none !important;
+}
+
+.side-dock-ribbon-action[aria-label="Open Calendar"] {
+  background: rgba(96, 165, 250, 0.12);
+  border-radius: 6px;
+}
+.side-dock-ribbon-action[aria-label="Open Calendar"]:hover {
+  background: rgba(96, 165, 250, 0.22);
+}
+
+.side-dock-ribbon-action[aria-label="Transcribe Meeting"] {
+  background: rgba(142, 153, 225, 0.12);
+  border-radius: 6px;
+}
+.side-dock-ribbon-action[aria-label="Transcribe Meeting"]:hover {
+  background: rgba(142, 153, 225, 0.22);
+}
+
+.side-dock-ribbon-action[aria-label="Ask GTM Brain"] {
+  background: rgba(16, 185, 129, 0.12);
+  border-radius: 6px;
+}
+.side-dock-ribbon-action[aria-label="Ask GTM Brain"]:hover {
+  background: rgba(16, 185, 129, 0.22);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   File Explorer — Note Highlighting
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.nav-file.is-flashing .nav-file-title {
+  background-color: var(--eudia-accent-subtle) !important;
+}
+
+.nav-file-title.is-active {
+  background-color: rgba(142, 153, 225, 0.08) !important;
+  border-radius: 4px;
 }

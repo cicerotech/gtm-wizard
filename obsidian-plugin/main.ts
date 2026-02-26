@@ -15,7 +15,8 @@ import {
   Modal,
   MarkdownView,
   ItemView,
-  WorkspaceLeaf
+  WorkspaceLeaf,
+  setIcon
 } from 'obsidian';
 
 import { AudioRecorder, RecordingState, RecordingResult, RecordingLifecycleEvent, AudioDiagnostic, AudioCaptureMode, AudioRecordingOptions, AudioDeviceInfo, SystemAudioMethod, SystemAudioProbeResult } from './src/AudioRecorder';
@@ -1589,9 +1590,44 @@ class EudiaSetupView extends ItemView {
     
     // Steps
     this.renderSteps(container);
+
+    // Getting Started guide
+    this.renderGettingStarted(container);
     
     // Footer actions
     this.renderFooter(container);
+  }
+
+  private renderGettingStarted(container: HTMLElement): void {
+    const section = container.createDiv({ cls: 'eudia-getting-started' });
+    section.createEl('h3', { text: 'Your Sidebar Tools', cls: 'eudia-getting-started-title' });
+
+    const tools = [
+      {
+        icon: 'calendar',
+        name: 'Calendar',
+        desc: 'View your external meetings. Click any event to create a meeting note under the matched account. Adjust your timezone in the Eudia Transcription Plugin settings.'
+      },
+      {
+        icon: 'microphone',
+        name: 'Transcribe',
+        desc: 'Click the mic icon before a meeting to start recording. AI transcribes and extracts key insights, objections, and next steps automatically.'
+      },
+      {
+        icon: 'message-circle',
+        name: 'Ask GTM Brain',
+        desc: 'Query Salesforce data in natural language \u2014 pipeline, contacts, deal history, and account intelligence.'
+      }
+    ];
+
+    for (const tool of tools) {
+      const row = section.createDiv({ cls: 'eudia-getting-started-row' });
+      const iconWrap = row.createDiv({ cls: 'eudia-getting-started-icon' });
+      setIcon(iconWrap, tool.icon);
+      const text = row.createDiv({ cls: 'eudia-getting-started-text' });
+      text.createEl('strong', { text: tool.name });
+      text.createEl('span', { text: ` \u2014 ${tool.desc}` });
+    }
   }
 
   private renderHeader(container: HTMLElement): void {
@@ -2302,15 +2338,18 @@ class EudiaSetupView extends ItemView {
     const instructions = stepContent.createDiv({ cls: 'eudia-setup-instructions' });
     
     const instruction1 = instructions.createDiv({ cls: 'eudia-setup-instruction' });
-    instruction1.createSpan({ cls: 'eudia-setup-instruction-icon', text: '🎙' });
+    const icon1 = instruction1.createSpan({ cls: 'eudia-setup-instruction-icon' });
+    setIcon(icon1, 'microphone');
     instruction1.createSpan({ text: 'Click the microphone icon in the left sidebar during a call' });
     
     const instruction2 = instructions.createDiv({ cls: 'eudia-setup-instruction' });
-    instruction2.createSpan({ cls: 'eudia-setup-instruction-icon', text: '⌨' });
+    const icon2 = instruction2.createSpan({ cls: 'eudia-setup-instruction-icon' });
+    setIcon(icon2, 'terminal');
     instruction2.createSpan({ text: 'Or press Cmd/Ctrl+P and search for "Transcribe Meeting"' });
     
     const instruction3 = instructions.createDiv({ cls: 'eudia-setup-instruction' });
-    instruction3.createSpan({ cls: 'eudia-setup-instruction-icon', text: '📝' });
+    const icon3 = instruction3.createSpan({ cls: 'eudia-setup-instruction-icon' });
+    setIcon(icon3, 'file-text');
     instruction3.createSpan({ text: 'AI will summarize and extract key insights automatically' });
     
     if (step.status !== 'complete') {
@@ -2329,7 +2368,10 @@ class EudiaSetupView extends ItemView {
     if (allComplete) {
       // Show completion message
       const completionMessage = footer.createDiv({ cls: 'eudia-setup-completion' });
-      completionMessage.createEl('h2', { text: '🎉 You\'re all set!' });
+      const completionTitle = completionMessage.createEl('h2', { cls: 'eudia-setup-completion-title' });
+      const checkEl = completionTitle.createSpan({ cls: 'eudia-setup-completion-icon' });
+      setIcon(checkEl, 'check-circle');
+      completionTitle.createSpan({ text: ' You\'re all set!' });
       completionMessage.createEl('p', { text: 'Your sales vault is ready. Click below to start using Eudia.' });
       
       const finishBtn = footer.createEl('button', {
@@ -2646,7 +2688,8 @@ class EudiaCalendarView extends ItemView {
       refreshBtn.removeClass('spinning');
     };
     
-    const settingsBtn = actions.createEl('button', { cls: 'eudia-btn-icon', text: '⚙' });
+    const settingsBtn = actions.createEl('button', { cls: 'eudia-btn-icon' });
+    setIcon(settingsBtn, 'settings');
     settingsBtn.title = 'Settings';
     settingsBtn.onclick = () => {
       (this.app as any).setting.open();
