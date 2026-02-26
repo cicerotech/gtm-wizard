@@ -4032,28 +4032,37 @@ created: ${dateStr}
       if (failedNotes.length === 0) return;
       console.log(`[Eudia AutoHeal] Found ${failedNotes.length} note(s) with failed transcriptions`);
 
-      // Collect available recordings
+      // Collect available recordings from Recordings folder AND _backups
+      const extractRecordings = (folder: TFolder) => {
+        return folder.children
+          .filter(f => f instanceof TFile && /\.(webm|mp4|m4a|ogg)$/i.test(f.name))
+          .map(f => {
+            const match = f.name.match(/recording-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})/);
+            const ts = match
+              ? new Date(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}Z`)
+              : null;
+            return { file: f as TFile, timestamp: ts };
+          })
+          .filter(r => r.timestamp !== null);
+      };
+
+      const recordings: Array<{ file: TFile; timestamp: Date | null }> = [];
+
       const recordingsFolder = this.settings.recordingsFolder || 'Recordings';
       const recFolder = this.app.vault.getAbstractFileByPath(recordingsFolder);
-      if (!recFolder || !(recFolder instanceof TFolder)) {
-        console.log('[Eudia AutoHeal] No Recordings folder found — cannot recover');
-        return;
+      if (recFolder && recFolder instanceof TFolder) {
+        recordings.push(...extractRecordings(recFolder));
       }
 
-      const recordings = recFolder.children
-        .filter(f => f instanceof TFile && /\.(webm|mp4|m4a|ogg)$/i.test(f.name))
-        .map(f => {
-          const match = f.name.match(/recording-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})/);
-          const ts = match
-            ? new Date(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}Z`)
-            : null;
-          return { file: f as TFile, timestamp: ts };
-        })
-        .filter(r => r.timestamp !== null)
-        .sort((a, b) => (b.timestamp!.getTime()) - (a.timestamp!.getTime()));
+      const backupsFolder = this.app.vault.getAbstractFileByPath('_backups');
+      if (backupsFolder && backupsFolder instanceof TFolder) {
+        recordings.push(...extractRecordings(backupsFolder));
+      }
+
+      recordings.sort((a, b) => (b.timestamp!.getTime()) - (a.timestamp!.getTime()));
 
       if (recordings.length === 0) {
-        console.log('[Eudia AutoHeal] No recordings found to match against');
+        console.log('[Eudia AutoHeal] No recordings found in Recordings or _backups');
         return;
       }
 
@@ -4061,8 +4070,10 @@ created: ${dateStr}
 
       for (const { file, content } of failedNotes) {
         try {
-          // Skip if already being processed or if it has actual transcript content
-          if (content.includes('## Summary') || content.includes('## Next Steps\n-')) continue;
+          // Skip notes that already have complete transcripts — UNLESS the user
+          // explicitly added the failed marker to force re-processing
+          const hasExplicitFailMarker = content.includes('**Transcription failed:**');
+          if (!hasExplicitFailMarker && (content.includes('## Summary') || content.includes('## Next Steps\n-'))) continue;
 
           // Try to extract the "Started:" time from the processing indicator
           const startMatch = content.match(/Started:\s*(\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM)?)/i);
