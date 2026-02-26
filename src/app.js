@@ -1161,6 +1161,20 @@ read -p "  Press Enter to close..."
       res.send(content);
     });
 
+    // Windows update script — .bat file for PC users
+    this.expressApp.get('/api/plugin/update-script-win', (req, res) => {
+      let content;
+      try {
+        content = fs.readFileSync(path.resolve(__dirname, '..', 'public', 'downloads', 'Update-Eudia-Plugin.bat'), 'utf-8');
+      } catch {
+        content = '@echo off\r\necho Eudia Plugin Updater\r\necho Download failed - please try the ZIP option at gtm-wizard.onrender.com/update-plugin\r\npause\r\n';
+      }
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Update-Eudia-Plugin.bat"');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.send(content);
+    });
+
     // Plugin bundle ZIP — all 3 plugin files in a single ZIP download
     this.expressApp.get('/api/plugin/bundle.zip', async (req, res) => {
       try {
@@ -1364,13 +1378,20 @@ read -p "  Press Enter to close..."
         </div>
       </div>
 
-      <a href="/api/plugin/update-script" class="btn btn-primary" download="Update-Eudia-Plugin.command">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download Update Script
-      </a>
+      <div style="display:flex;gap:10px;margin-bottom:12px;">
+        <a href="/api/plugin/update-script" class="btn btn-primary" style="flex:1" download="Update-Eudia-Plugin.command">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Mac
+        </a>
+        <a href="/api/plugin/update-script-win" class="btn btn-primary" style="flex:1" download="Update-Eudia-Plugin.bat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Windows
+        </a>
+      </div>
 
       <div class="note">
-        <strong>First time running a .command file?</strong> If macOS says the file can't be opened, right-click it and choose "Open". You only need to do this once &mdash; all future updates happen automatically inside Obsidian.
+        <strong>Mac:</strong> Double-click the .command file. If macOS blocks it, right-click &gt; Open.<br>
+        <strong>Windows:</strong> Double-click the .bat file. If Windows shows a warning, click "Run anyway".
       </div>
     </div>
 
