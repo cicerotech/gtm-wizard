@@ -4752,14 +4752,14 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         const allAccountsResult = await sfConnection.query(allAccountsQuery);
         
-        // Determine which accounts have OPEN opportunities (active pipeline)
+        // Determine which accounts have OPEN opportunities owned by THIS user (their active pipeline)
         const accountIds = (allAccountsResult.records || []).map(a => a.Id);
         const oppAccountIds = new Set();
         if (accountIds.length > 0) {
           for (let i = 0; i < accountIds.length; i += 200) {
             const batch = accountIds.slice(i, i + 200);
             const idList = batch.map(id => `'${id}'`).join(',');
-            const oppQuery = `SELECT AccountId FROM Opportunity WHERE AccountId IN (${idList}) AND IsClosed = false GROUP BY AccountId`;
+            const oppQuery = `SELECT AccountId FROM Opportunity WHERE AccountId IN (${idList}) AND IsClosed = false AND OwnerId = '${userId}' GROUP BY AccountId`;
             const oppResult = await sfConnection.query(oppQuery);
             (oppResult.records || []).forEach(r => oppAccountIds.add(r.AccountId));
           }
