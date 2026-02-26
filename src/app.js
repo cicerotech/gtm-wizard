@@ -1331,78 +1331,106 @@ echo ""; echo "  Eudia Notetaker — Fresh Install"; echo "  ===================
 if pgrep -x "Obsidian" > /dev/null 2>&1; then
   echo "  Closing Obsidian..."
   osascript -e 'tell application "Obsidian" to quit' 2>/dev/null || pkill -x "Obsidian" 2>/dev/null
-  sleep 2
+  sleep 3
 fi
 
-# 2. Remove old vault folders
+# 2. Remove ALL old vault folders
 echo "  Removing old vaults..."
-for pattern in "Business-Lead-Vault*" "Business Lead Vault*" "Eudia-Sales-Vault*" "Eudia Sales Vault*" "Eudia-Notetaker*" "Eudia Notetaker*" "BL-Vault*"; do
+for pattern in "Business-Lead-Vault*" "Business Lead Vault*" "Eudia-Sales-Vault*" "Eudia Sales Vault*" "Eudia-Notetaker*" "Eudia Notetaker*" "BL-Vault*" "BL-Sales*"; do
   for d in "$HOME/Documents" "$HOME/Desktop" "$HOME/Downloads"; do
     find "$d" -maxdepth 2 -type d -name "$pattern" 2>/dev/null | while read -r V; do
-      echo "    Removed: $V"
+      echo "    Removed: \${V##$HOME/}"
       rm -rf "$V"
     done
   done
 done
+# Also remove old ZIP files
+find "$HOME/Downloads" "$HOME/Desktop" -maxdepth 1 -name "*Business-Lead*" -o -name "*Eudia-Notetaker*" -o -name "*Sales-Vault*" 2>/dev/null | while read -r F; do
+  rm -f "$F" 2>/dev/null
+done
 
-# 3. Clear Obsidian vault registry
+# 3. Clear Obsidian vault registry so it forgets old vaults
 OBS_CFG="$HOME/Library/Application Support/obsidian/obsidian.json"
 if [ -f "$OBS_CFG" ]; then
   echo "  Clearing Obsidian vault registry..."
   python3 -c "
-import json, sys
-try:
-    with open('$OBS_CFG','r') as f: cfg = json.load(f)
-    cfg['vaults'] = {}
-    with open('$OBS_CFG','w') as f: json.dump(cfg, f, indent=2)
-    print('    Registry cleared')
-except: print('    Could not clear registry (non-critical)')
-" 2>/dev/null || echo "    Registry clear skipped"
+import json
+p='$OBS_CFG'
+with open(p) as f: c=json.load(f)
+c['vaults']={}
+with open(p,'w') as f: json.dump(c,f)
+print('    Done')
+" 2>/dev/null || echo "    Skipped (non-critical)"
 fi
 
-# 4. Download fresh vault
-echo "  Downloading Eudia Notetaker..."
+# 4. Download and install fresh vault
 DEST="$HOME/Documents/Eudia Notetaker"
-curl -sL "$SERVER/vault/download" -o /tmp/eudia-notetaker.zip
-if [ ! -s /tmp/eudia-notetaker.zip ]; then
-  echo "  Download failed. Check your connection."; exit 1
+echo "  Downloading latest Eudia Notetaker..."
+curl -sL "$SERVER/vault/download" -o /tmp/eudia-dl.zip
+if [ ! -s /tmp/eudia-dl.zip ]; then
+  echo "  Download failed. Server may be waking up — try again in 30 seconds."; exit 1
 fi
 
-# 5. Unzip
+# Unzip directly to destination (ZIP contents are at root level, no wrapper folder)
+rm -rf "$DEST"
 mkdir -p "$DEST"
-cd /tmp && unzip -o eudia-notetaker.zip -d /tmp/eudia-unzip > /dev/null 2>&1
-# Move contents from whatever folder name is inside the ZIP
-INNER=$(find /tmp/eudia-unzip -maxdepth 1 -type d ! -name eudia-unzip | head -1)
-if [ -n "$INNER" ]; then
-  cp -R "$INNER"/* "$DEST/" 2>/dev/null
-  cp -R "$INNER"/.[!.]* "$DEST/" 2>/dev/null
-fi
-rm -rf /tmp/eudia-notetaker.zip /tmp/eudia-unzip
+unzip -o /tmp/eudia-dl.zip -d "$DEST" > /dev/null 2>&1
 
-# 6. Register vault in Obsidian
+# Verify critical files exist
+if [ ! -f "$DEST/.obsidian/plugins/eudia-transcription/main.js" ]; then
+  echo "  ERROR: Plugin files missing after extraction."
+  echo "  The ZIP may have a wrapper folder. Attempting fix..."
+  INNER=\$(find "$DEST" -maxdepth 2 -name "main.js" -path "*/eudia-transcription/*" 2>/dev/null | head -1)
+  if [ -n "\$INNER" ]; then
+    VAULT_ROOT=\$(echo "\$INNER" | sed 's|/.obsidian/plugins/eudia-transcription/main.js||')
+    if [ "\$VAULT_ROOT" != "$DEST" ] && [ -d "\$VAULT_ROOT" ]; then
+      cp -a "\$VAULT_ROOT"/. "$DEST/" 2>/dev/null
+      echo "  Fixed: moved contents from \$VAULT_ROOT"
+    fi
+  fi
+fi
+rm -f /tmp/eudia-dl.zip
+
+# Ensure community plugins are enabled (bypass Obsidian's safety prompt)
+echo '["eudia-transcription"]' > "$DEST/.obsidian/community-plugins.json"
+# Ensure plugin settings have setupCompleted=false to trigger wizard
+PDATA="$DEST/.obsidian/plugins/eudia-transcription/data.json"
+if [ -f "\$PDATA" ]; then
+  python3 -c "
+import json
+p='\$PDATA'
+with open(p) as f: d=json.load(f)
+d['setupCompleted']=False
+d['userEmail']=''
+d['accountsImported']=False
+d['prospectsMigrated']=False
+d['userRole']=''
+with open(p,'w') as f: json.dump(d,f)
+" 2>/dev/null
+fi
+
+# 5. Register vault in Obsidian config
 if [ -f "$OBS_CFG" ]; then
   python3 -c "
-import json, time, os
-cfg_path = os.path.expanduser('~/Library/Application Support/obsidian/obsidian.json')
-dest = os.path.expanduser('~/Documents/Eudia Notetaker')
-try:
-    with open(cfg_path,'r') as f: cfg = json.load(f)
-    vault_id = hex(int(time.time()*1000))[2:]
-    cfg['vaults'] = {vault_id: {'path': dest, 'ts': int(time.time()*1000), 'open': True}}
-    with open(cfg_path,'w') as f: json.dump(cfg, f, indent=2)
-    print('    Vault registered')
-except Exception as e: print(f'    Registration skipped: {e}')
+import json,time
+p='$OBS_CFG'
+d='$DEST'
+with open(p) as f: c=json.load(f)
+vid=hex(int(time.time()*1000))[2:]
+c['vaults']={vid:{'path':d,'ts':int(time.time()*1000),'open':True}}
+with open(p,'w') as f: json.dump(c,f)
+print('    Vault registered')
 " 2>/dev/null
 fi
 
 echo ""
-echo "  DONE — Eudia Notetaker installed to ~/Documents/Eudia Notetaker"
+echo "  DONE — Eudia Notetaker installed!"
+echo "  Location: ~/Documents/Eudia Notetaker"
 echo ""
-
-# 7. Open Obsidian
 echo "  Opening Obsidian..."
+sleep 1
 open -a "Obsidian" 2>/dev/null
-echo "  Enter your @eudia.com email in the setup wizard to get started."
+echo "  Enter your @eudia.com email to get started."
 echo ""
 `);
     });

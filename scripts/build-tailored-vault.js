@@ -330,6 +330,10 @@ function createObsidianConfig(destDir) {
   // Community plugins list
   const communityPlugins = ["eudia-transcription"];
   fs.writeFileSync(path.join(obsidianDir, 'community-plugins.json'), JSON.stringify(communityPlugins, null, 2));
+
+  // Mark community plugins as already approved (bypasses restricted mode prompt)
+  const migration = { "state": {}, "lastVersion": "1.8.0" };
+  fs.writeFileSync(path.join(obsidianDir, 'community-plugins-migration.json'), JSON.stringify(migration, null, 2));
   
   // Core plugins - explicitly disable daily-notes to remove duplicate calendar icon
   // Core plugins - minimal set for sales users
