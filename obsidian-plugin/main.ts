@@ -4164,11 +4164,11 @@ created: ${dateStr}
     const serverUrl = this.settings.serverUrl || 'https://gtm-wizard.onrender.com';
     const localVersion = this.manifest?.version || '0.0.0';
 
-    for (let attempt = 0; attempt <= EudiaPlugin.MAX_UPDATE_RETRIES; attempt++) {
+    for (let attempt = 0; attempt <= EudiaSyncPlugin.MAX_UPDATE_RETRIES; attempt++) {
       try {
         if (attempt > 0) {
-          const delay = EudiaPlugin.UPDATE_RETRY_DELAYS[attempt - 1] || 90000;
-          console.log(`[Eudia Update] Retry ${attempt}/${EudiaPlugin.MAX_UPDATE_RETRIES} in ${delay / 1000}s...`);
+          const delay = EudiaSyncPlugin.UPDATE_RETRY_DELAYS[attempt - 1] || 90000;
+          console.log(`[Eudia Update] Retry ${attempt}/${EudiaSyncPlugin.MAX_UPDATE_RETRIES} in ${delay / 1000}s...`);
           await new Promise(r => setTimeout(r, delay));
         }
 
@@ -4658,8 +4658,8 @@ created: ${dateStr}
     let processed = 0;
 
     for (const item of [...this.settings.healQueue]) {
-      const backoffIdx = Math.min(item.attemptCount - 1, EudiaPlugin.HEAL_BACKOFF_MS.length - 1);
-      const backoffMs = EudiaPlugin.HEAL_BACKOFF_MS[backoffIdx];
+      const backoffIdx = Math.min(item.attemptCount - 1, EudiaSyncPlugin.HEAL_BACKOFF_MS.length - 1);
+      const backoffMs = EudiaSyncPlugin.HEAL_BACKOFF_MS[backoffIdx];
       const lastAttemptMs = new Date(item.lastAttempt).getTime();
 
       if (now - lastAttemptMs < backoffMs) continue;

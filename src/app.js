@@ -1108,57 +1108,43 @@ class GTMBrainApp {
     });
 
     // Plugin telemetry — receives health data from plugin instances
+    // File operations are wrapped individually so latestVersion always reaches the client
     this.expressApp.post('/api/plugin/telemetry', express.json(), (req, res) => {
+      const data = req.body || {};
+      const userKey = data.email || data.userEmail || 'unknown';
+      logger.info(`[Plugin Telemetry] ${userKey} v${data.pluginVersion || '?'} | event:${data.event || 'health'} | platform:${data.platform}`);
+
       try {
-        const data = req.body;
-        logger.info(`[Plugin Telemetry] ${data.email || 'unknown'} v${data.pluginVersion || '?'} | accounts:${data.accountFolderCount || 0} | setup:${data.setupCompleted} | platform:${data.platform}`);
-        
-        // Store telemetry in file-based cache (append)
         const telemetryPath = path.join(__dirname, '..', 'data', 'plugin-telemetry.json');
         let telemetryData = [];
-        try {
-          telemetryData = JSON.parse(fs.readFileSync(telemetryPath, 'utf-8'));
-        } catch { /* file may not exist */ }
-        
-        // Keep last entry per user (overwrite, don't accumulate)
-        const existing = telemetryData.findIndex(t => t.email === data.email);
+        try { telemetryData = JSON.parse(fs.readFileSync(telemetryPath, 'utf-8')); } catch { }
+        const existing = telemetryData.findIndex(t => (t.email || t.userEmail) === userKey);
         if (existing >= 0) {
           telemetryData[existing] = { ...data, receivedAt: new Date().toISOString() };
         } else {
           telemetryData.push({ ...data, receivedAt: new Date().toISOString() });
         }
         fs.writeFileSync(telemetryPath, JSON.stringify(telemetryData, null, 2));
+      } catch (e) {
+        logger.warn('[Plugin Telemetry] File store failed (non-blocking):', e.message);
+      }
 
-        // Check if there's a remote command queued for this user
+      let userCommand = null;
+      try {
         const commandsPath = path.join(__dirname, '..', 'data', 'plugin-commands.json');
         let commands = {};
-        try {
-          commands = JSON.parse(fs.readFileSync(commandsPath, 'utf-8'));
-        } catch { /* file may not exist */ }
-
-        const userCommand = commands[data.email];
+        try { commands = JSON.parse(fs.readFileSync(commandsPath, 'utf-8')); } catch { }
+        userCommand = commands[userKey] || null;
         if (userCommand) {
-          delete commands[data.email];
+          delete commands[userKey];
           fs.writeFileSync(commandsPath, JSON.stringify(commands, null, 2));
         }
+      } catch { }
 
-        // Always include latest version so clients can self-update
-        let latestVersion = null;
-        try {
-          const manifestPath = path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json');
-          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-          latestVersion = manifest.version;
-        } catch {
-          latestVersion = '4.7.3';
-        }
-
-        const response = { success: true, latestVersion };
-        if (userCommand) response.command = userCommand;
-        res.json(response);
-      } catch (err) {
-        logger.error('[Plugin Telemetry] Failed:', err.message);
-        res.json({ success: false });
-      }
+      const latestVersion = _pluginManifestCache?.version || null;
+      const response = { success: true, latestVersion };
+      if (userCommand) response.command = userCommand;
+      res.json(response);
     });
 
     // Plugin state check — server-side state authority for a user
