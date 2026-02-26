@@ -1094,14 +1094,16 @@ class GTMBrainApp {
 
     // Plugin update script download — serves the .command file for macOS users
     this.expressApp.get('/api/plugin/update-script', (req, res) => {
-      const scriptPath = path.join(__dirname, '..', 'public', 'downloads', 'Update Eudia Plugin.command');
-      if (fs.existsSync(scriptPath)) {
+      const scriptPath = path.resolve(__dirname, '..', 'public', 'downloads', 'Update Eudia Plugin.command');
+      try {
+        const content = fs.readFileSync(scriptPath, 'utf-8');
         res.setHeader('Content-Type', 'application/octet-stream');
-        res.setHeader('Content-Disposition', 'attachment; filename="Update Eudia Plugin.command"');
+        res.setHeader('Content-Disposition', 'attachment; filename="Update-Eudia-Plugin.command"');
         res.setHeader('Cache-Control', 'no-cache');
-        res.sendFile(scriptPath);
-      } else {
-        res.status(404).json({ error: 'Update script not found' });
+        res.send(content);
+      } catch (err) {
+        logger.error('[Plugin Update Script] File read failed:', err.message);
+        res.status(404).send('Update script not found');
       }
     });
 
@@ -1134,7 +1136,7 @@ class GTMBrainApp {
       }
     });
 
-    // Plugin update page — user-facing web page with download options
+    // Plugin update page — user-facing web page matching GTM site design
     this.expressApp.get('/update-plugin', (req, res) => {
       const version = _pluginManifestCache?.version || 'latest';
       res.setHeader('Content-Type', 'text/html');
@@ -1143,65 +1145,195 @@ class GTMBrainApp {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Update Eudia Plugin</title>
+  <title>Update Plugin | Eudia</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fe; color: #1f2937; line-height: 1.6; padding: 40px 20px; }
-    .container { max-width: 600px; margin: 0 auto; }
-    .card { background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 24px; }
-    h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
-    .subtitle { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
-    .version-badge { display: inline-block; background: #8e99e1; color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-    .btn { display: block; width: 100%; padding: 16px; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; margin-bottom: 12px; transition: all 0.15s ease; }
-    .btn-primary { background: #8e99e1; color: #fff; }
-    .btn-primary:hover { background: #7a86d4; }
-    .btn-secondary { background: #fff; color: #1f2937; border: 1px solid #e5e7eb; }
-    .btn-secondary:hover { border-color: #8e99e1; color: #8e99e1; }
-    .steps { margin-top: 20px; }
-    .step { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
-    .step:last-child { border-bottom: none; }
-    .step-num { width: 28px; height: 28px; border-radius: 50%; background: #8e99e1; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
-    .step-text { font-size: 14px; padding-top: 3px; }
-    .step-text code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
-    .note { background: #f0fdf4; border-radius: 8px; padding: 16px; font-size: 13px; color: #166534; margin-top: 16px; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f7fe;
+      color: #1f2937;
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .container { max-width: 640px; margin: 0 auto; }
+
+    .header {
+      background: #fff;
+      padding: 24px;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .header img { max-width: 140px; margin-bottom: 16px; }
+    .header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
+    .header .subtitle { color: #6b7280; font-size: 0.9rem; }
+    .version-badge {
+      display: inline-block;
+      background: #8e99e1;
+      color: #fff;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-top: 12px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 20px 24px;
+      margin-bottom: 16px;
+      border-left: 4px solid #8e99e1;
+    }
+    .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 4px; }
+    .card .card-desc { font-size: 0.875rem; color: #6b7280; margin-bottom: 16px; }
+
+    .steps { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      font-size: 0.875rem;
+    }
+    .step-num {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: #8e99e1;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .step-text { padding-top: 4px; }
+    .step-text strong { color: #1f2937; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .btn-primary {
+      background: #8e99e1;
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: #7a86d4;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(142,153,225,0.3);
+    }
+
+    .note {
+      background: rgba(142,153,225,0.08);
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 0.85rem;
+      color: #4b5563;
+      margin-top: 16px;
+      line-height: 1.5;
+    }
+    .note strong { color: #1f2937; }
+
+    .alt-card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 20px 24px;
+      margin-bottom: 16px;
+      border-left: 4px solid #e5e7eb;
+    }
+    .alt-card h2 { font-size: 0.875rem; font-weight: 600; color: #6b7280; margin-bottom: 12px; }
+    .btn-secondary {
+      background: #fff;
+      color: #1f2937;
+      border: 1px solid #e5e7eb;
+      font-size: 0.875rem;
+      padding: 12px 20px;
+    }
+    .btn-secondary:hover {
+      border-color: #8e99e1;
+      color: #8e99e1;
+    }
+    .help-text { font-size: 0.8rem; color: #9ca3af; margin-top: 12px; line-height: 1.5; }
+
+    .footer {
+      text-align: center;
+      padding: 24px 0 8px;
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+    .footer a { color: #8e99e1; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="card">
+    <div class="header">
+      <img src="/logo" alt="Eudia" onerror="this.style.display='none'">
       <h1>Update Eudia Plugin</h1>
-      <p class="subtitle">Get the latest features, bug fixes, and improvements</p>
+      <p class="subtitle">Get the latest features and improvements for your vault</p>
       <span class="version-badge">v${version}</span>
-
-      <div style="margin-top: 24px;">
-        <a href="/api/plugin/update-script" class="btn btn-primary" download>Download Update Script (macOS)</a>
-        <a href="/api/plugin/bundle.zip" class="btn btn-secondary" download>Download Plugin Files (ZIP)</a>
-      </div>
-
-      <div class="note">
-        After updating, <strong>close Obsidian completely</strong> (Cmd+Q) and reopen it. Future updates will happen automatically.
-      </div>
     </div>
 
     <div class="card">
-      <h2 style="font-size: 16px; margin-bottom: 16px;">How to Use</h2>
+      <h2>One-Click Update</h2>
+      <p class="card-desc">Download and run the update script. It auto-finds your vault and installs the latest plugin.</p>
 
-      <h3 style="font-size: 14px; font-weight: 600; color: #6b7280; margin-bottom: 8px;">Option 1: Update Script (Easiest)</h3>
       <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-text">Download the update script above</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-text">Double-click <code>Update Eudia Plugin.command</code></div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-text">It will auto-find your vault and install the update</div></div>
-        <div class="step"><div class="step-num">4</div><div class="step-text">Close Obsidian (Cmd+Q) and reopen</div></div>
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text"><strong>Download</strong> the update script below</div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text"><strong>Double-click</strong> the downloaded file to run it</div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text"><strong>Reopen Obsidian</strong> (Cmd+Q, then reopen) &mdash; future updates are automatic</div>
+        </div>
       </div>
 
-      <h3 style="font-size: 14px; font-weight: 600; color: #6b7280; margin: 20px 0 8px;">Option 2: Manual Install</h3>
-      <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-text">Download the ZIP above and extract it</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-text">Open your vault folder in Finder</div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-text">Navigate to <code>.obsidian/plugins/eudia-transcription/</code></div></div>
-        <div class="step"><div class="step-num">4</div><div class="step-text">Replace <code>main.js</code>, <code>manifest.json</code>, and <code>styles.css</code></div></div>
-        <div class="step"><div class="step-num">5</div><div class="step-text">Close Obsidian (Cmd+Q) and reopen</div></div>
+      <a href="/api/plugin/update-script" class="btn btn-primary" download="Update-Eudia-Plugin.command">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Update Script
+      </a>
+
+      <div class="note">
+        <strong>First time running a .command file?</strong> If macOS says the file can't be opened, right-click it and choose "Open". You only need to do this once &mdash; all future updates happen automatically inside Obsidian.
       </div>
+    </div>
+
+    <div class="alt-card">
+      <h2>Alternative: Manual Update</h2>
+      <a href="/api/plugin/bundle.zip" class="btn btn-secondary" download="eudia-plugin-update.zip">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Plugin Files (ZIP)
+      </a>
+      <p class="help-text">
+        Extract the ZIP, then copy <strong>main.js</strong>, <strong>manifest.json</strong>, and <strong>styles.css</strong>
+        into your vault's <code>.obsidian/plugins/eudia-transcription/</code> folder. Restart Obsidian.
+      </p>
+    </div>
+
+    <div class="footer">
+      <a href="/gtm">Back to GTM Resources</a>
     </div>
   </div>
 </body>
