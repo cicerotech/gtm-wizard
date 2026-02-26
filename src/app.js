@@ -4741,64 +4741,66 @@ document.addEventListener('DOMContentLoaded', function() {
         const userId = user.Id;
         const userName = user.Name;
         
-        // BL accounts: two targeted queries instead of all 700+ Account Owner assignments
-        // Query 1: Accounts where this user has open pipeline (their active deals)
-        const pipelineQuery = `
+        // BL accounts: targeted queries for actual book of business
+        // 1. Accounts with user's open pipeline (active deals)
+        // 2. Accounts in user's Q1 target book (prospecting assignments)
+        // 3. Existing customers owned by user
+        const blPipelineQ = `
           SELECT Id, Name, Type, Customer_Type__c, Website, Industry
           FROM Account
           WHERE Id IN (
             SELECT AccountId FROM Opportunity
             WHERE OwnerId = '${userId}' AND IsClosed = false
           )
-          AND (NOT Name LIKE '%Sample%')
-          AND (NOT Name LIKE '%Test%')
-          ORDER BY Name ASC
-          LIMIT 200
+          AND (NOT Name LIKE '%Sample%') AND (NOT Name LIKE '%Test%')
+          ORDER BY Name ASC LIMIT 200
         `;
-        // Query 2: Existing customers owned by this user (managed accounts)
-        const existingQuery = `
+        const blTargetBookQ = `
+          SELECT Id, Name, Type, Customer_Type__c, Website, Industry
+          FROM Account
+          WHERE OwnerId = '${userId}'
+            AND Q1_Target_Book__c = true
+            AND (NOT Name LIKE '%Sample%') AND (NOT Name LIKE '%Test%')
+          ORDER BY Name ASC LIMIT 200
+        `;
+        const blExistingQ = `
           SELECT Id, Name, Type, Customer_Type__c, Website, Industry
           FROM Account
           WHERE OwnerId = '${userId}'
             AND Customer_Type__c = 'Existing'
-            AND (NOT Name LIKE '%Sample%')
-            AND (NOT Name LIKE '%Test%')
-          ORDER BY Name ASC
-          LIMIT 100
+            AND (NOT Name LIKE '%Sample%') AND (NOT Name LIKE '%Test%')
+          ORDER BY Name ASC LIMIT 100
         `;
-        const [pipelineResult, existingResult] = await Promise.all([
-          sfConnection.query(pipelineQuery),
-          sfConnection.query(existingQuery)
+        const [pipelineResult, targetBookResult, existingResult] = await Promise.all([
+          sfConnection.query(blPipelineQ),
+          sfConnection.query(blTargetBookQ).catch(() => ({ records: [] })),
+          sfConnection.query(blExistingQ)
         ]);
 
         const seen = new Set();
         const ownedAccounts = [];
         const ownedProspects = [];
-        // Pipeline accounts = active
+        const mapAccount = (acc, hadOpp) => ({
+          id: acc.Id, name: acc.Name,
+          type: acc.Customer_Type__c || acc.Type || 'Prospect',
+          isOwned: true, hadOpportunity: hadOpp,
+          website: acc.Website || null, industry: acc.Industry || null
+        });
         for (const acc of (pipelineResult.records || [])) {
-          if (seen.has(acc.Id)) continue;
-          seen.add(acc.Id);
-          ownedAccounts.push({
-            id: acc.Id, name: acc.Name,
-            type: acc.Customer_Type__c || acc.Type || 'Prospect',
-            isOwned: true, hadOpportunity: true,
-            website: acc.Website || null, industry: acc.Industry || null
-          });
+          if (seen.has(acc.Id)) continue; seen.add(acc.Id);
+          ownedAccounts.push(mapAccount(acc, true));
         }
-        // Existing customers not already in pipeline = prospects section
+        for (const acc of (targetBookResult.records || [])) {
+          if (seen.has(acc.Id)) continue; seen.add(acc.Id);
+          ownedProspects.push(mapAccount(acc, false));
+        }
         for (const acc of (existingResult.records || [])) {
-          if (seen.has(acc.Id)) continue;
-          seen.add(acc.Id);
-          ownedProspects.push({
-            id: acc.Id, name: acc.Name,
-            type: acc.Customer_Type__c || acc.Type || 'Existing',
-            isOwned: true, hadOpportunity: false,
-            website: acc.Website || null, industry: acc.Industry || null
-          });
+          if (seen.has(acc.Id)) continue; seen.add(acc.Id);
+          ownedProspects.push(mapAccount(acc, false));
         }
         ownedAccounts.sort((a, b) => a.name.localeCompare(b.name));
         ownedProspects.sort((a, b) => a.name.localeCompare(b.name));
-        logger.info(`[Ownership] BL ${userName}: ${ownedAccounts.length} pipeline + ${ownedProspects.length} existing = ${ownedAccounts.length + ownedProspects.length} total`);
+        logger.info(`[Ownership] BL ${userName}: ${ownedAccounts.length} pipeline + ${ownedProspects.length} target/existing = ${ownedAccounts.length + ownedProspects.length} total (of ${pipelineResult.totalSize || 0} pipeline, ${targetBookResult.totalSize || 0} target, ${existingResult.totalSize || 0} existing)`);
         
         // Determine if this user gets a pod-level (team) view:
         //   - Sales leaders see all their direct reports' accounts
