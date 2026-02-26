@@ -2170,14 +2170,16 @@
 
 /* ───────────────────────────────────────────────────────────────────────────
    File Explorer — Hide Utility Folders
-   Keep the sidebar clean: hide internal/system folders from BL users.
+   Hide backup/system folders. Keep _Analytics and _Customer Health visible.
    ─────────────────────────────────────────────────────────────────────────── */
 
-.nav-folder:has(> .nav-folder-title[data-path^="_"]) {
+.nav-folder:has(> .nav-folder-title[data-path="_Other_Accounts"]),
+.nav-folder:has(> .nav-folder-title[data-path="_Backups"]),
+.nav-folder:has(> .nav-folder-title[data-path="_backups"]),
+.nav-folder:has(> .nav-folder-title[data-path="_Prospects"]) {
   display: none !important;
 }
-.nav-folder:has(> .nav-folder-title[data-path="Recordings"]),
-.nav-folder:has(> .nav-folder-title[data-path="Next Steps"]) {
+.nav-folder:has(> .nav-folder-title[data-path="Recordings"]) {
   display: none !important;
 }
 
@@ -2231,4 +2233,20 @@
 .eudia-update-banner .eudia-banner-dismiss:hover {
   opacity: 1;
   background: transparent;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   File Explorer — Today's Notes Highlight
+   Notes created today get a subtle accent background for 24 hours.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.nav-file.is-flashing .nav-file-title {
+  background-color: rgba(142, 153, 225, 0.18) !important;
+  border-radius: 4px;
+  animation: eudia-note-flash 2s ease-out;
+}
+
+@keyframes eudia-note-flash {
+  0% { background-color: rgba(142, 153, 225, 0.4); }
+  100% { background-color: rgba(142, 153, 225, 0.18); }
 }

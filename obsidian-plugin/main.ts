@@ -1720,21 +1720,21 @@ class EudiaSetupView extends ItemView {
     const stepContent = stepEl.createDiv({ cls: 'eudia-setup-step-content' });
     
     if (hasRole) {
-      const labels: Record<string, string> = { sales: 'Sales / Business Development', cs: 'Customer Success', exec: 'Executive Leadership', product: 'Product', admin: 'Operations / Admin' };
+      const labels: Record<string, string> = { sales: 'Sales', cs: 'Customer Success', exec: 'Executive', product: 'Product', admin: 'Ops / Admin' };
       stepContent.createDiv({ cls: 'eudia-setup-complete-message', text: labels[this.plugin.settings.userRole] || this.plugin.settings.userRole });
     } else {
       const roleOptions = [
-        { value: 'sales', label: 'Sales / Business Development' },
+        { value: 'sales', label: 'Sales' },
         { value: 'cs', label: 'Customer Success' },
-        { value: 'exec', label: 'Executive Leadership' },
+        { value: 'exec', label: 'Executive' },
         { value: 'product', label: 'Product' },
-        { value: 'admin', label: 'Operations / Admin' }
+        { value: 'admin', label: 'Ops / Admin' }
       ];
       const roleGroup = stepContent.createDiv();
-      roleGroup.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;';
+      roleGroup.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;';
       for (const opt of roleOptions) {
         const btn = roleGroup.createEl('button', { text: opt.label, cls: 'eudia-setup-btn' });
-        btn.style.cssText = 'flex:1;min-width:140px;text-align:center;';
+        btn.style.cssText = 'flex:1;min-width:100px;text-align:center;font-size:13px;padding:8px 12px;';
         btn.onclick = async () => {
           this.plugin.settings.userRole = opt.value as any;
           await this.plugin.saveSettings();
@@ -2508,11 +2508,15 @@ class EudiaSetupView extends ItemView {
       });
       
       skipBtn.onclick = async () => {
-        // Mark as partially completed so we don't show again automatically
         this.plugin.settings.setupCompleted = true;
         await this.plugin.saveSettings();
         
         this.plugin.app.workspace.detachLeavesOfType(SETUP_VIEW_TYPE);
+        // Open quickstart guide instead of blank page
+        const quickstart = this.plugin.app.vault.getAbstractFileByPath('QUICKSTART.md');
+        if (quickstart instanceof TFile) {
+          await this.plugin.app.workspace.getLeaf().openFile(quickstart);
+        }
         new Notice('You can complete setup anytime from Settings → Eudia Sync');
       };
     }
@@ -3676,12 +3680,24 @@ Click the **microphone icon** in the sidebar or use \`Cmd/Ctrl+P\` → **"Transc
     try {
       const file = await this.app.vault.create(filePath, template);
       await this.app.workspace.getLeaf().openFile(file);
-      // Reveal in file explorer — auto-scroll and expand the matched account folder
+      // Expand left sidebar, switch to file explorer, reveal and scroll to the new note
       try {
+        const leftSplit = (this.app.workspace as any).leftSplit;
+        if (leftSplit?.collapsed) leftSplit.expand();
         const fileExplorer = (this.app as any).internalPlugins?.getPluginById?.('file-explorer')?.instance;
-        if (fileExplorer?.revealInFolder) fileExplorer.revealInFolder(file);
+        if (fileExplorer?.revealInFolder) {
+          fileExplorer.revealInFolder(file);
+          // Flash highlight the new file in the explorer
+          setTimeout(() => {
+            const navFile = document.querySelector(`.nav-file-title[data-path="${file.path.replace(/"/g, '\\"')}"]`);
+            if (navFile) {
+              navFile.addClass('is-flashing');
+              setTimeout(() => navFile.removeClass('is-flashing'), 3000);
+            }
+          }, 300);
+        }
       } catch { /* file explorer API may vary */ }
-      new Notice(`Created: ${filePath}`);
+      new Notice(`Note created under ${matchedAccountName || 'Accounts'}`);
     } catch (e) {
       console.error('[Eudia Calendar] Failed to create note:', e);
       new Notice(`Could not create note: ${e.message || 'Unknown error'}`);
@@ -8971,14 +8987,11 @@ To restore, move this folder back to the Accounts directory.
     const countEl = progressEl.querySelector('.enrich-count') as HTMLElement;
     const detailEl = progressEl.querySelector('.enrich-detail') as HTMLElement;
 
-    const batchSize = 20;
+    const batchSize = 10;
+    let processedSoFar = 0;
     for (let i = 0; i < accountsWithIds.length; i += batchSize) {
       const batch = accountsWithIds.slice(i, i + batchSize);
       const batchIds = batch.map(a => a.id);
-
-      if (detailEl && batch[0]) {
-        detailEl.textContent = `Loading ${batch.map(a => a.name).slice(0, 3).join(', ')}${batch.length > 3 ? '...' : ''}`;
-      }
 
       try {
         const response = await requestUrl({
@@ -8991,22 +9004,31 @@ To restore, move this folder back to the Accounts directory.
         if (response.json?.success && response.json?.enrichments) {
           for (const account of batch) {
             const data = response.json.enrichments[account.id];
+            processedSoFar++;
+            const pct = Math.round((processedSoFar / totalAccounts) * 100);
+            if (bar) bar.style.width = `${pct}%`;
+            if (countEl) countEl.textContent = `${pct}% — ${processedSoFar} of ${totalAccounts}`;
+            if (detailEl) detailEl.textContent = account.name;
             if (!data) continue;
             try {
               await this.writeEnrichmentToAccount(account, data, accountsFolder);
               enrichedCount++;
             } catch { errorCount++; }
           }
+        } else {
+          processedSoFar += batch.length;
         }
-      } catch { errorCount += batch.length; }
+      } catch {
+        errorCount += batch.length;
+        processedSoFar += batch.length;
+      }
 
-      const processed = Math.min(i + batchSize, totalAccounts);
-      const pct = Math.round((processed / totalAccounts) * 100);
+      const pct = Math.round((processedSoFar / totalAccounts) * 100);
       if (bar) bar.style.width = `${pct}%`;
-      if (countEl) countEl.textContent = `${processed} / ${totalAccounts} accounts`;
+      if (countEl) countEl.textContent = `${pct}% — ${processedSoFar} of ${totalAccounts}`;
 
       if (i + batchSize < accountsWithIds.length) {
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 50));
       }
     }
 
