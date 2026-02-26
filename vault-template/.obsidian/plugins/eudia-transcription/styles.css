@@ -2167,3 +2167,68 @@
   background-color: rgba(142, 153, 225, 0.08) !important;
   border-radius: 4px;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   File Explorer — Hide Utility Folders
+   Keep the sidebar clean: hide internal/system folders from BL users.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.nav-folder:has(> .nav-folder-title[data-path^="_"]) {
+  display: none !important;
+}
+.nav-folder:has(> .nav-folder-title[data-path="Recordings"]),
+.nav-folder:has(> .nav-folder-title[data-path="Next Steps"]) {
+  display: none !important;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Update Banner — Persistent notification when hot-reload fails
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.eudia-update-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--eudia-accent);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.eudia-update-banner button {
+  padding: 4px 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.eudia-update-banner button:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.eudia-update-banner .eudia-banner-dismiss {
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  padding: 2px 6px;
+  opacity: 0.7;
+}
+
+.eudia-update-banner .eudia-banner-dismiss:hover {
+  opacity: 1;
+  background: transparent;
+}

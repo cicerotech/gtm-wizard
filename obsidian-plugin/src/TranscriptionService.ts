@@ -1729,9 +1729,9 @@ Format your response as a brief, actionable answer suitable for quick reference 
     const blobSizeMB = audioBlob.size / 1024 / 1024;
     const mimeType = audioBlob.type || 'audio/webm';
 
-    // Large recordings (>15MB, roughly >20 min) use chunked transcription
-    // to avoid request timeouts and payload size limits
-    if (blobSizeMB > 15) {
+    // Large recordings (>8MB, roughly >10 min) use chunked transcription
+    // to avoid Render request timeouts and base64 payload inflation
+    if (blobSizeMB > 8) {
       console.log(`[Eudia] Large recording (${blobSizeMB.toFixed(1)}MB) — using chunked transcription`);
       return this.transcribeAudioChunked(audioBlob, mimeType, context);
     }
@@ -1774,7 +1774,7 @@ Format your response as a brief, actionable answer suitable for quick reference 
   }
 
   private static readonly CHUNK_MAX_RETRIES = 3;
-  private static readonly CHUNK_RETRY_DELAYS = [5000, 15000, 30000]; // 5s, 15s, 30s
+  private static readonly CHUNK_RETRY_DELAYS = [10000, 30000, 60000]; // 10s, 30s, 60s
 
   /**
    * Attempt a single chunk transcription with retry logic.
@@ -1794,12 +1794,17 @@ Format your response as a brief, actionable answer suitable for quick reference 
       }
 
       try {
-        const response = await requestUrl({
+        const CHUNK_TIMEOUT_MS = 90000;
+        const fetchPromise = requestUrl({
           url: `${this.serverUrl}/api/transcribe-chunk`,
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ audio: chunkBase64, mimeType })
         });
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Chunk request timed out after ${CHUNK_TIMEOUT_MS / 1000}s`)), CHUNK_TIMEOUT_MS)
+        );
+        const response = await Promise.race([fetchPromise, timeoutPromise]);
 
         const chunkText = response.json?.text || response.json?.transcript || '';
         if (response.json?.success && chunkText) {
@@ -1818,17 +1823,16 @@ Format your response as a brief, actionable answer suitable for quick reference 
   }
 
   /**
-   * Chunked transcription for large recordings (>15MB).
-   * Splits audio into ~8MB chunks, transcribes each via /api/transcribe-chunk
-   * with per-chunk retry (3 attempts, exponential backoff), inserts gap markers
-   * for unrecoverable chunks, then summarizes the combined transcript.
+   * Chunked transcription for large recordings (>8MB).
+   * Splits audio into ~4MB chunks (~4 min at 128kbps), transcribes each via
+   * /api/transcribe-chunk with per-chunk retry and 90s timeout per request.
    */
   private async transcribeAudioChunked(
     audioBlob: Blob,
     mimeType: string,
     context?: { accountName?: string; accountId?: string; speakerHints?: string[]; meetingType?: string; pipelineContext?: string; captureMode?: string; hasVirtualDevice?: boolean; meetingTemplate?: string }
   ): Promise<{ text: string; confidence: number; duration?: number; sections?: ProcessedSections; error?: string }> {
-    const CHUNK_SIZE = 8 * 1024 * 1024;
+    const CHUNK_SIZE = 4 * 1024 * 1024;
     const arrayBuffer = await audioBlob.arrayBuffer();
     const totalBytes = arrayBuffer.byteLength;
     const chunkCount = Math.ceil(totalBytes / CHUNK_SIZE);
