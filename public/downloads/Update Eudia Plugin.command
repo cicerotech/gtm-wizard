@@ -82,7 +82,7 @@ echo -e "${GREEN}   ✓ Found vault: ${VAULT_DIR##*/}${NC}"
 
 CURRENT_VERSION="unknown"
 if [ -f "$PLUGIN_DIR/manifest.json" ]; then
-    CURRENT_VERSION=$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/manifest.json'))['version'])" 2>/dev/null || echo "unknown")
+    CURRENT_VERSION=$(grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' "$PLUGIN_DIR/manifest.json" | head -1 | sed 's/.*"\([^"]*\)"$/\1/' 2>/dev/null || echo "unknown")
 fi
 echo -e "${BLUE}[2/4]${NC} Current version: v${CURRENT_VERSION}"
 
@@ -181,24 +181,9 @@ rm -f "$PLUGIN_DIR/main.js.bak" "$PLUGIN_DIR/styles.css.bak"
 
 # Fix vault appearance — ensure light theme with Eudia branding
 APPEARANCE_FILE="$VAULT_DIR/.obsidian/appearance.json"
-if [ -f "$APPEARANCE_FILE" ]; then
-    python3 -c "
-import json
-with open('$APPEARANCE_FILE', 'r') as f:
-    data = json.load(f)
-data['theme'] = 'moonstone'
-data['accentColor'] = '#8e99e1'
-data['cssTheme'] = ''
-with open('$APPEARANCE_FILE', 'w') as f:
-    json.dump(data, f, indent=2)
-print('   Fixed: light theme applied')
-" 2>/dev/null || echo "   (appearance fix skipped)"
-else
-    echo '{"accentColor":"#8e99e1","theme":"moonstone","cssTheme":""}' > "$APPEARANCE_FILE"
-    echo "   Created appearance.json (light theme)"
-fi
+echo '{"accentColor":"#8e99e1","theme":"moonstone","cssTheme":""}' > "$APPEARANCE_FILE"
 
-NEW_VERSION=$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/manifest.json'))['version'])" 2>/dev/null || echo "latest")
+NEW_VERSION=$(grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' "$PLUGIN_DIR/manifest.json" | head -1 | sed 's/.*"\([^"]*\)"$/\1/' 2>/dev/null || echo "latest")
 
 # Auto-close Obsidian
 if pgrep -x "Obsidian" > /dev/null 2>&1; then

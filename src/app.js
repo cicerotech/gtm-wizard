@@ -1138,19 +1138,16 @@ mv "$PD/manifest.json.new" "$PD/manifest.json"
 mv "$PD/styles.css.new" "$PD/styles.css"
 rm -f "$PD/main.js.bak"
 AF="$VD/.obsidian/appearance.json"
-python3 -c "
-import json
-try:
-  d=json.load(open('$AF'))
-except: d={}
-d['theme']='moonstone'; d['accentColor']='#8e99e1'; d['cssTheme']=''
-json.dump(d,open('$AF','w'),indent=2)
-" 2>/dev/null
-NV=$(python3 -c "import json; print(json.load(open('$PD/manifest.json'))['version'])" 2>/dev/null || echo "latest")
+echo '{"accentColor":"#8e99e1","theme":"moonstone","cssTheme":""}' > "$AF"
+NV=$(grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' "$PD/manifest.json" | head -1 | sed 's/.*"\\([^"]*\\)"$/\\1/')
 echo ""
-echo "  UPDATE COMPLETE (v$NV)"
-echo "  Close Obsidian (Cmd+Q) and reopen it."
-echo "  Future updates will happen automatically."
+echo "  DONE — Eudia Lite updated to v$NV"
+if pgrep -x "Obsidian" > /dev/null 2>&1; then
+  echo "  Closing Obsidian..."
+  osascript -e 'tell application "Obsidian" to quit' 2>/dev/null || pkill -x "Obsidian" 2>/dev/null
+  sleep 1
+fi
+echo "  Reopen Obsidian to use the updated plugin."
 echo ""
 read -p "  Press Enter to close..."
 `;
@@ -1207,14 +1204,8 @@ MS=$(wc -c < "$PD/main.js.new" 2>/dev/null | tr -d ' ')
 if [ "\${MS:-0}" -lt 10000 ]; then echo "  Download failed. Try again in a minute."; rm -f "$PD"/*.new; exit 1; fi
 mv "$PD/main.js.new" "$PD/main.js"; mv "$PD/manifest.json.new" "$PD/manifest.json"; mv "$PD/styles.css.new" "$PD/styles.css"
 AF="$VD/.obsidian/appearance.json"
-python3 -c "
-import json
-try: d=json.load(open('$AF'))
-except: d={}
-d['theme']='moonstone'; d['accentColor']='#8e99e1'; d['cssTheme']=''
-json.dump(d,open('$AF','w'),indent=2)
-" 2>/dev/null
-NV=$(python3 -c "import json; print(json.load(open('$PD/manifest.json'))['version'])" 2>/dev/null || echo "latest")
+echo '{"accentColor":"#8e99e1","theme":"moonstone","cssTheme":""}' > "$AF"
+NV=$(grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' "$PD/manifest.json" | head -1 | sed 's/.*"\\([^"]*\\)"$/\\1/')
 echo ""
 echo "  DONE — Eudia Lite updated to v$NV"
 # Auto-close Obsidian so user just reopens
