@@ -2037,6 +2037,138 @@ function copyCmd(os) {
       }
     });
 
+    // Admin endpoint: backfill Deal Codes for Closed Won opportunities
+    this.expressApp.post('/api/admin/backfill-deal-codes', requireAdmin, async (req, res) => {
+      try {
+        const months = parseInt(req.query.months) || 6;
+        const cutoffDate = new Date();
+        cutoffDate.setMonth(cutoffDate.getMonth() - months);
+        const cutoff = cutoffDate.toISOString().split('T')[0];
+
+        logger.info(`[DealCode Backfill] Starting for Won opps since ${cutoff}`);
+
+        const wonOpps = await sfConnection.query(`
+          SELECT Id, Name, AccountId, Account.Name, CloseDate, Renewal_Of_c__c, BOI_Deal_Code__c
+          FROM Opportunity
+          WHERE StageName = 'Stage 6. Closed(Won)'
+            AND BOI_Deal_Code__c = null
+            AND CloseDate >= ${cutoff}
+          ORDER BY CloseDate ASC
+        `);
+
+        if (!wonOpps.records || wonOpps.records.length === 0) {
+          return res.json({ success: true, message: 'No opportunities need deal codes', updated: 0 });
+        }
+
+        const derivePrefix = (name) => {
+          if (!name) return 'UNK';
+          let clean = name.replace(/\b(Inc\.?|LLC|Ltd\.?|Corp\.?|Corporation|Group|Holdings|PLC|S\.A\.?|AG|GmbH|Co\.?)\b/gi, '').trim();
+          let alpha = clean.replace(/[^a-zA-Z]/g, '');
+          if (alpha.length < 3) alpha = name.replace(/[^a-zA-Z]/g, '');
+          if (alpha.length < 3) return (alpha + 'XXX').substring(0, 3).toUpperCase();
+          return alpha.substring(0, 3).toUpperCase();
+        };
+
+        // Get existing code counts per prefix
+        const existingCodes = await sfConnection.query(`
+          SELECT BOI_Deal_Code__c FROM Opportunity
+          WHERE BOI_Deal_Code__c != null AND Renewal_Of_c__c = null
+        `);
+        const prefixCounters = {};
+        for (const r of (existingCodes.records || [])) {
+          const code = r.BOI_Deal_Code__c;
+          if (code && code.includes('-')) {
+            const prefix = code.split('-')[0];
+            const numStr = code.split('-')[1];
+            const num = parseInt(numStr);
+            if (!isNaN(num)) {
+              prefixCounters[prefix] = Math.max(prefixCounters[prefix] || 0, num);
+            }
+          }
+        }
+
+        const updates = [];
+        const assignedCodes = {};
+        const newDeals = wonOpps.records.filter(o => !o.Renewal_Of_c__c);
+        const renewals = wonOpps.records.filter(o => o.Renewal_Of_c__c);
+
+        // Pass 1: new deals
+        for (const opp of newDeals) {
+          const prefix = derivePrefix(opp.Account?.Name || opp.Name);
+          const nextNum = (prefixCounters[prefix] || 0) + 1;
+          prefixCounters[prefix] = nextNum;
+          const code = `${prefix}-${String(nextNum).padStart(3, '0')}`;
+          updates.push({ Id: opp.Id, BOI_Deal_Code__c: code });
+          assignedCodes[opp.Id] = code;
+        }
+
+        // Pass 2: renewals
+        if (renewals.length > 0) {
+          const parentIds = [...new Set(renewals.map(o => o.Renewal_Of_c__c))];
+          const parentIdStr = parentIds.map(id => `'${id}'`).join(',');
+          const parentResult = await sfConnection.query(
+            `SELECT Id, BOI_Deal_Code__c FROM Opportunity WHERE Id IN (${parentIdStr})`
+          );
+          const parentCodes = {};
+          for (const p of (parentResult.records || [])) {
+            if (p.BOI_Deal_Code__c) parentCodes[p.Id] = p.BOI_Deal_Code__c;
+          }
+          for (const id of parentIds) {
+            if (assignedCodes[id] && !parentCodes[id]) parentCodes[id] = assignedCodes[id];
+          }
+
+          const renewalCountResult = await sfConnection.query(
+            `SELECT Renewal_Of_c__c, COUNT(Id) cnt FROM Opportunity
+             WHERE Renewal_Of_c__c IN (${parentIdStr}) AND BOI_Deal_Code__c != null
+             GROUP BY Renewal_Of_c__c`
+          );
+          const renewalCounters = {};
+          for (const r of (renewalCountResult.records || [])) {
+            renewalCounters[r.Renewal_Of_c__c] = r.cnt;
+          }
+
+          for (const opp of renewals) {
+            let parentCode = parentCodes[opp.Renewal_Of_c__c];
+            if (!parentCode) {
+              const prefix = derivePrefix(opp.Account?.Name || opp.Name);
+              const nextNum = (prefixCounters[prefix] || 0) + 1;
+              prefixCounters[prefix] = nextNum;
+              parentCode = `${prefix}-${String(nextNum).padStart(3, '0')}`;
+              parentCodes[opp.Renewal_Of_c__c] = parentCode;
+            }
+            const count = (renewalCounters[opp.Renewal_Of_c__c] || 0) + 1;
+            renewalCounters[opp.Renewal_Of_c__c] = count;
+            const code = `${parentCode}-${String(count).padStart(2, '0')}`;
+            updates.push({ Id: opp.Id, BOI_Deal_Code__c: code });
+          }
+        }
+
+        // Execute updates in batches
+        let successCount = 0;
+        let errorCount = 0;
+        const batchSize = 200;
+        for (let i = 0; i < updates.length; i += batchSize) {
+          const batch = updates.slice(i, i + batchSize);
+          try {
+            const results = await sfConnection.sobject('Opportunity').update(batch);
+            for (const r of results) {
+              if (r.success) successCount++; else errorCount++;
+            }
+          } catch (batchErr) {
+            logger.error('[DealCode Backfill] Batch error:', batchErr.message);
+            errorCount += batch.length;
+          }
+        }
+
+        const summary = { success: true, total: updates.length, updated: successCount, errors: errorCount, months };
+        logger.info(`[DealCode Backfill] Complete: ${JSON.stringify(summary)}`);
+        res.json(summary);
+      } catch (error) {
+        logger.error('[DealCode Backfill] Failed:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // Admin endpoint: search transcript archive (recovery / debugging)
     this.expressApp.get('/api/admin/transcripts', requireAdmin, async (req, res) => {
       try {
