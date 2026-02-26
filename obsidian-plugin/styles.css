@@ -2140,11 +2140,11 @@
 }
 
 .side-dock-ribbon-action[aria-label="Ask GTM Brain"] {
-  background: rgba(16, 185, 129, 0.12);
+  background: rgba(142, 153, 225, 0.08);
   border-radius: 6px;
 }
 .side-dock-ribbon-action[aria-label="Ask GTM Brain"]:hover {
-  background: rgba(16, 185, 129, 0.22);
+  background: rgba(142, 153, 225, 0.18);
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
