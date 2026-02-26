@@ -1030,45 +1030,55 @@ class GTMBrainApp {
     // Plugin version check — returns current version for auto-update comparison
     // Format matches what the plugin expects: { success: true, currentVersion: "4.1.0" }
     this.expressApp.get('/api/plugin/version', (req, res) => {
-      try {
-        const pluginDir = path.join(__dirname, '..', 'obsidian-plugin');
-        const manifestPath = path.join(pluginDir, 'manifest.json');
+      // Try multiple path strategies to find the manifest
+      const candidates = [
+        path.join(__dirname, '..', 'obsidian-plugin', 'manifest.json'),
+        path.join(process.cwd(), 'obsidian-plugin', 'manifest.json'),
+        path.resolve('obsidian-plugin', 'manifest.json'),
+      ];
 
-        // Diagnostic: log the resolved path and whether the file exists
-        const manifestExists = fs.existsSync(manifestPath);
-        const dirContents = manifestExists ? 'exists' : fs.existsSync(pluginDir) ? `dir exists but no manifest (contents: ${fs.readdirSync(pluginDir).join(', ')})` : `dir missing (cwd: ${process.cwd()}, __dirname: ${__dirname})`;
-        logger.info(`[Plugin Version] manifestPath=${manifestPath}, exists=${manifestExists}, detail=${dirContents}`);
+      let manifest = null;
+      let resolvedPath = null;
 
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-
-        const response = {
-          success: true,
-          currentVersion: manifest.version,
-          version: manifest.version,
-          name: manifest.name,
-          forceUpdate: manifest.forceUpdate || false,
-        };
-
-        // Checksums are optional — version info is what matters for auto-update
+      for (const candidate of candidates) {
         try {
-          const crypto = require('crypto');
-          const mainJsContent = fs.readFileSync(path.join(pluginDir, 'main.js'));
-          const stylesContent = fs.readFileSync(path.join(pluginDir, 'styles.css'));
-          response.checksums = {
-            mainJs: crypto.createHash('sha256').update(mainJsContent).digest('hex'),
-            styles: crypto.createHash('sha256').update(stylesContent).digest('hex'),
-            manifest: crypto.createHash('sha256').update(fs.readFileSync(manifestPath)).digest('hex'),
-          };
-          response.buildHash = fs.statSync(path.join(pluginDir, 'main.js')).mtimeMs.toString(36);
-        } catch (checksumErr) {
-          logger.warn('[Plugin Version] Checksums unavailable:', checksumErr.message);
-        }
-
-        res.json(response);
-      } catch (err) {
-        logger.warn('[Plugin Version] Could not read manifest.json:', err.message);
-        res.json({ success: false, error: 'Plugin manifest not available on server' });
+          if (fs.existsSync(candidate)) {
+            manifest = JSON.parse(fs.readFileSync(candidate, 'utf-8'));
+            resolvedPath = candidate;
+            break;
+          }
+        } catch { /* try next */ }
       }
+
+      if (!manifest) {
+        logger.warn(`[Plugin Version] manifest.json not found at any path. __dirname=${__dirname}, cwd=${process.cwd()}, candidates=${candidates.join(', ')}`);
+        res.json({ success: false, error: 'Plugin manifest not found', debug: { __dirname, cwd: process.cwd() } });
+        return;
+      }
+
+      const response = {
+        success: true,
+        currentVersion: manifest.version,
+        version: manifest.version,
+        name: manifest.name,
+        forceUpdate: manifest.forceUpdate || false,
+      };
+
+      // Checksums are optional
+      try {
+        const crypto = require('crypto');
+        const pluginDir = path.dirname(resolvedPath);
+        const mainJsContent = fs.readFileSync(path.join(pluginDir, 'main.js'));
+        const stylesContent = fs.readFileSync(path.join(pluginDir, 'styles.css'));
+        response.checksums = {
+          mainJs: crypto.createHash('sha256').update(mainJsContent).digest('hex'),
+          styles: crypto.createHash('sha256').update(stylesContent).digest('hex'),
+        };
+      } catch (checksumErr) {
+        logger.warn('[Plugin Version] Checksums unavailable:', checksumErr.message);
+      }
+
+      res.json(response);
     });
 
     // Plugin file downloads — serves latest compiled plugin files
