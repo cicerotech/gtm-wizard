@@ -1282,7 +1282,7 @@ class SetupWizardModal extends Modal {
 
         // Synchronous enrichment — populate contacts, intelligence immediately
         try {
-          if (userGroup === 'cs') {
+          if (role === 'cs') {
             const serverResult = await ownershipService.getCSAccounts(userEmail);
             if (serverResult.accounts.length > 0) {
               await this.plugin.enrichAccountFolders(serverResult.accounts);
@@ -5954,6 +5954,24 @@ sync_to_salesforce: false
       }
     }
 
+    // Prune cachedAccounts to only include folders that exist in Accounts/ (not archived)
+    const acctDir = this.app.vault.getAbstractFileByPath(accountsFolder);
+    if (acctDir instanceof TFolder) {
+      const liveFolders = new Set(
+        acctDir.children
+          .filter((c): c is TFolder => c instanceof TFolder && !c.name.startsWith('_') && !c.name.startsWith('.'))
+          .map(c => c.name.toLowerCase())
+      );
+      const before = this.settings.cachedAccounts.length;
+      this.settings.cachedAccounts = this.settings.cachedAccounts.filter(a => {
+        const safeName = a.name.replace(/[<>:"/\\|?*]/g, '_').trim().toLowerCase();
+        return liveFolders.has(safeName);
+      });
+      if (before !== this.settings.cachedAccounts.length) {
+        console.log(`[Eudia Migration] Pruned cachedAccounts: ${before} → ${this.settings.cachedAccounts.length}`);
+      }
+    }
+
     this.settings.prospectsMigrated = true;
     await this.saveSettings();
     console.log('[Eudia Migration] Account structure migration complete');
@@ -8271,7 +8289,7 @@ ${transcriptBody}
           const removed = payload.removed?.length || 0;
           console.log(`[Eudia] Sync flag: resync_accounts (+${added} / -${removed})`);
         } else if (flag.flag === 'update_plugin') {
-          new Notice('A plugin update is available. Please download the latest vault.');
+          new Notice('A plugin update is available. Please visit gtm-wizard.onrender.com/fresh-install');
         } else if (flag.flag === 'reset_setup') {
           console.log('[Eudia] Sync flag: reset_setup received');
           this.settings.setupCompleted = false;

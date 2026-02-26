@@ -1319,6 +1319,157 @@ Write-Host ""
 `);
     });
 
+    // Fresh install script — nukes old vaults, clears Obsidian registry, downloads fresh vault
+    this.expressApp.get('/api/plugin/fresh-install.sh', (req, res) => {
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.send(`#!/bin/bash
+SERVER="https://gtm-wizard.onrender.com"
+echo ""; echo "  Eudia Notetaker — Fresh Install"; echo "  ================================"; echo ""
+
+# 1. Quit Obsidian
+if pgrep -x "Obsidian" > /dev/null 2>&1; then
+  echo "  Closing Obsidian..."
+  osascript -e 'tell application "Obsidian" to quit' 2>/dev/null || pkill -x "Obsidian" 2>/dev/null
+  sleep 2
+fi
+
+# 2. Remove old vault folders
+echo "  Removing old vaults..."
+for pattern in "Business-Lead-Vault*" "Business Lead Vault*" "Eudia-Sales-Vault*" "Eudia Sales Vault*" "Eudia-Notetaker*" "Eudia Notetaker*" "BL-Vault*"; do
+  for d in "$HOME/Documents" "$HOME/Desktop" "$HOME/Downloads"; do
+    find "$d" -maxdepth 2 -type d -name "$pattern" 2>/dev/null | while read -r V; do
+      echo "    Removed: $V"
+      rm -rf "$V"
+    done
+  done
+done
+
+# 3. Clear Obsidian vault registry
+OBS_CFG="$HOME/Library/Application Support/obsidian/obsidian.json"
+if [ -f "$OBS_CFG" ]; then
+  echo "  Clearing Obsidian vault registry..."
+  python3 -c "
+import json, sys
+try:
+    with open('$OBS_CFG','r') as f: cfg = json.load(f)
+    cfg['vaults'] = {}
+    with open('$OBS_CFG','w') as f: json.dump(cfg, f, indent=2)
+    print('    Registry cleared')
+except: print('    Could not clear registry (non-critical)')
+" 2>/dev/null || echo "    Registry clear skipped"
+fi
+
+# 4. Download fresh vault
+echo "  Downloading Eudia Notetaker..."
+DEST="$HOME/Documents/Eudia Notetaker"
+curl -sL "$SERVER/vault/download" -o /tmp/eudia-notetaker.zip
+if [ ! -s /tmp/eudia-notetaker.zip ]; then
+  echo "  Download failed. Check your connection."; exit 1
+fi
+
+# 5. Unzip
+mkdir -p "$DEST"
+cd /tmp && unzip -o eudia-notetaker.zip -d /tmp/eudia-unzip > /dev/null 2>&1
+# Move contents from whatever folder name is inside the ZIP
+INNER=$(find /tmp/eudia-unzip -maxdepth 1 -type d ! -name eudia-unzip | head -1)
+if [ -n "$INNER" ]; then
+  cp -R "$INNER"/* "$DEST/" 2>/dev/null
+  cp -R "$INNER"/.[!.]* "$DEST/" 2>/dev/null
+fi
+rm -rf /tmp/eudia-notetaker.zip /tmp/eudia-unzip
+
+# 6. Register vault in Obsidian
+if [ -f "$OBS_CFG" ]; then
+  python3 -c "
+import json, time, os
+cfg_path = os.path.expanduser('~/Library/Application Support/obsidian/obsidian.json')
+dest = os.path.expanduser('~/Documents/Eudia Notetaker')
+try:
+    with open(cfg_path,'r') as f: cfg = json.load(f)
+    vault_id = hex(int(time.time()*1000))[2:]
+    cfg['vaults'] = {vault_id: {'path': dest, 'ts': int(time.time()*1000), 'open': True}}
+    with open(cfg_path,'w') as f: json.dump(cfg, f, indent=2)
+    print('    Vault registered')
+except Exception as e: print(f'    Registration skipped: {e}')
+" 2>/dev/null
+fi
+
+echo ""
+echo "  DONE — Eudia Notetaker installed to ~/Documents/Eudia Notetaker"
+echo ""
+
+# 7. Open Obsidian
+echo "  Opening Obsidian..."
+open -a "Obsidian" 2>/dev/null
+echo "  Enter your @eudia.com email in the setup wizard to get started."
+echo ""
+`);
+    });
+
+    // Fresh install page — user-facing web page
+    this.expressApp.get('/fresh-install', (req, res) => {
+      const version = _pluginManifestCache?.version || 'latest';
+      res.setHeader('Content-Type', 'text/html');
+      res.send(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fresh Install | Eudia Notetaker</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fe; color: #1f2937; line-height: 1.6; min-height: 100vh; padding: 24px; }
+.container { max-width: 640px; margin: 0 auto; }
+.header { background: #fff; padding: 24px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 24px; text-align: center; }
+.header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
+.header .subtitle { color: #6b7280; font-size: 0.9rem; }
+.version-badge { display: inline-block; background: #8e99e1; color: #fff; padding: 4px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin-top: 12px; }
+.card { background: #fff; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px 24px; margin-bottom: 16px; border-left: 4px solid #8e99e1; }
+.card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 4px; }
+.card .card-desc { font-size: 0.875rem; color: #6b7280; margin-bottom: 16px; }
+.steps { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; }
+.step { display: flex; align-items: flex-start; gap: 14px; font-size: 0.875rem; }
+.step-num { width: 28px; height: 28px; border-radius: 50%; background: #8e99e1; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 600; flex-shrink: 0; }
+.cmd-box { background: #1e293b; color: #e2e8f0; border-radius: 8px; padding: 16px; font-family: 'SF Mono', 'Consolas', monospace; font-size: 0.75rem; line-height: 1.6; cursor: pointer; position: relative; margin: 16px 0; word-break: break-all; }
+.cmd-box:hover { background: #334155; }
+.cmd-box code { display: block; padding-right: 80px; }
+.copy-hint { position: absolute; top: 50%; right: 14px; transform: translateY(-50%); font-size: 0.7rem; color: #8e99e1; font-family: -apple-system, sans-serif; }
+.note { background: rgba(142,153,225,0.08); border-radius: 8px; padding: 16px; font-size: 0.85rem; color: #4b5563; margin-top: 16px; line-height: 1.5; }
+</style>
+<script>
+function copyCmd() {
+  var cmd = document.getElementById('cmd').textContent.trim();
+  navigator.clipboard.writeText(cmd).then(function() {
+    var hint = document.getElementById('hint');
+    hint.textContent = 'Copied!'; hint.style.color = '#10b981';
+    setTimeout(function() { hint.textContent = 'Click to copy'; hint.style.color = '#8e99e1'; }, 2000);
+  });
+}
+</script>
+</head><body>
+<div class="container">
+  <div class="header">
+    <h1>Eudia Notetaker — Fresh Install</h1>
+    <p class="subtitle">Clean install with latest plugin. Removes any old versions.</p>
+    <span class="version-badge">v${version}</span>
+  </div>
+  <div class="card">
+    <h2>One Command Setup</h2>
+    <p class="card-desc">This removes old vaults, downloads the latest Eudia Notetaker, and opens Obsidian ready to go.</p>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div>Open <strong>Terminal</strong> (Cmd+Space, type "Terminal", Enter)</div></div>
+      <div class="step"><div class="step-num">2</div><div><strong>Click the dark box</strong> below to copy</div></div>
+      <div class="step"><div class="step-num">3</div><div><strong>Paste</strong> (Cmd+V) and press <strong>Enter</strong></div></div>
+      <div class="step"><div class="step-num">4</div><div>Obsidian opens automatically — enter your <strong>@eudia.com email</strong></div></div>
+    </div>
+    <div class="cmd-box" onclick="copyCmd()">
+      <code id="cmd">curl -sL https://gtm-wizard.onrender.com/api/plugin/fresh-install.sh | bash</code>
+      <span class="copy-hint" id="hint">Click to copy</span>
+    </div>
+    <div class="note"><strong>What this does:</strong> Quits Obsidian, removes old vault folders (Business Lead Vault, Sales Vault, etc.), downloads a fresh Eudia Notetaker to ~/Documents, and reopens Obsidian. Your Salesforce data syncs on first setup.</div>
+  </div>
+</div>
+</body></html>`);
+    });
+
     // Plugin bundle ZIP — all 3 plugin files in a single ZIP download
     this.expressApp.get('/api/plugin/bundle.zip', async (req, res) => {
       try {
@@ -5645,7 +5796,7 @@ document.addEventListener('DOMContentLoaded', function() {
           const archive = archiver('zip', { zlib: { level: 9 } });
           archive.pipe(res);
           
-          const vaultName = 'Business Lead Vault 2026';
+          const vaultName = 'Eudia Notetaker';
           
           // ═══════════════════════════════════════════════════════════════════
           // Obsidian Configuration
@@ -5748,7 +5899,7 @@ document.addEventListener('DOMContentLoaded', function() {
           // ═══════════════════════════════════════════════════════════════════
           
           // QuickStart guide
-          const quickstartMd = `# Business Lead Vault 2026
+          const quickstartMd = `# Eudia Notetaker
 
 Welcome to your personal sales vault! This tool helps you:
 - **Transcribe meetings** with AI-powered accuracy
@@ -7298,10 +7449,8 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
     // Validate email for calendar access (Obsidian plugin setup)
     this.expressApp.get('/api/calendar/validate/:email', async (req, res) => {
       try {
-        const { BL_EMAILS } = require('./services/calendarService');
         const email = req.params.email.toLowerCase();
-        
-        const isAuthorized = BL_EMAILS.map(e => e.toLowerCase()).includes(email);
+        const isAuthorized = email.endsWith('@eudia.com');
         
         if (isAuthorized) {
           res.json({

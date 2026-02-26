@@ -76,7 +76,9 @@ const BL_EMAILS_PILOT = [
   'farah.haddad@eudia.com',
   // Admin
   'keigan.pesenti@eudia.com',
+  'michael.ayres@eudia.com',
   'michael.ayers@eudia.com',
+  'zack@eudia.com',
   'zach@eudia.com',
   // Other
   'michael.flynn@eudia.com',

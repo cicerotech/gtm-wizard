@@ -1092,7 +1092,8 @@ export class TranscriptionService {
         systemPrompt = buildAnalysisPrompt(accountName, context);
       }
       
-      const response = await requestUrl({
+      const TRANSCRIBE_TIMEOUT_MS = 120000;
+      const fetchPromise = requestUrl({
         url: `${this.serverUrl}/api/transcribe-and-summarize`,
         method: 'POST',
         headers: {
@@ -1116,6 +1117,10 @@ export class TranscriptionService {
           systemPrompt
         })
       });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Transcription timed out. Recording saved — retry via Cmd+P > Retry Transcription')), TRANSCRIBE_TIMEOUT_MS)
+      );
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
 
       if (!response.json.success) {
         return {
