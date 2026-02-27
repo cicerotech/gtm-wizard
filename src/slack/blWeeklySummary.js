@@ -1690,7 +1690,17 @@ function resolveProductLine(opp) {
 
 function formatProductLine(productLine) {
   if (!productLine) return 'N/A';
-  return productLine.replace(/_/g, '-');
+  return productLine
+    .replace(/_/g, '-')
+    .replace(/AI Platform - /g, 'AI Plat. ')
+    .replace(/AI Contracting - /g, 'AI Contract. ')
+    .replace(/AI Compliance - /g, 'AI Compliance ')
+    .replace(/ - Technology/g, ' Tech')
+    .replace(/ - Managed Services/g, ' MS')
+    .replace(/Contracting - Secondee/g, 'Secondee')
+    .replace(/Other - Managed Service/g, 'Other MS')
+    .replace(/Other - Secondee/g, 'Other Sec.')
+    .replace(/FDE - Custom AI Solution/g, 'FDE Custom');
 }
 
 // PDF Design constants - matches gtm-snapshot-fixed.html exactly
@@ -1975,7 +1985,8 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
           ? `$${(deal.acv / 1000000).toFixed(1)}m`
           : `$${(deal.acv / 1000).toFixed(0)}k`;
         const name = deal.accountName.length > 25 ? deal.accountName.substring(0, 25) + '...' : deal.accountName;
-        const hasNetDiff = deal.renewalNetChange != null && deal.renewalNetChange !== deal.acv;
+        const hasNetDiff = (deal.renewalNetChange != null && deal.renewalNetChange !== deal.acv) ||
+          (deal.salesType === 'Expansion' || deal.salesType === 'Renewal');
         const acvLabel = hasNetDiff ? `${dealValue}*` : dealValue;
         doc.font(fontRegular).fontSize(8).fillColor(BODY_TEXT);
         doc.text(`• ${acvLabel}, ${name}`, signedX + 4, y);
@@ -1984,9 +1995,9 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
         doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
         let subLine = `  ${formattedProductLine}`;
         if (hasNetDiff) {
-          const netAcv = deal.renewalNetChange;
+          const netAcv = deal.renewalNetChange || deal.acv;
           const netStr = netAcv >= 1000000 ? `$${(netAcv / 1000000).toFixed(1)}m` : `$${Math.round(netAcv / 1000)}k`;
-          subLine += `  (* ${netStr} net ACV)`;
+          subLine += `  (*${netStr} net)`;
         }
         doc.text(subLine, signedX + 12, y);
         y += 10;
@@ -2340,23 +2351,26 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       tableY += 14;
       
       const stageOrder = [...ACTIVE_STAGES].reverse();
-      stageOrder.forEach(stage => {
+      stageOrder.forEach((stage, i) => {
         const data = stageBreakdown[stage] || { count: 0, grossACV: 0 };
         const stageLabel = stage.replace('Stage ', 'S').replace(' - ', ' ');
-        doc.font(fontRegular).fontSize(10).fillColor(DARK_TEXT);
-        doc.text(stageLabel, LEFT, tableY);
-        doc.text(data.count.toString(), LEFT + 110, tableY, { width: 40, align: 'right' });
-        doc.text(formatCurrency(data.grossACV), LEFT + 155, tableY, { width: 60, align: 'right' });
+        const rowBg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
+        doc.rect(LEFT, tableY, halfWidth, 13).fill(rowBg);
+        doc.font(fontRegular).fontSize(8.5).fillColor(DARK_TEXT);
+        doc.text(stageLabel, LEFT + 6, tableY + 2.5);
+        doc.text(data.count.toString(), LEFT + 110, tableY + 2.5, { width: 40, align: 'right' });
+        doc.text(formatCurrency(data.grossACV), LEFT + 155, tableY + 2.5, { width: 60, align: 'right' });
         
         const prevData = prevStageBreakdown[stage] || { grossACV: 0 };
         const prevACV = prevData.grossACV || 0;
         if (prevACV > 0) {
           const pctChange = Math.round(((data.grossACV - prevACV) / prevACV) * 100);
           const sign = pctChange > 0 ? '+' : '';
-          doc.font(fontItalic).fontSize(7.5).fillColor('#9ca3af');
-          doc.text(`${sign}${pctChange}%`, LEFT + 218, tableY + 1, { width: 40, align: 'center' });
+          const wowColor = pctChange > 0 ? '#10b981' : '#9ca3af';
+          doc.font(fontItalic).fontSize(7).fillColor(wowColor);
+          doc.text(`${sign}${pctChange}%`, LEFT + 218, tableY + 3, { width: 40, align: 'center' });
         }
-        tableY += 11;
+        tableY += 13;
       });
       
       // RIGHT: Targeting This Month box (moved up, replacing Late Stage section)
@@ -2446,19 +2460,20 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         doc.text('Commit*', startX + 160, headerY + 3, { width: 40, align: 'right' });
         
         let rowY = headerY + 15;
-        doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);  // Increased from 8 to 9 for better readability
-        activeBLs.forEach(bl => {
+        activeBLs.forEach((bl, i) => {
           const m = blMetrics[bl];
           const displayName = bl.split(' ')[0];
-          // Use LIVE AI-enabled commit data, fallback to hardcoded snapshot
           const liveBLCommits = revOpsData?.aiEnabledForecast?.blCommits || {};
           const commitValue = liveBLCommits[bl] || BL_COMMIT_SNAPSHOT[bl] || 0;
-          doc.text(displayName, startX, rowY);
+          const rowBg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
+          doc.rect(startX, rowY - 1, colWidth - 10, 12).fill(rowBg);
+          doc.font(fontRegular).fontSize(8.5).fillColor(DARK_TEXT);
+          doc.text(displayName, startX + 4, rowY);
           doc.text(m.accounts.toString(), startX + 50, rowY, { width: 25, align: 'right' });
           doc.text(m.opportunities.toString(), startX + 80, rowY, { width: 25, align: 'right' });
           doc.text(formatCurrency(m.grossACV), startX + 110, rowY, { width: 45, align: 'right' });
           doc.text(formatCurrency(commitValue), startX + 160, rowY, { width: 40, align: 'right' });
-          rowY += 11;  // Increased from 10 to 11 for larger font
+          rowY += 12;
         });
         
         return rowY;
@@ -2524,16 +2539,21 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
           doc.text(bl.name, startX, dealY);
           dealY += 10;
           
-          // Deals - reduced font size (7pt) to prevent text overflow
-          doc.font(fontRegular).fontSize(7).fillColor(DARK_TEXT);
+          doc.font(fontRegular).fontSize(7.5).fillColor(DARK_TEXT);
           bl.deals.forEach(deal => {
-            // Truncate account names at 18 chars to prevent overflow
-            const name = deal.accountName.length > 18 ? deal.accountName.substring(0, 18) + '...' : deal.accountName;
+            const name = deal.accountName.length > 20 ? deal.accountName.substring(0, 18) + '...' : deal.accountName;
             doc.text(`${name} • ${formatCurrency(deal.acv)} • ${formatDate(deal.targetDate)}`, startX, dealY);
             dealY += 9;
+            const pl = formatProductLine(deal.productLine || '');
+            if (pl && pl !== 'N/A') {
+              doc.font(fontRegular).fontSize(6).fillColor('#9ca3af');
+              doc.text(pl, startX + 6, dealY);
+              doc.font(fontRegular).fontSize(7.5).fillColor(DARK_TEXT);
+              dealY += 7;
+            }
           });
           
-          dealY += 6;  // Gap between BLs
+          dealY += 4;
         });
         
         return dealY;
@@ -2544,12 +2564,6 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       const rightEndY = drawDealsColumn(rightBLs, RIGHT_COL, dealsStartY, halfWidth);
       
       y = Math.max(leftEndY, rightEndY);
-      
-      // ═══════════════════════════════════════════════════════════════════════
-      // Minimal footer — single line, no separator
-      const footerY = Math.min(y + 4, 762);
-      doc.font(fontRegular).fontSize(5.5).fillColor('#c0c0c0');
-      doc.text('Generated by Eudia GTM Brain  •  Internal use only', LEFT, footerY, { width: PAGE_WIDTH, align: 'center', lineBreak: false });
       
       doc.end();
       
