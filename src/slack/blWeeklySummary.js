@@ -837,6 +837,51 @@ async function querySignedRevenueQTD() {
 }
 
 /**
+ * Query Q1 Closed Won grouped by Business Lead (Owner).
+ * Returns array of { name, totalACV, dealCount } sorted by ACV descending.
+ */
+async function queryClosedWonByBL() {
+  try {
+    const now = new Date();
+    const month = now.getMonth();
+    let fiscalQStart;
+    if (month >= 1 && month <= 3) {
+      fiscalQStart = new Date(now.getFullYear(), 1, 1);
+    } else if (month >= 4 && month <= 6) {
+      fiscalQStart = new Date(now.getFullYear(), 4, 1);
+    } else if (month >= 7 && month <= 9) {
+      fiscalQStart = new Date(now.getFullYear(), 7, 1);
+    } else {
+      fiscalQStart = month === 0
+        ? new Date(now.getFullYear() - 1, 10, 1)
+        : new Date(now.getFullYear(), 10, 1);
+    }
+    const fiscalQStartStr = fiscalQStart.toISOString().split('T')[0];
+
+    const soql = `
+      SELECT Owner.Name ownerName, SUM(ACV__c) totalACV, COUNT(Id) dealCount
+      FROM Opportunity
+      WHERE StageName IN (${CLOSED_WON_IN_CLAUSE})
+        AND CloseDate >= ${fiscalQStartStr}
+        AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot')
+      GROUP BY Owner.Name
+      ORDER BY SUM(ACV__c) DESC
+    `;
+    const result = await query(soql, true);
+    if (!result || !result.records) return [];
+
+    return result.records.map(r => ({
+      name: r.ownerName || 'Unknown',
+      totalACV: r.totalACV || 0,
+      dealCount: r.dealCount || 0
+    }));
+  } catch (error) {
+    logger.error('Failed to query Closed Won by BL:', error);
+    return [];
+  }
+}
+
+/**
  * Query signed revenue in last 7 days with individual deal details
  * Returns deals array and breakdown by revenue type for PDF rendering
  * Only includes Recurring, Project, and Pilot deals
@@ -1663,7 +1708,8 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
     pipelineBySalesType,
     aiEnabledForecast,
     liveSolutionData,
-    productLineData
+    productLineData,
+    closedWonByBL
   } = revOpsData;
   
   const af = aiEnabledForecast || {};
@@ -1998,6 +2044,53 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
   y += 17;
   
   // ═══════════════════════════════════════════════════════════════════════════
+  // Q1 FY 2026 CLOSED WON BY BUSINESS LEAD
+  // ═══════════════════════════════════════════════════════════════════════════
+  const cwBL = closedWonByBL || [];
+  if (cwBL.length > 0) {
+    y += SECTION_GAP;
+    doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
+    doc.text('Q1 FY 2026 CLOSED WON BY BUSINESS LEAD', LEFT, y);
+    y += 16;
+
+    const cwTableWidth = PAGE_WIDTH;
+    doc.rect(LEFT, y, cwTableWidth, 17).fill('#1f2937');
+    doc.font(fontBold).fontSize(8.5).fillColor('#ffffff');
+    doc.text('Business Lead', LEFT + 8, y + 4, { width: 200, lineBreak: false });
+    doc.text('Net ACV', LEFT + 220, y + 4, { width: 120, align: 'center', lineBreak: false });
+    doc.text('Deals', LEFT + 380, y + 4, { width: 80, align: 'center', lineBreak: false });
+    y += 17;
+
+    doc.font(fontRegular).fontSize(8.5).fillColor(DARK_TEXT);
+    const cwTotalACV = cwBL.reduce((s, r) => s + r.totalACV, 0);
+    const cwTotalDeals = cwBL.reduce((s, r) => s + r.dealCount, 0);
+
+    cwBL.forEach((row, i) => {
+      if (y + 15 > 740) return;
+      const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
+      doc.rect(LEFT, y, cwTableWidth, 15).fill(bg);
+      doc.fillColor(DARK_TEXT);
+      doc.text(row.name, LEFT + 8, y + 3, { width: 200, lineBreak: false });
+      const acvStr = row.totalACV >= 1000000
+        ? `$${(row.totalACV / 1000000).toFixed(1)}m`
+        : `$${Math.round(row.totalACV / 1000)}k`;
+      doc.text(acvStr, LEFT + 220, y + 3, { width: 120, align: 'center', lineBreak: false });
+      doc.text(row.dealCount.toString(), LEFT + 380, y + 3, { width: 80, align: 'center', lineBreak: false });
+      y += 15;
+    });
+
+    doc.rect(LEFT, y, cwTableWidth, 17).fill('#e5e7eb');
+    doc.font(fontBold).fontSize(8.5).fillColor(DARK_TEXT);
+    doc.text('Total', LEFT + 8, y + 4, { width: 200, lineBreak: false });
+    const cwTotalStr = cwTotalACV >= 1000000
+      ? `$${(cwTotalACV / 1000000).toFixed(1)}m`
+      : `$${Math.round(cwTotalACV / 1000)}k`;
+    doc.text(cwTotalStr, LEFT + 220, y + 4, { width: 120, align: 'center', lineBreak: false });
+    doc.text(cwTotalDeals.toString(), LEFT + 380, y + 4, { width: 80, align: 'center', lineBreak: false });
+    y += 17;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // Q1 PIPELINE BY PRODUCT LINE (live SOQL)
   // ═══════════════════════════════════════════════════════════════════════════
   y += SECTION_GAP;
@@ -2013,6 +2106,9 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
   const maxRows = Math.max(3, Math.min(8, Math.floor(spaceLeft / ROW_H)));
   
   const plAllRows = (productLineData && productLineData.length > 0) ? productLineData : [];
+  if (!plAllRows.length) {
+    logger.warn('[Snapshot] productLineData is empty — Product Line table will be blank. Check queryPipelineByProductLine() logs.');
+  }
   const plRows = plAllRows.slice(0, maxRows);
   
   // Header row — 3 columns: Product Line, Pipeline (%), Late Stage
@@ -2838,7 +2934,8 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
       pipelineBySalesType,
       aiEnabledForecast,
       liveSolutionData,
-      productLineData
+      productLineData,
+      closedWonByBL
     ] = await Promise.all([
       queryJanuaryClosedWonNewBusiness(),
       queryQ4WeightedPipeline(),
@@ -2849,7 +2946,8 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
       queryPipelineBySalesType(),
       queryAIEnabledForecast(),
       queryPipelineBySolution(),
-      queryPipelineByProductLine()
+      queryPipelineByProductLine(),
+      queryClosedWonByBL()
     ]);
     
     // Assemble RevOps data for Page 1
@@ -2863,7 +2961,8 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
       pipelineBySalesType,
       aiEnabledForecast,
       liveSolutionData,
-      productLineData
+      productLineData,
+      closedWonByBL
     };
     
     logger.info('Page 1 RevOps data queried successfully');
@@ -2874,7 +2973,7 @@ async function sendBLWeeklySummary(app, testMode = false, targetChannel = null) 
     // Added 2026-02-20: Donald $25k Contracting MS (Project) — owner: Olivia Jung
     // ═══════════════════════════════════════════════════════════════════════════
     const manualDeals = [
-      { accountName: 'Donald', acv: 25000, revenueType: 'Project', productLine: 'AI Contracting - Managed Services', ownerName: 'Olivia Jung', salesType: 'New business' }
+      // Cleared 2026-02-27: Donald deals now recorded as Closed Won in Salesforce
     ];
     for (const deal of manualDeals) {
       signedQTD.totalACV += deal.acv;
