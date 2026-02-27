@@ -1799,7 +1799,7 @@ Format your response as a brief, actionable answer suitable for quick reference 
       }
 
       try {
-        const CHUNK_TIMEOUT_MS = 90000;
+        const CHUNK_TIMEOUT_MS = 180000;
         const fetchPromise = requestUrl({
           url: `${this.serverUrl}/api/transcribe-chunk`,
           method: 'POST',
@@ -1842,45 +1842,73 @@ Format your response as a brief, actionable answer suitable for quick reference 
     const totalBytes = arrayBuffer.byteLength;
     const chunkCount = Math.ceil(totalBytes / CHUNK_SIZE);
 
-    console.log(`[Eudia] Chunked transcription: ${(totalBytes / 1024 / 1024).toFixed(1)}MB → ${chunkCount} chunks`);
+    const PARALLEL_BATCH_SIZE = 3;
+    console.log(`[Eudia] Chunked transcription: ${(totalBytes / 1024 / 1024).toFixed(1)}MB → ${chunkCount} chunks (batches of ${PARALLEL_BATCH_SIZE})`);
 
     // Estimate duration per chunk for gap markers (128kbps = 16KB/s)
     const estBytesPerSecond = 16 * 1024;
     const estTotalDurationSec = totalBytes / estBytesPerSecond;
 
-    // Ordered results: text for success, gap marker for failure
-    const orderedSegments: string[] = [];
+    // Pre-allocate ordered results array so parallel results land at correct index
+    const orderedSegments: string[] = new Array(chunkCount);
     let totalDuration = 0;
     let failedChunks = 0;
 
-    for (let i = 0; i < chunkCount; i++) {
-      const start = i * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, totalBytes);
-      const chunkBuffer = arrayBuffer.slice(start, end);
-      const chunkBlob = new Blob([chunkBuffer], { type: mimeType });
+    for (let batchStart = 0; batchStart < chunkCount; batchStart += PARALLEL_BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + PARALLEL_BATCH_SIZE, chunkCount);
+      console.log(`[Eudia] Processing batch ${Math.floor(batchStart / PARALLEL_BATCH_SIZE) + 1}/${Math.ceil(chunkCount / PARALLEL_BATCH_SIZE)} (chunks ${batchStart + 1}-${batchEnd})`);
 
-      console.log(`[Eudia] Transcribing chunk ${i + 1}/${chunkCount} (${((end - start) / 1024 / 1024).toFixed(1)}MB)`);
+      const batchPromises: Promise<{ index: number; result: { text: string; duration: number } | null }>[] = [];
 
-      const chunkBase64 = await this.blobToBase64(chunkBlob);
-      const result = await this.transcribeChunkWithRetry(chunkBase64, mimeType, i, chunkCount);
+      for (let i = batchStart; i < batchEnd; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, totalBytes);
+        const chunkBuffer = arrayBuffer.slice(start, end);
+        const chunkBlob = new Blob([chunkBuffer], { type: mimeType });
 
-      if (result) {
-        orderedSegments.push(result.text);
-        totalDuration += result.duration;
-        console.log(`[Eudia] Chunk ${i + 1}/${chunkCount} OK: ${result.text.length} chars`);
-      } else {
-        failedChunks++;
-        const gapStartSec = Math.round((start / totalBytes) * estTotalDurationSec);
-        const gapEndSec = Math.round((end / totalBytes) * estTotalDurationSec);
-        const fmtStart = `${Math.floor(gapStartSec / 60)}:${(gapStartSec % 60).toString().padStart(2, '0')}`;
-        const fmtEnd = `${Math.floor(gapEndSec / 60)}:${(gapEndSec % 60).toString().padStart(2, '0')}`;
-        const gapMarker = `\n\n[~${fmtStart} – ${fmtEnd} — audio not transcribed (chunk ${i + 1}/${chunkCount} failed after ${TranscriptionService.CHUNK_MAX_RETRIES + 1} attempts)]\n\n`;
-        orderedSegments.push(gapMarker);
-        console.error(`[Eudia] Chunk ${i + 1}/${chunkCount} permanently failed — gap marker inserted`);
+        console.log(`[Eudia] Queuing chunk ${i + 1}/${chunkCount} (${((end - start) / 1024 / 1024).toFixed(1)}MB)`);
+
+        batchPromises.push((async () => {
+          try {
+            const chunkBase64 = await this.blobToBase64(chunkBlob);
+            const result = await this.transcribeChunkWithRetry(chunkBase64, mimeType, i, chunkCount);
+            return { index: i, result };
+          } catch (err: any) {
+            console.error(`[Eudia] Chunk ${i + 1}/${chunkCount} unexpected error: ${err.message}`);
+            return { index: i, result: null };
+          }
+        })());
+      }
+
+      const batchResults = await Promise.allSettled(batchPromises);
+
+      for (const settled of batchResults) {
+        if (settled.status === 'fulfilled') {
+          const { index, result } = settled.value;
+          if (result) {
+            orderedSegments[index] = result.text;
+            totalDuration += result.duration;
+            console.log(`[Eudia] Chunk ${index + 1}/${chunkCount} OK: ${result.text.length} chars`);
+          } else {
+            failedChunks++;
+            const chunkStart = index * CHUNK_SIZE;
+            const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, totalBytes);
+            const gapStartSec = Math.round((chunkStart / totalBytes) * estTotalDurationSec);
+            const gapEndSec = Math.round((chunkEnd / totalBytes) * estTotalDurationSec);
+            const fmtStart = `${Math.floor(gapStartSec / 60)}:${(gapStartSec % 60).toString().padStart(2, '0')}`;
+            const fmtEnd = `${Math.floor(gapEndSec / 60)}:${(gapEndSec % 60).toString().padStart(2, '0')}`;
+            orderedSegments[index] = `\n\n[~${fmtStart} – ${fmtEnd} — audio not transcribed (chunk ${index + 1}/${chunkCount} failed after ${TranscriptionService.CHUNK_MAX_RETRIES + 1} attempts)]\n\n`;
+            console.error(`[Eudia] Chunk ${index + 1}/${chunkCount} permanently failed — gap marker inserted`);
+          }
+        } else {
+          failedChunks++;
+          console.error(`[Eudia] Chunk in batch rejected: ${settled.reason}`);
+        }
       }
     }
 
-    const successfulSegments = orderedSegments.filter(s => !s.includes('— audio not transcribed'));
+    const filledSegments = orderedSegments.filter((s): s is string => s != null);
+    const successfulSegments = filledSegments.filter(s => !s.includes('— audio not transcribed'));
     if (successfulSegments.length === 0) {
       return {
         text: '',
@@ -1895,7 +1923,7 @@ Format your response as a brief, actionable answer suitable for quick reference 
       console.warn(`[Eudia] ${failedChunks}/${chunkCount} chunks failed after retries — partial transcript with gap markers`);
     }
 
-    const combinedTranscript = orderedSegments.join('\n\n');
+    const combinedTranscript = filledSegments.join('\n\n');
     console.log(`[Eudia] Combined transcript: ${combinedTranscript.length} chars from ${chunkCount} chunks (${failedChunks} gaps)`);
 
     try {

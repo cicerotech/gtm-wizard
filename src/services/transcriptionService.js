@@ -428,15 +428,27 @@ class TranscriptionService {
       const whisperPrompt = buildWhisperPrompt(context);
       logger.info(`[Transcription] Using custom prompt (${whisperPrompt.length} chars)`);
 
-      // Use queue to limit concurrency
+      // Use queue to limit concurrency, with 120s timeout on the Whisper API call
       const transcription = await this.queue.enqueue(async () => {
-        return this.openai.audio.transcriptions.create({
-          file: fs.createReadStream(tempFilePath),
-          model: 'whisper-1',
-          response_format: 'verbose_json',
-          language: 'en',
-          prompt: whisperPrompt
-        });
+        const controller = new AbortController();
+        const apiTimeout = setTimeout(() => controller.abort(), 120000);
+        try {
+          const result = await this.openai.audio.transcriptions.create({
+            file: fs.createReadStream(tempFilePath),
+            model: 'whisper-1',
+            response_format: 'verbose_json',
+            language: 'en',
+            prompt: whisperPrompt
+          }, { signal: controller.signal });
+          clearTimeout(apiTimeout);
+          return result;
+        } catch (error) {
+          clearTimeout(apiTimeout);
+          if (error.name === 'AbortError') {
+            throw new Error('Whisper API timed out after 120s');
+          }
+          throw error;
+        }
       });
 
       // Clean up temp file
