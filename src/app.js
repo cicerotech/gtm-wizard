@@ -1319,6 +1319,142 @@ Write-Host ""
 `);
     });
 
+    // Windows fresh install script — one PowerShell command, fully automated
+    this.expressApp.get('/api/plugin/fresh-install.ps1', (req, res) => {
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.send(`
+$ErrorActionPreference = "SilentlyContinue"
+$server = "https://gtm-wizard.onrender.com"
+Write-Host ""
+Write-Host "  Eudia Notetaker - Fresh Install" -ForegroundColor Cyan
+Write-Host "  ================================" -ForegroundColor Cyan
+Write-Host ""
+
+# 1. Close Obsidian if running
+$obs = Get-Process -Name "Obsidian" -ErrorAction SilentlyContinue
+if ($obs) {
+  Write-Host "  Closing Obsidian..." -ForegroundColor Yellow
+  $obs | Stop-Process -Force -ErrorAction SilentlyContinue
+  Start-Sleep 3
+}
+
+# 2. Remove old vault folders
+Write-Host "  Removing old vaults..."
+$patterns = @("Business-Lead-Vault*","Business Lead Vault*","Eudia-Sales-Vault*","Eudia Sales Vault*","Eudia-Notetaker*","Eudia Notetaker*","BL-Vault*","BL-Sales*")
+$searchDirs = @("$env:USERPROFILE\\Documents","$env:USERPROFILE\\Desktop","$env:USERPROFILE\\Downloads","$env:USERPROFILE\\OneDrive\\Documents")
+foreach ($sd in $searchDirs) {
+  if (Test-Path $sd) {
+    foreach ($pat in $patterns) {
+      Get-ChildItem -Path $sd -Directory -Filter $pat -ErrorAction SilentlyContinue | ForEach-Object {
+        Write-Host "    Removed: $($_.Name)" -ForegroundColor Gray
+        Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+      }
+    }
+  }
+}
+# Remove old ZIP files
+foreach ($sd in @("$env:USERPROFILE\\Downloads","$env:USERPROFILE\\Desktop")) {
+  if (Test-Path $sd) {
+    Get-ChildItem -Path $sd -File -Filter "*Business-Lead*" -ErrorAction SilentlyContinue | Remove-Item -Force
+    Get-ChildItem -Path $sd -File -Filter "*Eudia-Notetaker*" -ErrorAction SilentlyContinue | Remove-Item -Force
+    Get-ChildItem -Path $sd -File -Filter "*Sales-Vault*" -ErrorAction SilentlyContinue | Remove-Item -Force
+  }
+}
+
+# 3. Clear Obsidian vault registry
+$obsCfg = "$env:APPDATA\\obsidian\\obsidian.json"
+if (Test-Path $obsCfg) {
+  Write-Host "  Clearing Obsidian vault registry..."
+  try {
+    $cfg = Get-Content $obsCfg | ConvertFrom-Json
+    $cfg.vaults = @{}
+    $cfg | ConvertTo-Json -Depth 10 | Set-Content $obsCfg
+    Write-Host "    Done" -ForegroundColor Green
+  } catch {
+    Write-Host "    Skipped (non-critical)" -ForegroundColor Yellow
+  }
+}
+
+# 4. Download fresh vault
+$dest = "$env:USERPROFILE\\Documents\\Eudia Notetaker"
+Write-Host "  Downloading Eudia Notetaker..."
+$zipPath = "$env:TEMP\\eudia-notetaker.zip"
+try {
+  Invoke-WebRequest -Uri "$server/vault/download" -OutFile $zipPath -TimeoutSec 120
+} catch {
+  Write-Host "  Download failed. Server may be waking up - try again in 30 seconds." -ForegroundColor Red
+  exit 1
+}
+if (-not (Test-Path $zipPath) -or (Get-Item $zipPath).Length -lt 1000) {
+  Write-Host "  Download failed." -ForegroundColor Red; exit 1
+}
+
+# 5. Unzip directly to destination
+if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+Write-Host "  Extracting..."
+Expand-Archive -Path $zipPath -DestinationPath $dest -Force
+Remove-Item $zipPath -Force
+
+# Verify plugin files exist
+$pluginMain = "$dest\\.obsidian\\plugins\\eudia-transcription\\main.js"
+if (-not (Test-Path $pluginMain)) {
+  # ZIP may have a wrapper folder - move contents up
+  $inner = Get-ChildItem -Path $dest -Directory | Select-Object -First 1
+  if ($inner) {
+    Get-ChildItem -Path $inner.FullName -Force | Move-Item -Destination $dest -Force
+    Remove-Item $inner.FullName -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
+# Ensure community plugins enabled
+'["eudia-transcription"]' | Set-Content "$dest\\.obsidian\\community-plugins.json"
+
+# Reset plugin settings for fresh setup
+$pdata = "$dest\\.obsidian\\plugins\\eudia-transcription\\data.json"
+if (Test-Path $pdata) {
+  try {
+    $d = Get-Content $pdata | ConvertFrom-Json
+    $d.setupCompleted = $false
+    $d.userEmail = ""
+    $d.accountsImported = $false
+    $d.prospectsMigrated = $false
+    $d.userRole = ""
+    $d | ConvertTo-Json -Depth 10 | Set-Content $pdata
+  } catch {}
+}
+
+# 6. Register vault in Obsidian
+if (Test-Path $obsCfg) {
+  try {
+    $cfg = Get-Content $obsCfg | ConvertFrom-Json
+    $vid = [System.DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds().ToString("x")
+    $vault = @{ path = $dest; ts = [System.DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); open = $true }
+    $cfg.vaults = @{ $vid = $vault }
+    $cfg | ConvertTo-Json -Depth 10 | Set-Content $obsCfg
+    Write-Host "    Vault registered" -ForegroundColor Green
+  } catch {
+    Write-Host "    Registration skipped" -ForegroundColor Yellow
+  }
+}
+
+Write-Host ""
+Write-Host "  DONE - Eudia Notetaker installed!" -ForegroundColor Green
+Write-Host "  Location: Documents\\Eudia Notetaker" -ForegroundColor Green
+Write-Host ""
+Write-Host "  Opening Eudia Notetaker..." -ForegroundColor Cyan
+Start-Sleep 1
+
+# Open Obsidian with the specific vault
+$obsUri = "obsidian://open?vault=" + [System.Uri]::EscapeDataString("Eudia Notetaker")
+Start-Process $obsUri -ErrorAction SilentlyContinue
+if (-not $?) { Start-Process "obsidian" -ErrorAction SilentlyContinue }
+
+Write-Host "  Enter your @eudia.com email to get started." -ForegroundColor Green
+Write-Host ""
+`);
+    });
+
     // Fresh install script — nukes old vaults, clears Obsidian registry, downloads fresh vault
     this.expressApp.get('/api/plugin/fresh-install.sh', (req, res) => {
       res.setHeader('Content-Type', 'text/plain');
@@ -1464,36 +1600,66 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .note { background: rgba(142,153,225,0.08); border-radius: 8px; padding: 16px; font-size: 0.85rem; color: #4b5563; margin-top: 16px; line-height: 1.5; }
 </style>
 <script>
-function copyCmd() {
-  var cmd = document.getElementById('cmd').textContent.trim();
+function switchTab(os) {
+  document.querySelectorAll('.tab').forEach(t => t.className = 'tab');
+  document.querySelectorAll('.tab-content').forEach(c => c.className = 'tab-content');
+  document.getElementById('tab-' + os).className = 'tab-content active';
+  document.getElementById('btn-' + os).className = 'tab active';
+}
+function copyCmd(os) {
+  var cmd = document.getElementById('cmd-' + os).textContent.trim();
   navigator.clipboard.writeText(cmd).then(function() {
-    var hint = document.getElementById('hint');
+    var hint = document.getElementById('hint-' + os);
     hint.textContent = 'Copied!'; hint.style.color = '#10b981';
     setTimeout(function() { hint.textContent = 'Click to copy'; hint.style.color = '#8e99e1'; }, 2000);
   });
 }
+document.addEventListener('DOMContentLoaded', function() {
+  if (navigator.userAgent.indexOf('Win') !== -1) switchTab('win');
+});
 </script>
 </head><body>
 <div class="container">
   <div class="header">
     <h1>Eudia Notetaker — Fresh Install</h1>
-    <p class="subtitle">Clean install with latest plugin. Removes any old versions.</p>
+    <p class="subtitle">One command. Installs everything and opens the setup wizard.</p>
     <span class="version-badge">v${version}</span>
   </div>
   <div class="card">
-    <h2>One Command Setup</h2>
-    <p class="card-desc">This removes old vaults, downloads the latest Eudia Notetaker, and opens Obsidian ready to go.</p>
-    <div class="steps">
-      <div class="step"><div class="step-num">1</div><div>Open <strong>Terminal</strong> (Cmd+Space, type "Terminal", Enter)</div></div>
-      <div class="step"><div class="step-num">2</div><div><strong>Click the dark box</strong> below to copy</div></div>
-      <div class="step"><div class="step-num">3</div><div><strong>Paste</strong> (Cmd+V) and press <strong>Enter</strong></div></div>
-      <div class="step"><div class="step-num">4</div><div>Obsidian opens automatically — enter your <strong>@eudia.com email</strong></div></div>
+    <h2>Step 1 — Download Obsidian</h2>
+    <p class="card-desc">If you don't have Obsidian yet, download it first from <a href="https://obsidian.md" target="_blank" style="color:#8e99e1;font-weight:600;">obsidian.md</a>. If you already have it, skip to Step 2.</p>
+  </div>
+  <div class="card">
+    <h2>Step 2 — Run the Install Command</h2>
+    <p class="card-desc">Copy the command below, paste it, press Enter. It downloads everything, removes any old versions, and opens Eudia Notetaker automatically.</p>
+    <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid #e5e7eb;">
+      <button id="btn-mac" class="tab active" onclick="switchTab('mac')" style="padding:10px 24px;border:none;background:none;font-size:0.875rem;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:#9ca3af;">Mac</button>
+      <button id="btn-win" class="tab" onclick="switchTab('win')" style="padding:10px 24px;border:none;background:none;font-size:0.875rem;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:#9ca3af;">Windows</button>
     </div>
-    <div class="cmd-box" onclick="copyCmd()">
-      <code id="cmd">curl -sL https://gtm-wizard.onrender.com/api/plugin/fresh-install.sh | bash</code>
-      <span class="copy-hint" id="hint">Click to copy</span>
+    <style>.tab.active{color:#8e99e1 !important;border-bottom-color:#8e99e1 !important;}.tab-content{display:none;}.tab-content.active{display:block;}</style>
+    <div id="tab-mac" class="tab-content active">
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div>Open <strong>Terminal</strong> (Cmd+Space, type "Terminal", Enter)</div></div>
+        <div class="step"><div class="step-num">2</div><div><strong>Click the dark box</strong> to copy the command</div></div>
+        <div class="step"><div class="step-num">3</div><div><strong>Paste</strong> (Cmd+V) and press <strong>Enter</strong></div></div>
+      </div>
+      <div class="cmd-box" onclick="copyCmd('mac')">
+        <code id="cmd-mac">curl -sL https://gtm-wizard.onrender.com/api/plugin/fresh-install.sh | bash</code>
+        <span class="copy-hint" id="hint-mac">Click to copy</span>
+      </div>
     </div>
-    <div class="note"><strong>What this does:</strong> Quits Obsidian, removes old vault folders (Business Lead Vault, Sales Vault, etc.), downloads a fresh Eudia Notetaker to ~/Documents, and reopens Obsidian. Your Salesforce data syncs on first setup.</div>
+    <div id="tab-win" class="tab-content">
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div>Press <strong>Windows key</strong>, type <strong>PowerShell</strong>, click to open</div></div>
+        <div class="step"><div class="step-num">2</div><div><strong>Click the dark box</strong> to copy the command</div></div>
+        <div class="step"><div class="step-num">3</div><div><strong>Right-click</strong> in PowerShell to paste, press <strong>Enter</strong></div></div>
+      </div>
+      <div class="cmd-box" onclick="copyCmd('win')">
+        <code id="cmd-win">powershell -ExecutionPolicy Bypass -Command "iex (irm 'https://gtm-wizard.onrender.com/api/plugin/fresh-install.ps1')"</code>
+        <span class="copy-hint" id="hint-win">Click to copy</span>
+      </div>
+    </div>
+    <div class="note"><strong>What happens:</strong> Closes Obsidian, removes any old vaults, downloads the latest Eudia Notetaker to your Documents folder, and reopens Obsidian directly to the setup wizard. Enter your @eudia.com email and you're ready to go.</div>
   </div>
 </div>
 </body></html>`);
