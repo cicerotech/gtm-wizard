@@ -3973,6 +3973,11 @@ export default class EudiaSyncPlugin extends Plugin {
       window.setInterval(() => this.pollVaultOperations(), 60 * 1000)
     );
 
+    // Periodic heartbeat — keeps device fleet "last seen" current (every 30 min)
+    this.registerInterval(
+      window.setInterval(() => this.sendPeriodicHeartbeat(), 30 * 60 * 1000)
+    );
+
     // Auto-heal: scan for notes with failed transcriptions and re-process them
     // Runs 30s after startup to avoid blocking initial load
     setTimeout(() => this.healFailedTranscriptions(), 30000);
@@ -4635,6 +4640,33 @@ created: ${dateStr}
       }
     }
     console.log('[Eudia Update] All retry attempts exhausted — will try again on next cycle');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PERIODIC HEARTBEAT — Keeps device fleet "online" status current
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private async sendPeriodicHeartbeat(): Promise<void> {
+    if (!this.settings.userEmail || !this.telemetry) return;
+    try {
+      const accountsFolder = this.app.vault.getAbstractFileByPath(this.settings.accountsFolder);
+      let accountCount = 0;
+      if (accountsFolder && accountsFolder instanceof TFolder) {
+        accountCount = accountsFolder.children.filter(
+          c => c instanceof TFolder && !c.name.startsWith('_')
+        ).length;
+      }
+
+      const connections = {
+        salesforce: this.settings.salesforceConnected ? 'connected' : 'not_configured',
+        calendar: this.settings.calendarConfigured ? 'connected' : 'not_configured'
+      };
+
+      await this.telemetry.sendHeartbeat(accountCount, connections);
+      console.log(`[Eudia] Periodic heartbeat sent (${accountCount} accounts)`);
+    } catch {
+      // Best-effort — don't interrupt user
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -7189,6 +7221,9 @@ last_updated: ${dateStr}
       return;
     }
 
+    // ── Step 5b: Apply selected template to the note ──
+    await this.applyRecordingTemplate(activeFile, template);
+
     // ── Step 6: Initialize recorder + status bar ──
     this.audioRecorder = new AudioRecorder();
     this.recordingStatusBar = new RecordingStatusBar(
@@ -7513,6 +7548,37 @@ last_updated: ${dateStr}
       })(this.app);
       modal.open();
     });
+  }
+
+  private async applyRecordingTemplate(file: TFile, template: 'meddic' | 'demo' | 'general' | 'internal' | 'cs'): Promise<void> {
+    const existing = await this.app.vault.read(file);
+    const stripped = existing.replace(/^---[\s\S]*?---\s*/, '').trim();
+    if (stripped.length > 100) return;
+
+    const today = new Date();
+    const dateLabel = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const dateStr = today.toISOString().split('T')[0];
+
+    const accountPath = file.path.split('/');
+    const accountName = accountPath.length >= 2 ? accountPath[accountPath.length - 2] : '';
+
+    const frontmatter = `---\ntype: meeting_note\ntemplate: ${template}\ncreated: ${dateStr}\nsync_to_salesforce: false\n---\n\n`;
+
+    const templates: Record<string, string> = {
+      meddic: `# Sales Discovery — ${accountName || 'Meeting'}\n\n**Date:** ${dateLabel}\n**Attendees:** \n\n---\n\n## Metrics\n*What are the quantifiable business outcomes the prospect is trying to achieve?*\n\n\n\n## Economic Buyer\n*Who has the final authority to approve the purchase?*\n\n\n\n## Decision Criteria\n*What technical and business requirements must be met?*\n\n\n\n## Decision Process\n*What is the approval process and timeline?*\n\n\n\n## Identify Pain\n*What is the core problem driving this evaluation?*\n\n\n\n## Champion\n*Who is our internal advocate? How are they selling internally?*\n\n\n\n## Next Steps\n\n- [ ] \n`,
+
+      demo: `# Demo / Presentation — ${accountName || 'Meeting'}\n\n**Date:** ${dateLabel}\n**Attendees:** \n\n---\n\n## Feature Reactions\n*Which features resonated? What generated excitement?*\n\n\n\n## Questions Asked\n*Key questions from the audience*\n\n\n\n## Objections\n*Concerns, pushback, or hesitations raised*\n\n\n\n## Interest Signals\n*Buying signals, follow-up requests, next steps mentioned*\n\n\n\n## Next Steps\n\n- [ ] \n`,
+
+      cs: `# Customer Success — ${accountName || 'Meeting'}\n\n**Date:** ${dateLabel}\n**Attendees:** \n\n---\n\n## Health Signals\n*Overall satisfaction, NPS indicators, risk signals*\n\n\n\n## Feature Requests\n*Product gaps, enhancement requests, workarounds in use*\n\n\n\n## Adoption\n*Usage patterns, teams onboarded, expansion opportunities*\n\n\n\n## Renewal / Expansion\n*Contract timeline, upsell signals, budget discussions*\n\n\n\n## Next Steps\n\n- [ ] \n`,
+
+      general: `# General Check-In — ${accountName || 'Meeting'}\n\n**Date:** ${dateLabel}\n**Attendees:** \n\n---\n\n## Discussion\n\n\n\n## Action Items\n\n- [ ] \n\n## Follow-ups\n\n- [ ] \n`,
+
+      internal: `# Internal Call\n\n**Date:** ${dateLabel}\n**Attendees:** \n\n---\n\n## Agenda\n\n\n\n## Discussion\n\n\n\n## Decisions\n\n\n\n## Action Items\n\n- [ ] \n`
+    };
+
+    const content = frontmatter + (templates[template] || templates['general']);
+    await this.app.vault.modify(file, content);
+    console.log(`[Eudia] Applied ${template} template to ${file.path}`);
   }
 
   async cancelRecording(): Promise<void> {

@@ -2127,7 +2127,15 @@
 .side-dock-ribbon-action[aria-label*="graph"],
 .side-dock-ribbon-action[aria-label*="Graph"],
 .side-dock-ribbon-action[aria-label*="base"],
-.side-dock-ribbon-action[aria-label*="Base"] {
+.side-dock-ribbon-action[aria-label*="Base"],
+.side-dock-ribbon-action[aria-label="Open today's daily note"],
+.side-dock-ribbon-action[aria-label*="daily note"],
+.side-dock-ribbon-action[aria-label*="Daily note"],
+.side-dock-ribbon-action[aria-label="Insert template"],
+.side-dock-ribbon-action[aria-label*="template" i],
+.side-dock-ribbon-action[aria-label="Open command palette"],
+.side-dock-ribbon-action[aria-label*="Bookmarks"],
+.side-dock-ribbon-action[aria-label*="bookmark" i] {
   display: none !important;
 }
 

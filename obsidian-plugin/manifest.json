@@ -1,18 +1,18 @@
 {
   "id": "eudia-transcription",
   "name": "Eudia Lite",
-  "version": "4.11.0",
+  "version": "4.12.0",
   "minAppVersion": "1.0.0",
   "description": "Record meetings, transcribe with AI, sync to Salesforce. Calendar integration, smart tagging, and sales intelligence.",
   "author": "Eudia",
   "authorUrl": "https://eudia.com",
   "isDesktopOnly": false,
   "releaseChannel": "stable",
-  "releaseNotes": "v4.11.0: Hot-reload escape — old versions auto-update without user action via onload() detection + window.location.reload(). Dynamic version reporting in fleet.",
+  "releaseNotes": "v4.12.0: Ribbon cleanup (hide duplicate calendar, insert template, command palette), auto-apply recording template to notes, periodic 30-min heartbeat for fleet monitoring.",
   "autoUpdateSupported": true,
   "forceUpdate": true,
   "compatiblePlatforms": ["darwin", "win32", "linux"],
-  "deployedAt": "2026-02-26T08:30:00.000Z",
+  "deployedAt": "2026-02-27T17:00:00.000Z",
   "minAutoUpdateVersion": "4.4.0",
   "supportUrl": "https://eudia.com/support"
 }
