@@ -2445,6 +2445,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const { pool } = require('./db/connection');
         if (!pool) return res.json({ success: true, operations: [] });
 
+        // Validate deviceId as UUID format, fallback to nil UUID if invalid
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const safeDeviceId = (deviceId && uuidRegex.test(deviceId)) ? deviceId : '00000000-0000-0000-0000-000000000000';
+
         const result = await pool.query(`
           SELECT id, operation_type, operation_data, priority, created_at, created_by
           FROM vault_operations
@@ -2457,7 +2461,7 @@ document.addEventListener('DOMContentLoaded', function() {
             )
           ORDER BY priority ASC, created_at ASC
           LIMIT 20
-        `, [email || '', deviceId || '00000000-0000-0000-0000-000000000000']);
+        `, [email || '', safeDeviceId]);
 
         // Mark as delivered
         if (result.rows.length > 0) {

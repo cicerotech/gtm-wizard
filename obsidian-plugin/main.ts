@@ -3869,12 +3869,20 @@ export default class EudiaSyncPlugin extends Plugin {
 
     // Generate persistent device identity on first load
     if (!this.settings.deviceId) {
-      this.settings.deviceId = crypto.randomUUID();
+      try {
+        this.settings.deviceId = crypto.randomUUID();
+      } catch {
+        // Fallback for environments without crypto.randomUUID
+        this.settings.deviceId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+          const r = Math.random() * 16 | 0;
+          return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+      }
       try { this.settings.deviceName = require('os').hostname(); } catch { this.settings.deviceName = 'unknown'; }
       await this.saveSettings();
       console.log(`[Eudia] Device registered: ${this.settings.deviceId} (${this.settings.deviceName})`);
     }
-    this.telemetry.setDeviceIdentity(this.settings.deviceId, this.settings.deviceName);
+    this.telemetry.setDeviceIdentity(this.settings.deviceId || '', this.settings.deviceName || '');
 
     // Pre-configure system audio capture (non-blocking, runs once)
     AudioRecorder.setupDisplayMediaHandler().then(ok => {
