@@ -29,11 +29,6 @@
                 <default>false</default>
                 <label>AI Contracting - Managed Services</label>
             </value>
-            <value>
-                <fullName>Contracting - Secondee</fullName>
-                <default>false</default>
-                <label>Contracting - Secondee</label>
-            </value>
             
             <!-- COMPLIANCE -->
             <value>
@@ -76,6 +71,13 @@
                 <fullName>FDE - Custom AI Solution</fullName>
                 <default>false</default>
                 <label>FDE - Custom AI Solution</label>
+            </value>
+            
+            <!-- SECONDEE (after FDE per business request) -->
+            <value>
+                <fullName>Contracting - Secondee</fullName>
+                <default>false</default>
+                <label>Contracting - Secondee</label>
             </value>
             
             <!-- OTHER -->

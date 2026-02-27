@@ -888,33 +888,46 @@ async function queryClosedWonByBL() {
  */
 async function querySignedRevenueLastWeek() {
   try {
-    logger.info('Querying signed revenue last week (Recurring/Project/Pilot only, within fiscal quarter)...');
+    logger.info('Querying signed revenue since last snapshot (Recurring/Project/Pilot only, within fiscal quarter)...');
     
     const now = new Date();
-    const weekAgo = new Date(now);
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    const weekAgoStr = weekAgo.toISOString().split('T')[0];
+    const todayStr = now.toISOString().split('T')[0];
+
+    // Use last snapshot date as the lookback start (prevents re-counting deals from prior reports)
+    const snapshotData = readSnapshots();
+    const lastSnapshotDate = getLastSnapshotDate(snapshotData, todayStr);
+
+    let startStr;
+    if (lastSnapshotDate) {
+      startStr = lastSnapshotDate;
+      logger.info(`Using last snapshot date as start bound: ${lastSnapshotDate}`);
+    } else {
+      const weekAgo = new Date(now);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      startStr = weekAgo.toISOString().split('T')[0];
+      logger.info(`No prior snapshot — falling back to 7-day window: ${startStr}`);
+    }
     
     // Calculate fiscal quarter start (Q1 = Feb 1, Q2 = May 1, Q3 = Aug 1, Q4 = Nov 1)
-    const month = now.getMonth(); // 0-indexed
+    const month = now.getMonth();
     let fiscalQStart;
-    if (month >= 1 && month <= 3) {       // Feb-Apr = Q1
-      fiscalQStart = new Date(now.getFullYear(), 1, 1);     // Feb 1
-    } else if (month >= 4 && month <= 6) { // May-Jul = Q2
-      fiscalQStart = new Date(now.getFullYear(), 4, 1);     // May 1
-    } else if (month >= 7 && month <= 9) { // Aug-Oct = Q3
-      fiscalQStart = new Date(now.getFullYear(), 7, 1);     // Aug 1
-    } else {                               // Nov-Dec or Jan = Q4
-      fiscalQStart = month === 0 
-        ? new Date(now.getFullYear() - 1, 10, 1)  // Jan -> Nov 1 last year
-        : new Date(now.getFullYear(), 10, 1);     // Nov-Dec -> Nov 1 this year
+    if (month >= 1 && month <= 3) {
+      fiscalQStart = new Date(now.getFullYear(), 1, 1);
+    } else if (month >= 4 && month <= 6) {
+      fiscalQStart = new Date(now.getFullYear(), 4, 1);
+    } else if (month >= 7 && month <= 9) {
+      fiscalQStart = new Date(now.getFullYear(), 7, 1);
+    } else {
+      fiscalQStart = month === 0
+        ? new Date(now.getFullYear() - 1, 10, 1)
+        : new Date(now.getFullYear(), 10, 1);
     }
     const fiscalQStartStr = fiscalQStart.toISOString().split('T')[0];
     
-    // Use the later of weekAgo or fiscalQStart to ensure deals are within current fiscal quarter
-    const effectiveStartStr = weekAgoStr > fiscalQStartStr ? weekAgoStr : fiscalQStartStr;
+    // Use the later of snapshot start or fiscalQStart
+    const effectiveStartStr = startStr > fiscalQStartStr ? startStr : fiscalQStartStr;
     
-    logger.info(`Last week query: CloseDate >= ${effectiveStartStr} (fiscal Q start: ${fiscalQStartStr})`);
+    logger.info(`Last week query: CloseDate > ${effectiveStartStr} (fiscal Q start: ${fiscalQStartStr})`);
     
     // Query individual deals (not aggregate) to get deal details
     // Filter by Revenue_Type__c to include only Recurring, Project, Pilot
@@ -924,7 +937,7 @@ async function querySignedRevenueLastWeek() {
              Sales_Type__c, Revenue_Type__c, Product_Line__c, Product_Lines_Multi__c, CloseDate
       FROM Opportunity
       WHERE StageName IN (${CLOSED_WON_IN_CLAUSE})
-        AND CloseDate >= ${effectiveStartStr}
+        AND CloseDate > ${effectiveStartStr}
         AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot')
       ORDER BY ACV__c DESC
     `;
@@ -1379,15 +1392,17 @@ async function queryPipelineByProductLine() {
       FROM Opportunity
       WHERE IsClosed = false
         AND StageName IN ('Stage 0 - Prospecting', 'Stage 1 - Discovery', 'Stage 2 - SQO', 'Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation')
-        AND Target_LOI_Date__c <= ${q1End}
+        AND (Target_LOI_Date__c <= ${q1End} OR (Target_LOI_Date__c = null AND CloseDate <= ${q1End}))
     `;
     
+    logger.info(`[Product Line] SOQL: ${soql.replace(/\s+/g, ' ').trim()}`);
     const result = await query(soql, true);
     
     if (!result || !result.records) {
       logger.warn('Pipeline by Product Line: No records returned');
       return [];
     }
+    logger.info(`[Product Line] Query returned ${result.records.length} records`);
     
     const LATE_STAGES = new Set(['Stage 3 - Pilot', 'Stage 4 - Proposal', 'Stage 5 - Negotiation']);
     const lines = {};
@@ -1833,8 +1848,48 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
   y += 2;
   doc.font(fontItalic).fontSize(6).fillColor('#9ca3af');
   doc.text('Commit = 100% Net ACV, "Commit" category. Weighted = stage-prob × Net ACV. Midpoint = (Commit + Weighted) / 2. AI-Enabled, target sign ≤ Q1.', LEFT + 4, y, { width: runRateWidth - 8 });
-  
-  const runRateEndY = y + 16;
+  y += 14;
+
+  // ── Q1 Closed Won by Business Lead (compact, left column) ──
+  const cwBL = closedWonByBL || [];
+  if (cwBL.length > 0) {
+    y += 4;
+    doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
+    doc.text('Q1 CLOSED WON BY BUSINESS LEAD', LEFT + 4, y);
+    y += 12;
+    doc.rect(LEFT, y, runRateWidth, 14).fill('#1f2937');
+    doc.font(fontBold).fontSize(7).fillColor('#ffffff');
+    doc.text('Business Lead', LEFT + 6, y + 3, { width: 120, lineBreak: false });
+    doc.text('Net ACV', LEFT + 130, y + 3, { width: 70, align: 'center', lineBreak: false });
+    doc.text('Deals', LEFT + 205, y + 3, { width: 50, align: 'center', lineBreak: false });
+    y += 14;
+    const cwTotalACV = cwBL.reduce((s, r) => s + r.totalACV, 0);
+    const cwTotalDeals = cwBL.reduce((s, r) => s + r.dealCount, 0);
+    doc.font(fontRegular).fontSize(7).fillColor(DARK_TEXT);
+    cwBL.forEach((row, i) => {
+      const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
+      doc.rect(LEFT, y, runRateWidth, 13).fill(bg);
+      doc.fillColor(DARK_TEXT);
+      doc.text(row.name, LEFT + 6, y + 3, { width: 120, lineBreak: false });
+      const acvStr = row.totalACV >= 1000000
+        ? `$${(row.totalACV / 1000000).toFixed(1)}m`
+        : `$${Math.round(row.totalACV / 1000)}k`;
+      doc.text(acvStr, LEFT + 130, y + 3, { width: 70, align: 'center', lineBreak: false });
+      doc.text(row.dealCount.toString(), LEFT + 205, y + 3, { width: 50, align: 'center', lineBreak: false });
+      y += 13;
+    });
+    doc.rect(LEFT, y, runRateWidth, 14).fill('#e5e7eb');
+    doc.font(fontBold).fontSize(7).fillColor(DARK_TEXT);
+    doc.text('Total', LEFT + 6, y + 3, { width: 120, lineBreak: false });
+    const cwTotalStr = cwTotalACV >= 1000000
+      ? `$${(cwTotalACV / 1000000).toFixed(1)}m`
+      : `$${Math.round(cwTotalACV / 1000)}k`;
+    doc.text(cwTotalStr, LEFT + 130, y + 3, { width: 70, align: 'center', lineBreak: false });
+    doc.text(cwTotalDeals.toString(), LEFT + 205, y + 3, { width: 50, align: 'center', lineBreak: false });
+    y += 14;
+  }
+
+  const runRateEndY = y + 2;
   
   // ═══════════════════════════════════════════════════════════════════════════
   // SIGNED REVENUE Q1 (Right column, same row as Forecast)
@@ -2043,53 +2098,6 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
   doc.text(salesTypeTotalCount.toString(), LEFT + 380, y + 4, { width: 80, align: 'center', lineBreak: false });
   y += 17;
   
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Q1 FY 2026 CLOSED WON BY BUSINESS LEAD
-  // ═══════════════════════════════════════════════════════════════════════════
-  const cwBL = closedWonByBL || [];
-  if (cwBL.length > 0) {
-    y += SECTION_GAP;
-    doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
-    doc.text('Q1 FY 2026 CLOSED WON BY BUSINESS LEAD', LEFT, y);
-    y += 16;
-
-    const cwTableWidth = PAGE_WIDTH;
-    doc.rect(LEFT, y, cwTableWidth, 17).fill('#1f2937');
-    doc.font(fontBold).fontSize(8.5).fillColor('#ffffff');
-    doc.text('Business Lead', LEFT + 8, y + 4, { width: 200, lineBreak: false });
-    doc.text('Net ACV', LEFT + 220, y + 4, { width: 120, align: 'center', lineBreak: false });
-    doc.text('Deals', LEFT + 380, y + 4, { width: 80, align: 'center', lineBreak: false });
-    y += 17;
-
-    doc.font(fontRegular).fontSize(8.5).fillColor(DARK_TEXT);
-    const cwTotalACV = cwBL.reduce((s, r) => s + r.totalACV, 0);
-    const cwTotalDeals = cwBL.reduce((s, r) => s + r.dealCount, 0);
-
-    cwBL.forEach((row, i) => {
-      if (y + 15 > 740) return;
-      const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
-      doc.rect(LEFT, y, cwTableWidth, 15).fill(bg);
-      doc.fillColor(DARK_TEXT);
-      doc.text(row.name, LEFT + 8, y + 3, { width: 200, lineBreak: false });
-      const acvStr = row.totalACV >= 1000000
-        ? `$${(row.totalACV / 1000000).toFixed(1)}m`
-        : `$${Math.round(row.totalACV / 1000)}k`;
-      doc.text(acvStr, LEFT + 220, y + 3, { width: 120, align: 'center', lineBreak: false });
-      doc.text(row.dealCount.toString(), LEFT + 380, y + 3, { width: 80, align: 'center', lineBreak: false });
-      y += 15;
-    });
-
-    doc.rect(LEFT, y, cwTableWidth, 17).fill('#e5e7eb');
-    doc.font(fontBold).fontSize(8.5).fillColor(DARK_TEXT);
-    doc.text('Total', LEFT + 8, y + 4, { width: 200, lineBreak: false });
-    const cwTotalStr = cwTotalACV >= 1000000
-      ? `$${(cwTotalACV / 1000000).toFixed(1)}m`
-      : `$${Math.round(cwTotalACV / 1000)}k`;
-    doc.text(cwTotalStr, LEFT + 220, y + 4, { width: 120, align: 'center', lineBreak: false });
-    doc.text(cwTotalDeals.toString(), LEFT + 380, y + 4, { width: 80, align: 'center', lineBreak: false });
-    y += 17;
-  }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // Q1 PIPELINE BY PRODUCT LINE (live SOQL)
   // ═══════════════════════════════════════════════════════════════════════════

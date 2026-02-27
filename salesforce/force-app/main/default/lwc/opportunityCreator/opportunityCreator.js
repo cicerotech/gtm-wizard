@@ -4,6 +4,7 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import searchAccounts from '@salesforce/apex/AccountLookupController.searchAccounts';
 import getAccountById from '@salesforce/apex/AccountLookupController.getAccountById';
 import createOpportunity from '@salesforce/apex/AccountLookupController.createOpportunity';
+import getDefaultPod from '@salesforce/apex/AccountLookupController.getDefaultPod';
 
 export default class OpportunityCreator extends NavigationMixin(LightningElement) {
     // Account lookup state
@@ -14,11 +15,12 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     @track selectedAccount = null;
     
     // Form fields
-    @track stage = 'Stage 1 - Discovery';
+    @track stage = 'Stage 0 - Prospecting';
     @track targetSignDate = '';
     @track acv = 100000;
-    @track selectedProductLines = [];
+    @track selectedProductLines = ['Undetermined'];
     @track opportunitySource = 'Inbound';
+    @track pod = 'US';
     
     // UI state
     @track isCreating = false;
@@ -60,7 +62,7 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     // Stage options
     get stageOptions() {
         return [
-            { label: 'Stage 0 - Qualifying', value: 'Stage 0 - Qualifying' },
+            { label: 'Stage 0 - Prospecting', value: 'Stage 0 - Prospecting' },
             { label: 'Stage 1 - Discovery', value: 'Stage 1 - Discovery' },
             { label: 'Stage 2 - SQO', value: 'Stage 2 - SQO' },
             { label: 'Stage 3 - Pilot', value: 'Stage 3 - Pilot' },
@@ -69,18 +71,19 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
     }
     
     // Product Line options (mirrors Product_Lines_Multi__c values in org)
-    // "Undetermined" and "Multiple (BL Review)" removed -- reps can now actually multi-select
     get productLineOptions() {
         return [
+            { label: 'Undetermined', value: 'Undetermined' },
             { label: 'AI Contracting - Technology', value: 'AI Contracting - Technology' },
             { label: 'AI Contracting - Managed Services', value: 'AI Contracting - Managed Services' },
-            { label: 'Contracting - Secondee', value: 'Contracting - Secondee' },
             { label: 'AI Compliance - Technology', value: 'AI Compliance - Technology' },
             { label: 'AI M&A - Managed Services', value: 'AI M&A - Managed Services' },
             { label: 'AI Platform - Sigma', value: 'AI Platform - Sigma' },
             { label: 'AI Platform - Insights', value: 'AI Platform - Insights' },
             { label: 'AI Platform - Litigation', value: 'AI Platform - Litigation' },
+            { label: 'AI Platform - Government', value: 'AI Platform - Government' },
             { label: 'FDE - Custom AI Solution', value: 'FDE - Custom AI Solution' },
+            { label: 'Contracting - Secondee', value: 'Contracting - Secondee' },
             { label: 'Other - Managed Service', value: 'Other - Managed Service' },
             { label: 'Other - Secondee', value: 'Other - Secondee' }
         ];
@@ -125,9 +128,31 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
         return this.isCreating ? 'Creating...' : 'Create Opportunity';
     }
     
+    get podOptions() {
+        return [
+            { label: 'US', value: 'US' },
+            { label: 'EU', value: 'EU' }
+        ];
+    }
+
+    handlePodChange(event) {
+        this.pod = event.detail.value;
+    }
+
     connectedCallback() {
-        // Set default target sign date to 100 days from now
         this.setDateFromDays(100);
+        this._loadDefaultPod();
+    }
+
+    async _loadDefaultPod() {
+        try {
+            const defaultPod = await getDefaultPod();
+            if (defaultPod) {
+                this.pod = defaultPod;
+            }
+        } catch (err) {
+            // Default to US if lookup fails
+        }
     }
 
     // Helper: set target sign date N days from now
@@ -260,7 +285,8 @@ export default class OpportunityCreator extends NavigationMixin(LightningElement
                 targetSignDate: this.targetSignDate,
                 acv: this.acv,
                 productLines: this.selectedProductLines.join(';'),
-                opportunitySource: this.opportunitySource
+                opportunitySource: this.opportunitySource,
+                pod: this.pod
             });
             
             // Show quick toast and navigate immediately
