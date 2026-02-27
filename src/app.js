@@ -4490,6 +4490,11 @@ setInterval(()=>{refreshCountdown--;document.getElementById('refreshTimer').text
       const path = require('path');
       res.sendFile(path.join(__dirname, 'views', 'demo-walkthrough.html'));
     });
+
+    this.expressApp.get('/demo-v2', (req, res) => {
+      const path = require('path');
+      res.sendFile(path.join(__dirname, 'views', 'demo-walkthrough-v2.html'));
+    });
     
     this.expressApp.get('/sf-walkthrough', (req, res) => {
       const path = require('path');
