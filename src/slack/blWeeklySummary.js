@@ -1862,7 +1862,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
   const cwBL = closedWonByBL || [];
   if (cwBL.length > 0) {
     y += 4;
-    doc.font(fontBold).fontSize(7.5).fillColor(DARK_TEXT);
+    doc.font(fontBold).fontSize(7.5).fillColor('#111827');
     doc.text('Q1 CLOSED WON BY BUSINESS LEAD', LEFT + 4, y);
     y += 11;
     doc.rect(LEFT, y, runRateWidth, 13).fill('#e5e7eb');
@@ -1975,16 +1975,16 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
           ? `$${(deal.acv / 1000000).toFixed(1)}m`
           : `$${(deal.acv / 1000).toFixed(0)}k`;
         const name = deal.accountName.length > 25 ? deal.accountName.substring(0, 25) + '...' : deal.accountName;
-        const isRenewalExpansion = deal.salesType === 'Expansion' || deal.salesType === 'Renewal';
-        const acvLabel = isRenewalExpansion ? `${dealValue}*` : dealValue;
+        const hasNetDiff = deal.renewalNetChange != null && deal.renewalNetChange !== deal.acv;
+        const acvLabel = hasNetDiff ? `${dealValue}*` : dealValue;
         doc.font(fontRegular).fontSize(8).fillColor(BODY_TEXT);
         doc.text(`• ${acvLabel}, ${name}`, signedX + 4, y);
         y += 11;
         const formattedProductLine = formatProductLine(deal.productLine);
         doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
         let subLine = `  ${formattedProductLine}`;
-        if (isRenewalExpansion && deal.acv > 0) {
-          const netAcv = deal.renewalNetChange || Math.round(deal.acv * 0.75);
+        if (hasNetDiff) {
+          const netAcv = deal.renewalNetChange;
           const netStr = netAcv >= 1000000 ? `$${(netAcv / 1000000).toFixed(1)}m` : `$${Math.round(netAcv / 1000)}k`;
           subLine += `  (* ${netStr} net ACV)`;
         }
@@ -2114,7 +2114,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
   // Q1 PIPELINE BY PRODUCT LINE (live SOQL)
   // ═══════════════════════════════════════════════════════════════════════════
   y += SECTION_GAP;
-  doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
+  doc.font(fontBold).fontSize(11).fillColor('#111827');
   doc.text('Q1 PIPELINE BY PRODUCT LINE', LEFT, y, { lineBreak: false });
   y += 15;
   
@@ -2330,16 +2330,14 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       doc.text('STAGE DISTRIBUTION', LEFT, twoColY);
       
       let tableY = twoColY + 14;
-      doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-      doc.text('Stage', LEFT, tableY);
-      doc.text('Deals', LEFT + 110, tableY, { width: 40, align: 'right' });
-      doc.text('Gross ACV', LEFT + 155, tableY, { width: 60, align: 'right' });
-      doc.font(fontItalic).fontSize(8).fillColor('#9ca3af');
-      doc.text('WoW', LEFT + 218, tableY, { width: 40, align: 'center' });
-      
-      tableY += 11;
-      doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, tableY).lineTo(LEFT + halfWidth, tableY).stroke();
-      tableY += 5;
+      doc.rect(LEFT, tableY, halfWidth, 14).fill('#e5e7eb');
+      doc.font(fontBold).fontSize(7.5).fillColor('#374151');
+      doc.text('Stage', LEFT + 6, tableY + 3);
+      doc.text('Deals', LEFT + 110, tableY + 3, { width: 40, align: 'right' });
+      doc.text('Gross ACV', LEFT + 155, tableY + 3, { width: 60, align: 'right' });
+      doc.font(fontItalic).fontSize(7).fillColor('#6b7280');
+      doc.text('WoW', LEFT + 218, tableY + 3, { width: 40, align: 'center' });
+      tableY += 14;
       
       const stageOrder = [...ACTIVE_STAGES].reverse();
       stageOrder.forEach(stage => {
@@ -2433,23 +2431,21 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
         
         if (activeBLs.length === 0) return startY;
         
-        // Pod title (green) - increased font
+        // Pod title (green)
         doc.font(fontBold).fontSize(10).fillColor(GREEN_ACCENT);
         doc.text(title, startX, startY);
         
-        // Table header - increased font
-        let headerY = startY + 12;
-        doc.font(fontBold).fontSize(9).fillColor(DARK_TEXT);
-        doc.text('Name', startX, headerY);
-        doc.text('Accts', startX + 50, headerY, { width: 25, align: 'right' });
-        doc.text('Opps', startX + 80, headerY, { width: 25, align: 'right' });
-        doc.text('Gross', startX + 110, headerY, { width: 45, align: 'right' });
-        doc.text('Commit*', startX + 160, headerY, { width: 40, align: 'right' });
+        // Table header — grey background
+        let headerY = startY + 13;
+        doc.rect(startX, headerY, colWidth - 10, 13).fill('#e5e7eb');
+        doc.font(fontBold).fontSize(7.5).fillColor('#374151');
+        doc.text('Name', startX + 4, headerY + 3);
+        doc.text('Accts', startX + 50, headerY + 3, { width: 25, align: 'right' });
+        doc.text('Opps', startX + 80, headerY + 3, { width: 25, align: 'right' });
+        doc.text('Gross', startX + 110, headerY + 3, { width: 45, align: 'right' });
+        doc.text('Commit*', startX + 160, headerY + 3, { width: 40, align: 'right' });
         
-        headerY += 10;
-        doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(startX, headerY).lineTo(startX + colWidth - 10, headerY).stroke();
-        
-        let rowY = headerY + 5;
+        let rowY = headerY + 15;
         doc.font(fontRegular).fontSize(9).fillColor(DARK_TEXT);  // Increased from 8 to 9 for better readability
         activeBLs.forEach(bl => {
           const m = blMetrics[bl];
@@ -2550,14 +2546,10 @@ function generatePDFSnapshot(pipelineData, dateStr, activeRevenue = {}, logosByT
       y = Math.max(leftEndY, rightEndY);
       
       // ═══════════════════════════════════════════════════════════════════════
-      // FOOTER - Compact, simple gray border-top with centered text
-      // Guard: only render if within page bounds (prevents blank overflow page)
-      // ═══════════════════════════════════════════════════════════════════════
-      const footerY = Math.min(y + 6, 760); // Cap at 760pt to stay within Letter page
-      doc.strokeColor(BORDER_GRAY).lineWidth(0.5).moveTo(LEFT, footerY).lineTo(LEFT + PAGE_WIDTH, footerY).stroke();
-      
-      doc.font(fontRegular).fontSize(6.5).fillColor(LIGHT_TEXT);
-      doc.text('Generated by Eudia GTM Brain  •  Internal use only', LEFT, footerY + 4, { width: PAGE_WIDTH, align: 'center', lineBreak: false });
+      // Minimal footer — single line, no separator
+      const footerY = Math.min(y + 4, 762);
+      doc.font(fontRegular).fontSize(5.5).fillColor('#c0c0c0');
+      doc.text('Generated by Eudia GTM Brain  •  Internal use only', LEFT, footerY, { width: PAGE_WIDTH, align: 'center', lineBreak: false });
       
       doc.end();
       
