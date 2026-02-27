@@ -163,11 +163,15 @@ class TelemetryService {
   private deviceId: string = '';
   private deviceName: string = '';
   private enabled: boolean = true;
-  private pluginVersion: string = '4.10.4';
+  private pluginVersion: string = '0.0.0';
   
   constructor(serverUrl: string, userEmail: string = '') {
     this.serverUrl = serverUrl;
     this.userEmail = userEmail;
+  }
+
+  setPluginVersion(version: string): void {
+    this.pluginVersion = version;
   }
   
   setUserEmail(email: string): void {
@@ -3849,6 +3853,22 @@ export default class EudiaSyncPlugin extends Plugin {
   async onload() {
     await this.loadSettings();
 
+    // POST-UPDATE HOT-RELOAD ESCAPE
+    // Old versions (v4.4.0-v4.10.6) call disablePlugin/enablePlugin after downloading
+    // new files. This loads the NEW main.js but in a dirty JS context (stale timers,
+    // duplicate views). Detect this case and escape into a clean window.location.reload().
+    // The timestamp is cleared before reload to prevent an infinite loop.
+    if (this.settings.lastUpdateVersion &&
+        this.settings.lastUpdateVersion === this.manifest?.version &&
+        this.settings.lastUpdateTimestamp &&
+        (Date.now() - new Date(this.settings.lastUpdateTimestamp).getTime()) < 30000) {
+      console.log('[Eudia] Post-update hot-reload detected. Escaping to clean reload.');
+      this.settings.lastUpdateTimestamp = null;
+      await this.saveSettings();
+      window.location.reload();
+      return;
+    }
+
     // Initialize services
     this.transcriptionService = new TranscriptionService(
       this.settings.serverUrl
@@ -3866,6 +3886,7 @@ export default class EudiaSyncPlugin extends Plugin {
       this.settings.serverUrl,
       this.settings.userEmail
     );
+    this.telemetry.setPluginVersion(this.manifest?.version || '0.0.0');
 
     // Generate persistent device identity on first load
     if (!this.settings.deviceId) {
