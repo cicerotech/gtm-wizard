@@ -102,6 +102,9 @@ const DEAL_OVERRIDES_BY_ACCOUNT = {
     typeOverride: 'Subject to Finance Review*',
     forceNetChangeZero: true,
     footnote: '*No incremental revenue vs. December run-rate. 21-month term secures capacity for near-term expansion.'
+  },
+  'Cargill': {
+    footnote: 'Deal announcement delayed to confirm key deal terms. This client is affiliated with Eudia Counsel.'
   }
 };
 
