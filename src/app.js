@@ -1427,9 +1427,10 @@ echo ""
 echo "  DONE — Eudia Notetaker installed!"
 echo "  Location: ~/Documents/Eudia Notetaker"
 echo ""
-echo "  Opening Obsidian..."
+echo "  Opening Eudia Notetaker..."
 sleep 1
-open -a "Obsidian" 2>/dev/null
+# Use Obsidian URI scheme to open the specific vault by name
+open "obsidian://open?vault=Eudia%20Notetaker" 2>/dev/null || open -a "Obsidian" 2>/dev/null
 echo "  Enter your @eudia.com email to get started."
 echo ""
 `);
@@ -9398,6 +9399,12 @@ SENTIMENT: [Positive/Neutral/Negative]`
       this.expressServer = this.expressApp.listen(port, () => {
         logger.info(`🌐 Express server running on port ${port}`);
       });
+
+      // Extend server timeouts for long-running transcription requests
+      // Render's default proxy timeout is 30s; server timeout must exceed it
+      this.expressServer.timeout = 120000;
+      this.expressServer.keepAliveTimeout = 120000;
+      this.expressServer.headersTimeout = 125000;
 
       // Start scheduled jobs
       startScheduledJobs(this.app);
