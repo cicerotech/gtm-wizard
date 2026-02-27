@@ -4768,23 +4768,26 @@ created: ${dateStr}
       try { this.telemetry?.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'success' }); } catch {}
 
       if (!this.audioRecorder?.isRecording()) {
-        this._showUpdateStatus(`✓ v${remoteVersion} installed — restarting…`);
-        this._hotReloadPending = true;
-        setTimeout(async () => {
+        this._showUpdateStatus(`✓ v${remoteVersion} installed — Obsidian will restart in 3s`);
+        new Notice(`Eudia Lite updated to v${remoteVersion}. Obsidian will restart in 3 seconds.`, 5000);
+        console.log(`[Eudia Update] Files written. Force-restarting Obsidian: v${localVersion} → v${remoteVersion}`);
+        setTimeout(() => {
           try {
-            const plugins = (this.app as any).plugins;
-            await plugins.disablePlugin(this.manifest.id);
-            await plugins.enablePlugin(this.manifest.id);
-            console.log(`[Eudia Update] Hot-reloaded: v${localVersion} → v${remoteVersion}`);
-          } catch {
-            this._hotReloadPending = false;
+            const electron = require('electron');
+            if (electron.remote?.app) {
+              electron.remote.app.relaunch();
+              electron.remote.app.exit(0);
+            } else {
+              console.log('[Eudia Update] electron.remote not available, trying window.close');
+              window.close();
+            }
+          } catch (e: any) {
+            console.log('[Eudia Update] Force restart failed:', e.message);
             this._updateInProgress = false;
             this._hideUpdateStatus();
-            this.settings.pendingReloadVersion = remoteVersion;
-            await this.saveSettings();
-            this._showUpdateBanner(remoteVersion);
+            new Notice(`v${remoteVersion} installed. Please quit and reopen Obsidian to complete the update.`, 0);
           }
-        }, 2000);
+        }, 3000);
         return;
       } else {
         this._showUpdateStatus(`✓ v${remoteVersion} downloaded — restart to apply`);
