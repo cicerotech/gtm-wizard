@@ -7401,7 +7401,32 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
     // ═══════════════════════════════════════════════════════════════════════════
     // TRANSCRIBE CHUNK - Transcribe audio chunk without summarization
     // For incremental live transcription during recording
+    //
+    // WebM header fix: The plugin splits audio blobs at raw byte boundaries.
+    // Only chunk 1 has the WebM EBML header (codec info, sample rate, etc.).
+    // Chunks 2+ are raw Cluster data that Whisper rejects as "Invalid file format."
+    // Fix: extract the header from chunk 1, cache it, prepend to subsequent chunks.
     // ═══════════════════════════════════════════════════════════════════════════
+
+    // Cached WebM header from the most recent chunk 1 (module-level, persists across requests)
+    let _cachedWebMHeader = null;
+
+    /**
+     * Extract the WebM container header (EBML + Segment + Tracks) from a buffer.
+     * Scans for the first Cluster element (ID 0x1F43B675) and returns everything before it.
+     * Returns null if no Cluster found within the first 10KB.
+     */
+    function extractWebMHeader(buffer) {
+      const searchLimit = Math.min(buffer.length, 10240);
+      for (let i = 0; i < searchLimit - 3; i++) {
+        if (buffer[i] === 0x1F && buffer[i + 1] === 0x43 &&
+            buffer[i + 2] === 0xB6 && buffer[i + 3] === 0x75) {
+          return buffer.slice(0, i);
+        }
+      }
+      return null;
+    }
+
     this.expressApp.post('/api/transcribe-chunk', async (req, res) => {
       try {
         const { audio, mimeType } = req.body;
@@ -7413,9 +7438,28 @@ ${nextSteps ? `\n**Next Steps:**\n${nextSteps}` : ''}
           });
         }
 
-        const audioBuffer = Buffer.from(audio, 'base64');
-        
-        // Use transcription service for just the transcription part
+        let audioBuffer = Buffer.from(audio, 'base64');
+
+        // Detect whether this chunk has a valid WebM container header
+        const hasWebMHeader = audioBuffer.length > 4 &&
+          audioBuffer[0] === 0x1A && audioBuffer[1] === 0x45 &&
+          audioBuffer[2] === 0xDF && audioBuffer[3] === 0xA3;
+
+        if (hasWebMHeader) {
+          // Chunk 1: extract and cache the header for subsequent headerless chunks
+          const header = extractWebMHeader(audioBuffer);
+          if (header && header.length > 0) {
+            _cachedWebMHeader = header;
+            logger.info(`[Chunk Header Fix] Cached WebM header from chunk 1: ${header.length} bytes`);
+          }
+        } else if (_cachedWebMHeader) {
+          // Chunks 2+: prepend the cached header to create a valid WebM file
+          logger.info(`[Chunk Header Fix] Prepending ${_cachedWebMHeader.length}-byte header to ${audioBuffer.length}-byte headerless chunk`);
+          audioBuffer = Buffer.concat([_cachedWebMHeader, audioBuffer]);
+        } else {
+          logger.warn('[Chunk Header Fix] Headerless chunk received but no cached header available');
+        }
+
         const result = await transcriptionService.transcribe(audioBuffer, mimeType || 'audio/webm');
 
         if (!result.success) {
