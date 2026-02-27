@@ -933,7 +933,7 @@ async function querySignedRevenueLastWeek() {
     // Filter by Revenue_Type__c to include only Recurring, Project, Pilot
     // Also filter to ensure deals are within current fiscal quarter
     const soql = `
-      SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Owner.Name, 
+      SELECT Id, Name, Account.Name, Account.Account_Display_Name__c, ACV__c, Renewal_Net_Change__c, Owner.Name, 
              Sales_Type__c, Revenue_Type__c, Product_Line__c, Product_Lines_Multi__c, CloseDate
       FROM Opportunity
       WHERE StageName IN (${CLOSED_WON_IN_CLAUSE})
@@ -962,6 +962,7 @@ async function querySignedRevenueLastWeek() {
       name: opp.Name,
       accountName: getAccountDisplayName(opp),
       acv: opp.ACV__c || 0,
+      renewalNetChange: opp.Renewal_Net_Change__c || null,
       ownerName: opp.Owner?.Name || 'Unknown',
       salesType: opp.Sales_Type__c || 'N/A',
       revenueType: opp.Revenue_Type__c || 'Other',
@@ -1814,6 +1815,7 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
   doc.text('AI-Enabled, Net-New  •  Target Sign Date ≤ Q1', LEFT + 8, y + 3);
   y += 14;
   
+  const signedQTDm = (signedQTD.totalACV || 0) / 1000000;
   const forecastRows = [
     { label: 'Q1 Target', value: Q1_FY26_FORECAST.target, labelBold: true, amountBold: true, bg: '#f0fdf4' },
     { label: 'Commit', value: liveCommit, prev: prevCommitM, labelBold: false, amountBold: false, bg: '#f9fafb', italic: true },
@@ -1837,56 +1839,62 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
     if (row.prev != null && row.prev > 0) {
       const pctChange = Math.round(((safeValue - row.prev) / row.prev) * 100);
       const sign = pctChange > 0 ? '+' : '';
-      doc.font(fontItalic).fontSize(7).fillColor('#9ca3af');
-      doc.text(`${sign}${pctChange}%`, LEFT + col1Width + col2Width + 4, y + 5);
+      const changeColor = signedQTDm > 0 ? '#6b7280' : '#9ca3af';
+      doc.font(fontItalic).fontSize(7).fillColor(changeColor);
+      let wowLabel = `${sign}${pctChange}%`;
+      if (pctChange < 0 && signedQTDm > 0.01) {
+        wowLabel += '*';
+      }
+      doc.text(wowLabel, LEFT + col1Width + col2Width + 4, y + 5);
       doc.fillColor(DARK_TEXT);
     }
     y += rowHeight;
   });
   
-  // Footnote beneath forecast table — clear methodology
+  // Footnote beneath forecast table
   y += 2;
-  doc.font(fontItalic).fontSize(6).fillColor('#9ca3af');
-  doc.text('Commit = 100% Net ACV, "Commit" category. Weighted = stage-prob × Net ACV. Midpoint = (Commit + Weighted) / 2. AI-Enabled, target sign ≤ Q1.', LEFT + 4, y, { width: runRateWidth - 8 });
-  y += 14;
+  doc.font(fontItalic).fontSize(5.5).fillColor('#9ca3af');
+  const signedNote = signedQTDm > 0.01 ? ` * WoW decline reflects $${(signedQTDm).toFixed(1)}m signed (moved to Closed Won).` : '';
+  doc.text(`Open pipeline only. Net ACV.${signedNote}`, LEFT + 4, y, { width: runRateWidth - 8 });
+  y += 10;
 
-  // ── Q1 Closed Won by Business Lead (compact, left column) ──
+  // ── Q1 Closed Won by Business Lead (compact, grey header style) ──
   const cwBL = closedWonByBL || [];
   if (cwBL.length > 0) {
     y += 4;
-    doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
+    doc.font(fontBold).fontSize(7.5).fillColor(DARK_TEXT);
     doc.text('Q1 CLOSED WON BY BUSINESS LEAD', LEFT + 4, y);
-    y += 12;
-    doc.rect(LEFT, y, runRateWidth, 14).fill('#1f2937');
-    doc.font(fontBold).fontSize(7).fillColor('#ffffff');
-    doc.text('Business Lead', LEFT + 6, y + 3, { width: 120, lineBreak: false });
-    doc.text('Net ACV', LEFT + 130, y + 3, { width: 70, align: 'center', lineBreak: false });
-    doc.text('Deals', LEFT + 205, y + 3, { width: 50, align: 'center', lineBreak: false });
-    y += 14;
+    y += 11;
+    doc.rect(LEFT, y, runRateWidth, 13).fill('#e5e7eb');
+    doc.font(fontBold).fontSize(6.5).fillColor('#374151');
+    doc.text('Business Lead', LEFT + 6, y + 3, { width: 110, lineBreak: false });
+    doc.text('Net ACV', LEFT + 120, y + 3, { width: 70, align: 'center', lineBreak: false });
+    doc.text('Deals', LEFT + 200, y + 3, { width: 55, align: 'center', lineBreak: false });
+    y += 13;
     const cwTotalACV = cwBL.reduce((s, r) => s + r.totalACV, 0);
     const cwTotalDeals = cwBL.reduce((s, r) => s + r.dealCount, 0);
-    doc.font(fontRegular).fontSize(7).fillColor(DARK_TEXT);
+    doc.font(fontRegular).fontSize(6.5).fillColor(DARK_TEXT);
     cwBL.forEach((row, i) => {
       const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
-      doc.rect(LEFT, y, runRateWidth, 13).fill(bg);
+      doc.rect(LEFT, y, runRateWidth, 12).fill(bg);
       doc.fillColor(DARK_TEXT);
-      doc.text(row.name, LEFT + 6, y + 3, { width: 120, lineBreak: false });
+      doc.text(row.name, LEFT + 6, y + 2.5, { width: 110, lineBreak: false });
       const acvStr = row.totalACV >= 1000000
         ? `$${(row.totalACV / 1000000).toFixed(1)}m`
         : `$${Math.round(row.totalACV / 1000)}k`;
-      doc.text(acvStr, LEFT + 130, y + 3, { width: 70, align: 'center', lineBreak: false });
-      doc.text(row.dealCount.toString(), LEFT + 205, y + 3, { width: 50, align: 'center', lineBreak: false });
-      y += 13;
+      doc.text(acvStr, LEFT + 120, y + 2.5, { width: 70, align: 'center', lineBreak: false });
+      doc.text(row.dealCount.toString(), LEFT + 200, y + 2.5, { width: 55, align: 'center', lineBreak: false });
+      y += 12;
     });
-    doc.rect(LEFT, y, runRateWidth, 14).fill('#e5e7eb');
-    doc.font(fontBold).fontSize(7).fillColor(DARK_TEXT);
-    doc.text('Total', LEFT + 6, y + 3, { width: 120, lineBreak: false });
+    doc.rect(LEFT, y, runRateWidth, 13).fill('#f3f4f6');
+    doc.font(fontBold).fontSize(6.5).fillColor(DARK_TEXT);
+    doc.text('Total', LEFT + 6, y + 3, { width: 110, lineBreak: false });
     const cwTotalStr = cwTotalACV >= 1000000
       ? `$${(cwTotalACV / 1000000).toFixed(1)}m`
       : `$${Math.round(cwTotalACV / 1000)}k`;
-    doc.text(cwTotalStr, LEFT + 130, y + 3, { width: 70, align: 'center', lineBreak: false });
-    doc.text(cwTotalDeals.toString(), LEFT + 205, y + 3, { width: 50, align: 'center', lineBreak: false });
-    y += 14;
+    doc.text(cwTotalStr, LEFT + 120, y + 3, { width: 70, align: 'center', lineBreak: false });
+    doc.text(cwTotalDeals.toString(), LEFT + 200, y + 3, { width: 55, align: 'center', lineBreak: false });
+    y += 13;
   }
 
   const runRateEndY = y + 2;
@@ -1909,12 +1917,12 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
   doc.strokeColor('#e5e7eb').lineWidth(0.5).rect(signedX, y, signedWidth, 32).stroke();
   if (signedQTD.totalDeals === 0) {
     doc.font(fontBold).fontSize(8).fillColor('#6b7280');
-    doc.text('TOTAL SIGNED', signedX + 10, y + 7, { lineBreak: false });
+    doc.text('TOTAL NET ACV SIGNED', signedX + 10, y + 7, { lineBreak: false });
     doc.font(fontBold).fontSize(10).fillColor('#6b7280');
     doc.text('—', signedX + 10, y + 19, { lineBreak: false });
   } else {
     doc.font(fontBold).fontSize(8).fillColor(DARK_TEXT);
-    doc.text(`TOTAL SIGNED (${signedQTD.totalDeals} deals)`, signedX + 10, y + 7, { lineBreak: false });
+    doc.text(`TOTAL NET ACV SIGNED (${signedQTD.totalDeals} deals)`, signedX + 10, y + 7, { lineBreak: false });
     const qtdValue = signedQTD.totalACV >= 1000000 
       ? `$${(signedQTD.totalACV / 1000000).toFixed(1)}m`
       : `$${(signedQTD.totalACV / 1000).toFixed(0)}k`;
@@ -1962,21 +1970,25 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
       doc.text(`${type.toUpperCase()} (${data.deals.length})`, signedX, y);
       y += 14;
       
-      // Show top deals for this type - full account name with product as sub-bullet
       data.deals.slice(0, 2).forEach(deal => {
         const dealValue = deal.acv >= 1000000 
           ? `$${(deal.acv / 1000000).toFixed(1)}m`
           : `$${(deal.acv / 1000).toFixed(0)}k`;
-        // Show full account name (truncate only if very long)
         const name = deal.accountName.length > 25 ? deal.accountName.substring(0, 25) + '...' : deal.accountName;
-        // Main line: deal value and account name
+        const isRenewalExpansion = deal.salesType === 'Expansion' || deal.salesType === 'Renewal';
+        const acvLabel = isRenewalExpansion ? `${dealValue}*` : dealValue;
         doc.font(fontRegular).fontSize(8).fillColor(BODY_TEXT);
-        doc.text(`• ${dealValue}, ${name}`, signedX + 4, y);
+        doc.text(`• ${acvLabel}, ${name}`, signedX + 4, y);
         y += 11;
-        // Sub-bullet: full product line name
         const formattedProductLine = formatProductLine(deal.productLine);
         doc.font(fontRegular).fontSize(7).fillColor('#6b7280');
-        doc.text(`  ${formattedProductLine}`, signedX + 12, y);
+        let subLine = `  ${formattedProductLine}`;
+        if (isRenewalExpansion && deal.acv > 0) {
+          const netAcv = deal.renewalNetChange || Math.round(deal.acv * 0.75);
+          const netStr = netAcv >= 1000000 ? `$${(netAcv / 1000000).toFixed(1)}m` : `$${Math.round(netAcv / 1000)}k`;
+          subLine += `  (* ${netStr} net ACV)`;
+        }
+        doc.text(subLine, signedX + 12, y);
         y += 10;
       });
       y += 8;
@@ -2107,11 +2119,11 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
   y += 15;
   
   const plTableWidth = PAGE_WIDTH;
-  const ROW_H = 13;
-  const HDR_H = 16;
+  const ROW_H = 12;
+  const HDR_H = 15;
   const FOOTER_RESERVE = 22;
   const spaceLeft = 760 - y - HDR_H - FOOTER_RESERVE;
-  const maxRows = Math.max(3, Math.min(8, Math.floor(spaceLeft / ROW_H)));
+  const maxRows = Math.max(5, Math.min(10, Math.floor(spaceLeft / ROW_H)));
   
   const plAllRows = (productLineData && productLineData.length > 0) ? productLineData : [];
   if (!plAllRows.length) {
@@ -2119,30 +2131,28 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
   }
   const plRows = plAllRows.slice(0, maxRows);
   
-  // Header row — 3 columns: Product Line, Pipeline (%), Late Stage
   const plTotalACV = plAllRows.reduce((sum, r) => sum + (r.acv || 0), 0);
-  doc.rect(LEFT, y, plTableWidth, HDR_H).fill('#1f2937');
-  doc.font(fontBold).fontSize(8).fillColor('#ffffff');
-  doc.text('Product Line', LEFT + 6, y + 4, { width: 230, lineBreak: false });
-  doc.text('Pipeline (%)', LEFT + 240, y + 4, { width: 160, align: 'center', lineBreak: false });
-  doc.text('Late Stage', LEFT + 420, y + 4, { width: 70, align: 'center', lineBreak: false });
+  doc.rect(LEFT, y, plTableWidth, HDR_H).fill('#e5e7eb');
+  doc.font(fontBold).fontSize(7.5).fillColor('#374151');
+  doc.text('Product Line', LEFT + 6, y + 3.5, { width: 230, lineBreak: false });
+  doc.text('Pipeline (%)', LEFT + 240, y + 3.5, { width: 160, align: 'center', lineBreak: false });
+  doc.text('S3-5', LEFT + 430, y + 3.5, { width: 60, align: 'center', lineBreak: false });
   y += HDR_H;
   
-  doc.font(fontRegular).fontSize(8).fillColor(DARK_TEXT);
+  doc.font(fontRegular).fontSize(7.5).fillColor(DARK_TEXT);
   const fmtAcv = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : `$${Math.round(v / 1000)}k`;
   
   plRows.forEach((row, i) => {
-    if (y + ROW_H > 745) return;
+    if (y + ROW_H > 748) return;
     const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
     doc.rect(LEFT, y, plTableWidth, ROW_H).fill(bg);
-    doc.fillColor(DARK_TEXT);
+    doc.font(fontRegular).fontSize(7.5).fillColor(DARK_TEXT);
     const label = row.name.length > 35 ? row.name.substring(0, 33) + '...' : row.name;
-    doc.text(label, LEFT + 6, y + 3, { width: 230, lineBreak: false });
+    doc.text(label, LEFT + 6, y + 2.5, { width: 230, lineBreak: false });
     const pct = plTotalACV > 0 ? Math.round((row.acv / plTotalACV) * 100) : 0;
-    doc.text(`${fmtAcv(row.acv)} (${pct}%)`, LEFT + 240, y + 3, { width: 160, align: 'center', lineBreak: false });
-    doc.font(fontBold).fillColor(DARK_TEXT);
-    doc.text(row.lateStage.toString(), LEFT + 420, y + 3, { width: 70, align: 'center', lineBreak: false });
-    doc.font(fontRegular).fillColor(DARK_TEXT);
+    doc.text(`${fmtAcv(row.acv)} (${pct}%)`, LEFT + 240, y + 2.5, { width: 160, align: 'center', lineBreak: false });
+    doc.font(fontBold).fontSize(7.5).fillColor(DARK_TEXT);
+    doc.text(row.lateStage.toString(), LEFT + 430, y + 2.5, { width: 60, align: 'center', lineBreak: false });
     y += ROW_H;
   });
   
