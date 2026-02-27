@@ -4922,32 +4922,11 @@ created: ${dateStr}
       try { this.telemetry?.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'success' }); } catch {}
 
       if (!this.audioRecorder?.isRecording()) {
-        this._showUpdateStatus(`✓ v${remoteVersion} installed — restarting Obsidian…`);
-        new Notice(`Eudia Lite v${remoteVersion} installed. Obsidian will restart in 3 seconds.`, 5000);
-        console.log(`[Eudia Update] Files written: v${localVersion} → v${remoteVersion}. Force-restarting.`);
+        this._showUpdateStatus(`✓ v${remoteVersion} installed — reloading…`);
+        new Notice(`Eudia Lite v${remoteVersion} installed. Reloading in 3 seconds.`, 5000);
+        console.log(`[Eudia Update] Files written: v${localVersion} → v${remoteVersion}. Reloading page.`);
         setTimeout(() => {
-          // Spawn a detached process to reopen Obsidian after we kill it.
-          // This process outlives the Node.js runtime, waits 2 seconds for
-          // clean shutdown, then relaunches the app with the new plugin code.
-          try {
-            const { exec } = require('child_process');
-            const platform = process.platform;
-            if (platform === 'darwin') {
-              const child = exec('sleep 2 && open -a Obsidian');
-              child.unref?.();
-            } else if (platform === 'win32') {
-              const child = exec('ping -n 3 127.0.0.1 >nul && start "" "Obsidian"');
-              child.unref?.();
-            }
-            console.log(`[Eudia Update] Relaunch process spawned (${platform})`);
-          } catch (e: any) {
-            console.log('[Eudia Update] Relaunch spawn failed (user must reopen manually):', e.message);
-          }
-          // Kill the Electron process. This is the only method that reliably works
-          // across all Electron/Obsidian versions. electron.remote is deprecated
-          // and window.close() on macOS only hides the window.
-          console.log('[Eudia Update] Calling process.exit(0)');
-          process.exit(0);
+          window.location.reload();
         }, 3000);
         return;
       } else {
