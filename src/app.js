@@ -1791,6 +1791,210 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ONE-CLICK UPDATE — Single link that auto-detects OS and serves the right
+    // self-executing update script. Send users: gtm-wizard.onrender.com/update
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    this.expressApp.get('/update', (req, res) => {
+      const ua = req.headers['user-agent'] || '';
+      const isMac = ua.includes('Macintosh') || ua.includes('Mac OS');
+      const isWin = ua.includes('Windows');
+
+      if (isMac) return res.redirect('/update/mac');
+      if (isWin) return res.redirect('/update/windows');
+
+      // Fallback: show page with both buttons
+      const version = _pluginManifestCache?.version || 'latest';
+      res.setHeader('Content-Type', 'text/html');
+      res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Update Eudia Notetaker</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0f0f0f;color:#fff;display:flex;justify-content:center;align-items:center;min-height:100vh}
+.card{text-align:center;max-width:420px;padding:48px 36px}h1{font-size:28px;margin-bottom:12px}p{color:#aaa;margin-bottom:32px;font-size:15px}
+.btn{display:block;width:100%;padding:14px;margin:10px 0;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;text-decoration:none;color:#fff}
+.mac{background:#8e99e1}.win{background:#4a90d9}.mac:hover{background:#7a86d0}.win:hover{background:#3d7ec5}</style></head>
+<body><div class="card"><h1>Update Eudia Notetaker</h1><p>v${version} — Click your platform to update.</p>
+<a href="/update/mac" class="btn mac">Mac Update</a><a href="/update/windows" class="btn win">Windows Update</a>
+</div></body></html>`);
+    });
+
+    // Mac: serves a .command file that silently updates the plugin and restarts Obsidian
+    this.expressApp.get('/update/mac', (req, res) => {
+      const SERVER = 'https://gtm-wizard.onrender.com';
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Update-Eudia.command"');
+      res.send(`#!/bin/bash
+# Eudia Notetaker — Silent Update
+# This script finds your vault, updates the plugin, and restarts Obsidian.
+clear
+echo ""
+echo "  ╔══════════════════════════════════════╗"
+echo "  ║   Updating Eudia Notetaker...        ║"
+echo "  ╚══════════════════════════════════════╝"
+echo ""
+
+SERVER="${SERVER}"
+FOUND=""
+
+# Search for the vault in common locations
+for BASE in "$HOME/Documents" "$HOME/Desktop" "$HOME/Downloads" "$HOME"; do
+  while IFS= read -r -d '' d; do
+    if [ -d "$d/plugins/eudia-transcription" ] || [ -d "$d/plugins/gtm-brain" ]; then
+      FOUND="$(dirname "$d")"
+      break 2
+    fi
+  done < <(find "$BASE" -maxdepth 5 -name ".obsidian" -type d -print0 2>/dev/null)
+done
+
+if [ -z "$FOUND" ]; then
+  echo "  Could not find your Eudia vault."
+  echo "  Contact keigan.pesenti@eudia.com for help."
+  sleep 5
+  exit 1
+fi
+
+PD="$FOUND/.obsidian/plugins/eudia-transcription"
+[ ! -d "$PD" ] && PD="$FOUND/.obsidian/plugins/gtm-brain"
+echo "  Found vault: $FOUND"
+echo "  Downloading latest plugin..."
+
+# Download plugin files with retry
+DL_OK=false
+for a in 1 2 3; do
+  HC=$(curl -sS -w "%{http_code}" --connect-timeout 30 --max-time 120 -o "$PD/main.js.new" "$SERVER/api/plugin/main.js" 2>/dev/null)
+  if [ "$HC" = "200" ] && [ -s "$PD/main.js.new" ]; then DL_OK=true; break; fi
+  [ "$a" -lt 3 ] && echo "  Retrying ($a/3)..." && sleep 3
+done
+curl -sS --connect-timeout 30 -o "$PD/manifest.json.new" "$SERVER/api/plugin/manifest.json" 2>/dev/null
+curl -sS --connect-timeout 30 -o "$PD/styles.css.new" "$SERVER/api/plugin/styles.css" 2>/dev/null
+
+# Validate download
+MS=$(wc -c < "$PD/main.js.new" 2>/dev/null | tr -d ' ')
+if [ "\${MS:-0}" -lt 10000 ]; then
+  echo "  Download failed. Try again in a minute."
+  rm -f "$PD"/*.new
+  sleep 5
+  exit 1
+fi
+
+# Replace files
+cp "$PD/main.js" "$PD/main.js.bak" 2>/dev/null
+mv "$PD/main.js.new" "$PD/main.js"
+mv "$PD/manifest.json.new" "$PD/manifest.json"
+mv "$PD/styles.css.new" "$PD/styles.css"
+
+NV=$(grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' "$PD/manifest.json" | head -1 | sed 's/.*"\\([^"]*\\)"$/\\1/')
+echo "  Updated to v$NV"
+
+# Quit Obsidian
+echo "  Restarting Obsidian..."
+osascript -e 'tell application "Obsidian" to quit' 2>/dev/null || pkill -x "Obsidian" 2>/dev/null
+sleep 2
+
+# Reopen Obsidian
+open -a "Obsidian" 2>/dev/null
+
+echo ""
+echo "  Done! Eudia Notetaker is now v$NV"
+echo ""
+
+# Self-delete this script from Downloads
+SCRIPT_PATH="$0"
+if [[ "$SCRIPT_PATH" == *"/Downloads/"* ]]; then
+  rm -f "$SCRIPT_PATH" 2>/dev/null
+fi
+
+# Close this Terminal window after a brief pause
+sleep 3
+osascript -e 'tell application "Terminal" to close front window' 2>/dev/null &
+exit 0
+`);
+    });
+
+    // Windows: serves a .bat file that wraps PowerShell to silently update the plugin
+    this.expressApp.get('/update/windows', (req, res) => {
+      const SERVER = 'https://gtm-wizard.onrender.com';
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Update-Eudia.bat"');
+      res.send(`@echo off
+title Updating Eudia Notetaker...
+echo.
+echo   Updating Eudia Notetaker...
+echo.
+powershell -ExecutionPolicy Bypass -Command "& {
+  $ErrorActionPreference = 'SilentlyContinue'
+  $SERVER = '${SERVER}'
+
+  # Find the vault
+  $searchPaths = @(
+    [System.IO.Path]::Combine($env:USERPROFILE, 'Documents'),
+    [System.IO.Path]::Combine($env:USERPROFILE, 'Desktop'),
+    [System.IO.Path]::Combine($env:USERPROFILE, 'Downloads'),
+    [System.IO.Path]::Combine($env:USERPROFILE, 'OneDrive', 'Documents'),
+    $env:USERPROFILE
+  )
+  $vaultPath = $null
+  foreach ($base in $searchPaths) {
+    if (-not (Test-Path $base)) { continue }
+    $found = Get-ChildItem -Path $base -Recurse -Depth 4 -Directory -Filter '.obsidian' -ErrorAction SilentlyContinue |
+      Where-Object { (Test-Path (Join-Path $_.FullName 'plugins\\eudia-transcription')) -or (Test-Path (Join-Path $_.FullName 'plugins\\gtm-brain')) } |
+      Select-Object -First 1
+    if ($found) { $vaultPath = $found.Parent.FullName; break }
+  }
+  if (-not $vaultPath) {
+    Write-Host '  Could not find your Eudia vault.'
+    Write-Host '  Contact keigan.pesenti@eudia.com for help.'
+    Start-Sleep 5; exit 1
+  }
+
+  $pluginDir = Join-Path $vaultPath '.obsidian\\plugins\\eudia-transcription'
+  if (-not (Test-Path $pluginDir)) { $pluginDir = Join-Path $vaultPath '.obsidian\\plugins\\gtm-brain' }
+  Write-Host '  Found vault:' $vaultPath
+  Write-Host '  Downloading latest plugin...'
+
+  # Download files
+  try {
+    Invoke-WebRequest -Uri \\\"$SERVER/api/plugin/main.js\\\" -OutFile (Join-Path $pluginDir 'main.js.new') -TimeoutSec 120
+    Invoke-WebRequest -Uri \\\"$SERVER/api/plugin/manifest.json\\\" -OutFile (Join-Path $pluginDir 'manifest.json.new') -TimeoutSec 30
+    Invoke-WebRequest -Uri \\\"$SERVER/api/plugin/styles.css\\\" -OutFile (Join-Path $pluginDir 'styles.css.new') -TimeoutSec 30
+  } catch {
+    Write-Host '  Download failed. Try again in a minute.'
+    Remove-Item (Join-Path $pluginDir '*.new') -ErrorAction SilentlyContinue
+    Start-Sleep 5; exit 1
+  }
+
+  # Validate
+  $mainSize = (Get-Item (Join-Path $pluginDir 'main.js.new')).Length
+  if ($mainSize -lt 10000) {
+    Write-Host '  Download incomplete. Try again.'
+    Remove-Item (Join-Path $pluginDir '*.new') -ErrorAction SilentlyContinue
+    Start-Sleep 5; exit 1
+  }
+
+  # Replace files
+  Copy-Item (Join-Path $pluginDir 'main.js') (Join-Path $pluginDir 'main.js.bak') -ErrorAction SilentlyContinue
+  Move-Item (Join-Path $pluginDir 'main.js.new') (Join-Path $pluginDir 'main.js') -Force
+  Move-Item (Join-Path $pluginDir 'manifest.json.new') (Join-Path $pluginDir 'manifest.json') -Force
+  Move-Item (Join-Path $pluginDir 'styles.css.new') (Join-Path $pluginDir 'styles.css') -Force
+
+  $manifest = Get-Content (Join-Path $pluginDir 'manifest.json') | ConvertFrom-Json
+  Write-Host '  Updated to v'$manifest.version
+
+  # Quit Obsidian
+  Write-Host '  Restarting Obsidian...'
+  Get-Process -Name 'Obsidian' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+  Start-Sleep 3
+
+  # Reopen Obsidian
+  Start-Process 'obsidian://open' -ErrorAction SilentlyContinue
+
+  Write-Host ''
+  Write-Host '  Done! Eudia Notetaker is now v'$manifest.version
+  Start-Sleep 3
+}"
+`);
+    });
+
     // Plugin update page — user-facing web page matching GTM site design
     this.expressApp.get('/update-plugin', (req, res) => {
       const version = _pluginManifestCache?.version || 'latest';
