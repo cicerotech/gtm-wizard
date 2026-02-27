@@ -4922,25 +4922,32 @@ created: ${dateStr}
       try { this.telemetry?.reportUpdateCheck({ localVersion, remoteVersion, updateNeeded: true, updateResult: 'success' }); } catch {}
 
       if (!this.audioRecorder?.isRecording()) {
-        this._showUpdateStatus(`✓ v${remoteVersion} installed — Obsidian will restart in 3s`);
-        new Notice(`Eudia Lite updated to v${remoteVersion}. Obsidian will restart in 3 seconds.`, 5000);
-        console.log(`[Eudia Update] Files written. Force-restarting Obsidian: v${localVersion} → v${remoteVersion}`);
+        this._showUpdateStatus(`✓ v${remoteVersion} installed — restarting Obsidian…`);
+        new Notice(`Eudia Lite v${remoteVersion} installed. Obsidian will restart in 3 seconds.`, 5000);
+        console.log(`[Eudia Update] Files written: v${localVersion} → v${remoteVersion}. Force-restarting.`);
         setTimeout(() => {
+          // Spawn a detached process to reopen Obsidian after we kill it.
+          // This process outlives the Node.js runtime, waits 2 seconds for
+          // clean shutdown, then relaunches the app with the new plugin code.
           try {
-            const electron = require('electron');
-            if (electron.remote?.app) {
-              electron.remote.app.relaunch();
-              electron.remote.app.exit(0);
-            } else {
-              console.log('[Eudia Update] electron.remote not available, trying window.close');
-              window.close();
+            const { exec } = require('child_process');
+            const platform = process.platform;
+            if (platform === 'darwin') {
+              const child = exec('sleep 2 && open -a Obsidian');
+              child.unref?.();
+            } else if (platform === 'win32') {
+              const child = exec('ping -n 3 127.0.0.1 >nul && start "" "Obsidian"');
+              child.unref?.();
             }
+            console.log(`[Eudia Update] Relaunch process spawned (${platform})`);
           } catch (e: any) {
-            console.log('[Eudia Update] Force restart failed:', e.message);
-            this._updateInProgress = false;
-            this._hideUpdateStatus();
-            new Notice(`v${remoteVersion} installed. Please quit and reopen Obsidian to complete the update.`, 0);
+            console.log('[Eudia Update] Relaunch spawn failed (user must reopen manually):', e.message);
           }
+          // Kill the Electron process. This is the only method that reliably works
+          // across all Electron/Obsidian versions. electron.remote is deprecated
+          // and window.close() on macOS only hides the window.
+          console.log('[Eudia Update] Calling process.exit(0)');
+          process.exit(0);
         }, 3000);
         return;
       } else {
