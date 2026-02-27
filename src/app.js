@@ -2166,6 +2166,41 @@ document.addEventListener('DOMContentLoaded', function() {
     // Admin pushes operations → server queues → plugin polls and executes
     // ═══════════════════════════════════════════════════════════════════════════
 
+    let _vaultTablesInitialized = false;
+    async function ensureVaultTables() {
+      if (_vaultTablesInitialized) return;
+      try {
+        const { pool } = require('./db/connection');
+        if (!pool) return;
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS device_registrations (
+            id SERIAL PRIMARY KEY, device_id UUID NOT NULL UNIQUE, user_email VARCHAR(255) NOT NULL,
+            device_name VARCHAR(255), platform VARCHAR(50) DEFAULT 'obsidian', plugin_version VARCHAR(20),
+            os_info VARCHAR(255), last_heartbeat TIMESTAMPTZ, account_count INTEGER DEFAULT 0,
+            sf_connected BOOLEAN DEFAULT FALSE, calendar_connected BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+          )`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_device_user_email ON device_registrations (user_email)`);
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS vault_operations (
+            id SERIAL PRIMARY KEY, target_email VARCHAR(255), target_device_id UUID,
+            operation_type VARCHAR(50) NOT NULL, operation_data JSONB NOT NULL,
+            priority INTEGER DEFAULT 5, status VARCHAR(20) DEFAULT 'pending',
+            created_by VARCHAR(255), created_at TIMESTAMPTZ DEFAULT NOW(),
+            delivered_at TIMESTAMPTZ, executed_at TIMESTAMPTZ, result JSONB,
+            error_message TEXT, expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days')
+          )`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_vault_ops_target ON vault_operations (target_email, status)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_vault_ops_device ON vault_operations (target_device_id, status)`);
+        _vaultTablesInitialized = true;
+        logger.info('[Vault Ops] Tables verified/created');
+      } catch (e) {
+        logger.warn('[Vault Ops] Table init failed (will retry):', e.message);
+      }
+    }
+    // Run once at startup (non-blocking)
+    setTimeout(() => ensureVaultTables(), 5000);
+
     // Plugin polls for pending vault operations
     this.expressApp.get('/api/plugin/operations', async (req, res) => {
       try {
@@ -2243,6 +2278,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Admin: push a vault operation to a specific user or device
     this.expressApp.post('/api/admin/vault/push', express.json(), async (req, res) => {
       try {
+        await ensureVaultTables();
         const { targetEmail, targetDeviceId, operation, data, priority, createdBy } = req.body;
         if (!operation || !data) {
           return res.status(400).json({ success: false, error: 'operation and data are required' });
