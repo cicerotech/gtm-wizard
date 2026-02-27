@@ -1572,7 +1572,104 @@ echo ""
 `);
     });
 
-    // Fresh install page — user-facing web page
+    // One-click installer: Mac .command file (double-clickable)
+    this.expressApp.get('/install/mac', (req, res) => {
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Install Eudia Notetaker.command"');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.send(`#!/bin/bash
+bash -c "$(curl -sL https://gtm-wizard.onrender.com/api/plugin/fresh-install.sh)"
+`);
+    });
+
+    // One-click installer: Windows .bat file (double-clickable)
+    this.expressApp.get('/install/windows', (req, res) => {
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Install Eudia Notetaker.bat"');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.send(`@echo off
+echo.
+echo   Eudia Notetaker - Installing...
+echo.
+powershell -ExecutionPolicy Bypass -Command "iex (irm 'https://gtm-wizard.onrender.com/api/plugin/fresh-install.ps1')"
+pause
+`);
+    });
+
+    // One-click install landing page — auto-detects OS, one download button
+    this.expressApp.get('/install', (req, res) => {
+      const version = _pluginManifestCache?.version || 'latest';
+      res.setHeader('Content-Type', 'text/html');
+      res.send(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Install Eudia Notetaker</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fe; color: #1f2937; line-height: 1.6; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.card { background: #fff; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 40px 36px; max-width: 420px; width: 100%; text-align: center; }
+h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 6px; }
+.subtitle { color: #6b7280; font-size: 0.9rem; margin-bottom: 24px; }
+.version { display: inline-block; background: #8e99e1; color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; margin-bottom: 20px; }
+.btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; text-decoration: none; margin-bottom: 10px; transition: all 0.15s; }
+.btn-primary { background: #8e99e1; color: #fff; }
+.btn-primary:hover { background: #7a86d4; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(142,153,225,0.3); }
+.btn-secondary { background: #fff; color: #1f2937; border: 1px solid #e5e7eb; font-size: 0.875rem; padding: 12px; }
+.btn-secondary:hover { border-color: #8e99e1; color: #8e99e1; }
+.steps { text-align: left; margin: 20px 0; padding: 16px; background: rgba(142,153,225,0.06); border-radius: 10px; font-size: 0.85rem; color: #4b5563; }
+.steps ol { padding-left: 20px; }
+.steps li { margin-bottom: 6px; }
+.steps strong { color: #1f2937; }
+.footer { margin-top: 16px; font-size: 0.75rem; color: #9ca3af; }
+.footer a { color: #8e99e1; text-decoration: none; }
+.hidden { display: none; }
+</style>
+<script>
+var isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+var isWin = navigator.platform.toUpperCase().indexOf('WIN') >= 0;
+document.addEventListener('DOMContentLoaded', function() {
+  if (isWin) {
+    document.getElementById('mac-section').classList.add('hidden');
+    document.getElementById('win-section').classList.remove('hidden');
+  }
+});
+</script>
+</head><body>
+<div class="card">
+  <h1>Eudia Notetaker</h1>
+  <p class="subtitle">One-click install. Download the file, double-click it, done.</p>
+  <span class="version">v${version}</span>
+
+  <div id="mac-section">
+    <a href="/install/mac" class="btn btn-primary">Download for Mac</a>
+    <div class="steps">
+      <ol>
+        <li><strong>Download</strong> the file (appears in Downloads)</li>
+        <li><strong>Double-click</strong> "Install Eudia Notetaker"</li>
+        <li>Obsidian opens automatically with the setup wizard</li>
+      </ol>
+    </div>
+    <a href="/install/windows" class="btn btn-secondary">I'm on Windows</a>
+  </div>
+
+  <div id="win-section" class="hidden">
+    <a href="/install/windows" class="btn btn-primary">Download for Windows</a>
+    <div class="steps">
+      <ol>
+        <li><strong>Download</strong> the file (appears in Downloads)</li>
+        <li><strong>Double-click</strong> "Install Eudia Notetaker"</li>
+        <li>If Windows warns you, click <strong>More info</strong> then <strong>Run anyway</strong></li>
+        <li>Obsidian opens automatically with the setup wizard</li>
+      </ol>
+    </div>
+    <a href="/install/mac" class="btn btn-secondary">I'm on Mac</a>
+  </div>
+
+  <p class="footer">Requires <a href="https://obsidian.md" target="_blank">Obsidian</a> (free). Install it first if you don't have it.</p>
+</div>
+</body></html>`);
+    });
+
+    // Fresh install page — user-facing web page (legacy URL, redirects to /install)
     this.expressApp.get('/fresh-install', (req, res) => {
       const version = _pluginManifestCache?.version || 'latest';
       res.setHeader('Content-Type', 'text/html');
