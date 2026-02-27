@@ -88,6 +88,9 @@ interface EudiaSyncSettings {
   pendingReloadVersion: string | null;
   // User role for account loading
   userRole: 'sales' | 'cs' | 'exec' | 'product' | 'admin' | 'other' | '';
+  // Device identity for server-side fleet management
+  deviceId: string | null;
+  deviceName: string;
 }
 
 // Common timezone options for US/EU sales teams
@@ -140,7 +143,9 @@ const DEFAULT_SETTINGS: EudiaSyncSettings = {
   healQueue: [],
   prospectsMigrated: false,
   pendingReloadVersion: null,
-  userRole: ''
+  userRole: '',
+  deviceId: null,
+  deviceName: ''
 };
 
 interface SalesforceAccount {
@@ -155,8 +160,10 @@ interface SalesforceAccount {
 class TelemetryService {
   private serverUrl: string;
   private userEmail: string;
-  private enabled: boolean = true; // Can be disabled via settings in future
-  private pluginVersion: string = '4.9.0';
+  private deviceId: string = '';
+  private deviceName: string = '';
+  private enabled: boolean = true;
+  private pluginVersion: string = '4.10.4';
   
   constructor(serverUrl: string, userEmail: string = '') {
     this.serverUrl = serverUrl;
@@ -165,6 +172,11 @@ class TelemetryService {
   
   setUserEmail(email: string): void {
     this.userEmail = email;
+  }
+
+  setDeviceIdentity(deviceId: string, deviceName: string): void {
+    this.deviceId = deviceId;
+    this.deviceName = deviceName;
   }
   
   /**
@@ -206,6 +218,8 @@ class TelemetryService {
         body: JSON.stringify({
           event: 'heartbeat',
           userEmail: this.userEmail,
+          deviceId: this.deviceId,
+          deviceName: this.deviceName,
           pluginVersion: this.pluginVersion,
           platform: 'obsidian',
           accountCount,
@@ -364,6 +378,7 @@ class TelemetryService {
           message,
           context,
           userEmail: this.userEmail || 'anonymous',
+          deviceId: this.deviceId,
           pluginVersion: this.pluginVersion,
           platform: 'obsidian'
         })
@@ -3852,6 +3867,15 @@ export default class EudiaSyncPlugin extends Plugin {
       this.settings.userEmail
     );
 
+    // Generate persistent device identity on first load
+    if (!this.settings.deviceId) {
+      this.settings.deviceId = crypto.randomUUID();
+      try { this.settings.deviceName = require('os').hostname(); } catch { this.settings.deviceName = 'unknown'; }
+      await this.saveSettings();
+      console.log(`[Eudia] Device registered: ${this.settings.deviceId} (${this.settings.deviceName})`);
+    }
+    this.telemetry.setDeviceIdentity(this.settings.deviceId, this.settings.deviceName);
+
     // Pre-configure system audio capture (non-blocking, runs once)
     AudioRecorder.setupDisplayMediaHandler().then(ok => {
       if (ok) console.log('[Eudia] System audio: loopback handler ready');
@@ -3912,6 +3936,12 @@ export default class EudiaSyncPlugin extends Plugin {
     // Re-check every 10 minutes (reduced from 30 for faster update propagation)
     this.registerInterval(
       window.setInterval(() => this.checkForPluginUpdate(), 10 * 60 * 1000)
+    );
+
+    // Vault operations poller — checks server for admin-pushed commands every 60s
+    setTimeout(() => this.pollVaultOperations(), 15000);
+    this.registerInterval(
+      window.setInterval(() => this.pollVaultOperations(), 60 * 1000)
     );
 
     // Auto-heal: scan for notes with failed transcriptions and re-process them
@@ -4541,6 +4571,130 @@ created: ${dateStr}
       }
     }
     console.log('[Eudia Update] All retry attempts exhausted — will try again on next cycle');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VAULT OPERATIONS — Polls server for admin-pushed commands and executes them
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private async pollVaultOperations(): Promise<void> {
+    if (!this.settings.deviceId || !this.settings.userEmail) return;
+    try {
+      const serverUrl = this.settings.serverUrl || 'https://gtm-wizard.onrender.com';
+      const resp = await requestUrl({
+        url: `${serverUrl}/api/plugin/operations?deviceId=${this.settings.deviceId}&email=${encodeURIComponent(this.settings.userEmail)}`,
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const ops = resp.json?.operations;
+      if (!ops || ops.length === 0) return;
+
+      console.log(`[Eudia Ops] Received ${ops.length} vault operation(s)`);
+      for (const op of ops) {
+        await this.executeVaultOperation(op);
+      }
+    } catch {
+      // Silently ignore — polling is best-effort
+    }
+  }
+
+  private async executeVaultOperation(op: { id: number; operation_type: string; data: any; created_by?: string }): Promise<void> {
+    const serverUrl = this.settings.serverUrl || 'https://gtm-wizard.onrender.com';
+    try {
+      console.log(`[Eudia Ops] Executing: ${op.operation_type} (id: ${op.id})`);
+
+      switch (op.operation_type) {
+        case 'create_file': {
+          const existing = this.app.vault.getAbstractFileByPath(op.data.path);
+          if (existing && !op.data.overwrite) {
+            console.log(`[Eudia Ops] File exists, skipping: ${op.data.path}`);
+            break;
+          }
+          // Ensure parent folder exists
+          const parentPath = op.data.path.split('/').slice(0, -1).join('/');
+          if (parentPath) {
+            try { await this.app.vault.createFolder(parentPath); } catch { }
+          }
+          if (existing) {
+            await this.app.vault.modify(existing as any, op.data.content || '');
+          } else {
+            await this.app.vault.create(op.data.path, op.data.content || '');
+          }
+          console.log(`[Eudia Ops] Created: ${op.data.path}`);
+          break;
+        }
+        case 'modify_file': {
+          const file = this.app.vault.getAbstractFileByPath(op.data.path);
+          if (!file) { console.log(`[Eudia Ops] File not found: ${op.data.path}`); break; }
+          if (op.data.appendContent) {
+            const current = await this.app.vault.read(file as any);
+            await this.app.vault.modify(file as any, current + '\n' + op.data.appendContent);
+          } else if (op.data.content) {
+            await this.app.vault.modify(file as any, op.data.content);
+          }
+          break;
+        }
+        case 'create_folder': {
+          try { await this.app.vault.createFolder(op.data.path); } catch { }
+          break;
+        }
+        case 'delete_file': {
+          const target = this.app.vault.getAbstractFileByPath(op.data.path);
+          if (target) await this.app.vault.delete(target);
+          break;
+        }
+        case 'push_template': {
+          const folder = op.data.targetFolder || '_Templates';
+          try { await this.app.vault.createFolder(folder); } catch { }
+          const tplPath = `${folder}/${op.data.templateName}.md`;
+          const existing = this.app.vault.getAbstractFileByPath(tplPath);
+          if (existing) {
+            await this.app.vault.modify(existing as any, op.data.content || '');
+          } else {
+            await this.app.vault.create(tplPath, op.data.content || '');
+          }
+          break;
+        }
+        case 'force_update': {
+          await this.checkForPluginUpdate();
+          break;
+        }
+        case 'push_config': {
+          if (op.data.settings) {
+            Object.assign(this.settings, op.data.settings);
+            await this.saveSettings();
+          }
+          break;
+        }
+        case 'notify': {
+          new Notice(op.data.message || 'Admin notification', op.data.duration || 8000);
+          break;
+        }
+        default:
+          console.log(`[Eudia Ops] Unknown operation type: ${op.operation_type}`);
+      }
+
+      // Report success
+      try {
+        await requestUrl({
+          url: `${serverUrl}/api/plugin/operations/ack`,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operationId: op.id, status: 'executed', result: { success: true } })
+        });
+      } catch { }
+    } catch (e: any) {
+      console.error(`[Eudia Ops] Failed: ${op.operation_type}:`, e.message);
+      try {
+        await requestUrl({
+          url: `${serverUrl}/api/plugin/operations/ack`,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operationId: op.id, status: 'failed', error: e.message })
+        });
+      } catch { }
+    }
   }
 
   /**

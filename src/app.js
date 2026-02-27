@@ -2111,6 +2111,37 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       } catch { }
 
+      // Upsert device registration on heartbeat
+      if (event === 'heartbeat' && data.deviceId) {
+        try {
+          const { pool } = require('./db/connection');
+          if (pool) {
+            pool.query(`
+              INSERT INTO device_registrations (device_id, user_email, device_name, platform, plugin_version, last_heartbeat, account_count, sf_connected, calendar_connected, updated_at)
+              VALUES ($1, $2, $3, $4, $5, NOW(), $6, $7, $8, NOW())
+              ON CONFLICT (device_id) DO UPDATE SET
+                user_email = EXCLUDED.user_email,
+                device_name = COALESCE(EXCLUDED.device_name, device_registrations.device_name),
+                plugin_version = EXCLUDED.plugin_version,
+                last_heartbeat = NOW(),
+                account_count = EXCLUDED.account_count,
+                sf_connected = EXCLUDED.sf_connected,
+                calendar_connected = EXCLUDED.calendar_connected,
+                updated_at = NOW()
+            `, [
+              data.deviceId,
+              userKey,
+              data.deviceName || null,
+              data.platform || 'obsidian',
+              data.pluginVersion || null,
+              data.accountCount || 0,
+              data.connections?.salesforce === 'connected',
+              data.connections?.calendar === 'connected'
+            ]).catch(e => logger.warn('[Device Registry] Upsert failed:', e.message));
+          }
+        } catch { }
+      }
+
       // Check for admin-pushed commands
       let userCommand = null;
       try {
@@ -2128,6 +2159,205 @@ document.addEventListener('DOMContentLoaded', function() {
       const response = { success: true, latestVersion };
       if (userCommand) response.command = userCommand;
       res.json(response);
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // VAULT OPERATIONS — Remote vault management via command queue
+    // Admin pushes operations → server queues → plugin polls and executes
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Plugin polls for pending vault operations
+    this.expressApp.get('/api/plugin/operations', async (req, res) => {
+      try {
+        const { deviceId, email } = req.query;
+        if (!deviceId && !email) {
+          return res.json({ success: true, operations: [] });
+        }
+
+        const { pool } = require('./db/connection');
+        if (!pool) return res.json({ success: true, operations: [] });
+
+        const result = await pool.query(`
+          SELECT id, operation_type, operation_data, priority, created_at, created_by
+          FROM vault_operations
+          WHERE status = 'pending'
+            AND (expires_at IS NULL OR expires_at > NOW())
+            AND (
+              (target_email IS NULL AND target_device_id IS NULL)
+              OR (target_email = $1 AND (target_device_id IS NULL OR target_device_id = $2::uuid))
+              OR (target_device_id = $2::uuid)
+            )
+          ORDER BY priority ASC, created_at ASC
+          LIMIT 20
+        `, [email || '', deviceId || '00000000-0000-0000-0000-000000000000']);
+
+        // Mark as delivered
+        if (result.rows.length > 0) {
+          const ids = result.rows.map(r => r.id);
+          await pool.query(`
+            UPDATE vault_operations SET status = 'delivered', delivered_at = NOW()
+            WHERE id = ANY($1)
+          `, [ids]);
+          logger.info(`[Vault Ops] Delivered ${ids.length} operations to ${email || deviceId}`);
+        }
+
+        res.json({
+          success: true,
+          operations: result.rows.map(r => ({
+            id: r.id,
+            operation_type: r.operation_type,
+            data: r.operation_data,
+            priority: r.priority,
+            created_by: r.created_by
+          }))
+        });
+      } catch (error) {
+        logger.error('[Vault Ops] Poll error:', error.message);
+        res.json({ success: true, operations: [] });
+      }
+    });
+
+    // Plugin acknowledges operation execution result
+    this.expressApp.post('/api/plugin/operations/ack', express.json(), async (req, res) => {
+      try {
+        const { operationId, status, result, error } = req.body;
+        if (!operationId) return res.status(400).json({ success: false, error: 'operationId required' });
+
+        const { pool } = require('./db/connection');
+        if (!pool) return res.json({ success: true });
+
+        await pool.query(`
+          UPDATE vault_operations
+          SET status = $2, executed_at = NOW(), result = $3, error_message = $4
+          WHERE id = $1
+        `, [operationId, status || 'executed', JSON.stringify(result || {}), error || null]);
+
+        logger.info(`[Vault Ops] Operation ${operationId} → ${status}`);
+        res.json({ success: true });
+      } catch (error) {
+        logger.error('[Vault Ops] Ack error:', error.message);
+        res.json({ success: true });
+      }
+    });
+
+    // Admin: push a vault operation to a specific user or device
+    this.expressApp.post('/api/admin/vault/push', express.json(), async (req, res) => {
+      try {
+        const { targetEmail, targetDeviceId, operation, data, priority, createdBy } = req.body;
+        if (!operation || !data) {
+          return res.status(400).json({ success: false, error: 'operation and data are required' });
+        }
+
+        const validOps = ['create_file', 'modify_file', 'create_folder', 'delete_file',
+          'upsert_frontmatter', 'push_template', 'sync_accounts', 'run_enrichment',
+          'force_update', 'execute_command', 'push_config', 'notify'];
+        if (!validOps.includes(operation)) {
+          return res.status(400).json({ success: false, error: `Invalid operation. Valid: ${validOps.join(', ')}` });
+        }
+
+        const { pool } = require('./db/connection');
+        if (!pool) return res.status(503).json({ success: false, error: 'Database unavailable' });
+
+        const result = await pool.query(`
+          INSERT INTO vault_operations (target_email, target_device_id, operation_type, operation_data, priority, created_by)
+          VALUES ($1, $2, $3, $4, $5, $6)
+          RETURNING id, created_at
+        `, [targetEmail || null, targetDeviceId || null, operation, JSON.stringify(data), priority || 5, createdBy || 'admin']);
+
+        logger.info(`[Vault Ops] Queued: ${operation} → ${targetEmail || 'broadcast'} (id: ${result.rows[0].id})`);
+        res.json({ success: true, operationId: result.rows[0].id, createdAt: result.rows[0].created_at });
+      } catch (error) {
+        logger.error('[Vault Ops] Push error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Admin: broadcast a vault operation to all users (or filtered by role)
+    this.expressApp.post('/api/admin/vault/broadcast', express.json(), async (req, res) => {
+      try {
+        const { operation, data, targetRole, priority, createdBy } = req.body;
+        if (!operation || !data) {
+          return res.status(400).json({ success: false, error: 'operation and data are required' });
+        }
+
+        const { pool } = require('./db/connection');
+        if (!pool) return res.status(503).json({ success: false, error: 'Database unavailable' });
+
+        // Get target devices
+        let deviceQuery = 'SELECT DISTINCT user_email FROM device_registrations WHERE last_heartbeat > NOW() - INTERVAL \'7 days\'';
+        const params = [];
+
+        const deviceResult = await pool.query(deviceQuery, params);
+        const emails = deviceResult.rows.map(r => r.user_email);
+
+        if (emails.length === 0) {
+          return res.json({ success: true, queued: 0, message: 'No active devices found' });
+        }
+
+        // Queue one operation per user
+        let queued = 0;
+        for (const email of emails) {
+          await pool.query(`
+            INSERT INTO vault_operations (target_email, operation_type, operation_data, priority, created_by)
+            VALUES ($1, $2, $3, $4, $5)
+          `, [email, operation, JSON.stringify(data), priority || 5, createdBy || 'admin']);
+          queued++;
+        }
+
+        logger.info(`[Vault Ops] Broadcast: ${operation} → ${queued} users`);
+        res.json({ success: true, queued, targetEmails: emails });
+      } catch (error) {
+        logger.error('[Vault Ops] Broadcast error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Admin: list all registered devices (fleet view)
+    this.expressApp.get('/api/admin/devices', async (req, res) => {
+      try {
+        const { pool } = require('./db/connection');
+        if (!pool) return res.json({ success: true, devices: [] });
+
+        const result = await pool.query(`
+          SELECT device_id, user_email, device_name, platform, plugin_version,
+                 last_heartbeat, account_count, sf_connected, calendar_connected,
+                 created_at,
+                 CASE
+                   WHEN last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online'
+                   WHEN last_heartbeat > NOW() - INTERVAL '48 hours' THEN 'idle'
+                   ELSE 'stale'
+                 END as health_status
+          FROM device_registrations
+          ORDER BY last_heartbeat DESC NULLS LAST
+        `);
+
+        res.json({ success: true, devices: result.rows, count: result.rows.length });
+      } catch (error) {
+        logger.error('[Devices] List error:', error.message);
+        res.json({ success: true, devices: [] });
+      }
+    });
+
+    // Admin: list vault operations with status
+    this.expressApp.get('/api/admin/vault/operations', async (req, res) => {
+      try {
+        const { status, email, limit: lim } = req.query;
+        const { pool } = require('./db/connection');
+        if (!pool) return res.json({ success: true, operations: [] });
+
+        let query = 'SELECT * FROM vault_operations WHERE 1=1';
+        const params = [];
+        if (status) { params.push(status); query += ` AND status = $${params.length}`; }
+        if (email) { params.push(email); query += ` AND target_email = $${params.length}`; }
+        query += ` ORDER BY created_at DESC LIMIT $${params.length + 1}`;
+        params.push(parseInt(lim) || 50);
+
+        const result = await pool.query(query, params);
+        res.json({ success: true, operations: result.rows, count: result.rows.length });
+      } catch (error) {
+        logger.error('[Vault Ops] List error:', error.message);
+        res.json({ success: true, operations: [] });
+      }
     });
 
     // Plugin state check — server-side state authority for a user
