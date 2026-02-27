@@ -7301,7 +7301,7 @@ last_updated: ${dateStr}
       this.recordingStatusBar.show();
       this.micRibbonIcon?.addClass('eudia-ribbon-recording');
 
-      // ── Step 11: Calendar auto-stop ──
+      // ── Step 11: Calendar auto-stop (with 5-minute grace period) ──
       try {
         const currentMeeting = await this.calendarService.getCurrentMeeting();
         if (currentMeeting.isNow && currentMeeting.meeting?.end) {
@@ -7310,12 +7310,46 @@ last_updated: ${dateStr}
           const remainingMs = endTime.getTime() - now.getTime();
           if (remainingMs > 60000 && remainingMs < 5400000) {
             const remainingMin = Math.round(remainingMs / 60000);
-            new Notice(`Recording aligned to meeting — auto-stops in ${remainingMin} min`);
-            setTimeout(async () => {
-              if (this.audioRecorder?.isRecording()) {
-                new Notice('Meeting ended — generating summary.');
-                await this.stopRecording();
-              }
+            new Notice(`Recording aligned to meeting (~${remainingMin} min remaining)`, 5000);
+            const pluginRef = this;
+            setTimeout(() => {
+              if (!pluginRef.audioRecorder?.isRecording()) return;
+              let graceTimeout: ReturnType<typeof setTimeout> | null = null;
+              const graceModal = new (class extends Modal {
+                dismissed = false;
+                onOpen() {
+                  const { contentEl } = this;
+                  contentEl.createEl('h2', { text: 'Meeting ended' });
+                  contentEl.createEl('p', { text: 'Your calendar meeting has ended. Recording will auto-stop in 5 minutes.' });
+                  contentEl.createEl('p', { text: 'Need more time? Keep recording to continue.', cls: 'setting-item-description' });
+                  const btnContainer = contentEl.createDiv({ cls: 'modal-button-container' });
+                  btnContainer.createEl('button', { text: 'Keep Recording', cls: 'mod-cta' }).onclick = () => {
+                    this.dismissed = true;
+                    this.close();
+                  };
+                  btnContainer.createEl('button', { text: 'Stop Now' }).onclick = () => {
+                    this.close();
+                  };
+                }
+                onClose() {
+                  if (this.dismissed) {
+                    if (graceTimeout) clearTimeout(graceTimeout);
+                    new Notice('Recording will continue. Stop manually when done.', 4000);
+                  } else {
+                    if (graceTimeout) clearTimeout(graceTimeout);
+                    if (pluginRef.audioRecorder?.isRecording()) {
+                      new Notice('Generating summary…');
+                      pluginRef.stopRecording();
+                    }
+                  }
+                }
+              })(this.app);
+              graceModal.open();
+              graceTimeout = setTimeout(() => {
+                if (!graceModal.dismissed && pluginRef.audioRecorder?.isRecording()) {
+                  graceModal.close();
+                }
+              }, 5 * 60 * 1000);
             }, remainingMs);
           }
         }
@@ -7553,7 +7587,8 @@ last_updated: ${dateStr}
   private async applyRecordingTemplate(file: TFile, template: 'meddic' | 'demo' | 'general' | 'internal' | 'cs'): Promise<void> {
     const existing = await this.app.vault.read(file);
     const stripped = existing.replace(/^---[\s\S]*?---\s*/, '').trim();
-    if (stripped.length > 100) return;
+    const isAutoTemplateStub = /Add meeting notes here|^\s*#[^#].*Meeting Note/i.test(stripped);
+    if (stripped.length > 100 && !isAutoTemplateStub) return;
 
     const today = new Date();
     const dateLabel = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });

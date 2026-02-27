@@ -677,11 +677,15 @@ class TranscriptionService {
         const content = response.content[0]?.text || '';
         
         // Generate follow-up email draft (second Claude call, non-blocking)
+        // Template-aware: each meeting type gets a tailored email style
         let emailDraft = '';
-        try {
-          const isCS = context.userGroup === 'cs';
-          const emailPrompt = isCS
-            ? `Based on this customer success meeting summary, draft a follow-up email from the Eudia CSM to the customer.
+        const meetingTemplate = context.meetingTemplate || 'meddic';
+        if (meetingTemplate === 'internal') {
+          logger.info('[Summarization] Skipping email draft for internal meeting template');
+        } else {
+          try {
+            const emailPrompts = {
+              cs: `Based on this customer success meeting summary, draft a follow-up email from the Eudia CSM to the customer.
 
 Rules:
 - Subject line: concise, references the meeting topic
@@ -696,43 +700,84 @@ Rules:
 Format:
 **Subject:** [subject line]
 
-[email body]`
-            : `Based on this sales meeting summary, draft a follow-up email from the Eudia Business Lead to the person(s) they met with.
+[email body]`,
 
-Context: Eudia sells AI-powered legal technology (AI Contracting, AI Compliance, AI M&A, Sigma) to legal teams at large enterprises. The Eudia Business Lead is a consultative sales professional who builds trusted relationships with legal leaders — GCs, CLOs, VP Legal, Legal Ops Directors, and their teams.
+              demo: `Based on this demo/presentation meeting summary, draft a follow-up email from the Eudia Business Lead to the person(s) they presented to.
 
-The email recipient may be any level: a C-suite executive, a VP, a director, a senior counsel, or a legal operations manager. Match the tone to the seniority and context of the conversation. If the meeting was with a GC, be direct and concise. If it was with Legal Ops, be more detail-oriented.
+Context: Eudia sells AI-powered legal technology (AI Contracting, AI Compliance, AI M&A, Sigma) to legal teams at large enterprises.
 
 Rules:
-- Subject line: 5-8 words, references the specific topic discussed (not generic like "Great catching up")
+- Subject line: 5-8 words, reference the specific demo topic or use case shown
+- Opening: 1-2 sentences referencing what they saw and their reaction. Be specific — "It was great walking through the compliance workflow with your team" not "Thanks for joining the demo"
+- Body: Reference 2-3 features or use cases that generated the most interest or questions. Use their exact words if possible — "You mentioned wanting to reduce contract cycle time from 3 weeks to under 5 days"
+- Address objections or concerns raised during the demo with a brief, confident response
+- Next steps: Propose a concrete next action — POC timeline, technical deep-dive, security review, or follow-up meeting with additional stakeholders. Include a specific date suggestion
+- If they asked to see something you didn't cover, acknowledge it and offer to demo it
+- Closing: forward-looking, reference the business outcome they care about
+- Tone: knowledgeable peer who just showed them something valuable. Confident but not pushy
+- Length: 150-250 words
+- NEVER use: "excited", "thrilled", "game-changing", "synergy", "circle back", "touch base"
+- NEVER include internal deal signals, competitive positioning, or forecast data
+
+Format:
+**Subject:** [subject line]
+
+[email body]`,
+
+              meddic: `Based on this sales discovery meeting summary, draft a follow-up email from the Eudia Business Lead to the person(s) they met with.
+
+Context: Eudia sells AI-powered legal technology (AI Contracting, AI Compliance, AI M&A, Sigma) to legal teams at large enterprises. The Eudia Business Lead is a consultative sales professional who builds trusted relationships with legal leaders.
+
+Rules:
+- Subject line: 5-8 words, references the specific topic discussed (not generic)
 - Opening: 1-2 sentences acknowledging the conversation. Reference what was specifically discussed, not a generic thanks
-- Body: Reference 2-3 specific discussion points using their exact words, pain points, or use cases. This recaps what was said, not a pitch
+- Body: Reference 2-3 specific discussion points using their exact words, pain points, or use cases. Recap what was said, not a pitch
 - Next steps: List agreed actions with owners and dates. Be specific — "I'll send the security questionnaire by Thursday" not "We'll follow up soon"
 - Closing: 1 sentence, forward-looking, with a clear next touchpoint
-- Tone: consultative peer. You're a trusted advisor who understands their world, not a transactional salesperson
+- Tone: consultative peer. Trusted advisor who understands their world, not transactional
 - Length: 100-200 words. Respect their time
 - NEVER use: "excited", "thrilled", "amazing", "incredible", "game-changing", "synergy", "circle back", "touch base", "hope this email finds you well"
 - NEVER include internal-only context (MEDDICC signals, deal stage, competitive analysis, forecast data)
 - DO use their name, their company name, the specific products or use cases discussed
 - If a demo, POC, or follow-up meeting was discussed, propose a specific date/time
-- If there were multiple attendees, address the primary contact by name and acknowledge the others
 
 Format:
 **Subject:** [subject line]
 
-[email body]`;
+[email body]`,
 
-          const emailResponse = await anthropic.messages.create({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 1000,
-            system: emailPrompt,
-            messages: [{ role: 'user', content: `Meeting summary:\n\n${content}\n\nAccount: ${context.accountName || 'Unknown'}` }]
-          });
-          emailDraft = emailResponse.content[0]?.text || '';
-          logger.info(`[Summarization] Email draft generated (${emailDraft.length} chars)`);
-        } catch (emailErr) {
-          logger.warn(`[Summarization] Email draft generation failed: ${emailErr.message}`);
-          emailDraft = '*Email draft could not be generated for this recording. This usually happens with very short recordings or when the AI service is temporarily unavailable. Try recording a longer conversation for better results.*';
+              general: `Based on this meeting summary, draft a brief follow-up email from the Eudia representative to the person(s) they met with.
+
+Rules:
+- Subject line: concise, references the conversation topic
+- Opening: 1 sentence acknowledging the discussion
+- Body: Briefly recap 1-2 key discussion points and confirm any agreed action items
+- Closing: warm, forward-looking
+- Tone: professional, relationship-building, concise
+- Length: 75-150 words
+- Do NOT include internal-only context
+
+Format:
+**Subject:** [subject line]
+
+[email body]`
+            };
+
+            const templateKey = (meetingTemplate === 'cs' || context.userGroup === 'cs') ? 'cs' : (emailPrompts[meetingTemplate] ? meetingTemplate : 'meddic');
+            const emailPrompt = emailPrompts[templateKey];
+
+            const emailResponse = await anthropic.messages.create({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 1000,
+              system: emailPrompt,
+              messages: [{ role: 'user', content: `Meeting summary:\n\n${content}\n\nAccount: ${context.accountName || 'Unknown'}` }]
+            });
+            emailDraft = emailResponse.content[0]?.text || '';
+            logger.info(`[Summarization] Email draft generated for template=${templateKey} (${emailDraft.length} chars)`);
+          } catch (emailErr) {
+            logger.warn(`[Summarization] Email draft generation failed: ${emailErr.message}`);
+            emailDraft = '*Email draft could not be generated for this recording. This usually happens with very short recordings or when the AI service is temporarily unavailable. Try recording a longer conversation for better results.*';
+          }
         }
         
         const fullContent = emailDraft 
