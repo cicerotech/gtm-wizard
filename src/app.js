@@ -1797,25 +1797,54 @@ document.addEventListener('DOMContentLoaded', function() {
     // ═══════════════════════════════════════════════════════════════════════════
 
     this.expressApp.get('/update', (req, res) => {
-      const ua = req.headers['user-agent'] || '';
-      const isMac = ua.includes('Macintosh') || ua.includes('Mac OS');
-      const isWin = ua.includes('Windows');
-
-      if (isMac) return res.redirect('/update/mac');
-      if (isWin) return res.redirect('/update/windows');
-
-      // Fallback: show page with both buttons
       const version = _pluginManifestCache?.version || 'latest';
       res.setHeader('Content-Type', 'text/html');
       res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Update Eudia Notetaker</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0f0f0f;color:#fff;display:flex;justify-content:center;align-items:center;min-height:100vh}
-.card{text-align:center;max-width:420px;padding:48px 36px}h1{font-size:28px;margin-bottom:12px}p{color:#aaa;margin-bottom:32px;font-size:15px}
-.btn{display:block;width:100%;padding:14px;margin:10px 0;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;text-decoration:none;color:#fff}
-.mac{background:#8e99e1}.win{background:#4a90d9}.mac:hover{background:#7a86d0}.win:hover{background:#3d7ec5}</style></head>
-<body><div class="card"><h1>Update Eudia Notetaker</h1><p>v${version} — Click your platform to update.</p>
-<a href="/update/mac" class="btn mac">Mac Update</a><a href="/update/windows" class="btn win">Windows Update</a>
-</div></body></html>`);
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f0f;color:#fff;display:flex;justify-content:center;align-items:center;min-height:100vh}
+.card{text-align:center;max-width:460px;padding:48px 36px}
+h1{font-size:32px;margin-bottom:8px;font-weight:700}
+.ver{color:#8e99e1;font-size:14px;margin-bottom:24px}
+p{color:#aaa;font-size:15px;line-height:1.6;margin-bottom:28px}
+.btn{display:block;width:100%;padding:16px;margin:12px 0;border:none;border-radius:10px;font-size:17px;font-weight:600;cursor:pointer;text-decoration:none;color:#fff;transition:transform 0.1s,background 0.2s}
+.btn:active{transform:scale(0.98)}
+.primary{background:#8e99e1;font-size:19px;padding:18px}
+.primary:hover{background:#7a86d0}
+.secondary{background:#2a2a2a;font-size:14px;padding:12px}
+.secondary:hover{background:#333}
+.status{color:#4ade80;font-size:14px;margin-top:16px;display:none}
+.divider{color:#444;font-size:13px;margin:20px 0 12px}
+.note{color:#666;font-size:12px;margin-top:24px;line-height:1.5}
+</style></head>
+<body><div class="card">
+<h1>Update Eudia Notetaker</h1>
+<div class="ver">v${version}</div>
+<p>Click below to update your plugin instantly.<br>Obsidian will reload with the latest version.</p>
+<a href="obsidian://eudia-update" class="btn primary" id="updateBtn">Update Now</a>
+<div class="status" id="status">Update triggered — check Obsidian</div>
+<div class="divider">Obsidian not responding? Use the manual option:</div>
+<button class="btn secondary" id="copyBtn" onclick="copyCommand()">Copy Update Command</button>
+<div class="status" id="copyStatus"></div>
+<p class="note">After copying: open Terminal (Mac) or PowerShell (Windows), paste with Cmd+V / Ctrl+V, and press Enter.</p>
+</div>
+<script>
+document.getElementById('updateBtn').addEventListener('click', function() {
+  document.getElementById('status').style.display = 'block';
+});
+function copyCommand() {
+  var ua = navigator.userAgent;
+  var cmd = ua.includes('Mac') ?
+    "curl -sL https://gtm-wizard.onrender.com/api/plugin/install.sh | bash" :
+    "powershell -ExecutionPolicy Bypass -Command \\"iex (irm 'https://gtm-wizard.onrender.com/api/plugin/install.ps1')\\"";
+  navigator.clipboard.writeText(cmd).then(function() {
+    document.getElementById('copyStatus').style.display = 'block';
+    document.getElementById('copyStatus').textContent = 'Copied! Paste in Terminal and press Enter.';
+    document.getElementById('copyStatus').style.color = '#4ade80';
+  });
+}
+</script></body></html>`);
     });
 
     // Mac: serves a .command file that silently updates the plugin and restarts Obsidian

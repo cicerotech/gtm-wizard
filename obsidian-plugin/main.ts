@@ -3960,6 +3960,41 @@ export default class EudiaSyncPlugin extends Plugin {
       (leaf) => new EudiaSetupView(leaf, this)
     );
 
+    // Register obsidian:// protocol handler for one-click updates from browser
+    this.registerObsidianProtocolHandler('eudia-update', async () => {
+      console.log('[Eudia Update] Protocol handler triggered: obsidian://eudia-update');
+      new Notice('Updating Eudia Notetaker...', 5000);
+      const serverUrl = this.settings.serverUrl || 'https://gtm-wizard.onrender.com';
+      try {
+        const [mainResp, manifestResp, stylesResp] = await Promise.all([
+          requestUrl({ url: `${serverUrl}/api/plugin/main.js` }),
+          requestUrl({ url: `${serverUrl}/api/plugin/manifest.json` }),
+          requestUrl({ url: `${serverUrl}/api/plugin/styles.css` }),
+        ]);
+        if (!mainResp.text || mainResp.text.length < 10000) {
+          new Notice('Update download failed. Try again in a minute.', 8000);
+          return;
+        }
+        const pluginDir = this.manifest.dir;
+        if (!pluginDir) return;
+        const adapter = this.app.vault.adapter;
+        try { await adapter.write(`${pluginDir}/main.js.bak`, await adapter.read(`${pluginDir}/main.js`)); } catch {}
+        await adapter.write(`${pluginDir}/main.js`, mainResp.text);
+        await adapter.write(`${pluginDir}/manifest.json`, manifestResp.text);
+        await adapter.write(`${pluginDir}/styles.css`, stylesResp.text);
+        const newVersion = JSON.parse(manifestResp.text).version || 'latest';
+        this.settings.lastUpdateVersion = newVersion;
+        this.settings.lastUpdateTimestamp = new Date().toISOString();
+        await this.saveSettings();
+        new Notice(`Eudia Lite v${newVersion} installed. Reloading...`, 3000);
+        console.log(`[Eudia Update] Protocol update complete: v${newVersion}. Reloading.`);
+        setTimeout(() => window.location.reload(), 2000);
+      } catch (e: any) {
+        console.error('[Eudia Update] Protocol update failed:', e.message);
+        new Notice('Update failed: ' + e.message, 10000);
+      }
+    });
+
     // Register live query sidebar
     this.registerView(
       LIVE_QUERY_VIEW_TYPE,
