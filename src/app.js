@@ -88,7 +88,6 @@ const EXEC_EMAILS = [
   'david@eudia.com',
   'ashish@eudia.com',
   'siddharth.saxena@eudia.com',
-  'mitchell.loquaci@eudia.com',
   'stephen.mulholland@eudia.com',
   'riona.mchale@eudia.com'
 ];
@@ -104,17 +103,9 @@ const SALES_LEADERS = {
 // This ensures managers see exactly their direct reports' accounts
 const SALES_LEADER_DIRECT_REPORTS = {
   'mitchell.loquaci@eudia.com': [
-    'asad.hussain@eudia.com',
-    'julie.stefanich@eudia.com',
     'olivia@eudia.com',
-    'ananth@eudia.com',
-    'ananth.cherukupally@eudia.com',
-    'justin.hills@eudia.com',
-    'mike.masiello@eudia.com',
-    'mike@eudia.com',
     'sean.boyd@eudia.com',
-    'riley.stack@eudia.com',
-    'rajeev.patel@eudia.com'
+    'riley.stack@eudia.com'
   ],
   'stephen.mulholland@eudia.com': [
     'greg.machale@eudia.com',
@@ -6229,10 +6220,10 @@ setInterval(()=>{refreshCountdown--;document.getElementById('refreshTimer').text
           }
             
           case 'sales_leader':
-            // All accounts owned by direct reports (explicit mapping) or region BLs
+            // All accounts owned by leader + their direct reports
             const region = getSalesLeaderRegion(normalizedEmail);
             const directReports = getSalesLeaderDirectReports(normalizedEmail);
-            
+
             if (!directReports || directReports.length === 0) {
               logger.warn(`[BL-Accounts][${correlationId}] No direct reports found for: ${normalizedEmail}`);
               return res.json({
@@ -6249,9 +6240,10 @@ setInterval(()=>{refreshCountdown--;document.getElementById('refreshTimer').text
               });
             }
             
-            // Format emails for IN clause
-            const blEmailList = directReports.map(e => `'${e.replace(/'/g, "\\'")}'`).join(',');
-            queryDescription = `accounts for ${directReports.length} direct reports`;
+            // Include leader's own email + direct reports
+            const allTeamEmails = [normalizedEmail, ...directReports];
+            const blEmailList = allTeamEmails.map(e => `'${e.replace(/'/g, "\\'")}'`).join(',');
+            queryDescription = `accounts for leader + ${directReports.length} direct reports`;
             
             accountQuery = `
               SELECT Id, Name, Type, Customer_Type__c, Website, Industry, OwnerId, Owner.Name,
