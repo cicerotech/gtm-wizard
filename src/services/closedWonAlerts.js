@@ -310,29 +310,31 @@ function formatClosedWonMessage({ accountName, oppName, productLine, productsBre
   }
   
   message += `*ACV:* ${acv}\n`;
+
+  // Show Net ACV when Renewal_Net_Change__c is populated (any sales type)
+  if (renewalNetChange && rawNetChange !== null && rawNetChange !== 0) {
+    message += `*Net ACV:* ${renewalNetChange}\n`;
+  }
   
-  // If multi-product deal, show itemized breakdown as subtext below ACV
+  // If multi-product deal, show product names only (no dollar amounts or terms)
   if (hasMultipleProducts) {
-    // Parse the products breakdown and format for Slack
-    // Input format: "• Product Name: $XXK\n• Product 2: $XXK\n\nTotal: $XXXK"
-    // Output: indented subtext without the Total line (ACV already shown above)
     const lines = productsBreakdown.split('\n')
-      .filter(line => line.trim().startsWith('•'))  // Only product lines, not Total
-      .map(line => `  ${line.trim()}`)  // Indent for subtext appearance
+      .filter(line => line.trim().startsWith('•'))
+      .map(line => {
+        let name = line.trim();
+        // Strip dollar amounts, terms, and trailing punctuation
+        // "• AI Contracting - Technology: $100,000 (12 mo)" → "• AI Contracting - Technology"
+        name = name.replace(/:\s*\$[\d,.]+.*$/, '');
+        // Also handle format "• Product Name ($XXK, 12 mo)"
+        name = name.replace(/\s*\(\$[\d,.]+[^)]*\)\s*$/, '');
+        // Also handle "• Product Name - $XXK (12 mo)"
+        name = name.replace(/\s*-\s*\$[\d,.]+.*$/, '');
+        return `  ${name.trim()}`;
+      })
       .join('\n');
     
     if (lines) {
       message += `${lines}\n`;
-    }
-  }
-  
-  // Show Net Change for Expansion/Renewal deals
-  if (['Expansion', 'Renewal'].includes(salesType)) {
-    if (renewalNetChange) {
-      const prefix = rawNetChange >= 0 ? '+' : '';
-      message += `*Net Change:* ${prefix}${renewalNetChange}\n`;
-    } else {
-      message += `*Net Change:* $0\n`;
     }
   }
   
