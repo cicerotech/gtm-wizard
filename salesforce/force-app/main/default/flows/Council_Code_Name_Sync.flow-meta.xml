@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>59.0</apiVersion>
-    <description>Syncs the Code Name from Account to Opportunity when the opportunity is marked as a Council engagement. Triggers when Eudia_Council_Op__c changes to TRUE.</description>
+    <description>When Eudia Counsel is checked on an Opportunity: syncs Code Name from Account, and renames the Opportunity to use the code name instead of the real account name. This ensures reports and list views show the code name.</description>
     <interviewLabel>Council Code Name Sync {!$Flow.CurrentDateTime}</interviewLabel>
     <label>Council Code Name Sync</label>
     <processMetadataValues>
@@ -73,9 +73,14 @@
         <object>Account</object>
         <storeOutputAutomatically>true</storeOutputAutomatically>
     </recordLookups>
+    <formulas>
+        <name>SensitizedOppName</name>
+        <dataType>String</dataType>
+        <expression>SUBSTITUTE({!$Record.Name}, {!Get_Account_Code_Name.Name}, {!Get_Account_Code_Name.Code_Name__c})</expression>
+    </formulas>
     <assignments>
         <name>Update_Opp_Code_Name</name>
-        <label>Update Opp Code Name</label>
+        <label>Update Opp Code Name and Rename</label>
         <locationX>50</locationX>
         <locationY>350</locationY>
         <assignmentItems>
@@ -85,6 +90,12 @@
                 <elementReference>Get_Account_Code_Name.Code_Name__c</elementReference>
             </value>
         </assignmentItems>
+        <assignmentItems>
+            <assignToReference>$Record.Name</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>SensitizedOppName</elementReference>
+            </value>
+        </assignmentItems>
     </assignments>
 </Flow>
-

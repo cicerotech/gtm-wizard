@@ -68,6 +68,22 @@
                 <elementReference>DeterminedPod</elementReference>
             </value>
         </assignmentItems>
+        <connector>
+            <targetReference>SalesType_Check</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>Set_SalesType_NewBusiness</name>
+        <label>Set Sales Type New Business</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>$Record.Sales_Type__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <stringValue>New Business</stringValue>
+            </value>
+        </assignmentItems>
     </assignments>
     <decisions>
         <name>Any_Relevant_Change</name>
@@ -102,6 +118,13 @@
             <conditions>
                 <leftValueReference>$Record.OwnerId</leftValueReference>
                 <operator>IsChanged</operator>
+                <rightValue>
+                    <booleanValue>true</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>$Record.Sales_Type__c</leftValueReference>
+                <operator>IsNull</operator>
                 <rightValue>
                     <booleanValue>true</booleanValue>
                 </rightValue>
@@ -142,6 +165,9 @@
         <label>Pod Needs Update?</label>
         <locationX>0</locationX>
         <locationY>0</locationY>
+        <defaultConnector>
+            <targetReference>SalesType_Check</targetReference>
+        </defaultConnector>
         <defaultConnectorLabel>Pod OK</defaultConnectorLabel>
         <rules>
             <name>Owner_Changed_Pod_Untouched</name>
@@ -234,7 +260,36 @@
             <label>Stage Changed No Products</label>
         </rules>
     </decisions>
-    <description>v3: Syncs Opp Name (abbreviated product line), AI Enabled, BL Forecast, and Pod on updates. Fires on all updates; uses Decision node for multi-select IsChanged (not supported in entry conditions). Only renames when product lines change and user did not manually edit the Name.</description>
+    <decisions>
+        <name>SalesType_Check</name>
+        <label>Sales Type Needs Setting?</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <defaultConnectorLabel>Sales Type OK</defaultConnectorLabel>
+        <rules>
+            <name>New_Account_No_SalesType</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>$Record.Sales_Type__c</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>true</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>Get_Account.Customer_Type__c</leftValueReference>
+                <operator>NotEqualTo</operator>
+                <rightValue>
+                    <stringValue>Existing</stringValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Set_SalesType_NewBusiness</targetReference>
+            </connector>
+            <label>New Account No Sales Type</label>
+        </rules>
+    </decisions>
+    <description>v4: Syncs Opp Name (abbreviated product line), AI Enabled, BL Forecast, Pod, and Sales Type on updates. Fires on all updates; uses Decision node for multi-select IsChanged (not supported in entry conditions). Only renames when product lines change and user did not manually edit the Name. Sales Type auto-sets to New Business for non-Existing accounts.</description>
     <environments>Default</environments>
     <formulas>
         <name>AutoName</name>
@@ -255,6 +310,8 @@
 &quot;Mike Masiello&quot;, &quot;US&quot;,
 &quot;Olivia Jung&quot;, &quot;US&quot;,
 &quot;Keigan Pesenti&quot;, &quot;US&quot;,
+&quot;Riley Stack&quot;, &quot;US&quot;,
+&quot;Sean Boyd&quot;, &quot;US&quot;,
 &quot;Alex Fox&quot;, &quot;EU&quot;,
 &quot;Conor Molloy&quot;, &quot;EU&quot;,
 &quot;Emer Flynn&quot;, &quot;EU&quot;,

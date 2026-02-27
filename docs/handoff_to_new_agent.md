@@ -1158,6 +1158,85 @@ Or send: https://gtm-wizard.onrender.com/fresh-install
 
 ---
 
+## Session Work (Feb 26-27, 2026 — Evening/Morning)
+
+### Transcription Pipeline — Root Cause Fix
+- **WebM header fix (server-side)**: Plugin byte-slices audio blobs at 4MB boundaries. Only chunk 1 has the WebM container header; chunks 2+ are raw Cluster data rejected by Whisper ("Invalid file format"). Server now extracts the header from chunk 1, caches it in memory, and prepends it to headerless chunks. Validated with 15-chunk load test: 15/15 passed, 1m48s total, 2.2x speedup.
+- **180s client timeout**: Up from 90s. Covers Whisper peak load + upload overhead.
+- **120s Whisper API timeout**: AbortController on OpenAI API call prevents zombie requests.
+- **Parallel chunk processing**: Client sends 3 chunks simultaneously via Promise.allSettled() instead of sequentially. Cuts total time ~2.5x.
+- **Load test script**: `scripts/test-chunked-transcription.js` — generates 60min audio via ffmpeg TTS, splits into chunks (--raw-split for byte-slicing, default for ffmpeg segmentation), sends to live server in parallel batches of 3.
+
+### Auto-Update — Bulletproof Reload
+- **`window.location.reload()`**: Replaced all previous restart mechanisms (disablePlugin/enablePlugin spaz, electron.remote deprecated, window.close hides on macOS, process.exit fragile). W3C standard API that reloads the entire Electron renderer.
+- **Hot-reload escape**: NEW onload() detects when loaded via old code's disablePlugin/enablePlugin within 30 seconds of an update. Clears timestamp (prevents loop), calls window.location.reload(). This makes ALL versions v4.4.0+ auto-update without user action.
+- **obsidian:// protocol handler**: `obsidian://eudia-update` registered in plugin. Browser link triggers update directly in Obsidian. Used on `/update` page.
+
+### Enterprise Vault Control Architecture (Phase 1)
+- **Device Identity**: `crypto.randomUUID()` on first load (with manual fallback), stored in settings, sent in every heartbeat/telemetry call.
+- **device_registrations table**: PostgreSQL — tracks device_id (UUID), user_email, device_name, plugin_version, last_heartbeat, account_count, sf_connected, calendar_connected, health_status (online/idle/stale).
+- **vault_operations table**: Command queue — target_email, target_device_id, operation_type, operation_data (JSONB), status (pending/delivered/executed/failed), result, audit fields.
+- **Plugin poller**: Every 60s, hits GET /api/plugin/operations. Executes: create_file, modify_file, create_folder, delete_file, push_template, force_update, push_config, notify. Acks results back to server.
+- **Admin API**: POST /api/admin/vault/push, POST /api/admin/vault/broadcast, GET /api/admin/devices, GET /api/admin/vault/operations.
+- **Fleet status**: GET /api/admin/devices returns all registered devices with health. Riley Stack auto-registered (v4.11.0, 92 accounts, online). Keigan registered (v4.11.0, 1885 accounts).
+- **TelemetryService version**: Now reads from manifest dynamically instead of hardcoded '4.10.4'.
+
+### One-Click Update Infrastructure
+- **`/update` page**: Clean dark page with "Update Now" button (obsidian://eudia-update link) + "Copy Update Command" fallback.
+- **`/update/mac`**: Silent .command file — finds vault, downloads plugin files, quits/reopens Obsidian. Hit Gatekeeper on macOS (blocked).
+- **`/update/windows`**: Silent .bat file wrapping PowerShell.
+- **Safe update scripts**: `/api/plugin/install.sh` (Mac) and `/api/plugin/install.ps1` (Windows) — find existing vault, replace only plugin files, quit Obsidian. DO NOT delete vault data.
+- **Destructive install**: `/api/plugin/fresh-install.sh` and `.ps1` — wipe old vaults, download fresh. For NEW users only.
+
+### Salesforce Flow Updates (Deployed Feb 27)
+- **Pod flow**: Riley Stack and Sean Boyd added as US BLs in both Auto_Assign_Pod_On_Opp_Create and Opp_Update_Sync flows. Pod auto-updates on owner transfer.
+- **Opp_Update_Sync v4**: AI Enabled (Eudia_Tech__c) recalculates from Product_Lines_Multi__c on every product change. Sales Type auto-sets to "New Business" when Account Customer_Type__c is not "Existing" and Sales_Type__c is null.
+- **CS Staffing flow chain**: Stage 4/5 → AI Enabled check → CS_Staffing__c + CS_Staffing_Flag__c set → Complete Handover banner appears → BL fills form → Nikhita/CS team alerted via Platform Event.
+
+### Plugin Version History (This Session)
+| Version | Key Change |
+|---------|-----------|
+| v4.10.3 | Transcription: 180s timeout, parallel chunks, Whisper API guard |
+| v4.10.4 | Force-restart attempt (electron.remote — failed silently) |
+| v4.10.5 | Device identity, vault operations queue, admin push API |
+| v4.10.6 | process.exit(0) + detached relaunch attempt |
+| v4.10.7 | window.location.reload() for auto-update |
+| v4.10.8 | obsidian:// protocol handler, /update page redesign |
+| v4.10.9 | Device ID fallback UUID, SQL UUID validation fix |
+| v4.11.0 | Hot-reload escape (all old versions auto-update), dynamic version reporting |
+
+### Active Users (Updated Feb 27)
+| User | Email | Version | Fleet Status |
+|------|-------|---------|-------------|
+| Keigan | keigan.pesenti@eudia.com | v4.11.0 | Registered, 1885 accounts, online |
+| Riley Stack | riley.stack@eudia.com | v4.11.0 | Auto-updated, 92 accounts, registered |
+| Sean Boyd | sean.boyd@eudia.com | Pending | Will auto-update when Obsidian opens |
+| Greg MacHale | greg.machale@eudia.com | v4.1.0 | Needs PowerShell command (pre-auto-update) |
+| Nathan Shine | nathan.shine@eudia.com | New user | Sent fresh install instructions (Windows) |
+
+### Update Commands
+**Existing Mac users (safe — preserves vault data):**
+```bash
+curl -sL https://gtm-wizard.onrender.com/api/plugin/install.sh | bash
+```
+
+**Existing Windows users (safe):**
+```powershell
+powershell -ExecutionPolicy Bypass -Command "iex (irm 'https://gtm-wizard.onrender.com/api/plugin/install.ps1')"
+```
+
+**New Mac users (fresh install — creates vault from scratch):**
+```bash
+curl -sL https://gtm-wizard.onrender.com/api/plugin/fresh-install.sh | bash
+```
+
+**New Windows users (fresh install):**
+```powershell
+powershell -ExecutionPolicy Bypass -Command "iex (irm 'https://gtm-wizard.onrender.com/api/plugin/fresh-install.ps1')"
+```
+
+---
+
 ## Security & Permissions
 
 - Write operations restricted to Keigan (User ID: `U094AQE9V7D`)

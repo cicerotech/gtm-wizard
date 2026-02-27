@@ -1,35 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
-    <apiVersion>59.0</apiVersion>
-    <description>On Account UPDATE: When Account Health or Account Health Overview changes, captures the OLD values in Account Health History with clean formatting.</description>
+    <apiVersion>60.0</apiVersion>
+    <description>On Account UPDATE (After Save): When Account Health or Account Health Overview changes, captures the PRIOR values in Account Health History. Calls AccountHealthArchiveService to truncate the on-page field to 4 entries and archive full history as a file on the Account. Uses $Record__Prior which requires After Save context.</description>
     <environments>Default</environments>
-    
+
     <!-- Date formatter -->
     <formulas>
         <name>TodayFormatted</name>
         <dataType>String</dataType>
-        <expression>TEXT(YEAR(TODAY())) &amp; "-" &amp; 
-IF(MONTH(TODAY()) &lt; 10, "0", "") &amp; TEXT(MONTH(TODAY())) &amp; "-" &amp; 
+        <expression>TEXT(YEAR(TODAY())) &amp; "-" &amp;
+IF(MONTH(TODAY()) &lt; 10, "0", "") &amp; TEXT(MONTH(TODAY())) &amp; "-" &amp;
 IF(DAY(TODAY()) &lt; 10, "0", "") &amp; TEXT(DAY(TODAY()))</expression>
     </formulas>
-    
+
     <!-- Check if Account Health changed -->
     <formulas>
         <name>HealthChanged</name>
         <dataType>Boolean</dataType>
         <expression>ISCHANGED({!$Record.Health__c})</expression>
     </formulas>
-    
+
     <!-- Check if Account Health Overview changed -->
     <formulas>
         <name>OverviewChanged</name>
         <dataType>Boolean</dataType>
         <expression>ISCHANGED({!$Record.Account_Health_Overview__c})</expression>
     </formulas>
-    
-    <!-- Text Template for the new entry -->
+
+    <!-- Build the full history with new entry prepended -->
     <textTemplates>
-        <name>NewEntryTemplate</name>
+        <name>FullHistoryText</name>
         <isViewedAsPlainText>true</isViewedAsPlainText>
         <text>{!TodayFormatted}
 Health: {!$Record__Prior.Health__c}
@@ -39,7 +39,7 @@ Overview: {!$Record__Prior.Account_Health_Overview__c}
 
 {!ExistingHistory}</text>
     </textTemplates>
-    
+
     <!-- Variable to hold existing history -->
     <variables>
         <name>ExistingHistory</name>
@@ -48,11 +48,11 @@ Overview: {!$Record__Prior.Account_Health_Overview__c}
         <isInput>false</isInput>
         <isOutput>false</isOutput>
     </variables>
-    
+
     <interviewLabel>Account Health History On Update {!$Flow.CurrentDateTime}</interviewLabel>
     <label>Account Health History On Update</label>
     <processType>AutoLaunchedFlow</processType>
-    
+
     <!-- Decision: Check if either field changed -->
     <decisions>
         <name>Check_If_Fields_Changed</name>
@@ -83,7 +83,7 @@ Overview: {!$Record__Prior.Account_Health_Overview__c}
             <label>Health Or Overview Changed</label>
         </rules>
     </decisions>
-    
+
     <!-- Capture existing history into variable -->
     <assignments>
         <name>Capture_Existing_History</name>
@@ -98,25 +98,40 @@ Overview: {!$Record__Prior.Account_Health_Overview__c}
             </value>
         </assignmentItems>
         <connector>
-            <targetReference>Set_New_History</targetReference>
+            <targetReference>Archive_And_Truncate</targetReference>
         </connector>
     </assignments>
-    
-    <!-- Set the history field using the text template -->
-    <assignments>
-        <name>Set_New_History</name>
-        <label>Set New History</label>
+
+    <!-- Call Apex invocable to truncate on-page field and archive full history -->
+    <actionCalls>
+        <name>Archive_And_Truncate</name>
+        <label>Archive and Truncate History</label>
         <locationX>176</locationX>
         <locationY>374</locationY>
-        <assignmentItems>
-            <assignToReference>$Record.Account_Health_History__c</assignToReference>
-            <operator>Assign</operator>
+        <actionName>AccountHealthArchiveService</actionName>
+        <actionType>apex</actionType>
+        <flowTransactionModel>CurrentTransaction</flowTransactionModel>
+        <inputParameters>
+            <name>accountId</name>
             <value>
-                <elementReference>NewEntryTemplate</elementReference>
+                <elementReference>$Record.Id</elementReference>
             </value>
-        </assignmentItems>
-    </assignments>
-    
+        </inputParameters>
+        <inputParameters>
+            <name>fullHistory</name>
+            <value>
+                <elementReference>FullHistoryText</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>accountName</name>
+            <value>
+                <elementReference>$Record.Name</elementReference>
+            </value>
+        </inputParameters>
+    </actionCalls>
+
+    <!-- After Save trigger — required for $Record__Prior access -->
     <start>
         <locationX>50</locationX>
         <locationY>0</locationY>
@@ -125,8 +140,8 @@ Overview: {!$Record__Prior.Account_Health_Overview__c}
         </connector>
         <object>Account</object>
         <recordTriggerType>Update</recordTriggerType>
-        <triggerType>RecordBeforeSave</triggerType>
+        <triggerType>RecordAfterSave</triggerType>
     </start>
-    
+
     <status>Active</status>
 </Flow>
