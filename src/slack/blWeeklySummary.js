@@ -1811,12 +1811,14 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
   y += 14;
   
   const signedQTDm = (signedQTD.totalACV || 0) / 1000000;
+  const q1TotalForecast = liveMidpoint + signedQTDm;
   const forecastRows = [
     { label: 'Q1 Target', value: Q1_FY26_FORECAST.target, labelBold: true, amountBold: true, bg: '#f3f4f6' },
-    { label: 'Closed Won QTD', value: signedQTDm, labelBold: true, amountBold: true, bg: '#ecfdf5' },
     { label: 'Commit', value: liveCommit, labelBold: false, amountBold: false, bg: '#f9fafb', italic: true, hint: 'Rest of Quarter' },
     { label: 'Weighted', value: liveWeighted, labelBold: false, amountBold: false, bg: '#ffffff', italic: true, hint: 'Rest of Quarter' },
-    { label: 'EOQ Forecast Midpoint', value: liveMidpoint, labelBold: true, amountBold: true, bg: '#eff6ff' }
+    { label: 'EOQ Forecast Midpoint', value: liveMidpoint, labelBold: true, amountBold: true, bg: '#eff6ff' },
+    { label: 'Closed Won QTD', value: signedQTDm, labelBold: true, amountBold: true, bg: '#ecfdf5' },
+    { label: 'Q1 Total Forecast', value: q1TotalForecast, labelBold: true, amountBold: true, bg: '#f0fdf4' }
   ];
   
   forecastRows.forEach((row) => {
