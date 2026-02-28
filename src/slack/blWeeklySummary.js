@@ -2051,102 +2051,89 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
   y = Math.max(leftEndY, rightEndY) + SECTION_GAP;
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // Q1 PIPELINE BY SALES TYPE
+  // SIDE-BY-SIDE: Q1 PIPELINE BY SALES TYPE (left) + Q1 PIPELINE BY PRODUCT LINE (right)
   // ═══════════════════════════════════════════════════════════════════════════
-  doc.font(fontBold).fontSize(11).fillColor(DARK_TEXT);
-  doc.text('Q1 PIPELINE BY SALES TYPE', LEFT, y);
-  y += 16;
-  
-  // Sales Type table
-  const salesTypeTableWidth = PAGE_WIDTH;
-  
-  // Header row
-  doc.rect(LEFT, y, salesTypeTableWidth, 17).fill('#1f2937');
-  doc.font(fontBold).fontSize(8.5).fillColor('#ffffff');
-  doc.text('Sales Type', LEFT + 8, y + 4, { width: 200, lineBreak: false });
-  doc.text('ACV (%)', LEFT + 220, y + 4, { width: 120, align: 'center', lineBreak: false });
-  doc.text('Count', LEFT + 380, y + 4, { width: 80, align: 'center', lineBreak: false });
-  y += 17;
-  
+  const stY = y;
+  const stWidth = 220;
+  const plX = LEFT + stWidth + 16;
+  const plWidth = PAGE_WIDTH - stWidth - 16;
+  const ROW_H = 12;
+  const HDR_H = 14;
+  const fmtAcv = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : `$${Math.round(v / 1000)}k`;
+
+  // ── LEFT: Sales Type ──
+  doc.font(fontBold).fontSize(9).fillColor('#111827');
+  doc.text('Q1 PIPELINE BY SALES TYPE', LEFT, stY);
+  let stRowY = stY + 13;
+
+  doc.rect(LEFT, stRowY, stWidth, HDR_H).fill('#e5e7eb');
+  doc.font(fontBold).fontSize(7).fillColor('#374151');
+  doc.text('Sales Type', LEFT + 5, stRowY + 3, { width: 90, lineBreak: false });
+  doc.text('ACV (%)', LEFT + 100, stRowY + 3, { width: 65, align: 'center', lineBreak: false });
+  doc.text('Count', LEFT + 170, stRowY + 3, { width: 45, align: 'center', lineBreak: false });
+  stRowY += HDR_H;
+
   const salesTypeOrder = ['New business', 'Expansion', 'Renewal'];
-  const { bySalesType, totalACV: salesTypeTotalACV, totalWeighted: salesTypeTotalWeighted, totalCount: salesTypeTotalCount } = pipelineBySalesType;
-  
-  doc.font(fontRegular).fontSize(8.5).fillColor(DARK_TEXT);
-  
+  const { bySalesType, totalACV: salesTypeTotalACV, totalCount: salesTypeTotalCount } = pipelineBySalesType;
+
   salesTypeOrder.forEach((type, i) => {
     const data = bySalesType[type] || { acv: 0, count: 0, acvPercent: '0%' };
     const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
-    doc.rect(LEFT, y, salesTypeTableWidth, 15).fill(bg);
-    doc.fillColor(DARK_TEXT);
-    doc.text(type, LEFT + 8, y + 3, { width: 200, lineBreak: false });
-    
-    const acvStr = data.acv >= 1000000 
+    doc.rect(LEFT, stRowY, stWidth, ROW_H).fill(bg);
+    doc.font(fontRegular).fontSize(7.5).fillColor(DARK_TEXT);
+    doc.text(type, LEFT + 5, stRowY + 2.5, { width: 90, lineBreak: false });
+    const acvStr = data.acv >= 1000000
       ? `${(data.acv / 1000000).toFixed(1)}m (${data.acvPercent})`
       : `${(data.acv / 1000).toFixed(0)}k (${data.acvPercent})`;
-    
-    doc.text(acvStr, LEFT + 220, y + 3, { width: 120, align: 'center', lineBreak: false });
-    doc.text(data.count.toString(), LEFT + 380, y + 3, { width: 80, align: 'center', lineBreak: false });
-    y += 15;
+    doc.text(acvStr, LEFT + 100, stRowY + 2.5, { width: 65, align: 'center', lineBreak: false });
+    doc.text(data.count.toString(), LEFT + 170, stRowY + 2.5, { width: 45, align: 'center', lineBreak: false });
+    stRowY += ROW_H;
   });
-  
-  // Total row
-  doc.rect(LEFT, y, salesTypeTableWidth, 17).fill('#e5e7eb');
-  doc.font(fontBold).fontSize(8.5).fillColor(DARK_TEXT);
-  doc.text('Total', LEFT + 8, y + 4, { width: 200, lineBreak: false });
-  
-  const totalAcvStr = salesTypeTotalACV >= 1000000 
+
+  doc.rect(LEFT, stRowY, stWidth, HDR_H).fill('#f3f4f6');
+  doc.font(fontBold).fontSize(7).fillColor(DARK_TEXT);
+  doc.text('Total', LEFT + 5, stRowY + 3, { width: 90, lineBreak: false });
+  const totalAcvStr = salesTypeTotalACV >= 1000000
     ? `${(salesTypeTotalACV / 1000000).toFixed(1)}m`
     : `${(salesTypeTotalACV / 1000).toFixed(0)}k`;
-  
-  doc.text(totalAcvStr, LEFT + 220, y + 4, { width: 120, align: 'center', lineBreak: false });
-  doc.text(salesTypeTotalCount.toString(), LEFT + 380, y + 4, { width: 80, align: 'center', lineBreak: false });
-  y += 17;
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Q1 PIPELINE BY PRODUCT LINE (live SOQL)
-  // ═══════════════════════════════════════════════════════════════════════════
-  y += SECTION_GAP;
-  doc.font(fontBold).fontSize(11).fillColor('#111827');
-  doc.text('Q1 PIPELINE BY PRODUCT LINE', LEFT, y, { lineBreak: false });
-  y += 15;
-  
-  const plTableWidth = PAGE_WIDTH;
-  const ROW_H = 12;
-  const HDR_H = 15;
-  const FOOTER_RESERVE = 22;
-  const spaceLeft = 760 - y - HDR_H - FOOTER_RESERVE;
-  const maxRows = Math.max(5, Math.min(10, Math.floor(spaceLeft / ROW_H)));
-  
+  doc.text(totalAcvStr, LEFT + 100, stRowY + 3, { width: 65, align: 'center', lineBreak: false });
+  doc.text(salesTypeTotalCount.toString(), LEFT + 170, stRowY + 3, { width: 45, align: 'center', lineBreak: false });
+  stRowY += HDR_H;
+
+  // ── RIGHT: Product Line ──
+  doc.font(fontBold).fontSize(9).fillColor('#111827');
+  doc.text('Q1 PIPELINE BY PRODUCT LINE', plX, stY);
+  let plRowY = stY + 13;
+
   const plAllRows = (productLineData && productLineData.length > 0) ? productLineData : [];
   if (!plAllRows.length) {
-    logger.warn('[Snapshot] productLineData is empty — Product Line table will be blank. Check queryPipelineByProductLine() logs.');
+    logger.warn('[Snapshot] productLineData is empty — Product Line table will be blank.');
   }
-  const plRows = plAllRows.slice(0, maxRows);
-  
+
+  doc.rect(plX, plRowY, plWidth, HDR_H).fill('#e5e7eb');
+  doc.font(fontBold).fontSize(7).fillColor('#374151');
+  doc.text('Product Line', plX + 5, plRowY + 3, { width: 140, lineBreak: false });
+  doc.text('Pipeline (%)', plX + 150, plRowY + 3, { width: 90, align: 'center', lineBreak: false });
+  doc.text('S3-5', plX + 250, plRowY + 3, { width: 40, align: 'center', lineBreak: false });
+  plRowY += HDR_H;
+
   const plTotalACV = plAllRows.reduce((sum, r) => sum + (r.acv || 0), 0);
-  doc.rect(LEFT, y, plTableWidth, HDR_H).fill('#e5e7eb');
-  doc.font(fontBold).fontSize(7.5).fillColor('#374151');
-  doc.text('Product Line', LEFT + 6, y + 3.5, { width: 230, lineBreak: false });
-  doc.text('Pipeline (%)', LEFT + 240, y + 3.5, { width: 160, align: 'center', lineBreak: false });
-  doc.text('S3-5', LEFT + 430, y + 3.5, { width: 60, align: 'center', lineBreak: false });
-  y += HDR_H;
-  
-  doc.font(fontRegular).fontSize(7.5).fillColor(DARK_TEXT);
-  const fmtAcv = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : `$${Math.round(v / 1000)}k`;
-  
-  plRows.forEach((row, i) => {
-    if (y + ROW_H > 748) return;
+  const maxPlRows = 10;
+  plAllRows.slice(0, maxPlRows).forEach((row, i) => {
     const bg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
-    doc.rect(LEFT, y, plTableWidth, ROW_H).fill(bg);
-    doc.font(fontRegular).fontSize(7.5).fillColor(DARK_TEXT);
-    const label = row.name.length > 35 ? row.name.substring(0, 33) + '...' : row.name;
-    doc.text(label, LEFT + 6, y + 2.5, { width: 230, lineBreak: false });
+    doc.rect(plX, plRowY, plWidth, ROW_H).fill(bg);
+    doc.font(fontRegular).fontSize(7).fillColor(DARK_TEXT);
+    const label = formatProductLine(row.name);
+    const shortLabel = label.length > 25 ? label.substring(0, 23) + '...' : label;
+    doc.text(shortLabel, plX + 5, plRowY + 2.5, { width: 140, lineBreak: false });
     const pct = plTotalACV > 0 ? Math.round((row.acv / plTotalACV) * 100) : 0;
-    doc.text(`${fmtAcv(row.acv)} (${pct}%)`, LEFT + 240, y + 2.5, { width: 160, align: 'center', lineBreak: false });
-    doc.font(fontBold).fontSize(7.5).fillColor(DARK_TEXT);
-    doc.text(row.lateStage.toString(), LEFT + 430, y + 2.5, { width: 60, align: 'center', lineBreak: false });
-    y += ROW_H;
+    doc.text(`${fmtAcv(row.acv)} (${pct}%)`, plX + 150, plRowY + 2.5, { width: 90, align: 'center', lineBreak: false });
+    doc.font(fontBold).fontSize(7).fillColor(DARK_TEXT);
+    doc.text(row.lateStage.toString(), plX + 250, plRowY + 2.5, { width: 40, align: 'center', lineBreak: false });
+    plRowY += ROW_H;
   });
+
+  y = Math.max(stRowY, plRowY);
   
   // ═══════════════════════════════════════════════════════════════════════════
   // FOOTER — always render on page 1, cap y to stay within page bounds
