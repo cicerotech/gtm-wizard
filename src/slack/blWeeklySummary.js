@@ -1812,11 +1812,11 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
   
   const signedQTDm = (signedQTD.totalACV || 0) / 1000000;
   const forecastRows = [
-    { label: 'Q1 Target', value: Q1_FY26_FORECAST.target, labelBold: true, amountBold: true, bg: '#f0fdf4' },
+    { label: 'Q1 Target', value: Q1_FY26_FORECAST.target, labelBold: true, amountBold: true, bg: '#f3f4f6' },
     { label: 'Closed Won QTD', value: signedQTDm, labelBold: true, amountBold: true, bg: '#ecfdf5' },
-    { label: 'Commit', value: liveCommit, labelBold: false, amountBold: false, bg: '#f9fafb', italic: true },
-    { label: 'Weighted', value: liveWeighted, labelBold: false, amountBold: false, bg: '#ffffff', italic: true },
-    { label: 'Midpoint', value: liveMidpoint, labelBold: true, amountBold: true, bg: '#eff6ff' }
+    { label: 'Commit', value: liveCommit, labelBold: false, amountBold: false, bg: '#f9fafb', italic: true, hint: 'Rest of Quarter' },
+    { label: 'Weighted', value: liveWeighted, labelBold: false, amountBold: false, bg: '#ffffff', italic: true, hint: 'Rest of Quarter' },
+    { label: 'EOQ Forecast Midpoint', value: liveMidpoint, labelBold: true, amountBold: true, bg: '#eff6ff' }
   ];
   
   forecastRows.forEach((row) => {
@@ -1829,6 +1829,12 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
       doc.font(row.labelBold ? fontBold : fontRegular).fontSize(8);
     }
     doc.text(row.label, LEFT + 8, y + 4);
+    if (row.hint) {
+      const labelWidth = doc.widthOfString(row.label);
+      doc.font(fontItalic).fontSize(6).fillColor('#9ca3af');
+      doc.text(`  (${row.hint})`, LEFT + 8 + labelWidth, y + 5.5);
+      doc.fillColor(DARK_TEXT);
+    }
     doc.font(row.amountBold ? fontBold : fontRegular).fontSize(9);
     const safeValue = (typeof row.value === 'number' && !isNaN(row.value)) ? row.value : 0;
     doc.text(`$${safeValue.toFixed(1)}m`, LEFT + col1Width, y + 3, { width: col2Width, align: 'right' });
