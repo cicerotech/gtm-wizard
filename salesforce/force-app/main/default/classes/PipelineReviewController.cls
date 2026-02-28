@@ -35,12 +35,17 @@ public with sharing class PipelineReviewController {
     public static List<PipelineRow> getPipelineData(String pod, String stageMin, Boolean changesOnly, String productLine) {
         
         // 1. Get open Opportunities – restrict to active pipeline stages
-        String query = 'SELECT Id, Name, AccountId, Account.Name, Account.Customer_Type__c, ' +
-            'Account.Customer_Subtype__c, ACV__c, StageName, Target_LOI_Date__c, ' +
+        String query = 'SELECT Id, Name, AccountId, Account.Name, Account.Account_Display_Name__c, Account.Customer_Type__c, ' +
+            'Account.Customer_Subtype__c, Account.Eudia_Counsel_2__c, Account.Code_Name__c, ' +
+            'ACV__c, StageName, Target_LOI_Date__c, ' +
             'BL_Forecast_Category__c, Owner.Name, OwnerId, Pod__c, Eudia_Tech__c, ' +
             'Product_Lines_Multi__c, Next_Steps__c, CreatedDate, Probability, ' +
             'Quarterly_Commit__c, Weighted_ACV_AI_Enabled__c, ' +
-            'Blended_Forecast_base__c, Renewal_Net_Change__c, Prior_Opp_ACV__c ' +
+            'Blended_Forecast_base__c, BL_Quarterly_Forecast__c, ' +
+            'AI_Enabled_Quarterly_Forecast_Net__c, ' +
+            'Renewal_Net_Change__c, Prior_Opp_ACV__c, ' +
+            'Q1_2026_Commit_Snapshot__c, Q1_2026_ACV_Snapshot__c, ' +
+            'Q1_2026_Forecast_Category_Snapshot__c ' +
             'FROM Opportunity WHERE IsClosed = false AND StageName IN :ACTIVE_STAGES';
         
         if (String.isNotBlank(pod) && pod != 'All') {
@@ -107,11 +112,14 @@ public with sharing class PipelineReviewController {
     @AuraEnabled(cacheable=true)
     public static PipelineRow getOppChangeData(Id opportunityId) {
         Opportunity opp = [
-            SELECT Id, Name, AccountId, Account.Name, Account.Customer_Type__c,
-                Account.Customer_Subtype__c, ACV__c, StageName, Target_LOI_Date__c,
+            SELECT Id, Name, AccountId, Account.Name, Account.Account_Display_Name__c,
+                Account.Customer_Type__c, Account.Customer_Subtype__c,
+                Account.Eudia_Counsel_2__c, Account.Code_Name__c,
+                ACV__c, StageName, Target_LOI_Date__c,
                 BL_Forecast_Category__c, Owner.Name, OwnerId, Pod__c, Eudia_Tech__c,
                 Product_Lines_Multi__c, CreatedDate, Probability,
                 Quarterly_Commit__c, Weighted_ACV_AI_Enabled__c, Blended_Forecast_base__c,
+                BL_Quarterly_Forecast__c, AI_Enabled_Quarterly_Forecast_Net__c,
                 Renewal_Net_Change__c, Prior_Opp_ACV__c
             FROM Opportunity WHERE Id = :opportunityId LIMIT 1
         ];
@@ -154,7 +162,9 @@ public with sharing class PipelineReviewController {
         
         List<Opportunity> opps = [
             SELECT Id, ACV__c, StageName, BL_Forecast_Category__c, CreatedDate,
-                Eudia_Tech__c, Probability, Target_LOI_Date__c
+                Eudia_Tech__c, Probability, Target_LOI_Date__c,
+                Weighted_ACV_AI_Enabled__c, BL_Quarterly_Forecast__c,
+                AI_Enabled_Quarterly_Forecast_Net__c
             FROM Opportunity WHERE IsClosed = false AND StageName IN :ACTIVE_STAGES
         ];
         
@@ -398,6 +408,24 @@ public with sharing class PipelineReviewController {
         }
     }
     
+    private static String resolveAccountDisplayName(Opportunity opp) {
+        try {
+            if (opp.Account?.Eudia_Counsel_2__c == true && String.isNotBlank(opp.Account?.Code_Name__c)) {
+                return opp.Account.Code_Name__c;
+            }
+        } catch (SObjectException e) {
+            // Counsel fields not queried -- fall through
+        }
+        try {
+            if (opp.Account?.Account_Display_Name__c != null) {
+                return opp.Account.Account_Display_Name__c;
+            }
+        } catch (SObjectException e) {
+            // Display name not queried -- fall through
+        }
+        return opp.Account?.Name;
+    }
+
     public class PipelineRow {
         @AuraEnabled public Id id;
         @AuraEnabled public String name;
@@ -419,7 +447,14 @@ public with sharing class PipelineReviewController {
         @AuraEnabled public Decimal commitNet;        // Quarterly_Commit__c (AI-Enabled, Net ACV, Commit only)
         @AuraEnabled public Decimal weightedNetAI;    // Weighted_ACV_AI_Enabled__c (AI-Enabled, Net, stage-prob)
         @AuraEnabled public Decimal blendedForecast;  // Blended_Forecast_base__c (ACV × FC weight: 100% Commit, 60% Gut)
+        @AuraEnabled public Decimal quarterlyForecastNet;  // BL_Quarterly_Forecast__c ("Quarterly Forecast Net")
+        @AuraEnabled public Decimal aiQuarterlyForecastNet; // AI_Enabled_Quarterly_Forecast_Net__c
         @AuraEnabled public Decimal netAcv;           // Net ACV: Renewal_Net_Change for existing, ACV for new
+        
+        // Q1 2026 snapshot fields (frozen at quarter start)
+        @AuraEnabled public Decimal q1CommitSnapshot;   // Q1_2026_Commit_Snapshot__c
+        @AuraEnabled public Decimal q1AcvSnapshot;       // Q1_2026_ACV_Snapshot__c
+        @AuraEnabled public String q1FcSnapshot;         // Q1_2026_Forecast_Category_Snapshot__c
         
         // WoW computed from history
         @AuraEnabled public Decimal acvDelta;
@@ -439,7 +474,7 @@ public with sharing class PipelineReviewController {
         public PipelineRow(Opportunity opp, Map<String, FieldChange> changes) {
             this.id = opp.Id;
             this.name = opp.Name;
-            this.accountName = opp.Account?.Name;
+            this.accountName = resolveAccountDisplayName(opp);
             this.customerType = opp.Account?.Customer_Type__c;
             this.customerSubtype = opp.Account?.Customer_Subtype__c;
             this.acv = opp.ACV__c;
@@ -457,6 +492,11 @@ public with sharing class PipelineReviewController {
             try { this.commitNet = opp.Quarterly_Commit__c != null ? opp.Quarterly_Commit__c : 0; } catch (Exception e) { this.commitNet = 0; }
             try { this.weightedNetAI = opp.Weighted_ACV_AI_Enabled__c != null ? opp.Weighted_ACV_AI_Enabled__c : 0; } catch (Exception e) { this.weightedNetAI = 0; }
             try { this.blendedForecast = opp.Blended_Forecast_base__c != null ? opp.Blended_Forecast_base__c : 0; } catch (Exception e) { this.blendedForecast = 0; }
+            try { this.quarterlyForecastNet = opp.BL_Quarterly_Forecast__c != null ? opp.BL_Quarterly_Forecast__c : 0; } catch (Exception e) { this.quarterlyForecastNet = 0; }
+            try { this.aiQuarterlyForecastNet = opp.AI_Enabled_Quarterly_Forecast_Net__c != null ? opp.AI_Enabled_Quarterly_Forecast_Net__c : 0; } catch (Exception e) { this.aiQuarterlyForecastNet = 0; }
+            try { this.q1CommitSnapshot = opp.Q1_2026_Commit_Snapshot__c != null ? opp.Q1_2026_Commit_Snapshot__c : 0; } catch (Exception e) { this.q1CommitSnapshot = 0; }
+            try { this.q1AcvSnapshot = opp.Q1_2026_ACV_Snapshot__c != null ? opp.Q1_2026_ACV_Snapshot__c : 0; } catch (Exception e) { this.q1AcvSnapshot = 0; }
+            try { this.q1FcSnapshot = opp.Q1_2026_Forecast_Category_Snapshot__c; } catch (Exception e) { this.q1FcSnapshot = null; }
             try {
                 if (opp.Prior_Opp_ACV__c != null && opp.Prior_Opp_ACV__c > 0 && opp.Renewal_Net_Change__c != null) {
                     this.netAcv = opp.Renewal_Net_Change__c;
@@ -586,6 +626,65 @@ public with sharing class PipelineReviewController {
         @AuraEnabled public Integer targetSlips = 0;
         @AuraEnabled public Integer movedToCommit = 0;
         @AuraEnabled public Integer newDeals = 0;
+    }
+    
+    /**
+     * Get Closed Won deals in current fiscal quarter (Feb-Apr, May-Jul, Aug-Oct, Nov-Jan)
+     */
+    @AuraEnabled
+    public static List<ClosedWonRow> getClosedWonQTD() {
+        Date today = Date.today();
+        Integer m = today.month();
+        // Fiscal quarters: Q1=Feb-Apr(2-4), Q2=May-Jul(5-7), Q3=Aug-Oct(8-10), Q4=Nov-Jan(11-1)
+        Integer fiscalMonth = m == 1 ? 12 : m - 1; // Feb→1, Mar→2, ..., Jan→12
+        Integer fiscalQtr = ((fiscalMonth - 1) / 3); // 0=Q1, 1=Q2, 2=Q3, 3=Q4
+        Integer qtrStartMonth = 2 + fiscalQtr * 3; // 2, 5, 8, 11
+        Integer qtrStartYear = today.year();
+        if (qtrStartMonth > 12) { qtrStartMonth -= 12; qtrStartYear++; }
+        if (m == 1) { qtrStartYear = today.year() - 1; qtrStartMonth = 11; } // Jan is Q4 of prior FY
+        Date qtrStart = Date.newInstance(qtrStartYear, qtrStartMonth, 1);
+        
+        List<ClosedWonRow> rows = new List<ClosedWonRow>();
+        for (Opportunity opp : [
+            SELECT Id, Name, Account.Name, Account.Account_Display_Name__c,
+                   Account.Eudia_Counsel_2__c, Account.Code_Name__c,
+                   ACV__c, Renewal_Net_Change__c, Revenue_Type__c,
+                   Product_Lines_Multi__c, CloseDate, Owner.Name, Pod__c, Eudia_Tech__c
+            FROM Opportunity
+            WHERE IsWon = true AND CloseDate >= :qtrStart AND CloseDate <= :today
+            ORDER BY CloseDate DESC
+        ]) {
+            rows.add(new ClosedWonRow(opp));
+        }
+        return rows;
+    }
+    
+    public class ClosedWonRow {
+        @AuraEnabled public Id id;
+        @AuraEnabled public String name;
+        @AuraEnabled public String accountName;
+        @AuraEnabled public Decimal acv;
+        @AuraEnabled public Decimal netAcv;
+        @AuraEnabled public String revenueType;
+        @AuraEnabled public String productLine;
+        @AuraEnabled public Date closeDate;
+        @AuraEnabled public String ownerName;
+        @AuraEnabled public String pod;
+        @AuraEnabled public Boolean aiEnabled;
+        
+        public ClosedWonRow(Opportunity opp) {
+            this.id = opp.Id;
+            this.name = opp.Name;
+            this.accountName = resolveAccountDisplayName(opp);
+            this.acv = opp.ACV__c != null ? opp.ACV__c : 0;
+            this.netAcv = opp.Renewal_Net_Change__c != null ? opp.Renewal_Net_Change__c : this.acv;
+            this.revenueType = opp.Revenue_Type__c;
+            this.productLine = opp.Product_Lines_Multi__c;
+            this.closeDate = opp.CloseDate;
+            this.ownerName = opp.Owner?.Name;
+            this.pod = opp.Pod__c;
+            this.aiEnabled = opp.Eudia_Tech__c;
+        }
     }
     
     @AuraEnabled

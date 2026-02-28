@@ -258,7 +258,10 @@ private class PipelineReviewControllerTest {
                 BL_Forecast_Category__c, Owner.Name, OwnerId, Pod__c, Eudia_Tech__c,
                 Product_Lines_Multi__c, Next_Steps__c, CreatedDate, Probability,
                 Quarterly_Commit__c, Weighted_ACV_AI_Enabled__c, Blended_Forecast_base__c,
-                Renewal_Net_Change__c, Prior_Opp_ACV__c
+                BL_Quarterly_Forecast__c, AI_Enabled_Quarterly_Forecast_Net__c,
+                Renewal_Net_Change__c, Prior_Opp_ACV__c,
+                Q1_2026_Commit_Snapshot__c, Q1_2026_ACV_Snapshot__c,
+                Q1_2026_Forecast_Category_Snapshot__c
             FROM Opportunity WHERE ACV__c = 200000 LIMIT 1
         ];
 
@@ -275,5 +278,36 @@ private class PipelineReviewControllerTest {
         System.assertEquals(1, row.stageDir);
         System.assertEquals('Commit', row.forecastCategory);
         System.assertNotEquals(null, row.blendedForecast);
+    }
+
+    @isTest
+    static void testGetClosedWonQTD() {
+        Account acct = [SELECT Id FROM Account LIMIT 1];
+        Opportunity wonOpp = new Opportunity(
+            Name = 'Won Deal',
+            AccountId = acct.Id,
+            StageName = 'Closed Won',
+            CloseDate = Date.today(),
+            ACV__c = 300000,
+            Revenue_Type__c = 'Recurring',
+            Pod__c = 'US',
+            Opportunity_Source__c = 'Inbound'
+        );
+        insert wonOpp;
+
+        Test.startTest();
+        List<PipelineReviewController.ClosedWonRow> rows =
+            PipelineReviewController.getClosedWonQTD();
+        Test.stopTest();
+
+        System.assert(rows.size() >= 1, 'Should return at least 1 closed won deal');
+        Boolean found = false;
+        for (PipelineReviewController.ClosedWonRow r : rows) {
+            if (r.acv == 300000 && r.revenueType == 'Recurring') {
+                found = true;
+                System.assertEquals('Test Corp', r.accountName);
+            }
+        }
+        System.assert(found, 'Should find the test won deal');
     }
 }
