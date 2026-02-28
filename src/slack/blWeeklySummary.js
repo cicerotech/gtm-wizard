@@ -888,27 +888,13 @@ async function queryClosedWonByBL() {
  */
 async function querySignedRevenueLastWeek() {
   try {
-    logger.info('Querying signed revenue since last snapshot (Recurring/Project/Pilot only, within fiscal quarter)...');
+    logger.info('Querying signed revenue last week (Recurring/Project/Pilot only, within fiscal quarter)...');
     
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-
-    // Use last snapshot date as the lookback start (prevents re-counting deals from prior reports)
-    const snapshotData = readSnapshots();
-    const lastSnapshotDate = getLastSnapshotDate(snapshotData, todayStr);
-
-    let startStr;
-    if (lastSnapshotDate) {
-      startStr = lastSnapshotDate;
-      logger.info(`Using last snapshot date as start bound: ${lastSnapshotDate}`);
-    } else {
-      const weekAgo = new Date(now);
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      startStr = weekAgo.toISOString().split('T')[0];
-      logger.info(`No prior snapshot — falling back to 7-day window: ${startStr}`);
-    }
+    const weekAgo = new Date(now);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const weekAgoStr = weekAgo.toISOString().split('T')[0];
     
-    // Calculate fiscal quarter start (Q1 = Feb 1, Q2 = May 1, Q3 = Aug 1, Q4 = Nov 1)
     const month = now.getMonth();
     let fiscalQStart;
     if (month >= 1 && month <= 3) {
@@ -924,10 +910,9 @@ async function querySignedRevenueLastWeek() {
     }
     const fiscalQStartStr = fiscalQStart.toISOString().split('T')[0];
     
-    // Use the later of snapshot start or fiscalQStart
-    const effectiveStartStr = startStr > fiscalQStartStr ? startStr : fiscalQStartStr;
+    const effectiveStartStr = weekAgoStr > fiscalQStartStr ? weekAgoStr : fiscalQStartStr;
     
-    logger.info(`Last week query: CloseDate > ${effectiveStartStr} (fiscal Q start: ${fiscalQStartStr})`);
+    logger.info(`Last week query: CloseDate >= ${effectiveStartStr} (fiscal Q start: ${fiscalQStartStr})`);
     
     // Query individual deals (not aggregate) to get deal details
     // Filter by Revenue_Type__c to include only Recurring, Project, Pilot
@@ -937,7 +922,7 @@ async function querySignedRevenueLastWeek() {
              Sales_Type__c, Revenue_Type__c, Product_Line__c, Product_Lines_Multi__c, CloseDate
       FROM Opportunity
       WHERE StageName IN (${CLOSED_WON_IN_CLAUSE})
-        AND CloseDate > ${effectiveStartStr}
+        AND CloseDate >= ${effectiveStartStr}
         AND Revenue_Type__c IN ('Recurring', 'Project', 'Pilot')
       ORDER BY ACV__c DESC
     `;
@@ -1828,13 +1813,14 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
   const signedQTDm = (signedQTD.totalACV || 0) / 1000000;
   const forecastRows = [
     { label: 'Q1 Target', value: Q1_FY26_FORECAST.target, labelBold: true, amountBold: true, bg: '#f0fdf4' },
-    { label: 'Commit', value: liveCommit, prev: prevCommitM, labelBold: false, amountBold: false, bg: '#f9fafb', italic: true },
-    { label: 'Weighted', value: liveWeighted, prev: prevWeightedM, labelBold: false, amountBold: false, bg: '#ffffff', italic: true },
+    { label: 'Closed Won QTD', value: signedQTDm, labelBold: true, amountBold: true, bg: '#ecfdf5' },
+    { label: 'Commit', value: liveCommit, labelBold: false, amountBold: false, bg: '#f9fafb', italic: true },
+    { label: 'Weighted', value: liveWeighted, labelBold: false, amountBold: false, bg: '#ffffff', italic: true },
     { label: 'Midpoint', value: liveMidpoint, labelBold: true, amountBold: true, bg: '#eff6ff' }
   ];
   
   forecastRows.forEach((row) => {
-    const rowHeight = 17;
+    const rowHeight = 16;
     doc.rect(LEFT, y, runRateWidth, rowHeight).fill(row.bg);
     doc.fillColor(DARK_TEXT);
     if (row.italic) {
@@ -1842,30 +1828,17 @@ function generatePage1RevOpsSummary(doc, revOpsData, dateStr, previousSnapshot =
     } else {
       doc.font(row.labelBold ? fontBold : fontRegular).fontSize(8);
     }
-    doc.text(row.label, LEFT + 8, y + 5);
+    doc.text(row.label, LEFT + 8, y + 4);
     doc.font(row.amountBold ? fontBold : fontRegular).fontSize(9);
     const safeValue = (typeof row.value === 'number' && !isNaN(row.value)) ? row.value : 0;
-    doc.text(`$${safeValue.toFixed(1)}m`, LEFT + col1Width, y + 4, { width: col2Width, align: 'right' });
-    if (row.prev != null && row.prev > 0) {
-      const pctChange = Math.round(((safeValue - row.prev) / row.prev) * 100);
-      const sign = pctChange > 0 ? '+' : '';
-      const changeColor = signedQTDm > 0 ? '#6b7280' : '#9ca3af';
-      doc.font(fontItalic).fontSize(7).fillColor(changeColor);
-      let wowLabel = `${sign}${pctChange}%`;
-      if (pctChange < 0 && signedQTDm > 0.01) {
-        wowLabel += '*';
-      }
-      doc.text(wowLabel, LEFT + col1Width + col2Width + 4, y + 5);
-      doc.fillColor(DARK_TEXT);
-    }
+    doc.text(`$${safeValue.toFixed(1)}m`, LEFT + col1Width, y + 3, { width: col2Width, align: 'right' });
     y += rowHeight;
   });
   
-  // Footnote beneath forecast table
+  // Footnote
   y += 2;
   doc.font(fontItalic).fontSize(5.5).fillColor('#9ca3af');
-  const signedNote = signedQTDm > 0.01 ? ` * WoW decline reflects $${(signedQTDm).toFixed(1)}m signed (moved to Closed Won).` : '';
-  doc.text(`Open pipeline only. Net ACV.${signedNote}`, LEFT + 4, y, { width: runRateWidth - 8 });
+  doc.text('Net ACV. Commit/Weighted reflect open pipeline. Closed Won QTD is signed revenue.', LEFT + 4, y, { width: runRateWidth - 8 });
   y += 10;
 
   // ── Q1 Closed Won by Business Lead (compact, grey header style) ──
