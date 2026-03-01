@@ -46,7 +46,9 @@ tr.selected td{background:#eff6ff;border-left:2px solid #8e99e1}
 
 /* User detail panel */
 .user-panel{display:none;grid-column:1/-1}
-.user-panel.open{display:block}
+.user-panel.open{display:block !important}
+thead tr{cursor:default}
+thead tr:hover td,thead tr:hover th{background:transparent}
 .up-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .up-header h3{font-size:14px;font-weight:700;color:#1f2937}
 .up-close{background:none;border:none;font-size:18px;cursor:pointer;color:#9ca3af;padding:4px}
@@ -148,9 +150,13 @@ function renderSummary(devices){
 function renderFleet(devices){
   document.getElementById('fleetHead').innerHTML='<tr><th>User</th><th>Device</th><th>Version</th><th>Status</th><th>Last Seen</th><th>Accounts</th><th>SF</th><th>Cal</th></tr>';
   if(!devices.length){document.getElementById('fleetBody').innerHTML='<tr><td colspan="8" class="empty">No devices</td></tr>';return;}
-  document.getElementById('fleetBody').innerHTML=devices.map(d=>
-    '<tr data-email="'+d.user_email+'" onclick="openUserPanel(\''+d.user_email+'\')"><td><strong>'+d.user_email+'</strong></td><td>'+d.device_name+'</td><td>'+versionBadge(d.plugin_version)+'</td><td>'+healthBadge(d.health_status)+'</td><td class="time-ago">'+timeAgo(d.last_heartbeat)+'</td><td>'+d.account_count+'</td><td>'+bool(d.sf_connected)+'</td><td>'+bool(d.calendar_connected)+'</td></tr>'
+  const body=document.getElementById('fleetBody');
+  body.innerHTML=devices.map(d=>
+    '<tr data-email="'+d.user_email+'"><td><strong>'+d.user_email+'</strong></td><td>'+d.device_name+'</td><td>'+versionBadge(d.plugin_version)+'</td><td>'+healthBadge(d.health_status)+'</td><td class="time-ago">'+timeAgo(d.last_heartbeat)+'</td><td>'+d.account_count+'</td><td>'+bool(d.sf_connected)+'</td><td>'+bool(d.calendar_connected)+'</td></tr>'
   ).join('');
+  body.querySelectorAll('tr[data-email]').forEach(function(row){
+    row.addEventListener('click',function(){openUserPanel(this.dataset.email);});
+  });
 }
 
 document.getElementById('fleetSearch').addEventListener('input',function(){
@@ -163,51 +169,53 @@ document.getElementById('fleetSearch').addEventListener('input',function(){
 
 async function openUserPanel(email){
   selectedUser=email;
-  const panel=document.getElementById('userPanel');
-  panel.classList.add('open');
+  var panel=document.getElementById('userPanel');
+  panel.className='card full user-panel open';
   document.getElementById('upTitle').textContent=email;
-  // Highlight row
-  document.querySelectorAll('#fleetBody tr').forEach(r=>{r.classList.toggle('selected',r.dataset.email===email);});
+  document.querySelectorAll('#fleetBody tr').forEach(function(r){r.classList.toggle('selected',r.dataset.email===email);});
 
-  const device=allDevices.find(d=>d.user_email===email);
+  var device=allDevices.find(function(d){return d.user_email===email;});
+  var sfStatus=device&&device.sf_connected?'Connected':'Not connected';
+  var calStatus=device&&device.calendar_connected?'Connected':'Not connected';
 
-  // Stats
   document.getElementById('upStats').innerHTML=
-    '<div class="up-stat"><div class="up-val">'+(device?.account_count||0)+'</div><div class="up-lbl">Accounts</div></div>'+
-    '<div class="up-stat"><div class="up-val">'+versionBadge(device?.plugin_version)+'</div><div class="up-lbl">Version</div></div>'+
-    '<div class="up-stat"><div class="up-val">'+timeAgo(device?.last_heartbeat)+'</div><div class="up-lbl">Last Seen</div></div>';
+    '<div class="up-stat"><div class="up-val">'+(device?device.account_count:0)+'</div><div class="up-lbl">Accounts</div></div>'+
+    '<div class="up-stat"><div class="up-val">'+(device?versionBadge(device.plugin_version):'?')+'</div><div class="up-lbl">Version</div></div>'+
+    '<div class="up-stat"><div class="up-val">'+timeAgo(device?device.last_heartbeat:null)+'</div><div class="up-lbl">Last Seen</div></div>'+
+    '<div class="up-stat"><div class="up-val">'+sfStatus+'</div><div class="up-lbl">Salesforce</div></div>'+
+    '<div class="up-stat"><div class="up-val">'+calStatus+'</div><div class="up-lbl">Calendar</div></div>'+
+    '<div class="up-stat"><div class="up-val">'+(device?device.device_name:'?')+'</div><div class="up-lbl">Device</div></div>';
 
-  // Load notes and activity from telemetry
   document.getElementById('upNotes').innerHTML='<div class="empty">Loading...</div>';
   document.getElementById('upActivity').innerHTML='<div class="empty">Loading...</div>';
 
   try{
-    const r=await fetch('/api/admin/users/'+encodeURIComponent(email)+'/activity');
-    const d=await r.json();
+    var r=await fetch('/api/admin/users/'+encodeURIComponent(email)+'/activity');
+    var d=await r.json();
     if(d.notes&&d.notes.length){
-      document.getElementById('upNotes').innerHTML=d.notes.map(n=>
-        '<div class="note-row"><span class="note-title">'+(n.title||n.message||'Recording')+'</span><span class="note-time">'+timeAgo(n.timestamp)+'</span></div>'
-      ).join('');
+      document.getElementById('upNotes').innerHTML=d.notes.map(function(n){
+        return '<div class="note-row"><span class="note-title">'+(n.title||n.message||'Recording')+'</span><span class="note-time">'+timeAgo(n.timestamp)+'</span></div>';
+      }).join('');
     } else {
-      document.getElementById('upNotes').innerHTML='<div class="empty">No notes recorded yet</div>';
+      document.getElementById('upNotes').innerHTML='<div class="empty">No notes synced yet. Notes will appear here after the user records and transcribes a meeting.</div>';
     }
     if(d.events&&d.events.length){
-      document.getElementById('upActivity').innerHTML=d.events.slice(0,10).map(e=>
-        '<div class="note-row"><span class="badge '+(e.type==='error'?'red':e.type==='warning'?'yellow':'gray')+'">'+e.type+'</span><span class="note-title">'+(e.message||'').substring(0,80)+'</span><span class="note-time">'+timeAgo(e.timestamp)+'</span></div>'
-      ).join('');
+      document.getElementById('upActivity').innerHTML=d.events.slice(0,15).map(function(e){
+        return '<div class="note-row"><span class="badge '+(e.type==='error'?'red':e.type==='warning'?'yellow':'gray')+'">'+e.type+'</span><span class="note-title">'+(e.message||'').substring(0,100)+'</span><span class="note-time">'+timeAgo(e.timestamp)+'</span></div>';
+      }).join('');
     } else {
-      document.getElementById('upActivity').innerHTML='<div class="empty">No recent activity</div>';
+      document.getElementById('upActivity').innerHTML='<div class="empty">No telemetry events recorded. Events flow here when the plugin sends heartbeats, errors, or sync events.</div>';
     }
-  }catch(e){
-    document.getElementById('upNotes').innerHTML='<div class="empty">Failed to load</div>';
-    document.getElementById('upActivity').innerHTML='<div class="empty">Failed to load</div>';
+  }catch(err){
+    document.getElementById('upNotes').innerHTML='<div class="empty">Could not load: '+err.message+'</div>';
+    document.getElementById('upActivity').innerHTML='<div class="empty">Could not load</div>';
   }
 
-  // Action buttons
+  var safeEmail=email.replace(/'/g,"\\'");
   document.getElementById('upActions').innerHTML=
-    '<button class="btn primary" onclick="pushOp(\''+email+'\',\'sync_accounts\')">Sync Accounts</button>'+
-    '<button class="btn" onclick="pushOp(\''+email+'\',\'notify\',{message:prompt(\'Notification message:\')})">Send Notification</button>'+
-    '<button class="btn" onclick="pushOp(\''+email+'\',\'force_update\')">Force Update</button>';
+    '<button class="btn primary" onclick="pushOp(\''+safeEmail+'\',\'sync_accounts\')">Sync Accounts</button>'+
+    '<button class="btn" onclick="pushOp(\''+safeEmail+'\',\'notify\',{message:prompt(\'Notification:\')})">Send Notification</button>'+
+    '<button class="btn" onclick="pushOp(\''+safeEmail+'\',\'force_update\')">Force Update</button>';
 
   panel.scrollIntoView({behavior:'smooth',block:'start'});
 }
