@@ -1,16 +1,16 @@
 /* ── Pipeline Review Center ── */
 
 :host {
-    --c-positive: #5a9a6a;
-    --c-negative: #a0635f;
-    --c-warning: #a08040;
-    --c-neutral: #9e9e9e;
+    --c-positive: #2e7d42;
+    --c-negative: #c0392b;
+    --c-warning: #8a6d1b;
+    --c-neutral: #737373;
     --c-bg: #fff;
-    --c-bg-alt: #fafafa;
-    --c-border: #e0e0e0;
-    --c-text: #333;
-    --c-text-secondary: #706e6b;
-    --c-text-tertiary: #9e9e9e;
+    --c-bg-alt: #f5f5f5;
+    --c-border: #d0d0d0;
+    --c-text: #1a1a1a;
+    --c-text-secondary: #4a4a4a;
+    --c-text-tertiary: #737373;
 }
 
 .review-container {
@@ -53,6 +53,10 @@
     width: 120px;
 }
 
+.filter-combo-sm {
+    width: 110px;
+}
+
 .changes-toggle {
     font-size: 0.75rem;
     color: var(--c-text-secondary);
@@ -68,13 +72,15 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.35rem;
-    padding: 0.5rem 0;
+    padding: 0.5rem 0.25rem;
     margin-bottom: 0.5rem;
     border-bottom: 1px solid var(--c-border);
+    border-top: 1px solid var(--c-border);
     position: sticky;
     top: 0;
     background: var(--c-bg);
     z-index: 10;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
 }
 .bl-nav-item {
     font-size: 0.7rem;
@@ -94,10 +100,10 @@
 
 /* Highlights card — all neutral text, no color */
 .highlights-card {
-    background: var(--c-bg-alt);
-    border: 1px solid var(--c-border);
-    border-radius: 6px;
-    padding: 0.75rem 1rem;
+    background: #fff;
+    border-left: 3px solid var(--c-border);
+    border-radius: 0;
+    padding: 0.5rem 1rem;
     margin-bottom: 0.75rem;
 }
 
@@ -167,14 +173,33 @@
 
 .owner-header {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.375rem 0.625rem;
-    background: var(--c-bg-alt);
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0;
+    background: linear-gradient(to right, rgba(100, 149, 237, 0.04), var(--c-bg-alt));
     border: 1px solid var(--c-border);
+    border-left: 3px solid #6495ED;
     border-radius: 4px 4px 0 0;
     border-bottom: 1px solid var(--c-text-secondary);
 }
+.owner-header-row1 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.625rem 0.125rem;
+}
+.owner-header-row2 {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.125rem 0.625rem 0.375rem 0.625rem;
+    font-size: 0.6875rem;
+    color: var(--c-text-secondary);
+}
+.owner-metric { white-space: nowrap; }
+.owner-metric-bold { font-weight: 600; color: var(--c-text); }
+.owner-metric-ai { color: #6366f1; font-weight: 600; }
+.owner-metric-sep { color: var(--c-border); font-size: 0.625rem; }
 
 .owner-name {
     font-weight: 600;
@@ -237,11 +262,11 @@
 .table-header {
     display: flex;
     padding: 0.375rem 0.625rem;
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--c-text-tertiary);
+    letter-spacing: 0.03em;
+    color: var(--c-text-secondary);
     background: var(--c-bg-alt);
     border-bottom: 1px solid var(--c-border);
 }
@@ -256,8 +281,12 @@
     transition: background 0.1s;
 }
 
+.table-row:nth-child(even) {
+    background: #fafafa;
+}
+
 .table-row:hover {
-    background: #f8f8f8;
+    background: #f3f3f3;
 }
 
 .table-row:last-child {
@@ -271,10 +300,10 @@
 .col-target { flex: 1; text-align: center; }
 .col-tdelta { flex: 0.8; text-align: center; font-size: 0.75rem; }
 .col-stage { flex: 0.8; text-align: center; font-weight: 500; }
-.col-products { flex: 1; font-size: 0.6875rem; color: var(--c-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.col-products { flex: 1.5; min-width: 140px; font-size: 0.6875rem; color: var(--c-text-secondary); white-space: normal; line-height: 1.3; }
 .col-fc { flex: 0.7; text-align: center; color: var(--c-text-secondary); }
 .col-nextsteps { flex: 2.5; min-width: 0; font-size: 0.6875rem; color: var(--c-text-secondary); line-height: 1.35; white-space: normal; word-break: break-word; overflow-wrap: break-word; padding-top: 1px; }
-.col-wow { flex: 0.5; text-align: center; font-size: 0.75rem; color: var(--c-text-tertiary); }
+.col-wow { flex: 0.5; text-align: center; font-size: 0.75rem; color: var(--c-text-tertiary); text-transform: none; }
 
 /* Editable cell hover hint */
 .editable-cell { cursor: pointer; border-radius: 2px; padding: 1px 3px; }
@@ -376,7 +405,143 @@
     display: block;
 }
 
+/* Q1 Forecast Tracking card */
+.tracking-card {
+    background: #fff;
+    border: 1px solid var(--c-border);
+    border-radius: 6px;
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 0.5rem;
+}
+.tracking-title {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--c-text-secondary);
+    margin-bottom: 0.5rem;
+}
+.tracking-grid {
+    display: flex;
+    gap: 2rem;
+    max-width: 600px;
+}
+.tracking-block {
+    flex: 1;
+    min-width: 0;
+}
+.tracking-block-title {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--c-text-secondary);
+    margin-bottom: 0.25rem;
+}
+.tracking-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--c-text-secondary);
+    line-height: 1.6;
+}
+.tracking-label {
+    min-width: 3rem;
+    color: var(--c-text-tertiary);
+    font-size: 0.6875rem;
+}
+.tracking-value {
+    font-weight: 500;
+    color: var(--c-text);
+}
+.tracking-delta {
+    font-weight: 500;
+    font-size: 0.6875rem;
+}
+.tracking-count {
+    font-size: 0.625rem;
+    color: var(--c-text-tertiary);
+}
+
+.tracking-won-sub {
+    margin-top: 0.75rem;
+    padding-top: 0.625rem;
+    border-top: 1px solid var(--c-border);
+}
+
+/* Closed Won QTD */
+.stats-bar-won {
+    padding-top: 0;
+    margin-bottom: 0.5rem;
+}
+.stat-clickable {
+    cursor: pointer;
+    font-weight: 500;
+}
+.stat-clickable:hover {
+    text-decoration: underline;
+    color: var(--c-text);
+}
+.closed-won-table {
+    border: 1px solid var(--c-border);
+    border-radius: 4px;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+}
+.closed-won-header {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.375rem 0.625rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--c-text-secondary);
+    background: var(--c-bg-alt);
+    border-bottom: 1px solid var(--c-border);
+}
+.closed-won-row {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.4rem 0.625rem;
+    font-size: 0.8125rem;
+    border-bottom: 1px solid #f0f0f0;
+    align-items: center;
+}
+.closed-won-row:nth-child(even) { background: #fafafa; }
+.closed-won-row:last-child { border-bottom: none; }
+.closed-won-row:hover { background: #f3f3f3; }
+.cw-account { flex: 2; min-width: 120px; }
+.cw-acv { flex: 0.8; text-align: right; font-weight: 600; min-width: 80px; }
+.cw-type { flex: 1; font-size: 0.75rem; color: var(--c-text-secondary); min-width: 80px; }
+.cw-product { flex: 1.5; font-size: 0.6875rem; color: var(--c-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 100px; }
+.cw-date { flex: 0.7; text-align: center; font-size: 0.75rem; min-width: 60px; }
+.cw-owner { flex: 1; font-size: 0.75rem; color: var(--c-text-secondary); min-width: 90px; }
+
+/* Delta detail expandable */
+.delta-detail-table {
+    border: 1px solid var(--c-border);
+    border-radius: 4px;
+    margin: 0.375rem 0 0.25rem;
+    overflow: hidden;
+    background: var(--c-bg);
+}
+.delta-detail-row {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.35rem 1rem;
+    font-size: 0.75rem;
+    border-bottom: 1px solid #f0f0f0;
+    align-items: center;
+}
+.delta-detail-row:last-child { border-bottom: none; }
+.dd-account { flex: 2; min-width: 0; }
+.dd-delta { flex: 0.8; text-align: right; font-weight: 500; min-width: 60px; }
+.dd-change { flex: 1.2; color: var(--c-text-secondary); font-size: 0.6875rem; }
+.dd-detail { flex: 1; font-size: 0.625rem; color: #9ca3af; font-style: italic; }
+
 /* Responsive */
 @media (max-width: 1200px) {
     .col-delta, .col-tdelta { display: none; }
+    .tracking-grid { flex-direction: column; gap: 0.5rem; }
+    .owner-header-row2 { flex-wrap: wrap; }
 }

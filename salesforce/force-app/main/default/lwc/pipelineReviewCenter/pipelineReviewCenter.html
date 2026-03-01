@@ -4,7 +4,7 @@
         <div class="title-bar">
             <div class="title-left">
                 <h1 class="title">Pipeline Review</h1>
-                <span class="subtitle">Week of {weekLabel} · v2.1</span>
+                <span class="subtitle">Week of {weekLabel} · v2.2</span>
             </div>
             <div class="title-right">
                 <lightning-combobox
@@ -43,6 +43,14 @@
                     <input type="checkbox" checked={changesOnly} onchange={handleChangesToggle} />
                     Changes only
                 </label>
+                <lightning-combobox
+                    value={changesTimeframe}
+                    options={changesTimeframeOptions}
+                    onchange={handleChangesTimeframeChange}
+                    variant="label-hidden"
+                    class="filter-combo-sm"
+                    title="Change tracking period">
+                </lightning-combobox>
                 <lightning-button-icon
                     icon-name="utility:refresh"
                     alternative-text="Refresh"
@@ -77,7 +85,7 @@
             <!-- Highlights card -->
             <template if:true={hasHighlights}>
                 <div class="highlights-card">
-                    <div class="highlights-title">This Week's Highlights</div>
+                    <div class="highlights-title">Changes: {changesTimeframeLabel} (since {wowSinceLabel})</div>
                     <div class="highlights-grid">
                         <template for:each={highlightItems} for:item="h">
                             <div key={h.key} class="highlight-item">
@@ -87,6 +95,101 @@
                         </template>
                     </div>
                 </div>
+            </template>
+
+            <!-- Q1 Forecast Tracking (In-Quarter only) -->
+            <template if:true={hasQ1Tracking}>
+                <div class="tracking-card">
+                    <div class="tracking-title" title="Compares current open pipeline against Q1 start snapshot. Commit + Won QTD = likely quarter revenue.">Q1 Forecast Tracking (vs. Feb 2 baseline · AI-Enabled · In-Quarter)</div>
+                    <div class="tracking-grid">
+                        <div class="tracking-block">
+                            <div class="tracking-block-title" title="Sum of Quarterly_Commit__c (AI-Enabled, Net ACV) for deals with BL Forecast Category = Commit and target sign date in Q1 (Feb-Apr).">Commit</div>
+                            <div class="tracking-row">
+                                <span class="tracking-value">{origCommitInQtrFormatted} → {todayCommitInQtrFormatted}</span>
+                                <span class="tracking-delta stat-clickable" data-sentiment={commitInQtrDeltaSentiment} title="Click to see which deals drive this change" onclick={handleCommitDeltaClick}>{commitInQtrDeltaFormatted}</span>
+                                <span class="tracking-count">{commitInQtrDealCount} deals</span>
+                            </div>
+                            <template if:true={showCommitDelta}>
+                                <template if:true={hasCommitDeltaDeals}>
+                                    <div class="delta-detail-table">
+                                        <template for:each={commitDeltaDeals} for:item="dd">
+                                            <div key={dd.key} class="delta-detail-row">
+                                                <span class="dd-account">{dd.accountName}</span>
+                                                <span class="dd-delta" data-sentiment={dd.sentiment}>{dd.deltaFormatted}</span>
+                                                <span class="dd-change">{dd.changeLabel}</span>
+                                                <template if:true={dd.hasDetail}>
+                                                    <span class="dd-detail">{dd.changeDetail}</span>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </template>
+                            <div class="tracking-won-sub">
+                                <div class="tracking-block-title" title="Net ACV of Closed Won deals this fiscal quarter. Click to expand deal list.">Won QTD</div>
+                                <div class="tracking-row">
+                                    <span class="tracking-value stat-clickable" onclick={handleClosedWonToggle}>{closedWonTotalFormatted}</span>
+                                    <span class="tracking-count">{closedWonDealCount} deals</span>
+                                </div>
+                                <template if:true={closedWonLoaded}>
+                                    <div class="tracking-row">
+                                        <span class="tracking-label">Recurring</span>
+                                        <span class="tracking-value">{closedWonRecurringFormatted}</span>
+                                        <span class="tracking-label" style="margin-left:0.5rem">Project</span>
+                                        <span class="tracking-value">{closedWonProjectFormatted}</span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="tracking-block">
+                            <div class="tracking-block-title" title="Sum of Weighted_ACV_AI_Enabled__c for AI-enabled deals targeting Q1. Net ACV adjusted by stage probability.">Weighted (AI-Enabled)</div>
+                            <div class="tracking-row">
+                                <span class="tracking-value">{origWeightedInQtrFormatted} → {todayWeightedInQtrFormatted}</span>
+                                <span class="tracking-delta stat-clickable" data-sentiment={weightedInQtrDeltaSentiment} title="Click to see which deals drive this change" onclick={handleWeightedDeltaClick}>{weightedInQtrDeltaFormatted}</span>
+                                <span class="tracking-count">{weightedInQtrDealCount} deals</span>
+                            </div>
+                            <template if:true={showWeightedDelta}>
+                                <template if:true={hasWeightedDeltaDeals}>
+                                    <div class="delta-detail-table">
+                                        <template for:each={weightedDeltaDeals} for:item="dd">
+                                            <div key={dd.key} class="delta-detail-row">
+                                                <span class="dd-account">{dd.accountName}</span>
+                                                <span class="dd-delta" data-sentiment={dd.sentiment}>{dd.deltaFormatted}</span>
+                                                <span class="dd-change">{dd.changeLabel}</span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Closed Won QTD deal table (expandable from Won QTD in tracking card) -->
+            <template if:true={showClosedWon}>
+                <template if:true={hasClosedWonData}>
+                    <div class="closed-won-table">
+                        <div class="closed-won-header">
+                            <span class="cw-account">Account</span>
+                            <span class="cw-acv">Net ACV</span>
+                            <span class="cw-type">Revenue Type</span>
+                            <span class="cw-product">Product</span>
+                            <span class="cw-date">Closed</span>
+                            <span class="cw-owner">Owner</span>
+                        </div>
+                        <template for:each={closedWonData} for:item="cw">
+                            <div key={cw.key} class="closed-won-row">
+                                <span class="cw-account"><a href={cw.oppUrl} class="opp-link">{cw.accountName}</a></span>
+                                <span class="cw-acv">{cw.acvFormatted}</span>
+                                <span class="cw-type">{cw.revenueLabel}</span>
+                                <span class="cw-product">{cw.productShort}</span>
+                                <span class="cw-date">{cw.closeDateFormatted}</span>
+                                <span class="cw-owner">{cw.ownerName}</span>
+                            </div>
+                        </template>
+                    </div>
+                </template>
             </template>
 
             <!-- Pipeline stats bar -->
@@ -125,29 +228,30 @@
             <template for:each={ownerGroups} for:item="group">
                 <div key={group.key} class="owner-group" data-owner-section={group.name}>
                     <div class="owner-header" data-owner={group.name} onclick={handleOwnerToggle}>
-                        <span class="owner-chevron">{group.chevron}</span>
-                        <span class="owner-name">{group.name}</span>
-                        <span class="owner-pod">{group.pod}</span>
-                        <span class="owner-pipeline">Pipeline: {group.totalAcvFormatted}</span>
-                        <span class="owner-weighted">Wtd: {group.weightedAcvFormatted}</span>
-                        <template if:true={group.acvDeltaFormatted}>
-                            <span class="owner-delta" data-sentiment={group.acvDeltaSentiment}>
-                                WoW: {group.acvDeltaFormatted}
-                            </span>
-                        </template>
-                        <template if:true={group.hasCommitNet}>
-                            <span class="owner-commit">Commit: {group.commitNetFormatted}</span>
-                        </template>
-                        <template if:true={group.hasForecast}>
-                            <span class="owner-forecast">BL Forecast: {group.forecastFormatted}</span>
-                        </template>
-                        <template if:true={group.hasCommitInQtr}>
-                            <span class="owner-commit-inqtr">In-Qtr: {group.commitInQtrFormatted}</span>
-                        </template>
-                        <template if:true={group.hasAi}>
-                            <span class="owner-ai">AI: {group.aiWeightedFormatted}</span>
-                        </template>
-                        <span class="owner-count">{group.dealCount} deals</span>
+                        <div class="owner-header-row1">
+                            <span class="owner-chevron">{group.chevron}</span>
+                            <span class="owner-name">{group.name}</span>
+                            <span class="owner-pod">{group.pod}</span>
+                            <span class="owner-pipeline" title="Sum of Net ACV for all open deals (ACV for new biz, Renewal Net Change for expansions)">Pipeline: {group.totalAcvFormatted}</span>
+                            <span class="owner-weighted" title="Weighted ACV (AI-Enabled): net ACV adjusted by stage probability, AI-enabled deals only. SF field: Weighted_ACV_AI_Enabled__c">Wtd: {group.weightedAcvFormatted}</span>
+                            <template if:true={group.acvDeltaFormatted}>
+                                <span class="owner-delta" data-sentiment={group.acvDeltaSentiment} title="Net change in pipeline ACV for selected period">{changeColumnLabel}: {group.acvDeltaFormatted}</span>
+                            </template>
+                            <span class="owner-count">{group.dealCount} deals</span>
+                        </div>
+                        <div class="owner-header-row2">
+                            <span class="owner-metric" title="Closed Won ACV this fiscal quarter for this BL">Won QTD: {group.wonQtdFormatted}</span>
+                            <span class="owner-metric-sep">|</span>
+                            <span class="owner-metric" title="Q1 AI-Enabled commit baseline (Feb 2 snapshot)">Q1 Commit: {group.q1CommitFormatted}</span>
+                            <span class="owner-metric-sep">|</span>
+                            <span class="owner-metric" title="Current ACV of Commit-category deals targeting this fiscal quarter (Feb-Apr)">Current Q1 Commit: {group.currentCommitFormatted}</span>
+                            <span class="owner-metric-sep">|</span>
+                            <span class="owner-metric" title="Quarterly Forecast Net for all deals (weighted by FC: Commit 100%, Gut 60%). Narrows when target sign filter is applied.">BL Forecast: {group.forecastFormatted}</span>
+                            <span class="owner-metric-sep">|</span>
+                            <span class="owner-metric owner-metric-bold" title="BL Forecast narrowed to deals targeting this fiscal quarter (Feb-Apr). Equals BL Forecast when 'This Quarter' filter is active.">In-Qtr: {group.inQtrFormatted}</span>
+                            <span class="owner-metric-sep">|</span>
+                            <span class="owner-metric owner-metric-ai" title="AI-Enabled portion of In-Qtr forecast">AI: {group.aiInQtrFormatted}</span>
+                        </div>
                     </div>
 
                     <template if:true={group.isExpanded}>
@@ -156,14 +260,14 @@
                                 <div class="table-header">
                                     <span class="col-account sort-header" data-owner={group.name} data-field="accountName" onclick={handleOwnerSort}>Account</span>
                                     <span class="col-acv sort-header" data-owner={group.name} data-field="acv" onclick={handleOwnerSort}>ACV</span>
-                                    <span class="col-delta">Δ ACV</span>
+                                    <span class="col-delta sort-header" data-owner={group.name} data-field="acvDelta" onclick={handleOwnerSort}>Δ ACV</span>
                                     <span class="col-target sort-header" data-owner={group.name} data-field="targetSign" onclick={handleOwnerSort}>Target</span>
-                                    <span class="col-tdelta">Δ Days</span>
+                                    <span class="col-tdelta sort-header" data-owner={group.name} data-field="targetDeltaDays" onclick={handleOwnerSort}>Δ Days</span>
                                     <span class="col-stage sort-header" data-owner={group.name} data-field="stageShort" onclick={handleOwnerSort}>Stage</span>
                                     <span class="col-products">Products</span>
                                     <span class="col-fc sort-header" data-owner={group.name} data-field="forecastCategory" onclick={handleOwnerSort}>FC</span>
                                     <span class="col-nextsteps" style="min-width:0;">Next Steps</span>
-                                    <span class="col-wow">WoW</span>
+                                    <span class="col-wow" title="Change indicator for selected period">{changeColumnLabel}</span>
                                 </div>
 
                                 <template for:each={group.deals} for:item="deal">

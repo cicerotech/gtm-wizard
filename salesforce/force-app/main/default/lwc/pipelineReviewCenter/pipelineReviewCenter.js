@@ -2,15 +2,43 @@ import { LightningElement, wire, track } from 'lwc';
 import getPipelineData from '@salesforce/apex/PipelineReviewController.getPipelineData';
 import getProductLineOptions from '@salesforce/apex/PipelineReviewController.getProductLineOptions';
 import updateOpportunityField from '@salesforce/apex/PipelineReviewController.updateOpportunityField';
+import getClosedWonQTD from '@salesforce/apex/PipelineReviewController.getClosedWonQTD';
 
 export default class PipelineReviewCenter extends LightningElement {
-
+    // v2.2 - AI filter fix
     // Filters
     selectedPod = 'All';
     selectedStage = '';
     selectedProductLine = 'All';
     selectedTargetSign = 'All';
     changesOnly = false;
+    changesTimeframe = '7d';
+
+    get changesTimeframeOptions() {
+        return [
+            { label: 'Last 7 days', value: '7d' },
+            { label: 'QTD', value: 'qtd' },
+            { label: 'Last 14 days', value: '14d' },
+            { label: 'Last 30 days', value: '30d' }
+        ];
+    }
+
+    get changesTimeframeLabel() {
+        const opt = this.changesTimeframeOptions.find(o => o.value === this.changesTimeframe);
+        return opt ? opt.label : 'Last 7 days';
+    }
+
+    get changeColumnLabel() {
+        if (this.changesTimeframe === 'qtd') return 'QTD';
+        if (this.changesTimeframe === '14d') return '14d';
+        if (this.changesTimeframe === '30d') return '30d';
+        return 'WoW';
+    }
+
+    handleChangesTimeframeChange(event) {
+        this.changesTimeframe = event.detail.value;
+        this._loadData();
+    }
 
     // Inline edit state
     isEditing = false;
@@ -38,6 +66,15 @@ export default class PipelineReviewCenter extends LightningElement {
 
     // Client-computed summary (updates with every filter)
     @track _summary = {};
+
+    // Closed Won QTD
+    @track closedWonData = [];
+    @track showClosedWon = false;
+    closedWonLoaded = false;
+
+    // Delta drill-down
+    @track showCommitDelta = false;
+    @track showWeightedDelta = false;
 
     // Quarter boundaries (computed once)
     _qtrStart;
@@ -72,6 +109,7 @@ export default class PipelineReviewCenter extends LightningElement {
         this._computeDateBoundaries();
         this._loadProductLineOptions();
         this._loadData();
+        this._loadClosedWon();
     }
 
     _computeDateBoundaries() {
@@ -119,11 +157,27 @@ export default class PipelineReviewCenter extends LightningElement {
     async _loadData() {
         this.isLoading = true;
         try {
+            // Calculate daysBack from changesTimeframe
+            let daysBack = 7;
+            if (this.changesTimeframe === 'qtd') {
+                const now = new Date();
+                const m = now.getMonth() + 1;
+                const qtrStartMonth = m === 1 ? 11 : (2 + Math.floor((m - 2) / 3) * 3);
+                const qtrStartYear = m === 1 ? now.getFullYear() - 1 : now.getFullYear();
+                const qtrStart = new Date(qtrStartYear, qtrStartMonth - 1, 1);
+                daysBack = Math.ceil((now - qtrStart) / (1000 * 60 * 60 * 24));
+            } else if (this.changesTimeframe === '14d') {
+                daysBack = 14;
+            } else if (this.changesTimeframe === '30d') {
+                daysBack = 30;
+            }
+
             const data = await getPipelineData({
                 pod: this.selectedPod,
                 stageMin: this.selectedStage,
-                changesOnly: this.changesOnly,
-                productLine: this.selectedProductLine
+                changesOnly: false,
+                productLine: this.selectedProductLine,
+                daysBack: daysBack
             });
 
             let rows = data || [];
@@ -165,7 +219,7 @@ export default class PipelineReviewCenter extends LightningElement {
             if (start && end) {
                 rows = rows.filter(r => {
                     if (!r.targetSign) return false;
-                    const d = new Date(r.targetSign);
+                    const d = this._parseLocalDate(r.targetSign);
                     return d >= start && d <= end;
                 });
             }
@@ -177,12 +231,50 @@ export default class PipelineReviewCenter extends LightningElement {
 
     // ── Client-side summary (reflects current filters) ──
 
+    // Q1 FY26 baseline constants by pod — verified from Q1_2026_Forecast_Workbook (Feb 2, 2026 snapshot).
+    // Commit = Quarterly Commit Net (AI-Enabled). Weighted = Weighted ACV (AI-Enabled).
+    // Update these at Q2 start with the new quarter's snapshot values.
+    static Q1_BASELINES = {
+        All:  { commit: 4172550, weighted: 5468165 },
+        US:   { commit: 1935000, weighted: 3648000 },
+        EU:   { commit: 2237550, weighted: 1820165 }
+    };
+
+    // Per-BL Q1 commit baselines (AI-Enabled Commit from Feb 2 workbook).
+    static Q1_COMMIT_BY_BL = {
+        'Ananth Cherukupally': 395000,
+        'Asad Hussain': 180000,
+        'Julie Stefanich': 650000,
+        'Justin Hills': 120000,
+        'Mike Masiello': 350000,
+        'Olivia Jung': 240000,
+        'Mitch Loquaci': 0,
+        'Riley Stack': 0,
+        'Rajeev Patel': 0,
+        'Sean Boyd': 0,
+        'Alex Fox': 235125,
+        'Conor Molloy': 1280000,
+        'Nathan Shine': 896550,
+        'Nicola Fratini': 200000,
+        'Tom Clancy': 0,
+        'Emer Flynn': 0,
+        'Greg MacHale': 0
+    };
+
+    _getQ1Baseline() {
+        const pod = this.selectedPod || 'All';
+        return PipelineReviewCenter.Q1_BASELINES[pod] || PipelineReviewCenter.Q1_BASELINES.All;
+    }
+
     _computeSummary() {
+        const baseline = this._getQ1Baseline();
         const s = {
             totalDeals: 0, totalACV: 0, weightedACV: 0,
             totalAIDeals: 0, totalAIACV: 0, weightedAIACV: 0,
             commitTotal: 0, commitInQtr: 0,
             commitAITotal: 0, commitAIInQtr: 0,
+            originalCommitInQtr: baseline.commit,
+            originalWeightedInQtr: baseline.weighted,
             stageAdvances: 0, stageRegressions: 0,
             acvIncreases: 0, acvDecreases: 0, netACVChange: 0,
             targetSlips: 0, movedToCommit: 0, movedFromCommit: 0, newDeals: 0, changedDeals: 0
@@ -191,15 +283,14 @@ export default class PipelineReviewCenter extends LightningElement {
         for (const row of this.filteredData) {
             s.totalDeals++;
             const netAcv = row.netAcv || row.acv || 0;
-            const wtd = row.weightedAcv || 0;
             s.totalACV += netAcv;
-            s.weightedACV += wtd;
+            s.weightedACV += (row.weightedNetAI || 0);
 
             const isCommit = row.forecastCategory === 'Commit';
             const dealAcv = row.acv || 0;
             let isInQtr = false;
             if (row.targetSign) {
-                const d = new Date(row.targetSign);
+                const d = this._parseLocalDate(row.targetSign);
                 isInQtr = d >= this._qtrStart && d <= this._qtrEnd;
             }
 
@@ -211,7 +302,7 @@ export default class PipelineReviewCenter extends LightningElement {
             if (row.aiEnabled) {
                 s.totalAIDeals++;
                 s.totalAIACV += netAcv;
-                s.weightedAIACV += (row.weightedNetAI || wtd);
+                s.weightedAIACV += (row.aiQuarterlyForecastNet || 0);
                 if (isCommit) {
                     s.commitAITotal += (row.commitNet || 0);
                     if (isInQtr) s.commitAIInQtr += (row.commitNet || 0);
@@ -244,42 +335,61 @@ export default class PipelineReviewCenter extends LightningElement {
                 groups[owner] = {
                     key: owner, name: owner, pod: row.pod || '',
                     deals: [],
-                    netAcv: 0,           // Pipeline: Sum of Net ACV
-                    acvDelta: 0,         // WoW change
-                    weightedAcv: 0,      // Wtd: ACV × Probability
-                    forecast: 0,         // Forecast: Quarterly Forecast Net (Commit+Gut)
-                    commitNet: 0,        // Commit: Quarterly Commit (Net New)
-                    commitInQtr: 0,      // In-Qtr: Commit closing this quarter
-                    aiWeightedAcv: 0,    // AI: Weighted ACV (AI-Enabled)
+                    netAcv: 0,
+                    acvDelta: 0,
+                    weightedAcv: 0,
+                    forecast: 0,
+                    q1CommitOriginal: PipelineReviewCenter.Q1_COMMIT_BY_BL[owner] || 0,
+                    currentCommit: 0,
+                    inQtrForecast: 0,
+                    aiInQtrForecast: 0,
+                    wonQtdAcv: 0,
                     aiCount: 0
                 };
             }
             const enriched = this._enrichRow(row);
-            groups[owner].deals.push(enriched);
+
+            // changesOnly: only add deals to the visible table, but always accumulate metrics
+            if (!this.changesOnly || row.anyChange || row.isNew) {
+                groups[owner].deals.push(enriched);
+            }
 
             // Pipeline = Net ACV (renewal net change for existing, ACV for new)
             groups[owner].netAcv += (row.netAcv || row.acv || 0);
             groups[owner].acvDelta += (row.acvDelta || 0);
 
-            // Weighted = ACV × Probability
-            groups[owner].weightedAcv += (row.weightedAcv || 0);
+            // Weighted = Weighted ACV (AI-Enabled) from SF formula field
+            groups[owner].weightedAcv += (row.weightedNetAI || 0);
 
-            // BL Forecast = sum of Blended_Forecast_base__c (SF formula: 100% Commit / 60% Gut)
-            groups[owner].forecast += (row.blendedForecast || 0);
+            // BL Forecast = Quarterly Forecast Net (BL_Quarterly_Forecast__c) for all deals.
+            // Cascading: when target sign filter is applied, filteredData narrows and BL Forecast narrows with it.
+            groups[owner].forecast += (row.quarterlyForecastNet || 0);
 
-            // Commit = sum of ACV for all Commit-tagged deals
+            // Current Commit = ACV for Commit-category deals targeting this fiscal quarter
             const dealAcv = row.acv || 0;
-            if (row.forecastCategory === 'Commit') {
-                groups[owner].commitNet += dealAcv;
-                if (enriched.isInQuarter) {
-                    groups[owner].commitInQtr += dealAcv;
+            if (row.forecastCategory === 'Commit' && enriched.isInQuarter) {
+                groups[owner].currentCommit += dealAcv;
+            }
+
+            // In-Qtr = same field as BL Forecast but narrowed to deals targeting Q1.
+            // AI = In-Qtr filtered to AI-enabled deals only (Eudia_Tech__c = true).
+            if (enriched.isInQuarter) {
+                groups[owner].inQtrForecast += (row.quarterlyForecastNet || 0);
+                if (row.aiEnabled) {
+                    groups[owner].aiInQtrForecast += (row.quarterlyForecastNet || 0);
                 }
             }
 
-            // AI = Weighted ACV (AI-Enabled) from SF formula field
             if (row.aiEnabled) {
-                groups[owner].aiWeightedAcv += (row.weightedNetAI || row.weightedAcv || 0);
                 groups[owner].aiCount++;
+            }
+        }
+
+        // Add per-BL closed won from already-loaded closedWonData
+        for (const cw of this.closedWonData) {
+            const cwOwner = cw.ownerName || 'Unassigned';
+            if (groups[cwOwner]) {
+                groups[cwOwner].wonQtdAcv += (cw.netAcv || cw.acv || 0);
             }
         }
 
@@ -300,11 +410,13 @@ export default class PipelineReviewCenter extends LightningElement {
                 const sortField = this.ownerSortField[g.name] || 'acv';
                 const sortDir = this.ownerSortDir[g.name] || 'desc';
                 let sortedDeals = [...g.deals];
+                const numericFields = new Set(['acv', 'acvDelta', 'targetDeltaDays', 'netAcv']);
                 sortedDeals.sort((a, b) => {
-                    let va = a[sortField] || '';
-                    let vb = b[sortField] || '';
-                    if (sortField === 'acv') { va = va || 0; vb = vb || 0; }
-                    else if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb||'').toLowerCase(); }
+                    let va = a[sortField];
+                    let vb = b[sortField];
+                    if (numericFields.has(sortField)) { va = va || 0; vb = vb || 0; }
+                    else if (typeof va === 'string') { va = (va||'').toLowerCase(); vb = (vb||'').toLowerCase(); }
+                    else { va = va || ''; vb = vb || ''; }
                     const dir = sortDir === 'asc' ? 1 : -1;
                     if (va < vb) return -1 * dir;
                     if (va > vb) return 1 * dir;
@@ -323,26 +435,23 @@ export default class PipelineReviewCenter extends LightningElement {
                     hasDeals: g.deals.length > 0,
                     weightedAcvFormatted: this._fmtCurrency(g.weightedAcv),
                     forecastFormatted: this._fmtCurrency(g.forecast),
-                    hasForecast: g.forecast > 0,
-                    commitNetFormatted: this._fmtCurrency(g.commitNet),
-                    hasCommitNet: g.commitNet > 0,
-                    commitInQtrFormatted: this._fmtCurrency(g.commitInQtr),
-                    hasCommitInQtr: g.commitInQtr > 0,
-                    aiWeightedFormatted: this._fmtCurrency(g.aiWeightedAcv),
-                    aiCount: g.aiCount,
-                    hasAi: g.aiCount > 0
+                    q1CommitFormatted: this._fmtCurrency(g.q1CommitOriginal),
+                    currentCommitFormatted: this._fmtCurrency(g.currentCommit),
+                    inQtrFormatted: this._fmtCurrency(g.inQtrForecast),
+                    aiInQtrFormatted: this._fmtCurrency(g.aiInQtrForecast),
+                    wonQtdFormatted: this._fmtCurrency(g.wonQtdAcv)
                 };
             });
     }
 
     _enrichRow(row) {
         const targetDate = row.targetSign
-            ? new Date(row.targetSign).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            ? this._parseLocalDate(row.targetSign).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
             : '—';
 
         let isInQuarter = false;
         if (row.targetSign) {
-            const d = new Date(row.targetSign);
+            const d = this._parseLocalDate(row.targetSign);
             isInQuarter = d >= this._qtrStart && d <= this._qtrEnd;
         }
 
@@ -453,7 +562,8 @@ export default class PipelineReviewCenter extends LightningElement {
 
     handleChangesToggle(event) {
         this.changesOnly = event.target.checked;
-        this._loadData();
+        // No Apex re-call needed — just rebuild owner groups with the display filter
+        this._buildOwnerGroups();
     }
 
     handleRefresh() {
@@ -473,7 +583,12 @@ export default class PipelineReviewCenter extends LightningElement {
         const items = [];
         if (s.stageAdvances > 0) items.push({ key: 'sa', icon: '↑', text: `${s.stageAdvances} advanced stage` });
         if (s.stageRegressions > 0) items.push({ key: 'sr', icon: '↓', text: `${s.stageRegressions} stage regression${s.stageRegressions > 1 ? 's' : ''}` });
-        if (s.acvIncreases > 0) items.push({ key: 'ai', icon: '↑', text: `${s.acvIncreases} ACV increase${s.acvIncreases > 1 ? 's' : ''} (${this._fmtCurrencyDelta(s.netACVChange)} net)` });
+        if (s.acvIncreases > 0 || s.acvDecreases > 0) {
+            const parts = [];
+            if (s.acvIncreases > 0) parts.push(`${s.acvIncreases} ACV increase${s.acvIncreases > 1 ? 's' : ''}`);
+            if (s.acvDecreases > 0) parts.push(`${s.acvDecreases} ACV decrease${s.acvDecreases > 1 ? 's' : ''}`);
+            items.push({ key: 'ai', icon: '↑', text: `${parts.join(', ')} (${this._fmtCurrencyDelta(s.netACVChange)} net)` });
+        }
         if (s.targetSlips > 0) items.push({ key: 'ts', icon: '⚠', text: `${s.targetSlips} target date slip${s.targetSlips > 1 ? 's' : ''}` });
         if (s.movedToCommit > 0) items.push({ key: 'mc', icon: '★', text: `${s.movedToCommit} moved to Commit` });
         if (s.movedFromCommit > 0) items.push({ key: 'mfc', icon: '▼', text: `${s.movedFromCommit} moved from Commit` });
@@ -496,6 +611,296 @@ export default class PipelineReviewCenter extends LightningElement {
     get commitAITotalFormatted() { return this._fmtCurrency(this._summary?.commitAITotal || 0); }
     get commitAIInQtrFormatted() { return this._fmtCurrency(this._summary?.commitAIInQtr || 0); }
     get hasAISummary() { return (this._summary?.totalAIDeals || 0) > 0; }
+
+    // ── WoW time label ──
+
+    get wowSinceLabel() {
+        const since = new Date();
+        if (this.changesTimeframe === 'qtd') {
+            const m = since.getMonth() + 1;
+            const qtrStartMonth = m === 1 ? 11 : (2 + Math.floor((m - 2) / 3) * 3);
+            const qtrStartYear = m === 1 ? since.getFullYear() - 1 : since.getFullYear();
+            return new Date(qtrStartYear, qtrStartMonth - 1, 1).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+        const days = this.changesTimeframe === '14d' ? 14 : this.changesTimeframe === '30d' ? 30 : 7;
+        since.setDate(since.getDate() - days);
+        return since.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    // ── Q1 Forecast Tracking getters ──
+
+    get hasQ1Tracking() {
+        const s = this._summary;
+        return s && (s.originalCommitInQtr > 0 || s.originalWeightedInQtr > 0);
+    }
+
+    // Commit In-Qtr getters
+    get origCommitInQtrFormatted() { return this._fmtCurrency(this._summary?.originalCommitInQtr || 0); }
+    get todayCommitInQtrFormatted() { return this._fmtCurrency(this._summary?.commitAIInQtr || 0); }
+    get commitInQtrDeltaFormatted() {
+        const d = (this._summary?.commitAIInQtr || 0) - (this._summary?.originalCommitInQtr || 0);
+        return this._fmtCurrencyDelta(d);
+    }
+    get commitInQtrDeltaSentiment() {
+        const d = (this._summary?.commitAIInQtr || 0) - (this._summary?.originalCommitInQtr || 0);
+        return d > 0 ? 'positive' : d < 0 ? 'negative' : 'neutral';
+    }
+    get commitInQtrDealCount() {
+        let count = 0;
+        for (const row of this.filteredData) {
+            if (!row.aiEnabled || row.forecastCategory !== 'Commit' || !row.targetSign) continue;
+            const d = this._parseLocalDate(row.targetSign);
+            if (d >= this._qtrStart && d <= this._qtrEnd) count++;
+        }
+        return count;
+    }
+
+    // Weighted (AI-Enabled) In-Qtr getters — uses Weighted_ACV_AI_Enabled__c
+    get origWeightedInQtrFormatted() { return this._fmtCurrency(this._summary?.originalWeightedInQtr || 0); }
+    get todayWeightedInQtrFormatted() {
+        let total = 0;
+        for (const row of this.filteredData) {
+            if (!row.aiEnabled || !row.targetSign) continue;
+            const d = this._parseLocalDate(row.targetSign);
+            if (d >= this._qtrStart && d <= this._qtrEnd) {
+                total += (row.weightedNetAI || 0);
+            }
+        }
+        return this._fmtCurrency(total);
+    }
+    get weightedInQtrDeltaFormatted() {
+        let todayInQtr = 0;
+        for (const row of this.filteredData) {
+            if (!row.aiEnabled || !row.targetSign) continue;
+            const d = this._parseLocalDate(row.targetSign);
+            if (d >= this._qtrStart && d <= this._qtrEnd) {
+                todayInQtr += (row.weightedNetAI || 0);
+            }
+        }
+        const delta = todayInQtr - (this._summary?.originalWeightedInQtr || 0);
+        return this._fmtCurrencyDelta(delta);
+    }
+    get weightedInQtrDeltaSentiment() {
+        let todayInQtr = 0;
+        for (const row of this.filteredData) {
+            if (!row.aiEnabled || !row.targetSign) continue;
+            const d = this._parseLocalDate(row.targetSign);
+            if (d >= this._qtrStart && d <= this._qtrEnd) {
+                todayInQtr += (row.weightedNetAI || 0);
+            }
+        }
+        const d = todayInQtr - (this._summary?.originalWeightedInQtr || 0);
+        return d > 0 ? 'positive' : d < 0 ? 'negative' : 'neutral';
+    }
+    get weightedInQtrDealCount() {
+        let count = 0;
+        for (const row of this.filteredData) {
+            if (!row.aiEnabled || !row.targetSign) continue;
+            const d = this._parseLocalDate(row.targetSign);
+            if (d >= this._qtrStart && d <= this._qtrEnd) count++;
+        }
+        return count;
+    }
+
+    // ── Delta drill-down ──
+
+    handleCommitDeltaClick(e) {
+        e.stopPropagation();
+        this.showCommitDelta = !this.showCommitDelta;
+    }
+    handleWeightedDeltaClick(e) {
+        e.stopPropagation();
+        this.showWeightedDelta = !this.showWeightedDelta;
+    }
+
+    get commitDeltaDeals() {
+        const deals = [];
+
+        // Open pipeline deals
+        for (const row of this.filteredData) {
+            if (!row.aiEnabled) continue;
+            const isInQtr = row.targetSign && (() => {
+                const d = this._parseLocalDate(row.targetSign);
+                return d >= this._qtrStart && d <= this._qtrEnd;
+            })();
+            const isCommit = row.forecastCategory === 'Commit';
+            const snapCommit = row.q1CommitSnapshot || 0;
+            const wasCommit = row.q1FcSnapshot === 'Commit';
+            const snapAcv = row.q1AcvSnapshot || 0;
+            const currentCommit = (isCommit && isInQtr) ? (row.commitNet || 0) : 0;
+            if (snapCommit === 0 && currentCommit === 0) continue;
+            const delta = currentCommit - snapCommit;
+            if (delta === 0) continue;
+
+            let changeLabel = '';
+            let changeDetail = '';
+
+            if (snapCommit === 0 && currentCommit > 0) {
+                changeLabel = 'New to Commit';
+                if (row.q1FcSnapshot) changeDetail = `was ${row.q1FcSnapshot}`;
+            } else if (wasCommit && !isCommit) {
+                changeLabel = `Commit → ${row.forecastCategory || 'Pipeline'}`;
+                changeDetail = 'Forecast category changed';
+            } else if (wasCommit && !isInQtr) {
+                changeLabel = 'Target moved out of Q1';
+                if (row.targetSign) changeDetail = `now ${row.targetSign}`;
+            } else if (wasCommit && isCommit && snapAcv > 0 && row.acv !== snapAcv) {
+                const fromStr = this._fmtCurrency(snapAcv);
+                const toStr = this._fmtCurrency(row.acv || 0);
+                changeLabel = delta > 0 ? 'ACV increased' : 'ACV decreased';
+                changeDetail = `${fromStr} → ${toStr}`;
+            } else if (delta > 0) {
+                changeLabel = 'ACV increased';
+            } else {
+                changeLabel = 'Left Commit';
+            }
+
+            deals.push({
+                key: row.id,
+                accountName: row.accountName || row.name,
+                rawDelta: delta,
+                acvFormatted: this._fmtCurrency(Math.abs(delta)),
+                deltaFormatted: this._fmtCurrencyDelta(delta),
+                sentiment: delta > 0 ? 'positive' : 'negative',
+                changeLabel,
+                changeDetail,
+                hasDetail: !!changeDetail
+            });
+        }
+
+        // Closed Won deals that were in Commit at quarter start
+        for (const cw of this.closedWonData) {
+            if (!cw.aiEnabled) continue;
+            const wasCommit = cw.q1FcSnapshot === 'Commit';
+            const snapCommit = cw.q1CommitSnapshot || 0;
+            if (!wasCommit && snapCommit === 0) continue;
+            const cwAcv = cw.netAcv || cw.acv || 0;
+            const delta = -snapCommit;
+            if (delta === 0 && !wasCommit) continue;
+            deals.push({
+                key: cw.id || cw.key,
+                accountName: cw.accountName,
+                rawDelta: delta,
+                acvFormatted: this._fmtCurrency(Math.abs(delta || cwAcv)),
+                deltaFormatted: this._fmtCurrencyDelta(delta || -cwAcv),
+                sentiment: 'positive',
+                changeLabel: 'Closed Won',
+                changeDetail: cw.closeDateFormatted ? `Signed ${cw.closeDateFormatted}` : '',
+                hasDetail: !!cw.closeDateFormatted
+            });
+        }
+
+        deals.sort((a, b) => Math.abs(b.rawDelta) - Math.abs(a.rawDelta));
+        return deals;
+    }
+
+    get weightedDeltaDeals() {
+        const allDeals = [];
+        for (const row of this.filteredData) {
+            if (!row.aiEnabled) continue;
+            const isInQtr = row.targetSign && (() => {
+                const d = this._parseLocalDate(row.targetSign);
+                return d >= this._qtrStart && d <= this._qtrEnd;
+            })();
+            const snapWeighted = (row.q1AcvSnapshot || 0) * ((row.probability || 0) / 100);
+            const currentWeighted = isInQtr ? (row.weightedNetAI || 0) : 0;
+            if (snapWeighted === 0 && currentWeighted === 0) continue;
+            const delta = currentWeighted - snapWeighted;
+            if (Math.abs(delta) < 100) continue;
+            let changeLabel = '';
+            if (snapWeighted === 0 && currentWeighted > 0) changeLabel = 'New deal';
+            else if (snapWeighted > 0 && currentWeighted === 0 && !isInQtr) changeLabel = 'Moved out of Q1';
+            else if (snapWeighted > 0 && currentWeighted === 0) changeLabel = 'Stage/prob changed';
+            else if (delta > 0) changeLabel = 'Weighted up';
+            else changeLabel = 'Weighted down';
+            const acctName = row.accountName || row.name;
+            if (acctName && (acctName.includes('Wellspring') || acctName.includes('Sequoia'))) {
+                changeLabel += ' (Sequoia opp combined with Wellspring)';
+            }
+            allDeals.push({
+                key: row.id,
+                accountName: acctName,
+                rawDelta: delta,
+                acvFormatted: this._fmtCurrency(Math.abs(delta)),
+                deltaFormatted: this._fmtCurrencyDelta(delta),
+                sentiment: delta > 0 ? 'positive' : 'negative',
+                changeLabel
+            });
+        }
+        allDeals.sort((a, b) => Math.abs(b.rawDelta) - Math.abs(a.rawDelta));
+
+        // Show top 10 most impactful changes; roll up the rest
+        const MAX_DISPLAY = 10;
+        const deals = allDeals.length > MAX_DISPLAY ? allDeals.slice(0, MAX_DISPLAY) : [...allDeals];
+        if (allDeals.length > MAX_DISPLAY) {
+            const extraDeals = allDeals.slice(MAX_DISPLAY);
+            const extraNet = extraDeals.reduce((s, d) => s + d.rawDelta, 0);
+            deals.push({
+                key: '_more_changes',
+                accountName: `${extraDeals.length} more smaller changes`,
+                rawDelta: extraNet,
+                acvFormatted: this._fmtCurrency(Math.abs(extraNet)),
+                deltaFormatted: this._fmtCurrencyDelta(extraNet),
+                sentiment: extraNet > 0 ? 'positive' : extraNet < 0 ? 'negative' : 'neutral',
+                changeLabel: ''
+            });
+        }
+
+        return deals;
+    }
+
+    get hasCommitDeltaDeals() { return this.commitDeltaDeals.length > 0; }
+    get hasWeightedDeltaDeals() { return this.weightedDeltaDeals.length > 0; }
+
+    // ── Closed Won QTD ──
+
+    async _loadClosedWon() {
+        try {
+            const data = await getClosedWonQTD();
+            this.closedWonData = (data || []).map(row => ({
+                ...row,
+                key: row.id,
+                acvFormatted: this._fmtCurrency(row.netAcv || row.acv || 0),
+                closeDateFormatted: row.closeDate
+                    ? this._parseLocalDate(row.closeDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    : '—',
+                revenueLabel: row.revenueType || '—',
+                productShort: row.productLine
+                    ? row.productLine.split(';').map(p => this._shortProduct(p.trim())).join(' / ')
+                    : '—',
+                oppUrl: '/' + row.id
+            }));
+            this.closedWonLoaded = true;
+        } catch (err) {
+            console.warn('Failed to load Closed Won data', err);
+            this.closedWonData = [];
+        }
+    }
+
+    handleClosedWonToggle() {
+        this.showClosedWon = !this.showClosedWon;
+    }
+
+    get closedWonTotal() {
+        return this.closedWonData.reduce((sum, r) => sum + (r.netAcv || r.acv || 0), 0);
+    }
+    get closedWonTotalFormatted() { return this._fmtCurrency(this.closedWonTotal); }
+    get closedWonRecurring() {
+        return this.closedWonData.filter(r => r.revenueType === 'Recurring').reduce((sum, r) => sum + (r.netAcv || r.acv || 0), 0);
+    }
+    get closedWonRecurringFormatted() { return this._fmtCurrency(this.closedWonRecurring); }
+    get closedWonProject() {
+        return this.closedWonData.filter(r => r.revenueType === 'Project').reduce((sum, r) => sum + (r.netAcv || r.acv || 0), 0);
+    }
+    get closedWonProjectFormatted() { return this._fmtCurrency(this.closedWonProject); }
+    get closedWonOther() {
+        return this.closedWonData.filter(r => r.revenueType !== 'Recurring' && r.revenueType !== 'Project').reduce((sum, r) => sum + (r.netAcv || r.acv || 0), 0);
+    }
+    get closedWonOtherFormatted() { return this._fmtCurrency(this.closedWonOther); }
+    get hasClosedWonOther() { return this.closedWonOther > 0; }
+    get closedWonDealCount() { return this.closedWonData.length; }
+    get hasClosedWonData() { return this.closedWonData.length > 0; }
+    get closedWonChevron() { return this.showClosedWon ? '▾' : '▸'; }
 
     // ── Export ──
 
@@ -599,7 +1004,8 @@ export default class PipelineReviewCenter extends LightningElement {
             this.ownerSortDir = { ...this.ownerSortDir, [owner]: currentDir === 'asc' ? 'desc' : 'asc' };
         } else {
             this.ownerSortField = { ...this.ownerSortField, [owner]: field };
-            this.ownerSortDir = { ...this.ownerSortDir, [owner]: field === 'acv' ? 'desc' : 'asc' };
+            const numSortFields = new Set(['acv', 'acvDelta', 'targetDeltaDays', 'netAcv']);
+            this.ownerSortDir = { ...this.ownerSortDir, [owner]: numSortFields.has(field) ? 'desc' : 'asc' };
         }
         this._buildOwnerGroups();
     }
@@ -776,6 +1182,13 @@ export default class PipelineReviewCenter extends LightningElement {
             detail: { title, message, variant },
             bubbles: true, composed: true
         }));
+    }
+
+    // ── Date parsing ──
+
+    _parseLocalDate(dateStr) {
+        if (!dateStr) return null;
+        return new Date(dateStr + 'T00:00:00');
     }
 
     // ── Formatting ──

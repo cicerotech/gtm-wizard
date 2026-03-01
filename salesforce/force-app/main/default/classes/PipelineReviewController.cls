@@ -649,7 +649,8 @@ public with sharing class PipelineReviewController {
             SELECT Id, Name, Account.Name, Account.Account_Display_Name__c,
                    Account.Eudia_Counsel_2__c, Account.Code_Name__c,
                    ACV__c, Renewal_Net_Change__c, Revenue_Type__c,
-                   Product_Lines_Multi__c, CloseDate, Owner.Name, Pod__c, Eudia_Tech__c
+                   Product_Lines_Multi__c, CloseDate, Owner.Name, Pod__c, Eudia_Tech__c,
+                   Q1_2026_Commit_Snapshot__c, Q1_2026_Forecast_Category_Snapshot__c
             FROM Opportunity
             WHERE IsWon = true AND CloseDate >= :qtrStart AND CloseDate <= :today
             ORDER BY CloseDate DESC
@@ -671,6 +672,8 @@ public with sharing class PipelineReviewController {
         @AuraEnabled public String ownerName;
         @AuraEnabled public String pod;
         @AuraEnabled public Boolean aiEnabled;
+        @AuraEnabled public Decimal q1CommitSnapshot;
+        @AuraEnabled public String q1FcSnapshot;
         
         public ClosedWonRow(Opportunity opp) {
             this.id = opp.Id;
@@ -684,6 +687,8 @@ public with sharing class PipelineReviewController {
             this.ownerName = opp.Owner?.Name;
             this.pod = opp.Pod__c;
             this.aiEnabled = opp.Eudia_Tech__c;
+            try { this.q1CommitSnapshot = opp.Q1_2026_Commit_Snapshot__c != null ? opp.Q1_2026_Commit_Snapshot__c : 0; } catch (Exception e) { this.q1CommitSnapshot = 0; }
+            try { this.q1FcSnapshot = opp.Q1_2026_Forecast_Category_Snapshot__c; } catch (Exception e) { this.q1FcSnapshot = null; }
         }
     }
     
