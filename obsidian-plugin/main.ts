@@ -3873,6 +3873,7 @@ export default class EudiaSyncPlugin extends Plugin {
     this.transcriptionService = new TranscriptionService(
       this.settings.serverUrl
     );
+    this.transcriptionService.setUserEmail(this.settings.userEmail);
     
     this.calendarService = new CalendarService(
       this.settings.serverUrl,

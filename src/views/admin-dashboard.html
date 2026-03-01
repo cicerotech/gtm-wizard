@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Eudia Admin</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fafbfe;color:#1f2937;min-height:100vh}
+.header{background:#fff;border-bottom:1px solid #e5e7eb;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:18px;font-weight:700;color:#1f2937}
+.header .version{color:#8e99e1;font-size:12px;font-weight:600;margin-left:8px}
+.header .refresh{font-size:11px;color:#9ca3af}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px 24px;max-width:1400px;margin:0 auto}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.card.full{grid-column:1/-1}
+.card h2{font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px}
+.stats{display:flex;gap:10px;margin-bottom:12px}
+.stat{text-align:center;flex:1;padding:10px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb}
+.stat .num{font-size:24px;font-weight:700;color:#1f2937}
+.stat .label{font-size:10px;color:#9ca3af;text-transform:uppercase;margin-top:2px;letter-spacing:.3px}
+.stat.online .num{color:#16a34a}
+.stat.idle .num{color:#d97706}
+.stat.stale .num{color:#dc2626}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;padding:6px 10px;color:#9ca3af;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e5e7eb}
+td{padding:7px 10px;border-bottom:1px solid #f3f4f6;color:#374151}
+tr{cursor:pointer;transition:background .1s}
+tr:hover td{background:#f9fafb}
+tr.selected td{background:#eff6ff;border-left:2px solid #8e99e1}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600}
+.badge.green{background:#ecfdf5;color:#16a34a}
+.badge.yellow{background:#fffbeb;color:#d97706}
+.badge.red{background:#fef2f2;color:#dc2626}
+.badge.blue{background:#eff6ff;color:#3b82f6}
+.badge.gray{background:#f3f4f6;color:#9ca3af}
+.check{color:#16a34a}.cross{color:#dc2626}
+.time-ago{color:#9ca3af;font-size:11px}
+.search{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:7px 12px;color:#374151;width:100%;margin-bottom:10px;font-size:12px}
+.search:focus{outline:none;border-color:#8e99e1;box-shadow:0 0 0 2px rgba(142,153,225,.15)}
+.ops-item{padding:8px 10px;background:#f9fafb;border-radius:6px;margin-bottom:6px;font-size:12px;border:1px solid #e5e7eb}
+.ops-item .op-type{font-weight:600;color:#8e99e1}
+.ops-item .op-status{float:right}
+.ops-item .op-meta{color:#9ca3af;font-size:10px;margin-top:2px}
+.error-item{padding:7px 10px;background:#fef2f2;border-left:2px solid #dc2626;border-radius:0 6px 6px 0;margin-bottom:4px;font-size:11px}
+.error-item .err-user{font-weight:600;color:#dc2626}
+.error-item .err-msg{color:#6b7280;margin-top:1px;font-size:11px}
+.empty{color:#9ca3af;font-style:italic;padding:16px;text-align:center;font-size:12px}
+
+/* User detail panel */
+.user-panel{display:none;grid-column:1/-1}
+.user-panel.open{display:block}
+.up-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.up-header h3{font-size:14px;font-weight:700;color:#1f2937}
+.up-close{background:none;border:none;font-size:18px;cursor:pointer;color:#9ca3af;padding:4px}
+.up-close:hover{color:#1f2937}
+.up-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
+.up-stat{background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:10px;text-align:center}
+.up-stat .up-val{font-size:20px;font-weight:700;color:#1f2937}
+.up-stat .up-lbl{font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
+.up-section{margin-bottom:12px}
+.up-section h4{font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e5e7eb}
+.note-row{display:flex;align-items:center;padding:5px 8px;border-bottom:1px solid #f3f4f6;font-size:12px;gap:8px}
+.note-row:hover{background:#f9fafb}
+.note-title{flex:1;font-weight:500;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.note-time{color:#9ca3af;font-size:10px;flex-shrink:0}
+.btn{padding:5px 12px;border-radius:6px;border:1px solid #e5e7eb;background:#fff;color:#374151;cursor:pointer;font-size:11px;font-weight:600;transition:all .15s}
+.btn:hover{background:#f9fafb;border-color:#8e99e1;color:#8e99e1}
+.btn.primary{background:#8e99e1;color:#fff;border-color:#8e99e1}
+.btn.primary:hover{background:#7c88d4}
+.actions{display:flex;gap:6px;margin-top:10px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.card.full{grid-column:1}.up-grid{grid-template-columns:1fr 1fr}}
+</style></head><body>
+<div class="header">
+  <div style="display:flex;align-items:baseline"><h1>Eudia Admin</h1><span class="version" id="serverVersion"></span></div>
+  <div class="refresh" id="refreshTimer">Auto-refresh in 60s</div>
+</div>
+<div class="grid">
+  <div class="card full" id="summaryCard"><h2>Fleet Health</h2><div class="stats" id="summaryStats"><div class="empty">Loading...</div></div></div>
+  <div class="card full" id="fleetCard"><h2>Device Fleet</h2><input class="search" id="fleetSearch" placeholder="Search by email, device, version..."><table><thead id="fleetHead"></thead><tbody id="fleetBody"></tbody></table></div>
+
+  <!-- User detail panel (hidden until a user row is clicked) -->
+  <div class="card full user-panel" id="userPanel">
+    <div class="up-header">
+      <h3 id="upTitle">User Detail</h3>
+      <button class="up-close" onclick="closeUserPanel()">&times;</button>
+    </div>
+    <div class="up-grid" id="upStats"></div>
+    <div class="up-section" id="upNotesSection">
+      <h4>Recent Notes</h4>
+      <div id="upNotes"><div class="empty">Loading...</div></div>
+    </div>
+    <div class="up-section" id="upActivitySection">
+      <h4>Recent Activity</h4>
+      <div id="upActivity"><div class="empty">Loading...</div></div>
+    </div>
+    <div class="actions" id="upActions"></div>
+  </div>
+
+  <div class="card" id="opsCard"><h2>Recent Operations</h2><div id="opsList"><div class="empty">Loading...</div></div></div>
+  <div class="card" id="errorsCard"><h2>Recent Errors (24h)</h2><div id="errorsList"><div class="empty">Loading...</div></div></div>
+</div>
+<script>
+let refreshCountdown=60;
+let allDevices=[];
+let selectedUser=null;
+
+function timeAgo(d){if(!d)return'never';const s=Math.floor((Date.now()-new Date(d).getTime())/1000);if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
+
+function versionBadge(v){
+  if(!v)return'<span class="badge gray">?</span>';
+  const cv=document.getElementById('serverVersion').dataset.version||'';
+  if(v===cv)return'<span class="badge green">v'+v+'</span>';
+  if(!cv)return'<span class="badge gray">v'+v+'</span>';
+  const c=cv.split('.').map(Number),r=v.split('.').map(Number);
+  const diff=(c[0]-r[0])*100+(c[1]-r[1])*10+(c[2]-r[2]);
+  return diff<=1?'<span class="badge yellow">v'+v+'</span>':'<span class="badge red">v'+v+'</span>';
+}
+
+function healthBadge(h){
+  const m={'online':'green','idle':'yellow','stale':'red','pending':'blue','delivered':'green','executed':'green','failed':'red'};
+  return'<span class="badge '+(m[h]||'gray')+'">'+h+'</span>';
+}
+
+function bool(v){return v?'<span class="check">&#10003;</span>':'<span class="cross">&#10007;</span>';}
+
+async function loadFleet(){
+  try{
+    const r=await fetch('/api/admin/devices');
+    const d=await r.json();
+    allDevices=d.devices||[];
+    renderFleet(allDevices);
+    renderSummary(allDevices);
+  }catch(e){document.getElementById('fleetBody').innerHTML='<tr><td colspan="8" class="empty">Failed to load</td></tr>';}
+}
+
+function renderSummary(devices){
+  const online=devices.filter(d=>d.health_status==='online').length;
+  const idle=devices.filter(d=>d.health_status==='idle').length;
+  const stale=devices.filter(d=>d.health_status==='stale').length;
+  const versions={};devices.forEach(d=>{const v=d.plugin_version||'?';versions[v]=(versions[v]||0)+1;});
+  const vDist=Object.entries(versions).sort((a,b)=>b[1]-a[1]).map(([v,c])=>v+'('+c+')').join(', ');
+  document.getElementById('summaryStats').innerHTML=
+    '<div class="stat"><div class="num">'+devices.length+'</div><div class="label">Total</div></div>'+
+    '<div class="stat online"><div class="num">'+online+'</div><div class="label">Online</div></div>'+
+    '<div class="stat idle"><div class="num">'+idle+'</div><div class="label">Idle</div></div>'+
+    '<div class="stat stale"><div class="num">'+stale+'</div><div class="label">Stale</div></div>'+
+    '<div class="stat"><div class="num" style="font-size:12px;margin-top:6px">'+vDist+'</div><div class="label">Versions</div></div>';
+}
+
+function renderFleet(devices){
+  document.getElementById('fleetHead').innerHTML='<tr><th>User</th><th>Device</th><th>Version</th><th>Status</th><th>Last Seen</th><th>Accounts</th><th>SF</th><th>Cal</th></tr>';
+  if(!devices.length){document.getElementById('fleetBody').innerHTML='<tr><td colspan="8" class="empty">No devices</td></tr>';return;}
+  document.getElementById('fleetBody').innerHTML=devices.map(d=>
+    '<tr data-email="'+d.user_email+'" onclick="openUserPanel(\''+d.user_email+'\')"><td><strong>'+d.user_email+'</strong></td><td>'+d.device_name+'</td><td>'+versionBadge(d.plugin_version)+'</td><td>'+healthBadge(d.health_status)+'</td><td class="time-ago">'+timeAgo(d.last_heartbeat)+'</td><td>'+d.account_count+'</td><td>'+bool(d.sf_connected)+'</td><td>'+bool(d.calendar_connected)+'</td></tr>'
+  ).join('');
+}
+
+document.getElementById('fleetSearch').addEventListener('input',function(){
+  const q=this.value.toLowerCase();
+  const filtered=allDevices.filter(d=>(d.user_email+d.device_name+d.plugin_version+d.health_status).toLowerCase().includes(q));
+  renderFleet(filtered);
+});
+
+// ── User Detail Panel ──
+
+async function openUserPanel(email){
+  selectedUser=email;
+  const panel=document.getElementById('userPanel');
+  panel.classList.add('open');
+  document.getElementById('upTitle').textContent=email;
+  // Highlight row
+  document.querySelectorAll('#fleetBody tr').forEach(r=>{r.classList.toggle('selected',r.dataset.email===email);});
+
+  const device=allDevices.find(d=>d.user_email===email);
+
+  // Stats
+  document.getElementById('upStats').innerHTML=
+    '<div class="up-stat"><div class="up-val">'+(device?.account_count||0)+'</div><div class="up-lbl">Accounts</div></div>'+
+    '<div class="up-stat"><div class="up-val">'+versionBadge(device?.plugin_version)+'</div><div class="up-lbl">Version</div></div>'+
+    '<div class="up-stat"><div class="up-val">'+timeAgo(device?.last_heartbeat)+'</div><div class="up-lbl">Last Seen</div></div>';
+
+  // Load notes and activity from telemetry
+  document.getElementById('upNotes').innerHTML='<div class="empty">Loading...</div>';
+  document.getElementById('upActivity').innerHTML='<div class="empty">Loading...</div>';
+
+  try{
+    const r=await fetch('/api/admin/users/'+encodeURIComponent(email)+'/activity');
+    const d=await r.json();
+    if(d.notes&&d.notes.length){
+      document.getElementById('upNotes').innerHTML=d.notes.map(n=>
+        '<div class="note-row"><span class="note-title">'+(n.title||n.message||'Recording')+'</span><span class="note-time">'+timeAgo(n.timestamp)+'</span></div>'
+      ).join('');
+    } else {
+      document.getElementById('upNotes').innerHTML='<div class="empty">No notes recorded yet</div>';
+    }
+    if(d.events&&d.events.length){
+      document.getElementById('upActivity').innerHTML=d.events.slice(0,10).map(e=>
+        '<div class="note-row"><span class="badge '+(e.type==='error'?'red':e.type==='warning'?'yellow':'gray')+'">'+e.type+'</span><span class="note-title">'+(e.message||'').substring(0,80)+'</span><span class="note-time">'+timeAgo(e.timestamp)+'</span></div>'
+      ).join('');
+    } else {
+      document.getElementById('upActivity').innerHTML='<div class="empty">No recent activity</div>';
+    }
+  }catch(e){
+    document.getElementById('upNotes').innerHTML='<div class="empty">Failed to load</div>';
+    document.getElementById('upActivity').innerHTML='<div class="empty">Failed to load</div>';
+  }
+
+  // Action buttons
+  document.getElementById('upActions').innerHTML=
+    '<button class="btn primary" onclick="pushOp(\''+email+'\',\'sync_accounts\')">Sync Accounts</button>'+
+    '<button class="btn" onclick="pushOp(\''+email+'\',\'notify\',{message:prompt(\'Notification message:\')})">Send Notification</button>'+
+    '<button class="btn" onclick="pushOp(\''+email+'\',\'force_update\')">Force Update</button>';
+
+  panel.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function closeUserPanel(){
+  document.getElementById('userPanel').classList.remove('open');
+  document.querySelectorAll('#fleetBody tr').forEach(r=>r.classList.remove('selected'));
+  selectedUser=null;
+}
+
+async function pushOp(email,op,data){
+  if(op==='notify'&&(!data||!data.message))return;
+  try{
+    const r=await fetch('/api/admin/vault/push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({targetEmail:email,operation:op,data:data||{},createdBy:'admin'})});
+    const d=await r.json();
+    if(d.success){
+      alert('Operation queued: '+op+' (ID: '+d.operationId+')');
+      loadOps();
+    }else{alert('Failed: '+(d.error||'unknown'));}
+  }catch(e){alert('Error: '+e.message);}
+}
+
+async function loadOps(){
+  try{
+    const r=await fetch('/api/admin/vault/operations');
+    const d=await r.json();
+    const ops=d.operations||[];
+    if(!ops.length){document.getElementById('opsList').innerHTML='<div class="empty">No operations</div>';return;}
+    document.getElementById('opsList').innerHTML=ops.slice(0,15).map(o=>
+      '<div class="ops-item"><span class="op-type">'+o.operation_type+'</span><span class="op-status">'+healthBadge(o.status)+'</span><div class="op-meta">'+(o.target_email||'broadcast')+' &bull; '+timeAgo(o.created_at)+'</div></div>'
+    ).join('');
+  }catch(e){document.getElementById('opsList').innerHTML='<div class="empty">Failed to load</div>';}
+}
+
+async function loadErrors(){
+  try{
+    const r=await fetch('/api/admin/errors?adminEmail=keigan.pesenti@eudia.com');
+    const d=await r.json();
+    const errs=d.errors||[];
+    if(!errs.length){document.getElementById('errorsList').innerHTML='<div class="empty">No errors in last 24h</div>';return;}
+    document.getElementById('errorsList').innerHTML=errs.slice(0,15).map(e=>
+      '<div class="error-item"><span class="err-user">'+(e.email||'system')+'</span><span style="float:right;color:#9ca3af;font-size:10px">'+timeAgo(e.timestamp)+'</span><div class="err-msg">'+((e.message||'').substring(0,150))+'</div></div>'
+    ).join('');
+  }catch(e){document.getElementById('errorsList').innerHTML='<div class="empty">Failed to load</div>';}
+}
+
+function refreshAll(){loadFleet();loadOps();loadErrors();refreshCountdown=60;}
+refreshAll();
+setInterval(()=>{refreshCountdown--;document.getElementById('refreshTimer').textContent='Auto-refresh in '+refreshCountdown+'s';if(refreshCountdown<=0)refreshAll();},1000);
+</script></body></html>

@@ -2607,155 +2607,33 @@ document.addEventListener('DOMContentLoaded', function() {
     // ═══════════════════════════════════════════════════════════════════════════
     this.expressApp.get('/admin', (req, res) => {
       const currentVersion = _pluginManifestCache?.version || 'unknown';
+      const fs = require('fs');
+      const adminPath = require('path').join(__dirname, 'views', 'admin-dashboard.html');
+      let html = fs.readFileSync(adminPath, 'utf8');
+      html = html.replace('id="serverVersion"', `id="serverVersion" data-version="${currentVersion}"`);
+      html = html.replace('<span class="version" id="serverVersion"></span>', `<span class="version" id="serverVersion" data-version="${currentVersion}">v${currentVersion}</span>`);
       res.setHeader('Content-Type', 'text/html');
-      res.send(`<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Eudia Admin Dashboard</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh}
-.header{background:#161822;border-bottom:1px solid #2d3148;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
-.header h1{font-size:20px;font-weight:600;color:#fff}
-.header .version{color:#8e99e1;font-size:13px;font-weight:500}
-.header .refresh{font-size:12px;color:#64748b}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:20px 24px}
-.card{background:#161822;border:1px solid #2d3148;border-radius:10px;padding:20px}
-.card.full{grid-column:1/-1}
-.card h2{font-size:15px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}
-.stats{display:flex;gap:20px;margin-bottom:16px}
-.stat{text-align:center;flex:1;padding:12px;background:#1e2235;border-radius:8px}
-.stat .num{font-size:28px;font-weight:700;color:#fff}
-.stat .label{font-size:11px;color:#64748b;text-transform:uppercase;margin-top:2px}
-.stat.online .num{color:#22c55e}
-.stat.idle .num{color:#f59e0b}
-.stat.stale .num{color:#ef4444}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{text-align:left;padding:8px 10px;color:#64748b;font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #2d3148;cursor:pointer;user-select:none}
-th:hover{color:#8e99e1}
-td{padding:8px 10px;border-bottom:1px solid #1e2235;color:#cbd5e1}
-tr:hover td{background:#1e2235}
-.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
-.badge.green{background:rgba(34,197,94,.15);color:#22c55e}
-.badge.yellow{background:rgba(245,158,11,.15);color:#f59e0b}
-.badge.red{background:rgba(239,68,68,.15);color:#ef4444}
-.badge.blue{background:rgba(96,165,250,.15);color:#60a5fa}
-.badge.gray{background:rgba(100,116,139,.15);color:#94a3b8}
-.check{color:#22c55e}.cross{color:#ef4444}
-.time-ago{color:#64748b;font-size:12px}
-.search{background:#1e2235;border:1px solid #2d3148;border-radius:6px;padding:8px 12px;color:#e2e8f0;width:100%;margin-bottom:12px;font-size:13px}
-.search:focus{outline:none;border-color:#8e99e1}
-.ops-item{padding:10px;background:#1e2235;border-radius:6px;margin-bottom:8px;font-size:13px}
-.ops-item .op-type{font-weight:600;color:#8e99e1}
-.ops-item .op-status{float:right}
-.ops-item .op-meta{color:#64748b;font-size:11px;margin-top:4px}
-.error-item{padding:8px 10px;background:rgba(239,68,68,.06);border-left:3px solid #ef4444;border-radius:0 6px 6px 0;margin-bottom:6px;font-size:12px}
-.error-item .err-user{font-weight:600;color:#f87171}
-.error-item .err-msg{color:#cbd5e1;margin-top:2px}
-.error-item .err-time{color:#64748b;font-size:11px}
-.empty{color:#475569;font-style:italic;padding:20px;text-align:center}
-.btn{padding:6px 14px;border-radius:6px;border:1px solid #2d3148;background:#1e2235;color:#e2e8f0;cursor:pointer;font-size:12px;font-weight:500}
-.btn:hover{background:#2d3148;border-color:#8e99e1}
-.actions{display:flex;gap:8px;margin-top:12px}
-@media(max-width:900px){.grid{grid-template-columns:1fr}.card.full{grid-column:1}}
-</style></head><body>
-<div class="header">
-  <div><h1>Eudia Admin Dashboard</h1><span class="version">Server v${currentVersion}</span></div>
-  <div class="refresh" id="refreshTimer">Auto-refresh in 60s</div>
-</div>
-<div class="grid">
-  <div class="card full" id="summaryCard"><h2>Fleet Health</h2><div class="stats" id="summaryStats"><div class="empty">Loading...</div></div></div>
-  <div class="card full" id="fleetCard"><h2>Device Fleet</h2><input class="search" id="fleetSearch" placeholder="Search by email, device, version..."><table><thead id="fleetHead"></thead><tbody id="fleetBody"></tbody></table></div>
-  <div class="card" id="opsCard"><h2>Recent Operations</h2><div id="opsList"><div class="empty">Loading...</div></div></div>
-  <div class="card" id="errorsCard"><h2>Recent Errors (24h)</h2><div id="errorsList"><div class="empty">Loading...</div></div></div>
-</div>
-<script>
-const CURRENT_VERSION='${currentVersion}';
-let refreshCountdown=60;
-let allDevices=[];
+      res.send(html);
+    });
 
-function timeAgo(d){if(!d)return'never';const s=Math.floor((Date.now()-new Date(d).getTime())/1000);if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
-
-function versionBadge(v){
-  if(!v)return'<span class="badge gray">?</span>';
-  if(v===CURRENT_VERSION)return'<span class="badge green">v'+v+'</span>';
-  const c=CURRENT_VERSION.split('.').map(Number),r=v.split('.').map(Number);
-  const diff=(c[0]-r[0])*100+(c[1]-r[1])*10+(c[2]-r[2]);
-  return diff<=1?'<span class="badge yellow">v'+v+'</span>':'<span class="badge red">v'+v+'</span>';
-}
-
-function healthBadge(h){
-  const m={'online':'green','idle':'yellow','stale':'red'};
-  return'<span class="badge '+(m[h]||'gray')+'">'+h+'</span>';
-}
-
-function bool(v){return v?'<span class="check">&#10003;</span>':'<span class="cross">&#10007;</span>';}
-
-async function loadFleet(){
-  try{
-    const r=await fetch('/api/admin/devices');
-    const d=await r.json();
-    allDevices=d.devices||[];
-    renderFleet(allDevices);
-    renderSummary(allDevices);
-  }catch(e){document.getElementById('fleetBody').innerHTML='<tr><td colspan="8" class="empty">Failed to load</td></tr>';}
-}
-
-function renderSummary(devices){
-  const online=devices.filter(d=>d.health_status==='online').length;
-  const idle=devices.filter(d=>d.health_status==='idle').length;
-  const stale=devices.filter(d=>d.health_status==='stale').length;
-  const versions={};devices.forEach(d=>{const v=d.plugin_version||'?';versions[v]=(versions[v]||0)+1;});
-  const vDist=Object.entries(versions).sort((a,b)=>b[1]-a[1]).map(([v,c])=>v+'('+c+')').join(', ');
-  document.getElementById('summaryStats').innerHTML=
-    '<div class="stat"><div class="num">'+devices.length+'</div><div class="label">Total Devices</div></div>'+
-    '<div class="stat online"><div class="num">'+online+'</div><div class="label">Online</div></div>'+
-    '<div class="stat idle"><div class="num">'+idle+'</div><div class="label">Idle</div></div>'+
-    '<div class="stat stale"><div class="num">'+stale+'</div><div class="label">Stale</div></div>'+
-    '<div class="stat"><div class="num" style="font-size:14px;margin-top:8px">'+vDist+'</div><div class="label">Versions</div></div>';
-}
-
-function renderFleet(devices){
-  document.getElementById('fleetHead').innerHTML='<tr><th>User</th><th>Device</th><th>Version</th><th>Status</th><th>Last Seen</th><th>Accounts</th><th>SF</th><th>Cal</th></tr>';
-  if(!devices.length){document.getElementById('fleetBody').innerHTML='<tr><td colspan="8" class="empty">No devices registered</td></tr>';return;}
-  document.getElementById('fleetBody').innerHTML=devices.map(d=>
-    '<tr><td>'+d.user_email+'</td><td>'+d.device_name+'</td><td>'+versionBadge(d.plugin_version)+'</td><td>'+healthBadge(d.health_status)+'</td><td class="time-ago">'+timeAgo(d.last_heartbeat)+'</td><td>'+d.account_count+'</td><td>'+bool(d.sf_connected)+'</td><td>'+bool(d.calendar_connected)+'</td></tr>'
-  ).join('');
-}
-
-document.getElementById('fleetSearch').addEventListener('input',function(){
-  const q=this.value.toLowerCase();
-  const filtered=allDevices.filter(d=>(d.user_email+d.device_name+d.plugin_version+d.health_status).toLowerCase().includes(q));
-  renderFleet(filtered);
-});
-
-async function loadOps(){
-  try{
-    const r=await fetch('/api/admin/vault/operations');
-    const d=await r.json();
-    const ops=d.operations||[];
-    if(!ops.length){document.getElementById('opsList').innerHTML='<div class="empty">No operations</div>';return;}
-    document.getElementById('opsList').innerHTML=ops.slice(0,15).map(o=>
-      '<div class="ops-item"><span class="op-type">'+o.operation_type+'</span><span class="op-status">'+healthBadge(o.status)+'</span><div class="op-meta">'+o.target_email+' &bull; '+timeAgo(o.created_at)+'</div></div>'
-    ).join('');
-  }catch(e){document.getElementById('opsList').innerHTML='<div class="empty">Failed to load</div>';}
-}
-
-async function loadErrors(){
-  try{
-    const r=await fetch('/api/admin/errors?adminEmail=keigan.pesenti@eudia.com');
-    const d=await r.json();
-    const errs=d.errors||[];
-    if(!errs.length){document.getElementById('errorsList').innerHTML='<div class="empty">No errors in last 24h</div>';return;}
-    document.getElementById('errorsList').innerHTML=errs.slice(0,10).map(e=>
-      '<div class="error-item"><span class="err-user">'+e.email+'</span><span class="err-time" style="float:right">'+timeAgo(e.timestamp)+'</span><div class="err-msg">'+((e.message||'').substring(0,120))+'</div></div>'
-    ).join('');
-  }catch(e){document.getElementById('errorsList').innerHTML='<div class="empty">Failed to load</div>';}
-}
-
-function refreshAll(){loadFleet();loadOps();loadErrors();refreshCountdown=60;}
-refreshAll();
-setInterval(()=>{refreshCountdown--;document.getElementById('refreshTimer').textContent='Auto-refresh in '+refreshCountdown+'s';if(refreshCountdown<=0)refreshAll();},1000);
-</script></body></html>`);
+    // Admin: per-user activity (notes, events) from telemetry
+    this.expressApp.get('/api/admin/users/:email/activity', (req, res) => {
+      try {
+        const telemetryStore = require('./services/telemetryStore');
+        const email = decodeURIComponent(req.params.email);
+        const events = telemetryStore.getUserEvents(email, 50);
+        const notes = events.filter(e =>
+          e.type === 'info' && (
+            (e.message || '').toLowerCase().includes('transcri') ||
+            (e.message || '').toLowerCase().includes('recording') ||
+            (e.message || '').toLowerCase().includes('note')
+          )
+        ).slice(0, 10);
+        const recentEvents = events.slice(0, 20);
+        res.json({ success: true, notes, events: recentEvents, totalEvents: events.length });
+      } catch (err) {
+        res.json({ success: true, notes: [], events: [], totalEvents: 0 });
+      }
     });
 
     // Admin: list vault operations with status

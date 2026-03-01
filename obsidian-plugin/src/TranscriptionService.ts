@@ -1053,11 +1053,31 @@ export class TranscriptionService {
     this.serverUrl = serverUrl;
   }
 
-  /**
-   * Update server URL
-   */
+  private userEmail: string = '';
+
+  setUserEmail(email: string): void {
+    this.userEmail = email;
+  }
+
   setServerUrl(url: string): void {
     this.serverUrl = url;
+  }
+
+  private async reportErrorToTelemetry(message: string, context?: Record<string, any>): Promise<void> {
+    try {
+      await requestUrl({
+        url: `${this.serverUrl}/api/plugin/telemetry`,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'error',
+          email: this.userEmail || 'unknown',
+          message,
+          context,
+          timestamp: new Date().toISOString()
+        })
+      });
+    } catch { /* non-blocking */ }
   }
 
   /**
@@ -1799,7 +1819,7 @@ Format your response as a brief, actionable answer suitable for quick reference 
       }
 
       try {
-        const CHUNK_TIMEOUT_MS = 180000;
+        const CHUNK_TIMEOUT_MS = 240000;
         const fetchPromise = requestUrl({
           url: `${this.serverUrl}/api/transcribe-chunk`,
           method: 'POST',
@@ -1812,11 +1832,11 @@ Format your response as a brief, actionable answer suitable for quick reference 
         const response = await Promise.race([fetchPromise, timeoutPromise]);
 
         const chunkText = response.json?.text || response.json?.transcript || '';
-        if (response.json?.success && chunkText) {
+        if (response.json?.success) {
           if (attempt > 0) {
             console.log(`[Eudia] Chunk ${chunkIndex + 1}/${chunkCount} succeeded on retry ${attempt}`);
           }
-          return { text: chunkText, duration: response.json.duration || 0 };
+          return { text: chunkText || '(silent segment)', duration: response.json.duration || 0 };
         }
 
         console.warn(`[Eudia] Chunk ${chunkIndex + 1}/${chunkCount} attempt ${attempt + 1} returned no text: ${response.json?.error || 'unknown'}`);
@@ -1838,14 +1858,15 @@ Format your response as a brief, actionable answer suitable for quick reference 
     context?: { accountName?: string; accountId?: string; speakerHints?: string[]; meetingType?: string; pipelineContext?: string; captureMode?: string; hasVirtualDevice?: boolean; meetingTemplate?: string }
   ): Promise<{ text: string; confidence: number; duration?: number; sections?: ProcessedSections; error?: string }> {
     const CHUNK_SIZE = 4 * 1024 * 1024;
+    const OVERLAP_BYTES = 48 * 1024; // ~3s overlap at 128kbps to avoid mid-frame splits
+    const STEP_SIZE = CHUNK_SIZE - OVERLAP_BYTES;
     const arrayBuffer = await audioBlob.arrayBuffer();
     const totalBytes = arrayBuffer.byteLength;
-    const chunkCount = Math.ceil(totalBytes / CHUNK_SIZE);
+    const chunkCount = Math.ceil(totalBytes / STEP_SIZE);
 
     const PARALLEL_BATCH_SIZE = 3;
-    console.log(`[Eudia] Chunked transcription: ${(totalBytes / 1024 / 1024).toFixed(1)}MB → ${chunkCount} chunks (batches of ${PARALLEL_BATCH_SIZE})`);
+    console.log(`[Eudia] Chunked transcription: ${(totalBytes / 1024 / 1024).toFixed(1)}MB → ${chunkCount} chunks (${(OVERLAP_BYTES / 1024).toFixed(0)}KB overlap, batches of ${PARALLEL_BATCH_SIZE})`);
 
-    // Estimate duration per chunk for gap markers (128kbps = 16KB/s)
     const estBytesPerSecond = 16 * 1024;
     const estTotalDurationSec = totalBytes / estBytesPerSecond;
 
@@ -1861,12 +1882,12 @@ Format your response as a brief, actionable answer suitable for quick reference 
       const batchPromises: Promise<{ index: number; result: { text: string; duration: number } | null }>[] = [];
 
       for (let i = batchStart; i < batchEnd; i++) {
-        const start = i * CHUNK_SIZE;
+        const start = i * STEP_SIZE;
         const end = Math.min(start + CHUNK_SIZE, totalBytes);
         const chunkBuffer = arrayBuffer.slice(start, end);
         const chunkBlob = new Blob([chunkBuffer], { type: mimeType });
 
-        console.log(`[Eudia] Queuing chunk ${i + 1}/${chunkCount} (${((end - start) / 1024 / 1024).toFixed(1)}MB)`);
+        console.log(`[Eudia] Queuing chunk ${i + 1}/${chunkCount} (${((end - start) / 1024 / 1024).toFixed(1)}MB, offset ${(start / 1024 / 1024).toFixed(1)}MB)`);
 
         batchPromises.push((async () => {
           try {
@@ -1891,7 +1912,7 @@ Format your response as a brief, actionable answer suitable for quick reference 
             console.log(`[Eudia] Chunk ${index + 1}/${chunkCount} OK: ${result.text.length} chars`);
           } else {
             failedChunks++;
-            const chunkStart = index * CHUNK_SIZE;
+            const chunkStart = index * STEP_SIZE;
             const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, totalBytes);
             const gapStartSec = Math.round((chunkStart / totalBytes) * estTotalDurationSec);
             const gapEndSec = Math.round((chunkEnd / totalBytes) * estTotalDurationSec);
@@ -1899,6 +1920,9 @@ Format your response as a brief, actionable answer suitable for quick reference 
             const fmtEnd = `${Math.floor(gapEndSec / 60)}:${(gapEndSec % 60).toString().padStart(2, '0')}`;
             orderedSegments[index] = `\n\n[~${fmtStart} – ${fmtEnd} — audio not transcribed (chunk ${index + 1}/${chunkCount} failed after ${TranscriptionService.CHUNK_MAX_RETRIES + 1} attempts)]\n\n`;
             console.error(`[Eudia] Chunk ${index + 1}/${chunkCount} permanently failed — gap marker inserted`);
+            this.reportErrorToTelemetry(`Chunk ${index + 1}/${chunkCount} failed after ${TranscriptionService.CHUNK_MAX_RETRIES + 1} attempts`, {
+              chunkIndex: index, chunkCount, gapStart: fmtStart, gapEnd: fmtEnd
+            });
           }
         } else {
           failedChunks++;

@@ -33,10 +33,7 @@ export const EXEC_EMAILS = [
   'omar@eudia.com',
   'david@eudia.com',
   'ashish@eudia.com',
-  'siddharth.saxena@eudia.com',
-  'mitchell.loquaci@eudia.com',
-  'stephen.mulholland@eudia.com',
-  'riona.mchale@eudia.com'
+  'siddharth.saxena@eudia.com'
 ];
 
 /**
