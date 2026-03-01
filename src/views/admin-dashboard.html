@@ -67,6 +67,7 @@ thead tr:hover td,thead tr:hover th{background:transparent}
 .btn:hover{background:#f9fafb;border-color:#8e99e1;color:#8e99e1}
 .btn.primary{background:#8e99e1;color:#fff;border-color:#8e99e1}
 .btn.primary:hover{background:#7c88d4}
+.op-feedback{font-size:12px;margin-left:8px;font-weight:500}
 .actions{display:flex;gap:6px;margin-top:10px}
 @media(max-width:900px){.grid{grid-template-columns:1fr}.card.full{grid-column:1}.up-grid{grid-template-columns:1fr 1fr}}
 </style></head><body>
@@ -211,11 +212,24 @@ async function openUserPanel(email){
     document.getElementById('upActivity').innerHTML='<div class="empty">Could not load</div>';
   }
 
-  var safeEmail=email.replace(/'/g,"\\'");
-  document.getElementById('upActions').innerHTML=
-    '<button class="btn primary" onclick="pushOp(\''+safeEmail+'\',\'sync_accounts\')">Sync Accounts</button>'+
-    '<button class="btn" onclick="pushOp(\''+safeEmail+'\',\'notify\',{message:prompt(\'Notification:\')})">Send Notification</button>'+
-    '<button class="btn" onclick="pushOp(\''+safeEmail+'\',\'force_update\')">Force Update</button>';
+  var actionsEl=document.getElementById('upActions');
+  actionsEl.innerHTML=
+    '<button class="btn primary" data-op="sync_accounts">Sync Accounts</button>'+
+    '<button class="btn" data-op="notify">Send Notification</button>'+
+    '<button class="btn" data-op="force_update">Force Update</button>'+
+    '<span class="op-feedback" id="opFeedback"></span>';
+  actionsEl.querySelectorAll('button[data-op]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var op=this.dataset.op;
+      var data={};
+      if(op==='notify'){
+        var msg=prompt('Notification message:');
+        if(!msg)return;
+        data={message:msg};
+      }
+      pushOp(email,op,data);
+    });
+  });
 
   panel.scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -227,15 +241,20 @@ function closeUserPanel(){
 }
 
 async function pushOp(email,op,data){
-  if(op==='notify'&&(!data||!data.message))return;
+  var fb=document.getElementById('opFeedback');
+  if(fb)fb.textContent='Sending...';
   try{
-    const r=await fetch('/api/admin/vault/push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({targetEmail:email,operation:op,data:data||{},createdBy:'admin'})});
-    const d=await r.json();
+    var r=await fetch('/api/admin/vault/push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({targetEmail:email,operation:op,data:data||{},createdBy:'admin'})});
+    var d=await r.json();
     if(d.success){
-      alert('Operation queued: '+op+' (ID: '+d.operationId+')');
+      if(fb)fb.innerHTML='<span style="color:#16a34a">Queued: '+op+' (ID: '+d.operationId+')</span>';
       loadOps();
-    }else{alert('Failed: '+(d.error||'unknown'));}
-  }catch(e){alert('Error: '+e.message);}
+    }else{
+      if(fb)fb.innerHTML='<span style="color:#dc2626">Failed: '+(d.error||'unknown')+'</span>';
+    }
+  }catch(e){
+    if(fb)fb.innerHTML='<span style="color:#dc2626">Error: '+e.message+'</span>';
+  }
 }
 
 async function loadOps(){
